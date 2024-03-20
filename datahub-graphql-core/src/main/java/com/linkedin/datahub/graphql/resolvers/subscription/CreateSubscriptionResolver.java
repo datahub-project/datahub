@@ -8,6 +8,8 @@ import com.datahub.authentication.Authentication;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.exception.DataHubGraphQLErrorCode;
+import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
 import com.linkedin.datahub.graphql.generated.CreateSubscriptionInput;
 import com.linkedin.datahub.graphql.generated.DataHubSubscription;
 import com.linkedin.datahub.graphql.types.subscription.mappers.DataHubSubscriptionMapper;
@@ -49,9 +51,9 @@ public class CreateSubscriptionResolver
             final String groupUrnString = input.getGroupUrn();
 
             if (groupUrnString != null && !canManageGroupSubscriptions(groupUrnString, context)) {
-              throw new RuntimeException(
-                  String.format(
-                      "Unauthorized to create subscription for group %s", groupUrnString));
+              throw new DataHubGraphQLException(
+                  String.format("Unauthorized to create subscription for group %s", groupUrnString),
+                  DataHubGraphQLErrorCode.UNAUTHORIZED);
             }
 
             // The subscription actor is the user who created the subscription, or the group if

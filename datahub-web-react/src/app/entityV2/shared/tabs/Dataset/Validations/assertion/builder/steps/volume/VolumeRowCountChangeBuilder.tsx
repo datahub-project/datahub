@@ -137,7 +137,7 @@ export const VolumeRowCountChangeBuilder = ({
                             }),
                         ]}
                     />
-                    <Typography.Text strong>Or more than</Typography.Text>
+                    <Typography.Text strong>Or at most</Typography.Text>
                     <VolumeNumberInput
                         name="parameters.maxValue"
                         placeholder="Max"

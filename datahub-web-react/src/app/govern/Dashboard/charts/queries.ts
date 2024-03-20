@@ -32,7 +32,6 @@ export const sqlQueries = (
 				updatedQuery = injectWhere(`domain_urn = '${domainId}'`);
 			}
 		}
-		// if (entity === 'domain') updatedQuery = injectWhere(`domain_urn = '${domainId}'`);
 
 		return updatedQuery;
 	};
@@ -466,6 +465,9 @@ export const sqlQueries = (
 			where
 				snapshot_date = '${snapshotDate}'
 				and form_assigned_date >= '${daysSinceDate}'
+				${(entity === 'form' && formId) ? `and form_urn = '${formId}'` : ''}
+				${(entity === 'assignee' && assigneeId) ? `and assignee_urn = '${assigneeId}'` : ''}
+				${(entity === 'domain' && domainId) ? `and domain_urn = '${domainId}'` : ''}
 			group by
 				form_urn,
 				form_assigned_date,

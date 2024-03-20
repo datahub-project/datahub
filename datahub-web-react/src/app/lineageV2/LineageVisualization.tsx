@@ -38,7 +38,10 @@ interface Props {
     initialEdges: Edge[];
 }
 
-export default function LineageVisualization({ initialNodes, initialEdges }: Props) {
+// React flow doesn't always emit events if it re-renders at the same time
+export default React.memo(LineageVisualization);
+
+function LineageVisualization({ initialNodes, initialEdges }: Props) {
     const { setSelectedColumn } = useContext(LineageDisplayContext);
 
     useEffect(() => {

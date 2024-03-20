@@ -1,21 +1,14 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import styled from 'styled-components';
-import { useHistory } from 'react-router';
 import { GenericEntityProperties } from '../../../entityV2/shared/types';
 import { Entity, EntityType } from '../../../../types.generated';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { getDisplayedEntityType } from '../../../entityV2/shared/containers/profile/header/utils';
 import { ANTD_GRAY } from '../../../entity/shared/constants';
-import { navigateToEntityProfile } from '../../shared/navigateToEntityProfile';
 import { HoverEntityTooltip } from '../../../recommendations/renderer/component/HoverEntityTooltip';
 import { SEARCH_COLORS } from '../../../entityV2/shared/constants';
 import PlatformIcon from '../../../sharedV2/icons/PlatformIcon';
-
-const Card = styled.div`
-    :hover {
-        cursor: pointer;
-    }
-`;
 
 const Container = styled.div`
     display: flex;
@@ -26,6 +19,7 @@ const Container = styled.div`
     min-width: 200px;
     max-width: 260px;
     border: 1.5px solid #0000001a;
+
     :hover {
         border: 1.5px solid ${SEARCH_COLORS.LINK_BLUE};
     }
@@ -71,7 +65,6 @@ type Props = {
 };
 
 export const EntityCard = ({ entity, subHeader, render, className }: Props) => {
-    const history = useHistory();
     const entityRegistry = useEntityRegistry();
     const displayName = entityRegistry.getDisplayName(entity?.type as EntityType, entity);
     const displayType = getDisplayedEntityType(entity, entityRegistry, entity.type);
@@ -97,8 +90,8 @@ export const EntityCard = ({ entity, subHeader, render, className }: Props) => {
     };
 
     return (
-        <Card onClick={() => navigateToEntityProfile(history, entityRegistry, entity)}>
+        <Link to={entityRegistry.getEntityUrl(entity.type, entity.urn)}>
             {render ? render(entity) : defaultRender(entity)}
-        </Card>
+        </Link>
     );
 };

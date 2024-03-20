@@ -199,7 +199,7 @@ public class OwnerSubscriptionHook implements MetadataChangeLogHook {
   }
 
   private void subscribeOwnerToEntity(@Nonnull Urn entityUrn, @Nonnull Owner owner) {
-    if (subscriptionService.isUserSubscribed(entityUrn, owner.getOwner())) {
+    if (subscriptionService.isActorSubscribed(entityUrn, owner.getOwner())) {
       log.debug(
           "Owner {} already has a subscription for the entity. Skipping subscription creation.",
           owner.getOwner());

@@ -1,9 +1,9 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useRef } from 'react';
 import styled from 'styled-components';
 import cronstrue from 'cronstrue';
 import { Tooltip, Typography } from 'antd';
 import { CheckCircleOutlined, InfoCircleOutlined } from '@ant-design/icons';
-import { Cron } from 'react-js-cron';
+import { Cron, PeriodType, SetValueFunctionExtra } from 'react-js-cron';
 import { AssertionType, CronSchedule } from '../../../../../../../../../../types.generated';
 import { lowerFirstLetter } from '../../../../../../../../../shared/textUtil';
 import { ANTD_GRAY, REDESIGN_COLORS } from '../../../../../../../constants';
@@ -92,12 +92,42 @@ export const EvaluationScheduleBuilder = ({
     const title = getEvaluationScheduleTitle(assertionType);
     const tooltipDescription = getEvaluationScheduleTooltipDescription(assertionType, platformName as string);
 
-    const updateInterval = (newInterval: string) => {
+    const currentIntervalPeriodRef = useRef<PeriodType>()
+    const onIntervalInitializeOrChange = (newInterval: string, extra: SetValueFunctionExtra) => {
+        let cron = newInterval
+
+        // If initializing, do nothing
+        // Else if granularity has changed, reset cron to a default for that granularity
+        if (typeof currentIntervalPeriodRef.current === "undefined") {
+            currentIntervalPeriodRef.current = extra.selectedPeriod
+        } else if (currentIntervalPeriodRef.current !== extra.selectedPeriod) {
+            currentIntervalPeriodRef.current = extra.selectedPeriod
+            switch (extra.selectedPeriod) {
+                case 'month':
+                    cron = '0 0 1 * *'
+                    break;
+                case 'week':
+                    cron = '0 0 * * 1'
+                    break;
+                case 'day':
+                    cron = '0 0 * * *'
+                    break;
+                case 'hour':
+                    cron = '0 * * * *'
+                    break;
+                case 'minute':
+                    cron = '* * * * *'
+                    break;
+                default:
+                    break;
+            }
+        }
         onChange({
-            cron: newInterval,
+            cron,
             timezone,
         });
     };
+
 
     const updateTimezone = (newTimezone: string) => {
         onChange({
@@ -152,7 +182,7 @@ export const EvaluationScheduleBuilder = ({
                 <Section>
                     <Cron
                         value={interval}
-                        setValue={updateInterval}
+                        setValue={onIntervalInitializeOrChange}
                         clearButton={false}
                         className="cron-builder"
                         leadingZero

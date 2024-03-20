@@ -3,37 +3,38 @@ const datasetUrn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,climate.daily_
 const datasetName = "daily_temperature";
 
 describe("create and manage freshness assertion", () => {
-    beforeEach(() => {
+   beforeEach(() => {
       cy.intercept("POST", "/api/v2/graphql", (req) => {
-        aliasQuery(req, "appConfig");
+         aliasQuery(req, "appConfig");
       });
-    });
-    
-    const setAssertionMonitorsFlag = (isOn) => {
-      cy.intercept("POST", "/api/v2/graphql", (req) => {
-        if (hasOperationName(req, "appConfig")) {
-          req.reply((res) => {
-            // Modify the response body directly
-            res.body.data.appConfig.featureFlags.assertionMonitorsEnabled = isOn;
-          });
-        }
-      });
-    };
+   });
 
-    it("create freshness assertion, stop and restart monitor, manage and remove assertion", () => {
+   const setAssertionMonitorsFlag = (isOn) => {
+      cy.intercept("POST", "/api/v2/graphql", (req) => {
+         if (hasOperationName(req, "appConfig")) {
+            req.reply((res) => {
+               // Modify the response body directly
+               res.body.data.appConfig.featureFlags.assertionMonitorsEnabled = isOn;
+            });
+         }
+      });
+   };
+
+   it("create freshness assertion, stop and restart monitor, manage and remove assertion", () => {
       //create freshness assertion, submit, verify assertion on ui
       setAssertionMonitorsFlag(true);
       cy.loginWithCredentials();
       cy.goToDataset(datasetUrn, datasetName);
       cy.openEntityTab("Validation");
       cy.waitTextVisible("No assertions have run");
-      cy.contains("Create Assertion").click();
+      cy.get('#create-assertion-btn-main').click();
       cy.waitTextVisible("New Assertion Monitor");
       cy.clickOptionWithText("Freshness");
       cy.waitTextVisible("Check for table changes");
-      cy.get("button").contains("Next").click();
       cy.waitTextVisible("If this assertion fails...");
       cy.waitTextVisible("If this assertion passes...");
+      cy.get("button").contains("Next").click();
+      cy.waitTextVisible("If not specified, a name will be generated from the assertion settings.");
       cy.get("button").contains("Save").click();
       cy.waitTextVisible("Created new Assertion Monitor!");
       cy.waitTextVisible("Assertions (1)");
@@ -105,5 +106,5 @@ describe("create and manage freshness assertion", () => {
       cy.waitTextVisible("Assertions (0)");
       cy.ensureTextNotPresent("Freshness");
       cy.waitTextVisible("No Assertions Found");
-    });
+   });
 });

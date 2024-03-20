@@ -1,9 +1,12 @@
 import React, { useContext, useState, useEffect, ReactNode } from 'react';
 
 import dayjs from 'dayjs';
+import { useHistory, useLocation } from 'react-router-dom';
 
 import { useFormAnalyticsQuery } from '../../../graphql/analytics.generated';
 import { sqlQueries } from './charts/queries';
+
+import { setUrlParams } from './utils';
 
 // Define the time series options
 const timeSeries = [
@@ -137,6 +140,11 @@ export const FormAnalyticsProvider = ({ children }: Props) => {
 	const [selectedAssignee, setSelectedAssignee] = useState<string | undefined>();
 	const [selectedDomain, setSelectedDomain] = useState<string | undefined>();
 
+	// URL params
+	const history = useHistory();
+	const location = useLocation();
+	const router = { history, location };
+
 	// Default waterfall load stats 
 	const defaultLoadStates = {
 		stats: {
@@ -189,12 +197,23 @@ export const FormAnalyticsProvider = ({ children }: Props) => {
 	// Handle switch the tabs 
 	const handleSwitchTabs = (t: string) => {
 		setTab(t);
+		setUrlParams({ key: 'tab', value: t }, router, true);
 		resetLoadStates();
 	};
 
 	// Handle switch the time series
 	const handleSwitchSeries = (s: number) => {
 		setSeries(s);
+		setUrlParams({ key: 'series', value: s.toString() }, router);
+		resetLoadStates();
+	}
+
+	// Handle switch type filter 
+	const handleSwitchType = (t: string, value: string) => {
+		if (t === 'form') setSelectedForm(value);
+		if (t === 'assignee') setSelectedAssignee(value);
+		if (t === 'domain') setSelectedDomain(value);
+		setUrlParams({ key: 'filter', value }, router);
 		resetLoadStates();
 	}
 
@@ -260,6 +279,37 @@ export const FormAnalyticsProvider = ({ children }: Props) => {
 		}
 	}, [domains, selectedDomain]);
 
+	// Full context loading state
+	const contextLoading =
+		snapshotLoading
+		&& loadStates
+		&& formsWithAnalyticsLoading
+		&& assignessWithFormAnalyticsLoading
+		&& domainsWithFormAnalyticsLoading;
+
+	// Set the states based on the url params on 1st render
+	useEffect(() => {
+		if (!contextLoading && location.search !== '') {
+			const params = new URLSearchParams(location.search);
+
+			// Set the tab
+			const paramTab = params.get('tab');
+			if (paramTab) setTab(paramTab);
+
+			// Set the series
+			const paramSeries = params.get('series');
+			if (paramSeries) setSeries(Number(paramSeries));
+
+			// Set the filter
+			const paramFilter = params.get('filter');
+			if (paramFilter) {
+				if (paramTab === 'byForm') setSelectedForm(paramFilter);
+				if (paramTab === 'byAssignee') setSelectedAssignee(paramFilter);
+				if (paramTab === 'byDomain') setSelectedDomain(paramFilter);
+			}
+		}
+	}, [location.search, contextLoading, setTab, setSeries, setSelectedForm, setSelectedAssignee, setSelectedDomain]);
+
 	// Section load states (waterfall render)
 	const sectionLoadStates = {
 		stats:
@@ -289,12 +339,7 @@ export const FormAnalyticsProvider = ({ children }: Props) => {
 		<FormAnalyticsContext.Provider value={{
 			sql,
 			integrationServiceOffline,
-			contextLoading:
-				snapshotLoading
-				&& loadStates
-				&& formsWithAnalyticsLoading
-				&& assignessWithFormAnalyticsLoading
-				&& domainsWithFormAnalyticsLoading,
+			contextLoading,
 			snapshot: snapshotDate,
 			tabs: {
 				selectedTab: tab,
@@ -310,19 +355,19 @@ export const FormAnalyticsProvider = ({ children }: Props) => {
 				forms: formsWithAnalytics?.formAnalytics,
 				hasForms: !formsWithAnalyticsLoading && forms ? forms.length > 0 : false,
 				selectedForm,
-				setSelectedForm
+				setSelectedForm: (value: string) => handleSwitchType('form', value)
 			},
 			byAssignee: {
 				assignees: assignessWithFormAnalytics?.formAnalytics,
 				hasAssignees: !assignessWithFormAnalyticsLoading && assignees ? assignees.length > 0 : false,
 				selectedAssignee,
-				setSelectedAssignee
+				setSelectedAssignee: (value: string) => handleSwitchType('assignee', value)
 			},
 			byDomain: {
 				domains: domainsWithFormAnalytics?.formAnalytics,
 				hasDomains: !domainsWithFormAnalyticsLoading && domains ? domains.length > 0 : false,
 				selectedDomain,
-				setSelectedDomain
+				setSelectedDomain: (value: string) => handleSwitchType('domain', value)
 			},
 			sectionLoadStates,
 		}}>{children}</FormAnalyticsContext.Provider>

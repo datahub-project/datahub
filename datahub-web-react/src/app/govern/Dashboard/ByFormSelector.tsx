@@ -8,10 +8,7 @@ import { useFormAnalyticsContext } from './FormAnalyticsContext';
 import { StyledSelect } from './components';
 
 export const ByFormSelector = () => {
-	const {
-		byForm: { forms, hasForms, setSelectedForm },
-		sectionLoadStates: { resetLoadStates }
-	} = useFormAnalyticsContext();
+	const { byForm: { forms, hasForms, selectedForm, setSelectedForm } } = useFormAnalyticsContext();
 
 	// If theres no forms, return null
 	if (!hasForms) return (
@@ -35,11 +32,12 @@ export const ByFormSelector = () => {
 		})
 	});
 
-	// Reset load states when form is changed
-	const handleSetForm = (value) => {
-		setSelectedForm(value);
-		resetLoadStates();
-	};
+	// Handle figuring out the default value
+	const getDefaultValue = () => {
+		if (selectedForm) return selectedForm;
+		if (options.length > 0) return options[0].value;
+		return undefined;
+	}
 
 	return (
 		<StyledSelect
@@ -47,9 +45,9 @@ export const ByFormSelector = () => {
 			filterOption
 			placeholder="Select a form"
 			optionFilterProp="label"
-			onChange={handleSetForm}
+			onChange={(value: any) => setSelectedForm(value)}
 			options={options}
-			defaultValue={options[0].value}
+			defaultValue={getDefaultValue()}
 			size="large"
 			style={{ width: 300 }}
 		/>

@@ -96,6 +96,8 @@ public class AssertionsSummaryHook implements MetadataChangeLogHook {
       // Handle the deletion case.
       if (isAssertionSoftDeleted(event)) {
         handleAssertionSoftDeleted(urn);
+      } else if (isAssertionTargetEntityChanged(event)) {
+        handleAssertionTargetEntityChanged(urn, event);
       } else if (isAssertionRunCompleteEvent(event)) {
         handleAssertionRunCompleted(urn, extractAssertionRunEvent(event));
       } else if (isMonitorDisabledEvent(event)) {
@@ -111,6 +113,29 @@ public class AssertionsSummaryHook implements MetadataChangeLogHook {
    */
   private void handleAssertionSoftDeleted(@Nonnull final Urn assertionUrn) {
     removeAssertionFromSummary(assertionUrn);
+  }
+
+  private void handleAssertionTargetEntityChanged(
+      @Nonnull final Urn assertionUrn, @Nonnull final MetadataChangeLog event) {
+    final AssertionInfo info =
+        GenericRecordUtils.deserializeAspect(
+            event.getAspect().getValue(), event.getAspect().getContentType(), AssertionInfo.class);
+    final AssertionInfo prevInfo =
+        GenericRecordUtils.deserializeAspect(
+            event.getPreviousAspectValue().getValue(),
+            event.getPreviousAspectValue().getContentType(),
+            AssertionInfo.class);
+
+    final List<Urn> prevEntityUrns = extractAssertionEntities(prevInfo);
+    final List<Urn> newEntityUrns = extractAssertionEntities(info);
+    final List<Urn> removedEntityUrns = new ArrayList<>(prevEntityUrns);
+    removedEntityUrns.removeAll(newEntityUrns);
+
+    // Simply remove the assertion from the previous entity.
+    // We will wait until the next assertion run event to add to the new entity.
+    for (Urn entityUrn : removedEntityUrns) {
+      removeAssertionFromSummary(assertionUrn, entityUrn);
+    }
   }
 
   /** Handle an assertion update by adding to either resolved or active assertions for an entity. */
@@ -228,6 +253,7 @@ public class AssertionsSummaryHook implements MetadataChangeLogHook {
 
     // 2. Make sure we're not overwriting more recent run events on the summary
     if (checkShouldIgnoreAddingRunEventToSummary(assertionUrn, summary, event)) {
+      log.warn("Ignored adding run event to summary for assertion with urn {}", assertionUrn);
       return;
     }
 
@@ -305,6 +331,7 @@ public class AssertionsSummaryHook implements MetadataChangeLogHook {
    */
   private boolean isEligibleForProcessing(@Nonnull final MetadataChangeLog event) {
     return isAssertionSoftDeleted(event)
+        || isAssertionTargetEntityChanged(event)
         || isAssertionRunCompleteEvent(event)
         || isMonitorDisabledEvent(event);
   }
@@ -316,12 +343,43 @@ public class AssertionsSummaryHook implements MetadataChangeLogHook {
         && isSoftDeletionEvent(event);
   }
 
+  /** Returns true if an assertion is being updated to point to another entity. */
+  private boolean isAssertionTargetEntityChanged(@Nonnull final MetadataChangeLog event) {
+    return ASSERTION_ENTITY_NAME.equals(event.getEntityType())
+        && SUPPORTED_UPDATE_TYPES.contains(event.getChangeType())
+        && isAssertionTargetEntityChangeEvent(event);
+  }
+
   private boolean isSoftDeletionEvent(@Nonnull final MetadataChangeLog event) {
     if (STATUS_ASPECT_NAME.equals(event.getAspectName()) && event.getAspect() != null) {
       final Status status =
           GenericRecordUtils.deserializeAspect(
               event.getAspect().getValue(), event.getAspect().getContentType(), Status.class);
       return status.hasRemoved() && status.isRemoved();
+    }
+    return false;
+  }
+
+  private boolean isAssertionTargetEntityChangeEvent(@Nonnull final MetadataChangeLog event) {
+    if (ASSERTION_INFO_ASPECT_NAME.equals(event.getAspectName()) && event.getAspect() != null) {
+      // If there is no previous version, this isn't an update to the URN.
+      if (event.getPreviousAspectValue() == null) {
+        return false;
+      }
+      final AssertionInfo info =
+          GenericRecordUtils.deserializeAspect(
+              event.getAspect().getValue(),
+              event.getAspect().getContentType(),
+              AssertionInfo.class);
+
+      final AssertionInfo prevInfo =
+          GenericRecordUtils.deserializeAspect(
+              event.getPreviousAspectValue().getValue(),
+              event.getPreviousAspectValue().getContentType(),
+              AssertionInfo.class);
+      final List<Urn> prevEntityUrns = extractAssertionEntities(prevInfo);
+      final List<Urn> newEntityUrns = extractAssertionEntities(info);
+      return !prevEntityUrns.equals(newEntityUrns);
     }
     return false;
   }

@@ -78,6 +78,10 @@ public enum DataHubUsageEventType {
   EMBED_PROFILE_VIEW_EVENT("EmbedProfileViewEvent"),
   EMBED_PROFILE_VIEW_IN_DATAHUB_EVENT("EmbedProfileViewInDataHubEvent"),
   EMBED_LOOKUP_NOT_FOUND_EVENT("EmbedLookupNotFoundEvent"),
+  CLICK_DOC_REQUEST_CTA("ClickDocRequestCTA"),
+  COMPLETE_DOC_REQUEST_PROMPT("CompleteDocRequestPrompt"),
+  COMPLETE_VERIFICATION("CompleteVerification"),
+  OPEN_TASK_CENTER("OpenTaskCenter"),
   // SaaS only events
   CREATE_TEST_EVENT("CreateTestEvent"),
   UPDATE_TEST_EVENT("UpdateTestEvent"),

@@ -74,6 +74,7 @@ export const ChartError = () => (
 	</ChartStateCard>
 );
 
+// View if the Integration Service is offline
 export const IntegrationServiceOffline = () => (
 	<Layout>
 		<Body>
@@ -83,6 +84,21 @@ export const IntegrationServiceOffline = () => (
 					<p style={{ marginTop: '1rem' }}>Oops! It seems like documentation metrics are missing 🤔</p>
 					<p>Either you haven&apos;t set up your documentation forms and reporting, or our systems are down.</p>
 					<p>Please try again later!</p>
+				</div>
+			</FlexWrapper>
+		</Body>
+	</Layout>
+);
+
+// View if the user doesn't have the required permissions
+export const MissingPermissions = () => (
+	<Layout>
+		<Body>
+			<FlexWrapper>
+				<div style={{ textAlign: 'center', fontSize: '18px' }}>
+					<PrimaryHeading>Your Documentation Initiatives</PrimaryHeading>
+					<p style={{ marginTop: '1rem' }}>Oops! It seems like you don&apos;t have permission to view this page</p>
+					<p>Contact your admin to gain access.</p>
 				</div>
 			</FlexWrapper>
 		</Body>

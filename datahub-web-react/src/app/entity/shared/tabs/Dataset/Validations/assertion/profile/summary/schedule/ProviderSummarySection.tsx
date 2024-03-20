@@ -23,9 +23,8 @@ export const ProviderSummarySection = ({ assertion, showDivider = true }: Props)
         <AssertionScheduleSummarySection
             icon={(platformName && <AssertionPlatformAvatar platform={assertion.platform} />) || <StyledApiOutlined />}
             title={`Provided by ${platformName || 'an external platform'}`}
-            subtitle={`This assertion and its results are provided by ${
-                platformName || 'an external data quality tool'
-            }.`}
+            subtitle={`This assertion and its results are provided by ${platformName || 'an external data quality tool'
+                }.`}
             showDivider={showDivider}
         />
     );

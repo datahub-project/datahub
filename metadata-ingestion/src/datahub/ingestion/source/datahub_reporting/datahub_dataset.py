@@ -440,8 +440,58 @@ class DataHubBasedS3Dataset:
         return dataset_profiles, schema_metadata
 
     def register_dataset(
-        self, dataset_urn: str, physical_uri: str, local_file: str
+        self,
+        dataset_urn: str,
+        physical_uri: str,
+        local_file: str,
     ) -> Iterable[MetadataChangeProposalWrapper]:
+
+        aspects: List = []
+        mcps: List[MetadataChangeProposalWrapper] = self._update_presigned_url(
+            dataset_urn, physical_uri
+        )
+        current_time_millis = int(time.time()) * 1000
+        aspects.extend(
+            [
+                StatusClass(
+                    removed=self.config.dataset_registration_spec.soft_deleted  # Registering this is as a visible asset as we have search access policies to ensure only admins can see it
+                ),
+                OperationClass(
+                    timestampMillis=current_time_millis,
+                    operationType=OperationTypeClass.UPDATE,
+                    lastUpdatedTimestamp=current_time_millis,
+                ),
+            ]
+        )
+
+        if self.config.dataset_registration_spec.profile:
+            (
+                dataset_profiles,
+                schema_metadata,
+            ) = self._generate_dataset_profile_and_schema(local_file or physical_uri)
+            aspects.append(dataset_profiles)
+            aspects.append(schema_metadata)
+        mcps.extend(
+            MetadataChangeProposalWrapper.construct_many(
+                entityUrn=dataset_urn,
+                aspects=aspects,
+            )
+        )
+        yield from mcps
+
+    def update_presigned_url(
+        self, dataset_properties: Optional[DatasetPropertiesClass]
+    ) -> List[MetadataChangeProposalWrapper]:
+        return self._update_presigned_url(
+            self.get_dataset_urn(), self.get_file_uri(), dataset_properties
+        )
+
+    def _update_presigned_url(
+        self,
+        dataset_urn: str,
+        physical_uri: str,
+        dataset_properties: Optional[DatasetPropertiesClass] = None,
+    ) -> List[MetadataChangeProposalWrapper]:
 
         if self.config.generate_presigned_url:
             external_url = self._generate_presigned_url(physical_uri)
@@ -451,39 +501,24 @@ class DataHubBasedS3Dataset:
         logger.info(
             f"Registering dataset {dataset_urn} with physical URI {physical_uri}"
         )
-        current_time_millis = int(time.time()) * 1000
-        dataset_properties = DatasetPropertiesClass(
-            name=self.dataset_metadata.displayName or self.config.dataset_name,
-            description=self.dataset_metadata.description or "",
-            externalUrl=external_url,
-            uri=None,  # Unfortunately, there is a bug in URI validation that requires this to be None
-            lastModified=TimeStampClass(
-                time=current_time_millis, actor="urn:li:corpuser:datahub"
-            ),
-            customProperties={
-                "physical_uri": physical_uri,
-            },
-        )
-        aspects = [
-            dataset_properties,
-            StatusClass(
-                removed=self.config.dataset_registration_spec.soft_deleted  # Registering this is as a visible asset as we have search access policies to ensure only admins can see it
-            ),
-            OperationClass(
-                timestampMillis=current_time_millis,
-                operationType=OperationTypeClass.UPDATE,
-                lastUpdatedTimestamp=current_time_millis,
-            ),
-        ]
-        if self.config.dataset_registration_spec.profile:
-            (
-                dataset_profiles,
-                schema_metadata,
-            ) = self._generate_dataset_profile_and_schema(local_file or physical_uri)
-            aspects.append(dataset_profiles)
-            aspects.append(schema_metadata)
-        mcps = MetadataChangeProposalWrapper.construct_many(
+        if dataset_properties is not None:
+            dataset_properties.externalUrl = external_url
+        else:
+            current_time_millis = int(time.time()) * 1000
+            dataset_properties = DatasetPropertiesClass(
+                name=self.dataset_metadata.displayName or self.config.dataset_name,
+                description=self.dataset_metadata.description or "",
+                externalUrl=external_url,
+                uri=None,  # Unfortunately, there is a bug in URI validation that requires this to be None
+                lastModified=TimeStampClass(
+                    time=current_time_millis, actor="urn:li:corpuser:datahub"
+                ),
+                customProperties={
+                    "physical_uri": physical_uri,
+                },
+            )
+
+        return MetadataChangeProposalWrapper.construct_many(
             entityUrn=dataset_urn,
-            aspects=aspects,
+            aspects=[dataset_properties],
         )
-        yield from mcps

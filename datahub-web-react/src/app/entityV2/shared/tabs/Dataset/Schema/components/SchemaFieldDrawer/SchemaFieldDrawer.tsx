@@ -18,6 +18,7 @@ import DrawerFooter from './DrawerFooter';
 import FieldHeader from './FieldHeader';
 import { SchemaFieldDrawerTabs } from './SchemaFieldDrawerTabs';
 import { StatsSidebarContent } from './StatsSidebarContent';
+import { ExtendedSchemaFields } from '../../../../../../dataset/profile/schema/utils/types';
 
 const StyledDrawer = styled(Drawer)`
     &&& .ant-drawer-body {
@@ -77,6 +78,7 @@ interface Props {
     selectNextField: () => void;
     showTypeAsIcons?: boolean;
     usageStats?: UsageQueryResult | null;
+    displayedRows: ExtendedSchemaFields[];
 }
 
 export default function SchemaFieldDrawer({
@@ -90,13 +92,14 @@ export default function SchemaFieldDrawer({
     selectNextField,
     showTypeAsIcons = true,
     usageStats,
+    displayedRows,
 }: Props) {
     const expandedFieldIndex = useMemo(
-        () => schemaFields.findIndex((row) => row.fieldPath === expandedDrawerFieldPath),
-        [expandedDrawerFieldPath, schemaFields],
+        () => displayedRows.findIndex((row) => row.fieldPath === expandedDrawerFieldPath),
+        [expandedDrawerFieldPath, displayedRows],
     );
     const expandedField =
-        expandedFieldIndex !== undefined && expandedFieldIndex !== -1 ? schemaFields[expandedFieldIndex] : undefined;
+        expandedFieldIndex !== undefined && expandedFieldIndex !== -1 ? displayedRows[expandedFieldIndex] : undefined;
 
     const baseEntity = useBaseEntity<GetDatasetQuery>();
     const hasDatasetProfiles = baseEntity?.dataset?.datasetProfiles !== undefined;
@@ -117,6 +120,16 @@ export default function SchemaFieldDrawer({
             variables: { urn },
         });
     }, [urn, getDataProfiles]);
+
+    useEffect(() => {
+        if (
+            displayedRows.length > 0 &&
+            expandedDrawerFieldPath &&
+            !displayedRows.find((row) => row.fieldPath === expandedDrawerFieldPath)
+        ) {
+            setExpandedDrawerFieldPath(null);
+        }
+    }, [displayedRows, expandedDrawerFieldPath, setExpandedDrawerFieldPath]);
 
     const profiles = profilesData?.dataset?.datasetProfiles || [];
     const [selectedTabName, setSelectedTabName] = useState('About');
@@ -186,10 +199,10 @@ export default function SchemaFieldDrawer({
                                 </Tabs>
                             </Body>
                             <DrawerFooter
-                                schemaFields={schemaFields}
                                 expandedFieldIndex={expandedFieldIndex}
                                 selectPreviousField={selectPreviousField}
                                 selectNextField={selectNextField}
+                                displayedRows={displayedRows}
                             />
                         </DrawerContent>
                     )}

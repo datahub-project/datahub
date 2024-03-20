@@ -10,13 +10,16 @@ const QuickFiltersWrapper = styled.div`
     flex-flow: wrap;
 `;
 
-export default function QuickFilters() {
+interface Props {
+    searchQuery?: string;
+}
+export default function QuickFilters({ searchQuery }: Props) {
     const { quickFilters } = useQuickFiltersContext();
 
     return (
         <QuickFiltersWrapper>
             {quickFilters?.map((quickFilter) => (
-                <QuickFilter key={quickFilter.value} quickFilter={quickFilter} />
+                <QuickFilter key={quickFilter.value} quickFilter={quickFilter} searchQuery={searchQuery} />
             ))}
         </QuickFiltersWrapper>
     );

@@ -93,10 +93,14 @@ export const EvaluationScheduleBuilder = ({
     const tooltipDescription = getEvaluationScheduleTooltipDescription(assertionType, platformName as string);
 
     const currentIntervalPeriodRef = useRef<PeriodType>()
-    const updateInterval = (newInterval: string, extra: SetValueFunctionExtra) => {
+    const onIntervalInitializeOrChange = (newInterval: string, extra: SetValueFunctionExtra) => {
         let cron = newInterval
-        // If period has changed, reset to default
-        if (currentIntervalPeriodRef.current !== extra.selectedPeriod) {
+
+        // If initializing, do nothing
+        // Else if granularity has changed, reset cron to a default for that granularity
+        if (typeof currentIntervalPeriodRef.current === "undefined") {
+            currentIntervalPeriodRef.current = extra.selectedPeriod
+        } else if (currentIntervalPeriodRef.current !== extra.selectedPeriod) {
             currentIntervalPeriodRef.current = extra.selectedPeriod
             switch (extra.selectedPeriod) {
                 case 'month':
@@ -177,7 +181,7 @@ export const EvaluationScheduleBuilder = ({
                 <Section>
                     <Cron
                         value={interval}
-                        setValue={updateInterval}
+                        setValue={onIntervalInitializeOrChange}
                         clearButton={false}
                         className="cron-builder"
                         leadingZero

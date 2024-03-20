@@ -6,7 +6,6 @@ import CompactContext from '../shared/CompactContext';
 import { useEntityRegistry } from '../useEntityRegistry';
 import { ChildMap, LineageDisplayContext, LineageEntity, LineageNodesContext } from './common';
 import { EntityType } from '../../types.generated';
-import TabFullsizedContext from '../shared/TabFullsizedContext';
 
 const SidebarWrapper = styled.div<{ distanceFromTop: number; isClosed: boolean }>`
     position: absolute;
@@ -24,8 +23,6 @@ const SidebarWrapper = styled.div<{ distanceFromTop: number; isClosed: boolean }
     box-shadow: ${(props) => (props.isClosed ? 'none' : '0px 0px 5px rgba(0, 0, 0, 0.08)')};
 
     && {
-        /* Hide scrollbar for Chrome, Safari, and Opera */
-
         &::-webkit-scrollbar {
             display: none;
         }
@@ -61,6 +58,7 @@ export default function LineageSidebar() {
                 isClosed,
                 setSidebarClosed,
                 width,
+                forLineage: true,
                 extra: queryDetails,
             }}
         >
@@ -74,14 +72,12 @@ export default function LineageSidebar() {
 }
 
 function useSelectedNode() {
-    const { isTabFullsize, setTabFullsize } = useContext(TabFullsizedContext);
+    const { setSidebarClosed } = useContext(EntitySidebarContext);
     const [selectedNode, setSelectedNode] = useState<LineageEntity | null>(null);
 
     useOnSelectionChange({
         onChange: ({ nodes }) => {
-            if (nodes.length && !isTabFullsize) {
-                setTabFullsize(true);
-            }
+            if (nodes.length) setSidebarClosed(true);
             setSelectedNode(nodes.length ? nodes[nodes.length - 1].data : null);
         },
     });

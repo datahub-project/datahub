@@ -1,5 +1,5 @@
 import { dataset3WithLineage, dataset3WithSchema, dataset4WithLineage } from '../../../../Mocks';
-import { EntityType, SchemaFieldDataType } from '../../../../types.generated';
+import { EntityType, HealthStatus, HealthStatusType, SchemaFieldDataType } from '../../../../types.generated';
 import { combineEntityDataWithSiblings, shouldEntityBeTreatedAsPrimary } from '../siblingUtils';
 
 const usageStats = {
@@ -74,6 +74,27 @@ const datasetPrimary = {
     siblings: {
         isPrimary: true,
     },
+    health: [
+        {
+            type: HealthStatusType.Assertions,
+            status: HealthStatus.Fail, 
+            message: "assertion base message",
+            causes: ["cause", "cause2"],
+
+        },
+        {
+            type: HealthStatusType.Incidents,
+            status: HealthStatus.Fail, 
+            message: "incident base message",
+            causes: ["cause", "cause2"]
+        },
+        {
+            type: HealthStatusType.Tests,
+            status: HealthStatus.Fail, 
+            message: "test base message",
+            causes: ["cause", "cause2"]
+        },
+    ]
 };
 
 const datasetUnprimary = {
@@ -137,6 +158,26 @@ const datasetUnprimary = {
             },
         ],
     },
+    health: [
+        {
+            type: HealthStatusType.Assertions,
+            status: HealthStatus.Pass, 
+            message: "assertion secondary message",
+            causes: ["cause3", "cause4"],
+        },
+        {
+            type: HealthStatusType.Incidents,
+            status: HealthStatus.Pass, 
+            message: "incident secondary message",
+            causes: ["cause3", "cause4"],
+        },
+        {
+            type: HealthStatusType.Tests,
+            status: HealthStatus.Pass,
+            message: "test secondary message",
+            causes: ["cause3", "cause4"], 
+        },
+    ],
     siblings: {
         isPrimary: false,
     },
@@ -163,8 +204,21 @@ const datasetPrimaryWithSiblings = {
                 label: 'hi',
             },
         ],
+        health: [
+            {
+                type: HealthStatusType.Assertions,
+                status: HealthStatus.Fail, 
+            },
+            {
+                type: HealthStatusType.Incidents,
+                status: HealthStatus.Fail, 
+            },
+            {
+                type: HealthStatusType.Tests,
+                status: HealthStatus.Fail, 
+            },
+        ]
     },
-
     siblings: {
         isPrimary: true,
         siblings: [datasetUnprimary],
@@ -213,6 +267,20 @@ describe('siblingUtils', () => {
 
             // will take secondary string properties in the case of empty string
             expect(combinedData.dataset.properties.description).toEqual('primary description');
+
+            // health status
+            expect(combinedData.dataset.health).toHaveLength(3);
+            expect(combinedData.dataset.health.find(health => health.type === HealthStatusType.Assertions)?.status === HealthStatus.Fail).toBeTruthy();
+            expect(combinedData.dataset.health.find(health => health.type === HealthStatusType.Assertions)?.message === "Some failing assertions").toBeTruthy();
+            expect(combinedData.dataset.health.find(health => health.type === HealthStatusType.Assertions)?.causes).toHaveLength(4);
+
+            expect(combinedData.dataset.health.find(health => health.type === HealthStatusType.Incidents)?.status === HealthStatus.Fail).toBeTruthy();
+            expect(combinedData.dataset.health.find(health => health.type === HealthStatusType.Incidents)?.message === "Some active incidents").toBeTruthy();
+            expect(combinedData.dataset.health.find(health => health.type === HealthStatusType.Incidents)?.causes).toHaveLength(4);
+
+            expect(combinedData.dataset.health.find(health => health.type === HealthStatusType.Tests)?.status === HealthStatus.Fail).toBeTruthy();
+            expect(combinedData.dataset.health.find(health => health.type === HealthStatusType.Tests)?.message === "Some failing governance tests").toBeTruthy();
+            expect(combinedData.dataset.health.find(health => health.type === HealthStatusType.Tests)?.causes).toHaveLength(4);
 
             // will stay primary
             expect(combinedData.dataset.siblings.isPrimary).toBeTruthy();

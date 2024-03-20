@@ -34,7 +34,7 @@ public class NotificationGeneratorHookFactory {
 
   @Autowired private EntityChangeNotificationGenerator _entityChangeNotificationGenerator;
 
-  @Value("${incidentNotification.enabled:true}")
+  @Value("${notifications.enabled:true}")
   private boolean isEnabled;
 
   @Bean(name = "notificationGeneratorHook")

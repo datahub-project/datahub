@@ -173,14 +173,22 @@ export const AssertionResultPopoverContent = ({
                     </ContextRow>
                 </>
             )}
-            {hasExternalPlatform && (
+            {hasExternalPlatform ? (
                 <>
+                    {/* Show the native results if it's an external platform, so the customers can see things like 'result' that they've emitted into DH */}
+                    {result?.nativeResults?.length ? [
+                        <ThinDivider />,
+                        <PlatformRow>
+                            {result.nativeResults.map(entry => <div><Typography.Text strong>{entry.key}</Typography.Text>: {entry.value}</div>)}
+                        </PlatformRow>
+                    ] : null}
+                    {/* Show the external platform details */}
                     <ThinDivider />
                     <PlatformRow>
                         <ProviderSummarySection assertion={assertion} showDivider={false} />
                     </PlatformRow>
                 </>
-            )}
+            ) : null}
         </>
     );
 };

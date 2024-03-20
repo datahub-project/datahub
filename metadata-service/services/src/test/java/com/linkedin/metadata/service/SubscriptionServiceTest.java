@@ -1,4 +1,4 @@
-package com.datahub.subscription;
+package com.linkedin.metadata.service;
 
 import static com.linkedin.metadata.AcrylConstants.*;
 import static com.linkedin.metadata.Constants.*;
@@ -23,7 +23,6 @@ import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
-import com.linkedin.metadata.service.SubscriptionService;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.subscription.EntityChangeDetails;
 import com.linkedin.subscription.EntityChangeDetailsArray;
@@ -167,9 +166,35 @@ public class SubscriptionServiceTest {
   }
 
   @Test
+  public void testCreateSubscriptionSubscriptionExists() throws Exception {
+    when(_entityClient.exists(eq(USER_URN), any())).thenReturn(true);
+    when(_entityClient.exists(eq(ENTITY_URN_1), any())).thenReturn(true);
+    when(_entityClient.filter(
+            any(), eq(SUBSCRIPTION_ENTITY_NAME), any(), any(), anyInt(), anyInt()))
+        .thenReturn(
+            new SearchResult()
+                .setEntities(
+                    new SearchEntityArray(new SearchEntity().setEntity(SUBSCRIPTION_URN_1))));
+
+    assertThrows(
+        RuntimeException.class,
+        () ->
+            _subscriptionService.createSubscription(
+                USER_URN,
+                ENTITY_URN_1,
+                SUBSCRIPTION_TYPES_1,
+                ENTITY_CHANGE_TYPES_1,
+                NOTIFICATION_CONFIG,
+                SYSTEM_AUTHENTICATION));
+  }
+
+  @Test
   public void testCreateSubscription() throws Exception {
-    when(_entityClient.exists(eq(USER_URN), eq(SYSTEM_AUTHENTICATION))).thenReturn(true);
-    when(_entityClient.exists(eq(ENTITY_URN_1), eq(SYSTEM_AUTHENTICATION))).thenReturn(true);
+    when(_entityClient.exists(eq(USER_URN), any())).thenReturn(true);
+    when(_entityClient.exists(eq(ENTITY_URN_1), any())).thenReturn(true);
+    when(_entityClient.filter(
+            any(), eq(SUBSCRIPTION_ENTITY_NAME), any(), any(), anyInt(), anyInt()))
+        .thenReturn(new SearchResult().setEntities(new SearchEntityArray()));
     when(_entityClient.ingestProposal(
             any(MetadataChangeProposal.class), eq(SYSTEM_AUTHENTICATION), anyBoolean()))
         .thenReturn(SUBSCRIPTION_URN_1_STRING);
@@ -196,7 +221,7 @@ public class SubscriptionServiceTest {
 
   @Test
   public void testGetSubscriptionInfoMissingSubscription() throws Exception {
-    when(_entityClient.exists(eq(SUBSCRIPTION_URN_1), eq(SYSTEM_AUTHENTICATION))).thenReturn(false);
+    when(_entityClient.exists(eq(SUBSCRIPTION_URN_1), any())).thenReturn(false);
 
     assertThrows(
         () -> _subscriptionService.getSubscriptionInfo(SUBSCRIPTION_URN_1, SYSTEM_AUTHENTICATION));

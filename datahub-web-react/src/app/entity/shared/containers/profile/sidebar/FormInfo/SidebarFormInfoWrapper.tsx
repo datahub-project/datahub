@@ -6,6 +6,7 @@ import { StyledDivider } from './components';
 import { useEntityData } from '../../../../EntityContext';
 import { getFormAssociations } from './utils';
 import FormSelectionModal from '../../../../entityForm/FormSelectionModal/FormSelectionModal';
+import analytics, { DocRequestCTASource, EventType } from '../../../../../../analytics';
 
 const FormInfoWrapper = styled.div`
     margin-top: 16px;
@@ -21,6 +22,11 @@ export default function SidebarFormInfoWrapper() {
     if (!formAssociations.length) return null;
 
     function openFormModal() {
+        analytics.event({
+            type: EventType.ClickDocRequestCTA,
+            source: DocRequestCTASource.AssetPage,
+        });
+
         if (formAssociations.length === 1) {
             setSelectedFormUrn(formAssociations[0].form.urn);
             setIsFormVisible(true);

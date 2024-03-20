@@ -9,16 +9,16 @@ import { useGetFormsForActorQuery } from '../../../graphql/form.generated';
 import { RequestItem } from './RequestItem';
 
 const StyledList = styled(List)`
-    &&& {
-        width: 100%;
-        border-color: ${(props) => props.theme.styles['border-color-base']};
-        box-shadow: ${(props) => props.theme.styles['box-shadow']};
-    }
+	&&& {
+		width: 100%;
+		border-color: ${(props) => props.theme.styles['border-color-base']};
+		box-shadow: ${(props) => props.theme.styles['box-shadow']};
+	}
 `;
 
 export const Requests = () => {
 	const { data, loading, error, refetch } = useGetFormsForActorQuery({
-		variables: { input: { searchFlags: { skipCache: true }} },
+		variables: { input: { searchFlags: { skipCache: true } } },
 		fetchPolicy: 'no-cache',
 	});
 
@@ -31,7 +31,7 @@ export const Requests = () => {
 
 	return (
 		<>
-			{!data && loading && <Message type="loading" content="Loading your requests..." />}
+			{!data && loading && <Message type="loading" content="Loading your requests…" />}
 			{error && message.error('Failed to load your requests :(')}
 			<StyledList
 				bordered

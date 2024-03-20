@@ -1265,13 +1265,16 @@ public class FormService extends BaseService {
             .setField("assignedUsers")
             .setValue(userUrn.toString())
             .setCondition(Condition.EQUAL));
+
+    List<Urn> uniqueGroupUrns = new HashSet<>(groupUrns).stream().collect(Collectors.toList());
     final CriterionArray assignedGroupsArray = new CriterionArray();
     assignedGroupsArray.add(
         new Criterion()
             .setField("assignedGroups")
             .setValue("")
             .setValues(
-                new StringArray(groupUrns.stream().map(Urn::toString).collect(Collectors.toList())))
+                new StringArray(
+                    uniqueGroupUrns.stream().map(Urn::toString).collect(Collectors.toList())))
             .setCondition(Condition.EQUAL));
 
     Filter filter =

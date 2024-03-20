@@ -8,7 +8,7 @@ import { SummaryTabHeaderTitle } from '../shared/summary/HeaderComponents';
 import { HorizontalList } from '../shared/summary/ListComponents';
 import { SCREEN_WIDTH_BREAK_POINT } from './constants';
 import { Card } from '../../sharedV2/cards/components';
-import AddOutputPortCard from './AddOutputPortCard';
+// import AddOutputPortCard from './AddOutputPortCard';
 import { StyledHeaderWrapper } from './AssetsSections';
 import { SearchResult } from '../../../types.generated';
 import { ANTD_GRAY } from '../shared/constants';
@@ -104,7 +104,8 @@ export const OutputPortsSection = () => {
                         Load more
                     </LoadMoreButton>
                 )}
-                <AddOutputPortCard />
+                {/* KEEPING THIS COMMENTED UNTIL DESIGN IS READY FOR OUTPUT PORT */}
+                {/* <AddOutputPortCard /> */}
             </StyledHorizontalList>
         </OutputPortsWrapper>
     );

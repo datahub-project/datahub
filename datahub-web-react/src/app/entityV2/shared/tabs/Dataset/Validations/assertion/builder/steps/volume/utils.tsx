@@ -208,43 +208,44 @@ export type VolumeTypeOption = {
     category: VolumeTypeCategoryEnum;
 };
 
+
 export enum VolumeTypeOptionEnum {
-    TOO_MANY_ROWS = 'TOO_MANY_ROWS',
-    NOT_ENOUGH_ROWS = 'NOT_ENOUGH_ROWS',
-    ROWS_OUTSIDE_RANGE = 'ROWS_OUTSIDE_RANGE',
-    GROWTH_TOO_FAST = 'GROWTH_TOO_FAST',
-    GROWTH_TOO_SLOW = 'GROWTH_TOO_SLOW',
-    GROWTH_OUTSIDE_RANGE = 'GROWTH_OUTSIDE_RANGE',
+    LESS_THAN_ROWS = 'LESS_THAN_ROWS',
+    GREATER_THAN_ROWS = 'GREATER_THAN_ROWS',
+    ROWS_IN_RANGE = 'ROWS_IN_RANGE',
+    GROWTH_LESS_THAN = 'GROWTH_LESS_THAN',
+    GROWTH_GREATER_THAN = 'GROWTH_GREATER_THAN',
+    GROWTH_IN_RANGE = 'GROWTH_IN_RANGE',
 }
 
 export const VOLUME_TYPE_OPTIONS: Record<VolumeTypeOptionEnum, VolumeTypeOption> = {
-    [VolumeTypeOptionEnum.TOO_MANY_ROWS]: {
-        label: 'Is larger than expected',
+    [VolumeTypeOptionEnum.LESS_THAN_ROWS]: {
+        label: 'Is less than or equal to',
         operator: AssertionStdOperator.LessThanOrEqualTo,
         category: VolumeTypeCategoryEnum.ROW_COUNT,
     },
-    [VolumeTypeOptionEnum.NOT_ENOUGH_ROWS]: {
-        label: 'Is less than expected',
+    [VolumeTypeOptionEnum.GREATER_THAN_ROWS]: {
+        label: 'Is greater than or equal to',
         operator: AssertionStdOperator.GreaterThanOrEqualTo,
         category: VolumeTypeCategoryEnum.ROW_COUNT,
     },
-    [VolumeTypeOptionEnum.ROWS_OUTSIDE_RANGE]: {
-        label: 'Is outside of an expected range',
+    [VolumeTypeOptionEnum.ROWS_IN_RANGE]: {
+        label: 'Is within an expected range',
         operator: AssertionStdOperator.Between,
         category: VolumeTypeCategoryEnum.ROW_COUNT,
     },
-    [VolumeTypeOptionEnum.GROWTH_TOO_FAST]: {
-        label: 'Is growing too fast',
+    [VolumeTypeOptionEnum.GROWTH_LESS_THAN]: {
+        label: 'Grows by at most',
         operator: AssertionStdOperator.LessThanOrEqualTo,
         category: VolumeTypeCategoryEnum.GROWTH_RATE,
     },
-    [VolumeTypeOptionEnum.GROWTH_TOO_SLOW]: {
-        label: 'Is growing too slow',
+    [VolumeTypeOptionEnum.GROWTH_GREATER_THAN]: {
+        label: 'Grows by at least',
         operator: AssertionStdOperator.GreaterThanOrEqualTo,
         category: VolumeTypeCategoryEnum.GROWTH_RATE,
     },
-    [VolumeTypeOptionEnum.GROWTH_OUTSIDE_RANGE]: {
-        label: 'Is growing outside of an expected range',
+    [VolumeTypeOptionEnum.GROWTH_IN_RANGE]: {
+        label: 'Is growing within an expected range',
         operator: AssertionStdOperator.Between,
         category: VolumeTypeCategoryEnum.GROWTH_RATE,
     },
@@ -332,13 +333,13 @@ export const getParameterBuilderTitle = (type: VolumeAssertionType, operator: As
 
     switch (operator) {
         case AssertionStdOperator.LessThanOrEqualTo:
-            return isRelativeChange ? 'Fail if this table grows more than' : 'Fail if this table has more than';
+            return isRelativeChange ? 'Pass if this table grows by at most' : 'Pass if the table has at most';
         case AssertionStdOperator.GreaterThanOrEqualTo:
-            return isRelativeChange ? 'Fail if this table grows by less than' : 'Fail if this table has less than';
+            return isRelativeChange ? 'Pass if this table grows by at least' : 'Pass if the table has at least';
         case AssertionStdOperator.Between:
             return isRelativeChange
-                ? 'Fail if this table grows less than...'
-                : 'Fail if this table row count is less than...';
+                ? 'Pass if this table grows at least...'
+                : 'Pass if this table row count is at least...';
         default:
             throw new Error(`Unknown operator: ${operator}`);
     }

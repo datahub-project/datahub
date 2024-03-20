@@ -1123,7 +1123,7 @@ jobs:
         with:
           image: ${{ env.DATAHUB_INTEGRATIONS_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
       - name: Run Trivy vulnerability scanner Slim Image
-        uses: aquasecurity/trivy-action@0.8.0
+        uses: aquasecurity/trivy-action@0.18.0
         env:
           TRIVY_OFFLINE_SCAN: true
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
@@ -1137,6 +1137,8 @@ jobs:
           severity: "CRITICAL,HIGH"
           ignore-unfixed: true
           vuln-type: "os,library"
+          # Added to prevent timeout, seems to really struggle with this image
+          scanners: "vuln"
       - name: Upload Trivy scan results to GitHub Security tab
         uses: github/codeql-action/upload-sarif@v2
         if: ${{ false }}
@@ -1190,7 +1192,7 @@ jobs:
         with:
           image: ${{ env.DATAHUB_EXECUTOR_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
       - name: Run Trivy vulnerability scanner Slim Image
-        uses: aquasecurity/trivy-action@0.8.0
+        uses: aquasecurity/trivy-action@0.18.0
         env:
           TRIVY_OFFLINE_SCAN: true
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
@@ -1204,6 +1206,8 @@ jobs:
           severity: "CRITICAL,HIGH"
           ignore-unfixed: true
           vuln-type: "os,library"
+          # Added to prevent timeout, seems to really struggle with this image
+          scanners: "vuln"
       - name: Upload Trivy scan results to GitHub Security tab
         uses: github/codeql-action/upload-sarif@v2
         if: ${{ false }}

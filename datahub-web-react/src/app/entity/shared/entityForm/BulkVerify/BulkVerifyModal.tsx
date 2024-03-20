@@ -8,6 +8,7 @@ import { useBatchVerifyFormMutation } from '../../../../../graphql/form.generate
 import { useEntityFormContext } from '../EntityFormContext';
 
 import { pluralize } from '../../../../shared/textUtil';
+import analytics, { DocRequestView, EventType } from '../../../../analytics';
 
 const ModalContent = styled.div`
     font-size: 14px;
@@ -55,6 +56,11 @@ export default function BulkVerifyModal({ isVerifyModalVisible, closeModal }: Pr
         const selectedEntityUrns = selectedEntities.map((e) => e.urn);
         batchVerifyForm({ variables: { input: { formUrn, assetUrns: selectedEntityUrns } } }).then(
             () => {
+                analytics.event({
+                    type: EventType.CompleteVerification,
+                    source: DocRequestView.BulkVerify,
+                    numAssets: 1,
+                });
                 handleBulkVerifySubmission(selectedEntityUrns);
                 setIsSubmitting(false);
                 notification.success({

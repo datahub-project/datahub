@@ -9,7 +9,7 @@ export const SummaryTabWrapper = styled.div`
     display: flex;
     flex-direction: column;
     height: fit-content;
-    padding: 12px 0px;
+    padding: 12px 20px;
     gap: 20px;
     position: relative;
 `;
@@ -19,6 +19,7 @@ export const Container = styled.div`
     flex-direction: column;
     gap: 20px;
     padding: 0px 20px;
+
     &:hover {
         .hover-btn {
             display: flex;

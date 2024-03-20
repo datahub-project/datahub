@@ -2,9 +2,9 @@ import React from 'react';
 import styled from 'styled-components';
 import KeyboardArrowLeftIcon from '@mui/icons-material/KeyboardArrowLeft';
 import KeyboardArrowRightIcon from '@mui/icons-material/KeyboardArrowRight';
-import { SchemaField } from '../../../../../../../../types.generated';
 import { pluralize } from '../../../../../../../shared/textUtil';
 import { REDESIGN_COLORS } from '../../../../../constants';
+import { ExtendedSchemaFields } from '../../../../../../dataset/profile/schema/utils/types';
 
 const HeaderWrapper = styled.div`
     position: absolute;
@@ -59,17 +59,17 @@ const ButtonsWrapper = styled.div`
 `;
 
 interface Props {
-    schemaFields?: SchemaField[];
     expandedFieldIndex?: number;
     selectPreviousField: () => void;
     selectNextField: () => void;
+    displayedRows: ExtendedSchemaFields[];
 }
 
 export default function DrawerFooter({
-    schemaFields = [],
     expandedFieldIndex = 0,
     selectPreviousField,
     selectNextField,
+    displayedRows,
 }: Props) {
     return (
         <HeaderWrapper>
@@ -78,7 +78,7 @@ export default function DrawerFooter({
                     <KeyboardArrowLeftIcon />
                 </StyledIcon>
                 <FieldIndexText>
-                    {expandedFieldIndex + 1} of {schemaFields.length} {pluralize(schemaFields.length, 'field')}
+                    {expandedFieldIndex + 1} of {displayedRows.length} {pluralize(displayedRows.length, 'field')}
                 </FieldIndexText>
                 <StyledIcon onClick={selectNextField}>
                     <KeyboardArrowRightIcon />

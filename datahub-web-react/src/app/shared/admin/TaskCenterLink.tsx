@@ -7,6 +7,7 @@ import { useHistory } from 'react-router-dom';
 
 import { useUserContext } from '../../context/useUserContext';
 import { PageRoutes } from '../../../conf/Global';
+import analytics, { EventType } from '../../analytics';
 
 const LinkWrapper = styled.span`
     margin-right: 0px;
@@ -54,9 +55,16 @@ export const TaskCenterLink = () => {
 	const { state: { unfinishedTaskCount } } = useUserContext();
 	const showBadge = unfinishedTaskCount > 0;
 
+    const goToTaskCenter = () => {
+        history.push(PageRoutes.ACTION_REQUESTS);
+        analytics.event({
+            type: EventType.OpenTaskCenter,
+        });
+    };
+
 	return (
 		<LinkWrapper>
-			<Button type="text" onClick={() => history.push(PageRoutes.ACTION_REQUESTS)}>
+			<Button type="text" onClick={goToTaskCenter}>
 				<InnerButtonWrapper>
 					{showBadge && <StyledBadge count={unfinishedTaskCount} overflowCount={99} size="small" color="red" />}
 					<HiOutlineClipboardList size="16px" />

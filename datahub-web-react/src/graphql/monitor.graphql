@@ -82,7 +82,7 @@ query getDatasetAssertionsWithMonitors($urn: String!) {
             siblings {
                 urn
                 type
-                ...assertionsQuery
+                ...assertionsQueryWithMonitors
             }
         }
         privileges {

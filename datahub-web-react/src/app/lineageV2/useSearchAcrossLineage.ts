@@ -1,9 +1,9 @@
-import { useEffect, useState } from 'react';
-import { useSearchAcrossLineageStructureLazyQuery } from '../../graphql/search.generated';
-import { LineageDirection, SearchAcrossLineageInput, VersionedDataset } from '../../types.generated';
-import { useGetLineageTimeParams } from '../lineage/utils/useGetLineageTimeParams';
-import { DEGREE_FILTER_NAME } from '../search/utils/constants';
-import { FetchStatus, NodeContext, Path, setNodeDefault, TRANSFORMATION_TYPES } from './common';
+import {useEffect, useState} from 'react';
+import {useSearchAcrossLineageStructureLazyQuery} from '../../graphql/search.generated';
+import {Entity, EntityType, LineageDirection, SearchAcrossLineageInput} from '../../types.generated';
+import {useGetLineageTimeParams} from '../lineage/utils/useGetLineageTimeParams';
+import {DEGREE_FILTER_NAME} from '../search/utils/constants';
+import {FetchStatus, getNonTransformationalParents, NodeContext, setNodeDefault, TRANSFORMATION_TYPES,} from './common';
 
 /**
  * Fetches the lineage structure for a given urn and direction, and updates the nodes map with the results.
@@ -21,7 +21,7 @@ export default function useSearchAcrossLineage(
     maxDepth?: boolean,
 ): { fetchLineage: () => void; processed: boolean } {
     const { startTimeMillis, endTimeMillis } = useGetLineageTimeParams();
-    const { nodes, setNodeVersion } = context;
+    const { nodes, rootUrn, setNodeVersion } = context;
 
     const input: SearchAcrossLineageInput = {
         urn,
@@ -52,18 +52,15 @@ export default function useSearchAcrossLineage(
     }, [fetchLineage, lazy]);
 
     useEffect(() => {
+        // Add query nodes before adding regular nodes for nonTransformationalParent calculation
         data?.searchAcrossLineage?.searchResults.forEach((result) => {
-            const paths: Path[][] = [];
-            const parent = nodes.get(urn);
             result.paths?.forEach((path) => {
-                if (path) {
-                    const mappedPath = path.path.filter((p): p is Path => !!p && p.urn !== result.entity.urn);
-                    parent?.paths.forEach((parentPath) => {
-                        paths.push([...parentPath, ...mappedPath]);
-                    });
-                }
+                const filteredPath = path?.path.filter((p): p is Pick<Entity, 'urn' | 'type'> => !!p) || [];
+                addQueryNodes(filteredPath, nodes, direction);
             });
+        });
 
+        data?.searchAcrossLineage?.searchResults.forEach((result) => {
             const node = setNodeDefault({
                 nodes,
                 urn: result.entity.urn,
@@ -71,7 +68,14 @@ export default function useSearchAcrossLineage(
                 direction,
                 maxDepth,
             });
-            node.paths.push(...paths);
+
+            const newParents =
+                result.paths?.map((path) => path?.path?.[path?.path.length - 2]?.urn).filter((p): p is string => !!p) ||
+                [];
+            const newNTParents = newParents.map((p) => getNonTransformationalParents(p, nodes, rootUrn)).flat();
+            node.parents = new Set([...node.parents, ...newParents]);
+            node.nonTransformationalParents = new Set([...node.nonTransformationalParents, ...newNTParents]);
+
             // TODO: Clean up logic, a little redundant with setNodeDefault
             if (maxDepth) {
                 node.fetchStatus = { ...node.fetchStatus, [direction]: FetchStatus.COMPLETE };
@@ -80,28 +84,6 @@ export default function useSearchAcrossLineage(
 
         // TODO: Check if searchAcrossLineage is producing duplicate results,
         // e.g. if there's multiple transformations between the same nodes
-
-        // Add query nodes
-        data?.searchAcrossLineage?.searchResults.forEach((result) => {
-            result.paths?.forEach((path) => {
-                const filteredPath = path?.path.filter((p): p is Pick<VersionedDataset, 'urn' | 'type'> => !!p) || [];
-                filteredPath.forEach((node, i) => {
-                    if (node && !nodes.has(node.urn) && TRANSFORMATION_TYPES.includes(node.type)) {
-                        nodes.set(node.urn, {
-                            id: node.urn,
-                            urn: node.urn,
-                            type: node.type,
-                            paths: [filteredPath.slice(0, i)],
-                            direction,
-                            fetchStatus: {
-                                [LineageDirection.Upstream]: FetchStatus.UNNEEDED,
-                                [LineageDirection.Downstream]: FetchStatus.UNNEEDED,
-                            },
-                        });
-                    }
-                });
-            });
-        });
 
         const node = nodes.get(urn);
         if (data && node) {
@@ -112,7 +94,38 @@ export default function useSearchAcrossLineage(
             setNodeVersion((version) => version + 1);
             setProcessed(true);
         }
-    }, [urn, data, direction, nodes, setNodeVersion, maxDepth, setProcessed]);
+    }, [urn, data, direction, nodes, rootUrn, setNodeVersion, maxDepth, setProcessed]);
 
     return { fetchLineage, processed };
+}
+
+function addQueryNodes(
+    path: Array<Pick<Entity, 'urn' | 'type'>>,
+    nodes: NodeContext['nodes'],
+    direction: LineageDirection,
+) {
+    path.forEach((node, i) => {
+        const parent = path[i - 1]?.urn;
+        // TODO: Replace with findLast when it's available
+        const positionalParent = path
+            .slice(0, i)
+            .reduceRight<string | undefined>(
+                (acc, p) => acc || (!TRANSFORMATION_TYPES.includes(p.type) ? p.urn : undefined),
+                undefined,
+            );
+        if (node && !nodes.has(node.urn) && node.type === EntityType.Query) {
+            nodes.set(node.urn, {
+                id: node.urn,
+                urn: node.urn,
+                type: node.type,
+                parents: new Set(parent ? [parent] : []),
+                nonTransformationalParents: new Set(positionalParent ? [positionalParent] : []),
+                direction,
+                fetchStatus: {
+                    [LineageDirection.Upstream]: FetchStatus.UNNEEDED,
+                    [LineageDirection.Downstream]: FetchStatus.UNNEEDED,
+                },
+            });
+        }
+    });
 }

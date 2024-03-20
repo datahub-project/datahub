@@ -11,13 +11,23 @@ import { useListDomainsQuery } from '../../../graphql/domain.generated';
 import filterSearchQuery from '../../search/utils/filterSearchQuery';
 import { ANTD_GRAY } from '../../entity/shared/constants';
 import { useUserContext } from '../../context/useUserContext';
+import { useIsThemeV2Enabled } from '../../useIsThemeV2Enabled';
+
+const PageContainer = styled.div<{ isV2: boolean }>`
+    background-color: ${props => (props.isV2 ? '#fff' : 'inherit')};
+    margin-right: ${props => (props.isV2 ? '24px' : '0')};
+    margin-bottom: ${props => (props.isV2 ? '24px' : '0')};
+    border-radius: ${props => (props.isV2 ? '8px' : '0')};
+`;
 
 const HighlightGroup = styled.div`
-    display: flex;
-    align-items: space-between;
-    justify-content: center;
-    padding-top: 20px;
+    margin-top: 20px;
+    padding: 0 20px;
     margin-bottom: 10px;
+    display: grid;
+    grid-template-rows: auto auto;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px; 
 `;
 
 const MetadataAnalyticsInput = styled.div`
@@ -47,6 +57,7 @@ const StyledSearchBar = styled(Input)`
 `;
 
 export const AnalyticsPage = () => {
+    const isV2 = useIsThemeV2Enabled();
     const me = useUserContext();
     const canManageDomains = me?.platformPrivileges?.createDomains;
     const { data: chartData, loading: chartLoading, error: chartError } = useGetAnalyticsChartsQuery();
@@ -88,8 +99,8 @@ export const AnalyticsPage = () => {
 
     const isLoading = highlightLoading || chartLoading || domainLoading || metadataAnalyticsLoading;
     return (
-        <>
-            {isLoading && <Message type="loading" content="Loading..." style={{ marginTop: '10%' }} />}
+        <PageContainer isV2={isV2}>
+            {isLoading && <Message type="loading" content="Loading…" style={{ marginTop: '10%' }} />}
             <HighlightGroup>
                 {highlightError && (
                     <Alert type="error" message={highlightError?.message || 'Highlights failed to load'} />
@@ -174,6 +185,6 @@ export const AnalyticsPage = () => {
                             </>
                         ))}
             </>
-        </>
+        </PageContainer>
     );
 };

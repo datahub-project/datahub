@@ -17,13 +17,15 @@ export const StyledEntitySidebarContainer = styled.div<{
 }>`
     flex: 1;
     overflow: auto;
+
     ${(props) => !props.isCollapsed && props.$width && `min-width: ${props.$width}px; max-width: ${props.$width}px;`}
     ${(props) => props.isCollapsed && 'min-width: 56px; max-width: 56px;'}
     ${(props) => props.backgroundColor && `background-color: ${props.backgroundColor};`}
-    /* Hide scrollbar for Chrome, Safari, and Opera */
+        /* Hide scrollbar for Chrome, Safari, and Opera */
     &::-webkit-scrollbar {
         display: none;
     }
+
     margin: ${(props) => (props.isFocused ? '12px 12px 12px 0px' : '0px 0px 0px 0px')};
     transition: max-width 0.3s ease-in-out, min-width 0.3s ease-in-out;
 `;
@@ -98,7 +100,7 @@ export default function EntityProfileSidebar({
 
     // Open tab when selected tab is changed
     useEffect(() => {
-        setSidebarClosed(false);
+        if (!window.location.pathname.includes('Lineage')) setSidebarClosed(false);
     }, [selectedTabName, setSidebarClosed]);
 
     return (

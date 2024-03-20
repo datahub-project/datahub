@@ -72,7 +72,15 @@ type Props<T, U> = {
         }>
     >;
     useUpdateQuery?: (
-        baseOptions?: MutationHookOptions<U, { urn: string; input: GenericEntityUpdate }> | undefined,
+        baseOptions?:
+            | MutationHookOptions<
+                  U,
+                  {
+                      urn: string;
+                      input: GenericEntityUpdate;
+                  }
+              >
+            | undefined,
     ) => MutationTuple<U, { urn: string; input: GenericEntityUpdate }>;
     getOverrideProperties: (T) => GenericEntityProperties;
     tabs: EntityTab[];
@@ -114,6 +122,7 @@ const HeaderAndTabsFlex = styled.div`
     min-height: 0;
     overflow-y: auto;
     /* Hide scrollbar for Chrome, Safari, and Opera */
+
     &::-webkit-scrollbar {
         display: none;
     }
@@ -136,7 +145,6 @@ const HeaderContent = styled.div`
 
 const Body = styled.div`
     padding: 12px 16px 12px 16px;
-    flex-shrink: 0;
     height: 100%;
     overflow: hidden;
     display: flex;
@@ -152,8 +160,6 @@ const BodyContent = styled.div`
     flex: 1;
     box-shadow: 0px 0px 5px rgba(0, 0, 0, 0.08);
     height: 100%;
-    display: flex;
-    flex-direction: column;
     overflow: hidden;
 `;
 
@@ -164,6 +170,19 @@ const TabContent = styled.div`
     flex-direction: column;
     flex: 1;
     overflow: auto;
+`;
+
+const StyledAlert = styled(Alert)`
+    box-sizing: border-box;
+    position: fixed;
+    width: calc(100% - 70px);
+    z-index: 1000;
+`;
+
+const Wrapper = styled.div<{ showAlert: boolean }>`
+    height: 100%;
+    width: 100%;
+    margin-top: ${({ showAlert }) => (showAlert ? '2.5rem' : '0')};
 `;
 
 export const defaultTabDisplayConfig = {
@@ -203,6 +222,7 @@ export const EntityProfile = <T, U>({
     const history = useHistory();
     const location = useLocation();
     const isInSearch = matchPath(location.pathname, PageRoutes.SEARCH_RESULTS) !== null;
+    const [showAlert, setShowAlert] = useState(true);
 
     const { width } = React.useContext(EntitySidebarContext);
     const isCompact = React.useContext(CompactContext);
@@ -346,6 +366,10 @@ export const EntityProfile = <T, U>({
         );
     }
 
+    const showError = error;
+    const showFullScreen = !error && isLineageMode && isLineageV2;
+    const showExplorer = isLineageMode && !isLineageV2;
+
     return (
         <EntityContext.Provider
             value={{
@@ -363,20 +387,22 @@ export const EntityProfile = <T, U>({
                 setShouldRefetchEmbeddedListSearch,
             }}
         >
-            <>
+            {entityData?.status?.removed && (
+                <StyledAlert
+                    message="This entity is not discoverable via search or lineage graph. Contact your DataHub admin for more information."
+                    banner
+                    closable
+                    onClose={() => setShowAlert(false)}
+                />
+            )}
+            <Wrapper showAlert={showAlert && !!entityData?.status?.removed}>
                 <OnboardingTour stepIds={filteredStepIds} />
                 <EntityHead />
-                {entityData?.status?.removed === true && (
-                    <Alert
-                        message="This entity is not discoverable via search or lineage graph. Contact your DataHub admin for more information."
-                        banner
-                    />
-                )}
-                {error && <ErrorSection />}
-                {!error && isLineageMode && isLineageV2 && <LineageFullscreen urn={urn} type={entityType} />}
-                {!error && !(isLineageMode && isLineageV2) && (
+                {showError && <ErrorSection />}
+                {showFullScreen && <LineageFullscreen urn={urn} type={entityType} />}
+                {!showFullScreen && (
                     <ContentContainer>
-                        {isLineageMode && !isLineageV2 && <LineageExplorer type={entityType} urn={urn} />}
+                        {showExplorer && <LineageExplorer type={entityType} urn={urn} />}
                         {!isLineageMode && (
                             <>
                                 <HeaderAndTabs>
@@ -436,7 +462,7 @@ export const EntityProfile = <T, U>({
                         )}
                     </ContentContainer>
                 )}
-            </>
+            </Wrapper>
         </EntityContext.Provider>
     );
 };

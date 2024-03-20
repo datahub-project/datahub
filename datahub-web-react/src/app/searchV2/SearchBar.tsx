@@ -35,7 +35,7 @@ const AutoCompleteContainer = styled.div`
     padding: 0 30px;
 `;
 
-const StyledSearchBar = styled(Input)<{ textColor?: string; placeholderColor?: string }>`
+const StyledSearchBar = styled(Input)<{ $textColor?: string; $placeholderColor?: string }>`
     &&& {
         border-radius: 8px;
         height: 40px;
@@ -44,16 +44,20 @@ const StyledSearchBar = styled(Input)<{ textColor?: string; placeholderColor?: s
         background-color: ${ANTD_GRAY_V2[2]};
         border: 2px solid transparent;
         padding-right: 2.5px;
+
         &:focus-within {
             border: 2px solid ${(props) => props.theme.styles['primary-color']};
         }
     }
+
     > .ant-input::placeholder {
-        color: ${(props) => props.placeholderColor || '#dcdcdc'};
+        color: ${(props) => props.$placeholderColor || '#dcdcdc'};
     }
+
     > .ant-input {
-        color: ${(props) => props.textColor || '#fff'};
+        color: ${(props) => props.$textColor || '#fff'};
     }
+
     .ant-input-clear-icon {
         height: 15px;
         width: 15px;
@@ -69,6 +73,7 @@ const ClearIcon = styled(CloseCircleFilled)`
 
 const ViewSelectContainer = styled.div`
     color: #fff;
+
     &&& {
         border-left: 0px solid ${ANTD_GRAY_V2[5]};
     }
@@ -81,18 +86,6 @@ const SearchIcon = styled(SearchOutlined)`
 const EXACT_AUTOCOMPLETE_OPTION_TYPE = 'exact_query';
 const RELEVANCE_QUERY_OPTION_TYPE = 'recommendation';
 
-const QUICK_FILTER_AUTO_COMPLETE_OPTION = {
-    label: <EntityTypeLabel>Filter by</EntityTypeLabel>,
-    options: [
-        {
-            value: 'quick-filter-unique-key',
-            type: '',
-            label: <QuickFilters />,
-            style: { padding: '8px', cursor: 'auto' },
-            disabled: true,
-        },
-    ],
-};
 
 const renderRecommendedQuery = (query: string) => {
     return {
@@ -165,6 +158,23 @@ export const SearchBar = ({
     const [selected, setSelected] = useState<string>();
     const [isDropdownVisible, setIsDropdownVisible] = useState(false);
     const [isFocused, setIsFocused] = useState(false);
+
+    const updateQuickFilterAutoCompleteOption = useCallback(() => {
+        return {
+            label: <EntityTypeLabel>Filter by</EntityTypeLabel>,
+            options: [
+                {
+                    value: 'quick-filter-unique-key',
+                    type: '',
+                    label: <QuickFilters searchQuery={searchQuery} />,
+                    style: { padding: '8px', cursor: 'auto' },
+                    disabled: true,
+                },
+            ],
+        };
+    }, [searchQuery]);
+
+    const quickFilterAutoCompleteOption = updateQuickFilterAutoCompleteOption();
 
     useEffect(() => setSelected(initialQuery), [initialQuery]);
 
@@ -266,8 +276,8 @@ export const SearchBar = ({
     }, [setSelectedQuickFilter]);
 
     const quickFilterOption = useMemo(() => {
-        return showQuickFilters && quickFilters && quickFilters.length > 0 ? [QUICK_FILTER_AUTO_COMPLETE_OPTION] : [];
-    }, [quickFilters, showQuickFilters]);
+        return showQuickFilters && quickFilters && quickFilters.length > 0 ? [quickFilterAutoCompleteOption] : [];
+    }, [quickFilters, showQuickFilters, quickFilterAutoCompleteOption]);
 
     const options = useMemo(() => {
         // Display recommendations when there is no search query, autocomplete suggestions otherwise.
@@ -429,8 +439,8 @@ export const SearchBar = ({
                             )}
                         </>
                     }
-                    textColor={textColor}
-                    placeholderColor={placeholderColor}
+                    $textColor={textColor}
+                    $placeholderColor={placeholderColor}
                 />
             </StyledAutoComplete>
         </AutoCompleteContainer>

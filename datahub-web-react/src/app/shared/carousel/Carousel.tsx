@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import NavigateNextOutlinedIcon from '@mui/icons-material/NavigateNextOutlined';
 import NavigateBeforeOutlinedIcon from '@mui/icons-material/NavigateBeforeOutlined';
 import styled from 'styled-components';
-import { ANTD_GRAY, REDESIGN_COLORS, SEARCH_COLORS } from '../../entityV2/shared/constants';
+import { REDESIGN_COLORS, SEARCH_COLORS } from '../../entityV2/shared/constants';
 import { HorizontalList } from '../../entityV2/shared/summary/ListComponents';
 
 const Wrapper = styled.div`
@@ -11,6 +11,7 @@ const Wrapper = styled.div`
     :hover {
         .scroll-btn {
             display: flex;
+            cursor: pointer;
         }
     }
 `;
@@ -37,7 +38,7 @@ const ButtonContainer = styled.div<{ left?: boolean; right?: boolean }>`
     z-index: 2;
 
     border-radius: 100px;
-    border: 1px solid ${ANTD_GRAY[8]};
+    box-shadow: 0px 2px 4px rgba(0, 0, 0, 0.1);
     color: ${REDESIGN_COLORS.BLACK};
     background-color: ${REDESIGN_COLORS.WHITE};
 

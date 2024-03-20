@@ -10,6 +10,7 @@ import {
 import StructuredPropertyPrompt from './StructuredPropertyPrompt/StructuredPropertyPrompt';
 import { useSubmitFormPromptMutation } from '../../../../../graphql/form.generated';
 import { useEntityContext, useMutationUrn } from '../../EntityContext';
+import analytics, { EventType, DocRequestView } from '../../../../analytics';
 
 export const PromptWrapper = styled.div`
     background-color: white;
@@ -37,6 +38,13 @@ export default function Prompt({ promptNumber, prompt, field, associatedUrn }: P
                 onSuccess();
                 setOptimisticCompletedTimestamp(Date.now());
                 refetch();
+                analytics.event({
+                    type: EventType.CompleteDocRequestPrompt,
+                    source: DocRequestView.ByAsset,
+                    required: prompt.required,
+                    promptId: prompt.id,
+                    numAssets: 1,
+                });
             })
             .catch(() => {
                 message.error('Unknown error while submitting form response');

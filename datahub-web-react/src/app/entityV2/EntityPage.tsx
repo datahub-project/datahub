@@ -3,7 +3,6 @@ import { useParams } from 'react-router-dom';
 import { EntityType } from '../../types.generated';
 import { BrowsableEntityPage } from '../browse/BrowsableEntityPage';
 import LineageExplorer from '../lineage/LineageExplorer';
-import LineageExplorerV2 from '../lineageV2/LineageExplorer';
 import useIsLineageMode from '../lineage/utils/useIsLineageMode';
 import { useLineageV2 } from '../lineageV2/useLineageV2';
 import { useEntityRegistry } from '../useEntityRegistry';
@@ -106,8 +105,7 @@ export const EntityPage = ({ entityType }: Props) => {
                                 lineageSupported={isLineageSupported}
                             >
                                 {showLineage && !isLineageV2 && <LineageExplorer type={entityType} urn={urn} />}
-                                {showLineage && isLineageV2 && <LineageExplorerV2 urn={urn} type={entityType} />}
-                                {!showLineage && entityRegistry.renderProfile(entityType, urn)}
+                                {(!showLineage || isLineageV2) && entityRegistry.renderProfile(entityType, urn)}
                             </BrowsableEntityPage>
                         )}
                     </TabFullSizedContext.Provider>

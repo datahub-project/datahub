@@ -69,9 +69,7 @@ export const Proposals = () => {
         ]) ||
         [];
 
-    const onClickTab = (newRequestGroup: string) => {
-        setActionRequestGroupName(newRequestGroup);
-    };
+    const onClickTab = (newRequestGroup: string) => setActionRequestGroupName(newRequestGroup);
 
     const filteredActionRequestGroups = actionRequestGroups.filter((group) => group.name === actionRequestGroupName);
     const activeActionRequestGroup = filteredActionRequestGroups.length > 0 && filteredActionRequestGroups[0];

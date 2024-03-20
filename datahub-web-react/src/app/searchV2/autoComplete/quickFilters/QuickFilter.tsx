@@ -1,12 +1,14 @@
 import { Button } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
+import { useHistory } from 'react-router';
 import { useQuickFiltersContext } from '../../../../providers/QuickFiltersContext';
 import { QuickFilter as QuickFilterType } from '../../../../types.generated';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { getQuickFilterDetails } from './utils';
 import { ANTD_GRAY } from '../../../entity/shared/constants';
 import analytics, { Event, EventType } from '../../../analytics';
+import { navigateToSearchUrl } from '../../utils/navigateToSearchUrl';
 
 const QuickFilterWrapper = styled(Button)<{ selected: boolean }>`
     border: 1px solid ${ANTD_GRAY[4]};
@@ -42,10 +44,12 @@ const LabelWrapper = styled.span`
 
 interface Props {
     quickFilter: QuickFilterType;
+    searchQuery?: string;
 }
 
-export default function QuickFilter({ quickFilter }: Props) {
+export default function QuickFilter({ quickFilter, searchQuery }: Props) {
     const entityRegistry = useEntityRegistry();
+    const history = useHistory();
     const { selectedQuickFilter, setSelectedQuickFilter } = useQuickFiltersContext();
 
     const isSelected = selectedQuickFilter?.value === quickFilter.value;
@@ -66,6 +70,17 @@ export default function QuickFilter({ quickFilter }: Props) {
         } else {
             setSelectedQuickFilter(quickFilter);
             emitTrackingEvent(true);
+
+            navigateToSearchUrl({
+                query: searchQuery || '*',
+                filters: [
+                    {
+                        field: quickFilter.field,
+                        values: [quickFilter.value],
+                    },
+                ],
+                history,
+            });
         }
     }
 
