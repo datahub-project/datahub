@@ -1,9 +1,9 @@
-import { isEqual } from 'lodash';
+import {isEqual} from 'lodash';
 import queryString from 'query-string';
-import { useEffect } from 'react';
-import { useLocation } from 'react-router';
-import { EntityRegistry } from '../../../../../entityRegistryContext';
-import { EntityType } from '../../../../../types.generated';
+import {useEffect} from 'react';
+import {useLocation} from 'react-router';
+import {EntityRegistry} from '../../../../../entityRegistryContext';
+import {EntityType} from '../../../../../types.generated';
 import useIsLineageMode from '../../../../lineage/utils/useIsLineageMode';
 import {
     ENTITY_PROFILE_DOCUMENTATION_ID,
@@ -13,16 +13,16 @@ import {
     ENTITY_PROFILE_LINEAGE_ID,
     ENTITY_PROFILE_OWNERS_ID,
     ENTITY_PROFILE_PROPERTIES_ID,
-    ENTITY_PROFILE_SCHEMA_ID,
     ENTITY_PROFILE_SUBSCRIPTION_ID,
     ENTITY_PROFILE_TAGS_ID,
 } from '../../../../onboarding/config/EntityProfileOnboardingConfig';
+import {ENTITY_PROFILE_V2_COLUMNS_ID} from '../../../../onboarding/configV2/EntityProfileOnboardingConfig';
 import usePrevious from '../../../../shared/usePrevious';
-import { useEntityRegistry } from '../../../../useEntityRegistry';
-import { GLOSSARY_ENTITY_TYPES } from '../../constants';
-import { useGlossaryEntityData } from '../../GlossaryEntityContext';
-import { SEPARATE_SIBLINGS_URL_PARAM, useIsSeparateSiblingsMode } from '../../siblingUtils';
-import { EntityTab, GenericEntityProperties } from '../../types';
+import {useEntityRegistry} from '../../../../useEntityRegistry';
+import {GLOSSARY_ENTITY_TYPES} from '../../constants';
+import {useGlossaryEntityData} from '../../GlossaryEntityContext';
+import {SEPARATE_SIBLINGS_URL_PARAM, useIsSeparateSiblingsMode} from '../../siblingUtils';
+import {EntityTab, GenericEntityProperties} from '../../types';
 
 /**
  * The structure of our path will be
@@ -207,7 +207,7 @@ export function getOnboardingStepIdsForEntityType(entityType: EntityType): strin
             ];
         case EntityType.Dataset:
             return [
-                ENTITY_PROFILE_SCHEMA_ID,
+                ENTITY_PROFILE_V2_COLUMNS_ID,
                 ENTITY_PROFILE_DOCUMENTATION_ID,
                 ENTITY_PROFILE_LINEAGE_ID,
                 ENTITY_PROFILE_PROPERTIES_ID,

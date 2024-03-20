@@ -1,13 +1,13 @@
 import React, { useEffect } from 'react';
 import styled from 'styled-components';
 import analytics, { EventType } from '../analytics';
+import { V2_SEARCH_BAR_ID } from '../onboarding/configV2/HomePageOnboardingConfig';
 import { OnboardingTour } from '../onboarding/OnboardingTour';
 import {
     GLOBAL_WELCOME_TO_DATAHUB_ID,
     HOME_PAGE_INGESTION_ID,
     HOME_PAGE_DOMAINS_ID,
     HOME_PAGE_PLATFORMS_ID,
-    HOME_PAGE_SEARCH_BAR_ID,
 } from '../onboarding/config/HomePageOnboardingConfig';
 import { LeftSidebar } from './layout/LeftSidebar';
 import { CenterContent } from './layout/CenterContent';
@@ -35,7 +35,7 @@ export const HomePage = () => {
                     HOME_PAGE_INGESTION_ID,
                     HOME_PAGE_DOMAINS_ID,
                     HOME_PAGE_PLATFORMS_ID,
-                    HOME_PAGE_SEARCH_BAR_ID,
+                    V2_SEARCH_BAR_ID,
                 ]}
             />
             <SearchablePage>
