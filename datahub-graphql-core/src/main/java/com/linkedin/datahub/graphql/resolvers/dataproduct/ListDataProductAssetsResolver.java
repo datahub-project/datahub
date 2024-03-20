@@ -12,9 +12,9 @@ import com.linkedin.datahub.graphql.generated.DataProduct;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.SearchAcrossEntitiesInput;
 import com.linkedin.datahub.graphql.generated.SearchResults;
-import com.linkedin.datahub.graphql.resolvers.EntityTypeMapper;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
 import com.linkedin.datahub.graphql.types.common.mappers.SearchFlagsInputMapper;
+import com.linkedin.datahub.graphql.types.entitytype.EntityTypeMapper;
 import com.linkedin.datahub.graphql.types.mappers.UrnSearchResultsMapper;
 import com.linkedin.dataproduct.DataProductAssociation;
 import com.linkedin.dataproduct.DataProductProperties;
@@ -134,10 +134,12 @@ public class ListDataProductAssetsResolver
               ResolverUtils.buildFilter(input.getFilters(), input.getOrFilters());
           final Filter finalFilter = buildFilterWithUrns(new HashSet<>(assetUrns), baseFilter);
 
-          SearchFlags searchFlags = null;
+          final SearchFlags searchFlags;
           com.linkedin.datahub.graphql.generated.SearchFlags inputFlags = input.getSearchFlags();
           if (inputFlags != null) {
             searchFlags = SearchFlagsInputMapper.INSTANCE.apply(inputFlags);
+          } else {
+            searchFlags = null;
           }
 
           try {
@@ -151,14 +153,15 @@ public class ListDataProductAssetsResolver
 
             return UrnSearchResultsMapper.map(
                 _entityClient.searchAcrossEntities(
+                    context
+                        .getOperationContext()
+                        .withSearchFlags(flags -> searchFlags != null ? searchFlags : flags),
                     finalEntityNames,
                     sanitizedQuery,
                     finalFilter,
                     start,
                     count,
-                    searchFlags,
-                    null,
-                    ResolverUtils.getAuthentication(environment)));
+                    null));
           } catch (Exception e) {
             log.error(
                 "Failed to execute search for data product assets: entity types {}, query {}, filters: {}, start: {}, count: {}",

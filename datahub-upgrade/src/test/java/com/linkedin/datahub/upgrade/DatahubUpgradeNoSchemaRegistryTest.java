@@ -4,6 +4,8 @@ import static org.testng.AssertJUnit.assertEquals;
 import static org.testng.AssertJUnit.assertNotNull;
 
 import com.linkedin.datahub.upgrade.system.SystemUpdate;
+import com.linkedin.metadata.dao.producer.KafkaEventProducer;
+import com.linkedin.metadata.entity.EntityServiceImpl;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -19,17 +21,35 @@ import org.testng.annotations.Test;
     classes = {UpgradeCliApplication.class, UpgradeCliApplicationTestConfiguration.class},
     properties = {
       "kafka.schemaRegistry.type=INTERNAL",
-      "DATAHUB_UPGRADE_HISTORY_TOPIC_NAME=test_due_topic"
-    })
+      "DATAHUB_UPGRADE_HISTORY_TOPIC_NAME=test_due_topic",
+      "METADATA_CHANGE_LOG_VERSIONED_TOPIC_NAME=test_mcl_versioned_topic"
+    },
+    args = {"-u", "SystemUpdate"})
 public class DatahubUpgradeNoSchemaRegistryTest extends AbstractTestNGSpringContextTests {
 
   @Autowired
   @Named("systemUpdate")
   private SystemUpdate systemUpdate;
 
+  @Autowired
+  @Named("kafkaEventProducer")
+  private KafkaEventProducer kafkaEventProducer;
+
+  @Autowired
+  @Named("duheKafkaEventProducer")
+  private KafkaEventProducer duheKafkaEventProducer;
+
+  @Autowired private EntityServiceImpl entityService;
+
   @Test
   public void testSystemUpdateInit() {
     assertNotNull(systemUpdate);
+  }
+
+  @Test
+  public void testSystemUpdateKafkaProducerOverride() {
+    assertEquals(kafkaEventProducer, duheKafkaEventProducer);
+    assertEquals(entityService.getProducer(), duheKafkaEventProducer);
   }
 
   @Test

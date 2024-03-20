@@ -40,7 +40,6 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.query.AutoCompleteResult;
-import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.mxe.MetadataChangeProposal;
@@ -76,7 +75,9 @@ public class DataFlowType
           DEPRECATION_ASPECT_NAME,
           DATA_PLATFORM_INSTANCE_ASPECT_NAME,
           DATA_PRODUCTS_ASPECT_NAME,
-          BROWSE_PATHS_V2_ASPECT_NAME);
+          BROWSE_PATHS_V2_ASPECT_NAME,
+          STRUCTURED_PROPERTIES_ASPECT_NAME,
+          FORMS_ASPECT_NAME);
   private static final Set<String> FACET_FIELDS = ImmutableSet.of("orchestrator", "cluster");
   private final EntityClient _entityClient;
 
@@ -145,13 +146,12 @@ public class DataFlowType
     final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
     final SearchResult searchResult =
         _entityClient.search(
+            context.getOperationContext().withSearchFlags(flags -> flags.setFulltext(true)),
             "dataFlow",
             query,
             facetFilters,
             start,
-            count,
-            context.getAuthentication(),
-            new SearchFlags().setFulltext(true));
+            count);
     return UrnSearchResultsMapper.map(searchResult);
   }
 
@@ -164,7 +164,8 @@ public class DataFlowType
       @Nonnull final QueryContext context)
       throws Exception {
     final AutoCompleteResult result =
-        _entityClient.autoComplete("dataFlow", query, filters, limit, context.getAuthentication());
+        _entityClient.autoComplete(
+            context.getOperationContext(), "dataFlow", query, filters, limit);
     return AutoCompleteResultsMapper.map(result);
   }
 
@@ -181,7 +182,12 @@ public class DataFlowType
         path.size() > 0 ? BROWSE_PATH_DELIMITER + String.join(BROWSE_PATH_DELIMITER, path) : "";
     final BrowseResult result =
         _entityClient.browse(
-            "dataFlow", pathStr, facetFilters, start, count, context.getAuthentication());
+            context.getOperationContext().withSearchFlags(flags -> flags.setFulltext(false)),
+            "dataFlow",
+            pathStr,
+            facetFilters,
+            start,
+            count);
     return BrowseResultMapper.map(result);
   }
 

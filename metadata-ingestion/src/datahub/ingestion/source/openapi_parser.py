@@ -54,12 +54,10 @@ def request_call(
     proxies: Optional[dict] = None,
 ) -> requests.Response:
     headers = {"accept": "application/json"}
-
     if username is not None and password is not None:
         return requests.get(
             url, headers=headers, auth=HTTPBasicAuth(username, password)
         )
-
     elif token is not None:
         headers["Authorization"] = f"{token}"
         return requests.get(url, proxies=proxies, headers=headers)
@@ -76,12 +74,9 @@ def get_swag_json(
     proxies: Optional[dict] = None,
 ) -> Dict:
     tot_url = url + swagger_file
-    if token is not None:
-        response = request_call(url=tot_url, token=token, proxies=proxies)
-    else:
-        response = request_call(
-            url=tot_url, username=username, password=password, proxies=proxies
-        )
+    response = request_call(
+        url=tot_url, token=token, username=username, password=password, proxies=proxies
+    )
 
     if response.status_code != 200:
         raise Exception(f"Unable to retrieve {tot_url}, error {response.status_code}")
@@ -111,8 +106,8 @@ def check_sw_version(sw_dict: dict) -> None:
     version = [int(v) for v in v_split]
 
     if version[0] == 3 and version[1] > 0:
-        raise NotImplementedError(
-            "This plugin is not compatible with Swagger version >3.0"
+        logger.warning(
+            "This plugin has not been fully tested with Swagger version >3.0"
         )
 
 

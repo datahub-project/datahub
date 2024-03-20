@@ -3,21 +3,22 @@ package com.linkedin.metadata.entity.ebean.batch;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.metadata.aspect.AspectRetriever;
+import com.linkedin.metadata.aspect.SystemAspect;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.aspect.batch.BatchItem;
-import com.linkedin.metadata.aspect.batch.SystemAspect;
-import com.linkedin.metadata.aspect.batch.UpsertItem;
-import com.linkedin.metadata.aspect.plugins.validation.AspectRetriever;
-import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.aspect.batch.ChangeMCP;
+import com.linkedin.metadata.aspect.plugins.validation.ValidationExceptionCollection;
 import com.linkedin.mxe.MetadataChangeProposal;
-import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.util.Pair;
+import java.util.Collection;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
+import javax.annotation.Nonnull;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
@@ -27,23 +28,22 @@ import lombok.extern.slf4j.Slf4j;
 @Builder(toBuilder = true)
 public class AspectsBatchImpl implements AspectsBatch {
 
-  private final List<? extends BatchItem> items;
+  @Nonnull private final Collection<? extends BatchItem> items;
+  @Nonnull private final AspectRetriever aspectRetriever;
 
   /**
    * Convert patches to upserts, apply hooks at the aspect and batch level.
    *
    * @param latestAspects latest version in the database
-   * @param entityRegistry entity registry
    * @return The new urn/aspectnames and the uniform upserts, possibly expanded/mutated by the
    *     various hooks
    */
   @Override
-  public Pair<Map<String, Set<String>>, List<UpsertItem>> toUpsertBatchItems(
-      final Map<String, Map<String, SystemAspect>> latestAspects,
-      EntityRegistry entityRegistry,
-      AspectRetriever aspectRetriever) {
+  public Pair<Map<String, Set<String>>, List<ChangeMCP>> toUpsertBatchItems(
+      final Map<String, Map<String, SystemAspect>> latestAspects) {
 
-    LinkedList<UpsertItem> upsertBatchItems =
+    // Convert patches to upserts if needed
+    LinkedList<ChangeMCP> upsertBatchItems =
         items.stream()
             .map(
                 item -> {
@@ -52,33 +52,29 @@ public class AspectsBatchImpl implements AspectsBatch {
                   final SystemAspect latest =
                       latestAspects.getOrDefault(urnStr, Map.of()).get(item.getAspectName());
 
-                  final MCPUpsertBatchItem upsertItem;
-                  if (item instanceof MCPUpsertBatchItem) {
-                    upsertItem = (MCPUpsertBatchItem) item;
+                  final ChangeItemImpl upsertItem;
+                  if (item instanceof ChangeItemImpl) {
+                    upsertItem = (ChangeItemImpl) item;
                   } else {
                     // patch to upsert
-                    MCPPatchBatchItem patchBatchItem = (MCPPatchBatchItem) item;
+                    PatchItemImpl patchBatchItem = (PatchItemImpl) item;
                     final RecordTemplate currentValue =
-                        latest != null ? latest.getRecordTemplate(entityRegistry) : null;
-                    upsertItem =
-                        patchBatchItem.applyPatch(entityRegistry, currentValue, aspectRetriever);
+                        latest != null ? latest.getRecordTemplate() : null;
+                    upsertItem = patchBatchItem.applyPatch(currentValue, aspectRetriever);
                   }
 
-                  // Apply hooks
-                  final SystemMetadata oldSystemMetadata =
-                      latest != null ? latest.getSystemMetadata() : null;
-                  final RecordTemplate oldAspectValue =
-                      latest != null ? latest.getRecordTemplate(entityRegistry) : null;
-                  upsertItem.applyMutationHooks(
-                      oldAspectValue, oldSystemMetadata, entityRegistry, aspectRetriever);
+                  // Populate old aspect for write hooks
+                  upsertItem.setPreviousSystemAspect(latest);
 
                   return upsertItem;
                 })
             .collect(Collectors.toCollection(LinkedList::new));
 
-    LinkedList<UpsertItem> newItems =
-        applyMCPSideEffects(upsertBatchItems, entityRegistry, aspectRetriever)
-            .collect(Collectors.toCollection(LinkedList::new));
+    // Apply write hooks before side effects
+    applyWriteMutationHooks(upsertBatchItems);
+
+    LinkedList<ChangeMCP> newItems =
+        applyMCPSideEffects(upsertBatchItems).collect(Collectors.toCollection(LinkedList::new));
     Map<String, Set<String>> newUrnAspectNames = getNewUrnAspectsMap(getUrnAspectsMap(), newItems);
     upsertBatchItems.addAll(newItems);
 
@@ -92,30 +88,40 @@ public class AspectsBatchImpl implements AspectsBatch {
      * @param data aspect data
      * @return builder
      */
-    public AspectsBatchImplBuilder one(BatchItem data) {
-      this.items = List.of(data);
+    public AspectsBatchImplBuilder one(BatchItem data, AspectRetriever aspectRetriever) {
+      aspectRetriever(aspectRetriever);
+      items(List.of(data));
       return this;
     }
 
     public AspectsBatchImplBuilder mcps(
-        List<MetadataChangeProposal> mcps,
-        AuditStamp auditStamp,
-        EntityRegistry entityRegistry,
-        AspectRetriever aspectRetriever) {
-      this.items =
+        List<MetadataChangeProposal> mcps, AuditStamp auditStamp, AspectRetriever aspectRetriever) {
+
+      aspectRetriever(aspectRetriever);
+      items(
           mcps.stream()
               .map(
                   mcp -> {
                     if (mcp.getChangeType().equals(ChangeType.PATCH)) {
-                      return MCPPatchBatchItem.MCPPatchBatchItemBuilder.build(
-                          mcp, auditStamp, entityRegistry);
+                      return PatchItemImpl.PatchItemImplBuilder.build(
+                          mcp, auditStamp, aspectRetriever.getEntityRegistry());
                     } else {
-                      return MCPUpsertBatchItem.MCPUpsertBatchItemBuilder.build(
-                          mcp, auditStamp, entityRegistry, aspectRetriever);
+                      return ChangeItemImpl.ChangeItemImplBuilder.build(
+                          mcp, auditStamp, aspectRetriever);
                     }
                   })
-              .collect(Collectors.toList());
+              .collect(Collectors.toList()));
       return this;
+    }
+
+    public AspectsBatchImpl build() {
+      ValidationExceptionCollection exceptions =
+          AspectsBatch.validateProposed(this.items, this.aspectRetriever);
+      if (!exceptions.isEmpty()) {
+        throw new IllegalArgumentException("Failed to validate MCP due to: " + exceptions);
+      }
+
+      return new AspectsBatchImpl(this.items, this.aspectRetriever);
     }
   }
 

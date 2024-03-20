@@ -25,6 +25,11 @@ def get_operation_defs() -> Dict[str, Any]:
             "operation": "add_owner",
             "config": {"owner_type": "user"},
         },
+        "multi_user": {
+            "match": ".*",
+            "operation": "add_owner",
+            "config": {"owner_type": "user"},
+        },
         "group.owner": {
             "match": ".*",
             "operation": "add_owner",
@@ -78,6 +83,7 @@ def test_operation_processor_not_matching():
 def test_operation_processor_matching():
     raw_props = {
         "user_owner": "test_user@abc.com",
+        "multi_user": "sales_member1@abc.com, sales_member2@abc.com",
         "user_owner_2": "test_user_2",
         "group.owner": "test.group@abc.co.in",
         "governance.team_owner": "Finance",
@@ -86,6 +92,7 @@ def test_operation_processor_matching():
         "double_property": 2.5,
         "tag": "Finance",
     }
+
     processor = OperationProcessor(
         operation_defs=get_operation_defs(),
         owner_source_type="SOURCE_CONTROL",
@@ -116,11 +123,13 @@ def test_operation_processor_matching():
     )
 
     ownership_aspect: OwnershipClass = aspect_map["add_owner"]
-    assert len(ownership_aspect.owners) == 3
+    assert len(ownership_aspect.owners) == 5
     owner_set = {
         "urn:li:corpuser:test_user",
         "urn:li:corpuser:test_user_2",
         "urn:li:corpGroup:test.group",
+        "urn:li:corpuser:sales_member1",
+        "urn:li:corpuser:sales_member2",
     }
     for single_owner in ownership_aspect.owners:
         assert single_owner.owner in owner_set

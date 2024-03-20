@@ -6,6 +6,10 @@ import com.linkedin.datahub.graphql.exception.DataHubDataFetcherExceptionHandler
 import graphql.ExecutionInput;
 import graphql.ExecutionResult;
 import graphql.GraphQL;
+import graphql.analysis.MaxQueryComplexityInstrumentation;
+import graphql.analysis.MaxQueryDepthInstrumentation;
+import graphql.execution.instrumentation.ChainedInstrumentation;
+import graphql.execution.instrumentation.Instrumentation;
 import graphql.execution.instrumentation.tracing.TracingInstrumentation;
 import graphql.schema.GraphQLSchema;
 import graphql.schema.idl.RuntimeWiring;
@@ -38,11 +42,17 @@ public class GraphQLEngine {
 
   private final GraphQL _graphQL;
   private final Map<String, Function<QueryContext, DataLoader<?, ?>>> _dataLoaderSuppliers;
+  private final int graphQLQueryComplexityLimit;
+  private final int graphQLQueryDepthLimit;
 
   private GraphQLEngine(
       @Nonnull final List<String> schemas,
       @Nonnull final RuntimeWiring runtimeWiring,
-      @Nonnull final Map<String, Function<QueryContext, DataLoader<?, ?>>> dataLoaderSuppliers) {
+      @Nonnull final Map<String, Function<QueryContext, DataLoader<?, ?>>> dataLoaderSuppliers,
+      @Nonnull final int graphQLQueryComplexityLimit,
+      @Nonnull final int graphQLQueryDepthLimit) {
+    this.graphQLQueryComplexityLimit = graphQLQueryComplexityLimit;
+    this.graphQLQueryDepthLimit = graphQLQueryDepthLimit;
 
     _dataLoaderSuppliers = dataLoaderSuppliers;
 
@@ -63,10 +73,15 @@ public class GraphQLEngine {
     /*
      * Instantiate engine
      */
+    List<Instrumentation> instrumentations = new ArrayList<>(3);
+    instrumentations.add(new TracingInstrumentation());
+    instrumentations.add(new MaxQueryDepthInstrumentation(graphQLQueryDepthLimit));
+    instrumentations.add(new MaxQueryComplexityInstrumentation(graphQLQueryComplexityLimit));
+    ChainedInstrumentation chainedInstrumentation = new ChainedInstrumentation(instrumentations);
     _graphQL =
         new GraphQL.Builder(graphQLSchema)
             .defaultDataFetcherExceptionHandler(new DataHubDataFetcherExceptionHandler())
-            .instrumentation(new TracingInstrumentation())
+            .instrumentation(chainedInstrumentation)
             .build();
   }
 
@@ -111,6 +126,8 @@ public class GraphQLEngine {
     private final Map<String, Function<QueryContext, DataLoader<?, ?>>> _loaderSuppliers =
         new HashMap<>();
     private final RuntimeWiring.Builder _runtimeWiringBuilder = newRuntimeWiring();
+    private int graphQLQueryComplexityLimit = 2000;
+    private int graphQLQueryDepthLimit = 50;
 
     /**
      * Used to add a schema file containing the GQL types resolved by the engine.
@@ -162,9 +179,24 @@ public class GraphQLEngine {
       return this;
     }
 
+    public Builder setGraphQLQueryComplexityLimit(final int queryComplexityLimit) {
+      this.graphQLQueryComplexityLimit = queryComplexityLimit;
+      return this;
+    }
+
+    public Builder setGraphQLQueryDepthLimit(final int queryDepthLimit) {
+      this.graphQLQueryDepthLimit = queryDepthLimit;
+      return this;
+    }
+
     /** Builds a {@link GraphQLEngine}. */
     public GraphQLEngine build() {
-      return new GraphQLEngine(_schemas, _runtimeWiringBuilder.build(), _loaderSuppliers);
+      return new GraphQLEngine(
+          _schemas,
+          _runtimeWiringBuilder.build(),
+          _loaderSuppliers,
+          graphQLQueryComplexityLimit,
+          graphQLQueryDepthLimit);
     }
   }
 

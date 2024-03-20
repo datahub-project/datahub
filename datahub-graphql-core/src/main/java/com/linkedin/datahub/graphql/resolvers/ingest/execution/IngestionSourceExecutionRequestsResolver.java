@@ -67,6 +67,7 @@ public class IngestionSourceExecutionRequestsResolver
 
             final SearchResult executionsSearchResult =
                 _entityClient.filter(
+                    context.getOperationContext(),
                     Constants.EXECUTION_REQUEST_ENTITY_NAME,
                     new Filter()
                         .setOr(
@@ -78,8 +79,7 @@ public class IngestionSourceExecutionRequestsResolver
                         .setField(REQUEST_TIME_MS_FIELD_NAME)
                         .setOrder(SortOrder.DESCENDING),
                     start,
-                    count,
-                    context.getAuthentication());
+                    count);
 
             // 2. Batch fetch the related ExecutionRequests
             final Set<Urn> relatedExecRequests =

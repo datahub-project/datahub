@@ -207,6 +207,46 @@ class Urn:
         # safe='' encodes '/' as '%2F'
         return urllib.parse.quote(urn, safe="")
 
+    @staticmethod
+    def make_data_type_urn(type: str) -> str:
+        if type.startswith("urn:li:dataType:"):
+            return type
+        else:
+            if not type.startswith("datahub."):
+                # we want all data types to be fully qualified within the datahub namespace
+                type = f"datahub.{type}"
+            return f"urn:li:dataType:{type}"
+
+    @staticmethod
+    def get_data_type_from_urn(urn: str) -> str:
+        if urn.startswith("urn:li:dataType:"):
+            # urn is formatted like urn:li:dataType:datahub:{dataType}, so extract dataType by
+            # parsing by . and getting the last element
+            return urn.split(".")[-1]
+        return urn
+
+    @staticmethod
+    def make_entity_type_urn(entity_type: str) -> str:
+        if entity_type.startswith("urn:li:entityType:"):
+            return entity_type
+        else:
+            if not entity_type.startswith("datahub."):
+                # we want all entity types to be fully qualified within the datahub namespace
+                entity_type = f"datahub.{entity_type}"
+            return f"urn:li:entityType:{entity_type}"
+
+    @staticmethod
+    def make_structured_property_urn(structured_property: str) -> str:
+        if not structured_property.startswith("urn:li:structuredProperty:"):
+            return f"urn:li:structuredProperty:{structured_property}"
+        return structured_property
+
+    @staticmethod
+    def make_form_urn(form: str) -> str:
+        if not form.startswith("urn:li:form:"):
+            return f"urn:li:form:{form}"
+        return form
+
 
 class _SpecificUrn(Urn):
     ENTITY_TYPE: str = ""

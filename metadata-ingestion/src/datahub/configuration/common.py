@@ -302,15 +302,3 @@ class KeyValuePattern(ConfigModel):
 
 class VersionedConfig(ConfigModel):
     version: str = "1"
-
-
-class LineageConfig(ConfigModel):
-    incremental_lineage: bool = Field(
-        default=False,
-        description="When enabled, emits lineage as incremental to existing lineage already in DataHub. When disabled, re-states lineage on each run.",
-    )
-
-    sql_parser_use_external_process: bool = Field(
-        default=False,
-        description="When enabled, sql parser will run in isolated in a separate process. This can affect processing time but can protect from sql parser's mem leak.",
-    )

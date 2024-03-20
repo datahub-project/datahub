@@ -10,6 +10,9 @@ from pydantic import Field, PositiveInt, PrivateAttr, root_validator, validator
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.configuration.validate_field_removal import pydantic_removed_field
+from datahub.ingestion.glossary.classification_mixin import (
+    ClassificationSourceConfigMixin,
+)
 from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulLineageConfigMixin,
@@ -64,9 +67,9 @@ class BigQueryConnectionConfig(ConfigModel):
             )
             os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = self._credentials_path
 
-    def get_bigquery_client(config) -> bigquery.Client:
-        client_options = config.extra_client_options
-        return bigquery.Client(config.project_on_behalf, **client_options)
+    def get_bigquery_client(self) -> bigquery.Client:
+        client_options = self.extra_client_options
+        return bigquery.Client(self.project_on_behalf, **client_options)
 
     def make_gcp_logging_client(
         self, project_id: Optional[str] = None
@@ -96,6 +99,7 @@ class BigQueryV2Config(
     StatefulUsageConfigMixin,
     StatefulLineageConfigMixin,
     StatefulProfilingConfigMixin,
+    ClassificationSourceConfigMixin,
 ):
     project_id_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
@@ -146,6 +150,15 @@ class BigQueryV2Config(
         description="Whether to create a DataPlatformInstance aspect, equal to the BigQuery project id."
         " If enabled, will cause redundancy in the browse path for BigQuery entities in the UI,"
         " because the project id is represented as the top-level container.",
+    )
+
+    include_table_snapshots: Optional[bool] = Field(
+        default=True, description="Whether table snapshots should be ingested."
+    )
+
+    table_snapshot_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Regex patterns for table snapshots to filter in ingestion. Specify regex to match the entire snapshot name in database.schema.snapshot format. e.g. to match all snapshots starting with customer in Customer database and public schema, use the regex 'Customer.public.customer.*'",
     )
 
     debug_include_full_payloads: bool = Field(

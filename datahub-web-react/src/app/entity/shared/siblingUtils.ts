@@ -117,6 +117,9 @@ const customMerge = (isPrimary, key) => {
     if (key === 'platform' || key === 'siblings') {
         return (secondary, primary) => (isPrimary ? primary : secondary);
     }
+    if (key === 'forms') {
+        return (_secondary, primary) => primary;
+    }
     if (
         key === 'tags' ||
         key === 'terms' ||

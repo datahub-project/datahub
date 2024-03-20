@@ -48,6 +48,7 @@ export enum EventType {
     CreateResetCredentialsLinkEvent,
     DeleteEntityEvent,
     SelectUserRoleEvent,
+    SelectGroupRoleEvent,
     BatchSelectUserRoleEvent,
     CreatePolicyEvent,
     UpdatePolicyEvent,
@@ -302,6 +303,8 @@ export const EntityActionType = {
     UpdateSchemaTags: 'UpdateSchemaTags',
     UpdateSchemaTerms: 'UpdateSchemaTerms',
     ClickExternalUrl: 'ClickExternalUrl',
+    AddIncident: 'AddIncident',
+    ResolvedIncident: 'ResolvedIncident',
 };
 export interface EntityActionEvent extends BaseEvent {
     type: EventType.EntityActionEvent;
@@ -410,6 +413,12 @@ export interface SelectUserRoleEvent extends BaseEvent {
     type: EventType.SelectUserRoleEvent;
     roleUrn: string;
     userUrn: string;
+}
+
+export interface SelectGroupRoleEvent extends BaseEvent {
+    type: EventType.SelectGroupRoleEvent;
+    roleUrn: string;
+    groupUrn?: string;
 }
 
 export interface BatchSelectUserRoleEvent extends BaseEvent {
@@ -668,6 +677,7 @@ export type Event =
     | CreateResetCredentialsLinkEvent
     | DeleteEntityEvent
     | SelectUserRoleEvent
+    | SelectGroupRoleEvent
     | BatchSelectUserRoleEvent
     | CreatePolicyEvent
     | UpdatePolicyEvent

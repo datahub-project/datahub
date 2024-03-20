@@ -1,3 +1,4 @@
+import contextlib
 import enum
 import functools
 import json
@@ -7,7 +8,18 @@ import time
 from dataclasses import dataclass
 from datetime import datetime
 from json.decoder import JSONDecodeError
-from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Tuple, Type
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Dict,
+    Iterable,
+    Iterator,
+    List,
+    Optional,
+    Tuple,
+    Type,
+    Union,
+)
 
 from avro.schema import RecordSchema
 from deprecated import deprecated
@@ -26,6 +38,10 @@ from datahub.ingestion.graph.filters import (
     generate_filter,
 )
 from datahub.ingestion.source.state.checkpoint import Checkpoint
+from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
+    MetadataChangeEvent,
+    MetadataChangeProposal,
+)
 from datahub.metadata.schema_classes import (
     ASPECT_NAME_MAP,
     KEY_ASPECTS,
@@ -47,17 +63,20 @@ from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.urns.urn import Urn, guess_entity_type
 
 if TYPE_CHECKING:
+    from datahub.ingestion.sink.datahub_rest import DatahubRestSink
     from datahub.ingestion.source.state.entity_removal_state import (
         GenericCheckpointState,
     )
-    from datahub.utilities.sqlglot_lineage import (
+    from datahub.sql_parsing.schema_resolver import (
         GraphQLSchemaMetadata,
         SchemaResolver,
-        SqlParsingResult,
     )
+    from datahub.sql_parsing.sqlglot_lineage import SqlParsingResult
 
 
 logger = logging.getLogger(__name__)
+_MISSING_SERVER_ID = "missing"
+_GRAPH_DUMMY_RUN_ID = "__datahub-graph-client"
 
 
 class DatahubClientConfig(ConfigModel):
@@ -83,6 +102,7 @@ DataHubGraphConfig = DatahubClientConfig
 class RelatedEntity:
     urn: str
     relationship_type: str
+    via: Optional[str] = None
 
 
 def _graphql_entity_type(entity_type: str) -> str:
@@ -121,21 +141,25 @@ class DataHubGraph(DatahubRestEmitter):
             client_certificate_path=self.config.client_certificate_path,
             disable_ssl_verification=self.config.disable_ssl_verification,
         )
-        self.test_connection()
+
+        self.server_id = _MISSING_SERVER_ID
+
+    def test_connection(self) -> None:
+        super().test_connection()
 
         # Cache the server id for telemetry.
         from datahub.telemetry.telemetry import telemetry_instance
 
         if not telemetry_instance.enabled:
-            self.server_id = "missing"
+            self.server_id = _MISSING_SERVER_ID
             return
         try:
             client_id: Optional[TelemetryClientIdClass] = self.get_aspect(
                 "urn:li:telemetry:clientId", TelemetryClientIdClass
             )
-            self.server_id = client_id.clientId if client_id else "missing"
+            self.server_id = client_id.clientId if client_id else _MISSING_SERVER_ID
         except Exception as e:
-            self.server_id = "missing"
+            self.server_id = _MISSING_SERVER_ID
             logger.debug(f"Failed to get server id due to {e}")
 
     @classmethod
@@ -177,6 +201,56 @@ class DataHubGraph(DatahubRestEmitter):
 
     def _post_generic(self, url: str, payload_dict: Dict) -> Dict:
         return self._send_restli_request("POST", url, json=payload_dict)
+
+    @contextlib.contextmanager
+    def make_rest_sink(
+        self, run_id: str = _GRAPH_DUMMY_RUN_ID
+    ) -> Iterator["DatahubRestSink"]:
+        from datahub.ingestion.api.common import PipelineContext
+        from datahub.ingestion.sink.datahub_rest import (
+            DatahubRestSink,
+            DatahubRestSinkConfig,
+            SyncOrAsync,
+        )
+
+        # This is a bit convoluted - this DataHubGraph class is a subclass of DatahubRestEmitter,
+        # but initializing the rest sink creates another rest emitter.
+        # TODO: We should refactor out the multithreading functionality of the sink
+        # into a separate class that can be used by both the sink and the graph client
+        # e.g. a DatahubBulkRestEmitter that both the sink and the graph client use.
+        sink_config = DatahubRestSinkConfig(
+            **self.config.dict(), mode=SyncOrAsync.ASYNC
+        )
+
+        with DatahubRestSink(PipelineContext(run_id=run_id), sink_config) as sink:
+            yield sink
+        if sink.report.failures:
+            raise OperationalError(
+                f"Failed to emit {len(sink.report.failures)} records",
+                info=sink.report.as_obj(),
+            )
+
+    def emit_all(
+        self,
+        items: Iterable[
+            Union[
+                MetadataChangeEvent,
+                MetadataChangeProposal,
+                MetadataChangeProposalWrapper,
+            ]
+        ],
+        run_id: str = _GRAPH_DUMMY_RUN_ID,
+    ) -> None:
+        """Emit all items in the iterable using multiple threads."""
+
+        with self.make_rest_sink(run_id=run_id) as sink:
+            for item in items:
+                sink.emit_async(item)
+        if sink.report.failures:
+            raise OperationalError(
+                f"Failed to emit {len(sink.report.failures)} records",
+                info=sink.report.as_obj(),
+            )
 
     def get_aspect(
         self,
@@ -833,6 +907,7 @@ class DataHubGraph(DatahubRestEmitter):
                 yield RelatedEntity(
                     urn=related_entity["urn"],
                     relationship_type=related_entity["relationshipType"],
+                    via=related_entity.get("via"),
                 )
             done = response.get("count", 0) == 0 or response.get("count", 0) < len(
                 response.get("entities", [])
@@ -840,9 +915,9 @@ class DataHubGraph(DatahubRestEmitter):
             start = start + response.get("count", 0)
 
     def exists(self, entity_urn: str) -> bool:
-        entity_urn_parsed: Urn = Urn.create_from_string(entity_urn)
+        entity_urn_parsed: Urn = Urn.from_string(entity_urn)
         try:
-            key_aspect_class = KEY_ASPECTS.get(entity_urn_parsed.get_type())
+            key_aspect_class = KEY_ASPECTS.get(entity_urn_parsed.entity_type)
             if key_aspect_class:
                 result = self.get_aspect(entity_urn, key_aspect_class)
                 return result is not None
@@ -859,7 +934,7 @@ class DataHubGraph(DatahubRestEmitter):
     def soft_delete_entity(
         self,
         urn: str,
-        run_id: str = "__datahub-graph-client",
+        run_id: str = _GRAPH_DUMMY_RUN_ID,
         deletion_timestamp: Optional[int] = None,
     ) -> None:
         """Soft-delete an entity by urn.
@@ -871,7 +946,7 @@ class DataHubGraph(DatahubRestEmitter):
         assert urn
 
         deletion_timestamp = deletion_timestamp or int(time.time() * 1000)
-        self.emit_mcp(
+        self.emit(
             MetadataChangeProposalWrapper(
                 entityUrn=urn,
                 aspect=StatusClass(removed=True),
@@ -1001,7 +1076,7 @@ class DataHubGraph(DatahubRestEmitter):
         env: str,
         include_graph: bool = True,
     ) -> "SchemaResolver":
-        from datahub.utilities.sqlglot_lineage import SchemaResolver
+        from datahub.sql_parsing.schema_resolver import SchemaResolver
 
         return SchemaResolver(
             platform=platform,
@@ -1053,7 +1128,7 @@ class DataHubGraph(DatahubRestEmitter):
         default_db: Optional[str] = None,
         default_schema: Optional[str] = None,
     ) -> "SqlParsingResult":
-        from datahub.utilities.sqlglot_lineage import sqlglot_lineage
+        from datahub.sql_parsing.sqlglot_lineage import sqlglot_lineage
 
         # Cache the schema resolver to make bulk parsing faster.
         schema_resolver = self._make_schema_resolver(
@@ -1096,4 +1171,6 @@ class DataHubGraph(DatahubRestEmitter):
 
 def get_default_graph() -> DataHubGraph:
     (url, token) = get_url_and_token()
-    return DataHubGraph(DatahubClientConfig(server=url, token=token))
+    graph = DataHubGraph(DatahubClientConfig(server=url, token=token))
+    graph.test_connection()
+    return graph

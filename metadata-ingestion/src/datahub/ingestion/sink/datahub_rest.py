@@ -16,7 +16,12 @@ from datahub.configuration.common import (
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.ingestion.api.common import RecordEnvelope, WorkUnit
-from datahub.ingestion.api.sink import Sink, SinkReport, WriteCallback
+from datahub.ingestion.api.sink import (
+    NoopWriteCallback,
+    Sink,
+    SinkReport,
+    WriteCallback,
+)
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.graph.client import DatahubClientConfig
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
@@ -44,6 +49,7 @@ class DatahubRestSinkConfig(DatahubClientConfig):
 
 @dataclass
 class DataHubRestSinkReport(SinkReport):
+    max_threads: int = -1
     gms_version: str = ""
     pending_requests: int = 0
 
@@ -90,18 +96,18 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
             disable_ssl_verification=self.config.disable_ssl_verification,
         )
         try:
-            gms_config = self.emitter.test_connection()
+            gms_config = self.emitter.get_server_config()
         except Exception as exc:
             raise ConfigurationError(
-                f"💥 Failed to connect to DataHub@{self.config.server} (token:{'XXX-redacted' if self.config.token else 'empty'}) over REST",
-                exc,
-            )
+                f"💥 Failed to connect to DataHub with {repr(self.emitter)}"
+            ) from exc
 
         self.report.gms_version = (
             gms_config.get("versions", {})
             .get("linkedin/datahub", {})
             .get("version", "")
         )
+        self.report.max_threads = self.config.max_threads
         logger.debug("Setting env variables to override config")
         set_env_variables_override_config(self.config.server, self.config.token)
         logger.debug("Setting gms config")
@@ -202,6 +208,17 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
                 write_callback.on_success(record_envelope, success_metadata={})
             except Exception as e:
                 write_callback.on_failure(record_envelope, e, failure_metadata={})
+
+    def emit_async(
+        self,
+        item: Union[
+            MetadataChangeEvent, MetadataChangeProposal, MetadataChangeProposalWrapper
+        ],
+    ) -> None:
+        return self.write_record_async(
+            RecordEnvelope(item, metadata={}),
+            NoopWriteCallback(),
+        )
 
     def close(self):
         self.executor.shutdown()

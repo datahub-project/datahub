@@ -51,6 +51,7 @@ def send_lineage_to_datahub(
         dag=dag,
         capture_tags=config.capture_tags_info,
         capture_owner=config.capture_ownership_info,
+        config=config,
     )
     datajob.inlets.extend(entities_to_dataset_urn_list([let.urn for let in inlets]))
     datajob.outlets.extend(entities_to_dataset_urn_list([let.urn for let in outlets]))

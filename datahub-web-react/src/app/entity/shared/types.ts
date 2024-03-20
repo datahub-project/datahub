@@ -38,6 +38,8 @@ import {
     BrowsePathV2,
     DataJobInputOutput,
     ParentDomainsResult,
+    StructuredProperties,
+    Forms,
 } from '../../../types.generated';
 import { FetchedEntity } from '../../lineage/types';
 
@@ -84,6 +86,7 @@ export type GenericEntityProperties = {
     platform?: Maybe<DataPlatform>;
     dataPlatformInstance?: Maybe<DataPlatformInstance>;
     customProperties?: Maybe<CustomPropertiesEntry[]>;
+    structuredProperties?: Maybe<StructuredProperties>;
     institutionalMemory?: Maybe<InstitutionalMemory>;
     schemaMetadata?: Maybe<SchemaMetadata>;
     externalUrl?: Maybe<string>;
@@ -117,6 +120,7 @@ export type GenericEntityProperties = {
     origin?: Maybe<FabricType>;
     browsePathV2?: Maybe<BrowsePathV2>;
     inputOutput?: Maybe<DataJobInputOutput>;
+    forms?: Maybe<Forms>;
 };
 
 export type GenericEntityUpdate = {

@@ -32,6 +32,7 @@ dependencies {
   testImplementation externalDependency.mockito
   testImplementation externalDependency.mockitoInline
   testCompileOnly externalDependency.lombok
+  testAnnotationProcessor externalDependency.lombok
   testImplementation externalDependency.classGraph
 
 }

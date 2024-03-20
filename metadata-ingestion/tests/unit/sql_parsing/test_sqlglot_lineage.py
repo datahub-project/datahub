@@ -3,9 +3,20 @@ import pathlib
 import pytest
 
 from datahub.testing.check_sql_parser_result import assert_sql_result
-from datahub.utilities.sqlglot_lineage import _UPDATE_ARGS_NOT_SUPPORTED_BY_SELECT
 
 RESOURCE_DIR = pathlib.Path(__file__).parent / "goldens"
+
+
+def test_invalid_sql():
+    assert_sql_result(
+        """
+SELECT as '
+FROM snowflake_sample_data.tpch_sf1.orders o
+""",
+        dialect="snowflake",
+        expected_file=RESOURCE_DIR / "test_invalid_sql.json",
+        allow_table_error=True,
+    )
 
 
 def test_select_max():
@@ -34,8 +45,7 @@ FROM mytable
                 "col2": "NUMBER",
             },
         },
-        # Shared with the test above.
-        expected_file=RESOURCE_DIR / "test_select_max.json",
+        expected_file=RESOURCE_DIR / "test_select_max_with_schema.json",
     )
 
 
@@ -132,6 +142,16 @@ limit 100;
 """,
         dialect="hive",
         expected_file=RESOURCE_DIR / "test_insert_as_select.json",
+    )
+
+
+def test_insert_with_column_list():
+    assert_sql_result(
+        """\
+insert into downstream (a, c) select a, c from upstream2
+""",
+        dialect="redshift",
+        expected_file=RESOURCE_DIR / "test_insert_with_column_list.json",
     )
 
 
@@ -802,10 +822,6 @@ WHERE orderkey = 3
     )
 
 
-def test_update_from_select():
-    assert _UPDATE_ARGS_NOT_SUPPORTED_BY_SELECT == {"returning", "this"}
-
-
 def test_snowflake_update_from_table():
     # Can create these tables with the following SQL:
     """
@@ -996,4 +1012,82 @@ AS
         dialect="redshift",
         expected_file=RESOURCE_DIR
         / "test_redshift_materialized_view_auto_refresh.json",
+    )
+
+
+def test_redshift_temp_table_shortcut():
+    # On redshift, tables starting with # are temporary tables.
+    assert_sql_result(
+        """
+CREATE TABLE #my_custom_name
+distkey (1)
+sortkey (1,2)
+AS
+WITH cte AS (
+SELECT *
+FROM other_schema.table1
+)
+SELECT * FROM cte
+""",
+        dialect="redshift",
+        default_db="my_db",
+        default_schema="my_schema",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:redshift,my_db.other_schema.table1,PROD)": {
+                "col1": "INTEGER",
+                "col2": "INTEGER",
+            },
+        },
+        expected_file=RESOURCE_DIR / "test_redshift_temp_table_shortcut.json",
+    )
+
+
+def test_redshift_union_view():
+    # TODO: This currently fails to generate CLL. Need to debug further.
+    assert_sql_result(
+        """
+CREATE VIEW sales_vw AS SELECT * FROM public.sales UNION ALL SELECT * FROM spectrum.sales WITH NO SCHEMA BINDING
+""",
+        dialect="redshift",
+        default_db="my_db",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:redshift,my_db.public.sales,PROD)": {
+                "col1": "INTEGER",
+                "col2": "INTEGER",
+            },
+            # Testing a case where we only have one schema available.
+        },
+        expected_file=RESOURCE_DIR / "test_redshift_union_view.json",
+    )
+
+
+@pytest.mark.skip(reason="sqlglot doesn't recognize the BACKUP directive right now")
+def test_redshift_system_automove() -> None:
+    # Came across this in the Redshift query log, but it seems to be a system-generated query.
+    assert_sql_result(
+        """
+CREATE TABLE "pg_automv"."mv_tbl__auto_mv_12708107__0_recomputed"
+BACKUP YES
+DISTSTYLE KEY
+DISTKEY(2)
+AS (
+    SELECT
+        COUNT(CAST(1 AS INT4)) AS "aggvar_3",
+        COUNT(CAST(1 AS INT4)) AS "num_rec"
+    FROM
+        "public"."permanent_1" AS "permanent_1"
+    WHERE (
+        (CAST("permanent_1"."insertxid" AS INT8) <= 41990135)
+        AND (CAST("permanent_1"."deletexid" AS INT8) > 41990135)
+    )
+    OR (
+        CAST(FALSE AS BOOL)
+        AND (CAST("permanent_1"."insertxid" AS INT8) = 0)
+        AND (CAST("permanent_1"."deletexid" AS INT8) <> 0)
+    )
+)
+""",
+        dialect="redshift",
+        default_db="my_db",
+        expected_file=RESOURCE_DIR / "test_redshift_system_automove.json",
     )

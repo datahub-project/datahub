@@ -23,15 +23,15 @@ export function getTimestampMillisNumDaysAgo (numDays) {
 
 
 Cypress.Commands.add('login', () => {
-    cy.request({
-      method: 'POST',
-      url: '/logIn',
-      body: {
-        username: Cypress.env('ADMIN_USERNAME'),
-        password: Cypress.env('ADMIN_PASSWORD'),
-      },
-      retryOnStatusCodeFailure: true,
-    });
+  cy.request({
+    method: 'POST',
+    url: '/logIn',
+    body: {
+      username: Cypress.env('ADMIN_USERNAME'),
+      password: Cypress.env('ADMIN_PASSWORD'),
+    },
+    retryOnStatusCodeFailure: true,
+  });
 })
 
 Cypress.Commands.add("loginWithCredentials", (username, password) => {
@@ -163,8 +163,16 @@ Cypress.Commands.add("openThreeDotDropdown", () => {
   cy.clickOptionWithTestId("entity-header-dropdown")
 });
 
+Cypress.Commands.add("openThreeDotMenu", () => {
+  cy.clickOptionWithTestId("three-dot-menu")
+});
+
 Cypress.Commands.add("clickOptionWithText", (text) => {
   cy.contains(text).should('be.visible').click();
+});
+
+Cypress.Commands.add("clickFirstOptionWithText", (text) => {
+  cy.contains(text).first().click();
 });
 
 Cypress.Commands.add("clickOptionWithTextToScrollintoView", (text) => {
@@ -183,10 +191,10 @@ Cypress.Commands.add("addViaFormModal", (text, modelHeader) => {
   cy.get(".ant-modal-footer > button:nth-child(2)").click();
 });
 
-Cypress.Commands.add("addViaModal", (text, modelHeader,value) => {
+Cypress.Commands.add("addViaModal", (text, modelHeader, value, dataTestId) => {
   cy.waitTextVisible(modelHeader);
   cy.get(".ant-input-affix-wrapper > input[type='text']").first().type(text);
-  cy.get(".ant-modal-footer > button:nth-child(2)").click();
+  cy.get('[data-testid="' + dataTestId + '"]').click();
   cy.contains(value).should('be.visible');
 });
 
@@ -218,6 +226,17 @@ Cypress.Commands.add( 'multiSelect', (within_data_id , text) => {
   cy.clickOptionWithText(text);
 });
 
+Cypress.Commands.add("getWithTestId", (id) => {
+  return cy.get(selectorWithtestId(id));
+});
+
+Cypress.Commands.add("clickOptionWithId", (id) => {
+  cy.get(id).click()
+})
+
+Cypress.Commands.add("enterTextInSpecificTestId", (id, value, text) => {
+  cy.get(selectorWithtestId(id)).eq(value).type(text);
+})
 Cypress.Commands.add("enterTextInTestId", (id, text) => {
   cy.get(selectorWithtestId(id)).type(text);
 })
@@ -232,6 +251,21 @@ Cypress.Commands.add("clickFirstOptionWithTestId", (id) => {
   cy.get(selectorWithtestId(id)).first().click({
     force: true,
   });
+})
+
+Cypress.Commands.add("clickFirstOptionWithSpecificTestId", (id,value) => {
+  cy.get(selectorWithtestId(id)).eq(value).click({
+    force: true,
+  });
+})
+
+Cypress.Commands.add("clickOptionWithSpecificClass", (locator, value) => {
+  cy.get(locator).should('be.visible')
+  cy.get(locator).eq(value).click();
+})
+
+Cypress.Commands.add("clickTextOptionWithClass", (locator, text) => {
+  cy.get(locator).should('be.visible').contains(text).click({force:true})
 })
 
 Cypress.Commands.add("hideOnboardingTour", () => {

@@ -6,6 +6,17 @@ query getDataJob($urn: String!) {
             start
             total
         }
+        autoRenderAspects: aspects(input: { autoRenderOnly: true }) {
+            ...autoRenderAspectFields
+        }
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
+        }
+        forms {
+            ...formsFields
+        }
     }
 }
 

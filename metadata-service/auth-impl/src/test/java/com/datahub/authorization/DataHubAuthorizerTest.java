@@ -28,6 +28,7 @@ import com.linkedin.common.OwnershipType;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.domain.DomainProperties;
 import com.linkedin.domain.Domains;
@@ -36,15 +37,19 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.identity.GroupMembership;
 import com.linkedin.identity.RoleMembership;
-import com.linkedin.metadata.query.SearchFlags;
+import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
+import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.policy.DataHubActorFilter;
 import com.linkedin.policy.DataHubPolicyInfo;
 import com.linkedin.policy.DataHubResourceFilter;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.OperationContextConfig;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -67,6 +72,7 @@ public class DataHubAuthorizerTest {
 
   private EntityClient _entityClient;
   private DataHubAuthorizer _dataHubAuthorizer;
+  private OperationContext systemOpContext;
 
   @BeforeMethod
   public void setupTest() throws Exception {
@@ -156,19 +162,13 @@ public class DataHubAuthorizerTest {
                     ImmutableList.of(new SearchEntity().setEntity(adminPolicyUrn))));
 
     when(_entityClient.scrollAcrossEntities(
+            any(OperationContext.class),
             eq(List.of("dataHubPolicy")),
             eq(""),
             isNull(),
             any(),
             isNull(),
-            anyInt(),
-            eq(
-                new SearchFlags()
-                    .setFulltext(true)
-                    .setSkipAggregates(true)
-                    .setSkipHighlighting(true)
-                    .setSkipCache(true)),
-            any()))
+            anyInt()))
         .thenReturn(policySearchResult1)
         .thenReturn(policySearchResult2)
         .thenReturn(policySearchResult3)
@@ -254,18 +254,28 @@ public class DataHubAuthorizerTest {
     when(_entityClient.batchGetV2(
             any(),
             eq(Collections.singleton(USER_WITH_ADMIN_ROLE)),
-            eq(Collections.singleton(ROLE_MEMBERSHIP_ASPECT_NAME)),
+            eq(
+                ImmutableSet.of(
+                    ROLE_MEMBERSHIP_ASPECT_NAME,
+                    GROUP_MEMBERSHIP_ASPECT_NAME,
+                    NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME)),
             any()))
         .thenReturn(
-            createUserRoleMembershipBatchResponse(
+            createRoleMembershipBatchResponse(
                 USER_WITH_ADMIN_ROLE, UrnUtils.getUrn("urn:li:dataHubRole:Admin")));
 
     final Authentication systemAuthentication =
         new Authentication(new Actor(ActorType.USER, DATAHUB_SYSTEM_CLIENT_ID), "");
+    systemOpContext =
+        OperationContext.asSystem(
+            OperationContextConfig.builder().build(),
+            mock(EntityRegistry.class),
+            systemAuthentication,
+            mock(IndexConvention.class));
 
     _dataHubAuthorizer =
         new DataHubAuthorizer(
-            systemAuthentication,
+            systemOpContext,
             _entityClient,
             10,
             10,
@@ -352,14 +362,13 @@ public class DataHubAuthorizerTest {
     emptyResult.setEntities(new SearchEntityArray());
 
     when(_entityClient.search(
+            any(OperationContext.class),
             eq("dataHubPolicy"),
             eq(""),
             isNull(),
             any(),
             anyInt(),
-            anyInt(),
-            any(),
-            eq(new SearchFlags().setFulltext(true))))
+            anyInt()))
         .thenReturn(emptyResult);
     when(_entityClient.batchGetV2(
             eq(POLICY_ENTITY_NAME), eq(Collections.emptySet()), eq(null), any()))
@@ -458,6 +467,49 @@ public class DataHubAuthorizerTest {
             "urn:li:corpuser:test", "EDIT_ENTITY_DOC_LINKS", Optional.of(resourceSpec));
 
     assertEquals(_dataHubAuthorizer.authorize(request).getType(), AuthorizationResult.Type.DENY);
+  }
+
+  @Test
+  public void testAuthorizationGrantedBasedOnGroupRole() throws Exception {
+    final EntitySpec resourceSpec = new EntitySpec("dataset", "urn:li:dataset:custom");
+
+    final Urn userUrnWithoutPermissions = UrnUtils.getUrn("urn:li:corpuser:userWithoutRole");
+    final Urn groupWithAdminPermission = UrnUtils.getUrn("urn:li:corpGroup:groupWithRole");
+    final UrnArray groups = new UrnArray(List.of(groupWithAdminPermission));
+    final GroupMembership groupMembership = new GroupMembership();
+    groupMembership.setGroups(groups);
+
+    // User has no role associated but is part of 1 group
+    when(_entityClient.batchGetV2(
+            any(),
+            eq(Collections.singleton(userUrnWithoutPermissions)),
+            eq(
+                ImmutableSet.of(
+                    ROLE_MEMBERSHIP_ASPECT_NAME,
+                    GROUP_MEMBERSHIP_ASPECT_NAME,
+                    NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME)),
+            any()))
+        .thenReturn(
+            createEntityBatchResponse(
+                userUrnWithoutPermissions, GROUP_MEMBERSHIP_ASPECT_NAME, groupMembership));
+
+    // Group has a role
+    when(_entityClient.batchGetV2(
+            any(),
+            eq(Collections.singleton(groupWithAdminPermission)),
+            eq(Collections.singleton(ROLE_MEMBERSHIP_ASPECT_NAME)),
+            any()))
+        .thenReturn(
+            createRoleMembershipBatchResponse(
+                groupWithAdminPermission, UrnUtils.getUrn("urn:li:dataHubRole:Admin")));
+
+    // This request should only be valid for actor with the admin role.
+    // Which the urn:li:corpuser:userWithoutRole does not have
+    AuthorizationRequest request =
+        new AuthorizationRequest(
+            userUrnWithoutPermissions.toString(), "EDIT_USER_PROFILE", Optional.of(resourceSpec));
+
+    assertEquals(_dataHubAuthorizer.authorize(request).getType(), AuthorizationResult.Type.ALLOW);
   }
 
   private DataHubPolicyInfo createDataHubPolicyInfo(
@@ -575,20 +627,24 @@ public class DataHubAuthorizerTest {
     return batchResponse;
   }
 
-  private Map<Urn, EntityResponse> createUserRoleMembershipBatchResponse(
-      final Urn userUrn, @Nullable final Urn roleUrn) {
-    final Map<Urn, EntityResponse> batchResponse = new HashMap<>();
-    final EntityResponse response = new EntityResponse();
-    EnvelopedAspectMap aspectMap = new EnvelopedAspectMap();
+  private Map<Urn, EntityResponse> createRoleMembershipBatchResponse(
+      final Urn actorUrn, @Nullable final Urn roleUrn) {
     final RoleMembership membership = new RoleMembership();
     if (roleUrn != null) {
       membership.setRoles(new UrnArray(roleUrn));
     }
+    return createEntityBatchResponse(actorUrn, ROLE_MEMBERSHIP_ASPECT_NAME, membership);
+  }
+
+  private Map<Urn, EntityResponse> createEntityBatchResponse(
+      final Urn actorUrn, final String aspectName, final RecordTemplate aspect) {
+    final Map<Urn, EntityResponse> batchResponse = new HashMap<>();
+    final EntityResponse response = new EntityResponse();
+    EnvelopedAspectMap aspectMap = new EnvelopedAspectMap();
     aspectMap.put(
-        ROLE_MEMBERSHIP_ASPECT_NAME,
-        new EnvelopedAspect().setValue(new com.linkedin.entity.Aspect(membership.data())));
+        aspectName, new EnvelopedAspect().setValue(new com.linkedin.entity.Aspect(aspect.data())));
     response.setAspects(aspectMap);
-    batchResponse.put(userUrn, response);
+    batchResponse.put(actorUrn, response);
     return batchResponse;
   }
 

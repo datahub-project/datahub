@@ -1,10 +1,12 @@
 """Convenience functions for creating MCEs"""
+
 import hashlib
 import json
 import logging
 import os
 import re
 import time
+from datetime import datetime
 from enum import Enum
 from typing import (
     TYPE_CHECKING,
@@ -17,6 +19,7 @@ from typing import (
     TypeVar,
     Union,
     get_type_hints,
+    overload,
 )
 
 import typing_inspect
@@ -78,6 +81,23 @@ class OwnerType(Enum):
 def get_sys_time() -> int:
     # TODO deprecate this
     return int(time.time() * 1000)
+
+
+@overload
+def make_ts_millis(ts: None) -> None:
+    ...
+
+
+@overload
+def make_ts_millis(ts: datetime) -> int:
+    ...
+
+
+def make_ts_millis(ts: Optional[datetime]) -> Optional[int]:
+    # TODO: This duplicates the functionality of datetime_to_ts_millis
+    if ts is None:
+        return None
+    return int(ts.timestamp() * 1000)
 
 
 def make_data_platform_urn(platform: str) -> str:

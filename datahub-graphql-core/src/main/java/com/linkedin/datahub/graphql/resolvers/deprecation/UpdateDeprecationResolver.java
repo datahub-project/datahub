@@ -37,7 +37,7 @@ public class UpdateDeprecationResolver implements DataFetcher<CompletableFuture<
 
   private static final String EMPTY_STRING = "";
   private final EntityClient _entityClient;
-  private final EntityService
+  private final EntityService<?>
       _entityService; // TODO: Remove this when 'exists' added to EntityClient
 
   @Override
@@ -50,7 +50,7 @@ public class UpdateDeprecationResolver implements DataFetcher<CompletableFuture<
 
     return CompletableFuture.supplyAsync(
         () -> {
-          if (!isAuthorizedToUpdateDeprecationForEntity(environment.getContext(), entityUrn)) {
+          if (!isAuthorizedToUpdateDeprecationForEntity(context, entityUrn)) {
             throw new AuthorizationException(
                 "Unauthorized to perform this action. Please contact your DataHub administrator.");
           }
@@ -101,9 +101,10 @@ public class UpdateDeprecationResolver implements DataFetcher<CompletableFuture<
         orPrivilegeGroups);
   }
 
-  public static Boolean validateUpdateDeprecationInput(Urn entityUrn, EntityService entityService) {
+  public static Boolean validateUpdateDeprecationInput(
+      Urn entityUrn, EntityService<?> entityService) {
 
-    if (!entityService.exists(entityUrn)) {
+    if (!entityService.exists(entityUrn, true)) {
       throw new IllegalArgumentException(
           String.format(
               "Failed to update deprecation for Entity %s. Entity does not exist.", entityUrn));

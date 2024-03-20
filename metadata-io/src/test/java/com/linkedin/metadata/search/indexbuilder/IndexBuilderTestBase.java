@@ -1,14 +1,19 @@
 package com.linkedin.metadata.search.indexbuilder;
 
+import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_MAPPING_FIELD;
 import static org.testng.Assert.*;
 
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
+import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
+import com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBuilder;
+import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.systemmetadata.SystemMetadataMappingsBuilder;
 import com.linkedin.metadata.version.GitVersion;
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -23,7 +28,7 @@ import org.opensearch.client.RestHighLevelClient;
 import org.opensearch.client.indices.GetIndexRequest;
 import org.opensearch.client.indices.GetIndexResponse;
 import org.opensearch.cluster.metadata.AliasMetadata;
-import org.opensearch.rest.RestStatus;
+import org.opensearch.core.rest.RestStatus;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.BeforeMethod;
@@ -294,5 +299,118 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
 
       wipe();
     }
+  }
+
+  @Test
+  public void testCopyStructuredPropertyMappings() throws Exception {
+    GitVersion gitVersion = new GitVersion("0.0.0-test", "123456", Optional.empty());
+    ESIndexBuilder enabledMappingReindex =
+        new ESIndexBuilder(
+            getSearchClient(),
+            1,
+            0,
+            0,
+            0,
+            Map.of(),
+            false,
+            true,
+            new ElasticSearchConfiguration(),
+            gitVersion);
+
+    ReindexConfig reindexConfigNoIndexBefore =
+        enabledMappingReindex.buildReindexState(
+            TEST_INDEX_NAME, SystemMetadataMappingsBuilder.getMappings(), Map.of());
+    assertNull(reindexConfigNoIndexBefore.currentMappings());
+    assertEquals(
+        reindexConfigNoIndexBefore.targetMappings(), SystemMetadataMappingsBuilder.getMappings());
+    assertFalse(reindexConfigNoIndexBefore.requiresApplyMappings());
+    assertFalse(reindexConfigNoIndexBefore.isPureMappingsAddition());
+
+    // Create index
+    enabledMappingReindex.buildIndex(
+        TEST_INDEX_NAME, SystemMetadataMappingsBuilder.getMappings(), Map.of());
+
+    // Test build reindex config with no structured properties added
+    ReindexConfig reindexConfigNoChange =
+        enabledMappingReindex.buildReindexState(
+            TEST_INDEX_NAME, SystemMetadataMappingsBuilder.getMappings(), Map.of());
+    assertEquals(
+        reindexConfigNoChange.currentMappings(), SystemMetadataMappingsBuilder.getMappings());
+    assertEquals(
+        reindexConfigNoChange.targetMappings(), SystemMetadataMappingsBuilder.getMappings());
+    assertFalse(reindexConfigNoIndexBefore.requiresApplyMappings());
+    assertFalse(reindexConfigNoIndexBefore.isPureMappingsAddition());
+
+    // Test add new field to the mappings
+    Map<String, Object> targetMappingsNewField =
+        new HashMap<>(SystemMetadataMappingsBuilder.getMappings());
+    ((Map<String, Object>) targetMappingsNewField.get("properties"))
+        .put("myNewField", Map.of(SettingsBuilder.TYPE, SettingsBuilder.KEYWORD));
+
+    // Test build reindex config for new fields with no structured properties added
+    ReindexConfig reindexConfigNewField =
+        enabledMappingReindex.buildReindexState(TEST_INDEX_NAME, targetMappingsNewField, Map.of());
+    assertEquals(
+        reindexConfigNewField.currentMappings(), SystemMetadataMappingsBuilder.getMappings());
+    assertEquals(reindexConfigNewField.targetMappings(), targetMappingsNewField);
+    assertTrue(reindexConfigNewField.requiresApplyMappings());
+    assertTrue(reindexConfigNewField.isPureMappingsAddition());
+
+    // Add structured properties to index
+    Map<String, Object> mappingsWithStructuredProperties =
+        new HashMap<>(SystemMetadataMappingsBuilder.getMappings());
+    ((Map<String, Object>) mappingsWithStructuredProperties.get("properties"))
+        .put(
+            STRUCTURED_PROPERTY_MAPPING_FIELD + ".myStringProp",
+            Map.of(SettingsBuilder.TYPE, SettingsBuilder.KEYWORD));
+    ((Map<String, Object>) mappingsWithStructuredProperties.get("properties"))
+        .put(
+            STRUCTURED_PROPERTY_MAPPING_FIELD + ".myNumberProp",
+            Map.of(SettingsBuilder.TYPE, ESUtils.DOUBLE_FIELD_TYPE));
+
+    enabledMappingReindex.buildIndex(TEST_INDEX_NAME, mappingsWithStructuredProperties, Map.of());
+
+    // Test build reindex config with structured properties not copied
+    ReindexConfig reindexConfigNoCopy =
+        enabledMappingReindex.buildReindexState(
+            TEST_INDEX_NAME, SystemMetadataMappingsBuilder.getMappings(), Map.of());
+    Map<String, Object> expectedMappingsStructPropsNested =
+        new HashMap<>(SystemMetadataMappingsBuilder.getMappings());
+    ((Map<String, Object>) expectedMappingsStructPropsNested.get("properties"))
+        .put(
+            "structuredProperties",
+            Map.of(
+                "properties",
+                Map.of(
+                    "myNumberProp",
+                    Map.of(SettingsBuilder.TYPE, ESUtils.DOUBLE_FIELD_TYPE),
+                    "myStringProp",
+                    Map.of(SettingsBuilder.TYPE, SettingsBuilder.KEYWORD))));
+    assertEquals(reindexConfigNoCopy.currentMappings(), expectedMappingsStructPropsNested);
+    assertEquals(reindexConfigNoCopy.targetMappings(), SystemMetadataMappingsBuilder.getMappings());
+    assertFalse(reindexConfigNoCopy.isPureMappingsAddition());
+
+    // Test build reindex config with structured properties copied
+    ReindexConfig reindexConfigCopy =
+        enabledMappingReindex.buildReindexState(
+            TEST_INDEX_NAME, SystemMetadataMappingsBuilder.getMappings(), Map.of(), true);
+    assertEquals(reindexConfigCopy.currentMappings(), expectedMappingsStructPropsNested);
+    assertEquals(reindexConfigCopy.targetMappings(), expectedMappingsStructPropsNested);
+    assertFalse(reindexConfigCopy.requiresApplyMappings());
+    assertFalse(reindexConfigCopy.isPureMappingsAddition());
+
+    // Test build reindex config with new field added and structured properties copied
+    ReindexConfig reindexConfigCopyAndNewField =
+        enabledMappingReindex.buildReindexState(
+            TEST_INDEX_NAME, targetMappingsNewField, Map.of(), true);
+    assertEquals(reindexConfigCopyAndNewField.currentMappings(), expectedMappingsStructPropsNested);
+    Map<String, Object> targetMappingsNewFieldAndStructProps =
+        new HashMap<>(expectedMappingsStructPropsNested);
+    ((Map<String, Object>) targetMappingsNewFieldAndStructProps.get("properties"))
+        .put("myNewField", Map.of(SettingsBuilder.TYPE, SettingsBuilder.KEYWORD));
+    assertEquals(
+        reindexConfigCopyAndNewField.targetMappings(), targetMappingsNewFieldAndStructProps);
+    assertTrue(reindexConfigCopyAndNewField.requiresApplyMappings());
+    assertTrue(reindexConfigCopyAndNewField.isPureMappingsAddition());
   }
 }

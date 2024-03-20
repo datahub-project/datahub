@@ -1,6 +1,7 @@
 package mock;
 
 import static entities.EntitiesControllerTest.*;
+import static org.mockito.Mockito.mock;
 
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.GlobalTags;
@@ -42,6 +43,7 @@ import com.linkedin.schema.SchemaMetadata;
 import com.linkedin.schema.StringType;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -56,9 +58,9 @@ public class MockEntityService extends EntityServiceImpl {
       @Nonnull AspectDao aspectDao,
       @Nonnull EventProducer producer,
       @Nonnull EntityRegistry entityRegistry,
-      @Nonnull UpdateIndicesService updateIndicesService,
       PreProcessHooks preProcessHooks) {
-    super(aspectDao, producer, entityRegistry, true, updateIndicesService, preProcessHooks);
+    super(aspectDao, producer, entityRegistry, true, preProcessHooks, true);
+    setUpdateIndicesService(mock(UpdateIndicesService.class));
   }
 
   @Override
@@ -68,7 +70,7 @@ public class MockEntityService extends EntityServiceImpl {
   }
 
   @Override
-  public Map<String, RecordTemplate> getLatestAspectsForUrn(
+  public @NotNull Map<String, RecordTemplate> getLatestAspectsForUrn(
       @Nonnull Urn urn, @Nonnull Set<String> aspectNames) {
     return Collections.emptyMap();
   }
@@ -212,7 +214,7 @@ public class MockEntityService extends EntityServiceImpl {
   }
 
   @Override
-  public Boolean exists(Urn urn) {
-    return null;
+  public Set<Urn> exists(@NotNull Collection<Urn> urns) {
+    return Set.of();
   }
 }

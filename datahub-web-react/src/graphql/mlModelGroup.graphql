@@ -21,5 +21,16 @@ query getMLModelGroup($urn: String!) {
         ) {
             ...fullRelationshipResults
         }
+        autoRenderAspects: aspects(input: { autoRenderOnly: true }) {
+            ...autoRenderAspectFields
+        }
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
+        }
+        forms {
+            ...formsFields
+        }
     }
 }

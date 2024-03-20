@@ -1,5 +1,9 @@
 package com.linkedin.metadata.search.transformer;
 
+import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.models.StructuredPropertyUtils.sanitizeStructuredPropertyFQN;
+import static com.linkedin.metadata.models.annotation.SearchableAnnotation.OBJECT_FIELD_TYPES;
+
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
@@ -7,17 +11,27 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.schema.DataSchema;
 import com.linkedin.data.template.RecordTemplate;
-import com.linkedin.entity.client.SystemEntityClient;
+import com.linkedin.entity.Aspect;
+import com.linkedin.metadata.aspect.AspectRetriever;
+import com.linkedin.metadata.aspect.validation.StructuredPropertiesValidator;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
+import com.linkedin.metadata.models.LogicalValueType;
 import com.linkedin.metadata.models.SearchScoreFieldSpec;
 import com.linkedin.metadata.models.SearchableFieldSpec;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation.FieldType;
 import com.linkedin.metadata.models.extractor.FieldExtractor;
+import com.linkedin.r2.RemoteInvocationException;
+import com.linkedin.structured.StructuredProperties;
+import com.linkedin.structured.StructuredPropertyDefinition;
+import com.linkedin.structured.StructuredPropertyValueAssignment;
+import java.net.URISyntaxException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import lombok.RequiredArgsConstructor;
@@ -41,7 +55,7 @@ public class SearchDocumentTransformer {
   // Maximum customProperties value length
   private final int maxValueLength;
 
-  private SystemEntityClient entityClient;
+  private AspectRetriever aspectRetriever;
 
   private static final String BROWSE_PATH_V2_DELIMITER = "␟";
 
@@ -77,7 +91,8 @@ public class SearchDocumentTransformer {
       final Urn urn,
       final RecordTemplate aspect,
       final AspectSpec aspectSpec,
-      final Boolean forDelete) {
+      final Boolean forDelete)
+      throws RemoteInvocationException, URISyntaxException {
     final Map<SearchableFieldSpec, List<Object>> extractedSearchableFields =
         FieldExtractor.extractFields(aspect, aspectSpec.getSearchableFieldSpecs(), maxValueLength);
     final Map<SearchScoreFieldSpec, List<Object>> extractedSearchScoreFields =
@@ -92,6 +107,12 @@ public class SearchDocumentTransformer {
           (key, values) -> setSearchableValue(key, values, searchDocument, forDelete));
       extractedSearchScoreFields.forEach(
           (key, values) -> setSearchScoreValue(key, values, searchDocument, forDelete));
+      result = Optional.of(searchDocument.toString());
+    } else if (STRUCTURED_PROPERTIES_ASPECT_NAME.equals(aspectSpec.getName())) {
+      final ObjectNode searchDocument = JsonNodeFactory.instance.objectNode();
+      searchDocument.put("urn", urn.toString());
+      setStructuredPropertiesSearchValue(
+          new StructuredProperties(aspect.data()), searchDocument, forDelete);
       result = Optional.of(searchDocument.toString());
     }
 
@@ -162,7 +183,7 @@ public class SearchDocumentTransformer {
       return;
     }
 
-    if (isArray || (valueType == DataSchema.Type.MAP && fieldType != FieldType.OBJECT)) {
+    if (isArray || (valueType == DataSchema.Type.MAP && !OBJECT_FIELD_TYPES.contains(fieldType))) {
       if (fieldType == FieldType.BROWSE_PATH_V2) {
         String browsePathV2Value = getBrowsePathV2Value(fieldValues);
         searchDocument.set(fieldName, JsonNodeFactory.instance.textNode(browsePathV2Value));
@@ -174,6 +195,25 @@ public class SearchDocumentTransformer {
                 value -> getNodeForValue(valueType, value, fieldType).ifPresent(arrayNode::add));
         searchDocument.set(fieldName, arrayNode);
       }
+    } else if (valueType == DataSchema.Type.MAP && FieldType.MAP_ARRAY.equals(fieldType)) {
+      ObjectNode dictDoc = JsonNodeFactory.instance.objectNode();
+      fieldValues
+          .subList(0, Math.min(fieldValues.size(), maxObjectKeys))
+          .forEach(
+              fieldValue -> {
+                String[] keyValues = fieldValue.toString().split("=");
+                String key = keyValues[0];
+                ArrayNode values = JsonNodeFactory.instance.arrayNode();
+                Arrays.stream(keyValues[1].substring(1, keyValues[1].length() - 1).split(", "))
+                    .forEach(
+                        v -> {
+                          if (!v.isEmpty()) {
+                            values.add(v);
+                          }
+                        });
+                dictDoc.set(key, values);
+              });
+      searchDocument.set(fieldName, dictDoc);
     } else if (valueType == DataSchema.Type.MAP) {
       ObjectNode dictDoc = JsonNodeFactory.instance.objectNode();
       fieldValues
@@ -276,5 +316,94 @@ public class SearchDocumentTransformer {
       aggregatedValue = BROWSE_PATH_V2_DELIMITER + aggregatedValue;
     }
     return aggregatedValue;
+  }
+
+  private void setStructuredPropertiesSearchValue(
+      final StructuredProperties values, final ObjectNode searchDocument, final Boolean forDelete)
+      throws RemoteInvocationException, URISyntaxException {
+    Map<Urn, Set<StructuredPropertyValueAssignment>> propertyMap =
+        values.getProperties().stream()
+            .collect(
+                Collectors.groupingBy(
+                    StructuredPropertyValueAssignment::getPropertyUrn, Collectors.toSet()));
+
+    Map<Urn, Map<String, Aspect>> definitions =
+        aspectRetriever.getLatestAspectObjects(
+            propertyMap.keySet(), Set.of(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME));
+
+    if (definitions.size() < propertyMap.size()) {
+      String message =
+          String.format(
+              "Missing property definitions. %s",
+              propertyMap.keySet().stream()
+                  .filter(k -> !definitions.containsKey(k))
+                  .collect(Collectors.toSet()));
+      log.error(message);
+    }
+
+    propertyMap
+        .entrySet()
+        .forEach(
+            propertyEntry -> {
+              StructuredPropertyDefinition definition =
+                  new StructuredPropertyDefinition(
+                      definitions
+                          .get(propertyEntry.getKey())
+                          .get(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME)
+                          .data());
+              String fieldName =
+                  String.join(
+                      ".",
+                      List.of(
+                          STRUCTURED_PROPERTY_MAPPING_FIELD,
+                          sanitizeStructuredPropertyFQN(definition.getQualifiedName())));
+
+              if (forDelete) {
+                searchDocument.set(fieldName, JsonNodeFactory.instance.nullNode());
+              } else {
+                LogicalValueType logicalValueType =
+                    StructuredPropertiesValidator.getLogicalValueType(definition.getValueType());
+
+                ArrayNode arrayNode = JsonNodeFactory.instance.arrayNode();
+
+                propertyEntry
+                    .getValue()
+                    .forEach(
+                        property ->
+                            property
+                                .getValues()
+                                .forEach(
+                                    propertyValue -> {
+                                      final Optional<JsonNode> searchValue;
+                                      switch (logicalValueType) {
+                                        case UNKNOWN:
+                                          log.warn(
+                                              "Unable to transform UNKNOWN logical value type.");
+                                          searchValue = Optional.empty();
+                                          break;
+                                        case NUMBER:
+                                          Double doubleValue =
+                                              propertyValue.getDouble() != null
+                                                  ? propertyValue.getDouble()
+                                                  : Double.valueOf(propertyValue.getString());
+                                          searchValue =
+                                              Optional.of(
+                                                  JsonNodeFactory.instance.numberNode(doubleValue));
+                                          break;
+                                        default:
+                                          searchValue =
+                                              propertyValue.getString().isEmpty()
+                                                  ? Optional.empty()
+                                                  : Optional.of(
+                                                      JsonNodeFactory.instance.textNode(
+                                                          propertyValue.getString()));
+                                          break;
+                                      }
+                                      searchValue.ifPresent(arrayNode::add);
+                                    }));
+
+                searchDocument.set(fieldName, arrayNode);
+              }
+            });
   }
 }

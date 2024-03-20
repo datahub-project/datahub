@@ -1,10 +1,12 @@
 from typing import Dict, List, Union
 from unittest import mock
 
+import pytest
 from pydantic import ValidationError
 
 from datahub.emitter import mce_builder
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.source.dbt.dbt_cloud import DBTCloudConfig
 from datahub.ingestion.source.dbt.dbt_core import DBTCoreConfig, DBTCoreSource
 from datahub.metadata.schema_classes import (
     OwnerClass,
@@ -32,7 +34,7 @@ def create_owners_list_from_urn_list(
 
 
 def create_mocked_dbt_source() -> DBTCoreSource:
-    ctx = PipelineContext("test-run-id")
+    ctx = PipelineContext(run_id="test-run-id", pipeline_name="dbt-source")
     graph = mock.MagicMock()
     graph.get_ownership.return_value = mce_builder.make_ownership_aspect_from_urn_list(
         ["urn:li:corpuser:test_user"], "AUDIT"
@@ -179,20 +181,38 @@ def test_dbt_entity_emission_configuration():
         "target_platform": "dummy_platform",
         "entities_enabled": {"models": "Only", "seeds": "Only"},
     }
-    try:
+    with pytest.raises(
+        ValidationError,
+        match="Cannot have more than 1 type of entity emission set to ONLY",
+    ):
         DBTCoreConfig.parse_obj(config_dict)
-    except ValidationError as ve:
-        assert len(ve.errors()) == 1
-        assert (
-            "Cannot have more than 1 type of entity emission set to ONLY"
-            in ve.errors()[0]["msg"]
-        )
+
     # valid config
     config_dict = {
         "manifest_path": "dummy_path",
         "catalog_path": "dummy_path",
         "target_platform": "dummy_platform",
         "entities_enabled": {"models": "Yes", "seeds": "Only"},
+    }
+    DBTCoreConfig.parse_obj(config_dict)
+
+
+def test_dbt_s3_config():
+    # test missing aws config
+    config_dict: dict = {
+        "manifest_path": "s3://dummy_path",
+        "catalog_path": "s3://dummy_path",
+        "target_platform": "dummy_platform",
+    }
+    with pytest.raises(ValidationError, match="provide aws_connection"):
+        DBTCoreConfig.parse_obj(config_dict)
+
+    # valid config
+    config_dict = {
+        "manifest_path": "s3://dummy_path",
+        "catalog_path": "s3://dummy_path",
+        "target_platform": "dummy_platform",
+        "aws_connection": {},
     }
     DBTCoreConfig.parse_obj(config_dict)
 
@@ -236,6 +256,7 @@ def test_dbt_entity_emission_configuration_helpers():
     assert not config.entities_enabled.can_emit_node_type("source")
     assert not config.entities_enabled.can_emit_node_type("test")
     assert not config.entities_enabled.can_emit_test_results
+    assert not config.entities_enabled.is_only_test_results()
 
     config_dict = {
         "manifest_path": "dummy_path",
@@ -247,6 +268,7 @@ def test_dbt_entity_emission_configuration_helpers():
     assert config.entities_enabled.can_emit_node_type("source")
     assert config.entities_enabled.can_emit_node_type("test")
     assert config.entities_enabled.can_emit_test_results
+    assert not config.entities_enabled.is_only_test_results()
 
     config_dict = {
         "manifest_path": "dummy_path",
@@ -261,6 +283,7 @@ def test_dbt_entity_emission_configuration_helpers():
     assert not config.entities_enabled.can_emit_node_type("source")
     assert not config.entities_enabled.can_emit_node_type("test")
     assert config.entities_enabled.can_emit_test_results
+    assert config.entities_enabled.is_only_test_results()
 
     config_dict = {
         "manifest_path": "dummy_path",
@@ -278,3 +301,38 @@ def test_dbt_entity_emission_configuration_helpers():
     assert not config.entities_enabled.can_emit_node_type("source")
     assert config.entities_enabled.can_emit_node_type("test")
     assert config.entities_enabled.can_emit_test_results
+    assert not config.entities_enabled.is_only_test_results()
+
+
+def test_dbt_cloud_config_access_url():
+    config_dict = {
+        "access_url": "https://my-dbt-cloud.dbt.com",
+        "token": "dummy_token",
+        "account_id": "123456",
+        "project_id": "1234567",
+        "job_id": "12345678",
+        "run_id": "123456789",
+        "target_platform": "dummy_platform",
+    }
+    config = DBTCloudConfig.parse_obj(config_dict)
+    assert config.access_url == "https://my-dbt-cloud.dbt.com"
+    assert config.metadata_endpoint == "https://metadata.my-dbt-cloud.dbt.com/graphql"
+
+
+def test_dbt_cloud_config_with_defined_metadata_endpoint():
+    config_dict = {
+        "access_url": "https://my-dbt-cloud.dbt.com",
+        "token": "dummy_token",
+        "account_id": "123456",
+        "project_id": "1234567",
+        "job_id": "12345678",
+        "run_id": "123456789",
+        "target_platform": "dummy_platform",
+        "metadata_endpoint": "https://my-metadata-endpoint.my-dbt-cloud.dbt.com/graphql",
+    }
+    config = DBTCloudConfig.parse_obj(config_dict)
+    assert config.access_url == "https://my-dbt-cloud.dbt.com"
+    assert (
+        config.metadata_endpoint
+        == "https://my-metadata-endpoint.my-dbt-cloud.dbt.com/graphql"
+    )
