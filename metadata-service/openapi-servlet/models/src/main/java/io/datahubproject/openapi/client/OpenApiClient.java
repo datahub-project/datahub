@@ -28,9 +28,7 @@ public class OpenApiClient {
   private final boolean useSsl;
   @Getter private final OperationContext systemOperationContext;
 
-  private static final String OPENAPI_PATH = "/openapi/v2/entity/";
-  private static final String BATCH_ENTITY_GET = "/batch";
-
+  private static final String OPENAPI_PATH = "/openapi/v2/batch/entity/";
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
   public OpenApiClient(
@@ -57,8 +55,7 @@ public class OpenApiClient {
             + ":"
             + gmsPort
             + OPENAPI_PATH
-            + entityName
-            + BATCH_ENTITY_GET;
+            + entityName;
     HttpGet httpGet = new HttpGet(url);
     httpGet.setEntity(new SerializableEntity(request, ContentType.APPLICATION_JSON));
     httpGet.setHeader(HttpHeaders.AUTHORIZATION, authCredentials);

@@ -144,7 +144,7 @@ public class EntityController {
   }
 
   @Tag(name = "Generic Entities")
-  @GetMapping(value = "/{entityName}/batch", produces = MediaType.APPLICATION_JSON_VALUE)
+  @GetMapping(value = "/batch/{entityName}", produces = MediaType.APPLICATION_JSON_VALUE)
   @Operation(summary = "Get a batch of entities")
   public ResponseEntity<BatchGetUrnResponse> getEntityBatch(
       @PathVariable("entityName") String entityName, @RequestBody BatchGetUrnRequest request)
