@@ -144,7 +144,7 @@ public class EntityController {
   }
 
   @Tag(name = "Generic Entities")
-  @GetMapping(value = "/{entityName}/{entityUrn}", produces = MediaType.APPLICATION_JSON_VALUE)
+  @GetMapping(value = "/{entityName}/{entityUrn:urn[:]li.*}", produces = MediaType.APPLICATION_JSON_VALUE)
   @Operation(summary = "Get an entity")
   public ResponseEntity<GenericEntity> getEntity(
       @PathVariable("entityName") String entityName,
