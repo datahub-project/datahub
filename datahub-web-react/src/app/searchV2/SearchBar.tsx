@@ -86,18 +86,6 @@ const SearchIcon = styled(SearchOutlined)`
 const EXACT_AUTOCOMPLETE_OPTION_TYPE = 'exact_query';
 const RELEVANCE_QUERY_OPTION_TYPE = 'recommendation';
 
-const QUICK_FILTER_AUTO_COMPLETE_OPTION = {
-    label: <EntityTypeLabel>Filter by</EntityTypeLabel>,
-    options: [
-        {
-            value: 'quick-filter-unique-key',
-            type: '',
-            label: <QuickFilters />,
-            style: { padding: '8px', cursor: 'auto' },
-            disabled: true,
-        },
-    ],
-};
 
 const renderRecommendedQuery = (query: string) => {
     return {
@@ -170,6 +158,23 @@ export const SearchBar = ({
     const [selected, setSelected] = useState<string>();
     const [isDropdownVisible, setIsDropdownVisible] = useState(false);
     const [isFocused, setIsFocused] = useState(false);
+
+    const updateQuickFilterAutoCompleteOption = useCallback(() => {
+        return {
+            label: <EntityTypeLabel>Filter by</EntityTypeLabel>,
+            options: [
+                {
+                    value: 'quick-filter-unique-key',
+                    type: '',
+                    label: <QuickFilters searchQuery={searchQuery} />,
+                    style: { padding: '8px', cursor: 'auto' },
+                    disabled: true,
+                },
+            ],
+        };
+    }, [searchQuery]);
+
+    const quickFilterAutoCompleteOption = updateQuickFilterAutoCompleteOption();
 
     useEffect(() => setSelected(initialQuery), [initialQuery]);
 
@@ -271,8 +276,8 @@ export const SearchBar = ({
     }, [setSelectedQuickFilter]);
 
     const quickFilterOption = useMemo(() => {
-        return showQuickFilters && quickFilters && quickFilters.length > 0 ? [QUICK_FILTER_AUTO_COMPLETE_OPTION] : [];
-    }, [quickFilters, showQuickFilters]);
+        return showQuickFilters && quickFilters && quickFilters.length > 0 ? [quickFilterAutoCompleteOption] : [];
+    }, [quickFilters, showQuickFilters, quickFilterAutoCompleteOption]);
 
     const options = useMemo(() => {
         // Display recommendations when there is no search query, autocomplete suggestions otherwise.
