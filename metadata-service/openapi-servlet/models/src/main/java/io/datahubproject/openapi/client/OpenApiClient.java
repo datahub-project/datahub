@@ -28,7 +28,7 @@ public class OpenApiClient {
   private final boolean useSsl;
   @Getter private final OperationContext systemOperationContext;
 
-  private static final String OPENAPI_PATH = "/openapi/";
+  private static final String OPENAPI_PATH = "/openapi/v2/entity/";
   private static final String BATCH_ENTITY_GET = "/batch";
 
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
