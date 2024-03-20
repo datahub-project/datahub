@@ -564,6 +564,10 @@ public class LineageSearchService {
       queryFrom = Math.max(0, from - resultForBatch.getNumEntities());
       querySize = Math.max(0, size - resultForBatch.getEntities().size());
       finalResult = merge(finalResult, resultForBatch);
+
+      if (querySize == 0) {
+        break;
+      }
     }
 
     finalResult.getMetadata().getAggregations().add(0, DEGREE_FILTER_GROUP);
@@ -843,6 +847,10 @@ public class LineageSearchService {
               urnToRelationship);
       querySize = Math.max(0, size - resultForBatch.getEntities().size());
       finalResult = mergeScrollResult(finalResult, resultForBatch);
+
+      if (querySize == 0) {
+        break;
+      }
     }
 
     finalResult.getMetadata().getAggregations().add(0, DEGREE_FILTER_GROUP);

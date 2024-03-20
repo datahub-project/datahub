@@ -248,6 +248,12 @@ public class PoliciesConfig {
           "Edit Properties",
           "The ability to edit the properties for an entity.");
 
+  public static final Privilege CREATE_ER_MODEL_RELATIONSHIP_PRIVILEGE =
+      Privilege.of(
+          "CREATE_ENTITY_ER_MODEL_RELATIONSHIP",
+          "Create erModelRelationship",
+          "The ability to add erModelRelationship on a dataset.");
+
   public static final List<Privilege> COMMON_ENTITY_PRIVILEGES =
       ImmutableList.of(
           VIEW_ENTITY_PAGE_PRIVILEGE,
@@ -433,7 +439,8 @@ public class PoliciesConfig {
                       EDIT_ENTITY_ASSERTIONS_PRIVILEGE,
                       EDIT_LINEAGE_PRIVILEGE,
                       EDIT_ENTITY_EMBED_PRIVILEGE,
-                      EDIT_QUERIES_PRIVILEGE))
+                      EDIT_QUERIES_PRIVILEGE,
+                      CREATE_ER_MODEL_RELATIONSHIP_PRIVILEGE))
               .flatMap(Collection::stream)
               .collect(Collectors.toList()));
 
@@ -603,6 +610,13 @@ public class PoliciesConfig {
               EDIT_ENTITY_PRIVILEGE,
               EDIT_ENTITY_PROPERTIES_PRIVILEGE));
 
+  // ERModelRelationship Privileges
+  public static final ResourcePrivileges ER_MODEL_RELATIONSHIP_PRIVILEGES =
+      ResourcePrivileges.of(
+          "erModelRelationship",
+          "ERModelRelationship",
+          "update privileges for ermodelrelations",
+          COMMON_ENTITY_PRIVILEGES);
   public static final List<ResourcePrivileges> ENTITY_RESOURCE_PRIVILEGES =
       ImmutableList.of(
           DATASET_PRIVILEGES,
@@ -618,7 +632,8 @@ public class PoliciesConfig {
           CORP_GROUP_PRIVILEGES,
           CORP_USER_PRIVILEGES,
           NOTEBOOK_PRIVILEGES,
-          DATA_PRODUCT_PRIVILEGES);
+          DATA_PRODUCT_PRIVILEGES,
+          ER_MODEL_RELATIONSHIP_PRIVILEGES);
 
   // Merge all entity specific resource privileges to create a superset of all resource privileges
   public static final ResourcePrivileges ALL_RESOURCE_PRIVILEGES =

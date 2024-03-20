@@ -164,6 +164,11 @@ class RedshiftConfig(
         description="Whether to resolve temp table appear in lineage to upstream permanent tables.",
     )
 
+    skip_external_tables: bool = Field(
+        default=False,
+        description="Whether to skip EXTERNAL tables.",
+    )
+
     @root_validator(pre=True)
     def check_email_is_set_on_usage(cls, values):
         if values.get("include_usage_statistics"):

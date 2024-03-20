@@ -96,6 +96,7 @@ interface Props {
     setSelectedEntities: (entities: EntityAndType[]) => any;
     numResultsPerPage: number;
     setNumResultsPerPage: (numResults: number) => void;
+    singleSelect?: boolean;
     entityAction?: React.FC<EntityActionProps>;
     applyView?: boolean;
     isServerOverloadError?: any;
@@ -120,6 +121,7 @@ export const EmbeddedListSearchResults = ({
     setSelectedEntities,
     numResultsPerPage,
     setNumResultsPerPage,
+    singleSelect,
     entityAction,
     applyView,
     isServerOverloadError,
@@ -181,6 +183,7 @@ export const EmbeddedListSearchResults = ({
                             selectedEntities={selectedEntities}
                             setSelectedEntities={setSelectedEntities}
                             bordered={false}
+                            singleSelect={singleSelect}
                             entityAction={entityAction}
                         />
                     )}
