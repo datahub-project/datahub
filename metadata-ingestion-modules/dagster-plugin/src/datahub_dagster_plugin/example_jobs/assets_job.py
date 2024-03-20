@@ -7,8 +7,8 @@ from dagster import (
     define_asset_job,
     multi_asset,
 )
+from datahub.utilities.urns.dataset_urn import DatasetUrn
 
-from datahub_dagster_plugin.client.entities import Dataset
 from datahub_dagster_plugin.sensors.datahub_sensors import (
     DagsterSourceConfig,
     make_datahub_sensor,
@@ -18,7 +18,7 @@ from datahub_dagster_plugin.sensors.datahub_sensors import (
 @multi_asset(
     outs={
         "extract": AssetOut(
-            metadata={"datahub.outputs": [Dataset("snowflake", "tableD").urn]}
+            metadata={"datahub.outputs": [DatasetUrn("snowflake", "tableD").urn]}
         ),
     }
 )
@@ -33,7 +33,8 @@ def extract():
 @asset(
     ins={
         "extract": AssetIn(
-            "extract", metadata={"datahub.inputs": [Dataset("snowflake", "tableC").urn]}
+            "extract",
+            metadata={"datahub.inputs": [DatasetUrn("snowflake", "tableC").urn()]},
         )
     }
 )
