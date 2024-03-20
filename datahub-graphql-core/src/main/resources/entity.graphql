@@ -3241,6 +3241,12 @@ type ViewProperties {
   logic: String!
 
   """
+  A formatted version of the logic associated with the view.
+  For dbt, this contains the compiled SQL.
+  """
+  formattedLogic: String
+
+  """
   The language in which the view logic is written, for example SQL
   """
   language: String!
@@ -4131,6 +4137,11 @@ type CorpGroupEditableProperties {
   Email address for the group
   """
   email: String
+
+  """ 
+  A URL which points to a picture which user wants to set as a profile photo
+  """
+  pictureLink: String
 }
 
 """
@@ -4151,6 +4162,11 @@ input CorpGroupUpdateInput {
   Email address for the group
   """
   email: String
+
+  """
+  A URL which points to a picture which user wants to set as a profile photo
+  """
+  pictureLink: String
 }
 
 """

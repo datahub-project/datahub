@@ -31,7 +31,8 @@ public class SpringWebConfig implements WebMvcConfigurer {
   private static final Set<String> SCHEMA_REGISTRY_PACKAGES =
       Set.of("io.datahubproject.openapi.schema.registry");
 
-  private static final Set<String> OPENLINEAGE_PACKAGES = Set.of("io.datahubproject.openlineage");
+  private static final Set<String> OPENLINEAGE_PACKAGES =
+      Set.of("io.datahubproject.openapi.openlineage");
 
   public static final Set<String> NONDEFAULT_OPENAPI_PACKAGES;
 
