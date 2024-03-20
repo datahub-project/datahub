@@ -170,14 +170,14 @@ public class EntityController {
 
     return ResponseEntity.of(
         Optional.of(
-            new BatchGetUrnResponse(
+            BatchGetUrnResponse.builder().entities(
                 new ArrayList<>(
                     toRecordTemplates(
                         request.getUrns().stream()
                             .map(UrnUtils::getUrn)
                             .collect(Collectors.toList()),
                         new HashSet<>(request.getAspectNames()),
-                        request.isWithSystemMetadata())))));
+                        request.isWithSystemMetadata()))).build()));
   }
 
   @Tag(name = "Generic Entities")
