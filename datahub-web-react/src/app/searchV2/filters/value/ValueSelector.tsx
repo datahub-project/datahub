@@ -23,6 +23,7 @@ export default function ValueSelector({ field, values, defaultOptions, onChangeV
 
     return (
         <Dropdown
+            key={field.field}
             trigger={['click']}
             open={isMenuOpen}
             onOpenChange={setIsMenuOpen}

@@ -550,7 +550,10 @@ export function convertToFilterPredicate(
 
 /**
  * Converts an array of selected facet filters to an array of FilterPredicates based on available filters metadata.
- *
+ * Here, we employ strict checking for the field value to differentiate between '_entityType␞typeNames' (recommended filter) 
+ * and '_entityType' filters. This strict checking ensures complete decoupling of these filters, 
+ * opting for direct equality comparison over 'includes'.
+ * 
  * @param selectedFilters - The array of selected facet filters to be converted.
  * @param availableFilters - An array of available facet filters metadata.
  * @returns An array of resulting FilterPredicates.
@@ -558,12 +561,12 @@ export function convertToFilterPredicate(
 export const convertToAvailableFilterPredictes = (
     selectedFilters: FacetFilterInput[],
     availableFilters: FacetMetadata[],
-): FilterPredicate[] =>{
-    return availableFilters.map(filter =>{
-        const selectedFilterObj = selectedFilters.find(obj => obj.field.includes(filter.field))
-        return convertToFilterPredicate(selectedFilterObj || filter, availableFilters)
-    })
-}
+): FilterPredicate[] => {
+    return availableFilters.map((filter) => {
+        const selectedFilterObj = selectedFilters.find((obj) => obj.field === filter.field);
+        return convertToFilterPredicate(selectedFilterObj || filter, availableFilters);
+    });
+};
 
 /**
  * Converts an array of selected facet filters to an array of FilterPredicates based on available filters metadata.
