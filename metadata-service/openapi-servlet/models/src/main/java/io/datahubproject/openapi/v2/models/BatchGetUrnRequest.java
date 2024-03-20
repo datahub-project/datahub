@@ -17,20 +17,14 @@ import lombok.Value;
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class BatchGetUrnRequest implements Serializable {
   @JsonProperty("urns")
-  @Schema(
-      required = true,
-      description = "The list of urns to get.")
+  @Schema(required = true, description = "The list of urns to get.")
   List<String> urns;
 
   @JsonProperty("aspectNames")
-  @Schema(
-      required = true,
-      description = "The list of aspect names to get")
+  @Schema(required = true, description = "The list of aspect names to get")
   List<String> aspectNames;
 
   @JsonProperty("withSystemMetadata")
-  @Schema(
-      required = true,
-      description = "Whether or not to retrieve system metadata")
+  @Schema(required = true, description = "Whether or not to retrieve system metadata")
   boolean withSystemMetadata;
 }

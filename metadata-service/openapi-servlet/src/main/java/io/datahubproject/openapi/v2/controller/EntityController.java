@@ -167,18 +167,22 @@ public class EntityController {
 
     return ResponseEntity.of(
         Optional.of(
-            BatchGetUrnResponse.builder().entities(
-                new ArrayList<>(
-                    toRecordTemplates(
-                        request.getUrns().stream()
-                            .map(UrnUtils::getUrn)
-                            .collect(Collectors.toList()),
-                        new HashSet<>(request.getAspectNames()),
-                        request.isWithSystemMetadata()))).build()));
+            BatchGetUrnResponse.builder()
+                .entities(
+                    new ArrayList<>(
+                        toRecordTemplates(
+                            request.getUrns().stream()
+                                .map(UrnUtils::getUrn)
+                                .collect(Collectors.toList()),
+                            new HashSet<>(request.getAspectNames()),
+                            request.isWithSystemMetadata())))
+                .build()));
   }
 
   @Tag(name = "Generic Entities")
-  @GetMapping(value = "/{entityName}/{entityUrn:urn:li:.+}", produces = MediaType.APPLICATION_JSON_VALUE)
+  @GetMapping(
+      value = "/{entityName}/{entityUrn:urn:li:.+}",
+      produces = MediaType.APPLICATION_JSON_VALUE)
   @Operation(summary = "Get an entity")
   public ResponseEntity<GenericEntity> getEntity(
       @PathVariable("entityName") String entityName,

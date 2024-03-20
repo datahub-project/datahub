@@ -7,10 +7,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import java.io.Serializable;
 import java.util.List;
 import lombok.Builder;
-import lombok.Data;
-import lombok.RequiredArgsConstructor;
 import lombok.Value;
-
 
 @Value
 @Builder
@@ -18,7 +15,6 @@ import lombok.Value;
 @JsonDeserialize(builder = BatchGetUrnResponse.BatchGetUrnResponseBuilder.class)
 public class BatchGetUrnResponse implements Serializable {
   @JsonProperty("entities")
-  @Schema(
-      description = "List of entity responses")
+  @Schema(description = "List of entity responses")
   List<GenericEntity> entities;
 }

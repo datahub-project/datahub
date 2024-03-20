@@ -86,9 +86,11 @@ public class ServiceTestUtils {
     OpenApiClient mockClient =
         Mockito.mock(OpenApiClient.class, Mockito.withSettings().verboseLogging());
     BatchGetUrnRequest batchGetUrnRequest =
-        BatchGetUrnRequest.builder().urns(List.of(TEST_ENTITY_URN_1.toString(), TEST_ENTITY_URN_2.toString()))
+        BatchGetUrnRequest.builder()
+            .urns(List.of(TEST_ENTITY_URN_1.toString(), TEST_ENTITY_URN_2.toString()))
             .aspectNames(Collections.singletonList(aspectName))
-            .withSystemMetadata(true).build();
+            .withSystemMetadata(true)
+            .build();
 
     List<GenericEntity> entities;
     if (aspect != null) {
@@ -112,7 +114,8 @@ public class ServiceTestUtils {
       entities = Collections.emptyList();
     }
 
-    BatchGetUrnResponse batchGetUrnResponse = BatchGetUrnResponse.builder().entities(entities).build();
+    BatchGetUrnResponse batchGetUrnResponse =
+        BatchGetUrnResponse.builder().entities(entities).build();
     Mockito.when(
             mockClient.getBatchUrns(
                 Mockito.eq(Constants.DATASET_ENTITY_NAME),

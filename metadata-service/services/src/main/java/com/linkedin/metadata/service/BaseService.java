@@ -88,7 +88,8 @@ public class BaseService {
           BatchGetUrnRequest.builder()
               .urns(entityUrns.stream().map(Urn::toString).collect(Collectors.toList()))
               .aspectNames(Collections.singletonList(aspectName))
-              .withSystemMetadata(true).build();
+              .withSystemMetadata(true)
+              .build();
       BatchGetUrnResponse response =
           openApiClient.getBatchUrns(
               entityUrns.stream().findFirst().get().getEntityType(),

@@ -97,7 +97,12 @@ public class MonitorServiceTest {
     final EntityClient mockClient = createMockEntityClient();
     final MonitorService service =
         new MonitorService(
-            TEST_HOST, TEST_PORT, false, mockClient, Mockito.mock(Authentication.class), Mockito.mock(OpenApiClient.class));
+            TEST_HOST,
+            TEST_PORT,
+            false,
+            mockClient,
+            Mockito.mock(Authentication.class),
+            Mockito.mock(OpenApiClient.class));
     // Case 1: Info exists
     MonitorInfo info = service.getMonitorInfo(TEST_MONITOR_URN);
     Assert.assertEquals(info, mockMonitorInfo());
@@ -174,7 +179,12 @@ public class MonitorServiceTest {
 
     final MonitorService service =
         new MonitorService(
-            TEST_HOST, TEST_PORT, false, mockClient, Mockito.mock(Authentication.class), Mockito.mock(OpenApiClient.class));
+            TEST_HOST,
+            TEST_PORT,
+            false,
+            mockClient,
+            Mockito.mock(Authentication.class),
+            Mockito.mock(OpenApiClient.class));
 
     // Test method
     Urn result =
@@ -212,7 +222,12 @@ public class MonitorServiceTest {
 
     final MonitorService service =
         new MonitorService(
-            TEST_HOST, TEST_PORT, false, mockClient, Mockito.mock(Authentication.class), Mockito.mock(OpenApiClient.class));
+            TEST_HOST,
+            TEST_PORT,
+            false,
+            mockClient,
+            Mockito.mock(Authentication.class),
+            Mockito.mock(OpenApiClient.class));
 
     // Method should throw because the assertion does not exist.
     Assert.assertThrows(
@@ -248,7 +263,12 @@ public class MonitorServiceTest {
 
     final MonitorService service =
         new MonitorService(
-            TEST_HOST, TEST_PORT, false, mockClient, Mockito.mock(Authentication.class), Mockito.mock(OpenApiClient.class));
+            TEST_HOST,
+            TEST_PORT,
+            false,
+            mockClient,
+            Mockito.mock(Authentication.class),
+            Mockito.mock(OpenApiClient.class));
 
     Mockito.when(mockClient.exists(Mockito.eq(assertionUrn), Mockito.any(Authentication.class)))
         .thenReturn(true);
@@ -326,7 +346,12 @@ public class MonitorServiceTest {
 
     final MonitorService service =
         new MonitorService(
-            TEST_HOST, TEST_PORT, false, mockClient, Mockito.mock(Authentication.class), Mockito.mock(OpenApiClient.class));
+            TEST_HOST,
+            TEST_PORT,
+            false,
+            mockClient,
+            Mockito.mock(Authentication.class),
+            Mockito.mock(OpenApiClient.class));
 
     // Test method
     Urn result =
@@ -404,7 +429,12 @@ public class MonitorServiceTest {
 
     final MonitorService service =
         new MonitorService(
-            TEST_HOST, TEST_PORT, false, mockClient, Mockito.mock(Authentication.class), Mockito.mock(OpenApiClient.class));
+            TEST_HOST,
+            TEST_PORT,
+            false,
+            mockClient,
+            Mockito.mock(Authentication.class),
+            Mockito.mock(OpenApiClient.class));
 
     // Test method
     Urn result =
@@ -444,7 +474,12 @@ public class MonitorServiceTest {
 
     final MonitorService service =
         new MonitorService(
-            TEST_HOST, TEST_PORT, false, mockClient, Mockito.mock(Authentication.class), Mockito.mock(OpenApiClient.class));
+            TEST_HOST,
+            TEST_PORT,
+            false,
+            mockClient,
+            Mockito.mock(Authentication.class),
+            Mockito.mock(OpenApiClient.class));
 
     // Method should throw because the assertion does not exist.
     Assert.assertThrows(
@@ -483,7 +518,12 @@ public class MonitorServiceTest {
 
     final MonitorService service =
         new MonitorService(
-            TEST_HOST, TEST_PORT, false, mockClient, Mockito.mock(Authentication.class), Mockito.mock(OpenApiClient.class));
+            TEST_HOST,
+            TEST_PORT,
+            false,
+            mockClient,
+            Mockito.mock(Authentication.class),
+            Mockito.mock(OpenApiClient.class));
 
     Mockito.when(mockClient.exists(Mockito.eq(assertionUrn), Mockito.any(Authentication.class)))
         .thenReturn(true);
@@ -515,7 +555,12 @@ public class MonitorServiceTest {
 
     final MonitorService service =
         new MonitorService(
-            TEST_HOST, TEST_PORT, false, mockClient, Mockito.mock(Authentication.class), Mockito.mock(OpenApiClient.class));
+            TEST_HOST,
+            TEST_PORT,
+            false,
+            mockClient,
+            Mockito.mock(Authentication.class),
+            Mockito.mock(OpenApiClient.class));
 
     Mockito.when(mockClient.exists(Mockito.eq(assertionUrn), Mockito.any(Authentication.class)))
         .thenReturn(true);
@@ -548,7 +593,12 @@ public class MonitorServiceTest {
     final EntityClient mockClient = createMockEntityClient();
     final MonitorService service =
         new MonitorService(
-            TEST_HOST, TEST_PORT, false, mockClient, Mockito.mock(Authentication.class), Mockito.mock(OpenApiClient.class));
+            TEST_HOST,
+            TEST_PORT,
+            false,
+            mockClient,
+            Mockito.mock(Authentication.class),
+            Mockito.mock(OpenApiClient.class));
 
     // Case 1: Info exists
     Mockito.doAnswer(
