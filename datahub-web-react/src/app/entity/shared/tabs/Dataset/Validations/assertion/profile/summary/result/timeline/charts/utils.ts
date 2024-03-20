@@ -191,13 +191,10 @@ export const getWindowStartAndEndDatesForFreshnessAssertionRun = (mountedDataPoi
  * @returns {AssertionDataPoint[]}
  */
 export const duplicateDataPointsAcrossBufferedTimeRange = (dataPoint: AssertionDataPoint, timestampMillisBuffer: number): AssertionDataPoint[] => {
-    const points: AssertionDataPoint[] = [];
     const timestampMillisModifiers = [-timestampMillisBuffer, 0, timestampMillisBuffer];
-    for (const tsModifier of timestampMillisModifiers) {
-        points.push({
-            ...dataPoint,
-            time: dataPoint.time + tsModifier,
-        })
-    }
+    const points: AssertionDataPoint[] = timestampMillisModifiers.map(tsModifier => ({
+        ...dataPoint,
+        time: dataPoint.time + tsModifier,
+    }))
     return points
 }
