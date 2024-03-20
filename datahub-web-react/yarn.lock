@@ -6028,6 +6028,14 @@
     d3-shape "^1.2.0"
     prop-types "^15.6.2"
 
+"@visx/gradient@^3.3.0":
+  version "3.3.0"
+  resolved "https://registry.yarnpkg.com/@visx/gradient/-/gradient-3.3.0.tgz#c0d0a7435b78053742e61731dae22c7464cd342c"
+  integrity sha512-t3vqukahDQsJ64/fcm85woFm2XPpSPMBz92gFvaY4J8EJY3e6rFOg382v5Dm17fgNsLRKJA0Vqo7mUtDe2pWOw==
+  dependencies:
+    "@types/react" "*"
+    prop-types "^15.5.7"
+
 "@visx/grid@3.2.0":
   version "3.2.0"
   resolved "https://registry.yarnpkg.com/@visx/grid/-/grid-3.2.0.tgz#1db936e0c20bf45d2e8280f8c70b62982c67fb59"
@@ -6039,6 +6047,20 @@
     "@visx/point" "3.0.1"
     "@visx/scale" "3.2.0"
     "@visx/shape" "3.2.0"
+    classnames "^2.3.1"
+    prop-types "^15.6.2"
+
+"@visx/grid@^3.5.0":
+  version "3.5.0"
+  resolved "https://registry.yarnpkg.com/@visx/grid/-/grid-3.5.0.tgz#a20058f2c7553e3f2f2ec140bdfdf4434ffd5f41"
+  integrity sha512-i1pdobTE223ItMiER3q4ojIaZWja3vg46TkS6FotnBZ4c0VRDHSrALQPdi0na+YEgppASWCQ2WrI/vD6mIkhSg==
+  dependencies:
+    "@types/react" "*"
+    "@visx/curve" "3.3.0"
+    "@visx/group" "3.3.0"
+    "@visx/point" "3.3.0"
+    "@visx/scale" "3.5.0"
+    "@visx/shape" "3.5.0"
     classnames "^2.3.1"
     prop-types "^15.6.2"
 
@@ -6098,6 +6120,11 @@
   version "3.0.1"
   resolved "https://registry.yarnpkg.com/@visx/point/-/point-3.0.1.tgz#77587ddaabf6f3023f09f8a0ce33a2c27c9d64c8"
   integrity sha512-S5WOBMgEP2xHcgs3A2BFB2vwzrk0tMmn3PGZAbQJ+lu4HlnalDP72klUnxLTH8xclNNvpUHtHM5eLIJXyHx6Pw==
+
+"@visx/point@3.3.0":
+  version "3.3.0"
+  resolved "https://registry.yarnpkg.com/@visx/point/-/point-3.3.0.tgz#7a705e09892ae45b4c9cf3155e9be3a3845460d8"
+  integrity sha512-03eBBIJarkmX79WbeEGTUZwmS5/MUuabbiM9KfkGS9pETBTWkp1DZtEHZdp5z34x5TDQVLSi0rk1Plg3/8RtDg==
 
 "@visx/react-spring@3.2.0":
   version "3.2.0"
@@ -14683,7 +14710,7 @@ prop-types@15.7.2:
     object-assign "^4.1.1"
     react-is "^16.8.1"
 
-prop-types@^15.5.10, prop-types@^15.6.0, prop-types@^15.6.1, prop-types@^15.6.2, prop-types@^15.7.2, prop-types@^15.8.1:
+prop-types@^15.5.10, prop-types@^15.5.7, prop-types@^15.6.0, prop-types@^15.6.1, prop-types@^15.6.2, prop-types@^15.7.2, prop-types@^15.8.1:
   version "15.8.1"
   resolved "https://registry.yarnpkg.com/prop-types/-/prop-types-15.8.1.tgz#67d87bf1a694f48435cf332c24af10214a3140b5"
   integrity sha512-oj87CgZICdulUohogVAR7AjlC0327U4el4L6eAvOqCeudMDVU0NThNaV+b9Df4dXgSP1gXMTnPdhfe/2qDH5cg==

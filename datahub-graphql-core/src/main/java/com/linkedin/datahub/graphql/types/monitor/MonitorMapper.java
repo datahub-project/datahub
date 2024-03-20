@@ -237,7 +237,7 @@ public class MonitorMapper {
     return result;
   }
 
-  private static AssertionEvaluationParameters mapAssertionEvaluationParameters(
+  public static AssertionEvaluationParameters mapAssertionEvaluationParameters(
       com.linkedin.monitor.AssertionEvaluationParameters backendAssertionEvaluationParameters) {
     final AssertionEvaluationParameters assertionEvaluationParameters =
         new AssertionEvaluationParameters();

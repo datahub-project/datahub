@@ -23,7 +23,7 @@ import { Actions } from './assertion/profile/actions/Actions';
 import { AssertionDescription } from './assertion/profile/summary/AssertionDescription';
 import { AssertionResultDot } from './assertion/profile/shared/AssertionResultDot';
 import { AssertionResultPopover } from './assertion/profile/shared/result/AssertionResultPopover';
-import { ResultStatusType } from './assertion/profile/summary/shared/resultUtils';
+import { ResultStatusType } from './assertion/profile/summary/shared/resultMessageUtils';
 
 const DetailsContainer = styled.div`
     display: flex;

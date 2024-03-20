@@ -6,38 +6,37 @@ import { ClockCircleOutlined } from '@ant-design/icons';
 
 import {
     Assertion,
-    AssertionResult,
     AssertionResultType,
     AssertionRunEvent,
 } from '../../../../../../../../../../types.generated';
-import { AssertionDescription } from '../../summary/AssertionDescription';
 import { AssertionResultPill } from '../../summary/shared/AssertionResultPill';
 import { PrimaryButton } from '../../../builder/details/PrimaryButton';
 import { isExternalAssertion } from '../isExternalAssertion';
 import { ProviderSummarySection } from '../../summary/schedule/ProviderSummarySection';
 import { ANTD_GRAY } from '../../../../../../../constants';
 import { toReadableLocalDateTimeString } from '../timeUtils';
-import { ResultStatusType, getDetailedErrorMessage, getFormattedReasonText } from '../../summary/shared/resultUtils';
+import { ResultStatusType, getDetailedErrorMessage, getFormattedExpectedResultText, getFormattedReasonText } from '../../summary/shared/resultMessageUtils';
 
 const HeaderRow = styled.div`
     display: flex;
     justify-content: space-between;
-    align-items: start;
+    align-items: center;
     margin-bottom: 4px;
 `;
 
-const Title = styled.div`
-    flex: 1;
-    font-size: 16px;
-    font-weight: 600;
-    overflow: hidden;
-    > div {
-        overflow: hidden;
-        white-space: nowrap;
-        text-overflow: ellipsis;
-    }
-    margin-right: 20px;
-`;
+// NOTE: removed the title for now as the assertion's current title may not accurately describe the assertion that ran at this point in history
+// const Title = styled.div`
+//     flex: 1;
+//     font-size: 16px;
+//     font-weight: 600;
+//     overflow: hidden;
+//     > div {
+//         overflow: hidden;
+//         white-space: nowrap;
+//         text-overflow: ellipsis;
+//     }
+//     margin-right: 20px;
+// `;
 
 const Actions = styled.div`
     display: flex;
@@ -47,9 +46,10 @@ const Actions = styled.div`
 `;
 
 const LastResultsRow = styled.div`
-    color: ${ANTD_GRAY[7]};
+    font-size: 14px;
     display: flex;
     align-items: center;
+    font-weight: 500;
 `;
 
 const ReasonRow = styled.div``;
@@ -102,13 +102,13 @@ export const AssertionResultPopoverContent = ({
     const timestamp = run && new Date(run?.timestampMillis);
 
     // Reason
-    const result = run?.result as AssertionResult;
-    const reasonText = (run && getFormattedReasonText(assertion, run)) || undefined;
+    const result = run?.result ? run.result! : undefined;
+    const reasonText = run ? getFormattedReasonText(assertion, run) : undefined;
     const hasReason = !!reasonText;
 
     // Context
-    const hasContext = false;
-    const expectedText = undefined; // TODO For us.
+    const expectedText = run ? getFormattedExpectedResultText(assertion, run) : undefined;
+    const hasContext = !!expectedText;
 
     // Error
     const errorMessage = (run && getDetailedErrorMessage(run)) || undefined;
@@ -121,9 +121,14 @@ export const AssertionResultPopoverContent = ({
     return (
         <>
             <HeaderRow>
-                <Title>
-                    <AssertionDescription assertion={assertion} />
-                </Title>
+                {/* NOTE: we don't show the assertion title in the header because the assertion's current title may not accurately represent the assertion that actually ran at this point in time. */}
+                <LastResultsRow>
+                    {(timestamp && (
+                        <>
+                            <StyledClockCircleOutlined /> Ran {toReadableLocalDateTimeString(run?.timestampMillis)}{' '}
+                        </>
+                    )) || <>No results yet</>}
+                </LastResultsRow>
                 <Actions>
                     <AssertionResultPill result={result} type={resultStatusType} />
                     {(showProfileButton && onClickProfileButton && (
@@ -132,13 +137,6 @@ export const AssertionResultPopoverContent = ({
                         undefined}
                 </Actions>
             </HeaderRow>
-            <LastResultsRow>
-                {(timestamp && (
-                    <>
-                        <StyledClockCircleOutlined /> Evaluated {toReadableLocalDateTimeString(run?.timestampMillis)}{' '}
-                    </>
-                )) || <>No results yet</>}
-            </LastResultsRow>
             {hasReason && (
                 <>
                     <ThinDivider />

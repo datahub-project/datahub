@@ -1,3 +1,161 @@
+#import "./assertion_monitor_shared.graphql"
+
+fragment assertionInfo on AssertionInfo {
+    type
+    description
+    datasetAssertion {
+        datasetUrn
+        scope
+        aggregation
+        operator
+        parameters {
+            value {
+                value
+                type
+            }
+            minValue {
+                value
+                type
+            }
+            maxValue {
+                value
+                type
+            }
+        }
+        fields {
+            urn
+            path
+        }
+        nativeType
+        nativeParameters {
+            key
+            value
+        }
+        logic
+    }
+    freshnessAssertion {
+        type
+        entityUrn
+        schedule {
+            type
+            cron {
+                cron
+                timezone
+            }
+            fixedInterval {
+                unit
+                multiple
+            }
+        }
+        filter {
+            type
+            sql
+        }
+    }
+    sqlAssertion {
+        type
+        entityUrn
+        statement
+        changeType
+        operator
+        parameters {
+            ...assertionStdParametersDetails
+        }
+    }
+    fieldAssertion {
+        type
+        entityUrn
+        filter {
+            type
+            sql
+        }
+        fieldValuesAssertion {
+            field {
+                path
+                type
+                nativeType
+            }
+            transform {
+                type
+            }
+            operator
+            parameters {
+                ...assertionStdParametersDetails
+            }
+            failThreshold {
+                type
+                value
+            }
+            excludeNulls
+        }
+        fieldMetricAssertion {
+            field {
+                path
+                type
+                nativeType
+            }
+            metric
+            operator
+            parameters {
+                ...assertionStdParametersDetails
+            }
+        }
+    }
+    volumeAssertion {
+        type
+        entityUrn
+        filter {
+            type
+            sql
+        }
+        rowCountTotal {
+            operator
+            parameters {
+                ...assertionStdParametersDetails
+            }
+        }
+        rowCountChange {
+            type
+            operator
+            parameters {
+                ...assertionStdParametersDetails
+            }
+        }
+        incrementingSegmentRowCountTotal {
+            operator
+            parameters {
+                ...assertionStdParametersDetails
+            }
+            segment {
+                ...incrementingSegmentSpecDetails
+            }
+        }
+        incrementingSegmentRowCountChange {
+            type
+            operator
+            parameters {
+                ...assertionStdParametersDetails
+            }
+            segment {
+                ...incrementingSegmentSpecDetails
+            }
+        }
+    }
+    schemaAssertion {
+        entityUrn
+        schema {
+            fields {
+                fieldPath
+                type
+                nativeDataType
+            }
+        }
+    }
+    source {
+        type
+    }
+}
+
 fragment assertionDetails on Assertion {
     urn
     type
@@ -16,159 +174,7 @@ fragment assertionDetails on Assertion {
         ...dataPlatformInstanceFields
     }
     info {
-        type
-        description
-        datasetAssertion {
-            datasetUrn
-            scope
-            aggregation
-            operator
-            parameters {
-                value {
-                    value
-                    type
-                }
-                minValue {
-                    value
-                    type
-                }
-                maxValue {
-                    value
-                    type
-                }
-            }
-            fields {
-                urn
-                path
-            }
-            nativeType
-            nativeParameters {
-                key
-                value
-            }
-            logic
-        }
-        freshnessAssertion {
-            type
-            entityUrn
-            schedule {
-                type
-                cron {
-                    cron
-                    timezone
-                }
-                fixedInterval {
-                    unit
-                    multiple
-                }
-            }
-            filter {
-                type
-                sql
-            }
-        }
-        sqlAssertion {
-            type
-            entityUrn
-            statement
-            changeType
-            operator
-            parameters {
-                ...assertionStdParametersDetails
-            }
-        }
-        fieldAssertion {
-            type
-            entityUrn
-            filter {
-                type
-                sql
-            }
-            fieldValuesAssertion {
-                field {
-                    path
-                    type
-                    nativeType
-                }
-                transform {
-                    type
-                }
-                operator
-                parameters {
-                    ...assertionStdParametersDetails
-                }
-                failThreshold {
-                    type
-                    value
-                }
-                excludeNulls
-            }
-            fieldMetricAssertion {
-                field {
-                    path
-                    type
-                    nativeType
-                }
-                metric
-                operator
-                parameters {
-                    ...assertionStdParametersDetails
-                }
-            }
-        }
-        volumeAssertion {
-            type
-            entityUrn
-            filter {
-                type
-                sql
-            }
-            rowCountTotal {
-                operator
-                parameters {
-                    ...assertionStdParametersDetails
-                }
-            }
-            rowCountChange {
-                type
-                operator
-                parameters {
-                    ...assertionStdParametersDetails
-                }
-            }
-            incrementingSegmentRowCountTotal {
-                operator
-                parameters {
-                    ...assertionStdParametersDetails
-                }
-                segment {
-                    ...incrementingSegmentSpecDetails
-                }
-            }
-            incrementingSegmentRowCountChange {
-                type
-                operator
-                parameters {
-                    ...assertionStdParametersDetails
-                }
-                segment {
-                    ...incrementingSegmentSpecDetails
-                }
-            }
-        }
-        schemaAssertion {
-            entityUrn
-            schema {
-                fields {
-                    fieldPath
-                    type
-                    nativeDataType
-                }
-            }
-        }
-        source {
-            type
-        }
+        ...assertionInfo
     }
     actions {
         onSuccess {
@@ -224,6 +230,13 @@ fragment assertionResultDetails on AssertionResult {
             key
             value
         }
+    }
+    # acryl only
+    assertion {
+        ...assertionInfo
+    }
+    parameters {
+        ...assertionEvaluationParameters,
     }
 }
 
