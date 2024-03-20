@@ -1,7 +1,7 @@
+import functools
 import itertools
 import logging
 from collections import defaultdict
-from functools import partial
 from typing import Dict, Iterable, List, Optional, Type, Union
 
 import humanfriendly
@@ -402,11 +402,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
         return [
             *super().get_workunit_processors(),
-            partial(
-                auto_incremental_lineage,
-                self.ctx.graph,
-                self.config.incremental_lineage,
-            ),
+            functools.partial(auto_incremental_lineage, self.config.incremental_lineage),
             StaleEntityRemovalHandler.create(
                 self, self.config, self.ctx
             ).workunit_processor,

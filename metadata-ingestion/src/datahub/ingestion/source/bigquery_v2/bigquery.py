@@ -1,4 +1,5 @@
 import atexit
+import functools
 import logging
 import os
 import re
@@ -27,6 +28,7 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
+from datahub.ingestion.api.incremental_lineage_helper import auto_incremental_lineage
 from datahub.ingestion.api.source import (
     CapabilityReport,
     MetadataWorkUnitProcessor,
@@ -574,6 +576,10 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
         return [
             *super().get_workunit_processors(),
+            functools.partial(
+                auto_incremental_lineage,
+                self.config.incremental_lineage
+            ),
             StaleEntityRemovalHandler.create(
                 self, self.config, self.ctx
             ).workunit_processor,

@@ -3,7 +3,6 @@ import os
 from datetime import timedelta
 from typing import Any, Dict, List, Optional
 
-import pydantic
 from google.cloud import bigquery
 from google.cloud.logging_v2.client import Client as GCPLoggingClient
 from pydantic import Field, PositiveInt, PrivateAttr, root_validator, validator
@@ -212,20 +211,10 @@ class BigQueryV2Config(
     )
 
     extract_column_lineage: bool = Field(
-        # TODO: Flip this default to True once we support patching column-level lineage.
         default=False,
         description="If enabled, generate column level lineage. "
         "Requires lineage_use_sql_parser to be enabled. "
-        "This and `incremental_lineage` cannot both be enabled.",
     )
-
-    @pydantic.validator("extract_column_lineage")
-    def validate_column_lineage(cls, v: bool, values: Dict[str, Any]) -> bool:
-        if v and values.get("incremental_lineage"):
-            raise ValueError(
-                "Cannot enable `extract_column_lineage` and `incremental_lineage` at the same time."
-            )
-        return v
 
     extract_lineage_from_catalog: bool = Field(
         default=False,
