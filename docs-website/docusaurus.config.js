@@ -280,6 +280,10 @@ module.exports = {
           path: "src/pages",
           mdxPageComponent: "@theme/MDXPage",
         },
+        gtag: {
+          trackingID: 'G-2G54RXWD4D',
+          anonymizeIP: true,
+        },
       },
     ],
   ],
@@ -293,7 +297,6 @@ module.exports = {
         routeBasePath: "/docs/graphql",
       },
     ],
-    // '@docusaurus/plugin-google-gtag',
     // [
     //   require.resolve("@easyops-cn/docusaurus-search-local"),
     //   {
