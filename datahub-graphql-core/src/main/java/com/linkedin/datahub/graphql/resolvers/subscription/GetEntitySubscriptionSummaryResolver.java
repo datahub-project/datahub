@@ -48,7 +48,8 @@ public class GetEntitySubscriptionSummaryResolver
             final Urn actorUrn = UrnUtils.getUrn(context.getActorUrn());
 
             final EntitySubscriptionSummary summary = new EntitySubscriptionSummary();
-            summary.setIsUserSubscribed(_subscriptionService.isUserSubscribed(entityUrn, actorUrn));
+            summary.setIsUserSubscribed(
+                _subscriptionService.isActorSubscribed(entityUrn, actorUrn));
 
             final List<Urn> userGroupUrns =
                 _groupService.getGroupsForUser(actorUrn, authentication);

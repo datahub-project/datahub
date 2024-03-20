@@ -75,12 +75,11 @@ public class SubscriptionService extends BaseService {
       @Nullable final SubscriptionNotificationConfig notificationConfig,
       @Nonnull final Authentication authentication) {
     try {
-      if (!this.entityClient.exists(actorUrn, authentication)) {
-        throw new RuntimeException(String.format("Actor %s does not exist", actorUrn));
-      }
-
-      if (!this.entityClient.exists(entityUrn, authentication)) {
-        throw new RuntimeException(String.format("Entity %s does not exist", entityUrn));
+      if (isActorSubscribed(entityUrn, actorUrn)) {
+        throw new IllegalArgumentException(
+            String.format(
+                "Failed to create new subscription! Actor %s is already subscribed to entity %s",
+                actorUrn, entityUrn));
       }
 
       final String subscriptionID = UUID.randomUUID().toString();
@@ -121,7 +120,7 @@ public class SubscriptionService extends BaseService {
     }
   }
 
-  public boolean isUserSubscribed(@Nonnull final Urn entityUrn, @Nonnull final Urn actorUrn) {
+  public boolean isActorSubscribed(@Nonnull final Urn entityUrn, @Nonnull final Urn actorUrn) {
     try {
       if (!this.entityClient.exists(entityUrn, this.systemAuthentication)) {
         throw new RuntimeException(String.format("Entity %s does not exist", entityUrn));
