@@ -13,13 +13,18 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.stream.Collectors;
+import lombok.AccessLevel;
+import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
+import lombok.NoArgsConstructor;
+
 
 @Data
 @Builder
 @JsonInclude(JsonInclude.Include.NON_NULL)
-@JsonDeserialize(builder = GenericEntity.GenericEntityBuilder.class)
+@NoArgsConstructor(force = true, access = AccessLevel.PRIVATE)
+@AllArgsConstructor
 public class GenericEntity {
   @JsonProperty("urn")
   @Schema(
