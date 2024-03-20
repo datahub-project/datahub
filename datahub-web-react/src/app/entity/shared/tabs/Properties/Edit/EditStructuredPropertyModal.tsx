@@ -83,14 +83,9 @@ export default function EditStructuredPropertyModal({ isOpen, propertyRow, struc
             }
             destroyOnClose
         >
-            {structuredProperty?.definition.description ? (
+            {structuredProperty?.definition.description && (
                 <Description>{structuredProperty.definition.description}</Description>
-            ) : (
-                <Description>
-                    This is the description of this structured property to see how things would look here
-                </Description>
             )}
-
             <StructuredPropertyInput
                 structuredProperty={structuredProperty}
                 selectedValues={selectedValues}
