@@ -149,6 +149,9 @@ public class EntityController {
   public ResponseEntity<BatchGetUrnResponse> getEntityBatch(
       @PathVariable("entityName") String entityName, @RequestBody BatchGetUrnRequest request)
       throws URISyntaxException {
+    log.error("!!Executing batch entity get!!");
+    log.error("Entity name: {}", entityName);
+    log.error("Request object: {}", request);
 
     if (restApiAuthorizationEnabled) {
       Authentication authentication = AuthenticationContext.getAuthentication();
