@@ -1,14 +1,17 @@
 package com.datahub.event.hook;
 
 import static com.datahub.event.hook.EntityRegistryTestUtil.ENTITY_REGISTRY;
+import static com.linkedin.metadata.Constants.BUSINESS_ATTRIBUTE_ASPECT;
+import static com.linkedin.metadata.Constants.SCHEMA_FIELD_ENTITY_NAME;
 import static com.linkedin.metadata.search.utils.QueryUtils.EMPTY_FILTER;
 import static com.linkedin.metadata.search.utils.QueryUtils.newFilter;
 import static com.linkedin.metadata.search.utils.QueryUtils.newRelationshipFilter;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.testng.Assert.assertEquals;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.linkedin.businessattribute.BusinessAttributeAssociation;
+import com.linkedin.businessattribute.BusinessAttributes;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.GlobalTags;
 import com.linkedin.common.TagAssociation;
@@ -18,9 +21,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.DataMap;
 import com.linkedin.entity.Aspect;
-import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
-import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.SystemRestliEntityClient;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
@@ -30,23 +31,18 @@ import com.linkedin.metadata.graph.RelatedEntitiesResult;
 import com.linkedin.metadata.graph.RelatedEntity;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
-import com.linkedin.metadata.service.BusinessAttributeUpdateService;
+import com.linkedin.metadata.service.BusinessAttributeUpdateHookService;
 import com.linkedin.metadata.timeline.data.ChangeCategory;
 import com.linkedin.metadata.timeline.data.ChangeOperation;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.PlatformEvent;
 import com.linkedin.mxe.PlatformEventHeader;
+import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.platform.event.v1.EntityChangeEvent;
 import com.linkedin.platform.event.v1.Parameters;
-import com.linkedin.schema.EditableSchemaFieldInfo;
-import com.linkedin.schema.EditableSchemaFieldInfoArray;
-import com.linkedin.schema.EditableSchemaMetadata;
 import com.linkedin.util.Pair;
 import java.net.URISyntaxException;
 import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
 import java.util.concurrent.Future;
 import org.mockito.Mockito;
@@ -57,32 +53,32 @@ public class BusinessAttributeUpdateHookTest {
 
   private static final String TEST_BUSINESS_ATTRIBUTE_URN =
       "urn:li:businessAttribute:12668aea-009b-400e-8408-e661c3a230dd";
-  private static final String EDITABLE_SCHEMAFIELD_WITH_BUSINESS_ATTRIBUTE =
-      "EditableSchemaFieldWithBusinessAttribute";
-  private static final Urn datasetUrn = UrnUtils.toDatasetUrn("hive", "test", "DEV");
-  private static final String SUB_RESOURCE = "name";
+  private static final String BUSINESS_ATTRIBUTE_OF = "BusinessAttributeOf";
+  private static final Urn SCHEMA_FIELD_URN =
+      UrnUtils.getUrn(
+          "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,SampleCypressHiveDataset,PROD),field_bar)");
   private static final String TAG_NAME = "test";
   private static final long EVENT_TIME = 123L;
   private static final String TEST_ACTOR_URN = "urn:li:corpuser:test";
-  private static final String IsPartOfRelationship = "IsPartOf";
   private static Urn actorUrn;
 
-  private static SystemRestliEntityClient _mockClient;
+  private static SystemRestliEntityClient mockClient;
 
-  private GraphService _mockGraphService;
-  private EntityService _mockEntityService;
-  private BusinessAttributeUpdateHook _businessAttributeUpdateHook;
-  private BusinessAttributeUpdateService _businessAttributeServiceHook;
+  private GraphService mockGraphService;
+  private EntityService mockEntityService;
+  private BusinessAttributeUpdateHook businessAttributeUpdateHook;
+  private BusinessAttributeUpdateHookService businessAttributeServiceHook;
 
   @BeforeMethod
   public void setupTest() throws URISyntaxException {
-    _mockGraphService = Mockito.mock(GraphService.class);
-    _mockEntityService = Mockito.mock(EntityService.class);
+    mockGraphService = Mockito.mock(GraphService.class);
+    mockEntityService = Mockito.mock(EntityService.class);
     actorUrn = Urn.createFromString(TEST_ACTOR_URN);
-    _mockClient = Mockito.mock(SystemRestliEntityClient.class);
-    _businessAttributeServiceHook =
-        new BusinessAttributeUpdateService(_mockGraphService, _mockEntityService, ENTITY_REGISTRY);
-    _businessAttributeUpdateHook = new BusinessAttributeUpdateHook(_businessAttributeServiceHook);
+    mockClient = Mockito.mock(SystemRestliEntityClient.class);
+    businessAttributeServiceHook =
+        new BusinessAttributeUpdateHookService(
+            mockGraphService, mockEntityService, ENTITY_REGISTRY, 100);
+    businessAttributeUpdateHook = new BusinessAttributeUpdateHook(businessAttributeServiceHook);
   }
 
   @Test
@@ -93,39 +89,35 @@ public class BusinessAttributeUpdateHookTest {
             0,
             1,
             1,
-            ImmutableList.of(new RelatedEntity(IsPartOfRelationship, datasetUrn.toString())));
+            ImmutableList.of(
+                new RelatedEntity(BUSINESS_ATTRIBUTE_OF, SCHEMA_FIELD_URN.toString())));
     // mock response
     Mockito.when(
-            _mockGraphService.findRelatedEntities(
+            mockGraphService.findRelatedEntities(
                 null,
                 newFilter("urn", TEST_BUSINESS_ATTRIBUTE_URN),
                 null,
                 EMPTY_FILTER,
-                Arrays.asList(EDITABLE_SCHEMAFIELD_WITH_BUSINESS_ATTRIBUTE),
+                Arrays.asList(BUSINESS_ATTRIBUTE_OF),
                 newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING),
                 0,
-                100000))
+                100))
         .thenReturn(mockRelatedEntities);
     assertEquals(mockRelatedEntities.getTotal(), 1);
 
-    // mock response
-    Map<Urn, EntityResponse> datasetEntityResponse = datasetEntityResponses();
     Mockito.when(
-            _mockEntityService.getEntitiesV2(
-                Constants.DATASET_ENTITY_NAME,
-                new HashSet<>(Collections.singleton(datasetUrn)),
-                Collections.singleton(Constants.EDITABLE_SCHEMA_METADATA_ASPECT_NAME)))
-        .thenReturn(datasetEntityResponse);
-    assertEquals(datasetEntityResponse.size(), 1);
+            mockEntityService.getLatestEnvelopedAspect(
+                eq(SCHEMA_FIELD_ENTITY_NAME), eq(SCHEMA_FIELD_URN), eq(BUSINESS_ATTRIBUTE_ASPECT)))
+        .thenReturn(envelopedAspect());
 
     // mock response
     Mockito.when(
-            _mockEntityService.alwaysProduceMCLAsync(
+            mockEntityService.alwaysProduceMCLAsync(
                 Mockito.any(Urn.class),
                 Mockito.anyString(),
                 Mockito.anyString(),
                 Mockito.any(AspectSpec.class),
-                Mockito.eq(null),
+                eq(null),
                 Mockito.any(),
                 Mockito.any(),
                 Mockito.any(),
@@ -134,10 +126,10 @@ public class BusinessAttributeUpdateHookTest {
         .thenReturn(Pair.of(Mockito.mock(Future.class), false));
 
     // invoke
-    _businessAttributeServiceHook.handleChangeEvent(platformEvent);
+    businessAttributeServiceHook.handleChangeEvent(platformEvent);
 
     // verify
-    Mockito.verify(_mockGraphService, Mockito.times(1))
+    Mockito.verify(mockGraphService, Mockito.times(1))
         .findRelatedEntities(
             Mockito.any(),
             Mockito.any(),
@@ -147,26 +139,19 @@ public class BusinessAttributeUpdateHookTest {
             Mockito.any(),
             Mockito.anyInt(),
             Mockito.anyInt());
-  }
 
-  @Test
-  private void testMCLOnNonBusinessAttributeUpdate() {
-    PlatformEvent platformEvent = createBasePlatformEventDataset();
-
-    // invoke
-    _businessAttributeServiceHook.handleChangeEvent(platformEvent);
-
-    // verify
-    Mockito.verify(_mockGraphService, Mockito.times(0))
-        .findRelatedEntities(
+    Mockito.verify(mockEntityService, Mockito.times(1))
+        .alwaysProduceMCLAsync(
+            Mockito.any(Urn.class),
+            Mockito.anyString(),
+            Mockito.anyString(),
+            Mockito.any(AspectSpec.class),
+            eq(null),
             Mockito.any(),
             Mockito.any(),
             Mockito.any(),
             Mockito.any(),
-            Mockito.any(),
-            Mockito.any(),
-            Mockito.anyInt(),
-            Mockito.anyInt());
+            Mockito.any(ChangeType.class));
   }
 
   @Test
@@ -174,10 +159,10 @@ public class BusinessAttributeUpdateHookTest {
     PlatformEvent platformEvent = createPlatformEventInvalidCategory();
 
     // invoke
-    _businessAttributeServiceHook.handleChangeEvent(platformEvent);
+    businessAttributeServiceHook.handleChangeEvent(platformEvent);
 
     // verify
-    Mockito.verify(_mockGraphService, Mockito.times(0))
+    Mockito.verify(mockGraphService, Mockito.times(0))
         .findRelatedEntities(
             Mockito.any(),
             Mockito.any(),
@@ -187,6 +172,19 @@ public class BusinessAttributeUpdateHookTest {
             Mockito.any(),
             Mockito.anyInt(),
             Mockito.anyInt());
+
+    Mockito.verify(mockEntityService, Mockito.times(0))
+        .alwaysProduceMCLAsync(
+            Mockito.any(Urn.class),
+            Mockito.anyString(),
+            Mockito.anyString(),
+            Mockito.any(AspectSpec.class),
+            eq(null),
+            Mockito.any(),
+            Mockito.any(),
+            Mockito.any(),
+            Mockito.any(),
+            Mockito.any(ChangeType.class));
   }
 
   public static PlatformEvent createPlatformEventBusinessAttribute() throws Exception {
@@ -198,23 +196,6 @@ public class BusinessAttributeUpdateHookTest {
         createChangeEvent(
             Constants.BUSINESS_ATTRIBUTE_ENTITY_NAME,
             Urn.createFromString(TEST_BUSINESS_ATTRIBUTE_URN),
-            ChangeCategory.TAG,
-            ChangeOperation.ADD,
-            newTagUrn.toString(),
-            ImmutableMap.of("tagUrn", newTagUrn.toString()),
-            actorUrn);
-    return platformEvent;
-  }
-
-  public static PlatformEvent createBasePlatformEventDataset() {
-    final GlobalTags newTags = new GlobalTags();
-    final TagUrn newTagUrn = new TagUrn(TAG_NAME);
-    newTags.setTags(
-        new TagAssociationArray(ImmutableList.of(new TagAssociation().setTag(newTagUrn))));
-    PlatformEvent platformEvent =
-        createChangeEvent(
-            Constants.DATASET_ENTITY_NAME,
-            datasetUrn,
             ChangeCategory.TAG,
             ChangeOperation.ADD,
             newTagUrn.toString(),
@@ -270,29 +251,10 @@ public class BusinessAttributeUpdateHookTest {
     return platformEvent;
   }
 
-  private Map<Urn, EntityResponse> datasetEntityResponses() {
-    Map<String, EnvelopedAspect> datasetInfoAspects = new HashMap<>();
-    datasetInfoAspects.put(
-        Constants.EDITABLE_SCHEMA_METADATA_ASPECT_NAME,
-        new EnvelopedAspect().setValue(new Aspect(editableSchemaMetadata().data())));
-    Map<Urn, EntityResponse> datasetEntityResponses = new HashMap<>();
-    datasetEntityResponses.put(
-        datasetUrn,
-        new EntityResponse()
-            .setUrn(datasetUrn)
-            .setAspects(new EnvelopedAspectMap(datasetInfoAspects)));
-    return datasetEntityResponses;
-  }
-
-  private EditableSchemaMetadata editableSchemaMetadata() {
-    EditableSchemaMetadata editableSchemaMetadata = new EditableSchemaMetadata();
-    EditableSchemaFieldInfoArray editableSchemaFieldInfos = new EditableSchemaFieldInfoArray();
-    com.linkedin.schema.EditableSchemaFieldInfo editableSchemaFieldInfo =
-        new EditableSchemaFieldInfo();
-    editableSchemaFieldInfo.setBusinessAttribute(new BusinessAttributeAssociation());
-    editableSchemaFieldInfo.setFieldPath(SUB_RESOURCE);
-    editableSchemaFieldInfos.add(editableSchemaFieldInfo);
-    editableSchemaMetadata.setEditableSchemaFieldInfo(editableSchemaFieldInfos);
-    return editableSchemaMetadata;
+  private EnvelopedAspect envelopedAspect() {
+    EnvelopedAspect envelopedAspect = new EnvelopedAspect();
+    envelopedAspect.setValue(new Aspect(new BusinessAttributes().data()));
+    envelopedAspect.setSystemMetadata(new SystemMetadata());
+    return envelopedAspect;
   }
 }

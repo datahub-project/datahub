@@ -12,7 +12,7 @@ record BusinessAttributes {
        * Business Attribute for this field.
        */
       @Relationship = {
-        "/destinationUrn": {
+        "/businessAttributeUrn": {
           "name": "BusinessAttributeOf",
           "entityTypes": [ "businessAttribute" ]
         }
