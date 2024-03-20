@@ -822,7 +822,7 @@ class RedshiftServerlessQuery(RedshiftCommonQuery):
                 WHERE
                     qs.step_name = 'scan' AND
                     qs.source = 'Redshift(local)' AND
-                    qt.sequence < 320 AND -- See https://stackoverflow.com/questions/72770890/redshift-result-size-exceeds-listagg-limit-on-svl-statementtext
+                    qt.sequence < 16 AND -- See https://stackoverflow.com/questions/72770890/redshift-result-size-exceeds-listagg-limit-on-svl-statementtext
                     sti.database = '{db_name}' AND -- this was required to not retrieve some internal redshift tables, try removing to see what happens
                     sui.user_name <> 'rdsdb' -- not entirely sure about this filter
                 GROUP BY sti.schema, sti.table, qs.table_id, qs.query_id, sui.user_name
@@ -909,7 +909,7 @@ class RedshiftServerlessQuery(RedshiftCommonQuery):
                     cluster = '{db_name}' AND
                     qd.start_time >= '{start_time}' AND
                     qd.start_time < '{end_time}' AND
-                    qt.sequence < 320 AND -- See https://stackoverflow.com/questions/72770890/redshift-result-size-exceeds-listagg-limit-on-svl-statementtext
+                    qt.sequence < 16 AND -- See https://stackoverflow.com/questions/72770890/redshift-result-size-exceeds-listagg-limit-on-svl-statementtext
                     ld.query_id IS NULL -- filter out queries which are also stored in SYS_LOAD_DETAIL
                 ORDER BY target_table ASC
             )
@@ -996,7 +996,7 @@ class RedshiftServerlessQuery(RedshiftCommonQuery):
                                             query_type IN ('DDL', 'CTAS', 'OTHER', 'COMMAND')
                                             AND qh.start_time >= '{start_time_str}'
                                             AND qh.start_time < '{end_time_str}'
-                                            AND qt.sequence < 320
+                                            AND qt.sequence < 16
                                     GROUP BY qh.start_time, qh.session_id, qh.transaction_id, qh.user_id
                                     ORDER BY qh.start_time, qh.session_id, qh.transaction_id, qh.user_id ASC
                             )
