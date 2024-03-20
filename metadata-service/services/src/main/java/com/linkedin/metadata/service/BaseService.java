@@ -30,7 +30,6 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 
-
 @Slf4j
 public class BaseService {
 
@@ -41,7 +40,9 @@ public class BaseService {
   protected static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
   public BaseService(
-      @Nonnull EntityClient entityClient, @Nonnull Authentication systemAuthentication, @Nonnull OpenApiClient openApiClient) {
+      @Nonnull EntityClient entityClient,
+      @Nonnull Authentication systemAuthentication,
+      @Nonnull OpenApiClient openApiClient) {
     this.entityClient = Objects.requireNonNull(entityClient);
     this.systemAuthentication = Objects.requireNonNull(systemAuthentication);
     this.openApiClient = openApiClient;
@@ -53,7 +54,8 @@ public class BaseService {
       @Nonnull GlobalTags defaultValue,
       @Nonnull Authentication authentication) {
     try {
-      Map<Urn, RecordTemplate> aspectMap = getAspectMap(entityUrns, Constants.GLOBAL_TAGS_ASPECT_NAME, authentication);
+      Map<Urn, RecordTemplate> aspectMap =
+          getAspectMap(entityUrns, Constants.GLOBAL_TAGS_ASPECT_NAME, authentication);
 
       final Map<Urn, GlobalTags> finalResult = new HashMap<>();
       for (Urn entity : entityUrns) {
@@ -75,28 +77,31 @@ public class BaseService {
     }
   }
 
-  protected Map<Urn, RecordTemplate> getAspectMap(@Nonnull Set<Urn> entityUrns,
-      String aspectName,
-      @Nonnull Authentication authentication) {
+  protected Map<Urn, RecordTemplate> getAspectMap(
+      @Nonnull Set<Urn> entityUrns, String aspectName, @Nonnull Authentication authentication) {
     if (entityUrns.isEmpty()) {
       return Collections.emptyMap();
     }
 
     try {
-      BatchGetUrnRequest getUrnRequest = new BatchGetUrnRequest(entityUrns.stream().map(Urn::toString).collect(
-          Collectors.toList()), Collections.singletonList(aspectName), true);
-      BatchGetUrnResponse response = openApiClient.getBatchUrns(entityUrns.stream().findFirst().get()
-          .getEntityType(), getUrnRequest, authentication.getCredentials());
+      BatchGetUrnRequest getUrnRequest =
+          new BatchGetUrnRequest(
+              entityUrns.stream().map(Urn::toString).collect(Collectors.toList()),
+              Collections.singletonList(aspectName),
+              true);
+      BatchGetUrnResponse response =
+          openApiClient.getBatchUrns(
+              entityUrns.stream().findFirst().get().getEntityType(),
+              getUrnRequest,
+              authentication.getCredentials());
       return response.getEntities().stream()
-          .collect(Collectors.toMap(entity -> UrnUtils.getUrn(entity.getUrn()), entity ->
-              convertToRecordTemplate(entity, aspectName)));
+          .collect(
+              Collectors.toMap(
+                  entity -> UrnUtils.getUrn(entity.getUrn()),
+                  entity -> convertToRecordTemplate(entity, aspectName)));
 
     } catch (Exception e) {
-      log.error(
-          "Error retrieving {}} for entities. Entities: {}",
-          aspectName,
-          entityUrns,
-          e);
+      log.error("Error retrieving {}} for entities. Entities: {}", aspectName, entityUrns, e);
       return Collections.emptyMap();
     }
   }
@@ -104,8 +109,12 @@ public class BaseService {
   private RecordTemplate convertToRecordTemplate(GenericEntity entity, String aspectName) {
     JsonNode valueNode =
         OBJECT_MAPPER.valueToTree(entity.getAspects().get(aspectName)).get("value");
-    AspectSpec aspectSpec = openApiClient.getSystemOperationContext().getEntityRegistry()
-        .getEntitySpec(UrnUtils.getUrn(entity.getUrn()).getEntityType()).getAspectSpec(aspectName);
+    AspectSpec aspectSpec =
+        openApiClient
+            .getSystemOperationContext()
+            .getEntityRegistry()
+            .getEntitySpec(UrnUtils.getUrn(entity.getUrn()).getEntityType())
+            .getAspectSpec(aspectName);
     return RecordUtils.toRecordTemplate(aspectSpec.getDataTemplateClass(), valueNode.toString());
   }
 
@@ -116,8 +125,8 @@ public class BaseService {
       @Nonnull Authentication authentication) {
 
     try {
-      Map<Urn, RecordTemplate> aspectMap = getAspectMap(entityUrns, Constants.EDITABLE_SCHEMA_METADATA_ASPECT_NAME,
-          authentication);
+      Map<Urn, RecordTemplate> aspectMap =
+          getAspectMap(entityUrns, Constants.EDITABLE_SCHEMA_METADATA_ASPECT_NAME, authentication);
 
       final Map<Urn, EditableSchemaMetadata> finalResult = new HashMap<>();
       for (Urn entity : entityUrns) {
@@ -145,7 +154,8 @@ public class BaseService {
       @Nonnull Ownership defaultValue,
       @Nonnull Authentication authentication) {
     try {
-      Map<Urn, RecordTemplate> aspectMap = getAspectMap(entityUrns, Constants.OWNERSHIP_ASPECT_NAME, authentication);
+      Map<Urn, RecordTemplate> aspectMap =
+          getAspectMap(entityUrns, Constants.OWNERSHIP_ASPECT_NAME, authentication);
 
       final Map<Urn, Ownership> finalResult = new HashMap<>();
       for (Urn entity : entityUrns) {
@@ -173,8 +183,8 @@ public class BaseService {
       @Nonnull GlossaryTerms defaultValue,
       @Nonnull Authentication authentication) {
     try {
-      Map<Urn, RecordTemplate> aspectMap = getAspectMap(entityUrns, Constants.GLOSSARY_TERMS_ASPECT_NAME,
-          authentication);
+      Map<Urn, RecordTemplate> aspectMap =
+          getAspectMap(entityUrns, Constants.GLOSSARY_TERMS_ASPECT_NAME, authentication);
 
       final Map<Urn, GlossaryTerms> finalResult = new HashMap<>();
       for (Urn entity : entityUrns) {

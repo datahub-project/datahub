@@ -46,7 +46,8 @@ public class SubscriptionService extends BaseService {
   private final OperationContext systemOpContext;
 
   public SubscriptionService(
-      @Nonnull OperationContext systemOpContext, @Nonnull EntityClient entityClient,
+      @Nonnull OperationContext systemOpContext,
+      @Nonnull EntityClient entityClient,
       @Nonnull final OpenApiClient openApiClient) {
     super(entityClient, systemOpContext.getSystemAuthentication().get(), openApiClient);
     this.systemOpContext = systemOpContext;

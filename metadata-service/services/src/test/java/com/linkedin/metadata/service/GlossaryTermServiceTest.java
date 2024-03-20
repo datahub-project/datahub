@@ -1,5 +1,7 @@
 package com.linkedin.metadata.service;
 
+import static com.linkedin.metadata.service.util.ServiceTestUtils.*;
+
 import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.GlossaryTermAssociation;
@@ -21,13 +23,9 @@ import com.linkedin.schema.EditableSchemaMetadata;
 import io.datahubproject.openapi.client.OpenApiClient;
 import java.util.Collections;
 import java.util.List;
-import javax.annotation.Nullable;
 import org.mockito.Mockito;
 import org.testng.Assert;
 import org.testng.annotations.Test;
-
-import static com.linkedin.metadata.service.util.ServiceTestUtils.*;
-
 
 public class GlossaryTermServiceTest {
 
@@ -127,7 +125,8 @@ public class GlossaryTermServiceTest {
   }
 
   private GlossaryTermService createGlossaryService(OpenApiClient client) {
-    return new GlossaryTermService(Mockito.mock(EntityClient.class), Mockito.mock(Authentication.class), client);
+    return new GlossaryTermService(
+        Mockito.mock(EntityClient.class), Mockito.mock(Authentication.class), client);
   }
 
   @Test

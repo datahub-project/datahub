@@ -17,8 +17,11 @@ public class AssertionServiceFactory {
   @Bean(name = "assertionService")
   @Scope("singleton")
   @Nonnull
-  protected AssertionService getInstance(final SystemEntityClient systemEntityClient, @Qualifier("openApiClient") OpenApiClient openApiClient)
+  protected AssertionService getInstance(
+      final SystemEntityClient systemEntityClient,
+      @Qualifier("openApiClient") OpenApiClient openApiClient)
       throws Exception {
-    return new AssertionService(systemEntityClient, systemEntityClient.getSystemAuthentication(), openApiClient);
+    return new AssertionService(
+        systemEntityClient, systemEntityClient.getSystemAuthentication(), openApiClient);
   }
 }

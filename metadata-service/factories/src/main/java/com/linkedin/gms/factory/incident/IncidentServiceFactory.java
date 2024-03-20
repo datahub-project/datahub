@@ -11,7 +11,6 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.PropertySource;
-import org.springframework.context.annotation.Scope;
 
 @Configuration
 @PropertySource(value = "classpath:/application.yml", factory = YamlPropertySourceFactory.class)
@@ -23,8 +22,10 @@ public class IncidentServiceFactory {
 
   @Bean(name = "incidentService")
   @Nonnull
-  protected IncidentService getInstance(final SystemEntityClient entityClient, @Qualifier("openApiClient") final
-      OpenApiClient openApiClient) throws Exception {
+  protected IncidentService getInstance(
+      final SystemEntityClient entityClient,
+      @Qualifier("openApiClient") final OpenApiClient openApiClient)
+      throws Exception {
     return new IncidentService(entityClient, _authentication, openApiClient);
   }
 }

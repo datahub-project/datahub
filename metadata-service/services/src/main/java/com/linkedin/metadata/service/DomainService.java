@@ -28,7 +28,8 @@ import lombok.extern.slf4j.Slf4j;
 public class DomainService extends BaseService {
 
   public DomainService(
-      @Nonnull EntityClient entityClient, @Nonnull Authentication systemAuthentication,
+      @Nonnull EntityClient entityClient,
+      @Nonnull Authentication systemAuthentication,
       @Nonnull final OpenApiClient openApiClient) {
     super(entityClient, systemAuthentication, openApiClient);
   }

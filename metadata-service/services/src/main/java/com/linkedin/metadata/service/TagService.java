@@ -35,7 +35,8 @@ import org.apache.commons.lang3.StringUtils;
 public class TagService extends BaseService {
 
   public TagService(
-      @Nonnull EntityClient entityClient, @Nonnull Authentication systemAuthentication,
+      @Nonnull EntityClient entityClient,
+      @Nonnull Authentication systemAuthentication,
       @Nonnull final OpenApiClient openApiClient) {
     super(entityClient, systemAuthentication, openApiClient);
   }

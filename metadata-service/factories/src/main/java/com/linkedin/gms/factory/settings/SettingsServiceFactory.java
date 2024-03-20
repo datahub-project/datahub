@@ -17,7 +17,10 @@ public class SettingsServiceFactory {
   @Bean(name = "settingsService")
   @Scope("singleton")
   @Nonnull
-  protected SettingsService getInstance(final SystemEntityClient entityClient, @Qualifier("openApiClient") final OpenApiClient openApiClient) throws Exception {
+  protected SettingsService getInstance(
+      final SystemEntityClient entityClient,
+      @Qualifier("openApiClient") final OpenApiClient openApiClient)
+      throws Exception {
     return new SettingsService(entityClient, entityClient.getSystemAuthentication(), openApiClient);
   }
 }

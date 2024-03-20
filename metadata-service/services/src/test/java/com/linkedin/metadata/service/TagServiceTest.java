@@ -1,12 +1,9 @@
 package com.linkedin.metadata.service;
 
-import com.datahub.authentication.Actor;
-import com.datahub.authentication.ActorType;
+import static com.linkedin.metadata.service.util.ServiceTestUtils.*;
+
 import com.datahub.authentication.Authentication;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.GlobalTags;
 import com.linkedin.common.TagAssociation;
 import com.linkedin.common.TagAssociationArray;
@@ -14,37 +11,21 @@ import com.linkedin.common.urn.TagUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.RecordTemplate;
-import com.linkedin.entity.Aspect;
-import com.linkedin.entity.EntityResponse;
-import com.linkedin.entity.EnvelopedAspect;
-import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.resource.ResourceReference;
 import com.linkedin.metadata.resource.SubResourceType;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
-import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.schema.EditableSchemaFieldInfo;
 import com.linkedin.schema.EditableSchemaFieldInfoArray;
 import com.linkedin.schema.EditableSchemaMetadata;
-import com.linkedin.util.Pair;
 import io.datahubproject.openapi.client.OpenApiClient;
-import io.datahubproject.openapi.v2.models.BatchGetUrnRequest;
-import io.datahubproject.openapi.v2.models.BatchGetUrnResponse;
-import io.datahubproject.openapi.v2.models.GenericEntity;
-import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
-import javax.annotation.Nullable;
 import org.mockito.Mockito;
 import org.testng.Assert;
 import org.testng.annotations.Test;
-
-import static com.linkedin.metadata.service.util.ServiceTestUtils.*;
-
 
 public class TagServiceTest {
 
@@ -59,8 +40,9 @@ public class TagServiceTest {
             ImmutableList.of(new TagAssociation().setTag(TagUrn.createFromUrn(TEST_TAG_URN_1)))));
     OpenApiClient mockClient = createMockGlobalTagsClient(existingGlobalTags);
 
-    final TagService service = new TagService(Mockito.mock(EntityClient.class), Mockito.mock(Authentication.class),
-        mockClient);
+    final TagService service =
+        new TagService(
+            Mockito.mock(EntityClient.class), Mockito.mock(Authentication.class), mockClient);
 
     Urn newTagUrn = UrnUtils.getUrn("urn:li:tag:newTag");
     List<MetadataChangeProposal> events =
@@ -98,8 +80,9 @@ public class TagServiceTest {
   private void testAddGlobalTagsToEntityNoExistingTag() throws Exception {
     OpenApiClient mockClient = createMockGlobalTagsClient(null);
 
-    final TagService service = new TagService(Mockito.mock(EntityClient.class), Mockito.mock(Authentication.class),
-        mockClient);
+    final TagService service =
+        new TagService(
+            Mockito.mock(EntityClient.class), Mockito.mock(Authentication.class), mockClient);
 
     Urn newTagUrn = UrnUtils.getUrn("urn:li:tag:newTag");
     List<MetadataChangeProposal> events =
@@ -148,8 +131,9 @@ public class TagServiceTest {
                                             .setTag(TagUrn.createFromUrn(TEST_TAG_URN_1)))))))));
     OpenApiClient mockClient = createMockSchemaMetadataClient(existingMetadata);
 
-    final TagService service = new TagService(Mockito.mock(EntityClient.class), Mockito.mock(Authentication.class),
-        mockClient);
+    final TagService service =
+        new TagService(
+            Mockito.mock(EntityClient.class), Mockito.mock(Authentication.class), mockClient);
 
     Urn newTagUrn = UrnUtils.getUrn("urn:li:tag:newTag");
     List<MetadataChangeProposal> events =
@@ -204,8 +188,9 @@ public class TagServiceTest {
 
     OpenApiClient mockClient = createMockSchemaMetadataClient(existingMetadata);
 
-    final TagService service = new TagService(Mockito.mock(EntityClient.class), Mockito.mock(Authentication.class),
-        mockClient);
+    final TagService service =
+        new TagService(
+            Mockito.mock(EntityClient.class), Mockito.mock(Authentication.class), mockClient);
 
     Urn newTagUrn = UrnUtils.getUrn("urn:li:tag:newTag");
     List<MetadataChangeProposal> events =
@@ -255,8 +240,9 @@ public class TagServiceTest {
                 new TagAssociation().setTag(TagUrn.createFromUrn(TEST_TAG_URN_2)))));
     OpenApiClient mockClient = createMockGlobalTagsClient(existingGlobalTags);
 
-    final TagService service = new TagService(Mockito.mock(EntityClient.class), Mockito.mock(Authentication.class),
-        mockClient);
+    final TagService service =
+        new TagService(
+            Mockito.mock(EntityClient.class), Mockito.mock(Authentication.class), mockClient);
 
     List<MetadataChangeProposal> events =
         service.buildRemoveTagsProposals(
@@ -294,8 +280,9 @@ public class TagServiceTest {
   private void testRemoveGlobalTagsToEntityNoExistingTag() throws Exception {
     OpenApiClient mockClient = createMockGlobalTagsClient(null);
 
-    final TagService service = new TagService(Mockito.mock(EntityClient.class), Mockito.mock(Authentication.class),
-        mockClient);
+    final TagService service =
+        new TagService(
+            Mockito.mock(EntityClient.class), Mockito.mock(Authentication.class), mockClient);
 
     Urn newTagUrn = UrnUtils.getUrn("urn:li:tag:newTag");
     List<MetadataChangeProposal> events =
@@ -344,8 +331,9 @@ public class TagServiceTest {
                                             .setTag(TagUrn.createFromUrn(TEST_TAG_URN_2)))))))));
     OpenApiClient mockClient = createMockSchemaMetadataClient(existingMetadata);
 
-    final TagService service = new TagService(Mockito.mock(EntityClient.class), Mockito.mock(Authentication.class),
-        mockClient);
+    final TagService service =
+        new TagService(
+            Mockito.mock(EntityClient.class), Mockito.mock(Authentication.class), mockClient);
 
     List<MetadataChangeProposal> events =
         service.buildRemoveTagsProposals(
@@ -397,8 +385,9 @@ public class TagServiceTest {
 
     OpenApiClient mockClient = createMockSchemaMetadataClient(existingMetadata);
 
-    final TagService service = new TagService(Mockito.mock(EntityClient.class), Mockito.mock(Authentication.class),
-        mockClient);
+    final TagService service =
+        new TagService(
+            Mockito.mock(EntityClient.class), Mockito.mock(Authentication.class), mockClient);
 
     List<MetadataChangeProposal> events =
         service.buildRemoveTagsProposals(
@@ -432,5 +421,4 @@ public class TagServiceTest {
         editableSchemaMetadataAspect2.getEditableSchemaFieldInfo().get(0).getGlobalTags().getTags(),
         Collections.emptyList());
   }
-
 }

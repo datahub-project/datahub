@@ -27,8 +27,9 @@ public class MonitorServiceFactory {
   @Bean(name = "monitorService")
   @Scope("singleton")
   @Nonnull
-  protected MonitorService getInstance(final SystemEntityClient systemEntityClient, @Qualifier("openApiClient")
-      OpenApiClient openApiClient)
+  protected MonitorService getInstance(
+      final SystemEntityClient systemEntityClient,
+      @Qualifier("openApiClient") OpenApiClient openApiClient)
       throws Exception {
     final MonitorServiceConfiguration config = _configProvider.getMonitorService();
     return new MonitorService(

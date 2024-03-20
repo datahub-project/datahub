@@ -18,8 +18,11 @@ public class OwnershipTypeServiceFactory {
   @Bean(name = "ownerShipTypeService")
   @Scope("singleton")
   @Nonnull
-  protected OwnershipTypeService getInstance(final SystemEntityClient entityClient, @Qualifier("openApiClient") OpenApiClient openApiClient)
+  protected OwnershipTypeService getInstance(
+      final SystemEntityClient entityClient,
+      @Qualifier("openApiClient") OpenApiClient openApiClient)
       throws Exception {
-    return new OwnershipTypeService(entityClient, entityClient.getSystemAuthentication(), openApiClient);
+    return new OwnershipTypeService(
+        entityClient, entityClient.getSystemAuthentication(), openApiClient);
   }
 }

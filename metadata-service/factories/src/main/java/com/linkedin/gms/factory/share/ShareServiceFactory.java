@@ -23,7 +23,8 @@ public class ShareServiceFactory {
   @Bean(name = "shareService")
   @Scope("singleton")
   @Nonnull
-  protected ShareService getInstance(final @Qualifier("entityClient") EntityClient entityClient,
+  protected ShareService getInstance(
+      final @Qualifier("entityClient") EntityClient entityClient,
       @Qualifier("openApiClient") final OpenApiClient openApiClient)
       throws Exception {
     return new ShareService(entityClient, _authentication, openApiClient);

@@ -5,7 +5,6 @@ import java.util.List;
 import lombok.EqualsAndHashCode;
 import lombok.Value;
 
-
 @Value
 @EqualsAndHashCode
 public class BatchGetUrnRequest implements Serializable {

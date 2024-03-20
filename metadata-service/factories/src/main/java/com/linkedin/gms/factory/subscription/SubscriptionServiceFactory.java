@@ -20,7 +20,8 @@ public class SubscriptionServiceFactory {
   @Nonnull
   protected SubscriptionService getInstance(
       @Qualifier("systemOperationContext") final OperationContext systemOpContext,
-      final SystemEntityClient entityClient, @Qualifier("openApiClient") OpenApiClient openApiClient)
+      final SystemEntityClient entityClient,
+      @Qualifier("openApiClient") OpenApiClient openApiClient)
       throws Exception {
     return new SubscriptionService(systemOpContext, entityClient, openApiClient);
   }

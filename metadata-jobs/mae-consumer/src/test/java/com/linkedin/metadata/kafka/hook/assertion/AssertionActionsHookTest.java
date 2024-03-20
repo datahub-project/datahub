@@ -89,7 +89,8 @@ public class AssertionActionsHookTest {
     when(entityClient.getSystemAuthentication()).thenReturn(mock(Authentication.class));
 
     final AssertionActionsHook hook =
-        new AssertionActionsHook(mockOperationContext(), entityClient, false, Mockito.mock(OpenApiClient.class));
+        new AssertionActionsHook(
+            mockOperationContext(), entityClient, false, Mockito.mock(OpenApiClient.class));
 
     final MetadataChangeLog event =
         buildMetadataChangeLog(
@@ -114,7 +115,8 @@ public class AssertionActionsHookTest {
     when(entityClient.getSystemAuthentication()).thenReturn(mock(Authentication.class));
 
     final AssertionActionsHook hook =
-        new AssertionActionsHook(mockOperationContext(), entityClient, true, Mockito.mock(OpenApiClient.class));
+        new AssertionActionsHook(
+            mockOperationContext(), entityClient, true, Mockito.mock(OpenApiClient.class));
 
     // Case 1: Incorrect aspect --- Assertion Info
     MetadataChangeLog event =
@@ -195,7 +197,8 @@ public class AssertionActionsHookTest {
                 .setOnSuccess(new AssertionActionArray()));
 
     final AssertionActionsHook hook =
-        new AssertionActionsHook(mockOperationContext(), entityClient, true, Mockito.mock(OpenApiClient.class));
+        new AssertionActionsHook(
+            mockOperationContext(), entityClient, true, Mockito.mock(OpenApiClient.class));
 
     MetadataChangeLog event =
         buildMetadataChangeLog(
@@ -260,7 +263,8 @@ public class AssertionActionsHookTest {
                             new AssertionAction().setType(AssertionActionType.RESOLVE_INCIDENT)))));
 
     final AssertionActionsHook hook =
-        new AssertionActionsHook(mockOperationContext(), entityClient, true, Mockito.mock(OpenApiClient.class));
+        new AssertionActionsHook(
+            mockOperationContext(), entityClient, true, Mockito.mock(OpenApiClient.class));
 
     MetadataChangeLog event =
         buildMetadataChangeLog(
@@ -342,7 +346,8 @@ public class AssertionActionsHookTest {
                             new AssertionAction().setType(AssertionActionType.RESOLVE_INCIDENT)))));
 
     final AssertionActionsHook hook =
-        new AssertionActionsHook(mockOperationContext(), entityClient, true, Mockito.mock(OpenApiClient.class));
+        new AssertionActionsHook(
+            mockOperationContext(), entityClient, true, Mockito.mock(OpenApiClient.class));
 
     MetadataChangeLog event =
         buildMetadataChangeLog(
@@ -413,7 +418,8 @@ public class AssertionActionsHookTest {
                         .setScope(DatasetAssertionScope.DATASET_COLUMN)));
 
     final AssertionActionsHook hook =
-        new AssertionActionsHook(mockOperationContext(), entityClient, true, Mockito.mock(OpenApiClient.class));
+        new AssertionActionsHook(
+            mockOperationContext(), entityClient, true, Mockito.mock(OpenApiClient.class));
 
     MetadataChangeLog event =
         buildMetadataChangeLog(
@@ -490,7 +496,8 @@ public class AssertionActionsHookTest {
                         .setScope(DatasetAssertionScope.DATASET_COLUMN)));
 
     final AssertionActionsHook hook =
-        new AssertionActionsHook(mockOperationContext(), entityClient, true, Mockito.mock(OpenApiClient.class));
+        new AssertionActionsHook(
+            mockOperationContext(), entityClient, true, Mockito.mock(OpenApiClient.class));
 
     MetadataChangeLog event =
         buildMetadataChangeLog(
@@ -559,7 +566,8 @@ public class AssertionActionsHookTest {
                 .setOnSuccess(new AssertionActionArray()));
 
     final AssertionActionsHook hook =
-        new AssertionActionsHook(mockOperationContext(), entityClient, true, Mockito.mock(OpenApiClient.class));
+        new AssertionActionsHook(
+            mockOperationContext(), entityClient, true, Mockito.mock(OpenApiClient.class));
 
     MetadataChangeLog event =
         buildMetadataChangeLog(
@@ -633,7 +641,8 @@ public class AssertionActionsHookTest {
                             new AssertionAction().setType(AssertionActionType.RAISE_INCIDENT)))));
 
     final AssertionActionsHook hook =
-        new AssertionActionsHook(mockOperationContext(), entityClient, true, Mockito.mock(OpenApiClient.class));
+        new AssertionActionsHook(
+            mockOperationContext(), entityClient, true, Mockito.mock(OpenApiClient.class));
 
     MetadataChangeLog event =
         buildMetadataChangeLog(
@@ -736,7 +745,8 @@ public class AssertionActionsHookTest {
                             new AssertionAction().setType(AssertionActionType.RAISE_INCIDENT)))));
 
     final AssertionActionsHook hook =
-        new AssertionActionsHook(mockOperationContext(), entityClient, true, Mockito.mock(OpenApiClient.class));
+        new AssertionActionsHook(
+            mockOperationContext(), entityClient, true, Mockito.mock(OpenApiClient.class));
 
     MetadataChangeLog event =
         buildMetadataChangeLog(
@@ -798,7 +808,8 @@ public class AssertionActionsHookTest {
                         .setScope(DatasetAssertionScope.DATASET_COLUMN)));
 
     final AssertionActionsHook hook =
-        new AssertionActionsHook(mockOperationContext(), entityClient, true, Mockito.mock(OpenApiClient.class));
+        new AssertionActionsHook(
+            mockOperationContext(), entityClient, true, Mockito.mock(OpenApiClient.class));
 
     MetadataChangeLog event =
         buildMetadataChangeLog(
@@ -890,7 +901,8 @@ public class AssertionActionsHookTest {
                         .setScope(DatasetAssertionScope.DATASET_COLUMN)));
 
     final AssertionActionsHook hook =
-        new AssertionActionsHook(mockOperationContext(), entityClient, true, Mockito.mock(OpenApiClient.class));
+        new AssertionActionsHook(
+            mockOperationContext(), entityClient, true, Mockito.mock(OpenApiClient.class));
 
     MetadataChangeLog event =
         buildMetadataChangeLog(
@@ -967,7 +979,8 @@ public class AssertionActionsHookTest {
                 .setOnFailure(new AssertionActionArray()));
 
     final AssertionActionsHook hook =
-        new AssertionActionsHook(mockOperationContext(), entityClient, true, Mockito.mock(OpenApiClient.class));
+        new AssertionActionsHook(
+            mockOperationContext(), entityClient, true, Mockito.mock(OpenApiClient.class));
 
     MetadataChangeLog event =
         buildMetadataChangeLog(
@@ -1038,7 +1051,8 @@ public class AssertionActionsHookTest {
                 .setOnFailure(new AssertionActionArray()));
 
     final AssertionActionsHook hook =
-        new AssertionActionsHook(mockOperationContext(), entityClient, true, Mockito.mock(OpenApiClient.class));
+        new AssertionActionsHook(
+            mockOperationContext(), entityClient, true, Mockito.mock(OpenApiClient.class));
 
     MetadataChangeLog event =
         buildMetadataChangeLog(
@@ -1106,7 +1120,8 @@ public class AssertionActionsHookTest {
                         .setScope(DatasetAssertionScope.DATASET_COLUMN)));
 
     final AssertionActionsHook hook =
-        new AssertionActionsHook(mockOperationContext(), entityClient, true, Mockito.mock(OpenApiClient.class));
+        new AssertionActionsHook(
+            mockOperationContext(), entityClient, true, Mockito.mock(OpenApiClient.class));
 
     MetadataChangeLog event =
         buildMetadataChangeLog(
@@ -1174,7 +1189,8 @@ public class AssertionActionsHookTest {
                         .setScope(DatasetAssertionScope.DATASET_COLUMN)));
 
     final AssertionActionsHook hook =
-        new AssertionActionsHook(mockOperationContext(), entityClient, true, Mockito.mock(OpenApiClient.class));
+        new AssertionActionsHook(
+            mockOperationContext(), entityClient, true, Mockito.mock(OpenApiClient.class));
 
     MetadataChangeLog event =
         buildMetadataChangeLog(

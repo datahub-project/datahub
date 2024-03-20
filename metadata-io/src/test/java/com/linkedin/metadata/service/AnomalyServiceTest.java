@@ -48,7 +48,8 @@ public class AnomalyServiceTest {
   private void testGetAnomalyInfo() throws Exception {
     final EntityClient mockClient = createMockEntityClient();
     final AnomalyService service =
-        new AnomalyService(mockClient, Mockito.mock(Authentication.class), Mockito.mock(OpenApiClient.class));
+        new AnomalyService(
+            mockClient, Mockito.mock(Authentication.class), Mockito.mock(OpenApiClient.class));
 
     // Case 1: Info exists
     AnomalyInfo info = service.getAnomalyInfo(TEST_ANOMALY_URN);
@@ -75,7 +76,8 @@ public class AnomalyServiceTest {
   private void testGetAnomaliesSummary() throws Exception {
     final EntityClient mockClient = createMockEntityClient();
     final AnomalyService service =
-        new AnomalyService(mockClient, Mockito.mock(Authentication.class), Mockito.mock(OpenApiClient.class));
+        new AnomalyService(
+            mockClient, Mockito.mock(Authentication.class), Mockito.mock(OpenApiClient.class));
 
     // Case 1: Summary exists
     AnomaliesSummary summary = service.getAnomaliesSummary(TEST_DATASET_URN);
@@ -102,7 +104,8 @@ public class AnomalyServiceTest {
   private void testUpdateAnomaliesSummary() throws Exception {
     final EntityClient mockClient = createMockEntityClient();
     final AnomalyService service =
-        new AnomalyService(mockClient, Mockito.mock(Authentication.class), Mockito.mock(OpenApiClient.class));
+        new AnomalyService(
+            mockClient, Mockito.mock(Authentication.class), Mockito.mock(OpenApiClient.class));
     service.updateAnomaliesSummary(TEST_DATASET_URN, mockAnomalySummary());
     Mockito.verify(mockClient, Mockito.times(1))
         .ingestProposal(
@@ -115,7 +118,8 @@ public class AnomalyServiceTest {
   private void testRaiseAnomalyRequiredFields() throws Exception {
     final EntityClient mockClient = Mockito.mock(EntityClient.class);
     final AnomalyService service =
-        new AnomalyService(mockClient, Mockito.mock(Authentication.class), Mockito.mock(OpenApiClient.class));
+        new AnomalyService(
+            mockClient, Mockito.mock(Authentication.class), Mockito.mock(OpenApiClient.class));
     service.raiseAnomaly(
         AnomalyType.FRESHNESS,
         null,
@@ -149,7 +153,8 @@ public class AnomalyServiceTest {
   private void testRaiseAnomalyAllFields() throws Exception {
     final EntityClient mockClient = Mockito.mock(EntityClient.class);
     final AnomalyService service =
-        new AnomalyService(mockClient, Mockito.mock(Authentication.class), Mockito.mock(OpenApiClient.class));
+        new AnomalyService(
+            mockClient, Mockito.mock(Authentication.class), Mockito.mock(OpenApiClient.class));
     service.raiseAnomaly(
         AnomalyType.FRESHNESS,
         2,
@@ -185,7 +190,8 @@ public class AnomalyServiceTest {
   private void testUpdateAnomalyStatus() throws Exception {
     final EntityClient mockClient = createMockEntityClient();
     final AnomalyService service =
-        new AnomalyService(mockClient, Mockito.mock(Authentication.class), Mockito.mock(OpenApiClient.class));
+        new AnomalyService(
+            mockClient, Mockito.mock(Authentication.class), Mockito.mock(OpenApiClient.class));
     service.updateAnomalyStatus(
         TEST_ANOMALY_URN,
         AnomalyState.RESOLVED,
@@ -215,7 +221,8 @@ public class AnomalyServiceTest {
   private void testDeleteAnomaly() throws Exception {
     final EntityClient mockClient = Mockito.mock(EntityClient.class);
     final AnomalyService service =
-        new AnomalyService(mockClient, Mockito.mock(Authentication.class), Mockito.mock(OpenApiClient.class));
+        new AnomalyService(
+            mockClient, Mockito.mock(Authentication.class), Mockito.mock(OpenApiClient.class));
     service.deleteAnomaly(TEST_ANOMALY_URN);
     Mockito.verify(mockClient, Mockito.times(1))
         .deleteEntity(Mockito.eq(TEST_ANOMALY_URN), Mockito.any(Authentication.class));

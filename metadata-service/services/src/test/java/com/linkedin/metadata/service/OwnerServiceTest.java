@@ -3,12 +3,8 @@ package com.linkedin.metadata.service;
 import static com.linkedin.metadata.service.OwnerService.*;
 import static com.linkedin.metadata.service.util.ServiceTestUtils.*;
 
-import com.datahub.authentication.Actor;
-import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.Owner;
 import com.linkedin.common.OwnerArray;
 import com.linkedin.common.Ownership;
@@ -16,19 +12,13 @@ import com.linkedin.common.OwnershipType;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.RecordTemplate;
-import com.linkedin.entity.Aspect;
-import com.linkedin.entity.EntityResponse;
-import com.linkedin.entity.EnvelopedAspect;
-import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.resource.ResourceReference;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import io.datahubproject.openapi.client.OpenApiClient;
-import java.util.Collections;
 import java.util.List;
-import javax.annotation.Nullable;
 import org.mockito.Mockito;
 import org.testng.Assert;
 import org.testng.annotations.Test;
@@ -51,8 +41,9 @@ public class OwnerServiceTest {
             ImmutableList.of(new Owner().setOwner(TEST_OWNER_URN_1).setType(OwnershipType.NONE))));
     OpenApiClient mockClient = createMockOwnersClient(existingOwnership);
 
-    final OwnerService service = new OwnerService(Mockito.mock(EntityClient.class), Mockito.mock(Authentication.class),
-        mockClient);
+    final OwnerService service =
+        new OwnerService(
+            Mockito.mock(EntityClient.class), Mockito.mock(Authentication.class), mockClient);
 
     Urn newOwnerUrn = UrnUtils.getUrn("urn:li:corpuser:newTag");
     List<MetadataChangeProposal> events =
@@ -94,8 +85,9 @@ public class OwnerServiceTest {
   private void testAddOwnersNoExistingOwners() throws Exception {
     OpenApiClient mockClient = createMockOwnersClient(null);
 
-    final OwnerService service = new OwnerService(Mockito.mock(EntityClient.class), Mockito.mock(Authentication.class),
-        mockClient);
+    final OwnerService service =
+        new OwnerService(
+            Mockito.mock(EntityClient.class), Mockito.mock(Authentication.class), mockClient);
 
     Urn newOwnerUrn = UrnUtils.getUrn("urn:li:corpuser:newOwner");
     List<MetadataChangeProposal> events =
@@ -142,8 +134,9 @@ public class OwnerServiceTest {
                 new Owner().setOwner(TEST_OWNER_URN_2).setType(OwnershipType.DATA_STEWARD))));
     OpenApiClient mockClient = createMockOwnersClient(existingOwnership);
 
-    final OwnerService service = new OwnerService(Mockito.mock(EntityClient.class), Mockito.mock(Authentication.class),
-       mockClient);
+    final OwnerService service =
+        new OwnerService(
+            Mockito.mock(EntityClient.class), Mockito.mock(Authentication.class), mockClient);
 
     List<MetadataChangeProposal> events =
         service.buildRemoveOwnersProposals(
@@ -183,8 +176,9 @@ public class OwnerServiceTest {
   private void testRemoveOwnerNoExistingOwners() throws Exception {
     OpenApiClient mockClient = createMockOwnersClient(null);
 
-    final OwnerService service = new OwnerService(Mockito.mock(EntityClient.class), Mockito.mock(Authentication.class),
-        mockClient);
+    final OwnerService service =
+        new OwnerService(
+            Mockito.mock(EntityClient.class), Mockito.mock(Authentication.class), mockClient);
 
     Urn newTagUrn = UrnUtils.getUrn("urn:li:corpuser:newOwner");
     List<MetadataChangeProposal> events =

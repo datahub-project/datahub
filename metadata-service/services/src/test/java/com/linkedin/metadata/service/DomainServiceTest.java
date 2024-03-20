@@ -1,5 +1,7 @@
 package com.linkedin.metadata.service;
 
+import static com.linkedin.metadata.service.util.ServiceTestUtils.*;
+
 import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.UrnArray;
@@ -18,9 +20,6 @@ import java.util.List;
 import org.mockito.Mockito;
 import org.testng.Assert;
 import org.testng.annotations.Test;
-
-import static com.linkedin.metadata.service.util.ServiceTestUtils.*;
-
 
 public class DomainServiceTest {
 
@@ -68,7 +67,8 @@ public class DomainServiceTest {
   }
 
   private DomainService createDomainsService(OpenApiClient client) {
-    return new DomainService(Mockito.mock(EntityClient.class), Mockito.mock(Authentication.class), client);
+    return new DomainService(
+        Mockito.mock(EntityClient.class), Mockito.mock(Authentication.class), client);
   }
 
   @Test
@@ -141,8 +141,9 @@ public class DomainServiceTest {
   private void testUnsetDomainNoExistingDomain() throws Exception {
     OpenApiClient mockClient = createMockDomainsClient(null);
 
-    final DomainService service = new DomainService(Mockito.mock(EntityClient.class), Mockito.mock(Authentication.class),
-        mockClient);
+    final DomainService service =
+        new DomainService(
+            Mockito.mock(EntityClient.class), Mockito.mock(Authentication.class), mockClient);
 
     List<MetadataChangeProposal> events =
         service.buildUnsetDomainProposals(
@@ -250,8 +251,9 @@ public class DomainServiceTest {
         new UrnArray(ImmutableList.of(TEST_DOMAIN_URN_1, TEST_DOMAIN_URN_2)));
     OpenApiClient mockClient = createMockDomainsClient(existingDomains);
 
-    final DomainService service = new DomainService(Mockito.mock(EntityClient.class), Mockito.mock(Authentication.class),
-        mockClient);
+    final DomainService service =
+        new DomainService(
+            Mockito.mock(EntityClient.class), Mockito.mock(Authentication.class), mockClient);
 
     List<MetadataChangeProposal> events =
         service.buildRemoveDomainsProposals(
@@ -286,8 +288,9 @@ public class DomainServiceTest {
   private void testRemoveDomainsNoExistingDomain() throws Exception {
     OpenApiClient mockClient = createMockDomainsClient(null);
 
-    final DomainService service = new DomainService(Mockito.mock(EntityClient.class), Mockito.mock(Authentication.class)
-        , mockClient);
+    final DomainService service =
+        new DomainService(
+            Mockito.mock(EntityClient.class), Mockito.mock(Authentication.class), mockClient);
 
     List<MetadataChangeProposal> events =
         service.buildRemoveDomainsProposals(

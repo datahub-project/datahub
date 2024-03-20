@@ -45,13 +45,17 @@ public class TestActionApplierFactory {
       @Qualifier("openApiClient") final OpenApiClient openApiClient) {
     List<Action> appliers = new ArrayList<>();
     TagService tagService =
-        new TagService(systemEntityClient, systemEntityClient.getSystemAuthentication(), openApiClient);
+        new TagService(
+            systemEntityClient, systemEntityClient.getSystemAuthentication(), openApiClient);
     GlossaryTermService termsService =
-        new GlossaryTermService(systemEntityClient, systemEntityClient.getSystemAuthentication(), openApiClient);
+        new GlossaryTermService(
+            systemEntityClient, systemEntityClient.getSystemAuthentication(), openApiClient);
     OwnerService ownerService =
-        new OwnerService(systemEntityClient, systemEntityClient.getSystemAuthentication(), openApiClient);
+        new OwnerService(
+            systemEntityClient, systemEntityClient.getSystemAuthentication(), openApiClient);
     DomainService domainService =
-        new DomainService(systemEntityClient, systemEntityClient.getSystemAuthentication(), openApiClient);
+        new DomainService(
+            systemEntityClient, systemEntityClient.getSystemAuthentication(), openApiClient);
     FormService formService = new FormService(systemOpContext, systemEntityClient, openApiClient);
     appliers.add(new AddTagsAction(tagService));
     appliers.add(new RemoveTagsAction(tagService));

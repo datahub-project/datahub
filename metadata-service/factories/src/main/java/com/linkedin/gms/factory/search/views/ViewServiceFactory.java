@@ -18,7 +18,10 @@ public class ViewServiceFactory {
   @Bean(name = "viewService")
   @Scope("singleton")
   @Nonnull
-  protected ViewService getInstance(final SystemEntityClient entityClient, @Qualifier("openApiClient") OpenApiClient openApiClient) throws Exception {
+  protected ViewService getInstance(
+      final SystemEntityClient entityClient,
+      @Qualifier("openApiClient") OpenApiClient openApiClient)
+      throws Exception {
     return new ViewService(entityClient, entityClient.getSystemAuthentication(), openApiClient);
   }
 }

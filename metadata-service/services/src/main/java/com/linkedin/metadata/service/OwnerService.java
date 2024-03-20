@@ -31,7 +31,8 @@ public class OwnerService extends BaseService {
   public static final String SYSTEM_ID = "__system__";
 
   public OwnerService(
-      @Nonnull EntityClient entityClient, @Nonnull Authentication systemAuthentication,
+      @Nonnull EntityClient entityClient,
+      @Nonnull Authentication systemAuthentication,
       @Nonnull final OpenApiClient openApiClient) {
     super(entityClient, systemAuthentication, openApiClient);
   }

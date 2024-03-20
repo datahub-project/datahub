@@ -150,11 +150,14 @@ public class AssertionActionsHook implements MetadataChangeLogHook {
     _entityClient = Objects.requireNonNull(systemEntityClient, "entityClient is required");
     this.systemOpContext = Objects.requireNonNull(systemOpContext, "authentication is required");
     _assertionService =
-        new AssertionService(systemEntityClient, systemEntityClient.getSystemAuthentication(), openApiClient);
+        new AssertionService(
+            systemEntityClient, systemEntityClient.getSystemAuthentication(), openApiClient);
     _incidentService =
-        new IncidentService(systemEntityClient, systemEntityClient.getSystemAuthentication(), openApiClient);
+        new IncidentService(
+            systemEntityClient, systemEntityClient.getSystemAuthentication(), openApiClient);
     _anomalyService =
-        new AnomalyService(systemEntityClient, systemEntityClient.getSystemAuthentication(), openApiClient);
+        new AnomalyService(
+            systemEntityClient, systemEntityClient.getSystemAuthentication(), openApiClient);
     _isEnabled = isEnabled;
   }
 

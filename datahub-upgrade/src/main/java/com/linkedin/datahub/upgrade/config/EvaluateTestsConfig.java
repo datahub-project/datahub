@@ -1,11 +1,11 @@
 package com.linkedin.datahub.upgrade.config;
 
 import com.linkedin.datahub.upgrade.test.EvaluateTests;
-import io.datahubproject.openapi.client.OpenApiClient;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.test.TestEngine;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.openapi.client.OpenApiClient;
 import javax.annotation.Nonnull;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -22,8 +22,10 @@ public class EvaluateTestsConfig {
   @Bean(name = "evaluateTests")
   @DependsOn({"entitySearchService", "testEngine", "systemOperationContext"})
   @Nonnull
-  public EvaluateTests createInstance(@Qualifier("systemEntityClient") SystemEntityClient entityClient,
-      EntitySearchService entitySearchService, TestEngine testEngine,
+  public EvaluateTests createInstance(
+      @Qualifier("systemEntityClient") SystemEntityClient entityClient,
+      EntitySearchService entitySearchService,
+      TestEngine testEngine,
       @Qualifier("systemOperationContext") OperationContext systemOpContext) {
     return new EvaluateTests(systemOpContext, entityClient, entitySearchService, testEngine);
   }

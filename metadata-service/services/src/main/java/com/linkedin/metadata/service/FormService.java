@@ -71,7 +71,8 @@ public class FormService extends BaseService {
   private final OperationContext systemOpContext;
 
   public FormService(
-      @Nonnull OperationContext systemOpContext, @Nonnull final EntityClient entityClient,
+      @Nonnull OperationContext systemOpContext,
+      @Nonnull final EntityClient entityClient,
       @Nonnull final OpenApiClient openApiClient) {
     super(entityClient, systemOpContext.getAuthentication(), openApiClient);
     this.systemOpContext = systemOpContext;
@@ -197,7 +198,12 @@ public class FormService extends BaseService {
                   metadataTestUrn, TEST_INFO_ASPECT_NAME, testDefinition)),
           systemAuthentication);
       SearchBasedFormAssignmentRunner.assign(
-          systemOpContext, formFilters, formUrn, BATCH_FORM_ENTITY_COUNT, entityClient, openApiClient);
+          systemOpContext,
+          formFilters,
+          formUrn,
+          BATCH_FORM_ENTITY_COUNT,
+          entityClient,
+          openApiClient);
     } catch (Exception e) {
       throw new RuntimeException(
           String.format("Failed to dynamically assign form with urn: %s", formUrn), e);

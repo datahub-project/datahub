@@ -80,7 +80,9 @@ public class SettingsServiceTest {
   public void setupTest() {
     _entityClient = mock(EntityClient.class);
 
-    _settingsService = new SettingsService(_entityClient, SYSTEM_AUTHENTICATION, Mockito.mock(OpenApiClient.class));
+    _settingsService =
+        new SettingsService(
+            _entityClient, SYSTEM_AUTHENTICATION, Mockito.mock(OpenApiClient.class));
   }
 
   @Test

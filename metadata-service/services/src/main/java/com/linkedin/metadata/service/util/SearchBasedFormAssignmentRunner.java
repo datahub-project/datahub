@@ -23,7 +23,12 @@ public class SearchBasedFormAssignmentRunner {
           public void run() {
             try {
               SearchBasedFormAssignmentManager.apply(
-                  opContext, formFilters, formUrn, batchFormEntityCount, entityClient, openApiClient);
+                  opContext,
+                  formFilters,
+                  formUrn,
+                  batchFormEntityCount,
+                  entityClient,
+                  openApiClient);
             } catch (Exception e) {
               log.error(
                   "SearchBasedFormAssignmentRunner failed to run. "

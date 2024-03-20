@@ -23,7 +23,8 @@ import lombok.extern.slf4j.Slf4j;
 public class ShareService extends BaseService {
 
   public ShareService(
-      @Nonnull EntityClient entityClient, @Nonnull Authentication systemAuthentication,
+      @Nonnull EntityClient entityClient,
+      @Nonnull Authentication systemAuthentication,
       @Nonnull final OpenApiClient openApiClient) {
     super(entityClient, systemAuthentication, openApiClient);
   }

@@ -18,7 +18,10 @@ public class QueryServiceFactory {
   @Bean(name = "queryService")
   @Scope("singleton")
   @Nonnull
-  protected QueryService getInstance(final SystemEntityClient entityClient, @Qualifier("openApiClient") OpenApiClient openApiClient) throws Exception {
+  protected QueryService getInstance(
+      final SystemEntityClient entityClient,
+      @Qualifier("openApiClient") OpenApiClient openApiClient)
+      throws Exception {
     return new QueryService(entityClient, entityClient.getSystemAuthentication(), openApiClient);
   }
 }
