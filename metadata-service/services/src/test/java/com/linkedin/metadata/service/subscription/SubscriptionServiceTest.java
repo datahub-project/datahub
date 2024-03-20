@@ -118,7 +118,8 @@ public class SubscriptionServiceTest {
     this.opContext =
         TestOperationContexts.userContextNoSearchAuthorization(
             mock(EntityRegistry.class), Authorizer.EMPTY, SYSTEM_AUTHENTICATION);
-    _subscriptionService = new SubscriptionService(opContext, _entityClient, mock(OpenApiClient.class));
+    _subscriptionService =
+        new SubscriptionService(opContext, _entityClient, mock(OpenApiClient.class));
   }
 
   @Test
