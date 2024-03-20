@@ -16,6 +16,10 @@ const StyledZoomButton = styled(Button)`
     justify-content: center;
     align-items: center;
     display: flex;
+    &:focus {
+        color: unset;
+        border-color: #00000015;
+    }
 `;
 
 const StyledPanel = styled(Panel)`
