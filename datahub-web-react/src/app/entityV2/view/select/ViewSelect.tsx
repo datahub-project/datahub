@@ -181,7 +181,10 @@ export const ViewSelect = () => {
             ...userContext.localState,
             selectedViewUrn: newUrn,
         });
-        setIsOpen(false);
+        // Adding a delay of 1000 milliseconds (1 second) before closing the modal
+        setTimeout(() => {
+            setIsOpen(false);
+        }, 1000);
     };
 
     const onClickCreateView = () => {
