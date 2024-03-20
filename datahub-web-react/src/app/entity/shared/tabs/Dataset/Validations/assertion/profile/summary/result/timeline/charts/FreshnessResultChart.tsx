@@ -130,7 +130,7 @@ export const FreshnessResultChart = ({ data, timeRange, chartDimensions, renderH
                         />,
                     ] : null}
 
-                    {/* Dataset updated TS market (shows when you hover over a data point) */}
+                    {/* Dataset updated TS marker (shows when you hover over a data point) */}
                     {maybeMountedDataPointDatasetUpdateDate ?
                         <Group>
                             <Bar
@@ -154,7 +154,7 @@ export const FreshnessResultChart = ({ data, timeRange, chartDimensions, renderH
                         </Group>
                         : null}
 
-                    {/* Circular data points */}
+                    {/* Candle data points */}
                     {dataPoints.map(dataPoint => {
                         const xOffset = xScale(new Date(dataPoint.time));
                         const fillColor = getFillColor(dataPoint.result.type);
