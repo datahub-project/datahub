@@ -4,7 +4,6 @@ import moment from 'moment';
 import { DatePicker, Space, Button, Typography, Tooltip } from 'antd';
 import { CalendarOutlined, CaretDownOutlined } from '@ant-design/icons';
 import { REDESIGN_COLORS } from '../entityV2/shared/constants';
-import { getTimeRangeDescription } from '../shared/time/timeUtils';
 
 const { RangePicker } = DatePicker;
 
@@ -75,6 +74,13 @@ export default function LineageTimeSelector({ onChange, startTimeMillis, endTime
 
     const showText = !isOpen && (startDate === null || endDate === null);
 
+    const [ranges] = useState<Array<[Datetime, Datetime]>>([
+        [moment().subtract(7, 'days'), null],
+        [moment().subtract(14, 'days'), null],
+        [moment().subtract(28, 'days'), null],
+        [null, null],
+    ]);
+
     return (
         <>
             {showText ? ( // Conditionally render All Time selection
@@ -107,12 +113,9 @@ export default function LineageTimeSelector({ onChange, startTimeMillis, endTime
                             </ConfirmButtonWrapper>
                         )}
                         format="ll"
-                        ranges={{
-                            'Last 7 days': [moment().subtract(7, 'days'), null],
-                            'Last 14 days': [moment().subtract(14, 'days'), null],
-                            'Last 28 days': [moment().subtract(28, 'days'), null],
-                            'All Time': [null, null],
-                        }}
+                        ranges={Object.fromEntries(
+                            ranges.map(([start, end]) => [getTimeRangeDescription(start, end), [start, end]]),
+                        )}
                         onChange={handleRangeChange}
                         onOpenChange={handleOpenChange}
                         onCalendarChange={() => handleOpenChange(true)}
@@ -121,4 +124,24 @@ export default function LineageTimeSelector({ onChange, startTimeMillis, endTime
             )}
         </>
     );
+}
+
+function getTimeRangeDescription(startDate: moment.Moment | null, endDate: moment.Moment | null): string {
+    if (!startDate && !endDate) {
+        return 'All Time';
+    }
+
+    if (!startDate && endDate) {
+        return `Until ${endDate.format('ll')}`;
+    }
+
+    if (startDate && !endDate) {
+        const dayDiff = moment().diff(startDate, 'days');
+        if (dayDiff <= 30) {
+            return `Last ${dayDiff} days`;
+        }
+        return `From ${startDate.format('ll')}`;
+    }
+
+    return 'Unknown time range';
 }
