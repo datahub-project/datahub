@@ -609,6 +609,7 @@ entry_points = {
         "ldap = datahub.ingestion.source.ldap:LDAPSource",
         "looker = datahub.ingestion.source.looker.looker_source:LookerDashboardSource",
         "lookml = datahub.ingestion.source.looker.lookml_source:LookMLSource",
+        "datahub-gc = datahub.ingestion.source.gc.datahub_gc:DataHubGcSource",
         "datahub-lineage-file = datahub.ingestion.source.metadata.lineage:LineageFileSource",
         "datahub-business-glossary = datahub.ingestion.source.metadata.business_glossary:BusinessGlossaryFileSource",
         "mlflow = datahub.ingestion.source.mlflow:MLflowSource",
