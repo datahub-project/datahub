@@ -2,10 +2,13 @@ package io.datahubproject.openapi.v2.models;
 
 import com.datahub.util.RecordUtils;
 import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.util.Pair;
+import io.swagger.v3.oas.annotations.media.Schema;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
@@ -16,8 +19,15 @@ import lombok.Data;
 @Data
 @Builder
 @JsonInclude(JsonInclude.Include.NON_NULL)
+@JsonDeserialize(builder = GenericEntity.GenericEntityBuilder.class)
 public class GenericEntity {
+  @JsonProperty("urn")
+  @Schema(
+      description = "Urn of the entity")
   private String urn;
+  @JsonProperty("aspects")
+  @Schema(
+      description = "Map of aspect name to aspect")
   private Map<String, Object> aspects;
 
   public static class GenericEntityBuilder {
