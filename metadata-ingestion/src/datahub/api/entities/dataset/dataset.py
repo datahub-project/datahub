@@ -62,8 +62,8 @@ class SchemaFieldSpecification(BaseModel):
     created: Optional[dict] = None
     lastModified: Optional[dict] = None
     recursive: Optional[bool] = None
-    globalTags: Optional[List] = None
-    glossaryTerms: Optional[List] = None
+    globalTags: Optional[List[str]] = None
+    glossaryTerms: Optional[List[str]] = None
     isPartOfKey: Optional[bool] = None
     isPartitioningKey: Optional[bool] = None
     jsonProps: Optional[dict] = None
