@@ -182,3 +182,22 @@ export const getWindowStartAndEndDatesForFreshnessAssertionRun = (mountedDataPoi
     // 4. Return the values
     return [windowStartDate, windowEndDate]
 }
+
+/**
+ * Duplicates a datapoint with +- a certain amount of buffer on the timestamp
+ * Useful to extend a line with some buffer to the left and right
+ * @param dataPoint 
+ * @param timestampMillisModifiers 
+ * @returns {AssertionDataPoint[]}
+ */
+export const duplicateDataPointsAcrossBufferedTimeRange = (dataPoint: AssertionDataPoint, timestampMillisBuffer: number): AssertionDataPoint[] => {
+    const points: AssertionDataPoint[] = [];
+    const timestampMillisModifiers = [-timestampMillisBuffer, 0, timestampMillisBuffer];
+    for (const tsModifier of timestampMillisModifiers) {
+        points.push({
+            ...dataPoint,
+            time: dataPoint.time + tsModifier,
+        })
+    }
+    return points
+}

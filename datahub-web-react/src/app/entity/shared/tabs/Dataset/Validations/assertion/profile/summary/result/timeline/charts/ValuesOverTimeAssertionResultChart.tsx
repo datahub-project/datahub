@@ -12,11 +12,13 @@ import { scaleLinear } from 'd3-scale';
 
 import { ANTD_GRAY } from '../../../../../../../../../constants';
 import { LinkWrapper } from '../../../../../../../../../../../shared/LinkWrapper';
-import { ACCENT_COLOR_HEX, EXPECTED_RANGE_SHADE_COLOR, generateTimeScaleTickValues, getCustomTimeScaleTickValue, getFillColor, tryGetUpperAndLowerYRangeFromAssertionRunEvent } from './utils';
+import { ACCENT_COLOR_HEX, EXPECTED_RANGE_SHADE_COLOR, duplicateDataPointsAcrossBufferedTimeRange, generateTimeScaleTickValues, getCustomTimeScaleTickValue, getFillColor, tryGetUpperAndLowerYRangeFromAssertionRunEvent } from './utils';
 import { AssertionDataPoint, AssertionResultChartData, TimeRange } from './types';
 import { AssertionResultPopoverContent } from '../../../../shared/result/AssertionResultPopoverContent';
 import { truncateNumberForDisplay } from '../../../../../../../../../../../dataviz/utils';
 import { getTimeRangeDisplay } from '../utils';
+import { INTERVAL_TO_MS } from '../../../../../../../../../../../shared/time/timeUtils';
+import { DateInterval } from '../../../../../../../../../../../../types.generated';
 
 type Props = {
     data: AssertionResultChartData;
@@ -118,6 +120,8 @@ export const ValuesOverTimeAssertionResultChart = ({ data, timeRange, chartDimen
         });
         return point
     })
+    // If only 1 data point, add some buffer on the ts range so the line shows
+    const expectedRangeDataPoints = dataPoints.length === 1 ? duplicateDataPointsAcrossBufferedTimeRange(dataPoints[0], 2 * INTERVAL_TO_MS[DateInterval.Minute]) : dataPoints;
 
 
     /* NOTE: the nodes in an svg that are first will have a lower z-index at paint-time */
@@ -152,7 +156,7 @@ export const ValuesOverTimeAssertionResultChart = ({ data, timeRange, chartDimen
                 {/* ----- Expected Results Lines ----- */}
                 {/* Min */}
                 <LinePath
-                    data={dataPoints}
+                    data={expectedRangeDataPoints}
                     x={(d) => xScale(getX(d))}
                     // NOTE nullish 'low's should never show because the `defined` prop below removes them
                     y={(d) => yScale(getExpectedYs(d).low ?? 0)}
@@ -163,7 +167,7 @@ export const ValuesOverTimeAssertionResultChart = ({ data, timeRange, chartDimen
                 />
                 {/* Max */}
                 <LinePath
-                    data={dataPoints}
+                    data={expectedRangeDataPoints}
                     x={(d) => xScale(getX(d)) ?? 0}
                     // NOTE nullish 'high's should never show because the `defined` prop below removes them
                     y={(d) => yScale(getExpectedYs(d).high ?? 0)}
@@ -175,7 +179,7 @@ export const ValuesOverTimeAssertionResultChart = ({ data, timeRange, chartDimen
                 {/* Shade expected range */}
                 <LinearGradient id="expected-area-gradient" from={EXPECTED_RANGE_SHADE_COLOR} to={EXPECTED_RANGE_SHADE_COLOR} fromOpacity={0.15} toOpacity={0.1} />
                 <AreaClosed
-                    data={dataPoints}
+                    data={expectedRangeDataPoints}
                     x={(d) => xScale(getX(d))}
                     y0={(d) => yScale(getExpectedYs(d).low ?? yScale.domain()[0])} // first element of domain is the extent low
                     y1={(d) => yScale(getExpectedYs(d).high ?? yScale.domain()[1])} // second element of the domain is the extent high
