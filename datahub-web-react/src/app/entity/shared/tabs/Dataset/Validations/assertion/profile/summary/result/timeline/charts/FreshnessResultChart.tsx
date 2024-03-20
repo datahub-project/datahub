@@ -4,8 +4,7 @@ import { Popover } from 'antd';
 import { Group } from '@visx/group';
 import { AxisBottom } from '@visx/axis';
 import { scaleUtc } from '@visx/scale';
-import { GlyphCircle, GlyphDiamond } from '@visx/glyph'
-import { AreaClosed, Bar } from '@visx/shape';
+import { AreaClosed } from '@visx/shape';
 import { GridColumns } from '@visx/grid'
 import { LinearGradient } from '@visx/gradient';
 import { scaleLinear } from 'd3-scale';
@@ -17,6 +16,7 @@ import { AssertionDataPoint, AssertionResultChartData, TimeRange } from './types
 import { AssertionResultPopoverContent } from '../../../../shared/result/AssertionResultPopoverContent';
 import { tryGetActualUpdatedTimestampFromAssertionResult } from '../../../shared/resultExtractionUtils';
 import { AssertionResultType } from '../../../../../../../../../../../../types.generated';
+import { CandleStick } from '../../../../../../../../../../../dataviz/candle/CandleStick';
 
 type Props = {
     data: AssertionResultChartData;
@@ -132,26 +132,20 @@ export const FreshnessResultChart = ({ data, timeRange, chartDimensions, renderH
 
                     {/* Dataset updated TS marker (shows when you hover over a data point) */}
                     {maybeMountedDataPointDatasetUpdateDate ?
-                        <Group>
-                            <Bar
-                                height={chartInnerHeight - yOffset}
-                                width={2}
-                                fill={ACCENT_COLOR_HEX}
-                                x={xScale(maybeMountedDataPointDatasetUpdateDate) - 1}
-                                y={yOffset}
-                                stroke='white'
-                                strokeWidth={1}
-                            />
-                            <GlyphDiamond
-                                left={xScale(maybeMountedDataPointDatasetUpdateDate)}
-                                top={yOffset}
-                                fill={ACCENT_COLOR_HEX}
-                                stroke='white'
-                                strokeWidth={1}
-                                size={80}
-                                filter='drop-shadow(0px 1px 2.5px rgb(0 0 0 / 0.1))'
-                            />
-                        </Group>
+                        <CandleStick
+                            candleHeight={chartInnerHeight - yOffset}
+                            parentChartHeight={chartInnerHeight}
+                            barWidth={2}
+                            shapeSize={80}
+                            leftOffset={xScale(maybeMountedDataPointDatasetUpdateDate)}
+                            color={ACCENT_COLOR_HEX}
+                            shape={{
+                                type: 'diamond',
+                                extraProps: {
+                                    strokeWidth: 1,
+                                }
+                            }}
+                        />
                         : null}
 
                     {/* Candle data points */}
@@ -159,43 +153,32 @@ export const FreshnessResultChart = ({ data, timeRange, chartDimensions, renderH
                         const xOffset = xScale(new Date(dataPoint.time));
                         const fillColor = getFillColor(dataPoint.result.type);
                         return (
-                            <LinkWrapper key={dataPoint.time} to={dataPoint.result.resultUrl} target="_blank">
-                                <Popover
-                                    key={dataPoint.time}
-                                    title={undefined}
-                                    overlayStyle={{
-                                        maxWidth: 440,
-                                        wordWrap: 'break-word',
-                                    }}
-                                    content={<AssertionResultPopoverContent
-                                        assertion={data.context.assertion}
-                                        run={dataPoint.relatedRunEvent}
-                                    />}
-                                    showArrow={false}
-                                    onOpenChange={visible => setMountedDataPoint(visible ? dataPoint : undefined)}
-                                >
-                                    <Group opacity={(mountedDataPoint && (mountedDataPoint.time === dataPoint.time ? 1 : 0.1)) || 1}>
-                                        <Bar
-                                            height={chartInnerHeight - yOffset}
-                                            width={4}
-                                            fill={fillColor}
-                                            x={xOffset - 2}
-                                            y={yOffset}
-                                            stroke='white'
-                                            strokeWidth={1}
-                                        />
-                                        <GlyphCircle
-                                            left={xOffset}
-                                            top={yOffset}
-                                            fill={fillColor}
-                                            stroke='white'
-                                            strokeWidth={2}
-                                            size={120}
-                                            filter='drop-shadow(0px 1px 2.5px rgb(0 0 0 / 0.1))'
-                                        />
-                                    </Group>
-                                </Popover>
-                            </LinkWrapper>
+                            <CandleStick
+                                candleHeight={chartInnerHeight - yOffset}
+                                parentChartHeight={chartInnerHeight}
+                                barWidth={4}
+                                shapeSize={120}
+                                leftOffset={xOffset}
+                                shape={{ type: 'circle' }}
+                                opacity={(mountedDataPoint && (mountedDataPoint.time === dataPoint.time ? 1 : 0.1)) || 1}
+                                color={fillColor}
+                                wrapper={(children) => <LinkWrapper key={dataPoint.time} to={dataPoint.result.resultUrl} target="_blank">
+                                    <Popover
+                                        key={dataPoint.time}
+                                        title={undefined}
+                                        overlayStyle={{
+                                            maxWidth: 440,
+                                            wordWrap: 'break-word',
+                                        }}
+                                        content={<AssertionResultPopoverContent
+                                            assertion={data.context.assertion}
+                                            run={dataPoint.relatedRunEvent}
+                                        />}
+                                        showArrow={false}
+                                        onOpenChange={visible => setMountedDataPoint(visible ? dataPoint : undefined)}
+                                    >{children}</Popover>
+                                </LinkWrapper>}
+                            />
                         );
                     })}
 

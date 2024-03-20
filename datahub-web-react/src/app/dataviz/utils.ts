@@ -49,3 +49,26 @@ export const abbreviateNumber = (str) => {
 	return `${shortNumber}${suffix}`;
 }
 
+/**
+ * Creates a yscale range for charts, with optional buffers
+ * @param yValues 
+ * @param options 
+ */
+export const calculateYScaleExtentForChart = (yValues: number[], options: { defaultYValue: number, includeBufferWithOptions?: (extent: { min: number, max: number }) => { axisTicksCount: number } | undefined } = { defaultYValue: 0 }): { min: number, max: number } => {
+
+	let min = (Math.min(...yValues) || options.defaultYValue)
+	let max = (Math.max(...yValues) || options.defaultYValue)
+
+	// Add some extra range above and below if the min and the max are the same so things are nicely centered
+	const maybeBufferOptions = options.includeBufferWithOptions?.({ min, max })
+	if (maybeBufferOptions) {
+		const averageValue = (min + max) / 2
+		const averageValueBase = Math.floor(averageValue).toString().length
+		let differentiator = 10 ** (averageValueBase - 1)
+		differentiator /= maybeBufferOptions.axisTicksCount
+		min -= differentiator;
+		max += differentiator;
+	}
+
+	return { min, max }
+}

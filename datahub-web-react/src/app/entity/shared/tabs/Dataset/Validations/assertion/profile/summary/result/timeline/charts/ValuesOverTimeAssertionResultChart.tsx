@@ -15,7 +15,7 @@ import { LinkWrapper } from '../../../../../../../../../../../shared/LinkWrapper
 import { ACCENT_COLOR_HEX, EXPECTED_RANGE_SHADE_COLOR, generateTimeScaleTickValues, getCustomTimeScaleTickValue, getFillColor, tryGetUpperAndLowerYRangeFromAssertionRunEvent } from './utils';
 import { AssertionDataPoint, AssertionResultChartData, TimeRange } from './types';
 import { AssertionResultPopoverContent } from '../../../../shared/result/AssertionResultPopoverContent';
-import { truncateNumberForDisplay } from '../../../../../../../../../../../dataviz/utils';
+import { calculateYScaleExtentForChart, truncateNumberForDisplay } from '../../../../../../../../../../../dataviz/utils';
 import { getTimeRangeDisplay } from '../utils';
 
 type Props = {
@@ -75,18 +75,10 @@ export const ValuesOverTimeAssertionResultChart = ({ data, timeRange, chartDimen
             const expectedMax = (Math.max(...expectedYValues) || 0)
 
             const allYValues = actualYValues.concat(expectedYValues);
-            let min = (Math.min(...allYValues) || 0)
-            let max = (Math.max(...allYValues) || 0)
-
-            // Add some extra range above and below if the min and the max are the same so things are nicely centered
-            if (min === max || max === actualMax || max === expectedMax || min === actualMin || min === expectedMin) {
-                const averageValue = (min + max) / 2
-                const averageValueBase = Math.floor(averageValue).toString().length
-                let differentiator = 10 ** (averageValueBase - 1)
-                differentiator /= (NUM_TICKS_AXIS_LEFT - 1)
-                min -= differentiator;
-                max += differentiator;
-            }
+            const { min, max } = calculateYScaleExtentForChart(allYValues, {
+                defaultYValue: 0,
+                includeBufferWithOptions: () => ({ axisTicksCount: NUM_TICKS_AXIS_LEFT - 1 })
+            })
 
             return {
                 yScale: scaleLinear(
