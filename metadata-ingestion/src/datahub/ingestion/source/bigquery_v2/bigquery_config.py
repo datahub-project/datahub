@@ -213,7 +213,7 @@ class BigQueryV2Config(
     extract_column_lineage: bool = Field(
         default=False,
         description="If enabled, generate column level lineage. "
-        "Requires lineage_use_sql_parser to be enabled. "
+        "Requires lineage_use_sql_parser to be enabled.",
     )
 
     extract_lineage_from_catalog: bool = Field(

@@ -170,11 +170,6 @@ def cleanup(config: BigQueryV2Config) -> None:
     "Enabled by default, can be disabled via configuration `include_usage_statistics`",
 )
 @capability(
-    SourceCapability.DELETION_DETECTION,
-    "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",
-    supported=True,
-)
-@capability(
     SourceCapability.CLASSIFICATION,
     "Optionally enabled via `classification.enabled`",
     supported=True,
@@ -577,8 +572,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         return [
             *super().get_workunit_processors(),
             functools.partial(
-                auto_incremental_lineage,
-                self.config.incremental_lineage
+                auto_incremental_lineage, self.config.incremental_lineage
             ),
             StaleEntityRemovalHandler.create(
                 self, self.config, self.ctx

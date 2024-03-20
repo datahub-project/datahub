@@ -402,7 +402,9 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
         return [
             *super().get_workunit_processors(),
-            functools.partial(auto_incremental_lineage, self.config.incremental_lineage),
+            functools.partial(
+                auto_incremental_lineage, self.config.incremental_lineage
+            ),
             StaleEntityRemovalHandler.create(
                 self, self.config, self.ctx
             ).workunit_processor,
