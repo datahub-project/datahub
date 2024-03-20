@@ -144,36 +144,8 @@ public class EntityController {
   }
 
   @Tag(name = "Generic Entities")
-  @GetMapping(value = "/{entityName}/{entityUrn:urn[:]li.*}", produces = MediaType.APPLICATION_JSON_VALUE)
-  @Operation(summary = "Get an entity")
-  public ResponseEntity<GenericEntity> getEntity(
-      @PathVariable("entityName") String entityName,
-      @PathVariable("entityUrn") String entityUrn,
-      @RequestParam(value = "aspectNames", defaultValue = "") Set<String> aspectNames,
-      @RequestParam(value = "systemMetadata", required = false, defaultValue = "false")
-          Boolean withSystemMetadata)
-      throws URISyntaxException {
-
-    if (restApiAuthorizationEnabled) {
-      Authentication authentication = AuthenticationContext.getAuthentication();
-      EntitySpec entitySpec = entityRegistry.getEntitySpec(entityName);
-      checkAuthorized(
-          authorizationChain,
-          authentication.getActor(),
-          entitySpec,
-          entityUrn,
-          ImmutableList.of(PoliciesConfig.GET_ENTITY_PRIVILEGE.getType()));
-    }
-
-    return ResponseEntity.of(
-        toRecordTemplates(List.of(UrnUtils.getUrn(entityUrn)), aspectNames, withSystemMetadata)
-            .stream()
-            .findFirst());
-  }
-
-  @Tag(name = "Generic Entities")
   @GetMapping(value = "/{entityName}/batch", produces = MediaType.APPLICATION_JSON_VALUE)
-  @Operation(summary = "Get an entity")
+  @Operation(summary = "Get a batch of entities")
   public ResponseEntity<BatchGetUrnResponse> getEntityBatch(
       @PathVariable("entityName") String entityName, @RequestBody BatchGetUrnRequest request)
       throws URISyntaxException {
@@ -203,6 +175,34 @@ public class EntityController {
                             .collect(Collectors.toList()),
                         new HashSet<>(request.getAspectNames()),
                         request.isWithSystemMetadata())))));
+  }
+
+  @Tag(name = "Generic Entities")
+  @GetMapping(value = "/{entityName}/{entityUrn:urn:li:.+}", produces = MediaType.APPLICATION_JSON_VALUE)
+  @Operation(summary = "Get an entity")
+  public ResponseEntity<GenericEntity> getEntity(
+      @PathVariable("entityName") String entityName,
+      @PathVariable("entityUrn") String entityUrn,
+      @RequestParam(value = "aspectNames", defaultValue = "") Set<String> aspectNames,
+      @RequestParam(value = "systemMetadata", required = false, defaultValue = "false")
+          Boolean withSystemMetadata)
+      throws URISyntaxException {
+
+    if (restApiAuthorizationEnabled) {
+      Authentication authentication = AuthenticationContext.getAuthentication();
+      EntitySpec entitySpec = entityRegistry.getEntitySpec(entityName);
+      checkAuthorized(
+          authorizationChain,
+          authentication.getActor(),
+          entitySpec,
+          entityUrn,
+          ImmutableList.of(PoliciesConfig.GET_ENTITY_PRIVILEGE.getType()));
+    }
+
+    return ResponseEntity.of(
+        toRecordTemplates(List.of(UrnUtils.getUrn(entityUrn)), aspectNames, withSystemMetadata)
+            .stream()
+            .findFirst());
   }
 
   @Tag(name = "Generic Entities")
