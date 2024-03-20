@@ -40,6 +40,10 @@ from datahub.ingestion.api.source import (
     TestableSource,
     TestConnectionReport,
 )
+from datahub.ingestion.api.source_helpers import (
+    create_dataset_owners_patch_builder,
+    create_dataset_props_patch_builder,
+)
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws.s3_util import (
     make_s3_urn_for_lineage,
@@ -517,17 +521,29 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 yield from self.gen_siblings_workunit(dataset_urn, source_dataset_urn)
                 yield from self.gen_lineage_workunit(dataset_urn, source_dataset_urn)
 
+        if ownership:
+            patch_builder = create_dataset_owners_patch_builder(dataset_urn, ownership)
+
+            for patch_mcp in patch_builder.build():
+                yield MetadataWorkUnit(
+                    id=f"{dataset_urn}-{patch_mcp.aspectName}", mcp_raw=patch_mcp
+                )
+
+        patch_builder = create_dataset_props_patch_builder(dataset_urn, table_props)
+        for patch_mcp in patch_builder.build():
+            yield MetadataWorkUnit(
+                id=f"{dataset_urn}-{patch_mcp.aspectName}", mcp_raw=patch_mcp
+            )
+
         yield from [
             mcp.as_workunit()
             for mcp in MetadataChangeProposalWrapper.construct_many(
                 entityUrn=dataset_urn,
                 aspects=[
-                    table_props,
                     view_props,
                     sub_type,
                     schema_metadata,
                     domain,
-                    ownership,
                     data_platform_instance,
                     lineage,
                 ],
