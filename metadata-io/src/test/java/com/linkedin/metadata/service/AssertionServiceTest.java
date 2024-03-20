@@ -52,6 +52,7 @@ import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.schema.SchemaFieldSpec;
 import com.linkedin.timeseries.CalendarInterval;
+import io.datahubproject.openapi.client.OpenApiClient;
 import java.util.Collections;
 import java.util.List;
 import org.mockito.Mockito;
@@ -85,7 +86,7 @@ public class AssertionServiceTest {
   private void testGetAssertionInfo() throws Exception {
     final EntityClient mockClient = createMockEntityClient();
     final AssertionService service =
-        new AssertionService(mockClient, Mockito.mock(Authentication.class));
+        new AssertionService(mockClient, Mockito.mock(Authentication.class), Mockito.mock(OpenApiClient.class));
 
     // Case 1: Info exists
     AssertionInfo info = service.getAssertionInfo(TEST_ASSERTION_URN);
@@ -120,7 +121,7 @@ public class AssertionServiceTest {
   private void testGetAssertionDataPlatformInstance() throws Exception {
     final EntityClient mockClient = createMockEntityClient();
     final AssertionService service =
-        new AssertionService(mockClient, Mockito.mock(Authentication.class));
+        new AssertionService(mockClient, Mockito.mock(Authentication.class), Mockito.mock(OpenApiClient.class));
 
     // Case 1: data platform exists
     DataPlatformInstance instance = service.getAssertionDataPlatformInstance(TEST_ASSERTION_URN);
@@ -155,7 +156,7 @@ public class AssertionServiceTest {
   private void testGetAssertionsSummary() throws Exception {
     final EntityClient mockClient = createMockEntityClient();
     final AssertionService service =
-        new AssertionService(mockClient, Mockito.mock(Authentication.class));
+        new AssertionService(mockClient, Mockito.mock(Authentication.class), Mockito.mock(OpenApiClient.class));
 
     // Case 1: Summary exists
     AssertionsSummary summary = service.getAssertionsSummary(TEST_DATASET_URN);
@@ -182,7 +183,7 @@ public class AssertionServiceTest {
   private void testUpdateAssertionsSummary() throws Exception {
     final EntityClient mockClient = createMockEntityClient();
     final AssertionService service =
-        new AssertionService(mockClient, Mockito.mock(Authentication.class));
+        new AssertionService(mockClient, Mockito.mock(Authentication.class), Mockito.mock(OpenApiClient.class));
     service.updateAssertionsSummary(TEST_DATASET_URN, mockAssertionSummary());
     Mockito.verify(mockClient, Mockito.times(1))
         .ingestProposal(
@@ -195,7 +196,7 @@ public class AssertionServiceTest {
   private void testUpdateAssertionActions() throws Exception {
     final EntityClient mockClient = createMockEntityClient();
     final AssertionService service =
-        new AssertionService(mockClient, Mockito.mock(Authentication.class));
+        new AssertionService(mockClient, Mockito.mock(Authentication.class), Mockito.mock(OpenApiClient.class));
     service.updateAssertionActions(
         TEST_ASSERTION_URN, mockAssertionActions(), Mockito.mock(Authentication.class));
     Mockito.verify(mockClient, Mockito.times(1))
@@ -228,7 +229,7 @@ public class AssertionServiceTest {
             Mockito.anyList(), Mockito.any(Authentication.class), Mockito.eq(false));
 
     final AssertionService service =
-        new AssertionService(mockClient, Mockito.mock(Authentication.class));
+        new AssertionService(mockClient, Mockito.mock(Authentication.class), Mockito.mock(OpenApiClient.class));
 
     // Test method
     Urn result =
@@ -273,7 +274,7 @@ public class AssertionServiceTest {
             Mockito.anyList(), Mockito.any(Authentication.class), Mockito.eq(false));
 
     final AssertionService service =
-        new AssertionService(mockClient, Mockito.mock(Authentication.class));
+        new AssertionService(mockClient, Mockito.mock(Authentication.class), Mockito.mock(OpenApiClient.class));
 
     // Test method
     Urn result =
@@ -312,7 +313,7 @@ public class AssertionServiceTest {
             Mockito.anyList(), Mockito.any(Authentication.class), Mockito.eq(false));
 
     final AssertionService service =
-        new AssertionService(mockClient, Mockito.mock(Authentication.class));
+        new AssertionService(mockClient, Mockito.mock(Authentication.class), Mockito.mock(OpenApiClient.class));
 
     // Test method
     Urn result =
@@ -357,7 +358,7 @@ public class AssertionServiceTest {
             Mockito.anyList(), Mockito.any(Authentication.class), Mockito.eq(false));
 
     final AssertionService service =
-        new AssertionService(mockClient, Mockito.mock(Authentication.class));
+        new AssertionService(mockClient, Mockito.mock(Authentication.class), Mockito.mock(OpenApiClient.class));
 
     // Test method
     Urn result =
@@ -387,7 +388,7 @@ public class AssertionServiceTest {
             Mockito.anyList(), Mockito.any(Authentication.class), Mockito.eq(false));
 
     final AssertionService service =
-        new AssertionService(mockClient, Mockito.mock(Authentication.class));
+        new AssertionService(mockClient, Mockito.mock(Authentication.class), Mockito.mock(OpenApiClient.class));
 
     // Test method
     Urn result =
@@ -429,7 +430,7 @@ public class AssertionServiceTest {
             Mockito.anyList(), Mockito.any(Authentication.class), Mockito.eq(false));
 
     final AssertionService service =
-        new AssertionService(mockClient, Mockito.mock(Authentication.class));
+        new AssertionService(mockClient, Mockito.mock(Authentication.class), Mockito.mock(OpenApiClient.class));
 
     // Test method
     Urn result =
@@ -483,7 +484,7 @@ public class AssertionServiceTest {
             Mockito.anyList(), Mockito.any(Authentication.class), Mockito.eq(false));
 
     final AssertionService service =
-        new AssertionService(mockClient, Mockito.mock(Authentication.class));
+        new AssertionService(mockClient, Mockito.mock(Authentication.class), Mockito.mock(OpenApiClient.class));
 
     // Test method
     Urn result =
@@ -555,7 +556,7 @@ public class AssertionServiceTest {
             Mockito.anyList(), Mockito.any(Authentication.class), Mockito.eq(false));
 
     final AssertionService service =
-        new AssertionService(mockClient, Mockito.mock(Authentication.class));
+        new AssertionService(mockClient, Mockito.mock(Authentication.class), Mockito.mock(OpenApiClient.class));
 
     // Test method
     Urn result =
@@ -612,7 +613,7 @@ public class AssertionServiceTest {
             Mockito.anyList(), Mockito.any(Authentication.class), Mockito.eq(false));
 
     final AssertionService service =
-        new AssertionService(mockClient, Mockito.mock(Authentication.class));
+        new AssertionService(mockClient, Mockito.mock(Authentication.class), Mockito.mock(OpenApiClient.class));
 
     // Test method
     Urn result =
@@ -690,7 +691,7 @@ public class AssertionServiceTest {
             Mockito.anyList(), Mockito.any(Authentication.class), Mockito.eq(false));
 
     final AssertionService service =
-        new AssertionService(mockClient, Mockito.mock(Authentication.class));
+        new AssertionService(mockClient, Mockito.mock(Authentication.class), Mockito.mock(OpenApiClient.class));
 
     // Test method
     Urn result =
@@ -755,7 +756,7 @@ public class AssertionServiceTest {
             Mockito.anyList(), Mockito.any(Authentication.class), Mockito.eq(false));
 
     final AssertionService service =
-        new AssertionService(mockClient, Mockito.mock(Authentication.class));
+        new AssertionService(mockClient, Mockito.mock(Authentication.class), Mockito.mock(OpenApiClient.class));
 
     // Test method
     Urn result =
@@ -834,7 +835,7 @@ public class AssertionServiceTest {
             Mockito.anyList(), Mockito.any(Authentication.class), Mockito.eq(false));
 
     final AssertionService service =
-        new AssertionService(mockClient, Mockito.mock(Authentication.class));
+        new AssertionService(mockClient, Mockito.mock(Authentication.class), Mockito.mock(OpenApiClient.class));
 
     // Test method
     Urn result =
@@ -908,7 +909,7 @@ public class AssertionServiceTest {
             Mockito.anyList(), Mockito.any(Authentication.class), Mockito.eq(false));
 
     final AssertionService service =
-        new AssertionService(mockClient, Mockito.mock(Authentication.class));
+        new AssertionService(mockClient, Mockito.mock(Authentication.class), Mockito.mock(OpenApiClient.class));
 
     // Test method
     Urn result =
@@ -994,7 +995,7 @@ public class AssertionServiceTest {
             Mockito.anyList(), Mockito.any(Authentication.class), Mockito.eq(false));
 
     final AssertionService service =
-        new AssertionService(mockClient, Mockito.mock(Authentication.class));
+        new AssertionService(mockClient, Mockito.mock(Authentication.class), Mockito.mock(OpenApiClient.class));
 
     // Test method
     Urn result =
@@ -1029,7 +1030,7 @@ public class AssertionServiceTest {
             Mockito.anyList(), Mockito.any(Authentication.class), Mockito.eq(false));
 
     final AssertionService service =
-        new AssertionService(mockClient, Mockito.mock(Authentication.class));
+        new AssertionService(mockClient, Mockito.mock(Authentication.class), Mockito.mock(OpenApiClient.class));
 
     // Test method
     Urn result =
@@ -1078,7 +1079,7 @@ public class AssertionServiceTest {
             Mockito.anyList(), Mockito.any(Authentication.class), Mockito.eq(false));
 
     final AssertionService service =
-        new AssertionService(mockClient, Mockito.mock(Authentication.class));
+        new AssertionService(mockClient, Mockito.mock(Authentication.class), Mockito.mock(OpenApiClient.class));
 
     // Test method
     Urn result =
