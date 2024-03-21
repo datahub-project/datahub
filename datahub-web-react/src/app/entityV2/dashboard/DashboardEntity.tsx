@@ -45,6 +45,7 @@ import { SidebarTitleActionType, getDataProduct, isOutputPort } from '../shared/
 import { DashboardPreview } from './preview/DashboardPreview';
 import { DashboardStatsSummarySubHeader } from './profile/DashboardStatsSummarySubHeader';
 import SidebarEntityHeader from '../shared/containers/profile/sidebar/SidebarEntityHeader';
+import { IncidentTab } from '../shared/tabs/Incident/IncidentTab';
 
 /**
  * Definition of the DataHub Dashboard entity.
@@ -161,6 +162,10 @@ export class DashboardEntity implements Entity<Dashboard> {
                     properties: {
                         defaultDirection: LineageDirection.Upstream,
                     },
+                },
+                {
+                    name: 'Incidents',
+                    component: IncidentTab,
                 },
             ]}
             sidebarSections={[
