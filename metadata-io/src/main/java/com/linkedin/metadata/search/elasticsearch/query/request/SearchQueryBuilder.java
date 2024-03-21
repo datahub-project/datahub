@@ -682,9 +682,11 @@ public class SearchQueryBuilder {
             aspectSpec.getSearchableRefFieldSpecs()) {
           String refFieldName = searchableRefFieldSpec.getSearchableRefAnnotation().getFieldName();
           refFieldName = fieldName + "." + refFieldName;
+          int newDepth =
+              Math.min(depth - 1, searchableRefFieldSpec.getSearchableRefAnnotation().getDepth());
           fieldNameMap.putAll(
               getAllFieldTypeFromSearchableRef(
-                  searchableRefFieldSpec, depth - 1, entityRegistry, refFieldName));
+                  searchableRefFieldSpec, newDepth, entityRegistry, refFieldName));
         }
       }
     }
