@@ -280,9 +280,8 @@ module.exports = {
           path: "src/pages",
           mdxPageComponent: "@theme/MDXPage",
         },
-        gtag: {
-          trackingID: 'G-2G54RXWD4D',
-          anonymizeIP: true,
+        googleTagManager: {
+          containerId: 'GTM-WK28RLTG',
         },
       },
     ],
