@@ -188,7 +188,7 @@ public class ESUtils {
         .forEach(
             criterion -> {
               if (Set.of(Condition.EXISTS, Condition.IS_NULL).contains(criterion.getCondition())
-                  || !criterion.getValue().trim().isEmpty()
+                  || (criterion.hasValue() && !criterion.getValue().trim().isEmpty())
                   || criterion.hasValues()) {
                 if (!criterion.isNegated()) {
                   // `filter` instead of `must` (enables caching and bypasses scoring)
@@ -646,6 +646,7 @@ public class ESUtils {
    * <p>For all new code, we should be using the new 'values' field for performing multi-match. This
    * is simply retained for backwards compatibility of the search API.
    */
+  @Deprecated
   private static QueryBuilder buildEqualsFromCriterionWithValue(
       @Nonnull final String fieldName,
       @Nonnull final Criterion criterion,
