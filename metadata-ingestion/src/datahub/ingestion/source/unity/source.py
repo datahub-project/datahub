@@ -523,17 +523,17 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
 
         if ownership:
             patch_builder = create_dataset_owners_patch_builder(dataset_urn, ownership)
-
             for patch_mcp in patch_builder.build():
                 yield MetadataWorkUnit(
                     id=f"{dataset_urn}-{patch_mcp.aspectName}", mcp_raw=patch_mcp
                 )
 
-        patch_builder = create_dataset_props_patch_builder(dataset_urn, table_props)
-        for patch_mcp in patch_builder.build():
-            yield MetadataWorkUnit(
-                id=f"{dataset_urn}-{patch_mcp.aspectName}", mcp_raw=patch_mcp
-            )
+        if table_props:
+            patch_builder = create_dataset_props_patch_builder(dataset_urn, table_props)
+            for patch_mcp in patch_builder.build():
+                yield MetadataWorkUnit(
+                    id=f"{dataset_urn}-{patch_mcp.aspectName}", mcp_raw=patch_mcp
+                )
 
         yield from [
             mcp.as_workunit()
