@@ -1622,7 +1622,6 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
                 f"raw sql query is not available for datasource {datasource_urn}"
             )
             return None
-        query = clean_query(query)
 
         logger.debug(f"Parsing sql={query}")
 
