@@ -753,7 +753,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                 looker_explore._to_metadata_events(
                     self.source_config,
                     self.reporter,
-                    self.source_config.base_url,
+                    self.source_config.extended_base_url or self.source_config.base_url,
                     self.source_config.extract_embed_urls,
                 )
                 or events
