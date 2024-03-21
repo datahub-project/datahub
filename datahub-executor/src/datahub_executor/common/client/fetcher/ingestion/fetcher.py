@@ -13,6 +13,10 @@ from datahub_executor.common.client.fetcher.ingestion.mapper import (
 )
 from datahub_executor.common.client.fetcher.ingestion.types import IngestionSource
 from datahub_executor.common.constants import LIST_INGESTION_SOURCES_BATCH_SIZE
+from datahub_executor.common.monitoring.metrics import (
+    STATS_INGESTION_FETCHER_ERRORS,
+    STATS_INGESTION_FETCHER_REQUESTS,
+)
 from datahub_executor.common.types import ExecutionRequestSchedule
 
 logger = logging.getLogger(__name__)
@@ -24,6 +28,7 @@ class IngestionFetcher(Fetcher):
     @retry(
         stop=stop_after_attempt(3), wait=wait_exponential(multiplier=2, min=4, max=10)
     )
+    @STATS_INGESTION_FETCHER_REQUESTS.time()
     def _fetch_ingestion_sources(self) -> List[IngestionSource]:
         """
         Fetch the list of monitors from the API.
@@ -41,6 +46,7 @@ class IngestionFetcher(Fetcher):
         )
 
         if "error" in result and result["error"] is not None:
+            STATS_INGESTION_FETCHER_ERRORS.labels("GmsError").inc()
             # TODO: add either logging or throwing here.
             logger.error(
                 f"Received error while fetching ingestion sources from GMS! {result.get('error')}"
@@ -51,6 +57,7 @@ class IngestionFetcher(Fetcher):
             "listIngestionSources" not in result
             or "ingestionSources" not in result["listIngestionSources"]
         ):
+            STATS_INGESTION_FETCHER_ERRORS.labels("IncompleteResults").inc()
             logger.error(
                 "Found incomplete search results when fetching ingestion sources from GMS!"
             )

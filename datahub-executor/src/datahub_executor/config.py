@@ -27,6 +27,8 @@ def datahub_url() -> str:
 DATAHUB_GMS_TOKEN = os.environ.get("DATAHUB_GMS_TOKEN", None)
 DATAHUB_GMS_URL = datahub_url()
 
+DATAHUB_EXECUTOR_PROMETHEUS_PORT = env_to_int("DATAHUB_EXECUTOR_PROMETHEUS_PORT", 9087)
+
 DATAHUB_EXECUTOR_MODE = os.getenv("DATAHUB_EXECUTOR_MODE", "coordinator")
 DATAHUB_EXECUTOR_WORKER_ID = os.environ.get("DATAHUB_EXECUTOR_WORKER_ID", "default")
 

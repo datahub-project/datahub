@@ -7,6 +7,10 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from datahub_executor.common.assertion.executor import AssertionExecutor
 from datahub_executor.common.constants import RUN_INGEST_TASK_NAME
 from datahub_executor.common.ingestion.helpers import emit_execution_request_input
+from datahub_executor.common.monitoring.metrics import (
+    STATS_SCHEDULER_ASSERTION_REQUESTS,
+    STATS_SCHEDULER_INGESTION_REQUESTS,
+)
 from datahub_executor.common.types import CronSchedule
 from datahub_executor.config import (
     DATAHUB_EXECUTOR_EMBEDDED_WORKER_ENABLED,
@@ -73,14 +77,24 @@ class ExecutionRequestScheduler:
                 f"Running scheduled evaluation for execution_request with exec_id {execution_request.exec_id}"
             )
             if execution_request.name == RUN_INGEST_TASK_NAME:
+                STATS_SCHEDULER_INGESTION_REQUESTS.labels(
+                    execution_request.executor_id
+                ).inc()
                 # for scheduled ingestion, we create an ExecutionRequestInput
                 # this will wind up being acted on as a pipeline (kafka) action.
                 emit_execution_request_input(execution_request)
             else:
                 if self.should_execute_embedded(execution_request):
+                    STATS_SCHEDULER_ASSERTION_REQUESTS.labels(
+                        execution_request.executor_id, "true"
+                    ).inc()
                     # submit request to the thread pool for async execution
                     self.assertion_executor.execute(execution_request)
                 else:
+                    STATS_SCHEDULER_ASSERTION_REQUESTS.labels(
+                        execution_request.executor_id, "false"
+                    ).inc()
+
                     task = apply_remote_assertion_request(
                         execution_request, execution_request.executor_id
                     )

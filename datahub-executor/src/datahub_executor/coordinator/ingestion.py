@@ -19,6 +19,12 @@ from datahub_executor.common.ingestion.helpers import (
     handle_ingestion_signal_requests,
     setup_ingestion_executor,
 )
+from datahub_executor.common.monitoring.metrics import (
+    STATS_INGESTION_HANDLER_ERRORS,
+    STATS_INGESTION_HANDLER_REQUESTS,
+    STATS_INGESTION_KAFKA_EXEC_EVENTS,
+    STATS_INGESTION_KAFKA_MCL_EVENTS,
+)
 from datahub_executor.common.tp import ThreadPoolExecutorWithQueueSizeLimit
 from datahub_executor.config import (
     DATAHUB_EXECUTOR_INGESTION_PIPELINE_MAX_WORKERS,
@@ -49,7 +55,8 @@ class IngestionAction(Action):
         if self.embedded_worker_enabled:
             self.ingestion_executor = setup_ingestion_executor()
             self.tp = ThreadPoolExecutorWithQueueSizeLimit(
-                max_workers=DATAHUB_EXECUTOR_INGESTION_PIPELINE_MAX_WORKERS
+                max_workers=DATAHUB_EXECUTOR_INGESTION_PIPELINE_MAX_WORKERS,
+                name="ingestions",
             )
             self.signal_thread = Thread(target=self._signal_thread_worker)
             self.signal_thread.start()
@@ -77,6 +84,7 @@ class IngestionAction(Action):
         """This method listens for ExecutionRequest changes to execute in schedule and trigger events"""
         if event.event_type is METADATA_CHANGE_LOG_EVENT_V1_TYPE:
             orig_event = cast(MetadataChangeLogClass, event.event)
+            STATS_INGESTION_KAFKA_MCL_EVENTS.inc()
             if (
                 orig_event.get("entityType") == DATAHUB_EXECUTION_REQUEST_ENTITY_NAME
                 and orig_event.get("changeType") == "UPSERT"
@@ -85,6 +93,7 @@ class IngestionAction(Action):
                     orig_event.get("aspectName")
                     == DATAHUB_EXECUTION_REQUEST_INPUT_ASPECT_NAME
                 ):
+                    STATS_INGESTION_KAFKA_EXEC_EVENTS.inc()
                     logger.debug("Received execution request input. Processing...")
                     self._handle_execution_request_input(orig_event)
 
@@ -92,10 +101,12 @@ class IngestionAction(Action):
         self, orig_event: MetadataChangeLogClass
     ) -> None:
         if self.ingestion_enabled is False:
+            STATS_INGESTION_HANDLER_ERRORS.labels("IngestionsDisabled").inc()
             logger.info(f"Ingestion disabled, ignoring {orig_event.entityUrn}")
             return
 
         if not orig_event.aspect:
+            STATS_INGESTION_HANDLER_ERRORS.labels("ParseError").inc()
             logger.error(
                 f"Unable to parse Execution Request Input, no aspect {orig_event.entityUrn}.."
             )
@@ -108,13 +119,13 @@ class IngestionAction(Action):
         if self.embedded_worker_enabled and (
             executor_id is None or executor_id == self.embedded_worker_id
         ):
+            STATS_INGESTION_HANDLER_REQUESTS.labels(executor_id, "true").inc()
             # submit will block if queue size > worker_count
             self.tp.submit(self._apply_ingestion_request, orig_event)
-
             logger.info("started task ingestion_request on a local thread")
         else:
+            STATS_INGESTION_HANDLER_REQUESTS.labels(executor_id, "false").inc()
             task = apply_remote_ingestion_request(orig_event, aspect_dict["executorId"])
-
             logger.info(f"started task ingestion_request task_id = {task.id}")
 
     def _apply_ingestion_request(self, orig_event: MetadataChangeLogClass) -> None:
