@@ -77,12 +77,14 @@ public class AssertionRunEventMapper
     datasetAssertionResult.setExternalUrl(gmsResult.getExternalUrl());
 
     if (gmsResult.hasAssertion()) {
-      AssertionInfo datasetAssertionInfo = AssertionMapper.mapAssertionInfo(gmsResult.getAssertion());
+      AssertionInfo datasetAssertionInfo =
+          AssertionMapper.mapAssertionInfo(gmsResult.getAssertion());
       datasetAssertionResult.setAssertion(datasetAssertionInfo);
     }
 
     if (gmsResult.hasParameters()) {
-      AssertionEvaluationParameters datasetAssertionEvaluationParameters = MonitorMapper.mapAssertionEvaluationParameters(gmsResult.getParameters());
+      AssertionEvaluationParameters datasetAssertionEvaluationParameters =
+          MonitorMapper.mapAssertionEvaluationParameters(gmsResult.getParameters());
       datasetAssertionResult.setParameters(datasetAssertionEvaluationParameters);
     }
 
