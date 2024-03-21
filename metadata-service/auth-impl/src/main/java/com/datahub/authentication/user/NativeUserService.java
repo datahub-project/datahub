@@ -240,9 +240,4 @@ public class NativeUserService {
     String hashedPassword = _secretService.getHashedPassword(salt, password);
     return storedHashedPassword.equals(hashedPassword);
   }
-
-  public boolean userExists(@Nonnull Urn userUrn) {
-    Objects.requireNonNull(userUrn, "groupUrn must not be null");
-    return _entityService.exists(userUrn, true);
-  }
 }

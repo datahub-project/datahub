@@ -4,11 +4,8 @@ import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.*;
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 
 import com.datahub.authentication.user.NativeUserService;
-import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
-import com.linkedin.datahub.graphql.exception.DataHubGraphQLErrorCode;
-import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
 import com.linkedin.datahub.graphql.generated.CreateNativeUserResetTokenInput;
 import com.linkedin.datahub.graphql.generated.ResetToken;
 import graphql.schema.DataFetcher;
@@ -37,13 +34,6 @@ public class CreateNativeUserResetTokenResolver
 
     final String userUrnString = input.getUserUrn();
     Objects.requireNonNull(userUrnString, "No user urn was provided!");
-    final Urn urn = Urn.createFromString(userUrnString);
-    if (!_nativeUserService.userExists(urn)) {
-      // The group doesn't exist.
-      throw new DataHubGraphQLException(
-          String.format("Failed to add members to group %s. Group does not exist.", urn),
-          DataHubGraphQLErrorCode.NOT_FOUND);
-    }
 
     if (!canManageUserCredentials(context)) {
       throw new AuthorizationException(
