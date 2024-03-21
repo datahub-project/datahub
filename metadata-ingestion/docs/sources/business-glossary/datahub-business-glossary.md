@@ -60,7 +60,7 @@ Example **GlossaryTerm**:
     - Shipping.CountryCode
     - Shipping.StreetAddress
   custom_properties:                                                        # (optional) a map of key/value pairs of arbitrary custom properties
-    - is_used_for_compliance_tracking: true
+    is_used_for_compliance_tracking: true
   knowledge_links:                                                          # (optional) a list of **KnowledgeCard** related to this term. These appear as links on the glossary node's page
     - url: "https://en.wikipedia.org/wiki/Address"
       label: Wiki link
@@ -148,7 +148,7 @@ nodes:
         related_terms:
           - Housing.Kitchen.Cutlery
         custom_properties:
-          - is_used_for_compliance_tracking: true
+          is_used_for_compliance_tracking: true
         knowledge_links:
           - url: "https://en.wikipedia.org/wiki/Address"
             label: Wiki link
