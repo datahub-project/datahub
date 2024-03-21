@@ -5,8 +5,9 @@ import { INTERVAL_TO_MS } from "../../../../../../../../../../../shared/time/tim
 import { tryGetExpectedRangeFromAssertionRunEvent } from "../../../shared/resultExtractionUtils";
 import { AssertionChartType, AssertionDataPoint } from "./types";
 
-export const ACCENT_COLOR_HEX = '#4050E7'
-export const SUCCESS_COLOR_HEX = ACCENT_COLOR_HEX;// '#52C41A';
+export const ACCENT_COLOR_HEX = '#222222';
+export const EXTRA_HIGHLIGHT_COLOR_HEX = '#4050E7';
+export const SUCCESS_COLOR_HEX = '#52C41A';
 export const FAILURE_COLOR_HEX = '#F5222D';
 export const ERROR_COLOR_HEX = '#FAAD14';
 export const INIT_COLOR_HEX = '#8C8C8C';
