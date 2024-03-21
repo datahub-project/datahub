@@ -55,11 +55,13 @@ import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.client.RequestOptions;
 import org.opensearch.client.RestHighLevelClient;
+import org.opensearch.common.lucene.search.function.CombineFunction;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.search.SearchHit;
 import org.opensearch.search.builder.SearchSourceBuilder;
+import org.opensearch.search.rescore.QueryRescorerBuilder;
 
 /** A search DAO for Elasticsearch backend. */
 @Slf4j
@@ -116,6 +118,9 @@ public class ESGraphQueryDAO {
     searchSourceBuilder.size(count);
 
     searchSourceBuilder.query(query);
+    if (graphQueryConfiguration.isBoostViaNodes()) {
+      addViaNodeBoostQuery(searchSourceBuilder);
+    }
 
     searchRequest.source(searchSourceBuilder);
 
@@ -457,7 +462,7 @@ public class ESGraphQueryDAO {
   }
 
   @VisibleForTesting
-  public static QueryBuilder getLineageQuery(
+  public QueryBuilder getLineageQuery(
       @Nonnull Map<String, List<Urn>> urnsPerEntityType,
       @Nonnull Map<String, List<EdgeInfo>> edgesPerEntityType,
       @Nonnull GraphFilters graphFilters,
@@ -497,7 +502,7 @@ public class ESGraphQueryDAO {
   }
 
   @VisibleForTesting
-  public static QueryBuilder getLineageQueryForEntityType(
+  public QueryBuilder getLineageQueryForEntityType(
       @Nonnull List<Urn> urns,
       @Nonnull List<EdgeInfo> lineageEdges,
       @Nonnull GraphFilters graphFilters) {
@@ -518,6 +523,25 @@ public class ESGraphQueryDAO {
     }
 
     return query;
+  }
+
+  /**
+   * Replaces score from initial lineage query against the graph index with score from whether a via
+   * edge exists or not. We don't currently sort the results for the graph query for anything else,
+   * we just do a straight filter, but this will need to be re-evaluated if we do.
+   *
+   * @param sourceBuilder source builder for the lineage query
+   */
+  private void addViaNodeBoostQuery(final SearchSourceBuilder sourceBuilder) {
+    QueryBuilders.functionScoreQuery(QueryBuilders.existsQuery(EDGE_FIELD_VIA))
+        .boostMode(CombineFunction.REPLACE);
+    QueryRescorerBuilder queryRescorerBuilder =
+        new QueryRescorerBuilder(
+            QueryBuilders.functionScoreQuery(QueryBuilders.existsQuery(EDGE_FIELD_VIA))
+                .boostMode(CombineFunction.REPLACE));
+    queryRescorerBuilder.windowSize(
+        graphQueryConfiguration.getMaxResult()); // Will rescore all results
+    sourceBuilder.addRescorer(queryRescorerBuilder);
   }
 
   /**

@@ -567,6 +567,7 @@ class Pipeline:
                 "warnings": stats.discretize(
                     source_warnings + sink_warnings + global_warnings
                 ),
+                "has_pipeline_name": bool(self.config.pipeline_name),
             },
             self.ctx.graph,
         )

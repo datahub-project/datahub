@@ -20,6 +20,22 @@
     }
 },
 {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.customers,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:dbt"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
             "urn": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.customers,PROD)",
@@ -221,6 +237,22 @@
                 "Table",
                 "View"
             ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:dbt"
         }
     },
     "systemMetadata": {
@@ -458,6 +490,22 @@
     }
 },
 {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.stg_customers,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:dbt"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
             "urn": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.stg_customers,PROD)",
@@ -554,7 +602,7 @@
                                     "time": 1643871600000,
                                     "actor": "urn:li:corpuser:unknown"
                                 },
-                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.raw_customers,PROD)",
+                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.raw_customers,PROD)",
                                 "type": "TRANSFORMED"
                             }
                         ]
@@ -588,6 +636,22 @@
                 "Model",
                 "View"
             ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.stg_orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:dbt"
         }
     },
     "systemMetadata": {
@@ -705,7 +769,7 @@
                                     "time": 1643871600000,
                                     "actor": "urn:li:corpuser:unknown"
                                 },
-                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.raw_orders,PROD)",
+                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.raw_orders,PROD)",
                                 "type": "TRANSFORMED"
                             }
                         ]
@@ -739,6 +803,22 @@
                 "Model",
                 "View"
             ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.stg_payments,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:dbt"
         }
     },
     "systemMetadata": {
@@ -856,7 +936,7 @@
                                     "time": 1643871600000,
                                     "actor": "urn:li:corpuser:unknown"
                                 },
-                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.raw_payments,PROD)",
+                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.raw_payments,PROD)",
                                 "type": "TRANSFORMED"
                             }
                         ]
@@ -889,6 +969,22 @@
             "typeNames": [
                 "Seed"
             ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.raw_customers,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:dbt"
         }
     },
     "systemMetadata": {
@@ -1005,6 +1101,22 @@
             "typeNames": [
                 "Seed"
             ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.raw_orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:dbt"
         }
     },
     "systemMetadata": {
@@ -1133,6 +1245,22 @@
             "typeNames": [
                 "Seed"
             ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.raw_payments,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:dbt"
         }
     },
     "systemMetadata": {
@@ -1765,10 +1893,10 @@
             },
             "type": "DATASET",
             "datasetAssertion": {
-                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.orders,PROD)",
+                "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.orders,PROD)",
                 "scope": "DATASET_COLUMN",
                 "fields": [
-                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.orders,PROD),status)"
+                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.orders,PROD),status)"
                 ],
                 "aggregation": "IDENTITY",
                 "operator": "IN",
@@ -1802,7 +1930,7 @@
         "json": {
             "timestampMillis": 1655565131058,
             "runId": "c7a6b778-0e0f-4789-b567-ca7e124a6840",
-            "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.orders,PROD)",
+            "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.orders,PROD)",
             "status": "COMPLETE",
             "result": {
                 "type": "SUCCESS",
@@ -1853,10 +1981,10 @@
             },
             "type": "DATASET",
             "datasetAssertion": {
-                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.stg_orders,PROD)",
+                "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.stg_orders,PROD)",
                 "scope": "DATASET_COLUMN",
                 "fields": [
-                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.stg_orders,PROD),status)"
+                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.stg_orders,PROD),status)"
                 ],
                 "aggregation": "IDENTITY",
                 "operator": "IN",
@@ -1890,7 +2018,7 @@
         "json": {
             "timestampMillis": 1655565131075,
             "runId": "c7a6b778-0e0f-4789-b567-ca7e124a6840",
-            "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.stg_orders,PROD)",
+            "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.stg_orders,PROD)",
             "status": "COMPLETE",
             "result": {
                 "type": "SUCCESS",
@@ -1941,10 +2069,10 @@
             },
             "type": "DATASET",
             "datasetAssertion": {
-                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.stg_payments,PROD)",
+                "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.stg_payments,PROD)",
                 "scope": "DATASET_COLUMN",
                 "fields": [
-                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.stg_payments,PROD),payment_method)"
+                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.stg_payments,PROD),payment_method)"
                 ],
                 "aggregation": "IDENTITY",
                 "operator": "IN",
@@ -1978,7 +2106,7 @@
         "json": {
             "timestampMillis": 1655565131073,
             "runId": "c7a6b778-0e0f-4789-b567-ca7e124a6840",
-            "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.stg_payments,PROD)",
+            "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.stg_payments,PROD)",
             "status": "COMPLETE",
             "result": {
                 "type": "SUCCESS",
@@ -2029,7 +2157,7 @@
             },
             "type": "DATASET",
             "datasetAssertion": {
-                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.orders,PROD)",
+                "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.orders,PROD)",
                 "scope": "DATASET_ROWS",
                 "aggregation": "_NATIVE_",
                 "operator": "_NATIVE_",
@@ -2054,7 +2182,7 @@
         "json": {
             "timestampMillis": 1655565131077,
             "runId": "c7a6b778-0e0f-4789-b567-ca7e124a6840",
-            "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.orders,PROD)",
+            "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.orders,PROD)",
             "status": "COMPLETE",
             "result": {
                 "type": "SUCCESS",
@@ -2105,10 +2233,10 @@
             },
             "type": "DATASET",
             "datasetAssertion": {
-                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.customers,PROD)",
+                "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.customers,PROD)",
                 "scope": "DATASET_COLUMN",
                 "fields": [
-                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.customers,PROD),customer_id)"
+                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.customers,PROD),customer_id)"
                 ],
                 "aggregation": "IDENTITY",
                 "operator": "BETWEEN",
@@ -2172,10 +2300,10 @@
             },
             "type": "DATASET",
             "datasetAssertion": {
-                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.customers,PROD)",
+                "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.customers,PROD)",
                 "scope": "DATASET_COLUMN",
                 "fields": [
-                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.customers,PROD),customer_id)"
+                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.customers,PROD),customer_id)"
                 ],
                 "aggregation": "IDENTITY",
                 "operator": "IN",
@@ -2210,7 +2338,7 @@
         "json": {
             "timestampMillis": 1655565137668,
             "runId": "c7a6b778-0e0f-4789-b567-ca7e124a6840",
-            "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.customers,PROD)",
+            "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.customers,PROD)",
             "status": "COMPLETE",
             "result": {
                 "type": "FAILURE",
@@ -2263,10 +2391,10 @@
             },
             "type": "DATASET",
             "datasetAssertion": {
-                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.orders,PROD)",
+                "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.orders,PROD)",
                 "scope": "DATASET_COLUMN",
                 "fields": [
-                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.orders,PROD),credit_card_amount)"
+                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.orders,PROD),credit_card_amount)"
                 ],
                 "aggregation": "_NATIVE_",
                 "operator": "_NATIVE_",
@@ -2296,7 +2424,7 @@
         "json": {
             "timestampMillis": 1655565137668,
             "runId": "c7a6b778-0e0f-4789-b567-ca7e124a6840",
-            "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.orders,PROD)",
+            "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.orders,PROD)",
             "status": "COMPLETE",
             "result": {
                 "type": "FAILURE",
@@ -2349,10 +2477,10 @@
             },
             "type": "DATASET",
             "datasetAssertion": {
-                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.customers,PROD)",
+                "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.customers,PROD)",
                 "scope": "DATASET_COLUMN",
                 "fields": [
-                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.customers,PROD),customer_id)"
+                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.customers,PROD),customer_id)"
                 ],
                 "aggregation": "IDENTITY",
                 "operator": "NOT_NULL",
@@ -2379,7 +2507,7 @@
         "json": {
             "timestampMillis": 1655565132560,
             "runId": "c7a6b778-0e0f-4789-b567-ca7e124a6840",
-            "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.customers,PROD)",
+            "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.customers,PROD)",
             "status": "COMPLETE",
             "result": {
                 "type": "SUCCESS",
@@ -2430,10 +2558,10 @@
             },
             "type": "DATASET",
             "datasetAssertion": {
-                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.orders,PROD)",
+                "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.orders,PROD)",
                 "scope": "DATASET_COLUMN",
                 "fields": [
-                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.orders,PROD),amount)"
+                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.orders,PROD),amount)"
                 ],
                 "aggregation": "IDENTITY",
                 "operator": "NOT_NULL",
@@ -2460,7 +2588,7 @@
         "json": {
             "timestampMillis": 1655565133585,
             "runId": "c7a6b778-0e0f-4789-b567-ca7e124a6840",
-            "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.orders,PROD)",
+            "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.orders,PROD)",
             "status": "COMPLETE",
             "result": {
                 "type": "SUCCESS",
@@ -2511,10 +2639,10 @@
             },
             "type": "DATASET",
             "datasetAssertion": {
-                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.orders,PROD)",
+                "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.orders,PROD)",
                 "scope": "DATASET_COLUMN",
                 "fields": [
-                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.orders,PROD),bank_transfer_amount)"
+                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.orders,PROD),bank_transfer_amount)"
                 ],
                 "aggregation": "IDENTITY",
                 "operator": "NOT_NULL",
@@ -2541,7 +2669,7 @@
         "json": {
             "timestampMillis": 1655565133591,
             "runId": "c7a6b778-0e0f-4789-b567-ca7e124a6840",
-            "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.orders,PROD)",
+            "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.orders,PROD)",
             "status": "COMPLETE",
             "result": {
                 "type": "SUCCESS",
@@ -2592,10 +2720,10 @@
             },
             "type": "DATASET",
             "datasetAssertion": {
-                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.orders,PROD)",
+                "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.orders,PROD)",
                 "scope": "DATASET_COLUMN",
                 "fields": [
-                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.orders,PROD),coupon_amount)"
+                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.orders,PROD),coupon_amount)"
                 ],
                 "aggregation": "IDENTITY",
                 "operator": "NOT_NULL",
@@ -2622,7 +2750,7 @@
         "json": {
             "timestampMillis": 1655565133595,
             "runId": "c7a6b778-0e0f-4789-b567-ca7e124a6840",
-            "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.orders,PROD)",
+            "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.orders,PROD)",
             "status": "COMPLETE",
             "result": {
                 "type": "SUCCESS",
@@ -2673,10 +2801,10 @@
             },
             "type": "DATASET",
             "datasetAssertion": {
-                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.orders,PROD)",
+                "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.orders,PROD)",
                 "scope": "DATASET_COLUMN",
                 "fields": [
-                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.orders,PROD),credit_card_amount)"
+                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.orders,PROD),credit_card_amount)"
                 ],
                 "aggregation": "IDENTITY",
                 "operator": "NOT_NULL",
@@ -2703,7 +2831,7 @@
         "json": {
             "timestampMillis": 1655565134031,
             "runId": "c7a6b778-0e0f-4789-b567-ca7e124a6840",
-            "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.orders,PROD)",
+            "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.orders,PROD)",
             "status": "COMPLETE",
             "result": {
                 "type": "SUCCESS",
@@ -2754,10 +2882,10 @@
             },
             "type": "DATASET",
             "datasetAssertion": {
-                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.orders,PROD)",
+                "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.orders,PROD)",
                 "scope": "DATASET_COLUMN",
                 "fields": [
-                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.orders,PROD),customer_id)"
+                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.orders,PROD),customer_id)"
                 ],
                 "aggregation": "IDENTITY",
                 "operator": "NOT_NULL",
@@ -2784,7 +2912,7 @@
         "json": {
             "timestampMillis": 1655565134482,
             "runId": "c7a6b778-0e0f-4789-b567-ca7e124a6840",
-            "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.orders,PROD)",
+            "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.orders,PROD)",
             "status": "COMPLETE",
             "result": {
                 "type": "SUCCESS",
@@ -2835,10 +2963,10 @@
             },
             "type": "DATASET",
             "datasetAssertion": {
-                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.orders,PROD)",
+                "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.orders,PROD)",
                 "scope": "DATASET_COLUMN",
                 "fields": [
-                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.orders,PROD),gift_card_amount)"
+                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.orders,PROD),gift_card_amount)"
                 ],
                 "aggregation": "IDENTITY",
                 "operator": "NOT_NULL",
@@ -2865,7 +2993,7 @@
         "json": {
             "timestampMillis": 1655565134485,
             "runId": "c7a6b778-0e0f-4789-b567-ca7e124a6840",
-            "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.orders,PROD)",
+            "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.orders,PROD)",
             "status": "COMPLETE",
             "result": {
                 "type": "SUCCESS",
@@ -2916,10 +3044,10 @@
             },
             "type": "DATASET",
             "datasetAssertion": {
-                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.orders,PROD)",
+                "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.orders,PROD)",
                 "scope": "DATASET_COLUMN",
                 "fields": [
-                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.orders,PROD),order_id)"
+                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.orders,PROD),order_id)"
                 ],
                 "aggregation": "IDENTITY",
                 "operator": "NOT_NULL",
@@ -2946,7 +3074,7 @@
         "json": {
             "timestampMillis": 1655565134493,
             "runId": "c7a6b778-0e0f-4789-b567-ca7e124a6840",
-            "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.orders,PROD)",
+            "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.orders,PROD)",
             "status": "COMPLETE",
             "result": {
                 "type": "SUCCESS",
@@ -2997,10 +3125,10 @@
             },
             "type": "DATASET",
             "datasetAssertion": {
-                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.stg_customers,PROD)",
+                "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.stg_customers,PROD)",
                 "scope": "DATASET_COLUMN",
                 "fields": [
-                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.stg_customers,PROD),customer_id)"
+                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.stg_customers,PROD),customer_id)"
                 ],
                 "aggregation": "IDENTITY",
                 "operator": "NOT_NULL",
@@ -3027,7 +3155,7 @@
         "json": {
             "timestampMillis": 1655565134966,
             "runId": "c7a6b778-0e0f-4789-b567-ca7e124a6840",
-            "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.stg_customers,PROD)",
+            "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.stg_customers,PROD)",
             "status": "COMPLETE",
             "result": {
                 "type": "SUCCESS",
@@ -3078,10 +3206,10 @@
             },
             "type": "DATASET",
             "datasetAssertion": {
-                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.stg_orders,PROD)",
+                "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.stg_orders,PROD)",
                 "scope": "DATASET_COLUMN",
                 "fields": [
-                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.stg_orders,PROD),order_id)"
+                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.stg_orders,PROD),order_id)"
                 ],
                 "aggregation": "IDENTITY",
                 "operator": "NOT_NULL",
@@ -3108,7 +3236,7 @@
         "json": {
             "timestampMillis": 1655565135368,
             "runId": "c7a6b778-0e0f-4789-b567-ca7e124a6840",
-            "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.stg_orders,PROD)",
+            "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.stg_orders,PROD)",
             "status": "COMPLETE",
             "result": {
                 "type": "SUCCESS",
@@ -3159,10 +3287,10 @@
             },
             "type": "DATASET",
             "datasetAssertion": {
-                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.stg_payments,PROD)",
+                "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.stg_payments,PROD)",
                 "scope": "DATASET_COLUMN",
                 "fields": [
-                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.stg_payments,PROD),payment_id)"
+                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.stg_payments,PROD),payment_id)"
                 ],
                 "aggregation": "IDENTITY",
                 "operator": "NOT_NULL",
@@ -3189,7 +3317,7 @@
         "json": {
             "timestampMillis": 1655565135377,
             "runId": "c7a6b778-0e0f-4789-b567-ca7e124a6840",
-            "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.stg_payments,PROD)",
+            "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.stg_payments,PROD)",
             "status": "COMPLETE",
             "result": {
                 "type": "SUCCESS",
@@ -3240,10 +3368,10 @@
             },
             "type": "DATASET",
             "datasetAssertion": {
-                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.customers,PROD)",
+                "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.customers,PROD)",
                 "scope": "DATASET_COLUMN",
                 "fields": [
-                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.customers,PROD),customer_id)"
+                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.customers,PROD),customer_id)"
                 ],
                 "aggregation": "IDENTITY",
                 "operator": "_NATIVE_",
@@ -3279,7 +3407,7 @@
         "json": {
             "timestampMillis": 1655565135510,
             "runId": "c7a6b778-0e0f-4789-b567-ca7e124a6840",
-            "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.customers,PROD)",
+            "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.customers,PROD)",
             "status": "COMPLETE",
             "result": {
                 "type": "SUCCESS",
@@ -3314,10 +3442,10 @@
             },
             "type": "DATASET",
             "datasetAssertion": {
-                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.orders,PROD)",
+                "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.orders,PROD)",
                 "scope": "DATASET_COLUMN",
                 "fields": [
-                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.orders,PROD),customer_id)"
+                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.orders,PROD),customer_id)"
                 ],
                 "aggregation": "IDENTITY",
                 "operator": "_NATIVE_",
@@ -3353,7 +3481,7 @@
         "json": {
             "timestampMillis": 1655565135510,
             "runId": "c7a6b778-0e0f-4789-b567-ca7e124a6840",
-            "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.orders,PROD)",
+            "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.orders,PROD)",
             "status": "COMPLETE",
             "result": {
                 "type": "SUCCESS",
@@ -3404,10 +3532,10 @@
             },
             "type": "DATASET",
             "datasetAssertion": {
-                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.customers,PROD)",
+                "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.customers,PROD)",
                 "scope": "DATASET_COLUMN",
                 "fields": [
-                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.customers,PROD),customer_id)"
+                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.customers,PROD),customer_id)"
                 ],
                 "aggregation": "UNIQUE_PROPOTION",
                 "operator": "EQUAL_TO",
@@ -3440,7 +3568,7 @@
         "json": {
             "timestampMillis": 1655565135836,
             "runId": "c7a6b778-0e0f-4789-b567-ca7e124a6840",
-            "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.customers,PROD)",
+            "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.customers,PROD)",
             "status": "COMPLETE",
             "result": {
                 "type": "SUCCESS",
@@ -3491,10 +3619,10 @@
             },
             "type": "DATASET",
             "datasetAssertion": {
-                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.orders,PROD)",
+                "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.orders,PROD)",
                 "scope": "DATASET_COLUMN",
                 "fields": [
-                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.orders,PROD),order_id)"
+                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.orders,PROD),order_id)"
                 ],
                 "aggregation": "UNIQUE_PROPOTION",
                 "operator": "EQUAL_TO",
@@ -3527,7 +3655,7 @@
         "json": {
             "timestampMillis": 1655565136269,
             "runId": "c7a6b778-0e0f-4789-b567-ca7e124a6840",
-            "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.orders,PROD)",
+            "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.orders,PROD)",
             "status": "COMPLETE",
             "result": {
                 "type": "SUCCESS",
@@ -3578,10 +3706,10 @@
             },
             "type": "DATASET",
             "datasetAssertion": {
-                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.stg_customers,PROD)",
+                "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.stg_customers,PROD)",
                 "scope": "DATASET_COLUMN",
                 "fields": [
-                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.stg_customers,PROD),customer_id)"
+                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.stg_customers,PROD),customer_id)"
                 ],
                 "aggregation": "UNIQUE_PROPOTION",
                 "operator": "EQUAL_TO",
@@ -3614,7 +3742,7 @@
         "json": {
             "timestampMillis": 1655565136230,
             "runId": "c7a6b778-0e0f-4789-b567-ca7e124a6840",
-            "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.stg_customers,PROD)",
+            "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.stg_customers,PROD)",
             "status": "COMPLETE",
             "result": {
                 "type": "SUCCESS",
@@ -3665,10 +3793,10 @@
             },
             "type": "DATASET",
             "datasetAssertion": {
-                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.stg_orders,PROD)",
+                "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.stg_orders,PROD)",
                 "scope": "DATASET_COLUMN",
                 "fields": [
-                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.stg_orders,PROD),order_id)"
+                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.stg_orders,PROD),order_id)"
                 ],
                 "aggregation": "UNIQUE_PROPOTION",
                 "operator": "EQUAL_TO",
@@ -3701,7 +3829,7 @@
         "json": {
             "timestampMillis": 1655565136395,
             "runId": "c7a6b778-0e0f-4789-b567-ca7e124a6840",
-            "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.stg_orders,PROD)",
+            "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.stg_orders,PROD)",
             "status": "COMPLETE",
             "result": {
                 "type": "SUCCESS",
@@ -3752,10 +3880,10 @@
             },
             "type": "DATASET",
             "datasetAssertion": {
-                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.stg_payments,PROD)",
+                "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.stg_payments,PROD)",
                 "scope": "DATASET_COLUMN",
                 "fields": [
-                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.stg_payments,PROD),payment_id)"
+                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.stg_payments,PROD),payment_id)"
                 ],
                 "aggregation": "UNIQUE_PROPOTION",
                 "operator": "EQUAL_TO",
@@ -3788,7 +3916,7 @@
         "json": {
             "timestampMillis": 1655565136719,
             "runId": "c7a6b778-0e0f-4789-b567-ca7e124a6840",
-            "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.stg_payments,PROD)",
+            "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.stg_payments,PROD)",
             "status": "COMPLETE",
             "result": {
                 "type": "SUCCESS",

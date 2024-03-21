@@ -41,7 +41,10 @@ from datahub.ingestion.api.source import (
     TestConnectionReport,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.aws.s3_util import make_s3_urn_for_lineage
+from datahub.ingestion.source.aws.s3_util import (
+    make_s3_urn_for_lineage,
+    strip_s3_prefix,
+)
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
     DatasetSubTypes,
@@ -80,9 +83,13 @@ from datahub.ingestion.source.unity.proxy_types import (
 )
 from datahub.ingestion.source.unity.report import UnityCatalogReport
 from datahub.ingestion.source.unity.usage import UnityCatalogUsageExtractor
+from datahub.metadata.com.linkedin.pegasus2avro.common import Siblings
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
+    DatasetLineageType,
     FineGrainedLineage,
     FineGrainedLineageUpstreamType,
+    Upstream,
+    UpstreamLineage,
     ViewProperties,
 )
 from datahub.metadata.schema_classes import (
@@ -490,6 +497,25 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             )
             if table.view_definition:
                 self.view_definitions[dataset_urn] = (table.ref, table.view_definition)
+
+        # generate sibling and lineage aspects in case of EXTERNAL DELTA TABLE
+        if (
+            table_props.customProperties.get("table_type") == "EXTERNAL"
+            and table_props.customProperties.get("data_source_format") == "DELTA"
+            and self.config.emit_siblings
+        ):
+            storage_location = str(table_props.customProperties.get("storage_location"))
+            if storage_location.startswith("s3://"):
+                browse_path = strip_s3_prefix(storage_location)
+                source_dataset_urn = make_dataset_urn_with_platform_instance(
+                    "delta-lake",
+                    browse_path,
+                    self.config.delta_lake_options.platform_instance_name,
+                    self.config.delta_lake_options.env,
+                )
+
+                yield from self.gen_siblings_workunit(dataset_urn, source_dataset_urn)
+                yield from self.gen_lineage_workunit(dataset_urn, source_dataset_urn)
 
         yield from [
             mcp.as_workunit()
@@ -947,3 +973,38 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             self.sql_parser_schema_resolver.close()
 
         super().close()
+
+    def gen_siblings_workunit(
+        self,
+        dataset_urn: str,
+        source_dataset_urn: str,
+    ) -> Iterable[MetadataWorkUnit]:
+        """
+        Generate sibling workunit for both unity-catalog dataset and its connector source dataset
+        """
+        yield MetadataChangeProposalWrapper(
+            entityUrn=dataset_urn,
+            aspect=Siblings(primary=False, siblings=[source_dataset_urn]),
+        ).as_workunit()
+
+        yield MetadataChangeProposalWrapper(
+            entityUrn=source_dataset_urn,
+            aspect=Siblings(primary=True, siblings=[dataset_urn]),
+        ).as_workunit(is_primary_source=False)
+
+    def gen_lineage_workunit(
+        self,
+        dataset_urn: str,
+        source_dataset_urn: str,
+    ) -> Iterable[MetadataWorkUnit]:
+        """
+        Generate dataset to source connector lineage workunit
+        """
+        yield MetadataChangeProposalWrapper(
+            entityUrn=dataset_urn,
+            aspect=UpstreamLineage(
+                upstreams=[
+                    Upstream(dataset=source_dataset_urn, type=DatasetLineageType.VIEW)
+                ]
+            ),
+        ).as_workunit()

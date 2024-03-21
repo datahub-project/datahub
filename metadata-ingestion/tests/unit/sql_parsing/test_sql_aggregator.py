@@ -183,6 +183,7 @@ def test_multistep_temp_table(pytestconfig: pytest.Config) -> None:
 
     mcps = list(aggregator.gen_metadata())
 
+    # Extra check to make sure that the report is populated correctly.
     report = aggregator.report
     assert len(report.queries_with_temp_upstreams) == 1
     assert (
@@ -198,6 +199,72 @@ def test_multistep_temp_table(pytestconfig: pytest.Config) -> None:
         pytestconfig,
         outputs=mcps,
         golden_path=RESOURCE_DIR / "test_multistep_temp_table.json",
+    )
+
+
+@freeze_time(FROZEN_TIME)
+def test_overlapping_inserts_from_temp_tables(pytestconfig: pytest.Config) -> None:
+    aggregator = SqlParsingAggregator(
+        platform="redshift",
+        generate_lineage=True,
+        generate_usage_statistics=False,
+        generate_operations=False,
+    )
+    report = aggregator.report
+
+    # The "all_returns" table is populated from "#stage_in_person_returns" and "#stage_online_returns".
+    # #stage_in_person_returns is populated from "in_person_returns" and "customer".
+    # #stage_online_returns is populated from "online_returns", "customer", and "online_survey".
+
+    aggregator.add_observed_query(
+        query="create table #stage_in_person_returns as select ipr.customer_id, customer.customer_email, ipr.return_date "
+        "from in_person_returns ipr "
+        "left join customer on in_person_returns.customer_id = customer.customer_id",
+        default_db="dev",
+        default_schema="public",
+        session_id="1234",
+    )
+
+    aggregator.add_observed_query(
+        query="create table #stage_online_returns as select online_ret.customer_id, customer.customer_email, online_ret.return_date, online_survey.return_reason "
+        "from online_returns online_ret "
+        "left join customer on online_ret.customer_id = customer.customer_id "
+        "left join online_survey on online_ret.customer_id = online_survey.customer_id and online_ret.return_id = online_survey.event_id",
+        default_db="dev",
+        default_schema="public",
+        session_id="2323",
+    )
+
+    aggregator.add_observed_query(
+        query="insert into all_returns (customer_id, customer_email, return_date) select customer_id, customer_email, return_date from #stage_in_person_returns",
+        default_db="dev",
+        default_schema="public",
+        session_id="1234",
+    )
+
+    aggregator.add_observed_query(
+        query="insert into all_returns (customer_id, customer_email, return_date, return_reason) select customer_id, customer_email, return_date, return_reason from #stage_online_returns",
+        default_db="dev",
+        default_schema="public",
+        session_id="2323",
+    )
+
+    # We only have one create temp table, but the same insert command from multiple sessions.
+    # This should get ignored.
+    assert len(report.queries_with_non_authoritative_session) == 0
+    aggregator.add_observed_query(
+        query="insert into all_returns (customer_id, customer_email, return_date, return_reason) select customer_id, customer_email, return_date, return_reason from #stage_online_returns",
+        default_db="dev",
+        default_schema="public",
+        session_id="5435",
+    )
+    assert len(report.queries_with_non_authoritative_session) == 1
+
+    mcps = list(aggregator.gen_metadata())
+    mce_helpers.check_goldens_stream(
+        pytestconfig,
+        outputs=mcps,
+        golden_path=RESOURCE_DIR / "test_overlapping_inserts_from_temp_tables.json",
     )
 
 
