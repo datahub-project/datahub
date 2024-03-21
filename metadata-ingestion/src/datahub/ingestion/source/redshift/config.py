@@ -9,6 +9,12 @@ from datahub.configuration import ConfigModel
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.source_common import DatasetLineageProviderConfigBase
 from datahub.configuration.validate_field_removal import pydantic_removed_field
+from datahub.ingestion.api.incremental_lineage_helper import (
+    IncrementalLineageConfigMixin,
+)
+from datahub.ingestion.glossary.classification_mixin import (
+    ClassificationSourceConfigMixin,
+)
 from datahub.ingestion.source.data_lake_common.path_spec import PathSpec
 from datahub.ingestion.source.sql.sql_config import BasicSQLAlchemyConfig
 from datahub.ingestion.source.state.stateful_ingestion_base import (
@@ -67,9 +73,11 @@ class RedshiftConfig(
     BasicSQLAlchemyConfig,
     DatasetLineageProviderConfigBase,
     S3DatasetLineageProviderConfigBase,
+    IncrementalLineageConfigMixin,
     RedshiftUsageConfig,
     StatefulLineageConfigMixin,
     StatefulProfilingConfigMixin,
+    ClassificationSourceConfigMixin,
 ):
     database: str = Field(default="dev", description="database")
 
@@ -146,11 +154,6 @@ class RedshiftConfig(
         description="Whether to extract column level lineage. This config works with rest-sink only.",
     )
 
-    incremental_lineage: bool = Field(
-        default=False,
-        description="When enabled, emits lineage as incremental to existing lineage already in DataHub. When disabled, re-states lineage on each run.  This config works with rest-sink only.",
-    )
-
     patch_custom_properties: bool = Field(
         default=True,
         description="Whether to patch custom properties on existing datasets rather than replace.",
@@ -159,6 +162,11 @@ class RedshiftConfig(
     resolve_temp_table_in_lineage: bool = Field(
         default=True,
         description="Whether to resolve temp table appear in lineage to upstream permanent tables.",
+    )
+
+    skip_external_tables: bool = Field(
+        default=False,
+        description="Whether to skip EXTERNAL tables.",
     )
 
     @root_validator(pre=True)

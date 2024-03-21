@@ -20,9 +20,11 @@ from datahub.configuration.common import (
     ConfigEnum,
     ConfigModel,
     ConfigurationError,
-    LineageConfig,
 )
-from datahub.configuration.source_common import DatasetSourceConfigMixin
+from datahub.configuration.source_common import (
+    EnvConfigMixin,
+    PlatformInstanceConfigMixin,
+)
 from datahub.configuration.validate_field_deprecation import pydantic_field_deprecated
 from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.emitter import mce_builder
@@ -37,6 +39,7 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.incremental_lineage_helper import (
+    IncrementalLineageConfigMixin,
     convert_upstream_lineage_to_patch,
 )
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor
@@ -231,7 +234,10 @@ class DBTEntitiesEnabled(ConfigModel):
 
 
 class DBTCommonConfig(
-    StatefulIngestionConfigBase, DatasetSourceConfigMixin, LineageConfig
+    StatefulIngestionConfigBase,
+    PlatformInstanceConfigMixin,
+    EnvConfigMixin,
+    IncrementalLineageConfigMixin,
 ):
     env: str = Field(
         default=mce_builder.DEFAULT_ENV,
@@ -670,6 +676,34 @@ def get_upstreams(
     return upstream_urns
 
 
+def get_upstreams_for_test(
+    test_node: DBTNode,
+    all_nodes_map: Dict[str, DBTNode],
+    platform_instance: Optional[str],
+    environment: str,
+) -> List[str]:
+    upstream_urns = []
+
+    for upstream in test_node.upstream_nodes:
+        if upstream not in all_nodes_map:
+            logger.debug(
+                f"Upstream node of test {upstream} not found in all manifest entities."
+            )
+            continue
+
+        upstream_manifest_node = all_nodes_map[upstream]
+
+        upstream_urns.append(
+            upstream_manifest_node.get_urn(
+                target_platform=DBT_PLATFORM,
+                data_platform_instance=platform_instance,
+                env=environment,
+            )
+        )
+
+    return upstream_urns
+
+
 def make_mapping_upstream_lineage(
     upstream_urn: str, downstream_urn: str, node: DBTNode
 ) -> UpstreamLineageClass:
@@ -818,16 +852,18 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     ),
                 ).as_workunit()
 
-            upstream_urns = get_upstreams(
-                upstreams=node.upstream_nodes,
-                all_nodes=all_nodes_map,
-                target_platform=self.config.target_platform,
-                target_platform_instance=self.config.target_platform_instance,
-                environment=self.config.env,
+            upstream_urns = get_upstreams_for_test(
+                test_node=node,
+                all_nodes_map=all_nodes_map,
                 platform_instance=self.config.platform_instance,
+                environment=self.config.env,
             )
 
             # In case a dbt test depends on multiple tables, we create separate assertions for each.
+            # TODO: This logic doesn't actually work properly, since we're reusing the same assertion_urn
+            # across multiple upstream tables, so we're actually only creating one assertion and the last
+            # upstream_urn gets used. Luckily, most dbt tests are associated with a single table, so this
+            # doesn't cause major issues in practice.
             for upstream_urn in sorted(upstream_urns):
                 if self.config.entities_enabled.can_emit_node_type("test"):
                     yield make_assertion_from_test(

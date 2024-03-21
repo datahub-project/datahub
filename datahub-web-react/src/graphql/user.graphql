@@ -24,6 +24,9 @@ query getUser($urn: String!, $groupsCount: Int!) {
             title
             email
         }
+        privileges {
+            ...entityPrivileges
+        }
         globalTags {
             ...globalTagsFields
         }
