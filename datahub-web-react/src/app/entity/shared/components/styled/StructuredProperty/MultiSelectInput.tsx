@@ -3,7 +3,7 @@ import React from 'react';
 import styled from 'styled-components';
 import { ANTD_GRAY_V2 } from '../../../constants';
 import { getStructuredPropertyValue } from '../../../utils';
-import ValueDescription from './ValueDescription';
+import ValueDescription from '../../../entityForm/prompts/StructuredPropertyPrompt/ValueDescription';
 import { AllowedValue } from '../../../../../../types.generated';
 import DropdownLabel from './DropdownLabel';
 

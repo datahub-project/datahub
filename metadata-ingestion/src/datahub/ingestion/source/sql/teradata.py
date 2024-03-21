@@ -81,6 +81,9 @@ register_custom_type(custom_types.MBR, BytesTypeClass)
 register_custom_type(custom_types.GEOMETRY, BytesTypeClass)
 register_custom_type(custom_types.TDUDT, BytesTypeClass)
 register_custom_type(custom_types.XML, BytesTypeClass)
+register_custom_type(custom_types.PERIOD_TIME, TimeTypeClass)
+register_custom_type(custom_types.PERIOD_DATE, TimeTypeClass)
+register_custom_type(custom_types.PERIOD_TIMESTAMP, TimeTypeClass)
 
 
 @dataclass
@@ -444,6 +447,11 @@ class TeradataConfig(BaseTeradataConfig, BaseTimeWindowConfig):
 @capability(SourceCapability.LINEAGE_COARSE, "Optionally enabled via configuration")
 @capability(SourceCapability.LINEAGE_FINE, "Optionally enabled via configuration")
 @capability(SourceCapability.USAGE_STATS, "Optionally enabled via configuration")
+@capability(
+    SourceCapability.CLASSIFICATION,
+    "Optionally enabled via `classification.enabled`",
+    supported=True,
+)
 class TeradataSource(TwoTierSQLAlchemySource):
     """
     This plugin extracts the following:
@@ -458,7 +466,7 @@ class TeradataSource(TwoTierSQLAlchemySource):
     LINEAGE_QUERY_DATABASE_FILTER: str = """and default_database IN ({databases})"""
 
     LINEAGE_TIMESTAMP_BOUND_QUERY: str = """
-    SELECT MIN(CollectTimeStamp) as "min_ts", MAX(CollectTimeStamp) as "max_ts" from DBC.DBQLogTbl
+    SELECT MIN(CollectTimeStamp) as "min_ts", MAX(CollectTimeStamp) as "max_ts" from DBC.QryLogV
     """.strip()
 
     QUERY_TEXT_QUERY: str = """
@@ -469,8 +477,8 @@ class TeradataSource(TwoTierSQLAlchemySource):
         DefaultDatabase as default_database,
         s.SqlTextInfo as "query_text",
         s.SqlRowNo as "row_no"
-    FROM "DBC".DBQLogTbl as l
-    JOIN "DBC".DBQLSqlTbl as s on s.QueryID = l.QueryID
+    FROM "DBC".QryLogV as l
+    JOIN "DBC".QryLogSqlV as s on s.QueryID = l.QueryID
     WHERE
         l.ErrorCode = 0
         AND l.statementtype not in (
@@ -499,7 +507,7 @@ class TeradataSource(TwoTierSQLAlchemySource):
 
     TABLES_AND_VIEWS_QUERY: str = """
 SELECT
-    t.DatabaseName,
+    t.DataBaseName,
     t.TableName as name,
     t.CommentString as description,
     CASE t.TableKind
@@ -514,8 +522,8 @@ SELECT
     t.LastAlterName,
     t.LastAlterTimeStamp,
     t.RequestText
-FROM dbc.Tables t
-WHERE DatabaseName NOT IN (
+FROM dbc.TablesV t
+WHERE DataBaseName NOT IN (
                 'All',
                 'Crashdumps',
                 'Default',
@@ -561,7 +569,7 @@ WHERE DatabaseName NOT IN (
                 'dbc'
 )
 AND t.TableKind in ('T', 'V', 'Q', 'O')
-ORDER by DatabaseName, TableName;
+ORDER by DataBaseName, TableName;
      """.strip()
 
     _tables_cache: MutableMapping[str, List[TeradataTable]] = defaultdict(list)
@@ -631,13 +639,14 @@ ORDER by DatabaseName, TableName;
                 ),
             )
 
-            setattr(  # noqa: B010
-                TeradataDialect,
-                "get_view_definition",
-                lambda self, connection, view_name, schema=None, **kw: optimized_get_view_definition(
-                    self, connection, view_name, schema, tables_cache=tables_cache, **kw
-                ),
-            )
+            # Disabling the below because the cached view definition is not the view definition the column in tablesv actually holds the last statement executed against the object... not necessarily the view definition
+            # setattr(  # noqa: B010
+            #   TeradataDialect,
+            #    "get_view_definition",
+            #   lambda self, connection, view_name, schema=None, **kw: optimized_get_view_definition(
+            #        self, connection, view_name, schema, tables_cache=tables_cache, **kw
+            #    ),
+            # )
 
             setattr(  # noqa: B010
                 TeradataDialect,
@@ -775,7 +784,7 @@ ORDER by DatabaseName, TableName;
         engine = self.get_metadata_engine()
         for entry in engine.execute(self.TABLES_AND_VIEWS_QUERY):
             table = TeradataTable(
-                database=entry.DatabaseName.strip(),
+                database=entry.DataBaseName.strip(),
                 name=entry.name.strip(),
                 description=entry.description.strip() if entry.description else None,
                 object_type=entry.object_type,

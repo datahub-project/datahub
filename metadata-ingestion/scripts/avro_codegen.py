@@ -188,6 +188,7 @@ autogen_header = """# mypy: ignore-errors
 
 # pylint: skip-file
 # fmt: off
+# isort: skip_file
 """
 autogen_footer = """
 # fmt: on
