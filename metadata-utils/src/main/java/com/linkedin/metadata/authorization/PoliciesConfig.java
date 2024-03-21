@@ -242,6 +242,18 @@ public class PoliciesConfig {
           "Edit Embedded Content",
           "The ability to edit the embedded content for an entity.");
 
+  public static final Privilege EDIT_ENTITY_PROPERTIES_PRIVILEGE =
+      Privilege.of(
+          "EDIT_ENTITY_PROPERTIES",
+          "Edit Properties",
+          "The ability to edit the properties for an entity.");
+
+  public static final Privilege CREATE_ER_MODEL_RELATIONSHIP_PRIVILEGE =
+      Privilege.of(
+          "CREATE_ENTITY_ER_MODEL_RELATIONSHIP",
+          "Create erModelRelationship",
+          "The ability to add erModelRelationship on a dataset.");
+
   public static final List<Privilege> COMMON_ENTITY_PRIVILEGES =
       ImmutableList.of(
           VIEW_ENTITY_PAGE_PRIVILEGE,
@@ -257,6 +269,7 @@ public class PoliciesConfig {
           EDIT_ENTITY_PRIVILEGE,
           DELETE_ENTITY_PRIVILEGE,
           VIEW_ENTITY_PRIVILEGE,
+          EDIT_ENTITY_PROPERTIES_PRIVILEGE,
           EDIT_ENTITY_INCIDENTS_PRIVILEGE);
 
   // Dataset Privileges
@@ -426,7 +439,8 @@ public class PoliciesConfig {
                       EDIT_ENTITY_ASSERTIONS_PRIVILEGE,
                       EDIT_LINEAGE_PRIVILEGE,
                       EDIT_ENTITY_EMBED_PRIVILEGE,
-                      EDIT_QUERIES_PRIVILEGE))
+                      EDIT_QUERIES_PRIVILEGE,
+                      CREATE_ER_MODEL_RELATIONSHIP_PRIVILEGE))
               .flatMap(Collection::stream)
               .collect(Collectors.toList()));
 
@@ -515,7 +529,8 @@ public class PoliciesConfig {
               EDIT_ENTITY_DOC_LINKS_PRIVILEGE,
               EDIT_ENTITY_PRIVILEGE,
               DELETE_ENTITY_PRIVILEGE,
-              MANAGE_DATA_PRODUCTS_PRIVILEGE));
+              MANAGE_DATA_PRODUCTS_PRIVILEGE,
+              EDIT_ENTITY_PROPERTIES_PRIVILEGE));
 
   // Data Product Privileges
   public static final ResourcePrivileges DATA_PRODUCT_PRIVILEGES =
@@ -532,7 +547,8 @@ public class PoliciesConfig {
               DELETE_ENTITY_PRIVILEGE,
               EDIT_ENTITY_TAGS_PRIVILEGE,
               EDIT_ENTITY_GLOSSARY_TERMS_PRIVILEGE,
-              EDIT_ENTITY_DOMAINS_PRIVILEGE));
+              EDIT_ENTITY_DOMAINS_PRIVILEGE,
+              EDIT_ENTITY_PROPERTIES_PRIVILEGE));
 
   // Glossary Term Privileges
   public static final ResourcePrivileges GLOSSARY_TERM_PRIVILEGES =
@@ -546,7 +562,8 @@ public class PoliciesConfig {
               EDIT_ENTITY_DOCS_PRIVILEGE,
               EDIT_ENTITY_DOC_LINKS_PRIVILEGE,
               EDIT_ENTITY_DEPRECATION_PRIVILEGE,
-              EDIT_ENTITY_PRIVILEGE));
+              EDIT_ENTITY_PRIVILEGE,
+              EDIT_ENTITY_PROPERTIES_PRIVILEGE));
 
   // Glossary Node Privileges
   public static final ResourcePrivileges GLOSSARY_NODE_PRIVILEGES =
@@ -562,7 +579,8 @@ public class PoliciesConfig {
               EDIT_ENTITY_DEPRECATION_PRIVILEGE,
               EDIT_ENTITY_PRIVILEGE,
               MANAGE_GLOSSARY_CHILDREN_PRIVILEGE,
-              MANAGE_ALL_GLOSSARY_CHILDREN_PRIVILEGE));
+              MANAGE_ALL_GLOSSARY_CHILDREN_PRIVILEGE,
+              EDIT_ENTITY_PROPERTIES_PRIVILEGE));
 
   // Group Privileges
   public static final ResourcePrivileges CORP_GROUP_PRIVILEGES =
@@ -576,7 +594,8 @@ public class PoliciesConfig {
               EDIT_GROUP_MEMBERS_PRIVILEGE,
               EDIT_CONTACT_INFO_PRIVILEGE,
               EDIT_ENTITY_DOCS_PRIVILEGE,
-              EDIT_ENTITY_PRIVILEGE));
+              EDIT_ENTITY_PRIVILEGE,
+              EDIT_ENTITY_PROPERTIES_PRIVILEGE));
 
   // User Privileges
   public static final ResourcePrivileges CORP_USER_PRIVILEGES =
@@ -588,8 +607,16 @@ public class PoliciesConfig {
               VIEW_ENTITY_PAGE_PRIVILEGE,
               EDIT_CONTACT_INFO_PRIVILEGE,
               EDIT_USER_PROFILE_PRIVILEGE,
-              EDIT_ENTITY_PRIVILEGE));
+              EDIT_ENTITY_PRIVILEGE,
+              EDIT_ENTITY_PROPERTIES_PRIVILEGE));
 
+  // ERModelRelationship Privileges
+  public static final ResourcePrivileges ER_MODEL_RELATIONSHIP_PRIVILEGES =
+      ResourcePrivileges.of(
+          "erModelRelationship",
+          "ERModelRelationship",
+          "update privileges for ermodelrelations",
+          COMMON_ENTITY_PRIVILEGES);
   public static final List<ResourcePrivileges> ENTITY_RESOURCE_PRIVILEGES =
       ImmutableList.of(
           DATASET_PRIVILEGES,
@@ -605,7 +632,8 @@ public class PoliciesConfig {
           CORP_GROUP_PRIVILEGES,
           CORP_USER_PRIVILEGES,
           NOTEBOOK_PRIVILEGES,
-          DATA_PRODUCT_PRIVILEGES);
+          DATA_PRODUCT_PRIVILEGES,
+          ER_MODEL_RELATIONSHIP_PRIVILEGES);
 
   // Merge all entity specific resource privileges to create a superset of all resource privileges
   public static final ResourcePrivileges ALL_RESOURCE_PRIVILEGES =
