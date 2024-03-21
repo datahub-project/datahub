@@ -73,11 +73,13 @@ const getFormattedReasonTextForFieldAssertion = (run: AssertionRunEvent) => {
 
 const getFormattedReasonTextForAbsoluteSqlAssertion = (run: AssertionRunEvent) => {
     // Be careful about showing the actual result that was returned, since it may contain sensitive information.
-    const result = run.result?.type;
-    if (result === AssertionResultType.Success) {
-        return `The result of the provided SQL query met the expected conditions.`;
+    const resultType = run.result?.type;
+    const maybeResultValue = tryGetSqlAssertionNumericalResult(run.result);
+    const resultValueStr = maybeResultValue ? ` (${maybeResultValue})` : '';
+    if (resultType === AssertionResultType.Success) {
+        return `The result of the provided SQL query${resultValueStr} met the expected conditions.`;
     }
-    return `The result of the provided SQL query did not meet the expected conditions.`;
+    return `The result of the provided SQL query${resultValueStr} did not meet the expected conditions.`;
 };
 
 const calculateMetricChangePercentage = (previous: number, actual: number) => {

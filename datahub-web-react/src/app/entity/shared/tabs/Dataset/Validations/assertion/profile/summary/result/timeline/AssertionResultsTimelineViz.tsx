@@ -38,11 +38,11 @@ const VizHeader = styled.div`
 `;
 
 const VizHeaderTitle = styled(Typography.Text)`
-    margin: 12px;
     margin-bottom: 20px;
     margin-top: 4px;
     color: ${ANTD_GRAY[9]};
-    font-size: 12px;
+    font-size: 16px;
+    font-weight: 600;
 `;
 
 type Props = {

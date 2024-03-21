@@ -56,13 +56,15 @@ export const tryGetYAxisLabelForChartFromAssertionInfo = (assertionInfo?: Assert
             label = 'Row count';
             break;
         case AssertionType.Field:
-            tryGetFieldAssertionYAxisLabel(assertionInfo.fieldAssertion)
+            label = tryGetFieldAssertionYAxisLabel(assertionInfo.fieldAssertion);
             break;
         case AssertionType.Sql:
-            return 'SQL query result';
+            label = 'SQL query result';
+            break;
         case AssertionType.DataSchema:
             break;
         case AssertionType.Freshness:
+            label = 'Freshness check results';
             break;
         case AssertionType.Dataset:
             break;

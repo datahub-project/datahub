@@ -24,7 +24,7 @@ export const AssertionSummaryContent = ({ assertion, monitor }: Props) => {
     const nextEvaluatedAtMillis = schedule && getNextScheduleEvaluationTimeMs(schedule);
     return (
         <>
-            <AssertionSummarySection title="Timeline">
+            <AssertionSummarySection title="">
                 <AssertionResultsTimeline assertion={assertion} />
             </AssertionSummarySection>
             <Divider />

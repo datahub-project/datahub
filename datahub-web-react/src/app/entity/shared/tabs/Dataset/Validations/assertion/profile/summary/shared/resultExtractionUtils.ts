@@ -12,6 +12,7 @@ import {
     FieldAssertionType,
     FieldMetricAssertion,
     FieldValuesAssertion,
+    FieldValuesFailThresholdType,
     IncrementingSegmentRowCountChange,
     IncrementingSegmentRowCountTotal,
     RowCountChange,
@@ -22,6 +23,7 @@ import {
     VolumeAssertionType,
 } from '../../../../../../../../../../types.generated';
 import { ASSERTION_NATIVE_RESULTS_KEYS_BY_ASSERTION_TYPE } from './constants';
+import { parseMaybeStringAsFloatOrDefault } from '../../../../../../../../../shared/numberUtil';
 
 
 /**
@@ -59,8 +61,7 @@ const calculateExpectedNumericalValueWithPreviousNumericalValue = (
  */
 export function tryExtractNumericalValueFromNativeResults(nativeResults: Maybe<StringMapEntry[]> | undefined, key: string): number | undefined {
     const maybeValue = nativeResults?.find(result => result.key === key)?.value
-    const parsedValue = typeof maybeValue === 'string' ? parseFloat(maybeValue) : maybeValue
-    return typeof parsedValue === 'number' && !Number.isNaN(parsedValue) ? parsedValue : undefined;
+    return parseMaybeStringAsFloatOrDefault(maybeValue, undefined);
 }
 
 export function tryExtractNumericalValueFromAssertionStdParameter(param?: Maybe<AssertionStdParameter>): number | undefined {
@@ -197,7 +198,8 @@ function tryGetExpectedRangeFromFieldAssertion(fieldAssertionInfo: FieldAssertio
     let result: AssertionExpectedRange = {}
     switch (fieldAssertionInfo.type) {
         case FieldAssertionType.FieldValues:
-            result = tryGetExpectedRangeFromAssertionAgainstTotals(fieldAssertionInfo.fieldValuesAssertion)
+            fieldAssertionInfo.fieldValuesAssertion?.failThreshold.value
+            result = tryGetExpectedRangeFromFailThreshold(fieldAssertionInfo.fieldValuesAssertion)
             break;
         case FieldAssertionType.FieldMetric:
             result = tryGetExpectedRangeFromAssertionAgainstTotals(fieldAssertionInfo.fieldMetricAssertion)
@@ -248,7 +250,7 @@ function tryGetExpectedRangeFromVolumeAssertion(volumeAssertionInfo: VolumeAsser
  * @param totals 
  * @returns 
  */
-export function tryGetExpectedRangeFromAssertionAgainstTotals(totals?: Maybe<IncrementingSegmentRowCountTotal> | Maybe<RowCountTotal> | Maybe<SqlAssertionInfo> | Maybe<FieldValuesAssertion> | Maybe<FieldMetricAssertion>): AssertionExpectedRange {
+export function tryGetExpectedRangeFromAssertionAgainstTotals(totals?: Maybe<IncrementingSegmentRowCountTotal> | Maybe<RowCountTotal> | Maybe<SqlAssertionInfo> | Maybe<FieldMetricAssertion>): AssertionExpectedRange {
     if (!totals?.parameters) {
         return {};
     }
@@ -380,6 +382,29 @@ export function tryGetExpectedRangeFromAssertionAgainstChanges(changingInfo?: Ma
                 high: modifierHigh,
                 low: modifierLow,
             }
+        }
+    };
+}
+
+function tryGetExpectedRangeFromFailThreshold(fieldValuesAssertion?: Maybe<FieldValuesAssertion>): AssertionExpectedRange {
+    const highType: AssertionRangeEndType = 'inclusive';
+    let high: number | undefined;
+
+    const thresholdType = fieldValuesAssertion?.failThreshold.type;
+    switch (thresholdType) {
+        case FieldValuesFailThresholdType.Count:
+            high = parseMaybeStringAsFloatOrDefault(fieldValuesAssertion?.failThreshold.value)
+            break;
+        case FieldValuesFailThresholdType.Percentage:
+            break;
+        default:
+            break;
+    }
+
+    return {
+        high,
+        context: {
+            highType,
         }
     };
 }
