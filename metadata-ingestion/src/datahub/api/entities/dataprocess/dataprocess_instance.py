@@ -46,15 +46,15 @@ class DataProcessInstance:
     """This is a DataProcessInstance class which represent an instance of a DataFlow or DataJob.
 
     Args:
-        id (str): The id of the dataprocess instance execution.
-        orchestrator (str): The orchestrator which does the execution. For example airflow.
-        type (str): The execution type like Batch, Streaming, Ad-hoc, etc..  See valid values at DataProcessTypeClass
-        template_urn (Optional[Union[DataJobUrn, DataFlowUrn]]): The parent DataJob or DataFlow which was instantiated if applicable
-        parent_instance (Optional[DataProcessInstanceUrn]): The parent execution's urn if applicable
-        properties Dict[str, str]: Custom properties to set for the DataProcessInstance
-        url (Optional[str]): Url which points to the execution at the orchestrator
-        inlets (List[str]): List of entities the DataProcessInstance consumes
-        outlets (List[str]): List of entities the DataProcessInstance produces
+        id: The id of the dataprocess instance execution.
+        orchestrator: The orchestrator which does the execution. For example airflow.
+        type: The execution type like Batch, Streaming, Ad-hoc, etc..  See valid values at DataProcessTypeClass
+        template_urn: The parent DataJob or DataFlow which was instantiated if applicable
+        parent_instance: The parent execution's urn if applicable
+        properties: Custom properties to set for the DataProcessInstance
+        url: Url which points to the execution at the orchestrator
+        inlets: List of entities the DataProcessInstance consumes
+        outlets: List of entities the DataProcessInstance produces
     """
 
     id: str
@@ -62,7 +62,7 @@ class DataProcessInstance:
     orchestrator: str
     cluster: Optional[str]
     type: str = DataProcessTypeClass.BATCH_SCHEDULED
-    template_urn: Optional[Union[DataJobUrn, DataFlowUrn]] = None
+    template_urn: Optional[Union[DataJobUrn, DataFlowUrn, DatasetUrn]] = None
     parent_instance: Optional[DataProcessInstanceUrn] = None
     properties: Dict[str, str] = field(default_factory=dict)
     url: Optional[str] = None

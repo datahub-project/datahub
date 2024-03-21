@@ -11,7 +11,10 @@ import pydantic
 from pydantic import root_validator, validator
 from pydantic.fields import Field
 
-from datahub.api.entities.dataprocess.dataprocess_instance import DataProcessInstance
+from datahub.api.entities.dataprocess.dataprocess_instance import (
+    DataProcessInstance,
+    InstanceRunResult,
+)
 from datahub.configuration.common import (
     AllowDenyPattern,
     ConfigEnum,
@@ -103,13 +106,13 @@ from datahub.metadata.schema_classes import (
     OwnershipClass,
     OwnershipSourceTypeClass,
     OwnershipTypeClass,
-    RunResultTypeClass,
     StatusClass,
     SubTypesClass,
     TagAssociationClass,
     UpstreamLineageClass,
     ViewPropertiesClass,
 )
+from datahub.metadata.urns import DatasetUrn
 from datahub.sql_parsing.schema_resolver import SchemaResolver
 from datahub.sql_parsing.sqlglot_lineage import (
     SchemaInfo,
@@ -172,6 +175,12 @@ class DBTEntitiesEnabled(ConfigModel):
         EmitDirective.YES,
         description="Emit metadata for test results when set to Yes or Only",
     )
+    model_performance: EmitDirective = Field(
+        # TODO: This is currently disabled by default, but will be enabled by default once
+        # the models have stabilized.
+        EmitDirective.NO,
+        description="Emit model performance metadata when set to Yes or Only",
+    )
 
     @root_validator(skip_on_failure=True)
     def process_only_directive(cls, values):
@@ -215,6 +224,10 @@ class DBTEntitiesEnabled(ConfigModel):
         return self.test_results == EmitDirective.YES and all(
             v == EmitDirective.NO for v in self._node_type_allow_map().values()
         )
+
+    @property
+    def can_emit_model_performance(self) -> bool:
+        return self.model_performance == EmitDirective.YES
 
 
 class DBTCommonConfig(
@@ -1177,6 +1190,11 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         node: DBTNode,
         upstream_lineage_class: Optional[UpstreamLineageClass],
     ) -> Iterable[MetadataChangeProposalWrapper]:
+        if not node.model_performances:
+            return
+        if not self.config.entities_enabled.can_emit_model_performance:
+            return
+
         node_datahub_urn = node.get_urn(
             DBT_PLATFORM,
             self.config.env,
@@ -1189,14 +1207,14 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             orchestrator=DBT_PLATFORM,
             cluster=self.config.platform_instance,
             # Part of relationships.
-            template_urn=node_datahub_urn,
+            template_urn=DatasetUrn.from_string(node_datahub_urn),
             inlets=[
-                upstream.dataset
+                DatasetUrn.from_string(upstream.dataset)
                 for upstream in (
                     upstream_lineage_class.upstreams if upstream_lineage_class else []
                 )
             ],
-            outlets=[node_datahub_urn],
+            outlets=[DatasetUrn.from_string(node_datahub_urn)],
             # Part of properties.
             properties={
                 "dbt_name": node.dbt_name,
@@ -1204,8 +1222,8 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             },
             url=self.get_external_url(node),
         )
-        if node.model_performances:
-            yield from data_process_instance.generate_mcp(materialize_iolets=False)
+
+        yield from data_process_instance.generate_mcp(materialize_iolets=False)
 
         for model_performance in node.model_performances:
             yield from data_process_instance.start_event_mcp(
@@ -1214,9 +1232,9 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             yield from data_process_instance.end_event_mcp(
                 datetime_to_ts_millis(model_performance.end_time),
                 result=(
-                    RunResultTypeClass.SUCCESS
+                    InstanceRunResult.SUCCESS
                     if model_performance.is_success()
-                    else RunResultTypeClass.FAILURE
+                    else InstanceRunResult.FAILURE
                 ),
                 result_type=model_performance.status,
             )

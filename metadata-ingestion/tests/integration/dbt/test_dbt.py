@@ -217,7 +217,10 @@ class DbtTestConfig:
             sources_file="sample_dbt_sources_2.json",
             run_results_files=["sample_dbt_run_results_2.json"],
             source_config_modifiers={
-                # TODO
+                "entities_enabled": {
+                    # TODO: Remove this once it becomes the default.
+                    "model_performance": "YES",
+                },
             },
         ),
     ],
