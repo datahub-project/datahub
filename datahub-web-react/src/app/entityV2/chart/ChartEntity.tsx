@@ -42,6 +42,7 @@ import { ChartPreview } from './preview/ChartPreview';
 import { ChartStatsSummarySubHeader } from './profile/stats/ChartStatsSummarySubHeader';
 import ChartSummaryTab from './summary/ChartSummaryTab';
 import SidebarEntityHeader from '../shared/containers/profile/sidebar/SidebarEntityHeader';
+import { IncidentTab } from '../shared/tabs/Incident/IncidentTab';
 
 const headerDropdownItems = new Set([
     EntityMenuItems.EXTERNAL_URL,
@@ -166,6 +167,10 @@ export class ChartEntity implements Entity<Chart> {
                         visible: (_, _1) => true,
                         enabled: (_, chart: GetChartQuery) => (chart?.chart?.dashboards?.total || 0) > 0,
                     },
+                },
+                {
+                    name: 'Incidents',
+                    component: IncidentTab,
                 },
             ]}
             sidebarSections={[

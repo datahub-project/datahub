@@ -40,7 +40,8 @@ export const SubscribeMenuAction = ({ entityUrn }: Props) => {
             <Dropdown
                 trigger={['hover']}
                 overlay={
-                    <Menu>
+                    <Menu
+                    >
                         <SubscribeButtonMenu
                             isUserSubscribed={isUserSubscribed}
                             setIsUserSubscribed={setIsUserSubscribed}

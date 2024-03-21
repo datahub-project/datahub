@@ -80,7 +80,7 @@ public class AssertionsSummaryHook implements MetadataChangeLogHook {
 
   @Override
   public void init() {
-    System.out.println("Initialized the assertions summary hook");
+    log.info("Initialized the assertions summary hook");
   }
 
   @Override
@@ -96,6 +96,10 @@ public class AssertionsSummaryHook implements MetadataChangeLogHook {
       // Handle the deletion case.
       if (isAssertionSoftDeleted(event)) {
         handleAssertionSoftDeleted(urn);
+      } else if (isAssertionInfoHardDeleted(event)) {
+        handleAssertionInfoHardDeleted(event);
+      } else if (isAssertionKeyHardDeleted(event)) {
+        handleAssertionKeyHardDeleted(event);
       } else if (isAssertionTargetEntityChanged(event)) {
         handleAssertionTargetEntityChanged(urn, event);
       } else if (isAssertionRunCompleteEvent(event)) {
@@ -113,6 +117,33 @@ public class AssertionsSummaryHook implements MetadataChangeLogHook {
    */
   private void handleAssertionSoftDeleted(@Nonnull final Urn assertionUrn) {
     removeAssertionFromSummary(assertionUrn);
+  }
+
+  /**
+   * Handles an assertion deletion by removing the assertion from either resolved or active
+   * assertions.
+   */
+  private void handleAssertionInfoHardDeleted(@Nonnull final MetadataChangeLog event) {
+    if (event.hasPreviousAspectValue()) {
+      final AssertionInfo previousInfo =
+          GenericRecordUtils.deserializeAspect(
+              event.getPreviousAspectValue().getValue(),
+              event.getPreviousAspectValue().getContentType(),
+              AssertionInfo.class);
+      final List<Urn> prevEntityUrns = extractAssertionEntities(previousInfo);
+      for (Urn entityUrn : prevEntityUrns) {
+        removeAssertionFromSummary(event.getEntityUrn(), entityUrn);
+      }
+    }
+  }
+
+  /** Handles when an assertion was deleted by removing the assertion key (HARD DELETE) */
+  private void handleAssertionKeyHardDeleted(@Nonnull final MetadataChangeLog event) {
+    // Simply attempt to clean up any references to the entity.
+    log.debug(
+        "Attempting to clean up remaining references to assertion with urn {}.",
+        event.getEntityUrn());
+    this._assertionService.tryDeleteAssertionReferences(event.getEntityUrn());
   }
 
   private void handleAssertionTargetEntityChanged(
@@ -333,7 +364,9 @@ public class AssertionsSummaryHook implements MetadataChangeLogHook {
     return isAssertionSoftDeleted(event)
         || isAssertionTargetEntityChanged(event)
         || isAssertionRunCompleteEvent(event)
-        || isMonitorDisabledEvent(event);
+        || isMonitorDisabledEvent(event)
+        || isAssertionInfoHardDeleted(event)
+        || isAssertionKeyHardDeleted(event);
   }
 
   /** Returns true if an assertion is being soft-deleted. */
@@ -341,6 +374,20 @@ public class AssertionsSummaryHook implements MetadataChangeLogHook {
     return ASSERTION_ENTITY_NAME.equals(event.getEntityType())
         && SUPPORTED_UPDATE_TYPES.contains(event.getChangeType())
         && isSoftDeletionEvent(event);
+  }
+
+  /** Returns true if an assertion is being hard-deleted. */
+  private boolean isAssertionInfoHardDeleted(@Nonnull final MetadataChangeLog event) {
+    return ASSERTION_ENTITY_NAME.equals(event.getEntityType())
+        && ChangeType.DELETE.equals(event.getChangeType())
+        && ASSERTION_INFO_ASPECT_NAME.equals(event.getAspectName());
+  }
+
+  /** Returns true if an assertion is being hard-deleted. */
+  private boolean isAssertionKeyHardDeleted(@Nonnull final MetadataChangeLog event) {
+    return ASSERTION_ENTITY_NAME.equals(event.getEntityType())
+        && ChangeType.DELETE.equals(event.getChangeType())
+        && ASSERTION_KEY_ASPECT_NAME.equals(event.getAspectName());
   }
 
   /** Returns true if an assertion is being updated to point to another entity. */

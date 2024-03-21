@@ -1,11 +1,13 @@
 import React from 'react';
-import { Button, Tooltip, Typography } from 'antd';
+import { Tooltip, Typography } from 'antd';
+import { Link } from 'react-router-dom';
 import styled from 'styled-components/macro';
 import { ANTD_GRAY } from '../../../../entity/shared/constants';
 import { DataHubSubscription, EntityType } from '../../../../../types.generated';
 import { useEntityRegistry } from '../../../../useEntityRegistry';
 import { IconStyleType } from '../../../../entity/Entity';
 import { getEntityNameAndLogo } from '../../utils';
+import { SEPARATE_SIBLINGS_URL_PARAM } from '../../../../entity/shared/siblingUtils';
 
 const EntityColumnContainer = styled.div`
     margin-bottom: 16px;
@@ -66,7 +68,7 @@ export function EntityColumn({ subscription }: Props) {
     const entityTypeDisplayName = entityRegistry.getEntityName(entityType);
     const entityName: string = entityRegistry.getDisplayName(entityType, entity);
     const entityTypeIcon = entityRegistry.getIcon(entityType, 14, IconStyleType.ACCENT);
-    const entityUrl = entityRegistry.getEntityUrl(entityType, entityUrn);
+    const entityUrl = `${entityRegistry.getEntityUrl(entityType, entityUrn)}?${SEPARATE_SIBLINGS_URL_PARAM}=true`;
     const { label: platformTypeDisplayName, icon: platformIcon } = getEntityNameAndLogo(
         entity,
         entityType,
@@ -80,7 +82,7 @@ export function EntityColumn({ subscription }: Props) {
 
     return (
         <EntityColumnContainer>
-            <Button type="link" href={entityUrl}>
+            <Link to={entityUrl}>
                 <ContentContainer>
                     <PlatformTypeContainer>
                         <Tooltip overlay={platformTypeDisplayName}>{hasIcon ? platformIcon : defaultIcon}</Tooltip>
@@ -93,7 +95,7 @@ export function EntityColumn({ subscription }: Props) {
                         <EntityNameText>{entityName}</EntityNameText>
                     </EntityNameContainer>
                 </ContentContainer>
-            </Button>
+            </Link>
         </EntityColumnContainer>
     );
 }

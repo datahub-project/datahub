@@ -21,6 +21,7 @@ import DataProductSection from '../shared/containers/profile/sidebar/DataProduct
 import { getDataProduct, isOutputPort } from '../shared/utils';
 import { TYPE_ICON_CLASS_NAME } from '../shared/components/subtypes';
 import SidebarEntityHeader from '../shared/containers/profile/sidebar/SidebarEntityHeader';
+import { IncidentTab } from '../shared/tabs/Incident/IncidentTab';
 
 const headerDropdownItems = new Set([
     EntityMenuItems.EXTERNAL_URL,
@@ -91,6 +92,10 @@ export class DataFlowEntity implements Entity<DataFlow> {
                     name: 'Tasks',
                     component: DataFlowJobsTab,
                     icon: ConsoleSqlOutlined,
+                },
+                {
+                    name: 'Incidents',
+                    component: IncidentTab,
                 },
             ]}
             sidebarSections={[

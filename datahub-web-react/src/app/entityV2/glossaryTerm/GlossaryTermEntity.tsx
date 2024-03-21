@@ -99,7 +99,7 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
                         icon: FileOutlined,
                     },
                     {
-                        name: 'Related Entities',
+                        name: 'Related Assets',
                         component: GlossaryRelatedEntity,
                         icon: AppstoreOutlined,
                     },
