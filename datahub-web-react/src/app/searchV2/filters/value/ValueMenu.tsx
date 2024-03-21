@@ -18,9 +18,27 @@ interface Props {
     alignRight?: boolean;
 }
 
-export default function ValueMenu({ field, values, defaultOptions, type = 'card', onChangeValues, visible, includeCount, alignRight }: Props) {
+export default function ValueMenu({
+    field,
+    values,
+    defaultOptions,
+    type = 'card',
+    onChangeValues,
+    visible,
+    includeCount,
+    alignRight,
+}: Props) {
     const [stagedSelectedValues, setStagedSelectedValues] = useState<FilterValue[]>(values || []);
     const visibilityRef = useRef<boolean>(visible);
+
+    /**
+     * Synchronize stagedSelectedValues with the values prop
+     * NOTE: Callback with useState not feasible due to its initialization behavior.
+     */
+    useEffect(() => {
+        setStagedSelectedValues(values);
+    }, [values]);
+
     /**
      * If the visibility of the menu changes in the parent component, we can dump off the staged values before closing
      * to make the UI feel more responsive.
