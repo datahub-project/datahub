@@ -22,15 +22,6 @@ from datahub.ingestion.source_config.usage.bigquery_usage import BigQueryCredent
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_OWNER_LABEL_CHAR_MAPPING = {
-    "_": ".",
-    "-": "@",
-    "__": "_",
-    "--": "-",
-    "_-": "#",
-    "-_": " ",
-}
-
 
 class BigQueryUsageConfig(BaseUsageConfig):
     _query_log_delay_removed = pydantic_removed_field("query_log_delay")
@@ -43,23 +34,6 @@ class BigQueryUsageConfig(BaseUsageConfig):
     apply_view_usage_to_tables: bool = Field(
         default=False,
         description="Whether to apply view's usage to its base tables. If set to False, uses sql parser and applies usage to views / tables mentioned in the query. If set to True, usage is applied to base tables only.",
-    )
-
-
-class TableOwnerLableConfig(ConfigModel):
-    enabled: bool = Field(
-        default=False, description="Whether to capture table owner from label."
-    )
-
-    owner_lable_character_mapping: Dict[str, str] = Field(
-        default=DEFAULT_OWNER_LABEL_CHAR_MAPPING,
-        description="A mapping of bigquery owner label character to datahub owner character."
-        "Provided mapping will override default mapping.",
-    )
-
-    owner_key_pattern: str = Field(
-        default="_owner_email",
-        description="A pattern which defines what identifies an owner label.",
     )
 
 
@@ -145,11 +119,6 @@ class BigQueryV2Config(
     capture_table_label_as_tag: bool = Field(
         default=False,
         description="Capture BigQuery table labels as DataHub tag",
-    )
-
-    capture_table_owner_label_as_owner: TableOwnerLableConfig = Field(
-        default=TableOwnerLableConfig(),
-        description="Capture BigQuery table labels as DataHub ownership",
     )
 
     capture_dataset_label_as_tag: bool = Field(

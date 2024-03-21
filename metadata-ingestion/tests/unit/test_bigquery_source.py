@@ -44,7 +44,6 @@ from datahub.metadata.schema_classes import (
     DatasetPropertiesClass,
     GlobalTagsClass,
     MetadataChangeProposalClass,
-    OwnershipClass,
     SchemaMetadataClass,
     StatusClass,
     SubTypesClass,
@@ -391,9 +390,6 @@ def test_gen_table_dataset_workunits(get_bq_client_mock, bigquery_table):
         {
             "project_id": project_id,
             "capture_table_label_as_tag": True,
-            "capture_table_owner_label_as_owner": {
-                "enabled": True,
-            },
         }
     )
     source: BigqueryV2Source = BigqueryV2Source(
@@ -465,12 +461,6 @@ def test_gen_table_dataset_workunits(get_bq_client_mock, bigquery_table):
     mcp = cast(MetadataChangeProposalClass, next(iter(gen)).metadata)
     assert isinstance(mcp.aspect, SubTypesClass)
     assert mcp.aspect.typeNames[1] == DatasetSubTypes.TABLE
-
-    mcp = cast(MetadataChangeProposalClass, next(iter(gen)).metadata)
-    assert isinstance(mcp.aspect, OwnershipClass)
-    assert mcp.aspect.owners[0].owner == "urn:li:corpuser:games.team@nytimes.com"
-    assert mcp.aspect.owners[0].type == "CUSTOM"
-    assert mcp.aspect.owners[0].typeUrn == "urn:li:ownershipType:data_producer"
 
 
 @patch.object(BigQueryV2Config, "get_bigquery_client")
