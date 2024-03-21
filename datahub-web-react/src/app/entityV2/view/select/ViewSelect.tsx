@@ -35,6 +35,7 @@ const ViewSelectContainer = styled.div`
         display: flex;
         align-items: center;
         padding: 0px 0px;
+
         & .close-container {
             position: absolute;
             top: -10px;
@@ -45,28 +46,33 @@ const ViewSelectContainer = styled.div`
             border-radius: 100%;
             padding: 5px;
         }
+
         .ant-select {
             .ant-select-selection-search {
                 position: absolute;
             }
+
             &.ant-select-open {
                 .ant-select-selection-placeholder,
                 .ant-select-selection-item {
                     color: ${ANTD_GRAY[1]};
                 }
             }
+
             &:not(.ant-select-open) {
                 .ant-select-selection-placeholder,
                 .ant-select-selection-item {
                     color: #fff;
                 }
             }
+
             .ant-select-selection-placeholder {
                 display: flex;
                 align-items: center;
                 justify-content: center;
                 height: 100%;
             }
+
             .ant-select-selection-item {
                 font-weight: 700;
                 font-size: 14px;
@@ -181,10 +187,9 @@ export const ViewSelect = () => {
             ...userContext.localState,
             selectedViewUrn: newUrn,
         });
-        // Adding a delay of 1000 milliseconds (1 second) before closing the modal
         setTimeout(() => {
             setIsOpen(false);
-        }, 1000);
+        }, 250);
     };
 
     const onClickCreateView = () => {
