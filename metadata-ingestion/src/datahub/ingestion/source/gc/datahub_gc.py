@@ -38,6 +38,10 @@ class DataHubGcSourceConfig(ConfigModel):
         default=10000,
         description="Wait for truncation of indices until this number of documents are left",
     )
+    truncation_sleep_between_seconds: int = Field(
+        default=30,
+        description="Sleep between truncation monitoring.",
+    )
 
 
 @dataclass
@@ -123,7 +127,7 @@ class DataHubGcSource(Source):
                     logger.info("Too small truncation. Not going to watch.")
                     return
                 else:
-                    time.sleep(60)
+                    time.sleep(self.config.truncation_sleep_between_seconds)
         else:
             self.truncate_timeseries_util(
                 aspect=aspect_name,
