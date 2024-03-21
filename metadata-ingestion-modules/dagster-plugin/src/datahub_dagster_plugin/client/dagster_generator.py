@@ -1,10 +1,10 @@
 from dataclasses import dataclass
 from logging import Logger
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, Callable, Dict, List, Optional, Sequence, Set, Tuple
 from urllib.parse import urlsplit
 
 import pydantic
-from dagster import DagsterRunStatus, PathMetadataValue
+from dagster import DagsterRunStatus, PathMetadataValue, RunStatusSensorContext
 from dagster._core.execution.stats import RunStepKeyStatsSnapshot, StepEventStatus
 from dagster._core.snap import JobSnapshot
 from dagster._core.snap.node import OpDefSnap
@@ -14,9 +14,15 @@ from datahub.api.entities.dataprocess.dataprocess_instance import (
     DataProcessInstance,
     InstanceRunResult,
 )
+from datahub.api.entities.dataset.dataset import Dataset
 from datahub.configuration.source_common import DatasetSourceConfigMixin
-from datahub.emitter.rest_emitter import DatahubRestEmitter
-from datahub.ingestion.sink.datahub_rest import DatahubRestSinkConfig
+from datahub.emitter.mce_builder import (
+    make_data_platform_urn,
+    make_dataplatform_instance_urn,
+)
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
+from datahub.metadata.schema_classes import DataPlatformInstanceClass, SubTypesClass
 from datahub.utilities.urns.data_flow_urn import DataFlowUrn
 from datahub.utilities.urns.data_job_urn import DataJobUrn
 from datahub.utilities.urns.dataset_urn import DatasetUrn
@@ -63,10 +69,10 @@ class Constant:
     ATTEMPTS = "attempts"
 
 
-class DagsterSourceConfig(DatasetSourceConfigMixin):
-    rest_sink_config: DatahubRestSinkConfig = pydantic.Field(
-        default=DatahubRestSinkConfig(),
-        description="Datahub rest sink config",
+class DatahubDagsterSourceConfig(DatasetSourceConfigMixin):
+    datahub_client_config: DatahubClientConfig = pydantic.Field(
+        default=DatahubClientConfig(),
+        description="Datahub client config",
     )
 
     dagster_url: Optional[str] = pydantic.Field(
@@ -81,6 +87,16 @@ class DagsterSourceConfig(DatasetSourceConfigMixin):
 
     capture_input_output: bool = pydantic.Field(
         default=False,
+        description="Whether to capture and try to parse input and output from HANDLED_OUTPUT,.LOADED_INPUT event. (currently only filepathvalue metadata supported",
+    )
+
+    asset_lineage_extractor: Optional[
+        Callable[
+            [RunStatusSensorContext, "DagsterGenerator", DataHubGraph],
+            Tuple[Dict[str, set], Dict[str, set]],
+        ]
+    ] = pydantic.Field(
+        default=None,
         description="Whether to capture and try to parse input and output from HANDLED_OUTPUT,.LOADED_INPUT event. (currently only filepathvalue metadata supported",
     )
 
@@ -114,7 +130,7 @@ class DagsterGenerator:
     def __init__(
         self,
         logger: Logger,
-        config: DagsterSourceConfig,
+        config: DatahubDagsterSourceConfig,
         dagster_environment: DagsterEnvironment,
     ):
         self.logger = logger
@@ -290,14 +306,14 @@ class DagsterGenerator:
 
     def emit_job_run(
         self,
-        emitter: DatahubRestEmitter,
+        graph: DataHubGraph,
         dataflow: DataFlow,
         run: DagsterRun,
         run_stats: DagsterRunStatsSnapshot,
     ) -> None:
         """
         Emit a latest job run
-        :param emitter: DatahubRestEmitter
+        :param graph: DatahubRestEmitter
         :param dataflow: DataFlow - DataFlow object
         :param run: DagsterRun - Dagster Run object
         :param run_stats: DagsterRunStatsSnapshot - latest job run stats
@@ -348,13 +364,13 @@ class DagsterGenerator:
 
         if run_stats.start_time is not None:
             dpi.emit_process_start(
-                emitter=emitter,
+                emitter=graph,
                 start_timestamp_millis=int(run_stats.start_time * 1000),
             )
 
         if run_stats.end_time is not None:
             dpi.emit_process_end(
-                emitter=emitter,
+                emitter=graph,
                 end_timestamp_millis=int(run_stats.end_time * 1000),
                 result=status_result_map[run.status],
                 result_type=Constant.ORCHESTRATOR,
@@ -362,13 +378,13 @@ class DagsterGenerator:
 
     def emit_op_run(
         self,
-        emitter: DatahubRestEmitter,
+        graph: DataHubGraph,
         datajob: DataJob,
         run_step_stats: RunStepKeyStatsSnapshot,
     ) -> None:
         """
         Emit an op run
-        :param emitter: DatahubRestEmitter
+        :param graph: DataHubGraph
         :param datajob: DataJob - DataJob object
         :param run_step_stats: RunStepKeyStatsSnapshot - step(op) run stats
         """
@@ -415,14 +431,69 @@ class DagsterGenerator:
 
         if run_step_stats.start_time is not None:
             dpi.emit_process_start(
-                emitter=emitter,
+                emitter=graph,
                 start_timestamp_millis=int(run_step_stats.start_time * 1000),
             )
 
         if run_step_stats.end_time is not None:
             dpi.emit_process_end(
-                emitter=emitter,
+                emitter=graph,
                 end_timestamp_millis=int(run_step_stats.end_time * 1000),
                 result=status_result_map[run_step_stats.status],
                 result_type=Constant.ORCHESTRATOR,
             )
+
+    def dataset_urn_from_asset(self, asset_key: Sequence[str]) -> DatasetUrn:
+        """
+        Generate dataset urn from asset key
+        """
+        return DatasetUrn(
+            platform="dagster", env=self.config.env, name="/".join(asset_key)
+        )
+
+    def emit_asset(
+        self,
+        graph: DataHubGraph,
+        asset_key: Sequence[str],
+        description: Optional[str],
+        properties: Optional[Dict[str, str]],
+    ) -> str:
+        """
+        Emit asset to datahub
+        """
+        dataset_urn = self.dataset_urn_from_asset(asset_key)
+        dataset = Dataset(
+            id=None,
+            urn=dataset_urn.urn(),
+            platform="dagster",
+            name=asset_key[-1],
+            schema=None,
+            downstreams=None,
+            subtype="Asset",
+            subtypes=None,
+            description=description,
+            env=self.config.env,
+            properties=properties,
+        )
+        for mcp in dataset.generate_mcp():
+            graph.emit_mcp(mcp)
+
+        mcp = MetadataChangeProposalWrapper(
+            entityUrn=dataset_urn.urn(),
+            aspect=SubTypesClass(typeNames=["Asset"]),
+        )
+        graph.emit_mcp(mcp)
+
+        if self.config.platform_instance:
+            mcp = MetadataChangeProposalWrapper(
+                entityUrn=dataset_urn.urn(),
+                aspect=DataPlatformInstanceClass(
+                    instance=make_dataplatform_instance_urn(
+                        instance=self.config.platform_instance,
+                        platform="dagster",
+                    ),
+                    platform=make_data_platform_urn("dagster"),
+                ),
+            )
+            graph.emit_mcp(mcp)
+        return dataset_urn.urn()

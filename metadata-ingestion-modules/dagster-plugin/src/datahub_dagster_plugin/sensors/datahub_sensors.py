@@ -19,25 +19,19 @@ from dagster._core.definitions.sensor_definition import (
 from dagster._core.definitions.target import ExecutableDefinition
 from dagster._core.events import DagsterEventType, HandledOutputData, LoadedInputData
 from dagster._core.execution.stats import RunStepKeyStatsSnapshot
-from datahub.api.entities.dataset.dataset import Dataset
-from datahub.emitter.mce_builder import (
-    make_data_platform_urn,
-    make_dataplatform_instance_urn,
-)
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.rest_emitter import DatahubRestEmitter
-from datahub.metadata.schema_classes import DataPlatformInstanceClass, SubTypesClass
-from datahub.utilities.urns.dataset_urn import DatasetUrn
+from datahub.ingestion.graph.client import DataHubGraph
+from datahub.metadata.schema_classes import SubTypesClass
 
 from datahub_dagster_plugin.client.dagster_generator import (
     DagsterEnvironment,
     DagsterGenerator,
-    DagsterSourceConfig,
+    DatahubDagsterSourceConfig,
 )
 
 
 def make_datahub_sensor(
-    config: DagsterSourceConfig,
+    config: DatahubDagsterSourceConfig,
     name: Optional[str] = None,
     minimum_interval_seconds: Optional[int] = None,
     description: Optional[str] = None,
@@ -50,7 +44,7 @@ def make_datahub_sensor(
     """Create a sensor on job status change emit lineage to DataHub.
 
     Args:
-        config (DagsterSourceConfig): DataHub Sensor config
+        config (DatahubDagsterSourceConfig): DataHub Sensor config
         name: (Optional[str]): The name of the sensor. Defaults to "datahub_sensor".
         minimum_interval_seconds: (Optional[int]): The minimum number of seconds that will elapse
             between sensor evaluations.
@@ -93,28 +87,19 @@ def make_datahub_sensor(
 
 
 class DatahubSensors:
-    def __init__(self, config: Optional[DagsterSourceConfig] = None):
+    def __init__(self, config: Optional[DatahubDagsterSourceConfig] = None):
         """
         Set dagster source configurations and initialize datahub emitter and dagster run status sensors
         """
         if config:
             self.config = config
         else:
-            self.config = DagsterSourceConfig()
-
-        self.emitter: DatahubRestEmitter = DatahubRestEmitter(
-            gms_server=self.config.rest_sink_config.server,
-            retry_status_codes=self.config.rest_sink_config.retry_status_codes,
-            retry_max_times=self.config.rest_sink_config.retry_max_times,
-            token=self.config.rest_sink_config.token,
-            connect_timeout_sec=self.config.rest_sink_config.timeout_sec,
-            read_timeout_sec=self.config.rest_sink_config.timeout_sec,
-            extra_headers=self.config.rest_sink_config.extra_headers,
-            ca_certificate_path=self.config.rest_sink_config.ca_certificate_path,
-            client_certificate_path=self.config.rest_sink_config.client_certificate_path,
-            disable_ssl_verification=self.config.rest_sink_config.disable_ssl_verification,
+            self.config = DatahubDagsterSourceConfig()
+        self.graph = DataHubGraph(
+            self.config.datahub_client_config,
         )
-        self.emitter.test_connection()
+
+        self.graph.test_connection()
         self.sensors: List[SensorDefinition] = []
         self.sensors.append(
             run_status_sensor(
@@ -176,58 +161,9 @@ class DatahubSensors:
             context.log.error("Unable to get Dagster Environment...")
             return None
 
-    def emit_asset(
-        self,
-        asset_key: Sequence[str],
-        description: Optional[str],
-        properties: Optional[Dict[str, str]],
-    ) -> str:
-        """
-        Emit asset to datahub
-        """
-        dataset_urn = DatasetUrn(
-            platform="dagster",
-            env=self.config.env,
-            name="/".join(asset_key),
-        )
-        dataset = Dataset(
-            id=None,
-            urn=dataset_urn.urn(),
-            platform="dagster",
-            name=asset_key[-1],
-            schema=None,
-            downstreams=None,
-            subtype="Asset",
-            subtypes=None,
-            description=description,
-            env=self.config.env,
-            properties=properties,
-        )
-        for mcp in dataset.generate_mcp():
-            self.emitter.emit_mcp(mcp)
-
-        mcp = MetadataChangeProposalWrapper(
-            entityUrn=dataset_urn.urn(),
-            aspect=SubTypesClass(typeNames=["Asset"]),
-        )
-        self.emitter.emit_mcp(mcp)
-
-        if self.config.platform_instance:
-            mcp = MetadataChangeProposalWrapper(
-                entityUrn=dataset_urn.urn(),
-                aspect=DataPlatformInstanceClass(
-                    instance=make_dataplatform_instance_urn(
-                        instance=self.config.platform_instance,
-                        platform="dagster",
-                    ),
-                    platform=make_data_platform_urn("dagster"),
-                ),
-            )
-            self.emitter.emit_mcp(mcp)
-        return dataset_urn.urn()
-
     def process_asset_logs(
         self,
+        dagster_generator: DagsterGenerator,
         log: EventLogEntry,
         dataset_inputs: Dict[str, set],
         dataset_outputs: Dict[str, set],
@@ -248,8 +184,8 @@ class DatahubSensors:
                 key: str(value) for (key, value) in materialization.metadata.items()
             }
             asset_key = materialization.asset_key.path
-            dataset_urn = self.emit_asset(
-                asset_key, materialization.description, properties
+            dataset_urn = dagster_generator.emit_asset(
+                self.graph, asset_key, materialization.description, properties
             )
             dataset_outputs[log.step_key].add(dataset_urn)
 
@@ -257,14 +193,19 @@ class DatahubSensors:
             if log.step_key not in dataset_inputs:
                 dataset_inputs[log.step_key] = set()
             asset_observation = log.asset_observation
-            # properties = {key:str(value)  for (key, value) in asset_observation.metadata.items}
+            if not asset_observation:
+                return
+
             properties = {
                 key: str(value)
                 for (key, value) in asset_observation.metadata.items()  # type: ignore
             }
             asset_key = asset_observation.asset_key.path  # type: ignore
-            dataset_urn = self.emit_asset(
-                asset_key, asset_observation.description, properties  # type: ignore
+            dataset_urn = dagster_generator.emit_asset(
+                self.graph,
+                asset_key,
+                asset_observation.description,
+                properties,  # type: ignore
             )
             dataset_inputs[log.step_key].add(dataset_urn)
 
@@ -351,12 +292,25 @@ class DatahubSensors:
 
             if self.config.capture_asset_materialization:
                 self.process_asset_logs(
+                    dagster_generator=dagster_generator,
                     log=log,
                     dataset_inputs=dataset_inputs,
                     dataset_outputs=dataset_outputs,
                 )
 
         return dataset_inputs, dataset_outputs
+
+    @staticmethod
+    def merge_dicts(dict1: Dict[str, Set], dict2: Dict[str, Set]) -> Dict[str, Set]:
+        """
+        Merge two dictionaries
+        """
+        for key, value in dict2.items():
+            if key in dict1:
+                dict1[key] = dict1[key].union(value)
+            else:
+                dict1[key] = value
+        return dict1
 
     def _emit_metadata(
         self, context: RunStatusSensorContext
@@ -389,8 +343,24 @@ class DatahubSensors:
                 snapshot_id=context.dagster_run.job_snapshot_id
             )
 
-            dataset_inputs, dataset_outputs = self.process_dagster_logs(
-                context, dagster_generator
+            dataset_inputs: Dict[str, Set] = {}
+            dataset_outputs: Dict[str, Set] = {}
+
+            if self.config.asset_lineage_extractor:
+                dataset_inputs, dataset_outputs = self.config.asset_lineage_extractor(
+                    context, dagster_generator, self.graph
+                )
+
+            (
+                dataset_inputs_from_logs,
+                dataset_outputs_from_logs,
+            ) = self.process_dagster_logs(context, dagster_generator)
+
+            dataset_inputs = DatahubSensors.merge_dicts(
+                dataset_inputs, dataset_inputs_from_logs
+            )
+            dataset_outputs = DatahubSensors.merge_dicts(
+                dataset_outputs, dataset_outputs_from_logs
             )
 
             context.log.debug(f"Outputs: {dataset_outputs}")
@@ -400,11 +370,11 @@ class DatahubSensors:
                 env=self.config.env,
                 platform_instance=self.config.platform_instance,
             )
-            dataflow.emit(self.emitter)
+            dataflow.emit(self.graph)
 
             # Emit dagster job run which get mapped with datahub data process instance entity
             dagster_generator.emit_job_run(
-                emitter=self.emitter,
+                graph=self.graph,
                 dataflow=dataflow,
                 run=context.dagster_run,
                 run_stats=context.instance.get_run_stats(context.dagster_run.run_id),
@@ -437,9 +407,9 @@ class DatahubSensors:
                     input_datasets=dataset_inputs,
                 )
                 context.log.info(f"Generated Datajob: {datajob}")
-                datajob.emit(self.emitter)
+                datajob.emit(self.graph)
 
-                self.emitter.emit_mcp(
+                self.graph.emit_mcp(
                     mcp=MetadataChangeProposalWrapper(
                         entityUrn=str(datajob.urn),
                         aspect=SubTypesClass(
@@ -449,7 +419,7 @@ class DatahubSensors:
                 )
 
                 dagster_generator.emit_op_run(
-                    emitter=self.emitter,
+                    graph=self.graph,
                     datajob=datajob,
                     run_step_stats=run_step_stats[op_def_snap.name],
                 )

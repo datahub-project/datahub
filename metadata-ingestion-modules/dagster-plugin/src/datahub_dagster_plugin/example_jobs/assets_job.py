@@ -10,7 +10,7 @@ from dagster import (
 from datahub.utilities.urns.dataset_urn import DatasetUrn
 
 from datahub_dagster_plugin.sensors.datahub_sensors import (
-    DagsterSourceConfig,
+    DatahubDagsterSourceConfig,
     make_datahub_sensor,
 )
 
@@ -47,7 +47,7 @@ def transform(extract):
 
 assets_job = define_asset_job(name="assets_job")
 
-config = DagsterSourceConfig.parse_obj(
+config = DatahubDagsterSourceConfig.parse_obj(
     {
         "rest_sink_config": {
             "server": "http://localhost:8080",
