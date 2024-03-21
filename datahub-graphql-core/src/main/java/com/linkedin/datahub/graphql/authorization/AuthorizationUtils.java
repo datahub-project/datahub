@@ -154,6 +154,24 @@ public class AuthorizationUtils {
     return isAuthorized(context, Optional.empty(), PoliciesConfig.MANAGE_GLOBAL_OWNERSHIP_TYPES);
   }
 
+  public static boolean canEditProperties(@Nonnull Urn targetUrn, @Nonnull QueryContext context) {
+    // If you either have all entity privileges, or have the specific privileges required, you are
+    // authorized.
+    final DisjunctivePrivilegeGroup orPrivilegeGroups =
+        new DisjunctivePrivilegeGroup(
+            ImmutableList.of(
+                ALL_PRIVILEGES_GROUP,
+                new ConjunctivePrivilegeGroup(
+                    ImmutableList.of(PoliciesConfig.EDIT_ENTITY_PROPERTIES_PRIVILEGE.getType()))));
+
+    return AuthorizationUtils.isAuthorized(
+        context.getAuthorizer(),
+        context.getActorUrn(),
+        targetUrn.getEntityType(),
+        targetUrn.toString(),
+        orPrivilegeGroups);
+  }
+
   public static boolean canEditEntityQueries(
       @Nonnull List<Urn> entityUrns, @Nonnull QueryContext context) {
     final DisjunctivePrivilegeGroup orPrivilegeGroups =

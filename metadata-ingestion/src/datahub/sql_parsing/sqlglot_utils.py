@@ -16,6 +16,11 @@ def _get_dialect_str(platform: str) -> str:
         return "tsql"
     elif platform == "athena":
         return "trino"
+    # TODO: define SalesForce SOQL dialect
+    # Temporary workaround is to treat SOQL as databricks dialect
+    # At least it allows to parse simple SQL queries and built linage for them
+    elif platform == "salesforce":
+        return "databricks"
     elif platform in {"mysql", "mariadb"}:
         # In sqlglot v20+, MySQL is now case-sensitive by default, which is the
         # default behavior on Linux. However, MySQL's default case sensitivity
@@ -31,6 +36,7 @@ def _get_dialect_str(platform: str) -> str:
 def get_dialect(platform: DialectOrStr) -> sqlglot.Dialect:
     if isinstance(platform, sqlglot.Dialect):
         return platform
+
     return sqlglot.Dialect.get_or_raise(_get_dialect_str(platform))
 
 
@@ -56,6 +62,14 @@ def parse_statement(
         sql, dialect=dialect, error_level=sqlglot.ErrorLevel.RAISE
     )
     return statement
+
+
+def _expression_to_string(
+    expression: sqlglot.exp.ExpOrStr, platform: DialectOrStr
+) -> str:
+    if isinstance(expression, str):
+        return expression
+    return expression.sql(dialect=get_dialect(platform))
 
 
 def generalize_query(expression: sqlglot.exp.ExpOrStr, dialect: DialectOrStr) -> str:
@@ -121,24 +135,28 @@ def generate_hash(text: str) -> str:
 
 
 def get_query_fingerprint_debug(
-    expression: sqlglot.exp.ExpOrStr, dialect: DialectOrStr
-) -> Tuple[str, str]:
+    expression: sqlglot.exp.ExpOrStr, platform: DialectOrStr
+) -> Tuple[str, Optional[str]]:
     try:
-        dialect = get_dialect(dialect)
+        dialect = get_dialect(platform)
         expression_sql = generalize_query(expression, dialect=dialect)
     except (ValueError, sqlglot.errors.SqlglotError) as e:
         if not isinstance(expression, str):
             raise
 
         logger.debug("Failed to generalize query for fingerprinting: %s", e)
-        expression_sql = expression
+        expression_sql = None
 
-    fingerprint = generate_hash(expression_sql)
+    fingerprint = generate_hash(
+        expression_sql
+        if expression_sql is not None
+        else _expression_to_string(expression, platform=platform)
+    )
     return fingerprint, expression_sql
 
 
 def get_query_fingerprint(
-    expression: sqlglot.exp.ExpOrStr, dialect: DialectOrStr
+    expression: sqlglot.exp.ExpOrStr, platform: DialectOrStr
 ) -> str:
     """Get a fingerprint for a SQL query.
 
@@ -154,13 +172,40 @@ def get_query_fingerprint(
 
     Args:
         expression: The SQL query to fingerprint.
-        dialect: The SQL dialect to use.
+        platform: The SQL dialect to use.
 
     Returns:
         The fingerprint for the SQL query.
     """
 
-    return get_query_fingerprint_debug(expression, dialect)[0]
+    return get_query_fingerprint_debug(expression, platform)[0]
+
+
+def try_format_query(
+    expression: sqlglot.exp.ExpOrStr, platform: DialectOrStr, raises: bool = False
+) -> str:
+    """Format a SQL query.
+
+    If the query cannot be formatted, the original query is returned unchanged.
+
+    Args:
+        expression: The SQL query to format.
+        platform: The SQL dialect to use.
+        raises: If True, raise an error if the query cannot be formatted.
+
+    Returns:
+        The formatted SQL query.
+    """
+
+    try:
+        dialect = get_dialect(platform)
+        expression = parse_statement(expression, dialect=dialect)
+        return expression.sql(dialect=dialect, pretty=True)
+    except Exception as e:
+        if raises:
+            raise
+        logger.debug("Failed to format query: %s", e)
+        return _expression_to_string(expression, platform=platform)
 
 
 def detach_ctes(

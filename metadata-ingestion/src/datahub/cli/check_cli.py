@@ -1,13 +1,18 @@
+import dataclasses
+import json
 import logging
+import pathlib
 import pprint
 import shutil
 import tempfile
-from typing import List, Optional
+from typing import Dict, List, Optional, Union
 
 import click
 
 from datahub import __package_name__
 from datahub.cli.json_file import check_mce_file
+from datahub.configuration import config_loader
+from datahub.configuration.common import AllowDenyPattern
 from datahub.emitter.mce_builder import DEFAULT_ENV
 from datahub.ingestion.graph.client import get_default_graph
 from datahub.ingestion.run.pipeline import Pipeline
@@ -15,6 +20,7 @@ from datahub.ingestion.sink.sink_registry import sink_registry
 from datahub.ingestion.source.source_registry import source_registry
 from datahub.ingestion.transformer.transform_registry import transform_registry
 from datahub.telemetry import telemetry
+from datahub.utilities.file_backed_collections import ConnectionWrapper, FileBackedList
 
 logger = logging.getLogger(__name__)
 
@@ -170,6 +176,27 @@ def plugins(source: Optional[str], verbose: bool) -> None:
     required=True,
     help="The SQL dialect e.g. bigquery or snowflake",
 )
+def sql_format(sql: str, platform: str) -> None:
+    """Parse a SQL query into an abstract syntax tree (AST)."""
+
+    from datahub.sql_parsing.sqlglot_utils import try_format_query
+
+    click.echo(try_format_query(sql, platform, raises=True))
+
+
+@check.command()
+@click.option(
+    "--sql",
+    type=str,
+    required=True,
+    help="The SQL query to parse",
+)
+@click.option(
+    "--platform",
+    type=str,
+    required=True,
+    help="The SQL dialect e.g. bigquery or snowflake",
+)
 @click.option(
     "--platform-instance",
     type=str,
@@ -222,3 +249,143 @@ def sql_lineage(
         logger.debug("Sql parsing error details", exc_info=lineage.debug_info.error)
 
     click.echo(lineage.json(indent=4))
+
+
+@check.command()
+@click.option(
+    "--config",
+    type=str,
+    help="The DataHub recipe to load",
+)
+@click.option(
+    "--pattern_key",
+    type=str,
+    help="The allow deny pattern key in the config -> source section of the recipe to validate against",
+)
+@click.option(
+    "--input",
+    type=str,
+    help="the input to validate",
+)
+@telemetry.with_telemetry()
+def test_allow_deny(config: str, input: str, pattern_key: str) -> None:
+    """Test input string against AllowDeny pattern in a DataHub recipe.
+
+    This command validates an input string against an AllowDeny pattern in a DataHub recipe.
+    """
+
+    pattern_dict: Optional[Dict] = None
+    recipe_config_dict = config_loader.load_config_file(config)
+    try:
+        source_config = recipe_config_dict.get("source", {}).get("config", {})
+
+        for key in pattern_key.split("."):
+            if pattern_dict is None:
+                pattern_dict = source_config.get(key)
+            else:
+                pattern_dict = pattern_dict.get(key)
+
+        if pattern_dict is None:
+            click.secho(f"{pattern_key} is not defined in the config", fg="red")
+            exit(1)
+
+        allow_deny_pattern = AllowDenyPattern.parse_obj(pattern_dict)
+        if allow_deny_pattern.allowed(input):
+            click.secho(f"✅ {input} is allowed by {pattern_key}", fg="green")
+            exit(0)
+        else:
+            click.secho(f"❌{input} is denied by {pattern_key}", fg="red")
+    except Exception as e:
+        logger.error(f"Failed to validate pattern {pattern_dict} in path {pattern_key}")
+        raise e
+
+
+@check.command()
+@click.option(
+    "--config",
+    type=str,
+    help="The datahub recipe to load",
+)
+@click.option(
+    "--path_spec_key",
+    type=str,
+    help="The path_specs key  in the config -> source section of the recipe to validate against",
+)
+@click.option(
+    "--input",
+    type=str,
+    help="The input to validate",
+)
+@telemetry.with_telemetry()
+def test_path_spec(config: str, input: str, path_spec_key: str) -> None:
+    """Test input path string against PathSpec patterns in a DataHub recipe.
+
+    This command validates an input path string against an PathSpec patterns in a DataHub recipe.
+    """
+
+    from datahub.ingestion.source.data_lake_common.path_spec import PathSpec
+
+    pattern_dicts: Optional[Union[List[Dict], Dict]] = None
+    recipe_config_dict = config_loader.load_config_file(config)
+    try:
+        source_config = recipe_config_dict.get("source", {}).get("config", {})
+
+        for key in path_spec_key.split("."):
+            if pattern_dicts is None:
+                pattern_dicts = source_config.get(key)
+            else:
+                if isinstance(pattern_dicts, dict):
+                    pattern_dicts = pattern_dicts.get(key)
+        allowed = True
+
+        if pattern_dicts is None:
+            click.secho(f"{path_spec_key} is not defined in the config", fg="red")
+            exit(1)
+
+        if isinstance(pattern_dicts, dict):
+            pattern_dicts = [pattern_dicts]
+
+        for pattern_dict in pattern_dicts:
+            path_spec_pattern = PathSpec.parse_obj(pattern_dict)
+            if path_spec_pattern.allowed(input):
+                click.echo(f"{input} is allowed by {path_spec_pattern}")
+            else:
+                allowed = False
+                click.echo(f"{input} is denied by {path_spec_pattern}")
+
+        if allowed:
+            click.secho(f"✅ {input} is allowed by the path_specs", fg="green")
+            exit(0)
+        else:
+            click.secho(f"❌{input} is denied by the path_specs", fg="red")
+
+    except Exception as e:
+        logger.error(
+            f"Failed to validate pattern {pattern_dicts} in path {path_spec_key}"
+        )
+        raise e
+
+
+@check.command()
+@click.argument("query-log-file", type=click.Path(exists=True, dir_okay=False))
+@click.option("--output", type=click.Path())
+def extract_sql_agg_log(query_log_file: str, output: Optional[str]) -> None:
+    """Convert a sqlite db generated by the SqlParsingAggregator into a JSON."""
+
+    from datahub.sql_parsing.sql_parsing_aggregator import LoggedQuery
+
+    assert dataclasses.is_dataclass(LoggedQuery)
+
+    shared_connection = ConnectionWrapper(pathlib.Path(query_log_file))
+    query_log = FileBackedList[LoggedQuery](
+        shared_connection=shared_connection, tablename="stored_queries"
+    )
+    logger.info(f"Extracting {len(query_log)} queries from {query_log_file}")
+    queries = [dataclasses.asdict(query) for query in query_log]
+
+    if output:
+        with open(output, "w") as f:
+            json.dump(queries, f, indent=2, default=str)
+        logger.info(f"Extracted {len(queries)} queries to {output}")
+    else:
+        click.echo(json.dumps(queries, indent=2))

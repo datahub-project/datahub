@@ -34,7 +34,7 @@ def create_owners_list_from_urn_list(
 
 
 def create_mocked_dbt_source() -> DBTCoreSource:
-    ctx = PipelineContext("test-run-id")
+    ctx = PipelineContext(run_id="test-run-id", pipeline_name="dbt-source")
     graph = mock.MagicMock()
     graph.get_ownership.return_value = mce_builder.make_ownership_aspect_from_urn_list(
         ["urn:li:corpuser:test_user"], "AUDIT"
@@ -195,6 +195,30 @@ def test_dbt_entity_emission_configuration():
         "entities_enabled": {"models": "Yes", "seeds": "Only"},
     }
     DBTCoreConfig.parse_obj(config_dict)
+
+
+def test_dbt_config_skip_sources_in_lineage():
+    with pytest.raises(
+        ValidationError,
+        match="skip_sources_in_lineage.*entities_enabled.sources.*set to NO",
+    ):
+        config_dict = {
+            "manifest_path": "dummy_path",
+            "catalog_path": "dummy_path",
+            "target_platform": "dummy_platform",
+            "skip_sources_in_lineage": True,
+        }
+        config = DBTCoreConfig.parse_obj(config_dict)
+
+    config_dict = {
+        "manifest_path": "dummy_path",
+        "catalog_path": "dummy_path",
+        "target_platform": "dummy_platform",
+        "skip_sources_in_lineage": True,
+        "entities_enabled": {"sources": "NO"},
+    }
+    config = DBTCoreConfig.parse_obj(config_dict)
+    assert config.skip_sources_in_lineage is True
 
 
 def test_dbt_s3_config():

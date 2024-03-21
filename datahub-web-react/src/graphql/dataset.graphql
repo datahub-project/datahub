@@ -164,9 +164,7 @@ fragment nonSiblingDatasetFields on Dataset {
         total
     }
     privileges {
-        canEditLineage
-        canEditEmbed
-        canEditQueries
+        ...entityPrivileges
     }
     forms {
         ...formsFields
@@ -230,6 +228,7 @@ fragment viewProperties on Dataset {
     viewProperties {
         materialized
         logic
+        formattedLogic
         language
     }
 }
