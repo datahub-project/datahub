@@ -407,8 +407,12 @@ class DBTCommonConfig(
     def validate_skip_sources_in_lineage(
         cls, skip_sources_in_lineage: bool, values: Dict
     ) -> bool:
-        entites_enabled: DBTEntitiesEnabled = values["entities_enabled"]
-        if skip_sources_in_lineage and entites_enabled.sources == EmitDirective.YES:
+        entites_enabled: DBTEntitiesEnabled = values.get("entities_enabled")
+        if (
+            skip_sources_in_lineage
+            and entites_enabled
+            and entites_enabled.sources == EmitDirective.YES
+        ):
             raise ValueError(
                 "When `skip_sources_in_lineage` is enabled, `entities_enabled.sources` must be set to NO."
             )
