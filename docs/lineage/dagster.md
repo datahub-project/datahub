@@ -27,35 +27,21 @@ pip install acryl_datahub_dagster_plugin
 **Using Definitions class:**
 
 ```python
-from dagster import Definitions
-from datahub_dagster_plugin.sensors.datahub_sensors import DagsterSourceConfig, make_datahub_sensor
-
-config = DagsterSourceConfig(
-    rest_sink_config={
-        "server": "https://your_datahub_url/gms",
-        "token": "your_datahub_token"
-    },
-    dagster_url = "https://my-dagster-cloud.dagster.cloud",
-)
-
-datahub_sensor = make_datahub_sensor(config=config)    
-
-defs = Definitions(
-    sensors=[datahub_sensor],
-)
+{{ inline /metadata-ingestion-modules/dagster-plugin/src/datahub_dagster_plugin/example_jobs/basic_setup.py }}
 ```
 
 3. The DataHub dagster plugin provided sensor internally uses below configs. You can set these configs using environment variables. If not set, the sensor will take the default value.
 
    **Configuration options:**
 
-   | Configuration Option          | Default value | Description                                                                                                                                                                                                                                                                                                                          |
-   |-------------------------------|---------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-   | rest_sink_config              |               | The rest sink config                                                                                                                                                                                                                                                                                                                 |
-   | dagster_url                   |               | The url to your Dagster Webserver.                                                                                                                                                                                                                                                                                                   |
-   | capture_asset_materialization | True          | Whether to capture asset keys as Dataset on AssetMaterialization event                                                                                                                                                                                                                                                               |
+   | Configuration Option          | Default value | Description                                                                                                                                                                                                                                                                                                                       |
+   |-------------------------------|---------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+   | datahub_client_config         |               | The DataHub client config                                                                                                                                                                                                                                                                                                         |
+   | dagster_url                   |               | The url to your Dagster Webserver.                                                                                                                                                                                                                                                                                                |
+   | capture_asset_materialization | True          | Whether to capture asset keys as Dataset on AssetMaterialization event                                                                                                                                                                                                                                                            |
    | capture_input_output          | True          | Whether to capture and try to parse input and output from HANDLED_OUTPUT,.LOADED_INPUT events. (currently only [PathMetadataValue](https://github.com/dagster-io/dagster/blob/7e08c05dcecef9fd07f887c7846bd1c9a90e7d84/python_modules/dagster/dagster/_core/definitions/metadata/__init__.py#L655) metadata supported (EXPERIMENTAL) |
-   | platform_instance          |           | The instance of the platform that all assets produced by this recipe belong to. It is optional                                                                                                                                                                                                                                       |
+   | platform_instance             |           | The instance of the platform that all assets produced by this recipe belong to. It is optional                                                                                                                                                                                                                                    |
+   | asset_lineage_extractor             |           | You can implement your own logic to capture asset lineage information. See example for details[]                                                                                                                                                                                                                                  |
 
 4. Once Dagster UI is up, you need to turn on the provided sensor execution. To turn on the sensor, click on Overview tab and then on Sensors tab. You will see a toggle button in front of all defined sensors to turn it on/off.
 
@@ -74,6 +60,27 @@ datahub_sensor - Emitting metadata...
 
 We can provide inputs and outputs to both assets and ops explicitly using a dictionary of `Ins` and `Out` corresponding to the decorated function arguments. While providing inputs and outputs explicitly we can provide metadata as well.
 To create dataset upstream and downstream dependency for the assets and ops you can use an ins and out dictionary with metadata provided. For reference, look at the sample jobs created using assets [`assets_job.py`](../../metadata-ingestion-modules/dagster-plugin/src/datahub_dagster_plugin/example_jobs/assets_job.py), or ops [`ops_job.py`](../../metadata-ingestion-modules/dagster-plugin/src/datahub_dagster_plugin/example_jobs/ops_job.py).
+
+## Add define your custom logic to capture asset lineage information
+You can define your own logic to capture asset lineage information. 
+
+The output Tuple contains two dictionaries, one for input assets and the other for output assets. The key of the dictionary is the op key and the value is the set of asset urns that are upstream or downstream of the op.
+
+```python
+def asset_lineage_extractor(
+    context: RunStatusSensorContext,
+    dagster_generator: DagsterGenerator,
+    graph: DataHubGraph,
+) -> Tuple[Dict[str, Set], Dict[str, Set]]:
+
+    input_assets:Dict[str, Set] = {}
+    output_assets:Dict[str, Set] = {}
+
+    # Extracting input and output assets from the context
+    return input_assets, output_assets
+```
+
+[See example job here](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion-modules/dagster-plugin/src/datahub_dagster_plugin/example_jobs/advanced_ops_jobs.py).
 
 ## Debugging
 

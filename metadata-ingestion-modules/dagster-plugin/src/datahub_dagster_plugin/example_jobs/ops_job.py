@@ -2,7 +2,7 @@ from dagster import Definitions, In, Out, PythonObjectDagsterType, job, op
 from datahub.utilities.urns.dataset_urn import DatasetUrn
 
 from datahub_dagster_plugin.sensors.datahub_sensors import (
-    DagsterSourceConfig,
+    DatahubDagsterSourceConfig,
     make_datahub_sensor,
 )
 
@@ -38,7 +38,7 @@ def do_stuff():
     transform(extract())
 
 
-config = DagsterSourceConfig.parse_obj(
+config = DatahubDagsterSourceConfig.parse_obj(
     {
         "rest_sink_config": {
             "server": "http://localhost:8080",
