@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 from great_expectations.checkpoint.actions import ValidationAction
 from great_expectations.core.batch import Batch
 from great_expectations.core.batch_spec import (
+    RuntimeDataBatchSpec,
     RuntimeQueryBatchSpec,
     SqlAlchemyDatasourceBatchSpec,
 )
@@ -24,6 +25,7 @@ from great_expectations.data_context.types.resource_identifiers import (
     ExpectationSuiteIdentifier,
     ValidationResultIdentifier,
 )
+from great_expectations.execution_engine import PandasExecutionEngine
 from great_expectations.execution_engine.sqlalchemy_execution_engine import (
     SqlAlchemyExecutionEngine,
 )
@@ -566,10 +568,12 @@ class DataHubValidationAction(ValidationAction):
 
         logger.debug("Finding datasets being validated")
 
-        # for now, we support only v3-api and sqlalchemy execution engine
-        if isinstance(data_asset, Validator) and isinstance(
-            data_asset.execution_engine, SqlAlchemyExecutionEngine
-        ):
+        # for now, we support only v3-api and sqlalchemy execution engine and Pandas engine
+        is_sql_alchemy = isinstance(data_asset, Validator) and (
+            isinstance(data_asset.execution_engine, SqlAlchemyExecutionEngine)
+        )
+        is_pandas = isinstance(data_asset.execution_engine, PandasExecutionEngine)
+        if is_sql_alchemy or is_pandas:
             ge_batch_spec = data_asset.active_batch_spec
             partitionSpec = None
             batchSpecProperties = {
@@ -581,10 +585,14 @@ class DataHubValidationAction(ValidationAction):
                 ),
             }
             sqlalchemy_uri = None
-            if isinstance(data_asset.execution_engine.engine, Engine):
+            if is_sql_alchemy and isinstance(
+                data_asset.execution_engine.engine, Engine
+            ):
                 sqlalchemy_uri = data_asset.execution_engine.engine.url
             # For snowflake sqlalchemy_execution_engine.engine is actually instance of Connection
-            elif isinstance(data_asset.execution_engine.engine, Connection):
+            elif is_sql_alchemy and isinstance(
+                data_asset.execution_engine.engine, Connection
+            ):
                 sqlalchemy_uri = data_asset.execution_engine.engine.engine.url
 
             if isinstance(ge_batch_spec, SqlAlchemyDatasourceBatchSpec):
@@ -680,6 +688,30 @@ class DataHubValidationAction(ValidationAction):
                             "batchSpec": batchSpec,
                         }
                     )
+            elif isinstance(ge_batch_spec, RuntimeDataBatchSpec):
+                data_platform = self.get_platform_instance(
+                    data_asset.active_batch_definition.datasource_name
+                )
+                dataset_urn = builder.make_dataset_urn_with_platform_instance(
+                    platform=data_platform
+                    if self.platform_alias is None
+                    else self.platform_alias,
+                    name=data_asset.active_batch_definition.datasource_name,
+                    platform_instance="",
+                    env=self.env,
+                )
+                batchSpec = BatchSpec(
+                    nativeBatchId=batch_identifier,
+                    query="",
+                    customProperties=batchSpecProperties,
+                )
+                dataset_partitions.append(
+                    {
+                        "dataset_urn": dataset_urn,
+                        "partitionSpec": partitionSpec,
+                        "batchSpec": batchSpec,
+                    }
+                )
             else:
                 warn(
                     "DataHubValidationAction does not recognize this GE batch spec type- {batch_spec_type}.".format(
