@@ -135,8 +135,8 @@ conn_id = datahub_rest_default  # or datahub_kafka_default
 | capture_ownership_info | true                 | If true, the owners field of the DAG will be capture as a DataHub corpuser.                                                                                                            |
 | capture_tags_info      | true                 | If true, the tags field of the DAG will be captured as DataHub tags.                                                                                                                   |
 | capture_executions     | true                 | If true, we'll capture task runs in DataHub in addition to DAG definitions.                                                                                                            |
-| datajob_url_link       | taskinstance         | If taskinstance, the datajob url will be taskinstance link on airflow. It can also be grid. 
-                                                                  |
+| datajob_url_link       | taskinstance         | If taskinstance, the datajob url will be taskinstance link on airflow. It can also be grid.                                                                                            |
+|                        |
 | graceful_exceptions    | true                 | If set to true, most runtime errors in the lineage backend will be suppressed and will not cause the overall task to fail. Note that configuration issues will still throw exceptions. |
 
 #### Validate that the plugin is working
@@ -261,6 +261,18 @@ TypeError: on_task_instance_success() missing 3 required positional arguments: '
 ```
 
 The solution is to upgrade `acryl-datahub-airflow-plugin>=0.12.0.4` or upgrade `pluggy>=1.2.0`. See this [PR](https://github.com/datahub-project/datahub/pull/9365) for details.
+
+### Broken plugin: cannot import name 'JobTypeJobFacet'
+
+This is an issue with the Airflow OpenLineage provider, and does not impact the functionality of the DataHub Airflow plugin.
+The error message can safely be ignored, and our plugin will continue to work as expected.
+
+The underlying issue is a [change](https://github.com/apache/airflow/pull/37255) made in the Airflow OpenLineage provider, which makes it incompatible with older versions of `openlineage-python`.
+
+The error message, while harmless, can be suppressed in one of two ways:
+
+1. Set an environment variable: `OPENLINEAGE_DISABLED=true` (recommended)
+2. Downgrade the incompatible package: `apache-airflow-providers-openlineage==1.5.0`
 
 ## Compatibility
 
