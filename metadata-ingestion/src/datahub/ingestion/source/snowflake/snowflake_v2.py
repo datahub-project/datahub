@@ -1,10 +1,10 @@
+import functools
 import json
 import logging
 import os
 import os.path
 import platform
 from dataclasses import dataclass
-from functools import partial
 from typing import Callable, Dict, Iterable, List, Optional, Union
 
 from snowflake.connector import SnowflakeConnection
@@ -510,10 +510,8 @@ class SnowflakeV2Source(
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
         return [
             *super().get_workunit_processors(),
-            partial(
-                auto_incremental_lineage,
-                self.ctx.graph,
-                self.config.incremental_lineage,
+            functools.partial(
+                auto_incremental_lineage, self.config.incremental_lineage
             ),
             StaleEntityRemovalHandler.create(
                 self, self.config, self.ctx
