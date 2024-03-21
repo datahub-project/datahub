@@ -45,9 +45,10 @@ public class DatasetUsageStatsResolver implements DataFetcher<CompletableFuture<
                 usageClient.getUsageStats(resourceUrn.toString(), range);
             return UsageQueryResultMapper.map(usageQueryResult);
           } catch (Exception e) {
-            throw new RuntimeException(
-                String.format("Failed to load Usage Stats for resource %s", resourceUrn), e);
+            log.error(String.format("Failed to load Usage Stats for resource %s", resourceUrn), e);
           }
+
+          return UsageQueryResultMapper.EMPTY;
         });
   }
 }
