@@ -295,14 +295,18 @@ test_cases = [
         *[
             pytest.param(
                 # On Airflow 2.3-2.4, test plugin v2 without dataFlows.
-                f"v2_{test_case.dag_id}"
-                if HAS_AIRFLOW_DAG_LISTENER_API
-                else f"v2_{test_case.dag_id}_no_dag_listener",
+                (
+                    f"v2_{test_case.dag_id}"
+                    if HAS_AIRFLOW_DAG_LISTENER_API
+                    else f"v2_{test_case.dag_id}_no_dag_listener"
+                ),
                 test_case,
                 False,
-                id=f"v2_{test_case.dag_id}"
-                if HAS_AIRFLOW_DAG_LISTENER_API
-                else f"v2_{test_case.dag_id}_no_dag_listener",
+                id=(
+                    f"v2_{test_case.dag_id}"
+                    if HAS_AIRFLOW_DAG_LISTENER_API
+                    else f"v2_{test_case.dag_id}_no_dag_listener"
+                ),
                 marks=pytest.mark.skipif(
                     not HAS_AIRFLOW_LISTENER_API,
                     reason="Cannot test plugin v2 without the Airflow plugin listener API",
@@ -367,12 +371,7 @@ def test_airflow_plugin(
         output_path=airflow_instance.metadata_file,
         golden_path=golden_path,
         ignore_paths=[
-            # Timing-related items.
-            # r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]\['start_date'\]",
-            # r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]\['end_date'\]",
-            # r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]\['duration'\]",
             # TODO: If we switched to Git urls, maybe we could get this to work consistently.
-            # r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]\['fileloc'\]",
             r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]\['openlineage_.*'\]",
         ],
     )

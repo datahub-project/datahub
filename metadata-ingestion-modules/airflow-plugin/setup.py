@@ -82,6 +82,7 @@ dev_requirements = {
     "pytest-asyncio>=0.16.0",
     "pytest-cov>=2.8.1",
     "tox",
+    "tox-uv",
     "deepdiff",
     "tenacity",
     "requests-mock",
