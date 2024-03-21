@@ -12,7 +12,6 @@ import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
-import com.linkedin.structured.PrimitivePropertyValue;
 import com.linkedin.structured.PrimitivePropertyValueArray;
 import java.util.Objects;
 import javax.annotation.Nonnull;
@@ -37,14 +36,7 @@ public class FormUtils {
     input
         .getStructuredPropertyParams()
         .getValues()
-        .forEach(
-            value -> {
-              if (value.getStringValue() != null) {
-                values.add(PrimitivePropertyValue.create(value.getStringValue()));
-              } else if (value.getNumberValue() != null) {
-                values.add(PrimitivePropertyValue.create(value.getNumberValue().doubleValue()));
-              }
-            });
+        .forEach(value -> values.add(StructuredPropertyUtils.mapPropertyValueInput(value)));
 
     return values;
   }

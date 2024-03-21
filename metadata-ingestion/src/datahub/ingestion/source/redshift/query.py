@@ -53,7 +53,11 @@ SELECT  schemaname as schema_name,
         ORDER BY SCHEMA_NAME;
         """
 
-    list_tables: str = """
+    @staticmethod
+    def list_tables(
+        skip_external_tables: bool = False,
+    ) -> str:
+        tables_query = """
  SELECT  CASE c.relkind
                 WHEN 'r' THEN 'TABLE'
                 WHEN 'v' THEN 'VIEW'
@@ -90,7 +94,8 @@ SELECT  schemaname as schema_name,
         WHERE c.relkind IN ('r','v','m','S','f')
         AND   n.nspname !~ '^pg_'
         AND   n.nspname != 'information_schema'
-        UNION
+"""
+        external_tables_query = """
         SELECT 'EXTERNAL_TABLE' as tabletype,
             NULL AS "schema_oid",
             schemaname AS "schema",
@@ -112,6 +117,11 @@ SELECT  schemaname as schema_name,
         ORDER BY "schema",
                 "relname"
 """
+        if skip_external_tables:
+            return tables_query
+        else:
+            return f"{tables_query} UNION {external_tables_query}"
+
     list_columns: str = """
             SELECT
               n.nspname as "schema",
