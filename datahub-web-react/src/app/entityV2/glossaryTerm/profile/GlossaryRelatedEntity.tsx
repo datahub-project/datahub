@@ -45,7 +45,7 @@ export default function GlossaryRelatedEntity() {
                 filters: fixedOrFilters,
             }}
             emptySearchQuery="*"
-            placeholderText="Filter entities..."
+            placeholderText="Filter assets..."
             skipCache
             applyView
         />

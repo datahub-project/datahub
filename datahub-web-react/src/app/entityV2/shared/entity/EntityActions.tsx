@@ -217,17 +217,17 @@ function EntityActions(props: Props) {
             <ButtonWrapper>
                 {actionItems.has(EntityActionItem.BATCH_ADD_GLOSSARY_TERM) && (
                     <TransparentButton size="large" onClick={() => setIsBatchAddGlossaryTermModalVisible(true)}>
-                        <LinkOutlined /> Add to assets
+                        <LinkOutlined /> Add to Assets
                     </TransparentButton>
                 )}
                 {actionItems.has(EntityActionItem.BATCH_ADD_DOMAIN) && (
                     <TransparentButton size="large" onClick={() => setIsBatchSetDomainModalVisible(true)}>
-                        <LinkOutlined /> Add assets
+                        <LinkOutlined /> Add Assets
                     </TransparentButton>
                 )}
                 {actionItems.has(EntityActionItem.BATCH_ADD_DATA_PRODUCT) && (
                     <TransparentButton size="large" onClick={() => setIsBatchSetDataProductModalVisible(true)}>
-                        <LinkOutlined /> Add assets
+                        <LinkOutlined /> Add Assets
                     </TransparentButton>
                 )}
                 {actionItems.has(EntityActionItem.ADD_CHILD_GLOSSARY_TERM) && (
