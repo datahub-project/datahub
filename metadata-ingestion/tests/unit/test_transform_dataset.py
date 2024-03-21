@@ -3079,7 +3079,9 @@ def test_clean_owner_urn_transformation_remove_pattern(mock_datahub_graph):
     _test_clean_owner_urns(pipeline_context, in_owner_urns, config, expected_owner_urns)
 
 
-def test_clean_owner_urn_transformation_remove_capital_letters(mock_datahub_graph):
+def test_clean_owner_urn_transformation_remove_word_in_capital_letters(
+    mock_datahub_graph,
+):
     pipeline_context = PipelineContext(run_id="transformer_pipe_line")
     pipeline_context.graph = mock_datahub_graph(DatahubClientConfig())
 
@@ -3091,6 +3093,7 @@ def test_clean_owner_urn_transformation_remove_capital_letters(mock_datahub_grap
         "email_test:XYZ@example.com",
         "email_id:id1@example.com",
         "email_id:id2@example.com",
+        "email_test:XYabZ@example.com",
     ]
 
     in_owner_urns: List[str] = []
@@ -3099,7 +3102,7 @@ def test_clean_owner_urn_transformation_remove_capital_letters(mock_datahub_grap
             builder.make_owner_urn(user, owner_type=builder.OwnerType.USER)
         )
 
-    # remove any CAPITAL chars between `:` and `@`
+    # if string between `:` and `@` is in CAPITAL then remove it
     config: List[Union[re.Pattern, str]] = ["(?<=:)[A-Z]+(?=@)"]
     expected_user_emails: List[str] = [
         "ABCDEF:email_id@example.com",
@@ -3109,6 +3112,7 @@ def test_clean_owner_urn_transformation_remove_capital_letters(mock_datahub_grap
         "email_test:@example.com",
         "email_id:id1@example.com",
         "email_id:id2@example.com",
+        "email_test:XYabZ@example.com",
     ]
     expected_owner_urns: List[str] = []
     for user in expected_user_emails:
