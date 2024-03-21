@@ -3,5 +3,10 @@ entities:
     keyAspect: datasetKey
     aspects:
       - editableSchemaMetadata
+  - name: schemaField
+    category: core
+    keyAspect: schemaFieldKey
+    aspects:
+      - businessAttributes
 events:
   - name: entityChangeEvent

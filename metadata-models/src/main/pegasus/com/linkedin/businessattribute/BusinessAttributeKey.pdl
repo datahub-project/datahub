@@ -8,7 +8,7 @@ namespace com.linkedin.businessattribute
 }
 record BusinessAttributeKey {
   /**
-  * A unique id for the Data Product.
+  * A unique id for the Business Attribute.
   */
   id: string
 }

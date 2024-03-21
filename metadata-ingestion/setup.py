@@ -34,7 +34,7 @@ framework_common = {
     "importlib_metadata>=4.0.0; python_version < '3.10'",
     "docker",
     "expandvars>=0.6.5",
-    "avro-gen3==0.7.11",
+    "avro-gen3==0.7.12",
     # "avro-gen3 @ git+https://github.com/acryldata/avro_gen@master#egg=avro-gen3",
     "avro>=1.11.3,<1.12",
     "python-dateutil>=2.8.0",
@@ -99,7 +99,11 @@ usage_common = {
 sqlglot_lib = {
     # Using an Acryl fork of sqlglot.
     # https://github.com/tobymao/sqlglot/compare/main...hsheth2:sqlglot:hsheth?expand=1
-    "acryl-sqlglot==21.1.2.dev10",
+    "acryl-sqlglot==22.4.1.dev4",
+}
+
+classification_lib = {
+    "acryl-datahub-classify==0.0.9",
 }
 
 sql_common = (
@@ -121,6 +125,7 @@ sql_common = (
     }
     | usage_common
     | sqlglot_lib
+    | classification_lib
 )
 
 sqllineage_lib = {
@@ -175,7 +180,7 @@ redshift_common = {
     # Clickhouse 0.8.3 adds support for SQLAlchemy 1.4.x
     "sqlalchemy-redshift>=0.8.3",
     "GeoAlchemy2",
-    "redshift-connector",
+    "redshift-connector>=2.1.0",
     *sqllineage_lib,
     *path_spec_common,
 }
@@ -190,8 +195,7 @@ snowflake_common = {
     "pandas",
     "cryptography",
     "msal",
-    "acryl-datahub-classify==0.0.9",
-}
+} | classification_lib
 
 trino = {
     "trino[sqlalchemy]>=0.308",
@@ -298,7 +302,8 @@ plugins: Dict[str, Set[str]] = {
     | {
         *sqlglot_lib,
         "google-cloud-datacatalog-lineage==0.2.2",
-    },
+    }
+    | classification_lib,
     "clickhouse": sql_common | clickhouse_common,
     "clickhouse-usage": sql_common | usage_common | clickhouse_common,
     "datahub-lineage-file": set(),
@@ -366,6 +371,8 @@ plugins: Dict[str, Set[str]] = {
     | redshift_common
     | usage_common
     | sqlglot_lib
+    | classification_lib
+    | {"db-dtypes"}  # Pandas extension data types
     | {"cachetools"},
     "s3": {*s3_base, *data_lake_profiling},
     "gcs": {*s3_base, *data_lake_profiling},

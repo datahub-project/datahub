@@ -230,6 +230,7 @@ fragment viewProperties on Dataset {
     viewProperties {
         materialized
         logic
+        formattedLogic
         language
     }
 }
@@ -288,11 +289,6 @@ fragment datasetSchema on Dataset {
             }
             glossaryTerms {
                 ...glossaryTerms
-            }
-            businessAttributes {
-                businessAttribute {
-                    ...businessAttribute
-                }
             }
         }
     }

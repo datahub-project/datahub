@@ -1,3 +1,4 @@
+import collections
 import logging
 import traceback
 from typing import Callable, Dict, Iterable, List, Optional, Set, Tuple, Union
@@ -12,7 +13,11 @@ from datahub.ingestion.source.redshift.lineage import (
     LineageCollectorType,
     RedshiftLineageExtractor,
 )
-from datahub.ingestion.source.redshift.query import RedshiftQuery
+from datahub.ingestion.source.redshift.query import (
+    RedshiftCommonQuery,
+    RedshiftProvisionedQuery,
+    RedshiftServerlessQuery,
+)
 from datahub.ingestion.source.redshift.redshift_schema import (
     LineageRow,
     RedshiftDataDictionary,
@@ -55,13 +60,17 @@ class RedshiftSqlLineageV2:
             platform_instance=self.config.platform_instance,
             env=self.config.env,
             generate_lineage=True,
-            generate_queries=True,
-            generate_usage_statistics=True,
-            generate_operations=True,
+            generate_queries=self.config.lineage_v2_generate_queries,
+            generate_usage_statistics=False,
+            generate_operations=False,
             usage_config=self.config,
             graph=self.context.graph,
         )
         self.report.sql_aggregator = self.aggregator.report
+
+        self.queries: RedshiftCommonQuery = RedshiftProvisionedQuery()
+        if self.config.is_serverless:
+            self.queries = RedshiftServerlessQuery()
 
         self._lineage_v1 = RedshiftLineageExtractor(
             config=config,
@@ -116,7 +125,9 @@ class RedshiftSqlLineageV2:
             table_renames, _ = self._lineage_v1._process_table_renames(
                 database=self.database,
                 connection=connection,
-                all_tables={},
+                all_tables=collections.defaultdict(
+                    lambda: collections.defaultdict(set)
+                ),
             )
             for new_urn, original_urn in table_renames.items():
                 self.aggregator.add_table_rename(
@@ -128,7 +139,7 @@ class RedshiftSqlLineageV2:
             LineageMode.MIXED,
         }:
             # Populate lineage by parsing table creating sqls
-            query = RedshiftQuery.list_insert_create_queries_sql(
+            query = self.queries.list_insert_create_queries_sql(
                 db_name=self.database,
                 start_time=self.start_time,
                 end_time=self.end_time,
@@ -145,7 +156,7 @@ class RedshiftSqlLineageV2:
             LineageMode.MIXED,
         }:
             # Populate lineage by getting upstream tables from stl_scan redshift table
-            query = RedshiftQuery.stl_scan_based_lineage_query(
+            query = self.queries.stl_scan_based_lineage_query(
                 self.database,
                 self.start_time,
                 self.end_time,
@@ -156,13 +167,13 @@ class RedshiftSqlLineageV2:
 
         if self.config.include_views and self.config.include_view_lineage:
             # Populate lineage for views
-            query = RedshiftQuery.view_lineage_query()
+            query = self.queries.view_lineage_query()
             populate_calls.append(
                 (LineageCollectorType.VIEW, query, self._process_view_lineage)
             )
 
             # Populate lineage for late binding views
-            query = RedshiftQuery.list_late_view_ddls_query()
+            query = self.queries.list_late_view_ddls_query()
             populate_calls.append(
                 (
                     LineageCollectorType.VIEW_DDL_SQL_PARSING,
@@ -173,7 +184,7 @@ class RedshiftSqlLineageV2:
 
         if self.config.include_copy_lineage:
             # Populate lineage for copy commands.
-            query = RedshiftQuery.list_copy_commands_sql(
+            query = self.queries.list_copy_commands_sql(
                 db_name=self.database,
                 start_time=self.start_time,
                 end_time=self.end_time,
@@ -184,7 +195,7 @@ class RedshiftSqlLineageV2:
 
         if self.config.include_unload_lineage:
             # Populate lineage for unload commands.
-            query = RedshiftQuery.list_unload_commands_sql(
+            query = self.queries.list_unload_commands_sql(
                 db_name=self.database,
                 start_time=self.start_time,
                 end_time=self.end_time,
@@ -268,7 +279,11 @@ class RedshiftSqlLineageV2:
             platform_instance=self.config.platform_instance,
         )
 
-        assert lineage_row.ddl, "stl scan entry is missing query text"
+        if lineage_row.ddl is None:
+            logger.warning(
+                f"stl scan entry is missing query text for {lineage_row.source_schema}.{lineage_row.source_table}"
+            )
+            return
         self.aggregator.add_known_query_lineage(
             KnownQueryLineageInfo(
                 query_text=lineage_row.ddl,

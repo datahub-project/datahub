@@ -1,7 +1,7 @@
 namespace com.linkedin.businessattribute
 
 import com.linkedin.schema.SchemaFieldDataType
-import com.linkedin.schema.EditableSchemaFieldBase
+import com.linkedin.schema.EditableSchemaFieldInfo
 import com.linkedin.common.CustomProperties
 import com.linkedin.common.ChangeAuditStamps
 
@@ -11,7 +11,7 @@ import com.linkedin.common.ChangeAuditStamps
 @Aspect = {
    "name": "businessAttributeInfo"
 }
-record BusinessAttributeInfo includes EditableSchemaFieldBase, CustomProperties, ChangeAuditStamps {
+record BusinessAttributeInfo includes EditableSchemaFieldInfo, CustomProperties, ChangeAuditStamps {
    /**
    * Display name of the BusinessAttribute
    */
@@ -19,7 +19,6 @@ record BusinessAttributeInfo includes EditableSchemaFieldBase, CustomProperties,
     "fieldType": "WORD_GRAM",
     "enableAutocomplete": true,
     "boostScore": 10.0,
-    "fieldNameAliases": [ "_entityName" ]
   }
   name: string
   type: optional SchemaFieldDataType

@@ -27,6 +27,8 @@ describe('DataJobFlowTab', () => {
                             routeToTab: vi.fn(),
                             refetch: vi.fn(),
                             lineage: undefined,
+                            loading: true,
+                            dataNotCombinedWithSiblings: null,
                         }}
                     >
                         <DataJobFlowTab />

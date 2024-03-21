@@ -24,7 +24,7 @@ from datahub.ingestion.source.sql.two_tier_sql_source import (
     TwoTierSQLAlchemyConfig,
     TwoTierSQLAlchemySource,
 )
-from datahub.metadata._schema_classes import BytesTypeClass
+from datahub.metadata.schema_classes import BytesTypeClass
 
 SET.__repr__ = util.generic_repr  # type:ignore
 
@@ -66,6 +66,11 @@ class MySQLConfig(MySQLConnectionConfig, TwoTierSQLAlchemyConfig):
 @capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
 @capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")
 @capability(SourceCapability.DELETION_DETECTION, "Enabled via stateful ingestion")
+@capability(
+    SourceCapability.CLASSIFICATION,
+    "Optionally enabled via `classification.enabled`",
+    supported=True,
+)
 class MySQLSource(TwoTierSQLAlchemySource):
     """
     This plugin extracts the following:

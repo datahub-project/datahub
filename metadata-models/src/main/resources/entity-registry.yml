@@ -450,6 +450,7 @@ entities:
     aspects:
       - structuredProperties
       - forms
+      - businessAttributes
   - name: globalSettings
     doc: Global settings for an the platform
     category: internal

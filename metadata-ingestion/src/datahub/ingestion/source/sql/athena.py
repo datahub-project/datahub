@@ -291,6 +291,11 @@ class AthenaConfig(SQLCommonConfig):
 )
 @capability(SourceCapability.LINEAGE_COARSE, "Supported for S3 tables")
 @capability(SourceCapability.DESCRIPTIONS, "Enabled by default")
+@capability(
+    SourceCapability.CLASSIFICATION,
+    "Optionally enabled via `classification.enabled`",
+    supported=True,
+)
 class AthenaSource(SQLAlchemySource):
     """
     This plugin supports extracting the following metadata from Athena

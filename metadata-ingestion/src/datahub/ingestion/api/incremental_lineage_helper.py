@@ -1,6 +1,9 @@
 import copy
 from typing import Dict, Iterable, Optional
 
+from pydantic.fields import Field
+
+from datahub.configuration.common import ConfigModel
 from datahub.emitter.mce_builder import datahub_guid, set_aspect
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -23,6 +26,8 @@ def convert_upstream_lineage_to_patch(
     patch_builder = DatasetPatchBuilder(urn, system_metadata)
     for upstream in aspect.upstreams:
         patch_builder.add_upstream_lineage(upstream)
+    for fine_upstream in aspect.fineGrainedLineages or []:
+        patch_builder.add_fine_grained_upstream_lineage(fine_upstream)
     mcp = next(iter(patch_builder.build()))
     return MetadataWorkUnit(id=f"{urn}-upstreamLineage", mcp_raw=mcp)
 
@@ -125,6 +130,7 @@ def auto_incremental_lineage(
                 if len(wu.metadata.proposedSnapshot.aspects) > 0:
                     yield wu
 
+            # TODO: Replace with CLL patch now that we have support for it.
             if lineage_aspect.fineGrainedLineages:
                 if graph is None:
                     raise ValueError(
@@ -140,3 +146,10 @@ def auto_incremental_lineage(
                 )
         else:
             yield wu
+
+
+class IncrementalLineageConfigMixin(ConfigModel):
+    incremental_lineage: bool = Field(
+        default=False,
+        description="When enabled, emits lineage as incremental to existing lineage already in DataHub. When disabled, re-states lineage on each run.",
+    )
