@@ -1,10 +1,10 @@
 import datetime
+import logging
 import re
 import time
 from dataclasses import dataclass
 from typing import Dict, Iterable
 
-import click
 from pydantic import Field
 
 from datahub.configuration.common import ConfigModel, OperationalError
@@ -17,6 +17,8 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+
+logger = logging.getLogger(__name__)
 
 
 class DataHubGcSourceConfig(ConfigModel):
@@ -31,6 +33,10 @@ class DataHubGcSourceConfig(ConfigModel):
     truncate_index_older_than_days: int = Field(
         default=30,
         description="Indices older than this number of days will be truncated",
+    )
+    truncation_watch_until: int = Field(
+        default=10000,
+        description="Wait for truncation of indices until this number of documents are left",
     )
 
 
@@ -69,11 +75,13 @@ class DataHubGcSource(Source):
     def truncate_indices(self) -> None:
         self._truncate_timeseries_helper(aspect_name="operation", entity_type="dataset")
         self._truncate_timeseries_helper(
-            aspect_name="datasetusage", entity_type="dataset"
+            aspect_name="datasetusagestatistics", entity_type="dataset"
         )
-        self._truncate_timeseries_helper(aspect_name="chartusage", entity_type="chart")
         self._truncate_timeseries_helper(
-            aspect_name="dashboardusage", entity_type="dashboard"
+            aspect_name="chartUsageStatistics", entity_type="chart"
+        )
+        self._truncate_timeseries_helper(
+            aspect_name="dashboardUsageStatistics", entity_type="dashboard"
         )
 
     def _truncate_timeseries_helper(self, aspect_name: str, entity_type: str) -> None:
@@ -105,14 +113,14 @@ class DataHubGcSource(Source):
                 to_delete, total = re.findall(r"\d+", val)[:2]
                 to_delete = int(to_delete)
                 if to_delete <= 0:
-                    click.echo("Nothing to delete.")
+                    logger.info("Nothing to delete.")
                     return
-                click.echo(f"to_delete {to_delete} / {total}")
+                logger.info(f"to_delete {to_delete} / {total}")
                 if to_delete == prev_to_delete:
-                    click.echo("Seems to be stuck. Ending the loop.")
+                    logger.info("Seems to be stuck. Ending the loop.")
                     break
-                elif to_delete < 50000:
-                    click.echo("Too small truncation. Not going to watch.")
+                elif to_delete < self.config.truncation_watch_until:
+                    logger.info("Too small truncation. Not going to watch.")
                     return
                 else:
                     time.sleep(60)
@@ -142,7 +150,7 @@ class DataHubGcSource(Source):
 
         gms_url = graph._gms_server
         if not dry_run:
-            click.echo(
+            logger.info(
                 f"Going to truncate timeseries for {aspect} for {gms_url} older than {days_ago} days"
             )
         days_ago_millis = self.x_days_ago_millis(days_ago)
@@ -157,7 +165,7 @@ class DataHubGcSource(Source):
                     "dryRun": dry_run,
                 },
             )
-            # click.echo(f"Response: {response}")
+            # logger.info(f"Response: {response}")
         except OperationalError:
             response = graph._post_generic(
                 url=url,
@@ -169,7 +177,7 @@ class DataHubGcSource(Source):
                     "forceDeleteByQuery": True,
                 },
             )
-            # click.echo(f"Response: {response}")
+            # logger.info(f"Response: {response}")
         return response
 
     def revoke_expired_tokens(self) -> None:
