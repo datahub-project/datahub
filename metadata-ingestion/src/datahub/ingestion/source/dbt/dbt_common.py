@@ -407,7 +407,7 @@ class DBTCommonConfig(
     def validate_skip_sources_in_lineage(
         cls, skip_sources_in_lineage: bool, values: Dict
     ) -> bool:
-        entites_enabled: DBTEntitiesEnabled = values.get("entities_enabled")
+        entites_enabled: Optional[DBTEntitiesEnabled] = values.get("entities_enabled")
         if (
             skip_sources_in_lineage
             and entites_enabled
