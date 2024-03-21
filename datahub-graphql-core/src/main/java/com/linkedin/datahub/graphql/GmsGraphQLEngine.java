@@ -1265,10 +1265,10 @@ public class GmsGraphQLEngine {
                                 new DeleteBusinessAttributeResolver(this.entityClient))
                         .dataFetcher(
                                 "addBusinessAttribute",
-                                new AddBusinessAttributeResolver(this.entityClient, this.entityService))
+                                new AddBusinessAttributeResolver(this.entityService))
                         .dataFetcher(
                                 "removeBusinessAttribute",
-                                new RemoveBusinessAttributeResolver(this.entityClient, this.entityService));
+                                new RemoveBusinessAttributeResolver(this.entityService));
               }
               return typeWiring;
             });

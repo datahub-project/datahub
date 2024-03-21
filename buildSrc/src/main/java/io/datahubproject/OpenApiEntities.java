@@ -46,7 +46,7 @@ public class OpenApiEntities {
     private Path combinedDirectory;
 
     @Value("${featureFlags.businessAttributeEntityEnabled:false}")
-    private boolean _businessAttributeEntityEnabled;
+    private boolean businessAttributeEntityEnabled;
 
     private final static ImmutableSet<Object> SUPPORTED_ASPECT_PATHS = ImmutableSet.builder()
                 .add("domains")
@@ -121,7 +121,7 @@ public class OpenApiEntities {
         Pair<ObjectNode, Set<String>> parameters = buildParameters(schemasNode, modelDefinitions);
         ObjectNode componentsNode = writeComponentsYaml(schemasNode, parameters.left());
 
-        if (!_businessAttributeEntityEnabled) {
+        if (!businessAttributeEntityEnabled) {
             modelDefinitions.remove("BusinessAttribute");
         }
 
