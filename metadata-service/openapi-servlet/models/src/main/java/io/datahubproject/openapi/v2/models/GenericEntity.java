@@ -18,7 +18,6 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-
 @Data
 @Builder
 @JsonInclude(JsonInclude.Include.NON_NULL)
@@ -28,6 +27,7 @@ public class GenericEntity {
   @JsonProperty("urn")
   @Schema(description = "Urn of the entity")
   private String urn;
+
   @JsonProperty("aspects")
   @Schema(description = "Map of aspect name to aspect")
   private Map<String, Object> aspects;
