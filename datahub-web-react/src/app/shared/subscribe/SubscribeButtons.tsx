@@ -10,6 +10,7 @@ import useDeleteSubscription from './useDeleteSubscription';
 import useSubscriptionSummary from './useSubscriptionSummary';
 import useGroupRelationships from './useGroupRelationships';
 import { ENTITY_PROFILE_SUBSCRIPTION_ID } from '../../onboarding/config/EntityProfileOnboardingConfig';
+import { useIsSeparateSiblingsMode } from '../../entity/shared/siblingUtils';
 
 const StyledStarFilled = styled(StarFilled)`
     color: ${(props) => props.theme.styles['primary-color']};
@@ -50,6 +51,9 @@ export default function SubscribeButtons() {
         entityUrn: primaryEntityUrn,
         groupUrn,
     });
+
+    const isSeparateSiblingsMode = useIsSeparateSiblingsMode();
+    const isSiblingMode = entityData?.siblings?.siblings?.length && !isSeparateSiblingsMode || false; 
 
     const {
         isUserSubscribed,
@@ -104,6 +108,7 @@ export default function SubscribeButtons() {
         <>
             <span id={ENTITY_PROFILE_SUBSCRIPTION_ID}>
                 <SubscribeDropdown
+                    disabled={isSiblingMode}
                     menu={{
                         items: [
                             ...(isUserSubscribed
@@ -137,12 +142,13 @@ export default function SubscribeButtons() {
                     buttonsRender={([leftButton, rightButton]) => [
                         <Tooltip
                             title={
-                                <SubscriptionStarTooltip
+                                !isSiblingMode ?                                 (
+                                    <SubscriptionStarTooltip
                                     isUserSubscribed={isUserSubscribed}
                                     numUserSubscriptions={numUserSubscriptions}
                                     numGroupSubscriptions={numGroupSubscriptions}
                                     groupNames={groupNames}
-                                />
+                                />) : (<>You cannot subscribe to this group of assets. <br/><br/>Please subscribe to the assets that this group is <b>Composed Of</b> by navigating to them in the sidebar below.</>)
                             }
                             placement="left"
                             color="#262626"
@@ -153,7 +159,7 @@ export default function SubscribeButtons() {
                     ]}
                     onClick={onClickStar}
                 >
-                    {isUserSubscribed ? <StyledStarFilled /> : <StarOutlined />}
+                    {isUserSubscribed && !isSiblingMode ? <StyledStarFilled /> : <StarOutlined />}
                 </SubscribeDropdown>
             </span>
             <SubscriptionDrawer

@@ -54,6 +54,14 @@ const ListItem = styled.div<{ isSelectMode: boolean }>`
     padding: 0px;
 `;
 
+const MoreSiblings = styled.span`
+    font-size: 12px;
+    color: ${ANTD_GRAY[7]};
+    margin-left: 4px;
+`;
+
+const MAX_SIBLINGS_TO_DISPLAY = 3; 
+
 type Props = {
     loading: boolean;
     query: string;
@@ -147,8 +155,14 @@ export const SearchResultList = ({
                             <SiblingResultContainer className="test-search-result-sibling-section">
                                 <CompactEntityNameList
                                     linkUrlParams={{ [SEPARATE_SIBLINGS_URL_PARAM]: true }}
-                                    entities={item.matchedEntities}
+                                    entities={item.matchedEntities?.slice(0, MAX_SIBLINGS_TO_DISPLAY)}
                                 />
+                                {(item?.matchedEntities?.length || 0) > MAX_SIBLINGS_TO_DISPLAY ?
+                                    <MoreSiblings>
+                                        + {item?.matchedEntities?.length - MAX_SIBLINGS_TO_DISPLAY} more 
+                                    </MoreSiblings>
+                                    : null
+                                }
                             </SiblingResultContainer>
                         )}
                         {!showSearchFiltersV2 && <ThinDivider />}
