@@ -38,7 +38,8 @@ class EnvConfigMixin(ConfigModel):
 
     _env_deprecation = pydantic_field_deprecated(
         "env",
-        message="env is deprecated and will be removed in a future release. Please use platform_instance instead.",
+        message="We recommend using platform_instance instead of env. "
+        "While specifying env does still work, we intend to deprecate it in the future.",
     )
 
     @validator("env")
@@ -52,6 +53,9 @@ class DatasetSourceConfigMixin(PlatformInstanceConfigMixin, EnvConfigMixin):
     """
     Any source that is a primary producer of Dataset metadata should inherit this class
     """
+
+    # TODO: Deprecate this in favor of the more granular config mixins in order
+    # to flatten our config inheritance hierarchies.
 
 
 class LowerCaseDatasetUrnConfigMixin(ConfigModel):

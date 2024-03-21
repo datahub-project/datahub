@@ -482,6 +482,17 @@ entities:
     keyAspect: dataHubViewKey
     aspects:
       - dataHubViewInfo
+  - name: erModelRelationship
+    doc: ER Model Relationship of  Dataset Fields
+    keyAspect: erModelRelationshipKey
+    aspects:
+      - erModelRelationshipProperties
+      - editableERModelRelationshipProperties
+      - institutionalMemory
+      - ownership
+      - status
+      - globalTags
+      - glossaryTerms
   - name: query
     category: core
     keyAspect: queryKey
