@@ -39,7 +39,10 @@ plugins: Dict[str, Set[str]] = {
     "plugin-v1": set(),
     "plugin-v2": {
         f"acryl-datahub[sql-parser]{_self_pin}",
-        "openlineage-airflow==1.2.0",
+        # We remain restrictive on the versions allowed here to prevent
+        # us from being broken by backwards-incompatible changes in the
+        # underlying package.
+        "openlineage-airflow>=1.2.0,<=1.10.2",
     },
 }
 
