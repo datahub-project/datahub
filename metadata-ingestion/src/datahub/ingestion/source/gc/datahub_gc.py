@@ -66,6 +66,7 @@ class DataHubGcSource(Source):
                 self._revoke_token(token_id)
 
     def _revoke_token(self, token_id: str) -> None:
+        assert self.graph is not None
         self.graph.execute_graphql(
             query="""mutation revokeAccessToken($tokenId: String!) {
   revokeAccessToken(tokenId: $tokenId)
@@ -75,6 +76,7 @@ class DataHubGcSource(Source):
         )
 
     def _get_expired_tokens(self) -> dict:
+        assert self.graph is not None
         return self.graph.execute_graphql(
             query="""query listAccessTokens($input: ListAccessTokenInput!) {
   listAccessTokens(input: $input) {
