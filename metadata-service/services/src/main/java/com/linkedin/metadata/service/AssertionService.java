@@ -789,4 +789,18 @@ public class AssertionService extends BaseService {
       log.error(String.format("Failed to delete assertion with urn %s ", assertionUrn), ex);
     }
   }
+
+  public void tryDeleteAssertionReferences(Urn assertionUrn) {
+    // Simply ensure that we've cleaned up references.
+    tryDeleteAssertionReferences(assertionUrn, systemAuthentication);
+  }
+
+  public void tryDeleteAssertionReferences(Urn assertionUrn, Authentication authentication) {
+    try {
+      entityClient.deleteEntityReferences(assertionUrn, authentication);
+    } catch (RemoteInvocationException ex) {
+      log.error(
+          String.format("Failed to delete assertion references for urn %s! ", assertionUrn), ex);
+    }
+  }
 }

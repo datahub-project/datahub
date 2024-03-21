@@ -334,6 +334,51 @@ public class AssertionsSummaryHookTest {
   }
 
   @Test(dataProvider = "assertionsSummaryProvider")
+  public void testInvokeAssertionInfoHardDeleted(AssertionsSummary summary) throws Exception {
+    AssertionService service = mockAssertionService(summary);
+    AssertionsSummaryHook hook = new AssertionsSummaryHook(ENTITY_REGISTRY, service, true);
+    final MetadataChangeLog event =
+        buildMetadataChangeLog(
+            TEST_ASSERTION_URN,
+            ASSERTION_INFO_ASPECT_NAME,
+            ChangeType.DELETE,
+            null,
+            mockFreshnessAssertion(TEST_DATASET_URN));
+    hook.invoke(event);
+
+    if (summary == null) {
+      summary = new AssertionsSummary();
+    }
+
+    AssertionsSummary expectedSummary = new AssertionsSummary(summary.data());
+    expectedSummary.setPassingAssertionDetails(
+        new AssertionSummaryDetailsArray(
+            expectedSummary.getPassingAssertionDetails().stream()
+                .filter(details -> !details.getUrn().equals(TEST_ASSERTION_URN))
+                .collect(Collectors.toList())));
+    expectedSummary.setFailingAssertionDetails(
+        new AssertionSummaryDetailsArray(
+            expectedSummary.getFailingAssertionDetails().stream()
+                .filter(details -> !details.getUrn().equals(TEST_ASSERTION_URN))
+                .collect(Collectors.toList())));
+    // Ensure we ingested a new aspect.
+    Mockito.verify(service, Mockito.times(1))
+        .updateAssertionsSummary(Mockito.eq(TEST_DATASET_URN), Mockito.eq(expectedSummary));
+  }
+
+  @Test
+  public void testInvokeAssertionKeyHardDeleted() throws Exception {
+    AssertionService service = Mockito.mock(AssertionService.class);
+    AssertionsSummaryHook hook = new AssertionsSummaryHook(ENTITY_REGISTRY, service, true);
+    final MetadataChangeLog event =
+        buildMetadataChangeLog(
+            TEST_ASSERTION_URN, ASSERTION_KEY_ASPECT_NAME, ChangeType.DELETE, null, null);
+    hook.invoke(event);
+    Mockito.verify(service, Mockito.times(1))
+        .tryDeleteAssertionReferences(Mockito.eq(TEST_ASSERTION_URN));
+  }
+
+  @Test(dataProvider = "assertionsSummaryProvider")
   public void testInvokeAssertionEntityUpdate(AssertionsSummary summary) throws Exception {
 
     // Ensure that the previous summary is removed.
@@ -341,7 +386,7 @@ public class AssertionsSummaryHookTest {
     AssertionService service = mockAssertionService(summary);
     AssertionsSummaryHook hook = new AssertionsSummaryHook(ENTITY_REGISTRY, service, true);
     final MetadataChangeLog event =
-        buildMetadataChangeLogWithPrevious(
+        buildMetadataChangeLog(
             TEST_ASSERTION_URN,
             ASSERTION_INFO_ASPECT_NAME,
             ChangeType.UPSERT,
@@ -500,10 +545,10 @@ public class AssertionsSummaryHookTest {
 
   private MetadataChangeLog buildMetadataChangeLog(
       Urn urn, String aspectName, ChangeType changeType, RecordTemplate aspect) {
-    return buildMetadataChangeLogWithPrevious(urn, aspectName, changeType, aspect, null);
+    return buildMetadataChangeLog(urn, aspectName, changeType, aspect, null);
   }
 
-  private MetadataChangeLog buildMetadataChangeLogWithPrevious(
+  private MetadataChangeLog buildMetadataChangeLog(
       Urn urn,
       String aspectName,
       ChangeType changeType,
@@ -514,7 +559,9 @@ public class AssertionsSummaryHookTest {
     event.setEntityType(urn.getEntityType());
     event.setAspectName(aspectName);
     event.setChangeType(changeType);
-    event.setAspect(GenericRecordUtils.serializeAspect(aspect));
+    if (aspect != null) {
+      event.setAspect(GenericRecordUtils.serializeAspect(aspect));
+    }
     if (prevAspect != null) {
       event.setPreviousAspectValue(GenericRecordUtils.serializeAspect(prevAspect));
     }
