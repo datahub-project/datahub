@@ -3,6 +3,12 @@
   platform: hive
   # - urn: urn:li:dataset:(urn:li:dataPlatform:hive,user.clicks,PROD) # use urn instead of id and platform
   subtype: Table
+  owners:
+    - joe@acryl.io
+  tags: # can be a tag or tag urn
+    - highly_queried
+  glossary_terms:
+    - highly_sensitive # can be a term or term urn
   schema:
     file: examples/structured_properties/click_event.avsc
     fields:
