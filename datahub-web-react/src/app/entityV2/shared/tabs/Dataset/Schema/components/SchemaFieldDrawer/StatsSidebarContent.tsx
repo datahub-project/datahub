@@ -10,7 +10,7 @@ import { REDESIGN_COLORS } from '../../../../../constants';
 import { extractChartValuesFromFieldProfiles } from '../../../Stats/historical/HistoricalStats';
 import SampleValueTag from '../../../Stats/snapshot/SampleValueTag';
 import { decimalToPercentStr } from '../../utils/statsUtil';
-import { SectionHeader, StyledDivider } from './components';
+import { StyledDivider } from './components';
 
 const maxLabelWidth = 150;
 
@@ -18,13 +18,8 @@ const StatsWrapper = styled.div`
     padding: 16px 24px;
     display: flex;
     flex-direction: column;
-    height: 100%;
+    height: fit-content; // to prevent unnecessary scrolling
     margin-bottom: 50px;
-`;
-
-const Header = styled.div`
-    display: flex;
-    justify-content: space-between;
 `;
 
 const StatRow = styled.div`
@@ -181,9 +176,6 @@ export function StatsSidebarContent({ properties }: Props) {
 
     return (
         <StatsWrapper>
-            <Header>
-                <SectionHeader>Stats</SectionHeader>
-            </Header>
             <StyledDivider dashed />
 
             {fieldProfile && (

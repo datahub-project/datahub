@@ -23,8 +23,10 @@ export const REDESIGN_COLORS = {
     RED_ERROR_BORDER: '#FFA39E',
     BACKGROUND_SECONDARY_GRAY: '#AAA2CB0F',
     BACKGROUND_GRAY_2: '#FAF9FC',
+    BACKGROUND_GRAY_3: '#F6F7FA',
     BACKGROUND_OVERLAY_BLACK: '#171723',
     BACKGROUND_OVERLAY_BLACK_SEARCH: '#404053',
+    BACKGROUND_PRIMARY_1: '#533fd1',
     VIEW_PURPLE: '#9178f6',
     BORDER_1: '#4b4b54',
     BORDER_2: '#E6E6E6',
@@ -89,7 +91,7 @@ export const ANTD_GRAY_V2 = {
     11: '#6C6B88',
     12: '#52596c',
     13: '#ababab',
-    14: '#f7f7f7'
+    14: '#f7f7f7',
 };
 
 export const EMPTY_MESSAGES = {

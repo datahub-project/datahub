@@ -13,13 +13,25 @@ import { decimalToPercentStr } from '../../utils/statsUtil';
 const StatsSummaryRowContent = styled.div`
     display: flex;
     flex-direction: row;
-    gap: 100px;
     align-items: flex-start;
+`;
+
+const TitleContainer = styled.div`
+    display: flex;
+    flex-direction: column;
+`;
+const StyledTooltip = styled(Tooltip)`
+    display: flex;
+    gap: 5px;
+    align-items: center;
 `;
 
 const TrendDetailContainer = styled.div`
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
+    gap: 5px;
+    width: 150px;
+    align-items: center;
 `;
 const StatSummarySubtitle = styled.div`
     display: flex;
@@ -30,10 +42,10 @@ const TrendingIconContainer = styled.div<{ color: string }>`
     border-radius: 50%;
     background: ${(props) => props.color};
     color: ${REDESIGN_COLORS.WHITE};
-    height: 15px;
-    width: 15px;
-    padding-left: 2px;
-    margin-right: 2px;
+    height: 24px;
+    width: 24px;
+    padding: 4px;
+    margin-top: 6px;
 `;
 
 const Headline = styled.div`
@@ -44,30 +56,29 @@ const Headline = styled.div`
     line-height: 24px;
 `;
 
-const SubtitleText = styled(Typography.Text)<{ margin?: number; color?: string }>`
+const SubtitleText = styled(Typography.Text)<{ color?: string }>`
     color: ${(props) => (props.color ? props.color : REDESIGN_COLORS.DARK_GREY)};
     font-family: Mulish;
     font-size: 13px;
     line-height: 14px;
     font-weight: 400;
-    margin-left: ${(props) => (props.margin !== undefined ? `${props.margin}px` : '4px')};
 `;
 
 const PRESENT_ICON = (
     <TrendingIconContainer color={REDESIGN_COLORS.TERTIARY_GREEN}>
-        <Check style={{ fontSize: 11 }} />
+        <Check style={{ fontSize: 16 }} />
     </TrendingIconContainer>
 );
 
 const TRENDING_UP_ICON = (
     <TrendingIconContainer color={REDESIGN_COLORS.TERTIARY_GREEN}>
-        <TrendingUpOutlinedIcon style={{ fontSize: 11 }} />
+        <TrendingUpOutlinedIcon style={{ fontSize: 16 }} />
     </TrendingIconContainer>
 );
 
 const TRENDING_DOWN_ICON = (
     <TrendingIconContainer color={REDESIGN_COLORS.WARNING_RED}>
-        <TrendingDownOutlinedIcon style={{ fontSize: 11 }} />
+        <TrendingDownOutlinedIcon style={{ fontSize: 16 }} />
     </TrendingIconContainer>
 );
 
@@ -111,38 +122,44 @@ export default function StatsSummaryRow({ expandedField, fieldProfile, profiles 
     return (
         <StatsSummaryRowContent>
             <TrendDetailContainer>
-                <Tooltip title={`${nullCount} null ${pluralize(nullCount || 0, 'value')} found in last profile run`}>
-                    <Headline>Null Values</Headline>
-                    <StatSummarySubtitle>
-                        {nullProportionChange < 0 && TRENDING_DOWN_ICON}
-                        {nullProportionChange > 0 && TRENDING_UP_ICON}
-                        <SubtitleText>{decimalToPercentStr(nullProportion, 2)}</SubtitleText>
-                    </StatSummarySubtitle>
-                </Tooltip>
+                <StyledTooltip
+                    title={`${nullCount} null ${pluralize(nullCount || 0, 'value')} found in last profile run`}
+                >
+                    {nullProportionChange < 0 && TRENDING_DOWN_ICON}
+                    {nullProportionChange > 0 && TRENDING_UP_ICON}
+                    <TitleContainer>
+                        <Headline>Completeness</Headline>
+                        <StatSummarySubtitle>
+                            <SubtitleText>{decimalToPercentStr(nullProportion, 2)}</SubtitleText>
+                        </StatSummarySubtitle>
+                    </TitleContainer>
+                </StyledTooltip>
             </TrendDetailContainer>
             <TrendDetailContainer>
-                <Tooltip
+                <StyledTooltip
                     title={`${uniqueCount} distinct ${pluralize(uniqueCount || 0, 'value')} found in last profile run`}
                 >
-                    <Headline>Distinct Values</Headline>
-                    <StatSummarySubtitle>
-                        {uniqueProportionChange < 0 && TRENDING_DOWN_ICON}
-                        {uniqueProportionChange > 0 && TRENDING_UP_ICON}
-                        <SubtitleText>{decimalToPercentStr(uniqueProportion, 2)}</SubtitleText>
-                    </StatSummarySubtitle>
-                </Tooltip>
+                    {uniqueProportionChange < 0 && TRENDING_DOWN_ICON}
+                    {uniqueProportionChange > 0 && TRENDING_UP_ICON}
+                    <TitleContainer>
+                        <Headline>Uniqueness</Headline>
+                        <StatSummarySubtitle>
+                            <SubtitleText>{decimalToPercentStr(uniqueProportion, 2)}</SubtitleText>
+                        </StatSummarySubtitle>
+                    </TitleContainer>
+                </StyledTooltip>
             </TrendDetailContainer>
             <TrendDetailContainer>
-                <Headline>Numerical stats</Headline>
-                <StatSummarySubtitle>
-                    {numericalStatsCount > 0 && PRESENT_ICON}
-                    {numericalStatsCount > 0 && <SubtitleText>{numericalStatsCount} stats</SubtitleText>}
-                    {numericalStatsCount < 1 && (
-                        <SubtitleText color={REDESIGN_COLORS.SECONDARY_LIGHT_GREY} margin={0}>
-                            None
-                        </SubtitleText>
-                    )}
-                </StatSummarySubtitle>
+                {numericalStatsCount > 0 && PRESENT_ICON}
+                <TitleContainer>
+                    <Headline>Numerical stats</Headline>
+                    <StatSummarySubtitle>
+                        {numericalStatsCount > 0 && <SubtitleText>{numericalStatsCount} stats</SubtitleText>}
+                        {numericalStatsCount < 1 && (
+                            <SubtitleText color={REDESIGN_COLORS.SECONDARY_LIGHT_GREY}>None</SubtitleText>
+                        )}
+                    </StatSummarySubtitle>
+                </TitleContainer>
             </TrendDetailContainer>
         </StatsSummaryRowContent>
     );

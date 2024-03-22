@@ -8,6 +8,7 @@ import {
     DatasetProfile,
     EditableSchemaMetadata,
     SchemaField,
+    TimeWindow,
     UsageQueryResult,
 } from '../../../../../../../../types.generated';
 import { useBaseEntity } from '../../../../../EntityContext';
@@ -17,7 +18,7 @@ import { AboutFieldTab } from './AboutFieldTab';
 import DrawerFooter from './DrawerFooter';
 import FieldHeader from './FieldHeader';
 import { SchemaFieldDrawerTabs } from './SchemaFieldDrawerTabs';
-import { StatsSidebarContent } from './StatsSidebarContent';
+import StatsSidebarView from './StatsSidebarView';
 import { ExtendedSchemaFields } from '../../../../../../dataset/profile/schema/utils/types';
 
 const StyledDrawer = styled(Drawer)`
@@ -113,7 +114,7 @@ export default function SchemaFieldDrawer({
 
     const urn = (baseEntity && baseEntity.dataset && baseEntity.dataset?.urn) || '';
 
-    const [getDataProfiles, { data: profilesData }] = useGetDataProfilesLazyQuery();
+    const [getDataProfiles, { data: profilesData, loading: profilesDataLoading }] = useGetDataProfilesLazyQuery();
 
     useEffect(() => {
         getDataProfiles({
@@ -134,6 +135,16 @@ export default function SchemaFieldDrawer({
     const profiles = profilesData?.dataset?.datasetProfiles || [];
     const [selectedTabName, setSelectedTabName] = useState('About');
 
+    /**
+     * Fetches updated data profiles when the lookback window is changed in the Historical Chart view.
+     * @param lookbackWindow The new time window for data fetching.
+     */
+    const fetchDataWithLookbackWindow = (lookbackWindow: TimeWindow) => {
+        getDataProfiles({
+            variables: { urn, ...lookbackWindow },
+        });
+    };
+
     const tabs: any = [
         {
             name: 'About',
@@ -152,11 +163,13 @@ export default function SchemaFieldDrawer({
         {
             name: 'Statistics',
             icon: QueryStatsOutlinedIcon,
-            component: StatsSidebarContent,
+            component: StatsSidebarView,
             properties: {
                 expandedField,
                 fieldProfile,
                 profiles,
+                fetchDataWithLookbackWindow,
+                profilesDataLoading,
             },
         },
     ];
@@ -170,7 +183,9 @@ export default function SchemaFieldDrawer({
                     open={!!expandedDrawerFieldPath}
                     onClose={() => setExpandedDrawerFieldPath(null)}
                     getContainer={() => document.getElementById('entity-profile-sidebar') as HTMLElement}
-                    contentWrapperStyle={{ width: '33%' }}
+                    // The minWidth is calculated based on the width of the Chart's displayed in the Historical stats view
+                    // And Insight Stats View Table to ensure consistent container width across various screen sizes.
+                    contentWrapperStyle={{ width: `fit-content`, minWidth: '560px' }}
                     mask={false}
                     maskClosable={false}
                     placement="right"
