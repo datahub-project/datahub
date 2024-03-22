@@ -16,6 +16,7 @@ from datahub.api.entities.dataprocess.dataprocess_instance import (
     InstanceRunResult,
 )
 from datahub.configuration.source_common import DEFAULT_ENV
+from datahub.ingestion.graph.client import DatahubClientConfig
 
 from datahub_dagster_plugin.client.dagster_generator import DatahubDagsterSourceConfig
 from datahub_dagster_plugin.sensors.datahub_sensors import (
@@ -30,14 +31,13 @@ from datahub_dagster_plugin.sensors.datahub_sensors import (
 def test_datahub_sensor(mock_emit):
     instance = DagsterInstance.ephemeral()
     context = build_sensor_context(instance=instance)
-    config = DatahubDagsterSourceConfig.parse_obj(
-        {
-            "rest_sink_config": {
-                "server": "http://localhost:8080",
-            },
-            "dagster_url": "http://localhost:3000",
-        }
+    config = DatahubDagsterSourceConfig(
+        datahub_client_config=DatahubClientConfig(
+            server="http://localhost:8080",
+        ),
+        dagster_url="http://localhost:3000",
     )
+
     datahub_sensor = make_datahub_sensor(config)
     skip_reason = datahub_sensor(context)
     assert isinstance(skip_reason, SkipReason)
