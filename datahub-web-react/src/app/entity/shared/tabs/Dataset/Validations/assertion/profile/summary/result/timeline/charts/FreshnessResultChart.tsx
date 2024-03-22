@@ -11,7 +11,7 @@ import { scaleLinear } from 'd3-scale';
 
 import { ANTD_GRAY } from '../../../../../../../../../constants';
 import { LinkWrapper } from '../../../../../../../../../../../shared/LinkWrapper';
-import { ACCENT_COLOR_HEX, EXTRA_HIGHLIGHT_COLOR_HEX, generateTimeScaleTickValues, getCustomTimeScaleTickValue, getFillColor, getWindowStartAndEndDatesForFreshnessAssertionRun } from './utils';
+import { ACCENT_COLOR_HEX, generateTimeScaleTickValues, getCustomTimeScaleTickValue, getFillColor, getWindowStartAndEndDatesForFreshnessAssertionRun } from './utils';
 import { AssertionDataPoint, AssertionResultChartData, TimeRange } from './types';
 import { AssertionResultPopoverContent } from '../../../../shared/result/AssertionResultPopoverContent';
 import { tryGetActualUpdatedTimestampFromAssertionResult } from '../../../shared/resultExtractionUtils';
@@ -46,6 +46,7 @@ export const FreshnessResultChart = ({ data, timeRange, chartDimensions, renderH
         getWindowStartAndEndDatesForFreshnessAssertionRun(mountedDataPoint, dataPoints),
         [mountedDataPoint, dataPoints]
     )
+    const maybeMountedDataPointFillColor = mountedDataPoint && getFillColor(mountedDataPoint.result.type)
     const maybeMountedDataPointDatasetUpdateDate: number | undefined = useMemo(() => {
         const result = mountedDataPoint?.relatedRunEvent.result;
         if (!result || result.type === AssertionResultType.Error) return undefined;
@@ -110,13 +111,13 @@ export const FreshnessResultChart = ({ data, timeRange, chartDimensions, renderH
                             tickValues={maybeMounteDataPointWindowRangeTicks}
                             height={chartInnerHeight}
                             lineStyle={{
-                                stroke: ACCENT_COLOR_HEX,
+                                stroke: maybeMountedDataPointFillColor,
                                 strokeLinecap: "round",
                                 strokeWidth: 1,
                                 strokeDasharray: '1 4'
                             }}
                         />,
-                        <LinearGradient id="area-gradient" from={ACCENT_COLOR_HEX} to={ACCENT_COLOR_HEX} fromOpacity={0.25} toOpacity={0.1} />,
+                        <LinearGradient id="area-gradient" from={maybeMountedDataPointFillColor} to={maybeMountedDataPointFillColor} fromOpacity={0.25} toOpacity={0.1} />,
                         <AreaClosed
                             data={maybeMounteDataPointWindowRangeTicks}
                             x={xScale}
@@ -138,7 +139,7 @@ export const FreshnessResultChart = ({ data, timeRange, chartDimensions, renderH
                             barWidth={4}
                             shapeSize={120}
                             leftOffset={xScale(maybeMountedDataPointDatasetUpdateDate)}
-                            color={EXTRA_HIGHLIGHT_COLOR_HEX}
+                            color={ACCENT_COLOR_HEX}
                             shape={{
                                 type: 'diamond',
                                 extraProps: {
