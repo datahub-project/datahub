@@ -46,7 +46,7 @@ export const FreshnessResultChart = ({ data, timeRange, chartDimensions, renderH
         getWindowStartAndEndDatesForFreshnessAssertionRun(mountedDataPoint, dataPoints),
         [mountedDataPoint, dataPoints]
     )
-    const maybeMounteDataPointFillColor = mountedDataPoint && getFillColor(mountedDataPoint.result.type)
+    const maybeMountedDataPointFillColor = mountedDataPoint && getFillColor(mountedDataPoint.result.type)
     const maybeMountedDataPointDatasetUpdateDate: number | undefined = useMemo(() => {
         const result = mountedDataPoint?.relatedRunEvent.result;
         if (!result || result.type === AssertionResultType.Error) return undefined;
@@ -111,13 +111,13 @@ export const FreshnessResultChart = ({ data, timeRange, chartDimensions, renderH
                             tickValues={maybeMounteDataPointWindowRangeTicks}
                             height={chartInnerHeight}
                             lineStyle={{
-                                stroke: maybeMounteDataPointFillColor,
+                                stroke: maybeMountedDataPointFillColor,
                                 strokeLinecap: "round",
                                 strokeWidth: 1,
                                 strokeDasharray: '1 4'
                             }}
                         />,
-                        <LinearGradient id="area-gradient" from={maybeMounteDataPointFillColor} to={maybeMounteDataPointFillColor} fromOpacity={0.25} toOpacity={0.1} />,
+                        <LinearGradient id="area-gradient" from={maybeMountedDataPointFillColor} to={maybeMountedDataPointFillColor} fromOpacity={0.25} toOpacity={0.1} />,
                         <AreaClosed
                             data={maybeMounteDataPointWindowRangeTicks}
                             x={xScale}
