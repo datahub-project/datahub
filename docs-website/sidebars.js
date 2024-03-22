@@ -69,24 +69,38 @@ module.exports = {
           type: "category",
           items: [
             {
-              type: "doc",
-              id: "docs/managed-datahub/observe/freshness-assertions",
-              className: "saasOnly",
+              label: "Assertions",
+              type: "category",
+              link: {
+                type: "doc",
+                id: "docs/managed-datahub/observe/assertions",
+              },
+              items: [
+                {
+                  type: "doc",
+                  id: "docs/managed-datahub/observe/freshness-assertions",
+                  className: "saasOnly",
+                },
+                {
+                  type: "doc",
+                  id: "docs/managed-datahub/observe/volume-assertions",
+                  className: "saasOnly",
+                },
+                {
+                  type: "doc",
+                  id: "docs/managed-datahub/observe/custom-sql-assertions",
+                  className: "saasOnly",
+                },
+                {
+                  type: "doc",
+                  id: "docs/managed-datahub/observe/column-assertions",
+                  className: "saasOnly",
+                },
+              ],
             },
             {
               type: "doc",
-              id: "docs/managed-datahub/observe/volume-assertions",
-              className: "saasOnly",
-            },
-            {
-              type: "doc",
-              id: "docs/managed-datahub/observe/custom-sql-assertions",
-              className: "saasOnly",
-            },
-            {
-              type: "doc",
-              id: "docs/managed-datahub/observe/column-assertions",
-              className: "saasOnly",
+              id: "docs/managed-datahub/observe/data-contract",
             },
           ],
         },
