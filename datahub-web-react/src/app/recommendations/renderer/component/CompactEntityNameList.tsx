@@ -2,13 +2,13 @@ import { ArrowRightOutlined } from '@ant-design/icons';
 import React from 'react';
 import styled from 'styled-components/macro';
 import { useHistory } from 'react-router';
+import { TooltipPlacement } from 'antd/es/tooltip';
 import { Entity, EntityType, SchemaFieldEntity } from '../../../../types.generated';
 import { IconStyleType } from '../../../entity/Entity';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { EntityPreviewTag } from './EntityPreviewTag';
 import { HoverEntityTooltip } from './HoverEntityTooltip';
 import { ANTD_GRAY } from '../../../entity/shared/constants';
-import { TooltipPlacement } from 'antd/es/tooltip';
 
 const NameWrapper = styled.span<{ addMargin }>`
     display: inline-flex;
