@@ -11,7 +11,7 @@ import { scaleLinear } from 'd3-scale';
 
 import { ANTD_GRAY } from '../../../../../../../../../constants';
 import { LinkWrapper } from '../../../../../../../../../../../shared/LinkWrapper';
-import { ACCENT_COLOR_HEX, generateTimeScaleTickValues, getCustomTimeScaleTickValue, getFillColor, getWindowStartAndEndDatesForFreshnessAssertionRun } from './utils';
+import { ACCENT_COLOR_HEX, EXTRA_HIGHLIGHT_COLOR_HEX, generateTimeScaleTickValues, getCustomTimeScaleTickValue, getFillColor, getWindowStartAndEndDatesForFreshnessAssertionRun } from './utils';
 import { AssertionDataPoint, AssertionResultChartData, TimeRange } from './types';
 import { AssertionResultPopoverContent } from '../../../../shared/result/AssertionResultPopoverContent';
 import { tryGetActualUpdatedTimestampFromAssertionResult } from '../../../shared/resultExtractionUtils';
@@ -138,7 +138,7 @@ export const FreshnessResultChart = ({ data, timeRange, chartDimensions, renderH
                             barWidth={4}
                             shapeSize={120}
                             leftOffset={xScale(maybeMountedDataPointDatasetUpdateDate)}
-                            color={ACCENT_COLOR_HEX}
+                            color={EXTRA_HIGHLIGHT_COLOR_HEX}
                             shape={{
                                 type: 'diamond',
                                 extraProps: {
