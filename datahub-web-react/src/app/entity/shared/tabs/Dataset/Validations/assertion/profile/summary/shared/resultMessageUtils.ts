@@ -237,7 +237,7 @@ const getFormattedExpectedTextForAbsoluteAssertion = (
     low = low && formatNumberWithoutAbbreviation(Math.floor(low))
     high = high && formatNumberWithoutAbbreviation(Math.floor(high))
     if (high && low) {
-        return `${assertedOnDescription} should be between ${high} and ${low}.`
+        return `${assertedOnDescription} should be between ${low} and ${high}.`
     }
     if (high) {
         const rangeDefinition = range.context?.highType === 'inclusive' ? 'less than or equal to' : 'less than'
