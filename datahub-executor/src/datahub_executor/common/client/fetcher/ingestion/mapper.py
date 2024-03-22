@@ -20,6 +20,12 @@ def graphql_to_ingestion_sources(
     ingestion_sources = []
     for ingestion_source in graphql_ingestion_sources:
         try:
+            if (
+                "urn" in ingestion_source
+                and "urn:li:dataHubIngestionSource:cli-" in ingestion_source["urn"]
+            ):
+                # Skip CLI ingestion runs
+                continue
             # Simply parse to our Pydantic models using the raw GraphQL Response.
             ingestion_sources.append(IngestionSource.parse_obj(ingestion_source))
         except Exception:
