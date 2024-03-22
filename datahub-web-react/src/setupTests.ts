@@ -17,7 +17,10 @@ global.matchMedia =
         };
     });
 
-window.location = { ...window.location, replace: () => {} };
+window.location = {
+    ...window.location,
+    replace: () => {},
+};
 
 vi.mock('js-cookie', () => ({
     default: {
@@ -25,3 +28,12 @@ vi.mock('js-cookie', () => ({
     },
 }));
 vi.mock('./app/entity/shared/tabs/Documentation/components/editor/Editor');
+
+vi.stubGlobal(
+    'ResizeObserver',
+    vi.fn(() => ({
+        observe: vi.fn(),
+        unobserve: vi.fn(),
+        disconnect: vi.fn(),
+    })),
+);
