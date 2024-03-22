@@ -23,7 +23,7 @@ export function useIsThemeV2Enabled() {
     }
 
     // Default before flags loaded is stored in local storage
-    return loadFromLocalStorage();
+    return loadThemeV2FromLocalStorage();
 }
 
 /**
@@ -69,14 +69,14 @@ export function useSetThemeIsV2() {
 }
 
 function setThemeV2LocalStorage(isThemeV2: boolean) {
-    if (loadFromLocalStorage() !== isThemeV2) {
+    if (loadThemeV2FromLocalStorage() !== isThemeV2) {
         saveToLocalStorage(isThemeV2);
     }
 }
 
 const THEME_V2_STATUS_KEY = 'isThemeV2Enabled';
 
-function loadFromLocalStorage(): boolean {
+export function loadThemeV2FromLocalStorage(): boolean {
     return localStorage.getItem(THEME_V2_STATUS_KEY) === 'true';
 }
 

@@ -128,6 +128,7 @@ interface BaseEvent {
     date?: string;
     userAgent?: string;
     browserId?: string;
+    isThemeV2Enabled?: boolean;
 }
 
 /**
