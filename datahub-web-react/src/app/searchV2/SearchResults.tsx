@@ -47,6 +47,7 @@ const SearchBody = styled.div`
 const ResultContainer = styled.div<{ v2Styles: boolean }>`
     flex: 1;
     overflow: auto;
+
     ${(props) =>
         props.v2Styles
             ? `
@@ -75,11 +76,13 @@ const PaginationInfoContainer = styled.div<{ v2Styles: boolean }>`
 
 const SearchResultsContainer = styled.div`
     display: flex;
+    height: 100%;
 `;
 
 const SearchResultsScrollContainer = styled.div`
     display: flex;
     flex-direction: column;
+    height: 100%;
     overflow-y: scroll;
 `;
 
@@ -184,6 +187,16 @@ export const SearchResults = ({
     const searchResultUrns = combinedSiblingSearchResults.map((result) => result.entity.urn) || [];
     const selectedEntityUrns = selectedEntities.map((entity) => entity.urn);
 
+    const [resultsHeight, setResultsHeight] = useState('calc(100vh - 155px)');
+    const resultsRef = React.useCallback((node: HTMLDivElement) => {
+        if (node !== null) {
+            const resizeObserver = new ResizeObserver(() => {
+                setResultsHeight(`${node.offsetHeight}px`);
+            });
+            resizeObserver.observe(node);
+        }
+    }, []);
+
     return (
         <>
             <SearchResultsWrapper v2Styles={showSearchFiltersV2}>
@@ -195,7 +208,7 @@ export const SearchResults = ({
                             </BrowseProvider>
                         </SidebarProvider>
                     )}
-                    <ResultContainer v2Styles={showSearchFiltersV2}>
+                    <ResultContainer v2Styles={showSearchFiltersV2} ref={resultsRef}>
                         {(error && <ErrorSection />) ||
                             (loading && !combinedSiblingSearchResults.length && <SearchResultsLoadingSection />) ||
                             (combinedSiblingSearchResults && (
@@ -281,6 +294,7 @@ export const SearchResults = ({
                                             )}
                                         </SearchResultListContainer>
                                         <SearchEntitySidebarContainer
+                                            height={resultsHeight}
                                             highlightedIndex={highlightedIndex}
                                             selectedEntity={
                                                 highlightedIndex !== null &&

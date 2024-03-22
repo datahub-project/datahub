@@ -5,8 +5,8 @@ import CompactContext from '../shared/CompactContext';
 import EntitySidebarContext from '../shared/EntitySidebarContext';
 import { useEntityRegistry } from '../useEntityRegistry';
 
-const SidebarContainer = styled.div`
-    height: calc(100vh - 125px - 20px - 10px);
+const SidebarContainer = styled.div<{ height: string }>`
+    max-height: ${(props) => props.height};
     display: flex;
     flex-direction: column;
     position: sticky;
@@ -14,11 +14,12 @@ const SidebarContainer = styled.div`
 `;
 
 interface Props {
+    height: string;
     highlightedIndex: number | null;
     selectedEntity?: EntityAndType | null;
 }
 
-export const SearchEntitySidebarContainer = ({ highlightedIndex, selectedEntity }: Props) => {
+export const SearchEntitySidebarContainer = ({ height, highlightedIndex, selectedEntity }: Props) => {
     const entityRegistry = useEntityRegistry();
     const [isClosed, setIsClosed] = useState(false);
 
@@ -30,7 +31,7 @@ export const SearchEntitySidebarContainer = ({ highlightedIndex, selectedEntity 
         <EntitySidebarContext.Provider
             value={{ isClosed, setSidebarClosed: setIsClosed, width: window.innerWidth * 0.3 }}
         >
-            <SidebarContainer key={selectedEntity?.urn || ''}>
+            <SidebarContainer key={selectedEntity?.urn || ''} height={height}>
                 {selectedEntity && (
                     <CompactContext.Provider value>
                         {entityRegistry.renderProfile(selectedEntity.type, selectedEntity.urn)}

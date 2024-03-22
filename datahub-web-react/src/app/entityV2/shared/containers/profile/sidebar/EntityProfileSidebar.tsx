@@ -12,7 +12,6 @@ export const StyledEntitySidebarContainer = styled.div<{
     isCollapsed: boolean;
     $width?: number;
     backgroundColor?: string;
-    isCard: boolean;
     isFocused?: boolean;
 }>`
     flex: 1;
@@ -30,10 +29,10 @@ export const StyledEntitySidebarContainer = styled.div<{
     transition: max-width 0.3s ease-in-out, min-width 0.3s ease-in-out;
 `;
 
-export const StyledSidebar = styled.div<{ isCard: boolean; isFocused?: boolean; isInSearch?: boolean }>`
+export const StyledSidebar = styled.div<{ isCard: boolean; isFocused?: boolean }>`
     background-color: #ffffff;
     box-shadow: ${(props) => (props.isCard ? '0px 0px 5px rgba(0, 0, 0, 0.08)' : 'none')};
-    border-radius: ${(props) => (props.isCard || props.isInSearch ? '8px' : 'none')};
+    border-radius: ${(props) => (props.isCard ? '8px' : 'none')};
     border: none;
     overflow: hidden;
     height: 100%;
@@ -68,6 +67,7 @@ const ContentContainer = styled.div<{ isVisible: boolean }>`
     ::-webkit-scrollbar {
         display: none; /* for Chrome, Safari and Opera */
     }
+
     -ms-overflow-style: none; /* IE and Edge */
     scrollbar-width: none; /* Firefox */
 `;
@@ -116,7 +116,6 @@ export default function EntityProfileSidebar({
             $width={width}
             backgroundColor={backgroundColor}
             id="entity-profile-sidebar"
-            isCard={isCardLayout}
             isFocused={focused}
         >
             <StyledSidebar isCard={isCardLayout} isFocused={focused}>

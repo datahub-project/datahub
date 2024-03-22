@@ -29,6 +29,7 @@ import { useUpdateEducationStepsAllowList } from '../onboarding/useUpdateEducati
 const Container = styled.span`
     display: flex;
     flex-direction: column;
+    height: 100%;
     overflow: auto;
 `;
 
@@ -186,8 +187,7 @@ export const SearchPage = () => {
             total,
             entityTypes,
             filterFields,
-            filterCount: filters.length,
-            // Only track changes to the filters, ignore toggling the mode by itself
+            filterCount: filters.length, // Only track changes to the filters, ignore toggling the mode by itself
             filterMode: filterModeRef.current,
             searchVersion,
         });

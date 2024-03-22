@@ -352,7 +352,7 @@ export const EntityProfile = <T, U>({
                 <>
                     {(error && <ErrorSection />) || (
                         <EntityProfileSidebar
-                            type={(isInSearch && 'card') || undefined}
+                            type={isInSearch ? 'card' : undefined}
                             focused={isInSearch}
                             tabs={finalTabs}
                             // TODO: Hide collapse for chrome extension

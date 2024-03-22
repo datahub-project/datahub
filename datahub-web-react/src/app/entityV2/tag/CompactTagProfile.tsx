@@ -51,7 +51,7 @@ export default function CompactTagProfile({ urn }: Props) {
             isCollapsed={isClosed}
             $width={width}
             id="entity-profile-sidebar"
-            isCard={isInSearch}
+            isFocused={isInSearch}
         >
             <StyledSidebar isCard={isInSearch} isFocused={isInSearch}>
                 <CompactEntityWrapper isClosed={isClosed}>

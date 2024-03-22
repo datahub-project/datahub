@@ -1,7 +1,10 @@
 import React, { useContext, useState } from 'react';
 import { Col, Row } from 'antd';
+import { matchPath } from 'react-router';
+import { useLocation } from 'react-router-dom';
 import styled from 'styled-components/macro';
 import { ReadOutlined } from '@ant-design/icons';
+import { PageRoutes } from '../../../conf/Global';
 import { useGetGroupQuery } from '../../../graphql/group.generated';
 import { OriginType, EntityRelationshipsResult, Ownership, EntityType } from '../../../types.generated';
 import { Message } from '../../shared/Message';
@@ -42,6 +45,7 @@ const GroupProfileWrapper = styled.div`
     &&& .ant-tabs-nav {
         margin: 0;
     }
+
     background-color: ${REDESIGN_COLORS.WHITE};
     border-radius: 8px;
 `;
@@ -79,7 +83,9 @@ const defaultTabDisplayConfig = {
  */
 export default function GroupProfile({ urn }: Props) {
     const entityRegistry = useEntityRegistry();
+    const location = useLocation();
     const isCompact = React.useContext(CompactContext);
+    const isInSearch = matchPath(location.pathname, PageRoutes.SEARCH_RESULTS) !== null;
     const { loading, error, data, refetch } = useGetGroupQuery({ variables: { urn, membersCount: MEMBER_PAGE_SIZE } });
 
     const groupMemberRelationships = data?.corpGroup?.relationships as EntityRelationshipsResult;
@@ -177,8 +183,8 @@ export default function GroupProfile({ urn }: Props) {
 
     if (isCompact) {
         return (
-            <StyledEntitySidebarContainer isCollapsed={isClosed} isCard $width={width}>
-                <StyledSidebar isInSearch isCard={false}>
+            <StyledEntitySidebarContainer isCollapsed={isClosed} $width={width} isFocused={isInSearch}>
+                <StyledSidebar isCard={isInSearch} isFocused={isInSearch}>
                     <ContentContainer isVisible={!isClosed}>
                         <SidebarCollapsibleHeader currentTab={selectedTab} />
                         {!isClosed && <GroupSidebar sidebarData={sidebarData} refetch={refetch} />}

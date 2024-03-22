@@ -1,7 +1,10 @@
 import { Col, Row } from 'antd';
 import React, { useContext, useState } from 'react';
 import { ReadOutlined } from '@ant-design/icons';
+import { matchPath } from 'react-router';
+import { useLocation } from 'react-router-dom';
 import styled from 'styled-components';
+import { PageRoutes } from '../../../conf/Global';
 import { useGetUserOwnedAssetsQuery, useGetUserQuery } from '../../../graphql/user.generated';
 import { EntityRelationship, EntityType } from '../../../types.generated';
 import UserGroups from './UserGroups';
@@ -27,6 +30,7 @@ export enum TabType {
     Groups = 'Groups',
     Subscription = 'Subscriptions',
 }
+
 const ENABLED_TAB_TYPES = [TabType.Assets, TabType.Groups, TabType.Subscription];
 
 const GROUP_PAGE_SIZE = 20;
@@ -43,6 +47,7 @@ const UserProfileWrapper = styled.div`
     &&& .ant-tabs-nav {
         margin: 0;
     }
+
     background-color: #fff;
     border-radius: 8px;
 `;
@@ -79,7 +84,9 @@ const Tabs = styled.div``;
  */
 export default function UserProfile({ urn }: Props) {
     const entityRegistry = useEntityRegistry();
+    const location = useLocation();
     const isCompact = React.useContext(CompactContext);
+    const isInSearch = matchPath(location.pathname, PageRoutes.SEARCH_RESULTS) !== null;
 
     const { error, data, refetch } = useGetUserQuery({ variables: { urn, groupsCount: GROUP_PAGE_SIZE } });
 
@@ -164,8 +171,8 @@ export default function UserProfile({ urn }: Props) {
 
     if (isCompact) {
         return (
-            <StyledEntitySidebarContainer isCollapsed={isClosed} isCard $width={width}>
-                <StyledSidebar isInSearch isCard={false}>
+            <StyledEntitySidebarContainer isCollapsed={isClosed} $width={width} isFocused={isInSearch}>
+                <StyledSidebar isCard={isInSearch} isFocused={isInSearch}>
                     <ContentContainer isVisible={!isClosed}>
                         <SidebarCollapsibleHeader currentTab={selectedTab} />
                         {!isClosed && <UserSideBar sidebarData={sidebarData} refetch={refetch} />}
