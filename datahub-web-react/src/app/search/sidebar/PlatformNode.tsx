@@ -17,23 +17,30 @@ import {
     useMaybeEnvironmentAggregation,
     useOnSelectBrowsePath,
     usePlatformAggregation,
+    useIsPlatformBrowseMode,
 } from './BrowseContext';
 import useSidebarAnalytics from './useSidebarAnalytics';
 import { useHasFilterField } from './SidebarContext';
+import { ANTD_GRAY } from '../../entity/shared/constants';
 
 const PlatformIconContainer = styled.div`
-    width: 16px;
     display: flex;
     justify-content: center;
     align-items: center;
+    margin-right: 8px;
 `;
-const Count = styled(Typography.Text)`
+
+const Count = styled(Typography.Text)<{ isPlatformBrowse: boolean }>`
     font-size: 12px;
     color: ${(props) => props.color};
-    padding-right: 8px;
+    padding: 2px 8px;
+    margin-left: 8px;
+    ${(props) => props.isPlatformBrowse && `border-radius: 12px;`}
+    ${(props) => props.isPlatformBrowse && `background-color: ${ANTD_GRAY[3]};`}
 `;
 
 const PlatformNode = () => {
+    const isPlatformBrowse = useIsPlatformBrowseMode();
     const isPlatformSelected = useIsPlatformSelected();
     const hasBrowseFilter = useHasFilterField(BROWSE_PATH_V2_FILTER_NAME);
     const isPlatformAndPathSelected = isPlatformSelected && hasBrowseFilter;
@@ -77,6 +84,7 @@ const PlatformNode = () => {
     return (
         <ExpandableNode
             isOpen={isOpen && !isClosing && loaded}
+            style={(isPlatformBrowse && { margin: '12px 12px' }) || undefined}
             header={
                 <ExpandableNode.SelectableHeader
                     isOpen={isOpen}
@@ -90,13 +98,23 @@ const PlatformNode = () => {
                             isVisible={!!platformAggregation.count}
                             onClick={onClickTriangle}
                             dataTestId={`browse-platform-${label}`}
+                            style={{ marginRight: 4 }}
                         />
                         <PlatformIconContainer>{icon}</PlatformIconContainer>
-                        <ExpandableNode.Title color={color} size={14} padLeft>
+                        <ExpandableNode.Title color={color} size={isPlatformBrowse ? 16 : 14} padLeft>
                             {label}
                         </ExpandableNode.Title>
+                        {isPlatformBrowse && (
+                            <Count color={color} isPlatformBrowse>
+                                {formatNumber(platformAggregation.count)}
+                            </Count>
+                        )}
                     </ExpandableNode.HeaderLeft>
-                    <Count color={color}>{formatNumber(platformAggregation.count)}</Count>
+                    {!isPlatformBrowse && (
+                        <Count color={color} isPlatformBrowse={false}>
+                            {formatNumber(platformAggregation.count)}
+                        </Count>
+                    )}
                 </ExpandableNode.SelectableHeader>
             }
             body={

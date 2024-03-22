@@ -15,8 +15,10 @@ import {
 } from '../utils/constants';
 import { useHasFilterValue, useOnChangeFilters, useSelectedFilters } from './SidebarContext';
 import { applyFacetFilterOverrides } from '../utils/applyFilterOverrides';
-import { getEntitySubtypeFiltersForEntity } from './browseContextUtils';
 import { useEntityRegistry } from '../../useEntityRegistry';
+import { BrowseMode } from './types';
+import { getEntitySubtypeFiltersForEntity } from './browseContextUtils';
+import { useIsPlatformBrowseV2 } from '../useSearchAndBrowseVersion';
 
 type BrowseContextValue = {
     entityAggregation?: AggregationMetadata;
@@ -24,6 +26,7 @@ type BrowseContextValue = {
     platformAggregation?: AggregationMetadata;
     browseResultGroup?: BrowseResultGroupV2;
     path: Array<string>;
+    mode: BrowseMode;
 };
 
 const BrowseContext = createContext<BrowseContextValue | null>(null);
@@ -49,7 +52,7 @@ export const BrowseProvider = ({
         const basePath = parentPath ? [...parentPath] : [];
         return browseResultGroup ? [...basePath, browseResultGroup.name] : basePath;
     }, [browseResultGroup, parentPath]);
-
+    const isPlatformBrowse = useIsPlatformBrowseV2();
     return (
         <BrowseContext.Provider
             value={{
@@ -58,6 +61,7 @@ export const BrowseProvider = ({
                 platformAggregation,
                 browseResultGroup,
                 path,
+                mode: isPlatformBrowse ? BrowseMode.PLATFORM : BrowseMode.ENTITY_TYPE,
             }}
         >
             {children}
@@ -71,6 +75,16 @@ const useBrowseContext = () => {
     return context;
 };
 
+export const useBrowseMode = () => {
+    const { mode } = useBrowseContext();
+    return mode;
+};
+
+export const useIsPlatformBrowseMode = () => {
+    const { mode } = useBrowseContext();
+    return mode === BrowseMode.PLATFORM;
+};
+
 export const useMaybeEntityAggregation = () => {
     return useBrowseContext().entityAggregation;
 };
@@ -82,12 +96,11 @@ export const useMaybeEntityType = () => {
 
 export const useEntityAggregation = () => {
     const entityAggregation = useMaybeEntityAggregation();
-    if (!entityAggregation) throw new Error('entityAggregation is missing in context');
     return entityAggregation;
 };
 
 export const useEntityType = () => {
-    return useEntityAggregation().value as EntityType;
+    return useEntityAggregation()?.value as EntityType;
 };
 
 export const useMaybeEnvironmentAggregation = () => {
@@ -142,7 +155,7 @@ export const useBrowseSearchFilter = () => {
 };
 
 export const useIsEntitySelected = () => {
-    return useHasFilterValue(ENTITY_SUB_TYPE_FILTER_NAME, useEntityAggregation().value, { prefix: true });
+    return useHasFilterValue(ENTITY_SUB_TYPE_FILTER_NAME, useEntityAggregation()?.value, { prefix: true });
 };
 
 export const useIsEnvironmentSelected = () => {
@@ -153,28 +166,35 @@ export const useIsEnvironmentSelected = () => {
 };
 
 export const useIsPlatformSelected = () => {
+    const isPlatformBrowse = useIsPlatformBrowseMode();
     const isEntitySelected = useIsEntitySelected();
     const isEnvironmentSelected = useIsEnvironmentSelected();
     const isPlatformSelected = useHasFilterValue(PLATFORM_FILTER_NAME, usePlatformAggregation().value);
-    return isEntitySelected && isEnvironmentSelected && isPlatformSelected;
+    return isPlatformBrowse ? isPlatformSelected : isEntitySelected && isEnvironmentSelected && isPlatformSelected;
 };
 
 export const useIsBrowsePathPrefix = () => {
+    const isPlatformBrowse = useIsPlatformBrowseMode();
     const isEntitySelected = useIsEntitySelected();
     const isEnvironmentSelected = useIsEnvironmentSelected();
     const isPlatformSelected = useIsPlatformSelected();
     const isBrowsePathPrefix = useHasFilterValue(BROWSE_PATH_V2_FILTER_NAME, useBrowseSearchFilter(), {
         prefix: true,
     });
-    return isEntitySelected && isEnvironmentSelected && isPlatformSelected && isBrowsePathPrefix;
+    return isPlatformBrowse
+        ? isPlatformSelected && isBrowsePathPrefix
+        : isEntitySelected && isEnvironmentSelected && isPlatformSelected && isBrowsePathPrefix;
 };
 
 export const useIsBrowsePathSelected = () => {
+    const isPlatformBrowse = useIsPlatformBrowseMode();
     const isEntitySelected = useIsEntitySelected();
     const isEnvironmentSelected = useIsEnvironmentSelected();
     const isPlatformSelected = useIsPlatformSelected();
     const isBrowsePathSelected = useHasFilterValue(BROWSE_PATH_V2_FILTER_NAME, useBrowseSearchFilter());
-    return isEntitySelected && isEnvironmentSelected && isPlatformSelected && isBrowsePathSelected;
+    return isPlatformBrowse
+        ? isPlatformSelected && isBrowsePathSelected
+        : isEntitySelected && isEnvironmentSelected && isPlatformSelected && isBrowsePathSelected;
 };
 
 export const useOnSelectBrowsePath = () => {
@@ -188,20 +208,23 @@ export const useOnSelectBrowsePath = () => {
     return (isSelected: boolean, removeFilters: string[] = []) => {
         const overrides: Array<FacetFilterInput> = [];
 
-        // keep entity and subType filters for this given entity only if they exist, otherwise apply this entity filter
-        const entitySubtypeFilters = getEntitySubtypeFiltersForEntity(entityAggregation.value, selectedFilters);
-        overrides.push({
-            field: ENTITY_SUB_TYPE_FILTER_NAME,
-            condition: FilterOperator.Equal,
-            values: entitySubtypeFilters || [entityAggregation.value],
-        });
+        if (entityAggregation) {
+            // keep entity and subType filters for this given entity only if they exist, otherwise apply this entity filter
+            const entitySubtypeFilters = getEntitySubtypeFiltersForEntity(entityAggregation.value, selectedFilters);
+            overrides.push({
+                field: ENTITY_SUB_TYPE_FILTER_NAME,
+                condition: FilterOperator.Equal,
+                values: entitySubtypeFilters || [entityAggregation.value],
+            });
+        }
 
-        if (environmentAggregation)
+        if (environmentAggregation) {
             overrides.push({
                 field: ORIGIN_FILTER_NAME,
                 condition: FilterOperator.Equal,
                 values: [environmentAggregation.value],
             });
+        }
 
         overrides.push({
             field: PLATFORM_FILTER_NAME,

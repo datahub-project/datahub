@@ -27,7 +27,7 @@ const EntityNode = () => {
     const entityType = useEntityType();
     const entityAggregation = useEntityAggregation();
     const hasEnvironmentFilter = useHasFilterField(ORIGIN_FILTER_NAME);
-    const { count } = entityAggregation;
+    const { count } = entityAggregation || { count: 0 };
     const countText = count === MAX_COUNT_VAL ? '10k+' : formatNumber(count);
     const registry = useEntityRegistry();
     const { trackToggleNodeEvent } = useSidebarAnalytics();

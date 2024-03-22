@@ -4,8 +4,8 @@ const useSearchAndBrowseVersion = () => {
     const appConfig = useAppConfig();
     const searchVersion = appConfig.config.featureFlags.showSearchFiltersV2 ? 'v2' : 'v1';
     const browseVersion = appConfig.config.featureFlags.showBrowseV2 ? 'v2' : 'v1';
-
-    return { searchVersion, browseVersion } as const;
+    const isPlatformBrowse = appConfig.config.featureFlags.platformBrowseV2;
+    return { searchVersion, browseVersion, isPlatformBrowse } as const;
 };
 
 export const useSearchVersion = () => {
@@ -26,4 +26,9 @@ export const useIsBrowseV2 = () => {
     const searchFiltersVersion = useSearchVersion();
 
     return browseVersion === 'v2' && searchFiltersVersion === 'v2';
+};
+
+export const useIsPlatformBrowseV2 = () => {
+    const { isPlatformBrowse } = useSearchAndBrowseVersion();
+    return isPlatformBrowse;
 };

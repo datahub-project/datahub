@@ -19,7 +19,7 @@ const useSidebarAnalytics = () => {
     const entityType = useEntityType();
     const environmentAggregation = useMaybeEnvironmentAggregation();
     const platformAggregation = useMaybePlatformAggregation();
-    const entityDisplayName = registry.getCollectionName(entityType);
+    const entityDisplayName = entityType && registry.getCollectionName(entityType);
     const environmentDisplayName = environmentAggregation?.value;
     const platformDisplayName = platformAggregation?.entity
         ? registry.getDisplayName(EntityType.DataPlatform, platformAggregation.entity)

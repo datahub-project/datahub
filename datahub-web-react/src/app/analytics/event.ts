@@ -238,7 +238,7 @@ export interface BrowseV2ToggleNodeEvent extends BaseEvent {
     type: EventType.BrowseV2ToggleNodeEvent;
     targetNode: 'entity' | 'environment' | 'platform' | 'browse';
     action: 'open' | 'close';
-    entity: string;
+    entity?: string;
     environment?: string;
     platform?: string;
     targetDepth: number;
@@ -251,7 +251,7 @@ export interface BrowseV2SelectNodeEvent extends BaseEvent {
     type: EventType.BrowseV2SelectNodeEvent;
     targetNode: 'browse' | 'platform';
     action: 'select' | 'deselect';
-    entity: string;
+    entity?: string;
     environment?: string;
     platform?: string;
     targetDepth: number;
@@ -263,7 +263,7 @@ export interface BrowseV2SelectNodeEvent extends BaseEvent {
 export interface BrowseV2EntityLinkClickEvent extends BaseEvent {
     type: EventType.BrowseV2EntityLinkClickEvent;
     targetNode: 'browse';
-    entity: string;
+    entity?: string;
     environment?: string;
     platform?: string;
     targetDepth: number;
