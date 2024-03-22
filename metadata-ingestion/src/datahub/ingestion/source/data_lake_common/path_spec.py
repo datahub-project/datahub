@@ -45,6 +45,7 @@ class PathSpec(ConfigModel):
     )
 
     default_extension: Optional[str] = Field(
+        default=None,
         description="For files without extension it will assume the specified file type. If it is not set the files without extensions will be skipped.",
     )
 
@@ -131,16 +132,12 @@ class PathSpec(ConfigModel):
     def get_named_vars(self, path: str) -> Union[None, parse.Result, parse.Match]:
         return self.compiled_include.parse(path)
 
-    @pydantic.root_validator()
-    def validate_no_double_stars(cls, values: Dict) -> Dict:
-        if "include" not in values:
+    @pydantic.model_validator(mode="after")
+    def validate_no_double_stars(cls, values: "PathSpec") -> "PathSpec":
+        if not values.include:
             return values
 
-        if (
-            values.get("include")
-            and "**" in values["include"]
-            and not values.get("allow_double_stars")
-        ):
+        if values.include and "**" in values.include and not values.allow_double_stars:
             raise ValueError("path_spec.include cannot contain '**'")
         return values
 
