@@ -38,18 +38,22 @@ import org.testng.annotations.Test;
 
 public class CreateBusinessAttributeResolverTest {
 
+  private static final String BUSINESS_ATTRIBUTE_URN =
+      "urn:li:businessAttribute:business-attribute-1";
   private static final String TEST_BUSINESS_ATTRIBUTE_NAME = "test-business-attribute";
   private static final String TEST_BUSINESS_ATTRIBUTE_DESCRIPTION = "test-description";
   private static final CreateBusinessAttributeInput TEST_INPUT =
       new CreateBusinessAttributeInput(
+          BUSINESS_ATTRIBUTE_URN,
           TEST_BUSINESS_ATTRIBUTE_NAME,
           TEST_BUSINESS_ATTRIBUTE_DESCRIPTION,
           SchemaFieldDataType.BOOLEAN);
   private static final CreateBusinessAttributeInput TEST_INPUT_NULL_NAME =
       new CreateBusinessAttributeInput(
-          null, TEST_BUSINESS_ATTRIBUTE_DESCRIPTION, SchemaFieldDataType.BOOLEAN);
-  private static final String BUSINESS_ATTRIBUTE_URN =
-      "urn:li:businessAttribute:7d0c4283-de02-4043-aaf2-698b04274658";
+          BUSINESS_ATTRIBUTE_URN,
+          null,
+          TEST_BUSINESS_ATTRIBUTE_DESCRIPTION,
+          SchemaFieldDataType.BOOLEAN);
   private EntityClient mockClient;
   private EntityService mockService;
   private QueryContext mockContext;

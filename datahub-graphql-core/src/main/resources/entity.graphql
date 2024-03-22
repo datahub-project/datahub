@@ -12034,6 +12034,11 @@ Input required for creating a BusinessAttribute.
 """
 input CreateBusinessAttributeInput {
     """
+    Optional! A custom id to use as the primary key identifier. If not provided, a random UUID will be generated as the id.
+    """
+    id: String
+
+    """
     name of the business attribute
     """
     name: String!

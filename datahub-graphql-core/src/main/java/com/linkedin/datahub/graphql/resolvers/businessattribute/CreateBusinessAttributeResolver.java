@@ -55,7 +55,8 @@ public class CreateBusinessAttributeResolver
         () -> {
           try {
             final BusinessAttributeKey businessAttributeKey = new BusinessAttributeKey();
-            businessAttributeKey.setId(UUID.randomUUID().toString());
+            String id = input.getId() != null ? input.getId() : UUID.randomUUID().toString();
+            businessAttributeKey.setId(id);
 
             if (_entityClient.exists(
                 EntityKeyUtils.convertEntityKeyToUrn(
