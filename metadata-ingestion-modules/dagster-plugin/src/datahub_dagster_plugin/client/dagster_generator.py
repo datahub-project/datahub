@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from logging import Logger
-from typing import Any, Callable, Dict, List, Optional, Sequence, Set, Tuple
+from typing import Any, Callable, Dict, List, NamedTuple, Optional, Sequence, Set
 from urllib.parse import urlsplit
 
 import pydantic
@@ -69,6 +69,11 @@ class Constant:
     ATTEMPTS = "attempts"
 
 
+class DatasetLineage(NamedTuple):
+    inputs: Set[str]
+    outputs: Set[str]
+
+
 class DatahubDagsterSourceConfig(DatasetSourceConfigMixin):
     datahub_client_config: DatahubClientConfig = pydantic.Field(
         default=DatahubClientConfig(),
@@ -87,17 +92,17 @@ class DatahubDagsterSourceConfig(DatasetSourceConfigMixin):
 
     capture_input_output: bool = pydantic.Field(
         default=False,
-        description="Whether to capture and try to parse input and output from HANDLED_OUTPUT,.LOADED_INPUT event. (currently only filepathvalue metadata supported",
+        description="Whether to capture and try to parse input and output from HANDLED_OUTPUT, LOADED_INPUT event. (currently only filepathvalue metadata supported",
     )
 
     asset_lineage_extractor: Optional[
         Callable[
             [RunStatusSensorContext, "DagsterGenerator", DataHubGraph],
-            Tuple[Dict[str, set], Dict[str, set]],
+            Dict[str, DatasetLineage],
         ]
     ] = pydantic.Field(
         default=None,
-        description="Whether to capture and try to parse input and output from HANDLED_OUTPUT,.LOADED_INPUT event. (currently only filepathvalue metadata supported",
+        description="Custom asset lineage extractor function. See details at [https://datahubproject.io/docs/lineage/dagster/#define-your-custom-logic-to-capture-asset-lineage-information]",
     )
 
 

@@ -347,9 +347,16 @@ class DatahubSensors:
             dataset_outputs: Dict[str, Set] = {}
 
             if self.config.asset_lineage_extractor:
-                dataset_inputs, dataset_outputs = self.config.asset_lineage_extractor(
+                asset_lineages = self.config.asset_lineage_extractor(
                     context, dagster_generator, self.graph
                 )
+                for key, value in asset_lineages.items():
+                    dataset_inputs[key] = dataset_inputs.get(key, set()).union(
+                        value.inputs
+                    )
+                    dataset_outputs[key] = dataset_outputs.get(key, set()).union(
+                        value.outputs
+                    )
 
             (
                 dataset_inputs_from_logs,
