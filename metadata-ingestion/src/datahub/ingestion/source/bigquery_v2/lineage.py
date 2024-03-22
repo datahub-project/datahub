@@ -520,20 +520,19 @@ class BigqueryLineageExtractor:
             lineage_map: Dict[str, Set[LineageEdge]] = {}
             curr_date = datetime.now()
             for project_table in project_tables:
+                # Convert project table to <project_id>.<dataset_id>.<table_id> format
+                table = f"{project_table.project}.{project_table.dataset_id}.{project_table.table_id}"
 
                 if not is_schema_allowed(
                     self.config.dataset_pattern,
                     schema_name=project_table.dataset_id,
                     db_name=project_table.project,
                     match_fully_qualified_schema_name=self.config.match_fully_qualified_names,
-                ) or not self.config.table_pattern.allowed(project_table.table_id):
+                ) or not self.config.table_pattern.allowed(table):
                     self.report.num_skipped_lineage_entries_not_allowed[
                         project_table.project
                     ] += 1
                     continue
-
-                # Convert project table to <project_id>.<dataset_id>.<table_id> format
-                table = f"{project_table.project}.{project_table.dataset_id}.{project_table.table_id}"
 
                 logger.info("Creating lineage map for table %s", table)
                 upstreams = set()
