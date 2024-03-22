@@ -94,7 +94,6 @@ dev_requirements = {
 }
 
 integration_test_requirements = {
-    *dev_requirements,
     *plugins["datahub-file"],
     *plugins["datahub-kafka"],
     f"acryl-datahub[testing-utils]{_self_pin}",
