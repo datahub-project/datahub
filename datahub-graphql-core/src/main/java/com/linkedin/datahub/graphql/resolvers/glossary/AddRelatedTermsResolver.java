@@ -47,7 +47,6 @@ public class AddRelatedTermsResolver implements DataFetcher<CompletableFuture<Bo
           if (GlossaryUtils.canManageChildrenEntities(context, parentUrn, _entityClient)) {
             try {
               final TermRelationshipType relationshipType = input.getRelationshipType();
-              final Urn urn = Urn.createFromString(input.getUrn());
               final List<Urn> termUrns =
                   input.getTermUrns().stream().map(UrnUtils::getUrn).collect(Collectors.toList());
               validateRelatedTermsInput(urn, termUrns);
