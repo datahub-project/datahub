@@ -1,5 +1,5 @@
 
-export function parseMaybeStringAsFloatOrDefault(str: any, fallback?: number): number | undefined {
+export function parseMaybeStringAsFloatOrDefault<T>(str: any, fallback?: T): number | T | undefined {
     const parsedValue = typeof str === 'string' ? parseFloat(str) : str;
     return typeof parsedValue === 'number' && !Number.isNaN(parsedValue) ? parsedValue : fallback;
 }

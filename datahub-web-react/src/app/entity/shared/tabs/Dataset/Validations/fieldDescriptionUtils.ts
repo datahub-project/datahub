@@ -6,6 +6,8 @@ import {
     FieldMetricType,
     FieldTransformType,
 } from '../../../../../../types.generated';
+import { formatNumberWithoutAbbreviation } from '../../../../../shared/formatNumber';
+import { parseMaybeStringAsFloatOrDefault } from '../../../../../shared/numberUtil';
 import { ASSERTION_OPERATOR_TO_DESCRIPTION } from './assertion/profile/summary/shared/constants';
 
 const SUPPORTED_OPERATORS_FOR_FIELD_DESCRIPTION = [
@@ -84,10 +86,10 @@ const getFieldTransformType = (transform: FieldTransformType) => {
 
 const getAssertionStdParameters = (parameters: AssertionStdParameters) => {
     if (parameters.value) {
-        return parameters.value.value;
+        return formatNumberWithoutAbbreviation(parseMaybeStringAsFloatOrDefault(parameters.value.value, parameters.value.value));
     }
     if (parameters.minValue && parameters.maxValue) {
-        return `${parameters.minValue.value} and ${parameters.maxValue.value}`;
+        return `${formatNumberWithoutAbbreviation(parseMaybeStringAsFloatOrDefault(parameters.minValue.value, parameters.minValue.value))} and ${formatNumberWithoutAbbreviation(parseMaybeStringAsFloatOrDefault(parameters.maxValue.value, parameters.maxValue.value))}`;
     }
     return '';
 };

@@ -10,6 +10,8 @@ import {
     VolumeAssertionType,
 } from '../../../../../../types.generated';
 import { getIsRowCountChange, getVolumeTypeInfo } from './assertion/builder/steps/volume/utils';
+import { formatNumberWithoutAbbreviation } from '../../../../../shared/formatNumber';
+import { parseMaybeStringAsFloatOrDefault } from '../../../../../shared/numberUtil';
 
 type Props = {
     assertionInfo: VolumeAssertionInfo;
@@ -54,10 +56,10 @@ const getValueChangeTypeDescription = (valueChangeType: AssertionValueChangeType
 
 const getParameterDescription = (parameters: AssertionStdParameters) => {
     if (parameters.value) {
-        return parameters.value.value;
+        return formatNumberWithoutAbbreviation(parseMaybeStringAsFloatOrDefault(parameters.value.value, parameters.value.value));
     }
     if (parameters.minValue && parameters.maxValue) {
-        return `${parameters.minValue.value} and ${parameters.maxValue.value}`;
+        return `${formatNumberWithoutAbbreviation(parseMaybeStringAsFloatOrDefault(parameters.minValue.value, parameters.minValue.value))} and ${formatNumberWithoutAbbreviation(parseMaybeStringAsFloatOrDefault(parameters.maxValue.value, parameters.maxValue.value))}`;
     }
     throw new Error('Invalid assertion parameters provided');
 };
