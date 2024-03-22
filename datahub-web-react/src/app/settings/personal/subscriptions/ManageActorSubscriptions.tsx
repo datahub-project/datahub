@@ -15,6 +15,7 @@ import { ENABLE_UPSTREAM_NOTIFICATIONS } from '../notifications/constants';
 import ChannelColumn from './table/ChannelColumn';
 import useSinkSettings from '../../../shared/subscribe/drawer/useSinkSettings';
 import { DataHubSubscription } from '../../../../types.generated';
+import { useUserContext } from '../../../context/useUserContext';
 
 const PAGE_SIZE = 10;
 
@@ -92,6 +93,7 @@ type Props = {
  * Component used for managing actor subscriptions.
  */
 export const ManageActorSubscriptions = ({ isPersonal, groupUrn }: Props) => {
+    const actorUrn: any = useUserContext()?.user?.urn;
     const [page, setPage] = useState(1);
     const start = (page - 1) * PAGE_SIZE;
     const {
@@ -99,7 +101,14 @@ export const ManageActorSubscriptions = ({ isPersonal, groupUrn }: Props) => {
         loading,
         refetch: refetchListSubscriptions,
     } = useListSubscriptionsQuery({
-        variables: { input: { start, count: PAGE_SIZE, groupUrn: groupUrn || undefined } },
+        variables: {
+            input: {
+                start,
+                count: PAGE_SIZE,
+                actorUrn: (!groupUrn && actorUrn) || undefined,
+                ...(groupUrn && { groupUrn }),
+            },
+        },
     });
     const { settingsChannel } = useSinkSettings({ isPersonal, groupUrn });
     const subscriptions = listSubscriptionData?.listSubscriptions?.subscriptions || [];

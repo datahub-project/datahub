@@ -92,7 +92,7 @@ export default function UserProfile() {
             {
                 name: TabType.Subscription,
                 path: TabType.Subscription.toLocaleLowerCase(),
-                content: <UserSubscriptions />,
+                content: <UserSubscriptions  urn={urn}/>,
                 display: {
                     enabled: () => true,
                 },

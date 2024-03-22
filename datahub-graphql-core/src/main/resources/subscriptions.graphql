@@ -59,6 +59,11 @@ input ListSubscriptionsInput {
     (Optional) The maximum number of results to be returned. Defaults to 10.
     """
     count: Int
+
+    """
+    (Optional) The urn of the actor that owns the subscription.
+    """
+    actorUrn: String
 }
 
 input GetEntitySubscriptionSummaryInput {

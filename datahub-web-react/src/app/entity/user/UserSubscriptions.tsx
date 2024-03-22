@@ -24,12 +24,16 @@ const StyledPagination = styled(Pagination)`
 
 const PAGE_SIZE = 10;
 
-export const UserSubscriptions = () => {
+type Props = {
+    urn: string;
+};
+
+export const UserSubscriptions = ({ urn }: Props) => {
     const [page, setPage] = useState(1);
     const entityRegistry = useEntityRegistry();
     const start = (page - 1) * PAGE_SIZE;
     const { data: listSubscriptionData } = useListSubscriptionsQuery({
-        variables: { input: { start, count: PAGE_SIZE, groupUrn: undefined } },
+        variables: { input: { start, count: PAGE_SIZE, groupUrn: undefined, actorUrn: urn } },
     });
 
     const subscriptions = listSubscriptionData?.listSubscriptions?.subscriptions || [];
