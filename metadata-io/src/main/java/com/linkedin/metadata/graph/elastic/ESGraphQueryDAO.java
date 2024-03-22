@@ -100,9 +100,9 @@ public class ESGraphQueryDAO {
       criterionArray.forEach(
           criterion ->
               andQuery.filter(
-                  QueryBuilders.termQuery(
+                  QueryBuilders.termsQuery(
                       (node == null ? "" : node + ".") + criterion.getField(),
-                      criterion.getValue())));
+                      criterion.getValues())));
       orQuery.should(andQuery);
     }
     rootQuery.filter(orQuery);

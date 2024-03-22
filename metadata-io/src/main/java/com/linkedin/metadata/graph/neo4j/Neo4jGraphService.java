@@ -820,8 +820,13 @@ public class Neo4jGraphService implements GraphService {
 
     final StringJoiner joiner = new StringJoiner(",", "{", "}");
 
-    criterionArray.forEach(
-        criterion -> joiner.add(toCriterionString(criterion.getField(), criterion.getValue())));
+    criterionArray.stream()
+        .flatMap(
+            criterion ->
+                criterion.getValues().stream().map(value -> Pair.of(criterion.getField(), value)))
+        .forEach(
+            fieldValue ->
+                joiner.add(toCriterionString(fieldValue.getFirst(), fieldValue.getSecond())));
 
     return joiner.length() <= 2 ? "" : joiner.toString();
   }

@@ -5,6 +5,7 @@ import static com.linkedin.metadata.entity.AspectUtils.*;
 
 import com.datahub.authentication.Authentication;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.data.template.StringArray;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.EntityClient;
@@ -121,7 +122,8 @@ public class InviteTokenService {
 
     final Criterion roleCriterion = new Criterion();
     roleCriterion.setField(HAS_ROLE_FIELD_NAME);
-    roleCriterion.setValue("false");
+    roleCriterion.setValues(new StringArray("false"));
+    roleCriterion.setValue("");
     roleCriterion.setCondition(Condition.EQUAL);
 
     andCriterion.add(roleCriterion);
@@ -140,7 +142,8 @@ public class InviteTokenService {
 
     final Criterion roleCriterion = new Criterion();
     roleCriterion.setField(ROLE_FIELD_NAME);
-    roleCriterion.setValue(roleUrnStr);
+    roleCriterion.setValues(new StringArray(roleUrnStr));
+    roleCriterion.setValue("");
     roleCriterion.setCondition(Condition.EQUAL);
 
     andCriterion.add(roleCriterion);

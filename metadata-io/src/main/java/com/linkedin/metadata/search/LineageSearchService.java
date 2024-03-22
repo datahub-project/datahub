@@ -367,14 +367,14 @@ public class LineageSearchService {
                 .map(ConjunctiveCriterion::getAnd)
                 .flatMap(CriterionArray::stream)
                 .filter(criterion -> "platform".equals(criterion.getField()))
-                .map(Criterion::getValue)
+                .flatMap(criterion -> criterion.getValues().stream())
                 .collect(Collectors.toSet());
         originCriteriaValues =
             inputFilters.getOr().stream()
                 .map(ConjunctiveCriterion::getAnd)
                 .flatMap(CriterionArray::stream)
                 .filter(criterion -> "origin".equals(criterion.getField()))
-                .map(Criterion::getValue)
+                .flatMap(criterion -> criterion.getValues().stream())
                 .collect(Collectors.toSet());
       }
       boolean isNotFiltered =

@@ -13,6 +13,7 @@ import static org.testng.Assert.assertTrue;
 import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.TestEntityUrn;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.data.template.StringArray;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.recommendation.RecommendationContent;
@@ -125,7 +126,7 @@ public class EntitySearchAggregationCandidateSourceTest {
     assertEquals(params.getSearchParams().getFilters().size(), 1);
     assertEquals(
         params.getSearchParams().getFilters().get(0),
-        new Criterion().setField("testValue").setValue("value1"));
+        new Criterion().setField("testValue").setValue("").setValues(new StringArray("value1")));
     assertNotNull(params.getContentParams());
     assertEquals(params.getContentParams().getCount().longValue(), 1L);
     assertTrue(_valueBasedCandidateSource.getRecommendationModule(opContext, CONTEXT).isPresent());
@@ -147,7 +148,7 @@ public class EntitySearchAggregationCandidateSourceTest {
     assertEquals(params.getSearchParams().getFilters().size(), 1);
     assertEquals(
         params.getSearchParams().getFilters().get(0),
-        new Criterion().setField("testValue").setValue("value3"));
+        new Criterion().setField("testValue").setValue("").setValues(new StringArray("value3")));
     assertNotNull(params.getContentParams());
     assertEquals(params.getContentParams().getCount().longValue(), 3L);
     content = candidates.get(1);
@@ -160,7 +161,7 @@ public class EntitySearchAggregationCandidateSourceTest {
     assertEquals(params.getSearchParams().getFilters().size(), 1);
     assertEquals(
         params.getSearchParams().getFilters().get(0),
-        new Criterion().setField("testValue").setValue("value2"));
+        new Criterion().setField("testValue").setValue("").setValues(new StringArray("value2")));
     assertNotNull(params.getContentParams());
     assertEquals(params.getContentParams().getCount().longValue(), 2L);
     assertTrue(_valueBasedCandidateSource.getRecommendationModule(opContext, CONTEXT).isPresent());
@@ -189,7 +190,10 @@ public class EntitySearchAggregationCandidateSourceTest {
     assertEquals(params.getSearchParams().getFilters().size(), 1);
     assertEquals(
         params.getSearchParams().getFilters().get(0),
-        new Criterion().setField("testUrn").setValue(testUrn1.toString()));
+        new Criterion()
+            .setField("testUrn")
+            .setValue("")
+            .setValues(new StringArray(testUrn1.toString())));
     assertNotNull(params.getContentParams());
     assertEquals(params.getContentParams().getCount().longValue(), 1L);
     assertTrue(_urnBasedCandidateSource.getRecommendationModule(opContext, CONTEXT).isPresent());
@@ -213,7 +217,10 @@ public class EntitySearchAggregationCandidateSourceTest {
     assertEquals(params.getSearchParams().getFilters().size(), 1);
     assertEquals(
         params.getSearchParams().getFilters().get(0),
-        new Criterion().setField("testUrn").setValue(testUrn3.toString()));
+        new Criterion()
+            .setField("testUrn")
+            .setValue("")
+            .setValues(new StringArray(testUrn3.toString())));
     assertNotNull(params.getContentParams());
     assertEquals(params.getContentParams().getCount().longValue(), 3L);
     content = candidates.get(1);
@@ -226,7 +233,10 @@ public class EntitySearchAggregationCandidateSourceTest {
     assertEquals(params.getSearchParams().getFilters().size(), 1);
     assertEquals(
         params.getSearchParams().getFilters().get(0),
-        new Criterion().setField("testUrn").setValue(testUrn2.toString()));
+        new Criterion()
+            .setField("testUrn")
+            .setValue("")
+            .setValues(new StringArray(testUrn2.toString())));
     assertNotNull(params.getContentParams());
     assertEquals(params.getContentParams().getCount().longValue(), 2L);
     assertTrue(_urnBasedCandidateSource.getRecommendationModule(opContext, CONTEXT).isPresent());

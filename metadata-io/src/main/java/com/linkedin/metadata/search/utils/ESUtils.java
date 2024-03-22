@@ -4,9 +4,9 @@ import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.metadata.models.annotation.SearchableAnnotation.OBJECT_FIELD_TYPES;
 import static com.linkedin.metadata.search.elasticsearch.query.request.SearchFieldConfig.KEYWORD_FIELDS;
 import static com.linkedin.metadata.search.elasticsearch.query.request.SearchFieldConfig.PATH_HIERARCHY_FIELDS;
-import static com.linkedin.metadata.search.utils.SearchUtils.isUrn;
 
 import com.google.common.collect.ImmutableList;
+import com.linkedin.data.template.StringArray;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.SearchableFieldSpec;
@@ -19,7 +19,6 @@ import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import io.datahubproject.metadata.context.OperationContext;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -52,7 +51,6 @@ import org.opensearch.search.suggest.term.TermSuggestionBuilder;
 public class ESUtils {
 
   private static final String DEFAULT_SEARCH_RESULTS_SORT_BY_FIELD = "urn";
-  public static final String KEYWORD_ANALYZER = "keyword";
   public static final String KEYWORD_SUFFIX = ".keyword";
   public static final int MAX_RESULT_SIZE = 10000;
   public static final String OPAQUE_ID_HEADER = "X-Opaque-Id";
@@ -156,23 +154,9 @@ public class ESUtils {
       // The default is not always 1 (ensure consistent default)
       finalQueryBuilder.minimumShouldMatch(1);
     } else if (filter.getCriteria() != null) {
-      // Otherwise, build boolean query from the deprecated "criteria" field.
-      log.warn("Received query Filter with a deprecated field 'criteria'. Use 'or' instead.");
-      final BoolQueryBuilder andQueryBuilder = new BoolQueryBuilder();
-      filter
-          .getCriteria()
-          .forEach(
-              criterion -> {
-                if (!criterion.getValue().trim().isEmpty()
-                    || criterion.hasValues()
-                    || criterion.getCondition() == Condition.IS_NULL) {
-                  andQueryBuilder.must(
-                      getQueryBuilderFromCriterion(criterion, isTimeseries, searchableFieldTypes));
-                }
-              });
-      finalQueryBuilder.should(andQueryBuilder);
-      // The default is not always 1 (ensure consistent default)
-      finalQueryBuilder.minimumShouldMatch(1);
+      // Otherwise deprecated "criteria" field.
+      throw new IllegalArgumentException(
+          "The legacy `value` field is no longer supported. Please populate the `values` field in the filter.");
     }
     return finalQueryBuilder;
   }
@@ -470,8 +454,8 @@ public class ESUtils {
       if (criterion.hasValues()) {
         criterionToQuery.setValues(criterion.getValues());
       }
-      if (criterion.hasValue()) {
-        criterionToQuery.setValue(criterion.getValue());
+      if (criterion.hasValue() && !criterion.getValue().isEmpty() && !criterion.hasValues()) {
+        criterionToQuery.setValues(new StringArray(criterion.getValue()));
       }
       criterionToQuery.setField(toKeywordField(field, isTimeseries));
       orQueryBuilder.should(
@@ -537,11 +521,9 @@ public class ESUtils {
       return buildEqualsConditionFromCriterionWithValues(
           fieldName, criterion, isTimeseries, searchableFieldTypes);
     }
-    /*
-     * Otherwise, we are likely using the deprecated 'value' field.
-     * We handle using the legacy code path below.
-     */
-    return buildEqualsFromCriterionWithValue(fieldName, criterion, isTimeseries);
+
+    throw new IllegalArgumentException(
+        "The legacy `value` field is no longer supported. Please populate the `values` field in the filter.");
   }
 
   /**
@@ -634,46 +616,6 @@ public class ESUtils {
     } else /*if (condition == Condition.LESS_THAN_OR_EQUAL_TO)*/ {
       return QueryBuilders.rangeQuery(documentFieldName).lte(criterionValue).queryName(fieldName);
     }
-  }
-
-  /**
-   * Builds an instance of {@link QueryBuilder} representing an EQUALS condition which was created
-   * using the deprecated 'value' field of Criterion.pdl model.
-   *
-   * <p>Previously, we supported comma-separate values inside of a single string field, thus we have
-   * to account for splitting and matching against each value below.
-   *
-   * <p>For all new code, we should be using the new 'values' field for performing multi-match. This
-   * is simply retained for backwards compatibility of the search API.
-   */
-  @Deprecated
-  private static QueryBuilder buildEqualsFromCriterionWithValue(
-      @Nonnull final String fieldName,
-      @Nonnull final Criterion criterion,
-      final boolean isTimeseries) {
-    // If the value is an URN style value, then we do not attempt to split it by comma (for obvious
-    // reasons)
-    if (isUrn(criterion.getValue())) {
-      return QueryBuilders.matchQuery(
-              toKeywordField(criterion.getField(), isTimeseries), criterion.getValue().trim())
-          .queryName(fieldName)
-          .analyzer(KEYWORD_ANALYZER);
-    }
-    final BoolQueryBuilder filters = new BoolQueryBuilder();
-    // Cannot assume the existence of a .keyword or other subfield (unless contains `.`)
-    // Cannot assume the type of the underlying field or subfield thus KEYWORD_ANALYZER is forced
-    List<String> fields =
-        criterion.getField().contains(".")
-            ? List.of(criterion.getField())
-            : List.of(criterion.getField(), criterion.getField() + ".*");
-    Arrays.stream(criterion.getValue().trim().split("\\s*,\\s*"))
-        .forEach(
-            elem ->
-                filters.should(
-                    QueryBuilders.multiMatchQuery(elem, fields.toArray(new String[0]))
-                        .queryName(fieldName)
-                        .analyzer(KEYWORD_ANALYZER)));
-    return filters;
   }
 
   @Nonnull

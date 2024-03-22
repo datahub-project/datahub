@@ -11,6 +11,7 @@ import com.linkedin.common.SubTypes;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.data.template.StringArray;
 import com.linkedin.dataset.UpstreamArray;
 import com.linkedin.dataset.UpstreamLineage;
 import com.linkedin.entity.EntityResponse;
@@ -417,7 +418,8 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
 
     final Criterion urnCriterion = new Criterion();
     urnCriterion.setField("siblings.keyword");
-    urnCriterion.setValue(entityUrn.toString());
+    urnCriterion.setValues(new StringArray(entityUrn.toString()));
+    urnCriterion.setValue("");
     urnCriterion.setCondition(Condition.EQUAL);
     andCriterion.add(urnCriterion);
 

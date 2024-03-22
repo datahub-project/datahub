@@ -35,7 +35,7 @@ import org.opensearch.action.search.SearchRequest;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.ExistsQueryBuilder;
 import org.opensearch.index.query.MatchQueryBuilder;
-import org.opensearch.index.query.MultiMatchQueryBuilder;
+import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.index.query.TermsQueryBuilder;
 import org.opensearch.search.aggregations.AggregationBuilder;
 import org.opensearch.search.aggregations.AggregationBuilders;
@@ -299,7 +299,10 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
   private BoolQueryBuilder constructFilterQuery(
       SearchRequestHandler requestHandler, boolean scroll) {
     final Criterion filterCriterion =
-        new Criterion().setField("keyword").setCondition(Condition.EQUAL).setValue("some value");
+        new Criterion()
+            .setField("keyword")
+            .setCondition(Condition.EQUAL)
+            .setValues(new StringArray("some value"));
 
     final Filter filterWithoutRemovedCondition =
         new Filter()
@@ -366,13 +369,16 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
   private BoolQueryBuilder constructRemovedQuery(
       SearchRequestHandler requestHandler, boolean scroll) {
     final Criterion filterCriterion =
-        new Criterion().setField("keyword").setCondition(Condition.EQUAL).setValue("some value");
+        new Criterion()
+            .setField("keyword")
+            .setCondition(Condition.EQUAL)
+            .setValues(new StringArray("some value"));
 
     final Criterion removedCriterion =
         new Criterion()
             .setField("removed")
             .setCondition(Condition.EQUAL)
-            .setValue(String.valueOf(false));
+            .setValues(new StringArray(String.valueOf(false)));
 
     final Filter filterWithRemovedCondition =
         new Filter()
@@ -498,13 +504,16 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
   @Test
   public void testFilterFieldTagsByValue() {
     final Criterion filterCriterion =
-        new Criterion().setField("fieldTags").setCondition(Condition.EQUAL).setValue("v1");
+        new Criterion()
+            .setField("fieldTags")
+            .setCondition(Condition.EQUAL)
+            .setValues(new StringArray("v1"));
 
     final BoolQueryBuilder testQuery = getQuery(filterCriterion);
 
-    // bool -> must -> [bool] -> should -> [bool] -> must -> [bool] -> should -> [bool] -> should ->
-    // [match]
-    List<MultiMatchQueryBuilder> matchQueryBuilders =
+    // bool -> filter -> [bool] -> should -> [bool] -> filter -> [bool] -> should ->
+    // [terms]
+    List<TermsQueryBuilder> queryBuilders =
         testQuery.filter().stream()
             .filter(or -> or instanceof BoolQueryBuilder)
             .flatMap(or -> ((BoolQueryBuilder) or).should().stream())
@@ -512,20 +521,16 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
             .flatMap(should -> ((BoolQueryBuilder) should).filter().stream())
             .filter(must -> must instanceof BoolQueryBuilder)
             .flatMap(must -> ((BoolQueryBuilder) must).should().stream())
-            .filter(should -> should instanceof BoolQueryBuilder)
-            .flatMap(should -> ((BoolQueryBuilder) should).should().stream())
-            .filter(should -> should instanceof MultiMatchQueryBuilder)
-            .map(should -> (MultiMatchQueryBuilder) should)
+            .map(should -> (TermsQueryBuilder) should)
             .collect(Collectors.toList());
 
-    assertTrue(matchQueryBuilders.size() == 2, "Expected to find two match queries");
+    assertTrue(queryBuilders.size() == 2, "Expected to find two match queries");
     Map<String, String> matchMap = new HashMap<>();
-    matchQueryBuilders.forEach(
-        matchQueryBuilder -> {
-          Set<String> fields = matchQueryBuilder.fields().keySet();
-          assertTrue(matchQueryBuilder.value() instanceof String);
-          fields.forEach(field -> matchMap.put(field, (String) matchQueryBuilder.value()));
-        });
+    queryBuilders.forEach(
+        queryBuilder ->
+            queryBuilder
+                .values()
+                .forEach(value -> matchMap.put(queryBuilder.fieldName(), (String) value)));
 
     assertTrue(matchMap.containsKey("fieldTags.keyword"));
     assertTrue(matchMap.containsKey("editedFieldTags.keyword"));
@@ -538,31 +543,26 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
   @Test
   public void testFilterPlatformByValue() {
     final Criterion filterCriterion =
-        new Criterion().setField("platform").setCondition(Condition.EQUAL).setValue("mysql");
+        new Criterion()
+            .setField("platform")
+            .setCondition(Condition.EQUAL)
+            .setValues(new StringArray("mysql"));
 
     final BoolQueryBuilder testQuery = getQuery(filterCriterion);
 
-    // bool -> filter -> [bool] -> should -> [bool] -> filter -> [bool] -> should -> [match]
-    List<MultiMatchQueryBuilder> matchQueryBuilders =
+    List<TermsQueryBuilder> queryBuilders =
         testQuery.filter().stream()
             .filter(or -> or instanceof BoolQueryBuilder)
             .flatMap(or -> ((BoolQueryBuilder) or).should().stream())
             .filter(should -> should instanceof BoolQueryBuilder)
             .flatMap(should -> ((BoolQueryBuilder) should).filter().stream())
-            .filter(must -> must instanceof BoolQueryBuilder)
-            .flatMap(must -> ((BoolQueryBuilder) must).should().stream())
-            .filter(should -> should instanceof MultiMatchQueryBuilder)
-            .map(should -> (MultiMatchQueryBuilder) should)
+            .map(should -> (TermsQueryBuilder) should)
             .collect(Collectors.toList());
 
-    assertTrue(matchQueryBuilders.size() == 1, "Expected to find one match query");
-    MultiMatchQueryBuilder matchQueryBuilder = matchQueryBuilders.get(0);
+    assertTrue(queryBuilders.size() == 1, "Expected to find one terms query");
     assertEquals(
-        matchQueryBuilder.fields(),
-        Map.of(
-            "platform", 1.0f,
-            "platform.*", 1.0f));
-    assertEquals(matchQueryBuilder.value(), "mysql");
+        queryBuilders.get(0),
+        QueryBuilders.termsQuery("platform.keyword", "mysql").queryName("platform"));
   }
 
   // Test fields not in EDITABLE_FIELD_TO_QUERY_PAIRS with a list of values

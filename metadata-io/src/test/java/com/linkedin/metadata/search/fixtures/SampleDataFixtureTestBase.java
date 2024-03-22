@@ -1483,7 +1483,7 @@ public abstract class SampleDataFixtureTestBase extends AbstractTestNGSpringCont
                       new Criterion()
                           .setField(fieldName)
                           .setCondition(Condition.EQUAL)
-                          .setValue(testPlatform);
+                          .setValues(new StringArray(testPlatform));
                   criteria.add(hasPlatformCriterion);
                   filter.setOr(
                       new ConjunctiveCriterionArray(

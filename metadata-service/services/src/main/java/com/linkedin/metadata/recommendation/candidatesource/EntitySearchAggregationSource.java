@@ -2,6 +2,7 @@ package com.linkedin.metadata.recommendation.candidatesource;
 
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.data.template.StringArray;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.filter.Criterion;
@@ -161,7 +162,8 @@ public abstract class EntitySearchAggregationSource implements RecommendationSou
                     ImmutableList.of(
                         new Criterion()
                             .setField(getSearchFieldName())
-                            .setValue(candidate.toString()))));
+                            .setValue("")
+                            .setValues(new StringArray(candidate.toString())))));
     ContentParams contentParams = new ContentParams().setCount(count);
     RecommendationContent content = new RecommendationContent();
     if (candidate instanceof Urn) {
