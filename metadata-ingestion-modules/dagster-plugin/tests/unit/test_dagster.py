@@ -17,7 +17,7 @@ from datahub.api.entities.dataprocess.dataprocess_instance import (
 )
 from datahub.configuration.source_common import DEFAULT_ENV
 
-from datahub_dagster_plugin.client.dagster_generator import DagsterSourceConfig
+from datahub_dagster_plugin.client.dagster_generator import DatahubDagsterSourceConfig
 from datahub_dagster_plugin.sensors.datahub_sensors import (
     DatahubSensors,
     make_datahub_sensor,
@@ -30,7 +30,7 @@ from datahub_dagster_plugin.sensors.datahub_sensors import (
 def test_datahub_sensor(mock_emit):
     instance = DagsterInstance.ephemeral()
     context = build_sensor_context(instance=instance)
-    config = DagsterSourceConfig.parse_obj(
+    config = DatahubDagsterSourceConfig.parse_obj(
         {
             "rest_sink_config": {
                 "server": "http://localhost:8080",
