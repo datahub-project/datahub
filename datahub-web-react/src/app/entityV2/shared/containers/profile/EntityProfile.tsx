@@ -96,7 +96,7 @@ type Props<T, U> = {
 
 const ContentContainer = styled.div`
     display: flex;
-    min-height: 100%;
+    height: 100%;
     flex: 1;
     min-width: 0;
     overflow: hidden;
