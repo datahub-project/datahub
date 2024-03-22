@@ -25,9 +25,7 @@ from datahub_dagster_plugin.sensors.datahub_sensors import (
 )
 
 
-@patch(
-    "datahub_dagster_plugin.sensors.datahub_sensors.DatahubRestEmitter", autospec=True
-)
+@patch("datahub.ingestion.graph.client.DataHubGraph", autospec=True)
 def test_datahub_sensor(mock_emit):
     instance = DagsterInstance.ephemeral()
     context = build_sensor_context(instance=instance)
@@ -43,9 +41,7 @@ def test_datahub_sensor(mock_emit):
     assert isinstance(skip_reason, SkipReason)
 
 
-@patch(
-    "datahub_dagster_plugin.sensors.datahub_sensors.DatahubRestEmitter", autospec=True
-)
+@patch("datahub_dagster_plugin.sensors.datahub_sensors.DatahubClient", autospec=True)
 @pytest.mark.skip(reason="disabling this test unti it will use proper golden files")
 def test_emit_metadata(mock_emit):
     mock_emitter = Mock()
