@@ -17,7 +17,7 @@ from datahub.utilities.urns.urn import Urn, guess_entity_type
 log = logging.getLogger(__name__)
 
 
-def update_work_unit_id(
+def _update_work_unit_id(
     envelope: RecordEnvelope, urn: str, aspect_name: str
 ) -> Dict[Any, Any]:
     structured_urn = Urn.from_string(urn)
@@ -216,7 +216,7 @@ class BaseTransformer(Transformer, metaclass=ABCMeta):
             ):  # to silent the lint error
                 continue
 
-            record_metadata = update_work_unit_id(
+            record_metadata = _update_work_unit_id(
                 envelope=envelope,
                 aspect_name=mcp.aspectName,
                 urn=mcp.entityUrn,
@@ -277,7 +277,7 @@ class BaseTransformer(Transformer, metaclass=ABCMeta):
                                 )
                             )
 
-                            record_metadata = update_work_unit_id(
+                            record_metadata = _update_work_unit_id(
                                 envelope=envelope,
                                 aspect_name=mcp.aspect.get_aspect_name(),  # type: ignore
                                 urn=mcp.entityUrn,

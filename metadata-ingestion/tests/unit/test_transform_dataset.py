@@ -640,6 +640,7 @@ def test_extract_owners_from_tags():
         config: Dict,
         expected_owner: str,
         expected_owner_type: Optional[str] = None,
+        expected_owner_type_urn: Optional[str] = None,
     ) -> None:
         dataset = make_generic_dataset(
             aspects=[
@@ -678,6 +679,8 @@ def test_extract_owners_from_tags():
         assert owner.type == expected_owner_type
 
         assert owner.owner == expected_owner
+
+        assert owner.typeUrn == expected_owner_type_urn
 
     _test_owner(
         tag="owner:foo",
@@ -733,6 +736,25 @@ def test_extract_owners_from_tags():
         },
         expected_owner="urn:li:corpuser:foo@example.com",
         expected_owner_type=OwnershipTypeClass.CUSTOM,
+        expected_owner_type_urn="urn:li:ownershipType:ad8557d6-dcb9-4d2a-83fc-b7d0d54f3e0f",
+    )
+    _test_owner(
+        tag="data_producer_owner_email:games.team@nytimes.com",
+        config={
+            "tag_pattern": "(.*)_owner_email:",
+            "owner_character_mapping": {
+                "_": ".",
+                "-": "@",
+                "__": "_",
+                "--": "-",
+                "_-": "#",
+                "-_": " ",
+            },
+            "extract_owner_type_from_tag_pattern": True,
+        },
+        expected_owner="urn:li:corpuser:games.team@nytimes.com",
+        expected_owner_type=OwnershipTypeClass.CUSTOM,
+        expected_owner_type_urn="urn:li:ownershipType:data_producer",
     )
 
 
