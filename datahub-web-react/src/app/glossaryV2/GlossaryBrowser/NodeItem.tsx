@@ -133,10 +133,7 @@ function NodeItem(props: Props) {
         }
     });
 
-    const isOnEntityPage = entityData && entityData.urn === node.urn;
-
-    const children: Relationship[] | undefined =
-        entityData && isOnEntityPage ? entityData.children?.relationships : data?.glossaryNode?.children?.relationships;
+    const children: Relationship[] | undefined = data?.glossaryNode?.children?.relationships;
 
     function handleSelectNode() {
         if (selectNode) {
@@ -164,18 +161,18 @@ function NodeItem(props: Props) {
         <ItemWrapper isSelected={entityData?.urn === node.urn}>
             {!isChildNode && <NodeBadge color={glossaryColor} />}
             <NodeWrapper>
-                {!areChildrenVisible && (
+                {areChildrenVisible && (
                     <StyledDownOutlined
                         fontSize="inherit"
                         viewBox="2 2 18 18"
-                        onClick={() => setAreChildrenVisible(true)}
+                        onClick={() => setAreChildrenVisible(false)}
                     />
                 )}
-                {areChildrenVisible && (
+                {!areChildrenVisible && (
                     <StyledRightOutlined
                         fontSize="inherit"
                         viewBox="2 2 18 18"
-                        onClick={() => setAreChildrenVisible(false)}
+                        onClick={() => setAreChildrenVisible(true)}
                     />
                 )}
                 {!isSelecting && (
@@ -185,12 +182,12 @@ function NodeItem(props: Props) {
                         areChildrenVisible={areChildrenVisible}
                         isChildNode
                     >
-                        {entityRegistry.getDisplayName(node.type, isOnEntityPage ? entityData : node)}
+                        {entityRegistry.getDisplayName(node.type, node)}
                     </NodeLink>
                 )}
                 {isSelecting && (
                     <NameWrapper showSelectStyles={!!selectNode} onClick={handleSelectNode}>
-                        {entityRegistry.getDisplayName(node.type, isOnEntityPage ? entityData : node)}
+                        {entityRegistry.getDisplayName(node.type, node)}
                     </NameWrapper>
                 )}
             </NodeWrapper>

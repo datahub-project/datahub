@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Button, Typography } from 'antd';
 import { PlusCircleOutlined } from '@ant-design/icons';
 import styled from 'styled-components/macro';
+import { Link } from 'react-router-dom';
 import { REDESIGN_COLORS } from '../entityV2/shared/constants';
 import GlossarySearch from './GlossarySearch';
 import GlossaryBrowser from './GlossaryBrowser/GlossaryBrowser';
@@ -23,7 +24,7 @@ const SidebarTitleWrapper = styled.div`
 const SidebarTitle = styled(Typography)`
     font-size: 12px;
     font-weight: 700;
-    color: ${REDESIGN_COLORS.BACKGROUND_OVERLAY_BLACK};
+    color: ${REDESIGN_COLORS.TITLE_PURPLE};
 `;
 
 const StyledButton = styled(Button)`
@@ -63,7 +64,9 @@ export default function GlossarySidebar() {
         <>
             <SidebarWrapper width={browserWidth} data-testid="glossary-browser-sidebar">
                 <SidebarTitleWrapper>
-                    <SidebarTitle>Business Glossary</SidebarTitle>
+                    <Link to="/glossary">
+                        <SidebarTitle>Business Glossary</SidebarTitle>
+                    </Link>
                     <StyledButton onClick={() => setIsCreateNodeModalVisible(true)}>
                         <StyledPlusCircleOutlined />
                     </StyledButton>

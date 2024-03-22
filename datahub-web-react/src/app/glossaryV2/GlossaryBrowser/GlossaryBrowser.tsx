@@ -15,7 +15,7 @@ import TermItem from './TermItem';
 const BrowserWrapper = styled.div`
     color: ${ANTD_GRAY[11]};
     font-size: 12px;
-    max-height: calc(100% - 47px);
+    max-height: calc(100% - 104px);
     padding: 0;
     overflow: auto;
 `;

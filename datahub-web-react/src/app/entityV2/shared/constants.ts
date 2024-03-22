@@ -45,6 +45,7 @@ export const REDESIGN_COLORS = {
     SUBTITLE: '#434863',
     LIGHT_GREY_BORDER: '#ededed',
     BACKGROUND_PURPLE_2: '#887fae',
+    HOVER_PURPLE_2: '#4b39bc'
 };
 
 export const SEARCH_COLORS = {

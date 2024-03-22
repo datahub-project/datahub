@@ -2,8 +2,10 @@ import React from 'react';
 import { Typography } from 'antd';
 import styled from 'styled-components/macro';
 import BookmarkIcon from '../../images/collections_bookmark.svg?react';
+import GroupBookmarkIcon from '../../images/glossary_collections_bookmark.svg?react';
 import ArrowRightIcon from '../../images/arrow_right_alt.svg?react';
-import { ANTD_GRAY , REDESIGN_COLORS} from '../entityV2/shared/constants';
+import { ANTD_GRAY, REDESIGN_COLORS } from '../entityV2/shared/constants';
+import { EntityType } from '../../types.generated';
 
 const SmallDescription = styled(Typography)`
     color: rgba(86, 102, 142, 0.5);
@@ -72,17 +74,18 @@ const EntityDetailsWrapper = styled.div`
 interface Props {
     name: string;
     description: string | undefined;
+    type: EntityType;
 }
 
 const GlossaryTermItem = (props: Props) => {
-    const { name, description } = props;
+    const { name, description, type } = props;
 
     return (
         <EntityDetailsWrapper>
             <EntityDetails>
                 <EntityDetailsLeftColumn>
                     <BookmarkIconWrapper>
-                        <BookmarkIcon />
+                        {type === EntityType.GlossaryNode ? <GroupBookmarkIcon /> : <BookmarkIcon />}
                     </BookmarkIconWrapper>
                     <EntityNameWrapper>
                         {name}

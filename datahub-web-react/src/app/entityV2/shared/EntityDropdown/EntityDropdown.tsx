@@ -59,7 +59,6 @@ const MenuItem = styled.div`
 
 const StyledSubMenu = styled(Menu.SubMenu)`
     .ant-dropdown-menu-submenu-title {
-        padding-right: 0px;
         display: flex;
         align-items: end;
     }

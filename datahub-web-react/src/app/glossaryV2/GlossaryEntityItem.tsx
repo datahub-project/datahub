@@ -76,7 +76,7 @@ function GlossaryEntityItem(props: Props) {
                             urn={urn}
                         />
                     ) : (
-                        <GlossaryTermItem name={name} description={description} />
+                        <GlossaryTermItem name={name} description={description} type={type}/>
                     )}
                 </GlossaryItem>
             </Link>

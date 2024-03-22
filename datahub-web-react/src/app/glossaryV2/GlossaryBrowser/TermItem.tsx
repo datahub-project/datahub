@@ -21,17 +21,16 @@ const nameStyles = `
     display: inline-block;
     height: 100%;
     width: 100%;
-    font-size: 10px;
+    font-size: 12px;
     font-weight: 400;
     line-height: normal;
     color: ${REDESIGN_COLORS.SUBTITLE};
-    opacity: 0.5;
     overflow: hidden;
     white-space: nowrap;
     text-overflow: ellipsis;
 
     &:hover {
-        color: ${REDESIGN_COLORS.TITLE_PURPLE};
+        color: ${REDESIGN_COLORS.HOVER_PURPLE_2};
         opacity: 1;
     }
 `;
@@ -47,8 +46,8 @@ export const TermLink = styled(Link)<TermLinkProps>`
     ${nameStyles}
 
     ${(props) => props.isChildNode && `opacity: 1;`}
-    ${(props) => props.areChildrenVisible && `color: ${REDESIGN_COLORS.TITLE_PURPLE}; font-weight: 400; opacity: 1;`}
-    ${(props) => props.isSelected && `color: ${REDESIGN_COLORS.TITLE_PURPLE}; font-weight: 700; opacity: 1;`}
+    ${(props) => props.areChildrenVisible && `color: ${REDESIGN_COLORS.HOVER_PURPLE_2}; font-weight: 400; opacity: 1;`}
+    ${(props) => props.isSelected && `color: ${REDESIGN_COLORS.HOVER_PURPLE}; font-weight: 700; opacity: 1;`}
 `;
 
 export const NameWrapper = styled.span<{ showSelectStyles?: boolean }>`
