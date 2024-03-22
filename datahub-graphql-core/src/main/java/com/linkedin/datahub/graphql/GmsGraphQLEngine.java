@@ -1183,11 +1183,12 @@ public class GmsGraphQLEngine {
                     new DeleteGlossaryEntityResolver(this.entityClient, this.entityService))
                 .dataFetcher(
                     "updateName", new UpdateNameResolver(this.entityService, this.entityClient))
-                .dataFetcher("addRelatedTerms", new AddRelatedTermsResolver(this.entityService,
-                    this.entityClient))
                 .dataFetcher(
-                    "removeRelatedTerms", new RemoveRelatedTermsResolver(this.entityService,
-                    this.entityClient))
+                    "addRelatedTerms",
+                    new AddRelatedTermsResolver(this.entityService, this.entityClient))
+                .dataFetcher(
+                    "removeRelatedTerms",
+                    new RemoveRelatedTermsResolver(this.entityService, this.entityClient))
                 .dataFetcher(
                     "createNativeUserResetToken",
                     new CreateNativeUserResetTokenResolver(this.nativeUserService))
