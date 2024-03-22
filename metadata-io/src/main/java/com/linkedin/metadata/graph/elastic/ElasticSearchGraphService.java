@@ -7,6 +7,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.data.template.StringArray;
 import com.linkedin.metadata.graph.Edge;
 import com.linkedin.metadata.graph.EntityLineageResult;
 import com.linkedin.metadata.graph.GraphFilters;
@@ -236,7 +237,8 @@ public class ElasticSearchGraphService implements GraphService, ElasticSearchInd
     Criterion criterion = new Criterion();
     criterion.setCondition(Condition.EQUAL);
     criterion.setField("urn");
-    criterion.setValue(urn.toString());
+    criterion.setValues(new StringArray(urn.toString()));
+    criterion.setValue("");
     criterionArray.add(criterion);
     filter.setOr(
         new ConjunctiveCriterionArray(

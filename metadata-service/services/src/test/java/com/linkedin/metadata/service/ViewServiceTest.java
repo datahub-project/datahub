@@ -67,7 +67,7 @@ public class ViewServiceTest {
                                                     new Criterion()
                                                         .setField("field")
                                                         .setCondition(Condition.EQUAL)
-                                                        .setValue("value")))))))),
+                                                        .setValues(new StringArray("value"))))))))),
             mockAuthentication(),
             0L);
 
@@ -99,7 +99,7 @@ public class ViewServiceTest {
                                                     new Criterion()
                                                         .setField("field")
                                                         .setCondition(Condition.EQUAL)
-                                                        .setValue("value")))))))),
+                                                        .setValues(new StringArray("value"))))))))),
             mockAuthentication(),
             0L);
 
@@ -140,7 +140,8 @@ public class ViewServiceTest {
                                                         new Criterion()
                                                             .setField("field")
                                                             .setCondition(Condition.EQUAL)
-                                                            .setValue("value")))))))),
+                                                            .setValues(
+                                                                new StringArray("value"))))))))),
                 mockAuthentication(),
                 0L));
 
@@ -168,7 +169,8 @@ public class ViewServiceTest {
                                                         new Criterion()
                                                             .setField("field")
                                                             .setCondition(Condition.EQUAL)
-                                                            .setValue("value")))))))),
+                                                            .setValues(
+                                                                new StringArray("value"))))))))),
                 mockAuthentication(),
                 0L));
 
@@ -222,7 +224,8 @@ public class ViewServiceTest {
                                                         new Criterion()
                                                             .setField("field")
                                                             .setCondition(Condition.EQUAL)
-                                                            .setValue("value")))))))),
+                                                            .setValues(
+                                                                new StringArray("value"))))))))),
                 mockAuthentication(),
                 1L));
   }
@@ -269,7 +272,7 @@ public class ViewServiceTest {
                                                 new Criterion()
                                                     .setField("field")
                                                     .setCondition(Condition.EQUAL)
-                                                    .setValue("value"))))))));
+                                                    .setValues(new StringArray("value")))))))));
 
     // Case 1: Update name only
     service.updateView(TEST_VIEW_URN, newName, null, null, mockAuthentication(), 1L);
@@ -442,7 +445,7 @@ public class ViewServiceTest {
                                                 new Criterion()
                                                     .setField("field")
                                                     .setCondition(Condition.EQUAL)
-                                                    .setValue("value"))))))));
+                                                    .setValues(new StringArray("value")))))))));
 
     resetGetViewInfoMockEntityClient(
         mockClient, TEST_VIEW_URN, type, name, description, definition, TEST_USER_URN, 0L, 1L);

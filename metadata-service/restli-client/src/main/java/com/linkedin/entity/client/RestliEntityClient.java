@@ -1103,7 +1103,11 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
   @Nonnull
   public static Criterion newCriterion(
       @Nonnull String field, @Nonnull String value, @Nonnull Condition condition) {
-    return new Criterion().setField(field).setValue(value).setCondition(condition);
+    return new Criterion()
+        .setField(field)
+        .setValues(new StringArray(value))
+        .setValue("")
+        .setCondition(condition);
   }
 
   @Nonnull

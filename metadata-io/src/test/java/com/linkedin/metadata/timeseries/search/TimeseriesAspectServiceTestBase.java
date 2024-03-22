@@ -36,7 +36,6 @@ import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.Criterion;
-import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
@@ -354,10 +353,12 @@ public abstract class TimeseriesAspectServiceTestBase extends AbstractTestNGSpri
 
   @Test(groups = "getAspectValues", dependsOnGroups = "upsert")
   public void testGetAspectTimeseriesValuesWithFilter() {
-    Filter filter = new Filter();
     Criterion hasStatEqualsTwenty =
-        new Criterion().setField("stat").setCondition(Condition.EQUAL).setValue("20");
-    filter.setCriteria(new CriterionArray(hasStatEqualsTwenty));
+        new Criterion()
+            .setField("stat")
+            .setCondition(Condition.EQUAL)
+            .setValues(new StringArray("20"));
+    Filter filter = QueryUtils.getFilterFromCriteria(List.of(hasStatEqualsTwenty));
     List<EnvelopedAspect> resultAspects =
         elasticSearchTimeseriesAspectService.getAspectValues(
             TEST_URN, ENTITY_NAME, ASPECT_NAME, null, null, NUM_PROFILES, filter);
@@ -446,17 +447,20 @@ public abstract class TimeseriesAspectServiceTestBase extends AbstractTestNGSpri
   public void testGetAggregatedStatsLatestStatForDay1() {
     // Filter is only on the urn
     Criterion hasUrnCriterion =
-        new Criterion().setField("urn").setCondition(Condition.EQUAL).setValue(TEST_URN.toString());
+        new Criterion()
+            .setField("urn")
+            .setCondition(Condition.EQUAL)
+            .setValues(new StringArray(TEST_URN.toString()));
     Criterion startTimeCriterion =
         new Criterion()
             .setField(ES_FIELD_TIMESTAMP)
             .setCondition(Condition.GREATER_THAN_OR_EQUAL_TO)
-            .setValue(startTime.toString());
+            .setValues(new StringArray(startTime.toString()));
     Criterion endTimeCriterion =
         new Criterion()
             .setField(ES_FIELD_TIMESTAMP)
             .setCondition(Condition.LESS_THAN_OR_EQUAL_TO)
-            .setValue(String.valueOf(startTime + 23 * TIME_INCREMENT));
+            .setValues(new StringArray(String.valueOf(startTime + 23 * TIME_INCREMENT)));
 
     Filter filter =
         QueryUtils.getFilterFromCriteria(
@@ -503,19 +507,20 @@ public abstract class TimeseriesAspectServiceTestBase extends AbstractTestNGSpri
   public void testGetAggregatedStatsLatestStatForDay1WithValues() {
     // Filter is only on the urn
     Criterion hasUrnCriterion =
-        new Criterion().setField("urn").setCondition(Condition.EQUAL).setValue(TEST_URN.toString());
+        new Criterion()
+            .setField("urn")
+            .setCondition(Condition.EQUAL)
+            .setValues(new StringArray(TEST_URN.toString()));
     Criterion startTimeCriterion =
         new Criterion()
             .setField(ES_FIELD_TIMESTAMP)
             .setCondition(Condition.GREATER_THAN_OR_EQUAL_TO)
-            .setValues(new StringArray(startTime.toString()))
-            .setValue("");
+            .setValues(new StringArray(startTime.toString()));
     Criterion endTimeCriterion =
         new Criterion()
             .setField(ES_FIELD_TIMESTAMP)
             .setCondition(Condition.LESS_THAN_OR_EQUAL_TO)
-            .setValues(new StringArray(String.valueOf(startTime + 23 * TIME_INCREMENT)))
-            .setValue("");
+            .setValues(new StringArray(String.valueOf(startTime + 23 * TIME_INCREMENT)));
 
     Filter filter =
         QueryUtils.getFilterFromCriteria(
@@ -562,17 +567,20 @@ public abstract class TimeseriesAspectServiceTestBase extends AbstractTestNGSpri
   public void testGetAggregatedStatsLatestAComplexNestedRecordForDay1() {
     // Filter is only on the urn
     Criterion hasUrnCriterion =
-        new Criterion().setField("urn").setCondition(Condition.EQUAL).setValue(TEST_URN.toString());
+        new Criterion()
+            .setField("urn")
+            .setCondition(Condition.EQUAL)
+            .setValues(new StringArray(TEST_URN.toString()));
     Criterion startTimeCriterion =
         new Criterion()
             .setField(ES_FIELD_TIMESTAMP)
             .setCondition(Condition.GREATER_THAN_OR_EQUAL_TO)
-            .setValue(startTime.toString());
+            .setValues(new StringArray(startTime.toString()));
     Criterion endTimeCriterion =
         new Criterion()
             .setField(ES_FIELD_TIMESTAMP)
             .setCondition(Condition.LESS_THAN_OR_EQUAL_TO)
-            .setValue(String.valueOf(startTime + 23 * TIME_INCREMENT));
+            .setValues(new StringArray(String.valueOf(startTime + 23 * TIME_INCREMENT)));
 
     Filter filter =
         QueryUtils.getFilterFromCriteria(
@@ -625,17 +633,20 @@ public abstract class TimeseriesAspectServiceTestBase extends AbstractTestNGSpri
   public void testGetAggregatedStatsLatestStrArrayDay1() {
     // Filter is only on the urn
     Criterion hasUrnCriterion =
-        new Criterion().setField("urn").setCondition(Condition.EQUAL).setValue(TEST_URN.toString());
+        new Criterion()
+            .setField("urn")
+            .setCondition(Condition.EQUAL)
+            .setValues(new StringArray(TEST_URN.toString()));
     Criterion startTimeCriterion =
         new Criterion()
             .setField(ES_FIELD_TIMESTAMP)
             .setCondition(Condition.GREATER_THAN_OR_EQUAL_TO)
-            .setValue(startTime.toString());
+            .setValues(new StringArray(startTime.toString()));
     Criterion endTimeCriterion =
         new Criterion()
             .setField(ES_FIELD_TIMESTAMP)
             .setCondition(Condition.LESS_THAN_OR_EQUAL_TO)
-            .setValue(String.valueOf(startTime + 23 * TIME_INCREMENT));
+            .setValues(new StringArray(String.valueOf(startTime + 23 * TIME_INCREMENT)));
 
     Filter filter =
         QueryUtils.getFilterFromCriteria(
@@ -688,17 +699,20 @@ public abstract class TimeseriesAspectServiceTestBase extends AbstractTestNGSpri
   public void testGetAggregatedStatsLatestStatForTwoDays() {
     // Filter is only on the urn
     Criterion hasUrnCriterion =
-        new Criterion().setField("urn").setCondition(Condition.EQUAL).setValue(TEST_URN.toString());
+        new Criterion()
+            .setField("urn")
+            .setCondition(Condition.EQUAL)
+            .setValues(new StringArray(TEST_URN.toString()));
     Criterion startTimeCriterion =
         new Criterion()
             .setField(ES_FIELD_TIMESTAMP)
             .setCondition(Condition.GREATER_THAN_OR_EQUAL_TO)
-            .setValue(startTime.toString());
+            .setValues(new StringArray(startTime.toString()));
     Criterion endTimeCriterion =
         new Criterion()
             .setField(ES_FIELD_TIMESTAMP)
             .setCondition(Condition.LESS_THAN_OR_EQUAL_TO)
-            .setValue(String.valueOf(startTime + 47 * TIME_INCREMENT));
+            .setValues(new StringArray(String.valueOf(startTime + 47 * TIME_INCREMENT)));
 
     Filter filter =
         QueryUtils.getFilterFromCriteria(
@@ -748,17 +762,20 @@ public abstract class TimeseriesAspectServiceTestBase extends AbstractTestNGSpri
       dependsOnGroups = {"upsert"})
   public void testGetAggregatedStatsLatestStatForFirst10HoursOfDay1() {
     Criterion hasUrnCriterion =
-        new Criterion().setField("urn").setCondition(Condition.EQUAL).setValue(TEST_URN.toString());
+        new Criterion()
+            .setField("urn")
+            .setCondition(Condition.EQUAL)
+            .setValues(new StringArray(TEST_URN.toString()));
     Criterion startTimeCriterion =
         new Criterion()
             .setField(ES_FIELD_TIMESTAMP)
             .setCondition(Condition.GREATER_THAN_OR_EQUAL_TO)
-            .setValue(startTime.toString());
+            .setValues(new StringArray(startTime.toString()));
     Criterion endTimeCriterion =
         new Criterion()
             .setField(ES_FIELD_TIMESTAMP)
             .setCondition(Condition.LESS_THAN_OR_EQUAL_TO)
-            .setValue(String.valueOf(startTime + 9 * TIME_INCREMENT));
+            .setValues(new StringArray(String.valueOf(startTime + 9 * TIME_INCREMENT)));
 
     Filter filter =
         QueryUtils.getFilterFromCriteria(
@@ -805,22 +822,25 @@ public abstract class TimeseriesAspectServiceTestBase extends AbstractTestNGSpri
   public void testGetAggregatedStatsLatestStatForCol1Day1() {
     Long lastEntryTimeStamp = startTime + 23 * TIME_INCREMENT;
     Criterion hasUrnCriterion =
-        new Criterion().setField("urn").setCondition(Condition.EQUAL).setValue(TEST_URN.toString());
+        new Criterion()
+            .setField("urn")
+            .setCondition(Condition.EQUAL)
+            .setValues(new StringArray(TEST_URN.toString()));
     Criterion startTimeCriterion =
         new Criterion()
             .setField(ES_FIELD_TIMESTAMP)
             .setCondition(Condition.GREATER_THAN_OR_EQUAL_TO)
-            .setValue(startTime.toString());
+            .setValues(new StringArray(startTime.toString()));
     Criterion endTimeCriterion =
         new Criterion()
             .setField(ES_FIELD_TIMESTAMP)
             .setCondition(Condition.LESS_THAN_OR_EQUAL_TO)
-            .setValue(String.valueOf(lastEntryTimeStamp));
+            .setValues(new StringArray(String.valueOf(lastEntryTimeStamp)));
     Criterion hasCol1 =
         new Criterion()
             .setField("componentProfiles.key")
             .setCondition(Condition.EQUAL)
-            .setValue("col1");
+            .setValues(new StringArray("col1"));
 
     Filter filter =
         QueryUtils.getFilterFromCriteria(
@@ -881,17 +901,20 @@ public abstract class TimeseriesAspectServiceTestBase extends AbstractTestNGSpri
   public void testGetAggregatedStatsLatestStatForAllColumnsDay1() {
     Long lastEntryTimeStamp = startTime + 23 * TIME_INCREMENT;
     Criterion hasUrnCriterion =
-        new Criterion().setField("urn").setCondition(Condition.EQUAL).setValue(TEST_URN.toString());
+        new Criterion()
+            .setField("urn")
+            .setCondition(Condition.EQUAL)
+            .setValues(new StringArray(TEST_URN.toString()));
     Criterion startTimeCriterion =
         new Criterion()
             .setField(ES_FIELD_TIMESTAMP)
             .setCondition(Condition.GREATER_THAN_OR_EQUAL_TO)
-            .setValue(startTime.toString());
+            .setValues(new StringArray(startTime.toString()));
     Criterion endTimeCriterion =
         new Criterion()
             .setField(ES_FIELD_TIMESTAMP)
             .setCondition(Condition.LESS_THAN_OR_EQUAL_TO)
-            .setValue(String.valueOf(lastEntryTimeStamp));
+            .setValues(new StringArray(String.valueOf(lastEntryTimeStamp)));
 
     Filter filter =
         QueryUtils.getFilterFromCriteria(
@@ -962,17 +985,20 @@ public abstract class TimeseriesAspectServiceTestBase extends AbstractTestNGSpri
       dependsOnGroups = {"upsert"})
   public void testGetAggregatedStatsSumStatForFirst10HoursOfDay1() {
     Criterion hasUrnCriterion =
-        new Criterion().setField("urn").setCondition(Condition.EQUAL).setValue(TEST_URN.toString());
+        new Criterion()
+            .setField("urn")
+            .setCondition(Condition.EQUAL)
+            .setValues(new StringArray(TEST_URN.toString()));
     Criterion startTimeCriterion =
         new Criterion()
             .setField(ES_FIELD_TIMESTAMP)
             .setCondition(Condition.GREATER_THAN_OR_EQUAL_TO)
-            .setValue(startTime.toString());
+            .setValues(new StringArray(startTime.toString()));
     Criterion endTimeCriterion =
         new Criterion()
             .setField(ES_FIELD_TIMESTAMP)
             .setCondition(Condition.LESS_THAN_OR_EQUAL_TO)
-            .setValue(String.valueOf(startTime + 9 * TIME_INCREMENT));
+            .setValues(new StringArray(String.valueOf(startTime + 9 * TIME_INCREMENT)));
 
     Filter filter =
         QueryUtils.getFilterFromCriteria(
@@ -1017,22 +1043,25 @@ public abstract class TimeseriesAspectServiceTestBase extends AbstractTestNGSpri
   public void testGetAggregatedStatsSumStatForCol2Day1() {
     Long lastEntryTimeStamp = startTime + 23 * TIME_INCREMENT;
     Criterion hasUrnCriterion =
-        new Criterion().setField("urn").setCondition(Condition.EQUAL).setValue(TEST_URN.toString());
+        new Criterion()
+            .setField("urn")
+            .setCondition(Condition.EQUAL)
+            .setValues(new StringArray(TEST_URN.toString()));
     Criterion startTimeCriterion =
         new Criterion()
             .setField(ES_FIELD_TIMESTAMP)
             .setCondition(Condition.GREATER_THAN_OR_EQUAL_TO)
-            .setValue(startTime.toString());
+            .setValues(new StringArray(startTime.toString()));
     Criterion endTimeCriterion =
         new Criterion()
             .setField(ES_FIELD_TIMESTAMP)
             .setCondition(Condition.LESS_THAN_OR_EQUAL_TO)
-            .setValue(String.valueOf(lastEntryTimeStamp));
+            .setValues(new StringArray(String.valueOf(lastEntryTimeStamp)));
     Criterion hasCol2 =
         new Criterion()
             .setField("componentProfiles.key")
             .setCondition(Condition.EQUAL)
-            .setValue("col2");
+            .setValues(new StringArray("col2"));
 
     Filter filter =
         QueryUtils.getFilterFromCriteria(
@@ -1086,17 +1115,20 @@ public abstract class TimeseriesAspectServiceTestBase extends AbstractTestNGSpri
   public void testGetAggregatedStatsCardinalityAggStrStatDay1() {
     // Filter is only on the urn
     Criterion hasUrnCriterion =
-        new Criterion().setField("urn").setCondition(Condition.EQUAL).setValue(TEST_URN.toString());
+        new Criterion()
+            .setField("urn")
+            .setCondition(Condition.EQUAL)
+            .setValues(new StringArray(TEST_URN.toString()));
     Criterion startTimeCriterion =
         new Criterion()
             .setField(ES_FIELD_TIMESTAMP)
             .setCondition(Condition.GREATER_THAN_OR_EQUAL_TO)
-            .setValue(startTime.toString());
+            .setValues(new StringArray(startTime.toString()));
     Criterion endTimeCriterion =
         new Criterion()
             .setField(ES_FIELD_TIMESTAMP)
             .setCondition(Condition.LESS_THAN_OR_EQUAL_TO)
-            .setValue(String.valueOf(startTime + 23 * TIME_INCREMENT));
+            .setValues(new StringArray(String.valueOf(startTime + 23 * TIME_INCREMENT)));
 
     Filter filter =
         QueryUtils.getFilterFromCriteria(
@@ -1141,17 +1173,20 @@ public abstract class TimeseriesAspectServiceTestBase extends AbstractTestNGSpri
   public void testGetAggregatedStatsSumStatsCollectionDay1() {
     // Filter is only on the urn
     Criterion hasUrnCriterion =
-        new Criterion().setField("urn").setCondition(Condition.EQUAL).setValue(TEST_URN.toString());
+        new Criterion()
+            .setField("urn")
+            .setCondition(Condition.EQUAL)
+            .setValues(new StringArray(TEST_URN.toString()));
     Criterion startTimeCriterion =
         new Criterion()
             .setField(ES_FIELD_TIMESTAMP)
             .setCondition(Condition.GREATER_THAN_OR_EQUAL_TO)
-            .setValue(startTime.toString());
+            .setValues(new StringArray(startTime.toString()));
     Criterion endTimeCriterion =
         new Criterion()
             .setField(ES_FIELD_TIMESTAMP)
             .setCondition(Condition.LESS_THAN_OR_EQUAL_TO)
-            .setValue(String.valueOf(startTime + 23 * TIME_INCREMENT));
+            .setValues(new StringArray(String.valueOf(startTime + 23 * TIME_INCREMENT)));
 
     Filter filter =
         QueryUtils.getFilterFromCriteria(
@@ -1195,17 +1230,20 @@ public abstract class TimeseriesAspectServiceTestBase extends AbstractTestNGSpri
       dependsOnGroups = {"getAggregatedStats", "getAspectValues", "testCountBeforeDelete"})
   public void testDeleteAspectValuesByUrnAndTimeRangeDay1() {
     Criterion hasUrnCriterion =
-        new Criterion().setField("urn").setCondition(Condition.EQUAL).setValue(TEST_URN.toString());
+        new Criterion()
+            .setField("urn")
+            .setCondition(Condition.EQUAL)
+            .setValues(new StringArray(TEST_URN.toString()));
     Criterion startTimeCriterion =
         new Criterion()
             .setField(ES_FIELD_TIMESTAMP)
             .setCondition(Condition.GREATER_THAN_OR_EQUAL_TO)
-            .setValue(startTime.toString());
+            .setValues(new StringArray(startTime.toString()));
     Criterion endTimeCriterion =
         new Criterion()
             .setField(ES_FIELD_TIMESTAMP)
             .setCondition(Condition.LESS_THAN_OR_EQUAL_TO)
-            .setValue(String.valueOf(startTime + 23 * TIME_INCREMENT));
+            .setValues(new StringArray(String.valueOf(startTime + 23 * TIME_INCREMENT)));
 
     Filter filter =
         QueryUtils.getFilterFromCriteria(
@@ -1223,7 +1261,10 @@ public abstract class TimeseriesAspectServiceTestBase extends AbstractTestNGSpri
       dependsOnGroups = {"deleteAspectValues1", "testCountAfterDelete"})
   public void testDeleteAspectValuesByUrn() {
     Criterion hasUrnCriterion =
-        new Criterion().setField("urn").setCondition(Condition.EQUAL).setValue(TEST_URN.toString());
+        new Criterion()
+            .setField("urn")
+            .setCondition(Condition.EQUAL)
+            .setValues(new StringArray(TEST_URN.toString()));
     Filter filter = QueryUtils.getFilterFromCriteria(ImmutableList.of(hasUrnCriterion));
     DeleteAspectValuesResult result =
         elasticSearchTimeseriesAspectService.deleteAspectValues(ENTITY_NAME, ASPECT_NAME, filter);
@@ -1238,7 +1279,10 @@ public abstract class TimeseriesAspectServiceTestBase extends AbstractTestNGSpri
   public void testCountByFilter() {
     // Test with filter
     Criterion hasUrnCriterion =
-        new Criterion().setField("urn").setCondition(Condition.EQUAL).setValue(TEST_URN.toString());
+        new Criterion()
+            .setField("urn")
+            .setCondition(Condition.EQUAL)
+            .setValues(new StringArray(TEST_URN.toString()));
     Filter filter = QueryUtils.getFilterFromCriteria(ImmutableList.of(hasUrnCriterion));
     long count =
         elasticSearchTimeseriesAspectService.countByFilter(ENTITY_NAME, ASPECT_NAME, filter);
@@ -1249,12 +1293,12 @@ public abstract class TimeseriesAspectServiceTestBase extends AbstractTestNGSpri
         new Criterion()
             .setField(ES_FIELD_TIMESTAMP)
             .setCondition(Condition.GREATER_THAN_OR_EQUAL_TO)
-            .setValue(startTime.toString());
+            .setValues(new StringArray(startTime.toString()));
     Criterion endTimeCriterion =
         new Criterion()
             .setField(ES_FIELD_TIMESTAMP)
             .setCondition(Condition.LESS_THAN_OR_EQUAL_TO)
-            .setValue(String.valueOf(startTime + 23 * TIME_INCREMENT));
+            .setValues(new StringArray(String.valueOf(startTime + 23 * TIME_INCREMENT)));
 
     Filter urnAndTimeFilter =
         QueryUtils.getFilterFromCriteria(
@@ -1278,7 +1322,10 @@ public abstract class TimeseriesAspectServiceTestBase extends AbstractTestNGSpri
     syncAfterWrite(getBulkProcessor());
     // Test with filter
     Criterion hasUrnCriterion =
-        new Criterion().setField("urn").setCondition(Condition.EQUAL).setValue(TEST_URN.toString());
+        new Criterion()
+            .setField("urn")
+            .setCondition(Condition.EQUAL)
+            .setValues(new StringArray(TEST_URN.toString()));
     Filter filter = QueryUtils.getFilterFromCriteria(ImmutableList.of(hasUrnCriterion));
     long count =
         elasticSearchTimeseriesAspectService.countByFilter(ENTITY_NAME, ASPECT_NAME, filter);
@@ -1289,12 +1336,12 @@ public abstract class TimeseriesAspectServiceTestBase extends AbstractTestNGSpri
         new Criterion()
             .setField(ES_FIELD_TIMESTAMP)
             .setCondition(Condition.GREATER_THAN_OR_EQUAL_TO)
-            .setValue(startTime.toString());
+            .setValues(new StringArray(startTime.toString()));
     Criterion endTimeCriterion =
         new Criterion()
             .setField(ES_FIELD_TIMESTAMP)
             .setCondition(Condition.LESS_THAN_OR_EQUAL_TO)
-            .setValue(String.valueOf(startTime + 23 * TIME_INCREMENT));
+            .setValues(new StringArray(String.valueOf(startTime + 23 * TIME_INCREMENT)));
 
     Filter urnAndTimeFilter =
         QueryUtils.getFilterFromCriteria(

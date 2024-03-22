@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.resolvers.jobs;
 
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.data.template.StringArray;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.DataProcessInstance;
 import com.linkedin.datahub.graphql.generated.DataProcessInstanceResult;
@@ -113,7 +114,8 @@ public class DataJobRunsResolver
                 new Criterion()
                     .setField(PARENT_TEMPLATE_URN_SEARCH_INDEX_FIELD_NAME)
                     .setCondition(Condition.EQUAL)
-                    .setValue(entityUrn)));
+                    .setValues(new StringArray(entityUrn))
+                    .setValue("")));
     final Filter filter = new Filter();
     filter.setOr(
         new ConjunctiveCriterionArray(ImmutableList.of(new ConjunctiveCriterion().setAnd(array))));

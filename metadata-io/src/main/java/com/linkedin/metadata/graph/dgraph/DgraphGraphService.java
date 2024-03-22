@@ -365,8 +365,13 @@ public class DgraphGraphService implements GraphService {
                 // TODO: escape field name and string value
                 filters.add(
                     String.format(
-                        "%s as var(func: eq(<%s>, \"%s\"))",
-                        sourceFilterName, criterion.getField(), criterion.getValue()));
+                        "%s as var(func: %s)",
+                        sourceFilterName,
+                        criterion.getValues().stream()
+                            .map(
+                                value ->
+                                    String.format("eq(<%s>, \"%s\")", criterion.getField(), value))
+                            .collect(Collectors.joining(" OR "))));
               });
     }
 
@@ -382,8 +387,13 @@ public class DgraphGraphService implements GraphService {
                 // TODO: escape field name and string value
                 filters.add(
                     String.format(
-                        "%s as var(func: eq(<%s>, \"%s\"))",
-                        sourceFilterName, criterion.getField(), criterion.getValue()));
+                        "%s as var(func: %s)",
+                        sourceFilterName,
+                        criterion.getValues().stream()
+                            .map(
+                                value ->
+                                    String.format("eq(<%s>, \"%s\")", criterion.getField(), value))
+                            .collect(Collectors.joining(" OR "))));
               });
     }
 

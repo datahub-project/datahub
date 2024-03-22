@@ -47,7 +47,7 @@ public class QueryUtils {
       @Nonnull String field, @Nonnull String value, @Nonnull Condition condition) {
     return new Criterion()
         .setField(field)
-        .setValue(value)
+        .setValue("")
         .setValues(new StringArray(ImmutableList.of(value)))
         .setCondition(condition);
   }
