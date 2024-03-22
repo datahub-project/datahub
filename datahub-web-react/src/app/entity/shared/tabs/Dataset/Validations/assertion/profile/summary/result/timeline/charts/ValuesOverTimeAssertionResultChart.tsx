@@ -29,9 +29,9 @@ type Props = {
 };
 
 
-const CHART_AXIS_LEFT_WIDTH = 48;
+const CHART_AXIS_LEFT_WIDTH = 32;
 const CHART_AXIS_BOTTOM_HEIGHT = 40;
-const CHART_RIGHT_MARGIN = 2;
+const CHART_RIGHT_MARGIN = 12;
 const CHART_TOP_MARGIN = 8;
 
 const NUM_TICKS_AXIS_LEFT = 3;

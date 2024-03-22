@@ -198,11 +198,10 @@ function tryGetExpectedRangeFromFieldAssertion(fieldAssertionInfo: FieldAssertio
     let result: AssertionExpectedRange = {}
     switch (fieldAssertionInfo.type) {
         case FieldAssertionType.FieldValues:
-            fieldAssertionInfo.fieldValuesAssertion?.failThreshold.value
             result = tryGetExpectedRangeFromFailThreshold(fieldAssertionInfo.fieldValuesAssertion)
             break;
         case FieldAssertionType.FieldMetric:
-            result = tryGetExpectedRangeFromAssertionAgainstTotals(fieldAssertionInfo.fieldMetricAssertion)
+            result = tryGetExpectedRangeFromAssertionAgainstAbsoluteValues(fieldAssertionInfo.fieldMetricAssertion)
             break;
         default:
             break;
@@ -212,8 +211,8 @@ function tryGetExpectedRangeFromFieldAssertion(fieldAssertionInfo: FieldAssertio
 
 function tryGetExpectedRangeFromSQLAssertion(sqlAssertionInfo: SqlAssertionInfo, maybePreviousResult?: number): AssertionExpectedRange {
     return sqlAssertionInfo.changeType
-        ? tryGetExpectedRangeFromAssertionAgainstChanges(sqlAssertionInfo, sqlAssertionInfo.changeType, maybePreviousResult)
-        : tryGetExpectedRangeFromAssertionAgainstTotals(sqlAssertionInfo)
+        ? tryGetExpectedRangeFromAssertionAgainstRelativeValues(sqlAssertionInfo, sqlAssertionInfo.changeType, maybePreviousResult)
+        : tryGetExpectedRangeFromAssertionAgainstAbsoluteValues(sqlAssertionInfo)
 }
 
 function tryGetExpectedRangeFromVolumeAssertion(volumeAssertionInfo: VolumeAssertionInfo, maybePreviousRowCount?: number): AssertionExpectedRange {
@@ -221,11 +220,11 @@ function tryGetExpectedRangeFromVolumeAssertion(volumeAssertionInfo: VolumeAsser
 
     switch (volumeAssertionInfo?.type) {
         case VolumeAssertionType.RowCountTotal: {
-            result = tryGetExpectedRangeFromAssertionAgainstTotals(volumeAssertionInfo.rowCountTotal)
+            result = tryGetExpectedRangeFromAssertionAgainstAbsoluteValues(volumeAssertionInfo.rowCountTotal)
             break;
         }
         case VolumeAssertionType.RowCountChange:
-            result = tryGetExpectedRangeFromAssertionAgainstChanges(volumeAssertionInfo.rowCountChange, volumeAssertionInfo.rowCountChange?.type, maybePreviousRowCount)
+            result = tryGetExpectedRangeFromAssertionAgainstRelativeValues(volumeAssertionInfo.rowCountChange, volumeAssertionInfo.rowCountChange?.type, maybePreviousRowCount)
             break;
 
         /*
@@ -250,7 +249,7 @@ function tryGetExpectedRangeFromVolumeAssertion(volumeAssertionInfo: VolumeAsser
  * @param totals 
  * @returns 
  */
-export function tryGetExpectedRangeFromAssertionAgainstTotals(totals?: Maybe<IncrementingSegmentRowCountTotal> | Maybe<RowCountTotal> | Maybe<SqlAssertionInfo> | Maybe<FieldMetricAssertion>): AssertionExpectedRange {
+export function tryGetExpectedRangeFromAssertionAgainstAbsoluteValues(totals?: Maybe<IncrementingSegmentRowCountTotal> | Maybe<RowCountTotal> | Maybe<SqlAssertionInfo> | Maybe<FieldValuesAssertion> | Maybe<FieldMetricAssertion>): AssertionExpectedRange {
     if (!totals?.parameters) {
         return {};
     }
@@ -299,7 +298,7 @@ export function tryGetExpectedRangeFromAssertionAgainstTotals(totals?: Maybe<Inc
  * @param previousCount 
  * @returns {AssertionExpectedRange}
  */
-export function tryGetExpectedRangeFromAssertionAgainstChanges(changingInfo?: Maybe<RowCountChange | IncrementingSegmentRowCountChange | SqlAssertionInfo>, changeType?: Maybe<AssertionValueChangeType>, previousCount?: Maybe<number>): AssertionExpectedRange {
+export function tryGetExpectedRangeFromAssertionAgainstRelativeValues(changingInfo?: Maybe<RowCountChange | IncrementingSegmentRowCountChange | SqlAssertionInfo>, changeType?: Maybe<AssertionValueChangeType>, previousCount?: Maybe<number>): AssertionExpectedRange {
     if (!changingInfo?.parameters || typeof previousCount !== 'number' || typeof changeType === 'undefined' || changeType === null) {
         return {};
     }
@@ -386,7 +385,7 @@ export function tryGetExpectedRangeFromAssertionAgainstChanges(changingInfo?: Ma
     };
 }
 
-function tryGetExpectedRangeFromFailThreshold(fieldValuesAssertion?: Maybe<FieldValuesAssertion>): AssertionExpectedRange {
+export function tryGetExpectedRangeFromFailThreshold(fieldValuesAssertion?: Maybe<FieldValuesAssertion>): AssertionExpectedRange {
     const highType: AssertionRangeEndType = 'inclusive';
     let high: number | undefined;
 
