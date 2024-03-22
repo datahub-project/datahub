@@ -1,22 +1,22 @@
-package com.linkedin.metadata.service;
+package io.datahubproject.metadata.services;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
-import com.linkedin.metadata.secret.SecretService;
 import javax.annotation.Nonnull;
 
 public class RestrictedService {
+  public static final String RESTRICTED_ENTITY_TYPE = "restricted";
 
-  private final SecretService _secretService;
+  private final SecretService secretService;
 
   public RestrictedService(@Nonnull SecretService secretService) {
-    this._secretService = secretService;
+    this.secretService = secretService;
   }
 
   public Urn encryptRestrictedUrn(@Nonnull final Urn entityUrn) {
-    final String encryptedEntityUrn = this._secretService.encrypt(entityUrn.toString());
+    final String encryptedEntityUrn = this.secretService.encrypt(entityUrn.toString());
     try {
-      return new Urn("restricted", encryptedEntityUrn);
+      return new Urn(RESTRICTED_ENTITY_TYPE, encryptedEntityUrn);
     } catch (Exception e) {
       throw new RuntimeException("Error when creating restricted entity urn", e);
     }
@@ -24,6 +24,6 @@ public class RestrictedService {
 
   public Urn decryptRestrictedUrn(@Nonnull final Urn restrictedUrn) {
     final String encryptedUrn = restrictedUrn.getId();
-    return UrnUtils.getUrn(this._secretService.decrypt(encryptedUrn));
+    return UrnUtils.getUrn(this.secretService.decrypt(encryptedUrn));
   }
 }

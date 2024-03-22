@@ -1,6 +1,7 @@
 package com.linkedin.metadata.search.elasticsearch.query.request;
 
 import static com.linkedin.metadata.models.SearchableFieldSpecExtractor.PRIMARY_URN_SEARCH_PROPERTIES;
+import static com.linkedin.metadata.search.utils.ESAccessControlUtil.restrictUrn;
 import static com.linkedin.metadata.search.utils.ESUtils.applyDefaultSearchFilters;
 
 import com.google.common.collect.ImmutableList;
@@ -164,9 +165,12 @@ public class AutocompleteRequestHandler {
   }
 
   public AutoCompleteResult extractResult(
-      @Nonnull SearchResponse searchResponse, @Nonnull String input) {
+      @Nonnull OperationContext opContext,
+      @Nonnull SearchResponse searchResponse,
+      @Nonnull String input) {
     Set<String> results = new LinkedHashSet<>();
     Set<AutoCompleteEntity> entityResults = new HashSet<>();
+
     for (SearchHit hit : searchResponse.getHits()) {
       Optional<String> matchedFieldValue =
           hit.getHighlightFields().entrySet().stream()
@@ -175,13 +179,16 @@ public class AutocompleteRequestHandler {
       Optional<String> matchedUrn = Optional.ofNullable((String) hit.getSourceAsMap().get("urn"));
       try {
         if (matchedUrn.isPresent()) {
-          entityResults.add(
-              new AutoCompleteEntity().setUrn(Urn.createFromString(matchedUrn.get())));
+          Urn autoCompleteUrn = Urn.createFromString(matchedUrn.get());
+          if (!restrictUrn(opContext, autoCompleteUrn)) {
+            entityResults.add(
+                new AutoCompleteEntity().setUrn(Urn.createFromString(matchedUrn.get())));
+            matchedFieldValue.ifPresent(results::add);
+          }
         }
       } catch (URISyntaxException e) {
         throw new RuntimeException(String.format("Failed to create urn %s", matchedUrn.get()), e);
       }
-      matchedFieldValue.ifPresent(results::add);
     }
     return new AutoCompleteResult()
         .setQuery(input)

@@ -16,6 +16,7 @@ import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.concurrent.CompletableFuture;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -50,7 +51,7 @@ public class UpdateOwnershipTypeResolver
                 context.getAuthentication(),
                 System.currentTimeMillis());
             log.info(String.format("Successfully updated Ownership Type %s with urn", urn));
-            return getOwnershipType(urn, context.getAuthentication());
+            return getOwnershipType(context, urn, context.getAuthentication());
           } catch (AuthorizationException e) {
             throw e;
           } catch (Exception e) {
@@ -61,7 +62,9 @@ public class UpdateOwnershipTypeResolver
   }
 
   private OwnershipTypeEntity getOwnershipType(
-      @Nonnull final Urn urn, @Nonnull final Authentication authentication) {
+      @Nullable QueryContext context,
+      @Nonnull final Urn urn,
+      @Nonnull final Authentication authentication) {
     final EntityResponse maybeResponse =
         _ownershipTypeService.getOwnershipTypeEntityResponse(urn, authentication);
     // If there is no response, there is a problem.
@@ -71,6 +74,6 @@ public class UpdateOwnershipTypeResolver
               "Failed to perform update to Ownership Type with urn %s. Failed to find Ownership Type in GMS.",
               urn));
     }
-    return OwnershipTypeMapper.map(maybeResponse);
+    return OwnershipTypeMapper.map(context, maybeResponse);
   }
 }

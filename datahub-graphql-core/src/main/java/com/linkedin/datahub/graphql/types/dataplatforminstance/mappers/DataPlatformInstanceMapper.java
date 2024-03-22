@@ -7,6 +7,7 @@ import com.linkedin.common.Ownership;
 import com.linkedin.common.Status;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
+import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.DataPlatform;
 import com.linkedin.datahub.graphql.generated.DataPlatformInstance;
 import com.linkedin.datahub.graphql.generated.EntityType;
@@ -23,16 +24,19 @@ import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.key.DataPlatformInstanceKey;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 public class DataPlatformInstanceMapper {
 
   public static final DataPlatformInstanceMapper INSTANCE = new DataPlatformInstanceMapper();
 
-  public static DataPlatformInstance map(final EntityResponse entityResponse) {
-    return INSTANCE.apply(entityResponse);
+  public static DataPlatformInstance map(
+      @Nullable QueryContext context, final EntityResponse entityResponse) {
+    return INSTANCE.apply(context, entityResponse);
   }
 
-  public DataPlatformInstance apply(@Nonnull final EntityResponse entityResponse) {
+  public DataPlatformInstance apply(
+      @Nullable QueryContext context, @Nonnull final EntityResponse entityResponse) {
     final DataPlatformInstance result = new DataPlatformInstance();
     final Urn entityUrn = entityResponse.getUrn();
     result.setUrn(entityUrn.toString());
@@ -50,24 +54,26 @@ public class DataPlatformInstanceMapper {
         Constants.OWNERSHIP_ASPECT_NAME,
         (dataPlatformInstance, dataMap) ->
             dataPlatformInstance.setOwnership(
-                OwnershipMapper.map(new Ownership(dataMap), entityUrn)));
+                OwnershipMapper.map(context, new Ownership(dataMap), entityUrn)));
     mappingHelper.mapToResult(
         Constants.GLOBAL_TAGS_ASPECT_NAME,
         (dataPlatformInstance, dataMap) ->
-            this.mapGlobalTags(dataPlatformInstance, dataMap, entityUrn));
+            this.mapGlobalTags(context, dataPlatformInstance, dataMap, entityUrn));
     mappingHelper.mapToResult(
         Constants.INSTITUTIONAL_MEMORY_ASPECT_NAME,
         (dataPlatformInstance, dataMap) ->
             dataPlatformInstance.setInstitutionalMemory(
-                InstitutionalMemoryMapper.map(new InstitutionalMemory(dataMap), entityUrn)));
+                InstitutionalMemoryMapper.map(
+                    context, new InstitutionalMemory(dataMap), entityUrn)));
     mappingHelper.mapToResult(
         Constants.STATUS_ASPECT_NAME,
         (dataPlatformInstance, dataMap) ->
-            dataPlatformInstance.setStatus(StatusMapper.map(new Status(dataMap))));
+            dataPlatformInstance.setStatus(StatusMapper.map(context, new Status(dataMap))));
     mappingHelper.mapToResult(
         Constants.DEPRECATION_ASPECT_NAME,
         (dataPlatformInstance, dataMap) ->
-            dataPlatformInstance.setDeprecation(DeprecationMapper.map(new Deprecation(dataMap))));
+            dataPlatformInstance.setDeprecation(
+                DeprecationMapper.map(context, new Deprecation(dataMap))));
     return mappingHelper.getResult();
   }
 
@@ -103,12 +109,13 @@ public class DataPlatformInstanceMapper {
     dataPlatformInstance.setProperties(properties);
   }
 
-  private void mapGlobalTags(
+  private static void mapGlobalTags(
+      @Nullable QueryContext context,
       @Nonnull DataPlatformInstance dataPlatformInstance,
       @Nonnull DataMap dataMap,
       @Nonnull final Urn entityUrn) {
     com.linkedin.datahub.graphql.generated.GlobalTags globalTags =
-        GlobalTagsMapper.map(new GlobalTags(dataMap), entityUrn);
+        GlobalTagsMapper.map(context, new GlobalTags(dataMap), entityUrn);
     dataPlatformInstance.setTags(globalTags);
   }
 }

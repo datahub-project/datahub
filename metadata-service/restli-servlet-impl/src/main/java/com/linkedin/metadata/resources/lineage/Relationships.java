@@ -1,20 +1,21 @@
 package com.linkedin.metadata.resources.lineage;
 
-import static com.linkedin.metadata.Constants.*;
+import static com.datahub.authorization.AuthUtil.isAPIAuthorized;
+import static com.datahub.authorization.AuthUtil.isAPIAuthorizedUrns;
+import static com.linkedin.metadata.authorization.ApiGroup.LINEAGE;
+import static com.linkedin.metadata.authorization.ApiOperation.DELETE;
+import static com.linkedin.metadata.authorization.ApiOperation.READ;
 import static com.linkedin.metadata.resources.restli.RestliConstants.PARAM_COUNT;
 import static com.linkedin.metadata.resources.restli.RestliConstants.PARAM_DIRECTION;
 import static com.linkedin.metadata.resources.restli.RestliConstants.PARAM_START;
 import static com.linkedin.metadata.resources.restli.RestliConstants.PARAM_URN;
-import static com.linkedin.metadata.resources.restli.RestliUtils.*;
 import static com.linkedin.metadata.search.utils.QueryUtils.newFilter;
 import static com.linkedin.metadata.search.utils.QueryUtils.newRelationshipFilter;
 
 import com.codahale.metrics.MetricRegistry;
-import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authorization.EntitySpec;
 import com.datahub.plugins.auth.authorization.Authorizer;
-import com.google.common.collect.ImmutableList;
 import com.linkedin.common.EntityRelationship;
 import com.linkedin.common.EntityRelationshipArray;
 import com.linkedin.common.EntityRelationships;
@@ -114,16 +115,14 @@ public final class Relationships extends SimpleResourceTemplate<EntityRelationsh
       @QueryParam("start") @Optional @Nullable Integer start,
       @QueryParam("count") @Optional @Nullable Integer count) {
     Urn urn = UrnUtils.getUrn(rawUrn);
-    Authentication auth = AuthenticationContext.getAuthentication();
-    if (Boolean.parseBoolean(System.getenv(REST_API_AUTHORIZATION_ENABLED_ENV))
-        && !isAuthorized(
-            auth,
+
+    if (!isAPIAuthorizedUrns(
+            AuthenticationContext.getAuthentication(),
             _authorizer,
-            ImmutableList.of(PoliciesConfig.GET_ENTITY_PRIVILEGE),
-            Collections.singletonList(
-                java.util.Optional.of(new EntitySpec(urn.getEntityType(), urn.toString()))))) {
+            LINEAGE, READ,
+            List.of(urn))) {
       throw new RestLiServiceException(
-          HttpStatus.S_401_UNAUTHORIZED, "User is unauthorized to get entity lineage: " + rawUrn);
+          HttpStatus.S_403_FORBIDDEN, "User is unauthorized to get entity lineage: " + rawUrn);
     }
     RelationshipDirection direction = RelationshipDirection.valueOf(rawDirection);
     final List<String> relationshipTypes = Arrays.asList(relationshipTypesParam);
@@ -162,16 +161,14 @@ public final class Relationships extends SimpleResourceTemplate<EntityRelationsh
   @RestMethod.Delete
   public UpdateResponse delete(@QueryParam("urn") @Nonnull String rawUrn) throws Exception {
     Urn urn = Urn.createFromString(rawUrn);
-    Authentication auth = AuthenticationContext.getAuthentication();
-    if (Boolean.parseBoolean(System.getenv(REST_API_AUTHORIZATION_ENABLED_ENV))
-        && !isAuthorized(
-            auth,
+
+    if (!isAPIAuthorizedUrns(
+            AuthenticationContext.getAuthentication(),
             _authorizer,
-            ImmutableList.of(PoliciesConfig.DELETE_ENTITY_PRIVILEGE),
-            Collections.singletonList(
-                java.util.Optional.of(new EntitySpec(urn.getEntityType(), urn.toString()))))) {
+            LINEAGE, DELETE,
+            List.of(urn))) {
       throw new RestLiServiceException(
-          HttpStatus.S_401_UNAUTHORIZED, "User is unauthorized to delete entity: " + rawUrn);
+          HttpStatus.S_403_FORBIDDEN, "User is unauthorized to delete entity: " + rawUrn);
     }
     _graphService.removeNode(urn);
     return new UpdateResponse(HttpStatus.S_200_OK);
@@ -189,16 +186,14 @@ public final class Relationships extends SimpleResourceTemplate<EntityRelationsh
       throws URISyntaxException {
     log.info("GET LINEAGE {} {} {} {} {}", urnStr, direction, start, count, maxHops);
     final Urn urn = Urn.createFromString(urnStr);
-    Authentication auth = AuthenticationContext.getAuthentication();
-    if (Boolean.parseBoolean(System.getenv(REST_API_AUTHORIZATION_ENABLED_ENV))
-        && !isAuthorized(
-            auth,
+
+    if (!isAPIAuthorizedUrns(
+            AuthenticationContext.getAuthentication(),
             _authorizer,
-            ImmutableList.of(PoliciesConfig.GET_ENTITY_PRIVILEGE),
-            Collections.singletonList(
-                java.util.Optional.of(new EntitySpec(urn.getEntityType(), urn.toString()))))) {
+            LINEAGE, READ,
+            List.of(urn))) {
       throw new RestLiServiceException(
-          HttpStatus.S_401_UNAUTHORIZED, "User is unauthorized to get entity lineage: " + urnStr);
+          HttpStatus.S_403_FORBIDDEN, "User is unauthorized to get entity lineage: " + urnStr);
     }
     return RestliUtil.toTask(
         () ->

@@ -33,7 +33,7 @@ public class DatasetUsageStatsResolver implements DataFetcher<CompletableFuture<
 
     return CompletableFuture.supplyAsync(
         () -> {
-          if (!isViewDatasetUsageAuthorized(resourceUrn, context)) {
+          if (!isViewDatasetUsageAuthorized(context, resourceUrn)) {
             log.debug(
                 "User {} is not authorized to view usage information for dataset {}",
                 context.getActorUrn(),
@@ -43,7 +43,7 @@ public class DatasetUsageStatsResolver implements DataFetcher<CompletableFuture<
           try {
             com.linkedin.usage.UsageQueryResult usageQueryResult =
                 usageClient.getUsageStats(resourceUrn.toString(), range);
-            return UsageQueryResultMapper.map(usageQueryResult);
+            return UsageQueryResultMapper.map(context, usageQueryResult);
           } catch (Exception e) {
             throw new RuntimeException(
                 String.format("Failed to load Usage Stats for resource %s", resourceUrn), e);
