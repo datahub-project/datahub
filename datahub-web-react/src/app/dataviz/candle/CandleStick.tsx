@@ -38,7 +38,7 @@ export const CandleStick = ({ parentChartHeight, candleHeight, barWidth, shapeSi
         left: leftOffset,
         fill: color,
         stroke: 'white',
-        strokeWidth: 2,
+        strokeWidth: 1,
         filter: 'drop-shadow(0px 1px 2.5px rgb(0 0 0 / 0.1))',
         size: shapeSize,
         ...shape.extraProps,

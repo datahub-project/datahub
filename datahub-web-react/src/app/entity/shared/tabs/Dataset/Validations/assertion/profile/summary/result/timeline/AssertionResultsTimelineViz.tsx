@@ -6,6 +6,7 @@ import {
     Assertion,
     AssertionRunEventsResult,
     AssertionRunStatus,
+    AssertionType,
 } from '../../../../../../../../../../../types.generated';
 import { ValuesOverTimeAssertionResultChart } from './charts/ValuesOverTimeAssertionResultChart';
 import { AssertionChartType, AssertionResultChartData, TimeRange } from './charts/types';
@@ -16,17 +17,16 @@ import { ANTD_GRAY } from '../../../../../../../../constants';
 import { getTimeRangeDisplay } from './utils';
 import { FreshnessResultChart } from './charts/FreshnessResultChart';
 
-const VIZ_CONTAINER_HEIGHT = 200;
+const VIZ_CONTAINER_HEIGHT = 240;
+const FRESHNESS_VIZ_CONTAINER_HEIGHT = 180;
 const VIZ_CONTAINER_TITLE_HEIGHT = 36;
 
-const VisualizationContainer = styled.div`
-    background-color: ${ANTD_GRAY[2]};
+const getVisualizationContainer = (height: number) => styled.div`
     border-radius: 4px;
-    height: ${VIZ_CONTAINER_HEIGHT}px;
+    height: ${height}px;
     display: flex;
     flex-direction: column;
     align-items: center;
-    padding: 8px;
 `;
 
 const VizHeader = styled.div`
@@ -38,11 +38,11 @@ const VizHeader = styled.div`
 `;
 
 const VizHeaderTitle = styled(Typography.Text)`
-    margin: 12px;
     margin-bottom: 20px;
     margin-top: 4px;
     color: ${ANTD_GRAY[9]};
-    font-size: 12px;
+    font-size: 16px;
+    font-weight: 600;
 `;
 
 type Props = {
@@ -53,6 +53,8 @@ type Props = {
 };
 
 export const AssertionResultsTimelineViz = ({ assertion, results, timeRange, parentDimensions }: Props) => {
+    const vizHeight = assertion.info?.type === AssertionType.Freshness ? FRESHNESS_VIZ_CONTAINER_HEIGHT : VIZ_CONTAINER_HEIGHT
+
     // Run event data
     const completedRuns =
         results?.runEvents.filter((runEvent) => runEvent.status === AssertionRunStatus.Complete) || [];
@@ -64,7 +66,7 @@ export const AssertionResultsTimelineViz = ({ assertion, results, timeRange, par
 
     // render
     const chartDimensions = {
-        height: VIZ_CONTAINER_HEIGHT - VIZ_CONTAINER_TITLE_HEIGHT - 8, // margin below (flex-start)
+        height: vizHeight - VIZ_CONTAINER_TITLE_HEIGHT - 8, // margin below (flex-start)
         width: parentDimensions.width - 8, // margin on the sides (we have align-items=center)
     }
 
@@ -97,6 +99,8 @@ export const AssertionResultsTimelineViz = ({ assertion, results, timeRange, par
                 />;
         }
     }
+
+    const VisualizationContainer = getVisualizationContainer(vizHeight)
     return <VisualizationContainer>
         {renderChart()}
     </VisualizationContainer>

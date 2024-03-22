@@ -1,9 +1,9 @@
-import { Assertion, AssertionResult, AssertionResultType, AssertionRunEvent, AssertionType, AssertionValueChangeType, FieldAssertionType, FieldMetricAssertion, FieldValuesAssertion, FreshnessAssertionScheduleType, IncrementingSegmentRowCountChange, IncrementingSegmentRowCountTotal, Maybe, RowCountChange, RowCountTotal, SqlAssertionInfo, SqlAssertionType, VolumeAssertionType } from "../../../../../../../../../../types.generated";
+import { Assertion, AssertionResult, AssertionResultType, AssertionRunEvent, AssertionType, AssertionValueChangeType, FieldAssertionInfo, FieldAssertionType, FieldMetricAssertion, FieldValuesAssertion, FreshnessAssertionScheduleType, IncrementingSegmentRowCountChange, IncrementingSegmentRowCountTotal, Maybe, RowCountChange, RowCountTotal, SqlAssertionInfo, SqlAssertionType, VolumeAssertionType } from "../../../../../../../../../../types.generated";
 import { formatNumberWithoutAbbreviation } from "../../../../../../../../../shared/formatNumber";
 import { toLocalDateString, toLocalTimeString } from "../../../../../../../../../shared/time/timeUtils";
 import { getResultErrorMessage } from "../../../../assertionUtils";
 import { getFieldMetricLabel } from "../../../builder/steps/field/utils";
-import { tryGetAbsoluteVolumeAssertionNumericalResult, tryGetActualUpdatedTimestampFromAssertionResult, tryGetExpectedRangeFromAssertionAgainstChanges, tryGetExpectedRangeFromAssertionAgainstTotals, tryGetFieldMetricAssertionNumericalResult, tryGetFieldValueAssertionNumericalResult, tryGetPreviousSqlAssertionNumericalResult, tryGetPreviousVolumeAssertionNumericalResult, tryGetSqlAssertionNumericalResult } from "./resultExtractionUtils";
+import { tryGetAbsoluteVolumeAssertionNumericalResult, tryGetActualUpdatedTimestampFromAssertionResult, tryGetExpectedRangeFromAssertionAgainstRelativeValues, tryGetExpectedRangeFromAssertionAgainstAbsoluteValues, tryGetFieldMetricAssertionNumericalResult, tryGetFieldValueAssertionNumericalResult, tryGetPreviousSqlAssertionNumericalResult, tryGetPreviousVolumeAssertionNumericalResult, tryGetSqlAssertionNumericalResult, tryGetExpectedRangeFromFailThreshold, AssertionExpectedRange } from "./resultExtractionUtils";
 import { getCronAsText } from '../../../../acrylUtils';
 import { ASSERTION_OPERATOR_DESCRIPTIONS_REQUIRING_SUFFIX, ASSERTION_OPERATOR_TO_DESCRIPTION } from "./constants";
 import { lowerFirstLetter } from "../../../../../../../../../shared/textUtil";
@@ -73,11 +73,13 @@ const getFormattedReasonTextForFieldAssertion = (run: AssertionRunEvent) => {
 
 const getFormattedReasonTextForAbsoluteSqlAssertion = (run: AssertionRunEvent) => {
     // Be careful about showing the actual result that was returned, since it may contain sensitive information.
-    const result = run.result?.type;
-    if (result === AssertionResultType.Success) {
-        return `The result of the provided SQL query met the expected conditions.`;
+    const resultType = run.result?.type;
+    const maybeResultValue = tryGetSqlAssertionNumericalResult(run.result);
+    const resultValueStr = maybeResultValue ? ` (${maybeResultValue})` : '';
+    if (resultType === AssertionResultType.Success) {
+        return `The result of the provided SQL query${resultValueStr} met the expected conditions.`;
     }
-    return `The result of the provided SQL query did not meet the expected conditions.`;
+    return `The result of the provided SQL query${resultValueStr} did not meet the expected conditions.`;
 };
 
 const calculateMetricChangePercentage = (previous: number, actual: number) => {
@@ -222,6 +224,32 @@ export const getFormattedReasonText = (assertion: Assertion, run: AssertionRunEv
 };
 
 
+const getFormattedExpectedResultTextForAbsoluteAssertionRange = (
+    assertedOnDescription: string,
+    range: AssertionExpectedRange,
+): string | undefined => {
+    let { low, high } = range
+    low = low && formatNumberWithoutAbbreviation(Math.floor(low))
+    high = high && formatNumberWithoutAbbreviation(Math.floor(high))
+
+    let message: string | undefined;
+    const isHighValid = typeof high !== 'undefined'
+    const isLowValid = typeof low !== 'undefined'
+    if (isHighValid && isLowValid) {
+        message = `${assertedOnDescription} should be between ${low} and ${high}.`
+    }
+    if (isHighValid) {
+        const rangeDefinition = range.context?.highType === 'inclusive' ? 'less than or equal to' : 'less than'
+        message = `${assertedOnDescription} should be ${rangeDefinition} ${high}.`;
+    }
+    if (isLowValid) {
+        const rangeDefinition = range.context?.lowType === 'inclusive' ? 'greater than or equal to' : 'greater than'
+        message = `${assertedOnDescription} should be ${rangeDefinition} ${low}.`;
+    }
+
+    return message;
+}
+
 /**
  * Gets formatted text describing assertion expectations for absolute assertions
  * @param assertedOnDescription: for prefixing the output
@@ -231,21 +259,17 @@ const getFormattedExpectedTextForAbsoluteAssertion = (
     assertedOnDescription: string,
     totalsInfo?: Maybe<IncrementingSegmentRowCountTotal> | Maybe<RowCountTotal> | Maybe<SqlAssertionInfo> | Maybe<FieldValuesAssertion> | Maybe<FieldMetricAssertion>,
 ): string | undefined => {
+    const range = tryGetExpectedRangeFromAssertionAgainstAbsoluteValues(totalsInfo);
+    return getFormattedExpectedResultTextForAbsoluteAssertionRange(assertedOnDescription, range);
+}
+
+const getFormattedExpectedResultTextForValueAssertion = (assertedOnDescription: string, totalsInfo?: Maybe<FieldValuesAssertion>): string | undefined => {
+    let message: string | undefined;
+
     // 1. Handle cases where there is a range (ie. between, less than, etc.)
-    const range = tryGetExpectedRangeFromAssertionAgainstTotals(totalsInfo);
-    let { low, high } = range
-    low = low && formatNumberWithoutAbbreviation(Math.floor(low))
-    high = high && formatNumberWithoutAbbreviation(Math.floor(high))
-    if (high && low) {
-        return `${assertedOnDescription} should be between ${low} and ${high}.`
-    }
-    if (high) {
-        const rangeDefinition = range.context?.highType === 'inclusive' ? 'less than or equal to' : 'less than'
-        return `${assertedOnDescription} should be ${rangeDefinition} ${high}`;
-    }
-    if (low) {
-        const rangeDefinition = range.context?.lowType === 'inclusive' ? 'greater than or equal to' : 'greater than'
-        return `${assertedOnDescription} should be ${rangeDefinition} ${low}`;
+    message = getFormattedExpectedTextForAbsoluteAssertion(assertedOnDescription, totalsInfo)
+    if (message) {
+        return message;
     }
 
     // 2. Handle cases where there is a more explicit expectation (ie. 'contains XYZ', 'is equal to 5')
@@ -254,12 +278,13 @@ const getFormattedExpectedTextForAbsoluteAssertion = (
         // ie. 'in [red, blue, green]'
         if (ASSERTION_OPERATOR_DESCRIPTIONS_REQUIRING_SUFFIX.includes(totalsInfo.operator)) {
             const value = totalsInfo.parameters?.value?.value ?? '[configured value]' // Should never happen but a graceful fallback on the UX
-            return `${assertedOnDescription} ${lowerFirstLetter(operatorDescription)} ${value}`;
+            message = `${assertedOnDescription} ${lowerFirstLetter(operatorDescription)} ${value}.`;
         }
         // ie. 'is not null'
-        return `${assertedOnDescription} ${lowerFirstLetter(operatorDescription)}`;
+        message = `${assertedOnDescription} ${lowerFirstLetter(operatorDescription)}.`;
     }
-    return undefined;
+
+    return message;
 }
 
 
@@ -279,7 +304,7 @@ const getFormattedExpectedTextForRelativeAssertion = (
         return undefined;
     }
 
-    const range = tryGetExpectedRangeFromAssertionAgainstChanges(changingInfo, changeType, previousCount);
+    const range = tryGetExpectedRangeFromAssertionAgainstRelativeValues(changingInfo, changeType, previousCount);
     const { relativeModifiers } = range.context ?? {};
 
     const rangeSuffix = changeType === AssertionValueChangeType.Percentage ? '%' : ''
@@ -294,16 +319,19 @@ const getFormattedExpectedTextForRelativeAssertion = (
     low = low && formatNumberWithoutAbbreviation(Math.floor(low))
     high = high && formatNumberWithoutAbbreviation(Math.floor(high))
 
-    if (high && low) {
+    const isHighValid = typeof high !== 'undefined';
+    const isLowValid = typeof low !== 'undefined';
+
+    if (isHighValid && isLowValid) {
         const minuteDetails = maybeRangeHighLabel && maybeRangeLowLabel ? ` (${maybeRangeLowLabel} to ${maybeRangeHighLabel})` : ''
         return `${assertedOnDescription} should be between ${low} and ${high}${minuteDetails}.`
     }
-    if (high) {
+    if (isHighValid) {
         const minuteDetails = maybeRangeHighLabel ? ` (${maybeRangeHighLabel})` : ''
         const rangeDefinition = range.context?.highType === 'inclusive' ? 'less than or equal to' : 'less than'
         return `${assertedOnDescription} should be ${rangeDefinition} ${high}${minuteDetails}.`;
     }
-    if (low) {
+    if (isLowValid) {
         const minuteDetails = maybeRangeLowLabel ? ` (${maybeRangeLowLabel})` : ''
         const rangeDefinition = range.context?.lowType === 'inclusive' ? 'greater than or equal to' : 'greater than'
         return `${assertedOnDescription} should be ${rangeDefinition} ${low}${minuteDetails}.`;
@@ -323,30 +351,43 @@ const getFormattedExpectedTextForVolumeAssertion = (run: AssertionRunEvent): str
     }
 }
 
+const getFormattedExpectedTextForFieldValuesAssertion = (fieldAssertionInfo: FieldAssertionInfo): string | undefined => {
+    const maybeColumnPath = fieldAssertionInfo.fieldValuesAssertion?.field.path
+    const fieldDescription = maybeColumnPath ? `${maybeColumnPath}` : `Column value`
+    const valueExpectationText = getFormattedExpectedResultTextForValueAssertion(`Row is valid if ${fieldDescription}`, fieldAssertionInfo.fieldValuesAssertion)
+
+    const range = tryGetExpectedRangeFromFailThreshold(fieldAssertionInfo.fieldValuesAssertion)
+    const failingExpectedRowCountRangeText = getFormattedExpectedResultTextForAbsoluteAssertionRange('Invalid row count', range)
+
+    if (failingExpectedRowCountRangeText && valueExpectationText) {
+        return `${failingExpectedRowCountRangeText} ${valueExpectationText}`;
+    }
+    return valueExpectationText || failingExpectedRowCountRangeText;
+}
+const getFormattedExpectedTextForFieldMetricsAssertion = (fieldAssertionInfo: FieldAssertionInfo): string | undefined => {
+
+    const maybeColumnPath = fieldAssertionInfo.fieldMetricAssertion?.field.path
+    let metricDescription: string = maybeColumnPath ? `Metric of ${maybeColumnPath}` : 'Column metric';
+
+    if (fieldAssertionInfo.fieldMetricAssertion?.metric) {
+        try {
+            const maybeMetricDescription = getFieldMetricTypeReadableLabel(fieldAssertionInfo.fieldMetricAssertion.metric)
+            // ie. 'Null percentage of age_m'
+            metricDescription = maybeMetricDescription ? `${maybeMetricDescription} of ${maybeColumnPath ?? 'column'}` : metricDescription
+        } catch (e) {
+            // best attempt
+        }
+    }
+    return getFormattedExpectedTextForAbsoluteAssertion(metricDescription, fieldAssertionInfo.fieldMetricAssertion)
+}
 const getFormattedExpectedTextForFieldAssertion = (run: AssertionRunEvent): string | undefined => {
     const fieldAssertionInfo = run.result?.assertion?.fieldAssertion
     if (!fieldAssertionInfo) return undefined;
     switch (fieldAssertionInfo.type) {
-        case FieldAssertionType.FieldValues: {
-            const maybeColumnPath = fieldAssertionInfo.fieldValuesAssertion?.field.path
-            const fieldDescription = maybeColumnPath ? `${maybeColumnPath}` : `Column value`
-            return getFormattedExpectedTextForAbsoluteAssertion(fieldDescription, fieldAssertionInfo.fieldValuesAssertion)
-        }
-        case FieldAssertionType.FieldMetric: {
-            const maybeColumnPath = fieldAssertionInfo.fieldMetricAssertion?.field.path
-            let metricDescription: string = maybeColumnPath ? `Metric of ${maybeColumnPath}` : 'Column metric';
-
-            if (fieldAssertionInfo.fieldMetricAssertion?.metric) {
-                try {
-                    const maybeMetricDescription = getFieldMetricTypeReadableLabel(fieldAssertionInfo.fieldMetricAssertion.metric)
-                    // ie. 'Null percentage of age_m'
-                    metricDescription = maybeMetricDescription ? `${maybeMetricDescription} of ${maybeColumnPath ?? 'column'}` : metricDescription
-                } catch (e) {
-                    // best attempt
-                }
-            }
-            return getFormattedExpectedTextForAbsoluteAssertion(metricDescription, fieldAssertionInfo.fieldMetricAssertion)
-        }
+        case FieldAssertionType.FieldValues:
+            return getFormattedExpectedTextForFieldValuesAssertion(fieldAssertionInfo)
+        case FieldAssertionType.FieldMetric:
+            return getFormattedExpectedTextForFieldMetricsAssertion(fieldAssertionInfo)
         default:
             return undefined;
     }

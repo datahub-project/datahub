@@ -71,7 +71,7 @@ export const FreshnessResultChart = ({ data, timeRange, chartDimensions, renderH
     const yOffset = 0;
     return (
         <>
-            {renderHeader?.(`Freshness checks over time`)}
+            {renderHeader?.(`${data.yAxisLabel ?? 'Freshness checks'} over time`)}
             <svg width={chartDimensions.width} height={chartDimensions.height}>
                 <Group left={CHART_HORIZ_MARGIN / 2} top={CHART_AXIS_TOP_MARGIN}>
                     {/* Axis */}
@@ -135,8 +135,8 @@ export const FreshnessResultChart = ({ data, timeRange, chartDimensions, renderH
                         <CandleStick
                             candleHeight={chartInnerHeight - yOffset}
                             parentChartHeight={chartInnerHeight}
-                            barWidth={2}
-                            shapeSize={80}
+                            barWidth={4}
+                            shapeSize={120}
                             leftOffset={xScale(maybeMountedDataPointDatasetUpdateDate)}
                             color={ACCENT_COLOR_HEX}
                             shape={{
@@ -156,8 +156,8 @@ export const FreshnessResultChart = ({ data, timeRange, chartDimensions, renderH
                             <CandleStick
                                 candleHeight={chartInnerHeight - yOffset}
                                 parentChartHeight={chartInnerHeight}
-                                barWidth={4}
-                                shapeSize={120}
+                                barWidth={5}
+                                shapeSize={150}
                                 leftOffset={xOffset}
                                 shape={{ type: 'circle' }}
                                 opacity={(mountedDataPoint && (mountedDataPoint.time === dataPoint.time ? 1 : 0.1)) || 1}
