@@ -319,8 +319,8 @@ const getFormattedExpectedTextForRelativeAssertion = (
     low = low && formatNumberWithoutAbbreviation(Math.floor(low))
     high = high && formatNumberWithoutAbbreviation(Math.floor(high))
 
-    const isHighValid = typeof high === 'number';
-    const isLowValid = typeof low === 'number';
+    const isHighValid = typeof high !== 'undefined';
+    const isLowValid = typeof low !== 'undefined';
 
     if (isHighValid && isLowValid) {
         const minuteDetails = maybeRangeHighLabel && maybeRangeLowLabel ? ` (${maybeRangeLowLabel} to ${maybeRangeHighLabel})` : ''
