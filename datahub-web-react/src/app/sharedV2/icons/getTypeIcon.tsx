@@ -18,7 +18,7 @@ export default function getTypeIcon(
     // TODO: Remove type ignore once EntityRegistry V1 icon method has optional arguments
     // eslint-disable-next-line @typescript-eslint/ban-ts-comment
     // @ts-ignore
-    const icon = (subtype && getSubTypeIcon(subtype)) || entityRegistry.getIcon(type);
+    const icon = (subtype && getSubTypeIcon(subtype)) || entityRegistry.getIcon(type, '1em');
     if (includeTitle) {
         return (
             <TitledImage title={capitalizeFirstLetterOnly(subtype) || entityRegistry.getEntityName(type)}>

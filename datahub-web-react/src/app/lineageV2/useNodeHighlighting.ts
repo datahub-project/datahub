@@ -1,13 +1,16 @@
 import { useMemo } from 'react';
 import { Node, useReactFlow } from 'reactflow';
 import { LineageDirection } from '../../types.generated';
-import { ChildMap, COLUMN_QUERY_ID_PREFIX, LineageFilter, LineageNode } from './common';
+import { COLUMN_QUERY_ID_PREFIX, LineageFilter, LineageNode, NeighborMap } from './common';
 import { createEdgeId } from './NodeBuilder';
 
 export default function useNodeHighlighting(
     hoveredNode: string | null,
-    childMaps: Record<LineageDirection, ChildMap>,
-): { highlightedNodes: Set<string>; highlightedEdges: Set<string> } {
+    childMaps: Record<LineageDirection, NeighborMap>,
+): {
+    highlightedNodes: Set<string>;
+    highlightedEdges: Set<string>;
+} {
     const { getNode } = useReactFlow<LineageNode>();
     const { highlightedNodes, highlightedEdges } = useMemo(() => {
         const node = hoveredNode ? getNode(hoveredNode) : null;
@@ -20,8 +23,11 @@ export default function useNodeHighlighting(
 /** Compute highlighted nodes and table->table edges. */
 function computeHighlights(
     node: Node<LineageNode> | undefined | null,
-    childMaps: Record<LineageDirection, ChildMap>,
-): { highlightedNodes: Set<string>; highlightedEdges: Set<string> } {
+    childMaps: Record<LineageDirection, NeighborMap>,
+): {
+    highlightedNodes: Set<string>;
+    highlightedEdges: Set<string>;
+} {
     const highlightedNodes = new Set<string>();
     const highlightedEdges = new Set<string>();
     if (!node) {

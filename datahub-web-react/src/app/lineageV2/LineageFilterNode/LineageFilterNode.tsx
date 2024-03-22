@@ -1,7 +1,7 @@
 import React from 'react';
 import { Handle, NodeProps, Position } from 'reactflow';
 import styled from 'styled-components';
-import useAvoidIntersections from '../LineageEntityNode/useAvoidIntersections';
+import { useAvoidIntersectionsOften } from '../LineageEntityNode/useAvoidIntersections';
 import { LINEAGE_NODE_WIDTH } from '../LineageEntityNode/useDisplayedColumns';
 import useFetchFilterNodeContents from './useFetchFilterNodeContents';
 import { REDESIGN_COLORS } from '../../entityV2/shared/constants';
@@ -23,6 +23,7 @@ const NodeWrapper = styled.div`
 
     :hover:not(:has(.pill-true:hover, .show-more:hover)) {
         border-color: ${REDESIGN_COLORS.BLUE}80;
+
         .extra-card {
             border-color: ${REDESIGN_COLORS.BLUE}80;
         }
@@ -46,6 +47,7 @@ const TitleWrapper = styled.div`
     display: flex;
     flex-direction: row;
     justify-content: space-between;
+    height: 20px;
 `;
 
 const Title = styled.div`
@@ -90,15 +92,15 @@ const VerticalDivider = styled.hr<{ margin: number }>`
 
 export default function LineageFilterNode(props: NodeProps<LineageFilter>) {
     const { id, data } = props;
-    const { contents, shown } = data;
+    const { contents, shown, limit } = data;
 
     const { platforms, subtypes } = useFetchFilterNodeContents(contents);
 
     const numPillRows = Math.min(Math.max(platforms?.length || 0, subtypes?.length || 0), PILL_COLUMN_MAX);
     const nodeHeight =
-        49 + // Title, padding, border, extra card, pill wrapper margin
+        52 + // Title, padding, border, extra card, pill wrapper margin
         23.5 * numPillRows;
-    useAvoidIntersections(id, nodeHeight);
+    useAvoidIntersectionsOften(id, nodeHeight);
 
     return (
         <NodeWrapper className="nodrag">
@@ -110,7 +112,7 @@ export default function LineageFilterNode(props: NodeProps<LineageFilter>) {
                 <Title>
                     <TitleCount>{shown.size}</TitleCount> of <TitleCount>{contents.length}</TitleCount> shown
                 </Title>
-                {shown.size !== contents.length && <ShowMoreButton id={id} data={data} />}
+                {limit !== contents.length && <ShowMoreButton id={id} data={data} />}
             </TitleWrapper>
             <PillsWrapper>
                 <PillColumn>

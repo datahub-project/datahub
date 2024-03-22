@@ -3,8 +3,10 @@ import { useReactFlow } from 'reactflow';
 
 import { ColumnRef, LineageDisplayContext, LineageNodesContext } from './common';
 import LineageSidebar from './LineageSidebar';
+import LineageTransformationNode from './LineageTransformationNode/FetchNode';
 import LineageVisualization from './LineageVisualization';
 import useColumnHighlighting from './useColumnHighlighting';
+import useGetUnfetchedTransformationalNodes from './useGetUnfetchedTransformationalNodes';
 import useProcessData from './useProcessData';
 import { EntityType, LineageDirection } from '../../types.generated';
 import useBulkEntityLineage from './useBulkEntityLineage';
@@ -25,7 +27,7 @@ export default function LineageDisplay({ urn, type, loaded }: Props) {
     const [hoveredColumn, setHoveredColumn] = useState<ColumnRef | null>(null);
     const [hoveredNode, setHoveredNode] = useState<string | null>(null);
 
-    const { fineGrainedLineage, flowNodes, flowEdges, childMaps } = useProcessData(urn, type);
+    const { fineGrainedLineage, flowNodes, flowEdges, neighborData } = useProcessData(urn, type);
     const shownUrns = useMemo(
         () => flowNodes.filter((node) => node.type !== LINEAGE_FILTER_NODE_NAME).map((node) => node.id),
         [flowNodes],
@@ -35,7 +37,7 @@ export default function LineageDisplay({ urn, type, loaded }: Props) {
     useBulkEntityLineage(shownUrns, null);
     useLineageNodePreview(shownUrns);
 
-    const { highlightedNodes, highlightedEdges } = useNodeHighlighting(hoveredNode, childMaps);
+    const { highlightedNodes, highlightedEdges } = useNodeHighlighting(hoveredNode, neighborData);
 
     const highlightedColumns = useColumnHighlighting(
         selectedColumn,
@@ -60,15 +62,21 @@ export default function LineageDisplay({ urn, type, loaded }: Props) {
                 })),
             ...nodesToAdd,
             ...nodesToRedraw,
+            ...flowNodes, // TODO: (SAL) Remove once search-across-lineage properly implemented
         ]);
     }, [flowNodes, getNode, setNodes, fitView]);
 
     useEffect(() => {
-        const edgesToAdd = flowEdges.filter((edge) => !getEdge(edge.id));
-        setEdges((oldEdges) => [...oldEdges, ...edgesToAdd]);
+        // TODO: (SAL) Add back logic once search-across-lineage properly implemented
+        // const edgesToAdd = flowEdges.filter((edge) => !getEdge(edge.id));
+        // setEdges((oldEdges) => [...oldEdges, ...edgesToAdd]);
+        setEdges(flowEdges);
     }, [flowEdges, getEdge, setEdges]);
 
     useFitView(loaded);
+
+    //  TODO: (SAL) Remove once search-across-lineage properly implemented
+    const nodesToFetch = useGetUnfetchedTransformationalNodes();
 
     return (
         <LineageDisplayContext.Provider
@@ -82,7 +90,7 @@ export default function LineageDisplay({ urn, type, loaded }: Props) {
                 highlightedNodes,
                 highlightedColumns,
                 highlightedEdges,
-                childMaps,
+                neighborData,
                 fineGrainedLineage: fineGrainedLineage.direct,
                 columnQueryData: fineGrainedLineage.columnQueryData,
                 numNodes: flowNodes.length,
@@ -90,6 +98,9 @@ export default function LineageDisplay({ urn, type, loaded }: Props) {
         >
             <LineageVisualization initialNodes={flowNodes} initialEdges={flowEdges} />
             <LineageSidebar />
+            {nodesToFetch.map((node) => (
+                <LineageTransformationNode key={node.urn} {...node} />
+            ))}
         </LineageDisplayContext.Provider>
     );
 }
@@ -100,7 +111,7 @@ function useFitView(loaded: boolean) {
 
     useEffect(() => {
         if (!loaded) return () => {};
-        const timeout = setTimeout(() => fitView({ duration: 1000 }), 100);
+        const timeout = setTimeout(() => fitView({ duration: 1000, maxZoom: 2 }), 100);
         return () => {
             clearTimeout(timeout);
         };

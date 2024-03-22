@@ -43,7 +43,7 @@ export function getSubTypeIcon(subType?: string): JSX.Element | undefined {
         return <DeploymentUnitOutlined className={TYPE_ICON_CLASS_NAME} />;
     }
     if (lowerSubType === SubType.Table.toLowerCase()) {
-        return <ViewComfyOutlinedIcon className={TYPE_ICON_CLASS_NAME} />;
+        return <ViewComfyOutlinedIcon fontSize="inherit" className={TYPE_ICON_CLASS_NAME} />;
     }
     if (lowerSubType === SubType.View.toLowerCase()) {
         return <FilterOutlined className={TYPE_ICON_CLASS_NAME} />;

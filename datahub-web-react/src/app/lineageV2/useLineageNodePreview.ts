@@ -1,14 +1,15 @@
 import { useContext, useEffect } from 'react';
 import { useGetLineagePreviewQuery } from '../../graphql/lineage.generated';
 import { useEntityRegistry } from '../useEntityRegistry';
-import { LineageNodesContext } from './common';
-import { setDifference } from './useColumnHighlighting';
+import { LineageNodesContext, setDifference } from './common';
 
 export default function useLineageNodePreview(shownUrns: string[]) {
     const { nodes, setDataVersion } = useContext(LineageNodesContext);
     const entityRegistry = useEntityRegistry();
 
-    const urnsToFetch = setDifference(new Set(nodes.keys()), new Set(shownUrns));
+    const urnsToFetch = setDifference(new Set(nodes.keys()), new Set(shownUrns)).filter(
+        (urn) => !nodes.get(urn)?.backupEntity,
+    );
 
     const { data } = useGetLineagePreviewQuery({
         skip: !urnsToFetch.length,

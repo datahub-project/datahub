@@ -2,6 +2,7 @@ import React, { useContext, useMemo } from 'react';
 import { Handle, Position } from 'reactflow';
 import styled from 'styled-components';
 import { SchemaFieldDataType } from '../../../types.generated';
+import translateFieldPath from '../../entityV2/dataset/profile/schema/utils/translateFieldPath';
 import { createColumnRef, LineageDisplayContext, onMouseDownCapturePreventSelect } from '../common';
 import { CompactFieldIconWithTooltip } from '../../sharedV2/icons/CompactFieldIcon';
 import { ANTD_GRAY, LINEAGE_COLORS } from '../../entityV2/shared/constants';
@@ -94,7 +95,7 @@ export default function Column({ urn, fieldPath, highlighted, fromSelect, type, 
                     <CompactFieldIconWithTooltip type={type} nativeDataType={nativeDataType} />
                 </TypeWrapper>
             )}
-            {fieldPath}
+            {translateFieldPath(fieldPath)}
             <CustomHandle id={id} type="source" position={Position.Right} isConnectable={false} />
         </ColumnWrapper>
     );

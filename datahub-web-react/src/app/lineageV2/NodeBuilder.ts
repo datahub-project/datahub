@@ -2,12 +2,12 @@ import { EdgeMarker } from '@reactflow/core/dist/esm/types/edges';
 import { Edge, MarkerType, Node } from 'reactflow';
 import { EntityType, LineageDirection } from '../../types.generated';
 import {
+    isTransformational,
     LINEAGE_FILTER_TYPE,
     LineageEntity,
     LineageFilter,
     LineageNode,
     setDefault,
-    TRANSFORMATION_TYPES,
 } from './common';
 import { LINEAGE_TABLE_EDGE_NAME } from './LineageEdge/LineageTableEdge';
 import { LINEAGE_ENTITY_NODE_NAME } from './LineageEntityNode/LineageEntityNode';
@@ -46,6 +46,7 @@ function parseLayer(layer?: Layer): { main: number; mini: number } {
 }
 
 interface NodeInformation {
+    urn?: string;
     type: EntityType | typeof LINEAGE_FILTER_TYPE;
     layer?: Layer;
     positionalParents?: Set<string>;
@@ -57,7 +58,9 @@ export default class NodeBuilder {
 
     isHomeTransformational: boolean;
 
-    // Must set node layers in (rough) topological order -- need to set a node's min parent's layer first
+    // Must set node layers in rough topological order
+    // A node must be preceded by all its min-parents, the parents along the shortest paths from the home node to it
+    // TODO: Memoize this min-parent calculation?
     topologicalNodes: LineageNode[] = [];
 
     entities: LineageEntity[] = [];
@@ -80,23 +83,28 @@ export default class NodeBuilder {
     // Note: nodes must be provided in shortest-path order
     constructor(homeUrn: string, homeType: EntityType, nodes: LineageNode[]) {
         this.homeUrn = homeUrn;
-        this.isHomeTransformational = TRANSFORMATION_TYPES.includes(homeType);
+        this.isHomeTransformational = isTransformational({ urn: homeUrn, type: homeType });
         nodes.forEach((node) => {
-            this.nodeInformation[node.id] = { type: node.type };
-            this.#getNodeList(node.type).push(node);
+            this.nodeInformation[node.id] = { urn: node.urn, type: node.type };
+            this.#getNodeList(node).push(node);
             this.topologicalNodes.push(node);
         });
+        this.nodeInformation[homeUrn] = { urn: homeUrn, type: homeType, y: 0 };
     }
 
-    #getNodeList(type: LineageNode['type']): LineageNode[] {
-        if (type === LINEAGE_FILTER_TYPE) return this.filterNodes;
-        if (type === EntityType.Container) return this.workbooks;
-        if (TRANSFORMATION_TYPES.includes(type)) return this.transformations;
+    #getNodeList(node: LineageNode): LineageNode[] {
+        if (node.type === LINEAGE_FILTER_TYPE) return this.filterNodes;
+        if (node.type === EntityType.Container) return this.workbooks;
+        if (isTransformational(node)) return this.transformations;
         return this.entities;
     }
 
-    #isMainNode(type: LineageNode['type']): boolean {
-        return !TRANSFORMATION_TYPES.includes(type as EntityType);
+    #isMainNode(node: Pick<LineageNode, 'urn' | 'type'>): boolean {
+        return !isTransformational(node);
+    }
+
+    #getMarker(information: NodeInformation): EdgeMarker | undefined {
+        return this.#isMainNode(information) ? { type: MarkerType.ArrowClosed } : undefined;
     }
 
     createNodes(): NodeWithMetadata[] {
@@ -119,10 +127,10 @@ export default class NodeBuilder {
                     baseEdges.push({
                         source: node.urn,
                         target: parent,
-                        markerEnd: getMarker(this.nodeInformation[parent].type),
+                        markerEnd: this.#getMarker(this.nodeInformation[parent]),
                     });
                 } else {
-                    baseEdges.push({ source: parent, target: node.urn, markerEnd: getMarker(node.type) });
+                    baseEdges.push({ source: parent, target: node.urn, markerEnd: this.#getMarker(node) });
                 }
             });
         });
@@ -131,10 +139,10 @@ export default class NodeBuilder {
                 baseEdges.push({
                     source: node.id,
                     target: node.parent,
-                    markerEnd: getMarker(this.nodeInformation[node.parent].type),
+                    markerEnd: this.#getMarker(this.nodeInformation[node.parent]),
                 });
             } else {
-                baseEdges.push({ source: node.parent, target: node.id, markerEnd: getMarker(node.type) });
+                baseEdges.push({ source: node.parent, target: node.id, markerEnd: this.#getMarker(node) });
             }
         });
 
@@ -150,12 +158,14 @@ export default class NodeBuilder {
     computeNodeX(): void {
         this.topologicalNodes.forEach((node) => {
             const parentLayers = new Map<string, Layer>(
-                Array.from(node.parents).map((p) => [p, this.nodeInformation[p].layer || defaultLayer]),
+                Array.from(node.parents)
+                    .map((p) => [p, this.nodeInformation[p].layer])
+                    .filter((pair): pair is [string, Layer] => pair[1] !== undefined),
             );
             const minParentLayer = Array.from(parentLayers.values()).sort(compareLayers)[0] || defaultLayer;
 
             const { main: parentMain, mini: parentMini } = parseLayer(minParentLayer);
-            if (this.#isMainNode(node.type)) {
+            if (this.#isMainNode(node)) {
                 const factor = node.direction === LineageDirection.Upstream ? -1 : 1;
                 const mainLayer = parentLayers.size ? factor + parentMain : 0;
                 this.addNodeToLayer(node, createLayer(mainLayer, 0));
@@ -373,10 +383,6 @@ function compareLayersMinisLast(a: Layer, b: Layer): number {
         return -1;
     }
     return compareLayers(a, b);
-}
-
-function getMarker(type: LineageNode['type']): EdgeMarker | undefined {
-    return TRANSFORMATION_TYPES.includes(type as EntityType) ? undefined : { type: MarkerType.ArrowClosed };
 }
 
 export function createEdgeId(source: string, target: string): string {

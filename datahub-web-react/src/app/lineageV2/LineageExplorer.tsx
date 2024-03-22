@@ -56,13 +56,7 @@ function useInitializeNodes(context: NodeContext, urn: string, type: EntityType)
         context.nodes.set(urn, makeInitialNode(urn, type));
     }, [urn, type, context.nodes]);
 
-    const { processed: upstreamProcessed } = useSearchAcrossLineage(
-        urn,
-        context,
-        LineageDirection.Upstream,
-        undefined,
-        undefined,
-    );
+    const { processed: upstreamProcessed } = useSearchAcrossLineage(urn, context, LineageDirection.Upstream);
     const { processed: downstreamProcessed } = useSearchAcrossLineage(urn, context, LineageDirection.Downstream);
 
     return upstreamProcessed && downstreamProcessed;

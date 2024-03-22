@@ -2,14 +2,14 @@ import { Maybe } from 'graphql/jsutils/Maybe';
 import React, { Dispatch, SetStateAction } from 'react';
 import { EntityType, LineageDirection, SchemaFieldRef } from '../../types.generated';
 import { GenericEntityProperties } from '../entityV2/shared/types';
+import { DBT_CLOUD_URN } from '../ingest/source/builder/constants';
 import { ColumnQueryData } from '../shared/EntitySidebarContext';
+import { getPlatformUrnFromEntityUrn } from './lineageUtils';
 import { FetchedEntityV2 } from './types';
 
 export const TRANSITION_DURATION_MS = 200;
 export const LINEAGE_FILTER_PAGINATION = 4;
 type Urn = string;
-
-export const TRANSFORMATION_TYPES = [EntityType.Query, EntityType.DataJob];
 
 /**
  * Used to determine when and what to query for extra data.
@@ -32,6 +32,7 @@ export interface NodeBase {
     direction?: LineageDirection;
     parents: Set<Urn>;
     nonTransformationalParents: Set<Urn>;
+    prunedParents?: Set<Urn>;
 }
 
 export interface LineageEntity extends NodeBase {
@@ -47,14 +48,27 @@ export const LINEAGE_FILTER_TYPE = 'lineage-filter';
 export const LINEAGE_FILTER_ID_PREFIX = 'lf:';
 
 export interface LineageFilter extends NodeBase {
+    urn?: never;
     type: typeof LINEAGE_FILTER_TYPE;
     direction: LineageDirection;
     parent: Urn; // TODO: Consider removing in favor of parents
     contents: Urn[];
     shown: Set<Urn>;
+    limit: number;
 }
 
 export type LineageNode = LineageEntity | LineageFilter;
+
+const TRANSFORMATION_TYPES: string[] = [EntityType.Query, EntityType.DataJob];
+
+export function isDbt(node: Pick<LineageNode, 'urn' | 'type'>): boolean {
+    return node.type === EntityType.Dataset && !!node.urn && getPlatformUrnFromEntityUrn(node.urn) === DBT_CLOUD_URN;
+}
+
+// TODO: Replace with value from search-across-lineage, once it's available
+export function isTransformational(node: Pick<LineageNode, 'urn' | 'type'>): boolean {
+    return TRANSFORMATION_TYPES.includes(node.type) || isDbt(node);
+}
 
 export type ColumnRef = string;
 
@@ -120,7 +134,9 @@ export interface ColumnHighlight {
 export type FineGrainedLineageMap = Map<ColumnRef, ColumnRef[]>;
 export type FineGrainedLineage = { forward: FineGrainedLineageMap; backward: FineGrainedLineageMap };
 export type HighlightedColumns = Map<Urn, Map<string, ColumnHighlight>>;
-export type ChildMap = Map<Urn, Set<Urn>>;
+
+export type NeighborMap = Map<Urn, Set<Urn>>;
+export type NeighborData = Record<LineageDirection, NeighborMap>;
 
 interface DisplayContext {
     // Params
@@ -136,7 +152,7 @@ interface DisplayContext {
     highlightedEdges: Set<string>;
     fineGrainedLineage: FineGrainedLineage;
     columnQueryData: Map<ColumnRef, ColumnQueryData>;
-    childMaps: Record<LineageDirection, ChildMap>;
+    neighborData: NeighborData;
     numNodes: number;
 }
 
@@ -155,7 +171,7 @@ export const LineageDisplayContext = React.createContext<DisplayContext>({
         backward: new Map(),
     },
     columnQueryData: new Map(),
-    childMaps: {
+    neighborData: {
         [LineageDirection.Upstream]: new Map(),
         [LineageDirection.Downstream]: new Map(),
     },
@@ -169,7 +185,7 @@ export function getNonTransformationalParents(
 ): Urn[] {
     const node = nodes.get(directParent);
 
-    if (directParent === rootUrn || !node || !TRANSFORMATION_TYPES.includes(node.type)) {
+    if (directParent === rootUrn || !node || !isTransformational(node)) {
         return [directParent];
     }
     return [...node.nonTransformationalParents].map((p) => getNonTransformationalParents(p, nodes, rootUrn)).flat();
@@ -216,6 +232,10 @@ export function setDefault<K, V>(map: Map<K, V>, key: K, defaultValue: V): V {
         map.set(key, defaultValue);
     }
     return map.get(key) as V;
+}
+
+export function setDifference(setA: Set<string>, setB: Set<string>): string[] {
+    return Array.from(setA).filter((x) => !setB.has(x));
 }
 
 export function onMouseDownCapturePreventSelect(event: React.MouseEvent): void {

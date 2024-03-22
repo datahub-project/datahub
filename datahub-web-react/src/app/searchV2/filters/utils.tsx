@@ -75,9 +75,13 @@ export function getNewFilters(filterField: string, activeFilters: FacetFilterInp
             .map((f) => (f.field === filterField ? { ...f, values: selectedFilterValues } : f))
             .filter((f) => !(f.values?.length === 0));
     } else {
-        newFilters = [...activeFilters, { field: filterField, values: selectedFilterValues }].filter(
-            (f) => !(f.values?.length === 0),
-        );
+        newFilters = [
+            ...activeFilters,
+            {
+                field: filterField,
+                values: selectedFilterValues,
+            },
+        ].filter((f) => !(f.values?.length === 0));
     }
     return newFilters;
 }
@@ -485,8 +489,8 @@ function getDynamicFilterField(field: string, availableFilters: FacetMetadata[])
 }
 
 function getFilterValues(filter: FacetFilterInput, availableFilters: FacetMetadata[]) {
-    const filterAggregations = availableFilters?.find(
-        (availableFilter) => availableFilter.field.includes(filter?.field),
+    const filterAggregations = availableFilters?.find((availableFilter) =>
+        availableFilter.field.includes(filter?.field),
     )?.aggregations;
     return (
         filter?.values?.map((value) => {
@@ -495,22 +499,22 @@ function getFilterValues(filter: FacetFilterInput, availableFilters: FacetMetada
             return {
                 value,
                 entity: filterAggregation?.entity || null,
-                count: filterAggregation?.count
+                count: filterAggregation?.count,
             };
         }) || []
     );
 }
 
 function getDefaultFilterOptions(filter: FacetFilterInput, availableFilters: FacetMetadata[]) {
-    const filterAggregations = availableFilters?.find(
-        (availableFilter) => availableFilter.field.includes(filter?.field),
+    const filterAggregations = availableFilters?.find((availableFilter) =>
+        availableFilter.field.includes(filter?.field),
     )?.aggregations;
     return (
         filterAggregations?.map((agg) => {
             return {
                 value: agg.value,
                 entity: agg.entity || null,
-                count: agg.count
+                count: agg.count,
             };
         }) || []
     );
@@ -523,37 +527,34 @@ function getDefaultFilterOptions(filter: FacetFilterInput, availableFilters: Fac
  * @param availableFilters - An array of available facet filters metadata.
  * @returns The resulting FilterPredicate.
  */
-export function convertToFilterPredicate(
-    filter: FacetFilterInput,
-    availableFilters: FacetMetadata[],
-): FilterPredicate {
-        // First, check whether this is a well-supported filter field.
-        const field = getKnownFilterField(filter.field) || getDynamicFilterField(filter.field, availableFilters);
-        const operator =
-            (filter.condition &&
-                convertBackendToFrontendOperatorType({
-                    operator: filter.condition,
-                    negated: filter.negated || false,
-                })) ||
-            FilterOperatorType.EQUALS;
+export function convertToFilterPredicate(filter: FacetFilterInput, availableFilters: FacetMetadata[]): FilterPredicate {
+    // First, check whether this is a well-supported filter field.
+    const field = getKnownFilterField(filter.field) || getDynamicFilterField(filter.field, availableFilters);
+    const operator =
+        (filter.condition &&
+            convertBackendToFrontendOperatorType({
+                operator: filter.condition,
+                negated: filter.negated || false,
+            })) ||
+        FilterOperatorType.EQUALS;
 
-        const values = getFilterValues(filter, availableFilters);
-        const defaultOptions = getDefaultFilterOptions(filter, availableFilters);
-        
-        return {
-            field,
-            operator,
-            values,
-            defaultValueOptions: defaultOptions,
-        };
+    const values = getFilterValues(filter, availableFilters);
+    const defaultOptions = getDefaultFilterOptions(filter, availableFilters);
+
+    return {
+        field,
+        operator,
+        values,
+        defaultValueOptions: defaultOptions,
+    };
 }
 
 /**
  * Converts an array of selected facet filters to an array of FilterPredicates based on available filters metadata.
- * Here, we employ strict checking for the field value to differentiate between '_entityType␞typeNames' (recommended filter) 
- * and '_entityType' filters. This strict checking ensures complete decoupling of these filters, 
+ * Here, we employ strict checking for the field value to differentiate between '_entityType␞typeNames' (recommended filter)
+ * and '_entityType' filters. This strict checking ensures complete decoupling of these filters,
  * opting for direct equality comparison over 'includes'.
- * 
+ *
  * @param selectedFilters - The array of selected facet filters to be converted.
  * @param availableFilters - An array of available facet filters metadata.
  * @returns An array of resulting FilterPredicates.
@@ -579,11 +580,11 @@ export const convertToAvailableFilterPredictes = (
 export const convertToSelectedFilterPredictes = (
     selectedFilters: FacetFilterInput[],
     availableFilters: FacetMetadata[],
-): FilterPredicate[] =>{
-    return selectedFilters.map(filter =>{
-        return convertToFilterPredicate(filter, availableFilters)
-    })
-}
+): FilterPredicate[] => {
+    return selectedFilters.map((filter) => {
+        return convertToFilterPredicate(filter, availableFilters);
+    });
+};
 
 interface FilterEntityIconProps {
     field: string;

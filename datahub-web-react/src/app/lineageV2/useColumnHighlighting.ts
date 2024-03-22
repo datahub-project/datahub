@@ -14,6 +14,7 @@ import {
     parseColumnQueryRef,
     parseColumnRef,
     setDefault,
+    setDifference,
 } from './common';
 import { LINEAGE_NODE_WIDTH } from './LineageEntityNode/useDisplayedColumns';
 import {
@@ -224,8 +225,4 @@ function createColumnQueryNode(
             y: 120 + (total ? sumY / total : 0),
         },
     };
-}
-
-export function setDifference(setA: Set<string>, setB: Set<string>): string[] {
-    return Array.from(setA).filter((x) => !setB.has(x));
 }

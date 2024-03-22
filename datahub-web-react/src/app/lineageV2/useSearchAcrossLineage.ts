@@ -3,7 +3,9 @@ import {useSearchAcrossLineageStructureLazyQuery} from '../../graphql/search.gen
 import {Entity, EntityType, LineageDirection, SearchAcrossLineageInput} from '../../types.generated';
 import {useGetLineageTimeParams} from '../lineage/utils/useGetLineageTimeParams';
 import {DEGREE_FILTER_NAME} from '../search/utils/constants';
-import {FetchStatus, getNonTransformationalParents, NodeContext, setNodeDefault, TRANSFORMATION_TYPES,} from './common';
+import {
+    FetchStatus, getNonTransformationalParents, isDbt, isTransformational, NodeContext, setDifference, setNodeDefault,
+} from './common';
 
 /**
  * Fetches the lineage structure for a given urn and direction, and updates the nodes map with the results.
@@ -60,7 +62,9 @@ export default function useSearchAcrossLineage(
             });
         });
 
+        const urns = new Set<string>();
         data?.searchAcrossLineage?.searchResults.forEach((result) => {
+            urns.add(result.entity.urn);
             const node = setNodeDefault({
                 nodes,
                 urn: result.entity.urn,
@@ -82,8 +86,7 @@ export default function useSearchAcrossLineage(
             }
         });
 
-        // TODO: Check if searchAcrossLineage is producing duplicate results,
-        // e.g. if there's multiple transformations between the same nodes
+        urns.forEach((u) => pruneParentsThroughDbt(u, nodes));
 
         const node = nodes.get(urn);
         if (data && node) {
@@ -99,6 +102,48 @@ export default function useSearchAcrossLineage(
     return { fetchLineage, processed };
 }
 
+/**
+ * Remove direct edges between non-transformational nodes, if there is a path between them through only dbt nodes.
+ * This prevents the graph from being cluttered with effectively duplicate edges.
+ * @param urn Urn for which to remove parent edges.
+ * @param nodes All nodes in the graph, used to look up other nodes' parents.
+ */
+function pruneParentsThroughDbt(urn: string, nodes: NodeContext['nodes']) {
+    const node = nodes.get(urn);
+    if (!node || isTransformational(node)) return;
+
+    const urnsToPrune = new Set<string>();
+    const seen = new Set<string>();
+    const stack = Array.from(node.parents).filter((p) => {
+        const n = nodes.get(p);
+        return n && isDbt(n);
+    });
+    for (let u = stack.pop(); u; u = stack.pop()) {
+        const n = nodes.get(u);
+        if (!n) return;
+
+        n.parents.forEach((parent) => {
+            const p = nodes.get(parent);
+            if (!p) return;
+
+            if (isDbt(p) && !seen.has(parent)) {
+                stack.push(parent);
+                seen.add(parent);
+            } else {
+                urnsToPrune.add(parent);
+            }
+        });
+    }
+
+    node.parents = new Set(setDifference(node.parents, urnsToPrune));
+    node.nonTransformationalParents = new Set(setDifference(node.nonTransformationalParents, urnsToPrune));
+    if (!node.prunedParents) {
+        node.prunedParents = urnsToPrune;
+    } else {
+        node.prunedParents = new Set([...node.prunedParents, ...urnsToPrune]);
+    }
+}
+
 function addQueryNodes(
     path: Array<Pick<Entity, 'urn' | 'type'>>,
     nodes: NodeContext['nodes'],
@@ -110,7 +155,7 @@ function addQueryNodes(
         const positionalParent = path
             .slice(0, i)
             .reduceRight<string | undefined>(
-                (acc, p) => acc || (!TRANSFORMATION_TYPES.includes(p.type) ? p.urn : undefined),
+                (acc, p) => acc || (!isTransformational(p) ? p.urn : undefined),
                 undefined,
             );
         if (node && !nodes.has(node.urn) && node.type === EntityType.Query) {

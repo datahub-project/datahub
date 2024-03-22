@@ -93,13 +93,13 @@ const IconsWrapper = styled.div`
     color: ${ANTD_GRAY[10]};
     display: flex;
     flex-direction: column;
-    font-size: 20px;
+    font-size: 24px;
     gap: 4px;
 `;
 
 const PlatformIcon = styled.img`
-    height: 1.2em;
-    width: 1.2em;
+    height: 1em;
+    width: 1em;
 `;
 
 const HorizontalDivider = styled.hr<{ margin: number }>`

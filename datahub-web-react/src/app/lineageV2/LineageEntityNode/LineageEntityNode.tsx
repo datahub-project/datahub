@@ -8,7 +8,7 @@ import { LINEAGE_COLORS } from '../../entityV2/shared/constants';
 import useDisplayedColumns from './useDisplayedColumns';
 
 export const LINEAGE_ENTITY_NODE_NAME = 'lineage-entity';
-const MAX_NODES_FOR_TRANSITION = 10;
+const MAX_NODES_FOR_TRANSITION = 50;
 
 const HomeNodeBubble = styled.div`
     align-items: center;

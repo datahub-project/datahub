@@ -3,7 +3,7 @@ import styled from 'styled-components';
 import { Typography } from 'antd';
 import { PlatformAggregate, SubtypeAggregate } from './useFetchFilterNodeContents';
 import { useEntityRegistry } from '../../useEntityRegistry';
-import { PLATFORM_FILTER_NAME, TYPE_NAMES_FILTER_NAME } from '../../searchV2/utils/constants';
+import { ENTITY_SUB_TYPE_FILTER_NAME, PLATFORM_FILTER_NAME } from '../../searchV2/utils/constants';
 import { EntityRegistry } from '../../../entityRegistryContext';
 import { getFilterIconAndLabel } from '../../searchV2/filters/utils';
 import { getFilterColor } from '../../searchV2/recommendation/utils';
@@ -36,19 +36,22 @@ const Pill = styled.div<{ clickable: boolean; color: string; selected: boolean }
 `;
 
 const Contents = styled.div`
+    align-items: center;
     color: ${ANTD_GRAY_V2[10]};
+    display: flex;
     overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
 `;
 
 const PillIcon = styled.span`
+    display: inline-flex;
     margin-right: 2px;
 `;
 
-// TODO: Get this to work for inline elements like this one
 const PillLabel = styled(OverflowTitle)`
     flex-shrink: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 `;
 
 const PillCount = styled(Typography.Text)`
@@ -73,31 +76,31 @@ export function PlatformEntry({ agg, data }: Props<PlatformAggregate>) {
 
 export function SubtypeEntry({ agg, data }: Props<SubtypeAggregate>) {
     const entityRegistry = useEntityRegistry();
-    return LineageFilterPills(TYPE_NAMES_FILTER_NAME, agg, data, entityRegistry);
+    return LineageFilterPills(ENTITY_SUB_TYPE_FILTER_NAME, agg, data, entityRegistry);
 }
 
 function LineageFilterPills(
     filterName: string,
-    [urn, count, entity]: PlatformAggregate | SubtypeAggregate,
+    [filterValue, count, entity]: PlatformAggregate | SubtypeAggregate,
     data: LineageFilter,
     entityRegistry: EntityRegistry,
 ) {
     const { id, direction, contents, parent } = data;
-    const { icon, label } = getFilterIconAndLabel(filterName, urn, entityRegistry, entity || null, 12);
+    const { icon, label } = getFilterIconAndLabel(filterName, filterValue, entityRegistry, entity || null, 12);
 
     const { nodes, setDisplayVersion } = useContext(LineageNodesContext);
     const parentUrn = id.slice(LINEAGE_FILTER_ID_PREFIX.length + 2); // +2 for the direction section
     const filters = nodes.get(parentUrn)?.filters?.[direction];
     const autoEnabled = contents.length === count;
-    const selected = autoEnabled || !!filters?.facetFilters.get(filterName)?.has(urn);
+    const selected = autoEnabled || !!filters?.facetFilters.get(filterName)?.has(filterValue);
 
     function applyFilter(e: React.MouseEvent<HTMLDivElement, MouseEvent>) {
         e.stopPropagation();
         if (filters?.facetFilters) {
             if (selected) {
-                setDefault(filters?.facetFilters, filterName, new Set()).delete(urn);
+                setDefault(filters?.facetFilters, filterName, new Set()).delete(filterValue);
             } else {
-                setDefault(filters?.facetFilters, filterName, new Set()).add(urn);
+                setDefault(filters?.facetFilters, filterName, new Set()).add(filterValue);
             }
             setDisplayVersion(([v]) => [v + 1, [id, parent, ...contents]]);
         }
@@ -106,7 +109,7 @@ function LineageFilterPills(
     return (
         <Pill
             className={`pill-${!autoEnabled}`}
-            color={getFilterColor(filterName, urn)}
+            color={getFilterColor(filterName, filterValue)}
             selected={selected}
             clickable={!autoEnabled}
             onClick={autoEnabled ? undefined : applyFilter}
