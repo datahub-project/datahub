@@ -16,6 +16,8 @@ import com.linkedin.common.urn.GlossaryNodeUrn;
 import com.linkedin.common.urn.GlossaryTermUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.data.DataMap;
+import com.linkedin.data.template.StringMap;
 import com.linkedin.dataset.DatasetProperties;
 import com.linkedin.entity.Aspect;
 import com.linkedin.entity.AspectType;
@@ -30,6 +32,7 @@ import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.models.registry.SnapshotEntityRegistry;
 import com.linkedin.metadata.snapshot.Snapshot;
+import com.linkedin.metadata.test.definition.ValidationResult;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.structured.PrimitivePropertyValue;
 import com.linkedin.structured.PrimitivePropertyValueArray;
@@ -344,6 +347,60 @@ public class QueryEngineTest {
         ImmutableMap.of(
             DATASET_URN,
             ImmutableMap.of(testQuery, new TestQueryResponse(ImmutableList.of("11")))));
+  }
+
+  @SneakyThrows
+  @Test
+  public void testCustomProperties() {
+    final EntityRegistry entityRegistry =
+        new ConfigEntityRegistry(
+            Snapshot.class.getClassLoader().getResourceAsStream("entity-registry.yml"));
+
+    Mockito.when(_entityService.getEntityRegistry()).thenReturn(entityRegistry);
+
+    final EntityResponse entityResponse = new EntityResponse();
+    entityResponse.setUrn(DATASET_URN);
+    final DatasetKey datasetKey = new DatasetKey();
+    datasetKey.setPlatform(DATASET_URN.getPlatformEntity());
+    datasetKey.setName(DATASET_URN.getDatasetNameEntity());
+
+    final DatasetProperties datasetProperties =
+        new DatasetProperties().setDescription("test description");
+    final DataMap dataMap = new DataMap();
+    dataMap.put("prop1", "value1");
+    dataMap.put("owner_group", "['group1', 'group2']");
+    datasetProperties.setCustomProperties(new StringMap(dataMap));
+
+    final EnvelopedAspect propertiesAspect =
+        new EnvelopedAspect()
+            .setName(Constants.DATASET_PROPERTIES_ASPECT_NAME)
+            .setValue(new Aspect(datasetProperties.data()))
+            .setSystemMetadata(new SystemMetadata().setRunId("ingestion-2").setLastObserved(10))
+            .setCreated(new AuditStamp().setActor(UrnUtils.getUrn(SYSTEM_ACTOR)).setTime(10));
+
+    entityResponse.setAspects(
+        new EnvelopedAspectMap(
+            ImmutableMap.of(Constants.DATASET_PROPERTIES_ASPECT_NAME, propertiesAspect)));
+
+    Mockito.when(
+            _entityService.getEntitiesV2(
+                eq(Constants.DATASET_ENTITY_NAME), eq(ImmutableSet.of(DATASET_URN)), any()))
+        .thenReturn(ImmutableMap.of(DATASET_URN, entityResponse));
+
+    TestQuery testQuery = new TestQuery("datasetProperties.customProperties");
+    ValidationResult validationResult =
+        _queryEngine.validateQuery(testQuery, List.of(DATASET_URN.getEntityType()));
+
+    assertTrue(validationResult.isValid());
+
+    assertEquals(
+        _queryEngine.batchEvaluateQueries(ImmutableSet.of(DATASET_URN), ImmutableSet.of(testQuery)),
+        ImmutableMap.of(
+            DATASET_URN,
+            ImmutableMap.of(
+                testQuery,
+                new TestQueryResponse(
+                    ImmutableList.of("{prop1=value1, owner_group=['group1', 'group2']}")))));
   }
 
   @SneakyThrows

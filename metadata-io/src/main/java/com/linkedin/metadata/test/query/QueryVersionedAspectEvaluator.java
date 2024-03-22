@@ -4,6 +4,7 @@ import com.datahub.util.RecordUtils;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.schema.ArrayDataSchema;
 import com.linkedin.data.schema.DataSchema;
+import com.linkedin.data.schema.MapDataSchema;
 import com.linkedin.data.schema.PathSpec;
 import com.linkedin.data.schema.RecordDataSchema;
 import com.linkedin.data.schema.TyperefDataSchema;
@@ -95,6 +96,10 @@ public class QueryVersionedAspectEvaluator extends BaseQueryEvaluator {
       while (fieldSchema.getType() == DataSchema.Type.ARRAY) {
         fieldSchema = ((ArrayDataSchema) fieldSchema).getItems();
       }
+      // If field is a map get the type of the map's values
+      if (fieldSchema.getType() == DataSchema.Type.MAP) {
+        fieldSchema = ((MapDataSchema) fieldSchema).getValues();
+      }
 
       // If field is primitive, but there is more query part to traverse, query is invalid
       if (fieldSchema.isPrimitive()) {
@@ -124,7 +129,7 @@ public class QueryVersionedAspectEvaluator extends BaseQueryEvaluator {
       } else {
         return invalidResultWithMessage(
             String.format(
-                "Query %s is invalid for entity type %s: Field %s is of type union or map, which is not supported",
+                "Query %s is invalid for entity type %s: Field %s is of type union, which is not supported",
                 query, entityType, query.getQueryParts().subList(0, i + 1)));
       }
     }
