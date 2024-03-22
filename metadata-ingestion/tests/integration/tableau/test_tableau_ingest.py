@@ -319,6 +319,8 @@ def test_tableau_cll_ingest(pytestconfig, tmp_path, mock_datahub_graph):
     new_pipeline_config: Dict[Any, Any] = {
         **config_source_default,
         "extract_lineage_from_unsupported_custom_sql_queries": True,
+        "force_extraction_of_lineage_from_custom_sql_queries": False,
+        "sql_parsing_disable_schema_awareness": False,
         "extract_column_level_lineage": True,
     }
 
@@ -834,6 +836,7 @@ def test_tableau_unsupported_csql(mock_datahub_graph):
                     "connectionType": "bigquery",
                 },
             },
+            out_columns=[],
         )
 
         mcp = cast(MetadataChangeProposalClass, next(iter(lineage)).metadata)

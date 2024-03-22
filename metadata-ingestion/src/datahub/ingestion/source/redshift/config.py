@@ -108,7 +108,7 @@ class RedshiftConfig(
     )
 
     use_lineage_v2: bool = Field(
-        default=False,
+        default=True,
         description="Whether to use the new SQL-based lineage collector.",
     )
     lineage_v2_generate_queries: bool = Field(
@@ -162,6 +162,11 @@ class RedshiftConfig(
     resolve_temp_table_in_lineage: bool = Field(
         default=True,
         description="Whether to resolve temp table appear in lineage to upstream permanent tables.",
+    )
+
+    skip_external_tables: bool = Field(
+        default=False,
+        description="Whether to skip EXTERNAL tables.",
     )
 
     @root_validator(pre=True)

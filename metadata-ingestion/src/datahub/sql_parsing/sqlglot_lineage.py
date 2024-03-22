@@ -529,6 +529,9 @@ def _column_level_lineage(  # noqa: C901
 
                     # Parse the column name out of the node name.
                     # Sqlglot calls .sql(), so we have to do the inverse.
+                    if node.name == "*":
+                        continue
+
                     normalized_col = sqlglot.parse_one(node.name).this.name
                     if node.subfield:
                         normalized_col = f"{normalized_col}.{node.subfield}"
@@ -834,6 +837,7 @@ def _sqlglot_lineage_inner(
     # Fetch schema info for the relevant tables.
     table_name_urn_mapping: Dict[_TableName, str] = {}
     table_name_schema_mapping: Dict[_TableName, SchemaInfo] = {}
+
     for table in tables | modified:
         # For select statements, qualification will be a no-op. For other statements, this
         # is where the qualification actually happens.
@@ -1016,8 +1020,9 @@ def create_lineage_sql_parsed_result(
     env: str,
     default_schema: Optional[str] = None,
     graph: Optional[DataHubGraph] = None,
+    schema_aware: bool = True,
 ) -> SqlParsingResult:
-    if graph:
+    if graph and schema_aware:
         needs_close = False
         schema_resolver = graph._make_schema_resolver(
             platform=platform,
