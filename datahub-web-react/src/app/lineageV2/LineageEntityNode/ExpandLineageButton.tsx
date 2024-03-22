@@ -57,15 +57,24 @@ const Button = styled.span`
 interface Props {
     urn: string;
     direction: LineageDirection;
+    display: boolean;
 }
 
-export function ExpandLineageButton({ urn, direction }: Props) {
+export function ExpandLineageButton({ urn, direction, display }: Props) {
+    const expandOneLevel = useOnClickExpandLineage(urn, direction, false);
+    const expandAll = useOnClickExpandLineage(urn, direction, true);
+
+    // Still have to render this component while request is loading, otherwise it gets cancelled
+    // But don't render the buttons while the request is in progress
+    // TODO: Reset fetch status if the request fails
+    if (!display) return null;
+
     const Wrapper = direction === LineageDirection.Upstream ? UpstreamWrapper : DownstreamWrapper;
 
     return (
         <Wrapper>
             <Button
-                onClick={useOnClickExpandLineage(urn, direction, false)}
+                onClick={expandOneLevel}
                 onMouseDownCapture={onMouseDownCapturePreventSelect}
                 onMouseEnter={(e) => e.stopPropagation()}
                 onMouseLeave={(e) => e.stopPropagation()}
@@ -74,7 +83,7 @@ export function ExpandLineageButton({ urn, direction }: Props) {
             </Button>
             <VerticalDivider margin={2} />
             <Button
-                onClick={useOnClickExpandLineage(urn, direction, true)}
+                onClick={expandAll}
                 onMouseDownCapture={onMouseDownCapturePreventSelect}
                 onMouseEnter={(e) => e.stopPropagation()}
                 onMouseLeave={(e) => e.stopPropagation()}

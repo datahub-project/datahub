@@ -1,4 +1,4 @@
-import { useContext, useEffect } from 'react';
+import { useContext, useEffect, useMemo } from 'react';
 import { useGetLineagePreviewQuery } from '../../graphql/lineage.generated';
 import { useEntityRegistry } from '../useEntityRegistry';
 import { LineageNodesContext, setDifference } from './common';
@@ -7,8 +7,10 @@ export default function useLineageNodePreview(shownUrns: string[]) {
     const { nodes, setDataVersion } = useContext(LineageNodesContext);
     const entityRegistry = useEntityRegistry();
 
-    const urnsToFetch = setDifference(new Set(nodes.keys()), new Set(shownUrns)).filter(
-        (urn) => !nodes.get(urn)?.backupEntity,
+    // TODO: Do not refetch nodes that are in the process of being fetched by a previous call
+    const urnsToFetch = useMemo(
+        () => setDifference(new Set(nodes.keys()), new Set(shownUrns)).filter((urn) => !nodes.get(urn)?.backupEntity),
+        [nodes, shownUrns],
     );
 
     const { data } = useGetLineagePreviewQuery({

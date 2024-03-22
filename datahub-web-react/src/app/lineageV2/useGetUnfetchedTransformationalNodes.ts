@@ -17,5 +17,5 @@ export default function useGetUnfetchedTransformationalNodes() {
                 !NO_FETCH_STATUSES.includes(node.fetchStatus[node.direction]),
         );
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [nodeVersion]);
+    }, [nodes, nodeVersion]);
 }

@@ -71,7 +71,7 @@ const EntityTypeShadow = styled.div<{ color: string }>`
     z-index: -1;
 `;
 
-const LoadingWrapper = styled.div`
+export const LoadingWrapper = styled.div`
     color: ${LINEAGE_COLORS.PURPLE_3};
     font-size: 32px;
     line-height: 0;
@@ -240,13 +240,21 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
             <EntityTypeShadow color={nodeColor} />
             <FakeCard />
             <FakeCard style={{ position: 'absolute' }}>
-                {!!entity?.upstreamChildren?.length &&
+                {!!entity?.numUpstreamChildren &&
                     [FetchStatus.UNFETCHED, FetchStatus.LOADING].includes(fetchStatus[LineageDirection.Upstream]) && (
-                        <ExpandLineageButton urn={urn} direction={LineageDirection.Upstream} />
+                        <ExpandLineageButton
+                            urn={urn}
+                            direction={LineageDirection.Upstream}
+                            display={fetchStatus[LineageDirection.Upstream] === FetchStatus.UNFETCHED}
+                        />
                     )}
-                {!!entity?.downstreamChildren?.length &&
+                {!!entity?.numDownstreamChildren &&
                     [FetchStatus.UNFETCHED, FetchStatus.LOADING].includes(fetchStatus[LineageDirection.Downstream]) && (
-                        <ExpandLineageButton urn={urn} direction={LineageDirection.Downstream} />
+                        <ExpandLineageButton
+                            urn={urn}
+                            direction={LineageDirection.Downstream}
+                            display={fetchStatus[LineageDirection.Downstream] === FetchStatus.UNFETCHED}
+                        />
                     )}
                 {fetchStatus[LineageDirection.Upstream] === FetchStatus.LOADING && (
                     <LoadingWrapper className="nodrag" style={{ left: -30 }}>

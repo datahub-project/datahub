@@ -29,7 +29,7 @@ export default function LineageExplorer(props: Props) {
         setDisplayVersion,
     };
 
-    const loaded = useInitializeNodes(context, urn, type);
+    const loaded = useInitializeNodes(context, urn, type, setNodeVersion);
 
     const { setTabFullsize } = useContext(TabFullsizedContext);
     useEffect(() => {
@@ -50,11 +50,17 @@ export default function LineageExplorer(props: Props) {
 /**
  * Initialize lineage node context with upstreams and downstreams of the given urn.
  */
-function useInitializeNodes(context: NodeContext, urn: string, type: EntityType): boolean {
+function useInitializeNodes(
+    context: NodeContext,
+    urn: string,
+    type: EntityType,
+    setNodeVersion: NodeContext['setNodeVersion'],
+): boolean {
     useEffect(() => {
         context.nodes.clear();
         context.nodes.set(urn, makeInitialNode(urn, type));
-    }, [urn, type, context.nodes]);
+        setNodeVersion((prev) => prev + 1);
+    }, [urn, type, context.nodes, setNodeVersion]);
 
     const { processed: upstreamProcessed } = useSearchAcrossLineage(urn, context, LineageDirection.Upstream);
     const { processed: downstreamProcessed } = useSearchAcrossLineage(urn, context, LineageDirection.Downstream);
@@ -70,8 +76,8 @@ function makeInitialNode(urn: string, type: EntityType): LineageEntity {
         parents: new Set(),
         nonTransformationalParents: new Set(),
         fetchStatus: {
-            [LineageDirection.Upstream]: FetchStatus.UNNEEDED,
-            [LineageDirection.Downstream]: FetchStatus.UNNEEDED,
+            [LineageDirection.Upstream]: FetchStatus.LOADING,
+            [LineageDirection.Downstream]: FetchStatus.LOADING,
         },
         filters: {
             [LineageDirection.Upstream]: { limit: LINEAGE_FILTER_PAGINATION, facetFilters: new Map() },

@@ -439,7 +439,48 @@ fragment entityLineage on Entity {
 }
 
 fragment entityLineageV2 on Entity {
-    ...entityLineage
+    urn
+    type
+    ...lineageNodeProperties
+    ...canEditLineageFragment
+    ... on Dataset {
+        schemaMetadata(version: 0) @include(if: $showColumns) {
+            ...schemaMetadataFields
+        }
+    }
+    ... on Chart {
+        inputFields @include(if: $showColumns) {
+            ...inputFieldsFields
+        }
+    }
+    ... on EntityWithRelationships {
+        upstream: lineage(
+            input: {
+                direction: UPSTREAM
+                start: 0
+                count: 100
+                separateSiblings: $separateSiblings
+                startTimeMillis: $startTimeMillis
+                endTimeMillis: $endTimeMillis
+            }
+        ) @skip(if: $excludeUpstream) {
+            filtered
+            total
+        }
+        downstream: lineage(
+            input: {
+                direction: DOWNSTREAM
+                start: 0
+                count: 100
+                separateSiblings: $separateSiblings
+                startTimeMillis: $startTimeMillis
+                endTimeMillis: $endTimeMillis
+            }
+        ) @skip(if: $excludeDownstream) {
+            filtered
+            total
+        }
+    }
     ... on Container {  # For Workbooks in lineage
         properties {
             name

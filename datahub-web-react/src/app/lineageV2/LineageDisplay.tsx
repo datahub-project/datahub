@@ -3,7 +3,7 @@ import { useReactFlow } from 'reactflow';
 
 import { ColumnRef, LineageDisplayContext, LineageNodesContext } from './common';
 import LineageSidebar from './LineageSidebar';
-import LineageTransformationNode from './LineageTransformationNode/FetchNode';
+import FetchNode from './LineageTransformationNode/FetchNode';
 import LineageVisualization from './LineageVisualization';
 import useColumnHighlighting from './useColumnHighlighting';
 import useGetUnfetchedTransformationalNodes from './useGetUnfetchedTransformationalNodes';
@@ -99,7 +99,7 @@ export default function LineageDisplay({ urn, type, loaded }: Props) {
             <LineageVisualization initialNodes={flowNodes} initialEdges={flowEdges} />
             <LineageSidebar />
             {nodesToFetch.map((node) => (
-                <LineageTransformationNode key={node.urn} {...node} />
+                <FetchNode key={node.urn} {...node} />
             ))}
         </LineageDisplayContext.Provider>
     );

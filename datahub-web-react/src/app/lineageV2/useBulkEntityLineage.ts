@@ -1,10 +1,10 @@
 import { useContext, useEffect, useMemo, useState } from 'react';
 import { useGetBulkEntityLineageV2Query } from '../../graphql/lineage.generated';
+import { LineageDirection } from '../../types.generated';
 import { useGetLineageTimeParams } from '../lineage/utils/useGetLineageTimeParams';
+import usePrevious from '../shared/usePrevious';
 import { useEntityRegistryV2 } from '../useEntityRegistry';
 import { FetchStatus, LineageNodesContext } from './common';
-import { LineageDirection } from '../../types.generated';
-import usePrevious from '../shared/usePrevious';
 import { FetchedEntityV2 } from './types';
 
 export default function useBulkEntityLineage(shownUrns: string[], direction: LineageDirection | null): void {
@@ -49,13 +49,15 @@ export default function useBulkEntityLineage(shownUrns: string[], direction: Lin
 
     const entityDetails = useMemo(
         () =>
-            data?.entities?.map<FetchedEntityV2 | null>(
-                (entity) =>
-                    entity && {
-                        ...entityRegistry.getLineageVizConfig(entity.type, entity),
-                        lineageAssets: entityRegistry.getLineageAssets(entity.type, entity),
-                    },
-            ),
+            data?.entities?.map<FetchedEntityV2 | null>((entity) => {
+                if (!entity) return null;
+                const config = entityRegistry.getLineageVizConfigV2(entity.type, entity);
+                if (!config) return null;
+                return {
+                    ...config,
+                    lineageAssets: entityRegistry.getLineageAssets(entity.type, entity),
+                };
+            }),
         [data, entityRegistry],
     );
     useEffect(() => {

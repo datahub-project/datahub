@@ -16,10 +16,16 @@ import { NodeWithMetadata } from './NodeBuilder';
 
 import { LINEAGE_TABLE_EDGE_NAME, LineageTableEdge } from './LineageEdge/LineageTableEdge';
 
-const StyledReactFlow = styled(ReactFlow)`
+const StyledReactFlow = styled(ReactFlow)<{ $edgesOnTop: boolean }>`
     .react-flow__node-lineage-entity:not(.dragging) {
         transition: transform ${TRANSITION_DURATION_MS}ms ease-in-out;
     }
+
+    ${({ $edgesOnTop }) =>
+        $edgesOnTop &&
+        `.react-flow__node-lineage-entity:not(.selected) {
+            z-index: -1 !important;
+        }`}
 `;
 
 const nodeTypes: NodeTypes = {
@@ -42,7 +48,7 @@ interface Props {
 export default React.memo(LineageVisualization);
 
 function LineageVisualization({ initialNodes, initialEdges }: Props) {
-    const { setSelectedColumn } = useContext(LineageDisplayContext);
+    const { highlightedEdges, setSelectedColumn } = useContext(LineageDisplayContext);
 
     useEffect(() => {
         function handleKeyPress(e: KeyboardEvent) {
@@ -74,6 +80,7 @@ function LineageVisualization({ initialNodes, initialEdges }: Props) {
             maxZoom={5}
             fitView
             fitViewOptions={{ maxZoom: 1, duration: 0 }}
+            $edgesOnTop={!!highlightedEdges.size}
         >
             <Background variant={BackgroundVariant.Lines} />
             <ZoomControls />

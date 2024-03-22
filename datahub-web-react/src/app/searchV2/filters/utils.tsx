@@ -62,7 +62,7 @@ import { FieldType, FilterOperatorType, FilterOptionType, FilterPredicate } from
 import { capitalizeFirstLetterOnly, forcePluralize } from '../../shared/textUtil';
 import { convertBackendToFrontendOperatorType } from './operator/operator';
 import { ALL_FILTER_FIELDS } from './field/fields';
-import { getSubTypeIcon, TYPE_ICON_CLASS_NAME } from '../../entityV2/shared/components/subtypes';
+import { getSubTypeIcon } from '../../entityV2/shared/components/subtypes';
 import getTypeIcon from '../../sharedV2/icons/getTypeIcon';
 import { DomainColoredIcon } from '../../entityV2/shared/links/DomainColoredIcon';
 import { TagColor } from './FilterOption';
@@ -139,11 +139,10 @@ export function getLastBrowseEntryFromFilterValue(filterValue: string) {
     return browseEntries[browseEntries.length - 1] || '';
 }
 
-const SubTypeIcon = styled.span`
-    .${TYPE_ICON_CLASS_NAME} {
-        font-size: 12px;
-        color: ${ANTD_GRAY[8]};
-    }
+const SubTypeIcon = styled.span<{ $fontSize?: number }>`
+    display: inline-flex;
+    color: ${ANTD_GRAY[9]};
+    font-size: ${({ $fontSize }) => $fontSize || 12}px;
 `;
 
 function getEntitySubtypeFilterIconAndLabel(filterValue: string, entityRegistry: EntityRegistry, size?: number) {
@@ -154,7 +153,7 @@ function getEntitySubtypeFilterIconAndLabel(filterValue: string, entityRegistry:
     if (filterValue.includes(FILTER_DELIMITER)) {
         const [type, subType] = filterValue.split(FILTER_DELIMITER);
         label = capitalizeFirstLetterOnly(forcePluralize(subType));
-        icon = <SubTypeIcon>{getTypeIcon(entityRegistry, type as EntityType, subType)}</SubTypeIcon>;
+        icon = <SubTypeIcon $fontSize={size}>{getTypeIcon(entityRegistry, type as EntityType, subType)}</SubTypeIcon>;
     } else {
         icon = entityRegistry.getIcon(filterValue as EntityType, size || 12, IconStyleType.ACCENT, ANTD_GRAY[9]);
         label = entityRegistry.getCollectionName(filterValue.toUpperCase() as EntityType);

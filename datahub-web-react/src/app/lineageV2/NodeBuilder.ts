@@ -159,7 +159,7 @@ export default class NodeBuilder {
         this.topologicalNodes.forEach((node) => {
             const parentLayers = new Map<string, Layer>(
                 Array.from(node.parents)
-                    .map((p) => [p, this.nodeInformation[p].layer])
+                    .map((p) => [p, this.nodeInformation[p]?.layer])
                     .filter((pair): pair is [string, Layer] => pair[1] !== undefined),
             );
             const minParentLayer = Array.from(parentLayers.values()).sort(compareLayers)[0] || defaultLayer;

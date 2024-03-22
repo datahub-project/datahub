@@ -107,10 +107,18 @@ export default function TableauWorkbookNode(props: NodeProps<LineageEntity>) {
             <EntityTypeShadow color={nodeColor} />
             <FakeCard>
                 {[FetchStatus.UNFETCHED, FetchStatus.LOADING].includes(fetchStatus[LineageDirection.Upstream]) && (
-                    <ExpandLineageButton urn={urn} direction={LineageDirection.Upstream} />
+                    <ExpandLineageButton
+                        urn={urn}
+                        direction={LineageDirection.Upstream}
+                        display={fetchStatus[LineageDirection.Upstream] === FetchStatus.UNFETCHED}
+                    />
                 )}
                 {[FetchStatus.UNFETCHED, FetchStatus.LOADING].includes(fetchStatus[LineageDirection.Downstream]) && (
-                    <ExpandLineageButton urn={urn} direction={LineageDirection.Downstream} />
+                    <ExpandLineageButton
+                        urn={urn}
+                        direction={LineageDirection.Downstream}
+                        display={fetchStatus[LineageDirection.Downstream] === FetchStatus.UNFETCHED}
+                    />
                 )}
             </FakeCard>
             <CardWrapper onMouseEnter={() => setHoveredNode(urn)} onMouseLeave={() => setHoveredNode(null)}>

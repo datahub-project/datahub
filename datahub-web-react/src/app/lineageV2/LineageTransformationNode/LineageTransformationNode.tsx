@@ -1,5 +1,6 @@
-import { ConsoleSqlOutlined, HomeOutlined } from '@ant-design/icons';
-import React, { useContext, useEffect } from 'react';
+import { ConsoleSqlOutlined, HomeOutlined, LoadingOutlined } from '@ant-design/icons';
+import { Spin } from 'antd';
+import React, { useContext } from 'react';
 import { Handle, NodeProps, Position } from 'reactflow';
 import styled from 'styled-components';
 import { EntityType, LineageDirection } from '../../../types.generated';
@@ -10,14 +11,12 @@ import {
     LineageEntity,
     LineageNodesContext,
 } from '../common';
-import useSearchAcrossLineage from '../useSearchAcrossLineage';
 import { LINEAGE_COLORS } from '../../entityV2/shared/constants';
 import { useGetQueryQuery } from '../../../graphql/query.generated';
+import { LoadingWrapper } from '../LineageEntityNode/NodeContents';
 
 export const LINEAGE_TRANSFORMATION_NODE_NAME = 'lineage-transformation';
 export const TRANSFORMATION_NODE_SIZE = 30;
-
-const NO_FETCH_STATUSES = [FetchStatus.COMPLETE, FetchStatus.UNNEEDED, FetchStatus.LOADING];
 
 // TODO: Share with LineageEntityNode
 const HomeNodeBubble = styled.div`
@@ -65,24 +64,16 @@ const CustomIcon = styled.img`
 
 export default function LineageTransformationNode(props: NodeProps<LineageEntity>) {
     const { id, data, selected } = props;
-    const { urn, type, direction, fetchStatus } = data;
+    const { urn, type, fetchStatus } = data;
     const isQuery = type === EntityType.Query;
 
-    const context = useContext(LineageNodesContext);
+    const { nodes, rootUrn } = useContext(LineageNodesContext);
     const { setHoveredNode } = useContext(LineageDisplayContext);
 
-    const entity = context.nodes.get(urn)?.entity;
+    const entity = nodes.get(urn)?.entity;
 
-    // Note: Direction default is to pass typing. Should not ever be queries.
-    const { fetchLineage } = useSearchAcrossLineage(urn, context, direction || LineageDirection.Downstream, true);
     const backupLogoUrl = useFetchQuery(urn);
     const icon = entity?.icon || backupLogoUrl;
-
-    useEffect(() => {
-        if (direction && fetchStatus[direction] && !NO_FETCH_STATUSES.includes(fetchStatus[direction])) {
-            fetchLineage();
-        }
-    }, [fetchLineage, direction, fetchStatus]);
 
     const { selectedColumn } = useContext(LineageDisplayContext);
     const opacity = selectedColumn && isQuery && !id.startsWith(COLUMN_QUERY_ID_PREFIX) ? 0.3 : 1;
@@ -95,7 +86,7 @@ export default function LineageTransformationNode(props: NodeProps<LineageEntity
             onMouseEnter={() => setHoveredNode(urn)}
             onMouseLeave={() => setHoveredNode(null)}
         >
-            {urn === context.rootUrn && (
+            {urn === rootUrn && (
                 <HomeNodeBubble>
                     <HomeOutlined style={{ marginRight: 4 }} />
                     Home
@@ -103,6 +94,16 @@ export default function LineageTransformationNode(props: NodeProps<LineageEntity
             )}
             {icon && <CustomIcon src={icon} />}
             {!icon && isQuery && <ConsoleSqlOutlined />}
+            {fetchStatus[LineageDirection.Upstream] === FetchStatus.LOADING && (
+                <LoadingWrapper className="nodrag" style={{ left: -30 }}>
+                    <Spin delay={urn === rootUrn ? undefined : 500} indicator={<LoadingOutlined />} />
+                </LoadingWrapper>
+            )}
+            {fetchStatus[LineageDirection.Downstream] === FetchStatus.LOADING && (
+                <LoadingWrapper className="nodrag" style={{ right: -30 }}>
+                    <Spin delay={urn === rootUrn ? undefined : 500} indicator={<LoadingOutlined />} />
+                </LoadingWrapper>
+            )}
             <CustomHandle type="target" position={Position.Left} isConnectable={false} />
             <CustomHandle type="source" position={Position.Right} isConnectable={false} />
         </NodeWrapper>

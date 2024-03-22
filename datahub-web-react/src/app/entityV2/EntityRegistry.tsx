@@ -2,6 +2,7 @@ import { QueryHookOptions, QueryResult } from '@apollo/client';
 import React from 'react';
 import { Entity as EntityInterface, EntityType, Exact, SearchResult } from '../../types.generated';
 import { EntitySidebarSection } from '../entity/shared/types';
+import { FetchedEntity } from '../lineage/types';
 import { SearchResultProvider } from '../search/context/SearchResultContext';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from './Entity';
 import { GLOSSARY_ENTITY_TYPES } from './shared/constants';
@@ -159,7 +160,7 @@ export default class EntityRegistry {
         return entity.renderEmbeddedProfile ? entity.renderEmbeddedProfile(urn) : entity.renderProfile(urn);
     }
 
-    getLineageVizConfig<T>(type: EntityType, data: T): FetchedEntityV2 {
+    getLineageVizConfig<T>(type: EntityType, data: T): FetchedEntity {
         const entity = validatedGet(type, this.entityTypeToEntity);
         const genericEntityProperties = this.getGenericEntityProperties(type, data);
         // combine fineGrainedLineages from this node as well as its siblings
@@ -199,8 +200,29 @@ export default class EntityRegistry {
             schemaMetadata: genericEntityProperties?.schemaMetadata,
             inputFields: genericEntityProperties?.inputFields,
             canEditLineage: genericEntityProperties?.privileges?.canEditLineage,
-            parentContainers: genericEntityProperties?.parentContainers?.containers,
-        } as FetchedEntityV2;
+        } as FetchedEntity;
+    }
+
+    getLineageVizConfigV2<T>(type: EntityType, data: T): FetchedEntityV2 | null {
+        const entity = validatedGet(type, this.entityTypeToEntity);
+        const genericEntityProperties = this.getGenericEntityProperties(type, data);
+        if (!genericEntityProperties || !entity.getLineageVizConfig) return null;
+
+        return {
+            ...entity.getLineageVizConfig(data),
+            fineGrainedLineages:
+                genericEntityProperties?.fineGrainedLineages ||
+                genericEntityProperties?.inputOutput?.fineGrainedLineages ||
+                [],
+            numDownstreamChildren:
+                (genericEntityProperties.downstream?.total || 0) - (genericEntityProperties.downstream?.filtered || 0),
+            numUpstreamChildren:
+                (genericEntityProperties.upstream?.total || 0) - (genericEntityProperties.upstream?.filtered || 0),
+            status: genericEntityProperties.status,
+            schemaMetadata: genericEntityProperties.schemaMetadata ?? undefined,
+            inputFields: genericEntityProperties.inputFields ?? undefined,
+            canEditLineage: genericEntityProperties.privileges?.canEditLineage ?? undefined,
+        };
     }
 
     getLineageAssets(type: EntityType, data: EntityLineageV2Fragment): LineageAsset[] | undefined {
