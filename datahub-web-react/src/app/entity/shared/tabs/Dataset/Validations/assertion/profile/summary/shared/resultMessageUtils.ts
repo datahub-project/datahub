@@ -236,7 +236,7 @@ const getFormattedExpectedResultTextForAbsoluteAssertionRange = (
     const isHighValid = typeof high !== 'undefined'
     const isLowValid = typeof low !== 'undefined'
     if (isHighValid && isLowValid) {
-        message = `${assertedOnDescription} should be between ${high} and ${low}.`
+        message = `${assertedOnDescription} should be between ${low} and ${high}.`
     }
     if (isHighValid) {
         const rangeDefinition = range.context?.highType === 'inclusive' ? 'less than or equal to' : 'less than'
