@@ -108,8 +108,7 @@ public class OwnerSubscriptionHook implements MetadataChangeLogHook {
           EntityChangeType.OPERATION_COLUMN_MODIFIED,
           EntityChangeType.INCIDENT_RAISED,
           EntityChangeType.INCIDENT_RESOLVED,
-          EntityChangeType.ASSERTION_FAILED,
-          EntityChangeType.ASSERTION_PASSED);
+          EntityChangeType.ASSERTION_FAILED);
 
   @VisibleForTesting
   static final Set<EntityChangeType> BUSINESS_USER_CHANGE_TYPES =
