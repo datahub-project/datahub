@@ -27,7 +27,7 @@ import {
 } from '../../types';
 import { EntityHeader } from './header/EntityHeader';
 import { EntityTabs } from './header/EntityTabs';
-import EntityContext from '../../EntityContext';
+import { EntityContext } from '../../EntityContext';
 import useIsLineageMode from '../../../../lineage/utils/useIsLineageMode';
 import { useEntityRegistry } from '../../../../useEntityRegistry';
 import LineageExplorer from '../../../../lineage/LineageExplorer';

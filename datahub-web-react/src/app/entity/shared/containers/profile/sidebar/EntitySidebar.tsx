@@ -53,9 +53,7 @@ export const EntitySidebar = <T,>({ sidebarSections, topSection }: Props) => {
             )}
             <ContentContainer>
                 {sidebarSections?.map((section) => {
-                    if (section.display?.visible(entityData, baseEntity) !== true) {
-                        return null;
-                    }
+                    if (section.display?.visible(entityData, baseEntity) !== true) return null;
                     return <section.component key={`${section.component}`} properties={section.properties} />;
                 })}
             </ContentContainer>

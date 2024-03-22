@@ -5,7 +5,7 @@ import styled from 'styled-components';
 import { Divider } from 'antd';
 import { EntityType, Exact } from '../../../../types.generated';
 import useGetDataForProfile from '../containers/profile/useGetDataForProfile';
-import EntityContext from '../EntityContext';
+import { EntityContext } from '../EntityContext';
 import { GenericEntityProperties } from '../types';
 import EmbeddedHeader from './EmbeddedHeader';
 import { SidebarAboutSection } from '../containers/profile/sidebar/AboutSection/SidebarAboutSection';
@@ -66,7 +66,7 @@ export default function EmbeddedProfile<T>({ urn, entityType, getOverridePropert
                 loading,
                 baseEntity: dataPossiblyCombinedWithSiblings,
                 dataNotCombinedWithSiblings,
-                routeToTab: () => {},
+                routeToTab: () => { },
                 refetch,
                 lineage: undefined,
             }}

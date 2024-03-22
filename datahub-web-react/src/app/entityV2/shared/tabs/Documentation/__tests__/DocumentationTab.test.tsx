@@ -5,7 +5,7 @@ import React from 'react';
 import { mocks } from '../../../../../../Mocks';
 import { EntityType } from '../../../../../../types.generated';
 import TestPageContainer from '../../../../../../utils/test-utils/TestPageContainer';
-import EntityContext from '../../../EntityContext';
+import { EntityContext } from '../../../EntityContext';
 import { getShouldShowProposeButton } from '../components/DescriptionEditor';
 import { DocumentationTab } from '../DocumentationTab';
 
@@ -49,7 +49,7 @@ describe('SchemaDescriptionField', () => {
                             urn: 'urn:li:dataset:123',
                             entityType: EntityType.Dataset,
                             entityData: {
-                                properties:{
+                                properties: {
                                     description: 'This is a description',
                                 },
                                 editableProperties: {

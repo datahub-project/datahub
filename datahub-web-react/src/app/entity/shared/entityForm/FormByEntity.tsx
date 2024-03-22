@@ -3,6 +3,8 @@ import React from 'react';
 import styled from 'styled-components';
 
 import { useEntityRegistry } from '../../../useEntityRegistry';
+import { EntityContext as EntityContextV2 } from '../../../entityV2/shared/EntityContext'; // Importing from entityV2
+
 import EntityContext, { useEntityContext } from '../EntityContext';
 import { useEntityFormContext } from './EntityFormContext';
 
@@ -17,6 +19,8 @@ import {
     FORM_QUESTION_VIEW_BUTTON,
     WELCOME_TO_BULK_BY_ENTITY_ID,
 } from '../../../onboarding/config/FormOnboardingConfig';
+
+import { useIsThemeV2Enabled } from '../../../useIsThemeV2Enabled';
 
 const ContentWrapper = styled.div`
     background-color: ${ANTD_GRAY_V2[1]};
@@ -46,9 +50,21 @@ export default function FormByEntity({ formUrn }: Props) {
     const entityRegistry = useEntityRegistry();
     const type = selectedEntity?.type || entityType;
     const sidebarSections = type ? entityRegistry.getSidebarSections(type) : [];
+    const isV2 = useIsThemeV2Enabled();
+
+    // Provider based on theme version
+    const Provider = isV2 ? EntityContextV2.Provider : EntityContext.Provider;
+
+    // Used for v2 - removes repeated entity header (we use EntityInfo in this component)
+    const cleanedSidebarSections = sidebarSections.filter((section) =>
+        section.component.name !== 'SidebarEntityHeader'
+    );
+
+    // Conditional sections based on theme version
+    const sections = isV2 ? cleanedSidebarSections : sidebarSections;
 
     return (
-        <EntityContext.Provider
+        <Provider
             value={{
                 urn: selectedEntity?.urn || '',
                 entityType: selectedEntity?.type || entityType,
@@ -56,7 +72,7 @@ export default function FormByEntity({ formUrn }: Props) {
                 loading,
                 baseEntity: selectedEntityData,
                 dataNotCombinedWithSiblings: selectedEntityData,
-                routeToTab: () => {},
+                routeToTab: () => { },
                 refetch,
                 lineage: undefined,
             }}
@@ -65,17 +81,16 @@ export default function FormByEntity({ formUrn }: Props) {
             <ContentWrapper>
                 <ProgressBar formUrn={formUrn} />
                 <FlexWrapper>
+                    <Form formUrn={formUrn} />
                     {selectedEntityData && (
                         <ProfileSidebar
-                            sidebarSections={sidebarSections}
+                            sidebarSections={sections}
                             topSection={{ component: () => <EntityInfo formUrn={formUrn} /> }}
                             backgroundColor="white"
-                            alignLeft
                         />
                     )}
-                    <Form formUrn={formUrn} />
                 </FlexWrapper>
             </ContentWrapper>
-        </EntityContext.Provider>
+        </Provider>
     );
 }
