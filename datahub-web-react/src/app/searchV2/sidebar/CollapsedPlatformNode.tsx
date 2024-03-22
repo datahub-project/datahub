@@ -1,8 +1,10 @@
-import React from 'react';
+import React, { useState } from 'react';
 import styled from 'styled-components';
-import { DataPlatform } from "../../../types.generated";
+import { DatabaseOutlined as DatabaseIcon } from '@ant-design/icons';
+import { DataPlatform } from '../../../types.generated';
 
-export const PlatformButton = styled.img<{ size?: number }>`
+
+const PlatformLogo = styled.img<{ size?: number }>`
     max-height: ${(props) => (props.size ? props.size : 12)}px;
     width: auto;
     object-fit: contain;
@@ -14,20 +16,34 @@ export const PlatformButton = styled.img<{ size?: number }>`
     }
 `;
 
+const DatabaseOutlined = styled(DatabaseIcon)`
+    font-size: 24px;
+    cursor: pointer;
+    margin-top: 12px;
+    margin-bottom: 12px;
+`;
+
 type Props = {
-    platform: DataPlatform; 
+    platform: DataPlatform;
     onClick: () => void;
-}
+};
 
 const CollapsedPlatformNode = ({ platform, onClick }: Props) => {
     const logoUrl = (platform as DataPlatform)?.properties?.logoUrl;
+    const [brokenImage, setBrokenImage] = useState(false);
+
+    const handleImageError = () => {
+        setBrokenImage(true);
+    };
     if (!logoUrl) {
         return null;
     }
-    return (
-        <PlatformButton src={logoUrl as any} size={24} onClick={onClick}/>
 
-    );
-}
+    if (brokenImage) {
+        return <DatabaseOutlined title={platform.name} onClick={onClick} />;
+    }
 
-export default CollapsedPlatformNode; 
+    return <PlatformLogo src={logoUrl as string} size={24} onClick={onClick} onError={handleImageError} />;
+};
+
+export default CollapsedPlatformNode;
