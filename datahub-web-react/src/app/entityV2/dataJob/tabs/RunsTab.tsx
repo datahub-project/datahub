@@ -88,13 +88,15 @@ const columns = [
         title: 'Inputs',
         dataIndex: 'inputs',
         key: 'inputs',
-        render: (inputs) => <CompactEntityNameList entities={inputs} />,
+        render: (inputs) => <CompactEntityNameList entities={inputs} placement="right" />,
+        width: 150,
     },
     {
         title: 'Outputs',
         dataIndex: 'outputs',
         key: 'outputs',
-        render: (outputs) => <CompactEntityNameList entities={outputs} />,
+        render: (outputs) => <CompactEntityNameList entities={outputs} placement="right" />,
+        width: 150,
     },
     {
         title: '',

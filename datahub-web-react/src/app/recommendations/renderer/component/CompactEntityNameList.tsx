@@ -8,6 +8,7 @@ import { useEntityRegistry } from '../../../useEntityRegistry';
 import { EntityPreviewTag } from './EntityPreviewTag';
 import { HoverEntityTooltip } from './HoverEntityTooltip';
 import { ANTD_GRAY } from '../../../entity/shared/constants';
+import { TooltipPlacement } from 'antd/es/tooltip';
 
 const NameWrapper = styled.span<{ addMargin }>`
     display: inline-flex;
@@ -26,8 +27,16 @@ type Props = {
     linkUrlParams?: Record<string, string | boolean>;
     showTooltips?: boolean;
     showArrows?: boolean;
+    placement?: TooltipPlacement;
 };
-export const CompactEntityNameList = ({ entities, onClick, linkUrlParams, showTooltips = true, showArrows }: Props) => {
+export const CompactEntityNameList = ({
+    entities,
+    onClick,
+    linkUrlParams,
+    showTooltips = true,
+    showArrows,
+    placement,
+}: Props) => {
     const entityRegistry = useEntityRegistry();
     const history = useHistory();
 
@@ -59,7 +68,7 @@ export const CompactEntityNameList = ({ entities, onClick, linkUrlParams, showTo
                                 history.push(url);
                             }}
                         >
-                            <HoverEntityTooltip entity={entity} canOpen={showTooltips}>
+                            <HoverEntityTooltip entity={entity} canOpen={showTooltips} placement={placement}>
                                 <span data-testid={`compact-entity-link-${entity.urn}`}>
                                     <EntityPreviewTag
                                         displayName={displayName}
