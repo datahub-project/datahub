@@ -61,23 +61,23 @@ datahub_sensor - Emitting metadata...
 We can provide inputs and outputs to both assets and ops explicitly using a dictionary of `Ins` and `Out` corresponding to the decorated function arguments. While providing inputs and outputs explicitly we can provide metadata as well.
 To create dataset upstream and downstream dependency for the assets and ops you can use an ins and out dictionary with metadata provided. For reference, look at the sample jobs created using assets [`assets_job.py`](../../metadata-ingestion-modules/dagster-plugin/src/datahub_dagster_plugin/example_jobs/assets_job.py), or ops [`ops_job.py`](../../metadata-ingestion-modules/dagster-plugin/src/datahub_dagster_plugin/example_jobs/ops_job.py).
 
-## Add define your custom logic to capture asset lineage information
+## Define your custom logic to capture asset lineage information
 You can define your own logic to capture asset lineage information. 
 
 The output Tuple contains two dictionaries, one for input assets and the other for output assets. The key of the dictionary is the op key and the value is the set of asset urns that are upstream or downstream of the op.
 
 ```python
+from datahub_dagster_plugin.client.dagster_generator import DagsterGenerator, DatasetLineage
+
 def asset_lineage_extractor(
     context: RunStatusSensorContext,
     dagster_generator: DagsterGenerator,
     graph: DataHubGraph,
-) -> Tuple[Dict[str, Set], Dict[str, Set]]:
-
-    input_assets:Dict[str, Set] = {}
-    output_assets:Dict[str, Set] = {}
+) -> Dict[str, DatasetLineage]:
+   dataset_lineage: Dict[str, DatasetLineage] = {}
 
     # Extracting input and output assets from the context
-    return input_assets, output_assets
+    return dataset_lineage
 ```
 
 [See example job here](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion-modules/dagster-plugin/src/datahub_dagster_plugin/example_jobs/advanced_ops_jobs.py).
