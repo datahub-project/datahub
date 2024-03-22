@@ -197,6 +197,30 @@ def test_dbt_entity_emission_configuration():
     DBTCoreConfig.parse_obj(config_dict)
 
 
+def test_dbt_config_skip_sources_in_lineage():
+    with pytest.raises(
+        ValidationError,
+        match="skip_sources_in_lineage.*entities_enabled.sources.*set to NO",
+    ):
+        config_dict = {
+            "manifest_path": "dummy_path",
+            "catalog_path": "dummy_path",
+            "target_platform": "dummy_platform",
+            "skip_sources_in_lineage": True,
+        }
+        config = DBTCoreConfig.parse_obj(config_dict)
+
+    config_dict = {
+        "manifest_path": "dummy_path",
+        "catalog_path": "dummy_path",
+        "target_platform": "dummy_platform",
+        "skip_sources_in_lineage": True,
+        "entities_enabled": {"sources": "NO"},
+    }
+    config = DBTCoreConfig.parse_obj(config_dict)
+    assert config.skip_sources_in_lineage is True
+
+
 def test_dbt_s3_config():
     # test missing aws config
     config_dict: dict = {
