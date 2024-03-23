@@ -1,12 +1,17 @@
 package com.linkedin.datahub.graphql.types.usage;
 
 import com.linkedin.datahub.graphql.generated.UsageQueryResult;
+import com.linkedin.datahub.graphql.generated.UsageQueryResultAggregations;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
+import java.util.List;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 
 public class UsageQueryResultMapper
     implements ModelMapper<com.linkedin.usage.UsageQueryResult, UsageQueryResult> {
+
+  public static final UsageQueryResult EMPTY =
+      new UsageQueryResult(List.of(), new UsageQueryResultAggregations(0, List.of(), List.of(), 0));
 
   public static final UsageQueryResultMapper INSTANCE = new UsageQueryResultMapper();
 

@@ -386,14 +386,14 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
           Filter filter = new Filter();
           ArrayList<Criterion> criteria = new ArrayList<>();
           Criterion hasUrnCriterion =
-              new Criterion().setField("urn").setCondition(Condition.EQUAL).setValue(resource);
+              new Criterion().setField("urn").setCondition(Condition.EQUAL).setValues(new StringArray(resource));
           criteria.add(hasUrnCriterion);
           if (startTime != null) {
             Criterion startTimeCriterion =
                 new Criterion()
                     .setField(ES_FIELD_TIMESTAMP)
                     .setCondition(Condition.GREATER_THAN_OR_EQUAL_TO)
-                    .setValue(startTime.toString());
+                    .setValues(new StringArray(startTime.toString()));
             criteria.add(startTimeCriterion);
           }
           if (endTime != null) {
@@ -401,7 +401,7 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
                 new Criterion()
                     .setField(ES_FIELD_TIMESTAMP)
                     .setCondition(Condition.LESS_THAN_OR_EQUAL_TO)
-                    .setValue(endTime.toString());
+                    .setValues(new StringArray(endTime.toString()));
             criteria.add(endTimeCriterion);
           }
 
