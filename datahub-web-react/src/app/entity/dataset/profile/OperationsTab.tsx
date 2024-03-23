@@ -1,6 +1,5 @@
 import { DeliveredProcedureOutlined } from '@ant-design/icons';
-import { Button, Pagination, Table, Tooltip, Typography } from 'antd';
-import ButtonGroup from 'antd/lib/button/button-group';
+import { Pagination, Table, Tooltip, Typography } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
@@ -8,6 +7,7 @@ import { useGetDatasetRunsQuery } from '../../../../graphql/dataset.generated';
 import {
     DataProcessInstanceRunResultType,
     DataProcessRunStatus,
+    EntityType,
     RelationshipDirection,
 } from '../../../../types.generated';
 import {
@@ -30,10 +30,6 @@ const PaginationControlContainer = styled.div`
     padding-top: 16px;
     padding-bottom: 16px;
     text-align: center;
-`;
-
-const ReadWriteButtonGroup = styled(ButtonGroup)`
-    padding: 12px;
 `;
 
 const LoadingText = styled.div`
@@ -131,10 +127,11 @@ const PAGE_SIZE = 20;
 export const OperationsTab = () => {
     const { urn } = useEntityData();
     const [page, setPage] = useState(1);
-    const [direction, setDirection] = useState(RelationshipDirection.Incoming);
+
+    // TODO get merged runs data for this entity
 
     const { loading, data } = useGetDatasetRunsQuery({
-        variables: { urn, start: (page - 1) * PAGE_SIZE, count: PAGE_SIZE, direction },
+        variables: { urn, start: (page - 1) * PAGE_SIZE, count: PAGE_SIZE, direction: RelationshipDirection.Outgoing },
     });
     const runs = data && data?.dataset?.runs?.runs;
 
@@ -151,6 +148,12 @@ export const OperationsTab = () => {
             parentTemplate: run?.parentTemplate?.relationships?.[0]?.entity,
         }));
 
+    // If the table contains jobs, we need to show the job-related columns. Otherwise we can simplify the table.
+    const containsJobs = tableData?.some((run) => run.parentTemplate?.type !== EntityType.Dataset);
+    const simplifiedColumns = containsJobs
+        ? columns
+        : columns.filter((column) => !['name', 'inputs', 'outputs'].includes(column.key));
+
     const onChangePage = (newPage: number) => {
         scrollToTop();
         setPage(newPage);
@@ -158,20 +161,6 @@ export const OperationsTab = () => {
 
     return (
         <>
-            <ReadWriteButtonGroup>
-                <Button
-                    type={direction === RelationshipDirection.Incoming ? 'primary' : 'default'}
-                    onClick={() => setDirection(RelationshipDirection.Incoming)}
-                >
-                    Reads
-                </Button>
-                <Button
-                    type={direction === RelationshipDirection.Outgoing ? 'primary' : 'default'}
-                    onClick={() => setDirection(RelationshipDirection.Outgoing)}
-                >
-                    Writes
-                </Button>
-            </ReadWriteButtonGroup>
             {loading && (
                 <LoadingContainer>
                     <LoadingSvg height={80} width={80} />
@@ -180,7 +169,7 @@ export const OperationsTab = () => {
             )}
             {!loading && (
                 <>
-                    <Table dataSource={tableData} columns={columns} pagination={false} />
+                    <Table dataSource={tableData} columns={simplifiedColumns} pagination={false} />
                     <PaginationControlContainer>
                         <Pagination
                             current={page}

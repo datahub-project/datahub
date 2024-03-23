@@ -57,8 +57,8 @@ class DataProcessInstance:
         outlets: List of entities the DataProcessInstance produces
     """
 
-    id: str
     urn: DataProcessInstanceUrn = field(init=False)
+    id: str
     orchestrator: str
     cluster: Optional[str]
     type: str = DataProcessTypeClass.BATCH_SCHEDULED

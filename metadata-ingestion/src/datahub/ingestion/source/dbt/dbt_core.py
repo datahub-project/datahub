@@ -351,6 +351,7 @@ def _parse_test_result(
 
 
 def _parse_model_run(
+    dbt_metadata: DBTRunMetadata,
     run_result: DBTRunResult,
 ) -> Optional[DBTModelPerformance]:
     status = run_result.status
@@ -364,6 +365,7 @@ def _parse_model_run(
         return None
 
     return DBTModelPerformance(
+        run_id=dbt_metadata.invocation_id,
         status=status,
         start_time=_parse_dbt_timestamp(execution_timestamp.started_at),
         end_time=_parse_dbt_timestamp(execution_timestamp.completed_at),
@@ -405,7 +407,7 @@ def load_run_results(
             test_node.test_results.append(test_result)
 
         else:
-            model_performance = _parse_model_run(run_result)
+            model_performance = _parse_model_run(dbt_metadata, run_result)
             if not model_performance:
                 continue
 

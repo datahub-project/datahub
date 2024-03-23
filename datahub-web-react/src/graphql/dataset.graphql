@@ -114,12 +114,7 @@ fragment nonSiblingDatasetFields on Dataset {
     status {
         removed
     }
-    readRuns: runs(start: 0, count: 20, direction: INCOMING) {
-        count
-        start
-        total
-    }
-    writeRuns: runs(start: 0, count: 20, direction: OUTGOING) {
+    runs: runs(start: 0, count: 20, direction: OUTGOING) {
         count
         start
         total

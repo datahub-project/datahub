@@ -456,7 +456,9 @@ class DBTColumnLineageInfo:
 
 @dataclass
 class DBTModelPerformance:
-    # This is specifically for model builds.
+    # This is specifically for model/snapshot builds.
+
+    run_id: str
     status: str
     start_time: datetime
     end_time: datetime
@@ -1271,31 +1273,34 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             self.config.platform_instance,
         )
 
-        data_process_instance = DataProcessInstance(
-            # Part of the urn.
-            id=node_datahub_urn,
-            orchestrator=DBT_PLATFORM,
-            cluster=self.config.platform_instance,
-            # Part of relationships.
-            template_urn=DatasetUrn.from_string(node_datahub_urn),
-            inlets=[
-                DatasetUrn.from_string(upstream.dataset)
-                for upstream in (
-                    upstream_lineage_class.upstreams if upstream_lineage_class else []
-                )
-            ],
-            outlets=[DatasetUrn.from_string(node_datahub_urn)],
-            # Part of properties.
-            properties={
-                "dbt_name": node.dbt_name,
-                "dbt_urn": node_datahub_urn,
-            },
-            url=self.get_external_url(node),
-        )
-
-        yield from data_process_instance.generate_mcp(materialize_iolets=False)
-
         for model_performance in node.model_performances:
+            data_process_instance = DataProcessInstance(
+                # Parts of the urn.
+                # platform_instance is already captured as part of the node urn.
+                id=f"{model_performance.run_id}_{node_datahub_urn}",
+                orchestrator=DBT_PLATFORM,
+                cluster=None,
+                # Part of relationships.
+                template_urn=DatasetUrn.from_string(node_datahub_urn),
+                inlets=[
+                    DatasetUrn.from_string(upstream.dataset)
+                    for upstream in (
+                        upstream_lineage_class.upstreams
+                        if upstream_lineage_class
+                        else []
+                    )
+                ],
+                outlets=[DatasetUrn.from_string(node_datahub_urn)],
+                # Part of properties.
+                properties={
+                    "dbt_name": node.dbt_name,
+                    "dbt_urn": node_datahub_urn,
+                },
+                url=self.get_external_url(node),
+            )
+
+            yield from data_process_instance.generate_mcp(materialize_iolets=False)
+
             yield from data_process_instance.start_event_mcp(
                 datetime_to_ts_millis(model_performance.start_time),
             )
