@@ -1183,9 +1183,12 @@ public class GmsGraphQLEngine {
                     new DeleteGlossaryEntityResolver(this.entityClient, this.entityService))
                 .dataFetcher(
                     "updateName", new UpdateNameResolver(this.entityService, this.entityClient))
-                .dataFetcher("addRelatedTerms", new AddRelatedTermsResolver(this.entityService))
                 .dataFetcher(
-                    "removeRelatedTerms", new RemoveRelatedTermsResolver(this.entityService))
+                    "addRelatedTerms",
+                    new AddRelatedTermsResolver(this.entityService, this.entityClient))
+                .dataFetcher(
+                    "removeRelatedTerms",
+                    new RemoveRelatedTermsResolver(this.entityService, this.entityClient))
                 .dataFetcher(
                     "createNativeUserResetToken",
                     new CreateNativeUserResetTokenResolver(this.nativeUserService))
@@ -1726,7 +1729,8 @@ public class GmsGraphQLEngine {
                 .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient))
                 .dataFetcher("privileges", new EntityPrivilegesResolver(entityClient))
                 .dataFetcher(
-                    "aspects", new WeaklyTypedAspectsResolver(entityClient, entityRegistry)));
+                    "aspects", new WeaklyTypedAspectsResolver(entityClient, entityRegistry))
+                .dataFetcher("exists", new EntityExistsResolver(entityService)));
     builder.type(
         "CorpUserInfo",
         typeWiring ->

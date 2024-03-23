@@ -103,6 +103,13 @@ fragment nonSiblingDatasetFields on Dataset {
     assertions(start: 0, count: 1) {
         total
     }
+    access {
+        roles {
+            role {
+                urn
+            }
+        }
+    }
     operations(limit: 1) {
         timestampMillis
         lastUpdatedTimestamp
