@@ -10,15 +10,15 @@ import lombok.NoArgsConstructor;
 @Data
 @AllArgsConstructor(access = AccessLevel.PACKAGE)
 @NoArgsConstructor(access = AccessLevel.PACKAGE)
-public class SearchAuthorizationConfiguration {
+public class ViewAuthorizationConfiguration {
   private boolean enabled;
-  private SearchAuthorizationRecommendationsConfiguration recommendations;
+  private ViewAuthorizationRecommendationsConfig recommendations;
 
   @Builder(toBuilder = true)
   @Data
   @AllArgsConstructor(access = AccessLevel.PACKAGE)
   @NoArgsConstructor(access = AccessLevel.PACKAGE)
-  public static class SearchAuthorizationRecommendationsConfiguration {
+  public static class ViewAuthorizationRecommendationsConfig {
     private boolean peerGroupEnabled;
   }
 }

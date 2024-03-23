@@ -1,8 +1,8 @@
-package com.linkedin.gms.factory.auth;
+package com.linkedin.gms.factory.context.services;
 
-import com.linkedin.metadata.secret.SecretService;
-import com.linkedin.metadata.service.RestrictedService;
 import com.linkedin.metadata.spring.YamlPropertySourceFactory;
+import io.datahubproject.metadata.services.RestrictedService;
+import io.datahubproject.metadata.services.SecretService;
 import javax.annotation.Nonnull;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -17,12 +17,12 @@ public class RestrictedServiceFactory {
 
   @Autowired
   @Qualifier("dataHubSecretService")
-  private SecretService _secretService;
+  private SecretService secretService;
 
   @Bean(name = "restrictedService")
   @Scope("singleton")
   @Nonnull
   protected RestrictedService getInstance() throws Exception {
-    return new RestrictedService(_secretService);
+    return new RestrictedService(secretService);
   }
 }

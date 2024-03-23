@@ -12,7 +12,7 @@ import io.datahubproject.metadata.context.OperationContext;
 import java.net.URISyntaxException;
 import javax.annotation.Nonnull;
 
-public class UsageClient extends BaseClient {
+public class RestliUsageClient extends BaseClient implements UsageClient {
 
   private static final UsageStatsRequestBuilders USAGE_STATS_REQUEST_BUILDERS =
       new UsageStatsRequestBuilders();
@@ -20,7 +20,7 @@ public class UsageClient extends BaseClient {
   private final OperationContext systemOperationContext;
   private final UsageClientCache usageClientCache;
 
-  public UsageClient(
+  public RestliUsageClient(
       @Nonnull OperationContext systemOperationContext,
       @Nonnull final Client restliClient,
       @Nonnull final BackoffPolicy backoffPolicy,

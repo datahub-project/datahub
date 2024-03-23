@@ -8,6 +8,7 @@ import com.linkedin.common.TagAssociationArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.dashboard.EditableDashboardProperties;
 import com.linkedin.data.template.SetMode;
+import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.NotebookUpdateInput;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipUpdateMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.UpdateMappingHelper;
@@ -18,6 +19,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 public class NotebookUpdateInputMapper
     implements InputModelMapper<NotebookUpdateInput, Collection<MetadataChangeProposal>, Urn> {
@@ -25,12 +27,15 @@ public class NotebookUpdateInputMapper
   public static final NotebookUpdateInputMapper INSTANCE = new NotebookUpdateInputMapper();
 
   public static Collection<MetadataChangeProposal> map(
-      @Nonnull final NotebookUpdateInput notebookUpdateInput, @Nonnull final Urn actor) {
-    return INSTANCE.apply(notebookUpdateInput, actor);
+      @Nullable final QueryContext context,
+      @Nonnull final NotebookUpdateInput notebookUpdateInput,
+      @Nonnull final Urn actor) {
+    return INSTANCE.apply(context, notebookUpdateInput, actor);
   }
 
   @Override
-  public Collection<MetadataChangeProposal> apply(NotebookUpdateInput input, Urn actor) {
+  public Collection<MetadataChangeProposal> apply(
+      @Nullable final QueryContext context, NotebookUpdateInput input, Urn actor) {
     final Collection<MetadataChangeProposal> proposals = new ArrayList<>(3);
     final UpdateMappingHelper updateMappingHelper = new UpdateMappingHelper(NOTEBOOK_ENTITY_NAME);
     final AuditStamp auditStamp = new AuditStamp();
@@ -40,7 +45,8 @@ public class NotebookUpdateInputMapper
     if (input.getOwnership() != null) {
       proposals.add(
           updateMappingHelper.aspectToProposal(
-              OwnershipUpdateMapper.map(input.getOwnership(), actor), OWNERSHIP_ASPECT_NAME));
+              OwnershipUpdateMapper.map(context, input.getOwnership(), actor),
+              OWNERSHIP_ASPECT_NAME));
     }
 
     if (input.getTags() != null) {
@@ -48,7 +54,7 @@ public class NotebookUpdateInputMapper
       globalTags.setTags(
           new TagAssociationArray(
               input.getTags().getTags().stream()
-                  .map(TagAssociationUpdateMapper::map)
+                  .map(t -> TagAssociationUpdateMapper.map(context, t))
                   .collect(Collectors.toList())));
       proposals.add(updateMappingHelper.aspectToProposal(globalTags, GLOBAL_TAGS_ASPECT_NAME));
     }

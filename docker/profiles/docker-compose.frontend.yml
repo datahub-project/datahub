@@ -4,7 +4,10 @@ x-datahub-frontend-service: &datahub-frontend-service
   image: ${DATAHUB_FRONTEND_IMAGE:-${DATAHUB_REPO:-linkedin}/datahub-frontend-react}:${DATAHUB_VERSION:-head}
   ports:
     - ${DATAHUB_MAPPED_FRONTEND_PORT:-9002}:9002
-  env_file: datahub-frontend/env/docker.env
+  env_file:
+    - datahub-frontend/env/docker.env
+    - ${DATAHUB_LOCAL_COMMON_ENV:-datahub-frontend/env/docker.env}
+    - ${DATAHUB_LOCAL_FRONTEND_ENV:-datahub-frontend/env/docker.env}
   environment: &datahub-frontend-service-env
     KAFKA_BOOTSTRAP_SERVER: broker:29092
   volumes:

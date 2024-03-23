@@ -349,14 +349,12 @@ import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.metadata.recommendation.RecommendationsService;
-import com.linkedin.metadata.secret.SecretService;
 import com.linkedin.metadata.service.DataProductService;
 import com.linkedin.metadata.service.ERModelRelationshipService;
 import com.linkedin.metadata.service.FormService;
 import com.linkedin.metadata.service.LineageService;
 import com.linkedin.metadata.service.OwnershipTypeService;
 import com.linkedin.metadata.service.QueryService;
-import com.linkedin.metadata.service.RestrictedService;
 import com.linkedin.metadata.service.SettingsService;
 import com.linkedin.metadata.service.ViewService;
 import com.linkedin.metadata.timeline.TimelineService;
@@ -368,6 +366,8 @@ import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import graphql.schema.StaticDataFetcher;
 import graphql.schema.idl.RuntimeWiring;
+import io.datahubproject.metadata.services.RestrictedService;
+import io.datahubproject.metadata.services.SecretService;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
@@ -1023,13 +1023,14 @@ public class GmsGraphQLEngine {
     return new BatchGetEntitiesResolver(
         entityTypes,
         (env) -> {
+          final QueryContext context = env.getContext();
           List<String> urns = env.getArgument(URNS_FIELD_NAME);
           return urns.stream()
+              .map(UrnUtils::getUrn)
               .map(
                   (urn) -> {
                     try {
-                      Urn entityUrn = Urn.createFromString(urn);
-                      return UrnToEntityMapper.map(entityUrn);
+                      return UrnToEntityMapper.map(context, urn);
                     } catch (Exception e) {
                       throw new RuntimeException("Failed to get entity", e);
                     }
@@ -1043,8 +1044,9 @@ public class GmsGraphQLEngine {
         entityTypes,
         (env) -> {
           try {
+            final QueryContext context = env.getContext();
             Urn urn = Urn.createFromString(env.getArgument(URN_FIELD_NAME));
-            return UrnToEntityMapper.map(urn);
+            return UrnToEntityMapper.map(context, urn);
           } catch (Exception e) {
             throw new RuntimeException("Failed to get entity", e);
           }
@@ -2187,7 +2189,12 @@ public class GmsGraphQLEngine {
                         "dataFlow",
                         new LoadableTypeResolver<>(
                             dataFlowType,
-                            (env) -> ((DataJob) env.getSource()).getDataFlow().getUrn()))
+                            (env) -> {
+                              final DataJob dataJob = env.getSource();
+                              return dataJob.getDataFlow() != null
+                                  ? dataJob.getDataFlow().getUrn()
+                                  : null;
+                            }))
                     .dataFetcher(
                         "dataPlatformInstance",
                         new LoadableTypeResolver<>(

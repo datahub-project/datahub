@@ -1,6 +1,6 @@
-package com.linkedin.gms.factory.secret;
+package com.linkedin.gms.factory.context.services;
 
-import com.linkedin.metadata.secret.SecretService;
+import io.datahubproject.metadata.services.SecretService;
 import javax.annotation.Nonnull;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;

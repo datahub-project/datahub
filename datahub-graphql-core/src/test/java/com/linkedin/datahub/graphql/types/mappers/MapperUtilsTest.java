@@ -1,15 +1,19 @@
 package com.linkedin.datahub.graphql.types.mappers;
 
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertThrows;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.schema.annotation.PathSpecBasedSchemaAnnotationVisitor;
+import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.MatchedField;
 import com.linkedin.metadata.entity.validation.ValidationUtils;
 import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.snapshot.Snapshot;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.net.URISyntaxException;
 import java.util.List;
 import org.testng.annotations.BeforeTest;
@@ -40,9 +44,13 @@ public class MapperUtilsTest {
         IllegalArgumentException.class,
         () -> ValidationUtils.validateUrn(entityRegistry, invalidUrn));
 
+    QueryContext mockContext = mock(QueryContext.class);
+    when(mockContext.getOperationContext())
+        .thenReturn(TestOperationContexts.systemContextNoSearchAuthorization(entityRegistry));
+
     List<MatchedField> actualMatched =
         MapperUtils.getMatchedFieldEntry(
-            entityRegistry,
+            mockContext,
             List.of(
                 buildSearchMatchField(urn.toString()),
                 buildSearchMatchField(invalidUrn.toString())));

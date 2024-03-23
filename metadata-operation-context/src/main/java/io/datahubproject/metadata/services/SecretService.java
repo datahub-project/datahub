@@ -1,4 +1,4 @@
-package com.linkedin.metadata.secret;
+package io.datahubproject.metadata.services;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;

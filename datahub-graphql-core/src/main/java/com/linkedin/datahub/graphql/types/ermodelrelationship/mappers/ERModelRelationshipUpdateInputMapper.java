@@ -6,6 +6,7 @@ import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.SetMode;
+import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.ERModelRelationshipEditablePropertiesUpdate;
 import com.linkedin.datahub.graphql.generated.ERModelRelationshipPropertiesInput;
 import com.linkedin.datahub.graphql.generated.ERModelRelationshipUpdateInput;
@@ -25,6 +26,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 public class ERModelRelationshipUpdateInputMapper
     implements InputModelMapper<
@@ -33,13 +35,15 @@ public class ERModelRelationshipUpdateInputMapper
       new ERModelRelationshipUpdateInputMapper();
 
   public static Collection<MetadataChangeProposal> map(
+      @Nullable final QueryContext context,
       @Nonnull final ERModelRelationshipUpdateInput ermodelrelationUpdateInput,
       @Nonnull final Urn actor) {
-    return INSTANCE.apply(ermodelrelationUpdateInput, actor);
+    return INSTANCE.apply(context, ermodelrelationUpdateInput, actor);
   }
 
   @Override
-  public Collection<MetadataChangeProposal> apply(ERModelRelationshipUpdateInput input, Urn actor) {
+  public Collection<MetadataChangeProposal> apply(
+      @Nullable final QueryContext context, ERModelRelationshipUpdateInput input, Urn actor) {
     final Collection<MetadataChangeProposal> proposals = new ArrayList<>(8);
     final UpdateMappingHelper updateMappingHelper =
         new UpdateMappingHelper(ER_MODEL_RELATIONSHIP_ENTITY_NAME);

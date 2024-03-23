@@ -683,8 +683,6 @@ public class ESUtils {
       @Nonnull BoolQueryBuilder filterQuery) {
     // filter soft deleted entities by default
     filterSoftDeletedByDefault(filter, filterQuery, opContext.getSearchContext().getSearchFlags());
-    // filter based on access controls
-    ESAccessControlUtil.buildAccessControlFilters(opContext).ifPresent(filterQuery::filter);
     return filterQuery;
   }
 

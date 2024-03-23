@@ -103,6 +103,7 @@ public class IngestionSourceExecutionRequestsResolver
             result.setTotal(executionsSearchResult.getNumEntities());
             result.setExecutionRequests(
                 IngestionResolverUtils.mapExecutionRequests(
+                    context,
                     executionsSearchResult.getEntities().stream()
                         .map(searchResult -> entities.get(searchResult.getEntity()))
                         .filter(Objects::nonNull)
