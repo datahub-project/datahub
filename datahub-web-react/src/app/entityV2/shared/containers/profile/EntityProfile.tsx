@@ -140,7 +140,7 @@ const HeaderContent = styled.div`
     box-shadow: 0px 0px 5px rgba(0, 0, 0, 0.08);
     flex: 1;
     flex-shrink: 0;
-    padding: 0px 0px 8px 0px;
+    padding: 0;
 `;
 
 const Body = styled.div`

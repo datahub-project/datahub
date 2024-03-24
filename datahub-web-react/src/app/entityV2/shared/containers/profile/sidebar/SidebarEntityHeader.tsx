@@ -45,7 +45,7 @@ const SidebarEntityHeader = () => {
     const displayedEntityType = getDisplayedEntityType(entityData, entityRegistry, entityType);
 
     return (
-        <Wrapper className="top-section">
+        <Wrapper>
             {(loading && <EntityTitleLoadingSection />) || (
                 <TitleContainer>
                     <PlatformHeaderIcons

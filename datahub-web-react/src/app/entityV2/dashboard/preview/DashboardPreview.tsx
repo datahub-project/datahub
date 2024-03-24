@@ -134,6 +134,7 @@ export const DashboardPreview = ({
             upstreamTotal={upstreamTotal}
             downstreamTotal={downstreamTotal}
             headerDropdownItems={headerDropdownItems}
+            statsSummary={statsSummary}
         />
     );
 };

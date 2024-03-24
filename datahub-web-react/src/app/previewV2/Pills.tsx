@@ -9,7 +9,7 @@ import GlossaryTermV2Icon from '../../images/glossary_term_material_logo.svg?rea
 import { EntityCapabilityType } from '../entityV2/Entity';
 import MatchesContext, { PreviewSection } from '../shared/MatchesContext';
 import SearchPill from './SearchPill';
-import { entityHasCapability } from './utils';
+import { entityHasCapability, getHighlightedTag } from './utils';
 
 const PillsContainer = styled.div`
     gap: 5px;
@@ -32,6 +32,7 @@ const Pills = ({ glossaryTerms, tags, owners, entityCapabilities }: Props) => {
     const showGlossaryTermsBadge = entityHasCapability(entityCapabilities, EntityCapabilityType.GLOSSARY_TERMS);
     const showTagsBadge = entityHasCapability(entityCapabilities, EntityCapabilityType.TAGS);
     const showOwnersBadge = entityHasCapability(entityCapabilities, EntityCapabilityType.OWNERS);
+    const highlightedTag = getHighlightedTag(tags);
 
     const handlePillClick = (section: PreviewSection | undefined, data) => (e) => {
         if (!data?.length) return;
@@ -51,6 +52,7 @@ const Pills = ({ glossaryTerms, tags, owners, entityCapabilities }: Props) => {
                     label=""
                     countLabel="term"
                     onClick={handlePillClick(PreviewSection.GLOSSARY_TERMS, glossaryTerms.terms)}
+                    highlightedText={glossaryTerms.terms?.length ? glossaryTerms?.terms[0].term.properties?.name : ''}
                 />
             )}
             {showTagsBadge && tags && (
@@ -62,6 +64,7 @@ const Pills = ({ glossaryTerms, tags, owners, entityCapabilities }: Props) => {
                     label=""
                     countLabel="tag"
                     onClick={handlePillClick(PreviewSection.TAGS, tags.tags)}
+                    highlightedText={highlightedTag}
                 />
             )}
             {showOwnersBadge && owners && (

@@ -131,6 +131,7 @@ export const ChartPreview = ({
             upstreamTotal={upstreamTotal}
             downstreamTotal={downstreamTotal}
             headerDropdownItems={headerDropdownItems}
+            statsSummary={statsSummary}
         />
     );
 };

@@ -229,7 +229,7 @@ export const Content = styled.div`
         padding-top: 12px;
         padding-bottom: 12px;
         width: 100%;
-        &:not(.top-section):not(:last-child) {
+        &:not(:last-child) {
             border-bottom: 1px dashed;
             border-color: rgba(0, 0, 0, 0.3);
         }

@@ -1,4 +1,4 @@
-import { Owner } from '../../types.generated';
+import { GlobalTags, Owner } from '../../types.generated';
 import { EntityCapabilityType } from '../entityV2/Entity';
 
 export function getUniqueOwners(owners?: Owner[] | null) {
@@ -8,5 +8,13 @@ export function getUniqueOwners(owners?: Owner[] | null) {
 
 export const entityHasCapability = (
     capabilities: Set<EntityCapabilityType>,
-    capabilityToCheck: EntityCapabilityType
-  ): boolean => capabilities.has(capabilityToCheck);
+    capabilityToCheck: EntityCapabilityType,
+): boolean => capabilities.has(capabilityToCheck);
+
+export const getHighlightedTag = (tags?: GlobalTags) => {
+    if (tags && tags.tags?.length) {
+        if (tags?.tags[0].tag.properties) return tags?.tags[0].tag.properties.name;
+        return tags?.tags[0].tag.name;
+    }
+    return '';
+};

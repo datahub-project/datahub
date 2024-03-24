@@ -1,15 +1,16 @@
 import React from 'react';
-import { PartitionOutlined } from '@ant-design/icons';
 import { useHistory } from 'react-router';
 import styled from 'styled-components';
 import { Tooltip } from 'antd';
 import { EntityType } from '../../types.generated';
 import EntityRegistry from '../entityV2/EntityRegistry';
+import LineageStatusIcon from '../../images/lineage-status.svg?react';
 
 const Container = styled.div<{ highlighted?: boolean }>`
     display: flex;
     & svg {
-        font-size: 12px;
+        height: 16px;
+        width: 16px;
         color: ${({ highlighted }) => (highlighted ? '#3F54D1' : '#b0a2c2')} !important;
     }
 `;
@@ -36,7 +37,7 @@ const LineageBadge: React.FC<LineageBadgeProps> = ({
             highlighted={(upstreamTotal || 0) + (downstreamTotal || 0) > 0}
             onClick={() => history.push(`${entityRegistry.getEntityUrl(entityType, urn)}/Lineage`)}
         >
-            <PartitionOutlined />
+            <LineageStatusIcon />
         </Container>
     </Tooltip>
 );

@@ -1,18 +1,17 @@
 import React from 'react';
 import { InfoCircleOutlined } from '@ant-design/icons';
 import { Divider, message, Modal, Popover, Tooltip, Typography } from 'antd';
-import { blue } from '@ant-design/colors';
 import styled from 'styled-components';
 import moment from 'moment';
 import { Deprecation } from '../../../../../types.generated';
 import { getLocaleTimezone } from '../../../../shared/time/timeUtils';
-import { ANTD_GRAY } from '../../constants';
+import { REDESIGN_COLORS } from '../../constants';
 import { useBatchUpdateDeprecationMutation } from '../../../../../graphql/mutations.generated';
 
 const DeprecatedContainer = styled.div`
-    height: 18px;
-    border: 1px solid #cd0d24;
-    border-radius: 15px;
+    height: 22px;
+    border: 1px solid #e37878;
+    border-radius: 20px;
     display: flex;
     justify-content: center;
     align-items: center;
@@ -20,16 +19,14 @@ const DeprecatedContainer = styled.div`
     margin-left: 0px;
     margin-right: 8px;
     margin-top: 2px;
-    padding-top: 8px;
-    padding-bottom: 8px;
-    padding-right: 4px;
-    padding-left: 4px;
+    padding: 4px 8px;
 `;
 
 const DeprecatedText = styled.div`
-    padding-right: 2px;
-    padding-left: 2px;
-    font-size: 10px;
+    font-size: 12px;
+    text-align: center;
+    color: #e37878;
+    border: 0.5px;
 `;
 
 const DeprecatedTitle = styled(Typography.Text)`
@@ -37,11 +34,13 @@ const DeprecatedTitle = styled(Typography.Text)`
     font-size: 14px;
     margin-bottom: 5px;
     font-weight: bold;
+    color: ${REDESIGN_COLORS.FOUNDATION_BLUE_6};
 `;
 
 const DeprecatedSubTitle = styled(Typography.Text)`
     display: block;
     margin-bottom: 5px;
+    color: ${REDESIGN_COLORS.FOUNDATION_BLUE_6};
 `;
 
 const LastEvaluatedAtLabel = styled.div`
@@ -49,7 +48,7 @@ const LastEvaluatedAtLabel = styled.div`
     margin: 0;
     display: flex;
     align-items: center;
-    color: ${ANTD_GRAY[7]};
+    color: ${REDESIGN_COLORS.SUB_TEXT};
 `;
 
 const ThinDivider = styled(Divider)`
@@ -64,9 +63,9 @@ const UndeprecatedIcon = styled(InfoCircleOutlined)`
 
 const IconGroup = styled.div`
     font-size: 12px;
-    color: 'black';
+    color: ${REDESIGN_COLORS.FOUNDATION_BLUE_6};
     &:hover {
-        color: ${blue[4]};
+        color: ${REDESIGN_COLORS.TITLE_PURPLE};
         cursor: pointer;
     }
 `;
@@ -133,7 +132,7 @@ export const DeprecationPill = ({ deprecation, urn, refetch, showUndeprecate }: 
     return (
         <Popover
             overlayStyle={{ maxWidth: 240 }}
-            placement="right"
+            placement="bottom"
             content={
                 hasDetails ? (
                     <>
@@ -175,7 +174,7 @@ export const DeprecationPill = ({ deprecation, urn, refetch, showUndeprecate }: 
             }
         >
             <DeprecatedContainer>
-                <DeprecatedText>DEPRECATED</DeprecatedText>
+                <DeprecatedText>Deprecated</DeprecatedText>
             </DeprecatedContainer>
         </Popover>
     );

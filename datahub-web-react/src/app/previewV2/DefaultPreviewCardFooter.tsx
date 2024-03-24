@@ -1,11 +1,15 @@
 import React from 'react';
 import styled from 'styled-components';
+import { Divider } from 'antd';
+import { useHistory } from 'react-router';
 import Pills from './Pills';
-import { ANTD_GRAY } from '../entityV2/shared/constants';
-import { PopularityBars } from '../entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/PopularityBars';
 import { PopularityTier } from '../entityV2/shared/containers/profile/sidebar/shared/utils';
-import { GlobalTags, GlossaryTerms, Maybe, Owner } from '../../types.generated';
+import { DatasetStatsSummary, EntityType, GlobalTags, GlossaryTerms, Maybe, Owner } from '../../types.generated';
 import { EntityCapabilityType, PreviewType } from '../entityV2/Entity';
+import PreviewCardFooterRightSection from './PreviewCardFooterRightSection';
+import EntityRegistry from '../entityV2/EntityRegistry';
+import { entityHasCapability } from './utils';
+import { REDESIGN_COLORS } from '../entityV2/shared/constants';
 
 interface DefaultPreviewCardFooterProps {
     glossaryTerms?: GlossaryTerms;
@@ -13,20 +17,27 @@ interface DefaultPreviewCardFooterProps {
     owners?: Array<Owner> | null;
     entityCapabilities: Set<EntityCapabilityType>;
     tier?: PopularityTier;
-    status?: number;
     entityTitleSuffix?: React.ReactNode;
     previewType: Maybe<PreviewType> | undefined;
+    upstreamTotal: number | undefined;
+    downstreamTotal: number | undefined;
+    entityType: EntityType;
+    urn: string;
+    history: ReturnType<typeof useHistory>;
+    entityRegistry: EntityRegistry;
+    lastUpdatedMs?: number | null;
+    statsSummary?: DatasetStatsSummary | null;
 }
 
 const Container = styled.div`
-    border-top: 1px solid ${ANTD_GRAY[4]};
-    padding-top: 12px;
     margin-bottom: -6px;
     width: 100%;
     display: flex;
     justify-content: space-between;
-    align-items: start;
+    align-items: center;
 `;
+
+const RightSection = styled.div``;
 
 const EntityLink = styled.div`
     display: flex;
@@ -52,26 +63,67 @@ const EntityLink = styled.div`
     }
 `;
 
+const HorizontalDivider = styled(Divider)`
+    color: ${REDESIGN_COLORS.FOUNDATION_BLUE_2};
+    margin-top: 14px;
+    margin-bottom: 8px;
+    width: calc(100% + 40px) !important;
+    margin-left: -20px;
+`;
+
 const DefaultPreviewCardFooter: React.FC<DefaultPreviewCardFooterProps> = ({
     glossaryTerms,
     tags,
     owners,
     entityCapabilities,
     tier,
-    status,
     entityTitleSuffix,
     previewType,
+    upstreamTotal,
+    downstreamTotal,
+    entityType,
+    urn,
+    history,
+    entityRegistry,
+    lastUpdatedMs,
+    statsSummary,
 }) => {
     const shouldRenderPillsRow = [glossaryTerms?.terms, tags?.tags, owners?.length].some(Boolean);
-    const shouldRenderTier = tier !== undefined;
     const shouldRenderEntityLink = previewType === PreviewType.HOVER_CARD && entityTitleSuffix;
+    const shouldRenderRightSection =
+        tier !== undefined ||
+        lastUpdatedMs ||
+        statsSummary?.queryCountLast30Days ||
+        entityHasCapability(entityCapabilities, EntityCapabilityType.LINEAGE);
 
-    return shouldRenderPillsRow || shouldRenderTier || shouldRenderEntityLink ? (
-        <Container>
-            <Pills glossaryTerms={glossaryTerms} tags={tags} owners={owners} entityCapabilities={entityCapabilities} />
-            {previewType === PreviewType.HOVER_CARD && <EntityLink>{entityTitleSuffix}</EntityLink>}
-            {tier !== undefined && status && <PopularityBars status={status} />}
-        </Container>
+    return shouldRenderPillsRow || shouldRenderRightSection || shouldRenderEntityLink ? (
+        <>
+            <HorizontalDivider />
+
+            <Container>
+                <Pills
+                    glossaryTerms={glossaryTerms}
+                    tags={tags}
+                    owners={owners}
+                    entityCapabilities={entityCapabilities}
+                />
+                <RightSection>
+                    <PreviewCardFooterRightSection
+                        upstreamTotal={upstreamTotal}
+                        downstreamTotal={downstreamTotal}
+                        entityType={entityType}
+                        urn={urn}
+                        history={history}
+                        entityRegistry={entityRegistry}
+                        entityCapabilities={entityCapabilities}
+                        lastUpdatedMs={lastUpdatedMs}
+                        tier={tier}
+                        statsSummary={statsSummary}
+                    />
+                    {previewType === PreviewType.HOVER_CARD && <EntityLink>{entityTitleSuffix}</EntityLink>}
+                </RightSection>
+            </Container>
+        </>
     ) : null;
 };
 

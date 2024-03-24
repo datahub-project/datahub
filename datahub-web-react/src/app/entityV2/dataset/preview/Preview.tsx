@@ -147,6 +147,7 @@ export const Preview = ({
             upstreamTotal={upstreamTotal}
             downstreamTotal={downstreamTotal}
             headerDropdownItems={headerDropdownItems}
+            statsSummary={statsSummary}
         />
     );
 };

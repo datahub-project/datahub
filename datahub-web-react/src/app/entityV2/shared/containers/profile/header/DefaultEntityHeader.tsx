@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import styled from 'styled-components/macro';
 import { Divider } from 'antd';
-import { EntityHealth } from './EntityHealth';
 import EntityName from './EntityName';
 import { DeprecationPill } from '../../../components/styled/DeprecationPill';
 import EntityActions, { EntityActionItem } from '../../../entity/EntityActions';
@@ -20,6 +19,8 @@ import SearchCardBrowsePath from '../../../../../previewV2/SearchCardBrowsePath'
 import useContentTruncation from '../../../../../shared/useContentTruncation';
 import { getDisplayedEntityType } from './utils';
 import ContainerIcon from './PlatformContent/ContainerIcon';
+import HealthIcon from '../../../../../previewV2/HealthIcon';
+import { isUnhealthy } from '../../../../../shared/health/healthUtils';
 
 export const TitleWrapper = styled.div`
     display: flex;
@@ -40,9 +41,10 @@ const EntityDetailsContainer = styled.div`
 const DetailColumn = styled.div`
     display: flex;
     flex-direction: row;
+    align-items: center;
 `;
 export const Row = styled.div`
-    padding: 14px 14px 14px 26px;
+    padding: 18px;
     display: flex;
     flex-direction: row;
     justify-content: space-between;
@@ -146,11 +148,11 @@ export const DefaultEntityHeader = ({
     return (
         <>
             <Row>
-                <EntityHeaderDecoration 
-                urn={urn}
-                entityData={entityData}
-                entityType={entityType}
-                displayProperties={displayProperties}
+                <EntityHeaderDecoration
+                    urn={urn}
+                    entityData={entityData}
+                    entityType={entityType}
+                    displayProperties={displayProperties}
                 />
                 <EntityBackButton />
                 <LeftColumn>
@@ -195,8 +197,8 @@ export const DefaultEntityHeader = ({
                                                 refetch={refetch}
                                             />
                                         )}
-                                        {entityData?.health && (
-                                            <EntityHealth health={entityData.health} baseUrl={entityUrl} />
+                                        {entityData?.health && isUnhealthy(entityData.health) && (
+                                            <HealthIcon health={entityData.health} baseUrl={entityUrl} />
                                         )}
                                     </DetailColumn>
                                     <DetailColumn>

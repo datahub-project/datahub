@@ -48,6 +48,10 @@ export const REDESIGN_COLORS = {
     SUBTITLE: '#434863',
     LIGHT_GREY_BORDER: '#ededed',
     BACKGROUND_PURPLE_2: '#887fae',
+    FOUNDATION_BLUE_2: '#CFD1DA',
+    FOUNDATION_BLUE_4: '#81879F',
+    FOUNDATION_BLUE_6: '#374066',
+    SUB_TEXT: '#81879F',
 };
 
 export const SEARCH_COLORS = {

@@ -5,6 +5,7 @@ import LaunchIcon from '@mui/icons-material/Launch';
 import { Tooltip, Typography } from 'antd';
 import React, { ReactNode } from 'react';
 import styled from 'styled-components';
+import { useHistory } from 'react-router';
 import {
     Container,
     CorpUser,
@@ -25,10 +26,7 @@ import {
 import { PreviewType } from '../entityV2/Entity';
 import { useEntityData } from '../entityV2/shared/EntityContext';
 import { ANTD_GRAY } from '../entityV2/shared/constants';
-import {
-    PopularityTier,
-    getBarsStatusFromPopularityTier,
-} from '../entityV2/shared/containers/profile/sidebar/shared/utils';
+import { PopularityTier } from '../entityV2/shared/containers/profile/sidebar/shared/utils';
 import { getNumberWithOrdinal } from '../entityV2/shared/utils';
 import useContentTruncation from '../shared/useContentTruncation';
 import { useEntityRegistryV2 } from '../useEntityRegistry';
@@ -39,7 +37,6 @@ import EntityHeader from './EntityHeader';
 import EntityExternalLink from '../entityV2/shared/links/EntityExternalLink';
 import { EntityMenuItems } from '../entityV2/shared/EntityDropdown/EntityMenuActions';
 import MoreOptionsMenuAction from '../entityV2/shared/EntityDropdown/MoreOptionsMenuAction';
-// import StatusBadges from './StatusBadges';
 import DefaultPreviewCardFooter from './DefaultPreviewCardFooter';
 
 const PreviewContainer = styled.div`
@@ -65,25 +62,6 @@ const RowContainer = styled.div<RowContainerProps>`
     flex-direction: row;
     justify-content: space-between;
     width: 100%;
-`;
-
-const RowContainerJustifyStart = styled(RowContainer)`
-    justify-content: start;
-`;
-
-const SummaryContainer = styled.div`
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
-    margin-bottom: 12px;
-    margin-top: 2px;
-`;
-
-const StatsContainer = styled.div`
-    display: flex;
-    flex-direction: row;
-    justify-content: space-between;
-    overflow-x: hidden;
 `;
 
 const PlatformDivider = styled.div`
@@ -164,6 +142,7 @@ interface Props {
     downstreamTotal?: number;
     entityIcon?: JSX.Element;
     headerDropdownItems?: Set<EntityMenuItems>;
+    statsSummary?: any;
 }
 
 const ActionsSection = styled.div`
@@ -176,6 +155,12 @@ const ActionsAndStatusSection = styled.div`
     display: flex;
     flex-direction: row;
     gap: 5px;
+`;
+
+const HeaderContainer = styled.div`
+    display: flex;
+    flex-direction: row;
+    align-items: center;
 `;
 
 export default function DefaultPreviewCard({
@@ -201,10 +186,13 @@ export default function DefaultPreviewCard({
     glossaryTerms,
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     paths,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     subHeader,
     snippet,
     insights,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     domain,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     dataProduct,
     container,
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -233,8 +221,10 @@ export default function DefaultPreviewCard({
     downstreamTotal,
     entityIcon,
     headerDropdownItems,
+    statsSummary,
 }: Props) {
     const entityRegistry = useEntityRegistryV2();
+    const history = useHistory();
     const supportedCapabilities = entityRegistry.getSupportedEntityCapabilities(entityType);
 
     // sometimes these lists will be rendered inside an entity container (for example, in the case of impact analysis)
@@ -259,8 +249,6 @@ export default function DefaultPreviewCard({
         platform || logoUrl || (platforms && platforms.length) || (logoUrls && logoUrls.length) || isOutputPort;
     const isIconPresent = !!hasPlatformIcons || !!entityIcon;
 
-    const status = tier !== undefined ? getBarsStatusFromPopularityTier(tier) : 0;
-
     return (
         <PreviewContainer data-testid={dataTestID}>
             <RowContainer alignment="self-start">
@@ -277,21 +265,6 @@ export default function DefaultPreviewCard({
                     <div />
                 )}
                 <ActionsAndStatusSection>
-                    {/* <StatusBadges
-                        upstreamTotal={upstreamTotal}
-                        downstreamTotal={downstreamTotal}
-                        health={health}
-                        entityType={entityType}
-                        urn={urn}
-                        url={url}
-                        history={history}
-                        entityRegistry={entityRegistry}
-                        entityCapabilities={supportedCapabilities}
-                        lastUpdatedMs={lastUpdatedMs}
-                        finalType={finalType}
-                        platform={platform}
-                        logoUrl={logoUrl}
-                    /> */}
                     <ActionsSection>
                         {externalUrl && (
                             <EntityExternalLink url={externalUrl}>
@@ -307,20 +280,22 @@ export default function DefaultPreviewCard({
                                 entityData={entityData}
                             />
                         )}
-
-                        {/* <CardActionCircle enabled={deprecation?.deprecated} icon={<ErrorOutlineIcon />} />
-                        <CardActionCircle enabled icon={<ReportGmailerrorredIcon />} />  */}
                     </ActionsSection>
                 </ActionsAndStatusSection>
             </RowContainer>
             <RowContainer>
-                <EntityHeader
-                    name={name}
-                    onClick={onClick}
-                    previewType={previewType}
-                    titleSizePx={titleSizePx}
-                    url={url}
-                />
+                <HeaderContainer>
+                    <EntityHeader
+                        name={name}
+                        onClick={onClick}
+                        previewType={previewType}
+                        titleSizePx={titleSizePx}
+                        url={url}
+                        urn={urn}
+                        deprecation={deprecation}
+                        health={health}
+                    />
+                </HeaderContainer>
             </RowContainer>
             <RowContainer style={{ marginTop: 8 }}>
                 <SearchCardBrowsePath
@@ -336,15 +311,8 @@ export default function DefaultPreviewCard({
                     previewType={previewType}
                 />
             </RowContainer>
-            {!!(subHeader || dataProduct || domain) && (
-                <>
-                    <RowContainerJustifyStart>
-                        {subHeader && (
-                            <SummaryContainer>
-                                <StatsContainer>{subHeader}</StatsContainer>
-                            </SummaryContainer>
-                        )}
-                        {/* {(!!dataProduct || !!domain) && (
+
+            {/* {(!!dataProduct || !!domain) && (
                                 <GovernanceSection>
                                     {subHeader && <VerticalDivider />}
                                     <GovernanceContainer>
@@ -367,18 +335,22 @@ export default function DefaultPreviewCard({
                                     </GovernanceContainer>
                                 </GovernanceSection>
                             )} */}
-                    </RowContainerJustifyStart>
-                </>
-            )}
             <DefaultPreviewCardFooter
                 glossaryTerms={glossaryTerms}
                 tags={tags}
                 owners={owners}
                 entityCapabilities={supportedCapabilities}
                 tier={tier}
-                status={status}
                 previewType={previewType}
                 entityTitleSuffix={entityTitleSuffix}
+                upstreamTotal={upstreamTotal}
+                downstreamTotal={downstreamTotal}
+                entityType={entityType}
+                urn={urn}
+                history={history}
+                entityRegistry={entityRegistry}
+                lastUpdatedMs={lastUpdatedMs}
+                statsSummary={statsSummary}
             />
             {/* {!!(insights?.length || groupedMatches.length) && isMatchExpanded && (
                     <>

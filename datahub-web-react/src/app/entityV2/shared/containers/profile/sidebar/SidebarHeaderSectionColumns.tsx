@@ -8,8 +8,6 @@ const Container = styled.div`
     justify-content: center;
     gap: 10px;
     border-bottom: 1px solid #0000001a;
-    margin-left: -20px;
-    margin-right: -20px;
 `;
 
 const ColumnsContainer = styled.div`
@@ -35,13 +33,15 @@ const Column = styled.div`
     align-items: space-between;
     justify-content: start;
     margin-right: 20px;
-    padding-left: 20px;
+
+    &:not(:first-child) {
+        padding-left: 20px;
+    }
 `;
 
 const Heading = styled.div`
     display: flex;
     gap: 4px;
-    color: ${REDESIGN_COLORS.DARK_GREY};
     align-items: center;
     margin-bottom: 4px;
 `;
@@ -49,7 +49,7 @@ const Heading = styled.div`
 const Title = styled.div`
     font-size: 12px;
     font-weight: 600;
-    color: ${REDESIGN_COLORS.DARK_GREY};
+    color: ${REDESIGN_COLORS.FOUNDATION_BLUE_6};
 `;
 
 type SidebarStatsColumn = {
@@ -66,7 +66,7 @@ export const SidebarHeaderSectionColumns = ({ columns }: Props) => {
     return (
         <>
             {columns.length > 0 && (
-                <Container className="top-section">
+                <Container>
                     <ColumnsContainer>
                         {columns.map((column) => (
                             <Column>

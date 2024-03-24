@@ -4,13 +4,15 @@ import { Typography } from 'antd';
 import styled from 'styled-components';
 import SearchTextHighlighter from '../searchV2/matches/SearchTextHighlighter';
 import { PreviewType } from '../entityV2/Entity';
-import { Maybe } from '../../types.generated';
+import { Deprecation, Health, Maybe } from '../../types.generated';
 import { REDESIGN_COLORS, SEARCH_COLORS } from '../entityV2/shared/constants';
+import { DeprecationPill } from '../entityV2/shared/components/styled/DeprecationPill';
+import HealthIcon from './HealthIcon';
+import { isUnhealthy } from '../shared/health/healthUtils';
 
 const EntityTitleContainer = styled.div`
     display: flex;
     align-items: center;
-    width: 75%;
 `;
 
 const StyledLink = styled(Link)`
@@ -23,7 +25,7 @@ const EntityTitle = styled(Typography.Text)<{ $titleSizePx?: number }>`
         margin-right 8px;
         font-size: ${(props) => props.$titleSizePx || 16}px;
         font-weight: 700;
-        line-height: 16px;
+        line-height: 20px;
         vertical-align: middle;
         :hover {
             color: ${REDESIGN_COLORS.HOVER_PURPLE};
@@ -50,22 +52,38 @@ interface EntityHeaderProps {
     previewType?: Maybe<PreviewType>;
     titleSizePx?: number;
     url: string;
+    urn: string;
+    deprecation: Deprecation | null | undefined;
+    health: Health[] | undefined;
 }
 
-const EntityHeader: React.FC<EntityHeaderProps> = ({ name, onClick, previewType, titleSizePx, url }) => (
-    <EntityTitleContainer>
-        <StyledLink to={url}>
-            {previewType === PreviewType.HOVER_CARD ? (
-                <CardEntityTitle onClick={onClick} $titleSizePx={titleSizePx}>
-                    {name || ' '}
-                </CardEntityTitle>
-            ) : (
-                <EntityTitle onClick={onClick} $titleSizePx={titleSizePx}>
-                    <SearchTextHighlighter field="name" text={name || ''} />
-                </EntityTitle>
-            )}
-        </StyledLink>
-    </EntityTitleContainer>
-);
+const EntityHeader: React.FC<EntityHeaderProps> = ({
+    name,
+    onClick,
+    previewType,
+    titleSizePx,
+    url,
+    urn,
+    deprecation,
+    health,
+}) => {
+    return (
+        <EntityTitleContainer>
+            <StyledLink to={url}>
+                {previewType === PreviewType.HOVER_CARD ? (
+                    <CardEntityTitle onClick={onClick} $titleSizePx={titleSizePx}>
+                        {name || ' '}
+                    </CardEntityTitle>
+                ) : (
+                    <EntityTitle onClick={onClick} $titleSizePx={titleSizePx}>
+                        <SearchTextHighlighter field="name" text={name || ''} />
+                    </EntityTitle>
+                )}
+            </StyledLink>
+            {deprecation?.deprecated && <DeprecationPill urn={urn} deprecation={deprecation} showUndeprecate />}
+            {health && isUnhealthy(health) && <HealthIcon health={health} baseUrl={url} />}
+        </EntityTitleContainer>
+    );
+};
 
 export default EntityHeader;

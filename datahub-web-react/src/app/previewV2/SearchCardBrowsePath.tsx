@@ -22,6 +22,7 @@ const PlatformContentWrapper = styled.div`
     flex: 1;
     align-items: center;
     max-width: 100%;
+    line-height: 22px;
 `;
 
 export const PlatformText = styled.div<{

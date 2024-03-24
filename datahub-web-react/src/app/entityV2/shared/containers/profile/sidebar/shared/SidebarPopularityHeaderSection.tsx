@@ -2,10 +2,10 @@ import React from 'react';
 import { Popover } from 'antd';
 import styled from 'styled-components';
 import { ConsoleSqlOutlined, UserOutlined, ToolOutlined } from '@ant-design/icons';
-import { useEntityData } from '../../../../../EntityContext';
-import { getBarsStatusFromPopularityTier, getDatasetPopularityTier, isValuePresent } from '../../shared/utils';
-import { ANTD_GRAY } from '../../../../../constants';
-import { PopularityBars } from '../../../../../tabs/Dataset/Schema/components/SchemaFieldDrawer/PopularityBars';
+import { useEntityData } from '../../../../EntityContext';
+import { getBarsStatusFromPopularityTier, getDatasetPopularityTier, isValuePresent } from './utils';
+import { ANTD_GRAY } from '../../../../constants';
+import { PopularityBars } from '../../../../tabs/Dataset/Schema/components/SchemaFieldDrawer/PopularityBars';
 
 const Insight = styled.div`
     max-width: 240px;
