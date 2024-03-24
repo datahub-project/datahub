@@ -45,9 +45,10 @@ const LabelWrapper = styled.span`
 interface Props {
     quickFilter: QuickFilterType;
     searchQuery?: string;
+    setIsDropdownVisible: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
-export default function QuickFilter({ quickFilter, searchQuery }: Props) {
+export default function QuickFilter({ quickFilter, searchQuery, setIsDropdownVisible }: Props) {
     const entityRegistry = useEntityRegistry();
     const history = useHistory();
     const { selectedQuickFilter, setSelectedQuickFilter } = useQuickFiltersContext();
@@ -81,6 +82,7 @@ export default function QuickFilter({ quickFilter, searchQuery }: Props) {
                 ],
                 history,
             });
+            setIsDropdownVisible(false);
         }
     }
 

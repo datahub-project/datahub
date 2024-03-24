@@ -158,6 +158,7 @@ export const SearchBar = ({
     const [selected, setSelected] = useState<string>();
     const [isDropdownVisible, setIsDropdownVisible] = useState(false);
     const [isFocused, setIsFocused] = useState(false);
+    const { quickFilters, selectedQuickFilter, setSelectedQuickFilter } = useQuickFiltersContext();
 
     const updateQuickFilterAutoCompleteOption = useCallback(() => {
         return {
@@ -166,7 +167,7 @@ export const SearchBar = ({
                 {
                     value: 'quick-filter-unique-key',
                     type: '',
-                    label: <QuickFilters searchQuery={searchQuery} />,
+                    label: <QuickFilters searchQuery={searchQuery} setIsDropdownVisible={setIsDropdownVisible} />,
                     style: { padding: '8px', cursor: 'auto' },
                     disabled: true,
                 },
@@ -198,8 +199,10 @@ export const SearchBar = ({
 
     const onClickExploreAll = useCallback(() => {
         analytics.event({ type: EventType.SearchBarExploreAllClickEvent });
+        setSelectedQuickFilter(null);
+        setIsDropdownVisible(false);
         navigateToSearchUrl({ query: '*', history });
-    }, [history]);
+    }, [history, setSelectedQuickFilter]);
 
     const emptyQueryOptions = useMemo(() => {
         const moduleOptions =
@@ -224,8 +227,6 @@ export const SearchBar = ({
 
         return [...moduleOptions, ...tail];
     }, [data?.listRecommendations?.modules, onClickExploreAll, showQuickFilters]);
-
-    const { quickFilters, selectedQuickFilter, setSelectedQuickFilter } = useQuickFiltersContext();
 
     const autoCompleteQueryOptions = useMemo(() => {
         if (effectiveQuery === '' || !showViewAllResults) return [];

@@ -12,14 +12,20 @@ const QuickFiltersWrapper = styled.div`
 
 interface Props {
     searchQuery?: string;
+    setIsDropdownVisible: React.Dispatch<React.SetStateAction<boolean>>;
 }
-export default function QuickFilters({ searchQuery }: Props) {
+export default function QuickFilters({ searchQuery, setIsDropdownVisible }: Props) {
     const { quickFilters } = useQuickFiltersContext();
 
     return (
         <QuickFiltersWrapper>
             {quickFilters?.map((quickFilter) => (
-                <QuickFilter key={quickFilter.value} quickFilter={quickFilter} searchQuery={searchQuery} />
+                <QuickFilter
+                    key={quickFilter.value}
+                    quickFilter={quickFilter}
+                    searchQuery={searchQuery}
+                    setIsDropdownVisible={setIsDropdownVisible}
+                />
             ))}
         </QuickFiltersWrapper>
     );
