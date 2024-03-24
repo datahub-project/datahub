@@ -1,16 +1,18 @@
 import React, { useState } from 'react';
 import styled from 'styled-components';
 import { DatabaseOutlined as DatabaseIcon } from '@ant-design/icons';
-import { DataPlatform } from '../../../types.generated';
+import { DataPlatform, EntityType } from '../../../types.generated';
+import { REDESIGN_COLORS } from '../../entityV2/shared/constants';
+import PlatformIcon from '../../sharedV2/icons/PlatformIcon';
+import { useEntityRegistry } from '../../useEntityRegistry';
 
+export const PlatformIconContainer = styled.div<{ size?: number }>`
+    display: flex;
+    justify-content: center;
 
-const PlatformLogo = styled.img<{ size?: number }>`
-    max-height: ${(props) => (props.size ? props.size : 12)}px;
-    width: auto;
-    object-fit: contain;
     background-color: transparent;
-    margin-top: 12px;
-    margin-bottom: 12px;
+    padding: 10px 0;
+
     :hover {
         cursor: pointer;
     }
@@ -29,21 +31,25 @@ type Props = {
 };
 
 const CollapsedPlatformNode = ({ platform, onClick }: Props) => {
-    const logoUrl = (platform as DataPlatform)?.properties?.logoUrl;
+    const entityRegistry = useEntityRegistry();
+    const label = entityRegistry.getDisplayName(EntityType.DataPlatform, platform);
     const [brokenImage, setBrokenImage] = useState(false);
+    const size = 24;
 
-    const handleImageError = () => {
-        setBrokenImage(true);
-    };
-    if (!logoUrl) {
-        return null;
-    }
-
-    if (brokenImage) {
-        return <DatabaseOutlined title={platform.name} onClick={onClick} />;
-    }
-
-    return <PlatformLogo src={logoUrl as string} size={24} onClick={onClick} onError={handleImageError} />;
+    return (
+        <PlatformIconContainer onClick={onClick}>
+            {brokenImage && <DatabaseOutlined title={label} size={size} />}
+            {!brokenImage && (
+                <PlatformIcon
+                    platform={platform}
+                    size={size}
+                    color={REDESIGN_COLORS.BORDER_1}
+                    title={label}
+                    onError={() => setBrokenImage(true)}
+                />
+            )}
+        </PlatformIconContainer>
+    );
 };
 
 export default CollapsedPlatformNode;

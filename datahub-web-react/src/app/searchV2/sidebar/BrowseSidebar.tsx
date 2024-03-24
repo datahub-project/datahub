@@ -8,21 +8,25 @@ import { ANTD_GRAY } from '../../entityV2/shared/constants';
 import SidebarBackArrow from '../../../images/sidebarBackArrow.svg?react';
 import { SEARCH_RESULTS_BROWSE_SIDEBAR_ID } from '../../onboarding/config/SearchOnboardingConfig';
 
-export const StyledEntitySidebarContainer = styled.div<{
+const PLATFORM_BROWSE_TRANSITION_MS = 200;
+
+const StyledEntitySidebarContainer = styled.div<{
     isCollapsed: boolean;
     $width?: number;
     backgroundColor?: string;
 }>`
     flex: 1;
     overflow: auto;
+
     ${(props) => !props.isCollapsed && props.$width && `min-width: ${props.$width}px; max-width: ${props.$width}px;`}
     ${(props) => props.isCollapsed && 'min-width: 74px; max-width: 74px;'}
-    /* Hide scrollbar for Chrome, Safari, and Opera */
     &::-webkit-scrollbar {
         display: none;
     }
+
     margin: 12px 0px 12px 0px;
-    transition: max-width 0.2s ease-in-out, min-width 0.2s ease-in-out;
+    transition: max-width ${PLATFORM_BROWSE_TRANSITION_MS}ms ease-in-out,
+        min-width ${PLATFORM_BROWSE_TRANSITION_MS}ms ease-in-out;
 `;
 
 export const StyledSidebar = styled.div`
@@ -60,6 +64,7 @@ const CloseButton = styled(Button)<{ isActive }>`
     padding: 2px 6px;
     display: flex;
     align-items: center;
+
     && {
         color: ${(props) => (props.isActive ? ANTD_GRAY[9] : ANTD_GRAY[8])};
     }
@@ -72,8 +77,6 @@ const ThinDivider = styled(Divider)`
 
 const SidebarBody = styled.div`
     height: calc(100% - 47px);
-    padding-left: 8px;
-    padding-right: 8px;
     overflow: auto;
     white-space: nowrap;
 `;

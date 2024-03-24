@@ -1,7 +1,7 @@
 import { UpCircleOutlined } from '@ant-design/icons';
 import { Typography } from 'antd';
 import React, { MouseEventHandler, ReactNode } from 'react';
-import { VscTriangleRight } from 'react-icons/vsc';
+import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import styled from 'styled-components';
 import { ANTD_GRAY } from '../../entity/shared/constants';
 import { SEARCH_COLORS } from '../../entityV2/shared/constants';
@@ -38,12 +38,13 @@ ExpandableNode.Header = styled.div<{
 }>`
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    justify-content: start;
     cursor: pointer;
     user-select: none;
     padding-top: 2px;
     padding-bottom: 2px;
     padding-right: 2px;
+    gap: 4px;
     border-bottom: 1px solid ${(props) => (props.isOpen || !props.showBorder ? 'transparent' : ANTD_GRAY[4])};
 `;
 
@@ -62,6 +63,14 @@ ExpandableNode.SelectableHeader = styled(ExpandableNode.Header)<{ isSelected: bo
 ExpandableNode.HeaderLeft = styled.div`
     display: flex;
     align-items: center;
+`;
+
+const ChevronRightIconStyle = styled(ChevronRightIcon)<{ isVisible?: boolean }>`
+    &&& {
+        color: ${ANTD_GRAY[6]};
+        visibility: ${(props) => (props.isVisible ? 'visible' : 'hidden')};
+        font-size: 18px;
+    }
 `;
 
 ExpandableNode.StaticButton = ({ icon, onClick }: { icon: JSX.Element; onClick?: () => void }) => {
@@ -95,7 +104,7 @@ ExpandableNode.TriangleButton = ({
             size="small"
             type="ghost"
             deg={isOpen ? 90 : 0}
-            icon={<VscTriangleRight style={{ color: ANTD_GRAY[6], visibility: isVisible ? 'visible' : 'hidden' }} />}
+            icon={<ChevronRightIconStyle isVisible={isVisible} />}
             onClick={onClickButton}
             data-testid={dataTestId}
             style={style}
@@ -118,7 +127,7 @@ ExpandableNode.CircleButton = ({ isOpen, color }: { isOpen: boolean; color: stri
 // Reduce the ellipsis tolerance the deeper we get into the browse path
 const BaseTitleContainer = styled.div<{ depth: number; maxWidth: number; padLeft: boolean }>`
     max-width: ${(props) => props.maxWidth - props.depth * 8}px;
-    padding-left: ${(props) => (props.padLeft ? 4 : 0)}px;
+    padding-left: ${(props) => (props.padLeft ? 8 : 0)}px;
 `;
 
 const BaseTitle = styled(Typography.Text)<{ color: string; size: number }>`

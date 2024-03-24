@@ -3,7 +3,6 @@ import { Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 import { EntityType } from '../../../types.generated';
-import { SEARCH_COLORS } from '../../entityV2/shared/constants';
 import { formatNumber } from '../../shared/formatNumber';
 import useToggle from '../../shared/useToggle';
 import {
@@ -23,17 +22,21 @@ import ExpandableNode from './ExpandableNode';
 import SidebarLoadingError from './SidebarLoadingError';
 import useBrowsePagination from './useBrowsePagination';
 import useSidebarAnalytics from './useSidebarAnalytics';
+import { ANTD_GRAY } from '../../entity/shared/constants';
 
 const FolderStyled = styled(FolderOutlined)`
     font-size: 16px;
-    color: ${SEARCH_COLORS.TITLE_PURPLE};
+    color: #374066;
     margin-right: 4px;
 `;
 
 const Count = styled(Typography.Text)`
-    font-size: 12px;
+    font-size: 10px;
     color: ${(props) => props.color};
-    padding-right: 8px;
+    padding: 2px 8px;
+    margin-left: 8px;
+    border-radius: 12px;
+    background-color: ${ANTD_GRAY[1]};
 `;
 
 const BrowseNode = () => {
@@ -71,7 +74,7 @@ const BrowseNode = () => {
 
     const browsePathLength = useBrowsePathLength();
 
-    const color = '#000';
+    const color = '#374066';
 
     return (
         <ExpandableNode
@@ -93,9 +96,9 @@ const BrowseNode = () => {
                         <FolderStyled />
                         <ExpandableNode.Title
                             color={color}
-                            size={14}
+                            size={12}
                             depth={browsePathLength}
-                            maxWidth={hasEntityLink ? 133 : 166}
+                            maxWidth={hasEntityLink ? 110 : 166}
                             padLeft
                         >
                             {displayName}

@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import styled from 'styled-components';
-import { Empty } from 'antd';
+import { Divider, Empty } from 'antd';
 import { BrowseProvider } from './BrowseContext';
 import { DataPlatform } from '../../../types.generated';
 import SidebarLoadingError from './SidebarLoadingError';
@@ -11,6 +11,10 @@ import CollapsedPlatformNode from './CollapsedPlatformNode';
 const BrowsePlatformIcons = styled.div`
     display: flex;
     flex-direction: column;
+`;
+
+const DividerStyle = styled(Divider)`
+    margin: unset;
 `;
 
 type Props = {
@@ -28,7 +32,7 @@ const PlatformBrowse = ({ visible, collapsed = false, expand, closeSidebar }: Pr
         (platformAggregations === null || (platformAggregations && !platformAggregations.length)) && !collapsed;
 
     useEffect(() => {
-        if ((platformAggregations === null || platformAggregations?.length === 0)) {
+        if (platformAggregations === null || platformAggregations?.length === 0) {
             closeSidebar();
         }
     }, [platformAggregations, closeSidebar]);
@@ -36,20 +40,22 @@ const PlatformBrowse = ({ visible, collapsed = false, expand, closeSidebar }: Pr
     return (
         <>
             {isEmpty && <Empty description="No matching platforms found" image={Empty.PRESENTED_IMAGE_SIMPLE} />}
-            {!collapsed && platformAggregations?.map((platformAggregation) => (
-                <BrowseProvider key={platformAggregation.value} platformAggregation={platformAggregation}>
-                    <PlatformNode />
-                </BrowseProvider>
-            ))}
-            {collapsed && 
-                <BrowsePlatformIcons>
-                    {platformAggregations?.map((platformAggregation) => (
+            <BrowsePlatformIcons>
+                {platformAggregations
+                    ?.sort((a, b) => b.count - a.count)
+                    ?.map((platformAggregation, i, lst) => (
                         <BrowseProvider key={platformAggregation.value} platformAggregation={platformAggregation}>
-                            <CollapsedPlatformNode platform={platformAggregation.entity as DataPlatform} onClick={expand}/>
+                            {!collapsed && <PlatformNode iconSize={24} hasOnlyOnePlatform={lst.length === 1} />}
+                            {collapsed && (
+                                <CollapsedPlatformNode
+                                    platform={platformAggregation.entity as DataPlatform}
+                                    onClick={expand}
+                                />
+                            )}
+                            {platformAggregation && i < platformAggregations.length - 1 && <DividerStyle />}
                         </BrowseProvider>
                     ))}
-                </BrowsePlatformIcons>
-            }
+            </BrowsePlatformIcons>
             {error && <SidebarLoadingError onClickRetry={retry} />}
         </>
     );

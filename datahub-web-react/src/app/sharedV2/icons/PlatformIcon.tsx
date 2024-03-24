@@ -9,11 +9,13 @@ import { getLighterRGBColor } from './colorUtils';
 type PlatformIconProps = {
     platform: DataPlatform | null | undefined;
     size?: number;
+    color?: string;
     alt?: string;
     entityType?: EntityType;
     styles?: CSSObject | undefined;
     title?: string;
     imageStyles?: CSSObject | undefined;
+    onError?: () => void;
 };
 
 const IconContainer = styled.div<{ background?: string; styles: CSSObject | undefined }>`
@@ -41,9 +43,11 @@ const PlatformIcon: React.FC<PlatformIconProps> = ({
     size = 17,
     alt = 'Platform Logo',
     entityType = EntityType.DataPlatform,
+    color,
     title,
     styles,
     imageStyles,
+    onError,
 }) => {
     const [background, setBackground] = useState<string | undefined>(undefined);
     const imgRef = useRef<HTMLImageElement>(null);
@@ -68,9 +72,10 @@ const PlatformIcon: React.FC<PlatformIconProps> = ({
                             setBackground(`rgb(${getLighterRGBColor(r, g, b).join(', ')})`);
                         }
                     }}
+                    onError={onError}
                 />
             ) : (
-                entityRegistry.getIcon(entityType, size, IconStyleType.ACCENT)
+                entityRegistry.getIcon(entityType, size, IconStyleType.ACCENT, color)
             )}
         </IconContainer>
     );
