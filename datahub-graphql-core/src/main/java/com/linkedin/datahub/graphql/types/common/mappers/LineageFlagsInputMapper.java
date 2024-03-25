@@ -3,6 +3,7 @@ package com.linkedin.datahub.graphql.types.common.mappers;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.UrnArrayMap;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.EntityTypeToPlatforms;
 import com.linkedin.datahub.graphql.generated.LineageFlags;
 import com.linkedin.datahub.graphql.types.entitytype.EntityTypeMapper;
@@ -26,12 +27,13 @@ public class LineageFlagsInputMapper
 
   @Nonnull
   public static com.linkedin.metadata.query.LineageFlags map(
-      @Nonnull final LineageFlags lineageFlags) {
-    return INSTANCE.apply(lineageFlags);
+      QueryContext queryContext, @Nonnull final LineageFlags lineageFlags) {
+    return INSTANCE.apply(queryContext, lineageFlags);
   }
 
   @Override
-  public com.linkedin.metadata.query.LineageFlags apply(@Nullable final LineageFlags lineageFlags) {
+  public com.linkedin.metadata.query.LineageFlags apply(
+      QueryContext context, @Nullable final LineageFlags lineageFlags) {
     com.linkedin.metadata.query.LineageFlags result =
         new com.linkedin.metadata.query.LineageFlags();
     if (lineageFlags == null) {
