@@ -253,11 +253,11 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
         Set<IngestResult> results =
                 _entityService.ingestProposal(batch, asyncBool);
 
-            IngestResult one = results.stream().findFirst().get();
+            java.util.Optional<IngestResult> one = results.stream().findFirst();
 
             // Update runIds, only works for existing documents, so ES document must exist
-            Urn resultUrn = one.getUrn();
-            if (one.isProcessedMCL() || one.isUpdate()) {
+            Urn resultUrn = one.map(IngestResult::getUrn).orElse(metadataChangeProposal.getEntityUrn());
+            if (one.map(result -> result.isProcessedMCL() || result.isUpdate()).orElse(false)) {
               tryIndexRunId(
                   resultUrn, metadataChangeProposal.getSystemMetadata(), entitySearchService);
             }

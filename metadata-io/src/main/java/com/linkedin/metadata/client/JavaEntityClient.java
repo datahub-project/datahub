@@ -747,9 +747,9 @@ public class JavaEntityClient implements EntityClient {
             .mcps(List.of(metadataChangeProposal), auditStamp, entityService)
             .build();
 
-    IngestResult one = entityService.ingestProposal(batch, async).stream().findFirst().get();
+    Optional<IngestResult> one = entityService.ingestProposal(batch, async).stream().findFirst();
 
-    Urn urn = one.getUrn();
+    Urn urn = one.map(IngestResult::getUrn).orElse(metadataChangeProposal.getEntityUrn());
     tryIndexRunId(urn, metadataChangeProposal.getSystemMetadata());
     return urn.toString();
   }
