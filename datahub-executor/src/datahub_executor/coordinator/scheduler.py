@@ -8,7 +8,10 @@ from datahub_executor.common.assertion.executor import AssertionExecutor
 from datahub_executor.common.constants import RUN_INGEST_TASK_NAME
 from datahub_executor.common.ingestion.helpers import emit_execution_request_input
 from datahub_executor.common.types import CronSchedule
-from datahub_executor.config import DATAHUB_EXECUTOR_EMBEDDED_WORKER_ENABLED
+from datahub_executor.config import (
+    DATAHUB_EXECUTOR_EMBEDDED_WORKER_ENABLED,
+    DATAHUB_EXECUTOR_WORKER_ID,
+)
 from datahub_executor.worker.remote import apply_remote_assertion_request
 
 logger = logging.getLogger(__name__)
@@ -74,7 +77,7 @@ class ExecutionRequestScheduler:
                 # this will wind up being acted on as a pipeline (kafka) action.
                 emit_execution_request_input(execution_request)
             else:
-                if DATAHUB_EXECUTOR_EMBEDDED_WORKER_ENABLED:
+                if self.should_execute_embedded(execution_request):
                     # submit request to the thread pool for async execution
                     self.assertion_executor.execute(execution_request)
                 else:
@@ -167,3 +170,15 @@ class ExecutionRequestScheduler:
         for job in self.scheduler.get_jobs():
             if job.args[0].exec_id == execution_request.exec_id:
                 self.unschedule_execution_request(job.id)
+
+    def should_execute_embedded(self, execution_request: ExecutionRequest) -> bool:
+        """
+        Check if the execution request should be executed in the embedded worker.
+
+        :param execution_request: The execution request to be checked.
+        :return: True if the execution request should be executed in the embedded worker, False otherwise.
+        """
+        return DATAHUB_EXECUTOR_EMBEDDED_WORKER_ENABLED and (
+            execution_request.executor_id is None
+            or DATAHUB_EXECUTOR_WORKER_ID == execution_request.executor_id
+        )

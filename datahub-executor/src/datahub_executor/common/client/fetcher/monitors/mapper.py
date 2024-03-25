@@ -60,6 +60,7 @@ def monitors_to_execution_requests(
                         "context": context.__dict__,
                     },
                 )
+
                 execution_requests.append(
                     ExecutionRequestSchedule(
                         execution_request=execution_request,

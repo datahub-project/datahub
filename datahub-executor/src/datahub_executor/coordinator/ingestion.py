@@ -23,6 +23,7 @@ from datahub_executor.common.tp import ThreadPoolExecutorWithQueueSizeLimit
 from datahub_executor.config import (
     DATAHUB_EXECUTOR_INGESTION_PIPELINE_MAX_WORKERS,
     DATAHUB_EXECUTOR_INGESTION_PIPELINE_SIGNAL_POLL_INTERVAL,
+    DATAHUB_EXECUTOR_WORKER_ID,
 )
 from datahub_executor.worker.remote import apply_remote_ingestion_request
 
@@ -32,13 +33,13 @@ logger = logging.getLogger(__name__)
 class IngestionAction(Action):
     ingestion_enabled: bool
     embedded_worker_enabled: bool
-    embedded_worker_id: str = ""
+    embedded_worker_id: str = DATAHUB_EXECUTOR_WORKER_ID
 
     def __init__(
         self,
         embedded_worker_enabled: bool,
         ingestion_enabled: bool,
-        embedded_worker_id: str = "",
+        embedded_worker_id: str = DATAHUB_EXECUTOR_WORKER_ID,
     ) -> None:
         self.ingestion_enabled = ingestion_enabled
         self.embedded_worker_id = embedded_worker_id
@@ -102,14 +103,15 @@ class IngestionAction(Action):
 
         aspect_dict = json.loads(orig_event.aspect.value)
 
-        if (
-            self.embedded_worker_enabled
-            and aspect_dict["executorId"] == self.embedded_worker_id
+        executor_id = aspect_dict["executorId"]
+
+        if self.embedded_worker_enabled and (
+            executor_id is None or executor_id == self.embedded_worker_id
         ):
             # submit will block if queue size > worker_count
             self.tp.submit(self._apply_ingestion_request, orig_event)
 
-            logger.info("started task ingetsion_request on a local thread")
+            logger.info("started task ingestion_request on a local thread")
         else:
             task = apply_remote_ingestion_request(orig_event, aspect_dict["executorId"])
 

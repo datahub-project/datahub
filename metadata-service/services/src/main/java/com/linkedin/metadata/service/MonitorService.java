@@ -11,6 +11,7 @@ import com.linkedin.assertion.VolumeAssertionInfo;
 import com.linkedin.common.CronSchedule;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.GetMode;
+import com.linkedin.data.template.SetMode;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
@@ -280,10 +281,7 @@ public class MonitorService extends BaseService {
                     .setSchedule(schedule)
                     .setParameters(parameters))));
     monitorInfo.setAssertionMonitor(assertionMonitor);
-
-    if (executorId != null) {
-      monitorInfo.setExecutorId(executorId);
-    }
+    monitorInfo.setExecutorId(executorId, SetMode.IGNORE_NULL);
 
     final List<MetadataChangeProposal> aspects = new ArrayList<>();
     aspects.add(

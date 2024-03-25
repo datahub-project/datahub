@@ -420,7 +420,6 @@ export const builderStateToUpsertFreshnessAssertionMonitorVariables = (builderSt
             evaluationSchedule: builderState.schedule,
             evaluationParameters: builderState.parameters?.datasetFreshnessParameters,
             mode: MonitorMode.Active,
-            executorId: builderState.executorId,
             entityUrn: builderState.entityUrn,
         },
     });
@@ -500,7 +499,6 @@ export const builderStateToUpsertVolumeAssertionMonitorVariables = (builderState
             evaluationSchedule: builderState.schedule,
             evaluationParameters: builderState.parameters?.datasetVolumeParameters,
             mode: MonitorMode.Active,
-            executorId: builderState.executorId,
             entityUrn: builderState.entityUrn,
         },
     });
@@ -548,7 +546,6 @@ export const builderStateToUpsertSqlAssertionMonitorVariables = (builderState: A
             // Monitor parameters
             evaluationSchedule: builderState.schedule,
             mode: MonitorMode.Active,
-            executorId: builderState.executorId,
             entityUrn: builderState.entityUrn,
         },
     });
@@ -590,7 +587,6 @@ export const builderStateToUpsertFieldAssertionMonitorVariables = (builderState:
             evaluationSchedule: builderState.schedule,
             evaluationParameters: builderState.parameters?.datasetFieldParameters,
             mode: MonitorMode.Active,
-            executorId: builderState.executorId,
             entityUrn: builderState.entityUrn,
         },
     });

@@ -32,7 +32,6 @@ public class IngestionSourceForEntityResolverTest {
       "urn:li:dataset:(urn:li:dataPlatform:bigquery,test1,DEV)";
   private static final String INGESTION_SOURCE_URN_STRING = "urn:li:dataHubIngestionSource:test";
   private static final String EXECUTION_REQUEST_URN_STRING = "urn:li:dataHubExecutionRequest:test";
-
   private EntityClient _entityClient;
   private DataFetchingEnvironment _dataFetchingEnvironment;
   private IngestionSourceForEntityResolver _resolver;
