@@ -5,7 +5,8 @@ import styled from 'styled-components';
 import { ANTD_GRAY } from '../../../../../../../constants';
 import { AssertionResult } from '../../../../../../../../../../types.generated';
 import { getResultColor } from '../../../../assertionUtils';
-import { ResultStatusType, applyOpacityToHexColor, getResultStatusText } from './resultUtils';
+import { ResultStatusType, getResultStatusText } from './resultMessageUtils';
+import { applyOpacityToHexColor } from '../../../../../../../../../shared/styleUtils';
 
 const Pill = styled.div<{ color: string; highlightColor: string }>`
     display: flex;

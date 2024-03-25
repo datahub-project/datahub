@@ -20,6 +20,7 @@ type Props = {
     assertion: Assertion;
     monitor?: Monitor;
     canEdit: boolean;
+    // Should be defined if canEdit
     refetch?: () => void;
 };
 
@@ -72,7 +73,7 @@ export const DeleteAction = ({ assertion, monitor, canEdit, refetch }: Props) =>
             onOk() {
                 deleteAssertion();
             },
-            onCancel() {},
+            onCancel() { },
             okText: 'Yes',
             maskClosable: true,
             closable: true,

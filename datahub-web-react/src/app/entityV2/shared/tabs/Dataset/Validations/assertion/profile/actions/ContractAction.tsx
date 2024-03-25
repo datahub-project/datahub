@@ -34,6 +34,7 @@ type Props = {
     monitor?: Monitor;
     contract?: DataContract;
     canEdit: boolean;
+    // Should be defined if canEdit
     refetch?: () => void;
 };
 

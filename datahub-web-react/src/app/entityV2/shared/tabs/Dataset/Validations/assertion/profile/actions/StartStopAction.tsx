@@ -95,7 +95,7 @@ export const StartStopAction = ({ assertion, monitor, canEdit, refetch }: Props)
             onOk() {
                 onStartMonitor();
             },
-            onCancel() {},
+            onCancel() { },
             okText: 'Yes',
             maskClosable: true,
             closable: true,
