@@ -14,6 +14,9 @@ query getContainer($urn: String!) {
                 value
             }
         }
+        privileges {
+            ...entityPrivileges
+        }
         editableProperties {
             description
         }

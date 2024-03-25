@@ -69,24 +69,38 @@ module.exports = {
           type: "category",
           items: [
             {
-              type: "doc",
-              id: "docs/managed-datahub/observe/freshness-assertions",
-              className: "saasOnly",
+              label: "Assertions",
+              type: "category",
+              link: {
+                type: "doc",
+                id: "docs/managed-datahub/observe/assertions",
+              },
+              items: [
+                {
+                  type: "doc",
+                  id: "docs/managed-datahub/observe/freshness-assertions",
+                  className: "saasOnly",
+                },
+                {
+                  type: "doc",
+                  id: "docs/managed-datahub/observe/volume-assertions",
+                  className: "saasOnly",
+                },
+                {
+                  type: "doc",
+                  id: "docs/managed-datahub/observe/custom-sql-assertions",
+                  className: "saasOnly",
+                },
+                {
+                  type: "doc",
+                  id: "docs/managed-datahub/observe/column-assertions",
+                  className: "saasOnly",
+                },
+              ],
             },
             {
               type: "doc",
-              id: "docs/managed-datahub/observe/volume-assertions",
-              className: "saasOnly",
-            },
-            {
-              type: "doc",
-              id: "docs/managed-datahub/observe/custom-sql-assertions",
-              className: "saasOnly",
-            },
-            {
-              type: "doc",
-              id: "docs/managed-datahub/observe/column-assertions",
-              className: "saasOnly",
+              id: "docs/managed-datahub/observe/data-contract",
             },
           ],
         },
@@ -173,6 +187,7 @@ module.exports = {
         },
         {
           "Managed DataHub Release History": [
+            "docs/managed-datahub/release-notes/v_0_2_16",
             "docs/managed-datahub/release-notes/v_0_2_15",
             "docs/managed-datahub/release-notes/v_0_2_14",
             "docs/managed-datahub/release-notes/v_0_2_13",

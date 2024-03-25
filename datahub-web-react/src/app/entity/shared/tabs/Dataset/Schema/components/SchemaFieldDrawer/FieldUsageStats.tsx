@@ -49,7 +49,12 @@ export default function FieldUsageStats({ expandedField }: Props) {
             <SectionHeader>Usage</SectionHeader>
             <UsageBarWrapper>
                 <UsageBarBackground>
-                    <UsageBar width={((relevantUsageStats.count || 0) / maxFieldUsageCount) * USAGE_BAR_MAX_WIDTH} />
+                    <UsageBar
+                        width={Math.max(
+                            ((relevantUsageStats.count || 0) / maxFieldUsageCount) * USAGE_BAR_MAX_WIDTH,
+                            4,
+                        )}
+                    />
                 </UsageBarBackground>
                 <UsageTextWrapper>{relevantUsageStats.count || 0} queries / month</UsageTextWrapper>
             </UsageBarWrapper>

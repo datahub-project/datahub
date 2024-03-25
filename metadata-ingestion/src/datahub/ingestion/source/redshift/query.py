@@ -53,7 +53,11 @@ SELECT  schemaname as schema_name,
         ORDER BY SCHEMA_NAME;
         """
 
-    list_tables: str = """
+    @staticmethod
+    def list_tables(
+        skip_external_tables: bool = False,
+    ) -> str:
+        tables_query = """
  SELECT  CASE c.relkind
                 WHEN 'r' THEN 'TABLE'
                 WHEN 'v' THEN 'VIEW'
@@ -90,7 +94,8 @@ SELECT  schemaname as schema_name,
         WHERE c.relkind IN ('r','v','m','S','f')
         AND   n.nspname !~ '^pg_'
         AND   n.nspname != 'information_schema'
-        UNION
+"""
+        external_tables_query = """
         SELECT 'EXTERNAL_TABLE' as tabletype,
             NULL AS "schema_oid",
             schemaname AS "schema",
@@ -112,6 +117,11 @@ SELECT  schemaname as schema_name,
         ORDER BY "schema",
                 "relname"
 """
+        if skip_external_tables:
+            return tables_query
+        else:
+            return f"{tables_query} UNION {external_tables_query}"
+
     list_columns: str = """
             SELECT
               n.nspname as "schema",
@@ -455,49 +465,70 @@ class RedshiftProvisionedQuery(RedshiftCommonQuery):
         db_name: str, start_time: datetime, end_time: datetime
     ) -> str:
         return """
-                select
-                    distinct cluster,
-                    target_schema,
-                    target_table,
-                    username,
-                    query as query_id,
-                    LISTAGG(CASE WHEN LEN(RTRIM(querytxt)) = 0 THEN querytxt ELSE RTRIM(querytxt) END) WITHIN GROUP (ORDER BY sequence) as ddl,
-                    ANY_VALUE(pid) as session_id,
-                    starttime as timestamp
-                from
-                        (
+            with query_txt as
+                (
                     select
-                        distinct tbl as target_table_id,
-                        sti.schema as target_schema,
-                        sti.table as target_table,
-                        sti.database as cluster,
-                        usename as username,
-                        text as querytxt,
-                        sq.query,
-                        sequence,
-                        si.starttime as starttime,
-                        pid
+                        query,
+                        pid,
+                        LISTAGG(case
+                            when LEN(RTRIM(text)) = 0 then text
+                            else RTRIM(text)
+                        end) within group (
+                    order by
+                        sequence) as ddl
                     from
-                        stl_insert as si
-                    join SVV_TABLE_INFO sti on
-                        sti.table_id = tbl
-                    left join svl_user_info sui on
-                        si.userid = sui.usesysid
-                    left join STL_QUERYTEXT sq on
-                        si.query = sq.query
-                    left join stl_load_commits slc on
-                        slc.query = si.query
-                    where
+                        (
+                        select
+                            query,
+                            pid,
+                            text,
+                            sequence
+                        from
+                            STL_QUERYTEXT
+                        where
+                            sequence < 320
+                        order by
+                            sequence
+                    )
+                    group by
+                        query,
+                        pid
+                )
+                        select
+                    distinct tbl as target_table_id,
+                    sti.schema as target_schema,
+                    sti.table as target_table,
+                    sti.database as cluster,
+                    usename as username,
+                    ddl,
+                    sq.query as query_id,
+                    min(si.starttime) as starttime,
+                    ANY_VALUE(pid) as session_id
+                from
+                    stl_insert as si
+                left join SVV_TABLE_INFO sti on
+                    sti.table_id = tbl
+                left join svl_user_info sui on
+                    si.userid = sui.usesysid
+                left join query_txt sq on
+                    si.query = sq.query
+                left join stl_load_commits slc on
+                    slc.query = si.query
+                where
                         sui.usename <> 'rdsdb'
-                        and slc.query IS NULL
                         and cluster = '{db_name}'
+                        and slc.query IS NULL
                         and si.starttime >= '{start_time}'
                         and si.starttime < '{end_time}'
-                        and sequence < 320
-                    ) as target_tables
-                    group by cluster, query_id, target_schema, target_table, username, starttime
-                    order by cluster, query_id, target_schema, target_table, starttime asc
-                """.format(
+                group by
+                    target_table_id,
+                    target_schema,
+                    target_table,
+                    cluster,
+                    username,
+                    ddl,
+                    sq.query
+        """.format(
             # We need the original database name for filtering
             db_name=db_name,
             start_time=start_time.strftime(redshift_datetime_format),
@@ -551,7 +582,7 @@ class RedshiftProvisionedQuery(RedshiftCommonQuery):
                     REGEXP_REPLACE(REGEXP_SUBSTR(REGEXP_REPLACE(query_text,'\\\\n','\\n'), '(CREATE(?:[\\n\\s\\t]+(?:temp|temporary))?(?:[\\n\\s\\t]+)table(?:[\\n\\s\\t]+)[^\\n\\s\\t()-]+)', 0, 1, 'ipe'),'[\\n\\s\\t]+',' ',1,'p') as create_command,
                     query_text,
                     row_number() over (
-                        partition by TRIM(query_text)
+                        partition by session_id, TRIM(query_text)
                         order by start_time desc
                     ) rn
                 from
@@ -615,7 +646,7 @@ class RedshiftProvisionedQuery(RedshiftCommonQuery):
 
             )
             where
-                rn = 1;
+                rn = 1
             """
 
     # Add this join to the sql query for more metrics on completed queries
@@ -801,7 +832,7 @@ class RedshiftServerlessQuery(RedshiftCommonQuery):
                 WHERE
                     qs.step_name = 'scan' AND
                     qs.source = 'Redshift(local)' AND
-                    qt.sequence < 320 AND -- See https://stackoverflow.com/questions/72770890/redshift-result-size-exceeds-listagg-limit-on-svl-statementtext
+                    qt.sequence < 16 AND -- See https://stackoverflow.com/questions/72770890/redshift-result-size-exceeds-listagg-limit-on-svl-statementtext
                     sti.database = '{db_name}' AND -- this was required to not retrieve some internal redshift tables, try removing to see what happens
                     sui.user_name <> 'rdsdb' -- not entirely sure about this filter
                 GROUP BY sti.schema, sti.table, qs.table_id, qs.query_id, sui.user_name
@@ -888,7 +919,7 @@ class RedshiftServerlessQuery(RedshiftCommonQuery):
                     cluster = '{db_name}' AND
                     qd.start_time >= '{start_time}' AND
                     qd.start_time < '{end_time}' AND
-                    qt.sequence < 320 AND -- See https://stackoverflow.com/questions/72770890/redshift-result-size-exceeds-listagg-limit-on-svl-statementtext
+                    qt.sequence < 16 AND -- See https://stackoverflow.com/questions/72770890/redshift-result-size-exceeds-listagg-limit-on-svl-statementtext
                     ld.query_id IS NULL -- filter out queries which are also stored in SYS_LOAD_DETAIL
                 ORDER BY target_table ASC
             )
@@ -936,6 +967,8 @@ class RedshiftServerlessQuery(RedshiftCommonQuery):
     # also similar happens if for example table name contains special characters quoted with " i.e. "test-table1"
     # it is also worth noting that "query_type" field from SYS_QUERY_HISTORY could be probably used to improve many
     # of complicated queries in this file
+    # However, note that we can't really use this query fully everywhere, despite it being simpler, because
+    # the SYS_QUERY_TEXT.text field is truncated to 4000 characters and strips out linebreaks.
     @staticmethod
     def temp_table_ddl_query(start_time: datetime, end_time: datetime) -> str:
         start_time_str: str = start_time.strftime(redshift_datetime_format)
@@ -955,7 +988,7 @@ class RedshiftServerlessQuery(RedshiftCommonQuery):
                                     query_text,
                                     REGEXP_REPLACE(REGEXP_SUBSTR(REGEXP_REPLACE(query_text,'\\\\n','\\n'), '(CREATE(?:[\\n\\s\\t]+(?:temp|temporary))?(?:[\\n\\s\\t]+)table(?:[\\n\\s\\t]+)[^\\n\\s\\t()-]+)', 0, 1, 'ipe'),'[\\n\\s\\t]+',' ',1,'p') AS create_command,
                                     ROW_NUMBER() OVER (
-                                    PARTITION BY query_text
+                                    PARTITION BY session_id, query_text
                                     ORDER BY start_time DESC
                                     ) rn
                             FROM
@@ -973,7 +1006,7 @@ class RedshiftServerlessQuery(RedshiftCommonQuery):
                                             query_type IN ('DDL', 'CTAS', 'OTHER', 'COMMAND')
                                             AND qh.start_time >= '{start_time_str}'
                                             AND qh.start_time < '{end_time_str}'
-                                            AND qt.sequence < 320
+                                            AND qt.sequence < 16
                                     GROUP BY qh.start_time, qh.session_id, qh.transaction_id, qh.user_id
                                     ORDER BY qh.start_time, qh.session_id, qh.transaction_id, qh.user_id ASC
                             )
@@ -990,6 +1023,7 @@ class RedshiftServerlessQuery(RedshiftCommonQuery):
                     )
                     WHERE
                             rn = 1
+                    ORDER BY start_time ASC
                     ;
             """
 

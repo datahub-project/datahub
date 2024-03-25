@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.types.notebook;
 
+import static org.mockito.Mockito.mock;
 import static org.testng.Assert.*;
 
 import com.datahub.authentication.Authentication;
@@ -45,6 +46,7 @@ import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.key.NotebookKey;
+import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.notebook.EditableNotebookProperties;
 import com.linkedin.notebook.NotebookCell;
 import com.linkedin.notebook.NotebookCellArray;
@@ -54,6 +56,7 @@ import com.linkedin.notebook.NotebookInfo;
 import com.linkedin.notebook.TextCell;
 import com.linkedin.r2.RemoteInvocationException;
 import graphql.execution.DataFetcherResult;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -193,6 +196,10 @@ public class NotebookTypeTest {
 
     QueryContext mockContext = Mockito.mock(QueryContext.class);
     Mockito.when(mockContext.getAuthentication()).thenReturn(Mockito.mock(Authentication.class));
+    Mockito.when(mockContext.getOperationContext())
+        .thenReturn(
+            TestOperationContexts.userContextNoSearchAuthorization(mock(EntityRegistry.class)));
+
     List<DataFetcherResult<Notebook>> result =
         type.batchLoad(ImmutableList.of(TEST_NOTEBOOK, dummyNotebookUrn.toString()), mockContext);
 

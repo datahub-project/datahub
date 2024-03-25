@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.types.datajob.mappers;
 
+import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
 import static com.linkedin.metadata.Constants.*;
 
 import com.google.common.collect.ImmutableList;
@@ -15,6 +16,8 @@ import com.linkedin.common.Status;
 import com.linkedin.common.SubTypes;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
+import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.generated.DataFlow;
 import com.linkedin.datahub.graphql.generated.DataJob;
 import com.linkedin.datahub.graphql.generated.DataJobEditableProperties;
@@ -47,17 +50,20 @@ import com.linkedin.metadata.key.DataJobKey;
 import com.linkedin.structured.StructuredProperties;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 public class DataJobMapper implements ModelMapper<EntityResponse, DataJob> {
 
   public static final DataJobMapper INSTANCE = new DataJobMapper();
 
-  public static DataJob map(@Nonnull final EntityResponse entityResponse) {
-    return INSTANCE.apply(entityResponse);
+  public static DataJob map(
+      @Nullable final QueryContext context, @Nonnull final EntityResponse entityResponse) {
+    return INSTANCE.apply(context, entityResponse);
   }
 
   @Override
-  public DataJob apply(@Nonnull final EntityResponse entityResponse) {
+  public DataJob apply(
+      @Nullable final QueryContext context, @Nonnull final EntityResponse entityResponse) {
     final DataJob result = new DataJob();
     Urn entityUrn = entityResponse.getUrn();
 
@@ -75,8 +81,10 @@ public class DataJobMapper implements ModelMapper<EntityResponse, DataJob> {
               DataMap data = aspect.getValue().data();
               if (DATA_JOB_KEY_ASPECT_NAME.equals(name)) {
                 final DataJobKey gmsKey = new DataJobKey(data);
-                result.setDataFlow(
-                    new DataFlow.Builder().setUrn(gmsKey.getFlow().toString()).build());
+                if (context == null || canView(context.getOperationContext(), gmsKey.getFlow())) {
+                  result.setDataFlow(
+                      new DataFlow.Builder().setUrn(gmsKey.getFlow().toString()).build());
+                }
                 result.setJobId(gmsKey.getJobId());
               } else if (DATA_JOB_INFO_ASPECT_NAME.equals(name)) {
                 final com.linkedin.datajob.DataJobInfo gmsDataJobInfo =
@@ -96,42 +104,48 @@ public class DataJobMapper implements ModelMapper<EntityResponse, DataJob> {
                     editableDataJobProperties.getDescription());
                 result.setEditableProperties(dataJobEditableProperties);
               } else if (OWNERSHIP_ASPECT_NAME.equals(name)) {
-                result.setOwnership(OwnershipMapper.map(new Ownership(data), entityUrn));
+                result.setOwnership(OwnershipMapper.map(context, new Ownership(data), entityUrn));
               } else if (STATUS_ASPECT_NAME.equals(name)) {
-                result.setStatus(StatusMapper.map(new Status(data)));
+                result.setStatus(StatusMapper.map(context, new Status(data)));
               } else if (GLOBAL_TAGS_ASPECT_NAME.equals(name)) {
                 com.linkedin.datahub.graphql.generated.GlobalTags globalTags =
-                    GlobalTagsMapper.map(new GlobalTags(data), entityUrn);
+                    GlobalTagsMapper.map(context, new GlobalTags(data), entityUrn);
                 result.setGlobalTags(globalTags);
                 result.setTags(globalTags);
               } else if (INSTITUTIONAL_MEMORY_ASPECT_NAME.equals(name)) {
                 result.setInstitutionalMemory(
-                    InstitutionalMemoryMapper.map(new InstitutionalMemory(data), entityUrn));
+                    InstitutionalMemoryMapper.map(
+                        context, new InstitutionalMemory(data), entityUrn));
               } else if (GLOSSARY_TERMS_ASPECT_NAME.equals(name)) {
                 result.setGlossaryTerms(
-                    GlossaryTermsMapper.map(new GlossaryTerms(data), entityUrn));
+                    GlossaryTermsMapper.map(context, new GlossaryTerms(data), entityUrn));
               } else if (DOMAINS_ASPECT_NAME.equals(name)) {
                 final Domains domains = new Domains(data);
                 // Currently we only take the first domain if it exists.
-                result.setDomain(DomainAssociationMapper.map(domains, entityUrn.toString()));
+                result.setDomain(
+                    DomainAssociationMapper.map(context, domains, entityUrn.toString()));
               } else if (DEPRECATION_ASPECT_NAME.equals(name)) {
-                result.setDeprecation(DeprecationMapper.map(new Deprecation(data)));
+                result.setDeprecation(DeprecationMapper.map(context, new Deprecation(data)));
               } else if (DATA_PLATFORM_INSTANCE_ASPECT_NAME.equals(name)) {
                 result.setDataPlatformInstance(
-                    DataPlatformInstanceAspectMapper.map(new DataPlatformInstance(data)));
+                    DataPlatformInstanceAspectMapper.map(context, new DataPlatformInstance(data)));
               } else if (BROWSE_PATHS_V2_ASPECT_NAME.equals(name)) {
-                result.setBrowsePathV2(BrowsePathsV2Mapper.map(new BrowsePathsV2(data)));
+                result.setBrowsePathV2(BrowsePathsV2Mapper.map(context, new BrowsePathsV2(data)));
               } else if (SUB_TYPES_ASPECT_NAME.equals(name)) {
-                result.setSubTypes(SubTypesMapper.map(new SubTypes(data)));
+                result.setSubTypes(SubTypesMapper.map(context, new SubTypes(data)));
               } else if (STRUCTURED_PROPERTIES_ASPECT_NAME.equals(name)) {
                 result.setStructuredProperties(
-                    StructuredPropertiesMapper.map(new StructuredProperties(data)));
+                    StructuredPropertiesMapper.map(context, new StructuredProperties(data)));
               } else if (FORMS_ASPECT_NAME.equals(name)) {
                 result.setForms(FormsMapper.map(new Forms(data), entityUrn.toString()));
               }
             });
 
-    return result;
+    if (context != null && !canView(context.getOperationContext(), entityUrn)) {
+      return AuthorizationUtils.restrictEntity(result, DataJob.class);
+    } else {
+      return result;
+    }
   }
 
   /** Maps GMS {@link com.linkedin.datajob.DataJobInfo} to deprecated GraphQL {@link DataJobInfo} */

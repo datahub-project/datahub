@@ -9,7 +9,7 @@ import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.metadata.shared.ValidationUtils;
+import com.linkedin.metadata.entity.validation.ValidationUtils;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;

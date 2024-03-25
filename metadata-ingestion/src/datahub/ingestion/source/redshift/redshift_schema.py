@@ -107,6 +107,12 @@ class AlterTableRow:
     start_time: datetime
 
 
+def _stringy(x: Optional[int]) -> Optional[str]:
+    if x is None:
+        return None
+    return str(x)
+
+
 # this is a class to be a proxy to query Redshift
 class RedshiftDataDictionary:
     def __init__(self, is_serverless):
@@ -194,6 +200,7 @@ class RedshiftDataDictionary:
     def get_tables_and_views(
         self,
         conn: redshift_connector.Connection,
+        skip_external_tables: bool = False,
     ) -> Tuple[Dict[str, List[RedshiftTable]], Dict[str, List[RedshiftView]]]:
         tables: Dict[str, List[RedshiftTable]] = {}
         views: Dict[str, List[RedshiftView]] = {}
@@ -203,7 +210,8 @@ class RedshiftDataDictionary:
         enriched_table = self.enrich_tables(conn)
 
         cur = RedshiftDataDictionary.get_query_result(
-            conn, RedshiftCommonQuery.list_tables
+            conn,
+            RedshiftCommonQuery.list_tables(skip_external_tables=skip_external_tables),
         )
         field_names = [i[0] for i in cur.description]
         db_tables = cur.fetchall()
@@ -419,9 +427,8 @@ class RedshiftDataDictionary:
                         else None
                     ),
                     session_id=(
-                        str(row[field_names.index("session_id")])
+                        _stringy(row[field_names.index("session_id")])
                         if "session_id" in field_names
-                        and row[field_names.index("session_id")]
                         else None
                     ),
                 )
@@ -441,9 +448,13 @@ class RedshiftDataDictionary:
         rows = cursor.fetchmany()
         while rows:
             for row in rows:
+                # Skipping roews with no session_id
+                session_id = _stringy(row[field_names.index("session_id")])
+                if session_id is None:
+                    continue
                 yield TempTableRow(
                     transaction_id=row[field_names.index("transaction_id")],
-                    session_id=row[field_names.index("session_id")],
+                    session_id=session_id,
                     # See https://docs.aws.amazon.com/redshift/latest/dg/r_STL_QUERYTEXT.html
                     # for why we need to replace the \n with a newline.
                     query_text=row[field_names.index("query_text")].replace(
@@ -468,9 +479,12 @@ class RedshiftDataDictionary:
         rows = cursor.fetchmany()
         while rows:
             for row in rows:
+                session_id = _stringy(row[field_names.index("session_id")])
+                if session_id is None:
+                    continue
                 yield AlterTableRow(
                     transaction_id=row[field_names.index("transaction_id")],
-                    session_id=row[field_names.index("session_id")],
+                    session_id=session_id,
                     query_text=row[field_names.index("query_text")],
                     start_time=row[field_names.index("start_time")],
                 )

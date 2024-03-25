@@ -1,5 +1,6 @@
 package com.linkedin.metadata.search;
 
+import static com.datahub.authorization.AuthUtil.canViewEntity;
 import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.metadata.search.utils.SearchUtils.applyDefaultSearchFlags;
 
@@ -551,6 +552,7 @@ public class LineageSearchService {
 
       LineageSearchResult resultForBatch =
           buildLineageSearchResult(
+              opContext,
               _searchService.searchAcrossEntities(
                   opContext.withSearchFlags(
                       flags -> applyDefaultSearchFlags(flags, input, DEFAULT_SERVICE_SEARCH_FLAGS)),
@@ -564,6 +566,10 @@ public class LineageSearchService {
       queryFrom = Math.max(0, from - resultForBatch.getNumEntities());
       querySize = Math.max(0, size - resultForBatch.getEntities().size());
       finalResult = merge(finalResult, resultForBatch);
+
+      if (querySize == 0) {
+        break;
+      }
     }
 
     finalResult.getMetadata().getAggregations().add(0, DEGREE_FILTER_GROUP);
@@ -680,7 +686,9 @@ public class LineageSearchService {
   }
 
   private LineageSearchResult buildLineageSearchResult(
-      @Nonnull SearchResult searchResult, Map<Urn, LineageRelationship> urnToRelationship) {
+      @Nonnull OperationContext opContext,
+      @Nonnull SearchResult searchResult,
+      Map<Urn, LineageRelationship> urnToRelationship) {
     AggregationMetadataArray aggregations =
         new AggregationMetadataArray(searchResult.getMetadata().getAggregations());
     return new LineageSearchResult()
@@ -690,7 +698,9 @@ public class LineageSearchService {
                     .map(
                         searchEntity ->
                             buildLineageSearchEntity(
-                                searchEntity, urnToRelationship.get(searchEntity.getEntity())))
+                                opContext,
+                                searchEntity,
+                                urnToRelationship.get(searchEntity.getEntity())))
                     .collect(Collectors.toList())))
         .setMetadata(new SearchResultMetadata().setAggregations(aggregations))
         .setFrom(searchResult.getFrom())
@@ -699,10 +709,30 @@ public class LineageSearchService {
   }
 
   private LineageSearchEntity buildLineageSearchEntity(
-      @Nonnull SearchEntity searchEntity, @Nullable LineageRelationship lineageRelationship) {
+      @Nonnull OperationContext opContext,
+      @Nonnull SearchEntity searchEntity,
+      @Nullable LineageRelationship lineageRelationship) {
     LineageSearchEntity entity = new LineageSearchEntity(searchEntity.data());
     if (lineageRelationship != null) {
-      entity.setPaths(lineageRelationship.getPaths());
+      entity.setPaths(
+          lineageRelationship.getPaths().stream()
+              .filter(
+                  urnArray ->
+                      urnArray.stream()
+                          .allMatch(
+                              urn -> {
+                                if (opContext
+                                    .getOperationContextConfig()
+                                    .getViewAuthorizationConfiguration()
+                                    .isEnabled()) {
+                                  return canViewEntity(
+                                      opContext.getSessionAuthentication().getActor().toUrnStr(),
+                                      opContext.getAuthorizerContext().getAuthorizer(),
+                                      urn);
+                                }
+                                return true;
+                              }))
+              .collect(Collectors.toCollection(UrnArrayArray::new)));
       entity.setDegree(lineageRelationship.getDegree());
       if (lineageRelationship.hasDegrees()) {
         entity.setDegrees(lineageRelationship.getDegrees());
@@ -831,6 +861,7 @@ public class LineageSearchService {
 
       LineageScrollResult resultForBatch =
           buildLineageScrollResult(
+              opContext,
               _searchService.scrollAcrossEntities(
                   finalOpContext,
                   entitiesToQuery,
@@ -843,6 +874,10 @@ public class LineageSearchService {
               urnToRelationship);
       querySize = Math.max(0, size - resultForBatch.getEntities().size());
       finalResult = mergeScrollResult(finalResult, resultForBatch);
+
+      if (querySize == 0) {
+        break;
+      }
     }
 
     finalResult.getMetadata().getAggregations().add(0, DEGREE_FILTER_GROUP);
@@ -850,7 +885,9 @@ public class LineageSearchService {
   }
 
   private LineageScrollResult buildLineageScrollResult(
-      @Nonnull ScrollResult scrollResult, Map<Urn, LineageRelationship> urnToRelationship) {
+      @Nonnull OperationContext opContext,
+      @Nonnull ScrollResult scrollResult,
+      Map<Urn, LineageRelationship> urnToRelationship) {
     AggregationMetadataArray aggregations =
         new AggregationMetadataArray(scrollResult.getMetadata().getAggregations());
     LineageScrollResult lineageScrollResult =
@@ -861,7 +898,9 @@ public class LineageSearchService {
                         .map(
                             searchEntity ->
                                 buildLineageSearchEntity(
-                                    searchEntity, urnToRelationship.get(searchEntity.getEntity())))
+                                    opContext,
+                                    searchEntity,
+                                    urnToRelationship.get(searchEntity.getEntity())))
                         .collect(Collectors.toList())))
             .setMetadata(new SearchResultMetadata().setAggregations(aggregations))
             .setPageSize(scrollResult.getPageSize())

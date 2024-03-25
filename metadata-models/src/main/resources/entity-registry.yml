@@ -482,6 +482,17 @@ entities:
     keyAspect: dataHubViewKey
     aspects:
       - dataHubViewInfo
+  - name: erModelRelationship
+    doc: ER Model Relationship of  Dataset Fields
+    keyAspect: erModelRelationshipKey
+    aspects:
+      - erModelRelationshipProperties
+      - editableERModelRelationshipProperties
+      - institutionalMemory
+      - ownership
+      - status
+      - globalTags
+      - glossaryTerms
   - name: query
     category: core
     keyAspect: queryKey
@@ -565,22 +576,22 @@ plugins:
     - className: 'com.linkedin.metadata.aspect.validation.StructuredPropertiesValidator'
       enabled: true
       supportedOperations:
+        - CREATE
         - UPSERT
       supportedEntityAspectNames:
         - entityName: '*'
           aspectName: structuredProperties
+    - className: 'com.linkedin.metadata.aspect.validation.CreateIfNotExistsValidator'
+      enabled: true
+      supportedOperations:
+        - CREATE
+        - CREATE_ENTITY
+      supportedEntityAspectNames:
+        - entityName: '*'
+          aspectName: '*'
   mutationHooks:
     - className: 'com.linkedin.metadata.aspect.hooks.StructuredPropertiesSoftDelete'
       enabled: true
       supportedEntityAspectNames:
         - entityName: '*'
           aspectName: structuredProperties
-    - className: 'com.linkedin.metadata.aspect.hooks.OwnerTypeMap'
-      enabled: true
-      supportedOperations:
-        - UPSERT
-        - CREATE
-        - RESTATE
-      supportedEntityAspectNames:
-        - entityName: '*'
-          aspectName: ownership

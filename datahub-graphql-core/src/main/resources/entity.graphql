@@ -74,6 +74,11 @@ type Query {
     role(urn: String!): Role
 
     """
+    Fetch a ERModelRelationship by primary key (urn)
+    """
+    erModelRelationship(urn: String!): ERModelRelationship
+
+    """
     Fetch a Glossary Term by primary key (urn)
     """
     glossaryTerm(urn: String!): GlossaryTerm
@@ -231,6 +236,140 @@ type Query {
     Fetch a Data Platform Instance by primary key (urn)
     """
     dataPlatformInstance(urn: String!): DataPlatformInstance
+}
+
+"""
+An ERModelRelationship is a high-level abstraction that dictates what datasets fields are erModelRelationshiped.
+"""
+type ERModelRelationship implements EntityWithRelationships & Entity {
+    """
+    The primary key of the role
+    """
+    urn: String!
+
+    """
+    The standard Entity Type
+    """
+    type: EntityType!
+
+    """
+    Unique id for the erModelRelationship
+    """
+    id: String!
+
+    """
+    An additional set of read only properties
+    """
+    properties: ERModelRelationshipProperties
+
+    """
+    An additional set of of read write properties
+    """
+    editableProperties: ERModelRelationshipEditableProperties
+
+    """
+    References to internal resources related to the dataset
+    """
+    institutionalMemory: InstitutionalMemory
+
+    """
+    Ownership metadata of the dataset
+    """
+    ownership: Ownership
+
+    """
+    Status of the Dataset
+    """
+    status: Status
+
+    """
+    Tags used for searching dataset
+    """
+    tags: GlobalTags
+
+    """
+    The structured glossary terms associated with the dataset
+    """
+    glossaryTerms: GlossaryTerms
+
+    """
+    List of relationships between the source Entity and some destination entities with a given types
+    """
+    relationships(input: RelationshipsInput!): EntityRelationshipsResult
+
+    """
+    Privileges given to a user relevant to this entity
+    """
+    privileges: EntityPrivileges
+
+    """
+    No-op required for the model
+    """
+    lineage(input: LineageInput!): EntityLineageResult
+}
+
+"""
+Additional properties about a ERModelRelationship
+"""
+type ERModelRelationshipEditableProperties {
+
+    """
+    Documentation of the ERModelRelationship
+    """
+    description: String
+    """
+    Display name of the ERModelRelationship
+    """
+    name: String
+}
+
+"""
+Additional properties about a ERModelRelationship
+"""
+type ERModelRelationshipProperties {
+
+    """
+    The name of the ERModelRelationship used in display
+    """
+    name: String!
+    """
+    The urn of source
+    """
+    source: Dataset!
+
+    """
+    The urn of destination
+    """
+    destination: Dataset!
+
+    """
+    The relationFieldMappings
+    """
+    relationshipFieldMappings: [RelationshipFieldMapping!]
+
+    """
+    Created timestamp millis associated with the ERModelRelationship
+    """
+    createdTime: Long
+
+    """
+    Created actor urn associated with the ERModelRelationship
+    """
+    createdActor: Entity
+}
+
+"""
+ERModelRelationship FieldMap
+"""
+type RelationshipFieldMapping {
+    """
+    left field
+    """
+    sourceField: String!
+    """
+    bfield
+    """
+    destinationField: String!
 }
 
 """
@@ -466,6 +605,31 @@ type Mutation {
     Sets the Domain for a Dataset, Chart, Dashboard, Data Flow (Pipeline), or Data Job (Task). Returns true if the Domain was successfully removed, or was already removed. Requires the Edit Domains privilege for an asset.
     """
     unsetDomain(entityUrn: String!): Boolean
+
+    """
+    Create a ERModelRelationship
+    """
+    createERModelRelationship(
+        "Input required to create a new ERModelRelationship"
+        input: ERModelRelationshipUpdateInput!): ERModelRelationship
+
+    """
+    Update a ERModelRelationship
+    """
+    updateERModelRelationship(
+        "The urn of the ERModelRelationship to update"
+        urn: String!,
+        "Input required to updat an existing DataHub View"
+        input: ERModelRelationshipUpdateInput!): Boolean
+
+    """
+    Delete a ERModelRelationship
+    """
+    deleteERModelRelationship(
+        "The urn of the ERModelRelationship to delete"
+        urn: String!): Boolean
+
+
 
     """
     Sets the Deprecation status for a Metadata Entity. Requires the Edit Deprecation status privilege for an entity.
@@ -785,6 +949,11 @@ enum EntityType {
     The DataPlatform Entity
     """
     DATA_PLATFORM
+
+    """
+    The ERModelRelationship Entity
+    """
+    ER_MODEL_RELATIONSHIP
 
     """
     The Dashboard Entity
@@ -2579,6 +2748,11 @@ type Container implements Entity {
     The forms associated with the Dataset
     """
     forms: Forms
+
+    """
+    Privileges given to a user relevant to this entity
+    """
+    privileges: EntityPrivileges
 }
 
 """
@@ -3187,6 +3361,12 @@ type ViewProperties {
   logic: String!
 
   """
+  A formatted version of the logic associated with the view.
+  For dbt, this contains the compiled SQL.
+  """
+  formattedLogic: String
+
+  """
   The language in which the view logic is written, for example SQL
   """
   language: String!
@@ -3598,6 +3778,11 @@ type CorpUser implements Entity {
     globalTags: GlobalTags @deprecated
 
     """
+    Whether or not this entity exists on DataHub
+    """
+    exists: Boolean
+
+    """
     Settings that a user can customize through the datahub ui
     """
     settings: CorpUserSettings
@@ -3617,6 +3802,11 @@ type CorpUser implements Entity {
     The forms associated with the Dataset
     """
     forms: Forms
+
+    """
+    Privileges given to a user relevant to this entity
+    """
+    privileges: EntityPrivileges
 }
 
 """
@@ -3993,6 +4183,11 @@ type CorpGroup implements Entity {
     The forms associated with the Dataset
     """
     forms: Forms
+
+    """
+    Privileges given to a user relevant to this entity
+    """
+    privileges: EntityPrivileges
 }
 
 """
@@ -4538,6 +4733,21 @@ input DatasetEditablePropertiesUpdate {
 }
 
 """
+Update to writable Dataset fields
+"""
+input ERModelRelationshipEditablePropertiesUpdate {
+    """
+    Display name of the ERModelRelationship
+    """
+    name: String
+
+    """
+    Writable description for ERModelRelationship
+    """
+    description: String!
+}
+
+"""
 Update to writable Chart fields
 """
 input ChartEditablePropertiesUpdate {
@@ -4653,6 +4863,68 @@ input CreateTagInput {
   Optional description for the Tag
   """
   description: String
+}
+
+"""
+Input required to create/update a new ERModelRelationship
+"""
+input ERModelRelationshipUpdateInput {
+    """
+    Details about the ERModelRelationship
+    """
+    properties: ERModelRelationshipPropertiesInput
+    """
+    Update to editable properties
+    """
+    editableProperties: ERModelRelationshipEditablePropertiesUpdate
+}
+
+"""
+Details about the ERModelRelationship
+"""
+input ERModelRelationshipPropertiesInput {
+    """
+    Details about the ERModelRelationship
+    """
+    name: String!
+    """
+    Details about the ERModelRelationship
+    """
+    source: String!
+    """
+    Details about the ERModelRelationship
+    """
+    destination: String!
+    """
+    Details about the ERModelRelationship
+    """
+    relationshipFieldmappings: [RelationshipFieldMappingInput!]
+    """
+    optional flag about the ERModelRelationship is getting create
+    """
+    created: Boolean
+    """
+    optional field to prevent created time while the ERModelRelationship is getting update
+    """
+    createdAt: Long
+    """
+    optional field to prevent create actor while the ERModelRelationship is getting update
+    """
+    createdBy: String
+}
+
+"""
+Details about the ERModelRelationship
+"""
+input RelationshipFieldMappingInput {
+    """
+    Details about the ERModelRelationship
+    """
+    sourceField: String
+    """
+    Details about the ERModelRelationship
+    """
+    destinationField: String
 }
 
 """
@@ -5901,6 +6173,11 @@ type DataFlow implements EntityWithRelationships & Entity & BrowsableEntity {
     The forms associated with the Dataset
     """
     forms: Forms
+
+    """
+    Privileges given to a user relevant to this entity
+    """
+    privileges: EntityPrivileges
 }
 
 """
@@ -9088,6 +9365,11 @@ type MLModel implements EntityWithRelationships & Entity & BrowsableEntity {
     The forms associated with the Dataset
     """
     forms: Forms
+
+    """
+    Privileges given to a user relevant to this entity
+    """
+    privileges: EntityPrivileges
 }
 
 """
@@ -9215,6 +9497,11 @@ type MLModelGroup implements EntityWithRelationships & Entity & BrowsableEntity 
     The forms associated with the Dataset
     """
     forms: Forms
+
+    """
+    Privileges given to a user relevant to this entity
+    """
+    privileges: EntityPrivileges
 }
 
 type MLModelGroupProperties {
@@ -9355,6 +9642,11 @@ type MLFeature implements EntityWithRelationships & Entity {
     The forms associated with the Dataset
     """
     forms: Forms
+
+    """
+    Privileges given to a user relevant to this entity
+    """
+    privileges: EntityPrivileges
 }
 
 type MLHyperParam {
@@ -9540,6 +9832,11 @@ type MLPrimaryKey implements EntityWithRelationships & Entity {
     The forms associated with the Dataset
     """
     forms: Forms
+
+    """
+    Privileges given to a user relevant to this entity
+    """
+    privileges: EntityPrivileges
 }
 
 type MLPrimaryKeyProperties {
@@ -9683,6 +9980,11 @@ type MLFeatureTable implements EntityWithRelationships & Entity & BrowsableEntit
     The forms associated with the Dataset
     """
     forms: Forms
+
+    """
+    Privileges given to a user relevant to this entity
+    """
+    privileges: EntityPrivileges
 }
 
 type MLFeatureTableEditableProperties {
@@ -10090,6 +10392,11 @@ type Domain implements Entity {
     The forms associated with the Dataset
     """
     forms: Forms
+
+    """
+    Privileges given to a user relevant to this entity
+    """
+    privileges: EntityPrivileges
 }
 
 """
@@ -11503,6 +11810,11 @@ type DataProduct implements Entity {
     The forms associated with the Dataset
     """
     forms: Forms
+
+    """
+    Privileges given to a user relevant to this entity
+    """
+    privileges: EntityPrivileges
 }
 
 """
