@@ -97,7 +97,7 @@ public class UpsertStructuredPropertiesResolver
 
             _entityClient.ingestProposal(structuredPropertiesProposal, authentication, false);
 
-            return StructuredPropertiesMapper.map(structuredProperties);
+            return StructuredPropertiesMapper.map(context, structuredProperties);
           } catch (Exception e) {
             throw new RuntimeException(
                 String.format("Failed to perform update against input %s", input), e);

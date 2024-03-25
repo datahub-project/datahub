@@ -54,11 +54,9 @@ public class TestUtils {
         new Authentication(new Actor(ActorType.USER, UrnUtils.getUrn(actorUrn).getId()), "creds");
     Mockito.when(mockContext.getAuthentication()).thenReturn(authentication);
     OperationContext operationContext =
-        TestOperationContexts.userContextNoSearchAuthorization(
-            mock(EntityRegistry.class), mockAuthorizer, authentication);
+        TestOperationContexts.userContextNoSearchAuthorization(mockAuthorizer, authentication);
     Mockito.when(mockContext.getOperationContext()).thenReturn(operationContext);
-    Mockito.when(mockContext.getOperationContext())
-        .thenReturn(Mockito.mock(OperationContext.class));
+
     return mockContext;
   }
 

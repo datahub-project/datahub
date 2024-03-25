@@ -198,7 +198,11 @@ export class DatasetEntity implements Entity<Dataset> {
                     component: AccessManagement,
                     display: {
                         visible: (_, _1) => this.appconfig().config.featureFlags.showAccessManagement,
-                        enabled: (_, _2) => true,
+                        enabled: (_, dataset: GetDatasetQuery) => {
+                            const accessAspect = dataset?.dataset?.access;
+                            const rolesList = accessAspect?.roles;
+                            return !!accessAspect && !!rolesList && rolesList.length > 0;
+                        },
                     },
                 },
                 {

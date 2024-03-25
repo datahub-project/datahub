@@ -49,7 +49,7 @@ public class AnalyticsUtil {
     Cell result = new Cell();
     result.setValue(urn);
     try {
-      Entity entity = UrnToEntityMapper.map(Urn.createFromString(urn));
+      Entity entity = UrnToEntityMapper.map(null, Urn.createFromString(urn));
       result.setEntity(entity);
       result.setLinkParams(
           LinkParams.builder()

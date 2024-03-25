@@ -7,6 +7,7 @@ import com.linkedin.common.GlobalTags;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.datahub.graphql.generated.CorpUser;
 import com.linkedin.datahub.graphql.generated.CorpUserAppearanceSettings;
@@ -41,17 +42,22 @@ public class CorpUserMapper {
 
   public static final CorpUserMapper INSTANCE = new CorpUserMapper();
 
-  public static CorpUser map(@Nonnull final EntityResponse entityResponse) {
-    return INSTANCE.apply(entityResponse, null);
+  public static CorpUser map(
+      @Nullable QueryContext context, @Nonnull final EntityResponse entityResponse) {
+    return INSTANCE.apply(context, entityResponse, null);
   }
 
   public static CorpUser map(
-      @Nonnull final EntityResponse entityResponse, @Nullable final FeatureFlags featureFlags) {
-    return INSTANCE.apply(entityResponse, featureFlags);
+      @Nullable QueryContext context,
+      @Nonnull final EntityResponse entityResponse,
+      @Nullable final FeatureFlags featureFlags) {
+    return INSTANCE.apply(context, entityResponse, featureFlags);
   }
 
   public CorpUser apply(
-      @Nonnull final EntityResponse entityResponse, @Nullable final FeatureFlags featureFlags) {
+      @Nullable QueryContext context,
+      @Nonnull final EntityResponse entityResponse,
+      @Nullable final FeatureFlags featureFlags) {
     final CorpUser result = new CorpUser();
     Urn entityUrn = entityResponse.getUrn();
 
@@ -62,26 +68,27 @@ public class CorpUserMapper {
     mappingHelper.mapToResult(CORP_USER_KEY_ASPECT_NAME, this::mapCorpUserKey);
     mappingHelper.mapToResult(
         CORP_USER_INFO_ASPECT_NAME,
-        (corpUser, dataMap) -> this.mapCorpUserInfo(corpUser, dataMap, entityUrn));
+        (corpUser, dataMap) -> this.mapCorpUserInfo(context, corpUser, dataMap, entityUrn));
     mappingHelper.mapToResult(
         CORP_USER_EDITABLE_INFO_ASPECT_NAME,
         (corpUser, dataMap) ->
             corpUser.setEditableProperties(
-                CorpUserEditableInfoMapper.map(new CorpUserEditableInfo(dataMap))));
+                CorpUserEditableInfoMapper.map(context, new CorpUserEditableInfo(dataMap))));
     mappingHelper.mapToResult(
         GLOBAL_TAGS_ASPECT_NAME,
         (corpUser, dataMap) ->
-            corpUser.setGlobalTags(GlobalTagsMapper.map(new GlobalTags(dataMap), entityUrn)));
+            corpUser.setGlobalTags(
+                GlobalTagsMapper.map(context, new GlobalTags(dataMap), entityUrn)));
     mappingHelper.mapToResult(
         CORP_USER_STATUS_ASPECT_NAME,
         (corpUser, dataMap) ->
-            corpUser.setStatus(CorpUserStatusMapper.map(new CorpUserStatus(dataMap))));
+            corpUser.setStatus(CorpUserStatusMapper.map(context, new CorpUserStatus(dataMap))));
     mappingHelper.mapToResult(CORP_USER_CREDENTIALS_ASPECT_NAME, this::mapIsNativeUser);
     mappingHelper.mapToResult(
         STRUCTURED_PROPERTIES_ASPECT_NAME,
         ((entity, dataMap) ->
             entity.setStructuredProperties(
-                StructuredPropertiesMapper.map(new StructuredProperties(dataMap)))));
+                StructuredPropertiesMapper.map(context, new StructuredProperties(dataMap)))));
     mappingHelper.mapToResult(
         FORMS_ASPECT_NAME,
         ((entity, dataMap) ->
@@ -151,10 +158,13 @@ public class CorpUserMapper {
   }
 
   private void mapCorpUserInfo(
-      @Nonnull CorpUser corpUser, @Nonnull DataMap dataMap, @Nonnull Urn entityUrn) {
+      @Nullable QueryContext context,
+      @Nonnull CorpUser corpUser,
+      @Nonnull DataMap dataMap,
+      @Nonnull Urn entityUrn) {
     CorpUserInfo corpUserInfo = new CorpUserInfo(dataMap);
-    corpUser.setProperties(CorpUserPropertiesMapper.map(corpUserInfo));
-    corpUser.setInfo(CorpUserInfoMapper.map(corpUserInfo));
+    corpUser.setProperties(CorpUserPropertiesMapper.map(context, corpUserInfo));
+    corpUser.setInfo(CorpUserInfoMapper.map(context, corpUserInfo));
     CorpUserProperties corpUserProperties = corpUser.getProperties();
     if (corpUserInfo.hasCustomProperties()) {
       corpUserProperties.setCustomProperties(
