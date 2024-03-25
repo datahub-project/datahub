@@ -11,6 +11,7 @@ from datahub_executor.common.client.config.graphql.query import (
 from datahub_executor.common.graph import DataHubAssertionGraph
 from datahub_executor.common.helpers import create_datahub_graph
 from datahub_executor.common.types import ExecutorConfig
+from datahub_executor.config import DATAHUB_EXECUTOR_MODE
 
 CREDENTIAL_EXPIRY_DELTA = 5
 
@@ -72,36 +73,31 @@ class ExecutorConfigResolver:
         return self._fetch_executor_configs()
 
     @retry(
-        stop=stop_after_attempt(3),
-        wait=wait_exponential(multiplier=2, min=4, max=10),
-        reraise=True,
+        wait=wait_exponential(multiplier=2, min=4, max=60),
         before_sleep=before_sleep_log(logger, logging.ERROR, True),
     )
     def _fetch_executor_configs(self) -> List[ExecutorConfig]:
         result = self.graph.execute_graphql(GRAPHQL_FETCH_EXECUTOR_CONFIGS)
+
         if "error" in result and result["error"] is not None:
-            logger.error(
-                f"Received error while fetching executor_configs from GMS! {result.get('error')}"
-            )
-            return []
+            raise Exception(f"Received error while fetching executor_configs from GMS! {result.get('error')}")
 
         if (
             "listExecutorConfigs" not in result
             or "executorConfigs" not in result["listExecutorConfigs"]
         ):
-            logger.error(
-                "Found incomplete search results when fetching executor_configs from GMS!"
-            )
-            return []
+            raise Exception("Found incomplete search results when fetching executor_configs from GMS!")
+
+        # In worker mode, having no queues means that worker never has work to do, so we have to retry until we get any
+        if DATAHUB_EXECUTOR_MODE != "coordinator" and len(result["listExecutorConfigs"]["executorConfigs"]) == 0:
+          raise Exception("GMS returned no executor configs, unable to proceed.")
 
         executor_configs = []
         for credential in result["listExecutorConfigs"]["executorConfigs"]:
             try:
                 executor_configs.append(ExecutorConfig.parse_obj(credential))
             except Exception:
-                logger.exception(
-                    f"Failed to convert ExecutorConfig object to Python object. {credential}"
-                )
+                raise Exception(f"Failed to convert ExecutorConfig object to Python object. {credential}")
 
         self.executor_configs = executor_configs
         return self.executor_configs

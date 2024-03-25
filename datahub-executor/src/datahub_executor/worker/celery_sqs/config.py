@@ -48,6 +48,7 @@ def update_celery_config(
     config.task_create_missing_queues = False
 
     if executor_configs:
+        config.task_default_queue = executor_configs[0].executor_id
         config.broker_url = f"sqs://{safequote(executor_configs[0].access_key)}:{safequote(executor_configs[0].secret_key)}@"
         config.broker_transport_options = {
             "region": executor_configs[0].region,
