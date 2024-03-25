@@ -179,7 +179,7 @@ export class DatasetEntity implements Entity<Dataset> {
                 },
                 {
                     name: 'Runs',
-                    // TODO rename this to DatasetRunsTab
+                    // TODO: Rename this to DatasetRunsTab.
                     component: OperationsTab,
                     display: {
                         visible: (_, dataset: GetDatasetQuery) => {
