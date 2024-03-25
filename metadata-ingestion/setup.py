@@ -411,6 +411,9 @@ plugins: Dict[str, Set[str]] = {
     "databricks": databricks | sql_common | sqllineage_lib,
     "fivetran": snowflake_common | bigquery_common,
     "qlik-sense": sqlglot_lib | {"requests", "websocket-client"},
+    "datahub-reporting-forms": stats_common | aws_common,
+    "datahub-reporting-extract-graph": stats_common | aws_common | {"opensearch-py==2.4.2"},
+    "datahub-reporting-extract-sql": stats_common | aws_common,
 }
 
 # This is mainly used to exclude plugins from the Docker image.
@@ -546,6 +549,9 @@ base_dev_requirements = {
             "fivetran",
             "kafka-connect",
             "qlik-sense",
+            "datahub-reporting-forms",
+            "datahub-reporting-extract-graph",
+            "datahub-reporting-extract-sql",
         ]
         if plugin
         for dependency in plugins[plugin]
@@ -652,6 +658,9 @@ entry_points = {
         "sql-queries = datahub.ingestion.source.sql_queries:SqlQueriesSource",
         "fivetran = datahub.ingestion.source.fivetran.fivetran:FivetranSource",
         "qlik-sense = datahub.ingestion.source.qlik_sense.qlik_sense:QlikSenseSource",
+        "datahub-reporting-forms = datahub.ingestion.source.datahub_reporting.forms:DataHubReportingFormsSource",
+        "datahub-reporting-extract-graph = datahub.ingestion.source.datahub_reporting.extract_graph:DataHubReportingExtractGraphSource",
+        "datahub-reporting-extract-sql = datahub.ingestion.source.datahub_reporting.extract_sql:DataHubReportingExtractSqlSource",
     ],
     "datahub.ingestion.transformer.plugins": [
         "pattern_cleanup_ownership = datahub.ingestion.transformer.pattern_cleanup_ownership:PatternCleanUpOwnership",
