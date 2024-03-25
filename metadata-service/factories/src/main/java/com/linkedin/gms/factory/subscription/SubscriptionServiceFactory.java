@@ -4,6 +4,7 @@ import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.service.SubscriptionService;
 import com.linkedin.metadata.spring.YamlPropertySourceFactory;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.openapi.client.OpenApiClient;
 import javax.annotation.Nonnull;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
@@ -19,8 +20,9 @@ public class SubscriptionServiceFactory {
   @Nonnull
   protected SubscriptionService getInstance(
       @Qualifier("systemOperationContext") final OperationContext systemOpContext,
-      final SystemEntityClient entityClient)
+      final SystemEntityClient entityClient,
+      @Qualifier("openApiClient") OpenApiClient openApiClient)
       throws Exception {
-    return new SubscriptionService(systemOpContext, entityClient);
+    return new SubscriptionService(systemOpContext, entityClient, openApiClient);
   }
 }

@@ -14,6 +14,7 @@ import com.linkedin.metadata.entity.AspectUtils;
 import com.linkedin.metadata.key.OwnershipTypeKey;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.ownership.OwnershipTypeInfo;
+import io.datahubproject.openapi.client.OpenApiClient;
 import java.util.Objects;
 import java.util.UUID;
 import javax.annotation.Nonnull;
@@ -35,8 +36,10 @@ public class OwnershipTypeService extends BaseService {
   public static final String SYSTEM_ID = "__system__";
 
   public OwnershipTypeService(
-      @Nonnull EntityClient entityClient, @Nonnull Authentication systemAuthentication) {
-    super(entityClient, systemAuthentication);
+      @Nonnull EntityClient entityClient,
+      @Nonnull Authentication systemAuthentication,
+      @Nonnull final OpenApiClient openApiClient) {
+    super(entityClient, systemAuthentication, openApiClient);
   }
 
   /**

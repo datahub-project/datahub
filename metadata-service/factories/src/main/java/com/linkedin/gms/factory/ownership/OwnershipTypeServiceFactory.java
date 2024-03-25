@@ -3,7 +3,9 @@ package com.linkedin.gms.factory.ownership;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.service.OwnershipTypeService;
 import com.linkedin.metadata.spring.YamlPropertySourceFactory;
+import io.datahubproject.openapi.client.OpenApiClient;
 import javax.annotation.Nonnull;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.PropertySource;
@@ -16,8 +18,11 @@ public class OwnershipTypeServiceFactory {
   @Bean(name = "ownerShipTypeService")
   @Scope("singleton")
   @Nonnull
-  protected OwnershipTypeService getInstance(final SystemEntityClient entityClient)
+  protected OwnershipTypeService getInstance(
+      final SystemEntityClient entityClient,
+      @Qualifier("openApiClient") OpenApiClient openApiClient)
       throws Exception {
-    return new OwnershipTypeService(entityClient, entityClient.getSystemAuthentication());
+    return new OwnershipTypeService(
+        entityClient, entityClient.getSystemAuthentication(), openApiClient);
   }
 }

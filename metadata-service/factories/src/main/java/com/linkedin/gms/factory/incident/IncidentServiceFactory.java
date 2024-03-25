@@ -4,13 +4,13 @@ import com.datahub.authentication.Authentication;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.service.IncidentService;
 import com.linkedin.metadata.spring.YamlPropertySourceFactory;
+import io.datahubproject.openapi.client.OpenApiClient;
 import javax.annotation.Nonnull;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.PropertySource;
-import org.springframework.context.annotation.Scope;
 
 @Configuration
 @PropertySource(value = "classpath:/application.yml", factory = YamlPropertySourceFactory.class)
@@ -21,9 +21,11 @@ public class IncidentServiceFactory {
   private Authentication _authentication;
 
   @Bean(name = "incidentService")
-  @Scope("singleton")
   @Nonnull
-  protected IncidentService getInstance(final SystemEntityClient entityClient) throws Exception {
-    return new IncidentService(entityClient, _authentication);
+  protected IncidentService getInstance(
+      final SystemEntityClient entityClient,
+      @Qualifier("openApiClient") final OpenApiClient openApiClient)
+      throws Exception {
+    return new IncidentService(entityClient, _authentication, openApiClient);
   }
 }

@@ -28,6 +28,7 @@ import com.linkedin.query.QuerySubject;
 import com.linkedin.query.QuerySubjectArray;
 import com.linkedin.query.QuerySubjects;
 import com.linkedin.r2.RemoteInvocationException;
+import io.datahubproject.openapi.client.OpenApiClient;
 import java.util.List;
 import org.mockito.Mockito;
 import org.testng.Assert;
@@ -46,7 +47,9 @@ public class QueryServiceTest {
   private void testCreateQuerySuccess() throws Exception {
 
     final EntityClient mockClient = createQueryMockEntityClient();
-    final QueryService service = new QueryService(mockClient, Mockito.mock(Authentication.class));
+    final QueryService service =
+        new QueryService(
+            mockClient, Mockito.mock(Authentication.class), Mockito.mock(OpenApiClient.class));
 
     // Case 1: All fields provided
     Urn urn =
@@ -90,7 +93,9 @@ public class QueryServiceTest {
   @Test
   private void testCreateQueryErrorMissingInputs() throws Exception {
     final EntityClient mockClient = createQueryMockEntityClient();
-    final QueryService service = new QueryService(mockClient, Mockito.mock(Authentication.class));
+    final QueryService service =
+        new QueryService(
+            mockClient, Mockito.mock(Authentication.class), Mockito.mock(OpenApiClient.class));
 
     // Case 1: missing Query Source
     Assert.assertThrows(
@@ -143,7 +148,9 @@ public class QueryServiceTest {
             Mockito.any(Authentication.class),
             Mockito.eq(false));
 
-    final QueryService service = new QueryService(mockClient, Mockito.mock(Authentication.class));
+    final QueryService service =
+        new QueryService(
+            mockClient, Mockito.mock(Authentication.class), Mockito.mock(OpenApiClient.class));
 
     // Throws wrapped exception
     Assert.assertThrows(
@@ -179,7 +186,9 @@ public class QueryServiceTest {
         0L,
         0L);
 
-    final QueryService service = new QueryService(mockClient, Mockito.mock(Authentication.class));
+    final QueryService service =
+        new QueryService(
+            mockClient, Mockito.mock(Authentication.class), Mockito.mock(OpenApiClient.class));
 
     final String newName = "new name";
     final String newDescription = "new description";
@@ -333,7 +342,9 @@ public class QueryServiceTest {
                 Mockito.any(Authentication.class)))
         .thenReturn(null);
 
-    final QueryService service = new QueryService(mockClient, Mockito.mock(Authentication.class));
+    final QueryService service =
+        new QueryService(
+            mockClient, Mockito.mock(Authentication.class), Mockito.mock(OpenApiClient.class));
 
     // Throws wrapped exception
     Assert.assertThrows(
@@ -361,7 +372,9 @@ public class QueryServiceTest {
             Mockito.eq(ImmutableSet.of(QUERY_PROPERTIES_ASPECT_NAME)),
             Mockito.any(Authentication.class));
 
-    final QueryService service = new QueryService(mockClient, Mockito.mock(Authentication.class));
+    final QueryService service =
+        new QueryService(
+            mockClient, Mockito.mock(Authentication.class), Mockito.mock(OpenApiClient.class));
 
     // Throws wrapped exception
     Assert.assertThrows(
@@ -381,7 +394,9 @@ public class QueryServiceTest {
   private void testDeleteQuerySuccess() throws Exception {
     final EntityClient mockClient = Mockito.mock(EntityClient.class);
 
-    final QueryService service = new QueryService(mockClient, Mockito.mock(Authentication.class));
+    final QueryService service =
+        new QueryService(
+            mockClient, Mockito.mock(Authentication.class), Mockito.mock(OpenApiClient.class));
 
     service.deleteQuery(TEST_QUERY_URN, mockAuthentication());
 
@@ -393,7 +408,9 @@ public class QueryServiceTest {
   private void testDeleteQueryError() throws Exception {
     final EntityClient mockClient = Mockito.mock(EntityClient.class);
 
-    final QueryService service = new QueryService(mockClient, Mockito.mock(Authentication.class));
+    final QueryService service =
+        new QueryService(
+            mockClient, Mockito.mock(Authentication.class), Mockito.mock(OpenApiClient.class));
 
     Mockito.doThrow(new RemoteInvocationException())
         .when(mockClient)
@@ -424,7 +441,9 @@ public class QueryServiceTest {
         0L,
         1L);
 
-    final QueryService service = new QueryService(mockClient, Mockito.mock(Authentication.class));
+    final QueryService service =
+        new QueryService(
+            mockClient, Mockito.mock(Authentication.class), Mockito.mock(OpenApiClient.class));
 
     final QueryProperties properties =
         service.getQueryProperties(TEST_QUERY_URN, mockAuthentication());
@@ -453,7 +472,9 @@ public class QueryServiceTest {
                 Mockito.any(Authentication.class)))
         .thenReturn(null);
 
-    final QueryService service = new QueryService(mockClient, Mockito.mock(Authentication.class));
+    final QueryService service =
+        new QueryService(
+            mockClient, Mockito.mock(Authentication.class), Mockito.mock(OpenApiClient.class));
 
     Assert.assertNull(service.getQueryProperties(TEST_QUERY_URN, mockAuthentication()));
   }
@@ -472,7 +493,9 @@ public class QueryServiceTest {
                     QUERY_PROPERTIES_ASPECT_NAME, Constants.QUERY_SUBJECTS_ASPECT_NAME)),
             Mockito.any(Authentication.class));
 
-    final QueryService service = new QueryService(mockClient, Mockito.mock(Authentication.class));
+    final QueryService service =
+        new QueryService(
+            mockClient, Mockito.mock(Authentication.class), Mockito.mock(OpenApiClient.class));
 
     // Throws wrapped exception
     Assert.assertThrows(
@@ -492,7 +515,9 @@ public class QueryServiceTest {
 
     resetQuerySubjectsClient(mockClient, TEST_QUERY_URN, existingSubjects);
 
-    final QueryService service = new QueryService(mockClient, Mockito.mock(Authentication.class));
+    final QueryService service =
+        new QueryService(
+            mockClient, Mockito.mock(Authentication.class), Mockito.mock(OpenApiClient.class));
 
     final QuerySubjects querySubjects =
         service.getQuerySubjects(TEST_QUERY_URN, mockAuthentication());
@@ -513,7 +538,9 @@ public class QueryServiceTest {
                 Mockito.any(Authentication.class)))
         .thenReturn(null);
 
-    final QueryService service = new QueryService(mockClient, Mockito.mock(Authentication.class));
+    final QueryService service =
+        new QueryService(
+            mockClient, Mockito.mock(Authentication.class), Mockito.mock(OpenApiClient.class));
 
     Assert.assertNull(service.getQueryProperties(TEST_QUERY_URN, mockAuthentication()));
   }
@@ -530,7 +557,9 @@ public class QueryServiceTest {
             Mockito.eq(ImmutableSet.of(QUERY_PROPERTIES_ASPECT_NAME, QUERY_SUBJECTS_ASPECT_NAME)),
             Mockito.any(Authentication.class));
 
-    final QueryService service = new QueryService(mockClient, Mockito.mock(Authentication.class));
+    final QueryService service =
+        new QueryService(
+            mockClient, Mockito.mock(Authentication.class), Mockito.mock(OpenApiClient.class));
 
     // Throws wrapped exception
     Assert.assertThrows(

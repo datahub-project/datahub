@@ -15,6 +15,7 @@ import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.view.DataHubViewDefinition;
 import com.linkedin.view.DataHubViewInfo;
 import com.linkedin.view.DataHubViewType;
+import io.datahubproject.openapi.client.OpenApiClient;
 import java.util.Objects;
 import java.util.UUID;
 import javax.annotation.Nonnull;
@@ -34,8 +35,10 @@ import lombok.extern.slf4j.Slf4j;
 public class ViewService extends BaseService {
 
   public ViewService(
-      @Nonnull EntityClient entityClient, @Nonnull Authentication systemAuthentication) {
-    super(entityClient, systemAuthentication);
+      @Nonnull EntityClient entityClient,
+      @Nonnull Authentication systemAuthentication,
+      @Nonnull final OpenApiClient openApiClient) {
+    super(entityClient, systemAuthentication, openApiClient);
   }
 
   /**

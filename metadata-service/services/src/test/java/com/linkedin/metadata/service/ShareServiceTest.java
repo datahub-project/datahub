@@ -18,6 +18,7 @@ import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.mxe.MetadataChangeProposal;
+import io.datahubproject.openapi.client.OpenApiClient;
 import org.mockito.Mockito;
 import org.testng.Assert;
 import org.testng.annotations.Test;
@@ -35,7 +36,9 @@ public class ShareServiceTest {
   @Test
   private void testUpsertShareResultSuccess() throws Exception {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
-    final ShareService service = new ShareService(mockClient, Mockito.mock(Authentication.class));
+    final ShareService service =
+        new ShareService(
+            mockClient, Mockito.mock(Authentication.class), Mockito.mock(OpenApiClient.class));
 
     final Share shareAspect =
         service.upsertShareResult(
@@ -72,7 +75,9 @@ public class ShareServiceTest {
                 Mockito.eq(ImmutableSet.of(Constants.SHARE_ASPECT_NAME)),
                 Mockito.any(Authentication.class)))
         .thenReturn(response);
-    final ShareService service = new ShareService(mockClient, Mockito.mock(Authentication.class));
+    final ShareService service =
+        new ShareService(
+            mockClient, Mockito.mock(Authentication.class), Mockito.mock(OpenApiClient.class));
 
     final Share shareAspect =
         service.upsertShareResult(
@@ -112,7 +117,9 @@ public class ShareServiceTest {
                 Mockito.eq(ImmutableSet.of(Constants.SHARE_ASPECT_NAME)),
                 Mockito.any(Authentication.class)))
         .thenReturn(response);
-    final ShareService service = new ShareService(mockClient, Mockito.mock(Authentication.class));
+    final ShareService service =
+        new ShareService(
+            mockClient, Mockito.mock(Authentication.class), Mockito.mock(OpenApiClient.class));
 
     final Share shareAspect =
         service.upsertShareResult(
@@ -152,7 +159,9 @@ public class ShareServiceTest {
                 Mockito.eq(ImmutableSet.of(Constants.SHARE_ASPECT_NAME)),
                 Mockito.any(Authentication.class)))
         .thenReturn(response);
-    final ShareService service = new ShareService(mockClient, Mockito.mock(Authentication.class));
+    final ShareService service =
+        new ShareService(
+            mockClient, Mockito.mock(Authentication.class), Mockito.mock(OpenApiClient.class));
 
     // create new share with instance 2
     final Share shareAspect =

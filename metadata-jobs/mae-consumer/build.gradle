@@ -30,6 +30,7 @@ dependencies {
     implementation project(':notifications')
     implementation project(':metadata-dao-impl:kafka-producer')
     implementation externalDependency.opentelemetryAnnotations
+    implementation project(':metadata-service:openapi-servlet:models')
 
     implementation externalDependency.elasticSearchRest
     implementation externalDependency.kafkaAvroSerde

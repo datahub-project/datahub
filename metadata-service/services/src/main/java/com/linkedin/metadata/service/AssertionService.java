@@ -34,6 +34,7 @@ import com.linkedin.metadata.key.AssertionKey;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.r2.RemoteInvocationException;
+import io.datahubproject.openapi.client.OpenApiClient;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -47,8 +48,9 @@ public class AssertionService extends BaseService {
 
   public AssertionService(
       @Nonnull final EntityClient entityClient,
-      @Nonnull final Authentication systemAuthentication) {
-    super(entityClient, systemAuthentication);
+      @Nonnull final Authentication systemAuthentication,
+      @Nonnull final OpenApiClient openApiClient) {
+    super(entityClient, systemAuthentication, openApiClient);
   }
 
   /**

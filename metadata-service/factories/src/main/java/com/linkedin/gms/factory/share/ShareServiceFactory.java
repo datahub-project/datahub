@@ -4,6 +4,7 @@ import com.datahub.authentication.Authentication;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.service.ShareService;
 import com.linkedin.metadata.spring.YamlPropertySourceFactory;
+import io.datahubproject.openapi.client.OpenApiClient;
 import javax.annotation.Nonnull;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -22,8 +23,10 @@ public class ShareServiceFactory {
   @Bean(name = "shareService")
   @Scope("singleton")
   @Nonnull
-  protected ShareService getInstance(final @Qualifier("entityClient") EntityClient entityClient)
+  protected ShareService getInstance(
+      final @Qualifier("entityClient") EntityClient entityClient,
+      @Qualifier("openApiClient") final OpenApiClient openApiClient)
       throws Exception {
-    return new ShareService(entityClient, _authentication);
+    return new ShareService(entityClient, _authentication, openApiClient);
   }
 }

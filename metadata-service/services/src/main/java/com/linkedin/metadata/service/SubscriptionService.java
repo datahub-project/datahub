@@ -27,6 +27,7 @@ import com.linkedin.subscription.SubscriptionInfo;
 import com.linkedin.subscription.SubscriptionNotificationConfig;
 import com.linkedin.subscription.SubscriptionTypeArray;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.openapi.client.OpenApiClient;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -45,8 +46,10 @@ public class SubscriptionService extends BaseService {
   private final OperationContext systemOpContext;
 
   public SubscriptionService(
-      @Nonnull OperationContext systemOpContext, @Nonnull EntityClient entityClient) {
-    super(entityClient, systemOpContext.getSystemAuthentication().get());
+      @Nonnull OperationContext systemOpContext,
+      @Nonnull EntityClient entityClient,
+      @Nonnull final OpenApiClient openApiClient) {
+    super(entityClient, systemOpContext.getSystemAuthentication().get(), openApiClient);
     this.systemOpContext = systemOpContext;
   }
 

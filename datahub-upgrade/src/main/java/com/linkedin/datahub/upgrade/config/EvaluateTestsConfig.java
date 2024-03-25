@@ -5,8 +5,11 @@ import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.test.TestEngine;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.openapi.client.OpenApiClient;
 import javax.annotation.Nonnull;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -19,14 +22,21 @@ public class EvaluateTestsConfig {
   @Bean(name = "evaluateTests")
   @DependsOn({"entitySearchService", "testEngine", "systemOperationContext"})
   @Nonnull
-  public EvaluateTests createInstance() {
-    final SystemEntityClient entityClient =
-        applicationContext.getBean("systemEntityClient", SystemEntityClient.class);
-    final EntitySearchService entitySearchService =
-        applicationContext.getBean(EntitySearchService.class);
-    final TestEngine testEngine = applicationContext.getBean(TestEngine.class);
-    final OperationContext systemOpContext =
-        applicationContext.getBean("systemOperationContext", OperationContext.class);
+  public EvaluateTests createInstance(
+      @Qualifier("systemEntityClient") SystemEntityClient entityClient,
+      EntitySearchService entitySearchService,
+      TestEngine testEngine,
+      @Qualifier("systemOperationContext") OperationContext systemOpContext) {
     return new EvaluateTests(systemOpContext, entityClient, entitySearchService, testEngine);
+  }
+
+  @Bean("openapiClient")
+  public OpenApiClient openapiClient(
+      @Value("${datahub.gms.host}") String gmsHost,
+      @Value("${datahub.gms.port}") int gmsPort,
+      @Value("${datahub.gms.useSSL}") boolean gmsUseSSL,
+      @Value("${datahub.gms.uri}") String gmsUri,
+      @Qualifier("systemOperationContext") OperationContext systemOperationContext) {
+    return new OpenApiClient(gmsHost, gmsPort, gmsUseSSL, systemOperationContext);
   }
 }

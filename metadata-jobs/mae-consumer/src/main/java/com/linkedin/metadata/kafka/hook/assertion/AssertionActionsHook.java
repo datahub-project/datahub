@@ -46,6 +46,7 @@ import com.linkedin.metadata.service.util.AssertionUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeLog;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.openapi.client.OpenApiClient;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -142,17 +143,21 @@ public class AssertionActionsHook implements MetadataChangeLogHook {
   public AssertionActionsHook(
       @Nonnull OperationContext systemOpContext,
       @Nonnull final SystemEntityClient systemEntityClient,
-      @Nonnull @Value("${assertionActions.hook.enabled:true}") Boolean isEnabled) {
+      @Nonnull @Value("${assertionActions.hook.enabled:true}") Boolean isEnabled,
+      @Nonnull final OpenApiClient openApiClient) {
     _entityRegistry =
         Objects.requireNonNull(systemOpContext.getEntityRegistry(), "entityRegistry is required");
     _entityClient = Objects.requireNonNull(systemEntityClient, "entityClient is required");
     this.systemOpContext = Objects.requireNonNull(systemOpContext, "authentication is required");
     _assertionService =
-        new AssertionService(systemEntityClient, systemEntityClient.getSystemAuthentication());
+        new AssertionService(
+            systemEntityClient, systemEntityClient.getSystemAuthentication(), openApiClient);
     _incidentService =
-        new IncidentService(systemEntityClient, systemEntityClient.getSystemAuthentication());
+        new IncidentService(
+            systemEntityClient, systemEntityClient.getSystemAuthentication(), openApiClient);
     _anomalyService =
-        new AnomalyService(systemEntityClient, systemEntityClient.getSystemAuthentication());
+        new AnomalyService(
+            systemEntityClient, systemEntityClient.getSystemAuthentication(), openApiClient);
     _isEnabled = isEnabled;
   }
 
