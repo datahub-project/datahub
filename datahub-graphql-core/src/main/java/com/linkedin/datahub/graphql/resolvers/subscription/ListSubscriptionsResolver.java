@@ -37,7 +37,8 @@ public class ListSubscriptionsResolver
     final int start = input.getStart() == null ? 0 : input.getStart();
     final int count = input.getCount() == null ? 10 : input.getCount();
     final String groupUrnString = input.getGroupUrn();
-    final String actorUrnString = groupUrnString == null ? input.getActorUrn() : groupUrnString;
+    final String userUrnString = input.getActorUrn() != null ? input.getActorUrn() : context.getActorUrn();
+    final String actorUrnString = groupUrnString == null ? userUrnString : groupUrnString;
     return CompletableFuture.supplyAsync(
         () -> {
           try {
