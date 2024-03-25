@@ -1,16 +1,27 @@
 package com.linkedin.datahub.graphql.resolvers.auth;
 
+import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
+
+import com.google.common.collect.ImmutableList;
 import com.linkedin.common.EntityRelationship;
 import com.linkedin.common.EntityRelationships;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
+import com.linkedin.datahub.graphql.generated.AndFilterInput;
 import com.linkedin.datahub.graphql.generated.DebugAccessResult;
+import com.linkedin.datahub.graphql.generated.FacetFilterInput;
+import com.linkedin.datahub.graphql.generated.FilterOperator;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.graph.GraphClient;
+import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
+import com.linkedin.metadata.query.filter.SortCriterion;
+import com.linkedin.metadata.query.filter.SortOrder;
+import com.linkedin.metadata.search.SearchResult;
+import com.linkedin.r2.RemoteInvocationException;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.*;
@@ -19,6 +30,7 @@ import java.util.stream.Collectors;
 
 public class DebugAccessResolver implements DataFetcher<CompletableFuture<DebugAccessResult>> {
 
+  private static final String LAST_UPDATED_AT_FIELD = "lastUpdatedTimestamp";
   private final EntityClient _entityClient;
   private final GraphClient _graphClient;
 
@@ -40,15 +52,15 @@ public class DebugAccessResolver implements DataFetcher<CompletableFuture<DebugA
           }
           final String userUrn = environment.getArgument("userUrn");
 
-          DebugAccessResult debugAccessResult = new DebugAccessResult();
-          populateDebugAccessResult(debugAccessResult, userUrn, context.getActorUrn());
-          return debugAccessResult;
+          return populateDebugAccessResult(userUrn, context);
         });
   }
 
-  public void populateDebugAccessResult(
-      DebugAccessResult debugAccessResult, String userUrn, String actorUrn) {
+  public DebugAccessResult populateDebugAccessResult(String userUrn, QueryContext context) {
+
     try {
+      final String actorUrn = context.getActorUrn();
+      final DebugAccessResult result = new DebugAccessResult();
       final List<String> types =
           Arrays.asList("IsMemberOfRole", "IsMemberOfGroup", "IsMemberOfNativeGroup");
       EntityRelationships entityRelationships = getEntityRelationships(userUrn, types, actorUrn);
@@ -77,14 +89,20 @@ public class DebugAccessResolver implements DataFetcher<CompletableFuture<DebugA
       Set<String> allRoles = new HashSet<>(roles);
       allRoles.addAll(rolesViaGroups);
 
-      debugAccessResult.setRoles(roles);
-      debugAccessResult.setGroups(groups);
-      debugAccessResult.setGroupsWithRoles(groupsWithRoles);
-      debugAccessResult.setRolesViaGroups(new ArrayList<>(rolesViaGroups));
-      debugAccessResult.setAllRoles(new ArrayList<>(allRoles));
+      result.setRoles(roles);
+      result.setGroups(groups);
+      result.setGroupsWithRoles(groupsWithRoles);
+      result.setRolesViaGroups(new ArrayList<>(rolesViaGroups));
+      result.setAllRoles(new ArrayList<>(allRoles));
 
       // TODO Filter for policy URNs that apply to user, group, role URNs
 
+      // List of Policy that apply to this user directly or indirectly.
+      result.setPolicies(getPoliciesFor(context, userUrn, groups, roles));
+
+      // List of privileges that this user has directly or indirectly.
+      // result.setPrivileges();
+      return result;
     } catch (Exception e) {
       throw new RuntimeException(e);
     }
@@ -103,5 +121,36 @@ public class DebugAccessResolver implements DataFetcher<CompletableFuture<DebugA
       final String urn, final List<String> types, final String actor) {
     return _graphClient.getRelatedEntities(
         urn, types, RelationshipDirection.OUTGOING, 0, 100, actor);
+  }
+
+  private List<String> getPoliciesFor(
+      final QueryContext context,
+      final String user,
+      final List<String> groups,
+      final List<String> roles)
+      throws RemoteInvocationException {
+    final SortCriterion sortCriterion =
+        new SortCriterion().setField(LAST_UPDATED_AT_FIELD).setOrder(SortOrder.DESCENDING);
+    SearchResult searchResult =
+        _entityClient.search(
+            context.getOperationContext().withSearchFlags(flags -> flags.setFulltext(true)),
+            Constants.POLICY_ENTITY_NAME,
+            "",
+            buildFilterToGetPolicies(user, groups, roles),
+            sortCriterion,
+            0,
+            10000);
+    return null;
+  }
+
+  private Filter buildFilterToGetPolicies(
+      final String user, final List<String> groups, final List<String> roles) {
+    final AndFilterInput globalCriteria = new AndFilterInput();
+    List<FacetFilterInput> andConditions = new ArrayList<>();
+    andConditions.add(
+        new FacetFilterInput(
+            "actors/users", null, ImmutableList.of(user), false, FilterOperator.EQUAL));
+    globalCriteria.setAnd(andConditions);
+    return buildFilter(Collections.emptyList(), ImmutableList.of(globalCriteria));
   }
 }
