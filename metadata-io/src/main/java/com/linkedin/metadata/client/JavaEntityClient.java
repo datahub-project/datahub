@@ -747,10 +747,12 @@ public class JavaEntityClient implements EntityClient {
             .mcps(List.of(metadataChangeProposal), auditStamp, entityService)
             .build();
 
-    IngestResult one = entityService.ingestProposal(batch, async).stream().findFirst().get();
+    Optional<IngestResult> one = entityService.ingestProposal(batch, async).stream().findFirst();
 
-    Urn urn = one.getUrn();
-    tryIndexRunId(urn, metadataChangeProposal.getSystemMetadata());
+    Urn urn = one.map(IngestResult::getUrn).orElse(metadataChangeProposal.getEntityUrn());
+    if (one.isPresent()) {
+      tryIndexRunId(urn, metadataChangeProposal.getSystemMetadata());
+    }
     return urn.toString();
   }
 
