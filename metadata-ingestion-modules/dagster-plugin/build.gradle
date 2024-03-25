@@ -56,18 +56,18 @@ task lint(type: Exec, dependsOn: installDev) {
    */
   commandLine 'bash', '-c',
     "source ${venv_name}/bin/activate && set -x && " +
-    "black --check --diff src/ tests/ && " +
-    "isort --check --diff src/ tests/ && " +
-    "flake8 --count --statistics src/ tests/ && " +
-    "mypy --show-traceback --show-error-codes src/ tests/"
+    "black --check --diff src/ tests/ examples/ && " +
+    "isort --check --diff src/ tests/ examples/ && " +
+    "flake8 --count --statistics src/ tests/ examples/ && " +
+    "mypy --show-traceback --show-error-codes src/ tests/ examples/"
 }
 task lintFix(type: Exec, dependsOn: installDev) {
   commandLine 'bash', '-x', '-c',
     "source ${venv_name}/bin/activate && " +
-    "black src/ tests/ && " +
-    "isort src/ tests/ && " +
-    "flake8 src/ tests/ && " +
-    "mypy src/ tests/ "
+    "black src/ tests/ examples/ && " +
+    "isort src/ tests/ examples/ && " +
+    "flake8 src/ tests/ examples/ && " +
+    "mypy src/ tests/ examples/"
 }
 
 task installDevTest(type: Exec, dependsOn: [installDev]) {
