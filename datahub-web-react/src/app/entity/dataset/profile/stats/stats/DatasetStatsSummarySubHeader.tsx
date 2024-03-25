@@ -5,7 +5,7 @@ import { GetDatasetQuery } from '../../../../../../graphql/dataset.generated';
 import { DatasetStatsSummary } from '../../../shared/DatasetStatsSummary';
 import { getLastUpdatedMs } from '../../../shared/utils';
 
-export const DatasetStatsSummarySubHeader = () => {
+export const DatasetStatsSummarySubHeader = ({ properties }: { properties?: any }) => {
     const result = useBaseEntity<GetDatasetQuery>();
     const dataset = result?.dataset;
 
@@ -31,6 +31,7 @@ export const DatasetStatsSummarySubHeader = () => {
             queryCountLast30Days={queryCountLast30Days}
             uniqueUserCountLast30Days={uniqueUserCountLast30Days}
             lastUpdatedMs={lastUpdatedMs}
+            shouldWrap={properties?.shouldWrap}
         />
     );
 };
