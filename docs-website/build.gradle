@@ -82,7 +82,7 @@ task yarnInstall(type: YarnTask) {
 task airflowPluginBuild(dependsOn: [':metadata-ingestion-modules:airflow-plugin:buildWheel']) {
 }
 
-// Dasgter plugin build and airflow plugin build can't be build at the same time otherwise it will raise
+// The Dagster plugin build and airflow plugin build can't be built at the same time; otherwise, it will raise
 // fatal: Unable to create '/home/runner/work/datahub/datahub/.git/index.lock': File exists.. on CI
 task dagsterPluginBuild(dependsOn: [':metadata-ingestion-modules:dagster-plugin:buildWheel', airflowPluginBuild]) {
 }
