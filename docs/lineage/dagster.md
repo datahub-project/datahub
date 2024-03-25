@@ -59,7 +59,7 @@ datahub_sensor - Emitting metadata...
 ## Dagster Ins and Out
 
 We can provide inputs and outputs to both assets and ops explicitly using a dictionary of `Ins` and `Out` corresponding to the decorated function arguments. While providing inputs and outputs explicitly we can provide metadata as well.
-To create dataset upstream and downstream dependency for the assets and ops you can use an ins and out dictionary with metadata provided. For reference, look at the sample jobs created using assets [`assets_job.py`](../../metadata-ingestion-modules/dagster-plugin/src/datahub_dagster_plugin/example_jobs/assets_job.py), or ops [`ops_job.py`](../../metadata-ingestion-modules/dagster-plugin/src/datahub_dagster_plugin/example_jobs/ops_job.py).
+To create dataset upstream and downstream dependency for the assets and ops you can use an ins and out dictionary with metadata provided. For reference, look at the sample jobs created using assets [`assets_job.py`](../../metadata-ingestion-modules/dagster-plugin/examples/assets_job.py), or ops [`ops_job.py`](../../metadata-ingestion-modules/dagster-plugin/examples/ops_job.py).
 
 ## Define your custom logic to capture asset lineage information
 You can define your own logic to capture asset lineage information. 
