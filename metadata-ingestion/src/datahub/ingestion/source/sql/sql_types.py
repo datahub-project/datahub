@@ -387,6 +387,7 @@ ATHENA_SQL_TYPES_MAP: Dict[str, Any] = {
     "struct": RecordType,
     "map": MapType,
     "array": ArrayType,
+    "row": RecordType,
 }
 
 # https://www.vertica.com/docs/11.1.x/HTML/Content/Authoring/SQLReferenceManual/DataTypes/SQLDataTypes.htm
