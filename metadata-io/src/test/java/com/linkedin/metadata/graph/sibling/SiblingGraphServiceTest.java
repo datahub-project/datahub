@@ -18,6 +18,9 @@ import com.linkedin.metadata.graph.LineageDirection;
 import com.linkedin.metadata.graph.LineageRelationship;
 import com.linkedin.metadata.graph.LineageRelationshipArray;
 import com.linkedin.metadata.graph.SiblingGraphService;
+import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
+import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.snapshot.Snapshot;
 import java.net.URISyntaxException;
 import java.util.Collection;
 import java.util.HashMap;
@@ -68,6 +71,10 @@ public class SiblingGraphServiceTest {
     _mockEntityService = Mockito.mock(EntityService.class);
     when(_mockEntityService.exists(any(Collection.class), any(Boolean.class)))
         .thenAnswer(args -> new HashSet<>(args.getArgument(0)));
+    EntityRegistry entityRegistry =
+        new ConfigEntityRegistry(
+            Snapshot.class.getClassLoader().getResourceAsStream("entity-registry.yml"));
+    when(_mockEntityService.getEntityRegistry()).thenReturn(entityRegistry);
     _graphService = Mockito.mock(GraphService.class);
     _client = new SiblingGraphService(_mockEntityService, _graphService);
   }

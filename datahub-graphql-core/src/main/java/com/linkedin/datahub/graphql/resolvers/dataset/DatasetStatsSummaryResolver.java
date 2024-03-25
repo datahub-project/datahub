@@ -44,7 +44,7 @@ public class DatasetStatsSummaryResolver
     return CompletableFuture.supplyAsync(
         () -> {
           try {
-            if (!AuthorizationUtils.isViewDatasetUsageAuthorized(resourceUrn, context)) {
+            if (!AuthorizationUtils.isViewDatasetUsageAuthorized(context, resourceUrn)) {
               log.debug(
                   "User {} is not authorized to view profile information for dataset {}",
                   context.getActorUrn(),

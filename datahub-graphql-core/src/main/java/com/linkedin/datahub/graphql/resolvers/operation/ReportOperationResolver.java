@@ -1,6 +1,6 @@
 package com.linkedin.datahub.graphql.resolvers.operation;
 
-import static com.linkedin.datahub.graphql.resolvers.AuthUtils.*;
+import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.ALL_PRIVILEGES_GROUP;
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.*;
 import static com.linkedin.metadata.Constants.*;

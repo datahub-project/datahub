@@ -83,7 +83,7 @@ public class EntityAssertionsResolver
             final List<Assertion> assertions =
                 gmsResults.stream()
                     .filter(Objects::nonNull)
-                    .map(AssertionMapper::map)
+                    .map(r -> AssertionMapper.map(context, r))
                     .collect(Collectors.toList());
 
             // Step 4: Package and return result
