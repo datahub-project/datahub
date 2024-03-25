@@ -138,7 +138,7 @@ export class MLFeatureEntity implements Entity<MlFeature> {
         },
     ];
 
-    renderPreview = (_: PreviewType, data: MlFeature) => {
+    renderPreview = (previewType: PreviewType, data: MlFeature) => {
         const genericProperties = this.getGenericEntityProperties(data);
         // eslint-disable-next-line
         const platform = data?.['featureTables']?.relationships?.[0]?.entity?.platform;
@@ -152,6 +152,7 @@ export class MLFeatureEntity implements Entity<MlFeature> {
                 platform={platform}
                 dataProduct={getDataProduct(genericProperties?.dataProduct)}
                 headerDropdownItems={headerDropdownItems}
+                previewType={previewType}
             />
         );
     };

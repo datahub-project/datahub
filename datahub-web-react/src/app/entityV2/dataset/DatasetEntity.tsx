@@ -325,7 +325,7 @@ export class DatasetEntity implements Entity<Dataset> {
         };
     };
 
-    renderPreview = (_: PreviewType, data: Dataset) => {
+    renderPreview = (previewType: PreviewType, data: Dataset) => {
         const genericProperties = this.getGenericEntityProperties(data);
         return (
             <Preview
@@ -359,6 +359,7 @@ export class DatasetEntity implements Entity<Dataset> {
                 upstreamTotal={(data as any)?.upstream?.total}
                 downstreamTotal={(data as any)?.downstream?.total}
                 headerDropdownItems={headerDropdownItems}
+                previewType={previewType}
             />
         );
     };

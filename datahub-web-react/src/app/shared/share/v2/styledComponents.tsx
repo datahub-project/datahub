@@ -7,7 +7,7 @@ export const StyledMenuItem = styled(Menu.Item)`
     height: 28px;
     font-size: 12px;
     font-weight: 300;
-    padding: 6px;
+    padding: 12px;
     color: #46507b;
     :hover {
         background-color: transparent;

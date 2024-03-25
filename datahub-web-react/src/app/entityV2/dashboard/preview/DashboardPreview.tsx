@@ -16,7 +16,7 @@ import {
 } from '../../../../types.generated';
 import DefaultPreviewCard from '../../../previewV2/DefaultPreviewCard';
 import { useEntityRegistry } from '../../../useEntityRegistry';
-import { IconStyleType } from '../../Entity';
+import { IconStyleType, PreviewType } from '../../Entity';
 import { PopularityTier } from '../../shared/containers/profile/sidebar/shared/utils';
 import { summaryHasStats } from '../../shared/utils';
 import { DashboardStatsSummary as DashboardStatsSummaryView } from '../shared/DashboardStatsSummary';
@@ -53,6 +53,7 @@ export const DashboardPreview = ({
     upstreamTotal,
     downstreamTotal,
     headerDropdownItems,
+    previewType,
 }: {
     urn: string;
     platform?: string;
@@ -84,6 +85,7 @@ export const DashboardPreview = ({
     upstreamTotal?: number;
     downstreamTotal?: number;
     headerDropdownItems?: Set<EntityMenuItems>;
+    previewType?: PreviewType;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
     const hasStats = summaryHasStats(statsSummary);
@@ -135,6 +137,7 @@ export const DashboardPreview = ({
             downstreamTotal={downstreamTotal}
             headerDropdownItems={headerDropdownItems}
             statsSummary={statsSummary}
+            previewType={previewType}
         />
     );
 };

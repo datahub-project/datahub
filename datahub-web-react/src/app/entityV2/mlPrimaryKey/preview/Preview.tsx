@@ -3,7 +3,7 @@ import { DataPlatform, DataProduct, EntityPath, EntityType, Owner } from '../../
 import DefaultPreviewCard from '../../../previewV2/DefaultPreviewCard';
 import { capitalizeFirstLetterOnly } from '../../../shared/textUtil';
 import { useEntityRegistry } from '../../../useEntityRegistry';
-import { IconStyleType } from '../../Entity';
+import { IconStyleType, PreviewType } from '../../Entity';
 
 export const Preview = ({
     urn,
@@ -17,6 +17,7 @@ export const Preview = ({
     degree,
     paths,
     isOutputPort,
+    previewType,
 }: {
     urn: string;
     name: string;
@@ -29,6 +30,7 @@ export const Preview = ({
     degree?: number;
     paths?: EntityPath[];
     isOutputPort?: boolean;
+    previewType?:PreviewType;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
     return (
@@ -49,6 +51,7 @@ export const Preview = ({
             degree={degree}
             paths={paths}
             isOutputPort={isOutputPort}
+            previewType={previewType}
         />
     );
 };

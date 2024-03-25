@@ -11,9 +11,18 @@ interface Props {
     entityData?: any;
     refetch?: () => void;
     size?: number;
+    triggerType?: ('click' | 'contextMenu' | 'hover')[] | undefined;
 }
 
-export default function MoreOptionsMenuAction({ menuItems, urn, entityType, entityData, refetch, size }: Props) {
+export default function MoreOptionsMenuAction({
+    menuItems,
+    urn,
+    entityType,
+    entityData,
+    refetch,
+    size,
+    triggerType,
+}: Props) {
     return (
         <ActionMenuItem key="view-more" fontSize={size}>
             <EntityDropdown
@@ -22,6 +31,7 @@ export default function MoreOptionsMenuAction({ menuItems, urn, entityType, enti
                 entityData={entityData}
                 menuItems={menuItems}
                 refetchForEntity={refetch}
+                triggerType={triggerType}
             />
         </ActionMenuItem>
     );

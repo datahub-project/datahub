@@ -7,6 +7,7 @@ import DomainIcon from '../../../domain/DomainIcon';
 import EntityCount from '../../shared/containers/profile/header/EntityCount';
 import { DomainColoredIcon } from '../../shared/links/DomainColoredIcon';
 import { EntityMenuItems } from '../../shared/EntityDropdown/EntityMenuActions';
+import { PreviewType } from '../../Entity';
 
 export const Preview = ({
     domain,
@@ -18,6 +19,7 @@ export const Preview = ({
     logoComponent,
     entityCount,
     headerDropdownItems,
+    previewType,
 }: {
     domain: Domain;
     urn: string;
@@ -28,6 +30,7 @@ export const Preview = ({
     logoComponent?: JSX.Element;
     entityCount?: number;
     headerDropdownItems?: Set<EntityMenuItems>;
+    previewType?: PreviewType;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
     return (
@@ -53,6 +56,7 @@ export const Preview = ({
             subHeader={<EntityCount displayAssetsText entityCount={entityCount} />}
             entityIcon={<DomainColoredIcon domain={domain as Domain} size={28} />}
             headerDropdownItems={headerDropdownItems}
+            previewType={previewType}
         />
     );
 };

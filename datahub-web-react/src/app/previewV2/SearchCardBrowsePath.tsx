@@ -73,6 +73,13 @@ const TypeIconWrapper = styled.span`
     }
 `;
 
+const PlatFormTitle = styled.span`
+    display: inline-block;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+`;
+
 interface Props {
     // eslint-disable-next-line react/no-unused-prop-types
     entityLogoComponent?: JSX.Element;
@@ -111,7 +118,7 @@ function SearchCardBrowsePath(props: Props) {
         <PlatformContentWrapper>
             <PlatformText $maxWidth={entityTitleWidth} title={capitalizeFirstLetter(type)}>
                 {entityTypeIcon && <TypeIconWrapper>{entityTypeIcon}</TypeIconWrapper>}
-                {capitalizeFirstLetter(type)}
+                <PlatFormTitle>{capitalizeFirstLetter(type)}</PlatFormTitle>
                 {(!!instanceId || !!parentContainers?.length || !!parentEntities?.length) && (
                     <PlatformDivider>|</PlatformDivider>
                 )}
@@ -129,18 +136,21 @@ function SearchCardBrowsePath(props: Props) {
                 maxWidth={previewType === PreviewType.HOVER_CARD ? 300 : 620}
             >
                 {areContainersTruncated && <Ellipsis>...</Ellipsis>}
-                <ParentNodesWrapper ref={parentContainersRef}>
-                    {directParentContainer && <ContainerLink container={directParentContainer} />}
-                    {remainingParentContainers &&
-                        remainingParentContainers.map((container) => (
-                            <span key={container?.urn}>
-                                <PlatformText>
-                                    <ContainerLink container={container} />
-                                    <PlatformDivider>|</PlatformDivider>
-                                </PlatformText>
-                            </span>
-                        ))}
-                </ParentNodesWrapper>
+                {/* To avoid rendering a empty div */}
+                {(directParentContainer || remainingParentContainers) && (
+                    <ParentNodesWrapper ref={parentContainersRef}>
+                        {directParentContainer && <ContainerLink container={directParentContainer} />}
+                        {remainingParentContainers &&
+                            remainingParentContainers.map((container) => (
+                                <span key={container?.urn}>
+                                    <PlatformText>
+                                        <ContainerLink container={container} />
+                                        <PlatformDivider>|</PlatformDivider>
+                                    </PlatformText>
+                                </span>
+                            ))}
+                    </ParentNodesWrapper>
+                )}
             </StyledTooltip>
             <ParentEntities parentEntities={parentEntities || []} numVisible={3} />
         </PlatformContentWrapper>

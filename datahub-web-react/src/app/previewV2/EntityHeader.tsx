@@ -19,13 +19,12 @@ const StyledLink = styled(Link)`
     display: block;
 `;
 
-const EntityTitle = styled(Typography.Text)<{ $titleSizePx?: number }>`
+const EntityTitle = styled(Typography.Text) <{ $titleSizePx?: number }>`
     display: block;
     &&& {
         margin-right 8px;
         font-size: ${(props) => props.$titleSizePx || 16}px;
         font-weight: 700;
-        line-height: 20px;
         vertical-align: middle;
         :hover {
             color: ${REDESIGN_COLORS.HOVER_PURPLE};
@@ -39,7 +38,7 @@ const EntityTitle = styled(Typography.Text)<{ $titleSizePx?: number }>`
     height: 100%;
 `;
 
-const CardEntityTitle = styled(EntityTitle)<{ $previewType?: Maybe<PreviewType> }>`
+const CardEntityTitle = styled(EntityTitle) <{ $previewType?: Maybe<PreviewType> }>`
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;

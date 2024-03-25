@@ -5,6 +5,7 @@ import { capitalizeFirstLetterOnly } from '../../../shared/textUtil';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { getDataProduct } from '../../shared/utils';
 import { EntityMenuItems } from '../../shared/EntityDropdown/EntityMenuActions';
+import { PreviewType } from '../../Entity';
 
 export const Preview = ({
     group,
@@ -12,12 +13,14 @@ export const Preview = ({
     paths,
     isOutputPort,
     headerDropdownItems,
+    previewType,
 }: {
     group: MlModelGroup;
     degree?: number;
     paths?: EntityPath[];
     isOutputPort?: boolean;
     headerDropdownItems?: Set<EntityMenuItems>;
+    previewType?: PreviewType;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
     const genericProperties = entityRegistry.getGenericEntityProperties(EntityType.MlmodelGroup, group);
@@ -38,6 +41,7 @@ export const Preview = ({
             paths={paths}
             isOutputPort={isOutputPort}
             headerDropdownItems={headerDropdownItems}
+            previewType={previewType}
         />
     );
 };

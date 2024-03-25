@@ -49,7 +49,7 @@ export const MenuIcon = styled(MoreOutlined)<{ fontSize?: number }>`
 const MenuItem = styled.div`
     font-size: 13px;
     font-weight: 400;
-    padding: 0 4px;
+    padding: 0 12px;
     color: #46507b;
     line-height: 24px;
     display: flex;
@@ -101,6 +101,7 @@ interface Props {
     refetchForTerms?: () => void;
     refetchForNodes?: () => void;
     onDeleteEntity?: () => void;
+    triggerType?: ('click' | 'contextMenu' | 'hover')[] | undefined;
 }
 
 const EntityDropdown = (props: Props) => {
@@ -116,6 +117,7 @@ const EntityDropdown = (props: Props) => {
         refetchForNodes,
         onDeleteEntity: onDelete,
         options,
+        triggerType = ['click'],
     } = props;
 
     const me = useUserContext();
@@ -181,6 +183,7 @@ const EntityDropdown = (props: Props) => {
     return (
         <>
             <Dropdown
+                overlayStyle={{ minWidth: 150 }}
                 overlay={
                     <Menu>
                         {menuItems.has(EntityMenuItems.COPY_URL) && navigator.clipboard && (
@@ -317,7 +320,7 @@ const EntityDropdown = (props: Props) => {
                         )}
                     </Menu>
                 }
-                trigger={['click']}
+                trigger={triggerType}
             >
                 <StyledMoreIcon />
             </Dropdown>

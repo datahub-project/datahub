@@ -134,7 +134,7 @@ export class MLFeatureTableEntity implements Entity<MlFeatureTable> {
         },
     ];
 
-    renderPreview = (_: PreviewType, data: MlFeatureTable) => {
+    renderPreview = (previewType: PreviewType, data: MlFeatureTable) => {
         const genericProperties = this.getGenericEntityProperties(data);
         return (
             <Preview
@@ -146,6 +146,7 @@ export class MLFeatureTableEntity implements Entity<MlFeatureTable> {
                 platformName={data.platform?.properties?.displayName || capitalizeFirstLetterOnly(data.platform?.name)}
                 dataProduct={getDataProduct(genericProperties?.dataProduct)}
                 headerDropdownItems={headerDropdownItems}
+                previewType={previewType}
             />
         );
     };

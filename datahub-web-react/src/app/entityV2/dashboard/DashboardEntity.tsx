@@ -234,7 +234,7 @@ export class DashboardEntity implements Entity<Dashboard> {
         };
     };
 
-    renderPreview = (_: PreviewType, data: Dashboard) => {
+    renderPreview = (previewType: PreviewType, data: Dashboard) => {
         const genericProperties = this.getGenericEntityProperties(data);
         return (
             <DashboardPreview
@@ -269,6 +269,7 @@ export class DashboardEntity implements Entity<Dashboard> {
                 upstreamTotal={(data as any)?.upstream?.total}
                 downstreamTotal={(data as any)?.downstream?.total}
                 headerDropdownItems={headerDropdownItems}
+                previewType={previewType}
             />
         );
     };

@@ -16,7 +16,7 @@ const ParentNodesWrapper = styled.div`
     line-height: 20px;
 `;
 
-const ParentNode = styled(Typography.Text)<{ color?: string, $width?:number | null }>`
+const ParentNode = styled(Typography.Text)<{ color?: string; $width?: number | null }>`
     margin-left: 4px;
     color: ${(props) => (props.color ? props.color : ANTD_GRAY[7])};
     max-width: ${(props) => (props.$width ? `${props.$width}px` : 'auto')};
@@ -82,7 +82,10 @@ export default function ParentEntities({ parentEntities, numVisible = DEFAULT_NU
                     return (
                         <>
                             <FolderOpenOutlined />
-                            <ParentNode ellipsis={!hasHiddenEntities ? { tooltip: displayName } : true} $width={previewType === PreviewType.HOVER_CARD ? 80 : null}>
+                            <ParentNode
+                                ellipsis={!hasHiddenEntities ? { tooltip: displayName } : true}
+                                $width={previewType === PreviewType.HOVER_CARD ? 80 : null}
+                            >
                                 {displayName}
                             </ParentNode>
                             {index !== visibleNodes.length - 1 && <ArrowWrapper>{'>'}</ArrowWrapper>}

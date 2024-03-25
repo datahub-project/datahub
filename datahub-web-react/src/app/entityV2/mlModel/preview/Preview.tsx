@@ -3,7 +3,7 @@ import { EntityPath, EntityType, MlModel } from '../../../../types.generated';
 import DefaultPreviewCard from '../../../previewV2/DefaultPreviewCard';
 import { capitalizeFirstLetterOnly } from '../../../shared/textUtil';
 import { useEntityRegistry } from '../../../useEntityRegistry';
-import { IconStyleType } from '../../Entity';
+import { IconStyleType, PreviewType } from '../../Entity';
 import { getDataProduct } from '../../shared/utils';
 import { EntityMenuItems } from '../../shared/EntityDropdown/EntityMenuActions';
 
@@ -13,12 +13,14 @@ export const Preview = ({
     paths,
     isOutputPort,
     headerDropdownItems,
+    previewType,
 }: {
     model: MlModel;
     degree?: number;
     paths?: EntityPath[];
     isOutputPort?: boolean;
     headerDropdownItems?: Set<EntityMenuItems>;
+    previewType?: PreviewType;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
     const genericProperties = entityRegistry.getGenericEntityProperties(EntityType.Mlmodel, model);
@@ -41,6 +43,7 @@ export const Preview = ({
             paths={paths}
             isOutputPort={isOutputPort}
             headerDropdownItems={headerDropdownItems}
+            previewType={previewType}
         />
     );
 };

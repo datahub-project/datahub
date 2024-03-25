@@ -4,7 +4,6 @@ import { useEntityRegistry } from '../../../useEntityRegistry';
 import CopyLinkMenuItem from './items/CopyLinkMenuItem';
 import CopyUrnMenuItem from './items/CopyUrnMenuItem';
 import EmailMenuItem from './items/EmailMenuItem';
-import { StyledMenuItem } from './styledComponents';
 
 interface ShareButtonMenuProps {
     urn: string;
@@ -20,13 +19,11 @@ export default function ShareButtonMenu({ urn, entityType, subType, name }: Shar
 
     return (
         <>
-            <StyledMenuItem>{navigator.clipboard && <CopyLinkMenuItem key="0" />}</StyledMenuItem>
-            <StyledMenuItem>
-                {navigator.clipboard && <CopyUrnMenuItem key="1" urn={urn} type={displayType} />}
-            </StyledMenuItem>
-            <StyledMenuItem>
-                <EmailMenuItem key="2" urn={urn} name={displayName} type={displayType} />
-            </StyledMenuItem>
+            {navigator.clipboard && <CopyLinkMenuItem key="0" />}
+
+            {navigator.clipboard && <CopyUrnMenuItem key="1" urn={urn} type={displayType} />}
+
+            <EmailMenuItem key="2" urn={urn} name={displayName} type={displayType} />
         </>
     );
 }

@@ -272,12 +272,13 @@ export default function DefaultPreviewCard({
                             </EntityExternalLink>
                         )}
 
-                        {headerDropdownItems && (
+                        {headerDropdownItems && previewType !== PreviewType.HOVER_CARD && (
                             <MoreOptionsMenuAction
                                 menuItems={headerDropdownItems}
                                 urn={urn}
                                 entityType={entityType}
                                 entityData={entityData}
+                                triggerType={['click']}
                             />
                         )}
                     </ActionsSection>
@@ -307,7 +308,7 @@ export default function DefaultPreviewCard({
                     parentEntities={parentEntities}
                     parentContainersRef={contentRef}
                     areContainersTruncated={false}
-                    entityTitleWidth={previewType === PreviewType.HOVER_CARD ? 100 : 200}
+                    entityTitleWidth={previewType === PreviewType.HOVER_CARD ? 150 : 200}
                     previewType={previewType}
                 />
             </RowContainer>

@@ -3,13 +3,13 @@ import styled from 'styled-components';
 import { Divider } from 'antd';
 import { useHistory } from 'react-router';
 import Pills from './Pills';
+import { REDESIGN_COLORS } from '../entityV2/shared/constants';
 import { PopularityTier } from '../entityV2/shared/containers/profile/sidebar/shared/utils';
 import { DatasetStatsSummary, EntityType, GlobalTags, GlossaryTerms, Maybe, Owner } from '../../types.generated';
 import { EntityCapabilityType, PreviewType } from '../entityV2/Entity';
 import PreviewCardFooterRightSection from './PreviewCardFooterRightSection';
 import EntityRegistry from '../entityV2/EntityRegistry';
 import { entityHasCapability } from './utils';
-import { REDESIGN_COLORS } from '../entityV2/shared/constants';
 
 interface DefaultPreviewCardFooterProps {
     glossaryTerms?: GlossaryTerms;
@@ -35,6 +35,9 @@ const Container = styled.div`
     display: flex;
     justify-content: space-between;
     align-items: center;
+    .ant-btn-link {
+        padding: inherit;
+    }
 `;
 
 const RightSection = styled.div``;
@@ -47,11 +50,11 @@ const EntityLink = styled.div`
     .ant-btn-link {
         display: flex;
         align-items: center;
-        color: #56668e;
+        color: ${REDESIGN_COLORS.TITLE_PURPLE};
         height: 100%;
 
         :hover {
-            color: #533fd1;
+            color: ${REDESIGN_COLORS.HOVER_PURPLE};
         }
 
         > span:first-child {

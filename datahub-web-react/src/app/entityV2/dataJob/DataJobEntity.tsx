@@ -194,7 +194,7 @@ export class DataJobEntity implements Entity<DataJob> {
         };
     };
 
-    renderPreview = (_: PreviewType, data: DataJob) => {
+    renderPreview = (previewType: PreviewType, data: DataJob) => {
         const genericProperties = this.getGenericEntityProperties(data);
         return (
             <Preview
@@ -210,6 +210,7 @@ export class DataJobEntity implements Entity<DataJob> {
                 dataProduct={getDataProduct(genericProperties?.dataProduct)}
                 externalUrl={data.properties?.externalUrl}
                 headerDropdownItems={headerDropdownItems}
+                previewType={previewType}
             />
         );
     };

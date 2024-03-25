@@ -117,8 +117,8 @@ export class MLModelGroupEntity implements Entity<MlModelGroup> {
         />
     );
 
-    renderPreview = (_: PreviewType, data: MlModelGroup) => {
-        return <Preview group={data} headerDropdownItems={headerDropdownItems} />;
+    renderPreview = (previewType: PreviewType, data: MlModelGroup) => {
+        return <Preview group={data} headerDropdownItems={headerDropdownItems} previewType={previewType} />;
     };
 
     renderSearch = (result: SearchResult) => {

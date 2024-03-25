@@ -140,8 +140,8 @@ export class MLModelEntity implements Entity<MlModel> {
         },
     ];
 
-    renderPreview = (_: PreviewType, data: MlModel) => {
-        return <Preview model={data} headerDropdownItems={headerDropdownItems} />;
+    renderPreview = (previewType: PreviewType, data: MlModel) => {
+        return <Preview model={data} headerDropdownItems={headerDropdownItems} previewType={previewType}/>;
     };
 
     renderSearch = (result: SearchResult) => {

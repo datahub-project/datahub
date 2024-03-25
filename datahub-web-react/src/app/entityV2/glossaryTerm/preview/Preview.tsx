@@ -5,7 +5,7 @@ import DefaultPreviewCard from '../../../previewV2/DefaultPreviewCard';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { IconStyleType, PreviewType } from '../../Entity';
 import UrlButton from '../../shared/UrlButton';
-import { getRelatedEntitiesUrl } from '../utils';
+import { getRelatedAssetsUrl } from '../utils';
 import { EntityMenuItems } from '../../shared/EntityDropdown/EntityMenuActions';
 
 export const Preview = ({
@@ -45,7 +45,7 @@ export const Preview = ({
             parentEntities={parentNodes?.nodes}
             domain={domain}
             entityTitleSuffix={
-                <UrlButton href={getRelatedEntitiesUrl(entityRegistry, urn)}>View Related Entities</UrlButton>
+                <UrlButton href={getRelatedAssetsUrl(entityRegistry, urn)}>View Related Assets</UrlButton>
             }
             headerDropdownItems={headerDropdownItems}
         />

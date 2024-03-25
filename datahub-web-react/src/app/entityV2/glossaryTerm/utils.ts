@@ -10,3 +10,7 @@ export function sortGlossaryTerms(entityRegistry: EntityRegistry, nodeA?: Entity
 export function getRelatedEntitiesUrl(entityRegistry: EntityRegistry, urn: string) {
     return `${entityRegistry.getEntityUrl(EntityType.GlossaryTerm, urn)}/${encodeURIComponent('Related Entities')}`;
 }
+
+export function getRelatedAssetsUrl(entityRegistry: EntityRegistry, urn: string) {
+    return `${entityRegistry.getEntityUrl(EntityType.GlossaryTerm, urn)}/${encodeURIComponent('Related Assets')}`;
+}

@@ -147,7 +147,7 @@ export class DataFlowEntity implements Entity<DataFlow> {
         };
     };
 
-    renderPreview = (_: PreviewType, data: DataFlow) => {
+    renderPreview = (previewType: PreviewType, data: DataFlow) => {
         const genericProperties = this.getGenericEntityProperties(data);
         return (
             <Preview
@@ -164,6 +164,7 @@ export class DataFlowEntity implements Entity<DataFlow> {
                 dataProduct={getDataProduct(genericProperties?.dataProduct)}
                 externalUrl={data.properties?.externalUrl}
                 headerDropdownItems={headerDropdownItems}
+                previewType={previewType}
             />
         );
     };

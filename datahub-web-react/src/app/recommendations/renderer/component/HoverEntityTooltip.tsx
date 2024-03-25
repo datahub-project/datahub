@@ -26,10 +26,11 @@ export const HoverEntityTooltip = ({ entity, canOpen = true, children, placement
     return (
         <Tooltip
             showArrow={showArrow}
-            visible={canOpen ? undefined : false}
+            open={canOpen ? undefined : false}
             color="white"
             placement={placement || 'bottom'}
-            overlayInnerStyle={{ padding: 20, borderRadius: 20, width }}
+            overlayStyle={{ minWidth: width }}
+            overlayInnerStyle={{ padding: 20, borderRadius: 20 }}
             title={<a href={url}>{entityRegistry.renderPreview(entity.type, PreviewType.HOVER_CARD, entity)}</a>}
             zIndex={12}
         >

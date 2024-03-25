@@ -1,4 +1,10 @@
-import Icon, { AppstoreOutlined, FileOutlined, FolderFilled, FolderOutlined, UnorderedListOutlined } from '@ant-design/icons';
+import Icon, {
+    AppstoreOutlined,
+    FileOutlined,
+    FolderFilled,
+    FolderOutlined,
+    UnorderedListOutlined,
+} from '@ant-design/icons';
 import React from 'react';
 import { useGetGlossaryNodeQuery } from '../../../graphql/glossaryNode.generated';
 import { EntityType, GlossaryNode, SearchResult } from '../../../types.generated';
@@ -38,7 +44,7 @@ class GlossaryNodeEntity implements Entity<GlossaryNode> {
             return <FolderFilled className={TYPE_ICON_CLASS_NAME} style={{ fontSize, color: color || '#B37FEB' }} />;
         }
 
-        if(styleType === IconStyleType.ACCENT){
+        if (styleType === IconStyleType.ACCENT) {
             return <Icon style={{ fontSize: 10, color: '#6C6B88' }} component={GlossaryNodeIcon} />;
         }
 
@@ -133,7 +139,7 @@ class GlossaryNodeEntity implements Entity<GlossaryNode> {
         return this.renderPreview(PreviewType.SEARCH, result.entity as GlossaryNode);
     };
 
-    renderPreview = (_: PreviewType, data: GlossaryNode) => {
+    renderPreview = (previewType: PreviewType, data: GlossaryNode) => {
         return (
             <Preview
                 urn={data?.urn}
@@ -142,6 +148,7 @@ class GlossaryNodeEntity implements Entity<GlossaryNode> {
                 description={data?.properties?.description || ''}
                 owners={data?.ownership?.owners}
                 headerDropdownItems={headerDropdownItems}
+                previewType={previewType}
             />
         );
     };

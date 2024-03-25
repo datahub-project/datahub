@@ -4,6 +4,7 @@ import { EntityType, Owner, ParentNodesResult } from '../../../../types.generate
 import DefaultPreviewCard from '../../../previewV2/DefaultPreviewCard';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { EntityMenuItems } from '../../shared/EntityDropdown/EntityMenuActions';
+import { PreviewType } from '../../Entity';
 
 export const Preview = ({
     urn,
@@ -12,6 +13,7 @@ export const Preview = ({
     owners,
     parentNodes,
     headerDropdownItems,
+    previewType,
 }: {
     urn: string;
     name: string;
@@ -19,6 +21,7 @@ export const Preview = ({
     owners?: Array<Owner> | null;
     parentNodes?: ParentNodesResult | null;
     headerDropdownItems?: Set<EntityMenuItems>;
+    previewType?: PreviewType;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
     return (
@@ -32,6 +35,7 @@ export const Preview = ({
             entityType={EntityType.GlossaryNode}
             parentEntities={parentNodes?.nodes}
             headerDropdownItems={headerDropdownItems}
+            previewType={previewType}
         />
     );
 };

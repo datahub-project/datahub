@@ -2,7 +2,7 @@ import React from 'react';
 import { DataProduct, EntityPath, EntityType, Owner } from '../../../../types.generated';
 import DefaultPreviewCard from '../../../previewV2/DefaultPreviewCard';
 import { useEntityRegistry } from '../../../useEntityRegistry';
-import { IconStyleType } from '../../Entity';
+import { IconStyleType, PreviewType } from '../../Entity';
 import { EntityMenuItems } from '../../shared/EntityDropdown/EntityMenuActions';
 
 export const Preview = ({
@@ -18,6 +18,7 @@ export const Preview = ({
     paths,
     isOutputPort,
     headerDropdownItems,
+    previewType,
 }: {
     urn: string;
     name: string;
@@ -31,6 +32,7 @@ export const Preview = ({
     paths?: EntityPath[];
     isOutputPort?: boolean;
     headerDropdownItems?: Set<EntityMenuItems>;
+    previewType?: PreviewType;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
     return (
@@ -51,6 +53,7 @@ export const Preview = ({
             paths={paths}
             isOutputPort={isOutputPort}
             headerDropdownItems={headerDropdownItems}
+            previewType={previewType}
         />
     );
 };

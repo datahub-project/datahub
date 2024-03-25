@@ -18,7 +18,7 @@ import {
 } from '../../../../types.generated';
 import DefaultPreviewCard from '../../../previewV2/DefaultPreviewCard';
 import { useEntityRegistry } from '../../../useEntityRegistry';
-import { IconStyleType } from '../../Entity';
+import { IconStyleType, PreviewType } from '../../Entity';
 import { ANTD_GRAY } from '../../shared/constants';
 import { PopularityTier } from '../../shared/containers/profile/sidebar/shared/utils';
 import { summaryHasStats } from '../../shared/utils';
@@ -59,6 +59,7 @@ export const Preview = ({
     upstreamTotal,
     downstreamTotal,
     headerDropdownItems,
+    previewType,
 }: {
     urn: string;
     name: string;
@@ -93,6 +94,7 @@ export const Preview = ({
     upstreamTotal?: number;
     downstreamTotal?: number;
     headerDropdownItems?: Set<EntityMenuItems>;
+    previewType?: Maybe<PreviewType>;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
     const hasStats = !!columnCount || summaryHasStats(statsSummary);
@@ -148,6 +150,7 @@ export const Preview = ({
             downstreamTotal={downstreamTotal}
             headerDropdownItems={headerDropdownItems}
             statsSummary={statsSummary}
+            previewType={previewType}
         />
     );
 };

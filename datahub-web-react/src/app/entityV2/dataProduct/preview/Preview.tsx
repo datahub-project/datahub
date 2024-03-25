@@ -2,7 +2,7 @@ import React from 'react';
 import { EntityType, Owner, GlobalTags, GlossaryTerms, Domain, EntityPath } from '../../../../types.generated';
 import DefaultPreviewCard from '../../../previewV2/DefaultPreviewCard';
 import { useEntityRegistry } from '../../../useEntityRegistry';
-import { IconStyleType } from '../../Entity';
+import { IconStyleType, PreviewType } from '../../Entity';
 import { EntityMenuItems } from '../../shared/EntityDropdown/EntityMenuActions';
 
 interface Props {
@@ -18,6 +18,7 @@ interface Props {
     degree?: number;
     paths?: EntityPath[];
     headerDropdownItems?: Set<EntityMenuItems>;
+    previewType?: PreviewType;
 }
 
 export const Preview = ({
@@ -33,6 +34,7 @@ export const Preview = ({
     degree,
     paths,
     headerDropdownItems,
+    previewType,
 }: Props): JSX.Element => {
     const entityRegistry = useEntityRegistry();
 
@@ -54,6 +56,7 @@ export const Preview = ({
             degree={degree}
             paths={paths}
             headerDropdownItems={headerDropdownItems}
+            previewType={previewType}
         />
     );
 };

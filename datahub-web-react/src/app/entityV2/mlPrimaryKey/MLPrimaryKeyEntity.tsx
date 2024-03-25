@@ -134,7 +134,7 @@ export class MLPrimaryKeyEntity implements Entity<MlPrimaryKey> {
         },
     ];
 
-    renderPreview = (_: PreviewType, data: MlPrimaryKey) => {
+    renderPreview = (previewType: PreviewType, data: MlPrimaryKey) => {
         const genericProperties = this.getGenericEntityProperties(data);
         // eslint-disable-next-line
         const platform = data?.['featureTables']?.relationships?.[0]?.entity?.platform;
@@ -147,6 +147,7 @@ export class MLPrimaryKeyEntity implements Entity<MlPrimaryKey> {
                 owners={data.ownership?.owners}
                 platform={platform}
                 dataProduct={getDataProduct(genericProperties?.dataProduct)}
+                previewType={previewType}
             />
         );
     };

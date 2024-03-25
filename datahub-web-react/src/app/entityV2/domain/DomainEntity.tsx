@@ -134,7 +134,7 @@ export class DomainEntity implements Entity<Domain> {
         />
     );
 
-    renderPreview = (_: PreviewType, data: Domain) => {
+    renderPreview = (previewType: PreviewType, data: Domain) => {
         return (
             <Preview
                 domain={data}
@@ -145,6 +145,7 @@ export class DomainEntity implements Entity<Domain> {
                 logoComponent={this.icon(12, IconStyleType.ACCENT)}
                 entityCount={data.entities?.total}
                 headerDropdownItems={headerDropdownItems}
+                previewType={previewType}
             />
         );
     };
