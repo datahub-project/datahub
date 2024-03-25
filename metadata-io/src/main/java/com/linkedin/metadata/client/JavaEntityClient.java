@@ -750,7 +750,9 @@ public class JavaEntityClient implements EntityClient {
     Optional<IngestResult> one = entityService.ingestProposal(batch, async).stream().findFirst();
 
     Urn urn = one.map(IngestResult::getUrn).orElse(metadataChangeProposal.getEntityUrn());
-    tryIndexRunId(urn, metadataChangeProposal.getSystemMetadata());
+    if (one.isPresent()) {
+      tryIndexRunId(urn, metadataChangeProposal.getSystemMetadata());
+    }
     return urn.toString();
   }
 
