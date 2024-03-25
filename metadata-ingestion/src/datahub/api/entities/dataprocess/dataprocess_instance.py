@@ -168,6 +168,7 @@ class DataProcessInstance:
         result: InstanceRunResult,
         result_type: Optional[str] = None,
         attempt: Optional[int] = None,
+        start_timestamp_millis: Optional[int] = None,
     ) -> Iterable[MetadataChangeProposalWrapper]:
         """
 
@@ -188,6 +189,9 @@ class DataProcessInstance:
                     else self.orchestrator,
                 ),
                 attempt=attempt,
+                durationMillis=(end_timestamp_millis - start_timestamp_millis)
+                if start_timestamp_millis
+                else None,
             ),
         )
         yield mcp
@@ -199,6 +203,7 @@ class DataProcessInstance:
         result: InstanceRunResult,
         result_type: Optional[str] = None,
         attempt: Optional[int] = None,
+        start_timestamp_millis: Optional[int] = None,
         callback: Optional[Callable[[Exception, str], None]] = None,
     ) -> None:
         """

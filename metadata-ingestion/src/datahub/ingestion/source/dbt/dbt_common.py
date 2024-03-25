@@ -1303,13 +1303,21 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 url=self.get_external_url(node),
             )
 
-            yield from data_process_instance.generate_mcp(materialize_iolets=False)
+            yield from data_process_instance.generate_mcp(
+                materialize_iolets=False,
+                created_ts_millis=datetime_to_ts_millis(model_performance.start_time),
+            )
 
             yield from data_process_instance.start_event_mcp(
-                datetime_to_ts_millis(model_performance.start_time),
+                start_timestamp_millis=datetime_to_ts_millis(
+                    model_performance.start_time
+                ),
             )
             yield from data_process_instance.end_event_mcp(
-                datetime_to_ts_millis(model_performance.end_time),
+                end_timestamp_millis=datetime_to_ts_millis(model_performance.end_time),
+                start_timestamp_millis=datetime_to_ts_millis(
+                    model_performance.start_time
+                ),
                 result=(
                     InstanceRunResult.SUCCESS
                     if model_performance.is_success()

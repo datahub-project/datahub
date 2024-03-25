@@ -667,7 +667,8 @@
             "result": {
                 "type": "SUCCESS",
                 "nativeResultType": "success"
-            }
+            },
+            "durationMillis": 2
         }
     },
     "systemMetadata": {
@@ -1125,7 +1126,8 @@
             "result": {
                 "type": "SUCCESS",
                 "nativeResultType": "success"
-            }
+            },
+            "durationMillis": 2
         }
     },
     "systemMetadata": {
@@ -1448,7 +1450,8 @@
             "result": {
                 "type": "SUCCESS",
                 "nativeResultType": "success"
-            }
+            },
+            "durationMillis": 2
         }
     },
     "systemMetadata": {
@@ -1971,7 +1974,8 @@
             "result": {
                 "type": "SUCCESS",
                 "nativeResultType": "success"
-            }
+            },
+            "durationMillis": 2
         }
     },
     "systemMetadata": {

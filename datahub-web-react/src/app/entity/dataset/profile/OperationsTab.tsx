@@ -20,6 +20,7 @@ import { ANTD_GRAY } from '../../shared/constants';
 import { useEntityData } from '../../shared/EntityContext';
 import LoadingSvg from '../../../../images/datahub-logo-color-loading_pendulum.svg?react';
 import { scrollToTop } from '../../../shared/searchUtils';
+import { formatDuration } from '../../../shared/formatDuration';
 
 const ExternalUrlLink = styled.a`
     font-size: 16px;
@@ -62,6 +63,12 @@ const columns = [
         render: (value) => (
             <Tooltip title={new Date(Number(value)).toUTCString()}>{new Date(Number(value)).toLocaleString()}</Tooltip>
         ),
+    },
+    {
+        title: 'Duration',
+        dataIndex: 'duration',
+        key: 'duration',
+        render: (durationMs: number) => formatDuration(durationMs),
     },
     {
         title: 'Run ID',
@@ -142,6 +149,7 @@ export const OperationsTab = () => {
             name: run?.name,
             status: run?.state?.[0]?.status,
             resultType: run?.state?.[0]?.result?.resultType,
+            duration: run?.state?.[0]?.durationMillis,
             inputs: run?.inputs?.relationships.map((relationship) => relationship.entity),
             outputs: run?.outputs?.relationships.map((relationship) => relationship.entity),
             externalUrl: run?.externalUrl,
@@ -159,6 +167,7 @@ export const OperationsTab = () => {
         setPage(newPage);
     };
 
+    // TODO: Much of this file is duplicated from RunsTab.tsx. We should refactor this to share code.
     return (
         <>
             {loading && (
