@@ -823,4 +823,9 @@ public class DgraphGraphServiceTest extends GraphServiceTestBase {
   public void testPopulatedGraphServiceGetLineageMultihop(boolean attemptMultiHop) {
     // TODO: Remove this overridden method once the multihop for dGraph is implemented!
   }
+
+  @Override
+  public void testHighlyConnectedGraphWalk() throws Exception {
+    // TODO: explore limit not supported for DGraph
+  }
 }
