@@ -139,6 +139,7 @@ export const AcrylAssertionsTable = ({
                         {showSelect && (
                             <AssertionSelectCheckbox
                                 checked={selected}
+                                onClick={e => e.stopPropagation()}
                                 onChange={() => onSelect?.(record.urn as string)}
                             />
                         )}

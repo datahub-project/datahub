@@ -39,8 +39,8 @@ const TypeListContainer = styled.div`
  */
 export const SelectTypeStep = ({ state, updateState, goTo }: StepProps) => {
     const connectionForEntityExists = useConnectionForEntityExists(state.entityUrn as string);
-    const isConnectionSupportedByMonitors = isEntityEligibleForAssertionMonitoring(state.platformUrn)
-    const monitorsConnectionForEntityExists = connectionForEntityExists && isConnectionSupportedByMonitors
+    const isConnectionSupportedByMonitors = isEntityEligibleForAssertionMonitoring(state.platformUrn);
+    const monitorsConnectionForEntityExists = connectionForEntityExists && isConnectionSupportedByMonitors;
 
     const filteredTypes = getAssertionTypesForEntityType(
         state.entityType as EntityType,

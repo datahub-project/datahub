@@ -12,7 +12,7 @@ import {
     DEFAULT_DATASET_SQL_ASSERTION_STATE,
     DEFAULT_DATASET_VOLUME_ASSERTION_STATE,
 } from '../constants';
-import { getDefaultDatasetFreshnessAssertionParametersState } from '../utils';
+import { getDefaultDatasetFreshnessAssertionParametersState, isEntityEligibleForAssertionMonitoring } from '../utils';
 import { getDefaultDatasetVolumeAssertionParametersState } from './volume/utils';
 import { getDefaultDatasetFieldAssertionParametersState, getDefaultDatasetFieldAssertionState } from './field/utils';
 
@@ -39,9 +39,12 @@ const TypeListContainer = styled.div`
  */
 export const SelectTypeStep = ({ state, updateState, goTo }: StepProps) => {
     const connectionForEntityExists = useConnectionForEntityExists(state.entityUrn as string);
+    const isConnectionSupportedByMonitors = isEntityEligibleForAssertionMonitoring(state.platformUrn);
+    const monitorsConnectionForEntityExists = connectionForEntityExists && isConnectionSupportedByMonitors;
+
     const filteredTypes = getAssertionTypesForEntityType(
         state.entityType as EntityType,
-        connectionForEntityExists,
+        monitorsConnectionForEntityExists,
     ).filter((type) => type.visible);
 
     const selectAssertionType = (type: AssertionType) => {
@@ -57,7 +60,7 @@ export const SelectTypeStep = ({ state, updateState, goTo }: StepProps) => {
                 },
                 parameters: getDefaultDatasetFreshnessAssertionParametersState(
                     state.platformUrn as string,
-                    connectionForEntityExists,
+                    monitorsConnectionForEntityExists,
                 ),
             };
         } else if (type === AssertionType.Volume) {
@@ -69,7 +72,7 @@ export const SelectTypeStep = ({ state, updateState, goTo }: StepProps) => {
                 },
                 parameters: getDefaultDatasetVolumeAssertionParametersState(
                     state.platformUrn as string,
-                    connectionForEntityExists,
+                    monitorsConnectionForEntityExists,
                 ),
             };
         } else if (type === AssertionType.Sql) {

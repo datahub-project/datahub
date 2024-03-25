@@ -10,6 +10,8 @@ import {
     VolumeAssertionType,
 } from '../../../../../../types.generated';
 import { getIsRowCountChange, getVolumeTypeInfo } from './assertion/builder/steps/volume/utils';
+import { formatNumberWithoutAbbreviation } from '../../../../../shared/formatNumber';
+import { parseMaybeStringAsFloatOrDefault } from '../../../../../shared/numberUtil';
 
 type Props = {
     assertionInfo: VolumeAssertionInfo;
@@ -22,7 +24,7 @@ const getVolumeTypeDescription = (volumeType: VolumeAssertionType) => {
             return 'has';
         case VolumeAssertionType.RowCountChange:
         case VolumeAssertionType.IncrementingSegmentRowCountChange:
-            return 'grows by';
+            return 'should grow by';
         default:
             throw new Error(`Unknown volume type ${volumeType}`);
     }
@@ -31,9 +33,9 @@ const getVolumeTypeDescription = (volumeType: VolumeAssertionType) => {
 const getOperatorDescription = (operator: AssertionStdOperator) => {
     switch (operator) {
         case AssertionStdOperator.GreaterThanOrEqualTo:
-            return 'greater than or equal to';
+            return 'at least';
         case AssertionStdOperator.LessThanOrEqualTo:
-            return 'less than or equal to';
+            return 'at most';
         case AssertionStdOperator.Between:
             return 'between';
         default:
@@ -54,10 +56,10 @@ const getValueChangeTypeDescription = (valueChangeType: AssertionValueChangeType
 
 const getParameterDescription = (parameters: AssertionStdParameters) => {
     if (parameters.value) {
-        return parameters.value.value;
+        return formatNumberWithoutAbbreviation(parseMaybeStringAsFloatOrDefault(parameters.value.value, parameters.value.value));
     }
     if (parameters.minValue && parameters.maxValue) {
-        return `${parameters.minValue.value} and ${parameters.maxValue.value}`;
+        return `${formatNumberWithoutAbbreviation(parseMaybeStringAsFloatOrDefault(parameters.minValue.value, parameters.minValue.value))} and ${formatNumberWithoutAbbreviation(parseMaybeStringAsFloatOrDefault(parameters.maxValue.value, parameters.maxValue.value))}`;
     }
     throw new Error('Invalid assertion parameters provided');
 };

@@ -23,6 +23,7 @@ import {
     Assertion,
     Monitor,
     Entity,
+    DataPlatform,
 } from '../../../../../../../../types.generated';
 import {
     BIGQUERY_URN,
@@ -391,21 +392,21 @@ export const builderStateToSharedFreshnessAssertionVariables = (builderState: As
                     : undefined,
             fixedInterval:
                 builderState.assertion?.freshnessAssertion?.schedule?.type ===
-                FreshnessAssertionScheduleType.FixedInterval
+                    FreshnessAssertionScheduleType.FixedInterval
                     ? builderState.assertion?.freshnessAssertion?.schedule?.fixedInterval
                     : undefined,
         },
         filter: builderState.assertion?.freshnessAssertion?.filter
             ? {
-                  type: builderState.assertion?.freshnessAssertion?.filter.type as DatasetFilterType,
-                  sql: builderState.assertion?.freshnessAssertion?.filter.sql,
-              }
+                type: builderState.assertion?.freshnessAssertion?.filter.type as DatasetFilterType,
+                sql: builderState.assertion?.freshnessAssertion?.filter.sql,
+            }
             : undefined,
         actions: builderState.assertion?.actions
             ? {
-                  onSuccess: builderState.assertion?.actions?.onSuccess || [],
-                  onFailure: builderState.assertion?.actions?.onFailure || [],
-              }
+                onSuccess: builderState.assertion?.actions?.onSuccess || [],
+                onFailure: builderState.assertion?.actions?.onFailure || [],
+            }
             : undefined,
     });
 };
@@ -476,15 +477,15 @@ export const builderStateToSharedVolumeAssertionVariables = (builderState: Asser
         description: builderState.assertion?.description,
         filter: builderState.assertion?.volumeAssertion?.filter
             ? {
-                  type: builderState.assertion?.volumeAssertion?.filter.type as DatasetFilterType,
-                  sql: builderState.assertion?.volumeAssertion?.filter.sql,
-              }
+                type: builderState.assertion?.volumeAssertion?.filter.type as DatasetFilterType,
+                sql: builderState.assertion?.volumeAssertion?.filter.sql,
+            }
             : undefined,
         actions: builderState.assertion?.actions
             ? {
-                  onSuccess: builderState.assertion?.actions?.onSuccess || [],
-                  onFailure: builderState.assertion?.actions?.onFailure || [],
-              }
+                onSuccess: builderState.assertion?.actions?.onSuccess || [],
+                onFailure: builderState.assertion?.actions?.onFailure || [],
+            }
             : undefined,
         ...volumeTypeVariables,
     });
@@ -515,26 +516,26 @@ export const builderStateToSharedSqlAssertionVariables = (builderState: Assertio
         parameters:
             builderState.assertion?.sqlAssertion?.operator === AssertionStdOperator.Between
                 ? {
-                      minValue: {
-                          type: builderState.assertion?.sqlAssertion?.parameters?.minValue?.type,
-                          value: builderState.assertion?.sqlAssertion?.parameters?.minValue?.value,
-                      },
-                      maxValue: {
-                          type: builderState?.assertion?.sqlAssertion?.parameters?.maxValue?.type,
-                          value: builderState?.assertion?.sqlAssertion?.parameters?.maxValue?.value,
-                      },
-                  }
+                    minValue: {
+                        type: builderState.assertion?.sqlAssertion?.parameters?.minValue?.type,
+                        value: builderState.assertion?.sqlAssertion?.parameters?.minValue?.value,
+                    },
+                    maxValue: {
+                        type: builderState?.assertion?.sqlAssertion?.parameters?.maxValue?.type,
+                        value: builderState?.assertion?.sqlAssertion?.parameters?.maxValue?.value,
+                    },
+                }
                 : {
-                      value: {
-                          type: builderState?.assertion?.sqlAssertion?.parameters?.value?.type,
-                          value: builderState?.assertion?.sqlAssertion?.parameters?.value?.value,
-                      },
-                  },
+                    value: {
+                        type: builderState?.assertion?.sqlAssertion?.parameters?.value?.type,
+                        value: builderState?.assertion?.sqlAssertion?.parameters?.value?.value,
+                    },
+                },
         actions: builderState.assertion?.actions
             ? {
-                  onSuccess: builderState.assertion?.actions?.onSuccess || [],
-                  onFailure: builderState.assertion?.actions?.onFailure || [],
-              }
+                onSuccess: builderState.assertion?.actions?.onSuccess || [],
+                onFailure: builderState.assertion?.actions?.onFailure || [],
+            }
             : undefined,
     });
 };
@@ -567,15 +568,15 @@ export const builderStateToSharedFieldAssertionVariables = (builderState: Assert
                 : undefined,
         filter: builderState.assertion?.fieldAssertion?.filter
             ? {
-                  type: builderState.assertion?.fieldAssertion?.filter.type as DatasetFilterType,
-                  sql: builderState.assertion?.fieldAssertion?.filter.sql,
-              }
+                type: builderState.assertion?.fieldAssertion?.filter.type as DatasetFilterType,
+                sql: builderState.assertion?.fieldAssertion?.filter.sql,
+            }
             : undefined,
         actions: builderState.assertion?.actions
             ? {
-                  onSuccess: builderState.assertion?.actions?.onSuccess || [],
-                  onFailure: builderState.assertion?.actions?.onFailure || [],
-              }
+                onSuccess: builderState.assertion?.actions?.onSuccess || [],
+                onFailure: builderState.assertion?.actions?.onFailure || [],
+            }
             : undefined,
     });
 };
@@ -636,8 +637,8 @@ export const getAssertionTypesForEntityType = (entityType: EntityType) => {
     return ASSERTION_TYPES.filter((type) => type.entityTypes.includes(entityType));
 };
 
-export const getDefaultFreshnessSourceOption = (platformUrn: string, connectionForEntityExists: boolean) => {
-    if (!connectionForEntityExists) {
+export const getDefaultFreshnessSourceOption = (platformUrn: string, monitorsConnectionForEntityExists: boolean): DatasetFreshnessSourceType => {
+    if (!monitorsConnectionForEntityExists) {
         return DatasetFreshnessSourceType.DatahubOperation;
     }
     return PLATFORM_ASSERTION_CONFIGS[platformUrn]?.freshness.defaultSourceType || DatasetFreshnessSourceType.AuditLog;
@@ -645,22 +646,22 @@ export const getDefaultFreshnessSourceOption = (platformUrn: string, connectionF
 
 export const getDefaultDatasetFreshnessAssertionParametersState = (
     platformUrn: string,
-    connectionForEntityExists: boolean,
+    monitorsConnectionForEntityExists: boolean,
 ) => {
     return {
         type: AssertionEvaluationParametersType.DatasetFreshness,
         datasetFreshnessParameters: {
-            sourceType: getDefaultFreshnessSourceOption(platformUrn, connectionForEntityExists),
+            sourceType: getDefaultFreshnessSourceOption(platformUrn, monitorsConnectionForEntityExists),
             auditLog: {},
         },
     };
 };
 
 export const getFreshnessSourceOptions = (platformUrn: string, connectionForEntityExists: boolean) => {
-    const allowedSourceTypes = connectionForEntityExists
-        ? PLATFORM_ASSERTION_CONFIGS[platformUrn].freshness.sourceTypes
+    const allowedSourceTypes: DatasetFreshnessSourceType[] | undefined = connectionForEntityExists
+        ? PLATFORM_ASSERTION_CONFIGS[platformUrn]?.freshness.sourceTypes
         : [DatasetFreshnessSourceType.DatahubOperation];
-    return allSourceOptions.filter((option) => allowedSourceTypes.includes(option.type));
+    return allSourceOptions.filter((option) => allowedSourceTypes?.includes(option.type));
 };
 
 export const getFreshnessSourceOptionPlatformDescription = (platformUrn: string, type: DatasetFreshnessSourceType) => {
@@ -779,7 +780,7 @@ const convertAssertionToBuilderState = (assertion: Assertion): AssertionMonitorB
         fieldAssertion: {
             type: assertion.info?.fieldAssertion?.type,
             // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-            // @ts-ignore NOTE: this is type `FieldValuesAssertion` but `AssertionMonitorBuilderState` has hardcoded every individual field so we'll have to manually map it
+            // @ts-ignore  NOTE: this is type `FieldValuesAssertion` but `AssertionMonitorBuilderState` has hardcoded every individual field so we'll have to manually map it
             fieldValuesAssertion: assertion.info?.fieldAssertion?.fieldValuesAssertion,
             // eslint-disable-next-line @typescript-eslint/ban-ts-comment
             // @ts-ignore TODO(@jjoyce0510): can we convert these fields on `AssertionMonitorBuilderState` to just use the generated types instead of manually defining every prop?
@@ -791,21 +792,17 @@ const convertAssertionToBuilderState = (assertion: Assertion): AssertionMonitorB
 
 export const createAssertionMonitorBuilderState = (
     assertion: Assertion,
-    entity: Entity,
+    entity: Entity & { platform?: DataPlatform },
     monitor?: Monitor,
 ): AssertionMonitorBuilderState => {
     return {
         entityUrn: entity.urn,
-        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-        // @ts-ignore 'platform' does not exist on type entity. TODO(@jjoyce0510) is there a better type we can use?
-        platformUrn: entity?.platform?.urn,
+        platformUrn: entity.platform?.urn,
         assertion: convertAssertionToBuilderState(assertion),
         schedule: monitor?.info?.assertionMonitor?.assertions?.[0]?.schedule,
         // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-        // @ts-ignore NOTE: this is type `AssertionEvaluationParameters` but `AssertionMonitorBuilderState` has hardcoded every individual field so we'll have to manually map it
+        // @ts-ignore TODO(@jjoyce0510): same as l784
         parameters: monitor?.info?.assertionMonitor?.assertions?.[0]?.parameters,
-        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-        // @ts-ignore 'executor' does not exist on type AssertionMonitor. TODO(@jjoyce0510) is there a better type we can use?
-        executorId: monitor?.info?.assertionMonitor?.executor?.urn,
+        executorId: monitor?.info?.executorId,
     };
 };
