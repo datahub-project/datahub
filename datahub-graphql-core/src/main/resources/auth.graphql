@@ -294,15 +294,39 @@ Backward incompatible changes will be made without notice in the future.
 """
 type DebugAccessResult {
   """
-  Roles that the entity has.
+  Roles that the user has.
   """
   roles: [String!]!
 
+  """
+  Groups that the user belongs to.
+  """
   groups: [String!]!
 
+  """
+  List of groups that the user is assigned to AND where the group has a role.
+  This is a subset of the groups property.
+  """
   groupsWithRoles: [String!]!
 
+  """
+  Final set of roles that are coming through groups.
+  If not role assigned to groups, then this would be empty.
+  """
   rolesViaGroups: [String!]!
 
+  """
+  Union of `roles` + `rolesViaGroups` that the user has.
+  """
   allRoles: [String!]!
+
+  """
+  List of Policy that apply to this user directly or indirectly.
+  """
+  policies: [String!]!
+
+  """
+  List of privileges that this user has directly or indirectly.
+  """
+  privileges: [String!]!
 }

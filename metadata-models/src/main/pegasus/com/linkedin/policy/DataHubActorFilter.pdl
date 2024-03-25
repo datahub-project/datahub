@@ -11,11 +11,21 @@ record DataHubActorFilter {
   /**
    * A specific set of users to apply the policy to (disjunctive)
    */
+  @Searchable = {
+    "/*": {
+      "fieldType": "URN",
+    }
+  }
   users: optional array[Urn]
 
   /**
    * A specific set of groups to apply the policy to (disjunctive)
    */
+  @Searchable = {
+    "/*": {
+      "fieldType": "URN",
+    }
+  }
   groups: optional array[Urn]
 
   /**
