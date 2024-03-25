@@ -35,7 +35,6 @@ import com.linkedin.metadata.search.utils.SearchUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import io.opentelemetry.extension.annotations.WithSpan;
 import java.net.URISyntaxException;
-import java.time.temporal.ChronoUnit;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -135,9 +134,7 @@ public class LineageSearchService {
       @Nullable Filter inputFilters,
       @Nullable SortCriterion sortCriterion,
       int from,
-      int size,
-      @Nullable Long startTimeMillis,
-      @Nullable Long endTimeMillis) {
+      int size) {
 
     long startTime = System.nanoTime();
     final String finalInput = input == null || input.isEmpty() ? "*" : input;
@@ -148,8 +145,10 @@ public class LineageSearchService {
     }
 
     final OperationContext finalOpContext =
-        opContext.withSearchFlags(
-            flags -> applyDefaultSearchFlags(flags, finalInput, DEFAULT_SERVICE_SEARCH_FLAGS));
+        opContext
+            .withSearchFlags(
+                flags -> applyDefaultSearchFlags(flags, finalInput, DEFAULT_SERVICE_SEARCH_FLAGS))
+            .withLineageFlags(lineageFlags -> lineageFlags);
 
     // Cache multihop result for faster performance
     final EntityLineageResultCacheKey cacheKey =
@@ -157,10 +156,8 @@ public class LineageSearchService {
             finalOpContext.getSearchContextId(),
             sourceUrn,
             direction,
-            startTimeMillis,
-            endTimeMillis,
             maxHops,
-            ChronoUnit.DAYS);
+            opContext.getSearchContext().getLineageFlags().getEntitiesExploredPerHopLimit());
     CachedEntityLineageResult cachedLineageResult = null;
 
     if (cacheEnabled) {
@@ -177,7 +174,12 @@ public class LineageSearchService {
         || finalOpContext.getSearchContext().getSearchFlags().isSkipCache()) {
       lineageResult =
           _graphService.getLineage(
-              sourceUrn, direction, 0, MAX_RELATIONSHIPS, maxHops, startTimeMillis, endTimeMillis);
+              sourceUrn,
+              direction,
+              0,
+              MAX_RELATIONSHIPS,
+              maxHops,
+              opContext.getSearchContext().getLineageFlags());
       if (cacheEnabled) {
         try {
           cache.put(
@@ -213,8 +215,7 @@ public class LineageSearchService {
                         0,
                         MAX_RELATIONSHIPS,
                         finalMaxHops,
-                        startTimeMillis,
-                        endTimeMillis);
+                        opContext.getSearchContext().getLineageFlags());
                 cache.put(cacheKey, result);
                 log.debug("Refilled Cached lineage entry for: {}.", sourceUrn);
               } else {
@@ -740,19 +741,15 @@ public class LineageSearchService {
       @Nullable SortCriterion sortCriterion,
       @Nullable String scrollId,
       @Nonnull String keepAlive,
-      int size,
-      @Nullable Long startTimeMillis,
-      @Nullable Long endTimeMillis) {
+      int size) {
     // Cache multihop result for faster performance
     final EntityLineageResultCacheKey cacheKey =
         new EntityLineageResultCacheKey(
             opContext.getSearchContextId(),
             sourceUrn,
             direction,
-            startTimeMillis,
-            endTimeMillis,
             maxHops,
-            ChronoUnit.DAYS);
+            opContext.getSearchContext().getLineageFlags().getEntitiesExploredPerHopLimit());
     CachedEntityLineageResult cachedLineageResult =
         cacheEnabled ? cache.get(cacheKey, CachedEntityLineageResult.class) : null;
     EntityLineageResult lineageResult;
@@ -760,7 +757,12 @@ public class LineageSearchService {
       maxHops = maxHops != null ? maxHops : 1000;
       lineageResult =
           _graphService.getLineage(
-              sourceUrn, direction, 0, MAX_RELATIONSHIPS, maxHops, startTimeMillis, endTimeMillis);
+              sourceUrn,
+              direction,
+              0,
+              MAX_RELATIONSHIPS,
+              maxHops,
+              opContext.getSearchContext().getLineageFlags());
       if (cacheEnabled) {
         cache.put(
             cacheKey, new CachedEntityLineageResult(lineageResult, System.currentTimeMillis()));

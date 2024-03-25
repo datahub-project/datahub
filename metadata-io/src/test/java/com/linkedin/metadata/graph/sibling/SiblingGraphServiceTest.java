@@ -101,7 +101,7 @@ public class SiblingGraphServiceTest {
     mockResult.setFiltered(0);
     mockResult.setRelationships(relationships);
 
-    when(_graphService.getLineage(datasetFourUrn, LineageDirection.UPSTREAM, 0, 100, 1, null, null))
+    when(_graphService.getLineage(datasetFourUrn, LineageDirection.UPSTREAM, 0, 100, 1, null))
         .thenReturn(mockResult);
 
     when(_mockEntityService.getLatestAspect(datasetFourUrn, SIBLINGS_ASPECT_NAME)).thenReturn(null);
@@ -146,7 +146,7 @@ public class SiblingGraphServiceTest {
     mockResult.setFiltered(0);
     mockResult.setRelationships(relationships);
 
-    when(_graphService.getLineage(datasetFourUrn, LineageDirection.UPSTREAM, 0, 100, 1, null, null))
+    when(_graphService.getLineage(datasetFourUrn, LineageDirection.UPSTREAM, 0, 100, 1, null))
         .thenReturn(mockResult);
 
     siblingMockResult.setStart(0);
@@ -154,7 +154,7 @@ public class SiblingGraphServiceTest {
     siblingMockResult.setCount(0);
     siblingMockResult.setRelationships(new LineageRelationshipArray());
 
-    when(_graphService.getLineage(datasetFiveUrn, LineageDirection.UPSTREAM, 0, 97, 1, null, null))
+    when(_graphService.getLineage(datasetFiveUrn, LineageDirection.UPSTREAM, 0, 97, 1, null))
         .thenReturn(siblingMockResult);
 
     Siblings noRelevantSiblingsResponse = new Siblings();
@@ -228,10 +228,10 @@ public class SiblingGraphServiceTest {
     siblingMockResult.setCount(0);
     siblingMockResult.setRelationships(new LineageRelationshipArray());
 
-    when(_graphService.getLineage(datasetThreeUrn, LineageDirection.UPSTREAM, 0, 98, 1, null, null))
+    when(_graphService.getLineage(datasetThreeUrn, LineageDirection.UPSTREAM, 0, 98, 1, null))
         .thenReturn(siblingMockResult);
 
-    when(_graphService.getLineage(datasetFourUrn, LineageDirection.UPSTREAM, 0, 100, 1, null, null))
+    when(_graphService.getLineage(datasetFourUrn, LineageDirection.UPSTREAM, 0, 100, 1, null))
         .thenReturn(mockResult);
 
     Siblings siblingInSearchResult = new Siblings();
@@ -340,7 +340,6 @@ public class SiblingGraphServiceTest {
             Mockito.anyInt(),
             Mockito.anyInt(),
             Mockito.eq(1),
-            Mockito.eq(null),
             Mockito.eq(null)))
         .then(invocation -> siblingMockResult.clone());
 
@@ -350,7 +349,6 @@ public class SiblingGraphServiceTest {
             Mockito.anyInt(),
             Mockito.anyInt(),
             Mockito.eq(1),
-            Mockito.eq(null),
             Mockito.eq(null)))
         .then(invocation -> mockResult.clone());
 
@@ -444,10 +442,10 @@ public class SiblingGraphServiceTest {
     siblingMockResult.setCount(2);
     siblingMockResult.setRelationships(siblingRelationships);
 
-    when(_graphService.getLineage(datasetThreeUrn, LineageDirection.UPSTREAM, 0, 99, 1, null, null))
+    when(_graphService.getLineage(datasetThreeUrn, LineageDirection.UPSTREAM, 0, 99, 1, null))
         .thenReturn(siblingMockResult);
 
-    when(_graphService.getLineage(datasetFourUrn, LineageDirection.UPSTREAM, 0, 100, 1, null, null))
+    when(_graphService.getLineage(datasetFourUrn, LineageDirection.UPSTREAM, 0, 100, 1, null))
         .thenReturn(mockResult);
 
     Siblings siblingInSearchResult = new Siblings();
@@ -495,11 +493,10 @@ public class SiblingGraphServiceTest {
     // assert your lineage will not contain two siblings
     assertEquals(upstreamLineage, expectedResult);
 
-    when(_graphService.getLineage(
-            datasetThreeUrn, LineageDirection.UPSTREAM, 0, 100, 1, null, null))
+    when(_graphService.getLineage(datasetThreeUrn, LineageDirection.UPSTREAM, 0, 100, 1, null))
         .thenReturn(siblingMockResult);
 
-    when(_graphService.getLineage(datasetFourUrn, LineageDirection.UPSTREAM, 0, 99, 1, null, null))
+    when(_graphService.getLineage(datasetFourUrn, LineageDirection.UPSTREAM, 0, 99, 1, null))
         .thenReturn(mockResult);
 
     siblingInSearchResult = new Siblings();
@@ -565,7 +562,6 @@ public class SiblingGraphServiceTest {
             Mockito.anyInt(),
             Mockito.anyInt(),
             Mockito.eq(1),
-            Mockito.eq(null),
             Mockito.eq(null)))
         .thenReturn(emptyLineageResult);
 
@@ -575,7 +571,6 @@ public class SiblingGraphServiceTest {
             Mockito.anyInt(),
             Mockito.anyInt(),
             Mockito.eq(1),
-            Mockito.eq(null),
             Mockito.eq(null)))
         .thenReturn(emptyLineageResult);
 
@@ -585,7 +580,6 @@ public class SiblingGraphServiceTest {
             Mockito.anyInt(),
             Mockito.anyInt(),
             Mockito.eq(1),
-            Mockito.eq(null),
             Mockito.eq(null)))
         .thenReturn(mockResult);
 
@@ -697,7 +691,6 @@ public class SiblingGraphServiceTest {
             Mockito.anyInt(),
             Mockito.anyInt(),
             Mockito.eq(1),
-            Mockito.eq(null),
             Mockito.eq(null)))
         .then(invocation -> siblingMockResult.clone());
 
@@ -707,7 +700,6 @@ public class SiblingGraphServiceTest {
             Mockito.anyInt(),
             Mockito.anyInt(),
             Mockito.eq(1),
-            Mockito.eq(null),
             Mockito.eq(null)))
         .then(invocation -> mockResult.clone());
 
@@ -852,7 +844,6 @@ public class SiblingGraphServiceTest {
             Mockito.anyInt(),
             Mockito.anyInt(),
             Mockito.eq(1),
-            Mockito.eq(null),
             Mockito.eq(null)))
         .then(invocation -> mockAlternateUpstreamResult.clone());
 
@@ -868,7 +859,6 @@ public class SiblingGraphServiceTest {
             Mockito.anyInt(),
             Mockito.anyInt(),
             Mockito.eq(1),
-            Mockito.eq(null),
             Mockito.eq(null)))
         .then(invocation -> mockAlternateDownstreamResult.clone());
 
@@ -895,7 +885,6 @@ public class SiblingGraphServiceTest {
             Mockito.anyInt(),
             Mockito.anyInt(),
             Mockito.eq(1),
-            Mockito.eq(null),
             Mockito.eq(null)))
         .then(invocation -> mockPrimaryUpstreamResult.clone());
 
@@ -918,7 +907,6 @@ public class SiblingGraphServiceTest {
             Mockito.anyInt(),
             Mockito.anyInt(),
             Mockito.eq(1),
-            Mockito.eq(null),
             Mockito.eq(null)))
         .then(invocation -> mockPrimaryDownstreamResult.clone());
 
@@ -929,7 +917,7 @@ public class SiblingGraphServiceTest {
     // Tests for separateSiblings = true: primary sibling
     EntityLineageResult primaryDownstreamSeparated =
         service.getLineage(
-            primarySiblingUrn, LineageDirection.DOWNSTREAM, 0, 100, 1, true, Set.of(), null, null);
+            primarySiblingUrn, LineageDirection.DOWNSTREAM, 0, 100, 1, true, Set.of(), null);
 
     LineageRelationshipArray expectedRelationships = new LineageRelationshipArray();
     expectedRelationships.add(relationship);
@@ -945,7 +933,7 @@ public class SiblingGraphServiceTest {
 
     EntityLineageResult primaryUpstreamSeparated =
         service.getLineage(
-            primarySiblingUrn, LineageDirection.UPSTREAM, 0, 100, 1, true, Set.of(), null, null);
+            primarySiblingUrn, LineageDirection.UPSTREAM, 0, 100, 1, true, Set.of(), null);
     EntityLineageResult expectedResultPrimaryUpstreamSeparated = new EntityLineageResult();
     expectedResultPrimaryUpstreamSeparated.setCount(2);
     expectedResultPrimaryUpstreamSeparated.setStart(0);
@@ -958,15 +946,7 @@ public class SiblingGraphServiceTest {
     // Test for separateSiblings = true, secondary sibling
     EntityLineageResult secondarySiblingSeparated =
         service.getLineage(
-            alternateSiblingUrn,
-            LineageDirection.DOWNSTREAM,
-            0,
-            100,
-            1,
-            true,
-            Set.of(),
-            null,
-            null);
+            alternateSiblingUrn, LineageDirection.DOWNSTREAM, 0, 100, 1, true, Set.of(), null);
 
     EntityLineageResult expectedResultSecondarySeparated = new EntityLineageResult();
     expectedResultSecondarySeparated.setCount(numDownstreams);
@@ -979,7 +959,7 @@ public class SiblingGraphServiceTest {
 
     EntityLineageResult secondaryUpstreamSeparated =
         service.getLineage(
-            alternateSiblingUrn, LineageDirection.UPSTREAM, 0, 100, 1, true, Set.of(), null, null);
+            alternateSiblingUrn, LineageDirection.UPSTREAM, 0, 100, 1, true, Set.of(), null);
     EntityLineageResult expectedResultSecondaryUpstreamSeparated = new EntityLineageResult();
     expectedResultSecondaryUpstreamSeparated.setCount(3);
     expectedResultSecondaryUpstreamSeparated.setStart(0);
@@ -999,7 +979,6 @@ public class SiblingGraphServiceTest {
             1,
             false,
             new HashSet<>(),
-            null,
             null);
     EntityLineageResult expectedResultPrimaryNonSeparated = new EntityLineageResult();
     expectedResultPrimaryNonSeparated.setCount(numDownstreams);
@@ -1011,15 +990,7 @@ public class SiblingGraphServiceTest {
 
     EntityLineageResult primarySiblingNonSeparatedUpstream =
         service.getLineage(
-            primarySiblingUrn,
-            LineageDirection.UPSTREAM,
-            0,
-            100,
-            1,
-            false,
-            new HashSet<>(),
-            null,
-            null);
+            primarySiblingUrn, LineageDirection.UPSTREAM, 0, 100, 1, false, new HashSet<>(), null);
     EntityLineageResult expectedResultPrimaryUpstreamNonSeparated = new EntityLineageResult();
     expectedResultPrimaryUpstreamNonSeparated.setCount(2);
     expectedResultPrimaryUpstreamNonSeparated.setStart(0);
@@ -1038,7 +1009,6 @@ public class SiblingGraphServiceTest {
             1,
             false,
             new HashSet<>(),
-            null,
             null);
     assertEquals(secondarySiblingNonSeparated, expectedResultPrimaryNonSeparated);
 
@@ -1051,7 +1021,6 @@ public class SiblingGraphServiceTest {
             1,
             false,
             new HashSet<>(),
-            null,
             null);
     assertEquals(secondarySiblingNonSeparatedUpstream, expectedResultPrimaryUpstreamNonSeparated);
   }

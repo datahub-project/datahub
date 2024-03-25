@@ -5,6 +5,7 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 import com.datahub.authorization.AuthorizationConfiguration;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.data.template.SetMode;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.generated.Entity;
@@ -17,6 +18,7 @@ import com.linkedin.datahub.graphql.generated.Restricted;
 import com.linkedin.datahub.graphql.types.common.mappers.UrnToEntityMapper;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.graph.SiblingGraphService;
+import com.linkedin.metadata.query.LineageFlags;
 import com.linkedin.metadata.service.RestrictedService;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -82,8 +84,9 @@ public class EntityLineageResultResolver
                     1,
                     separateSiblings != null ? input.getSeparateSiblings() : false,
                     new HashSet<>(),
-                    startTimeMillis,
-                    endTimeMillis);
+                    new LineageFlags()
+                        .setStartTimeMillis(startTimeMillis, SetMode.REMOVE_IF_NULL)
+                        .setEndTimeMillis(endTimeMillis, SetMode.REMOVE_IF_NULL));
 
             Set<Urn> restrictedUrns = new HashSet<>();
             entityLineageResult
@@ -100,7 +103,7 @@ public class EntityLineageResultResolver
           } catch (Exception e) {
             log.error("Failed to fetch lineage for {}", finalUrn);
             throw new RuntimeException(
-                String.format("Failed to fetch lineage for {}", finalUrn), e);
+                String.format("Failed to fetch lineage for %s", finalUrn), e);
           }
         });
   }

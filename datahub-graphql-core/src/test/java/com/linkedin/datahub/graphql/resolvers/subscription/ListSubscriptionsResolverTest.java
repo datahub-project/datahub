@@ -42,6 +42,7 @@ public class ListSubscriptionsResolverTest {
     when(mockContext.getActorUrn()).thenReturn(USER_URN_STRING);
 
     final ListSubscriptionsInput input = new ListSubscriptionsInput();
+    input.setActorUrn(USER_URN_STRING);
     when(_dataFetchingEnvironment.getArgument("input")).thenReturn(input);
 
     _resolver = new ListSubscriptionsResolver(_subscriptionService);

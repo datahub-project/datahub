@@ -12,6 +12,7 @@ import com.codahale.metrics.MetricRegistry;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authorization.EntitySpec;
+import com.linkedin.data.template.SetMode;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.OperationContextConfig;
 import com.datahub.plugins.auth.authorization.Authorizer;
@@ -489,7 +490,9 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     Authentication auth = AuthenticationContext.getAuthentication();
     OperationContext opContext = OperationContext.asSession(
                     systemOperationContext, _authorizer, auth, true)
-            .withSearchFlags(flags -> searchFlags != null ? searchFlags : new SearchFlags().setFulltext(true));
+            .withSearchFlags(flags -> searchFlags != null ? searchFlags : new SearchFlags().setFulltext(true))
+            .withLineageFlags(flags -> flags.setStartTimeMillis(startTimeMillis, SetMode.REMOVE_IF_NULL)
+                .setEndTimeMillis(endTimeMillis, SetMode.REMOVE_IF_NULL));
 
     if (Boolean.parseBoolean(System.getenv(REST_API_AUTHORIZATION_ENABLED_ENV))
         && !isAuthorized(
@@ -521,9 +524,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
                     filter,
                     sortCriterion,
                     start,
-                    count,
-                    startTimeMillis,
-                    endTimeMillis),
+                    count),
                 _entityService),
         "searchAcrossRelationships");
   }
@@ -550,7 +551,9 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     Authentication auth = AuthenticationContext.getAuthentication();
     OperationContext opContext = OperationContext.asSession(
                     systemOperationContext, _authorizer, auth, true)
-            .withSearchFlags(flags -> searchFlags != null ? searchFlags : new SearchFlags().setSkipCache(true));
+            .withSearchFlags(flags -> searchFlags != null ? searchFlags : new SearchFlags().setSkipCache(true))
+            .withLineageFlags(flags -> flags.setStartTimeMillis(startTimeMillis, SetMode.REMOVE_IF_NULL)
+                .setEndTimeMillis(endTimeMillis, SetMode.REMOVE_IF_NULL));
 
     Urn urn = Urn.createFromString(urnStr);
     List<String> entityList = entities == null ? Collections.emptyList() : Arrays.asList(entities);
@@ -575,9 +578,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
                     sortCriterion,
                     scrollId,
                     keepAlive,
-                    count,
-                    startTimeMillis,
-                    endTimeMillis),
+                    count),
                 _entityService),
         "scrollAcrossLineage");
   }
