@@ -27,7 +27,7 @@ pip install acryl_datahub_dagster_plugin
 **Using Definitions class:**
 
 ```python
-{{ inline /metadata-ingestion-modules/dagster-plugin/src/datahub_dagster_plugin/example_jobs/basic_setup.py }}
+{{ inline /metadata-ingestion-modules/dagster-plugin/examples/basic_setup.py }}
 ```
 
 3. The DataHub dagster plugin provided sensor internally uses below configs. You can set these configs using environment variables. If not set, the sensor will take the default value.
@@ -80,7 +80,7 @@ def asset_lineage_extractor(
     return dataset_lineage
 ```
 
-[See example job here](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion-modules/dagster-plugin/src/datahub_dagster_plugin/example_jobs/advanced_ops_jobs.py).
+[See example job here](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion-modules/dagster-plugin/examples/advanced_ops_jobs.py).
 
 ## Debugging
 
