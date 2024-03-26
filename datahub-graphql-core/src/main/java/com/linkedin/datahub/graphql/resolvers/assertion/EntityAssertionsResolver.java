@@ -49,6 +49,8 @@ public class EntityAssertionsResolver
           final String entityUrn = ((Entity) environment.getSource()).getUrn();
           final Integer start = environment.getArgumentOrDefault("start", 0);
           final Integer count = environment.getArgumentOrDefault("count", 200);
+          final Boolean includeSoftDeleted =
+              environment.getArgumentOrDefault("includeSoftDeleted", false);
 
           try {
             // Step 1: Fetch set of assertions associated with the target entity from the Graph
@@ -84,6 +86,13 @@ public class EntityAssertionsResolver
                 gmsResults.stream()
                     .filter(Objects::nonNull)
                     .map(AssertionMapper::map)
+                    .filter(
+                        assertion -> {
+                          if (!includeSoftDeleted && assertion.getStatus() != null) {
+                            return !assertion.getStatus().getRemoved();
+                          }
+                          return true;
+                        })
                     .collect(Collectors.toList());
 
             // Step 4: Package and return result
