@@ -12,7 +12,6 @@ const FilterPills = styled.div`
     margin-left: 20px;
     padding-right: 20px;
     gap: 8px;
-    overflow: auto;
     /* Hide scrollbar for Chrome, Safari, and Opera */
     &::-webkit-scrollbar {
         display: none;
