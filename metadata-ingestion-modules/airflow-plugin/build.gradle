@@ -59,7 +59,7 @@ task installDev(type: Exec, dependsOn: [install]) {
   commandLine 'bash', '-c',
     "source ${venv_name}/bin/activate && set -x && " +
     "${pip_install_command} -e .[integration-tests${extra_pip_extras}] ${extra_pip_requirements} && " +
-    "${pip_install_command} -e .[dev] && " +
+    "${pip_install_command} -e .[dev${extra_pip_extras}] && " +
     "touch ${sentinel_file}"
 }
 

@@ -110,6 +110,12 @@ integration_test_requirements = {
     "virtualenv",  # needed by PythonVirtualenvOperator
     "apache-airflow-providers-sqlite",
 }
+per_version_test_requirements = {
+    "test-airflow24": {
+        # This is an override to ensure that we respect this Airflow 2.4 constraint.
+        "urllib3==1.26.12",
+    },
+}
 
 
 entry_points = {
@@ -167,5 +173,9 @@ setuptools.setup(
         **{plugin: list(dependencies) for plugin, dependencies in plugins.items()},
         "dev": list(dev_requirements),
         "integration-tests": list(integration_test_requirements),
+        **{
+            plugin: list(dependencies)
+            for plugin, dependencies in per_version_test_requirements.items()
+        },
     },
 )
