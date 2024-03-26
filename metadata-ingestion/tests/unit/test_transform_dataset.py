@@ -739,7 +739,7 @@ def test_extract_owners_from_tags():
         expected_owner_type_urn="urn:li:ownershipType:ad8557d6-dcb9-4d2a-83fc-b7d0d54f3e0f",
     )
     _test_owner(
-        tag="data_producer_owner_email:games.team@nytimes.com",
+        tag="data_producer_owner_email:abc_xyz-email_com",
         config={
             "tag_pattern": "(.*)_owner_email:",
             "owner_character_mapping": {
@@ -752,7 +752,7 @@ def test_extract_owners_from_tags():
             },
             "extract_owner_type_from_tag_pattern": True,
         },
-        expected_owner="urn:li:corpuser:games.team@nytimes.com",
+        expected_owner="urn:li:corpuser:abc.xyz@email.com",
         expected_owner_type=OwnershipTypeClass.CUSTOM,
         expected_owner_type_urn="urn:li:ownershipType:data_producer",
     )
