@@ -163,7 +163,7 @@ export const OperationsTab = () => {
     // Merge the runs data from all entities.
     // If there's more than one entity contributing to the data, then we can't do pagination.
     let canPaginate = true;
-    let data: GetDatasetRunsQuery | undefined;
+    let dataRuns: NonNullable<GetDatasetRunsQuery['dataset']>['runs'] | undefined;
     if (datas.length > 0) {
         let numWithRuns = 0;
         for (let i = 0; i < datas.length; i++) {
@@ -171,11 +171,11 @@ export const OperationsTab = () => {
                 numWithRuns++;
             }
 
-            if (data === undefined || !notEmpty(data?.dataset?.runs?.runs)) {
-                data = JSON.parse(JSON.stringify(datas[i]));
+            if (dataRuns && dataRuns.runs) {
+                dataRuns.runs.push(...(datas[i]?.dataset?.runs?.runs || []));
+                dataRuns.total = (dataRuns.total ?? 0) + (datas[i]?.dataset?.runs?.total ?? 0);
             } else {
-                data.dataset.runs.runs.push(...(datas[i]?.dataset?.runs?.runs || []));
-                data.dataset.runs.total = (data.dataset.runs.total ?? 0) + (datas[i]?.dataset?.runs?.total ?? 0);
+                dataRuns = JSON.parse(JSON.stringify(datas[i]?.dataset?.runs));
             }
         }
 
@@ -185,7 +185,7 @@ export const OperationsTab = () => {
     }
 
     // This also sorts the runs data across all entities.
-    const runs = data && data?.dataset?.runs?.runs?.sort((a, b) => (b?.created?.time ?? 0) - (a?.created?.time ?? 0));
+    const runs = dataRuns?.runs?.sort((a, b) => (b?.created?.time ?? 0) - (a?.created?.time ?? 0));
 
     const tableData = runs
         ?.filter((run) => run)
@@ -229,7 +229,7 @@ export const OperationsTab = () => {
                             <Pagination
                                 current={page}
                                 pageSize={PAGE_SIZE}
-                                total={data?.dataset?.runs?.total || 0}
+                                total={dataRuns?.total || 0}
                                 showLessItems
                                 onChange={onChangePage}
                                 showSizeChanger={false}
