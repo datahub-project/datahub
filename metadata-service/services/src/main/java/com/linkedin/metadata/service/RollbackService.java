@@ -1,15 +1,12 @@
 package com.linkedin.metadata.service;
 
 import static com.linkedin.metadata.Constants.DEFAULT_RUN_ID;
+import static com.linkedin.metadata.authorization.ApiOperation.DELETE;
 
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationException;
 import com.datahub.authorization.AuthUtil;
-import com.datahub.authorization.ConjunctivePrivilegeGroup;
-import com.datahub.authorization.DisjunctivePrivilegeGroup;
-import com.datahub.authorization.EntitySpec;
 import com.datahub.plugins.auth.authorization.Authorizer;
-import com.google.common.collect.ImmutableList;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -17,7 +14,6 @@ import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.execution.ExecutionRequestResult;
 import com.linkedin.metadata.Constants;
-import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.RollbackRunResult;
 import com.linkedin.metadata.key.ExecutionRequestKey;
@@ -34,7 +30,6 @@ import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.timeseries.DeleteAspectValuesResult;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -57,7 +52,6 @@ public class RollbackService {
   private final EntityService<?> entityService;
   private final SystemMetadataService systemMetadataService;
   private final TimeseriesAspectService timeseriesAspectService;
-  private final boolean restApiAuthorizationEnabled;
 
   public List<AspectRowSummary> rollbackTargetAspects(@Nonnull String runId, boolean hardDelete) {
     return systemMetadataService.findByRunId(runId, hardDelete, 0, MAX_RESULT_SIZE);
@@ -291,23 +285,15 @@ public class RollbackService {
       final Authorizer authorizer,
       @Nonnull List<AspectRowSummary> rowSummaries,
       @Nonnull Authentication authentication) {
-    DisjunctivePrivilegeGroup orGroup =
-        new DisjunctivePrivilegeGroup(
-            ImmutableList.of(
-                new ConjunctivePrivilegeGroup(
-                    ImmutableList.of(PoliciesConfig.DELETE_ENTITY_PRIVILEGE.getType()))));
 
-    List<Optional<EntitySpec>> resourceSpecs =
+    return AuthUtil.isAPIAuthorizedEntityUrns(
+        authentication,
+        authorizer,
+        DELETE,
         rowSummaries.stream()
             .map(AspectRowSummary::getUrn)
             .map(UrnUtils::getUrn)
-            .map(urn -> Optional.of(new EntitySpec(urn.getEntityType(), urn.toString())))
-            .distinct()
-            .collect(Collectors.toList());
-
-    return !restApiAuthorizationEnabled
-        || AuthUtil.isAuthorizedForResources(
-            authorizer, authentication.getActor().toUrnStr(), resourceSpecs, orGroup);
+            .collect(Collectors.toSet()));
   }
 
   private static String stringifyRowCount(int size) {

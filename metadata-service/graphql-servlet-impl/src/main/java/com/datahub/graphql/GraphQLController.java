@@ -102,8 +102,15 @@ public class GraphQLController {
      * Init QueryContext
      */
     Authentication authentication = AuthenticationContext.getAuthentication();
+
     SpringQueryContext context =
-        new SpringQueryContext(true, authentication, _authorizerChain, systemOperationContext);
+        new SpringQueryContext(
+            true,
+            authentication,
+            _authorizerChain,
+            systemOperationContext,
+            queryJson.asText(),
+            variables);
     Span.current().setAttribute("actor.urn", context.getActorUrn());
 
     return CompletableFuture.supplyAsync(

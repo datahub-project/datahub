@@ -7,6 +7,7 @@ import com.linkedin.common.Origin;
 import com.linkedin.common.Ownership;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
+import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.CorpGroup;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
@@ -21,6 +22,7 @@ import com.linkedin.identity.CorpGroupInfo;
 import com.linkedin.metadata.key.CorpGroupKey;
 import com.linkedin.structured.StructuredProperties;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 /**
  * Maps Pegasus {@link RecordTemplate} objects to objects conforming to the GQL schema.
@@ -31,12 +33,14 @@ public class CorpGroupMapper implements ModelMapper<EntityResponse, CorpGroup> {
 
   public static final CorpGroupMapper INSTANCE = new CorpGroupMapper();
 
-  public static CorpGroup map(@Nonnull final EntityResponse entityResponse) {
-    return INSTANCE.apply(entityResponse);
+  public static CorpGroup map(
+      @Nullable QueryContext context, @Nonnull final EntityResponse entityResponse) {
+    return INSTANCE.apply(context, entityResponse);
   }
 
   @Override
-  public CorpGroup apply(@Nonnull final EntityResponse entityResponse) {
+  public CorpGroup apply(
+      @Nullable QueryContext context, @Nonnull final EntityResponse entityResponse) {
     final CorpGroup result = new CorpGroup();
     Urn entityUrn = entityResponse.getUrn();
 
@@ -45,15 +49,17 @@ public class CorpGroupMapper implements ModelMapper<EntityResponse, CorpGroup> {
     EnvelopedAspectMap aspectMap = entityResponse.getAspects();
     MappingHelper<CorpGroup> mappingHelper = new MappingHelper<>(aspectMap, result);
     mappingHelper.mapToResult(CORP_GROUP_KEY_ASPECT_NAME, this::mapCorpGroupKey);
-    mappingHelper.mapToResult(CORP_GROUP_INFO_ASPECT_NAME, this::mapCorpGroupInfo);
-    mappingHelper.mapToResult(CORP_GROUP_EDITABLE_INFO_ASPECT_NAME, this::mapCorpGroupEditableInfo);
+    mappingHelper.mapToResult(context, CORP_GROUP_INFO_ASPECT_NAME, this::mapCorpGroupInfo);
     mappingHelper.mapToResult(
-        OWNERSHIP_ASPECT_NAME, (entity, dataMap) -> this.mapOwnership(entity, dataMap, entityUrn));
+        context, CORP_GROUP_EDITABLE_INFO_ASPECT_NAME, this::mapCorpGroupEditableInfo);
+    mappingHelper.mapToResult(
+        OWNERSHIP_ASPECT_NAME,
+        (entity, dataMap) -> this.mapOwnership(context, entity, dataMap, entityUrn));
     mappingHelper.mapToResult(
         STRUCTURED_PROPERTIES_ASPECT_NAME,
         ((entity, dataMap) ->
             entity.setStructuredProperties(
-                StructuredPropertiesMapper.map(new StructuredProperties(dataMap)))));
+                StructuredPropertiesMapper.map(context, new StructuredProperties(dataMap)))));
     mappingHelper.mapToResult(
         FORMS_ASPECT_NAME,
         ((entity, dataMap) ->
@@ -74,20 +80,25 @@ public class CorpGroupMapper implements ModelMapper<EntityResponse, CorpGroup> {
     corpGroup.setName(corpGroupKey.getName());
   }
 
-  private void mapCorpGroupInfo(@Nonnull CorpGroup corpGroup, @Nonnull DataMap dataMap) {
+  private void mapCorpGroupInfo(
+      @Nullable QueryContext context, @Nonnull CorpGroup corpGroup, @Nonnull DataMap dataMap) {
     CorpGroupInfo corpGroupInfo = new CorpGroupInfo(dataMap);
-    corpGroup.setProperties(CorpGroupPropertiesMapper.map(corpGroupInfo));
-    corpGroup.setInfo(CorpGroupInfoMapper.map(corpGroupInfo));
+    corpGroup.setProperties(CorpGroupPropertiesMapper.map(context, corpGroupInfo));
+    corpGroup.setInfo(CorpGroupInfoMapper.map(context, corpGroupInfo));
   }
 
-  private void mapCorpGroupEditableInfo(@Nonnull CorpGroup corpGroup, @Nonnull DataMap dataMap) {
+  private void mapCorpGroupEditableInfo(
+      @Nullable QueryContext context, @Nonnull CorpGroup corpGroup, @Nonnull DataMap dataMap) {
     corpGroup.setEditableProperties(
-        CorpGroupEditablePropertiesMapper.map(new CorpGroupEditableInfo(dataMap)));
+        CorpGroupEditablePropertiesMapper.map(context, new CorpGroupEditableInfo(dataMap)));
   }
 
   private void mapOwnership(
-      @Nonnull CorpGroup corpGroup, @Nonnull DataMap dataMap, @Nonnull Urn entityUrn) {
-    corpGroup.setOwnership(OwnershipMapper.map(new Ownership(dataMap), entityUrn));
+      @Nullable QueryContext context,
+      @Nonnull CorpGroup corpGroup,
+      @Nonnull DataMap dataMap,
+      @Nonnull Urn entityUrn) {
+    corpGroup.setOwnership(OwnershipMapper.map(context, new Ownership(dataMap), entityUrn));
   }
 
   private void mapEntityOriginType(@Nonnull CorpGroup corpGroup, @Nonnull DataMap dataMap) {

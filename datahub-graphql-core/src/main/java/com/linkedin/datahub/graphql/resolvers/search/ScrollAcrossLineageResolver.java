@@ -106,6 +106,7 @@ public class ScrollAcrossLineageResolver
               searchFlags = null;
             }
             return UrnScrollAcrossLineageResultsMapper.map(
+                context,
                 _entityClient.scrollAcrossLineage(
                     context
                         .getOperationContext()

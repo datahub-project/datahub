@@ -21,7 +21,7 @@ dependencies {
     implementation project(':metadata-events:mxe-registration')
     implementation project(':metadata-events:mxe-utils-avro')
     implementation project(':metadata-io')
-    implementation project(':metadata-service:restli-client')
+    implementation project(':metadata-service:restli-client-api')
     implementation spec.product.pegasus.restliClient
     implementation spec.product.pegasus.restliCommon
     implementation externalDependency.elasticSearchRest

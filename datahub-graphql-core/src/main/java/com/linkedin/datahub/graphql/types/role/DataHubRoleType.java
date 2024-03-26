@@ -67,7 +67,7 @@ public class DataHubRoleType
                   gmsResult == null
                       ? null
                       : DataFetcherResult.<DataHubRole>newResult()
-                          .data(DataHubRoleMapper.map(gmsResult))
+                          .data(DataHubRoleMapper.map(context, gmsResult))
                           .build())
           .collect(Collectors.toList());
     } catch (Exception e) {

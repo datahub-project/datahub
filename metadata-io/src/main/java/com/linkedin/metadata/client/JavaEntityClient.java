@@ -31,6 +31,7 @@ import com.linkedin.metadata.entity.DeleteEntityService;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.IngestResult;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
+import com.linkedin.metadata.entity.validation.ValidationUtils;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.graph.LineageDirection;
 import com.linkedin.metadata.query.AutoCompleteResult;
@@ -47,7 +48,6 @@ import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.search.client.CachingEntitySearchService;
 import com.linkedin.metadata.service.RollbackService;
-import com.linkedin.metadata.shared.ValidationUtils;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
@@ -747,10 +747,12 @@ public class JavaEntityClient implements EntityClient {
             .mcps(List.of(metadataChangeProposal), auditStamp, entityService)
             .build();
 
-    IngestResult one = entityService.ingestProposal(batch, async).stream().findFirst().get();
+    Optional<IngestResult> one = entityService.ingestProposal(batch, async).stream().findFirst();
 
-    Urn urn = one.getUrn();
-    tryIndexRunId(urn, metadataChangeProposal.getSystemMetadata());
+    Urn urn = one.map(IngestResult::getUrn).orElse(metadataChangeProposal.getEntityUrn());
+    if (one.isPresent()) {
+      tryIndexRunId(urn, metadataChangeProposal.getSystemMetadata());
+    }
     return urn.toString();
   }
 
