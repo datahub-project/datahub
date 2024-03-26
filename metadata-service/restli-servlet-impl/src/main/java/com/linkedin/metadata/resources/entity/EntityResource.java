@@ -2,7 +2,6 @@ package com.linkedin.metadata.resources.entity;
 
 import static com.datahub.authorization.AuthUtil.*;
 import static com.linkedin.metadata.authorization.ApiGroup.COUNTS;
-import static com.linkedin.metadata.authorization.ApiGroup.ENTITY;
 import static com.linkedin.metadata.authorization.ApiGroup.LINEAGE;
 import static com.linkedin.metadata.authorization.ApiGroup.TIMESERIES;
 import static com.linkedin.metadata.authorization.ApiOperation.CREATE;
@@ -19,9 +18,10 @@ import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authorization.AuthUtil;
 import com.datahub.authorization.EntitySpec;
-import com.linkedin.metadata.authorization.Disjunctive;
+
 import io.datahubproject.metadata.context.RequestContext;
 import io.datahubproject.metadata.services.RestrictedService;
+import com.linkedin.data.template.SetMode;
 import io.datahubproject.metadata.context.OperationContext;
 import com.datahub.plugins.auth.authorization.Authorizer;
 import com.google.common.collect.ImmutableList;
@@ -521,7 +521,6 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       @ActionParam(PARAM_END_TIME_MILLIS) @Optional @Nullable Long endTimeMillis,
       @Optional @Nullable @ActionParam(PARAM_SEARCH_FLAGS) SearchFlags searchFlags)
       throws URISyntaxException {
-
     final Authentication auth = AuthenticationContext.getAuthentication();
     if (!isAPIAuthorized(
             auth,
@@ -534,7 +533,9 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     OperationContext opContext = OperationContext.asSession(
                     systemOperationContext, RequestContext.builder().buildRestli(ACTION_SEARCH_ACROSS_LINEAGE, entities), authorizer, auth, true)
             .withSearchFlags(flags -> (searchFlags != null ? searchFlags : new SearchFlags().setFulltext(true))
-                    .setIncludeRestricted(true));
+                    .setIncludeRestricted(true))
+            .withLineageFlags(flags -> flags.setStartTimeMillis(startTimeMillis, SetMode.REMOVE_IF_NULL)
+                    .setEndTimeMillis(endTimeMillis, SetMode.REMOVE_IF_NULL));
 
     Urn urn = Urn.createFromString(urnStr);
     List<String> entityList = entities == null ? Collections.emptyList() : Arrays.asList(entities);
@@ -545,23 +546,18 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
         entityList,
         input);
     return RestliUtil.toTask(
-        () -> {
-          LineageSearchResult result = validateLineageSearchResult(lineageSearchService.searchAcrossLineage(
-                    opContext,
-                    urn,
-                    LineageDirection.valueOf(direction),
-                    entityList,
-                    input,
-                    maxHops,
-                    filter,
-                    sortCriterion,
-                    start,
-                    count,
-                    startTimeMillis,
-                    endTimeMillis), entityService);
-
-          return result;
-          },
+        () -> validateLineageSearchResult(lineageSearchService.searchAcrossLineage(
+                  opContext,
+                  urn,
+                  LineageDirection.valueOf(direction),
+                  entityList,
+                  input,
+                  maxHops,
+                  filter,
+                  sortCriterion,
+                  start,
+                  count),
+            entityService),
         "searchAcrossRelationships");
   }
 
@@ -594,9 +590,12 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     }
 
     OperationContext opContext = OperationContext.asSession(
-                    systemOperationContext, RequestContext.builder().buildRestli(ACTION_SCROLL_ACROSS_LINEAGE, entities), authorizer, auth, true)
+                    systemOperationContext, RequestContext.builder().buildRestli(ACTION_SCROLL_ACROSS_LINEAGE, entities),
+            authorizer, auth, true)
             .withSearchFlags(flags -> (searchFlags != null ? searchFlags : new SearchFlags().setSkipCache(true))
-                    .setIncludeRestricted(true));
+                    .setIncludeRestricted(true))
+            .withLineageFlags(flags -> flags.setStartTimeMillis(startTimeMillis, SetMode.REMOVE_IF_NULL)
+                    .setEndTimeMillis(endTimeMillis, SetMode.REMOVE_IF_NULL));
 
     Urn urn = Urn.createFromString(urnStr);
     List<String> entityList = entities == null ? Collections.emptyList() : Arrays.asList(entities);
@@ -608,24 +607,21 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
         input);
 
     return RestliUtil.toTask(
-        () -> {
-          LineageScrollResult result = validateLineageScrollResult(lineageSearchService.scrollAcrossLineage(
-                  opContext,
-                  urn,
-                  LineageDirection.valueOf(direction),
-                  entityList,
-                  input,
-                  maxHops,
-                  filter,
-                  sortCriterion,
-                  scrollId,
-                  keepAlive,
-                  count,
-                  startTimeMillis,
-                  endTimeMillis), entityService);
-
-          return result;
-          },
+        () ->
+            validateLineageScrollResult(
+                lineageSearchService.scrollAcrossLineage(
+                        opContext,
+                    urn,
+                    LineageDirection.valueOf(direction),
+                    entityList,
+                    input,
+                    maxHops,
+                    filter,
+                    sortCriterion,
+                    scrollId,
+                    keepAlive,
+                    count),
+                entityService),
         "scrollAcrossLineage");
   }
 
