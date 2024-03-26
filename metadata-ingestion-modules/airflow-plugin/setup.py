@@ -99,18 +99,13 @@ integration_test_requirements = {
     f"acryl-datahub[testing-utils]{_self_pin}",
     # Extra requirements for loading our test dags.
     "apache-airflow[snowflake]>=2.0.2",
-    # Connexion's new version breaks Airflow:
-    # See https://github.com/apache/airflow/issues/35234.
-    # TODO: We should transition to using Airflow's constraints file.
-    "connexion<3",
-    # https://github.com/snowflakedb/snowflake-sqlalchemy/issues/350
-    # Eventually we want to set this to "snowflake-sqlalchemy>=1.4.3".
-    # However, that doesn't work with older versions of Airflow. Instead
-    # of splitting this into integration-test-old and integration-test-new,
-    # adding a bound to SQLAlchemy was the simplest solution.
-    "sqlalchemy<1.4.42",
-    # To avoid https://github.com/snowflakedb/snowflake-connector-python/issues/1188,
-    # we need https://github.com/snowflakedb/snowflake-connector-python/pull/1193
+    # A collection of issues we've encountered:
+    # - Connexion's new version breaks Airflow:
+    #   See https://github.com/apache/airflow/issues/35234.
+    # - https://github.com/snowflakedb/snowflake-sqlalchemy/issues/350
+    #   Eventually we want to set this to "snowflake-sqlalchemy>=1.4.3".
+    # - To avoid https://github.com/snowflakedb/snowflake-connector-python/issues/1188,
+    #   we need https://github.com/snowflakedb/snowflake-connector-python/pull/1193
     "snowflake-connector-python>=2.7.10",
     "virtualenv",  # needed by PythonVirtualenvOperator
     "apache-airflow-providers-sqlite",
