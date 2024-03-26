@@ -182,7 +182,8 @@ class DBTEntitiesEnabled(ConfigModel):
         # TODO: This is currently disabled by default, but will be enabled by default once
         # the models have stabilized.
         EmitDirective.NO,
-        description="Emit model performance metadata when set to Yes or Only",
+        description="Emit model performance metadata when set to Yes or Only. "
+        "Only supported with dbt core.",
     )
 
     @root_validator(skip_on_failure=True)
