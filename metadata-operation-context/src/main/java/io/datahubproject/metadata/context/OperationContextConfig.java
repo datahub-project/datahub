@@ -1,6 +1,6 @@
 package io.datahubproject.metadata.context;
 
-import com.datahub.authorization.config.SearchAuthorizationConfiguration;
+import com.datahub.authorization.config.ViewAuthorizationConfiguration;
 import java.util.Optional;
 import lombok.Builder;
 import lombok.Getter;
@@ -15,10 +15,10 @@ public class OperationContextConfig implements ContextInterface {
   private final boolean allowSystemAuthentication;
 
   /** Configuration for search authorization */
-  private final SearchAuthorizationConfiguration searchAuthorizationConfiguration;
+  private final ViewAuthorizationConfiguration viewAuthorizationConfiguration;
 
   @Override
   public Optional<Integer> getCacheKeyComponent() {
-    return Optional.of(searchAuthorizationConfiguration.hashCode());
+    return Optional.of(viewAuthorizationConfiguration.hashCode());
   }
 }

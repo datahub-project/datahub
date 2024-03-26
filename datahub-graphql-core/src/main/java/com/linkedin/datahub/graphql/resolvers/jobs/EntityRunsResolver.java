@@ -96,7 +96,7 @@ public class EntityRunsResolver
             final List<DataProcessInstance> dataProcessInstances =
                 gmsResults.stream()
                     .filter(Objects::nonNull)
-                    .map(DataProcessInstanceMapper::map)
+                    .map(p -> DataProcessInstanceMapper.map(context, p))
                     .collect(Collectors.toList());
 
             // Step 4: Package and return result

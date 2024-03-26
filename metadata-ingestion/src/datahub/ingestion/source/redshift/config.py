@@ -108,7 +108,7 @@ class RedshiftConfig(
     )
 
     use_lineage_v2: bool = Field(
-        default=False,
+        default=True,
         description="Whether to use the new SQL-based lineage collector.",
     )
     lineage_v2_generate_queries: bool = Field(

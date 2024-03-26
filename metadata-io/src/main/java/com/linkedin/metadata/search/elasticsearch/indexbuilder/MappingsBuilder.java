@@ -44,6 +44,8 @@ public class MappingsBuilder {
 
   public static final Map<String, String> KEYWORD_TYPE_MAP = ImmutableMap.of(TYPE, KEYWORD);
 
+  public static final String SYSTEM_CREATED_FIELD = "systemCreated";
+
   // Subfields
   public static final String DELIMITED = "delimited";
   public static final String LENGTH = "length";
@@ -131,6 +133,7 @@ public class MappingsBuilder {
     // Fixed fields
     mappings.put("urn", getMappingsForUrn());
     mappings.put("runId", getMappingsForRunId());
+    mappings.put(SYSTEM_CREATED_FIELD, getMappingsForSystemCreated());
 
     return ImmutableMap.of(PROPERTIES, mappings);
   }
@@ -155,6 +158,10 @@ public class MappingsBuilder {
 
   private static Map<String, Object> getMappingsForRunId() {
     return ImmutableMap.<String, Object>builder().put(TYPE, ESUtils.KEYWORD_FIELD_TYPE).build();
+  }
+
+  private static Map<String, Object> getMappingsForSystemCreated() {
+    return ImmutableMap.<String, Object>builder().put(TYPE, ESUtils.DATE_FIELD_TYPE).build();
   }
 
   public static Map<String, Object> getMappingsForStructuredProperty(

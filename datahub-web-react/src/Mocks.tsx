@@ -29,20 +29,31 @@ import {
     PlatformPrivileges,
     FilterOperator,
     AppConfig,
+    EntityPrivileges,
     BusinessAttribute,
 } from './types.generated';
-import {GetTagDocument} from './graphql/tag.generated';
-import {GetMlModelDocument} from './graphql/mlModel.generated';
-import {GetMlModelGroupDocument} from './graphql/mlModelGroup.generated';
-import {GetGlossaryTermDocument, GetGlossaryTermQuery} from './graphql/glossaryTerm.generated';
-import {AppConfigDocument, GetEntityCountsDocument} from './graphql/app.generated';
-import {GetMeDocument} from './graphql/me.generated';
-import {ListRecommendationsDocument} from './graphql/recommendations.generated';
-import {FetchedEntity} from './app/lineage/types';
-import {DEFAULT_APP_CONFIG} from './appConfigContext';
+import { GetTagDocument } from './graphql/tag.generated';
+import { GetMlModelDocument } from './graphql/mlModel.generated';
+import { GetMlModelGroupDocument } from './graphql/mlModelGroup.generated';
+import { GetGlossaryTermDocument, GetGlossaryTermQuery } from './graphql/glossaryTerm.generated';
+import { GetEntityCountsDocument, AppConfigDocument } from './graphql/app.generated';
+import { GetMeDocument } from './graphql/me.generated';
+import { ListRecommendationsDocument } from './graphql/recommendations.generated';
+import { FetchedEntity } from './app/lineage/types';
+import { DEFAULT_APP_CONFIG } from './appConfigContext';
 import { GetQuickFiltersDocument } from './graphql/quickFilters.generated';
 import { GetGrantedPrivilegesDocument } from './graphql/policy.generated';
 import { VIEW_ENTITY_PAGE } from './app/entity/shared/constants';
+
+export const entityPrivileges: EntityPrivileges = {
+    canEditLineage: true,
+    canManageEntity: true,
+    canManageChildren: true,
+    canEditEmbed: true,
+    canEditQueries: true,
+    canEditProperties: true,
+    __typename: 'EntityPrivileges',
+};
 
 export const user1 = {
     __typename: 'CorpUser',
@@ -212,9 +223,7 @@ export const dataset1 = {
     tags: ['Private', 'PII'],
     uri: 'www.google.com',
     privileges: {
-        canEditLineage: false,
-        canEditEmbed: false,
-        canEditQueries: false,
+        ...entityPrivileges,
     },
     properties: {
         name: 'The Great Test Dataset',
@@ -319,9 +328,7 @@ export const dataset2 = {
         type: EntityType.DataPlatform,
     },
     privileges: {
-        canEditLineage: false,
-        canEditEmbed: false,
-        canEditQueries: false,
+        ...entityPrivileges,
     },
     lastIngested: null,
     exists: true,
@@ -423,10 +430,7 @@ export const dataset3 = {
         properties: null,
     },
     privileges: {
-        __typename: 'EntityPrivileges',
-        canEditLineage: false,
-        canEditEmbed: false,
-        canEditQueries: false,
+        ...entityPrivileges,
     },
     exists: true,
     lastIngested: null,
@@ -1385,8 +1389,7 @@ export const dataJob1 = {
         },
     },
     privileges: {
-        canEditLineage: false,
-        canEditEmbed: false,
+        ...entityPrivileges,
     },
     properties: {
         name: 'DataJobInfoName',
@@ -1536,8 +1539,7 @@ export const dataJob2 = {
     dataFlow: dataFlow1,
     jobId: 'jobId2',
     privileges: {
-        canEditLineage: false,
-        canEditEmbed: false,
+        ...entityPrivileges,
     },
     ownership: {
         __typename: 'Ownership',
@@ -1610,8 +1612,7 @@ export const dataJob3 = {
     lastIngested: null,
     exists: true,
     privileges: {
-        canEditLineage: false,
-        canEditEmbed: false,
+        ...entityPrivileges,
     },
     ownership: {
         __typename: 'Ownership',

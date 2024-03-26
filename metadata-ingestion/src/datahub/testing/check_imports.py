@@ -6,7 +6,10 @@ def ensure_no_indirect_model_imports(dirs: List[pathlib.Path]) -> None:
     # This is a poor-man's implementation of a import-checking linter.
     # e.g. https://pypi.org/project/flake8-custom-import-rules/
     # If our needs become more complex, we should move to a proper linter.
-    denied_imports = {"datahub.metadata._schema_classes", "datahub.metadata._urns"}
+    denied_imports = {
+        "datahub.metadata._schema_classes": "datahub.metadata.schema_classes",
+        "datahub.metadata._urns": "datahub.metadata.urns",
+    }
     ignored_files = {
         "datahub/metadata/schema_classes.py",
         "datahub/metadata/urns.py",
@@ -20,7 +23,9 @@ def ensure_no_indirect_model_imports(dirs: List[pathlib.Path]) -> None:
 
             with file.open() as f:
                 for line in f:
-                    if any(denied_import in line for denied_import in denied_imports):
-                        raise ValueError(
-                            f"Indirect import found in {file}: {line}. To resolve this, import the module without the _ prefix."
-                        )
+                    for denied_import, replacement in denied_imports.items():
+                        if denied_import in line:
+                            raise ValueError(
+                                f"Disallowed import found in {file}: `{line.rstrip()}`. "
+                                f"Import from {replacement} instead."
+                            )

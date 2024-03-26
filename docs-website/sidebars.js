@@ -70,24 +70,38 @@ module.exports = {
           type: "category",
           items: [
             {
-              type: "doc",
-              id: "docs/managed-datahub/observe/freshness-assertions",
-              className: "saasOnly",
+              label: "Assertions",
+              type: "category",
+              link: {
+                type: "doc",
+                id: "docs/managed-datahub/observe/assertions",
+              },
+              items: [
+                {
+                  type: "doc",
+                  id: "docs/managed-datahub/observe/freshness-assertions",
+                  className: "saasOnly",
+                },
+                {
+                  type: "doc",
+                  id: "docs/managed-datahub/observe/volume-assertions",
+                  className: "saasOnly",
+                },
+                {
+                  type: "doc",
+                  id: "docs/managed-datahub/observe/custom-sql-assertions",
+                  className: "saasOnly",
+                },
+                {
+                  type: "doc",
+                  id: "docs/managed-datahub/observe/column-assertions",
+                  className: "saasOnly",
+                },
+              ],
             },
             {
               type: "doc",
-              id: "docs/managed-datahub/observe/volume-assertions",
-              className: "saasOnly",
-            },
-            {
-              type: "doc",
-              id: "docs/managed-datahub/observe/custom-sql-assertions",
-              className: "saasOnly",
-            },
-            {
-              type: "doc",
-              id: "docs/managed-datahub/observe/column-assertions",
-              className: "saasOnly",
+              id: "docs/managed-datahub/observe/data-contract",
             },
           ],
         },
@@ -296,6 +310,11 @@ module.exports = {
           type: "doc",
           id: "docs/lineage/airflow",
           label: "Airflow",
+        },
+        {
+          type: "doc",
+          id: "docs/lineage/dagster",
+          label: "Dagster",
         },
         //"docker/airflow/local_airflow",
         "metadata-integration/java/spark-lineage/README",
@@ -753,6 +772,7 @@ module.exports = {
     // "metadata-integration/java/spark-lineage-beta/README.md
     // "metadata-integration/java/openlineage-converter/README"
     //"metadata-ingestion-modules/airflow-plugin/README"
+    //"metadata-ingestion-modules/dagster-plugin/README"
     // "metadata-ingestion/schedule_docs/datahub", // we can delete this
     // TODO: change the titles of these, removing the "What is..." portion from the sidebar"
     // "docs/what/entity",

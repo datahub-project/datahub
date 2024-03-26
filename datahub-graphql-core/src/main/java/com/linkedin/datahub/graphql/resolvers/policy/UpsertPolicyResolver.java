@@ -43,7 +43,7 @@ public class UpsertPolicyResolver implements DataFetcher<CompletableFuture<Strin
       // Finally, create the MetadataChangeProposal.
       final MetadataChangeProposal proposal;
 
-      final DataHubPolicyInfo info = PolicyUpdateInputInfoMapper.map(input);
+      final DataHubPolicyInfo info = PolicyUpdateInputInfoMapper.map(context, input);
       info.setLastUpdatedTimestamp(System.currentTimeMillis());
 
       if (policyUrn.isPresent()) {

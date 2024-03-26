@@ -37,6 +37,7 @@ import io.opentelemetry.extension.annotations.WithSpan;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -70,7 +71,7 @@ public class SearchRequestHandler {
       new ConcurrentHashMap<>();
   private final List<EntitySpec> entitySpecs;
   private final Set<String> defaultQueryFieldNames;
-  private final HighlightBuilder highlights;
+  @Nonnull private final HighlightBuilder highlights;
 
   private final SearchConfiguration configs;
   private final SearchQueryBuilder searchQueryBuilder;
@@ -219,7 +220,9 @@ public class SearchRequestHandler {
             .must(getQuery(input, Boolean.TRUE.equals(searchFlags.isFulltext())))
             .filter(filterQuery));
     if (Boolean.FALSE.equals(searchFlags.isSkipAggregates())) {
-      aggregationQueryBuilder.getAggregations(facets).forEach(searchSourceBuilder::aggregation);
+      aggregationQueryBuilder
+          .getAggregations(opContext, facets)
+          .forEach(searchSourceBuilder::aggregation);
     }
     if (Boolean.FALSE.equals(searchFlags.isSkipHighlighting())) {
       searchSourceBuilder.highlighter(highlights);
@@ -276,7 +279,9 @@ public class SearchRequestHandler {
             .must(getQuery(input, Boolean.TRUE.equals(searchFlags.isFulltext())))
             .filter(filterQuery));
     if (Boolean.FALSE.equals(searchFlags.isSkipAggregates())) {
-      aggregationQueryBuilder.getAggregations(facets).forEach(searchSourceBuilder::aggregation);
+      aggregationQueryBuilder
+          .getAggregations(opContext, facets)
+          .forEach(searchSourceBuilder::aggregation);
     }
     if (Boolean.FALSE.equals(searchFlags.isSkipHighlighting())) {
       searchSourceBuilder.highlighter(highlights);
@@ -375,7 +380,7 @@ public class SearchRequestHandler {
       int from,
       int size) {
     int totalCount = (int) searchResponse.getHits().getTotalHits().value;
-    List<SearchEntity> resultList = getResults(opContext, searchResponse);
+    Collection<SearchEntity> resultList = getRestrictedResults(opContext, searchResponse);
     SearchResultMetadata searchResultMetadata =
         extractSearchResultMetadata(opContext, searchResponse, filter);
 
@@ -392,12 +397,11 @@ public class SearchRequestHandler {
       @Nonnull OperationContext opContext,
       @Nonnull SearchResponse searchResponse,
       Filter filter,
-      @Nullable String scrollId,
       @Nullable String keepAlive,
       int size,
       boolean supportsPointInTime) {
     int totalCount = (int) searchResponse.getHits().getTotalHits().value;
-    List<SearchEntity> resultList = getResults(opContext, searchResponse);
+    Collection<SearchEntity> resultList = getRestrictedResults(opContext, searchResponse);
     SearchResultMetadata searchResultMetadata =
         extractSearchResultMetadata(opContext, searchResponse, filter);
     SearchHit[] searchHits = searchResponse.getHits().getHits();
@@ -494,7 +498,7 @@ public class SearchRequestHandler {
    * @return List of search entities
    */
   @Nonnull
-  private List<SearchEntity> getResults(
+  private Collection<SearchEntity> getRestrictedResults(
       @Nonnull OperationContext opContext, @Nonnull SearchResponse searchResponse) {
     return ESAccessControlUtil.restrictSearchResult(
         opContext,

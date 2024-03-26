@@ -13,7 +13,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.identity.CorpUserCredentials;
 import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.metadata.secret.SecretService;
+import io.datahubproject.metadata.services.SecretService;
 import java.time.Instant;
 import java.util.concurrent.TimeUnit;
 import org.testng.annotations.BeforeMethod;

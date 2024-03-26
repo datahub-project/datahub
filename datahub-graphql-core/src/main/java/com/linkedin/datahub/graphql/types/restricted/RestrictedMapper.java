@@ -4,7 +4,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.Restricted;
 import com.linkedin.entity.EntityResponse;
-import com.linkedin.metadata.service.RestrictedService;
+import io.datahubproject.metadata.services.RestrictedService;
 import javax.annotation.Nonnull;
 
 public class RestrictedMapper {

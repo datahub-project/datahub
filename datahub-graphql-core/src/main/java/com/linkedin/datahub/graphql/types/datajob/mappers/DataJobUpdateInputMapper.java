@@ -7,6 +7,7 @@ import com.linkedin.common.GlobalTags;
 import com.linkedin.common.TagAssociationArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.SetMode;
+import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.DataJobUpdateInput;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipUpdateMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.UpdateMappingHelper;
@@ -18,19 +19,24 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 public class DataJobUpdateInputMapper
     implements InputModelMapper<DataJobUpdateInput, Collection<MetadataChangeProposal>, Urn> {
   public static final DataJobUpdateInputMapper INSTANCE = new DataJobUpdateInputMapper();
 
   public static Collection<MetadataChangeProposal> map(
-      @Nonnull final DataJobUpdateInput dataJobUpdateInput, @Nonnull final Urn actor) {
-    return INSTANCE.apply(dataJobUpdateInput, actor);
+      @Nullable final QueryContext context,
+      @Nonnull final DataJobUpdateInput dataJobUpdateInput,
+      @Nonnull final Urn actor) {
+    return INSTANCE.apply(context, dataJobUpdateInput, actor);
   }
 
   @Override
   public Collection<MetadataChangeProposal> apply(
-      @Nonnull final DataJobUpdateInput dataJobUpdateInput, @Nonnull final Urn actor) {
+      @Nullable final QueryContext context,
+      @Nonnull final DataJobUpdateInput dataJobUpdateInput,
+      @Nonnull final Urn actor) {
     final Collection<MetadataChangeProposal> proposals = new ArrayList<>(3);
     final UpdateMappingHelper updateMappingHelper = new UpdateMappingHelper(DATA_JOB_ENTITY_NAME);
 
@@ -41,7 +47,7 @@ public class DataJobUpdateInputMapper
     if (dataJobUpdateInput.getOwnership() != null) {
       proposals.add(
           updateMappingHelper.aspectToProposal(
-              OwnershipUpdateMapper.map(dataJobUpdateInput.getOwnership(), actor),
+              OwnershipUpdateMapper.map(context, dataJobUpdateInput.getOwnership(), actor),
               OWNERSHIP_ASPECT_NAME));
     }
 
@@ -51,13 +57,13 @@ public class DataJobUpdateInputMapper
         globalTags.setTags(
             new TagAssociationArray(
                 dataJobUpdateInput.getGlobalTags().getTags().stream()
-                    .map(TagAssociationUpdateMapper::map)
+                    .map(t -> TagAssociationUpdateMapper.map(context, t))
                     .collect(Collectors.toList())));
       } else {
         globalTags.setTags(
             new TagAssociationArray(
                 dataJobUpdateInput.getTags().getTags().stream()
-                    .map(TagAssociationUpdateMapper::map)
+                    .map(t -> TagAssociationUpdateMapper.map(context, t))
                     .collect(Collectors.toList())));
       }
       proposals.add(updateMappingHelper.aspectToProposal(globalTags, GLOBAL_TAGS_ASPECT_NAME));

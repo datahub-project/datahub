@@ -191,7 +191,7 @@ public class ESUtils {
         .forEach(
             criterion -> {
               if (Set.of(Condition.EXISTS, Condition.IS_NULL).contains(criterion.getCondition())
-                  || !criterion.getValue().trim().isEmpty()
+                  || (criterion.hasValue() && !criterion.getValue().trim().isEmpty())
                   || criterion.hasValues()) {
                 if (!criterion.isNegated()) {
                   // `filter` instead of `must` (enables caching and bypasses scoring)
@@ -649,6 +649,7 @@ public class ESUtils {
    * <p>For all new code, we should be using the new 'values' field for performing multi-match. This
    * is simply retained for backwards compatibility of the search API.
    */
+  @Deprecated
   private static QueryBuilder buildEqualsFromCriterionWithValue(
       @Nonnull final String fieldName,
       @Nonnull final Criterion criterion,
@@ -685,8 +686,6 @@ public class ESUtils {
       @Nonnull BoolQueryBuilder filterQuery) {
     // filter soft deleted entities by default
     filterSoftDeletedByDefault(filter, filterQuery, opContext.getSearchContext().getSearchFlags());
-    // filter based on access controls
-    ESAccessControlUtil.buildAccessControlFilters(opContext).ifPresent(filterQuery::filter);
     return filterQuery;
   }
 

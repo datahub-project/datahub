@@ -1,7 +1,7 @@
 package com.linkedin.metadata.recommendation.candidatesource;
 
 import com.codahale.metrics.Timer;
-import com.datahub.authorization.config.SearchAuthorizationConfiguration;
+import com.datahub.authorization.config.ViewAuthorizationConfiguration;
 import com.datahub.util.exception.ESQueryException;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.metadata.Constants;
@@ -154,8 +154,8 @@ public class MostPopularSource implements EntityRecommendationSource {
 
   // If search access controls enabled, restrict user activity to peers
   private static Optional<QueryBuilder> restrictPeers(@Nonnull OperationContext opContext) {
-    SearchAuthorizationConfiguration config =
-        opContext.getOperationContextConfig().getSearchAuthorizationConfiguration();
+    ViewAuthorizationConfiguration config =
+        opContext.getOperationContextConfig().getViewAuthorizationConfiguration();
 
     if (config.isEnabled()
         && config.getRecommendations().isPeerGroupEnabled()
