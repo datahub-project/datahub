@@ -77,7 +77,7 @@ public class AssertionMapper {
 
     final EnvelopedAspect envelopedStatus = aspects.get(Constants.STATUS_ASPECT_NAME);
     if (envelopedStatus != null) {
-      result.setStatus(mapStatus(new Status(envelopedAssertionActions.getValue().data())));
+      result.setStatus(mapStatus(new Status(envelopedStatus.getValue().data())));
     }
 
     return result;
