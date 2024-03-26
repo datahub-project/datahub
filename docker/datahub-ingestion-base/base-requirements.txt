@@ -247,7 +247,7 @@ pydantic==1.10.14
 pydash==7.0.7
 pydruid==0.6.6
 Pygments==2.17.2
-pyiceberg==0.4.0
+pyiceberg==0.6.0
 pymongo==4.6.2
 PyMySQL==1.1.0
 pyOpenSSL==24.0.0

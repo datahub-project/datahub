@@ -223,8 +223,7 @@ microsoft_common = {"msal==1.22.0"}
 
 iceberg_common = {
     # Iceberg Python SDK
-    "pyiceberg",
-    *pydantic_no_v2,  # because of pyiceberg
+    "pyiceberg==0.6.0",
     "pyarrow>=9.0.0, <13.0.0",
 }
 
