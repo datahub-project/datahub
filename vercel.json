@@ -1,5 +1,5 @@
 {
-  "buildCommand": "./gradlew -PuseSystemNode=true :docs-website:build -x :metadata-ingestion-modules:dagster-plugin:build -x :metadata-ingestion-modules:dagster-plugin:check",
+  "buildCommand": "./gradlew -PuseSystemNode=true :docs-website:build",
   "github": {
     "silent": true,
     "autoJobCancelation": true
