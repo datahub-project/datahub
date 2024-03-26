@@ -21,7 +21,7 @@ export const DropdownMenu = styled.div<{ alignRight?: boolean }>`
         props.alignRight &&
         `
     position: absolute;
-    left: 205px;
+    left: 240px;
     top: -34px;
     `}
 
