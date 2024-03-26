@@ -3,7 +3,7 @@ import { Pagination, Table, Tooltip, Typography } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
-import { useGetDatasetRunsQuery } from '../../../../graphql/dataset.generated';
+import { GetDatasetRunsQuery, useGetDatasetRunsQuery } from '../../../../graphql/dataset.generated';
 import {
     DataProcessInstanceRunResultType,
     DataProcessRunStatus,
@@ -21,6 +21,7 @@ import { useEntityData } from '../../shared/EntityContext';
 import LoadingSvg from '../../../../images/datahub-logo-color-loading_pendulum.svg?react';
 import { scrollToTop } from '../../../shared/searchUtils';
 import { formatDuration } from '../../../shared/formatDuration';
+import { notEmpty } from '../../shared/utils';
 
 const ExternalUrlLink = styled.a`
     font-size: 16px;
@@ -132,15 +133,59 @@ const columns = [
 const PAGE_SIZE = 20;
 
 export const OperationsTab = () => {
-    const { urn } = useEntityData();
+    const { urn, entityData } = useEntityData();
     const [page, setPage] = useState(1);
 
-    // TODO get merged runs data for this entity
-
-    const { loading, data } = useGetDatasetRunsQuery({
-        variables: { urn, start: (page - 1) * PAGE_SIZE, count: PAGE_SIZE, direction: RelationshipDirection.Outgoing },
+    // Fetch data across all siblings.
+    const allUrns = [urn, ...(entityData?.siblings?.siblings || []).map((sibling) => sibling?.urn).filter(notEmpty)];
+    const loadings: boolean[] = [];
+    const datas: GetDatasetRunsQuery[] = [];
+    allUrns.forEach((entityUrn) => {
+        // Because there's a consistent number and order of the urns,
+        // this usage of a hook within a loop should be safe.
+        // eslint-disable-next-line react-hooks/rules-of-hooks
+        const { loading, data } = useGetDatasetRunsQuery({
+            variables: {
+                urn: entityUrn,
+                start: (page - 1) * PAGE_SIZE,
+                count: PAGE_SIZE,
+                direction: RelationshipDirection.Outgoing,
+            },
+        });
+        loadings.push(loading);
+        if (data) {
+            datas.push(data);
+        }
     });
-    const runs = data && data?.dataset?.runs?.runs;
+
+    const loading = loadings.some((loadingEntry) => loadingEntry);
+
+    // Merge the runs data from all entities.
+    // If there's more than one entity contributing to the data, then we can't do pagination.
+    let canPaginate = true;
+    let data: GetDatasetRunsQuery | undefined;
+    if (datas.length > 0) {
+        let numWithRuns = 0;
+        for (let i = 0; i < datas.length; i++) {
+            if (datas[i]?.dataset?.runs?.total) {
+                numWithRuns++;
+            }
+
+            if (data === undefined || !notEmpty(data?.dataset?.runs?.runs)) {
+                data = JSON.parse(JSON.stringify(datas[i]));
+            } else {
+                data.dataset.runs.runs.push(...(datas[i]?.dataset?.runs?.runs || []));
+                data.dataset.runs.total = (data.dataset.runs.total ?? 0) + (datas[i]?.dataset?.runs?.total ?? 0);
+            }
+        }
+
+        if (numWithRuns > 1) {
+            canPaginate = false;
+        }
+    }
+
+    // This also sorts the runs data across all entities.
+    const runs = data && data?.dataset?.runs?.runs?.sort((a, b) => (b?.created?.time ?? 0) - (a?.created?.time ?? 0));
 
     const tableData = runs
         ?.filter((run) => run)
@@ -179,16 +224,18 @@ export const OperationsTab = () => {
             {!loading && (
                 <>
                     <Table dataSource={tableData} columns={simplifiedColumns} pagination={false} />
-                    <PaginationControlContainer>
-                        <Pagination
-                            current={page}
-                            pageSize={PAGE_SIZE}
-                            total={data?.dataset?.runs?.total || 0}
-                            showLessItems
-                            onChange={onChangePage}
-                            showSizeChanger={false}
-                        />
-                    </PaginationControlContainer>
+                    {canPaginate && (
+                        <PaginationControlContainer>
+                            <Pagination
+                                current={page}
+                                pageSize={PAGE_SIZE}
+                                total={data?.dataset?.runs?.total || 0}
+                                showLessItems
+                                onChange={onChangePage}
+                                showSizeChanger={false}
+                            />
+                        </PaginationControlContainer>
+                    )}
                 </>
             )}
         </>
