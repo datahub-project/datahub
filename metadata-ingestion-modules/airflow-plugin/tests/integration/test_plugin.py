@@ -241,7 +241,7 @@ def _run_airflow(
 
 
 def check_golden_file(
-    pytestconfig: Any,
+    pytestconfig: pytest.Config,
     output_path: pathlib.Path,
     golden_path: pathlib.Path,
     ignore_paths: Sequence[str] = (),
@@ -317,7 +317,7 @@ test_cases = [
     ],
 )
 def test_airflow_plugin(
-    pytestconfig: Any,
+    pytestconfig: pytest.Config,
     tmp_path: pathlib.Path,
     golden_filename: str,
     test_case: DagTestCase,

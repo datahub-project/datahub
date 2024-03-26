@@ -1,3 +1,4 @@
+import pytest
 import setuptools
 from datahub.testing.check_imports import ensure_no_indirect_model_imports
 
@@ -9,7 +10,7 @@ def test_package_list_match_inits():
     assert package_list == namespace_packages, "are you missing a package init file?"
 
 
-def test_check_import_paths(pytestconfig) -> None:
+def test_check_import_paths(pytestconfig: pytest.Config) -> None:
     root = pytestconfig.rootpath
 
     ensure_no_indirect_model_imports([root / "src", root / "tests"])
