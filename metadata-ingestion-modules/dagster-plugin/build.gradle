@@ -109,7 +109,7 @@ task testFull(type: Exec, dependsOn: [testQuick, installDevTest]) {
   commandLine 'bash', '-x', '-c',
     "source ${venv_name}/bin/activate && pytest -m 'not slow_integration' -vv --continue-on-collection-errors --junit-xml=junit.full.xml"
 }
-task buildWheel(type: Exec, dependsOn: [install]) {
+task buildWheel(type: Exec, dependsOn: [environmentSetup]) {
   commandLine 'bash', '-c', "source ${venv_name}/bin/activate && " +
   'uv pip install build && RELEASE_VERSION="\${RELEASE_VERSION:-0.0.0.dev1}" RELEASE_SKIP_TEST=1 RELEASE_SKIP_UPLOAD=1 ./scripts/release.sh'
 }

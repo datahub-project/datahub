@@ -219,7 +219,9 @@ public class SearchRequestHandler {
             .must(getQuery(input, Boolean.TRUE.equals(searchFlags.isFulltext())))
             .filter(filterQuery));
     if (Boolean.FALSE.equals(searchFlags.isSkipAggregates())) {
-      aggregationQueryBuilder.getAggregations(facets).forEach(searchSourceBuilder::aggregation);
+      aggregationQueryBuilder
+          .getAggregations(opContext, facets)
+          .forEach(searchSourceBuilder::aggregation);
     }
     if (Boolean.FALSE.equals(searchFlags.isSkipHighlighting())) {
       searchSourceBuilder.highlighter(highlights);
@@ -276,7 +278,9 @@ public class SearchRequestHandler {
             .must(getQuery(input, Boolean.TRUE.equals(searchFlags.isFulltext())))
             .filter(filterQuery));
     if (Boolean.FALSE.equals(searchFlags.isSkipAggregates())) {
-      aggregationQueryBuilder.getAggregations(facets).forEach(searchSourceBuilder::aggregation);
+      aggregationQueryBuilder
+          .getAggregations(opContext, facets)
+          .forEach(searchSourceBuilder::aggregation);
     }
     if (Boolean.FALSE.equals(searchFlags.isSkipHighlighting())) {
       searchSourceBuilder.highlighter(highlights);
