@@ -237,12 +237,10 @@ const getFormattedExpectedResultTextForAbsoluteAssertionRange = (
     const isLowValid = typeof low !== 'undefined'
     if (isHighValid && isLowValid) {
         message = `${assertedOnDescription} should be between ${low} and ${high}.`
-    }
-    if (isHighValid) {
+    } else if (isHighValid) {
         const rangeDefinition = range.context?.highType === 'inclusive' ? 'less than or equal to' : 'less than'
         message = `${assertedOnDescription} should be ${rangeDefinition} ${high}.`;
-    }
-    if (isLowValid) {
+    } else if (isLowValid) {
         const rangeDefinition = range.context?.lowType === 'inclusive' ? 'greater than or equal to' : 'greater than'
         message = `${assertedOnDescription} should be ${rangeDefinition} ${low}.`;
     }
