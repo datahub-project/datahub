@@ -731,23 +731,27 @@ def get_upstreams_for_test(
 
 
 def make_mapping_upstream_lineage(
-    upstream_urn: str, downstream_urn: str, node: DBTNode
+    upstream_urn: str,
+    downstream_urn: str,
+    node: DBTNode,
+    convert_column_urns_to_lowercase: bool,
 ) -> UpstreamLineageClass:
-    cll = None
-    if node.columns:
-        cll = [
+    cll = []
+    for column in node.columns or []:
+        field_name = column.name
+        if convert_column_urns_to_lowercase:
+            field_name = field_name.lower()
+
+        cll.append(
             FineGrainedLineage(
                 upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
-                upstreams=[
-                    mce_builder.make_schema_field_urn(upstream_urn, column.name)
-                ],
+                upstreams=[mce_builder.make_schema_field_urn(upstream_urn, field_name)],
                 downstreamType=FineGrainedLineageDownstreamType.FIELD,
                 downstreams=[
-                    mce_builder.make_schema_field_urn(downstream_urn, column.name)
+                    mce_builder.make_schema_field_urn(downstream_urn, field_name)
                 ],
             )
-            for column in node.columns
-        ]
+        )
 
     return UpstreamLineageClass(
         upstreams=[
@@ -759,7 +763,7 @@ def make_mapping_upstream_lineage(
                 ),
             )
         ],
-        fineGrainedLineages=cll,
+        fineGrainedLineages=cll or None,
     )
 
 
@@ -1365,6 +1369,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     upstream_urn=upstream_dbt_urn,
                     downstream_urn=node_datahub_urn,
                     node=node,
+                    convert_column_urns_to_lowercase=self.config.convert_column_urns_to_lowercase,
                 )
                 if self.config.incremental_lineage:
                     # We only generate incremental lineage for non-dbt nodes.
@@ -1711,6 +1716,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 ),
                 downstream_urn=node_urn,
                 node=node,
+                convert_column_urns_to_lowercase=self.config.convert_column_urns_to_lowercase,
             )
         else:
             upstream_urns = get_upstreams(
