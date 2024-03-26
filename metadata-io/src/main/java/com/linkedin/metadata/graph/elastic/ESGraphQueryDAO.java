@@ -10,6 +10,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.UrnArrayArray;
+import com.linkedin.common.UrnArrayMap;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.IntegerArray;
@@ -19,6 +20,7 @@ import com.linkedin.metadata.graph.LineageDirection;
 import com.linkedin.metadata.graph.LineageRelationship;
 import com.linkedin.metadata.models.registry.LineageRegistry;
 import com.linkedin.metadata.models.registry.LineageRegistry.EdgeInfo;
+import com.linkedin.metadata.query.LineageFlags;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.Criterion;
@@ -29,11 +31,13 @@ import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchAfterWrapper;
 import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.utils.ConcurrencyUtils;
+import com.linkedin.metadata.utils.DataPlatformInstanceUtils;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.opentelemetry.extension.annotations.WithSpan;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
@@ -45,11 +49,13 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
 import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
@@ -108,7 +114,7 @@ public class ESGraphQueryDAO {
     rootQuery.filter(orQuery);
   }
 
-  private SearchResponse executeSearchQuery(
+  private SearchResponse executeLineageSearchQuery(
       @Nonnull final QueryBuilder query, final int offset, final int count) {
     SearchRequest searchRequest = new SearchRequest();
 
@@ -135,7 +141,7 @@ public class ESGraphQueryDAO {
     }
   }
 
-  private SearchResponse executeSearchQuery(
+  private SearchResponse executeLineageSearchQuery(
       @Nonnull final QueryBuilder query,
       @Nullable Object[] sort,
       @Nullable String pitId,
@@ -179,7 +185,7 @@ public class ESGraphQueryDAO {
             relationshipTypes,
             relationshipFilter);
 
-    return executeSearchQuery(finalQuery, offset, count);
+    return executeLineageSearchQuery(finalQuery, offset, count);
   }
 
   public static BoolQueryBuilder buildQuery(
@@ -261,8 +267,7 @@ public class ESGraphQueryDAO {
       int offset,
       int count,
       int maxHops,
-      @Nullable Long startTimeMillis,
-      @Nullable Long endTimeMillis) {
+      @Nullable LineageFlags lineageFlags) {
     Map<Urn, LineageRelationship> result = new HashMap<>();
     long currentTime = System.currentTimeMillis();
     long remainingTime = graphQueryConfiguration.getTimeoutSeconds() * 1000;
@@ -291,34 +296,21 @@ public class ESGraphQueryDAO {
       }
 
       // Do one hop on the lineage graph
-      List<LineageRelationship> oneHopRelationships =
-          getLineageRelationshipsInBatches(
+      Stream<Urn> intermediateStream =
+          processOneHopLineage(
               currentLevel,
+              remainingTime,
               direction,
+              maxHops,
               graphFilters,
               visitedEntities,
               viaEntities,
-              i + 1,
-              maxHops - (i + 1),
-              remainingTime,
               existingPaths,
-              startTimeMillis,
-              endTimeMillis,
-              exploreMultiplePaths);
-      for (LineageRelationship oneHopRelnship : oneHopRelationships) {
-        if (result.containsKey(oneHopRelnship.getEntity())) {
-          log.debug("Urn encountered again during graph walk {}", oneHopRelnship.getEntity());
-          result.put(
-              oneHopRelnship.getEntity(),
-              mergeLineageRelationships(result.get(oneHopRelnship.getEntity()), oneHopRelnship));
-        } else {
-          result.put(oneHopRelnship.getEntity(), oneHopRelnship);
-        }
-      }
-      currentLevel =
-          oneHopRelationships.stream()
-              .map(LineageRelationship::getEntity)
-              .collect(Collectors.toList());
+              exploreMultiplePaths,
+              result,
+              lineageFlags,
+              i);
+      currentLevel = intermediateStream.collect(Collectors.toList());
       currentTime = System.currentTimeMillis();
       remainingTime = timeoutTime - currentTime;
     }
@@ -336,6 +328,106 @@ public class ESGraphQueryDAO {
     }
 
     return new LineageResponse(response.getTotal(), subList);
+  }
+
+  private Stream<Urn> processOneHopLineage(
+      List<Urn> currentLevel,
+      Long remainingTime,
+      LineageDirection direction,
+      int maxHops,
+      GraphFilters graphFilters,
+      Set<Urn> visitedEntities,
+      Set<Urn> viaEntities,
+      Map<Urn, UrnArrayArray> existingPaths,
+      boolean exploreMultiplePaths,
+      Map<Urn, LineageRelationship> result,
+      LineageFlags lineageFlags,
+      int i) {
+
+    // Do one hop on the lineage graph
+    List<LineageRelationship> oneHopRelationships =
+        getLineageRelationshipsInBatches(
+            currentLevel,
+            direction,
+            graphFilters,
+            visitedEntities,
+            viaEntities,
+            i + 1,
+            maxHops - (i + 1),
+            remainingTime,
+            existingPaths,
+            exploreMultiplePaths,
+            lineageFlags);
+    for (LineageRelationship oneHopRelnship : oneHopRelationships) {
+      if (result.containsKey(oneHopRelnship.getEntity())) {
+        log.debug("Urn encountered again during graph walk {}", oneHopRelnship.getEntity());
+        result.put(
+            oneHopRelnship.getEntity(),
+            mergeLineageRelationships(result.get(oneHopRelnship.getEntity()), oneHopRelnship));
+      } else {
+        result.put(oneHopRelnship.getEntity(), oneHopRelnship);
+      }
+    }
+    Stream<Urn> intermediateStream =
+        oneHopRelationships.stream().map(LineageRelationship::getEntity);
+    if (lineageFlags != null) {
+
+      // Recursively increase the size of the list and append
+      if (lineageFlags.getIgnoreAsHops() != null) {
+        List<Urn> additionalCurrentLevel = new ArrayList<>();
+        UrnArrayMap ignoreAsHops = lineageFlags.getIgnoreAsHops();
+        oneHopRelationships.stream()
+            .filter(
+                lineageRelationship ->
+                    lineageFlags.getIgnoreAsHops().keySet().stream()
+                        .anyMatch(
+                            entityType ->
+                                entityType.equals(lineageRelationship.getEntity().getEntityType())
+                                    && (CollectionUtils.isEmpty(ignoreAsHops.get(entityType))
+                                        || platformMatches(
+                                            lineageRelationship.getEntity(),
+                                            ignoreAsHops.get(entityType)))))
+            .forEach(
+                lineageRelationship -> additionalCurrentLevel.add(lineageRelationship.getEntity()));
+        if (!additionalCurrentLevel.isEmpty()) {
+          Stream<Urn> ignoreAsHopUrns =
+              processOneHopLineage(
+                  additionalCurrentLevel,
+                  remainingTime,
+                  direction,
+                  maxHops,
+                  graphFilters,
+                  visitedEntities,
+                  viaEntities,
+                  existingPaths,
+                  exploreMultiplePaths,
+                  result,
+                  lineageFlags,
+                  i);
+          intermediateStream = Stream.concat(intermediateStream, ignoreAsHopUrns);
+        }
+      }
+      // We limit after adding all the relationships at the previous level so each hop is fully
+      // returned,
+      // but we only explore a limited number of entities per hop, sort to make the truncation
+      // consistent
+      if (lineageFlags.getEntitiesExploredPerHopLimit() != null) {
+        intermediateStream =
+            intermediateStream
+                .sorted(Comparator.comparing(Urn::toString))
+                .limit(lineageFlags.getEntitiesExploredPerHopLimit());
+      }
+    }
+    return intermediateStream;
+  }
+
+  private boolean platformMatches(Urn urn, UrnArray platforms) {
+    return platforms.stream()
+        .anyMatch(
+            platform ->
+                DataPlatformInstanceUtils.getDataPlatform(urn)
+                    .toString()
+                    .equals(platform.toString()));
   }
 
   /**
@@ -383,9 +475,8 @@ public class ESGraphQueryDAO {
       int remainingHops,
       long remainingTime,
       Map<Urn, UrnArrayArray> existingPaths,
-      @Nullable Long startTimeMillis,
-      @Nullable Long endTimeMillis,
-      boolean exploreMultiplePaths) {
+      boolean exploreMultiplePaths,
+      @Nullable LineageFlags lineageFlags) {
     List<List<Urn>> batches = Lists.partition(entityUrns, graphQueryConfiguration.getBatchSize());
     return ConcurrencyUtils.getAllCompleted(
             batches.stream()
@@ -402,9 +493,8 @@ public class ESGraphQueryDAO {
                                     numHops,
                                     remainingHops,
                                     existingPaths,
-                                    startTimeMillis,
-                                    endTimeMillis,
-                                    exploreMultiplePaths)))
+                                    exploreMultiplePaths,
+                                    lineageFlags)))
                 .collect(Collectors.toList()),
             remainingTime,
             TimeUnit.MILLISECONDS)
@@ -424,9 +514,8 @@ public class ESGraphQueryDAO {
       int numHops,
       int remainingHops,
       Map<Urn, UrnArrayArray> existingPaths,
-      @Nullable Long startTimeMillis,
-      @Nullable Long endTimeMillis,
-      boolean exploreMultiplePaths) {
+      boolean exploreMultiplePaths,
+      @Nullable LineageFlags lineageFlags) {
     Map<String, List<Urn>> urnsPerEntityType =
         entityUrns.stream().collect(Collectors.groupingBy(Urn::getEntityType));
     Map<String, List<EdgeInfo>> edgesPerEntityType =
@@ -437,10 +526,9 @@ public class ESGraphQueryDAO {
                     entityType -> lineageRegistry.getLineageRelationships(entityType, direction)));
 
     QueryBuilder finalQuery =
-        getLineageQuery(
-            urnsPerEntityType, edgesPerEntityType, graphFilters, startTimeMillis, endTimeMillis);
+        getLineageQuery(urnsPerEntityType, edgesPerEntityType, graphFilters, lineageFlags);
     SearchResponse response =
-        executeSearchQuery(finalQuery, 0, graphQueryConfiguration.getMaxResult());
+        executeLineageSearchQuery(finalQuery, 0, graphQueryConfiguration.getMaxResult());
     Set<Urn> entityUrnSet = new HashSet<>(entityUrns);
     // Get all valid edges given the set of urns to hop from
     Set<Pair<String, EdgeInfo>> validEdges =
@@ -466,8 +554,7 @@ public class ESGraphQueryDAO {
       @Nonnull Map<String, List<Urn>> urnsPerEntityType,
       @Nonnull Map<String, List<EdgeInfo>> edgesPerEntityType,
       @Nonnull GraphFilters graphFilters,
-      @Nullable Long startTimeMillis,
-      @Nullable Long endTimeMillis) {
+      @Nullable LineageFlags lineageFlags) {
     BoolQueryBuilder entityTypeQueries = QueryBuilders.boolQuery();
     // Get all relation types relevant to the set of urns to hop from
     urnsPerEntityType.forEach(
@@ -489,13 +576,14 @@ public class ESGraphQueryDAO {
     /*
      * Optional - Add edge filtering based on time windows.
      */
-    if (startTimeMillis != null && endTimeMillis != null) {
-      finalQuery.filter(TimeFilterUtils.getEdgeTimeFilterQuery(startTimeMillis, endTimeMillis));
+    if (lineageFlags != null
+        && lineageFlags.getStartTimeMillis() != null
+        && lineageFlags.getEndTimeMillis() != null) {
+      finalQuery.filter(
+          TimeFilterUtils.getEdgeTimeFilterQuery(
+              lineageFlags.getStartTimeMillis(), lineageFlags.getEndTimeMillis()));
     } else {
-      log.debug(
-          String.format(
-              "Empty time filter range provided: start time %s, end time: %s. Skipping application of time filters",
-              startTimeMillis, endTimeMillis));
+      log.debug("Empty time filter range provided. Skipping application of time filters");
     }
 
     return finalQuery;

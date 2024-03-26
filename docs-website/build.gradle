@@ -79,19 +79,14 @@ task yarnInstall(type: YarnTask) {
   )
   outputs.dir('node_modules')
 }
-task airflowPluginBuild(dependsOn: [':metadata-ingestion-modules:airflow-plugin:buildWheel']) {
-}
-
-// The Dagster plugin build and airflow plugin build can't be built at the same time; otherwise, it will raise
-// fatal: Unable to create '/home/runner/work/datahub/datahub/.git/index.lock': File exists.. on CI
-task dagsterPluginBuild(dependsOn: [':metadata-ingestion-modules:dagster-plugin:buildWheel', airflowPluginBuild]) {
-}
 
 task yarnGenerate(type: YarnTask, dependsOn: [yarnInstall,
     generateGraphQLSchema, generateJsonSchema,
     ':metadata-ingestion:modelDocGen', ':metadata-ingestion:docGen',
     ':metadata-ingestion:buildWheel',
-    airflowPluginBuild, dagsterPluginBuild] ) {
+    ':metadata-ingestion-modules:airflow-plugin:buildWheel',
+    ':metadata-ingestion-modules:dagster-plugin:buildWheel',
+    ]) {
   inputs.files(projectMdFiles)
   outputs.cacheIf { true }
   args = ['run', 'generate']
