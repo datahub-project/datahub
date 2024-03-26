@@ -12,7 +12,7 @@ import {
     SEARCH_RESULTS_FILTERS_ID,
     SEARCH_RESULTS_FILTERS_V2_INTRO,
 } from '../onboarding/config/SearchOnboardingConfig';
-import SearchFilters from './filters/SearchFilters';
+import { SearchFilters } from './filters/SearchFilters';
 import useGetSearchQueryInputs from './useGetSearchQueryInputs';
 import useSearchFilterAnalytics from './filters/useSearchFilterAnalytics';
 import { useIsBrowseV2, useIsSearchV2, useSearchVersion } from './useSearchAndBrowseVersion';

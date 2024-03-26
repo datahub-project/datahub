@@ -24,6 +24,7 @@ import { SearchEntitySidebarContainer } from './SearchEntitySidebarContainer';
 import SearchMenuItems from '../sharedV2/search/SearchMenuItems';
 import { RecommendedFilters } from './recommendation/RecommendedFilters';
 import { ANTD_GRAY } from '../entityV2/shared/constants';
+import { PreviewType } from '../entity/Entity';
 
 const SearchResultsWrapper = styled.div<{ v2Styles: boolean }>`
     display: flex;
@@ -143,12 +144,15 @@ interface Props {
     numResultsPerPage: number;
     setNumResultsPerPage: (numResults: number) => void;
     isSelectMode: boolean;
+    showSearchSelectBar?: boolean;
     selectedEntities: EntityAndType[];
     suggestions: SearchSuggestion[];
     setSelectedEntities: (entities: EntityAndType[]) => void;
     setIsSelectMode: (showSelectMode: boolean) => any;
     onChangeSelectAll: (selected: boolean) => void;
     refetch: () => void;
+    previewType?: PreviewType;
+    onCardClick?: (any: any) => any;
 }
 
 export const SearchResults = ({
@@ -167,12 +171,15 @@ export const SearchResults = ({
     numResultsPerPage,
     setNumResultsPerPage,
     isSelectMode,
+    showSearchSelectBar = true,
     selectedEntities,
     suggestions,
     setIsSelectMode,
     setSelectedEntities,
     onChangeSelectAll,
     refetch,
+    previewType,
+    onCardClick
 }: Props) => {
     const showSearchFiltersV2 = useIsSearchV2();
     const showBrowseV2 = useIsBrowseV2();
@@ -250,7 +257,7 @@ export const SearchResults = ({
                                                 selectedFilters={selectedFilters}
                                                 onChangeFilters={onChangeFilters}
                                             />
-                                            {isSelectMode && (
+                                            {isSelectMode && showSearchSelectBar && (
                                                 <StyledTabToolbar>
                                                     <SearchSelectBar
                                                         isSelectAll={
@@ -275,6 +282,8 @@ export const SearchResults = ({
                                                 selectedEntities={selectedEntities}
                                                 setSelectedEntities={setSelectedEntities}
                                                 suggestions={suggestions}
+                                                previewType={previewType}
+                                                onCardClick={onCardClick}
                                             />
                                             {totalResults > 0 && (
                                                 <PaginationControlContainer id="search-pagination">
@@ -298,13 +307,13 @@ export const SearchResults = ({
                                             highlightedIndex={highlightedIndex}
                                             selectedEntity={
                                                 highlightedIndex !== null &&
-                                                combinedSiblingSearchResults?.length > highlightedIndex
+                                                    combinedSiblingSearchResults?.length > highlightedIndex
                                                     ? {
-                                                          urn: combinedSiblingSearchResults[highlightedIndex].entity
-                                                              .urn,
-                                                          type: combinedSiblingSearchResults[highlightedIndex].entity
-                                                              .type,
-                                                      }
+                                                        urn: combinedSiblingSearchResults[highlightedIndex].entity
+                                                            .urn,
+                                                        type: combinedSiblingSearchResults[highlightedIndex].entity
+                                                            .type,
+                                                    }
                                                     : null
                                             }
                                         />

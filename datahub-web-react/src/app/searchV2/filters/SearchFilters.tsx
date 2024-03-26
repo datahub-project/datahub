@@ -4,7 +4,22 @@ import { FacetFilterInput, FacetMetadata } from '../../../types.generated';
 import { SEARCH_RESULTS_FILTERS_ID } from '../../onboarding/config/SearchOnboardingConfig';
 import SearchFilterOptions from './SearchFilterOptions';
 import SelectedSearchFilters from './SelectedSearchFilters';
-import { UnionType } from '../utils/constants';
+import {
+    ENTITY_INDEX_FILTER_NAME,
+    TYPE_NAMES_FILTER_NAME,
+    UnionType,
+    LEGACY_ENTITY_FILTER_NAME,
+    BROWSE_PATH_V2_FILTER_NAME,
+    COMPLETED_FORMS_FILTER_NAME,
+    INCOMPLETE_FORMS_FILTER_NAME,
+    VERIFIED_FORMS_FILTER_NAME,
+    COMPLETED_FORMS_COMPLETED_PROMPT_IDS_FILTER_NAME,
+    INCOMPLETE_FORMS_COMPLETED_PROMPT_IDS_FILTER_NAME,
+    ENTITY_SUB_TYPE_FILTER_NAME,
+    PROPOSED_GLOSSARY_TERMS_FILTER_NAME,
+    PROPOSED_SCHEMA_GLOSSARY_TERMS_FILTER_NAME,
+    PROPOSED_SCHEMA_TAGS_FILTER_NAME
+} from '../utils/constants';
 
 const Container = styled.div`
     background-color: #ffffff;
@@ -18,11 +33,30 @@ const FilterSpacer = styled.div`
     margin: 16px 0px;
 `;
 
+// remove legacy filter options as well as new _index and browsePathV2 filter from dropdowns
+const FILTERS_TO_REMOVE = [
+    TYPE_NAMES_FILTER_NAME,
+    LEGACY_ENTITY_FILTER_NAME,
+    ENTITY_INDEX_FILTER_NAME,
+    BROWSE_PATH_V2_FILTER_NAME,
+    ENTITY_SUB_TYPE_FILTER_NAME,
+    // remove form-related filters for bulk form search and browse experience
+    COMPLETED_FORMS_FILTER_NAME,
+    INCOMPLETE_FORMS_FILTER_NAME,
+    VERIFIED_FORMS_FILTER_NAME,
+    COMPLETED_FORMS_COMPLETED_PROMPT_IDS_FILTER_NAME,
+    INCOMPLETE_FORMS_COMPLETED_PROMPT_IDS_FILTER_NAME,
+    PROPOSED_GLOSSARY_TERMS_FILTER_NAME,
+    PROPOSED_SCHEMA_GLOSSARY_TERMS_FILTER_NAME,
+    PROPOSED_SCHEMA_TAGS_FILTER_NAME
+];
+
 interface Props {
     loading: boolean;
     availableFilters: FacetMetadata[] | null;
     activeFilters: FacetFilterInput[];
     unionType: UnionType;
+    basicFilters?: boolean;
     onChangeFilters: (newFilters: FacetFilterInput[]) => void;
     onChangeUnionType: (unionType: UnionType) => void;
     onClearFilters: () => void;
@@ -33,15 +67,20 @@ export default function SearchFilters({
     availableFilters,
     activeFilters,
     unionType,
+    basicFilters = false,
     onChangeFilters,
     onChangeUnionType,
     onClearFilters,
 }: Props) {
+    // Filter out the available filters if `basicFilters` is true
+    const filteredFilters = (availableFilters || []).filter((f) => !FILTERS_TO_REMOVE.includes(f.field));
+    const filters = basicFilters ? filteredFilters : availableFilters;
+
     return (
         <Container id={SEARCH_RESULTS_FILTERS_ID}>
             <SearchFilterOptions
                 loading={loading}
-                availableFilters={availableFilters}
+                availableFilters={filters}
                 activeFilters={activeFilters}
                 unionType={unionType}
                 onChangeFilters={onChangeFilters}
@@ -50,7 +89,7 @@ export default function SearchFilters({
                 <>
                     <FilterSpacer />
                     <SelectedSearchFilters
-                        availableFilters={availableFilters}
+                        availableFilters={filters}
                         selectedFilters={activeFilters}
                         unionType={unionType}
                         onChangeFilters={onChangeFilters}

@@ -37,6 +37,12 @@ export const HAS_ACTIVE_INCIDENTS_FILTER_NAME = 'hasActiveIncidents';
 export const HAS_FAILING_ASSERTIONS_FILTER_NAME = 'hasFailingAssertions';
 export const CHART_TYPE_FILTER_NAME = 'type';
 
+export const COMPLETED_FORMS_FILTER_NAME = 'completedForms';
+export const INCOMPLETE_FORMS_FILTER_NAME = 'incompleteForms';
+export const VERIFIED_FORMS_FILTER_NAME = 'verifiedForms';
+export const COMPLETED_FORMS_COMPLETED_PROMPT_IDS_FILTER_NAME = 'completedFormsCompletedPromptIds';
+export const INCOMPLETE_FORMS_COMPLETED_PROMPT_IDS_FILTER_NAME = 'incompleteFormsCompletedPromptIds';
+
 export const LEGACY_ENTITY_FILTER_FIELDS = [ENTITY_FILTER_NAME, LEGACY_ENTITY_FILTER_NAME];
 
 export const FILTER_DELIMITER = '␞';

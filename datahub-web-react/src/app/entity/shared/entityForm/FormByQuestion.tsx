@@ -2,12 +2,16 @@ import React, { useEffect, useState } from 'react';
 
 import styled from 'styled-components';
 
-import { SearchResults } from '../../../search/SearchResults';
+import { SearchResults as NotAlchemySearchResults } from '../../../search/SearchResults';
+import { SearchFilters as NotAlchemySearchFilers } from '../../../search/filters/SearchFilters';
+
+import { SearchResults } from '../../../searchV2/SearchResults';
+import SearchFilters from '../../../searchV2/filters/SearchFilters';
+
 import useGetSearchQueryInputs from '../../../search/useGetSearchQueryInputs';
 import { useIsSearchV2 } from '../../../search/useSearchAndBrowseVersion';
 import useSearchPage from '../../../search/useSearchPage';
 import { SearchCfg } from '../../../../conf';
-import SearchFilters from '../../../search/filters/SearchFilters';
 import useFilterMode from '../../../search/filters/useFilterMode';
 import { FormResponsesFilter, useEntityFormContext } from './EntityFormContext';
 import { OnboardingTour } from '../../../onboarding/OnboardingTour';
@@ -21,6 +25,8 @@ import {
 import { EmptyStates } from './EmptyStates';
 import usePrevious from '../../../shared/usePrevious';
 import BulkVerifyPromptModal from './BulkVerifyPromptModal';
+
+import { useIsThemeV2Enabled } from '../../../useIsThemeV2Enabled';
 
 const FormByQuestionWrapper = styled.div`
     display: flex;
@@ -41,6 +47,8 @@ export default function FormByQuestion({ closeModal }: Props) {
             byQuestion: { showVerifyCTA },
         },
     } = useEntityFormContext();
+
+    const isV2 = useIsThemeV2Enabled();
 
     const showSearchFiltersV2 = useIsSearchV2();
     const { query, unionType, filters, viewUrn, page } = useGetSearchQueryInputs();
@@ -84,6 +92,68 @@ export default function FormByQuestion({ closeModal }: Props) {
         }
     }, [showVerifyCTA, previousShowVerifyCTA]);
 
+    // Returns the non-Alchemy supported version
+    if (!isV2) {
+        return (
+            <FormByQuestionWrapper>
+                <OnboardingTour
+                    stepIds={[
+                        WELCOME_TO_BULK_BY_QUESTION_ID,
+                        FORM_ASSETS_ASSIGNED_ID,
+                        FORM_FILTER_AND_BROWSE_ID,
+                        FORM_ANSWER_IN_BULK_ID,
+                    ]}
+                />
+                {showSearchFiltersV2 && (
+                    <div id={FORM_FILTER_AND_BROWSE_ID}>
+                        <NotAlchemySearchFilers
+                            loading={loading}
+                            availableFilters={loading ? [] : results?.searchAcrossEntities?.facets || []}
+                            activeFilters={filters}
+                            unionType={unionType}
+                            mode={filterMode}
+                            onChangeFilters={onChangeFilters}
+                            onClearFilters={clearAllFilters}
+                            onChangeUnionType={onChangeUnionType}
+                            onChangeMode={setFilterMode}
+                        />
+                    </div>
+                )}
+                <NotAlchemySearchResults
+                    unionType={unionType}
+                    downloadSearchResults={downloadSearchResults}
+                    page={page}
+                    query={query}
+                    viewUrn={viewUrn || undefined}
+                    error={error}
+                    searchResponse={loading ? undefined : results?.searchAcrossEntities}
+                    facets={results?.searchAcrossEntities?.facets}
+                    suggestions={results?.searchAcrossEntities?.suggestions || []}
+                    selectedFilters={filters}
+                    loading={loading}
+                    onChangeFilters={onChangeFilters}
+                    onChangeUnionType={onChangeUnionType}
+                    onChangePage={onChangePage}
+                    numResultsPerPage={numResultsPerPage}
+                    setNumResultsPerPage={setNumResultsPerPage}
+                    isSelectMode={isSelectMode}
+                    selectedEntities={selectedEntities}
+                    setSelectedEntities={setSelectedEntities}
+                    setIsSelectMode={setIsSelectMode}
+                    onChangeSelectAll={onChangeSelectAll}
+                    refetch={refetch}
+                    customSection={<EmptyStates closeModal={closeModal} handleViewRemaining={handleViewRemaining} />}
+                    showCustomSection={resultItemCount === 0}
+                    onClickExploreAll={clearAllFilters}
+                    onClickClearFilters={clearAllFilters}
+                    shouldHideSuggestions
+                />
+                <BulkVerifyPromptModal isVisible={isVerifyModalVisible} closeModal={() => setIsVerifyModalVisible(false)} />
+            </FormByQuestionWrapper>
+        );
+    }
+
+    // Returns the Alchemy supported version
     return (
         <FormByQuestionWrapper>
             <OnboardingTour
@@ -101,43 +171,42 @@ export default function FormByQuestion({ closeModal }: Props) {
                         availableFilters={loading ? [] : results?.searchAcrossEntities?.facets || []}
                         activeFilters={filters}
                         unionType={unionType}
-                        mode={filterMode}
                         onChangeFilters={onChangeFilters}
                         onClearFilters={clearAllFilters}
                         onChangeUnionType={onChangeUnionType}
-                        onChangeMode={setFilterMode}
+                        basicFilters
                     />
                 </div>
             )}
-            <SearchResults
-                unionType={unionType}
-                downloadSearchResults={downloadSearchResults}
-                page={page}
-                query={query}
-                viewUrn={viewUrn || undefined}
-                error={error}
-                searchResponse={loading ? undefined : results?.searchAcrossEntities}
-                facets={results?.searchAcrossEntities?.facets}
-                suggestions={results?.searchAcrossEntities?.suggestions || []}
-                selectedFilters={filters}
-                loading={loading}
-                onChangeFilters={onChangeFilters}
-                onChangeUnionType={onChangeUnionType}
-                onChangePage={onChangePage}
-                numResultsPerPage={numResultsPerPage}
-                setNumResultsPerPage={setNumResultsPerPage}
-                isSelectMode={isSelectMode}
-                selectedEntities={selectedEntities}
-                setSelectedEntities={setSelectedEntities}
-                setIsSelectMode={setIsSelectMode}
-                onChangeSelectAll={onChangeSelectAll}
-                refetch={refetch}
-                customSection={<EmptyStates closeModal={closeModal} handleViewRemaining={handleViewRemaining} />}
-                showCustomSection={resultItemCount === 0}
-                onClickExploreAll={clearAllFilters}
-                onClickClearFilters={clearAllFilters}
-                shouldHideSuggestions
-            />
+            {resultItemCount === 0 &&
+                <EmptyStates closeModal={closeModal} handleViewRemaining={handleViewRemaining} />
+            }
+            {resultItemCount > 0 && (
+                <SearchResults
+                    unionType={unionType}
+                    downloadSearchResults={downloadSearchResults}
+                    page={page}
+                    query={query}
+                    viewUrn={viewUrn || undefined}
+                    error={error}
+                    searchResponse={loading ? undefined : results?.searchAcrossEntities}
+                    availableFilters={loading ? [] : results?.searchAcrossEntities?.facets || []}
+                    suggestions={results?.searchAcrossEntities?.suggestions || []}
+                    selectedFilters={filters}
+                    loading={loading}
+                    onChangeFilters={onChangeFilters}
+                    onChangePage={onChangePage}
+                    numResultsPerPage={numResultsPerPage}
+                    setNumResultsPerPage={setNumResultsPerPage}
+                    showSearchSelectBar={false}
+                    setIsSelectMode={setIsSelectMode}
+                    selectedEntities={selectedEntities}
+                    setSelectedEntities={setSelectedEntities}
+                    onChangeSelectAll={onChangeSelectAll}
+                    refetch={refetch}
+                    isSelectMode
+                />
+            )}
             <BulkVerifyPromptModal isVisible={isVerifyModalVisible} closeModal={() => setIsVerifyModalVisible(false)} />
         </FormByQuestionWrapper>
     );

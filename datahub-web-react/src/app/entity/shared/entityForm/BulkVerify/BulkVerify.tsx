@@ -3,8 +3,12 @@ import React, { useState } from 'react';
 import styled from 'styled-components';
 import { useParams } from 'react-router-dom';
 
-import SearchFilters from '../../../../search/filters/SearchFilters';
-import { SearchResults } from '../../../../search/SearchResults';
+import { SearchResults as NotAlchemySearchResults } from '../../../../search/SearchResults';
+import { SearchFilters as NotAlchemySearchFilers } from '../../../../search/filters/SearchFilters';
+
+import { SearchResults } from '../../../../searchV2/SearchResults';
+import SearchFilters from '../../../../searchV2/filters/SearchFilters';
+
 import { SearchCfg } from '../../../../../conf';
 import { Entity } from '../../../../../types.generated';
 import { PreviewType } from '../../../Entity';
@@ -26,6 +30,8 @@ import { extractTypeFromUrn } from '../../utils';
 import { BulkVerifyEntityModal } from './BulkVerifyEntityModal';
 
 import { EmptyStates } from '../EmptyStates';
+
+import { useIsThemeV2Enabled } from '../../../../useIsThemeV2Enabled';
 
 const FormByQuestionWrapper = styled.div`
     display: flex;
@@ -59,6 +65,8 @@ export default function BulkVerify({ closeFormModal }: Props) {
             setFormResponsesFilters,
         },
     } = useEntityFormContext();
+
+    const isV2 = useIsThemeV2Enabled();
 
     const showSearchFiltersV2 = useIsSearchV2();
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -114,6 +122,65 @@ export default function BulkVerify({ closeFormModal }: Props) {
         openModal();
     };
 
+    // Returns the non-Alchemy supported version
+    if (!isV2) {
+        return (
+            <>
+                {!!resultItemCount && (
+                    <OnboardingTour stepIds={[FORM_BULK_VERIFY_INTRO_ID, FORM_CHECK_RESPONSES_ID, FORM_BULK_VERIFY_ID]} />
+                )}
+                <FormByQuestionWrapper>
+                    {showSearchFiltersV2 && (
+                        <NotAlchemySearchFilers
+                            loading={loading}
+                            availableFilters={loading ? [] : results?.searchAcrossEntities?.facets || []}
+                            activeFilters={filters}
+                            unionType={unionType}
+                            mode={filterMode}
+                            onChangeFilters={onChangeFilters}
+                            onClearFilters={clearAllFilters}
+                            onChangeUnionType={onChangeUnionType}
+                            onChangeMode={setFilterMode}
+                        />
+                    )}
+                    <NotAlchemySearchResults
+                        unionType={unionType}
+                        downloadSearchResults={downloadSearchResults}
+                        page={page}
+                        query={query}
+                        viewUrn={viewUrn || undefined}
+                        error={error}
+                        searchResponse={loading ? undefined : results?.searchAcrossEntities}
+                        facets={results?.searchAcrossEntities?.facets}
+                        suggestions={results?.searchAcrossEntities?.suggestions || []}
+                        selectedFilters={filters}
+                        loading={loading}
+                        onChangeFilters={onChangeFilters}
+                        onChangeUnionType={onChangeUnionType}
+                        onChangePage={onChangePage}
+                        numResultsPerPage={numResultsPerPage}
+                        setNumResultsPerPage={setNumResultsPerPage}
+                        isSelectMode={isSelectMode}
+                        selectedEntities={selectedEntities}
+                        setSelectedEntities={setSelectedEntities}
+                        setIsSelectMode={setIsSelectMode}
+                        onChangeSelectAll={onChangeSelectAll}
+                        refetch={refetch}
+                        previewType={PreviewType.BULK_VERIFY}
+                        onCardClick={handleCardClick}
+                        customSection={<EmptyStates closeModal={closeModal} handleViewRemaining={handleViewRemaining} />}
+                        showCustomSection={resultItemCount === 0}
+                        shouldHideSuggestions
+                        onClickExploreAll={clearAllFilters}
+                        onClickClearFilters={clearAllFilters}
+                    />
+                </FormByQuestionWrapper>
+                <BulkVerifyEntityModal isOpen={isModalOpen} onClose={closeViewResponseModal} />
+            </>
+        );
+    }
+
+    // Returns the Alchemy supported version
     return (
         <>
             {!!resultItemCount && (
@@ -126,44 +193,43 @@ export default function BulkVerify({ closeFormModal }: Props) {
                         availableFilters={loading ? [] : results?.searchAcrossEntities?.facets || []}
                         activeFilters={filters}
                         unionType={unionType}
-                        mode={filterMode}
                         onChangeFilters={onChangeFilters}
                         onClearFilters={clearAllFilters}
                         onChangeUnionType={onChangeUnionType}
-                        onChangeMode={setFilterMode}
+                        basicFilters
                     />
                 )}
-                <SearchResults
-                    unionType={unionType}
-                    downloadSearchResults={downloadSearchResults}
-                    page={page}
-                    query={query}
-                    viewUrn={viewUrn || undefined}
-                    error={error}
-                    searchResponse={loading ? undefined :results?.searchAcrossEntities}
-                    facets={results?.searchAcrossEntities?.facets}
-                    suggestions={results?.searchAcrossEntities?.suggestions || []}
-                    selectedFilters={filters}
-                    loading={loading}
-                    onChangeFilters={onChangeFilters}
-                    onChangeUnionType={onChangeUnionType}
-                    onChangePage={onChangePage}
-                    numResultsPerPage={numResultsPerPage}
-                    setNumResultsPerPage={setNumResultsPerPage}
-                    isSelectMode={isSelectMode}
-                    selectedEntities={selectedEntities}
-                    setSelectedEntities={setSelectedEntities}
-                    setIsSelectMode={setIsSelectMode}
-                    onChangeSelectAll={onChangeSelectAll}
-                    refetch={refetch}
-                    previewType={PreviewType.BULK_VERIFY}
-                    onCardClick={handleCardClick}
-                    customSection={<EmptyStates closeModal={closeModal} handleViewRemaining={handleViewRemaining} />}
-                    showCustomSection={resultItemCount === 0}
-                    shouldHideSuggestions
-                    onClickExploreAll={clearAllFilters}
-                    onClickClearFilters={clearAllFilters}
-                />
+                {resultItemCount === 0 &&
+                    <EmptyStates closeModal={closeModal} handleViewRemaining={handleViewRemaining} />
+                }
+                {resultItemCount > 0 && (
+                    <SearchResults
+                        unionType={unionType}
+                        downloadSearchResults={downloadSearchResults}
+                        page={page}
+                        query={query}
+                        viewUrn={viewUrn || undefined}
+                        error={error}
+                        searchResponse={loading ? undefined : results?.searchAcrossEntities}
+                        availableFilters={loading ? [] : results?.searchAcrossEntities?.facets || []}
+                        suggestions={results?.searchAcrossEntities?.suggestions || []}
+                        selectedFilters={filters}
+                        loading={loading}
+                        onChangeFilters={onChangeFilters}
+                        onChangePage={onChangePage}
+                        numResultsPerPage={numResultsPerPage}
+                        setNumResultsPerPage={setNumResultsPerPage}
+                        showSearchSelectBar={false}
+                        setIsSelectMode={setIsSelectMode}
+                        selectedEntities={selectedEntities}
+                        setSelectedEntities={setSelectedEntities}
+                        onChangeSelectAll={onChangeSelectAll}
+                        refetch={refetch}
+                        previewType={PreviewType.BULK_VERIFY}
+                        onCardClick={handleCardClick}
+                        isSelectMode
+                    />
+                )}
             </FormByQuestionWrapper>
             <BulkVerifyEntityModal isOpen={isModalOpen} onClose={closeViewResponseModal} />
         </>
