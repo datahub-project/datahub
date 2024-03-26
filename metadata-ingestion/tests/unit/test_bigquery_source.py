@@ -408,41 +408,31 @@ def test_gen_table_dataset_workunits(get_bq_client_mock, bigquery_table):
     assert mcp.aspect.fields == []
 
     mcp = cast(MetadataChangeProposalClass, next(iter(gen)).metadata)
-    dataset_properties = cast(DatasetPropertiesClass, mcp.aspect)
-    assert dataset_properties.name == bigquery_table.name
+    assert isinstance(mcp.aspect, DatasetPropertiesClass)
+    assert mcp.aspect.name == bigquery_table.name
     assert (
-        dataset_properties.qualifiedName
-        == f"{project_id}.{dataset_name}.{bigquery_table.name}"
+        mcp.aspect.qualifiedName == f"{project_id}.{dataset_name}.{bigquery_table.name}"
     )
-    assert dataset_properties.description == bigquery_table.comment
-    assert dataset_properties.created == TimeStampClass(
+    assert mcp.aspect.description == bigquery_table.comment
+    assert mcp.aspect.created == TimeStampClass(
         time=int(bigquery_table.created.timestamp() * 1000)
     )
-    assert dataset_properties.lastModified == TimeStampClass(
+    assert mcp.aspect.lastModified == TimeStampClass(
         time=int(bigquery_table.last_altered.timestamp() * 1000)
     )
-    assert dataset_properties.tags == []
-    assert dataset_properties.customProperties["expiration_date"] == str(
-        bigquery_table.expires
-    )
-    assert dataset_properties.customProperties["size_in_bytes"] == str(
-        bigquery_table.size_in_bytes
-    )
-    assert dataset_properties.customProperties["billable_bytes_active"] == str(
-        bigquery_table.active_billable_bytes
-    )
-    assert dataset_properties.customProperties["billable_bytes_long_term"] == str(
-        bigquery_table.long_term_billable_bytes
-    )
-    assert dataset_properties.customProperties["number_of_partitions"] == str(
-        bigquery_table.num_partitions
-    )
-    assert dataset_properties.customProperties["max_partition_id"] == str(
-        bigquery_table.max_partition_id
-    )
-    assert dataset_properties.customProperties["max_shard_id"] == str(
-        bigquery_table.max_shard_id
-    )
+    assert mcp.aspect.tags == []
+
+    assert mcp.aspect.customProperties == {
+        "expiration_date": str(bigquery_table.expires),
+        "size_in_bytes": str(bigquery_table.size_in_bytes),
+        "billable_bytes_active": str(bigquery_table.active_billable_bytes),
+        "billable_bytes_long_term": str(bigquery_table.long_term_billable_bytes),
+        "number_of_partitions": str(bigquery_table.num_partitions),
+        "max_partition_id": str(bigquery_table.max_partition_id),
+        "is_partitioned": "True",
+        "max_shard_id": str(bigquery_table.max_shard_id),
+        "is_sharded": "True",
+    }
 
     mcp = cast(MetadataChangeProposalClass, next(iter(gen)).metadata)
     assert isinstance(mcp.aspect, GlobalTagsClass)

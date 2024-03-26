@@ -20,12 +20,11 @@ The below table shows transformer which can transform aspects of entity [Dataset
 ### Config Details
 | Field                       | Required | Type    | Default       | Description                                 |
 |-----------------------------|----------|---------|---------------|---------------------------------------------|
-| `semantics`                 |          | enum    | `OVERWRITE`   | Whether to OVERWRITE or PATCH the entity present on DataHub GMS. |
 | `tag_pattern`  |          | str     |               | Regex to use for tags to match against. Supports Regex to match a pattern which is used to remove content. Rest of string is considered owner ID for creating owner URN. |
 | `is_user`      |          | bool    | `true`   | Whether should be consider a user or not. If `false` then considered a group. |
 | `owner_character_mapping` |          | dict[str, str]  |     | A mapping of extracted owner character to datahub owner character. |
 | `email_domain` |          | str    |    | If set then this is appended to create owner URN. |
-| `extract_owner_type_from_tag_pattern` |          | str    |  `false`   | Whether to extract an owner type from provided tag pattern first group. If `true`, no need to provide owner_type and owner_type_urn config.|
+| `extract_owner_type_from_tag_pattern` |          | str    |  `false`   | Whether to extract an owner type from provided tag pattern first group. If `true`, no need to provide owner_type and owner_type_urn config. For example: if provided tag pattern is `(.*)_owner_email:` and actual tag is `developer_owner_email`, then extracted owner type will be `developer`.|
 | `owner_type` |          | str    |  `TECHNICAL_OWNER`   | Ownership type. |
 | `owner_type_urn` |          | str    |  `None`   | Set to a custom ownership type's URN if using custom ownership. |
 
