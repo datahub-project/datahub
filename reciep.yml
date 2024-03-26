@@ -1,0 +1,26 @@
+source:
+    type: vertica
+    config:
+        host_port: '10.20.73.210:5433'
+        database: Vertica_db
+        username: "dbadmin"
+        password: "vdb"
+        schema_pattern:
+            deny:
+
+                - '^staging.*'
+        include_tables: true
+        include_views: true
+        include_projections: false
+        include_models: false
+        include_view_lineage: false
+        include_projection_lineage: false
+        profiling:
+            enabled: false
+        stateful_ingestion:
+            enabled: false
+sink:
+    type: datahub-rest
+    config:
+        server: 'http://localhost:8080'
+
