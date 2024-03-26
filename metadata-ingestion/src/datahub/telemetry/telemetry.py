@@ -307,6 +307,7 @@ class Telemetry:
             properties: metadata for the event
         """
 
+        assert event_name is not None
         if not self.enabled or self.mp is None:
             return
 
