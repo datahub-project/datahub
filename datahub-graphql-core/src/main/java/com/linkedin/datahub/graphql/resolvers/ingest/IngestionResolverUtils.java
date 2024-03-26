@@ -45,7 +45,6 @@ public class IngestionResolverUtils {
   private static final String UNITY_CATALOG_INGESTION_SOURCE_TYPE = "unity-catalog";
   private static final String HIVE_PLATFORM_URN = "urn:li:dataPlatform:hive";
   private static final String DATABRICKS_PLATFORM_URN = "urn:li:dataPlatform:databricks";
-  private static final String REMOTE_EXECUTOR_ID = "remote";
 
   public static List<ExecutionRequest> mapExecutionRequests(
       final Collection<EntityResponse> requests) {
@@ -296,12 +295,10 @@ public class IngestionResolverUtils {
 
     // executorId's from the CLI OR REMOTE executor are not valid because we don't have auth info to
     // fetch data.
-    // Todo: Remove check 2 once we support remote monitors!!!
     final String executorId = ingestionSourceConfig.getExecutorId();
     final boolean isCorrectSource =
         isMatchingDataPlatform(entityUrn, ingestionSourceInfo.getType())
-            && !INGESTION_SOURCE_EXECUTOR_CLI.equals(executorId)
-            && !REMOTE_EXECUTOR_ID.equals(executorId);
+            && !INGESTION_SOURCE_EXECUTOR_CLI.equals(executorId);
 
     return isCorrectSource
         ? IngestionResolverUtils.mapIngestionSource(ingestionSourceEntityResponse)
