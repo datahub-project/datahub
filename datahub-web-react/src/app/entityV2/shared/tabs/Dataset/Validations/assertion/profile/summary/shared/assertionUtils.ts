@@ -14,8 +14,8 @@ const ASSERTION_ACTION_EDITING_ONLY_ASSERTION_TYPES = new Set([
 const ASSERTION_ACTION_EDITING_ONLY_SOURCE_TYPES = new Set<AssertionSourceType>([AssertionSourceType.Inferred, AssertionSourceType.External]);
 export const getAssertionEditabilityType = (assertion: Assertion): 'full' | 'actions-only' | 'none' => {
     const assertionType = assertion.info?.type;
-    const assertionSourceType = assertion.info?.source?.type;
-    if (!assertionType || !assertionSourceType) {
+    const assertionSourceType = assertion.info?.source?.type ?? AssertionSourceType.External; // NOTE: null==External since some of our integration connectors actually do not and historically have not produced this field
+    if (!assertionType) {
         return 'none'
     }
 
