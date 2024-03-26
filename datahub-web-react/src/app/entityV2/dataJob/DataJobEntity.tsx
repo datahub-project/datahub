@@ -6,6 +6,7 @@ import {
     ShareAltOutlined,
     SyncOutlined,
     UnorderedListOutlined,
+    WarningOutlined,
 } from '@ant-design/icons';
 import { DataJob, EntityType, OwnershipType, SearchResult } from '../../../types.generated';
 import { Preview } from './preview/Preview';
@@ -129,7 +130,12 @@ export class DataJobEntity implements Entity<DataJob> {
                 },
                 {
                     name: 'Incidents',
+                    icon: WarningOutlined,
                     component: IncidentTab,
+                    getDynamicName: (_, dataJob) => {
+                        const activeIncidentCount = dataJob?.dataJob?.activeIncidents.total;
+                        return `Incidents${(activeIncidentCount && ` (${activeIncidentCount})`) || ''}`;
+                    },
                 },
             ]}
             sidebarSections={this.getSidebarSections()}

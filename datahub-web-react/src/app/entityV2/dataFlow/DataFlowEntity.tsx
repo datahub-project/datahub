@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { ConsoleSqlOutlined, FileOutlined, ShareAltOutlined, UnorderedListOutlined } from '@ant-design/icons';
+import { ConsoleSqlOutlined, FileOutlined, ShareAltOutlined, UnorderedListOutlined, WarningOutlined } from '@ant-design/icons';
 import { DataFlow, EntityType, OwnershipType, SearchResult } from '../../../types.generated';
 import { Preview } from './preview/Preview';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Entity';
@@ -95,7 +95,12 @@ export class DataFlowEntity implements Entity<DataFlow> {
                 },
                 {
                     name: 'Incidents',
+                    icon: WarningOutlined,
                     component: IncidentTab,
+                    getDynamicName: (_, dataFlow) => {
+                        const activeIncidentCount = dataFlow?.dataFlow?.activeIncidents.total;
+                        return `Incidents${(activeIncidentCount && ` (${activeIncidentCount})`) || ''}`;
+                    },
                 },
             ]}
             sidebarSections={this.getSidebarSections()}

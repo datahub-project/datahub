@@ -3,18 +3,16 @@ import styled from 'styled-components';
 import { Button, Dropdown, List, Menu, message, Popover, Tag, Tooltip, Typography } from 'antd';
 import { CheckCircleFilled, CheckOutlined, MoreOutlined, WarningFilled } from '@ant-design/icons';
 import { Link } from 'react-router-dom';
-import moment from 'moment';
-
-import CustomAvatar from '../../../../../shared/avatar/CustomAvatar';
 import { EntityType, IncidentState, IncidentType } from '../../../../../../types.generated';
 import { FAILURE_COLOR_HEX, getNameFromType, SUCCESS_COLOR_HEX } from '../incidentUtils';
 import { useGetUserQuery } from '../../../../../../graphql/user.generated';
 import { useEntityRegistry } from '../../../../../useEntityRegistry';
-import { getLocaleTimezone } from '../../../../../shared/time/timeUtils';
+import { toLocalDateTimeString, toRelativeTimeString } from '../../../../../shared/time/timeUtils';
 import { useEntityData, useRefetch } from '../../../EntityContext';
 import analytics, { EntityActionType, EventType } from '../../../../../analytics';
 import { useUpdateIncidentStatusMutation } from '../../../../../../graphql/mutations.generated';
 import { ResolveIncidentModal } from './ResolveIncidentModal';
+import handleGraphQLError from '../../../../../shared/handleGraphQLError';
 
 type Props = {
     incident: any;
@@ -91,7 +89,6 @@ const IncidentCreatedTime = styled(Typography.Text)`
     font-size: 12px;
     line-height: 20px;
     color: #8c8c8c;
-    margin-left: 8px;
 `;
 
 const IncidentResolvedText = styled(Typography.Text)`
@@ -147,47 +144,47 @@ export default function IncidentListItem({ incident, refetch }: Props) {
     const [updateIncidentStatusMutation] = useUpdateIncidentStatusMutation();
     const [isResolvedModalVisible, setIsResolvedModalVisible] = useState(false);
 
-    // Fetching the user's data
-    const { data: createdActor } = useGetUserQuery({ variables: { urn: incident.created.actor } });
-    const { data: resolvedActor } = useGetUserQuery({ variables: { urn: incident.status.lastUpdated.actor } });
-
-    // Converting the created time into local Time zone
-    const localeTimezone = getLocaleTimezone();
-    const incidentCreatedTime =
-        (incident.created &&
-            `${moment.utc(incident.created.time).local().format('DD MMM YYYY')} (${localeTimezone})`) ||
-        undefined;
+    // Fetching the most recent actor's data.
+    const { data: createdActor } = useGetUserQuery({
+        variables: { urn: incident.created.actor, groupsCount: 0 },
+        fetchPolicy: 'cache-first',
+    });
+    const { data: lastUpdatedActor } = useGetUserQuery({
+        variables: { urn: incident.status.lastUpdated.actor, groupsCount: 0 },
+        fetchPolicy: 'cache-first',
+    });
 
     // Converting the created time into UTC
-    const incidentDate = incident.created.time && new Date(incident.created.time);
-    const incidentTimeUTC = incidentDate && `${incidentDate.toUTCString()}`;
+    const createdDate = incident.created.time && new Date(incident.created.time);
+    const lastModifiedDate = incident.status.lastUpdated.time && new Date(incident.status.lastUpdated.time);
 
     // Updating the incident status on button click
-    const updateIncidentStatus = async (state: IncidentState, resolvedMessage: string) => {
+    const updateIncidentStatus = (state: IncidentState, resolvedMessage: string) => {
         message.loading({ content: 'Updating...' });
-        try {
-            await updateIncidentStatusMutation({
-                variables: { urn: incident.urn, input: { state, message: resolvedMessage } },
-            });
-            message.destroy();
-            analytics.event({
-                type: EventType.EntityActionEvent,
-                entityType,
-                entityUrn: incident.urn,
-                actionType: EntityActionType.ResolvedIncident,
-            });
-            message.success({ content: 'Incident updated successfully! .', duration: 2 });
-            setTimeout(() => {
+        updateIncidentStatusMutation({
+            variables: { urn: incident.urn, input: { state, message: resolvedMessage } },
+        })
+            .then(() => {
+                message.destroy();
+                analytics.event({
+                    type: EventType.EntityActionEvent,
+                    entityType,
+                    entityUrn: incident.urn,
+                    actionType: EntityActionType.ResolvedIncident,
+                });
+                message.success({ content: 'Incident updated! .', duration: 2 });
                 refetchEntity?.();
-            }, 2000);
-        } catch (e: unknown) {
-            message.destroy();
-            if (e instanceof Error) {
-                message.error({ content: `Failed to update incident: \n ${e.message || ''}`, duration: 3 });
-            }
-        }
-        refetch?.();
-        setIsResolvedModalVisible(false);
+                refetch?.();
+                setIsResolvedModalVisible(false);
+            })
+            .catch((error) => {
+                handleGraphQLError({
+                    error,
+                    defaultMessage: 'Failed to update incident! An unexpected error occurred',
+                    permissionMessage:
+                        'Unauthorized to update incident for this asset. Please contact your DataHub administrator.',
+                });
+            });
     };
 
     // Handle the Resolved Modal visibility
@@ -223,6 +220,11 @@ export default function IncidentListItem({ incident, refetch }: Props) {
                                 <IncidentDescriptionText>{incident?.description}</IncidentDescriptionText>
                             </DescriptionContainer>
                             <DescriptionContainer>
+                                <Tooltip placement="right" showArrow={false} title={toLocalDateTimeString(createdDate)}>
+                                    <IncidentCreatedTime>
+                                        Created {toRelativeTimeString(createdDate)} by{' '}
+                                    </IncidentCreatedTime>
+                                </Tooltip>
                                 {createdActor?.corpUser && (
                                     <Link
                                         to={entityRegistry.getEntityUrl(
@@ -230,18 +232,9 @@ export default function IncidentListItem({ incident, refetch }: Props) {
                                             createdActor?.corpUser?.urn,
                                         )}
                                     >
-                                        <CustomAvatar
-                                            size={26}
-                                            name={entityRegistry.getDisplayName(
-                                                EntityType.CorpUser,
-                                                createdActor?.corpUser,
-                                            )}
-                                        />
+                                        {entityRegistry.getDisplayName(EntityType.CorpUser, createdActor?.corpUser)}
                                     </Link>
                                 )}
-                                <Tooltip placement="right" title={incidentTimeUTC}>
-                                    <IncidentCreatedTime>{incidentCreatedTime}</IncidentCreatedTime>
-                                </Tooltip>
                             </DescriptionContainer>
                         </div>
                     </IncidentHeaderContainer>
@@ -260,20 +253,21 @@ export default function IncidentListItem({ incident, refetch }: Props) {
                                 }
                             >
                                 <IncidentResolvedText>
-                                    {incident?.status.lastUpdated &&
-                                        `Resolved on  ${moment
-                                            .utc(incident.status.lastUpdated.time)
-                                            .format('DD MMM YYYY')} by `}
-                                    {resolvedActor?.corpUser && (
+                                    {incident?.status.lastUpdated && (
+                                        <Tooltip showArrow={false} title={toLocalDateTimeString(lastModifiedDate)}>
+                                            Resolved {toRelativeTimeString(lastModifiedDate)} by{' '}
+                                        </Tooltip>
+                                    )}
+                                    {lastUpdatedActor?.corpUser && (
                                         <Link
                                             to={entityRegistry.getEntityUrl(
                                                 EntityType.CorpUser,
-                                                resolvedActor?.corpUser?.urn,
+                                                lastUpdatedActor?.corpUser?.urn,
                                             )}
                                         >
                                             {entityRegistry.getDisplayName(
                                                 EntityType.CorpUser,
-                                                resolvedActor?.corpUser,
+                                                lastUpdatedActor?.corpUser,
                                             )}
                                         </Link>
                                     )}

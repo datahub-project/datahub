@@ -6,6 +6,7 @@ import {
     LineChartOutlined,
     PartitionOutlined,
     UnorderedListOutlined,
+    WarningOutlined,
 } from '@ant-design/icons';
 import * as React from 'react';
 import { GetChartQuery, useGetChartQuery, useUpdateChartMutation } from '../../../graphql/chart.generated';
@@ -170,7 +171,12 @@ export class ChartEntity implements Entity<Chart> {
                 },
                 {
                     name: 'Incidents',
+                    icon: WarningOutlined,
                     component: IncidentTab,
+                    getDynamicName: (_, chart) => {
+                        const activeIncidentCount = chart?.chart?.activeIncidents.total;
+                        return `Incidents${(activeIncidentCount && ` (${activeIncidentCount})`) || ''}`;
+                    },
                 },
             ]}
             sidebarSections={this.getSidebarSections()}
@@ -257,11 +263,11 @@ export class ChartEntity implements Entity<Chart> {
                 subType={data.subTypes?.typeNames?.[0]}
                 tier={
                     isValuePresent(data?.statsSummary?.viewCountPercentileLast30Days) &&
-                    isValuePresent(data?.statsSummary?.uniqueUserPercentileLast30Days)
+                        isValuePresent(data?.statsSummary?.uniqueUserPercentileLast30Days)
                         ? getChartPopularityTier(
-                              data.statsSummary?.viewCountPercentileLast30Days,
-                              data.statsSummary?.uniqueUserPercentileLast30Days,
-                          )
+                            data.statsSummary?.viewCountPercentileLast30Days,
+                            data.statsSummary?.uniqueUserPercentileLast30Days,
+                        )
                         : undefined
                 }
                 upstreamTotal={(data as any).upstream?.total}
@@ -305,11 +311,11 @@ export class ChartEntity implements Entity<Chart> {
                 isOutputPort={isOutputPort(result)}
                 tier={
                     isValuePresent(data?.statsSummary?.viewCountPercentileLast30Days) &&
-                    isValuePresent(data?.statsSummary?.uniqueUserPercentileLast30Days)
+                        isValuePresent(data?.statsSummary?.uniqueUserPercentileLast30Days)
                         ? getChartPopularityTier(
-                              data.statsSummary?.viewCountPercentileLast30Days,
-                              data.statsSummary?.uniqueUserPercentileLast30Days,
-                          )
+                            data.statsSummary?.viewCountPercentileLast30Days,
+                            data.statsSummary?.uniqueUserPercentileLast30Days,
+                        )
                         : undefined
                 }
                 upstreamTotal={(data as any).upstream?.total}

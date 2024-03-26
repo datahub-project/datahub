@@ -109,7 +109,9 @@ export type EntityTab = {
     };
     properties?: any;
     id?: string;
+    getDynamicName?: (GenericEntityProperties, T) => string;
 };
+
 
 export type EntitySidebarTab = {
     name: string;
@@ -210,12 +212,12 @@ export type GenericEntityUpdate = {
 export type UpdateEntityType<U> = (
     options?:
         | MutationFunctionOptions<
-              U,
-              {
-                  urn: string;
-                  input: GenericEntityUpdate;
-              }
-          >
+            U,
+            {
+                urn: string;
+                input: GenericEntityUpdate;
+            }
+        >
         | undefined,
 ) => Promise<FetchResult<U, Record<string, any>, Record<string, any>>>;
 
