@@ -47,11 +47,7 @@ jobs:
         run: ./metadata-ingestion/scripts/install_deps.sh
       - name: Build Docs
         run: |
-          ./gradlew --info docs-website:build \
-            -x :metadata-ingestion-modules:airflow-plugin:build \
-            -x :metadata-ingestion-modules:airflow-plugin:check \
-            -x :metadata-ingestion-modules:dagster-plugin:build \
-            -x :metadata-ingestion-modules:dagster-plugin:check \
+          ./gradlew --info docs-website:build
 
       - name: Deploy
         if: github.event_name == 'push' && github.repository == 'datahub-project/datahub'
