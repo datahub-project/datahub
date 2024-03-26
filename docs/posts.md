@@ -14,7 +14,7 @@ DataHub allows users to make Posts that can be displayed on the app. Currently, 
 Anyone can view Posts on the home page. To create Posts, a user must either have the **Create Global Announcements** Privilege, or possess the **Admin** DataHub Role.
 
 ## Creating Posts
-# Create Posts Using the UI
+### Create Posts Using the UI
 To create a post, first navigate to the Settings tab in the top-right menu of DataHub.
 Once you're on the Settings page, click 'Home Page Posts'.
 To create a new Posts, click '+ New Posts'.
