@@ -10,6 +10,7 @@ import { useGlossaryEntityData } from '../../../GlossaryEntityContext';
 import { REDESIGN_COLORS } from '../../../constants';
 import CompactContext from '../../../../../shared/CompactContext';
 import { EntityType } from '../../../../../../types.generated';
+import { PageRoutes } from '../../../../../../conf/Global';
 
 const EntityTitle = styled(Typography.Text)<{ showEntityLink?: boolean }>`
     font-size: 16px;
@@ -57,6 +58,7 @@ function EntityName(props: Props) {
     const [isEditing, setIsEditing] = useState(false);
 
     const isCompact = React.useContext(CompactContext);
+    const isEmbeddedProfile = window.location.pathname.startsWith(PageRoutes.EMBED);
     const showEntityLink = isCompact && entityType !== EntityType.Query;
 
     useEffect(() => {
@@ -109,7 +111,16 @@ function EntityName(props: Props) {
         <EntityTitle showEntityLink={showEntityLink}>{entityName}</EntityTitle>
     );
 
-    return showEntityLink ? <Link to={entityRegistry.getEntityUrl(entityType, urn)}>{Title}</Link> : Title;
+    // have entity link open new tab if in the chrome extension
+    const linkProps = isEmbeddedProfile ? { target: '_blank', rel: 'noreferrer noopener' } : {};
+
+    return showEntityLink ? (
+        <Link to={entityRegistry.getEntityUrl(entityType, urn)} {...linkProps}>
+            {Title}
+        </Link>
+    ) : (
+        Title
+    );
 }
 
 export default EntityName;

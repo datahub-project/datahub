@@ -123,28 +123,30 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
                         icon: () => <BookOutlined style={{ marginRight: 6 }} />,
                     },
                 ]}
-                sidebarSections={[
-                    {
-                        component: SidebarEntityHeader,
-                    },
-                    {
-                        component: SidebarDomainSection,
-                        properties: {
-                            hideOwnerType: true,
-                        },
-                    },
-                    {
-                        component: SidebarAboutSection,
-                    },
-                    {
-                        component: SidebarOwnerSection,
-                    },
-                ]}
+                sidebarSections={this.getSidebarSections()}
                 getOverrideProperties={this.getOverridePropertiesFromEntity}
                 sidebarTabs={this.getSidebarTabs()}
             />
         );
     };
+
+    getSidebarSections = () => [
+        {
+            component: SidebarEntityHeader,
+        },
+        {
+            component: SidebarDomainSection,
+            properties: {
+                hideOwnerType: true,
+            },
+        },
+        {
+            component: SidebarAboutSection,
+        },
+        {
+            component: SidebarOwnerSection,
+        },
+    ];
 
     getSidebarTabs = () => [
         {

@@ -173,38 +173,40 @@ export class ChartEntity implements Entity<Chart> {
                     component: IncidentTab,
                 },
             ]}
-            sidebarSections={[
-                {
-                    component: SidebarEntityHeader,
-                },
-                {
-                    component: SidebarChartHeaderSection,
-                },
-                {
-                    component: SidebarDomainSection,
-                },
-                {
-                    component: DataProductSection,
-                },
-                {
-                    component: SidebarAboutSection,
-                },
-                {
-                    component: SidebarLineageSection,
-                },
-                {
-                    component: SidebarOwnerSection,
-                },
-                {
-                    component: SidebarGlossaryTermsSection,
-                },
-                {
-                    component: SidebarTagsSection,
-                },
-            ]}
+            sidebarSections={this.getSidebarSections()}
             sidebarTabs={this.getSidebarTabs()}
         />
     );
+
+    getSidebarSections = () => [
+        {
+            component: SidebarEntityHeader,
+        },
+        {
+            component: SidebarChartHeaderSection,
+        },
+        {
+            component: SidebarDomainSection,
+        },
+        {
+            component: DataProductSection,
+        },
+        {
+            component: SidebarAboutSection,
+        },
+        {
+            component: SidebarLineageSection,
+        },
+        {
+            component: SidebarOwnerSection,
+        },
+        {
+            component: SidebarGlossaryTermsSection,
+        },
+        {
+            component: SidebarTagsSection,
+        },
+    ];
 
     getSidebarTabs = () => [
         {

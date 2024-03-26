@@ -9,7 +9,7 @@ const DEFAULT_SIDEBAR_SECTION = {
 interface Props {
     properties?: {
         sections: EntitySidebarSection[];
-        setIsFormModalVisible: (visible: boolean) => void;
+        setIsFormModalVisible?: (visible: boolean) => void;
     };
     contextType: TabContextType;
     renderType: TabRenderType;

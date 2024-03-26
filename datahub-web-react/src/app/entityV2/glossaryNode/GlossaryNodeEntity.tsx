@@ -96,17 +96,7 @@ class GlossaryNodeEntity implements Entity<GlossaryNode> {
                         },
                     },
                 ]}
-                sidebarSections={[
-                    {
-                        component: SidebarAboutSection,
-                        properties: {
-                            hideLinksButton: true,
-                        },
-                    },
-                    {
-                        component: SidebarOwnerSection,
-                    },
-                ]}
+                sidebarSections={this.getSidebarSections()}
                 headerActionItems={
                     new Set([EntityActionItem.ADD_CHILD_GLOSSARY_NODE, EntityActionItem.ADD_CHILD_GLOSSARY_TERM])
                 }
@@ -115,6 +105,18 @@ class GlossaryNodeEntity implements Entity<GlossaryNode> {
             />
         );
     };
+
+    getSidebarSections = () => [
+        {
+            component: SidebarAboutSection,
+            properties: {
+                hideLinksButton: true,
+            },
+        },
+        {
+            component: SidebarOwnerSection,
+        },
+    ];
 
     getSidebarTabs = () => [
         {

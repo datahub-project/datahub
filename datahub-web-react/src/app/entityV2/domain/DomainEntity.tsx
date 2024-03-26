@@ -117,22 +117,24 @@ export class DomainEntity implements Entity<Domain> {
                     icon: FileDoneOutlined,
                 },
             ]}
-            sidebarSections={[
-                {
-                    component: SidebarEntityHeader,
-                },
-                {
-                    component: SidebarAboutSection,
-                },
-                {
-                    component: SidebarEntitiesSection,
-                },
-                {
-                    component: SidebarOwnerSection,
-                },
-            ]}
+            sidebarSections={this.getSidebarSections()}
         />
     );
+
+    getSidebarSections = () => [
+        {
+            component: SidebarEntityHeader,
+        },
+        {
+            component: SidebarAboutSection,
+        },
+        {
+            component: SidebarEntitiesSection,
+        },
+        {
+            component: SidebarOwnerSection,
+        },
+    ];
 
     renderPreview = (previewType: PreviewType, data: Domain) => {
         return (

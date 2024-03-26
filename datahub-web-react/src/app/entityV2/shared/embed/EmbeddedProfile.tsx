@@ -2,19 +2,13 @@ import { LoadingOutlined } from '@ant-design/icons';
 import { QueryHookOptions, QueryResult } from '@apollo/client';
 import React from 'react';
 import styled from 'styled-components';
-import { Divider } from 'antd';
 import { EntityType, Exact } from '../../../../types.generated';
 import useGetDataForProfile from '../containers/profile/useGetDataForProfile';
 import { EntityContext } from '../EntityContext';
-import { GenericEntityProperties } from '../types';
-import EmbeddedHeader from './EmbeddedHeader';
-import { SidebarAboutSection } from '../containers/profile/sidebar/AboutSection/SidebarAboutSection';
-import { SidebarOwnerSection } from '../containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
-import { SidebarTagsSection } from '../containers/profile/sidebar/SidebarTagsSection';
-import { SidebarDomainSection } from '../containers/profile/sidebar/Domain/SidebarDomainSection';
-import UpstreamHealth from './UpstreamHealth/UpstreamHealth';
+import { GenericEntityProperties, TabContextType, TabRenderType } from '../types';
 import NonExistentEntityPage from '../entity/NonExistentEntityPage';
-import DataProductSection from '../containers/profile/sidebar/DataProduct/DataProductSection';
+import EntitySidebarSectionsTab from '../containers/profile/sidebar/EntitySidebarSectionsTab';
+import { useEntityRegistryV2 } from '../../../useEntityRegistry';
 
 const LoadingWrapper = styled.div`
     display: flex;
@@ -22,10 +16,6 @@ const LoadingWrapper = styled.div`
     justify-content: center;
     height: 85vh;
     font-size: 50px;
-`;
-
-const StyledDivider = styled(Divider)`
-    margin: 12px 0;
 `;
 
 interface Props<T> {
@@ -48,14 +38,13 @@ interface Props<T> {
 }
 
 export default function EmbeddedProfile<T>({ urn, entityType, getOverrideProperties, useEntityQuery }: Props<T>) {
+    const entityRegistry = useEntityRegistryV2();
     const { entityData, dataPossiblyCombinedWithSiblings, dataNotCombinedWithSiblings, loading, refetch } =
         useGetDataForProfile({ urn, entityType, useEntityQuery, getOverrideProperties });
 
     if (entityData?.exists === false) {
         return <NonExistentEntityPage />;
     }
-
-    const readOnly = false;
 
     return (
         <EntityContext.Provider
@@ -66,7 +55,7 @@ export default function EmbeddedProfile<T>({ urn, entityType, getOverridePropert
                 loading,
                 baseEntity: dataPossiblyCombinedWithSiblings,
                 dataNotCombinedWithSiblings,
-                routeToTab: () => { },
+                routeToTab: () => {},
                 refetch,
                 lineage: undefined,
             }}
@@ -76,22 +65,12 @@ export default function EmbeddedProfile<T>({ urn, entityType, getOverridePropert
                     <LoadingOutlined />
                 </LoadingWrapper>
             )}
-            {!loading && entityData && (
-                <>
-                    <EmbeddedHeader />
-                    <StyledDivider />
-                    <UpstreamHealth />
-                    <StyledDivider />
-                    <SidebarAboutSection readOnly={readOnly} />
-                    <StyledDivider />
-                    <SidebarOwnerSection readOnly={readOnly} />
-                    <StyledDivider />
-                    <SidebarTagsSection readOnly={readOnly} />
-                    <StyledDivider />
-                    <SidebarDomainSection readOnly={readOnly} />
-                    <StyledDivider />
-                    <DataProductSection readOnly={readOnly} />
-                </>
+            {!loading && entityData && entityData.type && (
+                <EntitySidebarSectionsTab
+                    properties={{ sections: entityRegistry.getSidebarSections(entityData.type) }}
+                    contextType={TabContextType.CHROME_SIDEBAR}
+                    renderType={TabRenderType.COMPACT}
+                />
             )}
         </EntityContext.Provider>
     );

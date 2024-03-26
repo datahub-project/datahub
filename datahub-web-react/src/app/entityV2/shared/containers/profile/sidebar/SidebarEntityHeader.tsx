@@ -11,6 +11,8 @@ import { getDisplayedEntityType } from '../header/utils';
 import useContentTruncation from '../../../../../shared/useContentTruncation';
 import ContainerIcon from '../header/PlatformContent/ContainerIcon';
 import { IconStyleType } from '../../../../Entity';
+import HealthIcon from '../../../../../previewV2/HealthIcon';
+import { isUnhealthy } from '../../../../../shared/health/healthUtils';
 
 const Wrapper = styled.div`
     display: flex;
@@ -30,10 +32,15 @@ const EntityDetailsContainer = styled.div`
     gap: 5px;
 `;
 
+const NameWrapper = styled.div`
+    display: flex;
+`;
+
 const SidebarEntityHeader = () => {
     const { entityType, entityData, loading } = useEntityData();
     const entityRegistry = useEntityRegistry();
     const entityLogoComponent = entityRegistry.getIcon(entityType, 24, IconStyleType.ACCENT);
+    const entityUrl = entityRegistry.getEntityUrl(entityType, entityData?.urn as string);
 
     const { contentRef, isContentTruncated } = useContentTruncation(entityData);
     const typeIcon =
@@ -55,9 +62,12 @@ const SidebarEntityHeader = () => {
                         size={24}
                     />
                     <EntityDetailsContainer>
-                        <div>
+                        <NameWrapper>
                             <EntityName isNameEditable={false} />
-                        </div>
+                            {entityData?.health && isUnhealthy(entityData.health) && (
+                                <HealthIcon health={entityData.health} baseUrl={entityUrl} />
+                            )}
+                        </NameWrapper>
                         <div>
                             <SearchCardBrowsePath
                                 instanceId={entityData?.dataPlatformInstance?.instanceId}

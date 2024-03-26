@@ -100,36 +100,38 @@ export class MLModelEntity implements Entity<MlModel> {
                     component: MlModelFeaturesTab,
                 },
             ]}
-            sidebarSections={[
-                {
-                    component: SidebarEntityHeader,
-                },
-                {
-                    component: SidebarAboutSection,
-                },
-                {
-                    component: SidebarOwnerSection,
-                    properties: {
-                        defaultOwnerType: OwnershipType.TechnicalOwner,
-                    },
-                },
-                {
-                    component: SidebarTagsSection,
-                    properties: {
-                        hasTags: true,
-                        hasTerms: true,
-                    },
-                },
-                {
-                    component: SidebarDomainSection,
-                },
-                {
-                    component: DataProductSection,
-                },
-            ]}
+            sidebarSections={this.getSidebarSections()}
             sidebarTabs={this.getSidebarTabs()}
         />
     );
+
+    getSidebarSections = () => [
+        {
+            component: SidebarEntityHeader,
+        },
+        {
+            component: SidebarAboutSection,
+        },
+        {
+            component: SidebarOwnerSection,
+            properties: {
+                defaultOwnerType: OwnershipType.TechnicalOwner,
+            },
+        },
+        {
+            component: SidebarTagsSection,
+            properties: {
+                hasTags: true,
+                hasTerms: true,
+            },
+        },
+        {
+            component: SidebarDomainSection,
+        },
+        {
+            component: DataProductSection,
+        },
+    ];
 
     getSidebarTabs = () => [
         {
@@ -141,7 +143,7 @@ export class MLModelEntity implements Entity<MlModel> {
     ];
 
     renderPreview = (previewType: PreviewType, data: MlModel) => {
-        return <Preview model={data} headerDropdownItems={headerDropdownItems} previewType={previewType}/>;
+        return <Preview model={data} headerDropdownItems={headerDropdownItems} previewType={previewType} />;
     };
 
     renderSearch = (result: SearchResult) => {
