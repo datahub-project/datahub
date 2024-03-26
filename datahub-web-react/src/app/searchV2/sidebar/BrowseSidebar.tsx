@@ -16,29 +16,28 @@ const StyledEntitySidebarContainer = styled.div<{
     backgroundColor?: string;
 }>`
     flex: 1;
-    overflow: auto;
+    overflow: hidden;
 
     ${(props) => !props.isCollapsed && props.$width && `min-width: ${props.$width}px; max-width: ${props.$width}px;`}
-    ${(props) => props.isCollapsed && 'min-width: 74px; max-width: 74px;'}
+    ${(props) => props.isCollapsed && 'min-width: 63px; max-width: 63px;'}
     &::-webkit-scrollbar {
         display: none;
     }
 
-    margin: 12px 0px 12px 0px;
+    margin: 12px;
     transition: max-width ${PLATFORM_BROWSE_TRANSITION_MS}ms ease-in-out,
         min-width ${PLATFORM_BROWSE_TRANSITION_MS}ms ease-in-out;
+
+    background-color: #ffffff;
+    border-radius: 8px;
+    box-shadow: 0px 0px 5px rgba(0, 0, 0, 0.08);
 `;
 
 export const StyledSidebar = styled.div`
-    background-color: #ffffff;
-    box-shadow: 0px 0px 5px rgba(0, 0, 0, 0.08);
-    border-radius: 8px;
-    border: none;
-    overflow: hidden;
-    min-height: 100%;
+    overflow: auto;
+    height: 100%;
     display: flex;
     flex-direction: column;
-    margin: 0px 0px 0px 12px;
 `;
 
 const Controls = styled.div<{ isCollapsed: boolean }>`
@@ -50,20 +49,23 @@ const Controls = styled.div<{ isCollapsed: boolean }>`
     overflow: hidden;
 `;
 
-const NavigateTitle = styled(Typography.Title)`
+const NavigateTitle = styled(Typography.Title) <{ isClosed: boolean }>`
     && {
         padding: 0px;
-        margin: 0px;
         margin: 4px 0px 4px 8px;
         min-width: 140px;
+        opacity: ${(props) => (props.isClosed ? '0' : '1')};
     }
 `;
 
-const CloseButton = styled(Button)<{ isActive }>`
+const CloseButton = styled(Button) <{ isActive }>`
     margin: 0px;
     padding: 2px 6px;
     display: flex;
     align-items: center;
+
+    transform: ${(props) => (props.isActive ? 'translateX(0)' : 'translateX(-75px)')};
+    transition: transform ${PLATFORM_BROWSE_TRANSITION_MS}ms ease;
 
     && {
         color: ${(props) => (props.isActive ? ANTD_GRAY[9] : ANTD_GRAY[8])};
@@ -81,7 +83,7 @@ const SidebarBody = styled.div`
     white-space: nowrap;
 `;
 
-const StyledSidebarBackArrow = styled(SidebarBackArrow)<{ direction: 'left' | 'right' }>`
+const StyledSidebarBackArrow = styled(SidebarBackArrow) <{ direction: 'left' | 'right' }>`
     cursor: pointer;
     ${(props) => (props.direction === 'right' && 'transform: scaleX(-1);') || undefined}
 `;
@@ -101,19 +103,21 @@ const BrowseSidebar = ({ visible, width }: Props) => {
 
     return (
         <StyledEntitySidebarContainer isCollapsed={isClosed} $width={width} id="browse-v2">
+            <Controls isCollapsed={isClosed}>
+                <NavigateTitle level={5} isClosed={isClosed}>Navigate</NavigateTitle>
+                <Tooltip
+                    placement="left"
+                    showArrow={false}
+                    title={!isClosed ? 'Close navigator' : 'Open navigator'}
+                    mouseEnterDelay={0.7}
+                    mouseLeaveDelay={0}
+                >
+                    <CloseButton isActive={!isClosed} type="link" onClick={() => setIsClosed(!isClosed)}>
+                        <StyledSidebarBackArrow direction={isClosed ? 'left' : 'right'} />
+                    </CloseButton>
+                </Tooltip>
+            </Controls>
             <StyledSidebar id={SEARCH_RESULTS_BROWSE_SIDEBAR_ID}>
-                <Controls isCollapsed={isClosed}>
-                    {!isClosed && <NavigateTitle level={5}>Navigate</NavigateTitle>}
-                    <Tooltip
-                        placement="left"
-                        showArrow={false}
-                        title={!isClosed ? 'Close navigator' : 'Open navigator'}
-                    >
-                        <CloseButton isActive={!isClosed} type="link" onClick={() => setIsClosed(!isClosed)}>
-                            <StyledSidebarBackArrow direction={isClosed ? 'left' : 'right'} />
-                        </CloseButton>
-                    </Tooltip>
-                </Controls>
                 <ThinDivider />
                 <SidebarBody>
                     {!isPlatformBrowseMode ? (

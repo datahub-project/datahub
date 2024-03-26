@@ -2,11 +2,9 @@ import React, { useEffect } from 'react';
 import styled from 'styled-components';
 import { Divider, Empty } from 'antd';
 import { BrowseProvider } from './BrowseContext';
-import { DataPlatform } from '../../../types.generated';
 import SidebarLoadingError from './SidebarLoadingError';
 import useSidebarPlatforms from './useSidebarPlatforms';
 import PlatformNode from './PlatformNode';
-import CollapsedPlatformNode from './CollapsedPlatformNode';
 
 const BrowsePlatformIcons = styled.div`
     display: flex;
@@ -45,13 +43,12 @@ const PlatformBrowse = ({ visible, collapsed = false, expand, closeSidebar }: Pr
                     ?.sort((a, b) => b.count - a.count)
                     ?.map((platformAggregation, i, lst) => (
                         <BrowseProvider key={platformAggregation.value} platformAggregation={platformAggregation}>
-                            {!collapsed && <PlatformNode iconSize={24} hasOnlyOnePlatform={lst.length === 1} />}
-                            {collapsed && (
-                                <CollapsedPlatformNode
-                                    platform={platformAggregation.entity as DataPlatform}
-                                    onClick={expand}
-                                />
-                            )}
+                            <PlatformNode
+                                iconSize={24}
+                                hasOnlyOnePlatform={lst.length === 1}
+                                toggleCollapse={expand}
+                                collapsed={collapsed}
+                            />
                             {platformAggregation && i < platformAggregations.length - 1 && <DividerStyle />}
                         </BrowseProvider>
                     ))}

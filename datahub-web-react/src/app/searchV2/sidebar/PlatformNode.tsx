@@ -26,7 +26,7 @@ import { ANTD_GRAY } from '../../entity/shared/constants';
 import PlatformIcon from '../../sharedV2/icons/PlatformIcon';
 import { DataPlatform } from '../../../types.generated';
 
-const Count = styled(Typography.Text)<{ isPlatformBrowse: boolean; isOpen: boolean }>`
+const Count = styled(Typography.Text) <{ isPlatformBrowse: boolean; isOpen: boolean }>`
     font-size: 10px;
     color: ${(props) => props.color};
     padding: 2px 8px;
@@ -38,9 +38,11 @@ const Count = styled(Typography.Text)<{ isPlatformBrowse: boolean; isOpen: boole
 type Props = {
     iconSize?: number;
     hasOnlyOnePlatform?: boolean;
+    toggleCollapse?: () => void;
+    collapsed?: boolean;
 };
 
-const PlatformNode = ({ iconSize = 20, hasOnlyOnePlatform = false }: Props) => {
+const PlatformNode = ({ iconSize = 20, hasOnlyOnePlatform = false, toggleCollapse, collapsed = true }: Props) => {
     const isPlatformBrowse = useIsPlatformBrowseMode();
     const isPlatformSelected = useIsPlatformSelected();
     const hasBrowseFilter = useHasFilterField(BROWSE_PATH_V2_FILTER_NAME);
@@ -85,21 +87,26 @@ const PlatformNode = ({ iconSize = 20, hasOnlyOnePlatform = false }: Props) => {
     const nodeStyle = {
         padding: '7px',
         margin: '0px',
-        background: isOpen && REDESIGN_COLORS.BACKGROUND_GRAY_4,
+        background: collapsed ? '#fff' : isOpen && REDESIGN_COLORS.BACKGROUND_GRAY_4,
         borderLeft: isOpen && '1px solid #fff',
         borderRight: isOpen && '1px solid #fff',
     };
 
+    const onClick = () => {
+        if (toggleCollapse) toggleCollapse();
+        onClickHeader();
+    };
+
     return (
         <ExpandableNode
-            isOpen={isOpen && !isClosing && loaded}
+            isOpen={!collapsed && isOpen && !isClosing && loaded}
             style={(isPlatformBrowse && { ...nodeStyle }) || undefined}
             header={
                 <ExpandableNode.SelectableHeader
                     isOpen={isOpen}
                     isSelected={isPlatformOnlySelected}
                     showBorder
-                    onClick={onClickHeader}
+                    onClick={onClick}
                 >
                     <ExpandableNode.HeaderLeft>
                         <ExpandableNode.TriangleButton
@@ -107,23 +114,41 @@ const PlatformNode = ({ iconSize = 20, hasOnlyOnePlatform = false }: Props) => {
                             isVisible={!!platformAggregation.count}
                             onClick={onClickTriangle}
                             dataTestId={`browse-platform-${label}`}
-                            style={{ marginRight: 4 }}
+                            style={{
+                                marginRight: 4,
+                                transform:
+                                    collapsed ? 'translateX(-100%)' :
+                                        isOpen && 'rotate(90deg) translateX(0)'
+                                        || 'translateX(0)',
+                                transition: 'transform 200ms ease',
+                            }}
                         />
                         <PlatformIcon
                             platform={platformAggregation.entity as DataPlatform}
                             size={iconSize}
                             color={REDESIGN_COLORS.BORDER_1}
+                            styles={{
+                                transform: collapsed ? 'translateX(-65%)' : 'translateX(0)',
+                                transition: 'transform 200ms ease',
+                            }}
                         />
-                        <ExpandableNode.Title color={color} size={isPlatformBrowse ? 14 : 12} padLeft maxWidth={125}>
-                            {label}
-                        </ExpandableNode.Title>
-                        {isPlatformBrowse && (
+                        {!collapsed && (
+                            <ExpandableNode.Title
+                                color={color}
+                                size={isPlatformBrowse ? 14 : 12}
+                                maxWidth={125}
+                                padLeft
+                            >
+                                {label}
+                            </ExpandableNode.Title>
+                        )}
+                        {!collapsed && isPlatformBrowse && (
                             <Count color={color} isOpen={isOpen} isPlatformBrowse>
                                 {formatNumber(platformAggregation.count)}
                             </Count>
                         )}
                     </ExpandableNode.HeaderLeft>
-                    {!isPlatformBrowse && (
+                    {!collapsed && !isPlatformBrowse && (
                         <Count color={color} isOpen={isOpen} isPlatformBrowse={false}>
                             {formatNumber(platformAggregation.count)}
                         </Count>
