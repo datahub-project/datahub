@@ -31,8 +31,9 @@ import {
     SNOWFLAKE_URN,
     DATABRICKS_URN,
 } from '../../../../../../../ingest/source/builder/constants';
-import { AssertionMonitorBuilderState, AssertionActionsFormState, AssertionActionsBuilderState } from './types';
+import { AssertionMonitorBuilderState, AssertionActionsFormState } from './types';
 import { ASSERTION_TYPES, HIGH_WATERMARK_FIELD_TYPES, LAST_MODIFIED_FIELD_TYPES } from './constants';
+import { UpdateAssertionActionsMutationVariables } from '../../../../../../../../graphql/assertion.generated';
 
 /** Configuration object used to display each source option */
 export type SourceOption = {
@@ -723,16 +724,15 @@ export const toggleResolveIncidentState = (state: AssertionActionsFormState, new
 };
 
 export const builderStateToUpdateAssertionActionsVariables = (
-    urn: string,
-    builderState: AssertionActionsBuilderState,
-) => {
-    return {
-        urn,
+    builderState: AssertionMonitorBuilderState,
+): UpdateAssertionActionsMutationVariables | undefined => {
+    return builderState.assertion?.actions && builderState.assertion?.urn ? {
+        urn: builderState.assertion.urn,
         input: {
-            onSuccess: builderState.actions?.onSuccess || [],
-            onFailure: builderState.actions?.onFailure || [],
+            onSuccess: builderState.assertion.actions.onSuccess || [],
+            onFailure: builderState.assertion.actions.onFailure || [],
         },
-    };
+    } : undefined;
 };
 
 /**

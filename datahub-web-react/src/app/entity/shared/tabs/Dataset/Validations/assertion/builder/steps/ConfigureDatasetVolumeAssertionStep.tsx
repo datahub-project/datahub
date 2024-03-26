@@ -37,7 +37,7 @@ export const ConfigureDatasetVolumeAssertionStep = ({ state, updateState, goTo, 
     const { isTestAssertionModalVisible, handleTestAssertionSubmit, hideTestAssertionModal } = useTestAssertionModal();
     return (
         <Step>
-            <VolumeAssertionBuilder state={state} updateState={updateState} editing />
+            <VolumeAssertionBuilder state={state} updateState={updateState} disabled={false} />
             <Controls>
                 <Button onClick={prev}>Back</Button>
                 <ControlsGroup>

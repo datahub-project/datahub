@@ -17,7 +17,6 @@ import { EvaluationScheduleBuilder } from './EvaluationScheduleBuilder';
 import { DatasetFreshnessScheduleBuilder } from './DatasetFreshnessScheduleBuilder';
 import { DatasetFreshnessSourceBuilder } from './DatasetFreshnessSourceBuilder';
 import { DatasetFreshnessFilterBuilder } from './DatasetFreshnessFilterBuilder';
-import { AssertionActionsSection } from '../actions/AssertionActionsSection';
 
 const Section = styled.div`
     display: flex;
@@ -28,13 +27,13 @@ const Section = styled.div`
 type Props = {
     state: AssertionMonitorBuilderState;
     updateState: (state: AssertionMonitorBuilderState) => void;
-    editing?: boolean;
+    disabled?: boolean;
 };
 
 /**
  * Step for defining the Dataset Freshness assertion
  */
-export const DatasetFreshnessAssertionBuilder = ({ state, updateState, editing }: Props) => {
+export const DatasetFreshnessAssertionBuilder = ({ state, updateState, disabled }: Props) => {
     const freshnessAssertion = state.assertion?.freshnessAssertion;
     const freshnessFilter = freshnessAssertion?.filter;
     const freshnessSchedule = freshnessAssertion?.schedule;
@@ -105,12 +104,12 @@ export const DatasetFreshnessAssertionBuilder = ({ state, updateState, editing }
                 value={state.schedule}
                 onChange={updateAssertionSchedule}
                 assertionType={AssertionType.Freshness}
-                disabled={!editing}
+                disabled={disabled}
             />
             <DatasetFreshnessScheduleBuilder
                 value={freshnessSchedule as FreshnessAssertionSchedule}
                 onChange={updateFreshnessSchedule}
-                disabled={!editing}
+                disabled={disabled}
             />
 
             <Section>
@@ -122,18 +121,17 @@ export const DatasetFreshnessAssertionBuilder = ({ state, updateState, editing }
                             scheduleType={freshnessScheduleType as FreshnessAssertionScheduleType}
                             value={datasetFreshnessParameters as DatasetFreshnessAssertionParameters}
                             onChange={updateDatasetFreshnessAssertionParameters}
-                            disabled={!editing}
+                            disabled={disabled}
                         />
                         <DatasetFreshnessFilterBuilder
                             value={freshnessFilter as DatasetFilter}
                             onChange={updateAssertionSqlFilter}
                             sourceType={datasetFreshnessParameters?.sourceType}
-                            disabled={!editing}
+                            disabled={disabled}
                         />
                     </Collapse.Panel>
                 </Collapse>
             </Section>
-            <AssertionActionsSection state={state} updateState={updateState} editing={editing} />
         </div>
     );
 };

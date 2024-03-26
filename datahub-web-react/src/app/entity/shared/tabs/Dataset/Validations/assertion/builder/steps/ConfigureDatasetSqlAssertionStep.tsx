@@ -34,7 +34,7 @@ export const ConfigureDatasetSqlAssertionStep = ({ state, updateState, goTo, pre
     const { isTestAssertionModalVisible, handleTestAssertionSubmit, hideTestAssertionModal } = useTestAssertionModal();
     return (
         <Step>
-            <SqlAssertionBuilder state={state} updateState={updateState} editing />
+            <SqlAssertionBuilder state={state} updateState={updateState} disabled={false} />
             <Controls>
                 <Button onClick={prev}>Back</Button>
                 <ControlsGroup>

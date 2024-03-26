@@ -17,7 +17,6 @@ import { VolumeTypeBuilder } from './VolumeTypeBuilder';
 import { VolumeParametersBuilder } from './VolumeParametersBuilder';
 import { VolumeSourceTypeBuilder } from './VolumeSourceTypeBuilder';
 import { VolumeFilterBuilder } from './VolumeFilterBuilder';
-import { AssertionActionsSection } from '../actions/AssertionActionsSection';
 
 const Section = styled.div`
     display: flex;
@@ -28,10 +27,10 @@ const Section = styled.div`
 type Props = {
     state: AssertionMonitorBuilderState;
     updateState: (newState: AssertionMonitorBuilderState) => void;
-    editing?: boolean;
+    disabled?: boolean;
 };
 
-export const VolumeAssertionBuilder = ({ state, updateState, editing }: Props) => {
+export const VolumeAssertionBuilder = ({ state, updateState, disabled }: Props) => {
     const assertion = state?.assertion;
     const schedule: CronSchedule | undefined | null = state?.schedule;
     const volumeAssertion = assertion?.volumeAssertion;
@@ -125,15 +124,15 @@ export const VolumeAssertionBuilder = ({ state, updateState, editing }: Props) =
                 value={schedule}
                 assertionType={AssertionType.Volume}
                 onChange={updateAssertionSchedule}
-                disabled={!editing}
+                disabled={disabled}
             />
-            <VolumeTypeBuilder volumeInfo={volumeAssertion as VolumeAssertionInfo} onChange={updateVolumeType} disabled={!editing} />
+            <VolumeTypeBuilder volumeInfo={volumeAssertion as VolumeAssertionInfo} onChange={updateVolumeType} disabled={disabled} />
             <VolumeParametersBuilder
                 volumeInfo={volumeAssertion as VolumeAssertionInfo}
                 value={volumeParameters as AssertionStdParameters}
                 onChange={updateVolumeParameters}
                 updateVolumeAssertion={updateVolumeAssertion}
-                disabled={!editing}
+                disabled={disabled}
             />
             <Section>
                 <Collapse>
@@ -143,18 +142,17 @@ export const VolumeAssertionBuilder = ({ state, updateState, editing }: Props) =
                             platformUrn={platformUrn}
                             value={sourceType as DatasetVolumeSourceType}
                             onChange={updateSourceType}
-                            disabled={!editing}
+                            disabled={disabled}
                         />
                         <VolumeFilterBuilder
                             value={filter as DatasetFilter}
                             onChange={updateFilter}
                             sourceType={sourceType as DatasetVolumeSourceType}
-                            disabled={!editing}
+                            disabled={disabled}
                         />
                     </Collapse.Panel>
                 </Collapse>
             </Section>
-            <AssertionActionsSection state={state} updateState={updateState} editing={editing} />
         </div>
     );
 };

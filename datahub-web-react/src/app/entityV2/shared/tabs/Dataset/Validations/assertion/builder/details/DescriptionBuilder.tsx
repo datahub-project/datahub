@@ -18,11 +18,12 @@ export const DescriptionBuilder = ({ value, onChange, disabled }: Props) => {
 
     return (
         <Section>
-            <Typography.Title level={5}>Description</Typography.Title>
+            <Typography.Title level={5}>Name</Typography.Title>
             <Input.TextArea
                 value={value || ''}
                 onChange={(e) => updateDescription(e.target.value)}
                 disabled={disabled}
+                placeholder='Optional. If not specified, a name will be generated from the settings.'
             />
         </Section>
     );

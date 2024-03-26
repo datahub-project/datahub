@@ -39,7 +39,7 @@ export const ConfigureDatasetFieldAssertionStep = ({ state, updateState, goTo, p
 
     return (
         <Step>
-            <FieldAssertionBuilder state={state} updateState={updateState} editing />
+            <FieldAssertionBuilder state={state} updateState={updateState} disabled={false} />
             <Controls>
                 <Button onClick={prev}>Back</Button>
                 <ControlsGroup>

@@ -2,31 +2,50 @@ import { message } from 'antd';
 import { useUpdateAssertionActionsMutation } from '../../../../../../../../graphql/assertion.generated';
 import { Assertion } from '../../../../../../../../types.generated';
 import { builderStateToUpdateAssertionActionsVariables } from './utils';
+import { AssertionMonitorBuilderState } from './types';
+import analytics, { EventType } from '../../../../../../../analytics';
 
-export const useUpdateAssertionActions = (urn, builderState, onUpdate): (() => Promise<void>) => {
+export const useUpdateAssertionActionsWithBuilderState = (builderState: AssertionMonitorBuilderState, onUpdate?: (a: Assertion) => void): (() => Promise<void>) => {
     const [updateAssertionActionsMutation] = useUpdateAssertionActionsMutation();
 
-    /**
-     * Updates the actions for any assertion.
-     */
     const updateAssertionActions = () => {
-        const updateAssertionActionsVariables = builderStateToUpdateAssertionActionsVariables(urn, builderState);
-        return updateAssertionActionsMutation({
-            variables: updateAssertionActionsVariables,
-        })
-            .then(({ data, errors }) => {
-                if (!errors) {
-                    message.success({
-                        content: `Updated Assertion!`,
-                        duration: 3,
-                    });
-                    onUpdate?.(data?.updateAssertionActions as Assertion);
-                }
+        const assertionActionVariables = builderStateToUpdateAssertionActionsVariables(builderState);
+
+        if (assertionActionVariables) {
+            return updateAssertionActionsMutation({
+                variables: assertionActionVariables,
             })
-            .catch(() => {
-                message.destroy();
-                message.error({ content: 'Failed to update Assertion! An unexpected error occurred' });
-            });
+                .then(({ data, errors }: any) => {
+                    if (!errors) {
+                        const assertion =
+                            data?.upsertDatasetFreshnessAssertionMonitor ||
+                            data?.upsertDatasetVolumeAssertionMonitor ||
+                            data?.upsertDatasetSqlAssertionMonitor ||
+                            data?.upsertDatasetFieldAssertionMonitor;
+                        analytics.event({
+                            type: EventType.UpdateAssertionActionsEvent,
+                            assertionType: builderState.assertion?.type as string,
+                            assertionUrn: builderState.assertion?.urn as string,
+                            entityUrn: builderState.entityUrn as string,
+                        });
+                        message.success({
+                            content: 'Updated!',
+                            duration: 3,
+                        });
+                        onUpdate?.(assertion);
+                        return;
+                    }
+                    throw new Error('Encountered errors while updating assertion actions');
+                })
+                .catch(() => {
+                    message.destroy();
+                    message.error({ content: 'Failed to update assertion actions! An unexpected error occurred' });
+                });
+        }
+
+        message.destroy();
+        message.error({ content: 'Failed to update assertion actions! An unexpected error occurred' });
+        return Promise.reject(new Error('Could not find assertionActionVariables!'));
     };
 
     return updateAssertionActions;

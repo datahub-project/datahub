@@ -39,7 +39,7 @@ export const ConfigureDatasetFreshnessAssertionStep = ({ state, updateState, goT
 
     return (
         <Step>
-            <DatasetFreshnessAssertionBuilder state={state} updateState={updateState} editing />
+            <DatasetFreshnessAssertionBuilder state={state} updateState={updateState} disabled={false} />
             <Controls>
                 <Button onClick={prev}>Back</Button>
                 <ControlsGroup>

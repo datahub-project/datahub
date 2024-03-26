@@ -9,10 +9,13 @@ import { AssertionMonitorBuilderState } from '../types';
 import { createAssertionMonitorBuilderState } from '../utils';
 import { SaveButton } from './SaveButton';
 import { useUpsertAssertionMonitor } from '../useUpsertAssertionMonitor';
+import { useUpdateAssertionActionsWithBuilderState } from '../useUpdateAssertionActions';
 import { SqlAssertionBuilder } from '../steps/sql/SqlAssertionBuilder';
 import { DatasetFreshnessAssertionBuilder } from '../steps/freshness/DatasetFreshnessAssertionBuilder';
 import { VolumeAssertionBuilder } from '../steps/volume/VolumeAssertionBuilder';
 import { FieldAssertionBuilder } from '../steps/field/FieldAssertionBuilder';
+import { getAssertionEditabilityType } from '../../profile/summary/shared/assertionUtils';
+import { AssertionActionsSection } from '../steps/actions/AssertionActionsSection';
 
 type Props = {
     assertion: Assertion;
@@ -29,6 +32,11 @@ export const AssertionSettings = (props: Props) => {
     const [editing, setEditing] = useState<boolean>(false);
     const [form] = Form.useForm();
 
+    const editabilityType = getAssertionEditabilityType(props.assertion);
+
+    const isFullEditingDisabled = !(editing && editabilityType === 'full');
+    const isActionsEditingDisabled = !(editing && editabilityType !== 'none');
+
     const updateAssertionMonitor = useUpsertAssertionMonitor(
         builderState,
         () => {
@@ -36,6 +44,7 @@ export const AssertionSettings = (props: Props) => {
         },
         true,
     );
+    const updateAssertionActions = useUpdateAssertionActionsWithBuilderState(builderState, () => { props.refetch?.() })
 
     const validateForm = async () => {
         try {
@@ -50,8 +59,13 @@ export const AssertionSettings = (props: Props) => {
     const save = async () => {
         const isValid = await validateForm();
         if (!isValid) return;
+        if (editabilityType === 'none') return;
         setEditing(false);
-        await updateAssertionMonitor();
+        if (editabilityType === 'full') {
+            await updateAssertionMonitor();
+        } else {
+            await updateAssertionActions();
+        }
     };
 
     const updateDescription = (newValue: string) => {
@@ -86,26 +100,15 @@ export const AssertionSettings = (props: Props) => {
                         )) || <SaveButton tooltip="Save changes to this assertion" onClick={save} />
                     }
                     onChangeDescription={updateDescription}
-                    editing={editing}
+                    descriptionDisabled={isFullEditingDisabled}
                 />
             )}
             <Form initialValues={builderState} form={form}>
-                {props.assertion.info?.type === AssertionType.Sql && (
-                    <SqlAssertionBuilder state={builderState} updateState={setBuilderState} editing={editing} />
-                )}
-                {props.assertion.info?.type === AssertionType.Freshness && (
-                    <DatasetFreshnessAssertionBuilder
-                        state={builderState}
-                        updateState={setBuilderState}
-                        editing={editing}
-                    />
-                )}
-                {props.assertion.info?.type === AssertionType.Volume && (
-                    <VolumeAssertionBuilder state={builderState} updateState={setBuilderState} editing={editing} />
-                )}
-                {props.assertion.info?.type === AssertionType.Field && (
-                    <FieldAssertionBuilder state={builderState} updateState={setBuilderState} editing={editing} />
-                )}
+                {props.assertion.info?.type === AssertionType.Sql ? <SqlAssertionBuilder state={builderState} updateState={setBuilderState} disabled={isFullEditingDisabled} /> : null}
+                {props.assertion.info?.type === AssertionType.Freshness ? <DatasetFreshnessAssertionBuilder state={builderState} updateState={setBuilderState} disabled={isFullEditingDisabled} /> : null}
+                {props.assertion.info?.type === AssertionType.Volume ? <VolumeAssertionBuilder state={builderState} updateState={setBuilderState} disabled={isFullEditingDisabled} /> : null}
+                {props.assertion.info?.type === AssertionType.Field ? <FieldAssertionBuilder state={builderState} updateState={setBuilderState} disabled={isFullEditingDisabled} /> : null}
+                <AssertionActionsSection state={builderState} updateState={setBuilderState} disabled={isActionsEditingDisabled} />
             </Form>
         </>
     );

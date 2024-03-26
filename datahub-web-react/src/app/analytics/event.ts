@@ -101,6 +101,7 @@ export enum EventType {
     DeleteTestEvent,
     CreateAssertionMonitorEvent,
     UpdateAssertionMonitorEvent,
+    UpdateAssertionActionsEvent,
     StartAssertionMonitorEvent,
     StopAssertionMonitorEvent,
     SlackIntegrationSuccessEvent,
@@ -618,6 +619,12 @@ export interface UpdateAssertionMonitorEvent extends BaseEvent {
     assertionType: string;
     entityUrn: string;
 }
+export interface UpdateAssertionActionsEvent extends BaseEvent {
+    type: EventType.UpdateAssertionActionsEvent;
+    assertionType: string;
+    assertionUrn: string;
+    entityUrn: string;
+}
 
 export interface StartAssertionMonitorEvent extends BaseEvent {
     type: EventType.StartAssertionMonitorEvent;
@@ -966,6 +973,7 @@ export type Event =
     | OpenTaskCenter
     | CreateAssertionMonitorEvent
     | UpdateAssertionMonitorEvent
+    | UpdateAssertionActionsEvent
     | StartAssertionMonitorEvent
     | StopAssertionMonitorEvent
     | SlackIntegrationSuccessEvent
