@@ -35,7 +35,7 @@ Click the Create to complete.
  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/posts/view-posts.png" />
 </p>
 
-# Create Posts Using the GraphQL
+### Create Posts Using the GraphQL
 To create a post via API, you can call the [createPost](../graphql/mutations.md#createPost) GraphQL mutation.
 
 There is only one type of Post that can be currently made, and that is a **Home Page Announcement**. This may be extended in the future to other surfaces.
