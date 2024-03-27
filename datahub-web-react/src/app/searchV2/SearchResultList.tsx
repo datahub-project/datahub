@@ -1,5 +1,5 @@
 import { Checkbox, Divider, List, ListProps } from 'antd';
-import React, { useCallback, useEffect, useMemo } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import styled from 'styled-components';
 import { SearchResult, SearchSuggestion } from '../../types.generated';
 import analytics, { EventType } from '../analytics';
@@ -81,8 +81,8 @@ const ListItem = styled.div<{ isSelectMode: boolean }>`
 function useSearchKeyboardControls(
     highlightedIndex: number | null,
     setHighlightedIndex: (i: number | null) => void,
+    setHighlightedByKeyboardIndex: (v: [number | null]) => void,
     searchResults: CombinedSearchResult[],
-    refs: React.RefObject<HTMLDivElement>[],
 ) {
     return useCallback(
         (event: KeyboardEvent) => {
@@ -91,20 +91,19 @@ function useSearchKeyboardControls(
             if (event.key === 'ArrowDown') {
                 event.preventDefault();
                 newIndex = prevIndex === null ? null : Math.min(prevIndex + 1, searchResults.length - 1);
+                setHighlightedByKeyboardIndex([newIndex]);
             } else if (event.key === 'ArrowUp') {
                 event.preventDefault();
                 newIndex = prevIndex === null ? null : Math.max(prevIndex - 1, 0);
+                setHighlightedByKeyboardIndex([newIndex]);
             } else if (event.key === 'Escape') {
                 newIndex = null;
             }
             if (newIndex !== undefined) {
                 setHighlightedIndex(newIndex);
-                if (newIndex !== null) {
-                    refs[newIndex]?.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                }
             }
         },
-        [refs, highlightedIndex, setHighlightedIndex, searchResults.length],
+        [highlightedIndex, setHighlightedIndex, setHighlightedByKeyboardIndex, searchResults.length],
     );
 }
 
@@ -140,9 +139,20 @@ export const SearchResultList = ({
     const entityRegistry = useEntityRegistry();
     const selectedEntityUrns = selectedEntities.map((entity) => entity.urn);
     const showSearchFiltersV2 = useIsSearchV2();
-    const refs = useMemo(() => searchResults.map(() => React.createRef<HTMLDivElement>()), [searchResults]);
+    const refs = useMemo(
+        () => Array.from({ length: searchResults.length }).map(() => React.createRef<HTMLDivElement>()),
+        [searchResults.length],
+    );
+    // Used to scroll on arrow key up / down, but not on mouse scrolling
+    // Stores a pointer to a number, rather than number directly, so we scroll even if you hit up at the top of the page
+    const [highlightedByKeyboardIndex, setHighlightedByKeyboardIndex] = useState<[number | null]>([highlightedIndex]);
 
-    const onKeyPress = useSearchKeyboardControls(highlightedIndex, setHighlightedIndex, searchResults, refs);
+    const onKeyPress = useSearchKeyboardControls(
+        highlightedIndex,
+        setHighlightedIndex,
+        setHighlightedByKeyboardIndex,
+        searchResults,
+    );
 
     useEffect(() => {
         document.addEventListener('keydown', onKeyPress);
@@ -150,6 +160,15 @@ export const SearchResultList = ({
             document.removeEventListener('keydown', onKeyPress);
         };
     }, [onKeyPress]);
+
+    useEffect(() => {
+        if (highlightedByKeyboardIndex[0] !== null) {
+            refs[highlightedByKeyboardIndex[0]]?.current?.scrollIntoView({
+                behavior: 'smooth',
+                block: 'center',
+            });
+        }
+    }, [highlightedByKeyboardIndex, refs]);
 
     const onClickResult = (result: SearchResult, index: number) => {
         analytics.event({
@@ -211,7 +230,10 @@ export const SearchResultList = ({
                                             checked={selectedEntityUrns.indexOf(item.entity.urn) >= 0}
                                             onChange={(e) =>
                                                 onSelectEntity(
-                                                    { urn: item.entity.urn, type: item.entity.type },
+                                                    {
+                                                        urn: item.entity.urn,
+                                                        type: item.entity.type,
+                                                    },
                                                     e.target.checked,
                                                 )
                                             }
@@ -220,7 +242,7 @@ export const SearchResultList = ({
                                     )}
                                     {entityRegistry.renderSearchResult(item.entity.type, item, previewType, onCardClick)}
                                 </ListItem>
-                                {/* an entity is always going to be inserted in the sibling group, so if the sibling group is just one do not 
+                                {/* an entity is always going to be inserted in the sibling group, so if the sibling group is just one do not
                         render. */}
                                 {!showSearchFiltersV2 && <ThinDivider />}
                             </ResultWrapper>
