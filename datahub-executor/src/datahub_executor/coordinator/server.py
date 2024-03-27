@@ -1,11 +1,12 @@
 import logging
-import time
 import os
 import signal
-
-from fastapi import FastAPI
+import time
 from threading import Thread
 
+from fastapi import FastAPI
+
+from datahub_executor.config import DATAHUB_EXECUTOR_GRACEFUL_SHUTDOWN_PERIOD
 from datahub_executor.coordinator.assertion_endpoints import assertions_router
 from datahub_executor.coordinator.health_endpoints import health_router
 from datahub_executor.coordinator.helpers import (
@@ -13,9 +14,6 @@ from datahub_executor.coordinator.helpers import (
     start_scheduler,
 )
 from datahub_executor.coordinator.logging import configure_logging
-from datahub_executor.config import (
-    DATAHUB_EXECUTOR_GRACEFUL_SHUTDOWN_PERIOD,
-)
 
 # Configure global logging.
 configure_logging()

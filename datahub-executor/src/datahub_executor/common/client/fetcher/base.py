@@ -1,9 +1,10 @@
 import time
-
 from typing import List
 
 from datahub.ingestion.graph.client import DataHubGraph
+
 from datahub_executor.common.types import ExecutionRequestSchedule, FetcherConfig
+
 
 class Fetcher:
     """Interface for fetching work items to execute."""
@@ -25,4 +26,4 @@ class Fetcher:
         self.last_updated = time.time()
 
     def alive(self) -> bool:
-        return (time.time() < (self.last_updated + self.config.refresh_interval * 60 * 2))
+        return time.time() < (self.last_updated + self.config.refresh_interval * 60 * 2)
