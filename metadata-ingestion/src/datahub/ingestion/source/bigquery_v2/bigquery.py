@@ -1124,11 +1124,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             lastModified=(
                 TimeStamp(time=int(table.last_altered.timestamp() * 1000))
                 if table.last_altered is not None
-                else (
-                    TimeStamp(time=int(table.created.timestamp() * 1000))
-                    if table.created is not None
-                    else None
-                )
+                else None
             ),
             externalUrl=(
                 BQ_EXTERNAL_TABLE_URL_TEMPLATE.format(
