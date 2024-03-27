@@ -109,6 +109,7 @@ per_version_test_requirements = {
     "test-airflow24": {
         "pendulum<3.0",
         "Flask-Session<0.6.0",
+        "connexion<3.0",
     },
 }
 
