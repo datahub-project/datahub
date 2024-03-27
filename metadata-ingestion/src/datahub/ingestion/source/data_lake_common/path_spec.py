@@ -45,6 +45,7 @@ class PathSpec(ConfigModel):
     )
 
     default_extension: Optional[str] = Field(
+        default=None,
         description="For files without extension it will assume the specified file type. If it is not set the files without extensions will be skipped.",
     )
 

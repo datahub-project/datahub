@@ -60,7 +60,7 @@ public class SearchResolver implements DataFetcher<CompletableFuture<SearchResul
     final SearchFlags searchFlags;
     com.linkedin.datahub.graphql.generated.SearchFlags inputFlags = input.getSearchFlags();
     if (inputFlags != null) {
-      searchFlags = SearchFlagsInputMapper.INSTANCE.apply(inputFlags);
+      searchFlags = SearchFlagsInputMapper.INSTANCE.apply(context, inputFlags);
     } else {
       searchFlags = applyDefaultSearchFlags(null, sanitizedQuery, SEARCH_RESOLVER_DEFAULTS);
     }
@@ -79,6 +79,7 @@ public class SearchResolver implements DataFetcher<CompletableFuture<SearchResul
                 searchFlags);
 
             return UrnSearchResultsMapper.map(
+                context,
                 _entityClient.search(
                     context.getOperationContext().withSearchFlags(flags -> searchFlags),
                     entityName,

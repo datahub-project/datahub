@@ -66,7 +66,7 @@ module.exports = {
       },
       items: [
         {
-          to: "docs/",
+          to: "docs/features",
           activeBasePath: "docs",
           label: "Docs",
           position: "right",
@@ -137,12 +137,28 @@ module.exports = {
           dropdownActiveClassDisabled: true,
             dropdownItemsAfter: [
                 {
-                href: "https://docs-website-irpoe2osc-acryldata.vercel.app/docs/",
-                label: "0.11.0",
+                type: 'html',
+                value: '<hr class="dropdown-separator" style="margin: 0.4rem;">',
                 },
                 {
-                href: "https://docs-website-1gv2yzn9d-acryldata.vercel.app/docs/",
-                label: "0.10.5",
+                type: 'html',
+                value: '<div class="dropdown__link"><b>Archived versions</b></div>',
+                },
+                {
+                value: `
+                   <a class="dropdown__link" href="https://docs-website-irpoe2osc-acryldata.vercel.app/docs/features">0.11.0
+                   <svg width="12" height="12" aria-hidden="true" viewBox="0 0 24 24"><path fill="currentColor" d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"></path></svg>
+                   </a>
+                   `,
+                type: "html",
+                },
+                {
+                value: `
+                   <a class="dropdown__link" href="https://docs-website-1gv2yzn9d-acryldata.vercel.app/docs/features">0.10.5
+                   <svg width="12" height="12" aria-hidden="true" viewBox="0 0 24 24"><path fill="currentColor" d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"></path></svg>
+                   </a>
+                   `,
+                type: "html",
                 },
             ],
         },
@@ -264,6 +280,9 @@ module.exports = {
           path: "src/pages",
           mdxPageComponent: "@theme/MDXPage",
         },
+        googleTagManager: {
+          containerId: 'GTM-WK28RLTG',
+        },
       },
     ],
   ],
@@ -277,7 +296,6 @@ module.exports = {
         routeBasePath: "/docs/graphql",
       },
     ],
-    // '@docusaurus/plugin-google-gtag',
     // [
     //   require.resolve("@easyops-cn/docusaurus-search-local"),
     //   {

@@ -1,0 +1,31 @@
+namespace com.linkedin.ermodelrelation
+
+import com.linkedin.common.ChangeAuditStamps
+
+
+/**
+ * EditableERModelRelationProperties stores editable changes made to erModelRelationship properties. This separates changes made from
+ * ingestion pipelines and edits in the UI to avoid accidental overwrites of user-provided data by ingestion pipelines
+ */
+@Aspect = {
+  "name": "editableERModelRelationshipProperties"
+}
+record EditableERModelRelationshipProperties includes ChangeAuditStamps {
+  /**
+   * Documentation of the erModelRelationship
+   */
+  @Searchable = {
+    "fieldType": "TEXT",
+    "fieldName": "editedDescription",
+  }
+  description: optional string
+
+  /**
+   * Display name of the ERModelRelation
+   */
+  @Searchable = {
+    "fieldType": "TEXT_PARTIAL",
+    "fieldName": "editedName",
+  }
+  name: optional string
+}

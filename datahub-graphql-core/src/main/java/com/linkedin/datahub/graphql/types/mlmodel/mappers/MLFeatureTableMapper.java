@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.types.mlmodel.mappers;
 
+import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
 import static com.linkedin.metadata.Constants.*;
 
 import com.linkedin.common.BrowsePathsV2;
@@ -14,6 +15,8 @@ import com.linkedin.common.Status;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.generated.DataPlatform;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.MLFeatureTable;
@@ -40,18 +43,21 @@ import com.linkedin.ml.metadata.EditableMLFeatureTableProperties;
 import com.linkedin.ml.metadata.MLFeatureTableProperties;
 import com.linkedin.structured.StructuredProperties;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 /** Maps Pegasus {@link RecordTemplate} objects to objects conforming to the GQL schema. */
 public class MLFeatureTableMapper implements ModelMapper<EntityResponse, MLFeatureTable> {
 
   public static final MLFeatureTableMapper INSTANCE = new MLFeatureTableMapper();
 
-  public static MLFeatureTable map(@Nonnull final EntityResponse entityResponse) {
-    return INSTANCE.apply(entityResponse);
+  public static MLFeatureTable map(
+      @Nullable final QueryContext context, @Nonnull final EntityResponse entityResponse) {
+    return INSTANCE.apply(context, entityResponse);
   }
 
   @Override
-  public MLFeatureTable apply(@Nonnull final EntityResponse entityResponse) {
+  public MLFeatureTable apply(
+      @Nullable final QueryContext context, @Nonnull final EntityResponse entityResponse) {
     final MLFeatureTable result = new MLFeatureTable();
     Urn entityUrn = entityResponse.getUrn();
 
@@ -65,56 +71,63 @@ public class MLFeatureTableMapper implements ModelMapper<EntityResponse, MLFeatu
     mappingHelper.mapToResult(
         OWNERSHIP_ASPECT_NAME,
         (mlFeatureTable, dataMap) ->
-            mlFeatureTable.setOwnership(OwnershipMapper.map(new Ownership(dataMap), entityUrn)));
+            mlFeatureTable.setOwnership(
+                OwnershipMapper.map(context, new Ownership(dataMap), entityUrn)));
     mappingHelper.mapToResult(ML_FEATURE_TABLE_KEY_ASPECT_NAME, this::mapMLFeatureTableKey);
     mappingHelper.mapToResult(
         ML_FEATURE_TABLE_PROPERTIES_ASPECT_NAME,
-        (entity, dataMap) -> this.mapMLFeatureTableProperties(entity, dataMap, entityUrn));
+        (entity, dataMap) -> this.mapMLFeatureTableProperties(context, entity, dataMap, entityUrn));
     mappingHelper.mapToResult(
         INSTITUTIONAL_MEMORY_ASPECT_NAME,
         (mlFeatureTable, dataMap) ->
             mlFeatureTable.setInstitutionalMemory(
-                InstitutionalMemoryMapper.map(new InstitutionalMemory(dataMap), entityUrn)));
+                InstitutionalMemoryMapper.map(
+                    context, new InstitutionalMemory(dataMap), entityUrn)));
     mappingHelper.mapToResult(
         STATUS_ASPECT_NAME,
         (mlFeatureTable, dataMap) ->
-            mlFeatureTable.setStatus(StatusMapper.map(new Status(dataMap))));
+            mlFeatureTable.setStatus(StatusMapper.map(context, new Status(dataMap))));
     mappingHelper.mapToResult(
         DEPRECATION_ASPECT_NAME,
         (mlFeatureTable, dataMap) ->
-            mlFeatureTable.setDeprecation(DeprecationMapper.map(new Deprecation(dataMap))));
+            mlFeatureTable.setDeprecation(
+                DeprecationMapper.map(context, new Deprecation(dataMap))));
 
     mappingHelper.mapToResult(
         GLOBAL_TAGS_ASPECT_NAME,
-        (entity, dataMap) -> this.mapGlobalTags(entity, dataMap, entityUrn));
+        (entity, dataMap) -> mapGlobalTags(context, entity, dataMap, entityUrn));
     mappingHelper.mapToResult(
         GLOSSARY_TERMS_ASPECT_NAME,
         (entity, dataMap) ->
             entity.setGlossaryTerms(
-                GlossaryTermsMapper.map(new GlossaryTerms(dataMap), entityUrn)));
-    mappingHelper.mapToResult(DOMAINS_ASPECT_NAME, this::mapDomains);
+                GlossaryTermsMapper.map(context, new GlossaryTerms(dataMap), entityUrn)));
+    mappingHelper.mapToResult(context, DOMAINS_ASPECT_NAME, MLFeatureTableMapper::mapDomains);
     mappingHelper.mapToResult(
         ML_FEATURE_TABLE_EDITABLE_PROPERTIES_ASPECT_NAME, this::mapEditableProperties);
     mappingHelper.mapToResult(
         DATA_PLATFORM_INSTANCE_ASPECT_NAME,
         (dataset, dataMap) ->
             dataset.setDataPlatformInstance(
-                DataPlatformInstanceAspectMapper.map(new DataPlatformInstance(dataMap))));
+                DataPlatformInstanceAspectMapper.map(context, new DataPlatformInstance(dataMap))));
     mappingHelper.mapToResult(
         BROWSE_PATHS_V2_ASPECT_NAME,
         (entity, dataMap) ->
-            entity.setBrowsePathV2(BrowsePathsV2Mapper.map(new BrowsePathsV2(dataMap))));
+            entity.setBrowsePathV2(BrowsePathsV2Mapper.map(context, new BrowsePathsV2(dataMap))));
     mappingHelper.mapToResult(
         STRUCTURED_PROPERTIES_ASPECT_NAME,
         ((mlFeatureTable, dataMap) ->
             mlFeatureTable.setStructuredProperties(
-                StructuredPropertiesMapper.map(new StructuredProperties(dataMap)))));
+                StructuredPropertiesMapper.map(context, new StructuredProperties(dataMap)))));
     mappingHelper.mapToResult(
         FORMS_ASPECT_NAME,
         ((entity, dataMap) ->
             entity.setForms(FormsMapper.map(new Forms(dataMap), entityUrn.toString()))));
 
-    return mappingHelper.getResult();
+    if (context != null && !canView(context.getOperationContext(), entityUrn)) {
+      return AuthorizationUtils.restrictEntity(mappingHelper.getResult(), MLFeatureTable.class);
+    } else {
+      return mappingHelper.getResult();
+    }
   }
 
   private void mapMLFeatureTableKey(
@@ -126,27 +139,34 @@ public class MLFeatureTableMapper implements ModelMapper<EntityResponse, MLFeatu
     mlFeatureTable.setPlatform(partialPlatform);
   }
 
-  private void mapMLFeatureTableProperties(
-      @Nonnull MLFeatureTable mlFeatureTable, @Nonnull DataMap dataMap, Urn entityUrn) {
+  private static void mapMLFeatureTableProperties(
+      @Nullable final QueryContext context,
+      @Nonnull MLFeatureTable mlFeatureTable,
+      @Nonnull DataMap dataMap,
+      Urn entityUrn) {
     MLFeatureTableProperties featureTableProperties = new MLFeatureTableProperties(dataMap);
     mlFeatureTable.setFeatureTableProperties(
-        MLFeatureTablePropertiesMapper.map(featureTableProperties, entityUrn));
+        MLFeatureTablePropertiesMapper.map(context, featureTableProperties, entityUrn));
     mlFeatureTable.setProperties(
-        MLFeatureTablePropertiesMapper.map(featureTableProperties, entityUrn));
+        MLFeatureTablePropertiesMapper.map(context, featureTableProperties, entityUrn));
     mlFeatureTable.setDescription(featureTableProperties.getDescription());
   }
 
-  private void mapGlobalTags(MLFeatureTable entity, DataMap dataMap, Urn entityUrn) {
+  private static void mapGlobalTags(
+      @Nullable final QueryContext context, MLFeatureTable entity, DataMap dataMap, Urn entityUrn) {
     GlobalTags globalTags = new GlobalTags(dataMap);
     com.linkedin.datahub.graphql.generated.GlobalTags graphQlGlobalTags =
-        GlobalTagsMapper.map(globalTags, entityUrn);
+        GlobalTagsMapper.map(context, globalTags, entityUrn);
     entity.setTags(graphQlGlobalTags);
   }
 
-  private void mapDomains(@Nonnull MLFeatureTable entity, @Nonnull DataMap dataMap) {
+  private static void mapDomains(
+      @Nullable final QueryContext context,
+      @Nonnull MLFeatureTable entity,
+      @Nonnull DataMap dataMap) {
     final Domains domains = new Domains(dataMap);
     // Currently we only take the first domain if it exists.
-    entity.setDomain(DomainAssociationMapper.map(domains, entity.getUrn()));
+    entity.setDomain(DomainAssociationMapper.map(context, domains, entity.getUrn()));
   }
 
   private void mapEditableProperties(MLFeatureTable entity, DataMap dataMap) {

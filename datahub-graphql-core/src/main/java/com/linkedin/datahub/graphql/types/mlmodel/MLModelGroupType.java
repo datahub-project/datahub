@@ -91,7 +91,7 @@ public class MLModelGroupType
                   gmsMlModelGroup == null
                       ? null
                       : DataFetcherResult.<MLModelGroup>newResult()
-                          .data(MLModelGroupMapper.map(gmsMlModelGroup))
+                          .data(MLModelGroupMapper.map(context, gmsMlModelGroup))
                           .build())
           .collect(Collectors.toList());
     } catch (Exception e) {
@@ -116,7 +116,7 @@ public class MLModelGroupType
             facetFilters,
             start,
             count);
-    return UrnSearchResultsMapper.map(searchResult);
+    return UrnSearchResultsMapper.map(context, searchResult);
   }
 
   @Override
@@ -130,7 +130,7 @@ public class MLModelGroupType
     final AutoCompleteResult result =
         _entityClient.autoComplete(
             context.getOperationContext(), "mlModelGroup", query, filters, limit);
-    return AutoCompleteResultsMapper.map(result);
+    return AutoCompleteResultsMapper.map(context, result);
   }
 
   @Override
@@ -152,7 +152,7 @@ public class MLModelGroupType
             facetFilters,
             start,
             count);
-    return BrowseResultMapper.map(result);
+    return BrowseResultMapper.map(context, result);
   }
 
   @Override
@@ -161,6 +161,6 @@ public class MLModelGroupType
     final StringArray result =
         _entityClient.getBrowsePaths(
             MLModelUtils.getMLModelGroupUrn(urn), context.getAuthentication());
-    return BrowsePathsMapper.map(result);
+    return BrowsePathsMapper.map(context, result);
   }
 }

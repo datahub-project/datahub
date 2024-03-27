@@ -1,11 +1,15 @@
 package com.linkedin.datahub.graphql.types.mlmodel.mappers;
 
+import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
+
 import com.linkedin.common.urn.Urn;
+import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.MLFeature;
 import com.linkedin.datahub.graphql.generated.MLFeatureTableProperties;
 import com.linkedin.datahub.graphql.generated.MLPrimaryKey;
 import com.linkedin.datahub.graphql.types.common.mappers.CustomPropertiesMapper;
 import java.util.stream.Collectors;
+import javax.annotation.Nullable;
 import lombok.NonNull;
 
 public class MLFeatureTablePropertiesMapper {
@@ -14,12 +18,14 @@ public class MLFeatureTablePropertiesMapper {
       new MLFeatureTablePropertiesMapper();
 
   public static MLFeatureTableProperties map(
+      @Nullable final QueryContext context,
       @NonNull final com.linkedin.ml.metadata.MLFeatureTableProperties mlFeatureTableProperties,
       Urn entityUrn) {
-    return INSTANCE.apply(mlFeatureTableProperties, entityUrn);
+    return INSTANCE.apply(context, mlFeatureTableProperties, entityUrn);
   }
 
-  public MLFeatureTableProperties apply(
+  public static MLFeatureTableProperties apply(
+      @Nullable final QueryContext context,
       @NonNull final com.linkedin.ml.metadata.MLFeatureTableProperties mlFeatureTableProperties,
       Urn entityUrn) {
     final MLFeatureTableProperties result = new MLFeatureTableProperties();
@@ -28,6 +34,7 @@ public class MLFeatureTablePropertiesMapper {
     if (mlFeatureTableProperties.getMlFeatures() != null) {
       result.setMlFeatures(
           mlFeatureTableProperties.getMlFeatures().stream()
+              .filter(f -> context == null || canView(context.getOperationContext(), f))
               .map(
                   urn -> {
                     final MLFeature mlFeature = new MLFeature();
@@ -40,6 +47,7 @@ public class MLFeatureTablePropertiesMapper {
     if (mlFeatureTableProperties.getMlPrimaryKeys() != null) {
       result.setMlPrimaryKeys(
           mlFeatureTableProperties.getMlPrimaryKeys().stream()
+              .filter(k -> context == null || canView(context.getOperationContext(), k))
               .map(
                   urn -> {
                     final MLPrimaryKey mlPrimaryKey = new MLPrimaryKey();
