@@ -20,6 +20,7 @@ import com.linkedin.event.notification.NotificationSinkTypeArray;
 import com.linkedin.event.notification.settings.NotificationSettings;
 import com.linkedin.metadata.entity.AspectUtils;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
@@ -195,7 +196,7 @@ public class SubscriptionServiceTest {
     when(_entityClient.exists(eq(USER_URN), any())).thenReturn(true);
     when(_entityClient.exists(eq(ENTITY_URN_1), any())).thenReturn(true);
     when(_entityClient.filter(
-            any(), eq(SUBSCRIPTION_ENTITY_NAME), any(), any(), anyInt(), anyInt()))
+            any(), eq(SUBSCRIPTION_ENTITY_NAME), nullable(Filter.class), any(), anyInt(), anyInt()))
         .thenReturn(new SearchResult().setEntities(new SearchEntityArray()));
     when(_entityClient.ingestProposal(
             any(MetadataChangeProposal.class), eq(SYSTEM_AUTHENTICATION), anyBoolean()))
