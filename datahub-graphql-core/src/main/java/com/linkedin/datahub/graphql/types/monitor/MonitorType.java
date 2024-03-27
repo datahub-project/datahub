@@ -25,6 +25,7 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
@@ -78,9 +79,7 @@ public class MonitorType implements com.linkedin.datahub.graphql.types.EntityTyp
                   gmsResult == null
                       ? null
                       : DataFetcherResult.<Monitor>newResult()
-                          .data(
-                              injectMonitorExecutorId(
-                                  gmsResult.getUrn(), MonitorMapper.map(gmsResult), context))
+                          .data(injectMonitorExecutorId(MonitorMapper.map(gmsResult), context))
                           .build())
           .collect(Collectors.toList());
     } catch (Exception e) {
@@ -100,11 +99,14 @@ public class MonitorType implements com.linkedin.datahub.graphql.types.EntityTyp
    * This method attempts to find an executor id associated with the monitor by looking for the
    * ingestion source associated with the monitored entity.
    */
+  @Nullable
   private Monitor injectMonitorExecutorId(
-      @Nonnull final Urn monitorUrn,
-      @Nonnull final Monitor monitor,
-      @Nonnull final QueryContext context) {
+      @Nullable final Monitor monitor, @Nonnull final QueryContext context) {
     final Urn entityUrn = UrnUtils.getUrn(monitor.getEntity().getUrn());
+
+    if (monitor == null || monitor.getInfo() == null) {
+      return monitor;
+    }
 
     if (monitor.getInfo() != null) {
       // If executor id is already present, return the monitor as is.
