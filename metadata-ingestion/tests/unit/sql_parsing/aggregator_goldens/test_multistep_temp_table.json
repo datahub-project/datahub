@@ -118,5 +118,16 @@
             ]
         }
     }
+},
+{
+    "entityType": "query",
+    "entityUrn": "urn:li:query:composite_c89ee7c127c64a5d3a42ee875305087991891c80f42a25012910524bd2c77c45",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:redshift"
+        }
+    }
 }
 ]

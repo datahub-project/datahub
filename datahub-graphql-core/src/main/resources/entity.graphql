@@ -3778,6 +3778,11 @@ type CorpUser implements Entity {
     globalTags: GlobalTags @deprecated
 
     """
+    Whether or not this entity exists on DataHub
+    """
+    exists: Boolean
+
+    """
     Settings that a user can customize through the datahub ui
     """
     settings: CorpUserSettings
@@ -6466,6 +6471,11 @@ type DataProcessRunEvent implements TimeSeriesAspect {
     The timestamp associated with the run event in milliseconds
     """
     timestampMillis: Long!
+
+    """
+    The duration of the run in milliseconds
+    """
+    durationMillis: Long
 }
 
 """

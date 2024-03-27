@@ -66,7 +66,7 @@ public class DataHubPolicyType
                   gmsResult == null
                       ? null
                       : DataFetcherResult.<DataHubPolicy>newResult()
-                          .data(DataHubPolicyMapper.map(gmsResult))
+                          .data(DataHubPolicyMapper.map(context, gmsResult))
                           .build())
           .collect(Collectors.toList());
     } catch (Exception e) {

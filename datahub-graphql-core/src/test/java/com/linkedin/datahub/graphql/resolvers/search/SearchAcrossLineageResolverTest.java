@@ -23,9 +23,11 @@ import com.linkedin.metadata.search.LineageSearchResult;
 import com.linkedin.metadata.search.MatchedFieldArray;
 import com.linkedin.metadata.search.SearchResultMetadata;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.OperationContext;
 import java.io.InputStream;
 import java.util.Collections;
 import java.util.List;
+import org.mockito.ArgumentCaptor;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -103,9 +105,10 @@ public class SearchAcrossLineageResolverTest {
     lineageSearchEntity.setMatchedFields(new MatchedFieldArray());
     lineageSearchEntity.setPaths(new UrnArrayArray());
     lineageSearchResult.setEntities(new LineageSearchEntityArray(lineageSearchEntity));
+    ArgumentCaptor<OperationContext> opContext = ArgumentCaptor.forClass(OperationContext.class);
 
     when(_entityClient.searchAcrossLineage(
-            any(),
+            opContext.capture(),
             eq(UrnUtils.getUrn(SOURCE_URN_STRING)),
             eq(com.linkedin.metadata.graph.LineageDirection.DOWNSTREAM),
             anyList(),
@@ -114,14 +117,18 @@ public class SearchAcrossLineageResolverTest {
             any(),
             eq(null),
             eq(START),
-            eq(COUNT),
-            eq(START_TIMESTAMP_MILLIS),
-            eq(END_TIMESTAMP_MILLIS)))
+            eq(COUNT)))
         .thenReturn(lineageSearchResult);
 
     final SearchAcrossLineageResults results = _resolver.get(_dataFetchingEnvironment).join();
     assertEquals(results.getCount(), 10);
     assertEquals(results.getTotal(), 1);
+    assertEquals(
+        opContext.getValue().getSearchContext().getLineageFlags().getStartTimeMillis(),
+        START_TIMESTAMP_MILLIS);
+    assertEquals(
+        opContext.getValue().getSearchContext().getLineageFlags().getEndTimeMillis(),
+        END_TIMESTAMP_MILLIS);
 
     final List<SearchAcrossLineageResult> entities = results.getSearchResults();
     assertEquals(entities.size(), 1);

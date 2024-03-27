@@ -86,7 +86,7 @@ public class MLModelType
                   gmsMlModel == null
                       ? null
                       : DataFetcherResult.<MLModel>newResult()
-                          .data(MLModelMapper.map(gmsMlModel))
+                          .data(MLModelMapper.map(context, gmsMlModel))
                           .build())
           .collect(Collectors.toList());
     } catch (Exception e) {
@@ -111,7 +111,7 @@ public class MLModelType
             facetFilters,
             start,
             count);
-    return UrnSearchResultsMapper.map(searchResult);
+    return UrnSearchResultsMapper.map(context, searchResult);
   }
 
   @Override
@@ -124,7 +124,7 @@ public class MLModelType
       throws Exception {
     final AutoCompleteResult result =
         _entityClient.autoComplete(context.getOperationContext(), "mlModel", query, filters, limit);
-    return AutoCompleteResultsMapper.map(result);
+    return AutoCompleteResultsMapper.map(context, result);
   }
 
   @Override
@@ -146,7 +146,7 @@ public class MLModelType
             facetFilters,
             start,
             count);
-    return BrowseResultMapper.map(result);
+    return BrowseResultMapper.map(context, result);
   }
 
   @Override
@@ -154,6 +154,6 @@ public class MLModelType
       throws Exception {
     final StringArray result =
         _entityClient.getBrowsePaths(MLModelUtils.getMLModelUrn(urn), context.getAuthentication());
-    return BrowsePathsMapper.map(result);
+    return BrowsePathsMapper.map(context, result);
   }
 }

@@ -68,7 +68,7 @@ public class IncidentType
                   gmsResult == null
                       ? null
                       : DataFetcherResult.<Incident>newResult()
-                          .data(IncidentMapper.map(gmsResult))
+                          .data(IncidentMapper.map(context, gmsResult))
                           .build())
           .collect(Collectors.toList());
     } catch (Exception e) {
