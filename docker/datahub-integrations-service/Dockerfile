@@ -31,9 +31,10 @@ FROM base as build
 ARG PIP_MIRROR_URL
 RUN if [ "${PIP_MIRROR_URL}" != "null" ] ; then pip config set global.index-url ${PIP_MIRROR_URL} ; fi
 
+# Note that the requirements file contains editable installs for
+# metadata-ingestion and datahub-integrations-service
 RUN --mount=type=cache,target=/datahub-ingestion/.cache/uv \
-    uv pip install --no-cache -r requirements.txt && \
-    uv pip install --no-cache -e "."
+    uv pip install --no-cache -r requirements.txt
 
 # Production Image Built From Build Image
 FROM base as prod-install
