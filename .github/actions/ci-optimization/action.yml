@@ -81,7 +81,7 @@ runs:
             - "docker/**"
           backend-saas:
             - "datahub-executor/**"
-            - "datahub-integrations-service/**
+            - "datahub-integrations-service/**"
           kafka-setup:
             - "docker/kafka-setup/**"
           mysql-setup:
