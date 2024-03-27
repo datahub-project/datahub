@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.types.glossary.mappers;
 
+import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
 import static com.linkedin.metadata.Constants.*;
 
 import com.linkedin.common.Deprecation;
@@ -9,6 +10,8 @@ import com.linkedin.common.Ownership;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.GlossaryTerm;
 import com.linkedin.datahub.graphql.types.common.mappers.DeprecationMapper;
@@ -27,6 +30,7 @@ import com.linkedin.glossary.GlossaryTermInfo;
 import com.linkedin.metadata.key.GlossaryTermKey;
 import com.linkedin.structured.StructuredProperties;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 /**
  * Maps Pegasus {@link RecordTemplate} objects to objects conforming to the GQL schema.
@@ -37,12 +41,14 @@ public class GlossaryTermMapper implements ModelMapper<EntityResponse, GlossaryT
 
   public static final GlossaryTermMapper INSTANCE = new GlossaryTermMapper();
 
-  public static GlossaryTerm map(@Nonnull final EntityResponse entityResponse) {
-    return INSTANCE.apply(entityResponse);
+  public static GlossaryTerm map(
+      @Nullable QueryContext context, @Nonnull final EntityResponse entityResponse) {
+    return INSTANCE.apply(context, entityResponse);
   }
 
   @Override
-  public GlossaryTerm apply(@Nonnull final EntityResponse entityResponse) {
+  public GlossaryTerm apply(
+      @Nullable QueryContext context, @Nonnull final EntityResponse entityResponse) {
     GlossaryTerm result = new GlossaryTerm();
     Urn entityUrn = entityResponse.getUrn();
 
@@ -67,22 +73,24 @@ public class GlossaryTermMapper implements ModelMapper<EntityResponse, GlossaryT
     mappingHelper.mapToResult(
         OWNERSHIP_ASPECT_NAME,
         (glossaryTerm, dataMap) ->
-            glossaryTerm.setOwnership(OwnershipMapper.map(new Ownership(dataMap), entityUrn)));
-    mappingHelper.mapToResult(DOMAINS_ASPECT_NAME, this::mapDomains);
+            glossaryTerm.setOwnership(
+                OwnershipMapper.map(context, new Ownership(dataMap), entityUrn)));
+    mappingHelper.mapToResult(context, DOMAINS_ASPECT_NAME, this::mapDomains);
     mappingHelper.mapToResult(
         DEPRECATION_ASPECT_NAME,
         (glossaryTerm, dataMap) ->
-            glossaryTerm.setDeprecation(DeprecationMapper.map(new Deprecation(dataMap))));
+            glossaryTerm.setDeprecation(DeprecationMapper.map(context, new Deprecation(dataMap))));
     mappingHelper.mapToResult(
         INSTITUTIONAL_MEMORY_ASPECT_NAME,
         (dataset, dataMap) ->
             dataset.setInstitutionalMemory(
-                InstitutionalMemoryMapper.map(new InstitutionalMemory(dataMap), entityUrn)));
+                InstitutionalMemoryMapper.map(
+                    context, new InstitutionalMemory(dataMap), entityUrn)));
     mappingHelper.mapToResult(
         STRUCTURED_PROPERTIES_ASPECT_NAME,
         ((entity, dataMap) ->
             entity.setStructuredProperties(
-                StructuredPropertiesMapper.map(new StructuredProperties(dataMap)))));
+                StructuredPropertiesMapper.map(context, new StructuredProperties(dataMap)))));
     mappingHelper.mapToResult(
         FORMS_ASPECT_NAME,
         ((entity, dataMap) ->
@@ -95,7 +103,11 @@ public class GlossaryTermMapper implements ModelMapper<EntityResponse, GlossaryT
     if (result.getProperties() != null && result.getProperties().getName() == null) {
       result.getProperties().setName(legacyName);
     }
-    return mappingHelper.getResult();
+    if (context != null && !canView(context.getOperationContext(), entityUrn)) {
+      return AuthorizationUtils.restrictEntity(mappingHelper.getResult(), GlossaryTerm.class);
+    } else {
+      return mappingHelper.getResult();
+    }
   }
 
   private void mapGlossaryTermKey(@Nonnull GlossaryTerm glossaryTerm, @Nonnull DataMap dataMap) {
@@ -104,8 +116,11 @@ public class GlossaryTermMapper implements ModelMapper<EntityResponse, GlossaryT
     glossaryTerm.setHierarchicalName(glossaryTermKey.getName());
   }
 
-  private void mapDomains(@Nonnull GlossaryTerm glossaryTerm, @Nonnull DataMap dataMap) {
+  private void mapDomains(
+      @Nullable QueryContext context,
+      @Nonnull GlossaryTerm glossaryTerm,
+      @Nonnull DataMap dataMap) {
     final Domains domains = new Domains(dataMap);
-    glossaryTerm.setDomain(DomainAssociationMapper.map(domains, glossaryTerm.getUrn()));
+    glossaryTerm.setDomain(DomainAssociationMapper.map(context, domains, glossaryTerm.getUrn()));
   }
 }

@@ -55,7 +55,6 @@
       "privileges":[
         "EDIT_ENTITY",
         "VIEW_ENTITY_PAGE",
-        "VIEW_ENTITY",
         "EDIT_LINEAGE",
         "EDIT_ENTITY_ASSERTIONS",
         "SEARCH_PRIVILEGE",
@@ -107,7 +106,6 @@
       },
       "privileges":[
         "VIEW_ENTITY_PAGE",
-        "VIEW_ENTITY",
         "SEARCH_PRIVILEGE",
         "GET_COUNTS_PRIVILEGE",
         "GET_TIMESERIES_ASPECT_PRIVILEGE",
@@ -201,7 +199,6 @@
       },
       "privileges":[
         "VIEW_ENTITY_PAGE",
-        "VIEW_ENTITY",
         "EDIT_ENTITY_TAGS",
         "EDIT_ENTITY_GLOSSARY_TERMS",
         "EDIT_ENTITY_OWNERS",
@@ -232,8 +229,10 @@
         "GET_TIMELINE_PRIVILEGE",
         "PRODUCE_PLATFORM_EVENT_PRIVILEGE",
         "MANAGE_DATA_PRODUCTS",
+        "CREATE_ER_MODEL_RELATIONSHIP_PRIVILEGE",
         "DELETE_ENTITY",
-        "ES_EXPLAIN_QUERY_PRIVILEGE"
+        "ES_EXPLAIN_QUERY_PRIVILEGE",
+        "EDIT_ENTITY_PROPERTIES"
       ],
       "displayName":"Admins - Metadata Policy",
       "description":"Admins have all metadata privileges.",
@@ -284,7 +283,6 @@
       },
       "privileges":[
         "VIEW_ENTITY_PAGE",
-        "VIEW_ENTITY",
         "EDIT_ENTITY_TAGS",
         "EDIT_ENTITY_GLOSSARY_TERMS",
         "EDIT_ENTITY_DOCS",
@@ -310,7 +308,8 @@
         "GET_TIMELINE_PRIVILEGE",
         "PRODUCE_PLATFORM_EVENT_PRIVILEGE",
         "MANAGE_DATA_PRODUCTS",
-        "ES_EXPLAIN_QUERY_PRIVILEGE"
+        "ES_EXPLAIN_QUERY_PRIVILEGE",
+        "EDIT_ENTITY_PROPERTIES"
       ],
       "displayName":"Editors - Metadata Policy",
       "description":"Editors have all metadata privileges.",
@@ -403,7 +402,6 @@
       },
       "privileges":[
         "VIEW_ENTITY_PAGE",
-        "VIEW_ENTITY",
         "VIEW_DATASET_USAGE",
         "VIEW_DATASET_PROFILE",
         "SEARCH_PRIVILEGE",
@@ -432,7 +430,6 @@
       },
       "privileges":[
         "VIEW_ENTITY_PAGE",
-        "VIEW_ENTITY",
         "EDIT_ENTITY_TAGS",
         "EDIT_ENTITY_GLOSSARY_TERMS",
         "EDIT_ENTITY_OWNERS",
@@ -461,7 +458,8 @@
         "GET_TIMESERIES_ASPECT_PRIVILEGE",
         "GET_COUNTS_PRIVILEGE",
         "MANAGE_DATA_PRODUCTS",
-        "ES_EXPLAIN_QUERY_PRIVILEGE"
+        "ES_EXPLAIN_QUERY_PRIVILEGE",
+        "EDIT_ENTITY_PROPERTIES"
       ],
       "displayName":"Asset Owners - Metadata Policy",
       "description":"Asset Owners have all metadata privileges ONLY for assets they own.",

@@ -25,6 +25,9 @@ query getGroup($urn: String!, $membersCount: Int!) {
             email
             slack
         }
+        privileges {
+            ...entityPrivileges
+        }
         autoRenderAspects: aspects(input: { autoRenderOnly: true }) {
             ...autoRenderAspectFields
         }

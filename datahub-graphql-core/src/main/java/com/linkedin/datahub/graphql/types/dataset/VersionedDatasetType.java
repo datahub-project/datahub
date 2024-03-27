@@ -94,7 +94,7 @@ public class VersionedDatasetType
                   gmsDataset == null
                       ? null
                       : DataFetcherResult.<VersionedDataset>newResult()
-                          .data(VersionedDatasetMapper.map(gmsDataset))
+                          .data(VersionedDatasetMapper.map(context, gmsDataset))
                           .build())
           .collect(Collectors.toList());
     } catch (Exception e) {

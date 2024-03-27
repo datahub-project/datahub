@@ -91,7 +91,7 @@ public abstract class SampleDataFixtureTestBase extends AbstractTestNGSpringCont
   @Nonnull
   protected OperationContext getOperationContext() {
     return TestOperationContexts.userContextNoSearchAuthorization(
-        getEntityRegistry(), Authorizer.EMPTY, AUTHENTICATION);
+        Authorizer.EMPTY, AUTHENTICATION, getEntityRegistry());
   }
 
   @Test

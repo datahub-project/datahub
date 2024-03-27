@@ -68,17 +68,6 @@ def register_mock_data(workspace_client):
         CatalogInfo.from_dict(d)
         for d in [
             {
-                "name": "main",
-                "owner": "account users",
-                "comment": "Main catalog (auto-created)",
-                "metastore_id": "2c983545-d403-4f87-9063-5b7e3b6d3736",
-                "created_at": 1666185153376,
-                "created_by": "abc@acryl.io",
-                "updated_at": 1666186071115,
-                "updated_by": "abc@acryl.io",
-                "catalog_type": "MANAGED_CATALOG",
-            },
-            {
                 "name": "quickstart_catalog",
                 "owner": "account users",
                 "comment": "",
@@ -88,50 +77,13 @@ def register_mock_data(workspace_client):
                 "updated_at": 1666186064332,
                 "updated_by": "abc@acryl.io",
                 "catalog_type": "MANAGED_CATALOG",
-            },
-            {
-                "name": "system",
-                "owner": SERVICE_PRINCIPAL_ID_2,
-                "comment": "System catalog (auto-created)",
-                "metastore_id": "2c983545-d403-4f87-9063-5b7e3b6d3736",
-                "created_at": 1666185153391,
-                "created_by": "System user",
-                "updated_at": 1666185153391,
-                "updated_by": "System user",
-                "catalog_type": "SYSTEM_CATALOG",
-            },
+            }
         ]
     ]
 
     workspace_client.schemas.list.return_value = [
         SchemaInfo.from_dict(d)
         for d in [
-            {
-                "name": "default",
-                "catalog_name": "quickstart_catalog",
-                "owner": "abc@acryl.io",
-                "comment": "Default schema (auto-created)",
-                "metastore_id": "2c983545-d403-4f87-9063-5b7e3b6d3736",
-                "full_name": "quickstart_catalog.default",
-                "created_at": 1666185610021,
-                "created_by": "abc@acryl.io",
-                "updated_at": 1666185610021,
-                "updated_by": "abc@acryl.io",
-                "catalog_type": "MANAGED_CATALOG",
-            },
-            {
-                "name": "information_schema",
-                "catalog_name": "quickstart_catalog",
-                "owner": SERVICE_PRINCIPAL_ID_1,
-                "comment": "Information schema (auto-created)",
-                "metastore_id": "2c983545-d403-4f87-9063-5b7e3b6d3736",
-                "full_name": "quickstart_catalog.information_schema",
-                "created_at": 1666185610024,
-                "created_by": "System user",
-                "updated_at": 1666185610024,
-                "updated_by": "System user",
-                "catalog_type": "MANAGED_CATALOG",
-            },
             {
                 "name": "quickstart_schema",
                 "catalog_name": "quickstart_catalog",
@@ -200,7 +152,57 @@ def register_mock_data(workspace_client):
                 "updated_by": "abc@acryl.io",
                 "table_id": "cff27aa1-1c6a-4d78-b713-562c660c2896",
             }
-        )
+        ),
+        databricks.sdk.service.catalog.TableInfo.from_dict(
+            {
+                "name": "quickstart_table_external",
+                "catalog_name": "quickstart_catalog",
+                "schema_name": "quickstart_schema",
+                "table_type": "EXTERNAL",
+                "data_source_format": "DELTA",
+                "columns": [
+                    {
+                        "name": "columnA",
+                        "type_text": "int",
+                        "type_json": '{"name":"columnA","type":"integer","nullable":true,"metadata":{}}',
+                        "type_name": "INT",
+                        "type_precision": 0,
+                        "type_scale": 0,
+                        "position": 0,
+                        "nullable": True,
+                    },
+                    {
+                        "name": "columnB",
+                        "type_text": "string",
+                        "type_json": '{"name":"columnB","type":"string","nullable":true,"metadata":{}}',
+                        "type_name": "STRING",
+                        "type_precision": 0,
+                        "type_scale": 0,
+                        "position": 1,
+                        "nullable": True,
+                    },
+                ],
+                "storage_location": "s3://db-02eec1f70bfe4115445be9fdb1aac6ac-s3-root-bucket/metastore/2c983545-d403-4f87-9063-5b7e3b6d3736/tables/cff27aa1-1c6a-4d78-b713-562c660c2896",
+                "owner": "account users",
+                "properties": {
+                    "delta.lastCommitTimestamp": "1666185711000",
+                    "delta.lastUpdateVersion": "1",
+                    "delta.minReaderVersion": "1",
+                    "delta.minWriterVersion": "2",
+                    "spark.sql.statistics.numRows": "10",
+                    "spark.sql.statistics.totalSize": "512",
+                },
+                "generation": 2,
+                "metastore_id": "2c983545-d403-4f87-9063-5b7e3b6d3736",
+                "full_name": "quickstart_catalog.quickstart_schema.quickstart_table_external",
+                "data_access_configuration_id": "00000000-0000-0000-0000-000000000000",
+                "created_at": 1666185698688,
+                "created_by": "abc@acryl.io",
+                "updated_at": 1666186049633,
+                "updated_by": "abc@acryl.io",
+                "table_id": "cff27aa1-1c6a-4d78-b713-562c660c2896",
+            }
+        ),
     ]
 
     workspace_client.tables.get = lambda *args, **kwargs: databricks.sdk.service.catalog.TableInfo.from_dict(
@@ -418,6 +420,11 @@ def test_ingestion(pytestconfig, tmp_path, requests_mock):
                     "include_ownership": True,
                     "include_hive_metastore": True,
                     "warehouse_id": "test",
+                    "emit_siblings": True,
+                    "delta_lake_options": {
+                        "platform_instance_name": None,
+                        "env": "PROD",
+                    },
                     "profiling": {
                         "enabled": True,
                         "method": "analyze",

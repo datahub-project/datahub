@@ -26,20 +26,21 @@ import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.SiblingGraphService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.recommendation.RecommendationsService;
-import com.linkedin.metadata.secret.SecretService;
 import com.linkedin.metadata.service.DataProductService;
+import com.linkedin.metadata.service.ERModelRelationshipService;
 import com.linkedin.metadata.service.FormService;
 import com.linkedin.metadata.service.LineageService;
 import com.linkedin.metadata.service.OwnershipTypeService;
 import com.linkedin.metadata.service.QueryService;
-import com.linkedin.metadata.service.RestrictedService;
 import com.linkedin.metadata.service.SettingsService;
 import com.linkedin.metadata.service.ViewService;
 import com.linkedin.metadata.timeline.TimelineService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.version.GitVersion;
-import com.linkedin.usage.UsageClient;
+import com.linkedin.usage.RestliUsageClient;
+import io.datahubproject.metadata.services.RestrictedService;
+import io.datahubproject.metadata.services.SecretService;
 import javax.annotation.Nonnull;
 import org.opensearch.client.RestHighLevelClient;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -74,7 +75,7 @@ public class GraphQLEngineFactory {
 
   @Autowired
   @Qualifier("usageClient")
-  private UsageClient usageClient;
+  private RestliUsageClient usageClient;
 
   @Autowired
   @Qualifier("entityService")
@@ -161,6 +162,10 @@ public class GraphQLEngineFactory {
   private QueryService queryService;
 
   @Autowired
+  @Qualifier("erModelRelationshipService")
+  private ERModelRelationshipService erModelRelationshipService;
+
+  @Autowired
   @Qualifier("dataProductService")
   private DataProductService dataProductService;
 
@@ -216,6 +221,7 @@ public class GraphQLEngineFactory {
     args.setSettingsService(settingsService);
     args.setLineageService(lineageService);
     args.setQueryService(queryService);
+    args.setErModelRelationshipService(erModelRelationshipService);
     args.setFeatureFlags(configProvider.getFeatureFlags());
     args.setFormService(formService);
     args.setRestrictedService(restrictedService);

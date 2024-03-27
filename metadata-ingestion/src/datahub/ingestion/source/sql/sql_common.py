@@ -1,5 +1,6 @@
 import contextlib
 import datetime
+import functools
 import logging
 import traceback
 from dataclasses import dataclass, field
@@ -514,10 +515,8 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
         return [
             *super().get_workunit_processors(),
-            partial(
-                auto_incremental_lineage,
-                self.ctx.graph,
-                self.config.incremental_lineage,
+            functools.partial(
+                auto_incremental_lineage, self.config.incremental_lineage
             ),
             StaleEntityRemovalHandler.create(
                 self, self.config, self.ctx

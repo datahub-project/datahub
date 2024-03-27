@@ -67,7 +67,8 @@ public class DefaultAspectsUtilTest {
         DefaultAspectsUtil.getAdditionalChanges(
                 AspectsBatchImpl.builder()
                     .mcps(List.of(proposal1), new AuditStamp(), entityServiceImpl)
-                    .build(),
+                    .build()
+                    .getMCPItems(),
                 entityServiceImpl,
                 false)
             .stream()
@@ -75,6 +76,10 @@ public class DefaultAspectsUtilTest {
             .collect(Collectors.toList());
     // proposals for key aspect, browsePath, browsePathV2, dataPlatformInstance
     Assert.assertEquals(proposalList.size(), 4);
-    Assert.assertEquals(proposalList.get(0).getChangeType(), ChangeType.UPSERT);
+    Assert.assertEquals(
+        proposalList.stream()
+            .map(MetadataChangeProposal::getChangeType)
+            .collect(Collectors.toList()),
+        List.of(ChangeType.CREATE, ChangeType.CREATE, ChangeType.CREATE, ChangeType.CREATE));
   }
 }

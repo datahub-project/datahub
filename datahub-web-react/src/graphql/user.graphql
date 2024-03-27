@@ -3,6 +3,7 @@ query getUser($urn: String!, $groupsCount: Int!) {
         urn
         username
         isNativeUser
+        exists
         info {
             active
             displayName
@@ -23,6 +24,9 @@ query getUser($urn: String!, $groupsCount: Int!) {
             displayName
             title
             email
+        }
+        privileges {
+            ...entityPrivileges
         }
         globalTags {
             ...globalTagsFields

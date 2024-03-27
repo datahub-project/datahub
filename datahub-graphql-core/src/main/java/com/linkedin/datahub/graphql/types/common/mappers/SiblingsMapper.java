@@ -1,9 +1,13 @@
 package com.linkedin.datahub.graphql.types.common.mappers;
 
+import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
+
+import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.SiblingProperties;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 /**
  * Maps Pegasus {@link RecordTemplate} objects to objects conforming to the GQL schema.
@@ -15,16 +19,21 @@ public class SiblingsMapper
 
   public static final SiblingsMapper INSTANCE = new SiblingsMapper();
 
-  public static SiblingProperties map(@Nonnull final com.linkedin.common.Siblings siblings) {
-    return INSTANCE.apply(siblings);
+  public static SiblingProperties map(
+      @Nullable QueryContext context, @Nonnull final com.linkedin.common.Siblings siblings) {
+    return INSTANCE.apply(context, siblings);
   }
 
   @Override
-  public SiblingProperties apply(@Nonnull final com.linkedin.common.Siblings siblings) {
+  public SiblingProperties apply(
+      @Nullable QueryContext context, @Nonnull final com.linkedin.common.Siblings siblings) {
     final SiblingProperties result = new SiblingProperties();
     result.setIsPrimary(siblings.isPrimary());
     result.setSiblings(
-        siblings.getSiblings().stream().map(UrnToEntityMapper::map).collect(Collectors.toList()));
+        siblings.getSiblings().stream()
+            .filter(s -> context == null | canView(context.getOperationContext(), s))
+            .map(s -> UrnToEntityMapper.map(context, s))
+            .collect(Collectors.toList()));
     return result;
   }
 }
