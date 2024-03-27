@@ -9,6 +9,7 @@ import com.linkedin.common.urn.DataPlatformUrn;
 import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.common.urn.TagUrn;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.data.template.SetMode;
 import com.linkedin.metadata.config.search.GraphQueryConfiguration;
 import com.linkedin.metadata.graph.Edge;
 import com.linkedin.metadata.graph.EntityLineageResult;
@@ -25,6 +26,7 @@ import com.linkedin.metadata.models.registry.EntityRegistryException;
 import com.linkedin.metadata.models.registry.LineageRegistry;
 import com.linkedin.metadata.models.registry.MergedEntityRegistry;
 import com.linkedin.metadata.models.registry.SnapshotEntityRegistry;
+import com.linkedin.metadata.query.LineageFlags;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.query.filter.RelationshipFilter;
@@ -40,6 +42,7 @@ import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import org.junit.Assert;
 import org.opensearch.client.RestHighLevelClient;
 import org.testng.SkipException;
@@ -444,7 +447,7 @@ public abstract class SearchGraphServiceTestBase extends GraphServiceTestBase {
    * @return The Upstream lineage for urn from the window from startTime to endTime
    */
   private EntityLineageResult getUpstreamLineage(Urn urn, Long startTime, Long endTime) {
-    return getLineage(urn, LineageDirection.UPSTREAM, startTime, endTime);
+    return getLineage(urn, LineageDirection.UPSTREAM, startTime, endTime, null);
   }
 
   /**
@@ -456,7 +459,7 @@ public abstract class SearchGraphServiceTestBase extends GraphServiceTestBase {
    * @return The Downstream lineage for urn from the window from startTime to endTime
    */
   private EntityLineageResult getDownstreamLineage(Urn urn, Long startTime, Long endTime) {
-    return getLineage(urn, LineageDirection.DOWNSTREAM, startTime, endTime);
+    return getLineage(urn, LineageDirection.DOWNSTREAM, startTime, endTime, null);
   }
 
   /**
@@ -469,7 +472,22 @@ public abstract class SearchGraphServiceTestBase extends GraphServiceTestBase {
    * @return The lineage for urn from the window from startTime to endTime in direction
    */
   private EntityLineageResult getLineage(
-      Urn urn, LineageDirection direction, Long startTime, Long endTime) {
-    return getGraphService().getLineage(urn, direction, 0, 0, 3, startTime, endTime);
+      Urn urn,
+      LineageDirection direction,
+      Long startTime,
+      Long endTime,
+      @Nullable Integer entitiesExploredPerHopLimit) {
+    return getGraphService()
+        .getLineage(
+            urn,
+            direction,
+            0,
+            0,
+            3,
+            new LineageFlags()
+                .setStartTimeMillis(startTime, SetMode.REMOVE_IF_NULL)
+                .setEndTimeMillis(endTime, SetMode.REMOVE_IF_NULL)
+                .setEntitiesExploredPerHopLimit(
+                    entitiesExploredPerHopLimit, SetMode.REMOVE_IF_NULL));
   }
 }
