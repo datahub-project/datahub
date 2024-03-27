@@ -69,6 +69,31 @@ source:
       "my_topic_2-value": "io.acryl.Schema3"
 ```
 
+### Glue Schema Registry
+The Kafka Source uses the Glue schema registry to figure out the schema associated with both `key` and `value` for the topic.
+By default, it follows the [Confluent's Kafka Schema registry](https://docs.confluent.io/platform/current/schema-registry/index.html)
+and supports the `JSON`, `AVRO` and `PROTOBUF` schema types.
+If you're using a AWS Glue schema registry, then you configure your config param of the `kafka` source as shown below.
+```YAML
+source:
+  type: "kafka"
+  config:
+    # Set the custom schema registry implementation class
+    schema_registry_class: "datahub.ingestion.source.glue_schema_registry.GlueSchemaRegistry"
+    registry_name: "<AWS Schema registry name>"
+    aws_account_region: "<AWS account region>"
+    # Coordinates
+    connection:
+      bootstrap: "${KAFKA_BOOTSTRAP_SERVER:-localhost:9092}"
+        consumer_config:
+            security.protocol: '${KAFKA_PROPERTIES_SECURITY_PROTOCOL:-SASL_SSL}'
+            sasl.mechanism: '${KAFKA_PROPERTIES_SASL_MECHANISM:-SCRAM-SHA-512}'
+            sasl.username: '${KAFKA_PROPERTIES_SASL_USERNAME}'
+            sasl.password: '${KAFKA_PROPERTIES_SASL_PASSWORD}'
+
+# sink configs
+```
+
 ### Custom Schema Registry
 
 The Kafka Source uses the schema registry to figure out the schema associated with both `key` and `value` for the topic.
