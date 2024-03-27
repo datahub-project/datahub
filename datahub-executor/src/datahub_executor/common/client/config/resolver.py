@@ -2,7 +2,7 @@ import datetime
 import logging
 from typing import Callable, List, Optional, Tuple, Type, TypeVar
 
-from tenacity import retry, stop_after_attempt, wait_exponential
+from tenacity import retry, wait_exponential
 from tenacity.before_sleep import before_sleep_log
 
 from datahub_executor.common.client.config.graphql.query import (
@@ -80,24 +80,33 @@ class ExecutorConfigResolver:
         result = self.graph.execute_graphql(GRAPHQL_FETCH_EXECUTOR_CONFIGS)
 
         if "error" in result and result["error"] is not None:
-            raise Exception(f"Received error while fetching executor_configs from GMS! {result.get('error')}")
+            raise Exception(
+                f"Received error while fetching executor_configs from GMS! {result.get('error')}"
+            )
 
         if (
             "listExecutorConfigs" not in result
             or "executorConfigs" not in result["listExecutorConfigs"]
         ):
-            raise Exception("Found incomplete search results when fetching executor_configs from GMS!")
+            raise Exception(
+                "Found incomplete search results when fetching executor_configs from GMS!"
+            )
 
         # In worker mode, having no queues means that worker never has work to do, so we have to retry until we get any
-        if DATAHUB_EXECUTOR_MODE != "coordinator" and len(result["listExecutorConfigs"]["executorConfigs"]) == 0:
-          raise Exception("GMS returned no executor configs, unable to proceed.")
+        if (
+            DATAHUB_EXECUTOR_MODE != "coordinator"
+            and len(result["listExecutorConfigs"]["executorConfigs"]) == 0
+        ):
+            raise Exception("GMS returned no executor configs, unable to proceed.")
 
         executor_configs = []
         for credential in result["listExecutorConfigs"]["executorConfigs"]:
             try:
                 executor_configs.append(ExecutorConfig.parse_obj(credential))
             except Exception:
-                raise Exception(f"Failed to convert ExecutorConfig object to Python object. {credential}")
+                raise Exception(
+                    f"Failed to convert ExecutorConfig object to Python object. {credential}"
+                )
 
         self.executor_configs = executor_configs
         return self.executor_configs

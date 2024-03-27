@@ -20,6 +20,7 @@ import com.linkedin.event.notification.NotificationSinkTypeArray;
 import com.linkedin.event.notification.settings.NotificationSettings;
 import com.linkedin.metadata.entity.AspectUtils;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
@@ -31,6 +32,7 @@ import com.linkedin.subscription.SubscriptionNotificationConfig;
 import com.linkedin.subscription.SubscriptionType;
 import com.linkedin.subscription.SubscriptionTypeArray;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.openapi.client.OpenApiClient;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.Collections;
 import java.util.Map;
@@ -116,7 +118,8 @@ public class SubscriptionServiceTest {
     this.opContext =
         TestOperationContexts.userContextNoSearchAuthorization(
             mock(EntityRegistry.class), Authorizer.EMPTY, SYSTEM_AUTHENTICATION);
-    _subscriptionService = new SubscriptionService(opContext, _entityClient);
+    _subscriptionService =
+        new SubscriptionService(opContext, _entityClient, mock(OpenApiClient.class));
   }
 
   @Test
@@ -193,7 +196,7 @@ public class SubscriptionServiceTest {
     when(_entityClient.exists(eq(USER_URN), any())).thenReturn(true);
     when(_entityClient.exists(eq(ENTITY_URN_1), any())).thenReturn(true);
     when(_entityClient.filter(
-            any(), eq(SUBSCRIPTION_ENTITY_NAME), any(), any(), anyInt(), anyInt()))
+            any(), eq(SUBSCRIPTION_ENTITY_NAME), nullable(Filter.class), any(), anyInt(), anyInt()))
         .thenReturn(new SearchResult().setEntities(new SearchEntityArray()));
     when(_entityClient.ingestProposal(
             any(MetadataChangeProposal.class), eq(SYSTEM_AUTHENTICATION), anyBoolean()))
