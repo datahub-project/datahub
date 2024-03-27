@@ -1,7 +1,8 @@
 import logging
 import os
 from datetime import timedelta
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
+from typing_extensions import Literal
 
 from google.cloud import bigquery
 from google.cloud.logging_v2.client import Client as GCPLoggingClient
@@ -119,13 +120,13 @@ class BigQueryV2Config(
         description="Generate usage statistic",
     )
 
-    capture_table_label_as_tag: AllowDenyPattern = Field(
-        default=AllowDenyPattern.allow_all(),
+    capture_table_label_as_tag: Union[Literal[False], AllowDenyPattern] = Field(
+        default=False,
         description="Capture BigQuery table labels as DataHub tag",
     )
 
-    capture_dataset_label_as_tag: AllowDenyPattern = Field(
-        default=AllowDenyPattern.allow_all(),
+    capture_dataset_label_as_tag: Union[Literal[False], AllowDenyPattern] = Field(
+        default=False,
         description="Capture BigQuery dataset labels as DataHub tag",
     )
 
