@@ -128,6 +128,8 @@ public class EntityAssertionsResolverTest {
 
     Mockito.when(mockEnv.getArgumentOrDefault(Mockito.eq("start"), Mockito.eq(0))).thenReturn(0);
     Mockito.when(mockEnv.getArgumentOrDefault(Mockito.eq("count"), Mockito.eq(200))).thenReturn(10);
+    Mockito.when(mockEnv.getArgumentOrDefault(Mockito.eq("includeSoftDeleted"), Mockito.eq(false)))
+        .thenReturn(false);
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
     Dataset parentEntity = new Dataset();

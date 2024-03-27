@@ -4,6 +4,7 @@ import com.google.common.collect.ImmutableList;
 import com.linkedin.common.EntityRelationship;
 import com.linkedin.common.EntityRelationships;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.Assertion;
 import com.linkedin.datahub.graphql.generated.Entity;
@@ -25,10 +26,15 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /** GraphQL Resolver used for fetching the list of Assertions associated with an Entity. */
 public class EntityAssertionsResolver
     implements DataFetcher<CompletableFuture<EntityAssertionsResult>> {
+
+  private static final Logger logger =
+      LoggerFactory.getLogger(EntityAssertionsResolver.class.getName());
 
   private static final String ASSERTS_RELATIONSHIP_NAME = "Asserts";
 
@@ -49,6 +55,8 @@ public class EntityAssertionsResolver
           final String entityUrn = ((Entity) environment.getSource()).getUrn();
           final Integer start = environment.getArgumentOrDefault("start", 0);
           final Integer count = environment.getArgumentOrDefault("count", 200);
+          final Boolean includeSoftDeleted =
+              environment.getArgumentOrDefault("includeSoftDeleted", false);
 
           try {
             // Step 1: Fetch set of assertions associated with the target entity from the Graph
@@ -84,6 +92,22 @@ public class EntityAssertionsResolver
                 gmsResults.stream()
                     .filter(Objects::nonNull)
                     .map(r -> AssertionMapper.map(context, r))
+                    .filter(
+                        assertion -> {
+                          try {
+                            return _entityClient.exists(
+                                UrnUtils.getUrn(assertion.getUrn()),
+                                includeSoftDeleted,
+                                context.getAuthentication());
+                          } catch (RemoteInvocationException e) {
+                            logger.error(
+                                String.format(
+                                    "Unable to check if assertion %s exists, ignoring it",
+                                    assertion.getUrn()),
+                                e);
+                            return false;
+                          }
+                        })
                     .collect(Collectors.toList());
 
             // Step 4: Package and return result
