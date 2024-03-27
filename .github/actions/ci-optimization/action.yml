@@ -13,7 +13,7 @@ outputs:
     value: ${{ steps.filter.outputs.frontend == 'false' && steps.filter.outputs.ingestion == 'false' && steps.filter.outputs.backend == 'true' }}
   backend-change:
     description: "Backend code has changed"
-    value: ${{ steps.filter.outputs.backend == 'true' }}
+    value: ${{ steps.filter.outputs.backend == 'true' || steps.filter.outputs.backend-saas == 'true' }}
   ingestion-change:
     description: "Ingestion code has changed"
     value: ${{ steps.filter.outputs.ingestion == 'true' }}
@@ -79,6 +79,9 @@ runs:
             - "metadata-utils/**"
             - "smoke-test/**"
             - "docker/**"
+          backend-saas:
+            - "datahub-executor/**"
+            - "datahub-integrations-service/**
           kafka-setup:
             - "docker/kafka-setup/**"
           mysql-setup:
