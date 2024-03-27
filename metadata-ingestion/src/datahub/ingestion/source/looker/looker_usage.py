@@ -450,7 +450,7 @@ class DashboardStatGenerator(BaseStatGenerator):
         )
 
     def _get_urn(self, model: ModelForUsage) -> str:
-        assert isinstance(model, Dashboard)
+        assert isinstance(model, LookerDashboardForUsage)
         assert model.id is not None
 
         return builder.make_dashboard_urn(
