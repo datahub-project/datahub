@@ -59,7 +59,6 @@ mypy_stubs = {
     "types-requests",
     "types-toml",
     "types-PyYAML",
-    "types-freezegun",
     "types-cachetools",
     # versions 0.1.13 and 0.1.14 seem to have issues
     "types-click==0.1.12",
@@ -79,15 +78,11 @@ dev_requirements = {
     # See https://github.com/samuelcolvin/pydantic/pull/3175#issuecomment-995382910.
     "pydantic>=1.10",
     "pytest>=6.2.2",
-    "pytest-asyncio>=0.16.0",
     "pytest-cov>=2.8.1",
     "tox",
     "tox-uv",
     "deepdiff",
     "tenacity",
-    "requests-mock",
-    "freezegun",
-    "jsonpickle",
     "build",
     "twine",
     "packaging",
