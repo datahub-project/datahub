@@ -9,6 +9,7 @@ import com.linkedin.common.InstitutionalMemory;
 import com.linkedin.common.Ownership;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
+import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.BusinessAttribute;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.SchemaFieldDataType;
@@ -23,17 +24,20 @@ import com.linkedin.datahub.graphql.types.tag.mappers.GlobalTagsMapper;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspectMap;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 public class BusinessAttributeMapper implements ModelMapper<EntityResponse, BusinessAttribute> {
 
   public static final BusinessAttributeMapper INSTANCE = new BusinessAttributeMapper();
 
-  public static BusinessAttribute map(@Nonnull final EntityResponse entityResponse) {
-    return INSTANCE.apply(entityResponse);
+  public static BusinessAttribute map(
+      @Nullable final QueryContext context, @Nonnull final EntityResponse entityResponse) {
+    return INSTANCE.apply(context, entityResponse);
   }
 
   @Override
-  public BusinessAttribute apply(@Nonnull final EntityResponse entityResponse) {
+  public BusinessAttribute apply(
+      @Nullable final QueryContext context, @Nonnull final EntityResponse entityResponse) {
     BusinessAttribute result = new BusinessAttribute();
     result.setUrn(entityResponse.getUrn().toString());
     result.setType(EntityType.BUSINESS_ATTRIBUTE);
@@ -43,23 +47,27 @@ public class BusinessAttributeMapper implements ModelMapper<EntityResponse, Busi
     mappingHelper.mapToResult(
         BUSINESS_ATTRIBUTE_INFO_ASPECT_NAME,
         ((businessAttribute, dataMap) ->
-            mapBusinessAttributeInfo(businessAttribute, dataMap, entityResponse.getUrn())));
+            mapBusinessAttributeInfo(
+                context, businessAttribute, dataMap, entityResponse.getUrn())));
     mappingHelper.mapToResult(
         OWNERSHIP_ASPECT_NAME,
         (businessAttribute, dataMap) ->
             businessAttribute.setOwnership(
-                OwnershipMapper.map(new Ownership(dataMap), entityResponse.getUrn())));
+                OwnershipMapper.map(context, new Ownership(dataMap), entityResponse.getUrn())));
     mappingHelper.mapToResult(
         INSTITUTIONAL_MEMORY_ASPECT_NAME,
         (dataset, dataMap) ->
             dataset.setInstitutionalMemory(
                 InstitutionalMemoryMapper.map(
-                    new InstitutionalMemory(dataMap), entityResponse.getUrn())));
+                    context, new InstitutionalMemory(dataMap), entityResponse.getUrn())));
     return mappingHelper.getResult();
   }
 
   private void mapBusinessAttributeInfo(
-      BusinessAttribute businessAttribute, DataMap dataMap, Urn entityUrn) {
+      final QueryContext context,
+      BusinessAttribute businessAttribute,
+      DataMap dataMap,
+      Urn entityUrn) {
     BusinessAttributeInfo businessAttributeInfo = new BusinessAttributeInfo(dataMap);
     com.linkedin.datahub.graphql.generated.BusinessAttributeInfo attributeInfo =
         new com.linkedin.datahub.graphql.generated.BusinessAttributeInfo();
@@ -70,17 +78,19 @@ public class BusinessAttributeMapper implements ModelMapper<EntityResponse, Busi
       attributeInfo.setDescription(businessAttributeInfo.getDescription());
     }
     if (businessAttributeInfo.hasCreated()) {
-      attributeInfo.setCreated(AuditStampMapper.map(businessAttributeInfo.getCreated()));
+      attributeInfo.setCreated(AuditStampMapper.map(context, businessAttributeInfo.getCreated()));
     }
     if (businessAttributeInfo.hasLastModified()) {
-      attributeInfo.setLastModified(AuditStampMapper.map(businessAttributeInfo.getLastModified()));
+      attributeInfo.setLastModified(
+          AuditStampMapper.map(context, businessAttributeInfo.getLastModified()));
     }
     if (businessAttributeInfo.hasGlobalTags()) {
-      attributeInfo.setTags(GlobalTagsMapper.map(businessAttributeInfo.getGlobalTags(), entityUrn));
+      attributeInfo.setTags(
+          GlobalTagsMapper.map(context, businessAttributeInfo.getGlobalTags(), entityUrn));
     }
     if (businessAttributeInfo.hasGlossaryTerms()) {
       attributeInfo.setGlossaryTerms(
-          GlossaryTermsMapper.map(businessAttributeInfo.getGlossaryTerms(), entityUrn));
+          GlossaryTermsMapper.map(context, businessAttributeInfo.getGlossaryTerms(), entityUrn));
     }
     if (businessAttributeInfo.hasType()) {
       attributeInfo.setType(mapSchemaFieldDataType(businessAttributeInfo.getType()));

@@ -41,11 +41,11 @@ public class SchemaFieldMapper implements ModelMapper<EntityResponse, SchemaFiel
         ((schemaField, dataMap) ->
             schemaField.setStructuredProperties(
                 StructuredPropertiesMapper.map(context, new StructuredProperties(dataMap)))));
-      mappingHelper.mapToResult(
-              BUSINESS_ATTRIBUTE_ASPECT,
-              (((schemaField, dataMap) ->
-                      schemaField.setBusinessAttributes(
-                              BusinessAttributesMapper.map(new BusinessAttributes(dataMap), entityUrn)))));
+    mappingHelper.mapToResult(
+        BUSINESS_ATTRIBUTE_ASPECT,
+        (((schemaField, dataMap) ->
+            schemaField.setBusinessAttributes(
+                BusinessAttributesMapper.map(new BusinessAttributes(dataMap), entityUrn)))));
     return result;
   }
 

@@ -288,7 +288,7 @@ public class MappingsBuilderTest {
     Map<String, Object> result = MappingsBuilder.getMappings(entitySpec);
     assertEquals(result.size(), 1);
     Map<String, Object> properties = (Map<String, Object>) result.get("properties");
-    assertEquals(properties.size(), 6);
+    assertEquals(properties.size(), 7);
     ImmutableMap<String, Serializable> expectedURNField =
         ImmutableMap.of(
             "type",
