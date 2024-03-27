@@ -614,7 +614,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
 
         if dashboard and dashboard.folder_path is not None:
             browse_path = BrowsePathsClass(
-                paths=[f"/looker/{dashboard.folder_path}/{dashboard.title}"]
+                paths=[f"/Folders/{dashboard.folder_path}/{dashboard.title}"]
             )
             chart_snapshot.aspects.append(browse_path)
 
@@ -673,7 +673,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         dashboard_snapshot.aspects.append(dashboard_info)
         if looker_dashboard.folder_path is not None:
             browse_path = BrowsePathsClass(
-                paths=[f"/looker/{looker_dashboard.folder_path}"]
+                paths=[f"/Folders/{looker_dashboard.folder_path}"]
             )
             dashboard_snapshot.aspects.append(browse_path)
 
