@@ -107,7 +107,6 @@ integration_test_requirements = {
 }
 per_version_test_requirements = {
     "test-airflow24": {
-        "pluggy==1.0.0",
         "pendulum<3.0",
         "Flask-Session<0.6.0",
     },
