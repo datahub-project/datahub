@@ -119,13 +119,13 @@ class BigQueryV2Config(
         description="Generate usage statistic",
     )
 
-    capture_table_label_as_tag: bool = Field(
-        default=False,
+    capture_table_label_as_tag: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
         description="Capture BigQuery table labels as DataHub tag",
     )
 
-    capture_dataset_label_as_tag: bool = Field(
-        default=False,
+    capture_dataset_label_as_tag: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
         description="Capture BigQuery dataset labels as DataHub tag",
     )
 

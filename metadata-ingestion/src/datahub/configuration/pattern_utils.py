@@ -13,3 +13,9 @@ def is_schema_allowed(
         return schema_pattern.allowed(f"{db_name}.{schema_name}")
     else:
         return schema_pattern.allowed(schema_name)
+
+def is_tag_allowed(
+    tag_pattern: AllowDenyPattern,
+    tag
+) -> bool:
+    return tag_pattern.allowed(tag)
