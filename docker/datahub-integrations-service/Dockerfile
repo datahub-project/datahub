@@ -31,7 +31,7 @@ FROM base as build
 ARG PIP_MIRROR_URL
 RUN if [ "${PIP_MIRROR_URL}" != "null" ] ; then pip config set global.index-url ${PIP_MIRROR_URL} ; fi
 
-RUN --mount=type=cache,target=/go/pkg/mod/ \
+RUN --mount=type=cache,target=/datahub-ingestion/.cache/uv \
     uv pip install --no-cache -r requirements.txt && \
     uv pip install --no-cache -e "."
 
