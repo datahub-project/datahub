@@ -61,6 +61,12 @@ class ExecutionRequestManager:
     def shutdown(self) -> None:
         self.bg_scheduler.shutdown()
 
+    def alive(self) -> bool:
+        for fetcher in self.fetchers.values():
+            if not fetcher.alive():
+                return False
+        return True
+
     def schedule_execution_request(
         self,
         fetcher_id: str,

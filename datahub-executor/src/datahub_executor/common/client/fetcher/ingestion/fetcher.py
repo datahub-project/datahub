@@ -45,7 +45,7 @@ class IngestionFetcher(Fetcher):
             logger.error(
                 f"Received error while fetching ingestion sources from GMS! {result.get('error')}"
             )
-            return []
+            raise RuntimeError("GMS error")
 
         if (
             "listIngestionSources" not in result
@@ -54,7 +54,7 @@ class IngestionFetcher(Fetcher):
             logger.error(
                 "Found incomplete search results when fetching ingestion sources from GMS!"
             )
-            return []
+            raise RuntimeError("Parse error")
 
         return graphql_to_ingestion_sources(
             [
@@ -66,5 +66,7 @@ class IngestionFetcher(Fetcher):
         )
 
     def fetch_execution_requests(self) -> List[ExecutionRequestSchedule]:
-        ingestion_sources = self._fetch_ingestion_sources()
-        return ingestion_sources_to_execution_requests(ingestion_sources)
+        raw = self._fetch_ingestion_sources()
+        ingestions = ingestion_sources_to_execution_requests(raw)
+        self.touch()
+        return ingestions
