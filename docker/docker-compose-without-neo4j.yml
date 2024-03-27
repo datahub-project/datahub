@@ -8,7 +8,7 @@ version: '3.9'
 services:
   datahub-frontend-react:
     hostname: datahub-frontend-react
-    image: ${DATAHUB_FRONTEND_IMAGE:-linkedin/datahub-frontend-react}:${DATAHUB_VERSION:-head}
+    image: ${DATAHUB_FRONTEND_IMAGE:-acryldata/datahub-frontend-react}:${DATAHUB_VERSION:-head}
     ports:
     - ${DATAHUB_MAPPED_FRONTEND_PORT:-9002}:9002
     build:
@@ -33,7 +33,7 @@ services:
         condition: service_healthy
   datahub-gms:
     hostname: datahub-gms
-    image: ${DATAHUB_GMS_IMAGE:-linkedin/datahub-gms}:${DATAHUB_VERSION:-head}
+    image: ${DATAHUB_GMS_IMAGE:-acryldata/datahub-gms}:${DATAHUB_VERSION:-head}
     ports:
     - ${DATAHUB_MAPPED_GMS_PORT:-8080}:8080
     build:
@@ -73,7 +73,7 @@ services:
   # This "container" is a workaround to pre-create search indices
   elasticsearch-setup:
     hostname: elasticsearch-setup
-    image: ${DATAHUB_ELASTIC_SETUP_IMAGE:-linkedin/datahub-elasticsearch-setup}:${DATAHUB_VERSION:-head}
+    image: ${DATAHUB_ELASTIC_SETUP_IMAGE:-acryldata/datahub-elasticsearch-setup}:${DATAHUB_VERSION:-head}
     build:
       context: ../
       dockerfile: docker/elasticsearch-setup/Dockerfile
@@ -88,7 +88,7 @@ services:
       datahub_setup_job: true
   kafka-setup:
     hostname: kafka-setup
-    image: ${DATAHUB_KAFKA_SETUP_IMAGE:-linkedin/datahub-kafka-setup}:${DATAHUB_VERSION:-head}
+    image: ${DATAHUB_KAFKA_SETUP_IMAGE:-acryldata/datahub-kafka-setup}:${DATAHUB_VERSION:-head}
     build:
       dockerfile: ./docker/kafka-setup/Dockerfile
       context: ../

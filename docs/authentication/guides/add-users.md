@@ -134,7 +134,7 @@ For example, to mount a user.props file that is stored on my local filesystem at
     build:
       context: ../
       dockerfile: docker/datahub-frontend/Dockerfile
-    image: linkedin/datahub-frontend-react:${DATAHUB_VERSION:-head}
+    image: acryldata/datahub-frontend-react:${DATAHUB_VERSION:-head}
     .....
     # The new stuff
     volumes:
