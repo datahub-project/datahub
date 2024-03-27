@@ -128,6 +128,7 @@ import com.linkedin.datahub.graphql.resolvers.dataproduct.CreateDataProductResol
 import com.linkedin.datahub.graphql.resolvers.dataproduct.DeleteDataProductResolver;
 import com.linkedin.datahub.graphql.resolvers.dataproduct.ListDataProductAssetsResolver;
 import com.linkedin.datahub.graphql.resolvers.dataproduct.UpdateDataProductResolver;
+import com.linkedin.datahub.graphql.resolvers.dataset.ActorUsersResolver;
 import com.linkedin.datahub.graphql.resolvers.dataset.DatasetStatsSummaryResolver;
 import com.linkedin.datahub.graphql.resolvers.dataset.DatasetUsageStatsResolver;
 import com.linkedin.datahub.graphql.resolvers.deprecation.UpdateDeprecationResolver;
@@ -389,7 +390,7 @@ import org.dataloader.DataLoader;
 import org.dataloader.DataLoaderOptions;
 
 /**
- * A {@link GraphQLEngine} configured to provide access to the entities and aspects on the the GMS
+ * A {@link GraphQLEngine} configured to provide access to the entities and aspects on the GMS
  * graph.
  */
 @Slf4j
@@ -729,6 +730,7 @@ public class GmsGraphQLEngine {
     configureFormResolvers(builder);
     configureIncidentResolvers(builder);
     configureRestrictedResolvers(builder);
+    configureActorResolvers(builder);
   }
 
   private void configureOrganisationRoleResolvers(RuntimeWiring.Builder builder) {
@@ -2924,5 +2926,11 @@ public class GmsGraphQLEngine {
                     new EntityLineageResultResolver(
                         siblingGraphService, restrictedService, this.authorizationConfiguration))
                 .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient)));
+  }
+
+  private void configureActorResolvers(final RuntimeWiring.Builder builder) {
+    builder.type(
+        "Actor",
+        typeWiring -> typeWiring.dataFetcher("users", new ActorUsersResolver(this.entityClient)));
   }
 }

@@ -1719,11 +1719,15 @@ type Role implements Entity {
 
 }
 
+input UserFilter {
+    userUrn: String!
+}
+
 type Actor {
     """
     List of users for which the role is provisioned
     """
-    users: [RoleUser!]
+    users(input: UserFilter): [RoleUser!]
 }
 
 type RoleUser {
