@@ -13,7 +13,7 @@ import { useEntityRegistry } from '../../../useEntityRegistry';
 import { DataProductMiniPreviewAddDataProduct } from '../../shared/links/DataProductMiniPreviewAddDataProduct';
 import { IconStyleType } from '../../../entity/Entity';
 import { ANTD_GRAY } from '../../shared/constants';
-import { Carousel } from '../../../shared/carousel/Carousel';
+import { Carousel } from '../../../sharedV2/carousel/Carousel';
 
 const ViewAllButton = styled.div`
     color: ${ANTD_GRAY[7]};

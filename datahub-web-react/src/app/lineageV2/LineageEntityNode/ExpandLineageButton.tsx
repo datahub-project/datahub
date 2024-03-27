@@ -96,7 +96,7 @@ export function ExpandLineageButton({ urn, direction, display }: Props) {
 
 function useOnClickExpandLineage(urn: string, direction: LineageDirection, maxDepth: boolean) {
     const context = useContext(LineageNodesContext);
-    const { nodes, setDataVersion } = context;
+    const { nodes, setDataVersion, setDisplayVersion } = context;
     const { fetchLineage } = useSearchAcrossLineage(urn, context, direction, true, maxDepth);
 
     return function onClick(e: React.MouseEvent<HTMLDivElement, MouseEvent>) {
@@ -106,6 +106,7 @@ function useOnClickExpandLineage(urn: string, direction: LineageDirection, maxDe
         if (node && fetchStatus !== FetchStatus.COMPLETE) {
             node.fetchStatus = { ...node.fetchStatus, [direction]: FetchStatus.LOADING };
             setDataVersion((v) => v + 1);
+            setDisplayVersion(([v]) => [v, []]);
             fetchLineage();
         }
     };

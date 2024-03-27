@@ -1,4 +1,6 @@
 import logging
+import time
+
 from typing import List
 
 from tenacity import retry, stop_after_attempt, wait_exponential
@@ -52,7 +54,7 @@ class MonitorFetcher(Fetcher):
             logger.error(
                 f"Received error while fetching monitors from GMS! {result.get('error')}"
             )
-            return []
+            raise RuntimeError("GMS error")
 
         if (
             "searchAcrossEntities" not in result
@@ -61,7 +63,7 @@ class MonitorFetcher(Fetcher):
             logger.error(
                 "Found incomplete search results when fetching monitors from GMS!"
             )
-            return []
+            raise RuntimeError("Parse error")
 
         return graphql_to_monitors(
             [
@@ -71,5 +73,7 @@ class MonitorFetcher(Fetcher):
         )
 
     def fetch_execution_requests(self) -> List[ExecutionRequestSchedule]:
-        monitors = self._fetch_monitors()
-        return monitors_to_execution_requests(monitors)
+        raw = self._fetch_monitors()
+        monitors = monitors_to_execution_requests(raw)
+        self.touch()
+        return monitors

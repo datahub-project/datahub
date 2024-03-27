@@ -214,7 +214,6 @@ function createColumnQueryNode(
             urn,
             type: EntityType.Query,
             parents: new Set(),
-            nonTransformationalParents: new Set(),
             fetchStatus: {
                 [LineageDirection.Upstream]: FetchStatus.UNNEEDED,
                 [LineageDirection.Downstream]: FetchStatus.UNNEEDED,

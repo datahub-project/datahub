@@ -1,6 +1,10 @@
 import logging
+import time
+import os
+import signal
 
 from fastapi import FastAPI
+from threading import Thread
 
 from datahub_executor.coordinator.assertion_endpoints import assertions_router
 from datahub_executor.coordinator.health_endpoints import health_router
@@ -9,6 +13,9 @@ from datahub_executor.coordinator.helpers import (
     start_scheduler,
 )
 from datahub_executor.coordinator.logging import configure_logging
+from datahub_executor.config import (
+    DATAHUB_EXECUTOR_GRACEFUL_SHUTDOWN_PERIOD,
+)
 
 # Configure global logging.
 configure_logging()
@@ -28,6 +35,15 @@ def shutdown_handler(*args, **kwargs):  # type: ignore
     global sighandler
 
     logger.info("Shutdown handler: uvicorn initiated shutdown")
+
+    # Give all jobs some time to finish, then forcefully terminate the process
+    def force_shutdown():
+        time.sleep(DATAHUB_EXECUTOR_GRACEFUL_SHUTDOWN_PERIOD)
+        logger.info("Shutdown handler: graceful period expired, force-exiting...")
+        os.kill(os.getpid(), signal.SIGKILL)
+
+    t = Thread(target=force_shutdown)
+    t.start()
 
     for sighdlr in sighandler:
         try:

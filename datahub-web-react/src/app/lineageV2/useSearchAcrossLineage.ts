@@ -1,10 +1,18 @@
 import {useEffect, useState} from 'react';
 import {useSearchAcrossLineageStructureLazyQuery} from '../../graphql/search.generated';
 import {Entity, EntityType, LineageDirection, SearchAcrossLineageInput} from '../../types.generated';
+import {DBT_URN} from '../ingest/source/builder/constants';
 import {useGetLineageTimeParams} from '../lineage/utils/useGetLineageTimeParams';
 import {DEGREE_FILTER_NAME} from '../search/utils/constants';
 import {
-    FetchStatus, getNonTransformationalParents, isDbt, isTransformational, NodeContext, setDifference, setNodeDefault,
+    FetchStatus,
+    isDbt,
+    isQuery,
+    isTransformational,
+    LINEAGE_FILTER_PAGINATION,
+    NodeContext,
+    setDifference,
+    setNodeDefault,
 } from './common';
 
 /**
@@ -30,8 +38,6 @@ export default function useSearchAcrossLineage(
         direction,
         start: 0,
         count: 10000,
-        startTimeMillis: startTimeMillis || undefined,
-        endTimeMillis: endTimeMillis || undefined,
         orFilters: [
             {
                 and: [
@@ -42,6 +48,18 @@ export default function useSearchAcrossLineage(
                 ],
             },
         ],
+        lineageFlags: {
+            startTimeMillis,
+            endTimeMillis,
+            entitiesExploredPerHopLimit: LINEAGE_FILTER_PAGINATION,
+            ignoreAsHops: [
+                {
+                    entityType: EntityType.Dataset,
+                    platforms: [DBT_URN],
+                },
+                { entityType: EntityType.DataJob },
+            ],
+        },
     };
 
     const [processed, setProcessed] = useState(false);
@@ -76,9 +94,7 @@ export default function useSearchAcrossLineage(
             const newParents =
                 result.paths?.map((path) => path?.path?.[path?.path.length - 2]?.urn).filter((p): p is string => !!p) ||
                 [];
-            const newNTParents = newParents.map((p) => getNonTransformationalParents(p, nodes, rootUrn)).flat();
             node.parents = new Set([...node.parents, ...newParents]);
-            node.nonTransformationalParents = new Set([...node.nonTransformationalParents, ...newNTParents]);
 
             // TODO: Clean up logic, a little redundant with setNodeDefault
             if (maxDepth) {
@@ -103,12 +119,12 @@ export default function useSearchAcrossLineage(
 }
 
 /**
- * Remove direct edges between non-transformational nodes, if there is a path between them through only dbt nodes.
+ * Remove direct edges between non-transformational nodes, if there is a path between them through only dbt nodes (and query nodes).
  * This prevents the graph from being cluttered with effectively duplicate edges.
  * @param urn Urn for which to remove parent edges.
  * @param nodes All nodes in the graph, used to look up other nodes' parents.
  */
-function pruneParentsThroughDbt(urn: string, nodes: NodeContext['nodes']) {
+export function pruneParentsThroughDbt(urn: string, nodes: NodeContext['nodes']) {
     const node = nodes.get(urn);
     if (!node || isTransformational(node)) return;
 
@@ -116,7 +132,7 @@ function pruneParentsThroughDbt(urn: string, nodes: NodeContext['nodes']) {
     const seen = new Set<string>();
     const stack = Array.from(node.parents).filter((p) => {
         const n = nodes.get(p);
-        return n && isDbt(n);
+        return n && (isDbt(n) || isQuery(n));
     });
     for (let u = stack.pop(); u; u = stack.pop()) {
         const n = nodes.get(u);
@@ -126,7 +142,7 @@ function pruneParentsThroughDbt(urn: string, nodes: NodeContext['nodes']) {
             const p = nodes.get(parent);
             if (!p) return;
 
-            if (isDbt(p) && !seen.has(parent)) {
+            if ((isDbt(p) || isQuery(p)) && !seen.has(parent)) {
                 stack.push(parent);
                 seen.add(parent);
             } else {
@@ -136,7 +152,6 @@ function pruneParentsThroughDbt(urn: string, nodes: NodeContext['nodes']) {
     }
 
     node.parents = new Set(setDifference(node.parents, urnsToPrune));
-    node.nonTransformationalParents = new Set(setDifference(node.nonTransformationalParents, urnsToPrune));
     if (!node.prunedParents) {
         node.prunedParents = urnsToPrune;
     } else {
@@ -152,19 +167,12 @@ function addQueryNodes(
     path.forEach((node, i) => {
         const parent = path[i - 1]?.urn;
         // TODO: Replace with findLast when it's available
-        const positionalParent = path
-            .slice(0, i)
-            .reduceRight<string | undefined>(
-                (acc, p) => acc || (!isTransformational(p) ? p.urn : undefined),
-                undefined,
-            );
         if (node && !nodes.has(node.urn) && node.type === EntityType.Query) {
             nodes.set(node.urn, {
                 id: node.urn,
                 urn: node.urn,
                 type: node.type,
                 parents: new Set(parent ? [parent] : []),
-                nonTransformationalParents: new Set(positionalParent ? [positionalParent] : []),
                 direction,
                 fetchStatus: {
                     [LineageDirection.Upstream]: FetchStatus.UNNEEDED,

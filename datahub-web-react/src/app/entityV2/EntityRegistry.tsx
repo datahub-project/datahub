@@ -8,7 +8,7 @@ import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from './Enti
 import { GLOSSARY_ENTITY_TYPES } from './shared/constants';
 import { GenericEntityProperties } from './shared/types';
 import { dictToQueryStringParams, getFineGrainedLineageWithSiblings, urlEncodeUrn } from './shared/utils';
-import { FetchedEntityV2, LineageAsset, LineageAssetType } from '../lineageV2/types';
+import { FetchedEntityV2, FetchedEntityV2Relationship, LineageAsset, LineageAssetType } from '../lineageV2/types';
 import { EntityLineageV2Fragment } from '../../graphql/lineage.generated';
 import { convertInputFieldsToSchemaFields } from '../lineageV2/lineageUtils';
 
@@ -218,6 +218,12 @@ export default class EntityRegistry {
                 (genericEntityProperties.downstream?.total || 0) - (genericEntityProperties.downstream?.filtered || 0),
             numUpstreamChildren:
                 (genericEntityProperties.upstream?.total || 0) - (genericEntityProperties.upstream?.filtered || 0),
+            downstreamRelationships: genericEntityProperties.downstream?.relationships
+                ?.map((r) => ({ ...r, urn: r.entity?.urn }))
+                .filter((r): r is FetchedEntityV2Relationship => !!r.urn),
+            upstreamRelationships: genericEntityProperties.upstream?.relationships
+                ?.map((r) => ({ ...r, urn: r.entity?.urn }))
+                .filter((r): r is FetchedEntityV2Relationship => !!r.urn),
             status: genericEntityProperties.status,
             schemaMetadata: genericEntityProperties.schemaMetadata ?? undefined,
             inputFields: genericEntityProperties.inputFields ?? undefined,

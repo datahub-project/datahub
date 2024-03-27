@@ -2,7 +2,14 @@ import React, { useContext, useEffect, useState } from 'react';
 import { ReactFlowProvider } from 'reactflow';
 import { EntityType, LineageDirection } from '../../types.generated';
 import TabFullsizedContext from '../shared/TabFullsizedContext';
-import { FetchStatus, LINEAGE_FILTER_PAGINATION, LineageEntity, LineageNodesContext, NodeContext } from './common';
+import {
+    FetchStatus,
+    LINEAGE_FILTER_PAGINATION,
+    LineageEdge,
+    LineageEntity,
+    LineageNodesContext,
+    NodeContext,
+} from './common';
 import LineageDisplay from './LineageDisplay';
 import useSearchAcrossLineage from './useSearchAcrossLineage';
 
@@ -15,12 +22,14 @@ type Props = {
 export default function LineageExplorer(props: Props) {
     const { urn, type } = props;
     const [nodes] = useState(new Map<string, LineageEntity>());
+    const [edges] = useState(new Map<string, Map<string, LineageEdge>>());
     const [nodeVersion, setNodeVersion] = useState(0);
     const [dataVersion, setDataVersion] = useState(0);
     const [displayVersion, setDisplayVersion] = useState<[number, string[]]>([0, []]);
     const context = {
         rootUrn: urn,
         nodes,
+        edges,
         nodeVersion,
         setNodeVersion,
         dataVersion,
@@ -74,7 +83,6 @@ function makeInitialNode(urn: string, type: EntityType): LineageEntity {
         urn,
         type,
         parents: new Set(),
-        nonTransformationalParents: new Set(),
         fetchStatus: {
             [LineageDirection.Upstream]: FetchStatus.LOADING,
             [LineageDirection.Downstream]: FetchStatus.LOADING,

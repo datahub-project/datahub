@@ -31,7 +31,6 @@ export interface NodeBase {
     id: string;
     direction?: LineageDirection;
     parents: Set<Urn>;
-    nonTransformationalParents: Set<Urn>;
     prunedParents?: Set<Urn>;
 }
 
@@ -63,6 +62,10 @@ const TRANSFORMATION_TYPES: string[] = [EntityType.Query, EntityType.DataJob];
 
 export function isDbt(node: Pick<LineageNode, 'urn' | 'type'>): boolean {
     return node.type === EntityType.Dataset && !!node.urn && getPlatformUrnFromEntityUrn(node.urn) === DBT_CLOUD_URN;
+}
+
+export function isQuery(node: Pick<LineageNode, 'type'>): boolean {
+    return node.type === EntityType.Query;
 }
 
 // TODO: Replace with value from search-across-lineage, once it's available
@@ -105,9 +108,21 @@ export function parseColumnQueryRef(queryRef: ColumnRef): Urn {
     return queryUrn;
 }
 
+interface AuditStamp {
+    timestamp: number;
+    // TODO: Add actor
+}
+
+export interface LineageEdge {
+    created?: AuditStamp;
+    updated?: AuditStamp;
+    isManual: boolean;
+}
+
 export interface NodeContext {
     rootUrn: string;
     nodes: Map<Urn, LineageEntity>;
+    edges: Map<Urn, Map<Urn, LineageEdge>>; // Edges in direction root -> child
     nodeVersion: number;
     setNodeVersion: Dispatch<SetStateAction<number>>;
     dataVersion: number;
@@ -119,6 +134,7 @@ export interface NodeContext {
 export const LineageNodesContext = React.createContext<NodeContext>({
     rootUrn: '',
     nodes: new Map(),
+    edges: new Map(),
     nodeVersion: 0,
     setNodeVersion: () => {},
     dataVersion: 0,
@@ -178,19 +194,6 @@ export const LineageDisplayContext = React.createContext<DisplayContext>({
     numNodes: 0,
 });
 
-export function getNonTransformationalParents(
-    directParent: Urn,
-    nodes: NodeContext['nodes'],
-    rootUrn: NodeContext['rootUrn'],
-): Urn[] {
-    const node = nodes.get(directParent);
-
-    if (directParent === rootUrn || !node || !isTransformational(node)) {
-        return [directParent];
-    }
-    return [...node.nonTransformationalParents].map((p) => getNonTransformationalParents(p, nodes, rootUrn)).flat();
-}
-
 interface SetDefaultArguments {
     nodes: Map<string, LineageEntity>;
     urn: Urn;
@@ -209,7 +212,6 @@ export function setNodeDefault({ nodes, urn, direction, maxDepth, ...rest }: Set
         direction, // TODO: Handle a node that is both upstream and downstream?
         paths: [],
         parents: new Set<Urn>(),
-        nonTransformationalParents: new Set<Urn>(),
         fetchStatus: {
             [direction]: maxDepth ? FetchStatus.COMPLETE : FetchStatus.UNFETCHED,
             [otherDirection]: FetchStatus.UNNEEDED,

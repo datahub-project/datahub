@@ -4,9 +4,11 @@ import { EntityType, LineageDirection } from '../../types.generated';
 import {
     isTransformational,
     LINEAGE_FILTER_TYPE,
+    LineageEdge,
     LineageEntity,
     LineageFilter,
     LineageNode,
+    NodeContext,
     setDefault,
 } from './common';
 import { LINEAGE_TABLE_EDGE_NAME } from './LineageEdge/LineageTableEdge';
@@ -27,7 +29,7 @@ const MINI_Y_SEP = MAIN_Y_SEP / 2;
 export type NodeWithMetadata = Node<LineageEntity | LineageFilter> & {
     layer?: number;
 };
-type BaseEdge = Pick<Edge, 'source' | 'target' | 'markerEnd'>;
+type BaseEdge<T> = Pick<Edge<T>, 'source' | 'target' | 'markerEnd' | 'data'>;
 
 type Layer = string; // [main (entity) layer, mini (transformation) layer]
 const defaultLayer = '0.0';
@@ -119,18 +121,25 @@ export default class NodeBuilder {
         return nodes;
     }
 
-    createEdges(): Edge[] {
-        const baseEdges: BaseEdge[] = [];
+    createEdges(allEdges: NodeContext['edges']): Edge[] {
+        const baseEdges: BaseEdge<LineageEdge>[] = [];
         [...this.entities, ...this.transformations, ...this.workbooks].forEach((node) => {
             node.parents.forEach((parent) => {
+                if (!this.nodeInformation[parent]) return;
                 if (node.direction === LineageDirection.Upstream) {
                     baseEdges.push({
                         source: node.urn,
                         target: parent,
                         markerEnd: this.#getMarker(this.nodeInformation[parent]),
+                        data: allEdges.get(parent)?.get(node.urn),
                     });
                 } else {
-                    baseEdges.push({ source: parent, target: node.urn, markerEnd: this.#getMarker(node) });
+                    baseEdges.push({
+                        source: parent,
+                        target: node.urn,
+                        markerEnd: this.#getMarker(node),
+                        data: allEdges.get(parent)?.get(node.urn),
+                    });
                 }
             });
         });
@@ -192,7 +201,7 @@ export default class NodeBuilder {
 
             // Transformational nodes for which this node is a positional child
             const transformationalParents = Array.from(node.parents).filter((p) => {
-                const { main, mini } = parseLayer(this.nodeInformation[p].layer);
+                const { main, mini } = parseLayer(this.nodeInformation[p]?.layer);
                 return main + factor === mainLayer && mini > 0;
             });
 
@@ -389,7 +398,7 @@ export function createEdgeId(source: string, target: string): string {
     return `${source}-${target}`;
 }
 
-function createEdge(edge: BaseEdge): Edge {
+function createEdge<T>(edge: BaseEdge<T>): Edge {
     return {
         ...edge,
         id: createEdgeId(edge.source, edge.target),

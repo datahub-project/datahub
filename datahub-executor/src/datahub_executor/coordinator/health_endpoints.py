@@ -1,9 +1,9 @@
 from typing import Dict
 
-import datahub.telemetry.telemetry  # noqa: F401
 import fastapi
 
-from datahub_executor.coordinator.helpers import manager
+import datahub_executor.coordinator.helpers
+import datahub.telemetry.telemetry  # noqa: F401
 
 health_router = fastapi.APIRouter(
     dependencies=[
@@ -15,6 +15,13 @@ health_router = fastapi.APIRouter(
 @health_router.get("/health")
 def health() -> Dict:
     """Determines whether the service is healthy. In the future, we'll introduce additional logic here."""
-    if manager is not None:
-        return {"healthy": True}
-    return {"healthy": False}
+
+    manager = datahub_executor.coordinator.helpers.manager
+    ok = manager.alive() if manager is not None else False
+    if not ok:
+        raise fastapi.HTTPException(
+            status_code=500,
+            detail="Manager is not healthy"
+        )
+
+    return {"healthy": ok}

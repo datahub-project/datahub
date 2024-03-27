@@ -1,13 +1,31 @@
-import { DeleteOutlined, EditOutlined } from '@ant-design/icons';
-import { Button, Dropdown, Modal, message } from 'antd';
+import { EditOutlined, CloseOutlined } from '@ant-design/icons';
+import { Button, Modal, message } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 import { DataProduct, EntityType } from '../../../../types.generated';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { PreviewType } from '../../Entity';
 import EditDataProductModal from './EditDataProductModal';
-import { MenuIcon } from '../../shared/EntityDropdown/EntityMenuActions';
 import { useDeleteDataProductMutation } from '../../../../graphql/dataProduct.generated';
+import { REDESIGN_COLORS } from '../../shared/constants';
+
+const TransparentButton = styled(Button)`
+    color: ${REDESIGN_COLORS.TITLE_PURPLE};
+    font-size: 12px;
+    box-shadow: none;
+    border: none;
+    padding: 0px 10px;
+    position: absolute;
+    top: 3px;
+    right: 80px;
+    display: none;
+
+    &:hover {
+        transition: 0.15s;
+        opacity: 0.9;
+        color: ${REDESIGN_COLORS.TITLE_PURPLE};
+    }
+`;
 
 const ResultWrapper = styled.div`
     background-color: white;
@@ -17,6 +35,10 @@ const ResultWrapper = styled.div`
     padding: 8px 16px;
     display: flex;
     width: 100%;
+
+    &:hover ${TransparentButton} {
+        display: inline-block;
+    }
 `;
 
 const StyledButton = styled(Button)`
@@ -36,20 +58,13 @@ const StyledButton = styled(Button)`
 const ButtonsWrapper = styled.div`
     margin-left: 16px;
     display: flex;
-`;
-
-const StyledMenuIcon = styled(MenuIcon)`
-    margin-left: 8px;
-    height: 18px;
-    width: 18px;
+    position: relative;
 `;
 
 const PreviewWrapper = styled.div`
     max-width: 94%;
     flex: 1;
 `;
-
-const MenuItem = styled.div``;
 
 interface Props {
     dataProduct: DataProduct;
@@ -81,23 +96,12 @@ export default function DataProductResult({ dataProduct, onUpdateDataProduct, se
             onOk() {
                 deleteDataProduct();
             },
-            onCancel() {},
+            onCancel() { },
             okText: 'Yes',
             maskClosable: true,
             closable: true,
         });
     }
-
-    const items = [
-        {
-            key: '0',
-            label: (
-                <MenuItem onClick={onRemove}>
-                    <DeleteOutlined /> &nbsp;Delete
-                </MenuItem>
-            ),
-        },
-    ];
 
     return (
         <>
@@ -107,9 +111,9 @@ export default function DataProductResult({ dataProduct, onUpdateDataProduct, se
                 </PreviewWrapper>
                 <ButtonsWrapper>
                     <StyledButton icon={<EditOutlined />} onClick={() => setIsEditModalVisible(true)} />
-                    <Dropdown menu={{ items }} trigger={['click']}>
-                        <StyledMenuIcon />
-                    </Dropdown>
+                    <TransparentButton size="small" onClick={onRemove}>
+                        <CloseOutlined size={5} /> Remove Term
+                    </TransparentButton>
                 </ButtonsWrapper>
             </ResultWrapper>
             {isEditModalVisible && (

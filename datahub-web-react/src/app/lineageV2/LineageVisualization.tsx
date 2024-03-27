@@ -70,7 +70,8 @@ function LineageVisualization({ initialNodes, initialEdges }: Props) {
         <StyledReactFlow
             defaultNodes={initialNodes}
             defaultEdges={initialEdges}
-            onPaneClick={() => setSelectedColumn(null)}
+            // Selection change event does not get emitted without timeout
+            onPaneClick={() => setTimeout(() => setSelectedColumn(null), 0)}
             nodeTypes={nodeTypes}
             edgeTypes={edgeTypes}
             proOptions={{ hideAttribution: true }}

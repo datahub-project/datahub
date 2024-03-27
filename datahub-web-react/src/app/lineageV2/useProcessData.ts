@@ -41,7 +41,8 @@ interface ProcessedData {
 }
 
 export default function useProcessData(urn: string, type: EntityType): ProcessedData {
-    const { nodes, nodeVersion, dataVersion, displayVersion } = useContext(LineageNodesContext);
+    const { nodes, edges, nodeVersion, dataVersion, displayVersion } = useContext(LineageNodesContext);
+    const displayVersionNumber = displayVersion[0];
 
     const fineGrainedLineage = useMemo(
         () => getFineGrainedLineage(nodes),
@@ -54,9 +55,9 @@ export default function useProcessData(urn: string, type: EntityType): Processed
             const neighborMaps = getNeighborMaps(nodes);
             const filteredNodes = filterNodes(urn, nodes, neighborMaps);
             const nodeBuilder = new NodeBuilder(urn, type, filteredNodes);
-            return [nodeBuilder.createNodes(), nodeBuilder.createEdges(), neighborMaps];
+            return [nodeBuilder.createNodes(), nodeBuilder.createEdges(edges), neighborMaps];
         }, // eslint-disable-next-line react-hooks/exhaustive-deps
-        [nodes, nodeVersion, displayVersion],
+        [nodes, edges, nodeVersion, displayVersionNumber],
     );
 
     return { flowNodes, flowEdges, fineGrainedLineage, neighborData };
@@ -153,7 +154,6 @@ function applyFilters(
             type: LINEAGE_FILTER_TYPE,
             parent: urn,
             parents: new Set([urn]),
-            nonTransformationalParents: new Set([urn]),
             direction,
             limit,
             contents: Array.from(childrenToFilter),

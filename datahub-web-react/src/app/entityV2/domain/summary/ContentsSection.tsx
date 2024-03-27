@@ -16,7 +16,7 @@ import { pluralize } from '../../../shared/textUtil';
 import { Container, SummaryTabHeaderTitle, SummaryTabHeaderWrapper } from '../../shared/summary/HeaderComponents';
 import { getContentTypeIcon } from '../../shared/summary/IconComponents';
 import { ANTD_GRAY } from '../../shared/constants';
-import { Carousel } from '../../../shared/carousel/Carousel';
+import { Carousel } from '../../../sharedV2/carousel/Carousel';
 
 const ViewAllButton = styled.div`
     color: ${ANTD_GRAY[7]};

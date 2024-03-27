@@ -3,12 +3,10 @@ import { useReactFlow } from 'reactflow';
 
 import { ColumnRef, LineageDisplayContext, LineageNodesContext } from './common';
 import LineageSidebar from './LineageSidebar';
-import FetchNode from './LineageTransformationNode/FetchNode';
 import LineageVisualization from './LineageVisualization';
 import useColumnHighlighting from './useColumnHighlighting';
-import useGetUnfetchedTransformationalNodes from './useGetUnfetchedTransformationalNodes';
 import useProcessData from './useProcessData';
-import { EntityType, LineageDirection } from '../../types.generated';
+import { EntityType } from '../../types.generated';
 import useBulkEntityLineage from './useBulkEntityLineage';
 import { LINEAGE_FILTER_NODE_NAME } from './LineageFilterNode/LineageFilterNode';
 import useNodeHighlighting from './useNodeHighlighting';
@@ -32,9 +30,7 @@ export default function LineageDisplay({ urn, type, loaded }: Props) {
         () => flowNodes.filter((node) => node.type !== LINEAGE_FILTER_NODE_NAME).map((node) => node.id),
         [flowNodes],
     );
-    useBulkEntityLineage(shownUrns, LineageDirection.Upstream);
-    useBulkEntityLineage(shownUrns, LineageDirection.Downstream);
-    useBulkEntityLineage(shownUrns, null);
+    useBulkEntityLineage(shownUrns);
     useLineageNodePreview(shownUrns);
 
     const { highlightedNodes, highlightedEdges } = useNodeHighlighting(hoveredNode, neighborData);
@@ -75,9 +71,6 @@ export default function LineageDisplay({ urn, type, loaded }: Props) {
 
     useFitView(loaded);
 
-    //  TODO: (SAL) Remove once search-across-lineage properly implemented
-    const nodesToFetch = useGetUnfetchedTransformationalNodes();
-
     return (
         <LineageDisplayContext.Provider
             value={{
@@ -98,9 +91,6 @@ export default function LineageDisplay({ urn, type, loaded }: Props) {
         >
             <LineageVisualization initialNodes={flowNodes} initialEdges={flowEdges} />
             <LineageSidebar />
-            {nodesToFetch.map((node) => (
-                <FetchNode key={node.urn} {...node} />
-            ))}
         </LineageDisplayContext.Provider>
     );
 }
