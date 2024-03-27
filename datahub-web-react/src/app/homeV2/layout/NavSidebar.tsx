@@ -1,9 +1,8 @@
 import React from 'react';
 import styled from 'styled-components';
 import { Link } from 'react-router-dom';
-import { REDESIGN_COLORS } from '../../entityV2/shared/constants';
 import { NavLinks } from './NavLinks';
-import AcrylIcon from '../../../images/datahub-logo-light.svg?react';
+import AcrylIcon from '../../../images/acryl-light-mark.svg?react';
 
 const Container = styled.div`
     height: 100vh;
@@ -15,15 +14,28 @@ const Content = styled.div`
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: space-between;
-    background-color: ${REDESIGN_COLORS.TITLE_PURPLE};
-    border-radius: 24px;
+    background-color: #3B2D94;
+    border-radius: 32px;
     height: 100%;
-    width: 46px;
+    width: 52px;
 `;
 
 const Icon = styled.div`
-    margin-top: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-top: 3px;
+    width: 44px;
+    height: 44px;
+    border-radius: 38px;
+    border: 1px solid #32267D;
+    background: #4C39BE;
+    box-shadow: 0px 4px 4px 0px rgba(0, 0, 0, 0.25);
+    margin-bottom: 10px;
+
+    & svg {
+        height: 22px;
+    }
 `;
 
 export const NavSidebar = () => {
