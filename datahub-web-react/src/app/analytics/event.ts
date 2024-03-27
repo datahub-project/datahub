@@ -7,6 +7,7 @@ import {
     ScenarioType,
 } from '../../types.generated';
 import { EmbedLookupNotFoundReason } from '../embed/lookup/constants';
+import { PersonaType } from '../homeV2/shared/types';
 import { Direction } from '../lineage/types';
 import { FilterMode } from '../search/utils/constants';
 import { ActorType } from '../settings/personal/notifications/constants';
@@ -130,6 +131,7 @@ interface BaseEvent {
     userAgent?: string;
     browserId?: string;
     isThemeV2Enabled?: boolean;
+    userPersona?: PersonaType;
 }
 
 /**

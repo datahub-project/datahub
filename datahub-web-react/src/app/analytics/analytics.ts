@@ -2,6 +2,7 @@ import Analytics, { PageData } from 'analytics';
 import Cookies from 'js-cookie';
 import { CLIENT_AUTH_COOKIE } from '../../conf/Global';
 import { getBrowserId } from '../browserId';
+import { loadUserPersonaFromLocalStorage } from '../homeV2/persona/useUserPersona';
 import { loadThemeV2FromLocalStorage } from '../useIsThemeV2Enabled';
 import { Event, EventType } from './event';
 import plugins from './plugin';
@@ -32,6 +33,7 @@ export function getMergedTrackingOptions(options?: any) {
 export default {
     page: (data?: PageData, options?: any, callback?: (...params: any[]) => any) => {
         const isThemeV2Enabled = loadThemeV2FromLocalStorage();
+        const userPersona = isThemeV2Enabled ? loadUserPersonaFromLocalStorage() : undefined;
         const actorUrn = Cookies.get(CLIENT_AUTH_COOKIE) || undefined;
         const modifiedData = {
             ...data,
@@ -43,6 +45,7 @@ export default {
             browserId: getBrowserId(),
             origin: window.location.origin,
             isThemeV2Enabled,
+            userPersona: userPersona ?? undefined,
         };
         if (NODE_ENV === 'test' || !actorUrn) {
             return null;
@@ -52,6 +55,7 @@ export default {
     },
     event: (event: Event, options?: any, callback?: (...params: any[]) => any): Promise<any> => {
         const isThemeV2Enabled = loadThemeV2FromLocalStorage();
+        const userPersona = isThemeV2Enabled ? loadUserPersonaFromLocalStorage() : undefined;
         const eventTypeName = EventType[event.type];
         const modifiedEvent = {
             ...event,
@@ -63,6 +67,7 @@ export default {
             browserId: getBrowserId(),
             origin: window.location.origin,
             isThemeV2Enabled,
+            userPersona: userPersona ?? undefined,
         };
         if (NODE_ENV === 'test') {
             return Promise.resolve();
