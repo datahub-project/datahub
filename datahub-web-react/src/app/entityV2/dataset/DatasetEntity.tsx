@@ -29,6 +29,7 @@ import DataProductSection from '../shared/containers/profile/sidebar/DataProduct
 import SidebarDatasetHeaderSection from '../shared/containers/profile/sidebar/Dataset/Header/SidebarDatasetHeaderSection';
 import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domain/SidebarDomainSection';
 import SidebarLineageSection from '../shared/containers/profile/sidebar/Lineage/SidebarLineageSection';
+import { SidebarDatasetViewDefinitionSection } from '../shared/containers/profile/sidebar/SidebarLogicSection';
 import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
 import { SidebarCompactSchemaSection } from '../shared/containers/profile/sidebar/SidebarCompactSchemaSection';
 import { SidebarGlossaryTermsSection } from '../shared/containers/profile/sidebar/SidebarGlossaryTermsSection';
@@ -253,6 +254,9 @@ export class DatasetEntity implements Entity<Dataset> {
             component: SidebarAboutSection,
         },
         {
+            component: SidebarDatasetViewDefinitionSection,
+        },
+        {
             component: SidebarLineageSection,
         },
         {
@@ -279,8 +283,7 @@ export class DatasetEntity implements Entity<Dataset> {
                 visible: (_, contextType) =>
                     contextType === TabContextType.SEARCH_SIDEBAR || contextType === TabContextType.LINEAGE_SIDEBAR,
             },
-        },
-        // TODO: Add back once entity-level recommendations are complete.
+        }, // TODO: Add back once entity-level recommendations are complete.
         // {
         //    component: SidebarRecommendationsSection,
         // },

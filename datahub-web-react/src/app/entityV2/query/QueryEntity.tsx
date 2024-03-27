@@ -7,7 +7,6 @@ import { getDataForEntityType } from '../shared/containers/profile/utils';
 import { EntityProfile } from '../shared/containers/profile/EntityProfile';
 import { useGetQueryQuery } from '../../../graphql/query.generated';
 import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab';
-import SidebarQueryLogicSection from '../shared/containers/profile/sidebar/Query/SidebarQueryLogicSection';
 import SidebarQueryUpdatedAtSection from '../shared/containers/profile/sidebar/Query/SidebarQueryUpdatedAtSection';
 import SidebarQueryDescriptionSection from '../shared/containers/profile/sidebar/Query/SidebarQueryDescriptionSection';
 import { TYPE_ICON_CLASS_NAME } from '../shared/components/subtypes';
@@ -17,6 +16,7 @@ import {
 } from '../shared/containers/profile/sidebar/Query/SidebarQueryInputsOutputsSections';
 import SidebarOperationSection from '../shared/containers/profile/sidebar/Query/SidebarOperationSection';
 import SidebarQueryDefinitionSection from '../shared/containers/profile/sidebar/Query/SidebarQueryDefinitionSection';
+import { SidebarQueryLogicSection } from '../shared/containers/profile/sidebar/SidebarLogicSection';
 
 /**
  * Definition of the DataHub DataPlatformInstance entity.
