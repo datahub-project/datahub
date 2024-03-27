@@ -100,6 +100,8 @@ public class RestHighLevelClientFactory {
                 .setSSLContext(sslContext)
                 .setSSLHostnameVerifier(new NoopHostnameVerifier());
           }
+          // System properties like http.proxyHost, https.proxyHost or http.nonProxyHosts will be taken into account.
+          httpAsyncClientBuilder.useSystemProperties();
           try {
             httpAsyncClientBuilder.setConnectionManager(createConnectionManager());
           } catch (IOReactorException e) {
