@@ -105,6 +105,17 @@
 },
 {
     "entityType": "query",
+    "entityUrn": "urn:li:query:fc48287a96588c73bcbdc1400f0c036b8d81196135618fb09a097459d54bd970",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:redshift"
+        }
+    }
+},
+{
+    "entityType": "query",
     "entityUrn": "urn:li:query:02e2ec36678bea2a8c4c855fed5255d087cfeb2710d326e95fd9b48a9c4fc0ae",
     "changeType": "UPSERT",
     "aspectName": "queryProperties",
@@ -141,6 +152,17 @@
                     "entity": "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.bar,PROD)"
                 }
             ]
+        }
+    }
+},
+{
+    "entityType": "query",
+    "entityUrn": "urn:li:query:02e2ec36678bea2a8c4c855fed5255d087cfeb2710d326e95fd9b48a9c4fc0ae",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:redshift"
         }
     }
 }

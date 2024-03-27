@@ -995,6 +995,9 @@ class SqlParsingAggregator(Closeable):
                             )
                         ]
                     ),
+                    models.DataPlatformInstanceClass(
+                        platform=self.platform.urn(),
+                    ),
                 ],
             )
 

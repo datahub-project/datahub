@@ -849,4 +849,9 @@ public class DgraphGraphServiceTest extends GraphServiceTestBaseNoVia {
     super.testFindRelatedEntitiesSourceType(
         datasetType, relationshipTypes, relationships, expectedRelatedEntities);
   }
+
+  @Override
+  public void testHighlyConnectedGraphWalk() throws Exception {
+    // TODO: explore limit not supported for DGraph
+  }
 }
