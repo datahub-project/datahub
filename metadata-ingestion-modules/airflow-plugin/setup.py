@@ -107,9 +107,9 @@ integration_test_requirements = {
 }
 per_version_test_requirements = {
     "test-airflow24": {
-        # We want to respect some Airflow constraints (e.g. urllib3), but not all (e.g. black).
-        # https://stackoverflow.com/questions/76175487/sudden-importerror-cannot-import-name-appengine-from-requests-packages-urlli
-        "urllib3==1.26.12",
+        "pluggy==1.0.0",
+        "pendulum<3.0",
+        "Flask-Session<0.6.0",
     },
 }
 
