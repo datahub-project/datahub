@@ -5,7 +5,7 @@ import { useGetPlatforms } from './useGetPlatforms';
 import { useUserContext } from '../../../../../../context/useUserContext';
 import { HOME_PAGE_PLATFORMS_ID } from '../../../../../../onboarding/config/HomePageOnboardingConfig';
 import { useUpdateEducationStepsAllowList } from '../../../../../../onboarding/useUpdateEducationStepsAllowList';
-import { Carousel } from '../../../../../../shared/carousel/Carousel';
+import { Carousel } from '../../../../../../sharedV2/carousel/Carousel';
 
 export const Platforms = () => {
     const { user } = useUserContext();

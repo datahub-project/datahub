@@ -2,7 +2,7 @@ import React from 'react';
 import styled from 'styled-components';
 import { Section } from '../Section';
 import { useInsightStatusContext } from './InsightStatusProvider';
-import { Carousel } from '../../../../../../shared/carousel/Carousel';
+import { Carousel } from '../../../../../../sharedV2/carousel/Carousel';
 
 const Container = styled.div<{ hide: boolean }>`
     ${(props) => props.hide && 'display: none;'}

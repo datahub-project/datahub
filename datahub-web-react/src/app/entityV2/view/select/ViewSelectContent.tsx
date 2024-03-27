@@ -3,7 +3,7 @@ import styled from 'styled-components';
 import AddOutlinedIcon from '@mui/icons-material/AddOutlined';
 import { ANTD_GRAY } from '../../shared/constants';
 import { ViewContainer, ViewContent, ViewDescription, ViewIcon, ViewLabel } from './styledComponents';
-import { Carousel } from '../../../shared/carousel/Carousel';
+import { Carousel } from '../../../sharedV2/carousel/Carousel';
 
 const StyledCarousel = styled(Carousel)`
     gap: 10px;

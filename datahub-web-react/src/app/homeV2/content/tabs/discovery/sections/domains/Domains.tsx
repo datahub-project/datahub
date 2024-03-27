@@ -7,7 +7,7 @@ import { useUserContext } from '../../../../../../context/useUserContext';
 import { PageRoutes } from '../../../../../../../conf/Global';
 import { HOME_PAGE_DOMAINS_ID } from '../../../../../../onboarding/config/HomePageOnboardingConfig';
 import { useUpdateEducationStepsAllowList } from '../../../../../../onboarding/useUpdateEducationStepsAllowList';
-import { Carousel } from '../../../../../../shared/carousel/Carousel';
+import { Carousel } from '../../../../../../sharedV2/carousel/Carousel';
 
 export const Domains = () => {
     const history = useHistory();
