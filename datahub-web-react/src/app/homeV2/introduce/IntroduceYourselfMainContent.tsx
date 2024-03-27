@@ -2,48 +2,57 @@ import React, { useState } from 'react';
 import { Button, Select, message } from 'antd';
 import { useHistory } from 'react-router';
 import styled from 'styled-components';
+import { orderBy } from 'lodash';
+import CheckIcon from '@mui/icons-material/Check';
+import AccountCircleOutlinedIcon from '@mui/icons-material/AccountCircleOutlined';
+import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined';
+import KeyboardArrowDownOutlinedIcon from '@mui/icons-material/KeyboardArrowDownOutlined';
 import { useListRecommendationsQuery } from '../../../graphql/recommendations.generated';
 import { DataPlatform, ScenarioType } from '../../../types.generated';
 import { useUserContext } from '../../context/useUserContext';
-import { capitalizeFirstLetter } from '../../shared/textUtil';
 import { PLATFORMS_MODULE_ID } from '../content/tabs/discovery/sections/platform/useGetPlatforms';
 import { ROLE_TO_PERSONA_TYPE } from '../shared/types';
 import { useUpdateCorpUserPropertiesMutation } from '../../../graphql/user.generated';
 import { useGetDataPlatforms } from '../content/tabs/discovery/sections/platform/useGetDataPlatforms';
 import analytics, { EventType } from '../../analytics';
 import PlatformIcon from '../../sharedV2/icons/PlatformIcon';
+import Loading from '../../shared/Loading';
 
 const Container = styled.div`
     flex: 1;
-    padding-left: 52px;
-    padding-right: 52px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 52px;
 `;
 
 const Content = styled.div`
-    align-items: center;
-    text-align: center;
     background-color: #ffffff;
-    padding: 12px 20px 12px 20px;
-    min-height: 100%;
-    display: flex;
-    flex-direction: column;
+    padding: 20px;
 
     .ant-select-selection-item {
         align-items: center;
         gap: 4px;
         height: 42px !important;
     }
+
+    .ant-select-selection-overflow-item-rest {
+        .ant-select-selection-item {
+            background-color: #fff !important;
+            border: none  !important;
+            padding: 0 0 0 5px !important;
+            height: auto !important;
+            font-size: 12px;
+            line-height: 20px;
+        }
+    }
 `;
 
 const Title = styled.div`
     color: #1f202a;
     text-align: center;
-    font-family: Mulish;
-    font-size: 35px;
-    font-style: normal;
-    font-weight: 700;
+    font: 700 35px Mulish;
     line-height: 44px;
-    margin-top: 147px;
     margin-bottom: 3px;
 `;
 
@@ -51,17 +60,14 @@ const Subtitle = styled.div`
     color: #1f202a;
     width: 268px;
     text-align: center;
-    font-family: Mulish;
-    font-size: 13px;
-    font-style: normal;
-    font-weight: 400;
+    font: 400 13px Mulish;
     line-height: 21px;
     opacity: 0.6;
-    margin-bottom: 62px;
+    margin-bottom: 28px;
 `;
 
 const DoneButton = styled(Button)`
-    width: 352px;
+    width: 290px;
     height: 45px;
     flex-shrink: 0;
     background-color: #3f54d1;
@@ -69,12 +75,117 @@ const DoneButton = styled(Button)`
     margin-top: 12px;
 `;
 
+const PsuedoCheckBox = styled.div<{ checked?: boolean }>`
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 12px;
+    height: 12px;
+    border-radius: 4px;
+    border: 1px solid #CFD1DA;
+    background: #fff;
+    color: #fff;
+
+    ${(props) => props.checked && `
+        background: #533fd1;
+        border: none;
+    `}
+
+    & svg {
+        width: 10px;
+        height: 10px;
+    }
+`;
+
+const SelectWrapper = styled.div`
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    position: relative;
+
+    & + & {
+        margin-top: 12px;
+    }
+
+    & svg {
+        position: absolute;
+        left: 10px;
+        z-index: 99;
+        fill: #a9adbd;
+    }
+
+    .ant-select-arrow {
+        & svg {
+            position: relative;
+            margin-right: 5px;
+        }
+    }
+
+    .ant-select-selection-item,
+    .ant-select-selection-placeholder,
+    .ant-select-selection-search {
+        padding-left: 30px !important;
+    }
+
+    .ant-select-selection-overflow {
+        padding-left: 36px !important;
+        
+        .ant-select-selection-search {
+            padding-left: 0px !important;
+        }
+    }
+`;
+
+const SelectGrid = styled.div`
+    .rc-virtual-list-holder-inner {
+        max-width: 290px;
+        display: grid !important;
+        grid-template-columns: repeat(4, 1fr);
+        grid-gap: 10px;
+        padding: 10px;
+    }
+
+    .ant-select-item {
+        padding: 0;
+        margin: 0;
+
+        &:hover,
+        &:focus,
+        &:active {
+            background-color: #fff !important;
+        }
+    }
+
+    .ant-select-item-option-active:not(.ant-select-item-option-disabled) {
+        background-color: #fff !important;
+    }
+
+    .ant-select-item-option-content {
+        display: flex;
+        justify-content: center;
+        background-color: #fff !important;
+
+        &:hover,
+        &:focus,
+        &:active {
+            background-color: #fff !important;
+        }
+    }
+`;
+
 const SelectOption = styled.div`
     display: flex;
-    gap: 8px;
-    padding: 4px 0px;
-    align-items: center;
-    font-weight: normal;
+    position: relative;
+    overflow: hidden;
+    width: 40px;
+    height: 40px;
+`;
+
+const SelectTag = styled.div`
+    margin-right: 4px;
 `;
 
 // const RoleCard = styled.div`
@@ -125,26 +236,18 @@ const SelectOption = styled.div`
 // TODO: Make section ordering dynamic based on populated data.
 export const IntroduceYourselfMainContent = () => {
     const { user, refetchUser } = useUserContext();
-    const [selectedPersona, setSelectedPersona] = useState('');
-    const [selectedPlatforms, setSelectedPlatforms] = useState([]);
-    const [selectedTitle, setSelectedTitle] = useState('');
     const defaultDataPlatforms = useGetDataPlatforms();
     const [updateCorpUserMutation, { loading }] = useUpdateCorpUserPropertiesMutation();
-
-    const handlePersonaChange = (value: string) => {
-        setSelectedPersona(ROLE_TO_PERSONA_TYPE[value]);
-        setSelectedTitle(value);
-    };
-
-    const handlePlatformsChange = (value: any) => {
-        setSelectedPlatforms(value);
-    };
 
     const history = useHistory();
     const authenticatedUser = useUserContext();
     const currentUserUrn = authenticatedUser?.user?.urn || '';
 
-    const { data } = useListRecommendationsQuery({
+    const [selectedPersona, setSelectedPersona] = useState('');
+    const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>([]);
+    const [selectedTitle, setSelectedTitle] = useState('');
+
+    const { data, loading: reccosLoading } = useListRecommendationsQuery({
         variables: {
             input: {
                 userUrn: currentUserUrn as string,
@@ -176,6 +279,11 @@ export const IntroduceYourselfMainContent = () => {
 
     const platforms = getPlatformList();
 
+    const handlePersonaChange = (value: string) => {
+        setSelectedPersona(ROLE_TO_PERSONA_TYPE[value]);
+        setSelectedTitle(value);
+    };
+
     const onSubmitDetails = () => {
         updateCorpUserMutation({
             variables: {
@@ -202,39 +310,108 @@ export const IntroduceYourselfMainContent = () => {
             });
     };
 
+    const hasPersona = !!selectedPersona;
+    const hasPlatforms = selectedPlatforms.length > 0;
+    const canSubmit = hasPersona && hasPlatforms;
+
+    const selectStyles = {
+        width: 290,
+        borderRadius: '8px',
+        borderColor: '#5F6685',
+        color: '#81879f',
+    }
+
+    // Sort Roles Alphabetically
+    const sortedRoles = orderBy(Object.keys(ROLE_TO_PERSONA_TYPE), (role) => role);
+
+    // Move 'Other' to the end of the list
+    const updatedRoles = sortedRoles.filter((role) => role !== 'Other');
+    updatedRoles.push('Other');
+
+    // Get window height 
+    const windowHeight = window.innerHeight;
+    const smallWindow = windowHeight <= 719;
+
+    // Show loading state
+    const isLoading = loading && reccosLoading;
+    if (isLoading) return <Loading />;
+
     return (
         <Container>
             <Content>
                 <Title>Before we begin</Title>
                 <Subtitle>Tell us more about yourself, so we can personalize your experience</Subtitle>
-                <Select
-                    placeholder="Your Role"
+                <SelectWrapper>
+                    <AccountCircleOutlinedIcon />
+                    <Select
+                        placeholder="Select your Role"
+                        suffixIcon={<KeyboardArrowDownOutlinedIcon />}
+                        size="large"
+                        style={selectStyles}
+                        onChange={handlePersonaChange}
+                        options={updatedRoles.map((key) => ({
+                            value: key,
+                            label: key,
+                        }))}
+                        showSearch
+                        autoFocus
+                    />
+                </SelectWrapper>
+                <SelectWrapper>
+                    <SettingsOutlinedIcon />
+                    <Select
+                        placeholder="Tools you work with"
+                        size="large"
+                        style={selectStyles}
+                        onChange={(value) => setSelectedPlatforms(value)}
+                        options={platforms.map((platform) => {
+                            const { urn } = platform.platform;
+                            const isChecked = !!selectedPlatforms.includes(urn);
+                            return ({
+                                value: platform.platform.urn,
+                                label: (
+                                    <SelectOption>
+                                        <PsuedoCheckBox checked={isChecked}>
+                                            {isChecked && <CheckIcon />}
+                                        </PsuedoCheckBox>
+                                        <PlatformIcon
+                                            platform={platform.platform}
+                                            size={24}
+                                            styles={{ width: '40px', height: '40px' }}
+                                        />
+                                    </SelectOption>
+                                ),
+                            })
+                        })}
+                        dropdownRender={(menu) => <SelectGrid>{menu}</SelectGrid>}
+                        tagRender={(props: any) => {
+                            const { value } = props;
+                            const platform = platforms.find((p) => p.platform.urn === value);
+                            return (
+                                <SelectTag>
+                                    <PlatformIcon
+                                        platform={platform?.platform as DataPlatform}
+                                        size={14}
+                                    />
+                                </SelectTag>
+                            );
+                        }}
+                        mode="multiple"
+                        maxTagCount={5}
+                        maxTagPlaceholder={(values) => `${values.length}+`}
+                        virtual={false}
+                        listHeight={smallWindow ? 100 : 300}
+                        placement="bottomLeft"
+                        menuItemSelectedIcon
+                    />
+                </SelectWrapper>
+                <DoneButton
+                    type="primary"
                     size="large"
-                    style={{ width: 352 }}
-                    onChange={handlePersonaChange}
-                    options={Object.keys(ROLE_TO_PERSONA_TYPE).map((key) => ({
-                        value: key,
-                        label: key,
-                    }))}
-                />
-                <Select
-                    placeholder="Tools you work with"
-                    size="large"
-                    style={{ width: 352, marginTop: 12 }}
-                    onChange={handlePlatformsChange}
-                    options={platforms.map((platform) => ({
-                        value: platform.platform.urn,
-                        label: (
-                            <SelectOption>
-                                <PlatformIcon platform={platform.platform} size={17} />{' '}
-                                {capitalizeFirstLetter(platform.platform.name)}
-                            </SelectOption>
-                        ),
-                    }))}
-                    mode="multiple"
-                    menuItemSelectedIcon
-                />
-                <DoneButton type="primary" size="large" onClick={onSubmitDetails} loading={loading} disabled={!selectedPersona}>
+                    onClick={onSubmitDetails}
+                    loading={loading}
+                    disabled={!canSubmit}
+                >
                     Done
                 </DoneButton>
             </Content>
