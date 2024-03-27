@@ -6471,6 +6471,11 @@ type DataProcessRunEvent implements TimeSeriesAspect {
     The timestamp associated with the run event in milliseconds
     """
     timestampMillis: Long!
+
+    """
+    The duration of the run in milliseconds
+    """
+    durationMillis: Long
 }
 
 """
