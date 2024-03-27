@@ -1,17 +1,12 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import styled from 'styled-components/macro';
-import { useHistory } from 'react-router';
 import { Tooltip } from 'antd';
 import { ArrowDownOutlined, ArrowUpOutlined, PartitionOutlined } from '@ant-design/icons';
 import { useGetSearchAcrossLineageCountsQuery } from '../../../../../../../graphql/lineage.generated';
 import { useEntityData } from '../../../../EntityContext';
 import { SidebarSection } from '../SidebarSection';
-import {
-    getDirectDownstreamSummary,
-    getDirectUpstreamSummary,
-    getRelatedEntitySummary,
-    navigateToLineageGraph,
-} from './utils';
+import { getDirectDownstreamSummary, getDirectUpstreamSummary, getRelatedEntitySummary } from './utils';
 import SidebarLineageLoadingSection from './SidebarLineageLoadingSection';
 import { useEntityRegistry } from '../../../../../../useEntityRegistry';
 import { REDESIGN_COLORS } from '../../../../constants';
@@ -70,7 +65,6 @@ const StyledPartitionOutlined = styled(PartitionOutlined)`
 const SidebarLineageSection = () => {
     const { urn, entityType } = useEntityData();
     const entityRegistry = useEntityRegistry();
-    const history = useHistory();
     const { data, loading } = useGetSearchAcrossLineageCountsQuery({
         variables: {
             urn,
@@ -141,13 +135,12 @@ const SidebarLineageSection = () => {
                             placement="left"
                             showArrow={false}
                         >
-                            <StyledPartitionOutlined />
+                            <Link to={`${entityRegistry.getEntityUrl(entityType, urn)}/Lineage`}>
+                                <StyledPartitionOutlined />
+                            </Link>
                         </Tooltip>
                     }
-                    onClick={(event) => {
-                        navigateToLineageGraph(urn, entityType, history, entityRegistry);
-                        event.stopPropagation();
-                    }}
+                    onClick={(e) => e.stopPropagation()}
                 />
             }
         />

@@ -122,7 +122,3 @@ export const getRelatedEntitySummary = (
         </>
     );
 };
-
-export const navigateToLineageGraph = (urn, type, history, entityRegistry) => {
-    history.push(`${entityRegistry.getEntityUrl(type, urn)}/Lineage`);
-};

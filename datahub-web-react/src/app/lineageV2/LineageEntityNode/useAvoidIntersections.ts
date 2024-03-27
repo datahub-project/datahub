@@ -18,10 +18,11 @@ export function useAvoidIntersectionsOften(id: string, expandHeight: number) {
     const { getNode, getNodes, setNodes } = useReactFlow();
     const { nodeVersion, displayVersion } = useContext(LineageNodesContext);
 
+    const displayVersionNumber = displayVersion[0];
     useEffect(() => {
         const timeout = setTimeout(() => avoidIntersections({ id, expandHeight, getNode, getNodes, setNodes }), 0);
         return () => clearTimeout(timeout);
-    }, [id, expandHeight, getNode, getNodes, setNodes, nodeVersion, displayVersion]);
+    }, [id, expandHeight, getNode, getNodes, setNodes, nodeVersion, displayVersionNumber]);
 }
 
 type Arguments = { id: string; expandHeight: number } & Pick<

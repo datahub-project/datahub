@@ -5,6 +5,7 @@ import {
     FineGrainedLineage,
     Health,
     InputFields,
+    LineageRelationship,
     Maybe,
     SchemaFieldDataType,
     SchemaMetadata,
@@ -39,6 +40,8 @@ export interface DataProductAsset extends LineageAssetBase {
 
 export type LineageAsset = ColumnAsset | EntityAsset | DataProductAsset;
 
+export type FetchedEntityV2Relationship = LineageRelationship & { urn: string }; // Destination urn
+
 export interface FetchedEntityV2 {
     urn: string;
     name: string;
@@ -49,6 +52,8 @@ export interface FetchedEntityV2 {
     icon?: string;
     numUpstreamChildren?: number;
     numDownstreamChildren?: number;
+    upstreamRelationships?: FetchedEntityV2Relationship[];
+    downstreamRelationships?: FetchedEntityV2Relationship[];
     fullyFetched?: boolean;
     platform?: DataPlatform;
     status?: Maybe<Status>;
