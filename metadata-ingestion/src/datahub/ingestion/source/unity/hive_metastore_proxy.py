@@ -21,6 +21,7 @@ from datahub.ingestion.source.unity.proxy_types import (
     TableProfile,
     TableReference,
 )
+from datahub.ingestion.source.unity.report import UnityCatalogReport
 
 logger = logging.getLogger(__name__)
 HIVE_METASTORE = "hive_metastore"
@@ -66,9 +67,12 @@ class HiveMetastoreProxy(Closeable):
     as unity catalog apis do not return details about this legacy metastore.
     """
 
-    def __init__(self, sqlalchemy_url: str, options: dict) -> None:
+    def __init__(
+        self, sqlalchemy_url: str, options: dict, report: UnityCatalogReport
+    ) -> None:
         try:
             self.inspector = HiveMetastoreProxy.get_inspector(sqlalchemy_url, options)
+            self.report = report
         except Exception:
             # This means that there is no `hive_metastore` catalog in databricks workspace
             # Not tested but seems like the logical conclusion.
@@ -100,26 +104,19 @@ class HiveMetastoreProxy(Closeable):
             )
 
     def hive_metastore_tables(self, schema: Schema) -> Iterable[Table]:
+        # NOTE: Ideally, we use `inspector.get_view_names` and `inspector.get_table_names` here instead of
+        # making show queries in this class however Databricks dialect for databricks-sql-connector<3.0.0 does not
+        # back-quote schemas with special char such as hyphen.
+        # Currently, databricks-sql-connector is pinned to <3.0.0 due to requirement of SQLAlchemy > 2.0.21 for
+        # later versions.
         views = self.get_view_names(schema.name)
         for table_name in views:
-            try:
-                yield self._get_table(schema, table_name, True)
-            except Exception as e:
-                logger.debug(
-                    f"Failed to get table {schema.name}.{table_name} due to {e}",
-                    exc_info=True,
-                )
+            yield self._get_table(schema, table_name, True)
 
         for table_name in self.get_table_names(schema.name):
             if table_name in views:
                 continue
-            try:
-                yield self._get_table(schema, table_name, False)
-            except Exception as e:
-                logger.debug(
-                    f"Failed to get table {schema.name}.{table_name} due to {e}",
-                    exc_info=True,
-                )
+            yield self._get_table(schema, table_name, False)
 
     def get_table_names(self, schema_name: str) -> List[str]:
         try:
@@ -127,19 +124,24 @@ class HiveMetastoreProxy(Closeable):
             # 3 columns - database, tableName, isTemporary
             return [row.tableName for row in rows]
         except Exception as e:
-            logger.debug(
+            self.report.report_warning(
+                "Failed to get tables for schema", f"{HIVE_METASTORE}.{schema_name}"
+            )
+            logger.warning(
                 f"Failed to get tables {schema_name} due to {e}", exc_info=True
             )
         return []
 
     def get_view_names(self, schema_name: str) -> List[str]:
         try:
-
             rows = self._execute_sql(f"SHOW VIEWS FROM `{schema_name}`")
             # 3 columns - database, tableName, isTemporary
             return [row.tableName for row in rows]
         except Exception as e:
-            logger.debug(f"Failed to get views {schema_name} due to {e}", exc_info=True)
+            self.report.report_warning("Failed to get views for schema", schema_name)
+            logger.warning(
+                f"Failed to get views {schema_name} due to {e}", exc_info=True
+            )
         return []
 
     def _get_table(
@@ -148,7 +150,7 @@ class HiveMetastoreProxy(Closeable):
         table_name: str,
         is_view: bool = False,
     ) -> Table:
-        columns = self._get_columns(schema, table_name)
+        columns = self._get_columns(schema.name, table_name)
         detailed_info = self._get_table_info(schema.name, table_name)
 
         comment = detailed_info.pop("Comment", None)
@@ -183,19 +185,15 @@ class HiveMetastoreProxy(Closeable):
 
     def get_table_profile(
         self, ref: TableReference, include_column_stats: bool = False
-    ) -> TableProfile:
+    ) -> Optional[TableProfile]:
         columns = self._get_columns(
-            Schema(
-                id=ref.schema,
-                name=ref.schema,
-                # This is okay, as none of this is used in profiling
-                catalog=self.hive_metastore_catalog(None),
-                comment=None,
-                owner=None,
-            ),
+            ref.schema,
             ref.table,
         )
         detailed_info = self._get_table_info(ref.schema, ref.table)
+
+        if not columns and not detailed_info:
+            return None
 
         table_stats = (
             self._get_cached_table_statistics(detailed_info["Statistics"])
@@ -288,6 +286,10 @@ class HiveMetastoreProxy(Closeable):
             for row in rows:
                 return row[0]
         except Exception as e:
+            self.report.report_warning(
+                "Failed to get view definition for table",
+                f"{HIVE_METASTORE}.{schema_name}.{table_name}",
+            )
             logger.debug(
                 f"Failed to get view definition for {schema_name}.{table_name} due to {e}",
                 exc_info=True,
@@ -304,60 +306,81 @@ class HiveMetastoreProxy(Closeable):
         else:
             return HiveTableType.UNKNOWN
 
+    @lru_cache(maxsize=1)
     def _get_table_info(self, schema_name: str, table_name: str) -> dict:
-        rows = self._describe_extended(schema_name, table_name)
-
-        index = rows.index(("# Detailed Table Information", "", ""))
-        rows = rows[index + 1 :]
-        # Copied from https://github.com/acryldata/PyHive/blob/master/pyhive/sqlalchemy_hive.py#L375
         # Generate properties dictionary.
         properties = {}
-        active_heading = None
-        for col_name, data_type, value in rows:
-            col_name = col_name.rstrip()
-            if col_name.startswith("# "):
-                continue
-            elif col_name == "" and data_type is None:
-                active_heading = None
-                continue
-            elif col_name != "" and data_type is None:
-                active_heading = col_name
-            elif col_name != "" and data_type is not None:
-                properties[col_name] = data_type.strip()
-            else:
-                # col_name == "", data_type is not None
-                prop_name = "{} {}".format(active_heading, data_type.rstrip())
-                properties[prop_name] = value.rstrip()
 
+        try:
+            rows = self._describe_extended(schema_name, table_name)
+
+            index = rows.index(("# Detailed Table Information", "", ""))
+            rows = rows[index + 1 :]
+            # Copied from https://github.com/acryldata/PyHive/blob/master/pyhive/sqlalchemy_hive.py#L375
+
+            active_heading = None
+            for col_name, data_type, value in rows:
+                col_name = col_name.rstrip()
+                if col_name.startswith("# "):
+                    continue
+                elif col_name == "" and data_type is None:
+                    active_heading = None
+                    continue
+                elif col_name != "" and data_type is None:
+                    active_heading = col_name
+                elif col_name != "" and data_type is not None:
+                    properties[col_name] = data_type.strip()
+                else:
+                    # col_name == "", data_type is not None
+                    prop_name = "{} {}".format(active_heading, data_type.rstrip())
+                    properties[prop_name] = value.rstrip()
+        except Exception as e:
+            self.report.report_warning(
+                "Failed to get detailed info for table",
+                f"{HIVE_METASTORE}.{schema_name}.{table_name}",
+            )
+            logger.debug(
+                f"Failed to get detailed info for table {schema_name}.{table_name} due to {e}",
+                exc_info=True,
+            )
         return properties
 
-    def _get_columns(self, schema: Schema, table_name: str) -> List[Column]:
-        rows = self._describe_extended(schema.name, table_name)
-
+    @lru_cache(maxsize=1)
+    def _get_columns(self, schema_name: str, table_name: str) -> List[Column]:
         columns: List[Column] = []
-        for i, row in enumerate(rows):
-            if i == 0 and row[0].strip() == "col_name":
-                continue  # first row
-            if row[0].strip() in (
-                "",
-                "# Partition Information",
-                "# Detailed Table Information",
-            ):
-                break
-            columns.append(
-                Column(
-                    name=row[0].strip(),
-                    id=f"{schema.id}.{table_name}.{row[0].strip()}",
-                    type_text=row[1].strip(),
-                    type_name=type_map.get(row[1].strip().lower()),
-                    type_scale=None,
-                    type_precision=None,
-                    position=None,
-                    nullable=None,
-                    comment=row[2],
+        try:
+            rows = self._describe_extended(schema_name, table_name)
+            for i, row in enumerate(rows):
+                if i == 0 and row[0].strip() == "col_name":
+                    continue  # first row
+                if row[0].strip() in (
+                    "",
+                    "# Partition Information",
+                    "# Detailed Table Information",
+                ):
+                    break
+                columns.append(
+                    Column(
+                        name=row[0].strip(),
+                        id=f"{HIVE_METASTORE}.{schema_name}.{table_name}.{row[0].strip()}",
+                        type_text=row[1].strip(),
+                        type_name=type_map.get(row[1].strip().lower()),
+                        type_scale=None,
+                        type_precision=None,
+                        position=None,
+                        nullable=None,
+                        comment=row[2],
+                    )
                 )
+        except Exception as e:
+            self.report.report_warning(
+                "Failed to get columns for table",
+                f"{HIVE_METASTORE}.{schema_name}.{table_name}",
             )
-
+            logger.debug(
+                f"Failed to get columns for table {schema_name}.{table_name} due to {e}",
+                exc_info=True,
+            )
         return columns
 
     @lru_cache(maxsize=1)

@@ -111,12 +111,6 @@ class UnityCatalogProxyProfilingMixin:
                 )
             else:
                 return None
-        except Exception as e:
-            logger.debug(f"Failed to get table stats due to {e}", exc_info=True)
-            self.report.profile_table_errors.setdefault(
-                "miscellaneous errors", LossyList()
-            ).append((str(ref), str(e)))
-            return None
 
     def _should_retry_unsupported_column(
         self, ref: TableReference, e: DatabricksError
@@ -171,7 +165,7 @@ class UnityCatalogProxyProfilingMixin:
 
     def _get_table_profile(
         self, ref: TableReference, include_columns: bool
-    ) -> TableProfile:
+    ) -> Optional[TableProfile]:
         if self.hive_metastore_proxy and ref.catalog == HIVE_METASTORE:
             return self.hive_metastore_proxy.get_table_profile(ref, include_columns)
         table_info = self._workspace_client.tables.get(ref.qualified_table_name)

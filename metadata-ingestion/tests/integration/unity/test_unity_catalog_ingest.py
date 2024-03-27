@@ -371,6 +371,10 @@ def mock_hive_sql(query):
             ("Type", "VIEW", ""),
             ("Owner", "root", ""),
         ]
+    elif query == "DESCRIBE EXTENDED `bronze_kambi`.`delta_error_table`":
+        raise Exception(
+            "[DELTA_PATH_DOES_NOT_EXIST] doesn't exist, or is not a Delta table."
+        )
     elif query == "SHOW CREATE TABLE `bronze_kambi`.`view1`":
         return [
             (
@@ -380,6 +384,7 @@ def mock_hive_sql(query):
     elif query == "SHOW TABLES FROM `bronze_kambi`":
         return [
             TableEntry("bronze_kambi", "bet", False),
+            TableEntry("bronze_kambi", "delta_error_table", False),
             TableEntry("bronze_kambi", "view1", False),
         ]
     elif query == "SHOW VIEWS FROM `bronze_kambi`":
