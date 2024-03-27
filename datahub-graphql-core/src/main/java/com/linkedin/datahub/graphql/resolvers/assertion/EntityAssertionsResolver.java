@@ -26,15 +26,12 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 
 /** GraphQL Resolver used for fetching the list of Assertions associated with an Entity. */
+@Slf4j
 public class EntityAssertionsResolver
     implements DataFetcher<CompletableFuture<EntityAssertionsResult>> {
-
-  private static final Logger logger =
-      LoggerFactory.getLogger(EntityAssertionsResolver.class.getName());
 
   private static final String ASSERTS_RELATIONSHIP_NAME = "Asserts";
 
@@ -92,22 +89,7 @@ public class EntityAssertionsResolver
                 gmsResults.stream()
                     .filter(Objects::nonNull)
                     .map(r -> AssertionMapper.map(context, r))
-                    .filter(
-                        assertion -> {
-                          try {
-                            return _entityClient.exists(
-                                UrnUtils.getUrn(assertion.getUrn()),
-                                includeSoftDeleted,
-                                context.getAuthentication());
-                          } catch (RemoteInvocationException e) {
-                            logger.error(
-                                String.format(
-                                    "Unable to check if assertion %s exists, ignoring it",
-                                    assertion.getUrn()),
-                                e);
-                            return false;
-                          }
-                        })
+                    .filter(assertion -> assertionExists(assertion, includeSoftDeleted, context))
                     .collect(Collectors.toList());
 
             // Step 4: Package and return result
@@ -121,5 +103,18 @@ public class EntityAssertionsResolver
             throw new RuntimeException("Failed to retrieve Assertion Run Events from GMS", e);
           }
         });
+  }
+
+  private boolean assertionExists(
+      Assertion assertion, Boolean includeSoftDeleted, QueryContext context) {
+    try {
+      return _entityClient.exists(
+          UrnUtils.getUrn(assertion.getUrn()), includeSoftDeleted, context.getAuthentication());
+    } catch (RemoteInvocationException e) {
+      log.error(
+          String.format("Unable to check if assertion %s exists, ignoring it", assertion.getUrn()),
+          e);
+      return false;
+    }
   }
 }
