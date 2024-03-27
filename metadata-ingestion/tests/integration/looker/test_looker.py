@@ -11,6 +11,7 @@ from looker_sdk.rtl.transport import TransportOptions
 from looker_sdk.sdk.api40.models import (
     Dashboard,
     DashboardElement,
+    FolderBase,
     Look,
     LookmlModelExplore,
     LookmlModelExploreField,
@@ -20,7 +21,6 @@ from looker_sdk.sdk.api40.models import (
     Query,
     User,
     WriteQuery,
-    FolderBase
 )
 
 from datahub.ingestion.run.pipeline import Pipeline, PipelineInitError
