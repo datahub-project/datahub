@@ -58,7 +58,6 @@ class DataHubRestSinkReport(SinkReport):
 
 
 def _get_urn(record_envelope: RecordEnvelope) -> Optional[str]:
-    assert record_envelope is not None
     metadata = record_envelope.record
 
     if isinstance(metadata, MetadataChangeEvent):
