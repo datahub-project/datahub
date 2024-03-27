@@ -119,6 +119,11 @@ public class EntityAssertionsResolverTest {
                     .setUrn(assertionUrn)
                     .setAspects(new EnvelopedAspectMap(assertionAspects))));
 
+    Mockito.when(
+            mockClient.exists(
+                Mockito.any(Urn.class), Mockito.eq(false), Mockito.any(Authentication.class)))
+        .thenReturn(true);
+
     EntityAssertionsResolver resolver = new EntityAssertionsResolver(mockClient, graphClient);
 
     // Execute resolver
@@ -149,6 +154,9 @@ public class EntityAssertionsResolverTest {
 
     Mockito.verify(mockClient, Mockito.times(1))
         .batchGetV2(Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any());
+
+    Mockito.verify(mockClient, Mockito.times(1))
+        .exists(Mockito.any(), Mockito.any(), Mockito.any());
 
     // Assert that GraphQL assertion run event matches expectations
     assertEquals(result.getStart(), 0);
