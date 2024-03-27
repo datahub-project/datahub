@@ -13,6 +13,7 @@ x-datahub-integrations-service-dev: &datahub-integrations-service-dev
   image: ${DATAHUB_INTEGRATIONS_IMAGE:-${DATAHUB_REPO:-795586375822.dkr.ecr.us-west-2.amazonaws.com}/datahub-integrations-service}:${DATAHUB_INTEGRATIONS_VERSION:-debug}
   environment:
     PYTHONPATH: "/metadata-ingestion/src:/datahub-integrations-service/src:$${PYTHONPATH}"
+    EXTRA_UVICORN_ARGS: "--reload --reload-dir /datahub-integrations-service/src --reload-dir /metadata-ingestion/src"
   volumes:
     - ./datahub-integrations-service/start.sh:/start_datahub_integrations_service.sh
     - ../../metadata-ingestion/src:/metadata-ingestion/src
@@ -22,7 +23,6 @@ x-datahub-integrations-service-dev: &datahub-integrations-service-dev
 x-datahub-integrations-service-dev-head: &datahub-integrations-service-dev-head
   <<: *datahub-integrations-service-dev
   image: ${DATAHUB_INTEGRATIONS_IMAGE:-${DATAHUB_REPO:-795586375822.dkr.ecr.us-west-2.amazonaws.com}/datahub-integrations-service}:${DATAHUB_INTEGRATIONS_VERSION:-head}
-
 
 #################################
 # Executor Service
