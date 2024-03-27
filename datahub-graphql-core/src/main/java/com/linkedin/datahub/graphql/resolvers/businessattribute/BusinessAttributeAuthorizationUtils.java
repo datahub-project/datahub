@@ -1,10 +1,10 @@
 package com.linkedin.datahub.graphql.resolvers.businessattribute;
 
+import com.datahub.authorization.AuthUtil;
 import com.datahub.authorization.ConjunctivePrivilegeGroup;
 import com.datahub.authorization.DisjunctivePrivilegeGroup;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.datahub.graphql.QueryContext;
-import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import javax.annotation.Nonnull;
 
@@ -20,8 +20,8 @@ public class BusinessAttributeAuthorizationUtils {
                 new ConjunctivePrivilegeGroup(
                     ImmutableList.of(
                         PoliciesConfig.MANAGE_BUSINESS_ATTRIBUTE_PRIVILEGE.getType()))));
-    return AuthorizationUtils.isAuthorized(
-        context.getAuthorizer(), context.getActorUrn(), orPrivilegeGroups);
+    return AuthUtil.isAuthorized(
+        context.getAuthorizer(), context.getActorUrn(), orPrivilegeGroups, null);
   }
 
   public static boolean canManageBusinessAttribute(@Nonnull QueryContext context) {
@@ -31,7 +31,7 @@ public class BusinessAttributeAuthorizationUtils {
                 new ConjunctivePrivilegeGroup(
                     ImmutableList.of(
                         PoliciesConfig.MANAGE_BUSINESS_ATTRIBUTE_PRIVILEGE.getType()))));
-    return AuthorizationUtils.isAuthorized(
-        context.getAuthorizer(), context.getActorUrn(), orPrivilegeGroups);
+    return AuthUtil.isAuthorized(
+        context.getAuthorizer(), context.getActorUrn(), orPrivilegeGroups, null);
   }
 }

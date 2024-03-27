@@ -126,7 +126,8 @@ public class SearchDocumentTransformer {
 
     Optional<ObjectNode> result = Optional.empty();
 
-    if (!extractedSearchableFields.isEmpty() || !extractedSearchScoreFields.isEmpty()
+    if (!extractedSearchableFields.isEmpty()
+        || !extractedSearchScoreFields.isEmpty()
         || !extractedSearchRefFields.isEmpty()) {
       final ObjectNode searchDocument = JsonNodeFactory.instance.objectNode();
       searchDocument.put("urn", urn.toString());

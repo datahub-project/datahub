@@ -91,6 +91,7 @@ public class CreateBusinessAttributeResolver
                 OwnerEntityType.CORP_USER,
                 _entityService);
             return BusinessAttributeMapper.map(
+                context,
                 businessAttributeService.getBusinessAttributeEntityResponse(
                     businessAttributeUrn, context.getAuthentication()));
 

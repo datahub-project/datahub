@@ -58,6 +58,7 @@ public class UpdateBusinessAttributeResolver
             Urn updatedBusinessAttributeUrn =
                 updateBusinessAttribute(input, businessAttributeUrn, context);
             return BusinessAttributeMapper.map(
+                context,
                 businessAttributeService.getBusinessAttributeEntityResponse(
                     updatedBusinessAttributeUrn, context.getAuthentication()));
           } catch (DataHubGraphQLException e) {
@@ -124,7 +125,7 @@ public class UpdateBusinessAttributeResolver
   }
 
   @Nullable
-  public BusinessAttributeInfo getBusinessAttributeInfo(
+  private BusinessAttributeInfo getBusinessAttributeInfo(
       @Nonnull final Urn businessAttributeUrn, @Nonnull final Authentication authentication) {
     Objects.requireNonNull(businessAttributeUrn, "businessAttributeUrn must not be null");
     Objects.requireNonNull(authentication, "authentication must not be null");

@@ -957,7 +957,10 @@ public class EntityApiDelegateImpl<I, O, S> {
   }
 
   public ResponseEntity<BusinessAttributeInfoAspectResponseV2> createBusinessAttributeInfo(
-      BusinessAttributeInfoAspectRequestV2 body, String urn) {
+      BusinessAttributeInfoAspectRequestV2 body,
+      String urn,
+      @Nullable Boolean createIfNotExists,
+      @Nullable Boolean createEntityIfNotExists) {
     String methodName =
         walker.walk(frames -> frames.findFirst().map(StackWalker.StackFrame::getMethodName)).get();
     return createAspect(
@@ -965,7 +968,9 @@ public class EntityApiDelegateImpl<I, O, S> {
         methodNameToAspectName(methodName),
         body,
         BusinessAttributeInfoAspectRequestV2.class,
-        BusinessAttributeInfoAspectResponseV2.class);
+        BusinessAttributeInfoAspectResponseV2.class,
+        createIfNotExists,
+        createEntityIfNotExists);
   }
 
   public ResponseEntity<Void> deleteBusinessAttributeInfo(String urn) {

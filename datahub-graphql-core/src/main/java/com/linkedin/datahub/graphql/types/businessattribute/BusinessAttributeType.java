@@ -91,7 +91,7 @@ public class BusinessAttributeType implements SearchableEntityType<BusinessAttri
                   gmsResult == null
                       ? null
                       : DataFetcherResult.<BusinessAttribute>newResult()
-                          .data(BusinessAttributeMapper.map(gmsResult))
+                          .data(BusinessAttributeMapper.map(context, gmsResult))
                           .build())
           .collect(Collectors.toList());
     } catch (Exception e) {
@@ -116,7 +116,7 @@ public class BusinessAttributeType implements SearchableEntityType<BusinessAttri
             facetFilters,
             start,
             count);
-    return UrnSearchResultsMapper.map(searchResult);
+    return UrnSearchResultsMapper.map(context, searchResult);
   }
 
   @Override
@@ -130,6 +130,6 @@ public class BusinessAttributeType implements SearchableEntityType<BusinessAttri
     final AutoCompleteResult result =
         _entityClient.autoComplete(
             context.getOperationContext(), "businessAttribute", query, filters, limit);
-    return AutoCompleteResultsMapper.map(result);
+    return AutoCompleteResultsMapper.map(context, result);
   }
 }

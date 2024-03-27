@@ -22,7 +22,6 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.DataMap;
 import com.linkedin.entity.Aspect;
 import com.linkedin.entity.EnvelopedAspect;
-import com.linkedin.entity.client.SystemRestliEntityClient;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
@@ -61,9 +60,6 @@ public class BusinessAttributeUpdateHookTest {
   private static final long EVENT_TIME = 123L;
   private static final String TEST_ACTOR_URN = "urn:li:corpuser:test";
   private static Urn actorUrn;
-
-  private static SystemRestliEntityClient mockClient;
-
   private GraphService mockGraphService;
   private EntityService mockEntityService;
   private BusinessAttributeUpdateHook businessAttributeUpdateHook;
@@ -74,7 +70,6 @@ public class BusinessAttributeUpdateHookTest {
     mockGraphService = Mockito.mock(GraphService.class);
     mockEntityService = Mockito.mock(EntityService.class);
     actorUrn = Urn.createFromString(TEST_ACTOR_URN);
-    mockClient = Mockito.mock(SystemRestliEntityClient.class);
     businessAttributeServiceHook =
         new BusinessAttributeUpdateHookService(
             mockGraphService, mockEntityService, ENTITY_REGISTRY, 100);
