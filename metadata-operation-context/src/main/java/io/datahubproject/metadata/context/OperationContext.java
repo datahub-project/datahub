@@ -7,6 +7,7 @@ import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.query.LineageFlags;
 import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
@@ -85,6 +86,22 @@ public class OperationContext {
   }
 
   /**
+   * Apply a set of default flags on top of any existing lineage flags
+   *
+   * @param opContext
+   * @param flagDefaults
+   * @return
+   */
+  public static OperationContext withLineageFlags(
+      OperationContext opContext, Function<LineageFlags, LineageFlags> flagDefaults) {
+
+    return opContext.toBuilder()
+        // update lineage flags for the request's session
+        .searchContext(opContext.getSearchContext().withLineageFlagDefaults(flagDefaults))
+        .build(opContext.getSessionAuthentication());
+  }
+
+  /**
    * Set the system authentication object AND allow escalation of privilege for the session. This
    * OperationContext typically serves the default.
    *
@@ -137,6 +154,11 @@ public class OperationContext {
   public OperationContext withSearchFlags(
       @Nonnull Function<SearchFlags, SearchFlags> flagDefaults) {
     return OperationContext.withSearchFlags(this, flagDefaults);
+  }
+
+  public OperationContext withLineageFlags(
+      @Nonnull Function<LineageFlags, LineageFlags> flagDefaults) {
+    return OperationContext.withLineageFlags(this, flagDefaults);
   }
 
   public OperationContext asSession(
