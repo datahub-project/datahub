@@ -31,6 +31,7 @@ import com.linkedin.subscription.SubscriptionNotificationConfig;
 import com.linkedin.subscription.SubscriptionType;
 import com.linkedin.subscription.SubscriptionTypeArray;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.openapi.client.OpenApiClient;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.Collections;
 import java.util.Map;
@@ -116,7 +117,8 @@ public class SubscriptionServiceTest {
     this.opContext =
         TestOperationContexts.userContextNoSearchAuthorization(
             mock(EntityRegistry.class), Authorizer.EMPTY, SYSTEM_AUTHENTICATION);
-    _subscriptionService = new SubscriptionService(opContext, _entityClient);
+    _subscriptionService =
+        new SubscriptionService(opContext, _entityClient, mock(OpenApiClient.class));
   }
 
   @Test
