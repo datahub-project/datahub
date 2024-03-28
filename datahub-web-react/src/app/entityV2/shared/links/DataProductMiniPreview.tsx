@@ -19,7 +19,6 @@ const DataProductDescription = styled.div`
     font-size: 14px;
     font-weight: 400;
     color: ${ANTD_GRAY[7]};
-    font-family: Mulish;
     overflow: hidden;
     white-space: nowrap;
     text-overflow: ellipsis;
@@ -30,7 +29,6 @@ const DataProductTitle = styled.div`
     font-size: 16px;
     font-weight: 400;
     color: ${ANTD_GRAY[9]};
-    font-family: Mulish;
     overflow: hidden;
     white-space: nowrap;
     text-overflow: ellipsis;
@@ -41,7 +39,6 @@ const DomainContents = styled.div`
     font-size: 12px;
     font-weight: 400;
     color: ${ANTD_GRAY[7]};
-    font-family: Mulish;
     overflow: hidden;
     white-space: nowrap;
     text-overflow: ellipsis;
@@ -54,10 +51,12 @@ const Card = styled(Link)`
     border-radius: 10px;
     display: flex;
     justify-content: start;
+    min-height: 103px;
     min-width: 160px;
     padding: 16px;
+
     :hover {
-        border: 2px solid ${REDESIGN_COLORS.BLUE};
+        border: 1.5px solid ${REDESIGN_COLORS.BLUE};
         cursor: pointer;
     }
 `;

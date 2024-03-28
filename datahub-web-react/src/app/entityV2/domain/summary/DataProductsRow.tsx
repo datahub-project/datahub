@@ -18,11 +18,16 @@ import { Carousel } from '../../../sharedV2/carousel/Carousel';
 const ViewAllButton = styled.div`
     color: ${ANTD_GRAY[7]};
     padding: 2px;
+
     :hover {
         cursor: pointer;
         color: ${ANTD_GRAY[8]};
         text-decoration: underline;
     }
+`;
+
+const StyledCarousel = styled(Carousel)`
+    align-items: stretch;
 `;
 
 export const DataProductsRow = () => {
@@ -60,7 +65,7 @@ export const DataProductsRow = () => {
                 </ViewAllButton>
             </SummaryTabHeaderWrapper>
             {loading && <ContentSectionLoading />}
-            <Carousel>
+            <StyledCarousel>
                 {!loading &&
                     dataProducts.map((product) => (
                         <DataProductMiniPreview dataProduct={product as DataProduct} key={product.urn} />
@@ -70,7 +75,7 @@ export const DataProductsRow = () => {
                         onAdd={() => navigateToDomainDataProducts(urn, entityType, history, entityRegistry, true)}
                     />
                 )}
-            </Carousel>
+            </StyledCarousel>
         </Container>
     );
 };
