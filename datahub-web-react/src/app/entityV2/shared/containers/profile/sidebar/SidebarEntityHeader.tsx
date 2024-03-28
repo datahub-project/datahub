@@ -39,7 +39,6 @@ const NameWrapper = styled.div`
 const SidebarEntityHeader = () => {
     const { entityType, entityData, loading } = useEntityData();
     const entityRegistry = useEntityRegistry();
-    const entityLogoComponent = entityRegistry.getIcon(entityType, 24, IconStyleType.ACCENT);
     const entityUrl = entityRegistry.getEntityUrl(entityType, entityData?.urn as string);
 
     const { contentRef, isContentTruncated } = useContentTruncation(entityData);
@@ -57,7 +56,6 @@ const SidebarEntityHeader = () => {
                 <TitleContainer>
                     <PlatformHeaderIcons
                         platform={entityData?.platform as DataPlatform}
-                        entityLogoComponent={entityLogoComponent}
                         platforms={entityData?.siblingPlatforms as DataPlatform[]}
                         size={24}
                     />

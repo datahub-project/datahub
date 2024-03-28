@@ -133,8 +133,6 @@ export const DefaultEntityHeader = ({
     const [showIconPicker, setShowIconPicker] = useState(false);
     const entityRegistry = useEntityRegistry();
 
-    const entityLogoComponent = entityRegistry.getIcon(entityType, 12, IconStyleType.ACCENT);
-
     const { contentRef, isContentTruncated } = useContentTruncation(entityData);
     const typeIcon =
         entityType === EntityType.Container ? (
@@ -161,7 +159,6 @@ export const DefaultEntityHeader = ({
                             <TitleWrapper>
                                 <PlatformHeaderIcons
                                     platform={entityData?.platform}
-                                    entityLogoComponent={entityLogoComponent}
                                     platforms={entityData?.siblingPlatforms}
                                 />
                                 {(isIconEditable || isColorEditable) && (
