@@ -24,7 +24,7 @@ from datahub.ingestion.source.sql.two_tier_sql_source import (
     TwoTierSQLAlchemyConfig,
     TwoTierSQLAlchemySource,
 )
-from datahub.metadata._schema_classes import BytesTypeClass
+from datahub.metadata.schema_classes import BytesTypeClass
 
 SET.__repr__ = util.generic_repr  # type:ignore
 

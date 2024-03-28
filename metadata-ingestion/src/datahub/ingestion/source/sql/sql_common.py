@@ -1,5 +1,6 @@
 import contextlib
 import datetime
+import functools
 import logging
 import traceback
 from dataclasses import dataclass, field
@@ -36,10 +37,12 @@ from datahub.emitter.mce_builder import (
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.sql_parsing_builder import SqlParsingBuilder
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.decorators import capability
 from datahub.ingestion.api.incremental_lineage_helper import auto_incremental_lineage
 from datahub.ingestion.api.source import (
     CapabilityReport,
     MetadataWorkUnitProcessor,
+    SourceCapability,
     TestableSource,
     TestConnectionReport,
 )
@@ -48,13 +51,10 @@ from datahub.ingestion.glossary.classification_mixin import (
     ClassificationHandler,
     ClassificationReportMixin,
 )
+from datahub.ingestion.source.common.data_reader import DataReader
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
     DatasetSubTypes,
-)
-from datahub.ingestion.source.sql.data_reader import (
-    DataReader,
-    SqlAlchemyTableDataReader,
 )
 from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
 from datahub.ingestion.source.sql.sql_utils import (
@@ -66,6 +66,10 @@ from datahub.ingestion.source.sql.sql_utils import (
     gen_schema_key,
     get_domain_wu,
     schema_requires_v2,
+)
+from datahub.ingestion.source.sql.sqlalchemy_data_reader import (
+    SAMPLE_SIZE_MULTIPLIER,
+    SqlAlchemyTableDataReader,
 )
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
@@ -313,6 +317,11 @@ class ProfileMetadata:
     dataset_name_to_storage_bytes: Dict[str, int] = field(default_factory=dict)
 
 
+@capability(
+    SourceCapability.CLASSIFICATION,
+    "Optionally enabled via `classification.enabled`",
+    supported=True,
+)
 class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
     """A Base class for all SQL Sources that use SQLAlchemy to extend"""
 
@@ -514,10 +523,8 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
         return [
             *super().get_workunit_processors(),
-            partial(
-                auto_incremental_lineage,
-                self.ctx.graph,
-                self.config.incremental_lineage,
+            functools.partial(
+                auto_incremental_lineage, self.config.incremental_lineage
             ),
             StaleEntityRemovalHandler.create(
                 self, self.config, self.ctx
@@ -675,7 +682,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
     ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
         tables_seen: Set[str] = set()
         data_reader = self.make_data_reader(inspector)
-        with (data_reader or contextlib.nullcontext()):
+        with data_reader or contextlib.nullcontext():
             try:
                 for table in inspector.get_table_names(schema):
                     dataset_name = self.get_identifier(
@@ -820,13 +827,18 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
                     dataset_name
                 )
                 and data_reader
+                and schema_metadata.fields
             ):
                 self.classification_handler.classify_schema_fields(
                     dataset_name,
                     schema_metadata,
-                    data_reader.get_sample_data_for_table(
-                        table_id=[schema, table],
-                        sample_size=self.config.classification.sample_size,
+                    partial(
+                        data_reader.get_sample_data_for_table,
+                        [schema, table],
+                        int(
+                            self.config.classification.sample_size
+                            * SAMPLE_SIZE_MULTIPLIER
+                        ),
                     ),
                 )
         except Exception as e:

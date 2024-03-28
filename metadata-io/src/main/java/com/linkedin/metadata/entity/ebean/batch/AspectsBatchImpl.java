@@ -34,6 +34,8 @@ public class AspectsBatchImpl implements AspectsBatch {
   /**
    * Convert patches to upserts, apply hooks at the aspect and batch level.
    *
+   * <p>Filter CREATE if not exists
+   *
    * @param latestAspects latest version in the database
    * @return The new urn/aspectnames and the uniform upserts, possibly expanded/mutated by the
    *     various hooks

@@ -103,7 +103,7 @@ sqlglot_lib = {
 }
 
 classification_lib = {
-    "acryl-datahub-classify==0.0.9",
+    "acryl-datahub-classify==0.0.10",
 }
 
 sql_common = (
@@ -224,8 +224,10 @@ microsoft_common = {"msal==1.22.0"}
 iceberg_common = {
     # Iceberg Python SDK
     "pyiceberg",
-    *pydantic_no_v2,  # because of pyiceberg
-    "pyarrow>=9.0.0, <13.0.0",
+    # We currently pin to pydantic v1, since we only test against pydantic v1 in CI.
+    # However, we should remove this once we fix compatibility with newer versions
+    # of pyiceberg, which depend on pydantic v2.
+    *pydantic_no_v2,
 }
 
 s3_base = {
@@ -302,7 +304,8 @@ plugins: Dict[str, Set[str]] = {
     | {
         *sqlglot_lib,
         "google-cloud-datacatalog-lineage==0.2.2",
-    },
+    }
+    | classification_lib,
     "clickhouse": sql_common | clickhouse_common,
     "clickhouse-usage": sql_common | usage_common | clickhouse_common,
     "datahub-lineage-file": set(),
@@ -370,6 +373,8 @@ plugins: Dict[str, Set[str]] = {
     | redshift_common
     | usage_common
     | sqlglot_lib
+    | classification_lib
+    | {"db-dtypes"}  # Pandas extension data types
     | {"cachetools"},
     "s3": {*s3_base, *data_lake_profiling},
     "gcs": {*s3_base, *data_lake_profiling},
@@ -440,7 +445,7 @@ mypy_stubs = {
     "types-click==0.1.12",
     # The boto3-stubs package seems to have regularly breaking minor releases,
     # we pin to a specific version to avoid this.
-    "boto3-stubs[s3,glue,sagemaker,sts]==1.28.15",
+    "boto3-stubs[s3,glue,sagemaker,sts,dynamodb]==1.28.15",
     "mypy-boto3-sagemaker==1.28.15",  # For some reason, above pin only restricts `mypy-boto3-sagemaker<1.29.0,>=1.28.0`
     "types-tabulate",
     # avrogen package requires this
@@ -606,6 +611,7 @@ entry_points = {
         "ldap = datahub.ingestion.source.ldap:LDAPSource",
         "looker = datahub.ingestion.source.looker.looker_source:LookerDashboardSource",
         "lookml = datahub.ingestion.source.looker.lookml_source:LookMLSource",
+        "datahub-gc = datahub.ingestion.source.gc.datahub_gc:DataHubGcSource",
         "datahub-lineage-file = datahub.ingestion.source.metadata.lineage:LineageFileSource",
         "datahub-business-glossary = datahub.ingestion.source.metadata.business_glossary:BusinessGlossaryFileSource",
         "mlflow = datahub.ingestion.source.mlflow:MLflowSource",
@@ -645,6 +651,7 @@ entry_points = {
         "qlik-sense = datahub.ingestion.source.qlik_sense.qlik_sense:QlikSenseSource",
     ],
     "datahub.ingestion.transformer.plugins": [
+        "pattern_cleanup_ownership = datahub.ingestion.transformer.pattern_cleanup_ownership:PatternCleanUpOwnership",
         "simple_remove_dataset_ownership = datahub.ingestion.transformer.remove_dataset_ownership:SimpleRemoveDatasetOwnership",
         "mark_dataset_status = datahub.ingestion.transformer.mark_dataset_status:MarkDatasetStatus",
         "set_dataset_browse_path = datahub.ingestion.transformer.add_dataset_browse_path:AddDatasetBrowsePathTransformer",

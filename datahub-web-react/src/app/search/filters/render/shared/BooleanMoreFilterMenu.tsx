@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { CSSProperties } from 'react';
 import { Button } from 'antd';
 import styled from 'styled-components/macro';
 
@@ -10,20 +10,12 @@ const StyledButton = styled(Button)`
     border-radius: 0;
 `;
 
-export const DropdownMenu = styled.div<{ alignRight?: boolean }>`
+export const DropdownMenu = styled.div`
     background-color: white;
     border-radius: 5px;
     box-shadow: 0 3px 6px -4px rgba(0, 0, 0, 0.12), 0 6px 16px 0 rgba(0, 0, 0, 0.08), 0 9px 28px 8px rgba(0, 0, 0, 0.05);
     overflow: hidden;
     min-width: 200px;
-
-    ${(props) =>
-        props.alignRight &&
-        `
-    position: absolute;
-    left: 205px;
-    top: -34px;
-    `}
 
     .ant-dropdown-menu-title-content {
         background-color: white;
@@ -41,12 +33,12 @@ const ScrollableContent = styled.div`
 interface Props {
     menuOption: React.ReactNode;
     onUpdate: () => void;
-    alignRight?: boolean;
+    style?: CSSProperties;
 }
 
-export default function BooleanMoreFilterMenu({ menuOption, onUpdate, alignRight }: Props) {
+export default function BooleanMoreFilterMenu({ menuOption, onUpdate, style }: Props) {
     return (
-        <DropdownMenu alignRight={alignRight} data-testid="boolean-filter-dropdown">
+        <DropdownMenu data-testid="boolean-filter-dropdown" style={style}>
             <ScrollableContent>
                 {React.cloneElement(menuOption as React.ReactElement, { style: { boxShadow: 'none' } })}
             </ScrollableContent>

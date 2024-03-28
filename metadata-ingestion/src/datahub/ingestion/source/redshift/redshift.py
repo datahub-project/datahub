@@ -1,7 +1,7 @@
+import functools
 import itertools
 import logging
 from collections import defaultdict
-from functools import partial
 from typing import Dict, Iterable, List, Optional, Type, Union
 
 import humanfriendly
@@ -35,6 +35,11 @@ from datahub.ingestion.api.source import (
 )
 from datahub.ingestion.api.source_helpers import create_dataset_props_patch_builder
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.glossary.classification_mixin import (
+    ClassificationHandler,
+    classification_workunit_processor,
+)
+from datahub.ingestion.source.common.data_reader import DataReader
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
     DatasetSubTypes,
@@ -43,6 +48,7 @@ from datahub.ingestion.source.redshift.config import RedshiftConfig
 from datahub.ingestion.source.redshift.lineage import RedshiftLineageExtractor
 from datahub.ingestion.source.redshift.lineage_v2 import RedshiftSqlLineageV2
 from datahub.ingestion.source.redshift.profile import RedshiftProfiler
+from datahub.ingestion.source.redshift.redshift_data_reader import RedshiftDataReader
 from datahub.ingestion.source.redshift.redshift_schema import (
     RedshiftColumn,
     RedshiftDataDictionary,
@@ -127,6 +133,11 @@ logger: logging.Logger = logging.getLogger(__name__)
     "Enabled by default, can be disabled via configuration `include_usage_statistics`",
 )
 @capability(SourceCapability.DELETION_DETECTION, "Enabled via stateful ingestion")
+@capability(
+    SourceCapability.CLASSIFICATION,
+    "Optionally enabled via `classification.enabled`",
+    supported=True,
+)
 class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
     """
     This plugin extracts the following:
@@ -313,6 +324,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
         self.catalog_metadata: Dict = {}
         self.config: RedshiftConfig = config
         self.report: RedshiftReport = RedshiftReport()
+        self.classification_handler = ClassificationHandler(self.config, self.report)
         self.platform = "redshift"
         self.domain_registry = None
         if self.config.domain:
@@ -390,10 +402,8 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
         return [
             *super().get_workunit_processors(),
-            partial(
-                auto_incremental_lineage,
-                self.ctx.graph,
-                self.config.incremental_lineage,
+            functools.partial(
+                auto_incremental_lineage, self.config.incremental_lineage
             ),
             StaleEntityRemovalHandler.create(
                 self, self.config, self.ctx
@@ -490,6 +500,15 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
             self.db_schemas[database][schema.name] = schema
             yield from self.process_schema(connection, database, schema)
 
+    def make_data_reader(
+        self,
+        connection: redshift_connector.Connection,
+    ) -> Optional[DataReader]:
+        if self.classification_handler.is_classification_enabled():
+            return RedshiftDataReader.create(connection)
+
+        return None
+
     def process_schema(
         self,
         connection: redshift_connector.Connection,
@@ -529,6 +548,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
             )
 
             if self.config.include_tables:
+                data_reader = self.make_data_reader(connection)
                 logger.info(f"Process tables in schema {database}.{schema.name}")
                 if (
                     self.db_tables[schema.database]
@@ -536,7 +556,15 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
                 ):
                     for table in self.db_tables[schema.database][schema.name]:
                         table.columns = schema_columns[schema.name].get(table.name, [])
-                        yield from self._process_table(table, database=database)
+                        table_wu_generator = self._process_table(
+                            table, database=database
+                        )
+                        yield from classification_workunit_processor(
+                            table_wu_generator,
+                            self.classification_handler,
+                            data_reader,
+                            [schema.database, schema.name, table.name],
+                        )
                         self.report.table_processed[report_key] = (
                             self.report.table_processed.get(
                                 f"{database}.{schema.name}", 0
@@ -833,7 +861,10 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
             )
 
     def cache_tables_and_views(self, connection, database):
-        tables, views = self.data_dictionary.get_tables_and_views(conn=connection)
+        tables, views = self.data_dictionary.get_tables_and_views(
+            conn=connection,
+            skip_external_tables=self.config.skip_external_tables,
+        )
         for schema in tables:
             if not is_schema_allowed(
                 self.config.schema_pattern,
@@ -1047,11 +1078,8 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
                     self.db_schemas[database][schema],
                 )
                 if lineage_info:
-                    yield from gen_lineage(
-                        dataset_urn,
-                        (lineage_info, {}),
-                        incremental_lineage=False,  # incremental lineage generation is taken care by auto_incremental_lineage
-                    )
+                    # incremental lineage generation is taken care by auto_incremental_lineage
+                    yield from gen_lineage(dataset_urn, lineage_info)
 
     def add_config_to_report(self):
         self.report.stateful_lineage_ingestion_enabled = (

@@ -91,7 +91,7 @@ public class MLFeatureTableType
                   gmsMlFeatureTable == null
                       ? null
                       : DataFetcherResult.<MLFeatureTable>newResult()
-                          .data(MLFeatureTableMapper.map(gmsMlFeatureTable))
+                          .data(MLFeatureTableMapper.map(context, gmsMlFeatureTable))
                           .build())
           .collect(Collectors.toList());
     } catch (Exception e) {
@@ -116,7 +116,7 @@ public class MLFeatureTableType
             facetFilters,
             start,
             count);
-    return UrnSearchResultsMapper.map(searchResult);
+    return UrnSearchResultsMapper.map(context, searchResult);
   }
 
   @Override
@@ -130,7 +130,7 @@ public class MLFeatureTableType
     final AutoCompleteResult result =
         _entityClient.autoComplete(
             context.getOperationContext(), "mlFeatureTable", query, filters, limit);
-    return AutoCompleteResultsMapper.map(result);
+    return AutoCompleteResultsMapper.map(context, result);
   }
 
   @Override
@@ -152,7 +152,7 @@ public class MLFeatureTableType
             facetFilters,
             start,
             count);
-    return BrowseResultMapper.map(result);
+    return BrowseResultMapper.map(context, result);
   }
 
   @Override
@@ -160,6 +160,6 @@ public class MLFeatureTableType
       throws Exception {
     final StringArray result =
         _entityClient.getBrowsePaths(MLModelUtils.getUrn(urn), context.getAuthentication());
-    return BrowsePathsMapper.map(result);
+    return BrowsePathsMapper.map(context, result);
   }
 }

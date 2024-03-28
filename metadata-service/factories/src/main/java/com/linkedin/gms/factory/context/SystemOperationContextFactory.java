@@ -6,6 +6,8 @@ import com.linkedin.gms.factory.search.BaseElasticSearchComponentsFactory;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.OperationContextConfig;
+import io.datahubproject.metadata.context.ServicesRegistryContext;
+import io.datahubproject.metadata.services.RestrictedService;
 import javax.annotation.Nonnull;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -24,12 +26,14 @@ public class SystemOperationContextFactory {
   protected OperationContext systemOperationContext(
       @Nonnull final EntityRegistry entityRegistry,
       @Nonnull @Qualifier("systemAuthentication") final Authentication systemAuthentication,
-      @Nonnull final OperationContextConfig operationContextConfig) {
+      @Nonnull final OperationContextConfig operationContextConfig,
+      @Nonnull final RestrictedService restrictedService) {
 
     return OperationContext.asSystem(
         operationContextConfig,
-        entityRegistry,
         systemAuthentication,
+        entityRegistry,
+        ServicesRegistryContext.builder().restrictedService(restrictedService).build(),
         components.getIndexConvention());
   }
 
@@ -38,7 +42,7 @@ public class SystemOperationContextFactory {
   protected OperationContextConfig operationContextConfig(
       final ConfigurationProvider configurationProvider) {
     return OperationContextConfig.builder()
-        .searchAuthorizationConfiguration(configurationProvider.getAuthorization().getSearch())
+        .viewAuthorizationConfiguration(configurationProvider.getAuthorization().getView())
         .build();
   }
 }

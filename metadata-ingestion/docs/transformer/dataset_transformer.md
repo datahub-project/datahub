@@ -7,7 +7,7 @@ The below table shows transformer which can transform aspects of entity [Dataset
 | Dataset Aspect      | Transformer                                                                                                                                                                                                       |                                                                                               
 |---------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `status`            | - [Mark Dataset status](#mark-dataset-status)                                                                                                                                                                     |
-| `ownership`         | - [Simple Add Dataset ownership](#simple-add-dataset-ownership)<br/> - [Pattern Add Dataset ownership](#pattern-add-dataset-ownership)<br/> - [Simple Remove Dataset Ownership](#simple-remove-dataset-ownership)<br/> - [Extract Ownership from Tags](#extract-ownership-from-tags) |
+| `ownership`         | - [Simple Add Dataset ownership](#simple-add-dataset-ownership)<br/> - [Pattern Add Dataset ownership](#pattern-add-dataset-ownership)<br/> - [Simple Remove Dataset Ownership](#simple-remove-dataset-ownership)<br/> - [Extract Ownership from Tags](#extract-ownership-from-tags)<br/> - [Clean suffix prefix from Ownership](#clean-suffix-prefix-from-ownership) |
 | `globalTags`        | - [Simple Add Dataset globalTags ](#simple-add-dataset-globaltags)<br/> - [Pattern Add Dataset globalTags](#pattern-add-dataset-globaltags)<br/> - [Add Dataset globalTags](#add-dataset-globaltags)              |
 | `browsePaths`       | - [Set Dataset browsePath](#set-dataset-browsepath)                                                                                                                                                               |
 | `glossaryTerms`     | - [Simple Add Dataset glossaryTerms ](#simple-add-dataset-glossaryterms)<br/> - [Pattern Add Dataset glossaryTerms](#pattern-add-dataset-glossaryterms)                                                           |
@@ -83,6 +83,24 @@ String after the matched tag pattern will be considered as owner to create owner
           tag_pattern: "(.*)_owner_email:"
           extract_owner_type_from_tag_pattern: true
     ```
+
+## Clean suffix prefix from Ownership
+### Config Details
+| Field                       | Required | Type    | Default       | Description                                 |
+|-----------------------------|----------|---------|---------------|---------------------------------------------|
+| `pattern_for_cleanup`                 | ✅         | list[string]    |    | List of suffix/prefix to remove from the Owner URN(s) |
+
+
+Matches against a Onwer URN and remove the matching part from the Owner URN
+
+```yaml
+transformers:
+  - type: "pattern_cleanup_ownership"
+    config:
+      pattern_for_cleanup:
+        - "ABCDEF"
+        - (?<=_)(\w+)
+```
 
 ## Mark Dataset Status
 ### Config Details

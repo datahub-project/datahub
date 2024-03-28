@@ -165,6 +165,43 @@ input  SearchFlags {
 }
 
 """
+Flags to control lineage behavior
+"""
+input LineageFlags {
+  """
+  Limits the number of results explored per hop, still gets all edges each time a hop happens
+  """
+  entitiesExploredPerHopLimit: Int
+
+  """
+  An optional starting time to filter on
+  """
+  startTimeMillis: Long
+  """
+  An optional ending time to filter on
+  """
+  endTimeMillis: Long
+
+  """
+  Map of entity types to platforms to ignore when counting hops during graph walk. Note: this can potentially cause
+  a large amount of additional hops to occur and should be used with caution.
+  """
+  ignoreAsHops: [EntityTypeToPlatforms!]
+}
+
+input EntityTypeToPlatforms {
+  """
+  Entity type to ignore as hops, if no platform is applied applies to all entities of this type.
+  """
+  entityType: EntityType!
+
+  """
+  List of platforms to ignore as hops, empty implies all. Must be a valid platform urn
+  """
+  platforms: [String!]
+}
+
+"""
 Input arguments for a full text search query across entities
 """
 input SearchAcrossEntitiesInput {
@@ -345,16 +382,21 @@ input SearchAcrossLineageInput {
   """
   An optional starting time to filter on
   """
-  startTimeMillis: Long
+  startTimeMillis: Long @deprecated(reason: "Use LineageFlags instead")
   """
   An optional ending time to filter on
   """
-  endTimeMillis: Long
+  endTimeMillis: Long @deprecated(reason: "Use LineageFlags instead")
 
   """
   Flags controlling search options
   """
   searchFlags: SearchFlags
+
+  """
+  Flags controlling the lineage query
+  """
+  lineageFlags: LineageFlags
 }
 
 """
@@ -415,6 +457,11 @@ input ScrollAcrossLineageInput {
   Flags controlling search options
   """
   searchFlags: SearchFlags
+
+  """
+  Flags controlling the lineage query
+  """
+  lineageFlags: LineageFlags
 }
 
 """

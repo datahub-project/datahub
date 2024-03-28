@@ -18,7 +18,6 @@ import io.datahubproject.openapi.exception.UnauthorizedException;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.net.URISyntaxException;
 import java.util.List;
-import java.util.Optional;
 import java.util.Set;
 import lombok.AllArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -76,8 +75,7 @@ public class TimelineController {
                 new ConjunctivePrivilegeGroup(
                     ImmutableList.of(PoliciesConfig.GET_TIMELINE_PRIVILEGE.getType()))));
     if (restApiAuthorizationEnabled
-        && !AuthUtil.isAuthorized(
-            _authorizerChain, actorUrnStr, Optional.of(resourceSpec), orGroup)) {
+        && !AuthUtil.isAuthorized(_authorizerChain, actorUrnStr, orGroup, resourceSpec)) {
       throw new UnauthorizedException(actorUrnStr + " is unauthorized to edit entities.");
     }
     return ResponseEntity.ok(

@@ -7,9 +7,11 @@ import com.linkedin.common.UrnArrayArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.config.search.GraphQueryConfiguration;
 import com.linkedin.metadata.graph.GraphFilters;
 import com.linkedin.metadata.graph.elastic.ESGraphQueryDAO;
 import com.linkedin.metadata.models.registry.LineageRegistry;
+import com.linkedin.metadata.query.LineageFlags;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
@@ -99,24 +101,28 @@ public class ESGraphQueryDAOTest {
     Long startTime = 0L;
     Long endTime = 1L;
 
+    ESGraphQueryDAO graphQueryDAO =
+        new ESGraphQueryDAO(null, null, null, new GraphQueryConfiguration());
     QueryBuilder limitedBuilder =
-        ESGraphQueryDAO.getLineageQueryForEntityType(urns, edgeInfos, graphFilters);
+        graphQueryDAO.getLineageQueryForEntityType(urns, edgeInfos, graphFilters);
 
     QueryBuilder fullBuilder =
-        ESGraphQueryDAO.getLineageQuery(
-            urnsPerEntityType, edgesPerEntityType, graphFilters, startTime, endTime);
+        graphQueryDAO.getLineageQuery(
+            urnsPerEntityType,
+            edgesPerEntityType,
+            graphFilters,
+            new LineageFlags().setEndTimeMillis(endTime).setStartTimeMillis(startTime));
 
     QueryBuilder fullBuilderEmptyFilters =
-        ESGraphQueryDAO.getLineageQuery(
-            urnsPerEntityType, edgesPerEntityType, GraphFilters.emptyGraphFilters, null, null);
+        graphQueryDAO.getLineageQuery(
+            urnsPerEntityType, edgesPerEntityType, GraphFilters.emptyGraphFilters, null);
 
     QueryBuilder fullBuilderMultipleFilters =
-        ESGraphQueryDAO.getLineageQuery(
+        graphQueryDAO.getLineageQuery(
             urnsPerEntityTypeMultiple,
             edgesPerEntityTypeMultiple,
             graphFiltersMultiple,
-            startTime,
-            endTime);
+            new LineageFlags().setEndTimeMillis(endTime).setStartTimeMillis(startTime));
 
     Assert.assertEquals(limitedBuilder.toString(), expectedQueryLimited);
     Assert.assertEquals(fullBuilder.toString(), expectedQueryFull);
