@@ -1,13 +1,13 @@
 import React from 'react';
-import Icon from '@ant-design/icons';
 import { Typography } from 'antd';
 import styled from 'styled-components/macro';
 import { Maybe } from 'graphql/jsutils/Maybe';
-import FolderIcon from '../../images/folder-open.svg?react';
+import TermGroupIcon from '../../images/glossary_collections_bookmark.svg?react';
+import TermIcon from '../../images/collections_bookmark.svg?react';
 import { DisplayProperties, EntityType } from '../../types.generated';
 import { generateColor } from '../entityV2/shared/components/styled/StyledTag';
 import { hexToRgba } from '../entityV2/shared/links/colorUtils';
-import { REDESIGN_COLORS, ANTD_GRAY } from '../entityV2/shared/constants';
+import { REDESIGN_COLORS, ANTD_GRAY, ANTD_GRAY_V2 } from '../entityV2/shared/constants';
 
 interface GlossaryItemCardHeaderProps {
     color: string;
@@ -15,43 +15,38 @@ interface GlossaryItemCardHeaderProps {
 
 const GlossaryItemCardHeader = styled.div<GlossaryItemCardHeaderProps>`
     display: flex;
-    padding: 40px 0 30px;
-    justify-content: center;
-    border-radius: 12px;
+    padding: 20px 20px 20px 30px;
+    justify-content: start;
+    border-radius: 12px 12px 0px 0px;
     position: relative;
     overflow: hidden;
+    gap: 5px;
     background-color: ${(props) => hexToRgba(props.color, 0.7)};
-`;
 
-const GlossaryItemCountDiv = styled.div`
-    position: absolute;
-    top: -7px;
-    right: -3px;
-    border-radius: 7px;
-    width: 12px;
-    height: 11px;
-    background: ${REDESIGN_COLORS.TERTIARY_GREEN};
-    font-size: 8px;
-    color: ${ANTD_GRAY[1]};
-    text-align: center;
-    display: none;
+    svg {
+        height: 22px;
+        width: 22px;
+        path {
+            fill: white;
+        }
+    }
 `;
 
 const GlossaryItemCount = styled.span`
-    position: absolute;
-    right: 1px;
-    bottom: 1px;
-    border-radius: 12px 0px 11px 1px;
-    background: ${ANTD_GRAY[1]};
-    padding: 10px;
-`;
-
-const CountWrapper = styled.span`
-    position: relative;
-`;
-
-const StyledIcon = styled(Icon)`
-    font-size: 17px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    border-radius: 20px;
+    background: ${ANTD_GRAY_V2[14]};
+    padding: 5px 10px;
+    width: max-content;
+    svg {
+        height: 14px;
+        width: 14px;
+        path {
+            fill: ${REDESIGN_COLORS.SUB_TEXT};
+        }
+    }
 `;
 
 const GlossaryItemCard = styled.div`
@@ -73,11 +68,6 @@ const GlossaryItemCard = styled.div`
         transition: 0.15s;
         opacity: 0.9 !important;
     }
-
-    &:hover > ${GlossaryItemCardHeader} > ${GlossaryItemCount} > ${CountWrapper} > ${GlossaryItemCountDiv} {
-        transition: 0.15s;
-        display: block;
-    }
 `;
 
 interface GlossaryItemBadgeProps {
@@ -86,11 +76,11 @@ interface GlossaryItemBadgeProps {
 
 const GlossaryItemBadge = styled.span<GlossaryItemBadgeProps>`
     position: absolute;
-    left: -65px;
-    top: 20px;
-    width: 160px;
+    left: -35px;
+    top: 8px;
+    width: 100px;
     transform: rotate(-45deg);
-    padding: 10px;
+    padding: 8px;
     opacity: 1;
     background-color: ${(props) => `${props.color}`};
 `;
@@ -99,31 +89,35 @@ const GlossaryItemCardDetails = styled.div`
     display: flex;
     flex-direction: column;
     padding: 13px 16px;
+    gap: 10px;
 `;
 
 const GlossaryCardHeader = styled(Typography)`
-    color: ${ANTD_GRAY[1]};
-    font-size: 44px;
-`;
-
-const GlossaryItemCardTitle = styled(Typography)`
-    color: ${REDESIGN_COLORS.SUBTITLE};
-    font-size: 14px;
-    font-weight: 400;
+    color: #f9fafc;
+    font-size: 16px;
+    font-weight: 500;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 `;
 
 const GlossaryItemCardDescription = styled(Typography)`
-    color: ${REDESIGN_COLORS.SUBTITLE};
-    font-size: 10px;
-    line-height: 13px;
+    color: ${REDESIGN_COLORS.SUB_TEXT};
+    font-size: 12px;
     font-weight: 400;
     margin-top: 1px;
-    opacity: 0.5;
     width: 100%;
+    min-height: 30px;
     overflow: hidden;
     display: -webkit-box;
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
+`;
+
+const CountText = styled(Typography.Text)`
+    color: ${REDESIGN_COLORS.SUB_TEXT};
+    font-size: 10px;
+    font-weight: 400;
 `;
 
 interface Props {
@@ -142,20 +136,18 @@ const GlossaryNodeCard = (props: Props) => {
     return (
         <GlossaryItemCard>
             <GlossaryItemCardHeader color={glossaryColor}>
-                <GlossaryCardHeader>{name?.match(/\b(\w)/g)?.join('')}</GlossaryCardHeader>
+                <TermGroupIcon />
+                <GlossaryCardHeader>{name}</GlossaryCardHeader>
                 <GlossaryItemBadge color={glossaryColor} />
-                {type === EntityType.GlossaryNode && (
-                    <GlossaryItemCount>
-                        <CountWrapper>
-                            <StyledIcon component={FolderIcon} />
-                            <GlossaryItemCountDiv>{count}</GlossaryItemCountDiv>
-                        </CountWrapper>
-                    </GlossaryItemCount>
-                )}
             </GlossaryItemCardHeader>
             <GlossaryItemCardDetails>
-                <GlossaryItemCardTitle>{name}</GlossaryItemCardTitle>
-                <GlossaryItemCardDescription>{description}</GlossaryItemCardDescription>
+                <GlossaryItemCardDescription>{description || '--'}</GlossaryItemCardDescription>
+                {type === EntityType.GlossaryNode && (
+                    <GlossaryItemCount>
+                        <TermIcon />
+                        <CountText> {count} </CountText>
+                    </GlossaryItemCount>
+                )}
             </GlossaryItemCardDetails>
         </GlossaryItemCard>
     );

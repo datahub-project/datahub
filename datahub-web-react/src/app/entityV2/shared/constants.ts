@@ -52,6 +52,7 @@ export const REDESIGN_COLORS = {
     FOUNDATION_BLUE_4: '#81879F',
     FOUNDATION_BLUE_6: '#374066',
     SUB_TEXT: '#81879F',
+    COLD_GREY_TEXT: '#A9ADBD',
 };
 
 export const SEARCH_COLORS = {

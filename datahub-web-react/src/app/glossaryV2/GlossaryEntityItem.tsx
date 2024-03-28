@@ -40,7 +40,8 @@ const ItemWrapper = styled.div<ItemWrapperProps>`
     transition: 0.15s;
     width: 100%;
     flex-basis: ${(props) => (props.type === EntityType.GlossaryNode && !props.entityData.urn ? '24%' : 'auto')};
-
+    min-width: 200px;
+    min-height: 140px;
     & a {
         display: block;
         width: 100%;
