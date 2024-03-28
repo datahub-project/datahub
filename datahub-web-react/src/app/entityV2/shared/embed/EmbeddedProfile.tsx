@@ -5,10 +5,11 @@ import styled from 'styled-components';
 import { EntityType, Exact } from '../../../../types.generated';
 import useGetDataForProfile from '../containers/profile/useGetDataForProfile';
 import { EntityContext } from '../EntityContext';
-import { GenericEntityProperties, TabContextType, TabRenderType } from '../types';
+import { GenericEntityProperties, TabContextType } from '../types';
 import NonExistentEntityPage from '../entity/NonExistentEntityPage';
-import EntitySidebarSectionsTab from '../containers/profile/sidebar/EntitySidebarSectionsTab';
 import { useEntityRegistryV2 } from '../../../useEntityRegistry';
+import EntityProfileSidebar from '../containers/profile/sidebar/EntityProfileSidebar';
+import { getFinalSidebarTabs } from '../containers/profile/utils';
 
 const LoadingWrapper = styled.div`
     display: flex;
@@ -16,6 +17,11 @@ const LoadingWrapper = styled.div`
     justify-content: center;
     height: 85vh;
     font-size: 50px;
+`;
+
+const SidebarWrapper = styled.div`
+    display: flex;
+    height: 100vh;
 `;
 
 interface Props<T> {
@@ -46,6 +52,12 @@ export default function EmbeddedProfile<T>({ urn, entityType, getOverridePropert
         return <NonExistentEntityPage />;
     }
 
+    if (!entityData?.type) return null;
+
+    const sidebarTabs = entityRegistry.getSidebarTabs(entityData.type);
+    const sidebarSections = entityRegistry.getSidebarSections(entityData.type);
+    const finalTabs = getFinalSidebarTabs(sidebarTabs, sidebarSections);
+
     return (
         <EntityContext.Provider
             value={{
@@ -66,11 +78,9 @@ export default function EmbeddedProfile<T>({ urn, entityType, getOverridePropert
                 </LoadingWrapper>
             )}
             {!loading && entityData && entityData.type && (
-                <EntitySidebarSectionsTab
-                    properties={{ sections: entityRegistry.getSidebarSections(entityData.type) }}
-                    contextType={TabContextType.CHROME_SIDEBAR}
-                    renderType={TabRenderType.COMPACT}
-                />
+                <SidebarWrapper>
+                    <EntityProfileSidebar tabs={finalTabs} contextType={TabContextType.CHROME_SIDEBAR} />
+                </SidebarWrapper>
             )}
         </EntityContext.Provider>
     );

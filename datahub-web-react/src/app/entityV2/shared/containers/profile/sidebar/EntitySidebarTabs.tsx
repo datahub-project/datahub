@@ -11,6 +11,7 @@ type Props = {
     tabs: EntitySidebarTab[];
     selectedTab?: EntitySidebarTab;
     onSelectTab: (name: string) => void;
+    hideCollapse?: boolean;
 };
 
 const UnborderedTabs = styled(Tabs)<{ isClosed: boolean }>`
@@ -59,7 +60,7 @@ const Tab = styled(Tabs.TabPane)`
 
 const tabIconStyle = { fontSize: 20, margin: 0, display: 'flex' };
 
-export const EntitySidebarTabs = <T,>({ tabs, selectedTab, onSelectTab }: Props) => {
+export const EntitySidebarTabs = <T,>({ tabs, selectedTab, onSelectTab, hideCollapse }: Props) => {
     const { entityData } = useEntityData();
     const baseEntity = useBaseEntity<T>();
 
@@ -67,7 +68,7 @@ export const EntitySidebarTabs = <T,>({ tabs, selectedTab, onSelectTab }: Props)
 
     return (
         <>
-            <SidebarCollapseIcon />
+            {!hideCollapse && <SidebarCollapseIcon />}
             <UnborderedTabs
                 animated={false}
                 tabPosition="right"

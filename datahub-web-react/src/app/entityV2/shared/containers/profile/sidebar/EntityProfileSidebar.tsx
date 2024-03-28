@@ -141,6 +141,7 @@ export default function EntityProfileSidebar({
                             tabs={tabs}
                             selectedTab={selectedTab}
                             onSelectTab={(name) => setSelectedTabName(name)}
+                            hideCollapse={contextType === TabContextType.CHROME_SIDEBAR}
                         />
                     </Tabs>
                 </TabsContainer>

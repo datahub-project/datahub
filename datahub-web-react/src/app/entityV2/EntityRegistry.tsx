@@ -6,7 +6,7 @@ import { FetchedEntity } from '../lineage/types';
 import { SearchResultProvider } from '../search/context/SearchResultContext';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from './Entity';
 import { GLOSSARY_ENTITY_TYPES } from './shared/constants';
-import { GenericEntityProperties } from './shared/types';
+import { EntitySidebarTab, GenericEntityProperties } from './shared/types';
 import { dictToQueryStringParams, getFineGrainedLineageWithSiblings, urlEncodeUrn } from './shared/utils';
 import { FetchedEntityV2, FetchedEntityV2Relationship, LineageAsset, LineageAssetType } from '../lineageV2/types';
 import { EntityLineageV2Fragment } from '../../graphql/lineage.generated';
@@ -261,6 +261,11 @@ export default class EntityRegistry {
     getDisplayName<T>(type: EntityType, data: T): string {
         const entity = validatedGet(type, this.entityTypeToEntity);
         return entity.displayName(data);
+    }
+
+    getSidebarTabs(type: EntityType): EntitySidebarTab[] {
+        const entity = validatedGet(type, this.entityTypeToEntity);
+        return entity.getSidebarTabs ? entity.getSidebarTabs() : [];
     }
 
     getSidebarSections(type: EntityType): EntitySidebarSection[] {

@@ -1,6 +1,5 @@
 import React, { useCallback, useContext, useState } from 'react';
 import { Alert } from 'antd';
-import { ReadOutlined } from '@ant-design/icons';
 import { MutationHookOptions, MutationTuple, QueryHookOptions, QueryResult } from '@apollo/client/react/types/types';
 import styled from 'styled-components/macro';
 import { useHistory, useLocation } from 'react-router';
@@ -11,9 +10,11 @@ import LineageFullscreen from '../../../../lineageV2/LineageFullscreen';
 import { useLineageV2 } from '../../../../lineageV2/useLineageV2';
 import {
     getEntityPath,
+    getFinalSidebarTabs,
     getOnboardingStepIdsForEntityType,
     useRoutedTab,
     useUpdateGlossaryEntityDataOnChange,
+    defaultTabDisplayConfig,
 } from './utils';
 import {
     EntitySidebarSection,
@@ -49,7 +50,6 @@ import {
 import { useSubscriptionsEnabled } from '../../../../settings/personal/notifications/utils';
 import { ENTITY_PROFILE_SUBSCRIPTION_ID } from '../../../../onboarding/config/EntityProfileOnboardingConfig';
 import EntityProfileSidebar from './sidebar/EntityProfileSidebar';
-import EntitySidebarSectionsTab from './sidebar/EntitySidebarSectionsTab';
 import { PageRoutes } from '../../../../../conf/Global';
 import EntitySidebarContext from '../../../../shared/EntitySidebarContext';
 import TabFullsizeContext from '../../../../shared/TabFullsizedContext';
@@ -185,11 +185,6 @@ const Wrapper = styled.div<{ showAlert: boolean }>`
     margin-top: ${({ showAlert }) => (showAlert ? '2.5rem' : '0')};
 `;
 
-export const defaultTabDisplayConfig = {
-    visible: (_, _1) => true,
-    enabled: (_, _1) => true,
-};
-
 export const DEFAULT_SIDEBAR_SECTION = {
     visible: (_, _1) => true,
 };
@@ -228,10 +223,6 @@ export const EntityProfile = <T, U>({
     const isCompact = React.useContext(CompactContext);
 
     const tabsWithDefaults = tabs.map((tab) => ({ ...tab, display: { ...defaultTabDisplayConfig, ...tab.display } }));
-    const sidebarTabsWithDefaults = sidebarTabs.map((tab) => ({
-        ...tab,
-        display: { ...defaultTabDisplayConfig, ...tab.display },
-    }));
 
     const [shouldRefetchEmbeddedListSearch, setShouldRefetchEmbeddedListSearch] = useState(false);
     const entityStepIds: string[] = getOnboardingStepIdsForEntityType(entityType);
@@ -311,25 +302,7 @@ export const EntityProfile = <T, U>({
         return <NonExistentEntityPage />;
     }
 
-    let finalTabs = sidebarTabs;
-
-    // Add a default "About" tab if only the legacy sections were provided.
-    if ((sidebarSections || [])?.length > 0) {
-        finalTabs = [
-            {
-                name: 'About',
-                icon: ReadOutlined,
-                component: EntitySidebarSectionsTab,
-                properties: {
-                    sections: sidebarSections || [],
-                },
-                display: {
-                    ...defaultTabDisplayConfig,
-                },
-            },
-            ...sidebarTabsWithDefaults,
-        ];
-    }
+    const finalTabs = getFinalSidebarTabs(sidebarTabs, sidebarSections || []);
 
     if (isCompact) {
         return (
@@ -355,7 +328,6 @@ export const EntityProfile = <T, U>({
                             type={isInSearch ? 'card' : undefined}
                             focused={isInSearch}
                             tabs={finalTabs}
-                            // TODO: Hide collapse for chrome extension
                             contextType={isInSearch ? TabContextType.SEARCH_SIDEBAR : TabContextType.LINEAGE_SIDEBAR}
                             width={width}
                             headerDropdownItems={headerDropdownItems}

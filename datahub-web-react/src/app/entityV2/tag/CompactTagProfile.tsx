@@ -11,7 +11,7 @@ import { StyledEntitySidebarContainer, StyledSidebar } from '../shared/container
 import { EntitySidebarTab } from '../shared/types';
 import EntitySidebarSectionsTab from '../shared/containers/profile/sidebar/EntitySidebarSectionsTab';
 import { EntitySidebarTabs } from '../shared/containers/profile/sidebar/EntitySidebarTabs';
-import { defaultTabDisplayConfig } from '../shared/containers/profile/EntityProfile';
+import { defaultTabDisplayConfig } from '../shared/containers/profile/utils';
 
 const CompactEntityWrapper = styled.div<{ isClosed: boolean }>`
     ${(props) => !props.isClosed && 'padding: 16px;'}

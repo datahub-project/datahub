@@ -1,7 +1,7 @@
 import { EntityType, SearchResult } from '../../types.generated';
 import { EntitySidebarSection } from '../entity/shared/types';
 import { FetchedEntity } from '../lineage/types';
-import { GenericEntityProperties } from './shared/types';
+import { EntitySidebarTab, GenericEntityProperties } from './shared/types';
 
 export enum PreviewType {
     /**
@@ -208,4 +208,9 @@ export interface Entity<T> {
      * Returns the entity profile sidebar sections for an entity type. Only implemented on Datasets for now.
      */
     getSidebarSections?: () => EntitySidebarSection[];
+
+    /**
+     * Returns the entity profile sidebar tabs for an entity type.
+     */
+    getSidebarTabs?: () => EntitySidebarTab[];
 }

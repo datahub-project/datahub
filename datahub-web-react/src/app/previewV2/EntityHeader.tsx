@@ -9,6 +9,7 @@ import { REDESIGN_COLORS, SEARCH_COLORS } from '../entityV2/shared/constants';
 import { DeprecationPill } from '../entityV2/shared/components/styled/DeprecationPill';
 import HealthIcon from './HealthIcon';
 import { isUnhealthy } from '../shared/health/healthUtils';
+import { PageRoutes } from '../../conf/Global';
 
 const EntityTitleContainer = styled.div`
     display: flex;
@@ -66,9 +67,12 @@ const EntityHeader: React.FC<EntityHeaderProps> = ({
     deprecation,
     health,
 }) => {
+    const isEmbeddedProfile = window.location.pathname.startsWith(PageRoutes.EMBED);
+    const linkProps = isEmbeddedProfile ? { target: '_blank', rel: 'noreferrer noopener' } : {};
+
     return (
         <EntityTitleContainer>
-            <StyledLink to={url}>
+            <StyledLink to={url} {...linkProps}>
                 {previewType === PreviewType.HOVER_CARD ? (
                     <CardEntityTitle onClick={onClick} $titleSizePx={titleSizePx}>
                         {name || ' '}
