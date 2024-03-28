@@ -3,6 +3,7 @@ import { getStructuredPropertyValue } from '../../../../entity/shared/utils';
 import EntityRegistry from '../../../EntityRegistry';
 import { useEntityData } from '../../EntityContext';
 import { GenericEntityProperties } from '../../types';
+import { useGetEntityWithSchema } from '../Dataset/Schema/useGetEntitySchema';
 import { PropertyRow } from './types';
 import { filterStructuredProperties } from './utils';
 
@@ -23,26 +24,44 @@ export function mapStructuredPropertyValues(structuredPropertiesEntry: Structure
         }));
 }
 
+function mapStructuredPropertyToPropertyRow(structuredPropertiesEntry: StructuredPropertiesEntry) {
+    const { displayName, qualifiedName } = structuredPropertiesEntry.structuredProperty.definition;
+    return {
+        displayName: displayName || qualifiedName,
+        qualifiedName,
+        values: mapStructuredPropertyValues(structuredPropertiesEntry),
+        dataType: structuredPropertiesEntry.structuredProperty.definition.valueType,
+        structuredProperty: structuredPropertiesEntry.structuredProperty,
+        type:
+            structuredPropertiesEntry.values[0] && structuredPropertiesEntry.values[0].__typename
+                ? {
+                      type: typeNameToType[structuredPropertiesEntry.values[0].__typename].type,
+                      nativeDataType: typeNameToType[structuredPropertiesEntry.values[0].__typename].nativeDataType,
+                  }
+                : undefined,
+    };
+}
+
 // map the properties map into a list of PropertyRow objects to render in a table
 function getStructuredPropertyRows(entityData?: GenericEntityProperties | null) {
     const structuredPropertyRows: PropertyRow[] = [];
 
     entityData?.structuredProperties?.properties?.forEach((structuredPropertiesEntry) => {
-        const { displayName, qualifiedName } = structuredPropertiesEntry.structuredProperty.definition;
-        structuredPropertyRows.push({
-            displayName: displayName || qualifiedName,
-            qualifiedName,
-            values: mapStructuredPropertyValues(structuredPropertiesEntry),
-            dataType: structuredPropertiesEntry.structuredProperty.definition.valueType,
-            structuredProperty: structuredPropertiesEntry.structuredProperty,
-            type:
-                structuredPropertiesEntry.values[0] && structuredPropertiesEntry.values[0].__typename
-                    ? {
-                          type: typeNameToType[structuredPropertiesEntry.values[0].__typename].type,
-                          nativeDataType: typeNameToType[structuredPropertiesEntry.values[0].__typename].nativeDataType,
-                      }
-                    : undefined,
-        });
+        structuredPropertyRows.push(mapStructuredPropertyToPropertyRow(structuredPropertiesEntry));
+    });
+
+    return structuredPropertyRows;
+}
+
+function getFieldStructuredPropertyRows(fieldPath: string, entityData?: GenericEntityProperties | null) {
+    const structuredPropertyRows: PropertyRow[] = [];
+
+    const schemaFieldEntity = entityData?.schemaMetadata?.fields.find(
+        (f) => f.fieldPath === fieldPath,
+    )?.schemaFieldEntity;
+
+    schemaFieldEntity?.structuredProperties?.properties?.forEach((structuredPropertiesEntry) => {
+        structuredPropertyRows.push(mapStructuredPropertyToPropertyRow(structuredPropertiesEntry));
     });
 
     return structuredPropertyRows;
@@ -186,10 +205,23 @@ export function groupByParentProperty(rows?: Array<PropertyRow>): Array<Property
     return outputRows;
 }
 
-export default function useStructuredProperties(entityRegistry: EntityRegistry, filterText?: string) {
+export default function useStructuredProperties(
+    entityRegistry: EntityRegistry,
+    fieldPath: string | null,
+    filterText?: string,
+) {
     const { entityData } = useEntityData();
+    const { entityWithSchema } = useGetEntityWithSchema(!fieldPath);
 
-    let structuredPropertyRowsRaw = getStructuredPropertyRows(entityData);
+    let structuredPropertyRowsRaw: PropertyRow[] = [];
+    if (fieldPath) {
+        structuredPropertyRowsRaw = getFieldStructuredPropertyRows(
+            fieldPath,
+            entityWithSchema as GenericEntityProperties,
+        );
+    } else {
+        structuredPropertyRowsRaw = getStructuredPropertyRows(entityData);
+    }
     const parentRows = identifyAndAddParentRows(structuredPropertyRowsRaw);
 
     structuredPropertyRowsRaw = [...structuredPropertyRowsRaw, ...parentRows];

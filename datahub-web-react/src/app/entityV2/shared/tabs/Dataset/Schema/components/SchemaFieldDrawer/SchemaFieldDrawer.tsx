@@ -1,4 +1,4 @@
-import { ReadOutlined } from '@ant-design/icons';
+import { ReadOutlined, UnorderedListOutlined } from '@ant-design/icons';
 import QueryStatsOutlinedIcon from '@mui/icons-material/QueryStatsOutlined';
 import { Drawer, Typography } from 'antd';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
@@ -20,6 +20,7 @@ import FieldHeader from './FieldHeader';
 import { SchemaFieldDrawerTabs } from './SchemaFieldDrawerTabs';
 import StatsSidebarView from './StatsSidebarView';
 import { ExtendedSchemaFields } from '../../../../../../dataset/profile/schema/utils/types';
+import { PropertiesTab } from '../../../../Properties/PropertiesTab';
 
 const StyledDrawer = styled(Drawer)`
     &&& .ant-drawer-body {
@@ -177,6 +178,15 @@ export default function SchemaFieldDrawer({
                 profiles,
                 fetchDataWithLookbackWindow,
                 profilesDataLoading,
+            },
+        },
+        {
+            name: 'Properties',
+            component: PropertiesTab,
+            description: 'View additional properties about this field',
+            icon: UnorderedListOutlined,
+            properties: {
+                fieldPath: expandedField?.fieldPath,
             },
         },
     ];

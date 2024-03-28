@@ -31,7 +31,14 @@ const EmptyText = styled(Empty)`
     font-size: 14px;
 `;
 
-export const PropertiesTab = () => {
+interface Props {
+    properties?: {
+        fieldPath?: string;
+    };
+}
+
+export const PropertiesTab = ({ properties }: Props) => {
+    const fieldPath = properties?.fieldPath;
     const [filterText, setFilterText] = useState('');
     const { entityData } = useEntityData();
     const entityRegistry = useEntityRegistryV2();
@@ -48,8 +55,13 @@ export const PropertiesTab = () => {
         },
     ];
 
-    const { structuredPropertyRows, expandedRowsFromFilter } = useStructuredProperties(entityRegistry, filterText);
-    const customProperties = getFilteredCustomProperties(filterText, entityData) || [];
+    const { structuredPropertyRows, expandedRowsFromFilter } = useStructuredProperties(
+        entityRegistry,
+        fieldPath || null,
+        filterText,
+    );
+    // only show entity custom properties on entity level, not on field level
+    const customProperties = !fieldPath ? getFilteredCustomProperties(filterText, entityData) || [] : [];
     const customPropertyRows = mapCustomPropertiesToPropertyRows(customProperties);
     const dataSource: PropertyRow[] = structuredPropertyRows.concat(customPropertyRows);
 
