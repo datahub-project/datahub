@@ -38,11 +38,13 @@ public class EntityTypeMapper {
           .put(EntityType.NOTEBOOK, "notebook")
           .put(EntityType.DATA_PLATFORM_INSTANCE, "dataPlatformInstance")
           .put(EntityType.TEST, "test")
+          .put(EntityType.ER_MODEL_RELATIONSHIP, Constants.ER_MODEL_RELATIONSHIP_ENTITY_NAME)
           .put(EntityType.DATAHUB_VIEW, Constants.DATAHUB_VIEW_ENTITY_NAME)
           .put(EntityType.DATA_PRODUCT, Constants.DATA_PRODUCT_ENTITY_NAME)
           .put(EntityType.SCHEMA_FIELD, "schemaField")
           .put(EntityType.STRUCTURED_PROPERTY, Constants.STRUCTURED_PROPERTY_ENTITY_NAME)
           .put(EntityType.ASSERTION, Constants.ASSERTION_ENTITY_NAME)
+          .put(EntityType.RESTRICTED, Constants.RESTRICTED_ENTITY_NAME)
           .build();
 
   private static final Map<String, EntityType> ENTITY_NAME_TO_TYPE =

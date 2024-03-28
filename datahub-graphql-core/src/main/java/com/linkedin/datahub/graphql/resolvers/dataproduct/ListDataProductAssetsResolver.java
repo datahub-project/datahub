@@ -134,10 +134,12 @@ public class ListDataProductAssetsResolver
               ResolverUtils.buildFilter(input.getFilters(), input.getOrFilters());
           final Filter finalFilter = buildFilterWithUrns(new HashSet<>(assetUrns), baseFilter);
 
-          SearchFlags searchFlags = null;
+          final SearchFlags searchFlags;
           com.linkedin.datahub.graphql.generated.SearchFlags inputFlags = input.getSearchFlags();
           if (inputFlags != null) {
-            searchFlags = SearchFlagsInputMapper.INSTANCE.apply(inputFlags);
+            searchFlags = SearchFlagsInputMapper.INSTANCE.apply(context, inputFlags);
+          } else {
+            searchFlags = null;
           }
 
           try {
@@ -150,15 +152,17 @@ public class ListDataProductAssetsResolver
                 count);
 
             return UrnSearchResultsMapper.map(
+                context,
                 _entityClient.searchAcrossEntities(
+                    context
+                        .getOperationContext()
+                        .withSearchFlags(flags -> searchFlags != null ? searchFlags : flags),
                     finalEntityNames,
                     sanitizedQuery,
                     finalFilter,
                     start,
                     count,
-                    searchFlags,
-                    null,
-                    ResolverUtils.getAuthentication(environment)));
+                    null));
           } catch (Exception e) {
             log.error(
                 "Failed to execute search for data product assets: entity types {}, query {}, filters: {}, start: {}, count: {}",

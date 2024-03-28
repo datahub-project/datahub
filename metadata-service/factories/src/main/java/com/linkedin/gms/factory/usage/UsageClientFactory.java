@@ -1,13 +1,13 @@
 package com.linkedin.gms.factory.usage;
 
-import com.datahub.authentication.Authentication;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.restli.DefaultRestliClientFactory;
 import com.linkedin.metadata.spring.YamlPropertySourceFactory;
 import com.linkedin.parseq.retry.backoff.ExponentialBackoff;
 import com.linkedin.r2.transport.http.client.HttpClientFactory;
 import com.linkedin.restli.client.Client;
-import com.linkedin.usage.UsageClient;
+import com.linkedin.usage.RestliUsageClient;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.HashMap;
 import java.util.Map;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -47,19 +47,19 @@ public class UsageClientFactory {
   private ConfigurationProvider configurationProvider;
 
   @Bean("usageClient")
-  public UsageClient getUsageClient(
-      @Qualifier("systemAuthentication") final Authentication systemAuthentication) {
+  public RestliUsageClient getUsageClient(
+      @Qualifier("systemOperationContext") final OperationContext systemOperationContext) {
     Map<String, String> params = new HashMap<>();
     params.put(HttpClientFactory.HTTP_REQUEST_TIMEOUT, String.valueOf(timeoutMs));
 
     Client restClient =
         DefaultRestliClientFactory.getRestLiClient(
             gmsHost, gmsPort, gmsUseSSL, gmsSslProtocol, params);
-    return new UsageClient(
+    return new RestliUsageClient(
+        systemOperationContext,
         restClient,
         new ExponentialBackoff(retryInterval),
         numRetries,
-        systemAuthentication,
         configurationProvider.getCache().getClient().getUsageClient());
   }
 }

@@ -14,7 +14,7 @@ ext {
 dependencies {
   implementation project(':metadata-io')
   implementation project(':metadata-service:factories')
-  implementation project(':metadata-service:restli-client')
+  implementation project(':metadata-service:restli-client-api')
   implementation project(':metadata-service:configuration')
   implementation project(':metadata-dao-impl:kafka-producer')
   implementation externalDependency.charle
@@ -24,7 +24,7 @@ dependencies {
     exclude group: 'net.minidev', module: 'json-smart'
     exclude group: 'com.nimbusds', module: 'nimbus-jose-jwt'
     exclude group: "org.apache.htrace", module: "htrace-core4"
-    exclude group: "org.eclipse.jetty", module: "jetty-util"
+    exclude group: "org.eclipse.jetty"
     exclude group: "org.apache.hadoop.thirdparty", module: "hadoop-shaded-protobuf_3_7"
     exclude group: "com.charleskorn.kaml", module:"kaml"
 
@@ -43,13 +43,16 @@ dependencies {
     implementation(externalDependency.jettison) {
       because("previous versions are vulnerable")
     }
+    implementation(externalDependency.guava) {
+      because("CVE-2023-2976")
+    }
   }
 
 
   // mock internal schema registry
   implementation externalDependency.kafkaAvroSerde
   implementation externalDependency.kafkaAvroSerializer
-  implementation "org.apache.kafka:kafka_2.12:$kafkaVersion"
+  implementation "org.apache.kafka:kafka_2.12:3.7.0"
 
   implementation externalDependency.slf4jApi
   compileOnly externalDependency.lombok
@@ -66,9 +69,7 @@ dependencies {
   runtimeOnly externalDependency.mysqlConnector
   runtimeOnly externalDependency.postgresql
 
-  implementation(externalDependency.awsMskIamAuth) {
-    exclude group: 'software.amazon.awssdk', module: 'third-party-jackson-core'
-  }
+  implementation externalDependency.awsMskIamAuth
 
   annotationProcessor externalDependency.lombok
   annotationProcessor externalDependency.picocli

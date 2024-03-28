@@ -7,6 +7,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 
+import com.datahub.plugins.auth.authorization.Authorizer;
 import com.datahub.test.Snapshot;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -19,7 +20,6 @@ import com.linkedin.metadata.config.cache.EntityDocCountCacheConfiguration;
 import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
 import com.linkedin.metadata.models.registry.SnapshotEntityRegistry;
-import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
@@ -40,9 +40,13 @@ import com.linkedin.metadata.search.ranker.SimpleRanker;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
 import com.linkedin.r2.RemoteInvocationException;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.RequestContext;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.net.URISyntaxException;
 import java.util.Map;
 import javax.annotation.Nonnull;
+import lombok.Getter;
 import org.opensearch.client.RestHighLevelClient;
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.concurrent.ConcurrentMapCacheManager;
@@ -74,6 +78,7 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
   private ElasticSearchService elasticSearchService;
   private CacheManager cacheManager;
   private SearchService searchService;
+  @Getter private OperationContext operationContext;
 
   private static final String ENTITY_NAME = "testEntity";
 
@@ -84,6 +89,10 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
         .thenReturn(new SnapshotEntityRegistry(new Snapshot()));
     when(aspectRetriever.getLatestAspectObjects(any(), any())).thenReturn(Map.of());
     indexConvention = new IndexConventionImpl("search_service_test");
+    operationContext =
+        TestOperationContexts.systemContextNoSearchAuthorization(
+                aspectRetriever.getEntityRegistry(), indexConvention)
+            .asSession(RequestContext.TEST, Authorizer.EMPTY, TestOperationContexts.TEST_USER_AUTH);
     settingsBuilder = new SettingsBuilder(null);
     elasticSearchService = buildEntitySearchService();
     elasticSearchService.configure();
@@ -156,17 +165,24 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
   public void testSearchService() throws Exception {
     SearchResult searchResult =
         searchService.searchAcrossEntities(
+            getOperationContext()
+                .withSearchFlags(flags -> flags.setFulltext(true).setSkipCache(true)),
             ImmutableList.of(ENTITY_NAME),
             "test",
             null,
             null,
             0,
-            10,
-            new SearchFlags().setFulltext(true).setSkipCache(true));
+            10);
     assertEquals(searchResult.getNumEntities().intValue(), 0);
     searchResult =
         searchService.searchAcrossEntities(
-            ImmutableList.of(), "test", null, null, 0, 10, new SearchFlags().setFulltext(true));
+            getOperationContext().withSearchFlags(flags -> flags.setFulltext(true)),
+            ImmutableList.of(),
+            "test",
+            null,
+            null,
+            0,
+            10);
     assertEquals(searchResult.getNumEntities().intValue(), 0);
     clearCache();
 
@@ -181,7 +197,13 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
 
     searchResult =
         searchService.searchAcrossEntities(
-            ImmutableList.of(), "test", null, null, 0, 10, new SearchFlags().setFulltext(true));
+            getOperationContext().withSearchFlags(flags -> flags.setFulltext(true)),
+            ImmutableList.of(),
+            "test",
+            null,
+            null,
+            0,
+            10);
     assertEquals(searchResult.getNumEntities().intValue(), 1);
     assertEquals(searchResult.getEntities().get(0).getEntity(), urn);
     clearCache();
@@ -197,12 +219,20 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
 
     searchResult =
         searchService.searchAcrossEntities(
-            ImmutableList.of(), "'test2'", null, null, 0, 10, new SearchFlags().setFulltext(true));
+            getOperationContext().withSearchFlags(flags -> flags.setFulltext(true)),
+            ImmutableList.of(),
+            "'test2'",
+            null,
+            null,
+            0,
+            10);
     assertEquals(searchResult.getNumEntities().intValue(), 1);
     assertEquals(searchResult.getEntities().get(0).getEntity(), urn2);
     clearCache();
 
-    long docCount = elasticSearchService.docCount(ENTITY_NAME);
+    long docCount =
+        elasticSearchService.docCount(
+            getOperationContext().withSearchFlags(flags -> flags.setFulltext(false)), ENTITY_NAME);
     assertEquals(docCount, 2L);
 
     elasticSearchService.deleteDocument(ENTITY_NAME, urn.toString());
@@ -210,7 +240,13 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
     syncAfterWrite(getBulkProcessor());
     searchResult =
         searchService.searchAcrossEntities(
-            ImmutableList.of(), "'test2'", null, null, 0, 10, new SearchFlags().setFulltext(true));
+            getOperationContext().withSearchFlags(flags -> flags.setFulltext(true)),
+            ImmutableList.of(),
+            "'test2'",
+            null,
+            null,
+            0,
+            10);
     assertEquals(searchResult.getNumEntities().intValue(), 0);
   }
 
@@ -241,13 +277,13 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
 
     SearchResult searchResult =
         searchService.searchAcrossEntities(
+            getOperationContext().withSearchFlags(flags -> flags.setFulltext(true)),
             ImmutableList.of(ENTITY_NAME),
             "test",
             filterWithCondition,
             null,
             0,
-            10,
-            new SearchFlags().setFulltext(true));
+            10);
 
     assertEquals(searchResult.getNumEntities().intValue(), 0);
     clearCache();
@@ -286,13 +322,13 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
 
     searchResult =
         searchService.searchAcrossEntities(
+            getOperationContext().withSearchFlags(flags -> flags.setFulltext(true)),
             ImmutableList.of(),
             "test",
             filterWithCondition,
             null,
             0,
-            10,
-            new SearchFlags().setFulltext(true));
+            10);
     assertEquals(searchResult.getNumEntities().intValue(), 2);
     assertEquals(searchResult.getEntities().get(0).getEntity(), urn);
     assertEquals(searchResult.getEntities().get(1).getEntity(), urn2);
@@ -326,13 +362,13 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
 
     SearchResult searchResult =
         searchService.searchAcrossEntities(
+            getOperationContext().withSearchFlags(flags -> flags.setFulltext(true)),
             ImmutableList.of(ENTITY_NAME),
             "test",
             filterWithCondition,
             null,
             0,
-            10,
-            new SearchFlags().setFulltext(true));
+            10);
 
     assertEquals(searchResult.getNumEntities().intValue(), 0);
     clearCache();
@@ -374,13 +410,13 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
 
     searchResult =
         searchService.searchAcrossEntities(
+            getOperationContext().withSearchFlags(flags -> flags.setFulltext(true)),
             ImmutableList.of(),
             "test",
             filterWithCondition,
             null,
             0,
-            10,
-            new SearchFlags().setFulltext(true));
+            10);
     assertEquals(searchResult.getNumEntities().intValue(), 1);
     assertEquals(searchResult.getEntities().get(0).getEntity(), urn);
     clearCache();
@@ -405,13 +441,13 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
 
     SearchResult searchResult =
         searchService.searchAcrossEntities(
+            getOperationContext().withSearchFlags(flags -> flags.setFulltext(true)),
             ImmutableList.of(ENTITY_NAME),
             "test",
             filterWithCondition,
             null,
             0,
-            10,
-            new SearchFlags().setFulltext(true));
+            10);
 
     assertEquals(searchResult.getNumEntities().intValue(), 0);
     clearCache();
@@ -453,13 +489,13 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
 
     searchResult =
         searchService.searchAcrossEntities(
+            getOperationContext().withSearchFlags(flags -> flags.setFulltext(true)),
             ImmutableList.of(),
             "test",
             filterWithCondition,
             null,
             0,
-            10,
-            new SearchFlags().setFulltext(true));
+            10);
     assertEquals(searchResult.getNumEntities().intValue(), 1);
     assertEquals(searchResult.getEntities().get(0).getEntity(), urn3);
     clearCache();

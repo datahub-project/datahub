@@ -27,7 +27,6 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import javax.annotation.Nonnull;
-import javax.inject.Singleton;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -44,7 +43,6 @@ import org.springframework.stereotype.Component;
  */
 @Slf4j
 @Component
-@Singleton
 @Import({
   EntityRegistryFactory.class,
   IncidentServiceFactory.class,
@@ -53,7 +51,8 @@ import org.springframework.stereotype.Component;
 public class IncidentsSummaryHook implements MetadataChangeLogHook {
 
   private static final Set<ChangeType> SUPPORTED_UPDATE_TYPES =
-      ImmutableSet.of(ChangeType.UPSERT, ChangeType.CREATE, ChangeType.RESTATE);
+      ImmutableSet.of(
+          ChangeType.UPSERT, ChangeType.CREATE, ChangeType.CREATE_ENTITY, ChangeType.RESTATE);
   private static final Set<String> SUPPORTED_UPDATE_ASPECTS =
       ImmutableSet.of(INCIDENT_INFO_ASPECT_NAME, STATUS_ASPECT_NAME);
 

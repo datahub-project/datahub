@@ -20,6 +20,7 @@ import com.linkedin.metadata.search.FilterValueArray;
 import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.utils.SearchUtil;
 import com.linkedin.util.Pair;
+import io.datahubproject.metadata.context.OperationContext;
 import io.opentelemetry.extension.annotations.WithSpan;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -73,15 +74,16 @@ public class AggregationQueryBuilder {
   }
 
   /** Get the set of default aggregations, across all facets. */
-  public List<AggregationBuilder> getAggregations() {
-    return getAggregations(null);
+  public List<AggregationBuilder> getAggregations(@Nonnull OperationContext opContext) {
+    return getAggregations(opContext, null);
   }
 
   /**
    * Get aggregations for a search request for the given facets provided, and if none are provided,
    * then get aggregations for all.
    */
-  public List<AggregationBuilder> getAggregations(@Nullable List<String> facets) {
+  public List<AggregationBuilder> getAggregations(
+      @Nonnull OperationContext opContext, @Nullable List<String> facets) {
     final Set<String> facetsToAggregate;
     if (facets != null) {
       facetsToAggregate =
@@ -90,7 +92,7 @@ public class AggregationQueryBuilder {
       facetsToAggregate = defaultFacetFields;
     }
     return facetsToAggregate.stream()
-        .map(this::facetToAggregationBuilder)
+        .map(f -> facetToAggregationBuilder(opContext, f))
         .collect(Collectors.toList());
   }
 
@@ -129,9 +131,14 @@ public class AggregationQueryBuilder {
     return isValid;
   }
 
-  private AggregationBuilder facetToAggregationBuilder(final String inputFacet) {
+  private AggregationBuilder facetToAggregationBuilder(
+      @Nonnull OperationContext opContext, final String inputFacet) {
     List<String> facets = List.of(inputFacet.split(AGGREGATION_SEPARATOR_CHAR));
     AggregationBuilder lastAggBuilder = null;
+    int maxTermBuckets =
+        Math.min(
+            opContext.getSearchContext().getSearchFlags().getMaxAggValues(),
+            configs.getMaxTermBucketSize());
     for (int i = facets.size() - 1; i >= 0; i--) {
       String facet = facets.get(i);
       if (facet.startsWith(STRUCTURED_PROPERTY_MAPPING_FIELD_PREFIX)) {
@@ -149,7 +156,8 @@ public class AggregationQueryBuilder {
           case MISSING_SPECIAL_TYPE:
             aggBuilder =
                 INDEX_VIRTUAL_FIELD.equalsIgnoreCase(specialTypeFields.get(1))
-                    ? AggregationBuilders.missing(inputFacet).field(getAggregationField("_index"))
+                    ? AggregationBuilders.missing(inputFacet)
+                        .field(getAggregationField(ES_INDEX_FIELD))
                     : AggregationBuilders.missing(inputFacet)
                         .field(getAggregationField(specialTypeFields.get(1)));
             break;
@@ -161,12 +169,12 @@ public class AggregationQueryBuilder {
         aggBuilder =
             facet.equalsIgnoreCase(INDEX_VIRTUAL_FIELD)
                 ? AggregationBuilders.terms(inputFacet)
-                    .field(getAggregationField("_index"))
-                    .size(configs.getMaxTermBucketSize())
+                    .field(getAggregationField(ES_INDEX_FIELD))
+                    .size(maxTermBuckets)
                     .minDocCount(0)
                 : AggregationBuilders.terms(inputFacet)
                     .field(getAggregationField(facet))
-                    .size(configs.getMaxTermBucketSize());
+                    .size(maxTermBuckets);
       }
       if (lastAggBuilder != null) {
         aggBuilder = aggBuilder.subAggregation(lastAggBuilder);

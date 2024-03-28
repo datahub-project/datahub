@@ -212,7 +212,7 @@ public class DomainUtils {
     // Limit count to 1 for existence check
     final SearchResult searchResult =
         entityClient.filter(
-            DOMAIN_ENTITY_NAME, parentDomainFilter, null, 0, 1, context.getAuthentication());
+            context.getOperationContext(), DOMAIN_ENTITY_NAME, parentDomainFilter, null, 0, 1);
     return (searchResult.getNumEntities() > 0);
   }
 
@@ -226,7 +226,7 @@ public class DomainUtils {
 
       final SearchResult searchResult =
           entityClient.filter(
-              DOMAIN_ENTITY_NAME, filter, null, 0, 1000, context.getAuthentication());
+              context.getOperationContext(), DOMAIN_ENTITY_NAME, filter, null, 0, 1000);
 
       final Set<Urn> domainUrns =
           searchResult.getEntities().stream()
@@ -288,7 +288,7 @@ public class DomainUtils {
             new DomainProperties(
                 entityResponse.getAspects().get(DOMAIN_PROPERTIES_ASPECT_NAME).getValue().data());
         final Urn parentDomainUrn = getParentDomainSafely(properties);
-        return parentDomainUrn != null ? UrnToEntityMapper.map(parentDomainUrn) : null;
+        return parentDomainUrn != null ? UrnToEntityMapper.map(context, parentDomainUrn) : null;
       }
     } catch (Exception e) {
       throw new RuntimeException(

@@ -28,7 +28,6 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.query.AutoCompleteResult;
-import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.SearchResult;
 import graphql.execution.DataFetcherResult;
@@ -97,7 +96,7 @@ public class GlossaryTermType
               ASPECTS_TO_RESOLVE,
               context.getAuthentication());
 
-      final List<EntityResponse> gmsResults = new ArrayList<>();
+      final List<EntityResponse> gmsResults = new ArrayList<>(urns.size());
       for (Urn urn : glossaryTermUrns) {
         gmsResults.add(glossaryTermMap.getOrDefault(urn, null));
       }
@@ -107,7 +106,7 @@ public class GlossaryTermType
                   gmsGlossaryTerm == null
                       ? null
                       : DataFetcherResult.<GlossaryTerm>newResult()
-                          .data(GlossaryTermMapper.map(gmsGlossaryTerm))
+                          .data(GlossaryTermMapper.map(context, gmsGlossaryTerm))
                           .build())
           .collect(Collectors.toList());
     } catch (Exception e) {
@@ -126,14 +125,13 @@ public class GlossaryTermType
     final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
     final SearchResult searchResult =
         _entityClient.search(
+            context.getOperationContext().withSearchFlags(flags -> flags.setFulltext(true)),
             "glossaryTerm",
             query,
             facetFilters,
             start,
-            count,
-            context.getAuthentication(),
-            new SearchFlags().setFulltext(true));
-    return UrnSearchResultsMapper.map(searchResult);
+            count);
+    return UrnSearchResultsMapper.map(context, searchResult);
   }
 
   @Override
@@ -146,8 +144,8 @@ public class GlossaryTermType
       throws Exception {
     final AutoCompleteResult result =
         _entityClient.autoComplete(
-            "glossaryTerm", query, filters, limit, context.getAuthentication());
-    return AutoCompleteResultsMapper.map(result);
+            context.getOperationContext(), "glossaryTerm", query, filters, limit);
+    return AutoCompleteResultsMapper.map(context, result);
   }
 
   @Override
@@ -163,8 +161,13 @@ public class GlossaryTermType
         path.size() > 0 ? BROWSE_PATH_DELIMITER + String.join(BROWSE_PATH_DELIMITER, path) : "";
     final BrowseResult result =
         _entityClient.browse(
-            "glossaryTerm", pathStr, facetFilters, start, count, context.getAuthentication());
-    return BrowseResultMapper.map(result);
+            context.getOperationContext().withSearchFlags(flags -> flags.setFulltext(false)),
+            "glossaryTerm",
+            pathStr,
+            facetFilters,
+            start,
+            count);
+    return BrowseResultMapper.map(context, result);
   }
 
   @Override
@@ -173,6 +176,6 @@ public class GlossaryTermType
     final StringArray result =
         _entityClient.getBrowsePaths(
             GlossaryTermUtils.getGlossaryTermUrn(urn), context.getAuthentication());
-    return BrowsePathsMapper.map(result);
+    return BrowsePathsMapper.map(context, result);
   }
 }

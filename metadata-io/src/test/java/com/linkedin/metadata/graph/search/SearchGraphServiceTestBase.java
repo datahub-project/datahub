@@ -9,6 +9,7 @@ import com.linkedin.common.urn.DataPlatformUrn;
 import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.common.urn.TagUrn;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.data.template.SetMode;
 import com.linkedin.metadata.config.search.GraphQueryConfiguration;
 import com.linkedin.metadata.graph.Edge;
 import com.linkedin.metadata.graph.EntityLineageResult;
@@ -20,8 +21,12 @@ import com.linkedin.metadata.graph.RelatedEntity;
 import com.linkedin.metadata.graph.elastic.ESGraphQueryDAO;
 import com.linkedin.metadata.graph.elastic.ESGraphWriteDAO;
 import com.linkedin.metadata.graph.elastic.ElasticSearchGraphService;
+import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
+import com.linkedin.metadata.models.registry.EntityRegistryException;
 import com.linkedin.metadata.models.registry.LineageRegistry;
+import com.linkedin.metadata.models.registry.MergedEntityRegistry;
 import com.linkedin.metadata.models.registry.SnapshotEntityRegistry;
+import com.linkedin.metadata.query.LineageFlags;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.query.filter.RelationshipFilter;
@@ -30,12 +35,14 @@ import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
 import io.datahubproject.test.search.SearchTestUtils;
+import io.datahubproject.test.search.config.SearchCommonTestConfiguration;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import org.junit.Assert;
 import org.opensearch.client.RestHighLevelClient;
 import org.testng.SkipException;
@@ -54,7 +61,7 @@ public abstract class SearchGraphServiceTestBase extends GraphServiceTestBase {
   @Nonnull
   protected abstract ESIndexBuilder getIndexBuilder();
 
-  private final IndexConvention _indexConvention = new IndexConventionImpl(null);
+  private final IndexConvention _indexConvention = IndexConventionImpl.NO_PREFIX;
   private final String _indexName = _indexConvention.getIndexName(INDEX_NAME);
   private ElasticSearchGraphService _client;
   private boolean _enableMultiPathSearch =
@@ -76,7 +83,20 @@ public abstract class SearchGraphServiceTestBase extends GraphServiceTestBase {
 
   @Nonnull
   private ElasticSearchGraphService buildService(boolean enableMultiPathSearch) {
-    LineageRegistry lineageRegistry = new LineageRegistry(SnapshotEntityRegistry.getInstance());
+    ConfigEntityRegistry configEntityRegistry =
+        new ConfigEntityRegistry(
+            SearchCommonTestConfiguration.class
+                .getClassLoader()
+                .getResourceAsStream("entity-registry.yml"));
+    SnapshotEntityRegistry snapshotEntityRegistry = SnapshotEntityRegistry.getInstance();
+    LineageRegistry lineageRegistry;
+    try {
+      MergedEntityRegistry mergedEntityRegistry =
+          new MergedEntityRegistry(snapshotEntityRegistry).apply(configEntityRegistry);
+      lineageRegistry = new LineageRegistry(mergedEntityRegistry);
+    } catch (EntityRegistryException e) {
+      throw new RuntimeException(e);
+    }
     GraphQueryConfiguration configuration = GraphQueryConfiguration.testDefaults;
     configuration.setEnableMultiPathSearch(enableMultiPathSearch);
     ESGraphQueryDAO readDAO =
@@ -427,7 +447,7 @@ public abstract class SearchGraphServiceTestBase extends GraphServiceTestBase {
    * @return The Upstream lineage for urn from the window from startTime to endTime
    */
   private EntityLineageResult getUpstreamLineage(Urn urn, Long startTime, Long endTime) {
-    return getLineage(urn, LineageDirection.UPSTREAM, startTime, endTime);
+    return getLineage(urn, LineageDirection.UPSTREAM, startTime, endTime, null);
   }
 
   /**
@@ -439,7 +459,7 @@ public abstract class SearchGraphServiceTestBase extends GraphServiceTestBase {
    * @return The Downstream lineage for urn from the window from startTime to endTime
    */
   private EntityLineageResult getDownstreamLineage(Urn urn, Long startTime, Long endTime) {
-    return getLineage(urn, LineageDirection.DOWNSTREAM, startTime, endTime);
+    return getLineage(urn, LineageDirection.DOWNSTREAM, startTime, endTime, null);
   }
 
   /**
@@ -452,7 +472,22 @@ public abstract class SearchGraphServiceTestBase extends GraphServiceTestBase {
    * @return The lineage for urn from the window from startTime to endTime in direction
    */
   private EntityLineageResult getLineage(
-      Urn urn, LineageDirection direction, Long startTime, Long endTime) {
-    return getGraphService().getLineage(urn, direction, 0, 0, 3, startTime, endTime);
+      Urn urn,
+      LineageDirection direction,
+      Long startTime,
+      Long endTime,
+      @Nullable Integer entitiesExploredPerHopLimit) {
+    return getGraphService()
+        .getLineage(
+            urn,
+            direction,
+            0,
+            0,
+            3,
+            new LineageFlags()
+                .setStartTimeMillis(startTime, SetMode.REMOVE_IF_NULL)
+                .setEndTimeMillis(endTime, SetMode.REMOVE_IF_NULL)
+                .setEntitiesExploredPerHopLimit(
+                    entitiesExploredPerHopLimit, SetMode.REMOVE_IF_NULL));
   }
 }

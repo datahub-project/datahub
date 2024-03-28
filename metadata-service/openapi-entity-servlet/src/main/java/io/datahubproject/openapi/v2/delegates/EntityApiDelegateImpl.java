@@ -1,17 +1,14 @@
 package io.datahubproject.openapi.v2.delegates;
 
+import static com.linkedin.metadata.authorization.ApiOperation.EXISTS;
+import static com.linkedin.metadata.authorization.ApiOperation.READ;
 import static io.datahubproject.openapi.util.ReflectionCache.toLowerFirst;
 
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authorization.AuthUtil;
 import com.datahub.authorization.AuthorizerChain;
-import com.datahub.authorization.ConjunctivePrivilegeGroup;
-import com.datahub.authorization.DisjunctivePrivilegeGroup;
-import com.datahub.authorization.EntitySpec;
-import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.SearchFlags;
@@ -19,6 +16,8 @@ import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchService;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.RequestContext;
 import io.datahubproject.openapi.dto.UpsertAspectRequest;
 import io.datahubproject.openapi.dto.UrnResponseMap;
 import io.datahubproject.openapi.entities.EntitiesController;
@@ -64,6 +63,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import javax.annotation.Nullable;
 import javax.validation.Valid;
 import javax.validation.constraints.Min;
 import org.springframework.http.HttpEntity;
@@ -71,13 +71,12 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
 public class EntityApiDelegateImpl<I, O, S> {
+  private final OperationContext systemOperationContext;
   private final EntityRegistry _entityRegistry;
   private final EntityService<?> _entityService;
   private final SearchService _searchService;
   private final EntitiesController _v1Controller;
   private final AuthorizerChain _authorizationChain;
-
-  private final boolean _restApiAuthorizationEnabled;
   private final Class<I> _reqClazz;
   private final Class<O> _respClazz;
   private final Class<S> _scrollRespClazz;
@@ -85,20 +84,20 @@ public class EntityApiDelegateImpl<I, O, S> {
   private final StackWalker walker = StackWalker.getInstance();
 
   public EntityApiDelegateImpl(
+      OperationContext systemOperationContext,
       EntityService<?> entityService,
       SearchService searchService,
       EntitiesController entitiesController,
-      boolean restApiAuthorizationEnabled,
       AuthorizerChain authorizationChain,
       Class<I> reqClazz,
       Class<O> respClazz,
       Class<S> scrollRespClazz) {
+    this.systemOperationContext = systemOperationContext;
     this._entityService = entityService;
     this._searchService = searchService;
     this._entityRegistry = entityService.getEntityRegistry();
     this._v1Controller = entitiesController;
     this._authorizationChain = authorizationChain;
-    this._restApiAuthorizationEnabled = restApiAuthorizationEnabled;
     this._reqClazz = reqClazz;
     this._respClazz = respClazz;
     this._scrollRespClazz = scrollRespClazz;
@@ -118,7 +117,10 @@ public class EntityApiDelegateImpl<I, O, S> {
             systemMetadata));
   }
 
-  public ResponseEntity<List<O>> create(List<I> body) {
+  public ResponseEntity<List<O>> create(
+      List<I> body,
+      @Nullable Boolean createIfNotExists,
+      @Nullable Boolean createEntityIfNotExists) {
     List<UpsertAspectRequest> aspects =
         body.stream()
             .flatMap(
@@ -126,7 +128,7 @@ public class EntityApiDelegateImpl<I, O, S> {
                     OpenApiEntitiesUtil.convertEntityToUpsert(b, _reqClazz, _entityRegistry)
                         .stream())
             .collect(Collectors.toList());
-    _v1Controller.postEntities(aspects, false);
+    _v1Controller.postEntities(aspects, false, createIfNotExists, createEntityIfNotExists);
     List<O> responses =
         body.stream()
             .map(req -> OpenApiEntitiesUtil.convertToResponse(req, _respClazz, _entityRegistry))
@@ -142,6 +144,14 @@ public class EntityApiDelegateImpl<I, O, S> {
   public ResponseEntity<Void> head(String urn) {
     try {
       Urn entityUrn = Urn.createFromString(urn);
+
+      final Authentication auth = AuthenticationContext.getAuthentication();
+      if (!AuthUtil.isAPIAuthorizedEntityUrns(
+          auth, _authorizationChain, EXISTS, List.of(entityUrn))) {
+        throw new UnauthorizedException(
+            auth.getActor().toUrnStr() + " is unauthorized to check existence of entities.");
+      }
+
       if (_entityService.exists(entityUrn, true)) {
         return new ResponseEntity<>(HttpStatus.NO_CONTENT);
       } else {
@@ -167,11 +177,20 @@ public class EntityApiDelegateImpl<I, O, S> {
   }
 
   public <AQ, AR> ResponseEntity<AR> createAspect(
-      String urn, String aspectName, AQ body, Class<AQ> reqClazz, Class<AR> respClazz) {
+      String urn,
+      String aspectName,
+      AQ body,
+      Class<AQ> reqClazz,
+      Class<AR> respClazz,
+      @Nullable Boolean createIfNotExists,
+      @Nullable Boolean createEntityIfNotExists) {
     UpsertAspectRequest aspectUpsert =
         OpenApiEntitiesUtil.convertAspectToUpsert(urn, body, reqClazz);
     _v1Controller.postEntities(
-        Stream.of(aspectUpsert).filter(Objects::nonNull).collect(Collectors.toList()), false);
+        Stream.of(aspectUpsert).filter(Objects::nonNull).collect(Collectors.toList()),
+        false,
+        createIfNotExists,
+        createEntityIfNotExists);
     AR response = OpenApiEntitiesUtil.convertToResponseAspect(body, respClazz);
     return ResponseEntity.ok(response);
   }
@@ -179,6 +198,14 @@ public class EntityApiDelegateImpl<I, O, S> {
   public ResponseEntity<Void> headAspect(String urn, String aspect) {
     try {
       Urn entityUrn = Urn.createFromString(urn);
+
+      final Authentication auth = AuthenticationContext.getAuthentication();
+      if (!AuthUtil.isAPIAuthorizedEntityUrns(
+          auth, _authorizationChain, EXISTS, List.of(entityUrn))) {
+        throw new UnauthorizedException(
+            auth.getActor().toUrnStr() + " is unauthorized to check existence of entities.");
+      }
+
       if (_entityService.exists(entityUrn, aspect, true)) {
         return new ResponseEntity<>(HttpStatus.NO_CONTENT);
       } else {
@@ -196,7 +223,10 @@ public class EntityApiDelegateImpl<I, O, S> {
   }
 
   public ResponseEntity<DomainsAspectResponseV2> createDomains(
-      DomainsAspectRequestV2 body, String urn) {
+      DomainsAspectRequestV2 body,
+      String urn,
+      @Nullable Boolean createIfNotExists,
+      @Nullable Boolean createEntityIfNotExists) {
     String methodName =
         walker.walk(frames -> frames.findFirst().map(StackWalker.StackFrame::getMethodName)).get();
     return createAspect(
@@ -204,11 +234,16 @@ public class EntityApiDelegateImpl<I, O, S> {
         methodNameToAspectName(methodName),
         body,
         DomainsAspectRequestV2.class,
-        DomainsAspectResponseV2.class);
+        DomainsAspectResponseV2.class,
+        createIfNotExists,
+        createEntityIfNotExists);
   }
 
   public ResponseEntity<GlobalTagsAspectResponseV2> createGlobalTags(
-      GlobalTagsAspectRequestV2 body, String urn) {
+      GlobalTagsAspectRequestV2 body,
+      String urn,
+      @Nullable Boolean createIfNotExists,
+      @Nullable Boolean createEntityIfNotExists) {
     String methodName =
         walker.walk(frames -> frames.findFirst().map(StackWalker.StackFrame::getMethodName)).get();
     return createAspect(
@@ -216,11 +251,16 @@ public class EntityApiDelegateImpl<I, O, S> {
         methodNameToAspectName(methodName),
         body,
         GlobalTagsAspectRequestV2.class,
-        GlobalTagsAspectResponseV2.class);
+        GlobalTagsAspectResponseV2.class,
+        createIfNotExists,
+        createEntityIfNotExists);
   }
 
   public ResponseEntity<GlossaryTermsAspectResponseV2> createGlossaryTerms(
-      GlossaryTermsAspectRequestV2 body, String urn) {
+      GlossaryTermsAspectRequestV2 body,
+      String urn,
+      @Nullable Boolean createIfNotExists,
+      @Nullable Boolean createEntityIfNotExists) {
     String methodName =
         walker.walk(frames -> frames.findFirst().map(StackWalker.StackFrame::getMethodName)).get();
     return createAspect(
@@ -228,11 +268,16 @@ public class EntityApiDelegateImpl<I, O, S> {
         methodNameToAspectName(methodName),
         body,
         GlossaryTermsAspectRequestV2.class,
-        GlossaryTermsAspectResponseV2.class);
+        GlossaryTermsAspectResponseV2.class,
+        createIfNotExists,
+        createEntityIfNotExists);
   }
 
   public ResponseEntity<OwnershipAspectResponseV2> createOwnership(
-      OwnershipAspectRequestV2 body, String urn) {
+      OwnershipAspectRequestV2 body,
+      String urn,
+      @Nullable Boolean createIfNotExists,
+      @Nullable Boolean createEntityIfNotExists) {
     String methodName =
         walker.walk(frames -> frames.findFirst().map(StackWalker.StackFrame::getMethodName)).get();
     return createAspect(
@@ -240,11 +285,16 @@ public class EntityApiDelegateImpl<I, O, S> {
         methodNameToAspectName(methodName),
         body,
         OwnershipAspectRequestV2.class,
-        OwnershipAspectResponseV2.class);
+        OwnershipAspectResponseV2.class,
+        createIfNotExists,
+        createEntityIfNotExists);
   }
 
   public ResponseEntity<StatusAspectResponseV2> createStatus(
-      StatusAspectRequestV2 body, String urn) {
+      StatusAspectRequestV2 body,
+      String urn,
+      @Nullable Boolean createIfNotExists,
+      @Nullable Boolean createEntityIfNotExists) {
     String methodName =
         walker.walk(frames -> frames.findFirst().map(StackWalker.StackFrame::getMethodName)).get();
     return createAspect(
@@ -252,7 +302,9 @@ public class EntityApiDelegateImpl<I, O, S> {
         methodNameToAspectName(methodName),
         body,
         StatusAspectRequestV2.class,
-        StatusAspectResponseV2.class);
+        StatusAspectResponseV2.class,
+        createIfNotExists,
+        createEntityIfNotExists);
   }
 
   public ResponseEntity<Void> deleteDomains(String urn) {
@@ -408,7 +460,10 @@ public class EntityApiDelegateImpl<I, O, S> {
   }
 
   public ResponseEntity<DeprecationAspectResponseV2> createDeprecation(
-      @Valid DeprecationAspectRequestV2 body, String urn) {
+      @Valid DeprecationAspectRequestV2 body,
+      String urn,
+      @Nullable Boolean createIfNotExists,
+      @Nullable Boolean createEntityIfNotExists) {
     String methodName =
         walker.walk(frames -> frames.findFirst().map(StackWalker.StackFrame::getMethodName)).get();
     return createAspect(
@@ -416,7 +471,9 @@ public class EntityApiDelegateImpl<I, O, S> {
         methodNameToAspectName(methodName),
         body,
         DeprecationAspectRequestV2.class,
-        DeprecationAspectResponseV2.class);
+        DeprecationAspectResponseV2.class,
+        createIfNotExists,
+        createEntityIfNotExists);
   }
 
   public ResponseEntity<Void> headBrowsePathsV2(String urn) {
@@ -438,7 +495,10 @@ public class EntityApiDelegateImpl<I, O, S> {
   }
 
   public ResponseEntity<BrowsePathsV2AspectResponseV2> createBrowsePathsV2(
-      @Valid BrowsePathsV2AspectRequestV2 body, String urn) {
+      @Valid BrowsePathsV2AspectRequestV2 body,
+      String urn,
+      @Nullable Boolean createIfNotExists,
+      @Nullable Boolean createEntityIfNotExists) {
     String methodName =
         walker.walk(frames -> frames.findFirst().map(StackWalker.StackFrame::getMethodName)).get();
     return createAspect(
@@ -446,7 +506,9 @@ public class EntityApiDelegateImpl<I, O, S> {
         methodNameToAspectName(methodName),
         body,
         BrowsePathsV2AspectRequestV2.class,
-        BrowsePathsV2AspectResponseV2.class);
+        BrowsePathsV2AspectResponseV2.class,
+        createIfNotExists,
+        createEntityIfNotExists);
   }
 
   public ResponseEntity<S> scroll(
@@ -458,10 +520,26 @@ public class EntityApiDelegateImpl<I, O, S> {
       @Valid SortOrder sortOrder,
       @Valid String query) {
 
-    Authentication authentication = AuthenticationContext.getAuthentication();
+    SearchFlags searchFlags =
+        new SearchFlags().setFulltext(false).setSkipAggregates(true).setSkipHighlighting(true);
     com.linkedin.metadata.models.EntitySpec entitySpec =
         OpenApiEntitiesUtil.responseClassToEntitySpec(_entityRegistry, _respClazz);
-    checkScrollAuthorized(authentication, entitySpec);
+
+    Authentication authentication = AuthenticationContext.getAuthentication();
+
+    if (!AuthUtil.isAPIAuthorizedEntityType(
+        authentication, _authorizationChain, READ, entitySpec.getName())) {
+      throw new UnauthorizedException(
+          authentication.getActor().toUrnStr() + " is unauthorized to search entities.");
+    }
+
+    OperationContext opContext =
+        OperationContext.asSession(
+            systemOperationContext,
+            RequestContext.builder().buildOpenapi("scroll", entitySpec.getName()),
+            _authorizationChain,
+            authentication,
+            true);
 
     // TODO multi-field sort
     SortCriterion sortCriterion = new SortCriterion();
@@ -470,19 +548,21 @@ public class EntityApiDelegateImpl<I, O, S> {
         com.linkedin.metadata.query.filter.SortOrder.valueOf(
             Optional.ofNullable(sortOrder).map(Enum::name).orElse("ASCENDING")));
 
-    SearchFlags searchFlags =
-        new SearchFlags().setFulltext(false).setSkipAggregates(true).setSkipHighlighting(true);
-
     ScrollResult result =
         _searchService.scrollAcrossEntities(
+            opContext.withSearchFlags(flags -> searchFlags),
             List.of(entitySpec.getName()),
             query,
             null,
             sortCriterion,
             scrollId,
             null,
-            count,
-            searchFlags);
+            count);
+
+    if (!AuthUtil.isAPIAuthorizedResult(authentication, _authorizationChain, result)) {
+      throw new UnauthorizedException(
+          authentication.getActor().toUrnStr() + " is unauthorized to " + READ + " entities.");
+    }
 
     String[] urns =
         result.getEntities().stream()
@@ -505,26 +585,11 @@ public class EntityApiDelegateImpl<I, O, S> {
             _scrollRespClazz, result.getScrollId(), entities));
   }
 
-  private void checkScrollAuthorized(
-      Authentication authentication, com.linkedin.metadata.models.EntitySpec entitySpec) {
-    String actorUrnStr = authentication.getActor().toUrnStr();
-    DisjunctivePrivilegeGroup orGroup =
-        new DisjunctivePrivilegeGroup(
-            ImmutableList.of(
-                new ConjunctivePrivilegeGroup(
-                    ImmutableList.of(PoliciesConfig.GET_ENTITY_PRIVILEGE.getType()))));
-
-    List<Optional<EntitySpec>> resourceSpecs =
-        List.of(Optional.of(new EntitySpec(entitySpec.getName(), "")));
-    if (_restApiAuthorizationEnabled
-        && !AuthUtil.isAuthorizedForResources(
-            _authorizationChain, actorUrnStr, resourceSpecs, orGroup)) {
-      throw new UnauthorizedException(actorUrnStr + " is unauthorized to get entities.");
-    }
-  }
-
   public ResponseEntity<DatasetPropertiesAspectResponseV2> createDatasetProperties(
-      @Valid DatasetPropertiesAspectRequestV2 body, String urn) {
+      @Valid DatasetPropertiesAspectRequestV2 body,
+      String urn,
+      @Nullable Boolean createIfNotExists,
+      @Nullable Boolean createEntityIfNotExists) {
     String methodName =
         walker.walk(frames -> frames.findFirst().map(StackWalker.StackFrame::getMethodName)).get();
     return createAspect(
@@ -532,11 +597,16 @@ public class EntityApiDelegateImpl<I, O, S> {
         methodNameToAspectName(methodName),
         body,
         DatasetPropertiesAspectRequestV2.class,
-        DatasetPropertiesAspectResponseV2.class);
+        DatasetPropertiesAspectResponseV2.class,
+        createIfNotExists,
+        createEntityIfNotExists);
   }
 
   public ResponseEntity<EditableDatasetPropertiesAspectResponseV2> createEditableDatasetProperties(
-      @Valid EditableDatasetPropertiesAspectRequestV2 body, String urn) {
+      @Valid EditableDatasetPropertiesAspectRequestV2 body,
+      String urn,
+      @Nullable Boolean createIfNotExists,
+      @Nullable Boolean createEntityIfNotExists) {
     String methodName =
         walker.walk(frames -> frames.findFirst().map(StackWalker.StackFrame::getMethodName)).get();
     return createAspect(
@@ -544,11 +614,16 @@ public class EntityApiDelegateImpl<I, O, S> {
         methodNameToAspectName(methodName),
         body,
         EditableDatasetPropertiesAspectRequestV2.class,
-        EditableDatasetPropertiesAspectResponseV2.class);
+        EditableDatasetPropertiesAspectResponseV2.class,
+        createIfNotExists,
+        createEntityIfNotExists);
   }
 
   public ResponseEntity<InstitutionalMemoryAspectResponseV2> createInstitutionalMemory(
-      @Valid InstitutionalMemoryAspectRequestV2 body, String urn) {
+      @Valid InstitutionalMemoryAspectRequestV2 body,
+      String urn,
+      @Nullable Boolean createIfNotExists,
+      @Nullable Boolean createEntityIfNotExists) {
     String methodName =
         walker.walk(frames -> frames.findFirst().map(StackWalker.StackFrame::getMethodName)).get();
     return createAspect(
@@ -556,11 +631,16 @@ public class EntityApiDelegateImpl<I, O, S> {
         methodNameToAspectName(methodName),
         body,
         InstitutionalMemoryAspectRequestV2.class,
-        InstitutionalMemoryAspectResponseV2.class);
+        InstitutionalMemoryAspectResponseV2.class,
+        createIfNotExists,
+        createEntityIfNotExists);
   }
 
   public ResponseEntity<ChartInfoAspectResponseV2> createChartInfo(
-      @Valid ChartInfoAspectRequestV2 body, String urn) {
+      @Valid ChartInfoAspectRequestV2 body,
+      String urn,
+      @Nullable Boolean createIfNotExists,
+      @Nullable Boolean createEntityIfNotExists) {
     String methodName =
         walker.walk(frames -> frames.findFirst().map(StackWalker.StackFrame::getMethodName)).get();
     return createAspect(
@@ -568,11 +648,16 @@ public class EntityApiDelegateImpl<I, O, S> {
         methodNameToAspectName(methodName),
         body,
         ChartInfoAspectRequestV2.class,
-        ChartInfoAspectResponseV2.class);
+        ChartInfoAspectResponseV2.class,
+        createIfNotExists,
+        createEntityIfNotExists);
   }
 
   public ResponseEntity<EditableChartPropertiesAspectResponseV2> createEditableChartProperties(
-      @Valid EditableChartPropertiesAspectRequestV2 body, String urn) {
+      @Valid EditableChartPropertiesAspectRequestV2 body,
+      String urn,
+      @Nullable Boolean createIfNotExists,
+      @Nullable Boolean createEntityIfNotExists) {
     String methodName =
         walker.walk(frames -> frames.findFirst().map(StackWalker.StackFrame::getMethodName)).get();
     return createAspect(
@@ -580,11 +665,16 @@ public class EntityApiDelegateImpl<I, O, S> {
         methodNameToAspectName(methodName),
         body,
         EditableChartPropertiesAspectRequestV2.class,
-        EditableChartPropertiesAspectResponseV2.class);
+        EditableChartPropertiesAspectResponseV2.class,
+        createIfNotExists,
+        createEntityIfNotExists);
   }
 
   public ResponseEntity<DataProductPropertiesAspectResponseV2> createDataProductProperties(
-      @Valid DataProductPropertiesAspectRequestV2 body, String urn) {
+      @Valid DataProductPropertiesAspectRequestV2 body,
+      String urn,
+      @Nullable Boolean createIfNotExists,
+      @Nullable Boolean createEntityIfNotExists) {
     String methodName =
         walker.walk(frames -> frames.findFirst().map(StackWalker.StackFrame::getMethodName)).get();
     return createAspect(
@@ -592,7 +682,9 @@ public class EntityApiDelegateImpl<I, O, S> {
         methodNameToAspectName(methodName),
         body,
         DataProductPropertiesAspectRequestV2.class,
-        DataProductPropertiesAspectResponseV2.class);
+        DataProductPropertiesAspectResponseV2.class,
+        createIfNotExists,
+        createEntityIfNotExists);
   }
 
   public ResponseEntity<Void> deleteDatasetProperties(String urn) {
@@ -739,7 +831,11 @@ public class EntityApiDelegateImpl<I, O, S> {
     return deleteAspect(urn, methodNameToAspectName(methodName));
   }
 
-  public ResponseEntity<FormsAspectResponseV2> createForms(FormsAspectRequestV2 body, String urn) {
+  public ResponseEntity<FormsAspectResponseV2> createForms(
+      FormsAspectRequestV2 body,
+      String urn,
+      @Nullable Boolean createIfNotExists,
+      @Nullable Boolean createEntityIfNotExists) {
     String methodName =
         walker.walk(frames -> frames.findFirst().map(StackWalker.StackFrame::getMethodName)).get();
     return createAspect(
@@ -747,7 +843,9 @@ public class EntityApiDelegateImpl<I, O, S> {
         methodNameToAspectName(methodName),
         body,
         FormsAspectRequestV2.class,
-        FormsAspectResponseV2.class);
+        FormsAspectResponseV2.class,
+        createIfNotExists,
+        createEntityIfNotExists);
   }
 
   public ResponseEntity<Void> deleteForms(String urn) {
@@ -775,7 +873,10 @@ public class EntityApiDelegateImpl<I, O, S> {
   }
 
   public ResponseEntity<DynamicFormAssignmentAspectResponseV2> createDynamicFormAssignment(
-      DynamicFormAssignmentAspectRequestV2 body, String urn) {
+      DynamicFormAssignmentAspectRequestV2 body,
+      String urn,
+      @Nullable Boolean createIfNotExists,
+      @Nullable Boolean createEntityIfNotExists) {
     String methodName =
         walker.walk(frames -> frames.findFirst().map(StackWalker.StackFrame::getMethodName)).get();
     return createAspect(
@@ -783,11 +884,16 @@ public class EntityApiDelegateImpl<I, O, S> {
         methodNameToAspectName(methodName),
         body,
         DynamicFormAssignmentAspectRequestV2.class,
-        DynamicFormAssignmentAspectResponseV2.class);
+        DynamicFormAssignmentAspectResponseV2.class,
+        createIfNotExists,
+        createEntityIfNotExists);
   }
 
   public ResponseEntity<FormInfoAspectResponseV2> createFormInfo(
-      FormInfoAspectRequestV2 body, String urn) {
+      FormInfoAspectRequestV2 body,
+      String urn,
+      @Nullable Boolean createIfNotExists,
+      @Nullable Boolean createEntityIfNotExists) {
     String methodName =
         walker.walk(frames -> frames.findFirst().map(StackWalker.StackFrame::getMethodName)).get();
     return createAspect(
@@ -795,7 +901,9 @@ public class EntityApiDelegateImpl<I, O, S> {
         methodNameToAspectName(methodName),
         body,
         FormInfoAspectRequestV2.class,
-        FormInfoAspectResponseV2.class);
+        FormInfoAspectResponseV2.class,
+        createIfNotExists,
+        createEntityIfNotExists);
   }
 
   public ResponseEntity<Void> deleteDynamicFormAssignment(String urn) {

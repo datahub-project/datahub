@@ -2,15 +2,19 @@ package com.linkedin.metadata.search.transformer;
 
 import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.metadata.models.StructuredPropertyUtils.sanitizeStructuredPropertyFQN;
+import static com.linkedin.metadata.models.annotation.SearchableAnnotation.OBJECT_FIELD_TYPES;
+import static com.linkedin.metadata.search.elasticsearch.indexbuilder.MappingsBuilder.SYSTEM_CREATED_FIELD;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.schema.DataSchema;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.entity.Aspect;
+import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.validation.StructuredPropertiesValidator;
 import com.linkedin.metadata.models.AspectSpec;
@@ -26,6 +30,7 @@ import com.linkedin.structured.StructuredPropertyDefinition;
 import com.linkedin.structured.StructuredPropertyValueAssignment;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -43,7 +48,6 @@ import lombok.extern.slf4j.Slf4j;
 @Setter
 @RequiredArgsConstructor
 public class SearchDocumentTransformer {
-
   // Number of elements to index for a given array.
   // The cap improves search speed when having fields with a large number of elements
   private final int maxArrayLength;
@@ -85,10 +89,25 @@ public class SearchDocumentTransformer {
     return Optional.of(searchDocument.toString());
   }
 
-  public Optional<String> transformAspect(
-      final Urn urn,
-      final RecordTemplate aspect,
-      final AspectSpec aspectSpec,
+  public static ObjectNode withSystemCreated(
+      ObjectNode searchDocument,
+      @Nonnull ChangeType changeType,
+      @Nonnull EntitySpec entitySpec,
+      @Nonnull AspectSpec aspectSpec,
+      @Nonnull final AuditStamp auditStamp) {
+
+    // relies on the MCP processor preventing unneeded key aspects
+    if (Set.of(ChangeType.CREATE, ChangeType.CREATE_ENTITY, ChangeType.UPSERT).contains(changeType)
+        && entitySpec.getKeyAspectName().equals(aspectSpec.getName())) {
+      searchDocument.put(SYSTEM_CREATED_FIELD, auditStamp.getTime());
+    }
+    return searchDocument;
+  }
+
+  public Optional<ObjectNode> transformAspect(
+      final @Nonnull Urn urn,
+      final @Nonnull RecordTemplate aspect,
+      final @Nonnull AspectSpec aspectSpec,
       final Boolean forDelete)
       throws RemoteInvocationException, URISyntaxException {
     final Map<SearchableFieldSpec, List<Object>> extractedSearchableFields =
@@ -96,22 +115,23 @@ public class SearchDocumentTransformer {
     final Map<SearchScoreFieldSpec, List<Object>> extractedSearchScoreFields =
         FieldExtractor.extractFields(aspect, aspectSpec.getSearchScoreFieldSpecs(), maxValueLength);
 
-    Optional<String> result = Optional.empty();
+    Optional<ObjectNode> result = Optional.empty();
 
     if (!extractedSearchableFields.isEmpty() || !extractedSearchScoreFields.isEmpty()) {
       final ObjectNode searchDocument = JsonNodeFactory.instance.objectNode();
       searchDocument.put("urn", urn.toString());
+
       extractedSearchableFields.forEach(
           (key, values) -> setSearchableValue(key, values, searchDocument, forDelete));
       extractedSearchScoreFields.forEach(
           (key, values) -> setSearchScoreValue(key, values, searchDocument, forDelete));
-      result = Optional.of(searchDocument.toString());
+      result = Optional.of(searchDocument);
     } else if (STRUCTURED_PROPERTIES_ASPECT_NAME.equals(aspectSpec.getName())) {
       final ObjectNode searchDocument = JsonNodeFactory.instance.objectNode();
       searchDocument.put("urn", urn.toString());
       setStructuredPropertiesSearchValue(
           new StructuredProperties(aspect.data()), searchDocument, forDelete);
-      result = Optional.of(searchDocument.toString());
+      result = Optional.of(searchDocument);
     }
 
     return result;
@@ -181,7 +201,7 @@ public class SearchDocumentTransformer {
       return;
     }
 
-    if (isArray || (valueType == DataSchema.Type.MAP && fieldType != FieldType.OBJECT)) {
+    if (isArray || (valueType == DataSchema.Type.MAP && !OBJECT_FIELD_TYPES.contains(fieldType))) {
       if (fieldType == FieldType.BROWSE_PATH_V2) {
         String browsePathV2Value = getBrowsePathV2Value(fieldValues);
         searchDocument.set(fieldName, JsonNodeFactory.instance.textNode(browsePathV2Value));
@@ -193,6 +213,25 @@ public class SearchDocumentTransformer {
                 value -> getNodeForValue(valueType, value, fieldType).ifPresent(arrayNode::add));
         searchDocument.set(fieldName, arrayNode);
       }
+    } else if (valueType == DataSchema.Type.MAP && FieldType.MAP_ARRAY.equals(fieldType)) {
+      ObjectNode dictDoc = JsonNodeFactory.instance.objectNode();
+      fieldValues
+          .subList(0, Math.min(fieldValues.size(), maxObjectKeys))
+          .forEach(
+              fieldValue -> {
+                String[] keyValues = fieldValue.toString().split("=");
+                String key = keyValues[0];
+                ArrayNode values = JsonNodeFactory.instance.arrayNode();
+                Arrays.stream(keyValues[1].substring(1, keyValues[1].length() - 1).split(", "))
+                    .forEach(
+                        v -> {
+                          if (!v.isEmpty()) {
+                            values.add(v);
+                          }
+                        });
+                dictDoc.set(key, values);
+              });
+      searchDocument.set(fieldName, dictDoc);
     } else if (valueType == DataSchema.Type.MAP) {
       ObjectNode dictDoc = JsonNodeFactory.instance.objectNode();
       fieldValues

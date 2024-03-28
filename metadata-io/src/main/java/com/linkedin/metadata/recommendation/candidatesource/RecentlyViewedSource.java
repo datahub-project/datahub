@@ -16,6 +16,7 @@ import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.view.DataHubViewInfo;
+import io.datahubproject.metadata.context.OperationContext;
 import io.opentelemetry.extension.annotations.WithSpan;
 import java.io.IOException;
 import java.util.List;
@@ -80,7 +81,7 @@ public class RecentlyViewedSource implements EntityRecommendationSource {
 
   @Override
   public boolean isEligible(
-      @Nonnull Urn userUrn, @Nonnull RecommendationRequestContext requestContext,@Nonnull DataHubViewInfo maybeViewInfo) {
+      @Nonnull OperationContext opContext, @Nonnull RecommendationRequestContext requestContext,@Nonnull DataHubViewInfo maybeViewInfo) {
     boolean analyticsEnabled = false;
     try {
       analyticsEnabled =
@@ -98,7 +99,7 @@ public class RecentlyViewedSource implements EntityRecommendationSource {
   @Override
   @WithSpan
   public List<RecommendationContent> getRecommendations(
-      @Nonnull Urn userUrn, @Nonnull RecommendationRequestContext requestContext,@Nonnull DataHubViewInfo maybeViewInfo) {
+      @Nonnull OperationContext opContext, @Nonnull RecommendationRequestContext requestContext,@Nonnull DataHubViewInfo maybeViewInfo) {
     SearchRequest searchRequest = buildSearchRequest(userUrn);
     try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "getRecentlyViewed").time()) {
       final SearchResponse searchResponse =

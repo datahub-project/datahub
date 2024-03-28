@@ -1,10 +1,10 @@
 package com.linkedin.metadata.recommendation;
 
-import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.recommendation.candidatesource.RecommendationSource;
 import com.linkedin.metadata.recommendation.ranker.RecommendationModuleRanker;
 import com.linkedin.metadata.utils.ConcurrencyUtils;
 import com.linkedin.view.DataHubViewInfo;
+import io.datahubproject.metadata.context.OperationContext;
 import io.opentelemetry.extension.annotations.WithSpan;
 import java.util.List;
 import java.util.Map;
@@ -48,7 +48,7 @@ public class RecommendationsService {
   /**
    * Return the list of recommendation modules given input context
    *
-   * @param userUrn User requesting recommendations
+   * @param opContext User's context requesting recommendations
    * @param requestContext Context of where the recommendations are being requested
    * @param limit Max number of modules to return
    * @return List of recommendation modules
@@ -56,14 +56,14 @@ public class RecommendationsService {
   @Nonnull
   @WithSpan
   public List<RecommendationModule> listRecommendations(
-      @Nonnull Urn userUrn, @Nonnull RecommendationRequestContext requestContext, int limit, DataHubViewInfo maybeViewInfo) {
+      @Nonnull OperationContext opContext, @Nonnull RecommendationRequestContext requestContext, int limit, DataHubViewInfo maybeViewInfo) {
     // Get recommendation candidates from sources which are eligible, in parallel
     final List<RecommendationModule> candidateModules =
         ConcurrencyUtils.transformAndCollectAsync(
                 _candidateSources.stream()
-                    .filter(source -> source.isEligible(userUrn, requestContext, maybeViewInfo))
+                    .filter(source -> source.isEligible(opContext, requestContext, maybeViewInfo))
                     .collect(Collectors.toList()),
-                source -> source.getRecommendationModule(userUrn, requestContext, maybeViewInfo),
+                source -> source.getRecommendationModule(opContext, requestContext, maybeViewInfo),
                 (source, exception) -> {
                   log.error(
                       "Error while fetching candidate modules from source {}", source, exception);
@@ -75,6 +75,6 @@ public class RecommendationsService {
             .collect(Collectors.toList());
 
     // Rank recommendation modules, which determines their ordering during rendering
-    return _moduleRanker.rank(candidateModules, userUrn, requestContext, limit);
+    return _moduleRanker.rank(opContext, requestContext, candidateModules, limit);
   }
 }

@@ -2,6 +2,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Dict, Optional
 
+from datahub.ingestion.glossary.classification_mixin import ClassificationReportMixin
 from datahub.ingestion.source.sql.sql_generic_profiler import ProfilingSqlReport
 from datahub.ingestion.source_report.ingestion_stage import IngestionStageReport
 from datahub.ingestion.source_report.time_window import BaseTimeWindowReport
@@ -11,7 +12,12 @@ from datahub.utilities.stats_collections import TopKDict
 
 
 @dataclass
-class RedshiftReport(ProfilingSqlReport, IngestionStageReport, BaseTimeWindowReport):
+class RedshiftReport(
+    ProfilingSqlReport,
+    IngestionStageReport,
+    BaseTimeWindowReport,
+    ClassificationReportMixin,
+):
     num_usage_workunits_emitted: Optional[int] = None
     num_operational_stats_workunits_emitted: Optional[int] = None
     upstream_lineage: LossyDict = field(default_factory=LossyDict)

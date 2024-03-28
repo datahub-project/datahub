@@ -51,6 +51,7 @@ import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.browse.BrowseResultV2;
 import com.linkedin.metadata.graph.LineageDirection;
 import com.linkedin.metadata.query.AutoCompleteResult;
+import com.linkedin.metadata.query.LineageFlags;
 import com.linkedin.metadata.query.ListResult;
 import com.linkedin.metadata.query.ListUrnsResult;
 import com.linkedin.metadata.query.SearchFlags;
@@ -75,6 +76,7 @@ import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.restli.client.Client;
 import com.linkedin.restli.client.RestLiResponseException;
 import com.linkedin.restli.common.HttpStatus;
+import io.datahubproject.metadata.context.OperationContext;
 import java.net.URISyntaxException;
 import java.util.Collection;
 import java.util.HashMap;
@@ -114,6 +116,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
     super(restliClient, backoffPolicy, retryCount);
   }
 
+  @Override
   @Nullable
   public EntityResponse getV2(
       @Nonnull String entityName,
@@ -126,6 +129,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
     return sendClientRequest(requestBuilder, authentication).getEntity();
   }
 
+  @Override
   @Nonnull
   public Entity get(@Nonnull final Urn urn, @Nonnull final Authentication authentication)
       throws RemoteInvocationException {
@@ -141,8 +145,9 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
    *
    * @param urns the urns of the entities to batch get
    * @param authentication the authentication to include in the request to the Metadata Service
-   * @throws RemoteInvocationException
+   * @throws RemoteInvocationException when unable to execute request
    */
+  @Override
   @Nonnull
   public Map<Urn, Entity> batchGet(
       @Nonnull final Set<Urn> urns, @Nonnull final Authentication authentication)
@@ -193,8 +198,9 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
    * @param urns the urns of the entities to batch get
    * @param aspectNames the aspect names to batch get
    * @param authentication the authentication to include in the request to the Metadata Service
-   * @throws RemoteInvocationException
+   * @throws RemoteInvocationException when unable to execute request
    */
+  @Override
   @Nonnull
   public Map<Urn, EntityResponse> batchGetV2(
       @Nonnull String entityName,
@@ -235,8 +241,9 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
    * @param versionedUrns the urns of the entities to batch get
    * @param aspectNames the aspect names to batch get
    * @param authentication the authentication to include in the request to the Metadata Service
-   * @throws RemoteInvocationException
+   * @throws RemoteInvocationException when unable to execute request
    */
+  @Override
   @Nonnull
   public Map<Urn, EntityResponse> batchGetVersionedV2(
       @Nonnull String entityName,
@@ -274,20 +281,20 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
    *
    * @param entityType the entity type to autocomplete against, e.g. 'dataset'
    * @param query search query
-   * @param field field of the dataset
+   * @param field field of the dataset to autocomplete against, e.g. 'name'
    * @param requestFilters autocomplete filters
    * @param limit max number of autocomplete results
-   * @param field the field to autocomplete against, e.g. 'name'
-   * @throws RemoteInvocationException
+   * @throws RemoteInvocationException when unable to execute request
    */
+  @Override
   @Nonnull
   public AutoCompleteResult autoComplete(
+      @Nonnull OperationContext opContext,
       @Nonnull String entityType,
       @Nonnull String query,
       @Nullable Filter requestFilters,
-      @Nonnull int limit,
-      @Nullable String field,
-      @Nonnull final Authentication authentication)
+      int limit,
+      @Nullable String field)
       throws RemoteInvocationException {
     EntitiesDoAutocompleteRequestBuilder requestBuilder =
         ENTITIES_REQUEST_BUILDERS
@@ -297,7 +304,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
             .fieldParam(field)
             .filterParam(filterOrDefaultEmptyFilter(requestFilters))
             .limitParam(limit);
-    return sendClientRequest(requestBuilder, authentication).getEntity();
+    return sendClientRequest(requestBuilder, opContext.getAuthentication()).getEntity();
   }
 
   /**
@@ -307,15 +314,16 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
    * @param query search query
    * @param requestFilters autocomplete filters
    * @param limit max number of autocomplete results
-   * @throws RemoteInvocationException
+   * @throws RemoteInvocationException when unable to execute request
    */
+  @Override
   @Nonnull
   public AutoCompleteResult autoComplete(
+      @Nonnull OperationContext opContext,
       @Nonnull String entityType,
       @Nonnull String query,
       @Nullable Filter requestFilters,
-      @Nonnull int limit,
-      @Nonnull final Authentication authentication)
+      int limit)
       throws RemoteInvocationException {
     EntitiesDoAutocompleteRequestBuilder requestBuilder =
         ENTITIES_REQUEST_BUILDERS
@@ -324,7 +332,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
             .queryParam(query)
             .filterParam(filterOrDefaultEmptyFilter(requestFilters))
             .limitParam(limit);
-    return sendClientRequest(requestBuilder, authentication).getEntity();
+    return sendClientRequest(requestBuilder, opContext.getAuthentication()).getEntity();
   }
 
   /**
@@ -335,16 +343,17 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
    * @param requestFilters browse filters
    * @param start start offset of first dataset
    * @param limit max number of datasets
-   * @throws RemoteInvocationException
+   * @throws RemoteInvocationException when unable to execute request
    */
+  @Override
   @Nonnull
   public BrowseResult browse(
+      @Nonnull OperationContext opContext,
       @Nonnull String entityType,
       @Nonnull String path,
       @Nullable Map<String, String> requestFilters,
       int start,
-      int limit,
-      @Nonnull final Authentication authentication)
+      int limit)
       throws RemoteInvocationException {
     EntitiesDoBrowseRequestBuilder requestBuilder =
         ENTITIES_REQUEST_BUILDERS
@@ -356,7 +365,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
     if (requestFilters != null) {
       requestBuilder.filterParam(newFilter(requestFilters));
     }
-    return sendClientRequest(requestBuilder, authentication).getEntity();
+    return sendClientRequest(requestBuilder, opContext.getAuthentication()).getEntity();
   }
 
   /**
@@ -368,36 +377,35 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
    * @param input search query
    * @param start start offset of first group
    * @param count max number of results requested
-   * @throws RemoteInvocationException
    */
+  @Override
   @Nonnull
   public BrowseResultV2 browseV2(
+      @Nonnull OperationContext opContext,
       @Nonnull String entityName,
       @Nonnull String path,
       @Nullable Filter filter,
       @Nonnull String input,
       int start,
-      int count,
-      @Nonnull Authentication authentication,
-      @Nullable SearchFlags searchFlags) {
+      int count) {
     throw new NotImplementedException("BrowseV2 is not implemented in Restli yet");
   }
 
   @Nonnull
   @Override
   public BrowseResultV2 browseV2(
+      @Nonnull OperationContext opContext,
       @Nonnull List<String> entityNames,
       @Nonnull String path,
       @Nullable Filter filter,
       @Nonnull String input,
       int start,
-      int count,
-      @Nonnull Authentication authentication,
-      @Nullable SearchFlags searchFlags)
+      int count)
       throws RemoteInvocationException {
     throw new NotImplementedException("BrowseV2 is not implemented in Restli yet");
   }
 
+  @Override
   public void update(@Nonnull final Entity entity, @Nonnull final Authentication authentication)
       throws RemoteInvocationException {
     EntitiesDoIngestRequestBuilder requestBuilder =
@@ -405,6 +413,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
     sendClientRequest(requestBuilder, authentication);
   }
 
+  @Override
   public void updateWithSystemMetadata(
       @Nonnull final Entity entity,
       @Nullable final SystemMetadata systemMetadata,
@@ -424,6 +433,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
     sendClientRequest(requestBuilder, authentication);
   }
 
+  @Override
   public void batchUpdate(
       @Nonnull final Set<Entity> entities, @Nonnull final Authentication authentication)
       throws RemoteInvocationException {
@@ -440,21 +450,21 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
    * @param requestFilters search filters
    * @param start start offset for search results
    * @param count max number of search results requested
-   * @param searchFlags configuration flags for the search request
    * @return a set of search results
-   * @throws RemoteInvocationException
+   * @throws RemoteInvocationException when unable to execute request
    */
   @Nonnull
   @Override
   public SearchResult search(
+      @Nonnull OperationContext opContext,
       @Nonnull String entity,
       @Nonnull String input,
       @Nullable Map<String, String> requestFilters,
       int start,
-      int count,
-      @Nonnull final Authentication authentication,
-      @Nullable SearchFlags searchFlags)
+      int count)
       throws RemoteInvocationException {
+
+    SearchFlags searchFlags = opContext.getSearchContext().getSearchFlags();
 
     final EntitiesDoSearchRequestBuilder requestBuilder =
         ENTITIES_REQUEST_BUILDERS
@@ -465,11 +475,9 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
             .startParam(start)
             .fulltextParam(searchFlags != null ? searchFlags.isFulltext() : null)
             .countParam(count);
-    if (searchFlags != null) {
-      requestBuilder.searchFlagsParam(searchFlags);
-    }
+    requestBuilder.searchFlagsParam(opContext.getSearchContext().getSearchFlags());
 
-    return sendClientRequest(requestBuilder, authentication).getEntity();
+    return sendClientRequest(requestBuilder, opContext.getAuthentication()).getEntity();
   }
 
   /**
@@ -479,15 +487,16 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
    * @param start start offset for search results
    * @param count max number of search results requested
    * @return a set of list results
-   * @throws RemoteInvocationException
+   * @throws RemoteInvocationException when unable to execute request
    */
+  @Override
   @Nonnull
   public ListResult list(
+      @Nonnull OperationContext opContext,
       @Nonnull String entity,
       @Nullable Map<String, String> requestFilters,
       int start,
-      int count,
-      @Nonnull final Authentication authentication)
+      int count)
       throws RemoteInvocationException {
     final EntitiesDoListRequestBuilder requestBuilder =
         ENTITIES_REQUEST_BUILDERS
@@ -497,7 +506,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
             .startParam(start)
             .countParam(count);
 
-    return sendClientRequest(requestBuilder, authentication).getEntity();
+    return sendClientRequest(requestBuilder, opContext.getAuthentication()).getEntity();
   }
 
   /**
@@ -509,21 +518,21 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
    * @param start start offset for search results
    * @param count max number of search results requested
    * @return Snapshot key
-   * @throws RemoteInvocationException
+   * @throws RemoteInvocationException when unable to execute request
    */
   @Nonnull
   @Override
   public SearchResult search(
+      @Nonnull OperationContext opContext,
       @Nonnull String entity,
       @Nonnull String input,
       @Nullable Filter filter,
       SortCriterion sortCriterion,
       int start,
-      int count,
-      @Nonnull final Authentication authentication,
-      @Nullable SearchFlags searchFlags)
+      int count)
       throws RemoteInvocationException {
 
+    SearchFlags searchFlags = opContext.getSearchContext().getSearchFlags();
     final EntitiesDoSearchRequestBuilder requestBuilder =
         ENTITIES_REQUEST_BUILDERS
             .actionSearch()
@@ -547,22 +556,22 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
       }
     }
 
-    return sendClientRequest(requestBuilder, authentication).getEntity();
+    return sendClientRequest(requestBuilder, opContext.getAuthentication()).getEntity();
   }
 
+  @Override
   @Nonnull
   public SearchResult searchAcrossEntities(
+      @Nonnull OperationContext opContext,
       @Nonnull List<String> entities,
       @Nonnull String input,
       @Nullable Filter filter,
       int start,
       int count,
-      @Nullable SearchFlags searchFlags,
-      @Nullable SortCriterion sortCriterion,
-      @Nonnull final Authentication authentication)
+      @Nullable SortCriterion sortCriterion)
       throws RemoteInvocationException {
     return searchAcrossEntities(
-        entities, input, filter, start, count, searchFlags, sortCriterion, authentication, null);
+        opContext, entities, input, filter, start, count, sortCriterion, null);
   }
 
   /**
@@ -575,21 +584,22 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
    * @param count max number of search results requested
    * @param facets list of facets we want aggregations for
    * @return Snapshot key
-   * @throws RemoteInvocationException
+   * @throws RemoteInvocationException when unable to execute request
    */
+  @Override
   @Nonnull
   public SearchResult searchAcrossEntities(
+      @Nonnull OperationContext opContext,
       @Nonnull List<String> entities,
       @Nonnull String input,
       @Nullable Filter filter,
       int start,
       int count,
-      @Nullable SearchFlags searchFlags,
       @Nullable SortCriterion sortCriterion,
-      @Nonnull final Authentication authentication,
       @Nullable List<String> facets)
       throws RemoteInvocationException {
 
+    SearchFlags searchFlags = opContext.getSearchContext().getSearchFlags();
     final EntitiesDoSearchAcrossEntitiesRequestBuilder requestBuilder =
         ENTITIES_REQUEST_BUILDERS
             .actionSearchAcrossEntities()
@@ -611,21 +621,21 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
       requestBuilder.sortParam(sortCriterion);
     }
 
-    return sendClientRequest(requestBuilder, authentication).getEntity();
+    return sendClientRequest(requestBuilder, opContext.getAuthentication()).getEntity();
   }
 
   @Nonnull
   @Override
   public ScrollResult scrollAcrossEntities(
+      @Nonnull OperationContext opContext,
       @Nonnull List<String> entities,
       @Nonnull String input,
       @Nullable Filter filter,
       @Nullable String scrollId,
       @Nullable String keepAlive,
-      int count,
-      @Nullable SearchFlags searchFlags,
-      @Nonnull Authentication authentication)
+      int count)
       throws RemoteInvocationException {
+    final SearchFlags searchFlags = opContext.getSearchContext().getSearchFlags();
     final EntitiesDoScrollAcrossEntitiesRequestBuilder requestBuilder =
         ENTITIES_REQUEST_BUILDERS.actionScrollAcrossEntities().inputParam(input).countParam(count);
 
@@ -645,12 +655,13 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
       requestBuilder.keepAliveParam(keepAlive);
     }
 
-    return sendClientRequest(requestBuilder, authentication).getEntity();
+    return sendClientRequest(requestBuilder, opContext.getAuthentication()).getEntity();
   }
 
   @Nonnull
   @Override
   public LineageSearchResult searchAcrossLineage(
+      @Nonnull OperationContext opContext,
       @Nonnull Urn sourceUrn,
       @Nonnull LineageDirection direction,
       @Nonnull List<String> entities,
@@ -659,9 +670,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
       @Nullable Filter filter,
       @Nullable SortCriterion sortCriterion,
       int start,
-      int count,
-      @Nullable SearchFlags searchFlags,
-      @Nonnull final Authentication authentication)
+      int count)
       throws RemoteInvocationException {
 
     final EntitiesDoSearchAcrossLineageRequestBuilder requestBuilder =
@@ -679,61 +688,22 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
     if (filter != null) {
       requestBuilder.filterParam(filter);
     }
-    if (searchFlags != null) {
-      requestBuilder.searchFlagsParam(searchFlags);
+    LineageFlags lineageFlags = opContext.getSearchContext().getLineageFlags();
+    if (lineageFlags.getStartTimeMillis() != null) {
+      requestBuilder.startTimeMillisParam(lineageFlags.getStartTimeMillis());
     }
+    if (lineageFlags.getEndTimeMillis() != null) {
+      requestBuilder.endTimeMillisParam(lineageFlags.getEndTimeMillis());
+    }
+    requestBuilder.searchFlagsParam(opContext.getSearchContext().getSearchFlags());
 
-    return sendClientRequest(requestBuilder, authentication).getEntity();
+    return sendClientRequest(requestBuilder, opContext.getAuthentication()).getEntity();
   }
 
+  @Override
   @Nonnull
-  @Override
-  public LineageSearchResult searchAcrossLineage(
-      @Nonnull Urn sourceUrn,
-      @Nonnull LineageDirection direction,
-      @Nonnull List<String> entities,
-      @Nonnull String input,
-      @Nullable Integer maxHops,
-      @Nullable Filter filter,
-      @Nullable SortCriterion sortCriterion,
-      int start,
-      int count,
-      @Nullable final Long startTimeMillis,
-      @Nullable final Long endTimeMillis,
-      @Nullable SearchFlags searchFlags,
-      @Nonnull final Authentication authentication)
-      throws RemoteInvocationException {
-
-    final EntitiesDoSearchAcrossLineageRequestBuilder requestBuilder =
-        ENTITIES_REQUEST_BUILDERS
-            .actionSearchAcrossLineage()
-            .urnParam(sourceUrn.toString())
-            .directionParam(direction.name())
-            .inputParam(input)
-            .startParam(start)
-            .countParam(count);
-
-    if (entities != null) {
-      requestBuilder.entitiesParam(new StringArray(entities));
-    }
-    if (filter != null) {
-      requestBuilder.filterParam(filter);
-    }
-    if (startTimeMillis != null) {
-      requestBuilder.startTimeMillisParam(startTimeMillis);
-    }
-    if (endTimeMillis != null) {
-      requestBuilder.endTimeMillisParam(endTimeMillis);
-    }
-    if (searchFlags != null) {
-      requestBuilder.searchFlagsParam(searchFlags);
-    }
-
-    return sendClientRequest(requestBuilder, authentication).getEntity();
-  }
-
-  @Override
   public LineageScrollResult scrollAcrossLineage(
+      @Nonnull OperationContext opContext,
       @Nonnull Urn sourceUrn,
       @Nonnull LineageDirection direction,
       @Nonnull List<String> entities,
@@ -743,11 +713,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
       @Nullable SortCriterion sortCriterion,
       @Nullable String scrollId,
       @Nonnull String keepAlive,
-      int count,
-      @Nullable final Long startTimeMillis,
-      @Nullable final Long endTimeMillis,
-      @Nullable final SearchFlags searchFlags,
-      @Nonnull final Authentication authentication)
+      int count)
       throws RemoteInvocationException {
     final EntitiesDoScrollAcrossLineageRequestBuilder requestBuilder =
         ENTITIES_REQUEST_BUILDERS
@@ -767,17 +733,16 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
     if (scrollId != null) {
       requestBuilder.scrollIdParam(scrollId);
     }
-    if (startTimeMillis != null) {
-      requestBuilder.startTimeMillisParam(startTimeMillis);
+    LineageFlags lineageFlags = opContext.getSearchContext().getLineageFlags();
+    if (lineageFlags.getStartTimeMillis() != null) {
+      requestBuilder.startTimeMillisParam(lineageFlags.getStartTimeMillis());
     }
-    if (endTimeMillis != null) {
-      requestBuilder.endTimeMillisParam(endTimeMillis);
+    if (lineageFlags.getEndTimeMillis() != null) {
+      requestBuilder.endTimeMillisParam(lineageFlags.getEndTimeMillis());
     }
-    if (searchFlags != null) {
-      requestBuilder.searchFlagsParam(searchFlags);
-    }
+    requestBuilder.searchFlagsParam(opContext.getSearchContext().getSearchFlags());
 
-    return sendClientRequest(requestBuilder, authentication).getEntity();
+    return sendClientRequest(requestBuilder, opContext.getAuthentication()).getEntity();
   }
 
   /**
@@ -785,7 +750,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
    *
    * @param urn urn for the entity
    * @return list of paths given urn
-   * @throws RemoteInvocationException
+   * @throws RemoteInvocationException when unable to execute request
    */
   @Nonnull
   public StringArray getBrowsePaths(@Nonnull Urn urn, @Nonnull final Authentication authentication)
@@ -802,18 +767,20 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
     sendClientRequest(requestBuilder, authentication);
   }
 
+  @Override
   @Nonnull
   public Map<String, Long> batchGetTotalEntityCount(
-      @Nonnull List<String> entityName, @Nonnull final Authentication authentication)
+      @Nonnull OperationContext opContext, @Nonnull List<String> entityName)
       throws RemoteInvocationException {
     EntitiesDoBatchGetTotalEntityCountRequestBuilder requestBuilder =
         ENTITIES_REQUEST_BUILDERS
             .actionBatchGetTotalEntityCount()
             .entitiesParam(new StringArray(entityName));
-    return sendClientRequest(requestBuilder, authentication).getEntity();
+    return sendClientRequest(requestBuilder, opContext.getAuthentication()).getEntity();
   }
 
   /** List all urns existing for a particular Entity type. */
+  @Override
   public ListUrnsResult listUrns(
       @Nonnull final String entityName,
       final int start,
@@ -849,12 +816,12 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
   @Nonnull
   @Override
   public SearchResult filter(
+      @Nonnull OperationContext opContext,
       @Nonnull String entity,
       @Nonnull Filter filter,
       @Nullable SortCriterion sortCriterion,
       int start,
-      int count,
-      @Nonnull final Authentication authentication)
+      int count)
       throws RemoteInvocationException {
     EntitiesDoFilterRequestBuilder requestBuilder =
         ENTITIES_REQUEST_BUILDERS
@@ -866,15 +833,26 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
     if (sortCriterion != null) {
       requestBuilder.sortParam(sortCriterion);
     }
-    return sendClientRequest(requestBuilder, authentication).getEntity();
+    return sendClientRequest(requestBuilder, opContext.getAuthentication()).getEntity();
   }
 
-  @Nonnull
   @Override
   public boolean exists(@Nonnull Urn urn, @Nonnull final Authentication authentication)
       throws RemoteInvocationException {
+    return exists(urn, true, authentication);
+  }
+
+  @Override
+  public boolean exists(
+      @Nonnull Urn urn,
+      @Nonnull Boolean includeSoftDeleted,
+      @Nonnull final Authentication authentication)
+      throws RemoteInvocationException {
     EntitiesDoExistsRequestBuilder requestBuilder =
-        ENTITIES_REQUEST_BUILDERS.actionExists().urnParam(urn.toString());
+        ENTITIES_REQUEST_BUILDERS
+            .actionExists()
+            .urnParam(urn.toString())
+            .includeSoftDeleteParam(includeSoftDeleted);
     return sendClientRequest(requestBuilder, authentication).getEntity();
   }
 
@@ -885,6 +863,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
    * @return list of paths given urn
    * @throws RemoteInvocationException on remote request error.
    */
+  @Override
   @Nonnull
   public VersionedAspect getAspect(
       @Nonnull String urn,
@@ -906,6 +885,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
    * @return list of paths given urn
    * @throws RemoteInvocationException on remote request error.
    */
+  @Override
   @Nullable
   public VersionedAspect getAspectOrNull(
       @Nonnull String urn,
@@ -940,6 +920,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
    * @return the list of EnvelopedAspect values satisfying the input parameters.
    * @throws RemoteInvocationException on remote request error.
    */
+  @Override
   @Nonnull
   public List<EnvelopedAspect> getTimeseriesAspectValues(
       @Nonnull String urn,
@@ -986,7 +967,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
   /**
    * Ingest a MetadataChangeProposal event.
    *
-   * @return
+   * @return the urn string ingested
    */
   @Override
   public String ingestProposal(
@@ -1002,6 +983,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
     return sendClientRequest(requestBuilder, authentication).getEntity();
   }
 
+  @Override
   public <T extends RecordTemplate> Optional<T> getVersionedAspect(
       @Nonnull String urn,
       @Nonnull String aspect,

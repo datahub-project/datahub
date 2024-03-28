@@ -9,6 +9,7 @@ import com.linkedin.metadata.TestEntityUtil;
 import com.linkedin.metadata.recommendation.candidatesource.TestSource;
 import com.linkedin.metadata.recommendation.ranker.RecommendationModuleRanker;
 import com.linkedin.metadata.recommendation.ranker.SimpleRecommendationRanker;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.net.URISyntaxException;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -86,7 +87,8 @@ public class RecommendationsServiceTest {
         new RecommendationsService(ImmutableList.of(nonEligibleSource, emptySource), ranker);
     List<RecommendationModule> result =
         service.listRecommendations(
-            Urn.createFromString("urn:li:corpuser:me"),
+            TestOperationContexts.userContextNoSearchAuthorization(
+                Urn.createFromString("urn:li:corpuser:me")),
             new RecommendationRequestContext().setScenario(ScenarioType.HOME),
             10,maybeViewInfo);
     assertTrue(result.isEmpty());
@@ -97,7 +99,8 @@ public class RecommendationsServiceTest {
             ImmutableList.of(nonEligibleSource, emptySource, valuesSource), ranker);
     result =
         service.listRecommendations(
-            Urn.createFromString("urn:li:corpuser:me"),
+            TestOperationContexts.userContextNoSearchAuthorization(
+                Urn.createFromString("urn:li:corpuser:me")),
             new RecommendationRequestContext().setScenario(ScenarioType.HOME),
             10,maybeViewInfo);
     assertEquals(result.size(), 1);
@@ -113,7 +116,8 @@ public class RecommendationsServiceTest {
             ImmutableList.of(valuesSource, multiValuesSource, urnsSource, multiUrnsSource), ranker);
     result =
         service.listRecommendations(
-            Urn.createFromString("urn:li:corpuser:me"),
+            TestOperationContexts.userContextNoSearchAuthorization(
+                Urn.createFromString("urn:li:corpuser:me")),
             new RecommendationRequestContext().setScenario(ScenarioType.HOME),
             10,maybeViewInfo);
     assertEquals(result.size(), 4);
@@ -141,7 +145,8 @@ public class RecommendationsServiceTest {
     // Test limit
     result =
         service.listRecommendations(
-            Urn.createFromString("urn:li:corpuser:me"),
+            TestOperationContexts.userContextNoSearchAuthorization(
+                Urn.createFromString("urn:li:corpuser:me")),
             new RecommendationRequestContext().setScenario(ScenarioType.HOME),
             2,maybeViewInfo);
     assertEquals(result.size(), 2);

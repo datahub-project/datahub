@@ -1,6 +1,7 @@
 package com.linkedin.metadata;
 
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 
 /** Static class containing commonly-used constants across DataHub services. */
 public class Constants {
@@ -61,6 +62,7 @@ public class Constants {
   public static final String TAG_ENTITY_NAME = "tag";
   public static final String CONTAINER_ENTITY_NAME = "container";
   public static final String DOMAIN_ENTITY_NAME = "domain";
+  public static final String ER_MODEL_RELATIONSHIP_ENTITY_NAME = "erModelRelationship";
   public static final String ASSERTION_ENTITY_NAME = "assertion";
   public static final String INCIDENT_ENTITY_NAME = "incident";
   public static final String INGESTION_SOURCE_ENTITY_NAME = "dataHubIngestionSource";
@@ -79,10 +81,13 @@ public class Constants {
   public static final String QUERY_ENTITY_NAME = "query";
   public static final String DATA_PRODUCT_ENTITY_NAME = "dataProduct";
   public static final String OWNERSHIP_TYPE_ENTITY_NAME = "ownershipType";
+  public static final Urn DEFAULT_OWNERSHIP_TYPE_URN =
+      UrnUtils.getUrn("urn:li:ownershipType:__system__none");
   public static final String STRUCTURED_PROPERTY_ENTITY_NAME = "structuredProperty";
   public static final String DATA_TYPE_ENTITY_NAME = "dataType";
   public static final String ENTITY_TYPE_ENTITY_NAME = "entityType";
   public static final String FORM_ENTITY_NAME = "form";
+  public static final String RESTRICTED_ENTITY_NAME = "restricted";
 
   /** Aspects */
   // Common
@@ -263,6 +268,13 @@ public class Constants {
   public static final String ROLE_ACTORS_ASPECT_NAME = "actors";
 
   public static final String DOMAIN_CREATED_TIME_INDEX_FIELD_NAME = "createdTime";
+
+  // ERModelRelationship
+  public static final String ER_MODEL_RELATIONSHIP_KEY_ASPECT_NAME = "erModelRelationshipKey";
+  public static final String ER_MODEL_RELATIONSHIP_PROPERTIES_ASPECT_NAME =
+      "erModelRelationshipProperties";
+  public static final String EDITABLE_ER_MODEL_RELATIONSHIP_PROPERTIES_ASPECT_NAME =
+      "editableERModelRelationshipProperties";
 
   // Assertion
   public static final String ASSERTION_KEY_ASPECT_NAME = "assertionKey";

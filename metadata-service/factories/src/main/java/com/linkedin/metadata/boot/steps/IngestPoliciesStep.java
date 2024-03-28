@@ -27,12 +27,14 @@ import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.policy.DataHubPolicyInfo;
+import io.datahubproject.metadata.context.OperationContext;
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -45,6 +47,7 @@ public class IngestPoliciesStep implements BootstrapStep {
   private static final String POLICY_ENTITY_NAME = "dataHubPolicy";
   private static final String POLICY_INFO_ASPECT_NAME = "dataHubPolicyInfo";
 
+  private final OperationContext systemOpContext;
   private final EntityRegistry _entityRegistry;
   private final EntityService<?> _entityService;
   private final EntitySearchService _entitySearchService;
@@ -113,7 +116,7 @@ public class IngestPoliciesStep implements BootstrapStep {
     // If search index for policies is empty, update the policy index with the ingested policies
     // from previous step.
     // Directly update the ES index, does not produce MCLs
-    if (_entitySearchService.docCount(Constants.POLICY_ENTITY_NAME) == 0) {
+    if (_entitySearchService.docCount(systemOpContext, Constants.POLICY_ENTITY_NAME) == 0) {
       updatePolicyIndex();
     }
     log.info("Successfully ingested default access policies.");
@@ -158,11 +161,13 @@ public class IngestPoliciesStep implements BootstrapStep {
     Optional<String> searchDocument;
     try {
       searchDocument =
-          _searchDocumentTransformer.transformAspect(
-              entityResponse.getUrn(),
-              new DataHubPolicyInfo(aspect.getValue().data()),
-              aspectSpec,
-              false);
+          _searchDocumentTransformer
+              .transformAspect(
+                  entityResponse.getUrn(),
+                  new DataHubPolicyInfo(aspect.getValue().data()),
+                  aspectSpec,
+                  false)
+              .map(Objects::toString);
     } catch (Exception e) {
       log.error(
           "Error in getting documents from aspect: {} for aspect {}", e, aspectSpec.getName());

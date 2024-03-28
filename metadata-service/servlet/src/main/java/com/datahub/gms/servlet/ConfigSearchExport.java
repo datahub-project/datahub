@@ -10,8 +10,8 @@ import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
-import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchRequestHandler;
+import io.datahubproject.metadata.context.OperationContext;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -41,6 +41,10 @@ public class ConfigSearchExport extends HttpServlet {
 
   private AspectRetriever getAspectRetriever(WebApplicationContext ctx) {
     return (AspectRetriever) ctx.getBean("aspectRetriever");
+  }
+
+  private OperationContext getOperationContext(WebApplicationContext ctx) {
+    return (OperationContext) ctx.getBean("systemOperationContext");
   }
 
   private void writeSearchCsv(WebApplicationContext ctx, PrintWriter pw) {
@@ -84,15 +88,18 @@ public class ConfigSearchExport extends HttpServlet {
                   SearchRequestHandler.getBuilder(
                           entitySpec, searchConfiguration, null, aspectRetriever)
                       .getSearchRequest(
+                          getOperationContext(ctx)
+                              .withSearchFlags(
+                                  flags ->
+                                      flags
+                                          .setFulltext(true)
+                                          .setSkipHighlighting(true)
+                                          .setSkipAggregates(true)),
                           "*",
                           null,
                           null,
                           0,
                           0,
-                          new SearchFlags()
-                              .setFulltext(true)
-                              .setSkipHighlighting(true)
-                              .setSkipAggregates(true),
                           null);
 
               FunctionScoreQueryBuilder rankingQuery =

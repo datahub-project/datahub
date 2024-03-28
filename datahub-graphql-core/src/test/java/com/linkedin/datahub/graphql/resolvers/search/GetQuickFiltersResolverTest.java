@@ -2,8 +2,8 @@ package com.linkedin.datahub.graphql.resolvers.search;
 
 import static com.linkedin.datahub.graphql.TestUtils.*;
 import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.SEARCHABLE_ENTITY_TYPES;
+import static org.mockito.ArgumentMatchers.any;
 
-import com.datahub.authentication.Authentication;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.GetQuickFiltersInput;
@@ -108,14 +108,14 @@ public class GetQuickFiltersResolverTest {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     Mockito.when(
             mockClient.searchAcrossEntities(
+                any(),
                 Mockito.anyList(),
                 Mockito.anyString(),
                 Mockito.any(),
                 Mockito.anyInt(),
                 Mockito.anyInt(),
                 Mockito.eq(null),
-                Mockito.eq(null),
-                Mockito.any(Authentication.class)))
+                Mockito.eq(null)))
         .thenThrow(new RemoteInvocationException());
 
     final GetQuickFiltersResolver resolver = new GetQuickFiltersResolver(mockClient, mockService);
@@ -259,7 +259,7 @@ public class GetQuickFiltersResolverTest {
     quickFilter.setField(field);
     quickFilter.setValue(value);
     if (entityUrn != null) {
-      quickFilter.setEntity(UrnToEntityMapper.map(UrnUtils.getUrn(entityUrn)));
+      quickFilter.setEntity(UrnToEntityMapper.map(null, UrnUtils.getUrn(entityUrn)));
     }
     return quickFilter;
   }
@@ -294,14 +294,14 @@ public class GetQuickFiltersResolverTest {
     EntityClient client = Mockito.mock(EntityClient.class);
     Mockito.when(
             client.searchAcrossEntities(
+                any(),
                 Mockito.eq(entityTypes),
                 Mockito.eq(query),
                 Mockito.eq(filter),
                 Mockito.eq(start),
                 Mockito.eq(limit),
                 Mockito.eq(null),
-                Mockito.eq(null),
-                Mockito.any(Authentication.class)))
+                Mockito.eq(null)))
         .thenReturn(result);
     return client;
   }

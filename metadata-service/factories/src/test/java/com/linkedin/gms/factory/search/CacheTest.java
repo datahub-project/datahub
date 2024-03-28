@@ -2,6 +2,7 @@ package com.linkedin.gms.factory.search;
 
 import static com.datahub.util.RecordUtils.*;
 import static com.linkedin.metadata.search.client.CachingEntitySearchService.*;
+import static org.mockito.Mockito.mock;
 
 import com.google.common.collect.ImmutableList;
 import com.hazelcast.config.Config;
@@ -14,6 +15,7 @@ import com.linkedin.metadata.graph.EntityLineageResult;
 import com.linkedin.metadata.graph.LineageDirection;
 import com.linkedin.metadata.graph.LineageRelationship;
 import com.linkedin.metadata.graph.LineageRelationshipArray;
+import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
@@ -29,7 +31,8 @@ import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchResultMetadata;
 import com.linkedin.metadata.search.cache.CacheableSearcher;
 import com.linkedin.metadata.search.cache.CachedEntityLineageResult;
-import java.time.temporal.ChronoUnit;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.List;
 import org.javatuples.Quintet;
 import org.javatuples.Sextet;
@@ -56,6 +59,8 @@ public class CacheTest extends JetTestSupport {
 
   @Test
   public void hazelcastTest() {
+    OperationContext systemOpContext =
+        TestOperationContexts.systemContextNoSearchAuthorization(mock(EntityRegistry.class));
     CorpuserUrn corpuserUrn = new CorpuserUrn("user");
     SearchEntity searchEntity = new SearchEntity().setEntity(corpuserUrn);
     SearchResult searchResult =
@@ -83,7 +88,6 @@ public class CacheTest extends JetTestSupport {
                 10,
                 querySize -> searchResult,
                 querySize -> quintet,
-                null,
                 true);
 
     CacheableSearcher<
@@ -94,18 +98,18 @@ public class CacheTest extends JetTestSupport {
                 10,
                 querySize -> searchResult,
                 querySize -> quintet,
-                null,
                 true);
 
     // Cache result
-    SearchResult result = cacheableSearcher1.getSearchResults(0, 1);
+    SearchResult result = cacheableSearcher1.getSearchResults(systemOpContext, 0, 1);
     Assert.assertNotEquals(result, null);
 
     Assert.assertEquals(
         instance1.getMap("test").get(quintet), instance2.getMap("test").get(quintet));
-    Assert.assertEquals(cacheableSearcher1.getSearchResults(0, 1), searchResult);
+    Assert.assertEquals(cacheableSearcher1.getSearchResults(systemOpContext, 0, 1), searchResult);
     Assert.assertEquals(
-        cacheableSearcher1.getSearchResults(0, 1), cacheableSearcher2.getSearchResults(0, 1));
+        cacheableSearcher1.getSearchResults(systemOpContext, 0, 1),
+        cacheableSearcher2.getSearchResults(systemOpContext, 0, 1));
   }
 
   @Test
@@ -180,8 +184,7 @@ public class CacheTest extends JetTestSupport {
     Cache cache2 = cacheManager2.getCache("relationshipSearchService");
 
     EntityLineageResultCacheKey key =
-        new EntityLineageResultCacheKey(
-            corpuserUrn, LineageDirection.DOWNSTREAM, 0L, 1L, 1, ChronoUnit.DAYS);
+        new EntityLineageResultCacheKey("", corpuserUrn, LineageDirection.DOWNSTREAM, 1, null);
 
     cache1.put(key, cachedEntityLineageResult);
 

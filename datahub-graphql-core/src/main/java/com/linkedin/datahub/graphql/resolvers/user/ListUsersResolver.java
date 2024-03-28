@@ -13,7 +13,6 @@ import com.linkedin.datahub.graphql.generated.ListUsersResult;
 import com.linkedin.datahub.graphql.types.corpuser.mappers.CorpUserMapper;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
-import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchResult;
 import graphql.schema.DataFetcher;
@@ -25,6 +24,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
+import javax.annotation.Nullable;
 
 public class ListUsersResolver implements DataFetcher<CompletableFuture<ListUsersResult>> {
 
@@ -57,13 +57,14 @@ public class ListUsersResolver implements DataFetcher<CompletableFuture<ListUser
               // First, get all policy Urns.
               final SearchResult gmsResult =
                   _entityClient.search(
+                      context
+                          .getOperationContext()
+                          .withSearchFlags(flags -> flags.setFulltext(true)),
                       CORP_USER_ENTITY_NAME,
                       query,
                       Collections.emptyMap(),
                       start,
-                      count,
-                      context.getAuthentication(),
-                      new SearchFlags().setFulltext(true));
+                      count);
 
               // Then, get hydrate all users.
               final Map<Urn, EntityResponse> entities =
@@ -81,7 +82,7 @@ public class ListUsersResolver implements DataFetcher<CompletableFuture<ListUser
               result.setStart(gmsResult.getFrom());
               result.setCount(gmsResult.getPageSize());
               result.setTotal(gmsResult.getNumEntities());
-              result.setUsers(mapEntities(entities.values()));
+              result.setUsers(mapEntities(context, entities.values()));
               return result;
             } catch (Exception e) {
               throw new RuntimeException("Failed to list users", e);
@@ -92,7 +93,8 @@ public class ListUsersResolver implements DataFetcher<CompletableFuture<ListUser
         "Unauthorized to perform this action. Please contact your DataHub administrator.");
   }
 
-  private List<CorpUser> mapEntities(final Collection<EntityResponse> entities) {
-    return entities.stream().map(CorpUserMapper::map).collect(Collectors.toList());
+  private static List<CorpUser> mapEntities(
+      @Nullable QueryContext context, final Collection<EntityResponse> entities) {
+    return entities.stream().map(e -> CorpUserMapper.map(context, e)).collect(Collectors.toList());
   }
 }

@@ -17,12 +17,16 @@ query getGroup($urn: String!, $membersCount: Int!) {
             description
             slack
             email
+            pictureLink
         }
         properties {
             displayName
             description
             email
             slack
+        }
+        privileges {
+            ...entityPrivileges
         }
         autoRenderAspects: aspects(input: { autoRenderOnly: true }) {
             ...autoRenderAspectFields
@@ -200,6 +204,9 @@ query listGroups($input: ListGroupsInput!) {
                 displayName
                 description
                 email
+            }
+            editableProperties {
+                pictureLink
             }
             memberCount: relationships(
                 input: { types: ["IsMemberOfGroup", "IsMemberOfNativeGroup"], direction: INCOMING, start: 0, count: 1 }

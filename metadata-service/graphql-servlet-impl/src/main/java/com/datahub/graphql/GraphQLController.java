@@ -11,10 +11,12 @@ import com.fasterxml.jackson.core.StreamReadConstraints;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.inject.name.Named;
 import com.linkedin.datahub.graphql.GraphQLEngine;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLError;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import graphql.ExecutionResult;
+import io.datahubproject.metadata.context.OperationContext;
 import io.opentelemetry.api.trace.Span;
 import jakarta.inject.Inject;
 import jakarta.servlet.http.HttpServletRequest;
@@ -22,9 +24,9 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpStatus;
@@ -46,6 +48,11 @@ public class GraphQLController {
   @Inject GraphQLEngine _engine;
 
   @Inject AuthorizerChain _authorizerChain;
+
+  @Nonnull
+  @Inject
+  @Named("systemOperationContext")
+  private OperationContext systemOperationContext;
 
   @PostMapping(value = "/graphql", produces = "application/json;charset=utf-8")
   CompletableFuture<ResponseEntity<String>> postGraphQL(HttpEntity<String> httpEntity) {
@@ -95,7 +102,15 @@ public class GraphQLController {
      * Init QueryContext
      */
     Authentication authentication = AuthenticationContext.getAuthentication();
-    SpringQueryContext context = new SpringQueryContext(true, authentication, _authorizerChain);
+
+    SpringQueryContext context =
+        new SpringQueryContext(
+            true,
+            authentication,
+            _authorizerChain,
+            systemOperationContext,
+            queryJson.asText(),
+            variables);
     Span.current().setAttribute("actor.urn", context.getActorUrn());
 
     return CompletableFuture.supplyAsync(
@@ -184,12 +199,14 @@ public class GraphQLController {
         // Extract top level resolver, parent is top level query. Assumes single query per call.
         List<Map<String, Object>> resolvers =
             (List<Map<String, Object>>) executionData.get("resolvers");
-        Optional<Map<String, Object>> parentResolver =
-            resolvers.stream()
-                .filter(resolver -> resolver.get("parentType").equals("Query"))
-                .findFirst();
         String fieldName =
-            parentResolver.isPresent() ? (String) parentResolver.get().get("fieldName") : "UNKNOWN";
+            resolvers.stream()
+                .filter(
+                    resolver -> List.of("Query", "Mutation").contains(resolver.get("parentType")))
+                .findFirst()
+                .map(parentResolver -> parentResolver.get("fieldName"))
+                .map(Object::toString)
+                .orElse("UNKNOWN");
         MetricUtils.get()
             .histogram(MetricRegistry.name(this.getClass(), fieldName))
             .update(totalDuration);

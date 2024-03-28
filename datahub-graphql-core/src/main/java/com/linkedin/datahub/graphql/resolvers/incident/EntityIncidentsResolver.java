@@ -62,12 +62,12 @@ public class EntityIncidentsResolver
             final SortCriterion sortCriterion = buildIncidentsSortCriterion();
             final SearchResult searchResult =
                 _entityClient.filter(
+                    context.getOperationContext(),
                     Constants.INCIDENT_ENTITY_NAME,
                     filter,
                     sortCriterion,
                     start,
-                    count,
-                    context.getAuthentication());
+                    count);
 
             final List<Urn> incidentUrns =
                 searchResult.getEntities().stream()
@@ -90,7 +90,7 @@ public class EntityIncidentsResolver
             final List<Incident> incidents =
                 entityResult.stream()
                     .filter(Objects::nonNull)
-                    .map(IncidentMapper::map)
+                    .map(i -> IncidentMapper.map(context, i))
                     .collect(Collectors.toList());
 
             // Step 4: Package and return result

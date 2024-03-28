@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.types.auth.mappers;
 
 import com.linkedin.access.token.DataHubAccessTokenInfo;
 import com.linkedin.data.DataMap;
+import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.AccessTokenMetadata;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
@@ -10,17 +11,20 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.metadata.Constants;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 public class AccessTokenMetadataMapper implements ModelMapper<EntityResponse, AccessTokenMetadata> {
 
   public static final AccessTokenMetadataMapper INSTANCE = new AccessTokenMetadataMapper();
 
-  public static AccessTokenMetadata map(@Nonnull final EntityResponse entityResponse) {
-    return INSTANCE.apply(entityResponse);
+  public static AccessTokenMetadata map(
+      @Nullable final QueryContext context, @Nonnull final EntityResponse entityResponse) {
+    return INSTANCE.apply(context, entityResponse);
   }
 
   @Override
-  public AccessTokenMetadata apply(@Nonnull final EntityResponse input) {
+  public AccessTokenMetadata apply(
+      @Nullable final QueryContext context, @Nonnull final EntityResponse input) {
 
     final AccessTokenMetadata metadata = new AccessTokenMetadata();
     metadata.setUrn(input.getUrn().toString());

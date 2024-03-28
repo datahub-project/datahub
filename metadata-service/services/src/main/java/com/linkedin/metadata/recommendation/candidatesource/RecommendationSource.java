@@ -1,12 +1,12 @@
 package com.linkedin.metadata.recommendation.candidatesource;
 
-import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.recommendation.RecommendationContent;
 import com.linkedin.metadata.recommendation.RecommendationContentArray;
 import com.linkedin.metadata.recommendation.RecommendationModule;
 import com.linkedin.metadata.recommendation.RecommendationRenderType;
 import com.linkedin.metadata.recommendation.RecommendationRequestContext;
 import com.linkedin.view.DataHubViewInfo;
+import io.datahubproject.metadata.context.OperationContext;
 import io.opentelemetry.extension.annotations.WithSpan;
 import java.util.List;
 import java.util.Optional;
@@ -27,37 +27,37 @@ public interface RecommendationSource {
   /**
    * Whether or not this module is eligible for resolution given the context
    *
-   * @param userUrn User requesting recommendations
+   * @param opContext User's context requesting recommendations
    * @param requestContext Context of where the recommendations are being requested
    * @return whether this source is eligible
    */
-  boolean isEligible(@Nonnull Urn userUrn, @Nonnull RecommendationRequestContext requestContext, @Nonnull DataHubViewInfo maybeViewInfo);
+  boolean isEligible(@Nonnull OperationContext opContext, @Nonnull RecommendationRequestContext requestContext, @Nonnull DataHubViewInfo maybeViewInfo);
 
   /**
    * Get recommended items (candidates / content) provided the context
    *
-   * @param userUrn User requesting recommendations
+   * @param opContext User's context requesting recommendations
    * @param requestContext Context of where the recommendations are being requested
    * @return list of recommendation candidates
    */
   @WithSpan
   List<RecommendationContent> getRecommendations(
-      @Nonnull Urn userUrn, @Nonnull RecommendationRequestContext requestContext, @Nonnull DataHubViewInfo maybeViewInfo);
+      @Nonnull OperationContext opContext, @Nonnull RecommendationRequestContext requestContext, @Nonnull DataHubViewInfo maybeViewInfo);
 
   /**
    * Get the full recommendations module itself provided the request context.
    *
-   * @param userUrn User requesting recommendations
+   * @param opContext User's context requesting recommendations
    * @param requestContext Context of where the recommendations are being requested
    * @return list of recommendation candidates
    */
   default Optional<RecommendationModule> getRecommendationModule(
-      @Nonnull Urn userUrn, @Nonnull RecommendationRequestContext requestContext, @Nonnull DataHubViewInfo maybeViewInfo) {
-    if (!isEligible(userUrn, requestContext, maybeViewInfo)) {
+      @Nonnull OperationContext opContext, @Nonnull RecommendationRequestContext requestContext, @Nonnull DataHubViewInfo maybeViewInfo) {
+    if (!isEligible(opContext, requestContext, maybeViewInfo)) {
       return Optional.empty();
     }
 
-    List<RecommendationContent> recommendations = getRecommendations(userUrn, requestContext, maybeViewInfo);
+    List<RecommendationContent> recommendations = getRecommendations(opContext, requestContext, maybeViewInfo);
     if (recommendations.isEmpty()) {
       return Optional.empty();
     }

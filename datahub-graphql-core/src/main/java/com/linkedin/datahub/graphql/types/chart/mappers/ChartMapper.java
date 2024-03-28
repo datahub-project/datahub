@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.types.chart.mappers;
 
+import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
 import static com.linkedin.metadata.Constants.*;
 
 import com.linkedin.chart.EditableChartProperties;
@@ -17,6 +18,8 @@ import com.linkedin.common.Status;
 import com.linkedin.common.SubTypes;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
+import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.generated.AccessLevel;
 import com.linkedin.datahub.graphql.generated.Chart;
 import com.linkedin.datahub.graphql.generated.ChartEditableProperties;
@@ -56,17 +59,20 @@ import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.structured.StructuredProperties;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 public class ChartMapper implements ModelMapper<EntityResponse, Chart> {
 
   public static final ChartMapper INSTANCE = new ChartMapper();
 
-  public static Chart map(@Nonnull final EntityResponse entityResponse) {
-    return INSTANCE.apply(entityResponse);
+  public static Chart map(
+      @Nullable final QueryContext context, @Nonnull final EntityResponse entityResponse) {
+    return INSTANCE.apply(context, entityResponse);
   }
 
   @Override
-  public Chart apply(@Nonnull final EntityResponse entityResponse) {
+  public Chart apply(
+      @Nullable final QueryContext context, @Nonnull final EntityResponse entityResponse) {
     final Chart result = new Chart();
     Urn entityUrn = entityResponse.getUrn();
 
@@ -79,62 +85,74 @@ public class ChartMapper implements ModelMapper<EntityResponse, Chart> {
     MappingHelper<Chart> mappingHelper = new MappingHelper<>(aspectMap, result);
     mappingHelper.mapToResult(CHART_KEY_ASPECT_NAME, this::mapChartKey);
     mappingHelper.mapToResult(
-        CHART_INFO_ASPECT_NAME, (entity, dataMap) -> this.mapChartInfo(entity, dataMap, entityUrn));
+        CHART_INFO_ASPECT_NAME,
+        (entity, dataMap) -> this.mapChartInfo(context, entity, dataMap, entityUrn));
     mappingHelper.mapToResult(CHART_QUERY_ASPECT_NAME, this::mapChartQuery);
     mappingHelper.mapToResult(
         EDITABLE_CHART_PROPERTIES_ASPECT_NAME, this::mapEditableChartProperties);
     mappingHelper.mapToResult(
         OWNERSHIP_ASPECT_NAME,
         (chart, dataMap) ->
-            chart.setOwnership(OwnershipMapper.map(new Ownership(dataMap), entityUrn)));
+            chart.setOwnership(OwnershipMapper.map(context, new Ownership(dataMap), entityUrn)));
     mappingHelper.mapToResult(
         STATUS_ASPECT_NAME,
-        (chart, dataMap) -> chart.setStatus(StatusMapper.map(new Status(dataMap))));
+        (chart, dataMap) -> chart.setStatus(StatusMapper.map(context, new Status(dataMap))));
     mappingHelper.mapToResult(
         GLOBAL_TAGS_ASPECT_NAME,
-        (dataset, dataMap) -> this.mapGlobalTags(dataset, dataMap, entityUrn));
+        (dataset, dataMap) -> this.mapGlobalTags(context, dataset, dataMap, entityUrn));
     mappingHelper.mapToResult(
         INSTITUTIONAL_MEMORY_ASPECT_NAME,
         (chart, dataMap) ->
             chart.setInstitutionalMemory(
-                InstitutionalMemoryMapper.map(new InstitutionalMemory(dataMap), entityUrn)));
+                InstitutionalMemoryMapper.map(
+                    context, new InstitutionalMemory(dataMap), entityUrn)));
     mappingHelper.mapToResult(
         GLOSSARY_TERMS_ASPECT_NAME,
         (chart, dataMap) ->
-            chart.setGlossaryTerms(GlossaryTermsMapper.map(new GlossaryTerms(dataMap), entityUrn)));
-    mappingHelper.mapToResult(CONTAINER_ASPECT_NAME, this::mapContainers);
-    mappingHelper.mapToResult(DOMAINS_ASPECT_NAME, this::mapDomains);
+            chart.setGlossaryTerms(
+                GlossaryTermsMapper.map(context, new GlossaryTerms(dataMap), entityUrn)));
+    mappingHelper.mapToResult(context, CONTAINER_ASPECT_NAME, ChartMapper::mapContainers);
+    mappingHelper.mapToResult(context, DOMAINS_ASPECT_NAME, ChartMapper::mapDomains);
     mappingHelper.mapToResult(
         DEPRECATION_ASPECT_NAME,
-        (chart, dataMap) -> chart.setDeprecation(DeprecationMapper.map(new Deprecation(dataMap))));
+        (chart, dataMap) ->
+            chart.setDeprecation(DeprecationMapper.map(context, new Deprecation(dataMap))));
     mappingHelper.mapToResult(
         DATA_PLATFORM_INSTANCE_ASPECT_NAME,
         (dataset, dataMap) ->
             dataset.setDataPlatformInstance(
-                DataPlatformInstanceAspectMapper.map(new DataPlatformInstance(dataMap))));
+                DataPlatformInstanceAspectMapper.map(context, new DataPlatformInstance(dataMap))));
     mappingHelper.mapToResult(
         INPUT_FIELDS_ASPECT_NAME,
         (chart, dataMap) ->
-            chart.setInputFields(InputFieldsMapper.map(new InputFields(dataMap), entityUrn)));
+            chart.setInputFields(
+                InputFieldsMapper.map(context, new InputFields(dataMap), entityUrn)));
     mappingHelper.mapToResult(
-        EMBED_ASPECT_NAME, (chart, dataMap) -> chart.setEmbed(EmbedMapper.map(new Embed(dataMap))));
+        EMBED_ASPECT_NAME,
+        (chart, dataMap) -> chart.setEmbed(EmbedMapper.map(context, new Embed(dataMap))));
     mappingHelper.mapToResult(
         BROWSE_PATHS_V2_ASPECT_NAME,
         (chart, dataMap) ->
-            chart.setBrowsePathV2(BrowsePathsV2Mapper.map(new BrowsePathsV2(dataMap))));
+            chart.setBrowsePathV2(BrowsePathsV2Mapper.map(context, new BrowsePathsV2(dataMap))));
     mappingHelper.mapToResult(
         SUB_TYPES_ASPECT_NAME,
-        (dashboard, dataMap) -> dashboard.setSubTypes(SubTypesMapper.map(new SubTypes(dataMap))));
+        (dashboard, dataMap) ->
+            dashboard.setSubTypes(SubTypesMapper.map(context, new SubTypes(dataMap))));
     mappingHelper.mapToResult(
         STRUCTURED_PROPERTIES_ASPECT_NAME,
         ((chart, dataMap) ->
             chart.setStructuredProperties(
-                StructuredPropertiesMapper.map(new StructuredProperties(dataMap)))));
+                StructuredPropertiesMapper.map(context, new StructuredProperties(dataMap)))));
     mappingHelper.mapToResult(
         FORMS_ASPECT_NAME,
         ((entity, dataMap) ->
             entity.setForms(FormsMapper.map(new Forms(dataMap), entityUrn.toString()))));
-    return mappingHelper.getResult();
+
+    if (context != null && !canView(context.getOperationContext(), entityUrn)) {
+      return AuthorizationUtils.restrictEntity(mappingHelper.getResult(), Chart.class);
+    } else {
+      return mappingHelper.getResult();
+    }
   }
 
   private void mapChartKey(@Nonnull Chart chart, @Nonnull DataMap dataMap) {
@@ -153,14 +171,20 @@ public class ChartMapper implements ModelMapper<EntityResponse, Chart> {
   }
 
   private void mapChartInfo(
-      @Nonnull Chart chart, @Nonnull DataMap dataMap, @Nonnull Urn entityUrn) {
+      @Nullable final QueryContext context,
+      @Nonnull Chart chart,
+      @Nonnull DataMap dataMap,
+      @Nonnull Urn entityUrn) {
     final com.linkedin.chart.ChartInfo gmsChartInfo = new com.linkedin.chart.ChartInfo(dataMap);
-    chart.setInfo(mapInfo(gmsChartInfo, entityUrn));
-    chart.setProperties(mapChartInfoToProperties(gmsChartInfo, entityUrn));
+    chart.setInfo(mapInfo(context, gmsChartInfo, entityUrn));
+    chart.setProperties(mapChartInfoToProperties(context, gmsChartInfo, entityUrn));
   }
 
   /** Maps GMS {@link com.linkedin.chart.ChartInfo} to deprecated GraphQL {@link ChartInfo} */
-  private ChartInfo mapInfo(final com.linkedin.chart.ChartInfo info, @Nonnull Urn entityUrn) {
+  private ChartInfo mapInfo(
+      @Nonnull QueryContext context,
+      final com.linkedin.chart.ChartInfo info,
+      @Nonnull Urn entityUrn) {
     final ChartInfo result = new ChartInfo();
     result.setDescription(info.getDescription());
     result.setName(info.getTitle());
@@ -184,10 +208,10 @@ public class ChartMapper implements ModelMapper<EntityResponse, Chart> {
     if (info.hasType()) {
       result.setType(ChartType.valueOf(info.getType().toString()));
     }
-    result.setLastModified(AuditStampMapper.map(info.getLastModified().getLastModified()));
-    result.setCreated(AuditStampMapper.map(info.getLastModified().getCreated()));
+    result.setLastModified(AuditStampMapper.map(context, info.getLastModified().getLastModified()));
+    result.setCreated(AuditStampMapper.map(context, info.getLastModified().getCreated()));
     if (info.getLastModified().hasDeleted()) {
-      result.setDeleted(AuditStampMapper.map(info.getLastModified().getDeleted()));
+      result.setDeleted(AuditStampMapper.map(context, info.getLastModified().getDeleted()));
     }
     if (info.hasExternalUrl()) {
       result.setExternalUrl(info.getExternalUrl().toString());
@@ -202,8 +226,10 @@ public class ChartMapper implements ModelMapper<EntityResponse, Chart> {
   }
 
   /** Maps GMS {@link com.linkedin.chart.ChartInfo} to new GraphQL {@link ChartProperties} */
-  private ChartProperties mapChartInfoToProperties(
-      final com.linkedin.chart.ChartInfo info, @Nonnull Urn entityUrn) {
+  private static ChartProperties mapChartInfoToProperties(
+      @Nullable final QueryContext context,
+      final com.linkedin.chart.ChartInfo info,
+      @Nonnull Urn entityUrn) {
     final ChartProperties result = new ChartProperties();
     result.setDescription(info.getDescription());
     result.setName(info.getTitle());
@@ -215,10 +241,10 @@ public class ChartMapper implements ModelMapper<EntityResponse, Chart> {
     if (info.hasType()) {
       result.setType(ChartType.valueOf(info.getType().toString()));
     }
-    result.setLastModified(AuditStampMapper.map(info.getLastModified().getLastModified()));
-    result.setCreated(AuditStampMapper.map(info.getLastModified().getCreated()));
+    result.setLastModified(AuditStampMapper.map(context, info.getLastModified().getLastModified()));
+    result.setCreated(AuditStampMapper.map(context, info.getLastModified().getCreated()));
     if (info.getLastModified().hasDeleted()) {
-      result.setDeleted(AuditStampMapper.map(info.getLastModified().getDeleted()));
+      result.setDeleted(AuditStampMapper.map(context, info.getLastModified().getDeleted()));
     }
     if (info.hasExternalUrl()) {
       result.setExternalUrl(info.getExternalUrl().toString());
@@ -251,15 +277,19 @@ public class ChartMapper implements ModelMapper<EntityResponse, Chart> {
     chart.setEditableProperties(chartEditableProperties);
   }
 
-  private void mapGlobalTags(
-      @Nonnull Chart chart, @Nonnull DataMap dataMap, @Nonnull Urn entityUrn) {
+  private static void mapGlobalTags(
+      @Nullable final QueryContext context,
+      @Nonnull Chart chart,
+      @Nonnull DataMap dataMap,
+      @Nonnull Urn entityUrn) {
     com.linkedin.datahub.graphql.generated.GlobalTags globalTags =
-        GlobalTagsMapper.map(new GlobalTags(dataMap), entityUrn);
+        GlobalTagsMapper.map(context, new GlobalTags(dataMap), entityUrn);
     chart.setGlobalTags(globalTags);
     chart.setTags(globalTags);
   }
 
-  private void mapContainers(@Nonnull Chart chart, @Nonnull DataMap dataMap) {
+  private static void mapContainers(
+      @Nullable final QueryContext context, @Nonnull Chart chart, @Nonnull DataMap dataMap) {
     final com.linkedin.container.Container gmsContainer =
         new com.linkedin.container.Container(dataMap);
     chart.setContainer(
@@ -269,8 +299,9 @@ public class ChartMapper implements ModelMapper<EntityResponse, Chart> {
             .build());
   }
 
-  private void mapDomains(@Nonnull Chart chart, @Nonnull DataMap dataMap) {
+  private static void mapDomains(
+      @Nullable final QueryContext context, @Nonnull Chart chart, @Nonnull DataMap dataMap) {
     final Domains domains = new Domains(dataMap);
-    chart.setDomain(DomainAssociationMapper.map(domains, chart.getUrn()));
+    chart.setDomain(DomainAssociationMapper.map(context, domains, chart.getUrn()));
   }
 }

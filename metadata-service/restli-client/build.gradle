@@ -9,6 +9,8 @@ dependencies {
   api project(path: ':metadata-service:restli-api', configuration: 'restClient')
   api project(':metadata-events:mxe-schemas')
   api project(':metadata-utils')
+  api project(':metadata-operation-context')
+  api project(':metadata-service:restli-client-api')
   implementation project(':metadata-service:configuration')
 
   implementation externalDependency.caffeine
@@ -18,6 +20,8 @@ dependencies {
 
   implementation spec.product.pegasus.restliClient
 
+
   testImplementation externalDependency.mockito
   testImplementation externalDependency.testng
+  testImplementation spec.product.pegasus.restliTestUtils
 }
