@@ -3,9 +3,8 @@ import re
 from functools import lru_cache
 from typing import Dict, List, Optional, Sequence, Union, cast
 
-from pydantic.class_validators import root_validator
-
 from datahub.configuration.common import ConfigModel
+from datahub.configuration.validate_field_rename import pydantic_renamed_field
 from datahub.emitter.mce_builder import Aspect, make_ownership_type_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
@@ -25,8 +24,7 @@ logger = logging.getLogger(__name__)
 
 
 class ExtractOwnersFromTagsConfig(ConfigModel):
-    tag_prefix: Optional[str]
-    tag_pattern: Optional[str]
+    tag_pattern: str
     is_user: bool = True
     owner_character_mapping: Optional[Dict[str, str]] = None
     email_domain: Optional[str] = None
@@ -34,23 +32,9 @@ class ExtractOwnersFromTagsConfig(ConfigModel):
     owner_type: str = "TECHNICAL_OWNER"
     owner_type_urn: Optional[str] = None
 
-    @root_validator(pre=True)
-    def raise_error_for_tag_prefix(cls, values: Dict) -> Dict:
-        if (
-            values.get("tag_prefix") is not None
-            and values.get("tag_pattern") is not None
-        ):
-            raise ValueError(
-                "Cannot provide both tag_prefix and tag_pattern parameter. tag_prefix is deprecated in favor of tag_pattern."
-            )
-        if values.get("tag_pattern") is None and values.get("tag_prefix") is None:
-            raise ValueError("tag_pattern is required")
-        if values.get("tag_prefix") is not None:
-            logger.warning(
-                "The tag_prefix argument is deprecated. Use tag_pattern instead."
-            )
-            values["tag_pattern"] = values["tag_prefix"]
-        return values
+    _rename_tag_prefix_to_tag_pattern = pydantic_renamed_field(
+        "tag_prefix", "tag_pattern"
+    )
 
 
 @lru_cache(maxsize=10)
@@ -88,6 +72,9 @@ class ExtractOwnersFromTagsTransformer(DatasetTagsTransformer):
 
     def convert_owner_as_per_mapping(self, owner: str) -> str:
         if self.config.owner_character_mapping:
+            # Sort the provided mapping by its length.
+            # Eg: Suppose we have {"_":".", "__":"#"} character mapping.
+            # In this case "__" character should get replace first compare to "_" character.
             for key in sorted(
                 self.config.owner_character_mapping.keys(),
                 key=len,
@@ -113,7 +100,7 @@ class ExtractOwnersFromTagsTransformer(DatasetTagsTransformer):
 
         for tag_class in tags:
             tag_str = TagUrn.from_string(tag_class.tag).name
-            re_match = re.search(cast(str, self.config.tag_pattern), tag_str)
+            re_match = re.search(self.config.tag_pattern, tag_str)
             if re_match:
                 owner_str = tag_str[re_match.end() :].strip()
                 owner_str = self.convert_owner_as_per_mapping(owner_str)
