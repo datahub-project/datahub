@@ -244,4 +244,11 @@
         "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/qlik-sense/",
         "recipe": "source:\n    type: qlik-sense\n    config:\n        # Coordinates\n        tenant_hostname: https://xyz12xz.us.qlikcloud.com\n        # Coordinates\n        api_key: QLIK_API_KEY\n\n        # Optional - filter for certain space names instead of ingesting everything.\n        # space_pattern:\n\n        #   allow:\n        #     - space_name\n        ingest_owner: true"
     }
+    {
+        "urn": "urn:li:dataPlatform:sigma",
+        "name": "sigma",
+        "displayName": "Sigma",
+        "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/sigma/",
+        "recipe": "source:\n    type: sigma\n    config:\n        # Coordinates\n        api_url: https://aws-api.sigmacomputing.com/v2\n        # Coordinates\n        client_id: CLIENT_ID\n        client_secret: CLIENT_SECRET\n\n        # Optional - filter for certain workspace names instead of ingesting everything.\n        # workspace_pattern:\n\n        #   allow:\n        #     - workspace_name\n        ingest_owner: true"
+    }
 ]

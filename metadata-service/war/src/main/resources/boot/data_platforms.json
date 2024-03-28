@@ -634,5 +634,15 @@
       "datasetNameDelimiter": "/",
       "logoUrl": "/assets/platforms/excel-logo.svg"
     }
+  },
+  {
+    "urn": "urn:li:dataPlatform:sigma",
+    "aspect": {
+      "datasetNameDelimiter": ".",
+      "name": "sigma",
+      "displayName": "Sigma",
+      "type": "OTHERS",
+      "logoUrl": "/assets/platforms/sigmalogo.png"
+    }
   }
 ]
