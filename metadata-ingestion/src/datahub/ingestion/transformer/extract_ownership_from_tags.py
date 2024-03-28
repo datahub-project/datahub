@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 
 
 class ExtractOwnersFromTagsConfig(ConfigModel):
-    tag_pattern: str
+    tag_pattern: str = ""
     is_user: bool = True
     owner_character_mapping: Optional[Dict[str, str]] = None
     email_domain: Optional[str] = None

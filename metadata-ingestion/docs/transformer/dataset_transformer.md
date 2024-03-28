@@ -20,7 +20,7 @@ The below table shows transformer which can transform aspects of entity [Dataset
 ### Config Details
 | Field                       | Required | Type    | Default       | Description                                 |
 |-----------------------------|----------|---------|---------------|---------------------------------------------|
-| `tag_pattern`  | ✅       | str     |               | Regex to use for tags to match against. Supports Regex to match a pattern which is used to remove content. Rest of string is considered owner ID for creating owner URN. |
+| `tag_pattern`  |          | str     |               | Regex to use for tags to match against. Supports Regex to match a pattern which is used to remove content. Rest of string is considered owner ID for creating owner URN. |
 | `is_user`      |          | bool    | `true`   | Whether should be consider a user or not. If `false` then considered a group. |
 | `owner_character_mapping` |          | dict[str, str]  |     | A mapping of extracted owner character to datahub owner character. |
 | `email_domain` |          | str    |    | If set then this is appended to create owner URN. |
@@ -43,20 +43,20 @@ So if we have input dataset tag like
 - `urn:li:tag:dataset_owner_email:abc@email.com`
 - `urn:li:tag:dataset_owner_email:xyz@email.com`
 
-String after the matched tag pattern will be considered as owner to create ownership. Hence an owners called `abc@email.com` and `xyz@email.com` will be added to them respectively.
+The portion of the tag after the matched tag pattern will be converted into an owner. Hence users `abc@email.com` and `xyz@email.com` will be added as owners.
 
-`extract_ownership_from_tags` can be configured in below different way 
+### Examples
 
-- Add owners, however owner should be considered as group and also email domain not provided in tag string
+- Add owners, however owner should be considered as group and also email domain not provided in tag string. For example: from tag urn `urn:li:tag:dataset_owner:abc` extracted owner urn should be `urn:li:corpGroup:abc@email.com` then config would look like this:
     ```yaml
     transformers:
       - type: "extract_ownership_from_tags"
         config:
-          tag_pattern: "owner_email:"
+          tag_pattern: "owner:"
           is_user: false
           email_domain: "email.com"
     ```
-- Add owners, however owner type and owner type urn wanted to provide externally 
+- Add owners, however owner type and owner type urn wanted to provide externally. For example: from tag urn `urn:li:tag:dataset_owner_email:abc@email.com` owner type should be `CUSTOM` and owner type urn as `"urn:li:ownershipType:data_product"` then config would look like this:
     ```yaml
     transformers:
       - type: "extract_ownership_from_tags"
@@ -65,7 +65,7 @@ String after the matched tag pattern will be considered as owner to create owner
           owner_type: "CUSTOM"
           owner_type_urn: "urn:li:ownershipType:data_product"
     ```
-- Add owners, however some owner characters needs to replace with some other characters before ingestion. For example: `abc_xyz-email_com` owner should get convert to `abc.xyz@email.com`. In this case the config would look like this:
+- Add owners, however some owner characters needs to replace with some other characters before ingestion. For example: from tag urn `urn:li:tag:dataset_owner_email:abc_xyz-email_com` extracted owner urn should be `urn:li:corpGroup:abc.xyz@email.com` then config would look like this:
     ```yaml
     transformers:
       - type: "extract_ownership_from_tags"
@@ -75,7 +75,7 @@ String after the matched tag pattern will be considered as owner to create owner
             "_": ".",
             "-": "@",
     ```
-- Add owners, however owner type also need to extracted from tag pattern. For example: from tag urn `urn:li:tag:data_producer_owner_email:abc@email.com` owner type `data_producer` should get extracted. In this case the config would look like this:
+- Add owners, however owner type also need to extracted from tag pattern. For example: from tag urn `urn:li:tag:data_producer_owner_email:abc@email.com` extracted owner type should be `data_producer` then config would look like this:
     ```yaml
     transformers:
       - type: "extract_ownership_from_tags"
