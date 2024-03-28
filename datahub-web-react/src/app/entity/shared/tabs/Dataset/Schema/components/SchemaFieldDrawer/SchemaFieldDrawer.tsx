@@ -76,7 +76,7 @@ export default function SchemaFieldDrawer({
                         <FieldTags expandedField={expandedField} editableSchemaMetadata={editableSchemaMetadata} />
                         <FieldTerms expandedField={expandedField} editableSchemaMetadata={editableSchemaMetadata} />
                         <FieldProperties expandedField={expandedField} />
-                        <FieldAttribute expandedField={expandedField} editableSchemaMetadata={editableSchemaMetadata} />
+                        <FieldAttribute expandedField={expandedField} />
                     </MetadataSections>
                 </>
             )}

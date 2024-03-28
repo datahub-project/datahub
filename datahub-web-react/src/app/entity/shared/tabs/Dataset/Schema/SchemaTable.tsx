@@ -26,6 +26,7 @@ import translateFieldPath from '../../../../dataset/profile/schema/utils/transla
 import PropertiesColumn from './components/PropertiesColumn';
 import SchemaFieldDrawer from './components/SchemaFieldDrawer/SchemaFieldDrawer';
 import useBusinessAttributeRenderer from './utils/useBusinessAttributeRenderer';
+import { useBusinessAttributesFlag } from '../../../../../useAppConfig';
 
 const TableContainer = styled.div`
     overflow: inherit;
@@ -90,6 +91,7 @@ export default function SchemaTable({
     hasProperties,
     inputFields,
 }: Props): JSX.Element {
+    const businessAttributesFlag = useBusinessAttributesFlag();
     const hasUsageStats = useMemo(() => (usageStats?.aggregations?.fields?.length || 0) > 0, [usageStats]);
     const [tableHeight, setTableHeight] = useState(0);
     const [selectedFkFieldPath, setSelectedFkFieldPath] = useState<null | {
@@ -217,8 +219,11 @@ export default function SchemaTable({
         descriptionColumn,
         tagColumn,
         termColumn,
-        businessAttributeColumn,
     ];
+
+    if (businessAttributesFlag) {
+        allColumns = [...allColumns, businessAttributeColumn];
+    }
 
     if (hasProperties) {
         allColumns = [...allColumns, propertiesColumn];

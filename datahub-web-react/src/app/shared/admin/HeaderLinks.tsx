@@ -11,7 +11,7 @@ import {
 } from '@ant-design/icons';
 import { Link } from 'react-router-dom';
 import { Button, Dropdown, Menu, Tooltip } from 'antd';
-import { useAppConfig } from '../../useAppConfig';
+import { useAppConfig, useBusinessAttributesFlag } from '../../useAppConfig';
 import { ANTD_GRAY } from '../../entity/shared/constants';
 import { HOME_PAGE_INGESTION_ID } from '../../onboarding/config/HomePageOnboardingConfig';
 import { useToggleEducationStepIdsAllowList } from '../../onboarding/useToggleEducationStepIdsAllowList';
@@ -67,6 +67,8 @@ export function HeaderLinks(props: Props) {
     const me = useUserContext();
     const { config } = useAppConfig();
 
+    const businessAttributesFlag = useBusinessAttributesFlag();
+
     const isAnalyticsEnabled = config?.analyticsConfig.enabled;
     const isIngestionEnabled = config?.managedIngestionConfig.enabled;
 
@@ -120,7 +122,7 @@ export function HeaderLinks(props: Props) {
                                 <NavTitleDescription>Manage related groups of data assets</NavTitleDescription>
                             </Link>
                         </MenuItem>
-                        <MenuItem key="2">
+                        {businessAttributesFlag && ( <MenuItem key="2">
                             <Link to="/business-attribute">
                                 <NavTitleContainer>
                                     <GlobalOutlined
@@ -133,7 +135,7 @@ export function HeaderLinks(props: Props) {
                                 </NavTitleContainer>
                                 <NavTitleDescription>Universal field for data consistency</NavTitleDescription>
                             </Link>
-                        </MenuItem>
+                        </MenuItem>)}
                     </Menu>
                 }
             >

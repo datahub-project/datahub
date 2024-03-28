@@ -482,6 +482,11 @@ type FeatureFlagsConfig {
   If this is off, Domains appear "flat" again.
   """
   nestedDomainsEnabled: Boolean!
+
+  """
+  Whether business attribute entity should be shown
+  """
+  businessAttributeEntityEnabled: Boolean!
 }
 
 """

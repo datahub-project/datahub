@@ -3,6 +3,7 @@ import { SchemaField } from '../../../../../../../../types.generated';
 import useBusinessAttributeRenderer from '../../utils/useBusinessAttributeRenderer';
 import { SectionHeader, StyledDivider } from './components';
 import SchemaEditableContext from '../../../../../../../shared/SchemaEditableContext';
+import { useBusinessAttributesFlag } from '../../../../../../../useAppConfig';
 
 interface Props {
     expandedField: SchemaField;
@@ -15,7 +16,9 @@ export default function FieldAttribute({ expandedField }: Props) {
         isSchemaEditable,
     );
 
-    return (
+    const businessAttributesFlag = useBusinessAttributesFlag();
+
+    return businessAttributesFlag ? (
         <>
             <SectionHeader>Business Attribute</SectionHeader>
             {/* pass in globalTags since this is a shared component, tags will not be shown or used */}
@@ -24,5 +27,5 @@ export default function FieldAttribute({ expandedField }: Props) {
             </div>
             <StyledDivider />
         </>
-    );
+    ) : null;
 }

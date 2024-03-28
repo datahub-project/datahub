@@ -201,7 +201,7 @@ export default function EditBusinessAttributeModal({
             variables: {
                 input: {
                     businessAttributeUrn: urn,
-                    resourceUrn: resources[0],
+                    resourceUrn: resources,
                 },
             },
         })
@@ -229,11 +229,11 @@ export default function EditBusinessAttributeModal({
             variables: {
                 input: {
                     businessAttributeUrn: urn,
-                    resourceUrn: {
+                    resourceUrn: [{
                         resourceUrn: resources[0].resourceUrn,
                         subResource: resources[0].subResource,
                         subResourceType: resources[0].subResourceType,
-                    },
+                    }],
                 },
             },
         })

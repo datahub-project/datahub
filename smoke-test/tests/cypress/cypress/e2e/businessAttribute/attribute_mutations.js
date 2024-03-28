@@ -1,5 +1,23 @@
+import { aliasQuery, hasOperationName } from "../utils";
+
 describe("attribute list adding tags and terms", () => {
+    beforeEach(() => {
+        cy.intercept("POST", "/api/v2/graphql", (req) => {
+            aliasQuery(req, "appConfig");
+        });
+        });
+    
+        const setBusinessAttributeFeatureFlag = (isOn) => {
+        cy.intercept("POST", "/api/v2/graphql", (req) => {
+            if (hasOperationName(req, "appConfig")) {
+            req.reply((res) => {
+                res.body.data.appConfig.featureFlags.businessAttributeEntityEnabled = isOn;
+            });
+            }
+        });
+        };
     it("can create and add a tag to business attribute and visit new tag page", () => {
+        setBusinessAttributeFeatureFlag(true);
         cy.login();
         cy.goToBusinessAttributeList();
 
@@ -18,17 +36,17 @@ describe("attribute list adding tags and terms", () => {
 
         // wait a breath for elasticsearch to index the tag being applied to the business attribute- if we navigate too quick ES
         // wont know and we'll see applied to 0 entities
-        cy.wait(2000);
+        cy.wait(3000);
 
         // go to tag drawer
         cy.contains("CypressAddTagToAttribute").click({ force: true });
 
-        cy.wait(1000);
+        cy.wait(3000);
 
         // Click the Tag Details to launch full profile
         cy.contains("Tag Details").click({ force: true });
 
-        cy.wait(1000);
+        cy.wait(3000);
 
         // title of tag page
         cy.contains("CypressAddTagToAttribute");
@@ -36,6 +54,7 @@ describe("attribute list adding tags and terms", () => {
         // description of tag page
         cy.contains("CypressAddTagToAttribute Test Description");
 
+        cy.wait(3000);
         // used by panel - click to search
         cy.contains("1 Business Attributes").click({ force: true });
 
@@ -55,6 +74,7 @@ describe("attribute list adding tags and terms", () => {
     });
 
     it("can add and remove terms from a business attribute", () => {
+        setBusinessAttributeFeatureFlag(true);
         cy.login();
         cy.addTermToBusinessAttribute(
             "urn:li:businessAttribute:cypressTestAttribute",
