@@ -6,13 +6,14 @@ import {useGetLineageTimeParams} from '../lineage/utils/useGetLineageTimeParams'
 import {DEGREE_FILTER_NAME} from '../search/utils/constants';
 import {
     FetchStatus,
+    Filters,
     isDbt,
     isQuery,
     isTransformational,
     LINEAGE_FILTER_PAGINATION,
+    LineageEntity,
     NodeContext,
-    setDifference,
-    setNodeDefault,
+    setDefault,
 } from './common';
 
 /**
@@ -83,20 +84,17 @@ export default function useSearchAcrossLineage(
         const urns = new Set<string>();
         data?.searchAcrossLineage?.searchResults.forEach((result) => {
             urns.add(result.entity.urn);
-            const node = setNodeDefault({
+            const node = setDefault(
                 nodes,
-                urn: result.entity.urn,
-                type: result.entity.type,
-                direction,
-                maxDepth,
-            });
+                result.entity.urn,
+                entityNodeDefault(result.entity.urn, result.entity.type, direction),
+            );
 
             const newParents =
                 result.paths?.map((path) => path?.path?.[path?.path.length - 2]?.urn).filter((p): p is string => !!p) ||
                 [];
             node.parents = new Set([...node.parents, ...newParents]);
 
-            // TODO: Clean up logic, a little redundant with setNodeDefault
             if (maxDepth) {
                 node.fetchStatus = { ...node.fetchStatus, [direction]: FetchStatus.COMPLETE };
             }
@@ -129,11 +127,11 @@ export function pruneParentsThroughDbt(urn: string, nodes: NodeContext['nodes'])
     if (!node || isTransformational(node)) return;
 
     const urnsToPrune = new Set<string>();
-    const seen = new Set<string>();
     const stack = Array.from(node.parents).filter((p) => {
         const n = nodes.get(p);
-        return n && (isDbt(n) || isQuery(n));
+        return n && isDbt(n);
     });
+    const seen = new Set<string>(stack);
     for (let u = stack.pop(); u; u = stack.pop()) {
         const n = nodes.get(u);
         if (!n) return;
@@ -142,7 +140,7 @@ export function pruneParentsThroughDbt(urn: string, nodes: NodeContext['nodes'])
             const p = nodes.get(parent);
             if (!p) return;
 
-            if ((isDbt(p) || isQuery(p)) && !seen.has(parent)) {
+            if (isDbt(p) && !seen.has(parent)) {
                 stack.push(parent);
                 seen.add(parent);
             } else {
@@ -151,12 +149,42 @@ export function pruneParentsThroughDbt(urn: string, nodes: NodeContext['nodes'])
         });
     }
 
-    node.parents = new Set(setDifference(node.parents, urnsToPrune));
+    node.parents = new Set(
+        Array.from(node.parents).filter((parentUrn) => {
+            const parent = nodes.get(parentUrn);
+            if (parent && isQuery(parent)) {
+                return Array.from(parent.parents).some((grandparentUrn) => !urnsToPrune.has(grandparentUrn));
+            }
+            return !urnsToPrune.has(parentUrn);
+        }),
+    );
     if (!node.prunedParents) {
         node.prunedParents = urnsToPrune;
     } else {
         node.prunedParents = new Set([...node.prunedParents, ...urnsToPrune]);
     }
+}
+
+function entityNodeDefault(urn: string, type: EntityType, direction: LineageDirection): LineageEntity {
+    const otherDirection =
+        direction === LineageDirection.Upstream ? LineageDirection.Downstream : LineageDirection.Upstream;
+    return {
+        id: urn,
+        urn,
+        type,
+        direction, // TODO: Handle a node that is both upstream and downstream?
+        parents: new Set(),
+        fetchStatus: {
+            [direction]: FetchStatus.UNFETCHED,
+            [otherDirection]: FetchStatus.UNNEEDED,
+        } as Record<LineageDirection, FetchStatus>,
+        filters: {
+            [direction]: {
+                limit: LINEAGE_FILTER_PAGINATION,
+                facetFilters: new Map(),
+            },
+        } as Record<LineageDirection, Filters>,
+    };
 }
 
 function addQueryNodes(
@@ -165,20 +193,20 @@ function addQueryNodes(
     direction: LineageDirection,
 ) {
     path.forEach((node, i) => {
+        if (!node || node.type !== EntityType.Query) return;
+        const queryNode = setDefault(nodes, node.urn, {
+            id: node.urn,
+            urn: node.urn,
+            type: node.type,
+            parents: new Set<string>(),
+            direction,
+            fetchStatus: {
+                [LineageDirection.Upstream]: FetchStatus.UNNEEDED,
+                [LineageDirection.Downstream]: FetchStatus.UNNEEDED,
+            },
+        });
+
         const parent = path[i - 1]?.urn;
-        // TODO: Replace with findLast when it's available
-        if (node && !nodes.has(node.urn) && node.type === EntityType.Query) {
-            nodes.set(node.urn, {
-                id: node.urn,
-                urn: node.urn,
-                type: node.type,
-                parents: new Set(parent ? [parent] : []),
-                direction,
-                fetchStatus: {
-                    [LineageDirection.Upstream]: FetchStatus.UNNEEDED,
-                    [LineageDirection.Downstream]: FetchStatus.UNNEEDED,
-                },
-            });
-        }
+        if (parent) queryNode.parents.add(parent);
     });
 }

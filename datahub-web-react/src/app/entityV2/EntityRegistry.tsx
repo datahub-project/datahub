@@ -228,6 +228,7 @@ export default class EntityRegistry {
             schemaMetadata: genericEntityProperties.schemaMetadata ?? undefined,
             inputFields: genericEntityProperties.inputFields ?? undefined,
             canEditLineage: genericEntityProperties.privileges?.canEditLineage ?? undefined,
+            parentContainers: genericEntityProperties?.parentContainers?.containers,
         };
     }
 

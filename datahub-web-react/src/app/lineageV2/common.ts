@@ -194,41 +194,6 @@ export const LineageDisplayContext = React.createContext<DisplayContext>({
     numNodes: 0,
 });
 
-interface SetDefaultArguments {
-    nodes: Map<string, LineageEntity>;
-    urn: Urn;
-    type: EntityType;
-    direction: LineageDirection;
-    maxDepth?: boolean;
-}
-
-export function setNodeDefault({ nodes, urn, direction, maxDepth, ...rest }: SetDefaultArguments): LineageEntity {
-    const otherDirection =
-        direction === LineageDirection.Upstream ? LineageDirection.Downstream : LineageDirection.Upstream;
-    const value = {
-        ...rest,
-        id: urn,
-        urn,
-        direction, // TODO: Handle a node that is both upstream and downstream?
-        paths: [],
-        parents: new Set<Urn>(),
-        fetchStatus: {
-            [direction]: maxDepth ? FetchStatus.COMPLETE : FetchStatus.UNFETCHED,
-            [otherDirection]: FetchStatus.UNNEEDED,
-        } as Record<LineageDirection, FetchStatus>,
-        filters: {
-            [direction]: {
-                limit: LINEAGE_FILTER_PAGINATION,
-                facetFilters: new Map(),
-            },
-        } as Record<LineageDirection, Filters>,
-    };
-    if (!nodes.has(urn)) {
-        nodes.set(urn, value);
-    }
-    return nodes.get(urn) as LineageEntity; // Just set so it must exist
-}
-
 export function setDefault<K, V>(map: Map<K, V>, key: K, defaultValue: V): V {
     if (!map.has(key)) {
         map.set(key, defaultValue);

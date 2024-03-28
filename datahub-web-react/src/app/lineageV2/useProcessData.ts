@@ -10,6 +10,7 @@ import {
     createColumnRef,
     FineGrainedLineage,
     FineGrainedLineageMap,
+    isQuery,
     isTransformational,
     LINEAGE_FILTER_ID_PREFIX,
     LINEAGE_FILTER_PAGINATION,
@@ -118,11 +119,11 @@ function applyFilters(
     const node = nodes.get(urn);
     const filters = node?.filters?.[direction];
     const children = neighborMap.get(urn);
-    if (!children || filters?.display === false) {
+    if (!node || !children || filters?.display === false) {
         return [];
     }
 
-    const childrenToFilter = getChildrenToFilter(urn, nodes, neighborMap);
+    const childrenToFilter = getChildrenToFilter(node, nodes, neighborMap);
     let filteredChildren = orderedNodes.filter((n) => childrenToFilter?.has(n.urn));
 
     filters?.facetFilters?.forEach((values, facet) => {
@@ -168,20 +169,35 @@ function applyFilters(
     return result;
 }
 
-function getChildrenToFilter(parentUrn: string, nodes: NodeContext['nodes'], neighborMap: NeighborMap): Set<string> {
+/**
+ * Returns the set of children to filter for the given parent node.
+ * This is calculated as: all adjacent non-transformational nodes and any transformational leaves.
+ * Loop invariant: all nodes in `queue` are transformational.
+ * @param parent The parent node, whose children are to be filtered.
+ * @param nodes All nodes in the lineage graph.
+ * @param neighborMap Association list of edges in the appropriate direction.
+ */
+function getChildrenToFilter(
+    parent: LineageEntity,
+    nodes: NodeContext['nodes'],
+    neighborMap: NeighborMap,
+): Set<string> {
     const seen = new Set<string>();
     const childrenToFilter = new Set<string>();
-    const queue = [parentUrn];
-    for (let urn = queue.shift(); urn; urn = queue.pop()) {
-        neighborMap.get(urn)?.forEach((child) => {
-            const node = nodes.get(child);
-            if (!node || seen.has(child)) return;
+    const queue = [parent];
+    for (let node = queue.pop(); node; node = queue.pop()) {
+        const children = neighborMap.get(node.urn);
+        // Include non-query transformational nodes, even if they have no children
+        if (!children?.size && !isQuery(node)) childrenToFilter.add(node.urn);
+        children?.forEach((childUrn) => {
+            const child = nodes.get(childUrn);
+            if (!child || seen.has(childUrn)) return;
 
-            if (isTransformational(node)) {
+            if (isTransformational(child)) {
                 queue.push(child);
-                seen.add(child);
+                seen.add(childUrn);
             } else {
-                childrenToFilter.add(child);
+                childrenToFilter.add(childUrn);
             }
         });
     }
@@ -205,13 +221,11 @@ function getTransformationalNodes(
     const nodesInBetween = new Set<string>();
     const nodesToRoot = [...leaves];
     for (let node = nodesToRoot.pop(); node; node = nodesToRoot.pop()) {
-        node.parents.forEach((parent) => {
-            const parentNode = nodes.get(parent);
-            if (parentNode && parentNode.urn !== root.urn) {
-                nodesToRoot.push(parentNode);
-                if (isTransformational(parentNode)) {
-                    nodesInBetween.add(parent);
-                }
+        node.parents.forEach((parentUrn) => {
+            const parent = nodes.get(parentUrn);
+            if (parentUrn !== root.urn && !nodesInBetween.has(parentUrn) && parent && isTransformational(parent)) {
+                nodesToRoot.push(parent);
+                nodesInBetween.add(parentUrn);
             }
         });
     }
@@ -227,6 +241,7 @@ function getTransformationalNodes(
             const parentNode = nodes.get(parent);
             if (nodesInBetween.has(parent) && parentNode) {
                 nodesToLeaves.push(parentNode);
+                nodesInBetween.delete(parent);
             }
         });
     }

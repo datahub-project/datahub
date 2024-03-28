@@ -98,6 +98,7 @@ export default function LineageDisplay({ urn, type, loaded }: Props) {
 function useFitView(loaded: boolean) {
     const { fitView } = useReactFlow();
     const { nodeVersion, displayVersion } = useContext(LineageNodesContext);
+    const [, displayVersionNodes] = displayVersion;
 
     useEffect(() => {
         if (!loaded) return () => {};
@@ -109,12 +110,11 @@ function useFitView(loaded: boolean) {
 
     useEffect(() => {
         if (!loaded) return () => {};
-        const [, nodes] = displayVersion;
         const timeout = setTimeout(
             () =>
                 fitView({
                     duration: 1000,
-                    nodes: nodes.map((urn) => ({ id: urn })),
+                    nodes: displayVersionNodes.map((urn) => ({ id: urn })),
                     maxZoom: 2,
                 }),
             100,
@@ -122,5 +122,5 @@ function useFitView(loaded: boolean) {
         return () => {
             clearTimeout(timeout);
         };
-    }, [loaded, displayVersion, fitView]);
+    }, [loaded, displayVersionNodes, fitView]);
 }
