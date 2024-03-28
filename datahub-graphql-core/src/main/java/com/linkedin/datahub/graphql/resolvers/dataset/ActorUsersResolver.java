@@ -7,12 +7,12 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.CorpUser;
-import com.linkedin.datahub.graphql.generated.ListQueriesInput;
 import com.linkedin.datahub.graphql.generated.RoleUser;
 import com.linkedin.datahub.graphql.generated.UserFilter;
 import com.linkedin.datahub.graphql.types.corpuser.mappers.CorpUserMapper;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.metadata.query.ListResult;
 import com.linkedin.r2.RemoteInvocationException;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -31,33 +31,38 @@ public class ActorUsersResolver implements DataFetcher<CompletableFuture<ArrayLi
   @Override
   public CompletableFuture<ArrayList<RoleUser>> get(final DataFetchingEnvironment environment)
       throws Exception {
-    log.info("0");
     final UserFilter userFilter = bindArgument(environment.getArgument("input"), UserFilter.class);
-    log.info("1");
-    log.info("USER URN:" + userFilter.getUserUrn());
-    if (userFilter.getUserUrn() == null) {
-      log.info("No User URN");
-    }
-    log.info("2");
-    Urn userUrn = UrnUtils.getUrn(userFilter.getUserUrn());
-    log.info("3");
 
     final QueryContext context = environment.getContext();
 
     return CompletableFuture.supplyAsync(
         () -> {
           try {
-            EntityResponse userEntityResponse =
-                _client.getV2(CORP_USER_ENTITY_NAME, userUrn, null, context.getAuthentication());
-            if (userEntityResponse == null) {
-              return null;
+            if (userFilter != null) {
+              Urn userUrn = UrnUtils.getUrn(userFilter.getUserUrn());
+              EntityResponse userEntityResponse =
+                  _client.getV2(CORP_USER_ENTITY_NAME, userUrn, null, context.getAuthentication());
+              if (userEntityResponse == null) {
+                return null;
+              }
+              CorpUser corpUser = CorpUserMapper.map(userEntityResponse);
+              RoleUser roleUser = new RoleUser();
+              roleUser.setUser(corpUser);
+              ArrayList<RoleUser> roleUsers = new ArrayList<>();
+              roleUsers.add(roleUser);
+              return roleUsers;
+            } else {
+              ListResult userEntityResponse = _client.list(context.getOperationContext(), CORP_USER_ENTITY_NAME, null, 0, 10_000);
+              ArrayList<RoleUser> roleUsers = new ArrayList<>();
+              for (Urn urn: userEntityResponse.getEntities()) {
+                CorpUser corpUser = new CorpUser();
+                corpUser.setUrn(urn.toString());
+                RoleUser roleUser = new RoleUser();
+                roleUser.setUser(corpUser);
+                roleUsers.add(roleUser);
+              }
+              return roleUsers;
             }
-            CorpUser corpUser = CorpUserMapper.map(userEntityResponse);
-            RoleUser roleUser = new RoleUser();
-            roleUser.setUser(corpUser);
-            ArrayList<RoleUser> roleUsers = new ArrayList<>();
-            roleUsers.add(roleUser);
-            return roleUsers;
           } catch (RemoteInvocationException | URISyntaxException e) {
             throw new RuntimeException("Failed to retrieve aspects from GMS", e);
           }
