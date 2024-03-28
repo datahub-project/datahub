@@ -11,7 +11,7 @@ from typing import Dict, Iterable, List, Optional, Set, Type, Union, cast
 from google.cloud import bigquery
 from google.cloud.bigquery.table import TableListItem
 
-from datahub.configuration.pattern_utils import is_schema_allowed,is_tag_allowed
+from datahub.configuration.pattern_utils import is_schema_allowed, is_tag_allowed
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataplatform_instance_urn,
@@ -241,9 +241,9 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 self.config.get_bigquery_client()
             )
 
-        redundant_lineage_run_skip_handler: Optional[
-            RedundantLineageRunSkipHandler
-        ] = None
+        redundant_lineage_run_skip_handler: Optional[RedundantLineageRunSkipHandler] = (
+            None
+        )
         if self.config.enable_stateful_lineage_ingestion:
             redundant_lineage_run_skip_handler = RedundantLineageRunSkipHandler(
                 source=self,
@@ -547,7 +547,11 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
 
         tags_joined: Optional[List[str]] = None
         if tags and self.config.capture_dataset_label_as_tag:
-            tags_joined = [f"{k}:{v}" for k, v in tags.items() if is_tag_allowed(self.config.capture_dataset_label_as_tag,k) ]
+            tags_joined = [
+                f"{k}:{v}"
+                for k, v in tags.items()
+                if is_tag_allowed(self.config.capture_dataset_label_as_tag, k)
+            ]
         database_container_key = self.gen_project_id_key(database=project_id)
 
         yield from gen_schema_container(
@@ -1013,7 +1017,11 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         if table.labels and self.config.capture_table_label_as_tag:
             tags_to_add = []
             tags_to_add.extend(
-                [make_tag_urn(f"""{k}:{v}""") for k, v in table.labels.items() if is_tag_allowed(self.config.capture_table_label_as_tag,k)]
+                [
+                    make_tag_urn(f"""{k}:{v}""")
+                    for k, v in table.labels.items()
+                    if is_tag_allowed(self.config.capture_table_label_as_tag, k)
+                ]
             )
 
         yield from self.gen_dataset_workunits(
