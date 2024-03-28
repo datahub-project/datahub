@@ -8,11 +8,7 @@ from pydantic.fields import Field
 
 import datahub.metadata.schema_classes as models
 from datahub.cli.cli_utils import get_aspects_for_entity
-from datahub.configuration.common import (
-    ConfigModel,
-    ConfigurationError,
-    VersionedConfig,
-)
+from datahub.configuration.common import ConfigModel, VersionedConfig
 from datahub.configuration.config_loader import load_config_file
 from datahub.configuration.source_common import EnvConfigMixin
 from datahub.emitter.mce_builder import (
@@ -57,8 +53,16 @@ class EntityConfig(EnvConfigMixin):
     def type_must_be_supported(cls, v: str) -> str:
         allowed_types = ["dataset"]
         if v not in allowed_types:
-            raise ConfigurationError(
+            raise ValueError(
                 f"Type must be one of {allowed_types}, {v} is not yet supported."
+            )
+        return v
+
+    @validator("name")
+    def validate_name(cls, v: str) -> str:
+        if v.startswith("urn:li:"):
+            raise ValueError(
+                "Name should not start with urn:li: - use a plain name, not an urn"
             )
         return v
 
@@ -79,7 +83,7 @@ class FineGrainedLineageConfig(ConfigModel):
             FineGrainedLineageUpstreamType.NONE,
         ]
         if v not in allowed_types:
-            raise ConfigurationError(
+            raise ValueError(
                 f"Upstream Type must be one of {allowed_types}, {v} is not yet supported."
             )
         return v
