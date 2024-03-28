@@ -7,6 +7,7 @@ import { useBaseEntity } from '../../../EntityContext';
 import { GetDatasetQuery, useGetExternalRolesQuery } from '../../../../../../graphql/dataset.generated';
 import { useGetMeQuery } from '../../../../../../graphql/me.generated';
 import { handleAccessRoles } from './utils';
+import { useUserContext } from '../../../../../context/useUserContext';
 import AccessManagerDescription from './AccessManagerDescription';
 
 const StyledTable = styled(Table)`
@@ -61,8 +62,13 @@ const AccessButton = styled(Button)`
 export default function AccessManagement() {
     const { data: loggedInUser } = useGetMeQuery({ fetchPolicy: 'cache-first' });
     const baseEntity = useBaseEntity<GetDatasetQuery>();
+    const authenticatedUser = useUserContext();
+
+    const actorUserUrnFilter = {
+        "userUrn": authenticatedUser?.user?.urn || ''
+    }
     const { data: externalRoles, loading: isLoading } = useGetExternalRolesQuery({
-        variables: { urn: baseEntity?.dataset?.urn as string },
+        variables: { urn: baseEntity?.dataset?.urn as string, actorUserUrnFilter  },
         skip: !baseEntity?.dataset?.urn,
     });
 
