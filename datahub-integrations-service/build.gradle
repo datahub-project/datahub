@@ -38,29 +38,28 @@ task environmentSetup(type: Exec, dependsOn: checkPythonVersion) {
     outputs.dir("${venv_name}")
     commandLine 'bash', '-c',
         "${python_executable} -m venv ${venv_name} && " +
-        "${venv_name}/bin/python -m pip install --upgrade pip wheel setuptools pip-tools"
+        "${venv_name}/bin/python -m pip install --upgrade pip uv wheel setuptools"
 }
 
 task installPackage(type: Exec, dependsOn: [environmentSetup, ':metadata-ingestion:codegen']) {
-    inputs.file file('pyproject.toml')
-    inputs.file file('requirements.txt')
+    inputs.files(
+        file('pyproject.toml'),
+        file('scripts/sync.sh'),
+        file('requirements.txt'),
+        file('requirements-dev.txt'),
+    )
     outputs.file("${venv_name}/.build_install_sentinel")
-    commandLine 'bash', '-x', '-c',
-        "${venv_name}/bin/pip install -r requirements.txt && " +
-        "${venv_name}/bin/pip install -e . && " +
+    outputs.cacheIf { false }
+
+    commandLine 'bash', '-c',
+        "source ${venv_name}/bin/activate && set -x && " +
+        "./scripts/sync.sh && " +
         "touch ${venv_name}/.build_install_sentinel"
 }
 
 task install(dependsOn: [installPackage])
 
-task installDev(type: Exec, dependsOn: [install]) {
-    inputs.file file('pyproject.toml')
-    inputs.file file('requirements-dev.txt')
-    outputs.file("${venv_name}/.build_install_dev_sentinel")
-    commandLine 'bash', '-x', '-c',
-        "${venv_name}/bin/pip install -r requirements-dev.txt && " +
-        "touch ${venv_name}/.build_install_dev_sentinel"
-}
+task installDev(dependsOn: [install])
 
 task lint(type: Exec, dependsOn: installDev) {
     commandLine 'bash', '-c',

@@ -31,9 +31,10 @@ FROM base as build
 ARG PIP_MIRROR_URL
 RUN if [ "${PIP_MIRROR_URL}" != "null" ] ; then pip config set global.index-url ${PIP_MIRROR_URL} ; fi
 
-# `uv pip` doesn't support urls like `-e file:../metadata-ingestion#egg=acryl-datahub` yet
-RUN pip install --no-cache -r requirements.txt && \
-    pip install --no-cache -e "."
+# Note that the requirements file contains editable installs for
+# metadata-ingestion and datahub-integrations-service
+RUN --mount=type=cache,target=/datahub-ingestion/.cache/uv \
+    uv pip install --no-cache -r requirements.txt
 
 # Production Image Built From Build Image
 FROM base as prod-install
@@ -47,6 +48,8 @@ USER datahub
 FROM prod-install as dev-install
 
 # Dummy stage for development. Assumes most of the code is built on your machine and mounted to this image.
+# The behavior is a bit tricky - we're mounting dev code over the code that was baked into the image
+# as part of the production step.
 # See this excellent thread https://github.com/docker/cli/issues/1134
 
 # Bring in DataHub Actions
