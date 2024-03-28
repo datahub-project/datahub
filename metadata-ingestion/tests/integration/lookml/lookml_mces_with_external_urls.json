@@ -7,7 +7,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/looker/lkml_samples/views"
+                            "/Develop/lkml_samples/foo.view.lkml"
                         ]
                     }
                 },
@@ -177,7 +177,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "lookml-test"
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -194,7 +195,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "lookml-test"
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -211,7 +213,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "lookml-test"
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -223,20 +226,21 @@
         "json": {
             "path": [
                 {
-                    "id": "looker"
+                    "id": "Develop"
                 },
                 {
                     "id": "lkml_samples"
                 },
                 {
-                    "id": "views"
+                    "id": "foo.view.lkml"
                 }
             ]
         }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "lookml-test"
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -247,7 +251,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/looker/lkml_samples/views"
+                            "/Develop/lkml_samples/bar.view.lkml"
                         ]
                     }
                 },
@@ -396,7 +400,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "lookml-test"
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -413,7 +418,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "lookml-test"
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -430,7 +436,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "lookml-test"
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -442,20 +449,21 @@
         "json": {
             "path": [
                 {
-                    "id": "looker"
+                    "id": "Develop"
                 },
                 {
                     "id": "lkml_samples"
                 },
                 {
-                    "id": "views"
+                    "id": "bar.view.lkml"
                 }
             ]
         }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "lookml-test"
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -466,7 +474,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/looker/lkml_samples/views"
+                            "/Develop/lkml_samples/included_view_file.view.lkml"
                         ]
                     }
                 },
@@ -504,7 +512,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "lookml-test"
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -521,7 +530,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "lookml-test"
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -538,7 +548,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "lookml-test"
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -550,20 +561,21 @@
         "json": {
             "path": [
                 {
-                    "id": "looker"
+                    "id": "Develop"
                 },
                 {
                     "id": "lkml_samples"
                 },
                 {
-                    "id": "views"
+                    "id": "included_view_file.view.lkml"
                 }
             ]
         }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "lookml-test"
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -574,7 +586,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/looker/lkml_samples/views"
+                            "/Develop/lkml_samples/view_declarations.view.lkml"
                         ]
                     }
                 },
@@ -612,7 +624,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "lookml-test"
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -629,7 +642,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "lookml-test"
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -646,7 +660,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "lookml-test"
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -658,20 +673,21 @@
         "json": {
             "path": [
                 {
-                    "id": "looker"
+                    "id": "Develop"
                 },
                 {
                     "id": "lkml_samples"
                 },
                 {
-                    "id": "views"
+                    "id": "view_declarations.view.lkml"
                 }
             ]
         }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "lookml-test"
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -682,7 +698,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/looker/lkml_samples/views"
+                            "/Develop/lkml_samples/view_declarations.view.lkml"
                         ]
                     }
                 },
@@ -765,7 +781,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "lookml-test"
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -782,7 +799,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "lookml-test"
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -799,7 +817,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "lookml-test"
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -811,20 +830,21 @@
         "json": {
             "path": [
                 {
-                    "id": "looker"
+                    "id": "Develop"
                 },
                 {
                     "id": "lkml_samples"
                 },
                 {
-                    "id": "views"
+                    "id": "view_declarations.view.lkml"
                 }
             ]
         }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "lookml-test"
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -835,7 +855,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/looker/lkml_samples/views"
+                            "/Develop/lkml_samples/view_declarations.view.lkml"
                         ]
                     }
                 },
@@ -873,7 +893,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "lookml-test"
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -890,7 +911,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "lookml-test"
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -907,7 +929,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "lookml-test"
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -919,20 +942,21 @@
         "json": {
             "path": [
                 {
-                    "id": "looker"
+                    "id": "Develop"
                 },
                 {
                     "id": "lkml_samples"
                 },
                 {
-                    "id": "views"
+                    "id": "view_declarations.view.lkml"
                 }
             ]
         }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "lookml-test"
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -943,7 +967,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/looker/lkml_samples/views"
+                            "/Develop/lkml_samples/view_declarations.view.lkml"
                         ]
                     }
                 },
@@ -981,7 +1005,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "lookml-test"
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -998,7 +1023,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "lookml-test"
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1015,7 +1041,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "lookml-test"
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1027,20 +1054,21 @@
         "json": {
             "path": [
                 {
-                    "id": "looker"
+                    "id": "Develop"
                 },
                 {
                     "id": "lkml_samples"
                 },
                 {
-                    "id": "views"
+                    "id": "view_declarations.view.lkml"
                 }
             ]
         }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "lookml-test"
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1051,7 +1079,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/looker/lkml_samples/views"
+                            "/Develop/lkml_samples/nested/fragment_derived.view.lkml"
                         ]
                     }
                 },
@@ -1164,7 +1192,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "lookml-test"
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1181,7 +1210,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "lookml-test"
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1198,7 +1228,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "lookml-test"
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1210,20 +1241,24 @@
         "json": {
             "path": [
                 {
-                    "id": "looker"
+                    "id": "Develop"
                 },
                 {
                     "id": "lkml_samples"
                 },
                 {
-                    "id": "views"
+                    "id": "nested"
+                },
+                {
+                    "id": "fragment_derived.view.lkml"
                 }
             ]
         }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "lookml-test"
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1234,7 +1269,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/looker/lkml_samples/views"
+                            "/Develop/lkml_samples/liquid.view.lkml"
                         ]
                     }
                 },
@@ -1272,7 +1307,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "lookml-test"
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1289,7 +1325,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "lookml-test"
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1306,7 +1343,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "lookml-test"
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1318,20 +1356,21 @@
         "json": {
             "path": [
                 {
-                    "id": "looker"
+                    "id": "Develop"
                 },
                 {
                     "id": "lkml_samples"
                 },
                 {
-                    "id": "views"
+                    "id": "liquid.view.lkml"
                 }
             ]
         }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "lookml-test"
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1342,7 +1381,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/looker/lkml_samples/views"
+                            "/Develop/lkml_samples/ability.view.lkml"
                         ]
                     }
                 },
@@ -1459,7 +1498,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "lookml-test"
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1476,7 +1516,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "lookml-test"
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1493,7 +1534,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "lookml-test"
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1505,20 +1547,21 @@
         "json": {
             "path": [
                 {
-                    "id": "looker"
+                    "id": "Develop"
                 },
                 {
                     "id": "lkml_samples"
                 },
                 {
-                    "id": "views"
+                    "id": "ability.view.lkml"
                 }
             ]
         }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "lookml-test"
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1529,7 +1572,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/looker/lkml_samples/views"
+                            "/Develop/lkml_samples/owners.view.lkml"
                         ]
                     }
                 },
@@ -1659,7 +1702,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "lookml-test"
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1676,7 +1720,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "lookml-test"
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1693,7 +1738,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "lookml-test"
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1705,20 +1751,21 @@
         "json": {
             "path": [
                 {
-                    "id": "looker"
+                    "id": "Develop"
                 },
                 {
                     "id": "lkml_samples"
                 },
                 {
-                    "id": "views"
+                    "id": "owners.view.lkml"
                 }
             ]
         }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "lookml-test"
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1729,7 +1776,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/looker/lkml_samples/views"
+                            "/Develop/lkml_samples/native_derived_table.view.lkml"
                         ]
                     }
                 },
@@ -1899,7 +1946,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "lookml-test"
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1916,7 +1964,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "lookml-test"
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1933,7 +1982,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "lookml-test"
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1945,20 +1995,21 @@
         "json": {
             "path": [
                 {
-                    "id": "looker"
+                    "id": "Develop"
                 },
                 {
                     "id": "lkml_samples"
                 },
                 {
-                    "id": "views"
+                    "id": "native_derived_table.view.lkml"
                 }
             ]
         }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "lookml-test"
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1969,7 +2020,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/looker/lkml_samples/views"
+                            "/Develop/lkml_samples/flights.view.lkml"
                         ]
                     }
                 },
@@ -2067,7 +2118,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "lookml-test"
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2084,7 +2136,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "lookml-test"
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2101,7 +2154,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "lookml-test"
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2113,20 +2167,21 @@
         "json": {
             "path": [
                 {
-                    "id": "looker"
+                    "id": "Develop"
                 },
                 {
                     "id": "lkml_samples"
                 },
                 {
-                    "id": "views"
+                    "id": "flights.view.lkml"
                 }
             ]
         }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "lookml-test"
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2145,7 +2200,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "lookml-test"
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2164,7 +2220,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "lookml-test"
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2183,7 +2240,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "lookml-test"
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2198,7 +2256,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "lookml-test"
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2213,7 +2272,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "lookml-test"
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2228,7 +2288,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "lookml-test"
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
     }
 }
 ]

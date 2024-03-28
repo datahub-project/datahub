@@ -11,6 +11,7 @@ from looker_sdk.rtl.transport import TransportOptions
 from looker_sdk.sdk.api40.models import (
     Dashboard,
     DashboardElement,
+    FolderBase,
     Look,
     LookmlModelExplore,
     LookmlModelExploreField,
@@ -285,10 +286,11 @@ def setup_mock_dashboard(mocked_client):
         created_at=datetime.utcfromtimestamp(time.time()),
         updated_at=datetime.utcfromtimestamp(time.time()),
         description="lorem ipsum",
+        folder=FolderBase(name="Shared", id="shared-folder-id"),
         dashboard_elements=[
             DashboardElement(
                 id="2",
-                type="",
+                type="vis",
                 subtitle_text="Some text",
                 query=Query(
                     model="data",
