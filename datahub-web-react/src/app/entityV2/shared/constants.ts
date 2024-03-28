@@ -134,19 +134,19 @@ export const EMPTY_MESSAGES = {
         description: 'Group related entities based on shared characteristics by adding them to a Data Product.',
     },
     contains: {
-        title: 'Contains no Terms',
+        title: 'Does not Contain any Glossary Terms',
         description: 'Terms can contain other terms to represent a "Has A" style relationship.',
     },
     inherits: {
-        title: 'Does not inherit from any terms',
+        title: 'Does not Inherit any Glossary Terms',
         description: 'Terms can inherit from other terms to represent an "Is A" style relationship.',
     },
     'contained by': {
-        title: 'Is not contained by any terms',
+        title: 'Is not Contained by any Glossary Terms',
         description: 'Terms can be contained by other terms to represent a "Has A" style relationship.',
     },
     'inherited by': {
-        title: 'Is not inherited by any terms',
+        title: 'Is not Inherited by any Glossary Terms',
         description: 'Terms can be inherited by other terms to represent an "Is A" style relationship.',
     },
 };
