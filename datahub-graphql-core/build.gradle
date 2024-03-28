@@ -5,7 +5,7 @@ plugins {
 
 
 dependencies {
-    implementation project(':metadata-service:restli-client')
+    implementation project(':metadata-service:restli-client-api')
     implementation project(':metadata-service:auth-impl')
     implementation project(':metadata-service:auth-config')
     implementation project(':metadata-service:configuration')

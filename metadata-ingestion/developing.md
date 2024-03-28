@@ -35,7 +35,16 @@ cd metadata-ingestion-modules/airflow-plugin
 source venv/bin/activate
 datahub version  # should print "DataHub CLI version: unavailable (installed in develop mode)"
 ```
+### (Optional) Set up your Python environment for developing on Dagster Plugin
 
+From the repository root:
+
+```shell
+cd metadata-ingestion-modules/dagster-plugin
+../../gradlew :metadata-ingestion-modules:dagster-plugin:installDev
+source venv/bin/activate
+datahub version  # should print "DataHub CLI version: unavailable (installed in develop mode)"
+```
 ### Common setup issues
 
 Common issues (click to expand):
@@ -208,4 +217,28 @@ For example,
 
 ```shell
 pytest tests/integration/dbt/test_dbt.py --update-golden-files
+```
+
+### Testing the Airflow plugin
+
+For the Airflow plugin, we use `tox` to test across multiple sets of dependencies.
+
+```sh
+cd metadata-ingestion-modules/airflow-plugin
+
+# Run all tests.
+tox
+
+# Run a specific environment.
+# These are defined in the `tox.ini` file
+tox -e py310-airflow26
+
+# Run a specific test.
+tox -e py310-airflow26 -- tests/integration/test_plugin.py
+
+# Update all golden files.
+tox -- --update-golden-files
+
+# Update golden files for a specific environment.
+tox -e py310-airflow26 -- --update-golden-files
 ```

@@ -288,7 +288,7 @@ public class DomainUtils {
             new DomainProperties(
                 entityResponse.getAspects().get(DOMAIN_PROPERTIES_ASPECT_NAME).getValue().data());
         final Urn parentDomainUrn = getParentDomainSafely(properties);
-        return parentDomainUrn != null ? UrnToEntityMapper.map(parentDomainUrn) : null;
+        return parentDomainUrn != null ? UrnToEntityMapper.map(context, parentDomainUrn) : null;
       }
     } catch (Exception e) {
       throw new RuntimeException(

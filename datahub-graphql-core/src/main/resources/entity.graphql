@@ -1548,7 +1548,7 @@ type Dataset implements EntityWithRelationships & Entity & BrowsableEntity {
     """
     Assertions associated with the Dataset
     """
-    assertions(start: Int, count: Int): EntityAssertionsResult
+    assertions(start: Int, count: Int, includeSoftDeleted: Boolean): EntityAssertionsResult
 
     """
     Edges extending from this entity
@@ -3776,6 +3776,11 @@ type CorpUser implements Entity {
     The structured tags associated with the user
     """
     globalTags: GlobalTags @deprecated
+
+    """
+    Whether or not this entity exists on DataHub
+    """
+    exists: Boolean
 
     """
     Settings that a user can customize through the datahub ui
@@ -6466,6 +6471,11 @@ type DataProcessRunEvent implements TimeSeriesAspect {
     The timestamp associated with the run event in milliseconds
     """
     timestampMillis: Long!
+
+    """
+    The duration of the run in milliseconds
+    """
+    durationMillis: Long
 }
 
 """
@@ -7203,6 +7213,11 @@ type Assertion implements EntityWithRelationships & Entity {
     Edges extending from this entity grouped by direction in the lineage graph
     """
     lineage(input: LineageInput!): EntityLineageResult
+
+    """
+    Status metadata of the assertion
+    """
+    status: Status
 
     """
     Experimental API.

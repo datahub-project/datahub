@@ -1,7 +1,9 @@
 package com.linkedin.datahub.graphql.resolvers.entity;
 
-import com.datahub.authorization.ConjunctivePrivilegeGroup;
-import com.datahub.authorization.DisjunctivePrivilegeGroup;
+import static com.linkedin.metadata.authorization.ApiGroup.LINEAGE;
+import static com.linkedin.metadata.authorization.ApiOperation.UPDATE;
+
+import com.datahub.authorization.AuthUtil;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -13,10 +15,9 @@ import com.linkedin.datahub.graphql.resolvers.mutate.util.EmbedUtils;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.GlossaryUtils;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
-import com.linkedin.metadata.authorization.PoliciesConfig;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
-import java.util.Collections;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
@@ -102,22 +103,8 @@ public class EntityPrivilegesResolver implements DataFetcher<CompletableFuture<E
   }
 
   private boolean canEditEntityLineage(Urn urn, QueryContext context) {
-    final ConjunctivePrivilegeGroup allPrivilegesGroup =
-        new ConjunctivePrivilegeGroup(
-            ImmutableList.of(PoliciesConfig.EDIT_ENTITY_PRIVILEGE.getType()));
-    DisjunctivePrivilegeGroup orPrivilegesGroup =
-        new DisjunctivePrivilegeGroup(
-            ImmutableList.of(
-                allPrivilegesGroup,
-                new ConjunctivePrivilegeGroup(
-                    Collections.singletonList(PoliciesConfig.EDIT_LINEAGE_PRIVILEGE.getType()))));
-
-    return AuthorizationUtils.isAuthorized(
-        context.getAuthorizer(),
-        context.getActorUrn(),
-        urn.getEntityType(),
-        urn.toString(),
-        orPrivilegesGroup);
+    return AuthUtil.isAuthorizedUrns(
+        context.getAuthorizer(), context.getActorUrn(), LINEAGE, UPDATE, List.of(urn));
   }
 
   private EntityPrivileges getDatasetPrivileges(Urn urn, QueryContext context) {

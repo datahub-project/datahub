@@ -38,6 +38,7 @@ dependencies {
     annotationProcessor externalDependency.lombok
 
     testImplementation project(':metadata-dao-impl:kafka-producer')
+    testImplementation project(':metadata-service:restli-client')
     testImplementation externalDependency.springBootTest
     testImplementation externalDependency.mockito
     testImplementation externalDependency.testng

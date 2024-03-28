@@ -16,6 +16,7 @@ import graphql.schema.DataFetchingEnvironment;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
 /** Resolver responsible for updating a particular DataHub View */
@@ -49,7 +50,7 @@ public class UpdateViewResolver implements DataFetcher<CompletableFuture<DataHub
                   context.getAuthentication(),
                   System.currentTimeMillis());
               log.info(String.format("Successfully updated View %s with urn", urn));
-              return getView(urn, context.getAuthentication());
+              return getView(context, urn, context.getAuthentication());
             }
             throw new AuthorizationException(
                 "Unauthorized to perform this action. Please contact your DataHub administrator.");
@@ -63,7 +64,9 @@ public class UpdateViewResolver implements DataFetcher<CompletableFuture<DataHub
   }
 
   private DataHubView getView(
-      @Nonnull final Urn urn, @Nonnull final Authentication authentication) {
+      @Nullable QueryContext context,
+      @Nonnull final Urn urn,
+      @Nonnull final Authentication authentication) {
     final EntityResponse maybeResponse = _viewService.getViewEntityResponse(urn, authentication);
     // If there is no response, there is a problem.
     if (maybeResponse == null) {
@@ -71,6 +74,6 @@ public class UpdateViewResolver implements DataFetcher<CompletableFuture<DataHub
           String.format(
               "Failed to perform update to View with urn %s. Failed to find view in GMS.", urn));
     }
-    return DataHubViewMapper.map(maybeResponse);
+    return DataHubViewMapper.map(context, maybeResponse);
   }
 }

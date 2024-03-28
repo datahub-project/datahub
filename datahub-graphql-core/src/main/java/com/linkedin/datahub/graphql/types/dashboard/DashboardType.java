@@ -123,7 +123,7 @@ public class DashboardType
               ASPECTS_TO_RESOLVE,
               context.getAuthentication());
 
-      final List<EntityResponse> gmsResults = new ArrayList<>();
+      final List<EntityResponse> gmsResults = new ArrayList<>(urnStrs.size());
       for (Urn urn : urns) {
         gmsResults.add(dashboardMap.getOrDefault(urn, null));
       }
@@ -133,7 +133,7 @@ public class DashboardType
                   gmsDashboard == null
                       ? null
                       : DataFetcherResult.<Dashboard>newResult()
-                          .data(DashboardMapper.map(gmsDashboard))
+                          .data(DashboardMapper.map(context, gmsDashboard))
                           .build())
           .collect(Collectors.toList());
     } catch (Exception e) {
@@ -158,7 +158,7 @@ public class DashboardType
             facetFilters,
             start,
             count);
-    return UrnSearchResultsMapper.map(searchResult);
+    return UrnSearchResultsMapper.map(context, searchResult);
   }
 
   @Override
@@ -172,7 +172,7 @@ public class DashboardType
     final AutoCompleteResult result =
         _entityClient.autoComplete(
             context.getOperationContext(), "dashboard", query, filters, limit);
-    return AutoCompleteResultsMapper.map(result);
+    return AutoCompleteResultsMapper.map(context, result);
   }
 
   @Override
@@ -194,7 +194,7 @@ public class DashboardType
             facetFilters,
             start,
             count);
-    return BrowseResultMapper.map(result);
+    return BrowseResultMapper.map(context, result);
   }
 
   @Override
@@ -202,7 +202,7 @@ public class DashboardType
       throws Exception {
     final StringArray result =
         _entityClient.getBrowsePaths(getDashboardUrn(urn), context.getAuthentication());
-    return BrowsePathsMapper.map(result);
+    return BrowsePathsMapper.map(context, result);
   }
 
   private com.linkedin.common.urn.DashboardUrn getDashboardUrn(String urnStr) {
@@ -219,10 +219,9 @@ public class DashboardType
       @Nonnull String urn, @Nonnull DashboardUpdateInput input, @Nonnull QueryContext context)
       throws Exception {
     if (isAuthorized(urn, input, context)) {
-      final CorpuserUrn actor =
-          CorpuserUrn.createFromString(context.getAuthentication().getActor().toUrnStr());
+      final CorpuserUrn actor = CorpuserUrn.createFromString(context.getActorUrn());
       final Collection<MetadataChangeProposal> proposals =
-          DashboardUpdateInputMapper.map(input, actor);
+          DashboardUpdateInputMapper.map(context, input, actor);
       proposals.forEach(proposal -> proposal.setEntityUrn(UrnUtils.getUrn(urn)));
 
       try {
@@ -243,7 +242,7 @@ public class DashboardType
     final DisjunctivePrivilegeGroup orPrivilegeGroups = getAuthorizedPrivileges(update);
     return AuthorizationUtils.isAuthorized(
         context.getAuthorizer(),
-        context.getAuthentication().getActor().toUrnStr(),
+        context.getActorUrn(),
         PoliciesConfig.DASHBOARD_PRIVILEGES.getResourceType(),
         urn,
         orPrivilegeGroups);

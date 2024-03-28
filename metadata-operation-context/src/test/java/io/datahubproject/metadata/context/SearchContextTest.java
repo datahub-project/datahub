@@ -76,4 +76,17 @@ public class SearchContextTest {
             .getCacheKeyComponent(),
         "Expected differences in search flags to result in different caches");
   }
+
+  @Test
+  public void testImmutableSearchFlags() {
+    SearchContext initial =
+        SearchContext.builder().indexConvention(IndexConventionImpl.NO_PREFIX).build();
+    assertEquals(initial.getSearchFlags(), new SearchFlags().setSkipCache(false));
+
+    SearchContext mutated = initial.withFlagDefaults(flags -> flags.setSkipCache(true));
+    assertEquals(mutated.getSearchFlags(), new SearchFlags().setSkipCache(true));
+
+    // ensure original is not changed
+    assertEquals(initial.getSearchFlags(), new SearchFlags().setSkipCache(false));
+  }
 }

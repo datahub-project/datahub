@@ -95,6 +95,7 @@ project.ext.spec = [
             'restliDocgen' : 'com.linkedin.pegasus:restli-docgen:' + pegasusVersion,
             'restliServer' : 'com.linkedin.pegasus:restli-server:' + pegasusVersion,
             'restliSpringBridge': 'com.linkedin.pegasus:restli-spring-bridge:' + pegasusVersion,
+            'restliTestUtils' : 'com.linkedin.pegasus:restli-client-testutils:' + pegasusVersion,
         ]
     ]
 ]

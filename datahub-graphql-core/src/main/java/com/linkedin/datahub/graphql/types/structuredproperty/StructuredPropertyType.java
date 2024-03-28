@@ -69,7 +69,7 @@ public class StructuredPropertyType
                   gmsResult == null
                       ? null
                       : DataFetcherResult.<StructuredPropertyEntity>newResult()
-                          .data(StructuredPropertyMapper.map(gmsResult))
+                          .data(StructuredPropertyMapper.map(context, gmsResult))
                           .build())
           .collect(Collectors.toList());
     } catch (Exception e) {
