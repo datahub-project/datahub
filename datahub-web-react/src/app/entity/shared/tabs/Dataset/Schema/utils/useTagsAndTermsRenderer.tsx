@@ -25,8 +25,8 @@ export default function useTagsAndTermsRenderer(
             (candidateEditableFieldInfo) => pathMatchesNewPath(candidateEditableFieldInfo.fieldPath, record.fieldPath),
         );
 
-        const businessAttributeTags = relevantEditableFieldInfo?.businessAttributes?.businessAttribute?.businessAttribute?.properties?.tags?.tags || [];
-        const businessAttributeTerms = relevantEditableFieldInfo?.businessAttributes?.businessAttribute?.businessAttribute?.properties?.glossaryTerms?.terms || [];
+        const businessAttributeTags = record?.schemaFieldEntity?.businessAttributes?.businessAttribute?.businessAttribute?.properties?.tags?.tags || [];
+        const businessAttributeTerms = record?.schemaFieldEntity?.businessAttributes?.businessAttribute?.businessAttribute?.properties?.glossaryTerms?.terms || [];
 
         return (
             <TagTermGroup
