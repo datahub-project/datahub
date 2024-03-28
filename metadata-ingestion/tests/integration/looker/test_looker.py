@@ -310,6 +310,7 @@ def setup_mock_look(mocked_client):
             title="Outer Look",
             description="I am not part of any Dashboard",
             query_id="1",
+            folder=FolderBase(name="Shared", id="shared-folder-id"),
         )
     ]
 

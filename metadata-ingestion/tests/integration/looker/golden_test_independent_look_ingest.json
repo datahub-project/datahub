@@ -337,6 +337,13 @@
                             }
                         ]
                     }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.BrowsePaths": {
+                        "paths": [
+                            "/Folders/Shared"
+                        ]
+                    }
                 }
             ]
         }
@@ -389,6 +396,29 @@
     "aspect": {
         "json": {
             "fields": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "looker-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(looker,dashboard_elements.looks_1)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "Folders"
+                },
+                {
+                    "id": "Shared"
+                }
+            ]
         }
     },
     "systemMetadata": {
