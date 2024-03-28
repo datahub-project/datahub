@@ -3,14 +3,16 @@ package com.datahub.event;
 import com.codahale.metrics.Histogram;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.Timer;
+import com.datahub.event.hook.BusinessAttributeUpdateHook;
 import com.datahub.event.hook.PlatformEventHook;
 import com.linkedin.gms.factory.kafka.KafkaEventConsumerFactory;
 import com.linkedin.metadata.EventUtils;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.PlatformEvent;
 import com.linkedin.mxe.Topics;
-import java.util.Collections;
 import java.util.List;
+import java.util.stream.Collectors;
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -24,18 +26,21 @@ import org.springframework.stereotype.Component;
 @Slf4j
 @Component
 @Conditional(PlatformEventProcessorCondition.class)
-@Import({KafkaEventConsumerFactory.class})
+@Import({BusinessAttributeUpdateHook.class, KafkaEventConsumerFactory.class})
 @EnableKafka
 public class PlatformEventProcessor {
 
-  private final List<PlatformEventHook> hooks;
+  @Getter private final List<PlatformEventHook> hooks;
   private final Histogram kafkaLagStats =
       MetricUtils.get().histogram(MetricRegistry.name(this.getClass(), "kafkaLag"));
 
   @Autowired
-  public PlatformEventProcessor() {
+  public PlatformEventProcessor(List<PlatformEventHook> platformEventHooks) {
     log.info("Creating Platform Event Processor");
-    this.hooks = Collections.emptyList(); // No event hooks (yet)
+    this.hooks =
+        platformEventHooks.stream()
+            .filter(PlatformEventHook::isEnabled)
+            .collect(Collectors.toList());
     this.hooks.forEach(PlatformEventHook::init);
   }
 

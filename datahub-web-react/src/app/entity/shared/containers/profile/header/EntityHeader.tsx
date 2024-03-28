@@ -69,6 +69,8 @@ export function getCanEditName(
             return privileges?.manageDomains;
         case EntityType.DataProduct:
             return true; // TODO: add permissions for data products
+        case EntityType.BusinessAttribute:
+            return privileges?.manageBusinessAttributes;
         default:
             return false;
     }

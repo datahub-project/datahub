@@ -45,6 +45,7 @@ public class EntityTypeMapper {
           .put(EntityType.STRUCTURED_PROPERTY, Constants.STRUCTURED_PROPERTY_ENTITY_NAME)
           .put(EntityType.ASSERTION, Constants.ASSERTION_ENTITY_NAME)
           .put(EntityType.RESTRICTED, Constants.RESTRICTED_ENTITY_NAME)
+          .put(EntityType.BUSINESS_ATTRIBUTE, Constants.BUSINESS_ATTRIBUTE_ENTITY_NAME)
           .build();
 
   private static final Map<String, EntityType> ENTITY_NAME_TO_TYPE =

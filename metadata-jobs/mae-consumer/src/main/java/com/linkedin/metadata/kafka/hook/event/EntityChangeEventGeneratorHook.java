@@ -59,6 +59,7 @@ public class EntityChangeEventGeneratorHook implements MetadataChangeLogHook {
           Constants.EDITABLE_DATASET_PROPERTIES_ASPECT_NAME,
           Constants.ASSERTION_RUN_EVENT_ASPECT_NAME,
           Constants.DATA_PROCESS_INSTANCE_RUN_EVENT_ASPECT_NAME,
+          Constants.BUSINESS_ATTRIBUTE_INFO_ASPECT_NAME,
 
           // Entity Lifecycle Event
           Constants.DATASET_KEY_ASPECT_NAME,
@@ -70,7 +71,8 @@ public class EntityChangeEventGeneratorHook implements MetadataChangeLogHook {
           Constants.GLOSSARY_TERM_KEY_ASPECT_NAME,
           Constants.DOMAIN_KEY_ASPECT_NAME,
           Constants.TAG_KEY_ASPECT_NAME,
-          Constants.STATUS_ASPECT_NAME);
+          Constants.STATUS_ASPECT_NAME,
+          Constants.BUSINESS_ATTRIBUTE_KEY_ASPECT_NAME);
 
   /** The list of change types that are supported for generating semantic change events. */
   private static final Set<String> SUPPORTED_OPERATIONS =

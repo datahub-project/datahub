@@ -25,6 +25,7 @@ import UserContextProvider from '../../app/context/UserContextProvider';
 import { DataPlatformEntity } from '../../app/entity/dataPlatform/DataPlatformEntity';
 import { ContainerEntity } from '../../app/entity/container/ContainerEntity';
 import AppConfigProvider from '../../AppConfigProvider';
+import {BusinessAttributeEntity} from "../../app/entity/businessAttribute/BusinessAttributeEntity";
 
 type Props = {
     children: React.ReactNode;
@@ -47,6 +48,7 @@ export function getTestEntityRegistry() {
     entityRegistry.register(new MLModelGroupEntity());
     entityRegistry.register(new DataPlatformEntity());
     entityRegistry.register(new ContainerEntity());
+    entityRegistry.register(new BusinessAttributeEntity());
     return entityRegistry;
 }
 

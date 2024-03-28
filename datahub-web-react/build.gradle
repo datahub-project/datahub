@@ -112,17 +112,13 @@ task yarnBuild(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) {
   outputs.dir('dist')
 }
 
-task cleanGenerate {
-  delete fileTree(dir: 'src', include: '**/*.generated.ts')
-}
-
 task cleanExtraDirs {
   delete 'node_modules/.yarn-integrity'
   delete 'dist'
   delete 'tmp'
   delete 'just'
+  delete fileTree(dir: 'src', include: '*.generated.ts')
 }
-cleanExtraDirs.finalizedBy(cleanGenerate)
 clean.finalizedBy(cleanExtraDirs)
 
 configurations {

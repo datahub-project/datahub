@@ -11,6 +11,7 @@ import com.google.common.collect.ImmutableSet;
 import com.linkedin.metadata.models.registry.config.Entities;
 import com.linkedin.metadata.models.registry.config.Entity;
 import org.gradle.internal.Pair;
+import org.springframework.beans.factory.annotation.Value;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -44,6 +45,9 @@ public class OpenApiEntities {
     private String entityRegistryYaml;
     private Path combinedDirectory;
 
+    @Value("${featureFlags.businessAttributeEntityEnabled:false}")
+    private boolean businessAttributeEntityEnabled;
+
     private final static ImmutableSet<Object> SUPPORTED_ASPECT_PATHS = ImmutableSet.builder()
                 .add("domains")
                 .add("ownership")
@@ -60,6 +64,7 @@ public class OpenApiEntities {
                 .add("dataProductProperties")
                 .add("institutionalMemory")
                 .add("forms").add("formInfo").add("dynamicFormAssignment")
+                .add("businessAttributeInfo")
                 .build();
 
     private final static ImmutableSet<String> ENTITY_EXCLUSIONS = ImmutableSet.<String>builder()
@@ -115,6 +120,10 @@ public class OpenApiEntities {
         // Just the component & parameters schema
         Pair<ObjectNode, Set<String>> parameters = buildParameters(schemasNode, modelDefinitions);
         ObjectNode componentsNode = writeComponentsYaml(schemasNode, parameters.left());
+
+        if (!businessAttributeEntityEnabled) {
+            modelDefinitions.remove("BusinessAttribute");
+        }
 
         // Just the entity paths
         writePathsYaml(modelDefinitions, parameters.right());

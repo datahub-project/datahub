@@ -25,6 +25,7 @@ import { ANTD_GRAY, ANTD_GRAY_V2 } from '../../../constants';
 import translateFieldPath from '../../../../dataset/profile/schema/utils/translateFieldPath';
 import PropertiesColumn from './components/PropertiesColumn';
 import SchemaFieldDrawer from './components/SchemaFieldDrawer/SchemaFieldDrawer';
+import useBusinessAttributeRenderer from './utils/useBusinessAttributeRenderer';
 
 const TableContainer = styled.div`
     overflow: inherit;
@@ -119,6 +120,11 @@ export default function SchemaTable({
         filterText,
         false,
     );
+    const businessAttributeRenderer = useBusinessAttributeRenderer(
+        editableSchemaMetadata,
+        filterText,
+        false,
+    );
     const schemaTitleRenderer = useSchemaTitleRenderer(schemaMetadata, setSelectedFkFieldPath, filterText);
     const schemaBlameRenderer = useSchemaBlameRenderer(schemaFieldBlameList);
 
@@ -156,6 +162,14 @@ export default function SchemaTable({
         dataIndex: 'globalTags',
         key: 'tag',
         render: termRenderer,
+    };
+
+    const businessAttributeColumn = {
+        width: '18%',
+        title: 'Business Attribute',
+        dataIndex: 'businessAttribute',
+        key: 'businessAttribute',
+        render: businessAttributeRenderer,
     };
 
     const blameColumn = {
@@ -199,7 +213,13 @@ export default function SchemaTable({
         render: (field: SchemaField) => <PropertiesColumn field={field} />,
     };
 
-    let allColumns: ColumnsType<ExtendedSchemaFields> = [fieldColumn, descriptionColumn, tagColumn, termColumn];
+    let allColumns: ColumnsType<ExtendedSchemaFields> = [
+        fieldColumn,
+        descriptionColumn,
+        tagColumn,
+        termColumn,
+        businessAttributeColumn,
+    ];
 
     if (hasProperties) {
         allColumns = [...allColumns, propertiesColumn];

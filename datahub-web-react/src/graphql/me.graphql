@@ -48,6 +48,9 @@ query getMe {
             manageGlobalViews
             manageOwnershipTypes
             manageGlobalAnnouncements
+            createBusinessAttributes
+            manageBusinessAttributes
+
         }
     }
 }

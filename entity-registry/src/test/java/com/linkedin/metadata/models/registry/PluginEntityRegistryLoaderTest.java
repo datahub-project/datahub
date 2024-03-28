@@ -99,6 +99,7 @@ public class PluginEntityRegistryLoaderTest {
             Collections.emptyList(),
             Collections.emptyList(),
             Collections.emptyList(),
+            Collections.emptyList(),
             (RecordDataSchema) DataSchemaFactory.getInstance().getAspectSchema("datasetKey").get(),
             DataSchemaFactory.getInstance().getAspectClass("datasetKey").get());
 

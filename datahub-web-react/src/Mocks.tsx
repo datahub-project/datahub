@@ -30,6 +30,7 @@ import {
     FilterOperator,
     AppConfig,
     EntityPrivileges,
+    BusinessAttribute,
 } from './types.generated';
 import { GetTagDocument } from './graphql/tag.generated';
 import { GetMlModelDocument } from './graphql/mlModel.generated';
@@ -1443,6 +1444,92 @@ export const dataJob1 = {
     activeIncidents: null,
     health: [],
 } as DataJob;
+
+export const businessAttribute = {
+    urn: 'urn:li:businessAttribute:ba1',
+    type: EntityType.BusinessAttribute,
+    __typename: 'BusinessAttribute',
+    properties: {
+        name: 'TestBusinessAtt-2',
+        description: 'lorem upsum updated 12',
+        created: {
+            time: 1705857132786
+        },
+        lastModified: {
+            time: 1705857132786
+        },
+        glossaryTerms: {
+            terms: [
+                {
+                    term: {
+                        urn: 'urn:li:glossaryTerm:1'
+                    },
+                    associatedUrn: 'urn:li:businessAttribute:ba1'
+                }
+            ],
+            __typename: 'GlossaryTerms',
+        },
+        tags: {
+            __typename: 'GlobalTags',
+            tags: [
+                {
+                    tag: {
+                        urn: 'urn:li:tag:abc-sample-tag',
+                        __typename: 'Tag'
+                    },
+                    __typename: 'TagAssociation',
+                    associatedUrn: 'urn:li:businessAttribute:ba1'
+                },
+                {
+                    tag: {
+                        urn: 'urn:li:tag:TestTag',
+                        __typename: 'Tag'
+                    },
+                    __typename: 'TagAssociation',
+                    associatedUrn: 'urn:li:businessAttribute:ba1'
+                }
+            ]
+        },
+        customProperties: [
+            {
+                key: 'prop2',
+                value: 'val2',
+                __typename: 'CustomPropertiesEntry'
+            },
+            {
+                key: 'prop1',
+                value: 'val1',
+                __typename: 'CustomPropertiesEntry'
+            },
+            {
+                key: 'prop3',
+                value: 'val3',
+                __typename: 'CustomPropertiesEntry'
+            }
+        ]
+    },
+    ownership: {
+        owners: [
+            {
+                owner: {
+                    ...user1,
+                },
+                associatedUrn: 'urn:li:businessAttribute:ba',
+                type: 'DATAOWNER',
+            },
+            {
+                owner: {
+                    ...user2,
+                },
+                associatedUrn: 'urn:li:businessAttribute:ba',
+                type: 'DELEGATE',
+            },
+        ],
+        lastModified: {
+            time: 0,
+        },
+    },
+} as BusinessAttribute;
 
 export const dataJob2 = {
     __typename: 'DataJob',
@@ -3802,4 +3889,6 @@ export const platformPrivileges: PlatformPrivileges = {
     manageGlobalViews: true,
     manageOwnershipTypes: true,
     manageGlobalAnnouncements: true,
+    createBusinessAttributes: true,
+    manageBusinessAttributes: true,
 };

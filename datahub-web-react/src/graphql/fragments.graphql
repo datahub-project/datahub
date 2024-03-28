@@ -731,6 +731,11 @@ fragment schemaFieldFields on SchemaField {
                 ...structuredPropertiesFields
             }
         }
+        businessAttributes {
+            businessAttribute {
+                ...businessAttribute
+            }
+        }
     }
 }
 
@@ -1406,4 +1411,50 @@ fragment entityPrivileges on EntityPrivileges {
     canManageEntity
     canManageChildren
     canEditProperties
+}
+
+fragment businessAttribute on BusinessAttributeAssociation {
+    businessAttribute {
+        urn
+        type
+            ownership {
+                ...ownershipFields
+            }
+        properties {
+            name
+            description
+            businessAttributeDataType: type
+            lastModified {
+                time
+            }
+            created {
+                time
+            }
+            tags {
+                tags {
+                    tag {
+                        urn
+                        name
+                        properties {
+                            name
+                        }
+                    }
+                    associatedUrn
+                }
+            }
+            glossaryTerms {
+                terms {
+                    term {
+                        urn
+                        type
+                        properties {
+                            name
+                        }
+                    }
+                    associatedUrn
+                }
+            }
+        }
+    }
+    associatedUrn
 }

@@ -236,4 +236,9 @@ export default class EntityRegistry {
                 .map((entity) => entity.type),
         );
     }
+
+    getCustomCardUrlPath(type: EntityType): string | undefined {
+        const entity = validatedGet(type, this.entityTypeToEntity);
+        return entity.getCustomCardUrlPath?.();
+    }
 }

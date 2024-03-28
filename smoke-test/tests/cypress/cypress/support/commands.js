@@ -68,6 +68,12 @@ Cypress.Commands.add("goToGlossaryList", () => {
   cy.waitTextVisible("Glossary");
 });
 
+Cypress.Commands.add("goToBusinessAttributeList", () => {
+  cy.visit("/business-attribute");
+  cy.waitTextVisible("Business Attribute");
+  cy.wait(3000);
+});
+
 Cypress.Commands.add("goToDomainList", () => {
   cy.visit("/domains");
   cy.waitTextVisible("Domains");
@@ -105,6 +111,20 @@ Cypress.Commands.add("goToDataset", (urn, dataset_name) => {
     "/dataset/" + urn
   );
   cy.waitTextVisible(dataset_name);
+});
+
+Cypress.Commands.add("goToBusinessAttribute", (urn, attribute_name) => {
+  cy.visit(
+      "/business-attribute/" + urn
+  );
+  cy.waitTextVisible(attribute_name);
+});
+
+Cypress.Commands.add("goToTag", (urn, tag_name) => {
+  cy.visit(
+      "/tag/" + urn
+  );
+  cy.waitTextVisible(tag_name);
 });
 
 Cypress.Commands.add("goToEntityLineageGraph", (entity_type, urn) => {
@@ -286,10 +306,36 @@ Cypress.Commands.add('addTermToDataset', (urn, dataset_name, term) => {
   cy.contains(term);
 });
 
+Cypress.Commands.add('addTermToBusinessAttribute', (urn, attribute_name, term) => {
+  cy.goToBusinessAttribute(urn, attribute_name);
+  cy.clickOptionWithText("Add Terms");
+  cy.selectOptionInTagTermModal(term);
+  cy.contains(term);
+});
+
+Cypress.Commands.add('addAttributeToDataset', (urn, dataset_name, businessAttribute) => {
+  cy.goToDataset(urn, dataset_name);
+  cy.clickOptionWithText("event_name");
+  cy.contains("Business Attribute");
+  cy.get('[data-testid="schema-field-event_name-businessAttribute"]').within(() =>
+      cy.contains("Add Attribute").click()
+  );
+  cy.selectOptionInAttributeModal(businessAttribute);
+  cy.contains(businessAttribute);
+});
+
 Cypress.Commands.add('selectOptionInTagTermModal', (text) => {
   cy.enterTextInTestId("tag-term-modal-input", text);
   cy.clickOptionWithTestId("tag-term-option");
   let btn_id = "add-tag-term-from-modal-btn";
+  cy.clickOptionWithTestId(btn_id);
+  cy.get(selectorWithtestId(btn_id)).should("not.exist");
+});
+
+Cypress.Commands.add('selectOptionInAttributeModal', (text) => {
+  cy.enterTextInTestId("business-attribute-modal-input", text);
+  cy.clickOptionWithTestId("business-attribute-option");
+  let btn_id = "add-attribute-from-modal-btn";
   cy.clickOptionWithTestId(btn_id);
   cy.get(selectorWithtestId(btn_id)).should("not.exist");
 });

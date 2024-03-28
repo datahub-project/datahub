@@ -118,6 +118,7 @@ public class SearchRequestHandler {
                       return set1;
                     }));
     this.aspectRetriever = aspectRetriever;
+    searchQueryBuilder.setEntityRegistry(this.aspectRetriever.getEntityRegistry());
   }
 
   public static SearchRequestHandler getBuilder(

@@ -63,6 +63,8 @@ public class UpdateDescriptionResolver implements DataFetcher<CompletableFuture<
         return updateMlPrimaryKeyDescription(targetUrn, input, environment.getContext());
       case Constants.DATA_PRODUCT_ENTITY_NAME:
         return updateDataProductDescription(targetUrn, input, environment.getContext());
+      case Constants.BUSINESS_ATTRIBUTE_ENTITY_NAME:
+        return updateBusinessAttributeDescription(targetUrn, input, environment.getContext());
       default:
         throw new RuntimeException(
             String.format(
@@ -434,6 +436,33 @@ public class UpdateDescriptionResolver implements DataFetcher<CompletableFuture<
           try {
             Urn actor = CorpuserUrn.createFromString(context.getActorUrn());
             DescriptionUtils.updateDataProductDescription(
+                input.getDescription(), targetUrn, actor, _entityService);
+            return true;
+          } catch (Exception e) {
+            log.error(
+                "Failed to perform update against input {}, {}", input.toString(), e.getMessage());
+            throw new RuntimeException(
+                String.format("Failed to perform update against input %s", input.toString()), e);
+          }
+        });
+  }
+
+  private CompletableFuture<Boolean> updateBusinessAttributeDescription(
+      Urn targetUrn, DescriptionUpdateInput input, QueryContext context) {
+    return CompletableFuture.supplyAsync(
+        () -> {
+          // check if user has the rights to update description for business attribute
+          if (!DescriptionUtils.isAuthorizedToUpdateDescription(context, targetUrn)) {
+            throw new AuthorizationException(
+                "Unauthorized to perform this action. Please contact your DataHub administrator.");
+          }
+
+          // validate label input
+          DescriptionUtils.validateLabelInput(targetUrn, _entityService);
+
+          try {
+            Urn actor = CorpuserUrn.createFromString(context.getActorUrn());
+            DescriptionUtils.updateBusinessAttributeDescription(
                 input.getDescription(), targetUrn, actor, _entityService);
             return true;
           } catch (Exception e) {

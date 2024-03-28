@@ -3,6 +3,7 @@ package com.linkedin.datahub.graphql.resolvers.mutate;
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
 import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.persistAspect;
 
+import com.linkedin.businessattribute.BusinessAttributeInfo;
 import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -12,7 +13,9 @@ import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLErrorCode;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
 import com.linkedin.datahub.graphql.generated.UpdateNameInput;
+import com.linkedin.datahub.graphql.resolvers.businessattribute.BusinessAttributeAuthorizationUtils;
 import com.linkedin.datahub.graphql.resolvers.dataproduct.DataProductAuthorizationUtils;
+import com.linkedin.datahub.graphql.resolvers.mutate.util.BusinessAttributeUtils;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.DomainUtils;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.GlossaryUtils;
 import com.linkedin.dataproduct.DataProductProperties;
@@ -63,6 +66,8 @@ public class UpdateNameResolver implements DataFetcher<CompletableFuture<Boolean
               return updateGroupName(targetUrn, input, environment.getContext());
             case Constants.DATA_PRODUCT_ENTITY_NAME:
               return updateDataProductName(targetUrn, input, environment.getContext());
+            case Constants.BUSINESS_ATTRIBUTE_ENTITY_NAME:
+              return updateBusinessAttributeName(targetUrn, input, environment.getContext());
             default:
               throw new RuntimeException(
                   String.format(
@@ -263,6 +268,50 @@ public class UpdateNameResolver implements DataFetcher<CompletableFuture<Boolean
           _entityService);
 
       return true;
+    } catch (Exception e) {
+      throw new RuntimeException(
+          String.format("Failed to perform update against input %s", input), e);
+    }
+  }
+
+  private Boolean updateBusinessAttributeName(
+      Urn targetUrn, UpdateNameInput input, QueryContext context) {
+    if (!BusinessAttributeAuthorizationUtils.canManageBusinessAttribute(context)) {
+      throw new AuthorizationException(
+          "Unauthorized to perform this action. Please contact your DataHub administrator.");
+    }
+    try {
+      BusinessAttributeInfo businessAttributeInfo =
+          (BusinessAttributeInfo)
+              EntityUtils.getAspectFromEntity(
+                  targetUrn.toString(),
+                  Constants.BUSINESS_ATTRIBUTE_INFO_ASPECT_NAME,
+                  _entityService,
+                  null);
+      if (businessAttributeInfo == null) {
+        throw new IllegalArgumentException("Business Attribute does not exist");
+      }
+
+      if (BusinessAttributeUtils.hasNameConflict(input.getName(), context, _entityClient)) {
+        throw new DataHubGraphQLException(
+            String.format(
+                "\"%s\" already exists as Business Attribute. Please pick a unique name.",
+                input.getName()),
+            DataHubGraphQLErrorCode.CONFLICT);
+      }
+
+      businessAttributeInfo.setFieldPath(input.getName());
+      businessAttributeInfo.setName(input.getName());
+      Urn actor = CorpuserUrn.createFromString(context.getActorUrn());
+      persistAspect(
+          targetUrn,
+          Constants.BUSINESS_ATTRIBUTE_INFO_ASPECT_NAME,
+          businessAttributeInfo,
+          actor,
+          _entityService);
+      return true;
+    } catch (DataHubGraphQLException e) {
+      throw e;
     } catch (Exception e) {
       throw new RuntimeException(
           String.format("Failed to perform update against input %s", input), e);

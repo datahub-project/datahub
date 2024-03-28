@@ -22,6 +22,7 @@ import { DataPlatformInstanceEntity } from './entity/dataPlatformInstance/DataPl
 import { ERModelRelationshipEntity } from './entity/ermodelrelationships/ERModelRelationshipEntity'
 import { RoleEntity } from './entity/Access/RoleEntity';
 import { RestrictedEntity } from './entity/restricted/RestrictedEntity';
+import {BusinessAttributeEntity} from "./entity/businessAttribute/BusinessAttributeEntity";
 
 export default function buildEntityRegistry() {
     const registry = new EntityRegistry();
@@ -48,5 +49,6 @@ export default function buildEntityRegistry() {
     registry.register(new DataPlatformInstanceEntity());
     registry.register(new ERModelRelationshipEntity())
     registry.register(new RestrictedEntity());
+    registry.register(new BusinessAttributeEntity());
     return registry;
 }

@@ -35,6 +35,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import javax.annotation.PostConstruct;
 import org.mockito.Mockito;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.MatchAllQueryBuilder;
@@ -85,6 +86,12 @@ public class SearchQueryBuilderTest extends AbstractTestNGSpringContextTests {
 
   public static final SearchQueryBuilder TEST_BUILDER =
       new SearchQueryBuilder(testQueryConfig, null);
+
+  @PostConstruct
+  public void setup() {
+    TEST_BUILDER.setEntityRegistry(entityRegistry);
+    TEST_CUSTOM_BUILDER.setEntityRegistry(entityRegistry);
+  }
 
   @Test
   public void testQueryBuilderFulltext() {

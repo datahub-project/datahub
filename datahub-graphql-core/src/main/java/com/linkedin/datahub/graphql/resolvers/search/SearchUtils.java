@@ -71,7 +71,8 @@ public class SearchUtils {
           EntityType.CONTAINER,
           EntityType.DOMAIN,
           EntityType.DATA_PRODUCT,
-          EntityType.NOTEBOOK);
+          EntityType.NOTEBOOK,
+          EntityType.BUSINESS_ATTRIBUTE);
 
   /** Entities that are part of autocomplete by default in Auto Complete Across Entities */
   public static final List<EntityType> AUTO_COMPLETE_ENTITY_TYPES =
@@ -90,7 +91,8 @@ public class SearchUtils {
           EntityType.CORP_USER,
           EntityType.CORP_GROUP,
           EntityType.NOTEBOOK,
-          EntityType.DATA_PRODUCT);
+          EntityType.DATA_PRODUCT,
+          EntityType.BUSINESS_ATTRIBUTE);
 
   /** Entities that are part of browse by default */
   public static final List<EntityType> BROWSE_ENTITY_TYPES =

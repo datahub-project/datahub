@@ -154,4 +154,35 @@ describe("mutations", () => {
 
     cy.contains("CypressTerm").should("not.exist");
   });
+
+  it("can add and remove business attribute from a dataset field", () => {
+    cy.login();
+    // make space for the glossary term column
+    cy.viewport(2000, 800);
+
+    cy.goToDataset("urn:li:dataset:(urn:li:dataPlatform:hive,cypress_logging_events,PROD)", "cypress_logging_events");
+    cy.clickOptionWithText("event_data");
+    cy.get('[data-testid="schema-field-event_data-businessAttribute"]').trigger(
+        "mouseover",
+        { force: true }
+    );
+    cy.get('[data-testid="schema-field-event_data-businessAttribute"]').within(() =>
+        cy.contains("Add Attribute").click({ force: true })
+    );
+
+    cy.selectOptionInAttributeModal("cypressTestAttribute");
+
+    cy.contains("cypressTestAttribute");
+
+    cy.get('[data-testid="schema-field-event_data-businessAttribute"]').
+    within(() =>
+        cy
+            .get("span[aria-label=close]")
+            .trigger("mouseover", { force: true })
+            .click({ force: true })
+    );
+    cy.contains("Yes").click({ force: true });
+
+    cy.contains("cypressTestAttribute").should("not.exist");
+  });
 });
