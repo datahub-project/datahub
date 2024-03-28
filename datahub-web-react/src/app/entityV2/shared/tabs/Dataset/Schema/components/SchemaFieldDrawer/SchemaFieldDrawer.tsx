@@ -1,7 +1,7 @@
 import { ReadOutlined } from '@ant-design/icons';
 import QueryStatsOutlinedIcon from '@mui/icons-material/QueryStatsOutlined';
 import { Drawer, Typography } from 'antd';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import styled from 'styled-components';
 import { GetDatasetQuery, useGetDataProfilesLazyQuery } from '../../../../../../../../graphql/dataset.generated';
 import {
@@ -117,9 +117,11 @@ export default function SchemaFieldDrawer({
     const [getDataProfiles, { data: profilesData, loading: profilesDataLoading }] = useGetDataProfilesLazyQuery();
 
     useEffect(() => {
-        getDataProfiles({
-            variables: { urn },
-        });
+        if (urn) {
+            getDataProfiles({
+                variables: { urn },
+            });
+        }
     }, [urn, getDataProfiles]);
 
     useEffect(() => {
@@ -139,11 +141,16 @@ export default function SchemaFieldDrawer({
      * Fetches updated data profiles when the lookback window is changed in the Historical Chart view.
      * @param lookbackWindow The new time window for data fetching.
      */
-    const fetchDataWithLookbackWindow = (lookbackWindow: TimeWindow) => {
-        getDataProfiles({
-            variables: { urn, ...lookbackWindow },
-        });
-    };
+    const fetchDataWithLookbackWindow = useCallback(
+        (lookbackWindow: TimeWindow) => {
+            if (urn) {
+                getDataProfiles({
+                    variables: { urn, ...lookbackWindow },
+                });
+            }
+        },
+        [urn, getDataProfiles],
+    );
 
     const tabs: any = [
         {
