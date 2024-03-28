@@ -42,6 +42,7 @@ import {
     SchemaMetadata,
     SiblingProperties,
     Status,
+    StructuredProperties,
     SubTypes,
 } from '../../../types.generated';
 import { FetchedEntity } from '../../lineage/types';
@@ -112,7 +113,6 @@ export type EntityTab = {
     getDynamicName?: (GenericEntityProperties, T) => string;
 };
 
-
 export type EntitySidebarTab = {
     name: string;
     component: React.FunctionComponent<EntityTabProps>;
@@ -161,6 +161,7 @@ export type GenericEntityProperties = {
     platform?: Maybe<DataPlatform>;
     dataPlatformInstance?: Maybe<DataPlatformInstance>;
     customProperties?: Maybe<CustomPropertiesEntry[]>;
+    structuredProperties?: Maybe<StructuredProperties>;
     institutionalMemory?: Maybe<InstitutionalMemory>;
     schemaMetadata?: Maybe<SchemaMetadata>;
     externalUrl?: Maybe<string>;
@@ -212,12 +213,12 @@ export type GenericEntityUpdate = {
 export type UpdateEntityType<U> = (
     options?:
         | MutationFunctionOptions<
-            U,
-            {
-                urn: string;
-                input: GenericEntityUpdate;
-            }
-        >
+              U,
+              {
+                  urn: string;
+                  input: GenericEntityUpdate;
+              }
+          >
         | undefined,
 ) => Promise<FetchResult<U, Record<string, any>, Record<string, any>>>;
 

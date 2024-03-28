@@ -1,29 +1,29 @@
-import React from 'react';
-import { Typography, Table, Empty } from 'antd';
+import React, { useState } from 'react';
+import { Table, Empty } from 'antd';
 import styled from 'styled-components';
-import { ANTD_GRAY } from '../../constants';
 import { useEntityData } from '../../EntityContext';
-
-const NameText = styled(Typography.Text)`
-    font-family: 'Roboto Mono', monospace;
-    font-weight: 600;
-    font-size: 12px;
-    color: ${ANTD_GRAY[9]};
-`;
-
-const ValueText = styled(Typography.Text)`
-    font-family: 'Roboto Mono', monospace;
-    font-weight: 400;
-    font-size: 12px;
-    color: ${ANTD_GRAY[8]};
-`;
+import TabHeader from '../../../../entity/shared/tabs/Properties/TabHeader';
+import useUpdateExpandedRowsFromFilter from '../../../../entity/shared/tabs/Properties/useUpdateExpandedRowsFromFilter';
+import {
+    getFilteredCustomProperties,
+    mapCustomPropertiesToPropertyRows,
+} from '../../../../entity/shared/tabs/Properties/utils';
+import { PropertyRow } from '../../../../entity/shared/tabs/Properties/types';
+import { useEntityRegistryV2 } from '../../../../useEntityRegistry';
+import ExpandIcon from '../Dataset/Schema/components/ExpandIcon';
+import useStructuredProperties from './useStructuredProperties';
+import NameColumn from './NameColumn';
+import ValuesColumn from './ValuesColumn';
 
 const StyledTable = styled(Table)`
     &&& .ant-table-cell-with-append {
-        padding: 4px;
+        padding: 16px;
     }
     &&& .ant-table-tbody > tr > td {
         border: none;
+    }
+    &&& .row-icon-container {
+        margin-bottom: 4px;
     }
 ` as typeof Table;
 
@@ -32,35 +32,63 @@ const EmptyText = styled(Empty)`
 `;
 
 export const PropertiesTab = () => {
+    const [filterText, setFilterText] = useState('');
     const { entityData } = useEntityData();
+    const entityRegistry = useEntityRegistryV2();
 
     const propertyTableColumns = [
         {
             width: 210,
             title: 'Name',
-            dataIndex: 'key',
-            sorter: (a, b) => a?.key.localeCompare(b?.key || '') || 0,
-            defaultSortOrder: 'ascend',
-            render: (name: string) => <NameText>{name}</NameText>,
+            render: (propertyRow: PropertyRow) => <NameColumn propertyRow={propertyRow} filterText={filterText} />,
         },
         {
             title: 'Value',
-            dataIndex: 'value',
-            render: (value: string) => <ValueText>{value}</ValueText>,
+            render: (propertyRow: PropertyRow) => <ValuesColumn propertyRow={propertyRow} filterText={filterText} />,
         },
     ];
 
+    const { structuredPropertyRows, expandedRowsFromFilter } = useStructuredProperties(entityRegistry, filterText);
+    const customProperties = getFilteredCustomProperties(filterText, entityData) || [];
+    const customPropertyRows = mapCustomPropertiesToPropertyRows(customProperties);
+    const dataSource: PropertyRow[] = structuredPropertyRows.concat(customPropertyRows);
+
+    const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+
+    useUpdateExpandedRowsFromFilter({ expandedRowsFromFilter, setExpandedRows });
+
     return (
-        <StyledTable
-            pagination={false}
-            // typescript is complaining that default sort order is not a valid column field- overriding this here
-            // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-            // @ts-ignore
-            columns={propertyTableColumns}
-            dataSource={entityData?.customProperties || undefined}
-            locale={{
-                emptyText: <EmptyText description="No properties found" image={Empty.PRESENTED_IMAGE_SIMPLE} />,
-            }}
-        />
+        <>
+            <TabHeader setFilterText={setFilterText} />
+            <StyledTable
+                pagination={false}
+                // typescript is complaining that default sort order is not a valid column field- overriding this here
+                // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+                // @ts-ignore
+                columns={propertyTableColumns}
+                dataSource={dataSource}
+                locale={{
+                    emptyText: <EmptyText description="No properties found" image={Empty.PRESENTED_IMAGE_SIMPLE} />,
+                }}
+                rowKey="qualifiedName"
+                expandable={{
+                    expandedRowKeys: [...Array.from(expandedRows)],
+                    defaultExpandAllRows: false,
+                    expandRowByClick: false,
+                    expandIcon: (props) => <ExpandIcon {...props} isCompact />,
+                    onExpand: (expanded, record) => {
+                        if (expanded) {
+                            setExpandedRows((previousRows) => new Set(previousRows.add(record.qualifiedName)));
+                        } else {
+                            setExpandedRows((previousRows) => {
+                                previousRows.delete(record.qualifiedName);
+                                return new Set(previousRows);
+                            });
+                        }
+                    },
+                    indentSize: 16,
+                }}
+            />
+        </>
     );
 };

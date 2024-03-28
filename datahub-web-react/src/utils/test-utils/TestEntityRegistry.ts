@@ -1,0 +1,40 @@
+import EntityRegistry from '../../app/entityV2/EntityRegistry';
+import { DatasetEntity } from '../../app/entityV2/dataset/DatasetEntity';
+import { ChartEntity } from '../../app/entityV2/chart/ChartEntity';
+import { DashboardEntity } from '../../app/entityV2/dashboard/DashboardEntity';
+import { UserEntity } from '../../app/entityV2/user/User';
+import { GroupEntity } from '../../app/entityV2/group/Group';
+import { TagEntity } from '../../app/entityV2/tag/Tag';
+import { DataFlowEntity } from '../../app/entityV2/dataFlow/DataFlowEntity';
+import { DataJobEntity } from '../../app/entityV2/dataJob/DataJobEntity';
+import { GlossaryTermEntity } from '../../app/entityV2/glossaryTerm/GlossaryTermEntity';
+import { MLFeatureTableEntity } from '../../app/entityV2/mlFeatureTable/MLFeatureTableEntity';
+import { MLModelEntity } from '../../app/entityV2/mlModel/MLModelEntity';
+import { MLModelGroupEntity } from '../../app/entityV2/mlModelGroup/MLModelGroupEntity';
+import { DataPlatformEntity } from '../../app/entityV2/dataPlatform/DataPlatformEntity';
+import { ContainerEntity } from '../../app/entityV2/container/ContainerEntity';
+import { DomainEntity } from '../../app/entityV2/domain/DomainEntity';
+import { DataProductEntity } from '../../app/entityV2/dataProduct/DataProductEntity';
+import { DataPlatformInstanceEntity } from '../../app/entityV2/dataPlatformInstance/DataPlatformInstanceEntity';
+
+export function getTestEntityRegistryV2() {
+    const entityRegistry = new EntityRegistry();
+    entityRegistry.register(new DatasetEntity());
+    entityRegistry.register(new ChartEntity());
+    entityRegistry.register(new DashboardEntity());
+    entityRegistry.register(new UserEntity());
+    entityRegistry.register(new GroupEntity());
+    entityRegistry.register(new TagEntity());
+    entityRegistry.register(new DataFlowEntity());
+    entityRegistry.register(new DataJobEntity());
+    entityRegistry.register(new GlossaryTermEntity());
+    entityRegistry.register(new MLFeatureTableEntity());
+    entityRegistry.register(new MLModelEntity());
+    entityRegistry.register(new MLModelGroupEntity());
+    entityRegistry.register(new DataPlatformEntity());
+    entityRegistry.register(new ContainerEntity());
+    entityRegistry.register(new DomainEntity());
+    entityRegistry.register(new DataProductEntity());
+    entityRegistry.register(new DataPlatformInstanceEntity());
+    return entityRegistry;
+}
