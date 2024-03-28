@@ -149,7 +149,9 @@ def load_config_file(
                 ) from e
         else:
             if not config_file_path.is_file():
-                raise ConfigurationError(f"Cannot open config file {config_file_path}")
+                raise ConfigurationError(
+                    f"Cannot open config file {config_file_path.resolve()}"
+                )
             raw_config_file = config_file_path.read_text()
 
     config_fp = io.StringIO(raw_config_file)
