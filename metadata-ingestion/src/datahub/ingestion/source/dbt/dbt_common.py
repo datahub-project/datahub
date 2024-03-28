@@ -179,9 +179,7 @@ class DBTEntitiesEnabled(ConfigModel):
         description="Emit metadata for test results when set to Yes or Only",
     )
     model_performance: EmitDirective = Field(
-        # TODO: This is currently disabled by default, but will be enabled by default once
-        # the models have stabilized.
-        EmitDirective.NO,
+        EmitDirective.YES,
         description="Emit model performance metadata when set to Yes or Only. "
         "Only supported with dbt core.",
     )
@@ -349,9 +347,7 @@ class DBTCommonConfig(
     _remove_use_compiled_code = pydantic_removed_field("use_compiled_code")
 
     include_compiled_code: bool = Field(
-        # TODO: Once the formattedViewLogic field model change is included in a server
-        # release, probably 0.13.1, we can flip the default to True.
-        default=False,
+        default=True,
         description="When enabled, includes the compiled code in the emitted metadata.",
     )
 
