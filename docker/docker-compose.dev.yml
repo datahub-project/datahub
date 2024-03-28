@@ -59,6 +59,8 @@ services:
     - DATASET_HEALTH_DASHBOARD_ENABLED=${DATASET_HEALTH_DASHBOARD_ENABLED:-false}
     - DOCUMENTATION_AI_ENABLED=${DOCUMENTATION_AI_ENABLED:-false}
     - THEME_V2_ENABLED=${THEME_V2_ENABLED:-true}
+    - FEATURE_DOCUMENTATION_FORMS_ENABLED=${FEATURE_DOCUMENTATION_FORMS_ENABLED:-true}
+    - REACT_APP_LOGO_URL=https://upload.wikimedia.org/wikipedia/commons/b/bf/Test_card.png
     volumes:
       - ./datahub-gms/start.sh:/datahub/datahub-gms/scripts/start.sh
       - ./datahub-gms/jetty.xml:/datahub/datahub-gms/scripts/jetty.xml

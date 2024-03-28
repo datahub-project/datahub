@@ -3,6 +3,8 @@ import styled from 'styled-components';
 import { Link } from 'react-router-dom';
 
 import { NavLinks } from './NavLinks';
+import { useAppConfig } from '../../useAppConfig';
+import { DEFAULT_APP_CONFIG } from '../../../appConfigContext';
 import { useUserContext } from '../../context/useUserContext';
 import { useEntityRegistry } from '../../useEntityRegistry';
 import { EntityType } from '../../../types.generated';
@@ -45,6 +47,13 @@ const Icon = styled.div`
     }
 `;
 
+const CustomLogo = styled.img`
+    max-height: 26px;
+    max-width: 26px;
+    min-height: 20px;
+    min-width: 20px;
+`;
+
 const Spacer = styled.div`
     flex: 1;
 `;
@@ -65,17 +74,23 @@ const UserIcon = styled.div`
     }
 `;
 
+const DEFAULT_LOGO = "/assets/logos/acryl-dark-mark.svg";
+
 export const NavSidebar = () => {
+    const appConfig = useAppConfig();
     const entityRegistry = useEntityRegistry();
     const { urn, user } = useUserContext();
+
+    const customLogoUrl = appConfig.config.visualConfig.logoUrl;
+    const hasCustomLogo = customLogoUrl && customLogoUrl !== DEFAULT_LOGO;
+
+    const logoComponent = hasCustomLogo ? <CustomLogo alt="logo" src={customLogoUrl} /> : <AcrylIcon />;
 
     return (
         <Container>
             <Content>
                 <Link to="/">
-                    <Icon>
-                        <AcrylIcon />
-                    </Icon>
+                    <Icon>{appConfig.config !== DEFAULT_APP_CONFIG ? logoComponent : undefined}</Icon>
                 </Link>
                 <NavLinks />
                 <Spacer />
