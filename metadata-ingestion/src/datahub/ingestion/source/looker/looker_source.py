@@ -631,7 +631,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
             )
             chart_snapshot.aspects.append(browse_path)
         elif (
-            not dashboard and dashboard_element.folder_path is not None
+            dashboard is None and dashboard_element.folder_path is not None
         ):  # independent look
             browse_path = BrowsePathsClass(
                 paths=[f"/Folders/{dashboard_element.folder_path}"]
@@ -1199,12 +1199,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         self.reporter.report_stage_start("extract_independent_looks")
 
         logger.debug("Extracting looks not part of Dashboard")
-        look_fields: List[str] = [
-            "id",
-            "title",
-            "description",
-            "query_id",
-        ]
+        look_fields: List[str] = ["id", "title", "description", "query_id", "folder"]
         query_fields: List[str] = [
             "id",
             "view",
