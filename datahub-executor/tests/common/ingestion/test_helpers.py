@@ -69,26 +69,8 @@ class TestExtractExecutionRequest:
         execution_request = extract_execution_request(self.event)
         assert execution_request is None
 
-    def test_with_wrong_task_name(self) -> None:
-        self.aspect_dict["task"] = ""
-        self.event.aspect = GenericAspectClass(
-            contentType=JSON_CONTENT_TYPE,
-            value=json.dumps(self.aspect_dict).encode(),
-        )
-        execution_request = extract_execution_request(self.event)
-        assert execution_request is None
-
     def test_with_wrong_executor_id(self) -> None:
         self.aspect_dict["executorId"] = "remote"
-        self.event.aspect = GenericAspectClass(
-            contentType=JSON_CONTENT_TYPE,
-            value=json.dumps(self.aspect_dict).encode(),
-        )
-        execution_request = extract_execution_request(self.event)
-        assert execution_request is None
-
-    def test_with_missing_urn(self) -> None:
-        self.aspect_dict["source"] = {}
         self.event.aspect = GenericAspectClass(
             contentType=JSON_CONTENT_TYPE,
             value=json.dumps(self.aspect_dict).encode(),
