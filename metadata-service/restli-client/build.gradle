@@ -20,6 +20,8 @@ dependencies {
 
   implementation spec.product.pegasus.restliClient
 
+
   testImplementation externalDependency.mockito
   testImplementation externalDependency.testng
+  testImplementation spec.product.pegasus.restliTestUtils
 }

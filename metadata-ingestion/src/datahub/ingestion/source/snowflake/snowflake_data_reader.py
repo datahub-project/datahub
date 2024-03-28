@@ -4,7 +4,7 @@ from typing import Any, Callable, Dict, List
 import pandas as pd
 from snowflake.connector import SnowflakeConnection
 
-from datahub.ingestion.source.sql.data_reader import DataReader
+from datahub.ingestion.source.common.data_reader import DataReader
 from datahub.utilities.perf_timer import PerfTimer
 
 logger = logging.Logger(__name__)
