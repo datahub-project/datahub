@@ -282,7 +282,8 @@ class MongoDBSource(StatefulIngestionSourceBase):
             **self.config.options,
         }
 
-        self.mongo_client = pymongo.MongoClient(self.config.connect_uri, **options)  # type: ignore
+        self.mongo_client = pymongo.MongoClient(self.config.connect_uri, datetime_conversion='DATETIME_AUTO',
+                                                **options)  # type: ignore
 
         # This cheaply tests the connection. For details, see
         # https://pymongo.readthedocs.io/en/stable/api/pymongo/mongo_client.html#pymongo.mongo_client.MongoClient
