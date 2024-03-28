@@ -3,7 +3,6 @@ import { Layout } from 'antd';
 import styled from 'styled-components';
 import { V2_SEARCH_BAR_ID } from '../onboarding/configV2/HomePageOnboardingConfig';
 import { SearchBar } from './SearchBar';
-import { ManageAccount } from '../shared/ManageAccount';
 import { AutoCompleteResultForEntity, EntityType } from '../../types.generated';
 import { EntityRegistry } from '../../entityRegistryContext';
 import { useAppConfig } from '../useAppConfig';
@@ -50,11 +49,6 @@ const SearchBarContainer = styled.div`
     margin-left: 80px;
 `;
 
-const NavGroup = styled.div`
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
-`;
 
 type Props = {
     initialQuery: string;
@@ -62,13 +56,7 @@ type Props = {
     suggestions: Array<AutoCompleteResultForEntity>;
     onSearch: (query: string, type?: EntityType) => void;
     onQueryChange: (query: string) => void;
-    authenticatedUserUrn: string;
-    authenticatedUserPictureLink?: string | null;
     entityRegistry: EntityRegistry;
-};
-
-const defaultProps = {
-    authenticatedUserPictureLink: undefined,
 };
 
 /**
@@ -80,8 +68,6 @@ export const SearchHeader = ({
     suggestions,
     onSearch,
     onQueryChange,
-    authenticatedUserUrn,
-    authenticatedUserPictureLink,
     entityRegistry,
 }: Props) => {
     const [, setIsSearchBarFocused] = useState(false);
@@ -111,12 +97,7 @@ export const SearchHeader = ({
                         showCommandK
                     />
                 </SearchBarContainer>
-                <NavGroup>
-                    <ManageAccount urn={authenticatedUserUrn} pictureLink={authenticatedUserPictureLink || ''} />
-                </NavGroup>
             </Header>
         </div>
     );
 };
-
-SearchHeader.defaultProps = defaultProps;

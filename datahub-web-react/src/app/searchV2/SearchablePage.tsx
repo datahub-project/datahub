@@ -80,7 +80,6 @@ export const SearchablePage = ({ onSearch, onAutoComplete, children }: Props) =>
     const [getAutoCompleteResults, { data: suggestionsData }] = useGetAutoCompleteMultipleResultsLazyQuery();
     const userContext = useUserContext();
     const [newSuggestionData, setNewSuggestionData] = useState<GetAutoCompleteMultipleResultsQuery | undefined>();
-    const { user } = userContext;
     const viewUrn = userContext.localState?.selectedViewUrn;
 
     useEffect(() => {
@@ -151,8 +150,6 @@ export const SearchablePage = ({ onSearch, onAutoComplete, children }: Props) =>
                 }
                 onSearch={onSearch || search}
                 onQueryChange={onAutoComplete || autoComplete}
-                authenticatedUserUrn={user?.urn || ''}
-                authenticatedUserPictureLink={user?.editableProperties?.pictureLink}
                 entityRegistry={entityRegistry}
             />
             <Body>

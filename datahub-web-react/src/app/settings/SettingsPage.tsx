@@ -1,5 +1,5 @@
 import React from 'react';
-import { Menu, Typography, Divider } from 'antd';
+import { Menu, Typography, Divider, Button } from 'antd';
 import {
     BankOutlined,
     SafetyCertificateOutlined,
@@ -16,6 +16,7 @@ import {
 } from '@ant-design/icons';
 import { Redirect, Route, useHistory, useLocation, useRouteMatch, Switch } from 'react-router';
 import styled from 'styled-components';
+import Cookies from 'js-cookie';
 import { ANTD_GRAY } from '../entity/shared/constants';
 import { ManageIdentities } from '../identity/ManageIdentities';
 import { ManagePermissions } from '../permissions/ManagePermissions';
@@ -34,6 +35,10 @@ import { ManageActorSubscriptions } from './personal/subscriptions/ManageActorSu
 import { useSubscriptionsEnabled } from './personal/notifications/utils';
 import ManagePosts from './posts/ManagePosts';
 import ManageHelpLink from './helpLink/ManageHelpLink';
+
+import analytics, { EventType } from '../analytics';
+import { GlobalCfg } from '../../conf';
+import { isLoggedInVar } from '../auth/checkAuthStatus';
 
 const PageContainer = styled.div`
     display: flex;
@@ -131,12 +136,29 @@ export const SettingsPage = () => {
     const showHomePagePosts = me && me?.platformPrivileges?.manageGlobalAnnouncements && !readOnlyModeEnabled;
     const showCustomHelpLink = me?.platformPrivileges?.manageGlobalSettings;
 
+    const handleLogout = () => {
+        analytics.event({ type: EventType.LogOutEvent });
+        isLoggedInVar(false);
+        Cookies.remove(GlobalCfg.CLIENT_AUTH_COOKIE);
+        me.updateLocalState({ selectedViewUrn: undefined });
+    };
+
     return (
         <PageContainer>
             <SettingsBarContainer>
                 <SettingsBarHeader>
                     <PageTitle level={3}>Settings</PageTitle>
                     <Typography.Paragraph type="secondary">Manage your DataHub settings.</Typography.Paragraph>
+                    <Button
+                        type="link"
+                        href="/logOut"
+                        onClick={handleLogout}
+                        data-testid="log-out-menu-item"
+                        style={{ padding: 0, margin: 0, height: 'auto', lineHeight: 'inherit' }}
+                        danger
+                    >
+                        Sign Out
+                    </Button>
                 </SettingsBarHeader>
                 <ThinDivider />
                 <Menu
