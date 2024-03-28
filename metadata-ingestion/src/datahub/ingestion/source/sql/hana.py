@@ -28,11 +28,6 @@ class HanaConfig(BasicSQLAlchemyConfig):
 @capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
 @capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")
 @capability(SourceCapability.DELETION_DETECTION, "Enabled via stateful ingestion")
-@capability(
-    SourceCapability.CLASSIFICATION,
-    "Optionally enabled via `classification.enabled`",
-    supported=True,
-)
 class HanaSource(SQLAlchemySource):
     def __init__(self, config: HanaConfig, ctx: PipelineContext):
         super().__init__(config, ctx, "hana")

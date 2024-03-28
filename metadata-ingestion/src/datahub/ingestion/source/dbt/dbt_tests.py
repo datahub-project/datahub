@@ -233,13 +233,11 @@ def make_assertion_from_test(
 
 def make_assertion_result_from_test(
     node: "DBTNode",
+    test_result: DBTTestResult,
     assertion_urn: str,
     upstream_urn: str,
     test_warnings_are_errors: bool,
 ) -> MetadataWorkUnit:
-    assert node.test_result
-    test_result = node.test_result
-
     assertionResult = AssertionRunEventClass(
         timestampMillis=int(test_result.execution_time.timestamp() * 1000.0),
         assertionUrn=assertion_urn,

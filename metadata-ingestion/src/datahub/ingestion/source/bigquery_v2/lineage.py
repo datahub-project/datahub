@@ -563,6 +563,7 @@ class BigqueryLineageExtractor:
                 )
 
                 # Only builds lineage map when the table has upstreams
+                logger.debug("Found %d upstreams for table %s", len(upstreams), table)
                 if upstreams:
                     lineage_map[destination_table_str] = set(
                         [
