@@ -409,6 +409,7 @@ export default function TagTermGroup({
                 showAddModal={showAddModal}
                 setShowAddModal={setShowAddModal}
                 addModalType={addModalType}
+                refetch={refetch}
             />
         </TagTermWrapper>
     );

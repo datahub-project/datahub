@@ -293,7 +293,7 @@ export default function SchemaTable({
     const usageColumn = {
         width: 100,
         title: 'Stats',
-        dataIndex: 'usage',
+        dataIndex: 'fieldPath',
         key: 'usage',
         render: usageStatsRenderer,
         sorter: (sourceA, sourceB) => getCount(sourceA.fieldPath) - getCount(sourceB.fieldPath),
