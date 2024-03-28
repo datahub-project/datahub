@@ -4720,6 +4720,11 @@ input EditableSchemaFieldInfoUpdate {
     Tags associated with the field
     """
     globalTags: GlobalTagsUpdate
+
+    """
+    The structured glossary terms associated with the notebook
+    """
+    glossaryTerms: GlossaryTerms
 }
 
 """
