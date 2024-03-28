@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.types.assertion;
 
 import com.linkedin.assertion.AssertionInfo;
 import com.linkedin.common.DataPlatformInstance;
+import com.linkedin.common.Status;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -56,6 +57,18 @@ public class AssertionMapper {
       result.setPlatform(unknownPlatform);
     }
 
+    final EnvelopedAspect envelopedStatus = aspects.get(Constants.STATUS_ASPECT_NAME);
+    if (envelopedStatus != null) {
+      result.setStatus(mapStatus(new Status(envelopedStatus.getValue().data())));
+    }
+
+    return result;
+  }
+
+  private static com.linkedin.datahub.graphql.generated.Status mapStatus(Status status) {
+    final com.linkedin.datahub.graphql.generated.Status result =
+        new com.linkedin.datahub.graphql.generated.Status();
+    result.setRemoved(status.isRemoved());
     return result;
   }
 

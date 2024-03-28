@@ -141,6 +141,14 @@ public class MappingUtil {
         .type(AspectType.fromValue(envelopedAspect.getType().name().toUpperCase(Locale.ROOT)))
         .created(objectMapper.convertValue(envelopedAspect.getCreated().data(), AuditStamp.class))
         .value(mapAspectValue(envelopedAspect.getName(), envelopedAspect.getValue(), objectMapper))
+        .systemMetadata(
+            Optional.ofNullable(envelopedAspect.getSystemMetadata())
+                .map(
+                    systemMetadata ->
+                        objectMapper.convertValue(
+                            systemMetadata.data(),
+                            io.datahubproject.openapi.generated.SystemMetadata.class))
+                .orElse(null))
         .build();
   }
 

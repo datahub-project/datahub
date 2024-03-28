@@ -213,7 +213,9 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         if self.config.include_hive_metastore:
             try:
                 self.hive_metastore_proxy = HiveMetastoreProxy(
-                    self.config.get_sql_alchemy_url(HIVE_METASTORE), self.config.options
+                    self.config.get_sql_alchemy_url(HIVE_METASTORE),
+                    self.config.options,
+                    self.report,
                 )
                 self.report.hive_metastore_catalog_found = True
 
