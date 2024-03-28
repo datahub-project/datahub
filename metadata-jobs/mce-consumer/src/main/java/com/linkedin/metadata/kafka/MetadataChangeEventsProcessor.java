@@ -67,6 +67,7 @@ public class MetadataChangeEventsProcessor {
               + Topics.METADATA_CHANGE_EVENT
               + "}}",
       containerFactory = "kafkaEventConsumer")
+  @Deprecated
   public void consume(final ConsumerRecord<String, GenericRecord> consumerRecord) {
     try (Timer.Context i = MetricUtils.timer(this.getClass(), "consume").time()) {
       kafkaLagStats.update(System.currentTimeMillis() - consumerRecord.timestamp());
@@ -116,6 +117,7 @@ public class MetadataChangeEventsProcessor {
     return fmce;
   }
 
+  @Deprecated
   private void processProposedSnapshot(@Nonnull MetadataChangeEvent metadataChangeEvent)
       throws RemoteInvocationException {
     final Snapshot snapshotUnion = metadataChangeEvent.getProposedSnapshot();

@@ -1,10 +1,19 @@
 import logging
 from dataclasses import dataclass, field
-from typing import Any, Counter, Dict, Iterable, List, Optional, Tuple, Type, Union
+from typing import (
+    TYPE_CHECKING,
+    Counter,
+    Dict,
+    Iterable,
+    List,
+    Optional,
+    Tuple,
+    Type,
+    Union,
+)
 
 import boto3
 import pydantic
-from botocore.client import BaseClient
 from pydantic.fields import Field
 
 from datahub.configuration.common import AllowDenyPattern
@@ -27,6 +36,13 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor, SourceCapability
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.glossary.classification_mixin import (
+    ClassificationHandler,
+    ClassificationReportMixin,
+    ClassificationSourceConfigMixin,
+    classification_workunit_processor,
+)
+from datahub.ingestion.source.dynamodb.data_reader import DynamoDBTableItemsReader
 from datahub.ingestion.source.schema_inference.object import SchemaDescription
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
@@ -65,8 +81,19 @@ FIELD_DELIMITER = "."
 
 logger: logging.Logger = logging.getLogger(__name__)
 
+if TYPE_CHECKING:
+    from mypy_boto3_dynamodb import DynamoDBClient
+    from mypy_boto3_dynamodb.type_defs import (
+        AttributeValueTypeDef,
+        TableDescriptionTypeDef,
+    )
 
-class DynamoDBConfig(DatasetSourceConfigMixin, StatefulIngestionConfigBase):
+
+class DynamoDBConfig(
+    DatasetSourceConfigMixin,
+    StatefulIngestionConfigBase,
+    ClassificationSourceConfigMixin,
+):
     # TODO: refactor the config to use AwsConnectionConfig and create a method get_dynamodb_client
     # in the class to provide optional region name input
     aws_access_key_id: str = Field(description="AWS Access Key ID.")
@@ -95,7 +122,7 @@ class DynamoDBConfig(DatasetSourceConfigMixin, StatefulIngestionConfigBase):
 
 
 @dataclass
-class DynamoDBSourceReport(StaleEntityRemovalSourceReport):
+class DynamoDBSourceReport(StaleEntityRemovalSourceReport, ClassificationReportMixin):
     filtered: List[str] = field(default_factory=list)
 
     def report_dropped(self, name: str) -> None:
@@ -163,6 +190,7 @@ class DynamoDBSource(StatefulIngestionSourceBase):
         self.config = config
         self.report = DynamoDBSourceReport()
         self.platform = platform
+        self.classification_handler = ClassificationHandler(self.config, self.report)
 
         if self.config.domain:
             self.domain_registry = DomainRegistry(
@@ -201,6 +229,7 @@ class DynamoDBSource(StatefulIngestionSourceBase):
                 aws_access_key_id=self.config.aws_access_key_id,
                 aws_secret_access_key=self.config.aws_secret_access_key.get_secret_value(),
             )
+            data_reader = DynamoDBTableItemsReader.create(dynamodb_client)
 
             for table_name in self._list_tables(dynamodb_client):
                 dataset_name = f"{region}.{table_name}"
@@ -209,66 +238,82 @@ class DynamoDBSource(StatefulIngestionSourceBase):
                     self.report.report_dropped(dataset_name)
                     continue
 
-                logger.debug(f"Processing table: {dataset_name}")
-                table_info = dynamodb_client.describe_table(TableName=table_name)[
-                    "Table"
-                ]
-                account_id = table_info["TableArn"].split(":")[4]
-                platform_instance = self.config.platform_instance or account_id
-                dataset_urn = make_dataset_urn_with_platform_instance(
-                    platform=self.platform,
-                    platform_instance=platform_instance,
-                    name=dataset_name,
+                table_wu_generator = self._process_table(
+                    region, dynamodb_client, table_name, dataset_name
                 )
-                dataset_properties = DatasetPropertiesClass(
-                    tags=[],
-                    customProperties={
-                        "table.arn": table_info["TableArn"],
-                        "table.totalItems": str(table_info["ItemCount"]),
-                    },
-                )
-                primary_key_dict = self.extract_primary_key_from_key_schema(table_info)
-                table_schema = self.construct_schema_from_dynamodb(
-                    dynamodb_client, region, table_name
-                )
-                schema_metadata = self.construct_schema_metadata(
-                    table_name,
-                    dataset_urn,
-                    dataset_properties,
-                    table_schema,
-                    primary_key_dict,
+                yield from classification_workunit_processor(
+                    table_wu_generator,
+                    self.classification_handler,
+                    data_reader,
+                    [region, table_name],
                 )
 
-                yield MetadataChangeProposalWrapper(
-                    entityUrn=dataset_urn,
-                    aspect=schema_metadata,
-                ).as_workunit()
+    def _process_table(
+        self,
+        region: str,
+        dynamodb_client: "DynamoDBClient",
+        table_name: str,
+        dataset_name: str,
+    ) -> Iterable[MetadataWorkUnit]:
 
-                yield MetadataChangeProposalWrapper(
-                    entityUrn=dataset_urn,
-                    aspect=dataset_properties,
-                ).as_workunit()
+        logger.debug(f"Processing table: {dataset_name}")
+        table_info = dynamodb_client.describe_table(TableName=table_name)["Table"]
+        account_id = table_info["TableArn"].split(":")[4]
+        platform_instance = self.config.platform_instance or account_id
+        dataset_urn = make_dataset_urn_with_platform_instance(
+            platform=self.platform,
+            platform_instance=platform_instance,
+            name=dataset_name,
+        )
+        dataset_properties = DatasetPropertiesClass(
+            tags=[],
+            customProperties={
+                "table.arn": table_info["TableArn"],
+                "table.totalItems": str(table_info["ItemCount"]),
+            },
+        )
 
-                yield from self._get_domain_wu(
-                    dataset_name=table_name,
-                    entity_urn=dataset_urn,
-                )
+        primary_key_dict = self.extract_primary_key_from_key_schema(table_info)
+        table_schema = self.construct_schema_from_dynamodb(
+            dynamodb_client, region, table_name
+        )
 
-                platform_instance_aspect = DataPlatformInstanceClass(
-                    platform=make_data_platform_urn(self.platform),
-                    instance=make_dataplatform_instance_urn(
-                        self.platform, platform_instance
-                    ),
-                )
+        schema_metadata = self.construct_schema_metadata(
+            table_name,
+            dataset_urn,
+            dataset_properties,
+            table_schema,
+            primary_key_dict,
+        )
 
-                yield MetadataChangeProposalWrapper(
-                    entityUrn=dataset_urn,
-                    aspect=platform_instance_aspect,
-                ).as_workunit()
+        yield MetadataChangeProposalWrapper(
+            entityUrn=dataset_urn,
+            aspect=schema_metadata,
+        ).as_workunit()
+
+        yield MetadataChangeProposalWrapper(
+            entityUrn=dataset_urn,
+            aspect=dataset_properties,
+        ).as_workunit()
+
+        yield from self._get_domain_wu(
+            dataset_name=table_name,
+            entity_urn=dataset_urn,
+        )
+
+        platform_instance_aspect = DataPlatformInstanceClass(
+            platform=make_data_platform_urn(self.platform),
+            instance=make_dataplatform_instance_urn(self.platform, platform_instance),
+        )
+
+        yield MetadataChangeProposalWrapper(
+            entityUrn=dataset_urn,
+            aspect=platform_instance_aspect,
+        ).as_workunit()
 
     def _list_tables(
         self,
-        dynamodb_client: BaseClient,
+        dynamodb_client: "DynamoDBClient",
     ) -> Iterable[str]:
         # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/dynamodb/paginator/ListTables.html
         try:
@@ -283,7 +328,7 @@ class DynamoDBSource(StatefulIngestionSourceBase):
 
     def construct_schema_from_dynamodb(
         self,
-        dynamodb_client: BaseClient,
+        dynamodb_client: "DynamoDBClient",
         region: str,
         table_name: str,
     ) -> Dict[Tuple[str, ...], SchemaDescription]:
@@ -321,7 +366,7 @@ class DynamoDBSource(StatefulIngestionSourceBase):
 
     def include_table_item_to_schema(
         self,
-        dynamodb_client: Any,
+        dynamodb_client: "DynamoDBClient",
         region: str,
         table_name: str,
         schema: Dict[Tuple[str, ...], SchemaDescription],
@@ -342,7 +387,7 @@ class DynamoDBSource(StatefulIngestionSourceBase):
                 f"the provided primary keys list size exceeded the max size for table {dataset_name}, we'll only process the first {MAX_PRIMARY_KEYS_SIZE} items"
             )
             primary_key_list = primary_key_list[0:MAX_PRIMARY_KEYS_SIZE]
-        items = []
+        items: List[Dict[str, "AttributeValueTypeDef"]] = []
         response = dynamodb_client.batch_get_item(
             RequestItems={table_name: {"Keys": primary_key_list}}
         ).get("Responses")
@@ -354,13 +399,13 @@ class DynamoDBSource(StatefulIngestionSourceBase):
         logger.debug(
             f"successfully retrieved {len(primary_key_list)} items based on supplied primary key list"
         )
-        items = response.get(table_name)
+        items = response.get(table_name) or []
 
         self.construct_schema_from_items(items, schema)
 
     def construct_schema_from_items(
         self,
-        items: List[Dict[str, Dict]],
+        items: List[Dict[str, "AttributeValueTypeDef"]],
         schema: Dict[Tuple[str, ...], SchemaDescription],
     ) -> None:
         """
@@ -375,7 +420,7 @@ class DynamoDBSource(StatefulIngestionSourceBase):
     def append_schema(
         self,
         schema: Dict[Tuple[str, ...], SchemaDescription],
-        document: Dict[str, Dict],
+        document: Dict[str, "AttributeValueTypeDef"],
         parent_field_path: Tuple[str, ...] = (),
     ) -> None:
         # the key is the attribute name and the value is a dict with only one entry,
@@ -384,7 +429,7 @@ class DynamoDBSource(StatefulIngestionSourceBase):
         for key, value in document.items():
             if value is not None:
                 data_type = list(value.keys())[0]
-                attribute_value = value[data_type]
+                attribute_value = value[data_type]  # type:ignore
                 current_field_path = parent_field_path + (key,)
                 # Handle nested maps by recursive calls
                 if data_type == "M":
@@ -487,14 +532,14 @@ class DynamoDBSource(StatefulIngestionSourceBase):
         return schema_metadata
 
     def extract_primary_key_from_key_schema(
-        self, table_info: Dict[str, Any]
+        self, table_info: "TableDescriptionTypeDef"
     ) -> Dict[str, str]:
         key_schema = table_info.get("KeySchema")
-        primary_key_dict = {}
+        primary_key_dict: Dict[str, str] = {}
         assert isinstance(key_schema, List)
         for key in key_schema:
-            attribute_name = key.get("AttributeName")
-            key_type = key.get("KeyType")
+            attribute_name = key["AttributeName"]
+            key_type = key["KeyType"]
             primary_key_dict[attribute_name] = key_type
         return primary_key_dict
 
