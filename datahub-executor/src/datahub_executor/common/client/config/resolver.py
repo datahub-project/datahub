@@ -109,4 +109,5 @@ class ExecutorConfigResolver:
                 )
 
         self.executor_configs = executor_configs
+
         return self.executor_configs
