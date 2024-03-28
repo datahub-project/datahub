@@ -13,6 +13,8 @@ import com.linkedin.metadata.recommendation.ScenarioType;
 import com.linkedin.metadata.search.EntitySearchService;
 import java.util.List;
 import javax.annotation.Nonnull;
+
+import com.linkedin.view.DataHubViewInfo;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
@@ -64,7 +66,7 @@ public class TopPlatformsSource extends EntitySearchAggregationSource {
 
   @Override
   public boolean isEligible(
-      @Nonnull Urn userUrn, @Nonnull RecommendationRequestContext requestContext) {
+      @Nonnull Urn userUrn, @Nonnull RecommendationRequestContext requestContext,@Nonnull DataHubViewInfo maybeViewInfo) {
     return requestContext.getScenario() == ScenarioType.HOME;
   }
 

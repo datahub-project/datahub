@@ -4,6 +4,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.recommendation.candidatesource.RecommendationSource;
 import com.linkedin.metadata.recommendation.ranker.RecommendationModuleRanker;
 import com.linkedin.metadata.utils.ConcurrencyUtils;
+import com.linkedin.view.DataHubViewInfo;
 import io.opentelemetry.extension.annotations.WithSpan;
 import java.util.List;
 import java.util.Map;
@@ -55,14 +56,14 @@ public class RecommendationsService {
   @Nonnull
   @WithSpan
   public List<RecommendationModule> listRecommendations(
-      @Nonnull Urn userUrn, @Nonnull RecommendationRequestContext requestContext, int limit) {
+      @Nonnull Urn userUrn, @Nonnull RecommendationRequestContext requestContext, int limit, DataHubViewInfo maybeViewInfo) {
     // Get recommendation candidates from sources which are eligible, in parallel
     final List<RecommendationModule> candidateModules =
         ConcurrencyUtils.transformAndCollectAsync(
                 _candidateSources.stream()
-                    .filter(source -> source.isEligible(userUrn, requestContext))
+                    .filter(source -> source.isEligible(userUrn, requestContext, maybeViewInfo))
                     .collect(Collectors.toList()),
-                source -> source.getRecommendationModule(userUrn, requestContext),
+                source -> source.getRecommendationModule(userUrn, requestContext, maybeViewInfo),
                 (source, exception) -> {
                   log.error(
                       "Error while fetching candidate modules from source {}", source, exception);

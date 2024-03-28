@@ -6,6 +6,8 @@ import com.linkedin.metadata.recommendation.RecommendationRenderType;
 import com.linkedin.metadata.recommendation.RecommendationRequestContext;
 import java.util.List;
 import javax.annotation.Nonnull;
+
+import com.linkedin.view.DataHubViewInfo;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 
@@ -36,13 +38,13 @@ public class TestSource implements RecommendationSource {
 
   @Override
   public boolean isEligible(
-      @Nonnull Urn userUrn, @Nonnull RecommendationRequestContext requestContext) {
+      @Nonnull Urn userUrn, @Nonnull RecommendationRequestContext requestContext, @Nonnull DataHubViewInfo maybeViewInfo) {
     return eligible;
   }
 
   @Override
   public List<RecommendationContent> getRecommendations(
-      @Nonnull Urn userUrn, @Nonnull RecommendationRequestContext requestContext) {
+      @Nonnull Urn userUrn, @Nonnull RecommendationRequestContext requestContext, @Nonnull DataHubViewInfo maybeViewInfo) {
     return contents;
   }
 }

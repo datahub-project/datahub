@@ -18,6 +18,8 @@ import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+
+import com.linkedin.view.DataHubViewInfo;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.opensearch.action.search.SearchRequest;
@@ -60,7 +62,7 @@ public class RecentlySearchedSource implements RecommendationSource {
 
   @Override
   public boolean isEligible(
-      @Nonnull Urn userUrn, @Nonnull RecommendationRequestContext requestContext) {
+      @Nonnull Urn userUrn, @Nonnull RecommendationRequestContext requestContext, @Nonnull DataHubViewInfo maybeViewInfo) {
     boolean analyticsEnabled = false;
     try {
       analyticsEnabled =
@@ -77,7 +79,7 @@ public class RecentlySearchedSource implements RecommendationSource {
 
   @Override
   public List<RecommendationContent> getRecommendations(
-      @Nonnull Urn userUrn, @Nonnull RecommendationRequestContext requestContext) {
+      @Nonnull Urn userUrn, @Nonnull RecommendationRequestContext requestContext ,@Nonnull DataHubViewInfo maybeViewInfo) {
     SearchRequest searchRequest = buildSearchRequest(userUrn);
     try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "getRecentlySearched").time()) {
       final SearchResponse searchResponse =

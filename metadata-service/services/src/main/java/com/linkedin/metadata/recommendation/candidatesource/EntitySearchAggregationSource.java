@@ -13,6 +13,7 @@ import com.linkedin.metadata.recommendation.RecommendationRequestContext;
 import com.linkedin.metadata.recommendation.SearchParams;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.utils.QueryUtils;
+import com.linkedin.view.DataHubViewInfo;
 import io.opentelemetry.extension.annotations.WithSpan;
 import java.net.URISyntaxException;
 import java.util.Collections;
@@ -71,7 +72,7 @@ public abstract class EntitySearchAggregationSource implements RecommendationSou
   @Override
   @WithSpan
   public List<RecommendationContent> getRecommendations(
-      @Nonnull Urn userUrn, @Nullable RecommendationRequestContext requestContext) {
+      @Nonnull Urn userUrn, @Nullable RecommendationRequestContext requestContext,@Nonnull DataHubViewInfo maybeViewInfo) {
     Map<String, Long> aggregationResult =
         entitySearchService.aggregateByValue(
             getEntityNames(entityRegistry), getSearchFieldName(), null, getMaxContent());

@@ -12,10 +12,13 @@ import com.linkedin.metadata.recommendation.ranker.SimpleRecommendationRanker;
 import java.net.URISyntaxException;
 import java.util.List;
 import java.util.stream.Collectors;
+
+import com.linkedin.view.DataHubViewInfo;
 import org.testng.annotations.Test;
 
 public class RecommendationsServiceTest {
 
+  private final DataHubViewInfo maybeViewInfo;
   private final TestSource nonEligibleSource =
       new TestSource(
           "not eligible",
@@ -60,6 +63,10 @@ public class RecommendationsServiceTest {
                   TestEntityUtil.getTestEntityUrn())));
   private final RecommendationModuleRanker ranker = new SimpleRecommendationRanker();
 
+  public RecommendationsServiceTest(DataHubViewInfo maybeViewInfo) {
+    this.maybeViewInfo = maybeViewInfo;
+  }
+
   private List<RecommendationContent> getContentFromString(List<String> values) {
     return values.stream()
         .map(value -> new RecommendationContent().setValue(value))
@@ -81,7 +88,7 @@ public class RecommendationsServiceTest {
         service.listRecommendations(
             Urn.createFromString("urn:li:corpuser:me"),
             new RecommendationRequestContext().setScenario(ScenarioType.HOME),
-            10);
+            10,maybeViewInfo);
     assertTrue(result.isEmpty());
 
     // Test empty with one valid source
@@ -92,7 +99,7 @@ public class RecommendationsServiceTest {
         service.listRecommendations(
             Urn.createFromString("urn:li:corpuser:me"),
             new RecommendationRequestContext().setScenario(ScenarioType.HOME),
-            10);
+            10,maybeViewInfo);
     assertEquals(result.size(), 1);
     RecommendationModule module = result.get(0);
     assertEquals(module.getTitle(), "values");
@@ -108,7 +115,7 @@ public class RecommendationsServiceTest {
         service.listRecommendations(
             Urn.createFromString("urn:li:corpuser:me"),
             new RecommendationRequestContext().setScenario(ScenarioType.HOME),
-            10);
+            10,maybeViewInfo);
     assertEquals(result.size(), 4);
     module = result.get(0);
     assertEquals(module.getTitle(), "values");
@@ -136,7 +143,7 @@ public class RecommendationsServiceTest {
         service.listRecommendations(
             Urn.createFromString("urn:li:corpuser:me"),
             new RecommendationRequestContext().setScenario(ScenarioType.HOME),
-            2);
+            2,maybeViewInfo);
     assertEquals(result.size(), 2);
     module = result.get(0);
     assertEquals(module.getTitle(), "values");
