@@ -35,7 +35,7 @@ def shutdown_handler(*args, **kwargs):  # type: ignore
     logger.info("Shutdown handler: uvicorn initiated shutdown")
 
     # Give all jobs some time to finish, then forcefully terminate the process
-    def force_shutdown():
+    def force_shutdown() -> None:
         time.sleep(DATAHUB_EXECUTOR_GRACEFUL_SHUTDOWN_PERIOD)
         logger.info("Shutdown handler: graceful period expired, force-exiting...")
         os.kill(os.getpid(), signal.SIGKILL)

@@ -44,11 +44,16 @@ def setup_ingestion_executor() -> ReportingExecutor:
         type="acryl.executor.execution.sub_process_ingestion_task.SubProcessIngestionTask",
         configs=dict({}),
     )
+    test_connection_task_config = TaskConfig(
+        name="TEST_CONNECTION",
+        type="acryl.executor.execution.sub_process_test_connection_task.SubProcessTestConnectionTask",
+        configs=dict({}),
+    )
 
     # Build default executor config
     ingestion_executor_config = ReportingExecutorConfig(
         id=DATAHUB_EXECUTOR_WORKER_ID,
-        task_configs=[ingest_task_config],
+        task_configs=[ingest_task_config, test_connection_task_config],
         secret_stores=[
             SecretStoreConfig(type="env", config=dict({})),
             SecretStoreConfig(
@@ -89,12 +94,6 @@ def extract_execution_request(
         logger.error(f"Invalid entityKeyAspect, {event}")
         return None
 
-    if "task" in aspect_dict and not aspect_dict["task"] == RUN_INGEST_TASK_NAME:
-        logger.error(
-            f"Unsupported Task type {aspect_dict['task']} provided. Skipping execution of {event.entityUrn}.."
-        )
-        return None
-
     if (
         "executorId" in aspect_dict
         and not aspect_dict["executorId"] == DATAHUB_EXECUTOR_WORKER_ID
@@ -108,13 +107,8 @@ def extract_execution_request(
         execution_request = ExecutionRequest(
             executor_id=aspect_dict["executorId"],
             exec_id=entity_key_dict["id"],
-            name=RUN_INGEST_TASK_NAME,
-            args={
-                "urn": aspect_dict["source"]["ingestionSource"],
-                "recipe": aspect_dict["args"]["recipe"],
-                "version": aspect_dict["args"]["version"],
-                "debug_mode": aspect_dict["args"]["debug_mode"],
-            },
+            name=aspect_dict["task"],
+            args=aspect_dict["args"],
         )
     except Exception as e:
         logger.error(f"Error parsing Execution Request {e}")

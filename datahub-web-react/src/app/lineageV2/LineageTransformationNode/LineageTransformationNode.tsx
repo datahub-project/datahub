@@ -50,11 +50,17 @@ const NodeWrapper = styled.div<{ selected: boolean; opacity: number }>`
     cursor: pointer;
 `;
 
-const CustomHandle = styled(Handle)<{ position: Position }>`
+const CustomHandle = styled(Handle)<{ position: Position; $onEdge: boolean }>`
     background: initial;
     border: initial;
     top: 50%;
     left: 50%;
+
+    ${({ position, $onEdge }) => {
+        if ($onEdge && position === Position.Left) return 'left: 0;';
+        if ($onEdge && position === Position.Right) return 'right: 0;';
+        return '';
+    }};
 `;
 
 const CustomIcon = styled.img`
@@ -104,8 +110,8 @@ export default function LineageTransformationNode(props: NodeProps<LineageEntity
                     <Spin delay={urn === rootUrn ? undefined : 500} indicator={<LoadingOutlined />} />
                 </LoadingWrapper>
             )}
-            <CustomHandle type="target" position={Position.Left} isConnectable={false} />
-            <CustomHandle type="source" position={Position.Right} isConnectable={false} />
+            <CustomHandle type="target" position={Position.Left} isConnectable={false} $onEdge={!isQuery} />
+            <CustomHandle type="source" position={Position.Right} isConnectable={false} $onEdge={!isQuery} />
         </NodeWrapper>
     );
 }

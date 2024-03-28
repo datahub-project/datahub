@@ -14,11 +14,11 @@ class IngestionSourceSchedule(PermissiveBaseModel):
 class IngestionSourceConfig(PermissiveBaseModel):
     recipe: str
 
-    version: Optional[str]
-
     executor_id: str = Field(alias="executorId")
 
-    debug_mode: str = Field(alias="debugMode")
+    version: Optional[str]
+
+    debug_mode: Optional[str] = Field(alias="debugMode")
 
 
 class IngestionSource(PermissiveBaseModel):

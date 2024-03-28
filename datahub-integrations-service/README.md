@@ -20,16 +20,13 @@
 
 ### Adding dependencies
 
-We use [pip-tools](https://github.com/jazzband/pip-tools) (`pip-compile` and `pip-sync`) to manage dependencies. To add a new dependency:
+We use [uv](https://github.com/astral-sh/uv)'s compile and sync subcommands to manage dependencies. To add a new dependency:
 
 ```sh
 # First, add the dependency to pyproject.toml
 
-# Then run the following command to update the lockfile.
+# Then run the following command to update the lockfile and install deps.
 ./scripts/lockfile.sh
-
-# Finally, update the venv.
-pip-sync requirements.txt requirements-dev.txt && pip install -e .
 ```
 
 ### Updating dependencies
@@ -39,17 +36,16 @@ pip-sync requirements.txt requirements-dev.txt && pip install -e .
 
 # Update the lockfiles and venv:
 ./scripts/lockfile.sh
-pip-sync requirements.txt requirements-dev.txt && pip install -e .
 ```
 
 Alternative approach: updating requirements without updating pyproject.toml.
 
 ```sh
 # Upgrade a single package:
-pip-compile -o requirements.txt pyproject.toml requirements-local.in --upgrade-package <package>
+uv pip compile -o requirements.txt pyproject.toml requirements-local.in --upgrade-package <package>
 
 # Upgrade all packages:
-pip-compile -o requirements.txt pyproject.toml requirements-local.in --upgrade
+uv pip compile -o requirements.txt pyproject.toml requirements-local.in --upgrade
 
 # Either way, run the same lockfile and venv update commands as above.
 ```

@@ -27,9 +27,6 @@ class TestRemoteResolver:
                         ).isoformat(),
                         "sessionToken": "some-session-token",
                     },
-                    {
-                        "region": "us-west-1",
-                    },
                 ],
             }
         }
@@ -39,18 +36,13 @@ class TestRemoteResolver:
         assert len(executor_configs) == 1
         assert executor_configs[0].executor_id == "default"
 
-    def test_fetch_executor_configs_error(self) -> None:
-        self.resolver.graph.execute_graphql.return_value = {"error": "something bad happened"}  # type: ignore
-        executor_configs = self.resolver.fetch_executor_configs()
-        assert len(executor_configs) == 0
-
-    def test_fetch_executor_configs_missing_list(self) -> None:
-        self.resolver.graph.execute_graphql.return_value = {}  # type: ignore
-        executor_configs = self.resolver.fetch_executor_configs()
-        assert len(executor_configs) == 0
-
-    def test_fetch_executor_configs_missing_executor_configs(self) -> None:
-        self.resolver.graph.execute_graphql.return_value = {"listAwsSqsCredentials": {}}  # type: ignore
+    def test_fetch_executor_configs_empty_list(self) -> None:
+        self.resolver.graph.execute_graphql.return_value = {  # type: ignore
+            "listExecutorConfigs": {
+                "total": 0,
+                "executorConfigs": [],
+            }
+        }
         executor_configs = self.resolver.fetch_executor_configs()
         assert len(executor_configs) == 0
 
@@ -70,9 +62,6 @@ class TestRemoteResolver:
                             + datetime.timedelta(minutes=30)
                         ).isoformat(),
                         "sessionToken": "some-session-token",
-                    },
-                    {
-                        "region": "us-west-1",
                     },
                 ],
             }

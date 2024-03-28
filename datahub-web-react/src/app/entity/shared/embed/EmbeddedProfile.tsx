@@ -28,6 +28,10 @@ const StyledDivider = styled(Divider)`
     margin: 12px 0;
 `;
 
+const ProfileWrapper = styled.div`
+    padding: 16px;
+`;
+
 interface Props<T> {
     urn: string;
     entityType: EntityType;
@@ -77,7 +81,7 @@ export default function EmbeddedProfile<T>({ urn, entityType, getOverridePropert
                 </LoadingWrapper>
             )}
             {!loading && entityData && (
-                <>
+                <ProfileWrapper>
                     <EmbeddedHeader />
                     <StyledDivider />
                     <UpstreamHealth />
@@ -91,7 +95,7 @@ export default function EmbeddedProfile<T>({ urn, entityType, getOverridePropert
                     <SidebarDomainSection readOnly={readOnly} />
                     <StyledDivider />
                     <DataProductSection readOnly={readOnly} />
-                </>
+                </ProfileWrapper>
             )}
         </EntityContext.Provider>
     );

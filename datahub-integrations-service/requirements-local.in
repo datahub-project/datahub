@@ -1,1 +1,2 @@
--e file:../metadata-ingestion#egg=acryl-datahub
+-e ../metadata-ingestion
+-e .
