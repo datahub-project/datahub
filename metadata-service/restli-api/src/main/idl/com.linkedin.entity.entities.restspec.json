@@ -180,6 +180,10 @@
       "parameters" : [ {
         "name" : "urn",
         "type" : "string"
+      }, {
+        "name" : "includeSoftDelete",
+        "type" : "boolean",
+        "optional" : true
       } ],
       "returns" : "boolean"
     }, {
