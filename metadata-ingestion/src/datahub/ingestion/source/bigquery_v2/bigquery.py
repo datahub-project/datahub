@@ -241,9 +241,9 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 self.config.get_bigquery_client()
             )
 
-        redundant_lineage_run_skip_handler: Optional[RedundantLineageRunSkipHandler] = (
-            None
-        )
+        redundant_lineage_run_skip_handler: Optional[
+            RedundantLineageRunSkipHandler
+        ] = None
         if self.config.enable_stateful_lineage_ingestion:
             redundant_lineage_run_skip_handler = RedundantLineageRunSkipHandler(
                 source=self,
@@ -552,6 +552,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 for k, v in tags.items()
                 if is_tag_allowed(self.config.capture_dataset_label_as_tag, k)
             ]
+
         database_container_key = self.gen_project_id_key(database=project_id)
 
         yield from gen_schema_container(

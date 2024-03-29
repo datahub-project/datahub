@@ -2,11 +2,11 @@ import logging
 import os
 from datetime import timedelta
 from typing import Any, Dict, List, Optional, Union
-from typing_extensions import Literal
 
 from google.cloud import bigquery
 from google.cloud.logging_v2.client import Client as GCPLoggingClient
 from pydantic import Field, PositiveInt, PrivateAttr, root_validator, validator
+from typing_extensions import Literal
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.configuration.validate_field_removal import pydantic_removed_field

@@ -15,5 +15,5 @@ def is_schema_allowed(
         return schema_pattern.allowed(schema_name)
 
 
-def is_tag_allowed(tag_pattern: AllowDenyPattern, tag) -> bool:
+def is_tag_allowed(tag_pattern: AllowDenyPattern, tag: str) -> bool:
     return tag_pattern.allowed(tag)
