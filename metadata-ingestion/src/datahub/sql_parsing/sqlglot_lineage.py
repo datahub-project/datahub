@@ -9,6 +9,7 @@ import pydantic.dataclasses
 import sqlglot
 import sqlglot.errors
 import sqlglot.lineage
+import sqlglot.optimizer
 import sqlglot.optimizer.annotate_types
 import sqlglot.optimizer.optimizer
 import sqlglot.optimizer.qualify
@@ -479,6 +480,8 @@ def _column_level_lineage(  # noqa: C901
     try:
         assert isinstance(statement, _SupportedColumnLineageTypesTuple)
 
+        cached_scope = sqlglot.optimizer.build_scope(statement)
+
         # List output columns.
         output_columns = [
             (select_col.alias_or_name, select_col) for select_col in statement.selects
@@ -505,6 +508,8 @@ def _column_level_lineage(  # noqa: C901
                 statement,
                 dialect=dialect,
                 schema=sqlglot_db_schema,
+                scope=cached_scope,
+                trim_selects=False,
             )
             # pathlib.Path("sqlglot.html").write_text(
             #     str(lineage_node.to_html(dialect=dialect))
@@ -529,9 +534,6 @@ def _column_level_lineage(  # noqa: C901
 
                     # Parse the column name out of the node name.
                     # Sqlglot calls .sql(), so we have to do the inverse.
-                    if node.name == "*":
-                        continue
-
                     normalized_col = sqlglot.parse_one(node.name).this.name
                     if node.subfield:
                         normalized_col = f"{normalized_col}.{node.subfield}"
