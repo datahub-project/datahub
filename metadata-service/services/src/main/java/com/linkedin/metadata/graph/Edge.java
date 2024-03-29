@@ -81,17 +81,21 @@ public class Edge {
     }
   }
 
-  public static final String SOURCE_URN_FIELD = "source.urn";
-  public static final String DESTINATION_URN_FIELD = "destination.urn";
-  public static final String RELATIONSHIP_TYPE_FIELD = "relationshipType";
-  public static final String LIFE_CYCLE_OWNER_FIELD = "lifeCycleOwner";
+  public static final String EDGE_FIELD_SOURCE = "source";
+  public static final String EDGE_FIELD_DESTINATION = "destination";
+  public static final String EDGE_FIELD_RELNSHIP_TYPE = "relationshipType";
+  public static final String EDGE_FIELD_PROPERTIES = "properties";
+  public static final String EDGE_FIELD_VIA = "via";
+  public static final String EDGE_FIELD_LIFECYCLE_OWNER = "lifecycleOwner";
+  public static final String EDGE_SOURCE_URN_FIELD = "source.urn";
+  public static final String EDGE_DESTINATION_URN_FIELD = "destination.urn";
 
   public static final List<Pair<String, SortOrder>> KEY_SORTS =
       List.of(
-          new Pair<>(SOURCE_URN_FIELD, SortOrder.ASCENDING),
-          new Pair<>(DESTINATION_URN_FIELD, SortOrder.ASCENDING),
-          new Pair<>(RELATIONSHIP_TYPE_FIELD, SortOrder.ASCENDING),
-          new Pair<>(LIFE_CYCLE_OWNER_FIELD, SortOrder.ASCENDING));
+          new Pair<>(EDGE_SOURCE_URN_FIELD, SortOrder.ASCENDING),
+          new Pair<>(EDGE_DESTINATION_URN_FIELD, SortOrder.ASCENDING),
+          new Pair<>(EDGE_FIELD_RELNSHIP_TYPE, SortOrder.ASCENDING),
+          new Pair<>(EDGE_FIELD_LIFECYCLE_OWNER, SortOrder.ASCENDING));
   public static List<SortCriterion> EDGE_SORT_CRITERION =
       KEY_SORTS.stream()
           .map(entry -> SearchUtil.sortBy(entry.getKey(), entry.getValue()))

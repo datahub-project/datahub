@@ -1,7 +1,7 @@
 package com.linkedin.metadata.graph.elastic;
 
-import static com.linkedin.metadata.graph.elastic.ElasticSearchGraphService.INDEX_NAME;
-import static com.linkedin.metadata.graph.elastic.GraphRelationshipMappingsBuilder.*;
+import static com.linkedin.metadata.graph.Edge.INDEX_NAME;
+import static com.linkedin.metadata.graph.elastic.ElasticSearchGraphService.*;
 
 import com.codahale.metrics.Timer;
 import com.datahub.util.exception.ESQueryException;
