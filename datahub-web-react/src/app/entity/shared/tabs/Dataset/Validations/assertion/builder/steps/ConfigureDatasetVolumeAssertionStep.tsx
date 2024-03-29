@@ -1,6 +1,6 @@
 import React from 'react';
 import styled from 'styled-components';
-import { Button } from 'antd';
+import { Button, Tooltip } from 'antd';
 import { AssertionBuilderStep, StepProps } from '../types';
 import {
     AssertionEvaluationParametersInput,
@@ -11,6 +11,7 @@ import { TestAssertionModal } from './preview/TestAssertionModal';
 import { builderStateToTestVolumeAssertionVariables } from '../utils';
 import { useTestAssertionModal } from './utils';
 import { VolumeAssertionBuilder } from './volume/VolumeAssertionBuilder';
+import { useConnectionWithTestAssertionCapabilitiesForEntityExists } from '../../../acrylUtils';
 
 const Step = styled.div`
     height: 100%;
@@ -35,13 +36,19 @@ const ControlsGroup = styled.div`
  */
 export const ConfigureDatasetVolumeAssertionStep = ({ state, updateState, goTo, prev }: StepProps) => {
     const { isTestAssertionModalVisible, handleTestAssertionSubmit, hideTestAssertionModal } = useTestAssertionModal();
+    const isTestAssertionActionDisabled = !useConnectionWithTestAssertionCapabilitiesForEntityExists(state.entityUrn ?? '');
+
     return (
         <Step>
             <VolumeAssertionBuilder state={state} updateState={updateState} disabled={false} />
             <Controls>
                 <Button onClick={prev}>Back</Button>
                 <ControlsGroup>
-                    <Button onClick={handleTestAssertionSubmit}>Try it out</Button>
+                    <Tooltip
+                        title={isTestAssertionActionDisabled ? 'Trying assertions is not supported for sources with remote executors.' : 'Try this assertion out!'}
+                    >
+                        <Button onClick={handleTestAssertionSubmit} disabled={isTestAssertionActionDisabled}>Try it out</Button>
+                    </Tooltip>
                     <Button type="primary" onClick={() => goTo(AssertionBuilderStep.FINISH_UP)}>
                         Next
                     </Button>
