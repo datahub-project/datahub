@@ -1,11 +1,16 @@
 package com.linkedin.metadata.graph;
 
 import com.linkedin.common.urn.Urn;
+import com.linkedin.metadata.query.filter.SortCriterion;
+import com.linkedin.metadata.query.filter.SortOrder;
+import com.linkedin.metadata.utils.SearchUtil;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Base64;
+import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
@@ -75,8 +80,20 @@ public class Edge {
     }
   }
 
-  public static final String[] KEY_FIELDS = {
-    "source.urn", "destination.urn", "relationshipType", "lifeCycleOwner"
-  };
+  public static final String SOURCE_URN_FIELD = "source.urn";
+  public static final String DESTINATION_URN_FIELD = "destination.urn";
+  public static final String RELATIONSHIP_TYPE_FIELD = "relationshipType";
+  public static final String LIFE_CYCLE_OWNER_FIELD = "lifeCycleOwner";
+
+  public static final Map<String, SortOrder> KEY_SORTS = Map.of(
+      SOURCE_URN_FIELD, SortOrder.ASCENDING,
+      DESTINATION_URN_FIELD, SortOrder.ASCENDING,
+      RELATIONSHIP_TYPE_FIELD, SortOrder.ASCENDING,
+      LIFE_CYCLE_OWNER_FIELD, SortOrder.ASCENDING
+  );
+  public static List<SortCriterion> EDGE_SORT_CRITERION =
+      KEY_SORTS.entrySet().stream().map(
+          entry -> SearchUtil.sortBy(entry.getKey(), entry.getValue())
+      ).collect(Collectors.toList());
   private static final String DOC_DELIMETER = "--";
 }
