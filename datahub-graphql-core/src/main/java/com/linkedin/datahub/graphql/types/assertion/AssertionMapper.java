@@ -2,13 +2,16 @@ package com.linkedin.datahub.graphql.types.assertion;
 
 import com.linkedin.assertion.AssertionAction;
 import com.linkedin.assertion.AssertionActions;
+import com.linkedin.assertion.AssertionInferenceDetails;
 import com.linkedin.assertion.AssertionInfo;
 import com.linkedin.common.DataPlatformInstance;
 import com.linkedin.common.Status;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
+import com.linkedin.datahub.graphql.generated.AdjustmentAlgorithm;
 import com.linkedin.datahub.graphql.generated.Assertion;
 import com.linkedin.datahub.graphql.generated.AssertionActionType;
+import com.linkedin.datahub.graphql.generated.AssertionAdjustmentSettings;
 import com.linkedin.datahub.graphql.generated.AssertionSource;
 import com.linkedin.datahub.graphql.generated.AssertionSourceType;
 import com.linkedin.datahub.graphql.generated.AssertionStdAggregation;
@@ -38,6 +41,7 @@ import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.metadata.Constants;
 import java.util.Collections;
 import java.util.stream.Collectors;
+import javax.annotation.Nonnull;
 
 public class AssertionMapper {
 
@@ -60,6 +64,14 @@ public class AssertionMapper {
     if (envelopedAssertionActions != null) {
       result.setActions(
           mapAssertionActions(new AssertionActions(envelopedAssertionActions.getValue().data())));
+    }
+
+    final EnvelopedAspect envelopedAssertionInferenceDetails =
+        aspects.get(Constants.ASSERTION_INFERENCE_DETAILS_ASPECT_NAME);
+    if (envelopedAssertionInferenceDetails != null) {
+      result.setInferenceDetails(
+          mapInferenceDetails(
+              new AssertionInferenceDetails(envelopedAssertionInferenceDetails.getValue().data())));
     }
 
     final EnvelopedAspect envelopedPlatformInstance =
@@ -88,6 +100,40 @@ public class AssertionMapper {
         new com.linkedin.datahub.graphql.generated.Status();
     result.setRemoved(status.isRemoved());
     return result;
+  }
+
+  private static com.linkedin.datahub.graphql.generated.AssertionInferenceDetails
+      mapInferenceDetails(AssertionInferenceDetails gmsInferenceDetails) {
+    com.linkedin.datahub.graphql.generated.AssertionInferenceDetails inferenceDetails =
+        new com.linkedin.datahub.graphql.generated.AssertionInferenceDetails();
+
+    inferenceDetails.setModelId(gmsInferenceDetails.getModelId());
+    inferenceDetails.setModelVersion(gmsInferenceDetails.getModelVersion());
+    if (gmsInferenceDetails.hasParameters()) {
+      inferenceDetails.setParameters(StringMapMapper.map(gmsInferenceDetails.getParameters()));
+    }
+    inferenceDetails.setConfidence(gmsInferenceDetails.getConfidence());
+    if (gmsInferenceDetails.hasAdjustmentSettings()) {
+      inferenceDetails.setAdjustmentSettings(
+          mapAssertionAdjustmentSettings(gmsInferenceDetails.getAdjustmentSettings()));
+    }
+    inferenceDetails.setGeneratedAt(gmsInferenceDetails.getGeneratedAt());
+
+    // Start here
+    return inferenceDetails;
+  }
+
+  private static AssertionAdjustmentSettings mapAssertionAdjustmentSettings(
+      @Nonnull com.linkedin.assertion.AssertionAdjustmentSettings gmsAdjustmentSettings) {
+
+    AssertionAdjustmentSettings adjustmentSettings = new AssertionAdjustmentSettings();
+    adjustmentSettings.setAlgorithm(
+        AdjustmentAlgorithm.valueOf(gmsAdjustmentSettings.getAlgorithm().name()));
+    adjustmentSettings.setAlgorithmName(gmsAdjustmentSettings.getAlgorithmName());
+    if (gmsAdjustmentSettings.hasContext()) {
+      adjustmentSettings.setContext(StringMapMapper.map(gmsAdjustmentSettings.getContext()));
+    }
+    return adjustmentSettings;
   }
 
   public static com.linkedin.datahub.graphql.generated.AssertionInfo mapAssertionInfo(

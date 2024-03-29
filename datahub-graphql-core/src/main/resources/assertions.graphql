@@ -646,6 +646,13 @@ extend type Assertion {
   The actions associated with the Assertion
   """
   actions: AssertionActions
+
+  """
+  The details related to an Inferred Assertion
+  available if source is "INFERRED"
+  """
+  inferenceDetails: AssertionInferenceDetails
+
 }
 
 """
@@ -695,6 +702,74 @@ enum AssertionActionType {
   Resolve open incidents related to the assertion.
   """
   RESOLVE_INCIDENT
+}
+
+"""
+The details of an Inferred Assertion
+"""
+type AssertionInferenceDetails {
+  """
+  The id of the assertion prediction model.
+  """
+  modelId: String
+
+  """
+  The version of the model used to make the assertion.
+  """
+  modelVersion: String
+
+  """
+  The confidence of the inference, if available.
+  """
+  confidence: Float
+
+  """
+  The parameters used to make the inference.
+  """
+  parameters: [StringMapEntry!]
+
+  """
+  The settings used to adjust the assertion.
+  """
+  adjustmentSettings: AssertionAdjustmentSettings
+
+  """
+  The time the inferred assertion was generated at in milliseconds.
+  """
+  generatedAt: Long
+}
+
+"""
+A set of settings that can be used to adjust assertion values
+This is mainly applied against inferred assertions
+"""
+type AssertionAdjustmentSettings {
+  """
+  The algorithm to use to adjust assertion values to power the sensitivity control feature
+  """
+  algorithm: AdjustmentAlgorithm!
+
+  """
+  The name of the algorithm to use to adjust assertion values to power the sensitivity control feature
+  """
+  algorithmName: String
+
+  """
+  The context to use to adjust assertion values
+  """
+  context: [StringMapEntry!]
+
+}
+
+"""
+The algorithm to use to adjust assertion values to power the sensitivity control feature
+"""
+enum AdjustmentAlgorithm {
+  """
+  Custom adjustment algorithm. Refer `algorithmName` for exact algorithm to use.
+  In future, we can use this enum to define exact algorithms.
+  """
+  CUSTOM
 }
 
 """

@@ -13,6 +13,8 @@ from datahub.metadata.schema_classes import (
     AssertionResultTypeClass,
     AssertionRunEventClass,
     AssertionRunStatusClass,
+    AssertionStdParameterClass,
+    AssertionStdParametersClass,
 )
 
 from datahub_executor.common.types import (
@@ -21,7 +23,10 @@ from datahub_executor.common.types import (
     AssertionEvaluationResult,
     AssertionEvaluationResultError,
     AssertionResultType,
+    AssertionStdParameter,
+    AssertionStdParameters,
     AssertionType,
+    RawAspect,
 )
 
 logger = logging.getLogger(__name__)
@@ -93,20 +98,51 @@ def build_assertion_result(
         rowCount=row_count,
         nativeResults=native_results,
         error=error,
-        assertion=get_assertion_info(assertion),
+        assertion=get_assertion_info(assertion.raw_info_aspect),
+        baseAssertion=(
+            get_assertion_info(context.base_assertion_info) if context else None
+        ),
         parameters=get_parameters_from_context(context),
     )
 
 
-def get_assertion_info(assertion: Assertion) -> Optional[AssertionInfoClass]:
-    if assertion.raw_info_aspect:
-        aspect_str = assertion.raw_info_aspect.payload
+def get_assertion_info(
+    raw_info_aspect: Optional[RawAspect],
+) -> Optional[AssertionInfoClass]:
+    if raw_info_aspect:
+        aspect_str = raw_info_aspect.payload
         try:
             info = AssertionInfoClass.from_obj(json.loads(aspect_str))
             return info
         except Exception as e:
             logger.error(f"Unable to save assertion info due to error {e}")
     return None
+
+
+def get_assertion_std_parameters(
+    params: AssertionStdParameters,
+) -> AssertionStdParametersClass:
+    return AssertionStdParametersClass(
+        value=get_assertion_std_parameter(params.value),
+        maxValue=get_assertion_std_parameter(params.max_value),
+        minValue=get_assertion_std_parameter(params.min_value),
+    )
+
+
+def get_assertion_std_parameter(
+    param: Optional[AssertionStdParameter],
+) -> Optional[AssertionStdParameterClass]:
+    return (
+        AssertionStdParameterClass(value=param.value, type=param.type.value)
+        if param
+        else None
+    )
+
+
+def to_raw_aspect(info_aspect: AssertionInfoClass) -> RawAspect:
+    return RawAspect(
+        aspectName="assertionInfo", payload=json.dumps(info_aspect.to_obj())
+    )
 
 
 def get_parameters_from_context(

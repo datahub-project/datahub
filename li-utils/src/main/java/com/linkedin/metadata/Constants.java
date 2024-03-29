@@ -287,6 +287,8 @@ public class Constants {
   public static final String ASSERTION_RUN_EVENT_STATUS_COMPLETE = "COMPLETE";
   public static final String ASSERTION_ACTIONS_ASPECT_NAME = "assertionActions";
 
+  public static final String ASSERTION_INFERENCE_DETAILS_ASPECT_NAME = "assertionInferenceDetails";
+
   // Tests
   public static final String TEST_ENTITY_NAME = "test";
   public static final String TEST_KEY_ASPECT_NAME = "testKey";

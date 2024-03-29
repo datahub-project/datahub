@@ -68,6 +68,10 @@ context = AssertionEvaluationContext(
         parameters=parameters,
         rawParameters='{"datasetFreshnessParameters":{"sourceType":"DATAHUB_OPERATION"},"type":"DATASET_FRESHNESS"}',
     ),
+    base_assertion=RawAspect(
+        aspectName="assertionInfo",
+        payload='{"type":"FRESHNESS","freshnessAssertion":{"type":"DATASET_CHANGE","schedule":{"type":"CRON","cron":{"cron":"0 */6 * * *","timezone":"Asia/Calcutta"}},"entity":"urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)"},"source":{"type":"NATIVE"}}',
+    ),
 )
 context_nonparseable = AssertionEvaluationContext(
     monitor_urn="urn:li:monitor:(urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD),9b7074de-46a4-4715-9383-32b90bed4632)",
@@ -76,6 +80,10 @@ context_nonparseable = AssertionEvaluationContext(
         schedule=CronSchedule(cron="0 * * * *", timezone="America/Los_Angeles"),
         parameters=parameters,
         rawParameters='{"datasetFreshnessParameters":{"sourceType":"OPERATION"},"type":null}',
+    ),
+    base_assertion=RawAspect(
+        aspectName="assertionInfo",
+        payload='{"freshnessAssertion":{"type":"DATASET_CHANGE","schedule":{"type":"CRON","cron":{"cron":"0 */6 * * *","timezone":"Asia/Calcutta"}},"entity":"urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)"},"source":{"type":"NATIVE"}}',
     ),
 )
 result = AssertionEvaluationResult(type=AssertionResultType.SUCCESS, parameters=None)
@@ -101,6 +109,7 @@ def test_handle_assertion_run_event() -> None:
     # These should be populated
     assert mcpw.aspect.result.assertion
     assert mcpw.aspect.result.parameters
+    assert mcpw.aspect.result.baseAssertion
 
 
 def test_handle_assertion_run_event_parse_failure() -> None:
@@ -123,3 +132,4 @@ def test_handle_assertion_run_event_parse_failure() -> None:
     # These should not be populated
     assert not mcpw.aspect.result.assertion
     assert not mcpw.aspect.result.parameters
+    assert not mcpw.aspect.result.baseAssertion
