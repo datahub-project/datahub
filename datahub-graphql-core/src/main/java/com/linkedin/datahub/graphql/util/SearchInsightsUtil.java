@@ -7,11 +7,12 @@ import java.util.ArrayList;
 import java.util.List;
 // import java.util.Optional;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 public class SearchInsightsUtil {
 
   @Nonnull
-  public static List<SearchInsight> getInsightsFromFeatures(@Nonnull final DoubleMap features) {
+  public static List<SearchInsight> getInsightsFromFeatures(@Nullable final DoubleMap features) {
     // Currently no features are extracted.
     final List<SearchInsight> insights = new ArrayList<>();
     // TODO: Consider which search insights would be best suited for this.

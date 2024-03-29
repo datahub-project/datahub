@@ -977,7 +977,7 @@
       "default" : { },
       "optional" : true,
       "Searchable" : {
-        "/*" : {
+        "/$key" : {
           "fieldType" : "MAP_ARRAY",
           "queryByDefault" : false
         }

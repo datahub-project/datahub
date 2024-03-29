@@ -15,6 +15,7 @@ import com.linkedin.datahub.graphql.types.common.mappers.UrnToEntityMapper;
 import com.linkedin.metadata.search.LineageSearchEntity;
 import com.linkedin.metadata.search.LineageSearchResult;
 import com.linkedin.metadata.search.SearchResultMetadata;
+import java.util.ArrayList;
 import java.util.stream.Collectors;
 
 public class UrnSearchAcrossLineageResultsMapper<T extends RecordTemplate, E extends Entity> {
@@ -62,7 +63,8 @@ public class UrnSearchAcrossLineageResultsMapper<T extends RecordTemplate, E ext
         .setMatchedFields(getMatchedFieldEntry(searchEntity.getMatchedFields()))
         .setPaths(searchEntity.getPaths().stream().map(this::mapPath).collect(Collectors.toList()))
         .setDegree(searchEntity.getDegree())
-        .setDegrees(searchEntity.getDegrees().stream().collect(Collectors.toList()))
+        .setDegrees(new ArrayList<>(searchEntity.getDegrees()))
+        .setExplored(Boolean.TRUE.equals(searchEntity.isExplored()))
         .build();
   }
 
