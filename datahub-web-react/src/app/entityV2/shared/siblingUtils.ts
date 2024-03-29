@@ -40,7 +40,7 @@ function clean(obj) {
     const visited = new Set();
     return cleanHelper(obj, visited);
 }
-// 
+
 const combineMerge = (target, source, options) => {
     const destination = target.slice();
 
