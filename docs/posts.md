@@ -19,7 +19,7 @@ To create a post, first navigate to the Settings tab in the top-right menu of Da
 Once you're on the Settings page, click 'Home Page Posts'.
 To create a new Posts, click '+ New Posts'.
 <p align="center">
- <img width="70%"  src="https://raw.githubusercontent.com/chardaway/static-assets/73d813ee0ec6abdc0411661b27532a0300696ffa/imgs/posts/new-Post.png" />
+ <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/posts/new-post.png" />
 </p>
 DataHub currently supports two types of Post content. Posts can either be of type **Text** or **Link**. Click on 'Post Type' to switch between these types.
 <p align="center">
