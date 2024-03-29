@@ -69,12 +69,12 @@ export const ValuesOverTimeAssertionResultChart = ({ data, timeRange, chartDimen
                 getExpectedYs(point).low,
             ].filter(maybeNumber => typeof maybeNumber === 'number') as number[])
 
-            const actualMin = (Math.min(...actualYValues) || 0)
-            const actualMax = (Math.max(...actualYValues) || 0)
+            const actualMin = actualYValues.length ? Math.min(...actualYValues) : 0;
+            const actualMax = actualYValues.length ? Math.max(...actualYValues) : 0;
             const actualAverageValue = (actualMax + actualMin) / 2
 
-            const expectedMin = (Math.min(...expectedYValues) || 0)
-            const expectedMax = (Math.max(...expectedYValues) || 0)
+            const expectedMin = expectedYValues.length ? Math.min(...expectedYValues) : 0;
+            const expectedMax = expectedYValues.length ? Math.max(...expectedYValues) : 0;
 
             const allYValues = actualYValues.concat(expectedYValues);
             const { min, max } = calculateYScaleExtentForChart(allYValues, {

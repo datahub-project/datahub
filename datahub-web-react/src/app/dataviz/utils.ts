@@ -56,8 +56,8 @@ export const abbreviateNumber = (str) => {
  */
 export const calculateYScaleExtentForChart = (yValues: number[], options: { defaultYValue: number, includeBufferWithOptions?: (extent: { min: number, max: number }) => { axisTicksCount: number } | undefined } = { defaultYValue: 0 }): { min: number, max: number } => {
 
-	let min = (Math.min(...yValues) || options.defaultYValue)
-	let max = (Math.max(...yValues) || options.defaultYValue)
+	let min = yValues.length ? Math.min(...yValues) : options.defaultYValue;
+	let max = yValues.length ? Math.max(...yValues) : options.defaultYValue;
 
 	// Add some extra range above and below if the min and the max are the same so things are nicely centered
 	const maybeBufferOptions = options.includeBufferWithOptions?.({ min, max })
