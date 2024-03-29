@@ -57,7 +57,7 @@ export default function Term(props: Props) {
     }
 
     return (
-        <HoverEntityTooltip entity={term.term}>
+        <HoverEntityTooltip entity={term.term} width={250}>
             <TermLink
                 to={entityRegistry.getEntityUrl(EntityType.GlossaryTerm, term.term.urn)}
                 key={term.term.urn}

@@ -285,17 +285,19 @@ export default function TagTermGroup({
                             setShowProposalDecisionModal(true);
                         }}
                     >
-                        {entityRegistry.getDisplayName(EntityType.Tag, actionRequest?.params?.tagProposal?.tag)}
-                        <ProposalModal
-                            actionRequest={actionRequest}
-                            showProposalDecisionModal={showProposalDecisionModal}
-                            onCloseProposalDecisionModal={onCloseProposalDecisionModal}
-                            onProposalAcceptance={onProposalAcceptance}
-                            onProposalRejection={onProposalRejection}
-                            onActionRequestUpdate={onActionRequestUpdate}
-                            elementName={actionRequest?.params?.tagProposal?.tag?.properties?.name}
-                        />
-                        <ClockCircleOutlined style={{ color: 'orange', marginLeft: '3%' }} />
+                        <span>
+                            {entityRegistry.getDisplayName(EntityType.Tag, actionRequest?.params?.tagProposal?.tag)}
+                            <ProposalModal
+                                actionRequest={actionRequest}
+                                showProposalDecisionModal={showProposalDecisionModal}
+                                onCloseProposalDecisionModal={onCloseProposalDecisionModal}
+                                onProposalAcceptance={onProposalAcceptance}
+                                onProposalRejection={onProposalRejection}
+                                onActionRequestUpdate={onActionRequestUpdate}
+                                elementName={actionRequest?.params?.tagProposal?.tag?.properties?.name}
+                            />
+                            <ClockCircleOutlined style={{ color: 'orange', marginLeft: '3%' }} />
+                        </span>
                     </StyledTag>
                 </Tooltip>
             ))}

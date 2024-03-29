@@ -149,7 +149,6 @@ export function NavLinksMenu(props: Props) {
             title: 'Govern',
             description: 'Manage data access and quality',
             link: null,
-            isHidden: !showObserve,
             subMenu: {
                 isOpen: showGovernMenu,
                 open: () => setShowGovernMenu(true),

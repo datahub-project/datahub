@@ -108,7 +108,7 @@ export default function Tag({
 
     return (
         <>
-            <HoverEntityTooltip entity={tag.tag}>
+            <HoverEntityTooltip entity={tag.tag} width={250}>
                 <TagLink data-testid={`tag-${displayName}`} showOneAndCount={showOneAndCount}>
                     <StyledTag
                         style={{ cursor: 'pointer' }}
