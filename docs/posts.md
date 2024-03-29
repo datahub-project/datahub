@@ -26,7 +26,7 @@ DataHub currently supports two types of Post content. Posts can either be of typ
  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/posts/post-type-text.png" />
 </p>
 <p align="center">
- <img width="70%"  src="https://raw.githubusercontent.com/chardaway/static-assets/73d813ee0ec6abdc0411661b27532a0300696ffa/imgs/posts/PostType-Link.png" />
+ <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/posts/post-type-link.png" />
 </p>
 If you choose the text type, enter the title and description as prompted; if you choose the link type, enter the title and the URL of the link and the address of the image as prompted.
 
