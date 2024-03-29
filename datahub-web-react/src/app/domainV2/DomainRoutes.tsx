@@ -6,6 +6,7 @@ import { EntityType } from '../../types.generated';
 import { EntityPage } from '../entity/EntityPage';
 import { GenericEntityProperties } from '../entity/shared/types';
 import EntitySidebarContext from '../shared/EntitySidebarContext';
+import useSidebarWidth from '../sharedV2/sidebar/useSidebarWidth';
 import { useEntityRegistry } from '../useEntityRegistry';
 import { DomainsContext } from './DomainsContext';
 import ManageDomainsPageV2 from './nestedDomains/ManageDomainsPageV2';
@@ -13,7 +14,6 @@ import ManageDomainsSidebar from './nestedDomains/ManageDomainsSidebar';
 
 const ContentWrapper = styled.div`
     display: flex;
-    flex: 1;
     overflow: hidden;
     border-radius: 8px;
 `;
@@ -23,6 +23,7 @@ export default function DomainRoutes() {
     const [entityData, setEntityData] = useState<GenericEntityProperties | null>(null);
     const [parentDomainsToUpdate, setParentDomainsToUpdate] = useState<string[]>([]);
     const [isSidebarClosed, setIsSidebarClosed] = useState(false);
+    const entitySidebarWidth = useSidebarWidth();
 
     return (
         <DomainsContext.Provider value={{ entityData, setEntityData, parentDomainsToUpdate, setParentDomainsToUpdate }}>
@@ -31,6 +32,7 @@ export default function DomainRoutes() {
                 <Switch>
                     <EntitySidebarContext.Provider
                         value={{
+                            width: entitySidebarWidth,
                             isClosed: isSidebarClosed,
                             setSidebarClosed: setIsSidebarClosed,
                         }}

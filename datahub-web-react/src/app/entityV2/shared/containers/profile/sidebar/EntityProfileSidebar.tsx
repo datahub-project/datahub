@@ -85,6 +85,7 @@ interface Props {
     hideCollapse?: boolean;
     width?: number;
     headerDropdownItems?: Set<EntityMenuItems>;
+    className?: string;
 }
 
 export default function EntityProfileSidebar({
@@ -96,6 +97,7 @@ export default function EntityProfileSidebar({
     hideCollapse = false,
     width,
     headerDropdownItems,
+    className,
 }: Props) {
     const { isClosed, setSidebarClosed } = useContext(EntitySidebarContext);
 
@@ -117,6 +119,7 @@ export default function EntityProfileSidebar({
             backgroundColor={backgroundColor}
             id="entity-profile-sidebar"
             isFocused={focused}
+            className={className}
         >
             <StyledSidebar isCard={isCardLayout} isFocused={focused}>
                 <ContentContainer isVisible={!isClosed}>

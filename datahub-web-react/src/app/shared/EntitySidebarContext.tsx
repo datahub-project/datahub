@@ -12,7 +12,7 @@ export interface EntitySidebarQueryDetails extends ColumnQueryData {
 }
 
 interface EntitySidebarContextProps {
-    width?: number;
+    width: number;
     setSidebarClosed: (isClosed: boolean) => void;
     isClosed: boolean;
     extra?: EntitySidebarQueryDetails;
@@ -20,6 +20,7 @@ interface EntitySidebarContextProps {
 }
 
 const EntitySidebarContext = React.createContext<EntitySidebarContextProps>({
+    width: window.innerWidth * 0.3,
     setSidebarClosed: () => {},
     isClosed: false,
 });

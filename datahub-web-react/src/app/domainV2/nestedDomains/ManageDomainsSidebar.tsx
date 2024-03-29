@@ -1,27 +1,15 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
+import useSidebarWidth from '../../sharedV2/sidebar/useSidebarWidth';
 import DomainsSidebarHeader from './DomainsSidebarHeader';
 import { SidebarWrapper } from '../../sharedV2/sidebar/components';
 import DomainNavigator from './domainNavigator/DomainNavigator';
 import DomainSearch from '../DomainSearch';
 
 export default function ManageDomainsSidebarV2() {
-    const [browserWidth, setBrowserWidth] = useState(window.innerWidth * 0.2);
-
-    useEffect(() => {
-        const handleResize = () => {
-            setBrowserWidth(window.innerWidth * 0.2);
-        };
-
-        window.addEventListener('resize', handleResize);
-
-        return () => {
-            window.removeEventListener('resize', handleResize);
-        };
-    }, []);
-
+    const width = useSidebarWidth(0.2);
     return (
         <>
-            <SidebarWrapper width={browserWidth}>
+            <SidebarWrapper width={width}>
                 <DomainsSidebarHeader />
                 <DomainSearch />
                 <DomainNavigator />

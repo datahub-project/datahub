@@ -3,6 +3,7 @@ import { useOnSelectionChange, useStore } from 'reactflow';
 import styled from 'styled-components/macro';
 import EntitySidebarContext, { EntitySidebarQueryDetails } from '../shared/EntitySidebarContext';
 import CompactContext from '../shared/CompactContext';
+import useSidebarWidth from '../sharedV2/sidebar/useSidebarWidth';
 import { useEntityRegistry } from '../useEntityRegistry';
 import { NeighborMap, LineageDisplayContext, LineageEntity, LineageNodesContext } from './common';
 import { EntityType } from '../../types.generated';
@@ -32,8 +33,7 @@ export default function LineageSidebar() {
     const selectedEntity = useSelectedNode();
     const resetSelectedElements = useStore((actions) => actions.resetSelectedElements);
     const queryDetails = useQueryDetails(selectedEntity);
-
-    const width = Math.min(window.innerWidth * 0.4, 500);
+    const width = useSidebarWidth();
 
     const setSidebarClosed = useCallback(
         (closed) => {
@@ -52,9 +52,9 @@ export default function LineageSidebar() {
     return (
         <EntitySidebarContext.Provider
             value={{
+                width,
                 isClosed: false,
                 setSidebarClosed,
-                width,
                 forLineage: true,
                 extra: queryDetails,
             }}

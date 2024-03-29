@@ -3,6 +3,7 @@ import styled from 'styled-components/macro';
 import { EntityAndType } from '../entity/shared/types';
 import CompactContext from '../shared/CompactContext';
 import EntitySidebarContext from '../shared/EntitySidebarContext';
+import useSidebarWidth from '../sharedV2/sidebar/useSidebarWidth';
 import { useEntityRegistry } from '../useEntityRegistry';
 
 const SidebarContainer = styled.div<{ height: string }>`
@@ -22,15 +23,14 @@ interface Props {
 export const SearchEntitySidebarContainer = ({ height, highlightedIndex, selectedEntity }: Props) => {
     const entityRegistry = useEntityRegistry();
     const [isClosed, setIsClosed] = useState(false);
+    const width = useSidebarWidth();
 
     if (highlightedIndex === null) {
         return null;
     }
 
     return (
-        <EntitySidebarContext.Provider
-            value={{ isClosed, setSidebarClosed: setIsClosed, width: window.innerWidth * 0.3 }}
-        >
+        <EntitySidebarContext.Provider value={{ width, isClosed, setSidebarClosed: setIsClosed }}>
             <SidebarContainer key={selectedEntity?.urn || ''} height={height}>
                 {selectedEntity && (
                     <CompactContext.Provider value>

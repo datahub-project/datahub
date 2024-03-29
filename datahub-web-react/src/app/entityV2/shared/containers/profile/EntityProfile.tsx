@@ -97,23 +97,14 @@ type Props<T, U> = {
 const ContentContainer = styled.div`
     display: flex;
     height: 100%;
-    flex: 1;
-    min-width: 0;
-    overflow: hidden;
 `;
 
-const SidebarWrapper = styled.div`
-    display: flex;
-    flex-direction: column;
-    height: calc(100vh - 72px);
-`;
-
-const HeaderAndTabs = styled.div`
-    flex-grow: 1;
-    min-width: 640px;
+const StyledEntityProfileSidebar = styled(EntityProfileSidebar)`
+    padding-bottom: 12px;
 `;
 
 const HeaderAndTabsFlex = styled.div`
+    flex-grow: 1;
     display: flex;
     flex-direction: column;
     height: 100%;
@@ -180,14 +171,11 @@ const StyledAlert = styled(Alert)`
 `;
 
 const Wrapper = styled.div<{ showAlert: boolean }>`
+    flex-grow: 1;
+    min-width: 0;
     height: 100%;
-    width: 100%;
     margin-top: ${({ showAlert }) => (showAlert ? '2.5rem' : '0')};
 `;
-
-export const DEFAULT_SIDEBAR_SECTION = {
-    visible: (_, _1) => true,
-};
 
 /**
  * Container for display of the Entity Page
@@ -377,58 +365,49 @@ export const EntityProfile = <T, U>({
                         {showExplorer && <LineageExplorer type={entityType} urn={urn} />}
                         {!isLineageMode && (
                             <>
-                                <HeaderAndTabs>
-                                    <HeaderAndTabsFlex>
-                                        {!isTabFullsize && (
-                                            <Header>
-                                                <HeaderContent>
-                                                    <EntityHeader
-                                                        headerDropdownItems={headerDropdownItems}
-                                                        headerActionItems={headerActionItems}
-                                                        isNameEditable={isNameEditable}
-                                                        isIconEditable={isIconEditable}
-                                                        isColorEditable={isColorEditable}
-                                                        displayProperties={entityData?.displayProperties || undefined}
-                                                        subHeader={subHeader}
+                                <HeaderAndTabsFlex>
+                                    {!isTabFullsize && (
+                                        <Header>
+                                            <HeaderContent>
+                                                <EntityHeader
+                                                    headerDropdownItems={headerDropdownItems}
+                                                    headerActionItems={headerActionItems}
+                                                    isNameEditable={isNameEditable}
+                                                    isIconEditable={isIconEditable}
+                                                    isColorEditable={isColorEditable}
+                                                    displayProperties={entityData?.displayProperties || undefined}
+                                                    subHeader={subHeader}
+                                                />
+                                            </HeaderContent>
+                                        </Header>
+                                    )}
+                                    <Body>
+                                        <BodyContent>
+                                            {!isTabFullsize && (
+                                                <TabsWrapper>
+                                                    <EntityTabs tabs={visibleTabs} selectedTab={routedTab} />
+                                                </TabsWrapper>
+                                            )}
+                                            <TabContent>
+                                                {routedTab && (
+                                                    <routedTab.component
+                                                        properties={routedTab.properties}
+                                                        contextType={TabContextType.PROFILE}
+                                                        renderType={TabRenderType.DEFAULT}
                                                     />
-                                                </HeaderContent>
-                                            </Header>
-                                        )}
-                                        <Body>
-                                            <BodyContent>
-                                                {!isTabFullsize && (
-                                                    <TabsWrapper>
-                                                        <EntityTabs tabs={visibleTabs} selectedTab={routedTab} />
-                                                    </TabsWrapper>
                                                 )}
-                                                <TabContent>
-                                                    {routedTab && (
-                                                        <routedTab.component
-                                                            properties={routedTab.properties}
-                                                            contextType={TabContextType.PROFILE}
-                                                            renderType={TabRenderType.DEFAULT}
-                                                        />
-                                                    )}
-                                                </TabContent>
-                                            </BodyContent>
-                                        </Body>
-                                    </HeaderAndTabsFlex>
-                                </HeaderAndTabs>
+                                            </TabContent>
+                                        </BodyContent>
+                                    </Body>
+                                </HeaderAndTabsFlex>
                                 {!isTabFullsize && (
-                                    <SidebarWrapper>
-                                        <EntityProfileSidebar
-                                            tabs={finalTabs}
-                                            type="card"
-                                            width={
-                                                width ||
-                                                (finalTabs.length > 1
-                                                    ? window.innerWidth * 0.33
-                                                    : window.innerWidth * 0.25)
-                                            }
-                                            contextType={TabContextType.PROFILE_SIDEBAR}
-                                            headerDropdownItems={headerDropdownItems}
-                                        />
-                                    </SidebarWrapper>
+                                    <StyledEntityProfileSidebar
+                                        tabs={finalTabs}
+                                        type="card"
+                                        width={width}
+                                        contextType={TabContextType.PROFILE_SIDEBAR}
+                                        headerDropdownItems={headerDropdownItems}
+                                    />
                                 )}
                             </>
                         )}
