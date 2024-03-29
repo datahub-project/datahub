@@ -3,8 +3,6 @@ import { Tag as AntTag, Tooltip, Typography, message } from 'antd';
 import React, { useState } from 'react';
 import Highlight from 'react-highlighter';
 import styled from 'styled-components';
-import BookOutlined from '../../../images/glossary_term_material_logo.svg?react';
-
 import { useAcceptProposalMutation, useRejectProposalMutation } from '../../../graphql/actionRequest.generated';
 import { ActionRequest, Domain as DomainEntity, EntityType, GlobalTags, GlossaryTerms } from '../../../types.generated';
 import { StyledTag } from '../../entity/shared/components/styled/StyledTag';
@@ -16,6 +14,8 @@ import { DomainLink } from './DomainLink';
 import Tag from './tag/Tag';
 import Term from './term/Term';
 import AddTagTerm from './AddTagTerm';
+import { TermRibbon } from './term/TermContent';
+import { generateColor } from '../../entityV2/shared/components/styled/StyledTag';
 
 type Props = {
     uneditableTags?: GlobalTags | null;
@@ -68,9 +68,28 @@ const TagText = styled.span`
     line-height: 8px;
 `;
 
+const ProposedTermContainer = styled.div`
+    margin-right: 8px;
+    margin-top: 4px;
+    margin-bottom: 4px;
+
+    .ant-tag.ant-tag {
+        border-radius: 5px;
+        border: 1px dashed #ccd1dd;
+    }
+`;
+
 const ProposedTerm = styled(AntTag)`
     opacity: 0.7;
-    border-style: dashed;
+    padding: 3px 8px;
+    font-size: 12px;
+    color: ${REDESIGN_COLORS.TEXT_HEADING};
+    position: relative;
+    overflow: hidden;
+`;
+
+const ProposedTermText = styled.span`
+    margin-left: 8px;
 `;
 
 const StyledPlusOutlined = styled(PlusOutlined)`
@@ -261,32 +280,43 @@ export default function TagTermGroup({
             })}
             {proposedGlossaryTerms?.map((actionRequest) => (
                 <Tooltip overlay="Pending approval from owners">
-                    <ProposedTerm
-                        closable={false}
-                        data-testid={`proposed-term-${actionRequest.params?.glossaryTermProposal?.glossaryTerm?.name}`}
-                        onClick={() => {
-                            setShowProposalDecisionModal(true);
-                        }}
-                    >
-                        <BookOutlined style={{ marginRight: '3%' }} />
-                        {entityRegistry.getDisplayName(
-                            EntityType.GlossaryTerm,
-                            actionRequest.params?.glossaryTermProposal?.glossaryTerm,
-                        )}
-                        <ProposalModal
-                            actionRequest={actionRequest}
-                            showProposalDecisionModal={showProposalDecisionModal}
-                            onCloseProposalDecisionModal={onCloseProposalDecisionModal}
-                            onProposalAcceptance={onProposalAcceptance}
-                            onProposalRejection={onProposalRejection}
-                            onActionRequestUpdate={onActionRequestUpdate}
-                            elementName={entityRegistry.getDisplayName(
-                                EntityType.GlossaryTerm,
-                                actionRequest.params?.glossaryTermProposal?.glossaryTerm,
-                            )}
-                        />
-                        <ClockCircleOutlined style={{ color: 'orange', marginLeft: '3%' }} />
-                    </ProposedTerm>
+                    <ProposedTermContainer>
+                        <ProposedTerm
+                            closable={false}
+                            data-testid={`proposed-term-${actionRequest.params?.glossaryTermProposal?.glossaryTerm?.name}`}
+                            onClick={() => {
+                                setShowProposalDecisionModal(true);
+                            }}
+                        >
+                            <TermRibbon
+                                color={generateColor.hex(
+                                    entityRegistry.getDisplayName(
+                                        EntityType.GlossaryTerm,
+                                        actionRequest.params?.glossaryTermProposal?.glossaryTerm,
+                                    ),
+                                )}
+                            />
+                            <ProposedTermText>
+                                {entityRegistry.getDisplayName(
+                                    EntityType.GlossaryTerm,
+                                    actionRequest.params?.glossaryTermProposal?.glossaryTerm,
+                                )}
+                            </ProposedTermText>
+                            <ProposalModal
+                                actionRequest={actionRequest}
+                                showProposalDecisionModal={showProposalDecisionModal}
+                                onCloseProposalDecisionModal={onCloseProposalDecisionModal}
+                                onProposalAcceptance={onProposalAcceptance}
+                                onProposalRejection={onProposalRejection}
+                                onActionRequestUpdate={onActionRequestUpdate}
+                                elementName={entityRegistry.getDisplayName(
+                                    EntityType.GlossaryTerm,
+                                    actionRequest.params?.glossaryTermProposal?.glossaryTerm,
+                                )}
+                            />
+                            <ClockCircleOutlined style={{ color: 'orange', marginLeft: '5px' }} />
+                        </ProposedTerm>
+                    </ProposedTermContainer>
                 </Tooltip>
             ))}
 

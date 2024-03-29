@@ -5,7 +5,7 @@ import styled from 'styled-components';
 import { EntityType, GlossaryTermAssociation } from '../../../../types.generated';
 import { HoverEntityTooltip } from '../../../recommendations/renderer/component/HoverEntityTooltip';
 import { useEntityRegistry } from '../../../useEntityRegistry';
-import TermContent from '../../../shared/tags/term/TermContent';
+import TermContent from './TermContent';
 
 const TermLink = styled(Link)<{ showOneAndCount?: boolean }>`
     display: inline-block;
