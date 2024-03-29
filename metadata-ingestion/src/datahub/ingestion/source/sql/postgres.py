@@ -132,11 +132,6 @@ class PostgresConfig(BasePostgresConfig):
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")
 @capability(SourceCapability.LINEAGE_COARSE, "Optionally enabled via configuration")
-@capability(
-    SourceCapability.CLASSIFICATION,
-    "Optionally enabled via `classification.enabled`",
-    supported=True,
-)
 class PostgresSource(SQLAlchemySource):
     """
     This plugin extracts the following:

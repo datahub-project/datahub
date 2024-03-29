@@ -1,13 +1,13 @@
 import { RightOutlined } from '@ant-design/icons';
 import { Dropdown } from 'antd';
 import styled from 'styled-components';
-import React from 'react';
+import React, { useRef } from 'react';
 import { FacetFilterInput, FacetMetadata } from '../../../types.generated';
 import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
 import OptionsDropdownMenu from './OptionsDropdownMenu';
 import useSearchFilterDropdown from './useSearchFilterDropdown';
 import { IconWrapper } from './SearchFilterView';
-import { getFilterDropdownIcon } from './utils';
+import { getFilterDropdownIcon, useElementDimensions } from './utils';
 import { MoreFilterOptionLabel } from './styledComponents';
 
 const IconNameWrapper = styled.span`
@@ -22,6 +22,9 @@ interface Props {
 }
 
 export default function MoreFilterOption({ filter, activeFilters, onChangeFilters }: Props) {
+    const labelRef = useRef<HTMLDivElement>(null);
+    const { width, height } = useElementDimensions(labelRef);
+
     const {
         isMenuOpen,
         updateIsMenuOpen,
@@ -46,17 +49,18 @@ export default function MoreFilterOption({ filter, activeFilters, onChangeFilter
             onOpenChange={(open) => updateIsMenuOpen(open)}
             dropdownRender={(menu) => (
                 <OptionsDropdownMenu
+                    style={{ left: width, position: 'absolute', top: -height }}
                     menu={menu}
                     updateFilters={updateFilters}
                     searchQuery={searchQuery}
                     updateSearchQuery={updateSearchQuery}
                     isLoading={areFiltersLoading}
                     searchPlaceholder={filter.displayName || ''}
-                    alignRight
                 />
             )}
         >
             <MoreFilterOptionLabel
+                ref={labelRef}
                 onClick={() => updateIsMenuOpen(!isMenuOpen)}
                 isActive={!!numActiveFilters}
                 isOpen={isMenuOpen}

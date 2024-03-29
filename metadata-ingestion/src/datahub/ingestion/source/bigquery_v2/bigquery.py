@@ -77,6 +77,7 @@ from datahub.ingestion.source.sql.sql_utils import (
     gen_schema_container,
     get_domain_wu,
 )
+from datahub.ingestion.source.sql.sqlalchemy_data_reader import SAMPLE_SIZE_MULTIPLIER
 from datahub.ingestion.source.state.profiling_state_handler import ProfilingHandler
 from datahub.ingestion.source.state.redundant_run_skip_handler import (
     RedundantLineageRunSkipHandler,
@@ -769,7 +770,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                     data_reader_kwargs=dict(
                         sample_size_percent=(
                             self.config.classification.sample_size
-                            * 1.2
+                            * SAMPLE_SIZE_MULTIPLIER
                             / table.rows_count
                             if table.rows_count
                             else None
@@ -1132,11 +1133,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             lastModified=(
                 TimeStamp(time=int(table.last_altered.timestamp() * 1000))
                 if table.last_altered is not None
-                else (
-                    TimeStamp(time=int(table.created.timestamp() * 1000))
-                    if table.created is not None
-                    else None
-                )
+                else None
             ),
             externalUrl=(
                 BQ_EXTERNAL_TABLE_URL_TEMPLATE.format(
