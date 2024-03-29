@@ -4514,7 +4514,7 @@ input EditableSchemaFieldInfoUpdate {
     """
     The structured glossary terms associated with the notebook
     """
-    glossaryTerms: GlossaryTerms
+    glossaryTerms: CreateGlossaryEntityInput
 }
 
 """
