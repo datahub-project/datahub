@@ -193,6 +193,16 @@ fragment AssertionDetails on Assertion {
   info {
     ...assertionInfoDetails
   }
+  inferenceDetails {
+    adjustmentSettings {
+      algorithm
+      algorithmName
+      context {
+        key
+        value
+      }
+    }
+  }
   rawInfoAspect: aspects(
       input: { aspectNames : [ "assertionInfo" ] }
   ){

@@ -171,6 +171,9 @@ mutation rollbackIngestion($input: RollbackIngestionInput!) {
 
 query ingestionSourceForEntity($urn: String!) {
     ingestionSourceForEntity(urn: $urn) {
-        urn
+        urn,
+        config {
+            executorId
+        }
     }
 }

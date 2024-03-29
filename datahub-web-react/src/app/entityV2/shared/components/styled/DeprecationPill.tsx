@@ -34,13 +34,13 @@ const DeprecatedTitle = styled(Typography.Text)`
     font-size: 14px;
     margin-bottom: 5px;
     font-weight: bold;
-    color: ${REDESIGN_COLORS.FOUNDATION_BLUE_6};
+    color: ${REDESIGN_COLORS.TEXT_HEADING};
 `;
 
 const DeprecatedSubTitle = styled(Typography.Text)`
     display: block;
     margin-bottom: 5px;
-    color: ${REDESIGN_COLORS.FOUNDATION_BLUE_6};
+    color: ${REDESIGN_COLORS.TEXT_HEADING};
 `;
 
 const LastEvaluatedAtLabel = styled.div`
@@ -63,7 +63,7 @@ const UndeprecatedIcon = styled(InfoCircleOutlined)`
 
 const IconGroup = styled.div`
     font-size: 12px;
-    color: ${REDESIGN_COLORS.FOUNDATION_BLUE_6};
+    color: ${REDESIGN_COLORS.TEXT_HEADING};
     &:hover {
         color: ${REDESIGN_COLORS.TITLE_PURPLE};
         cursor: pointer;

@@ -82,7 +82,7 @@ const PlatformNode = ({ iconSize = 20, hasOnlyOnePlatform = false, toggleCollaps
 
     const { error, groups, loaded, observable, path, retry } = useBrowsePagination({ skip: !isOpen });
 
-    const color = REDESIGN_COLORS.SECONDARY_PURPLE;
+    const color = REDESIGN_COLORS.TEXT_HEADING;
 
     const nodeStyle = {
         padding: '7px',

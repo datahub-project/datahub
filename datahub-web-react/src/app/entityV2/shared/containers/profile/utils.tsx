@@ -219,7 +219,6 @@ export function getOnboardingStepIdsForEntityType(entityType: EntityType): strin
                 ENTITY_PROFILE_GLOSSARY_TERMS_ID,
                 ENTITY_PROFILE_DOMAINS_ID,
             ];
-            break;
         default:
             return [];
     }

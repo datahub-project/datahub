@@ -5,6 +5,7 @@ import { ANTD_GRAY } from '../../../entity/shared/constants';
 import { PendingProposals } from './PendingProposals';
 import { PendingRequests } from './PendingRequests';
 import { useUserContext } from '../../../context/useUserContext';
+import { useIsDocumentationFormsEnabled } from '../../../useAppConfig';
 
 const Card = styled.div`
     border: 1px solid ${ANTD_GRAY[4]};
@@ -45,10 +46,16 @@ const Section = styled.div`
 `;
 
 export const PendingTasks = () => {
-    const { state: { notificationsCount, proposalCount, unfinishedTaskCount } } = useUserContext();
+    const {
+        state: { notificationsCount, proposalCount, unfinishedTaskCount },
+    } = useUserContext();
+    const isDocumentationFormsEnabled = useIsDocumentationFormsEnabled();
 
     // Don't show the card if there are no pending tasks
     if (unfinishedTaskCount === 0 || !unfinishedTaskCount) return null;
+
+    // Don't show if forms are disabled and there are no proposals
+    if (!isDocumentationFormsEnabled && !proposalCount) return null;
 
     return (
         <Card>
@@ -59,7 +66,9 @@ export const PendingTasks = () => {
             </Header>
             <Section>
                 {proposalCount > 0 && <PendingProposals count={proposalCount} />}
-                {notificationsCount > 0 && <PendingRequests count={notificationsCount} />}
+                {notificationsCount > 0 && isDocumentationFormsEnabled && (
+                    <PendingRequests count={notificationsCount} />
+                )}
             </Section>
         </Card>
     );

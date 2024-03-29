@@ -7,6 +7,9 @@ export const generateColor = new ColorHash({
 });
 
 export const StyledTag = styled(Tag)<{ $color: any; $colorHash?: string; fontSize?: number; highlightTag?: boolean }>`
+    display: inline-flex;
+    align-items: center;
+
     &&& {
         ${(props) =>
             props.highlightTag &&

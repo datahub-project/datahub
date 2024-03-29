@@ -177,6 +177,11 @@
             },
             "doc" : "The different depths at which this entity is discovered in the lineage graph.\nMarked as optional to maintain backward compatibility, but is filled out by implementations. \nReplaces the deprecated field \"degree\".\n",
             "optional" : true
+          }, {
+            "name" : "explored",
+            "type" : "boolean",
+            "doc" : "Marks this relationship as explored during the graph walk",
+            "optional" : true
           } ]
         }
       },

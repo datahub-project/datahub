@@ -67,4 +67,9 @@ record LineageRelationship {
    * Replaces the deprecated field "degree".
    **/
    degrees: optional array[int]
+
+   /**
+    * Marks this relationship as explored during the graph walk
+    */
+    explored: optional boolean
 }

@@ -1,9 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { Button, Typography } from 'antd';
 import { PlusCircleOutlined } from '@ant-design/icons';
 import styled from 'styled-components/macro';
 import { Link } from 'react-router-dom';
 import { REDESIGN_COLORS } from '../entityV2/shared/constants';
+import useSidebarWidth from '../sharedV2/sidebar/useSidebarWidth';
 import GlossarySearch from './GlossarySearch';
 import GlossaryBrowser from './GlossaryBrowser/GlossaryBrowser';
 import { SidebarWrapper } from '../sharedV2/sidebar/components';
@@ -40,7 +41,6 @@ const StyledPlusCircleOutlined = styled(PlusCircleOutlined)`
 `;
 
 export default function GlossarySidebar() {
-    const [browserWidth, setBrowserWidth] = useState(window.innerWidth * 0.2);
     const [isCreateNodeModalVisible, setIsCreateNodeModalVisible] = useState(false);
 
     const { refetch: refetchForNodes } = useGetRootGlossaryNodesQuery();
@@ -48,21 +48,11 @@ export default function GlossarySidebar() {
     const user = useUserContext();
     const canManageGlossaries = user?.platformPrivileges?.manageGlossaries;
 
-    useEffect(() => {
-        const handleResize = () => {
-            setBrowserWidth(window.innerWidth * 0.2);
-        };
-
-        window.addEventListener('resize', handleResize);
-
-        return () => {
-            window.removeEventListener('resize', handleResize);
-        };
-    }, []);
+    const width = useSidebarWidth(0.2);
 
     return (
         <>
-            <SidebarWrapper width={browserWidth} data-testid="glossary-browser-sidebar">
+            <SidebarWrapper width={width} data-testid="glossary-browser-sidebar">
                 <SidebarTitleWrapper>
                     <Link to="/glossary">
                         <SidebarTitle>Business Glossary</SidebarTitle>

@@ -13,9 +13,18 @@ type Props = {
     placement?: TooltipPlacement;
     showArrow?: boolean;
     width?: number;
+    maxWidth?: number;
 };
 
-export const HoverEntityTooltip = ({ entity, canOpen = true, children, placement, showArrow, width = 360 }: Props) => {
+export const HoverEntityTooltip = ({
+    entity,
+    canOpen = true,
+    children,
+    placement,
+    showArrow,
+    width = 360,
+    maxWidth = 450,
+}: Props) => {
     const entityRegistry = useEntityRegistry();
 
     if (!entity || !entity.type || !entity.urn) {
@@ -29,10 +38,10 @@ export const HoverEntityTooltip = ({ entity, canOpen = true, children, placement
             open={canOpen ? undefined : false}
             color="white"
             placement={placement || 'bottom'}
-            overlayStyle={{ minWidth: width }}
+            overlayStyle={{ minWidth: width, maxWidth }}
             overlayInnerStyle={{ padding: 20, borderRadius: 20 }}
             title={<a href={url}>{entityRegistry.renderPreview(entity.type, PreviewType.HOVER_CARD, entity)}</a>}
-            zIndex={12}
+            zIndex={100}
         >
             {children}
         </Tooltip>

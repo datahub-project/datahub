@@ -1,6 +1,9 @@
 package com.linkedin.datahub.graphql.types.assertion;
 
 import com.google.common.collect.ImmutableList;
+import com.linkedin.assertion.AdjustmentAlgorithm;
+import com.linkedin.assertion.AssertionAdjustmentSettings;
+import com.linkedin.assertion.AssertionInferenceDetails;
 import com.linkedin.assertion.AssertionInfo;
 import com.linkedin.assertion.AssertionSource;
 import com.linkedin.assertion.AssertionStdAggregation;
@@ -37,6 +40,7 @@ import com.linkedin.schema.StringType;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.Map;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
@@ -46,43 +50,115 @@ public class AssertionMapperTest {
   public void testMapDatasetAssertion() {
     // Case 1: Without nullable fields
     AssertionInfo input = createFreshnessAssertionInfoWithoutNullableFields();
-    EntityResponse datasetAssertionEntityResponse = createAssertionInfoEntityResponse(input);
+    EntityResponse datasetAssertionEntityResponse = createAssertionInfoEntityResponse(input, null);
     Assertion output = AssertionMapper.map(null, datasetAssertionEntityResponse);
-    verifyAssertion(input, output);
+    verifyAssertionInfo(input, output);
 
     // Case 2: With nullable fields
     input = createFreshnessAssertionInfoWithNullableFields();
     EntityResponse datasetAssertionEntityResponseWithNullables =
-        createAssertionInfoEntityResponse(input);
+        createAssertionInfoEntityResponse(input, null);
     output = AssertionMapper.map(null, datasetAssertionEntityResponseWithNullables);
-    verifyAssertion(input, output);
+    verifyAssertionInfo(input, output);
+  }
+
+  private AssertionInferenceDetails createAssertionInferenceDetailsWithNullableFields() {
+    AssertionInferenceDetails details = createAssertionInferenceDetailsWithoutNullableFields();
+    details.setModelId("prophet");
+    details.setModelVersion("x.y.z");
+    details.setConfidence(0.9f);
+
+    StringMap parameters = new StringMap();
+    parameters.put("param1", "param1Value");
+    details.setParameters(parameters);
+
+    StringMap adjustmentAlgorithmContext = new StringMap();
+    adjustmentAlgorithmContext.put("k", "2.5");
+    AssertionAdjustmentSettings adjustmentSettings = new AssertionAdjustmentSettings();
+    adjustmentSettings.setAlgorithm(AdjustmentAlgorithm.CUSTOM);
+    adjustmentSettings.setAlgorithmName("IQR");
+    adjustmentSettings.setContext(adjustmentAlgorithmContext);
+    details.setAdjustmentSettings(adjustmentSettings);
+    details.setGeneratedAt(1000000000L);
+
+    return details;
+  }
+
+  private AssertionInferenceDetails createAssertionInferenceDetailsWithoutNullableFields() {
+    return new AssertionInferenceDetails();
   }
 
   @Test
   public void testMapFreshnessAssertion() {
     // Case 1: Without nullable fields
-    AssertionInfo input = createFreshnessAssertionInfoWithoutNullableFields();
-    EntityResponse freshnessAssertionEntityResponse = createAssertionInfoEntityResponse(input);
+    AssertionInfo inputInfo = createFreshnessAssertionInfoWithoutNullableFields();
+    AssertionInferenceDetails inputInferenceDetails =
+        createAssertionInferenceDetailsWithoutNullableFields();
+    EntityResponse freshnessAssertionEntityResponse =
+        createAssertionInfoEntityResponse(inputInfo, inputInferenceDetails);
     Assertion output = AssertionMapper.map(null, freshnessAssertionEntityResponse);
-    verifyAssertion(input, output);
+    verifyAssertionInfo(inputInfo, output);
+    verifyAssertionInferenceDetails(inputInferenceDetails, output.getInferenceDetails());
 
     // Case 2: With nullable fields
-    input = createDatasetAssertionInfoWithNullableFields();
+    inputInfo = createDatasetAssertionInfoWithNullableFields();
+    inputInferenceDetails = createAssertionInferenceDetailsWithNullableFields();
     EntityResponse freshnessAssertionEntityResponseWithNullables =
-        createAssertionInfoEntityResponse(input);
+        createAssertionInfoEntityResponse(inputInfo, inputInferenceDetails);
     output = AssertionMapper.map(null, freshnessAssertionEntityResponseWithNullables);
-    verifyAssertion(input, output);
+    verifyAssertionInfo(inputInfo, output);
+    verifyAssertionInferenceDetails(inputInferenceDetails, output.getInferenceDetails());
+  }
+
+  private void verifyAssertionInferenceDetails(
+      AssertionInferenceDetails input,
+      com.linkedin.datahub.graphql.generated.AssertionInferenceDetails output) {
+    Assert.assertNotNull(output);
+    Assert.assertEquals(input.getModelId(), output.getModelId());
+    Assert.assertEquals(input.getModelVersion(), output.getModelVersion());
+    Assert.assertEquals(input.getConfidence(), output.getConfidence());
+    Assert.assertEquals(input.getGeneratedAt(), output.getGeneratedAt());
+    if (input.hasParameters()) {
+      Assert.assertNotNull(output.getParameters());
+      output
+          .getParameters()
+          .forEach(
+              entry -> {
+                Assert.assertEquals(input.getParameters().get(entry.getKey()), entry.getValue());
+              });
+    }
+    if (input.hasAdjustmentSettings()) {
+      verifyAssertionAdjustmentSettings(
+          input.getAdjustmentSettings(), output.getAdjustmentSettings());
+    }
+  }
+
+  private static void verifyAssertionAdjustmentSettings(
+      AssertionAdjustmentSettings input,
+      com.linkedin.datahub.graphql.generated.AssertionAdjustmentSettings output) {
+    Assert.assertNotNull(output);
+    Assert.assertEquals(input.getAlgorithm().name(), output.getAlgorithm().name());
+    Assert.assertEquals(input.getAlgorithmName(), output.getAlgorithmName());
+    if (input.hasContext()) {
+      Assert.assertNotNull(output.getContext());
+      output
+          .getContext()
+          .forEach(
+              entry -> {
+                Assert.assertEquals(input.getContext().get(entry.getKey()), entry.getValue());
+              });
+    }
   }
 
   @Test
   public void testMapDataSchemaAssertion() {
     AssertionInfo input = createSchemaAssertion();
-    EntityResponse schemaAssertionEntityResponse = createAssertionInfoEntityResponse(input);
+    EntityResponse schemaAssertionEntityResponse = createAssertionInfoEntityResponse(input, null);
     Assertion output = AssertionMapper.map(null, schemaAssertionEntityResponse);
-    verifyAssertion(input, output);
+    verifyAssertionInfo(input, output);
   }
 
-  private void verifyAssertion(AssertionInfo input, Assertion output) {
+  private void verifyAssertionInfo(AssertionInfo input, Assertion output) {
     Assert.assertNotNull(output);
     Assert.assertNotNull(output.getInfo());
     Assert.assertEquals(
@@ -183,16 +259,27 @@ public class AssertionMapperTest {
     Assert.assertEquals(output.getType().toString(), input.getType().toString());
   }
 
-  private EntityResponse createAssertionInfoEntityResponse(final AssertionInfo info) {
-    EnvelopedAspect envelopedAssertionInfo = createEnvelopedAspect(info.data());
-    return createEntityResponse(Constants.ASSERTION_INFO_ASPECT_NAME, envelopedAssertionInfo);
+  private EntityResponse createAssertionInfoEntityResponse(
+      final AssertionInfo info, AssertionInferenceDetails inferenceDetails) {
+    HashMap<String, EnvelopedAspect> aspects = new HashMap<>();
+    aspects.put(Constants.ASSERTION_INFO_ASPECT_NAME, createEnvelopedAspect(info.data()));
+    if (inferenceDetails != null) {
+      aspects.put(
+          Constants.ASSERTION_INFERENCE_DETAILS_ASPECT_NAME,
+          createEnvelopedAspect(inferenceDetails.data()));
+    }
+    return createEntityResponse(aspects);
   }
 
-  private EntityResponse createEntityResponse(String aspectName, EnvelopedAspect envelopedAspect) {
+  private EntityResponse createEntityResponse(Map<String, EnvelopedAspect> aspects) {
     EntityResponse entityResponse = new EntityResponse();
     entityResponse.setUrn(UrnUtils.getUrn("urn:li:assertion:1"));
     entityResponse.setAspects(new EnvelopedAspectMap(new HashMap<>()));
-    entityResponse.getAspects().put(aspectName, envelopedAspect);
+    aspects.forEach(
+        (aspectName, envelopedAspect) -> {
+          entityResponse.getAspects().put(aspectName, envelopedAspect);
+        });
+
     return entityResponse;
   }
 

@@ -1,5 +1,5 @@
 import { Entity, MatchedField } from '../../../types.generated';
-import { CombinedEntity, createSiblingEntityCombiner } from '../../entity/shared/siblingUtils';
+import { CombinedEntity, createSiblingEntityCombiner } from '../../entityV2/shared/siblingUtils';
 
 type UncombinedSeaerchResults = {
     entity: Entity;

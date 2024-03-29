@@ -12,10 +12,14 @@ const DetailWrapper = styled.div`
 
 const MenuWrapper = styled.div`
     border-right: 2px solid #f5f5f5;
+    flex-basis: 256px;
+    flex-shrink: 1;
 `;
 
 const Content = styled.div`
     flex-grow: 1;
+    flex-basis: fit-content;
+    flex-shrink: 0;
     max-width: 100%;
     overflow: hidden;
 `;
@@ -41,7 +45,6 @@ export default function GlossayRelatedTerms() {
                 <Menu
                     selectable={false}
                     mode="inline"
-                    style={{ width: 256 }}
                     selectedKeys={[selectedKey]}
                     onClick={(key) => {
                         onMenuClick(key);

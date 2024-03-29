@@ -5,7 +5,7 @@ import styled from 'styled-components';
 import { EntityType, GlossaryTermAssociation } from '../../../../types.generated';
 import { HoverEntityTooltip } from '../../../recommendations/renderer/component/HoverEntityTooltip';
 import { useEntityRegistry } from '../../../useEntityRegistry';
-import TermContent from '../../../shared/tags/term/TermContent';
+import TermContent from './TermContent';
 
 const TermLink = styled(Link)<{ showOneAndCount?: boolean }>`
     display: inline-block;
@@ -57,7 +57,7 @@ export default function Term(props: Props) {
     }
 
     return (
-        <HoverEntityTooltip entity={term.term}>
+        <HoverEntityTooltip entity={term.term} width={250}>
             <TermLink
                 to={entityRegistry.getEntityUrl(EntityType.GlossaryTerm, term.term.urn)}
                 key={term.term.urn}

@@ -1,9 +1,10 @@
 import React from 'react';
 import { Button, Typography } from 'antd';
 import styled from 'styled-components/macro';
-import { PlusOutlined } from '@ant-design/icons';
 import TabToolbar from '../entityV2/shared/components/styled/TabToolbar';
-import { REDESIGN_COLORS , ANTD_GRAY} from '../entityV2/shared/constants';
+import { REDESIGN_COLORS, ANTD_GRAY } from '../entityV2/shared/constants';
+import TermGroupIcon from '../../images/glossary_collections_bookmark.svg?react';
+import TermIcon from '../../images/collections_bookmark.svg?react';
 import {
     BUSINESS_GLOSSARY_CREATE_TERM_ID,
     BUSINESS_GLOSSARY_CREATE_TERM_GROUP_ID,
@@ -35,15 +36,18 @@ const TitleContainer = styled.div`
     gap: 4px;
 `;
 
-const Title = styled(Typography.Title)`
+const Title = styled(Typography.Text)`
     margin-bottom: 0 !important;
+    color: ${REDESIGN_COLORS.SECONDARY_PURPLE};
+    font-size: 16px;
+    font-weight: 700;
 `;
 
 const Subtitle = styled(Typography.Text)`
-    font-size: 10px;
+    font-size: 12px;
     font-weight: 400;
     line-height: 13px;
-    color: ${REDESIGN_COLORS.SUBTITLE};
+    color: ${REDESIGN_COLORS.SUB_TEXT};
 `;
 
 const ButtonContainer = styled.div`
@@ -52,27 +56,36 @@ const ButtonContainer = styled.div`
 `;
 
 const TransparentButton = styled(Button)`
-    color: ${REDESIGN_COLORS.TITLE_PURPLE};
-    font-size: 12px;
+    color: ${REDESIGN_COLORS.COLD_GREY_TEXT};
     box-shadow: none;
-    border-color: ${REDESIGN_COLORS.TITLE_PURPLE};
+    border-color: ${REDESIGN_COLORS.COLD_GREY_TEXT};
     transition: 0.15s;
+    display: flex;
+    align-items: center;
 
     &:hover {
         transition: 0.15s;
         opacity: 0.9;
         border-color: ${REDESIGN_COLORS.TITLE_PURPLE};
         color: ${REDESIGN_COLORS.TITLE_PURPLE};
+        svg > g > path {
+            fill: ${REDESIGN_COLORS.TITLE_PURPLE};
+        }
+    }
+
+    svg > g > path {
+        fill: ${REDESIGN_COLORS.COLD_GREY_TEXT};
     }
 `;
 
 const PrimaryButton = styled(Button)`
     color: ${ANTD_GRAY[1]};
-    font-size: 12px;
     box-shadow: none;
     border-color: ${REDESIGN_COLORS.TITLE_PURPLE};
     background-color: ${REDESIGN_COLORS.TITLE_PURPLE};
     transition: 0.15s;
+    display: flex;
+    align-items: center;
 
     &:hover {
         transition: 0.15s;
@@ -80,6 +93,16 @@ const PrimaryButton = styled(Button)`
         background-color: ${REDESIGN_COLORS.TITLE_PURPLE};
         border-color: ${REDESIGN_COLORS.TITLE_PURPLE};
     }
+
+    svg > g > path {
+        fill: ${REDESIGN_COLORS.WHITE};
+    }
+`;
+
+const ButtonContent = styled.div`
+    display: flex;
+    gap: 5px;
+    align-items: center;
 `;
 
 interface Props {
@@ -113,28 +136,33 @@ const GlossaryContentProvider = (props: Props) => {
         <MainContentWrapper data-testid="glossary-entities-list">
             <HeaderWrapper>
                 <TitleContainer>
-                    <Title level={5}>Business Glossary</Title>
+                    <Title>Business Glossary</Title>
                     <Subtitle>View and modify your data dictionaries</Subtitle>
                 </TitleContainer>
                 <ButtonContainer>
                     <TransparentButton
-                        data-testid="add-term-group-button"
-                        id={BUSINESS_GLOSSARY_CREATE_TERM_GROUP_ID}
-                        size="large"
-                        // can not be disabled on acryl-main due to ability to propose
-                        onClick={() => setIsCreateNodeModalVisible(true)}
-                    >
-                        <PlusOutlined style={{ fontSize: '12px' }} /> Add Glossary
-                    </TransparentButton>
-                    <PrimaryButton
                         data-testid="add-term-button"
                         id={BUSINESS_GLOSSARY_CREATE_TERM_ID}
-                        type="primary"
                         size="large"
                         // can not be disabled on acryl-main due to ability to propose
                         onClick={() => setIsCreateTermModalVisible(true)}
                     >
-                        <PlusOutlined style={{ fontSize: '12px' }} /> Add Glossary Term
+                        <ButtonContent>
+                            <TermIcon /> Term
+                        </ButtonContent>
+                    </TransparentButton>
+                    <PrimaryButton
+                        data-testid="add-term-group-button"
+                        id={BUSINESS_GLOSSARY_CREATE_TERM_GROUP_ID}
+                        type="primary"
+                        size="large"
+                        // can not be disabled on acryl-main due to ability to propose
+                        onClick={() => setIsCreateNodeModalVisible(true)}
+                    >
+                        <ButtonContent>
+                            <TermGroupIcon />
+                            Term Group
+                        </ButtonContent>
                     </PrimaryButton>
                 </ButtonContainer>
             </HeaderWrapper>

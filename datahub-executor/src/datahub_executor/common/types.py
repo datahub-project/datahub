@@ -584,11 +584,6 @@ class FieldValuesAssertion(PermissiveBaseModel):
                 raise ValueError(
                     f"Parameter value is required when operator is {operator.name}"
                 )
-            if parameters["value"]["type"] not in [
-                AssertionStdParameterType.STRING.value,
-                AssertionStdParameterType.NUMBER.value,
-            ]:
-                raise ValueError(f"Operator {operator.name} must be a string or number")
 
         if operator in [
             AssertionStdOperator.CONTAIN,
@@ -613,11 +608,6 @@ class FieldValuesAssertion(PermissiveBaseModel):
                 raise ValueError(
                     f"Parameter value is required when operator is {operator.name}"
                 )
-            if (
-                not parameters["value"]["type"]
-                == AssertionStdParameterType.STRING.value
-            ):
-                raise ValueError(f"Operator {operator.name} must be a string")
 
         return parameters
 
@@ -820,6 +810,26 @@ class AssertionInfo(PermissiveBaseModel):
     # list with raw assertionInfo aspect
     raw_info_aspect: Optional[RawAspect]
 
+    @property
+    def is_inferred(self) -> bool:
+        return self.source_type == AssertionSourceType.INFERRED
+
+    @property
+    def is_volume_row_count_total_assertion(self) -> bool:
+        return (
+            self.type == AssertionType.VOLUME
+            and self.volume_assertion is not None
+            and self.volume_assertion.type == VolumeAssertionType.ROW_COUNT_TOTAL
+        )
+
+    @property
+    def is_field_metric_assertion(self) -> bool:
+        return (
+            self.type == AssertionType.FIELD
+            and self.field_assertion is not None
+            and self.field_assertion.type == FieldAssertionType.FIELD_METRIC
+        )
+
     @root_validator(pre=True)
     def extract_assertion_info(cls, values: Dict[str, Any]) -> Dict[str, Any]:
         if "info" in values and "type" in values["info"]:
@@ -870,6 +880,21 @@ class AssertionInfo(PermissiveBaseModel):
         return values
 
 
+class AssertionAdjustmentAlgorithm(Enum):
+    CUSTOM = "CUSTOM"
+
+
+class AssertionAdjustmentSettings(BaseModel):
+    """
+    A set of settings that can be used to adjust assertion values
+    This is mainly applied against inferred assertions
+    """
+
+    algorithm: AssertionAdjustmentAlgorithm
+    algorithmName: str
+    context: Optional[Dict[str, str]]
+
+
 class Assertion(AssertionInfo):
     # A unique identifier for the assertion
     urn: str
@@ -879,6 +904,9 @@ class Assertion(AssertionInfo):
 
     # The urn of the connection required to evaluate the assertion. If there is no connection urn we are limited in terms of what we can do
     connection_urn: Optional[str] = Field(alias="connectionUrn")
+
+    # The settings used to adjust the assertion.
+    adjustmentSettings: Optional[AssertionAdjustmentSettings]
 
     @root_validator(pre=True)
     def extract_assertion(cls, values: Dict[str, Any]) -> Dict[str, Any]:
@@ -932,6 +960,14 @@ class Assertion(AssertionInfo):
         if "connectionUrn" not in values and graphql_entity:
             platform_urn = graphql_entity["platform"]["urn"]
             values["connectionUrn"] = platform_urn
+
+        if (
+            values.get("inferenceDetails")
+            and "adjustmentSettings" in values["inferenceDetails"]
+        ):
+            values["adjustmentSettings"] = values["inferenceDetails"][
+                "adjustmentSettings"
+            ]
 
         return values
 
@@ -1051,15 +1087,22 @@ class AssertionEvaluationContext:
 
     evaluation_spec: Optional[AssertionEvaluationSpec] = None
 
+    """
+    Base assertionInfo aspect value before assertion adjustments (e.g. sensitivity transformer) are applied
+    """
+    base_assertion_info: Optional[RawAspect] = None
+
     def __init__(
         self,
         dry_run: bool = False,
         monitor_urn: Optional[str] = None,
         assertion_evaluation_spec: Optional[AssertionEvaluationSpec] = None,
+        base_assertion: Optional[RawAspect] = None,
     ):
         self.dry_run = dry_run
         self.monitor_urn = monitor_urn
         self.evaluation_spec = assertion_evaluation_spec
+        self.base_assertion_info = base_assertion
 
 
 class AssertionEvaluationResultError:

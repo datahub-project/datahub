@@ -49,7 +49,7 @@ const Heading = styled.div`
 const Title = styled.div`
     font-size: 12px;
     font-weight: 600;
-    color: ${REDESIGN_COLORS.FOUNDATION_BLUE_6};
+    color: ${REDESIGN_COLORS.TEXT_HEADING};
 `;
 
 type SidebarStatsColumn = {

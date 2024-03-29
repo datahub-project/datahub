@@ -5,6 +5,7 @@ import { BrowsableEntityPage } from '../browse/BrowsableEntityPage';
 import LineageExplorer from '../lineage/LineageExplorer';
 import useIsLineageMode from '../lineage/utils/useIsLineageMode';
 import { useLineageV2 } from '../lineageV2/useLineageV2';
+import useSidebarWidth from '../sharedV2/sidebar/useSidebarWidth';
 import { useEntityRegistry } from '../useEntityRegistry';
 import analytics, { EventType } from '../analytics';
 import { decodeUrn } from './shared/utils';
@@ -78,6 +79,7 @@ export const EntityPage = ({ entityType }: Props) => {
     const showLineage = isLineageMode && isLineageSupported;
     const [isSidebarClosed, setIsSidebarClosed] = useState(false);
     const [isTabFullsize, setTabFullsize] = useState(false);
+    const sidebarWidth = useSidebarWidth();
 
     return (
         <>
@@ -86,6 +88,7 @@ export const EntityPage = ({ entityType }: Props) => {
             {canViewEntityPage && (
                 <EntitySidebarContext.Provider
                     value={{
+                        width: sidebarWidth,
                         isClosed: isSidebarClosed,
                         setSidebarClosed: setIsSidebarClosed,
                     }}
