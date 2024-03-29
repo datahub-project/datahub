@@ -336,8 +336,8 @@ public abstract class SearchGraphServiceTestBase extends GraphServiceTestBase {
         Arrays.asList(
             // One upstream edge
             new Edge(
-                datasetTwoUrn,
-                datasetOneUrn,
+                dataset2Urn,
+                dataset1Urn,
                 downstreamOf,
                 initialTime,
                 null,
@@ -346,8 +346,8 @@ public abstract class SearchGraphServiceTestBase extends GraphServiceTestBase {
                 null),
             // Two downstream
             new Edge(
-                datasetThreeUrn,
-                datasetTwoUrn,
+                dataset3Urn,
+                dataset2Urn,
                 downstreamOf,
                 initialTime,
                 null,
@@ -355,8 +355,8 @@ public abstract class SearchGraphServiceTestBase extends GraphServiceTestBase {
                 null,
                 null),
             new Edge(
-                datasetFourUrn,
-                datasetTwoUrn,
+                dataset4Urn,
+                dataset2Urn,
                 downstreamOf,
                 initialTime,
                 null,
@@ -364,32 +364,32 @@ public abstract class SearchGraphServiceTestBase extends GraphServiceTestBase {
                 null,
                 null),
             // One with null values, should always be returned
-            new Edge(datasetFiveUrn, datasetTwoUrn, downstreamOf, null, null, null, null, null));
+            new Edge(dataset5Urn, dataset2Urn, downstreamOf, null, null, null, null, null));
 
     edges.forEach(getGraphService()::addEdge);
     syncAfterWrite();
 
     // Without timestamps
-    EntityLineageResult upstreamResult = getUpstreamLineage(datasetTwoUrn, null, null);
-    EntityLineageResult downstreamResult = getDownstreamLineage(datasetTwoUrn, null, null);
+    EntityLineageResult upstreamResult = getUpstreamLineage(dataset2Urn, null, null);
+    EntityLineageResult downstreamResult = getDownstreamLineage(dataset2Urn, null, null);
     Assert.assertEquals(Integer.valueOf(1), upstreamResult.getTotal());
     Assert.assertEquals(Integer.valueOf(3), downstreamResult.getTotal());
 
     // Timestamp before
-    upstreamResult = getUpstreamLineage(datasetTwoUrn, 0L, initialTime - 10);
-    downstreamResult = getDownstreamLineage(datasetTwoUrn, 0L, initialTime - 10);
+    upstreamResult = getUpstreamLineage(dataset2Urn, 0L, initialTime - 10);
+    downstreamResult = getDownstreamLineage(dataset2Urn, 0L, initialTime - 10);
     Assert.assertEquals(Integer.valueOf(0), upstreamResult.getTotal());
     Assert.assertEquals(Integer.valueOf(1), downstreamResult.getTotal());
 
     // Timestamp after
-    upstreamResult = getUpstreamLineage(datasetTwoUrn, initialTime + 10, initialTime + 100);
-    downstreamResult = getDownstreamLineage(datasetTwoUrn, initialTime + 10, initialTime + 100);
+    upstreamResult = getUpstreamLineage(dataset2Urn, initialTime + 10, initialTime + 100);
+    downstreamResult = getDownstreamLineage(dataset2Urn, initialTime + 10, initialTime + 100);
     Assert.assertEquals(Integer.valueOf(0), upstreamResult.getTotal());
     Assert.assertEquals(Integer.valueOf(1), downstreamResult.getTotal());
 
     // Timestamp included
-    upstreamResult = getUpstreamLineage(datasetTwoUrn, initialTime - 10, initialTime + 10);
-    downstreamResult = getDownstreamLineage(datasetTwoUrn, initialTime - 10, initialTime + 10);
+    upstreamResult = getUpstreamLineage(dataset2Urn, initialTime - 10, initialTime + 10);
+    downstreamResult = getDownstreamLineage(dataset2Urn, initialTime - 10, initialTime + 10);
     Assert.assertEquals(Integer.valueOf(1), upstreamResult.getTotal());
     Assert.assertEquals(Integer.valueOf(3), downstreamResult.getTotal());
 
@@ -398,8 +398,8 @@ public abstract class SearchGraphServiceTestBase extends GraphServiceTestBase {
     edges =
         Arrays.asList(
             new Edge(
-                datasetTwoUrn,
-                datasetOneUrn,
+                dataset2Urn,
+                dataset1Urn,
                 downstreamOf,
                 initialTime,
                 null,
@@ -407,8 +407,8 @@ public abstract class SearchGraphServiceTestBase extends GraphServiceTestBase {
                 null,
                 null),
             new Edge(
-                datasetThreeUrn,
-                datasetTwoUrn,
+                dataset3Urn,
+                dataset2Urn,
                 downstreamOf,
                 initialTime,
                 null,
@@ -420,23 +420,72 @@ public abstract class SearchGraphServiceTestBase extends GraphServiceTestBase {
     syncAfterWrite();
 
     // Without timestamps
-    upstreamResult = getUpstreamLineage(datasetTwoUrn, null, null);
-    downstreamResult = getDownstreamLineage(datasetTwoUrn, null, null);
+    upstreamResult = getUpstreamLineage(dataset2Urn, null, null);
+    downstreamResult = getDownstreamLineage(dataset2Urn, null, null);
     Assert.assertEquals(Integer.valueOf(1), upstreamResult.getTotal());
     Assert.assertEquals(Integer.valueOf(3), downstreamResult.getTotal());
 
     // Window includes initial time and updated time
-    upstreamResult = getUpstreamLineage(datasetTwoUrn, initialTime - 10, updatedTime + 10);
-    downstreamResult = getDownstreamLineage(datasetTwoUrn, initialTime - 10, updatedTime + 10);
+    upstreamResult = getUpstreamLineage(dataset2Urn, initialTime - 10, updatedTime + 10);
+    downstreamResult = getDownstreamLineage(dataset2Urn, initialTime - 10, updatedTime + 10);
     Assert.assertEquals(Integer.valueOf(1), upstreamResult.getTotal());
     Assert.assertEquals(Integer.valueOf(3), downstreamResult.getTotal());
 
     // Window includes updated time but not initial time
-    upstreamResult = getUpstreamLineage(datasetTwoUrn, initialTime + 10, updatedTime + 10);
-    downstreamResult = getDownstreamLineage(datasetTwoUrn, initialTime + 10, updatedTime + 10);
+    upstreamResult = getUpstreamLineage(dataset2Urn, initialTime + 10, updatedTime + 10);
+    downstreamResult = getDownstreamLineage(dataset2Urn, initialTime + 10, updatedTime + 10);
     Assert.assertEquals(Integer.valueOf(1), upstreamResult.getTotal());
     Assert.assertEquals(Integer.valueOf(2), downstreamResult.getTotal());
   }
+
+  @Test
+  public void testExplored() throws Exception {
+
+    List<Edge> edges =
+        Arrays.asList(
+            // One upstream edge
+            new Edge(
+                dataset2Urn,
+                dataset1Urn,
+                downstreamOf,
+                null,
+                null,
+                null,
+                null,
+                null),
+            // Two downstream
+            new Edge(
+                dataset3Urn,
+                dataset2Urn,
+                downstreamOf,
+                null,
+                null,
+                null,
+                null,
+                null),
+            new Edge(
+                dataset4Urn,
+                dataset2Urn,
+                downstreamOf,
+                null,
+                null,
+                null,
+                null,
+                null),
+            // One with null values, should always be returned
+            new Edge(dataset5Urn, dataset2Urn, downstreamOf, null, null, null, null, null));
+
+    edges.forEach(getGraphService()::addEdge);
+    syncAfterWrite();
+
+    EntityLineageResult result = getUpstreamLineage(dataset2Urn, null, null, 10);
+    Assert.assertTrue(Boolean.TRUE.equals(result.getRelationships().get(0).isExplored()));
+
+    EntityLineageResult result2 = getUpstreamLineage(dataset2Urn, null, null, 10, 0);
+    Assert.assertTrue(result2.getRelationships().get(0).isExplored() == null);
+  }
+
+
 
   /**
    * Utility method to reduce repeated parameters for lineage tests
@@ -447,8 +496,16 @@ public abstract class SearchGraphServiceTestBase extends GraphServiceTestBase {
    * @return The Upstream lineage for urn from the window from startTime to endTime
    */
   private EntityLineageResult getUpstreamLineage(Urn urn, Long startTime, Long endTime) {
-    return getLineage(urn, LineageDirection.UPSTREAM, startTime, endTime, null);
+    return getLineage(urn, LineageDirection.UPSTREAM, startTime, endTime, 0, null);
   }
+
+  private EntityLineageResult getUpstreamLineage(Urn urn, Long startTime, Long endTime, int count) {
+    return getLineage(urn, LineageDirection.UPSTREAM, startTime, endTime, count, null);
+  }
+
+  private EntityLineageResult getUpstreamLineage(Urn urn, Long startTime, Long endTime, int count, int exploreLimit) {
+    return getLineage(urn, LineageDirection.UPSTREAM, startTime, endTime, count, exploreLimit);
+    }
 
   /**
    * Utility method to reduce repeated parameters for lineage tests
@@ -459,7 +516,7 @@ public abstract class SearchGraphServiceTestBase extends GraphServiceTestBase {
    * @return The Downstream lineage for urn from the window from startTime to endTime
    */
   private EntityLineageResult getDownstreamLineage(Urn urn, Long startTime, Long endTime) {
-    return getLineage(urn, LineageDirection.DOWNSTREAM, startTime, endTime, null);
+      return getLineage(urn, LineageDirection.DOWNSTREAM, startTime, endTime, 0, null);
   }
 
   /**
@@ -476,6 +533,7 @@ public abstract class SearchGraphServiceTestBase extends GraphServiceTestBase {
       LineageDirection direction,
       Long startTime,
       Long endTime,
+      int count,
       @Nullable Integer entitiesExploredPerHopLimit) {
     return getGraphService()
         .getLineage(
