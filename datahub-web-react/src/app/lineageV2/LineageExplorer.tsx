@@ -1,6 +1,7 @@
 import React, { useContext, useEffect, useState } from 'react';
 import { ReactFlowProvider } from 'reactflow';
 import { EntityType, LineageDirection } from '../../types.generated';
+import { useGetLineageTimeParams } from '../lineage/utils/useGetLineageTimeParams';
 import TabFullsizedContext from '../shared/TabFullsizedContext';
 import {
     FetchStatus,
@@ -65,11 +66,13 @@ function useInitializeNodes(
     type: EntityType,
     setNodeVersion: NodeContext['setNodeVersion'],
 ): boolean {
+    const { startTimeMillis, endTimeMillis } = useGetLineageTimeParams();
+
     useEffect(() => {
         context.nodes.clear();
         context.nodes.set(urn, makeInitialNode(urn, type));
         setNodeVersion((prev) => prev + 1);
-    }, [urn, type, context.nodes, setNodeVersion]);
+    }, [urn, type, context.nodes, startTimeMillis, endTimeMillis, setNodeVersion]);
 
     const { processed: upstreamProcessed } = useSearchAcrossLineage(urn, context, LineageDirection.Upstream);
     const { processed: downstreamProcessed } = useSearchAcrossLineage(urn, context, LineageDirection.Downstream);
@@ -82,6 +85,7 @@ function makeInitialNode(urn: string, type: EntityType): LineageEntity {
         id: urn,
         urn,
         type,
+        isExpanded: true,
         parents: new Set(),
         fetchStatus: {
             [LineageDirection.Upstream]: FetchStatus.LOADING,

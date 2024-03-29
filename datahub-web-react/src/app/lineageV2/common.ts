@@ -29,6 +29,7 @@ export interface Filters {
 
 export interface NodeBase {
     id: string;
+    isExpanded: boolean;
     direction?: LineageDirection;
     parents: Set<Urn>;
     prunedParents?: Set<Urn>;
@@ -54,6 +55,7 @@ export interface LineageFilter extends NodeBase {
     contents: Urn[];
     shown: Set<Urn>;
     limit: number;
+    numShown?: number; // Includes nodes in contents shown due to a different path, not through `parent`
 }
 
 export type LineageNode = LineageEntity | LineageFilter;
@@ -143,13 +145,9 @@ export const LineageNodesContext = React.createContext<NodeContext>({
     setDisplayVersion: () => {},
 });
 
-export interface ColumnHighlight {
-    fromSelect: boolean;
-}
-
 export type FineGrainedLineageMap = Map<ColumnRef, ColumnRef[]>;
 export type FineGrainedLineage = { forward: FineGrainedLineageMap; backward: FineGrainedLineageMap };
-export type HighlightedColumns = Map<Urn, Map<string, ColumnHighlight>>;
+export type HighlightedColumns = Map<Urn, Set<string>>;
 
 export type NeighborMap = Map<Urn, Set<Urn>>;
 export type NeighborData = Record<LineageDirection, NeighborMap>;

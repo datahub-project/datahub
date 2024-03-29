@@ -3,14 +3,13 @@ import { Panel, useReactFlow, useStoreApi } from 'reactflow';
 import styled from 'styled-components';
 import {
     ArrowsAltOutlined,
-    // CalendarOutlined,
-    // CompressOutlined,
-    // FilterOutlined,
+    CalendarOutlined,
     HomeOutlined,
     ShrinkOutlined,
     VerticalLeftOutlined,
 } from '@ant-design/icons';
 import { Button, Divider } from 'antd';
+import { LINEAGE_NODE_HEIGHT, LINEAGE_NODE_WIDTH } from '../LineageEntityNode/useDisplayedColumns';
 
 import LineageSearchFilters from './LineageSearchFilters';
 import { StyledPanelButton } from './StyledPanelButton';
@@ -35,10 +34,6 @@ const StyledControlsPanel = styled.div<{ isExpanded: boolean }>`
 
 const StyledExpandContractButton = styled(Button)`
     border-radius: 8px;
-    border: 1px solid var(--colorBorder, rgba(0, 0, 0, 0.15));
-    background: var(--colorBgContainer, #fff);
-    box-shadow: 0px 2px 0px 0px rgba(0, 0, 0, 0.02);
-    display: block;
     height: 56px;
     width: 56px;
     margin-top: 8px;
@@ -49,18 +44,18 @@ const StyledExpandContractButton = styled(Button)`
 `;
 
 const StyledDivider = styled(Divider)`
-    margin-top: 6px;
-    margin-bottom: 6px;
+    margin-top: 1px;
+    margin-bottom: 1px;
 `;
 
 const LineageControls: React.FC = () => {
     const { isTabFullsize, setTabFullsize } = useContext(TabFullsizedContext);
 
     const [isExpanded, setIsExpanded] = React.useState(false);
-    const [visiblePanel] = React.useState<string | null>(null);
+    const [visiblePanel, setVisiblePanel] = React.useState<string | null>(null); // TODO: Replace with enum
     const store = useStoreApi();
 
-    const { setCenter, zoomTo } = useReactFlow();
+    const { setCenter } = useReactFlow();
     // showExpandedText is a delayed version of isExpanded by .3 seconds
     const [showExpandedText, setShowExpandedText] = React.useState(false);
     useEffect(() => {
@@ -85,36 +80,23 @@ const LineageControls: React.FC = () => {
                     <StyledPanelButton
                         type="text"
                         onClick={() => {
-                            setCenter(0, 0);
-                            zoomTo(1);
+                            setCenter(LINEAGE_NODE_WIDTH / 2, LINEAGE_NODE_HEIGHT / 2, { zoom: 1, duration: 1000 });
                         }}
                     >
                         <HomeOutlined />
                         {showExpandedText ? 'Go to home node' : null}
                     </StyledPanelButton>
-                    {/* <StyledPanelButton */}
-                    {/*     type="text" */}
-                    {/*     onClick={() => */}
-                    {/*         visiblePanel === 'filters' ? setVisiblePanel(null) : setVisiblePanel('filters') */}
-                    {/*     } */}
-                    {/* > */}
-                    {/*     <FilterOutlined /> */}
-                    {/*     {showExpandedText ? 'Filters' : null} */}
-                    {/* </StyledPanelButton> */}
-                    {/* <StyledPanelButton */}
-                    {/*     type="text" */}
-                    {/*     onClick={() => */}
-                    {/*         visiblePanel === 'timeRange' ? setVisiblePanel(null) : setVisiblePanel('timeRange') */}
-                    {/*     } */}
-                    {/* > */}
-                    {/*     <CalendarOutlined /> */}
-                    {/*     {showExpandedText ? 'Date Range' : null} */}
-                    {/* </StyledPanelButton> */}
                     <StyledDivider />
-                    {/* <StyledPanelButton type="text"> */}
-                    {/*     <CompressOutlined /> */}
-                    {/*     {showExpandedText ? 'Compress Lineage' : null} */}
-                    {/* </StyledPanelButton> */}
+                    <StyledPanelButton
+                        type="text"
+                        onClick={() =>
+                            visiblePanel === 'timeRange' ? setVisiblePanel(null) : setVisiblePanel('timeRange')
+                        }
+                    >
+                        <CalendarOutlined />
+                        {showExpandedText ? 'Date Range' : null}
+                    </StyledPanelButton>
+                    <StyledDivider />
                     <DownloadLineageScreenshotButton showExpandedText={showExpandedText} />
                     {visiblePanel === 'filters' && <LineageSearchFilters isRootPanelExpanded={isExpanded} />}
                     {visiblePanel === 'timeRange' && <LineageTimeRangeControls isRootPanelExpanded={isExpanded} />}

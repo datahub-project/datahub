@@ -3,6 +3,7 @@ import { Handle, Position } from 'reactflow';
 import styled from 'styled-components';
 import { SchemaFieldDataType } from '../../../types.generated';
 import translateFieldPath from '../../entityV2/dataset/profile/schema/utils/translateFieldPath';
+import OverflowTitle from '../../sharedV2/text/OverflowTitle';
 import { createColumnRef, LineageDisplayContext, onMouseDownCapturePreventSelect } from '../common';
 import { CompactFieldIconWithTooltip } from '../../sharedV2/icons/CompactFieldIcon';
 import { ANTD_GRAY, LINEAGE_COLORS } from '../../entityV2/shared/constants';
@@ -57,12 +58,11 @@ interface Props {
     urn: string;
     fieldPath: string;
     highlighted: boolean;
-    fromSelect?: boolean;
     type?: SchemaFieldDataType;
     nativeDataType?: string | null;
 }
 
-export default function Column({ urn, fieldPath, highlighted, fromSelect, type, nativeDataType }: Props) {
+export default function Column({ urn, fieldPath, highlighted, type, nativeDataType }: Props) {
     const { selectedColumn, setSelectedColumn, setHoveredColumn, fineGrainedLineage } =
         useContext(LineageDisplayContext);
     const id = useMemo(() => createColumnRef(urn, fieldPath), [urn, fieldPath]);
@@ -72,7 +72,7 @@ export default function Column({ urn, fieldPath, highlighted, fromSelect, type, 
     return (
         <ColumnWrapper
             highlighted={highlighted}
-            fromSelect={fromSelect}
+            fromSelect={!!selectedColumn}
             selected={id === selectedColumn}
             hasLineage={hasLineage}
             onMouseDownCapture={(e) => {
@@ -95,7 +95,7 @@ export default function Column({ urn, fieldPath, highlighted, fromSelect, type, 
                     <CompactFieldIconWithTooltip type={type} nativeDataType={nativeDataType} />
                 </TypeWrapper>
             )}
-            {translateFieldPath(fieldPath)}
+            <OverflowTitle title={translateFieldPath(fieldPath)} />
             <CustomHandle id={id} type="source" position={Position.Right} isConnectable={false} />
         </ColumnWrapper>
     );

@@ -1,15 +1,14 @@
 import React, { useContext } from 'react';
 import styled from 'styled-components';
 import { Typography } from 'antd';
+import OverflowTitle from '../../sharedV2/text/OverflowTitle';
 import { PlatformAggregate, SubtypeAggregate } from './useFetchFilterNodeContents';
 import { useEntityRegistry } from '../../useEntityRegistry';
 import { ENTITY_SUB_TYPE_FILTER_NAME, PLATFORM_FILTER_NAME } from '../../searchV2/utils/constants';
-import { EntityRegistry } from '../../../entityRegistryContext';
 import { getFilterIconAndLabel } from '../../searchV2/filters/utils';
 import { getFilterColor } from '../../searchV2/recommendation/utils';
 import { ANTD_GRAY, ANTD_GRAY_V2 } from '../../entityV2/shared/constants';
 import { LINEAGE_FILTER_ID_PREFIX, LineageFilter, LineageNodesContext, setDefault } from '../common';
-import { OverflowTitle } from '../LineageEntityNode/NodeContents';
 
 const Pill = styled.div<{ clickable: boolean; color: string; selected: boolean }>`
     align-items: center;
@@ -70,21 +69,20 @@ interface Props<T> {
 }
 
 export function PlatformEntry({ agg, data }: Props<PlatformAggregate>) {
-    const entityRegistry = useEntityRegistry();
-    return LineageFilterPills(PLATFORM_FILTER_NAME, agg, data, entityRegistry);
+    return LineageFilterPill(PLATFORM_FILTER_NAME, agg, data);
 }
 
 export function SubtypeEntry({ agg, data }: Props<SubtypeAggregate>) {
-    const entityRegistry = useEntityRegistry();
-    return LineageFilterPills(ENTITY_SUB_TYPE_FILTER_NAME, agg, data, entityRegistry);
+    return LineageFilterPill(ENTITY_SUB_TYPE_FILTER_NAME, agg, data);
 }
 
-function LineageFilterPills(
+function LineageFilterPill(
     filterName: string,
     [filterValue, count, entity]: PlatformAggregate | SubtypeAggregate,
     data: LineageFilter,
-    entityRegistry: EntityRegistry,
 ) {
+    const entityRegistry = useEntityRegistry();
+
     const { id, direction, contents, parent } = data;
     const { icon, label } = getFilterIconAndLabel(filterName, filterValue, entityRegistry, entity || null, 12);
 

@@ -1,6 +1,6 @@
 import { useContext, useMemo, useRef } from 'react';
 import { SchemaFieldDataType } from '../../../types.generated';
-import { ColumnHighlight, createColumnRef, FineGrainedLineage, LineageDisplayContext } from '../common';
+import { createColumnRef, FineGrainedLineage, LineageDisplayContext } from '../common';
 import { NUM_COLUMNS_PER_PAGE } from '../constants';
 import { ColumnAsset, FetchedEntityV2, LineageAssetType } from '../types';
 
@@ -12,7 +12,6 @@ type FieldPath = string;
 export interface LineageDisplayColumn {
     fieldPath: FieldPath;
     highlighted: boolean;
-    fromSelect?: boolean;
     type?: SchemaFieldDataType;
     nativeDataType?: string | null;
 }
@@ -20,7 +19,7 @@ export interface LineageDisplayColumn {
 interface Arguments {
     urn: string;
     entity?: FetchedEntityV2;
-    showAllColumns: boolean;
+    showColumns: boolean;
     pageIndex: number;
     filterText: string;
     onlyWithLineage: boolean;
@@ -73,7 +72,7 @@ function normalize(val: DisplayedColumns): NormalizedReturn {
 function useComputeValues({
     urn,
     entity,
-    showAllColumns,
+    showColumns,
     pageIndex,
     filterText,
     onlyWithLineage,
@@ -97,13 +96,12 @@ function useComputeValues({
                 fieldMap.set(asset.name, asset);
             }
         });
-        const columnHighlights = highlightedColumns.get(urn) || new Map<string, ColumnHighlight>();
+        const columnHighlights = highlightedColumns.get(urn) || new Set<string>();
 
         function makeLineageDisplayColumn(fieldPath: string): LineageDisplayColumn {
             return {
                 fieldPath,
                 highlighted: columnHighlights.has(fieldPath),
-                fromSelect: columnHighlights.get(fieldPath)?.fromSelect,
                 type: fieldMap.get(fieldPath)?.dataType,
                 nativeDataType: fieldMap.get(fieldPath)?.nativeDataType,
             };
@@ -116,21 +114,17 @@ function useComputeValues({
             pageIndex * NUM_COLUMNS_PER_PAGE,
             pageIndex * NUM_COLUMNS_PER_PAGE + NUM_COLUMNS_PER_PAGE,
         );
-        const missingHighlightedFields = Array.from(columnHighlights)
-            .sort(
-                // Highlights from selection before highlights from hover
-                ([_fieldA, detailsA], [_fieldB, detailsB]) => Number(detailsB.fromSelect) - Number(detailsA.fromSelect),
-            )
-            .filter(([field]) => !showAllColumns || !paginatedFields.includes(field));
-
+        const missingHighlightedFields = Array.from(columnHighlights).filter(
+            (field) => !showColumns || !paginatedFields.includes(field),
+        );
         return {
             paginatedColumns: paginatedFields.map(makeLineageDisplayColumn),
-            extraHighlightedColumns: missingHighlightedFields.map(([field]) => field).map(makeLineageDisplayColumn),
+            extraHighlightedColumns: missingHighlightedFields.map(makeLineageDisplayColumn),
             numFilteredColumns: filteredFields.length,
             numColumnsTotal: fields.length,
             numColumnsWithLineage: withLineageFields.length,
         };
-    }, [urn, entity, showAllColumns, pageIndex, filterText, highlightedColumns, onlyWithLineage, fineGrainedLineage]);
+    }, [urn, entity, showColumns, pageIndex, filterText, highlightedColumns, onlyWithLineage, fineGrainedLineage]);
 }
 
 function filterColumnsByText(fields: FieldPath[], filterText: string): FieldPath[] {
