@@ -85,15 +85,15 @@ public class Edge {
   public static final String RELATIONSHIP_TYPE_FIELD = "relationshipType";
   public static final String LIFE_CYCLE_OWNER_FIELD = "lifeCycleOwner";
 
-  public static final Map<String, SortOrder> KEY_SORTS = Map.of(
-      SOURCE_URN_FIELD, SortOrder.ASCENDING,
-      DESTINATION_URN_FIELD, SortOrder.ASCENDING,
-      RELATIONSHIP_TYPE_FIELD, SortOrder.ASCENDING,
-      LIFE_CYCLE_OWNER_FIELD, SortOrder.ASCENDING
-  );
+  public static final Map<String, SortOrder> KEY_SORTS =
+      Map.of(
+          SOURCE_URN_FIELD, SortOrder.ASCENDING,
+          DESTINATION_URN_FIELD, SortOrder.ASCENDING,
+          RELATIONSHIP_TYPE_FIELD, SortOrder.ASCENDING,
+          LIFE_CYCLE_OWNER_FIELD, SortOrder.ASCENDING);
   public static List<SortCriterion> EDGE_SORT_CRITERION =
-      KEY_SORTS.entrySet().stream().map(
-          entry -> SearchUtil.sortBy(entry.getKey(), entry.getValue())
-      ).collect(Collectors.toList());
+      KEY_SORTS.entrySet().stream()
+          .map(entry -> SearchUtil.sortBy(entry.getKey(), entry.getValue()))
+          .collect(Collectors.toList());
   private static final String DOC_DELIMETER = "--";
 }
