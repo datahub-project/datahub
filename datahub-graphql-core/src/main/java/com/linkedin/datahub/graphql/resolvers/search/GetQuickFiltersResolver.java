@@ -30,6 +30,7 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -63,8 +64,8 @@ public class GetQuickFiltersResolver
             final AggregationMetadataArray aggregations =
                 searchResult.getMetadata().getAggregations();
 
-            quickFilters.addAll(getPlatformQuickFilters(aggregations));
-            quickFilters.addAll(getEntityTypeQuickFilters(aggregations));
+            quickFilters.addAll(getPlatformQuickFilters(context, aggregations));
+            quickFilters.addAll(getEntityTypeQuickFilters(context, aggregations));
           } catch (Exception e) {
             log.error("Failed getting quick filters", e);
             throw new RuntimeException("Failed to to get quick filters", e);
@@ -113,7 +114,7 @@ public class GetQuickFiltersResolver
    * top 5 to quick filters
    */
   private List<QuickFilter> getPlatformQuickFilters(
-      @Nonnull final AggregationMetadataArray aggregations) {
+      @Nullable QueryContext context, @Nonnull final AggregationMetadataArray aggregations) {
     final List<QuickFilter> platforms = new ArrayList<>();
     final Optional<AggregationMetadata> platformAggregations =
         aggregations.stream().filter(agg -> agg.getName().equals(PLATFORM)).findFirst();
@@ -125,7 +126,7 @@ public class GetQuickFiltersResolver
       sortedPlatforms.forEach(
           platformFilter -> {
             if (platforms.size() < PLATFORM_COUNT && platformFilter.getFacetCount() > 0) {
-              platforms.add(mapQuickFilter(PLATFORM, platformFilter));
+              platforms.add(mapQuickFilter(context, PLATFORM, platformFilter));
             }
           });
     }
@@ -141,7 +142,7 @@ public class GetQuickFiltersResolver
    * filters from a prioritized list. Do the same for datathub entity types.
    */
   private List<QuickFilter> getEntityTypeQuickFilters(
-      @Nonnull final AggregationMetadataArray aggregations) {
+      @Nullable QueryContext context, @Nonnull final AggregationMetadataArray aggregations) {
     final List<QuickFilter> entityTypes = new ArrayList<>();
     final Optional<AggregationMetadata> entityAggregations =
         aggregations.stream().filter(agg -> agg.getName().equals(ENTITY_FILTER_NAME)).findFirst();
@@ -149,6 +150,7 @@ public class GetQuickFiltersResolver
     if (entityAggregations.isPresent()) {
       final List<QuickFilter> sourceEntityTypeFilters =
           getQuickFiltersFromList(
+              context,
               SearchUtils.PRIORITIZED_SOURCE_ENTITY_TYPES,
               SOURCE_ENTITY_COUNT,
               entityAggregations.get());
@@ -156,6 +158,7 @@ public class GetQuickFiltersResolver
 
       final List<QuickFilter> dataHubEntityTypeFilters =
           getQuickFiltersFromList(
+              context,
               SearchUtils.PRIORITIZED_DATAHUB_ENTITY_TYPES,
               DATAHUB_ENTITY_COUNT,
               entityAggregations.get());
@@ -169,6 +172,7 @@ public class GetQuickFiltersResolver
    * until we reach the maxListSize defined
    */
   private List<QuickFilter> getQuickFiltersFromList(
+      @Nullable QueryContext context,
       @Nonnull final List<String> prioritizedList,
       final int maxListSize,
       @Nonnull final AggregationMetadata entityAggregations) {
@@ -181,7 +185,7 @@ public class GetQuickFiltersResolver
                     .filter(val -> val.getValue().equals(entityType))
                     .findFirst();
             if (entityFilter.isPresent() && entityFilter.get().getFacetCount() > 0) {
-              entityTypes.add(mapQuickFilter(ENTITY_FILTER_NAME, entityFilter.get()));
+              entityTypes.add(mapQuickFilter(context, ENTITY_FILTER_NAME, entityFilter.get()));
             }
           }
         });
@@ -190,13 +194,15 @@ public class GetQuickFiltersResolver
   }
 
   private QuickFilter mapQuickFilter(
-      @Nonnull final String field, @Nonnull final FilterValue filterValue) {
+      @Nullable QueryContext context,
+      @Nonnull final String field,
+      @Nonnull final FilterValue filterValue) {
     final boolean isEntityTypeFilter = field.equals(ENTITY_FILTER_NAME);
     final QuickFilter quickFilter = new QuickFilter();
     quickFilter.setField(field);
     quickFilter.setValue(convertFilterValue(filterValue.getValue(), isEntityTypeFilter));
     if (filterValue.getEntity() != null) {
-      final Entity entity = UrnToEntityMapper.map(filterValue.getEntity());
+      final Entity entity = UrnToEntityMapper.map(context, filterValue.getEntity());
       quickFilter.setEntity(entity);
     }
     return quickFilter;

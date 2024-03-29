@@ -12,6 +12,7 @@ import com.linkedin.metadata.graph.Edge;
 import com.linkedin.metadata.graph.EntityLineageResult;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.GraphServiceTestBase;
+import com.linkedin.metadata.graph.GraphServiceTestBaseNoVia;
 import com.linkedin.metadata.graph.LineageDirection;
 import com.linkedin.metadata.graph.RelatedEntitiesResult;
 import com.linkedin.metadata.graph.RelatedEntity;
@@ -36,7 +37,7 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-public class Neo4jGraphServiceTest extends GraphServiceTestBase {
+public class Neo4jGraphServiceTest extends GraphServiceTestBaseNoVia {
 
   private Neo4jTestServerBuilder _serverBuilder;
   private Driver _driver;
@@ -91,6 +92,7 @@ public class Neo4jGraphServiceTest extends GraphServiceTestBase {
   }
 
   @Override
+  @Test(dataProvider = "NoViaFindRelatedEntitiesSourceTypeTests")
   public void testFindRelatedEntitiesSourceType(
       String datasetType,
       List<String> relationshipTypes,
@@ -111,6 +113,7 @@ public class Neo4jGraphServiceTest extends GraphServiceTestBase {
   }
 
   @Override
+  @Test(dataProvider = "NoViaFindRelatedEntitiesDestinationTypeTests")
   public void testFindRelatedEntitiesDestinationType(
       String datasetType,
       List<String> relationshipTypes,

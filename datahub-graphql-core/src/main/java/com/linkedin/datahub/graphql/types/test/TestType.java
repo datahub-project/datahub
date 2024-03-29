@@ -57,7 +57,7 @@ public class TestType implements com.linkedin.datahub.graphql.types.EntityType<T
               ASPECTS_TO_FETCH,
               context.getAuthentication());
 
-      final List<EntityResponse> gmsResults = new ArrayList<>();
+      final List<EntityResponse> gmsResults = new ArrayList<>(urns.size());
       for (Urn urn : testUrns) {
         gmsResults.add(entities.getOrDefault(urn, null));
       }

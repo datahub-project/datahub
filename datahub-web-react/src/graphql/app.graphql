@@ -72,6 +72,7 @@ query appConfig {
             subscriptionsEnabled
             datasetHealthDashboardEnabled
             showAcrylInfo
+            erModelRelationshipFeatureEnabled
             showAccessManagement
             nestedDomainsEnabled
             platformBrowseV2

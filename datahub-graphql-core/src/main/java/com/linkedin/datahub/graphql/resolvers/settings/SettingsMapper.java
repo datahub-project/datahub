@@ -3,6 +3,7 @@ package com.linkedin.datahub.graphql.resolvers.settings;
 import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.*;
 
 import com.datahub.authentication.Authentication;
+import com.datahub.authorization.AuthUtil;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.GlobalIntegrationSettings;
@@ -21,13 +22,12 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.authorization.PoliciesConfig;
-import com.linkedin.metadata.secret.SecretService;
 import com.linkedin.settings.NotificationSettingMap;
 import com.linkedin.settings.global.GlobalSettingsInfo;
+import io.datahubproject.metadata.services.SecretService;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.Optional;
 import javax.annotation.Nonnull;
 
 /** Utility functions useful for Settings resolvers. */
@@ -41,7 +41,8 @@ public class SettingsMapper {
 
   /** Returns true if the authenticated user is able to manage global settings. */
   public static boolean canManageGlobalSettings(@Nonnull QueryContext context) {
-    return isAuthorized(context, Optional.empty(), PoliciesConfig.MANAGE_GLOBAL_SETTINGS);
+    return AuthUtil.isAuthorized(
+        context.getAuthorizer(), context.getActorUrn(), PoliciesConfig.MANAGE_GLOBAL_SETTINGS);
   }
 
   public static GlobalSettingsInfo getGlobalSettings(
@@ -72,10 +73,12 @@ public class SettingsMapper {
   }
 
   /** Maps GMS settings into GraphQL global settings. */
-  public GlobalSettings mapGlobalSettings(@Nonnull GlobalSettingsInfo input) {
+  public GlobalSettings mapGlobalSettings(
+      @Nonnull final QueryContext context, @Nonnull GlobalSettingsInfo input) {
     final GlobalSettings result = new GlobalSettings();
     result.setIntegrationSettings(mapGlobalIntegrationSettings(input.getIntegrations()));
-    result.setNotificationSettings(mapGlobalNotificationSettings(input.getNotifications()));
+    result.setNotificationSettings(
+        mapGlobalNotificationSettings(context, input.getNotifications()));
     if (input.hasSso() && input.getSso() != null) {
       result.setSsoSettings(mapSsoSettings(input.getSso()));
     }
@@ -108,29 +111,33 @@ public class SettingsMapper {
   }
 
   private GlobalNotificationSettings mapGlobalNotificationSettings(
+      @Nonnull final QueryContext context,
       @Nonnull com.linkedin.settings.global.GlobalNotificationSettings input) {
     final GlobalNotificationSettings result = new GlobalNotificationSettings();
     if (input.hasSettings()) {
-      result.setSettings(mapNotificationSettings(input.getSettings()));
+      result.setSettings(mapNotificationSettings(context, input.getSettings()));
     } else {
       result.setSettings(Collections.emptyList());
     }
     return result;
   }
 
-  private List<NotificationSetting> mapNotificationSettings(NotificationSettingMap settings) {
+  private static List<NotificationSetting> mapNotificationSettings(
+      @Nonnull final QueryContext context, NotificationSettingMap settings) {
     final List<NotificationSetting> result = new ArrayList<>();
-    settings.forEach((key, value) -> result.add(mapNotificationSetting(key, value)));
+    settings.forEach((key, value) -> result.add(mapNotificationSetting(context, key, value)));
     return result;
   }
 
-  private NotificationSetting mapNotificationSetting(
-      String typeStr, com.linkedin.settings.NotificationSetting setting) {
+  private static NotificationSetting mapNotificationSetting(
+      @Nonnull final QueryContext context,
+      String typeStr,
+      com.linkedin.settings.NotificationSetting setting) {
     final NotificationSetting result = new NotificationSetting();
     result.setType(NotificationScenarioType.valueOf(typeStr));
     result.setValue(NotificationSettingValue.valueOf(setting.getValue().name()));
     if (setting.hasParams()) {
-      result.setParams(StringMapMapper.map(setting.getParams()));
+      result.setParams(StringMapMapper.map(context, setting.getParams()));
     }
     return result;
   }

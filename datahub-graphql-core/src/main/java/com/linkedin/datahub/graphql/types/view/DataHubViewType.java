@@ -66,7 +66,7 @@ public class DataHubViewType
                   gmsResult == null
                       ? null
                       : DataFetcherResult.<DataHubView>newResult()
-                          .data(DataHubViewMapper.map(gmsResult))
+                          .data(DataHubViewMapper.map(context, gmsResult))
                           .build())
           .collect(Collectors.toList());
     } catch (Exception e) {

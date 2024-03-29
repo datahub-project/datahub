@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.types.mlmodel;
 
 import static com.linkedin.datahub.graphql.Constants.*;
+import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
 import static com.linkedin.metadata.Constants.*;
 
 import com.google.common.collect.ImmutableSet;
@@ -31,7 +32,6 @@ import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.SearchResult;
 import graphql.execution.DataFetcherResult;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -73,7 +73,12 @@ public class MLModelType
     try {
       final Map<Urn, EntityResponse> mlModelMap =
           _entityClient.batchGetV2(
-              ML_MODEL_ENTITY_NAME, new HashSet<>(mlModelUrns), null, context.getAuthentication());
+              ML_MODEL_ENTITY_NAME,
+              mlModelUrns.stream()
+                  .filter(urn -> canView(context.getOperationContext(), urn))
+                  .collect(Collectors.toSet()),
+              null,
+              context.getAuthentication());
 
       final List<EntityResponse> gmsResults =
           mlModelUrns.stream()
@@ -86,7 +91,7 @@ public class MLModelType
                   gmsMlModel == null
                       ? null
                       : DataFetcherResult.<MLModel>newResult()
-                          .data(MLModelMapper.map(gmsMlModel))
+                          .data(MLModelMapper.map(context, gmsMlModel))
                           .build())
           .collect(Collectors.toList());
     } catch (Exception e) {
@@ -111,7 +116,7 @@ public class MLModelType
             facetFilters,
             start,
             count);
-    return UrnSearchResultsMapper.map(searchResult);
+    return UrnSearchResultsMapper.map(context, searchResult);
   }
 
   @Override
@@ -124,7 +129,7 @@ public class MLModelType
       throws Exception {
     final AutoCompleteResult result =
         _entityClient.autoComplete(context.getOperationContext(), "mlModel", query, filters, limit);
-    return AutoCompleteResultsMapper.map(result);
+    return AutoCompleteResultsMapper.map(context, result);
   }
 
   @Override
@@ -146,7 +151,7 @@ public class MLModelType
             facetFilters,
             start,
             count);
-    return BrowseResultMapper.map(result);
+    return BrowseResultMapper.map(context, result);
   }
 
   @Override
@@ -154,6 +159,6 @@ public class MLModelType
       throws Exception {
     final StringArray result =
         _entityClient.getBrowsePaths(MLModelUtils.getMLModelUrn(urn), context.getAuthentication());
-    return BrowsePathsMapper.map(result);
+    return BrowsePathsMapper.map(context, result);
   }
 }

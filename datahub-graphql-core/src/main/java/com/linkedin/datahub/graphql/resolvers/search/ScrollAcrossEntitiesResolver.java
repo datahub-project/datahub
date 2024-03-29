@@ -75,7 +75,7 @@ public class ScrollAcrossEntitiesResolver implements DataFetcher<CompletableFutu
           final SearchFlags searchFlags;
           com.linkedin.datahub.graphql.generated.SearchFlags inputFlags = input.getSearchFlags();
           if (inputFlags != null) {
-            searchFlags = SearchFlagsInputMapper.INSTANCE.apply(inputFlags);
+            searchFlags = SearchFlagsInputMapper.INSTANCE.apply(context, inputFlags);
           } else {
             searchFlags = null;
           }
@@ -91,6 +91,7 @@ public class ScrollAcrossEntitiesResolver implements DataFetcher<CompletableFutu
             String keepAlive = input.getKeepAlive() != null ? input.getKeepAlive() : "5m";
 
             return UrnScrollResultsMapper.map(
+                context,
                 _entityClient.scrollAcrossEntities(
                     context
                         .getOperationContext()

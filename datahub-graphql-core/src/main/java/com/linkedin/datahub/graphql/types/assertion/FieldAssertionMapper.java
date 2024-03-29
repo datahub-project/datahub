@@ -1,23 +1,25 @@
 package com.linkedin.datahub.graphql.types.assertion;
 
 import com.linkedin.assertion.FieldAssertionInfo;
+import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.AssertionStdOperator;
 import com.linkedin.datahub.graphql.generated.FieldAssertionType;
 import com.linkedin.datahub.graphql.generated.FieldMetricType;
 import com.linkedin.datahub.graphql.generated.FieldTransformType;
 import com.linkedin.datahub.graphql.generated.FieldValuesFailThresholdType;
 import com.linkedin.datahub.graphql.types.dataset.mappers.DatasetFilterMapper;
+import javax.annotation.Nullable;
 
 public class FieldAssertionMapper extends AssertionMapper {
 
   public static com.linkedin.datahub.graphql.generated.FieldAssertionInfo mapFieldAssertionInfo(
-      final FieldAssertionInfo gmsFieldAssertionInfo) {
+      @Nullable final QueryContext context, final FieldAssertionInfo gmsFieldAssertionInfo) {
     final com.linkedin.datahub.graphql.generated.FieldAssertionInfo result =
         new com.linkedin.datahub.graphql.generated.FieldAssertionInfo();
     result.setEntityUrn(gmsFieldAssertionInfo.getEntity().toString());
     result.setType(FieldAssertionType.valueOf(gmsFieldAssertionInfo.getType().name()));
     if (gmsFieldAssertionInfo.hasFilter()) {
-      result.setFilter(DatasetFilterMapper.map(gmsFieldAssertionInfo.getFilter()));
+      result.setFilter(DatasetFilterMapper.map(context, gmsFieldAssertionInfo.getFilter()));
     }
     if (gmsFieldAssertionInfo.hasFieldValuesAssertion()) {
       result.setFieldValuesAssertion(

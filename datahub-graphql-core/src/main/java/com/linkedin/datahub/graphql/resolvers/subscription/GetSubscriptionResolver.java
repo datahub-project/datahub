@@ -55,7 +55,7 @@ public class GetSubscriptionResolver
                 _subscriptionService.getSubscription(entityUrn, actorUrn, authentication);
 
             DataHubSubscription dataHubSubscription =
-                subscription == null ? null : DataHubSubscriptionMapper.map(subscription);
+                subscription == null ? null : DataHubSubscriptionMapper.map(context, subscription);
             result.setSubscription(dataHubSubscription);
             return result;
           } catch (Exception e) {

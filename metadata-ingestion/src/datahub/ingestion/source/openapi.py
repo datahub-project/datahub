@@ -7,7 +7,7 @@ from typing import Dict, Iterable, Optional, Tuple
 from pydantic import validator
 from pydantic.fields import Field
 
-from datahub.configuration.common import ConfigModel, ConfigurationError
+from datahub.configuration.common import ConfigModel
 from datahub.emitter.mce_builder import make_tag_urn
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -87,9 +87,7 @@ class OpenApiConfig(ConfigModel):
         cls, bearer_token: Optional[str], values: Dict
     ) -> Optional[str]:
         if bearer_token is not None and values.get("token") is not None:
-            raise ConfigurationError(
-                "Unable to use 'token' and 'bearer_token' together."
-            )
+            raise ValueError("Unable to use 'token' and 'bearer_token' together.")
         return bearer_token
 
     def get_swagger(self) -> Dict:

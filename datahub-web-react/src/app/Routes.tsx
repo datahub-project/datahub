@@ -1,6 +1,7 @@
 import React from 'react';
 import { Switch, Route, RouteProps } from 'react-router-dom';
 import { useReactiveVar } from '@apollo/client';
+import AppProviders from './AppProviders';
 import AcrylApp from './AcrylApp';
 import { LogIn } from './auth/LogIn';
 import { SignUp } from './auth/SignUp';
@@ -10,7 +11,6 @@ import { PageRoutes } from '../conf/Global';
 import { isLoggedInVar } from './auth/checkAuthStatus';
 import { useTrackPageView } from './analytics';
 import { ProtectedRoutes } from './ProtectedRoutes';
-import AppProviders from './AppProviders';
 
 const ProtectedRoute = ({
     isLoggedIn,

@@ -3,11 +3,11 @@ package com.linkedin.datahub.graphql.resolvers.ingest.source;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLErrorCode;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
 import com.linkedin.datahub.graphql.generated.IngestionSource;
-import com.linkedin.datahub.graphql.resolvers.ingest.IngestionAuthUtils;
 import com.linkedin.datahub.graphql.resolvers.ingest.IngestionResolverUtils;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
@@ -35,7 +35,7 @@ public class GetIngestionSourceResolver implements DataFetcher<CompletableFuture
 
     final QueryContext context = environment.getContext();
 
-    if (IngestionAuthUtils.canManageIngestion(context)) {
+    if (AuthorizationUtils.canManageIngestion(context)) {
       final String urnStr = environment.getArgument("urn");
       return CompletableFuture.supplyAsync(
           () -> {

@@ -36,6 +36,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
@@ -326,30 +327,36 @@ public class PolicyEngine {
     return isActorOwner(resolvedActorSpec, requestResource.get(), ownershipTypes, context);
   }
 
-  private Set<String> getOwnersForType(EntitySpec resourceSpec, List<Urn> ownershipTypes) {
-    Urn entityUrn = UrnUtils.getUrn(resourceSpec.getEntity());
-    EnvelopedAspect ownershipAspect;
-    try {
-      EntityResponse response =
-          _entityClient.getV2(
-              entityUrn.getEntityType(),
-              entityUrn,
-              Collections.singleton(Constants.OWNERSHIP_ASPECT_NAME),
-              _systemAuthentication);
-      if (response == null || !response.getAspects().containsKey(Constants.OWNERSHIP_ASPECT_NAME)) {
+  private Set<String> getOwnersForType(
+      @Nonnull EntitySpec resourceSpec, @Nonnull List<Urn> ownershipTypes) {
+    if (resourceSpec.getEntity().isEmpty()) {
+      return Set.of();
+    } else {
+      Urn entityUrn = UrnUtils.getUrn(resourceSpec.getEntity());
+      EnvelopedAspect ownershipAspect;
+      try {
+        EntityResponse response =
+            _entityClient.getV2(
+                entityUrn.getEntityType(),
+                entityUrn,
+                Collections.singleton(Constants.OWNERSHIP_ASPECT_NAME),
+                _systemAuthentication);
+        if (response == null
+            || !response.getAspects().containsKey(Constants.OWNERSHIP_ASPECT_NAME)) {
+          return Collections.emptySet();
+        }
+        ownershipAspect = response.getAspects().get(Constants.OWNERSHIP_ASPECT_NAME);
+      } catch (Exception e) {
+        log.error("Error while retrieving ownership aspect for urn {}", entityUrn, e);
         return Collections.emptySet();
       }
-      ownershipAspect = response.getAspects().get(Constants.OWNERSHIP_ASPECT_NAME);
-    } catch (Exception e) {
-      log.error("Error while retrieving ownership aspect for urn {}", entityUrn, e);
-      return Collections.emptySet();
+      Ownership ownership = new Ownership(ownershipAspect.getValue().data());
+      Stream<Owner> ownersStream = ownership.getOwners().stream();
+      if (ownershipTypes != null) {
+        ownersStream = ownersStream.filter(owner -> ownershipTypes.contains(owner.getTypeUrn()));
+      }
+      return ownersStream.map(owner -> owner.getOwner().toString()).collect(Collectors.toSet());
     }
-    Ownership ownership = new Ownership(ownershipAspect.getValue().data());
-    Stream<Owner> ownersStream = ownership.getOwners().stream();
-    if (ownershipTypes != null) {
-      ownersStream = ownersStream.filter(owner -> ownershipTypes.contains(owner.getTypeUrn()));
-    }
-    return ownersStream.map(owner -> owner.getOwner().toString()).collect(Collectors.toSet());
   }
 
   private boolean isActorOwner(

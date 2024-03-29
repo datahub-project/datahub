@@ -7,9 +7,9 @@ import com.linkedin.action.DataHubActionConfig;
 import com.linkedin.action.DataHubActionInfo;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.UpdateActionPipelineInput;
-import com.linkedin.datahub.graphql.resolvers.ingest.IngestionAuthUtils;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.key.DataHubActionKey;
 import com.linkedin.metadata.utils.EntityKeyUtils;
@@ -57,7 +57,7 @@ public class CreateActionPipelineResolver implements DataFetcher<CompletableFutu
 
     return CompletableFuture.supplyAsync(
         () -> {
-          if (IngestionAuthUtils.canManageIngestion(context)) {
+          if (AuthorizationUtils.canManageIngestion(context)) {
 
             final UpdateActionPipelineInput input =
                 bindArgument(environment.getArgument("input"), UpdateActionPipelineInput.class);

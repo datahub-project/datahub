@@ -216,13 +216,7 @@ public class ESSearchDAO {
       return SearchRequestHandler.getBuilder(
               entitySpecs, searchConfiguration, customSearchConfiguration, aspectRetriever)
           .extractScrollResult(
-              opContext,
-              searchResponse,
-              filters,
-              searchResponse.getScrollId(),
-              keepAlive,
-              size,
-              supportsPointInTime());
+              opContext, searchResponse, filters, keepAlive, size, supportsPointInTime());
     } catch (Exception e) {
       log.error("Search Scroll query failed", e);
       throw new ESQueryException("Search Scroll query failed:", e);
@@ -245,13 +239,7 @@ public class ESSearchDAO {
       return SearchRequestHandler.getBuilder(
               entitySpec, searchConfiguration, customSearchConfiguration, aspectRetriever)
           .extractScrollResult(
-              opContext,
-              searchResponse,
-              filters,
-              searchResponse.getScrollId(),
-              keepAlive,
-              size,
-              supportsPointInTime());
+              opContext, searchResponse, filters, keepAlive, size, supportsPointInTime());
     } catch (Exception e) {
       log.error("Scroll query failed", e);
       throw new ESQueryException("Scroll query failed:", e);
@@ -265,7 +253,6 @@ public class ESSearchDAO {
       @Nonnull List<EntitySpec> entitySpecs,
       @Nonnull SearchRequest searchRequest,
       @Nullable Filter filter,
-      @Nullable String scrollId,
       @Nullable String keepAlive,
       int size) {
     try (Timer.Context ignored =
@@ -276,13 +263,7 @@ public class ESSearchDAO {
           SearchRequestHandler.getBuilder(
                   entitySpecs, searchConfiguration, customSearchConfiguration, aspectRetriever)
               .extractScrollResult(
-                  opContext,
-                  searchResponse,
-                  filter,
-                  scrollId,
-                  keepAlive,
-                  size,
-                  supportsPointInTime()));
+                  opContext, searchResponse, filter, keepAlive, size, supportsPointInTime()));
     } catch (Exception e) {
       log.error("Search query failed: {}", searchRequest, e);
       throw new ESQueryException("Search query failed:", e);
@@ -473,7 +454,7 @@ public class ESSearchDAO {
               limit);
       req.indices(indexConvention.getIndexName(entitySpec));
       SearchResponse searchResponse = client.search(req, RequestOptions.DEFAULT);
-      return builder.extractResult(searchResponse, query);
+      return builder.extractResult(opContext, searchResponse, query);
     } catch (Exception e) {
       log.error("Auto complete query failed:" + e.getMessage());
       throw new ESQueryException("Auto complete query failed:", e);
@@ -591,7 +572,7 @@ public class ESSearchDAO {
 
     scrollRequestTimer.stop();
     return executeAndExtract(
-        opContext, entitySpecs, searchRequest, transformedFilters, scrollId, keepAlive, size);
+        opContext, entitySpecs, searchRequest, transformedFilters, keepAlive, size);
   }
 
   private SearchRequest getScrollRequest(

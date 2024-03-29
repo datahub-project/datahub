@@ -1,8 +1,10 @@
 package com.linkedin.datahub.graphql.resolvers.container;
 
+import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
 import static com.linkedin.metadata.Constants.CONTAINER_ASPECT_NAME;
 
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.DataMap;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
@@ -18,6 +20,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
 
 public class ParentContainersResolver
     implements DataFetcher<CompletableFuture<ParentContainersResult>> {
@@ -48,7 +51,7 @@ public class ParentContainersResolver
             _entityClient.getV2(
                 containerUrn.getEntityType(), containerUrn, null, context.getAuthentication());
         if (response != null) {
-          Container mappedContainer = ContainerMapper.map(response);
+          Container mappedContainer = ContainerMapper.map(context, response);
           containers.add(mappedContainer);
           aggregateParentContainers(containers, mappedContainer.getUrn(), context);
         }
@@ -70,8 +73,18 @@ public class ParentContainersResolver
           try {
             aggregateParentContainers(containers, urn, context);
             final ParentContainersResult result = new ParentContainersResult();
-            result.setCount(containers.size());
-            result.setContainers(containers);
+
+            List<Container> viewable =
+                containers.stream()
+                    .filter(
+                        c ->
+                            context == null
+                                || canView(
+                                    context.getOperationContext(), UrnUtils.getUrn(c.getUrn())))
+                    .collect(Collectors.toList());
+
+            result.setCount(viewable.size());
+            result.setContainers(viewable);
             return result;
           } catch (DataHubGraphQLException e) {
             throw new RuntimeException("Failed to load all containers", e);

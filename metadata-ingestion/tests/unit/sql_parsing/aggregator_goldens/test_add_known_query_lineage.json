@@ -70,7 +70,7 @@
     "aspect": {
         "json": {
             "statement": {
-                "value": "insert into foo (a, b, c) select a, b, c from bar",
+                "value": "INSERT INTO foo (\n  a,\n  b,\n  c\n)\nSELECT\n  a,\n  b,\n  c\nFROM bar",
                 "language": "SQL"
             },
             "source": "SYSTEM",
@@ -100,6 +100,17 @@
                     "entity": "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.bar,PROD)"
                 }
             ]
+        }
+    }
+},
+{
+    "entityType": "query",
+    "entityUrn": "urn:li:query:02e2ec36678bea2a8c4c855fed5255d087cfeb2710d326e95fd9b48a9c4fc0ae",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:redshift"
         }
     }
 },

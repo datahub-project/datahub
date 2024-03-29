@@ -65,6 +65,8 @@ export const entityPrivileges: EntityPrivileges = {
     canManageEntity: true,
     canManageChildren: true,
     canShareEntity: true,
+    canEditProperties: true,
+    __typename: 'EntityPrivileges',
 };
 
 export const user1 = {
@@ -459,7 +461,6 @@ export const dataset3 = {
         properties: null,
     },
     privileges: {
-        __typename: 'EntityPrivileges',
         ...entityPrivileges,
     },
     share: null,
@@ -667,8 +668,7 @@ export const dataset3 = {
     health: [],
     assertions: null,
     status: null,
-    readRuns: null,
-    writeRuns: null,
+    runs: null,
     testResults: null,
     siblings: null,
     statsSummary: null,

@@ -97,7 +97,8 @@ public class SearchTestUtils {
       String query,
       Filter filter) {
     return searchService.searchAcrossEntities(
-        opContext.withSearchFlags(flags -> flags.setFulltext(true).setSkipCache(true)),
+        opContext.withSearchFlags(
+            flags -> flags.setFulltext(true).setSkipCache(true).setSkipHighlighting(false)),
         entityNames,
         query,
         filter,

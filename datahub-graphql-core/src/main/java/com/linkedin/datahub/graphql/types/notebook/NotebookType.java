@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.types.notebook;
 
 import static com.linkedin.datahub.graphql.Constants.*;
+import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
 import static com.linkedin.metadata.Constants.*;
 
 import com.datahub.authorization.ConjunctivePrivilegeGroup;
@@ -46,7 +47,6 @@ import graphql.execution.DataFetcherResult;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -100,7 +100,7 @@ public class NotebookType
             facetFilters,
             start,
             count);
-    return UrnSearchResultsMapper.map(searchResult);
+    return UrnSearchResultsMapper.map(context, searchResult);
   }
 
   @Override
@@ -114,7 +114,7 @@ public class NotebookType
     final AutoCompleteResult result =
         _entityClient.autoComplete(
             context.getOperationContext(), NOTEBOOK_ENTITY_NAME, query, filters, limit);
-    return AutoCompleteResultsMapper.map(result);
+    return AutoCompleteResultsMapper.map(context, result);
   }
 
   @Override
@@ -139,7 +139,7 @@ public class NotebookType
             facetFilters,
             start,
             count);
-    return BrowseResultMapper.map(result);
+    return BrowseResultMapper.map(context, result);
   }
 
   @Override
@@ -148,7 +148,7 @@ public class NotebookType
     final StringArray result =
         _entityClient.getBrowsePaths(
             NotebookUrn.createFromString(urn), context.getAuthentication());
-    return BrowsePathsMapper.map(result);
+    return BrowsePathsMapper.map(context, result);
   }
 
   @Override
@@ -174,7 +174,9 @@ public class NotebookType
       final Map<Urn, EntityResponse> notebookMap =
           _entityClient.batchGetV2(
               NOTEBOOK_ENTITY_NAME,
-              new HashSet<>(urns),
+              urns.stream()
+                  .filter(urn -> canView(context.getOperationContext(), urn))
+                  .collect(Collectors.toSet()),
               ASPECTS_TO_RESOLVE,
               context.getAuthentication());
 
@@ -185,7 +187,7 @@ public class NotebookType
                   entityResponse == null
                       ? null
                       : DataFetcherResult.<Notebook>newResult()
-                          .data(NotebookMapper.map(entityResponse))
+                          .data(NotebookMapper.map(context, entityResponse))
                           .build())
           .collect(Collectors.toList());
     } catch (Exception e) {
@@ -207,9 +209,9 @@ public class NotebookType
           "Unauthorized to perform this action. Please contact your DataHub administrator.");
     }
 
-    CorpuserUrn actor =
-        CorpuserUrn.createFromString(context.getAuthentication().getActor().toUrnStr());
-    Collection<MetadataChangeProposal> proposals = NotebookUpdateInputMapper.map(input, actor);
+    CorpuserUrn actor = CorpuserUrn.createFromString(context.getActorUrn());
+    Collection<MetadataChangeProposal> proposals =
+        NotebookUpdateInputMapper.map(context, input, actor);
     proposals.forEach(proposal -> proposal.setEntityUrn(UrnUtils.getUrn(urn)));
 
     try {
@@ -227,7 +229,7 @@ public class NotebookType
     final DisjunctivePrivilegeGroup orPrivilegeGroups = getAuthorizedPrivileges(update);
     return AuthorizationUtils.isAuthorized(
         context.getAuthorizer(),
-        context.getAuthentication().getActor().toUrnStr(),
+        context.getActorUrn(),
         PoliciesConfig.NOTEBOOK_PRIVILEGES.getResourceType(),
         urn,
         orPrivilegeGroups);

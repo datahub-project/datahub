@@ -47,15 +47,16 @@ public class IngestionResolverUtils {
   private static final String DATABRICKS_PLATFORM_URN = "urn:li:dataPlatform:databricks";
 
   public static List<ExecutionRequest> mapExecutionRequests(
-      final Collection<EntityResponse> requests) {
+      @Nullable QueryContext context, final Collection<EntityResponse> requests) {
     List<ExecutionRequest> result = new ArrayList<>();
     for (final EntityResponse request : requests) {
-      result.add(mapExecutionRequest(request));
+      result.add(mapExecutionRequest(context, request));
     }
     return result;
   }
 
-  public static ExecutionRequest mapExecutionRequest(final EntityResponse entityResponse) {
+  public static ExecutionRequest mapExecutionRequest(
+      @Nullable QueryContext context, final EntityResponse entityResponse) {
     final Urn entityUrn = entityResponse.getUrn();
     final EnvelopedAspectMap aspects = entityResponse.getAspects();
 
@@ -77,7 +78,7 @@ public class IngestionResolverUtils {
         inputResult.setSource(mapExecutionRequestSource(executionRequestInput.getSource()));
       }
       if (executionRequestInput.hasArgs()) {
-        inputResult.setArguments(StringMapMapper.map(executionRequestInput.getArgs()));
+        inputResult.setArguments(StringMapMapper.map(context, executionRequestInput.getArgs()));
       }
       inputResult.setRequestedAt(executionRequestInput.getRequestedAt());
       result.setInput(inputResult);

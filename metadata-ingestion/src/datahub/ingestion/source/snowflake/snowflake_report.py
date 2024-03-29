@@ -10,6 +10,7 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 )
 from datahub.ingestion.source_report.ingestion_stage import IngestionStageReport
 from datahub.ingestion.source_report.time_window import BaseTimeWindowReport
+from datahub.sql_parsing.sql_parsing_aggregator import SqlAggregatorReport
 
 
 @dataclass
@@ -58,6 +59,9 @@ class SnowflakeReport(ProfilingSqlReport, BaseTimeWindowReport):
     profile_if_updated_since: Optional[datetime] = None
     profile_candidates: Dict[str, List[str]] = field(default_factory=dict)
 
+    # lineage/usage v2
+    sql_aggregator: Optional[SqlAggregatorReport] = None
+
 
 @dataclass
 class SnowflakeV2Report(
@@ -81,9 +85,9 @@ class SnowflakeV2Report(
 
     usage_aggregation_query_secs: float = -1
     table_lineage_query_secs: float = -1
-    view_lineage_parse_secs: float = -1
-    view_upstream_lineage_query_secs: float = -1
-    view_downstream_lineage_query_secs: float = -1
+    # view_lineage_parse_secs: float = -1
+    # view_upstream_lineage_query_secs: float = -1
+    # view_downstream_lineage_query_secs: float = -1
     external_lineage_queries_secs: float = -1
 
     # Reports how many times we reset in-memory `functools.lru_cache` caches of data,
@@ -111,13 +115,13 @@ class SnowflakeV2Report(
 
     edition: Optional[SnowflakeEdition] = None
 
-    num_tables_with_external_upstreams_only: int = 0
-    num_tables_with_upstreams: int = 0
-    num_views_with_upstreams: int = 0
+    # num_tables_with_external_upstreams_only: int = 0
+    num_tables_with_known_upstreams: int = 0
+    # num_views_with_upstreams: int = 0
 
-    num_view_definitions_parsed: int = 0
-    num_view_definitions_failed_parsing: int = 0
-    num_view_definitions_failed_column_parsing: int = 0
+    # num_view_definitions_parsed: int = 0
+    # num_view_definitions_failed_parsing: int = 0
+    # num_view_definitions_failed_column_parsing: int = 0
 
     def report_entity_scanned(self, name: str, ent_type: str = "table") -> None:
         """

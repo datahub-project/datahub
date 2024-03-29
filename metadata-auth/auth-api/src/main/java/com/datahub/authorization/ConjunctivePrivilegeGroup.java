@@ -17,4 +17,24 @@ public class ConjunctivePrivilegeGroup {
   public Collection<String> getRequiredPrivileges() {
     return _requiredPrivileges;
   }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) return true;
+    if (o == null || getClass() != o.getClass()) return false;
+
+    ConjunctivePrivilegeGroup that = (ConjunctivePrivilegeGroup) o;
+
+    return _requiredPrivileges.equals(that._requiredPrivileges);
+  }
+
+  @Override
+  public int hashCode() {
+    return _requiredPrivileges.hashCode();
+  }
+
+  @Override
+  public String toString() {
+    return "ConjunctivePrivilegeGroup{" + "_requiredPrivileges=" + _requiredPrivileges + '}';
+  }
 }

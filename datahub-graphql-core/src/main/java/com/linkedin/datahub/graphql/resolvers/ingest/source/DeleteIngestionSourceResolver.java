@@ -2,8 +2,8 @@ package com.linkedin.datahub.graphql.resolvers.ingest.source;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
-import com.linkedin.datahub.graphql.resolvers.ingest.IngestionAuthUtils;
 import com.linkedin.entity.client.EntityClient;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -24,7 +24,7 @@ public class DeleteIngestionSourceResolver implements DataFetcher<CompletableFut
   @Override
   public CompletableFuture<String> get(final DataFetchingEnvironment environment) throws Exception {
     final QueryContext context = environment.getContext();
-    if (IngestionAuthUtils.canManageIngestion(context)) {
+    if (AuthorizationUtils.canManageIngestion(context)) {
       final String ingestionSourceUrn = environment.getArgument("urn");
       final Urn urn = Urn.createFromString(ingestionSourceUrn);
       return CompletableFuture.supplyAsync(

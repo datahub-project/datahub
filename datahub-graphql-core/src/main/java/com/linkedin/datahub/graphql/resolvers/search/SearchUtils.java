@@ -20,6 +20,7 @@ import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.FacetFilterInput;
 import com.linkedin.datahub.graphql.generated.FormFilter;
@@ -292,10 +293,11 @@ public class SearchUtils {
   }
 
   public static SearchFlags mapInputFlags(
+      @Nullable QueryContext context,
       com.linkedin.datahub.graphql.generated.SearchFlags inputFlags) {
     SearchFlags searchFlags = null;
     if (inputFlags != null) {
-      searchFlags = SearchFlagsInputMapper.INSTANCE.apply(inputFlags);
+      searchFlags = SearchFlagsInputMapper.INSTANCE.apply(context, inputFlags);
     }
     return searchFlags;
   }

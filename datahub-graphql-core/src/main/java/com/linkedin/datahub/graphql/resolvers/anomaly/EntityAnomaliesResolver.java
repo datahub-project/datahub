@@ -71,7 +71,7 @@ public class EntityAnomaliesResolver
                     .collect(Collectors.toList());
             final List<Anomaly> anomalies =
                 anomalyUrns.stream()
-                    .map(UrnToEntityMapper::map)
+                    .map(urn -> UrnToEntityMapper.map(context, urn))
                     .map(entity -> (Anomaly) entity)
                     .collect(Collectors.toList());
             // Step 4: Package and return result

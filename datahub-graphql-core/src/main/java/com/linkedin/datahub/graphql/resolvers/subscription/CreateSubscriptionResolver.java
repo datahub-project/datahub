@@ -72,7 +72,7 @@ public class CreateSubscriptionResolver
                     notificationConfig,
                     authentication);
 
-            return DataHubSubscriptionMapper.map(subscription);
+            return DataHubSubscriptionMapper.map(context, subscription);
           } catch (Exception e) {
             throw new RuntimeException("Failed to create subscriptions", e);
           }

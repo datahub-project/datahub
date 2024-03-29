@@ -60,6 +60,7 @@ public class UpdateMonitorStatusResolver implements DataFetcher<CompletableFutur
                   MonitorMode.valueOf(input.getMode().toString()),
                   context.getAuthentication());
               return MonitorMapper.map(
+                  context,
                   _monitorService.getMonitorEntityResponse(
                       monitorUrn, context.getAuthentication()));
             } catch (Exception e) {

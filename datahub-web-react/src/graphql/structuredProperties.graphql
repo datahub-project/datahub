@@ -110,3 +110,11 @@ query searchStructuredProperties($query: String!, $start: Int!, $count: Int!) {
         }
     }
 }
+
+mutation upsertStructuredProperties($input: UpsertStructuredPropertiesInput!) {
+    upsertStructuredProperties(input: $input) {
+        properties {
+            ...structuredPropertiesFields
+        }
+    }
+}

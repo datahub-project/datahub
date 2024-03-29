@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.types.mlmodel;
 
+import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
 import static com.linkedin.metadata.Constants.*;
 
 import com.google.common.collect.ImmutableSet;
@@ -23,7 +24,6 @@ import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.SearchResult;
 import graphql.execution.DataFetcherResult;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -66,7 +66,9 @@ public class MLFeatureType implements SearchableEntityType<MLFeature, String> {
       final Map<Urn, EntityResponse> mlFeatureMap =
           _entityClient.batchGetV2(
               ML_FEATURE_ENTITY_NAME,
-              new HashSet<>(mlFeatureUrns),
+              mlFeatureUrns.stream()
+                  .filter(urn -> canView(context.getOperationContext(), urn))
+                  .collect(Collectors.toSet()),
               null,
               context.getAuthentication());
 
@@ -81,7 +83,7 @@ public class MLFeatureType implements SearchableEntityType<MLFeature, String> {
                   gmsMlFeature == null
                       ? null
                       : DataFetcherResult.<MLFeature>newResult()
-                          .data(MLFeatureMapper.map(gmsMlFeature))
+                          .data(MLFeatureMapper.map(context, gmsMlFeature))
                           .build())
           .collect(Collectors.toList());
     } catch (Exception e) {
@@ -106,7 +108,7 @@ public class MLFeatureType implements SearchableEntityType<MLFeature, String> {
             facetFilters,
             start,
             count);
-    return UrnSearchResultsMapper.map(searchResult);
+    return UrnSearchResultsMapper.map(context, searchResult);
   }
 
   @Override
@@ -120,6 +122,6 @@ public class MLFeatureType implements SearchableEntityType<MLFeature, String> {
     final AutoCompleteResult result =
         _entityClient.autoComplete(
             context.getOperationContext(), "mlFeature", query, filters, limit);
-    return AutoCompleteResultsMapper.map(result);
+    return AutoCompleteResultsMapper.map(context, result);
   }
 }

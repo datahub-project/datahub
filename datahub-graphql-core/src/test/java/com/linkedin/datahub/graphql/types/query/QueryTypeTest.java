@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.types.query;
 
+import static org.mockito.Mockito.mock;
 import static org.testng.Assert.*;
 
 import com.datahub.authentication.Authentication;
@@ -18,6 +19,7 @@ import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.query.QueryLanguage;
 import com.linkedin.query.QueryProperties;
 import com.linkedin.query.QuerySource;
@@ -27,6 +29,7 @@ import com.linkedin.query.QuerySubjectArray;
 import com.linkedin.query.QuerySubjects;
 import com.linkedin.r2.RemoteInvocationException;
 import graphql.execution.DataFetcherResult;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -124,6 +127,10 @@ public class QueryTypeTest {
 
     QueryContext mockContext = Mockito.mock(QueryContext.class);
     Mockito.when(mockContext.getAuthentication()).thenReturn(Mockito.mock(Authentication.class));
+    Mockito.when(mockContext.getOperationContext())
+        .thenReturn(
+            TestOperationContexts.userContextNoSearchAuthorization(mock(EntityRegistry.class)));
+
     List<DataFetcherResult<QueryEntity>> result =
         type.batchLoad(
             ImmutableList.of(TEST_QUERY_URN.toString(), TEST_QUERY_2_URN.toString()), mockContext);
@@ -178,6 +185,10 @@ public class QueryTypeTest {
 
     QueryContext mockContext = Mockito.mock(QueryContext.class);
     Mockito.when(mockContext.getAuthentication()).thenReturn(Mockito.mock(Authentication.class));
+    Mockito.when(mockContext.getOperationContext())
+        .thenReturn(
+            TestOperationContexts.userContextNoSearchAuthorization(mock(EntityRegistry.class)));
+
     List<DataFetcherResult<QueryEntity>> result =
         type.batchLoad(
             ImmutableList.of(TEST_QUERY_URN.toString(), TEST_QUERY_2_URN.toString()), mockContext);

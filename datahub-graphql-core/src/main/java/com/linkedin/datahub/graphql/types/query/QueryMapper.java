@@ -6,6 +6,7 @@ import com.linkedin.common.DataPlatformInstance;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
 import com.linkedin.data.template.GetMode;
+import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.AuditStamp;
 import com.linkedin.datahub.graphql.generated.DataPlatform;
 import com.linkedin.datahub.graphql.generated.Dataset;
@@ -25,6 +26,7 @@ import com.linkedin.query.QuerySubjects;
 import java.util.List;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
@@ -32,19 +34,21 @@ public class QueryMapper implements ModelMapper<EntityResponse, QueryEntity> {
 
   public static final QueryMapper INSTANCE = new QueryMapper();
 
-  public static QueryEntity map(@Nonnull final EntityResponse entityResponse) {
-    return INSTANCE.apply(entityResponse);
+  public static QueryEntity map(
+      @Nullable final QueryContext context, @Nonnull final EntityResponse entityResponse) {
+    return INSTANCE.apply(context, entityResponse);
   }
 
   @Override
-  public QueryEntity apply(@Nonnull final EntityResponse entityResponse) {
+  public QueryEntity apply(
+      @Nullable final QueryContext context, @Nonnull final EntityResponse entityResponse) {
     final QueryEntity result = new QueryEntity();
 
     result.setUrn(entityResponse.getUrn().toString());
     result.setType(EntityType.QUERY);
     EnvelopedAspectMap aspectMap = entityResponse.getAspects();
     MappingHelper<QueryEntity> mappingHelper = new MappingHelper<>(aspectMap, result);
-    mappingHelper.mapToResult(QUERY_PROPERTIES_ASPECT_NAME, this::mapQueryProperties);
+    mappingHelper.mapToResult(context, QUERY_PROPERTIES_ASPECT_NAME, this::mapQueryProperties);
     mappingHelper.mapToResult(QUERY_SUBJECTS_ASPECT_NAME, this::mapQuerySubjects);
     mappingHelper.mapToResult(DATA_PLATFORM_INSTANCE_ASPECT_NAME, this::mapPlatform);
     return mappingHelper.getResult();
@@ -60,7 +64,8 @@ public class QueryMapper implements ModelMapper<EntityResponse, QueryEntity> {
     }
   }
 
-  private void mapQueryProperties(@Nonnull QueryEntity query, @Nonnull DataMap dataMap) {
+  private void mapQueryProperties(
+      @Nullable final QueryContext context, @Nonnull QueryEntity query, @Nonnull DataMap dataMap) {
     QueryProperties queryProperties = new QueryProperties(dataMap);
     com.linkedin.datahub.graphql.generated.QueryProperties res =
         new com.linkedin.datahub.graphql.generated.QueryProperties();
@@ -74,7 +79,7 @@ public class QueryMapper implements ModelMapper<EntityResponse, QueryEntity> {
     res.setName(queryProperties.getName(GetMode.NULL));
     res.setDescription(queryProperties.getDescription(GetMode.NULL));
     if (queryProperties.hasOrigin() && queryProperties.getOrigin() != null) {
-      res.setOrigin(UrnToEntityMapper.map(queryProperties.getOrigin()));
+      res.setOrigin(UrnToEntityMapper.map(context, queryProperties.getOrigin()));
     }
 
     AuditStamp created = new AuditStamp();

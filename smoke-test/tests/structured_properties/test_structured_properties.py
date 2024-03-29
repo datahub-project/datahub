@@ -405,36 +405,6 @@ def test_dataset_yaml_loader(ingest_cleanup_data, graph):
     ] == ["2023-01-01"]
 
 
-def test_dataset_structured_property_validation(ingest_cleanup_data, graph, caplog):
-    from datahub.api.entities.dataset.dataset import Dataset
-
-    property_name = f"replicationSLA{randint(10, 10000)}"
-    property_value = 30
-    value_type = "number"
-
-    create_property_definition(
-        property_name=property_name, graph=graph, value_type=value_type
-    )
-
-    attach_property_to_entity(
-        dataset_urns[0], property_name, [property_value], graph=graph
-    )
-
-    assert Dataset.validate_structured_property(
-        f"{default_namespace}.{property_name}", property_value
-    ) == (
-        f"{default_namespace}.{property_name}",
-        float(property_value),
-    )
-
-    assert Dataset.validate_structured_property("testName", "testValue") is None
-
-    bad_property_value = "2023-09-20"
-    assert (
-        Dataset.validate_structured_property(property_name, bad_property_value) is None
-    )
-
-
 def test_structured_property_search(ingest_cleanup_data, graph: DataHubGraph, caplog):
     def to_es_name(property_name, namespace=default_namespace):
         namespace_field = namespace.replace(".", "_")

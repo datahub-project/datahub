@@ -55,7 +55,7 @@ public class RejectProposalResolver implements DataFetcher<CompletableFuture<Boo
               proposalEntity.getValue().getActionRequestSnapshot();
           ActionRequest proposal =
               ActionRequestUtils.mapActionRequest(
-                  proposalEntity.getValue().getActionRequestSnapshot());
+                  context, proposalEntity.getValue().getActionRequestSnapshot());
           ActionRequestType actionRequestType = proposal.getType();
           boolean isTagOrTermProposal =
               actionRequestType.equals(ActionRequestType.TAG_ASSOCIATION)

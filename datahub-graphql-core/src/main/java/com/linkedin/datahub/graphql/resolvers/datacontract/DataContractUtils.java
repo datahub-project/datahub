@@ -1,7 +1,5 @@
 package com.linkedin.datahub.graphql.resolvers.datacontract;
 
-import static com.linkedin.datahub.graphql.resolvers.AuthUtils.*;
-
 import com.datahub.authorization.ConjunctivePrivilegeGroup;
 import com.datahub.authorization.DisjunctivePrivilegeGroup;
 import com.google.common.collect.ImmutableList;
@@ -17,7 +15,7 @@ public class DataContractUtils {
     final DisjunctivePrivilegeGroup orPrivilegeGroups =
         new DisjunctivePrivilegeGroup(
             ImmutableList.of(
-                ALL_PRIVILEGES_GROUP,
+                AuthorizationUtils.ALL_PRIVILEGES_GROUP,
                 new ConjunctivePrivilegeGroup(
                     ImmutableList.of(
                         PoliciesConfig.EDIT_ENTITY_DATA_CONTRACT_PRIVILEGE.getType()))));

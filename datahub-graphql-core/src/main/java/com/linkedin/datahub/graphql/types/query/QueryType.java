@@ -63,7 +63,7 @@ public class QueryType
               ASPECTS_TO_FETCH,
               context.getAuthentication());
 
-      final List<EntityResponse> gmsResults = new ArrayList<>();
+      final List<EntityResponse> gmsResults = new ArrayList<>(urns.size());
       for (Urn urn : viewUrns) {
         gmsResults.add(entities.getOrDefault(urn, null));
       }
@@ -73,7 +73,7 @@ public class QueryType
                   gmsResult == null
                       ? null
                       : DataFetcherResult.<QueryEntity>newResult()
-                          .data(QueryMapper.map(gmsResult))
+                          .data(QueryMapper.map(context, gmsResult))
                           .build())
           .collect(Collectors.toList());
     } catch (Exception e) {

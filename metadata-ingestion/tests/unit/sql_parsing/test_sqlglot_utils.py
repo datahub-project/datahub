@@ -108,9 +108,9 @@ def test_query_generalization():
 
 def test_query_fingerprint():
     assert get_query_fingerprint(
-        "select * /* everything */ from foo where ts = 34", dialect="redshift"
-    ) == get_query_fingerprint("SELECT * FROM foo where ts = 38", dialect="redshift")
+        "select * /* everything */ from foo where ts = 34", platform="redshift"
+    ) == get_query_fingerprint("SELECT * FROM foo where ts = 38", platform="redshift")
 
     assert get_query_fingerprint(
-        "select 1 + 1", dialect="postgres"
-    ) != get_query_fingerprint("select 2", dialect="postgres")
+        "select 1 + 1", platform="postgres"
+    ) != get_query_fingerprint("select 2", platform="postgres")

@@ -35,3 +35,11 @@ def test_get_avro_schema_for_struct_hive_with_duplicate_column2():
     assert schema_fields[0].type.type == NullTypeClass()
     assert schema_fields[0].fieldPath == "test"
     assert schema_fields[0].nativeDataType == invalid_schema
+
+
+def test_get_avro_schema_for_null_type_hive_column():
+    schema_fields = get_schema_fields_for_hive_column(
+        hive_column_name="test", hive_column_type="unknown"
+    )
+    assert schema_fields[0].type.type == NullTypeClass()
+    assert len(schema_fields) == 1

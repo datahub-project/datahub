@@ -79,7 +79,7 @@ public class ScrollAcrossLineageResolver
     @Nullable
     Long endTimeMillis = input.getEndTimeMillis() == null ? null : input.getEndTimeMillis();
 
-    final LineageFlags lineageFlags = LineageFlagsInputMapper.map(input.getLineageFlags());
+    final LineageFlags lineageFlags = LineageFlagsInputMapper.map(context, input.getLineageFlags());
     if (lineageFlags.getStartTimeMillis() == null && startTimeMillis != null) {
       lineageFlags.setStartTimeMillis(startTimeMillis);
     }
@@ -87,7 +87,6 @@ public class ScrollAcrossLineageResolver
     if (lineageFlags.getEndTimeMillis() == null && endTimeMillis != null) {
       lineageFlags.setEndTimeMillis(endTimeMillis);
     }
-    ;
 
     com.linkedin.metadata.graph.LineageDirection resolvedDirection =
         com.linkedin.metadata.graph.LineageDirection.valueOf(lineageDirection.toString());
@@ -117,6 +116,7 @@ public class ScrollAcrossLineageResolver
               searchFlags = null;
             }
             return UrnScrollAcrossLineageResultsMapper.map(
+                context,
                 _entityClient.scrollAcrossLineage(
                     context
                         .getOperationContext()

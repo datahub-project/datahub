@@ -39,12 +39,19 @@ public class BulkListener implements BulkProcessor.Listener {
 
   @Override
   public void afterBulk(long executionId, BulkRequest request, BulkResponse response) {
+    String ingestTook = "";
+    long ingestTookInMillis = response.getIngestTookInMillis();
+    if (ingestTookInMillis != BulkResponse.NO_INGEST_TOOK) {
+      ingestTook = " Bulk ingest preprocessing took time ms: " + ingestTookInMillis;
+    }
+
     if (response.hasFailures()) {
       log.error(
           "Failed to feed bulk request. Number of events: "
               + response.getItems().length
               + " Took time ms: "
-              + response.getIngestTookInMillis()
+              + response.getTook().getMillis()
+              + ingestTook
               + " Message: "
               + response.buildFailureMessage());
     } else {
@@ -52,7 +59,8 @@ public class BulkListener implements BulkProcessor.Listener {
           "Successfully fed bulk request. Number of events: "
               + response.getItems().length
               + " Took time ms: "
-              + response.getIngestTookInMillis());
+              + response.getTook().getMillis()
+              + ingestTook);
     }
     incrementMetrics(response);
   }

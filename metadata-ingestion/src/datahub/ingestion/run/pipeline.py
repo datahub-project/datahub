@@ -213,6 +213,7 @@ class Pipeline:
         with _add_init_error_context("connect to DataHub"):
             if self.config.datahub_api:
                 self.graph = DataHubGraph(self.config.datahub_api)
+                self.graph.test_connection()
 
             telemetry.telemetry_instance.update_capture_exception_context(
                 server=self.graph
@@ -566,6 +567,7 @@ class Pipeline:
                 "warnings": stats.discretize(
                     source_warnings + sink_warnings + global_warnings
                 ),
+                "has_pipeline_name": bool(self.config.pipeline_name),
             },
             self.ctx.graph,
         )

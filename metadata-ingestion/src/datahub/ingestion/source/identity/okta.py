@@ -14,7 +14,7 @@ from okta.models import Group, GroupProfile, User, UserProfile, UserStatus
 from pydantic import validator
 from pydantic.fields import Field
 
-from datahub.configuration.common import ConfigModel, ConfigurationError
+from datahub.configuration.common import ConfigModel
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -157,7 +157,7 @@ class OktaConfig(StatefulIngestionConfigBase, ConfigModel):
     @validator("okta_users_search")
     def okta_users_one_of_filter_or_search(cls, v, values):
         if v and values["okta_users_filter"]:
-            raise ConfigurationError(
+            raise ValueError(
                 "Only one of okta_users_filter or okta_users_search can be set"
             )
         return v
@@ -165,7 +165,7 @@ class OktaConfig(StatefulIngestionConfigBase, ConfigModel):
     @validator("okta_groups_search")
     def okta_groups_one_of_filter_or_search(cls, v, values):
         if v and values["okta_groups_filter"]:
-            raise ConfigurationError(
+            raise ValueError(
                 "Only one of okta_groups_filter or okta_groups_search can be set"
             )
         return v
@@ -215,7 +215,7 @@ class OktaSource(StatefulIngestionSourceBase):
     like to take actions like adding them to a group or assigning them a role.
 
     For instructions on how to do configure Okta OIDC SSO, please read the documentation
-    [here](https://datahubproject.io/docs/authentication/guides/sso/configure-oidc-react-okta).
+    [here](../../../authentication/guides/sso/configure-oidc-react.md#create-an-application-in-okta-developer-console).
 
     ### Extracting DataHub Users
 

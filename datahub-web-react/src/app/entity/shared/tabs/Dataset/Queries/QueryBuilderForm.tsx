@@ -77,7 +77,7 @@ export default function QueryBuilderForm({ state, updateState }: Props) {
                     autoFocus
                     value={state.title}
                     onChange={(newTitle) => updateTitle(newTitle.target.value)}
-                    placeholder="Join Transactions and Users Tables"
+                    placeholder="ERModelRelationship Transactions and Users Tables"
                 />
             </Form.Item>
             <Form.Item label={<Typography.Text strong>Description</Typography.Text>}>

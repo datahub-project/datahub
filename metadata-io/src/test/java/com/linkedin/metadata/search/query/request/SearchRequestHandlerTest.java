@@ -137,7 +137,7 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
           && !aggBuilder
               .getName()
               .equals(INDEX_VIRTUAL_FIELD + AGGREGATION_SEPARATOR_CHAR + "typeNames")) {
-        fail("Found unexepected aggregation: " + aggBuilder.getName());
+        fail("Found unexpected aggregation: " + aggBuilder.getName());
       }
     }
     // Highlights should not be present
@@ -151,7 +151,9 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
             TestEntitySpecBuilder.getSpec(), testQueryConfig, null, aspectRetriever);
     SearchRequest searchRequest =
         requestHandler.getSearchRequest(
-            operationContext.withSearchFlags(flags -> flags.setFulltext(false)),
+            operationContext.withSearchFlags(
+                flags ->
+                    flags.setFulltext(false).setSkipHighlighting(false).setSkipAggregates(false)),
             "testQuery",
             null,
             null,

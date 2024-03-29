@@ -24,7 +24,9 @@ function cleanHelper(obj, visited) {
         if ((v && typeof v === 'object' && !Object.keys(v).length) || v === null || v === undefined || v === '') {
             if (Array.isArray(object)) {
                 object.splice(Number(k), 1);
-            } else {
+            } else if (Object.getOwnPropertyDescriptor(object, k)?.configurable) {
+                // TODO(hsheth2): Not sure why we needed to add the above "configurable" check.
+                // However, I was getting errors when it was not present in dev mode (but not in prod mode).
                 // console.log('siblings1 deleting key', k, 'from object', object);
                 try {
                     delete object[k];
@@ -104,43 +106,43 @@ const mergeHealthStatus = (destStatus?: HealthStatus, sourceStatus?: HealthStatu
     if (destStatus === HealthStatus.Warn || sourceStatus === HealthStatus.Warn) {
         return HealthStatus.Warn;
     }
-    return HealthStatus.Pass; 
+    return HealthStatus.Pass;
 }
 
 const mergeHealthMessage = (type: HealthStatusType, mergedStatus: HealthStatus): string => {
     if (mergedStatus === HealthStatus.Fail) {
         switch (type) {
-            case HealthStatusType.Assertions: 
+            case HealthStatusType.Assertions:
                 return "Some failing assertions";
             case HealthStatusType.Incidents:
                 return "Some active incidents";
             case HealthStatusType.Tests:
                 return "Some failing governance tests";
-            default: 
+            default:
                 return "Some checks failed";
         }
     }
     if (mergedStatus === HealthStatus.Warn) {
         switch (type) {
-            case HealthStatusType.Assertions: 
+            case HealthStatusType.Assertions:
                 return "Some assertions have problems failed";
-            default: 
-                return "Some checks have problems."; 
+            default:
+                return "Some checks have problems.";
         }
     }
     if (mergedStatus === HealthStatus.Pass) {
         switch (type) {
-            case HealthStatusType.Assertions: 
+            case HealthStatusType.Assertions:
                 return "All assertions are passing";
             case HealthStatusType.Incidents:
                 return "No active incidents";
             case HealthStatusType.Tests:
                 return "No failing governance tests";
             default:
-                return "All checks are passing"; 
+                return "All checks are passing";
         }
     }
-    return "All checks are passing"; 
+    return "All checks are passing";
 }
 
 // Merge entity health across siblings.
@@ -149,29 +151,29 @@ const mergeHealth = (destinationArray: Maybe<Health[]> | undefined, sourceArray:
     return [...(sourceArray || []), ...(destinationArray || [])].map(source => {
 
             if (viewedHealthType.has(source.type)) {
-                return null; 
+                return null;
             }
 
             viewedHealthType.add(source.type)
 
-            const { type, status, causes } = source; 
+            const { type, status, causes } = source;
 
             const destHealth = destinationArray?.find(dest => dest.type === type);
-            const destStatus = destHealth?.status; 
-            const destCauses = destHealth?.causes; 
+            const destStatus = destHealth?.status;
+            const destCauses = destHealth?.causes;
 
             const finalStatus = mergeHealthStatus(destStatus, status);
             const finalMessage = mergeHealthMessage(type, finalStatus);
             const finalCauses = [...(causes || []), ...(destCauses || [])];
 
             return {
-                type, 
-                status: finalStatus, 
-                message: finalMessage, 
+                type,
+                status: finalStatus,
+                message: finalMessage,
                 causes: finalCauses
             }
         }
-    ).filter(health => health !== null); 
+    ).filter(health => health !== null);
 };
 
 function getArrayMergeFunction(key) {

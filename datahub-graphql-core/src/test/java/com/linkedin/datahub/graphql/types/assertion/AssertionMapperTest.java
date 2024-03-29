@@ -47,14 +47,14 @@ public class AssertionMapperTest {
     // Case 1: Without nullable fields
     AssertionInfo input = createFreshnessAssertionInfoWithoutNullableFields();
     EntityResponse datasetAssertionEntityResponse = createAssertionInfoEntityResponse(input);
-    Assertion output = AssertionMapper.map(datasetAssertionEntityResponse);
+    Assertion output = AssertionMapper.map(null, datasetAssertionEntityResponse);
     verifyAssertion(input, output);
 
     // Case 2: With nullable fields
     input = createFreshnessAssertionInfoWithNullableFields();
     EntityResponse datasetAssertionEntityResponseWithNullables =
         createAssertionInfoEntityResponse(input);
-    output = AssertionMapper.map(datasetAssertionEntityResponseWithNullables);
+    output = AssertionMapper.map(null, datasetAssertionEntityResponseWithNullables);
     verifyAssertion(input, output);
   }
 
@@ -63,14 +63,14 @@ public class AssertionMapperTest {
     // Case 1: Without nullable fields
     AssertionInfo input = createFreshnessAssertionInfoWithoutNullableFields();
     EntityResponse freshnessAssertionEntityResponse = createAssertionInfoEntityResponse(input);
-    Assertion output = AssertionMapper.map(freshnessAssertionEntityResponse);
+    Assertion output = AssertionMapper.map(null, freshnessAssertionEntityResponse);
     verifyAssertion(input, output);
 
     // Case 2: With nullable fields
     input = createDatasetAssertionInfoWithNullableFields();
     EntityResponse freshnessAssertionEntityResponseWithNullables =
         createAssertionInfoEntityResponse(input);
-    output = AssertionMapper.map(freshnessAssertionEntityResponseWithNullables);
+    output = AssertionMapper.map(null, freshnessAssertionEntityResponseWithNullables);
     verifyAssertion(input, output);
   }
 
@@ -78,7 +78,7 @@ public class AssertionMapperTest {
   public void testMapDataSchemaAssertion() {
     AssertionInfo input = createSchemaAssertion();
     EntityResponse schemaAssertionEntityResponse = createAssertionInfoEntityResponse(input);
-    Assertion output = AssertionMapper.map(schemaAssertionEntityResponse);
+    Assertion output = AssertionMapper.map(null, schemaAssertionEntityResponse);
     verifyAssertion(input, output);
   }
 

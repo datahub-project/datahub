@@ -77,6 +77,8 @@ runs:
             - "metadata-jobs/**"
             - "metadata-service/**"
             - "metadata-utils/**"
+            - "metadata-operation-context/**"
+            - "datahub-graphql-core/**"
             - "smoke-test/**"
             - "docker/**"
           backend-saas:

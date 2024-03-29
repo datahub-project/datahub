@@ -112,7 +112,7 @@ public class SearchAcrossLineageResolver
     @Nullable
     Long endTimeMillis = input.getEndTimeMillis() == null ? null : input.getEndTimeMillis();
 
-    final LineageFlags lineageFlags = LineageFlagsInputMapper.map(input.getLineageFlags());
+    final LineageFlags lineageFlags = LineageFlagsInputMapper.map(context, input.getLineageFlags());
     if (lineageFlags.getStartTimeMillis() == null && startTimeMillis != null) {
       lineageFlags.setStartTimeMillis(startTimeMillis);
     }
@@ -141,7 +141,7 @@ public class SearchAcrossLineageResolver
             final SearchFlags searchFlags;
             com.linkedin.datahub.graphql.generated.SearchFlags inputFlags = input.getSearchFlags();
             if (inputFlags != null) {
-              searchFlags = SearchFlagsInputMapper.INSTANCE.apply(inputFlags);
+              searchFlags = SearchFlagsInputMapper.INSTANCE.apply(context, inputFlags);
               if (inputFlags.getSkipHighlighting() == null) {
                 searchFlags.setSkipHighlighting(true);
               }
@@ -164,7 +164,7 @@ public class SearchAcrossLineageResolver
                     start,
                     count);
 
-            return UrnSearchAcrossLineageResultsMapper.map(salResults);
+            return UrnSearchAcrossLineageResultsMapper.map(context, salResults);
           } catch (RemoteInvocationException e) {
             log.error(
                 "Failed to execute search across relationships: source urn {}, direction {}, entity types {}, query {}, filters: {}, start: {}, count: {}",

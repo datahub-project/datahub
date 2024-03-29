@@ -107,9 +107,9 @@ ingestion recipe is producing the desired metadata events before ingesting them 
 
 ```shell
 # Dry run
-datahub ingest -c ./examples/recipes/example_to_datahub_rest.dhub.yml --dry-run
+datahub ingest -c ./examples/recipes/example_to_datahub_rest.dhub.yaml --dry-run
 # Short-form
-datahub ingest -c ./examples/recipes/example_to_datahub_rest.dhub.yml -n
+datahub ingest -c ./examples/recipes/example_to_datahub_rest.dhub.yaml -n
 ```
 
 #### ingest --preview
@@ -119,16 +119,16 @@ This option helps with quick end-to-end smoke testing of the ingestion recipe.
 
 ```shell
 # Preview
-datahub ingest -c ./examples/recipes/example_to_datahub_rest.dhub.yml --preview
+datahub ingest -c ./examples/recipes/example_to_datahub_rest.dhub.yaml --preview
 # Preview with dry-run
-datahub ingest -c ./examples/recipes/example_to_datahub_rest.dhub.yml -n --preview
+datahub ingest -c ./examples/recipes/example_to_datahub_rest.dhub.yaml -n --preview
 ```
 
 By default `--preview` creates 10 workunits. But if you wish to try producing more workunits you can use another option `--preview-workunits`
 
 ```shell
 # Preview 20 workunits without sending anything to sink
-datahub ingest -c ./examples/recipes/example_to_datahub_rest.dhub.yml -n --preview --preview-workunits=20
+datahub ingest -c ./examples/recipes/example_to_datahub_rest.dhub.yaml -n --preview --preview-workunits=20
 ```
 
 #### ingest deploy

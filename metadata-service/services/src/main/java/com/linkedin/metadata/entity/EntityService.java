@@ -21,6 +21,7 @@ import com.linkedin.metadata.run.AspectRowSummary;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
+import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.util.Pair;
 import java.net.URISyntaxException;
 import java.util.Collection;
@@ -245,6 +246,13 @@ public interface EntityService<U extends ChangeMCP> extends AspectRetriever {
   // TODO: Extract this to a different service, doesn't need to be here
   RestoreIndicesResult restoreIndices(
       @Nonnull RestoreIndicesArgs args, @Nonnull Consumer<String> logger);
+
+  // Restore indices from list using key lookups (no scans)
+  List<RestoreIndicesResult> restoreIndices(
+      @Nonnull Set<Urn> urns,
+      @Nullable Set<String> inputAspectNames,
+      @Nullable Integer inputBatchSize)
+      throws RemoteInvocationException, URISyntaxException;
 
   ListUrnsResult listUrns(@Nonnull final String entityName, final int start, final int count);
 

@@ -8,7 +8,6 @@ import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
 import com.datahub.plugins.auth.authorization.Authorizer;
 import com.linkedin.metadata.models.registry.EntityRegistry;
-import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
 import org.testng.annotations.Test;
 
 public class OperationContextTest {
@@ -22,11 +21,13 @@ public class OperationContextTest {
     OperationContext systemOpContext =
         OperationContext.asSystem(
             OperationContextConfig.builder().build(),
-            mock(EntityRegistry.class),
             systemAuth,
-            IndexConventionImpl.NO_PREFIX);
+            mock(EntityRegistry.class),
+            mock(ServicesRegistryContext.class),
+            null);
 
-    OperationContext opContext = systemOpContext.asSession(Authorizer.EMPTY, userAuth);
+    OperationContext opContext =
+        systemOpContext.asSession(RequestContext.TEST, Authorizer.EMPTY, userAuth);
 
     assertEquals(
         opContext.getAuthentication(), systemAuth, "Expected system authentication when allowed");

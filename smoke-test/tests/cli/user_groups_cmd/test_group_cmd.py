@@ -103,14 +103,12 @@ def test_group_upsert(wait_for_healthchecks: Any) -> None:
             "corpGroupKey": {"name": f"group_{i}"},
             "ownership": {
                 "lastModified": {"actor": "urn:li:corpuser:unknown", "time": 0},
+                "ownerTypes": {
+                    "urn:li:ownershipType:__system__none": ["urn:li:corpuser:user1"],
+                },
                 "owners": [
                     {"owner": "urn:li:corpuser:user1", "type": "TECHNICAL_OWNER"}
                 ],
-                "ownerTypes": {
-                    "urn:li:ownershipType:__system__none": [
-                        "urn:li:corpuser:user1",
-                    ],
-                },
             },
             "status": {"removed": False},
         }

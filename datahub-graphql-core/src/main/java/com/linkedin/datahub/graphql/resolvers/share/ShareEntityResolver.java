@@ -62,7 +62,7 @@ public class ShareEntityResolver implements DataFetcher<CompletableFuture<ShareE
             }
             ShareEntityResult shareEntityResult = new ShareEntityResult();
             shareEntityResult.setSucceeded(succeeded);
-            shareEntityResult.setShare(ShareMapper.map(shareAspect));
+            shareEntityResult.setShare(ShareMapper.map(context, shareAspect));
             return shareEntityResult;
           } catch (Exception e) {
             throw new RuntimeException(

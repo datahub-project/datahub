@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.types.notification.mappers;
 
+import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.NotificationSettings;
 import com.linkedin.datahub.graphql.generated.NotificationSinkType;
 import com.linkedin.datahub.graphql.generated.SlackNotificationSettings;
@@ -7,6 +8,7 @@ import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import java.util.ArrayList;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 public class NotificationSettingsMapper
     implements ModelMapper<
@@ -15,14 +17,16 @@ public class NotificationSettingsMapper
   public static final NotificationSettingsMapper INSTANCE = new NotificationSettingsMapper();
 
   public static NotificationSettings map(
+      @Nullable final QueryContext context,
       @Nonnull
           final com.linkedin.event.notification.settings.NotificationSettings
               notificationSettings) {
-    return INSTANCE.apply(notificationSettings);
+    return INSTANCE.apply(context, notificationSettings);
   }
 
   @Override
   public NotificationSettings apply(
+      @Nullable final QueryContext context,
       @Nonnull
           final com.linkedin.event.notification.settings.NotificationSettings
               notificationSettings) {

@@ -12,7 +12,7 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.metadata.Constants;
-import com.linkedin.metadata.secret.SecretService;
+import io.datahubproject.metadata.services.SecretService;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 

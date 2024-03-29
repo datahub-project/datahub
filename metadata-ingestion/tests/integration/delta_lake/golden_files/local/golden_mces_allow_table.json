@@ -45,9 +45,8 @@
                         },
                         "fields": [
                             {
-                                "fieldPath": "bar",
+                                "fieldPath": "[version=2.0].[type=int].foo",
                                 "nullable": true,
-                                "description": "{}",
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -56,12 +55,11 @@
                                 "nativeDataType": "integer",
                                 "recursive": false,
                                 "isPartOfKey": false,
-                                "isPartitioningKey": true
+                                "jsonProps": "{\"native_data_type\": \"integer\", \"_nullable\": true}"
                             },
                             {
-                                "fieldPath": "foo",
+                                "fieldPath": "[version=2.0].[type=int].bar",
                                 "nullable": true,
-                                "description": "{}",
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -70,12 +68,11 @@
                                 "nativeDataType": "integer",
                                 "recursive": false,
                                 "isPartOfKey": false,
-                                "isPartitioningKey": true
+                                "jsonProps": "{\"native_data_type\": \"integer\", \"_nullable\": true}"
                             },
                             {
-                                "fieldPath": "zip",
+                                "fieldPath": "[version=2.0].[type=string].zip",
                                 "nullable": true,
-                                "description": "{}",
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -84,7 +81,7 @@
                                 "nativeDataType": "string",
                                 "recursive": false,
                                 "isPartOfKey": false,
-                                "isPartitioningKey": false
+                                "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
                             }
                         ]
                     }
@@ -924,23 +921,8 @@
                         },
                         "fields": [
                             {
-                                "fieldPath": "customer",
+                                "fieldPath": "[version=2.0].[type=int].year",
                                 "nullable": true,
-                                "description": "{}",
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.StringType": {}
-                                    }
-                                },
-                                "nativeDataType": "string",
-                                "recursive": false,
-                                "isPartOfKey": false,
-                                "isPartitioningKey": false
-                            },
-                            {
-                                "fieldPath": "day",
-                                "nullable": true,
-                                "description": "{}",
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -949,12 +931,11 @@
                                 "nativeDataType": "integer",
                                 "recursive": false,
                                 "isPartOfKey": false,
-                                "isPartitioningKey": false
+                                "jsonProps": "{\"native_data_type\": \"integer\", \"_nullable\": true}"
                             },
                             {
-                                "fieldPath": "month",
+                                "fieldPath": "[version=2.0].[type=int].month",
                                 "nullable": true,
-                                "description": "{}",
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -963,12 +944,24 @@
                                 "nativeDataType": "integer",
                                 "recursive": false,
                                 "isPartOfKey": false,
-                                "isPartitioningKey": false
+                                "jsonProps": "{\"native_data_type\": \"integer\", \"_nullable\": true}"
                             },
                             {
-                                "fieldPath": "sale_id",
+                                "fieldPath": "[version=2.0].[type=int].day",
                                 "nullable": true,
-                                "description": "{}",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "integer",
+                                "recursive": false,
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"integer\", \"_nullable\": true}"
+                            },
+                            {
+                                "fieldPath": "[version=2.0].[type=string].sale_id",
+                                "nullable": true,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -977,35 +970,33 @@
                                 "nativeDataType": "string",
                                 "recursive": false,
                                 "isPartOfKey": false,
-                                "isPartitioningKey": false
+                                "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
                             },
                             {
-                                "fieldPath": "total_cost",
+                                "fieldPath": "[version=2.0].[type=string].customer",
                                 "nullable": true,
-                                "description": "{}",
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "string",
+                                "recursive": false,
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
+                            },
+                            {
+                                "fieldPath": "[version=2.0].[type=float].total_cost",
+                                "nullable": true,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
                                 "nativeDataType": "float",
                                 "recursive": false,
                                 "isPartOfKey": false,
-                                "isPartitioningKey": false
-                            },
-                            {
-                                "fieldPath": "year",
-                                "nullable": true,
-                                "description": "{}",
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
-                                    }
-                                },
-                                "nativeDataType": "integer",
-                                "recursive": false,
-                                "isPartOfKey": false,
-                                "isPartitioningKey": false
+                                "jsonProps": "{\"native_data_type\": \"float\", \"_nullable\": true}"
                             }
                         ]
                     }
@@ -1150,9 +1141,8 @@
                         },
                         "fields": [
                             {
-                                "fieldPath": "bar",
+                                "fieldPath": "[version=2.0].[type=int].foo",
                                 "nullable": true,
-                                "description": "{}",
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -1161,12 +1151,11 @@
                                 "nativeDataType": "integer",
                                 "recursive": false,
                                 "isPartOfKey": false,
-                                "isPartitioningKey": true
+                                "jsonProps": "{\"native_data_type\": \"integer\", \"_nullable\": true}"
                             },
                             {
-                                "fieldPath": "foo",
+                                "fieldPath": "[version=2.0].[type=int].bar",
                                 "nullable": true,
-                                "description": "{}",
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -1175,12 +1164,11 @@
                                 "nativeDataType": "integer",
                                 "recursive": false,
                                 "isPartOfKey": false,
-                                "isPartitioningKey": true
+                                "jsonProps": "{\"native_data_type\": \"integer\", \"_nullable\": true}"
                             },
                             {
-                                "fieldPath": "zip",
+                                "fieldPath": "[version=2.0].[type=string].zip",
                                 "nullable": true,
-                                "description": "{}",
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -1189,7 +1177,7 @@
                                 "nativeDataType": "string",
                                 "recursive": false,
                                 "isPartOfKey": false,
-                                "isPartitioningKey": false
+                                "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
                             }
                         ]
                     }
@@ -1455,9 +1443,8 @@
                         },
                         "fields": [
                             {
-                                "fieldPath": "bar",
+                                "fieldPath": "[version=2.0].[type=int].foo",
                                 "nullable": true,
-                                "description": "{}",
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -1466,12 +1453,11 @@
                                 "nativeDataType": "integer",
                                 "recursive": false,
                                 "isPartOfKey": false,
-                                "isPartitioningKey": true
+                                "jsonProps": "{\"native_data_type\": \"integer\", \"_nullable\": true}"
                             },
                             {
-                                "fieldPath": "foo",
+                                "fieldPath": "[version=2.0].[type=int].bar",
                                 "nullable": true,
-                                "description": "{}",
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -1480,12 +1466,11 @@
                                 "nativeDataType": "integer",
                                 "recursive": false,
                                 "isPartOfKey": false,
-                                "isPartitioningKey": true
+                                "jsonProps": "{\"native_data_type\": \"integer\", \"_nullable\": true}"
                             },
                             {
-                                "fieldPath": "zip",
+                                "fieldPath": "[version=2.0].[type=string].zip",
                                 "nullable": true,
-                                "description": "{}",
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -1494,7 +1479,7 @@
                                 "nativeDataType": "string",
                                 "recursive": false,
                                 "isPartOfKey": false,
-                                "isPartitioningKey": false
+                                "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
                             }
                         ]
                     }
@@ -1795,6 +1780,360 @@
                 "version": "0"
             },
             "lastUpdatedTimestamp": 1655831865396
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "allow_table.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-platform.tests/integration/delta_lake/test_data/delta_tables/level1/my_table_inner,UAT)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:delta-lake,my-platform)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:delta-lake,my-platform)"
+                },
+                {
+                    "id": "urn:li:container:189046201d696e7810132cfa64dad337",
+                    "urn": "urn:li:container:189046201d696e7810132cfa64dad337"
+                },
+                {
+                    "id": "urn:li:container:acf0f3806f475a7397ee745329ef2967",
+                    "urn": "urn:li:container:acf0f3806f475a7397ee745329ef2967"
+                },
+                {
+                    "id": "urn:li:container:1876d057d0ee364677b85427342e2c82",
+                    "urn": "urn:li:container:1876d057d0ee364677b85427342e2c82"
+                },
+                {
+                    "id": "urn:li:container:7888b6dab77b7e77709699c9a1b81aa4",
+                    "urn": "urn:li:container:7888b6dab77b7e77709699c9a1b81aa4"
+                },
+                {
+                    "id": "urn:li:container:a282913be26fceff334523c2be119df1",
+                    "urn": "urn:li:container:a282913be26fceff334523c2be119df1"
+                },
+                {
+                    "id": "urn:li:container:3df8f6b0f3a70d42cf70612a2fe5e5ef",
+                    "urn": "urn:li:container:3df8f6b0f3a70d42cf70612a2fe5e5ef"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "allow_table.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:189046201d696e7810132cfa64dad337",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:delta-lake,my-platform)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:delta-lake,my-platform)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "allow_table.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:acf0f3806f475a7397ee745329ef2967",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:delta-lake,my-platform)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:delta-lake,my-platform)"
+                },
+                {
+                    "id": "urn:li:container:189046201d696e7810132cfa64dad337",
+                    "urn": "urn:li:container:189046201d696e7810132cfa64dad337"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "allow_table.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:1876d057d0ee364677b85427342e2c82",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:delta-lake,my-platform)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:delta-lake,my-platform)"
+                },
+                {
+                    "id": "urn:li:container:189046201d696e7810132cfa64dad337",
+                    "urn": "urn:li:container:189046201d696e7810132cfa64dad337"
+                },
+                {
+                    "id": "urn:li:container:acf0f3806f475a7397ee745329ef2967",
+                    "urn": "urn:li:container:acf0f3806f475a7397ee745329ef2967"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "allow_table.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:7888b6dab77b7e77709699c9a1b81aa4",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:delta-lake,my-platform)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:delta-lake,my-platform)"
+                },
+                {
+                    "id": "urn:li:container:189046201d696e7810132cfa64dad337",
+                    "urn": "urn:li:container:189046201d696e7810132cfa64dad337"
+                },
+                {
+                    "id": "urn:li:container:acf0f3806f475a7397ee745329ef2967",
+                    "urn": "urn:li:container:acf0f3806f475a7397ee745329ef2967"
+                },
+                {
+                    "id": "urn:li:container:1876d057d0ee364677b85427342e2c82",
+                    "urn": "urn:li:container:1876d057d0ee364677b85427342e2c82"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "allow_table.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:a282913be26fceff334523c2be119df1",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:delta-lake,my-platform)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:delta-lake,my-platform)"
+                },
+                {
+                    "id": "urn:li:container:189046201d696e7810132cfa64dad337",
+                    "urn": "urn:li:container:189046201d696e7810132cfa64dad337"
+                },
+                {
+                    "id": "urn:li:container:acf0f3806f475a7397ee745329ef2967",
+                    "urn": "urn:li:container:acf0f3806f475a7397ee745329ef2967"
+                },
+                {
+                    "id": "urn:li:container:1876d057d0ee364677b85427342e2c82",
+                    "urn": "urn:li:container:1876d057d0ee364677b85427342e2c82"
+                },
+                {
+                    "id": "urn:li:container:7888b6dab77b7e77709699c9a1b81aa4",
+                    "urn": "urn:li:container:7888b6dab77b7e77709699c9a1b81aa4"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "allow_table.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-platform.tests/integration/delta_lake/test_data/delta_tables/my_table_basic,UAT)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:delta-lake,my-platform)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:delta-lake,my-platform)"
+                },
+                {
+                    "id": "urn:li:container:189046201d696e7810132cfa64dad337",
+                    "urn": "urn:li:container:189046201d696e7810132cfa64dad337"
+                },
+                {
+                    "id": "urn:li:container:acf0f3806f475a7397ee745329ef2967",
+                    "urn": "urn:li:container:acf0f3806f475a7397ee745329ef2967"
+                },
+                {
+                    "id": "urn:li:container:1876d057d0ee364677b85427342e2c82",
+                    "urn": "urn:li:container:1876d057d0ee364677b85427342e2c82"
+                },
+                {
+                    "id": "urn:li:container:7888b6dab77b7e77709699c9a1b81aa4",
+                    "urn": "urn:li:container:7888b6dab77b7e77709699c9a1b81aa4"
+                },
+                {
+                    "id": "urn:li:container:a282913be26fceff334523c2be119df1",
+                    "urn": "urn:li:container:a282913be26fceff334523c2be119df1"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "allow_table.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-platform.tests/integration/delta_lake/test_data/delta_tables/sales,UAT)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:delta-lake,my-platform)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:delta-lake,my-platform)"
+                },
+                {
+                    "id": "urn:li:container:189046201d696e7810132cfa64dad337",
+                    "urn": "urn:li:container:189046201d696e7810132cfa64dad337"
+                },
+                {
+                    "id": "urn:li:container:acf0f3806f475a7397ee745329ef2967",
+                    "urn": "urn:li:container:acf0f3806f475a7397ee745329ef2967"
+                },
+                {
+                    "id": "urn:li:container:1876d057d0ee364677b85427342e2c82",
+                    "urn": "urn:li:container:1876d057d0ee364677b85427342e2c82"
+                },
+                {
+                    "id": "urn:li:container:7888b6dab77b7e77709699c9a1b81aa4",
+                    "urn": "urn:li:container:7888b6dab77b7e77709699c9a1b81aa4"
+                },
+                {
+                    "id": "urn:li:container:a282913be26fceff334523c2be119df1",
+                    "urn": "urn:li:container:a282913be26fceff334523c2be119df1"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "allow_table.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-platform.tests/integration/delta_lake/test_data/delta_tables/my_table_no_name,UAT)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:delta-lake,my-platform)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:delta-lake,my-platform)"
+                },
+                {
+                    "id": "urn:li:container:189046201d696e7810132cfa64dad337",
+                    "urn": "urn:li:container:189046201d696e7810132cfa64dad337"
+                },
+                {
+                    "id": "urn:li:container:acf0f3806f475a7397ee745329ef2967",
+                    "urn": "urn:li:container:acf0f3806f475a7397ee745329ef2967"
+                },
+                {
+                    "id": "urn:li:container:1876d057d0ee364677b85427342e2c82",
+                    "urn": "urn:li:container:1876d057d0ee364677b85427342e2c82"
+                },
+                {
+                    "id": "urn:li:container:7888b6dab77b7e77709699c9a1b81aa4",
+                    "urn": "urn:li:container:7888b6dab77b7e77709699c9a1b81aa4"
+                },
+                {
+                    "id": "urn:li:container:a282913be26fceff334523c2be119df1",
+                    "urn": "urn:li:container:a282913be26fceff334523c2be119df1"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "allow_table.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:3df8f6b0f3a70d42cf70612a2fe5e5ef",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:delta-lake,my-platform)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:delta-lake,my-platform)"
+                },
+                {
+                    "id": "urn:li:container:189046201d696e7810132cfa64dad337",
+                    "urn": "urn:li:container:189046201d696e7810132cfa64dad337"
+                },
+                {
+                    "id": "urn:li:container:acf0f3806f475a7397ee745329ef2967",
+                    "urn": "urn:li:container:acf0f3806f475a7397ee745329ef2967"
+                },
+                {
+                    "id": "urn:li:container:1876d057d0ee364677b85427342e2c82",
+                    "urn": "urn:li:container:1876d057d0ee364677b85427342e2c82"
+                },
+                {
+                    "id": "urn:li:container:7888b6dab77b7e77709699c9a1b81aa4",
+                    "urn": "urn:li:container:7888b6dab77b7e77709699c9a1b81aa4"
+                },
+                {
+                    "id": "urn:li:container:a282913be26fceff334523c2be119df1",
+                    "urn": "urn:li:container:a282913be26fceff334523c2be119df1"
+                }
+            ]
         }
     },
     "systemMetadata": {

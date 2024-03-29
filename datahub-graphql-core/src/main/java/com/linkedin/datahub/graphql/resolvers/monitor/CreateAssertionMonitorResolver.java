@@ -62,6 +62,7 @@ public class CreateAssertionMonitorResolver implements DataFetcher<CompletableFu
 
               // Then, return the new monitor
               return MonitorMapper.map(
+                  context,
                   _monitorService.getMonitorEntityResponse(
                       monitorUrn, context.getAuthentication()));
             } catch (Exception e) {

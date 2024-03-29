@@ -7,7 +7,6 @@ import {
     FundOutlined,
     LayoutOutlined,
     PartitionOutlined,
-    SyncOutlined,
     UnlockOutlined,
     UnorderedListOutlined,
     WarningOutlined,
@@ -197,19 +196,15 @@ export class DatasetEntity implements Entity<Dataset> {
                     icon: CheckCircleOutlined,
                 },
                 {
-                    name: 'Operations',
+                    name: 'Runs',
+                    // TODO: Rename this to DatasetRunsTab.
                     component: OperationsTab,
-                    icon: SyncOutlined,
                     display: {
                         visible: (_, dataset: GetDatasetQuery) => {
-                            return (
-                                (dataset?.dataset?.readRuns?.total || 0) + (dataset?.dataset?.writeRuns?.total || 0) > 0
-                            );
+                            return (dataset?.dataset?.runs?.total || 0) > 0;
                         },
                         enabled: (_, dataset: GetDatasetQuery) => {
-                            return (
-                                (dataset?.dataset?.readRuns?.total || 0) + (dataset?.dataset?.writeRuns?.total || 0) > 0
-                            );
+                            return (dataset?.dataset?.runs?.total || 0) > 0;
                         },
                     },
                 },

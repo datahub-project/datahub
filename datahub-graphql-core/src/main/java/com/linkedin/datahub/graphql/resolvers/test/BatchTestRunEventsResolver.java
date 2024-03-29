@@ -53,7 +53,9 @@ public class BatchTestRunEventsResolver
 
             // Step 2: Bind profiles into GraphQL strong types.
             List<BatchTestRunEvent> runEvents =
-                aspects.stream().map(BatchTestRunEventMapper::map).collect(Collectors.toList());
+                aspects.stream()
+                    .map(a -> BatchTestRunEventMapper.map(context, a))
+                    .collect(Collectors.toList());
 
             // Step 3: Package and return response.
             final BatchTestRunEventsResult result = new BatchTestRunEventsResult();

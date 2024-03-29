@@ -37,9 +37,8 @@ public class RemoveClientIdAspectStep implements BootstrapStep {
 
       BootstrapStep.setUpgradeResult(REMOVE_UNKNOWN_ASPECTS_URN, _entityService);
     } catch (Exception e) {
-      log.error("Error when running the RemoveUnknownAspects Bootstrap Step", e);
+      log.warn("Error when running the RemoveUnknownAspects Bootstrap Step");
       _entityService.deleteUrn(REMOVE_UNKNOWN_ASPECTS_URN);
-      throw new RuntimeException("Error when running the RemoveUnknownAspects Bootstrap Step", e);
     }
   }
 

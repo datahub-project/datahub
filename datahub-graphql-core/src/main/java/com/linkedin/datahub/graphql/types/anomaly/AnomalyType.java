@@ -67,7 +67,7 @@ public class AnomalyType implements com.linkedin.datahub.graphql.types.EntityTyp
                   gmsResult == null
                       ? null
                       : DataFetcherResult.<Anomaly>newResult()
-                          .data(AnomalyMapper.map(gmsResult))
+                          .data(AnomalyMapper.map(context, gmsResult))
                           .build())
           .collect(Collectors.toList());
     } catch (Exception e) {

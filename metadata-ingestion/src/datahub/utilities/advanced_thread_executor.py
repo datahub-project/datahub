@@ -32,7 +32,7 @@ class PartitionExecutor(Closeable):
 
         It works similarly to a ThreadPoolExecutor, with the following changes:
         - At most one request per partition key will be executing at a time.
-        - If the number of pending requests exceeds the threshold, the submit call
+        - If the number of pending requests exceeds the threshold, the submit() call
           will block until the number of pending requests drops below the threshold.
 
         Due to the interaction between max_workers and max_pending, it is possible

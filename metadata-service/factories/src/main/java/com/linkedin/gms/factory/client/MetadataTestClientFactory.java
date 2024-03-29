@@ -2,6 +2,7 @@ package com.linkedin.gms.factory.client;
 
 import com.linkedin.restli.client.Client;
 import com.linkedin.test.MetadataTestClient;
+import com.linkedin.test.RestliMetadataTestClient;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
@@ -17,6 +18,6 @@ public class MetadataTestClientFactory {
 
   @Bean("metadataTestClient")
   public MetadataTestClient getMetadataTestClient() {
-    return new MetadataTestClient(restliClient);
+    return new RestliMetadataTestClient(restliClient);
   }
 }

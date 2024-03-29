@@ -31,7 +31,7 @@ public interface AspectsBatch {
    *
    * @return batch items
    */
-  default Collection<? extends MCPItem> getMCPItems() {
+  default List<MCPItem> getMCPItems() {
     return getItems().stream()
         .filter(item -> item instanceof MCPItem)
         .map(item -> (MCPItem) item)

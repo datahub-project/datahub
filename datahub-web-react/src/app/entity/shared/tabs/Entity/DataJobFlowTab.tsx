@@ -10,5 +10,5 @@ export const DataJobFlowTab = () => {
     const dataFlow = dataJob?.dataFlow;
     const entityRegistry = useEntityRegistry();
     const title = `Part of ${entityRegistry.getEntityName(EntityType.DataFlow)}`;
-    return <EntityList title={title} type={EntityType.DataFlow} entities={[dataFlow] || []} />;
+    return <EntityList title={title} type={EntityType.DataFlow} entities={dataFlow ? [dataFlow] : []} />;
 };

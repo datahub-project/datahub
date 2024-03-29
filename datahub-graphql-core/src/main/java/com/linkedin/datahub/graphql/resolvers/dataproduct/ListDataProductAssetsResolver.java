@@ -156,7 +156,7 @@ public class ListDataProductAssetsResolver
           final SearchFlags searchFlags;
           com.linkedin.datahub.graphql.generated.SearchFlags inputFlags = input.getSearchFlags();
           if (inputFlags != null) {
-            searchFlags = SearchFlagsInputMapper.INSTANCE.apply(inputFlags);
+            searchFlags = SearchFlagsInputMapper.INSTANCE.apply(context, inputFlags);
           } else {
             searchFlags = null;
           }
@@ -172,6 +172,7 @@ public class ListDataProductAssetsResolver
 
             SearchResults results =
                 UrnSearchResultsMapper.map(
+                    context,
                     _entityClient.searchAcrossEntities(
                         context
                             .getOperationContext()

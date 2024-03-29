@@ -87,7 +87,7 @@ Each proposal comprises of the following:
     - DELETE: Delete
     - PATCH: Patch the aspect instead of doing a full replace
 
-   Only UPSERT is supported as of now.
+   Only UPSERT, CREATE, DELETE, PATCH are supported as of now.
 
 5. aspectName
 

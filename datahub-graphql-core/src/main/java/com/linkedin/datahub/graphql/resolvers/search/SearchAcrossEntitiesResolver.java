@@ -69,7 +69,7 @@ public class SearchAcrossEntitiesResolver implements DataFetcher<CompletableFutu
                   ? SearchUtils.combineFilters(inputFilter, formFilter)
                   : inputFilter;
 
-          SearchFlags searchFlags = mapInputFlags(input.getSearchFlags());
+          SearchFlags searchFlags = mapInputFlags(context, input.getSearchFlags());
           SortCriterion sortCriterion =
               input.getSortInput() != null
                   ? mapSortCriterion(input.getSortInput().getSortCriterion())
@@ -85,6 +85,7 @@ public class SearchAcrossEntitiesResolver implements DataFetcher<CompletableFutu
                 count);
 
             return UrnSearchResultsMapper.map(
+                context,
                 _entityClient.searchAcrossEntities(
                     context.getOperationContext().withSearchFlags(flags -> searchFlags),
                     maybeResolvedView != null

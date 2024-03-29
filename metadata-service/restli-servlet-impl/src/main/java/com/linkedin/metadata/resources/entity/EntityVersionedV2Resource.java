@@ -1,16 +1,16 @@
 package com.linkedin.metadata.resources.entity;
 
-import static com.linkedin.metadata.Constants.*;
-import static com.linkedin.metadata.resources.entity.ResourceUtils.*;
+import static com.datahub.authorization.AuthUtil.isAPIAuthorized;
+import static com.datahub.authorization.AuthUtil.isAPIAuthorizedEntityUrns;
+import static com.datahub.authorization.AuthUtil.isAPIAuthorizedUrns;
+import static com.linkedin.metadata.authorization.ApiGroup.ENTITY;
+import static com.linkedin.metadata.authorization.ApiOperation.READ;
 import static com.linkedin.metadata.resources.restli.RestliConstants.*;
-import static com.linkedin.metadata.resources.restli.RestliUtils.*;
 
 import com.codahale.metrics.MetricRegistry;
-import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authorization.EntitySpec;
 import com.datahub.plugins.auth.authorization.Authorizer;
-import com.google.common.collect.ImmutableList;
 import com.linkedin.common.VersionedUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -53,7 +53,7 @@ public class EntityVersionedV2Resource
 
   @Inject
   @Named("entityService")
-  private EntityService _entityService;
+  private EntityService<?> _entityService;
 
   @Inject
   @Named("authorizerChain")
@@ -66,20 +66,15 @@ public class EntityVersionedV2Resource
       @Nonnull Set<com.linkedin.common.urn.VersionedUrn> versionedUrnStrs,
       @QueryParam(PARAM_ENTITY_TYPE) @Nonnull String entityType,
       @QueryParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames) {
-    Authentication auth = AuthenticationContext.getAuthentication();
-    List<java.util.Optional<EntitySpec>> resourceSpecs =
-        versionedUrnStrs.stream()
-            .map(versionedUrn -> UrnUtils.getUrn(versionedUrn.getUrn()))
-            .map(urn -> java.util.Optional.of(new EntitySpec(urn.getEntityType(), urn.toString())))
-            .collect(Collectors.toList());
-    if (Boolean.parseBoolean(System.getenv(REST_API_AUTHORIZATION_ENABLED_ENV))
-        && !isAuthorized(
-            auth,
+
+    if (!isAPIAuthorizedEntityUrns(
+            AuthenticationContext.getAuthentication(),
             _authorizer,
-            ImmutableList.of(PoliciesConfig.GET_ENTITY_PRIVILEGE),
-            resourceSpecs)) {
+            READ,
+            versionedUrnStrs.stream()
+                    .map(versionedUrn -> UrnUtils.getUrn(versionedUrn.getUrn())).collect(Collectors.toSet()))) {
       throw new RestLiServiceException(
-          HttpStatus.S_401_UNAUTHORIZED,
+          HttpStatus.S_403_FORBIDDEN,
           "User is unauthorized to get entities " + versionedUrnStrs);
     }
     log.debug("BATCH GET VERSIONED V2 {}", versionedUrnStrs);
@@ -90,7 +85,7 @@ public class EntityVersionedV2Resource
         () -> {
           final Set<String> projectedAspects =
               aspectNames == null
-                  ? getAllAspectNames(_entityService, entityType)
+                  ? _entityService.getEntityAspectNames(entityType)
                   : new HashSet<>(Arrays.asList(aspectNames));
           try {
             return _entityService.getEntitiesVersionedV2(

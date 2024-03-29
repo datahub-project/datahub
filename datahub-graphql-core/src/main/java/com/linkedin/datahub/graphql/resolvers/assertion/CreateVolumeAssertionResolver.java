@@ -52,6 +52,7 @@ public class CreateVolumeAssertionResolver implements DataFetcher<CompletableFut
 
             // Then, return the new assertion
             return AssertionMapper.map(
+                context,
                 _assertionService.getAssertionEntityResponse(
                     assertionUrn, context.getAuthentication()));
           }

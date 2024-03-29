@@ -1,26 +1,14 @@
 import { Button } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import {
-    FormPrompt,
-    PropertyCardinality,
-    SchemaField,
-    StdDataType,
-    SubmitFormPromptInput,
-} from '../../../../../../types.generated';
-import SingleSelectInput from './SingleSelectInput';
-import MultiSelectInput from './MultiSelectInput';
+import { FormPrompt, SchemaField, SubmitFormPromptInput } from '../../../../../../types.generated';
 import useStructuredPropertyPrompt from './useStructuredPropertyPrompt';
-import StringInput from './StringInput';
-import RichTextInput from './RichTextInput';
-import DateInput from './DateInput';
-import NumberInput from './NumberInput';
-import UrnInput from './UrnInput/UrnInput';
 import CompletedPromptAuditStamp from './CompletedPromptAuditStamp';
 import { applyOpacity } from '../../../../../shared/styleUtils';
 import { useEntityFormContext } from '../../EntityFormContext';
 import BulkSubmissionButton from './BulkSubmissionButton';
 import usePromptCompletionInfo from '../usePromptCompletionInfo';
+import StructuredPropertyInput from '../../../components/styled/StructuredProperty/StructuredPropertyInput';
 
 const PromptWrapper = styled.div<{ displayBulkStyles?: boolean }>`
     display: flex;
@@ -89,7 +77,7 @@ export default function StructuredPropertyPrompt({
     optimisticCompletedTimestamp,
 }: Props) {
     const {
-        hasEditedPrompt,
+        hasEdited,
         selectedValues,
         selectSingleValue,
         toggleSelectedValue,
@@ -110,10 +98,9 @@ export default function StructuredPropertyPrompt({
     const structuredProperty = prompt.structuredPropertyParams?.structuredProperty;
     if (!structuredProperty) return null;
 
-    const { displayName, description, allowedValues, cardinality, valueType } = structuredProperty.definition;
-    const showSaveButton = !displayBulkPromptStyles && hasEditedPrompt && selectedValues.length > 0;
-    const showConfirmButton = !displayBulkPromptStyles && !hasEditedPrompt && !isComplete && selectedValues.length > 0;
-
+    const { displayName, description, } = structuredProperty.definition;
+    const showSaveButton = !displayBulkPromptStyles && hasEdited && selectedValues.length > 0;
+    const showConfirmButton = !displayBulkPromptStyles && !hasEdited && !isComplete && selectedValues.length > 0;
 
     return (
         <>
@@ -128,57 +115,13 @@ export default function StructuredPropertyPrompt({
                     </PromptTitle>
                     {description && <PromptSubTitle>{description}</PromptSubTitle>}
                     <InputSection>
-                        {allowedValues && allowedValues.length > 0 && (
-                            <>
-                                {cardinality === PropertyCardinality.Single && (
-                                    <SingleSelectInput
-                                        allowedValues={allowedValues}
-                                        selectedValues={selectedValues}
-                                        selectSingleValue={selectSingleValue}
-                                    />
-                                )}
-                                {cardinality === PropertyCardinality.Multiple && (
-                                    <MultiSelectInput
-                                        allowedValues={allowedValues}
-                                        selectedValues={selectedValues}
-                                        toggleSelectedValue={toggleSelectedValue}
-                                        updateSelectedValues={updateSelectedValues}
-                                    />
-                                )}
-                            </>
-                        )}
-                        {!allowedValues && valueType.info.type === StdDataType.String && (
-                            <StringInput
-                                selectedValues={selectedValues}
-                                cardinality={cardinality}
-                                updateSelectedValues={updateSelectedValues}
-                            />
-                        )}
-                        {!allowedValues && valueType.info.type === StdDataType.RichText && (
-                            <RichTextInput
-                                selectedValues={selectedValues}
-                                updateSelectedValues={updateSelectedValues}
-                            />
-                        )}
-                        {!allowedValues && valueType.info.type === StdDataType.Date && (
-                            <DateInput
-                                selectedValues={selectedValues}
-                                updateSelectedValues={updateSelectedValues}
-                            />
-                        )}
-                        {!allowedValues && valueType.info.type === StdDataType.Number && (
-                            <NumberInput
-                                selectedValues={selectedValues}
-                                updateSelectedValues={updateSelectedValues}
-                            />
-                        )}
-                        {!allowedValues && valueType.info.type === StdDataType.Urn && (
-                            <UrnInput
-                                structuredProperty={structuredProperty}
-                                selectedValues={selectedValues}
-                                updateSelectedValues={updateSelectedValues}
-                            />
-                        )}
+                        <StructuredPropertyInput
+                            structuredProperty={structuredProperty}
+                            selectedValues={selectedValues}
+                            selectSingleValue={selectSingleValue}
+                            toggleSelectedValue={toggleSelectedValue}
+                            updateSelectedValues={updateSelectedValues}
+                        />
                         {displayBulkPromptStyles && (
                             <BulkSubmissionButton
                                 isDisabled={!selectedValues.length || !selectedEntities.length}
@@ -187,7 +130,7 @@ export default function StructuredPropertyPrompt({
                         )}
                     </InputSection>
                 </PromptInputWrapper>
-                {isComplete && !hasEditedPrompt && !displayBulkPromptStyles && (
+                {isComplete && !hasEdited && !displayBulkPromptStyles && (
                     <CompletedPromptAuditStamp completedByName={completedByName} completedByTime={completedByTime} />
                 )}
             </PromptWrapper>

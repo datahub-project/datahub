@@ -95,6 +95,10 @@ def default_query_results(
                 "time_stamp": datetime.datetime(2023, 10, 3, 14, 35, 55, 401000),
                 "sync_id": "63c2fc85-600b-455f-9ba0-f576522465be",
             },
+            {
+                "time_stamp": datetime.datetime(2023, 10, 3, 14, 37, 5, 403000),
+                "sync_id": "e773e1e9-c791-46f4-894f-8ch9b3dfc832",
+            },
         ]
     elif query == fivetran_log_query.get_sync_end_logs_query("calendar_elected"):
         return [
@@ -112,6 +116,11 @@ def default_query_results(
                 "time_stamp": datetime.datetime(2023, 10, 3, 14, 36, 29, 678000),
                 "sync_id": "63c2fc85-600b-455f-9ba0-f576522465be",
                 "message_data": '"{\\"reason\\":\\"java.lang.RuntimeException: FATAL: too many connections for role \\\\\\"hxwraqld\\\\\\"\\",\\"taskType\\":\\"reconnect\\",\\"status\\":\\"FAILURE_WITH_TASK\\"}"',
+            },
+            {
+                "time_stamp": datetime.datetime(2023, 10, 3, 14, 37, 35, 478000),
+                "sync_id": "e773e1e9-c791-46f4-894f-8ch9b3dfc832",
+                "message_data": None,
             },
         ]
     # Unreachable code

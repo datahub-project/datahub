@@ -93,7 +93,7 @@ public class ListRejectedActionRequestsResolver
             result.setTotal(searchResult.getNumEntities());
             result.setRejectedActionRequests(
                 ActionRequestUtils.mapRejectedActionRequests(
-                    entities.values(), _entityService, type));
+                    context, entities.values(), _entityService, type));
             return result;
           } catch (Exception e) {
             throw new RuntimeException("Failed to list rejected action requests", e);

@@ -50,21 +50,28 @@ class DatahubPlugin(AirflowPlugin):
     name = "datahub_plugin"
 
     if _USE_AIRFLOW_LISTENER_INTERFACE:
-        if not NEEDS_AIRFLOW_LISTENER_MODULE:
-            from datahub_airflow_plugin.datahub_listener import (  # type: ignore[misc]
-                get_airflow_plugin_listener,
+        try:
+            if not NEEDS_AIRFLOW_LISTENER_MODULE:
+                from datahub_airflow_plugin.datahub_listener import (  # type: ignore[misc]
+                    get_airflow_plugin_listener,
+                )
+
+                listeners: list = list(filter(None, [get_airflow_plugin_listener()]))
+
+            else:
+                # On Airflow < 2.5, we need the listener to be a module.
+                # This is just a quick shim layer to make that work.
+                #
+                # Related Airflow change: https://github.com/apache/airflow/pull/27113.
+                import datahub_airflow_plugin._datahub_listener_module as _listener_module  # type: ignore[misc]
+
+                listeners = [_listener_module]
+        except Exception as e:
+            logger.warning(
+                f"Failed to load the DataHub plugin's event listener: {e}",
+                exc_info=True,
             )
-
-            listeners: list = list(filter(None, [get_airflow_plugin_listener()]))
-
-        else:
-            # On Airflow < 2.5, we need the listener to be a module.
-            # This is just a quick shim layer to make that work.
-            #
-            # Related Airflow change: https://github.com/apache/airflow/pull/27113.
-            import datahub_airflow_plugin._datahub_listener_module as _listener_module  # type: ignore[misc]
-
-            listeners = [_listener_module]
+            listeners = []
 
 
 if not _USE_AIRFLOW_LISTENER_INTERFACE:

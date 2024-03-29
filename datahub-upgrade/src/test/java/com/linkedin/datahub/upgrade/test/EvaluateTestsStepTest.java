@@ -7,13 +7,14 @@ import static org.testng.AssertJUnit.*;
 import com.datahub.plugins.auth.authorization.Authorizer;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.datahub.upgrade.UpgradeCliApplication;
+import com.linkedin.datahub.upgrade.UpgradeCliApplicationTestConfiguration;
 import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeReport;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.datahub.upgrade.impl.DefaultUpgradeReport;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
-import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchEntity;
@@ -29,9 +30,16 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import org.mockito.Mockito;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.testng.annotations.Test;
 
-public class EvaluateTestsStepTest {
+@ActiveProfiles("test")
+@SpringBootTest(
+    args = {"-u", "EvaluateTests"},
+    classes = {UpgradeCliApplication.class, UpgradeCliApplicationTestConfiguration.class})
+public class EvaluateTestsStepTest extends AbstractTestNGSpringContextTests {
   private static final Urn DATASET_URN =
       UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)");
   private static final Urn CHART_URN1 = UrnUtils.getUrn("urn:li:chart:(looker,SampleChartOne)");
@@ -48,7 +56,7 @@ public class EvaluateTestsStepTest {
 
     OperationContext opContext =
         TestOperationContexts.userContextNoSearchAuthorization(
-            mock(EntityRegistry.class), Authorizer.EMPTY, TestOperationContexts.TEST_USER_AUTH);
+            Authorizer.EMPTY, TestOperationContexts.TEST_USER_AUTH);
 
     EvaluateTestsStep testStep =
         new EvaluateTestsStep(opContext, entityClient, entitySearchService, testEngine);

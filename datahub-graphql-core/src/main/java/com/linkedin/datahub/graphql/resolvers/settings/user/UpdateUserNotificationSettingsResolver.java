@@ -74,7 +74,7 @@ public class UpdateUserNotificationSettingsResolver
             corpUserSettings.setNotificationSettings(notificationSettings);
             _settingsService.updateCorpUserSettings(userUrn, corpUserSettings, authentication);
 
-            return NotificationSettingsMapper.map(notificationSettings);
+            return NotificationSettingsMapper.map(context, notificationSettings);
           } catch (Exception e) {
             throw new RuntimeException(
                 String.format(

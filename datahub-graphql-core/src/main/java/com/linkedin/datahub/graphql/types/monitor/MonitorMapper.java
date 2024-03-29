@@ -4,6 +4,7 @@ import static com.linkedin.datahub.graphql.types.assertion.AssertionMapper.*;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.codec.JacksonDataCodec;
+import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.Assertion;
 import com.linkedin.datahub.graphql.generated.AssertionEvaluationContext;
 import com.linkedin.datahub.graphql.generated.AssertionEvaluationParameters;
@@ -43,6 +44,7 @@ import java.util.Calendar;
 import java.util.List;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 
@@ -51,7 +53,8 @@ public class MonitorMapper {
 
   private static final JacksonDataCodec CODEC = new JacksonDataCodec();
 
-  public static Monitor map(@Nonnull final EntityResponse entityResponse) {
+  public static Monitor map(
+      @Nullable final QueryContext context, @Nonnull final EntityResponse entityResponse) {
     final Monitor result = new Monitor();
 
     final Urn entityUrn = entityResponse.getUrn();
@@ -63,25 +66,27 @@ public class MonitorMapper {
     final EnvelopedAspect envelopedMonitorKey = aspects.get(Constants.MONITOR_KEY_ASPECT_NAME);
     if (envelopedMonitorKey != null) {
       MonitorKey key = new MonitorKey(envelopedMonitorKey.getValue().data());
-      result.setEntity(UrnToEntityMapper.map(key.getEntity()));
+      result.setEntity(UrnToEntityMapper.map(context, key.getEntity()));
     }
 
     final EnvelopedAspect envelopedMonitorInfo = aspects.get(Constants.MONITOR_INFO_ASPECT_NAME);
     if (envelopedMonitorInfo != null) {
       result.setInfo(
           mapMonitorInfo(
+              context,
               new com.linkedin.monitor.MonitorInfo(envelopedMonitorInfo.getValue().data())));
     }
 
     return result;
   }
 
-  private static MonitorInfo mapMonitorInfo(com.linkedin.monitor.MonitorInfo backendMonitorInfo) {
+  private static MonitorInfo mapMonitorInfo(
+      @Nullable final QueryContext context, com.linkedin.monitor.MonitorInfo backendMonitorInfo) {
     MonitorInfo monitorInfo = new MonitorInfo();
     monitorInfo.setType(MonitorType.valueOf(backendMonitorInfo.getType().name()));
     if (backendMonitorInfo.hasAssertionMonitor()) {
       monitorInfo.setAssertionMonitor(
-          mapAssertionMonitor(backendMonitorInfo.getAssertionMonitor()));
+          mapAssertionMonitor(context, backendMonitorInfo.getAssertionMonitor()));
     }
     if (backendMonitorInfo.hasExecutorId()) {
       monitorInfo.setExecutorId(backendMonitorInfo.getExecutorId());
@@ -91,17 +96,19 @@ public class MonitorMapper {
   }
 
   private static AssertionMonitor mapAssertionMonitor(
+      @Nullable final QueryContext context,
       com.linkedin.monitor.AssertionMonitor backendAssertionMonitor) {
     AssertionMonitor assertionMonitor = new AssertionMonitor();
     List<AssertionEvaluationSpec> assertionEvaluationSpecs =
         backendAssertionMonitor.getAssertions().stream()
-            .map(MonitorMapper::mapAssertionEvaluationSpec)
+            .map(m -> MonitorMapper.mapAssertionEvaluationSpec(context, m))
             .collect(Collectors.toList());
     assertionMonitor.setAssertions(assertionEvaluationSpecs);
     return assertionMonitor;
   }
 
   private static AssertionEvaluationSpec mapAssertionEvaluationSpec(
+      @Nullable final QueryContext context,
       com.linkedin.monitor.AssertionEvaluationSpec backendAssertionEvaluationSpec) {
     final AssertionEvaluationSpec assertionEvaluationSpec = new AssertionEvaluationSpec();
     final Assertion partialAssertion = new Assertion();
@@ -117,7 +124,7 @@ public class MonitorMapper {
     }
     if (backendAssertionEvaluationSpec.hasContext()) {
       assertionEvaluationSpec.setContext(
-          mapAssertionEvaluationContext(backendAssertionEvaluationSpec.getContext()));
+          mapAssertionEvaluationContext(context, backendAssertionEvaluationSpec.getContext()));
     }
     return assertionEvaluationSpec;
   }
@@ -134,21 +141,22 @@ public class MonitorMapper {
   }
 
   private static AssertionEvaluationContext mapAssertionEvaluationContext(
+      @Nullable final QueryContext queryContext,
       com.linkedin.monitor.AssertionEvaluationContext context) {
     AssertionEvaluationContext assertionEvaluationContext = new AssertionEvaluationContext();
     if (context.hasEmbeddedAssertions()) {
       assertionEvaluationContext.setEmbeddedAssertions(
-          mapEmbeddedAssertions(context.getEmbeddedAssertions()));
+          mapEmbeddedAssertions(queryContext, context.getEmbeddedAssertions()));
     }
     return assertionEvaluationContext;
   }
 
   private static List<EmbeddedAssertion> mapEmbeddedAssertions(
-      EmbeddedAssertionArray gmsEmbeddedAssertions) {
+      @Nullable final QueryContext context, EmbeddedAssertionArray gmsEmbeddedAssertions) {
     List<EmbeddedAssertion> embeddedAssertions = new ArrayList<>();
     gmsEmbeddedAssertions.forEach(
         embeddedAssertion -> {
-          embeddedAssertions.add(mapEmbeddedAssertion(embeddedAssertion));
+          embeddedAssertions.add(mapEmbeddedAssertion(context, embeddedAssertion));
         });
 
     return embeddedAssertions;
@@ -156,10 +164,12 @@ public class MonitorMapper {
 
   @SneakyThrows
   private static EmbeddedAssertion mapEmbeddedAssertion(
+      @Nullable final QueryContext context,
       com.linkedin.monitor.EmbeddedAssertion gmsEmbeddedAssertion) {
     EmbeddedAssertion embeddedAssertion = new EmbeddedAssertion();
     if (gmsEmbeddedAssertion.hasAssertion()) {
-      embeddedAssertion.setAssertion(mapAssertionInfo(gmsEmbeddedAssertion.getAssertion()));
+      embeddedAssertion.setAssertion(
+          mapAssertionInfo(context, gmsEmbeddedAssertion.getAssertion()));
       embeddedAssertion.setRawAssertion(
           CODEC.mapToString(gmsEmbeddedAssertion.getAssertion().data()));
     }

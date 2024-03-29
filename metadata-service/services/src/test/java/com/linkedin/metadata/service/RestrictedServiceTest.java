@@ -1,8 +1,11 @@
 package com.linkedin.metadata.service;
 
+import static org.mockito.Mockito.mock;
+
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
-import com.linkedin.metadata.secret.SecretService;
+import io.datahubproject.metadata.services.RestrictedService;
+import io.datahubproject.metadata.services.SecretService;
 import org.mockito.Mockito;
 import org.testng.Assert;
 import org.testng.annotations.Test;
@@ -17,7 +20,7 @@ public class RestrictedServiceTest {
 
   @Test
   private void testEncryptRestrictedUrn() throws Exception {
-    SecretService mockSecretService = Mockito.mock(SecretService.class);
+    SecretService mockSecretService = mock(SecretService.class);
     Mockito.when(mockSecretService.encrypt(TEST_DATASET_URN.toString()))
         .thenReturn(ENCRYPED_DATASET_URN);
     final RestrictedService service = new RestrictedService(mockSecretService);
@@ -27,7 +30,7 @@ public class RestrictedServiceTest {
 
   @Test
   private void testDecryptRestrictedUrn() throws Exception {
-    SecretService mockSecretService = Mockito.mock(SecretService.class);
+    SecretService mockSecretService = mock(SecretService.class);
     Mockito.when(mockSecretService.decrypt(ENCRYPED_DATASET_URN))
         .thenReturn(TEST_DATASET_URN.toString());
     final RestrictedService service = new RestrictedService(mockSecretService);

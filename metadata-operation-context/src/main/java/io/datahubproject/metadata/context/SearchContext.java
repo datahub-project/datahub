@@ -26,10 +26,14 @@ public class SearchContext implements ContextInterface {
   public static SearchContext withFlagDefaults(
       @Nonnull SearchContext searchContext,
       @Nonnull Function<SearchFlags, SearchFlags> flagDefaults) {
-    return searchContext.toBuilder()
-        // update search flags
-        .searchFlags(flagDefaults.apply(searchContext.getSearchFlags()))
-        .build();
+    try {
+      return searchContext.toBuilder()
+          // update search flags
+          .searchFlags(flagDefaults.apply(searchContext.getSearchFlags().copy()))
+          .build();
+    } catch (CloneNotSupportedException e) {
+      throw new RuntimeException(e);
+    }
   }
 
   public static SearchContext withLineageFlagDefaults(

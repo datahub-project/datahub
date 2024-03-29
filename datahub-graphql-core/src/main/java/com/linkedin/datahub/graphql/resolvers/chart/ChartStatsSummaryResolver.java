@@ -51,7 +51,7 @@ public class ChartStatsSummaryResolver
         () -> {
           try {
             // TODO: We don't have a chart specific priv
-            if (!isViewDatasetUsageAuthorized(resourceUrn, context)) {
+            if (!isViewDatasetUsageAuthorized(context, resourceUrn)) {
               log.debug(
                   "User {} is not authorized to view usage information for {}",
                   context.getActorUrn(),

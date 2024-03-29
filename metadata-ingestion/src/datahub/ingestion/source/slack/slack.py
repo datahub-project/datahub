@@ -16,11 +16,7 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import (
-    SourceReport,
-    TestableSource,
-    TestConnectionReport,
-)
+from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.schema_classes import (
     CorpUserEditableInfoClass,
@@ -89,10 +85,10 @@ class SlackSourceReport(SourceReport):
 PLATFORM_NAME = "slack"
 
 
-@platform_name(PLATFORM_NAME)
+@platform_name("Slack")
 @config_class(SlackSourceConfig)
 @support_status(SupportStatus.TESTING)
-class SlackSource(TestableSource):
+class SlackSource(Source):
     def __init__(self, ctx: PipelineContext, config: SlackSourceConfig):
         self.ctx = ctx
         self.config = config
@@ -106,10 +102,6 @@ class SlackSource(TestableSource):
     def create(cls, config_dict, ctx):
         config = SlackSourceConfig.parse_obj(config_dict)
         return cls(ctx, config)
-
-    @staticmethod
-    def test_connection(config_dict: dict) -> TestConnectionReport:
-        raise NotImplementedError("This class does not implement this method")
 
     def get_slack_client(self) -> WebClient:
         return WebClient(token=self.config.bot_token.get_secret_value())
@@ -163,11 +155,12 @@ class SlackSource(TestableSource):
         self, cursor: Optional[str]
     ) -> Tuple[List[MetadataWorkUnit], Optional[str]]:
         result_channels: List[MetadataWorkUnit] = []
-        response = self.get_slack_client().conversations_list(
-            types="public_channel",
-            limit=self.config.channels_iteration_limit,
-            cursor=cursor,
-        )
+        with self.rate_limiter:
+            response = self.get_slack_client().conversations_list(
+                types="public_channel",
+                limit=self.config.channels_iteration_limit,
+                cursor=cursor,
+            )
         assert isinstance(response.data, dict)
         if not response.data["ok"]:
             self.report.report_failure(
@@ -248,9 +241,10 @@ class SlackSource(TestableSource):
     def populate_user_profile(self, user_obj: CorpUser) -> None:
         try:
             # https://api.slack.com/methods/users.profile.get
-            user_profile_res = self.get_slack_client().users_profile_get(
-                user=user_obj.slack_id
-            )
+            with self.rate_limiter:
+                user_profile_res = self.get_slack_client().users_profile_get(
+                    user=user_obj.slack_id
+                )
             user_profile = user_profile_res.get("profile", {})
             user_obj.title = user_profile.get("title")
             user_obj.image_url = user_profile.get("image_192")
@@ -265,9 +259,10 @@ class SlackSource(TestableSource):
             return
         try:
             # https://api.slack.com/methods/users.lookupByEmail
-            user_info_res = self.get_slack_client().users_lookupByEmail(
-                email=user_obj.email
-            )
+            with self.rate_limiter:
+                user_info_res = self.get_slack_client().users_lookupByEmail(
+                    email=user_obj.email
+                )
             user_info = user_info_res.get("user", {})
             user_obj.slack_id = user_info.get("id")
         except Exception as e:

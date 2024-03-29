@@ -52,6 +52,7 @@ public class OperationContext {
    */
   public static OperationContext asSession(
       OperationContext systemOperationContext,
+      @Nonnull RequestContext requestContext,
       @Nonnull Authorizer authorizer,
       @Nonnull Authentication sessionAuthentication,
       boolean allowSystemAuthentication) {
@@ -62,6 +63,9 @@ public class OperationContext {
                 .allowSystemAuthentication(allowSystemAuthentication)
                 .build())
         .authorizerContext(AuthorizerContext.builder().authorizer(authorizer).build())
+        .requestContext(requestContext)
+        // Initialize view authorization for user viewable urn tracking
+        .viewAuthorizationContext(ViewAuthorizationContext.builder().build())
         .build(sessionAuthentication);
   }
 
@@ -109,23 +113,29 @@ public class OperationContext {
    */
   public static OperationContext asSystem(
       @Nonnull OperationContextConfig config,
-      @Nonnull EntityRegistry entityRegistry,
       @Nonnull Authentication systemAuthentication,
-      @Nonnull IndexConvention indexConvention) {
+      @Nullable EntityRegistry entityRegistry,
+      @Nullable ServicesRegistryContext servicesRegistryContext,
+      @Nullable IndexConvention indexConvention) {
 
     ActorContext systemActorContext =
         ActorContext.builder().systemAuth(true).authentication(systemAuthentication).build();
     OperationContextConfig systemConfig =
         config.toBuilder().allowSystemAuthentication(true).build();
     SearchContext systemSearchContext =
-        SearchContext.builder().indexConvention(indexConvention).build();
+        indexConvention == null
+            ? SearchContext.EMPTY
+            : SearchContext.builder().indexConvention(indexConvention).build();
 
     return OperationContext.builder()
         .operationContextConfig(systemConfig)
         .systemActorContext(systemActorContext)
         .searchContext(systemSearchContext)
         .entityRegistryContext(
-            EntityRegistryContext.builder().entityRegistry(entityRegistry).build())
+            entityRegistry == null
+                ? null
+                : EntityRegistryContext.builder().entityRegistry(entityRegistry).build())
+        .servicesRegistryContext(servicesRegistryContext)
         // Authorizer.EMPTY doesn't actually apply to system auth
         .authorizerContext(AuthorizerContext.builder().authorizer(Authorizer.EMPTY).build())
         .build(systemAuthentication);
@@ -136,7 +146,10 @@ public class OperationContext {
   @Nullable private final ActorContext systemActorContext;
   @Nonnull private final SearchContext searchContext;
   @Nonnull private final AuthorizerContext authorizerContext;
-  @Nonnull private final EntityRegistryContext entityRegistryContext;
+  @Nullable private final EntityRegistryContext entityRegistryContext;
+  @Nullable private final ServicesRegistryContext servicesRegistryContext;
+  @Nullable private final RequestContext requestContext;
+  @Nullable private final ViewAuthorizationContext viewAuthorizationContext;
 
   public OperationContext withSearchFlags(
       @Nonnull Function<SearchFlags, SearchFlags> flagDefaults) {
@@ -149,17 +162,22 @@ public class OperationContext {
   }
 
   public OperationContext asSession(
-      @Nonnull Authorizer authorizer, @Nonnull Authentication sessionAuthentication) {
+      @Nonnull RequestContext requestContext,
+      @Nonnull Authorizer authorizer,
+      @Nonnull Authentication sessionAuthentication) {
     return OperationContext.asSession(
         this,
+        requestContext,
         authorizer,
         sessionAuthentication,
         getOperationContextConfig().isAllowSystemAuthentication());
   }
 
-  @Nonnull
+  @Nullable
   public EntityRegistry getEntityRegistry() {
-    return getEntityRegistryContext().getEntityRegistry();
+    return Optional.ofNullable(getEntityRegistryContext())
+        .map(EntityRegistryContext::getEntityRegistry)
+        .orElse(null);
   }
 
   /**
@@ -223,6 +241,10 @@ public class OperationContext {
     return getAuditStamp(null);
   }
 
+  public Optional<ViewAuthorizationContext> getViewAuthorizationContext() {
+    return Optional.ofNullable(viewAuthorizationContext);
+  }
+
   /**
    * Return a unique id for this context. Typically useful for building cache keys. We combine the
    * different context components to create a single string representation of the hashcode across
@@ -240,7 +262,19 @@ public class OperationContext {
             .add(getAuthorizerContext())
             .add(getSessionActorContext())
             .add(getSearchContext())
-            .add(getEntityRegistryContext())
+            .add(
+                getEntityRegistryContext() == null
+                    ? EmptyContext.EMPTY
+                    : getEntityRegistryContext())
+            .add(
+                getServicesRegistryContext() == null
+                    ? EmptyContext.EMPTY
+                    : getServicesRegistryContext())
+            .add(getRequestContext() == null ? EmptyContext.EMPTY : getRequestContext())
+            .add(
+                getViewAuthorizationContext().isPresent()
+                    ? getViewAuthorizationContext().get()
+                    : EmptyContext.EMPTY)
             .build()
             .stream()
             .map(ContextInterface::getCacheKeyComponent)
@@ -256,7 +290,14 @@ public class OperationContext {
             .add(getOperationContextConfig())
             .add(getSessionActorContext())
             .add(getSearchContext())
-            .add(getEntityRegistryContext())
+            .add(
+                getEntityRegistryContext() == null
+                    ? EmptyContext.EMPTY
+                    : getEntityRegistryContext())
+            .add(
+                getServicesRegistryContext() == null
+                    ? EmptyContext.EMPTY
+                    : getServicesRegistryContext())
             .build()
             .stream()
             .map(ContextInterface::getCacheKeyComponent)
@@ -271,7 +312,14 @@ public class OperationContext {
         ImmutableSet.<ContextInterface>builder()
             .add(getOperationContextConfig())
             .add(getSessionActorContext())
-            .add(getEntityRegistryContext())
+            .add(
+                getEntityRegistryContext() == null
+                    ? EmptyContext.EMPTY
+                    : getEntityRegistryContext())
+            .add(
+                getServicesRegistryContext() == null
+                    ? EmptyContext.EMPTY
+                    : getServicesRegistryContext())
             .build()
             .stream()
             .map(ContextInterface::getCacheKeyComponent)
@@ -300,7 +348,10 @@ public class OperationContext {
           this.systemActorContext,
           Objects.requireNonNull(this.searchContext),
           Objects.requireNonNull(this.authorizerContext),
-          Objects.requireNonNull(this.entityRegistryContext));
+          this.entityRegistryContext,
+          this.servicesRegistryContext,
+          this.requestContext,
+          this.viewAuthorizationContext);
     }
 
     private OperationContext build() {

@@ -114,6 +114,7 @@ public class UpsertDatasetFieldAssertionMonitorResolver
 
             // Then, return the new assertion
             return AssertionMapper.map(
+                context,
                 _assertionService.getAssertionEntityResponse(
                     assertionUrn, context.getAuthentication()));
           }

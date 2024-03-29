@@ -181,6 +181,8 @@ export const LineageTab = ({
             <LineageTabContext.Provider value={{ isColumnLevelLineage, selectedColumn, lineageDirection }}>
                 <ImpactAnalysis
                     urn={impactAnalysisUrn}
+                    onLineageClick={routeToLineage}
+                    isLineageTab
                     direction={lineageDirection as LineageDirection}
                     startTimeMillis={startTimeMillis}
                     endTimeMillis={endTimeMillis}

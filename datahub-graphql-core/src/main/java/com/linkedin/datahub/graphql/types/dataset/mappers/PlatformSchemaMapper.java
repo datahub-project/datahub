@@ -1,23 +1,27 @@
 package com.linkedin.datahub.graphql.types.dataset.mappers;
 
+import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.KeyValueSchema;
 import com.linkedin.datahub.graphql.generated.PlatformSchema;
 import com.linkedin.datahub.graphql.generated.TableSchema;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import com.linkedin.schema.SchemaMetadata;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 public class PlatformSchemaMapper
     implements ModelMapper<SchemaMetadata.PlatformSchema, PlatformSchema> {
 
   public static final PlatformSchemaMapper INSTANCE = new PlatformSchemaMapper();
 
-  public static PlatformSchema map(@Nonnull final SchemaMetadata.PlatformSchema metadata) {
-    return INSTANCE.apply(metadata);
+  public static PlatformSchema map(
+      @Nullable QueryContext context, @Nonnull final SchemaMetadata.PlatformSchema metadata) {
+    return INSTANCE.apply(context, metadata);
   }
 
   @Override
-  public PlatformSchema apply(@Nonnull final SchemaMetadata.PlatformSchema input) {
+  public PlatformSchema apply(
+      @Nullable QueryContext context, @Nonnull final SchemaMetadata.PlatformSchema input) {
     Object result;
     if (input.isSchemaless()) {
       return null;

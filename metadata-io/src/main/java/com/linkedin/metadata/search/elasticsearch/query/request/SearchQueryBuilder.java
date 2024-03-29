@@ -124,7 +124,8 @@ public class SearchQueryBuilder {
     final BoolQueryBuilder finalQuery =
         Optional.ofNullable(customQueryConfig)
             .flatMap(cqc -> boolQueryBuilder(cqc, sanitizedQuery))
-            .orElse(QueryBuilders.boolQuery());
+            .orElse(QueryBuilders.boolQuery())
+            .minimumShouldMatch(1);
 
     if (fulltext && !query.startsWith(STRUCTURED_QUERY_PREFIX)) {
       getSimpleQuery(customQueryConfig, entitySpecs, sanitizedQuery).ifPresent(finalQuery::should);

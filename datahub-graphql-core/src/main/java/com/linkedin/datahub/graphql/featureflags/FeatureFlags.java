@@ -19,6 +19,7 @@ public class FeatureFlags {
   private boolean datasetHealthDashboardEnabled = false;
   private PreProcessHooks preProcessHooks;
   private boolean showAcrylInfo = false;
+  private boolean erModelRelationshipFeatureEnabled = false;
   private boolean showAccessManagement = false;
   private boolean nestedDomainsEnabled = false;
   private boolean schemaFieldEntityFetchEnabled = false;

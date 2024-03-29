@@ -15,7 +15,7 @@ record DataProcessInstanceRelationships {
    */
   @Relationship = {
       "name": "InstanceOf",
-      "entityTypes": [ "dataJob", "dataFlow" ]
+      "entityTypes": [ "dataJob", "dataFlow", "dataset" ]
   }
   @Searchable = {
     "/*": {

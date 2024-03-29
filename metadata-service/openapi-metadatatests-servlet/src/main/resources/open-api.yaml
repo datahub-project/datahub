@@ -101,6 +101,19 @@ paths:
     post:
       summary: "Create Test"
       operationId: "create"
+      parameters:
+        - in: "query"
+          name: "createIfNotExists"
+          description: "Create the only if the test aspect doesn't exist."
+          schema:
+            type: "boolean"
+            default: false
+        - in: "query"
+          name: "createEntityIfNotExists"
+          description: "Create the only if the test entity doesn't exist."
+          schema:
+            type: "boolean"
+            default: false
       requestBody:
         description: "Create test entities."
         required: true

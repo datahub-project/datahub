@@ -32,7 +32,7 @@ public class FreshnessAssertionMapperTest {
                             .setWindowStartOffsetMs(10L)));
 
     com.linkedin.datahub.graphql.generated.FreshnessAssertionInfo result =
-        FreshnessAssertionMapper.mapFreshnessAssertionInfo(freshnessAssertionInfo);
+        FreshnessAssertionMapper.mapFreshnessAssertionInfo(null, freshnessAssertionInfo);
     Assert.assertEquals(result.getEntityUrn(), "urn:li:dataset:(urn:li:dataPlatform:foo,bar,baz)");
     Assert.assertEquals(
         result.getType(),
@@ -63,7 +63,7 @@ public class FreshnessAssertionMapperTest {
                         new FixedIntervalSchedule().setUnit(CalendarInterval.DAY).setMultiple(10)));
 
     com.linkedin.datahub.graphql.generated.FreshnessAssertionInfo result =
-        FreshnessAssertionMapper.mapFreshnessAssertionInfo(freshnessAssertionInfo);
+        FreshnessAssertionMapper.mapFreshnessAssertionInfo(null, freshnessAssertionInfo);
     Assert.assertEquals(result.getEntityUrn(), "urn:li:dataset:(urn:li:dataPlatform:foo,bar,baz)");
     Assert.assertEquals(
         result.getType(),

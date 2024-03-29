@@ -66,6 +66,7 @@ public class Constants {
   public static final String TAG_ENTITY_NAME = "tag";
   public static final String CONTAINER_ENTITY_NAME = "container";
   public static final String DOMAIN_ENTITY_NAME = "domain";
+  public static final String ER_MODEL_RELATIONSHIP_ENTITY_NAME = "erModelRelationship";
   public static final String RECOMMENDATION_MODULE_ENTITY_NAME = "recommendationModule";
   public static final String ASSERTION_ENTITY_NAME = "assertion";
   public static final String INCIDENT_ENTITY_NAME = "incident";
@@ -276,6 +277,13 @@ public class Constants {
   public static final String ROLE_ACTORS_ASPECT_NAME = "actors";
 
   public static final String DOMAIN_CREATED_TIME_INDEX_FIELD_NAME = "createdTime";
+
+  // ERModelRelationship
+  public static final String ER_MODEL_RELATIONSHIP_KEY_ASPECT_NAME = "erModelRelationshipKey";
+  public static final String ER_MODEL_RELATIONSHIP_PROPERTIES_ASPECT_NAME =
+      "erModelRelationshipProperties";
+  public static final String EDITABLE_ER_MODEL_RELATIONSHIP_PROPERTIES_ASPECT_NAME =
+      "editableERModelRelationshipProperties";
 
   // Recommendation module
   public static final String RECOMMENDATION_MODULE_ASPECT_NAME = "recommendationModule";

@@ -56,8 +56,6 @@ public class MetadataTestsDelegateImpl implements MetadataTestApiDelegate {
       entityApiDelegate;
   private final AuthorizerChain authorizationChain;
 
-  private final boolean restApiAuthorizationEnabled;
-
   private final QueryEngine queryEngine;
   private final ActionApplier actionApplier;
 
@@ -69,7 +67,6 @@ public class MetadataTestsDelegateImpl implements MetadataTestApiDelegate {
       EntitySearchService entitySearchService,
       EntityApiDelegateImpl<TestEntityRequestV2, TestEntityResponseV2, ScrollTestEntityResponseV2>
           entityApiDelegate,
-      boolean restApiAuthorizationEnabled,
       AuthorizerChain authorizationChain,
       QueryEngine queryEngine,
       ActionApplier actionApplier,
@@ -79,7 +76,6 @@ public class MetadataTestsDelegateImpl implements MetadataTestApiDelegate {
     this.entitySearchService = entitySearchService;
     this.entityApiDelegate = entityApiDelegate;
     this.authorizationChain = authorizationChain;
-    this.restApiAuthorizationEnabled = restApiAuthorizationEnabled;
     this.queryEngine = queryEngine;
     this.actionApplier = actionApplier;
     this.predicateEvaluator = predicateEvaluator;
@@ -91,7 +87,6 @@ public class MetadataTestsDelegateImpl implements MetadataTestApiDelegate {
       EntitySearchService entitySearchService,
       EntityApiDelegateImpl<TestEntityRequestV2, TestEntityResponseV2, ScrollTestEntityResponseV2>
           entityApiDelegate,
-      boolean restApiAuthorizationEnabled,
       AuthorizerChain authorizationChain,
       QueryEngine queryEngine,
       ActionApplier actionApplier) {
@@ -100,7 +95,6 @@ public class MetadataTestsDelegateImpl implements MetadataTestApiDelegate {
         entityService,
         entitySearchService,
         entityApiDelegate,
-        restApiAuthorizationEnabled,
         authorizationChain,
         queryEngine,
         actionApplier,
@@ -403,8 +397,9 @@ public class MetadataTestsDelegateImpl implements MetadataTestApiDelegate {
   }
 
   @Override
-  public ResponseEntity<List<TestEntityResponseV2>> create(List<TestEntityRequestV2> body) {
-    return entityApiDelegate.create(body);
+  public ResponseEntity<List<TestEntityResponseV2>> create(
+      List<TestEntityRequestV2> body, Boolean createIfNotExists, Boolean createEntityIfNotExists) {
+    return entityApiDelegate.create(body, createIfNotExists, createEntityIfNotExists);
   }
 
   @Override

@@ -60,13 +60,13 @@ public class MonitorMapperTest {
     // Case 1: Without nullable fields
     MonitorInfo info = createAssertionMonitorInfoWithoutNullableFields();
     EntityResponse monitorEntityResponse = createMonitorEntityResponse(key, info);
-    Monitor output = MonitorMapper.map(monitorEntityResponse);
+    Monitor output = MonitorMapper.map(null, monitorEntityResponse);
     verifyMonitor(key, info, output);
 
     // Case 2: With nullable fields
     info = createAssertionMonitorInfoWithNullableFields();
     EntityResponse monitorEntityResponseWithNullables = createMonitorEntityResponse(key, info);
-    output = MonitorMapper.map(monitorEntityResponseWithNullables);
+    output = MonitorMapper.map(null, monitorEntityResponseWithNullables);
     verifyMonitor(key, info, output);
   }
 

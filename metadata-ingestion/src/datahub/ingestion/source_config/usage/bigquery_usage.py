@@ -8,7 +8,7 @@ from typing import Any, Dict, List, Optional
 import pydantic
 
 from datahub.configuration import ConfigModel
-from datahub.configuration.common import AllowDenyPattern, ConfigurationError
+from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.source_common import EnvConfigMixin
 from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.configuration.validate_multiline_string import pydantic_multiline_string
@@ -151,7 +151,7 @@ class BigQueryUsageConfig(BigQueryBaseConfig, EnvConfigMixin, BaseUsageConfig):
     @pydantic.validator("use_exported_bigquery_audit_metadata")
     def use_exported_bigquery_audit_metadata_uses_v2(cls, v, values):
         if v is True and not values["use_v2_audit_metadata"]:
-            raise ConfigurationError(
+            raise ValueError(
                 "To use exported BigQuery audit metadata, you must also use v2 audit metadata"
             )
         return v

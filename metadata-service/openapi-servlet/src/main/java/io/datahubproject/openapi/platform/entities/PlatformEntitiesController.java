@@ -1,13 +1,12 @@
 package io.datahubproject.openapi.platform.entities;
 
+import static com.datahub.authorization.AuthUtil.isAPIAuthorized;
+import static com.linkedin.metadata.authorization.ApiGroup.ENTITY;
+
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authorization.AuthorizerChain;
-import com.datahub.authorization.ConjunctivePrivilegeGroup;
-import com.datahub.authorization.DisjunctivePrivilegeGroup;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.common.collect.ImmutableList;
-import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
 import com.linkedin.metadata.search.client.CachingEntitySearchService;
@@ -23,7 +22,6 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.beans.propertyeditors.StringArrayPropertyEditor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -50,9 +48,6 @@ public class PlatformEntitiesController {
   private final ObjectMapper _objectMapper;
   private final AuthorizerChain _authorizerChain;
 
-  @Value("${authorization.restApiAuthorization:false}")
-  private Boolean restApiAuthorizationEnabled;
-
   @InitBinder
   public void initBinder(WebDataBinder binder) {
     binder.registerCustomEditor(String[].class, new StringArrayPropertyEditor(null));
@@ -71,16 +66,31 @@ public class PlatformEntitiesController {
         metadataChangeProposals.stream()
             .map(proposal -> MappingUtil.mapToServiceProposal(proposal, _objectMapper))
             .collect(Collectors.toList());
-    DisjunctivePrivilegeGroup orGroup =
-        new DisjunctivePrivilegeGroup(
-            ImmutableList.of(
-                new ConjunctivePrivilegeGroup(
-                    ImmutableList.of(PoliciesConfig.EDIT_ENTITY_PRIVILEGE.getType()))));
 
-    if (restApiAuthorizationEnabled
-        && !MappingUtil.authorizeProposals(
-            proposals, _entityService, _authorizerChain, actorUrnStr, orGroup)) {
-      throw new UnauthorizedException(actorUrnStr + " is unauthorized to edit entities.");
+    /*
+      Ingest Authorization Checks
+    */
+    List<Pair<com.linkedin.mxe.MetadataChangeProposal, Integer>> exceptions =
+        isAPIAuthorized(
+                authentication,
+                _authorizerChain,
+                ENTITY,
+                _entityService.getEntityRegistry(),
+                proposals)
+            .stream()
+            .filter(p -> p.getSecond() != com.linkedin.restli.common.HttpStatus.S_200_OK.getCode())
+            .collect(Collectors.toList());
+    if (!exceptions.isEmpty()) {
+      throw new UnauthorizedException(
+          actorUrnStr
+              + " is unauthorized to edit entities. "
+              + exceptions.stream()
+                  .map(
+                      ex ->
+                          String.format(
+                              "HttpStatus: %s Urn: %s",
+                              ex.getSecond(), ex.getFirst().getEntityUrn()))
+                  .collect(Collectors.toList()));
     }
 
     boolean asyncBool =

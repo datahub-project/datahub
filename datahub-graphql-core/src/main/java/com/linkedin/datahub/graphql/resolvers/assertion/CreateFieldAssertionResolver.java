@@ -50,6 +50,7 @@ public class CreateFieldAssertionResolver implements DataFetcher<CompletableFutu
 
             // Then, return the new assertion
             return AssertionMapper.map(
+                context,
                 _assertionService.getAssertionEntityResponse(
                     assertionUrn, context.getAuthentication()));
           }

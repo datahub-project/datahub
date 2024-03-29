@@ -96,7 +96,8 @@ public class UpdateQueryResolver implements DataFetcher<CompletableFuture<QueryE
                     : null,
                 authentication,
                 System.currentTimeMillis());
-            return QueryMapper.map(_queryService.getQueryEntityResponse(queryUrn, authentication));
+            return QueryMapper.map(
+                context, _queryService.getQueryEntityResponse(queryUrn, authentication));
           } catch (Exception e) {
             throw new RuntimeException(
                 String.format("Failed to update Query from input %s", input), e);
