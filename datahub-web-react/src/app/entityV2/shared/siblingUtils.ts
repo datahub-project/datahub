@@ -23,9 +23,8 @@ function cleanHelper(obj, visited) {
         }
         if ((v && typeof v === 'object' && !Object.keys(v).length) || v === null || v === undefined || v === '') {
             if (Array.isArray(object)) {
-                object.splice(Number(k), 1);
+                // do nothing
             } else {
-                // console.log('siblings1 deleting key', k, 'from object', object);
                 try {
                     delete object[k];
                 } catch (e) {
@@ -41,7 +40,7 @@ function clean(obj) {
     const visited = new Set();
     return cleanHelper(obj, visited);
 }
-
+// 
 const combineMerge = (target, source, options) => {
     const destination = target.slice();
 
