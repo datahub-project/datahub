@@ -4,6 +4,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.metadata.utils.SearchUtil;
+import com.linkedin.util.Pair;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -85,14 +86,14 @@ public class Edge {
   public static final String RELATIONSHIP_TYPE_FIELD = "relationshipType";
   public static final String LIFE_CYCLE_OWNER_FIELD = "lifeCycleOwner";
 
-  public static final Map<String, SortOrder> KEY_SORTS =
-      Map.of(
-          SOURCE_URN_FIELD, SortOrder.ASCENDING,
-          DESTINATION_URN_FIELD, SortOrder.ASCENDING,
-          RELATIONSHIP_TYPE_FIELD, SortOrder.ASCENDING,
-          LIFE_CYCLE_OWNER_FIELD, SortOrder.ASCENDING);
+  public static final List<Pair<String, SortOrder>> KEY_SORTS =
+      List.of(
+          new Pair<>(SOURCE_URN_FIELD, SortOrder.ASCENDING),
+          new Pair<>(DESTINATION_URN_FIELD, SortOrder.ASCENDING),
+          new Pair<>(RELATIONSHIP_TYPE_FIELD, SortOrder.ASCENDING),
+          new Pair<>(LIFE_CYCLE_OWNER_FIELD, SortOrder.ASCENDING));
   public static List<SortCriterion> EDGE_SORT_CRITERION =
-      KEY_SORTS.entrySet().stream()
+      KEY_SORTS.stream()
           .map(entry -> SearchUtil.sortBy(entry.getKey(), entry.getValue()))
           .collect(Collectors.toList());
   private static final String DOC_DELIMETER = "--";
