@@ -69,8 +69,6 @@ jobs:
           distribution: "zulu"
           java-version: 17
       - uses: gradle/gradle-build-action@v2
-      - name: Install libcurl dev
-        run: sudo apt-get install libcurl4-openssl-dev
       - uses: actions/setup-python@v4
         if: ${{ needs.setup.outputs.ingestion_change == 'true' }}
         with:

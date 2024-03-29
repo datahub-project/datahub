@@ -584,11 +584,6 @@ class FieldValuesAssertion(PermissiveBaseModel):
                 raise ValueError(
                     f"Parameter value is required when operator is {operator.name}"
                 )
-            if parameters["value"]["type"] not in [
-                AssertionStdParameterType.STRING.value,
-                AssertionStdParameterType.NUMBER.value,
-            ]:
-                raise ValueError(f"Operator {operator.name} must be a string or number")
 
         if operator in [
             AssertionStdOperator.CONTAIN,
@@ -613,11 +608,6 @@ class FieldValuesAssertion(PermissiveBaseModel):
                 raise ValueError(
                     f"Parameter value is required when operator is {operator.name}"
                 )
-            if (
-                not parameters["value"]["type"]
-                == AssertionStdParameterType.STRING.value
-            ):
-                raise ValueError(f"Operator {operator.name} must be a string")
 
         return parameters
 
