@@ -49,10 +49,11 @@ type Props = {
     assertion: Assertion;
     timeRange: TimeRange;
     results?: AssertionRunEventsResult | null;
+    isInitializing: boolean
     parentDimensions: { width: number }
 };
 
-export const AssertionResultsTimelineViz = ({ assertion, results, timeRange, parentDimensions }: Props) => {
+export const AssertionResultsTimelineViz = ({ assertion, results, timeRange, parentDimensions, isInitializing }: Props) => {
     const vizHeight = assertion.info?.type === AssertionType.Freshness ? FRESHNESS_VIZ_CONTAINER_HEIGHT : VIZ_CONTAINER_HEIGHT
 
     // Run event data
@@ -101,7 +102,7 @@ export const AssertionResultsTimelineViz = ({ assertion, results, timeRange, par
     }
 
     const VisualizationContainer = getVisualizationContainer(vizHeight)
-    return <VisualizationContainer>
+    return <VisualizationContainer style={{ opacity: isInitializing ? 0 : 1 }}>
         {renderChart()}
     </VisualizationContainer>
 };

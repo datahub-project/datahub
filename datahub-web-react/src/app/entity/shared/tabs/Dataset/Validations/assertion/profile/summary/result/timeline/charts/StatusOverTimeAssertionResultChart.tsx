@@ -90,7 +90,7 @@ export const StatusOverTimeAssertionResultChart = ({ data, timeRange, chartDimen
                         x={x => x}
                         y={chartDimensions.height / 3}
                         stroke={ACCENT_COLOR_HEX}
-                        strokeWidth={2}
+                        strokeWidth={1}
                     />
 
                     {/* Circular data points */}
@@ -119,7 +119,7 @@ export const StatusOverTimeAssertionResultChart = ({ data, timeRange, chartDimen
                                         fill={fillColor}
                                         stroke='white'
                                         strokeWidth={2}
-                                        size={80}
+                                        size={100}
                                         filter='drop-shadow(0px 1px 2.5px rgb(0 0 0 / 0.1))'
                                     />
                                 </Popover>

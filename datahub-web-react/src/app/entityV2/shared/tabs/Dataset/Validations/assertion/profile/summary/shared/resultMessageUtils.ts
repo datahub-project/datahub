@@ -8,7 +8,7 @@ import { getCronAsText } from '../../../../acrylUtils';
 import { ASSERTION_OPERATOR_DESCRIPTIONS_REQUIRING_SUFFIX, ASSERTION_OPERATOR_TO_DESCRIPTION } from "./constants";
 import { lowerFirstLetter } from "../../../../../../../../../shared/textUtil";
 import { getFieldMetricTypeReadableLabel } from "../../../../fieldDescriptionUtils";
-import { toReadableLocalDateTimeString } from "../../shared/timeUtils";
+import { toReadableLocalDateTimeString } from "../../shared/utils";
 
 export const getFormattedResultText = (result?: AssertionResultType) => {
     if (result === undefined) {
