@@ -1,12 +1,13 @@
-import { Entity, MatchedField } from '../../../types.generated';
-import { CombinedEntity, createSiblingEntityCombiner } from '../../entityV2/shared/siblingUtils';
+import { Entity, EntityPath, MatchedField } from '../../../types.generated';
+import { CombinedEntity, createSiblingEntityCombiner } from '../../entity/shared/siblingUtils';
 
 type UncombinedSeaerchResults = {
     entity: Entity;
     matchedFields: Array<MatchedField>;
+    paths?: EntityPath[];
 };
 
-export type CombinedSearchResult = CombinedEntity & Pick<UncombinedSeaerchResults, 'matchedFields'>;
+export type CombinedSearchResult = CombinedEntity & Pick<UncombinedSeaerchResults, 'matchedFields'> & Pick<UncombinedSeaerchResults, 'paths'>;
 
 export function combineSiblingsInSearchResults(
     searchResults: Array<UncombinedSeaerchResults> | undefined = [],

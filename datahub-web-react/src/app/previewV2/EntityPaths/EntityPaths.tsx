@@ -1,7 +1,7 @@
 import React, { useContext, useState } from 'react';
 import styled from 'styled-components/macro';
 import { EntityPath } from '../../../types.generated';
-import { LineageTabContext } from '../../entity/shared/tabs/Lineage/LineageTabContext';
+import { LineageTabContext } from '../../entityV2/shared/tabs/Lineage/LineageTabContext';
 import ColumnPathsText from './ColumnPathsText';
 import EntityPathsModal from './EntityPathsModal';
 

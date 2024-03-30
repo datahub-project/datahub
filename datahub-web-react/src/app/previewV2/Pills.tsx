@@ -1,15 +1,17 @@
+import { LayoutOutlined } from '@ant-design/icons';
 import React, { useContext } from 'react';
 import AccountCircleOutlinedIcon from '@mui/icons-material/AccountCircleOutlined';
 import FindInPageOutlinedIcon from '@mui/icons-material/FindInPageOutlined';
 import SellOutlinedIcon from '@mui/icons-material/SellOutlined';
 import styled from 'styled-components';
 import { useMatchedFieldsForList } from '../search/context/SearchResultContext';
-import { GlobalTags, GlossaryTerms, Owner } from '../../types.generated';
+import { EntityPath, EntityType, GlobalTags, GlossaryTerms, LineageDirection, Owner } from '../../types.generated';
 import GlossaryTermV2Icon from '../../images/glossary_term_material_logo.svg?react';
 import { EntityCapabilityType } from '../entityV2/Entity';
 import MatchesContext, { PreviewSection } from '../shared/MatchesContext';
 import SearchPill from './SearchPill';
 import { entityHasCapability, getHighlightedTag } from './utils';
+import { LineageTabContext } from '../entityV2/shared/tabs/Lineage/LineageTabContext';
 
 const PillsContainer = styled.div`
     gap: 5px;
@@ -24,9 +26,13 @@ interface Props {
     tags?: GlobalTags;
     owners?: Array<Owner> | null;
     entityCapabilities: Set<EntityCapabilityType>;
+    paths?: EntityPath[];
+    entityType: EntityType;
 }
 
-const Pills = ({ glossaryTerms, tags, owners, entityCapabilities }: Props) => {
+const Pills = ({ glossaryTerms, tags, owners, entityCapabilities, paths, entityType }: Props) => {
+    const { lineageDirection } = useContext(LineageTabContext);
+    const lineageDirectionText = lineageDirection === LineageDirection.Downstream ? 'downstream' : 'upstream';
     const { setExpandedSection, expandedSection } = useContext(MatchesContext);
     const groupedMatches = useMatchedFieldsForList('fieldLabels');
     const showGlossaryTermsBadge = entityHasCapability(entityCapabilities, EntityCapabilityType.GLOSSARY_TERMS);
@@ -88,6 +94,18 @@ const Pills = ({ glossaryTerms, tags, owners, entityCapabilities }: Props) => {
                     label=""
                     countLabel="match"
                     onClick={handlePillClick(PreviewSection.MATCHES, groupedMatches)}
+                />
+            )}
+            {/* only show the column paths pill on datasets who actually have columns to show */}
+            {paths && paths.length > 0 && entityType === EntityType.Dataset && (
+                <SearchPill
+                    icon={<LayoutOutlined />}
+                    count={paths.length || 0}
+                    enabled={!!paths.length}
+                    active={expandedSection === PreviewSection.COLUMN_PATHS}
+                    label=""
+                    countLabel={`${lineageDirectionText} column`}
+                    onClick={handlePillClick(PreviewSection.COLUMN_PATHS, paths)}
                 />
             )}
         </PillsContainer>

@@ -1,11 +1,12 @@
 import { Modal } from 'antd';
-import React from 'react';
+import React, { useContext } from 'react';
 import styled from 'styled-components/macro';
-import { Entity, EntityPath } from '../../../types.generated';
+import { Entity, EntityPath, LineageDirection } from '../../../types.generated';
 import { ANTD_GRAY } from '../../entity/shared/constants';
 import { CompactEntityNameList } from '../../recommendations/renderer/component/CompactEntityNameList';
 import { getDisplayedColumns } from './ColumnPathsText';
 import ColumnsRelationshipText from './ColumnsRelationshipText';
+import { LineageTabContext } from '../../entityV2/shared/tabs/Lineage/LineageTabContext';
 
 const StyledModal = styled(Modal)`
     width: 70vw;
@@ -23,7 +24,6 @@ const PathWrapper = styled.div`
 `;
 
 const Header = styled.div`
-    color: ${ANTD_GRAY[8]};
     font-size: 16px;
     padding-top: 8px;
 `;
@@ -35,6 +35,7 @@ interface Props {
 }
 
 export default function EntityPathsModal({ paths, resultEntityUrn, hideModal }: Props) {
+    const { lineageDirection } = useContext(LineageTabContext);
     const displayedColumns = getDisplayedColumns(paths, resultEntityUrn);
 
     return (
@@ -53,11 +54,15 @@ export default function EntityPathsModal({ paths, resultEntityUrn, hideModal }: 
             footer={null}
             bodyStyle={{ padding: '16px 24px' }}
         >
-            {paths.map((path) => (
-                <PathWrapper>
-                    <CompactEntityNameList entities={path.path as Entity[]} showArrows />
-                </PathWrapper>
-            ))}{' '}
+            {paths.map((path, i) => {
+                const entities = lineageDirection === LineageDirection.Upstream ? [...path.path].reverse() : path.path;
+                const key = `${i}`;
+                return (
+                    <PathWrapper key={key}>
+                        <CompactEntityNameList entities={entities as Entity[]} showArrows />
+                    </PathWrapper>
+                );
+            })}{' '}
         </StyledModal>
     );
 }

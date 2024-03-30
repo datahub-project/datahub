@@ -3,9 +3,9 @@ import React, { useContext } from 'react';
 import styled from 'styled-components/macro';
 import { EntityPath, EntityType, LineageDirection, SchemaFieldEntity } from '../../../types.generated';
 import { ANTD_GRAY } from '../../entity/shared/constants';
-import { LineageTabContext } from '../../entity/shared/tabs/Lineage/LineageTabContext';
 import ColumnsRelationshipText from './ColumnsRelationshipText';
 import DisplayedColumns from './DisplayedColumns';
+import { LineageTabContext } from '../../entityV2/shared/tabs/Lineage/LineageTabContext';
 
 export const ResultText = styled.span`
     &:hover {
@@ -14,8 +14,9 @@ export const ResultText = styled.span`
     }
 `;
 
-const DescriptionWrapper = styled.span`
+const DescriptionWrapper = styled.div`
     color: ${ANTD_GRAY[8]};
+    padding-top: 4px;
 `;
 
 export function getDisplayedColumns(paths: EntityPath[], resultEntityUrn: string) {
@@ -41,13 +42,14 @@ export default function ColumnPathsText({ paths, resultEntityUrn, openModal }: P
 
     const displayedColumns = getDisplayedColumns(paths, resultEntityUrn);
 
+    if (!displayedColumns.length) return null;
+
     return (
         <>
             <DescriptionWrapper>
                 {lineageDirection === LineageDirection.Downstream ? 'Downstream' : 'Upstream'} column
                 {displayedColumns.length > 1 && 's'}
             </DescriptionWrapper>
-            : &nbsp;
             <ResultText onClick={openModal}>
                 <Tooltip
                     title={

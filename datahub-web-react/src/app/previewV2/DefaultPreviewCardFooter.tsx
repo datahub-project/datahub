@@ -5,7 +5,7 @@ import { useHistory } from 'react-router';
 import Pills from './Pills';
 import { REDESIGN_COLORS } from '../entityV2/shared/constants';
 import { PopularityTier } from '../entityV2/shared/containers/profile/sidebar/shared/utils';
-import { DatasetStatsSummary, EntityType, GlobalTags, GlossaryTerms, Maybe, Owner } from '../../types.generated';
+import { DatasetStatsSummary, EntityPath, EntityType, GlobalTags, GlossaryTerms, Maybe, Owner } from '../../types.generated';
 import { EntityCapabilityType, PreviewType } from '../entityV2/Entity';
 import PreviewCardFooterRightSection from './PreviewCardFooterRightSection';
 import EntityRegistry from '../entityV2/EntityRegistry';
@@ -27,6 +27,7 @@ interface DefaultPreviewCardFooterProps {
     entityRegistry: EntityRegistry;
     lastUpdatedMs?: number | null;
     statsSummary?: DatasetStatsSummary | null;
+    paths?: EntityPath[];
 }
 
 const Container = styled.div`
@@ -90,6 +91,7 @@ const DefaultPreviewCardFooter: React.FC<DefaultPreviewCardFooterProps> = ({
     entityRegistry,
     lastUpdatedMs,
     statsSummary,
+    paths,
 }) => {
     const shouldRenderPillsRow = [glossaryTerms?.terms, tags?.tags, owners?.length].some(Boolean);
     const shouldRenderEntityLink = previewType === PreviewType.HOVER_CARD && entityTitleSuffix;
@@ -109,6 +111,8 @@ const DefaultPreviewCardFooter: React.FC<DefaultPreviewCardFooterProps> = ({
                     tags={tags}
                     owners={owners}
                     entityCapabilities={entityCapabilities}
+                    paths={paths}
+                    entityType={entityType}
                 />
                 <RightSection>
                     <PreviewCardFooterRightSection

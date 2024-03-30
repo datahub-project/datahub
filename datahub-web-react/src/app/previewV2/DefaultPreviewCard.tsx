@@ -352,6 +352,7 @@ export default function DefaultPreviewCard({
                 entityRegistry={entityRegistry}
                 lastUpdatedMs={lastUpdatedMs}
                 statsSummary={statsSummary}
+                paths={paths}
             />
             {/* {!!(insights?.length || groupedMatches.length) && isMatchExpanded && (
                     <>
