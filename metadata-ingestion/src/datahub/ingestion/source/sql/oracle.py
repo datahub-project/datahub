@@ -126,7 +126,8 @@ class OracleInspectorObjectWrapper:
         try:
             # Try to retrieve current DB name by executing query
             db_name = self._inspector_instance.bind.execute(
-                sql.text("select sys_context('USERENV','DB_NAME') from dual")).scalar()
+                sql.text("select sys_context('USERENV','DB_NAME') from dual")
+            ).scalar()
             return str(db_name)
         except sqlalchemy.exc.DatabaseError as e:
             logger.error("Error fetching DB name: " + str(e))
@@ -593,10 +594,11 @@ class OracleSource(SQLAlchemySource):
         return cls(config, ctx)
 
     def get_db_name(self, inspector: Inspector) -> str:
-        """ This overwrites the default implementation, which only tries to read
-            database name from Connection URL, which does not work when using
-            service instead of database.
-            In that case, it tries to retrieve the database name by sending a query to the DB.
+        """
+        This overwrites the default implementation, which only tries to read
+        database name from Connection URL, which does not work when using
+        service instead of database.
+        In that case, it tries to retrieve the database name by sending a query to the DB.
         """
 
         # call default implementation first
