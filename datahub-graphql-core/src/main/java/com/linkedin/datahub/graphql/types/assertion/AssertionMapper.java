@@ -102,7 +102,7 @@ public class AssertionMapper {
     return result;
   }
 
-  private static com.linkedin.datahub.graphql.generated.AssertionInferenceDetails
+  public static com.linkedin.datahub.graphql.generated.AssertionInferenceDetails
       mapInferenceDetails(AssertionInferenceDetails gmsInferenceDetails) {
     com.linkedin.datahub.graphql.generated.AssertionInferenceDetails inferenceDetails =
         new com.linkedin.datahub.graphql.generated.AssertionInferenceDetails();

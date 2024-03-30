@@ -236,7 +236,10 @@ fragment assertionResultDetails on AssertionResult {
         ...assertionInfo
     }
     parameters {
-        ...assertionEvaluationParameters,
+        ...assertionEvaluationParameters
+    }
+    assertionInferenceDetails {
+        generatedAt
     }
 }
 
