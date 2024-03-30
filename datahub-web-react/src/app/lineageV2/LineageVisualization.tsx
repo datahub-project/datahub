@@ -5,11 +5,12 @@ import styled from 'styled-components';
 import 'reactflow/dist/style.css';
 import { LineageDisplayContext, TRANSITION_DURATION_MS } from './common';
 import LineageEntityNode, { LINEAGE_ENTITY_NODE_NAME } from './LineageEntityNode/LineageEntityNode';
+import LineageFilterNodeBasic from './LineageFilterNode/LineageFilterNodeBasic';
 import LineageTransformationNode, {
     LINEAGE_TRANSFORMATION_NODE_NAME,
 } from './LineageTransformationNode/LineageTransformationNode';
 import TableauWorkbookNode, { LINEAGE_WORKBOOK_NODE_NAME } from './MinorNodes/TableauWorkbookNode';
-import LineageFilterNode, { LINEAGE_FILTER_NODE_NAME } from './LineageFilterNode/LineageFilterNode';
+import { LINEAGE_FILTER_NODE_NAME } from './LineageFilterNode/LineageFilterNode';
 import ZoomControls from './controls/ZoomControls';
 import LineageControls from './controls/LineageControls';
 import { NodeWithMetadata } from './NodeBuilder';
@@ -31,7 +32,7 @@ const StyledReactFlow = styled(ReactFlow)<{ $edgesOnTop: boolean }>`
 const nodeTypes: NodeTypes = {
     [LINEAGE_ENTITY_NODE_NAME]: LineageEntityNode,
     [LINEAGE_TRANSFORMATION_NODE_NAME]: LineageTransformationNode,
-    [LINEAGE_FILTER_NODE_NAME]: LineageFilterNode,
+    [LINEAGE_FILTER_NODE_NAME]: LineageFilterNodeBasic,
     [LINEAGE_WORKBOOK_NODE_NAME]: TableauWorkbookNode,
 };
 

@@ -3,6 +3,10 @@
 fragment assertionInfo on AssertionInfo {
     type
     description
+    lastUpdated {
+        time
+        actor
+    }
     datasetAssertion {
         datasetUrn
         scope
@@ -153,6 +157,10 @@ fragment assertionInfo on AssertionInfo {
     }
     source {
         type
+        created {
+            time
+            actor
+        }
     }
 }
 
@@ -236,7 +244,10 @@ fragment assertionResultDetails on AssertionResult {
         ...assertionInfo
     }
     parameters {
-        ...assertionEvaluationParameters,
+        ...assertionEvaluationParameters
+    }
+    assertionInferenceDetails {
+        generatedAt
     }
 }
 

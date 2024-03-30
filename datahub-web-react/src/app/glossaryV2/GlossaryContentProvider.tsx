@@ -38,7 +38,7 @@ const TitleContainer = styled.div`
 
 const Title = styled(Typography.Text)`
     margin-bottom: 0 !important;
-    color: ${REDESIGN_COLORS.SECONDARY_PURPLE};
+    color: ${REDESIGN_COLORS.TEXT_HEADING};
     font-size: 16px;
     font-weight: 700;
 `;
@@ -68,6 +68,7 @@ const TransparentButton = styled(Button)`
         opacity: 0.9;
         border-color: ${REDESIGN_COLORS.TITLE_PURPLE};
         color: ${REDESIGN_COLORS.TITLE_PURPLE};
+
         svg > g > path {
             fill: ${REDESIGN_COLORS.TITLE_PURPLE};
         }

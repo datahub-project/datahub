@@ -227,7 +227,7 @@ export const ValuesOverTimeAssertionResultChart = ({ data, timeRange, chartDimen
                                     fill={fillColor}
                                     stroke='white'
                                     strokeWidth={2}
-                                    size={60}
+                                    size={100}
                                     filter='drop-shadow(0px 1px 2px rgb(0 0 0 / 0.1))'
                                 />
                             </Popover>

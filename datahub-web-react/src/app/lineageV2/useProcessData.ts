@@ -98,7 +98,7 @@ function filterNodes(
             if (!seenNodes.has(child.id)) {
                 displayedNodes.push(child);
                 seenNodes.add(child.id);
-                if (!isTransformational(child)) {
+                if (!isTransformational(child) && child.isExpanded) {
                     queue.push(child.id);
                 }
             }
@@ -157,6 +157,7 @@ function applyFilters(
             parents: new Set([urn]),
             direction,
             limit,
+            isExpanded: false,
             contents: Array.from(childrenToFilter),
             shown: new Set(shownNodes.map((n) => n.urn)),
         };
@@ -187,7 +188,7 @@ function getChildrenToFilter(
     const queue = [parent];
     for (let node = queue.pop(); node; node = queue.pop()) {
         const children = neighborMap.get(node.urn);
-        // Include non-query transformational nodes, even if they have no children
+        // Include non-query transformational nodes if they have no children
         if (!children?.size && !isQuery(node)) childrenToFilter.add(node.urn);
         children?.forEach((childUrn) => {
             const child = nodes.get(childUrn);

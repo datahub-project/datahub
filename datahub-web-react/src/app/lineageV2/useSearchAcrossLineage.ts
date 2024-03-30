@@ -98,6 +98,9 @@ export default function useSearchAcrossLineage(
             if (maxDepth) {
                 node.fetchStatus = { ...node.fetchStatus, [direction]: FetchStatus.COMPLETE };
             }
+            if (maxDepth || isTransformational(node)) {
+                node.isExpanded = true;
+            }
         });
 
         urns.forEach((u) => pruneParentsThroughDbt(u, nodes));
@@ -173,6 +176,7 @@ function entityNodeDefault(urn: string, type: EntityType, direction: LineageDire
         urn,
         type,
         direction, // TODO: Handle a node that is both upstream and downstream?
+        isExpanded: false,
         parents: new Set(),
         fetchStatus: {
             [direction]: FetchStatus.UNFETCHED,
@@ -200,6 +204,7 @@ function addQueryNodes(
             type: node.type,
             parents: new Set<string>(),
             direction,
+            isExpanded: true,
             fetchStatus: {
                 [LineageDirection.Upstream]: FetchStatus.UNNEEDED,
                 [LineageDirection.Downstream]: FetchStatus.UNNEEDED,

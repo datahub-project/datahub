@@ -11,6 +11,7 @@ export const SidebarWrapper = styled.div<{ width: number }>`
     background-color: #fff;
     border-radius: 8px;
     margin-right: 12px;
+    margin-bottom: 12px;
 `;
 
 export function RotatingTriangle({ isOpen, onClick }: { isOpen: boolean; onClick?: () => void }) {

@@ -4,7 +4,6 @@ import { EntityType, LineageDirection } from '../../types.generated';
 import { LINEAGE_COLORS } from '../entityV2/shared/constants';
 import {
     COLUMN_QUERY_ID_PREFIX,
-    ColumnHighlight,
     ColumnRef,
     createColumnRef,
     FetchStatus,
@@ -86,16 +85,9 @@ function processColumnHighlights(
             fineGrainedLineage,
             nodePositions,
             LINEAGE_COLORS.PURPLE_3,
-            true,
         );
     }
-    return computeSingleColumnHighlights(
-        hoveredColumn,
-        fineGrainedLineageDirect,
-        nodePositions,
-        LINEAGE_COLORS.BLUE_2,
-        false,
-    );
+    return computeSingleColumnHighlights(hoveredColumn, fineGrainedLineageDirect, nodePositions, LINEAGE_COLORS.BLUE_2);
 }
 
 function computeSingleColumnHighlights(
@@ -103,9 +95,12 @@ function computeSingleColumnHighlights(
     fineGrainedLineage: FineGrainedLineage,
     nodePositions: Map<string, [number, number]>,
     stroke: string,
-    fromSelect: boolean, // TODO: Consider a cleaner way of implementing this...
-): { highlightedColumns: HighlightedColumns; queryNodes: Map<string, Node>; columnEdges: Map<string, Edge> } {
-    const highlightedColumns = new Map<string, Map<string, ColumnHighlight>>();
+): {
+    highlightedColumns: HighlightedColumns;
+    queryNodes: Map<string, Node>;
+    columnEdges: Map<string, Edge>;
+} {
+    const highlightedColumns = new Map<string, Set<string>>();
     const queryNodes = new Map<string, Node>();
     const columnEdges = new Map<string, Edge>();
     const seenQueryRefs = new Set<ColumnRef>();
@@ -115,7 +110,7 @@ function computeSingleColumnHighlights(
     }
 
     const [urn, field] = parseColumnRef(column);
-    highlightedColumns.set(urn, new Map([[field, { fromSelect }]]));
+    highlightedColumns.set(urn, new Set([field]));
 
     const lineages = {
         [LineageDirection.Downstream]: fineGrainedLineage.forward,
@@ -158,7 +153,7 @@ function computeSingleColumnHighlights(
                     toVisit.push(childRef);
                 }
 
-                setDefault(highlightedColumns, childUrn, new Map()).set(childField, { fromSelect });
+                setDefault(highlightedColumns, childUrn, new Set()).add(childField);
                 addEdge(ref, childRef);
             });
         }
@@ -212,6 +207,7 @@ function createColumnQueryNode(
         data: {
             id,
             urn,
+            isExpanded: true,
             type: EntityType.Query,
             parents: new Set(),
             fetchStatus: {

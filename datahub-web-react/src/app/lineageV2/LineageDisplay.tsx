@@ -10,7 +10,6 @@ import { EntityType } from '../../types.generated';
 import useBulkEntityLineage from './useBulkEntityLineage';
 import { LINEAGE_FILTER_NODE_NAME } from './LineageFilterNode/LineageFilterNode';
 import useNodeHighlighting from './useNodeHighlighting';
-import useLineageNodePreview from './useLineageNodePreview';
 
 type Props = {
     urn: string;
@@ -31,7 +30,7 @@ export default function LineageDisplay({ urn, type, loaded }: Props) {
         [flowNodes],
     );
     useBulkEntityLineage(shownUrns);
-    useLineageNodePreview(shownUrns);
+    // useLineageNodePreview(shownUrns); TODO: Add back for lineage filter nodes?
 
     const { highlightedNodes, highlightedEdges } = useNodeHighlighting(hoveredNode, neighborData);
 
@@ -58,16 +57,10 @@ export default function LineageDisplay({ urn, type, loaded }: Props) {
                 })),
             ...nodesToAdd,
             ...nodesToRedraw,
-            ...flowNodes, // TODO: (SAL) Remove once search-across-lineage properly implemented
         ]);
     }, [flowNodes, getNode, setNodes, fitView]);
 
-    useEffect(() => {
-        // TODO: (SAL) Add back logic once search-across-lineage properly implemented
-        // const edgesToAdd = flowEdges.filter((edge) => !getEdge(edge.id));
-        // setEdges((oldEdges) => [...oldEdges, ...edgesToAdd]);
-        setEdges(flowEdges);
-    }, [flowEdges, getEdge, setEdges]);
+    useEffect(() => setEdges(flowEdges), [flowEdges, getEdge, setEdges]);
 
     useFitView(loaded);
 

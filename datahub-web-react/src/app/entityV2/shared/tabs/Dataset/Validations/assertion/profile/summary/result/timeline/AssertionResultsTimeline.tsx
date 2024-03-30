@@ -7,7 +7,8 @@ import { getFixedLookbackWindow } from '../../../../../../../../../../shared/tim
 import { LOOKBACK_WINDOWS } from '../../../../../../Stats/lookbackWindows';
 import { TimeSelect } from './TimeSelect';
 import { AssertionResultsTimelineViz } from './AssertionResultsTimelineViz';
-import { Assertion } from '../../../../../../../../../../../types.generated';
+import { Assertion, Monitor } from '../../../../../../../../../../../types.generated';
+import { calculateInitialLookbackWindowFromRunEvents } from './utils';
 
 const RESULT_CHART_WIDTH_PX = 560;
 const Container = styled.div`
@@ -17,20 +18,44 @@ const Container = styled.div`
 
 type Props = {
     assertion: Assertion;
+    monitor?: Monitor;
 };
 
 // TODO: Add the run summary table here as well.
 // TODO: here's where we will switch on the assertion itself.
-export const AssertionResultsTimeline = ({ assertion }: Props) => {
+export const AssertionResultsTimeline = ({ assertion, monitor }: Props) => {
     /**
      * Retrieve a specific assertion's evaluations between a particular start and end time.
      */
-    const [getAssertionRuns, { data }] = useGetAssertionRunsLazyQuery({ fetchPolicy: 'cache-first' });
+    const [getAssertionRuns, { data, loading }] = useGetAssertionRunsLazyQuery({ fetchPolicy: 'cache-first' });
 
     /**
      * Set default window for fetching assertion history.
      */
-    const [lookbackWindow, setLookbackWindow] = useState(LOOKBACK_WINDOWS.WEEK);
+    const [lookbackWindow, setLookbackWindow] = useState(LOOKBACK_WINDOWS.MONTH);
+
+    /**
+     * Track whether we've triggered a data fetch yet
+     */
+    const [hasInitialDataFetchTriggered, setHasInitialDataFetchTriggered] = useState(false);
+
+    /**
+     * On initial load, set the lookback window to a reasonable scale
+     */
+    const [hasInitializedLookbackWindow, setHasInitializedLookbackWindow] = useState(false);
+    const allRunEvents = data?.assertion?.runEvents?.runEvents;
+    useEffect(() => {
+        if (hasInitializedLookbackWindow) return;
+
+        const maybeWindow = allRunEvents && calculateInitialLookbackWindowFromRunEvents(allRunEvents, monitor);
+        if (maybeWindow) {
+            setLookbackWindow(maybeWindow)
+        };
+        if (!loading && hasInitialDataFetchTriggered) {
+            // Update initialization state on the next tick so the UI has a tick to react to the new lookback window
+            setTimeout(() => setHasInitializedLookbackWindow(true), 0);
+        }
+    }, [allRunEvents, monitor, loading, hasInitialDataFetchTriggered, hasInitializedLookbackWindow])
 
     /**
      * Whenever the selected lookback window changes (via user selection), then
@@ -40,6 +65,9 @@ export const AssertionResultsTimeline = ({ assertion }: Props) => {
         getAssertionRuns({
             variables: { assertionUrn: assertion.urn, ...getFixedLookbackWindow(lookbackWindow.windowSize) },
         });
+
+        // Next tick so the UI has a moment to respond to the graphql query starting
+        setTimeout(() => setHasInitialDataFetchTriggered(true), 0);
     }, [assertion.urn, lookbackWindow, getAssertionRuns]);
 
     const selectedWindow = getFixedLookbackWindow(lookbackWindow.windowSize);
@@ -48,7 +76,7 @@ export const AssertionResultsTimeline = ({ assertion }: Props) => {
         endMs: selectedWindow.endTime,
     };
     const results = data?.assertion?.runEvents;
-
+    const isInitializing = !hasInitializedLookbackWindow;
     return (
         <Container>
             <AssertionResultsTimelineViz
@@ -57,6 +85,7 @@ export const AssertionResultsTimeline = ({ assertion }: Props) => {
                 }}
                 assertion={assertion}
                 timeRange={selectedWindowTimeRange}
+                isInitializing={isInitializing}
                 results={results as any}
             />
             <TimeSelect

@@ -1,10 +1,7 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Panel } from 'reactflow';
 import styled from 'styled-components';
-import moment from 'moment';
-import { DatePicker } from 'antd';
-
-const { RangePicker } = DatePicker;
+import LineageTabTimeSelector from '../../entityV2/shared/tabs/Lineage/LineageTabTimeSelector';
 
 const StyledControlsPanel = styled(Panel)<{ isRootPanelExpanded: boolean }>`
     margin-top: 36px;
@@ -40,45 +37,11 @@ type Props = {
 };
 
 const LineageTimeRangeControls = ({ isRootPanelExpanded }: Props) => {
-    const [isOpen, setIsOpen] = useState(false);
-    const [, setStartDate] = useState<moment.Moment | null>(null);
-    const [, setEndDate] = useState<moment.Moment | null>(null);
-
     return (
         <StyledControlsPanel position="top-left" isRootPanelExpanded={isRootPanelExpanded}>
             <TimeRangeTitleText>Time Range</TimeRangeTitleText>
             <TimeRangeSubText>Show edges that were observed after the start date and before the end.</TimeRangeSubText>
-            <RangePicker
-                // style={{ padding: '0px' }}
-                allowClear
-                onClick={() => setIsOpen(true)}
-                allowEmpty={[true, true]}
-                bordered={false}
-                disabledDate={(current: any) => {
-                    return current && current > moment().endOf('day');
-                }}
-                format="ll"
-                ranges={{
-                    'Last 7 days': [moment().subtract(7, 'days'), moment()],
-                    'Last 14 days': [moment().subtract(14, 'days'), moment()],
-                    'Last 28 days': [moment().subtract(28, 'days'), moment()],
-                    'All Time': [null, null],
-                }}
-                onChange={(dates, _dateStrings) => {
-                    if (dates) {
-                        setStartDate(dates[0]);
-                        setEndDate(dates[1]);
-                    }
-                    if (dates?.[0] && dates?.[1]) {
-                        setIsOpen(false);
-                    }
-                    // onChange(dates, dateStrings);
-                    // setIsOpen(false);
-                }}
-                // placeholder={['After', 'Before']}
-                open={isOpen}
-                // getPopupContainer={(trigger) => trigger.parentElement || trigger}
-            />
+            <LineageTabTimeSelector />
         </StyledControlsPanel>
     );
 };

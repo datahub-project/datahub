@@ -1,4 +1,4 @@
-import React, { useContext, useEffect } from 'react';
+import React, { useContext } from 'react';
 import styled from 'styled-components';
 import { useLineageV2 } from '../../../../lineageV2/useLineageV2';
 import { EntityType, LineageDirection } from '../../../../../types.generated';
@@ -98,23 +98,4 @@ function LineageEmbedded({ urn, type }: { urn: string; type: EntityType }) {
             <LineageExplorerV2 urn={urn} type={type} embedded />
         </VisualizationWrapper>
     );
-}
-
-// TODO: Implement where does not trigger while searching
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-function useSetFullscreen() {
-    const { setTabFullsize } = useContext(TabFullsizedContext);
-
-    function handleKeyPress(e: KeyboardEvent) {
-        if (e.key === 'f') {
-            setTabFullsize((v) => !v);
-        }
-    }
-
-    useEffect(() => {
-        document.addEventListener('keydown', handleKeyPress);
-        return () => {
-            document.removeEventListener('keydown', handleKeyPress);
-        };
-    });
 }

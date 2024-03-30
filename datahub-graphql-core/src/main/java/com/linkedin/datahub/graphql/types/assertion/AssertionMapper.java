@@ -21,6 +21,7 @@ import com.linkedin.datahub.graphql.generated.AssertionStdParameter;
 import com.linkedin.datahub.graphql.generated.AssertionStdParameterType;
 import com.linkedin.datahub.graphql.generated.AssertionStdParameters;
 import com.linkedin.datahub.graphql.generated.AssertionType;
+import com.linkedin.datahub.graphql.generated.AuditStamp;
 import com.linkedin.datahub.graphql.generated.DataPlatform;
 import com.linkedin.datahub.graphql.generated.DatasetAssertionInfo;
 import com.linkedin.datahub.graphql.generated.DatasetAssertionScope;
@@ -149,6 +150,13 @@ public class AssertionMapper {
     final com.linkedin.datahub.graphql.generated.AssertionInfo assertionInfo =
         new com.linkedin.datahub.graphql.generated.AssertionInfo();
     assertionInfo.setType(AssertionType.valueOf(gmsAssertionInfo.getType().name()));
+
+    if (gmsAssertionInfo.hasLastUpdated()) {
+      assertionInfo.setLastUpdated(
+          new AuditStamp(
+              gmsAssertionInfo.getLastUpdated().getTime(),
+              gmsAssertionInfo.getLastUpdated().getActor().toString()));
+    }
     if (gmsAssertionInfo.hasDatasetAssertion()) {
       DatasetAssertionInfo datasetAssertion =
           mapDatasetAssertionInfo(context, gmsAssertionInfo.getDatasetAssertion());
@@ -313,6 +321,11 @@ public class AssertionMapper {
   private static AssertionSource mapSource(final com.linkedin.assertion.AssertionSource gmsSource) {
     AssertionSource result = new AssertionSource();
     result.setType(AssertionSourceType.valueOf(gmsSource.getType().toString()));
+    if (gmsSource.hasCreated()) {
+      result.setCreated(
+          new AuditStamp(
+              gmsSource.getCreated().getTime(), gmsSource.getCreated().getActor().toString()));
+    }
     return result;
   }
 

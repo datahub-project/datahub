@@ -1,4 +1,4 @@
-import React, { useContext, useState } from 'react';
+import React, { useContext, useEffect, useState } from 'react';
 import { NodeProps } from 'reactflow';
 import styled from 'styled-components';
 import { HomeOutlined } from '@ant-design/icons';
@@ -31,13 +31,16 @@ export default function LineageEntityNode(props: NodeProps<LineageEntity>) {
     const { urn, type } = data;
     const { nodes, rootUrn } = useContext(LineageNodesContext);
     const { numNodes, setHoveredNode } = useContext(LineageDisplayContext);
-    // TODO: Figure out why Apollo caching is not working for useEntityLineage
-    const entity = nodes.get(urn)?.entity; // useEntityLineage(urn);
+    const entity = nodes.get(urn)?.entity;
 
-    const [expanded, setExpanded] = useState(false);
+    const [showColumns, setShowColumns] = useState(false);
     const [onlyWithLineage, setOnlyWithLineage] = useState(false);
     const [pageIndex, setPageIndex] = useState(0);
     const [filterText, setFilterText] = useState('');
+
+    useEffect(() => {
+        setPageIndex(0);
+    }, [filterText, onlyWithLineage, setPageIndex]);
 
     const transitionDuration = numNodes <= MAX_NODES_FOR_TRANSITION ? TRANSITION_DURATION_MS : 0;
 
@@ -45,7 +48,7 @@ export default function LineageEntityNode(props: NodeProps<LineageEntity>) {
         useDisplayedColumns({
             urn,
             entity,
-            showAllColumns: expanded,
+            showColumns,
             filterText,
             pageIndex,
             onlyWithLineage,
@@ -68,8 +71,8 @@ export default function LineageEntityNode(props: NodeProps<LineageEntity>) {
                 transitionDuration={transitionDuration}
                 rootUrn={rootUrn}
                 setHoveredNode={setHoveredNode}
-                expanded={expanded}
-                setExpanded={setExpanded}
+                showColumns={showColumns}
+                setShowColumns={setShowColumns}
                 onlyWithLineage={onlyWithLineage}
                 setOnlyWithLineage={setOnlyWithLineage}
                 pageIndex={pageIndex}

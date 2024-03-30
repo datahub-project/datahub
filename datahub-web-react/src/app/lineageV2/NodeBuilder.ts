@@ -117,7 +117,7 @@ export default class NodeBuilder {
         nodes.push(...this.entities.map((n) => this.createNode(n, LINEAGE_ENTITY_NODE_NAME)));
         nodes.push(...this.transformations.map((n) => this.createNode(n, LINEAGE_TRANSFORMATION_NODE_NAME)));
         nodes.push(...this.workbooks.map((n) => this.createNode(n, LINEAGE_WORKBOOK_NODE_NAME)));
-        nodes.push(...this.filterNodes.map((n) => this.createNode(n, LINEAGE_FILTER_NODE_NAME)));
+        nodes.push(...this.filterNodes.map((n) => this.createFilterNode(n)));
         return nodes;
     }
 
@@ -354,13 +354,9 @@ export default class NodeBuilder {
             const info = this.nodeInformation[node.id];
             if (info.y !== undefined) info.y += 20;
         });
-        this.workbooks.forEach((node) => {
-            const info = this.nodeInformation[node.id];
-            if (info.y !== undefined) info.y += 12.5;
-        });
     }
 
-    createNode(node: LineageNode, type: string): NodeWithMetadata {
+    createNode<T extends LineageNode>(node: T, type: string, transformData = (v: T) => v): NodeWithMetadata {
         const info = this.nodeInformation[node.id];
         const layer = info.layer || '';
         return {
@@ -371,8 +367,15 @@ export default class NodeBuilder {
                 y: info.y || 0,
             },
             layer: parseLayer(layer).main,
-            data: node,
+            data: transformData(node),
         };
+    }
+
+    createFilterNode(filter: LineageFilter): NodeWithMetadata {
+        return this.createNode(filter, LINEAGE_FILTER_NODE_NAME, (node) => ({
+            ...node,
+            numShown: Array.from(node.contents).filter((urn) => urn in this.nodeInformation).length,
+        }));
     }
 }
 

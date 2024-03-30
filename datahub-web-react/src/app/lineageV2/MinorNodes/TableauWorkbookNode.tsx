@@ -1,12 +1,12 @@
 import React, { useContext } from 'react';
 import { Handle, NodeProps, Position } from 'reactflow';
 import styled from 'styled-components';
+import OverflowTitle from '../../sharedV2/text/OverflowTitle';
 import { FetchStatus, getNodeColor, LineageDisplayContext, LineageEntity, LineageNodesContext } from '../common';
 import { EntityType, LineageDirection } from '../../../types.generated';
 import getTypeIcon from '../../sharedV2/icons/getTypeIcon';
 import { useEntityRegistry } from '../../useEntityRegistry';
 import { ANTD_GRAY } from '../../entityV2/shared/constants';
-import { OverflowTitle } from '../LineageEntityNode/NodeContents';
 import { ExpandLineageButton } from '../LineageEntityNode/ExpandLineageButton';
 
 export const LINEAGE_WORKBOOK_NODE_NAME = 'tableau-workbook';

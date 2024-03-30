@@ -14,7 +14,7 @@ import { PrimaryButton } from '../../../builder/details/PrimaryButton';
 import { isExternalAssertion } from '../isExternalAssertion';
 import { ProviderSummarySection } from '../../summary/schedule/ProviderSummarySection';
 import { ANTD_GRAY } from '../../../../../../../constants';
-import { toReadableLocalDateTimeString } from '../timeUtils';
+import { toReadableLocalDateTimeString } from '../utils';
 import { ResultStatusType, getDetailedErrorMessage, getFormattedExpectedResultText, getFormattedReasonText } from '../../summary/shared/resultMessageUtils';
 
 const HeaderRow = styled.div`

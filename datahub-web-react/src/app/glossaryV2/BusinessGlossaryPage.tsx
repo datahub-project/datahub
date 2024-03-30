@@ -21,7 +21,7 @@ import GlossaryContentProvider from './GlossaryContentProvider';
 const GlossaryWrapper = styled.div`
     display: flex;
     flex: 1;
-    max-height: inherit;
+    height: 100%;
     background-color: white;
     border-radius: 8px;
 `;
@@ -29,6 +29,7 @@ const GlossaryWrapper = styled.div`
 const MainWrapper = styled.div`
     flex: 1;
     margin-right: 16px;
+    margin-bottom: 12px;
 `;
 
 const BusinessGlossaryPage = () => {

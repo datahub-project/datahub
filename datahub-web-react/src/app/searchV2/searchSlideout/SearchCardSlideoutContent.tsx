@@ -6,13 +6,14 @@ import { PreviewSection } from '../../shared/MatchesContext';
 import TagTermGroup from '../../sharedV2/tags/TagTermGroup';
 import { useEntityRegistryV2 } from '../../useEntityRegistry';
 import { CombinedSearchResult } from '../utils/combineSiblingsInSearchResults';
+import EntityPaths from '../../previewV2/EntityPaths/EntityPaths';
 
 type Props = {
     item?: CombinedSearchResult | null;
     expandedSection?: PreviewSection;
 };
 
-const OwnerContainer = styled.div`
+const PaddingContainer = styled.div`
     margin-bottom: -6px;
 `;
 
@@ -63,11 +64,19 @@ export const SearchCardSlideoutContent = ({ item, expandedSection }: Props) => {
 
     if (cachedExpandedSection === PreviewSection.OWNERS) {
         return (
-            <OwnerContainer>
+            <PaddingContainer>
                 {genericProps?.ownership?.owners?.map((owner) => (
                     <ExpandedOwner key={owner.owner.urn} entityUrn={genericProps?.urn || ''} owner={owner} readOnly />
                 ))}
-            </OwnerContainer>
+            </PaddingContainer>
+        );
+    }
+
+    if (cachedExpandedSection === PreviewSection.COLUMN_PATHS) {
+        return (
+            <PaddingContainer>
+                <EntityPaths paths={item.paths || []} resultEntityUrn={item.entity.urn} />
+            </PaddingContainer>
         );
     }
 

@@ -1,17 +1,15 @@
 import React from 'react';
 import { Handle, NodeProps, Position } from 'reactflow';
 import styled from 'styled-components';
+import { getFilterIconAndLabel } from '../../searchV2/filters/utils';
+import { ENTITY_SUB_TYPE_FILTER_NAME, PLATFORM_FILTER_NAME } from '../../searchV2/utils/constants';
+import { useEntityRegistry } from '../../useEntityRegistry';
+import { LineageFilter } from '../common';
 import { useAvoidIntersectionsOften } from '../LineageEntityNode/useAvoidIntersections';
 import { LINEAGE_NODE_WIDTH } from '../LineageEntityNode/useDisplayedColumns';
-import useFetchFilterNodeContents from './useFetchFilterNodeContents';
+import useFetchFilterNodeContents, { PlatformAggregate, SubtypeAggregate } from './useFetchFilterNodeContents';
 import { REDESIGN_COLORS } from '../../entityV2/shared/constants';
-import { PlatformEntry, SubtypeEntry } from './LineageFilterPills';
-import { LineageFilter } from '../common';
 import { ShowMoreButton } from './ShowMoreButton';
-
-export const LINEAGE_FILTER_NODE_NAME = 'lineage-filter';
-
-const PILL_COLUMN_MAX = 3;
 
 const NodeWrapper = styled.div`
     background-color: white;
@@ -70,24 +68,13 @@ const CustomHandle = styled(Handle)<{ position: Position }>`
 
 const PillsWrapper = styled.div`
     display: flex;
-    flex-direction: row;
+    flex-direction: column;
     margin-top: 6px;
 `;
 
 const PillColumn = styled.div`
     display: flex;
-    flex-direction: column;
-    gap: 4px;
-    width: 50%;
-`;
-
-const VerticalDivider = styled.hr<{ margin: number }>`
-    align-self: stretch;
-    height: auto;
-    margin: 0 ${({ margin }) => margin}px;
-    border: 0.5px solid;
-    opacity: 0.1;
-    vertical-align: text-top;
+    flex-direction: row;
 `;
 
 export default function LineageFilterNode(props: NodeProps<LineageFilter>) {
@@ -96,11 +83,7 @@ export default function LineageFilterNode(props: NodeProps<LineageFilter>) {
 
     const { platforms, subtypes } = useFetchFilterNodeContents(contents);
 
-    const numPillRows = Math.min(Math.max(platforms?.length || 0, subtypes?.length || 0), PILL_COLUMN_MAX);
-    const nodeHeight =
-        52 + // Title, padding, border, extra card, pill wrapper margin
-        23.5 * numPillRows;
-    useAvoidIntersectionsOften(id, nodeHeight);
+    useAvoidIntersectionsOften(id, 52);
 
     return (
         <NodeWrapper className="nodrag">
@@ -117,17 +100,61 @@ export default function LineageFilterNode(props: NodeProps<LineageFilter>) {
             </TitleWrapper>
             <PillsWrapper>
                 <PillColumn>
-                    {platforms?.slice(0, PILL_COLUMN_MAX).map((agg) => (
-                        <PlatformEntry agg={agg} key={agg[0]} data={data} />
+                    {platforms?.map((agg, index) => (
+                        <PlatformEntry agg={agg} key={agg[0]} index={index} />
                     ))}
                 </PillColumn>
-                <VerticalDivider margin={4} />
                 <PillColumn>
-                    {subtypes?.slice(0, PILL_COLUMN_MAX).map((agg) => (
-                        <SubtypeEntry agg={agg} key={agg[0]} data={data} />
+                    {subtypes?.map((agg, index) => (
+                        <SubtypeEntry agg={agg} key={agg[0]} index={index} />
                     ))}
                 </PillColumn>
             </PillsWrapper>
         </NodeWrapper>
+    );
+}
+
+interface EntryProps<T> {
+    agg: T;
+    index: number;
+}
+
+function PlatformEntry({ agg, index }: EntryProps<PlatformAggregate>) {
+    return LineageFilterEntry(PLATFORM_FILTER_NAME, agg, index);
+}
+
+function SubtypeEntry({ agg, index }: EntryProps<SubtypeAggregate>) {
+    return LineageFilterEntry(ENTITY_SUB_TYPE_FILTER_NAME, agg, index);
+}
+
+const EntryWrapper = styled.span<{ includeBefore: boolean }>`
+    align-items: center;
+    display: flex;
+
+    ${({ includeBefore }) =>
+        includeBefore &&
+        `::before {
+             content: ',';
+             margin-right: 4px;
+         }`})
+`;
+
+const CountWrapper = styled.span`
+    margin-left: 4px;
+`;
+
+function LineageFilterEntry(
+    filterName: string,
+    [filterValue, count, entity]: PlatformAggregate | SubtypeAggregate,
+    index: number,
+) {
+    const entityRegistry = useEntityRegistry();
+    const { icon, label } = getFilterIconAndLabel(filterName, filterValue, entityRegistry, entity || null, 12);
+
+    return (
+        <EntryWrapper title={label} includeBefore={index > 0}>
+            {icon}
+            <CountWrapper>{count}</CountWrapper>
+        </EntryWrapper>
     );
 }

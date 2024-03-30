@@ -7810,6 +7810,10 @@ type AssertionResult {
     """
     parameters: AssertionEvaluationParameters
 
+    """
+    Acryl Only! Contextual details populated here if this assertion was inferred with AI
+    """
+    assertionInferenceDetails: AssertionInferenceDetails
 
 }
 

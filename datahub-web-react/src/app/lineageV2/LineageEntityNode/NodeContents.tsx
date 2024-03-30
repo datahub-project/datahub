@@ -1,23 +1,24 @@
-import React, { Dispatch, SetStateAction, useCallback, useEffect, useState } from 'react';
-import { Handle, Position } from 'reactflow';
-import styled from 'styled-components';
+import { LoadingOutlined } from '@ant-design/icons';
 import { KeyboardArrowDown, KeyboardArrowUp } from '@mui/icons-material';
 import { Skeleton, Spin } from 'antd';
-import { LoadingOutlined } from '@ant-design/icons';
+import React, { Dispatch, SetStateAction } from 'react';
+import { Handle, Position } from 'reactflow';
+import styled from 'styled-components';
 import { EntityType, LineageDirection } from '../../../types.generated';
+import { ANTD_GRAY, LINEAGE_COLORS } from '../../entityV2/shared/constants';
+import { EntityHealth } from '../../entityV2/shared/containers/profile/header/EntityHealth';
 import { ContainerIconBase } from '../../entityV2/shared/containers/profile/header/PlatformContent/ContainerIcon';
+import getTypeIcon from '../../sharedV2/icons/getTypeIcon';
+import OverflowTitle from '../../sharedV2/text/OverflowTitle';
 import { useEntityRegistry } from '../../useEntityRegistry';
 import { FetchStatus, getNodeColor, LineageEntity, onMouseDownCapturePreventSelect } from '../common';
 import { NUM_COLUMNS_PER_PAGE } from '../constants';
+import { FetchedEntityV2 } from '../types';
 import Columns from './Columns';
 import { ExpandLineageButton } from './ExpandLineageButton';
 import NodeSkeleton from './NodeSkeleton';
 import useAvoidIntersections from './useAvoidIntersections';
 import { DisplayedColumns, LINEAGE_NODE_HEIGHT, LINEAGE_NODE_WIDTH } from './useDisplayedColumns';
-import { ANTD_GRAY, LINEAGE_COLORS } from '../../entityV2/shared/constants';
-import getTypeIcon from '../../sharedV2/icons/getTypeIcon';
-import { EntityHealth } from '../../entityV2/shared/containers/profile/header/EntityHealth';
-import { FetchedEntityV2 } from '../types';
 
 const NodeWrapper = styled.div<{
     selected: boolean;
@@ -136,9 +137,6 @@ const Title = styled(OverflowTitle)`
     font-weight: 600;
     font-size: 12px;
     line-height: 125%;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
 `;
 
 const StyledEntityHealth = styled(EntityHealth)`
@@ -174,8 +172,8 @@ interface Props {
     transitionDuration: number;
     rootUrn: string;
     setHoveredNode: (urn: string | null) => void;
-    expanded: boolean;
-    setExpanded: Dispatch<SetStateAction<boolean>>;
+    showColumns: boolean;
+    setShowColumns: Dispatch<SetStateAction<boolean>>;
     onlyWithLineage: boolean;
     setOnlyWithLineage: Dispatch<SetStateAction<boolean>>;
     filterText: string;
@@ -196,8 +194,8 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
         transitionDuration,
         rootUrn,
         setHoveredNode,
-        expanded,
-        setExpanded,
+        showColumns,
+        setShowColumns,
         onlyWithLineage,
         setOnlyWithLineage,
         filterText,
@@ -213,18 +211,14 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
 
     const entityRegistry = useEntityRegistry();
 
-    useEffect(() => {
-        setPageIndex(0);
-    }, [filterText, setPageIndex]);
-
-    const numDisplayedColumns = extraHighlightedColumns.length + (expanded ? paginatedColumns.length : 0);
+    const numDisplayedColumns = extraHighlightedColumns.length + (showColumns ? paginatedColumns.length : 0);
     const expandHeight =
         LINEAGE_NODE_HEIGHT +
         (numDisplayedColumns ? 17 : 0) + // Expansion base
-        (expanded && numColumnsTotal ? 30 : 0) + // Search bar
+        (showColumns && numColumnsTotal ? 30 : 0) + // Search bar
         20 * numDisplayedColumns + // Columns
-        (expanded && paginatedColumns.length && extraHighlightedColumns.length ? 9 : 0) + // Column divider
-        (expanded && numFilteredColumns > NUM_COLUMNS_PER_PAGE ? 38 : 0); // Pagination
+        (showColumns && paginatedColumns.length && extraHighlightedColumns.length ? 9 : 0) + // Column divider
+        (showColumns && numFilteredColumns > NUM_COLUMNS_PER_PAGE ? 38 : 0); // Pagination
 
     useAvoidIntersections(urn, expandHeight);
 
@@ -300,11 +294,11 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
                             <>
                                 <ExpandColumnsWrapper
                                     onMouseDownCapture={onMouseDownCapturePreventSelect}
-                                    onClick={() => setExpanded((v) => !v)}
+                                    onClick={() => setShowColumns((v) => !v)}
                                 >
                                     {numColumnsTotal} columns
-                                    {expanded && <KeyboardArrowUp fontSize="inherit" style={{ marginLeft: 3 }} />}
-                                    {!expanded && <KeyboardArrowDown fontSize="inherit" style={{ marginLeft: 3 }} />}
+                                    {showColumns && <KeyboardArrowUp fontSize="inherit" style={{ marginLeft: 3 }} />}
+                                    {!showColumns && <KeyboardArrowDown fontSize="inherit" style={{ marginLeft: 3 }} />}
                                 </ExpandColumnsWrapper>
                             </>
                         )}
@@ -317,7 +311,7 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
                     <HorizontalDivider margin={0} />
                     <Columns
                         entity={entity}
-                        showAllColumns={expanded}
+                        showAllColumns={showColumns}
                         paginatedColumns={paginatedColumns}
                         highlightedColumns={extraHighlightedColumns}
                         numFiltered={numFilteredColumns}
@@ -380,27 +374,5 @@ function ContainerPath({ parentContainers }: Pick<FetchedEntityV2, 'parentContai
                 </ContainerEntry>
             ))}
         </ContainerPathWrapper>
-    );
-}
-
-export function OverflowTitle({ title, className }: { title?: string; className?: string }) {
-    const [showTitle, setShowTitle] = useState(false);
-
-    const ref = useCallback(
-        (node) => {
-            if (node && title) {
-                const resizeObserver = new ResizeObserver(() => {
-                    setShowTitle(node.scrollWidth > node.clientWidth);
-                });
-                resizeObserver.observe(node);
-            }
-        },
-        [title],
-    );
-
-    return (
-        <span ref={ref} className={className} title={showTitle ? title : undefined}>
-            {title}
-        </span>
     );
 }

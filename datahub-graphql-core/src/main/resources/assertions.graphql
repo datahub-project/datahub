@@ -639,6 +639,11 @@ extend type AssertionInfo {
   The source or origin of the Assertion definition.
   """
   source: AssertionSource
+
+  """
+  The time that the status last changed and the actor who changed it
+  """
+  lastUpdated: AuditStamp
 }
 
 extend type Assertion {
@@ -878,6 +883,10 @@ type AssertionSource {
   The source type
   """
   type: AssertionSourceType!
+  """
+  The time at which the assertion was initially created and the actor who created it
+  """
+  created: AuditStamp
 }
 
 """

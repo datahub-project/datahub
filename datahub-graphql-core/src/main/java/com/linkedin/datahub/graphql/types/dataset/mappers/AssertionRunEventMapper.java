@@ -92,6 +92,11 @@ public class AssertionRunEventMapper
       datasetAssertionResult.setParameters(datasetAssertionEvaluationParameters);
     }
 
+    if (gmsResult.hasAssertionInferenceDetails()) {
+      datasetAssertionResult.setAssertionInferenceDetails(
+          AssertionMapper.mapInferenceDetails(gmsResult.getAssertionInferenceDetails()));
+    }
+
     if (gmsResult.hasType()) {
       AssertionResultType assertionType = AssertionResultType.valueOf(gmsResult.getType().name());
       datasetAssertionResult.setType(assertionType);

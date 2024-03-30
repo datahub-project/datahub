@@ -7,9 +7,7 @@ import { decodeSchemaField } from '../../lineage/utils/columnLineageUtils';
 import { useEntityRegistry } from '../../useEntityRegistry';
 
 const ColumnNameWrapper = styled.span<{ isBlack?: boolean }>`
-    font-family: 'Roboto Mono', monospace;
     font-weight: bold;
-    ${(props) => props.isBlack && 'color: black;'}
 `;
 
 interface Props {
@@ -24,7 +22,7 @@ export default function DisplayedColumns({ displayedColumns }: Props) {
             {displayedColumns.map((entity, index) => {
                 if (entity) {
                     return (
-                        <ColumnNameWrapper>
+                        <ColumnNameWrapper key={entity.urn}>
                             {entity.type === EntityType.SchemaField
                                 ? decodeSchemaField(downgradeV2FieldPath((entity as SchemaFieldEntity).fieldPath) || '')
                                 : entityRegistry.getDisplayName(entity.type, entity)}

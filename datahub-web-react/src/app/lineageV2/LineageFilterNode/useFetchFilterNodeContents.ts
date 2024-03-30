@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { PlatformFieldsFragment } from '../../../graphql/fragments.generated';
 import { useAggregateAcrossEntitiesQuery } from '../../../graphql/search.generated';
 import { AggregationMetadata } from '../../../types.generated';
@@ -12,6 +13,14 @@ interface Return {
 }
 
 export default function useFetchFilterNodeContents(urns: string[]): Return {
+    const [inputUrns, setInputUrns] = useState(Array.from(urns));
+
+    useEffect(() => {
+        if (JSON.stringify(urns) !== JSON.stringify(inputUrns)) {
+            setInputUrns(Array.from(urns));
+        }
+    }, [urns, inputUrns]);
+
     const { data } = useAggregateAcrossEntitiesQuery({
         fetchPolicy: 'cache-first',
         variables: {
@@ -23,7 +32,7 @@ export default function useFetchFilterNodeContents(urns: string[]): Return {
                         and: [
                             {
                                 field: 'urn',
-                                values: urns,
+                                values: inputUrns,
                             },
                         ],
                     },

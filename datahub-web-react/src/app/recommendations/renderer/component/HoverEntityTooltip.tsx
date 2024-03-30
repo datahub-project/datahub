@@ -41,7 +41,7 @@ export const HoverEntityTooltip = ({
             overlayStyle={{ minWidth: width, maxWidth }}
             overlayInnerStyle={{ padding: 20, borderRadius: 20 }}
             title={<a href={url}>{entityRegistry.renderPreview(entity.type, PreviewType.HOVER_CARD, entity)}</a>}
-            zIndex={100}
+            zIndex={1000}
         >
             {children}
         </Tooltip>

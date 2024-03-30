@@ -15,7 +15,7 @@ import Tag from './tag/Tag';
 import Term from './term/Term';
 import AddTagTerm from './AddTagTerm';
 import { TermRibbon } from './term/TermContent';
-import { generateColor } from '../../entityV2/shared/components/styled/StyledTag';
+import { generateColorFromPalette } from '../../glossaryV2/colorUtils';
 
 type Props = {
     uneditableTags?: GlobalTags | null;
@@ -278,47 +278,47 @@ export default function TagTermGroup({
                     />
                 );
             })}
-            {proposedGlossaryTerms?.map((actionRequest) => (
-                <Tooltip overlay="Pending approval from owners">
-                    <ProposedTermContainer>
-                        <ProposedTerm
-                            closable={false}
-                            data-testid={`proposed-term-${actionRequest.params?.glossaryTermProposal?.glossaryTerm?.name}`}
-                            onClick={() => {
-                                setShowProposalDecisionModal(true);
-                            }}
-                        >
-                            <TermRibbon
-                                color={generateColor.hex(
-                                    entityRegistry.getDisplayName(
+            {proposedGlossaryTerms?.map((actionRequest) => {
+                const parentNodes = actionRequest.params?.glossaryTermProposal?.glossaryTerm.parentNodes;
+                const lastParentNode = parentNodes && parentNodes.count > 0 && parentNodes.nodes[parentNodes.count - 1];
+                const proposedTermColor = lastParentNode
+                    ? lastParentNode.displayProperties?.colorHex || generateColorFromPalette(lastParentNode.urn)
+                    : generateColorFromPalette(actionRequest.params?.glossaryTermProposal?.glossaryTerm.urn || '');
+                return (
+                    <Tooltip overlay="Pending approval from owners">
+                        <ProposedTermContainer>
+                            <ProposedTerm
+                                closable={false}
+                                data-testid={`proposed-term-${actionRequest.params?.glossaryTermProposal?.glossaryTerm?.name}`}
+                                onClick={() => {
+                                    setShowProposalDecisionModal(true);
+                                }}
+                            >
+                                <TermRibbon color={generateColorFromPalette(proposedTermColor)} />
+                                <ProposedTermText>
+                                    {entityRegistry.getDisplayName(
                                         EntityType.GlossaryTerm,
                                         actionRequest.params?.glossaryTermProposal?.glossaryTerm,
-                                    ),
-                                )}
-                            />
-                            <ProposedTermText>
-                                {entityRegistry.getDisplayName(
-                                    EntityType.GlossaryTerm,
-                                    actionRequest.params?.glossaryTermProposal?.glossaryTerm,
-                                )}
-                            </ProposedTermText>
-                            <ProposalModal
-                                actionRequest={actionRequest}
-                                showProposalDecisionModal={showProposalDecisionModal}
-                                onCloseProposalDecisionModal={onCloseProposalDecisionModal}
-                                onProposalAcceptance={onProposalAcceptance}
-                                onProposalRejection={onProposalRejection}
-                                onActionRequestUpdate={onActionRequestUpdate}
-                                elementName={entityRegistry.getDisplayName(
-                                    EntityType.GlossaryTerm,
-                                    actionRequest.params?.glossaryTermProposal?.glossaryTerm,
-                                )}
-                            />
-                            <ClockCircleOutlined style={{ color: 'orange', marginLeft: '5px' }} />
-                        </ProposedTerm>
-                    </ProposedTermContainer>
-                </Tooltip>
-            ))}
+                                    )}
+                                </ProposedTermText>
+                                <ProposalModal
+                                    actionRequest={actionRequest}
+                                    showProposalDecisionModal={showProposalDecisionModal}
+                                    onCloseProposalDecisionModal={onCloseProposalDecisionModal}
+                                    onProposalAcceptance={onProposalAcceptance}
+                                    onProposalRejection={onProposalRejection}
+                                    onActionRequestUpdate={onActionRequestUpdate}
+                                    elementName={entityRegistry.getDisplayName(
+                                        EntityType.GlossaryTerm,
+                                        actionRequest.params?.glossaryTermProposal?.glossaryTerm,
+                                    )}
+                                />
+                                <ClockCircleOutlined style={{ color: 'orange', marginLeft: '5px' }} />
+                            </ProposedTerm>
+                        </ProposedTermContainer>
+                    </Tooltip>
+                );
+            })}
 
             {/* uneditable tags are provided by ingestion pipelines exclusively  */}
 

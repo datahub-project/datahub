@@ -8,6 +8,7 @@ import { MatchContextContianer } from '../../../../../searchV2/matches/MatchCont
 import { PreviewSection } from '../../../../../shared/MatchesContext';
 import { useEntityRegistry } from '../../../../../useEntityRegistry';
 import { EntityAndType } from '../../../types';
+import { useInitializeColumnLineageCards } from './useInitializeColumnLineageCards';
 
 export const StyledList = styled(List)`
     overflow-y: auto;
@@ -129,6 +130,9 @@ export const EntitySearchResults = ({
     const EntityAction = entityAction as React.FC<EntityActionProps>;
 
     const [urnToExpandedSection, setUrnToExpandedSection] = React.useState<Record<string, PreviewSection>>({});
+
+    // when in CLL impact analysis, default open up the column paths card slideout
+    useInitializeColumnLineageCards(searchResults, setUrnToExpandedSection);
 
     return (
         <StyledList
