@@ -20,8 +20,6 @@ const PreviewLetter = styled.div<{ color: string }>`
     font-size: 52px;
     color: white;
     width: 100%;
-    min-height: 240px;
-    height: auto;
     display: flex;
     align-items: center;
     justify-content: center;

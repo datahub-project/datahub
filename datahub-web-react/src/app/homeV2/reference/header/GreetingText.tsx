@@ -7,7 +7,7 @@ import { getGreetingText } from './getGreetingText';
 
 const Text = styled.div`
     font-size: 20px;
-    padding: 20px 12px 12px 12px;
+    padding: 0 17px 19px 17px;
     display: flex;
     flex-direction: column;
     align-items: start;
