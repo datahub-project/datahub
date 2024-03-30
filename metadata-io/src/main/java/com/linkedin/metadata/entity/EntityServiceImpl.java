@@ -628,12 +628,20 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
   public List<UpdateAspectResult> ingestAspects(
       @Nonnull final AspectsBatch aspectsBatch, boolean emitMCL, boolean overwrite) {
 
+    // Skip DB timer for empty batch
+    if (aspectsBatch.getItems().size() == 0) {
+      return Collections.emptyList();
+    }
+
+    log.info("Ingesting aspects batch to database, items: {}", aspectsBatch.getItems());
     Timer.Context ingestToLocalDBTimer =
         MetricUtils.timer(this.getClass(), "ingestAspectsToLocalDB").time();
     List<UpdateAspectResult> ingestResults = ingestAspectsToLocalDB(aspectsBatch, overwrite);
-    List<UpdateAspectResult> mclResults = emitMCL(ingestResults, emitMCL);
-    ingestToLocalDBTimer.stop();
+    long took = ingestToLocalDBTimer.stop();
+    log.info(
+        "Ingestion of aspects batch to database took {} ms", TimeUnit.NANOSECONDS.toMillis(took));
 
+    List<UpdateAspectResult> mclResults = emitMCL(ingestResults, emitMCL);
     return mclResults;
   }
 
@@ -1505,10 +1513,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
       AspectSpec aspectSpec) {
     boolean isNoOp = oldAspect == newAspect;
     if (!isNoOp || alwaysEmitChangeLog || shouldAspectEmitChangeLog(aspectSpec)) {
-      log.debug(
-          "Producing MetadataChangeLog for ingested aspect {}, urn {}",
-          aspectSpec.getName(),
-          entityUrn);
+      log.info("Producing MCL for ingested aspect {}, urn {}", aspectSpec.getName(), entityUrn);
 
       final MetadataChangeLog metadataChangeLog =
           constructMCL(
@@ -1528,8 +1533,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
           alwaysProduceMCLAsync(entityUrn, aspectSpec, metadataChangeLog);
       return emissionStatus.getFirst() != null ? Optional.of(emissionStatus) : Optional.empty();
     } else {
-      log.debug(
-          "Skipped producing MetadataChangeLog for ingested aspect {}, urn {}. Aspect has not changed.",
+      log.info(
+          "Skipped producing MCL for ingested aspect {}, urn {}. Aspect has not changed.",
           aspectSpec.getName(),
           entityUrn);
       return Optional.empty();
@@ -1636,7 +1641,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     final List<Pair<String, RecordTemplate>> aspectRecordsToIngest =
         NewModelUtils.getAspectsFromSnapshot(snapshotRecord);
 
-    log.info("INGEST urn {} with system metadata {}", urn, systemMetadata.toString());
+    log.info("Ingesting entity urn {} with system metadata {}", urn, systemMetadata.toString());
 
     AspectsBatchImpl aspectsBatch =
         AspectsBatchImpl.builder()
