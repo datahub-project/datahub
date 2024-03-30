@@ -9,7 +9,7 @@ import { GlossaryTermAssociation, SubResourceType } from '../../../../types.gene
 import { REDESIGN_COLORS } from '../../../entityV2/shared/constants';
 import { useHasMatchedFieldByUrn } from '../../../search/context/SearchResultContext';
 import { useEntityRegistry } from '../../../useEntityRegistry';
-import { generateColor } from '../../../entityV2/shared/components/styled/StyledTag';
+import { generateColorFromPalette } from '../../../glossaryV2/colorUtils';
 
 const PROPAGATOR_URN = 'urn:li:corpuser:__datahub_propagator';
 
@@ -129,9 +129,14 @@ export default function TermContent({
 }: Props) {
     const entityRegistry = useEntityRegistry();
     const [removeTermMutation] = useRemoveTermMutation();
-    const highlightTerm = useHasMatchedFieldByUrn(term.term.urn, 'glossaryTerms');
-    const displayName = entityRegistry.getDisplayName(term.term.type, term.term);
-    const termColor = generateColor.hex(displayName);
+    const { parentNodes, urn, type } = term.term;
+
+    const highlightTerm = useHasMatchedFieldByUrn(urn, 'glossaryTerms');
+    const lastParentNode = parentNodes && parentNodes.count > 0 && parentNodes.nodes[parentNodes.count - 1];
+    const termColor = lastParentNode
+        ? lastParentNode.displayProperties?.colorHex || generateColorFromPalette(lastParentNode.urn)
+        : generateColorFromPalette(urn);
+    const displayName = entityRegistry.getDisplayName(type, term.term);
     const removeTerm = (termToRemove: GlossaryTermAssociation) => {
         onOpenModal?.();
         const termName = termToRemove && entityRegistry.getDisplayName(termToRemove.term.type, termToRemove.term);

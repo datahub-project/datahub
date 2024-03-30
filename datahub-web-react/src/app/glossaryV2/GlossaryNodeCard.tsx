@@ -5,9 +5,8 @@ import { Maybe } from 'graphql/jsutils/Maybe';
 import TermGroupIcon from '../../images/glossary_collections_bookmark.svg?react';
 import TermIcon from '../../images/collections_bookmark.svg?react';
 import { DisplayProperties, EntityType } from '../../types.generated';
-import { generateColor } from '../entityV2/shared/components/styled/StyledTag';
-import { hexToRgba } from '../entityV2/shared/links/colorUtils';
 import { REDESIGN_COLORS, ANTD_GRAY, ANTD_GRAY_V2 } from '../entityV2/shared/constants';
+import { generateColorFromPalette } from './colorUtils';
 
 interface GlossaryItemCardHeaderProps {
     color: string;
@@ -21,7 +20,7 @@ const GlossaryItemCardHeader = styled.div<GlossaryItemCardHeaderProps>`
     position: relative;
     overflow: hidden;
     gap: 5px;
-    background-color: ${(props) => hexToRgba(props.color, 0.7)};
+    background-color: ${(props) => props.color};
 
     svg {
         height: 22px;
@@ -70,11 +69,7 @@ const GlossaryItemCard = styled.div`
     }
 `;
 
-interface GlossaryItemBadgeProps {
-    color: string;
-}
-
-const GlossaryItemBadge = styled.span<GlossaryItemBadgeProps>`
+const GlossaryItemBadge = styled.span`
     position: absolute;
     left: -35px;
     top: 8px;
@@ -82,7 +77,7 @@ const GlossaryItemBadge = styled.span<GlossaryItemBadgeProps>`
     transform: rotate(-45deg);
     padding: 8px;
     opacity: 1;
-    background-color: ${(props) => `${props.color}`};
+    background-color: rgba(0, 0, 0, 0.17);
 `;
 
 const GlossaryItemCardDetails = styled.div`
@@ -131,14 +126,14 @@ interface Props {
 
 const GlossaryNodeCard = (props: Props) => {
     const { name, type, description, count, displayProperties, urn } = props;
-    const glossaryColor = displayProperties?.colorHex || generateColor.hex(urn);
+    const glossaryColor = displayProperties?.colorHex || generateColorFromPalette(urn);
 
     return (
         <GlossaryItemCard>
             <GlossaryItemCardHeader color={glossaryColor}>
                 <TermGroupIcon />
                 <GlossaryCardHeader>{name}</GlossaryCardHeader>
-                <GlossaryItemBadge color={glossaryColor} />
+                <GlossaryItemBadge />
             </GlossaryItemCardHeader>
             <GlossaryItemCardDetails>
                 <GlossaryItemCardDescription>{description || '--'}</GlossaryItemCardDescription>

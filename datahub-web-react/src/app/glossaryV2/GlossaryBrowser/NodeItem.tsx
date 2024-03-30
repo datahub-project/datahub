@@ -3,7 +3,6 @@ import { LoadingOutlined } from '@ant-design/icons';
 import { KeyboardArrowDownRounded, KeyboardArrowRightRounded } from '@mui/icons-material';
 import styled from 'styled-components/macro';
 import { Entity, EntityType, GlossaryNode, GlossaryTerm } from '../../../types.generated';
-import { generateColor } from '../../entityV2/shared/components/styled/StyledTag';
 import { REDESIGN_COLORS } from '../../entityV2/shared/constants';
 import { useEntityRegistry } from '../../useEntityRegistry';
 import { useGetGlossaryNodeQuery } from '../../../graphql/glossaryNode.generated';
@@ -11,6 +10,7 @@ import TermItem, { TermLink as NodeLink, NameWrapper } from './TermItem';
 import { sortGlossaryNodes } from '../../entityV2/glossaryNode/utils';
 import { sortGlossaryTerms } from '../../entityV2/glossaryTerm/utils';
 import { useGlossaryEntityData } from '../../entityV2/shared/GlossaryEntityContext';
+import { generateColorFromPalette } from '../colorUtils';
 
 interface ItemWrapperProps {
     isSelected: boolean;
@@ -155,7 +155,7 @@ function NodeItem(props: Props) {
 
     if (shouldHideNode) return null;
 
-    const glossaryColor = node.displayProperties?.colorHex || generateColor.hex(node.urn);
+    const glossaryColor = node.displayProperties?.colorHex || generateColorFromPalette(node.urn);
 
     return (
         <ItemWrapper isSelected={entityData?.urn === node.urn}>
