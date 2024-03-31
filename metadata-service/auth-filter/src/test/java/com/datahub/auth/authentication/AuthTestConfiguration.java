@@ -12,6 +12,7 @@ import com.linkedin.metadata.config.AuthPluginConfiguration;
 import com.linkedin.metadata.config.DataHubConfiguration;
 import com.linkedin.metadata.config.PluginConfiguration;
 import com.linkedin.metadata.entity.EntityService;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.List;
 import java.util.Map;
 import javax.servlet.ServletException;
@@ -23,16 +24,17 @@ import org.springframework.context.annotation.DependsOn;
 public class AuthTestConfiguration {
 
   @Bean
-  public EntityService entityService() {
+  public EntityService<?> entityService() {
     return mock(EntityService.class);
   }
 
   @Bean("dataHubTokenService")
   public StatefulTokenService statefulTokenService(
-      ConfigurationProvider configurationProvider, EntityService entityService) {
+      ConfigurationProvider configurationProvider, EntityService<?> entityService) {
     TokenServiceConfiguration tokenServiceConfiguration =
         configurationProvider.getAuthentication().getTokenService();
     return new StatefulTokenService(
+        TestOperationContexts.systemContextNoSearchAuthorization(),
         tokenServiceConfiguration.getSigningKey(),
         tokenServiceConfiguration.getSigningAlgorithm(),
         tokenServiceConfiguration.getIssuer(),

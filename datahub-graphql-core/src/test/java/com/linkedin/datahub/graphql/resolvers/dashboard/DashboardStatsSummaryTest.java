@@ -87,6 +87,7 @@ public class DashboardStatsSummaryTest {
     Filter filterForLatestStats = createUsageFilter(TEST_DASHBOARD_URN, null, null, false);
     Mockito.when(
             mockClient.getAspectValues(
+                any(),
                 Mockito.eq(UrnUtils.getUrn(TEST_DASHBOARD_URN)),
                 Mockito.eq(Constants.DASHBOARD_ENTITY_NAME),
                 Mockito.eq(Constants.DASHBOARD_USAGE_STATISTICS_ASPECT_NAME),
@@ -156,6 +157,7 @@ public class DashboardStatsSummaryTest {
     Filter filterForLatestStats = createUsageFilter(TEST_DASHBOARD_URN, null, null, false);
     Mockito.when(
             mockClient.getAspectValues(
+                any(),
                 Mockito.eq(UrnUtils.getUrn(TEST_DASHBOARD_URN)),
                 Mockito.eq(Constants.DASHBOARD_ENTITY_NAME),
                 Mockito.eq(Constants.DASHBOARD_USAGE_STATISTICS_ASPECT_NAME),
@@ -167,6 +169,7 @@ public class DashboardStatsSummaryTest {
 
     Mockito.when(
             mockClient.getAggregatedStats(
+                any(),
                 Mockito.eq(Constants.DASHBOARD_ENTITY_NAME),
                 Mockito.eq(Constants.DASHBOARD_USAGE_STATISTICS_ASPECT_NAME),
                 Mockito.any(),

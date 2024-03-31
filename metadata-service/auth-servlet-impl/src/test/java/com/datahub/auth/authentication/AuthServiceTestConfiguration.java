@@ -7,6 +7,7 @@ import com.datahub.authentication.user.NativeUserService;
 import com.datahub.telemetry.TrackingService;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.entity.EntityService;
+import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.services.SecretService;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.test.mock.mockito.MockBean;
@@ -16,6 +17,9 @@ public class AuthServiceTestConfiguration {
   @MockBean StatelessTokenService _statelessTokenService;
 
   @MockBean Authentication _systemAuthentication;
+
+  @MockBean(name = "systemOperationContext")
+  OperationContext systemOperationContext;
 
   @MockBean(name = "configurationProvider")
   ConfigurationProvider _configProvider;

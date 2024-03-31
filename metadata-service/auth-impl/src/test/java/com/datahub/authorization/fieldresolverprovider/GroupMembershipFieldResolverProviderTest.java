@@ -22,6 +22,8 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.identity.GroupMembership;
 import com.linkedin.identity.NativeGroupMembership;
 import com.linkedin.r2.RemoteInvocationException;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.net.URISyntaxException;
 import java.util.Set;
 import org.mockito.Mock;
@@ -40,13 +42,16 @@ public class GroupMembershipFieldResolverProviderTest {
   @Mock private EntityClient entityClientMock;
   @Mock private Authentication systemAuthenticationMock;
 
+  private OperationContext systemOperationContext;
+
   private GroupMembershipFieldResolverProvider groupMembershipFieldResolverProvider;
 
   @BeforeMethod
   public void setup() {
     MockitoAnnotations.initMocks(this);
     groupMembershipFieldResolverProvider =
-        new GroupMembershipFieldResolverProvider(entityClientMock, systemAuthenticationMock);
+        new GroupMembershipFieldResolverProvider(entityClientMock);
+    systemOperationContext = TestOperationContexts.systemContextNoSearchAuthorization();
   }
 
   @Test
@@ -60,21 +65,23 @@ public class GroupMembershipFieldResolverProviderTest {
   public void shouldReturnEmptyFieldValueWhenResponseIsNull()
       throws RemoteInvocationException, URISyntaxException {
     when(entityClientMock.getV2(
+            eq(systemOperationContext),
             eq(DATASET_ENTITY_NAME),
             any(Urn.class),
-            eq(ImmutableSet.of(GROUP_MEMBERSHIP_ASPECT_NAME, NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME)),
-            eq(systemAuthenticationMock)))
+            eq(ImmutableSet.of(GROUP_MEMBERSHIP_ASPECT_NAME, NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME))))
         .thenReturn(null);
 
-    var result = groupMembershipFieldResolverProvider.getFieldResolver(RESOURCE_SPEC);
+    var result =
+        groupMembershipFieldResolverProvider.getFieldResolver(
+            systemOperationContext, RESOURCE_SPEC);
 
     assertTrue(result.getFieldValuesFuture().join().getValues().isEmpty());
     verify(entityClientMock, times(1))
         .getV2(
+            eq(systemOperationContext),
             eq(DATASET_ENTITY_NAME),
             any(Urn.class),
-            eq(ImmutableSet.of(GROUP_MEMBERSHIP_ASPECT_NAME, NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME)),
-            eq(systemAuthenticationMock));
+            eq(ImmutableSet.of(GROUP_MEMBERSHIP_ASPECT_NAME, NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME)));
   }
 
   @Test
@@ -83,42 +90,46 @@ public class GroupMembershipFieldResolverProviderTest {
     var entityResponseMock = mock(EntityResponse.class);
     when(entityResponseMock.getAspects()).thenReturn(new EnvelopedAspectMap());
     when(entityClientMock.getV2(
+            eq(systemOperationContext),
             eq(DATASET_ENTITY_NAME),
             any(Urn.class),
-            eq(ImmutableSet.of(GROUP_MEMBERSHIP_ASPECT_NAME, NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME)),
-            eq(systemAuthenticationMock)))
+            eq(ImmutableSet.of(GROUP_MEMBERSHIP_ASPECT_NAME, NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME))))
         .thenReturn(entityResponseMock);
 
-    var result = groupMembershipFieldResolverProvider.getFieldResolver(RESOURCE_SPEC);
+    var result =
+        groupMembershipFieldResolverProvider.getFieldResolver(
+            systemOperationContext, RESOURCE_SPEC);
 
     assertTrue(result.getFieldValuesFuture().join().getValues().isEmpty());
     verify(entityClientMock, times(1))
         .getV2(
+            eq(systemOperationContext),
             eq(DATASET_ENTITY_NAME),
             any(Urn.class),
-            eq(ImmutableSet.of(GROUP_MEMBERSHIP_ASPECT_NAME, NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME)),
-            eq(systemAuthenticationMock));
+            eq(ImmutableSet.of(GROUP_MEMBERSHIP_ASPECT_NAME, NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME)));
   }
 
   @Test
   public void shouldReturnEmptyFieldValueWhenThereIsAnException()
       throws RemoteInvocationException, URISyntaxException {
     when(entityClientMock.getV2(
+            eq(systemOperationContext),
             eq(DATASET_ENTITY_NAME),
             any(Urn.class),
-            eq(ImmutableSet.of(GROUP_MEMBERSHIP_ASPECT_NAME, NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME)),
-            eq(systemAuthenticationMock)))
+            eq(ImmutableSet.of(GROUP_MEMBERSHIP_ASPECT_NAME, NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME))))
         .thenThrow(new RemoteInvocationException());
 
-    var result = groupMembershipFieldResolverProvider.getFieldResolver(RESOURCE_SPEC);
+    var result =
+        groupMembershipFieldResolverProvider.getFieldResolver(
+            systemOperationContext, RESOURCE_SPEC);
 
     assertTrue(result.getFieldValuesFuture().join().getValues().isEmpty());
     verify(entityClientMock, times(1))
         .getV2(
+            eq(systemOperationContext),
             eq(DATASET_ENTITY_NAME),
             any(Urn.class),
-            eq(ImmutableSet.of(GROUP_MEMBERSHIP_ASPECT_NAME, NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME)),
-            eq(systemAuthenticationMock));
+            eq(ImmutableSet.of(GROUP_MEMBERSHIP_ASPECT_NAME, NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME)));
   }
 
   @Test
@@ -135,21 +146,23 @@ public class GroupMembershipFieldResolverProviderTest {
         new EnvelopedAspect().setValue(new Aspect(groupMembership.data())));
     when(entityResponseMock.getAspects()).thenReturn(envelopedAspectMap);
     when(entityClientMock.getV2(
+            eq(systemOperationContext),
             eq(DATASET_ENTITY_NAME),
             any(Urn.class),
-            eq(ImmutableSet.of(GROUP_MEMBERSHIP_ASPECT_NAME, NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME)),
-            eq(systemAuthenticationMock)))
+            eq(ImmutableSet.of(GROUP_MEMBERSHIP_ASPECT_NAME, NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME))))
         .thenReturn(entityResponseMock);
 
-    var result = groupMembershipFieldResolverProvider.getFieldResolver(RESOURCE_SPEC);
+    var result =
+        groupMembershipFieldResolverProvider.getFieldResolver(
+            systemOperationContext, RESOURCE_SPEC);
 
     assertEquals(Set.of(CORPGROUP_URN), result.getFieldValuesFuture().join().getValues());
     verify(entityClientMock, times(1))
         .getV2(
+            eq(systemOperationContext),
             eq(DATASET_ENTITY_NAME),
             any(Urn.class),
-            eq(ImmutableSet.of(GROUP_MEMBERSHIP_ASPECT_NAME, NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME)),
-            eq(systemAuthenticationMock));
+            eq(ImmutableSet.of(GROUP_MEMBERSHIP_ASPECT_NAME, NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME)));
   }
 
   @Test
@@ -167,21 +180,23 @@ public class GroupMembershipFieldResolverProviderTest {
         new EnvelopedAspect().setValue(new Aspect(nativeGroupMembership.data())));
     when(entityResponseMock.getAspects()).thenReturn(envelopedAspectMap);
     when(entityClientMock.getV2(
+            eq(systemOperationContext),
             eq(DATASET_ENTITY_NAME),
             any(Urn.class),
-            eq(ImmutableSet.of(GROUP_MEMBERSHIP_ASPECT_NAME, NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME)),
-            eq(systemAuthenticationMock)))
+            eq(ImmutableSet.of(GROUP_MEMBERSHIP_ASPECT_NAME, NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME))))
         .thenReturn(entityResponseMock);
 
-    var result = groupMembershipFieldResolverProvider.getFieldResolver(RESOURCE_SPEC);
+    var result =
+        groupMembershipFieldResolverProvider.getFieldResolver(
+            systemOperationContext, RESOURCE_SPEC);
 
     assertEquals(Set.of(NATIVE_CORPGROUP_URN), result.getFieldValuesFuture().join().getValues());
     verify(entityClientMock, times(1))
         .getV2(
+            eq(systemOperationContext),
             eq(DATASET_ENTITY_NAME),
             any(Urn.class),
-            eq(ImmutableSet.of(GROUP_MEMBERSHIP_ASPECT_NAME, NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME)),
-            eq(systemAuthenticationMock));
+            eq(ImmutableSet.of(GROUP_MEMBERSHIP_ASPECT_NAME, NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME)));
   }
 
   @Test
@@ -205,22 +220,24 @@ public class GroupMembershipFieldResolverProviderTest {
         new EnvelopedAspect().setValue(new Aspect(nativeGroupMembership.data())));
     when(entityResponseMock.getAspects()).thenReturn(envelopedAspectMap);
     when(entityClientMock.getV2(
+            eq(systemOperationContext),
             eq(DATASET_ENTITY_NAME),
             any(Urn.class),
-            eq(ImmutableSet.of(GROUP_MEMBERSHIP_ASPECT_NAME, NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME)),
-            eq(systemAuthenticationMock)))
+            eq(ImmutableSet.of(GROUP_MEMBERSHIP_ASPECT_NAME, NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME))))
         .thenReturn(entityResponseMock);
 
-    var result = groupMembershipFieldResolverProvider.getFieldResolver(RESOURCE_SPEC);
+    var result =
+        groupMembershipFieldResolverProvider.getFieldResolver(
+            systemOperationContext, RESOURCE_SPEC);
 
     assertEquals(
         Set.of(CORPGROUP_URN, NATIVE_CORPGROUP_URN),
         result.getFieldValuesFuture().join().getValues());
     verify(entityClientMock, times(1))
         .getV2(
+            eq(systemOperationContext),
             eq(DATASET_ENTITY_NAME),
             any(Urn.class),
-            eq(ImmutableSet.of(GROUP_MEMBERSHIP_ASPECT_NAME, NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME)),
-            eq(systemAuthenticationMock));
+            eq(ImmutableSet.of(GROUP_MEMBERSHIP_ASPECT_NAME, NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME)));
   }
 }

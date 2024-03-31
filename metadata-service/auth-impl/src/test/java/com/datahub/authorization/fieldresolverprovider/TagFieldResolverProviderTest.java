@@ -10,7 +10,6 @@ import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
-import com.datahub.authentication.Authentication;
 import com.datahub.authorization.EntityFieldType;
 import com.datahub.authorization.EntitySpec;
 import com.linkedin.common.GlobalTags;
@@ -24,6 +23,7 @@ import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.r2.RemoteInvocationException;
+import io.datahubproject.metadata.context.OperationContext;
 import java.net.URISyntaxException;
 import java.util.Collections;
 import java.util.Set;
@@ -40,15 +40,13 @@ public class TagFieldResolverProviderTest {
   private static final EntitySpec RESOURCE_SPEC = new EntitySpec(DATASET_ENTITY_NAME, RESOURCE_URN);
 
   @Mock private EntityClient entityClientMock;
-  @Mock private Authentication systemAuthenticationMock;
 
   private TagFieldResolverProvider tagFieldResolverProvider;
 
   @BeforeMethod
   public void setup() {
     MockitoAnnotations.initMocks(this);
-    tagFieldResolverProvider =
-        new TagFieldResolverProvider(entityClientMock, systemAuthenticationMock);
+    tagFieldResolverProvider = new TagFieldResolverProvider(entityClientMock);
   }
 
   @Test
@@ -60,21 +58,22 @@ public class TagFieldResolverProviderTest {
   public void shouldReturnEmptyFieldValueWhenResponseIsNull()
       throws RemoteInvocationException, URISyntaxException {
     when(entityClientMock.getV2(
+            any(OperationContext.class),
             eq(DATASET_ENTITY_NAME),
             any(Urn.class),
-            eq(Collections.singleton(GLOBAL_TAGS_ASPECT_NAME)),
-            eq(systemAuthenticationMock)))
+            eq(Collections.singleton(GLOBAL_TAGS_ASPECT_NAME))))
         .thenReturn(null);
 
-    var result = tagFieldResolverProvider.getFieldResolver(RESOURCE_SPEC);
+    var result =
+        tagFieldResolverProvider.getFieldResolver(mock(OperationContext.class), RESOURCE_SPEC);
 
     assertTrue(result.getFieldValuesFuture().join().getValues().isEmpty());
     verify(entityClientMock, times(1))
         .getV2(
+            any(),
             eq(DATASET_ENTITY_NAME),
             any(Urn.class),
-            eq(Collections.singleton(GLOBAL_TAGS_ASPECT_NAME)),
-            eq(systemAuthenticationMock));
+            eq(Collections.singleton(GLOBAL_TAGS_ASPECT_NAME)));
   }
 
   @Test
@@ -83,42 +82,44 @@ public class TagFieldResolverProviderTest {
     var entityResponseMock = mock(EntityResponse.class);
     when(entityResponseMock.getAspects()).thenReturn(new EnvelopedAspectMap());
     when(entityClientMock.getV2(
+            any(OperationContext.class),
             eq(DATASET_ENTITY_NAME),
             any(Urn.class),
-            eq(Collections.singleton(GLOBAL_TAGS_ASPECT_NAME)),
-            eq(systemAuthenticationMock)))
+            eq(Collections.singleton(GLOBAL_TAGS_ASPECT_NAME))))
         .thenReturn(entityResponseMock);
 
-    var result = tagFieldResolverProvider.getFieldResolver(RESOURCE_SPEC);
+    var result =
+        tagFieldResolverProvider.getFieldResolver(mock(OperationContext.class), RESOURCE_SPEC);
 
     assertTrue(result.getFieldValuesFuture().join().getValues().isEmpty());
     verify(entityClientMock, times(1))
         .getV2(
+            any(OperationContext.class),
             eq(DATASET_ENTITY_NAME),
             any(Urn.class),
-            eq(Collections.singleton(GLOBAL_TAGS_ASPECT_NAME)),
-            eq(systemAuthenticationMock));
+            eq(Collections.singleton(GLOBAL_TAGS_ASPECT_NAME)));
   }
 
   @Test
   public void shouldReturnEmptyFieldValueWhenThereIsAnException()
       throws RemoteInvocationException, URISyntaxException {
     when(entityClientMock.getV2(
+            any(OperationContext.class),
             eq(DATASET_ENTITY_NAME),
             any(Urn.class),
-            eq(Collections.singleton(GLOBAL_TAGS_ASPECT_NAME)),
-            eq(systemAuthenticationMock)))
+            eq(Collections.singleton(GLOBAL_TAGS_ASPECT_NAME))))
         .thenThrow(new RemoteInvocationException());
 
-    var result = tagFieldResolverProvider.getFieldResolver(RESOURCE_SPEC);
+    var result =
+        tagFieldResolverProvider.getFieldResolver(mock(OperationContext.class), RESOURCE_SPEC);
 
     assertTrue(result.getFieldValuesFuture().join().getValues().isEmpty());
     verify(entityClientMock, times(1))
         .getV2(
+            any(),
             eq(DATASET_ENTITY_NAME),
             any(Urn.class),
-            eq(Collections.singleton(GLOBAL_TAGS_ASPECT_NAME)),
-            eq(systemAuthenticationMock));
+            eq(Collections.singleton(GLOBAL_TAGS_ASPECT_NAME)));
   }
 
   @Test
@@ -135,20 +136,21 @@ public class TagFieldResolverProviderTest {
         GLOBAL_TAGS_ASPECT_NAME, new EnvelopedAspect().setValue(new Aspect(globalTags.data())));
     when(entityResponseMock.getAspects()).thenReturn(envelopedAspectMap);
     when(entityClientMock.getV2(
+            any(OperationContext.class),
             eq(DATASET_ENTITY_NAME),
             any(Urn.class),
-            eq(Collections.singleton(GLOBAL_TAGS_ASPECT_NAME)),
-            eq(systemAuthenticationMock)))
+            eq(Collections.singleton(GLOBAL_TAGS_ASPECT_NAME))))
         .thenReturn(entityResponseMock);
 
-    var result = tagFieldResolverProvider.getFieldResolver(RESOURCE_SPEC);
+    var result =
+        tagFieldResolverProvider.getFieldResolver(mock(OperationContext.class), RESOURCE_SPEC);
 
     assertEquals(Set.of(TAG_URN), result.getFieldValuesFuture().join().getValues());
     verify(entityClientMock, times(1))
         .getV2(
+            any(OperationContext.class),
             eq(DATASET_ENTITY_NAME),
             any(Urn.class),
-            eq(Collections.singleton(GLOBAL_TAGS_ASPECT_NAME)),
-            eq(systemAuthenticationMock));
+            eq(Collections.singleton(GLOBAL_TAGS_ASPECT_NAME)));
   }
 }

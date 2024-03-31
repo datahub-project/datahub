@@ -16,6 +16,7 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.EntityUtils;
+import io.datahubproject.metadata.context.OperationContext;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 
@@ -28,6 +29,7 @@ public class LinkUtils {
   private LinkUtils() {}
 
   public static void addLink(
+      @Nonnull OperationContext opContext,
       String linkUrl,
       String linkLabel,
       Urn resourceUrn,
@@ -36,12 +38,14 @@ public class LinkUtils {
     InstitutionalMemory institutionalMemoryAspect =
         (InstitutionalMemory)
             EntityUtils.getAspectFromEntity(
+                opContext,
                 resourceUrn.toString(),
                 Constants.INSTITUTIONAL_MEMORY_ASPECT_NAME,
                 entityService,
                 new InstitutionalMemory());
     addLink(institutionalMemoryAspect, linkUrl, linkLabel, actor);
     persistAspect(
+        opContext,
         resourceUrn,
         Constants.INSTITUTIONAL_MEMORY_ASPECT_NAME,
         institutionalMemoryAspect,
@@ -50,16 +54,22 @@ public class LinkUtils {
   }
 
   public static void removeLink(
-      String linkUrl, Urn resourceUrn, Urn actor, EntityService<?> entityService) {
+      @Nonnull OperationContext opContext,
+      String linkUrl,
+      Urn resourceUrn,
+      Urn actor,
+      EntityService<?> entityService) {
     InstitutionalMemory institutionalMemoryAspect =
         (InstitutionalMemory)
             EntityUtils.getAspectFromEntity(
+                opContext,
                 resourceUrn.toString(),
                 Constants.INSTITUTIONAL_MEMORY_ASPECT_NAME,
                 entityService,
                 new InstitutionalMemory());
     removeLink(institutionalMemoryAspect, linkUrl);
     persistAspect(
+        opContext,
         resourceUrn,
         Constants.INSTITUTIONAL_MEMORY_ASPECT_NAME,
         institutionalMemoryAspect,
@@ -113,7 +123,10 @@ public class LinkUtils {
   }
 
   public static Boolean validateAddRemoveInput(
-      String linkUrl, Urn resourceUrn, EntityService<?> entityService) {
+      @Nonnull OperationContext opContext,
+      String linkUrl,
+      Urn resourceUrn,
+      EntityService<?> entityService) {
 
     try {
       new Url(linkUrl);
@@ -124,7 +137,7 @@ public class LinkUtils {
               resourceUrn));
     }
 
-    if (!entityService.exists(resourceUrn, true)) {
+    if (!entityService.exists(opContext, resourceUrn, true)) {
       throw new IllegalArgumentException(
           String.format(
               "Failed to change institutional memory for resource %s. Resource does not exist.",

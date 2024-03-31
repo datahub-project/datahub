@@ -1,9 +1,8 @@
-package com.linkedin.metadata.graph;
+package com.linkedin.metadata.aspect.models.graph;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
-import com.linkedin.metadata.utils.SearchUtil;
 import com.linkedin.util.Pair;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -11,6 +10,7 @@ import java.security.NoSuchAlgorithmException;
 import java.util.Base64;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -98,7 +98,17 @@ public class Edge {
           new Pair<>(EDGE_FIELD_LIFECYCLE_OWNER, SortOrder.ASCENDING));
   public static List<SortCriterion> EDGE_SORT_CRITERION =
       KEY_SORTS.stream()
-          .map(entry -> SearchUtil.sortBy(entry.getKey(), entry.getValue()))
+          .map(
+              entry -> {
+                SortCriterion sortCriterion = new SortCriterion();
+                sortCriterion.setField(entry.getKey());
+                sortCriterion.setOrder(
+                    com.linkedin.metadata.query.filter.SortOrder.valueOf(
+                        Optional.ofNullable(entry.getValue())
+                            .orElse(SortOrder.ASCENDING)
+                            .toString()));
+                return sortCriterion;
+              })
           .collect(Collectors.toList());
   private static final String DOC_DELIMETER = "--";
 }

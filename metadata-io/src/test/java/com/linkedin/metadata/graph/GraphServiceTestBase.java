@@ -11,6 +11,8 @@ import com.linkedin.common.urn.DataJobUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.schema.annotation.PathSpecBasedSchemaAnnotationVisitor;
+import com.linkedin.metadata.aspect.models.graph.Edge;
+import com.linkedin.metadata.aspect.models.graph.RelatedEntity;
 import com.linkedin.metadata.config.search.GraphQueryConfiguration;
 import com.linkedin.metadata.graph.dgraph.DgraphGraphService;
 import com.linkedin.metadata.graph.neo4j.Neo4jGraphService;
@@ -64,11 +66,11 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
   protected static class RelatedEntityComparator implements Comparator<RelatedEntity> {
     @Override
     public int compare(RelatedEntity left, RelatedEntity right) {
-      int cmp = left.relationshipType.compareTo(right.relationshipType);
+      int cmp = left.getRelationshipType().compareTo(right.getRelationshipType());
       if (cmp != 0) {
         return cmp;
       }
-      return left.urn.compareTo(right.urn);
+      return left.getUrn().compareTo(right.getUrn());
     }
   }
 

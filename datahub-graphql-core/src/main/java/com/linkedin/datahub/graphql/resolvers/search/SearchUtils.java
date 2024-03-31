@@ -16,7 +16,6 @@ import static com.linkedin.metadata.Constants.ML_MODEL_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.ML_MODEL_GROUP_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.ML_PRIMARY_KEY_ENTITY_NAME;
 
-import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -34,6 +33,7 @@ import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.metadata.service.ViewService;
 import com.linkedin.view.DataHubViewInfo;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -256,11 +256,11 @@ public class SearchUtils {
    * specified urn cannot be found.
    */
   public static DataHubViewInfo resolveView(
+      @Nonnull OperationContext opContext,
       @Nonnull ViewService viewService,
-      @Nonnull final Urn viewUrn,
-      @Nonnull final Authentication authentication) {
+      @Nonnull final Urn viewUrn) {
     try {
-      DataHubViewInfo maybeViewInfo = viewService.getViewInfo(viewUrn, authentication);
+      DataHubViewInfo maybeViewInfo = viewService.getViewInfo(opContext, viewUrn);
       if (maybeViewInfo == null) {
         log.warn(
             String.format("Failed to resolve View with urn %s. View does not exist!", viewUrn));

@@ -16,6 +16,6 @@ public class SettingsServiceFactory {
   @Scope("singleton")
   @Nonnull
   protected SettingsService getInstance(final SystemEntityClient entityClient) throws Exception {
-    return new SettingsService(entityClient, entityClient.getSystemAuthentication());
+    return new SettingsService(entityClient);
   }
 }

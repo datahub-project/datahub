@@ -107,8 +107,7 @@ public class PolicyFetcher {
 
     // Fetch DataHubPolicyInfo aspects for each urn
     final Map<Urn, EntityResponse> policyEntities =
-        entityClient.batchGetV2(
-            POLICY_ENTITY_NAME, new HashSet<>(policyUrns), null, opContext.getAuthentication());
+        entityClient.batchGetV2(opContext, POLICY_ENTITY_NAME, new HashSet<>(policyUrns), null);
     return new PolicyFetchResult(
         policyUrns.stream()
             .map(policyEntities::get)

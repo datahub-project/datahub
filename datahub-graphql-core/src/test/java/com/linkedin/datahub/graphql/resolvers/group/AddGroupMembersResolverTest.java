@@ -61,8 +61,8 @@ public class AddGroupMembersResolverTest {
     when(_dataFetchingEnvironment.getContext()).thenReturn(mockContext);
     when(mockContext.getAuthentication()).thenReturn(_authentication);
     when(mockContext.getActorUrn()).thenReturn(USER_URN_STRING);
-    when(_groupService.groupExists(any())).thenReturn(true);
-    when(_groupService.getGroupOrigin(eq(_groupUrn))).thenReturn(groupOrigin);
+    when(_groupService.groupExists(any(), any())).thenReturn(true);
+    when(_groupService.getGroupOrigin(any(), eq(_groupUrn))).thenReturn(groupOrigin);
 
     assertThrows(() -> _resolver.get(_dataFetchingEnvironment).join());
   }
@@ -76,8 +76,8 @@ public class AddGroupMembersResolverTest {
     when(_dataFetchingEnvironment.getContext()).thenReturn(mockContext);
     when(mockContext.getAuthentication()).thenReturn(_authentication);
     when(mockContext.getActorUrn()).thenReturn(USER_URN_STRING);
-    when(_groupService.groupExists(any())).thenReturn(true);
-    when(_groupService.getGroupOrigin(eq(_groupUrn))).thenReturn(groupOrigin);
+    when(_groupService.groupExists(any(), any())).thenReturn(true);
+    when(_groupService.getGroupOrigin(any(), eq(_groupUrn))).thenReturn(groupOrigin);
 
     _resolver.get(_dataFetchingEnvironment).join();
   }

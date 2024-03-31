@@ -4,7 +4,6 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 import static org.testng.AssertJUnit.assertNotNull;
 
 import com.linkedin.datahub.upgrade.impl.DefaultUpgradeManager;
@@ -13,7 +12,7 @@ import com.linkedin.datahub.upgrade.system.vianodes.ReindexDataJobViaNodesCLL;
 import com.linkedin.metadata.entity.AspectDao;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
-import com.linkedin.metadata.models.registry.EntityRegistry;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.List;
 import javax.inject.Named;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -38,8 +37,6 @@ public class DatahubUpgradeNonBlockingTest extends AbstractTestNGSpringContextTe
   @Named("systemUpdateNonBlocking")
   private SystemUpdateNonBlocking systemUpdateNonBlocking;
 
-  @Autowired private EntityRegistry entityRegistry;
-
   @Autowired
   @Test
   public void testSystemUpdateNonBlockingInit() {
@@ -49,7 +46,6 @@ public class DatahubUpgradeNonBlockingTest extends AbstractTestNGSpringContextTe
   @Test
   public void testReindexDataJobViaNodesCLLPaging() {
     EntityService<?> mockService = mock(EntityService.class);
-    when(mockService.getEntityRegistry()).thenReturn(entityRegistry);
 
     AspectDao mockAspectDao = mock(AspectDao.class);
 
@@ -59,7 +55,10 @@ public class DatahubUpgradeNonBlockingTest extends AbstractTestNGSpringContextTe
         new SystemUpdateNonBlocking(List.of(), List.of(cllUpgrade), null);
     DefaultUpgradeManager manager = new DefaultUpgradeManager();
     manager.register(upgrade);
-    manager.execute("SystemUpdateNonBlocking", List.of());
+    manager.execute(
+        TestOperationContexts.systemContextNoSearchAuthorization(),
+        "SystemUpdateNonBlocking",
+        List.of());
     verify(mockAspectDao, times(1))
         .streamAspectBatches(
             eq(

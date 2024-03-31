@@ -43,6 +43,7 @@ public class UpdateNameResolver implements DataFetcher<CompletableFuture<Boolean
 
   @Override
   public CompletableFuture<Boolean> get(DataFetchingEnvironment environment) throws Exception {
+    final QueryContext context = environment.getContext();
     final UpdateNameInput input =
         bindArgument(environment.getArgument("input"), UpdateNameInput.class);
     Urn targetUrn = Urn.createFromString(input.getUrn());
@@ -50,22 +51,22 @@ public class UpdateNameResolver implements DataFetcher<CompletableFuture<Boolean
 
     return CompletableFuture.supplyAsync(
         () -> {
-          if (!_entityService.exists(targetUrn, true)) {
+          if (!_entityService.exists(context.getOperationContext(), targetUrn, true)) {
             throw new IllegalArgumentException(
                 String.format("Failed to update %s. %s does not exist.", targetUrn, targetUrn));
           }
 
           switch (targetUrn.getEntityType()) {
             case Constants.GLOSSARY_TERM_ENTITY_NAME:
-              return updateGlossaryTermName(targetUrn, input, environment.getContext());
+              return updateGlossaryTermName(targetUrn, input, context);
             case Constants.GLOSSARY_NODE_ENTITY_NAME:
-              return updateGlossaryNodeName(targetUrn, input, environment.getContext());
+              return updateGlossaryNodeName(targetUrn, input, context);
             case Constants.DOMAIN_ENTITY_NAME:
-              return updateDomainName(targetUrn, input, environment.getContext());
+              return updateDomainName(targetUrn, input, context);
             case Constants.CORP_GROUP_ENTITY_NAME:
-              return updateGroupName(targetUrn, input, environment.getContext());
+              return updateGroupName(targetUrn, input, context);
             case Constants.DATA_PRODUCT_ENTITY_NAME:
-              return updateDataProductName(targetUrn, input, environment.getContext());
+              return updateDataProductName(targetUrn, input, context);
             case Constants.BUSINESS_ATTRIBUTE_ENTITY_NAME:
               return updateBusinessAttributeName(targetUrn, input, environment.getContext());
             default:
@@ -84,6 +85,7 @@ public class UpdateNameResolver implements DataFetcher<CompletableFuture<Boolean
         GlossaryTermInfo glossaryTermInfo =
             (GlossaryTermInfo)
                 EntityUtils.getAspectFromEntity(
+                    context.getOperationContext(),
                     targetUrn.toString(),
                     Constants.GLOSSARY_TERM_INFO_ASPECT_NAME,
                     _entityService,
@@ -94,6 +96,7 @@ public class UpdateNameResolver implements DataFetcher<CompletableFuture<Boolean
         glossaryTermInfo.setName(input.getName());
         Urn actor = UrnUtils.getUrn(context.getActorUrn());
         persistAspect(
+            context.getOperationContext(),
             targetUrn,
             Constants.GLOSSARY_TERM_INFO_ASPECT_NAME,
             glossaryTermInfo,
@@ -118,6 +121,7 @@ public class UpdateNameResolver implements DataFetcher<CompletableFuture<Boolean
         GlossaryNodeInfo glossaryNodeInfo =
             (GlossaryNodeInfo)
                 EntityUtils.getAspectFromEntity(
+                    context.getOperationContext(),
                     targetUrn.toString(),
                     Constants.GLOSSARY_NODE_INFO_ASPECT_NAME,
                     _entityService,
@@ -128,6 +132,7 @@ public class UpdateNameResolver implements DataFetcher<CompletableFuture<Boolean
         glossaryNodeInfo.setName(input.getName());
         Urn actor = CorpuserUrn.createFromString(context.getActorUrn());
         persistAspect(
+            context.getOperationContext(),
             targetUrn,
             Constants.GLOSSARY_NODE_INFO_ASPECT_NAME,
             glossaryNodeInfo,
@@ -150,6 +155,7 @@ public class UpdateNameResolver implements DataFetcher<CompletableFuture<Boolean
         DomainProperties domainProperties =
             (DomainProperties)
                 EntityUtils.getAspectFromEntity(
+                    context.getOperationContext(),
                     targetUrn.toString(),
                     Constants.DOMAIN_PROPERTIES_ASPECT_NAME,
                     _entityService,
@@ -174,6 +180,7 @@ public class UpdateNameResolver implements DataFetcher<CompletableFuture<Boolean
         domainProperties.setName(input.getName());
         Urn actor = CorpuserUrn.createFromString(context.getActorUrn());
         persistAspect(
+            context.getOperationContext(),
             targetUrn,
             Constants.DOMAIN_PROPERTIES_ASPECT_NAME,
             domainProperties,
@@ -198,6 +205,7 @@ public class UpdateNameResolver implements DataFetcher<CompletableFuture<Boolean
         CorpGroupInfo corpGroupInfo =
             (CorpGroupInfo)
                 EntityUtils.getAspectFromEntity(
+                    context.getOperationContext(),
                     targetUrn.toString(),
                     Constants.CORP_GROUP_INFO_ASPECT_NAME,
                     _entityService,
@@ -208,7 +216,12 @@ public class UpdateNameResolver implements DataFetcher<CompletableFuture<Boolean
         corpGroupInfo.setDisplayName(input.getName());
         Urn actor = CorpuserUrn.createFromString(context.getActorUrn());
         persistAspect(
-            targetUrn, Constants.CORP_GROUP_INFO_ASPECT_NAME, corpGroupInfo, actor, _entityService);
+            context.getOperationContext(),
+            targetUrn,
+            Constants.CORP_GROUP_INFO_ASPECT_NAME,
+            corpGroupInfo,
+            actor,
+            _entityService);
 
         return true;
       } catch (Exception e) {
@@ -226,6 +239,7 @@ public class UpdateNameResolver implements DataFetcher<CompletableFuture<Boolean
       DataProductProperties dataProductProperties =
           (DataProductProperties)
               EntityUtils.getAspectFromEntity(
+                  context.getOperationContext(),
                   targetUrn.toString(),
                   Constants.DATA_PRODUCT_PROPERTIES_ASPECT_NAME,
                   _entityService,
@@ -237,7 +251,11 @@ public class UpdateNameResolver implements DataFetcher<CompletableFuture<Boolean
       Domains dataProductDomains =
           (Domains)
               EntityUtils.getAspectFromEntity(
-                  targetUrn.toString(), Constants.DOMAINS_ASPECT_NAME, _entityService, null);
+                  context.getOperationContext(),
+                  targetUrn.toString(),
+                  Constants.DOMAINS_ASPECT_NAME,
+                  _entityService,
+                  null);
       if (dataProductDomains != null
           && dataProductDomains.hasDomains()
           && dataProductDomains.getDomains().size() > 0) {
@@ -261,6 +279,7 @@ public class UpdateNameResolver implements DataFetcher<CompletableFuture<Boolean
       dataProductProperties.setName(input.getName());
       Urn actor = CorpuserUrn.createFromString(context.getActorUrn());
       persistAspect(
+          context.getOperationContext(),
           targetUrn,
           Constants.DATA_PRODUCT_PROPERTIES_ASPECT_NAME,
           dataProductProperties,

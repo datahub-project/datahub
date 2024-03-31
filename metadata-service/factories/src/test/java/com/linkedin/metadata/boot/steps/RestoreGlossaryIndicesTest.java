@@ -1,5 +1,10 @@
 package com.linkedin.metadata.boot.steps;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
@@ -52,26 +57,25 @@ public class RestoreGlossaryIndicesTest {
         new EntityResponse()
             .setUrn(glossaryTermUrn)
             .setAspects(new EnvelopedAspectMap(termInfoAspects)));
-    Mockito.when(
-            mockSearchService.search(
-                Mockito.any(),
-                Mockito.eq(List.of(Constants.GLOSSARY_TERM_ENTITY_NAME)),
-                Mockito.eq(""),
-                Mockito.any(),
-                Mockito.any(),
-                Mockito.eq(0),
-                Mockito.eq(1000)))
+    when(mockSearchService.search(
+            any(),
+            eq(List.of(Constants.GLOSSARY_TERM_ENTITY_NAME)),
+            eq(""),
+            any(),
+            any(),
+            eq(0),
+            eq(1000)))
         .thenReturn(
             new SearchResult()
                 .setNumEntities(1)
                 .setEntities(
                     new SearchEntityArray(
                         ImmutableList.of(new SearchEntity().setEntity(glossaryTermUrn)))));
-    Mockito.when(
-            mockService.getEntitiesV2(
-                Constants.GLOSSARY_TERM_ENTITY_NAME,
-                new HashSet<>(Collections.singleton(glossaryTermUrn)),
-                Collections.singleton(Constants.GLOSSARY_TERM_INFO_ASPECT_NAME)))
+    when(mockService.getEntitiesV2(
+            any(OperationContext.class),
+            eq(Constants.GLOSSARY_TERM_ENTITY_NAME),
+            eq(new HashSet<>(Collections.singleton(glossaryTermUrn))),
+            eq(Collections.singleton(Constants.GLOSSARY_TERM_INFO_ASPECT_NAME))))
         .thenReturn(termInfoResponses);
   }
 
@@ -88,42 +92,37 @@ public class RestoreGlossaryIndicesTest {
         new EntityResponse()
             .setUrn(glossaryNodeUrn)
             .setAspects(new EnvelopedAspectMap(nodeInfoAspects)));
-    Mockito.when(
-            mockSearchService.search(
-                Mockito.any(),
-                Mockito.eq(List.of(Constants.GLOSSARY_NODE_ENTITY_NAME)),
-                Mockito.eq(""),
-                Mockito.any(),
-                Mockito.any(),
-                Mockito.eq(0),
-                Mockito.eq(1000)))
+    when(mockSearchService.search(
+            any(),
+            eq(List.of(Constants.GLOSSARY_NODE_ENTITY_NAME)),
+            eq(""),
+            any(),
+            any(),
+            eq(0),
+            eq(1000)))
         .thenReturn(
             new SearchResult()
                 .setNumEntities(1)
                 .setEntities(
                     new SearchEntityArray(
                         ImmutableList.of(new SearchEntity().setEntity(glossaryNodeUrn)))));
-    Mockito.when(
-            mockService.getEntitiesV2(
-                Constants.GLOSSARY_NODE_ENTITY_NAME,
-                new HashSet<>(Collections.singleton(glossaryNodeUrn)),
-                Collections.singleton(Constants.GLOSSARY_NODE_INFO_ASPECT_NAME)))
+    when(mockService.getEntitiesV2(
+            any(OperationContext.class),
+            eq(Constants.GLOSSARY_NODE_ENTITY_NAME),
+            eq(new HashSet<>(Collections.singleton(glossaryNodeUrn))),
+            eq(Collections.singleton(Constants.GLOSSARY_NODE_INFO_ASPECT_NAME))))
         .thenReturn(nodeInfoResponses);
   }
 
   private AspectSpec mockGlossaryAspectSpecs(EntityRegistry mockRegistry) {
-    EntitySpec entitySpec = Mockito.mock(EntitySpec.class);
-    AspectSpec aspectSpec = Mockito.mock(AspectSpec.class);
+    EntitySpec entitySpec = mock(EntitySpec.class);
+    AspectSpec aspectSpec = mock(AspectSpec.class);
     //  Mock for Terms
-    Mockito.when(mockRegistry.getEntitySpec(Constants.GLOSSARY_TERM_ENTITY_NAME))
-        .thenReturn(entitySpec);
-    Mockito.when(entitySpec.getAspectSpec(Constants.GLOSSARY_TERM_INFO_ASPECT_NAME))
-        .thenReturn(aspectSpec);
+    when(mockRegistry.getEntitySpec(Constants.GLOSSARY_TERM_ENTITY_NAME)).thenReturn(entitySpec);
+    when(entitySpec.getAspectSpec(Constants.GLOSSARY_TERM_INFO_ASPECT_NAME)).thenReturn(aspectSpec);
     //  Mock for Nodes
-    Mockito.when(mockRegistry.getEntitySpec(Constants.GLOSSARY_NODE_ENTITY_NAME))
-        .thenReturn(entitySpec);
-    Mockito.when(entitySpec.getAspectSpec(Constants.GLOSSARY_NODE_INFO_ASPECT_NAME))
-        .thenReturn(aspectSpec);
+    when(mockRegistry.getEntitySpec(Constants.GLOSSARY_NODE_ENTITY_NAME)).thenReturn(entitySpec);
+    when(entitySpec.getAspectSpec(Constants.GLOSSARY_NODE_INFO_ASPECT_NAME)).thenReturn(aspectSpec);
 
     return aspectSpec;
   }
@@ -134,30 +133,32 @@ public class RestoreGlossaryIndicesTest {
         Urn.createFromString("urn:li:glossaryTerm:11115397daf94708a8822b8106cfd451");
     final Urn glossaryNodeUrn =
         Urn.createFromString("urn:li:glossaryNode:22225397daf94708a8822b8106cfd451");
-    final EntityService<?> mockService = Mockito.mock(EntityService.class);
-    final EntitySearchService mockSearchService = Mockito.mock(EntitySearchService.class);
-    final EntityRegistry mockRegistry = Mockito.mock(EntityRegistry.class);
+    final EntityService<?> mockService = mock(EntityService.class);
+    final EntitySearchService mockSearchService = mock(EntitySearchService.class);
+    final EntityRegistry mockRegistry = mock(EntityRegistry.class);
+    final OperationContext mockContext = mock(OperationContext.class);
+    when(mockContext.getEntityRegistry()).thenReturn(mockRegistry);
 
     final Urn upgradeEntityUrn = Urn.createFromString(GLOSSARY_UPGRADE_URN);
-    Mockito.when(
-            mockService.getEntityV2(
-                Constants.DATA_HUB_UPGRADE_ENTITY_NAME,
-                upgradeEntityUrn,
-                Collections.singleton(Constants.DATA_HUB_UPGRADE_REQUEST_ASPECT_NAME)))
+    when(mockService.getEntityV2(
+            any(OperationContext.class),
+            eq(Constants.DATA_HUB_UPGRADE_ENTITY_NAME),
+            eq(upgradeEntityUrn),
+            eq(Collections.singleton(Constants.DATA_HUB_UPGRADE_REQUEST_ASPECT_NAME))))
         .thenReturn(null);
-    Mockito.when(
-            mockService.alwaysProduceMCLAsync(
-                Mockito.any(Urn.class),
-                Mockito.anyString(),
-                Mockito.anyString(),
-                Mockito.any(AspectSpec.class),
-                Mockito.eq(null),
-                Mockito.any(),
-                Mockito.any(),
-                Mockito.any(),
-                Mockito.any(),
-                Mockito.any(ChangeType.class)))
-        .thenReturn(Pair.of(Mockito.mock(Future.class), false));
+    when(mockService.alwaysProduceMCLAsync(
+            any(OperationContext.class),
+            any(Urn.class),
+            Mockito.anyString(),
+            Mockito.anyString(),
+            any(AspectSpec.class),
+            eq(null),
+            any(),
+            any(),
+            any(),
+            any(),
+            any(ChangeType.class)))
+        .thenReturn(Pair.of(mock(Future.class), false));
 
     mockGetTermInfo(glossaryTermUrn, mockSearchService, mockService);
     mockGetNodeInfo(glossaryNodeUrn, mockSearchService, mockService);
@@ -165,9 +166,8 @@ public class RestoreGlossaryIndicesTest {
     AspectSpec aspectSpec = mockGlossaryAspectSpecs(mockRegistry);
 
     RestoreGlossaryIndices restoreIndicesStep =
-        new RestoreGlossaryIndices(
-            Mockito.mock(OperationContext.class), mockService, mockSearchService, mockRegistry);
-    restoreIndicesStep.execute();
+        new RestoreGlossaryIndices(mockService, mockSearchService, mockRegistry);
+    restoreIndicesStep.execute(mockContext);
 
     Mockito.verify(mockRegistry, Mockito.times(1))
         .getEntitySpec(Constants.GLOSSARY_TERM_ENTITY_NAME);
@@ -175,33 +175,36 @@ public class RestoreGlossaryIndicesTest {
         .getEntitySpec(Constants.GLOSSARY_NODE_ENTITY_NAME);
     Mockito.verify(mockService, Mockito.times(2))
         .ingestProposal(
-            Mockito.any(MetadataChangeProposal.class),
-            Mockito.any(AuditStamp.class),
-            Mockito.eq(false));
+            any(OperationContext.class),
+            any(MetadataChangeProposal.class),
+            any(AuditStamp.class),
+            eq(false));
     Mockito.verify(mockService, Mockito.times(1))
         .alwaysProduceMCLAsync(
-            Mockito.eq(glossaryTermUrn),
-            Mockito.eq(Constants.GLOSSARY_TERM_ENTITY_NAME),
-            Mockito.eq(Constants.GLOSSARY_TERM_INFO_ASPECT_NAME),
-            Mockito.eq(aspectSpec),
-            Mockito.eq(null),
-            Mockito.any(),
-            Mockito.eq(null),
-            Mockito.eq(null),
-            Mockito.any(),
-            Mockito.eq(ChangeType.RESTATE));
+            any(OperationContext.class),
+            eq(glossaryTermUrn),
+            eq(Constants.GLOSSARY_TERM_ENTITY_NAME),
+            eq(Constants.GLOSSARY_TERM_INFO_ASPECT_NAME),
+            eq(aspectSpec),
+            eq(null),
+            any(),
+            eq(null),
+            eq(null),
+            any(),
+            eq(ChangeType.RESTATE));
     Mockito.verify(mockService, Mockito.times(1))
         .alwaysProduceMCLAsync(
-            Mockito.eq(glossaryNodeUrn),
-            Mockito.eq(Constants.GLOSSARY_NODE_ENTITY_NAME),
-            Mockito.eq(Constants.GLOSSARY_NODE_INFO_ASPECT_NAME),
-            Mockito.eq(aspectSpec),
-            Mockito.eq(null),
-            Mockito.any(),
-            Mockito.eq(null),
-            Mockito.eq(null),
-            Mockito.any(),
-            Mockito.eq(ChangeType.RESTATE));
+            any(OperationContext.class),
+            eq(glossaryNodeUrn),
+            eq(Constants.GLOSSARY_NODE_ENTITY_NAME),
+            eq(Constants.GLOSSARY_NODE_INFO_ASPECT_NAME),
+            eq(aspectSpec),
+            eq(null),
+            any(),
+            eq(null),
+            eq(null),
+            any(),
+            eq(ChangeType.RESTATE));
   }
 
   @Test
@@ -210,9 +213,11 @@ public class RestoreGlossaryIndicesTest {
         Urn.createFromString("urn:li:glossaryTerm:11115397daf94708a8822b8106cfd451");
     final Urn glossaryNodeUrn =
         Urn.createFromString("urn:li:glossaryNode:22225397daf94708a8822b8106cfd451");
-    final EntityService<?> mockService = Mockito.mock(EntityService.class);
-    final EntitySearchService mockSearchService = Mockito.mock(EntitySearchService.class);
-    final EntityRegistry mockRegistry = Mockito.mock(EntityRegistry.class);
+    final EntityService<?> mockService = mock(EntityService.class);
+    final EntitySearchService mockSearchService = mock(EntitySearchService.class);
+    final EntityRegistry mockRegistry = mock(EntityRegistry.class);
+    final OperationContext mockContext = mock(OperationContext.class);
+    when(mockContext.getEntityRegistry()).thenReturn(mockRegistry);
 
     final Urn upgradeEntityUrn = Urn.createFromString(GLOSSARY_UPGRADE_URN);
     com.linkedin.upgrade.DataHubUpgradeRequest upgradeRequest =
@@ -223,25 +228,25 @@ public class RestoreGlossaryIndicesTest {
         new EnvelopedAspect().setValue(new Aspect(upgradeRequest.data())));
     EntityResponse response =
         new EntityResponse().setAspects(new EnvelopedAspectMap(upgradeRequestAspects));
-    Mockito.when(
-            mockService.getEntityV2(
-                Constants.DATA_HUB_UPGRADE_ENTITY_NAME,
-                upgradeEntityUrn,
-                Collections.singleton(Constants.DATA_HUB_UPGRADE_REQUEST_ASPECT_NAME)))
+    when(mockService.getEntityV2(
+            mockContext,
+            Constants.DATA_HUB_UPGRADE_ENTITY_NAME,
+            upgradeEntityUrn,
+            Collections.singleton(Constants.DATA_HUB_UPGRADE_REQUEST_ASPECT_NAME)))
         .thenReturn(response);
-    Mockito.when(
-            mockService.alwaysProduceMCLAsync(
-                Mockito.any(Urn.class),
-                Mockito.anyString(),
-                Mockito.anyString(),
-                Mockito.any(AspectSpec.class),
-                Mockito.eq(null),
-                Mockito.any(),
-                Mockito.any(),
-                Mockito.any(),
-                Mockito.any(),
-                Mockito.any(ChangeType.class)))
-        .thenReturn(Pair.of(Mockito.mock(Future.class), false));
+    when(mockService.alwaysProduceMCLAsync(
+            any(OperationContext.class),
+            any(Urn.class),
+            Mockito.anyString(),
+            Mockito.anyString(),
+            any(AspectSpec.class),
+            eq(null),
+            any(),
+            any(),
+            any(),
+            any(),
+            any(ChangeType.class)))
+        .thenReturn(Pair.of(mock(Future.class), false));
 
     mockGetTermInfo(glossaryTermUrn, mockSearchService, mockService);
     mockGetNodeInfo(glossaryNodeUrn, mockSearchService, mockService);
@@ -249,9 +254,8 @@ public class RestoreGlossaryIndicesTest {
     AspectSpec aspectSpec = mockGlossaryAspectSpecs(mockRegistry);
 
     RestoreGlossaryIndices restoreIndicesStep =
-        new RestoreGlossaryIndices(
-            Mockito.mock(OperationContext.class), mockService, mockSearchService, mockRegistry);
-    restoreIndicesStep.execute();
+        new RestoreGlossaryIndices(mockService, mockSearchService, mockRegistry);
+    restoreIndicesStep.execute(mockContext);
 
     Mockito.verify(mockRegistry, Mockito.times(1))
         .getEntitySpec(Constants.GLOSSARY_TERM_ENTITY_NAME);
@@ -259,33 +263,36 @@ public class RestoreGlossaryIndicesTest {
         .getEntitySpec(Constants.GLOSSARY_NODE_ENTITY_NAME);
     Mockito.verify(mockService, Mockito.times(2))
         .ingestProposal(
-            Mockito.any(MetadataChangeProposal.class),
-            Mockito.any(AuditStamp.class),
-            Mockito.eq(false));
+            any(OperationContext.class),
+            any(MetadataChangeProposal.class),
+            any(AuditStamp.class),
+            eq(false));
     Mockito.verify(mockService, Mockito.times(1))
         .alwaysProduceMCLAsync(
-            Mockito.eq(glossaryTermUrn),
-            Mockito.eq(Constants.GLOSSARY_TERM_ENTITY_NAME),
-            Mockito.eq(Constants.GLOSSARY_TERM_INFO_ASPECT_NAME),
-            Mockito.eq(aspectSpec),
-            Mockito.eq(null),
-            Mockito.any(),
-            Mockito.eq(null),
-            Mockito.eq(null),
-            Mockito.any(),
-            Mockito.eq(ChangeType.RESTATE));
+            any(OperationContext.class),
+            eq(glossaryTermUrn),
+            eq(Constants.GLOSSARY_TERM_ENTITY_NAME),
+            eq(Constants.GLOSSARY_TERM_INFO_ASPECT_NAME),
+            eq(aspectSpec),
+            eq(null),
+            any(),
+            eq(null),
+            eq(null),
+            any(),
+            eq(ChangeType.RESTATE));
     Mockito.verify(mockService, Mockito.times(1))
         .alwaysProduceMCLAsync(
-            Mockito.eq(glossaryNodeUrn),
-            Mockito.eq(Constants.GLOSSARY_NODE_ENTITY_NAME),
-            Mockito.eq(Constants.GLOSSARY_NODE_INFO_ASPECT_NAME),
-            Mockito.eq(aspectSpec),
-            Mockito.eq(null),
-            Mockito.any(),
-            Mockito.eq(null),
-            Mockito.eq(null),
-            Mockito.any(),
-            Mockito.eq(ChangeType.RESTATE));
+            any(OperationContext.class),
+            eq(glossaryNodeUrn),
+            eq(Constants.GLOSSARY_NODE_ENTITY_NAME),
+            eq(Constants.GLOSSARY_NODE_INFO_ASPECT_NAME),
+            eq(aspectSpec),
+            eq(null),
+            any(),
+            eq(null),
+            eq(null),
+            any(),
+            eq(ChangeType.RESTATE));
   }
 
   @Test
@@ -294,9 +301,11 @@ public class RestoreGlossaryIndicesTest {
         Urn.createFromString("urn:li:glossaryTerm:11115397daf94708a8822b8106cfd451");
     final Urn glossaryNodeUrn =
         Urn.createFromString("urn:li:glossaryNode:22225397daf94708a8822b8106cfd451");
-    final EntityService<?> mockService = Mockito.mock(EntityService.class);
-    final EntitySearchService mockSearchService = Mockito.mock(EntitySearchService.class);
-    final EntityRegistry mockRegistry = Mockito.mock(EntityRegistry.class);
+    final EntityService<?> mockService = mock(EntityService.class);
+    final EntitySearchService mockSearchService = mock(EntitySearchService.class);
+    final EntityRegistry mockRegistry = mock(EntityRegistry.class);
+    final OperationContext mockContext = mock(OperationContext.class);
+    when(mockContext.getEntityRegistry()).thenReturn(mockRegistry);
 
     final Urn upgradeEntityUrn = Urn.createFromString(GLOSSARY_UPGRADE_URN);
     com.linkedin.upgrade.DataHubUpgradeRequest upgradeRequest =
@@ -307,17 +316,16 @@ public class RestoreGlossaryIndicesTest {
         new EnvelopedAspect().setValue(new Aspect(upgradeRequest.data())));
     EntityResponse response =
         new EntityResponse().setAspects(new EnvelopedAspectMap(upgradeRequestAspects));
-    Mockito.when(
-            mockService.getEntityV2(
-                Constants.DATA_HUB_UPGRADE_ENTITY_NAME,
-                upgradeEntityUrn,
-                Collections.singleton(Constants.DATA_HUB_UPGRADE_REQUEST_ASPECT_NAME)))
+    when(mockService.getEntityV2(
+            any(OperationContext.class),
+            eq(Constants.DATA_HUB_UPGRADE_ENTITY_NAME),
+            eq(upgradeEntityUrn),
+            eq(Collections.singleton(Constants.DATA_HUB_UPGRADE_REQUEST_ASPECT_NAME))))
         .thenReturn(response);
 
     RestoreGlossaryIndices restoreIndicesStep =
-        new RestoreGlossaryIndices(
-            Mockito.mock(OperationContext.class), mockService, mockSearchService, mockRegistry);
-    restoreIndicesStep.execute();
+        new RestoreGlossaryIndices(mockService, mockSearchService, mockRegistry);
+    restoreIndicesStep.execute(mockContext);
 
     Mockito.verify(mockRegistry, Mockito.times(0))
         .getEntitySpec(Constants.GLOSSARY_TERM_ENTITY_NAME);
@@ -325,50 +333,53 @@ public class RestoreGlossaryIndicesTest {
         .getEntitySpec(Constants.GLOSSARY_NODE_ENTITY_NAME);
     Mockito.verify(mockSearchService, Mockito.times(0))
         .search(
-            Mockito.any(),
-            Mockito.eq(List.of(Constants.GLOSSARY_TERM_ENTITY_NAME)),
-            Mockito.eq(""),
-            Mockito.any(),
-            Mockito.any(),
-            Mockito.eq(0),
-            Mockito.eq(1000));
+            any(),
+            eq(List.of(Constants.GLOSSARY_TERM_ENTITY_NAME)),
+            eq(""),
+            any(),
+            any(),
+            eq(0),
+            eq(1000));
     Mockito.verify(mockSearchService, Mockito.times(0))
         .search(
-            Mockito.any(),
-            Mockito.eq(List.of(Constants.GLOSSARY_NODE_ENTITY_NAME)),
-            Mockito.eq(""),
-            Mockito.any(),
-            Mockito.any(),
-            Mockito.eq(0),
-            Mockito.eq(1000));
+            any(),
+            eq(List.of(Constants.GLOSSARY_NODE_ENTITY_NAME)),
+            eq(""),
+            any(),
+            any(),
+            eq(0),
+            eq(1000));
     Mockito.verify(mockService, Mockito.times(0))
         .ingestProposal(
-            Mockito.any(MetadataChangeProposal.class),
-            Mockito.any(AuditStamp.class),
+            any(OperationContext.class),
+            any(MetadataChangeProposal.class),
+            any(AuditStamp.class),
             Mockito.anyBoolean());
     Mockito.verify(mockService, Mockito.times(0))
         .alwaysProduceMCLAsync(
-            Mockito.eq(glossaryTermUrn),
-            Mockito.eq(Constants.GLOSSARY_TERM_ENTITY_NAME),
-            Mockito.eq(Constants.GLOSSARY_TERM_INFO_ASPECT_NAME),
-            Mockito.any(),
-            Mockito.eq(null),
-            Mockito.any(),
-            Mockito.eq(null),
-            Mockito.eq(null),
-            Mockito.any(),
-            Mockito.eq(ChangeType.RESTATE));
+            any(OperationContext.class),
+            eq(glossaryTermUrn),
+            eq(Constants.GLOSSARY_TERM_ENTITY_NAME),
+            eq(Constants.GLOSSARY_TERM_INFO_ASPECT_NAME),
+            any(),
+            eq(null),
+            any(),
+            eq(null),
+            eq(null),
+            any(),
+            eq(ChangeType.RESTATE));
     Mockito.verify(mockService, Mockito.times(0))
         .alwaysProduceMCLAsync(
-            Mockito.eq(glossaryNodeUrn),
-            Mockito.eq(Constants.GLOSSARY_NODE_ENTITY_NAME),
-            Mockito.eq(Constants.GLOSSARY_NODE_INFO_ASPECT_NAME),
-            Mockito.any(),
-            Mockito.eq(null),
-            Mockito.any(),
-            Mockito.eq(null),
-            Mockito.eq(null),
-            Mockito.any(),
-            Mockito.eq(ChangeType.RESTATE));
+            any(OperationContext.class),
+            eq(glossaryNodeUrn),
+            eq(Constants.GLOSSARY_NODE_ENTITY_NAME),
+            eq(Constants.GLOSSARY_NODE_INFO_ASPECT_NAME),
+            any(),
+            eq(null),
+            any(),
+            eq(null),
+            eq(null),
+            any(),
+            eq(ChangeType.RESTATE));
   }
 }

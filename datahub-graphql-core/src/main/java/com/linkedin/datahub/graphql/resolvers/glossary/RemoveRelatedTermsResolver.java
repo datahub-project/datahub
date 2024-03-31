@@ -49,7 +49,7 @@ public class RemoveRelatedTermsResolver implements DataFetcher<CompletableFuture
                   input.getTermUrns().stream().map(UrnUtils::getUrn).collect(Collectors.toList());
 
               if (!urn.getEntityType().equals(Constants.GLOSSARY_TERM_ENTITY_NAME)
-                  || !_entityService.exists(urn, true)) {
+                  || !_entityService.exists(context.getOperationContext(), urn, true)) {
                 throw new IllegalArgumentException(
                     String.format(
                         "Failed to update %s. %s either does not exist or is not a glossaryTerm.",
@@ -61,6 +61,7 @@ public class RemoveRelatedTermsResolver implements DataFetcher<CompletableFuture
               GlossaryRelatedTerms glossaryRelatedTerms =
                   (GlossaryRelatedTerms)
                       EntityUtils.getAspectFromEntity(
+                          context.getOperationContext(),
                           urn.toString(),
                           Constants.GLOSSARY_RELATED_TERM_ASPECT_NAME,
                           _entityService,
@@ -81,6 +82,7 @@ public class RemoveRelatedTermsResolver implements DataFetcher<CompletableFuture
                 existingTermUrns.removeIf(
                     termUrn -> termUrnsToRemove.stream().anyMatch(termUrn::equals));
                 persistAspect(
+                    context.getOperationContext(),
                     urn,
                     Constants.GLOSSARY_RELATED_TERM_ASPECT_NAME,
                     glossaryRelatedTerms,
@@ -98,6 +100,7 @@ public class RemoveRelatedTermsResolver implements DataFetcher<CompletableFuture
                 existingTermUrns.removeIf(
                     termUrn -> termUrnsToRemove.stream().anyMatch(termUrn::equals));
                 persistAspect(
+                    context.getOperationContext(),
                     urn,
                     Constants.GLOSSARY_RELATED_TERM_ASPECT_NAME,
                     glossaryRelatedTerms,

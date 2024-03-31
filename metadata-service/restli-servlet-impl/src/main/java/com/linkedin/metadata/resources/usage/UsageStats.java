@@ -7,6 +7,7 @@ import static com.linkedin.metadata.authorization.ApiOperation.UPDATE;
 
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.Timer;
+import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authorization.EntitySpec;
 import com.datahub.plugins.auth.authorization.Authorizer;
@@ -60,6 +61,8 @@ import com.linkedin.usage.UsageQueryResultAggregations;
 import com.linkedin.usage.UsageTimeRange;
 import com.linkedin.usage.UserUsageCounts;
 import com.linkedin.usage.UserUsageCountsArray;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.RequestContext;
 import io.opentelemetry.extension.annotations.WithSpan;
 import java.net.URISyntaxException;
 import java.time.Instant;
@@ -67,6 +70,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.concurrent.TimeUnit;
 import javax.annotation.Nonnull;
@@ -121,6 +125,10 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
   @Named("authorizerChain")
   private Authorizer _authorizer;
 
+  @Inject
+  @Named("systemOperationContext")
+  private OperationContext systemOperationContext;
+
   @Getter(lazy = true)
   private final AspectSpec usageStatsAspectSpec =
       _entityRegistry.getEntitySpec(USAGE_STATS_ENTITY_NAME).getAspectSpec(USAGE_STATS_ASPECT_NAME);
@@ -134,16 +142,22 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
     return RestliUtil.toTask(
         () -> {
 
+          final Authentication auth = AuthenticationContext.getAuthentication();
+          Set<Urn> urns = Arrays.stream(buckets).sequential().map(UsageAggregation::getResource).collect(Collectors.toSet());
           if (!isAPIAuthorizedEntityUrns(
-                  AuthenticationContext.getAuthentication(),
+                  auth,
                   _authorizer,
                   UPDATE,
-                  Arrays.stream(buckets).sequential().map(UsageAggregation::getResource).collect(Collectors.toSet()))) {
+                  urns)) {
             throw new RestLiServiceException(
                 HttpStatus.S_403_FORBIDDEN, "User is unauthorized to edit entities.");
           }
+          final OperationContext opContext = OperationContext.asSession(
+                  systemOperationContext, RequestContext.builder().buildRestli(ACTION_BATCH_INGEST, urns.stream()
+                          .map(Urn::getEntityType).collect(Collectors.toList())), _authorizer, auth, true);
+
           for (UsageAggregation agg : buckets) {
-            this.ingest(agg);
+            this.ingest(opContext, agg);
           }
           return null;
         },
@@ -167,7 +181,7 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
     }
   }
 
-  private UsageAggregationArray getBuckets(
+  private UsageAggregationArray getBuckets(@Nonnull OperationContext opContext,
       @Nonnull Filter filter, @Nonnull String resource, @Nonnull WindowDuration duration) {
     // NOTE: We will not populate the per-bucket userCounts and fieldCounts in this implementation
     // because
@@ -205,7 +219,7 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
 
     // 3. Query
     GenericTable result =
-        _timeseriesAspectService.getAggregatedStats(
+        _timeseriesAspectService.getAggregatedStats(opContext,
             USAGE_STATS_ENTITY_NAME,
             USAGE_STATS_ASPECT_NAME,
             aggregationSpecs,
@@ -254,7 +268,7 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
     return buckets;
   }
 
-  private List<UserUsageCounts> getUserUsageCounts(Filter filter) {
+  private List<UserUsageCounts> getUserUsageCounts(@Nonnull OperationContext opContext, Filter filter) {
     // Sum aggregation on userCounts.count
     AggregationSpec sumUserCountsCountAggSpec =
         new AggregationSpec()
@@ -276,7 +290,7 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
 
     // Query backend
     GenericTable result =
-        _timeseriesAspectService.getAggregatedStats(
+        _timeseriesAspectService.getAggregatedStats(opContext,
             USAGE_STATS_ENTITY_NAME,
             USAGE_STATS_ASPECT_NAME,
             aggregationSpecs,
@@ -307,7 +321,7 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
     return userUsageCounts;
   }
 
-  private List<FieldUsageCounts> getFieldUsageCounts(Filter filter) {
+  private List<FieldUsageCounts> getFieldUsageCounts(@Nonnull OperationContext opContext, Filter filter) {
     // Sum aggregation on fieldCounts.count
     AggregationSpec sumFieldCountAggSpec =
         new AggregationSpec()
@@ -324,7 +338,7 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
 
     // Query backend
     GenericTable result =
-        _timeseriesAspectService.getAggregatedStats(
+        _timeseriesAspectService.getAggregatedStats(opContext,
             USAGE_STATS_ENTITY_NAME,
             USAGE_STATS_ASPECT_NAME,
             aggregationSpecs,
@@ -349,13 +363,13 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
     return fieldUsageCounts;
   }
 
-  private UsageQueryResultAggregations getAggregations(Filter filter) {
+  private UsageQueryResultAggregations getAggregations(@Nonnull OperationContext opContext, Filter filter) {
     UsageQueryResultAggregations aggregations = new UsageQueryResultAggregations();
-    List<UserUsageCounts> userUsageCounts = getUserUsageCounts(filter);
+    List<UserUsageCounts> userUsageCounts = getUserUsageCounts(opContext, filter);
     aggregations.setUsers(new UserUsageCountsArray(userUsageCounts));
     aggregations.setUniqueUserCount(userUsageCounts.size());
 
-    List<FieldUsageCounts> fieldUsageCounts = getFieldUsageCounts(filter);
+    List<FieldUsageCounts> fieldUsageCounts = getFieldUsageCounts(opContext, filter);
     aggregations.setFields(new FieldUsageCountsArray(fieldUsageCounts));
 
     return aggregations;
@@ -379,14 +393,18 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
         () -> {
 
           Urn resourceUrn = UrnUtils.getUrn(resource);
+          final Authentication auth = AuthenticationContext.getAuthentication();
           if (!isAPIAuthorized(
-                  AuthenticationContext.getAuthentication(),
+                  auth,
                   _authorizer,
                   PoliciesConfig.VIEW_DATASET_USAGE_PRIVILEGE,
                   new EntitySpec(resourceUrn.getEntityType(), resourceUrn.toString()))) {
             throw new RestLiServiceException(
                 HttpStatus.S_403_FORBIDDEN, "User is unauthorized to query usage.");
           }
+          final OperationContext opContext = OperationContext.asSession(
+                  systemOperationContext, RequestContext.builder().buildRestli(ACTION_QUERY, resourceUrn.getEntityType()), _authorizer, auth, true);
+
           // 1. Populate the filter. This is common for all queries.
           Filter filter = new Filter();
           ArrayList<Criterion> criteria = new ArrayList<>();
@@ -419,13 +437,13 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
 
           // 2. Get buckets.
           timer = MetricUtils.timer(this.getClass(), "getBuckets").time();
-          UsageAggregationArray buckets = getBuckets(filter, resource, duration);
+          UsageAggregationArray buckets = getBuckets(opContext, filter, resource, duration);
           took = timer.stop();
           log.info("Usage stats for resource {} returned {} buckets in {} ms", resource, buckets.size(), TimeUnit.NANOSECONDS.toMillis(took));
 
           // 3. Get aggregations.
           timer = MetricUtils.timer(this.getClass(), "getAggregations").time();
-          UsageQueryResultAggregations aggregations = getAggregations(filter);
+          UsageQueryResultAggregations aggregations = getAggregations(opContext, filter);
           took = timer.stop();
           log.info("Usage stats aggregation for resource {} took {} ms", resource, TimeUnit.NANOSECONDS.toMillis(took));
 
@@ -472,7 +490,7 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
     return this.query(resource, duration, convertRangeToStartTime(range, now), now, null);
   }
 
-  private void ingest(@Nonnull UsageAggregation bucket) {
+  private void ingest(@Nonnull OperationContext opContext, @Nonnull UsageAggregation bucket) {
     // 1. Translate the bucket to DatasetUsageStatistics first.
     DatasetUsageStatistics datasetUsageStatistics = new DatasetUsageStatistics();
     datasetUsageStatistics.setTimestampMillis(bucket.getBucket());
@@ -524,7 +542,7 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
         .entrySet()
         .forEach(
             document -> {
-              _timeseriesAspectService.upsertDocument(
+              _timeseriesAspectService.upsertDocument(opContext,
                   USAGE_STATS_ENTITY_NAME,
                   USAGE_STATS_ASPECT_NAME,
                   document.getKey(),

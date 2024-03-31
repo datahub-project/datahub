@@ -19,6 +19,7 @@ import com.linkedin.data.ByteString;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.batch.ChangeMCP;
 import com.linkedin.metadata.aspect.patch.GenericJsonPatch;
 import com.linkedin.metadata.aspect.patch.template.common.GenericPatchTemplate;
@@ -150,7 +151,8 @@ public class EntityController {
 
     return ResponseEntity.ok(
         GenericScrollResult.<GenericEntity>builder()
-            .results(toRecordTemplates(result.getEntities(), aspectNames, withSystemMetadata))
+            .results(
+                toRecordTemplates(opContext, result.getEntities(), aspectNames, withSystemMetadata))
             .scrollId(result.getScrollId())
             .build());
   }
@@ -169,6 +171,13 @@ public class EntityController {
       throw new UnauthorizedException(
           authentication.getActor().toUrnStr() + " is unauthorized to " + READ + "  entities.");
     }
+    OperationContext opContext =
+        OperationContext.asSession(
+            systemOperationContext,
+            RequestContext.builder().buildOpenapi("getEntityBatch", entityName),
+            authorizationChain,
+            authentication,
+            true);
 
     return ResponseEntity.of(
         Optional.of(
@@ -176,6 +185,7 @@ public class EntityController {
                 .entities(
                     new ArrayList<>(
                         toRecordTemplates(
+                            opContext,
                             urns,
                             new HashSet<>(request.getAspectNames()),
                             request.isWithSystemMetadata())))
@@ -201,9 +211,17 @@ public class EntityController {
       throw new UnauthorizedException(
           authentication.getActor().toUrnStr() + " is unauthorized to " + READ + " entities.");
     }
+    OperationContext opContext =
+        OperationContext.asSession(
+            systemOperationContext,
+            RequestContext.builder().buildOpenapi("getEntity", entityName),
+            authorizationChain,
+            authentication,
+            true);
 
     return ResponseEntity.of(
-        toRecordTemplates(List.of(urn), aspectNames, withSystemMetadata).stream().findFirst());
+        toRecordTemplates(opContext, List.of(urn), aspectNames, withSystemMetadata).stream()
+            .findFirst());
   }
 
   @Tag(name = "Generic Entities")
@@ -221,8 +239,15 @@ public class EntityController {
       throw new UnauthorizedException(
           authentication.getActor().toUrnStr() + " is unauthorized to " + EXISTS + " entities.");
     }
+    OperationContext opContext =
+        OperationContext.asSession(
+            systemOperationContext,
+            RequestContext.builder().buildOpenapi("headEntity", entityName),
+            authorizationChain,
+            authentication,
+            true);
 
-    return exists(urn, null)
+    return exists(opContext, urn, null)
         ? ResponseEntity.noContent().build()
         : ResponseEntity.notFound().build();
   }
@@ -245,9 +270,16 @@ public class EntityController {
       throw new UnauthorizedException(
           authentication.getActor().toUrnStr() + " is unauthorized to " + READ + " entities.");
     }
+    OperationContext opContext =
+        OperationContext.asSession(
+            systemOperationContext,
+            RequestContext.builder().buildOpenapi("getAspect", entityName),
+            authorizationChain,
+            authentication,
+            true);
 
     return ResponseEntity.of(
-        toRecordTemplates(List.of(urn), Set.of(aspectName), true).stream()
+        toRecordTemplates(opContext, List.of(urn), Set.of(aspectName), true).stream()
             .findFirst()
             .flatMap(e -> e.getAspects().values().stream().findFirst()));
   }
@@ -269,8 +301,15 @@ public class EntityController {
       throw new UnauthorizedException(
           authentication.getActor().toUrnStr() + " is unauthorized to " + EXISTS + " entities.");
     }
+    OperationContext opContext =
+        OperationContext.asSession(
+            systemOperationContext,
+            RequestContext.builder().buildOpenapi("headAspect", entityName),
+            authorizationChain,
+            authentication,
+            true);
 
-    return exists(urn, aspectName)
+    return exists(opContext, urn, aspectName)
         ? ResponseEntity.noContent().build()
         : ResponseEntity.notFound().build();
   }
@@ -289,8 +328,15 @@ public class EntityController {
       throw new UnauthorizedException(
           authentication.getActor().toUrnStr() + " is unauthorized to " + DELETE + " entities.");
     }
+    OperationContext opContext =
+        OperationContext.asSession(
+            systemOperationContext,
+            RequestContext.builder().buildOpenapi("deleteEntity", entityName),
+            authorizationChain,
+            authentication,
+            true);
 
-    entityService.deleteAspect(entityUrn, entitySpec.getKeyAspectName(), Map.of(), true);
+    entityService.deleteAspect(opContext, entityUrn, entitySpec.getKeyAspectName(), Map.of(), true);
   }
 
   @Tag(name = "Generic Aspects")
@@ -308,8 +354,15 @@ public class EntityController {
       throw new UnauthorizedException(
           authentication.getActor().toUrnStr() + " is unauthorized to " + DELETE + " entities.");
     }
+    OperationContext opContext =
+        OperationContext.asSession(
+            systemOperationContext,
+            RequestContext.builder().buildOpenapi("deleteAspect", entityName),
+            authorizationChain,
+            authentication,
+            true);
 
-    entityService.deleteAspect(entityUrn, aspectName, Map.of(), true);
+    entityService.deleteAspect(opContext, entityUrn, aspectName, Map.of(), true);
   }
 
   @Tag(name = "Generic Aspects")
@@ -337,15 +390,29 @@ public class EntityController {
       throw new UnauthorizedException(
           authentication.getActor().toUrnStr() + " is unauthorized to " + CREATE + " entities.");
     }
+    OperationContext opContext =
+        OperationContext.asSession(
+            systemOperationContext,
+            RequestContext.builder().buildOpenapi("createAspect", entityName),
+            authorizationChain,
+            authentication,
+            true);
 
     AspectSpec aspectSpec = entitySpec.getAspectSpec(aspectName);
     ChangeMCP upsert =
-        toUpsertItem(urn, aspectSpec, createIfNotExists, jsonAspect, authentication.getActor());
+        toUpsertItem(
+            opContext.getRetrieverContext().get().getAspectRetriever(),
+            urn,
+            aspectSpec,
+            createIfNotExists,
+            jsonAspect,
+            authentication.getActor());
 
     List<UpdateAspectResult> results =
         entityService.ingestAspects(
+            opContext,
             AspectsBatchImpl.builder()
-                .aspectRetriever(entityService)
+                .retrieverContext(opContext.getRetrieverContext().get())
                 .items(List.of(upsert))
                 .build(),
             true,
@@ -394,8 +461,15 @@ public class EntityController {
       throw new UnauthorizedException(
           authentication.getActor().toUrnStr() + " is unauthorized to " + UPDATE + " entities.");
     }
+    OperationContext opContext =
+        OperationContext.asSession(
+            systemOperationContext,
+            RequestContext.builder().buildOpenapi("patchAspect", entityName),
+            authorizationChain,
+            authentication,
+            true);
 
-    RecordTemplate currentValue = entityService.getAspect(urn, aspectName, 0);
+    RecordTemplate currentValue = entityService.getAspect(opContext, urn, aspectName, 0);
 
     AspectSpec aspectSpec = entitySpec.getAspectSpec(aspectName);
     GenericPatchTemplate<? extends RecordTemplate> genericPatchTemplate =
@@ -407,6 +481,7 @@ public class EntityController {
             .build();
     ChangeMCP upsert =
         toUpsertItem(
+            opContext.getRetrieverContext().get().getAspectRetriever(),
             UrnUtils.getUrn(entityUrn),
             aspectSpec,
             currentValue,
@@ -415,8 +490,9 @@ public class EntityController {
 
     List<UpdateAspectResult> results =
         entityService.ingestAspects(
+            opContext,
             AspectsBatchImpl.builder()
-                .aspectRetriever(entityService)
+                .retrieverContext(opContext.getRetrieverContext().get())
                 .items(List.of(upsert))
                 .build(),
             true,
@@ -439,22 +515,29 @@ public class EntityController {
   }
 
   private List<GenericEntity> toRecordTemplates(
-      SearchEntityArray searchEntities, Set<String> aspectNames, boolean withSystemMetadata)
+      @Nonnull OperationContext opContext,
+      SearchEntityArray searchEntities,
+      Set<String> aspectNames,
+      boolean withSystemMetadata)
       throws URISyntaxException {
     return toRecordTemplates(
+        opContext,
         searchEntities.stream().map(SearchEntity::getEntity).collect(Collectors.toList()),
         aspectNames,
         withSystemMetadata);
   }
 
-  private Boolean exists(Urn urn, @Nullable String aspect) {
+  private Boolean exists(@Nonnull OperationContext opContext, Urn urn, @Nullable String aspect) {
     return aspect == null
-        ? entityService.exists(urn, true)
-        : entityService.exists(urn, aspect, true);
+        ? entityService.exists(opContext, urn, true)
+        : entityService.exists(opContext, urn, aspect, true);
   }
 
   private List<GenericEntity> toRecordTemplates(
-      List<Urn> urns, Set<String> aspectNames, boolean withSystemMetadata)
+      @Nonnull OperationContext opContext,
+      List<Urn> urns,
+      Set<String> aspectNames,
+      boolean withSystemMetadata)
       throws URISyntaxException {
     if (urns.isEmpty()) {
       return List.of();
@@ -463,7 +546,7 @@ public class EntityController {
 
       Map<Urn, List<EnvelopedAspect>> aspects =
           entityService.getLatestEnvelopedAspects(
-              urnsSet, resolveAspectNames(urnsSet, aspectNames));
+              opContext, urnsSet, resolveAspectNames(urnsSet, aspectNames));
 
       return urns.stream()
           .map(
@@ -516,6 +599,7 @@ public class EntityController {
   }
 
   private ChangeMCP toUpsertItem(
+      @Nonnull AspectRetriever aspectRetriever,
       Urn entityUrn,
       AspectSpec aspectSpec,
       Boolean createIfNotExists,
@@ -532,10 +616,11 @@ public class EntityController {
                 ByteString.copyString(jsonAspect, StandardCharsets.UTF_8),
                 GenericRecordUtils.JSON,
                 aspectSpec))
-        .build(entityService);
+        .build(aspectRetriever);
   }
 
   private ChangeMCP toUpsertItem(
+      @Nonnull AspectRetriever aspectRetriever,
       @Nonnull Urn urn,
       @Nonnull AspectSpec aspectSpec,
       @Nullable RecordTemplate currentValue,
@@ -548,6 +633,6 @@ public class EntityController {
         currentValue,
         genericPatchTemplate,
         AuditStampUtils.createAuditStamp(actor.toUrnStr()),
-        entityService);
+        aspectRetriever);
   }
 }

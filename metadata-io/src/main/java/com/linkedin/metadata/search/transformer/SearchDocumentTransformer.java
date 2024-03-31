@@ -18,7 +18,6 @@ import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.entity.Aspect;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
-import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.validation.StructuredPropertiesValidator;
 import com.linkedin.metadata.entity.EntityUtils;
 import com.linkedin.metadata.models.AspectSpec;
@@ -34,6 +33,7 @@ import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.structured.StructuredProperties;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import com.linkedin.structured.StructuredPropertyValueAssignment;
+import io.datahubproject.metadata.context.OperationContext;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -62,8 +62,6 @@ public class SearchDocumentTransformer {
 
   // Maximum customProperties value length
   private final int maxValueLength;
-
-  private AspectRetriever aspectRetriever;
 
   private static final String BROWSE_PATH_V2_DELIMITER = "␟";
 
@@ -111,6 +109,7 @@ public class SearchDocumentTransformer {
   }
 
   public Optional<ObjectNode> transformAspect(
+      @Nonnull OperationContext opContext,
       final @Nonnull Urn urn,
       final @Nonnull RecordTemplate aspect,
       final @Nonnull AspectSpec aspectSpec,
@@ -143,7 +142,7 @@ public class SearchDocumentTransformer {
       final ObjectNode searchDocument = JsonNodeFactory.instance.objectNode();
       searchDocument.put("urn", urn.toString());
       setStructuredPropertiesSearchValue(
-          new StructuredProperties(aspect.data()), searchDocument, forDelete);
+          opContext, new StructuredProperties(aspect.data()), searchDocument, forDelete);
       result = Optional.of(searchDocument);
     }
 
@@ -350,7 +349,10 @@ public class SearchDocumentTransformer {
   }
 
   private void setStructuredPropertiesSearchValue(
-      final StructuredProperties values, final ObjectNode searchDocument, final Boolean forDelete)
+      @Nonnull OperationContext opContext,
+      final StructuredProperties values,
+      final ObjectNode searchDocument,
+      final Boolean forDelete)
       throws RemoteInvocationException, URISyntaxException {
     Map<Urn, Set<StructuredPropertyValueAssignment>> propertyMap =
         values.getProperties().stream()
@@ -359,8 +361,12 @@ public class SearchDocumentTransformer {
                     StructuredPropertyValueAssignment::getPropertyUrn, Collectors.toSet()));
 
     Map<Urn, Map<String, Aspect>> definitions =
-        aspectRetriever.getLatestAspectObjects(
-            propertyMap.keySet(), Set.of(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME));
+        opContext
+            .getRetrieverContext()
+            .get()
+            .getAspectRetriever()
+            .getLatestAspectObjects(
+                propertyMap.keySet(), Set.of(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME));
 
     if (definitions.size() < propertyMap.size()) {
       String message =

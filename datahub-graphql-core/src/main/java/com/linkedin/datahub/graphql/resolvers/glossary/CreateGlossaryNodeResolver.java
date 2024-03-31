@@ -54,8 +54,8 @@ public class CreateGlossaryNodeResolver implements DataFetcher<CompletableFuture
               key.setName(id);
 
               if (_entityClient.exists(
-                  EntityKeyUtils.convertEntityKeyToUrn(key, GLOSSARY_NODE_ENTITY_NAME),
-                  context.getAuthentication())) {
+                  context.getOperationContext(),
+                  EntityKeyUtils.convertEntityKeyToUrn(key, GLOSSARY_NODE_ENTITY_NAME))) {
                 throw new IllegalArgumentException("This Glossary Node already exists!");
               }
 
@@ -67,10 +67,14 @@ public class CreateGlossaryNodeResolver implements DataFetcher<CompletableFuture
                       mapGlossaryNodeInfo(input));
 
               String glossaryNodeUrn =
-                  _entityClient.ingestProposal(proposal, context.getAuthentication(), false);
+                  _entityClient.ingestProposal(context.getOperationContext(), proposal, false);
 
               OwnerUtils.addCreatorAsOwner(
-                  context, glossaryNodeUrn, OwnerEntityType.CORP_USER, _entityService);
+                  context.getOperationContext(),
+                  context,
+                  glossaryNodeUrn,
+                  OwnerEntityType.CORP_USER,
+                  _entityService);
               return glossaryNodeUrn;
             } catch (Exception e) {
               log.error(

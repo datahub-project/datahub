@@ -1,9 +1,10 @@
 package com.linkedin.datahub.graphql.resolvers.view;
 
 import static com.linkedin.datahub.graphql.TestUtils.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.testng.Assert.*;
 
-import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -88,6 +89,7 @@ public class CreateViewResolverTest {
 
     Mockito.verify(mockService, Mockito.times(1))
         .createView(
+            any(),
             Mockito.eq(com.linkedin.view.DataHubViewType.PERSONAL),
             Mockito.eq(TEST_INPUT.getName()),
             Mockito.eq(TEST_INPUT.getDescription()),
@@ -128,7 +130,6 @@ public class CreateViewResolverTest {
                                                                     ImmutableList.of(
                                                                         "value1", "value2")))
                                                             .setNegated(true))))))))),
-            Mockito.any(Authentication.class),
             Mockito.anyLong());
   }
 
@@ -146,8 +147,7 @@ public class CreateViewResolverTest {
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
-    Mockito.verify(mockClient, Mockito.times(0))
-        .ingestProposal(Mockito.any(), Mockito.any(Authentication.class));
+    Mockito.verify(mockClient, Mockito.times(0)).ingestProposal(any(), Mockito.any(), anyBoolean());
   }
 
   @Test
@@ -157,12 +157,7 @@ public class CreateViewResolverTest {
     Mockito.doThrow(RuntimeException.class)
         .when(mockService)
         .createView(
-            Mockito.any(),
-            Mockito.any(),
-            Mockito.any(),
-            Mockito.any(),
-            Mockito.any(Authentication.class),
-            Mockito.anyLong());
+            any(), Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any(), Mockito.anyLong());
 
     CreateViewResolver resolver = new CreateViewResolver(mockService);
 
@@ -179,11 +174,11 @@ public class CreateViewResolverTest {
     ViewService service = Mockito.mock(ViewService.class);
     Mockito.when(
             service.createView(
+                any(),
                 Mockito.eq(com.linkedin.view.DataHubViewType.PERSONAL),
                 Mockito.eq(TEST_INPUT.getName()),
                 Mockito.eq(TEST_INPUT.getDescription()),
                 Mockito.any(),
-                Mockito.any(Authentication.class),
                 Mockito.anyLong()))
         .thenReturn(TEST_VIEW_URN);
     return service;

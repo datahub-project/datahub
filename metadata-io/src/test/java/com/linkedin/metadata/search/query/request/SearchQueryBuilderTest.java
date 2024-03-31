@@ -23,10 +23,10 @@ import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.SearchableFieldSpec;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
-import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchFieldConfig;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchQueryBuilder;
 import com.linkedin.util.Pair;
+import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.search.config.SearchCommonTestConfiguration;
 import java.io.IOException;
 import java.util.List;
@@ -47,6 +47,7 @@ import org.opensearch.index.query.SimpleQueryStringBuilder;
 import org.opensearch.index.query.TermQueryBuilder;
 import org.opensearch.index.query.functionscore.FunctionScoreQueryBuilder;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.testng.annotations.Test;
@@ -54,7 +55,9 @@ import org.testng.annotations.Test;
 @Import(SearchCommonTestConfiguration.class)
 public class SearchQueryBuilderTest extends AbstractTestNGSpringContextTests {
 
-  @Autowired private EntityRegistry entityRegistry;
+  @Autowired
+  @Qualifier("queryOperationContext")
+  private OperationContext operationContext;
 
   public static SearchConfiguration testQueryConfig;
 
@@ -332,7 +335,7 @@ public class SearchQueryBuilderTest extends AbstractTestNGSpringContextTests {
     List<EntitySpec> entitySpecs =
         Stream.concat(SEARCHABLE_ENTITY_TYPES.stream(), AUTO_COMPLETE_ENTITY_TYPES.stream())
             .map(entityType -> entityType.toString().toLowerCase().replaceAll("_", ""))
-            .map(entityRegistry::getEntitySpec)
+            .map(entityType -> operationContext.getEntityRegistry().getEntitySpec(entityType))
             .collect(Collectors.toList());
     assertTrue(entitySpecs.size() > 30, "Expected at least 30 searchable entities in the registry");
 

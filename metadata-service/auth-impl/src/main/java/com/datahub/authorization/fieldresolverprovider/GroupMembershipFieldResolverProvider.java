@@ -3,7 +3,6 @@ package com.datahub.authorization.fieldresolverprovider;
 import static com.linkedin.metadata.Constants.GROUP_MEMBERSHIP_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME;
 
-import com.datahub.authentication.Authentication;
 import com.datahub.authorization.EntityFieldType;
 import com.datahub.authorization.EntitySpec;
 import com.datahub.authorization.FieldResolver;
@@ -16,10 +15,12 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.identity.GroupMembership;
 import com.linkedin.identity.NativeGroupMembership;
 import com.linkedin.metadata.Constants;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
+import javax.annotation.Nonnull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -29,7 +30,6 @@ import lombok.extern.slf4j.Slf4j;
 public class GroupMembershipFieldResolverProvider implements EntityFieldResolverProvider {
 
   private final EntityClient _entityClient;
-  private final Authentication _systemAuthentication;
 
   @Override
   public List<EntityFieldType> getFieldTypes() {
@@ -37,11 +37,14 @@ public class GroupMembershipFieldResolverProvider implements EntityFieldResolver
   }
 
   @Override
-  public FieldResolver getFieldResolver(EntitySpec entitySpec) {
-    return FieldResolver.getResolverFromFunction(entitySpec, this::getGroupMembership);
+  public FieldResolver getFieldResolver(
+      @Nonnull OperationContext opContext, EntitySpec entitySpec) {
+    return FieldResolver.getResolverFromFunction(
+        entitySpec, spec -> getGroupMembership(opContext, spec));
   }
 
-  private FieldResolver.FieldValue getGroupMembership(EntitySpec entitySpec) {
+  private FieldResolver.FieldValue getGroupMembership(
+      @Nonnull OperationContext opContext, EntitySpec entitySpec) {
     Urn entityUrn = UrnUtils.getUrn(entitySpec.getEntity());
     EnvelopedAspect groupMembershipAspect;
     EnvelopedAspect nativeGroupMembershipAspect;
@@ -49,10 +52,10 @@ public class GroupMembershipFieldResolverProvider implements EntityFieldResolver
     try {
       EntityResponse response =
           _entityClient.getV2(
+              opContext,
               entityUrn.getEntityType(),
               entityUrn,
-              ImmutableSet.of(GROUP_MEMBERSHIP_ASPECT_NAME, NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME),
-              _systemAuthentication);
+              ImmutableSet.of(GROUP_MEMBERSHIP_ASPECT_NAME, NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME));
       if (response == null
           || !(response.getAspects().containsKey(Constants.GROUP_MEMBERSHIP_ASPECT_NAME)
               || response
