@@ -44,8 +44,6 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.testng.Assert;
 import org.testng.annotations.BeforeMethod;
@@ -179,6 +177,21 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
           dataset19Urn,
           dataset20Urn);
 
+  protected static final String schemaFieldUrn1String =
+      "urn:li:schemaField:(" + dataset5UrnString + ",fieldOne)";
+  protected static final String schemaFieldUrn2String =
+      "urn:li:schemaField:(" + dataset4UrnString + ",fieldTwo)";
+
+  protected static final String lifeCycleOwner1String =
+      "urn:li:dataJob:(urn:li:dataFlow:(fivetran,calendar_elected,PROD),calendar_elected)";
+  protected static final String lifeCycleOwner2String =
+      "urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)";
+
+  protected static final Urn schemaFieldUrnOne = createFromString(schemaFieldUrn1String);
+  protected static final Urn schemaFieldUrnTwo = createFromString(schemaFieldUrn2String);
+  protected static final Urn lifeCycleOwnerOne = createFromString(lifeCycleOwner1String);
+  protected static final Urn lifeCycleOwnerTwo = createFromString(lifeCycleOwner2String);
+
   protected static String unknownUrnString = "urn:li:unknown:(urn:li:unknown:Unknown)";
 
   /** Some dataset owners. */
@@ -221,13 +234,13 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
   protected static RelatedEntity downstreamOfDatasetFourRelatedEntity =
       new RelatedEntity(downstreamOf, dataset4UrnString);
   protected static final RelatedEntity downstreamOfSchemaFieldOneVia =
-      new RelatedEntity(downstreamOf, schemaFieldUrnOneString, lifeCycleOwnerOneString);
+      new RelatedEntity(downstreamOf, schemaFieldUrn1String, lifeCycleOwner1String);
   protected static final RelatedEntity downstreamOfSchemaFieldOne =
-      new RelatedEntity(downstreamOf, schemaFieldUrnOneString);
+      new RelatedEntity(downstreamOf, schemaFieldUrn1String);
   protected static final RelatedEntity downstreamOfSchemaFieldTwoVia =
-      new RelatedEntity(downstreamOf, schemaFieldUrnTwoString, lifeCycleOwnerOneString);
+      new RelatedEntity(downstreamOf, schemaFieldUrn2String, lifeCycleOwner1String);
   protected static final RelatedEntity downstreamOfSchemaFieldTwo =
-      new RelatedEntity(downstreamOf, schemaFieldUrnTwoString);
+      new RelatedEntity(downstreamOf, schemaFieldUrn2String);
 
   protected static RelatedEntity hasOwnerDatasetOneRelatedEntity =
       new RelatedEntity(hasOwner, dataset1UrnString);
@@ -2050,9 +2063,13 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
     assertTrue(throwables.isEmpty());
   }
 
-  @ParameterizedTest
-  @ValueSource(booleans = {true, false})
-  public void testPopulatedGraphServiceGetLineageMultihop(boolean attemptMultiPathAlgo)
+  @DataProvider(name = "trueFalse")
+  public static Object[] trueFalse() {
+    return new Object[] {true, false};
+  }
+
+  @Test(dataProvider = "trueFalse")
+  public void testPopulatedGraphServiceGetLineageMultihop(Boolean attemptMultiPathAlgo)
       throws Exception {
 
     GraphService service = getLineagePopulatedGraphService(attemptMultiPathAlgo);
@@ -2111,7 +2128,6 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
   }
 
   @Test
-  @org.junit.Test
   public void testHighlyConnectedGraphWalk() throws Exception {
     final GraphService service = getGraphService();
     List<String> allRelationships = Collections.singletonList(downstreamOf);
