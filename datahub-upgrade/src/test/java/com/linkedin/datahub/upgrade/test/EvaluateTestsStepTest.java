@@ -30,6 +30,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import org.mockito.Mockito;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
@@ -45,6 +46,13 @@ public class EvaluateTestsStepTest extends AbstractTestNGSpringContextTests {
   private static final Urn CHART_URN1 = UrnUtils.getUrn("urn:li:chart:(looker,SampleChartOne)");
   private static final Urn CHART_URN2 = UrnUtils.getUrn("urn:li:chart:(looker,SampleChartTwo)");
   private static final String SCROLL_ID = "test123";
+
+  @Autowired private TestEngine testEngine;
+
+  @Test
+  public void testInit() {
+    assertNotNull(testEngine);
+  }
 
   @Test
   public void testExecutable() {

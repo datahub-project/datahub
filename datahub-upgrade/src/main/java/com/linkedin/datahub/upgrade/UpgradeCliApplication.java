@@ -8,6 +8,7 @@ import com.linkedin.gms.factory.kafka.SimpleKafkaConsumerFactory;
 import com.linkedin.gms.factory.kafka.schemaregistry.InternalSchemaRegistryFactory;
 import com.linkedin.gms.factory.notifications.NotificationSinkManagerFactory;
 import com.linkedin.gms.factory.telemetry.ScheduledAnalyticsFactory;
+import com.linkedin.gms.factory.test.TestEngineFactory;
 import org.springframework.boot.WebApplicationType;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.autoconfigure.elasticsearch.ElasticsearchRestClientAutoConfiguration;
@@ -34,7 +35,8 @@ import org.springframework.context.annotation.FilterType;
             KafkaEventConsumerFactory.class,
             InternalSchemaRegistryFactory.class,
             GraphQLEngineFactory.class,
-            NotificationSinkManagerFactory.class
+            NotificationSinkManagerFactory.class,
+            TestEngineFactory.class
           })
     })
 public class UpgradeCliApplication {
