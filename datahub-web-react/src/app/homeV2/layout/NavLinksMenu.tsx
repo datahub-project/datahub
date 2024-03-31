@@ -156,7 +156,7 @@ export function NavLinksMenu(props: Props) {
                 items: [
                     {
                         title: 'Glossary',
-                        description: 'View and modify your data dictionary',
+                        description: 'View and modify your business glossary',
                         link: PageRoutes.GLOSSARY,
                         isHidden: false,
                     },

@@ -95,7 +95,6 @@ const BusinessGlossaryPage = () => {
                     )}
                     <GlossaryContentProvider
                         setIsCreateNodeModalVisible={setIsCreateNodeModalVisible}
-                        setIsCreateTermModalVisible={setIsCreateTermModalVisible}
                         hasTermsOrNodes={hasTermsOrNodes}
                         nodes={nodes || []}
                         terms={terms || []}
@@ -121,6 +120,7 @@ const BusinessGlossaryPage = () => {
                     canCreateGlossaryEntity={!!canManageGlossaries}
                     onClose={() => setIsCreateNodeModalVisible(false)}
                     refetchData={refetchForNodes}
+                    canSelectParentUrn={false}
                 />
             )}
         </>

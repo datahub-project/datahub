@@ -3,10 +3,7 @@ import { Button, Typography } from 'antd';
 import styled from 'styled-components/macro';
 import TabToolbar from '../entityV2/shared/components/styled/TabToolbar';
 import { REDESIGN_COLORS, ANTD_GRAY } from '../entityV2/shared/constants';
-import TermGroupIcon from '../../images/glossary_collections_bookmark.svg?react';
-import TermIcon from '../../images/collections_bookmark.svg?react';
 import {
-    BUSINESS_GLOSSARY_CREATE_TERM_ID,
     BUSINESS_GLOSSARY_CREATE_TERM_GROUP_ID,
 } from '../onboarding/config/BusinessGlossaryOnboardingConfig';
 import GlossaryEntitiesList from './GlossaryEntitiesList';
@@ -15,6 +12,7 @@ import { GlossaryNode, GlossaryTerm } from '../../types.generated';
 import { GlossaryNodeFragment } from '../../graphql/fragments.generated';
 import { ChildGlossaryTermFragment } from '../../graphql/glossaryNode.generated';
 import { GetRootGlossaryTermsQuery } from '../../graphql/glossary.generated';
+import AddGlossaryIcon from '../../images/add-term-group.svg?react';
 
 const MainContentWrapper = styled.div`
     display: flex;
@@ -55,30 +53,6 @@ const ButtonContainer = styled.div`
     gap: 9px;
 `;
 
-const TransparentButton = styled(Button)`
-    color: ${REDESIGN_COLORS.COLD_GREY_TEXT};
-    box-shadow: none;
-    border-color: ${REDESIGN_COLORS.COLD_GREY_TEXT};
-    transition: 0.15s;
-    display: flex;
-    align-items: center;
-
-    &:hover {
-        transition: 0.15s;
-        opacity: 0.9;
-        border-color: ${REDESIGN_COLORS.TITLE_PURPLE};
-        color: ${REDESIGN_COLORS.TITLE_PURPLE};
-
-        svg > g > path {
-            fill: ${REDESIGN_COLORS.TITLE_PURPLE};
-        }
-    }
-
-    svg > g > path {
-        fill: ${REDESIGN_COLORS.COLD_GREY_TEXT};
-    }
-`;
-
 const PrimaryButton = styled(Button)`
     color: ${ANTD_GRAY[1]};
     box-shadow: none;
@@ -108,7 +82,6 @@ const ButtonContent = styled.div`
 
 interface Props {
     setIsCreateNodeModalVisible: React.Dispatch<React.SetStateAction<boolean>>;
-    setIsCreateTermModalVisible: React.Dispatch<React.SetStateAction<boolean>>;
     hasTermsOrNodes: boolean;
     nodes: (GlossaryNode | GlossaryNodeFragment)[];
     terms: (GlossaryTerm | ChildGlossaryTermFragment)[];
@@ -122,7 +95,6 @@ interface Props {
 const GlossaryContentProvider = (props: Props) => {
     const {
         setIsCreateNodeModalVisible,
-        setIsCreateTermModalVisible,
         hasTermsOrNodes,
         nodes,
         terms,
@@ -138,20 +110,9 @@ const GlossaryContentProvider = (props: Props) => {
             <HeaderWrapper>
                 <TitleContainer>
                     <Title>Business Glossary</Title>
-                    <Subtitle>View and modify your data dictionaries</Subtitle>
+                    <Subtitle>View and modify your glossaries</Subtitle>
                 </TitleContainer>
                 <ButtonContainer>
-                    <TransparentButton
-                        data-testid="add-term-button"
-                        id={BUSINESS_GLOSSARY_CREATE_TERM_ID}
-                        size="large"
-                        // can not be disabled on acryl-main due to ability to propose
-                        onClick={() => setIsCreateTermModalVisible(true)}
-                    >
-                        <ButtonContent>
-                            <TermIcon /> Term
-                        </ButtonContent>
-                    </TransparentButton>
                     <PrimaryButton
                         data-testid="add-term-group-button"
                         id={BUSINESS_GLOSSARY_CREATE_TERM_GROUP_ID}
@@ -161,8 +122,8 @@ const GlossaryContentProvider = (props: Props) => {
                         onClick={() => setIsCreateNodeModalVisible(true)}
                     >
                         <ButtonContent>
-                            <TermGroupIcon />
-                            Term Group
+                            <AddGlossaryIcon />
+                            Glossary
                         </ButtonContent>
                     </PrimaryButton>
                 </ButtonContainer>

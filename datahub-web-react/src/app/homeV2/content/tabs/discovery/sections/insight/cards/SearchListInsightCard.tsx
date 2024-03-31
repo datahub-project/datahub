@@ -46,6 +46,7 @@ const ShowAll = styled.div`
 `;
 
 type Props = {
+    id?: string;
     title: React.ReactNode;
     icon?: React.ReactNode;
     tip?: React.ReactNode;
@@ -56,7 +57,7 @@ type Props = {
     sort?: SortCriterion;
 };
 
-export const SearchListInsightCard = ({ title, icon, tip, query, types, filters, sort, empty }: Props) => {
+export const SearchListInsightCard = ({ id, title, icon, tip, query, types, filters, sort, empty }: Props) => {
     const { assets, loading } = useGetSearchAssets(types, query, filters, sort);
     const [showModal, setShowModal] = useState(false);
 
@@ -71,7 +72,7 @@ export const SearchListInsightCard = ({ title, icon, tip, query, types, filters,
         <>
             {(loading && <InsightLoadingCard />) || null}
             {(!loading && assets.length && (
-                <InsightCard minWidth={340} maxWidth={500}>
+                <InsightCard id={id} minWidth={340} maxWidth={500}>
                     <Header>
                         <Tooltip title={tip} showArrow={false} placement="top">
                             <Title>

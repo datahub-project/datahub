@@ -2,6 +2,7 @@ import React from 'react';
 import styled from 'styled-components/macro';
 import { useBaseEntity, useEntityData } from '../../../EntityContext';
 import { EntitySidebarSection, TabContextType, TabRenderType } from '../../../types';
+import { ENTITY_PROFILE_V2_SIDEBAR_ID } from '../../../../../onboarding/config/EntityProfileOnboardingConfig';
 
 const Container = styled.div`
     padding: 0px 18px 18px 18px;
@@ -42,7 +43,7 @@ export const EntitySidebarSections = <T,>({ sidebarSections, topSection, renderT
     const baseEntity = useBaseEntity<T>();
 
     return (
-        <Container>
+        <Container id={ENTITY_PROFILE_V2_SIDEBAR_ID}>
             {topSection && <topSection.component key={`${topSection.component}`} properties={topSection.properties} />}
             <Content>
                 {sidebarSections?.map((section) => {

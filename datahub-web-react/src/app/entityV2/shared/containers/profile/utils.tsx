@@ -7,17 +7,27 @@ import { EntityRegistry } from '../../../../../entityRegistryContext';
 import { EntityType } from '../../../../../types.generated';
 import useIsLineageMode from '../../../../lineage/utils/useIsLineageMode';
 import {
-    ENTITY_PROFILE_DOCUMENTATION_ID,
     ENTITY_PROFILE_DOMAINS_ID,
-    ENTITY_PROFILE_ENTITIES_ID,
     ENTITY_PROFILE_GLOSSARY_TERMS_ID,
     ENTITY_PROFILE_LINEAGE_ID,
     ENTITY_PROFILE_OWNERS_ID,
     ENTITY_PROFILE_PROPERTIES_ID,
-    ENTITY_PROFILE_SUBSCRIPTION_ID,
     ENTITY_PROFILE_TAGS_ID,
+    ENTITY_PROFILE_V2_SIDEBAR_ID,
 } from '../../../../onboarding/config/EntityProfileOnboardingConfig';
-import { ENTITY_PROFILE_V2_COLUMNS_ID } from '../../../../onboarding/configV2/EntityProfileOnboardingConfig';
+import {
+    ENTITY_PROFILE_V2_COLUMNS_ID,
+    ENTITY_PROFILE_V2_CONTENTS_ID,
+    ENTITY_PROFILE_V2_DOCUMENTATION_ID,
+    ENTITY_PROFILE_V2_INCIDENTS_ID,
+    ENTITY_SIDEBAR_V2_PROPERTIES_ID,
+    ENTITY_PROFILE_V2_QUERIES_ID,
+    ENTITY_PROFILE_V2_SUBSCRIPTION_ID,
+    ENTITY_PROFILE_V2_VALIDATION_ID,
+    ENTITY_SIDEBAR_V2_LINEAGE_TAB_ID,
+    ENTITY_SIDEBAR_V2_COLUMNS_TAB_ID,
+    ENTITY_SIDEBAR_V2_ABOUT_TAB_ID,
+} from '../../../../onboarding/configV2/EntityProfileOnboardingConfig';
 import usePrevious from '../../../../shared/usePrevious';
 import { useEntityRegistry } from '../../../../useEntityRegistry';
 import { GLOSSARY_ENTITY_TYPES } from '../../constants';
@@ -98,9 +108,8 @@ export function getEntityPath(
     if (!tabName) {
         return `${entityRegistry.getEntityUrl(entityType, urn)}?is_lineage_mode=${isLineageMode}${tabParamsString}`;
     }
-    return `${entityRegistry.getEntityUrl(entityType, urn)}/${tabName}?is_lineage_mode=${isLineageMode}${
-        isHideSiblingMode ? `&${SEPARATE_SIBLINGS_URL_PARAM}=${isHideSiblingMode}` : ''
-    }${tabParamsString}`;
+    return `${entityRegistry.getEntityUrl(entityType, urn)}/${tabName}?is_lineage_mode=${isLineageMode}${isHideSiblingMode ? `&${SEPARATE_SIBLINGS_URL_PARAM}=${isHideSiblingMode}` : ''
+        }${tabParamsString}`;
 }
 
 export function useEntityPath(entityType: EntityType, urn: string, tabName?: string, tabParams?: Record<string, any>) {
@@ -187,10 +196,10 @@ export function getOnboardingStepIdsForEntityType(entityType: EntityType): strin
     switch (entityType) {
         case EntityType.Chart:
             return [
-                ENTITY_PROFILE_DOCUMENTATION_ID,
+                ENTITY_PROFILE_V2_DOCUMENTATION_ID,
                 ENTITY_PROFILE_PROPERTIES_ID,
                 ENTITY_PROFILE_LINEAGE_ID,
-                ENTITY_PROFILE_SUBSCRIPTION_ID,
+                ENTITY_PROFILE_V2_SUBSCRIPTION_ID,
                 ENTITY_PROFILE_TAGS_ID,
                 ENTITY_PROFILE_GLOSSARY_TERMS_ID,
                 ENTITY_PROFILE_OWNERS_ID,
@@ -198,10 +207,10 @@ export function getOnboardingStepIdsForEntityType(entityType: EntityType): strin
             ];
         case EntityType.Container:
             return [
-                ENTITY_PROFILE_ENTITIES_ID,
-                ENTITY_PROFILE_DOCUMENTATION_ID,
+                ENTITY_PROFILE_V2_CONTENTS_ID,
+                ENTITY_PROFILE_V2_DOCUMENTATION_ID,
                 ENTITY_PROFILE_PROPERTIES_ID,
-                ENTITY_PROFILE_SUBSCRIPTION_ID,
+                ENTITY_PROFILE_V2_SUBSCRIPTION_ID,
                 ENTITY_PROFILE_OWNERS_ID,
                 ENTITY_PROFILE_TAGS_ID,
                 ENTITY_PROFILE_GLOSSARY_TERMS_ID,
@@ -209,15 +218,22 @@ export function getOnboardingStepIdsForEntityType(entityType: EntityType): strin
             ];
         case EntityType.Dataset:
             return [
-                ENTITY_PROFILE_V2_COLUMNS_ID,
-                ENTITY_PROFILE_DOCUMENTATION_ID,
-                ENTITY_PROFILE_LINEAGE_ID,
-                ENTITY_PROFILE_PROPERTIES_ID,
-                ENTITY_PROFILE_SUBSCRIPTION_ID,
+                ENTITY_PROFILE_V2_SIDEBAR_ID,
+                ENTITY_SIDEBAR_V2_ABOUT_TAB_ID,
+                ENTITY_SIDEBAR_V2_LINEAGE_TAB_ID,
+                ENTITY_SIDEBAR_V2_COLUMNS_TAB_ID,
+                ENTITY_SIDEBAR_V2_PROPERTIES_ID,
+                ENTITY_PROFILE_DOMAINS_ID,
                 ENTITY_PROFILE_OWNERS_ID,
                 ENTITY_PROFILE_TAGS_ID,
                 ENTITY_PROFILE_GLOSSARY_TERMS_ID,
-                ENTITY_PROFILE_DOMAINS_ID,
+                ENTITY_PROFILE_V2_COLUMNS_ID,
+                ENTITY_PROFILE_V2_DOCUMENTATION_ID,
+                ENTITY_PROFILE_LINEAGE_ID,
+                ENTITY_PROFILE_V2_QUERIES_ID,
+                ENTITY_PROFILE_V2_VALIDATION_ID,
+                ENTITY_PROFILE_V2_INCIDENTS_ID,
+                ENTITY_PROFILE_V2_SUBSCRIPTION_ID,
             ];
         default:
             return [];

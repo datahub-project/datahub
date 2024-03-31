@@ -11,6 +11,7 @@ import { PersonaType } from '../shared/types';
 import { useUserPersona } from '../persona/useUserPersona';
 import { UserHeader } from '../reference/header/UserHeader';
 import { PinnedLinks } from '../reference/sections/pinned/PinnedLinks';
+import { V2_HOME_PAGE_PERSONAL_SIDEBAR_ID } from '../../onboarding/configV2/HomePageOnboardingConfig';
 
 const Container = styled.div`
     flex: 1;
@@ -109,7 +110,7 @@ const ALL_SECTIONS: ReferenceSection[] = [
 export const LeftSidebar = () => {
     const currentUserPersona = useUserPersona();
     return (
-        <Container>
+        <Container id={V2_HOME_PAGE_PERSONAL_SIDEBAR_ID}>
             <Content>
                 <UserHeader />
                 <Body>

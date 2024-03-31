@@ -15,7 +15,7 @@ export const SearchOnboardingConfig: OnboardingStep[] = [
         content: (
             <Typography.Paragraph>
                 Quickly find relevant assets by applying one or more filters. Try filtering by <strong>Type</strong>,{' '}
-                <strong>Owner</strong>, and more!
+                <strong>Owned By</strong>, and more!
             </Typography.Paragraph>
         ),
     },
@@ -41,17 +41,5 @@ export const SearchOnboardingConfig: OnboardingStep[] = [
                 by.
             </Typography.Paragraph>
         ),
-    },
-    {
-        id: SEARCH_RESULTS_FILTERS_V2_INTRO,
-        prerequisiteStepId: SEARCH_RESULTS_FILTERS_ID,
-        selector: `#${SEARCH_RESULTS_FILTERS_V2_INTRO}`,
-        title: 'Filters Have Moved',
-        content: (
-            <Typography.Paragraph>
-                Quickly find relevant assets with our new and improved filter interface! Our latest update has relocated
-                filters to the top of the screen for ease of access.
-            </Typography.Paragraph>
-        ),
-    },
+    }
 ];

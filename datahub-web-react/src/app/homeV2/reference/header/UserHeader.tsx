@@ -7,15 +7,20 @@ import { EntityType } from '../../../../types.generated';
 import { UserHeaderImage } from './UserHeaderImage';
 import { useUserPersonaTitle } from '../../persona/useUserPersona';
 
-const Container = styled.div``;
+const Container = styled.div`
+    min-height: 240px;
+    position: relative;
+    display: flex;
+`;
 
 const GreetingTextWrapper = styled.div`
-    margin-top: -114px;
-    max-height: 80px;
-    width: auto;
-    margin-left: 12px;
     color: #ffffff;
-    margin-bottom: 40px;
+    position: absolute;
+    background: linear-gradient(180deg, rgba(0, 0, 0, 0.00) 7%, #000 88.79%);
+    width: 100%;
+    height: 100%;
+    display: flex;
+    opacity: 0.8;
 `;
 
 export const UserHeader = () => {

@@ -16,12 +16,15 @@ type Props = {
 
 const UnborderedTabs = styled(Tabs)<{ isClosed: boolean }>`
     height: 100%;
+
     &&& .ant-tabs-nav {
         margin-bottom: 0;
     }
+
     &&& .ant-tabs-ink-bar {
         display: none;
     }
+
     &&& .ant-tabs-tab {
         padding: 10px 10px 10px 10px;
         margin: 8px 8px 16px 8px;
@@ -29,25 +32,32 @@ const UnborderedTabs = styled(Tabs)<{ isClosed: boolean }>`
         display: flex;
         align-items: center;
         justify-content: center;
+
         :hover {
             color: ${REDESIGN_COLORS.LINK_HOVER_BLUE};
         }
     }
+
     &&& .ant-tabs-tab-active {
         background-color: ${(props) => !props.isClosed && `${REDESIGN_COLORS.TITLE_PURPLE}`};
+
         :hover {
             color: ${(props) => (props.isClosed ? `${REDESIGN_COLORS.LINK_HOVER_BLUE}` : 'white')};
         }
     }
+
     &&& .ant-tabs-tab-active .ant-tabs-tab-btn {
         color: ${(props) => (props.isClosed ? 'black' : 'white')};
+
         :hover {
             color: ${(props) => (props.isClosed ? `${REDESIGN_COLORS.LINK_HOVER_BLUE}` : 'white')};
         }
     }
+
     &&& .ant-tabs-content-holder {
         display: none;
     }
+
     background-color: #ffffff;
 `;
 
@@ -70,6 +80,7 @@ export const EntitySidebarTabs = <T,>({ tabs, selectedTab, onSelectTab, hideColl
         <>
             {!hideCollapse && <SidebarCollapseIcon />}
             <UnborderedTabs
+                id="entity-sidebar-tabs"
                 animated={false}
                 tabPosition="right"
                 activeKey={selectedTab?.name || ''}

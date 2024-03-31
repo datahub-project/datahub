@@ -48,12 +48,12 @@ import {
     LINEAGE_GRAPH_TIME_FILTER_ID,
 } from '../../../../onboarding/config/LineageGraphOnboardingConfig';
 import { useSubscriptionsEnabled } from '../../../../settings/personal/notifications/utils';
-import { ENTITY_PROFILE_SUBSCRIPTION_ID } from '../../../../onboarding/config/EntityProfileOnboardingConfig';
 import EntityProfileSidebar from './sidebar/EntityProfileSidebar';
 import { PageRoutes } from '../../../../../conf/Global';
 import EntitySidebarContext from '../../../../shared/EntitySidebarContext';
 import TabFullsizeContext from '../../../../shared/TabFullsizedContext';
 import { useUpdateDomainEntityDataOnChange as useUpdateDomainEntityDataOnChangeV2 } from '../../../../domainV2/utils';
+import { ENTITY_PROFILE_V2_SUBSCRIPTION_ID } from '../../../../onboarding/configV2/EntityProfileOnboardingConfig';
 
 type Props<T, U> = {
     urn: string;
@@ -218,7 +218,7 @@ export const EntityProfile = <T, U>({
     const stepIds = isLineageMode ? lineageGraphStepIds : entityStepIds;
     const filteredStepIds = subscriptionsEnabled
         ? stepIds
-        : stepIds.filter((id) => id !== ENTITY_PROFILE_SUBSCRIPTION_ID);
+        : stepIds.filter((id) => id !== ENTITY_PROFILE_V2_SUBSCRIPTION_ID);
 
     const routeToTab = useCallback(
         ({

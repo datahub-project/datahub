@@ -25,6 +25,8 @@ import { useIsBrowseV2, useIsSearchV2, useSearchVersion } from './useSearchAndBr
 import useFilterMode from './filters/useFilterMode';
 import { useSelectedSortOption } from '../search/context/SearchContext';
 import { useUpdateEducationStepsAllowList } from '../onboarding/useUpdateEducationStepsAllowList';
+import { ENTITY_PROFILE_V2_SIDEBAR_ID } from '../onboarding/config/EntityProfileOnboardingConfig';
+import { ENTITY_SIDEBAR_V2_ABOUT_TAB_ID, ENTITY_SIDEBAR_V2_COLUMNS_TAB_ID, ENTITY_SIDEBAR_V2_LINEAGE_TAB_ID, ENTITY_SIDEBAR_V2_PROPERTIES_ID } from '../onboarding/configV2/EntityProfileOnboardingConfig';
 
 const Container = styled.span`
     display: flex;
@@ -218,6 +220,11 @@ export const SearchPage = () => {
                         SEARCH_RESULTS_FILTERS_ID,
                         SEARCH_RESULTS_BROWSE_SIDEBAR_ID,
                         SEARCH_RESULTS_FILTERS_V2_INTRO,
+                        ENTITY_PROFILE_V2_SIDEBAR_ID,
+                        ENTITY_SIDEBAR_V2_ABOUT_TAB_ID,
+                        ENTITY_SIDEBAR_V2_LINEAGE_TAB_ID,
+                        ENTITY_SIDEBAR_V2_COLUMNS_TAB_ID,
+                        ENTITY_SIDEBAR_V2_PROPERTIES_ID,
                     ]}
                 />
             )}

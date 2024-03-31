@@ -34,6 +34,7 @@ const tabIconStyle = {
 };
 
 type Props = {
+    id?: string;
     name: string;
     description?: string;
     icon?: any;
@@ -43,10 +44,11 @@ type Props = {
     disabled?: boolean;
 };
 
-export const CenterTab = ({ name, description, icon: Icon, selected, count, disabled = false, onClick }: Props) => {
+export const CenterTab = ({ id, name, description, icon: Icon, selected, count, disabled = false, onClick }: Props) => {
     return (
         <Tooltip title={description} placement="bottom" showArrow={false}>
             <Tab
+                id={id}
                 key={name}
                 onClick={() => (!disabled ? onClick() : () => null)}
                 selected={selected}

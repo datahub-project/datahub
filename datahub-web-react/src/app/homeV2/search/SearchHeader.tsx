@@ -16,7 +16,6 @@ import { useUserContext } from '../../context/useUserContext';
 import { useEntityRegistry } from '../../useEntityRegistry';
 import { getAutoCompleteInputFromQuickFilter } from '../../searchV2/utils/filterUtils';
 import { SearchBar } from '../../searchV2/SearchBar';
-import { HOME_PAGE_SEARCH_BAR_ID } from '../../onboarding/config/HomePageOnboardingConfig';
 
 const Container = styled.div`
     padding: 10px;
@@ -92,7 +91,7 @@ export const SearchHeader = () => {
     // };
 
     return (
-        <Container id={HOME_PAGE_SEARCH_BAR_ID}>
+        <Container>
             <SearchBar
                 placeholderText={themeConfig.content.search.searchbarMessage}
                 suggestions={newSuggestionData?.autoCompleteForMultiple?.suggestions || []}

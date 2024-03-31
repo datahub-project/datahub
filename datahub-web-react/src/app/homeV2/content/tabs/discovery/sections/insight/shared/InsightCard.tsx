@@ -27,6 +27,7 @@ const Title = styled.div`
 `;
 
 type Props = {
+    id?: string;
     title?: React.ReactNode;
     children?: React.ReactNode;
     maxWidth?: number;
@@ -34,9 +35,9 @@ type Props = {
     onClick?: () => void;
 };
 
-export const InsightCard = ({ title, children, maxWidth = 300, minWidth = 300, onClick }: Props) => {
+export const InsightCard = ({ id, title, children, maxWidth = 300, minWidth = 300, onClick }: Props) => {
     return (
-        <Card maxWidth={maxWidth} minWidth={minWidth} clickable={onClick !== undefined} onClick={onClick}>
+        <Card id={id} maxWidth={maxWidth} minWidth={minWidth} clickable={onClick !== undefined} onClick={onClick}>
             <Title>{title}</Title>
             {children}
         </Card>

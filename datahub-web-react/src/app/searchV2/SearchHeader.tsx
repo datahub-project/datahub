@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { Layout } from 'antd';
 import styled from 'styled-components';
-import { V2_SEARCH_BAR_ID } from '../onboarding/configV2/HomePageOnboardingConfig';
 import { SearchBar } from './SearchBar';
 import { AutoCompleteResultForEntity, EntityType } from '../../types.generated';
 import { EntityRegistry } from '../../entityRegistryContext';
@@ -77,7 +76,7 @@ export const SearchHeader = ({
     return (
         <div style={styles.container as any}>
             <Header style={styles.header as any}>
-                <SearchBarContainer id={V2_SEARCH_BAR_ID}>
+                <SearchBarContainer>
                     <SearchBar
                         style={styles.searchBoxContainer}
                         autoCompleteStyle={styles.searchBox}
