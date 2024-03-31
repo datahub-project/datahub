@@ -24,9 +24,9 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.aspect.batch.MCLItem;
+import com.linkedin.metadata.aspect.models.graph.Edge;
 import com.linkedin.metadata.entity.SearchIndicesService;
 import com.linkedin.metadata.entity.ebean.batch.MCLItemImpl;
-import com.linkedin.metadata.graph.Edge;
 import com.linkedin.metadata.graph.GraphIndexUtils;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.dgraph.DgraphGraphService;
@@ -495,17 +495,18 @@ public class UpdateIndicesService implements SearchIndicesService {
   }
 
   private static List<Edge> getMergedEdges(final Set<Edge> oldEdgeSet, final Set<Edge> newEdgeSet) {
-    final Map<Integer, com.linkedin.metadata.graph.Edge> oldEdgesMap =
+    final Map<Integer, com.linkedin.metadata.aspect.models.graph.Edge> oldEdgesMap =
         oldEdgeSet.stream()
             .map(edge -> Pair.of(edge.hashCode(), edge))
             .collect(Collectors.toMap(Pair::getFirst, Pair::getSecond));
 
-    final List<com.linkedin.metadata.graph.Edge> mergedEdges = new ArrayList<>();
+    final List<com.linkedin.metadata.aspect.models.graph.Edge> mergedEdges = new ArrayList<>();
     if (!oldEdgesMap.isEmpty()) {
-      for (com.linkedin.metadata.graph.Edge newEdge : newEdgeSet) {
+      for (com.linkedin.metadata.aspect.models.graph.Edge newEdge : newEdgeSet) {
         if (oldEdgesMap.containsKey(newEdge.hashCode())) {
-          final com.linkedin.metadata.graph.Edge oldEdge = oldEdgesMap.get(newEdge.hashCode());
-          final com.linkedin.metadata.graph.Edge mergedEdge =
+          final com.linkedin.metadata.aspect.models.graph.Edge oldEdge =
+              oldEdgesMap.get(newEdge.hashCode());
+          final com.linkedin.metadata.aspect.models.graph.Edge mergedEdge =
               GraphIndexUtils.mergeEdges(oldEdge, newEdge);
           mergedEdges.add(mergedEdge);
         }

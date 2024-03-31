@@ -22,6 +22,7 @@ import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.OperationContextConfig;
+import io.datahubproject.metadata.context.RetrieverContext;
 import io.datahubproject.metadata.context.ServicesRegistryContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import org.apache.avro.generic.GenericRecord;
@@ -99,6 +100,7 @@ public class MCLSpringTestConfiguration {
         systemAuthentication,
         entityRegistry,
         mock(ServicesRegistryContext.class),
-        indexConvention);
+        indexConvention,
+        mock(RetrieverContext.class));
   }
 }

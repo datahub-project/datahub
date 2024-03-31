@@ -1,4 +1,4 @@
-package com.linkedin.metadata.graph;
+package com.linkedin.metadata.aspect.models.graph;
 
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import javax.annotation.Nonnull;

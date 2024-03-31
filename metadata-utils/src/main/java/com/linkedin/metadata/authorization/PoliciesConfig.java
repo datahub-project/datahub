@@ -608,6 +608,7 @@ public class PoliciesConfig {
                   COMMON_ENTITY_PRIVILEGES,
                   ImmutableList.of(
                       VIEW_DATASET_USAGE_PRIVILEGE,
+                      VIEW_ENTITY_PRIVILEGE,
                       VIEW_DATASET_PROFILE_PRIVILEGE,
                       EDIT_DATASET_COL_DESCRIPTION_PRIVILEGE,
                       EDIT_DATASET_COL_TAGS_PRIVILEGE,
@@ -684,6 +685,7 @@ public class PoliciesConfig {
           "Tags indexed by DataHub",
           ImmutableList.of(
               VIEW_ENTITY_PAGE_PRIVILEGE,
+              VIEW_ENTITY_PRIVILEGE,
               EDIT_ENTITY_OWNERS_PRIVILEGE,
               EDIT_TAG_COLOR_PRIVILEGE,
               EDIT_ENTITY_DOCS_PRIVILEGE,
@@ -713,6 +715,7 @@ public class PoliciesConfig {
           "Domains created on DataHub",
           ImmutableList.of(
               VIEW_ENTITY_PAGE_PRIVILEGE,
+              VIEW_ENTITY_PRIVILEGE,
               EDIT_ENTITY_OWNERS_PRIVILEGE,
               EDIT_ENTITY_DOCS_PRIVILEGE,
               EDIT_ENTITY_DOC_LINKS_PRIVILEGE,
@@ -732,6 +735,7 @@ public class PoliciesConfig {
           "Data Products created on DataHub",
           ImmutableList.of(
               VIEW_ENTITY_PAGE_PRIVILEGE,
+              VIEW_ENTITY_PRIVILEGE,
               EDIT_ENTITY_OWNERS_PRIVILEGE,
               EDIT_ENTITY_DOCS_PRIVILEGE,
               EDIT_ENTITY_DOC_LINKS_PRIVILEGE,
@@ -753,6 +757,7 @@ public class PoliciesConfig {
           "Glossary Terms created on DataHub",
           ImmutableList.of(
               VIEW_ENTITY_PAGE_PRIVILEGE,
+              VIEW_ENTITY_PRIVILEGE,
               EDIT_ENTITY_OWNERS_PRIVILEGE,
               EDIT_ENTITY_DOCS_PRIVILEGE,
               EDIT_ENTITY_DOC_LINKS_PRIVILEGE,
@@ -771,6 +776,7 @@ public class PoliciesConfig {
           "Glossary Term Groups created on DataHub",
           ImmutableList.of(
               VIEW_ENTITY_PAGE_PRIVILEGE,
+              VIEW_ENTITY_PRIVILEGE,
               EDIT_ENTITY_OWNERS_PRIVILEGE,
               EDIT_ENTITY_DOCS_PRIVILEGE,
               EDIT_ENTITY_DOC_LINKS_PRIVILEGE,

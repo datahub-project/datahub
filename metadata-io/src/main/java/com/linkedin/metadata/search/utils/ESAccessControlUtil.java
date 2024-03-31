@@ -8,15 +8,31 @@ import static com.linkedin.metadata.utils.SearchUtil.KEYWORD_SUFFIX;
 import com.datahub.authentication.Authentication;
 import com.datahub.authorization.AuthUtil;
 import com.datahub.plugins.auth.authorization.Authorizer;
+import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.StringArray;
+import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.aspect.GraphRetriever;
 import com.linkedin.metadata.aspect.hooks.OwnerTypeMap;
+import com.linkedin.metadata.aspect.models.graph.Edge;
+import com.linkedin.metadata.aspect.models.graph.RelatedEntitiesScrollResult;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.query.filter.Condition;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
+import com.linkedin.metadata.query.filter.Criterion;
+import com.linkedin.metadata.query.filter.CriterionArray;
+import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.query.filter.RelationshipDirection;
+import com.linkedin.metadata.query.filter.RelationshipFilter;
+import com.linkedin.metadata.query.filter.SortCriterion;
+import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.timeseries.elastic.indexbuilder.MappingsBuilder;
+import com.linkedin.metadata.utils.SearchUtil;
 import com.linkedin.policy.DataHubActorFilter;
 import com.linkedin.policy.DataHubPolicyInfo;
 import com.linkedin.policy.PolicyMatchCriterion;
@@ -25,12 +41,14 @@ import io.datahubproject.metadata.context.ActorContext;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.services.RestrictedService;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
@@ -112,7 +130,7 @@ public class ESAccessControlUtil {
    * @return
    */
   public static Optional<QueryBuilder> buildAccessControlFilters(
-      @Nonnull OperationContext opContext) {
+      @Nonnull final OperationContext opContext) {
     Optional<QueryBuilder> response = Optional.empty();
 
     /*
@@ -152,7 +170,7 @@ public class ESAccessControlUtil {
                   .flatMap(disjunct -> disjunct.stream().flatMap(Collection::stream))
                   .anyMatch(priv -> policy.getPrivileges().contains(priv.getType()));
 
-  private static Stream<QueryBuilder> streamViewQueries(OperationContext opContext) {
+  private static Stream<QueryBuilder> streamViewQueries(@Nonnull OperationContext opContext) {
     return opContext.getSessionActorContext().getPolicyInfoSet().stream()
         .filter(activeMetadataViewEntityPolicyFilter::apply)
         .map(
@@ -279,7 +297,7 @@ public class ESAccessControlUtil {
   }
 
   private static Stream<TermsQueryBuilder> buildResourceQuery(
-      OperationContext opContext, PolicyMatchCriterionArray criteriaArray) {
+      @Nonnull OperationContext opContext, @Nonnull PolicyMatchCriterionArray criteriaArray) {
     return criteriaArray.stream()
         .map(
             criteria ->
@@ -303,7 +321,7 @@ public class ESAccessControlUtil {
   }
 
   private static Collection<String> toESValues(
-      OperationContext opContext, PolicyMatchCriterion criterion) {
+      @Nonnull OperationContext opContext, @Nonnull PolicyMatchCriterion criterion) {
     switch (criterion.getField()) {
       case "TYPE":
         return criterion.getValues().stream()
@@ -311,8 +329,89 @@ public class ESAccessControlUtil {
                 value ->
                     opContext.getSearchContext().getIndexConvention().getEntityIndexName(value))
             .collect(Collectors.toSet());
+      case "DOMAIN":
+        final Set<Urn> visitedDomains = new HashSet<>();
+
+        getChildDomains(
+            opContext,
+            criterion.getValues().stream().map(UrnUtils::getUrn).collect(Collectors.toSet()),
+            visitedDomains);
+
+        return visitedDomains.stream().map(Urn::toString).sorted().collect(Collectors.toList());
       default:
         return criterion.getValues();
+    }
+  }
+
+  private static Collection<Urn> getChildDomains(
+      @Nonnull OperationContext opContext,
+      Set<Urn> targetDomainUrns,
+      @Nonnull Set<Urn> visitedDomainUrns) {
+
+    if (opContext.getRetrieverContext().isEmpty()) {
+      log.warn("AspectRetriever not available, child domains not available in search.");
+      visitedDomainUrns.addAll(targetDomainUrns);
+      return visitedDomainUrns;
+    } else {
+      RelatedEntitiesScrollResult result = null;
+      Set<Urn> next = new HashSet<>();
+
+      while (result == null || result.getScrollId() != null) {
+
+        // filter for destination for any of the target domains
+        Filter destinationFilter =
+            new Filter()
+                .setOr(
+                    new ConjunctiveCriterionArray(
+                        targetDomainUrns.stream()
+                            .map(Urn::toString)
+                            .map(
+                                urnStr ->
+                                    new ConjunctiveCriterion()
+                                        .setAnd(
+                                            new CriterionArray(
+                                                List.of(
+                                                    new Criterion()
+                                                        .setField("urn")
+                                                        .setCondition(Condition.EQUAL)
+                                                        .setValue(urnStr)
+                                                        .setValues(
+                                                            new StringArray(
+                                                                ImmutableList.of(urnStr)))))))
+                            .collect(Collectors.toList())));
+
+        result =
+            opContext
+                .getRetrieverContext()
+                .get()
+                .getGraphRetriever()
+                .scrollRelatedEntities(
+                    List.of(Constants.DOMAIN_ENTITY_NAME),
+                    null,
+                    List.of(Constants.DOMAIN_ENTITY_NAME),
+                    destinationFilter,
+                    List.of(Constants.IS_PART_OF_RELATIONSHIP_NAME),
+                    new RelationshipFilter().setDirection(RelationshipDirection.OUTGOING),
+                    Edge.EDGE_SORT_CRITERION,
+                    result == null ? null : result.getScrollId(),
+                    GraphRetriever.DEFAULT_EDGE_FETCH_LIMIT,
+                    null,
+                    null);
+
+        next.addAll(
+            result.getEntities().stream()
+                .map(r -> UrnUtils.getUrn(r.getSourceUrn()))
+                .filter(urn -> !visitedDomainUrns.contains(urn))
+                .collect(Collectors.toSet()));
+      }
+
+      visitedDomainUrns.addAll(targetDomainUrns);
+
+      if (next.isEmpty()) {
+        return visitedDomainUrns;
+      } else {
+        return getChildDomains(opContext, next, visitedDomainUrns);
+      }
     }
   }
 }

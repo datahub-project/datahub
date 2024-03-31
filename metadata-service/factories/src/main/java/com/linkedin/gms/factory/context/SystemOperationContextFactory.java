@@ -3,9 +3,11 @@ package com.linkedin.gms.factory.context;
 import com.datahub.authentication.Authentication;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.search.BaseElasticSearchComponentsFactory;
+import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.OperationContextConfig;
+import io.datahubproject.metadata.context.RetrieverContext;
 import io.datahubproject.metadata.context.ServicesRegistryContext;
 import io.datahubproject.metadata.services.RestrictedService;
 import javax.annotation.Nonnull;
@@ -27,14 +29,16 @@ public class SystemOperationContextFactory {
       @Nonnull final EntityRegistry entityRegistry,
       @Nonnull @Qualifier("systemAuthentication") final Authentication systemAuthentication,
       @Nonnull final OperationContextConfig operationContextConfig,
-      @Nonnull final RestrictedService restrictedService) {
+      @Nonnull final RestrictedService restrictedService,
+      @Nonnull final GraphService graphService) {
 
     return OperationContext.asSystem(
         operationContextConfig,
         systemAuthentication,
         entityRegistry,
         ServicesRegistryContext.builder().restrictedService(restrictedService).build(),
-        components.getIndexConvention());
+        components.getIndexConvention(),
+        RetrieverContext.builder().graphRetriever(graphService).build());
   }
 
   @Bean

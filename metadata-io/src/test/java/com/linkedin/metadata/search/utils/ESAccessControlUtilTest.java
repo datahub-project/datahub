@@ -2,11 +2,14 @@ package com.linkedin.metadata.search.utils;
 
 import static com.linkedin.metadata.Constants.CORP_USER_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
+import static com.linkedin.metadata.Constants.DOMAIN_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.GROUP_MEMBERSHIP_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.OWNERSHIP_ASPECT_NAME;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anySet;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
@@ -33,8 +36,15 @@ import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.identity.GroupMembership;
+import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.aspect.GraphRetriever;
+import com.linkedin.metadata.aspect.models.graph.RelatedEntities;
+import com.linkedin.metadata.aspect.models.graph.RelatedEntitiesScrollResult;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.TestEntityRegistry;
+import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.query.filter.RelationshipDirection;
+import com.linkedin.metadata.query.filter.RelationshipFilter;
 import com.linkedin.metadata.search.MatchedFieldArray;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
@@ -44,6 +54,8 @@ import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
 import com.linkedin.policy.DataHubActorFilter;
 import com.linkedin.policy.DataHubPolicyInfo;
 import com.linkedin.policy.DataHubResourceFilter;
+import com.linkedin.policy.PolicyMatchCondition;
+import com.linkedin.policy.PolicyMatchCriterion;
 import com.linkedin.policy.PolicyMatchCriterionArray;
 import com.linkedin.policy.PolicyMatchFilter;
 import com.linkedin.r2.RemoteInvocationException;
@@ -51,6 +63,7 @@ import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.OperationContextConfig;
 import io.datahubproject.metadata.context.RequestContext;
+import io.datahubproject.metadata.context.RetrieverContext;
 import io.datahubproject.metadata.context.ServicesRegistryContext;
 import io.datahubproject.metadata.services.RestrictedService;
 import java.net.URISyntaxException;
@@ -79,6 +92,8 @@ public class ESAccessControlUtilTest {
       UrnUtils.getUrn("urn:li:ownershipType:__system__technical_owner");
   private static final Urn BUS_OWNER =
       UrnUtils.getUrn("urn:li:ownershipType:__system__business_owner");
+  private static final Urn DOMAIN_A = UrnUtils.getUrn("urn:li:domain:DomainA");
+  private static final Urn DOMAIN_B = UrnUtils.getUrn("urn:li:domain:DomainB");
   private static final Authentication USER_A_AUTH =
       new Authentication(new Actor(ActorType.USER, TEST_USER_A.getId()), "");
   private static final Authentication USER_B_AUTH =
@@ -93,7 +108,8 @@ public class ESAccessControlUtilTest {
           SYSTEM_AUTH,
           new TestEntityRegistry(),
           ServicesRegistryContext.builder().restrictedService(mockRestrictedService()).build(),
-          IndexConventionImpl.NO_PREFIX);
+          IndexConventionImpl.NO_PREFIX,
+          RetrieverContext.builder().graphRetriever(mock(GraphRetriever.class)).build());
 
   private static final String VIEW_PRIVILEGE = "VIEW_ENTITY_PAGE";
 
@@ -222,6 +238,31 @@ public class ESAccessControlUtilTest {
                           .setFilter(
                               new PolicyMatchFilter()
                                   .setCriteria(new PolicyMatchCriterionArray()))))
+          .put(
+              "domainA",
+              new DataHubPolicyInfo()
+                  .setDisplayName("")
+                  .setState(PoliciesConfig.ACTIVE_POLICY_STATE)
+                  .setType(PoliciesConfig.METADATA_POLICY_TYPE)
+                  .setActors(
+                      new DataHubActorFilter()
+                          .setAllUsers(true)
+                          .setGroups(new UrnArray())
+                          .setUsers(new UrnArray()))
+                  .setPrivileges(new StringArray(List.of(VIEW_PRIVILEGE)))
+                  .setResources(
+                      new DataHubResourceFilter()
+                          .setFilter(
+                              new PolicyMatchFilter()
+                                  .setCriteria(
+                                      new PolicyMatchCriterionArray(
+                                          List.of(
+                                              new PolicyMatchCriterion()
+                                                  .setField("DOMAIN")
+                                                  .setCondition(PolicyMatchCondition.EQUALS)
+                                                  .setValues(
+                                                      new StringArray(
+                                                          List.of(DOMAIN_A.toString())))))))))
           .build();
 
   /** User A is a technical owner of the result User B has no ownership */
@@ -817,6 +858,56 @@ public class ESAccessControlUtilTest {
                                 "ownerTypes.urn:li:ownershipType:__system__business_owner.keyword",
                                 List.of(TEST_USER_B.toString())))
                         .minimumShouldMatch(1))
+                .minimumShouldMatch(1)));
+  }
+
+  @Test
+  public void testDomainFilter() throws RemoteInvocationException, URISyntaxException {
+    GraphRetriever mockGraphRetriever = mock(GraphRetriever.class);
+    OperationContext mockGraphUserAContext =
+        sessionWithUserAGroupAandC(List.of(TEST_POLICIES.get("domainA"))).toBuilder()
+            .retrieverContext(RetrieverContext.builder().graphRetriever(mockGraphRetriever).build())
+            .build(USER_A_AUTH);
+
+    when(mockGraphRetriever.scrollRelatedEntities(
+            eq(List.of(DOMAIN_ENTITY_NAME)),
+            nullable(Filter.class),
+            eq(List.of(DOMAIN_ENTITY_NAME)),
+            any(),
+            eq(List.of(Constants.IS_PART_OF_RELATIONSHIP_NAME)),
+            eq(new RelationshipFilter().setDirection(RelationshipDirection.OUTGOING)),
+            any(),
+            eq(null),
+            eq(GraphRetriever.DEFAULT_EDGE_FETCH_LIMIT),
+            eq(null),
+            eq(null)))
+        .thenReturn(
+            new RelatedEntitiesScrollResult(
+                1,
+                1,
+                null,
+                List.of(
+                    new RelatedEntities(
+                        "IsPartOf",
+                        DOMAIN_B.toString(),
+                        DOMAIN_A.toString(),
+                        RelationshipDirection.OUTGOING,
+                        null))));
+    Optional<QueryBuilder> filter =
+        ESAccessControlUtil.buildAccessControlFilters(mockGraphUserAContext);
+    assertEquals(
+        filter,
+        Optional.of(
+            QueryBuilders.boolQuery()
+                .should(
+                    QueryBuilders.boolQuery()
+                        .filter(QueryBuilders.termsQuery("urn", List.of(TEST_USER_A.toString()))))
+                .should(
+                    QueryBuilders.boolQuery()
+                        .filter(
+                            QueryBuilders.termsQuery(
+                                "domains.keyword",
+                                List.of(DOMAIN_A.toString(), DOMAIN_B.toString()))))
                 .minimumShouldMatch(1)));
   }
 }

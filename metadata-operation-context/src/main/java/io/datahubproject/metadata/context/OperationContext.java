@@ -116,7 +116,8 @@ public class OperationContext {
       @Nonnull Authentication systemAuthentication,
       @Nullable EntityRegistry entityRegistry,
       @Nullable ServicesRegistryContext servicesRegistryContext,
-      @Nullable IndexConvention indexConvention) {
+      @Nullable IndexConvention indexConvention,
+      @Nullable RetrieverContext retrieverContext) {
 
     ActorContext systemActorContext =
         ActorContext.builder().systemAuth(true).authentication(systemAuthentication).build();
@@ -138,6 +139,7 @@ public class OperationContext {
         .servicesRegistryContext(servicesRegistryContext)
         // Authorizer.EMPTY doesn't actually apply to system auth
         .authorizerContext(AuthorizerContext.builder().authorizer(Authorizer.EMPTY).build())
+        .retrieverContext(retrieverContext)
         .build(systemAuthentication);
   }
 
@@ -150,6 +152,7 @@ public class OperationContext {
   @Nullable private final ServicesRegistryContext servicesRegistryContext;
   @Nullable private final RequestContext requestContext;
   @Nullable private final ViewAuthorizationContext viewAuthorizationContext;
+  @Nullable private final RetrieverContext retrieverContext;
 
   public OperationContext withSearchFlags(
       @Nonnull Function<SearchFlags, SearchFlags> flagDefaults) {
@@ -245,6 +248,10 @@ public class OperationContext {
     return Optional.ofNullable(viewAuthorizationContext);
   }
 
+  public Optional<RetrieverContext> getRetrieverContext() {
+    return Optional.ofNullable(retrieverContext);
+  }
+
   /**
    * Return a unique id for this context. Typically useful for building cache keys. We combine the
    * different context components to create a single string representation of the hashcode across
@@ -274,6 +281,10 @@ public class OperationContext {
             .add(
                 getViewAuthorizationContext().isPresent()
                     ? getViewAuthorizationContext().get()
+                    : EmptyContext.EMPTY)
+            .add(
+                getRetrieverContext().isPresent()
+                    ? getRetrieverContext().get()
                     : EmptyContext.EMPTY)
             .build()
             .stream()
@@ -351,7 +362,8 @@ public class OperationContext {
           this.entityRegistryContext,
           this.servicesRegistryContext,
           this.requestContext,
-          this.viewAuthorizationContext);
+          this.viewAuthorizationContext,
+          this.retrieverContext);
     }
 
     private OperationContext build() {

@@ -1,4 +1,4 @@
-package com.linkedin.metadata.graph;
+package com.linkedin.metadata.aspect.models.graph;
 
 import java.util.List;
 import lombok.AllArgsConstructor;

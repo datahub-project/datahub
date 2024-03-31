@@ -43,7 +43,8 @@ public class TestOperationContexts {
         TEST_SYSTEM_AUTH,
         entityRegistry,
         null,
-        indexConvention);
+        indexConvention,
+        null);
   }
 
   public static OperationContext userContextNoSearchAuthorization(

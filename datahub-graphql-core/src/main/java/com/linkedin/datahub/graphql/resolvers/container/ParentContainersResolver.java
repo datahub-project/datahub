@@ -1,10 +1,8 @@
 package com.linkedin.datahub.graphql.resolvers.container;
 
-import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
 import static com.linkedin.metadata.Constants.CONTAINER_ASPECT_NAME;
 
 import com.linkedin.common.urn.Urn;
-import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.DataMap;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
@@ -20,7 +18,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.stream.Collectors;
 
 public class ParentContainersResolver
     implements DataFetcher<CompletableFuture<ParentContainersResult>> {
@@ -74,14 +71,7 @@ public class ParentContainersResolver
             aggregateParentContainers(containers, urn, context);
             final ParentContainersResult result = new ParentContainersResult();
 
-            List<Container> viewable =
-                containers.stream()
-                    .filter(
-                        c ->
-                            context == null
-                                || canView(
-                                    context.getOperationContext(), UrnUtils.getUrn(c.getUrn())))
-                    .collect(Collectors.toList());
+            List<Container> viewable = new ArrayList<>(containers);
 
             result.setCount(viewable.size());
             result.setContainers(viewable);
