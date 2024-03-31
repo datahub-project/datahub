@@ -50,11 +50,14 @@ public class PlatformEventProcessor {
 
       kafkaLagStats.update(System.currentTimeMillis() - consumerRecord.timestamp());
       final GenericRecord record = consumerRecord.value();
-      log.debug(
-          "Got Generic PE on topic: {}, partition: {}, offset: {}",
+      log.info(
+          "Got PE event key: {}, topic: {}, partition: {}, offset: {}, value size: {}, timestamp: {}",
+          consumerRecord.key(),
           consumerRecord.topic(),
           consumerRecord.partition(),
-          consumerRecord.offset());
+          consumerRecord.offset(),
+          consumerRecord.serializedValueSize(),
+          consumerRecord.timestamp());
       MetricUtils.counter(this.getClass(), "received_pe_count").inc();
 
       PlatformEvent event;
@@ -68,9 +71,13 @@ public class PlatformEventProcessor {
         return;
       }
 
-      log.debug("Invoking PE hooks for event name {}", event.getName());
+      log.info("Invoking PE hooks for event name {}", event.getName());
 
       for (PlatformEventHook hook : this.hooks) {
+        log.info(
+            "Invoking PE hook {} for event name {}",
+            hook.getClass().getSimpleName(),
+            event.getName());
         try (Timer.Context ignored =
             MetricUtils.timer(this.getClass(), hook.getClass().getSimpleName() + "_latency")
                 .time()) {
@@ -83,7 +90,7 @@ public class PlatformEventProcessor {
         }
       }
       MetricUtils.counter(this.getClass(), "consumed_pe_count").inc();
-      log.debug("Successfully completed PE hooks for event with name {}", event.getName());
+      log.info("Successfully completed PE hooks for event with name {}", event.getName());
     }
   }
 }
