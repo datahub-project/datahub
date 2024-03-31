@@ -94,7 +94,7 @@ public class AssertionRunEventMapper
 
     if (gmsResult.hasAssertionInferenceDetails()) {
       datasetAssertionResult.setAssertionInferenceDetails(
-          AssertionMapper.mapInferenceDetails(gmsResult.getAssertionInferenceDetails()));
+          AssertionMapper.mapInferenceDetails(context, gmsResult.getAssertionInferenceDetails()));
     }
 
     if (gmsResult.hasType()) {
