@@ -6,6 +6,7 @@ import { PendingProposals } from './PendingProposals';
 import { PendingRequests } from './PendingRequests';
 import { useUserContext } from '../../../context/useUserContext';
 import { useIsDocumentationFormsEnabled } from '../../../useAppConfig';
+import { V2_HOME_PAGE_PENDING_TASKS_ID } from '../../../onboarding/configV2/HomePageOnboardingConfig';
 
 const Card = styled.div`
     border: 1px solid ${ANTD_GRAY[4]};
@@ -58,7 +59,7 @@ export const PendingTasks = () => {
     if (!isDocumentationFormsEnabled && !proposalCount) return null;
 
     return (
-        <Card>
+        <Card id={V2_HOME_PAGE_PENDING_TASKS_ID}>
             <Header>
                 <Title>
                     <Icon /> Pending tasks

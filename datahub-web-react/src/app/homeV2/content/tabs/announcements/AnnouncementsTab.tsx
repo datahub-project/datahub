@@ -3,6 +3,7 @@ import styled from 'styled-components';
 import { useGetAnnouncements } from './useGetAnnouncements';
 import { AnnouncementsLoadingSection } from './AnnouncementsLoadingSection';
 import { AnnouncementCard } from './AnnouncementCard';
+import { V2_HOME_PAGE_ANNOUNCEMENTS_ID } from '../../../../onboarding/configV2/HomePageOnboardingConfig';
 
 const List = styled.div`
     display: flex;
@@ -20,7 +21,7 @@ export const AnnouncementsTab = () => {
     return (
         <>
             {loading && <AnnouncementsLoadingSection />}
-            <List>
+            <List id={V2_HOME_PAGE_ANNOUNCEMENTS_ID}>
                 {sortedAnnouncements.map((announcement) => (
                     <AnnouncementCard
                         key={`${announcement.content.title}-${announcement.content.description}`}

@@ -1,11 +1,18 @@
 import React, { useEffect } from 'react';
 import styled from 'styled-components';
 import analytics, { EventType } from '../analytics';
-import { V2_SEARCH_BAR_ID } from '../onboarding/configV2/HomePageOnboardingConfig';
+import {
+    GLOBAL_WELCOME_TO_ACRYL_ID,
+    V2_HOME_PAGE_MOST_POPULAR_ID,
+    V2_SEARCH_BAR_ID,
+    V2_SEARCH_BAR_VIEWS,
+    V2_HOME_PAGE_DISCOVER_ID,
+    V2_HOME_PAGE_PERSONAL_SIDEBAR_ID,
+    V2_HOME_PAGE_PENDING_TASKS_ID,
+    V2_HOME_PAGE_ANNOUNCEMENTS_ID,
+} from '../onboarding/configV2/HomePageOnboardingConfig';
 import { OnboardingTour } from '../onboarding/OnboardingTour';
 import {
-    GLOBAL_WELCOME_TO_DATAHUB_ID,
-    HOME_PAGE_INGESTION_ID,
     HOME_PAGE_DOMAINS_ID,
     HOME_PAGE_PLATFORMS_ID,
 } from '../onboarding/config/HomePageOnboardingConfig';
@@ -31,11 +38,16 @@ export const HomePage = () => {
         <>
             <OnboardingTour
                 stepIds={[
-                    GLOBAL_WELCOME_TO_DATAHUB_ID,
-                    HOME_PAGE_INGESTION_ID,
-                    HOME_PAGE_DOMAINS_ID,
-                    HOME_PAGE_PLATFORMS_ID,
+                    GLOBAL_WELCOME_TO_ACRYL_ID,
+                    V2_HOME_PAGE_PERSONAL_SIDEBAR_ID,
                     V2_SEARCH_BAR_ID,
+                    V2_SEARCH_BAR_VIEWS,
+                    V2_HOME_PAGE_DISCOVER_ID,
+                    V2_HOME_PAGE_ANNOUNCEMENTS_ID,
+                    HOME_PAGE_DOMAINS_ID,
+                    V2_HOME_PAGE_MOST_POPULAR_ID,
+                    HOME_PAGE_PLATFORMS_ID,
+                    V2_HOME_PAGE_PENDING_TASKS_ID,
                 ]}
             />
             <SearchablePage>

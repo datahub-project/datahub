@@ -14,15 +14,14 @@ const Text = styled.div`
     justify-content: end;
     width: auto;
     overflow: hidden;
-    > div {
-        overflow: hidden;
-        text-overflow: ellipsis;
-        text-wrap: nowrap;
-        width: 80%;
-    }
 `;
 
-const Name = styled.div``;
+const Name = styled.div`
+    width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+`;
 
 const Role = styled.div`
     font-size: 12px;

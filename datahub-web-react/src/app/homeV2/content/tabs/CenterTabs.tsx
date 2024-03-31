@@ -32,6 +32,8 @@ export const CenterTabs = () => {
     const activeTabs = useGetActiveTabs();
     const [selectedTab, setSelectedTab] = useState<TabType>(activeTabs[0].type || DEFAULT_TAB);
     const selectedTabDetails = TAB_NAME_DETAILS.get(selectedTab);
+    if (!selectedTabDetails) return null;
+
     const TabContent = selectedTabDetails.component;
 
     const updateSelectedTab = (tab: TabType, onSelectTab?: any) => {
@@ -44,11 +46,14 @@ export const CenterTabs = () => {
             <Tabs>
                 {activeTabs.map((tab) => {
                     const details = TAB_NAME_DETAILS.get(tab.type);
-                    const { name, description, type, icon } = details;
+                    if (!details) return null;
+
+                    const { name, description, type, icon, id } = details;
                     const { count, onSelectTab } = tab;
                     const selected = selectedTab === type;
                     return (
                         <CenterTab
+                            id={id}
                             name={name}
                             description={description}
                             icon={icon}

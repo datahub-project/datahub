@@ -11,6 +11,7 @@ import MoreOptionsMenuAction from './MoreOptionsMenuAction';
 import { SubscribeMenuAction } from '../../../shared/subscribe/v2/SubscribeMenuAction';
 import EntitySidebarContext from '../../../shared/EntitySidebarContext';
 import { useEntityData, useRefetch } from '../EntityContext';
+import { ENTITY_PROFILE_V2_SUBSCRIPTION_ID } from '../../../onboarding/configV2/EntityProfileOnboardingConfig';
 
 export enum EntityMenuItems {
     EXTERNAL_URL,
@@ -40,6 +41,8 @@ const MenuItems = styled.div`
     align-items: center;
     justify-content: end;
 `;
+
+const MoreOptionsContainer = styled.div``;
 
 export interface Options {
     hideDeleteMessage?: boolean;
@@ -79,13 +82,15 @@ function EntityMenuActions(props: Props) {
             ) : (
                 <MenuItems>
                     {menuItems.has(EntityMenuItems.EXTERNAL_URL) && <ExternalUrlMenuAction />}
-                    <MoreOptionsMenuAction
-                        menuItems={menuItems}
-                        urn={urn}
-                        entityType={entityType}
-                        entityData={entityData}
-                        refetch={refetch}
-                    />
+                    <MoreOptionsContainer id={ENTITY_PROFILE_V2_SUBSCRIPTION_ID}>
+                        <MoreOptionsMenuAction
+                            menuItems={menuItems}
+                            urn={urn}
+                            entityType={entityType}
+                            entityData={entityData}
+                            refetch={refetch}
+                        />
+                    </MoreOptionsContainer>
                 </MenuItems>
             )}
         </>
