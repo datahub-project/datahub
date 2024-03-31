@@ -70,6 +70,7 @@ export default function GlossarySidebar() {
                     canCreateGlossaryEntity={!!canManageGlossaries}
                     onClose={() => setIsCreateNodeModalVisible(false)}
                     refetchData={refetchForNodes}
+                    canSelectParentUrn={false}
                 />
             )}
         </>

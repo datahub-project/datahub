@@ -39,10 +39,11 @@ interface Props {
     refetchData?: () => void;
     // acryl-main only prop
     canCreateGlossaryEntity: boolean;
+    canSelectParentUrn?: boolean;
 }
 
 function CreateGlossaryEntityModal(props: Props) {
-    const { entityType, onClose, refetchData, canCreateGlossaryEntity } = props;
+    const { entityType, onClose, refetchData, canCreateGlossaryEntity, canSelectParentUrn = true } = props;
     const entityData = useEntityData();
     const { isInGlossaryContext, urnsToUpdate, setUrnsToUpdate } = useGlossaryEntityData();
     const [form] = Form.useForm();
@@ -190,20 +191,23 @@ function CreateGlossaryEntityModal(props: Props) {
                         <Input autoFocus value={stagedName} onChange={(event) => setStagedName(event.target.value)} />
                     </StyledItem>
                 </Form.Item>
-                <Form.Item
-                    label={
-                        <Typography.Text strong>
-                            Parent <OptionalWrapper>(optional)</OptionalWrapper>
-                        </Typography.Text>
-                    }
-                >
-                    <StyledItem name="parent">
-                        <NodeParentSelect
-                            selectedParentUrn={selectedParentUrn}
-                            setSelectedParentUrn={setSelectedParentUrn}
-                        />
-                    </StyledItem>
-                </Form.Item>
+                {canSelectParentUrn && (
+                    <Form.Item
+                        label={
+                            <Typography.Text strong>
+                                Parent <OptionalWrapper>(optional)</OptionalWrapper>
+                            </Typography.Text>
+                        }
+                    >
+                        <StyledItem name="parent">
+                            <NodeParentSelect
+                                selectedParentUrn={selectedParentUrn}
+                                setSelectedParentUrn={setSelectedParentUrn}
+                            />
+                        </StyledItem>
+                    </Form.Item>
+                )}
+
                 <StyledItem
                     label={
                         <Typography.Text strong>

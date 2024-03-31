@@ -75,6 +75,8 @@ function GlossarySearch() {
                         padding: 9,
                         paddingLeft: 9,
                         paddingBottom: 14,
+                        maxWidth: '100%',
+                        boxSizing: 'border-box',
                     }}
                     inputStyle={{
                         height: 30,

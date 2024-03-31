@@ -46,7 +46,7 @@ const ShowAll = styled.div`
 `;
 
 type Props = {
-    id: string;
+    id?: string;
     title: React.ReactNode;
     icon?: React.ReactNode;
     tip?: React.ReactNode;
