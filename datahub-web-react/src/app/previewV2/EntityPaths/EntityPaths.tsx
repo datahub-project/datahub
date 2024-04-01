@@ -1,7 +1,6 @@
-import React, { useContext, useState } from 'react';
+import React, { useState } from 'react';
 import styled from 'styled-components/macro';
 import { EntityPath } from '../../../types.generated';
-import { LineageTabContext } from '../../entityV2/shared/tabs/Lineage/LineageTabContext';
 import ColumnPathsText from './ColumnPathsText';
 import EntityPathsModal from './EntityPathsModal';
 
@@ -15,10 +14,7 @@ interface Props {
 }
 
 export default function EntityPaths({ paths, resultEntityUrn }: Props) {
-    const { isColumnLevelLineage, selectedColumn } = useContext(LineageTabContext);
     const [isPathsModalVisible, setIsPathsModalVisible] = useState(false);
-
-    if (!isColumnLevelLineage || !selectedColumn) return null;
 
     return (
         <>

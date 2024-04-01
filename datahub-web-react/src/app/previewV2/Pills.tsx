@@ -31,7 +31,7 @@ interface Props {
 }
 
 const Pills = ({ glossaryTerms, tags, owners, entityCapabilities, paths, entityType }: Props) => {
-    const { lineageDirection } = useContext(LineageTabContext);
+    const { lineageDirection, isColumnLevelLineage, selectedColumn } = useContext(LineageTabContext);
     const lineageDirectionText = lineageDirection === LineageDirection.Downstream ? 'downstream' : 'upstream';
     const { setExpandedSection, expandedSection } = useContext(MatchesContext);
     const groupedMatches = useMatchedFieldsForList('fieldLabels');
@@ -97,17 +97,21 @@ const Pills = ({ glossaryTerms, tags, owners, entityCapabilities, paths, entityT
                 />
             )}
             {/* only show the column paths pill on datasets who actually have columns to show */}
-            {paths && paths.length > 0 && entityType === EntityType.Dataset && (
-                <SearchPill
-                    icon={<LayoutOutlined />}
-                    count={paths.length || 0}
-                    enabled={!!paths.length}
-                    active={expandedSection === PreviewSection.COLUMN_PATHS}
-                    label=""
-                    countLabel={`${lineageDirectionText} column`}
-                    onClick={handlePillClick(PreviewSection.COLUMN_PATHS, paths)}
-                />
-            )}
+            {paths &&
+                paths.length > 0 &&
+                entityType === EntityType.Dataset &&
+                isColumnLevelLineage &&
+                selectedColumn && (
+                    <SearchPill
+                        icon={<LayoutOutlined />}
+                        count={paths.length || 0}
+                        enabled={!!paths.length}
+                        active={expandedSection === PreviewSection.COLUMN_PATHS}
+                        label=""
+                        countLabel={`${lineageDirectionText} column`}
+                        onClick={handlePillClick(PreviewSection.COLUMN_PATHS, paths)}
+                    />
+                )}
         </PillsContainer>
     );
 };

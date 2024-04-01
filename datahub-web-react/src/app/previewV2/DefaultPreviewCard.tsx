@@ -2,7 +2,7 @@
 // import CameraIcon from '@mui/icons-material/Camera';
 // import FindInPageIcon from '@mui/icons-material/FindInPage';
 import LaunchIcon from '@mui/icons-material/Launch';
-import { Tooltip, Typography } from 'antd';
+import { Typography } from 'antd';
 import React, { ReactNode } from 'react';
 import styled from 'styled-components';
 import { useHistory } from 'react-router';
@@ -27,7 +27,6 @@ import { PreviewType } from '../entityV2/Entity';
 import { useEntityData } from '../entityV2/shared/EntityContext';
 import { ANTD_GRAY } from '../entityV2/shared/constants';
 import { PopularityTier } from '../entityV2/shared/containers/profile/sidebar/shared/utils';
-import { getNumberWithOrdinal } from '../entityV2/shared/utils';
 import useContentTruncation from '../shared/useContentTruncation';
 import { useEntityRegistryV2 } from '../useEntityRegistry';
 import CardActionCircle from './CardActionCircle';
@@ -62,23 +61,6 @@ const RowContainer = styled.div<RowContainerProps>`
     flex-direction: row;
     justify-content: space-between;
     width: 100%;
-`;
-
-const PlatformDivider = styled.div`
-    display: inline-block;
-    padding-left: 10px;
-    margin-right: 10px;
-    border-right: 1px solid ${ANTD_GRAY[4]};
-    height: 21px;
-    vertical-align: text-top;
-`;
-
-const DegreeText = styled.span`
-    font-size: 12px;
-    line-height: 20px;
-    font-weight: 700;
-    margin-top: 12px;
-    width: fit-content;
 `;
 
 const InsightsText = styled(Typography.Text)`
@@ -197,6 +179,7 @@ export default function DefaultPreviewCard({
     container,
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     deprecation,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     entityCount,
     titleSizePx,
     dataTestID,
@@ -295,6 +278,8 @@ export default function DefaultPreviewCard({
                         urn={urn}
                         deprecation={deprecation}
                         health={health}
+                        degree={degree}
+                        connectionName={entityData?.name}
                     />
                 </HeaderContainer>
             </RowContainer>
@@ -368,16 +353,6 @@ export default function DefaultPreviewCard({
                         </InsightsContainer>
                     </>
                 )} */}
-            {degree !== undefined && (
-                <Tooltip
-                    title={`This entity is a ${getNumberWithOrdinal(degree)} degree connection to ${
-                        entityData?.name || 'the source entity'
-                    }`}
-                >
-                    <DegreeText>{getNumberWithOrdinal(degree)}</DegreeText>
-                </Tooltip>
-            )}
-            {!!degree && entityCount && <PlatformDivider />}
         </PreviewContainer>
     );
 }

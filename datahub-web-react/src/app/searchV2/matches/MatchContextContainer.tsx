@@ -15,7 +15,6 @@ const MatchesContainer = styled.div<{ expanded: boolean; selected: boolean }>`
     padding: 8px 19px;
     box-shadow: 0px 0px 5px rgba(0, 0, 0, 0.08);
     border-bottom: 1px solid ${ANTD_GRAY[5]};
-    cursor: pointer;
     :hover {
         ${(props) => !props.selected && `outline: 1px solid ${SEARCH_COLORS.TITLE_PURPLE};}`};
     }

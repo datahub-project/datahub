@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Typography } from 'antd';
+import { Tooltip, Typography } from 'antd';
 import styled from 'styled-components';
 import SearchTextHighlighter from '../searchV2/matches/SearchTextHighlighter';
 import { PreviewType } from '../entityV2/Entity';
@@ -10,6 +10,7 @@ import { DeprecationPill } from '../entityV2/shared/components/styled/Deprecatio
 import HealthIcon from './HealthIcon';
 import { isUnhealthy } from '../shared/health/healthUtils';
 import { PageRoutes } from '../../conf/Global';
+import { getNumberWithOrdinal } from '../entityV2/shared/utils';
 
 const EntityTitleContainer = styled.div`
     display: flex;
@@ -20,7 +21,7 @@ const StyledLink = styled(Link)`
     display: block;
 `;
 
-const EntityTitle = styled(Typography.Text) <{ $titleSizePx?: number }>`
+const EntityTitle = styled(Typography.Text)<{ $titleSizePx?: number }>`
     display: block;
     &&& {
         margin-right 8px;
@@ -39,11 +40,22 @@ const EntityTitle = styled(Typography.Text) <{ $titleSizePx?: number }>`
     height: 100%;
 `;
 
-const CardEntityTitle = styled(EntityTitle) <{ $previewType?: Maybe<PreviewType> }>`
+const CardEntityTitle = styled(EntityTitle)<{ $previewType?: Maybe<PreviewType> }>`
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
     max-width: ${(props) => (props.$previewType === PreviewType.HOVER_CARD ? `100px` : '250px')};
+`;
+
+const DegreeText = styled.div`
+    border-radius: 18px;
+    background: ${REDESIGN_COLORS.COLD_GREY_TEXT_BLUE_1};
+    padding: 3px 5px;
+    font-size: 12px;
+    font-weight: 700;
+    width: fit-content;
+    color: ${REDESIGN_COLORS.SUB_TEXT};
+    margin-right: 8px;
 `;
 
 interface EntityHeaderProps {
@@ -55,6 +67,8 @@ interface EntityHeaderProps {
     urn: string;
     deprecation: Deprecation | null | undefined;
     health: Health[] | undefined;
+    degree?: number;
+    connectionName?: Maybe<string>;
 }
 
 const EntityHeader: React.FC<EntityHeaderProps> = ({
@@ -66,6 +80,8 @@ const EntityHeader: React.FC<EntityHeaderProps> = ({
     urn,
     deprecation,
     health,
+    degree,
+    connectionName,
 }) => {
     const isEmbeddedProfile = window.location.pathname.startsWith(PageRoutes.EMBED);
     const linkProps = isEmbeddedProfile ? { target: '_blank', rel: 'noreferrer noopener' } : {};
@@ -83,6 +99,15 @@ const EntityHeader: React.FC<EntityHeaderProps> = ({
                     </EntityTitle>
                 )}
             </StyledLink>
+            {degree !== undefined && (
+                <Tooltip
+                    title={`This entity is a ${getNumberWithOrdinal(degree)} degree connection to ${
+                        connectionName || 'the source entity'
+                    }`}
+                >
+                    <DegreeText>{getNumberWithOrdinal(degree)}</DegreeText>
+                </Tooltip>
+            )}
             {deprecation?.deprecated && <DeprecationPill urn={urn} deprecation={deprecation} showUndeprecate />}
             {health && isUnhealthy(health) && <HealthIcon health={health} baseUrl={url} />}
         </EntityTitleContainer>
