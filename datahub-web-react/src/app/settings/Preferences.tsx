@@ -140,10 +140,11 @@ export const Preferences = () => {
                                                 },
                                             },
                                         });
+                                        // clicking this button toggles, so event is whatever is opposite to what isThemeV2EnabledForUser currently is
                                         analytics.event({
                                             type: isThemeV2EnabledForUser
-                                                ? EventType.ShowV2ThemeEvent
-                                                : EventType.RevertV2ThemeEvent,
+                                                ? EventType.RevertV2ThemeEvent
+                                                : EventType.ShowV2ThemeEvent,
                                         });
                                         message.success({ content: 'Setting updated!', duration: 2 });
                                         refetchUser?.();
