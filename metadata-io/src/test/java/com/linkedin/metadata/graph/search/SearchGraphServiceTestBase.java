@@ -454,11 +454,6 @@ public abstract class SearchGraphServiceTestBase extends GraphServiceTestBase {
     return getLineage(urn, LineageDirection.UPSTREAM, startTime, endTime, count, exploreLimit);
   }
 
-  private EntityLineageResult getUpstreamLineage(
-      Urn urn, Long startTime, Long endTime, int count, int exploreLimit) {
-    return getLineage(urn, LineageDirection.UPSTREAM, startTime, endTime, count, exploreLimit);
-  }
-
   /**
    * Utility method to reduce repeated parameters for lineage tests
    *
