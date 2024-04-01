@@ -112,7 +112,7 @@ export default function DataProductResult({ dataProduct, onUpdateDataProduct, se
                 <ButtonsWrapper>
                     <StyledButton icon={<EditOutlined />} onClick={() => setIsEditModalVisible(true)} />
                     <TransparentButton size="small" onClick={onRemove}>
-                        <CloseOutlined size={5} /> Remove Term
+                        <CloseOutlined size={5} /> Remove Data Product
                     </TransparentButton>
                 </ButtonsWrapper>
             </ResultWrapper>
