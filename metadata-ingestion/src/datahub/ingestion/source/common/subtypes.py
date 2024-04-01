@@ -54,3 +54,7 @@ class BIAssetSubTypes(str, Enum):
 
     # Looker
     LOOKER_LOOK = "Look"
+
+    # PowerBI
+    POWERBI_TILE = "PowerBI Tile"
+    POWERBI_PAGE = "PowerBI Page"

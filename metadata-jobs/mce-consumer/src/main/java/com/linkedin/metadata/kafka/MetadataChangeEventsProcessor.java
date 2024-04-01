@@ -67,10 +67,21 @@ public class MetadataChangeEventsProcessor {
               + Topics.METADATA_CHANGE_EVENT
               + "}}",
       containerFactory = "kafkaEventConsumer")
+  @Deprecated
   public void consume(final ConsumerRecord<String, GenericRecord> consumerRecord) {
     try (Timer.Context i = MetricUtils.timer(this.getClass(), "consume").time()) {
       kafkaLagStats.update(System.currentTimeMillis() - consumerRecord.timestamp());
       final GenericRecord record = consumerRecord.value();
+
+      log.info(
+          "Got MCE event key: {}, topic: {}, partition: {}, offset: {}, value size: {}, timestamp: {}",
+          consumerRecord.key(),
+          consumerRecord.topic(),
+          consumerRecord.partition(),
+          consumerRecord.offset(),
+          consumerRecord.serializedValueSize(),
+          consumerRecord.timestamp());
+
       log.debug("Record {}", record);
 
       MetadataChangeEvent event = new MetadataChangeEvent();
@@ -116,6 +127,7 @@ public class MetadataChangeEventsProcessor {
     return fmce;
   }
 
+  @Deprecated
   private void processProposedSnapshot(@Nonnull MetadataChangeEvent metadataChangeEvent)
       throws RemoteInvocationException {
     final Snapshot snapshotUnion = metadataChangeEvent.getProposedSnapshot();

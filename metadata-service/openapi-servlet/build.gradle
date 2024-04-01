@@ -9,6 +9,7 @@ dependencies {
   implementation project(':metadata-service:auth-impl')
   implementation project(':metadata-service:factories')
   implementation project(':metadata-service:schema-registry-api')
+  implementation project (':metadata-service:openapi-servlet:models')
 
   implementation externalDependency.reflections
   implementation externalDependency.springBoot

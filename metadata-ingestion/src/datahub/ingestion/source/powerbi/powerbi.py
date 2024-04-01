@@ -29,6 +29,7 @@ from datahub.ingestion.api.source import (
 from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import (
+    BIAssetSubTypes,
     BIContainerSubTypes,
     DatasetSubTypes,
 )
@@ -59,7 +60,6 @@ from datahub.metadata.schema_classes import (
     BrowsePathsClass,
     ChangeTypeClass,
     ChartInfoClass,
-    ChartKeyClass,
     ContainerClass,
     CorpUserKeyClass,
     DashboardInfoClass,
@@ -81,6 +81,7 @@ from datahub.metadata.schema_classes import (
     UpstreamLineageClass,
     ViewPropertiesClass,
 )
+from datahub.metadata.urns import ChartUrn
 from datahub.sql_parsing.sqlglot_lineage import ColumnLineageInfo
 from datahub.utilities.dedup_list import deduplicate_list
 
@@ -391,7 +392,7 @@ class Mapper:
                 env=self.__config.env,
             )
 
-            logger.debug(f"{Constant.Dataset_URN}={ds_urn}")
+            logger.debug(f"dataset_urn={ds_urn}")
             # Create datasetProperties mcp
             if table.expression:
                 view_properties = ViewPropertiesClass(
@@ -556,18 +557,26 @@ class Mapper:
             aspect=StatusClass(removed=False),
         )
 
-        # ChartKey status
-        chart_key_instance = ChartKeyClass(
-            dashboardTool=self.__config.platform_name,
-            chartId=Constant.CHART_ID.format(tile.id),
+        # Subtype mcp
+        subtype_mcp = MetadataChangeProposalWrapper(
+            entityUrn=chart_urn,
+            aspect=SubTypesClass(
+                typeNames=[BIAssetSubTypes.POWERBI_TILE],
+            ),
         )
 
+        # ChartKey aspect
+        # Note: we previously would emit a ChartKey aspect with incorrect information.
+        # Explicitly emitting this aspect isn't necessary, but we do it here to ensure that
+        # the old, bad data gets overwritten.
         chart_key_mcp = self.new_mcp(
             entity_type=Constant.CHART,
             entity_urn=chart_urn,
             aspect_name=Constant.CHART_KEY,
-            aspect=chart_key_instance,
+            aspect=ChartUrn.from_string(chart_urn).to_key_aspect(),
         )
+
+        # Browse path
         browse_path = BrowsePathsClass(paths=["/powerbi/{}".format(workspace.name)])
         browse_path_mcp = self.new_mcp(
             entity_type=Constant.CHART,
@@ -575,7 +584,13 @@ class Mapper:
             aspect_name=Constant.BROWSERPATH,
             aspect=browse_path,
         )
-        result_mcps = [info_mcp, status_mcp, chart_key_mcp, browse_path_mcp]
+        result_mcps = [
+            info_mcp,
+            status_mcp,
+            subtype_mcp,
+            chart_key_mcp,
+            browse_path_mcp,
+        ]
 
         self.append_container_mcp(
             result_mcps,
@@ -963,6 +978,15 @@ class Mapper:
                 aspect_name=Constant.STATUS,
                 aspect=StatusClass(removed=False),
             )
+            # Subtype mcp
+            subtype_mcp = MetadataChangeProposalWrapper(
+                entityUrn=chart_urn,
+                aspect=SubTypesClass(
+                    typeNames=[BIAssetSubTypes.POWERBI_PAGE],
+                ),
+            )
+
+            # Browse path
             browse_path = BrowsePathsClass(paths=["/powerbi/{}".format(workspace.name)])
             browse_path_mcp = self.new_mcp(
                 entity_type=Constant.CHART,
@@ -970,7 +994,7 @@ class Mapper:
                 aspect_name=Constant.BROWSERPATH,
                 aspect=browse_path,
             )
-            list_of_mcps = [info_mcp, status_mcp, browse_path_mcp]
+            list_of_mcps = [info_mcp, status_mcp, subtype_mcp, browse_path_mcp]
 
             self.append_container_mcp(
                 list_of_mcps,

@@ -82,6 +82,7 @@ task lintFix(type: Exec, dependsOn: installDev) {
 task quickstartNoCypressSuite0(type: Exec, dependsOn: [installDev, ':metadata-ingestion:installDev']) {
     environment 'RUN_QUICKSTART', 'false'
     environment 'DATAHUB_KAFKA_SCHEMA_REGISTRY_URL', 'http://localhost:8080/schema-registry/api/'
+    environment 'KAFKA_BROKER_CONTAINER', 'datahub-kafka-broker-1'
     environment 'TEST_STRATEGY', 'no_cypress_suite0'
 
     workingDir = project.projectDir
@@ -93,6 +94,7 @@ task quickstartNoCypressSuite0(type: Exec, dependsOn: [installDev, ':metadata-in
 task quickstartNoCypressSuite1(type: Exec, dependsOn: [installDev, ':metadata-ingestion:installDev']) {
     environment 'RUN_QUICKSTART', 'false'
     environment 'DATAHUB_KAFKA_SCHEMA_REGISTRY_URL', 'http://localhost:8080/schema-registry/api/'
+    environment 'KAFKA_BROKER_CONTAINER', 'datahub-kafka-broker-1'
     environment 'TEST_STRATEGY', 'no_cypress_suite1'
 
     workingDir = project.projectDir

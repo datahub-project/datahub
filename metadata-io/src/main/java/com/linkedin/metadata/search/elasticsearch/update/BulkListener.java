@@ -39,20 +39,34 @@ public class BulkListener implements BulkProcessor.Listener {
 
   @Override
   public void afterBulk(long executionId, BulkRequest request, BulkResponse response) {
+    String ingestTook = "";
+    long ingestTookInMillis = response.getIngestTookInMillis();
+    if (ingestTookInMillis != BulkResponse.NO_INGEST_TOOK) {
+      ingestTook = " Bulk ingest preprocessing took time ms: " + ingestTookInMillis;
+    }
+
     if (response.hasFailures()) {
       log.error(
-          "Failed to feed bulk request. Number of events: "
+          "Failed to feed bulk request "
+              + executionId
+              + "."
+              + " Number of events: "
               + response.getItems().length
               + " Took time ms: "
-              + response.getIngestTookInMillis()
+              + response.getTook().getMillis()
+              + ingestTook
               + " Message: "
               + response.buildFailureMessage());
     } else {
       log.info(
-          "Successfully fed bulk request. Number of events: "
+          "Successfully fed bulk request "
+              + executionId
+              + "."
+              + " Number of events: "
               + response.getItems().length
               + " Took time ms: "
-              + response.getIngestTookInMillis());
+              + response.getTook().getMillis()
+              + ingestTook);
     }
     incrementMetrics(response);
   }
@@ -61,7 +75,8 @@ public class BulkListener implements BulkProcessor.Listener {
   public void afterBulk(long executionId, BulkRequest request, Throwable failure) {
     // Exception raised outside this method
     log.error(
-        "Error feeding bulk request. No retries left. Request: {}",
+        "Error feeding bulk request {}. No retries left. Request: {}",
+        executionId,
         buildBulkRequestSummary(request),
         failure);
     incrementMetrics(request, failure);

@@ -7,7 +7,7 @@ The below table shows transformer which can transform aspects of entity [Dataset
 | Dataset Aspect      | Transformer                                                                                                                                                                                                       |                                                                                               
 |---------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `status`            | - [Mark Dataset status](#mark-dataset-status)                                                                                                                                                                     |
-| `ownership`         | - [Simple Add Dataset ownership](#simple-add-dataset-ownership)<br/> - [Pattern Add Dataset ownership](#pattern-add-dataset-ownership)<br/> - [Simple Remove Dataset Ownership](#simple-remove-dataset-ownership)<br/> - [Extract Ownership from Tags](#extract-ownership-from-tags) |
+| `ownership`         | - [Simple Add Dataset ownership](#simple-add-dataset-ownership)<br/> - [Pattern Add Dataset ownership](#pattern-add-dataset-ownership)<br/> - [Simple Remove Dataset Ownership](#simple-remove-dataset-ownership)<br/> - [Extract Ownership from Tags](#extract-ownership-from-tags)<br/> - [Clean suffix prefix from Ownership](#clean-suffix-prefix-from-ownership) |
 | `globalTags`        | - [Simple Add Dataset globalTags ](#simple-add-dataset-globaltags)<br/> - [Pattern Add Dataset globalTags](#pattern-add-dataset-globaltags)<br/> - [Add Dataset globalTags](#add-dataset-globaltags)              |
 | `browsePaths`       | - [Set Dataset browsePath](#set-dataset-browsepath)                                                                                                                                                               |
 | `glossaryTerms`     | - [Simple Add Dataset glossaryTerms ](#simple-add-dataset-glossaryterms)<br/> - [Pattern Add Dataset glossaryTerms](#pattern-add-dataset-glossaryterms)                                                           |
@@ -20,22 +20,86 @@ The below table shows transformer which can transform aspects of entity [Dataset
 ### Config Details
 | Field                       | Required | Type    | Default       | Description                                 |
 |-----------------------------|----------|---------|---------------|---------------------------------------------|
-| `semantics`                 |          | enum    | `OVERWRITE`   | Whether to OVERWRITE or PATCH the entity present on DataHub GMS. |
-| `tag_prefix`                |          | str     |               | Regex to use for tags to match against. Supports Regex to match a prefix which is used to remove content. Rest of string is considered owner ID for creating owner URN. |
-| `is_user`                 |          | bool    | `true`   | Whether should be consider a user or not. If `false` then considered a group. |
+| `tag_pattern`  |          | str     |               | Regex to use for tags to match against. Supports Regex to match a pattern which is used to remove content. Rest of string is considered owner ID for creating owner URN. |
+| `is_user`      |          | bool    | `true`   | Whether should be consider a user or not. If `false` then considered a group. |
+| `owner_character_mapping` |          | dict[str, str]  |     | A mapping of extracted owner character to datahub owner character. |
 | `email_domain` |          | str    |    | If set then this is appended to create owner URN. |
+| `extract_owner_type_from_tag_pattern` |          | str    |  `false`   | Whether to extract an owner type from provided tag pattern first group. If `true`, no need to provide owner_type and owner_type_urn config. For example: if provided tag pattern is `(.*)_owner_email:` and actual tag is `developer_owner_email`, then extracted owner type will be `developer`.|
 | `owner_type` |          | str    |  `TECHNICAL_OWNER`   | Ownership type. |
 | `owner_type_urn` |          | str    |  `None`   | Set to a custom ownership type's URN if using custom ownership. |
 
-Matches against a tag prefix and considers string in tags after that prefix as owner to create ownership.
+Let’s suppose we’d like to add a dataset ownerships based on part of dataset tags. To do so, we can use the `extract_ownership_from_tags` transformer that’s included in the ingestion framework.
+
+The config, which we’d append to our ingestion recipe YAML, would look like this:
 
 ```yaml
 transformers:
   - type: "extract_ownership_from_tags"
     config:
-      tag_prefix: "dbt:techno-genie:"
-      is_user: true
-      email_domain: "coolcompany.com"
+      tag_pattern: "owner_email:"
+```
+
+So if we have input dataset tag like
+- `urn:li:tag:dataset_owner_email:abc@email.com`
+- `urn:li:tag:dataset_owner_email:xyz@email.com`
+
+The portion of the tag after the matched tag pattern will be converted into an owner. Hence users `abc@email.com` and `xyz@email.com` will be added as owners.
+
+### Examples
+
+- Add owners, however owner should be considered as group and also email domain not provided in tag string. For example: from tag urn `urn:li:tag:dataset_owner:abc` extracted owner urn should be `urn:li:corpGroup:abc@email.com` then config would look like this:
+    ```yaml
+    transformers:
+      - type: "extract_ownership_from_tags"
+        config:
+          tag_pattern: "owner:"
+          is_user: false
+          email_domain: "email.com"
+    ```
+- Add owners, however owner type and owner type urn wanted to provide externally. For example: from tag urn `urn:li:tag:dataset_owner_email:abc@email.com` owner type should be `CUSTOM` and owner type urn as `"urn:li:ownershipType:data_product"` then config would look like this:
+    ```yaml
+    transformers:
+      - type: "extract_ownership_from_tags"
+        config:
+          tag_pattern: "owner_email:"
+          owner_type: "CUSTOM"
+          owner_type_urn: "urn:li:ownershipType:data_product"
+    ```
+- Add owners, however some owner characters needs to replace with some other characters before ingestion. For example: from tag urn `urn:li:tag:dataset_owner_email:abc_xyz-email_com` extracted owner urn should be `urn:li:corpGroup:abc.xyz@email.com` then config would look like this:
+    ```yaml
+    transformers:
+      - type: "extract_ownership_from_tags"
+        config:
+          tag_pattern: "owner_email:"
+          owner_character_mapping:
+            "_": ".",
+            "-": "@",
+    ```
+- Add owners, however owner type also need to extracted from tag pattern. For example: from tag urn `urn:li:tag:data_producer_owner_email:abc@email.com` extracted owner type should be `data_producer` then config would look like this:
+    ```yaml
+    transformers:
+      - type: "extract_ownership_from_tags"
+        config:
+          tag_pattern: "(.*)_owner_email:"
+          extract_owner_type_from_tag_pattern: true
+    ```
+
+## Clean suffix prefix from Ownership
+### Config Details
+| Field                       | Required | Type    | Default       | Description                                 |
+|-----------------------------|----------|---------|---------------|---------------------------------------------|
+| `pattern_for_cleanup`                 | ✅         | list[string]    |    | List of suffix/prefix to remove from the Owner URN(s) |
+
+
+Matches against a Onwer URN and remove the matching part from the Owner URN
+
+```yaml
+transformers:
+  - type: "pattern_cleanup_ownership"
+    config:
+      pattern_for_cleanup:
+        - "ABCDEF"
+        - (?<=_)(\w+)
 ```
 
 ## Mark Dataset Status

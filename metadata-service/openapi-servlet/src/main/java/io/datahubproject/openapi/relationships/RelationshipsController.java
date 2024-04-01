@@ -1,5 +1,7 @@
 package io.datahubproject.openapi.relationships;
 
+import static com.linkedin.metadata.authorization.ApiGroup.RELATIONSHIP;
+import static com.linkedin.metadata.authorization.ApiOperation.READ;
 import static com.linkedin.metadata.search.utils.QueryUtils.*;
 
 import com.codahale.metrics.MetricRegistry;
@@ -8,13 +10,8 @@ import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authorization.AuthUtil;
 import com.datahub.authorization.AuthorizerChain;
-import com.datahub.authorization.ConjunctivePrivilegeGroup;
-import com.datahub.authorization.DisjunctivePrivilegeGroup;
-import com.datahub.authorization.EntitySpec;
-import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
-import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.RelatedEntitiesResult;
 import com.linkedin.metadata.search.utils.QueryUtils;
@@ -29,14 +26,11 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import java.net.URLDecoder;
 import java.nio.charset.Charset;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
-import java.util.Optional;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.beans.propertyeditors.StringArrayPropertyEditor;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -62,9 +56,6 @@ public class RelationshipsController {
   private static final int MAX_DOWNSTREAM_CNT = 200;
   private final GraphService _graphService;
   private final AuthorizerChain _authorizerChain;
-
-  @Value("${authorization.restApiAuthorization:false}")
-  private boolean restApiAuthorizationEnabled;
 
   @InitBinder
   public void initBinder(WebDataBinder binder) {
@@ -162,21 +153,9 @@ public class RelationshipsController {
     log.debug("GET Relationships {}", entityUrn);
     Authentication authentication = AuthenticationContext.getAuthentication();
     String actorUrnStr = authentication.getActor().toUrnStr();
-    DisjunctivePrivilegeGroup orGroup =
-        new DisjunctivePrivilegeGroup(
-            ImmutableList.of(
-                new ConjunctivePrivilegeGroup(
-                    ImmutableList.of(PoliciesConfig.GET_ENTITY_PRIVILEGE.getType())
-                    // Re-using GET_ENTITY_PRIVILEGE here as it doesn't make sense to split the
-                    // privileges between these APIs.
-                    )));
 
-    List<Optional<EntitySpec>> resourceSpecs =
-        Collections.singletonList(
-            Optional.of(new EntitySpec(entityUrn.getEntityType(), entityUrn.toString())));
-    if (restApiAuthorizationEnabled
-        && !AuthUtil.isAuthorizedForResources(
-            _authorizerChain, actorUrnStr, resourceSpecs, orGroup)) {
+    if (!AuthUtil.isAPIAuthorizedUrns(
+        authentication, _authorizerChain, RELATIONSHIP, READ, List.of(entityUrn))) {
       throw new UnauthorizedException(actorUrnStr + " is unauthorized to get relationships.");
     }
 

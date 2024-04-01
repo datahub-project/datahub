@@ -54,9 +54,20 @@ task installDev(type: Exec, dependsOn: [install]) {
   def sentinel_file = "${venv_name}/.build_install_dev_sentinel"
   inputs.file file('setup.py')
   outputs.file("${sentinel_file}")
+  // For some reason, the Airflow constraints files pin things like black and pytest.
+  // This allows us to not respect those constraints ourselves.
   commandLine 'bash', '-c',
     "source ${venv_name}/bin/activate && set -x && " +
-    "${pip_install_command} -e .[dev${extra_pip_extras}] ${extra_pip_requirements} && " +
+    "${pip_install_command} -e .[dev${extra_pip_extras}] && " +
+    "touch ${sentinel_file}"
+}
+task installTest(type: Exec, dependsOn: [installDev]) {
+  def sentinel_file = "${venv_name}/.build_install_test_sentinel"
+  inputs.file file('setup.py')
+  outputs.file(sentinel_file)
+  commandLine 'bash', '-c',
+    "source ${venv_name}/bin/activate && set -x && " +
+    "${pip_install_command} -e .[integration-tests${extra_pip_extras}] ${extra_pip_requirements} && " +
     "touch ${sentinel_file}"
 }
 
@@ -82,18 +93,14 @@ task lintFix(type: Exec, dependsOn: installDev) {
     "mypy src/ tests/ "
 }
 
-task installDevTest(type: Exec, dependsOn: [installDev]) {
-  def sentinel_file = "${venv_name}/.build_install_dev_test_sentinel"
-  inputs.file file('setup.py')
-  outputs.dir("${venv_name}")
-  outputs.file("${sentinel_file}")
-  commandLine 'bash', '-c',
-    "source ${venv_name}/bin/activate && set -x && " +
-    "${pip_install_command} -e .[dev,integration-tests${extra_pip_extras}] ${extra_pip_requirements} && " +
-    "touch ${sentinel_file}"
-}
+// HACK: Some of the Airflow constraint files conflict with packages that we install (e.g. black).
+// I'm not sure why they constrain those in the first place, but we don't want to respect them
+// when running linting. However, we do want to respect them when running integration tests.
+// There's two install steps, and these constraints ensure that we run them in the right order.
+installTest.shouldRunAfter lint
+installTest.shouldRunAfter lintFix
 
-task testQuick(type: Exec, dependsOn: installDevTest) {
+task testQuick(type: Exec, dependsOn: installTest) {
   inputs.files(project.fileTree(dir: "src/", include: "**/*.py"))
   inputs.files(project.fileTree(dir: "tests/"))
   commandLine 'bash', '-c',
@@ -106,7 +113,7 @@ task cleanPythonCache(type: Exec) {
   commandLine 'bash', '-c',
     "find src -type f -name '*.py[co]' -delete -o -type d -name __pycache__ -delete -o -type d -empty -delete"
 }
-task buildWheel(type: Exec, dependsOn: [install, cleanPythonCache]) {
+task buildWheel(type: Exec, dependsOn: [environmentSetup, cleanPythonCache]) {
   commandLine 'bash', '-c',
     "source ${venv_name}/bin/activate && set -x && " +
     'uv pip install build && RELEASE_VERSION="\${RELEASE_VERSION:-0.0.0.dev1}" RELEASE_SKIP_TEST=1 RELEASE_SKIP_INSTALL=1 RELEASE_SKIP_UPLOAD=1 ./scripts/release.sh'

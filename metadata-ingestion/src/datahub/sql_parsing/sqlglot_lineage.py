@@ -9,6 +9,7 @@ import pydantic.dataclasses
 import sqlglot
 import sqlglot.errors
 import sqlglot.lineage
+import sqlglot.optimizer
 import sqlglot.optimizer.annotate_types
 import sqlglot.optimizer.optimizer
 import sqlglot.optimizer.qualify
@@ -131,7 +132,7 @@ def get_query_type_of_sql(
         sqlglot.exp.Update: QueryType.UPDATE,
         sqlglot.exp.Delete: QueryType.DELETE,
         sqlglot.exp.Merge: QueryType.MERGE,
-        sqlglot.exp.Subqueryable: QueryType.SELECT,  # unions, etc. are also selects
+        sqlglot.exp.Query: QueryType.SELECT,  # unions, etc. are also selects
     }
 
     for cls, query_type in mapping.items():
@@ -296,12 +297,12 @@ def _table_level_lineage(
 # TODO: Once PEP 604 is supported (Python 3.10), we can unify these into a
 # single type. See https://peps.python.org/pep-0604/#isinstance-and-issubclass.
 _SupportedColumnLineageTypes = Union[
-    # Note that Select and Union inherit from Subqueryable.
-    sqlglot.exp.Subqueryable,
+    # Note that Select and Union inherit from Query.
+    sqlglot.exp.Query,
     # For actual subqueries, the statement type might also be DerivedTable.
     sqlglot.exp.DerivedTable,
 ]
-_SupportedColumnLineageTypesTuple = (sqlglot.exp.Subqueryable, sqlglot.exp.DerivedTable)
+_SupportedColumnLineageTypesTuple = (sqlglot.exp.Query, sqlglot.exp.DerivedTable)
 
 
 class UnsupportedStatementTypeError(TypeError):
@@ -479,6 +480,8 @@ def _column_level_lineage(  # noqa: C901
     try:
         assert isinstance(statement, _SupportedColumnLineageTypesTuple)
 
+        cached_scope = sqlglot.optimizer.build_scope(statement)
+
         # List output columns.
         output_columns = [
             (select_col.alias_or_name, select_col) for select_col in statement.selects
@@ -505,6 +508,8 @@ def _column_level_lineage(  # noqa: C901
                 statement,
                 dialect=dialect,
                 schema=sqlglot_db_schema,
+                scope=cached_scope,
+                trim_selects=False,
             )
             # pathlib.Path("sqlglot.html").write_text(
             #     str(lineage_node.to_html(dialect=dialect))
@@ -834,6 +839,7 @@ def _sqlglot_lineage_inner(
     # Fetch schema info for the relevant tables.
     table_name_urn_mapping: Dict[_TableName, str] = {}
     table_name_schema_mapping: Dict[_TableName, SchemaInfo] = {}
+
     for table in tables | modified:
         # For select statements, qualification will be a no-op. For other statements, this
         # is where the qualification actually happens.
@@ -928,7 +934,7 @@ def _sqlglot_lineage_inner(
         original_statement, dialect=dialect
     )
     query_fingerprint, debug_info.generalized_statement = get_query_fingerprint_debug(
-        original_statement, dialect=dialect
+        original_statement, dialect
     )
     return SqlParsingResult(
         query_type=query_type,
@@ -1016,8 +1022,9 @@ def create_lineage_sql_parsed_result(
     env: str,
     default_schema: Optional[str] = None,
     graph: Optional[DataHubGraph] = None,
+    schema_aware: bool = True,
 ) -> SqlParsingResult:
-    if graph:
+    if graph and schema_aware:
         needs_close = False
         schema_resolver = graph._make_schema_resolver(
             platform=platform,

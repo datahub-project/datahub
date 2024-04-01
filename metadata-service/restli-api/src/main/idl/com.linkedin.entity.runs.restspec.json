@@ -36,7 +36,7 @@
     }, {
       "name" : "list",
       "javaMethodName" : "list",
-      "doc" : "Retrieves the value for an entity that is made up of latest versions of specified aspects.",
+      "doc" : "Retrieves the ingestion run summaries.",
       "parameters" : [ {
         "name" : "pageOffset",
         "type" : "int",

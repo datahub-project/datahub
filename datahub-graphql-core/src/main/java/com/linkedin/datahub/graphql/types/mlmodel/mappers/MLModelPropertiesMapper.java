@@ -1,10 +1,14 @@
 package com.linkedin.datahub.graphql.types.mlmodel.mappers;
 
+import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
+
 import com.linkedin.common.urn.Urn;
+import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.MLModelGroup;
 import com.linkedin.datahub.graphql.generated.MLModelProperties;
 import com.linkedin.datahub.graphql.types.common.mappers.CustomPropertiesMapper;
 import java.util.stream.Collectors;
+import javax.annotation.Nullable;
 import lombok.NonNull;
 
 public class MLModelPropertiesMapper {
@@ -12,12 +16,16 @@ public class MLModelPropertiesMapper {
   public static final MLModelPropertiesMapper INSTANCE = new MLModelPropertiesMapper();
 
   public static MLModelProperties map(
-      @NonNull final com.linkedin.ml.metadata.MLModelProperties mlModelProperties, Urn entityUrn) {
-    return INSTANCE.apply(mlModelProperties, entityUrn);
+      @Nullable final QueryContext context,
+      @NonNull final com.linkedin.ml.metadata.MLModelProperties mlModelProperties,
+      Urn entityUrn) {
+    return INSTANCE.apply(context, mlModelProperties, entityUrn);
   }
 
   public MLModelProperties apply(
-      @NonNull final com.linkedin.ml.metadata.MLModelProperties mlModelProperties, Urn entityUrn) {
+      @Nullable final QueryContext context,
+      @NonNull final com.linkedin.ml.metadata.MLModelProperties mlModelProperties,
+      Urn entityUrn) {
     final MLModelProperties result = new MLModelProperties();
 
     result.setDate(mlModelProperties.getDate());
@@ -32,7 +40,7 @@ public class MLModelPropertiesMapper {
     if (mlModelProperties.getHyperParams() != null) {
       result.setHyperParams(
           mlModelProperties.getHyperParams().stream()
-              .map(param -> MLHyperParamMapper.map(param))
+              .map(param -> MLHyperParamMapper.map(context, param))
               .collect(Collectors.toList()));
     }
 
@@ -42,13 +50,14 @@ public class MLModelPropertiesMapper {
     if (mlModelProperties.getTrainingMetrics() != null) {
       result.setTrainingMetrics(
           mlModelProperties.getTrainingMetrics().stream()
-              .map(metric -> MLMetricMapper.map(metric))
+              .map(metric -> MLMetricMapper.map(context, metric))
               .collect(Collectors.toList()));
     }
 
     if (mlModelProperties.getGroups() != null) {
       result.setGroups(
           mlModelProperties.getGroups().stream()
+              .filter(g -> context == null || canView(context.getOperationContext(), g))
               .map(
                   group -> {
                     final MLModelGroup subgroup = new MLModelGroup();
@@ -61,6 +70,7 @@ public class MLModelPropertiesMapper {
     if (mlModelProperties.getMlFeatures() != null) {
       result.setMlFeatures(
           mlModelProperties.getMlFeatures().stream()
+              .filter(f -> context == null || canView(context.getOperationContext(), f))
               .map(Urn::toString)
               .collect(Collectors.toList()));
     }

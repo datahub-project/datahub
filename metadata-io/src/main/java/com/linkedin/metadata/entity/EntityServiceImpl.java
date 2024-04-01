@@ -17,6 +17,7 @@ import com.datahub.util.RecordUtils;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.Streams;
 import com.linkedin.common.AuditStamp;
@@ -65,6 +66,7 @@ import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.ListUrnsResult;
 import com.linkedin.metadata.run.AspectRowSummary;
 import com.linkedin.metadata.snapshot.Snapshot;
+import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.metadata.utils.PegasusUtils;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
@@ -625,19 +627,21 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
   @Override
   public List<UpdateAspectResult> ingestAspects(
       @Nonnull final AspectsBatch aspectsBatch, boolean emitMCL, boolean overwrite) {
-    Set<BatchItem> items = new HashSet<>(aspectsBatch.getItems());
 
-    // Generate additional items as needed
-    items.addAll(DefaultAspectsUtil.getAdditionalChanges(aspectsBatch, this, enableBrowseV2));
-    AspectsBatch withDefaults =
-        AspectsBatchImpl.builder().aspectRetriever(this).items(items).build();
+    // Skip DB timer for empty batch
+    if (aspectsBatch.getItems().size() == 0) {
+      return Collections.emptyList();
+    }
 
+    log.info("Ingesting aspects batch to database, items: {}", aspectsBatch.getItems());
     Timer.Context ingestToLocalDBTimer =
         MetricUtils.timer(this.getClass(), "ingestAspectsToLocalDB").time();
-    List<UpdateAspectResult> ingestResults = ingestAspectsToLocalDB(withDefaults, overwrite);
-    List<UpdateAspectResult> mclResults = emitMCL(ingestResults, emitMCL);
-    ingestToLocalDBTimer.stop();
+    List<UpdateAspectResult> ingestResults = ingestAspectsToLocalDB(aspectsBatch, overwrite);
+    long took = ingestToLocalDBTimer.stop();
+    log.info(
+        "Ingestion of aspects batch to database took {} ms", TimeUnit.NANOSECONDS.toMillis(took));
 
+    List<UpdateAspectResult> mclResults = emitMCL(ingestResults, emitMCL);
     return mclResults;
   }
 
@@ -646,24 +650,28 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
    * an update, push the new version into the local DB. Otherwise, do not push the new version, but
    * just update the system metadata.
    *
-   * @param aspectsBatch Collection of the following: an urn associated with the new aspect, name of
+   * @param inputBatch Collection of the following: an urn associated with the new aspect, name of
    *     the aspect being inserted, and a function to apply to the latest version of the aspect to
    *     get the updated version
    * @return Details about the new and old version of the aspect
    */
   @Nonnull
   private List<UpdateAspectResult> ingestAspectsToLocalDB(
-      @Nonnull final AspectsBatch aspectsBatch, boolean overwrite) {
+      @Nonnull final AspectsBatch inputBatch, boolean overwrite) {
 
-    if (aspectsBatch.containsDuplicateAspects()) {
-      log.warn(String.format("Batch contains duplicates: %s", aspectsBatch));
+    if (inputBatch.containsDuplicateAspects()) {
+      log.warn(String.format("Batch contains duplicates: %s", inputBatch));
     }
 
     return aspectDao
         .runInTransactionWithRetry(
             (tx) -> {
+              // Generate default aspects within the transaction (they are re-calculated on retry)
+              AspectsBatch batchWithDefaults =
+                  DefaultAspectsUtil.withAdditionalChanges(inputBatch, this, enableBrowseV2);
+
               // Read before write is unfortunate, however batch it
-              final Map<String, Set<String>> urnAspects = aspectsBatch.getUrnAspectsMap();
+              final Map<String, Set<String>> urnAspects = batchWithDefaults.getUrnAspectsMap();
               // read #1
               final Map<String, Map<String, SystemAspect>> latestAspects =
                   EntityUtils.toSystemAspects(aspectDao.getLatestAspects(urnAspects), this);
@@ -674,7 +682,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
               // 1. Convert patches to full upserts
               // 2. Run any entity/aspect level hooks
               Pair<Map<String, Set<String>>, List<ChangeMCP>> updatedItems =
-                  aspectsBatch.toUpsertBatchItems(latestAspects);
+                  batchWithDefaults.toUpsertBatchItems(latestAspects);
 
               // Fetch additional information if needed
               final Map<String, Map<String, SystemAspect>> updatedLatestAspects;
@@ -816,7 +824,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
 
               return upsertResults;
             },
-            aspectsBatch,
+            inputBatch,
             DEFAULT_MAX_TRANSACTION_RETRY)
         .stream()
         .flatMap(List::stream)
@@ -973,18 +981,26 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
 
     if (!async) {
       // Create default non-timeseries aspects for timeseries aspects
-      List<BatchItem> timeseriesItems =
-          aspectsBatch.getItems().stream()
+      List<MCPItem> timeseriesKeyAspects =
+          aspectsBatch.getMCPItems().stream()
               .filter(item -> item.getAspectSpec().isTimeseries())
+              .map(
+                  item ->
+                      ChangeItemImpl.builder()
+                          .urn(item.getUrn())
+                          .aspectName(item.getEntitySpec().getKeyAspectName())
+                          .changeType(ChangeType.UPSERT)
+                          .entitySpec(item.getEntitySpec())
+                          .aspectSpec(item.getEntitySpec().getKeyAspectSpec())
+                          .auditStamp(item.getAuditStamp())
+                          .systemMetadata(item.getSystemMetadata())
+                          .recordTemplate(
+                              EntityUtils.buildKeyAspect(getEntityRegistry(), item.getUrn()))
+                          .build(this))
               .collect(Collectors.toList());
 
-      List<MCPItem> defaultAspects =
-          DefaultAspectsUtil.getAdditionalChanges(
-              AspectsBatchImpl.builder().aspectRetriever(this).items(timeseriesItems).build(),
-              this,
-              enableBrowseV2);
       ingestProposalSync(
-          AspectsBatchImpl.builder().aspectRetriever(this).items(defaultAspects).build());
+          AspectsBatchImpl.builder().aspectRetriever(this).items(timeseriesKeyAspects).build());
     }
 
     // Emit timeseries MCLs
@@ -1087,10 +1103,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
 
     List<? extends MCPItem> unsupported =
         nonTimeseries.getMCPItems().stream()
-            .filter(
-                item ->
-                    item.getMetadataChangeProposal().getChangeType() != ChangeType.PATCH
-                        && item.getMetadataChangeProposal().getChangeType() != ChangeType.UPSERT)
+            .filter(item -> !MCPItem.isValidChangeType(item.getChangeType(), item.getAspectSpec()))
             .collect(Collectors.toList());
     if (!unsupported.isEmpty()) {
       throw new UnsupportedOperationException(
@@ -1166,9 +1179,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
   @Override
   public RestoreIndicesResult restoreIndices(
       @Nonnull RestoreIndicesArgs args, @Nonnull Consumer<String> logger) {
-    RestoreIndicesResult result = new RestoreIndicesResult();
-    int ignored = 0;
-    int rowsMigrated = 0;
+
     logger.accept(String.format("Args are %s", args));
     logger.accept(
         String.format(
@@ -1176,18 +1187,83 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
             args.start, args.start + args.batchSize));
     long startTime = System.currentTimeMillis();
     PagedList<EbeanAspectV2> rows = aspectDao.getPagedAspects(args);
-    result.timeSqlQueryMs = System.currentTimeMillis() - startTime;
-    startTime = System.currentTimeMillis();
+    long timeSqlQueryMs = System.currentTimeMillis() - startTime;
+
     logger.accept(
         String.format(
             "Reading rows %s through %s from the aspects table completed.",
             args.start, args.start + args.batchSize));
 
-    LinkedList<Future<?>> futures = new LinkedList<>();
-
     List<SystemAspect> systemAspects =
         EntityUtils.toSystemAspectFromEbeanAspects(
             rows != null ? rows.getList() : List.<EbeanAspectV2>of(), this);
+
+    RestoreIndicesResult result = restoreIndices(systemAspects, logger);
+
+    try {
+      TimeUnit.MILLISECONDS.sleep(args.batchDelayMs);
+    } catch (InterruptedException e) {
+      throw new RuntimeException(
+          "Thread interrupted while sleeping after successful batch migration.");
+    }
+
+    result.timeSqlQueryMs = timeSqlQueryMs;
+    return result;
+  }
+
+  @Nonnull
+  @Override
+  public List<RestoreIndicesResult> restoreIndices(
+      @Nonnull Set<Urn> urns,
+      @Nullable Set<String> inputAspectNames,
+      @Nullable Integer inputBatchSize)
+      throws RemoteInvocationException, URISyntaxException {
+    int batchSize = inputBatchSize != null ? inputBatchSize : 100;
+
+    List<RestoreIndicesResult> results = new LinkedList<>();
+
+    for (List<Urn> urnBatch : Iterables.partition(urns, batchSize)) {
+
+      Map<String, Set<Urn>> byEntityType =
+          urnBatch.stream().collect(Collectors.groupingBy(Urn::getEntityType, Collectors.toSet()));
+
+      for (Map.Entry<String, Set<Urn>> entityBatch : byEntityType.entrySet()) {
+        Set<String> aspectNames =
+            inputAspectNames != null
+                ? inputAspectNames
+                : getEntityAspectNames(entityBatch.getKey());
+
+        long startTime = System.currentTimeMillis();
+        List<SystemAspect> systemAspects =
+            EntityUtils.toSystemAspects(
+                getLatestAspect(entityBatch.getValue(), aspectNames).values(), this);
+        long timeSqlQueryMs = System.currentTimeMillis() - startTime;
+
+        RestoreIndicesResult result = restoreIndices(systemAspects, s -> {});
+        result.timeSqlQueryMs = timeSqlQueryMs;
+        results.add(result);
+      }
+    }
+
+    return results;
+  }
+
+  /**
+   * Interface designed to maintain backwards compatibility
+   *
+   * @param systemAspects
+   * @param logger
+   * @return
+   */
+  private RestoreIndicesResult restoreIndices(
+      List<SystemAspect> systemAspects, @Nonnull Consumer<String> logger) {
+    RestoreIndicesResult result = new RestoreIndicesResult();
+    long startTime = System.currentTimeMillis();
+    int ignored = 0;
+    int rowsMigrated = 0;
+    long defaultAspectsCreated = 0;
+
+    LinkedList<Future<?>> futures = new LinkedList<>();
 
     for (SystemAspect aspect : systemAspects) {
       // 1. Extract an Entity type from the entity Urn
@@ -1265,6 +1341,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
       latestSystemMetadata.setProperties(properties);
 
       // 5. Produce MAE events for the aspect record
+      AuditStamp auditStamp = AuditStampUtils.createDefaultAuditStamp();
       futures.add(
           alwaysProduceMCLAsync(
                   urn,
@@ -1275,11 +1352,28 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                   aspectRecord,
                   null,
                   latestSystemMetadata,
-                  new AuditStamp()
-                      .setActor(UrnUtils.getUrn(SYSTEM_ACTOR))
-                      .setTime(System.currentTimeMillis()),
+                  auditStamp,
                   ChangeType.RESTATE)
               .getFirst());
+
+      // 6. Ensure default aspects are in existence in SQL
+      List<MCPItem> keyAspect =
+          List.of(
+              ChangeItemImpl.builder()
+                  .urn(urn)
+                  .aspectName(entitySpec.getKeyAspectName())
+                  .changeType(ChangeType.UPSERT)
+                  .entitySpec(entitySpec)
+                  .aspectSpec(entitySpec.getKeyAspectSpec())
+                  .auditStamp(auditStamp)
+                  .systemMetadata(latestSystemMetadata)
+                  .recordTemplate(EntityUtils.buildKeyAspect(getEntityRegistry(), urn))
+                  .build(this));
+      Stream<IngestResult> defaultAspectsResult =
+          ingestProposalSync(
+              AspectsBatchImpl.builder().aspectRetriever(this).items(keyAspect).build());
+      defaultAspectsCreated += defaultAspectsResult.count();
+
       result.sendMessageMs += System.currentTimeMillis() - startTime;
 
       rowsMigrated++;
@@ -1294,14 +1388,10 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                 throw new RuntimeException(e);
               }
             });
-    try {
-      TimeUnit.MILLISECONDS.sleep(args.batchDelayMs);
-    } catch (InterruptedException e) {
-      throw new RuntimeException(
-          "Thread interrupted while sleeping after successful batch migration.");
-    }
+
     result.ignored = ignored;
     result.rowsMigrated = rowsMigrated;
+    result.defaultAspectsCreated = defaultAspectsCreated;
     return result;
   }
 
@@ -1423,10 +1513,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
       AspectSpec aspectSpec) {
     boolean isNoOp = oldAspect == newAspect;
     if (!isNoOp || alwaysEmitChangeLog || shouldAspectEmitChangeLog(aspectSpec)) {
-      log.debug(
-          "Producing MetadataChangeLog for ingested aspect {}, urn {}",
-          aspectSpec.getName(),
-          entityUrn);
+      log.info("Producing MCL for ingested aspect {}, urn {}", aspectSpec.getName(), entityUrn);
 
       final MetadataChangeLog metadataChangeLog =
           constructMCL(
@@ -1446,8 +1533,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
           alwaysProduceMCLAsync(entityUrn, aspectSpec, metadataChangeLog);
       return emissionStatus.getFirst() != null ? Optional.of(emissionStatus) : Optional.empty();
     } else {
-      log.debug(
-          "Skipped producing MetadataChangeLog for ingested aspect {}, urn {}. Aspect has not changed.",
+      log.info(
+          "Skipped producing MCL for ingested aspect {}, urn {}. Aspect has not changed.",
           aspectSpec.getName(),
           entityUrn);
       return Optional.empty();
@@ -1554,13 +1641,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     final List<Pair<String, RecordTemplate>> aspectRecordsToIngest =
         NewModelUtils.getAspectsFromSnapshot(snapshotRecord);
 
-    log.info("INGEST urn {} with system metadata {}", urn.toString(), systemMetadata.toString());
-    aspectRecordsToIngest.addAll(
-        DefaultAspectsUtil.generateDefaultAspects(
-            this,
-            urn,
-            aspectRecordsToIngest.stream().map(Pair::getFirst).collect(Collectors.toSet()),
-            enableBrowseV2));
+    log.info("Ingesting entity urn {} with system metadata {}", urn, systemMetadata.toString());
 
     AspectsBatchImpl aspectsBatch =
         AspectsBatchImpl.builder()

@@ -55,10 +55,11 @@ runs:
             - "metadata-ingestion/**"
             - "metadata-models/**"
             - "smoke-test/**"
-            - "docker/datahub-ingestion-**"
+            - "docker/datahub-ingestion**"
           docker:
             - "docker/**"
           backend:
+            - ".github/**"
             - "metadata-models/**"
             - "datahub-upgrade/**"
             - "entity-registry/**"
@@ -70,6 +71,8 @@ runs:
             - "metadata-jobs/**"
             - "metadata-service/**"
             - "metadata-utils/**"
+            - "metadata-operation-context/**"
+            - "datahub-graphql-core/**"
             - "smoke-test/**"
             - "docker/**"
           kafka-setup:

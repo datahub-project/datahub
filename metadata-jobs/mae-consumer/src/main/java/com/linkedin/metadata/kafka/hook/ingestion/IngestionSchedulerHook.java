@@ -89,6 +89,7 @@ public class IngestionSchedulerHook implements MetadataChangeLogHook {
     return Constants.INGESTION_INFO_ASPECT_NAME.equals(event.getAspectName())
         && (ChangeType.UPSERT.equals(event.getChangeType())
             || ChangeType.CREATE.equals(event.getChangeType())
+            || ChangeType.CREATE_ENTITY.equals(event.getChangeType())
             || ChangeType.DELETE.equals(event.getChangeType()));
   }
 
