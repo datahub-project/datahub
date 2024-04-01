@@ -40,6 +40,7 @@ import {
     ParentNodesResult,
     RawAspect,
     SchemaMetadata,
+    Share,
     SiblingProperties,
     Status,
     StructuredProperties,
@@ -199,6 +200,8 @@ export type GenericEntityProperties = {
     termProposals?: Maybe<ActionRequest[]>;
     statsSummary?: Maybe<ChartStatsSummary | DashboardStatsSummary | DatasetStatsSummary>;
     displayProperties?: Maybe<DisplayProperties>;
+    share?: Maybe<Share>;
+
 };
 
 export type GenericEntityUpdate = {
