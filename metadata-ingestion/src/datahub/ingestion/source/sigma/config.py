@@ -30,6 +30,17 @@ class Constant:
     LASTNAME = "lastName"
     EDGES = "edges"
     SOURCE = "source"
+    WORKSPACEID = "workspaceId"
+    PATH = "path"
+    NAME = "name"
+    URL = "url"
+    ELEMENTID = "elementId"
+    ID = "id"
+    PARENTID = "parentId"
+    TYPE = "type"
+    DATASET = "dataset"
+    WORKBOOK = "workbook"
+    NEXTPAGE = "nextPage"
 
     # Source Config constants
     DEFAULT_API_URL = "https://aws-api.sigmacomputing.com/v2"

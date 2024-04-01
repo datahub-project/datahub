@@ -24,15 +24,18 @@ class Workspace(BaseModel):
 
 class SigmaDataset(BaseModel):
     datasetId: str
+    workspaceId: str
     name: str
     description: str
     createdBy: str
     createdAt: datetime
     updatedAt: datetime
     url: str
+    path: str
 
     @root_validator(pre=True)
     def update_values(cls, values: Dict) -> Dict:
+        # As element lineage api provide this id as source dataset id
         values["datasetId"] = values["url"].split("/")[-1]
         return values
 
@@ -41,6 +44,7 @@ class Element(BaseModel):
     elementId: str
     type: str
     name: str
+    url: str
     vizualizationType: Optional[str] = None
     columns: List[str] = []
     upstream_datasets: List[str] = []
@@ -54,6 +58,7 @@ class Page(BaseModel):
 
 class Workbook(BaseModel):
     workbookId: str
+    workspaceId: str
     name: str
     createdBy: str
     updatedBy: str

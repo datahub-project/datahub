@@ -49,6 +49,8 @@ from datahub.metadata.com.linkedin.pegasus2avro.common import (
 )
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import DatasetProperties
 from datahub.metadata.schema_classes import (
+    BrowsePathEntryClass,
+    BrowsePathsV2Class,
     ChangeAuditStampsClass,
     ChartInfoClass,
     DashboardInfoClass,
@@ -124,6 +126,18 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             instance=self.config.platform_instance,
         )
 
+    def _get_allowed_workspaces(self) -> List[Workspace]:
+        all_workspaces = self.sigma_api.workspaces.values()
+        allowed_workspaces = [
+            workspace
+            for workspace in all_workspaces
+            if self.config.workspace_pattern.allowed(workspace.name)
+        ]
+        logger.info(f"Number of workspaces = {len(all_workspaces)}")
+        self.reporter.report_number_of_workspaces(len(all_workspaces))
+        logger.info(f"Number of allowed workspaces = {len(allowed_workspaces)}")
+        return allowed_workspaces
+
     def _gen_workspace_workunit(
         self, workspace: Workspace
     ) -> Iterable[MetadataWorkUnit]:
@@ -169,6 +183,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             created=TimeStamp(time=int(dataset.createdAt.timestamp() * 1000)),
             lastModified=TimeStamp(time=int(dataset.updatedAt.timestamp() * 1000)),
         )
+        dataset_properties.customProperties.update({"path": dataset.path})
         return MetadataChangeProposalWrapper(
             entityUrn=dataset_urn, aspect=dataset_properties
         ).as_workunit()
@@ -205,6 +220,25 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             aspect=aspect,
         ).as_workunit()
 
+    def _gen_entity_browsepath_aspect(
+        self,
+        entity_urn: str,
+        parent_entity_urn: str,
+        paths: List[str],
+    ) -> MetadataWorkUnit:
+        entries = [
+            BrowsePathEntryClass(id=parent_entity_urn, urn=parent_entity_urn)
+        ] + [BrowsePathEntryClass(id=path) for path in paths]
+        if self.config.platform_instance:
+            urn = builder.make_dataplatform_instance_urn(
+                self.platform, self.config.platform_instance
+            )
+        entries = [BrowsePathEntryClass(id=urn, urn=urn)] + entries
+        return MetadataChangeProposalWrapper(
+            entityUrn=entity_urn,
+            aspect=BrowsePathsV2Class(entries),
+        ).as_workunit()
+
     def _gen_dataset_workunit(
         self, dataset: SigmaDataset
     ) -> Iterable[MetadataWorkUnit]:
@@ -214,6 +248,12 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         yield self._gen_entity_status_aspect(dataset_urn)
 
         yield self._gen_dataset_properties(dataset_urn, dataset)
+
+        yield from add_entity_to_container(
+            container_key=self._gen_workspace_key(dataset.workspaceId),
+            entity_type="dataset",
+            entity_urn=dataset_urn,
+        )
 
         dpi_aspect = self._gen_dataplatform_instance_aspect(dataset_urn)
         if dpi_aspect:
@@ -227,6 +267,16 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             entityUrn=dataset_urn,
             aspect=SubTypes(typeNames=[DatasetSubTypes.SIGMA_DATASET]),
         ).as_workunit()
+
+        paths = dataset.path.split("/")[1:]
+        if len(paths) > 0:
+            yield self._gen_entity_browsepath_aspect(
+                entity_urn=dataset_urn,
+                parent_entity_urn=builder.make_container_urn(
+                    self._gen_workspace_key(dataset.workspaceId)
+                ),
+                paths=paths,
+            )
 
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
         return [
@@ -291,6 +341,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                     description=element.type,
                     lastModified=ChangeAuditStampsClass(),
                     customProperties=custom_properties,
+                    externalUrl=element.url,
                     inputs=[
                         self._gen_sigma_dataset_urn(dataset_id.lower())
                         for dataset_id in element.upstream_datasets
@@ -336,7 +387,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             container_key=self._gen_workbook_key(workbook.workbookId),
             name=workbook.name,
             sub_types=[BIContainerSubTypes.SIGMA_WORKBOOK],
-            # parent_container_key=self._gen_workspace_key(workbook.spaceId),
+            parent_container_key=self._gen_workspace_key(workbook.workspaceId),
             extra_properties={
                 "path": workbook.path,
                 "latestVersion": str(workbook.latestVersion),
@@ -348,6 +399,19 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             created=int(workbook.createdAt.timestamp() * 1000),
             last_modified=int(workbook.updatedAt.timestamp() * 1000),
         )
+
+        paths = workbook.path.split("/")[1:]
+        if len(paths) > 0:
+            yield self._gen_entity_browsepath_aspect(
+                entity_urn=builder.make_container_urn(
+                    self._gen_workbook_key(workbook.workbookId),
+                ),
+                parent_entity_urn=builder.make_container_urn(
+                    self._gen_workspace_key(workbook.workspaceId)
+                ),
+                paths=paths,
+            )
+
         yield from self._gen_pages_workunit(workbook)
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
@@ -355,12 +419,14 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         Datahub Ingestion framework invoke this method
         """
         logger.info("Sigma plugin execution is started")
-        for workspace in self.sigma_api.get_workspaces():
+        entities = self.sigma_api.get_sigma_entities()
+        for entity in entities:
+            if isinstance(entity, Workbook):
+                yield from self._gen_workbook_workunit(entity)
+            elif isinstance(entity, SigmaDataset):
+                yield from self._gen_dataset_workunit(entity)
+        for workspace in self._get_allowed_workspaces():
             yield from self._gen_workspace_workunit(workspace)
-        for dataset in self.sigma_api.get_sigma_datasets():
-            yield from self._gen_dataset_workunit(dataset)
-        for workbook in self.sigma_api.get_workbooks():
-            yield from self._gen_workbook_workunit(workbook)
 
     def get_report(self) -> SourceReport:
         return self.reporter

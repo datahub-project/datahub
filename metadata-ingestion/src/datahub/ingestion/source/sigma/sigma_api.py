@@ -1,6 +1,6 @@
 import logging
 import sys
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 import requests
 
@@ -20,7 +20,8 @@ logger = logging.getLogger(__name__)
 class SigmaAPI:
     def __init__(self, config: SigmaSourceConfig) -> None:
         self.config = config
-        self.users: Dict = {}
+        self.workspaces: Dict[str, Workspace] = {}
+        self.users: Dict[str, str] = {}
         self.session = requests.Session()
         # Test connection by generating access token
         logger.info("Trying to connect to {}".format(self.config.api_url))
@@ -49,16 +50,20 @@ class SigmaAPI:
         logger.debug(msg=message, exc_info=e)
         return e
 
-    def get_workspaces(self) -> List[Workspace]:
-        workspaces: List[Workspace] = []
+    def get_workspace(self, workspace_id: str) -> Optional[Workspace]:
+        workspace: Optional[Workspace] = None
         try:
-            response = self.session.get(f"{self.config.api_url}/workspaces")
+            response = self.session.get(
+                f"{self.config.api_url}/workspaces/{workspace_id}"
+            )
             response.raise_for_status()
-            for workspace_dict in response.json():
-                workspaces.append(Workspace.parse_obj(workspace_dict))
+            workspace_dict = response.json()
+            workspace = Workspace.parse_obj(workspace_dict)
         except Exception as e:
-            self._log_http_error(message=f"Unable to fetch workspaces. Exception: {e}")
-        return workspaces
+            self._log_http_error(
+                message=f"Unable to fetch workspace {workspace_id}. Exception: {e}"
+            )
+        return workspace
 
     def get_user_name(self, user_id: str) -> Optional[str]:
         try:
@@ -80,18 +85,22 @@ class SigmaAPI:
             )
         return None
 
-    def get_sigma_datasets(self) -> List[SigmaDataset]:
-        datasets: List[SigmaDataset] = []
+    def get_sigma_dataset(
+        self, dataset_id: str, workspace_id: str, path: str
+    ) -> Optional[SigmaDataset]:
+        dataset: Optional[SigmaDataset] = None
         try:
-            response = self.session.get(f"{self.config.api_url}/datasets")
+            response = self.session.get(f"{self.config.api_url}/datasets/{dataset_id}")
             response.raise_for_status()
-            for dataset_dict in response.json()[Constant.ENTRIES]:
-                datasets.append(SigmaDataset.parse_obj(dataset_dict))
+            dataset_dict = response.json()
+            dataset_dict[Constant.WORKSPACEID] = workspace_id
+            dataset_dict[Constant.PATH] = path
+            dataset = SigmaDataset.parse_obj(dataset_dict)
         except Exception as e:
             self._log_http_error(
-                message=f"Unable to fetch sigma datasets. Exception: {e}"
+                message=f"Unable to fetch sigma dataset {dataset_id}. Exception: {e}"
             )
-        return datasets
+        return dataset
 
     def _get_element_lineage(self, element_id: str, workbook_id: str) -> List[str]:
         upstream_datasets: List[str] = []
@@ -108,53 +117,108 @@ class SigmaAPI:
             )
         return upstream_datasets
 
-    def get_page_elements(self, workbook_id: str, page: Page) -> List[Element]:
+    def get_page_elements(self, workbook: Workbook, page: Page) -> List[Element]:
         elements: List[Element] = []
         try:
             response = self.session.get(
-                f"{self.config.api_url}/workbooks/{workbook_id}/pages/{page.pageId}/elements"
+                f"{self.config.api_url}/workbooks/{workbook.workbookId}/pages/{page.pageId}/elements"
             )
             response.raise_for_status()
             for i, element_dict in enumerate(response.json()[Constant.ENTRIES]):
-                if not element_dict.get("name"):
-                    element_dict["name"] = f"Element {i+1} of Page '{page.name}'"
+                if not element_dict.get(Constant.NAME):
+                    element_dict[Constant.NAME] = f"Element {i+1} of Page '{page.name}'"
+                element_dict[
+                    Constant.URL
+                ] = f"{workbook.url}?:nodeId={element_dict[Constant.ELEMENTID]}&:fullScreen=true"
                 element = Element.parse_obj(element_dict)
                 element.upstream_datasets = self._get_element_lineage(
-                    element.elementId, workbook_id
+                    element.elementId, workbook.workbookId
                 )
                 elements.append(element)
         except Exception as e:
             self._log_http_error(
-                message=f"Unable to fetch elements of page {page.pageId}, workbook {workbook_id}. Exception: {e}"
+                message=f"Unable to fetch elements of page {page.pageId}, workbook {workbook.workbookId}. Exception: {e}"
             )
         return elements
 
-    def get_workbook_pages(self, workbook_id: str) -> List[Page]:
+    def get_workbook_pages(self, workbook: Workbook) -> List[Page]:
         pages: List[Page] = []
         try:
             response = self.session.get(
-                f"{self.config.api_url}/workbooks/{workbook_id}/pages"
+                f"{self.config.api_url}/workbooks/{workbook.workbookId}/pages"
             )
             response.raise_for_status()
             for page_dict in response.json()[Constant.ENTRIES]:
                 page = Page.parse_obj(page_dict)
-                page.elements = self.get_page_elements(workbook_id, page)
+                page.elements = self.get_page_elements(workbook, page)
                 pages.append(page)
         except Exception as e:
             self._log_http_error(
-                message=f"Unable to fetch pages of workbook {workbook_id}. Exception: {e}"
+                message=f"Unable to fetch pages of workbook {workbook.workbookId}. Exception: {e}"
             )
         return pages
 
-    def get_workbooks(self) -> List[Workbook]:
-        workbooks: List[Workbook] = []
+    def get_workbook(self, workbook_id: str, workspace_id: str) -> Optional[Workbook]:
+        workbook: Optional[Workbook] = None
         try:
-            response = self.session.get(f"{self.config.api_url}/workbooks")
+            response = self.session.get(
+                f"{self.config.api_url}/workbooks/{workbook_id}"
+            )
             response.raise_for_status()
-            for workbook_dict in response.json()[Constant.ENTRIES]:
-                workbook = Workbook.parse_obj(workbook_dict)
-                workbook.pages = self.get_workbook_pages(workbook.workbookId)
-                workbooks.append(workbook)
+            workbook_dict = response.json()
+            workbook_dict[Constant.WORKSPACEID] = workspace_id
+            workbook = Workbook.parse_obj(workbook_dict)
+            workbook.pages = self.get_workbook_pages(workbook)
         except Exception as e:
-            self._log_http_error(message=f"Unable to fetch workbooks. Exception: {e}")
-        return workbooks
+            self._log_http_error(
+                message=f"Unable to fetch workbook {workbook_id}. Exception: {e}"
+            )
+        return workbook
+
+    def get_workspace_id(self, parent_id: str, path: str) -> str:
+        path_list = path.split("/")
+        while len(path_list) != 1:
+            response = self.session.get(f"{self.config.api_url}/files/{parent_id}")
+            parent_id = response.json()[Constant.PARENTID]
+            path_list.pop()
+        return parent_id
+
+    def get_sigma_entities(self) -> List[Union[Workbook, SigmaDataset]]:
+        entities: List[Union[Workbook, SigmaDataset]] = []
+        url = f"{self.config.api_url}/files"
+        while True:
+            response = self.session.get(url)
+            response.raise_for_status()
+            response_dict = response.json()
+            for entity in response_dict[Constant.ENTRIES]:
+                workspace_id = self.get_workspace_id(
+                    entity[Constant.PARENTID], entity[Constant.PATH]
+                )
+                if workspace_id not in self.workspaces:
+                    workspace = self.get_workspace(workspace_id)
+                    if workspace:
+                        self.workspaces[workspace.workspaceId] = workspace
+
+                if self.workspaces.get(
+                    workspace_id
+                ) and self.config.workspace_pattern.allowed(
+                    self.workspaces[workspace_id].name
+                ):
+                    type = entity[Constant.TYPE]
+                    if type == Constant.DATASET:
+                        dataset = self.get_sigma_dataset(
+                            entity[Constant.ID],
+                            workspace_id,
+                            entity[Constant.PATH],
+                        )
+                        if dataset:
+                            entities.append(dataset)
+                    elif type == Constant.WORKBOOK:
+                        workbook = self.get_workbook(entity[Constant.ID], workspace_id)
+                        if workbook:
+                            entities.append(workbook)
+            if response_dict[Constant.NEXTPAGE]:
+                url = f"{url}?page={response_dict[Constant.NEXTPAGE]}"
+            else:
+                break
+        return entities

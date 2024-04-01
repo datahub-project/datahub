@@ -44,8 +44,8 @@ class BIContainerSubTypes(str, Enum):
     POWERBI_DATASET = "PowerBI Dataset"
     QLIK_SPACE = "Qlik Space"
     QLIK_APP = "Qlik App"
-    SIGMA_WORKSPACE = "Workspace"
-    SIGMA_WORKBOOK = "Workbook"
+    SIGMA_WORKSPACE = "Sigma Workspace"
+    SIGMA_WORKBOOK = "Sigma Workbook"
 
 
 class BIAssetSubTypes(str, Enum):
