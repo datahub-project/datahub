@@ -1,13 +1,20 @@
 package com.linkedin.metadata.entity.restoreindices;
 
 import lombok.Data;
+import lombok.experimental.Accessors;
 
 @Data
+@Accessors(fluent = true)
 public class RestoreIndicesArgs implements Cloneable {
+  public static final int DEFAULT_BATCH_SIZE = 500;
+  public static final int DEFAULT_NUM_THREADS = 1;
+  public static final int DEFAULT_BATCH_DELAY_MS = 1;
+
   public int start = 0;
-  public int batchSize = 10;
-  public int numThreads = 1;
-  public long batchDelayMs = 1;
+  public int batchSize = DEFAULT_BATCH_SIZE;
+  public int limit = 0;
+  public int numThreads = DEFAULT_NUM_THREADS;
+  public long batchDelayMs = DEFAULT_BATCH_DELAY_MS;
   public String aspectName;
   public String urn;
   public String urnLike;
@@ -26,37 +33,28 @@ public class RestoreIndicesArgs implements Cloneable {
     }
   }
 
-  public RestoreIndicesArgs setAspectName(String aspectName) {
-    this.aspectName = aspectName;
+  public RestoreIndicesArgs start(Integer start) {
+    this.start = start != null ? start : 0;
     return this;
   }
 
-  public RestoreIndicesArgs setUrnLike(String urnLike) {
-    this.urnLike = urnLike;
+  public RestoreIndicesArgs batchSize(Integer batchSize) {
+    this.batchSize = batchSize != null ? batchSize : DEFAULT_BATCH_SIZE;
     return this;
   }
 
-  public RestoreIndicesArgs setUrn(String urn) {
-    this.urn = urn;
+  public RestoreIndicesArgs limit(Integer limit) {
+    this.limit = limit != null ? limit : 0;
     return this;
   }
 
-  public RestoreIndicesArgs setStart(Integer start) {
-    if (start != null) {
-      this.start = start;
-    }
+  public RestoreIndicesArgs numThreads(Integer numThreads) {
+    this.numThreads = numThreads != null ? numThreads : DEFAULT_NUM_THREADS;
     return this;
   }
 
-  public RestoreIndicesArgs setBatchSize(Integer batchSize) {
-    if (batchSize != null) {
-      this.batchSize = batchSize;
-    }
-    return this;
-  }
-
-  public RestoreIndicesArgs setUrnBasedPagination(Boolean urnBasedPagination) {
-    this.urnBasedPagination = urnBasedPagination;
+  public RestoreIndicesArgs batchDelayMs(Long batchDelayMs) {
+    this.batchDelayMs = batchDelayMs != null ? batchDelayMs : DEFAULT_BATCH_DELAY_MS;
     return this;
   }
 }

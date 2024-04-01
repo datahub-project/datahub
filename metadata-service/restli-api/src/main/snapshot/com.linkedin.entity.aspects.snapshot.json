@@ -4136,6 +4136,10 @@
           "name" : "batchSize",
           "type" : "int",
           "optional" : true
+        }, {
+          "name" : "limit",
+          "type" : "int",
+          "optional" : true
         } ],
         "returns" : "string"
       } ],

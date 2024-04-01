@@ -11,10 +11,12 @@ import com.linkedin.metadata.authorization.Disjunctive;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
+import com.linkedin.metadata.entity.restoreindices.RestoreIndicesResult;
 import com.linkedin.restli.common.HttpStatus;
 import com.linkedin.restli.server.RestLiServiceException;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
@@ -31,6 +33,7 @@ public class Utils {
       @Nullable String urnLike,
       @Nullable Integer start,
       @Nullable Integer batchSize,
+      @Nullable Integer limit,
       @Nonnull Authorizer authorizer,
       @Nonnull EntityService<?> entityService) {
 
@@ -49,14 +52,18 @@ public class Utils {
     }
     RestoreIndicesArgs args =
         new RestoreIndicesArgs()
-            .setAspectName(aspectName)
-            .setUrnLike(urnLike)
-            .setUrn(urn)
-            .setStart(start)
-            .setBatchSize(batchSize);
+            .aspectName(aspectName)
+            .urnLike(urnLike)
+            .urn(urn)
+            .start(start)
+            .batchSize(batchSize)
+            .limit(limit);
     Map<String, Object> result = new HashMap<>();
     result.put("args", args);
-    result.put("result", entityService.restoreIndices(args, log::info));
+    result.put("result", entityService
+            .streamRestoreIndices(args, log::info)
+            .map(RestoreIndicesResult::toString)
+            .collect(Collectors.joining("\n")));
     return result.toString();
   }
 }

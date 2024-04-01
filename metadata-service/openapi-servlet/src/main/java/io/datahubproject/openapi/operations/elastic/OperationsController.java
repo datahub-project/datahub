@@ -250,13 +250,14 @@ public class OperationsController {
   @Tag(name = "RestoreIndices")
   @GetMapping(path = "/restoreIndices", produces = MediaType.APPLICATION_JSON_VALUE)
   @Operation(summary = "Restore ElasticSearch indices from primary storage based on URNs.")
-  public ResponseEntity<RestoreIndicesResult> restoreIndices(
+  public ResponseEntity<List<RestoreIndicesResult>> restoreIndices(
       @RequestParam(required = false, name = "aspectName") @Nullable String aspectName,
       @RequestParam(required = false, name = "urn") @Nullable String urn,
       @RequestParam(required = false, name = "urnLike") @Nullable String urnLike,
-      @RequestParam(required = false, name = "batchSize", defaultValue = "100") @Nullable
+      @RequestParam(required = false, name = "batchSize", defaultValue = "500") @Nullable
           Integer batchSize,
-      @RequestParam(required = false, name = "start", defaultValue = "0") @Nullable Integer start) {
+      @RequestParam(required = false, name = "start", defaultValue = "0") @Nullable Integer start,
+      @RequestParam(required = false, name = "limit", defaultValue = "0") @Nullable Integer limit) {
 
     Authentication authentication = AuthenticationContext.getAuthentication();
     if (!AuthUtil.isAPIAuthorized(
@@ -266,16 +267,19 @@ public class OperationsController {
 
     RestoreIndicesArgs args =
         new RestoreIndicesArgs()
-            .setAspectName(aspectName)
-            .setUrnLike(urnLike)
-            .setUrn(
+            .aspectName(aspectName)
+            .urnLike(urnLike)
+            .urn(
                 Optional.ofNullable(urn)
                     .map(urnStr -> UrnUtils.getUrn(urnStr).toString())
                     .orElse(null))
-            .setStart(start)
-            .setBatchSize(batchSize);
+            .start(start)
+            .batchSize(batchSize)
+            .limit(limit);
 
-    return ResponseEntity.of(Optional.of(entityService.restoreIndices(args, log::info)));
+    return ResponseEntity.of(
+        Optional.of(
+            entityService.streamRestoreIndices(args, log::info).collect(Collectors.toList())));
   }
 
   @Tag(name = "RestoreIndices")
