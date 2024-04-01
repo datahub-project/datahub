@@ -336,33 +336,12 @@ public abstract class SearchGraphServiceTestBase extends GraphServiceTestBase {
         Arrays.asList(
             // One upstream edge
             new Edge(
-                dataset2Urn,
-                dataset1Urn,
-                downstreamOf,
-                initialTime,
-                null,
-                initialTime,
-                null,
-                null),
+                dataset2Urn, dataset1Urn, downstreamOf, initialTime, null, initialTime, null, null),
             // Two downstream
             new Edge(
-                dataset3Urn,
-                dataset2Urn,
-                downstreamOf,
-                initialTime,
-                null,
-                initialTime,
-                null,
-                null),
+                dataset3Urn, dataset2Urn, downstreamOf, initialTime, null, initialTime, null, null),
             new Edge(
-                dataset4Urn,
-                dataset2Urn,
-                downstreamOf,
-                initialTime,
-                null,
-                initialTime,
-                null,
-                null),
+                dataset4Urn, dataset2Urn, downstreamOf, initialTime, null, initialTime, null, null),
             // One with null values, should always be returned
             new Edge(dataset5Urn, dataset2Urn, downstreamOf, null, null, null, null, null));
 
@@ -398,14 +377,7 @@ public abstract class SearchGraphServiceTestBase extends GraphServiceTestBase {
     edges =
         Arrays.asList(
             new Edge(
-                dataset2Urn,
-                dataset1Urn,
-                downstreamOf,
-                initialTime,
-                null,
-                updatedTime,
-                null,
-                null),
+                dataset2Urn, dataset1Urn, downstreamOf, initialTime, null, updatedTime, null, null),
             new Edge(
                 dataset3Urn,
                 dataset2Urn,
@@ -503,6 +475,11 @@ public abstract class SearchGraphServiceTestBase extends GraphServiceTestBase {
     return getLineage(urn, LineageDirection.UPSTREAM, startTime, endTime, count, null);
   }
 
+  private EntityLineageResult getUpstreamLineage(
+      Urn urn, Long startTime, Long endTime, int count, int exploreLimit) {
+    return getLineage(urn, LineageDirection.UPSTREAM, startTime, endTime, count, exploreLimit);
+  }
+
   private EntityLineageResult getUpstreamLineage(Urn urn, Long startTime, Long endTime, int count, int exploreLimit) {
     return getLineage(urn, LineageDirection.UPSTREAM, startTime, endTime, count, exploreLimit);
     }
@@ -516,7 +493,7 @@ public abstract class SearchGraphServiceTestBase extends GraphServiceTestBase {
    * @return The Downstream lineage for urn from the window from startTime to endTime
    */
   private EntityLineageResult getDownstreamLineage(Urn urn, Long startTime, Long endTime) {
-      return getLineage(urn, LineageDirection.DOWNSTREAM, startTime, endTime, 0, null);
+    return getLineage(urn, LineageDirection.DOWNSTREAM, startTime, endTime, 0, null);
   }
 
   /**
@@ -540,7 +517,7 @@ public abstract class SearchGraphServiceTestBase extends GraphServiceTestBase {
             urn,
             direction,
             0,
-            0,
+            count,
             3,
             new LineageFlags()
                 .setStartTimeMillis(startTime, SetMode.REMOVE_IF_NULL)

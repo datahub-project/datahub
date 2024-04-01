@@ -79,6 +79,11 @@ public class ESBulkProcessor implements Closeable {
   public ESBulkProcessor add(DocWriteRequest<?> request) {
     MetricUtils.counter(this.getClass(), ES_WRITES_METRIC).inc();
     bulkProcessor.add(request);
+    log.info(
+        "Added request id: {}, operation type: {}, index: {}",
+        request.id(),
+        request.opType(),
+        request.index());
     return this;
   }
 

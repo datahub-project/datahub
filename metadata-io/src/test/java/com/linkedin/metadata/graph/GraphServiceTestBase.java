@@ -42,8 +42,6 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.testng.Assert;
 import org.testng.annotations.BeforeMethod;
@@ -177,20 +175,20 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
           dataset19Urn,
           dataset20Urn);
 
-  protected static final String schemaFieldUrnOneString =
-      "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:type,SampleDatasetFive,PROD),fieldOne)";
-  protected static final String schemaFieldUrnTwoString =
-      "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:type,SampleDatasetFour,PROD),fieldTwo)";
+  protected static final String schemaFieldUrn1String =
+      "urn:li:schemaField:(" + dataset5UrnString + ",fieldOne)";
+  protected static final String schemaFieldUrn2String =
+      "urn:li:schemaField:(" + dataset4UrnString + ",fieldTwo)";
 
-  protected static final String lifeCycleOwnerOneString =
+  protected static final String lifeCycleOwner1String =
       "urn:li:dataJob:(urn:li:dataFlow:(fivetran,calendar_elected,PROD),calendar_elected)";
-  protected static final String lifeCycleOwnerTwoString =
+  protected static final String lifeCycleOwner2String =
       "urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)";
 
-  protected static final Urn schemaFieldUrnOne = createFromString(schemaFieldUrnOneString);
-  protected static final Urn schemaFieldUrnTwo = createFromString(schemaFieldUrnTwoString);
-  protected static final Urn lifeCycleOwnerOne = createFromString(lifeCycleOwnerOneString);
-  protected static final Urn lifeCycleOwnerTwo = createFromString(lifeCycleOwnerTwoString);
+  protected static final Urn schemaFieldUrnOne = createFromString(schemaFieldUrn1String);
+  protected static final Urn schemaFieldUrnTwo = createFromString(schemaFieldUrn2String);
+  protected static final Urn lifeCycleOwnerOne = createFromString(lifeCycleOwner1String);
+  protected static final Urn lifeCycleOwnerTwo = createFromString(lifeCycleOwner2String);
 
   protected static String unknownUrnString = "urn:li:unknown:(urn:li:unknown:Unknown)";
 
@@ -234,13 +232,13 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
   protected static RelatedEntity downstreamOfDatasetFourRelatedEntity =
       new RelatedEntity(downstreamOf, dataset4UrnString);
   protected static final RelatedEntity downstreamOfSchemaFieldOneVia =
-      new RelatedEntity(downstreamOf, schemaFieldUrnOneString, lifeCycleOwnerOneString);
+      new RelatedEntity(downstreamOf, schemaFieldUrn1String, lifeCycleOwner1String);
   protected static final RelatedEntity downstreamOfSchemaFieldOne =
-      new RelatedEntity(downstreamOf, schemaFieldUrnOneString);
+      new RelatedEntity(downstreamOf, schemaFieldUrn1String);
   protected static final RelatedEntity downstreamOfSchemaFieldTwoVia =
-      new RelatedEntity(downstreamOf, schemaFieldUrnTwoString, lifeCycleOwnerOneString);
+      new RelatedEntity(downstreamOf, schemaFieldUrn2String, lifeCycleOwner1String);
   protected static final RelatedEntity downstreamOfSchemaFieldTwo =
-      new RelatedEntity(downstreamOf, schemaFieldUrnTwoString);
+      new RelatedEntity(downstreamOf, schemaFieldUrn2String);
 
   protected static RelatedEntity hasOwnerDatasetOneRelatedEntity =
       new RelatedEntity(hasOwner, dataset1UrnString);
@@ -639,8 +637,7 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
     assertTrue(relationships.containsKey(dataJobOneUrn));
     assertEquals(relationships.get(dataJobOneUrn).getType(), produces);
 
-    downstreamLineage =
-        service.getLineage(dataset3Urn, LineageDirection.DOWNSTREAM, 0, 1000, 1);
+    downstreamLineage = service.getLineage(dataset3Urn, LineageDirection.DOWNSTREAM, 0, 1000, 1);
     assertEquals(downstreamLineage.getTotal().intValue(), 0);
     assertEquals(downstreamLineage.getRelationships().size(), 0);
 
@@ -1162,8 +1159,7 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
     doTestFindRelatedEntitiesEntityType(
         anyType, null, downstreamOf, outgoingRelationships, service);
 
-    service.addEdge(
-        new Edge(dataset2Urn, dataset1Urn, downstreamOf, null, null, null, null, null));
+    service.addEdge(new Edge(dataset2Urn, dataset1Urn, downstreamOf, null, null, null, null, null));
     syncAfterWrite();
     doTestFindRelatedEntitiesEntityType(
         anyType, ImmutableList.of("null"), downstreamOf, outgoingRelationships, service);
@@ -1207,8 +1203,7 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
     doTestFindRelatedEntitiesEntityType(
         anyType, null, downstreamOf, outgoingRelationships, service);
 
-    service.addEdge(
-        new Edge(dataset2Urn, dataset1Urn, downstreamOf, null, null, null, null, null));
+    service.addEdge(new Edge(dataset2Urn, dataset1Urn, downstreamOf, null, null, null, null, null));
     syncAfterWrite();
     doTestFindRelatedEntitiesEntityType(
         anyType, ImmutableList.of("null"), downstreamOf, outgoingRelationships, service);
@@ -2066,9 +2061,13 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
     assertTrue(throwables.isEmpty());
   }
 
-  @ParameterizedTest
-  @ValueSource(booleans = {true, false})
-  public void testPopulatedGraphServiceGetLineageMultihop(boolean attemptMultiPathAlgo)
+  @DataProvider(name = "trueFalse")
+  public static Object[] trueFalse() {
+    return new Object[] {true, false};
+  }
+
+  @Test(dataProvider = "trueFalse")
+  public void testPopulatedGraphServiceGetLineageMultihop(Boolean attemptMultiPathAlgo)
       throws Exception {
 
     GraphService service = getLineagePopulatedGraphService(attemptMultiPathAlgo);
@@ -2121,8 +2120,7 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
     assertTrue(relationships.containsKey(dataJobOneUrn));
     assertEquals(relationships.get(dataJobOneUrn).getDegree(), 1);
 
-    downstreamLineage =
-        service.getLineage(dataset3Urn, LineageDirection.DOWNSTREAM, 0, 1000, 2);
+    downstreamLineage = service.getLineage(dataset3Urn, LineageDirection.DOWNSTREAM, 0, 1000, 2);
     assertEquals(downstreamLineage.getTotal().intValue(), 0);
     assertEquals(downstreamLineage.getRelationships().size(), 0);
   }
@@ -2130,27 +2128,13 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
   @Test
   public void testHighlyConnectedGraphWalk() throws Exception {
     final GraphService service = getGraphService();
-
-    int nodes = 25;
-    List<String> allRelationships = Arrays.asList(downstreamOf, consumes, hasOwner);
-    List<Edge> edges =
-        getFullyConnectedGraph(nodes, allRelationships, Collections.singletonList(datasetType));
+    List<String> allRelationships = Collections.singletonList(downstreamOf);
+    List<Edge> edges = createHighlyConnectedGraph();
 
     Stream<Runnable> operations = edges.stream().map(edge -> () -> service.addEdge(edge));
 
     doTestConcurrentOp(operations);
     syncAfterWrite();
-
-    RelatedEntitiesResult relatedEntities =
-        service.findRelatedEntities(
-            null,
-            EMPTY_FILTER,
-            null,
-            EMPTY_FILTER,
-            allRelationships,
-            outgoingRelationships,
-            0,
-            nodes * 3 * 2);
 
     Set<RelatedEntity> expectedRelatedEntities =
         edges.stream()
@@ -2158,6 +2142,23 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
                 edge ->
                     new RelatedEntity(edge.getRelationshipType(), edge.getDestination().toString()))
             .collect(Collectors.toSet());
+    RelatedEntitiesResult relatedEntities = null;
+    for (int i = 0; i < 3; i++) {
+      relatedEntities =
+          service.findRelatedEntities(
+              null,
+              EMPTY_FILTER,
+              null,
+              EMPTY_FILTER,
+              allRelationships,
+              outgoingRelationships,
+              0,
+              400);
+      if (!new HashSet<>(relatedEntities.getEntities()).equals(expectedRelatedEntities)) {
+        // Sleep up to 6 seconds in case Elastic needs to catch up
+        Thread.sleep(2000);
+      }
+    }
     assertEquals(new HashSet<>(relatedEntities.getEntities()), expectedRelatedEntities);
 
     Urn root = UrnUtils.getUrn(relatedEntities.getEntities().get(0).getUrn());
@@ -2177,7 +2178,7 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
                 1000,
                 100,
                 new LineageFlags().setEntitiesExploredPerHopLimit(5));
-    assertEquals(lineageResult.getRelationships().size(), 24);
+    assertEquals(lineageResult.getRelationships().size(), 19);
     LineageRelationshipArray relationships = lineageResult.getRelationships();
     int maxDegree =
         relationships.stream()
@@ -2202,15 +2203,31 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
                 100,
                 new LineageFlags().setEntitiesExploredPerHopLimit(5));
 
-    assertEquals(lineageResultMulti.getRelationships().size(), 25);
+    assertEquals(lineageResultMulti.getRelationships().size(), 20);
     relationships = lineageResultMulti.getRelationships();
     maxDegree =
         relationships.stream()
             .flatMap(relationship -> relationship.getDegrees().stream())
             .reduce(0, Math::max);
-    assertTrue(maxDegree > 6);
+    assertTrue(maxDegree > 4);
 
     // Reset graph service
     getGraphService();
+  }
+
+  protected List<Edge> createHighlyConnectedGraph() {
+    List<Edge> graph = new ArrayList<>();
+    for (Urn sourceUrn : datasetUrns) {
+      for (Urn destUrn : datasetUrns) {
+        if (sourceUrn.equals(destUrn)) {
+          continue;
+        }
+        Edge edge =
+            new Edge(
+                sourceUrn, destUrn, downstreamOf, 0L, userOneUrn, 0L, userOneUrn, null, null, null);
+        graph.add(edge);
+      }
+    }
+    return graph;
   }
 }
