@@ -27,13 +27,14 @@ from datahub.metadata.schema_classes import DatasetPropertiesClass
 
 logger = logging.getLogger(__name__)
 
+class S3ClientConfig(ConfigModel):
+    bucket: str = os.getenv("DATA_BUCKET", "localhost")
+    path: str = os.getenv("ELASTICSEARCH_HOST", "localhost")
+
 class DataHubReportingExtractSqlSourceConfig(ConfigModel):
     server: Optional[DatahubClientConfig] = None
+    sql_backup_config: S3ClientConfig
     extract_sql_store: FileStoreBackedDatasetConfig
-    relationships_include: Optional[List[str]] = None
-    relationships_exclude: Optional[List[str]] = None
-    entity_types_include: Optional[List[str]] = None
-    entity_types_exclude: Optional[List[str]] = None
 
     @validator("extract_sql_store", pre=True, always=True)
     def set_default_extract_soft_delete_flag(cls, v, values):
