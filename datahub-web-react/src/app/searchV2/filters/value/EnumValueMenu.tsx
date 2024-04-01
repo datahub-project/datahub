@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { CSSProperties, useState } from 'react';
 import { FilterField, FilterValue, FilterValueOption } from '../types';
 import { mapFilterOption } from '../mapFilterOption';
 import { useEntityRegistry } from '../../../useEntityRegistry';
@@ -14,14 +14,14 @@ interface Props {
     onApply: () => void;
     type?: 'card' | 'default';
     includeCount?: boolean;
-    alignRight?: boolean;
+    style?: CSSProperties;
 }
 
 export default function EnumValueMenu({
     field,
     values,
-    includeCount= false,
-    alignRight,
+    includeCount = false,
+    style,
     defaultOptions,
     type = 'card',
     onChangeValues,
@@ -73,7 +73,7 @@ export default function EnumValueMenu({
             isLoading={aggLoading}
             searchPlaceholder={displayName}
             type={type}
-            alignRight={alignRight}
+            style={style}
         />
     );
 }

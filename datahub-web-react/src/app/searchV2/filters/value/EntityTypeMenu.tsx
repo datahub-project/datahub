@@ -1,5 +1,5 @@
 /* eslint-disable import/no-cycle */
-import React, { useState } from 'react';
+import React, { CSSProperties, useState } from 'react';
 import { FilterField, FilterValue, FilterValueOption } from '../types';
 import { mapFilterOption } from '../mapFilterOption';
 import { useEntityRegistry } from '../../../useEntityRegistry';
@@ -17,7 +17,7 @@ interface Props {
     type?: 'card' | 'default';
     includeSubTypes?: boolean;
     includeCount?: boolean;
-    alignRight?: boolean;
+    style?: CSSProperties;
 }
 
 export default function EntityTypeMenu({
@@ -29,7 +29,7 @@ export default function EntityTypeMenu({
     onApply,
     includeSubTypes = true,
     includeCount = false,
-    alignRight,
+    style,
 }: Props) {
     const entityRegistry = useEntityRegistry();
     const { displayName } = field;
@@ -39,7 +39,7 @@ export default function EntityTypeMenu({
 
     // Here we optionally load the aggregation options, which are the options that are displayed by default.
     const { options: aggOptions, loading: aggLoading } = useLoadAggregationOptions(field, true, includeCount);
-    
+
     const allOptions = [...defaultOptions, ...deduplicateOptions(defaultOptions, aggOptions)];
 
     const localSearchOptions = useFilterOptionsBySearchQuery(allOptions, searchQuery);
@@ -88,7 +88,7 @@ export default function EntityTypeMenu({
             isLoading={aggLoading}
             searchPlaceholder={displayName}
             type={type}
-            alignRight={alignRight}
+            style={style}
         />
     );
 }

@@ -1,6 +1,6 @@
 import { LoadingOutlined } from '@ant-design/icons';
 import { Button } from 'antd';
-import React from 'react';
+import React, { CSSProperties } from 'react';
 import styled from 'styled-components/macro';
 import { ANTD_GRAY, SEARCH_COLORS } from '../../entityV2/shared/constants';
 import { useEnterKeyListener } from '../../shared/useEnterKeyListener';
@@ -15,7 +15,7 @@ const StyledButton = styled(Button)`
     border-radius: 0;
 `;
 
-export const DropdownMenu = styled.div<{ type: 'card' | 'default'; alignRight?: boolean }>`
+export const DropdownMenu = styled.div<{ type: 'card' | 'default' }>`
     background-color: white;
     ${(props) => props.type === 'card' && 'border-radius: 5px;'}
     ${(props) =>
@@ -23,14 +23,6 @@ export const DropdownMenu = styled.div<{ type: 'card' | 'default'; alignRight?: 
         'box-shadow: 0 3px 6px -4px rgba(0, 0, 0, 0.12), 0 6px 16px 0 rgba(0, 0, 0, 0.08), 0 9px 28px 8px rgba(0, 0, 0, 0.05);'}
     overflow: hidden;
     min-width: 200px;
-
-    ${(props) =>
-        props.alignRight &&
-        `
-    position: absolute;
-    left: 205px;
-    top: -34px;
-    `}
 
     .ant-dropdown-menu-title-content {
         background-color: white;
@@ -66,7 +58,7 @@ interface Props {
     isLoading: boolean;
     searchQuery: string;
     updateSearchQuery: (query: string) => void;
-    alignRight?: boolean;
+    style?: CSSProperties;
     searchPlaceholder?: string;
     showSearchBar?: boolean;
     type?: 'card' | 'default';
@@ -78,7 +70,7 @@ export default function OptionsDropdownMenu({
     isLoading,
     searchQuery,
     updateSearchQuery,
-    alignRight,
+    style,
     searchPlaceholder,
     showSearchBar = true,
     type = 'card',
@@ -88,7 +80,7 @@ export default function OptionsDropdownMenu({
     useEnterKeyListener({ querySelectorToExecuteClick: '#updateFiltersButton' });
 
     return (
-        <DropdownMenu type={type} alignRight={alignRight} data-testid="filter-dropdown">
+        <DropdownMenu type={type} data-testid="filter-dropdown" style={style}>
             <ScrollableContent>
                 {showSearchBar && (
                     <SearchBar

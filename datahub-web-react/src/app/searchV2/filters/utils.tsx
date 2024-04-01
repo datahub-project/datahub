@@ -10,7 +10,7 @@ import {
     UserOutlined,
     WarningOutlined,
 } from '@ant-design/icons';
-import React from 'react';
+import React, { useLayoutEffect, useState } from 'react';
 import styled from 'styled-components';
 import {
     AggregationMetadata,
@@ -606,3 +606,47 @@ export const FilterEntityIcon: React.FC<FilterEntityIconProps> = ({ field, entit
             return null; // default
     }
 };
+
+/**
+ * Custom hook to track dimensions of a DOM element.
+ * @param {object} ref - Reference to the DOM element.
+ * @returns {object} - Object containing width, height, and whether the element is outside the window.
+ */
+export function useElementDimensions(ref) {
+    const [dimensions, setDimensions] = useState({ width: 0, height: 0, isElementOutsideWindow: false });
+
+    useLayoutEffect(() => {
+        const updateDimensions = () => {
+            if (ref.current) {
+                const { offsetWidth, offsetHeight } = ref.current;
+                // Using data-testid to locate the "More Filters" dropdown button accurately, considering z-index and styling complexities of antd.
+                const dropdownButton = document.querySelector('[data-testid="more-filters-dropdown"]');
+
+                if (dropdownButton) {
+                    const { left } = dropdownButton.getBoundingClientRect();
+                    const windowWidth = window.innerWidth;
+                    const isElementOutsideWindow = left + offsetWidth * 2 > windowWidth;
+
+                    setDimensions({
+                        width: offsetWidth,
+                        height: offsetHeight,
+                        isElementOutsideWindow,
+                    });
+                }
+            }
+        };
+
+        updateDimensions();
+
+        const handleResize = () => {
+            updateDimensions();
+        };
+        window.addEventListener('resize', handleResize);
+
+        return () => {
+            window.removeEventListener('resize', handleResize);
+        };
+    }, [ref]);
+
+    return dimensions;
+}

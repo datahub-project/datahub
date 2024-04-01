@@ -1,5 +1,5 @@
 /* eslint-disable import/no-cycle */
-import React, { useEffect, useRef, useState } from 'react';
+import React, { CSSProperties, useEffect, useRef, useState } from 'react';
 import { FilterField, FilterValueOption, FilterValue, FieldType } from '../types';
 import TextValueMenu from './TextValueMenu';
 import BooleanValueMenu from './BooleanValueMenu';
@@ -15,7 +15,7 @@ interface Props {
     type?: 'card' | 'default';
     visible: boolean;
     includeCount?: boolean;
-    alignRight?: boolean;
+    style?: CSSProperties;
 }
 
 export default function ValueMenu({
@@ -26,7 +26,7 @@ export default function ValueMenu({
     onChangeValues,
     visible,
     includeCount,
-    alignRight,
+    style,
 }: Props) {
     const [stagedSelectedValues, setStagedSelectedValues] = useState<FilterValue[]>(values || []);
     const visibilityRef = useRef<boolean>(visible);
@@ -68,7 +68,7 @@ export default function ValueMenu({
                     field={field}
                     values={stagedSelectedValues}
                     type={type}
-                    alignRight={alignRight}
+                    style={style}
                     onChangeValues={setStagedSelectedValues}
                     onApply={() => onChangeValues(stagedSelectedValues)}
                 />
@@ -81,7 +81,7 @@ export default function ValueMenu({
                     values={stagedSelectedValues}
                     defaultOptions={defaultOptions}
                     type={type}
-                    alignRight={alignRight}
+                    style={style}
                     onChangeValues={setStagedSelectedValues}
                     onApply={() => onChangeValues(stagedSelectedValues)}
                 />
@@ -94,7 +94,7 @@ export default function ValueMenu({
                     values={stagedSelectedValues}
                     defaultOptions={defaultOptions}
                     type={type}
-                    alignRight={alignRight}
+                    style={style}
                     onChangeValues={setStagedSelectedValues}
                     onApply={() => onChangeValues(stagedSelectedValues)}
                 />
@@ -107,7 +107,7 @@ export default function ValueMenu({
                     values={stagedSelectedValues}
                     defaultOptions={defaultOptions}
                     type={type}
-                    alignRight={alignRight}
+                    style={style}
                     onChangeValues={setStagedSelectedValues}
                     onApply={() => onChangeValues(stagedSelectedValues)}
                     includeSubTypes={false}
@@ -121,7 +121,7 @@ export default function ValueMenu({
                     values={stagedSelectedValues}
                     defaultOptions={defaultOptions}
                     type={type}
-                    alignRight={alignRight}
+                    style={style}
                     onChangeValues={setStagedSelectedValues}
                     onApply={() => onChangeValues(stagedSelectedValues)}
                 />

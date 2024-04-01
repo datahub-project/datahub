@@ -1,6 +1,6 @@
 /* eslint-disable import/no-cycle */
 import { Dropdown } from 'antd';
-import React, { useState } from 'react';
+import React, { CSSProperties, useState } from 'react';
 import { FilterField, FilterValue, FilterValueOption } from '../types';
 import ValueMenu from './ValueMenu';
 
@@ -10,10 +10,10 @@ interface Props {
     defaultOptions: FilterValueOption[];
     onChangeValues: (newValues: FilterValue[]) => void;
     children?: any;
-    alignRight?: boolean;
+    style?: CSSProperties;
 }
 
-export default function ValueSelector({ field, values, defaultOptions, onChangeValues, children, alignRight }: Props) {
+export default function ValueSelector({ field, values, defaultOptions, onChangeValues, children, style }: Props) {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
 
     const onUpdateValues = (newValues: FilterValue[]) => {
@@ -35,7 +35,7 @@ export default function ValueSelector({ field, values, defaultOptions, onChangeV
                     onChangeValues={onUpdateValues}
                     visible={isMenuOpen}
                     includeCount
-                    alignRight={alignRight}
+                    style={style}
                 />
             )}
         >
