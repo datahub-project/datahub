@@ -122,7 +122,8 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
       return;
     }
     final String docId = maybeDocId.get();
-    log.debug(String.format("Appending run id for entityName: %s, docId: %s", entityName, docId));
+    log.info(
+        "Appending run id for entity name: {}, doc id: {}, run id: {}", entityName, docId, runId);
     esWriteDAO.applyScriptUpdate(
         entityName,
         docId,
