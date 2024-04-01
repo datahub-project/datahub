@@ -7,7 +7,6 @@ import com.datahub.authorization.EntitySpec;
 import com.datahub.plugins.auth.authorization.Authorizer;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
-import com.linkedin.metadata.authorization.Disjunctive;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
@@ -34,6 +33,8 @@ public class Utils {
       @Nullable Integer start,
       @Nullable Integer batchSize,
       @Nullable Integer limit,
+      @Nullable Long gePitEpochMs,
+      @Nullable Long lePitEpochMs,
       @Nonnull Authorizer authorizer,
       @Nonnull EntityService<?> entityService) {
 
@@ -57,7 +58,9 @@ public class Utils {
             .urn(urn)
             .start(start)
             .batchSize(batchSize)
-            .limit(limit);
+            .limit(limit)
+            .gePitEpochMs(gePitEpochMs)
+            .lePitEpochMs(lePitEpochMs);
     Map<String, Object> result = new HashMap<>();
     result.put("args", args);
     result.put("result", entityService

@@ -298,7 +298,9 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
       @ActionParam(PARAM_URN_LIKE) @Optional @Nullable String urnLike,
       @ActionParam("start") @Optional @Nullable Integer start,
       @ActionParam("batchSize") @Optional @Nullable Integer batchSize,
-      @ActionParam("limit") @Optional @Nullable Integer limit) {
+      @ActionParam("limit") @Optional @Nullable Integer limit,
+      @ActionParam("gePitEpochMs") @Optional @Nullable Long gePitEpochMs,
+      @ActionParam("lePitEpochMs") @Optional @Nullable Long lePitEpochMs) {
     return RestliUtil.toTask(
         () -> {
             if (!isAPIAuthorized(
@@ -309,7 +311,7 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
                         HttpStatus.S_403_FORBIDDEN, "User is unauthorized to update entities.");
             }
           return Utils.restoreIndices(
-              aspectName, urn, urnLike, start, batchSize, limit, _authorizer, _entityService);
+              aspectName, urn, urnLike, start, batchSize, limit, gePitEpochMs, lePitEpochMs, _authorizer, _entityService);
         },
         MetricRegistry.name(this.getClass(), "restoreIndices"));
   }

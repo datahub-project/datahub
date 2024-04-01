@@ -257,7 +257,10 @@ public class OperationsController {
       @RequestParam(required = false, name = "batchSize", defaultValue = "500") @Nullable
           Integer batchSize,
       @RequestParam(required = false, name = "start", defaultValue = "0") @Nullable Integer start,
-      @RequestParam(required = false, name = "limit", defaultValue = "0") @Nullable Integer limit) {
+      @RequestParam(required = false, name = "limit", defaultValue = "0") @Nullable Integer limit,
+      @RequestParam(required = false, name = "gePitEpochMs", defaultValue = "0") @Nullable
+          Long gePitEpochMs,
+      @RequestParam(required = false, name = "lePitEpochMs") @Nullable Long lePitEpochMs) {
 
     Authentication authentication = AuthenticationContext.getAuthentication();
     if (!AuthUtil.isAPIAuthorized(
@@ -275,7 +278,9 @@ public class OperationsController {
                     .orElse(null))
             .start(start)
             .batchSize(batchSize)
-            .limit(limit);
+            .limit(limit)
+            .gePitEpochMs(gePitEpochMs)
+            .lePitEpochMs(lePitEpochMs);
 
     return ResponseEntity.of(
         Optional.of(

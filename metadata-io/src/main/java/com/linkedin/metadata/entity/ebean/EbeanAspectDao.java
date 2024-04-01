@@ -44,6 +44,7 @@ import io.ebean.annotation.TxIsolation;
 import java.net.URISyntaxException;
 import java.sql.Timestamp;
 import java.time.Clock;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -513,6 +514,15 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
     }
     if (args.urnLike != null) {
       exp = exp.like(EbeanAspectV2.URN_COLUMN, args.urnLike);
+    }
+    if (args.gePitEpochMs > 0) {
+      exp =
+          exp.ge(
+                  EbeanAspectV2.CREATED_ON_COLUMN,
+                  Timestamp.from(Instant.ofEpochMilli(args.gePitEpochMs)))
+              .le(
+                  EbeanAspectV2.CREATED_ON_COLUMN,
+                  Timestamp.from(Instant.ofEpochMilli(args.lePitEpochMs)));
     }
 
     int start = args.start;

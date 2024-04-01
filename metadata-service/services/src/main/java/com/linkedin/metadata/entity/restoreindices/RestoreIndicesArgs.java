@@ -1,5 +1,6 @@
 package com.linkedin.metadata.entity.restoreindices;
 
+import java.time.Instant;
 import lombok.Data;
 import lombok.experimental.Accessors;
 
@@ -9,12 +10,15 @@ public class RestoreIndicesArgs implements Cloneable {
   public static final int DEFAULT_BATCH_SIZE = 500;
   public static final int DEFAULT_NUM_THREADS = 1;
   public static final int DEFAULT_BATCH_DELAY_MS = 1;
+  public static final long DEFAULT_GE_PIT_EPOCH_MS = 0;
 
   public int start = 0;
   public int batchSize = DEFAULT_BATCH_SIZE;
   public int limit = 0;
   public int numThreads = DEFAULT_NUM_THREADS;
   public long batchDelayMs = DEFAULT_BATCH_DELAY_MS;
+  public long gePitEpochMs = DEFAULT_GE_PIT_EPOCH_MS;
+  public long lePitEpochMs;
   public String aspectName;
   public String urn;
   public String urnLike;
@@ -55,6 +59,16 @@ public class RestoreIndicesArgs implements Cloneable {
 
   public RestoreIndicesArgs batchDelayMs(Long batchDelayMs) {
     this.batchDelayMs = batchDelayMs != null ? batchDelayMs : DEFAULT_BATCH_DELAY_MS;
+    return this;
+  }
+
+  public RestoreIndicesArgs gePitEpochMs(Long gePitEpochMs) {
+    this.gePitEpochMs = gePitEpochMs != null ? gePitEpochMs : DEFAULT_GE_PIT_EPOCH_MS;
+    return this;
+  }
+
+  public RestoreIndicesArgs lePitEpochMs(Long lePitEpochMs) {
+    this.lePitEpochMs = lePitEpochMs != null ? lePitEpochMs : Instant.now().toEpochMilli();
     return this;
   }
 }

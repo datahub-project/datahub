@@ -92,9 +92,11 @@ public class OperationsResource extends CollectionResourceTaskTemplate<String, V
       @ActionParam(PARAM_URN_LIKE) @Optional @Nullable String urnLike,
       @ActionParam("start") @Optional @Nullable Integer start,
       @ActionParam("batchSize") @Optional @Nullable Integer batchSize,
-      @ActionParam("limit") @Optional @Nullable Integer limit) {
+      @ActionParam("limit") @Optional @Nullable Integer limit,
+      @ActionParam("gePitEpochMs") @Optional @Nullable Long gePitEpochMs,
+      @ActionParam("lePitEpochMs") @Optional @Nullable Long lePitEpochMs) {
     return RestliUtil.toTask(
-        () -> Utils.restoreIndices(aspectName, urn, urnLike, start, batchSize, limit, _authorizer, _entityService),
+        () -> Utils.restoreIndices(aspectName, urn, urnLike, start, batchSize, limit, gePitEpochMs, lePitEpochMs, _authorizer, _entityService),
         MetricRegistry.name(this.getClass(), "restoreIndices"));
   }
 
