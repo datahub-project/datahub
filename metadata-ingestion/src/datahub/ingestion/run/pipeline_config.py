@@ -8,7 +8,11 @@ from pydantic import Field, root_validator, validator
 
 from datahub.cli.cli_utils import get_url_and_token
 from datahub.configuration import config_loader
-from datahub.configuration.common import ConfigModel, DynamicTypedConfig
+from datahub.configuration.common import (
+    AllowDenyPattern,
+    ConfigModel,
+    DynamicTypedConfig,
+)
 from datahub.ingestion.graph.client import DatahubClientConfig
 from datahub.ingestion.sink.file import FileSinkConfig
 
@@ -21,6 +25,7 @@ DEFAULT_RUN_ID = "__DEFAULT_RUN_ID"
 class SourceConfig(DynamicTypedConfig):
     extractor: str = "generic"
     extractor_config: dict = Field(default_factory=dict)
+    urn_pattern: AllowDenyPattern = Field(default=AllowDenyPattern())
 
 
 class ReporterConfig(DynamicTypedConfig):
