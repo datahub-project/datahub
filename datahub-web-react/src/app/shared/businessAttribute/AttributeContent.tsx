@@ -4,7 +4,7 @@ import { GlobalOutlined } from '@ant-design/icons';
 import React from 'react';
 import Highlight from 'react-highlighter';
 import { useEntityRegistry } from '../../useEntityRegistry';
-import { BusinessAttributeAssociation, EntityType, SubResourceType } from '../../../types.generated';
+import { BusinessAttributeAssociation, EntityType } from '../../../types.generated';
 import { useHasMatchedFieldByUrn } from '../../search/context/SearchResultContext';
 import { MatchedFieldName } from '../../search/matches/constants';
 import { useRemoveBusinessAttributeMutation } from '../../../graphql/mutations.generated';
@@ -25,7 +25,6 @@ const StyledAttribute = styled(Tag)<{ fontSize?: number; highlightAttribute?: bo
 interface Props {
     businessAttribute: BusinessAttributeAssociation | undefined;
     entityUrn?: string;
-    entitySubresource?: string;
     canRemove?: boolean;
     readOnly?: boolean;
     highlightText?: string;
@@ -42,7 +41,6 @@ export default function AttributeContent({
     fontSize,
     onOpenModal,
     entityUrn,
-    entitySubresource,
     refetch,
 }: Props) {
     const entityRegistry = useEntityRegistry();
@@ -71,8 +69,8 @@ export default function AttributeContent({
                                 businessAttributeUrn: attributeToRemove.businessAttribute.urn,
                                 resourceUrn: {
                                     resourceUrn: attributeToRemove.associatedUrn || entityUrn || '',
-                                    subResource: entitySubresource,
-                                    subResourceType: entitySubresource ? SubResourceType.DatasetField : null,
+                                    subResource: null,
+                                    subResourceType: null,
                                 },
                             },
                         },

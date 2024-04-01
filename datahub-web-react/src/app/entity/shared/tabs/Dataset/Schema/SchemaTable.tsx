@@ -100,7 +100,7 @@ export default function SchemaTable({
 
     const schemaFields = schemaMetadata ? schemaMetadata.fields : inputFields;
 
-    const descriptionRender = useDescriptionRenderer(editableSchemaMetadata);
+    const descriptionRender = useDescriptionRenderer();
     const usageStatsRenderer = useUsageStatsRenderer(usageStats);
     const tagRenderer = useTagsAndTermsRenderer(
         editableSchemaMetadata,
@@ -121,9 +121,8 @@ export default function SchemaTable({
         false,
     );
     const businessAttributeRenderer = useBusinessAttributeRenderer(
-        editableSchemaMetadata,
         filterText,
-        false,
+        false
     );
     const schemaTitleRenderer = useSchemaTitleRenderer(schemaMetadata, setSelectedFkFieldPath, filterText);
     const schemaBlameRenderer = useSchemaBlameRenderer(schemaFieldBlameList);

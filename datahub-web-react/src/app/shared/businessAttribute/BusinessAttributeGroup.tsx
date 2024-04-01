@@ -3,7 +3,7 @@ import { Button, Typography } from 'antd';
 import React, { useState } from 'react';
 import { PlusOutlined } from '@ant-design/icons';
 import { EMPTY_MESSAGES } from '../../entity/shared/constants';
-import { BusinessAttributeAssociation, EntityType, SubResourceType } from '../../../types.generated';
+import { BusinessAttributeAssociation, EntityType } from '../../../types.generated';
 import EditBusinessAttributeModal from './AddBusinessAttributeModal';
 import StyledAttribute from './StyledAttribute';
 
@@ -93,8 +93,8 @@ export default function BusinessAttributeGroup({
                     resources={[
                         {
                             resourceUrn: entityUrn,
-                            subResource: entitySubresource,
-                            subResourceType: entitySubresource ? SubResourceType.DatasetField : null,
+                            subResource: null,
+                            subResourceType: null,
                         },
                     ]}
                 />
