@@ -416,34 +416,10 @@ public abstract class SearchGraphServiceTestBase extends GraphServiceTestBase {
     List<Edge> edges =
         Arrays.asList(
             // One upstream edge
-            new Edge(
-                dataset2Urn,
-                dataset1Urn,
-                downstreamOf,
-                null,
-                null,
-                null,
-                null,
-                null),
+            new Edge(dataset2Urn, dataset1Urn, downstreamOf, null, null, null, null, null),
             // Two downstream
-            new Edge(
-                dataset3Urn,
-                dataset2Urn,
-                downstreamOf,
-                null,
-                null,
-                null,
-                null,
-                null),
-            new Edge(
-                dataset4Urn,
-                dataset2Urn,
-                downstreamOf,
-                null,
-                null,
-                null,
-                null,
-                null),
+            new Edge(dataset3Urn, dataset2Urn, downstreamOf, null, null, null, null, null),
+            new Edge(dataset4Urn, dataset2Urn, downstreamOf, null, null, null, null, null),
             // One with null values, should always be returned
             new Edge(dataset5Urn, dataset2Urn, downstreamOf, null, null, null, null, null));
 
@@ -456,8 +432,6 @@ public abstract class SearchGraphServiceTestBase extends GraphServiceTestBase {
     EntityLineageResult result2 = getUpstreamLineage(dataset2Urn, null, null, 10, 0);
     Assert.assertTrue(result2.getRelationships().get(0).isExplored() == null);
   }
-
-
 
   /**
    * Utility method to reduce repeated parameters for lineage tests
@@ -480,9 +454,10 @@ public abstract class SearchGraphServiceTestBase extends GraphServiceTestBase {
     return getLineage(urn, LineageDirection.UPSTREAM, startTime, endTime, count, exploreLimit);
   }
 
-  private EntityLineageResult getUpstreamLineage(Urn urn, Long startTime, Long endTime, int count, int exploreLimit) {
+  private EntityLineageResult getUpstreamLineage(
+      Urn urn, Long startTime, Long endTime, int count, int exploreLimit) {
     return getLineage(urn, LineageDirection.UPSTREAM, startTime, endTime, count, exploreLimit);
-    }
+  }
 
   /**
    * Utility method to reduce repeated parameters for lineage tests

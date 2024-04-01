@@ -390,7 +390,8 @@ public class ESGraphQueryDAO {
                                             lineageRelationship.getEntity(),
                                             ignoreAsHops.get(entityType)))))
             .map(LineageRelationship::getEntity)
-            .forEach(additionalCurrentLevel::add);;
+            .forEach(additionalCurrentLevel::add);
+        ;
         if (!additionalCurrentLevel.isEmpty()) {
           Stream<Urn> ignoreAsHopUrns =
               processOneHopLineage(
