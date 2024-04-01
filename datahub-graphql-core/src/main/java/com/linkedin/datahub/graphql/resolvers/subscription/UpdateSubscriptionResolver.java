@@ -79,7 +79,7 @@ public class UpdateSubscriptionResolver
                     notificationConfig,
                     authentication);
 
-            return DataHubSubscriptionMapper.map(subscription);
+            return DataHubSubscriptionMapper.map(context, subscription);
           } catch (Exception e) {
             throw new RuntimeException("Failed to update subscriptions", e);
           }

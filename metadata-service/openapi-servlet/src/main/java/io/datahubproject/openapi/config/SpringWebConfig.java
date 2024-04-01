@@ -33,6 +33,9 @@ public class SpringWebConfig implements WebMvcConfigurer {
   private static final Set<String> METADATA_TESTS_PACKAGES =
       Set.of("io.datahubproject.openapi.metadatatests");
 
+  private static final Set<String> OPENLINEAGE_PACKAGES =
+      Set.of("io.datahubproject.openapi.openlineage");
+
   public static final Set<String> NONDEFAULT_OPENAPI_PACKAGES;
 
   static {
@@ -40,6 +43,7 @@ public class SpringWebConfig implements WebMvcConfigurer {
     NONDEFAULT_OPENAPI_PACKAGES.addAll(OPERATIONS_PACKAGES);
     NONDEFAULT_OPENAPI_PACKAGES.addAll(V2_PACKAGES);
     NONDEFAULT_OPENAPI_PACKAGES.addAll(SCHEMA_REGISTRY_PACKAGES);
+    NONDEFAULT_OPENAPI_PACKAGES.addAll(OPENLINEAGE_PACKAGES);
     NONDEFAULT_OPENAPI_PACKAGES.addAll(METADATA_TESTS_PACKAGES);
   }
 
@@ -77,6 +81,14 @@ public class SpringWebConfig implements WebMvcConfigurer {
     return GroupedOpenApi.builder()
         .group("OpenAPI v2")
         .packagesToScan(V2_PACKAGES.toArray(String[]::new))
+        .build();
+  }
+
+  @Bean
+  public GroupedOpenApi openlineageOpenApiGroup() {
+    return GroupedOpenApi.builder()
+        .group("openlineage")
+        .packagesToScan(OPENLINEAGE_PACKAGES.toArray(String[]::new))
         .build();
   }
 

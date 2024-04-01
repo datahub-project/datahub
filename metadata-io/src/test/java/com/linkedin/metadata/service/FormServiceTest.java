@@ -1,6 +1,11 @@
 package com.linkedin.metadata.service;
 
 import static com.linkedin.metadata.Constants.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.mock;
 
 import com.datahub.authentication.Actor;
@@ -39,13 +44,13 @@ import com.linkedin.form.FormPromptType;
 import com.linkedin.form.FormType;
 import com.linkedin.form.StructuredPropertyParams;
 import com.linkedin.metadata.entity.AspectUtils;
-import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
@@ -93,7 +98,7 @@ public class FormServiceTest {
     // Case 1 - non existing form.
     Urn nonExistantForm = UrnUtils.getUrn("urn:li:form:non-existant");
     EntityClient mockClient = mockEntityClient(null, null);
-    Mockito.when(mockClient.exists(Mockito.eq(nonExistantForm), Mockito.any(Authentication.class)))
+    Mockito.when(mockClient.exists(Mockito.eq(nonExistantForm), any(Authentication.class)))
         .thenReturn(false);
 
     FormService formService =
@@ -109,8 +114,7 @@ public class FormServiceTest {
     // Case 2 - non existant entity.
     Urn nonExistantEntity =
         UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:snowflake,test-2,PROD)");
-    Mockito.when(
-            mockClient.exists(Mockito.eq(nonExistantEntity), Mockito.any(Authentication.class)))
+    Mockito.when(mockClient.exists(Mockito.eq(nonExistantEntity), any(Authentication.class)))
         .thenReturn(false);
 
     Assert.assertThrows(
@@ -177,7 +181,7 @@ public class FormServiceTest {
                 new EntityFormsArgumentMatcher(
                     AspectUtils.buildMetadataChangeProposal(
                         TEST_ENTITY_URN, FORMS_ASPECT_NAME, expectedForms))),
-            Mockito.any(Authentication.class));
+            any(Authentication.class));
   }
 
   @Test
@@ -231,7 +235,7 @@ public class FormServiceTest {
                 new EntityFormsArgumentMatcher(
                     AspectUtils.buildMetadataChangeProposal(
                         TEST_ENTITY_URN, FORMS_ASPECT_NAME, expectedForms))),
-            Mockito.any(Authentication.class));
+            any(Authentication.class));
   }
 
   @Test
@@ -281,8 +285,7 @@ public class FormServiceTest {
 
     // Ensure that no aspect was ingested, because nothing changed.
     Mockito.verify(mockClient, Mockito.times(0))
-        .ingestProposal(
-            Mockito.any(MetadataChangeProposal.class), Mockito.any(Authentication.class));
+        .ingestProposal(any(MetadataChangeProposal.class), any(Authentication.class));
   }
 
   @Test
@@ -332,8 +335,7 @@ public class FormServiceTest {
 
     // Ensure that no aspect was ingested, because nothing changed.
     Mockito.verify(mockClient, Mockito.times(0))
-        .ingestProposal(
-            Mockito.any(MetadataChangeProposal.class), Mockito.any(Authentication.class));
+        .ingestProposal(any(MetadataChangeProposal.class), any(Authentication.class));
   }
 
   @Test
@@ -342,7 +344,7 @@ public class FormServiceTest {
     // Case 1 - non existing form.
     Urn nonExistantForm = UrnUtils.getUrn("urn:li:form:non-existant");
     EntityClient mockClient = mockEntityClient(null, null);
-    Mockito.when(mockClient.exists(Mockito.eq(nonExistantForm), Mockito.any(Authentication.class)))
+    Mockito.when(mockClient.exists(Mockito.eq(nonExistantForm), any(Authentication.class)))
         .thenReturn(false);
 
     FormService formService =
@@ -358,8 +360,7 @@ public class FormServiceTest {
     // Case 2 - non existant entity.
     Urn nonExistantEntity =
         UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:snowflake,test-2,PROD)");
-    Mockito.when(
-            mockClient.exists(Mockito.eq(nonExistantEntity), Mockito.any(Authentication.class)))
+    Mockito.when(mockClient.exists(Mockito.eq(nonExistantEntity), any(Authentication.class)))
         .thenReturn(false);
 
     Assert.assertThrows(
@@ -426,7 +427,7 @@ public class FormServiceTest {
                 new EntityFormsArgumentMatcher(
                     AspectUtils.buildMetadataChangeProposal(
                         TEST_ENTITY_URN, FORMS_ASPECT_NAME, expectedForms))),
-            Mockito.any(Authentication.class));
+            any(Authentication.class));
   }
 
   @Test
@@ -485,7 +486,7 @@ public class FormServiceTest {
                 new EntityFormsArgumentMatcher(
                     AspectUtils.buildMetadataChangeProposal(
                         TEST_ENTITY_URN, FORMS_ASPECT_NAME, expectedForms))),
-            Mockito.any(Authentication.class));
+            any(Authentication.class));
   }
 
   @Test
@@ -520,8 +521,7 @@ public class FormServiceTest {
 
     // Ensure that the forms aspect was not ingested: no changes required.
     Mockito.verify(mockClient, Mockito.times(0))
-        .ingestProposal(
-            Mockito.any(MetadataChangeProposal.class), Mockito.any(Authentication.class));
+        .ingestProposal(any(MetadataChangeProposal.class), any(Authentication.class));
   }
 
   @Test
@@ -530,7 +530,7 @@ public class FormServiceTest {
     // Case 1 - non existing form.
     Urn nonExistantForm = UrnUtils.getUrn("urn:li:form:non-existant");
     EntityClient mockClient = mockEntityClient(null, null);
-    Mockito.when(mockClient.exists(Mockito.eq(nonExistantForm), Mockito.any(Authentication.class)))
+    Mockito.when(mockClient.exists(Mockito.eq(nonExistantForm), any(Authentication.class)))
         .thenReturn(false);
 
     FormService formService =
@@ -549,8 +549,7 @@ public class FormServiceTest {
     // Case 2 - non existant entity.
     Urn nonExistantEntity =
         UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:snowflake,test-2,PROD)");
-    Mockito.when(
-            mockClient.exists(Mockito.eq(nonExistantEntity), Mockito.any(Authentication.class)))
+    Mockito.when(mockClient.exists(Mockito.eq(nonExistantEntity), any(Authentication.class)))
         .thenReturn(false);
 
     Assert.assertThrows(
@@ -616,7 +615,7 @@ public class FormServiceTest {
                 new EntityFormsArgumentMatcher(
                     AspectUtils.buildMetadataChangeProposal(
                         TEST_ENTITY_URN, FORMS_ASPECT_NAME, existingForms))),
-            Mockito.any(Authentication.class));
+            any(Authentication.class));
   }
 
   @Test
@@ -690,7 +689,7 @@ public class FormServiceTest {
                 new EntityFormsArgumentMatcher(
                     AspectUtils.buildMetadataChangeProposal(
                         TEST_ENTITY_URN, FORMS_ASPECT_NAME, expectedForms))),
-            Mockito.any(Authentication.class));
+            any(Authentication.class));
   }
 
   @Test
@@ -726,8 +725,7 @@ public class FormServiceTest {
 
     // No changes applied, since form was not assigned.
     Mockito.verify(mockClient, Mockito.times(0))
-        .ingestProposal(
-            Mockito.any(MetadataChangeProposal.class), Mockito.any(Authentication.class));
+        .ingestProposal(any(MetadataChangeProposal.class), any(Authentication.class));
   }
 
   @Test
@@ -804,7 +802,7 @@ public class FormServiceTest {
                 new EntityFormsArgumentMatcher(
                     AspectUtils.buildMetadataChangeProposal(
                         TEST_ENTITY_URN, FORMS_ASPECT_NAME, expectedForms))),
-            Mockito.any(Authentication.class));
+            any(Authentication.class));
   }
 
   @Test
@@ -885,7 +883,7 @@ public class FormServiceTest {
                 new EntityFormsArgumentMatcher(
                     AspectUtils.buildMetadataChangeProposal(
                         TEST_ENTITY_URN, FORMS_ASPECT_NAME, expectedForms))),
-            Mockito.any(Authentication.class));
+            any(Authentication.class));
   }
 
   @Test
@@ -932,7 +930,7 @@ public class FormServiceTest {
                 new FormTestArgumentMatcher(
                     AspectUtils.buildMetadataChangeProposal(
                         expectedTestUrn, TEST_INFO_ASPECT_NAME, expectedTestInfo))),
-            Mockito.any(Authentication.class));
+            any(Authentication.class));
   }
 
   @Test
@@ -988,7 +986,7 @@ public class FormServiceTest {
                 new FormTestArgumentMatcher(
                     AspectUtils.buildMetadataChangeProposal(
                         expectedTestUrn, TEST_INFO_ASPECT_NAME, expectedTestInfo))),
-            Mockito.any(Authentication.class));
+            any(Authentication.class));
   }
 
   @Test
@@ -1051,7 +1049,7 @@ public class FormServiceTest {
                 new FormTestArgumentMatcher(
                     AspectUtils.buildMetadataChangeProposal(
                         expectedTestUrn, TEST_INFO_ASPECT_NAME, expectedTestInfo))),
-            Mockito.any(Authentication.class));
+            any(Authentication.class));
   }
 
   @Test
@@ -1061,7 +1059,7 @@ public class FormServiceTest {
     EntityClient mockClient = mock(EntityClient.class);
     Mockito.when(
             mockClient.search(
-                Mockito.any(),
+                any(),
                 Mockito.eq(TEST_ENTITY_NAME),
                 Mockito.eq("*"),
                 Mockito.eq(ImmutableMap.of("sourceUrn", TEST_FORM_URN.toString())),
@@ -1083,10 +1081,10 @@ public class FormServiceTest {
 
     // Verify both tests are deleted.
     Mockito.verify(mockClient, Mockito.times(1))
-        .deleteEntity(Mockito.eq(metadataTestUrn1), Mockito.any(Authentication.class));
+        .deleteEntity(Mockito.eq(metadataTestUrn1), any(Authentication.class));
 
     Mockito.verify(mockClient, Mockito.times(1))
-        .deleteEntity(Mockito.eq(metadataTestUrn2), Mockito.any(Authentication.class));
+        .deleteEntity(Mockito.eq(metadataTestUrn2), any(Authentication.class));
   }
 
   @Test
@@ -1109,7 +1107,7 @@ public class FormServiceTest {
 
     // Verify the test is deleted.
     Mockito.verify(mockClient, Mockito.times(1))
-        .deleteEntity(Mockito.eq(metadataTestUrn), Mockito.any(Authentication.class));
+        .deleteEntity(Mockito.eq(metadataTestUrn), any(Authentication.class));
   }
 
   @Test
@@ -1127,7 +1125,7 @@ public class FormServiceTest {
                 Mockito.eq(TEST_FORM_URN.getEntityType()),
                 Mockito.eq(TEST_FORM_URN),
                 Mockito.eq(ImmutableSet.of(FORM_INFO_ASPECT_NAME)),
-                Mockito.any(Authentication.class)))
+                any(Authentication.class)))
         .thenReturn(new EntityResponse().setAspects(new EnvelopedAspectMap(formInfoAspectMap)));
 
     // ensure this user is an explicit owner
@@ -1137,7 +1135,7 @@ public class FormServiceTest {
                 Mockito.eq(TEST_ENTITY_URN.getEntityType()),
                 Mockito.eq(TEST_ENTITY_URN),
                 Mockito.eq(ImmutableSet.of(OWNERSHIP_ASPECT_NAME)),
-                Mockito.any(Authentication.class)))
+                any(Authentication.class)))
         .thenReturn(new EntityResponse().setAspects(new EnvelopedAspectMap(ownershipAspectMap)));
 
     Assert.assertTrue(
@@ -1166,7 +1164,7 @@ public class FormServiceTest {
                 Mockito.eq(TEST_FORM_URN.getEntityType()),
                 Mockito.eq(TEST_FORM_URN),
                 Mockito.eq(ImmutableSet.of(FORM_INFO_ASPECT_NAME)),
-                Mockito.any(Authentication.class)))
+                any(Authentication.class)))
         .thenReturn(new EntityResponse().setAspects(new EnvelopedAspectMap(formInfoAspectMap)));
 
     // this user is not an owner
@@ -1176,7 +1174,7 @@ public class FormServiceTest {
                 Mockito.eq(TEST_ENTITY_URN.getEntityType()),
                 Mockito.eq(TEST_ENTITY_URN),
                 Mockito.eq(ImmutableSet.of(OWNERSHIP_ASPECT_NAME)),
-                Mockito.any(Authentication.class)))
+                any(Authentication.class)))
         .thenReturn(new EntityResponse().setAspects(new EnvelopedAspectMap(ownershipAspectMap)));
 
     Assert.assertTrue(
@@ -1205,7 +1203,7 @@ public class FormServiceTest {
                 Mockito.eq(TEST_FORM_URN.getEntityType()),
                 Mockito.eq(TEST_FORM_URN),
                 Mockito.eq(ImmutableSet.of(FORM_INFO_ASPECT_NAME)),
-                Mockito.any(Authentication.class)))
+                any(Authentication.class)))
         .thenReturn(new EntityResponse().setAspects(new EnvelopedAspectMap(formInfoAspectMap)));
 
     // no owners on this entity
@@ -1215,7 +1213,7 @@ public class FormServiceTest {
                 Mockito.eq(TEST_ENTITY_URN.getEntityType()),
                 Mockito.eq(TEST_ENTITY_URN),
                 Mockito.eq(ImmutableSet.of(OWNERSHIP_ASPECT_NAME)),
-                Mockito.any(Authentication.class)))
+                any(Authentication.class)))
         .thenReturn(new EntityResponse().setAspects(new EnvelopedAspectMap(ownershipAspectMap)));
 
     Assert.assertTrue(
@@ -1243,7 +1241,7 @@ public class FormServiceTest {
                 Mockito.eq(TEST_FORM_URN.getEntityType()),
                 Mockito.eq(TEST_FORM_URN),
                 Mockito.eq(ImmutableSet.of(FORM_INFO_ASPECT_NAME)),
-                Mockito.any(Authentication.class)))
+                any(Authentication.class)))
         .thenReturn(new EntityResponse().setAspects(new EnvelopedAspectMap(formInfoAspectMap)));
 
     Map<String, EnvelopedAspect> ownershipAspectMap = createOwnershipAspectMap(null);
@@ -1252,7 +1250,7 @@ public class FormServiceTest {
                 Mockito.eq(TEST_ENTITY_URN.getEntityType()),
                 Mockito.eq(TEST_ENTITY_URN),
                 Mockito.eq(ImmutableSet.of(OWNERSHIP_ASPECT_NAME)),
-                Mockito.any(Authentication.class)))
+                any(Authentication.class)))
         .thenReturn(new EntityResponse().setAspects(new EnvelopedAspectMap(ownershipAspectMap)));
 
     Assert.assertFalse(
@@ -1279,7 +1277,7 @@ public class FormServiceTest {
                 Mockito.eq(TEST_FORM_URN.getEntityType()),
                 Mockito.eq(TEST_FORM_URN),
                 Mockito.eq(ImmutableSet.of(FORM_INFO_ASPECT_NAME)),
-                Mockito.any(Authentication.class)))
+                any(Authentication.class)))
         .thenReturn(new EntityResponse().setAspects(new EnvelopedAspectMap(formInfoAspectMap)));
 
     // group that the user is in is assigned
@@ -1289,7 +1287,7 @@ public class FormServiceTest {
                 Mockito.eq(TEST_ENTITY_URN.getEntityType()),
                 Mockito.eq(TEST_ENTITY_URN),
                 Mockito.eq(ImmutableSet.of(OWNERSHIP_ASPECT_NAME)),
-                Mockito.any(Authentication.class)))
+                any(Authentication.class)))
         .thenReturn(new EntityResponse().setAspects(new EnvelopedAspectMap(ownershipAspectMap)));
 
     Assert.assertTrue(
@@ -1315,7 +1313,7 @@ public class FormServiceTest {
                 Mockito.eq(TEST_FORM_URN.getEntityType()),
                 Mockito.eq(TEST_FORM_URN),
                 Mockito.eq(ImmutableSet.of(FORM_INFO_ASPECT_NAME)),
-                Mockito.any(Authentication.class)))
+                any(Authentication.class)))
         .thenReturn(new EntityResponse().setAspects(new EnvelopedAspectMap(formInfoAspectMap)));
 
     final FormAssociation formAssociation = new FormAssociation();
@@ -1327,7 +1325,7 @@ public class FormServiceTest {
                 Mockito.eq(TEST_ENTITY_URN.getEntityType()),
                 Mockito.eq(TEST_ENTITY_URN),
                 Mockito.eq(ImmutableSet.of(FORMS_ASPECT_NAME)),
-                Mockito.any(Authentication.class)))
+                any(Authentication.class)))
         .thenReturn(new EntityResponse().setAspects(new EnvelopedAspectMap(formsAspectMap)));
 
     Assert.assertTrue(
@@ -1342,7 +1340,7 @@ public class FormServiceTest {
                         TEST_ENTITY_URN,
                         FORMS_ASPECT_NAME,
                         formsAspectMap.get(FORMS_ASPECT_NAME)))),
-            Mockito.any(Authentication.class));
+            any(Authentication.class));
   }
 
   @Test
@@ -1359,7 +1357,7 @@ public class FormServiceTest {
                 Mockito.eq(TEST_FORM_URN.getEntityType()),
                 Mockito.eq(TEST_FORM_URN),
                 Mockito.eq(ImmutableSet.of(FORM_INFO_ASPECT_NAME)),
-                Mockito.any(Authentication.class)))
+                any(Authentication.class)))
         .thenReturn(new EntityResponse().setAspects(new EnvelopedAspectMap(formInfoAspectMap)));
 
     Assert.assertThrows(
@@ -1370,8 +1368,7 @@ public class FormServiceTest {
         });
 
     Mockito.verify(mockClient, Mockito.times(0))
-        .ingestProposal(
-            Mockito.any(MetadataChangeProposal.class), Mockito.any(Authentication.class));
+        .ingestProposal(any(MetadataChangeProposal.class), any(Authentication.class));
   }
 
   @Test
@@ -1388,7 +1385,7 @@ public class FormServiceTest {
                 Mockito.eq(TEST_FORM_URN.getEntityType()),
                 Mockito.eq(TEST_FORM_URN),
                 Mockito.eq(ImmutableSet.of(FORM_INFO_ASPECT_NAME)),
-                Mockito.any(Authentication.class)))
+                any(Authentication.class)))
         .thenReturn(new EntityResponse().setAspects(new EnvelopedAspectMap(formInfoAspectMap)));
 
     // no completed forms
@@ -1398,7 +1395,7 @@ public class FormServiceTest {
                 Mockito.eq(TEST_ENTITY_URN.getEntityType()),
                 Mockito.eq(TEST_ENTITY_URN),
                 Mockito.eq(ImmutableSet.of(FORMS_ASPECT_NAME)),
-                Mockito.any(Authentication.class)))
+                any(Authentication.class)))
         .thenReturn(new EntityResponse().setAspects(new EnvelopedAspectMap(formsAspectMap)));
 
     Assert.assertThrows(
@@ -1409,18 +1406,28 @@ public class FormServiceTest {
         });
 
     Mockito.verify(mockClient, Mockito.times(0))
-        .ingestProposal(
-            Mockito.any(MetadataChangeProposal.class), Mockito.any(Authentication.class));
+        .ingestProposal(any(MetadataChangeProposal.class), any(Authentication.class));
   }
 
   private EntityClient mockEntityClient(Forms existingForms, FormInfo form) throws Exception {
     EntityClient mockClient = mock(EntityClient.class);
 
-    Mockito.when(mockClient.exists(Mockito.eq(TEST_ENTITY_URN), Mockito.any(Authentication.class)))
+    Mockito.when(mockClient.exists(Mockito.eq(TEST_ENTITY_URN), any(Authentication.class)))
         .thenReturn(true);
 
-    Mockito.when(mockClient.exists(Mockito.eq(TEST_FORM_URN), Mockito.any(Authentication.class)))
+    Mockito.when(mockClient.exists(Mockito.eq(TEST_FORM_URN), any(Authentication.class)))
         .thenReturn(true);
+
+    Mockito.when(
+            mockClient.scrollAcrossEntities(
+                any(),
+                anyList(),
+                anyString(),
+                nullable(Filter.class),
+                anyString(),
+                anyString(),
+                anyInt()))
+        .thenReturn(new ScrollResult().setNumEntities(0));
 
     EntityResponse entityResponse = null;
     if (existingForms != null) {
@@ -1446,7 +1453,7 @@ public class FormServiceTest {
                 Mockito.eq(DATASET_ENTITY_NAME),
                 Mockito.eq(TEST_ENTITY_URN),
                 Mockito.eq(ImmutableSet.of(FORMS_ASPECT_NAME)),
-                Mockito.any(Authentication.class)))
+                any(Authentication.class)))
         .thenReturn(entityResponse);
 
     if (form != null) {
@@ -1455,7 +1462,7 @@ public class FormServiceTest {
                   Mockito.eq(FORM_ENTITY_NAME),
                   Mockito.eq(TEST_FORM_URN),
                   Mockito.eq(ImmutableSet.of(FORM_INFO_ASPECT_NAME)),
-                  Mockito.any(Authentication.class)))
+                  any(Authentication.class)))
           .thenReturn(
               new EntityResponse()
                   .setUrn(TEST_FORM_URN)
@@ -1481,7 +1488,7 @@ public class FormServiceTest {
 
   private OperationContext mockOperationContext() {
     return TestOperationContexts.userContextNoSearchAuthorization(
-        mock(EntityRegistry.class), Authorizer.EMPTY, mockSystemAuthentication());
+        Authorizer.EMPTY, mockSystemAuthentication());
   }
 
   private Authentication mockSystemAuthentication() {

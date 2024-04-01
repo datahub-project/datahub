@@ -40,7 +40,7 @@ public class VolumeAssertionMapperTest {
                                     .setValue("10"))));
 
     com.linkedin.datahub.graphql.generated.VolumeAssertionInfo result =
-        VolumeAssertionMapper.mapVolumeAssertionInfo(volumeAssertionInfo);
+        VolumeAssertionMapper.mapVolumeAssertionInfo(null, volumeAssertionInfo);
     Assert.assertEquals(result.getEntityUrn(), "urn:li:dataset:(urn:li:dataPlatform:foo,bar,baz)");
     Assert.assertEquals(
         result.getType(),
@@ -77,7 +77,7 @@ public class VolumeAssertionMapperTest {
                     .setType(AssertionValueChangeType.ABSOLUTE));
 
     com.linkedin.datahub.graphql.generated.VolumeAssertionInfo result =
-        VolumeAssertionMapper.mapVolumeAssertionInfo(volumeAssertionInfo);
+        VolumeAssertionMapper.mapVolumeAssertionInfo(null, volumeAssertionInfo);
     Assert.assertEquals(result.getEntityUrn(), "urn:li:dataset:(urn:li:dataPlatform:foo,bar,baz)");
     Assert.assertEquals(
         result.getType(),
@@ -125,7 +125,7 @@ public class VolumeAssertionMapperTest {
                                     .setNativeType("CEILING"))));
 
     com.linkedin.datahub.graphql.generated.VolumeAssertionInfo result =
-        VolumeAssertionMapper.mapVolumeAssertionInfo(volumeAssertionInfo);
+        VolumeAssertionMapper.mapVolumeAssertionInfo(null, volumeAssertionInfo);
     Assert.assertEquals(result.getEntityUrn(), "urn:li:dataset:(urn:li:dataPlatform:foo,bar,baz)");
     Assert.assertEquals(
         result.getType(),
@@ -179,7 +179,7 @@ public class VolumeAssertionMapperTest {
                                     .setType("STRING"))));
 
     com.linkedin.datahub.graphql.generated.VolumeAssertionInfo result =
-        VolumeAssertionMapper.mapVolumeAssertionInfo(volumeAssertionInfo);
+        VolumeAssertionMapper.mapVolumeAssertionInfo(null, volumeAssertionInfo);
     Assert.assertEquals(result.getEntityUrn(), "urn:li:dataset:(urn:li:dataPlatform:foo,bar,baz)");
     Assert.assertEquals(
         result.getType(),

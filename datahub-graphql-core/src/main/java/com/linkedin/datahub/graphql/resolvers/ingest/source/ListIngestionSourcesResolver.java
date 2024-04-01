@@ -5,11 +5,11 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.FacetFilterInput;
 import com.linkedin.datahub.graphql.generated.ListIngestionSourcesInput;
 import com.linkedin.datahub.graphql.generated.ListIngestionSourcesResult;
-import com.linkedin.datahub.graphql.resolvers.ingest.IngestionAuthUtils;
 import com.linkedin.datahub.graphql.resolvers.ingest.IngestionResolverUtils;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
@@ -47,7 +47,7 @@ public class ListIngestionSourcesResolver
 
     final QueryContext context = environment.getContext();
 
-    if (IngestionAuthUtils.canManageIngestion(context)) {
+    if (AuthorizationUtils.canManageIngestion(context)) {
       final ListIngestionSourcesInput input =
           bindArgument(environment.getArgument("input"), ListIngestionSourcesInput.class);
       final Integer start = input.getStart() == null ? DEFAULT_START : input.getStart();

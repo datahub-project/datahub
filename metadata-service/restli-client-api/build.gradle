@@ -1,0 +1,14 @@
+plugins {
+  id 'java-library'
+}
+
+dependencies {
+  api project(path: ':metadata-service:restli-api', configuration: 'restClient')
+  api project(':metadata-operation-context')
+  implementation project(':metadata-service:configuration')
+
+  implementation externalDependency.caffeine
+  implementation externalDependency.slf4jApi
+  compileOnly externalDependency.lombok
+  annotationProcessor externalDependency.lombok
+}

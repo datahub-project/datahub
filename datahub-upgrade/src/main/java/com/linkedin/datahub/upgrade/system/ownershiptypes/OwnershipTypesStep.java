@@ -102,7 +102,7 @@ public class OwnershipTypesStep implements UpgradeStep {
         do {
           log.info(
               String.format(
-                  "Upgrading batch %s-%s of browse paths for entity type %s",
+                  "Upgrading batch %s-%s of ownership types for entity type %s",
                   migratedCount, migratedCount + batchSize, entityType));
           scrollId = ownershipTypes(entityType, auditStamp, scrollId);
           migratedCount += batchSize;

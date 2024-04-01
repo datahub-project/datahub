@@ -17,8 +17,8 @@ import com.linkedin.identity.InviteToken;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
-import com.linkedin.metadata.secret.SecretService;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.services.SecretService;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 

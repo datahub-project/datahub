@@ -48,3 +48,10 @@ class BIContainerSubTypes(str, Enum):
 class BIAssetSubTypes(str, Enum):
     # Generic SubTypes
     REPORT = "Report"
+
+    # Looker
+    LOOKER_LOOK = "Look"
+
+    # PowerBI
+    POWERBI_TILE = "PowerBI Tile"
+    POWERBI_PAGE = "PowerBI Page"

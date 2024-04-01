@@ -2,8 +2,10 @@ package com.linkedin.datahub.graphql.resolvers.monitor;
 
 import static com.linkedin.metadata.AcrylConstants.*;
 
+import com.datahub.authorization.AuthUtil;
 import com.datahub.authorization.ConjunctivePrivilegeGroup;
 import com.datahub.authorization.DisjunctivePrivilegeGroup;
+import com.datahub.authorization.EntitySpec;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.assertion.FreshnessFieldKind;
@@ -44,7 +46,6 @@ import com.linkedin.monitor.DatasetFreshnessSourceType;
 import com.linkedin.monitor.DatasetVolumeAssertionParameters;
 import com.linkedin.monitor.DatasetVolumeSourceType;
 import java.util.List;
-import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -102,8 +103,11 @@ public class MonitorUtils {
             ImmutableList.of(
                 new ConjunctivePrivilegeGroup(
                     ImmutableList.of(PoliciesConfig.EDIT_ENTITY_MONITORS.getType()))));
-    return AuthorizationUtils.isAuthorized(
-            context, Optional.empty(), PoliciesConfig.MANAGE_MONITORS)
+    return AuthUtil.isAuthorized(
+            context.getAuthorizer(),
+            context.getActorUrn(),
+            PoliciesConfig.MANAGE_MONITORS,
+            new EntitySpec(entityUrn.getEntityType(), entityUrn.toString()))
         || AuthorizationUtils.isAuthorized(
             context.getAuthorizer(),
             context.getActorUrn(),
@@ -135,8 +139,11 @@ public class MonitorUtils {
             entityUrn.getEntityType(),
             entityUrn.toString(),
             orPrivilegeGroups)
-        || AuthorizationUtils.isAuthorized(
-            context, Optional.empty(), PoliciesConfig.MANAGE_MONITORS);
+        || AuthUtil.isAuthorized(
+            context.getAuthorizer(),
+            context.getActorUrn(),
+            PoliciesConfig.MANAGE_MONITORS,
+            new EntitySpec(entityUrn.getEntityType(), entityUrn.toString()));
   }
 
   public static CronSchedule createCronSchedule(@Nonnull final CronScheduleInput input) {

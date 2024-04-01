@@ -56,6 +56,17 @@
                     },
                     "nativeDataType": "List",
                     "recursive": false,
+                    "glossaryTerms": {
+                        "terms": [
+                            {
+                                "urn": "urn:li:glossaryTerm:Phone_Number"
+                            }
+                        ],
+                        "auditStamp": {
+                            "time": 1693396800000,
+                            "actor": "urn:li:corpuser:datahub"
+                        }
+                    },
                     "isPartOfKey": false
                 },
                 {

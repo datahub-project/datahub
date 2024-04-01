@@ -16,7 +16,6 @@ import io.datahubproject.openapi.metadatatests.delegates.MetadataTestsDelegateIm
 import io.datahubproject.openapi.metadatatests.generated.controller.MetadataTestApiDelegate;
 import io.datahubproject.openapi.v2.delegates.EntityApiDelegateImpl;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -30,8 +29,6 @@ public class MetadataTestsConfig {
       final SearchService searchService,
       final EntitySearchService entitySearchService,
       final EntitiesController entitiesController,
-      @Value("${authorization.restApiAuthorization:false}")
-          final boolean restApiAuthorizationEnabled,
       final AuthorizerChain authorizationChain,
       final QueryEngine queryEngine,
       final ActionApplier actionApplier,
@@ -44,7 +41,6 @@ public class MetadataTestsConfig {
                 entityService,
                 searchService,
                 entitiesController,
-                restApiAuthorizationEnabled,
                 authorizationChain,
                 TestEntityRequestV2.class,
                 TestEntityResponseV2.class,
@@ -54,7 +50,6 @@ public class MetadataTestsConfig {
         entityService,
         entitySearchService,
         testApiDelegate,
-        restApiAuthorizationEnabled,
         authorizationChain,
         queryEngine,
         actionApplier,

@@ -8,6 +8,6 @@ services:
       ACCEPT_EULA: "Y"
       SA_PASSWORD: "test!Password"
     ports:
-      - 51433:1433
+      - 21433:1433
     volumes:
       - ./setup:/setup

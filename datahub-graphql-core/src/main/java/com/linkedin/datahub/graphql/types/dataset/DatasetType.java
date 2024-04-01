@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.types.dataset;
 
 import static com.linkedin.datahub.graphql.Constants.*;
+import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
 import static com.linkedin.metadata.Constants.*;
 
 import com.datahub.authorization.ConjunctivePrivilegeGroup;
@@ -48,7 +49,6 @@ import graphql.execution.DataFetcherResult;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -95,10 +95,10 @@ public class DatasetType
   private static final Set<String> FACET_FIELDS = ImmutableSet.of("origin", "platform");
   private static final String ENTITY_NAME = "dataset";
 
-  private final EntityClient _entityClient;
+  private final EntityClient entityClient;
 
   public DatasetType(final EntityClient entityClient) {
-    _entityClient = entityClient;
+    this.entityClient = entityClient;
   }
 
   @Override
@@ -133,13 +133,15 @@ public class DatasetType
       final List<Urn> urns = urnStrs.stream().map(UrnUtils::getUrn).collect(Collectors.toList());
 
       final Map<Urn, EntityResponse> datasetMap =
-          _entityClient.batchGetV2(
+          entityClient.batchGetV2(
               Constants.DATASET_ENTITY_NAME,
-              new HashSet<>(urns),
+              urns.stream()
+                  .filter(urn -> canView(context.getOperationContext(), urn))
+                  .collect(Collectors.toSet()),
               ASPECTS_TO_RESOLVE,
               context.getAuthentication());
 
-      final List<EntityResponse> gmsResults = new ArrayList<>();
+      final List<EntityResponse> gmsResults = new ArrayList<>(urnStrs.size());
       for (Urn urn : urns) {
         gmsResults.add(datasetMap.getOrDefault(urn, null));
       }
@@ -149,7 +151,7 @@ public class DatasetType
                   gmsDataset == null
                       ? null
                       : DataFetcherResult.<Dataset>newResult()
-                          .data(DatasetMapper.map(gmsDataset))
+                          .data(DatasetMapper.map(context, gmsDataset))
                           .build())
           .collect(Collectors.toList());
     } catch (Exception e) {
@@ -167,14 +169,14 @@ public class DatasetType
       throws Exception {
     final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
     final SearchResult searchResult =
-        _entityClient.search(
+        entityClient.search(
             context.getOperationContext().withSearchFlags(flags -> flags.setFulltext(true)),
             ENTITY_NAME,
             query,
             facetFilters,
             start,
             count);
-    return UrnSearchResultsMapper.map(searchResult);
+    return UrnSearchResultsMapper.map(context, searchResult);
   }
 
   @Override
@@ -186,9 +188,9 @@ public class DatasetType
       @Nonnull final QueryContext context)
       throws Exception {
     final AutoCompleteResult result =
-        _entityClient.autoComplete(
+        entityClient.autoComplete(
             context.getOperationContext(), ENTITY_NAME, query, filters, limit);
-    return AutoCompleteResultsMapper.map(result);
+    return AutoCompleteResultsMapper.map(context, result);
   }
 
   @Override
@@ -203,28 +205,28 @@ public class DatasetType
     final String pathStr =
         path.size() > 0 ? BROWSE_PATH_DELIMITER + String.join(BROWSE_PATH_DELIMITER, path) : "";
     final BrowseResult result =
-        _entityClient.browse(
+        entityClient.browse(
             context.getOperationContext().withSearchFlags(flags -> flags.setFulltext(false)),
             "dataset",
             pathStr,
             facetFilters,
             start,
             count);
-    return BrowseResultMapper.map(result);
+    return BrowseResultMapper.map(context, result);
   }
 
   @Override
   public List<BrowsePath> browsePaths(@Nonnull String urn, @Nonnull final QueryContext context)
       throws Exception {
     final StringArray result =
-        _entityClient.getBrowsePaths(DatasetUtils.getDatasetUrn(urn), context.getAuthentication());
-    return BrowsePathsMapper.map(result);
+        entityClient.getBrowsePaths(DatasetUtils.getDatasetUrn(urn), context.getAuthentication());
+    return BrowsePathsMapper.map(context, result);
   }
 
   @Override
   public List<Dataset> batchUpdate(
       @Nonnull BatchDatasetUpdateInput[] input, @Nonnull QueryContext context) throws Exception {
-    final Urn actor = Urn.createFromString(context.getAuthentication().getActor().toUrnStr());
+    final Urn actor = Urn.createFromString(context.getActorUrn());
 
     final Collection<MetadataChangeProposal> proposals =
         Arrays.stream(input)
@@ -232,7 +234,7 @@ public class DatasetType
                 updateInput -> {
                   if (isAuthorized(updateInput.getUrn(), updateInput.getUpdate(), context)) {
                     Collection<MetadataChangeProposal> datasetProposals =
-                        DatasetUpdateInputMapper.map(updateInput.getUpdate(), actor);
+                        DatasetUpdateInputMapper.map(context, updateInput.getUpdate(), actor);
                     datasetProposals.forEach(
                         proposal -> proposal.setEntityUrn(UrnUtils.getUrn(updateInput.getUrn())));
                     return datasetProposals;
@@ -247,7 +249,7 @@ public class DatasetType
         Arrays.stream(input).map(BatchDatasetUpdateInput::getUrn).collect(Collectors.toList());
 
     try {
-      _entityClient.batchIngestProposals(proposals, context.getAuthentication(), false);
+      entityClient.batchIngestProposals(proposals, context.getAuthentication(), false);
     } catch (RemoteInvocationException e) {
       throw new RuntimeException(String.format("Failed to write entity with urn %s", urns), e);
     }
@@ -262,14 +264,13 @@ public class DatasetType
       @Nonnull String urn, @Nonnull DatasetUpdateInput input, @Nonnull QueryContext context)
       throws Exception {
     if (isAuthorized(urn, input, context)) {
-      final CorpuserUrn actor =
-          CorpuserUrn.createFromString(context.getAuthentication().getActor().toUrnStr());
+      final CorpuserUrn actor = CorpuserUrn.createFromString(context.getActorUrn());
       final Collection<MetadataChangeProposal> proposals =
-          DatasetUpdateInputMapper.map(input, actor);
+          DatasetUpdateInputMapper.map(context, input, actor);
       proposals.forEach(proposal -> proposal.setEntityUrn(UrnUtils.getUrn(urn)));
 
       try {
-        _entityClient.batchIngestProposals(proposals, context.getAuthentication(), false);
+        entityClient.batchIngestProposals(proposals, context.getAuthentication(), false);
       } catch (RemoteInvocationException e) {
         throw new RuntimeException(String.format("Failed to write entity with urn %s", urn), e);
       }
@@ -286,7 +287,7 @@ public class DatasetType
     final DisjunctivePrivilegeGroup orPrivilegeGroups = getAuthorizedPrivileges(update);
     return AuthorizationUtils.isAuthorized(
         context.getAuthorizer(),
-        context.getAuthentication().getActor().toUrnStr(),
+        context.getActorUrn(),
         PoliciesConfig.DATASET_PRIVILEGES.getResourceType(),
         urn,
         orPrivilegeGroups);

@@ -42,7 +42,7 @@ public class FieldAssertionMapperTest {
                     .setTransform(new FieldTransform().setType(FieldTransformType.LENGTH)));
 
     com.linkedin.datahub.graphql.generated.FieldAssertionInfo result =
-        FieldAssertionMapper.mapFieldAssertionInfo(fieldAssertionInfo);
+        FieldAssertionMapper.mapFieldAssertionInfo(null, fieldAssertionInfo);
     Assert.assertEquals(result.getEntityUrn(), "urn:li:dataset:(urn:li:dataPlatform:foo,bar,baz)");
     Assert.assertEquals(
         result.getType(), com.linkedin.datahub.graphql.generated.FieldAssertionType.FIELD_VALUES);
@@ -83,7 +83,7 @@ public class FieldAssertionMapperTest {
                     .setMetric(FieldMetricType.MEDIAN));
 
     com.linkedin.datahub.graphql.generated.FieldAssertionInfo result =
-        FieldAssertionMapper.mapFieldAssertionInfo(fieldAssertionInfo);
+        FieldAssertionMapper.mapFieldAssertionInfo(null, fieldAssertionInfo);
     Assert.assertEquals(result.getEntityUrn(), "urn:li:dataset:(urn:li:dataPlatform:foo,bar,baz)");
     Assert.assertEquals(
         result.getType(), com.linkedin.datahub.graphql.generated.FieldAssertionType.FIELD_METRIC);

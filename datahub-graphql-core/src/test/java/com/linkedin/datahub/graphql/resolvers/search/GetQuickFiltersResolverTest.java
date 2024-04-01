@@ -259,7 +259,7 @@ public class GetQuickFiltersResolverTest {
     quickFilter.setField(field);
     quickFilter.setValue(value);
     if (entityUrn != null) {
-      quickFilter.setEntity(UrnToEntityMapper.map(UrnUtils.getUrn(entityUrn)));
+      quickFilter.setEntity(UrnToEntityMapper.map(null, UrnUtils.getUrn(entityUrn)));
     }
     return quickFilter;
   }

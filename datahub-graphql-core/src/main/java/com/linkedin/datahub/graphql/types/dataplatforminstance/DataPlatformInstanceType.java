@@ -90,7 +90,7 @@ public class DataPlatformInstanceType
                   gmsResult == null
                       ? null
                       : DataFetcherResult.<DataPlatformInstance>newResult()
-                          .data(DataPlatformInstanceMapper.map(gmsResult))
+                          .data(DataPlatformInstanceMapper.map(context, gmsResult))
                           .build())
           .collect(Collectors.toList());
 
@@ -126,6 +126,6 @@ public class DataPlatformInstanceType
             query,
             filters,
             limit);
-    return AutoCompleteResultsMapper.map(result);
+    return AutoCompleteResultsMapper.map(context, result);
   }
 }

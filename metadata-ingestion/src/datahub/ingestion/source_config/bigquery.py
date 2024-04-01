@@ -2,7 +2,7 @@ import re
 
 import pydantic
 
-from datahub.configuration.common import ConfigModel, ConfigurationError
+from datahub.configuration.common import ConfigModel
 
 # Regexp for sharded tables.
 # A sharded table is a table that has a suffix of the form _yyyymmdd or yyyymmdd, where yyyymmdd is a date.
@@ -38,7 +38,7 @@ class BigQueryBaseConfig(ConfigModel):
         try:
             re.compile(v)
         except Exception as e:
-            raise ConfigurationError(
+            raise ValueError(
                 f"sharded_table_pattern configuration pattern is invalid. The exception was: {e}"
             )
         return v

@@ -42,7 +42,7 @@ public class GetGroupNotificationSettingsResolver
               return null;
             }
 
-            return NotificationSettingsMapper.map(groupSettings.getNotificationSettings());
+            return NotificationSettingsMapper.map(context, groupSettings.getNotificationSettings());
           } catch (Exception e) {
             throw new RuntimeException(
                 String.format("Failed to get notification settings for group %s", groupUrnString),

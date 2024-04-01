@@ -23,7 +23,6 @@ import com.linkedin.datahub.graphql.resolvers.dataset.DatasetStatsSummaryResolve
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.EnvelopedAspect;
-import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.utils.GenericRecordUtils;
@@ -72,9 +71,7 @@ public class DashboardStatsSummaryTest {
         .thenAnswer(
             arg ->
                 TestOperationContexts.userContextNoSearchAuthorization(
-                    mock(EntityRegistry.class),
-                    mockAuthorizor,
-                    TestOperationContexts.TEST_USER_AUTH));
+                    mockAuthorizor, TestOperationContexts.TEST_USER_AUTH));
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     Mockito.when(mockEnv.getSource()).thenReturn(TEST_SOURCE);
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);

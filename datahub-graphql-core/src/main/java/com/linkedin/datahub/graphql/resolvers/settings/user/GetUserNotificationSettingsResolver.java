@@ -39,7 +39,7 @@ public class GetUserNotificationSettingsResolver
 
             final com.linkedin.event.notification.settings.NotificationSettings
                 notificationSettings = userSettings.getNotificationSettings();
-            return NotificationSettingsMapper.map(notificationSettings);
+            return NotificationSettingsMapper.map(context, notificationSettings);
           } catch (Exception e) {
             throw new RuntimeException(
                 String.format("Failed to get notification settings for user %s", userUrnString), e);

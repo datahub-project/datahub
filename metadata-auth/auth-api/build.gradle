@@ -30,6 +30,9 @@ dependencies() {
   annotationProcessor externalDependency.lombok
 
   testImplementation externalDependency.testng
+  testImplementation externalDependency.mockito
+  testImplementation 'uk.org.webcompere:system-stubs-testng:2.1.6'
+
 }
 
 task sourcesJar(type: Jar) {

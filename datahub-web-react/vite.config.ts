@@ -27,6 +27,7 @@ export default defineConfig(({ mode }) => {
     };
 
     return {
+        appType: 'spa',
         plugins: [
             react(),
             svgr(),

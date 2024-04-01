@@ -3,11 +3,11 @@ package com.linkedin.datahub.graphql.resolvers.ingest.execution;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLErrorCode;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
 import com.linkedin.datahub.graphql.generated.ExecutionRequest;
-import com.linkedin.datahub.graphql.resolvers.ingest.IngestionAuthUtils;
 import com.linkedin.datahub.graphql.resolvers.ingest.IngestionResolverUtils;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
@@ -36,7 +36,7 @@ public class GetIngestionExecutionRequestResolver
 
     final QueryContext context = environment.getContext();
 
-    if (IngestionAuthUtils.canManageIngestion(context)) {
+    if (AuthorizationUtils.canManageIngestion(context)) {
       final String urnStr = environment.getArgument("urn");
       return CompletableFuture.supplyAsync(
           () -> {
@@ -58,7 +58,7 @@ public class GetIngestionExecutionRequestResolver
                     DataHubGraphQLErrorCode.NOT_FOUND);
               }
               // Execution request found
-              return IngestionResolverUtils.mapExecutionRequest(entities.get(urn));
+              return IngestionResolverUtils.mapExecutionRequest(context, entities.get(urn));
             } catch (Exception e) {
               throw new RuntimeException("Failed to retrieve execution request", e);
             }

@@ -87,7 +87,7 @@ public class SchemaFieldType
                   gmsResult == null
                       ? null
                       : DataFetcherResult.<SchemaFieldEntity>newResult()
-                          .data(SchemaFieldMapper.map(gmsResult))
+                          .data(SchemaFieldMapper.map(context, gmsResult))
                           .build())
           .collect(Collectors.toList());
 

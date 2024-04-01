@@ -12,7 +12,6 @@ import com.datahub.plugins.auth.authorization.Authorizer;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
-import com.linkedin.metadata.models.registry.EntityRegistry;
 import graphql.Assert;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
@@ -55,7 +54,7 @@ public class DataContractUtilsTest {
               @Override
               public OperationContext getOperationContext() {
                 return TestOperationContexts.userContextNoSearchAuthorization(
-                    mock(EntityRegistry.class), getAuthorizer(), getAuthentication());
+                    getAuthorizer(), getAuthentication());
               }
             },
             testUrn);

@@ -68,7 +68,7 @@ public class IncidentMapperTest {
         new EnvelopedAspectMap(
             Collections.singletonMap(Constants.INCIDENT_INFO_ASPECT_NAME, envelopedIncidentInfo)));
 
-    Incident incident = IncidentMapper.map(entityResponse);
+    Incident incident = IncidentMapper.map(null, entityResponse);
 
     assertNotNull(incident);
     assertEquals(incident.getUrn(), "urn:li:incident:1");

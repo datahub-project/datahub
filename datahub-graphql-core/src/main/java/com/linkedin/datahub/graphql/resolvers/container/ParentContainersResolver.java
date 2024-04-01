@@ -48,7 +48,7 @@ public class ParentContainersResolver
             _entityClient.getV2(
                 containerUrn.getEntityType(), containerUrn, null, context.getAuthentication());
         if (response != null) {
-          Container mappedContainer = ContainerMapper.map(response);
+          Container mappedContainer = ContainerMapper.map(context, response);
           containers.add(mappedContainer);
           aggregateParentContainers(containers, mappedContainer.getUrn(), context);
         }
@@ -70,8 +70,11 @@ public class ParentContainersResolver
           try {
             aggregateParentContainers(containers, urn, context);
             final ParentContainersResult result = new ParentContainersResult();
-            result.setCount(containers.size());
-            result.setContainers(containers);
+
+            List<Container> viewable = new ArrayList<>(containers);
+
+            result.setCount(viewable.size());
+            result.setContainers(viewable);
             return result;
           } catch (DataHubGraphQLException e) {
             throw new RuntimeException("Failed to load all containers", e);

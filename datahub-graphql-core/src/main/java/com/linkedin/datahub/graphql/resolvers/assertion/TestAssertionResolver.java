@@ -49,7 +49,7 @@ public class TestAssertionResolver implements DataFetcher<CompletableFuture<Asse
                         FreshnessAssertionUtils.createFreshnessAssertionInfo(
                             input.getFreshnessTestInput()),
                         MonitorUtils.createAssertionEvaluationParameters(input.getParameters()));
-                return AssertionRunEventMapper.mapResult(freshnessResult);
+                return AssertionRunEventMapper.mapResult(context, freshnessResult);
               case VOLUME:
                 final com.linkedin.assertion.AssertionResult volumeResult =
                     _monitorService.testVolumeAssertion(
@@ -57,14 +57,14 @@ public class TestAssertionResolver implements DataFetcher<CompletableFuture<Asse
                         connectionUrn,
                         VolumeAssertionUtils.createVolumeAssertionInfo(input.getVolumeTestInput()),
                         MonitorUtils.createAssertionEvaluationParameters(input.getParameters()));
-                return AssertionRunEventMapper.mapResult(volumeResult);
+                return AssertionRunEventMapper.mapResult(context, volumeResult);
               case SQL:
                 final com.linkedin.assertion.AssertionResult sqlResult =
                     _monitorService.testSqlAssertion(
                         asserteeUrn,
                         connectionUrn,
                         SqlAssertionUtils.createSqlAssertionInfo(input.getSqlTestInput()));
-                return AssertionRunEventMapper.mapResult(sqlResult);
+                return AssertionRunEventMapper.mapResult(context, sqlResult);
               case FIELD:
                 final com.linkedin.assertion.AssertionResult fieldResult =
                     _monitorService.testFieldAssertion(
@@ -72,7 +72,7 @@ public class TestAssertionResolver implements DataFetcher<CompletableFuture<Asse
                         connectionUrn,
                         FieldAssertionUtils.createFieldAssertionInfo(input.getFieldTestInput()),
                         MonitorUtils.createAssertionEvaluationParameters(input.getParameters()));
-                return AssertionRunEventMapper.mapResult(fieldResult);
+                return AssertionRunEventMapper.mapResult(context, fieldResult);
               default:
                 throw new IllegalArgumentException(
                     "Unsupported assertion type: " + input.getType());

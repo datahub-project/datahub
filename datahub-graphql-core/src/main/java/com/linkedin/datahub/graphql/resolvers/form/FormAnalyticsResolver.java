@@ -79,7 +79,8 @@ public class FormAnalyticsResolver
                 response::setHeader,
                 row -> {
                   lines.add(
-                      new FormAnalyticsRow(mapRowResults(row, context.getAuthentication(), flags)));
+                      new FormAnalyticsRow(
+                          mapRowResults(context, row, context.getAuthentication(), flags)));
                 },
                 error_messages -> {
                   for (String error : error_messages) {
@@ -113,6 +114,7 @@ public class FormAnalyticsResolver
   }
 
   private List<RowResult> mapRowResults(
+      @Nullable final QueryContext context,
       final List<String> row,
       final Authentication authentication,
       @Nullable final FormAnalyticsFlags flags) {
@@ -126,7 +128,7 @@ public class FormAnalyticsResolver
                 final boolean skipHydration =
                     flags != null && flags.getSkipAssetHydration().equals(true);
                 if (!skipHydration && _entityClient.exists(urnValue, authentication)) {
-                  result.setEntity(UrnToEntityMapper.map(urnValue));
+                  result.setEntity(UrnToEntityMapper.map(context, urnValue));
                 }
               } catch (Exception e) {
                 log.debug(String.format("Row entry is not an urn: %s", rowEntry));

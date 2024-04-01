@@ -26,6 +26,8 @@ public class AspectPluginConfig {
   @AllArgsConstructor
   @Builder
   public static class EntityAspectName {
+    public static final EntityAspectName ALL = new EntityAspectName("*", "*");
+
     @Nonnull private String entityName;
     @Nonnull private String aspectName;
   }

@@ -1,7 +1,13 @@
 package com.linkedin.datahub.graphql.types.glossary;
 
-import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
+import static com.linkedin.metadata.Constants.DISPLAY_PROPERTIES_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.FORMS_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.GLOSSARY_NODE_ENTITY_NAME;
+import static com.linkedin.metadata.Constants.GLOSSARY_NODE_INFO_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.GLOSSARY_NODE_KEY_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.OWNERSHIP_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.SHARE_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTIES_ASPECT_NAME;
 
 import com.google.common.collect.ImmutableSet;
@@ -16,7 +22,6 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import graphql.execution.DataFetcherResult;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -67,11 +72,13 @@ public class GlossaryNodeType
       final Map<Urn, EntityResponse> glossaryNodeMap =
           _entityClient.batchGetV2(
               GLOSSARY_NODE_ENTITY_NAME,
-              new HashSet<>(glossaryNodeUrns),
+              glossaryNodeUrns.stream()
+                  .filter(urn -> canView(context.getOperationContext(), urn))
+                  .collect(Collectors.toSet()),
               ASPECTS_TO_RESOLVE,
               context.getAuthentication());
 
-      final List<EntityResponse> gmsResults = new ArrayList<>();
+      final List<EntityResponse> gmsResults = new ArrayList<>(urns.size());
       for (Urn urn : glossaryNodeUrns) {
         gmsResults.add(glossaryNodeMap.getOrDefault(urn, null));
       }
@@ -81,7 +88,7 @@ public class GlossaryNodeType
                   gmsGlossaryNode == null
                       ? null
                       : DataFetcherResult.<GlossaryNode>newResult()
-                          .data(GlossaryNodeMapper.map(gmsGlossaryNode))
+                          .data(GlossaryNodeMapper.map(context, gmsGlossaryNode))
                           .build())
           .collect(Collectors.toList());
     } catch (Exception e) {

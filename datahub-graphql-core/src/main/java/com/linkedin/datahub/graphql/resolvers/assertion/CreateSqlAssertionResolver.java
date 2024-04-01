@@ -52,6 +52,7 @@ public class CreateSqlAssertionResolver implements DataFetcher<CompletableFuture
 
             // Then, return the new assertion
             return AssertionMapper.map(
+                context,
                 _assertionService.getAssertionEntityResponse(
                     assertionUrn, context.getAuthentication()));
           }

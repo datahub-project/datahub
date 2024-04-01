@@ -81,7 +81,7 @@ public class UpdateGroupNotificationSettingsResolver
             corpGroupSettings.setNotificationSettings(notificationSettings);
             _settingsService.updateCorpGroupSettings(groupUrn, corpGroupSettings, authentication);
 
-            return NotificationSettingsMapper.map(notificationSettings);
+            return NotificationSettingsMapper.map(context, notificationSettings);
           } catch (Exception e) {
             throw new RuntimeException(
                 String.format(

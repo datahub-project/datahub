@@ -94,6 +94,7 @@ def make_ts_millis(ts: datetime) -> int:
 
 
 def make_ts_millis(ts: Optional[datetime]) -> Optional[int]:
+    # TODO: This duplicates the functionality of datetime_to_ts_millis
     if ts is None:
         return None
     return int(ts.timestamp() * 1000)
@@ -243,6 +244,10 @@ def make_tag_urn(tag: str) -> str:
 
 def make_owner_urn(owner: str, owner_type: OwnerType) -> str:
     return f"urn:li:{owner_type.value}:{owner}"
+
+
+def make_ownership_type_urn(type: str) -> str:
+    return f"urn:li:ownershipType:{type}"
 
 
 def make_term_urn(term: str) -> str:

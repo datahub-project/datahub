@@ -54,6 +54,8 @@ buildscript {
   ext.hazelcastVersion = '5.3.6'
   ext.ebeanVersion = '12.16.1'
   ext.googleJavaFormatVersion = '1.18.1'
+  ext.openLineageVersion = '1.5.0'
+  ext.logbackClassicJava8 = '1.2.12'
 
   ext.sentry = '6.18.1'
 
@@ -97,6 +99,7 @@ project.ext.spec = [
             'restliDocgen' : 'com.linkedin.pegasus:restli-docgen:' + pegasusVersion,
             'restliServer' : 'com.linkedin.pegasus:restli-server:' + pegasusVersion,
             'restliSpringBridge': 'com.linkedin.pegasus:restli-spring-bridge:' + pegasusVersion,
+            'restliTestUtils' : 'com.linkedin.pegasus:restli-client-testutils:' + pegasusVersion,
         ]
     ]
 ]
@@ -181,11 +184,12 @@ project.ext.externalDependency = [
     'kafkaAvroSerde': "io.confluent:kafka-streams-avro-serde:$kafkaVersion",
     'kafkaAvroSerializer': 'io.confluent:kafka-avro-serializer:5.1.4',
     'kafkaClients': "org.apache.kafka:kafka-clients:$kafkaVersion-ccs",
+    'snappy': 'org.xerial.snappy:snappy-java:1.1.10.4',
     'logbackJackson': "ch.qos.logback.contrib:logback-jackson:$logbackContribVersion",
     'logbackJsonClassic': "ch.qos.logback.contrib:logback-json-classic:$logbackContribVersion",
     'janino': "org.codehaus.janino:janino:$janinoVersion",
-    'snappy': 'org.xerial.snappy:snappy-java:1.1.10.3',
     'logbackClassic': "ch.qos.logback:logback-classic:$logbackClassic",
+    'logbackClassicJava8' : "ch.qos.logback:logback-classic:$logbackClassicJava8",
     'slf4jApi': "org.slf4j:slf4j-api:$slf4jVersion",
     'log4jCore': "org.apache.logging.log4j:log4j-core:$log4jVersion",
     'log4jApi': "org.apache.logging.log4j:log4j-api:$log4jVersion",

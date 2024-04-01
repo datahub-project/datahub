@@ -4,7 +4,8 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 
 import com.linkedin.gms.factory.config.ConfigurationProvider;
-import com.linkedin.metadata.secret.SecretService;
+import com.linkedin.gms.factory.context.services.SecretServiceFactory;
+import io.datahubproject.metadata.services.SecretService;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import org.springframework.beans.factory.annotation.Autowired;

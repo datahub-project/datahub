@@ -220,7 +220,8 @@ public class AnalyticsService {
         .collect(Collectors.toList());
   }
 
-  public Row buildRow(String groupByValue, Function<String, Cell> groupByValueToCell, int count) {
+  public static Row buildRow(
+      String groupByValue, Function<String, Cell> groupByValueToCell, int count) {
     List<String> values = ImmutableList.of(groupByValue, String.valueOf(count));
     List<Cell> cells =
         ImmutableList.of(

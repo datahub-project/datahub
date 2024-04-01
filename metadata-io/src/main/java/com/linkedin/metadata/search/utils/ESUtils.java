@@ -337,7 +337,7 @@ public class ESUtils {
             break;
           }
         }
-        if (fieldTypeForDefault.isEmpty()) {
+        if (fieldTypeForDefault.isEmpty() && !entitySpecs.isEmpty()) {
           log.warn(
               "Sort criterion field "
                   + sortCriteria.getField()
@@ -683,6 +683,7 @@ public class ESUtils {
       @Nonnull BoolQueryBuilder filterQuery) {
     // filter soft deleted entities by default
     filterSoftDeletedByDefault(filter, filterQuery, opContext.getSearchContext().getSearchFlags());
+    // Saas Only!
     // filter based on access controls
     ESAccessControlUtil.buildAccessControlFilters(opContext).ifPresent(filterQuery::filter);
     return filterQuery;

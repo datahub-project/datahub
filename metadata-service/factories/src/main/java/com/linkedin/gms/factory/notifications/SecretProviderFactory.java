@@ -2,9 +2,9 @@ package com.linkedin.gms.factory.notifications;
 
 import com.datahub.notification.provider.SecretProvider;
 import com.linkedin.entity.client.SystemEntityClient;
-import com.linkedin.gms.factory.secret.SecretServiceFactory;
-import com.linkedin.metadata.secret.SecretService;
+import com.linkedin.gms.factory.context.services.SecretServiceFactory;
 import com.linkedin.metadata.spring.YamlPropertySourceFactory;
+import io.datahubproject.metadata.services.SecretService;
 import javax.annotation.Nonnull;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;

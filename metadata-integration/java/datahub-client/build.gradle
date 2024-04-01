@@ -20,6 +20,7 @@ dependencies {
   implementation project(':metadata-events:mxe-utils-avro')
 
   implementation project(':entity-registry')
+  implementation project(':metadata-integration:java:datahub-event')
   implementation(externalDependency.kafkaAvroSerializer) {
     exclude group: "org.apache.avro"
   }

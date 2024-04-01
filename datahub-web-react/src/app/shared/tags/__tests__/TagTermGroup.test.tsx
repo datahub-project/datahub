@@ -2,10 +2,10 @@ import { MockedProvider } from '@apollo/client/testing';
 import { fireEvent, render, waitFor } from '@testing-library/react';
 import React from 'react';
 
-import { mocks } from '../../../../Mocks';
-import { EntityType, GlobalTags, GlossaryTerms } from '../../../../types.generated';
-import TestPageContainer from '../../../../utils/test-utils/TestPageContainer';
 import TagTermGroup from '../TagTermGroup';
+import TestPageContainer from '../../../../utils/test-utils/TestPageContainer';
+import { EntityType, GlobalTags, GlossaryTerms } from '../../../../types.generated';
+import { mocks } from '../../../../Mocks';
 
 const legacyTag = {
     urn: 'urn:li:tag:legacy',

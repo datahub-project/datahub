@@ -27,6 +27,11 @@ query getBrowseResultsV2($input: BrowseV2Input!) {
                     }
                     instanceId
                 }
+                ... on Dataset {
+                    properties {
+                        name
+                    }
+                }
             }
         }
         start

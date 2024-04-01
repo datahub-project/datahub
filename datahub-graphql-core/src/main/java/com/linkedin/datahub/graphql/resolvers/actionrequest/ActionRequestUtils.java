@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.resolvers.actionrequest;
 
+import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
 import static com.linkedin.metadata.Constants.*;
 
 import com.datahub.authentication.Authentication;
@@ -15,6 +16,7 @@ import com.linkedin.common.GlobalTags;
 import com.linkedin.common.GlossaryTerms;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.ActionRequest;
 import com.linkedin.datahub.graphql.generated.ActionRequestParams;
 import com.linkedin.datahub.graphql.generated.ActionRequestResourceProperties;
@@ -67,6 +69,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import javax.annotation.Nullable;
 import lombok.Value;
 
@@ -78,7 +81,8 @@ public class ActionRequestUtils {
   private static final String SUBRESOURCE_FIELD_NAME = "subResource";
   private static final String LAST_MODIFIED_FIELD_NAME = "lastModified";
 
-  public static ActionRequest mapActionRequest(final ActionRequestSnapshot snapshot) {
+  public static ActionRequest mapActionRequest(
+      @Nullable QueryContext context, final ActionRequestSnapshot snapshot) {
     final ActionRequest actionRequest = new ActionRequest();
     actionRequest.setUrn(snapshot.getUrn().toString());
     for (ActionRequestAspect aspect : snapshot.getAspects()) {
@@ -109,7 +113,7 @@ public class ActionRequestUtils {
           // documented explicitly somewhere.
           try {
             Urn resourceUrn = Urn.createFromString(actionRequestInfo.getResource());
-            actionRequest.setEntity(UrnToEntityMapper.map(resourceUrn));
+            actionRequest.setEntity(UrnToEntityMapper.map(context, resourceUrn));
           } catch (URISyntaxException e) {
             throw new RuntimeException(
                 String.format(
@@ -153,10 +157,11 @@ public class ActionRequestUtils {
   }
 
   public static ActionRequest mapRejectedActionRequest(
+      @Nullable QueryContext context,
       final ActionRequestSnapshot snapshot,
       final EntityService entityService,
       final @Nullable ActionRequestType type) {
-    final ActionRequest rejectedActionRequest = mapActionRequest(snapshot);
+    final ActionRequest rejectedActionRequest = mapActionRequest(context, snapshot);
 
     if (rejectedActionRequest.getEntity() != null) {
       ActionRequestResourceProperties resourceProperties = new ActionRequestResourceProperties();
@@ -180,6 +185,7 @@ public class ActionRequestUtils {
                 new EditableSchemaMetadataMapper();
             com.linkedin.datahub.graphql.generated.EditableSchemaMetadata editableSchemaMetadata =
                 editableSchemaMetadataMapper.apply(
+                    context,
                     editableSchemaMetadataAspect,
                     UrnUtils.getUrn(rejectedActionRequest.getEntity().getUrn()));
 
@@ -210,6 +216,7 @@ public class ActionRequestUtils {
             GlossaryTermsMapper glossaryTermsMapper = new GlossaryTermsMapper();
             com.linkedin.datahub.graphql.generated.GlossaryTerms glossaryTerms =
                 glossaryTermsMapper.apply(
+                    context,
                     glossaryTermsAspect,
                     UrnUtils.getUrn(rejectedActionRequest.getEntity().getUrn()));
 
@@ -235,6 +242,7 @@ public class ActionRequestUtils {
                 new EditableSchemaMetadataMapper();
             com.linkedin.datahub.graphql.generated.EditableSchemaMetadata editableSchemaMetadata =
                 editableSchemaMetadataMapper.apply(
+                    context,
                     editableSchemaMetadataAspect,
                     UrnUtils.getUrn(rejectedActionRequest.getEntity().getUrn()));
 
@@ -264,7 +272,9 @@ public class ActionRequestUtils {
             GlobalTagsMapper globalTagsMapper = new GlobalTagsMapper();
             com.linkedin.datahub.graphql.generated.GlobalTags globalTags =
                 globalTagsMapper.apply(
-                    globalTagsAspect, UrnUtils.getUrn(rejectedActionRequest.getEntity().getUrn()));
+                    context,
+                    globalTagsAspect,
+                    UrnUtils.getUrn(rejectedActionRequest.getEntity().getUrn()));
 
             resourceProperties.setTags(globalTags);
           }
@@ -445,23 +455,61 @@ public class ActionRequestUtils {
     return endTimestampCriterion;
   }
 
-  public static List<ActionRequest> mapActionRequests(final Collection<Entity> entities) {
+  public static List<ActionRequest> mapActionRequests(
+      @Nullable final QueryContext context, final Collection<Entity> entities) {
     final List<ActionRequest> results = new ArrayList<>();
     for (final Entity entity : entities) {
-      final ActionRequestSnapshot snapshot = entity.getValue().getActionRequestSnapshot();
-      results.add(ActionRequestUtils.mapActionRequest(snapshot));
+      actionsRequestSnapshotCanView(context, entity.getValue().getActionRequestSnapshot())
+          .ifPresent(
+              snapshot -> results.add(ActionRequestUtils.mapActionRequest(context, snapshot)));
     }
     return results;
   }
 
+  private static Optional<ActionRequestSnapshot> actionsRequestSnapshotCanView(
+      @Nullable final QueryContext context, ActionRequestSnapshot snapshot) {
+    if (context != null) {
+      if (snapshot.getAspects().stream()
+          .filter(ActionRequestAspect::isActionRequestInfo)
+          .map(ActionRequestAspect::getActionRequestInfo)
+          .flatMap(
+              info -> {
+                // extracting urns
+                Optional<Urn> resourceUrn =
+                    Optional.ofNullable(info.getResource()).map(UrnUtils::getUrn);
+                Optional<Urn> termUrn =
+                    Optional.ofNullable(info.getParams())
+                        .map(
+                            com.linkedin.actionrequest.ActionRequestParams::getGlossaryTermProposal)
+                        .map(GlossaryTermProposal::getGlossaryTerm);
+                Optional<Urn> tagUrn =
+                    Optional.ofNullable(info.getParams())
+                        .map(com.linkedin.actionrequest.ActionRequestParams::getTagProposal)
+                        .map(TagProposal::getTag);
+
+                return Stream.of(resourceUrn, termUrn, tagUrn);
+              })
+          .filter(Optional::isPresent)
+          .anyMatch(optUrn -> !canView(context.getOperationContext(), optUrn.get()))) {
+
+        // return empty if contains reference to restricted urn
+        return Optional.empty();
+      }
+    }
+
+    return Optional.of(snapshot);
+  }
+
   public static List<ActionRequest> mapRejectedActionRequests(
+      @Nullable final QueryContext context,
       final Collection<Entity> entities,
       final EntityService entityService,
       final @Nullable ActionRequestType type) {
     final List<ActionRequest> results = new ArrayList<>();
     for (final Entity entity : entities) {
       final ActionRequestSnapshot snapshot = entity.getValue().getActionRequestSnapshot();
-      results.add(ActionRequestUtils.mapRejectedActionRequest(snapshot, entityService, type));
+      results.add(
+          ActionRequestUtils.mapRejectedActionRequest(context, snapshot, entityService, type));
     }
     return results.stream()
         .sorted(Comparator.comparing(actionRequest -> actionRequest.getLastModified().getTime()))

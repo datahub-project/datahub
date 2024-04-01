@@ -51,7 +51,8 @@ import org.springframework.stereotype.Component;
 public class IncidentsSummaryHook implements MetadataChangeLogHook {
 
   private static final Set<ChangeType> SUPPORTED_UPDATE_TYPES =
-      ImmutableSet.of(ChangeType.UPSERT, ChangeType.CREATE, ChangeType.RESTATE);
+      ImmutableSet.of(
+          ChangeType.UPSERT, ChangeType.CREATE, ChangeType.CREATE_ENTITY, ChangeType.RESTATE);
   private static final Set<String> SUPPORTED_UPDATE_ASPECTS =
       ImmutableSet.of(INCIDENT_INFO_ASPECT_NAME, STATUS_ASPECT_NAME);
 

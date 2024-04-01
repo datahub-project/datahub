@@ -4,8 +4,11 @@ import static org.testng.Assert.*;
 
 import com.datahub.authorization.AuthorizationRequest;
 import com.datahub.authorization.AuthorizationResult;
+import com.datahub.authorization.EntitySpec;
 import com.datahub.plugins.auth.authorization.Authorizer;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
+import com.linkedin.metadata.Constants;
 import java.util.Optional;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
@@ -19,7 +22,9 @@ public class IngestionAuthUtilsTest {
 
     AuthorizationRequest request =
         new AuthorizationRequest(
-            "urn:li:corpuser:authorized", "MANAGE_INGESTION", Optional.empty());
+            "urn:li:corpuser:authorized",
+            "MANAGE_INGESTION",
+            Optional.of(new EntitySpec(Constants.INGESTION_SOURCE_ENTITY_NAME, "")));
 
     AuthorizationResult result = Mockito.mock(AuthorizationResult.class);
     Mockito.when(result.getType()).thenReturn(AuthorizationResult.Type.ALLOW);
@@ -28,7 +33,7 @@ public class IngestionAuthUtilsTest {
     Mockito.when(mockContext.getAuthorizer()).thenReturn(mockAuthorizer);
     Mockito.when(mockContext.getActorUrn()).thenReturn("urn:li:corpuser:authorized");
 
-    assertTrue(IngestionAuthUtils.canManageIngestion(mockContext));
+    assertTrue(AuthorizationUtils.canManageIngestion(mockContext));
   }
 
   @Test
@@ -38,7 +43,9 @@ public class IngestionAuthUtilsTest {
 
     AuthorizationRequest request =
         new AuthorizationRequest(
-            "urn:li:corpuser:unauthorized", "MANAGE_INGESTION", Optional.empty());
+            "urn:li:corpuser:unauthorized",
+            "MANAGE_INGESTION",
+            Optional.of(new EntitySpec(Constants.INGESTION_SOURCE_ENTITY_NAME, "")));
 
     AuthorizationResult result = Mockito.mock(AuthorizationResult.class);
     Mockito.when(result.getType()).thenReturn(AuthorizationResult.Type.DENY);
@@ -47,7 +54,7 @@ public class IngestionAuthUtilsTest {
     Mockito.when(mockContext.getAuthorizer()).thenReturn(mockAuthorizer);
     Mockito.when(mockContext.getActorUrn()).thenReturn("urn:li:corpuser:unauthorized");
 
-    assertFalse(IngestionAuthUtils.canManageIngestion(mockContext));
+    assertFalse(AuthorizationUtils.canManageIngestion(mockContext));
   }
 
   @Test
@@ -56,7 +63,10 @@ public class IngestionAuthUtilsTest {
     Authorizer mockAuthorizer = Mockito.mock(Authorizer.class);
 
     AuthorizationRequest request =
-        new AuthorizationRequest("urn:li:corpuser:authorized", "MANAGE_SECRETS", Optional.empty());
+        new AuthorizationRequest(
+            "urn:li:corpuser:authorized",
+            "MANAGE_SECRETS",
+            Optional.of(new EntitySpec(Constants.SECRETS_ENTITY_NAME, "")));
 
     AuthorizationResult result = Mockito.mock(AuthorizationResult.class);
     Mockito.when(result.getType()).thenReturn(AuthorizationResult.Type.ALLOW);
@@ -65,7 +75,7 @@ public class IngestionAuthUtilsTest {
     Mockito.when(mockContext.getAuthorizer()).thenReturn(mockAuthorizer);
     Mockito.when(mockContext.getActorUrn()).thenReturn("urn:li:corpuser:authorized");
 
-    assertTrue(IngestionAuthUtils.canManageSecrets(mockContext));
+    assertTrue(AuthorizationUtils.canManageSecrets(mockContext));
   }
 
   @Test
@@ -75,7 +85,9 @@ public class IngestionAuthUtilsTest {
 
     AuthorizationRequest request =
         new AuthorizationRequest(
-            "urn:li:corpuser:unauthorized", "MANAGE_SECRETS", Optional.empty());
+            "urn:li:corpuser:unauthorized",
+            "MANAGE_SECRETS",
+            Optional.of(new EntitySpec(Constants.SECRETS_ENTITY_NAME, "")));
 
     AuthorizationResult result = Mockito.mock(AuthorizationResult.class);
     Mockito.when(result.getType()).thenReturn(AuthorizationResult.Type.DENY);
@@ -84,6 +96,6 @@ public class IngestionAuthUtilsTest {
     Mockito.when(mockContext.getAuthorizer()).thenReturn(mockAuthorizer);
     Mockito.when(mockContext.getActorUrn()).thenReturn("urn:li:corpuser:unauthorized");
 
-    assertFalse(IngestionAuthUtils.canManageSecrets(mockContext));
+    assertFalse(AuthorizationUtils.canManageSecrets(mockContext));
   }
 }

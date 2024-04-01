@@ -82,7 +82,7 @@ public class UpgradeCli implements CommandLineRunner {
   @Named("rotateSecrets")
   private RotateSecrets rotateSecrets;
 
-  @Inject
+  @Autowired(required = false)
   @Named("evaluateTests")
   private EvaluateTests evaluateTests;
 
@@ -107,7 +107,9 @@ public class UpgradeCli implements CommandLineRunner {
     _upgradeManager.register(restoreAspect);
     _upgradeManager.register(propagateTerms);
     _upgradeManager.register(rotateSecrets);
-    _upgradeManager.register(evaluateTests);
+    if (evaluateTests != null) {
+      _upgradeManager.register(evaluateTests);
+    }
 
     final Args args = new Args();
     new CommandLine(args).setCaseInsensitiveEnumValuesAllowed(true).parseArgs(cmdLineArgs);

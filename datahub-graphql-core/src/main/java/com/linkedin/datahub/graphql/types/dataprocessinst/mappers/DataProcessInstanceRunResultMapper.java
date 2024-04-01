@@ -1,9 +1,11 @@
 package com.linkedin.datahub.graphql.types.dataprocessinst.mappers;
 
+import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.DataProcessInstanceRunResultType;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import com.linkedin.dataprocess.DataProcessInstanceRunResult;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 public class DataProcessInstanceRunResultMapper
     implements ModelMapper<
@@ -14,13 +16,13 @@ public class DataProcessInstanceRunResultMapper
       new DataProcessInstanceRunResultMapper();
 
   public static com.linkedin.datahub.graphql.generated.DataProcessInstanceRunResult map(
-      @Nonnull final DataProcessInstanceRunResult input) {
-    return INSTANCE.apply(input);
+      @Nullable QueryContext context, @Nonnull final DataProcessInstanceRunResult input) {
+    return INSTANCE.apply(context, input);
   }
 
   @Override
   public com.linkedin.datahub.graphql.generated.DataProcessInstanceRunResult apply(
-      @Nonnull final DataProcessInstanceRunResult input) {
+      @Nullable QueryContext context, @Nonnull final DataProcessInstanceRunResult input) {
 
     final com.linkedin.datahub.graphql.generated.DataProcessInstanceRunResult result =
         new com.linkedin.datahub.graphql.generated.DataProcessInstanceRunResult();

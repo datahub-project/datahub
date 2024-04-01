@@ -1,0 +1,10 @@
+[
+  {
+    "query": "create table foo as select a, b from bar",
+    "session_id": null,
+    "timestamp": null,
+    "user": null,
+    "default_db": "dev",
+    "default_schema": "public"
+  }
+]

@@ -26,7 +26,7 @@ public class SuggestDescriptionResolver implements DataFetcher<CompletableFuture
 
     return CompletableFuture.supplyAsync(
         () -> {
-          if (!AuthorizationUtils.canViewEntity(targetUrn, context)) {
+          if (!AuthorizationUtils.canView(context.getOperationContext(), targetUrn)) {
             throw new AuthorizationException(
                 "Unauthorized to perform this action. Please contact your DataHub administrator.");
           }

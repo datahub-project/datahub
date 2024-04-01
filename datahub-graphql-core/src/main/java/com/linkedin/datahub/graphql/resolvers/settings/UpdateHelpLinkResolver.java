@@ -1,9 +1,10 @@
 package com.linkedin.datahub.graphql.resolvers.settings;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
+import static com.linkedin.metadata.authorization.PoliciesConfig.MANAGE_GLOBAL_SETTINGS;
 
+import com.datahub.authorization.AuthUtil;
 import com.linkedin.datahub.graphql.QueryContext;
-import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.UpdateHelpLinkInput;
 import com.linkedin.metadata.service.SettingsService;
@@ -36,7 +37,8 @@ public class UpdateHelpLinkResolver implements DataFetcher<CompletableFuture<Boo
 
     return CompletableFuture.supplyAsync(
         () -> {
-          if (!AuthorizationUtils.canManageGlobalSettings(context)) {
+          if (!AuthUtil.isAuthorized(
+              context.getAuthorizer(), context.getActorUrn(), MANAGE_GLOBAL_SETTINGS)) {
             throw new AuthorizationException(
                 "Unauthorized to perform this action. Please contact your DataHub administrator.");
           }

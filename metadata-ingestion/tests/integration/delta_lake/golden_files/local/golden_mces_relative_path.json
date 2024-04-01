@@ -45,9 +45,8 @@
                         },
                         "fields": [
                             {
-                                "fieldPath": "bar",
+                                "fieldPath": "[version=2.0].[type=int].foo",
                                 "nullable": true,
-                                "description": "{}",
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -56,12 +55,11 @@
                                 "nativeDataType": "integer",
                                 "recursive": false,
                                 "isPartOfKey": false,
-                                "isPartitioningKey": true
+                                "jsonProps": "{\"native_data_type\": \"integer\", \"_nullable\": true}"
                             },
                             {
-                                "fieldPath": "foo",
+                                "fieldPath": "[version=2.0].[type=int].bar",
                                 "nullable": true,
-                                "description": "{}",
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -70,12 +68,11 @@
                                 "nativeDataType": "integer",
                                 "recursive": false,
                                 "isPartOfKey": false,
-                                "isPartitioningKey": true
+                                "jsonProps": "{\"native_data_type\": \"integer\", \"_nullable\": true}"
                             },
                             {
-                                "fieldPath": "zip",
+                                "fieldPath": "[version=2.0].[type=string].zip",
                                 "nullable": true,
-                                "description": "{}",
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -84,7 +81,7 @@
                                 "nativeDataType": "string",
                                 "recursive": false,
                                 "isPartOfKey": false,
-                                "isPartitioningKey": false
+                                "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
                             }
                         ]
                     }
@@ -342,6 +339,43 @@
                 "version": "0"
             },
             "lastUpdatedTimestamp": 1655831476907
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "relative_path.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,delta_tables/my_table_basic,UAT)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:85267d161e1a2ffa647cec6c1188549f",
+                    "urn": "urn:li:container:85267d161e1a2ffa647cec6c1188549f"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "relative_path.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:85267d161e1a2ffa647cec6c1188549f",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": []
         }
     },
     "systemMetadata": {

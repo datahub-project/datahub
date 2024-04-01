@@ -72,9 +72,9 @@ public abstract class SearchDAOTestBase extends AbstractTestNGSpringContextTests
     when(aspectRetriever.getLatestAspectObjects(any(), any())).thenReturn(Map.of());
     operationContext =
         TestOperationContexts.userContextNoSearchAuthorization(
-            aspectRetriever.getEntityRegistry(),
             Authorizer.EMPTY,
-            TestOperationContexts.TEST_USER_AUTH);
+            TestOperationContexts.TEST_USER_AUTH,
+            aspectRetriever.getEntityRegistry());
   }
 
   @Test

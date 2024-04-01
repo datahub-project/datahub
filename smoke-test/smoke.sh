@@ -23,8 +23,8 @@ else
 
   python3 -m venv venv
   source venv/bin/activate
-  pip install --upgrade pip wheel setuptools
-  pip install -r requirements.txt
+  python -m pip install --upgrade pip uv>=0.1.10 wheel setuptools
+  uv pip install -r requirements.txt
 fi
 
 (cd ..; ./gradlew :smoke-test:yarnInstall)

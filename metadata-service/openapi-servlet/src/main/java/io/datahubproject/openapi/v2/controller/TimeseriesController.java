@@ -1,12 +1,13 @@
 package io.datahubproject.openapi.v2.controller;
 
-import static io.datahubproject.openapi.v2.utils.ControllerUtil.checkAuthorized;
+import static com.linkedin.metadata.authorization.ApiGroup.TIMESERIES;
+import static com.linkedin.metadata.authorization.ApiOperation.READ;
 
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
+import com.datahub.authorization.AuthUtil;
 import com.datahub.authorization.AuthorizerChain;
-import com.google.common.collect.ImmutableList;
-import com.linkedin.metadata.authorization.PoliciesConfig;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.filter.SortCriterion;
@@ -15,6 +16,7 @@ import com.linkedin.metadata.timeseries.GenericTimeseriesDocument;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.timeseries.TimeseriesScrollResult;
 import com.linkedin.metadata.utils.SearchUtil;
+import io.datahubproject.openapi.exception.UnauthorizedException;
 import io.datahubproject.openapi.v2.models.GenericScrollResult;
 import io.datahubproject.openapi.v2.models.GenericTimeseriesAspect;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -47,8 +49,6 @@ public class TimeseriesController {
 
   @Autowired private AuthorizerChain authorizationChain;
 
-  @Autowired private boolean restApiAuthorizationEnabled;
-
   @GetMapping(value = "/{entityName}/{aspectName}", produces = MediaType.APPLICATION_JSON_VALUE)
   public ResponseEntity<GenericScrollResult<GenericTimeseriesAspect>> getAspects(
       @PathVariable("entityName") String entityName,
@@ -61,13 +61,12 @@ public class TimeseriesController {
           Boolean withSystemMetadata)
       throws URISyntaxException {
 
-    if (restApiAuthorizationEnabled) {
-      Authentication authentication = AuthenticationContext.getAuthentication();
-      checkAuthorized(
-          authorizationChain,
-          authentication.getActor(),
-          entityRegistry.getEntitySpec(entityName),
-          ImmutableList.of(PoliciesConfig.GET_ENTITY_PRIVILEGE.getType()));
+    Authentication authentication = AuthenticationContext.getAuthentication();
+    if (!AuthUtil.isAPIAuthorized(authentication, authorizationChain, TIMESERIES, READ)
+        || !AuthUtil.isAPIAuthorizedEntityType(
+            authentication, authorizationChain, READ, entityName)) {
+      throw new UnauthorizedException(
+          authentication.getActor().toUrnStr() + " is unauthorized to " + READ + " " + TIMESERIES);
     }
 
     AspectSpec aspectSpec = entityRegistry.getEntitySpec(entityName).getAspectSpec(aspectName);
@@ -90,6 +89,18 @@ public class TimeseriesController {
             count,
             startTimeMillis,
             endTimeMillis);
+
+    if (!AuthUtil.isAPIAuthorizedUrns(
+        authentication,
+        authorizationChain,
+        TIMESERIES,
+        READ,
+        result.getDocuments().stream()
+            .map(doc -> UrnUtils.getUrn(doc.getUrn()))
+            .collect(Collectors.toSet()))) {
+      throw new UnauthorizedException(
+          authentication.getActor().toUrnStr() + " is unauthorized to " + READ + " entities.");
+    }
 
     return ResponseEntity.ok(
         GenericScrollResult.<GenericTimeseriesAspect>builder()

@@ -16,7 +16,6 @@ import com.linkedin.datahub.graphql.generated.UpdateOidcSettingsInput;
 import com.linkedin.datahub.graphql.generated.UpdateSlackIntegrationSettingsInput;
 import com.linkedin.datahub.graphql.generated.UpdateSsoSettingsInput;
 import com.linkedin.entity.client.EntityClient;
-import com.linkedin.metadata.secret.SecretService;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.settings.NotificationSetting;
 import com.linkedin.settings.NotificationSettingMap;
@@ -29,6 +28,7 @@ import com.linkedin.settings.global.SlackIntegrationSettings;
 import com.linkedin.settings.global.SsoSettings;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.services.SecretService;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 

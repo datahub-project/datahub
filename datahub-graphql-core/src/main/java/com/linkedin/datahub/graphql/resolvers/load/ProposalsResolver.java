@@ -66,7 +66,7 @@ public class ProposalsResolver implements DataFetcher<CompletableFuture<List<Act
                             .map(result -> result.getEntity())
                             .collect(Collectors.toList())),
                     context.getAuthentication());
-            return ActionRequestUtils.mapActionRequests(entities.values());
+            return ActionRequestUtils.mapActionRequests(context, entities.values());
           } catch (Exception e) {
             throw new RuntimeException("Failed to load action requests", e);
           }

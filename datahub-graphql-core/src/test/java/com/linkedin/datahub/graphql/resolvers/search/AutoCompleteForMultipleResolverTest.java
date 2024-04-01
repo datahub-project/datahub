@@ -74,6 +74,7 @@ public class AutoCompleteForMultipleResolverTest {
   @Test
   public static void testAutoCompleteResolverSuccessForDifferentEntities() throws Exception {
     ViewService viewService = initMockViewService(null, null);
+
     // Daatasets
     EntityClient mockClient =
         initMockEntityClient(
@@ -140,6 +141,7 @@ public class AutoCompleteForMultipleResolverTest {
   public static void testAutoCompleteResolverWithViewFilter() throws Exception {
     DataHubViewInfo viewInfo = createViewInfo(new StringArray());
     ViewService viewService = initMockViewService(TEST_VIEW_URN, viewInfo);
+
     EntityClient mockClient =
         initMockEntityClient(
             Constants.DATASET_ENTITY_NAME,
@@ -204,6 +206,7 @@ public class AutoCompleteForMultipleResolverTest {
   public static void testAutoCompleteResolverFailNoQuery() throws Exception {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     ViewService viewService = initMockViewService(null, null);
+
     final AutoCompleteForMultipleResolver resolver =
         new AutoCompleteForMultipleResolver(
             ImmutableList.of(new DatasetType(mockClient)), viewService);

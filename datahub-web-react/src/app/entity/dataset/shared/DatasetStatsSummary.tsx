@@ -48,7 +48,7 @@ export const DatasetStatsSummary = ({
     lastUpdatedMs,
     color,
     mode = 'normal',
-    shouldWrap
+    shouldWrap,
 }: Props) => {
     const isTooltipMode = mode === 'tooltip-content';
     const displayedColor = isTooltipMode ? '' : color ?? ANTD_GRAY[7];

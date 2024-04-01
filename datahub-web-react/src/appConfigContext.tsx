@@ -55,6 +55,7 @@ export const DEFAULT_APP_CONFIG = {
         subscriptionsEnabled: false,
         datasetHealthDashboardEnabled: false,
         showAcrylInfo: false,
+        erModelRelationshipFeatureEnabled: false,
         showAccessManagement: false,
         nestedDomainsEnabled: true,
         dataContractsEnabled: false,

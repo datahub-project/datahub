@@ -3,10 +3,8 @@ package com.linkedin.datahub.graphql.resolvers.constraint;
 import static com.linkedin.metadata.Constants.*;
 
 import com.datahub.authentication.Authentication;
-import com.datahub.authorization.ConjunctivePrivilegeGroup;
-import com.datahub.authorization.DisjunctivePrivilegeGroup;
+import com.datahub.authorization.AuthUtil;
 import com.datahub.authorization.EntitySpec;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.GlossaryTerms;
 import com.linkedin.common.urn.GlossaryNodeUrn;
@@ -15,7 +13,6 @@ import com.linkedin.constraint.ConstraintInfo;
 import com.linkedin.constraint.GlossaryTermInNodeConstraint;
 import com.linkedin.container.Container;
 import com.linkedin.datahub.graphql.QueryContext;
-import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.generated.Constraint;
 import com.linkedin.datahub.graphql.generated.ConstraintParams;
 import com.linkedin.datahub.graphql.generated.ConstraintType;
@@ -326,13 +323,9 @@ public class ConstraintUtils {
   }
 
   public static boolean isAuthorizedToCreateConstraints(final @Nonnull QueryContext context) {
-    final DisjunctivePrivilegeGroup orPrivilegeGroups =
-        new DisjunctivePrivilegeGroup(
-            ImmutableList.of(
-                new ConjunctivePrivilegeGroup(
-                    ImmutableList.of(PoliciesConfig.CREATE_CONSTRAINTS_PRIVILEGE.getType()))));
-
-    return AuthorizationUtils.isAuthorized(
-        context.getAuthorizer(), context.getActorUrn(), orPrivilegeGroups);
+    return AuthUtil.isAuthorized(
+        context.getAuthorizer(),
+        context.getActorUrn(),
+        PoliciesConfig.CREATE_CONSTRAINTS_PRIVILEGE);
   }
 }

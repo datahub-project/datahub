@@ -35,6 +35,7 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.key.DataPlatformInstanceKey;
 import com.linkedin.r2.RemoteInvocationException;
 import graphql.execution.DataFetcherResult;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -142,6 +143,9 @@ public class DataPlatformInstanceTest {
     QueryContext mockContext = Mockito.mock(QueryContext.class);
     Mockito.when(mockContext.getAuthentication()).thenReturn(Mockito.mock(Authentication.class));
     Mockito.when(mockContext.getActorUrn()).thenReturn(TEST_ACTOR_URN.toString());
+    Mockito.when(mockContext.getOperationContext())
+        .thenReturn(TestOperationContexts.userContextNoSearchAuthorization(TEST_ACTOR_URN));
+
     List<DataFetcherResult<DataPlatformInstance>> result =
         type.batchLoad(
             ImmutableList.of(TEST_DATAPLATFORMINSTANCE_1_URN, TEST_DATAPLATFORMINSTANCE_2_URN),

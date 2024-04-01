@@ -59,7 +59,8 @@ public class AcceptProposalResolver implements DataFetcher<CompletableFuture<Boo
           Entity proposalEntity = _entityService.getEntity(proposalUrn, new HashSet<>());
           ActionRequestSnapshot actionRequestSnapshot =
               proposalEntity.getValue().getActionRequestSnapshot();
-          ActionRequest proposal = ActionRequestUtils.mapActionRequest(actionRequestSnapshot);
+          ActionRequest proposal =
+              ActionRequestUtils.mapActionRequest(context, actionRequestSnapshot);
 
           try {
             log.info("Accepting term proposal. Proposal urn: {}", proposalUrn);

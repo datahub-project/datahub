@@ -4,6 +4,7 @@ import static com.linkedin.datahub.graphql.resolvers.dashboard.DashboardUsageSta
 
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.DashboardUsageAggregation;
 import com.linkedin.datahub.graphql.generated.DashboardUsageMetrics;
 import com.linkedin.datahub.graphql.generated.DashboardUsageQueryResult;
@@ -26,6 +27,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
+import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -46,6 +48,7 @@ public class DashboardUsageStatsResolver
   @Override
   public CompletableFuture<DashboardUsageQueryResult> get(DataFetchingEnvironment environment)
       throws Exception {
+    final QueryContext context = environment.getContext();
     final String dashboardUrn = ((Entity) environment.getSource()).getUrn();
     final Long maybeStartTimeMillis = environment.getArgumentOrDefault("startTimeMillis", null);
     final Long maybeEndTimeMillis = environment.getArgumentOrDefault("endTimeMillis", null);
@@ -70,14 +73,18 @@ public class DashboardUsageStatsResolver
           // Absolute usage metrics
           List<DashboardUsageMetrics> dashboardUsageMetrics =
               getDashboardUsageMetrics(
-                  dashboardUrn, maybeStartTimeMillis, maybeEndTimeMillis, maybeLimit);
+                  context, dashboardUrn, maybeStartTimeMillis, maybeEndTimeMillis, maybeLimit);
           usageQueryResult.setMetrics(dashboardUsageMetrics);
           return usageQueryResult;
         });
   }
 
   private List<DashboardUsageMetrics> getDashboardUsageMetrics(
-      String dashboardUrn, Long maybeStartTimeMillis, Long maybeEndTimeMillis, Integer maybeLimit) {
+      @Nullable QueryContext context,
+      String dashboardUrn,
+      Long maybeStartTimeMillis,
+      Long maybeEndTimeMillis,
+      Integer maybeLimit) {
     List<DashboardUsageMetrics> dashboardUsageMetrics;
     try {
       Filter filter = new Filter();
@@ -104,7 +111,9 @@ public class DashboardUsageStatsResolver
               maybeLimit,
               filter);
       dashboardUsageMetrics =
-          aspects.stream().map(DashboardUsageMetricMapper::map).collect(Collectors.toList());
+          aspects.stream()
+              .map(a -> DashboardUsageMetricMapper.map(context, a))
+              .collect(Collectors.toList());
     } catch (URISyntaxException e) {
       throw new IllegalArgumentException("Invalid resource", e);
     }

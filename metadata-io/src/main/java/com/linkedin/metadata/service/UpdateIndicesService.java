@@ -1,6 +1,7 @@
 package com.linkedin.metadata.service;
 
 import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.search.transformer.SearchDocumentTransformer.withSystemCreated;
 import static com.linkedin.metadata.search.utils.QueryUtils.*;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -23,9 +24,9 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.aspect.batch.MCLItem;
+import com.linkedin.metadata.aspect.models.graph.Edge;
 import com.linkedin.metadata.entity.SearchIndicesService;
 import com.linkedin.metadata.entity.ebean.batch.MCLItemImpl;
-import com.linkedin.metadata.graph.Edge;
 import com.linkedin.metadata.graph.GraphIndexUtils;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.dgraph.DgraphGraphService;
@@ -59,6 +60,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -95,7 +97,12 @@ public class UpdateIndicesService implements SearchIndicesService {
   private boolean _structuredPropertiesWriteEnabled;
 
   private static final Set<ChangeType> UPDATE_CHANGE_TYPES =
-      ImmutableSet.of(ChangeType.UPSERT, ChangeType.RESTATE, ChangeType.PATCH);
+      ImmutableSet.of(
+          ChangeType.CREATE,
+          ChangeType.CREATE_ENTITY,
+          ChangeType.UPSERT,
+          ChangeType.RESTATE,
+          ChangeType.PATCH);
 
   @VisibleForTesting
   public void setGraphDiffMode(boolean graphDiffMode) {
@@ -182,8 +189,7 @@ public class UpdateIndicesService implements SearchIndicesService {
     updateIndexMappings(entitySpec, aspectSpec, aspect, previousAspect);
 
     // Step 2. For all aspects, attempt to update Search
-    updateSearchService(
-        entitySpec.getName(), urn, aspectSpec, aspect, event.getSystemMetadata(), previousAspect);
+    updateSearchService(event);
 
     // Step 3. For all aspects, attempt to update Graph
     SystemMetadata systemMetadata = event.getSystemMetadata();
@@ -489,17 +495,18 @@ public class UpdateIndicesService implements SearchIndicesService {
   }
 
   private static List<Edge> getMergedEdges(final Set<Edge> oldEdgeSet, final Set<Edge> newEdgeSet) {
-    final Map<Integer, com.linkedin.metadata.graph.Edge> oldEdgesMap =
+    final Map<Integer, com.linkedin.metadata.aspect.models.graph.Edge> oldEdgesMap =
         oldEdgeSet.stream()
             .map(edge -> Pair.of(edge.hashCode(), edge))
             .collect(Collectors.toMap(Pair::getFirst, Pair::getSecond));
 
-    final List<com.linkedin.metadata.graph.Edge> mergedEdges = new ArrayList<>();
+    final List<com.linkedin.metadata.aspect.models.graph.Edge> mergedEdges = new ArrayList<>();
     if (!oldEdgesMap.isEmpty()) {
-      for (com.linkedin.metadata.graph.Edge newEdge : newEdgeSet) {
+      for (com.linkedin.metadata.aspect.models.graph.Edge newEdge : newEdgeSet) {
         if (oldEdgesMap.containsKey(newEdge.hashCode())) {
-          final com.linkedin.metadata.graph.Edge oldEdge = oldEdgesMap.get(newEdge.hashCode());
-          final com.linkedin.metadata.graph.Edge mergedEdge =
+          final com.linkedin.metadata.aspect.models.graph.Edge oldEdge =
+              oldEdgesMap.get(newEdge.hashCode());
+          final com.linkedin.metadata.aspect.models.graph.Edge mergedEdge =
               GraphIndexUtils.mergeEdges(oldEdge, newEdge);
           mergedEdges.add(mergedEdge);
         }
@@ -510,17 +517,29 @@ public class UpdateIndicesService implements SearchIndicesService {
   }
 
   /** Process snapshot and update search index */
-  private void updateSearchService(
-      String entityName,
-      Urn urn,
-      AspectSpec aspectSpec,
-      RecordTemplate aspect,
-      @Nullable SystemMetadata systemMetadata,
-      @Nullable RecordTemplate previousAspect) {
+  private void updateSearchService(MCLItem event) {
+    Urn urn = event.getUrn();
+    RecordTemplate aspect = event.getRecordTemplate();
+    AspectSpec aspectSpec = event.getAspectSpec();
+    SystemMetadata systemMetadata = event.getSystemMetadata();
+    RecordTemplate previousAspect = event.getPreviousRecordTemplate();
+    String entityName = event.getEntitySpec().getName();
+
     Optional<String> searchDocument;
     Optional<String> previousSearchDocument = Optional.empty();
     try {
-      searchDocument = _searchDocumentTransformer.transformAspect(urn, aspect, aspectSpec, false);
+      searchDocument =
+          _searchDocumentTransformer
+              .transformAspect(urn, aspect, aspectSpec, false)
+              .map(
+                  objectNode ->
+                      withSystemCreated(
+                          objectNode,
+                          event.getChangeType(),
+                          event.getEntitySpec(),
+                          aspectSpec,
+                          event.getAuditStamp()))
+              .map(Objects::toString);
     } catch (Exception e) {
       log.error(
           "Error in getting documents from aspect: {} for aspect {}", e, aspectSpec.getName());
@@ -545,7 +564,9 @@ public class UpdateIndicesService implements SearchIndicesService {
       if (previousAspect != null) {
         try {
           previousSearchDocument =
-              _searchDocumentTransformer.transformAspect(urn, previousAspect, aspectSpec, false);
+              _searchDocumentTransformer
+                  .transformAspect(urn, previousAspect, aspectSpec, false)
+                  .map(Objects::toString);
         } catch (Exception e) {
           log.error(
               "Error in getting documents from previous aspect state: {} for aspect {}, continuing without diffing.",
@@ -665,7 +686,9 @@ public class UpdateIndicesService implements SearchIndicesService {
     Optional<String> searchDocument;
     try {
       searchDocument =
-          _searchDocumentTransformer.transformAspect(urn, aspect, aspectSpec, true); // TODO
+          _searchDocumentTransformer
+              .transformAspect(urn, aspect, aspectSpec, true)
+              .map(Objects::toString); // TODO
     } catch (Exception e) {
       log.error(
           "Error in getting documents from aspect: {} for aspect {}", e, aspectSpec.getName());

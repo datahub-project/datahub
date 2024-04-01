@@ -80,7 +80,9 @@ public class ListPostsResolver implements DataFetcher<CompletableFuture<ListPost
             result.setCount(gmsResult.getPageSize());
             result.setTotal(gmsResult.getNumEntities());
             result.setPosts(
-                entities.values().stream().map(PostMapper::map).collect(Collectors.toList()));
+                entities.values().stream()
+                    .map(e -> PostMapper.map(context, e))
+                    .collect(Collectors.toList()));
             return result;
           } catch (Exception e) {
             throw new RuntimeException("Failed to list posts", e);

@@ -1,5 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.domain;
 
+import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
+import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canViewRelationship;
 import static com.linkedin.metadata.Constants.DOMAIN_ENTITY_NAME;
 
 import com.linkedin.common.urn.Urn;
@@ -16,6 +18,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
 
 public class ParentDomainsResolver implements DataFetcher<CompletableFuture<ParentDomainsResult>> {
 
@@ -50,9 +53,30 @@ public class ParentDomainsResolver implements DataFetcher<CompletableFuture<Pare
                       Urn.createFromString(parentDomain.getUrn()), context, _entityClient);
             }
 
+            List<Entity> viewable =
+                parentDomains.stream()
+                    .filter(
+                        e ->
+                            context == null
+                                || canViewRelationship(
+                                    context.getOperationContext(),
+                                    UrnUtils.getUrn(e.getUrn()),
+                                    urn))
+                    .collect(Collectors.toList());
+
+            // Saas only
+            viewable =
+                viewable.stream()
+                    .filter(
+                        e ->
+                            context == null
+                                || canView(
+                                    context.getOperationContext(), UrnUtils.getUrn(e.getUrn())))
+                    .collect(Collectors.toList());
+
             final ParentDomainsResult result = new ParentDomainsResult();
-            result.setCount(parentDomains.size());
-            result.setDomains(parentDomains);
+            result.setCount(viewable.size());
+            result.setDomains(viewable);
             return result;
           } catch (Exception e) {
             throw new RuntimeException(

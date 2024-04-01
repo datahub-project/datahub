@@ -8,6 +8,7 @@ import com.linkedin.common.DataPlatformInstance;
 import com.linkedin.common.Status;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
+import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.AdjustmentAlgorithm;
 import com.linkedin.datahub.graphql.generated.Assertion;
 import com.linkedin.datahub.graphql.generated.AssertionActionType;
@@ -43,10 +44,11 @@ import com.linkedin.metadata.Constants;
 import java.util.Collections;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 public class AssertionMapper {
 
-  public static Assertion map(final EntityResponse entityResponse) {
+  public static Assertion map(@Nullable QueryContext context, final EntityResponse entityResponse) {
     final Assertion result = new Assertion();
     final Urn entityUrn = entityResponse.getUrn();
     final EnvelopedAspectMap aspects = entityResponse.getAspects();
@@ -57,7 +59,8 @@ public class AssertionMapper {
     final EnvelopedAspect envelopedAssertionInfo =
         aspects.get(Constants.ASSERTION_INFO_ASPECT_NAME);
     if (envelopedAssertionInfo != null) {
-      result.setInfo(mapAssertionInfo(new AssertionInfo(envelopedAssertionInfo.getValue().data())));
+      result.setInfo(
+          mapAssertionInfo(context, new AssertionInfo(envelopedAssertionInfo.getValue().data())));
     }
 
     final EnvelopedAspect envelopedAssertionActions =
@@ -72,6 +75,7 @@ public class AssertionMapper {
     if (envelopedAssertionInferenceDetails != null) {
       result.setInferenceDetails(
           mapInferenceDetails(
+              context,
               new AssertionInferenceDetails(envelopedAssertionInferenceDetails.getValue().data())));
     }
 
@@ -81,7 +85,7 @@ public class AssertionMapper {
       final DataMap data = envelopedPlatformInstance.getValue().data();
       result.setPlatform(mapPlatform(new DataPlatformInstance(data)));
       result.setDataPlatformInstance(
-          DataPlatformInstanceAspectMapper.map(new DataPlatformInstance(data)));
+          DataPlatformInstanceAspectMapper.map(context, new DataPlatformInstance(data)));
     } else {
       final DataPlatform unknownPlatform = new DataPlatform();
       unknownPlatform.setUrn(Constants.UNKNOWN_DATA_PLATFORM);
@@ -104,19 +108,21 @@ public class AssertionMapper {
   }
 
   public static com.linkedin.datahub.graphql.generated.AssertionInferenceDetails
-      mapInferenceDetails(AssertionInferenceDetails gmsInferenceDetails) {
+      mapInferenceDetails(
+          @Nullable QueryContext context, AssertionInferenceDetails gmsInferenceDetails) {
     com.linkedin.datahub.graphql.generated.AssertionInferenceDetails inferenceDetails =
         new com.linkedin.datahub.graphql.generated.AssertionInferenceDetails();
 
     inferenceDetails.setModelId(gmsInferenceDetails.getModelId());
     inferenceDetails.setModelVersion(gmsInferenceDetails.getModelVersion());
     if (gmsInferenceDetails.hasParameters()) {
-      inferenceDetails.setParameters(StringMapMapper.map(gmsInferenceDetails.getParameters()));
+      inferenceDetails.setParameters(
+          StringMapMapper.map(context, gmsInferenceDetails.getParameters()));
     }
     inferenceDetails.setConfidence(gmsInferenceDetails.getConfidence());
     if (gmsInferenceDetails.hasAdjustmentSettings()) {
       inferenceDetails.setAdjustmentSettings(
-          mapAssertionAdjustmentSettings(gmsInferenceDetails.getAdjustmentSettings()));
+          mapAssertionAdjustmentSettings(context, gmsInferenceDetails.getAdjustmentSettings()));
     }
     inferenceDetails.setGeneratedAt(gmsInferenceDetails.getGeneratedAt());
 
@@ -125,6 +131,7 @@ public class AssertionMapper {
   }
 
   private static AssertionAdjustmentSettings mapAssertionAdjustmentSettings(
+      @Nullable QueryContext context,
       @Nonnull com.linkedin.assertion.AssertionAdjustmentSettings gmsAdjustmentSettings) {
 
     AssertionAdjustmentSettings adjustmentSettings = new AssertionAdjustmentSettings();
@@ -132,13 +139,14 @@ public class AssertionMapper {
         AdjustmentAlgorithm.valueOf(gmsAdjustmentSettings.getAlgorithm().name()));
     adjustmentSettings.setAlgorithmName(gmsAdjustmentSettings.getAlgorithmName());
     if (gmsAdjustmentSettings.hasContext()) {
-      adjustmentSettings.setContext(StringMapMapper.map(gmsAdjustmentSettings.getContext()));
+      adjustmentSettings.setContext(
+          StringMapMapper.map(context, gmsAdjustmentSettings.getContext()));
     }
     return adjustmentSettings;
   }
 
   public static com.linkedin.datahub.graphql.generated.AssertionInfo mapAssertionInfo(
-      final AssertionInfo gmsAssertionInfo) {
+      @Nullable QueryContext context, final AssertionInfo gmsAssertionInfo) {
     final com.linkedin.datahub.graphql.generated.AssertionInfo assertionInfo =
         new com.linkedin.datahub.graphql.generated.AssertionInfo();
     assertionInfo.setType(AssertionType.valueOf(gmsAssertionInfo.getType().name()));
@@ -151,7 +159,7 @@ public class AssertionMapper {
     }
     if (gmsAssertionInfo.hasDatasetAssertion()) {
       DatasetAssertionInfo datasetAssertion =
-          mapDatasetAssertionInfo(gmsAssertionInfo.getDatasetAssertion());
+          mapDatasetAssertionInfo(context, gmsAssertionInfo.getDatasetAssertion());
       assertionInfo.setDatasetAssertion(datasetAssertion);
     }
     // Description
@@ -162,13 +170,14 @@ public class AssertionMapper {
     if (gmsAssertionInfo.hasFreshnessAssertion()) {
       FreshnessAssertionInfo freshnessAssertionInfo =
           FreshnessAssertionMapper.mapFreshnessAssertionInfo(
-              gmsAssertionInfo.getFreshnessAssertion());
+              context, gmsAssertionInfo.getFreshnessAssertion());
       assertionInfo.setFreshnessAssertion(freshnessAssertionInfo);
     }
     // VOLUME Assertions
     if (gmsAssertionInfo.hasVolumeAssertion()) {
       VolumeAssertionInfo volumeAssertionInfo =
-          VolumeAssertionMapper.mapVolumeAssertionInfo(gmsAssertionInfo.getVolumeAssertion());
+          VolumeAssertionMapper.mapVolumeAssertionInfo(
+              context, gmsAssertionInfo.getVolumeAssertion());
       assertionInfo.setVolumeAssertion(volumeAssertionInfo);
     }
     // SQL Assertions
@@ -180,13 +189,13 @@ public class AssertionMapper {
     // FIELD Assertions
     if (gmsAssertionInfo.hasFieldAssertion()) {
       FieldAssertionInfo fieldAssertionInfo =
-          FieldAssertionMapper.mapFieldAssertionInfo(gmsAssertionInfo.getFieldAssertion());
+          FieldAssertionMapper.mapFieldAssertionInfo(context, gmsAssertionInfo.getFieldAssertion());
       assertionInfo.setFieldAssertion(fieldAssertionInfo);
     }
     // SCHEMA Assertions
     if (gmsAssertionInfo.hasSchemaAssertion()) {
       SchemaAssertionInfo schemaAssertionInfo =
-          mapSchemaAssertionInfo(gmsAssertionInfo.getSchemaAssertion());
+          mapSchemaAssertionInfo(context, gmsAssertionInfo.getSchemaAssertion());
       assertionInfo.setSchemaAssertion(schemaAssertionInfo);
     }
     // Source Type
@@ -224,6 +233,7 @@ public class AssertionMapper {
   }
 
   private static DatasetAssertionInfo mapDatasetAssertionInfo(
+      @Nullable QueryContext context,
       final com.linkedin.assertion.DatasetAssertionInfo gmsDatasetAssertion) {
     DatasetAssertionInfo datasetAssertion = new DatasetAssertionInfo();
     datasetAssertion.setDatasetUrn(gmsDatasetAssertion.getDataset().toString());
@@ -256,7 +266,7 @@ public class AssertionMapper {
     }
     if (gmsDatasetAssertion.hasNativeParameters()) {
       datasetAssertion.setNativeParameters(
-          StringMapMapper.map(gmsDatasetAssertion.getNativeParameters()));
+          StringMapMapper.map(context, gmsDatasetAssertion.getNativeParameters()));
     } else {
       datasetAssertion.setNativeParameters(Collections.emptyList());
     }
@@ -330,11 +340,12 @@ public class AssertionMapper {
   }
 
   private static SchemaAssertionInfo mapSchemaAssertionInfo(
+      @Nullable final QueryContext context,
       final com.linkedin.assertion.SchemaAssertionInfo gmsSchemaAssertionInfo) {
     SchemaAssertionInfo result = new SchemaAssertionInfo();
     result.setEntityUrn(gmsSchemaAssertionInfo.getEntity().toString());
     result.setSchema(
-        SchemaMetadataMapper.INSTANCE.apply(gmsSchemaAssertionInfo.getSchema(), null, 0L));
+        SchemaMetadataMapper.INSTANCE.apply(context, gmsSchemaAssertionInfo.getSchema(), null, 0L));
     return result;
   }
 

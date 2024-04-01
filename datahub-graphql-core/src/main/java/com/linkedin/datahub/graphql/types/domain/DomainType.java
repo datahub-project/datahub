@@ -1,5 +1,7 @@
 package com.linkedin.datahub.graphql.types.domain;
 
+import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
+
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -19,7 +21,6 @@ import com.linkedin.metadata.query.filter.Filter;
 import graphql.execution.DataFetcherResult;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -73,11 +74,13 @@ public class DomainType
       final Map<Urn, EntityResponse> entities =
           _entityClient.batchGetV2(
               Constants.DOMAIN_ENTITY_NAME,
-              new HashSet<>(domainUrns),
+              domainUrns.stream()
+                  .filter(urn -> canView(context.getOperationContext(), urn))
+                  .collect(Collectors.toSet()),
               ASPECTS_TO_FETCH,
               context.getAuthentication());
 
-      final List<EntityResponse> gmsResults = new ArrayList<>();
+      final List<EntityResponse> gmsResults = new ArrayList<>(urns.size());
       for (Urn urn : domainUrns) {
         gmsResults.add(entities.getOrDefault(urn, null));
       }
@@ -87,7 +90,7 @@ public class DomainType
                   gmsResult == null
                       ? null
                       : DataFetcherResult.<Domain>newResult()
-                          .data(DomainMapper.map(gmsResult))
+                          .data(DomainMapper.map(context, gmsResult))
                           .build())
           .collect(Collectors.toList());
     } catch (Exception e) {
@@ -118,7 +121,7 @@ public class DomainType
     final AutoCompleteResult result =
         _entityClient.autoComplete(
             context.getOperationContext(), Constants.DOMAIN_ENTITY_NAME, query, filters, limit);
-    return AutoCompleteResultsMapper.map(result);
+    return AutoCompleteResultsMapper.map(context, result);
   }
 
   private Urn getUrn(final String urnStr) {

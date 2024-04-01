@@ -21,7 +21,6 @@ import com.linkedin.datahub.graphql.generated.AssertionStdParametersInput;
 import com.linkedin.datahub.graphql.generated.DatasetFilterInput;
 import com.linkedin.datahub.graphql.generated.SchemaFieldSpecInput;
 import com.linkedin.datahub.graphql.generated.TestAssertionInput;
-import com.linkedin.datahub.graphql.resolvers.AuthUtils;
 import com.linkedin.dataset.DatasetFilterType;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import java.util.stream.Collectors;
@@ -118,7 +117,7 @@ public class AssertionUtils {
     final DisjunctivePrivilegeGroup orPrivilegeGroups =
         new DisjunctivePrivilegeGroup(
             ImmutableList.of(
-                AuthUtils.ALL_PRIVILEGES_GROUP,
+                AuthorizationUtils.ALL_PRIVILEGES_GROUP,
                 new ConjunctivePrivilegeGroup(
                     ImmutableList.of(PoliciesConfig.EDIT_ENTITY_ASSERTIONS_PRIVILEGE.getType()))));
     return AuthorizationUtils.isAuthorized(

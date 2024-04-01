@@ -79,7 +79,9 @@ public class MonitorType implements com.linkedin.datahub.graphql.types.EntityTyp
                   gmsResult == null
                       ? null
                       : DataFetcherResult.<Monitor>newResult()
-                          .data(injectMonitorExecutorId(MonitorMapper.map(gmsResult), context))
+                          .data(
+                              injectMonitorExecutorId(
+                                  MonitorMapper.map(context, gmsResult), context))
                           .build())
           .collect(Collectors.toList());
     } catch (Exception e) {

@@ -1,14 +1,16 @@
 package com.linkedin.datahub.graphql.resolvers.monitor;
 
-import static com.linkedin.datahub.graphql.resolvers.AuthUtils.*;
+import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.ALL_PRIVILEGES_GROUP;
+import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.isAuthorized;
 
+import com.datahub.authorization.AuthUtil;
 import com.datahub.authorization.ConjunctivePrivilegeGroup;
 import com.datahub.authorization.DisjunctivePrivilegeGroup;
+import com.datahub.authorization.EntitySpec;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
-import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.authorization.PoliciesConfig;
@@ -17,7 +19,6 @@ import com.linkedin.r2.RemoteInvocationException;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import lombok.extern.slf4j.Slf4j;
 
@@ -91,9 +92,12 @@ public class DeleteMonitorResolver implements DataFetcher<CompletableFuture<Bool
                 ALL_PRIVILEGES_GROUP,
                 new ConjunctivePrivilegeGroup(
                     ImmutableList.of(PoliciesConfig.EDIT_ENTITY_MONITORS.getType()))));
-    return AuthorizationUtils.isAuthorized(
-            context, Optional.empty(), PoliciesConfig.MANAGE_MONITORS)
-        || AuthorizationUtils.isAuthorized(
+    return AuthUtil.isAuthorized(
+            context.getAuthorizer(),
+            context.getActorUrn(),
+            PoliciesConfig.MANAGE_MONITORS,
+            new EntitySpec(entityUrn.getEntityType(), entityUrn.toString()))
+        || isAuthorized(
             context.getAuthorizer(),
             context.getActorUrn(),
             entityUrn.getEntityType(),

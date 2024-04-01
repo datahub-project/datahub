@@ -3,6 +3,7 @@ package com.linkedin.datahub.graphql.types.anomaly;
 import com.linkedin.anomaly.AnomalyInfo;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.GetMode;
+import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.Anomaly;
 import com.linkedin.datahub.graphql.generated.AnomalyReview;
 import com.linkedin.datahub.graphql.generated.AnomalyReviewState;
@@ -18,11 +19,13 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.metadata.Constants;
+import javax.annotation.Nullable;
 
 /** Maps a GMS {@link EntityResponse} to a GraphQL Anomaly. */
 public class AnomalyMapper {
 
-  public static Anomaly map(final EntityResponse entityResponse) {
+  public static Anomaly map(
+      @Nullable final QueryContext context, final EntityResponse entityResponse) {
     final Anomaly result = new Anomaly();
     final Urn entityUrn = entityResponse.getUrn();
     final EnvelopedAspectMap aspects = entityResponse.getAspects();
@@ -36,45 +39,50 @@ public class AnomalyMapper {
       if (info.hasDescription()) {
         result.setDescription(info.getDescription(GetMode.NULL));
       }
-      result.setEntity(UrnToEntityMapper.map(info.getEntity()));
+      result.setEntity(UrnToEntityMapper.map(context, info.getEntity()));
       if (info.hasSeverity()) {
         result.setSeverity(info.getSeverity(GetMode.NULL));
       }
-      result.setStatus(mapStatus(info.getStatus()));
-      result.setReview(mapReview(info.getReview()));
+      result.setStatus(mapStatus(context, info.getStatus()));
+      result.setReview(mapReview(context, info.getReview()));
       if (info.hasSource()) {
-        result.setSource(mapAnomalySource(info.getSource()));
+        result.setSource(mapAnomalySource(context, info.getSource()));
       }
-      result.setCreated(AuditStampMapper.map(info.getCreated()));
+      result.setCreated(AuditStampMapper.map(context, info.getCreated()));
     } else {
       throw new RuntimeException(String.format("Anomaly does not exist!. urn: %s", entityUrn));
     }
     return result;
   }
 
-  private static AnomalyStatus mapStatus(final com.linkedin.anomaly.AnomalyStatus anomalyStatus) {
+  private static AnomalyStatus mapStatus(
+      @Nullable final QueryContext context,
+      final com.linkedin.anomaly.AnomalyStatus anomalyStatus) {
     final AnomalyStatus result = new AnomalyStatus();
     result.setState(AnomalyState.valueOf(anomalyStatus.getState().name()));
-    result.setLastUpdated(AuditStampMapper.map(anomalyStatus.getLastUpdated()));
+    result.setLastUpdated(AuditStampMapper.map(context, anomalyStatus.getLastUpdated()));
     return result;
   }
 
-  private static AnomalyReview mapReview(final com.linkedin.anomaly.AnomalyReview anomalyReview) {
+  private static AnomalyReview mapReview(
+      @Nullable final QueryContext context,
+      final com.linkedin.anomaly.AnomalyReview anomalyReview) {
     final AnomalyReview result = new AnomalyReview();
     result.setState(AnomalyReviewState.valueOf(anomalyReview.getState().name()));
     if (anomalyReview.hasMessage()) {
       result.setMessage(anomalyReview.getMessage(GetMode.NULL));
     }
-    result.setLastUpdated(AuditStampMapper.map(anomalyReview.getLastUpdated()));
+    result.setLastUpdated(AuditStampMapper.map(context, anomalyReview.getLastUpdated()));
     return result;
   }
 
   private static AnomalySource mapAnomalySource(
+      @Nullable final QueryContext context,
       final com.linkedin.anomaly.AnomalySource anomalySource) {
     final AnomalySource result = new AnomalySource();
     result.setType(AnomalySourceType.valueOf(anomalySource.getType().name()));
     if (anomalySource.hasSourceUrn()) {
-      result.setSource(UrnToEntityMapper.map(anomalySource.getSourceUrn()));
+      result.setSource(UrnToEntityMapper.map(context, anomalySource.getSourceUrn()));
     }
     return result;
   }

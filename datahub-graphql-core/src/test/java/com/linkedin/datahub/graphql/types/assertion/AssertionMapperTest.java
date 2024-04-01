@@ -51,14 +51,14 @@ public class AssertionMapperTest {
     // Case 1: Without nullable fields
     AssertionInfo input = createFreshnessAssertionInfoWithoutNullableFields();
     EntityResponse datasetAssertionEntityResponse = createAssertionInfoEntityResponse(input, null);
-    Assertion output = AssertionMapper.map(datasetAssertionEntityResponse);
+    Assertion output = AssertionMapper.map(null, datasetAssertionEntityResponse);
     verifyAssertionInfo(input, output);
 
     // Case 2: With nullable fields
     input = createFreshnessAssertionInfoWithNullableFields();
     EntityResponse datasetAssertionEntityResponseWithNullables =
         createAssertionInfoEntityResponse(input, null);
-    output = AssertionMapper.map(datasetAssertionEntityResponseWithNullables);
+    output = AssertionMapper.map(null, datasetAssertionEntityResponseWithNullables);
     verifyAssertionInfo(input, output);
   }
 
@@ -96,7 +96,7 @@ public class AssertionMapperTest {
         createAssertionInferenceDetailsWithoutNullableFields();
     EntityResponse freshnessAssertionEntityResponse =
         createAssertionInfoEntityResponse(inputInfo, inputInferenceDetails);
-    Assertion output = AssertionMapper.map(freshnessAssertionEntityResponse);
+    Assertion output = AssertionMapper.map(null, freshnessAssertionEntityResponse);
     verifyAssertionInfo(inputInfo, output);
     verifyAssertionInferenceDetails(inputInferenceDetails, output.getInferenceDetails());
 
@@ -105,7 +105,7 @@ public class AssertionMapperTest {
     inputInferenceDetails = createAssertionInferenceDetailsWithNullableFields();
     EntityResponse freshnessAssertionEntityResponseWithNullables =
         createAssertionInfoEntityResponse(inputInfo, inputInferenceDetails);
-    output = AssertionMapper.map(freshnessAssertionEntityResponseWithNullables);
+    output = AssertionMapper.map(null, freshnessAssertionEntityResponseWithNullables);
     verifyAssertionInfo(inputInfo, output);
     verifyAssertionInferenceDetails(inputInferenceDetails, output.getInferenceDetails());
   }
@@ -154,7 +154,7 @@ public class AssertionMapperTest {
   public void testMapDataSchemaAssertion() {
     AssertionInfo input = createSchemaAssertion();
     EntityResponse schemaAssertionEntityResponse = createAssertionInfoEntityResponse(input, null);
-    Assertion output = AssertionMapper.map(schemaAssertionEntityResponse);
+    Assertion output = AssertionMapper.map(null, schemaAssertionEntityResponse);
     verifyAssertionInfo(input, output);
   }
 

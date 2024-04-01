@@ -79,6 +79,7 @@ public class UpdateDatasetAssertionResolver implements DataFetcher<CompletableFu
 
             // Then, return the new assertion
             return AssertionMapper.map(
+                context,
                 _assertionService.getAssertionEntityResponse(
                     assertionUrn, context.getAuthentication()));
           }

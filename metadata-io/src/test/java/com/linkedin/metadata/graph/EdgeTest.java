@@ -3,6 +3,7 @@ package com.linkedin.metadata.graph;
 import static org.testng.Assert.*;
 
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.metadata.aspect.models.graph.Edge;
 import java.util.Collections;
 import org.testng.annotations.Test;
 

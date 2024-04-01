@@ -11,6 +11,7 @@ import { decodeUrn } from '../shared/utils';
 import UserInfoSideBar from './UserInfoSideBar';
 import { useEntityRegistry } from '../../useEntityRegistry';
 import { ErrorSection } from '../../shared/error/ErrorSection';
+import NonExistentEntityPage from '../shared/entity/NonExistentEntityPage';
 import { UserSubscriptions } from './UserSubscriptions';
 
 export interface Props {
@@ -124,6 +125,11 @@ export default function UserProfile() {
         dataHubRoles: userRoles,
         urn,
     };
+
+    if (data?.corpUser?.exists === false) {
+        return <NonExistentEntityPage />;
+    }
+
     return (
         <>
             {error && <ErrorSection />}

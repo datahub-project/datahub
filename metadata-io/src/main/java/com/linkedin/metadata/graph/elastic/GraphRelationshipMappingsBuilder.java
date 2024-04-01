@@ -1,5 +1,7 @@
 package com.linkedin.metadata.graph.elastic;
 
+import static com.linkedin.metadata.aspect.models.graph.Edge.*;
+
 import com.google.common.collect.ImmutableMap;
 import java.util.HashMap;
 import java.util.Map;
@@ -7,12 +9,6 @@ import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 public class GraphRelationshipMappingsBuilder {
-  public static final String EDGE_FIELD_SOURCE = "source";
-  public static final String EDGE_FIELD_DESTINATION = "destination";
-  public static final String EDGE_FIELD_RELNSHIP_TYPE = "relationshipType";
-  public static final String EDGE_FIELD_PROPERTIES = "properties";
-  public static final String EDGE_FIELD_VIA = "via";
-  public static final String EDGE_FIELD_LIFECYCLE_OWNER = "lifecycleOwner";
 
   private GraphRelationshipMappingsBuilder() {}
 

@@ -49,7 +49,8 @@ public class GetFormsForActorResolver
     if (environment.getArgument("input") != null) {
       input = bindArgument(environment.getArgument("input"), GetFormsForActorInput.class);
     }
-    final SearchFlags searchFlags = input != null ? mapInputFlags(input.getSearchFlags()) : null;
+    final SearchFlags searchFlags =
+        input != null ? mapInputFlags(context, input.getSearchFlags()) : null;
 
     return CompletableFuture.supplyAsync(
         () -> {

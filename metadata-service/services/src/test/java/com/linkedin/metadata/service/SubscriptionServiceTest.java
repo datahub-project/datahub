@@ -19,8 +19,6 @@ import com.linkedin.event.notification.NotificationSinkType;
 import com.linkedin.event.notification.NotificationSinkTypeArray;
 import com.linkedin.event.notification.settings.NotificationSettings;
 import com.linkedin.metadata.entity.AspectUtils;
-import com.linkedin.metadata.models.registry.EntityRegistry;
-import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
@@ -117,14 +115,14 @@ public class SubscriptionServiceTest {
     _entityClient = mock(EntityClient.class);
     this.opContext =
         TestOperationContexts.userContextNoSearchAuthorization(
-            mock(EntityRegistry.class), Authorizer.EMPTY, SYSTEM_AUTHENTICATION);
+            Authorizer.EMPTY, SYSTEM_AUTHENTICATION);
     _subscriptionService =
         new SubscriptionService(opContext, _entityClient, mock(OpenApiClient.class));
   }
 
   @Test
   public void testCreateSubscriptionMissingActor() throws Exception {
-    when(_entityClient.exists(eq(USER_URN), eq(SYSTEM_AUTHENTICATION))).thenReturn(false);
+    when(_entityClient.exists(eq(USER_URN), any())).thenReturn(false);
 
     assertThrows(
         () ->
@@ -139,8 +137,8 @@ public class SubscriptionServiceTest {
 
   @Test
   public void testCreateSubscriptionMissingEntity() throws Exception {
-    when(_entityClient.exists(eq(USER_URN), eq(SYSTEM_AUTHENTICATION))).thenReturn(true);
-    when(_entityClient.exists(eq(ENTITY_URN_1), eq(SYSTEM_AUTHENTICATION))).thenReturn(false);
+    when(_entityClient.exists(eq(USER_URN), any())).thenReturn(true);
+    when(_entityClient.exists(eq(ENTITY_URN_1), any())).thenReturn(false);
 
     assertThrows(
         () ->
@@ -155,7 +153,7 @@ public class SubscriptionServiceTest {
 
   @Test
   public void testCreateSubscriptionInvalidActorType() throws Exception {
-    when(_entityClient.exists(eq(ENTITY_URN_1), eq(SYSTEM_AUTHENTICATION))).thenReturn(true);
+    when(_entityClient.exists(eq(ENTITY_URN_1), any())).thenReturn(true);
 
     assertThrows(
         () ->
@@ -196,10 +194,9 @@ public class SubscriptionServiceTest {
     when(_entityClient.exists(eq(USER_URN), any())).thenReturn(true);
     when(_entityClient.exists(eq(ENTITY_URN_1), any())).thenReturn(true);
     when(_entityClient.filter(
-            any(), eq(SUBSCRIPTION_ENTITY_NAME), nullable(Filter.class), any(), anyInt(), anyInt()))
+            any(), eq(SUBSCRIPTION_ENTITY_NAME), any(), any(), anyInt(), anyInt()))
         .thenReturn(new SearchResult().setEntities(new SearchEntityArray()));
-    when(_entityClient.ingestProposal(
-            any(MetadataChangeProposal.class), eq(SYSTEM_AUTHENTICATION), anyBoolean()))
+    when(_entityClient.ingestProposal(any(MetadataChangeProposal.class), any(), anyBoolean()))
         .thenReturn(SUBSCRIPTION_URN_1_STRING);
 
     final Map.Entry<Urn, SubscriptionInfo> subscription =
@@ -232,12 +229,9 @@ public class SubscriptionServiceTest {
 
   @Test
   public void testGetSubscriptionInfoMissingEntityResponse() throws Exception {
-    when(_entityClient.exists(eq(SUBSCRIPTION_URN_1), eq(SYSTEM_AUTHENTICATION))).thenReturn(true);
+    when(_entityClient.exists(eq(SUBSCRIPTION_URN_1), any())).thenReturn(true);
     when(_entityClient.getV2(
-            eq(SUBSCRIPTION_ENTITY_NAME),
-            eq(SUBSCRIPTION_URN_1),
-            eq(SUBSCRIPTION_ASPECTS),
-            eq(SYSTEM_AUTHENTICATION)))
+            eq(SUBSCRIPTION_ENTITY_NAME), eq(SUBSCRIPTION_URN_1), eq(SUBSCRIPTION_ASPECTS), any()))
         .thenReturn(null);
 
     assertThrows(
@@ -246,12 +240,9 @@ public class SubscriptionServiceTest {
 
   @Test
   public void testGetSubscriptionInfo() throws Exception {
-    when(_entityClient.exists(eq(SUBSCRIPTION_URN_1), eq(SYSTEM_AUTHENTICATION))).thenReturn(true);
+    when(_entityClient.exists(eq(SUBSCRIPTION_URN_1), any())).thenReturn(true);
     when(_entityClient.getV2(
-            eq(SUBSCRIPTION_ENTITY_NAME),
-            eq(SUBSCRIPTION_URN_1),
-            eq(SUBSCRIPTION_ASPECTS),
-            eq(SYSTEM_AUTHENTICATION)))
+            eq(SUBSCRIPTION_ENTITY_NAME), eq(SUBSCRIPTION_URN_1), eq(SUBSCRIPTION_ASPECTS), any()))
         .thenReturn(ENTITY_RESPONSE_1);
 
     assertEquals(
@@ -261,7 +252,7 @@ public class SubscriptionServiceTest {
 
   @Test
   public void testUpdateSubscriptionMissingSubscription() throws Exception {
-    when(_entityClient.exists(eq(SUBSCRIPTION_URN_1), eq(SYSTEM_AUTHENTICATION))).thenReturn(false);
+    when(_entityClient.exists(eq(SUBSCRIPTION_URN_1), any())).thenReturn(false);
 
     assertThrows(
         () ->
@@ -277,7 +268,7 @@ public class SubscriptionServiceTest {
 
   @Test
   public void testUpdateSubscription() throws Exception {
-    when(_entityClient.exists(eq(SUBSCRIPTION_URN_1), eq(SYSTEM_AUTHENTICATION))).thenReturn(true);
+    when(_entityClient.exists(eq(SUBSCRIPTION_URN_1), any())).thenReturn(true);
 
     final Map.Entry<Urn, SubscriptionInfo> subscription =
         _subscriptionService.updateSubscription(
@@ -290,13 +281,13 @@ public class SubscriptionServiceTest {
             SYSTEM_AUTHENTICATION);
 
     verify(_entityClient, times(1))
-        .ingestProposal(any(MetadataChangeProposal.class), eq(SYSTEM_AUTHENTICATION), anyBoolean());
+        .ingestProposal(any(MetadataChangeProposal.class), any(), anyBoolean());
     assertEquals(subscription, Map.entry(SUBSCRIPTION_URN_1, SUBSCRIPTION_INFO_1));
   }
 
   @Test
   public void testgetSubscriptionSearchResultMissingActor() throws Exception {
-    when(_entityClient.exists(eq(USER_URN), eq(SYSTEM_AUTHENTICATION))).thenReturn(false);
+    when(_entityClient.exists(eq(USER_URN), any())).thenReturn(false);
 
     assertThrows(
         () ->
@@ -306,7 +297,7 @@ public class SubscriptionServiceTest {
 
   @Test
   public void testListSubscriptionsNoSearchResults() throws Exception {
-    when(_entityClient.exists(eq(USER_URN), eq(SYSTEM_AUTHENTICATION))).thenReturn(true);
+    when(_entityClient.exists(eq(USER_URN), any())).thenReturn(true);
     when(_entityClient.filter(
             any(), eq(SUBSCRIPTION_ENTITY_NAME), any(), any(), anyInt(), anyInt()))
         .thenReturn(new SearchResult().setEntities(new SearchEntityArray()));
@@ -320,7 +311,7 @@ public class SubscriptionServiceTest {
 
   @Test
   public void testListSubscriptions() throws Exception {
-    when(_entityClient.exists(eq(USER_URN), eq(SYSTEM_AUTHENTICATION))).thenReturn(true);
+    when(_entityClient.exists(eq(USER_URN), any())).thenReturn(true);
     when(_entityClient.filter(
             any(), eq(SUBSCRIPTION_ENTITY_NAME), any(), any(), anyInt(), anyInt()))
         .thenReturn(
@@ -330,10 +321,7 @@ public class SubscriptionServiceTest {
                         new SearchEntity().setEntity(SUBSCRIPTION_URN_1),
                         new SearchEntity().setEntity(SUBSCRIPTION_URN_2))));
     when(_entityClient.batchGetV2(
-            eq(SUBSCRIPTION_ENTITY_NAME),
-            eq(SUBSCRIPTION_URNS),
-            eq(SUBSCRIPTION_ASPECTS),
-            eq(SYSTEM_AUTHENTICATION)))
+            eq(SUBSCRIPTION_ENTITY_NAME), eq(SUBSCRIPTION_URNS), eq(SUBSCRIPTION_ASPECTS), any()))
         .thenReturn(
             ImmutableMap.of(
                 SUBSCRIPTION_URN_1, ENTITY_RESPONSE_1,

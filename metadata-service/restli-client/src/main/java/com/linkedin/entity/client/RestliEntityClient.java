@@ -839,8 +839,20 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
   @Override
   public boolean exists(@Nonnull Urn urn, @Nonnull final Authentication authentication)
       throws RemoteInvocationException {
+    return exists(urn, true, authentication);
+  }
+
+  @Override
+  public boolean exists(
+      @Nonnull Urn urn,
+      @Nonnull Boolean includeSoftDeleted,
+      @Nonnull final Authentication authentication)
+      throws RemoteInvocationException {
     EntitiesDoExistsRequestBuilder requestBuilder =
-        ENTITIES_REQUEST_BUILDERS.actionExists().urnParam(urn.toString());
+        ENTITIES_REQUEST_BUILDERS
+            .actionExists()
+            .urnParam(urn.toString())
+            .includeSoftDeleteParam(includeSoftDeleted);
     return sendClientRequest(requestBuilder, authentication).getEntity();
   }
 

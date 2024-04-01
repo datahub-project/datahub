@@ -234,7 +234,9 @@ export default function IncidentListItem({ incident, refetch }: Props) {
                                     <>
                                         <IncidentDescriptionLabel>Resolution Note</IncidentDescriptionLabel>
                                         <IncidentDescriptionText>{incident?.status.message || 'No additional details'}</IncidentDescriptionText>
-                                    </> : null}
+                                    </>
+                                    : null
+                                }
                             </DescriptionContainer>
                             <DescriptionContainer>
                                 <Tooltip placement="right" showArrow={false} title={toLocalDateTimeString(createdDate)}>

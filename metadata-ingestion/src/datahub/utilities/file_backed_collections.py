@@ -126,6 +126,7 @@ class ConnectionWrapper:
     def close(self) -> None:
         for obj in self._dependent_objects:
             obj.close()
+        self._dependent_objects.clear()
         with self.conn_lock:
             self.conn.close()
         if self._temp_directory:
@@ -440,7 +441,7 @@ class FileBackedDict(MutableMapping[str, _VT], Closeable, Generic[_VT]):
         self.close()
 
 
-class FileBackedList(Generic[_VT]):
+class FileBackedList(Generic[_VT], Closeable):
     """An append-only, list-like object that stores its contents in a SQLite database."""
 
     _len: int = field(default=0)
@@ -456,7 +457,6 @@ class FileBackedList(Generic[_VT]):
         cache_max_size: Optional[int] = None,
         cache_eviction_batch_size: Optional[int] = None,
     ) -> None:
-        self._len = 0
         self._dict = FileBackedDict[_VT](
             shared_connection=shared_connection,
             tablename=tablename,
@@ -467,6 +467,12 @@ class FileBackedList(Generic[_VT]):
             cache_eviction_batch_size=cache_eviction_batch_size
             or _DEFAULT_MEMORY_CACHE_EVICTION_BATCH_SIZE,
         )
+
+        if shared_connection:
+            shared_connection._dependent_objects.append(self)
+
+        # In case we're reusing an existing list, we need to run a query to get the length.
+        self._len = len(self._dict)
 
     @property
     def tablename(self) -> str:

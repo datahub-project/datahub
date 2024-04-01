@@ -8,7 +8,7 @@ const FeatureCard = ({icon, title, description, to}) => {
 return (
     <div className="col col--4">
       <Link to={useBaseUrl(to)} className={clsx("card", styles.feature)}>
-        <div> 
+        <div className={styles.card_content}>
           {icon}
           <strong>{title}&nbsp;→</strong>
           <span>{description}</span>

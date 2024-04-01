@@ -578,7 +578,7 @@ def test_lookml_git_info(pytestconfig, tmp_path, mock_time):
                     "parse_table_names_from_sql": True,
                     "project_name": "lkml_samples",
                     "model_pattern": {"deny": ["data2"]},
-                    "github_info": {"repo": "datahub/looker-demo", "branch": "master"},
+                    "git_info": {"repo": "datahub/looker-demo", "branch": "master"},
                     "emit_reachable_views_only": False,
                     "process_refinements": False,
                 },
@@ -693,7 +693,7 @@ def test_hive_platform_drops_ids(pytestconfig, tmp_path, mock_time):
                     "parse_table_names_from_sql": True,
                     "project_name": "lkml_samples",
                     "model_pattern": {"deny": ["data2"]},
-                    "github_info": {"repo": "datahub/looker-demo", "branch": "master"},
+                    "git_info": {"repo": "datahub/looker-demo", "branch": "master"},
                     "emit_reachable_views_only": False,
                     "process_refinements": False,
                 },
@@ -791,7 +791,7 @@ def test_lookml_base_folder():
 
     LookMLSourceConfig.parse_obj(
         {
-            "github_info": {
+            "git_info": {
                 "repo": "acryldata/long-tail-companions-looker",
                 "deploy_key": "this-is-fake",
             },

@@ -1,0 +1,39 @@
+# id: sample_data_contract # Optional: if not provided, an id will be generated
+entity: urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)
+version: 1
+freshness:
+  type: cron
+  cron: "4 8 * * 1-5"
+data_quality:
+  - type: unique
+    column: field_foo
+## here's an example of how you'd define the schema
+# schema:
+#   type: json-schema
+#   json-schema:
+#     type: object
+#     properties:
+#       field_foo:
+#         type: string
+#         native_type: VARCHAR(100)
+#       field_bar:
+#         type: boolean
+#         native_type: boolean
+#       field_documents:
+#         type: array
+#         items:
+#           type: object
+#           properties:
+#             docId:
+#               type: object
+#               properties:
+#                 docPolicy:
+#                   type: object
+#                   properties:
+#                     policyId:
+#                       type: integer
+#                     fileId:
+#                       type: integer
+#     required:
+#       - field_bar
+#       - field_documents

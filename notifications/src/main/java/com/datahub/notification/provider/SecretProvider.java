@@ -9,9 +9,9 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
-import com.linkedin.metadata.secret.SecretService;
 import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.secret.DataHubSecretValue;
+import io.datahubproject.metadata.services.SecretService;
 import java.net.URISyntaxException;
 import java.util.concurrent.TimeUnit;
 

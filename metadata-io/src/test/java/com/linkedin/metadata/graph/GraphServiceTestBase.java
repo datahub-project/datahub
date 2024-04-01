@@ -11,6 +11,8 @@ import com.linkedin.common.urn.DataJobUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.schema.annotation.PathSpecBasedSchemaAnnotationVisitor;
+import com.linkedin.metadata.aspect.models.graph.Edge;
+import com.linkedin.metadata.aspect.models.graph.RelatedEntity;
 import com.linkedin.metadata.config.search.GraphQueryConfiguration;
 import com.linkedin.metadata.graph.dgraph.DgraphGraphService;
 import com.linkedin.metadata.graph.neo4j.Neo4jGraphService;
@@ -42,8 +44,6 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.testng.Assert;
 import org.testng.annotations.BeforeMethod;
@@ -66,11 +66,11 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
   protected static class RelatedEntityComparator implements Comparator<RelatedEntity> {
     @Override
     public int compare(RelatedEntity left, RelatedEntity right) {
-      int cmp = left.relationshipType.compareTo(right.relationshipType);
+      int cmp = left.getRelationshipType().compareTo(right.getRelationshipType());
       if (cmp != 0) {
         return cmp;
       }
-      return left.urn.compareTo(right.urn);
+      return left.getUrn().compareTo(right.getUrn());
     }
   }
 
@@ -177,6 +177,21 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
           dataset19Urn,
           dataset20Urn);
 
+  protected static final String schemaFieldUrn1String =
+      "urn:li:schemaField:(" + dataset5UrnString + ",fieldOne)";
+  protected static final String schemaFieldUrn2String =
+      "urn:li:schemaField:(" + dataset4UrnString + ",fieldTwo)";
+
+  protected static final String lifeCycleOwner1String =
+      "urn:li:dataJob:(urn:li:dataFlow:(fivetran,calendar_elected,PROD),calendar_elected)";
+  protected static final String lifeCycleOwner2String =
+      "urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)";
+
+  protected static final Urn schemaFieldUrnOne = createFromString(schemaFieldUrn1String);
+  protected static final Urn schemaFieldUrnTwo = createFromString(schemaFieldUrn2String);
+  protected static final Urn lifeCycleOwnerOne = createFromString(lifeCycleOwner1String);
+  protected static final Urn lifeCycleOwnerTwo = createFromString(lifeCycleOwner2String);
+
   protected static String unknownUrnString = "urn:li:unknown:(urn:li:unknown:Unknown)";
 
   /** Some dataset owners. */
@@ -218,6 +233,14 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
       new RelatedEntity(downstreamOf, dataset3UrnString);
   protected static RelatedEntity downstreamOfDatasetFourRelatedEntity =
       new RelatedEntity(downstreamOf, dataset4UrnString);
+  protected static final RelatedEntity downstreamOfSchemaFieldOneVia =
+      new RelatedEntity(downstreamOf, schemaFieldUrn1String, lifeCycleOwner1String);
+  protected static final RelatedEntity downstreamOfSchemaFieldOne =
+      new RelatedEntity(downstreamOf, schemaFieldUrn1String);
+  protected static final RelatedEntity downstreamOfSchemaFieldTwoVia =
+      new RelatedEntity(downstreamOf, schemaFieldUrn2String, lifeCycleOwner1String);
+  protected static final RelatedEntity downstreamOfSchemaFieldTwo =
+      new RelatedEntity(downstreamOf, schemaFieldUrn2String);
 
   protected static RelatedEntity hasOwnerDatasetOneRelatedEntity =
       new RelatedEntity(hasOwner, dataset1UrnString);
@@ -324,7 +347,29 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
             new Edge(dataset3Urn, userTwoUrn, hasOwner, null, null, null, null, null),
             new Edge(dataset4Urn, userTwoUrn, hasOwner, null, null, null, null, null),
             new Edge(userOneUrn, userTwoUrn, knowsUser, null, null, null, null, null),
-            new Edge(userTwoUrn, userOneUrn, knowsUser, null, null, null, null, null));
+            new Edge(userTwoUrn, userOneUrn, knowsUser, null, null, null, null, null),
+            new Edge(
+                schemaFieldUrnOne,
+                schemaFieldUrnTwo,
+                downstreamOf,
+                0L,
+                null,
+                0L,
+                null,
+                null,
+                lifeCycleOwnerOne,
+                lifeCycleOwnerOne),
+            new Edge(
+                schemaFieldUrnOne,
+                schemaFieldUrnTwo,
+                downstreamOf,
+                0L,
+                null,
+                0L,
+                null,
+                null,
+                lifeCycleOwnerTwo,
+                null));
 
     edges.forEach(service::addEdge);
     syncAfterWrite();
@@ -492,12 +537,14 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
             outgoingRelationships,
             0,
             100);
+    // All downstreamOf, hasOwner, or knowsUser relationships, outgoing
     assertEqualsAnyOrder(
         relatedOutgoingEntitiesBeforeRemove,
         Arrays.asList(
             downstreamOfDatasetOneRelatedEntity, downstreamOfDatasetTwoRelatedEntity,
             hasOwnerUserOneRelatedEntity, hasOwnerUserTwoRelatedEntity,
-            knowsUserOneRelatedEntity, knowsUserTwoRelatedEntity));
+            knowsUserOneRelatedEntity, knowsUserTwoRelatedEntity,
+            downstreamOfSchemaFieldTwoVia, downstreamOfSchemaFieldTwo));
     RelatedEntitiesResult relatedIncomingEntitiesBeforeRemove =
         service.findRelatedEntities(
             anyType,
@@ -508,6 +555,7 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
             incomingRelationships,
             0,
             100);
+    // All downstreamOf, hasOwner, or knowsUser relationships, incoming
     assertEqualsAnyOrder(
         relatedIncomingEntitiesBeforeRemove,
         Arrays.asList(
@@ -519,7 +567,42 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
             hasOwnerDatasetThreeRelatedEntity,
             hasOwnerDatasetFourRelatedEntity,
             knowsUserOneRelatedEntity,
-            knowsUserTwoRelatedEntity));
+            knowsUserTwoRelatedEntity,
+            downstreamOfSchemaFieldOneVia,
+            downstreamOfSchemaFieldOne));
+    EntityLineageResult viaNodeResult =
+        service.getLineage(
+            schemaFieldUrnOne,
+            LineageDirection.UPSTREAM,
+            new GraphFilters(List.of("schemaField")),
+            0,
+            1000,
+            100,
+            null);
+    // Multi-path enabled
+    assertEquals(viaNodeResult.getRelationships().size(), 2);
+    // First one is via node
+    assertTrue(
+        viaNodeResult.getRelationships().get(0).getPaths().get(0).contains(lifeCycleOwnerOne));
+    EntityLineageResult viaNodeResultNoMulti =
+        getGraphService(false)
+            .getLineage(
+                schemaFieldUrnOne,
+                LineageDirection.UPSTREAM,
+                new GraphFilters(List.of("schemaField")),
+                0,
+                1000,
+                100,
+                null);
+
+    // Multi-path disabled, still has two because via flow creates both edges in response
+    assertEquals(viaNodeResultNoMulti.getRelationships().size(), 2);
+    // First one is via node
+    assertTrue(
+        viaNodeResult.getRelationships().get(0).getPaths().get(0).contains(lifeCycleOwnerOne));
+
+    // reset graph service
+    getGraphService();
   }
 
   @Test
@@ -764,12 +847,18 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
   @DataProvider(name = "FindRelatedEntitiesSourceTypeTests")
   public Object[][] getFindRelatedEntitiesSourceTypeTests() {
     return new Object[][] {
+      // All DownstreamOf relationships, outgoing
       new Object[] {
         null,
         Collections.singletonList(downstreamOf),
         outgoingRelationships,
-        Arrays.asList(downstreamOfDatasetOneRelatedEntity, downstreamOfDatasetTwoRelatedEntity)
+        Arrays.asList(
+            downstreamOfDatasetOneRelatedEntity,
+            downstreamOfDatasetTwoRelatedEntity,
+            downstreamOfSchemaFieldTwoVia,
+            downstreamOfSchemaFieldTwo)
       },
+      // All DownstreamOf relationships, incoming
       new Object[] {
         null,
         Collections.singletonList(downstreamOf),
@@ -777,15 +866,20 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
         Arrays.asList(
             downstreamOfDatasetTwoRelatedEntity,
             downstreamOfDatasetThreeRelatedEntity,
-            downstreamOfDatasetFourRelatedEntity)
+            downstreamOfDatasetFourRelatedEntity,
+            downstreamOfSchemaFieldOneVia,
+            downstreamOfSchemaFieldOne)
       },
+      // All DownstreamOf relationships, both directions
       new Object[] {
         null,
         Collections.singletonList(downstreamOf),
         undirectedRelationships,
         Arrays.asList(
             downstreamOfDatasetOneRelatedEntity, downstreamOfDatasetTwoRelatedEntity,
-            downstreamOfDatasetThreeRelatedEntity, downstreamOfDatasetFourRelatedEntity)
+            downstreamOfDatasetThreeRelatedEntity, downstreamOfDatasetFourRelatedEntity,
+            downstreamOfSchemaFieldTwoVia, downstreamOfSchemaFieldTwo,
+            downstreamOfSchemaFieldOneVia, downstreamOfSchemaFieldOne)
       },
 
       // "" used to be any type before v0.9.0, which is now encoded by null
@@ -889,16 +983,24 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
         null,
         Collections.singletonList(downstreamOf),
         outgoingRelationships,
-        Arrays.asList(downstreamOfDatasetOneRelatedEntity, downstreamOfDatasetTwoRelatedEntity)
+        // All DownstreamOf relationships, outgoing
+        Arrays.asList(
+            downstreamOfDatasetOneRelatedEntity,
+            downstreamOfDatasetTwoRelatedEntity,
+            downstreamOfSchemaFieldTwoVia,
+            downstreamOfSchemaFieldTwo)
       },
       new Object[] {
         null,
         Collections.singletonList(downstreamOf),
         incomingRelationships,
+        // All DownstreamOf relationships, incoming
         Arrays.asList(
             downstreamOfDatasetTwoRelatedEntity,
             downstreamOfDatasetThreeRelatedEntity,
-            downstreamOfDatasetFourRelatedEntity)
+            downstreamOfDatasetFourRelatedEntity,
+            downstreamOfSchemaFieldOneVia,
+            downstreamOfSchemaFieldOne)
       },
       new Object[] {
         null,
@@ -906,7 +1008,9 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
         undirectedRelationships,
         Arrays.asList(
             downstreamOfDatasetOneRelatedEntity, downstreamOfDatasetTwoRelatedEntity,
-            downstreamOfDatasetThreeRelatedEntity, downstreamOfDatasetFourRelatedEntity)
+            downstreamOfDatasetThreeRelatedEntity, downstreamOfDatasetFourRelatedEntity,
+            downstreamOfSchemaFieldOneVia, downstreamOfSchemaFieldOne,
+            downstreamOfSchemaFieldTwoVia, downstreamOfSchemaFieldTwo)
       },
       new Object[] {
         "", Collections.singletonList(downstreamOf), outgoingRelationships, Collections.emptyList()
@@ -1146,12 +1250,14 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
             outgoingRelationships,
             0,
             100);
+    // All DownstreamOf relationships, outgoing (destination)
     assertEqualsAnyOrder(
         allOutgoingRelatedEntities,
         Arrays.asList(
             downstreamOfDatasetOneRelatedEntity, downstreamOfDatasetTwoRelatedEntity,
             hasOwnerUserOneRelatedEntity, hasOwnerUserTwoRelatedEntity,
-            knowsUserOneRelatedEntity, knowsUserTwoRelatedEntity));
+            knowsUserOneRelatedEntity, knowsUserTwoRelatedEntity,
+            downstreamOfSchemaFieldTwoVia, downstreamOfSchemaFieldTwo));
 
     RelatedEntitiesResult allIncomingRelatedEntities =
         service.findRelatedEntities(
@@ -1163,6 +1269,7 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
             incomingRelationships,
             0,
             100);
+    // All DownstreamOf relationships, incoming (source)
     assertEqualsAnyOrder(
         allIncomingRelatedEntities,
         Arrays.asList(
@@ -1174,7 +1281,9 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
             hasOwnerDatasetThreeRelatedEntity,
             hasOwnerDatasetFourRelatedEntity,
             knowsUserOneRelatedEntity,
-            knowsUserTwoRelatedEntity));
+            knowsUserTwoRelatedEntity,
+            downstreamOfSchemaFieldOneVia,
+            downstreamOfSchemaFieldOne));
 
     RelatedEntitiesResult allUnknownRelationshipTypeRelatedEntities =
         service.findRelatedEntities(
@@ -1198,9 +1307,14 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
             outgoingRelationships,
             0,
             100);
+    // All DownstreamOf relationships, outgoing (destination)
     assertEqualsAnyOrder(
         someUnknownRelationshipTypeRelatedEntities,
-        Arrays.asList(downstreamOfDatasetOneRelatedEntity, downstreamOfDatasetTwoRelatedEntity));
+        Arrays.asList(
+            downstreamOfDatasetOneRelatedEntity,
+            downstreamOfDatasetTwoRelatedEntity,
+            downstreamOfSchemaFieldTwoVia,
+            downstreamOfSchemaFieldTwo));
   }
 
   @Test
@@ -1628,6 +1742,7 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
     syncAfterWrite();
 
     // assert the modified graph
+    // All downstreamOf, hasOwner, knowsUser relationships minus datasetTwo's, outgoing
     assertEqualsAnyOrder(
         service.findRelatedEntities(
             anyType,
@@ -1640,7 +1755,8 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
             100),
         Arrays.asList(
             hasOwnerUserOneRelatedEntity, hasOwnerUserTwoRelatedEntity,
-            knowsUserOneRelatedEntity, knowsUserTwoRelatedEntity));
+            knowsUserOneRelatedEntity, knowsUserTwoRelatedEntity,
+            downstreamOfSchemaFieldTwoVia, downstreamOfSchemaFieldTwo));
   }
 
   @Test
@@ -1947,9 +2063,13 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
     assertTrue(throwables.isEmpty());
   }
 
-  @ParameterizedTest
-  @ValueSource(booleans = {true, false})
-  public void testPopulatedGraphServiceGetLineageMultihop(boolean attemptMultiPathAlgo)
+  @DataProvider(name = "trueFalse")
+  public static Object[] trueFalse() {
+    return new Object[] {true, false};
+  }
+
+  @Test(dataProvider = "trueFalse")
+  public void testPopulatedGraphServiceGetLineageMultihop(Boolean attemptMultiPathAlgo)
       throws Exception {
 
     GraphService service = getLineagePopulatedGraphService(attemptMultiPathAlgo);
@@ -2008,7 +2128,6 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
   }
 
   @Test
-  @org.junit.Test
   public void testHighlyConnectedGraphWalk() throws Exception {
     final GraphService service = getGraphService();
     List<String> allRelationships = Collections.singletonList(downstreamOf);

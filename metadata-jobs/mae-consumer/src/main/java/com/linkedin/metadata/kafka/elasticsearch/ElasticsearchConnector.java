@@ -27,7 +27,8 @@ public class ElasticsearchConnector {
   public void feedElasticEvent(@Nonnull ElasticEvent event) {
     if (event.getActionType().equals(ChangeType.DELETE)) {
       _bulkProcessor.add(createDeleteRequest(event));
-    } else if (event.getActionType().equals(ChangeType.CREATE)) {
+    } else if (event.getActionType().equals(ChangeType.CREATE)
+        || event.getActionType().equals(ChangeType.CREATE_ENTITY)) {
       _bulkProcessor.add(createIndexRequest(event));
     } else if (event.getActionType().equals(ChangeType.UPDATE)) {
       _bulkProcessor.add(createUpsertRequest(event));

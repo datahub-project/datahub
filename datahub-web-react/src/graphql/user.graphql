@@ -3,6 +3,7 @@ query getUser($urn: String!, $groupsCount: Int) {
         urn
         username
         isNativeUser
+        exists
         info {
             active
             displayName
@@ -32,6 +33,9 @@ query getUser($urn: String!, $groupsCount: Int) {
         }
         share {
             ...shareFields
+        }
+        privileges {
+            ...entityPrivileges
         }
         privileges {
             ...entityPrivileges

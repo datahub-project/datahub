@@ -122,7 +122,7 @@ class BigQueryAuditLogApi:
             )
 
             for i, entry in enumerate(list_entries):
-                if i % 1000 == 0:
+                if i > 0 and i % 1000 == 0:
                     logger.info(
                         f"Loaded {i} log entries from GCP Log for {client.project}"
                     )

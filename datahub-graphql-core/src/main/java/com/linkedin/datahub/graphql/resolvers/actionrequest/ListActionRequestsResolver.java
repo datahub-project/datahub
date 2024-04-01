@@ -144,7 +144,7 @@ public class ListActionRequestsResolver
             result.setStart(searchResult.getFrom());
             result.setCount(searchResult.getPageSize());
             result.setTotal(searchResult.getNumEntities());
-            result.setActionRequests(ActionRequestUtils.mapActionRequests(entities));
+            result.setActionRequests(ActionRequestUtils.mapActionRequests(context, entities));
             return result;
           } catch (Exception e) {
             throw new RuntimeException("Failed to list action requests", e);
