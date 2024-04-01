@@ -32,6 +32,7 @@ class SigmaDataset(BaseModel):
     updatedAt: datetime
     url: str
     path: str
+    badge: Optional[str] = None
 
     @root_validator(pre=True)
     def update_values(cls, values: Dict) -> Dict:
@@ -68,3 +69,4 @@ class Workbook(BaseModel):
     path: str
     latestVersion: int
     pages: List[Page] = []
+    badge: Optional[str] = None

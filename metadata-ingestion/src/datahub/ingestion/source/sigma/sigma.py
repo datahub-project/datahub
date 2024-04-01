@@ -55,9 +55,11 @@ from datahub.metadata.schema_classes import (
     ChartInfoClass,
     DashboardInfoClass,
     DataPlatformInstanceClass,
+    GlobalTagsClass,
     OwnerClass,
     OwnershipClass,
     OwnershipTypeClass,
+    TagAssociationClass,
 )
 
 # Logger instance
@@ -182,6 +184,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             externalUrl=dataset.url,
             created=TimeStamp(time=int(dataset.createdAt.timestamp() * 1000)),
             lastModified=TimeStamp(time=int(dataset.updatedAt.timestamp() * 1000)),
+            tags=[dataset.badge] if dataset.badge else None,
         )
         dataset_properties.customProperties.update({"path": dataset.path})
         return MetadataChangeProposalWrapper(
@@ -277,6 +280,14 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 ),
                 paths=paths,
             )
+
+        if dataset.badge:
+            yield MetadataChangeProposalWrapper(
+                entityUrn=dataset_urn,
+                aspect=GlobalTagsClass(
+                    tags=[TagAssociationClass(builder.make_tag_urn(dataset.badge))]
+                ),
+            ).as_workunit()
 
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
         return [
@@ -396,6 +407,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             if self.config.ingest_owner and owner_username
             else None,
             external_url=workbook.url,
+            tags=[workbook.badge] if workbook.badge else None,
             created=int(workbook.createdAt.timestamp() * 1000),
             last_modified=int(workbook.updatedAt.timestamp() * 1000),
         )

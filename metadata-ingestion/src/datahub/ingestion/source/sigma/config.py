@@ -40,6 +40,7 @@ class Constant:
     TYPE = "type"
     DATASET = "dataset"
     WORKBOOK = "workbook"
+    BADGE = "badge"
     NEXTPAGE = "nextPage"
 
     # Source Config constants

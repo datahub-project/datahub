@@ -177,7 +177,7 @@ class SigmaAPI:
 
     def get_workspace_id(self, parent_id: str, path: str) -> str:
         path_list = path.split("/")
-        while len(path_list) != 1:
+        while len(path_list) != 1:  # means current parent id is folder's id
             response = self.session.get(f"{self.config.api_url}/files/{parent_id}")
             parent_id = response.json()[Constant.PARENTID]
             path_list.pop()
@@ -212,10 +212,12 @@ class SigmaAPI:
                             entity[Constant.PATH],
                         )
                         if dataset:
+                            dataset.badge = entity[Constant.BADGE]
                             entities.append(dataset)
                     elif type == Constant.WORKBOOK:
                         workbook = self.get_workbook(entity[Constant.ID], workspace_id)
                         if workbook:
+                            workbook.badge = entity[Constant.BADGE]
                             entities.append(workbook)
             if response_dict[Constant.NEXTPAGE]:
                 url = f"{url}?page={response_dict[Constant.NEXTPAGE]}"
