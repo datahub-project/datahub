@@ -6,7 +6,7 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.Assertion;
-import com.linkedin.datahub.graphql.generated.AssertionActionsInput;
+import com.linkedin.datahub.graphql.generated.UpdateAssertionMetadataInput;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
 import com.linkedin.datahub.graphql.types.assertion.AssertionMapper;
 import com.linkedin.metadata.service.AssertionService;
@@ -18,11 +18,11 @@ import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
-public class UpdateAssertionActionsResolver implements DataFetcher<CompletableFuture<Assertion>> {
+public class UpdateAssertionMetadataResolver implements DataFetcher<CompletableFuture<Assertion>> {
 
   private final AssertionService _assertionService;
 
-  public UpdateAssertionActionsResolver(@Nonnull final AssertionService assertionService) {
+  public UpdateAssertionMetadataResolver(@Nonnull final AssertionService assertionService) {
     _assertionService = Objects.requireNonNull(assertionService, "assertionService is required");
   }
 
@@ -32,8 +32,9 @@ public class UpdateAssertionActionsResolver implements DataFetcher<CompletableFu
     final QueryContext context = environment.getContext();
 
     final Urn assertionUrn = UrnUtils.getUrn(environment.getArgument("urn"));
-    final AssertionActionsInput input =
-        ResolverUtils.bindArgument(environment.getArgument("input"), AssertionActionsInput.class);
+    final UpdateAssertionMetadataInput input =
+        ResolverUtils.bindArgument(
+            environment.getArgument("input"), UpdateAssertionMetadataInput.class);
 
     return CompletableFuture.supplyAsync(
         () -> {
@@ -52,9 +53,10 @@ public class UpdateAssertionActionsResolver implements DataFetcher<CompletableFu
           if (AssertionUtils.isAuthorizedToEditAssertionFromAssertee(context, asserteeUrn)) {
 
             // First update the existing assertion.
-            _assertionService.updateAssertionActions(
+            _assertionService.updateAssertionMetadata(
                 assertionUrn,
-                AssertionUtils.createAssertionActions(input),
+                AssertionUtils.createAssertionActions(input.getActions()),
+                input.getDescription(),
                 context.getAuthentication());
 
             // Then, return the new assertion

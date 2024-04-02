@@ -197,16 +197,15 @@ public class AssertionServiceTest {
   }
 
   @Test
-  private void testUpdateAssertionActions() throws Exception {
+  private void testUpdateAssertionMetadata() throws Exception {
     final EntityClient mockClient = createMockEntityClient();
     final AssertionService service =
-        new AssertionService(
-            mockClient, Mockito.mock(Authentication.class), Mockito.mock(OpenApiClient.class));
-    service.updateAssertionActions(
-        TEST_ASSERTION_URN, mockAssertionActions(), Mockito.mock(Authentication.class));
+        new AssertionService(mockClient, Mockito.mock(Authentication.class), Mockito.mock(OpenApiClient.class));
+    service.updateAssertionMetadata(
+        TEST_ASSERTION_URN, mockAssertionActions(), null, Mockito.mock(Authentication.class));
     Mockito.verify(mockClient, Mockito.times(1))
-        .ingestProposal(
-            Mockito.eq(mockAssertionActionsMcp()),
+        .batchIngestProposals(
+            Mockito.eq(List.of(mockAssertionActionsMcp())),
             Mockito.any(Authentication.class),
             Mockito.eq(false));
   }

@@ -22,7 +22,7 @@ import com.linkedin.datahub.graphql.resolvers.assertion.CreateSqlAssertionResolv
 import com.linkedin.datahub.graphql.resolvers.assertion.CreateVolumeAssertionResolver;
 import com.linkedin.datahub.graphql.resolvers.assertion.EntityAssertionsResolver;
 import com.linkedin.datahub.graphql.resolvers.assertion.TestAssertionResolver;
-import com.linkedin.datahub.graphql.resolvers.assertion.UpdateAssertionActionsResolver;
+import com.linkedin.datahub.graphql.resolvers.assertion.UpdateAssertionMetadataResolver;
 import com.linkedin.datahub.graphql.resolvers.assertion.UpdateDatasetAssertionResolver;
 import com.linkedin.datahub.graphql.resolvers.assertion.UpsertDatasetFieldAssertionMonitorResolver;
 import com.linkedin.datahub.graphql.resolvers.assertion.UpsertDatasetFreshnessAssertionMonitorResolver;
@@ -318,7 +318,8 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
                 .dataFetcher(
                     "updateDatasetAssertion", new UpdateDatasetAssertionResolver(assertionService))
                 .dataFetcher(
-                    "updateAssertionActions", new UpdateAssertionActionsResolver(assertionService))
+                    "updateAssertionMetadata",
+                    new UpdateAssertionMetadataResolver(assertionService))
                 .dataFetcher(
                     "createTest", new CreateTestResolver(this.entityClient, this.testEngine))
                 .dataFetcher(

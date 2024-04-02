@@ -18,10 +18,7 @@ import com.linkedin.assertion.FreshnessCronSchedule;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
-import com.linkedin.datahub.graphql.generated.Assertion;
-import com.linkedin.datahub.graphql.generated.AssertionActionInput;
-import com.linkedin.datahub.graphql.generated.AssertionActionType;
-import com.linkedin.datahub.graphql.generated.AssertionActionsInput;
+import com.linkedin.datahub.graphql.generated.*;
 import com.linkedin.entity.Aspect;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
@@ -35,16 +32,20 @@ import java.util.concurrent.CompletionException;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
-public class UpdateAssertionActionsResolverTest {
+public class UpdateAssertionMetadataResolverTest {
 
   private static final Urn TEST_DATASET_URN =
       UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,name,PROD)");
   private static final Urn TEST_ASSERTION_URN = UrnUtils.getUrn("urn:li:assertion:test");
 
-  private static final AssertionActionsInput TEST_INPUT =
-      new AssertionActionsInput(
-          ImmutableList.of(new AssertionActionInput(AssertionActionType.RESOLVE_INCIDENT)),
-          ImmutableList.of(new AssertionActionInput(AssertionActionType.RAISE_INCIDENT)));
+  private static final String TEST_DESCRIPTION = "This is a new description";
+
+  private static final UpdateAssertionMetadataInput TEST_INPUT =
+      new UpdateAssertionMetadataInput(
+          TEST_DESCRIPTION,
+          new AssertionActionsInput(
+              ImmutableList.of(new AssertionActionInput(AssertionActionType.RESOLVE_INCIDENT)),
+              ImmutableList.of(new AssertionActionInput(AssertionActionType.RAISE_INCIDENT))));
 
   private static final AssertionInfo TEST_ASSERTION_INFO =
       new AssertionInfo()
@@ -78,7 +79,7 @@ public class UpdateAssertionActionsResolverTest {
   public void testGetSuccess() throws Exception {
     // Update resolver
     AssertionService mockService = initMockService();
-    UpdateAssertionActionsResolver resolver = new UpdateAssertionActionsResolver(mockService);
+    UpdateAssertionMetadataResolver resolver = new UpdateAssertionMetadataResolver(mockService);
 
     // Execute resolver
     QueryContext mockContext = getMockAllowContext();
@@ -95,9 +96,10 @@ public class UpdateAssertionActionsResolverTest {
 
     // Validate that we created the assertion
     Mockito.verify(mockService, Mockito.times(1))
-        .updateAssertionActions(
+        .updateAssertionMetadata(
             Mockito.eq(TEST_ASSERTION_URN),
             Mockito.eq(TEST_ASSERTION_ACTIONS),
+            Mockito.eq(TEST_DESCRIPTION),
             Mockito.any(Authentication.class));
   }
 
@@ -106,7 +108,7 @@ public class UpdateAssertionActionsResolverTest {
     // Update resolver
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     AssertionService mockService = Mockito.mock(AssertionService.class);
-    UpdateAssertionActionsResolver resolver = new UpdateAssertionActionsResolver(mockService);
+    UpdateAssertionMetadataResolver resolver = new UpdateAssertionMetadataResolver(mockService);
 
     // Execute resolver
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
@@ -117,7 +119,7 @@ public class UpdateAssertionActionsResolverTest {
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
     Mockito.verify(mockClient, Mockito.times(0))
-        .ingestProposal(Mockito.any(), Mockito.any(Authentication.class));
+        .batchIngestProposals(Mockito.any(), Mockito.any(Authentication.class));
   }
 
   @Test
@@ -133,7 +135,7 @@ public class UpdateAssertionActionsResolverTest {
                 .setEntityName(Constants.ASSERTION_ENTITY_NAME)
                 .setUrn(TEST_ASSERTION_URN));
 
-    UpdateAssertionActionsResolver resolver = new UpdateAssertionActionsResolver(mockService);
+    UpdateAssertionMetadataResolver resolver = new UpdateAssertionMetadataResolver(mockService);
 
     // Execute resolver
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
@@ -151,9 +153,10 @@ public class UpdateAssertionActionsResolverTest {
     AssertionService mockService = Mockito.mock(AssertionService.class);
     Mockito.doThrow(RuntimeException.class)
         .when(mockService)
-        .updateAssertionActions(Mockito.any(), Mockito.any(), Mockito.any(Authentication.class));
+        .updateAssertionMetadata(
+            Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any(Authentication.class));
 
-    UpdateAssertionActionsResolver resolver = new UpdateAssertionActionsResolver(mockService);
+    UpdateAssertionMetadataResolver resolver = new UpdateAssertionMetadataResolver(mockService);
 
     // Execute resolver
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);

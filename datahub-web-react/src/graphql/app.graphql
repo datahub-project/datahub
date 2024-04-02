@@ -33,6 +33,7 @@ query appConfig {
         }
         lineageConfig {
             supportsImpactAnalysis
+            defaultLastDaysFilter
         }
         managedIngestionConfig {
             enabled

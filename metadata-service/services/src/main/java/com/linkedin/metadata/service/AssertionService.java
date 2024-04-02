@@ -665,14 +665,14 @@ public class AssertionService extends BaseService {
     }
   }
 
-  /** Updates the actions executed for a given assertion. */
+  /** Updates basic metadata for a given assertion such as description and actions executed. */
   @Nonnull
-  public Urn updateAssertionActions(
+  public Urn updateAssertionMetadata(
       @Nonnull final Urn assertionUrn,
-      @Nonnull final AssertionActions actions,
+      @Nullable final AssertionActions actions,
+      @Nullable final String assertionDescription,
       @Nonnull final Authentication authentication) {
     Objects.requireNonNull(assertionUrn, "assertionUrn must not be null");
-    Objects.requireNonNull(actions, "actions must not be null");
     Objects.requireNonNull(authentication, "authentication must not be null");
 
     // 1. Check whether the Assertion exists
@@ -683,13 +683,23 @@ public class AssertionService extends BaseService {
           String.format(
               "Failed to update Assertion. Assertion with urn %s does not exist.", assertionUrn));
     }
-    // 3. Ingest actions aspect
-    try {
-      this.entityClient.ingestProposal(
+
+
+    final List<MetadataChangeProposal> aspects = new ArrayList<>();
+    // 2. Ingest actions aspect
+    if (actions != null) {
+      aspects.add(
           AspectUtils.buildMetadataChangeProposal(
-              assertionUrn, Constants.ASSERTION_ACTIONS_ASPECT_NAME, actions),
-          authentication,
-          false);
+              assertionUrn, Constants.ASSERTION_ACTIONS_ASPECT_NAME, actions));
+    }
+    // 3. Ingest assertion info aspect changes
+    if (assertionDescription != null) {
+      existingInfo.setDescription(assertionDescription);
+      aspects.add(AspectUtils.buildMetadataChangeProposal(assertionUrn, Constants.ASSERTION_INFO_ASPECT_NAME, existingInfo));
+    }
+
+    try {
+      this.entityClient.batchIngestProposals(aspects, authentication, false);
       return assertionUrn;
     } catch (Exception e) {
       throw new RuntimeException(

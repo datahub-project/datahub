@@ -308,8 +308,8 @@ mutation upsertDatasetFieldAssertionMonitor($assertionUrn: String, $input: Upser
     }
 }
 
-mutation updateAssertionActions($urn: String!, $input: AssertionActionsInput!) {
-    updateAssertionActions(urn: $urn, input: $input) {
+mutation updateAssertionMetadata($urn: String!, $input: UpdateAssertionMetadataInput!) {
+    updateAssertionMetadata(urn: $urn, input: $input) {
         ...assertionDetails
     }
 }

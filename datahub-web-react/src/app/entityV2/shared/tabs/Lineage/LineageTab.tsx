@@ -57,7 +57,7 @@ interface Props {
 }
 
 export function LineageTab({ properties, renderType }: Props) {
-    const defaultDirection = properties?.defaultDirection || LineageDirection.Upstream;
+    const defaultDirection = properties?.defaultDirection || LineageDirection.Downstream;
 
     if (renderType === TabRenderType.COMPACT) {
         return <CompactLineageTab defaultDirection={defaultDirection} />;

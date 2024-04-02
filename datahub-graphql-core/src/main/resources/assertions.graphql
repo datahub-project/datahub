@@ -38,11 +38,11 @@ extend type Mutation {
   ): Assertion!
 
   """
-  Update the actions for a given assertion.
+  Update basic metadata for a given assertion, including description and actions.
   """
-  updateAssertionActions(
+  updateAssertionMetadata(
     urn: String!
-    input: AssertionActionsInput!
+    input: UpdateAssertionMetadataInput!
   ): Assertion!
 
   """
@@ -467,6 +467,22 @@ input UpsertDatasetFieldAssertionMonitorInput {
   Advanced: The executor ID of the remote monitor service, if any.
   """
   executorId: String
+}
+
+"""
+Input for updating basic metadata associated with a particular assertion
+"""
+input UpdateAssertionMetadataInput {
+  
+  """
+  An optional human-readable description of the assertion
+  """
+  description: String
+
+  """
+  An optional set of actions to apply on success or failure of the assertion
+  """
+  actions: AssertionActionsInput
 }
 
 """
