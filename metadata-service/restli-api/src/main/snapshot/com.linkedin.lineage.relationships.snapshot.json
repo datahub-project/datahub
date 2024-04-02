@@ -182,6 +182,11 @@
             "type" : "boolean",
             "doc" : "Marks this relationship as explored during the graph walk",
             "optional" : true
+          }, {
+            "name" : "ignoredAsHop",
+            "type" : "boolean",
+            "doc" : "Whether this relationship was ignored as a hop while performing the graph walk",
+            "optional" : true
           } ]
         }
       },
