@@ -1578,13 +1578,13 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
       clearInvocations(_mockProducer);
 
       RestoreIndicesArgs args = new RestoreIndicesArgs();
-      args.setAspectName(UPSTREAM_LINEAGE_ASPECT_NAME);
-      args.setBatchSize(1);
-      args.setStart(0);
-      args.setBatchDelayMs(1L);
-      args.setNumThreads(1);
-      args.setUrn(urnStr);
-      _entityServiceImpl.restoreIndices(args, obj -> {});
+      args.aspectName(UPSTREAM_LINEAGE_ASPECT_NAME);
+      args.batchSize(1);
+      args.start(0);
+      args.batchDelayMs(1L);
+      args.numThreads(1);
+      args.urn(urnStr);
+      _entityServiceImpl.streamRestoreIndices(args, obj -> {}).collect(Collectors.toList());
 
       ArgumentCaptor<MetadataChangeLog> mclCaptor =
           ArgumentCaptor.forClass(MetadataChangeLog.class);

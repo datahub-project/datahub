@@ -122,6 +122,17 @@ class OracleInspectorObjectWrapper:
         # tables that we don't want to ingest into the DataHub
         self.exclude_tablespaces: Tuple[str, str] = ("SYSTEM", "SYSAUX")
 
+    def get_db_name(self) -> str:
+        try:
+            # Try to retrieve current DB name by executing query
+            db_name = self._inspector_instance.bind.execute(
+                sql.text("select sys_context('USERENV','DB_NAME') from dual")
+            ).scalar()
+            return str(db_name)
+        except sqlalchemy.exc.DatabaseError as e:
+            logger.error("Error fetching DB name: " + str(e))
+            return ""
+
     def get_schema_names(self) -> List[str]:
         cursor = self._inspector_instance.bind.execute(
             sql.text("SELECT username FROM dba_users ORDER BY username")
@@ -581,6 +592,22 @@ class OracleSource(SQLAlchemySource):
     def create(cls, config_dict, ctx):
         config = OracleConfig.parse_obj(config_dict)
         return cls(config, ctx)
+
+    def get_db_name(self, inspector: Inspector) -> str:
+        """
+        This overwrites the default implementation, which only tries to read
+        database name from Connection URL, which does not work when using
+        service instead of database.
+        In that case, it tries to retrieve the database name by sending a query to the DB.
+        """
+
+        # call default implementation first
+        db_name = super().get_db_name(inspector)
+
+        if db_name == "" and isinstance(inspector, OracleInspectorObjectWrapper):
+            db_name = inspector.get_db_name()
+
+        return db_name
 
     def get_inspectors(self) -> Iterable[Inspector]:
         for inspector in super().get_inspectors():

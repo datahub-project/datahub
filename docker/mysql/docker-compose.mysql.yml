@@ -4,7 +4,7 @@ version: '3.8'
 services:
   mysql:
     hostname: mysql
-    image: mysql:${DATAHUB_MYSQL_VERSION:-5.7}
+    image: mysql:${DATAHUB_MYSQL_VERSION:-8.2}
     env_file: env/docker.env
     command: --character-set-server=utf8mb4 --collation-server=utf8mb4_bin
     ports:
