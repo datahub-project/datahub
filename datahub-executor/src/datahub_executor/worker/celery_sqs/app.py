@@ -15,8 +15,17 @@ from datahub_executor.common.ingestion.helpers import (
     handle_ingestion_signal_requests,
     setup_ingestion_executor,
 )
+from datahub_executor.common.monitoring.base import monitoring_start
+from datahub_executor.common.monitoring.metrics import (
+    STATS_WORKER_ASSERTION_ERRORS,
+    STATS_WORKER_ASSERTION_REQUESTS,
+    STATS_WORKER_INGESTION_REQUESTS,
+)
 from datahub_executor.common.tp import ThreadPoolExecutorWithQueueSizeLimit
-from datahub_executor.config import DATAHUB_EXECUTOR_INGESTION_PIPELINE_MAX_WORKERS
+from datahub_executor.config import (
+    DATAHUB_EXECUTOR_INGESTION_PIPELINE_MAX_WORKERS,
+    DATAHUB_EXECUTOR_WORKER_ID,
+)
 
 from .config import update_celery_credentials
 from .health import kube_health_check
@@ -24,6 +33,9 @@ from .init import app
 from .kombu_patch import patched_new_sqs_client
 
 logger = logging.getLogger(__name__)
+
+# Start prometheus server
+monitoring_start()
 
 # Kombu credentials patch
 Channel.new_sqs_client = patched_new_sqs_client
@@ -50,7 +62,7 @@ def worker_startup(*args, **kwargs):
 
     global tp
     tp = ThreadPoolExecutorWithQueueSizeLimit(
-        max_workers=DATAHUB_EXECUTOR_INGESTION_PIPELINE_MAX_WORKERS
+        max_workers=DATAHUB_EXECUTOR_INGESTION_PIPELINE_MAX_WORKERS, name="ingestions"
     )
 
     logger.info("celery worker initialization finished")
@@ -62,9 +74,14 @@ def worker_startup(*args, **kwargs):
 @app.task
 def assertion_request(execution_request: ExecutionRequest) -> None:
     if execution_request.name == RUN_ASSERTION_TASK_NAME:
+        STATS_WORKER_ASSERTION_REQUESTS.labels(DATAHUB_EXECUTOR_WORKER_ID).inc()
+
         global assertion_executor
         assertion_executor.execute(execution_request)
     else:
+        STATS_WORKER_ASSERTION_ERRORS.labels(
+            DATAHUB_EXECUTOR_WORKER_ID, "UnsupportedRequest"
+        ).inc()
         logger.error(
             f"Unsupported ExecutionRequest type {execution_request.name} provided. Skipping execution of {execution_request.exec_id}.."
         )
@@ -79,6 +96,7 @@ def ingestion_request(event: MetadataChangeLogClass) -> None:
         global tp
         global ingestion_executor
         if ingestion_executor and tp:
+            STATS_WORKER_INGESTION_REQUESTS.labels(DATAHUB_EXECUTOR_WORKER_ID).inc()
             tp.submit(ingestion_executor.execute, execution_request)
 
 

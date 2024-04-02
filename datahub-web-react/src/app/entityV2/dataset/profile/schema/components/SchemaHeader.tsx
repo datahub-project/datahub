@@ -107,11 +107,11 @@ const SchemaAuditButton = styled(Button)`
     background: ${REDESIGN_COLORS.WHITE};
 
     svg {
-        background: ${REDESIGN_COLORS.PRIMARY_PURPLE};
+        background: ${REDESIGN_COLORS.TITLE_PURPLE};
         border-radius: 50%;
         stroke: ${REDESIGN_COLORS.WHITE};
         color: ${REDESIGN_COLORS.WHITE};
-        padding: 3px;
+        padding: 4px;
         stroke-width: 0.5px;
     }
 `;
@@ -201,7 +201,7 @@ export default function SchemaHeader({
                 ),
         );
     };
-    const schemaAuditToggleText = showSchemaTimeline ? 'Close column history' : 'View column history';
+    const schemaAuditToggleText = showSchemaTimeline ? 'Close change history' : 'View change history';
 
     const debouncedSetFilterText = debounce(
         (e: React.ChangeEvent<HTMLInputElement>) => setFilterText(e.target.value),

@@ -5,6 +5,10 @@ from acryl.executor.request.execution_request import ExecutionRequest
 
 from datahub_executor.common.client.fetcher.monitors.util import is_dry_run_mode
 from datahub_executor.common.constants import RUN_ASSERTION_TASK_NAME
+from datahub_executor.common.monitoring.metrics import (
+    STATS_ASSERTION_FETCHER_ITEMS_ERRORED,
+    STATS_ASSERTION_FETCHER_ITEMS_MAPPED,
+)
 from datahub_executor.common.types import (
     AssertionEvaluationContext,
     ExecutionRequestSchedule,
@@ -19,9 +23,11 @@ def graphql_to_monitors(graphql_monitors: List[Dict]) -> List[Monitor]:
     monitors = []
     for graphql_monitor in graphql_monitors:
         try:
+            STATS_ASSERTION_FETCHER_ITEMS_MAPPED.inc()
             # Simply parse to our Pydantic models using the raw GraphQL Response.
             monitors.append(Monitor.parse_obj(graphql_monitor))
         except Exception:
+            STATS_ASSERTION_FETCHER_ITEMS_ERRORED.labels("exception").inc()
             logger.exception(
                 f"Failed to convert GraphQL Monitor object to Python object. {graphql_monitor}"
             )

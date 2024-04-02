@@ -81,8 +81,8 @@ const PreviewCardFooterRightSection = ({
                     </>
                 )}
                 {!!lastUpdatedMs && <Freshness time={lastUpdatedMs} />}
-                {tier !== undefined && <StyledDivider type="vertical" />}
-                {tier !== undefined && status && <PopularityBars status={3} size="small" />}
+                {!!(tier !== undefined && status) && <StyledDivider type="vertical" />}
+                {!!(tier !== undefined && status) && <PopularityBars status={status} size="small" />}
             </Container>
         </>
     );

@@ -1,12 +1,12 @@
 import React, { useContext, useMemo } from 'react';
 import { Handle, Position } from 'reactflow';
 import styled from 'styled-components';
-import { SchemaFieldDataType } from '../../../types.generated';
 import translateFieldPath from '../../entityV2/dataset/profile/schema/utils/translateFieldPath';
 import OverflowTitle from '../../sharedV2/text/OverflowTitle';
 import { createColumnRef, LineageDisplayContext, onMouseDownCapturePreventSelect } from '../common';
 import { CompactFieldIconWithTooltip } from '../../sharedV2/icons/CompactFieldIcon';
 import { ANTD_GRAY, LINEAGE_COLORS } from '../../entityV2/shared/constants';
+import { LineageDisplayColumn } from './useDisplayedColumns';
 
 const ColumnWrapper = styled.div<{
     selected: boolean;
@@ -29,7 +29,7 @@ const ColumnWrapper = styled.div<{
         return 'background-color: white;';
     }}
     border-radius: 4px;
-    color: ${({ hasLineage }) => (hasLineage ? '#262626' : ANTD_GRAY[7])};
+    color: ${({ hasLineage }) => (hasLineage ? ANTD_GRAY[11] : ANTD_GRAY[7])};
     display: flex;
     font-size: 10px;
     padding: 3px;
@@ -53,14 +53,7 @@ const TypeWrapper = styled.div`
     width: 11px;
 `;
 
-interface Props {
-    // TODO: Deduplicate with LineageDisplayColumn
-    urn: string;
-    fieldPath: string;
-    highlighted: boolean;
-    type?: SchemaFieldDataType;
-    nativeDataType?: string | null;
-}
+type Props = LineageDisplayColumn & { urn: string };
 
 export default function Column({ urn, fieldPath, highlighted, type, nativeDataType }: Props) {
     const { selectedColumn, setSelectedColumn, setHoveredColumn, fineGrainedLineage } =

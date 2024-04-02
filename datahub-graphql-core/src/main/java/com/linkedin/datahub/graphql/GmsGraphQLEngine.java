@@ -391,6 +391,7 @@ public class GmsGraphQLEngine {
   private final SecretService secretService;
   private final GitVersion gitVersion;
   private final boolean supportsImpactAnalysis;
+  private final Integer defaultLineageLastDaysFilter;
   private final TimeseriesAspectService timeseriesAspectService;
   private final TimelineService timelineService;
   private final NativeUserService nativeUserService;
@@ -501,6 +502,7 @@ public class GmsGraphQLEngine {
     this.entityRegistry = args.entityRegistry;
     this.gitVersion = args.gitVersion;
     this.supportsImpactAnalysis = args.supportsImpactAnalysis;
+    this.defaultLineageLastDaysFilter = args.defaultLineageLastDaysFilter;
     this.timeseriesAspectService = args.timeseriesAspectService;
     this.timelineService = args.timelineService;
     this.nativeUserService = args.nativeUserService;
@@ -893,7 +895,8 @@ public class GmsGraphQLEngine {
                         this.datahubConfiguration,
                         this.viewsConfiguration,
                         this.featureFlags,
-                        this.chromeExtensionConfiguration))
+                        this.chromeExtensionConfiguration,
+                        this.defaultLineageLastDaysFilter))
                 .dataFetcher("me", new MeResolver(this.entityClient, featureFlags))
                 .dataFetcher("search", new SearchResolver(this.entityClient))
                 .dataFetcher(

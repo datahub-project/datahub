@@ -1,6 +1,6 @@
-import { Maybe } from 'graphql/jsutils/Maybe';
-import { InputFields, SchemaField } from '../../types.generated';
+import { EntityType, SchemaField } from '../../types.generated';
 import { KEY_SCHEMA_PREFIX, VERSION_PREFIX } from '../entity/dataset/profile/schema/utils/constants';
+import EntityRegistry from '../entityV2/EntityRegistry';
 
 export function downgradeV2FieldPath(fieldPath?: string | null) {
     if (!fieldPath) {
@@ -24,10 +24,6 @@ export function convertFieldsToV1FieldPath(fields: SchemaField[]) {
     }));
 }
 
-export function convertInputFieldsToSchemaFields(inputFields: Maybe<InputFields>): SchemaField[] | undefined {
-    return inputFields?.fields?.map((field) => field?.schemaField).filter((field): field is SchemaField => !!field);
-}
-
 export function getSourceUrnFromSchemaFieldUrn(schemaFieldUrn: string) {
     return schemaFieldUrn.replace('urn:li:schemaField:(', '').split(')')[0].concat(')');
 }
@@ -39,6 +35,11 @@ export function getFieldPathFromSchemaFieldUrn(schemaFieldUrn: string) {
     } catch (e) {
         return val;
     }
+}
+
+export function getEntityTypeFromEntityUrn(urn: string, registry: EntityRegistry): EntityType | undefined {
+    const [, , entityType] = urn.split(':');
+    return registry.getTypeFromGraphName(entityType);
 }
 
 const PLATFORM_URN_TYPES = ['dataset', 'mlModel', 'mlModelGroup', 'mlFeatureTable'];

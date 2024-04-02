@@ -33,7 +33,7 @@ const TermContainer = styled.div`
     }
 `;
 
-const StyledTag = styled(Tag)<{ fontSize?: number; highlightTerm?: boolean; showOneAndCount?: boolean }>`
+export const StyledTerm = styled(Tag)<{ fontSize?: number; highlightTerm?: boolean; showOneAndCount?: boolean }>`
     &&& {
         ${(props) =>
             props.highlightTerm &&
@@ -176,7 +176,7 @@ export default function TermContent({
 
     return (
         <TermContainer>
-            <StyledTag
+            <StyledTerm
                 style={{ cursor: 'pointer' }}
                 fontSize={fontSize}
                 highlightTerm={highlightTerm}
@@ -189,7 +189,7 @@ export default function TermContent({
                 </StyledHighlight>
 
                 {term.actor?.urn === PROPAGATOR_URN && <PropagateThunderbolt />}
-            </StyledTag>
+            </StyledTerm>
             {canRemove && !readOnly && (
                 <CloseButtonContainer
                     onClick={(e) => {

@@ -4,12 +4,21 @@ import { LineageDirection } from '../../types.generated';
 import { useGetLineageTimeParams } from '../lineage/utils/useGetLineageTimeParams';
 import usePrevious from '../shared/usePrevious';
 import { useEntityRegistryV2 } from '../useEntityRegistry';
-import { LineageEdge, LineageNodesContext, NodeContext, setDefault } from './common';
+import {
+    addToAdjacencyList,
+    getEdgeId,
+    isQuery,
+    LineageEdge,
+    LineageNodesContext,
+    NodeContext,
+    reverseDirection,
+    setDefault,
+} from './common';
 import { FetchedEntityV2, FetchedEntityV2Relationship } from './types';
 import { pruneParentsThroughDbt } from './useSearchAcrossLineage';
 
 export default function useBulkEntityLineage(shownUrns: string[]): void {
-    const { nodes, edges, setDataVersion, setDisplayVersion } = useContext(LineageNodesContext);
+    const { nodes, edges, adjacencyList, setDataVersion, setDisplayVersion } = useContext(LineageNodesContext);
     shownUrns.sort();
     const prevShownUrns = usePrevious(shownUrns);
     const [urnsToFetch, setUrnsToFetch] = useState<string[]>([]);
@@ -54,6 +63,7 @@ export default function useBulkEntityLineage(shownUrns: string[]): void {
         [data, entityRegistry],
     );
     useEffect(() => {
+        const smallContext = { edges, adjacencyList };
         let changed = false;
         entityDetails?.forEach((entity) => {
             if (!entity) {
@@ -65,41 +75,40 @@ export default function useBulkEntityLineage(shownUrns: string[]): void {
                 changed = true;
                 // TODO: Remove once using bulk edges query
                 entity.downstreamRelationships?.forEach((relationship) =>
-                    processEdge(entity.urn, relationship, node.direction !== LineageDirection.Upstream, nodes, edges),
+                    processEdge(entity.urn, relationship, LineageDirection.Downstream, smallContext),
                 );
                 entity.upstreamRelationships?.forEach((relationship) => {
-                    processEdge(entity.urn, relationship, node.direction !== LineageDirection.Downstream, nodes, edges);
+                    processEdge(entity.urn, relationship, LineageDirection.Upstream, smallContext);
                 });
+                pruneParentsThroughDbt(node.urn, LineageDirection.Upstream, smallContext, entityRegistry);
+                pruneParentsThroughDbt(node.urn, LineageDirection.Downstream, smallContext, entityRegistry);
             }
         });
         if (changed) {
             setDataVersion((version) => version + 1);
             setDisplayVersion(([version, n]) => [version + 1, n]); // TODO: Also remove with above todo
         }
-    }, [nodes, edges, entityDetails, entityRegistry, setDataVersion, setDisplayVersion]);
+    }, [nodes, edges, adjacencyList, entityDetails, entityRegistry, setDataVersion, setDisplayVersion]);
 }
 
 function processEdge(
     urn: string,
     relationship: FetchedEntityV2Relationship,
-    outward: boolean, // Edge is going outward from root node
-    nodes: NodeContext['nodes'],
-    edges: NodeContext['edges'],
+    direction: LineageDirection,
+    context: Pick<NodeContext, 'adjacencyList' | 'edges'>,
 ): void {
-    if (outward) {
-        setDefault<string, LineageEdge>(
-            setDefault(edges, urn, new Map()),
-            relationship.urn,
-            makeLineageEdge(relationship),
-        );
-    }
+    const { adjacencyList, edges } = context;
 
-    const childUrn = outward ? relationship.urn : urn;
-    const parentUrn = outward ? urn : relationship.urn;
-    const child = nodes.get(childUrn);
-    if (child) {
-        child.parents.add(parentUrn);
-        pruneParentsThroughDbt(childUrn, nodes);
+    if (!relationship.entity || isQuery(relationship.entity)) {
+        // For query nodes, don't store them as other nodes' children
+        setDefault(adjacencyList[reverseDirection(direction)], relationship.urn, new Set()).add(urn);
+    } else {
+        const edgeId = getEdgeId(urn, relationship.urn, direction);
+        edges.set(getEdgeId(urn, relationship.urn, direction), {
+            ...edges.get(edgeId),
+            ...makeLineageEdge(relationship),
+        });
+        addToAdjacencyList(adjacencyList, direction, urn, relationship.urn);
     }
 }
 
@@ -108,5 +117,6 @@ function makeLineageEdge({ createdOn, updatedOn, isManual }: FetchedEntityV2Rela
         created: createdOn ? { timestamp: createdOn } : undefined,
         updated: updatedOn ? { timestamp: updatedOn } : undefined,
         isManual: isManual ?? false,
+        isDisplayed: true,
     };
 }

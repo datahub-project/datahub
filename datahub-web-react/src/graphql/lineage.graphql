@@ -490,6 +490,7 @@ fragment entityLineageV2 on Entity {
                 ...lineageRelationshipFields
                 entity {
                     urn
+                    type
                 }
             }
         }
@@ -509,6 +510,7 @@ fragment entityLineageV2 on Entity {
                 ...lineageRelationshipFields
                 entity {
                     urn
+                    type
                 }
             }
         }

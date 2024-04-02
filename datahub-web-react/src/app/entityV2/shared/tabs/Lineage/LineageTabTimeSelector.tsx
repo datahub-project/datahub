@@ -23,10 +23,13 @@ export default function LineageTabTimeSelector() {
                 relativeEndDate,
             });
 
+            const isAllTimeLineage = !start && !end;
+
             updateQueryParams(
                 {
                     start_time_millis: startTimeMillisValue?.toString(),
                     end_time_millis: endTimeMillisValue?.toString(),
+                    show_all_time_lineage: isAllTimeLineage ? 'true' : undefined,
                 },
                 location,
                 history,

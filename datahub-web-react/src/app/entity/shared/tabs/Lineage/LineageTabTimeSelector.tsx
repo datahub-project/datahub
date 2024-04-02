@@ -19,6 +19,7 @@ export default function LineageTabTimeSelector() {
             const endTimeMillisValue = end?.valueOf();
             const relativeStartDate = getTimeFromNow(startTimeMillisValue);
             const relativeEndDate = getTimeFromNow(endTimeMillisValue);
+            const showAllTimeLineage = !start && !end;
             analytics.event({
                 type: EventType.LineageGraphTimeRangeSelectionEvent,
                 relativeStartDate,
@@ -26,7 +27,11 @@ export default function LineageTabTimeSelector() {
             });
 
             updateQueryParams(
-                { start_time_millis: startTimeMillisValue, end_time_millis: endTimeMillisValue },
+                {
+                    start_time_millis: startTimeMillisValue,
+                    end_time_millis: endTimeMillisValue,
+                    show_all_time_lineage: showAllTimeLineage ? 'true' : undefined,
+                },
                 location,
                 history,
             );

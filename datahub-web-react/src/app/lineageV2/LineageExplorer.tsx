@@ -4,6 +4,7 @@ import { EntityType, LineageDirection } from '../../types.generated';
 import { useGetLineageTimeParams } from '../lineage/utils/useGetLineageTimeParams';
 import TabFullsizedContext from '../shared/TabFullsizedContext';
 import {
+    EdgeId,
     FetchStatus,
     LINEAGE_FILTER_PAGINATION,
     LineageEdge,
@@ -23,7 +24,11 @@ type Props = {
 export default function LineageExplorer(props: Props) {
     const { urn, type } = props;
     const [nodes] = useState(new Map<string, LineageEntity>());
-    const [edges] = useState(new Map<string, Map<string, LineageEdge>>());
+    const [edges] = useState(new Map<EdgeId, LineageEdge>());
+    const [adjacencyList] = useState({
+        [LineageDirection.Upstream]: new Map(),
+        [LineageDirection.Downstream]: new Map(),
+    });
     const [nodeVersion, setNodeVersion] = useState(0);
     const [dataVersion, setDataVersion] = useState(0);
     const [displayVersion, setDisplayVersion] = useState<[number, string[]]>([0, []]);
@@ -31,6 +36,7 @@ export default function LineageExplorer(props: Props) {
         rootUrn: urn,
         nodes,
         edges,
+        adjacencyList,
         nodeVersion,
         setNodeVersion,
         dataVersion,
@@ -86,7 +92,6 @@ function makeInitialNode(urn: string, type: EntityType): LineageEntity {
         urn,
         type,
         isExpanded: true,
-        parents: new Set(),
         fetchStatus: {
             [LineageDirection.Upstream]: FetchStatus.LOADING,
             [LineageDirection.Downstream]: FetchStatus.LOADING,

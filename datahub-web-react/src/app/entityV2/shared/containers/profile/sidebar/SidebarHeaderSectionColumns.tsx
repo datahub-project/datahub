@@ -7,7 +7,6 @@ const Container = styled.div`
     flex-direction: column;
     justify-content: center;
     gap: 10px;
-    border-bottom: 1px solid #0000001a;
 `;
 
 const ColumnsContainer = styled.div`

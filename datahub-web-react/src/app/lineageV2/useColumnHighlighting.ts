@@ -209,7 +209,6 @@ function createColumnQueryNode(
             urn,
             isExpanded: true,
             type: EntityType.Query,
-            parents: new Set(),
             fetchStatus: {
                 [LineageDirection.Upstream]: FetchStatus.UNNEEDED,
                 [LineageDirection.Downstream]: FetchStatus.UNNEEDED,

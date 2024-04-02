@@ -34,10 +34,16 @@ export enum PageRoutes {
     EMBED_LOOKUP = '/embed/lookup/:url',
     DATASET_HEALTH_DASHBOARD = '/observe/datasets',
     SETTINGS_POSTS = '/settings/posts',
+    SETTINGS_HELP_LINK = '/settings/helpLink'
 }
 
 export enum AcrylPageRoutes {
     INTRODUCE = '/introduce',
+}
+
+export enum HelpLinkRoutes {
+    GRAPHIQL = '/api/graphiql',
+    OPENAPI = '/openapi/swagger-ui/index.html'
 }
 
 /**
