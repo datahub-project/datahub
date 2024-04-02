@@ -12,6 +12,7 @@ export enum SourceCapability {
     TAGS = 'Extract Tags',
     SCHEMA_METADATA = 'Schema Metadata',
     CONTAINERS = 'Asset Containers',
+    CLASSIFICATION = 'Classification',
 }
 
 export interface ConnectionCapability {
