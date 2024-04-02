@@ -1,10 +1,12 @@
 import { Drawer } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
+import CloseOutlinedIcon from '@mui/icons-material/CloseOutlined';
 import { useEntityData } from '../../../../EntityContext';
 import { useGetTimelineQuery } from '../../../../../../../graphql/timeline.generated';
 import { ChangeCategoryType } from '../../../../../../../types.generated';
 import ChangeTransaction from './ChangeTransaction';
+import { REDESIGN_COLORS } from '../../../../constants';
 
 const StyledDrawer = styled(Drawer)`
     &&& .ant-drawer-body {
@@ -13,6 +15,7 @@ const StyledDrawer = styled(Drawer)`
         flex-direction: column;
         justify-content: space-between;
         height: 100%;
+        overflow-x: hidden;
     }
 
     &&& .ant-drawer-content-wrapper {
@@ -28,24 +31,25 @@ const FieldHeaderWrapper = styled.div`
     padding: 16px;
     display: flex;
     justify-content: space-between;
-    background: #113633;
+    align-items: center;
+    background: ${REDESIGN_COLORS.BACKGROUND_PURPLE};
     color: #fff;
     font-size: 14px;
-    font-weight: 600;
-`;
-
-const TimelineTabSubheader = styled.div`
-    display: flex;
-    justify-content: right;
-    padding: 4px 16px;
-    background: #f6f7fa;
+    font-weight: 700;
 `;
 
 const ChangeTransactionList = styled.div`
     display: flex;
     flex-direction: column;
-    overflow-y: scroll;
     padding: 26px;
+`;
+
+const CloseIcon = styled.div`
+    display: flex;
+    &&:hover {
+        cursor: pointer;
+        stroke: ${REDESIGN_COLORS.WHITE};
+    }
 `;
 
 type Props = {
@@ -79,8 +83,13 @@ const HistorySidebar = ({ open, onClose }: Props) => {
             autoFocus={false}
         >
             <DrawerContent>
-                <FieldHeaderWrapper>History for table</FieldHeaderWrapper>
-                <TimelineTabSubheader>Search & Filter Placeholder</TimelineTabSubheader>
+                <FieldHeaderWrapper>
+                    Change History
+                    <CloseIcon onClick={() => onClose()}>
+                        <CloseOutlinedIcon />
+                    </CloseIcon>
+                </FieldHeaderWrapper>
+
                 <ChangeTransactionList>
                     {timelineResult.data?.getTimeline?.changeTransactions.map((changeTransaction) => (
                         <ChangeTransaction key={changeTransaction.versionStamp} changeTransaction={changeTransaction} />

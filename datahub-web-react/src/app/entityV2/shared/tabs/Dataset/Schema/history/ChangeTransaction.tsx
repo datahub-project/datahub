@@ -3,14 +3,18 @@ import styled from 'styled-components';
 import { ChangeTransaction } from '../../../../../../../types.generated';
 import { formatTimestamp } from './historyUtils';
 import ChangeEventComponent from './ChangeEvent';
+import { REDESIGN_COLORS } from '../../../../constants';
 
 const ChangeTransactionTimestamp = styled.span`
-    color: #56668e;
-    font-size: 15px;
+    color: ${REDESIGN_COLORS.TEXT_HEADING};
+    font-size: 13px;
     font-style: normal;
-    font-weight: 500;
+    font-weight: 600;
     line-height: 16px; /* 160% */
-    margin-left: 19px;
+    margin-left: 15px;
+    background: #eeecfa;
+    border-radius: 20px;
+    padding: 5px 15px;
 `;
 
 const ChangeTransactionContainer = styled.div`
@@ -32,15 +36,32 @@ const ChangeTransactionMainContent = styled.div`
     flex-direction: column;
     width: 100%;
     min-height: 100%;
-    padding-bottom: 24px;
+    padding-bottom: 36px;
+`;
+
+const TransactionDateHeader = styled.div`
+    display: flex;
+    align-items: center;
+    justify-content: start;
 `;
 
 const ChangeEventCircle = styled.div`
-    display: inline-block;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background-color: #d2d6e0;
+    margin-left: -3px;
+`;
+
+const InnerEventCircle = styled.div`
+    display: flex;
     width: 8px;
     height: 8px;
     border-radius: 50%;
-    background-color: #56668e;
+    background-color: ${REDESIGN_COLORS.DARK_GREY};
 `;
 
 const ChangeEventVerticalLine = styled.div`
@@ -61,12 +82,14 @@ const ChangeTransactionComponent: React.FC<ChangeTransactionProps> = ({ changeTr
                 <ChangeEventVerticalLine />
             </ChangeTransactionSidebar>
             <ChangeTransactionMainContent>
-                <div>
-                    <ChangeEventCircle />{' '}
+                <TransactionDateHeader>
+                    <ChangeEventCircle>
+                        <InnerEventCircle />
+                    </ChangeEventCircle>
                     <ChangeTransactionTimestamp>
                         {formatTimestamp(changeTransaction.timestampMillis)}
                     </ChangeTransactionTimestamp>
-                </div>
+                </TransactionDateHeader>
                 <div>
                     {changeTransaction?.changes?.map((change) => (
                         <ChangeEventComponent changeEvent={change} />
