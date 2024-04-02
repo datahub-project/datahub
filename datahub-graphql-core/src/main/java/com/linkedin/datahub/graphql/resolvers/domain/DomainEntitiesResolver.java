@@ -77,10 +77,7 @@ public class DomainEntitiesResolver implements DataFetcher<CompletableFuture<Sea
                   .getFilters()
                   .forEach(
                       filter -> {
-                        criteria.add(
-                            new Criterion()
-                                .setField(filter.getField())
-                                .setValue(filter.getValue()));
+                        criteria.add(criterionFromFilter(filter, true));
                       });
             }
 
