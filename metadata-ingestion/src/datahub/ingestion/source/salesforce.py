@@ -575,7 +575,7 @@ class SalesforceSource(Source):
 
         description = self._get_field_description(field, customField)
 
-        # escping string starting with `#`
+        # escaping string starting with `#`
         description = "\\" + description if description.startswith("#") else description
 
         schemaField = SchemaFieldClass(
