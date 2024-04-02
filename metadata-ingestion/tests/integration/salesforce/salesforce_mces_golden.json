@@ -1350,6 +1350,40 @@
                     },
                     "isPartOfKey": false,
                     "jsonProps": "{}"
+                },
+                {
+                    "fieldPath": "Unique_Account",
+                    "nullable": true,
+                    "description": "\\# Unique_Account",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "Text(80)",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": []
+                    },
+                    "isPartOfKey": false,
+                    "jsonProps": "{}"
+                },
+                {
+                    "fieldPath": "Unique_Number",
+                    "nullable": true,
+                    "description": "\\#Unique_Number",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "Text(80)",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": []
+                    },
+                    "isPartOfKey": false,
+                    "jsonProps": "{}"
                 }
             ],
             "primaryKeys": [
