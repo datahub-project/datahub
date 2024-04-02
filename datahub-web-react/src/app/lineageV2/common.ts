@@ -1,10 +1,11 @@
-import { Maybe } from 'graphql/jsutils/Maybe';
 import React, { Dispatch, SetStateAction } from 'react';
+import { Maybe } from 'graphql/jsutils/Maybe';
 import { EntityType, LineageDirection, SchemaFieldRef } from '../../types.generated';
+import EntityRegistry from '../entityV2/EntityRegistry';
 import { GenericEntityProperties } from '../entityV2/shared/types';
 import { DBT_CLOUD_URN } from '../ingest/source/builder/constants';
 import { ColumnQueryData } from '../shared/EntitySidebarContext';
-import { getPlatformUrnFromEntityUrn } from './lineageUtils';
+import { getEntityTypeFromEntityUrn, getPlatformUrnFromEntityUrn } from './lineageUtils';
 import { FetchedEntityV2 } from './types';
 
 export const TRANSITION_DURATION_MS = 200;
@@ -31,8 +32,6 @@ export interface NodeBase {
     id: string;
     isExpanded: boolean;
     direction?: LineageDirection;
-    parents: Set<Urn>;
-    prunedParents?: Set<Urn>;
 }
 
 export interface LineageEntity extends NodeBase {
@@ -73,6 +72,16 @@ export function isQuery(node: Pick<LineageNode, 'type'>): boolean {
 // TODO: Replace with value from search-across-lineage, once it's available
 export function isTransformational(node: Pick<LineageNode, 'urn' | 'type'>): boolean {
     return TRANSFORMATION_TYPES.includes(node.type) || isDbt(node);
+}
+
+export function isUrnDbt(urn: string, entityRegistry: EntityRegistry): boolean {
+    const type = getEntityTypeFromEntityUrn(urn, entityRegistry);
+    return type === EntityType.Dataset && getPlatformUrnFromEntityUrn(urn) === DBT_CLOUD_URN;
+}
+
+export function isUrnTransformational(urn: string, entityRegistry: EntityRegistry): boolean {
+    const type = getEntityTypeFromEntityUrn(urn, entityRegistry);
+    return !!type && TRANSFORMATION_TYPES.includes(type);
 }
 
 export type ColumnRef = string;
@@ -116,15 +125,41 @@ interface AuditStamp {
 }
 
 export interface LineageEdge {
+    isDisplayed: boolean;
+    isManual: boolean;
     created?: AuditStamp;
     updated?: AuditStamp;
-    isManual: boolean;
+    via?: Urn;
 }
+
+export type EdgeId = string;
+
+export function createEdgeId(upstream: Urn, downstream: Urn): EdgeId {
+    return `${upstream}-:-${downstream}`;
+}
+
+export function parseEdgeId(edgeId: EdgeId): [Urn, Urn] {
+    const [upstream, downstream] = edgeId.split('-:-', 2);
+    return [upstream, downstream];
+}
+
+export function getEdgeId(parent: Urn, child: Urn, direction: LineageDirection) {
+    const upstream = direction === LineageDirection.Downstream ? parent : child;
+    const downstream = direction === LineageDirection.Downstream ? child : parent;
+    return createEdgeId(upstream, downstream);
+}
+
+export function reverseDirection(direction: LineageDirection): LineageDirection {
+    return direction === LineageDirection.Upstream ? LineageDirection.Downstream : LineageDirection.Upstream;
+}
+
+export type NeighborMap = Map<Urn, Set<Urn>>;
 
 export interface NodeContext {
     rootUrn: string;
     nodes: Map<Urn, LineageEntity>;
-    edges: Map<Urn, Map<Urn, LineageEdge>>; // Edges in direction root -> child
+    edges: Map<EdgeId, LineageEdge>;
+    adjacencyList: Record<LineageDirection, NeighborMap>;
     nodeVersion: number;
     setNodeVersion: Dispatch<SetStateAction<number>>;
     dataVersion: number;
@@ -137,6 +172,10 @@ export const LineageNodesContext = React.createContext<NodeContext>({
     rootUrn: '',
     nodes: new Map(),
     edges: new Map(),
+    adjacencyList: {
+        [LineageDirection.Upstream]: new Map(),
+        [LineageDirection.Downstream]: new Map(),
+    },
     nodeVersion: 0,
     setNodeVersion: () => {},
     dataVersion: 0,
@@ -145,12 +184,25 @@ export const LineageNodesContext = React.createContext<NodeContext>({
     setDisplayVersion: () => {},
 });
 
+export function getParents(node: LineageNode, adjacencyList: NodeContext['adjacencyList']): string[] {
+    if (node.type === LINEAGE_FILTER_TYPE) return [node.parent];
+    if (!node.direction) return [];
+    return Array.from(adjacencyList[reverseDirection(node.direction)].get(node.id) || []);
+}
+
+export function addToAdjacencyList(
+    adjacencyList: NodeContext['adjacencyList'],
+    direction: LineageDirection,
+    parent: Urn,
+    child: Urn,
+): void {
+    setDefault(adjacencyList[direction], parent, new Set()).add(child);
+    setDefault(adjacencyList[reverseDirection(direction)], child, new Set()).add(parent);
+}
+
 export type FineGrainedLineageMap = Map<ColumnRef, ColumnRef[]>;
 export type FineGrainedLineage = { forward: FineGrainedLineageMap; backward: FineGrainedLineageMap };
 export type HighlightedColumns = Map<Urn, Set<string>>;
-
-export type NeighborMap = Map<Urn, Set<Urn>>;
-export type NeighborData = Record<LineageDirection, NeighborMap>;
 
 interface DisplayContext {
     // Params
@@ -166,7 +218,6 @@ interface DisplayContext {
     highlightedEdges: Set<string>;
     fineGrainedLineage: FineGrainedLineage;
     columnQueryData: Map<ColumnRef, ColumnQueryData>;
-    neighborData: NeighborData;
     numNodes: number;
 }
 
@@ -185,10 +236,6 @@ export const LineageDisplayContext = React.createContext<DisplayContext>({
         backward: new Map(),
     },
     columnQueryData: new Map(),
-    neighborData: {
-        [LineageDirection.Upstream]: new Map(),
-        [LineageDirection.Downstream]: new Map(),
-    },
     numNodes: 0,
 });
 

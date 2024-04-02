@@ -2,6 +2,9 @@ import { EdgeMarker } from '@reactflow/core/dist/esm/types/edges';
 import { Edge, MarkerType, Node } from 'reactflow';
 import { EntityType, LineageDirection } from '../../types.generated';
 import {
+    createEdgeId,
+    getParents,
+    isQuery,
     isTransformational,
     LINEAGE_FILTER_TYPE,
     LineageEdge,
@@ -9,6 +12,7 @@ import {
     LineageFilter,
     LineageNode,
     NodeContext,
+    parseEdgeId,
     setDefault,
 } from './common';
 import { LINEAGE_TABLE_EDGE_NAME } from './LineageEdge/LineageTableEdge';
@@ -109,8 +113,8 @@ export default class NodeBuilder {
         return this.#isMainNode(information) ? { type: MarkerType.ArrowClosed } : undefined;
     }
 
-    createNodes(): NodeWithMetadata[] {
-        this.computeNodeX();
+    createNodes(adjacencyList: NodeContext['adjacencyList']): NodeWithMetadata[] {
+        this.computeNodeX(adjacencyList);
         this.computeNodeY();
 
         const nodes: NodeWithMetadata[] = [];
@@ -121,27 +125,34 @@ export default class NodeBuilder {
         return nodes;
     }
 
-    createEdges(allEdges: NodeContext['edges']): Edge[] {
+    createEdges(edges: NodeContext['edges']): Edge[] {
         const baseEdges: BaseEdge<LineageEdge>[] = [];
-        [...this.entities, ...this.transformations, ...this.workbooks].forEach((node) => {
-            node.parents.forEach((parent) => {
-                if (!this.nodeInformation[parent]) return;
-                if (node.direction === LineageDirection.Upstream) {
+        edges.forEach((edge, edgeId) => {
+            if (!edge.isDisplayed) return;
+            const [upstream, downstream] = parseEdgeId(edgeId);
+            if (upstream in this.nodeInformation && downstream in this.nodeInformation) {
+                if (edge.via) {
                     baseEdges.push({
-                        source: node.urn,
-                        target: parent,
-                        markerEnd: this.#getMarker(this.nodeInformation[parent]),
-                        data: allEdges.get(parent)?.get(node.urn),
+                        source: upstream,
+                        target: edge.via,
+                        markerEnd: this.#getMarker(this.nodeInformation[edge.via]),
+                        data: edge,
+                    });
+                    baseEdges.push({
+                        source: edge.via,
+                        target: downstream,
+                        markerEnd: this.#getMarker(this.nodeInformation[downstream]),
+                        data: edge,
                     });
                 } else {
                     baseEdges.push({
-                        source: parent,
-                        target: node.urn,
-                        markerEnd: this.#getMarker(node),
-                        data: allEdges.get(parent)?.get(node.urn),
+                        source: upstream,
+                        target: downstream,
+                        markerEnd: this.#getMarker(this.nodeInformation[downstream]),
+                        data: edge,
                     });
                 }
-            });
+            }
         });
         this.filterNodes.forEach((node) => {
             if (node.direction === LineageDirection.Upstream) {
@@ -154,21 +165,17 @@ export default class NodeBuilder {
                 baseEdges.push({ source: node.parent, target: node.id, markerEnd: this.#getMarker(node) });
             }
         });
-
-        // TODO: Come up with a cleaner solution here
-        return Array.from(new Set(baseEdges.map((edge) => JSON.stringify(edge)))).map((edge) =>
-            createEdge(JSON.parse(edge)),
-        );
+        return baseEdges.map(createEdge);
     }
 
     /**
      * Computes the x position of each node, by organizing them into layers.
      */
-    computeNodeX(): void {
+    computeNodeX(adjacencyList: NodeContext['adjacencyList']): void {
         this.topologicalNodes.forEach((node) => {
             const parentLayers = new Map<string, Layer>(
-                Array.from(node.parents)
-                    .map((p) => [p, this.nodeInformation[p]?.layer])
+                getParents(node, adjacencyList)
+                    .map((parent) => [parent, this.nodeInformation[parent]?.layer])
                     .filter((pair): pair is [string, Layer] => pair[1] !== undefined),
             );
             const minParentLayer = Array.from(parentLayers.values()).sort(compareLayers)[0] || defaultLayer;
@@ -200,7 +207,7 @@ export default class NodeBuilder {
             const factor = node.direction === LineageDirection.Upstream ? -1 : 1;
 
             // Transformational nodes for which this node is a positional child
-            const transformationalParents = Array.from(node.parents).filter((p) => {
+            const transformationalParents = getParents(node, adjacencyList).filter((p) => {
                 const { main, mini } = parseLayer(this.nodeInformation[p]?.layer);
                 return main + factor === mainLayer && mini > 0;
             });
@@ -211,6 +218,15 @@ export default class NodeBuilder {
                     setDefault(this.transformationChildren, parent, new Set()).add(node.id);
                 }
             });
+        });
+
+        this.transformations.forEach((node) => {
+            if (node.direction && isQuery(node)) {
+                const children = Array.from(adjacencyList[node.direction].get(node.urn) || []).filter(
+                    (child) => child in this.nodeInformation,
+                );
+                this.transformationChildren.set(node.urn, new Set(children));
+            }
         });
 
         const getNodeSize = (layer: Layer): number => {
@@ -395,10 +411,6 @@ function compareLayersMinisLast(a: Layer, b: Layer): number {
         return -1;
     }
     return compareLayers(a, b);
-}
-
-export function createEdgeId(source: string, target: string): string {
-    return `${source}-${target}`;
 }
 
 function createEdge<T>(edge: BaseEdge<T>): Edge {

@@ -1,21 +1,25 @@
-import { useMemo } from 'react';
+import { useContext, useMemo } from 'react';
 import { Node, useReactFlow } from 'reactflow';
 import { LineageDirection } from '../../types.generated';
-import { COLUMN_QUERY_ID_PREFIX, LineageFilter, LineageNode, NeighborMap } from './common';
-import { createEdgeId } from './NodeBuilder';
+import {
+    COLUMN_QUERY_ID_PREFIX,
+    createEdgeId,
+    LineageFilter,
+    LineageNode,
+    LineageNodesContext,
+    NeighborMap,
+} from './common';
 
-export default function useNodeHighlighting(
-    hoveredNode: string | null,
-    childMaps: Record<LineageDirection, NeighborMap>,
-): {
+export default function useNodeHighlighting(hoveredNode: string | null): {
     highlightedNodes: Set<string>;
     highlightedEdges: Set<string>;
 } {
+    const { adjacencyList } = useContext(LineageNodesContext);
     const { getNode } = useReactFlow<LineageNode>();
     const { highlightedNodes, highlightedEdges } = useMemo(() => {
         const node = hoveredNode ? getNode(hoveredNode) : null;
-        return computeHighlights(node, childMaps);
-    }, [hoveredNode, childMaps, getNode]);
+        return computeHighlights(node, adjacencyList);
+    }, [hoveredNode, adjacencyList, getNode]);
 
     return { highlightedNodes, highlightedEdges };
 }

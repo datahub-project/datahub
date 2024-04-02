@@ -1,4 +1,3 @@
-import { Maybe } from 'graphql/jsutils/Maybe';
 import { useContext, useMemo } from 'react';
 import { Edge } from 'reactflow';
 import { EntityType, LineageDirection } from '../../types.generated';
@@ -8,8 +7,11 @@ import {
     ColumnRef,
     createColumnQueryRef,
     createColumnRef,
+    createEdgeId,
     FineGrainedLineage,
     FineGrainedLineageMap,
+    getEdgeId,
+    getParents,
     isQuery,
     isTransformational,
     LINEAGE_FILTER_ID_PREFIX,
@@ -19,8 +21,6 @@ import {
     LineageFilter,
     LineageNode,
     LineageNodesContext,
-    NeighborData,
-    NeighborMap,
     NodeContext,
     parseColumnRef,
     setDefault,
@@ -38,44 +38,39 @@ interface ProcessedData {
     fineGrainedLineage: FineGrainedLineageData;
     flowNodes: NodeWithMetadata[];
     flowEdges: Edge[];
-    neighborData: NeighborData;
 }
 
 export default function useProcessData(urn: string, type: EntityType): ProcessedData {
-    const { nodes, edges, nodeVersion, dataVersion, displayVersion } = useContext(LineageNodesContext);
+    const { nodes, edges, adjacencyList, nodeVersion, dataVersion, displayVersion } = useContext(LineageNodesContext);
     const displayVersionNumber = displayVersion[0];
 
     const fineGrainedLineage = useMemo(
-        () => getFineGrainedLineage(nodes),
+        () => getFineGrainedLineage({ nodes, edges }),
         // eslint-disable-next-line react-hooks/exhaustive-deps
         [nodes, dataVersion],
     );
 
-    const [flowNodes, flowEdges, neighborData] = useMemo(
+    const [flowNodes, flowEdges] = useMemo(
         () => {
-            const neighborMaps = getNeighborMaps(nodes);
-            const filteredNodes = filterNodes(urn, nodes, neighborMaps);
+            console.log({ nodes, edges, adjacencyList });
+            const filteredNodes = filterNodes(urn, { nodes, edges, adjacencyList });
             const nodeBuilder = new NodeBuilder(urn, type, filteredNodes);
-            return [nodeBuilder.createNodes(), nodeBuilder.createEdges(edges), neighborMaps];
+            return [nodeBuilder.createNodes(adjacencyList), nodeBuilder.createEdges(edges)];
         }, // eslint-disable-next-line react-hooks/exhaustive-deps
-        [nodes, edges, nodeVersion, displayVersionNumber],
+        [nodes, edges, adjacencyList, nodeVersion, displayVersionNumber],
     );
 
-    return { flowNodes, flowEdges, fineGrainedLineage, neighborData };
+    return { flowNodes, flowEdges, fineGrainedLineage };
 }
 
 /**
  * Filters nodes based on per-node filters.
  * @param urn The urn of the root node.
- * @param nodes The list of urns fetched for the lineage visualization.
- * @param neighborMap Per direction, an association list of urns to their neighbors in that direction.
+ * @param context Lineage node context.
  * @returns A list of nodes to display in rough topological order.
  */
-function filterNodes(
-    urn: string,
-    nodes: NodeContext['nodes'],
-    neighborMap: Record<LineageDirection, NeighborMap>,
-): LineageNode[] {
+function filterNodes(urn: string, context: Pick<NodeContext, 'adjacencyList' | 'nodes' | 'edges'>): LineageNode[] {
+    const { nodes } = context;
     const rootNode = nodes.get(urn);
     if (!rootNode) {
         return [];
@@ -91,7 +86,7 @@ function filterNodes(
         const node = nodes.get(current);
         const directionsToSearch = node?.direction ? [node.direction] : Object.values(LineageDirection);
         const filteredChildren = directionsToSearch
-            .map((direction) => applyFilters(current, direction, orderedNodes, nodes, neighborMap[direction]))
+            .map((direction) => applyFilters(current, direction, orderedNodes, context))
             .flat();
 
         filteredChildren.forEach((child) => {
@@ -112,18 +107,17 @@ function applyFilters(
     urn: string,
     direction: LineageDirection,
     orderedNodes: LineageEntity[],
-    nodes: NodeContext['nodes'],
-    neighborMap: NeighborMap,
+    context: Pick<NodeContext, 'adjacencyList' | 'nodes' | 'edges'>,
 ): LineageNode[] {
-    // TODO: Only create lineage filter nodes for entity nodes (not transformational)
+    const { adjacencyList, nodes } = context;
     const node = nodes.get(urn);
     const filters = node?.filters?.[direction];
-    const children = neighborMap.get(urn);
-    if (!node || !children || filters?.display === false) {
+    const children = adjacencyList[direction].get(urn);
+    if (!node || !children?.size || filters?.display === false) {
         return [];
     }
 
-    const childrenToFilter = getChildrenToFilter(node, nodes, neighborMap);
+    const childrenToFilter = getChildrenToFilter(node, direction, context);
     let filteredChildren = orderedNodes.filter((n) => childrenToFilter?.has(n.urn));
 
     filters?.facetFilters?.forEach((values, facet) => {
@@ -154,7 +148,6 @@ function applyFilters(
             id: `${LINEAGE_FILTER_ID_PREFIX}${dir}${urn}`,
             type: LINEAGE_FILTER_TYPE,
             parent: urn,
-            parents: new Set([urn]),
             direction,
             limit,
             isExpanded: false,
@@ -164,7 +157,7 @@ function applyFilters(
         result.push(filterNode);
     }
     if (node) {
-        result.push(...getTransformationalNodes(node, shownNodes, nodes, neighborMap), ...shownNodes);
+        result.push(...getTransformationalNodes(node, shownNodes, direction, context), ...shownNodes);
     }
 
     return result;
@@ -175,19 +168,20 @@ function applyFilters(
  * This is calculated as: all adjacent non-transformational nodes and any transformational leaves.
  * Loop invariant: all nodes in `queue` are transformational.
  * @param parent The parent node, whose children are to be filtered.
- * @param nodes All nodes in the lineage graph.
- * @param neighborMap Association list of edges in the appropriate direction.
+ * @param direction Direction of children.
+ * @param context Lineage node context.
  */
 function getChildrenToFilter(
     parent: LineageEntity,
-    nodes: NodeContext['nodes'],
-    neighborMap: NeighborMap,
+    direction: LineageDirection,
+    context: Pick<NodeContext, 'adjacencyList' | 'nodes'>,
 ): Set<string> {
+    const { adjacencyList, nodes } = context;
     const seen = new Set<string>();
     const childrenToFilter = new Set<string>();
     const queue = [parent];
     for (let node = queue.pop(); node; node = queue.pop()) {
-        const children = neighborMap.get(node.urn);
+        const children = adjacencyList[direction].get(node.urn);
         // Include non-query transformational nodes if they have no children
         if (!children?.size && !isQuery(node)) childrenToFilter.add(node.urn);
         children?.forEach((childUrn) => {
@@ -210,19 +204,21 @@ function getChildrenToFilter(
  * Return all transformational nodes between `root` and `leaves`, in rough topological order.
  * @param root The node from which all `leaves` are (indirect) children.
  * @param leaves Set of non-transformational children of `parentUrn` to render.
- * @param nodes Map of all nodes in the lineage graph.
- * @param neighborMap Association list in the appropriate direction, to put nodes in topological order.
+ * @param direction Direction to search for transformational nodes.
+ * @param context Lineage node context.
  */
 function getTransformationalNodes(
     root: LineageEntity,
     leaves: LineageEntity[],
-    nodes: NodeContext['nodes'],
-    neighborMap: NeighborMap,
+    direction: LineageDirection,
+    context: Pick<NodeContext, 'adjacencyList' | 'nodes' | 'edges'>,
 ): LineageEntity[] {
+    const { nodes, edges, adjacencyList } = context;
+
     const nodesInBetween = new Set<string>();
     const nodesToRoot = [...leaves];
     for (let node = nodesToRoot.pop(); node; node = nodesToRoot.pop()) {
-        node.parents.forEach((parentUrn) => {
+        getParents(node, adjacencyList).forEach((parentUrn) => {
             const parent = nodes.get(parentUrn);
             if (parentUrn !== root.urn && !nodesInBetween.has(parentUrn) && parent && isTransformational(parent)) {
                 nodesToRoot.push(parent);
@@ -235,14 +231,22 @@ function getTransformationalNodes(
     const result: LineageEntity[] = [];
     const nodesToLeaves = [root];
     for (let node = nodesToLeaves.shift(); node; node = nodesToLeaves.shift()) {
-        if (node.urn !== root.urn) {
+        const { urn } = node;
+        if (urn !== root.urn) {
             result.push(node);
         }
-        neighborMap.get(node.urn)?.forEach((parent) => {
-            const parentNode = nodes.get(parent);
-            if (nodesInBetween.has(parent) && parentNode) {
-                nodesToLeaves.push(parentNode);
-                nodesInBetween.delete(parent);
+        adjacencyList[direction].get(urn)?.forEach((child) => {
+            const childNode = nodes.get(child);
+            if (nodesInBetween.has(child) && childNode) {
+                nodesToLeaves.push(childNode);
+                nodesInBetween.delete(child);
+            }
+            const edge = edges.get(getEdgeId(urn, child, direction));
+            if (edge?.isDisplayed && edge?.via) {
+                const queryNode = nodes.get(edge.via);
+                if (queryNode) {
+                    result.push(queryNode);
+                }
             }
         });
     }
@@ -250,27 +254,9 @@ function getTransformationalNodes(
     return result;
 }
 
-function getNeighborMaps(nodes: NodeContext['nodes']): NeighborData {
-    const upstreamChildren = new Map<string, Set<string>>();
-    const downstreamChildren = new Map<string, Set<string>>();
-    nodes.forEach((node) => {
-        node.parents.forEach((parent) => {
-            if (node.direction === LineageDirection.Upstream) {
-                setDefault(upstreamChildren, parent, new Set()).add(node.urn);
-                setDefault(downstreamChildren, node.urn, new Set()).add(parent);
-            } else if (node.direction === LineageDirection.Downstream) {
-                setDefault(downstreamChildren, parent, new Set()).add(node.urn);
-                setDefault(upstreamChildren, node.urn, new Set()).add(parent);
-            }
-        });
-    });
-    return {
-        [LineageDirection.Upstream]: upstreamChildren,
-        [LineageDirection.Downstream]: downstreamChildren,
-    };
-}
+function getFineGrainedLineage(context: Pick<NodeContext, 'nodes' | 'edges'>): FineGrainedLineageData {
+    const { nodes } = context;
 
-function getFineGrainedLineage(nodes: NodeContext['nodes']): FineGrainedLineageData {
     // Edges through query nodes
     const forward: FineGrainedLineageMap = new Map();
     const backward: FineGrainedLineageMap = new Map();
@@ -294,7 +280,7 @@ function getFineGrainedLineage(nodes: NodeContext['nodes']): FineGrainedLineageD
             entry.upstreams?.forEach((from) => {
                 const fromRef = createColumnRef(from.urn, from.path);
                 entry.downstreams?.forEach((to) => {
-                    if (shouldAddFineGrainedEdge(node, LineageDirection.Upstream, nodes, from.urn, to.urn)) {
+                    if (shouldAddFineGrainedEdge(context, from.urn, to.urn)) {
                         addFineGrainedEdges(
                             forward,
                             forwardDirect,
@@ -308,7 +294,7 @@ function getFineGrainedLineage(nodes: NodeContext['nodes']): FineGrainedLineageD
             entry.downstreams?.forEach((from) => {
                 const fromRef = createColumnRef(from.urn, from.path);
                 entry.upstreams?.forEach((to) => {
-                    if (shouldAddFineGrainedEdge(node, LineageDirection.Downstream, nodes, from.urn, to.urn)) {
+                    if (shouldAddFineGrainedEdge(context, to.urn, from.urn)) {
                         addFineGrainedEdges(
                             backward,
                             backwardDirect,
@@ -341,24 +327,16 @@ function getFineGrainedLineage(nodes: NodeContext['nodes']): FineGrainedLineageD
 }
 
 function shouldAddFineGrainedEdge(
-    node: LineageEntity,
-    direction: LineageDirection,
-    nodes: NodeContext['nodes'],
-    fromUrn: string,
-    toUrn: string,
+    context: Pick<NodeContext, 'nodes' | 'edges'>,
+    upstreamUrn: string,
+    downstreamUrn: string,
 ): boolean {
-    const from = nodes.get(toUrn);
-    const to = nodes.get(fromUrn);
-    if (!from || !to) return false;
-
-    // !node.direction means the node is the home node
-    const fromIsParent =
-        (node.direction && node.direction === direction) ||
-        (!node.direction && direction === LineageDirection.Upstream);
-    const parent = fromIsParent ? from : to;
-    const child = fromIsParent ? to : from;
-
-    return !child.prunedParents?.has(parent.urn);
+    const { nodes, edges } = context;
+    return (
+        nodes.has(upstreamUrn) &&
+        nodes.has(downstreamUrn) &&
+        !!edges.get(createEdgeId(upstreamUrn, downstreamUrn))?.isDisplayed
+    );
 }
 
 function addFineGrainedEdges(
@@ -366,7 +344,7 @@ function addFineGrainedEdges(
     directMap: FineGrainedLineageMap,
     from: ColumnRef,
     to: ColumnRef,
-    query: Maybe<ColumnRef>,
+    query: ColumnRef | null | undefined,
 ) {
     if (query) {
         setDefault(map, from, []).push(query);

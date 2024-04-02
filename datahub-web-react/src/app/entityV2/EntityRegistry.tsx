@@ -1,6 +1,14 @@
 import { QueryHookOptions, QueryResult } from '@apollo/client';
+import { Maybe } from 'graphql/jsutils/Maybe';
 import React from 'react';
-import { Entity as EntityInterface, EntityType, Exact, SearchResult } from '../../types.generated';
+import {
+    Entity as EntityInterface,
+    EntityType,
+    Exact,
+    InputFields,
+    SchemaField,
+    SearchResult,
+} from '../../types.generated';
 import { EntitySidebarSection } from '../entity/shared/types';
 import { FetchedEntity } from '../lineage/types';
 import { SearchResultProvider } from '../search/context/SearchResultContext';
@@ -10,7 +18,6 @@ import { EntitySidebarTab, GenericEntityProperties } from './shared/types';
 import { dictToQueryStringParams, getFineGrainedLineageWithSiblings, urlEncodeUrn } from './shared/utils';
 import { FetchedEntityV2, FetchedEntityV2Relationship, LineageAsset, LineageAssetType } from '../lineageV2/types';
 import { EntityLineageV2Fragment } from '../../graphql/lineage.generated';
-import { convertInputFieldsToSchemaFields } from '../lineageV2/lineageUtils';
 
 function validatedGet<K, V>(key: K, map: Map<K, V>): V {
     if (map.has(key)) {
@@ -316,4 +323,8 @@ export default class EntityRegistry {
         | undefined {
         return undefined;
     }
+}
+
+function convertInputFieldsToSchemaFields(inputFields: Maybe<InputFields>): SchemaField[] | undefined {
+    return inputFields?.fields?.map((field) => field?.schemaField).filter((field): field is SchemaField => !!field);
 }

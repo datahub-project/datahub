@@ -24,7 +24,7 @@ export default function LineageDisplay({ urn, type, loaded }: Props) {
     const [hoveredColumn, setHoveredColumn] = useState<ColumnRef | null>(null);
     const [hoveredNode, setHoveredNode] = useState<string | null>(null);
 
-    const { fineGrainedLineage, flowNodes, flowEdges, neighborData } = useProcessData(urn, type);
+    const { fineGrainedLineage, flowNodes, flowEdges } = useProcessData(urn, type);
     const shownUrns = useMemo(
         () => flowNodes.filter((node) => node.type !== LINEAGE_FILTER_NODE_NAME).map((node) => node.id),
         [flowNodes],
@@ -32,7 +32,7 @@ export default function LineageDisplay({ urn, type, loaded }: Props) {
     useBulkEntityLineage(shownUrns);
     // useLineageNodePreview(shownUrns); TODO: Add back for lineage filter nodes?
 
-    const { highlightedNodes, highlightedEdges } = useNodeHighlighting(hoveredNode, neighborData);
+    const { highlightedNodes, highlightedEdges } = useNodeHighlighting(hoveredNode);
 
     const highlightedColumns = useColumnHighlighting(
         selectedColumn,
@@ -76,7 +76,6 @@ export default function LineageDisplay({ urn, type, loaded }: Props) {
                 highlightedNodes,
                 highlightedColumns,
                 highlightedEdges,
-                neighborData,
                 fineGrainedLineage: fineGrainedLineage.direct,
                 columnQueryData: fineGrainedLineage.columnQueryData,
                 numNodes: flowNodes.length,

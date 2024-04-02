@@ -1,18 +1,24 @@
-import {useEffect, useState} from 'react';
-import {useSearchAcrossLineageStructureLazyQuery} from '../../graphql/search.generated';
-import {Entity, EntityType, LineageDirection, SearchAcrossLineageInput} from '../../types.generated';
-import {DBT_URN} from '../ingest/source/builder/constants';
-import {useGetLineageTimeParams} from '../lineage/utils/useGetLineageTimeParams';
-import {DEGREE_FILTER_NAME} from '../search/utils/constants';
+import { useEffect, useState } from 'react';
+import { useSearchAcrossLineageStructureLazyQuery } from '../../graphql/search.generated';
+import { Entity, EntityType, LineageDirection, SearchAcrossLineageInput } from '../../types.generated';
+import EntityRegistry from '../entityV2/EntityRegistry';
+import { DBT_URN } from '../ingest/source/builder/constants';
+import { useGetLineageTimeParams } from '../lineage/utils/useGetLineageTimeParams';
+import { DEGREE_FILTER_NAME } from '../search/utils/constants';
+import { useEntityRegistryV2 } from '../useEntityRegistry';
 import {
+    addToAdjacencyList,
     FetchStatus,
     Filters,
-    isDbt,
+    getEdgeId,
     isQuery,
     isTransformational,
+    isUrnDbt,
+    isUrnTransformational,
     LINEAGE_FILTER_PAGINATION,
     LineageEntity,
     NodeContext,
+    reverseDirection,
     setDefault,
 } from './common';
 
@@ -31,8 +37,9 @@ export default function useSearchAcrossLineage(
     lazy?: boolean,
     maxDepth?: boolean,
 ): { fetchLineage: () => void; processed: boolean } {
+    const entityRegistry = useEntityRegistryV2();
     const { startTimeMillis, endTimeMillis } = useGetLineageTimeParams();
-    const { nodes, rootUrn, setNodeVersion } = context;
+    const { nodes, edges, adjacencyList, rootUrn, setNodeVersion } = context;
 
     const input: SearchAcrossLineageInput = {
         urn,
@@ -73,37 +80,40 @@ export default function useSearchAcrossLineage(
     }, [fetchLineage, lazy]);
 
     useEffect(() => {
-        // Add query nodes before adding regular nodes for nonTransformationalParent calculation
-        data?.searchAcrossLineage?.searchResults.forEach((result) => {
-            result.paths?.forEach((path) => {
-                const filteredPath = path?.path.filter((p): p is Pick<Entity, 'urn' | 'type'> => !!p) || [];
-                addQueryNodes(filteredPath, nodes, direction);
-            });
-        });
+        const smallContext = { nodes, edges, adjacencyList };
 
-        const urns = new Set<string>();
         data?.searchAcrossLineage?.searchResults.forEach((result) => {
-            urns.add(result.entity.urn);
             const node = setDefault(
                 nodes,
                 result.entity.urn,
                 entityNodeDefault(result.entity.urn, result.entity.type, direction),
             );
-
-            const newParents =
-                result.paths?.map((path) => path?.path?.[path?.path.length - 2]?.urn).filter((p): p is string => !!p) ||
-                [];
-            node.parents = new Set([...node.parents, ...newParents]);
-
             if (maxDepth) {
                 node.fetchStatus = { ...node.fetchStatus, [direction]: FetchStatus.COMPLETE };
-            }
-            if (maxDepth || isTransformational(node)) {
                 node.isExpanded = true;
             }
+
+            result.paths?.forEach((path) => {
+                if (!path) return;
+                const parent = path.path[path.path.length - 2];
+                if (!parent) return;
+                if (isQuery(parent)) {
+                    const grandparent = path.path[path.path.length - 3];
+                    if (grandparent) {
+                        addToAdjacencyList(adjacencyList, direction, grandparent.urn, result.entity.urn);
+                    }
+                } else {
+                    addToAdjacencyList(adjacencyList, direction, parent.urn, result.entity.urn);
+                }
+            });
         });
 
-        urns.forEach((u) => pruneParentsThroughDbt(u, nodes));
+        data?.searchAcrossLineage?.searchResults.forEach((result) => {
+            result.paths?.forEach((path) => {
+                const filteredPath = path?.path.filter((p): p is Pick<Entity, 'urn' | 'type'> => !!p) || [];
+                addQueryNodes(filteredPath, direction, smallContext);
+            });
+        });
 
         const node = nodes.get(urn);
         if (data && node) {
@@ -111,10 +121,23 @@ export default function useSearchAcrossLineage(
         }
 
         if (data) {
+            pruneParentsThroughDbt(urn, direction, smallContext, entityRegistry);
             setNodeVersion((version) => version + 1);
             setProcessed(true);
         }
-    }, [urn, data, direction, nodes, rootUrn, setNodeVersion, maxDepth, setProcessed]);
+    }, [
+        urn,
+        data,
+        direction,
+        nodes,
+        edges,
+        adjacencyList,
+        rootUrn,
+        setNodeVersion,
+        maxDepth,
+        entityRegistry,
+        setProcessed,
+    ]);
 
     return { fetchLineage, processed };
 }
@@ -123,49 +146,39 @@ export default function useSearchAcrossLineage(
  * Remove direct edges between non-transformational nodes, if there is a path between them through only dbt nodes (and query nodes).
  * This prevents the graph from being cluttered with effectively duplicate edges.
  * @param urn Urn for which to remove parent edges.
- * @param nodes All nodes in the graph, used to look up other nodes' parents.
+ * @param direction Direction to look for parents.
+ * @param context Lineage node context.
+ * @param entityRegistry EntityRegistry, used to get EntityType from an urn.
  */
-export function pruneParentsThroughDbt(urn: string, nodes: NodeContext['nodes']) {
-    const node = nodes.get(urn);
-    if (!node || isTransformational(node)) return;
+export function pruneParentsThroughDbt(
+    urn: string,
+    direction: LineageDirection,
+    context: Pick<NodeContext, 'adjacencyList' | 'edges'>,
+    entityRegistry: EntityRegistry,
+) {
+    const { adjacencyList, edges } = context;
+    if (isUrnTransformational(urn, entityRegistry)) return;
 
     const urnsToPrune = new Set<string>();
-    const stack = Array.from(node.parents).filter((p) => {
-        const n = nodes.get(p);
-        return n && isDbt(n);
-    });
+    const stack = Array.from(adjacencyList[direction].get(urn) || []).filter((p) => isUrnDbt(p, entityRegistry));
     const seen = new Set<string>(stack);
     for (let u = stack.pop(); u; u = stack.pop()) {
-        const n = nodes.get(u);
-        if (!n) return;
-
-        n.parents.forEach((parent) => {
-            const p = nodes.get(parent);
-            if (!p) return;
-
-            if (isDbt(p) && !seen.has(parent)) {
-                stack.push(parent);
-                seen.add(parent);
+        Array.from(adjacencyList[direction].get(urn) || []).forEach((parent) => {
+            if (isUrnDbt(parent, entityRegistry)) {
+                if (!seen.has(parent)) {
+                    stack.push(parent);
+                    seen.add(parent);
+                }
             } else {
                 urnsToPrune.add(parent);
             }
         });
     }
 
-    node.parents = new Set(
-        Array.from(node.parents).filter((parentUrn) => {
-            const parent = nodes.get(parentUrn);
-            if (parent && isQuery(parent)) {
-                return Array.from(parent.parents).some((grandparentUrn) => !urnsToPrune.has(grandparentUrn));
-            }
-            return !urnsToPrune.has(parentUrn);
-        }),
-    );
-    if (!node.prunedParents) {
-        node.prunedParents = urnsToPrune;
-    } else {
-        node.prunedParents = new Set([...node.prunedParents, ...urnsToPrune]);
-    }
+    urnsToPrune.forEach((parent) => {
+        const edge = edges.get(getEdgeId(urn, parent, direction));
+        if (edge) edge.isDisplayed = false;
+    });
 }
 
 function entityNodeDefault(urn: string, type: EntityType, direction: LineageDirection): LineageEntity {
@@ -176,8 +189,7 @@ function entityNodeDefault(urn: string, type: EntityType, direction: LineageDire
         urn,
         type,
         direction, // TODO: Handle a node that is both upstream and downstream?
-        isExpanded: false,
-        parents: new Set(),
+        isExpanded: isTransformational({ urn, type }),
         fetchStatus: {
             [direction]: FetchStatus.UNFETCHED,
             [otherDirection]: FetchStatus.UNNEEDED,
@@ -193,16 +205,16 @@ function entityNodeDefault(urn: string, type: EntityType, direction: LineageDire
 
 function addQueryNodes(
     path: Array<Pick<Entity, 'urn' | 'type'>>,
-    nodes: NodeContext['nodes'],
     direction: LineageDirection,
+    context: Pick<NodeContext, 'nodes' | 'edges' | 'adjacencyList'>,
 ) {
+    const { nodes, edges, adjacencyList } = context;
     path.forEach((node, i) => {
-        if (!node || node.type !== EntityType.Query) return;
-        const queryNode = setDefault(nodes, node.urn, {
+        if (!node || node.type !== EntityType.Query || i === 0 || i === path.length - 1) return;
+        setDefault(nodes, node.urn, {
             id: node.urn,
             urn: node.urn,
             type: node.type,
-            parents: new Set<string>(),
             direction,
             isExpanded: true,
             fetchStatus: {
@@ -210,8 +222,12 @@ function addQueryNodes(
                 [LineageDirection.Downstream]: FetchStatus.UNNEEDED,
             },
         });
-
-        const parent = path[i - 1]?.urn;
-        if (parent) queryNode.parents.add(parent);
+        edges.set(getEdgeId(path[i - 1].urn, path[i + 1].urn, direction), {
+            isDisplayed: false,
+            isManual: false,
+            via: node.urn,
+        });
+        setDefault(adjacencyList[direction], node.urn, new Set()).add(path[i + 1].urn);
+        setDefault(adjacencyList[reverseDirection(direction)], node.urn, new Set()).add(path[i - 1].urn);
     });
 }

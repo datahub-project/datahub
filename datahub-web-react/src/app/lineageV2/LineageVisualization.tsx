@@ -46,7 +46,8 @@ interface Props {
 }
 
 // React flow doesn't always emit events if it re-renders at the same time
-export default React.memo(LineageVisualization);
+const MemoizedLineageVisualization = React.memo(LineageVisualization);
+export default MemoizedLineageVisualization;
 
 function LineageVisualization({ initialNodes, initialEdges }: Props) {
     const { highlightedEdges, setSelectedColumn } = useContext(LineageDisplayContext);

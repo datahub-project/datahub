@@ -84,14 +84,14 @@ function useSelectedNode() {
 }
 
 function useQueryDetails(selectedNode: LineageEntity | null): EntitySidebarQueryDetails | undefined {
-    const { nodes } = useContext(LineageNodesContext);
-    const { neighborData, columnQueryData } = useContext(LineageDisplayContext);
+    const { nodes, adjacencyList } = useContext(LineageNodesContext);
+    const { columnQueryData } = useContext(LineageDisplayContext);
 
     if (selectedNode?.type === EntityType.Query) {
         const data = columnQueryData.get(selectedNode.id);
         return {
-            inputTables: getChildTableNames(nodes, selectedNode.urn, neighborData.UPSTREAM),
-            outputTables: getChildTableNames(nodes, selectedNode.urn, neighborData.DOWNSTREAM),
+            inputTables: getChildTableNames(nodes, selectedNode.urn, adjacencyList.UPSTREAM),
+            outputTables: getChildTableNames(nodes, selectedNode.urn, adjacencyList.DOWNSTREAM),
             inputColumns: getColumnNames(nodes, data?.inputColumns),
             outputColumns: getColumnNames(nodes, data?.outputColumns),
             transformOperation: data?.transformOperation,
