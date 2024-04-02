@@ -9,12 +9,12 @@ import { AssertionMonitorBuilderState } from '../types';
 import { createAssertionMonitorBuilderState } from '../utils';
 import { SaveButton } from './SaveButton';
 import { useUpsertAssertionMonitor } from '../useUpsertAssertionMonitor';
-import { useUpdateAssertionActionsWithBuilderState } from '../useUpdateAssertionActions';
+import { useUpdateAssertionMetadataWithBuilderState } from '../useUpdateAssertionMetadata';
 import { SqlAssertionBuilder } from '../steps/sql/SqlAssertionBuilder';
 import { DatasetFreshnessAssertionBuilder } from '../steps/freshness/DatasetFreshnessAssertionBuilder';
 import { VolumeAssertionBuilder } from '../steps/volume/VolumeAssertionBuilder';
 import { FieldAssertionBuilder } from '../steps/field/FieldAssertionBuilder';
-import { getAssertionEditabilityType } from '../../profile/summary/shared/assertionUtils';
+import { AssertionEditabilityScopeType, getAssertionEditabilityType } from '../../profile/summary/shared/assertionUtils';
 import { AssertionActionsSection } from '../steps/actions/AssertionActionsSection';
 
 type Props = {
@@ -34,8 +34,9 @@ export const AssertionSettings = (props: Props) => {
 
     const editabilityType = getAssertionEditabilityType(props.assertion);
 
-    const isFullEditingDisabled = !(editing && editabilityType === 'full');
-    const isActionsEditingDisabled = !(editing && editabilityType !== 'none');
+    const isFullEditingDisabled = !(editing && editabilityType === AssertionEditabilityScopeType.FULL);
+    const isDescriptionEditingDisabled = !(editing && (editabilityType === AssertionEditabilityScopeType.FULL || editabilityType === AssertionEditabilityScopeType.ACTIONS_AND_DESCRIPTION));
+    const isActionsEditingDisabled = !(editing && editabilityType !== AssertionEditabilityScopeType.NONE);
 
     const updateAssertionMonitor = useUpsertAssertionMonitor(
         builderState,
@@ -44,7 +45,7 @@ export const AssertionSettings = (props: Props) => {
         },
         true,
     );
-    const updateAssertionActions = useUpdateAssertionActionsWithBuilderState(builderState, () => { props.refetch?.() })
+    const updateAssertionMetadata = useUpdateAssertionMetadataWithBuilderState(builderState, () => { props.refetch?.() })
 
     const validateForm = async () => {
         try {
@@ -59,12 +60,12 @@ export const AssertionSettings = (props: Props) => {
     const save = async () => {
         const isValid = await validateForm();
         if (!isValid) return;
-        if (editabilityType === 'none') return;
+        if (editabilityType === AssertionEditabilityScopeType.NONE) return;
         setEditing(false);
-        if (editabilityType === 'full') {
+        if (editabilityType === AssertionEditabilityScopeType.FULL) {
             await updateAssertionMonitor();
         } else {
-            await updateAssertionActions();
+            await updateAssertionMetadata();
         }
     };
 
@@ -100,7 +101,7 @@ export const AssertionSettings = (props: Props) => {
                         )) || <SaveButton tooltip="Save changes to this assertion" onClick={save} />
                     }
                     onChangeDescription={updateDescription}
-                    descriptionDisabled={isFullEditingDisabled}
+                    descriptionDisabled={isDescriptionEditingDisabled}
                 />
             )}
             <Form initialValues={builderState} form={form}>

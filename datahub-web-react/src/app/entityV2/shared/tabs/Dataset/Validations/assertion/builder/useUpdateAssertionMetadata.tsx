@@ -1,19 +1,19 @@
 import { message } from 'antd';
-import { useUpdateAssertionActionsMutation } from '../../../../../../../../graphql/assertion.generated';
+import { useUpdateAssertionMetadataMutation } from '../../../../../../../../graphql/assertion.generated';
 import { Assertion } from '../../../../../../../../types.generated';
-import { builderStateToUpdateAssertionActionsVariables } from './utils';
+import { builderStateToUpdateAssertionMetadataVariables } from './utils';
 import { AssertionMonitorBuilderState } from './types';
 import analytics, { EventType } from '../../../../../../../analytics';
 
-export const useUpdateAssertionActionsWithBuilderState = (builderState: AssertionMonitorBuilderState, onUpdate?: (a: Assertion) => void): (() => Promise<void>) => {
-    const [updateAssertionActionsMutation] = useUpdateAssertionActionsMutation();
+export const useUpdateAssertionMetadataWithBuilderState = (builderState: AssertionMonitorBuilderState, onUpdate?: (a: Assertion) => void): (() => Promise<void>) => {
+    const [updateAssertionMetadataMutation] = useUpdateAssertionMetadataMutation();
 
-    const updateAssertionActions = () => {
-        const assertionActionVariables = builderStateToUpdateAssertionActionsVariables(builderState);
+    const updateAssertionMetadata = () => {
+        const assertionMetadataVariables = builderStateToUpdateAssertionMetadataVariables(builderState);
 
-        if (assertionActionVariables) {
-            return updateAssertionActionsMutation({
-                variables: assertionActionVariables,
+        if (assertionMetadataVariables) {
+            return updateAssertionMetadataMutation({
+                variables: assertionMetadataVariables,
             })
                 .then(({ data, errors }: any) => {
                     if (!errors) {
@@ -23,7 +23,7 @@ export const useUpdateAssertionActionsWithBuilderState = (builderState: Assertio
                             data?.upsertDatasetSqlAssertionMonitor ||
                             data?.upsertDatasetFieldAssertionMonitor;
                         analytics.event({
-                            type: EventType.UpdateAssertionActionsEvent,
+                            type: EventType.UpdateAssertionMetadataEvent,
                             assertionType: builderState.assertion?.type as string,
                             assertionUrn: builderState.assertion?.urn as string,
                             entityUrn: builderState.entityUrn as string,
@@ -35,18 +35,18 @@ export const useUpdateAssertionActionsWithBuilderState = (builderState: Assertio
                         onUpdate?.(assertion);
                         return;
                     }
-                    throw new Error('Encountered errors while updating assertion actions');
+                    throw new Error('Encountered errors while updating assertion');
                 })
                 .catch(() => {
                     message.destroy();
-                    message.error({ content: 'Failed to update assertion actions! An unexpected error occurred' });
+                    message.error({ content: 'Failed to update assertion! An unexpected error occurred' });
                 });
         }
 
         message.destroy();
-        message.error({ content: 'Failed to update assertion actions! An unexpected error occurred' });
-        return Promise.reject(new Error('Could not find assertionActionVariables!'));
+        message.error({ content: 'Failed to update assertion! An unexpected error occurred' });
+        return Promise.reject(new Error('Could not find assertionMetadataVariables!'));
     };
 
-    return updateAssertionActions;
+    return updateAssertionMetadata;
 };

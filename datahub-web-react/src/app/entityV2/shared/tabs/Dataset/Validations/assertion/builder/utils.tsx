@@ -33,7 +33,7 @@ import {
 } from '../../../../../../../ingest/source/builder/constants';
 import { AssertionMonitorBuilderState, AssertionActionsFormState } from './types';
 import { ASSERTION_TYPES, HIGH_WATERMARK_FIELD_TYPES, LAST_MODIFIED_FIELD_TYPES } from './constants';
-import { UpdateAssertionActionsMutationVariables } from '../../../../../../../../graphql/assertion.generated';
+import { UpdateAssertionMetadataMutationVariables } from '../../../../../../../../graphql/assertion.generated';
 
 /** Configuration object used to display each source option */
 export type SourceOption = {
@@ -723,14 +723,17 @@ export const toggleResolveIncidentState = (state: AssertionActionsFormState, new
     };
 };
 
-export const builderStateToUpdateAssertionActionsVariables = (
+export const builderStateToUpdateAssertionMetadataVariables = (
     builderState: AssertionMonitorBuilderState,
-): UpdateAssertionActionsMutationVariables | undefined => {
+): UpdateAssertionMetadataMutationVariables | undefined => {
     return builderState.assertion?.actions && builderState.assertion?.urn ? {
         urn: builderState.assertion.urn,
         input: {
-            onSuccess: builderState.assertion.actions.onSuccess || [],
-            onFailure: builderState.assertion.actions.onFailure || [],
+            description: builderState.assertion.description,
+            actions: {
+                onSuccess: builderState.assertion.actions.onSuccess || [],
+                onFailure: builderState.assertion.actions.onFailure || [],
+            },
         },
     } : undefined;
 };

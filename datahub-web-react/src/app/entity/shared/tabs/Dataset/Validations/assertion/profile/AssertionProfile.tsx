@@ -8,7 +8,7 @@ import { AssertionProfileHeader } from './AssertionProfileHeader';
 import { AssertionTabs } from './AssertionTabs';
 import { AssertionProfileFooter } from './AssertionProfileFooter';
 import { AssertionProfileHeaderLoading } from './AssertionProfileHeaderLoading';
-import { getAssertionEditabilityType } from './summary/shared/assertionUtils';
+import { AssertionEditabilityScopeType, getAssertionEditabilityType } from './summary/shared/assertionUtils';
 
 enum TabType {
     Summary = 'Summary',
@@ -69,7 +69,7 @@ export const AssertionProfile = ({
                     entity={entity}
                     refetch={fullRefetch}
                     monitor={monitor}
-                    editable={!!assertion && getAssertionEditabilityType(assertion) !== 'none'}
+                    editable={!!assertion && getAssertionEditabilityType(assertion) !== AssertionEditabilityScopeType.NONE}
                     editAllowed={editAllowed}
                 />
             ),

@@ -88,7 +88,7 @@ public enum DataHubUsageEventType {
   DELETE_TEST_EVENT("DeleteTestEvent"),
   CREATE_ASSERTION_MONITOR_EVENT("CreateAssertionMonitorEvent"),
   UPDATE_ASSERTION_MONITOR_EVENT("UpdateAssertionMonitorEvent"),
-  UPDATE_ASSERTION_ACTIONS_EVENT("UpdateAssertionActionsEvent"),
+  UPDATE_ASSERTION_ACTIONS_AND_INFO_EVENT("UpdateAssertionMetadataEvent"),
   START_ASSERTION_MONITOR_EVENT("StartAssertionMonitorEvent"),
   STOP_ASSERTION_MONITOR_EVENT("StopAssertionMonitorEvent"),
   SLACK_INTEGRATION_SUCCESS_EVENT("SlackIntegrationSuccessEvent"),
