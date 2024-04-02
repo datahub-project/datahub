@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import styled from 'styled-components/macro';
+import styled, { useTheme } from 'styled-components/macro';
 
 import { Link } from 'react-router-dom';
 import { Tooltip } from 'antd';
@@ -7,7 +7,7 @@ import { Tooltip } from 'antd';
 import { useAppConfig } from '../../useAppConfig';
 import { HOME_PAGE_INGESTION_ID } from '../../onboarding/config/HomePageOnboardingConfig';
 import { useUserContext } from '../../context/useUserContext';
-import { PageRoutes } from '../../../conf/Global';
+import { HelpLinkRoutes, PageRoutes } from '../../../conf/Global';
 import { useUpdateEducationStepsAllowList } from '../../onboarding/useUpdateEducationStepsAllowList';
 
 import InboxMenuIcon from '../../../images/inboxMenuIcon.svg?react';
@@ -16,12 +16,18 @@ import GovernMenuIcon from '../../../images/governMenuIcon.svg?react';
 import ObserveMenuIcon from '../../../images/observeMenuIcon.svg?react';
 import IngestionMenuIcon from '../../../images/ingestionMenuIcon.svg?react';
 import SettingsMenuIcon from '../../../images/settingsMenuIcon.svg?react';
+import HelpMenuIcon from '../../../images/help-icon.svg?react';
+import { useGlobalSettingsContext } from '../../context/GlobalSettings/GlobalSettingsContext';
+import CustomNavLink from './CustomNavLink';
+import { NavMenuItem, NavSubMenuItem } from './types';
 
 const LinksWrapper = styled.div<{ areLinksHidden?: boolean }>`
     opacity: 1;
     transition: opacity 0.5s;
 
-    ${(props) => props.areLinksHidden && `
+    ${(props) =>
+        props.areLinksHidden &&
+        `
         opacity: 0;
         width: 0;
     `}
@@ -38,18 +44,18 @@ const LinkWrapper = styled.span`
     line-height: 0;
     box-shadow: 0px 0px 8px 4px rgba(0, 0, 0, 0);
     transition: all 200ms ease;
-    color: #F9FAFC;
+    color: #f9fafc;
 
-    &:hover { 
+    &:hover {
         cursor: pointer;
-        background-color: #4B39BC;
+        background-color: #4b39bc;
         box-shadow: 0px 0px 8px 4px rgba(0, 0, 0, 0.15);
     }
 
     & svg {
         width: 24px;
         height: 24px;
-        fill: #F9FAFC;
+        fill: #f9fafc;
     }
 `;
 
@@ -69,7 +75,8 @@ const SubMenuContent = styled.div`
     box-shadow: 0px 8px 8px 4px rgba(0, 0, 0, 0.25);
     padding: 8px;
 
-    & a {
+    & a,
+    div {
         display: block;
         border-radius: 12px;
         color: #fff;
@@ -83,14 +90,14 @@ const SubMenuContent = styled.div`
         }
 
         &:hover {
-            background-color: #4B39BC;
+            background-color: #4b39bc;
         }
     }
 `;
 
 const SubMenuTitle = styled.div`
     border-radius: 12px;
-    background: #2F2477;
+    background: #2f2477;
     padding: 8px 12px;
     font: 700 12px/20px Mulish;
     margin-bottom: 4px;
@@ -104,10 +111,18 @@ export function NavLinksMenu(props: Props) {
     const { areLinksHidden } = props;
     const me = useUserContext();
     const { config } = useAppConfig();
+    const themeConfig = useTheme();
+    const { helpLinkState } = useGlobalSettingsContext();
+    const { isEnabled: isHelpLinkEnabled, label, link } = helpLinkState;
+    const helpMenuLabel = label;
+    const helpMenuLink = link;
+    const version = config?.appVersion;
+    const showAddHelpLink = !isHelpLinkEnabled && me.platformPrivileges?.manageGlobalSettings;
 
     // Submenu states
     const [showGovernMenu, setShowGovernMenu] = useState(false);
     const [showObserveMenu, setShowObserveMenu] = useState(false);
+    const [showHelpMenu, setShowHelpMenu] = useState(false);
 
     // Flags to show/hide menu items
     const isAnalyticsEnabled = config?.analyticsConfig.enabled;
@@ -128,21 +143,31 @@ export function NavLinksMenu(props: Props) {
     // Update education steps allow list
     useUpdateEducationStepsAllowList(!!showIngestion, HOME_PAGE_INGESTION_ID);
 
-    // Menu Items 
-    const menuItems = [
+    // Help menu options
+    const HelpContentMenuItems = themeConfig.content.menu.items.map((value) => ({
+        title: value.label,
+        description: value.description || '',
+        link: value.path || null,
+        isHidden: false,
+        target: '_blank',
+        rel: 'noopener noreferrer',
+    })) as NavSubMenuItem[];
+
+    // Menu Items
+    const menuItems: Array<NavMenuItem> = [
         {
             icon: InboxMenuIcon,
             title: 'Inbox',
             description: 'Review and approve metadata proposals',
             link: PageRoutes.ACTION_REQUESTS,
-            isHidden: !showActionRequests
+            isHidden: !showActionRequests,
         },
         {
             icon: AnalyticsMenuIcon,
             title: 'Analytics',
             description: 'Explore data usage and trends',
             link: PageRoutes.ANALYTICS,
-            isHidden: !showAnalytics
+            isHidden: !showAnalytics,
         },
         {
             icon: GovernMenuIcon,
@@ -177,9 +202,9 @@ export function NavLinksMenu(props: Props) {
                         description: 'Manage your documentation standards',
                         link: PageRoutes.GOVERN_DASHBOARD,
                         isHidden: !showDocumentationCenter,
-                    }
-                ]
-            }
+                    },
+                ],
+            },
         },
         {
             icon: ObserveMenuIcon,
@@ -194,34 +219,78 @@ export function NavLinksMenu(props: Props) {
                 items: [
                     {
                         title: 'Dataset Health',
-                        description: 'Monitor active incidents & failing assertions across your organization\'s datasets',
+                        description:
+                            "Monitor active incidents & failing assertions across your organization's datasets",
                         link: PageRoutes.DATASET_HEALTH_DASHBOARD,
                         isHidden: !showDatasetHealth,
-                    }
-                ]
-            }
+                    },
+                ],
+            },
         },
         {
             icon: IngestionMenuIcon,
             title: 'Ingestion',
             description: 'Manage data integrations and pipelines',
             link: PageRoutes.INGESTION,
-            isHidden: !showIngestion
+            isHidden: !showIngestion,
         },
         {
             icon: SettingsMenuIcon,
             title: 'Settings',
             description: 'Manage your account and preferences',
             link: PageRoutes.SETTINGS,
-            isHidden: !showSettings
+            isHidden: !showSettings,
         },
         {
-            icon: null,
+            icon: HelpMenuIcon,
             title: 'Help',
-            description: 'Get help and support',
+            description: 'Explore help resources and documentation',
             link: null,
-            isHidden: true
-        }
+            isHidden: false,
+            subMenu: {
+                isOpen: showHelpMenu,
+                open: () => setShowHelpMenu(true),
+                close: () => setShowHelpMenu(false),
+                items: [
+                    {
+                        title: helpMenuLabel,
+                        description: '',
+                        link: helpMenuLink,
+                        isHidden: !isHelpLinkEnabled,
+                        target: '_blank',
+                        rel: 'noopener noreferrer',
+                    },
+                    {
+                        title: 'GraphiQL',
+                        description: 'Explore the GraphQL API',
+                        link: HelpLinkRoutes.GRAPHIQL || null,
+                        isHidden: false,
+                        rel: 'noopener noreferrer',
+                    },
+                    {
+                        title: 'OpenAPI',
+                        description: 'Explore the OpenAPI endpoints',
+                        link: HelpLinkRoutes.OPENAPI,
+                        isHidden: false,
+                        target: '_blank',
+                        rel: 'noopener noreferrer',
+                    },
+                    ...HelpContentMenuItems,
+                    {
+                        title: version || '',
+                        description: '',
+                        link: null,
+                        isHidden: !version,
+                    },
+                    {
+                        title: 'Add Custom Help Link',
+                        description: '',
+                        link: PageRoutes.SETTINGS_HELP_LINK,
+                        isHidden: !showAddHelpLink,
+                    },
+                ],
+            },
+        },
     ];
 
     return (
@@ -240,17 +309,8 @@ export function NavLinksMenu(props: Props) {
                             <SubMenuContent>
                                 <SubMenuTitle>{menuItem.title}</SubMenuTitle>
                                 {menuItem.subMenu?.items.map((subMenuItem) => {
-                                    if (subMenuItem.isHidden) return null;
                                     return (
-                                        <Link
-                                            key={subMenuItem.title.toLowerCase()}
-                                            to={subMenuItem.link}
-                                            aria-label={subMenuItem.title}
-                                            aria-description={subMenuItem.description}
-                                        >
-                                            {subMenuItem.title}
-                                            <span>{subMenuItem.description}</span>
-                                        </Link>
+                                        <CustomNavLink menuItem={subMenuItem} key={subMenuItem.title.toLowerCase()} />
                                     );
                                 })}
                             </SubMenuContent>
@@ -273,11 +333,7 @@ export function NavLinksMenu(props: Props) {
                 // Render a single menu item
                 return (
                     <LinkWrapper key={menuItem.title.toLowerCase()}>
-                        <Link
-                            to={menuItem.link}
-                            aria-label={menuItem.title}
-                            aria-description={menuItem.description}
-                        >
+                        <Link to={menuItem.link} aria-label={menuItem.title} aria-description={menuItem.description}>
                             <Tooltip placement="right" title={menuItem.title}>
                                 {menuItem.icon && <menuItem.icon />}
                             </Tooltip>
