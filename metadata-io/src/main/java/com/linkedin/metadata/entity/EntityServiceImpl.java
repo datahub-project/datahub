@@ -930,7 +930,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
             AspectsBatchImpl.builder().mcps(List.of(proposal), auditStamp, this).build(), async)
         .stream()
         .findFirst()
-        .get();
+        .orElse(null);
   }
 
   /**
