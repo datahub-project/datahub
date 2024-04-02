@@ -56,9 +56,9 @@ export default function FormByEntity({ formUrn }: Props) {
     const Provider = isV2 ? EntityContextV2.Provider : EntityContext.Provider;
 
     // Used for v2 - removes repeated entity header (we use EntityInfo in this component)
-    const cleanedSidebarSections = sidebarSections.filter((section) =>
-        section.component.name !== 'SidebarEntityHeader'
-    );
+    // SidebarEntityHeader is always the first index in sidebarSections, so remove it here
+    // TODO (OBS-677): remove this logic once we get form info into V2 sidebar
+    const cleanedSidebarSections = sidebarSections.slice(1);
 
     // Conditional sections based on theme version
     const sections = isV2 ? cleanedSidebarSections : sidebarSections;
