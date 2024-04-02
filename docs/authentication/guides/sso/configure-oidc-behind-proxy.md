@@ -34,7 +34,7 @@ To build a custom image for your frontend, with the certificates built-in, you c
 Example Dockerfile:
 
 ```dockerfile
-FROM linkedin/datahub-frontend-react:<version>
+FROM acryldata/datahub-frontend-react:<version>
 COPY /truststore-directory /certificates
 ```
 
