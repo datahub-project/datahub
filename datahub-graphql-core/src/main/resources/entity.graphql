@@ -1399,11 +1399,6 @@ type LineageRelationship {
     The paths traversed for this relationship
     """
     paths: [EntityPath]
-
-    """
-    Any in-between via nodes for this relationship
-    """
-    via: [String]
 }
 
 """
