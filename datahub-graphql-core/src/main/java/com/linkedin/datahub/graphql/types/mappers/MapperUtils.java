@@ -4,6 +4,7 @@ import static com.linkedin.datahub.graphql.util.SearchInsightsUtil.*;
 import static com.linkedin.metadata.utils.SearchUtil.*;
 
 import com.linkedin.common.AuditStamp;
+import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.StringMap;
 import com.linkedin.datahub.graphql.QueryContext;
