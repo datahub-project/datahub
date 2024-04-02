@@ -71,6 +71,7 @@ public class GmsGraphQLEngineArgs {
   GitVersion gitVersion;
   TimelineService timelineService;
   boolean supportsImpactAnalysis;
+  Integer defaultLineageLastDaysFilter;
   VisualConfiguration visualConfiguration;
   TelemetryConfiguration telemetryConfiguration;
   TestsConfiguration testsConfiguration;

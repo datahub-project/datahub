@@ -339,6 +339,13 @@ type LineageConfig {
   Whether the backend support impact analysis feature
   """
   supportsImpactAnalysis: Boolean!
+
+  """
+  A default time filter when viewing lineage. This will be a number representing the
+  number of days from present that we filter lineage on by default. ie. "7" here would mean
+  we default filter for lineage to be "Last 7 Days." Empty defaults to "All Time."
+  """
+  defaultLastDaysFilter: Int
 }
 
 """

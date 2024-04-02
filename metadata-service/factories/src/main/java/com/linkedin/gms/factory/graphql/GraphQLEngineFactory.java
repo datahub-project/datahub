@@ -235,6 +235,9 @@ public class GraphQLEngineFactory {
   @Value("${platformAnalytics.enabled}") // TODO: Migrate to DATAHUB_ANALYTICS_ENABLED
   private Boolean isAnalyticsEnabled;
 
+  @Value("${LINEAGE_DEFAULT_LAST_DAYS_FILTER:#{null}}")
+  private Integer defaultLineageLastDaysFilter;
+
   @Bean(name = "graphQLEngine")
   @Nonnull
   protected GraphQLEngine graphQLEngine(
@@ -261,6 +264,7 @@ public class GraphQLEngineFactory {
     args.setGitVersion(gitVersion);
     args.setTimelineService(timelineService);
     args.setSupportsImpactAnalysis(graphService.supportsMultiHop());
+    args.setDefaultLineageLastDaysFilter(defaultLineageLastDaysFilter);
     args.setVisualConfiguration(configProvider.getVisualConfig());
     args.setTelemetryConfiguration(configProvider.getTelemetry());
     args.setTestsConfiguration(configProvider.getMetadataTests());

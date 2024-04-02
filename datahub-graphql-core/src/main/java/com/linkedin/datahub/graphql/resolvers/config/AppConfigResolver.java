@@ -54,6 +54,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
   private final ViewsConfiguration _viewsConfiguration;
   private final FeatureFlags _featureFlags;
   private final ChromeExtensionConfiguration _chromeExtensionConfiguration;
+  private final Integer _defaultLineageLastDaysFilter;
 
   public AppConfigResolver(
       final GitVersion gitVersion,
@@ -68,7 +69,8 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
       final DataHubConfiguration datahubConfiguration,
       final ViewsConfiguration viewsConfiguration,
       final FeatureFlags featureFlags,
-      final ChromeExtensionConfiguration chromeExtensionConfiguration) {
+      final ChromeExtensionConfiguration chromeExtensionConfiguration,
+      final Integer defaultLineageLastDaysFilter) {
     _gitVersion = gitVersion;
     _isAnalyticsEnabled = isAnalyticsEnabled;
     _ingestionConfiguration = ingestionConfiguration;
@@ -82,6 +84,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
     _viewsConfiguration = viewsConfiguration;
     _featureFlags = featureFlags;
     _chromeExtensionConfiguration = chromeExtensionConfiguration;
+    _defaultLineageLastDaysFilter = defaultLineageLastDaysFilter;
   }
 
   @Override
@@ -96,6 +99,9 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
 
     final LineageConfig lineageConfig = new LineageConfig();
     lineageConfig.setSupportsImpactAnalysis(_supportsImpactAnalysis);
+    if (_defaultLineageLastDaysFilter != null) {
+      lineageConfig.setDefaultLastDaysFilter(_defaultLineageLastDaysFilter);
+    }
     appConfig.setLineageConfig(lineageConfig);
 
     final AnalyticsConfig analyticsConfig = new AnalyticsConfig();

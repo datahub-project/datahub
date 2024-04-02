@@ -24,6 +24,7 @@ export default function LineageVizTimeSelector({ isHideSiblingMode, showColumns 
             const endTimeMillisValue = end?.valueOf();
             const relativeStartDate = getTimeFromNow(startTimeMillisValue);
             const relativeEndDate = getTimeFromNow(endTimeMillisValue);
+            const showAllTimeLineage = !start && !end;
             analytics.event({
                 type: EventType.LineageGraphTimeRangeSelectionEvent,
                 relativeStartDate,
@@ -38,6 +39,7 @@ export default function LineageVizTimeSelector({ isHideSiblingMode, showColumns 
                 showColumns,
                 startTimeMillis: startTimeMillisValue,
                 endTimeMillis: endTimeMillisValue,
+                showAllTimeLineage,
             });
         }
     };
