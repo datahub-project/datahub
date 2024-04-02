@@ -125,6 +125,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   private static final String PARAM_START_TIME_MILLIS = "startTimeMillis";
   private static final String PARAM_END_TIME_MILLIS = "endTimeMillis";
   private static final String PARAM_URN = "urn";
+  private static final String PARAM_INCLUDE_SOFT_DELETE = "includeSoftDelete";
   private static final String SYSTEM_METADATA = "systemMetadata";
   private static final String ES_FIELD_TIMESTAMP = "timestampMillis";
   private static final Integer ELASTIC_MAX_PAGE_SIZE = 10000;
@@ -1147,7 +1148,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   @Action(name = ACTION_EXISTS)
   @Nonnull
   @WithSpan
-  public Task<Boolean> exists(@ActionParam(PARAM_URN) @Nonnull String urnStr)
+  public Task<Boolean> exists(@ActionParam(PARAM_URN) @Nonnull String urnStr, @ActionParam(PARAM_INCLUDE_SOFT_DELETE) @Nullable @Optional Boolean includeSoftDelete)
       throws URISyntaxException {
     Urn urn = UrnUtils.getUrn(urnStr);
 
@@ -1160,7 +1161,8 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
           HttpStatus.S_403_FORBIDDEN, "User is unauthorized check entity existence: " + urnStr);
     }
     log.info("EXISTS for {}", urnStr);
+    final boolean includeRemoved = includeSoftDelete == null || includeSoftDelete;
     return RestliUtil.toTask(
-        () -> entityService.exists(urn, true), MetricRegistry.name(this.getClass(), "exists"));
+        () -> entityService.exists(urn, includeRemoved), MetricRegistry.name(this.getClass(), "exists"));
   }
 }

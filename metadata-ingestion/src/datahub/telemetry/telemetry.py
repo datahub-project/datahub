@@ -335,7 +335,7 @@ class Telemetry:
                     "serverType", "missing"
                 ),
                 "server_version": server.server_config.get("versions", {})
-                .get("linkedin/datahub", {})
+                .get("acryldata/datahub", {})
                 .get("version", "missing"),
                 "server_id": server.server_id or "missing",
             }

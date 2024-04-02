@@ -99,11 +99,11 @@ usage_common = {
 sqlglot_lib = {
     # Using an Acryl fork of sqlglot.
     # https://github.com/tobymao/sqlglot/compare/main...hsheth2:sqlglot:hsheth?expand=1
-    "acryl-sqlglot==22.4.1.dev4",
+    "acryl-sqlglot==23.2.1.dev5",
 }
 
 classification_lib = {
-    "acryl-datahub-classify==0.0.9",
+    "acryl-datahub-classify==0.0.10",
 }
 
 sql_common = (
@@ -314,7 +314,7 @@ plugins: Dict[str, Set[str]] = {
     "dbt": {"requests"} | sqlglot_lib | aws_common,
     "dbt-cloud": {"requests"} | sqlglot_lib,
     "druid": sql_common | {"pydruid>=0.6.2"},
-    "dynamodb": aws_common,
+    "dynamodb": aws_common | classification_lib,
     # Starting with 7.14.0 python client is checking if it is connected to elasticsearch client. If its not it throws
     # UnsupportedProductError
     # https://www.elastic.co/guide/en/elasticsearch/client/python-api/current/release-notes.html#rn-7-14-0
@@ -445,7 +445,7 @@ mypy_stubs = {
     "types-click==0.1.12",
     # The boto3-stubs package seems to have regularly breaking minor releases,
     # we pin to a specific version to avoid this.
-    "boto3-stubs[s3,glue,sagemaker,sts]==1.28.15",
+    "boto3-stubs[s3,glue,sagemaker,sts,dynamodb]==1.28.15",
     "mypy-boto3-sagemaker==1.28.15",  # For some reason, above pin only restricts `mypy-boto3-sagemaker<1.29.0,>=1.28.0`
     "types-tabulate",
     # avrogen package requires this

@@ -26,8 +26,6 @@ GMS_SERVER = f"http://localhost:{GMS_PORT}"
 _default_dbt_source_args = {
     # Needed to avoid needing to access datahub server.
     "write_semantics": "OVERRIDE",
-    # Needed until this is made the default.
-    "include_compiled_code": True,
 }
 
 
@@ -216,12 +214,7 @@ class DbtTestConfig:
             manifest_file="sample_dbt_manifest_2.json",
             sources_file="sample_dbt_sources_2.json",
             run_results_files=["sample_dbt_run_results_2.json"],
-            source_config_modifiers={
-                "entities_enabled": {
-                    # TODO: Remove this once it becomes the default.
-                    "model_performance": "YES",
-                },
-            },
+            source_config_modifiers={},
         ),
     ],
     ids=lambda dbt_test_config: dbt_test_config.run_id,

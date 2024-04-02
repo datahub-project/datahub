@@ -49,7 +49,6 @@ import com.linkedin.metadata.aspect.batch.MCPItem;
 import com.linkedin.metadata.aspect.plugins.validation.ValidationExceptionCollection;
 import com.linkedin.metadata.aspect.utils.DefaultAspectsUtil;
 import com.linkedin.metadata.config.PreProcessHooks;
-import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
 import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
 import com.linkedin.metadata.entity.ebean.batch.DeleteItemImpl;
@@ -76,7 +75,6 @@ import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.util.Pair;
-import io.ebean.PagedList;
 import io.ebean.Transaction;
 import io.opentelemetry.extension.annotations.WithSpan;
 import java.net.URISyntaxException;
@@ -628,12 +626,20 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
   public List<UpdateAspectResult> ingestAspects(
       @Nonnull final AspectsBatch aspectsBatch, boolean emitMCL, boolean overwrite) {
 
+    // Skip DB timer for empty batch
+    if (aspectsBatch.getItems().size() == 0) {
+      return Collections.emptyList();
+    }
+
+    log.info("Ingesting aspects batch to database, items: {}", aspectsBatch.getItems());
     Timer.Context ingestToLocalDBTimer =
         MetricUtils.timer(this.getClass(), "ingestAspectsToLocalDB").time();
     List<UpdateAspectResult> ingestResults = ingestAspectsToLocalDB(aspectsBatch, overwrite);
-    List<UpdateAspectResult> mclResults = emitMCL(ingestResults, emitMCL);
-    ingestToLocalDBTimer.stop();
+    long took = ingestToLocalDBTimer.stop();
+    log.info(
+        "Ingestion of aspects batch to database took {} ms", TimeUnit.NANOSECONDS.toMillis(took));
 
+    List<UpdateAspectResult> mclResults = emitMCL(ingestResults, emitMCL);
     return mclResults;
   }
 
@@ -1169,38 +1175,38 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
 
   @Nonnull
   @Override
-  public RestoreIndicesResult restoreIndices(
+  public Stream<RestoreIndicesResult> streamRestoreIndices(
       @Nonnull RestoreIndicesArgs args, @Nonnull Consumer<String> logger) {
 
     logger.accept(String.format("Args are %s", args));
     logger.accept(
         String.format(
-            "Reading rows %s through %s from the aspects table started.",
-            args.start, args.start + args.batchSize));
+            "Reading rows %s through %s (0 == infinite) in batches of %s from the aspects table started.",
+            args.start, args.limit, args.batchSize));
+
     long startTime = System.currentTimeMillis();
-    PagedList<EbeanAspectV2> rows = aspectDao.getPagedAspects(args);
-    long timeSqlQueryMs = System.currentTimeMillis() - startTime;
+    return aspectDao
+        .streamAspectBatches(args)
+        .map(
+            batchStream -> {
+              long timeSqlQueryMs = System.currentTimeMillis() - startTime;
 
-    logger.accept(
-        String.format(
-            "Reading rows %s through %s from the aspects table completed.",
-            args.start, args.start + args.batchSize));
+              List<SystemAspect> systemAspects =
+                  EntityUtils.toSystemAspectFromEbeanAspects(
+                      batchStream.collect(Collectors.toList()), this);
 
-    List<SystemAspect> systemAspects =
-        EntityUtils.toSystemAspectFromEbeanAspects(
-            rows != null ? rows.getList() : List.<EbeanAspectV2>of(), this);
+              RestoreIndicesResult result = restoreIndices(systemAspects, logger);
+              result.timeSqlQueryMs = timeSqlQueryMs;
 
-    RestoreIndicesResult result = restoreIndices(systemAspects, logger);
-
-    try {
-      TimeUnit.MILLISECONDS.sleep(args.batchDelayMs);
-    } catch (InterruptedException e) {
-      throw new RuntimeException(
-          "Thread interrupted while sleeping after successful batch migration.");
-    }
-
-    result.timeSqlQueryMs = timeSqlQueryMs;
-    return result;
+              logger.accept("Batch completed.");
+              try {
+                TimeUnit.MILLISECONDS.sleep(args.batchDelayMs);
+              } catch (InterruptedException e) {
+                throw new RuntimeException(
+                    "Thread interrupted while sleeping after successful batch migration.");
+              }
+              return result;
+            });
   }
 
   @Nonnull
@@ -1505,10 +1511,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
       AspectSpec aspectSpec) {
     boolean isNoOp = oldAspect == newAspect;
     if (!isNoOp || alwaysEmitChangeLog || shouldAspectEmitChangeLog(aspectSpec)) {
-      log.debug(
-          "Producing MetadataChangeLog for ingested aspect {}, urn {}",
-          aspectSpec.getName(),
-          entityUrn);
+      log.info("Producing MCL for ingested aspect {}, urn {}", aspectSpec.getName(), entityUrn);
 
       final MetadataChangeLog metadataChangeLog =
           constructMCL(
@@ -1528,8 +1531,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
           alwaysProduceMCLAsync(entityUrn, aspectSpec, metadataChangeLog);
       return emissionStatus.getFirst() != null ? Optional.of(emissionStatus) : Optional.empty();
     } else {
-      log.debug(
-          "Skipped producing MetadataChangeLog for ingested aspect {}, urn {}. Aspect has not changed.",
+      log.info(
+          "Skipped producing MCL for ingested aspect {}, urn {}. Aspect has not changed.",
           aspectSpec.getName(),
           entityUrn);
       return Optional.empty();
@@ -1636,7 +1639,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     final List<Pair<String, RecordTemplate>> aspectRecordsToIngest =
         NewModelUtils.getAspectsFromSnapshot(snapshotRecord);
 
-    log.info("INGEST urn {} with system metadata {}", urn, systemMetadata.toString());
+    log.info("Ingesting entity urn {} with system metadata {}", urn, systemMetadata.toString());
 
     AspectsBatchImpl aspectsBatch =
         AspectsBatchImpl.builder()

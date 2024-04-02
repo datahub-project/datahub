@@ -6205,6 +6205,11 @@
             },
             "doc" : "The degrees of separation (number of hops) between the source and this entity ",
             "default" : [ ]
+          }, {
+            "name" : "explored",
+            "type" : "boolean",
+            "doc" : "Marks an entity as having been explored for as a part of the graph walk",
+            "optional" : true
           } ]
         }
       },
@@ -6584,6 +6589,10 @@
         "parameters" : [ {
           "name" : "urn",
           "type" : "string"
+        }, {
+          "name" : "includeSoftDelete",
+          "type" : "boolean",
+          "optional" : true
         } ],
         "returns" : "boolean"
       }, {

@@ -8,7 +8,7 @@ from pydantic import Field, validator
 from typing_extensions import ClassVar
 
 from datahub.configuration import ConfigModel
-from datahub.configuration.common import AllowDenyPattern, ConfigurationError
+from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.source_common import (
     EnvConfigMixin,
     PlatformInstanceConfigMixin,
@@ -59,11 +59,11 @@ class NamingPattern(ConfigModel):
 
         for v in variables:
             if v not in self.ALLOWED_VARS:
-                raise ConfigurationError(
+                raise ValueError(
                     f"Failed to find {v} in allowed_variables {self.ALLOWED_VARS}"
                 )
         if at_least_one and len(variables) == 0:
-            raise ConfigurationError(
+            raise ValueError(
                 f"Failed to find any variable assigned to pattern {self.pattern}. Must have at least one. {self.allowed_docstring()}"
             )
         return True
@@ -108,14 +108,14 @@ class LookerCommonConfig(EnvConfigMixin, PlatformInstanceConfigMixin):
     )
     explore_browse_pattern: LookerNamingPattern = pydantic.Field(
         description=f"Pattern for providing browse paths to explores. {LookerNamingPattern.allowed_docstring()}",
-        default=LookerNamingPattern(pattern="/{env}/{platform}/{project}/explores"),
+        default=LookerNamingPattern(pattern="/Explore/{project}/{model}"),
     )
     view_naming_pattern: LookerViewNamingPattern = Field(
         LookerViewNamingPattern(pattern="{project}.view.{name}"),
         description=f"Pattern for providing dataset names to views. {LookerViewNamingPattern.allowed_docstring()}",
     )
     view_browse_pattern: LookerViewNamingPattern = Field(
-        LookerViewNamingPattern(pattern="/{env}/{platform}/{project}/views"),
+        LookerViewNamingPattern(pattern="/Develop/{project}/{file_path}"),
         description=f"Pattern for providing browse paths to views. {LookerViewNamingPattern.allowed_docstring()}",
     )
     tag_measures_and_dimensions: bool = Field(
