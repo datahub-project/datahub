@@ -28,7 +28,7 @@ def lineage_entries() -> List[QueryEvent]:
                 SELECT first.a, second.b FROM `my_project.my_dataset.my_source_table1` first
                 LEFT JOIN `my_project.my_dataset.my_source_table2` second ON first.id = second.id
             """,
-            statementType="SELECT",
+            statementType="INSERT",
             project_id="proj_12344",
             end_time=None,
             referencedTables=[

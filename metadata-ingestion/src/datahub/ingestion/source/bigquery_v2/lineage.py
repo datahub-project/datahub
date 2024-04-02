@@ -752,8 +752,17 @@ class BigqueryLineageExtractor:
 
             # Try the sql parser first.
             if self.config.lineage_use_sql_parser:
+                if e.statementType == "SELECT":
+                    # We wrap select statements in a CTE to make them parseable as insert statement.
+                    # This is a workaround for the sql parser to support the case where the user runs a query and inserts the result into a table..
+                    query = f"""create table `{destination_table.table_identifier.get_table_name()}` AS
+                    (
+                        {e.query}
+                    )"""
+                else:
+                    query = e.query
                 raw_lineage = sqlglot_lineage(
-                    e.query,
+                    query,
                     schema_resolver=sql_parser_schema_resolver,
                     default_db=e.project_id,
                 )

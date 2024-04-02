@@ -573,10 +573,15 @@ class SalesforceSource(Source):
 
         fieldTags: List[str] = self.get_field_tags(fieldName, field)
 
+        description = self._get_field_description(field, customField)
+
+        # escaping string starting with `#`
+        description = "\\" + description if description.startswith("#") else description
+
         schemaField = SchemaFieldClass(
             fieldPath=fieldPath,
             type=SchemaFieldDataTypeClass(type=TypeClass()),  # type:ignore
-            description=self._get_field_description(field, customField),
+            description=description,
             # nativeDataType is set to data type shown on salesforce user interface,
             # not the corresponding API data type names.
             nativeDataType=field["FieldDefinition"]["DataType"],
