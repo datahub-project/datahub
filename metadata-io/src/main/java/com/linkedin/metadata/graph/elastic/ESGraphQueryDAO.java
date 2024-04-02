@@ -345,6 +345,8 @@ public class ESGraphQueryDAO {
       int i) {
 
     // Do one hop on the lineage graph
+    int numHops = i + 1; // Zero indexed for loop counter, one indexed count
+    int remainingHops = maxHops - numHops;
     List<LineageRelationship> oneHopRelationships =
         getLineageRelationshipsInBatches(
             currentLevel,
@@ -352,8 +354,8 @@ public class ESGraphQueryDAO {
             graphFilters,
             visitedEntities,
             viaEntities,
-            i + 1,
-            maxHops - (i + 1),
+            numHops,
+            remainingHops,
             remainingTime,
             existingPaths,
             exploreMultiplePaths,
@@ -387,8 +389,9 @@ public class ESGraphQueryDAO {
                                         || platformMatches(
                                             lineageRelationship.getEntity(),
                                             ignoreAsHops.get(entityType)))))
-            .forEach(
-                lineageRelationship -> additionalCurrentLevel.add(lineageRelationship.getEntity()));
+            .map(LineageRelationship::getEntity)
+            .forEach(additionalCurrentLevel::add);
+        ;
         if (!additionalCurrentLevel.isEmpty()) {
           Stream<Urn> ignoreAsHopUrns =
               processOneHopLineage(
@@ -416,6 +419,14 @@ public class ESGraphQueryDAO {
             intermediateStream
                 .sorted(Comparator.comparing(Urn::toString))
                 .limit(lineageFlags.getEntitiesExploredPerHopLimit());
+      }
+      if (remainingHops > 0) {
+        // If there are hops remaining, we expect to explore everything getting passed back to the
+        // loop, barring a timeout
+        List<Urn> entitiesToExplore = intermediateStream.collect(Collectors.toList());
+        entitiesToExplore.forEach(urn -> result.get(urn).setExplored(true));
+        // reassign the stream after consuming it
+        intermediateStream = entitiesToExplore.stream();
       }
     }
     return intermediateStream;

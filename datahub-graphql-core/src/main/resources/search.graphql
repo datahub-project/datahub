@@ -644,7 +644,7 @@ type ScrollResults {
 }
 
 """
-Results returned by issueing a search across relationships query
+Results returned by issuing a search across relationships query
 """
 type SearchAcrossLineageResults {
   """
@@ -679,7 +679,7 @@ type SearchAcrossLineageResults {
 }
 
 """
-Results returned by issueing a search across relationships query using scroll API
+Results returned by issuing a search across relationships query using scroll API
 """
 type ScrollAcrossLineageResults {
   """
@@ -741,6 +741,11 @@ type SearchAcrossLineageResult {
   Degrees of relationship (for entities discoverable at multiple degrees)
   """
   degrees: [Int!]
+
+  """
+  Marks whether or not this entity was explored further for lineage
+  """
+  explored: Boolean!
 
 }
 
