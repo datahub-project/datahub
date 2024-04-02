@@ -4,7 +4,6 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 import static com.linkedin.datahub.graphql.types.mappers.MapperUtils.*;
 
 import com.datahub.authorization.AuthorizationConfiguration;
-import com.linkedin.common.UrnArray;
 import com.linkedin.common.UrnArrayArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -24,9 +23,7 @@ import com.linkedin.metadata.query.LineageFlags;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.services.RestrictedService;
-import java.util.ArrayList;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
@@ -163,19 +160,8 @@ public class EntityLineageResultResolver
     result.setIsManual(lineageRelationship.hasIsManual() && lineageRelationship.isIsManual());
     if (lineageRelationship.getPaths() != null) {
       UrnArrayArray paths = lineageRelationship.getPaths();
-      List<String> viaNodes = new ArrayList<>();
       result.setPaths(
           paths.stream().map(path -> mapPath(context, path)).collect(Collectors.toList()));
-      for (UrnArray path : paths) {
-        int pathLength = path.size();
-        if (pathLength > 2) {
-          for (int i = 1; i < pathLength - 1; i++) {
-            Urn via = path.get(i);
-            viaNodes.add(via.toString());
-          }
-        }
-      }
-      result.setVia(viaNodes);
     }
 
     return result;
