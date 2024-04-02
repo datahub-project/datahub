@@ -28,6 +28,13 @@ from datahub_executor.common.client.fetcher.monitors.graphql.query import (
 from datahub_executor.common.constants import RUN_INGEST_TASK_NAME
 from datahub_executor.common.graph import DataHubAssertionGraph
 from datahub_executor.common.helpers import create_datahub_graph
+from datahub_executor.common.monitoring.metrics import (
+    STATS_EXECUTION_FETCH_SIGNAL_ERRORS,
+    STATS_EXECUTION_FETCH_SIGNAL_REQUESTS,
+    STATS_INGESTION_HANDLER_CANCEL_REQUESTS,
+    STATS_MCP_EMIT_ERRORS,
+    STATS_MCP_EMIT_EVENTS,
+)
 from datahub_executor.config import (
     DATAHUB_EXECUTOR_WORKER_ID,
     DATAHUB_GMS_TOKEN,
@@ -117,6 +124,7 @@ def extract_execution_request(
     return execution_request
 
 
+@STATS_EXECUTION_FETCH_SIGNAL_REQUESTS.time()
 def fetch_execution_signal_requests(
     graph: DataHubAssertionGraph,
     ingestion_exec_ids: List[str],
@@ -133,6 +141,7 @@ def fetch_execution_signal_requests(
     )
 
     if "error" in result and result["error"] is not None:
+        STATS_EXECUTION_FETCH_SIGNAL_ERRORS.labels("GmsError").inc()
         logger.error(
             f"Received error while fetching signal requests from GMS! {result.get('error')}"
         )
@@ -142,6 +151,7 @@ def fetch_execution_signal_requests(
         "listSignalRequests" not in result
         or "signalRequests" not in result["listSignalRequests"]
     ):
+        STATS_EXECUTION_FETCH_SIGNAL_ERRORS.labels("IncompleteResults").inc()
         logger.error(
             "Found incomplete search results when fetching signal requests from GMS!"
         )
@@ -158,6 +168,7 @@ def fetch_execution_signal_requests(
                 }
             )
         except Exception:
+            STATS_EXECUTION_FETCH_SIGNAL_ERRORS.labels("ParseError").inc()
             logger.error(
                 f"Failed to convert Signal Request object to Python object. {signal_request}"
             )
@@ -187,6 +198,7 @@ def handle_ingestion_signal_requests(
     if len(ingestion_exec_ids) > 0:
         signal_requests = fetch_execution_signal_requests(graph, ingestion_exec_ids)
         for signal_request in signal_requests:
+            STATS_INGESTION_HANDLER_CANCEL_REQUESTS.inc()
             logger.info(
                 f"Got {signal_request.exec_id} signal for task {signal_request.exec_id}"
             )
@@ -221,9 +233,11 @@ def emit_execution_request_input(
     )
 
     try:
+        STATS_MCP_EMIT_EVENTS.inc()
         graph = create_datahub_graph()
         graph.emit_mcp(mcpw)
     except Exception as e:
+        STATS_MCP_EMIT_ERRORS.labels("GmsError").inc()
         logger.exception(
             f"An unknown error occurred when attempting to emit dataHubExecutionRequestInput - {e}"
         )

@@ -8,6 +8,10 @@ from datahub_executor.common.helpers import (
     create_assertion_engine,
     create_datahub_graph,
 )
+from datahub_executor.common.monitoring.metrics import (
+    STATS_ASSERTION_EXECUTOR_EVALUATE_ERRORS,
+    STATS_ASSERTION_EXECUTOR_EVALUATE_REQUESTS,
+)
 from datahub_executor.common.tp import ThreadPoolExecutorWithQueueSizeLimit
 from datahub_executor.common.types import (
     AssertionEvaluationContext,
@@ -27,7 +31,8 @@ class AssertionExecutor:
         self.graph = create_datahub_graph()
         self.engine = create_assertion_engine(self.graph)
         self.tp = ThreadPoolExecutorWithQueueSizeLimit(
-            max_workers=DATAHUB_EXECUTOR_MONITORS_MAX_WORKERS
+            max_workers=DATAHUB_EXECUTOR_MONITORS_MAX_WORKERS,
+            name="assertions",
         )
 
     def execute(self, request: ExecutionRequest) -> None:
@@ -38,12 +43,14 @@ class AssertionExecutor:
         try:
             self.evaluate_assertion(request)
         except Exception as e:
+            STATS_ASSERTION_EXECUTOR_EVALUATE_ERRORS.labels("exception").inc()
             logger.error(e)
             return
 
     def shutdown(self, wait: bool = True) -> None:
         self.tp.shutdown(wait)
 
+    @STATS_ASSERTION_EXECUTOR_EVALUATE_REQUESTS.time()
     def evaluate_assertion(self, execution_request: ExecutionRequest) -> None:
         assertion_spec = AssertionEvaluationSpec.parse_obj(
             execution_request.args["assertion_spec"]

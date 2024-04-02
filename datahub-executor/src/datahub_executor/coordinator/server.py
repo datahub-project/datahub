@@ -6,6 +6,7 @@ from threading import Thread
 
 from fastapi import FastAPI
 
+from datahub_executor.common.monitoring.base import monitoring_start
 from datahub_executor.config import DATAHUB_EXECUTOR_GRACEFUL_SHUTDOWN_PERIOD
 from datahub_executor.coordinator.assertion_endpoints import assertions_router
 from datahub_executor.coordinator.health_endpoints import health_router
@@ -17,6 +18,9 @@ from datahub_executor.coordinator.logging import configure_logging
 
 # Configure global logging.
 configure_logging()
+
+# Start prometheus server
+monitoring_start()
 
 # Create FastAPI Server
 app = FastAPI()
