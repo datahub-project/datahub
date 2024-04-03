@@ -6210,6 +6210,11 @@
             "type" : "boolean",
             "doc" : "Marks an entity as having been explored for as a part of the graph walk",
             "optional" : true
+          }, {
+            "name" : "ignoredAsHop",
+            "type" : "boolean",
+            "doc" : "Whether this relationship was ignored as a hop while performing the graph walk",
+            "optional" : true
           } ]
         }
       },

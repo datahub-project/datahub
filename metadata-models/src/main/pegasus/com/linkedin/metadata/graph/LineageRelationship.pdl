@@ -72,4 +72,9 @@ record LineageRelationship {
     * Marks this relationship as explored during the graph walk
     */
     explored: optional boolean
+
+   /**
+    * Whether this relationship was ignored as a hop while performing the graph walk
+    */
+    ignoredAsHop: optional boolean
 }

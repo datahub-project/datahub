@@ -739,6 +739,7 @@ public class LineageSearchService {
         entity.setDegrees(lineageRelationship.getDegrees());
       }
       entity.setExplored(Boolean.TRUE.equals(lineageRelationship.isExplored()));
+      entity.setIgnoredAsHop(Boolean.TRUE.equals(lineageRelationship.isIgnoredAsHop()));
     }
     return entity;
   }

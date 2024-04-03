@@ -3,11 +3,9 @@ package com.linkedin.datahub.graphql.types.mappers;
 import static com.linkedin.datahub.graphql.types.mappers.MapperUtils.*;
 import static com.linkedin.datahub.graphql.util.SearchInsightsUtil.*;
 
-import com.linkedin.common.UrnArray;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.Entity;
-import com.linkedin.datahub.graphql.generated.EntityPath;
 import com.linkedin.datahub.graphql.generated.FreshnessStats;
 import com.linkedin.datahub.graphql.generated.SearchAcrossLineageResult;
 import com.linkedin.datahub.graphql.generated.SearchAcrossLineageResults;
@@ -72,13 +70,7 @@ public class UrnSearchAcrossLineageResultsMapper<T extends RecordTemplate, E ext
         .setDegree(searchEntity.getDegree())
         .setDegrees(new ArrayList<>(searchEntity.getDegrees()))
         .setExplored(Boolean.TRUE.equals(searchEntity.isExplored()))
+        .setIgnoredAsHop(Boolean.TRUE.equals(searchEntity.isIgnoredAsHop()))
         .build();
-  }
-
-  private EntityPath mapPath(@Nullable final QueryContext context, UrnArray path) {
-    EntityPath entityPath = new EntityPath();
-    entityPath.setPath(
-        path.stream().map(p -> UrnToEntityMapper.map(context, p)).collect(Collectors.toList()));
-    return entityPath;
   }
 }
