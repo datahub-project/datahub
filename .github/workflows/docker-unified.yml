@@ -42,6 +42,7 @@ jobs:
       unique_slim_tag: ${{ steps.tag.outputs.unique_slim_tag }}
       unique_full_tag: ${{ steps.tag.outputs.unique_full_tag }}
       publish: ${{ steps.publish.outputs.publish }}
+      pr-publish: ${{ steps.pr-publish.outputs.publish }}
       python_release_version: ${{ steps.tag.outputs.python_release_version }}
       short_sha: ${{ steps.tag.outputs.short_sha }}
       branch_name: ${{ steps.tag.outputs.branch_name }}
@@ -78,9 +79,24 @@ jobs:
       - name: Check whether publishing enabled
         id: publish
         env:
-          ENABLE_PUBLISH: true
+          ENABLE_PUBLISH: >-
+             ${{
+                github.event_name != 'pull_request'
+                && (( secrets.DOCKER_PASSWORD != '' && secrets.ACRYL_DOCKER_PASSWORD != '' ) || secrets.AWS_ECR_SECRET_ACCESS_KEY != '')
+             }}
         run: |
           echo "Enable publish: ${{ env.ENABLE_PUBLISH }}"
+          echo "publish=${{ env.ENABLE_PUBLISH }}" >> $GITHUB_OUTPUT
+      - name: Check whether PR publishing enabled
+        id: pr-publish
+        env:
+          ENABLE_PUBLISH: >-
+             ${{
+                (github.event_name == 'pull_request' && (contains(github.event.pull_request.labels.*.name, 'publish') || contains(github.event.pull_request.labels.*.name, 'publish-docker')))
+                && (( secrets.DOCKER_PASSWORD != '' && secrets.ACRYL_DOCKER_PASSWORD != '' ) || secrets.AWS_ECR_SECRET_ACCESS_KEY != '')
+             }}
+        run: |
+          echo "Enable PR publish: ${{ env.ENABLE_PUBLISH }}"
           echo "publish=${{ env.ENABLE_PUBLISH }}" >> $GITHUB_OUTPUT
       - uses: ./.github/actions/ci-optimization
         id: ci-optimize
@@ -134,7 +150,7 @@ jobs:
           tags: ${{ needs.setup.outputs.tag }}
           username: ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
           password: ${{ secrets.AWS_ECR_SECRET_ACCESS_KEY }}
-          publish: ${{ needs.setup.outputs.publish }}
+          publish: ${{ needs.setup.outputs.publish || needs.setup.outputs.pr-publish }}
           context: .
           file: ./docker/datahub-gms/Dockerfile
           platforms: linux/amd64,linux/arm64/v8
@@ -202,7 +218,7 @@ jobs:
           tags: ${{ needs.setup.outputs.tag }}
           username: ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
           password: ${{ secrets.AWS_ECR_SECRET_ACCESS_KEY }}
-          publish: ${{ needs.setup.outputs.publish }}
+          publish: ${{ needs.setup.outputs.publish || needs.setup.outputs.pr-publish }}
           context: .
           file: ./docker/datahub-mae-consumer/Dockerfile
           platforms: linux/amd64,linux/arm64/v8
@@ -270,7 +286,7 @@ jobs:
           tags: ${{ needs.setup.outputs.tag }}
           username: ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
           password: ${{ secrets.AWS_ECR_SECRET_ACCESS_KEY }}
-          publish: ${{ needs.setup.outputs.publish }}
+          publish: ${{ needs.setup.outputs.publish || needs.setup.outputs.pr-publish }}
           context: .
           file: ./docker/datahub-mce-consumer/Dockerfile
           platforms: linux/amd64,linux/arm64/v8
@@ -338,7 +354,7 @@ jobs:
           tags: ${{ needs.setup.outputs.tag }}
           username: ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
           password: ${{ secrets.AWS_ECR_SECRET_ACCESS_KEY }}
-          publish: ${{ needs.setup.outputs.publish }}
+          publish: ${{ needs.setup.outputs.publish || needs.setup.outputs.pr-publish }}
           context: .
           file: ./docker/datahub-upgrade/Dockerfile
           platforms: linux/amd64,linux/arm64/v8
@@ -408,7 +424,7 @@ jobs:
           tags: ${{ needs.setup.outputs.tag }}
           username: ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
           password: ${{ secrets.AWS_ECR_SECRET_ACCESS_KEY }}
-          publish: ${{ needs.setup.outputs.publish }}
+          publish: ${{ needs.setup.outputs.publish || needs.setup.outputs.pr-publish }}
           context: .
           file: ./docker/datahub-frontend/Dockerfile
           platforms: linux/amd64,linux/arm64/v8
@@ -466,7 +482,7 @@ jobs:
           tags: ${{ needs.setup.outputs.tag }}
           username: ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
           password: ${{ secrets.AWS_ECR_SECRET_ACCESS_KEY }}
-          publish: ${{ needs.setup.outputs.publish }}
+          publish: ${{ needs.setup.outputs.publish || needs.setup.outputs.pr-publish }}
           context: .
           file: ./docker/kafka-setup/Dockerfile
           platforms: linux/amd64,linux/arm64/v8
@@ -487,7 +503,7 @@ jobs:
           tags: ${{ needs.setup.outputs.tag }}
           username: ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
           password: ${{ secrets.AWS_ECR_SECRET_ACCESS_KEY }}
-          publish: ${{ needs.setup.outputs.publish }}
+          publish: ${{ needs.setup.outputs.publish || needs.setup.outputs.pr-publish }}
           context: .
           file: ./docker/mysql-setup/Dockerfile
           platforms: linux/amd64,linux/arm64/v8
@@ -508,7 +524,7 @@ jobs:
           tags: ${{ needs.setup.outputs.tag }}
           username: ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
           password: ${{ secrets.AWS_ECR_SECRET_ACCESS_KEY }}
-          publish: ${{ needs.setup.outputs.publish }}
+          publish: ${{ needs.setup.outputs.publish || needs.setup.outputs.pr-publish }}
           context: .
           file: ./docker/elasticsearch-setup/Dockerfile
           platforms: linux/amd64,linux/arm64/v8
@@ -539,7 +555,7 @@ jobs:
           tags: ${{ needs.setup.outputs.tag }}
           username: ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
           password: ${{ secrets.AWS_ECR_SECRET_ACCESS_KEY }}
-          publish: ${{ needs.setup.outputs.publish }}
+          publish: ${{ needs.setup.outputs.publish || needs.setup.outputs.pr-publish }}
           context: .
           file: ./docker/datahub-ingestion-base/Dockerfile
           platforms: linux/amd64,linux/arm64/v8
@@ -580,7 +596,7 @@ jobs:
           build-args: |
             APP_ENV=slim
             BASE_IMAGE=${{ env.DATAHUB_INGESTION_BASE_IMAGE }}:${{ steps.filter.outputs.datahub-ingestion-base == 'true' && needs.setup.outputs.unique_tag || 'head' }}
-          publish: ${{ needs.setup.outputs.publish }}
+          publish: ${{ needs.setup.outputs.publish || needs.setup.outputs.pr-publish }}
           context: .
           file: ./docker/datahub-ingestion-base/Dockerfile
           platforms: linux/amd64,linux/arm64/v8
@@ -621,7 +637,7 @@ jobs:
           build-args: |
             APP_ENV=full
             BASE_IMAGE=${{ env.DATAHUB_INGESTION_BASE_IMAGE }}:${{ steps.filter.outputs.datahub-ingestion-base == 'true' && needs.setup.outputs.unique_tag || 'head' }}
-          publish: ${{ needs.setup.outputs.publish }}
+          publish: ${{ needs.setup.outputs.publish || needs.setup.outputs.pr-publish }}
           context: .
           file: ./docker/datahub-ingestion-base/Dockerfile
           platforms: linux/amd64,linux/arm64/v8
@@ -677,7 +693,7 @@ jobs:
           tags: ${{ needs.setup.outputs.slim_tag }}
           username: ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
           password: ${{ secrets.AWS_ECR_SECRET_ACCESS_KEY }}
-          publish: ${{ needs.setup.outputs.publish }}
+          publish: ${{ needs.setup.outputs.publish || needs.setup.outputs.pr-publish }}
           context: .
           file: ./docker/datahub-ingestion/Dockerfile
           platforms: linux/amd64,linux/arm64/v8
@@ -769,7 +785,7 @@ jobs:
           tags: ${{ needs.setup.outputs.tag }}
           username: ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
           password: ${{ secrets.AWS_ECR_SECRET_ACCESS_KEY }}
-          publish: ${{ needs.setup.outputs.publish }}
+          publish: ${{ needs.setup.outputs.publish || needs.setup.outputs.pr-publish }}
           context: .
           file: ./docker/datahub-ingestion/Dockerfile
           platforms: linux/amd64,linux/arm64/v8
@@ -876,7 +892,6 @@ jobs:
           ./gradlew :metadata-ingestion:install
       - name: Login to AWS ECR
         uses: docker/login-action@v2
-        if: ${{ needs.setup.outputs.publish == 'true' }}
         with:
             registry: 795586375822.dkr.ecr.us-west-2.amazonaws.com
             username: ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
@@ -1028,6 +1043,7 @@ jobs:
           docker logs datahub-mysql-1 >& mysql-${{ matrix.test_strategy }}.log || true
           docker logs datahub-elasticsearch-1 >& elasticsearch-${{ matrix.test_strategy }}.log || true
           docker logs datahub-datahub-frontend-react-1 >& frontend-${{ matrix.test_strategy }}.log || true
+          docker logs datahub-upgrade-1 >& upgrade-${{ matrix.test_strategy }}.log || true
       - name: Upload logs
         uses: actions/upload-artifact@v3
         if: failure()
@@ -1101,7 +1117,7 @@ jobs:
           tags: ${{ needs.setup.outputs.tag }}
           username: ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
           password: ${{ secrets.AWS_ECR_SECRET_ACCESS_KEY }}
-          publish: ${{ needs.setup.outputs.publish }}
+          publish: ${{ needs.setup.outputs.publish || needs.setup.outputs.pr-publish }}
           context: .
           file: ./docker/datahub-integrations-service/Dockerfile
           platforms: linux/amd64,linux/arm64/v8
@@ -1170,7 +1186,7 @@ jobs:
           tags: ${{ needs.setup.outputs.tag }}
           username: ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
           password: ${{ secrets.AWS_ECR_SECRET_ACCESS_KEY }}
-          publish: ${{ needs.setup.outputs.publish }}
+          publish: ${{ needs.setup.outputs.publish || needs.setup.outputs.pr-publish }}
           context: .
           file: ./docker/datahub-executor/Dockerfile
           platforms: linux/amd64,linux/arm64/v8
