@@ -2,6 +2,7 @@ package com.linkedin.gms.factory.test;
 
 import com.linkedin.gms.factory.entity.EntityServiceFactory;
 import com.linkedin.gms.factory.entityregistry.EntityRegistryFactory;
+import com.linkedin.gms.factory.search.ElasticSearchServiceFactory;
 import com.linkedin.gms.factory.search.EntitySearchServiceFactory;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -53,7 +54,10 @@ public class TestEngineFactory {
   @Bean(name = "testEngine")
   @Nonnull
   protected TestEngine getInstance(
-      @Qualifier("systemOperationContext") final OperationContext systemOpContext) {
+      @Qualifier("systemOperationContext") final OperationContext systemOpContext,
+      // post construct dependency ensures ready state of elasticsearch service
+      final ElasticSearchServiceFactory.PostConstructElasticSearchService postConstruct) {
+
     PredicateEvaluator predicateEvaluator = PredicateEvaluator.getInstance();
     return new TestEngine(
         systemOpContext,
