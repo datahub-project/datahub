@@ -77,9 +77,9 @@ task lintFix(type: Exec, dependsOn: installDev) {
 
 /**
  * The following tasks assume an already running quickstart.
- * ./gradlew quickstart (or another variation)
+ * ./gradlew quickstart (or another variation `quickstartDebug`)
  */
-task quickstartNoCypressSuite0(type: Exec, dependsOn: [installDev, ':metadata-ingestion:installDev']) {
+task noCypressSuite0(type: Exec, dependsOn: [installDev, ':metadata-ingestion:installDev']) {
     environment 'RUN_QUICKSTART', 'false'
     environment 'DATAHUB_KAFKA_SCHEMA_REGISTRY_URL', 'http://localhost:8080/schema-registry/api/'
     environment 'KAFKA_BROKER_CONTAINER', 'datahub-kafka-broker-1'
@@ -91,7 +91,7 @@ task quickstartNoCypressSuite0(type: Exec, dependsOn: [installDev, ':metadata-in
             "./smoke.sh"
 }
 
-task quickstartNoCypressSuite1(type: Exec, dependsOn: [installDev, ':metadata-ingestion:installDev']) {
+task noCypressSuite1(type: Exec, dependsOn: [installDev, ':metadata-ingestion:installDev']) {
     environment 'RUN_QUICKSTART', 'false'
     environment 'DATAHUB_KAFKA_SCHEMA_REGISTRY_URL', 'http://localhost:8080/schema-registry/api/'
     environment 'KAFKA_BROKER_CONTAINER', 'datahub-kafka-broker-1'
@@ -101,4 +101,42 @@ task quickstartNoCypressSuite1(type: Exec, dependsOn: [installDev, ':metadata-in
     commandLine 'bash', '-c',
             "source ${venv_name}/bin/activate && set -x && " +
                     "./smoke.sh"
+}
+
+task cypressSuite1(type: Exec, dependsOn: [installDev, ':metadata-ingestion:installDev']) {
+    environment 'RUN_QUICKSTART', 'false'
+    environment 'DATAHUB_KAFKA_SCHEMA_REGISTRY_URL', 'http://localhost:8080/schema-registry/api/'
+    environment 'KAFKA_BROKER_CONTAINER', 'datahub-kafka-broker-1'
+    environment 'TEST_STRATEGY', 'cypress_suite1'
+
+    workingDir = project.projectDir
+    commandLine 'bash', '-c',
+            "source ${venv_name}/bin/activate && set -x && " +
+                    "./smoke.sh"
+}
+
+task cypressRest(type: Exec, dependsOn: [installDev, ':metadata-ingestion:installDev']) {
+    environment 'RUN_QUICKSTART', 'false'
+    environment 'DATAHUB_KAFKA_SCHEMA_REGISTRY_URL', 'http://localhost:8080/schema-registry/api/'
+    environment 'KAFKA_BROKER_CONTAINER', 'datahub-kafka-broker-1'
+    environment 'TEST_STRATEGY', 'cypress_rest'
+
+    workingDir = project.projectDir
+    commandLine 'bash', '-c',
+            "source ${venv_name}/bin/activate && set -x && " +
+                    "./smoke.sh"
+}
+
+/**
+ * The following will run Cypress in interactive mode against an already running stack.
+ */
+task cypressDev(type: Exec, dependsOn: [installDev, ':metadata-ingestion:installDev']) {
+    environment 'RUN_QUICKSTART', 'false'
+    environment 'DATAHUB_KAFKA_SCHEMA_REGISTRY_URL', 'http://localhost:8080/schema-registry/api/'
+    environment 'KAFKA_BROKER_CONTAINER', 'datahub-kafka-broker-1'
+
+    workingDir = project.projectDir
+    commandLine 'bash', '-c',
+            "source ${venv_name}/bin/activate && set -x && " +
+                    "./cypress-dev.sh"
 }
