@@ -1,7 +1,6 @@
 import React from 'react';
 import { Button, Checkbox, Modal, Typography } from 'antd';
 import styled from 'styled-components';
-import { THEME_COLOR_BLUE } from '../../../constants';
 import { EntityAndType } from '../../../types';
 import { SearchSelectActions } from './SearchSelectActions';
 
@@ -20,7 +19,6 @@ const CancelButton = styled(Button)`
     && {
         margin-left: 8px;
         padding: 0px;
-        color: ${THEME_COLOR_BLUE};
     }
 `;
 

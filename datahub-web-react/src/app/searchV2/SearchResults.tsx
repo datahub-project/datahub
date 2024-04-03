@@ -94,9 +94,6 @@ const LeftControlsContainer = styled.div`
 `;
 
 const StyledTabToolbar = styled.div`
-    padding-left: 32px;
-    padding-right: 32px;
-    margin-bottom: 16px;
     background-color: #fff;
     border-radius: 12px;
     margin: 4px 16px 4px 8px;
@@ -116,7 +113,8 @@ const SearchResultListContainer = styled.div<{ v2Styles: boolean }>`
         v2Styles &&
         `
         flex: 1;
-        overflow: auto;
+        overflow-x: hidden;        
+        overflow-y: auto;
     `}
 `;
 
@@ -179,7 +177,7 @@ export const SearchResults = ({
     onChangeSelectAll,
     refetch,
     previewType,
-    onCardClick
+    onCardClick,
 }: Props) => {
     const showSearchFiltersV2 = useIsSearchV2();
     const showBrowseV2 = useIsBrowseV2();
@@ -307,13 +305,13 @@ export const SearchResults = ({
                                             highlightedIndex={highlightedIndex}
                                             selectedEntity={
                                                 highlightedIndex !== null &&
-                                                    combinedSiblingSearchResults?.length > highlightedIndex
+                                                combinedSiblingSearchResults?.length > highlightedIndex
                                                     ? {
-                                                        urn: combinedSiblingSearchResults[highlightedIndex].entity
-                                                            .urn,
-                                                        type: combinedSiblingSearchResults[highlightedIndex].entity
-                                                            .type,
-                                                    }
+                                                          urn: combinedSiblingSearchResults[highlightedIndex].entity
+                                                              .urn,
+                                                          type: combinedSiblingSearchResults[highlightedIndex].entity
+                                                              .type,
+                                                      }
                                                     : null
                                             }
                                         />

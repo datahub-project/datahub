@@ -182,5 +182,3 @@ export enum EntityProfileTab {
     DATA_PRODUCTS_TAB = 'DATA_PRODUCTS_TAB',
     SUMMARY_TAB = 'SUMMARY_TAB',
 }
-
-export const THEME_COLOR_BLUE = '#328980';
