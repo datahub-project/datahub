@@ -53,20 +53,17 @@ describe("mutations", () => {
     // title of tag page
     cy.contains("CypressTestAddTag");
 
+    cy.wait(2000);
     // description of tag page
     cy.contains("CypressTestAddTag Test Description");
 
     // used by panel - click to search
-    //Uncomment below line once schema Field Entity is fixed
-    // cy.contains("1 Datasets").click({ force: true });  
+    cy.wait(3000);
+    cy.contains("1 Datasets").click({ force: true });  
 
     // verify dataset shows up in search now
-    //Uncomment below line once schema Field Entity is fixed
-    // cy.contains("of 1 result").click({ force: true });
-    //Uncomment below line once schema Field Entity is fixed
-    // cy.contains("cypress_logging_events").click({ force: true });
-    //Remove below line once schema Field Entity is fixed
-    cy.goToDataset("urn:li:dataset:(urn:li:dataPlatform:hive,cypress_logging_events,PROD)", "cypress_logging_events");
+    cy.contains("of 1 result").click({ force: true });
+    cy.contains("cypress_logging_events").click({ force: true });
     cy.get('[data-testid="tag-CypressTestAddTag"]').within(() =>
       cy.get("span[aria-label=close]").click()
     );
@@ -130,16 +127,12 @@ describe("mutations", () => {
     cy.contains("CypressTestAddTag2 Test Description");
 
     // used by panel - click to search
-    //Uncomment below line once schema Field Entity is fixed
-    // cy.contains("1 Datasets").click();
+    cy.wait(3000);
+    cy.contains("1 Datasets").click();
 
     // verify dataset shows up in search now
-    //Uncomment below line once schema Field Entity is fixed
-    // cy.contains("of 1 result").click();
-    //Uncomment below line once schema Field Entity is fixed
-    // cy.contains("cypress_logging_events").click();
-    //Remove below line once schema Field Entity is fixed
-    cy.goToDataset("urn:li:dataset:(urn:li:dataPlatform:hive,cypress_logging_events,PROD)", "cypress_logging_events");
+    cy.contains("of 1 result").click();
+    cy.contains("cypress_logging_events").click();
     cy.clickOptionWithText("event_name");
     cy.get('[data-testid="schema-field-event_name-tags"]').within(() =>
       cy
@@ -186,6 +179,7 @@ describe("mutations", () => {
 
     cy.goToDataset("urn:li:dataset:(urn:li:dataPlatform:hive,cypress_logging_events,PROD)", "cypress_logging_events");
     cy.clickOptionWithText("event_data");
+    cy.wait(2000);
     cy.get('[data-testid="schema-field-event_data-businessAttribute"]').trigger(
         "mouseover",
         { force: true }
