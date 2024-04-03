@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Layout } from 'antd';
 import styled from 'styled-components';
+import { V2_SEARCH_BAR_ID } from '../onboarding/configV2/HomePageOnboardingConfig';
 import { SearchBar } from './SearchBar';
 import { AutoCompleteResultForEntity, EntityType } from '../../types.generated';
 import { EntityRegistry } from '../../entityRegistryContext';
@@ -35,8 +36,9 @@ const styles = {
     searchBoxContainer: {
         padding: 0,
         display: 'flex',
-        flex: 1,
         justifyContent: 'center',
+        width: '620px',
+        minWidth: '400px',
     },
 };
 
@@ -46,8 +48,8 @@ const SearchBarContainer = styled.div`
     align-items: center;
     justify-content: center;
     margin-left: 80px;
+    margin-top: 6px;
 `;
-
 
 type Props = {
     initialQuery: string;
@@ -78,6 +80,7 @@ export const SearchHeader = ({
             <Header style={styles.header as any}>
                 <SearchBarContainer>
                     <SearchBar
+                        id={V2_SEARCH_BAR_ID}
                         style={styles.searchBoxContainer}
                         autoCompleteStyle={styles.searchBox}
                         inputStyle={styles.input}

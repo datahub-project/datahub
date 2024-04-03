@@ -14,7 +14,7 @@ import { UnauthorizedPage } from '../authorization/UnauthorizedPage';
 import { ErrorSection } from '../shared/error/ErrorSection';
 import { VIEW_ENTITY_PAGE } from './shared/constants';
 import { useUserContext } from '../context/useUserContext';
-import EntitySidebarContext from '../shared/EntitySidebarContext';
+import EntitySidebarContext from '../sharedV2/EntitySidebarContext';
 import TabFullSizedContext from '../shared/TabFullsizedContext';
 
 interface RouteParams {

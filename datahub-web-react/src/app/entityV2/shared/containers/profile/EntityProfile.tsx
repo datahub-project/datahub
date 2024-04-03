@@ -50,7 +50,7 @@ import {
 import { useSubscriptionsEnabled } from '../../../../settings/personal/notifications/utils';
 import EntityProfileSidebar from './sidebar/EntityProfileSidebar';
 import { PageRoutes } from '../../../../../conf/Global';
-import EntitySidebarContext from '../../../../shared/EntitySidebarContext';
+import EntitySidebarContext from '../../../../sharedV2/EntitySidebarContext';
 import TabFullsizeContext from '../../../../shared/TabFullsizedContext';
 import { useUpdateDomainEntityDataOnChange as useUpdateDomainEntityDataOnChangeV2 } from '../../../../domainV2/utils';
 import { ENTITY_PROFILE_V2_SUBSCRIPTION_ID } from '../../../../onboarding/configV2/EntityProfileOnboardingConfig';

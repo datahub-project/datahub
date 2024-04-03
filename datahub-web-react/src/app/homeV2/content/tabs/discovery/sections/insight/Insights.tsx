@@ -23,12 +23,7 @@ const ALL_INSIGHTS: InsightSection[] = [
     {
         id: 'FoundationalAssets',
         component: FoundationalAssetsCard,
-        personas: [PersonaType.TECHNICAL_USER, PersonaType.DATA_STEWARD, PersonaType.DATA_LEADER],
-    },
-    {
-        id: 'MostViewedDashboards',
-        component: MostViewedDashboardsCard,
-        personas: [PersonaType.BUSINESS_USER, PersonaType.DATA_STEWARD, PersonaType.DATA_LEADER],
+        personas: [PersonaType.BUSINESS_USER, PersonaType.TECHNICAL_USER, PersonaType.DATA_STEWARD, PersonaType.DATA_LEADER],
     },
     {
         id: 'MostUsers',
@@ -38,7 +33,12 @@ const ALL_INSIGHTS: InsightSection[] = [
     {
         id: 'MostQueried',
         component: MostQueriedCard,
-        personas: [PersonaType.TECHNICAL_USER, PersonaType.DATA_STEWARD, PersonaType.DATA_LEADER],
+        personas: [PersonaType.BUSINESS_USER, PersonaType.TECHNICAL_USER, PersonaType.DATA_STEWARD, PersonaType.DATA_LEADER],
+    },
+    {
+        id: 'MostViewedDashboards',
+        component: MostViewedDashboardsCard,
+        personas: [PersonaType.BUSINESS_USER, PersonaType.DATA_STEWARD, PersonaType.DATA_LEADER],
     },
     {
         id: 'MostFrequentlyUpdated',

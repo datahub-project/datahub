@@ -1,7 +1,7 @@
 import React, { useContext } from 'react';
 import styled from 'styled-components';
 import { SidebarSection } from '../SidebarSection';
-import EntitySidebarContext from '../../../../../../shared/EntitySidebarContext';
+import EntitySidebarContext from '../../../../../../sharedV2/EntitySidebarContext';
 import { useBaseEntity } from '../../../../EntityContext';
 import { QueryEntity } from '../../../../../../../types.generated';
 import { REDESIGN_COLORS } from '../../../../constants';

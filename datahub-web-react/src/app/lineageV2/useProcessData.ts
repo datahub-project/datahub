@@ -2,7 +2,7 @@ import { useContext, useMemo } from 'react';
 import { Edge } from 'reactflow';
 import { EntityType, LineageDirection } from '../../types.generated';
 import { ENTITY_SUB_TYPE_FILTER_NAME, FILTER_DELIMITER, PLATFORM_FILTER_NAME } from '../searchV2/utils/constants';
-import { ColumnQueryData } from '../shared/EntitySidebarContext';
+import { ColumnQueryData } from '../sharedV2/EntitySidebarContext';
 import {
     ColumnRef,
     createColumnQueryRef,

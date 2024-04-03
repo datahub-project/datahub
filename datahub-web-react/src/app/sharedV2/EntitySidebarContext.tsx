@@ -17,6 +17,7 @@ interface EntitySidebarContextProps {
     isClosed: boolean;
     extra?: EntitySidebarQueryDetails;
     forLineage?: boolean;
+    separateSiblings?: boolean;
 }
 
 const EntitySidebarContext = React.createContext<EntitySidebarContextProps>({

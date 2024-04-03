@@ -45,7 +45,7 @@ Cypress.Commands.add("loginWithCredentials", (username, password) => {
     cy.get('input[data-testid=password]').type(Cypress.env('ADMIN_PASSWORD'));
   }
   cy.contains('Sign In').click();
-  cy.contains('Welcome back');
+  cy.get('[data-testid="manage-account-menu"]').should('be.visible')
 });
 
 Cypress.Commands.add('deleteUrn', (urn) => {
@@ -437,6 +437,18 @@ Cypress.Commands.add('acceptProposalInbox', () => {
 Cypress.Commands.add('rejectProposalInbox', () => {
   cy.doInInbox('Decline');
 });
+
+Cypress.Commands.add ('handleIntroducePage', ()=>{
+  cy.url().then(url => {
+   let myUrl = url;
+  if(myUrl.includes("/introduce")){
+     cy.get(".ant-select ").first().click()
+     cy.get(".ant-select-item-option-content").contains("Data Analyst").should('be.visible').click()
+     cy.get(".ant-btn-primary").click()
+    }else{
+     cy.waitTextVisible("Discover")    }
+  });
+})
 
 Cypress.Commands.add('setIsThemeV2Enabled', (isEnabled) => {
   // intercept the app config query and alert that we are aliasing a response

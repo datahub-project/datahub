@@ -1,7 +1,7 @@
 /* eslint-disable prefer-template */
 import React, { useContext, useEffect, useState } from 'react';
 import styled from 'styled-components';
-import EntitySidebarContext from '../../../../../shared/EntitySidebarContext';
+import EntitySidebarContext from '../../../../../sharedV2/EntitySidebarContext';
 import { SEARCH_COLORS } from '../../../constants';
 import { EntitySidebarTab, TabContextType, TabRenderType } from '../../../types';
 import { EntitySidebarTabs } from './EntitySidebarTabs';

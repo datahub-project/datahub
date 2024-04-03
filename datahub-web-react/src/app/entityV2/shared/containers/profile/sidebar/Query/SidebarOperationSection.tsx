@@ -1,6 +1,6 @@
 import React, { useContext } from 'react';
 import { SidebarSection } from '../SidebarSection';
-import EntitySidebarContext from '../../../../../../shared/EntitySidebarContext';
+import EntitySidebarContext from '../../../../../../sharedV2/EntitySidebarContext';
 
 export default function SidebarOperationSection() {
     const { extra } = useContext(EntitySidebarContext);

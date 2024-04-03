@@ -1,8 +1,18 @@
 import merge from 'deepmerge';
 import { keyBy, unionBy, values } from 'lodash';
 import * as QueryString from 'query-string';
+import { useContext } from 'react';
 import { useLocation } from 'react-router-dom';
-import { Dataset, Entity, Health, HealthStatus, HealthStatusType, Maybe, SiblingProperties } from '../../../types.generated';
+import {
+    Dataset,
+    Entity,
+    Health,
+    HealthStatus,
+    HealthStatusType,
+    Maybe,
+    SiblingProperties,
+} from '../../../types.generated';
+import EntitySidebarContext from '../../sharedV2/EntitySidebarContext';
 import { GenericEntityProperties } from './types';
 
 export function stripSiblingsFromEntity(entity: any) {
@@ -12,6 +22,7 @@ export function stripSiblingsFromEntity(entity: any) {
         siblingPlatforms: null,
     };
 }
+
 function cleanHelper(obj, visited) {
     if (visited.has(obj)) return obj;
     visited.add(obj);
@@ -103,74 +114,78 @@ const mergeHealthStatus = (destStatus?: HealthStatus, sourceStatus?: HealthStatu
     if (destStatus === HealthStatus.Warn || sourceStatus === HealthStatus.Warn) {
         return HealthStatus.Warn;
     }
-    return HealthStatus.Pass; 
-}
+    return HealthStatus.Pass;
+};
 
 const mergeHealthMessage = (type: HealthStatusType, mergedStatus: HealthStatus): string => {
     if (mergedStatus === HealthStatus.Fail) {
         switch (type) {
-            case HealthStatusType.Assertions: 
-                return "Some failing assertions";
+            case HealthStatusType.Assertions:
+                return 'Some failing assertions';
             case HealthStatusType.Incidents:
-                return "Some active incidents";
+                return 'Some active incidents';
             case HealthStatusType.Tests:
-                return "Some failing governance tests";
-            default: 
-                return "Some checks failed";
+                return 'Some failing governance tests';
+            default:
+                return 'Some checks failed';
         }
     }
     if (mergedStatus === HealthStatus.Warn) {
         switch (type) {
-            case HealthStatusType.Assertions: 
-                return "Some assertions have problems failed";
-            default: 
-                return "Some checks have problems."; 
+            case HealthStatusType.Assertions:
+                return 'Some assertions have problems failed';
+            default:
+                return 'Some checks have problems.';
         }
     }
     if (mergedStatus === HealthStatus.Pass) {
         switch (type) {
-            case HealthStatusType.Assertions: 
-                return "All assertions are passing";
+            case HealthStatusType.Assertions:
+                return 'All assertions are passing';
             case HealthStatusType.Incidents:
-                return "No active incidents";
+                return 'No active incidents';
             case HealthStatusType.Tests:
-                return "No failing governance tests";
+                return 'No failing governance tests';
             default:
-                return "All checks are passing"; 
+                return 'All checks are passing';
         }
     }
-    return "All checks are passing"; 
-}
+    return 'All checks are passing';
+};
 
 // Merge entity health across siblings.
-const mergeHealth = (destinationArray: Maybe<Health[]> | undefined, sourceArray: Maybe<Health[]> | undefined, _options) => {
+const mergeHealth = (
+    destinationArray: Maybe<Health[]> | undefined,
+    sourceArray: Maybe<Health[]> | undefined,
+    _options,
+) => {
     const viewedHealthType = new Set();
-    return [...(sourceArray || []), ...(destinationArray || [])].map(source => {
-
+    return [...(sourceArray || []), ...(destinationArray || [])]
+        .map((source) => {
             if (viewedHealthType.has(source.type)) {
-                return null; 
+                return null;
             }
 
-            viewedHealthType.add(source.type)
+            viewedHealthType.add(source.type);
 
-            const { type, status, causes } = source; 
+            const { type, status, causes } = source;
 
-            const destHealth = destinationArray?.find(dest => dest.type === type);
-            const destStatus = destHealth?.status; 
-            const destCauses = destHealth?.causes; 
+            const destHealth = destinationArray?.find((dest) => dest.type === type);
+            const destStatus = destHealth?.status;
+            const destCauses = destHealth?.causes;
 
             const finalStatus = mergeHealthStatus(destStatus, status);
             const finalMessage = mergeHealthMessage(type, finalStatus);
             const finalCauses = [...(causes || []), ...(destCauses || [])];
 
             return {
-                type, 
-                status: finalStatus, 
-                message: finalMessage, 
-                causes: finalCauses
-            }
-        }
-    ).filter(health => health !== null); 
+                type,
+                status: finalStatus,
+                message: finalMessage,
+                causes: finalCauses,
+            };
+        })
+        .filter((health) => health !== null);
 };
 
 function getArrayMergeFunction(key) {
@@ -362,8 +377,9 @@ export const SEPARATE_SIBLINGS_URL_PARAM = 'separate_siblings';
 
 // used to determine whether sibling entities should be shown merged or not
 export function useIsSeparateSiblingsMode() {
+    const { separateSiblings } = useContext(EntitySidebarContext);
     const location = useLocation();
     const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
 
-    return params[SEPARATE_SIBLINGS_URL_PARAM] === 'true';
+    return separateSiblings ?? params[SEPARATE_SIBLINGS_URL_PARAM] === 'true';
 }

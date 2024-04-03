@@ -5,7 +5,7 @@ import { Button, Modal } from 'antd';
 import { GetDatasetQuery } from '../../../../../../graphql/dataset.generated';
 import { useBaseEntity } from '../../../EntityContext';
 import { QueryEntity } from '../../../../../../types.generated';
-import EntitySidebarContext from '../../../../../shared/EntitySidebarContext';
+import EntitySidebarContext from '../../../../../sharedV2/EntitySidebarContext';
 import { SidebarSection } from './SidebarSection';
 
 const PreviewSyntax = styled(SyntaxHighlighter)`

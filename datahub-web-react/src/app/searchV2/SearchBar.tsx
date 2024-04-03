@@ -24,7 +24,7 @@ import ViewAllSearchItem from './ViewAllSearchItem';
 import { ViewSelect } from '../entityV2/view/select/ViewSelect';
 import { combineSiblingsInAutoComplete } from './utils/combineSiblingsInAutoComplete';
 import { CommandK } from './CommandK';
-import { V2_SEARCH_BAR_ID, V2_SEARCH_BAR_VIEWS } from '../onboarding/configV2/HomePageOnboardingConfig';
+import { V2_SEARCH_BAR_VIEWS } from '../onboarding/configV2/HomePageOnboardingConfig';
 
 const StyledAutoComplete = styled(AutoComplete)`
     width: 100%;
@@ -32,16 +32,10 @@ const StyledAutoComplete = styled(AutoComplete)`
 `;
 
 const AutoCompleteContainer = styled.div`
-    width: 100%;
     padding: 0 30px;
 `;
 
-const InnerContainer = styled.div`
-    width: 620px;
-    min-width: 400px;
-`;
-
-const StyledSearchBar = styled(Input) <{ $textColor?: string; $placeholderColor?: string }>`
+const StyledSearchBar = styled(Input)<{ $textColor?: string; $placeholderColor?: string }>`
     &&& {
         border-radius: 8px;
         height: 40px;
@@ -105,6 +99,7 @@ const handleStopPropagation: EventHandler<SyntheticEvent> = (e) => {
 };
 
 interface Props {
+    id?: string;
     initialQuery?: string;
     placeholderText: string;
     suggestions: Array<AutoCompleteResultForEntity>;
@@ -136,6 +131,7 @@ const defaultProps = {
  * Represents the search bar appearing in the default header view.
  */
 export const SearchBar = ({
+    id,
     initialQuery,
     placeholderText,
     suggestions,
@@ -345,116 +341,111 @@ export const SearchBar = ({
     }, [showCommandK]);
 
     return (
-        <AutoCompleteContainer style={style} ref={searchBarWrapperRef}>
-            <InnerContainer id={V2_SEARCH_BAR_ID}>
-                <StyledAutoComplete
-                    data-testid="search-bar"
-                    defaultActiveFirstOption={false}
-                    style={autoCompleteStyle}
-                    options={options}
-                    filterOption={false}
-                    onSelect={(value, option) => {
-                        // If the autocomplete option type is NOT an entity, then render as a normal search query.
-                        if (
-                            option.type === EXACT_AUTOCOMPLETE_OPTION_TYPE ||
-                            option.type === RELEVANCE_QUERY_OPTION_TYPE
-                        ) {
-                            handleSearch(
-                                `${filterSearchQuery(value as string)}`,
-                                searchEntityTypes.indexOf(option.type) >= 0 ? option.type : undefined,
-                                getFiltersWithQuickFilter(selectedQuickFilter),
-                            );
-                            analytics.event({
-                                type: EventType.SelectAutoCompleteOption,
-                                optionType: option.type,
-                            } as Event);
-                        } else {
-                            // Navigate directly to the entity profile.
-                            history.push(getEntityPath(option.type, value as string, entityRegistry, false, false));
-                            setSelected('');
-                            analytics.event({
-                                type: EventType.SelectAutoCompleteOption,
-                                optionType: option.type,
-                                entityType: option.type,
-                                entityUrn: value,
-                            } as Event);
-                        }
-                    }}
-                    onSearch={(value: string) => onQueryChange(value)}
-                    defaultValue={initialQuery || undefined}
-                    value={selected}
-                    onChange={(v) => setSelected(filterSearchQuery(v as string))}
-                    dropdownStyle={{
-                        maxHeight: 1000,
-                        overflowY: 'visible',
-                        position: (fixAutoComplete && 'fixed') || 'relative',
-                    }}
-                    onDropdownVisibleChange={(isOpen) => {
-                        if (!isOpen) {
+        <AutoCompleteContainer id={id} style={style} ref={searchBarWrapperRef}>
+            <StyledAutoComplete
+                data-testid="search-bar"
+                defaultActiveFirstOption={false}
+                style={autoCompleteStyle}
+                options={options}
+                filterOption={false}
+                onSelect={(value, option) => {
+                    // If the autocomplete option type is NOT an entity, then render as a normal search query.
+                    if (option.type === EXACT_AUTOCOMPLETE_OPTION_TYPE || option.type === RELEVANCE_QUERY_OPTION_TYPE) {
+                        handleSearch(
+                            `${filterSearchQuery(value as string)}`,
+                            searchEntityTypes.indexOf(option.type) >= 0 ? option.type : undefined,
+                            getFiltersWithQuickFilter(selectedQuickFilter),
+                        );
+                        analytics.event({
+                            type: EventType.SelectAutoCompleteOption,
+                            optionType: option.type,
+                        } as Event);
+                    } else {
+                        // Navigate directly to the entity profile.
+                        history.push(getEntityPath(option.type, value as string, entityRegistry, false, false));
+                        setSelected('');
+                        analytics.event({
+                            type: EventType.SelectAutoCompleteOption,
+                            optionType: option.type,
+                            entityType: option.type,
+                            entityUrn: value,
+                        } as Event);
+                    }
+                }}
+                onSearch={(value: string) => onQueryChange(value)}
+                defaultValue={initialQuery || undefined}
+                value={selected}
+                onChange={(v) => setSelected(filterSearchQuery(v as string))}
+                dropdownStyle={{
+                    maxHeight: 1000,
+                    overflowY: 'visible',
+                    position: (fixAutoComplete && 'fixed') || 'relative',
+                }}
+                onDropdownVisibleChange={(isOpen) => {
+                    if (!isOpen) {
+                        setIsDropdownVisible(isOpen);
+                    } else {
+                        // set timeout so that we allow search bar to grow in width and therefore allow autocomplete to grow
+                        setTimeout(() => {
                             setIsDropdownVisible(isOpen);
-                        } else {
-                            // set timeout so that we allow search bar to grow in width and therefore allow autocomplete to grow
-                            setTimeout(() => {
-                                setIsDropdownVisible(isOpen);
-                            }, 0);
-                        }
+                        }, 0);
+                    }
+                }}
+                open={isDropdownVisible}
+                listHeight={480}
+            >
+                <StyledSearchBar
+                    bordered={false}
+                    placeholder={placeholderText}
+                    onPressEnter={() => {
+                        handleSearch(
+                            filterSearchQuery(searchQuery || ''),
+                            undefined,
+                            getFiltersWithQuickFilter(selectedQuickFilter),
+                        );
                     }}
-                    open={isDropdownVisible}
-                    listHeight={480}
-                >
-                    <StyledSearchBar
-                        bordered={false}
-                        placeholder={placeholderText}
-                        onPressEnter={() => {
-                            handleSearch(
-                                filterSearchQuery(searchQuery || ''),
-                                undefined,
-                                getFiltersWithQuickFilter(selectedQuickFilter),
-                            );
-                        }}
-                        style={{ ...inputStyle, color: '#fff' }}
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        data-testid="search-input"
-                        onFocus={handleFocus}
-                        onBlur={handleBlur}
-                        allowClear={(isFocused && { clearIcon: <ClearIcon /> }) || false}
-                        prefix={
-                            <>
-                                <SearchIcon
-                                    onClick={() => {
-                                        handleSearch(
-                                            filterSearchQuery(searchQuery || ''),
-                                            undefined,
-                                            getFiltersWithQuickFilter(selectedQuickFilter),
-                                        );
-                                    }}
-                                />
-                            </>
-                        }
-                        ref={searchInputRef}
-                        suffix={
-                            <>
-                                {(showCommandK && !isFocused && <CommandK />) || null}
-                                {viewsEnabled && (
-                                    <ViewSelectContainer
-                                        id={V2_SEARCH_BAR_VIEWS}
-                                        onClick={handleStopPropagation}
-                                        onFocus={handleStopPropagation}
-                                        onMouseDown={handleStopPropagation}
-                                        onKeyUp={handleStopPropagation}
-                                        onKeyDown={handleStopPropagation}
-                                    >
-                                        <ViewSelect />
-                                    </ViewSelectContainer>
-                                )}
-                            </>
-                        }
-                        $textColor={textColor}
-                        $placeholderColor={placeholderColor}
-                    />
-                </StyledAutoComplete>
-            </InnerContainer>
+                    style={{ ...inputStyle, color: '#fff' }}
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    data-testid="search-input"
+                    onFocus={handleFocus}
+                    onBlur={handleBlur}
+                    allowClear={(isFocused && { clearIcon: <ClearIcon /> }) || false}
+                    prefix={
+                        <>
+                            <SearchIcon
+                                onClick={() => {
+                                    handleSearch(
+                                        filterSearchQuery(searchQuery || ''),
+                                        undefined,
+                                        getFiltersWithQuickFilter(selectedQuickFilter),
+                                    );
+                                }}
+                            />
+                        </>
+                    }
+                    ref={searchInputRef}
+                    suffix={
+                        <>
+                            {(showCommandK && !isFocused && <CommandK />) || null}
+                            {viewsEnabled && (
+                                <ViewSelectContainer
+                                    id={V2_SEARCH_BAR_VIEWS}
+                                    onClick={handleStopPropagation}
+                                    onFocus={handleStopPropagation}
+                                    onMouseDown={handleStopPropagation}
+                                    onKeyUp={handleStopPropagation}
+                                    onKeyDown={handleStopPropagation}
+                                >
+                                    <ViewSelect />
+                                </ViewSelectContainer>
+                            )}
+                        </>
+                    }
+                    $textColor={textColor}
+                    $placeholderColor={placeholderColor}
+                />
+            </StyledAutoComplete>
         </AutoCompleteContainer>
     );
 };
