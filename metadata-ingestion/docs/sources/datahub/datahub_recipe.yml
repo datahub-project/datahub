@@ -20,6 +20,13 @@ source:
       ignore_old_state: false
   extractor_config:
     set_system_metadata: false # Replicate system metadata
+  urn_pattern:
+    deny:
+      # Ignores all datahub metadata where the urn matches the regex
+      - ^denied.urn.*
+    allow:
+      # Ingests all datahub metadata where the urn matches the regex.
+      - ^allowed.urn.*
 
 # Here, we write to a DataHub instance
 # You can also use a different sink, e.g. to write the data to a file instead
