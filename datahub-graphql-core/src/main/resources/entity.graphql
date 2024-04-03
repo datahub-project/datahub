@@ -1395,6 +1395,10 @@ type LineageRelationship {
     """
     isManual: Boolean
 
+    """
+    The paths traversed for this relationship
+    """
+    paths: [EntityPath]
 }
 
 """
