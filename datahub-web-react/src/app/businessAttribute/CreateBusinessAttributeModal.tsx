@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { message, Button, Input, Modal, Typography, Form, Select } from 'antd';
+import { message, Button, Input, Modal, Typography, Form, Select, Collapse } from 'antd';
 import styled from 'styled-components';
 import { EditOutlined } from '@ant-design/icons';
 import DOMPurify from 'dompurify';
@@ -10,6 +10,7 @@ import analytics, { EventType } from '../analytics';
 import { useEntityRegistry } from '../useEntityRegistry';
 import DescriptionModal from '../entity/shared/components/legacy/DescriptionModal';
 import { SchemaFieldDataType } from './businessAttributeUtils';
+import { validateCustomUrnId } from '../shared/textUtil';
 
 type Props = {
     visible: boolean;
@@ -63,6 +64,8 @@ export default function CreateBusinessAttributeModal({ visible, onClose, onCreat
 
     const entityRegistry = useEntityRegistry();
 
+    const [stagedId, setStagedId] = useState<string | undefined>(undefined);
+
     // Function to handle the close or cross button of Create Business Attribute Modal
     const onModalClose = () => {
         form.resetFields();
@@ -73,6 +76,7 @@ export default function CreateBusinessAttributeModal({ visible, onClose, onCreat
         const { name, dataType } = form.getFieldsValue();
         const sanitizedDescription = DOMPurify.sanitize(documentation);
         const input: CreateBusinessAttributeInput = {
+            id: stagedId?.length ? stagedId : undefined,
             name,
             description: sanitizedDescription,
             type: dataType,
@@ -208,6 +212,42 @@ export default function CreateBusinessAttributeModal({ visible, onClose, onCreat
                             />
                         )}
                     </StyledItem>
+                    <Collapse ghost>
+                        <Collapse.Panel header={<Typography.Text type="secondary">Advanced</Typography.Text>} key="1">
+                            <Form.Item
+                                label={
+                                    <Typography.Text strong>
+                                        {entityRegistry.getEntityName(EntityType.BusinessAttribute)} Id
+                                    </Typography.Text>
+                                }
+                            >
+                                <Typography.Paragraph>
+                                    By default, a random UUID will be generated to uniquely identify this entity. If
+                                    you&apos;d like to provide a custom id, you may provide it here. Note that it should be
+                                    unique across the entire Business Attributes. Be careful, you cannot easily change the id after
+                                    creation.
+                                </Typography.Paragraph>
+                                <Form.Item
+                                    name="id"
+                                    rules={[
+                                        () => ({
+                                            validator(_, value) {
+                                                if (value && validateCustomUrnId(value)) {
+                                                    return Promise.resolve();
+                                                }
+                                                return Promise.reject(new Error('Please enter a valid entity id'));
+                                            },
+                                        }),
+                                    ]}
+                                >
+                                    <Input
+                                        placeholder="classification"
+                                        onChange={(event) => setStagedId(event.target.value)}
+                                    />
+                                </Form.Item>
+                            </Form.Item>
+                        </Collapse.Panel>
+                    </Collapse>
                 </Form>
             </Modal>
         </>
