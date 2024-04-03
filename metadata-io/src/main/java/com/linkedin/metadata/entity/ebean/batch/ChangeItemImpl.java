@@ -33,6 +33,7 @@ import lombok.Getter;
 import lombok.Setter;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 
 @Slf4j
 @Getter
@@ -237,6 +238,22 @@ public class ChangeItemImpl implements ChangeMCP {
         + recordTemplate
         + ", systemMetadata="
         + systemMetadata
+        + '}';
+  }
+
+  public String toAbbreviatedString() {
+    return "ChangeItemImpl{"
+        + "changeType="
+        + changeType
+        + ", urn="
+        + urn
+        + ", aspectName='"
+        + aspectName
+        + '\''
+        + ", recordTemplate="
+        + StringUtils.abbreviate(recordTemplate.toString(), 256)
+        + ", systemMetadata="
+        + StringUtils.abbreviate(systemMetadata.toString(), 128)
         + '}';
   }
 }

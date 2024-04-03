@@ -631,7 +631,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
       return Collections.emptyList();
     }
 
-    log.info("Ingesting aspects batch to database, items: {}", aspectsBatch.getItems());
+    log.info("Ingesting aspects batch to database: {}", aspectsBatch.toAbbreviatedString(2048));
     Timer.Context ingestToLocalDBTimer =
         MetricUtils.timer(this.getClass(), "ingestAspectsToLocalDB").time();
     List<UpdateAspectResult> ingestResults = ingestAspectsToLocalDB(aspectsBatch, overwrite);
