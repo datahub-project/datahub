@@ -22,4 +22,4 @@ DOCKER_COMPOSE_BASE="file://$( dirname "$DIR" )" \
 DATAHUB_SEARCH_IMAGE="$DATAHUB_SEARCH_IMAGE" DATAHUB_SEARCH_TAG="$DATAHUB_SEARCH_TAG" \
 XPACK_SECURITY_ENABLED="$XPACK_SECURITY_ENABLED" ELASTICSEARCH_USE_SSL="$ELASTICSEARCH_USE_SSL" \
 USE_AWS_ELASTICSEARCH="$USE_AWS_ELASTICSEARCH" \
-datahub docker quickstart --version ${DATAHUB_VERSION} --standalone_consumers --dump-logs-on-failure --kafka-setup  --no-pull-images
+datahub docker quickstart --version ${DATAHUB_VERSION} --standalone_consumers --dump-logs-on-failure --kafka-setup
