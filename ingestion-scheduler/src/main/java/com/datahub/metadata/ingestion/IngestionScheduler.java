@@ -413,6 +413,9 @@ public class IngestionScheduler {
         if (ingestionSourceInfo.getConfig().hasDebugMode()) {
           debugMode = ingestionSourceInfo.getConfig().isDebugMode() ? "true" : "false";
         }
+        if (ingestionSourceInfo.getConfig().hasExtraArgs()) {
+          arguments.putAll(ingestionSourceInfo.getConfig().getExtraArgs());
+        }
         arguments.put(DEBUG_MODE_ARG_NAME, debugMode);
         input.setArgs(new StringMap(arguments));
 
