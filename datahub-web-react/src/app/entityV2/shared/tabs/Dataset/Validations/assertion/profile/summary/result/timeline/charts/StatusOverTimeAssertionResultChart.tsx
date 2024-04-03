@@ -120,7 +120,7 @@ export const StatusOverTimeAssertionResultChart = ({ data, timeRange, chartDimen
                                         stroke='white'
                                         strokeWidth={2}
                                         size={100}
-                                        filter='drop-shadow(0px 1px 2.5px rgb(0 0 0 / 0.1))'
+                                        filter='drop-shadow(0px 1px 2.5px rgb(0 0 0 / 0.05))'
                                     />
                                 </Popover>
                             </LinkWrapper>

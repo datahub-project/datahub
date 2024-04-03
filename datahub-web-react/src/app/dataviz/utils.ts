@@ -72,3 +72,24 @@ export const calculateYScaleExtentForChart = (yValues: number[], options: { defa
 
 	return { min, max }
 }
+
+
+/**
+ * Gets the px overlap between two markers
+ * @param marker1 
+ * @param marker2 
+ * @returns {number | undefined} undefined if no overlap
+ */
+export function calculateOverlapBetweenTwoMarkers(marker1: { xOffset: number, width: number }, marker2: { xOffset: number, width: number }): undefined | number {
+	let markerOverlapPx: number | undefined;
+
+	// Take width of the left and right half of the two markers (where they will collide)
+	const netWidth = (marker1.width / 2) + (marker2.width / 2);
+
+	// Calculate distance and potential overlap
+	const distance = Math.abs(marker1.xOffset - marker2.xOffset);
+	if (distance < netWidth) {
+		markerOverlapPx = netWidth - distance;
+	}
+	return markerOverlapPx;
+}
