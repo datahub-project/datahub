@@ -118,7 +118,7 @@ export const BusinessAttributes = () => {
 
     const totalBusinessAttributes = businessAttributeData?.listBusinessAttributes?.total || 0;
     const businessAttributes = useMemo(
-        () => businessAttributeData?.listBusinessAttributes?.businessAttributes || [],
+        () => (businessAttributeData?.listBusinessAttributes?.businessAttributes || []) as BusinessAttribute[],
         [businessAttributeData],
     );
 
@@ -136,7 +136,7 @@ export const BusinessAttributes = () => {
             businessAttributeRefetch?.();
         }, 2000);
     };
-    const tableData = businessAttributes;
+    const tableData = businessAttributes || [];
     const tableColumns = [
         {
             width: '20%',
@@ -151,6 +151,7 @@ export const BusinessAttributes = () => {
             title: 'Description',
             dataIndex: ['properties', 'description'],
             key: 'description',
+            width: '20%',
             // render: (description: string) => description || '',
             render: descriptionRender,
         },

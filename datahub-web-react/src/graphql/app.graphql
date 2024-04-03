@@ -67,6 +67,7 @@ query appConfig {
             showAccessManagement
             nestedDomainsEnabled
             platformBrowseV2
+            businessAttributeEntityEnabled
         }
     }
 }
