@@ -1166,6 +1166,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
             report=self.report,
             config=self.config.profiling,
             platform=self.platform,
+            env=self.config.env,
         )
 
     def get_profile_args(self) -> Dict:

@@ -299,6 +299,9 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
 
     query_combiner: SQLAlchemyQueryCombiner
 
+    platform: str
+    env: str
+
     def _get_columns_to_profile(self) -> List[str]:
         if not self.config.any_field_level_metrics_enabled():
             return []
@@ -677,7 +680,7 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
             ignore_table_sampling,
             columns_list_to_ignore_sampling,
         ) = _get_columns_to_ignore_sampling(
-            self.dataset_name, all_columns, self.config.tags_to_ignore_sampling
+            self.dataset_name, self.config.tags_to_ignore_sampling, self.platform, self.env
         )
 
         logger.debug(f"profiling {self.dataset_name}: flushing stage 1 queries")
@@ -910,6 +913,7 @@ class DatahubGEProfiler:
 
     base_engine: Engine
     platform: str  # passed from parent source config
+    env: str
 
     # The actual value doesn't matter, it just matters that we use it consistently throughout.
     _datasource_name_base: str = "my_sqlalchemy_datasource"
@@ -920,11 +924,14 @@ class DatahubGEProfiler:
         report: SQLSourceReport,
         config: GEProfilingConfig,
         platform: str,
+        env='PROD',
     ):
         self.report = report
         self.config = config
         self.times_taken = []
         self.total_row_count = 0
+
+        self.env = env
 
         # TRICKY: The call to `.engine` is quite important here. Connection.connect()
         # returns a "branched" connection, which does not actually use a new underlying
@@ -1165,6 +1172,8 @@ class DatahubGEProfiler:
                     self.report,
                     custom_sql,
                     query_combiner,
+                    self.platform,
+                    self.env
                 ).generate_dataset_profile()
 
                 time_taken = timer.elapsed_seconds()
@@ -1326,35 +1335,30 @@ def create_bigquery_temp_table(
 
 
 def _get_columns_to_ignore_sampling(
-    dataset_name: str, columns: List[str], tagsToIgnore: Optional[List[str]]
+    dataset_name: str, tags_to_ignore: Optional[List[str]], platform: str, env: str
 ) -> Tuple[bool, List[str]]:
-    logger.info("Collecting columns to ignore for sampling")
+    logger.debug("Collecting columns to ignore for sampling")
 
-    # Initialize variables
     ignore_table: bool = False
     columns_to_ignore: List[str] = []
 
-    if not tagsToIgnore:
+    if not tags_to_ignore:
         return ignore_table, columns_to_ignore
-
-    # Generate dataset urn
+    
     dataset_urn = mce_builder.make_dataset_urn(
-        name=dataset_name, platform="hive", env="PROD"
+        name=dataset_name, platform=platform, env=env
     )
 
-    # Get the default graph instance
     datahub_graph = get_default_graph()
 
-    # Get dataset tags
     dataset_tags = datahub_graph.get_tags(dataset_urn)
     if dataset_tags:
         ignore_table = any(
-            tag_association.tag.split("urn:li:tag:")[1] in tagsToIgnore
+            tag_association.tag.split("urn:li:tag:")[1] in tags_to_ignore
             for tag_association in dataset_tags.tags
         )
 
     if not ignore_table:
-        # Get column tags
         metadata = datahub_graph.get_aspect(
             entity_urn=dataset_urn, aspect_type=EditableSchemaMetadata
         )
@@ -1365,7 +1369,7 @@ def _get_columns_to_ignore_sampling(
                     columns_to_ignore.extend(
                         schemaField.fieldPath
                         for tag_association in schemaField.globalTags.tags
-                        if tag_association.tag.split("urn:li:tag:")[1] in tagsToIgnore
+                        if tag_association.tag.split("urn:li:tag:")[1] in tags_to_ignore
                     )
 
     return ignore_table, columns_to_ignore
