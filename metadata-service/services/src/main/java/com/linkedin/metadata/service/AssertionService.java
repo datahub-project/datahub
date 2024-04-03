@@ -684,7 +684,6 @@ public class AssertionService extends BaseService {
               "Failed to update Assertion. Assertion with urn %s does not exist.", assertionUrn));
     }
 
-
     final List<MetadataChangeProposal> aspects = new ArrayList<>();
     // 2. Ingest actions aspect
     if (actions != null) {
@@ -695,7 +694,9 @@ public class AssertionService extends BaseService {
     // 3. Ingest assertion info aspect changes
     if (assertionDescription != null) {
       existingInfo.setDescription(assertionDescription);
-      aspects.add(AspectUtils.buildMetadataChangeProposal(assertionUrn, Constants.ASSERTION_INFO_ASPECT_NAME, existingInfo));
+      aspects.add(
+          AspectUtils.buildMetadataChangeProposal(
+              assertionUrn, Constants.ASSERTION_INFO_ASPECT_NAME, existingInfo));
     }
 
     try {
