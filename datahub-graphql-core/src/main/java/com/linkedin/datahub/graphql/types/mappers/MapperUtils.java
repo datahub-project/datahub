@@ -143,6 +143,5 @@ public class MapperUtils {
     entityPath.setPath(
         path.stream().map(p -> UrnToEntityMapper.map(context, p)).collect(Collectors.toList()));
     return entityPath;
-
   }
 }
