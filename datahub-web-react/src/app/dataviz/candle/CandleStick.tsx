@@ -39,7 +39,7 @@ export const CandleStick = ({ parentChartHeight, candleHeight, barWidth, shapeSi
         left: leftOffset,
         fill: color,
         stroke: 'white',
-        strokeWidth: markerOverlapPx > 1 ? (1 / markerOverlapPx) : 1,
+        strokeWidth: (markerOverlapPx ?? 1) > 1 ? (1 / (markerOverlapPx ?? 1)) : 1,
         filter: markerOverlapPx ? undefined : 'drop-shadow(0px 1px 2.5px rgb(0 0 0 / 0.1))',
         size: shapeSize,
         ...shape.extraProps,
@@ -51,7 +51,7 @@ export const CandleStick = ({ parentChartHeight, candleHeight, barWidth, shapeSi
         y: yOffset,
         fill: color,
         stroke: 'white',
-        strokeWidth: markerOverlapPx > 1 ? (1 / markerOverlapPx) : 1,
+        strokeWidth: (markerOverlapPx ?? 1) > 1 ? (1 / (markerOverlapPx ?? 1)) : 1,
         ...extraBarProps,
     }
 
