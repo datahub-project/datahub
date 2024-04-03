@@ -314,7 +314,7 @@ plugins: Dict[str, Set[str]] = {
     "dbt": {"requests"} | sqlglot_lib | aws_common,
     "dbt-cloud": {"requests"} | sqlglot_lib,
     "druid": sql_common | {"pydruid>=0.6.2"},
-    "dynamodb": aws_common,
+    "dynamodb": aws_common | classification_lib,
     # Starting with 7.14.0 python client is checking if it is connected to elasticsearch client. If its not it throws
     # UnsupportedProductError
     # https://www.elastic.co/guide/en/elasticsearch/client/python-api/current/release-notes.html#rn-7-14-0

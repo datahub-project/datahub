@@ -27,7 +27,7 @@ services:
     - GRAPH_SERVICE_IMPL=neo4j
     - ENTITY_REGISTRY_CONFIG_PATH=/datahub/datahub-mae-consumer/resources/entity-registry.yml
     hostname: datahub-mae-consumer
-    image: ${DATAHUB_MAE_CONSUMER_IMAGE:-linkedin/datahub-mae-consumer}:${DATAHUB_VERSION:-head}
+    image: ${DATAHUB_MAE_CONSUMER_IMAGE:-acryldata/datahub-mae-consumer}:${DATAHUB_VERSION:-head}
     ports:
     - 9091:9091
   datahub-mce-consumer:
@@ -66,7 +66,7 @@ services:
     - PE_CONSUMER_ENABLED=false
     - UI_INGESTION_ENABLED=false
     hostname: datahub-mce-consumer
-    image: ${DATAHUB_MCE_CONSUMER_IMAGE:-linkedin/datahub-mce-consumer}:${DATAHUB_VERSION:-head}
+    image: ${DATAHUB_MCE_CONSUMER_IMAGE:-acryldata/datahub-mce-consumer}:${DATAHUB_VERSION:-head}
     ports:
     - 9090:9090
 version: '3.9'

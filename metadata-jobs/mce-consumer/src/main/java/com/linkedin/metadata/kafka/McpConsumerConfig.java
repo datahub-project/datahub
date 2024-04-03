@@ -39,7 +39,7 @@ public class McpConsumerConfig {
     config.put("noCode", "true");
 
     Map<String, Object> versionConfig = new HashMap<>();
-    versionConfig.put("linkedin/datahub", gitVersion.toConfig());
+    versionConfig.put("acryldata/datahub", gitVersion.toConfig());
     config.put("versions", versionConfig);
     configJson = OBJECT_MAPPER.writerWithDefaultPrettyPrinter().writeValueAsString(config);
   }
