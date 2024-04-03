@@ -17,6 +17,7 @@ import { AssertionResultPopoverContent } from '../../../../shared/result/Asserti
 import { tryGetActualUpdatedTimestampFromAssertionResult } from '../../../shared/resultExtractionUtils';
 import { AssertionResultType } from '../../../../../../../../../../../../types.generated';
 import { CandleStick } from '../../../../../../../../../../../dataviz/candle/CandleStick';
+import { calculateOverlapBetweenTwoMarkers } from '../../../../../../../../../../../dataviz/utils';
 
 type Props = {
     data: AssertionResultChartData;
@@ -32,6 +33,8 @@ type Props = {
 const CHART_HORIZ_MARGIN = 36;
 const CHART_AXIS_BOTTOM_HEIGHT = 40;
 const CHART_AXIS_TOP_MARGIN = 24;
+
+const PRIMARY_CANDLE_STICK_BAR_WIDTH = 5;
 
 /**
  * Specifically for freshness assertions.
@@ -150,16 +153,32 @@ export const FreshnessResultChart = ({ data, timeRange, chartDimensions, renderH
                         : null}
 
                     {/* Candle data points */}
-                    {dataPoints.map(dataPoint => {
+                    {dataPoints.map((dataPoint, i) => {
                         const xOffset = xScale(new Date(dataPoint.time));
+
+                        // Check if this point overlaps with the last data point
+                        let markerOverlapPx: number | undefined;
+                        const maybePreviousDataPoint: AssertionDataPoint | undefined = dataPoints[i - 1];
+                        if (maybePreviousDataPoint) {
+                            const lastPointXOffset = xScale(new Date(maybePreviousDataPoint.time))
+                            markerOverlapPx = calculateOverlapBetweenTwoMarkers({
+                                xOffset,
+                                width: PRIMARY_CANDLE_STICK_BAR_WIDTH,
+                            }, {
+                                xOffset: lastPointXOffset,
+                                width: PRIMARY_CANDLE_STICK_BAR_WIDTH,
+                            })
+                        }
+
                         const fillColor = getFillColor(dataPoint.result.type);
                         return (
                             <CandleStick
                                 candleHeight={chartInnerHeight - yOffset}
                                 parentChartHeight={chartInnerHeight}
-                                barWidth={5}
+                                barWidth={PRIMARY_CANDLE_STICK_BAR_WIDTH}
                                 shapeSize={150}
                                 leftOffset={xOffset}
+                                markerOverlapPx={markerOverlapPx}
                                 shape={{ type: 'circle' }}
                                 opacity={(mountedDataPoint && (mountedDataPoint.time === dataPoint.time ? 1 : 0.1)) || 1}
                                 color={fillColor}

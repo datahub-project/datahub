@@ -15,7 +15,7 @@ import { LinkWrapper } from '../../../../../../../../../../../shared/LinkWrapper
 import { ACCENT_COLOR_HEX, EXPECTED_RANGE_SHADE_COLOR, duplicateDataPointsAcrossBufferedTimeRange, generateTimeScaleTickValues, getCustomTimeScaleTickValue, getFillColor, tryGetUpperAndLowerYRangeFromAssertionRunEvent } from './utils';
 import { AssertionDataPoint, AssertionResultChartData, TimeRange } from './types';
 import { AssertionResultPopoverContent } from '../../../../shared/result/AssertionResultPopoverContent';
-import { calculateYScaleExtentForChart, truncateNumberForDisplay } from '../../../../../../../../../../../dataviz/utils';
+import { calculateOverlapBetweenTwoMarkers, calculateYScaleExtentForChart, truncateNumberForDisplay } from '../../../../../../../../../../../dataviz/utils';
 import { getTimeRangeDisplay } from '../utils';
 import { INTERVAL_TO_MS } from '../../../../../../../../../../../shared/time/timeUtils';
 import { DateInterval } from '../../../../../../../../../../../../types.generated';
@@ -37,6 +37,8 @@ const CHART_RIGHT_MARGIN = 12;
 const CHART_TOP_MARGIN = 8;
 
 const NUM_TICKS_AXIS_LEFT = 3;
+
+const PRIMARY_DATA_POINT_SIZE = 5;
 
 export const ValuesOverTimeAssertionResultChart = ({ data, timeRange, chartDimensions, renderHeader }: Props) => {
     const rawDataPoints = data.dataPoints
@@ -183,7 +185,7 @@ export const ValuesOverTimeAssertionResultChart = ({ data, timeRange, chartDimen
 
 
                 {/* ----- Actual Results Line with gradient ----- */}
-                <LinearGradient id="results-area-gradient" from={ACCENT_COLOR_HEX} to={ACCENT_COLOR_HEX} fromOpacity={0.1} toOpacity={0} />
+                <LinearGradient id="results-area-gradient" from={ACCENT_COLOR_HEX} to={ACCENT_COLOR_HEX} fromOpacity={0.2} toOpacity={0} />
                 <AreaClosed
                     data={dataPoints}
                     x={(d) => xScale(getX(d))}
@@ -201,9 +203,24 @@ export const ValuesOverTimeAssertionResultChart = ({ data, timeRange, chartDimen
                 />
 
                 {/* ----- Circular datapoints ----- */}
-                {dataPoints.map(dataPoint => {
+                {dataPoints.map((dataPoint, i) => {
                     const xOffset = xScale(new Date(dataPoint.time));
                     const yOffset = yScale(getY(dataPoint, { fallback: defaultYValue }));
+
+                    // Check if this point overlaps with the last data point
+                    let markerOverlapPx: number | undefined;
+                    const maybePreviousDataPoint: AssertionDataPoint | undefined = dataPoints[i - 1];
+                    if (maybePreviousDataPoint) {
+                        const lastPointXOffset = xScale(new Date(maybePreviousDataPoint.time))
+                        markerOverlapPx = calculateOverlapBetweenTwoMarkers({
+                            xOffset,
+                            width: PRIMARY_DATA_POINT_SIZE,
+                        }, {
+                            xOffset: lastPointXOffset,
+                            width: PRIMARY_DATA_POINT_SIZE,
+                        })
+                    }
+
                     const fillColor = getFillColor(dataPoint.result.type);
                     return (
                         <LinkWrapper key={dataPoint.time} to={dataPoint.result.resultUrl} target="_blank">
@@ -226,9 +243,9 @@ export const ValuesOverTimeAssertionResultChart = ({ data, timeRange, chartDimen
                                     top={yOffset}
                                     fill={fillColor}
                                     stroke='white'
-                                    strokeWidth={2}
-                                    size={100}
-                                    filter='drop-shadow(0px 1px 2px rgb(0 0 0 / 0.1))'
+                                    strokeWidth={1}
+                                    size={PRIMARY_DATA_POINT_SIZE * 20}
+                                    filter={markerOverlapPx ? undefined : 'drop-shadow(0px 1px 2px rgb(0 0 0 / 0.2))'}
                                 />
                             </Popover>
                         </LinkWrapper>

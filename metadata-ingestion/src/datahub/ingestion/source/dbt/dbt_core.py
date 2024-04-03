@@ -53,9 +53,9 @@ class DBTCoreConfig(DBTCommonConfig):
     run_results_paths: List[str] = Field(
         default=[],
         description="Path to output of dbt test run as run_results files in JSON format. "
-        "If invoking dbt multiple times, you can provide paths to multiple run result files."
-        "See https://docs.getdbt.com/reference/artifacts/run-results-json. "
-        "If not specified, test execution results will not be populated in DataHub.",
+        "If not specified, test execution results and model performance metadata will not be populated in DataHub."
+        "If invoking dbt multiple times, you can provide paths to multiple run result files. "
+        "See https://docs.getdbt.com/reference/artifacts/run-results-json.",
     )
 
     # Because we now also collect model performance metadata, the "test_results" field was renamed to "run_results".

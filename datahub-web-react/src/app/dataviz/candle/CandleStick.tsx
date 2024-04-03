@@ -26,11 +26,12 @@ type Props = {
         type: 'circle'
         extraProps?: CircleProps
     }
+    markerOverlapPx?: number
     extraBarProps?: CandleBarProps
     opacity?: number
     wrapper?: (children: JSX.Element) => JSX.Element
 }
-export const CandleStick = ({ parentChartHeight, candleHeight, barWidth, shapeSize, leftOffset, color, shape, wrapper, opacity, extraBarProps }: Props) => {
+export const CandleStick = ({ parentChartHeight, candleHeight, barWidth, shapeSize, leftOffset, color, shape, wrapper, opacity, markerOverlapPx, extraBarProps }: Props) => {
     const yOffset = parentChartHeight - candleHeight
 
     const shapeProps: DiamondProps | CircleProps = {
@@ -38,8 +39,8 @@ export const CandleStick = ({ parentChartHeight, candleHeight, barWidth, shapeSi
         left: leftOffset,
         fill: color,
         stroke: 'white',
-        strokeWidth: 1,
-        filter: 'drop-shadow(0px 1px 2.5px rgb(0 0 0 / 0.1))',
+        strokeWidth: markerOverlapPx > 1 ? (1 / markerOverlapPx) : 1,
+        filter: markerOverlapPx ? undefined : 'drop-shadow(0px 1px 2.5px rgb(0 0 0 / 0.1))',
         size: shapeSize,
         ...shape.extraProps,
     }
@@ -50,7 +51,7 @@ export const CandleStick = ({ parentChartHeight, candleHeight, barWidth, shapeSi
         y: yOffset,
         fill: color,
         stroke: 'white',
-        strokeWidth: 1,
+        strokeWidth: markerOverlapPx > 1 ? (1 / markerOverlapPx) : 1,
         ...extraBarProps,
     }
 

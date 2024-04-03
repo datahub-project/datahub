@@ -7,6 +7,7 @@ import static org.testng.AssertJUnit.*;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesResult;
 import io.datahubproject.metadata.jobs.common.health.kafka.KafkaHealthIndicator;
+import java.util.stream.Stream;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
@@ -30,7 +31,7 @@ public class MceConsumerApplicationTest extends AbstractTestNGSpringContextTests
   public void testRestliServletConfig() {
     RestoreIndicesResult mockResult = new RestoreIndicesResult();
     mockResult.setRowsMigrated(100);
-    when(_mockEntityService.restoreIndices(any(), any())).thenReturn(mockResult);
+    when(_mockEntityService.streamRestoreIndices(any(), any())).thenReturn(Stream.of(mockResult));
 
     String response =
         this.restTemplate.postForObject(
