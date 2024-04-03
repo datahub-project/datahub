@@ -15,12 +15,9 @@ import org.testng.annotations.Test;
 @Import({OpenSearchSuite.class, SearchTestContainerConfiguration.class})
 public class SearchGraphServiceOpenSearchTest extends SearchGraphServiceTestBase {
 
-  @Autowired
-  private RestHighLevelClient _searchClient;
-  @Autowired
-  private ESBulkProcessor _bulkProcessor;
-  @Autowired
-  private ESIndexBuilder _esIndexBuilder;
+  @Autowired private RestHighLevelClient _searchClient;
+  @Autowired private ESBulkProcessor _bulkProcessor;
+  @Autowired private ESIndexBuilder _esIndexBuilder;
 
   @NotNull
   @Override
@@ -44,5 +41,4 @@ public class SearchGraphServiceOpenSearchTest extends SearchGraphServiceTestBase
   public void initTest() {
     AssertJUnit.assertNotNull(_searchClient);
   }
-
 }

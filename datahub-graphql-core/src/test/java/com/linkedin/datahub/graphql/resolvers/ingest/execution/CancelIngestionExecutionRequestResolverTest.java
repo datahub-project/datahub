@@ -1,5 +1,8 @@
 package com.linkedin.datahub.graphql.resolvers.ingest.execution;
 
+import static com.linkedin.datahub.graphql.resolvers.ingest.IngestTestUtils.*;
+import static org.testng.Assert.*;
+
 import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -18,35 +21,36 @@ import java.util.HashSet;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
-import static com.linkedin.datahub.graphql.resolvers.ingest.IngestTestUtils.*;
-import static org.testng.Assert.*;
-
-
 public class CancelIngestionExecutionRequestResolverTest {
 
-  private static final CancelIngestionExecutionRequestInput TEST_INPUT = new CancelIngestionExecutionRequestInput(
-      TEST_INGESTION_SOURCE_URN.toString(),
-      TEST_EXECUTION_REQUEST_URN.toString()
-  );
+  private static final CancelIngestionExecutionRequestInput TEST_INPUT =
+      new CancelIngestionExecutionRequestInput(
+          TEST_INGESTION_SOURCE_URN.toString(), TEST_EXECUTION_REQUEST_URN.toString());
 
   @Test
   public void testGetSuccess() throws Exception {
     // Create resolver
     EntityClient mockClient = Mockito.mock(EntityClient.class);
-    Mockito.when(mockClient.batchGetV2(
-      Mockito.eq(Constants.INGESTION_SOURCE_ENTITY_NAME),
-      Mockito.eq(new HashSet<>(ImmutableSet.of(TEST_INGESTION_SOURCE_URN))),
-      Mockito.eq(ImmutableSet.of(Constants.INGESTION_INFO_ASPECT_NAME)),
-      Mockito.any(Authentication.class))).thenReturn(
-          ImmutableMap.of(
-              TEST_INGESTION_SOURCE_URN,
-              new EntityResponse()
-                  .setEntityName(Constants.INGESTION_SOURCE_ENTITY_NAME)
-                  .setUrn(TEST_INGESTION_SOURCE_URN)
-                  .setAspects(new EnvelopedAspectMap(ImmutableMap.of(
-                      Constants.INGESTION_INFO_ASPECT_NAME, new EnvelopedAspect().setValue(new Aspect(getTestIngestionSourceInfo().data()))
-    )))));
-    CancelIngestionExecutionRequestResolver resolver = new CancelIngestionExecutionRequestResolver(mockClient);
+    Mockito.when(
+            mockClient.batchGetV2(
+                Mockito.eq(Constants.INGESTION_SOURCE_ENTITY_NAME),
+                Mockito.eq(new HashSet<>(ImmutableSet.of(TEST_INGESTION_SOURCE_URN))),
+                Mockito.eq(ImmutableSet.of(Constants.INGESTION_INFO_ASPECT_NAME)),
+                Mockito.any(Authentication.class)))
+        .thenReturn(
+            ImmutableMap.of(
+                TEST_INGESTION_SOURCE_URN,
+                new EntityResponse()
+                    .setEntityName(Constants.INGESTION_SOURCE_ENTITY_NAME)
+                    .setUrn(TEST_INGESTION_SOURCE_URN)
+                    .setAspects(
+                        new EnvelopedAspectMap(
+                            ImmutableMap.of(
+                                Constants.INGESTION_INFO_ASPECT_NAME,
+                                new EnvelopedAspect()
+                                    .setValue(new Aspect(getTestIngestionSourceInfo().data())))))));
+    CancelIngestionExecutionRequestResolver resolver =
+        new CancelIngestionExecutionRequestResolver(mockClient);
 
     // Execute resolver
     QueryContext mockContext = getMockAllowContext();
@@ -57,18 +61,19 @@ public class CancelIngestionExecutionRequestResolverTest {
     resolver.get(mockEnv).get();
 
     // Verify ingest proposal has been called to create a Signal request.
-    Mockito.verify(mockClient, Mockito.times(1)).ingestProposal(
-        Mockito.any(MetadataChangeProposal.class),
-        Mockito.any(Authentication.class),
-        Mockito.eq(false)
-    );
+    Mockito.verify(mockClient, Mockito.times(1))
+        .ingestProposal(
+            Mockito.any(MetadataChangeProposal.class),
+            Mockito.any(Authentication.class),
+            Mockito.eq(false));
   }
 
   @Test
   public void testGetUnauthorized() throws Exception {
     // Create resolver
     EntityClient mockClient = Mockito.mock(EntityClient.class);
-    CancelIngestionExecutionRequestResolver resolver = new CancelIngestionExecutionRequestResolver(mockClient);
+    CancelIngestionExecutionRequestResolver resolver =
+        new CancelIngestionExecutionRequestResolver(mockClient);
 
     // Execute resolver
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
@@ -77,19 +82,19 @@ public class CancelIngestionExecutionRequestResolverTest {
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
     assertThrows(RuntimeException.class, () -> resolver.get(mockEnv).join());
-    Mockito.verify(mockClient, Mockito.times(0)).ingestProposal(
-        Mockito.any(),
-        Mockito.any(Authentication.class));
+    Mockito.verify(mockClient, Mockito.times(0))
+        .ingestProposal(Mockito.any(), Mockito.any(Authentication.class));
   }
 
   @Test
   public void testGetEntityClientException() throws Exception {
     // Create resolver
     EntityClient mockClient = Mockito.mock(EntityClient.class);
-    Mockito.doThrow(RemoteInvocationException.class).when(mockClient).ingestProposal(
-        Mockito.any(),
-        Mockito.any(Authentication.class));
-    CancelIngestionExecutionRequestResolver resolver = new CancelIngestionExecutionRequestResolver(mockClient);
+    Mockito.doThrow(RemoteInvocationException.class)
+        .when(mockClient)
+        .ingestProposal(Mockito.any(), Mockito.any(Authentication.class));
+    CancelIngestionExecutionRequestResolver resolver =
+        new CancelIngestionExecutionRequestResolver(mockClient);
 
     // Execute resolver
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);

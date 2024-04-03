@@ -86,6 +86,7 @@ type Props = {
         description: string,
     ) => Promise<FetchResult<UpdateDatasetMutation, Record<string, any>, Record<string, any>> | void>;
     isEdited?: boolean;
+    isReadOnly?: boolean;
 };
 
 const ABBREVIATED_LIMIT = 80;
@@ -97,10 +98,11 @@ export default function DescriptionField({
     onUpdate,
     isEdited = false,
     original,
+    isReadOnly,
 }: Props) {
     const [showAddModal, setShowAddModal] = useState(false);
     const overLimit = removeMarkdown(description).length > 80;
-    const isSchemaEditable = React.useContext(SchemaEditableContext);
+    const isSchemaEditable = React.useContext(SchemaEditableContext) && !isReadOnly;
     const onCloseModal = () => setShowAddModal(false);
     const { urn, entityType } = useEntityData();
 
@@ -140,11 +142,12 @@ export default function DescriptionField({
             {expanded || !overLimit ? (
                 <>
                     {!!description && <StyledViewer content={description} readOnly />}
-                    {!!description && (
+                    {!!description && (EditButton || overLimit) && (
                         <ExpandedActions>
                             {overLimit && (
                                 <ReadLessText
-                                    onClick={() => {
+                                    onClick={(e) => {
+                                        e.stopPropagation();
                                         handleExpanded(false);
                                     }}
                                 >
@@ -162,7 +165,8 @@ export default function DescriptionField({
                         readMore={
                             <>
                                 <Typography.Link
-                                    onClick={() => {
+                                    onClick={(e) => {
+                                        e.stopPropagation();
                                         handleExpanded(true);
                                     }}
                                 >
@@ -177,7 +181,7 @@ export default function DescriptionField({
                     </StripMarkdownText>
                 </>
             )}
-            {isSchemaEditable && isEdited && <EditedLabel>(edited)</EditedLabel>}
+            {isEdited && <EditedLabel>(edited)</EditedLabel>}
             {showAddModal && (
                 <div>
                     <UpdateDescriptionModal

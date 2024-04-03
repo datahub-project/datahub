@@ -7,7 +7,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-
 /**
  * Creates a {@link TopicConvention} to generate kafka metadata event topic names.
  *
@@ -32,10 +31,14 @@ public class TopicConventionFactory {
   @Value("${METADATA_CHANGE_LOG_VERSIONED_TOPIC_NAME:" + Topics.METADATA_CHANGE_LOG_VERSIONED + "}")
   private String metadataChangeLogVersionedTopicName;
 
-  @Value("${METADATA_CHANGE_LOG_TIMESERIES_TOPIC_NAME:" + Topics.METADATA_CHANGE_LOG_TIMESERIES + "}")
+  @Value(
+      "${METADATA_CHANGE_LOG_TIMESERIES_TOPIC_NAME:" + Topics.METADATA_CHANGE_LOG_TIMESERIES + "}")
   private String metadataChangeLogTimeseriesTopicName;
 
-  @Value("${FAILED_METADATA_CHANGE_PROPOSAL_TOPIC_NAME:" + Topics.FAILED_METADATA_CHANGE_PROPOSAL + "}")
+  @Value(
+      "${FAILED_METADATA_CHANGE_PROPOSAL_TOPIC_NAME:"
+          + Topics.FAILED_METADATA_CHANGE_PROPOSAL
+          + "}")
   private String failedMetadataChangeProposalName;
 
   @Value("${PLATFORM_EVENT_TOPIC_NAME:" + Topics.PLATFORM_EVENT + "}")
@@ -46,10 +49,17 @@ public class TopicConventionFactory {
 
   @Bean(name = TOPIC_CONVENTION_BEAN)
   protected TopicConvention createInstance() {
-    return new TopicConventionImpl(metadataChangeEventName, metadataAuditEventName, failedMetadataChangeEventName,
-        metadataChangeProposalName, metadataChangeLogVersionedTopicName, metadataChangeLogTimeseriesTopicName,
-        failedMetadataChangeProposalName, platformEventTopicName,
+    return new TopicConventionImpl(
+        metadataChangeEventName,
+        metadataAuditEventName,
+        failedMetadataChangeEventName,
+        metadataChangeProposalName,
+        metadataChangeLogVersionedTopicName,
+        metadataChangeLogTimeseriesTopicName,
+        failedMetadataChangeProposalName,
+        platformEventTopicName,
         // TODO once we start rolling out v5 add support for changing the new event names.
-        TopicConventionImpl.DEFAULT_EVENT_PATTERN, dataHubUpgradeHistoryTopicName);
+        TopicConventionImpl.DEFAULT_EVENT_PATTERN,
+        dataHubUpgradeHistoryTopicName);
   }
 }

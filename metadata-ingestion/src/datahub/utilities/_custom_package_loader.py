@@ -10,6 +10,7 @@ else:
 _CUSTOM_PACKAGE_GROUP_KEY = "datahub.custom_packages"
 
 _MODELS_KEY = "models"
+_URNS_KEY = "urns"
 
 
 class CustomPackageException(Exception):
@@ -41,3 +42,7 @@ def _get_custom_package_for_name(name: str) -> Optional[str]:
 
 def get_custom_models_package() -> Optional[str]:
     return _get_custom_package_for_name(_MODELS_KEY)
+
+
+def get_custom_urns_package() -> Optional[str]:
+    return _get_custom_package_for_name(_URNS_KEY)

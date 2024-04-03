@@ -17,7 +17,6 @@ import org.springframework.cache.caffeine.CaffeineCacheManager;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-
 @Configuration
 public class CacheConfig {
 
@@ -50,23 +49,28 @@ public class CacheConfig {
   @ConditionalOnProperty(name = "searchService.cacheImplementation", havingValue = "hazelcast")
   public CacheManager hazelcastCacheManager() {
     Config config = new Config();
-    // TODO: This setting is equivalent to expireAfterAccess, refreshes timer after a get, put, containsKey etc.
+    // TODO: This setting is equivalent to expireAfterAccess, refreshes timer after a get, put,
+    // containsKey etc.
     //       is this behavior what we actually desire? Should we change it now?
     MapConfig mapConfig = new MapConfig().setMaxIdleSeconds(cacheTtlSeconds);
 
-    EvictionConfig evictionConfig = new EvictionConfig()
-        .setMaxSizePolicy(MaxSizePolicy.PER_NODE)
-        .setSize(cacheMaxSize)
-        .setEvictionPolicy(EvictionPolicy.LFU);
+    EvictionConfig evictionConfig =
+        new EvictionConfig()
+            .setMaxSizePolicy(MaxSizePolicy.PER_NODE)
+            .setSize(cacheMaxSize)
+            .setEvictionPolicy(EvictionPolicy.LFU);
     mapConfig.setEvictionConfig(evictionConfig);
     mapConfig.setName("default");
     config.addMapConfig(mapConfig);
 
     config.getNetworkConfig().getJoin().getMulticastConfig().setEnabled(false);
-    config.getNetworkConfig().getJoin().getKubernetesConfig().setEnabled(true)
+    config
+        .getNetworkConfig()
+        .getJoin()
+        .getKubernetesConfig()
+        .setEnabled(true)
         .setProperty("service-dns", hazelcastServiceName);
 
-    
     HazelcastInstance hazelcastInstance = Hazelcast.newHazelcastInstance(config);
 
     return new HazelcastCacheManager(hazelcastInstance);

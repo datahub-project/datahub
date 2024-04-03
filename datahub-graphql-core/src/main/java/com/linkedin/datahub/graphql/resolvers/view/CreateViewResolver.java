@@ -1,5 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.view;
 
+import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
+
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
@@ -18,12 +20,7 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 
-import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
-
-
-/**
- * Resolver responsible for updating a particular DataHub View
- */
+/** Resolver responsible for updating a particular DataHub View */
 @Slf4j
 public class CreateViewResolver implements DataFetcher<CompletableFuture<DataHubView>> {
 
@@ -34,29 +31,34 @@ public class CreateViewResolver implements DataFetcher<CompletableFuture<DataHub
   }
 
   @Override
-  public CompletableFuture<DataHubView> get(final DataFetchingEnvironment environment) throws Exception {
+  public CompletableFuture<DataHubView> get(final DataFetchingEnvironment environment)
+      throws Exception {
     final QueryContext context = environment.getContext();
-    final CreateViewInput input = bindArgument(environment.getArgument("input"), CreateViewInput.class);
+    final CreateViewInput input =
+        bindArgument(environment.getArgument("input"), CreateViewInput.class);
 
-    return CompletableFuture.supplyAsync(() -> {
-      if (ViewUtils.canCreateView(
-          DataHubViewType.valueOf(input.getViewType().toString()),
-          context)) {
-        try {
-          final Urn urn = _viewService.createView(
-              DataHubViewType.valueOf(input.getViewType().toString()),
-              input.getName(),
-              input.getDescription(),
-              ViewUtils.mapDefinition(input.getDefinition()),
-              context.getAuthentication(),
-              System.currentTimeMillis());
-          return createView(urn, input);
-        } catch (Exception e) {
-          throw new RuntimeException(String.format("Failed to create View with input: %s", input), e);
-        }
-      }
-      throw new AuthorizationException("Unauthorized to perform this action. Please contact your DataHub administrator.");
-    });
+    return CompletableFuture.supplyAsync(
+        () -> {
+          if (ViewUtils.canCreateView(
+              DataHubViewType.valueOf(input.getViewType().toString()), context)) {
+            try {
+              final Urn urn =
+                  _viewService.createView(
+                      DataHubViewType.valueOf(input.getViewType().toString()),
+                      input.getName(),
+                      input.getDescription(),
+                      ViewUtils.mapDefinition(input.getDefinition()),
+                      context.getAuthentication(),
+                      System.currentTimeMillis());
+              return createView(urn, input);
+            } catch (Exception e) {
+              throw new RuntimeException(
+                  String.format("Failed to create View with input: %s", input), e);
+            }
+          }
+          throw new AuthorizationException(
+              "Unauthorized to perform this action. Please contact your DataHub administrator.");
+        });
   }
 
   private DataHubView createView(@Nonnull final Urn urn, @Nonnull final CreateViewInput input) {
@@ -66,15 +68,20 @@ public class CreateViewResolver implements DataFetcher<CompletableFuture<DataHub
         .setViewType(input.getViewType())
         .setName(input.getName())
         .setDescription(input.getDescription())
-        .setDefinition(new DataHubViewDefinition(
-            input.getDefinition().getEntityTypes(),
-            new DataHubViewFilter(
-                input.getDefinition().getFilter().getOperator(),
-                input.getDefinition().getFilter().getFilters().stream().map(filterInput ->
-                        new FacetFilter(filterInput.getField(), filterInput.getCondition(),
-                            filterInput.getValues(),
-                            filterInput.getNegated()))
-                    .collect(Collectors.toList()))))
+        .setDefinition(
+            new DataHubViewDefinition(
+                input.getDefinition().getEntityTypes(),
+                new DataHubViewFilter(
+                    input.getDefinition().getFilter().getOperator(),
+                    input.getDefinition().getFilter().getFilters().stream()
+                        .map(
+                            filterInput ->
+                                new FacetFilter(
+                                    filterInput.getField(),
+                                    filterInput.getCondition(),
+                                    filterInput.getValues(),
+                                    filterInput.getNegated()))
+                        .collect(Collectors.toList()))))
         .build();
   }
 }

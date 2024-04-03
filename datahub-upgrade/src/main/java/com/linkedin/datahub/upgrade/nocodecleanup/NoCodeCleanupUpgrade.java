@@ -9,8 +9,8 @@ import io.ebean.Database;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import javax.annotation.Nullable;
 import org.opensearch.client.RestHighLevelClient;
-
 
 public class NoCodeCleanupUpgrade implements Upgrade {
 
@@ -18,10 +18,18 @@ public class NoCodeCleanupUpgrade implements Upgrade {
   private final List<UpgradeCleanupStep> _cleanupSteps;
 
   // Upgrade requires the Database.
-  public NoCodeCleanupUpgrade(final Database server, final GraphService graphClient,
-      final RestHighLevelClient searchClient, final IndexConvention indexConvention) {
-    _steps = buildUpgradeSteps(server, graphClient, searchClient, indexConvention);
-    _cleanupSteps = buildCleanupSteps();
+  public NoCodeCleanupUpgrade(
+      @Nullable final Database server,
+      final GraphService graphClient,
+      final RestHighLevelClient searchClient,
+      final IndexConvention indexConvention) {
+    if (server != null) {
+      _steps = buildUpgradeSteps(server, graphClient, searchClient, indexConvention);
+      _cleanupSteps = buildCleanupSteps();
+    } else {
+      _steps = List.of();
+      _cleanupSteps = List.of();
+    }
   }
 
   @Override
@@ -43,8 +51,11 @@ public class NoCodeCleanupUpgrade implements Upgrade {
     return Collections.emptyList();
   }
 
-  private List<UpgradeStep> buildUpgradeSteps(final Database server, final GraphService graphClient,
-      final RestHighLevelClient searchClient, final IndexConvention indexConvention) {
+  private List<UpgradeStep> buildUpgradeSteps(
+      final Database server,
+      final GraphService graphClient,
+      final RestHighLevelClient searchClient,
+      final IndexConvention indexConvention) {
     final List<UpgradeStep> steps = new ArrayList<>();
     steps.add(new NoCodeUpgradeQualificationStep(server));
     steps.add(new DeleteAspectTableStep(server));

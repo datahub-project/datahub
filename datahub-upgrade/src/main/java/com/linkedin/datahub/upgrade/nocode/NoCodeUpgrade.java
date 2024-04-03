@@ -6,13 +6,14 @@ import com.linkedin.datahub.upgrade.UpgradeCleanupStep;
 import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.datahub.upgrade.common.steps.GMSEnableWriteModeStep;
 import com.linkedin.datahub.upgrade.common.steps.GMSQualificationStep;
-import com.linkedin.entity.client.SystemRestliEntityClient;
+import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import io.ebean.Database;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import javax.annotation.Nullable;
 
 public class NoCodeUpgrade implements Upgrade {
 
@@ -26,15 +27,17 @@ public class NoCodeUpgrade implements Upgrade {
 
   // Upgrade requires the Database.
   public NoCodeUpgrade(
-      final Database server,
-      final EntityService entityService,
+      @Nullable final Database server,
+      final EntityService<?> entityService,
       final EntityRegistry entityRegistry,
-      final SystemRestliEntityClient entityClient) {
-    _steps = buildUpgradeSteps(
-        server, entityService,
-        entityRegistry,
-        entityClient);
-    _cleanupSteps = buildCleanupSteps();
+      final SystemEntityClient entityClient) {
+    if (server != null) {
+      _steps = buildUpgradeSteps(server, entityService, entityRegistry, entityClient);
+      _cleanupSteps = buildCleanupSteps();
+    } else {
+      _steps = List.of();
+      _cleanupSteps = List.of();
+    }
   }
 
   @Override
@@ -58,9 +61,9 @@ public class NoCodeUpgrade implements Upgrade {
 
   private List<UpgradeStep> buildUpgradeSteps(
       final Database server,
-      final EntityService entityService,
+      final EntityService<?> entityService,
       final EntityRegistry entityRegistry,
-      final SystemRestliEntityClient entityClient) {
+      final SystemEntityClient entityClient) {
     final List<UpgradeStep> steps = new ArrayList<>();
     steps.add(new RemoveAspectV2TableStep(server));
     steps.add(new GMSQualificationStep(ImmutableMap.of("noCode", "true")));

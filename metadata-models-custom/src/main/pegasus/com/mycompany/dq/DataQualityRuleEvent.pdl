@@ -1,0 +1,44 @@
+namespace com.mycompany.dq
+
+import com.linkedin.common.Urn
+import com.linkedin.timeseries.TimeseriesAspectBase
+
+/**
+ * Operational info for an entity.
+ */
+ @Aspect = {
+    "name": "customDataQualityRuleEvent",
+    "type": "timeseries"
+ }
+record DataQualityRuleEvent includes TimeseriesAspectBase {
+
+  /**
+   * Actor who issued this operation.
+   */
+  @TimeseriesField = {}
+  actor: optional Urn
+
+  /**
+   * Event type.
+   */
+  @TimeseriesField = {}
+  eventType: string
+
+  /**
+   * Which dataset was affected by this event.
+   */
+  @TimeseriesFieldCollection = {"key":"datasetUrn"}
+  affectedDataset: optional Urn
+
+  /**
+   * Custom properties
+   */
+   customProperties: optional map[string, string]
+
+  /**
+   * The time at which the event occurred.
+   */
+  @TimeseriesField = {}
+  @Searchable = { "fieldType": "DATETIME", "fieldName": "eventTimestamp" }
+  eventTimestamp: long
+}

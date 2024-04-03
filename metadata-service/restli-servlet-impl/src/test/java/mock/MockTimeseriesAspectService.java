@@ -2,11 +2,13 @@ package mock;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.EnvelopedAspect;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.timeseries.BatchWriteOperationsOptions;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
+import com.linkedin.metadata.timeseries.TimeseriesScrollResult;
 import com.linkedin.timeseries.AggregationSpec;
 import com.linkedin.timeseries.DeleteAspectValuesResult;
 import com.linkedin.timeseries.GenericTable;
@@ -15,7 +17,6 @@ import com.linkedin.timeseries.TimeseriesIndexSizeResult;
 import java.util.List;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-
 
 public class MockTimeseriesAspectService implements TimeseriesAspectService {
 
@@ -32,6 +33,7 @@ public class MockTimeseriesAspectService implements TimeseriesAspectService {
     this._filteredCount = DEFAULT_FILTERED_COUNT;
     this._taskId = DEFAULT_TASK_ID;
   }
+
   public MockTimeseriesAspectService(long count, long filteredCount, String taskId) {
     this._count = count;
     this._filteredCount = filteredCount;
@@ -39,12 +41,16 @@ public class MockTimeseriesAspectService implements TimeseriesAspectService {
   }
 
   @Override
-  public void configure() {
-
+  public TimeseriesAspectService postConstruct(AspectRetriever aspectRetriever) {
+    return this;
   }
 
   @Override
-  public long countByFilter(@Nonnull String entityName, @Nonnull String aspectName, @Nullable Filter filter) {
+  public void configure() {}
+
+  @Override
+  public long countByFilter(
+      @Nonnull String entityName, @Nonnull String aspectName, @Nullable Filter filter) {
     if (filter != null && !filter.equals(new Filter())) {
       return _filteredCount;
     }
@@ -53,36 +59,51 @@ public class MockTimeseriesAspectService implements TimeseriesAspectService {
 
   @Nonnull
   @Override
-  public List<EnvelopedAspect> getAspectValues(@Nonnull Urn urn, @Nonnull String entityName,
-      @Nonnull String aspectName, @Nullable Long startTimeMillis, @Nullable Long endTimeMillis,
-      @Nullable Integer limit, @Nullable Filter filter, @Nullable SortCriterion sort) {
+  public List<EnvelopedAspect> getAspectValues(
+      @Nonnull Urn urn,
+      @Nonnull String entityName,
+      @Nonnull String aspectName,
+      @Nullable Long startTimeMillis,
+      @Nullable Long endTimeMillis,
+      @Nullable Integer limit,
+      @Nullable Filter filter,
+      @Nullable SortCriterion sort) {
     return List.of();
   }
 
   @Nonnull
   @Override
-  public GenericTable getAggregatedStats(@Nonnull String entityName, @Nonnull String aspectName,
-      @Nonnull AggregationSpec[] aggregationSpecs, @Nullable Filter filter,
+  public GenericTable getAggregatedStats(
+      @Nonnull String entityName,
+      @Nonnull String aspectName,
+      @Nonnull AggregationSpec[] aggregationSpecs,
+      @Nullable Filter filter,
       @Nullable GroupingBucket[] groupingBuckets) {
     return new GenericTable();
   }
 
   @Nonnull
   @Override
-  public DeleteAspectValuesResult deleteAspectValues(@Nonnull String entityName, @Nonnull String aspectName,
-      @Nonnull Filter filter) {
+  public DeleteAspectValuesResult deleteAspectValues(
+      @Nonnull String entityName, @Nonnull String aspectName, @Nonnull Filter filter) {
     return new DeleteAspectValuesResult();
   }
 
   @Nonnull
   @Override
-  public String deleteAspectValuesAsync(@Nonnull String entityName, @Nonnull String aspectName,
-      @Nonnull Filter filter, @Nonnull BatchWriteOperationsOptions options) {
+  public String deleteAspectValuesAsync(
+      @Nonnull String entityName,
+      @Nonnull String aspectName,
+      @Nonnull Filter filter,
+      @Nonnull BatchWriteOperationsOptions options) {
     return _taskId;
   }
 
   @Override
-  public String reindexAsync(@Nonnull String entityName, @Nonnull String aspectName, @Nonnull Filter filter,
+  public String reindexAsync(
+      @Nonnull String entityName,
+      @Nonnull String aspectName,
+      @Nonnull Filter filter,
       @Nonnull BatchWriteOperationsOptions options) {
     return _taskId;
   }
@@ -94,13 +115,28 @@ public class MockTimeseriesAspectService implements TimeseriesAspectService {
   }
 
   @Override
-  public void upsertDocument(@Nonnull String entityName, @Nonnull String aspectName, @Nonnull String docId,
-      @Nonnull JsonNode document) {
-
-  }
+  public void upsertDocument(
+      @Nonnull String entityName,
+      @Nonnull String aspectName,
+      @Nonnull String docId,
+      @Nonnull JsonNode document) {}
 
   @Override
   public List<TimeseriesIndexSizeResult> getIndexSizes() {
     return List.of();
+  }
+
+  @Nonnull
+  @Override
+  public TimeseriesScrollResult scrollAspects(
+      @Nonnull String entityName,
+      @Nonnull String aspectName,
+      @Nullable Filter filter,
+      @Nonnull List<SortCriterion> sortCriterion,
+      @Nullable String scrollId,
+      int count,
+      @Nullable Long startTimeMillis,
+      @Nullable Long endTimeMillis) {
+    return TimeseriesScrollResult.builder().build();
   }
 }

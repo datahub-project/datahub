@@ -8,6 +8,8 @@ import requests_wrapper as requests
 import tenacity
 from datahub.ingestion.run.pipeline import Pipeline
 
+pytestmark = pytest.mark.no_cypress_suite1
+
 from tests.utils import (
     get_frontend_url,
     get_gms_url,

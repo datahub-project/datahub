@@ -27,27 +27,26 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
-
 /**
- * This class is used to permit easy CRUD operations on a Query
- * Currently it supports creating and removing a Query.
+ * This class is used to permit easy CRUD operations on a Query Currently it supports creating and
+ * removing a Query.
  *
- * Note that no Authorization is performed within the service. The expectation
- * is that the caller has already verified the permissions of the active Actor.
- *
+ * <p>Note that no Authorization is performed within the service. The expectation is that the caller
+ * has already verified the permissions of the active Actor.
  */
 @Slf4j
 public class QueryService extends BaseService {
 
-  public QueryService(@Nonnull EntityClient entityClient, @Nonnull Authentication systemAuthentication) {
+  public QueryService(
+      @Nonnull EntityClient entityClient, @Nonnull Authentication systemAuthentication) {
     super(entityClient, systemAuthentication);
   }
 
   /**
    * Creates a new Query.
    *
-   * Note that this method does not do authorization validation.
-   * It is assumed that users of this class have already authorized the operation.
+   * <p>Note that this method does not do authorization validation. It is assumed that users of this
+   * class have already authorized the operation.
    *
    * @param name optional name of the Query
    * @param description optional description of the Query
@@ -56,7 +55,6 @@ public class QueryService extends BaseService {
    * @param subjects the query subjects
    * @param authentication the current authentication
    * @param currentTimeMs the current time in millis
-   *
    * @return the urn of the newly created View
    */
   public Urn createQuery(
@@ -82,9 +80,10 @@ public class QueryService extends BaseService {
     queryProperties.setStatement(statement);
     queryProperties.setName(name, SetMode.IGNORE_NULL);
     queryProperties.setDescription(description, SetMode.IGNORE_NULL);
-    final AuditStamp auditStamp = new AuditStamp()
-        .setActor(UrnUtils.getUrn(authentication.getActor().toUrnStr()))
-        .setTime(currentTimeMs);
+    final AuditStamp auditStamp =
+        new AuditStamp()
+            .setActor(UrnUtils.getUrn(authentication.getActor().toUrnStr()))
+            .setTime(currentTimeMs);
     queryProperties.setCreated(auditStamp);
     queryProperties.setLastModified(auditStamp);
 
@@ -95,12 +94,17 @@ public class QueryService extends BaseService {
     // 3. Write the new query to GMS, return the new URN.
     try {
       final Urn entityUrn = EntityKeyUtils.convertEntityKeyToUrn(key, Constants.QUERY_ENTITY_NAME);
-      this.entityClient.ingestProposal(AspectUtils.buildMetadataChangeProposal(
-          entityUrn, Constants.QUERY_PROPERTIES_ASPECT_NAME, queryProperties), authentication,
-        false);
-      return UrnUtils.getUrn(this.entityClient.ingestProposal(AspectUtils.buildMetadataChangeProposal(
-          entityUrn, Constants.QUERY_SUBJECTS_ASPECT_NAME, querySubjects), authentication,
-          false));
+      this.entityClient.ingestProposal(
+          AspectUtils.buildMetadataChangeProposal(
+              entityUrn, Constants.QUERY_PROPERTIES_ASPECT_NAME, queryProperties),
+          authentication,
+          false);
+      return UrnUtils.getUrn(
+          this.entityClient.ingestProposal(
+              AspectUtils.buildMetadataChangeProposal(
+                  entityUrn, Constants.QUERY_SUBJECTS_ASPECT_NAME, querySubjects),
+              authentication,
+              false));
     } catch (Exception e) {
       throw new RuntimeException("Failed to create Query", e);
     }
@@ -109,8 +113,8 @@ public class QueryService extends BaseService {
   /**
    * Updates an existing Query. If a provided field is null, the previous value will be kept.
    *
-   * Note that this method does not do authorization validation.
-   * It is assumed that users of this class have already authorized the operation.
+   * <p>Note that this method does not do authorization validation. It is assumed that users of this
+   * class have already authorized the operation.
    *
    * @param urn the urn of the query
    * @param name optional name of the Query
@@ -135,7 +139,8 @@ public class QueryService extends BaseService {
     QueryProperties properties = getQueryProperties(urn, authentication);
 
     if (properties == null) {
-      throw new IllegalArgumentException(String.format("Failed to update Query. Query with urn %s does not exist.", urn));
+      throw new IllegalArgumentException(
+          String.format("Failed to update Query. Query with urn %s does not exist.", urn));
     }
 
     // 2. Apply changes to existing Query
@@ -149,17 +154,23 @@ public class QueryService extends BaseService {
       properties.setStatement(statement);
     }
 
-    properties.setLastModified(new AuditStamp()
-        .setTime(currentTimeMs)
-        .setActor(UrnUtils.getUrn(authentication.getActor().toUrnStr())));
+    properties.setLastModified(
+        new AuditStamp()
+            .setTime(currentTimeMs)
+            .setActor(UrnUtils.getUrn(authentication.getActor().toUrnStr())));
 
     // 3. Write changes to GMS
     try {
       final List<MetadataChangeProposal> aspectsToIngest = new ArrayList<>();
-      aspectsToIngest.add(AspectUtils.buildMetadataChangeProposal(urn, Constants.QUERY_PROPERTIES_ASPECT_NAME, properties));
+      aspectsToIngest.add(
+          AspectUtils.buildMetadataChangeProposal(
+              urn, Constants.QUERY_PROPERTIES_ASPECT_NAME, properties));
       if (subjects != null) {
-        aspectsToIngest.add(AspectUtils.buildMetadataChangeProposal(urn, Constants.QUERY_SUBJECTS_ASPECT_NAME, new QuerySubjects()
-            .setSubjects(new QuerySubjectArray(subjects))));
+        aspectsToIngest.add(
+            AspectUtils.buildMetadataChangeProposal(
+                urn,
+                Constants.QUERY_SUBJECTS_ASPECT_NAME,
+                new QuerySubjects().setSubjects(new QuerySubjectArray(subjects))));
       }
       this.entityClient.batchIngestProposals(aspectsToIngest, authentication, false);
     } catch (Exception e) {
@@ -170,17 +181,15 @@ public class QueryService extends BaseService {
   /**
    * Deletes an existing Query with a specific urn.
    *
-   * Note that this method does not do authorization validation.
-   * It is assumed that users of this class have already authorized the operation
+   * <p>Note that this method does not do authorization validation. It is assumed that users of this
+   * class have already authorized the operation
    *
-   * If the Query does not exist, no exception will be thrown.
+   * <p>If the Query does not exist, no exception will be thrown.
    *
    * @param queryUrn the urn of the Query
    * @param authentication the current authentication
    */
-  public void deleteQuery(
-      @Nonnull Urn queryUrn,
-      @Nonnull Authentication authentication) {
+  public void deleteQuery(@Nonnull Urn queryUrn, @Nonnull Authentication authentication) {
     try {
       this.entityClient.deleteEntity(
           Objects.requireNonNull(queryUrn, "queryUrn must not be null"),
@@ -191,69 +200,74 @@ public class QueryService extends BaseService {
   }
 
   /**
-   * Returns an instance of {@link QueryProperties} for the specified Query urn,
-   * or null if one cannot be found.
+   * Returns an instance of {@link QueryProperties} for the specified Query urn, or null if one
+   * cannot be found.
    *
    * @param queryUrn the urn of the Query
    * @param authentication the authentication to use
-   *
    * @return an instance of {@link QueryProperties} for the Query, null if it does not exist.
    */
   @Nullable
-  public QueryProperties getQueryProperties(@Nonnull final Urn queryUrn, @Nonnull final Authentication authentication) {
+  public QueryProperties getQueryProperties(
+      @Nonnull final Urn queryUrn, @Nonnull final Authentication authentication) {
     Objects.requireNonNull(queryUrn, "queryUrn must not be null");
     Objects.requireNonNull(authentication, "authentication must not be null");
     final EntityResponse response = getQueryEntityResponse(queryUrn, authentication);
-    if (response != null && response.getAspects().containsKey(Constants.QUERY_PROPERTIES_ASPECT_NAME)) {
-      return new QueryProperties(response.getAspects().get(Constants.QUERY_PROPERTIES_ASPECT_NAME).getValue().data());
+    if (response != null
+        && response.getAspects().containsKey(Constants.QUERY_PROPERTIES_ASPECT_NAME)) {
+      return new QueryProperties(
+          response.getAspects().get(Constants.QUERY_PROPERTIES_ASPECT_NAME).getValue().data());
     }
     // No aspect found
     return null;
   }
 
   /**
-   * Returns an instance of {@link QuerySubjects} for the specified Query urn,
-   * or null if one cannot be found.
+   * Returns an instance of {@link QuerySubjects} for the specified Query urn, or null if one cannot
+   * be found.
    *
    * @param queryUrn the urn of the Query
    * @param authentication the authentication to use
-   *
    * @return an instance of {@link QuerySubjects} for the Query, null if it does not exist.
    */
   @Nullable
-  public QuerySubjects getQuerySubjects(@Nonnull final Urn queryUrn, @Nonnull final Authentication authentication) {
+  public QuerySubjects getQuerySubjects(
+      @Nonnull final Urn queryUrn, @Nonnull final Authentication authentication) {
     Objects.requireNonNull(queryUrn, "queryUrn must not be null");
     Objects.requireNonNull(authentication, "authentication must not be null");
     final EntityResponse response = getQueryEntityResponse(queryUrn, authentication);
-    if (response != null && response.getAspects().containsKey(Constants.QUERY_SUBJECTS_ASPECT_NAME)) {
-      return new QuerySubjects(response.getAspects().get(Constants.QUERY_SUBJECTS_ASPECT_NAME).getValue().data());
+    if (response != null
+        && response.getAspects().containsKey(Constants.QUERY_SUBJECTS_ASPECT_NAME)) {
+      return new QuerySubjects(
+          response.getAspects().get(Constants.QUERY_SUBJECTS_ASPECT_NAME).getValue().data());
     }
     // No aspect found
     return null;
   }
 
   /**
-   * Returns an instance of {@link EntityResponse} for the specified Query urn,
-   * or null if one cannot be found.
+   * Returns an instance of {@link EntityResponse} for the specified Query urn, or null if one
+   * cannot be found.
    *
    * @param queryUrn the urn of the Query
    * @param authentication the authentication to use
-   *
    * @return an instance of {@link EntityResponse} for the Query, null if it does not exist.
    */
   @Nullable
-  public EntityResponse getQueryEntityResponse(@Nonnull final Urn queryUrn, @Nonnull final Authentication authentication) {
+  public EntityResponse getQueryEntityResponse(
+      @Nonnull final Urn queryUrn, @Nonnull final Authentication authentication) {
     Objects.requireNonNull(queryUrn, "queryUrn must not be null");
     Objects.requireNonNull(authentication, "authentication must not be null");
     try {
       return this.entityClient.getV2(
           Constants.QUERY_ENTITY_NAME,
           queryUrn,
-          ImmutableSet.of(Constants.QUERY_PROPERTIES_ASPECT_NAME, Constants.QUERY_SUBJECTS_ASPECT_NAME),
-          authentication
-      );
+          ImmutableSet.of(
+              Constants.QUERY_PROPERTIES_ASPECT_NAME, Constants.QUERY_SUBJECTS_ASPECT_NAME),
+          authentication);
     } catch (Exception e) {
-      throw new RuntimeException(String.format("Failed to retrieve Query with urn %s", queryUrn), e);
+      throw new RuntimeException(
+          String.format("Failed to retrieve Query with urn %s", queryUrn), e);
     }
   }
 }

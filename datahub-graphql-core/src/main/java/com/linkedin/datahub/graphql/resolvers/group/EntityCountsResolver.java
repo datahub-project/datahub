@@ -1,10 +1,12 @@
 package com.linkedin.datahub.graphql.resolvers.group;
 
+import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
+
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.EntityCountInput;
 import com.linkedin.datahub.graphql.generated.EntityCountResult;
 import com.linkedin.datahub.graphql.generated.EntityCountResults;
-import com.linkedin.datahub.graphql.resolvers.EntityTypeMapper;
+import com.linkedin.datahub.graphql.types.entitytype.EntityTypeMapper;
 import com.linkedin.entity.client.EntityClient;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -13,9 +15,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
-
-import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
-
 
 public class EntityCountsResolver implements DataFetcher<CompletableFuture<EntityCountResults>> {
 
@@ -27,31 +26,42 @@ public class EntityCountsResolver implements DataFetcher<CompletableFuture<Entit
 
   @Override
   @WithSpan
-  public CompletableFuture<EntityCountResults> get(final DataFetchingEnvironment environment) throws Exception {
+  public CompletableFuture<EntityCountResults> get(final DataFetchingEnvironment environment)
+      throws Exception {
 
     final QueryContext context = environment.getContext();
 
-      final EntityCountInput input = bindArgument(environment.getArgument("input"), EntityCountInput.class);
-      final EntityCountResults results = new EntityCountResults();
+    final EntityCountInput input =
+        bindArgument(environment.getArgument("input"), EntityCountInput.class);
+    final EntityCountResults results = new EntityCountResults();
 
-      return CompletableFuture.supplyAsync(() -> {
-        try {
-          // First, get all counts
-          Map<String, Long> gmsResult = _entityClient.batchGetTotalEntityCount(
-              input.getTypes().stream().map(EntityTypeMapper::getName).collect(Collectors.toList()), context.getAuthentication());
+    return CompletableFuture.supplyAsync(
+        () -> {
+          try {
+            // First, get all counts
+            Map<String, Long> gmsResult =
+                _entityClient.batchGetTotalEntityCount(
+                    context.getOperationContext(),
+                    input.getTypes().stream()
+                        .map(EntityTypeMapper::getName)
+                        .collect(Collectors.toList()));
 
-          // bind to a result.
-          List<EntityCountResult> resultList = gmsResult.entrySet().stream().map(entry -> {
-            EntityCountResult result = new EntityCountResult();
-            result.setCount(Math.toIntExact(entry.getValue()));
-            result.setEntityType(EntityTypeMapper.getType(entry.getKey()));
-            return result;
-          }).collect(Collectors.toList());
-          results.setCounts(resultList);
-          return results;
-        } catch (Exception e) {
-          throw new RuntimeException("Failed to get entity counts", e);
-        }
-      });
+            // bind to a result.
+            List<EntityCountResult> resultList =
+                gmsResult.entrySet().stream()
+                    .map(
+                        entry -> {
+                          EntityCountResult result = new EntityCountResult();
+                          result.setCount(Math.toIntExact(entry.getValue()));
+                          result.setEntityType(EntityTypeMapper.getType(entry.getKey()));
+                          return result;
+                        })
+                    .collect(Collectors.toList());
+            results.setCounts(resultList);
+            return results;
+          } catch (Exception e) {
+            throw new RuntimeException("Failed to get entity counts", e);
+          }
+        });
   }
 }

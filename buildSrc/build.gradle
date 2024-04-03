@@ -1,7 +1,9 @@
-apply plugin: 'java'
-
 buildscript {
   apply from: '../repositories.gradle'
+}
+
+plugins {
+  id 'java'
 }
 
 dependencies {
@@ -21,6 +23,6 @@ dependencies {
   implementation 'com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.13.5'
   implementation 'commons-io:commons-io:2.11.0'
 
-  compileOnly 'org.projectlombok:lombok:1.18.14'
-  annotationProcessor 'org.projectlombok:lombok:1.18.14'
+  compileOnly 'org.projectlombok:lombok:1.18.30'
+  annotationProcessor 'org.projectlombok:lombok:1.18.30'
 }

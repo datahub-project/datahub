@@ -1,6 +1,20 @@
 package datahub.client.file;
 
+import static com.linkedin.metadata.Constants.*;
+
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.core.StreamReadConstraints;
+import com.fasterxml.jackson.core.util.DefaultIndenter;
+import com.fasterxml.jackson.core.util.DefaultPrettyPrinter;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.linkedin.data.template.JacksonDataTemplateCodec;
+import com.linkedin.mxe.MetadataChangeProposal;
+import datahub.client.Callback;
+import datahub.client.Emitter;
+import datahub.client.MetadataWriteResponse;
+import datahub.event.EventFormatter;
+import datahub.event.MetadataChangeProposalWrapper;
+import datahub.event.UpsertAspectRequest;
 import java.io.BufferedWriter;
 import java.io.FileWriter;
 import java.io.IOException;
@@ -9,25 +23,8 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-
-import com.fasterxml.jackson.annotation.JsonInclude;
-import com.fasterxml.jackson.core.util.DefaultIndenter;
-import com.fasterxml.jackson.core.util.DefaultPrettyPrinter;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.linkedin.data.template.JacksonDataTemplateCodec;
-import com.linkedin.mxe.MetadataChangeProposal;
-
-import datahub.client.Callback;
-import datahub.client.Emitter;
-import datahub.client.MetadataWriteResponse;
-import datahub.event.EventFormatter;
-import datahub.event.MetadataChangeProposalWrapper;
-import datahub.event.UpsertAspectRequest;
 import java.util.concurrent.atomic.AtomicBoolean;
 import lombok.extern.slf4j.Slf4j;
-
-import static com.linkedin.metadata.Constants.*;
-
 
 @Slf4j
 public class FileEmitter implements Emitter {
@@ -45,22 +42,27 @@ public class FileEmitter implements Emitter {
 
   /**
    * The default constructor
-   * 
+   *
    * @param config
    */
   public FileEmitter(FileEmitterConfig config) {
     objectMapper = new ObjectMapper().setSerializationInclusion(JsonInclude.Include.NON_NULL);
-    int maxSize = Integer.parseInt(System.getenv().getOrDefault(INGESTION_MAX_SERIALIZED_STRING_LENGTH, MAX_JACKSON_STRING_SIZE));
-    objectMapper.getFactory().setStreamReadConstraints(StreamReadConstraints.builder()
-        .maxStringLength(maxSize).build());
+    int maxSize =
+        Integer.parseInt(
+            System.getenv()
+                .getOrDefault(INGESTION_MAX_SERIALIZED_STRING_LENGTH, MAX_JACKSON_STRING_SIZE));
+    objectMapper
+        .getFactory()
+        .setStreamReadConstraints(StreamReadConstraints.builder().maxStringLength(maxSize).build());
     dataTemplateCodec = new JacksonDataTemplateCodec(objectMapper.getFactory());
 
     this.config = config;
     this.eventFormatter = this.config.getEventFormatter();
 
-    DefaultPrettyPrinter pp = new DefaultPrettyPrinter()
-        .withObjectIndenter(new DefaultIndenter(FileEmitter.INDENT_4, DefaultIndenter.SYS_LF))
-        .withArrayIndenter(new DefaultIndenter(FileEmitter.INDENT_4, DefaultIndenter.SYS_LF));
+    DefaultPrettyPrinter pp =
+        new DefaultPrettyPrinter()
+            .withObjectIndenter(new DefaultIndenter(FileEmitter.INDENT_4, DefaultIndenter.SYS_LF))
+            .withArrayIndenter(new DefaultIndenter(FileEmitter.INDENT_4, DefaultIndenter.SYS_LF));
     this.dataTemplateCodec.setPrettyPrinter(pp);
 
     try {
@@ -75,33 +77,37 @@ public class FileEmitter implements Emitter {
     this.wroteSomething = false;
     log.debug("Emitter created successfully for " + this.config.getFileName());
 
-    this.cachedSuccessFuture = new Future<MetadataWriteResponse>() {
-      @Override
-      public boolean cancel(boolean mayInterruptIfRunning) {
-        return false;
-      }
+    this.cachedSuccessFuture =
+        new Future<MetadataWriteResponse>() {
+          @Override
+          public boolean cancel(boolean mayInterruptIfRunning) {
+            return false;
+          }
 
-      @Override
-      public MetadataWriteResponse get() throws InterruptedException, ExecutionException {
-        return MetadataWriteResponse.builder().success(true).responseContent("MCP witten to File").build();
-      }
+          @Override
+          public MetadataWriteResponse get() throws InterruptedException, ExecutionException {
+            return MetadataWriteResponse.builder()
+                .success(true)
+                .responseContent("MCP witten to File")
+                .build();
+          }
 
-      @Override
-      public MetadataWriteResponse get(long timeout, TimeUnit unit)
-          throws InterruptedException, ExecutionException, TimeoutException {
-        return this.get();
-      }
+          @Override
+          public MetadataWriteResponse get(long timeout, TimeUnit unit)
+              throws InterruptedException, ExecutionException, TimeoutException {
+            return this.get();
+          }
 
-      @Override
-      public boolean isCancelled() {
-        return false;
-      }
+          @Override
+          public boolean isCancelled() {
+            return false;
+          }
 
-      @Override
-      public boolean isDone() {
-        return true;
-      }
-    };
+          @Override
+          public boolean isDone() {
+            return true;
+          }
+        };
   }
 
   @Override
@@ -114,13 +120,15 @@ public class FileEmitter implements Emitter {
   }
 
   @Override
-  public Future<MetadataWriteResponse> emit(@SuppressWarnings("rawtypes") MetadataChangeProposalWrapper mcpw,
-      Callback callback) throws IOException {
+  public Future<MetadataWriteResponse> emit(
+      @SuppressWarnings("rawtypes") MetadataChangeProposalWrapper mcpw, Callback callback)
+      throws IOException {
     return emit(this.eventFormatter.convert(mcpw), callback);
   }
 
   @Override
-  public Future<MetadataWriteResponse> emit(MetadataChangeProposal mcp, Callback callback) throws IOException {
+  public Future<MetadataWriteResponse> emit(MetadataChangeProposal mcp, Callback callback)
+      throws IOException {
     if (this.closed.get()) {
       String errorMsg = "File Emitter is already closed.";
       log.error(errorMsg);
@@ -167,7 +175,8 @@ public class FileEmitter implements Emitter {
   }
 
   @Override
-  public Future<MetadataWriteResponse> emit(List<UpsertAspectRequest> request, Callback callback) throws IOException {
+  public Future<MetadataWriteResponse> emit(List<UpsertAspectRequest> request, Callback callback)
+      throws IOException {
     throw new UnsupportedOperationException("UpsertAspectRequest not relevant for File Emitter");
   }
 
@@ -185,8 +194,8 @@ public class FileEmitter implements Emitter {
       }
 
       @Override
-      public MetadataWriteResponse get(long timeout, TimeUnit unit) throws InterruptedException, ExecutionException,
-          TimeoutException {
+      public MetadataWriteResponse get(long timeout, TimeUnit unit)
+          throws InterruptedException, ExecutionException, TimeoutException {
         return this.get();
       }
 
@@ -199,8 +208,6 @@ public class FileEmitter implements Emitter {
       public boolean isDone() {
         return true;
       }
-
     };
   }
-
 }

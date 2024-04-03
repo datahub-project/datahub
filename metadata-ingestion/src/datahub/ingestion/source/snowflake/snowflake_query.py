@@ -1,5 +1,6 @@
 from typing import List, Optional
 
+from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.time_window_config import BucketDuration
 from datahub.ingestion.source.snowflake.constants import SnowflakeObjectDomain
 from datahub.ingestion.source.snowflake.snowflake_config import DEFAULT_TABLES_DENY_LIST
@@ -78,6 +79,10 @@ class SnowflakeQuery:
     @staticmethod
     def use_database(db_name: str) -> str:
         return f'use database "{db_name}"'
+
+    @staticmethod
+    def use_schema(schema_name: str) -> str:
+        return f'use schema "{schema_name}"'
 
     @staticmethod
     def get_databases(db_name: Optional[str]) -> str:
@@ -510,7 +515,7 @@ class SnowflakeQuery:
     def copy_lineage_history(
         start_time_millis: int,
         end_time_millis: int,
-        downstreams_deny_pattern: List[str],
+        downstreams_deny_pattern: List[str] = DEFAULT_TABLES_DENY_LIST,
     ) -> str:
         temp_table_filter = create_deny_regex_sql_filter(
             downstreams_deny_pattern,
@@ -551,6 +556,8 @@ class SnowflakeQuery:
         use_base_objects: bool,
         top_n_queries: int,
         include_top_n_queries: bool,
+        email_domain: Optional[str],
+        email_filter: AllowDenyPattern,
     ) -> str:
         if not include_top_n_queries:
             top_n_queries = 0
@@ -561,6 +568,9 @@ class SnowflakeQuery:
         objects_column = (
             "BASE_OBJECTS_ACCESSED" if use_base_objects else "DIRECT_OBJECTS_ACCESSED"
         )
+        email_filter_query = SnowflakeQuery.gen_email_filter_query(email_filter)
+
+        email_domain = f"@{email_domain}" if email_domain else ""
 
         return f"""
         WITH object_access_history AS
@@ -578,12 +588,19 @@ class SnowflakeQuery:
                         query_id,
                         query_start_time,
                         user_name,
+                        -- Construct the email in the query, should match the Python behavior.
+                        -- The user_email is only used by the email_filter_query.
+                        NVL(USERS.email, CONCAT(LOWER(user_name), '{email_domain}')) AS user_email,
                         {objects_column}
                     from
                         snowflake.account_usage.access_history
+                    LEFT JOIN
+                        snowflake.account_usage.users USERS
+                        ON user_name = users.name
                     WHERE
                         query_start_time >= to_timestamp_ltz({start_time_millis}, 3)
                         AND query_start_time < to_timestamp_ltz({end_time_millis}, 3)
+                        {email_filter_query}
                 )
                 t,
                 lateral flatten(input => t.{objects_column}) object
@@ -706,6 +723,34 @@ class SnowflakeQuery:
         """
 
     @staticmethod
+    def gen_email_filter_query(email_filter: AllowDenyPattern) -> str:
+        allow_filters = []
+        allow_filter = ""
+        if len(email_filter.allow) == 1 and email_filter.allow[0] == ".*":
+            allow_filter = ""
+        else:
+            for allow_pattern in email_filter.allow:
+                allow_filters.append(
+                    f"rlike(user_name, '{allow_pattern}','{'i' if email_filter.ignoreCase else 'c'}')"
+                )
+            if allow_filters:
+                allow_filter = " OR ".join(allow_filters)
+                allow_filter = f"AND ({allow_filter})"
+        deny_filters = []
+        deny_filter = ""
+        for deny_pattern in email_filter.deny:
+            deny_filters.append(
+                f"rlike(user_name, '{deny_pattern}','{'i' if email_filter.ignoreCase else 'c'}')"
+            )
+        if deny_filters:
+            deny_filter = " OR ".join(deny_filters)
+            deny_filter = f"({deny_filter})"
+        email_filter_query = allow_filter + (
+            " AND" + f" NOT {deny_filter}" if deny_filter else ""
+        )
+        return email_filter_query
+
+    @staticmethod
     def table_upstreams_with_column_lineage(
         start_time_millis: int,
         end_time_millis: int,
@@ -757,7 +802,7 @@ class SnowflakeQuery:
             SELECT
                 downstream_table_name,
                 downstream_column_name,
-                ANY_VALUE(query_start_time),
+                ANY_VALUE(query_start_time) as query_start_time,
                 query_id,
                 ARRAY_UNIQUE_AGG(
                     OBJECT_CONSTRUCT(
@@ -775,25 +820,73 @@ class SnowflakeQuery:
                 downstream_table_name,
                 downstream_column_name,
                 query_id
-            ),
-        column_upstreams AS (
+            ),-- one row per column's upstream job (repetitive query possible)
+        column_upstream_jobs_unique AS (
             SELECT
                 downstream_table_name,
                 downstream_column_name,
-                ARRAY_UNIQUE_AGG(upstream_columns_for_job) as upstreams
+                upstream_columns_for_job,
+                MAX_BY(query_id, query_start_time) as query_id,
+                MAX(query_start_time) as query_start_time
             FROM
                 column_upstream_jobs
             GROUP BY
                 downstream_table_name,
+                downstream_column_name,
+                upstream_columns_for_job
+            ),-- one row per column's unique upstream job (keep only latest query)
+        column_upstreams AS (
+            SELECT
+                downstream_table_name,
+                downstream_column_name,
+                ARRAY_UNIQUE_AGG(
+                    OBJECT_CONSTRUCT (
+                        'column_upstreams', upstream_columns_for_job,
+                        'query_id', query_id
+                    )
+                ) as upstreams
+            FROM
+                column_upstream_jobs_unique
+            GROUP BY
+                downstream_table_name,
                 downstream_column_name
-            )
+            ), -- one row per downstream column
+        table_upstream_jobs_unique AS (
+            SELECT
+                downstream_table_name,
+                ANY_VALUE(downstream_table_domain) as downstream_table_domain,
+                upstream_table_name,
+                ANY_VALUE(upstream_table_domain) as upstream_table_domain,
+                MAX_BY(query_id, query_start_time) as query_id
+            FROM
+                column_lineage_history
+            GROUP BY
+                downstream_table_name,
+                upstream_table_name
+            ), -- one row per downstream table
+        query_ids AS (
+            SELECT distinct downstream_table_name, query_id from table_upstream_jobs_unique
+            UNION
+            select distinct downstream_table_name, query_id from column_upstream_jobs_unique
+        ),
+        queries AS (
+            select qid.downstream_table_name, qid.query_id, query_history.query_text, query_history.start_time
+            from  query_ids qid
+            LEFT JOIN (
+                SELECT * FROM snowflake.account_usage.query_history
+                WHERE query_history.start_time >= to_timestamp_ltz({start_time_millis}, 3)
+                    AND query_history.start_time < to_timestamp_ltz({end_time_millis}, 3)
+            ) query_history
+            on qid.query_id = query_history.query_id
+        )
         SELECT
             h.downstream_table_name AS "DOWNSTREAM_TABLE_NAME",
             ANY_VALUE(h.downstream_table_domain) AS "DOWNSTREAM_TABLE_DOMAIN",
             ARRAY_UNIQUE_AGG(
                 OBJECT_CONSTRUCT(
                     'upstream_object_name', h.upstream_table_name,
-                    'upstream_object_domain', h.upstream_table_domain
+                    'upstream_object_domain', h.upstream_table_domain,
+                    'query_id', h.query_id
                 )
             ) AS "UPSTREAM_TABLES",
             ARRAY_UNIQUE_AGG(
@@ -801,11 +894,20 @@ class SnowflakeQuery:
                 'column_name', column_upstreams.downstream_column_name,
                 'upstreams', column_upstreams.upstreams
                 )
-            ) AS "UPSTREAM_COLUMNS"
+            ) AS "UPSTREAM_COLUMNS",
+            ARRAY_UNIQUE_AGG(
+                OBJECT_CONSTRUCT(
+                    'query_id', q.query_id,
+                    'query_text', q.query_text,
+                    'start_time', q.start_time
+                )
+            ) as "QUERIES"
             FROM
-                column_lineage_history h
+                table_upstream_jobs_unique h
             LEFT JOIN column_upstreams column_upstreams
                 on h.downstream_table_name = column_upstreams.downstream_table_name
+            LEFT JOIN queries q
+                on h.downstream_table_name = q.downstream_table_name
             GROUP BY
                 h.downstream_table_name
             ORDER BY
@@ -831,42 +933,78 @@ class SnowflakeQuery:
             ["upstream_table_name"],
         )
         return f"""
-            WITH table_lineage_history AS (
-                SELECT
-                    r.value:"objectName"::varchar AS upstream_table_name,
-                    r.value:"objectDomain"::varchar AS upstream_table_domain,
-                    r.value:"columns" AS upstream_table_columns,
-                    w.value:"objectName"::varchar AS downstream_table_name,
-                    w.value:"objectDomain"::varchar AS downstream_table_domain,
-                    w.value:"columns" AS downstream_table_columns,
-                    t.query_start_time AS query_start_time
-                FROM
-                    (SELECT * from snowflake.account_usage.access_history) t,
-                    lateral flatten(input => t.DIRECT_OBJECTS_ACCESSED) r,
-                    lateral flatten(input => t.OBJECTS_MODIFIED) w
-                WHERE r.value:"objectId" IS NOT NULL
-                AND w.value:"objectId" IS NOT NULL
-                AND w.value:"objectName" NOT LIKE '%.GE_TMP_%'
-                AND w.value:"objectName" NOT LIKE '%.GE_TEMP_%'
+        WITH table_lineage_history AS (
+            SELECT
+                r.value : "objectName" :: varchar AS upstream_table_name,
+                r.value : "objectDomain" :: varchar AS upstream_table_domain,
+                w.value : "objectName" :: varchar AS downstream_table_name,
+                w.value : "objectDomain" :: varchar AS downstream_table_domain,
+                t.query_start_time AS query_start_time,
+                t.query_id AS query_id
+            FROM
+                (SELECT * from snowflake.account_usage.access_history) t,
+                lateral flatten(input => t.DIRECT_OBJECTS_ACCESSED) r,
+                lateral flatten(input => t.OBJECTS_MODIFIED) w
+            WHERE
+                r.value : "objectId" IS NOT NULL
+                AND w.value : "objectId" IS NOT NULL
+                AND w.value : "objectName" NOT LIKE '%.GE_TMP_%'
+                AND w.value : "objectName" NOT LIKE '%.GE_TEMP_%'
                 AND t.query_start_time >= to_timestamp_ltz({start_time_millis}, 3)
                 AND t.query_start_time < to_timestamp_ltz({end_time_millis}, 3)
                 AND upstream_table_domain in {allowed_upstream_table_domains}
                 AND downstream_table_domain = '{SnowflakeObjectDomain.TABLE.capitalize()}'
                 {("AND " + upstream_sql_filter) if upstream_sql_filter else ""}
-                )
+            ),
+        table_upstream_jobs_unique AS (
             SELECT
-                downstream_table_name AS "DOWNSTREAM_TABLE_NAME",
-                ANY_VALUE(downstream_table_domain) as "DOWNSTREAM_TABLE_DOMAIN",
-                ARRAY_UNIQUE_AGG(
-                    OBJECT_CONSTRUCT(
-                        'upstream_object_name', upstream_table_name,
-                        'upstream_object_domain', upstream_table_domain
-                    )
-                ) as "UPSTREAM_TABLES"
-                FROM
-                    table_lineage_history
-                GROUP BY
-                    downstream_table_name
-                ORDER BY
-                    downstream_table_name
-            """
+                downstream_table_name,
+                ANY_VALUE(downstream_table_domain) as downstream_table_domain,
+                upstream_table_name,
+                ANY_VALUE(upstream_table_domain) as upstream_table_domain,
+                MAX_BY(query_id, query_start_time) as query_id
+            FROM
+                table_lineage_history
+            GROUP BY
+                downstream_table_name,
+                upstream_table_name
+            ), -- one row per downstream table
+        query_ids AS (
+            SELECT distinct downstream_table_name, query_id from table_upstream_jobs_unique
+        ),
+        queries AS (
+            select qid.downstream_table_name, qid.query_id, query_history.query_text, query_history.start_time
+            from  query_ids qid
+            LEFT JOIN (
+                SELECT * FROM snowflake.account_usage.query_history
+                WHERE query_history.start_time >= to_timestamp_ltz({start_time_millis}, 3)
+                    AND query_history.start_time < to_timestamp_ltz({end_time_millis}, 3)
+            ) query_history
+            on qid.query_id = query_history.query_id
+        )
+        SELECT
+            h.downstream_table_name AS "DOWNSTREAM_TABLE_NAME",
+            ANY_VALUE(h.downstream_table_domain) AS "DOWNSTREAM_TABLE_DOMAIN",
+            ARRAY_UNIQUE_AGG(
+                OBJECT_CONSTRUCT(
+                    'upstream_object_name', h.upstream_table_name,
+                    'upstream_object_domain', h.upstream_table_domain,
+                    'query_id', h.query_id
+                )
+            ) AS "UPSTREAM_TABLES",
+            ARRAY_UNIQUE_AGG(
+                OBJECT_CONSTRUCT(
+                    'query_id', q.query_id,
+                    'query_text', q.query_text,
+                    'start_time', q.start_time
+                )
+            ) as "QUERIES"
+            FROM
+                table_upstream_jobs_unique h
+            LEFT JOIN queries q
+                on h.downstream_table_name = q.downstream_table_name
+            GROUP BY
+                h.downstream_table_name
+            ORDER BY
+                h.downstream_table_name
+        """

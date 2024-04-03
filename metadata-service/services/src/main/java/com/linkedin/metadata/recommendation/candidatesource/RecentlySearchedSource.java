@@ -13,6 +13,7 @@ import com.linkedin.metadata.recommendation.ScenarioType;
 import com.linkedin.metadata.recommendation.SearchParams;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
+import io.datahubproject.metadata.context.OperationContext;
 import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
@@ -32,7 +33,6 @@ import org.opensearch.search.aggregations.AggregationBuilders;
 import org.opensearch.search.aggregations.BucketOrder;
 import org.opensearch.search.aggregations.bucket.terms.ParsedTerms;
 import org.opensearch.search.builder.SearchSourceBuilder;
-
 
 @Slf4j
 @RequiredArgsConstructor
@@ -60,11 +60,16 @@ public class RecentlySearchedSource implements RecommendationSource {
   }
 
   @Override
-  public boolean isEligible(@Nonnull Urn userUrn, @Nonnull RecommendationRequestContext requestContext) {
+  public boolean isEligible(
+      @Nonnull OperationContext opContext, @Nonnull RecommendationRequestContext requestContext) {
     boolean analyticsEnabled = false;
     try {
-      analyticsEnabled = _searchClient.indices()
-          .exists(new GetIndexRequest(_indexConvention.getIndexName(DATAHUB_USAGE_INDEX)), RequestOptions.DEFAULT);
+      analyticsEnabled =
+          _searchClient
+              .indices()
+              .exists(
+                  new GetIndexRequest(_indexConvention.getIndexName(DATAHUB_USAGE_INDEX)),
+                  RequestOptions.DEFAULT);
     } catch (IOException e) {
       log.error("Failed to check whether DataHub usage index exists");
     }
@@ -72,15 +77,15 @@ public class RecentlySearchedSource implements RecommendationSource {
   }
 
   @Override
-  public List<RecommendationContent> getRecommendations(@Nonnull Urn userUrn,
-      @Nonnull RecommendationRequestContext requestContext) {
-    SearchRequest searchRequest = buildSearchRequest(userUrn);
+  public List<RecommendationContent> getRecommendations(
+      @Nonnull OperationContext opContext, @Nonnull RecommendationRequestContext requestContext) {
+    SearchRequest searchRequest = buildSearchRequest(opContext.getActorContext().getActorUrn());
     try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "getRecentlySearched").time()) {
-      final SearchResponse searchResponse = _searchClient.search(searchRequest, RequestOptions.DEFAULT);
+      final SearchResponse searchResponse =
+          _searchClient.search(searchRequest, RequestOptions.DEFAULT);
       // extract results
       ParsedTerms parsedTerms = searchResponse.getAggregations().get(ENTITY_AGG_NAME);
-      return parsedTerms.getBuckets()
-          .stream()
+      return parsedTerms.getBuckets().stream()
           .map(bucket -> buildContent(bucket.getKeyAsString()))
           .filter(Optional::isPresent)
           .map(Optional::get)
@@ -97,20 +102,26 @@ public class RecentlySearchedSource implements RecommendationSource {
     SearchSourceBuilder source = new SearchSourceBuilder();
     BoolQueryBuilder query = QueryBuilders.boolQuery();
     // Filter for the entity view events of the user requesting recommendation
-    query.must(QueryBuilders.termQuery(DataHubUsageEventConstants.ACTOR_URN + ".keyword", userUrn.toString()));
-    query.must(QueryBuilders.termQuery(DataHubUsageEventConstants.TYPE,
-        DataHubUsageEventType.SEARCH_RESULTS_VIEW_EVENT.getType()));
+    query.must(
+        QueryBuilders.termQuery(
+            DataHubUsageEventConstants.ACTOR_URN + ".keyword", userUrn.toString()));
+    query.must(
+        QueryBuilders.termQuery(
+            DataHubUsageEventConstants.TYPE,
+            DataHubUsageEventType.SEARCH_RESULTS_VIEW_EVENT.getType()));
     query.must(QueryBuilders.rangeQuery("total").gt(0));
     query.must(QueryBuilders.existsQuery(DataHubUsageEventConstants.QUERY));
     source.query(query);
 
     // Find the entity with the largest last viewed timestamp
     String lastSearched = "last_searched";
-    AggregationBuilder aggregation = AggregationBuilders.terms(ENTITY_AGG_NAME)
-        .field(DataHubUsageEventConstants.QUERY + ".keyword")
-        .size(MAX_CONTENT * 2) // Fetch more than max to account for post-filtering
-        .order(BucketOrder.aggregation(lastSearched, false))
-        .subAggregation(AggregationBuilders.max(lastSearched).field(DataHubUsageEventConstants.TIMESTAMP));
+    AggregationBuilder aggregation =
+        AggregationBuilders.terms(ENTITY_AGG_NAME)
+            .field(DataHubUsageEventConstants.QUERY + ".keyword")
+            .size(MAX_CONTENT * 2) // Fetch more than max to account for post-filtering
+            .order(BucketOrder.aggregation(lastSearched, false))
+            .subAggregation(
+                AggregationBuilders.max(lastSearched).field(DataHubUsageEventConstants.TIMESTAMP));
     source.aggregation(aggregation);
     source.size(0);
 
@@ -127,7 +138,10 @@ public class RecentlySearchedSource implements RecommendationSource {
     if (isQueryInvalid(query)) {
       return Optional.empty();
     }
-    return Optional.of(new RecommendationContent().setValue(query)
-        .setParams(new RecommendationParams().setSearchParams(new SearchParams().setQuery(query))));
+    return Optional.of(
+        new RecommendationContent()
+            .setValue(query)
+            .setParams(
+                new RecommendationParams().setSearchParams(new SearchParams().setQuery(query))));
   }
 }

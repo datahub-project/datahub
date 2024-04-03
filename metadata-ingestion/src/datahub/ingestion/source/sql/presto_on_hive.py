@@ -159,7 +159,8 @@ class PrestoOnHiveConfig(BasicSQLAlchemyConfig):
 @config_class(PrestoOnHiveConfig)
 @support_status(SupportStatus.CERTIFIED)
 @capability(SourceCapability.DELETION_DETECTION, "Enabled via stateful ingestion")
-@capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")
+@capability(SourceCapability.DATA_PROFILING, "Not Supported", False)
+@capability(SourceCapability.CLASSIFICATION, "Not Supported", False)
 class PrestoOnHiveSource(SQLAlchemySource):
     """
     This plugin extracts the following:
@@ -329,8 +330,6 @@ class PrestoOnHiveSource(SQLAlchemySource):
         )
 
     def get_db_name(self, inspector: Inspector) -> str:
-        if self.config.database_alias:
-            return f"{self.config.database_alias}"
         if self.config.database:
             return f"{self.config.database}"
         else:

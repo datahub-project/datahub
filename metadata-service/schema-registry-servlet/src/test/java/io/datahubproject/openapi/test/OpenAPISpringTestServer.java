@@ -12,5 +12,4 @@ public class OpenAPISpringTestServer {
   public static void main(String[] args) {
     SpringApplication.run(OpenAPISpringTestServer.class, args);
   }
-
 }

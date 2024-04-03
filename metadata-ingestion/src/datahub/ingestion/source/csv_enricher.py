@@ -45,6 +45,7 @@ from datahub.metadata.schema_classes import (
     TagAssociationClass,
 )
 from datahub.utilities.urns.dataset_urn import DatasetUrn
+from datahub.utilities.urns.field_paths import get_simple_field_path_from_v2_field_path
 from datahub.utilities.urns.urn import Urn, guess_entity_type
 
 DATASET_ENTITY_TYPE = DatasetUrn.ENTITY_TYPE
@@ -105,16 +106,18 @@ class CSVEnricherSource(Source):
     The format of the CSV is demonstrated below. The header is required and URNs should be surrounded by quotes when they contains commas (most URNs contains commas).
 
     ```
-    resource,subresource,glossary_terms,tags,owners,ownership_type,description,domain
-    "urn:li:dataset:(urn:li:dataPlatform:snowflake,datahub.growth.users,PROD)",,[urn:li:glossaryTerm:Users],[urn:li:tag:HighQuality],[urn:li:corpuser:lfoe|urn:li:corpuser:jdoe],TECHNICAL_OWNER,"description for users table",urn:li:domain:Engineering
-    "urn:li:dataset:(urn:li:dataPlatform:hive,datahub.growth.users,PROD)",first_name,[urn:li:glossaryTerm:FirstName],,,,"first_name description"
-    "urn:li:dataset:(urn:li:dataPlatform:hive,datahub.growth.users,PROD)",last_name,[urn:li:glossaryTerm:LastName],,,,"last_name description"
+    resource,subresource,glossary_terms,tags,owners,ownership_type,description,domain,ownership_type_urn
+    "urn:li:dataset:(urn:li:dataPlatform:snowflake,datahub.growth.users,PROD)",,[urn:li:glossaryTerm:Users],[urn:li:tag:HighQuality],[urn:li:corpuser:lfoe|urn:li:corpuser:jdoe],CUSTOM,"description for users table",urn:li:domain:Engineering,urn:li:ownershipType:a0e9176c-d8cf-4b11-963b-f7a1bc2333c9
+    "urn:li:dataset:(urn:li:dataPlatform:hive,datahub.growth.users,PROD)",first_name,[urn:li:glossaryTerm:FirstName],,,,"first_name description",
+    "urn:li:dataset:(urn:li:dataPlatform:hive,datahub.growth.users,PROD)",last_name,[urn:li:glossaryTerm:LastName],,,,"last_name description",
     ```
 
     Note that the first row does not have a subresource populated. That means any glossary terms, tags, and owners will
     be applied at the entity field. If a subresource is populated (as it is for the second and third rows), glossary
     terms and tags will be applied on the column. Every row MUST have a resource. Also note that owners can only
     be applied at the resource level.
+
+    If ownership_type_urn is set then ownership_type must be set to CUSTOM.
 
     :::note
     This source will not work on very large csv files that do not fit in memory.
@@ -223,7 +226,7 @@ class CSVEnricherSource(Source):
 
         if not current_ownership:
             # If we want to overwrite or there are no existing tags, create a new GlobalTags object
-            current_ownership = OwnershipClass(owners, get_audit_stamp())
+            current_ownership = OwnershipClass(owners, lastModified=get_audit_stamp())
         else:
             current_owner_urns: Set[str] = set(
                 [owner.owner for owner in current_ownership.owners]
@@ -436,9 +439,7 @@ class CSVEnricherSource(Source):
         field_match = False
         for field_info in current_editable_schema_metadata.editableSchemaFieldInfo:
             if (
-                DatasetUrn.get_simple_field_path_from_v2_field_path(
-                    field_info.fieldPath
-                )
+                get_simple_field_path_from_v2_field_path(field_info.fieldPath)
                 == field_path
             ):
                 # we have some editable schema metadata for this field
@@ -575,13 +576,28 @@ class CSVEnricherSource(Source):
         ownership_type: Union[str, OwnershipTypeClass] = (
             row["ownership_type"] if row["ownership_type"] else OwnershipTypeClass.NONE
         )
+        ownership_type_urn: Optional[str] = None
+        if "ownership_type_urn" in row:
+            ownership_type_urn = (
+                row["ownership_type_urn"] if row["ownership_type_urn"] else None
+            )
+        if (
+            ownership_type_urn is not None
+            and ownership_type != OwnershipTypeClass.CUSTOM
+        ):
+            resource_urn = row["resource"]
+            self.report.report_warning(
+                f"{resource_urn}-invalid-ownership-type",
+                "Ownership type URN is set but ownership type is not CUSTOM. Setting ownership_type to CUSTOM.",
+            )
+            ownership_type = OwnershipTypeClass.CUSTOM
 
         # Sanitizing the owners string to just get the list of owner urns
         owners_array_string: str = sanitize_array_string(row["owners"])
         owner_urns: List[str] = owners_array_string.split(self.config.array_delimiter)
 
         owners: List[OwnerClass] = [
-            OwnerClass(owner_urn, type=ownership_type)
+            OwnerClass(owner_urn, type=ownership_type, typeUrn=ownership_type_urn)
             for owner_urn in owner_urns
             if owner_urn.startswith("urn:li:")
         ]

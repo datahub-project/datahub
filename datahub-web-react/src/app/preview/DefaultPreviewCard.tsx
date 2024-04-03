@@ -114,6 +114,7 @@ const TagContainer = styled.div`
     margin-left: 0px;
     margin-top: 3px;
     flex-wrap: wrap;
+    margin-right: 8px;
 `;
 
 const TagSeparator = styled.div`
@@ -268,7 +269,7 @@ export default function DefaultPreviewCard({
 
     return (
         <PreviewContainer data-testid={dataTestID} onMouseDown={onPreventMouseDown}>
-            <LeftColumn expandWidth={!shouldShowRightColumn}>
+            <LeftColumn key='left-column' expandWidth={!shouldShowRightColumn}>
                 <TitleContainer>
                     <PlatformContentView
                         platformName={platform}
@@ -370,7 +371,7 @@ export default function DefaultPreviewCard({
                 )}
             </LeftColumn>
             {shouldShowRightColumn && (
-                <RightColumn>
+                <RightColumn key='right-column'>
                     {topUsers && topUsers?.length > 0 && (
                         <>
                             <UserListContainer>

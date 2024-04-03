@@ -139,7 +139,6 @@ class PostgresSource(SQLAlchemySource):
     - Metadata for databases, schemas, views, and tables
     - Column types associated with each table
     - Also supports PostGIS extensions
-    - database_alias (optional) can be used to change the name of database to be ingested
     - Table, row, and column statistics via optional SQL profiling
     """
 
@@ -271,8 +270,6 @@ class PostgresSource(SQLAlchemySource):
     ) -> str:
         regular = f"{schema}.{entity}"
         if self.config.database:
-            if self.config.database_alias:
-                return f"{self.config.database_alias}.{regular}"
             return f"{self.config.database}.{regular}"
         current_database = self.get_db_name(inspector)
         return f"{current_database}.{regular}"

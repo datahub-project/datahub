@@ -13,10 +13,10 @@ import org.springframework.http.converter.json.MappingJackson2HttpMessageConvert
 import org.springframework.web.servlet.config.annotation.EnableWebMvc;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
-
 @EnableWebMvc
-@OpenAPIDefinition(info = @Info(title = "DataHub OpenAPI", version = "1.0.0"),
-        servers = {@Server(url = "/schema-registry/", description = "Schema Registry Server URL")})
+@OpenAPIDefinition(
+    info = @Info(title = "DataHub OpenAPI", version = "1.0.0"),
+    servers = {@Server(url = "/schema-registry/", description = "Schema Registry Server URL")})
 @Configuration
 public class SpringWebSchemaRegistryConfig implements WebMvcConfigurer {
 

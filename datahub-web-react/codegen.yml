@@ -1,16 +1,6 @@
 overwrite: true
 schema:
-    - '../datahub-graphql-core/src/main/resources/app.graphql'
-    - '../datahub-graphql-core/src/main/resources/entity.graphql'
-    - '../datahub-graphql-core/src/main/resources/search.graphql'
-    - '../datahub-graphql-core/src/main/resources/analytics.graphql'
-    - '../datahub-graphql-core/src/main/resources/recommendation.graphql'
-    - '../datahub-graphql-core/src/main/resources/auth.graphql'
-    - '../datahub-graphql-core/src/main/resources/ingestion.graphql'
-    - '../datahub-graphql-core/src/main/resources/timeline.graphql'
-    - '../datahub-graphql-core/src/main/resources/tests.graphql'
-    - '../datahub-graphql-core/src/main/resources/step.graphql'
-    - '../datahub-graphql-core/src/main/resources/lineage.graphql'
+    - '../datahub-graphql-core/src/main/resources/*.graphql'
 config:
     scalars:
         Long: number

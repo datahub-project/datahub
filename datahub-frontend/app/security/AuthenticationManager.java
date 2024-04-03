@@ -15,13 +15,12 @@ import org.eclipse.jetty.jaas.JAASLoginService;
 import org.eclipse.jetty.jaas.PropertyUserStoreManager;
 import play.Logger;
 
-
 public class AuthenticationManager {
 
-  private AuthenticationManager(boolean verbose) {
-  }
+  private AuthenticationManager(boolean verbose) {}
 
-  public static void authenticateJaasUser(@Nonnull String userName, @Nonnull String password) throws Exception {
+  public static void authenticateJaasUser(@Nonnull String userName, @Nonnull String password)
+      throws Exception {
     Preconditions.checkArgument(!StringUtils.isAnyEmpty(userName), "Username cannot be empty");
     JAASLoginService jaasLoginService = new JAASLoginService("WHZ-Authentication");
     PropertyUserStoreManager propertyUserStoreManager = new PropertyUserStoreManager();
@@ -29,10 +28,12 @@ public class AuthenticationManager {
     jaasLoginService.setBeans(Collections.singletonList(propertyUserStoreManager));
     JAASLoginService.INSTANCE.set(jaasLoginService);
     try {
-      LoginContext lc = new LoginContext("WHZ-Authentication", new WHZCallbackHandler(userName, password));
+      LoginContext lc =
+          new LoginContext("WHZ-Authentication", new WHZCallbackHandler(userName, password));
       lc.login();
     } catch (LoginException le) {
-      AuthenticationException authenticationException = new AuthenticationException(le.getMessage());
+      AuthenticationException authenticationException =
+          new AuthenticationException(le.getMessage());
       authenticationException.setRootCause(le);
       throw authenticationException;
     }
@@ -52,7 +53,8 @@ public class AuthenticationManager {
       NameCallback nc = null;
       PasswordCallback pc = null;
       for (Callback callback : callbacks) {
-        Logger.debug("The submitted callback is of type: " + callback.getClass() + " : " + callback);
+        Logger.debug(
+            "The submitted callback is of type: " + callback.getClass() + " : " + callback);
         if (callback instanceof NameCallback) {
           nc = (NameCallback) callback;
           nc.setName(this.username);

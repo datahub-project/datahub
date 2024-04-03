@@ -27,6 +27,7 @@ from typing import (
 
 import sqlalchemy as sa
 import sqlalchemy.sql.compiler
+from great_expectations.core.profiler_types_mapping import ProfilerTypeMapping
 from great_expectations.core.util import convert_to_json_serializable
 from great_expectations.data_context import AbstractDataContext, BaseDataContext
 from great_expectations.data_context.types.base import (
@@ -77,7 +78,25 @@ MYSQL = "mysql"
 SNOWFLAKE = "snowflake"
 BIGQUERY = "bigquery"
 REDSHIFT = "redshift"
+DATABRICKS = "databricks"
 TRINO = "trino"
+
+# Type names for Databricks, to match Title Case types in sqlalchemy
+ProfilerTypeMapping.INT_TYPE_NAMES.append("Integer")
+ProfilerTypeMapping.INT_TYPE_NAMES.append("SmallInteger")
+ProfilerTypeMapping.INT_TYPE_NAMES.append("BigInteger")
+ProfilerTypeMapping.FLOAT_TYPE_NAMES.append("Float")
+ProfilerTypeMapping.FLOAT_TYPE_NAMES.append("Numeric")
+ProfilerTypeMapping.STRING_TYPE_NAMES.append("String")
+ProfilerTypeMapping.STRING_TYPE_NAMES.append("Text")
+ProfilerTypeMapping.STRING_TYPE_NAMES.append("Unicode")
+ProfilerTypeMapping.STRING_TYPE_NAMES.append("UnicodeText")
+ProfilerTypeMapping.BOOLEAN_TYPE_NAMES.append("Boolean")
+ProfilerTypeMapping.DATETIME_TYPE_NAMES.append("Date")
+ProfilerTypeMapping.DATETIME_TYPE_NAMES.append("DateTime")
+ProfilerTypeMapping.DATETIME_TYPE_NAMES.append("Time")
+ProfilerTypeMapping.DATETIME_TYPE_NAMES.append("Interval")
+ProfilerTypeMapping.BINARY_TYPE_NAMES.append("LargeBinary")
 
 # The reason for this wacky structure is quite fun. GE basically assumes that
 # the config structures were generated directly from YML and further assumes that
@@ -400,7 +419,22 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
                 self.dataset.engine.execute(get_estimate_script).scalar()
             )
         else:
-            dataset_profile.rowCount = self.dataset.get_row_count()
+            # If the configuration is not set to 'estimate only' mode, we directly obtain the row count from the dataset.
+            # However, if an offset or limit is set, we need to adjust how we calculate the row count.
+            # This is because applying a limit or offset could potentially skew the row count.
+            # For instance, if a limit is set and the actual row count exceeds this limit,
+            # the returned row count would incorrectly be the limit value.
+            #
+            # To address this, if a limit is set, we use the original table name when calculating the row count.
+            # This ensures that the row count is based on the original table, not on a view which have limit or offset applied.
+            if (self.config.limit or self.config.offset) and not self.custom_sql:
+                # We don't want limit and offset to get applied to the row count
+                # This is kinda hacky way to do it, but every other way would require major refactoring
+                dataset_profile.rowCount = self.dataset.get_row_count(
+                    self.dataset_name.split(".")[-1]
+                )
+            else:
+                dataset_profile.rowCount = self.dataset.get_row_count()
 
     @_run_with_query_combiner
     def _get_dataset_column_min(
@@ -661,14 +695,12 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
         assert profile.rowCount is not None
         row_count: int  # used for null counts calculation
         if profile.partitionSpec and "SAMPLE" in profile.partitionSpec.partition:
-            # We can alternatively use `self._get_dataset_rows(profile)` to get
-            # exact count of rows in sample, as actual rows involved in sample
-            # may be slightly different (more or less) than configured `sample_size`.
-            # However not doing so to start with, as that adds another query overhead
-            # plus approximate metrics should work for sampling based profiling.
-            row_count = self.config.sample_size
-        else:
-            row_count = profile.rowCount
+            # Querying exact row count of sample using `_get_dataset_rows`.
+            # We are not using `self.config.sample_size` directly as actual row count
+            # in sample may be slightly different (more or less) than configured `sample_size`.
+            self._get_dataset_rows(profile)
+
+        row_count = profile.rowCount
 
         for column_spec in columns_profiling_queue:
             column = column_spec.column
@@ -696,6 +728,9 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
                         column_profile.uniqueProportion = min(
                             1, unique_count / non_null_count
                         )
+
+            if not profile.rowCount:
+                continue
 
             self._get_dataset_column_sample_values(column_profile, column)
 
@@ -1172,7 +1207,7 @@ class DatahubGEProfiler:
             },
         )
 
-        if platform == BIGQUERY:
+        if platform == BIGQUERY or platform == DATABRICKS:
             # This is done as GE makes the name as DATASET.TABLE
             # but we want it to be PROJECT.DATASET.TABLE instead for multi-project setups
             name_parts = pretty_name.split(".")
@@ -1261,9 +1296,13 @@ def create_bigquery_temp_table(
         # temporary table dance. However, that would require either a) upgrading to
         # use GE's batch v3 API or b) bypassing GE altogether.
 
-        query_job: Optional[
-            "google.cloud.bigquery.job.query.QueryJob"
-        ] = cursor._query_job
+        query_job: Optional["google.cloud.bigquery.job.query.QueryJob"] = (
+            # In google-cloud-bigquery 3.15.0, the _query_job attribute was
+            # made public and renamed to query_job.
+            cursor.query_job
+            if hasattr(cursor, "query_job")
+            else cursor._query_job  # type: ignore[attr-defined]
+        )
         assert query_job
         temp_destination_table = query_job.destination
         bigquery_temp_table = f"{temp_destination_table.project}.{temp_destination_table.dataset_id}.{temp_destination_table.table_id}"

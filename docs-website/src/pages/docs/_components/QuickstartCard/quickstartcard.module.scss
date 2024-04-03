@@ -1,0 +1,35 @@
+.feature {
+  flex-direction: row;
+  height: 10rem;
+  flex-shrink: 0;
+  color: var(--ifm-text-color);
+  margin: 0rem 2rem 1rem 0rem;
+  min-height: calc(100% - 1rem);
+  text-decoration: none !important;
+
+  img {
+    width: 3rem;
+    height: 3rem;
+    margin: auto;
+  }
+  svg {
+    width: 1.5rem;
+    height: 1.5rem;
+    margin-right: 0.75rem;
+  }
+
+  &:hover {
+    border-color: var(--ifm-color-primary);
+  }
+
+}
+
+.card_content {
+    display: flex;
+    margin: 0 auto;
+}
+
+.card_title {
+    padding-left: 1rem;
+    font-weight: 600;
+}

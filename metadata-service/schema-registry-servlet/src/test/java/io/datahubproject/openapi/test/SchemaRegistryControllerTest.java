@@ -1,5 +1,8 @@
 package io.datahubproject.openapi.test;
 
+import static com.linkedin.metadata.Constants.*;
+import static org.testng.Assert.*;
+
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.ByteString;
@@ -45,25 +48,25 @@ import org.testcontainers.containers.KafkaContainer;
 import org.testcontainers.utility.DockerImageName;
 import org.testng.annotations.Test;
 
-import static com.linkedin.metadata.Constants.*;
-import static org.testng.Assert.*;
-
-
 @ActiveProfiles("test")
 @ContextConfiguration
 @SpringBootTest(
     webEnvironment = SpringBootTest.WebEnvironment.DEFINED_PORT,
-    classes = {OpenAPISpringTestServer.class, OpenAPISpringTestServerConfiguration.class,
-        SchemaRegistryControllerTestConfiguration.class})
+    classes = {
+      OpenAPISpringTestServer.class,
+      OpenAPISpringTestServerConfiguration.class,
+      SchemaRegistryControllerTestConfiguration.class
+    })
 @EnableKafka
 public class SchemaRegistryControllerTest extends AbstractTestNGSpringContextTests {
   private static final String CONFLUENT_PLATFORM_VERSION = "7.2.2";
 
-  static KafkaContainer kafka = new KafkaContainer(
-      DockerImageName.parse("confluentinc/cp-kafka:" + CONFLUENT_PLATFORM_VERSION))
-      .withReuse(true)
-      .withStartupAttempts(5)
-      .withStartupTimeout(Duration.of(30, ChronoUnit.SECONDS));
+  static KafkaContainer kafka =
+      new KafkaContainer(
+              DockerImageName.parse("confluentinc/cp-kafka:" + CONFLUENT_PLATFORM_VERSION))
+          .withReuse(true)
+          .withStartupAttempts(5)
+          .withStartupTimeout(Duration.of(30, ChronoUnit.SECONDS));
 
   @DynamicPropertySource
   static void kafkaProperties(DynamicPropertyRegistry registry) {
@@ -73,8 +76,7 @@ public class SchemaRegistryControllerTest extends AbstractTestNGSpringContextTes
     registry.add("kafka.schemaRegistry.url", () -> "http://localhost:53222/api/");
   }
 
-  @Autowired
-  EventProducer _producer;
+  @Autowired EventProducer _producer;
 
   private final CountDownLatch mcpLatch = new CountDownLatch(1);
 
@@ -89,7 +91,8 @@ public class SchemaRegistryControllerTest extends AbstractTestNGSpringContextTes
   private final AtomicReference<PlatformEvent> peRef = new AtomicReference<>();
 
   @Test
-  public void testMCPConsumption() throws IOException, InterruptedException, ExecutionException, TimeoutException {
+  public void testMCPConsumption()
+      throws IOException, InterruptedException, ExecutionException, TimeoutException {
     final Urn entityUrn = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:foo,bar,PROD)");
     final DatasetProperties datasetProperties = new DatasetProperties();
     datasetProperties.setName("Foo Bar");
@@ -101,7 +104,8 @@ public class SchemaRegistryControllerTest extends AbstractTestNGSpringContextTes
     gmce.setAspectName("datasetProperties");
 
     final JacksonDataTemplateCodec dataTemplateCodec = new JacksonDataTemplateCodec();
-    final byte[] datasetPropertiesSerialized = dataTemplateCodec.dataTemplateToBytes(datasetProperties);
+    final byte[] datasetPropertiesSerialized =
+        dataTemplateCodec.dataTemplateToBytes(datasetProperties);
     final GenericAspect genericAspect = new GenericAspect();
     genericAspect.setValue(ByteString.unsafeWrap(datasetPropertiesSerialized));
     genericAspect.setContentType("application/json");
@@ -115,7 +119,8 @@ public class SchemaRegistryControllerTest extends AbstractTestNGSpringContextTes
   }
 
   @Test
-  public void testMCLConsumption() throws IOException, InterruptedException, ExecutionException, TimeoutException {
+  public void testMCLConsumption()
+      throws IOException, InterruptedException, ExecutionException, TimeoutException {
     final Urn entityUrn = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:foo,bar,PROD)");
     final DatasetProperties datasetProperties = new DatasetProperties();
     datasetProperties.setName("Foo Bar");
@@ -130,7 +135,8 @@ public class SchemaRegistryControllerTest extends AbstractTestNGSpringContextTes
 
     // Set old aspect
     final GenericAspect oldAspect = new GenericAspect();
-    final byte[] oldDatasetPropertiesSerialized = dataTemplateCodec.dataTemplateToBytes(datasetProperties);
+    final byte[] oldDatasetPropertiesSerialized =
+        dataTemplateCodec.dataTemplateToBytes(datasetProperties);
     oldAspect.setValue(ByteString.unsafeWrap(oldDatasetPropertiesSerialized));
     oldAspect.setContentType("application/json");
     metadataChangeLog.setPreviousAspectValue(GenericRecordUtils.serializeAspect(oldAspect));
@@ -139,16 +145,20 @@ public class SchemaRegistryControllerTest extends AbstractTestNGSpringContextTes
     // Set new aspect
     final GenericAspect newAspectValue = new GenericAspect();
     datasetProperties.setDescription("Updated data");
-    final byte[] newDatasetPropertiesSerialized = dataTemplateCodec.dataTemplateToBytes(datasetProperties);
+    final byte[] newDatasetPropertiesSerialized =
+        dataTemplateCodec.dataTemplateToBytes(datasetProperties);
     newAspectValue.setValue(ByteString.unsafeWrap(newDatasetPropertiesSerialized));
     newAspectValue.setContentType("application/json");
     metadataChangeLog.setAspect(GenericRecordUtils.serializeAspect(newAspectValue));
     metadataChangeLog.setSystemMetadata(SystemMetadataUtils.createDefaultSystemMetadata());
 
     final MockEntitySpec entitySpec = new MockEntitySpec("dataset");
-    final AspectSpec aspectSpec = entitySpec.createAspectSpec(datasetProperties, DATASET_PROPERTIES_ASPECT_NAME);
+    final AspectSpec aspectSpec =
+        entitySpec.createAspectSpec(datasetProperties, DATASET_PROPERTIES_ASPECT_NAME);
 
-    _producer.produceMetadataChangeLog(entityUrn, aspectSpec, metadataChangeLog).get(10, TimeUnit.SECONDS);
+    _producer
+        .produceMetadataChangeLog(entityUrn, aspectSpec, metadataChangeLog)
+        .get(10, TimeUnit.SECONDS);
     final boolean messageConsumed = mclLatch.await(10, TimeUnit.SECONDS);
     assertTrue(messageConsumed);
     assertEquals(mclLatch.getCount(), 0);
@@ -156,7 +166,8 @@ public class SchemaRegistryControllerTest extends AbstractTestNGSpringContextTes
   }
 
   @Test
-  public void testPEConsumption() throws InterruptedException, ExecutionException, TimeoutException {
+  public void testPEConsumption()
+      throws InterruptedException, ExecutionException, TimeoutException {
 
     final Urn entityUrn = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:foo,bar,PROD)");
     final EntityChangeEvent changeEvent = new EntityChangeEvent();
@@ -172,11 +183,11 @@ public class SchemaRegistryControllerTest extends AbstractTestNGSpringContextTes
 
     final PlatformEvent platformEvent = new PlatformEvent();
     platformEvent.setName(CHANGE_EVENT_PLATFORM_EVENT_NAME);
-    platformEvent.setHeader(
-        new PlatformEventHeader().setTimestampMillis(123L));
+    platformEvent.setHeader(new PlatformEventHeader().setTimestampMillis(123L));
     platformEvent.setPayload(GenericRecordUtils.serializePayload(changeEvent));
 
-    _producer.producePlatformEvent(CHANGE_EVENT_PLATFORM_EVENT_NAME, "Some key", platformEvent)
+    _producer
+        .producePlatformEvent(CHANGE_EVENT_PLATFORM_EVENT_NAME, "Some key", platformEvent)
         .get(10, TimeUnit.SECONDS);
 
     final boolean messageConsumed = peLatch.await(10, TimeUnit.SECONDS);
@@ -185,8 +196,11 @@ public class SchemaRegistryControllerTest extends AbstractTestNGSpringContextTes
     assertEquals(peRef.get(), platformEvent);
   }
 
-  @KafkaListener(id = "test-mcp-consumer", topics = Topics.METADATA_CHANGE_PROPOSAL,
-      containerFactory = "kafkaEventConsumer", properties = {"auto.offset.reset:earliest"})
+  @KafkaListener(
+      id = "test-mcp-consumer",
+      topics = Topics.METADATA_CHANGE_PROPOSAL,
+      containerFactory = "kafkaEventConsumer",
+      properties = {"auto.offset.reset:earliest"})
   public void receiveMCP(ConsumerRecord<String, GenericRecord> consumerRecord) {
 
     final GenericRecord value = consumerRecord.value();
@@ -199,8 +213,11 @@ public class SchemaRegistryControllerTest extends AbstractTestNGSpringContextTes
     }
   }
 
-  @KafkaListener(id = "test-mcl-consumer", topics = Topics.METADATA_CHANGE_LOG_VERSIONED,
-      containerFactory = "kafkaEventConsumer", properties = {"auto.offset.reset:earliest"})
+  @KafkaListener(
+      id = "test-mcl-consumer",
+      topics = Topics.METADATA_CHANGE_LOG_VERSIONED,
+      containerFactory = "kafkaEventConsumer",
+      properties = {"auto.offset.reset:earliest"})
   public void receiveMCL(ConsumerRecord<String, GenericRecord> consumerRecord) {
 
     final GenericRecord value = consumerRecord.value();
@@ -212,8 +229,11 @@ public class SchemaRegistryControllerTest extends AbstractTestNGSpringContextTes
     }
   }
 
-  @KafkaListener(id = "test-pe-consumer", topics = Topics.PLATFORM_EVENT,
-      containerFactory = "kafkaEventConsumer", properties = {"auto.offset.reset:earliest"})
+  @KafkaListener(
+      id = "test-pe-consumer",
+      topics = Topics.PLATFORM_EVENT,
+      containerFactory = "kafkaEventConsumer",
+      properties = {"auto.offset.reset:earliest"})
   public void receivePE(ConsumerRecord<String, GenericRecord> consumerRecord) {
 
     final GenericRecord value = consumerRecord.value();

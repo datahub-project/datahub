@@ -1,17 +1,11 @@
 package com.datahub.plugins.common;
 
-/**
- * Supported plugin types
- */
+/** Supported plugin types */
 public enum PluginType {
-  /**
-   * PluginType for Authenticator plugin
-   */
+  /** PluginType for Authenticator plugin */
   AUTHENTICATOR,
 
-  /**
-   * PluginType for Authorizer plugin
-   */
+  /** PluginType for Authorizer plugin */
   AUTHORIZER;
 
   @Override

@@ -14,11 +14,11 @@ import lombok.extern.slf4j.Slf4j;
 /**
  * Retrieves the Global Settings related to the Views feature.
  *
- * This capability requires the 'MANAGE_GLOBAL_VIEWS' Platform Privilege.
+ * <p>This capability requires the 'MANAGE_GLOBAL_VIEWS' Platform Privilege.
  */
 @Slf4j
-public class GlobalViewsSettingsResolver implements
-                                         DataFetcher<CompletableFuture<GlobalViewsSettings>> {
+public class GlobalViewsSettingsResolver
+    implements DataFetcher<CompletableFuture<GlobalViewsSettings>> {
 
   private final SettingsService _settingsService;
 
@@ -27,21 +27,25 @@ public class GlobalViewsSettingsResolver implements
   }
 
   @Override
-  public CompletableFuture<GlobalViewsSettings> get(final DataFetchingEnvironment environment) throws Exception {
+  public CompletableFuture<GlobalViewsSettings> get(final DataFetchingEnvironment environment)
+      throws Exception {
     final QueryContext context = environment.getContext();
-    return CompletableFuture.supplyAsync(() -> {
-      try {
-        final GlobalSettingsInfo globalSettings = _settingsService.getGlobalSettings(context.getAuthentication());
-        return globalSettings != null && globalSettings.hasViews()
-            ? mapGlobalViewsSettings(globalSettings.getViews())
-            : new GlobalViewsSettings();
-      } catch (Exception e) {
-        throw new RuntimeException("Failed to retrieve Global Views Settings", e);
-      }
-    });
+    return CompletableFuture.supplyAsync(
+        () -> {
+          try {
+            final GlobalSettingsInfo globalSettings =
+                _settingsService.getGlobalSettings(context.getAuthentication());
+            return globalSettings != null && globalSettings.hasViews()
+                ? mapGlobalViewsSettings(globalSettings.getViews())
+                : new GlobalViewsSettings();
+          } catch (Exception e) {
+            throw new RuntimeException("Failed to retrieve Global Views Settings", e);
+          }
+        });
   }
 
-  private static GlobalViewsSettings mapGlobalViewsSettings(@Nonnull final com.linkedin.settings.global.GlobalViewsSettings settings) {
+  private static GlobalViewsSettings mapGlobalViewsSettings(
+      @Nonnull final com.linkedin.settings.global.GlobalViewsSettings settings) {
     final GlobalViewsSettings result = new GlobalViewsSettings();
     if (settings.hasDefaultView()) {
       result.setDefaultView(settings.getDefaultView().toString());

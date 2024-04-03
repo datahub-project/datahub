@@ -1,5 +1,9 @@
 package com.linkedin.datahub.graphql.resolvers.step;
 
+import static com.linkedin.datahub.graphql.TestUtils.*;
+import static org.mockito.Mockito.*;
+import static org.testng.Assert.*;
+
 import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
@@ -15,11 +19,6 @@ import graphql.schema.DataFetchingEnvironment;
 import java.util.Collections;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
-
-import static com.linkedin.datahub.graphql.TestUtils.*;
-import static org.mockito.Mockito.*;
-import static org.testng.Assert.*;
-
 
 public class BatchUpdateStepStatesResolverTest {
   private static final Urn ACTOR_URN = UrnUtils.getUrn("urn:li:corpuser:test");
@@ -52,7 +51,8 @@ public class BatchUpdateStepStatesResolverTest {
     input.setStates(ImmutableList.of(firstInput));
     when(_dataFetchingEnvironment.getArgument("input")).thenReturn(input);
 
-    final BatchUpdateStepStatesResult actualBatchResult = _resolver.get(_dataFetchingEnvironment).join();
+    final BatchUpdateStepStatesResult actualBatchResult =
+        _resolver.get(_dataFetchingEnvironment).join();
     assertNotNull(actualBatchResult);
     assertEquals(1, actualBatchResult.getResults().size());
     verify(_entityClient, times(1)).ingestProposal(any(), eq(_authentication), eq(false));

@@ -1,13 +1,15 @@
 package com.linkedin.datahub.graphql.resolvers.ownership;
 
+import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
+
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.CreateOwnershipTypeInput;
+import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.OwnershipTypeEntity;
 import com.linkedin.datahub.graphql.generated.OwnershipTypeInfo;
-import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.metadata.service.OwnershipTypeService;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -16,17 +18,16 @@ import javax.annotation.Nonnull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
-import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
-
-
 @Slf4j
 @RequiredArgsConstructor
-public class CreateOwnershipTypeResolver implements DataFetcher<CompletableFuture<OwnershipTypeEntity>> {
+public class CreateOwnershipTypeResolver
+    implements DataFetcher<CompletableFuture<OwnershipTypeEntity>> {
 
   private final OwnershipTypeService _ownershipTypeService;
 
   @Override
-  public CompletableFuture<OwnershipTypeEntity> get(DataFetchingEnvironment environment) throws Exception {
+  public CompletableFuture<OwnershipTypeEntity> get(DataFetchingEnvironment environment)
+      throws Exception {
     final QueryContext context = environment.getContext();
     final CreateOwnershipTypeInput input =
         bindArgument(environment.getArgument("input"), CreateOwnershipTypeInput.class);
@@ -36,19 +37,25 @@ public class CreateOwnershipTypeResolver implements DataFetcher<CompletableFutur
           "Unauthorized to perform this action. Please contact your DataHub administrator.");
     }
 
-    return CompletableFuture.supplyAsync(() -> {
-      try {
-        final Urn urn = _ownershipTypeService.createOwnershipType(input.getName(), input.getDescription(),
-            context.getAuthentication(), System.currentTimeMillis());
-        return createOwnershipType(urn, input);
-      } catch (Exception e) {
-        throw new RuntimeException(String.format("Failed to perform update against input %s", input), e);
-      }
-    });
+    return CompletableFuture.supplyAsync(
+        () -> {
+          try {
+            final Urn urn =
+                _ownershipTypeService.createOwnershipType(
+                    input.getName(),
+                    input.getDescription(),
+                    context.getAuthentication(),
+                    System.currentTimeMillis());
+            return createOwnershipType(urn, input);
+          } catch (Exception e) {
+            throw new RuntimeException(
+                String.format("Failed to perform update against input %s", input), e);
+          }
+        });
   }
 
-  private OwnershipTypeEntity createOwnershipType(@Nonnull final Urn urn,
-      @Nonnull final CreateOwnershipTypeInput input) {
+  private OwnershipTypeEntity createOwnershipType(
+      @Nonnull final Urn urn, @Nonnull final CreateOwnershipTypeInput input) {
     return OwnershipTypeEntity.builder()
         .setUrn(urn.toString())
         .setType(EntityType.CUSTOM_OWNERSHIP_TYPE)

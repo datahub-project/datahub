@@ -1,5 +1,18 @@
 package com.linkedin.metadata.search;
 
+import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
+import static com.linkedin.metadata.Constants.ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH;
+import static io.datahubproject.test.search.SearchTestUtils.syncAfterWrite;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anySet;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.*;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNull;
+import static org.testng.Assert.assertTrue;
+
+import com.datahub.plugins.auth.authorization.Authorizer;
 import com.datahub.test.Snapshot;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -13,7 +26,9 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.schema.annotation.PathSpecBasedSchemaAnnotationVisitor;
 import com.linkedin.data.template.LongMap;
+import com.linkedin.data.template.SetMode;
 import com.linkedin.metadata.TestEntityUtil;
+import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.config.cache.EntityDocCountCacheConfiguration;
 import com.linkedin.metadata.config.cache.SearchLineageCacheConfiguration;
 import com.linkedin.metadata.config.search.SearchConfiguration;
@@ -23,9 +38,8 @@ import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.LineageDirection;
 import com.linkedin.metadata.graph.LineageRelationship;
 import com.linkedin.metadata.graph.LineageRelationshipArray;
-import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.models.registry.SnapshotEntityRegistry;
-import com.linkedin.metadata.query.SearchFlags;
+import com.linkedin.metadata.query.LineageFlags;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
@@ -46,20 +60,10 @@ import com.linkedin.metadata.search.ranker.SimpleRanker;
 import com.linkedin.metadata.search.utils.QueryUtils;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
-import org.junit.Assert;
-import org.mockito.ArgumentCaptor;
-import org.mockito.Mockito;
-import org.opensearch.client.RestHighLevelClient;
-import org.opensearch.action.search.SearchRequest;
-import org.springframework.cache.CacheManager;
-import org.springframework.cache.concurrent.ConcurrentMapCacheManager;
-import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.Test;
-
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import com.linkedin.r2.RemoteInvocationException;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.RequestContext;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -68,94 +72,113 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+import lombok.Getter;
+import org.junit.Assert;
+import org.mockito.ArgumentCaptor;
+import org.mockito.Mockito;
+import org.opensearch.action.search.SearchRequest;
+import org.opensearch.client.RestHighLevelClient;
+import org.springframework.cache.CacheManager;
+import org.springframework.cache.concurrent.ConcurrentMapCacheManager;
+import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
+import org.testng.annotations.BeforeClass;
+import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.Test;
 
-import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH;
-import static io.datahubproject.test.search.SearchTestUtils.syncAfterWrite;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.anySet;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.reset;
-import static org.mockito.Mockito.spy;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNull;
-import static org.testng.Assert.assertTrue;
-
-abstract public class LineageServiceTestBase extends AbstractTestNGSpringContextTests {
+public abstract class LineageServiceTestBase extends AbstractTestNGSpringContextTests {
 
   @Nonnull
-  abstract protected RestHighLevelClient getSearchClient();
+  protected abstract RestHighLevelClient getSearchClient();
 
   @Nonnull
-  abstract protected ESBulkProcessor getBulkProcessor();
+  protected abstract ESBulkProcessor getBulkProcessor();
 
   @Nonnull
-  abstract protected ESIndexBuilder getIndexBuilder();
+  protected abstract ESIndexBuilder getIndexBuilder();
 
   @Nonnull
-  abstract protected SearchConfiguration getSearchConfiguration();
+  protected abstract SearchConfiguration getSearchConfiguration();
 
   @Nonnull
-  abstract protected CustomSearchConfiguration getCustomSearchConfiguration();
+  protected abstract CustomSearchConfiguration getCustomSearchConfiguration();
 
-  private EntityRegistry _entityRegistry;
-  private IndexConvention _indexConvention;
-  private SettingsBuilder _settingsBuilder;
-  private ElasticSearchService _elasticSearchService;
-  private GraphService _graphService;
-  private CacheManager _cacheManager;
-  private LineageSearchService _lineageSearchService;
-  private RestHighLevelClient _searchClientSpy;
+  private AspectRetriever aspectRetriever;
+  private IndexConvention indexConvention;
+  private SettingsBuilder settingsBuilder;
+  private ElasticSearchService elasticSearchService;
+  private GraphService graphService;
+  private CacheManager cacheManager;
+  private LineageSearchService lineageSearchService;
+  private RestHighLevelClient searchClientSpy;
+
+  @Getter private OperationContext operationContext;
 
   private static final String ENTITY_NAME = "testEntity";
   private static final Urn TEST_URN = TestEntityUtil.getTestEntityUrn();
   private static final String TEST = "test";
   private static final String TEST1 = "test1";
-  private static final Urn TEST_DATASET_URN = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,test,PROD)");
+  private static final Urn TEST_DATASET_URN =
+      UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,test,PROD)");
 
   @BeforeClass
   public void disableAssert() {
-    PathSpecBasedSchemaAnnotationVisitor.class.getClassLoader()
+    PathSpecBasedSchemaAnnotationVisitor.class
+        .getClassLoader()
         .setClassAssertionStatus(PathSpecBasedSchemaAnnotationVisitor.class.getName(), false);
   }
 
   @BeforeClass
-  public void setup() {
-    _entityRegistry = new SnapshotEntityRegistry(new Snapshot());
-    _indexConvention = new IndexConventionImpl("lineage_search_service_test");
-    _settingsBuilder = new SettingsBuilder(null);
-    _elasticSearchService = buildEntitySearchService();
-    _elasticSearchService.configure();
-    _cacheManager = new ConcurrentMapCacheManager();
-    _graphService = mock(GraphService.class);
+  public void setup() throws RemoteInvocationException, URISyntaxException {
+    aspectRetriever = mock(AspectRetriever.class);
+    when(aspectRetriever.getEntityRegistry())
+        .thenReturn(new SnapshotEntityRegistry(new Snapshot()));
+    when(aspectRetriever.getLatestAspectObjects(any(), any())).thenReturn(Map.of());
+    indexConvention = new IndexConventionImpl("lineage_search_service_test");
+    operationContext =
+        TestOperationContexts.systemContextNoSearchAuthorization(
+                aspectRetriever.getEntityRegistry(), indexConvention)
+            .asSession(RequestContext.TEST, Authorizer.EMPTY, TestOperationContexts.TEST_USER_AUTH);
+    settingsBuilder = new SettingsBuilder(null);
+    elasticSearchService = buildEntitySearchService();
+    elasticSearchService.configure();
+    cacheManager = new ConcurrentMapCacheManager();
+    graphService = mock(GraphService.class);
     resetService(true, false);
   }
 
   private void resetService(boolean withCache, boolean withLightingCache) {
-    CachingEntitySearchService cachingEntitySearchService = new CachingEntitySearchService(_cacheManager, _elasticSearchService, 100, true);
-    EntityDocCountCacheConfiguration entityDocCountCacheConfiguration = new EntityDocCountCacheConfiguration();
+    CachingEntitySearchService cachingEntitySearchService =
+        new CachingEntitySearchService(cacheManager, elasticSearchService, 100, true);
+    EntityDocCountCacheConfiguration entityDocCountCacheConfiguration =
+        new EntityDocCountCacheConfiguration();
     entityDocCountCacheConfiguration.setTtlSeconds(600L);
 
-    SearchLineageCacheConfiguration searchLineageCacheConfiguration = new SearchLineageCacheConfiguration();
+    SearchLineageCacheConfiguration searchLineageCacheConfiguration =
+        new SearchLineageCacheConfiguration();
     searchLineageCacheConfiguration.setTtlSeconds(600L);
     searchLineageCacheConfiguration.setLightningThreshold(withLightingCache ? -1 : 300);
 
-    _lineageSearchService = spy(new LineageSearchService(
-        new SearchService(
-            new EntityDocCountCache(_entityRegistry, _elasticSearchService, entityDocCountCacheConfiguration),
-            cachingEntitySearchService,
-            new SimpleRanker()),
-        _graphService, _cacheManager.getCache("test"), withCache, searchLineageCacheConfiguration));
+    lineageSearchService =
+        spy(
+            new LineageSearchService(
+                new SearchService(
+                    new EntityDocCountCache(
+                        aspectRetriever.getEntityRegistry(),
+                        elasticSearchService,
+                        entityDocCountCacheConfiguration),
+                    cachingEntitySearchService,
+                    new SimpleRanker()),
+                graphService,
+                cacheManager.getCache("test"),
+                withCache,
+                searchLineageCacheConfiguration));
   }
 
   @BeforeMethod
   public void wipe() throws Exception {
-    _elasticSearchService.clear();
+    elasticSearchService.clear();
     clearCache(false);
     syncAfterWrite(getBulkProcessor());
   }
@@ -163,23 +186,45 @@ abstract public class LineageServiceTestBase extends AbstractTestNGSpringContext
   @Nonnull
   private ElasticSearchService buildEntitySearchService() {
     EntityIndexBuilders indexBuilders =
-        new EntityIndexBuilders(getIndexBuilder(), _entityRegistry,
-            _indexConvention, _settingsBuilder);
-    _searchClientSpy = spy(getSearchClient());
-    ESSearchDAO searchDAO = new ESSearchDAO(_entityRegistry, _searchClientSpy, _indexConvention, false,
-        ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH, getSearchConfiguration(), null);
-    ESBrowseDAO browseDAO = new ESBrowseDAO(_entityRegistry, _searchClientSpy, _indexConvention, getSearchConfiguration(), getCustomSearchConfiguration());
-    ESWriteDAO writeDAO = new ESWriteDAO(_entityRegistry, _searchClientSpy, _indexConvention, getBulkProcessor(), 1);
-    return new ElasticSearchService(indexBuilders, searchDAO, browseDAO, writeDAO);
+        new EntityIndexBuilders(
+            getIndexBuilder(),
+            aspectRetriever.getEntityRegistry(),
+            indexConvention,
+            settingsBuilder);
+    searchClientSpy = spy(getSearchClient());
+    ESSearchDAO searchDAO =
+        new ESSearchDAO(
+            searchClientSpy,
+            indexConvention,
+            false,
+            ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH,
+            getSearchConfiguration(),
+            null);
+    ESBrowseDAO browseDAO =
+        new ESBrowseDAO(
+            searchClientSpy,
+            indexConvention,
+            getSearchConfiguration(),
+            getCustomSearchConfiguration());
+    ESWriteDAO writeDAO =
+        new ESWriteDAO(
+            aspectRetriever.getEntityRegistry(),
+            searchClientSpy,
+            indexConvention,
+            getBulkProcessor(),
+            1);
+    return new ElasticSearchService(indexBuilders, searchDAO, browseDAO, writeDAO)
+        .postConstruct(aspectRetriever);
   }
 
   private void clearCache(boolean withLightingCache) {
-    _cacheManager.getCacheNames().forEach(cache -> _cacheManager.getCache(cache).clear());
+    cacheManager.getCacheNames().forEach(cache -> cacheManager.getCache(cache).clear());
     resetService(true, withLightingCache);
   }
 
   private EntityLineageResult mockResult(List<LineageRelationship> lineageRelationships) {
-    return new EntityLineageResult().setRelationships(new LineageRelationshipArray(lineageRelationships))
+    return new EntityLineageResult()
+        .setRelationships(new LineageRelationshipArray(lineageRelationships))
         .setStart(0)
         .setCount(10)
         .setTotal(lineageRelationships.size());
@@ -187,18 +232,22 @@ abstract public class LineageServiceTestBase extends AbstractTestNGSpringContext
 
   @Test
   public void testSearchService() throws Exception {
-    when(_graphService.getLineage(eq(TEST_URN), eq(LineageDirection.DOWNSTREAM), anyInt(), anyInt(),
-        anyInt(), eq(null), eq(null))).thenReturn(mockResult(Collections.emptyList()));
+    when(graphService.getLineage(
+            eq(TEST_URN), eq(LineageDirection.DOWNSTREAM), anyInt(), anyInt(), anyInt(), eq(null)))
+        .thenReturn(mockResult(Collections.emptyList()));
     LineageSearchResult searchResult = searchAcrossLineage(null, TEST1);
     assertEquals(searchResult.getNumEntities().intValue(), 0);
     searchResult = searchAcrossLineage(null, TEST1);
     assertEquals(searchResult.getNumEntities().intValue(), 0);
     clearCache(false);
 
-    when(_graphService.getLineage(eq(TEST_URN), eq(LineageDirection.DOWNSTREAM), anyInt(), anyInt(),
-        anyInt(), eq(null), eq(null))).thenReturn(
-        mockResult(ImmutableList.of(new LineageRelationship().setEntity(TEST_URN).setType("test").setDegree(1))));
-    //just testing null input does not throw any exception
+    when(graphService.getLineage(
+            eq(TEST_URN), eq(LineageDirection.DOWNSTREAM), anyInt(), anyInt(), anyInt(), eq(null)))
+        .thenReturn(
+            mockResult(
+                ImmutableList.of(
+                    new LineageRelationship().setEntity(TEST_URN).setType("test").setDegree(1))));
+    // just testing null input does not throw any exception
     searchAcrossLineage(null, null);
 
     searchResult = searchAcrossLineage(null, TEST);
@@ -213,19 +262,33 @@ abstract public class LineageServiceTestBase extends AbstractTestNGSpringContext
     document.set("keyPart1", JsonNodeFactory.instance.textNode("test"));
     document.set("textFieldOverride", JsonNodeFactory.instance.textNode("textFieldOverride"));
     document.set("browsePaths", JsonNodeFactory.instance.textNode("/a/b/c"));
-    _elasticSearchService.upsertDocument(ENTITY_NAME, document.toString(), urn.toString());
+    elasticSearchService.upsertDocument(ENTITY_NAME, document.toString(), urn.toString());
     syncAfterWrite(getBulkProcessor());
 
-    when(_graphService.getLineage(eq(TEST_URN), eq(LineageDirection.DOWNSTREAM), anyInt(), anyInt(),
-        anyInt(), eq(null), eq(null))).thenReturn(mockResult(Collections.emptyList()));
+    when(graphService.getLineage(
+            eq(TEST_URN),
+            eq(LineageDirection.DOWNSTREAM),
+            anyInt(),
+            anyInt(),
+            anyInt(),
+            eq(new LineageFlags())))
+        .thenReturn(mockResult(Collections.emptyList()));
     searchResult = searchAcrossLineage(null, TEST1);
     assertEquals(searchResult.getNumEntities().intValue(), 0);
     assertEquals(searchResult.getEntities().size(), 0);
     clearCache(false);
 
-    when(_graphService.getLineage(eq(TEST_URN), eq(LineageDirection.DOWNSTREAM), anyInt(), anyInt(),
-        anyInt(), eq(null), eq(null))).thenReturn(
-        mockResult(ImmutableList.of(new LineageRelationship().setEntity(urn).setType("test").setDegree(1))));
+    when(graphService.getLineage(
+            eq(TEST_URN),
+            eq(LineageDirection.DOWNSTREAM),
+            anyInt(),
+            anyInt(),
+            anyInt(),
+            eq(new LineageFlags())))
+        .thenReturn(
+            mockResult(
+                ImmutableList.of(
+                    new LineageRelationship().setEntity(urn).setType("test").setDegree(1))));
     searchResult = searchAcrossLineage(null, TEST1);
     assertEquals(searchResult.getNumEntities().intValue(), 1);
     assertEquals(searchResult.getEntities().get(0).getEntity(), urn);
@@ -247,102 +310,194 @@ abstract public class LineageServiceTestBase extends AbstractTestNGSpringContext
     document2.set("keyPart1", JsonNodeFactory.instance.textNode("random"));
     document2.set("textFieldOverride", JsonNodeFactory.instance.textNode("textFieldOverride2"));
     document2.set("browsePaths", JsonNodeFactory.instance.textNode("/b/c"));
-    _elasticSearchService.upsertDocument(ENTITY_NAME, document2.toString(), urn2.toString());
+    elasticSearchService.upsertDocument(ENTITY_NAME, document2.toString(), urn2.toString());
     syncAfterWrite(getBulkProcessor());
 
-    Mockito.reset(_searchClientSpy);
+    Mockito.reset(searchClientSpy);
     searchResult = searchAcrossLineage(null, TEST1);
     assertEquals(searchResult.getNumEntities().intValue(), 1);
     assertEquals(searchResult.getEntities().get(0).getEntity(), urn);
     // Verify that highlighting was turned off in the query
-    ArgumentCaptor<SearchRequest> searchRequestCaptor = ArgumentCaptor.forClass(SearchRequest.class);
-    Mockito.verify(_searchClientSpy, times(1)).search(searchRequestCaptor.capture(), any());
+    ArgumentCaptor<SearchRequest> searchRequestCaptor =
+        ArgumentCaptor.forClass(SearchRequest.class);
+    Mockito.verify(searchClientSpy, times(1)).search(searchRequestCaptor.capture(), any());
     SearchRequest capturedRequest = searchRequestCaptor.getValue();
     assertNull(capturedRequest.source().highlighter());
     clearCache(false);
 
-    when(_graphService.getLineage(eq(TEST_URN), eq(LineageDirection.DOWNSTREAM), anyInt(), anyInt(),
-        anyInt(), eq(null), eq(null))).thenReturn(
-        mockResult(ImmutableList.of(new LineageRelationship().setEntity(urn2).setType("test").setDegree(1))));
+    when(graphService.getLineage(
+            eq(TEST_URN),
+            eq(LineageDirection.DOWNSTREAM),
+            anyInt(),
+            anyInt(),
+            anyInt(),
+            eq(new LineageFlags())))
+        .thenReturn(
+            mockResult(
+                ImmutableList.of(
+                    new LineageRelationship().setEntity(urn2).setType("test").setDegree(1))));
     searchResult = searchAcrossLineage(null, TEST1);
     assertEquals(searchResult.getNumEntities().intValue(), 0);
     assertEquals(searchResult.getEntities().size(), 0);
     clearCache(false);
 
     // Test Cache Behavior
-    Mockito.reset(_graphService);
+    Mockito.reset(graphService);
 
     // Case 1: Use the maxHops in the cache.
-    when(_graphService.getLineage(eq(TEST_URN), eq(LineageDirection.DOWNSTREAM), anyInt(), anyInt(),
-        eq(1000), eq(null), eq(null))).thenReturn(mockResult(
-        ImmutableList.of(
-            new LineageRelationship().setDegree(3).setType("type").setEntity(urn)
-        )
-    ));
+    when(graphService.getLineage(
+            eq(TEST_URN),
+            eq(LineageDirection.DOWNSTREAM),
+            anyInt(),
+            anyInt(),
+            eq(1000),
+            eq(new LineageFlags())))
+        .thenReturn(
+            mockResult(
+                ImmutableList.of(
+                    new LineageRelationship().setDegree(3).setType("type").setEntity(urn))));
 
     searchResult =
-        _lineageSearchService.searchAcrossLineage(TEST_URN, LineageDirection.DOWNSTREAM, ImmutableList.of(ENTITY_NAME),
-            "test1", 1000, null, null, 0, 10, null, null,
-            new SearchFlags().setSkipCache(false));
+        lineageSearchService.searchAcrossLineage(
+            getOperationContext()
+                .withSearchFlags(flags -> flags.setSkipCache(true))
+                .withLineageFlags(flags -> flags),
+            TEST_URN,
+            LineageDirection.DOWNSTREAM,
+            ImmutableList.of(ENTITY_NAME),
+            "test1",
+            1000,
+            null,
+            null,
+            0,
+            10);
 
     assertEquals(searchResult.getNumEntities().intValue(), 1);
-    Mockito.verify(_graphService, times(1)).getLineage(eq(TEST_URN), eq(LineageDirection.DOWNSTREAM), anyInt(), anyInt(),
-        eq(1000), eq(null), eq(null));
+    Mockito.verify(graphService, times(1))
+        .getLineage(
+            eq(TEST_URN),
+            eq(LineageDirection.DOWNSTREAM),
+            anyInt(),
+            anyInt(),
+            eq(1000),
+            eq(new LineageFlags()));
 
     // Hit the cache on second attempt
-    searchResult = _lineageSearchService.searchAcrossLineage(TEST_URN, LineageDirection.DOWNSTREAM, ImmutableList.of(ENTITY_NAME),
-        "test1", 1000, null, null, 0, 10, null, null,
-        new SearchFlags().setSkipCache(false));
+    searchResult =
+        lineageSearchService.searchAcrossLineage(
+            getOperationContext()
+                .withSearchFlags(flags -> flags.setSkipCache(false))
+                .withLineageFlags(flags -> flags),
+            TEST_URN,
+            LineageDirection.DOWNSTREAM,
+            ImmutableList.of(ENTITY_NAME),
+            "test1",
+            1000,
+            null,
+            null,
+            0,
+            10);
     assertEquals(searchResult.getNumEntities().intValue(), 1);
-    Mockito.verify(_graphService, times(1)).getLineage(eq(TEST_URN), eq(LineageDirection.DOWNSTREAM), anyInt(), anyInt(),
-        eq(1000), eq(null), eq(null));
-
+    Mockito.verify(graphService, times(1))
+        .getLineage(
+            eq(TEST_URN),
+            eq(LineageDirection.DOWNSTREAM),
+            anyInt(),
+            anyInt(),
+            eq(1000),
+            eq(new LineageFlags()));
 
     // Case 2: Use the start and end time in the cache.
-    when(_graphService.getLineage(eq(TEST_URN), eq(LineageDirection.DOWNSTREAM), anyInt(), anyInt(),
-        eq(1000), eq(0L), eq(1L))).thenReturn(mockResult(
-        ImmutableList.of(
-            new LineageRelationship().setDegree(3).setType("type").setEntity(urn)
-        )
-    ));
+    when(graphService.getLineage(
+            eq(TEST_URN),
+            eq(LineageDirection.DOWNSTREAM),
+            anyInt(),
+            anyInt(),
+            eq(1000),
+            eq(new LineageFlags().setStartTimeMillis(0L).setEndTimeMillis(1L))))
+        .thenReturn(
+            mockResult(
+                ImmutableList.of(
+                    new LineageRelationship().setDegree(3).setType("type").setEntity(urn))));
 
     searchResult =
-        _lineageSearchService.searchAcrossLineage(TEST_URN, LineageDirection.DOWNSTREAM, ImmutableList.of(), "test1",
-            null, null, null, 0, 10, 0L, 1L,
-            new SearchFlags().setSkipCache(false));
+        lineageSearchService.searchAcrossLineage(
+            getOperationContext()
+                .withSearchFlags(flags -> flags.setSkipCache(false))
+                .withLineageFlags(flags -> flags.setStartTimeMillis(0L).setEndTimeMillis(1L)),
+            TEST_URN,
+            LineageDirection.DOWNSTREAM,
+            ImmutableList.of(),
+            "test1",
+            null,
+            null,
+            null,
+            0,
+            10);
 
     assertEquals(searchResult.getNumEntities().intValue(), 1);
-    Mockito.verify(_graphService, times(1)).getLineage(eq(TEST_URN), eq(LineageDirection.DOWNSTREAM), anyInt(), anyInt(),
-        eq(1000), eq(0L), eq(1L));
+    Mockito.verify(graphService, times(1))
+        .getLineage(
+            eq(TEST_URN),
+            eq(LineageDirection.DOWNSTREAM),
+            anyInt(),
+            anyInt(),
+            eq(1000),
+            eq(new LineageFlags().setStartTimeMillis(0L).setEndTimeMillis(1L)));
 
     // Hit the cache on second attempt
-    searchResult = _lineageSearchService.searchAcrossLineage(TEST_URN, LineageDirection.DOWNSTREAM, ImmutableList.of(ENTITY_NAME),
-        "test1", null, null, null, 0, 10, 0L, 1L,
-        new SearchFlags().setSkipCache(false));
+    searchResult =
+        lineageSearchService.searchAcrossLineage(
+            getOperationContext()
+                .withSearchFlags(flags -> flags.setSkipCache(false))
+                .withLineageFlags(flags -> flags.setStartTimeMillis(0L).setEndTimeMillis(1L)),
+            TEST_URN,
+            LineageDirection.DOWNSTREAM,
+            ImmutableList.of(ENTITY_NAME),
+            "test1",
+            null,
+            null,
+            null,
+            0,
+            10);
     assertEquals(searchResult.getNumEntities().intValue(), 1);
-    Mockito.verify(_graphService, times(1)).getLineage(eq(TEST_URN), eq(LineageDirection.DOWNSTREAM), anyInt(), anyInt(),
-        eq(1000), eq(0L), eq(1L));
+    Mockito.verify(graphService, times(1))
+        .getLineage(
+            eq(TEST_URN),
+            eq(LineageDirection.DOWNSTREAM),
+            anyInt(),
+            anyInt(),
+            eq(1000),
+            eq(new LineageFlags().setStartTimeMillis(0L).setEndTimeMillis(1L)));
 
     clearCache(false);
 
     // Cleanup
-    _elasticSearchService.deleteDocument(ENTITY_NAME, urn.toString());
-    _elasticSearchService.deleteDocument(ENTITY_NAME, urn2.toString());
+    elasticSearchService.deleteDocument(ENTITY_NAME, urn.toString());
+    elasticSearchService.deleteDocument(ENTITY_NAME, urn2.toString());
     syncAfterWrite(getBulkProcessor());
 
-    when(_graphService.getLineage(eq(TEST_URN), eq(LineageDirection.DOWNSTREAM), anyInt(), anyInt(),
-        anyInt())).thenReturn(
-        mockResult(ImmutableList.of(new LineageRelationship().setEntity(urn).setType("test1").setDegree(1))));
+    when(graphService.getLineage(
+            eq(TEST_URN), eq(LineageDirection.DOWNSTREAM), anyInt(), anyInt(), anyInt()))
+        .thenReturn(
+            mockResult(
+                ImmutableList.of(
+                    new LineageRelationship().setEntity(urn).setType("test1").setDegree(1))));
     searchResult = searchAcrossLineage(null, TEST1);
 
     assertEquals(searchResult.getNumEntities().intValue(), 0);
-
   }
 
   @Test
   public void testScrollAcrossLineage() throws Exception {
-    when(_graphService.getLineage(eq(TEST_URN), eq(LineageDirection.DOWNSTREAM), anyInt(), anyInt(),
-        anyInt(), eq(null), eq(null))).thenReturn(mockResult(Collections.emptyList()));
+    when(graphService.getLineage(
+            eq(TEST_URN),
+            eq(LineageDirection.DOWNSTREAM),
+            anyInt(),
+            anyInt(),
+            anyInt(),
+            eq(new LineageFlags())))
+        .thenReturn(mockResult(Collections.emptyList()));
     LineageScrollResult scrollResult = scrollAcrossLineage(null, TEST1);
     assertEquals(scrollResult.getNumEntities().intValue(), 0);
     assertNull(scrollResult.getScrollId());
@@ -351,9 +506,17 @@ abstract public class LineageServiceTestBase extends AbstractTestNGSpringContext
     assertNull(scrollResult.getScrollId());
     clearCache(false);
 
-    when(_graphService.getLineage(eq(TEST_URN), eq(LineageDirection.DOWNSTREAM), anyInt(), anyInt(),
-        anyInt(), eq(null), eq(null))).thenReturn(
-        mockResult(ImmutableList.of(new LineageRelationship().setEntity(TEST_URN).setType("test").setDegree(1))));
+    when(graphService.getLineage(
+            eq(TEST_URN),
+            eq(LineageDirection.DOWNSTREAM),
+            anyInt(),
+            anyInt(),
+            anyInt(),
+            eq(new LineageFlags())))
+        .thenReturn(
+            mockResult(
+                ImmutableList.of(
+                    new LineageRelationship().setEntity(TEST_URN).setType("test").setDegree(1))));
     // just testing null input does not throw any exception
     scrollAcrossLineage(null, null);
 
@@ -371,20 +534,34 @@ abstract public class LineageServiceTestBase extends AbstractTestNGSpringContext
     document.set("keyPart1", JsonNodeFactory.instance.textNode("test"));
     document.set("textFieldOverride", JsonNodeFactory.instance.textNode("textFieldOverride"));
     document.set("browsePaths", JsonNodeFactory.instance.textNode("/a/b/c"));
-    _elasticSearchService.upsertDocument(ENTITY_NAME, document.toString(), urn.toString());
+    elasticSearchService.upsertDocument(ENTITY_NAME, document.toString(), urn.toString());
     syncAfterWrite(getBulkProcessor());
 
-    when(_graphService.getLineage(eq(TEST_URN), eq(LineageDirection.DOWNSTREAM), anyInt(), anyInt(),
-        anyInt(), eq(null), eq(null))).thenReturn(mockResult(Collections.emptyList()));
+    when(graphService.getLineage(
+            eq(TEST_URN),
+            eq(LineageDirection.DOWNSTREAM),
+            anyInt(),
+            anyInt(),
+            anyInt(),
+            eq(new LineageFlags())))
+        .thenReturn(mockResult(Collections.emptyList()));
     scrollResult = scrollAcrossLineage(null, TEST1);
     assertEquals(scrollResult.getNumEntities().intValue(), 0);
     assertEquals(scrollResult.getEntities().size(), 0);
     assertNull(scrollResult.getScrollId());
     clearCache(false);
 
-    when(_graphService.getLineage(eq(TEST_URN), eq(LineageDirection.DOWNSTREAM), anyInt(), anyInt(),
-        anyInt(), eq(null), eq(null))).thenReturn(
-        mockResult(ImmutableList.of(new LineageRelationship().setEntity(urn).setType("test").setDegree(1))));
+    when(graphService.getLineage(
+            eq(TEST_URN),
+            eq(LineageDirection.DOWNSTREAM),
+            anyInt(),
+            anyInt(),
+            anyInt(),
+            eq(new LineageFlags())))
+        .thenReturn(
+            mockResult(
+                ImmutableList.of(
+                    new LineageRelationship().setEntity(urn).setType("test").setDegree(1))));
     scrollResult = scrollAcrossLineage(null, TEST1);
     assertEquals(scrollResult.getNumEntities().intValue(), 1);
     assertEquals(scrollResult.getEntities().get(0).getEntity(), urn);
@@ -404,12 +581,15 @@ abstract public class LineageServiceTestBase extends AbstractTestNGSpringContext
     clearCache(false);
 
     // Cleanup
-    _elasticSearchService.deleteDocument(ENTITY_NAME, urn.toString());
+    elasticSearchService.deleteDocument(ENTITY_NAME, urn.toString());
     syncAfterWrite(getBulkProcessor());
 
-    when(_graphService.getLineage(eq(TEST_URN), eq(LineageDirection.DOWNSTREAM), anyInt(), anyInt(),
-        anyInt())).thenReturn(
-        mockResult(ImmutableList.of(new LineageRelationship().setEntity(urn).setType("test1").setDegree(1))));
+    when(graphService.getLineage(
+            eq(TEST_URN), eq(LineageDirection.DOWNSTREAM), anyInt(), anyInt(), anyInt()))
+        .thenReturn(
+            mockResult(
+                ImmutableList.of(
+                    new LineageRelationship().setEntity(urn).setType("test1").setDegree(1))));
     scrollResult = scrollAcrossLineage(null, TEST1);
 
     assertEquals(scrollResult.getNumEntities().intValue(), 0);
@@ -426,15 +606,29 @@ abstract public class LineageServiceTestBase extends AbstractTestNGSpringContext
     // Enable lightning
     resetService(true, true);
 
-    when(_graphService.getLineage(eq(TEST_URN), eq(LineageDirection.DOWNSTREAM), anyInt(), anyInt(),
-            anyInt(), eq(null), eq(null))).thenReturn(mockResult(Collections.emptyList()));
+    when(graphService.getLineage(
+            eq(TEST_URN),
+            eq(LineageDirection.DOWNSTREAM),
+            anyInt(),
+            anyInt(),
+            anyInt(),
+            eq(new LineageFlags())))
+        .thenReturn(mockResult(Collections.emptyList()));
     LineageSearchResult searchResult = searchAcrossLineage(null, testStar);
     assertEquals(searchResult.getNumEntities().intValue(), 0);
     clearCache(true);
 
-    when(_graphService.getLineage(eq(TEST_URN), eq(LineageDirection.DOWNSTREAM), anyInt(), anyInt(),
-            anyInt(), eq(null), eq(null))).thenReturn(
-            mockResult(ImmutableList.of(new LineageRelationship().setEntity(TEST_URN).setType("test").setDegree(1))));
+    when(graphService.getLineage(
+            eq(TEST_URN),
+            eq(LineageDirection.DOWNSTREAM),
+            anyInt(),
+            anyInt(),
+            anyInt(),
+            eq(new LineageFlags())))
+        .thenReturn(
+            mockResult(
+                ImmutableList.of(
+                    new LineageRelationship().setEntity(TEST_URN).setType("test").setDegree(1))));
     searchResult = searchAcrossLineage(null, testStar);
     assertEquals(searchResult.getNumEntities().intValue(), 1);
     clearCache(true);
@@ -445,35 +639,52 @@ abstract public class LineageServiceTestBase extends AbstractTestNGSpringContext
     document.set("keyPart1", JsonNodeFactory.instance.textNode("test"));
     document.set("textFieldOverride", JsonNodeFactory.instance.textNode("textFieldOverride"));
     document.set("browsePaths", JsonNodeFactory.instance.textNode("/a/b/c"));
-    _elasticSearchService.upsertDocument(ENTITY_NAME, document.toString(), urn.toString());
+    elasticSearchService.upsertDocument(ENTITY_NAME, document.toString(), urn.toString());
     syncAfterWrite(getBulkProcessor());
 
-    when(_graphService.getLineage(eq(TEST_URN), eq(LineageDirection.DOWNSTREAM), anyInt(), anyInt(),
-            anyInt(), eq(null), eq(null))).thenReturn(mockResult(Collections.emptyList()));
+    when(graphService.getLineage(
+            eq(TEST_URN),
+            eq(LineageDirection.DOWNSTREAM),
+            anyInt(),
+            anyInt(),
+            anyInt(),
+            eq(new LineageFlags())))
+        .thenReturn(mockResult(Collections.emptyList()));
     searchResult = searchAcrossLineage(null, testStar);
     assertEquals(searchResult.getNumEntities().intValue(), 0);
     assertEquals(searchResult.getEntities().size(), 0);
     clearCache(true);
 
-    when(_graphService.getLineage(eq(TEST_URN), eq(LineageDirection.DOWNSTREAM), anyInt(), anyInt(),
-            anyInt(), eq(null), eq(null))).thenReturn(
-            mockResult(ImmutableList.of(new LineageRelationship().setEntity(urn).setType("test").setDegree(1))));
+    when(graphService.getLineage(
+            eq(TEST_URN),
+            eq(LineageDirection.DOWNSTREAM),
+            anyInt(),
+            anyInt(),
+            anyInt(),
+            eq(new LineageFlags())))
+        .thenReturn(
+            mockResult(
+                ImmutableList.of(
+                    new LineageRelationship().setEntity(urn).setType("test").setDegree(1))));
     searchResult = searchAcrossLineage(null, testStar);
     assertEquals(searchResult.getNumEntities().intValue(), 1);
     assertEquals(searchResult.getEntities().get(0).getEntity(), urn);
     assertEquals(searchResult.getEntities().get(0).getDegree().intValue(), 1);
-    verify(_lineageSearchService, times(1)).getLightningSearchResult(any(), any(), anyInt(), anyInt(), anySet());
+    verify(lineageSearchService, times(1))
+        .getLightningSearchResult(any(), any(), anyInt(), anyInt(), anySet());
 
     searchResult = searchAcrossLineage(QueryUtils.newFilter("degree.keyword", "1"), testStar);
     assertEquals(searchResult.getNumEntities().intValue(), 1);
     assertEquals(searchResult.getEntities().get(0).getEntity(), urn);
     assertEquals(searchResult.getEntities().get(0).getDegree().intValue(), 1);
-    verify(_lineageSearchService, times(2)).getLightningSearchResult(any(), any(), anyInt(), anyInt(), anySet());
+    verify(lineageSearchService, times(2))
+        .getLightningSearchResult(any(), any(), anyInt(), anyInt(), anySet());
 
     searchResult = searchAcrossLineage(QueryUtils.newFilter("degree.keyword", "2"), testStar);
     assertEquals(searchResult.getNumEntities().intValue(), 0);
     assertEquals(searchResult.getEntities().size(), 0);
-    verify(_lineageSearchService, times(3)).getLightningSearchResult(any(), any(), anyInt(), anyInt(), anySet());
+    verify(lineageSearchService, times(3))
+        .getLightningSearchResult(any(), any(), anyInt(), anyInt(), anySet());
     clearCache(true); // resets spy
 
     Urn urn2 = new TestEntityUrn("test2", "urn2", "VALUE_2");
@@ -482,171 +693,354 @@ abstract public class LineageServiceTestBase extends AbstractTestNGSpringContext
     document2.set("keyPart1", JsonNodeFactory.instance.textNode("random"));
     document2.set("textFieldOverride", JsonNodeFactory.instance.textNode("textFieldOverride2"));
     document2.set("browsePaths", JsonNodeFactory.instance.textNode("/b/c"));
-    _elasticSearchService.upsertDocument(ENTITY_NAME, document2.toString(), urn2.toString());
+    elasticSearchService.upsertDocument(ENTITY_NAME, document2.toString(), urn2.toString());
     syncAfterWrite(getBulkProcessor());
 
     searchResult = searchAcrossLineage(null, testStar);
     assertEquals(searchResult.getNumEntities().intValue(), 1);
     assertEquals(searchResult.getEntities().get(0).getEntity(), urn);
-    verify(_lineageSearchService, times(1)).getLightningSearchResult(any(), any(), anyInt(), anyInt(), anySet());
+    verify(lineageSearchService, times(1))
+        .getLightningSearchResult(any(), any(), anyInt(), anyInt(), anySet());
     clearCache(true);
 
-    when(_graphService.getLineage(eq(TEST_URN), eq(LineageDirection.DOWNSTREAM), anyInt(), anyInt(),
-            anyInt(), eq(null), eq(null))).thenReturn(
-            mockResult(ImmutableList.of(new LineageRelationship().setEntity(urn2).setType("test").setDegree(1))));
+    when(graphService.getLineage(
+            eq(TEST_URN),
+            eq(LineageDirection.DOWNSTREAM),
+            anyInt(),
+            anyInt(),
+            anyInt(),
+            eq(new LineageFlags())))
+        .thenReturn(
+            mockResult(
+                ImmutableList.of(
+                    new LineageRelationship().setEntity(urn2).setType("test").setDegree(1))));
     searchResult = searchAcrossLineage(null, testStar);
     assertEquals(searchResult.getNumEntities().intValue(), 1);
     assertEquals(searchResult.getEntities().size(), 1);
-    verify(_lineageSearchService, times(1)).getLightningSearchResult(any(), any(), anyInt(), anyInt(), anySet());
+    verify(lineageSearchService, times(1))
+        .getLightningSearchResult(any(), any(), anyInt(), anyInt(), anySet());
     clearCache(true);
 
     // Test Cache Behavior
-    reset(_graphService);
-    reset(_lineageSearchService);
+    reset(graphService);
+    reset(lineageSearchService);
 
     // Case 1: Use the maxHops in the cache.
-    when(_graphService.getLineage(eq(TEST_URN), eq(LineageDirection.DOWNSTREAM), anyInt(), anyInt(),
-            eq(1000), eq(null), eq(null))).thenReturn(mockResult(
-            ImmutableList.of(
-                    new LineageRelationship().setDegree(3).setType("type").setEntity(urn)
-            )
-    ));
+    when(graphService.getLineage(
+            eq(TEST_URN),
+            eq(LineageDirection.DOWNSTREAM),
+            anyInt(),
+            anyInt(),
+            eq(1000),
+            eq(new LineageFlags())))
+        .thenReturn(
+            mockResult(
+                ImmutableList.of(
+                    new LineageRelationship().setDegree(3).setType("type").setEntity(urn))));
 
     searchResult =
-            _lineageSearchService.searchAcrossLineage(TEST_URN, LineageDirection.DOWNSTREAM, ImmutableList.of(ENTITY_NAME),
-                    "*", 1000, null, null, 0, 10, null, null,
-                    new SearchFlags().setSkipCache(false));
+        lineageSearchService.searchAcrossLineage(
+            getOperationContext()
+                .withSearchFlags(flags -> flags.setSkipCache(false))
+                .withLineageFlags(flags -> flags),
+            TEST_URN,
+            LineageDirection.DOWNSTREAM,
+            ImmutableList.of(ENTITY_NAME),
+            "*",
+            1000,
+            null,
+            null,
+            0,
+            10);
 
     assertEquals(searchResult.getNumEntities().intValue(), 1);
-    verify(_graphService, times(1)).getLineage(eq(TEST_URN), eq(LineageDirection.DOWNSTREAM), anyInt(), anyInt(),
-            eq(1000), eq(null), eq(null));
-    verify(_lineageSearchService, times(1)).getLightningSearchResult(any(), any(), anyInt(), anyInt(), anySet());
+    verify(graphService, times(1))
+        .getLineage(
+            eq(TEST_URN),
+            eq(LineageDirection.DOWNSTREAM),
+            anyInt(),
+            anyInt(),
+            eq(1000),
+            eq(new LineageFlags()));
+    verify(lineageSearchService, times(1))
+        .getLightningSearchResult(any(), any(), anyInt(), anyInt(), anySet());
 
     // Hit the cache on second attempt
-    searchResult = _lineageSearchService.searchAcrossLineage(TEST_URN, LineageDirection.DOWNSTREAM, ImmutableList.of(ENTITY_NAME),
-            "*", 1000, null, null, 0, 10, null, null,
-            new SearchFlags().setSkipCache(false));
+    searchResult =
+        lineageSearchService.searchAcrossLineage(
+            getOperationContext()
+                .withSearchFlags(flags -> flags.setSkipCache(false))
+                .withLineageFlags(flags -> flags),
+            TEST_URN,
+            LineageDirection.DOWNSTREAM,
+            ImmutableList.of(ENTITY_NAME),
+            "*",
+            1000,
+            null,
+            null,
+            0,
+            10);
     assertEquals(searchResult.getNumEntities().intValue(), 1);
-    verify(_graphService, times(1)).getLineage(eq(TEST_URN), eq(LineageDirection.DOWNSTREAM), anyInt(), anyInt(),
-            eq(1000), eq(null), eq(null));
-    verify(_lineageSearchService, times(2)).getLightningSearchResult(any(), any(), anyInt(), anyInt(), anySet());
-
+    verify(graphService, times(1))
+        .getLineage(
+            eq(TEST_URN),
+            eq(LineageDirection.DOWNSTREAM),
+            anyInt(),
+            anyInt(),
+            eq(1000),
+            eq(new LineageFlags()));
+    verify(lineageSearchService, times(2))
+        .getLightningSearchResult(any(), any(), anyInt(), anyInt(), anySet());
 
     // Case 2: Use the start and end time in the cache.
-    when(_graphService.getLineage(eq(TEST_URN), eq(LineageDirection.DOWNSTREAM), anyInt(), anyInt(),
-            eq(1000), eq(0L), eq(1L))).thenReturn(mockResult(
-            ImmutableList.of(
-                    new LineageRelationship().setDegree(3).setType("type").setEntity(urn)
-            )
-    ));
+    when(graphService.getLineage(
+            eq(TEST_URN),
+            eq(LineageDirection.DOWNSTREAM),
+            anyInt(),
+            anyInt(),
+            eq(1000),
+            eq(new LineageFlags().setStartTimeMillis(0L).setEndTimeMillis(1L))))
+        .thenReturn(
+            mockResult(
+                ImmutableList.of(
+                    new LineageRelationship().setDegree(3).setType("type").setEntity(urn))));
 
     searchResult =
-            _lineageSearchService.searchAcrossLineage(TEST_URN, LineageDirection.DOWNSTREAM, ImmutableList.of(), "*",
-                    null, null, null, 0, 10, 0L, 1L,
-                    new SearchFlags().setSkipCache(false));
+        lineageSearchService.searchAcrossLineage(
+            getOperationContext()
+                .withSearchFlags(flags -> flags.setSkipCache(false))
+                .withLineageFlags(flags -> flags.setStartTimeMillis(0L).setEndTimeMillis(1L)),
+            TEST_URN,
+            LineageDirection.DOWNSTREAM,
+            ImmutableList.of(),
+            "*",
+            null,
+            null,
+            null,
+            0,
+            10);
 
     assertEquals(searchResult.getNumEntities().intValue(), 1);
-    verify(_graphService, times(1)).getLineage(eq(TEST_URN), eq(LineageDirection.DOWNSTREAM), anyInt(), anyInt(),
-            eq(1000), eq(0L), eq(1L));
-    verify(_lineageSearchService, times(3)).getLightningSearchResult(any(), any(), anyInt(), anyInt(), anySet());
+    String invocations = mockingDetails(graphService).printInvocations();
+    System.out.println(invocations);
+    verify(graphService, times(1))
+        .getLineage(
+            eq(TEST_URN),
+            eq(LineageDirection.DOWNSTREAM),
+            anyInt(),
+            anyInt(),
+            eq(1000),
+            eq(new LineageFlags().setStartTimeMillis(0L).setEndTimeMillis(1L)));
+    verify(lineageSearchService, times(3))
+        .getLightningSearchResult(any(), any(), anyInt(), anyInt(), anySet());
 
     // Hit the cache on second attempt
-    searchResult = _lineageSearchService.searchAcrossLineage(TEST_URN, LineageDirection.DOWNSTREAM, ImmutableList.of(ENTITY_NAME),
-            "*", null, null, null, 0, 10, 0L, 1L,
-            new SearchFlags().setSkipCache(false));
+    searchResult =
+        lineageSearchService.searchAcrossLineage(
+            getOperationContext()
+                .withSearchFlags(flags -> flags.setSkipCache(false))
+                .withLineageFlags(flags -> flags.setStartTimeMillis(0L).setEndTimeMillis(1L)),
+            TEST_URN,
+            LineageDirection.DOWNSTREAM,
+            ImmutableList.of(ENTITY_NAME),
+            "*",
+            null,
+            null,
+            null,
+            0,
+            10);
     assertEquals(searchResult.getNumEntities().intValue(), 1);
-    verify(_graphService, times(1)).getLineage(eq(TEST_URN), eq(LineageDirection.DOWNSTREAM), anyInt(), anyInt(),
-            eq(1000), eq(0L), eq(1L));
-    verify(_lineageSearchService, times(4)).getLightningSearchResult(any(), any(), anyInt(), anyInt(), anySet());
+    verify(graphService, times(1))
+        .getLineage(
+            eq(TEST_URN),
+            eq(LineageDirection.DOWNSTREAM),
+            anyInt(),
+            anyInt(),
+            eq(1000),
+            eq(new LineageFlags().setStartTimeMillis(0L).setEndTimeMillis(1L)));
+    verify(lineageSearchService, times(4))
+        .getLightningSearchResult(any(), any(), anyInt(), anyInt(), anySet());
 
     /*
      * Test filtering
      */
-    reset(_lineageSearchService);
+    reset(lineageSearchService);
 
     // Entity
     searchResult =
-        _lineageSearchService.searchAcrossLineage(TEST_URN, LineageDirection.DOWNSTREAM, ImmutableList.of(DATASET_ENTITY_NAME),
-            "*", 1000, null, null, 0, 10, null, null,
-            new SearchFlags().setSkipCache(false));
+        lineageSearchService.searchAcrossLineage(
+            getOperationContext()
+                .withSearchFlags(flags -> flags.setSkipCache(false))
+                .withLineageFlags(flags -> flags),
+            TEST_URN,
+            LineageDirection.DOWNSTREAM,
+            ImmutableList.of(DATASET_ENTITY_NAME),
+            "*",
+            1000,
+            null,
+            null,
+            0,
+            10);
     assertEquals(searchResult.getNumEntities().intValue(), 0);
     assertEquals(searchResult.getEntities().size(), 0);
-    verify(_lineageSearchService, times(1)).getLightningSearchResult(any(), any(), anyInt(), anyInt(), anySet());
+    verify(lineageSearchService, times(1))
+        .getLightningSearchResult(any(), any(), anyInt(), anyInt(), anySet());
 
     // Cached
     searchResult =
-        _lineageSearchService.searchAcrossLineage(TEST_URN, LineageDirection.DOWNSTREAM, ImmutableList.of(DATASET_ENTITY_NAME),
-            "*", 1000, null, null, 0, 10, null, null,
-            new SearchFlags().setSkipCache(false));
-    Mockito.verify(_graphService, times(1)).getLineage(eq(TEST_URN), eq(LineageDirection.DOWNSTREAM), anyInt(), anyInt(),
-        eq(1000), eq(0L), eq(1L));
-    verify(_lineageSearchService, times(2)).getLightningSearchResult(any(), any(), anyInt(), anyInt(), anySet());
+        lineageSearchService.searchAcrossLineage(
+            getOperationContext()
+                .withSearchFlags(flags -> flags.setSkipCache(false))
+                .withLineageFlags(flags -> flags.setStartTimeMillis(0L).setEndTimeMillis(1L)),
+            TEST_URN,
+            LineageDirection.DOWNSTREAM,
+            ImmutableList.of(DATASET_ENTITY_NAME),
+            "*",
+            1000,
+            null,
+            null,
+            0,
+            10);
+    Mockito.verify(graphService, times(1))
+        .getLineage(
+            eq(TEST_URN),
+            eq(LineageDirection.DOWNSTREAM),
+            anyInt(),
+            anyInt(),
+            eq(1000),
+            eq(new LineageFlags().setStartTimeMillis(0L).setEndTimeMillis(1L)));
+    verify(lineageSearchService, times(2))
+        .getLightningSearchResult(any(), any(), anyInt(), anyInt(), anySet());
     assertEquals(searchResult.getNumEntities().intValue(), 0);
     assertEquals(searchResult.getEntities().size(), 0);
 
     // Platform
     ConjunctiveCriterionArray conCritArr = new ConjunctiveCriterionArray();
-    Criterion platform1Crit = new Criterion().setField("platform").setValue("urn:li:dataPlatform:kafka").setCondition(Condition.EQUAL);
+    Criterion platform1Crit =
+        new Criterion()
+            .setField("platform")
+            .setValue("urn:li:dataPlatform:kafka")
+            .setCondition(Condition.EQUAL);
     CriterionArray critArr = new CriterionArray(ImmutableList.of(platform1Crit));
     conCritArr.add(new ConjunctiveCriterion().setAnd(critArr));
-    Criterion degreeCrit = new Criterion().setField("degree.keyword").setValue("2").setCondition(Condition.EQUAL);
-    conCritArr.add(new ConjunctiveCriterion().setAnd(new CriterionArray(ImmutableList.of(degreeCrit))));
+    Criterion degreeCrit =
+        new Criterion().setField("degree.keyword").setValue("2").setCondition(Condition.EQUAL);
+    conCritArr.add(
+        new ConjunctiveCriterion().setAnd(new CriterionArray(ImmutableList.of(degreeCrit))));
     Filter filter = new Filter().setOr(conCritArr);
 
     searchResult =
-        _lineageSearchService.searchAcrossLineage(TEST_URN, LineageDirection.DOWNSTREAM, ImmutableList.of(ENTITY_NAME),
-            "*", 1000, filter, null, 0, 10, null, null,
-            new SearchFlags().setSkipCache(false));
+        lineageSearchService.searchAcrossLineage(
+            getOperationContext()
+                .withSearchFlags(flags -> flags.setSkipCache(false))
+                .withLineageFlags(flags -> flags),
+            TEST_URN,
+            LineageDirection.DOWNSTREAM,
+            ImmutableList.of(ENTITY_NAME),
+            "*",
+            1000,
+            filter,
+            null,
+            0,
+            10);
     assertEquals(searchResult.getNumEntities().intValue(), 0);
     assertEquals(searchResult.getEntities().size(), 0);
-    verify(_lineageSearchService, times(3)).getLightningSearchResult(any(), any(), anyInt(), anyInt(), anySet());
+    verify(lineageSearchService, times(3))
+        .getLightningSearchResult(any(), any(), anyInt(), anyInt(), anySet());
 
     // Cached
     searchResult =
-        _lineageSearchService.searchAcrossLineage(TEST_URN, LineageDirection.DOWNSTREAM, ImmutableList.of(ENTITY_NAME),
-            "*", 1000, filter, null, 0, 10, null, null,
-            new SearchFlags().setSkipCache(false));
-    verify(_graphService, times(1)).getLineage(eq(TEST_URN), eq(LineageDirection.DOWNSTREAM), anyInt(), anyInt(),
-        eq(1000), eq(0L), eq(1L));
-    verify(_lineageSearchService, times(4)).getLightningSearchResult(any(), any(), anyInt(), anyInt(), anySet());
+        lineageSearchService.searchAcrossLineage(
+            getOperationContext()
+                .withSearchFlags(flags -> flags.setSkipCache(false))
+                .withLineageFlags(flags -> flags),
+            TEST_URN,
+            LineageDirection.DOWNSTREAM,
+            ImmutableList.of(ENTITY_NAME),
+            "*",
+            1000,
+            filter,
+            null,
+            0,
+            10);
+    verify(graphService, times(1))
+        .getLineage(
+            eq(TEST_URN),
+            eq(LineageDirection.DOWNSTREAM),
+            anyInt(),
+            anyInt(),
+            eq(1000),
+            eq(new LineageFlags()));
+    verify(lineageSearchService, times(4))
+        .getLightningSearchResult(any(), any(), anyInt(), anyInt(), anySet());
     assertEquals(searchResult.getNumEntities().intValue(), 0);
     assertEquals(searchResult.getEntities().size(), 0);
 
     // Environment
     Filter originFilter = QueryUtils.newFilter("origin", "PROD");
     searchResult =
-        _lineageSearchService.searchAcrossLineage(TEST_URN, LineageDirection.DOWNSTREAM, ImmutableList.of(ENTITY_NAME),
-            "*", 1000, originFilter, null, 0, 10, null, null,
-            new SearchFlags().setSkipCache(false));
+        lineageSearchService.searchAcrossLineage(
+            getOperationContext()
+                .withSearchFlags(flags -> flags.setSkipCache(false))
+                .withLineageFlags(flags -> flags),
+            TEST_URN,
+            LineageDirection.DOWNSTREAM,
+            ImmutableList.of(ENTITY_NAME),
+            "*",
+            1000,
+            originFilter,
+            null,
+            0,
+            10);
     assertEquals(searchResult.getNumEntities().intValue(), 0);
     assertEquals(searchResult.getEntities().size(), 0);
-    verify(_lineageSearchService, times(5)).getLightningSearchResult(any(), any(), anyInt(), anyInt(), anySet());
+    verify(lineageSearchService, times(5))
+        .getLightningSearchResult(any(), any(), anyInt(), anyInt(), anySet());
 
     // Cached
     searchResult =
-        _lineageSearchService.searchAcrossLineage(TEST_URN, LineageDirection.DOWNSTREAM, ImmutableList.of(ENTITY_NAME),
-            "*", 1000, originFilter, null, 0, 10, null, null,
-            new SearchFlags().setSkipCache(false));
-    verify(_graphService, times(1)).getLineage(eq(TEST_URN), eq(LineageDirection.DOWNSTREAM), anyInt(), anyInt(),
-        eq(1000), eq(0L), eq(1L));
-    verify(_lineageSearchService, times(6)).getLightningSearchResult(any(), any(), anyInt(), anyInt(), anySet());
+        lineageSearchService.searchAcrossLineage(
+            getOperationContext()
+                .withSearchFlags(flags -> flags.setSkipCache(false))
+                .withLineageFlags(flags -> flags.setStartTimeMillis(0L).setEndTimeMillis(1L)),
+            TEST_URN,
+            LineageDirection.DOWNSTREAM,
+            ImmutableList.of(ENTITY_NAME),
+            "*",
+            1000,
+            originFilter,
+            null,
+            0,
+            10);
+    verify(graphService, times(1))
+        .getLineage(
+            eq(TEST_URN),
+            eq(LineageDirection.DOWNSTREAM),
+            anyInt(),
+            anyInt(),
+            eq(1000),
+            eq(new LineageFlags().setStartTimeMillis(0L).setEndTimeMillis(1L)));
+    verify(lineageSearchService, times(6))
+        .getLightningSearchResult(any(), any(), anyInt(), anyInt(), anySet());
     assertEquals(searchResult.getNumEntities().intValue(), 0);
     assertEquals(searchResult.getEntities().size(), 0);
 
     clearCache(true);
 
     // Cleanup
-    _elasticSearchService.deleteDocument(ENTITY_NAME, urn.toString());
-    _elasticSearchService.deleteDocument(ENTITY_NAME, urn2.toString());
+    elasticSearchService.deleteDocument(ENTITY_NAME, urn.toString());
+    elasticSearchService.deleteDocument(ENTITY_NAME, urn2.toString());
     syncAfterWrite(getBulkProcessor());
 
-    when(_graphService.getLineage(eq(TEST_URN), eq(LineageDirection.DOWNSTREAM), anyInt(), anyInt(),
-            anyInt())).thenReturn(
-            mockResult(ImmutableList.of(new LineageRelationship().setEntity(urn).setType("test1").setDegree(1))));
+    when(graphService.getLineage(
+            eq(TEST_URN), eq(LineageDirection.DOWNSTREAM), anyInt(), anyInt(), anyInt()))
+        .thenReturn(
+            mockResult(
+                ImmutableList.of(
+                    new LineageRelationship().setEntity(urn).setType("test1").setDegree(1))));
     searchResult = searchAcrossLineage(null, testStar);
 
     assertEquals(searchResult.getNumEntities().intValue(), 1);
-
   }
 
   @Test
@@ -660,11 +1054,13 @@ abstract public class LineageServiceTestBase extends AbstractTestNGSpringContext
     platformCounts.put(kafkaPlatform, 200);
     platformCounts.put(hivePlatform, 50);
     platformCounts.put(bigQueryPlatform, 100);
-    List<LineageRelationship> prodLineageRelationships = constructGraph(platformCounts, FabricType.PROD);
+    List<LineageRelationship> prodLineageRelationships =
+        constructGraph(platformCounts, FabricType.PROD);
 
     // DEV
     platformCounts.put(kafkaPlatform, 300);
-    List<LineageRelationship> devLineageRelationships = constructGraph(platformCounts, FabricType.DEV);
+    List<LineageRelationship> devLineageRelationships =
+        constructGraph(platformCounts, FabricType.DEV);
 
     List<LineageRelationship> lineageRelationships = new ArrayList<>();
     lineageRelationships.addAll(prodLineageRelationships);
@@ -675,48 +1071,66 @@ abstract public class LineageServiceTestBase extends AbstractTestNGSpringContext
     int size = 10;
     Set<String> entityNames = Collections.emptySet();
 
-    LineageSearchResult lineageSearchResult = _lineageSearchService.getLightningSearchResult(lineageRelationships,
-        filter, from, size, entityNames);
+    LineageSearchResult lineageSearchResult =
+        lineageSearchService.getLightningSearchResult(
+            lineageRelationships, filter, from, size, entityNames);
 
     assertEquals(lineageSearchResult.getNumEntities(), Integer.valueOf(500));
     assertEquals(lineageSearchResult.getEntities().size(), 10);
-    assertEquals(lineageSearchResult.getEntities().get(0).getEntity().getEntityKey().get(0), kafkaPlatform);
-    assertEquals(lineageSearchResult.getEntities().get(0).getEntity().getEntityKey().get(1), "name0");
+    assertEquals(
+        lineageSearchResult.getEntities().get(0).getEntity().getEntityKey().get(0), kafkaPlatform);
+    assertEquals(
+        lineageSearchResult.getEntities().get(0).getEntity().getEntityKey().get(1), "name0");
 
     // assert that we have the right aggs per env
-    assertEquals(lineageSearchResult.getMetadata().getAggregations().stream().filter(
-        x -> x.getName().equals("origin")
-    ).map(x -> x.getAggregations().get("DEV")).findFirst().get(), Long.valueOf(300));
-    assertEquals(lineageSearchResult.getMetadata().getAggregations().stream().filter(
-        x -> x.getName().equals("origin")
-    ).map(x -> x.getAggregations().get("PROD")).findFirst().get(), Long.valueOf(200));
+    assertEquals(
+        lineageSearchResult.getMetadata().getAggregations().stream()
+            .filter(x -> x.getName().equals("origin"))
+            .map(x -> x.getAggregations().get("DEV"))
+            .findFirst()
+            .get(),
+        Long.valueOf(300));
+    assertEquals(
+        lineageSearchResult.getMetadata().getAggregations().stream()
+            .filter(x -> x.getName().equals("origin"))
+            .map(x -> x.getAggregations().get("PROD"))
+            .findFirst()
+            .get(),
+        Long.valueOf(200));
 
     // Set up filters
     ConjunctiveCriterionArray conCritArr = new ConjunctiveCriterionArray();
-    Criterion platform1Crit = new Criterion().setField("platform").setValue(kafkaPlatform).setCondition(Condition.EQUAL);
+    Criterion platform1Crit =
+        new Criterion().setField("platform").setValue(kafkaPlatform).setCondition(Condition.EQUAL);
     CriterionArray critArr = new CriterionArray(ImmutableList.of(platform1Crit));
     conCritArr.add(new ConjunctiveCriterion().setAnd(critArr));
-    Criterion originCrit = new Criterion().setField("origin").setValue("DEV").setCondition(Condition.EQUAL);
-    conCritArr.add(new ConjunctiveCriterion().setAnd(new CriterionArray(ImmutableList.of(originCrit))));
+    Criterion originCrit =
+        new Criterion().setField("origin").setValue("DEV").setCondition(Condition.EQUAL);
+    conCritArr.add(
+        new ConjunctiveCriterion().setAnd(new CriterionArray(ImmutableList.of(originCrit))));
 
     from = 500;
     size = 10;
     filter = new Filter().setOr(conCritArr);
 
-    lineageSearchResult = _lineageSearchService.getLightningSearchResult(lineageRelationships,
-        filter, from, size, entityNames);
+    lineageSearchResult =
+        lineageSearchService.getLightningSearchResult(
+            lineageRelationships, filter, from, size, entityNames);
 
     // assert that if the query has an env filter, it is applied correctly
-    assertEquals(lineageSearchResult.getMetadata().getAggregations().stream().filter(
-        x -> x.getName().equals("origin")
-    ).map(x -> x.getAggregations().get("DEV")).findFirst().get(), Long.valueOf(300));
-    assertTrue(lineageSearchResult.getMetadata().getAggregations().stream().filter(
-        x -> x.getName().equals("origin") && x.getAggregations().containsKey("PROD"))
-        .collect(Collectors.toList()).isEmpty());
-
-
+    assertEquals(
+        lineageSearchResult.getMetadata().getAggregations().stream()
+            .filter(x -> x.getName().equals("origin"))
+            .map(x -> x.getAggregations().get("DEV"))
+            .findFirst()
+            .get(),
+        Long.valueOf(300));
+    assertTrue(
+        lineageSearchResult.getMetadata().getAggregations().stream()
+            .filter(x -> x.getName().equals("origin") && x.getAggregations().containsKey("PROD"))
+            .collect(Collectors.toList())
+            .isEmpty());
   }
-
 
   @Test
   public void testLightningPagination() throws Exception {
@@ -731,35 +1145,41 @@ abstract public class LineageServiceTestBase extends AbstractTestNGSpringContext
 
     List<LineageRelationship> lineageRelationships = constructGraph(platformCounts);
 
-
     Filter filter = QueryUtils.newFilter("platform", kafkaPlatform);
     int from = 0;
     int size = 10;
     Set<String> entityNames = Collections.emptySet();
 
-    LineageSearchResult lineageSearchResult = _lineageSearchService.getLightningSearchResult(lineageRelationships,
-        filter, from, size, entityNames);
+    LineageSearchResult lineageSearchResult =
+        lineageSearchService.getLightningSearchResult(
+            lineageRelationships, filter, from, size, entityNames);
 
     assertEquals(lineageSearchResult.getNumEntities(), Integer.valueOf(500));
     assertEquals(lineageSearchResult.getEntities().size(), 10);
-    assertEquals(lineageSearchResult.getEntities().get(0).getEntity().getEntityKey().get(0), kafkaPlatform);
-    assertEquals(lineageSearchResult.getEntities().get(0).getEntity().getEntityKey().get(1), "name0");
+    assertEquals(
+        lineageSearchResult.getEntities().get(0).getEntity().getEntityKey().get(0), kafkaPlatform);
+    assertEquals(
+        lineageSearchResult.getEntities().get(0).getEntity().getEntityKey().get(1), "name0");
 
     from = 50;
     size = 20;
-    lineageSearchResult = _lineageSearchService.getLightningSearchResult(lineageRelationships,
-        filter, from, size, entityNames);
+    lineageSearchResult =
+        lineageSearchService.getLightningSearchResult(
+            lineageRelationships, filter, from, size, entityNames);
 
     assertEquals(lineageSearchResult.getNumEntities(), Integer.valueOf(500));
     assertEquals(lineageSearchResult.getEntities().size(), 20);
-    assertEquals(lineageSearchResult.getEntities().get(0).getEntity().getEntityKey().get(0), kafkaPlatform);
-    assertEquals(lineageSearchResult.getEntities().get(0).getEntity().getEntityKey().get(1), "name50");
-
+    assertEquals(
+        lineageSearchResult.getEntities().get(0).getEntity().getEntityKey().get(0), kafkaPlatform);
+    assertEquals(
+        lineageSearchResult.getEntities().get(0).getEntity().getEntityKey().get(1), "name50");
 
     // Set up filters
     ConjunctiveCriterionArray conCritArr = new ConjunctiveCriterionArray();
-    Criterion platform1Crit = new Criterion().setField("platform").setValue(kafkaPlatform).setCondition(Condition.EQUAL);
-    Criterion platform2Crit = new Criterion().setField("platform").setValue(hivePlatform).setCondition(Condition.EQUAL);
+    Criterion platform1Crit =
+        new Criterion().setField("platform").setValue(kafkaPlatform).setCondition(Condition.EQUAL);
+    Criterion platform2Crit =
+        new Criterion().setField("platform").setValue(hivePlatform).setCondition(Condition.EQUAL);
     CriterionArray critArr = new CriterionArray(ImmutableList.of(platform1Crit));
     conCritArr.add(new ConjunctiveCriterion().setAnd(critArr));
     critArr = new CriterionArray(ImmutableList.of(platform2Crit));
@@ -768,25 +1188,31 @@ abstract public class LineageServiceTestBase extends AbstractTestNGSpringContext
     from = 500;
     size = 10;
     filter = new Filter().setOr(conCritArr);
-    lineageSearchResult = _lineageSearchService.getLightningSearchResult(lineageRelationships,
-        filter, from, size, entityNames);
+    lineageSearchResult =
+        lineageSearchService.getLightningSearchResult(
+            lineageRelationships, filter, from, size, entityNames);
 
     assertEquals(lineageSearchResult.getNumEntities(), Integer.valueOf(600));
     assertEquals(lineageSearchResult.getEntities().size(), 10);
-    assertEquals(lineageSearchResult.getEntities().get(0).getEntity().getEntityKey().get(0), hivePlatform);
-    assertEquals(lineageSearchResult.getEntities().get(0).getEntity().getEntityKey().get(1), "name0");
-
+    assertEquals(
+        lineageSearchResult.getEntities().get(0).getEntity().getEntityKey().get(0), hivePlatform);
+    assertEquals(
+        lineageSearchResult.getEntities().get(0).getEntity().getEntityKey().get(1), "name0");
 
     // Verify aggregations
     from = 0;
     size = 10;
-    lineageSearchResult = _lineageSearchService.getLightningSearchResult(lineageRelationships,
-        null, from, size, entityNames);
+    lineageSearchResult =
+        lineageSearchService.getLightningSearchResult(
+            lineageRelationships, null, from, size, entityNames);
 
     // Static Degree agg is the first element
-    LongMap platformAggs = lineageSearchResult.getMetadata().getAggregations().get(1).getAggregations();
-    LongMap entityTypeAggs = lineageSearchResult.getMetadata().getAggregations().get(2).getAggregations();
-    LongMap environmentAggs = lineageSearchResult.getMetadata().getAggregations().get(3).getAggregations();
+    LongMap platformAggs =
+        lineageSearchResult.getMetadata().getAggregations().get(1).getAggregations();
+    LongMap entityTypeAggs =
+        lineageSearchResult.getMetadata().getAggregations().get(2).getAggregations();
+    LongMap environmentAggs =
+        lineageSearchResult.getMetadata().getAggregations().get(3).getAggregations();
     assertEquals(platformAggs.get(kafkaPlatform), Long.valueOf(500));
     assertEquals(platformAggs.get(hivePlatform), Long.valueOf(100));
     assertEquals(platformAggs.get(bigQueryPlatform), Long.valueOf(200));
@@ -798,18 +1224,21 @@ abstract public class LineageServiceTestBase extends AbstractTestNGSpringContext
     return constructGraph(platformCounts, FabricType.PROD);
   }
 
-  private List<LineageRelationship> constructGraph(Map<String, Integer> platformCounts, final FabricType env) {
+  private List<LineageRelationship> constructGraph(
+      Map<String, Integer> platformCounts, final FabricType env) {
     List<LineageRelationship> lineageRelationships = new ArrayList<>();
-    platformCounts.forEach((key, value) -> {
-        for (int i = 0; i < value; i++) {
-          try {
-            lineageRelationships.add(
-                constructLineageRelationship(new DatasetUrn(DataPlatformUrn.createFromString(key), "name" + i, env)));
-          } catch (URISyntaxException e) {
-            throw new RuntimeException(e);
+    platformCounts.forEach(
+        (key, value) -> {
+          for (int i = 0; i < value; i++) {
+            try {
+              lineageRelationships.add(
+                  constructLineageRelationship(
+                      new DatasetUrn(DataPlatformUrn.createFromString(key), "name" + i, env)));
+            } catch (URISyntaxException e) {
+              throw new RuntimeException(e);
+            }
           }
-        }
-    });
+        });
 
     return lineageRelationships;
   }
@@ -820,20 +1249,45 @@ abstract public class LineageServiceTestBase extends AbstractTestNGSpringContext
         .setType("DOWNSTREAM")
         .setDegree(1)
         .setPaths(new UrnArrayArray());
-
   }
 
   // Convenience method to reduce spots where we're sending the same params
   private LineageSearchResult searchAcrossLineage(@Nullable Filter filter, @Nullable String input) {
-    return _lineageSearchService.searchAcrossLineage(TEST_URN, LineageDirection.DOWNSTREAM, ImmutableList.of(), input,
-        null, filter, null, 0, 10, null, null,
-        new SearchFlags().setSkipCache(true));
+    return lineageSearchService.searchAcrossLineage(
+        getOperationContext()
+            .withSearchFlags(flags -> flags.setSkipCache(true))
+            .withLineageFlags(flags -> flags),
+        TEST_URN,
+        LineageDirection.DOWNSTREAM,
+        ImmutableList.of(),
+        input,
+        null,
+        filter,
+        null,
+        0,
+        10);
   }
 
-  private LineageScrollResult scrollAcrossLineage(@Nullable Filter filter, @Nullable String input, String scrollId, int size) {
-    return _lineageSearchService.scrollAcrossLineage(TEST_URN, LineageDirection.DOWNSTREAM, ImmutableList.of(), input,
-        null, filter, null, scrollId,  "5m",  size, null, null,
-        new SearchFlags().setSkipCache(true));
+  private LineageScrollResult scrollAcrossLineage(
+      @Nullable Filter filter, @Nullable String input, String scrollId, int size) {
+    return lineageSearchService.scrollAcrossLineage(
+        getOperationContext()
+            .withSearchFlags(flags -> flags.setSkipCache(true))
+            .withLineageFlags(
+                flags ->
+                    flags
+                        .setStartTimeMillis(null, SetMode.REMOVE_IF_NULL)
+                        .setEndTimeMillis(null, SetMode.REMOVE_IF_NULL)),
+        TEST_URN,
+        LineageDirection.DOWNSTREAM,
+        ImmutableList.of(),
+        input,
+        null,
+        filter,
+        null,
+        scrollId,
+        "5m",
+        size);
   }
 
   private LineageScrollResult scrollAcrossLineage(@Nullable Filter filter, @Nullable String input) {
@@ -851,29 +1305,37 @@ abstract public class LineageServiceTestBase extends AbstractTestNGSpringContext
     platformCounts.put(hivePlatform, 100);
     platformCounts.put(bigQueryPlatform, 200);
 
-    List<LineageRelationship> lineageRelationships = constructGraph(platformCounts, FabricType.PROD);
+    List<LineageRelationship> lineageRelationships =
+        constructGraph(platformCounts, FabricType.PROD);
 
     Filter filter = QueryUtils.newFilter("platform", kafkaPlatform);
     int from = 0;
     int size = 10;
     Set<String> entityNames = Collections.emptySet();
 
-    Assert.assertTrue(_lineageSearchService.canDoLightning(lineageRelationships, "*", filter, null));
+    Assert.assertTrue(lineageSearchService.canDoLightning(lineageRelationships, "*", filter, null));
 
     // Set up filters
     ConjunctiveCriterionArray conCritArr = new ConjunctiveCriterionArray();
-    Criterion platform1Crit = new Criterion().setField("platform").setValue(kafkaPlatform).setCondition(Condition.EQUAL);
-    Criterion platform2Crit = new Criterion().setField("platform").setValue(hivePlatform).setCondition(Condition.EQUAL);
+    Criterion platform1Crit =
+        new Criterion().setField("platform").setValue(kafkaPlatform).setCondition(Condition.EQUAL);
+    Criterion platform2Crit =
+        new Criterion().setField("platform").setValue(hivePlatform).setCondition(Condition.EQUAL);
     CriterionArray critArr = new CriterionArray(ImmutableList.of(platform1Crit));
     conCritArr.add(new ConjunctiveCriterion().setAnd(critArr));
     critArr = new CriterionArray(ImmutableList.of(platform2Crit));
     conCritArr.add(new ConjunctiveCriterion().setAnd(critArr));
-    Criterion originCrit = new Criterion().setField("origin").setValue(FabricType.PROD.name()).setCondition(Condition.EQUAL);
-    conCritArr.add(new ConjunctiveCriterion().setAnd(new CriterionArray(ImmutableList.of(originCrit))));
+    Criterion originCrit =
+        new Criterion()
+            .setField("origin")
+            .setValue(FabricType.PROD.name())
+            .setCondition(Condition.EQUAL);
+    conCritArr.add(
+        new ConjunctiveCriterion().setAnd(new CriterionArray(ImmutableList.of(originCrit))));
 
     from = 500;
     size = 10;
     filter = new Filter().setOr(conCritArr);
-    Assert.assertTrue(_lineageSearchService.canDoLightning(lineageRelationships, "*", filter, null));
+    Assert.assertTrue(lineageSearchService.canDoLightning(lineageRelationships, "*", filter, null));
   }
 }

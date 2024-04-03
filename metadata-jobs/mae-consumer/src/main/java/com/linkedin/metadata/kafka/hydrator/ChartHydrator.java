@@ -1,5 +1,7 @@
 package com.linkedin.metadata.kafka.hydrator;
 
+import static com.linkedin.metadata.Constants.*;
+
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.chart.ChartInfo;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
@@ -7,9 +9,6 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.metadata.key.ChartKey;
 import lombok.extern.slf4j.Slf4j;
-
-import static com.linkedin.metadata.Constants.*;
-
 
 @Slf4j
 public class ChartHydrator extends BaseHydrator {
@@ -21,9 +20,12 @@ public class ChartHydrator extends BaseHydrator {
   protected void hydrateFromEntityResponse(ObjectNode document, EntityResponse entityResponse) {
     EnvelopedAspectMap aspectMap = entityResponse.getAspects();
     MappingHelper<ObjectNode> mappingHelper = new MappingHelper<>(aspectMap, document);
-    mappingHelper.mapToResult(CHART_INFO_ASPECT_NAME, (jsonNodes, dataMap) ->
-        jsonNodes.put(TITLE, new ChartInfo(dataMap).getTitle()));
-    mappingHelper.mapToResult(CHART_KEY_ASPECT_NAME, (jsonNodes, dataMap) ->
-        jsonNodes.put(DASHBOARD_TOOL, new ChartKey(dataMap).getDashboardTool()));
+    mappingHelper.mapToResult(
+        CHART_INFO_ASPECT_NAME,
+        (jsonNodes, dataMap) -> jsonNodes.put(TITLE, new ChartInfo(dataMap).getTitle()));
+    mappingHelper.mapToResult(
+        CHART_KEY_ASPECT_NAME,
+        (jsonNodes, dataMap) ->
+            jsonNodes.put(DASHBOARD_TOOL, new ChartKey(dataMap).getDashboardTool()));
   }
 }

@@ -1,23 +1,22 @@
 package com.linkedin.metadata.entity.cassandra;
 
 import com.datastax.oss.driver.api.core.cql.Row;
-import com.linkedin.metadata.entity.EntityAspectIdentifier;
 import com.linkedin.metadata.entity.EntityAspect;
+import com.linkedin.metadata.entity.EntityAspectIdentifier;
+import java.sql.Timestamp;
+import javax.annotation.Nonnull;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-import javax.annotation.Nonnull;
-import java.sql.Timestamp;
-
 /**
- * This class represents entity aspect records stored in Cassandra database.
- * It's also aware of {@link EntityAspect} which is a shared in-memory representation of an aspect record and knows
- * how to translate itself to it.
+ * This class represents entity aspect records stored in Cassandra database. It's also aware of
+ * {@link EntityAspect} which is a shared in-memory representation of an aspect record and knows how
+ * to translate itself to it.
  *
- * TODO: Consider using datastax java driver `@Entity`
- *       (see: https://docs.datastax.com/en/developer/java-driver/4.13/manual/mapper/entities/)
+ * <p>TODO: Consider using datastax java driver `@Entity` (see:
+ * https://docs.datastax.com/en/developer/java-driver/4.13/manual/mapper/entities/)
  */
 @Getter
 @Setter
@@ -61,7 +60,9 @@ public class CassandraAspect {
         row.getLong(CassandraAspect.VERSION_COLUMN),
         row.getString(CassandraAspect.METADATA_COLUMN),
         row.getString(CassandraAspect.SYSTEM_METADATA_COLUMN),
-        row.getInstant(CassandraAspect.CREATED_ON_COLUMN) == null ? null : Timestamp.from(row.getInstant(CassandraAspect.CREATED_ON_COLUMN)),
+        row.getInstant(CassandraAspect.CREATED_ON_COLUMN) == null
+            ? null
+            : Timestamp.from(row.getInstant(CassandraAspect.CREATED_ON_COLUMN)),
         row.getString(CassandraAspect.CREATED_BY_COLUMN),
         row.getString(CassandraAspect.CREATED_FOR_COLUMN));
   }
@@ -73,5 +74,4 @@ public class CassandraAspect {
         row.getString(CassandraAspect.ASPECT_COLUMN),
         row.getLong(CassandraAspect.VERSION_COLUMN));
   }
-
 }

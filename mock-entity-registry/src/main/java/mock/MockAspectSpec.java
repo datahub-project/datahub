@@ -12,16 +12,24 @@ import com.linkedin.metadata.models.annotation.AspectAnnotation;
 import java.util.List;
 import javax.annotation.Nonnull;
 
-
 public class MockAspectSpec extends AspectSpec {
-  public MockAspectSpec(@Nonnull AspectAnnotation aspectAnnotation,
+  public MockAspectSpec(
+      @Nonnull AspectAnnotation aspectAnnotation,
       @Nonnull List<SearchableFieldSpec> searchableFieldSpecs,
       @Nonnull List<SearchScoreFieldSpec> searchScoreFieldSpecs,
       @Nonnull List<RelationshipFieldSpec> relationshipFieldSpecs,
       @Nonnull List<TimeseriesFieldSpec> timeseriesFieldSpecs,
-      @Nonnull List<TimeseriesFieldCollectionSpec> timeseriesFieldCollectionSpecs, RecordDataSchema schema,
+      @Nonnull List<TimeseriesFieldCollectionSpec> timeseriesFieldCollectionSpecs,
+      RecordDataSchema schema,
       Class<RecordTemplate> aspectClass) {
-    super(aspectAnnotation, searchableFieldSpecs, searchScoreFieldSpecs, relationshipFieldSpecs, timeseriesFieldSpecs,
-        timeseriesFieldCollectionSpecs, schema, aspectClass);
+    super(
+        aspectAnnotation,
+        searchableFieldSpecs,
+        searchScoreFieldSpecs,
+        relationshipFieldSpecs,
+        timeseriesFieldSpecs,
+        timeseriesFieldCollectionSpecs,
+        schema,
+        aspectClass);
   }
 }

@@ -16,10 +16,7 @@ import lombok.NoArgsConstructor;
 import lombok.NonNull;
 import lombok.Setter;
 
-
-/**
- * Schema definition for the legacy aspect table.
- */
+/** Schema definition for the legacy aspect table. */
 @Getter
 @Setter
 @Entity
@@ -38,9 +35,7 @@ public class EbeanAspectV1 extends Model {
   public static final String CREATED_BY_COLUMN = "createdBy";
   public static final String CREATED_FOR_COLUMN = "createdFor";
 
-  /**
-   * Key for an aspect in the table.
-   */
+  /** Key for an aspect in the table. */
   @Embeddable
   @Getter
   @AllArgsConstructor
@@ -65,10 +60,7 @@ public class EbeanAspectV1 extends Model {
     private long version;
   }
 
-  @NonNull
-  @EmbeddedId
-  @Index
-  protected PrimaryKey key;
+  @NonNull @EmbeddedId @Index protected PrimaryKey key;
 
   @NonNull
   @Lob

@@ -1,9 +1,8 @@
 package datahub.spark.model;
 
+import datahub.event.MetadataChangeProposalWrapper;
 import java.util.Date;
 import java.util.List;
-
-import datahub.event.MetadataChangeProposalWrapper;
 import lombok.Data;
 
 @Data

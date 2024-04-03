@@ -35,7 +35,8 @@ from datahub.ingestion.api.source_helpers import auto_workunit_reporter
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
-from datahub.utilities.sqlglot_lineage import SchemaResolver, sqlglot_lineage
+from datahub.sql_parsing.schema_resolver import SchemaResolver
+from datahub.sql_parsing.sqlglot_lineage import sqlglot_lineage
 
 logger = logging.getLogger(__name__)
 
@@ -88,11 +89,26 @@ class SqlQueriesSourceReport(SourceReport):
 
 @platform_name("SQL Queries")
 @config_class(SqlQueriesSourceConfig)
-@support_status(SupportStatus.TESTING)
+@support_status(SupportStatus.INCUBATING)
 @capability(SourceCapability.LINEAGE_COARSE, "Parsed from SQL queries")
 @capability(SourceCapability.LINEAGE_FINE, "Parsed from SQL queries")
 class SqlQueriesSource(Source):
-    # TODO: Documentation
+    """
+    This source reads a newline-delimited JSON file containing SQL queries and parses them to generate lineage.
+
+    ### Query File Format
+    This file should contain one JSON object per line, with the following fields:
+    - query: string - The SQL query to parse.
+    - timestamp (optional): number - The timestamp of the query, in seconds since the epoch.
+    - user (optional): string - The user who ran the query.
+    This user value will be directly converted into a DataHub user urn.
+    - operation_type (optional): string - Platform-specific operation type, used if the operation type can't be parsed.
+    - downstream_tables (optional): string[] - Fallback list of tables that the query writes to,
+     used if the query can't be parsed.
+    - upstream_tables (optional): string[] - Fallback list of tables the query reads from,
+     used if the query can't be parsed.
+    """
+
     urns: Optional[Set[str]]
     schema_resolver: SchemaResolver
     builder: SqlParsingBuilder
@@ -204,9 +220,11 @@ class QueryEntry:
     ) -> "QueryEntry":
         return cls(
             query=entry_dict["query"],
-            timestamp=datetime.fromtimestamp(entry_dict["timestamp"], tz=timezone.utc)
-            if "timestamp" in entry_dict
-            else None,
+            timestamp=(
+                datetime.fromtimestamp(entry_dict["timestamp"], tz=timezone.utc)
+                if "timestamp" in entry_dict
+                else None
+            ),
             user=make_user_urn(entry_dict["user"]) if "user" in entry_dict else None,
             operation_type=entry_dict.get("operation_type"),
             downstream_tables=[

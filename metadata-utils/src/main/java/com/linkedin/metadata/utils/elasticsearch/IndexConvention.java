@@ -6,10 +6,7 @@ import com.linkedin.util.Pair;
 import java.util.Optional;
 import javax.annotation.Nonnull;
 
-
-/**
- * The convention for naming search indices
- */
+/** The convention for naming search indices */
 public interface IndexConvention {
   Optional<String> getPrefix();
 
@@ -36,6 +33,7 @@ public interface IndexConvention {
 
   /**
    * Inverse of getEntityIndexName
+   *
    * @param indexName The index name to parse
    * @return a string, the entity name that that index is for, or empty if one cannot be extracted
    */
@@ -43,9 +41,10 @@ public interface IndexConvention {
 
   /**
    * Inverse of getEntityIndexName
+   *
    * @param timeseriesAspectIndexName The index name to parse
-   * @return a pair of strings, the entity name and the aspect name that that index is for,
-   * or empty if one cannot be extracted
+   * @return a pair of strings, the entity name and the aspect name that that index is for, or empty
+   *     if one cannot be extracted
    */
   Optional<Pair<String, String>> getEntityAndAspectName(String timeseriesAspectIndexName);
 }

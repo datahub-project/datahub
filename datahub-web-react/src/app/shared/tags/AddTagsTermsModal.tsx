@@ -19,6 +19,9 @@ import { useGetRecommendations } from '../recommendation';
 import { FORBIDDEN_URN_CHARS_REGEX, handleBatchError } from '../../entity/shared/utils';
 import { TagTermLabel } from './TagTermLabel';
 import { ENTER_KEY_CODE } from '../constants';
+import { getModalDomContainer } from '../../../utils/focus';
+import ParentEntities from '../../search/filters/ParentEntities';
+import { getParentEntities } from '../../search/filters/utils';
 
 export enum OperationType {
     ADD,
@@ -66,6 +69,12 @@ export const BrowserWrapper = styled.div<{ isHidden: boolean; width?: string; ma
         opacity: 0;
         height: 0;
     `}
+`;
+
+const SearchResultContainer = styled.div`
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
 `;
 
 const CREATE_TAG_VALUE = '____reserved____.createTagValue';
@@ -138,7 +147,10 @@ export default function EditTagTermsModal({
         const tagOrTermComponent = <TagTermLabel entity={entity} />;
         return (
             <Select.Option data-testid="tag-term-option" value={entity.urn} key={entity.urn} name={displayName}>
-                {tagOrTermComponent}
+                <SearchResultContainer>
+                    <ParentEntities parentEntities={getParentEntities(entity) || []} />
+                    {tagOrTermComponent}
+                </SearchResultContainer>
             </Select.Option>
         );
     };
@@ -448,6 +460,7 @@ export default function EditTagTermsModal({
                     </Button>
                 </>
             }
+            getContainer={getModalDomContainer}
         >
             <ClickOutside onClickOutside={() => setIsFocusedOnInput(false)}>
                 <TagSelect

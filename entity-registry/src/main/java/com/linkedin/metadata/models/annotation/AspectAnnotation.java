@@ -7,10 +7,7 @@ import java.util.Optional;
 import javax.annotation.Nonnull;
 import lombok.Value;
 
-
-/**
- * Simple object representation of the @Aspect annotation metadata.
- */
+/** Simple object representation of the @Aspect annotation metadata. */
 @Value
 public class AspectAnnotation {
 
@@ -29,15 +26,12 @@ public class AspectAnnotation {
 
   @Nonnull
   public static AspectAnnotation fromSchemaProperty(
-      @Nonnull final Object annotationObj,
-      @Nonnull final String context) {
+      @Nonnull final Object annotationObj, @Nonnull final String context) {
     if (!Map.class.isAssignableFrom(annotationObj.getClass())) {
       throw new ModelValidationException(
           String.format(
               "Failed to validate @%s annotation declared at %s: Invalid value type provided (Expected Map)",
-              ANNOTATION_NAME,
-              context
-          ));
+              ANNOTATION_NAME, context));
     }
     final Map map = (Map) annotationObj;
     final Optional<String> name = AnnotationUtils.getField(map, NAME_FIELD, String.class);
@@ -45,10 +39,7 @@ public class AspectAnnotation {
       throw new ModelValidationException(
           String.format(
               "Failed to validated @%s annotation declared at %s: missing '%s' property",
-              ANNOTATION_NAME,
-              context,
-              NAME_FIELD
-          ));
+              ANNOTATION_NAME, context, NAME_FIELD));
     }
 
     final Optional<String> type = AnnotationUtils.getField(map, TYPE_FIELD, String.class);
@@ -56,6 +47,10 @@ public class AspectAnnotation {
     Optional<Boolean> autoRender = AnnotationUtils.getField(map, AUTO_RENDER_FIELD, Boolean.class);
     Optional<DataMap> renderSpec = AnnotationUtils.getField(map, RENDER_SPEC_FIELD, DataMap.class);
 
-    return new AspectAnnotation(name.get(), isTimeseries, autoRender.orElseGet(() -> false), renderSpec.orElseGet(() -> null));
+    return new AspectAnnotation(
+        name.get(),
+        isTimeseries,
+        autoRender.orElseGet(() -> false),
+        renderSpec.orElseGet(() -> null));
   }
 }

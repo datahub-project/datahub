@@ -1,5 +1,7 @@
 package com.linkedin.metadata.systemmetadata;
 
+import static com.linkedin.metadata.systemmetadata.ElasticSearchSystemMetadataService.INDEX_NAME;
+
 import com.google.common.collect.ImmutableList;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.search.utils.ESUtils;
@@ -34,9 +36,6 @@ import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.search.sort.FieldSortBuilder;
 import org.opensearch.search.sort.SortOrder;
 
-import static com.linkedin.metadata.systemmetadata.ElasticSearchSystemMetadataService.INDEX_NAME;
-
-
 @Slf4j
 @RequiredArgsConstructor
 public class ESSystemMetadataDAO {
@@ -47,17 +46,18 @@ public class ESSystemMetadataDAO {
 
   /**
    * Gets the status of a Task running in ElasticSearch
+   *
    * @param taskId the task ID to get the status of
    */
   public Optional<GetTaskResponse> getTaskStatus(@Nonnull String nodeId, long taskId) {
-    final GetTaskRequest taskRequest = new GetTaskRequest(
-        nodeId,
-        taskId
-    );
+    final GetTaskRequest taskRequest = new GetTaskRequest(nodeId, taskId);
     try {
       return client.tasks().get(taskRequest, RequestOptions.DEFAULT);
     } catch (IOException e) {
-      log.error(String.format("ERROR: Failed to get task status for %s:%d. See stacktrace for a more detailed error:", nodeId, taskId));
+      log.error(
+          String.format(
+              "ERROR: Failed to get task status for %s:%d. See stacktrace for a more detailed error:",
+              nodeId, taskId));
       e.printStackTrace();
     }
     return Optional.empty();
@@ -70,8 +70,8 @@ public class ESSystemMetadataDAO {
    * @param docId the ID of the document
    */
   public void upsertDocument(@Nonnull String docId, @Nonnull String document) {
-    final UpdateRequest updateRequest = new UpdateRequest(
-            indexConvention.getIndexName(INDEX_NAME), docId)
+    final UpdateRequest updateRequest =
+        new UpdateRequest(indexConvention.getIndexName(INDEX_NAME), docId)
             .detectNoop(false)
             .docAsUpsert(true)
             .doc(document, XContentType.JSON)
@@ -80,7 +80,8 @@ public class ESSystemMetadataDAO {
   }
 
   public DeleteResponse deleteByDocId(@Nonnull final String docId) {
-    DeleteRequest deleteRequest = new DeleteRequest(indexConvention.getIndexName(INDEX_NAME), docId);
+    DeleteRequest deleteRequest =
+        new DeleteRequest(indexConvention.getIndexName(INDEX_NAME), docId);
 
     try {
       final DeleteResponse deleteResponse = client.delete(deleteRequest, RequestOptions.DEFAULT);
@@ -96,24 +97,26 @@ public class ESSystemMetadataDAO {
     BoolQueryBuilder finalQuery = QueryBuilders.boolQuery();
     finalQuery.must(QueryBuilders.termQuery("urn", urn));
 
-    final Optional<BulkByScrollResponse> deleteResponse = bulkProcessor.deleteByQuery(finalQuery,
-            indexConvention.getIndexName(INDEX_NAME));
+    final Optional<BulkByScrollResponse> deleteResponse =
+        bulkProcessor.deleteByQuery(finalQuery, indexConvention.getIndexName(INDEX_NAME));
 
     return deleteResponse.orElse(null);
   }
 
-  public BulkByScrollResponse deleteByUrnAspect(@Nonnull final String urn, @Nonnull final String aspect) {
+  public BulkByScrollResponse deleteByUrnAspect(
+      @Nonnull final String urn, @Nonnull final String aspect) {
     BoolQueryBuilder finalQuery = QueryBuilders.boolQuery();
     finalQuery.must(QueryBuilders.termQuery("urn", urn));
     finalQuery.must(QueryBuilders.termQuery("aspect", aspect));
 
-    final Optional<BulkByScrollResponse> deleteResponse = bulkProcessor.deleteByQuery(finalQuery,
-            indexConvention.getIndexName(INDEX_NAME));
+    final Optional<BulkByScrollResponse> deleteResponse =
+        bulkProcessor.deleteByQuery(finalQuery, indexConvention.getIndexName(INDEX_NAME));
 
     return deleteResponse.orElse(null);
   }
 
-  public SearchResponse findByParams(Map<String, String> searchParams, boolean includeSoftDeleted, int from, int size) {
+  public SearchResponse findByParams(
+      Map<String, String> searchParams, boolean includeSoftDeleted, int from, int size) {
     SearchRequest searchRequest = new SearchRequest();
 
     SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
@@ -147,8 +150,13 @@ public class ESSystemMetadataDAO {
   }
 
   // TODO: Scroll impl for searches bound by 10k limit
-  public SearchResponse findByParams(Map<String, String> searchParams, boolean includeSoftDeleted, @Nullable Object[] sort,
-      @Nullable String pitId, @Nonnull String keepAlive, int size) {
+  public SearchResponse findByParams(
+      Map<String, String> searchParams,
+      boolean includeSoftDeleted,
+      @Nullable Object[] sort,
+      @Nullable String pitId,
+      @Nonnull String keepAlive,
+      int size) {
     SearchRequest searchRequest = new SearchRequest();
 
     SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
@@ -181,8 +189,8 @@ public class ESSystemMetadataDAO {
     return null;
   }
 
-  public SearchResponse findByRegistry(String registryName, String registryVersion, boolean includeSoftDeleted,
-      int from, int size) {
+  public SearchResponse findByRegistry(
+      String registryName, String registryVersion, boolean includeSoftDeleted, int from, int size) {
     Map<String, String> params = new HashMap<>();
     params.put("registryName", registryName);
     params.put("registryVersion", registryVersion);
@@ -210,11 +218,13 @@ public class ESSystemMetadataDAO {
     bucketSort.size(pageSize);
     bucketSort.from(pageOffset);
 
-    TermsAggregationBuilder aggregation = AggregationBuilders.terms("runId")
-        .field("runId")
-        .subAggregation(AggregationBuilders.max("maxTimestamp").field("lastUpdated"))
-        .subAggregation(bucketSort)
-        .subAggregation(AggregationBuilders.filter("removed", QueryBuilders.termQuery("removed", "true")));
+    TermsAggregationBuilder aggregation =
+        AggregationBuilders.terms("runId")
+            .field("runId")
+            .subAggregation(AggregationBuilders.max("maxTimestamp").field("lastUpdated"))
+            .subAggregation(bucketSort)
+            .subAggregation(
+                AggregationBuilders.filter("removed", QueryBuilders.termQuery("removed", "true")));
 
     searchSourceBuilder.aggregation(aggregation);
 

@@ -1,6 +1,6 @@
 import React, { useContext } from 'react';
-import { Group } from '@vx/group';
-import { TransformMatrix } from '@vx/zoom/lib/types';
+import { Group } from '@visx/group';
+import { TransformMatrix } from '@visx/zoom/lib/types';
 
 import { NodeData, EntitySelectParams, TreeProps, VizNode, VizEdge, EntityAndType, UpdatedLineages } from './types';
 import LineageEntityNode from './LineageEntityNode';

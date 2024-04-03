@@ -8,10 +8,7 @@ import java.util.Base64;
 import javax.crypto.Cipher;
 import javax.crypto.spec.SecretKeySpec;
 
-
-/**
- * Utility methods to encrypt and decrypt DataHub secrets.
- */
+/** Utility methods to encrypt and decrypt DataHub secrets. */
 public class SecretUtils {
 
   static String encrypt(String value, String secret) {
@@ -30,7 +27,8 @@ public class SecretUtils {
       }
       Cipher cipher = Cipher.getInstance("AES/ECB/PKCS5Padding");
       cipher.init(Cipher.ENCRYPT_MODE, secretKey);
-      return Base64.getEncoder().encodeToString(cipher.doFinal(value.getBytes(StandardCharsets.UTF_8)));
+      return Base64.getEncoder()
+          .encodeToString(cipher.doFinal(value.getBytes(StandardCharsets.UTF_8)));
     } catch (Exception e) {
       throw new RuntimeException("Failed to encrypt value using provided secret!");
     }
@@ -59,6 +57,5 @@ public class SecretUtils {
     return null;
   }
 
-  private SecretUtils() {
-  }
+  private SecretUtils() {}
 }

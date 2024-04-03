@@ -9,7 +9,7 @@ import { ANTD_GRAY } from '../../constants';
 import { useEntityData } from '../../EntityContext';
 import { extractUpstreamSummary } from './utils';
 import FailingInputs from './FailingInputs';
-import { ReactComponent as SubtractIcon } from '../../../../../images/subtractIcon.svg';
+import SubtractIcon from '../../../../../images/subtractIcon.svg?react';
 
 const LoadingWrapper = styled.div`
     display: flex;

@@ -1,7 +1,7 @@
 import logging
 import random
 from datetime import datetime, timedelta, timezone
-from typing import Iterable, cast
+from typing import Iterable
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -34,6 +34,7 @@ from datahub.metadata.schema_classes import (
     OperationClass,
     TimeWindowSizeClass,
 )
+from datahub.sql_parsing.schema_resolver import SchemaResolver
 from datahub.testing.compare_metadata_json import diff_metadata_json
 from tests.performance.bigquery.bigquery_events import generate_events, ref_from_table
 from tests.performance.data_generation import generate_data, generate_queries
@@ -45,15 +46,16 @@ ACTOR_1, ACTOR_1_URN = "a@acryl.io", "urn:li:corpuser:a"
 ACTOR_2, ACTOR_2_URN = "b@acryl.io", "urn:li:corpuser:b"
 DATABASE_1 = Container("database_1")
 DATABASE_2 = Container("database_2")
-TABLE_1 = Table("table_1", DATABASE_1, ["id", "name", "age"], None)
-TABLE_2 = Table("table_2", DATABASE_1, ["id", "table_1_id", "value"], None)
+TABLE_1 = Table("table_1", DATABASE_1, columns=["id", "name", "age"], upstreams=[])
+TABLE_2 = Table(
+    "table_2", DATABASE_1, columns=["id", "table_1_id", "value"], upstreams=[]
+)
 VIEW_1 = View(
     name="view_1",
     container=DATABASE_1,
     columns=["id", "name", "total"],
     definition="VIEW DEFINITION 1",
-    parents=[TABLE_1, TABLE_2],
-    column_mapping=None,
+    upstreams=[TABLE_1, TABLE_2],
 )
 ALL_TABLES = [TABLE_1, TABLE_2, VIEW_1]
 
@@ -201,7 +203,10 @@ def usage_extractor(config: BigQueryV2Config) -> BigQueryUsageExtractor:
     return BigQueryUsageExtractor(
         config,
         report,
-        lambda ref: make_dataset_urn("bigquery", str(ref.table_identifier)),
+        schema_resolver=SchemaResolver(platform="bigquery"),
+        dataset_urn_builder=lambda ref: make_dataset_urn(
+            "bigquery", str(ref.table_identifier)
+        ),
     )
 
 
@@ -842,6 +847,7 @@ def test_usage_counts_no_columns(
             )
         ),
     ]
+    caplog.clear()
     with caplog.at_level(logging.WARNING):
         workunits = usage_extractor._get_workunits_internal(
             events, [TABLE_REFS[TABLE_1.name]]
@@ -916,12 +922,16 @@ def test_operational_stats(
                 timestampMillis=int(FROZEN_TIME.timestamp() * 1000),
                 lastUpdatedTimestamp=int(query.timestamp.timestamp() * 1000),
                 actor=f"urn:li:corpuser:{query.actor.split('@')[0]}",
-                operationType=query.type
-                if query.type in OPERATION_STATEMENT_TYPES.values()
-                else "CUSTOM",
-                customOperationType=None
-                if query.type in OPERATION_STATEMENT_TYPES.values()
-                else query.type,
+                operationType=(
+                    query.type
+                    if query.type in OPERATION_STATEMENT_TYPES.values()
+                    else "CUSTOM"
+                ),
+                customOperationType=(
+                    None
+                    if query.type in OPERATION_STATEMENT_TYPES.values()
+                    else query.type
+                ),
                 affectedDatasets=list(
                     dict.fromkeys(  # Preserve order
                         BigQueryTableRef.from_string_name(
@@ -938,7 +948,7 @@ def test_operational_stats(
                         ).to_urn("PROD")
                         for field in query.fields_accessed
                         if field.table.is_view()
-                        for parent in cast(View, field.table).parents
+                        for parent in field.table.upstreams
                     )
                 ),
             ),
@@ -959,21 +969,21 @@ def test_operational_stats(
 
 def test_get_tables_from_query(usage_extractor):
     assert usage_extractor.get_tables_from_query(
-        PROJECT_1, "SELECT * FROM project-1.database_1.view_1"
+        "SELECT * FROM project-1.database_1.view_1", default_project=PROJECT_1
     ) == [
         BigQueryTableRef(BigqueryTableIdentifier("project-1", "database_1", "view_1"))
     ]
 
     assert usage_extractor.get_tables_from_query(
-        PROJECT_1, "SELECT * FROM database_1.view_1"
+        "SELECT * FROM database_1.view_1", default_project=PROJECT_1
     ) == [
         BigQueryTableRef(BigqueryTableIdentifier("project-1", "database_1", "view_1"))
     ]
 
     assert sorted(
         usage_extractor.get_tables_from_query(
-            PROJECT_1,
             "SELECT v.id, v.name, v.total, t.name as name1 FROM database_1.view_1 as v inner join database_1.table_1 as t on v.id=t.id",
+            default_project=PROJECT_1,
         )
     ) == [
         BigQueryTableRef(BigqueryTableIdentifier("project-1", "database_1", "table_1")),
@@ -982,8 +992,8 @@ def test_get_tables_from_query(usage_extractor):
 
     assert sorted(
         usage_extractor.get_tables_from_query(
-            PROJECT_1,
             "CREATE TABLE database_1.new_table AS SELECT v.id, v.name, v.total, t.name as name1 FROM database_1.view_1 as v inner join database_1.table_1 as t on v.id=t.id",
+            default_project=PROJECT_1,
         )
     ) == [
         BigQueryTableRef(BigqueryTableIdentifier("project-1", "database_1", "table_1")),

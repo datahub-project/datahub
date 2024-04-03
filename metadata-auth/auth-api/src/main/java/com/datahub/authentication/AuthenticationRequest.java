@@ -1,18 +1,16 @@
 package com.datahub.authentication;
 
 import com.datahub.plugins.auth.authentication.Authenticator;
-import lombok.Getter;
-
 import java.util.Map;
 import java.util.Objects;
 import java.util.TreeMap;
 import javax.annotation.Nonnull;
-
+import lombok.Getter;
 
 /**
  * Request context provided to each {@link Authenticator} to perform Authentication.
  *
- * Currently, this class only hold the inbound request's headers, but could certainly be extended
+ * <p>Currently, this class only hold the inbound request's headers, but could certainly be extended
  * to contain additional information like the request parameters, body, ip, etc as needed.
  */
 @Getter
@@ -27,7 +25,10 @@ public class AuthenticationRequest {
     this("", "", requestHeaders);
   }
 
-  public AuthenticationRequest(@Nonnull String servletInfo, @Nonnull String pathInfo, @Nonnull final Map<String, String> requestHeaders) {
+  public AuthenticationRequest(
+      @Nonnull String servletInfo,
+      @Nonnull String pathInfo,
+      @Nonnull final Map<String, String> requestHeaders) {
     Objects.requireNonNull(requestHeaders);
     caseInsensitiveHeaders = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
     caseInsensitiveHeaders.putAll(requestHeaders);

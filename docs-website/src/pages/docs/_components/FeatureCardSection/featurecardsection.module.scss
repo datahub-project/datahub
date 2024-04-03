@@ -1,0 +1,36 @@
+
+
+.feature {
+  flex-direction: row;
+  padding: 0.675rem;
+  color: var(--ifm-text-color);
+  margin: 0.5rem;
+  min-height: calc(100% - 1rem);
+  text-decoration: none !important;
+  img {
+    width: 1.5rem;
+    height: 1.5rem;
+    margin-right: 0.75rem;
+  }
+  svg {
+    width: 1.5rem;
+    height: 1.5rem;
+    margin-right: 0.75rem;
+  }
+  strong,
+  span {
+    display: block;
+    margin-bottom: 0.25rem;
+  }
+  strong {
+    font-weight: 600;
+  }
+
+  span {
+    font-size: 0.875rem;
+    line-height: 1.25em;
+  }
+  &:hover {
+    border-color: var(--ifm-color-primary);
+  }
+}

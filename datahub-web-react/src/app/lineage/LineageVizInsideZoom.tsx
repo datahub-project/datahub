@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { PlusOutlined, MinusOutlined } from '@ant-design/icons';
 import styled from 'styled-components/macro';
 import { Button } from 'antd';
-import { ProvidedZoom, TransformMatrix } from '@vx/zoom/lib/types';
+import { ProvidedZoom, TransformMatrix } from '@visx/zoom/lib/types';
 
 import { ColumnEdge, EntityAndType, EntitySelectParams, FetchedEntity } from './types';
 import { LineageExplorerContext } from './utils/LineageExplorerContext';
@@ -41,7 +41,7 @@ type Props = {
     onEntityCenter: (EntitySelectParams) => void;
     onLineageExpand: (data: EntityAndType) => void;
     selectedEntity?: EntitySelectParams;
-    zoom: ProvidedZoom & {
+    zoom: ProvidedZoom<any> & {
         transformMatrix: TransformMatrix;
         isDragging: boolean;
     };

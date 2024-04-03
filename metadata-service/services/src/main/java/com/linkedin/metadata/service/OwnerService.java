@@ -1,13 +1,17 @@
 package com.linkedin.metadata.service;
 
+import static com.linkedin.metadata.entity.AspectUtils.*;
+
+import com.datahub.authentication.Authentication;
 import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.Owner;
-import com.linkedin.common.Ownership;
 import com.linkedin.common.OwnerArray;
+import com.linkedin.common.Ownership;
 import com.linkedin.common.OwnershipType;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.resource.ResourceReference;
 import com.linkedin.mxe.MetadataChangeProposal;
@@ -15,20 +19,16 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
-import  com.linkedin.entity.client.EntityClient;
-import com.datahub.authentication.Authentication;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
-
-import static com.linkedin.metadata.entity.AspectUtils.*;
-
 
 @Slf4j
 public class OwnerService extends BaseService {
 
   public static final String SYSTEM_ID = "__system__";
 
-  public OwnerService(@Nonnull EntityClient entityClient, @Nonnull Authentication systemAuthentication) {
+  public OwnerService(
+      @Nonnull EntityClient entityClient, @Nonnull Authentication systemAuthentication) {
     super(entityClient, systemAuthentication);
   }
 
@@ -39,7 +39,10 @@ public class OwnerService extends BaseService {
    * @param resources references to the resources to change
    * @param ownershipType the ownership type to add
    */
-  public void batchAddOwners(@Nonnull List<Urn> ownerUrns, @Nonnull List<ResourceReference> resources, @Nonnull OwnershipType ownershipType) {
+  public void batchAddOwners(
+      @Nonnull List<Urn> ownerUrns,
+      @Nonnull List<ResourceReference> resources,
+      @Nonnull OwnershipType ownershipType) {
     batchAddOwners(ownerUrns, resources, ownershipType, this.systemAuthentication);
   }
 
@@ -60,9 +63,11 @@ public class OwnerService extends BaseService {
     try {
       addOwnersToResources(ownerUrns, resources, ownershipType, authentication);
     } catch (Exception e) {
-      throw new RuntimeException(String.format("Failed to batch add Owners %s to resources with urns %s!",
-          ownerUrns,
-          resources.stream().map(ResourceReference::getUrn).collect(Collectors.toList())),
+      throw new RuntimeException(
+          String.format(
+              "Failed to batch add Owners %s to resources with urns %s!",
+              ownerUrns,
+              resources.stream().map(ResourceReference::getUrn).collect(Collectors.toList())),
           e);
     }
   }
@@ -73,7 +78,8 @@ public class OwnerService extends BaseService {
    * @param ownerUrns the urns of the owners to remove
    * @param resources references to the resources to change
    */
-  public void batchRemoveOwners(@Nonnull List<Urn> ownerUrns, @Nonnull List<ResourceReference> resources) {
+  public void batchRemoveOwners(
+      @Nonnull List<Urn> ownerUrns, @Nonnull List<ResourceReference> resources) {
     batchRemoveOwners(ownerUrns, resources, this.systemAuthentication);
   }
 
@@ -92,9 +98,11 @@ public class OwnerService extends BaseService {
     try {
       removeOwnersFromResources(ownerUrns, resources, authentication);
     } catch (Exception e) {
-      throw new RuntimeException(String.format("Failed to batch add Owners %s to resources with urns %s!",
-          ownerUrns,
-          resources.stream().map(ResourceReference::getUrn).collect(Collectors.toList())),
+      throw new RuntimeException(
+          String.format(
+              "Failed to batch add Owners %s to resources with urns %s!",
+              ownerUrns,
+              resources.stream().map(ResourceReference::getUrn).collect(Collectors.toList())),
           e);
     }
   }
@@ -103,18 +111,18 @@ public class OwnerService extends BaseService {
       List<com.linkedin.common.urn.Urn> ownerUrns,
       List<ResourceReference> resources,
       OwnershipType ownershipType,
-      Authentication authentication
-  ) throws Exception {
-    final List<MetadataChangeProposal> changes = buildAddOwnersProposals(ownerUrns, resources, ownershipType, authentication);
+      Authentication authentication)
+      throws Exception {
+    final List<MetadataChangeProposal> changes =
+        buildAddOwnersProposals(ownerUrns, resources, ownershipType, authentication);
     ingestChangeProposals(changes, authentication);
   }
 
   private void removeOwnersFromResources(
-      List<Urn> owners,
-      List<ResourceReference> resources,
-      Authentication authentication
-  ) throws Exception {
-    final List<MetadataChangeProposal> changes = buildRemoveOwnersProposals(owners, resources, authentication);
+      List<Urn> owners, List<ResourceReference> resources, Authentication authentication)
+      throws Exception {
+    final List<MetadataChangeProposal> changes =
+        buildRemoveOwnersProposals(owners, resources, authentication);
     ingestChangeProposals(changes, authentication);
   }
 
@@ -123,14 +131,13 @@ public class OwnerService extends BaseService {
       List<com.linkedin.common.urn.Urn> ownerUrns,
       List<ResourceReference> resources,
       OwnershipType ownershipType,
-      Authentication authentication
-  ) {
+      Authentication authentication) {
 
-    final Map<Urn, Ownership> ownershipAspects = getOwnershipAspects(
-        resources.stream().map(ResourceReference::getUrn).collect(Collectors.toSet()),
-        new Ownership(),
-        authentication
-    );
+    final Map<Urn, Ownership> ownershipAspects =
+        getOwnershipAspects(
+            resources.stream().map(ResourceReference::getUrn).collect(Collectors.toSet()),
+            new Ownership(),
+            authentication);
 
     final List<MetadataChangeProposal> proposals = new ArrayList<>();
     for (ResourceReference resource : resources) {
@@ -142,28 +149,26 @@ public class OwnerService extends BaseService {
 
       if (!owners.hasOwners()) {
         owners.setOwners(new OwnerArray());
-        owners.setLastModified(new AuditStamp()
-            .setTime(System.currentTimeMillis())
-            .setActor(UrnUtils.getUrn(authentication.getActor().toUrnStr()))
-        );
+        owners.setLastModified(
+            new AuditStamp()
+                .setTime(System.currentTimeMillis())
+                .setActor(UrnUtils.getUrn(authentication.getActor().toUrnStr())));
       }
       addOwnersIfNotExists(owners, ownerUrns, ownershipType);
-      proposals.add(buildMetadataChangeProposal(resource.getUrn(), Constants.OWNERSHIP_ASPECT_NAME, owners));
+      proposals.add(
+          buildMetadataChangeProposal(resource.getUrn(), Constants.OWNERSHIP_ASPECT_NAME, owners));
     }
     return proposals;
   }
 
   @VisibleForTesting
   List<MetadataChangeProposal> buildRemoveOwnersProposals(
-      List<Urn> ownerUrns,
-      List<ResourceReference> resources,
-      Authentication authentication
-  ) {
-    final Map<Urn, Ownership> ownershipAspects = getOwnershipAspects(
-        resources.stream().map(ResourceReference::getUrn).collect(Collectors.toSet()),
-        new Ownership(),
-        authentication
-    );
+      List<Urn> ownerUrns, List<ResourceReference> resources, Authentication authentication) {
+    final Map<Urn, Ownership> ownershipAspects =
+        getOwnershipAspects(
+            resources.stream().map(ResourceReference::getUrn).collect(Collectors.toSet()),
+            new Ownership(),
+            authentication);
 
     final List<MetadataChangeProposal> proposals = new ArrayList<>();
     for (ResourceReference resource : resources) {
@@ -175,16 +180,15 @@ public class OwnerService extends BaseService {
         owners.setOwners(new OwnerArray());
       }
       removeOwnersIfExists(owners, ownerUrns);
-      proposals.add(buildMetadataChangeProposal(
-          resource.getUrn(),
-          Constants.OWNERSHIP_ASPECT_NAME, owners
-      ));
+      proposals.add(
+          buildMetadataChangeProposal(resource.getUrn(), Constants.OWNERSHIP_ASPECT_NAME, owners));
     }
 
     return proposals;
   }
 
-  private void addOwnersIfNotExists(Ownership owners, List<Urn> ownerUrns, OwnershipType ownershipType) {
+  private void addOwnersIfNotExists(
+      Ownership owners, List<Urn> ownerUrns, OwnershipType ownershipType) {
     if (!owners.hasOwners()) {
       owners.setOwners(new OwnerArray());
     }
@@ -193,7 +197,8 @@ public class OwnerService extends BaseService {
 
     List<Urn> ownersToAdd = new ArrayList<>();
     for (Urn ownerUrn : ownerUrns) {
-      if (ownerAssociationArray.stream().anyMatch(association -> association.getOwner().equals(ownerUrn))) {
+      if (ownerAssociationArray.stream()
+          .anyMatch(association -> association.getOwner().equals(ownerUrn))) {
         continue;
       }
       ownersToAdd.add(ownerUrn);
@@ -212,6 +217,7 @@ public class OwnerService extends BaseService {
       ownerAssociationArray.add(newOwner);
     }
   }
+
   @VisibleForTesting
   static Urn mapOwnershipTypeToEntity(String type) {
     final String typeName = SYSTEM_ID + type.toLowerCase();

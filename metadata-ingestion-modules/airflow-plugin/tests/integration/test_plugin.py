@@ -1,6 +1,7 @@
 import contextlib
 import dataclasses
 import functools
+import json
 import logging
 import os
 import pathlib
@@ -8,12 +9,13 @@ import random
 import signal
 import subprocess
 import time
-from typing import Iterator, Sequence
+from typing import Any, Iterator, Sequence
 
 import pytest
 import requests
 import tenacity
 from airflow.models.connection import Connection
+from datahub.ingestion.sink.file import write_metadata_file
 from datahub.testing.compare_metadata_json import assert_metadata_files_equal
 
 from datahub_airflow_plugin._airflow_shims import (
@@ -21,6 +23,7 @@ from datahub_airflow_plugin._airflow_shims import (
     HAS_AIRFLOW_LISTENER_API,
     HAS_AIRFLOW_STANDALONE_CMD,
 )
+from tests.utils import PytestConfig
 
 pytestmark = pytest.mark.integration
 
@@ -239,7 +242,7 @@ def _run_airflow(
 
 
 def check_golden_file(
-    pytestconfig: pytest.Config,
+    pytestconfig: PytestConfig,
     output_path: pathlib.Path,
     golden_path: pathlib.Path,
     ignore_paths: Sequence[str] = (),
@@ -293,14 +296,18 @@ test_cases = [
         *[
             pytest.param(
                 # On Airflow 2.3-2.4, test plugin v2 without dataFlows.
-                f"v2_{test_case.dag_id}"
-                if HAS_AIRFLOW_DAG_LISTENER_API
-                else f"v2_{test_case.dag_id}_no_dag_listener",
+                (
+                    f"v2_{test_case.dag_id}"
+                    if HAS_AIRFLOW_DAG_LISTENER_API
+                    else f"v2_{test_case.dag_id}_no_dag_listener"
+                ),
                 test_case,
                 False,
-                id=f"v2_{test_case.dag_id}"
-                if HAS_AIRFLOW_DAG_LISTENER_API
-                else f"v2_{test_case.dag_id}_no_dag_listener",
+                id=(
+                    f"v2_{test_case.dag_id}"
+                    if HAS_AIRFLOW_DAG_LISTENER_API
+                    else f"v2_{test_case.dag_id}_no_dag_listener"
+                ),
                 marks=pytest.mark.skipif(
                     not HAS_AIRFLOW_LISTENER_API,
                     reason="Cannot test plugin v2 without the Airflow plugin listener API",
@@ -311,7 +318,7 @@ test_cases = [
     ],
 )
 def test_airflow_plugin(
-    pytestconfig: pytest.Config,
+    pytestconfig: PytestConfig,
     tmp_path: pathlib.Path,
     golden_filename: str,
     test_case: DagTestCase,
@@ -358,24 +365,51 @@ def test_airflow_plugin(
         print("Sleeping for a few seconds to let the plugin finish...")
         time.sleep(10)
 
+    _sanitize_output_file(airflow_instance.metadata_file)
+
     check_golden_file(
         pytestconfig=pytestconfig,
         output_path=airflow_instance.metadata_file,
         golden_path=golden_path,
         ignore_paths=[
-            # Timing-related items.
-            r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]\['start_date'\]",
-            r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]\['end_date'\]",
-            r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]\['duration'\]",
-            # Host-specific items.
-            r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]\['pid'\]",
-            r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]\['hostname'\]",
-            r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]\['unixname'\]",
             # TODO: If we switched to Git urls, maybe we could get this to work consistently.
-            r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]\['fileloc'\]",
             r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]\['openlineage_.*'\]",
         ],
     )
+
+
+def _sanitize_output_file(output_path: pathlib.Path) -> None:
+    # Overwrite some custom properties in the output file to make it easier to compare.
+
+    props_job = {
+        "fileloc": "<fileloc>",
+    }
+    props_process = {
+        "start_date": "<start_date>",
+        "end_date": "<end_date>",
+        "duration": "<duration>",
+    }
+
+    def _sanitize(obj: Any) -> None:
+        if isinstance(obj, dict) and "customProperties" in obj:
+            replacement_props = (
+                props_process if "run_id" in obj["customProperties"] else props_job
+            )
+            obj["customProperties"] = {
+                k: replacement_props.get(k, v)
+                for k, v in obj["customProperties"].items()
+            }
+        elif isinstance(obj, dict):
+            for v in obj.values():
+                _sanitize(v)
+        elif isinstance(obj, list):
+            for v in obj:
+                _sanitize(v)
+
+    objs = json.loads(output_path.read_text())
+    _sanitize(objs)
+
+    write_metadata_file(output_path, objs)
 
 
 if __name__ == "__main__":

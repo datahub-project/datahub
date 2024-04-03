@@ -7,8 +7,9 @@ import { ANTD_GRAY } from '../../../entity/shared/constants';
 import { YamlEditor } from './YamlEditor';
 import RecipeForm from './RecipeForm/RecipeForm';
 import { SourceBuilderState, SourceConfig } from './types';
-import { LOOKER, LOOK_ML } from './constants';
+import { CSV, LOOKER, LOOK_ML } from './constants';
 import { LookerWarning } from './LookerWarning';
+import { CSVInfo } from './CSVInfo';
 
 export const ControlsContainer = styled.div`
     display: flex;
@@ -23,9 +24,9 @@ const BorderedSection = styled.div`
     border: solid ${ANTD_GRAY[4]} 0.5px;
 `;
 
-const StyledButton = styled(Button)<{ isSelected: boolean }>`
+const StyledButton = styled(Button)<{ $isSelected: boolean }>`
     ${(props) =>
-        props.isSelected &&
+        props.$isSelected &&
         `
         color: #1890ff;
         &:focus {
@@ -81,6 +82,8 @@ function RecipeBuilder(props: Props) {
     return (
         <div>
             {(type === LOOKER || type === LOOK_ML) && <LookerWarning type={type} />}
+            {type === CSV && <CSVInfo />}
+
             <HeaderContainer>
                 <Title style={{ marginBottom: 0 }} level={5}>
                     {sourceConfigs?.displayName} Recipe
@@ -88,7 +91,7 @@ function RecipeBuilder(props: Props) {
                 <ButtonsWrapper>
                     <StyledButton
                         type="text"
-                        isSelected={isViewingForm}
+                        $isSelected={isViewingForm}
                         onClick={() => switchViews(true)}
                         data-testid="recipe-builder-form-button"
                     >
@@ -96,7 +99,7 @@ function RecipeBuilder(props: Props) {
                     </StyledButton>
                     <StyledButton
                         type="text"
-                        isSelected={!isViewingForm}
+                        $isSelected={!isViewingForm}
                         onClick={() => switchViews(false)}
                         data-testid="recipe-builder-yaml-button"
                     >

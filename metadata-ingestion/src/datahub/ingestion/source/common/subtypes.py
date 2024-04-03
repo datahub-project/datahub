@@ -15,6 +15,8 @@ class DatasetSubTypes(str, Enum):
     SALESFORCE_CUSTOM_OBJECT = "Custom Object"
     SALESFORCE_STANDARD_OBJECT = "Object"
     POWERBI_DATASET_TABLE = "PowerBI Dataset Table"
+    QLIK_DATASET = "Qlik Dataset"
+    BIGQUERY_TABLE_SNAPSHOT = "Bigquery Table Snapshot"
 
     # TODO: Create separate entity...
     NOTEBOOK = "Notebook"
@@ -39,8 +41,17 @@ class BIContainerSubTypes(str, Enum):
     TABLEAU_WORKBOOK = "Workbook"
     POWERBI_WORKSPACE = "Workspace"
     POWERBI_DATASET = "PowerBI Dataset"
+    QLIK_SPACE = "Qlik Space"
+    QLIK_APP = "Qlik App"
 
 
 class BIAssetSubTypes(str, Enum):
     # Generic SubTypes
     REPORT = "Report"
+
+    # Looker
+    LOOKER_LOOK = "Look"
+
+    # PowerBI
+    POWERBI_TILE = "PowerBI Tile"
+    POWERBI_PAGE = "PowerBI Page"

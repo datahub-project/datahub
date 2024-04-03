@@ -32,6 +32,7 @@ venv.bak/
 dmypy.json
 MANIFEST
 *.pyc
+.python-version
 
 # Generated files
 **/bin

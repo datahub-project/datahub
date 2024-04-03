@@ -11,7 +11,7 @@
                 "catchup": "False",
                 "description": "'A simple DAG that runs a few fake data tasks.'",
                 "doc_md": "None",
-                "fileloc": "'/home/shubham/airflow1/datahub/metadata-ingestion-modules/airflow-plugin/tests/integration/dags/simple_dag.py'",
+                "fileloc": "<fileloc>",
                 "is_paused_upon_creation": "None",
                 "start_date": "DateTime(2023, 1, 1, 0, 0, 0, tzinfo=Timezone('UTC'))",
                 "tags": "None",
@@ -94,13 +94,14 @@
         "json": {
             "inputDatasets": [
                 "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableA,PROD)",
-                "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableC,PROD)",
-                "urn:li:dataJob:(urn:li:dataFlow:(airflow,test_dag,PROD),test_task)"
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableC,PROD)"
             ],
             "outputDatasets": [
                 "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableD,PROD)"
             ],
-            "inputDatajobs": [],
+            "inputDatajobs": [
+                "urn:li:dataJob:(urn:li:dataFlow:(airflow,test_dag,PROD),test_task)"
+            ],
             "fineGrainedLineages": []
         }
     }
@@ -119,17 +120,6 @@
 {
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableC,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,test_dag,PROD),test_task)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -220,13 +210,14 @@
         "json": {
             "inputDatasets": [
                 "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableA,PROD)",
-                "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableC,PROD)",
-                "urn:li:dataJob:(urn:li:dataFlow:(airflow,test_dag,PROD),test_task)"
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableC,PROD)"
             ],
             "outputDatasets": [
                 "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableD,PROD)"
             ],
-            "inputDatajobs": [],
+            "inputDatajobs": [
+                "urn:li:dataJob:(urn:li:dataFlow:(airflow,test_dag,PROD),test_task)"
+            ],
             "fineGrainedLineages": []
         }
     }
@@ -245,17 +236,6 @@
 {
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableC,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,test_dag,PROD),test_task)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -318,9 +298,9 @@
         "json": {
             "customProperties": {
                 "run_id": "manual_run_test",
-                "duration": "0.120524",
-                "start_date": "2023-11-08 09:54:06.065112+00:00",
-                "end_date": "2023-11-08 09:54:06.185636+00:00",
+                "duration": "<duration>",
+                "start_date": "<start_date>",
+                "end_date": "<end_date>",
                 "execution_date": "2023-09-27 21:34:38+00:00",
                 "try_number": "1",
                 "max_tries": "0",
@@ -337,7 +317,7 @@
             "name": "simple_dag_task_1_manual_run_test",
             "type": "BATCH_AD_HOC",
             "created": {
-                "time": 1699437246065,
+                "time": 1701222595752,
                 "actor": "urn:li:corpuser:datahub"
             }
         }
@@ -364,8 +344,7 @@
         "json": {
             "inputs": [
                 "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableA,PROD)",
-                "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableC,PROD)",
-                "urn:li:dataJob:(urn:li:dataFlow:(airflow,test_dag,PROD),test_task)"
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableC,PROD)"
             ]
         }
     }
@@ -406,17 +385,6 @@
     }
 },
 {
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,test_dag,PROD),test_task)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    }
-},
-{
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableD,PROD)",
     "changeType": "UPSERT",
@@ -434,7 +402,7 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1699437246065,
+            "timestampMillis": 1701222595752,
             "partitionSpec": {
                 "type": "FULL_TABLE",
                 "partition": "FULL_TABLE_SNAPSHOT"
@@ -451,7 +419,7 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1699437246185,
+            "timestampMillis": 1701222595962,
             "partitionSpec": {
                 "type": "FULL_TABLE",
                 "partition": "FULL_TABLE_SNAPSHOT"
@@ -476,7 +444,7 @@
                 "catchup": "False",
                 "description": "'A simple DAG that runs a few fake data tasks.'",
                 "doc_md": "None",
-                "fileloc": "'/home/shubham/airflow1/datahub/metadata-ingestion-modules/airflow-plugin/tests/integration/dags/simple_dag.py'",
+                "fileloc": "<fileloc>",
                 "is_paused_upon_creation": "None",
                 "start_date": "DateTime(2023, 1, 1, 0, 0, 0, tzinfo=Timezone('UTC'))",
                 "tags": "None",
@@ -687,9 +655,9 @@
         "json": {
             "customProperties": {
                 "run_id": "manual_run_test",
-                "duration": "0.099975",
-                "start_date": "2023-11-08 09:54:09.744583+00:00",
-                "end_date": "2023-11-08 09:54:09.844558+00:00",
+                "duration": "<duration>",
+                "start_date": "<start_date>",
+                "end_date": "<end_date>",
                 "execution_date": "2023-09-27 21:34:38+00:00",
                 "try_number": "1",
                 "max_tries": "0",
@@ -706,7 +674,7 @@
             "name": "simple_dag_run_another_data_task_manual_run_test",
             "type": "BATCH_AD_HOC",
             "created": {
-                "time": 1699437249744,
+                "time": 1701222599804,
                 "actor": "urn:li:corpuser:datahub"
             }
         }
@@ -731,7 +699,7 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1699437249744,
+            "timestampMillis": 1701222599804,
             "partitionSpec": {
                 "type": "FULL_TABLE",
                 "partition": "FULL_TABLE_SNAPSHOT"
@@ -748,7 +716,7 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1699437249844,
+            "timestampMillis": 1701222599959,
             "partitionSpec": {
                 "type": "FULL_TABLE",
                 "partition": "FULL_TABLE_SNAPSHOT"

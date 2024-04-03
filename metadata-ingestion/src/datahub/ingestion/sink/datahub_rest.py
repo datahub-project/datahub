@@ -2,12 +2,10 @@ import concurrent.futures
 import contextlib
 import functools
 import logging
-from concurrent.futures import ThreadPoolExecutor
+import uuid
 from dataclasses import dataclass
-from datetime import timedelta
 from enum import auto
-from threading import BoundedSemaphore
-from typing import Union
+from typing import Optional, Union
 
 from datahub.cli.cli_utils import set_env_variables_override_config
 from datahub.configuration.common import (
@@ -18,13 +16,19 @@ from datahub.configuration.common import (
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.ingestion.api.common import RecordEnvelope, WorkUnit
-from datahub.ingestion.api.sink import Sink, SinkReport, WriteCallback
+from datahub.ingestion.api.sink import (
+    NoopWriteCallback,
+    Sink,
+    SinkReport,
+    WriteCallback,
+)
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.graph.client import DatahubClientConfig
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
     MetadataChangeEvent,
     MetadataChangeProposal,
 )
+from datahub.utilities.advanced_thread_executor import PartitionExecutor
 from datahub.utilities.server_config_util import set_gms_config
 
 logger = logging.getLogger(__name__)
@@ -40,50 +44,38 @@ class DatahubRestSinkConfig(DatahubClientConfig):
 
     # These only apply in async mode.
     max_threads: int = 15
-    max_pending_requests: int = 1000
+    max_pending_requests: int = 500
 
 
 @dataclass
 class DataHubRestSinkReport(SinkReport):
+    max_threads: int = -1
     gms_version: str = ""
     pending_requests: int = 0
 
     def compute_stats(self) -> None:
         super().compute_stats()
 
-    def report_write_latency(self, delta: timedelta) -> None:
-        pass
+
+def _get_urn(record_envelope: RecordEnvelope) -> Optional[str]:
+    metadata = record_envelope.record
+
+    if isinstance(metadata, MetadataChangeEvent):
+        return metadata.proposedSnapshot.urn
+    elif isinstance(metadata, (MetadataChangeProposalWrapper, MetadataChangeProposal)):
+        return metadata.entityUrn
+
+    return None
 
 
-class BoundedExecutor:
-    """BoundedExecutor behaves as a ThreadPoolExecutor which will block on
-    calls to submit() once the limit given as "bound" work items are queued for
-    execution.
-    :param bound: Integer - the maximum number of items in the work queue
-    :param max_workers: Integer - the size of the thread pool
-    """
+def _get_partition_key(record_envelope: RecordEnvelope) -> str:
+    urn = _get_urn(record_envelope)
+    if urn:
+        return urn
 
-    def __init__(self, bound, max_workers):
-        self.executor = ThreadPoolExecutor(max_workers)
-        self.semaphore = BoundedSemaphore(bound + max_workers)
-
-    """See concurrent.futures.Executor#submit"""
-
-    def submit(self, fn, *args, **kwargs):
-        self.semaphore.acquire()
-        try:
-            future = self.executor.submit(fn, *args, **kwargs)
-        except Exception:
-            self.semaphore.release()
-            raise
-        else:
-            future.add_done_callback(lambda x: self.semaphore.release())
-            return future
-
-    """See concurrent.futures.Executor#shutdown"""
-
-    def shutdown(self, wait=True):
-        self.executor.shutdown(wait)
+    # This shouldn't happen super frequently, but just adding a fallback of generating
+    # a UUID so that we don't do any partitioning.
+    return str(uuid.uuid4())
 
 
 class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
@@ -104,25 +96,25 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
             disable_ssl_verification=self.config.disable_ssl_verification,
         )
         try:
-            gms_config = self.emitter.test_connection()
+            gms_config = self.emitter.get_server_config()
         except Exception as exc:
             raise ConfigurationError(
-                f"💥 Failed to connect to DataHub@{self.config.server} (token:{'XXX-redacted' if self.config.token else 'empty'}) over REST",
-                exc,
-            )
+                f"💥 Failed to connect to DataHub with {repr(self.emitter)}"
+            ) from exc
 
         self.report.gms_version = (
             gms_config.get("versions", {})
-            .get("linkedin/datahub", {})
+            .get("acryldata/datahub", {})
             .get("version", "")
         )
+        self.report.max_threads = self.config.max_threads
         logger.debug("Setting env variables to override config")
         set_env_variables_override_config(self.config.server, self.config.token)
         logger.debug("Setting gms config")
         set_gms_config(gms_config)
-        self.executor = BoundedExecutor(
+        self.executor = PartitionExecutor(
             max_workers=self.config.max_threads,
-            bound=self.config.max_pending_requests,
+            max_pending=self.config.max_pending_requests,
         )
 
     def handle_work_unit_start(self, workunit: WorkUnit) -> None:
@@ -147,9 +139,7 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
         elif future.done():
             e = future.exception()
             if not e:
-                start_time, end_time = future.result()
                 self.report.report_record_written(record_envelope)
-                self.report.report_write_latency(end_time - start_time)
                 write_callback.on_success(record_envelope, {})
             elif isinstance(e, OperationalError):
                 # only OperationalErrors should be ignored
@@ -164,13 +154,9 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
                         ]
 
                 # Include information about the entity that failed.
-                record = record_envelope.record
-                if isinstance(record, MetadataChangeProposalWrapper):
-                    entity_id = record.entityUrn
-                    e.info["id"] = entity_id
-                elif isinstance(record, MetadataChangeEvent):
-                    entity_id = record.proposedSnapshot.urn
-                    e.info["id"] = entity_id
+                record_urn = _get_urn(record_envelope)
+                if record_urn:
+                    e.info["urn"] = record_urn
 
                 if not self.treat_errors_as_warnings:
                     self.report.report_failure({"error": e.message, "info": e.info})
@@ -180,6 +166,17 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
             else:
                 self.report.report_failure({"e": e})
                 write_callback.on_failure(record_envelope, Exception(e), {})
+
+    def _emit_wrapper(
+        self,
+        record: Union[
+            MetadataChangeEvent,
+            MetadataChangeProposal,
+            MetadataChangeProposalWrapper,
+        ],
+    ) -> None:
+        # TODO: Add timing metrics
+        self.emitter.emit(record)
 
     def write_record_async(
         self,
@@ -194,23 +191,37 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
     ) -> None:
         record = record_envelope.record
         if self.config.mode == SyncOrAsync.ASYNC:
-            write_future = self.executor.submit(self.emitter.emit, record)
-            write_future.add_done_callback(
-                functools.partial(
+            partition_key = _get_partition_key(record_envelope)
+            self.executor.submit(
+                partition_key,
+                self._emit_wrapper,
+                record,
+                done_callback=functools.partial(
                     self._write_done_callback, record_envelope, write_callback
-                )
+                ),
             )
             self.report.pending_requests += 1
         else:
             # execute synchronously
             try:
-                (start, end) = self.emitter.emit(record)
+                self._emit_wrapper(record)
                 write_callback.on_success(record_envelope, success_metadata={})
             except Exception as e:
                 write_callback.on_failure(record_envelope, e, failure_metadata={})
 
+    def emit_async(
+        self,
+        item: Union[
+            MetadataChangeEvent, MetadataChangeProposal, MetadataChangeProposalWrapper
+        ],
+    ) -> None:
+        return self.write_record_async(
+            RecordEnvelope(item, metadata={}),
+            NoopWriteCallback(),
+        )
+
     def close(self):
-        self.executor.shutdown(wait=True)
+        self.executor.shutdown()
 
     def __repr__(self) -> str:
         return self.emitter.__repr__()

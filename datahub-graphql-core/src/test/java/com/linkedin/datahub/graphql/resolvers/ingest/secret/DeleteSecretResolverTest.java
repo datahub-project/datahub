@@ -1,5 +1,8 @@
 package com.linkedin.datahub.graphql.resolvers.ingest.secret;
 
+import static com.linkedin.datahub.graphql.resolvers.ingest.IngestTestUtils.*;
+import static org.testng.Assert.*;
+
 import com.datahub.authentication.Authentication;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.entity.client.EntityClient;
@@ -7,9 +10,6 @@ import com.linkedin.r2.RemoteInvocationException;
 import graphql.schema.DataFetchingEnvironment;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
-
-import static org.testng.Assert.*;
-import static com.linkedin.datahub.graphql.resolvers.ingest.IngestTestUtils.*;
 
 public class DeleteSecretResolverTest {
 
@@ -26,7 +26,8 @@ public class DeleteSecretResolverTest {
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
     assertEquals(resolver.get(mockEnv).get(), TEST_SECRET_URN.toString());
-    Mockito.verify(mockClient, Mockito.times(1)).deleteEntity(TEST_SECRET_URN, mockContext.getAuthentication());
+    Mockito.verify(mockClient, Mockito.times(1))
+        .deleteEntity(TEST_SECRET_URN, mockContext.getAuthentication());
   }
 
   @Test
@@ -42,14 +43,17 @@ public class DeleteSecretResolverTest {
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
     assertThrows(RuntimeException.class, () -> resolver.get(mockEnv).join());
-    Mockito.verify(mockClient, Mockito.times(0)).deleteEntity(TEST_SECRET_URN, mockContext.getAuthentication());
+    Mockito.verify(mockClient, Mockito.times(0))
+        .deleteEntity(TEST_SECRET_URN, mockContext.getAuthentication());
   }
 
   @Test
   public void testGetEntityClientException() throws Exception {
     // Create resolver
     EntityClient mockClient = Mockito.mock(EntityClient.class);
-    Mockito.doThrow(RemoteInvocationException.class).when(mockClient).deleteEntity(Mockito.eq(TEST_SECRET_URN), Mockito.any(Authentication.class));
+    Mockito.doThrow(RemoteInvocationException.class)
+        .when(mockClient)
+        .deleteEntity(Mockito.eq(TEST_SECRET_URN), Mockito.any(Authentication.class));
     DeleteSecretResolver resolver = new DeleteSecretResolver(mockClient);
 
     // Execute Resolver

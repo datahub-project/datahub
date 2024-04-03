@@ -1,5 +1,9 @@
 package com.datahub.authentication.invite;
 
+import static com.linkedin.metadata.Constants.*;
+import static org.mockito.Mockito.*;
+import static org.testng.Assert.*;
+
 import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
@@ -13,14 +17,10 @@ import com.linkedin.identity.InviteToken;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
-import com.linkedin.metadata.secret.SecretService;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.services.SecretService;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
-
-import static com.linkedin.metadata.Constants.*;
-import static org.mockito.Mockito.*;
-import static org.testng.Assert.*;
-
 
 public class InviteTokenServiceTest {
   private static final String INVITE_TOKEN_URN_STRING = "urn:li:inviteToken:admin-invite-token";
@@ -36,6 +36,7 @@ public class InviteTokenServiceTest {
   private EntityClient _entityClient;
   private SecretService _secretService;
   private InviteTokenService _inviteTokenService;
+  private OperationContext opContext;
 
   @BeforeMethod
   public void setupTest() throws Exception {
@@ -43,7 +44,7 @@ public class InviteTokenServiceTest {
     roleUrn = Urn.createFromString(ROLE_URN_STRING);
     _entityClient = mock(EntityClient.class);
     _secretService = mock(SecretService.class);
-
+    opContext = mock(OperationContext.class);
     _inviteTokenService = new InviteTokenService(_entityClient, _secretService);
   }
 
@@ -68,20 +69,24 @@ public class InviteTokenServiceTest {
 
   @Test
   public void testGetInviteTokenRoleNullEntity() throws Exception {
-    when(_entityClient.getV2(eq(INVITE_TOKEN_ENTITY_NAME), eq(inviteTokenUrn), any(),
-        eq(SYSTEM_AUTHENTICATION))).thenReturn(null);
+    when(_entityClient.getV2(
+            eq(INVITE_TOKEN_ENTITY_NAME), eq(inviteTokenUrn), any(), eq(SYSTEM_AUTHENTICATION)))
+        .thenReturn(null);
 
-    assertThrows(() -> _inviteTokenService.getInviteTokenRole(inviteTokenUrn, SYSTEM_AUTHENTICATION));
+    assertThrows(
+        () -> _inviteTokenService.getInviteTokenRole(inviteTokenUrn, SYSTEM_AUTHENTICATION));
   }
 
   @Test
   public void testGetInviteTokenRoleEmptyAspectMap() throws Exception {
     final EntityResponse entityResponse = new EntityResponse().setAspects(new EnvelopedAspectMap());
 
-    when(_entityClient.getV2(eq(INVITE_TOKEN_ENTITY_NAME), eq(inviteTokenUrn), any(),
-        eq(SYSTEM_AUTHENTICATION))).thenReturn(entityResponse);
+    when(_entityClient.getV2(
+            eq(INVITE_TOKEN_ENTITY_NAME), eq(inviteTokenUrn), any(), eq(SYSTEM_AUTHENTICATION)))
+        .thenReturn(entityResponse);
 
-    assertThrows(() -> _inviteTokenService.getInviteTokenRole(inviteTokenUrn, SYSTEM_AUTHENTICATION));
+    assertThrows(
+        () -> _inviteTokenService.getInviteTokenRole(inviteTokenUrn, SYSTEM_AUTHENTICATION));
   }
 
   @Test
@@ -89,11 +94,14 @@ public class InviteTokenServiceTest {
     final EntityResponse entityResponse = new EntityResponse();
     final EnvelopedAspectMap aspectMap = new EnvelopedAspectMap();
     final InviteToken inviteTokenAspect = new InviteToken().setToken(ENCRYPTED_INVITE_TOKEN_STRING);
-    aspectMap.put(INVITE_TOKEN_ASPECT_NAME, new EnvelopedAspect().setValue(new Aspect(inviteTokenAspect.data())));
+    aspectMap.put(
+        INVITE_TOKEN_ASPECT_NAME,
+        new EnvelopedAspect().setValue(new Aspect(inviteTokenAspect.data())));
     entityResponse.setAspects(aspectMap);
 
-    when(_entityClient.getV2(eq(INVITE_TOKEN_ENTITY_NAME), eq(inviteTokenUrn), any(),
-        eq(SYSTEM_AUTHENTICATION))).thenReturn(entityResponse);
+    when(_entityClient.getV2(
+            eq(INVITE_TOKEN_ENTITY_NAME), eq(inviteTokenUrn), any(), eq(SYSTEM_AUTHENTICATION)))
+        .thenReturn(entityResponse);
 
     Urn roleUrn = _inviteTokenService.getInviteTokenRole(inviteTokenUrn, SYSTEM_AUTHENTICATION);
     assertNull(roleUrn);
@@ -103,12 +111,16 @@ public class InviteTokenServiceTest {
   public void testGetInviteTokenRole() throws Exception {
     final EntityResponse entityResponse = new EntityResponse();
     final EnvelopedAspectMap aspectMap = new EnvelopedAspectMap();
-    final InviteToken inviteTokenAspect = new InviteToken().setToken(ENCRYPTED_INVITE_TOKEN_STRING).setRole(roleUrn);
-    aspectMap.put(INVITE_TOKEN_ASPECT_NAME, new EnvelopedAspect().setValue(new Aspect(inviteTokenAspect.data())));
+    final InviteToken inviteTokenAspect =
+        new InviteToken().setToken(ENCRYPTED_INVITE_TOKEN_STRING).setRole(roleUrn);
+    aspectMap.put(
+        INVITE_TOKEN_ASPECT_NAME,
+        new EnvelopedAspect().setValue(new Aspect(inviteTokenAspect.data())));
     entityResponse.setAspects(aspectMap);
 
-    when(_entityClient.getV2(eq(INVITE_TOKEN_ENTITY_NAME), eq(inviteTokenUrn), any(),
-        eq(SYSTEM_AUTHENTICATION))).thenReturn(entityResponse);
+    when(_entityClient.getV2(
+            eq(INVITE_TOKEN_ENTITY_NAME), eq(inviteTokenUrn), any(), eq(SYSTEM_AUTHENTICATION)))
+        .thenReturn(entityResponse);
 
     Urn roleUrn = _inviteTokenService.getInviteTokenRole(inviteTokenUrn, SYSTEM_AUTHENTICATION);
     assertNotNull(roleUrn);
@@ -119,20 +131,22 @@ public class InviteTokenServiceTest {
   public void getInviteTokenRoleUrnDoesNotExist() throws Exception {
     when(_entityClient.exists(eq(roleUrn), eq(SYSTEM_AUTHENTICATION))).thenReturn(false);
 
-    assertThrows(() -> _inviteTokenService.getInviteToken(roleUrn.toString(), false, SYSTEM_AUTHENTICATION));
+    assertThrows(() -> _inviteTokenService.getInviteToken(opContext, roleUrn.toString(), false));
   }
 
   @Test
   public void getInviteTokenRegenerate() throws Exception {
     final SearchResult searchResult = new SearchResult();
     searchResult.setEntities(new SearchEntityArray());
-    when(_entityClient.filter(eq(INVITE_TOKEN_ENTITY_NAME), any(), any(), anyInt(), anyInt(),
-        eq(SYSTEM_AUTHENTICATION))).thenReturn(searchResult);
+    when(opContext.getAuthentication()).thenReturn(SYSTEM_AUTHENTICATION);
+    when(_entityClient.filter(
+            eq(opContext), eq(INVITE_TOKEN_ENTITY_NAME), any(), any(), anyInt(), anyInt()))
+        .thenReturn(searchResult);
     when(_secretService.generateUrlSafeToken(anyInt())).thenReturn(INVITE_TOKEN_STRING);
     when(_secretService.hashString(anyString())).thenReturn(HASHED_INVITE_TOKEN_STRING);
     when(_secretService.encrypt(anyString())).thenReturn(ENCRYPTED_INVITE_TOKEN_STRING);
 
-    _inviteTokenService.getInviteToken(null, true, SYSTEM_AUTHENTICATION);
+    _inviteTokenService.getInviteToken(opContext, null, true);
     verify(_entityClient, times(1)).ingestProposal(any(), eq(SYSTEM_AUTHENTICATION));
   }
 
@@ -140,13 +154,15 @@ public class InviteTokenServiceTest {
   public void getInviteTokenEmptySearchResult() throws Exception {
     final SearchResult searchResult = new SearchResult();
     searchResult.setEntities(new SearchEntityArray());
-    when(_entityClient.filter(eq(INVITE_TOKEN_ENTITY_NAME), any(), any(), anyInt(), anyInt(),
-        eq(SYSTEM_AUTHENTICATION))).thenReturn(searchResult);
+    when(opContext.getAuthentication()).thenReturn(SYSTEM_AUTHENTICATION);
+    when(_entityClient.filter(
+            eq(opContext), eq(INVITE_TOKEN_ENTITY_NAME), any(), any(), anyInt(), anyInt()))
+        .thenReturn(searchResult);
     when(_secretService.generateUrlSafeToken(anyInt())).thenReturn(INVITE_TOKEN_STRING);
     when(_secretService.hashString(anyString())).thenReturn(HASHED_INVITE_TOKEN_STRING);
     when(_secretService.encrypt(anyString())).thenReturn(ENCRYPTED_INVITE_TOKEN_STRING);
 
-    _inviteTokenService.getInviteToken(null, false, SYSTEM_AUTHENTICATION);
+    _inviteTokenService.getInviteToken(opContext, null, false);
     verify(_entityClient, times(1)).ingestProposal(any(), eq(SYSTEM_AUTHENTICATION));
   }
 
@@ -157,12 +173,15 @@ public class InviteTokenServiceTest {
     final SearchEntity searchEntity = new SearchEntity().setEntity(inviteTokenUrn);
     searchEntityArray.add(searchEntity);
     searchResult.setEntities(searchEntityArray);
-    when(_entityClient.filter(eq(INVITE_TOKEN_ENTITY_NAME), any(), any(), anyInt(), anyInt(),
-        eq(SYSTEM_AUTHENTICATION))).thenReturn(searchResult);
-    when(_entityClient.getV2(eq(INVITE_TOKEN_ENTITY_NAME), eq(inviteTokenUrn), any(),
-        eq(SYSTEM_AUTHENTICATION))).thenReturn(null);
+    when(opContext.getAuthentication()).thenReturn(SYSTEM_AUTHENTICATION);
+    when(_entityClient.filter(
+            eq(opContext), eq(INVITE_TOKEN_ENTITY_NAME), any(), any(), anyInt(), anyInt()))
+        .thenReturn(searchResult);
+    when(_entityClient.getV2(
+            eq(INVITE_TOKEN_ENTITY_NAME), eq(inviteTokenUrn), any(), eq(SYSTEM_AUTHENTICATION)))
+        .thenReturn(null);
 
-    assertThrows(() -> _inviteTokenService.getInviteToken(null, false, SYSTEM_AUTHENTICATION));
+    assertThrows(() -> _inviteTokenService.getInviteToken(opContext, null, false));
   }
 
   @Test
@@ -172,16 +191,18 @@ public class InviteTokenServiceTest {
     final SearchEntity searchEntity = new SearchEntity().setEntity(inviteTokenUrn);
     searchEntityArray.add(searchEntity);
     searchResult.setEntities(searchEntityArray);
-    when(_entityClient.filter(eq(INVITE_TOKEN_ENTITY_NAME), any(), any(), anyInt(), anyInt(),
-        eq(SYSTEM_AUTHENTICATION))).thenReturn(searchResult);
+    when(_entityClient.filter(
+            eq(opContext), eq(INVITE_TOKEN_ENTITY_NAME), any(), any(), anyInt(), anyInt()))
+        .thenReturn(searchResult);
 
     final EntityResponse entityResponse = new EntityResponse().setAspects(new EnvelopedAspectMap());
-    when(_entityClient.getV2(eq(INVITE_TOKEN_ENTITY_NAME), eq(inviteTokenUrn), any(),
-        eq(SYSTEM_AUTHENTICATION))).thenReturn(entityResponse);
+    when(_entityClient.getV2(
+            eq(INVITE_TOKEN_ENTITY_NAME), eq(inviteTokenUrn), any(), eq(SYSTEM_AUTHENTICATION)))
+        .thenReturn(entityResponse);
 
     when(_secretService.encrypt(anyString())).thenReturn(ENCRYPTED_INVITE_TOKEN_STRING);
 
-    assertThrows(() -> _inviteTokenService.getInviteToken(null, false, SYSTEM_AUTHENTICATION));
+    assertThrows(() -> _inviteTokenService.getInviteToken(opContext, null, false));
   }
 
   @Test
@@ -191,19 +212,25 @@ public class InviteTokenServiceTest {
     final SearchEntity searchEntity = new SearchEntity().setEntity(inviteTokenUrn);
     searchEntityArray.add(searchEntity);
     searchResult.setEntities(searchEntityArray);
-    when(_entityClient.filter(eq(INVITE_TOKEN_ENTITY_NAME), any(), any(), anyInt(), anyInt(),
-        eq(SYSTEM_AUTHENTICATION))).thenReturn(searchResult);
+    when(opContext.getAuthentication()).thenReturn(SYSTEM_AUTHENTICATION);
+    when(_entityClient.filter(
+            eq(opContext), eq(INVITE_TOKEN_ENTITY_NAME), any(), any(), anyInt(), anyInt()))
+        .thenReturn(searchResult);
 
     final EntityResponse entityResponse = new EntityResponse();
     final EnvelopedAspectMap aspectMap = new EnvelopedAspectMap();
-    final InviteToken inviteTokenAspect = new InviteToken().setToken(ENCRYPTED_INVITE_TOKEN_STRING).setRole(roleUrn);
-    aspectMap.put(INVITE_TOKEN_ASPECT_NAME, new EnvelopedAspect().setValue(new Aspect(inviteTokenAspect.data())));
+    final InviteToken inviteTokenAspect =
+        new InviteToken().setToken(ENCRYPTED_INVITE_TOKEN_STRING).setRole(roleUrn);
+    aspectMap.put(
+        INVITE_TOKEN_ASPECT_NAME,
+        new EnvelopedAspect().setValue(new Aspect(inviteTokenAspect.data())));
     entityResponse.setAspects(aspectMap);
-    when(_entityClient.getV2(eq(INVITE_TOKEN_ENTITY_NAME), eq(inviteTokenUrn), any(),
-        eq(SYSTEM_AUTHENTICATION))).thenReturn(entityResponse);
+    when(_entityClient.getV2(
+            eq(INVITE_TOKEN_ENTITY_NAME), eq(inviteTokenUrn), any(), eq(SYSTEM_AUTHENTICATION)))
+        .thenReturn(entityResponse);
 
     when(_secretService.decrypt(eq(ENCRYPTED_INVITE_TOKEN_STRING))).thenReturn(INVITE_TOKEN_STRING);
 
-    assertEquals(_inviteTokenService.getInviteToken(null, false, SYSTEM_AUTHENTICATION), INVITE_TOKEN_STRING);
+    assertEquals(_inviteTokenService.getInviteToken(opContext, null, false), INVITE_TOKEN_STRING);
   }
 }

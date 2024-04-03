@@ -14,3 +14,71 @@ jobs:
         with:
           repo-token: "${{ secrets.GITHUB_TOKEN }}"
           configuration-path: ".github/pr-labeler-config.yml"
+      - uses: actions-ecosystem/action-add-labels@v1.1.0
+        # only add names of Acryl Data team members here
+        if: 
+          ${{ 
+            !contains(
+              fromJson('[
+                "anshbansal",
+                "asikowitz",
+                "chriscollins3456",
+                "david-leifker",
+                "shirshanka",
+                "sid-acryl",
+                "swaroopjagadish",
+                "treff7es",
+                "yoonhyejin",
+                "eboneil",
+                "ethan-cartwright",
+                "gabe-lyons",
+                "hsheth2",
+                "jjoyce0510",
+                "maggiehays",
+                "mrjefflewis",
+                "pedro93",
+                "RyanHolstien",
+                "Kunal-kankriya",
+                "purnimagarg1",
+                "gaurav2733",
+                "dushayntAW",
+                "AvaniSiddhapuraAPT",
+                "akarsh991",
+                "shubhamjagtap639",
+                "mayurinehate"
+              ]'), 
+              github.actor
+            ) 
+          }}
+        with:
+          github_token: ${{ github.token }}
+          labels: |
+            community-contribution
+      - uses: actions-ecosystem/action-add-labels@v1.1.0
+        # only add names of champions here. Confirm with DevRel Team
+        if: 
+          ${{ 
+            contains(
+              fromJson('[
+                "skrydal",
+                "siladitya2",
+                "sgomezvillamor",
+                "ngamanda",
+                "HarveyLeo",
+                "frsann",
+                "bossenti",
+                "nikolakasev",
+                "PatrickfBraz",
+                "cuong-pham",
+                "sudhakarast",
+                "tkdrahn",
+                "rtekal",
+                "sgm44"
+              ]'), 
+              github.actor
+            ) 
+          }}
+        with:
+          github_token: ${{ github.token }}
+          labels: |
+            datahub-community-champion

@@ -51,7 +51,7 @@ export default function ManageDomainsPageV2() {
                     <PlusOutlined /> New Domain
                 </Button>
             </Header>
-            <RootDomains />
+            <RootDomains setIsCreatingDomain={setIsCreatingDomain} />
             {isCreatingDomain && (
                 <CreateDomainModal
                     onClose={() => setIsCreatingDomain(false)}

@@ -10,7 +10,12 @@ from pydantic.fields import Field
 import datahub.metadata.schema_classes as models
 from datahub.configuration.common import ConfigModel
 from datahub.configuration.config_loader import load_config_file
-from datahub.emitter.mce_builder import datahub_guid, make_group_urn, make_user_urn
+from datahub.emitter.mce_builder import (
+    datahub_guid,
+    make_group_urn,
+    make_user_urn,
+    validate_ownership_type,
+)
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -34,43 +39,45 @@ GlossaryNodeInterface = TypeVar(
 
 
 class Owners(ConfigModel):
-    users: Optional[List[str]]
-    groups: Optional[List[str]]
+    type: str = models.OwnershipTypeClass.DEVELOPER
+    users: Optional[List[str]] = None
+    groups: Optional[List[str]] = None
 
 
 class KnowledgeCard(ConfigModel):
-    url: Optional[str]
-    label: Optional[str]
+    url: Optional[str] = None
+    label: Optional[str] = None
 
 
 class GlossaryTermConfig(ConfigModel):
-    id: Optional[str]
+    id: Optional[str] = None
     name: str
     description: str
-    term_source: Optional[str]
-    source_ref: Optional[str]
-    source_url: Optional[str]
-    owners: Optional[Owners]
-    inherits: Optional[List[str]]
-    contains: Optional[List[str]]
-    values: Optional[List[str]]
-    related_terms: Optional[List[str]]
-    custom_properties: Optional[Dict[str, str]]
-    knowledge_links: Optional[List[KnowledgeCard]]
-    domain: Optional[str]
+    term_source: Optional[str] = None
+    source_ref: Optional[str] = None
+    source_url: Optional[str] = None
+    owners: Optional[Owners] = None
+    inherits: Optional[List[str]] = None
+    contains: Optional[List[str]] = None
+    values: Optional[List[str]] = None
+    related_terms: Optional[List[str]] = None
+    custom_properties: Optional[Dict[str, str]] = None
+    knowledge_links: Optional[List[KnowledgeCard]] = None
+    domain: Optional[str] = None
 
     # Private fields.
     _urn: str
 
 
 class GlossaryNodeConfig(ConfigModel):
-    id: Optional[str]
+    id: Optional[str] = None
     name: str
     description: str
-    owners: Optional[Owners]
-    terms: Optional[List["GlossaryTermConfig"]]
-    nodes: Optional[List["GlossaryNodeConfig"]]
-    knowledge_links: Optional[List[KnowledgeCard]]
+    owners: Optional[Owners] = None
+    terms: Optional[List["GlossaryTermConfig"]] = None
+    nodes: Optional[List["GlossaryNodeConfig"]] = None
+    knowledge_links: Optional[List[KnowledgeCard]] = None
+    custom_properties: Optional[Dict[str, str]] = None
 
     # Private fields.
     _urn: str
@@ -79,7 +86,7 @@ class GlossaryNodeConfig(ConfigModel):
 class DefaultConfig(ConfigModel):
     """Holds defaults for populating fields in glossary terms"""
 
-    source: Optional[str]
+    source: Optional[str] = None
     owners: Owners
     url: Optional[str] = None
     source_type: str = "INTERNAL"
@@ -97,8 +104,8 @@ class BusinessGlossarySourceConfig(ConfigModel):
 
 class BusinessGlossaryConfig(DefaultConfig):
     version: str
-    terms: Optional[List["GlossaryTermConfig"]]
-    nodes: Optional[List["GlossaryNodeConfig"]]
+    terms: Optional[List["GlossaryTermConfig"]] = None
+    nodes: Optional[List["GlossaryNodeConfig"]] = None
 
     @validator("version")
     def version_must_be_1(cls, v):
@@ -113,7 +120,7 @@ def create_id(path: List[str], default_id: Optional[str], enable_auto_id: bool) 
 
     id_: str = ".".join(path)
 
-    if UrnEncoder.contains_reserved_char(id_):
+    if UrnEncoder.contains_extended_reserved_char(id_):
         enable_auto_id = True
 
     if enable_auto_id:
@@ -146,12 +153,14 @@ def make_glossary_term_urn(
 
 
 def get_owners(owners: Owners) -> models.OwnershipClass:
+    ownership_type, ownership_type_urn = validate_ownership_type(owners.type)
     owners_meta: List[models.OwnerClass] = []
     if owners.users is not None:
         owners_meta = owners_meta + [
             models.OwnerClass(
                 owner=make_user_urn(o),
-                type=models.OwnershipTypeClass.DEVELOPER,
+                type=ownership_type,
+                typeUrn=ownership_type_urn,
             )
             for o in owners.users
         ]
@@ -159,7 +168,8 @@ def get_owners(owners: Owners) -> models.OwnershipClass:
         owners_meta = owners_meta + [
             models.OwnerClass(
                 owner=make_group_urn(o),
-                type=models.OwnershipTypeClass.DEVELOPER,
+                type=ownership_type,
+                typeUrn=ownership_type_urn,
             )
             for o in owners.groups
         ]
@@ -252,6 +262,7 @@ def get_mces_from_node(
         definition=glossaryNode.description,
         parentNode=parentNode,
         name=glossaryNode.name,
+        customProperties=glossaryNode.custom_properties,
     )
     node_owners = parentOwners
     if glossaryNode.owners is not None:
@@ -335,12 +346,14 @@ def get_mces_from_term(
     ] = []
     term_info = models.GlossaryTermInfoClass(
         definition=glossaryTerm.description,
-        termSource=glossaryTerm.term_source
-        if glossaryTerm.term_source is not None
-        else defaults.source_type,
-        sourceRef=glossaryTerm.source_ref
-        if glossaryTerm.source_ref
-        else defaults.source,
+        termSource=(
+            glossaryTerm.term_source
+            if glossaryTerm.term_source is not None
+            else defaults.source_type
+        ),
+        sourceRef=(
+            glossaryTerm.source_ref if glossaryTerm.source_ref else defaults.source
+        ),
         sourceUrl=glossaryTerm.source_url if glossaryTerm.source_url else defaults.url,
         parentNode=parentNode,
         customProperties=glossaryTerm.custom_properties,
@@ -495,7 +508,7 @@ class BusinessGlossaryFileSource(Source):
     def load_glossary_config(
         cls, file_name: Union[str, pathlib.Path]
     ) -> BusinessGlossaryConfig:
-        config = load_config_file(file_name)
+        config = load_config_file(file_name, resolve_env_vars=True)
         glossary_cfg = BusinessGlossaryConfig.parse_obj(config)
         return glossary_cfg
 

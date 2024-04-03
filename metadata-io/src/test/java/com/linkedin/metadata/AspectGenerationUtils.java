@@ -15,11 +15,9 @@ import com.linkedin.metadata.utils.PegasusUtils;
 import com.linkedin.mxe.SystemMetadata;
 import javax.annotation.Nonnull;
 
-
 public class AspectGenerationUtils {
 
-  private AspectGenerationUtils() {
-  }
+  private AspectGenerationUtils() {}
 
   @Nonnull
   public static AuditStamp createAuditStamp() {
@@ -37,7 +35,8 @@ public class AspectGenerationUtils {
   }
 
   @Nonnull
-  public static SystemMetadata createSystemMetadata(long lastObserved, @Nonnull String runId, @Nonnull String lastRunId) {
+  public static SystemMetadata createSystemMetadata(
+      long lastObserved, @Nonnull String runId, @Nonnull String lastRunId) {
     SystemMetadata metadata = new SystemMetadata();
     metadata.setLastObserved(lastObserved);
     metadata.setRunId(runId);
@@ -47,7 +46,8 @@ public class AspectGenerationUtils {
 
   @Nonnull
   public static CorpUserKey createCorpUserKey(Urn urn) {
-    return (CorpUserKey) EntityKeyUtils.convertUrnToEntityKeyInternal(urn, new CorpUserKey().schema());
+    return (CorpUserKey)
+        EntityKeyUtils.convertUrnToEntityKeyInternal(urn, new CorpUserKey().schema());
   }
 
   @Nonnull

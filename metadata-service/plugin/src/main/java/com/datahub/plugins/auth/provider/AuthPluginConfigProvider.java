@@ -11,9 +11,9 @@ import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-
 /**
- *  Base class for {@link AuthenticatorPluginConfigProvider} and {@link AuthorizerPluginConfigProvider}.
+ * Base class for {@link AuthenticatorPluginConfigProvider} and {@link
+ * AuthorizerPluginConfigProvider}.
  */
 public abstract class AuthPluginConfigProvider implements PluginConfigProvider<AuthPluginConfig> {
   public abstract PluginType getType();

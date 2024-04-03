@@ -1,61 +1,72 @@
 package com.linkedin.metadata.resources.operations;
 
-import com.datahub.authentication.Authentication;
+import static com.datahub.authorization.AuthUtil.isAPIAuthorized;
+
 import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authorization.EntitySpec;
 import com.datahub.plugins.auth.authorization.Authorizer;
-import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
+import com.linkedin.metadata.entity.restoreindices.RestoreIndicesResult;
 import com.linkedin.restli.common.HttpStatus;
 import com.linkedin.restli.server.RestLiServiceException;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 
-import static com.linkedin.metadata.Constants.*;
-import static com.linkedin.metadata.resources.restli.RestliUtils.*;
-
-
 @Slf4j
 public class Utils {
 
-  private Utils() { }
+  private Utils() {}
+
   public static String restoreIndices(
       @Nonnull String aspectName,
       @Nullable String urn,
       @Nullable String urnLike,
       @Nullable Integer start,
       @Nullable Integer batchSize,
+      @Nullable Integer limit,
+      @Nullable Long gePitEpochMs,
+      @Nullable Long lePitEpochMs,
       @Nonnull Authorizer authorizer,
-      @Nonnull EntityService entityService
-  ) {
-    Authentication authentication = AuthenticationContext.getAuthentication();
+      @Nonnull EntityService<?> entityService) {
+
     EntitySpec resourceSpec = null;
     if (StringUtils.isNotBlank(urn)) {
       Urn resource = UrnUtils.getUrn(urn);
       resourceSpec = new EntitySpec(resource.getEntityType(), resource.toString());
     }
-    if (Boolean.parseBoolean(System.getenv(REST_API_AUTHORIZATION_ENABLED_ENV))
-        && !isAuthorized(authentication, authorizer, ImmutableList.of(PoliciesConfig.RESTORE_INDICES_PRIVILEGE),
-        resourceSpec)) {
-      throw new RestLiServiceException(HttpStatus.S_401_UNAUTHORIZED, "User is unauthorized to restore indices.");
+    if (!isAPIAuthorized(
+            AuthenticationContext.getAuthentication(),
+            authorizer,
+            PoliciesConfig.RESTORE_INDICES_PRIVILEGE,
+            resourceSpec)) {
+      throw new RestLiServiceException(
+          HttpStatus.S_403_FORBIDDEN, "User is unauthorized to restore indices.");
     }
-    RestoreIndicesArgs args = new RestoreIndicesArgs()
-        .setAspectName(aspectName)
-        .setUrnLike(urnLike)
-        .setUrn(urn)
-        .setStart(start)
-        .setBatchSize(batchSize);
+    RestoreIndicesArgs args =
+        new RestoreIndicesArgs()
+            .aspectName(aspectName)
+            .urnLike(urnLike)
+            .urn(urn)
+            .start(start)
+            .batchSize(batchSize)
+            .limit(limit)
+            .gePitEpochMs(gePitEpochMs)
+            .lePitEpochMs(lePitEpochMs);
     Map<String, Object> result = new HashMap<>();
     result.put("args", args);
-    result.put("result", entityService.restoreIndices(args, log::info));
+    result.put("result", entityService
+            .streamRestoreIndices(args, log::info)
+            .map(RestoreIndicesResult::toString)
+            .collect(Collectors.joining("\n")));
     return result.toString();
   }
 }

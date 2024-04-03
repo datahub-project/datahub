@@ -606,6 +606,17 @@
       }
     },
     {
+      "Path": "docs/generated/ingestion/sources/teradata",
+      "imgPath": "img/logos/platforms/teradata.svg",
+      "Title": "Teradata",
+      "Description": "Teradata is a data warehousing and analytics tool that allows users to store, manage, and analyze large amounts of data in a scalable and cost-effective manner.",
+      "tags": {
+        "Platform Type": "BI Tool",
+        "Connection Type": "Pull",
+        "Features": "Stateful Ingestion, Column Level Lineage, UI Ingestion, Lower Casing, Status Aspect"
+      }
+    },
+    {
       "Path": "docs/generated/ingestion/sources/trino",
       "imgPath": "img/logos/platforms/trino.png",
       "Title": "Trino",

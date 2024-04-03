@@ -1,5 +1,10 @@
 package com.linkedin.datahub.graphql.resolvers.test;
 
+import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
+import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.*;
+import static com.linkedin.datahub.graphql.resolvers.test.TestUtils.*;
+import static com.linkedin.metadata.Constants.*;
+
 import com.datahub.authentication.Authentication;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.SetMode;
@@ -13,15 +18,7 @@ import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.concurrent.CompletableFuture;
 
-import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
-import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.*;
-import static com.linkedin.datahub.graphql.resolvers.test.TestUtils.*;
-import static com.linkedin.metadata.Constants.*;
-
-
-/**
- * Updates or updates a Test. Requires the MANAGE_TESTS privilege.
- */
+/** Updates or updates a Test. Requires the MANAGE_TESTS privilege. */
 public class UpdateTestResolver implements DataFetcher<CompletableFuture<String>> {
 
   private final EntityClient _entityClient;
@@ -35,26 +32,30 @@ public class UpdateTestResolver implements DataFetcher<CompletableFuture<String>
     final QueryContext context = environment.getContext();
     final Authentication authentication = context.getAuthentication();
 
-    return CompletableFuture.supplyAsync(() -> {
+    return CompletableFuture.supplyAsync(
+        () -> {
+          if (canManageTests(context)) {
 
-      if (canManageTests(context)) {
+            final String urn = environment.getArgument("urn");
+            final UpdateTestInput input =
+                bindArgument(environment.getArgument("input"), UpdateTestInput.class);
 
-        final String urn = environment.getArgument("urn");
-        final UpdateTestInput input = bindArgument(environment.getArgument("input"), UpdateTestInput.class);
+            // Update the Test info - currently this simply creates a new test with same urn.
+            final TestInfo info = mapUpdateTestInput(input);
 
-        // Update the Test info - currently this simply creates a new test with same urn.
-        final TestInfo info = mapUpdateTestInput(input);
-
-        final MetadataChangeProposal proposal = buildMetadataChangeProposalWithUrn(UrnUtils.getUrn(urn), TEST_INFO_ASPECT_NAME, info);
-        try {
-          return _entityClient.ingestProposal(proposal, authentication, false);
-        } catch (Exception e) {
-          throw new RuntimeException(
-              String.format("Failed to perform update against Test with urn %s", input), e);
-        }
-      }
-      throw new AuthorizationException("Unauthorized to perform this action. Please contact your DataHub administrator.");
-    });
+            final MetadataChangeProposal proposal =
+                buildMetadataChangeProposalWithUrn(
+                    UrnUtils.getUrn(urn), TEST_INFO_ASPECT_NAME, info);
+            try {
+              return _entityClient.ingestProposal(proposal, authentication, false);
+            } catch (Exception e) {
+              throw new RuntimeException(
+                  String.format("Failed to perform update against Test with urn %s", input), e);
+            }
+          }
+          throw new AuthorizationException(
+              "Unauthorized to perform this action. Please contact your DataHub administrator.");
+        });
   }
 
   private static TestInfo mapUpdateTestInput(final UpdateTestInput input) {

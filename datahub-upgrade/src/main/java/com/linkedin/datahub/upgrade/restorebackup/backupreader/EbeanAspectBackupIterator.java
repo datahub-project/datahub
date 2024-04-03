@@ -7,10 +7,9 @@ import java.util.Iterator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
-
 /**
- * Base interface for iterators that retrieves EbeanAspectV2 objects
- * This allows us to restore from backups of various format
+ * Base interface for iterators that retrieves EbeanAspectV2 objects This allows us to restore from
+ * backups of various format
  */
 @Slf4j
 @RequiredArgsConstructor
@@ -35,12 +34,13 @@ public class EbeanAspectBackupIterator<T extends ReaderWrapper> implements Close
 
   @Override
   public void close() {
-    _readers.forEach(reader -> {
-      try {
-        reader.close();
-      } catch (IOException e) {
-        log.error("Error while closing parquet reader", e);
-      }
-    });
+    _readers.forEach(
+        reader -> {
+          try {
+            reader.close();
+          } catch (IOException e) {
+            log.error("Error while closing parquet reader", e);
+          }
+        });
   }
 }

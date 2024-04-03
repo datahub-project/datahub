@@ -91,7 +91,7 @@ class BigqueryProfiler(GenericProfiler):
                     )
                 else:
                     logger.warning(
-                        f"Partitioned table {table.name} without partiton column"
+                        f"Partitioned table {table.name} without partition column"
                     )
                     self.report.profiling_skipped_invalid_partition_ids[
                         f"{project}.{schema}.{table.name}"
@@ -183,7 +183,7 @@ WHERE
             return
         yield from self.generate_profile_workunits(
             profile_requests,
-            self.config.profiling.max_workers,
+            max_workers=self.config.profiling.max_workers,
             platform=self.platform,
             profiler_args=self.get_profile_args(),
         )

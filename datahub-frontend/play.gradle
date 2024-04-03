@@ -1,4 +1,3 @@
-apply plugin: "org.gradle.playframework"
 
 // Change this to listen on a different port
 project.ext.httpPort = 9001
@@ -58,6 +57,7 @@ dependencies {
   implementation externalDependency.shiroCore
 
   implementation externalDependency.playCache
+  implementation externalDependency.playCaffeineCache
   implementation externalDependency.playWs
   implementation externalDependency.playServer
   implementation externalDependency.playAkkaHttpServer
@@ -76,7 +76,7 @@ dependencies {
 
   implementation externalDependency.slf4jApi
   compileOnly externalDependency.lombok
-  runtimeOnly externalDependency.guice
+  runtimeOnly externalDependency.guicePlay
   runtimeOnly (externalDependency.playDocs) {
     exclude group: 'com.typesafe.akka', module: 'akka-http-core_2.12'
   }
@@ -90,7 +90,7 @@ dependencies {
 
 play {
   platform {
-    playVersion = '2.8.18'
+    playVersion = '2.8.21'
     scalaVersion = '2.12'
     javaVersion = JavaVersion.VERSION_11
   }
@@ -100,4 +100,25 @@ play {
 
 test {
   useJUnitPlatform()
+
+  testLogging.showStandardStreams = true
+  testLogging.exceptionFormat = 'full'
+
+  def playJava17CompatibleJvmArgs = [
+          "--add-opens=java.base/java.lang=ALL-UNNAMED",
+          //"--add-opens=java.base/java.lang.invoke=ALL-UNNAMED",
+          //"--add-opens=java.base/java.lang.reflect=ALL-UNNAMED",
+          //"--add-opens=java.base/java.io=ALL-UNNAMED",
+          //"--add-opens=java.base/java.net=ALL-UNNAMED",
+          //"--add-opens=java.base/java.nio=ALL-UNNAMED",
+          "--add-opens=java.base/java.util=ALL-UNNAMED",
+          //"--add-opens=java.base/java.util.concurrent=ALL-UNNAMED",
+          //"--add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED",
+          //"--add-opens=java.base/sun.nio.ch=ALL-UNNAMED",
+          //"--add-opens=java.base/sun.nio.cs=ALL-UNNAMED",
+          //"--add-opens=java.base/sun.security.action=ALL-UNNAMED",
+          //"--add-opens=java.base/sun.util.calendar=ALL-UNNAMED",
+          //"--add-opens=java.security.jgss/sun.security.krb5=ALL-UNNAMED",
+  ]
+  jvmArgs = playJava17CompatibleJvmArgs
 }

@@ -45,6 +45,7 @@ export default function generateUseSearchResultsViaRelationshipHook({
             variables: {
                 input: inputFields,
             },
+            fetchPolicy: 'cache-first',
             skip: !filtersExist(filters, orFilters), // If you don't include any filters, we shound't return anything :). Might as well skip!
         });
 

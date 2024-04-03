@@ -34,38 +34,30 @@ import software.amazon.awssdk.http.SdkHttpMethod;
 import software.amazon.awssdk.regions.Region;
 
 /**
- * An {@link HttpRequestInterceptor} that signs requests using any AWS {@link Signer}
- * and {@link AwsCredentialsProvider}.
+ * An {@link HttpRequestInterceptor} that signs requests using any AWS {@link Signer} and {@link
+ * AwsCredentialsProvider}.
  */
 public class AwsRequestSigningApacheInterceptor implements HttpRequestInterceptor {
-  /**
-   * The service that we're connecting to.
-   */
+  /** The service that we're connecting to. */
   private final String service;
 
-  /**
-   * The particular signer implementation.
-   */
+  /** The particular signer implementation. */
   private final Signer signer;
 
-  /**
-   * The source of AWS credentials for signing.
-   */
+  /** The source of AWS credentials for signing. */
   private final AwsCredentialsProvider awsCredentialsProvider;
 
-  /**
-   * The region signing region.
-   */
+  /** The region signing region. */
   private final Region region;
 
   /**
-   *
    * @param service service that we're connecting to
    * @param signer particular signer implementation
    * @param awsCredentialsProvider source of AWS credentials for signing
    * @param region signing region
    */
-  public AwsRequestSigningApacheInterceptor(final String service,
+  public AwsRequestSigningApacheInterceptor(
+      final String service,
       final Signer signer,
       final AwsCredentialsProvider awsCredentialsProvider,
       final Region region) {
@@ -76,22 +68,20 @@ public class AwsRequestSigningApacheInterceptor implements HttpRequestIntercepto
   }
 
   /**
-   *
    * @param service service that we're connecting to
    * @param signer particular signer implementation
    * @param awsCredentialsProvider source of AWS credentials for signing
    * @param region signing region
    */
-  public AwsRequestSigningApacheInterceptor(final String service,
+  public AwsRequestSigningApacheInterceptor(
+      final String service,
       final Signer signer,
       final AwsCredentialsProvider awsCredentialsProvider,
       final String region) {
     this(service, signer, awsCredentialsProvider, Region.of(region));
   }
 
-  /**
-   * {@inheritDoc}
-   */
+  /** {@inheritDoc} */
   @Override
   public void process(final HttpRequest request, final HttpContext context)
       throws HttpException, IOException {
@@ -103,13 +93,13 @@ public class AwsRequestSigningApacheInterceptor implements HttpRequestIntercepto
     }
 
     // Copy Apache HttpRequest to AWS Request
-    SdkHttpFullRequest.Builder requestBuilder = SdkHttpFullRequest.builder()
-        .method(SdkHttpMethod.fromValue(request.getRequestLine().getMethod()))
-        .uri(buildUri(context, uriBuilder));
+    SdkHttpFullRequest.Builder requestBuilder =
+        SdkHttpFullRequest.builder()
+            .method(SdkHttpMethod.fromValue(request.getRequestLine().getMethod()))
+            .uri(buildUri(context, uriBuilder));
 
     if (request instanceof HttpEntityEnclosingRequest) {
-      HttpEntityEnclosingRequest httpEntityEnclosingRequest =
-          (HttpEntityEnclosingRequest) request;
+      HttpEntityEnclosingRequest httpEntityEnclosingRequest = (HttpEntityEnclosingRequest) request;
       if (httpEntityEnclosingRequest.getEntity() != null) {
         InputStream content = httpEntityEnclosingRequest.getEntity().getContent();
         requestBuilder.contentStreamProvider(() -> content);
@@ -119,7 +109,8 @@ public class AwsRequestSigningApacheInterceptor implements HttpRequestIntercepto
     requestBuilder.headers(headerArrayToMap(request.getAllHeaders()));
 
     ExecutionAttributes attributes = new ExecutionAttributes();
-    attributes.putAttribute(AwsSignerExecutionAttribute.AWS_CREDENTIALS, awsCredentialsProvider.resolveCredentials());
+    attributes.putAttribute(
+        AwsSignerExecutionAttribute.AWS_CREDENTIALS, awsCredentialsProvider.resolveCredentials());
     attributes.putAttribute(AwsSignerExecutionAttribute.SERVICE_SIGNING_NAME, service);
     attributes.putAttribute(AwsSignerExecutionAttribute.SIGNING_REGION, region);
 
@@ -129,13 +120,14 @@ public class AwsRequestSigningApacheInterceptor implements HttpRequestIntercepto
     // Now copy everything back
     request.setHeaders(mapToHeaderArray(signedRequest.headers()));
     if (request instanceof HttpEntityEnclosingRequest) {
-      HttpEntityEnclosingRequest httpEntityEnclosingRequest =
-          (HttpEntityEnclosingRequest) request;
+      HttpEntityEnclosingRequest httpEntityEnclosingRequest = (HttpEntityEnclosingRequest) request;
       if (httpEntityEnclosingRequest.getEntity() != null) {
         BasicHttpEntity basicHttpEntity = new BasicHttpEntity();
-        basicHttpEntity.setContent(signedRequest.contentStreamProvider()
-            .orElseThrow(() -> new IllegalStateException("There must be content"))
-            .newStream());
+        basicHttpEntity.setContent(
+            signedRequest
+                .contentStreamProvider()
+                .orElseThrow(() -> new IllegalStateException("There must be content"))
+                .newStream());
         // wrap into repeatable entity to support retries
         httpEntityEnclosingRequest.setEntity(new BufferedHttpEntity(basicHttpEntity));
       }
@@ -159,15 +151,13 @@ public class AwsRequestSigningApacheInterceptor implements HttpRequestIntercepto
   }
 
   /**
-   *
    * @param params list of HTTP query params as NameValuePairs
    * @return a multimap of HTTP query params
    */
   private static Map<String, List<String>> nvpToMapParams(final List<NameValuePair> params) {
     Map<String, List<String>> parameterMap = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
     for (NameValuePair nvp : params) {
-      List<String> argsList =
-          parameterMap.computeIfAbsent(nvp.getName(), k -> new ArrayList<>());
+      List<String> argsList = parameterMap.computeIfAbsent(nvp.getName(), k -> new ArrayList<>());
       argsList.add(nvp.getValue());
     }
     return parameterMap;
@@ -181,9 +171,10 @@ public class AwsRequestSigningApacheInterceptor implements HttpRequestIntercepto
     Map<String, List<String>> headersMap = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
     for (Header header : headers) {
       if (!skipHeader(header)) {
-        headersMap.put(header.getName(), headersMap
-            .getOrDefault(header.getName(),
-                new LinkedList<>(Collections.singletonList(header.getValue()))));
+        headersMap.put(
+            header.getName(),
+            headersMap.getOrDefault(
+                header.getName(), new LinkedList<>(Collections.singletonList(header.getValue()))));
       }
     }
     return headersMap;
@@ -195,7 +186,7 @@ public class AwsRequestSigningApacheInterceptor implements HttpRequestIntercepto
    */
   private static boolean skipHeader(final Header header) {
     return ("content-length".equalsIgnoreCase(header.getName())
-        && "0".equals(header.getValue())) // Strip Content-Length: 0
+            && "0".equals(header.getValue())) // Strip Content-Length: 0
         || "host".equalsIgnoreCase(header.getName()); // Host comes from endpoint
   }
 

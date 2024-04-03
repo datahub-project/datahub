@@ -4,22 +4,15 @@ import com.datahub.plugins.auth.authorization.Authorizer;
 import java.util.Map;
 import lombok.Data;
 
-
-/**
- * POJO representing {@link Authorizer} configurations provided in the application.yml.
- */
+/** POJO representing {@link Authorizer} configurations provided in the application.yml. */
 @Data
 public class AuthorizerConfiguration {
-  /**
-   * Whether to enable this authorizer
-   */
+  /** Whether to enable this authorizer */
   private boolean enabled;
-  /**
-   * A fully-qualified class name for the {@link Authorizer} implementation to be registered.
-   */
+
+  /** A fully-qualified class name for the {@link Authorizer} implementation to be registered. */
   private String type;
-  /**
-   * A set of authorizer-specific configurations passed through during "init" of the authorizer.
-   */
+
+  /** A set of authorizer-specific configurations passed through during "init" of the authorizer. */
   private Map<String, Object> configs;
 }

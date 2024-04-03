@@ -52,7 +52,8 @@ class StatefulIngestionConfig(ConfigModel):
 
     enabled: bool = Field(
         default=False,
-        description="The type of the ingestion state provider registered with datahub.",
+        description="Whether or not to enable stateful ingest. "
+        "Default: True if a pipeline_name is set and either a datahub-rest sink or `datahub_api` is specified, otherwise False",
     )
     max_checkpoint_state_size: pydantic.PositiveInt = Field(
         default=2**24,  # 16 MB
@@ -98,7 +99,7 @@ class StatefulIngestionConfigBase(GenericModel, Generic[CustomConfig]):
     )
 
 
-class StatefulLineageConfigMixin:
+class StatefulLineageConfigMixin(ConfigModel):
     enable_stateful_lineage_ingestion: bool = Field(
         default=True,
         description="Enable stateful lineage ingestion."
@@ -196,12 +197,12 @@ class StatefulIngestionSourceBase(Source):
         self.state_provider = StateProviderWrapper(config.stateful_ingestion, ctx)
 
     def warn(self, log: logging.Logger, key: str, reason: str) -> None:
-        self.report.report_warning(key, reason)
-        log.warning(f"{key} => {reason}")
+        # TODO: Remove this method.
+        self.report.warning(key, reason)
 
     def error(self, log: logging.Logger, key: str, reason: str) -> None:
-        self.report.report_failure(key, reason)
-        log.error(f"{key} => {reason}")
+        # TODO: Remove this method.
+        self.report.failure(key, reason)
 
     def close(self) -> None:
         self.state_provider.prepare_for_commit()
@@ -231,6 +232,20 @@ class StateProviderWrapper:
         self.ingestion_checkpointing_state_provider: Optional[
             IngestionCheckpointingProviderBase
         ] = None
+
+        if (
+            self.stateful_ingestion_config is None
+            and self.ctx.graph
+            and self.ctx.pipeline_name
+        ):
+            logger.info(
+                "Stateful ingestion will be automatically enabled, as datahub-rest sink is used or `datahub_api` is specified"
+            )
+            self.stateful_ingestion_config = StatefulIngestionConfig(
+                enabled=True,
+                state_provider=DynamicTypedStateProviderConfig(type="datahub"),
+            )
+
         if (
             self.stateful_ingestion_config is not None
             and self.stateful_ingestion_config.state_provider is not None

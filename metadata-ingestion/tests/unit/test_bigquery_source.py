@@ -11,6 +11,7 @@ from google.api_core.exceptions import GoogleAPICallError
 from google.cloud.bigquery.table import Row, TableListItem
 
 from datahub.configuration.common import AllowDenyPattern
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.bigquery_v2.bigquery import BigqueryV2Source
 from datahub.ingestion.source.bigquery_v2.bigquery_audit import (
@@ -27,14 +28,28 @@ from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
     BigqueryDataset,
     BigqueryProject,
     BigQuerySchemaApi,
+    BigqueryTable,
+    BigqueryTableSnapshot,
     BigqueryView,
 )
 from datahub.ingestion.source.bigquery_v2.lineage import (
     LineageEdge,
     LineageEdgeColumnMapping,
 )
+from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import ViewProperties
-from datahub.metadata.schema_classes import MetadataChangeProposalClass
+from datahub.metadata.schema_classes import (
+    ContainerClass,
+    DataPlatformInstanceClass,
+    DatasetPropertiesClass,
+    GlobalTagsClass,
+    MetadataChangeProposalClass,
+    SchemaMetadataClass,
+    StatusClass,
+    SubTypesClass,
+    TagAssociationClass,
+    TimeStampClass,
+)
 
 
 def test_bigquery_uri():
@@ -324,7 +339,7 @@ def test_get_projects_list_failure(
         {"project_id_pattern": {"deny": ["^test-project$"]}}
     )
     source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test"))
-    caplog.records.clear()
+    caplog.clear()
     with caplog.at_level(logging.ERROR):
         projects = source._get_projects()
         assert len(caplog.records) == 1
@@ -345,6 +360,97 @@ def test_get_projects_list_fully_filtered(get_projects_mock, get_bq_client_mock)
     projects = source._get_projects()
     assert len(source.report.failures) == 0
     assert projects == []
+
+
+@pytest.fixture
+def bigquery_table() -> BigqueryTable:
+    now = datetime.now(tz=timezone.utc)
+    return BigqueryTable(
+        name="table1",
+        comment="comment1",
+        created=now,
+        last_altered=now,
+        size_in_bytes=2400,
+        rows_count=2,
+        expires=now - timedelta(days=10),
+        labels={"data_producer_owner_email": "games_team-nytimes_com"},
+        num_partitions=1,
+        max_partition_id="1",
+        max_shard_id="1",
+        active_billable_bytes=2400,
+        long_term_billable_bytes=2400,
+    )
+
+
+@patch.object(BigQueryV2Config, "get_bigquery_client")
+def test_gen_table_dataset_workunits(get_bq_client_mock, bigquery_table):
+    project_id = "test-project"
+    dataset_name = "test-dataset"
+    config = BigQueryV2Config.parse_obj(
+        {
+            "project_id": project_id,
+            "capture_table_label_as_tag": True,
+        }
+    )
+    source: BigqueryV2Source = BigqueryV2Source(
+        config=config, ctx=PipelineContext(run_id="test")
+    )
+
+    gen = source.gen_table_dataset_workunits(
+        bigquery_table, [], project_id, dataset_name
+    )
+    mcp = cast(MetadataChangeProposalClass, next(iter(gen)).metadata)
+    assert mcp.aspect == StatusClass(removed=False)
+
+    mcp = cast(MetadataChangeProposalClass, next(iter(gen)).metadata)
+    assert isinstance(mcp.aspect, SchemaMetadataClass)
+    assert mcp.aspect.schemaName == f"{project_id}.{dataset_name}.{bigquery_table.name}"
+    assert mcp.aspect.fields == []
+
+    mcp = cast(MetadataChangeProposalClass, next(iter(gen)).metadata)
+    assert isinstance(mcp.aspect, DatasetPropertiesClass)
+    assert mcp.aspect.name == bigquery_table.name
+    assert (
+        mcp.aspect.qualifiedName == f"{project_id}.{dataset_name}.{bigquery_table.name}"
+    )
+    assert mcp.aspect.description == bigquery_table.comment
+    assert mcp.aspect.created == TimeStampClass(
+        time=int(bigquery_table.created.timestamp() * 1000)
+    )
+    assert mcp.aspect.lastModified == TimeStampClass(
+        time=int(bigquery_table.last_altered.timestamp() * 1000)
+    )
+    assert mcp.aspect.tags == []
+
+    assert mcp.aspect.customProperties == {
+        "expiration_date": str(bigquery_table.expires),
+        "size_in_bytes": str(bigquery_table.size_in_bytes),
+        "billable_bytes_active": str(bigquery_table.active_billable_bytes),
+        "billable_bytes_long_term": str(bigquery_table.long_term_billable_bytes),
+        "number_of_partitions": str(bigquery_table.num_partitions),
+        "max_partition_id": str(bigquery_table.max_partition_id),
+        "is_partitioned": "True",
+        "max_shard_id": str(bigquery_table.max_shard_id),
+        "is_sharded": "True",
+    }
+
+    mcp = cast(MetadataChangeProposalClass, next(iter(gen)).metadata)
+    assert isinstance(mcp.aspect, GlobalTagsClass)
+    assert mcp.aspect.tags == [
+        TagAssociationClass(
+            "urn:li:tag:data_producer_owner_email:games_team-nytimes_com"
+        )
+    ]
+
+    mcp = cast(MetadataChangeProposalClass, next(iter(gen)).metadata)
+    assert isinstance(mcp.aspect, ContainerClass)
+
+    mcp = cast(MetadataChangeProposalClass, next(iter(gen)).metadata)
+    assert isinstance(mcp.aspect, DataPlatformInstanceClass)
+
+    mcp = cast(MetadataChangeProposalClass, next(iter(gen)).metadata)
+    assert isinstance(mcp.aspect, SubTypesClass)
+    assert mcp.aspect.typeNames[1] == DatasetSubTypes.TABLE
 
 
 @patch.object(BigQueryV2Config, "get_bigquery_client")
@@ -769,6 +875,7 @@ def test_get_views_for_dataset(
         project_id="test-project",
         dataset_name="test-dataset",
         has_data_read=False,
+        report=BigQueryV2Report(),
     )
     assert list(views) == [bigquery_view_1, bigquery_view_2]
 
@@ -807,6 +914,89 @@ def test_gen_view_dataset_workunits(
         materialized=bigquery_view_2.materialized,
         viewLanguage="SQL",
         viewLogic=bigquery_view_2.view_definition,
+    )
+
+
+@pytest.fixture
+def bigquery_snapshot() -> BigqueryTableSnapshot:
+    now = datetime.now(tz=timezone.utc)
+    return BigqueryTableSnapshot(
+        name="table-snapshot",
+        created=now - timedelta(days=10),
+        last_altered=now - timedelta(hours=1),
+        comment="comment1",
+        ddl="CREATE SNAPSHOT TABLE 1",
+        size_in_bytes=None,
+        rows_count=None,
+        snapshot_time=now - timedelta(days=10),
+        base_table_identifier=BigqueryTableIdentifier(
+            project_id="test-project",
+            dataset="test-dataset",
+            table="test-table",
+        ),
+    )
+
+
+@patch.object(BigQuerySchemaApi, "get_query_result")
+@patch.object(BigQueryV2Config, "get_bigquery_client")
+def test_get_snapshots_for_dataset(
+    get_bq_client_mock: Mock,
+    query_mock: Mock,
+    bigquery_snapshot: BigqueryTableSnapshot,
+) -> None:
+    client_mock = MagicMock()
+    get_bq_client_mock.return_value = client_mock
+    assert bigquery_snapshot.last_altered
+    assert bigquery_snapshot.base_table_identifier
+    row1 = create_row(
+        dict(
+            table_name=bigquery_snapshot.name,
+            created=bigquery_snapshot.created,
+            last_altered=bigquery_snapshot.last_altered.timestamp() * 1000,
+            comment=bigquery_snapshot.comment,
+            ddl=bigquery_snapshot.ddl,
+            snapshot_time=bigquery_snapshot.snapshot_time,
+            table_type="SNAPSHOT",
+            base_table_catalog=bigquery_snapshot.base_table_identifier.project_id,
+            base_table_schema=bigquery_snapshot.base_table_identifier.dataset,
+            base_table_name=bigquery_snapshot.base_table_identifier.table,
+        )
+    )
+    query_mock.return_value = [row1]
+    bigquery_data_dictionary = BigQuerySchemaApi(
+        BigQueryV2Report().schema_api_perf, client_mock
+    )
+
+    snapshots = bigquery_data_dictionary.get_snapshots_for_dataset(
+        project_id="test-project",
+        dataset_name="test-dataset",
+        has_data_read=False,
+        report=BigQueryV2Report(),
+    )
+    assert list(snapshots) == [bigquery_snapshot]
+
+
+@patch.object(BigQueryV2Config, "get_bigquery_client")
+def test_gen_snapshot_dataset_workunits(get_bq_client_mock, bigquery_snapshot):
+    project_id = "test-project"
+    dataset_name = "test-dataset"
+    config = BigQueryV2Config.parse_obj(
+        {
+            "project_id": project_id,
+        }
+    )
+    source: BigqueryV2Source = BigqueryV2Source(
+        config=config, ctx=PipelineContext(run_id="test")
+    )
+
+    gen = source.gen_snapshot_dataset_workunits(
+        bigquery_snapshot, [], project_id, dataset_name
+    )
+    mcp = cast(MetadataChangeProposalWrapper, list(gen)[2].metadata)
+    dataset_properties = cast(DatasetPropertiesClass, mcp.aspect)
+    assert dataset_properties.customProperties["snapshot_ddl"] == bigquery_snapshot.ddl
+    assert dataset_properties.customProperties["snapshot_time"] == str(
+        bigquery_snapshot.snapshot_time
     )
 
 

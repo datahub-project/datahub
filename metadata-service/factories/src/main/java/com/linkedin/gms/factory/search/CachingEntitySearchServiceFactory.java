@@ -1,8 +1,8 @@
 package com.linkedin.gms.factory.search;
 
-import com.linkedin.metadata.spring.YamlPropertySourceFactory;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.client.CachingEntitySearchService;
+import com.linkedin.metadata.spring.YamlPropertySourceFactory;
 import javax.annotation.Nonnull;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -13,7 +13,6 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
 import org.springframework.context.annotation.PropertySource;
 
-
 @Configuration
 @PropertySource(value = "classpath:/application.yml", factory = YamlPropertySourceFactory.class)
 public class CachingEntitySearchServiceFactory {
@@ -22,8 +21,7 @@ public class CachingEntitySearchServiceFactory {
   @Qualifier("entitySearchService")
   private EntitySearchService entitySearchService;
 
-  @Autowired
-  private CacheManager cacheManager;
+  @Autowired private CacheManager cacheManager;
 
   @Value("${searchService.resultBatchSize}")
   private Integer batchSize;
@@ -36,9 +34,6 @@ public class CachingEntitySearchServiceFactory {
   @Nonnull
   protected CachingEntitySearchService getInstance() {
     return new CachingEntitySearchService(
-        cacheManager,
-        entitySearchService,
-        batchSize,
-        enableCache);
+        cacheManager, entitySearchService, batchSize, enableCache);
   }
 }

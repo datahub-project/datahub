@@ -3,7 +3,7 @@ namespace com.linkedin.identity
 import com.linkedin.common.Urn
 
 /**
- * Carries information about which roles a user is assigned to.
+ * Carries information about which roles a user or group is assigned to.
  */
 @Aspect = {
   "name": "roleMembership"

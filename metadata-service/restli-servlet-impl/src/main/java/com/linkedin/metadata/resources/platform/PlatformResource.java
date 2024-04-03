@@ -1,11 +1,11 @@
 package com.linkedin.metadata.resources.platform;
 
-import com.datahub.authentication.Authentication;
+import static com.datahub.authorization.AuthUtil.isAPIAuthorized;
+
 import com.datahub.authentication.AuthenticationContext;
 import com.datahub.plugins.auth.authorization.Authorizer;
-import com.datahub.authorization.EntitySpec;
-import com.google.common.collect.ImmutableList;
 import com.linkedin.entity.Entity;
+import com.linkedin.metadata.authorization.Disjunctive;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.restli.RestliUtil;
@@ -24,13 +24,7 @@ import javax.inject.Inject;
 import javax.inject.Named;
 import lombok.extern.slf4j.Slf4j;
 
-import static com.linkedin.metadata.Constants.*;
-import static com.linkedin.metadata.resources.restli.RestliUtils.*;
-
-
-/**
- * DataHub Platform Actions
- */
+/** DataHub Platform Actions */
 @Slf4j
 @RestLiCollection(name = "platform", namespace = "com.linkedin.platform")
 public class PlatformResource extends CollectionResourceTaskTemplate<String, Entity> {
@@ -52,16 +46,19 @@ public class PlatformResource extends CollectionResourceTaskTemplate<String, Ent
       @ActionParam("name") @Nonnull String eventName,
       @ActionParam("key") @Optional String key,
       @ActionParam("event") @Nonnull PlatformEvent event) {
-    Authentication auth = AuthenticationContext.getAuthentication();
-    if (Boolean.parseBoolean(System.getenv(REST_API_AUTHORIZATION_ENABLED_ENV))
-        && !isAuthorized(auth, _authorizer, ImmutableList.of(PoliciesConfig.PRODUCE_PLATFORM_EVENT_PRIVILEGE), (EntitySpec) null)) {
-      throw new RestLiServiceException(HttpStatus.S_401_UNAUTHORIZED,
-          "User is unauthorized to produce platform events.");
+
+    if (!isAPIAuthorized(
+            AuthenticationContext.getAuthentication(),
+            _authorizer,
+            PoliciesConfig.PRODUCE_PLATFORM_EVENT_PRIVILEGE)) {
+      throw new RestLiServiceException(
+          HttpStatus.S_403_FORBIDDEN, "User is unauthorized to produce platform events.");
     }
     log.info(String.format("Emitting platform event. name: %s, key: %s", eventName, key));
-    return RestliUtil.toTask(() -> {
-      _eventProducer.producePlatformEvent(eventName, key, event);
-      return null;
-    });
+    return RestliUtil.toTask(
+        () -> {
+          _eventProducer.producePlatformEvent(eventName, key, event);
+          return null;
+        });
   }
 }

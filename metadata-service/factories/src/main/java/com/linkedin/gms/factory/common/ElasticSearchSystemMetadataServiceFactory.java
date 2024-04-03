@@ -12,7 +12,6 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.PropertySource;
 
-
 @Configuration
 @PropertySource(value = "classpath:/application.yml", factory = YamlPropertySourceFactory.class)
 @Import({BaseElasticSearchComponentsFactory.class})
@@ -24,8 +23,14 @@ public class ElasticSearchSystemMetadataServiceFactory {
   @Bean(name = "elasticSearchSystemMetadataService")
   @Nonnull
   protected ElasticSearchSystemMetadataService getInstance() {
-    return new ElasticSearchSystemMetadataService(components.getBulkProcessor(), components.getIndexConvention(),
-        new ESSystemMetadataDAO(components.getSearchClient(), components.getIndexConvention(),
-            components.getBulkProcessor(), components.getNumRetries()), components.getIndexBuilder());
+    return new ElasticSearchSystemMetadataService(
+        components.getBulkProcessor(),
+        components.getIndexConvention(),
+        new ESSystemMetadataDAO(
+            components.getSearchClient(),
+            components.getIndexConvention(),
+            components.getBulkProcessor(),
+            components.getNumRetries()),
+        components.getIndexBuilder());
   }
 }

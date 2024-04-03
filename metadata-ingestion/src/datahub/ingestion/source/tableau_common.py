@@ -2,9 +2,10 @@ import html
 import logging
 from dataclasses import dataclass
 from functools import lru_cache
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from pydantic.fields import Field
+from tableauserverclient import Server
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import ConfigModel
@@ -32,7 +33,7 @@ from datahub.metadata.schema_classes import (
     TagAssociationClass,
     UpstreamClass,
 )
-from datahub.utilities.sqlglot_lineage import ColumnLineageInfo, SqlParsingResult
+from datahub.sql_parsing.sqlglot_lineage import ColumnLineageInfo, SqlParsingResult
 
 logger = logging.getLogger(__name__)
 
@@ -398,6 +399,9 @@ published_datasource_graphql_query = """
     description
     uri
     projectName
+    tags {
+        name
+    }
 }
         """
 
@@ -491,15 +495,17 @@ def tableau_field_to_schema_field(field, ingest_tags):
             field.get("description", ""), field.get("formula")
         ),
         nativeDataType=nativeDataType,
-        globalTags=get_tags_from_params(
-            [
-                field.get("role", ""),
-                field.get("__typename", ""),
-                field.get("aggregation", ""),
-            ]
-        )
-        if ingest_tags
-        else None,
+        globalTags=(
+            get_tags_from_params(
+                [
+                    field.get("role", ""),
+                    field.get("__typename", ""),
+                    field.get("aggregation", ""),
+                ]
+            )
+            if ingest_tags
+            else None
+        ),
     )
 
     return schema_field
@@ -532,6 +538,9 @@ def get_platform(connection_type: str) -> str:
         platform = "mssql"
     elif connection_type in ("athena"):
         platform = "athena"
+    elif connection_type.endswith("_jdbc"):
+        # e.g. convert trino_jdbc -> trino
+        platform = connection_type[: -len("_jdbc")]
     else:
         platform = connection_type
     return platform
@@ -564,7 +573,7 @@ def get_fully_qualified_table_name(
         .replace("`", "")
     )
 
-    if platform in ("athena", "hive", "mysql"):
+    if platform in ("athena", "hive", "mysql", "clickhouse"):
         # it two tier database system (athena, hive, mysql), just take final 2
         fully_qualified_table_name = ".".join(
             fully_qualified_table_name.split(".")[-2:]
@@ -699,7 +708,6 @@ def get_overridden_info(
     platform_instance_map: Optional[Dict[str, str]],
     lineage_overrides: Optional[TableauLineageOverrides] = None,
 ) -> Tuple[Optional[str], Optional[str], str, str]:
-
     original_platform = platform = get_platform(connection_type)
     if (
         lineage_overrides is not None
@@ -754,8 +762,19 @@ def make_upstream_class(
 
 
 def make_fine_grained_lineage_class(
-    parsed_result: Optional[SqlParsingResult], dataset_urn: str
+    parsed_result: Optional[SqlParsingResult],
+    dataset_urn: str,
+    out_columns: List[Dict[Any, Any]],
 ) -> List[FineGrainedLineage]:
+    # 1) fine grained lineage links are case sensitive
+    # 2) parsed out columns are always lower cased
+    # 3) corresponding Custom SQL output columns can be in any case lower/upper/mix
+    #
+    # we need a map between 2 and 3 that will be used during building column level linage links (see below)
+    out_columns_map = {
+        col.get(c.NAME, "").lower(): col.get(c.NAME, "") for col in out_columns
+    }
+
     fine_grained_lineages: List[FineGrainedLineage] = []
 
     if parsed_result is None:
@@ -767,7 +786,15 @@ def make_fine_grained_lineage_class(
 
     for cll_info in cll:
         downstream = (
-            [builder.make_schema_field_urn(dataset_urn, cll_info.downstream.column)]
+            [
+                builder.make_schema_field_urn(
+                    dataset_urn,
+                    out_columns_map.get(
+                        cll_info.downstream.column.lower(),
+                        cll_info.downstream.column,
+                    ),
+                )
+            ]
             if cll_info.downstream is not None
             and cll_info.downstream.column is not None
             else []
@@ -824,7 +851,14 @@ def clean_query(query: str) -> str:
     return query
 
 
-def query_metadata(server, main_query, connection_name, first, offset, qry_filter=""):
+def query_metadata(
+    server: Server,
+    main_query: str,
+    connection_name: str,
+    first: int,
+    offset: int,
+    qry_filter: str = "",
+) -> dict:
     query = """{{
         {connection_name} (first:{first}, offset:{offset}, filter:{{{filter}}})
         {{

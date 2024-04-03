@@ -1,11 +1,11 @@
-import json
 import logging
-from typing import Any, Optional
+from typing import Optional
 
 import click
 from click_default_group import DefaultGroup
 
 from datahub.cli.cli_utils import post_entity
+from datahub.configuration.config_loader import load_config_file
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.graph.client import get_default_graph
 from datahub.metadata.schema_classes import (
@@ -36,22 +36,23 @@ def put() -> None:
 @click.option("--urn", required=True, type=str)
 @click.option("-a", "--aspect", required=True, type=str)
 @click.option("-d", "--aspect-data", required=True, type=str)
-@click.pass_context
 @upgrade.check_upgrade
 @telemetry.with_telemetry()
-def aspect(ctx: Any, urn: str, aspect: str, aspect_data: str) -> None:
+def aspect(urn: str, aspect: str, aspect_data: str) -> None:
     """Update a single aspect of an entity"""
 
     entity_type = guess_entity_type(urn)
-    with open(aspect_data) as fp:
-        aspect_obj = json.load(fp)
-        status = post_entity(
-            urn=urn,
-            aspect_name=aspect,
-            entity_type=entity_type,
-            aspect_value=aspect_obj,
-        )
-        click.secho(f"Update succeeded with status {status}", fg="green")
+    aspect_obj = load_config_file(
+        aspect_data, allow_stdin=True, resolve_env_vars=False, process_directives=False
+    )
+
+    status = post_entity(
+        urn=urn,
+        aspect_name=aspect,
+        entity_type=entity_type,
+        aspect_value=aspect_obj,
+    )
+    click.secho(f"Update succeeded with status {status}", fg="green")
 
 
 @put.command()

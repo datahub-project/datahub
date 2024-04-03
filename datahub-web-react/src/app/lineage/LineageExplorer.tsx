@@ -113,26 +113,30 @@ export default function LineageExplorer({ urn, type }: Props) {
                 );
                 const config = entityRegistry.getLineageVizConfig(entityAndType.type, entityAndType.entity);
 
-                config?.downstreamChildren?.forEach((downstream) => {
-                    newAsyncEntities = extendAsyncEntities(
-                        fineGrainedMap,
-                        fineGrainedMapForSiblings,
-                        newAsyncEntities,
-                        entityRegistry,
-                        downstream,
-                        false,
-                    );
-                });
-                config?.upstreamChildren?.forEach((downstream) => {
-                    newAsyncEntities = extendAsyncEntities(
-                        fineGrainedMap,
-                        fineGrainedMapForSiblings,
-                        newAsyncEntities,
-                        entityRegistry,
-                        downstream,
-                        false,
-                    );
-                });
+                config?.downstreamChildren
+                    ?.filter((child) => child.type)
+                    ?.forEach((downstream) => {
+                        newAsyncEntities = extendAsyncEntities(
+                            fineGrainedMap,
+                            fineGrainedMapForSiblings,
+                            newAsyncEntities,
+                            entityRegistry,
+                            downstream,
+                            false,
+                        );
+                    });
+                config?.upstreamChildren
+                    ?.filter((child) => child.type)
+                    ?.forEach((downstream) => {
+                        newAsyncEntities = extendAsyncEntities(
+                            fineGrainedMap,
+                            fineGrainedMapForSiblings,
+                            newAsyncEntities,
+                            entityRegistry,
+                            downstream,
+                            false,
+                        );
+                    });
                 setAsyncEntities(newAsyncEntities);
             }
         },
@@ -216,9 +220,11 @@ export default function LineageExplorer({ urn, type }: Props) {
                             <Button onClick={handleClose} type="text">
                                 Close
                             </Button>
-                            <Button href={entityRegistry.getEntityUrl(selectedEntity.type, selectedEntity.urn)}>
-                                <InfoCircleOutlined /> View details
-                            </Button>
+                            {selectedEntity.type !== EntityType.Restricted && (
+                                <Button href={entityRegistry.getEntityUrl(selectedEntity.type, selectedEntity.urn)}>
+                                    <InfoCircleOutlined /> View details
+                                </Button>
+                            )}
                         </FooterButtonGroup>
                     )
                 }

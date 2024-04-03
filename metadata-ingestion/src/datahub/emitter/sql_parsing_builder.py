@@ -20,7 +20,8 @@ from datahub.metadata.schema_classes import (
     UpstreamClass,
     UpstreamLineageClass,
 )
-from datahub.utilities.sqlglot_lineage import ColumnLineageInfo, SqlParsingResult
+from datahub.sql_parsing.sqlglot_lineage import ColumnLineageInfo, SqlParsingResult
+from datahub.utilities.file_backed_collections import FileBackedDict
 
 logger = logging.getLogger(__name__)
 
@@ -46,11 +47,14 @@ class LineageEdge:
 
     def gen_upstream_aspect(self) -> UpstreamClass:
         return UpstreamClass(
-            auditStamp=AuditStampClass(
-                time=int(self.audit_stamp.timestamp() * 1000), actor=self.actor or ""
-            )
-            if self.audit_stamp
-            else None,
+            auditStamp=(
+                AuditStampClass(
+                    time=int(self.audit_stamp.timestamp() * 1000),
+                    actor=self.actor or "",
+                )
+                if self.audit_stamp
+                else None
+            ),
             dataset=self.upstream_urn,
             type=self.type,
         )
@@ -80,10 +84,10 @@ class SqlParsingBuilder:
     generate_operations: bool = True
     usage_config: Optional[BaseUsageConfig] = None
 
-    # TODO: Make inner dict a FileBackedDict and make LineageEdge frozen
+    # Maps downstream urn -> upstream urn -> LineageEdge
     # Builds up a single LineageEdge for each upstream -> downstream pair
-    _lineage_map: Dict[DatasetUrn, Dict[DatasetUrn, LineageEdge]] = field(
-        default_factory=lambda: defaultdict(dict), init=False
+    _lineage_map: FileBackedDict[Dict[DatasetUrn, LineageEdge]] = field(
+        default_factory=FileBackedDict, init=False
     )
 
     # TODO: Replace with FileBackedDict approach like in BigQuery usage
@@ -92,7 +96,7 @@ class SqlParsingBuilder:
     def __post_init__(self) -> None:
         if self.usage_config:
             self._usage_aggregator = UsageAggregator(self.usage_config)
-        else:
+        elif self.generate_usage_statistics:
             logger.info("No usage config provided, not generating usage statistics")
             self.generate_usage_statistics = False
 
@@ -128,20 +132,21 @@ class SqlParsingBuilder:
 
         if self.generate_lineage:
             for downstream_urn in downstreams_to_ingest:
-                _merge_lineage_data(
+                # Set explicitly so that FileBackedDict registers any mutations
+                self._lineage_map[downstream_urn] = _merge_lineage_data(
                     downstream_urn=downstream_urn,
                     upstream_urns=result.in_tables,
-                    column_lineage=result.column_lineage
-                    if include_column_lineage
-                    else None,
-                    upstream_edges=self._lineage_map[downstream_urn],
+                    column_lineage=(
+                        result.column_lineage if include_column_lineage else None
+                    ),
+                    upstream_edges=self._lineage_map.get(downstream_urn, {}),
                     query_timestamp=query_timestamp,
                     is_view_ddl=is_view_ddl,
                     user=user,
                 )
 
         if self.generate_usage_statistics and query_timestamp is not None:
-            upstream_fields = _compute_upstream_fields(result)
+            upstream_fields = compute_upstream_fields(result)
             for upstream_urn in upstreams_to_ingest:
                 self._usage_aggregator.aggregate_event(
                     resource=upstream_urn,
@@ -170,11 +175,12 @@ class SqlParsingBuilder:
         user: Optional[UserUrn] = None,
     ) -> None:
         """Manually add a single upstream -> downstream lineage edge, e.g. if sql parsing fails."""
-        _merge_lineage_data(
+        # Set explicitly so that FileBackedDict registers any mutations
+        self._lineage_map[downstream_urn] = _merge_lineage_data(
             downstream_urn=downstream_urn,
             upstream_urns=upstream_urns,
             column_lineage=None,
-            upstream_edges=self._lineage_map[downstream_urn],
+            upstream_edges=self._lineage_map.get(downstream_urn, {}),
             query_timestamp=timestamp,
             is_view_ddl=is_view_ddl,
             user=user,
@@ -194,6 +200,9 @@ class SqlParsingBuilder:
             for edge in self._lineage_map[downstream_urn].values():
                 upstreams.append(edge.gen_upstream_aspect())
                 fine_upstreams.extend(edge.gen_fine_grained_lineage_aspects())
+
+            if not upstreams:
+                continue
 
             upstream_lineage = UpstreamLineageClass(
                 upstreams=sorted(upstreams, key=lambda x: x.dataset),
@@ -222,7 +231,7 @@ def _merge_lineage_data(
     query_timestamp: Optional[datetime],
     is_view_ddl: bool,
     user: Optional[UserUrn],
-) -> None:
+) -> Dict[str, LineageEdge]:
     for upstream_urn in upstream_urns:
         edge = upstream_edges.setdefault(
             upstream_urn,
@@ -231,9 +240,11 @@ def _merge_lineage_data(
                 upstream_urn=upstream_urn,
                 audit_stamp=query_timestamp,
                 actor=user,
-                type=DatasetLineageTypeClass.VIEW
-                if is_view_ddl
-                else DatasetLineageTypeClass.TRANSFORMED,
+                type=(
+                    DatasetLineageTypeClass.VIEW
+                    if is_view_ddl
+                    else DatasetLineageTypeClass.TRANSFORMED
+                ),
             ),
         )
         if query_timestamp and (  # Use the most recent query
@@ -252,8 +263,10 @@ def _merge_lineage_data(
                 column_map = upstream_edges[upstream_column_info.table].column_map
                 column_map[cl.downstream.column].add(upstream_column_info.column)
 
+    return upstream_edges
 
-def _compute_upstream_fields(
+
+def compute_upstream_fields(
     result: SqlParsingResult,
 ) -> Dict[DatasetUrn, Set[DatasetUrn]]:
     upstream_fields: Dict[DatasetUrn, Set[DatasetUrn]] = defaultdict(set)

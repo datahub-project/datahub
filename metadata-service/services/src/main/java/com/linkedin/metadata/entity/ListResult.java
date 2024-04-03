@@ -7,7 +7,8 @@ import lombok.Builder;
 import lombok.Value;
 
 /**
- * An immutable value class that holds the result of a list operation and other pagination information.
+ * An immutable value class that holds the result of a list operation and other pagination
+ * information.
  *
  * @param <T> the result type
  */

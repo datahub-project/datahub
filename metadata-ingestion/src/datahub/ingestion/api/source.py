@@ -1,4 +1,5 @@
 import datetime
+import logging
 from abc import ABCMeta, abstractmethod
 from collections import defaultdict
 from dataclasses import dataclass, field
@@ -39,6 +40,8 @@ from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.utilities.lossy_collections import LossyDict, LossyList
 from datahub.utilities.type_annotations import get_class_from_annotation
 
+logger = logging.getLogger(__name__)
+
 
 class SourceCapability(Enum):
     PLATFORM_INSTANCE = "Platform Instance"
@@ -54,6 +57,7 @@ class SourceCapability(Enum):
     TAGS = "Extract Tags"
     SCHEMA_METADATA = "Schema Metadata"
     CONTAINERS = "Asset Containers"
+    CLASSIFICATION = "Classification"
 
 
 @dataclass
@@ -98,10 +102,18 @@ class SourceReport(Report):
         warnings.append(reason)
         self.warnings[key] = warnings
 
+    def warning(self, key: str, reason: str) -> None:
+        self.report_warning(key, reason)
+        logger.warning(f"{key} => {reason}", stacklevel=2)
+
     def report_failure(self, key: str, reason: str) -> None:
         failures = self.failures.get(key, LossyList())
         failures.append(reason)
         self.failures[key] = failures
+
+    def failure(self, key: str, reason: str) -> None:
+        self.report_failure(key, reason)
+        logger.error(f"{key} => {reason}", stacklevel=2)
 
     def __post_init__(self) -> None:
         self.start_time = datetime.datetime.now()
@@ -278,13 +290,14 @@ class Source(Closeable, metaclass=ABCMeta):
         if isinstance(config, PlatformInstanceConfigMixin) and config.platform_instance:
             platform_instance = config.platform_instance
 
-        return partial(
+        browse_path_processor = partial(
             auto_browse_path_v2,
             platform=platform,
             platform_instance=platform_instance,
             drop_dirs=[s for s in browse_path_drop_dirs if s is not None],
             dry_run=dry_run,
         )
+        return lambda stream: browse_path_processor(stream)
 
 
 class TestableSource(Source):

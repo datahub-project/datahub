@@ -1,19 +1,17 @@
 package com.linkedin.datahub.graphql.types.common.mappers.util;
 
+import static com.linkedin.metadata.Constants.DEFAULT_RUN_ID;
+
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.mxe.SystemMetadata;
-
 import java.util.ArrayList;
 import java.util.List;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
-import static com.linkedin.metadata.Constants.DEFAULT_RUN_ID;
-
 public class SystemMetadataUtils {
 
-  private SystemMetadataUtils() {
-  }
+  private SystemMetadataUtils() {}
 
   @Nullable
   public static Long getLastIngestedTime(@Nonnull EnvelopedAspectMap aspectMap) {
@@ -28,7 +26,8 @@ public class SystemMetadataUtils {
   }
 
   /**
-   * Returns a sorted list of all of the most recent ingestion runs based on the most recent aspects present for the entity.
+   * Returns a sorted list of all of the most recent ingestion runs based on the most recent aspects
+   * present for the entity.
    */
   @Nonnull
   public static List<RunInfo> getLastIngestionRuns(@Nonnull EnvelopedAspectMap aspectMap) {
@@ -36,12 +35,16 @@ public class SystemMetadataUtils {
     for (String aspect : aspectMap.keySet()) {
       if (aspectMap.get(aspect).hasSystemMetadata()) {
         SystemMetadata systemMetadata = aspectMap.get(aspect).getSystemMetadata();
-        if (systemMetadata.hasLastRunId() && !systemMetadata.getLastRunId().equals(DEFAULT_RUN_ID) && systemMetadata.hasLastObserved()) {
+        if (systemMetadata.hasLastRunId()
+            && !systemMetadata.getLastRunId().equals(DEFAULT_RUN_ID)
+            && systemMetadata.hasLastObserved()) {
           Long lastObserved = systemMetadata.getLastObserved();
           String runId = systemMetadata.getLastRunId();
           RunInfo run = new RunInfo(runId, lastObserved);
           runs.add(run);
-        } else if (systemMetadata.hasRunId() && !systemMetadata.getRunId().equals(DEFAULT_RUN_ID) && systemMetadata.hasLastObserved()) {
+        } else if (systemMetadata.hasRunId()
+            && !systemMetadata.getRunId().equals(DEFAULT_RUN_ID)
+            && systemMetadata.hasLastObserved()) {
           // Handle the legacy case: Check original run ids.
           Long lastObserved = systemMetadata.getLastObserved();
           String runId = systemMetadata.getRunId();

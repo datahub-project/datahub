@@ -7,8 +7,8 @@ import org.springframework.context.annotation.Configuration;
 
 @Configuration
 public class OpenapiAnalyticsConfig {
-    @Bean
-    public DatahubUsageEventsApiDelegate datahubUsageEventsApiDelegate() {
-        return new DatahubUsageEventsImpl();
-    }
+  @Bean
+  public DatahubUsageEventsApiDelegate datahubUsageEventsApiDelegate() {
+    return new DatahubUsageEventsImpl();
+  }
 }

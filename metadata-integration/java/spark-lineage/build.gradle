@@ -11,17 +11,6 @@ apply from: '../versioning.gradle'
 
 jar.enabled = false // Since we only want to build shadow jars, disabling the regular jar creation
 
-tasks.withType(JavaCompile).configureEach {
-    javaCompiler = javaToolchains.compilerFor {
-        languageVersion = JavaLanguageVersion.of(8)
-    }
-}
-tasks.withType(Test).configureEach {
-    javaLauncher = javaToolchains.launcherFor {
-        languageVersion = JavaLanguageVersion.of(8)
-    }
-}
-
 //to rename artifacts for publish
 project.archivesBaseName = 'datahub-'+project.name
 
@@ -34,18 +23,19 @@ configurations {
 
 dependencies {
 
-  //Needed for tie breaking of guava version need for spark and wiremock
-  provided(externalDependency.hadoopMapreduceClient) {
-    force = true
+  constraints {
+    provided(externalDependency.hadoopMapreduceClient) {
+      because 'Needed for tie breaking of guava version need for spark and wiremock'
+    }
+    provided(externalDependency.hadoopCommon) {
+      because 'required for org.apache.hadoop.util.StopWatch'
+    }
+    provided(externalDependency.commonsIo) {
+      because 'required for org.apache.commons.io.Charsets that is used internally'
+    }
   }
 
-  provided(externalDependency.hadoopCommon) {
-    force = true
-  } // required for org.apache.hadoop.util.StopWatch
-
-  provided(externalDependency.commonsIo) {
-    force = true
-  } // required for org.apache.commons.io.Charsets that is used internally
+  provided 'org.scala-lang:scala-library:2.12.18'
 
   implementation externalDependency.slf4jApi
   compileOnly externalDependency.lombok
@@ -86,7 +76,7 @@ task checkShadowJar(type: Exec) {
 
 shadowJar {
   zip64=true
-  classifier=''
+  archiveClassifier = ''
   mergeServiceFiles()
 
   def exclude_modules = project
@@ -107,22 +97,29 @@ shadowJar {
 
   // preventing java multi-release JAR leakage
   // https://github.com/johnrengelman/shadow/issues/729
-  exclude('module-info.class', 'META-INF/versions/**')
+  exclude('module-info.class', 'META-INF/versions/**', 'LICENSE', 'NOTICE')
 
   // prevent jni conflict with spark
   exclude '**/libzstd-jni.*'
   exclude '**/com_github_luben_zstd_*'
+  exclude '**/log4j*.xml'
 
   relocate 'com.fasterxml.jackson', 'datahub.shaded.jackson'
   relocate 'org.slf4j','datahub.shaded.org.slf4j'
   relocate 'org.apache.http','datahub.spark2.shaded.http'
   relocate 'org.apache.commons.codec', 'datahub.spark2.shaded.o.a.c.codec'
   relocate 'org.apache.commons.compress', 'datahub.spark2.shaded.o.a.c.compress'
+  relocate 'org.apache.commons.io', 'datahub.spark2.shaded.o.a.c.io'
+  relocate 'org.apache.commons.lang3', 'datahub.spark2.shaded.o.a.c.lang3'
   relocate 'mozilla', 'datahub.spark2.shaded.mozilla'
   relocate 'com.typesafe','datahub.spark2.shaded.typesafe'
   relocate 'io.opentracing','datahub.spark2.shaded.io.opentracing'
   relocate 'io.netty','datahub.spark2.shaded.io.netty'
   relocate 'ch.randelshofer', 'datahub.shaded.ch.randelshofer'
+  relocate 'com.sun', 'datahub.shaded.com.sun'
+  relocate 'avroutil1', 'datahub.shaded.avroutil1'
+  relocate 'com.github', 'datahub.shaded.com.github'
+  relocate 'org.apache.maven', 'datahub.shaded.org.apache.maven'
   finalizedBy checkShadowJar
 }
 
@@ -138,6 +135,25 @@ jacocoTestReport {
 test {
   forkEvery = 1
   useJUnit()
+
+  def sparkJava17CompatibleJvmArgs = [
+          "--add-opens=java.base/java.lang=ALL-UNNAMED",
+          //"--add-opens=java.base/java.lang.invoke=ALL-UNNAMED",
+          //"--add-opens=java.base/java.lang.reflect=ALL-UNNAMED",
+          //"--add-opens=java.base/java.io=ALL-UNNAMED",
+          "--add-opens=java.base/java.net=ALL-UNNAMED",
+          "--add-opens=java.base/java.nio=ALL-UNNAMED",
+          //"--add-opens=java.base/java.util=ALL-UNNAMED",
+          //"--add-opens=java.base/java.util.concurrent=ALL-UNNAMED",
+          //"--add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED",
+          "--add-opens=java.base/sun.nio.ch=ALL-UNNAMED",
+          //"--add-opens=java.base/sun.nio.cs=ALL-UNNAMED",
+          //"--add-opens=java.base/sun.security.action=ALL-UNNAMED",
+          //"--add-opens=java.base/sun.util.calendar=ALL-UNNAMED",
+          //"--add-opens=java.security.jgss/sun.security.krb5=ALL-UNNAMED",
+  ]
+  jvmArgs = sparkJava17CompatibleJvmArgs
+
   finalizedBy jacocoTestReport
 }
 
@@ -151,12 +167,12 @@ task integrationTest(type: Exec, dependsOn: [shadowJar, ':docker:quickstartSlim'
 }
 
 task sourcesJar(type: Jar) {
-    classifier 'sources'
+    archiveClassifier = 'sources'
     from sourceSets.main.allJava
 }
 
 task javadocJar(type: Jar, dependsOn: javadoc) {
-    classifier 'javadoc'
+  archiveClassifier = 'javadoc'
     from javadoc.destinationDir
 }
 
@@ -224,3 +240,12 @@ nexusStaging {
     username = System.getenv("NEXUS_USERNAME")
     password = System.getenv("NEXUS_PASSWORD")
 }
+
+task cleanExtraDirs {
+  delete "$projectDir/derby.log"
+  delete "$projectDir/src/test/resources/data/hive"
+  delete "$projectDir/src/test/resources/data/out.csv"
+  delete "$projectDir/src/test/resources/data/out_persist.csv"
+  delete "$projectDir/spark-smoke-test/venv"
+}
+clean.finalizedBy(cleanExtraDirs)

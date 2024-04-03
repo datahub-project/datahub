@@ -1,12 +1,9 @@
 package com.linkedin.common.urn;
 
-import com.linkedin.common.FabricType;
 import com.linkedin.data.template.Custom;
 import com.linkedin.data.template.DirectCoercer;
 import com.linkedin.data.template.TemplateOutputCastException;
 import java.net.URISyntaxException;
-import java.util.regex.Pattern;
-
 
 public final class CorpuserUrn extends Urn {
 
@@ -40,7 +37,8 @@ public final class CorpuserUrn extends Urn {
         try {
           return new CorpuserUrn((String) key.getAs(0, String.class));
         } catch (Exception var3) {
-          throw new URISyntaxException(urn.toString(), "Invalid URN Parameter: '" + var3.getMessage());
+          throw new URISyntaxException(
+              urn.toString(), "Invalid URN Parameter: '" + var3.getMessage());
         }
       }
     }
@@ -51,19 +49,20 @@ public final class CorpuserUrn extends Urn {
   }
 
   static {
-    Custom.registerCoercer(new DirectCoercer<CorpuserUrn>() {
-      public Object coerceInput(CorpuserUrn object) throws ClassCastException {
-        return object.toString();
-      }
+    Custom.registerCoercer(
+        new DirectCoercer<CorpuserUrn>() {
+          public Object coerceInput(CorpuserUrn object) throws ClassCastException {
+            return object.toString();
+          }
 
-      public CorpuserUrn coerceOutput(Object object) throws TemplateOutputCastException {
-        try {
-          return CorpuserUrn.createFromString((String) object);
-        } catch (URISyntaxException e) {
-          throw new TemplateOutputCastException("Invalid URN syntax: " + e.getMessage(), e);
-        }
-      }
-    }, CorpuserUrn.class);
+          public CorpuserUrn coerceOutput(Object object) throws TemplateOutputCastException {
+            try {
+              return CorpuserUrn.createFromString((String) object);
+            } catch (URISyntaxException e) {
+              throw new TemplateOutputCastException("Invalid URN syntax: " + e.getMessage(), e);
+            }
+          }
+        },
+        CorpuserUrn.class);
   }
-
 }

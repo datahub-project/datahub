@@ -9,8 +9,8 @@ from datahub.configuration.common import MetaError
 from datahub.configuration.pattern_utils import is_schema_allowed
 from datahub.ingestion.source.snowflake.constants import (
     GENERIC_PERMISSION_ERROR_KEY,
-    SNOWFLAKE_DEFAULT_CLOUD,
     SNOWFLAKE_REGION_CLOUD_REGION_MAPPING,
+    SnowflakeCloudProvider,
     SnowflakeObjectDomain,
 )
 from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
@@ -72,6 +72,15 @@ class SnowflakeCommonProtocol(SnowflakeLoggingProtocol, Protocol):
 class SnowflakeCommonMixin:
     platform = "snowflake"
 
+    CLOUD_REGION_IDS_WITHOUT_CLOUD_SUFFIX = [
+        "us-west-2",
+        "us-east-1",
+        "eu-west-1",
+        "eu-central-1",
+        "ap-southeast-1",
+        "ap-southeast-2",
+    ]
+
     @staticmethod
     def create_snowsight_base_url(
         account_locator: str,
@@ -79,12 +88,23 @@ class SnowflakeCommonMixin:
         cloud: str,
         privatelink: bool = False,
     ) -> Optional[str]:
+        if cloud:
+            url_cloud_provider_suffix = f".{cloud}"
+
+        if cloud == SnowflakeCloudProvider.AWS:
+            # Some AWS regions do not have cloud suffix. See below the list:
+            # https://docs.snowflake.com/en/user-guide/admin-account-identifier#non-vps-account-locator-formats-by-cloud-platform-and-region
+            if (
+                cloud_region_id
+                in SnowflakeCommonMixin.CLOUD_REGION_IDS_WITHOUT_CLOUD_SUFFIX
+            ):
+                url_cloud_provider_suffix = ""
+            else:
+                url_cloud_provider_suffix = f".{cloud}"
         if privatelink:
             url = f"https://app.{account_locator}.{cloud_region_id}.privatelink.snowflakecomputing.com/"
-        elif cloud == SNOWFLAKE_DEFAULT_CLOUD:
-            url = f"https://app.snowflake.com/{cloud_region_id}/{account_locator}/"
         else:
-            url = f"https://app.snowflake.com/{cloud_region_id}.{cloud}/{account_locator}/"
+            url = f"https://app.snowflake.com/{cloud_region_id}{url_cloud_provider_suffix}/{account_locator}/"
         return url
 
     @staticmethod

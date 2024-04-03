@@ -3,8 +3,9 @@ import { DatasetStatsSummary as DatasetStatsSummaryObj } from '../../../../../..
 import { useBaseEntity } from '../../../../shared/EntityContext';
 import { GetDatasetQuery } from '../../../../../../graphql/dataset.generated';
 import { DatasetStatsSummary } from '../../../shared/DatasetStatsSummary';
+import { getLastUpdatedMs } from '../../../shared/utils';
 
-export const DatasetStatsSummarySubHeader = () => {
+export const DatasetStatsSummarySubHeader = ({ properties }: { properties?: any }) => {
     const result = useBaseEntity<GetDatasetQuery>();
     const dataset = result?.dataset;
 
@@ -13,15 +14,13 @@ export const DatasetStatsSummarySubHeader = () => {
     const maybeLastProfile =
         dataset?.datasetProfiles && dataset.datasetProfiles.length ? dataset.datasetProfiles[0] : undefined;
 
-    const maybeLastOperation = dataset?.operations && dataset.operations.length ? dataset.operations[0] : undefined;
-
     const rowCount = maybeLastProfile?.rowCount;
     const columnCount = maybeLastProfile?.columnCount;
     const sizeInBytes = maybeLastProfile?.sizeInBytes;
     const totalSqlQueries = dataset?.usageStats?.aggregations?.totalSqlQueries;
     const queryCountLast30Days = maybeStatsSummary?.queryCountLast30Days;
     const uniqueUserCountLast30Days = maybeStatsSummary?.uniqueUserCountLast30Days;
-    const lastUpdatedMs = maybeLastOperation?.lastUpdatedTimestamp;
+    const lastUpdatedMs = getLastUpdatedMs(dataset?.properties, dataset?.operations);
 
     return (
         <DatasetStatsSummary
@@ -32,6 +31,7 @@ export const DatasetStatsSummarySubHeader = () => {
             queryCountLast30Days={queryCountLast30Days}
             uniqueUserCountLast30Days={uniqueUserCountLast30Days}
             lastUpdatedMs={lastUpdatedMs}
+            shouldWrap={properties?.shouldWrap}
         />
     );
 };

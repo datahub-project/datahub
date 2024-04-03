@@ -1,6 +1,9 @@
 package com.linkedin.metadata.search.opensearch;
 
+import static org.testng.AssertJUnit.assertNotNull;
+
 import com.linkedin.metadata.config.search.SearchConfiguration;
+import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.query.SearchDAOTestBase;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import io.datahubproject.test.fixtures.search.SampleDataFixtureConfiguration;
@@ -12,19 +15,25 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Import;
 import org.testng.annotations.Test;
 
-import static org.testng.AssertJUnit.assertNotNull;
-
-
 @Getter
-@Import({OpenSearchSuite.class, SampleDataFixtureConfiguration.class, SearchTestContainerConfiguration.class})
+@Import({
+  OpenSearchSuite.class,
+  SampleDataFixtureConfiguration.class,
+  SearchTestContainerConfiguration.class
+})
 public class SearchDAOOpenSearchTest extends SearchDAOTestBase {
-  @Autowired
-  private RestHighLevelClient searchClient;
-  @Autowired
-  private SearchConfiguration searchConfiguration;
+  @Autowired private RestHighLevelClient searchClient;
+  @Autowired private SearchConfiguration searchConfiguration;
+  @Autowired private EntityRegistry entityRegistry;
+
   @Autowired
   @Qualifier("sampleDataIndexConvention")
   IndexConvention indexConvention;
+
+  @Override
+  protected EntityRegistry getEntityRegistry() {
+    return entityRegistry;
+  }
 
   @Test
   public void initTest() {

@@ -9,6 +9,14 @@ source:
     username: user
     password: pass
 
+    # Options
+    # Uncomment if you need to use encryption with pytds
+    # See https://python-tds.readthedocs.io/en/latest/pytds.html#pytds.connect
+    # options:
+    #   connect_args:
+    #     cafile: server-ca.pem
+    #     validate_host: true
+
 sink:
   # sink configs
 
@@ -19,7 +27,7 @@ sink:
 # ------------------------------------------------------------------------
 
 source:
-  type: mssql
+  type: mssql-odbc
   config:
     # Coordinates
     host_port: localhost:1433

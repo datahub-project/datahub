@@ -1,22 +1,22 @@
 from dataclasses import dataclass, field
-from typing import Tuple
+from typing import Optional, Tuple
 
 from datahub.ingestion.api.report import EntityFilterReport
-from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalSourceReport,
-)
+from datahub.ingestion.source.sql.sql_generic_profiler import ProfilingSqlReport
 from datahub.ingestion.source_report.ingestion_stage import IngestionStageReport
 from datahub.utilities.lossy_collections import LossyDict, LossyList
 
 
 @dataclass
-class UnityCatalogReport(IngestionStageReport, StaleEntityRemovalSourceReport):
+class UnityCatalogReport(IngestionStageReport, ProfilingSqlReport):
     metastores: EntityFilterReport = EntityFilterReport.field(type="metastore")
     catalogs: EntityFilterReport = EntityFilterReport.field(type="catalog")
     schemas: EntityFilterReport = EntityFilterReport.field(type="schema")
     tables: EntityFilterReport = EntityFilterReport.field(type="table/view")
     table_profiles: EntityFilterReport = EntityFilterReport.field(type="table profile")
     notebooks: EntityFilterReport = EntityFilterReport.field(type="notebook")
+
+    hive_metastore_catalog_found: Optional[bool] = None
 
     num_column_lineage_skipped_column_count: int = 0
     num_external_upstreams_lacking_permissions: int = 0
@@ -36,5 +36,12 @@ class UnityCatalogReport(IngestionStageReport, StaleEntityRemovalSourceReport):
     profile_table_errors: LossyDict[str, LossyList[Tuple[str, str]]] = field(
         default_factory=LossyDict
     )
+    num_profile_missing_size_in_bytes: int = 0
     num_profile_failed_unsupported_column_type: int = 0
     num_profile_failed_int_casts: int = 0
+
+    num_catalogs_missing_name: int = 0
+    num_schemas_missing_name: int = 0
+    num_tables_missing_name: int = 0
+    num_columns_missing_name: int = 0
+    num_queries_missing_info: int = 0

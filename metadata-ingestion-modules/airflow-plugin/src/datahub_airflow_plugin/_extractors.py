@@ -7,7 +7,7 @@ import datahub.emitter.mce_builder as builder
 from datahub.ingestion.source.sql.sqlalchemy_uri_mapper import (
     get_platform_from_sqlalchemy_uri,
 )
-from datahub.utilities.sqlglot_lineage import (
+from datahub.sql_parsing.sqlglot_lineage import (
     SqlParsingResult,
     create_lineage_sql_parsed_result,
 )
@@ -199,8 +199,8 @@ def _sql_extractor_extract(self: "SqlExtractor") -> TaskMetadata:
         platform=platform,
         platform_instance=None,
         env=builder.DEFAULT_ENV,
-        database=default_database,
-        schema=default_schema,
+        default_db=default_database,
+        default_schema=default_schema,
     )
     self.log.debug(f"Got sql lineage {sql_parsing_result}")
 

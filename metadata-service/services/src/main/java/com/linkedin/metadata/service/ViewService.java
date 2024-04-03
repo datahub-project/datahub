@@ -21,35 +21,34 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
-
 /**
- * This class is used to permit easy CRUD operations on a DataHub View.
- * Currently it supports creating, updating, and removing a View.
+ * This class is used to permit easy CRUD operations on a DataHub View. Currently it supports
+ * creating, updating, and removing a View.
  *
- * Note that no Authorization is performed within the service. The expectation
- * is that the caller has already verified the permissions of the active Actor.
+ * <p>Note that no Authorization is performed within the service. The expectation is that the caller
+ * has already verified the permissions of the active Actor.
  *
- * TODO: Ideally we have some basic caching of the view information inside of this class.
+ * <p>TODO: Ideally we have some basic caching of the view information inside of this class.
  */
 @Slf4j
 public class ViewService extends BaseService {
 
-  public ViewService(@Nonnull EntityClient entityClient, @Nonnull Authentication systemAuthentication) {
+  public ViewService(
+      @Nonnull EntityClient entityClient, @Nonnull Authentication systemAuthentication) {
     super(entityClient, systemAuthentication);
   }
 
   /**
    * Creates a new DataHub View.
    *
-   * Note that this method does not do authorization validation.
-   * It is assumed that users of this class have already authorized the operation.
+   * <p>Note that this method does not do authorization validation. It is assumed that users of this
+   * class have already authorized the operation.
    *
    * @param type the type of the View
    * @param name the name of the View
    * @param description the description of the View
    * @param definition the view definition, a.k.a. the View definition
    * @param authentication the current authentication
-   *
    * @return the urn of the newly created View
    */
   public Urn createView(
@@ -74,43 +73,49 @@ public class ViewService extends BaseService {
     newView.setName(name);
     newView.setDescription(description, SetMode.IGNORE_NULL);
     newView.setDefinition(definition);
-    final AuditStamp auditStamp = new AuditStamp()
-        .setActor(UrnUtils.getUrn(authentication.getActor().toUrnStr()))
-        .setTime(currentTimeMs);
+    final AuditStamp auditStamp =
+        new AuditStamp()
+            .setActor(UrnUtils.getUrn(authentication.getActor().toUrnStr()))
+            .setTime(currentTimeMs);
     newView.setCreated(auditStamp);
     newView.setLastModified(auditStamp);
 
-
     // 3. Write the new view to GMS, return the new URN.
     try {
-      return UrnUtils.getUrn(this.entityClient.ingestProposal(AspectUtils.buildMetadataChangeProposal(
-          EntityKeyUtils.convertEntityKeyToUrn(key, Constants.DATAHUB_VIEW_ENTITY_NAME), Constants.DATAHUB_VIEW_INFO_ASPECT_NAME, newView), authentication,
-          false));
+      return UrnUtils.getUrn(
+          this.entityClient.ingestProposal(
+              AspectUtils.buildMetadataChangeProposal(
+                  EntityKeyUtils.convertEntityKeyToUrn(key, Constants.DATAHUB_VIEW_ENTITY_NAME),
+                  Constants.DATAHUB_VIEW_INFO_ASPECT_NAME,
+                  newView),
+              authentication,
+              false));
     } catch (Exception e) {
       throw new RuntimeException("Failed to create View", e);
     }
   }
 
   /**
-   * Updates an existing DataHub View with a specific urn. The overwrites only the fields
-   * which are not null (provided).
+   * Updates an existing DataHub View with a specific urn. The overwrites only the fields which are
+   * not null (provided).
    *
-   * Note that this method does not do authorization validation.
-   * It is assumed that users of this class have already authorized the operation.
+   * <p>Note that this method does not do authorization validation. It is assumed that users of this
+   * class have already authorized the operation.
    *
-   * The View with the provided urn must exist, else an {@link IllegalArgumentException} will be
+   * <p>The View with the provided urn must exist, else an {@link IllegalArgumentException} will be
    * thrown.
    *
-   * This method will perform a read-modify-write. This can cause concurrent writes
-   * to conflict, and overwrite one another. The expected frequency of writes
-   * for views is very low, however. TODO: Convert this into a safer patch.
+   * <p>This method will perform a read-modify-write. This can cause concurrent writes to conflict,
+   * and overwrite one another. The expected frequency of writes for views is very low, however.
+   * TODO: Convert this into a safer patch.
    *
    * @param viewUrn the urn of the View
    * @param name the name of the View
    * @param description the description of the View
    * @param definition the view definition itself
    * @param authentication the current authentication
-   * @param currentTimeMs the current time in milliseconds, used for populating the lastUpdatedAt field.
+   * @param currentTimeMs the current time in milliseconds, used for populating the lastUpdatedAt
+   *     field.
    */
   public void updateView(
       @Nonnull Urn viewUrn,
@@ -126,7 +131,8 @@ public class ViewService extends BaseService {
     DataHubViewInfo existingInfo = getViewInfo(viewUrn, authentication);
 
     if (existingInfo == null) {
-      throw new IllegalArgumentException(String.format("Failed to update View. View with urn %s does not exist.", viewUrn));
+      throw new IllegalArgumentException(
+          String.format("Failed to update View. View with urn %s does not exist.", viewUrn));
     }
 
     // 2. Apply changes to existing View
@@ -140,15 +146,18 @@ public class ViewService extends BaseService {
       existingInfo.setDefinition(definition);
     }
 
-    existingInfo.setLastModified(new AuditStamp()
-        .setTime(currentTimeMs)
-        .setActor(UrnUtils.getUrn(authentication.getActor().toUrnStr())));
+    existingInfo.setLastModified(
+        new AuditStamp()
+            .setTime(currentTimeMs)
+            .setActor(UrnUtils.getUrn(authentication.getActor().toUrnStr())));
 
     // 3. Write changes to GMS
     try {
       this.entityClient.ingestProposal(
-          AspectUtils.buildMetadataChangeProposal(viewUrn, Constants.DATAHUB_VIEW_INFO_ASPECT_NAME, existingInfo),
-          authentication, false);
+          AspectUtils.buildMetadataChangeProposal(
+              viewUrn, Constants.DATAHUB_VIEW_INFO_ASPECT_NAME, existingInfo),
+          authentication,
+          false);
     } catch (Exception e) {
       throw new RuntimeException(String.format("Failed to update View with urn %s", viewUrn), e);
     }
@@ -157,17 +166,15 @@ public class ViewService extends BaseService {
   /**
    * Deletes an existing DataHub View with a specific urn.
    *
-   * Note that this method does not do authorization validation.
-   * It is assumed that users of this class have already authorized the operation
+   * <p>Note that this method does not do authorization validation. It is assumed that users of this
+   * class have already authorized the operation
    *
-   * If the View does not exist, no exception will be thrown.
+   * <p>If the View does not exist, no exception will be thrown.
    *
    * @param viewUrn the urn of the View
    * @param authentication the current authentication
    */
-  public void deleteView(
-      @Nonnull Urn viewUrn,
-      @Nonnull Authentication authentication) {
+  public void deleteView(@Nonnull Urn viewUrn, @Nonnull Authentication authentication) {
     try {
       this.entityClient.deleteEntity(
           Objects.requireNonNull(viewUrn, "viewUrn must not be null"),
@@ -178,37 +185,39 @@ public class ViewService extends BaseService {
   }
 
   /**
-   * Returns an instance of {@link DataHubViewInfo} for the specified View urn,
-   * or null if one cannot be found.
+   * Returns an instance of {@link DataHubViewInfo} for the specified View urn, or null if one
+   * cannot be found.
    *
    * @param viewUrn the urn of the View
    * @param authentication the authentication to use
-   *
    * @return an instance of {@link DataHubViewInfo} for the View, null if it does not exist.
    */
   @Nullable
-  public DataHubViewInfo getViewInfo(@Nonnull final Urn viewUrn, @Nonnull final Authentication authentication) {
+  public DataHubViewInfo getViewInfo(
+      @Nonnull final Urn viewUrn, @Nonnull final Authentication authentication) {
     Objects.requireNonNull(viewUrn, "viewUrn must not be null");
     Objects.requireNonNull(authentication, "authentication must not be null");
     final EntityResponse response = getViewEntityResponse(viewUrn, authentication);
-    if (response != null && response.getAspects().containsKey(Constants.DATAHUB_VIEW_INFO_ASPECT_NAME)) {
-      return new DataHubViewInfo(response.getAspects().get(Constants.DATAHUB_VIEW_INFO_ASPECT_NAME).getValue().data());
+    if (response != null
+        && response.getAspects().containsKey(Constants.DATAHUB_VIEW_INFO_ASPECT_NAME)) {
+      return new DataHubViewInfo(
+          response.getAspects().get(Constants.DATAHUB_VIEW_INFO_ASPECT_NAME).getValue().data());
     }
     // No aspect found
     return null;
   }
 
   /**
-   * Returns an instance of {@link EntityResponse} for the specified View urn,
-   * or null if one cannot be found.
+   * Returns an instance of {@link EntityResponse} for the specified View urn, or null if one cannot
+   * be found.
    *
    * @param viewUrn the urn of the View
    * @param authentication the authentication to use
-   *
    * @return an instance of {@link EntityResponse} for the View, null if it does not exist.
    */
   @Nullable
-  public EntityResponse getViewEntityResponse(@Nonnull final Urn viewUrn, @Nonnull final Authentication authentication) {
+  public EntityResponse getViewEntityResponse(
+      @Nonnull final Urn viewUrn, @Nonnull final Authentication authentication) {
     Objects.requireNonNull(viewUrn, "viewUrn must not be null");
     Objects.requireNonNull(authentication, "authentication must not be null");
     try {
@@ -216,8 +225,7 @@ public class ViewService extends BaseService {
           Constants.DATAHUB_VIEW_ENTITY_NAME,
           viewUrn,
           ImmutableSet.of(Constants.DATAHUB_VIEW_INFO_ASPECT_NAME),
-          authentication
-      );
+          authentication);
     } catch (Exception e) {
       throw new RuntimeException(String.format("Failed to retrieve View with urn %s", viewUrn), e);
     }

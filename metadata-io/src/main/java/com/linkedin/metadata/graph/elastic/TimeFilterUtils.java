@@ -1,28 +1,33 @@
 package com.linkedin.metadata.graph.elastic;
 
+import static com.linkedin.metadata.graph.elastic.ESGraphQueryDAO.*;
+
 import lombok.extern.slf4j.Slf4j;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
 
-import static com.linkedin.metadata.graph.elastic.ESGraphQueryDAO.*;
-
 @Slf4j
 public class TimeFilterUtils {
 
   /**
-   * In order to filter for edges that fall into a specific filter window, we perform a range-overlap query.
-   * Note that both a start time and an end time must be provided in order to add the filters.
+   * In order to filter for edges that fall into a specific filter window, we perform a
+   * range-overlap query. Note that both a start time and an end time must be provided in order to
+   * add the filters.
    *
-   * A range overlap query compares 2 time windows for ANY overlap. This essentially equates to a union operation.
-   * Each window is characterized by 2 points in time: a start time (e.g. created time of the edge) and an end time
-   * (e.g. last updated time of an edge).
+   * <p>A range overlap query compares 2 time windows for ANY overlap. This essentially equates to a
+   * union operation. Each window is characterized by 2 points in time: a start time (e.g. created
+   * time of the edge) and an end time (e.g. last updated time of an edge).
    *
    * @param startTimeMillis the start of the time filter window
    * @param endTimeMillis the end of the time filter window
    */
-  public static QueryBuilder getEdgeTimeFilterQuery(final long startTimeMillis, final long endTimeMillis) {
-    log.debug(String.format("Adding edge time filters for start time: %s, end time: %s", startTimeMillis, endTimeMillis));
+  public static QueryBuilder getEdgeTimeFilterQuery(
+      final long startTimeMillis, final long endTimeMillis) {
+    log.debug(
+        String.format(
+            "Adding edge time filters for start time: %s, end time: %s",
+            startTimeMillis, endTimeMillis));
     /*
      * One of the following must be true in order for the edge to be returned (should = OR)
      *
@@ -30,7 +35,7 @@ public class TimeFilterUtils {
      * 2. The createdOn and updatedOn window does not exist on the edge at all (support legacy cases)
      * 3. Special lineage case: The edge is marked as a "manual" edge, meaning that the time filters should NOT be applied.
      */
-    BoolQueryBuilder timeFilterQuery =  QueryBuilders.boolQuery();
+    BoolQueryBuilder timeFilterQuery = QueryBuilders.boolQuery();
     timeFilterQuery.should(buildTimeWindowFilter(startTimeMillis, endTimeMillis));
     timeFilterQuery.should(buildTimestampsMissingFilter());
     timeFilterQuery.should(buildManualLineageFilter());
@@ -38,61 +43,54 @@ public class TimeFilterUtils {
   }
 
   /**
-   * Builds a filter that compares 2 windows on a timeline and returns true for any overlap. This logic
-   * is a bit tricky so change with caution.
+   * Builds a filter that compares 2 windows on a timeline and returns true for any overlap. This
+   * logic is a bit tricky so change with caution.
    *
-   * The first window comes from start time and end time provided by the user.
-   * The second window comes from the createdOn and updatedOn timestamps present on graph edges.
+   * <p>The first window comes from start time and end time provided by the user. The second window
+   * comes from the createdOn and updatedOn timestamps present on graph edges.
    *
-   * Also accounts for the case where createdOn or updatedOn is MISSING, and in such cases performs
-   * a point overlap instead of a range overlap.
+   * <p>Also accounts for the case where createdOn or updatedOn is MISSING, and in such cases
+   * performs a point overlap instead of a range overlap.
    *
-   * Range Examples:
+   * <p>Range Examples:
    *
-   * start time -> end time     |-----|
-   * createdOn -> updatedOn         |-----|
+   * <p>start time -> end time |-----| createdOn -> updatedOn |-----|
    *
-   * = true
+   * <p>= true
    *
-   * start time -> end time     |------|
-   * createdOn -> updatedOn       |--|
+   * <p>start time -> end time |------| createdOn -> updatedOn |--|
    *
-   * = true
+   * <p>= true
    *
-   * start time -> end time           |-----|
-   * createdOn -> updatedOn       |-----|
+   * <p>start time -> end time |-----| createdOn -> updatedOn |-----|
    *
-   * = true
+   * <p>= true
    *
-   * start time -> end time      |-----|
-   * createdOn -> updatedOn              |-----|
+   * <p>start time -> end time |-----| createdOn -> updatedOn |-----|
    *
-   * = false
+   * <p>= false
    *
+   * <p>Point Examples:
    *
-   * Point Examples:
+   * <p>start time -> end time |-----| updatedOn |
    *
-   * start time -> end time  |-----|
-   * updatedOn                 |
+   * <p>= true
    *
-   * = true
+   * <p>start time -> end time |-----| updatedOn |
    *
-   * start time -> end time  |-----|
-   * updatedOn                        |
+   * <p>= false
    *
-   * = false
+   * <p>and same for createdOn.
    *
-   * and same for createdOn.
-   *
-   * Assumptions are that startTimeMillis is always before or equal to endTimeMillis,
-   * and createdOn is always before or equal to updatedOn.
+   * <p>Assumptions are that startTimeMillis is always before or equal to endTimeMillis, and
+   * createdOn is always before or equal to updatedOn.
    *
    * @param startTimeMillis the start time of the window in milliseconds
    * @param endTimeMillis the end time of the window in milliseconds
-   *
    * @return Query Builder with time window filters appended.
    */
-  private static QueryBuilder buildTimeWindowFilter(final long startTimeMillis, final long endTimeMillis) {
+  private static QueryBuilder buildTimeWindowFilter(
+      final long startTimeMillis, final long endTimeMillis) {
     final BoolQueryBuilder timeWindowQuery = QueryBuilders.boolQuery();
 
     /*
@@ -107,12 +105,14 @@ public class TimeFilterUtils {
     // Build filter comparing createdOn time to startTime->endTime window.
     BoolQueryBuilder createdOnFilter = QueryBuilders.boolQuery();
     createdOnFilter.must(QueryBuilders.existsQuery(CREATED_ON));
-    createdOnFilter.must(QueryBuilders.rangeQuery(CREATED_ON).gte(startTimeMillis).lte(endTimeMillis));
+    createdOnFilter.must(
+        QueryBuilders.rangeQuery(CREATED_ON).gte(startTimeMillis).lte(endTimeMillis));
 
     // Build filter comparing updatedOn time to startTime->endTime window.
     BoolQueryBuilder updatedOnFilter = QueryBuilders.boolQuery();
     updatedOnFilter.must(QueryBuilders.existsQuery(UPDATED_ON));
-    updatedOnFilter.must(QueryBuilders.rangeQuery(UPDATED_ON).gte(startTimeMillis).lte(endTimeMillis));
+    updatedOnFilter.must(
+        QueryBuilders.rangeQuery(UPDATED_ON).gte(startTimeMillis).lte(endTimeMillis));
 
     // Now - OR the 2 point comparison conditions together.
     timeWindowQuery.should(createdOnFilter);
@@ -141,5 +141,5 @@ public class TimeFilterUtils {
     return QueryBuilders.termQuery(String.format("%s.%s", PROPERTIES, SOURCE), UI);
   }
 
-  private TimeFilterUtils() { }
+  private TimeFilterUtils() {}
 }

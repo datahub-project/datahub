@@ -27,12 +27,11 @@ public class AspectSpec {
   // Classpath & Pegasus-specific: Temporary.
   private final RecordDataSchema _schema;
   private final Class<RecordTemplate> _aspectClass;
-  @Setter @Getter
-  private String registryName = "unknownRegistry";
-  @Setter @Getter
-  private ComparableVersion registryVersion = new ComparableVersion("0.0.0.0-dev");
+  @Setter @Getter private String registryName = "unknownRegistry";
+  @Setter @Getter private ComparableVersion registryVersion = new ComparableVersion("0.0.0.0-dev");
 
-  public AspectSpec(@Nonnull final AspectAnnotation aspectAnnotation,
+  public AspectSpec(
+      @Nonnull final AspectAnnotation aspectAnnotation,
       @Nonnull final List<SearchableFieldSpec> searchableFieldSpecs,
       @Nonnull final List<SearchScoreFieldSpec> searchScoreFieldSpecs,
       @Nonnull final List<RelationshipFieldSpec> relationshipFieldSpecs,
@@ -41,18 +40,35 @@ public class AspectSpec {
       final RecordDataSchema schema,
       final Class<RecordTemplate> aspectClass) {
     _aspectAnnotation = aspectAnnotation;
-    _searchableFieldSpecs = searchableFieldSpecs.stream()
-        .collect(Collectors.toMap(spec -> spec.getPath().toString(), spec -> spec, (val1, val2) -> val1));
-    _searchScoreFieldSpecs = searchScoreFieldSpecs.stream()
-        .collect(Collectors.toMap(spec -> spec.getPath().toString(), spec -> spec, (val1, val2) -> val1));
-    _relationshipFieldSpecs = relationshipFieldSpecs.stream()
-        .collect(Collectors.toMap(spec -> spec.getPath().toString(), spec -> spec, (val1, val2) -> val1));
-    _timeseriesFieldSpecs = timeseriesFieldSpecs.stream()
-        .collect(Collectors.toMap(spec -> spec.getTimeseriesFieldAnnotation().getStatName(), spec -> spec,
-            (val1, val2) -> val1));
-    _timeseriesFieldCollectionSpecs = timeseriesFieldCollectionSpecs.stream()
-        .collect(Collectors.toMap(spec -> spec.getTimeseriesFieldCollectionAnnotation().getCollectionName(), spec -> spec,
-            (val1, val2) -> val1));
+    _searchableFieldSpecs =
+        searchableFieldSpecs.stream()
+            .collect(
+                Collectors.toMap(
+                    spec -> spec.getPath().toString(), spec -> spec, (val1, val2) -> val1));
+    _searchScoreFieldSpecs =
+        searchScoreFieldSpecs.stream()
+            .collect(
+                Collectors.toMap(
+                    spec -> spec.getPath().toString(), spec -> spec, (val1, val2) -> val1));
+    _relationshipFieldSpecs =
+        relationshipFieldSpecs.stream()
+            .collect(
+                Collectors.toMap(
+                    spec -> spec.getPath().toString(), spec -> spec, (val1, val2) -> val1));
+    _timeseriesFieldSpecs =
+        timeseriesFieldSpecs.stream()
+            .collect(
+                Collectors.toMap(
+                    spec -> spec.getTimeseriesFieldAnnotation().getStatName(),
+                    spec -> spec,
+                    (val1, val2) -> val1));
+    _timeseriesFieldCollectionSpecs =
+        timeseriesFieldCollectionSpecs.stream()
+            .collect(
+                Collectors.toMap(
+                    spec -> spec.getTimeseriesFieldCollectionAnnotation().getCollectionName(),
+                    spec -> spec,
+                    (val1, val2) -> val1));
     _schema = schema;
     _aspectClass = aspectClass;
   }

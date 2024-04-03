@@ -6,6 +6,7 @@ from typing import Optional
 from uuid import uuid4
 
 import git
+from git.util import remove_password_if_present
 from pydantic import SecretStr
 
 logger = logging.getLogger(__name__)
@@ -53,7 +54,10 @@ class GitClone:
                 " -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no"
             )
         logger.debug(f"ssh_command={git_ssh_cmd}")
-        logger.info(f"⏳ Cloning repo '{repo_url}', this can take some time...")
+
+        logger.info(
+            f"⏳ Cloning repo '{self.sanitize_repo_url(repo_url)}', this can take some time..."
+        )
         self.last_repo_cloned = git.Repo.clone_from(
             repo_url,
             checkout_dir,
@@ -69,3 +73,26 @@ class GitClone:
 
     def get_last_repo_cloned(self) -> Optional[git.Repo]:
         return self.last_repo_cloned
+
+    @staticmethod
+    def sanitize_repo_url(repo_url: str) -> str:
+        """Sanitizes the repo URL for logging purposes.
+
+        Args:
+            repo_url (str): The repository URL.
+
+        Returns:
+            str: The sanitized repository URL.
+
+        Examples:
+            >>> GitClone.sanitize_repo_url("https://username:password@github.com/org/repo.git")
+            'https://*****:*****@github.com/org/repo.git'
+
+            >>> GitClone.sanitize_repo_url("https://github.com/org/repo.git")
+            'https://github.com/org/repo.git'
+
+            >>> GitClone.sanitize_repo_url("git@github.com:org/repo.git")
+            'git@github.com:org/repo.git'
+        """
+
+        return remove_password_if_present([repo_url])[0]

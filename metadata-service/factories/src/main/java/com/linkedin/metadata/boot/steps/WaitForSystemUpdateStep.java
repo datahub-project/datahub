@@ -19,7 +19,8 @@ public class WaitForSystemUpdateStep implements BootstrapStep {
   @Override
   public void execute() throws Exception {
     if (!_dataHubUpgradeKafkaListener.waitForBootstrap()) {
-      throw new IllegalStateException("Build indices was unsuccessful, stopping bootstrap process.");
+      throw new IllegalStateException(
+          "Build indices was unsuccessful, stopping bootstrap process.");
     }
   }
 }

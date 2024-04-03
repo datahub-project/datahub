@@ -126,6 +126,9 @@ query getBrowseResults($input: BrowseInput!) {
                 domain {
                     ...entityDomain
                 }
+                subTypes {
+                    typeNames
+                }
                 ...entityDataProduct
             }
             ... on DataFlow {
@@ -184,6 +187,9 @@ query getBrowseResults($input: BrowseInput!) {
                 }
                 domain {
                     ...entityDomain
+                }
+                subTypes {
+                    typeNames
                 }
                 ...entityDataProduct
             }

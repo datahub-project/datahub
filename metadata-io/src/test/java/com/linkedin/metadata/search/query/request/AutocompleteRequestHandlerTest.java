@@ -1,10 +1,17 @@
 package com.linkedin.metadata.search.query.request;
 
+import static org.mockito.Mockito.mock;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
+
 import com.linkedin.metadata.TestEntitySpecBuilder;
+import com.linkedin.metadata.aspect.AspectRetriever;
+import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.search.elasticsearch.query.request.AutocompleteRequestHandler;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.List;
 import java.util.Map;
-
-import com.linkedin.metadata.search.elasticsearch.query.request.AutocompleteRequestHandler;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.MatchPhrasePrefixQueryBuilder;
@@ -14,17 +21,18 @@ import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.search.fetch.subphase.highlight.HighlightBuilder;
 import org.testng.annotations.Test;
 
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
-
-
 public class AutocompleteRequestHandlerTest {
-  private AutocompleteRequestHandler handler = AutocompleteRequestHandler.getBuilder(TestEntitySpecBuilder.getSpec());
+  private AutocompleteRequestHandler handler =
+      AutocompleteRequestHandler.getBuilder(
+          TestEntitySpecBuilder.getSpec(), mock(AspectRetriever.class));
+  private OperationContext mockOpContext =
+      TestOperationContexts.systemContextNoSearchAuthorization(mock(EntityRegistry.class));
 
   @Test
   public void testDefaultAutocompleteRequest() {
     // When field is null
-    SearchRequest autocompleteRequest = handler.getSearchRequest("input", null, null, 10);
+    SearchRequest autocompleteRequest =
+        handler.getSearchRequest(mockOpContext, "input", null, null, 10);
     SearchSourceBuilder sourceBuilder = autocompleteRequest.source();
     assertEquals(sourceBuilder.size(), 10);
     BoolQueryBuilder query = (BoolQueryBuilder) sourceBuilder.query();
@@ -38,7 +46,8 @@ public class AutocompleteRequestHandlerTest {
     assertTrue(queryFields.containsKey("keyPart1.ngram._4gram"));
     assertEquals(autocompleteQuery.type(), MultiMatchQueryBuilder.Type.BOOL_PREFIX);
 
-    MatchPhrasePrefixQueryBuilder prefixQuery = (MatchPhrasePrefixQueryBuilder) query.should().get(0);
+    MatchPhrasePrefixQueryBuilder prefixQuery =
+        (MatchPhrasePrefixQueryBuilder) query.should().get(0);
     assertEquals("keyPart1.delimited", prefixQuery.fieldName());
 
     assertEquals(query.mustNot().size(), 1);
@@ -61,7 +70,8 @@ public class AutocompleteRequestHandlerTest {
   @Test
   public void testAutocompleteRequestWithField() {
     // When field is null
-    SearchRequest autocompleteRequest = handler.getSearchRequest("input", "field", null, 10);
+    SearchRequest autocompleteRequest =
+        handler.getSearchRequest(mockOpContext, "input", "field", null, 10);
     SearchSourceBuilder sourceBuilder = autocompleteRequest.source();
     assertEquals(sourceBuilder.size(), 10);
     BoolQueryBuilder query = (BoolQueryBuilder) sourceBuilder.query();
@@ -75,7 +85,8 @@ public class AutocompleteRequestHandlerTest {
     assertTrue(queryFields.containsKey("field.ngram._4gram"));
     assertEquals(autocompleteQuery.type(), MultiMatchQueryBuilder.Type.BOOL_PREFIX);
 
-    MatchPhrasePrefixQueryBuilder prefixQuery = (MatchPhrasePrefixQueryBuilder) query.should().get(0);
+    MatchPhrasePrefixQueryBuilder prefixQuery =
+        (MatchPhrasePrefixQueryBuilder) query.should().get(0);
     assertEquals("field.delimited", prefixQuery.fieldName());
 
     MatchQueryBuilder removedFilter = (MatchQueryBuilder) query.mustNot().get(0);

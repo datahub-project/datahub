@@ -1,6 +1,6 @@
 import React from 'react';
 import { Col, Row } from 'antd';
-import { LegendOrdinal, LegendItem, LegendLabel } from '@vx/legend';
+import { LegendOrdinal, LegendItem, LegendLabel } from '@visx/legend';
 import { ScaleOrdinal } from 'd3-scale/src/ordinal';
 import styled from 'styled-components';
 

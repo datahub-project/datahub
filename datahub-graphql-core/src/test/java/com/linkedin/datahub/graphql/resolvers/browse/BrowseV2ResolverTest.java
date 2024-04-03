@@ -1,5 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.browse;
 
+import static com.linkedin.datahub.graphql.TestUtils.getMockAllowContext;
+
 import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.AuditStamp;
@@ -24,19 +26,17 @@ import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.service.FormService;
 import com.linkedin.metadata.service.ViewService;
 import com.linkedin.view.DataHubViewDefinition;
 import com.linkedin.view.DataHubViewInfo;
 import com.linkedin.view.DataHubViewType;
 import graphql.schema.DataFetchingEnvironment;
+import java.util.ArrayList;
+import java.util.List;
 import org.mockito.Mockito;
 import org.testng.Assert;
 import org.testng.annotations.Test;
-
-import java.util.ArrayList;
-import java.util.List;
-
-import static com.linkedin.datahub.graphql.TestUtils.getMockAllowContext;
 
 public class BrowseV2ResolverTest {
 
@@ -45,26 +45,35 @@ public class BrowseV2ResolverTest {
 
   @Test
   public static void testBrowseV2Success() throws Exception {
+    FormService mockFormService = Mockito.mock(FormService.class);
     ViewService mockService = Mockito.mock(ViewService.class);
-    EntityClient mockClient = initMockEntityClient(
-        "dataset",
-        "␟test␟path",
-        "*",
-        null,
-        0,
-        10,
-        new BrowseResultV2()
-            .setNumGroups(2)
-            .setGroups(new BrowseResultGroupV2Array(
-                new BrowseResultGroupV2().setCount(5).setName("first group").setHasSubGroups(true),
-                new BrowseResultGroupV2().setCount(4).setName("second group").setHasSubGroups(false)
-            ))
-            .setMetadata(new BrowseResultMetadata().setPath("␟test␟path").setTotalNumEntities(100))
-            .setFrom(0)
-            .setPageSize(10)
-    );
+    EntityClient mockClient =
+        initMockEntityClient(
+            "dataset",
+            "␟test␟path",
+            "*",
+            null,
+            0,
+            10,
+            new BrowseResultV2()
+                .setNumGroups(2)
+                .setGroups(
+                    new BrowseResultGroupV2Array(
+                        new BrowseResultGroupV2()
+                            .setCount(5)
+                            .setName("first group")
+                            .setHasSubGroups(true),
+                        new BrowseResultGroupV2()
+                            .setCount(4)
+                            .setName("second group")
+                            .setHasSubGroups(false)))
+                .setMetadata(
+                    new BrowseResultMetadata().setPath("␟test␟path").setTotalNumEntities(100))
+                .setFrom(0)
+                .setPageSize(10));
 
-    final BrowseV2Resolver resolver = new BrowseV2Resolver(mockClient, mockService);
+    final BrowseV2Resolver resolver =
+        new BrowseV2Resolver(mockClient, mockService, mockFormService);
 
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     QueryContext mockContext = getMockAllowContext();
@@ -81,6 +90,7 @@ public class BrowseV2ResolverTest {
 
   @Test
   public static void testBrowseV2SuccessWithQueryAndFilter() throws Exception {
+    FormService mockFormService = Mockito.mock(FormService.class);
     ViewService mockService = Mockito.mock(ViewService.class);
 
     List<AndFilterInput> orFilters = new ArrayList<>();
@@ -92,25 +102,33 @@ public class BrowseV2ResolverTest {
     orFilters.add(andFilterInput);
     Filter filter = ResolverUtils.buildFilter(null, orFilters);
 
-    EntityClient mockClient = initMockEntityClient(
-        "dataset",
-        "␟test␟path",
-        "test",
-        filter,
-        0,
-        10,
-        new BrowseResultV2()
-            .setNumGroups(2)
-            .setGroups(new BrowseResultGroupV2Array(
-                new BrowseResultGroupV2().setCount(5).setName("first group").setHasSubGroups(true),
-                new BrowseResultGroupV2().setCount(4).setName("second group").setHasSubGroups(false)
-            ))
-            .setMetadata(new BrowseResultMetadata().setPath("␟test␟path").setTotalNumEntities(100))
-            .setFrom(0)
-            .setPageSize(10)
-    );
+    EntityClient mockClient =
+        initMockEntityClient(
+            "dataset",
+            "␟test␟path",
+            "test",
+            filter,
+            0,
+            10,
+            new BrowseResultV2()
+                .setNumGroups(2)
+                .setGroups(
+                    new BrowseResultGroupV2Array(
+                        new BrowseResultGroupV2()
+                            .setCount(5)
+                            .setName("first group")
+                            .setHasSubGroups(true),
+                        new BrowseResultGroupV2()
+                            .setCount(4)
+                            .setName("second group")
+                            .setHasSubGroups(false)))
+                .setMetadata(
+                    new BrowseResultMetadata().setPath("␟test␟path").setTotalNumEntities(100))
+                .setFrom(0)
+                .setPageSize(10));
 
-    final BrowseV2Resolver resolver = new BrowseV2Resolver(mockClient, mockService);
+    final BrowseV2Resolver resolver =
+        new BrowseV2Resolver(mockClient, mockService, mockFormService);
 
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     QueryContext mockContext = getMockAllowContext();
@@ -130,27 +148,36 @@ public class BrowseV2ResolverTest {
   @Test
   public static void testBrowseV2SuccessWithView() throws Exception {
     DataHubViewInfo viewInfo = createViewInfo(new StringArray());
+    FormService mockFormService = Mockito.mock(FormService.class);
     ViewService viewService = initMockViewService(TEST_VIEW_URN, viewInfo);
 
-    EntityClient mockClient = initMockEntityClient(
-        "dataset",
-        "␟test␟path",
-        "*",
-        viewInfo.getDefinition().getFilter(),
-        0,
-        10,
-        new BrowseResultV2()
-            .setNumGroups(2)
-            .setGroups(new BrowseResultGroupV2Array(
-                new BrowseResultGroupV2().setCount(5).setName("first group").setHasSubGroups(true),
-                new BrowseResultGroupV2().setCount(4).setName("second group").setHasSubGroups(false)
-            ))
-            .setMetadata(new BrowseResultMetadata().setPath("␟test␟path").setTotalNumEntities(100))
-            .setFrom(0)
-            .setPageSize(10)
-    );
+    EntityClient mockClient =
+        initMockEntityClient(
+            "dataset",
+            "␟test␟path",
+            "*",
+            viewInfo.getDefinition().getFilter(),
+            0,
+            10,
+            new BrowseResultV2()
+                .setNumGroups(2)
+                .setGroups(
+                    new BrowseResultGroupV2Array(
+                        new BrowseResultGroupV2()
+                            .setCount(5)
+                            .setName("first group")
+                            .setHasSubGroups(true),
+                        new BrowseResultGroupV2()
+                            .setCount(4)
+                            .setName("second group")
+                            .setHasSubGroups(false)))
+                .setMetadata(
+                    new BrowseResultMetadata().setPath("␟test␟path").setTotalNumEntities(100))
+                .setFrom(0)
+                .setPageSize(10));
 
-    final BrowseV2Resolver resolver = new BrowseV2Resolver(mockClient, viewService);
+    final BrowseV2Resolver resolver =
+        new BrowseV2Resolver(mockClient, viewService, mockFormService);
 
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     QueryContext mockContext = getMockAllowContext();
@@ -166,16 +193,25 @@ public class BrowseV2ResolverTest {
     compareResultToExpectedData(result, getExpectedResult());
   }
 
-  private static void compareResultToExpectedData(BrowseResultsV2 result, BrowseResultsV2 expected) {
+  private static void compareResultToExpectedData(
+      BrowseResultsV2 result, BrowseResultsV2 expected) {
     Assert.assertEquals(result.getCount(), expected.getCount());
     Assert.assertEquals(result.getStart(), expected.getStart());
     Assert.assertEquals(result.getTotal(), expected.getTotal());
     Assert.assertEquals(result.getGroups().size(), expected.getGroups().size());
-    result.getGroups().forEach(group -> {
-      Assert.assertTrue(expected.getGroups().stream().filter(g -> g.getName().equals(group.getName())).count() > 0);
-    });
+    result
+        .getGroups()
+        .forEach(
+            group -> {
+              Assert.assertTrue(
+                  expected.getGroups().stream()
+                          .filter(g -> g.getName().equals(group.getName()))
+                          .count()
+                      > 0);
+            });
     Assert.assertEquals(result.getMetadata().getPath(), expected.getMetadata().getPath());
-    Assert.assertEquals(result.getMetadata().getTotalNumEntities(), expected.getMetadata().getTotalNumEntities());
+    Assert.assertEquals(
+        result.getMetadata().getTotalNumEntities(), expected.getMetadata().getTotalNumEntities());
   }
 
   private static BrowseResultsV2 getExpectedResult() {
@@ -185,19 +221,22 @@ public class BrowseV2ResolverTest {
     results.setCount(10);
 
     List<com.linkedin.datahub.graphql.generated.BrowseResultGroupV2> groups = new ArrayList<>();
-    com.linkedin.datahub.graphql.generated.BrowseResultGroupV2 browseGroup1 = new com.linkedin.datahub.graphql.generated.BrowseResultGroupV2();
+    com.linkedin.datahub.graphql.generated.BrowseResultGroupV2 browseGroup1 =
+        new com.linkedin.datahub.graphql.generated.BrowseResultGroupV2();
     browseGroup1.setName("first group");
     browseGroup1.setCount(5L);
     browseGroup1.setHasSubGroups(true);
     groups.add(browseGroup1);
-    com.linkedin.datahub.graphql.generated.BrowseResultGroupV2 browseGroup2 = new com.linkedin.datahub.graphql.generated.BrowseResultGroupV2();
+    com.linkedin.datahub.graphql.generated.BrowseResultGroupV2 browseGroup2 =
+        new com.linkedin.datahub.graphql.generated.BrowseResultGroupV2();
     browseGroup2.setName("second group");
     browseGroup2.setCount(4L);
     browseGroup2.setHasSubGroups(false);
     groups.add(browseGroup2);
     results.setGroups(groups);
 
-    com.linkedin.datahub.graphql.generated.BrowseResultMetadata resultMetadata = new com.linkedin.datahub.graphql.generated.BrowseResultMetadata();
+    com.linkedin.datahub.graphql.generated.BrowseResultMetadata resultMetadata =
+        new com.linkedin.datahub.graphql.generated.BrowseResultMetadata();
     resultMetadata.setPath(ImmutableList.of("test", "path"));
     resultMetadata.setTotalNumEntities(100L);
     results.setMetadata(resultMetadata);
@@ -212,60 +251,52 @@ public class BrowseV2ResolverTest {
       Filter filter,
       int start,
       int limit,
-      BrowseResultV2 result
-  ) throws Exception {
+      BrowseResultV2 result)
+      throws Exception {
     EntityClient client = Mockito.mock(EntityClient.class);
-    Mockito.when(client.browseV2(
-        Mockito.eq(entityName),
-        Mockito.eq(path),
-        Mockito.eq(filter),
-        Mockito.eq(query),
-        Mockito.eq(start),
-        Mockito.eq(limit),
-        Mockito.any(Authentication.class)
-    )).thenReturn(
-        result
-    );
+    Mockito.when(
+            client.browseV2(
+                Mockito.any(),
+                Mockito.eq(ImmutableList.of(entityName)),
+                Mockito.eq(path),
+                Mockito.eq(filter),
+                Mockito.eq(query),
+                Mockito.eq(start),
+                Mockito.eq(limit)))
+        .thenReturn(result);
     return client;
   }
 
-  private static ViewService initMockViewService(
-      Urn viewUrn,
-      DataHubViewInfo viewInfo
-  ) {
+  private static ViewService initMockViewService(Urn viewUrn, DataHubViewInfo viewInfo) {
     ViewService service = Mockito.mock(ViewService.class);
-    Mockito.when(service.getViewInfo(
-        Mockito.eq(viewUrn),
-        Mockito.any(Authentication.class)
-    )).thenReturn(
-        viewInfo
-    );
+    Mockito.when(service.getViewInfo(Mockito.eq(viewUrn), Mockito.any(Authentication.class)))
+        .thenReturn(viewInfo);
     return service;
   }
+
   private static DataHubViewInfo createViewInfo(StringArray entityNames) {
-    Filter viewFilter = new Filter()
-        .setOr(new ConjunctiveCriterionArray(
-            new ConjunctiveCriterion().setAnd(
-                new CriterionArray(ImmutableList.of(
-                    new Criterion()
-                        .setField("field")
-                        .setValue("test")
-                        .setValues(new StringArray(ImmutableList.of("test")))
-                ))
-            )));
+    Filter viewFilter =
+        new Filter()
+            .setOr(
+                new ConjunctiveCriterionArray(
+                    new ConjunctiveCriterion()
+                        .setAnd(
+                            new CriterionArray(
+                                ImmutableList.of(
+                                    new Criterion()
+                                        .setField("field")
+                                        .setValue("test")
+                                        .setValues(new StringArray(ImmutableList.of("test"))))))));
 
     DataHubViewInfo info = new DataHubViewInfo();
     info.setName("test");
     info.setType(DataHubViewType.GLOBAL);
     info.setCreated(new AuditStamp().setTime(0L).setActor(TEST_USER_URN));
     info.setLastModified(new AuditStamp().setTime(0L).setActor(TEST_USER_URN));
-    info.setDefinition(new DataHubViewDefinition()
-        .setEntityTypes(entityNames)
-        .setFilter(viewFilter)
-    );
+    info.setDefinition(
+        new DataHubViewDefinition().setEntityTypes(entityNames).setFilter(viewFilter));
     return info;
   }
 
-  private BrowseV2ResolverTest() { }
-
+  private BrowseV2ResolverTest() {}
 }

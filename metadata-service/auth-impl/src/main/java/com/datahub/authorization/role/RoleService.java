@@ -1,5 +1,8 @@
 package com.datahub.authorization.role;
 
+import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.entity.AspectUtils.*;
+
 import com.datahub.authentication.Authentication;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
@@ -14,35 +17,45 @@ import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
-import static com.linkedin.metadata.Constants.*;
-import static com.linkedin.metadata.entity.AspectUtils.*;
-
-
 @Slf4j
 @RequiredArgsConstructor
 public class RoleService {
   private final EntityClient _entityClient;
 
-  public void batchAssignRoleToActors(@Nonnull final List<String> actors, @Nullable final Urn roleUrn,
-      @Nonnull final Authentication authentication) throws RemoteInvocationException {
+  public void batchAssignRoleToActors(
+      @Nonnull final List<String> actors,
+      @Nullable final Urn roleUrn,
+      @Nonnull final Authentication authentication)
+      throws RemoteInvocationException {
     if (roleUrn != null && !_entityClient.exists(roleUrn, authentication)) {
-      throw new RuntimeException(String.format("Role %s does not exist. Skipping batch role assignment", roleUrn));
+      throw new RuntimeException(
+          String.format("Role %s does not exist. Skipping batch role assignment", roleUrn));
     }
-    actors.forEach(actor -> {
-      try {
-        assignRoleToActor(actor, roleUrn, authentication);
-      } catch (Exception e) {
-        log.warn(String.format("Failed to assign role %s to actor %s. Skipping actor assignment", roleUrn, actor), e);
-      }
-    });
+    actors.forEach(
+        actor -> {
+          try {
+            assignRoleToActor(actor, roleUrn, authentication);
+          } catch (Exception e) {
+            log.warn(
+                String.format(
+                    "Failed to assign role %s to actor %s. Skipping actor assignment",
+                    roleUrn, actor),
+                e);
+          }
+        });
   }
 
-  private void assignRoleToActor(@Nonnull final String actor, @Nullable final Urn roleUrn,
-      @Nonnull final Authentication authentication) throws URISyntaxException, RemoteInvocationException {
+  private void assignRoleToActor(
+      @Nonnull final String actor,
+      @Nullable final Urn roleUrn,
+      @Nonnull final Authentication authentication)
+      throws URISyntaxException, RemoteInvocationException {
     final Urn actorUrn = Urn.createFromString(actor);
     if (!_entityClient.exists(actorUrn, authentication)) {
-      log.warn(String.format("Failed to assign role %s to actor %s, actor does not exist. Skipping actor assignment",
-          roleUrn, actor));
+      log.warn(
+          String.format(
+              "Failed to assign role %s to actor %s, actor does not exist. Skipping actor assignment",
+              roleUrn, actor));
       return;
     }
 

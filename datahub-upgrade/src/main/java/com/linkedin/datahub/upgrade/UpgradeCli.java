@@ -1,22 +1,22 @@
 package com.linkedin.datahub.upgrade;
 
-import com.linkedin.datahub.upgrade.system.SystemUpdate;
-import com.linkedin.datahub.upgrade.system.elasticsearch.BuildIndices;
 import com.linkedin.datahub.upgrade.impl.DefaultUpgradeManager;
-import com.linkedin.datahub.upgrade.system.elasticsearch.CleanIndices;
 import com.linkedin.datahub.upgrade.nocode.NoCodeUpgrade;
 import com.linkedin.datahub.upgrade.nocodecleanup.NoCodeCleanupUpgrade;
 import com.linkedin.datahub.upgrade.removeunknownaspects.RemoveUnknownAspects;
 import com.linkedin.datahub.upgrade.restorebackup.RestoreBackup;
 import com.linkedin.datahub.upgrade.restoreindices.RestoreIndices;
+import com.linkedin.datahub.upgrade.system.SystemUpdate;
+import com.linkedin.datahub.upgrade.system.SystemUpdateBlocking;
+import com.linkedin.datahub.upgrade.system.SystemUpdateNonBlocking;
 import java.util.List;
 import javax.inject.Inject;
 import javax.inject.Named;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
 import picocli.CommandLine;
-
 
 @Slf4j
 @Component
@@ -52,17 +52,17 @@ public class UpgradeCli implements CommandLineRunner {
   @Named("removeUnknownAspects")
   private RemoveUnknownAspects removeUnknownAspects;
 
-  @Inject
-  @Named("buildIndices")
-  private BuildIndices buildIndices;
-
-  @Inject
-  @Named("cleanIndices")
-  private CleanIndices cleanIndices;
-
-  @Inject
+  @Autowired(required = false)
   @Named("systemUpdate")
   private SystemUpdate systemUpdate;
+
+  @Autowired(required = false)
+  @Named("systemUpdateBlocking")
+  private SystemUpdateBlocking systemUpdateBlocking;
+
+  @Autowired(required = false)
+  @Named("systemUpdateNonBlocking")
+  private SystemUpdateNonBlocking systemUpdateNonBlocking;
 
   @Override
   public void run(String... cmdLineArgs) {
@@ -71,9 +71,15 @@ public class UpgradeCli implements CommandLineRunner {
     _upgradeManager.register(restoreIndices);
     _upgradeManager.register(restoreBackup);
     _upgradeManager.register(removeUnknownAspects);
-    _upgradeManager.register(buildIndices);
-    _upgradeManager.register(cleanIndices);
-    _upgradeManager.register(systemUpdate);
+    if (systemUpdate != null) {
+      _upgradeManager.register(systemUpdate);
+    }
+    if (systemUpdateBlocking != null) {
+      _upgradeManager.register(systemUpdateBlocking);
+    }
+    if (systemUpdateNonBlocking != null) {
+      _upgradeManager.register(systemUpdateNonBlocking);
+    }
 
     final Args args = new Args();
     new CommandLine(args).setCaseInsensitiveEnumValuesAllowed(true).parseArgs(cmdLineArgs);

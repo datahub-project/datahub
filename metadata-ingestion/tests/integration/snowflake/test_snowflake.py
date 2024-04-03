@@ -4,7 +4,6 @@ from datetime import datetime, timezone
 from typing import cast
 from unittest import mock
 
-import pandas as pd
 import pytest
 from freezegun import freeze_time
 
@@ -65,7 +64,7 @@ def test_snowflake_basic(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
     golden_file = test_resources_dir / "snowflake_golden.json"
 
     with mock.patch("snowflake.connector.connect") as mock_connect, mock.patch(
-        "datahub.ingestion.source.snowflake.snowflake_v2.SnowflakeV2Source.get_sample_values_for_table"
+        "datahub.ingestion.source.snowflake.snowflake_data_reader.SnowflakeDataReader.get_sample_data_for_table"
     ) as mock_sample_values:
         sf_connection = mock.MagicMock()
         sf_cursor = mock.MagicMock()
@@ -74,31 +73,29 @@ def test_snowflake_basic(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
 
         sf_cursor.execute.side_effect = default_query_results
 
-        mock_sample_values.return_value = pd.DataFrame(
-            data={
-                "col_1": [random.randint(1, 80) for i in range(20)],
-                "col_2": [random_email() for i in range(20)],
-                "col_3": [random_cloud_region() for i in range(20)],
-            }
-        )
+        mock_sample_values.return_value = {
+            "col_1": [random.randint(1, 80) for i in range(20)],
+            "col_2": [random_email() for i in range(20)],
+            "col_3": [random_cloud_region() for i in range(20)],
+        }
 
         datahub_classifier_config = DataHubClassifierConfig(
             minimum_values_threshold=10,
             confidence_level_threshold=0.58,
             info_types_config={
                 "Age": InfoTypeConfig(
-                    Prediction_Factors_and_Weights=PredictionFactorsAndWeights(
-                        Name=0, Values=1, Description=0, Datatype=0
+                    prediction_factors_and_weights=PredictionFactorsAndWeights(
+                        name=0, values=1, description=0, datatype=0
                     )
                 ),
                 "CloudRegion": InfoTypeConfig(
-                    Prediction_Factors_and_Weights=PredictionFactorsAndWeights(
-                        Name=0,
-                        Description=0,
-                        Datatype=0,
-                        Values=1,
+                    prediction_factors_and_weights=PredictionFactorsAndWeights(
+                        name=0,
+                        description=0,
+                        datatype=0,
+                        values=1,
                     ),
-                    Values=ValuesFactorConfig(
+                    values=ValuesFactorConfig(
                         prediction_type="regex",
                         regex=[
                             r"(af|ap|ca|eu|me|sa|us)-(central|north|(north(?:east|west))|south|south(?:east|west)|east|west)-\d+"
@@ -142,6 +139,7 @@ def test_snowflake_basic(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
                                     type="datahub", config=datahub_classifier_config
                                 )
                             ],
+                            max_workers=1,
                         ),
                         profiling=GEProfilingConfig(
                             enabled=True,
@@ -161,6 +159,7 @@ def test_snowflake_basic(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
         pipeline.run()
         pipeline.pretty_print_summary()
         pipeline.raise_from_status()
+        assert not pipeline.source.get_report().warnings
 
         # Verify the output.
 

@@ -8,9 +8,10 @@ from typing import Any, Dict, List, Optional
 import pydantic
 
 from datahub.configuration import ConfigModel
-from datahub.configuration.common import AllowDenyPattern, ConfigurationError
+from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.source_common import EnvConfigMixin
 from datahub.configuration.validate_field_removal import pydantic_removed_field
+from datahub.configuration.validate_multiline_string import pydantic_multiline_string
 from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
 from datahub.ingestion.source_config.bigquery import BigQueryBaseConfig
 
@@ -43,6 +44,8 @@ class BigQueryCredential(ConfigModel):
         default=None,
         description="If not set it will be default to https://www.googleapis.com/robot/v1/metadata/x509/client_email",
     )
+
+    _fix_private_key_newlines = pydantic_multiline_string("private_key")
 
     @pydantic.root_validator(skip_on_failure=True)
     def validate_config(cls, values: Dict[str, Any]) -> Dict[str, Any]:
@@ -148,7 +151,7 @@ class BigQueryUsageConfig(BigQueryBaseConfig, EnvConfigMixin, BaseUsageConfig):
     @pydantic.validator("use_exported_bigquery_audit_metadata")
     def use_exported_bigquery_audit_metadata_uses_v2(cls, v, values):
         if v is True and not values["use_v2_audit_metadata"]:
-            raise ConfigurationError(
+            raise ValueError(
                 "To use exported BigQuery audit metadata, you must also use v2 audit metadata"
             )
         return v

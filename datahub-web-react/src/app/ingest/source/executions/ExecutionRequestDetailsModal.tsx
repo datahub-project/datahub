@@ -83,11 +83,11 @@ const ShowMoreButton = styled(Button)`
     padding: 0px;
 `;
 
-const LogsContainer = styled.div<LogsContainerProps>`
+const DetailsContainer = styled.div<DetailsContainerProps>`
     margin-bottom: -25px;
     ${(props) =>
-        props.areLogsExpandable &&
-        !props.showExpandedLogs &&
+        props.areDetailsExpandable &&
+        !props.showExpandedDetails &&
         `
         -webkit-mask-image: linear-gradient(to bottom, rgba(0,0,0,1) 50%, rgba(255,0,0,0.5) 60%, rgba(255,0,0,0) 90% );
         mask-image: linear-gradient(to bottom, rgba(0,0,0,1) 50%, rgba(255,0,0,0.5) 60%, rgba(255,0,0,0) 90%);
@@ -102,9 +102,9 @@ const modalBodyStyle = {
     padding: 0,
 };
 
-type LogsContainerProps = {
-    showExpandedLogs: boolean;
-    areLogsExpandable: boolean;
+type DetailsContainerProps = {
+    showExpandedDetails: boolean;
+    areDetailsExpandable: boolean;
 };
 
 type Props = {
@@ -124,7 +124,7 @@ export const ExecutionDetailsModal = ({ urn, visible, onClose }: Props) => {
         downloadFile(output, `exec-${urn}.log`);
     };
 
-    const logs = (showExpandedLogs && output) || output.slice(0, 250);
+    const logs = (showExpandedLogs && output) || output?.split('\n').slice(0, 5).join('\n');
     const result = data?.executionRequest?.result?.status;
 
     useEffect(() => {
@@ -154,10 +154,10 @@ export const ExecutionDetailsModal = ({ urn, visible, onClose }: Props) => {
     } catch (e) {
         recipeYaml = '';
     }
-    const recipe = showExpandedRecipe ? recipeYaml : recipeYaml?.split('\n').slice(0, 1).join('\n');
+    const recipe = showExpandedRecipe ? recipeYaml : recipeYaml?.split('\n').slice(0, 5).join('\n');
 
-    const areLogsExpandable = output.length > 250;
-    const isRecipeExpandable = recipeYaml?.includes('\n');
+    const areLogsExpandable = output?.split(/\r\n|\r|\n/)?.length > 5;
+    const isRecipeExpandable = recipeYaml?.split(/\r\n|\r|\n/)?.length > 5;
 
     return (
         <Modal
@@ -197,11 +197,11 @@ export const ExecutionDetailsModal = ({ urn, visible, onClose }: Props) => {
                             Download
                         </Button>
                     </SectionSubHeader>
-                    <LogsContainer areLogsExpandable={areLogsExpandable} showExpandedLogs={showExpandedLogs}>
+                    <DetailsContainer areDetailsExpandable={areLogsExpandable} showExpandedDetails={showExpandedLogs}>
                         <Typography.Paragraph ellipsis>
                             <pre>{`${logs}${!showExpandedLogs && areLogsExpandable ? '...' : ''}`}</pre>
                         </Typography.Paragraph>
-                    </LogsContainer>
+                    </DetailsContainer>
                     {areLogsExpandable && (
                         <ShowMoreButton type="link" onClick={() => setShowExpandedLogs(!showExpandedLogs)}>
                             {showExpandedLogs ? 'Hide' : 'Show More'}
@@ -216,9 +216,14 @@ export const ExecutionDetailsModal = ({ urn, visible, onClose }: Props) => {
                                 The recipe used for this ingestion run.
                             </SubHeaderParagraph>
                         </SectionSubHeader>
-                        <Typography.Paragraph ellipsis>
-                            <pre>{`${recipe}${!showExpandedRecipe && isRecipeExpandable ? '\n...' : ''}`}</pre>
-                        </Typography.Paragraph>
+                        <DetailsContainer
+                            areDetailsExpandable={isRecipeExpandable}
+                            showExpandedDetails={showExpandedRecipe}
+                        >
+                            <Typography.Paragraph ellipsis>
+                                <pre>{`${recipe}${!showExpandedRecipe && isRecipeExpandable ? '...' : ''}`}</pre>
+                            </Typography.Paragraph>
+                        </DetailsContainer>
                         {isRecipeExpandable && (
                             <ShowMoreButton type="link" onClick={() => setShowExpandedRecipe((v) => !v)}>
                                 {showExpandedRecipe ? 'Hide' : 'Show More'}

@@ -1,13 +1,13 @@
 package com.linkedin.datahub.graphql.resolvers.entity;
 
+import static org.mockito.Mockito.*;
+import static org.testng.Assert.*;
+
+import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.entity.EntityService;
 import graphql.schema.DataFetchingEnvironment;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
-
-import static org.mockito.Mockito.*;
-import static org.testng.Assert.*;
-
 
 public class EntityExistsResolverTest {
   private static final String ENTITY_URN_STRING = "urn:li:corpuser:test";
@@ -34,7 +34,7 @@ public class EntityExistsResolverTest {
   @Test
   public void testPasses() throws Exception {
     when(_dataFetchingEnvironment.getArgument("urn")).thenReturn(ENTITY_URN_STRING);
-    when(_entityService.exists(any())).thenReturn(true);
+    when(_entityService.exists(any(Urn.class), eq(true))).thenReturn(true);
 
     assertTrue(_resolver.get(_dataFetchingEnvironment).join());
   }

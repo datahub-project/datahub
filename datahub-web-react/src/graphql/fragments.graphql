@@ -240,6 +240,15 @@ fragment nonRecursiveDatasetFields on Dataset {
             value
         }
         externalUrl
+        lastModified {
+            time
+            actor
+        }
+    }
+    structuredProperties {
+        properties {
+            ...structuredPropertiesFields
+        }
     }
     editableProperties {
         description
@@ -332,6 +341,9 @@ fragment nonRecursiveDataJobFields on DataJob {
     deprecation {
         ...deprecationFields
     }
+    subTypes {
+        typeNames
+    }
 }
 
 fragment dataJobFields on DataJob {
@@ -385,6 +397,15 @@ fragment dataJobFields on DataJob {
     }
     browsePathV2 {
         ...browsePathV2Fields
+    }
+    subTypes {
+        typeNames
+    }
+    health {
+        ...entityHealth
+    }
+    activeIncidents: incidents(start: 0, count: 1, state: ACTIVE) {
+        total
     }
 }
 
@@ -480,6 +501,9 @@ fragment dashboardFields on Dashboard {
     privileges {
         canEditLineage
         canEditEmbed
+    }
+    health {
+        ...entityHealth
     }
 }
 
@@ -698,6 +722,15 @@ fragment schemaFieldFields on SchemaField {
     }
     glossaryTerms {
         ...glossaryTerms
+    }
+    schemaFieldEntity {
+        urn
+        type
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
+        }
     }
 }
 
@@ -943,6 +976,9 @@ fragment parentContainerFields on Container {
     properties {
         name
     }
+    subTypes {
+        typeNames
+    }
 }
 
 fragment domainEntitiesFields on Domain {
@@ -1029,6 +1065,11 @@ fragment browsePathV2Fields on BrowsePathV2 {
                     }
                 }
                 instanceId
+            }
+            ... on Dataset {
+                properties {
+                    name
+                }
             }
         }
     }
@@ -1148,4 +1189,221 @@ fragment entityDisplayNameFields on Entity {
     ... on DataPlatformInstance {
         instanceId
     }
+}
+
+fragment ermodelrelationPropertiesFields on ERModelRelationshipProperties {
+    name
+    source {
+        ...datasetERModelRelationshipFields
+    }
+    destination {
+        ...datasetERModelRelationshipFields
+    }
+    relationshipFieldMappings {
+        ...relationshipFieldMapping
+    }
+    createdTime
+    createdActor {
+        urn
+    }
+}
+
+fragment relationshipFieldMapping on RelationshipFieldMapping {
+    sourceField
+    destinationField
+}
+
+fragment ermodelrelationEditablePropertiesFields on ERModelRelationshipEditableProperties {
+    description
+    name
+}
+
+fragment datasetERModelRelationshipFields on Dataset {
+    urn
+    name
+    properties {
+        name
+        description
+    }
+    editableProperties {
+        description
+    }
+    schemaMetadata {
+        ...schemaMetadataFields
+    }
+}
+fragment structuredPropertyFields on StructuredPropertyEntity {
+    urn
+    type
+    definition {
+        displayName
+        qualifiedName
+        description
+        cardinality
+        valueType {
+            info {
+                type
+                displayName
+            }
+        }
+        entityTypes {
+            info {
+                type
+            }
+        }
+        cardinality
+        typeQualifier {
+            allowedTypes {
+                urn
+                type
+                info {
+                    type
+                    displayName
+                }
+            }
+        }
+        allowedValues {
+            value {
+                ... on StringValue {
+                    stringValue
+                }
+                ... on NumberValue {
+                    numberValue
+                }
+            }
+            description
+        }
+    }
+}
+
+fragment structuredPropertiesFields on StructuredPropertiesEntry {
+    structuredProperty {
+        ...structuredPropertyFields
+    }
+    values {
+        ... on StringValue {
+            stringValue
+        }
+        ... on NumberValue {
+            numberValue
+        }
+    }
+    valueEntities {
+        urn
+        type
+        ...entityDisplayNameFields
+    }
+}
+
+fragment autoRenderAspectFields on RawAspect {
+    aspectName
+    payload
+    renderSpec {
+        displayType
+        displayName
+        key
+    }
+}
+
+fragment formAssociationFields on FormAssociation {
+    associatedUrn
+    incompletePrompts {
+        ...formPromptAssociationFields
+    }
+    completedPrompts {
+        ...formPromptAssociationFields
+    }
+    form {
+        urn
+        type
+        info {
+            name
+            description
+            type
+            prompts {
+                id
+                formUrn
+                title
+                description
+                type
+                required
+                structuredPropertyParams {
+                    structuredProperty {
+                        ...structuredPropertyFields
+                    }
+                }
+            }
+            actors {
+                owners
+                isAssignedToMe
+            }
+        }
+        ownership {
+            ...ownershipFields
+        }
+    }
+}
+
+fragment formPromptAssociationFields on FormPromptAssociation {
+    id
+    lastModified {
+        time
+        actor {
+            urn
+            type
+            ...entityDisplayNameFields
+        }
+    }
+    fieldAssociations {
+        completedFieldPrompts {
+            fieldPath
+            lastModified {
+                time
+                actor {
+                    urn
+                    type
+                    ...entityDisplayNameFields
+                }
+            }
+        }
+    }
+}
+
+fragment entityHealth on Health {
+    type
+    status
+    message
+    causes
+}
+
+
+fragment formsFields on Forms {
+    completedForms {
+        ...formAssociationFields
+    }
+    incompleteForms {
+        ...formAssociationFields
+    }
+    verifications {
+        form {
+            urn
+        }
+        lastModified {
+            time
+            actor {
+                urn
+                type
+                ...entityDisplayNameFields
+            }
+        }
+    }
+}
+
+fragment entityPrivileges on EntityPrivileges {
+    canEditLineage
+    canEditQueries
+    canEditEmbed
+    canManageEntity
+    canManageChildren
+    canEditProperties
 }

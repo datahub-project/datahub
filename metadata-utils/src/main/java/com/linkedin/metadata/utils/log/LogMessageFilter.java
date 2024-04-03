@@ -6,16 +6,13 @@ import ch.qos.logback.core.spi.FilterReply;
 import java.util.ArrayList;
 import java.util.List;
 
-
 /**
- * A Log Filter that can be configured to omit logs containing a specific message string.
- * Configured inside logback.xml.
+ * A Log Filter that can be configured to omit logs containing a specific message string. Configured
+ * inside logback.xml.
  */
 public class LogMessageFilter extends AbstractMatcherFilter<ILoggingEvent> {
 
-  /**
-   * A set of messages to exclude.
-   */
+  /** A set of messages to exclude. */
   private final List<String> excluded = new ArrayList<>();
 
   @Override

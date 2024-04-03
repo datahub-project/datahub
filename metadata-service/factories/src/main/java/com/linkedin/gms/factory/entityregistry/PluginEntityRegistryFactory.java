@@ -1,6 +1,7 @@
 package com.linkedin.gms.factory.entityregistry;
 
-import com.linkedin.metadata.spring.YamlPropertySourceFactory;
+import com.linkedin.gms.factory.config.ConfigurationProvider;
+import com.linkedin.metadata.config.EntityRegistryPluginConfiguration;
 import com.linkedin.metadata.models.registry.PluginEntityRegistryLoader;
 import java.io.FileNotFoundException;
 import java.net.MalformedURLException;
@@ -8,11 +9,8 @@ import javax.annotation.Nonnull;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.PropertySource;
-
 
 @Configuration
-@PropertySource(value = "classpath:/application.yml", factory = YamlPropertySourceFactory.class)
 public class PluginEntityRegistryFactory {
 
   @Value("${datahub.plugin.entityRegistry.path}")
@@ -20,7 +18,11 @@ public class PluginEntityRegistryFactory {
 
   @Bean(name = "pluginEntityRegistry")
   @Nonnull
-  protected PluginEntityRegistryLoader getInstance() throws FileNotFoundException, MalformedURLException {
-    return new PluginEntityRegistryLoader(pluginRegistryPath);
+  protected PluginEntityRegistryLoader getInstance(ConfigurationProvider configurationProvider)
+      throws FileNotFoundException, MalformedURLException {
+    EntityRegistryPluginConfiguration pluginConfiguration =
+        configurationProvider.getDatahub().getPlugin().getEntityRegistry();
+    return new PluginEntityRegistryLoader(
+        pluginConfiguration.getPath(), pluginConfiguration.getLoadDelaySeconds());
   }
 }

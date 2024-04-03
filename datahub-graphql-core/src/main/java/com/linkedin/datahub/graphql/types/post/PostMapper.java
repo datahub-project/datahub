@@ -1,6 +1,9 @@
 package com.linkedin.datahub.graphql.types.post;
 
+import static com.linkedin.metadata.Constants.*;
+
 import com.linkedin.data.DataMap;
+import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.AuditStamp;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.Media;
@@ -15,20 +18,20 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.post.PostInfo;
 import javax.annotation.Nonnull;
-
-import static com.linkedin.metadata.Constants.*;
-
+import javax.annotation.Nullable;
 
 public class PostMapper implements ModelMapper<EntityResponse, Post> {
 
   public static final PostMapper INSTANCE = new PostMapper();
 
-  public static Post map(@Nonnull final EntityResponse entityResponse) {
-    return INSTANCE.apply(entityResponse);
+  public static Post map(
+      @Nullable final QueryContext context, @Nonnull final EntityResponse entityResponse) {
+    return INSTANCE.apply(context, entityResponse);
   }
 
   @Override
-  public Post apply(@Nonnull final EntityResponse entityResponse) {
+  public Post apply(
+      @Nullable final QueryContext context, @Nonnull final EntityResponse entityResponse) {
     final Post result = new Post();
 
     result.setUrn(entityResponse.getUrn().toString());

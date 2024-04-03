@@ -1,5 +1,8 @@
 package com.linkedin.datahub.graphql.resolvers.view;
 
+import static com.linkedin.datahub.graphql.TestUtils.*;
+import static org.testng.Assert.*;
+
 import com.datahub.authentication.Authentication;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
@@ -16,10 +19,6 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
-
-import static com.linkedin.datahub.graphql.TestUtils.*;
-import static org.testng.Assert.*;
-
 
 public class DeleteViewResolverTest {
 
@@ -40,10 +39,8 @@ public class DeleteViewResolverTest {
 
     assertTrue(resolver.get(mockEnv).get());
 
-    Mockito.verify(mockService, Mockito.times(1)).deleteView(
-        Mockito.eq(TEST_URN),
-        Mockito.any(Authentication.class)
-    );
+    Mockito.verify(mockService, Mockito.times(1))
+        .deleteView(Mockito.eq(TEST_URN), Mockito.any(Authentication.class));
   }
 
   @Test
@@ -60,10 +57,8 @@ public class DeleteViewResolverTest {
 
     assertTrue(resolver.get(mockEnv).get());
 
-    Mockito.verify(mockService, Mockito.times(1)).deleteView(
-        Mockito.eq(TEST_URN),
-        Mockito.any(Authentication.class)
-    );
+    Mockito.verify(mockService, Mockito.times(1))
+        .deleteView(Mockito.eq(TEST_URN), Mockito.any(Authentication.class));
   }
 
   @Test
@@ -79,12 +74,9 @@ public class DeleteViewResolverTest {
 
     assertThrows(ExecutionException.class, () -> resolver.get(mockEnv).get());
 
-    Mockito.verify(mockService, Mockito.times(0)).deleteView(
-        Mockito.eq(TEST_URN),
-        Mockito.any(Authentication.class)
-    );
+    Mockito.verify(mockService, Mockito.times(0))
+        .deleteView(Mockito.eq(TEST_URN), Mockito.any(Authentication.class));
   }
-
 
   @Test
   public void testGetSuccessPersonalViewIsCreator() throws Exception {
@@ -99,10 +91,8 @@ public class DeleteViewResolverTest {
 
     assertTrue(resolver.get(mockEnv).get());
 
-    Mockito.verify(mockService, Mockito.times(1)).deleteView(
-        Mockito.eq(TEST_URN),
-        Mockito.any(Authentication.class)
-    );
+    Mockito.verify(mockService, Mockito.times(1))
+        .deleteView(Mockito.eq(TEST_URN), Mockito.any(Authentication.class));
   }
 
   @Test
@@ -118,19 +108,17 @@ public class DeleteViewResolverTest {
 
     assertThrows(ExecutionException.class, () -> resolver.get(mockEnv).get());
 
-    Mockito.verify(mockService, Mockito.times(0)).deleteView(
-        Mockito.eq(TEST_URN),
-        Mockito.any(Authentication.class)
-    );
+    Mockito.verify(mockService, Mockito.times(0))
+        .deleteView(Mockito.eq(TEST_URN), Mockito.any(Authentication.class));
   }
 
   @Test
   public void testGetViewServiceException() throws Exception {
     // Create resolver
     ViewService mockService = Mockito.mock(ViewService.class);
-    Mockito.doThrow(RuntimeException.class).when(mockService).deleteView(
-        Mockito.any(),
-        Mockito.any(Authentication.class));
+    Mockito.doThrow(RuntimeException.class)
+        .when(mockService)
+        .deleteView(Mockito.any(), Mockito.any(Authentication.class));
 
     DeleteViewResolver resolver = new DeleteViewResolver(mockService);
 
@@ -146,17 +134,19 @@ public class DeleteViewResolverTest {
   private static ViewService initViewService(DataHubViewType viewType) {
     ViewService mockService = Mockito.mock(ViewService.class);
 
-    DataHubViewInfo testInfo = new DataHubViewInfo()
-        .setType(viewType)
-        .setName("test-name")
-        .setDescription("test-description")
-        .setCreated(new AuditStamp().setActor(TEST_AUTHORIZED_USER).setTime(0L))
-        .setLastModified(new AuditStamp().setActor(TEST_AUTHORIZED_USER).setTime(0L))
-        .setDefinition(new DataHubViewDefinition().setEntityTypes(new StringArray()).setFilter(new Filter()));
+    DataHubViewInfo testInfo =
+        new DataHubViewInfo()
+            .setType(viewType)
+            .setName("test-name")
+            .setDescription("test-description")
+            .setCreated(new AuditStamp().setActor(TEST_AUTHORIZED_USER).setTime(0L))
+            .setLastModified(new AuditStamp().setActor(TEST_AUTHORIZED_USER).setTime(0L))
+            .setDefinition(
+                new DataHubViewDefinition()
+                    .setEntityTypes(new StringArray())
+                    .setFilter(new Filter()));
 
-    Mockito.when(mockService.getViewInfo(
-        Mockito.eq(TEST_URN),
-        Mockito.any(Authentication.class)))
+    Mockito.when(mockService.getViewInfo(Mockito.eq(TEST_URN), Mockito.any(Authentication.class)))
         .thenReturn(testInfo);
 
     return mockService;
