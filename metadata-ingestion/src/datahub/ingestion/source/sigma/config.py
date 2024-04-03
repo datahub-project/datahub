@@ -66,7 +66,8 @@ class SigmaSourceConfig(
     # Sigma workspace identifier
     workspace_pattern: AllowDenyPattern = pydantic.Field(
         default=AllowDenyPattern.allow_all(),
-        description="Regex patterns to filter Sigma workspaces in ingestion.",
+        description="Regex patterns to filter Sigma workspaces in ingestion."
+        "Mention 'User Folder' if entities of 'My documents' need to ingest.",
     )
     ingest_owner: Optional[bool] = pydantic.Field(
         default=True,
