@@ -82,7 +82,7 @@ class QuickstartVersionMappingConfig(BaseModel):
             return QuickstartVersionMappingConfig(
                 quickstart_version_map={
                     "default": QuickstartExecutionPlan(
-                        composefile_git_ref="master", docker_tag="head", mysql_tag="5.7"
+                        composefile_git_ref="master", docker_tag="head", mysql_tag="8.2"
                     ),
                 }
             )
@@ -94,7 +94,7 @@ class QuickstartVersionMappingConfig(BaseModel):
             try:
                 release = cls._fetch_latest_version()
                 config.quickstart_version_map["stable"] = QuickstartExecutionPlan(
-                    composefile_git_ref=release, docker_tag=release, mysql_tag="5.7"
+                    composefile_git_ref=release, docker_tag=release, mysql_tag="8.2"
                 )
             except Exception:
                 click.echo(
@@ -116,8 +116,8 @@ class QuickstartVersionMappingConfig(BaseModel):
             requested_version = "default"
         composefile_git_ref = requested_version
         docker_tag = requested_version
-        # Default to 5.7 if not specified in version map
-        mysql_tag = "5.7"
+        # Default to 8.2 if not specified in version map
+        mysql_tag = "8.2"
         result = self.quickstart_version_map.get(
             requested_version,
             QuickstartExecutionPlan(

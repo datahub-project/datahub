@@ -137,7 +137,7 @@ file used to deploy datahub). Change datahub-frontend values to the following.
 datahub-frontend:
   enabled: true
   image:
-    repository: linkedin/datahub-frontend-react
+    repository: acryldata/datahub-frontend-react
     tag: "latest"
   ingress:
     enabled: true
@@ -305,7 +305,7 @@ a different way of creating time based indices.
   elasticsearchSetupJob:
     enabled: true
     image:
-      repository: linkedin/datahub-elasticsearch-setup
+      repository: acryldata/datahub-elasticsearch-setup
       tag: "***"
     extraEnvs:
       - name: USE_AWS_ELASTICSEARCH
