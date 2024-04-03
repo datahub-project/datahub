@@ -680,7 +680,10 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
             ignore_table_sampling,
             columns_list_to_ignore_sampling,
         ) = _get_columns_to_ignore_sampling(
-            self.dataset_name, self.config.tags_to_ignore_sampling, self.platform, self.env
+            self.dataset_name,
+            self.config.tags_to_ignore_sampling,
+            self.platform,
+            self.env,
         )
 
         logger.debug(f"profiling {self.dataset_name}: flushing stage 1 queries")
@@ -924,7 +927,7 @@ class DatahubGEProfiler:
         report: SQLSourceReport,
         config: GEProfilingConfig,
         platform: str,
-        env='PROD',
+        env: str = "PROD",
     ):
         self.report = report
         self.config = config
@@ -1173,7 +1176,7 @@ class DatahubGEProfiler:
                     custom_sql,
                     query_combiner,
                     self.platform,
-                    self.env
+                    self.env,
                 ).generate_dataset_profile()
 
                 time_taken = timer.elapsed_seconds()
@@ -1344,7 +1347,7 @@ def _get_columns_to_ignore_sampling(
 
     if not tags_to_ignore:
         return ignore_table, columns_to_ignore
-    
+
     dataset_urn = mce_builder.make_dataset_urn(
         name=dataset_name, platform=platform, env=env
     )
