@@ -27,7 +27,7 @@ export const Preview = ({
     const location = useLocation();
     const relatedEntitiesUrl = getRelatedEntitiesUrl(entityRegistry, businessAttributeUrn);
 
-    const url = `${entityRegistry.getEntityUrl(EntityType.Dataset, datasetUrn)}/${encodeURIComponent('Schema')}?schemaFilter=${encodeURIComponent('customer_id')}`;
+    const url = `${entityRegistry.getEntityUrl(EntityType.Dataset, datasetUrn)}/${encodeURIComponent('Schema')}?schemaFilter=${encodeURIComponent(name)}`;
 
     return (
         <DefaultPreviewCard

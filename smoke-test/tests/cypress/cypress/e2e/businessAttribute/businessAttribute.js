@@ -77,9 +77,8 @@ describe("businessAttribute", () => {
         cy.clickOptionWithText("Related Entities");
         //cy.visit("/business-attribute/urn:li:businessAttribute:37c81832-06e0-40b1-a682-858e1dd0d449/Related%20Entities");
         //cy.wait(5000);
-        //Uncomment below two lines once schema Field Entity is fixed
-        // cy.contains("of 0").should("not.exist");
-        // cy.contains(/of [0-9]+/);
+        cy.contains("of 0").should("not.exist");
+        cy.contains(/of [0-9]+/);
     });
 
 
@@ -91,10 +90,9 @@ describe("businessAttribute", () => {
             "logging{enter}"
         );
         cy.wait(5000);
-        //Uncomment below three lines once schema Field Entity is fixed
-        // cy.contains("of 0").should("not.exist");
-        // cy.contains(/of 1/);
-        // cy.contains("cypress_logging_events");
+        cy.contains("of 0").should("not.exist");
+        cy.contains(/of 1/);
+        cy.contains("cypress_logging_events");
     });
 
     it("remove business attribute from dataset", () => {
