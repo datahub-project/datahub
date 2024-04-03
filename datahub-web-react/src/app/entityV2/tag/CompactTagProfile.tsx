@@ -5,7 +5,7 @@ import { ReadOutlined } from '@ant-design/icons';
 import styled from 'styled-components';
 
 import { PageRoutes } from '../../../conf/Global';
-import EntitySidebarContext from '../../shared/EntitySidebarContext';
+import EntitySidebarContext from '../../sharedV2/EntitySidebarContext';
 import TagStyleEntity from '../../shared/TagStyleEntity';
 import { StyledEntitySidebarContainer, StyledSidebar } from '../shared/containers/profile/sidebar/EntityProfileSidebar';
 import { EntitySidebarTab } from '../shared/types';

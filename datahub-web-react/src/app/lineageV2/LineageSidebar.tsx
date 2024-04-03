@@ -1,7 +1,7 @@
 import React, { useCallback, useContext, useState } from 'react';
 import { useOnSelectionChange, useStore } from 'reactflow';
 import styled from 'styled-components/macro';
-import EntitySidebarContext, { EntitySidebarQueryDetails } from '../shared/EntitySidebarContext';
+import EntitySidebarContext, { EntitySidebarQueryDetails } from '../sharedV2/EntitySidebarContext';
 import CompactContext from '../shared/CompactContext';
 import useSidebarWidth from '../sharedV2/sidebar/useSidebarWidth';
 import { useEntityRegistry } from '../useEntityRegistry';
@@ -56,6 +56,7 @@ export default function LineageSidebar() {
                 isClosed: false,
                 setSidebarClosed,
                 forLineage: true,
+                separateSiblings: true,
                 extra: queryDetails,
             }}
         >

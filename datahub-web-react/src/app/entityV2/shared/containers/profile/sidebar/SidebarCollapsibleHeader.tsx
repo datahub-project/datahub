@@ -1,7 +1,7 @@
 import React, { useContext } from 'react';
 import styled from 'styled-components';
 import { Typography } from 'antd';
-import EntitySidebarContext from '../../../../../shared/EntitySidebarContext';
+import EntitySidebarContext from '../../../../../sharedV2/EntitySidebarContext';
 import { REDESIGN_COLORS } from '../../../constants';
 import { EntitySidebarTab } from '../../../types';
 import { TitleAction } from './TitleAction';

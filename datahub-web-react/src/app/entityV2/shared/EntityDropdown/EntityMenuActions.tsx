@@ -9,7 +9,7 @@ import RaiseIncidentMenuAction from './RaiseIncidentMenuAction';
 import DeleteEntityMenuItem from './DeleteEntityMenuAction';
 import MoreOptionsMenuAction from './MoreOptionsMenuAction';
 import { SubscribeMenuAction } from '../../../shared/subscribe/v2/SubscribeMenuAction';
-import EntitySidebarContext from '../../../shared/EntitySidebarContext';
+import EntitySidebarContext from '../../../sharedV2/EntitySidebarContext';
 import { useEntityData, useRefetch } from '../EntityContext';
 import { ENTITY_PROFILE_V2_SUBSCRIPTION_ID } from '../../../onboarding/configV2/EntityProfileOnboardingConfig';
 
@@ -22,8 +22,7 @@ export enum EntityMenuItems {
     ADD_TERM, // Make primary
     ADD_TERM_GROUP, // Make primary
     MOVE,
-    DELETE,
-    // acryl-main only
+    DELETE, // acryl-main only
     RAISE_INCIDENT,
 }
 

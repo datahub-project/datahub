@@ -20,7 +20,7 @@ import NonExistentEntityPage from '../shared/entity/NonExistentEntityPage';
 import CompactContext from '../../shared/CompactContext';
 import { StyledEntitySidebarContainer, StyledSidebar } from '../shared/containers/profile/sidebar/EntityProfileSidebar';
 import EntitySidebarSectionsTab from '../shared/containers/profile/sidebar/EntitySidebarSectionsTab';
-import EntitySidebarContext from '../../shared/EntitySidebarContext';
+import EntitySidebarContext from '../../sharedV2/EntitySidebarContext';
 import SidebarCollapsibleHeader from '../shared/containers/profile/sidebar/SidebarCollapsibleHeader';
 import { EntitySidebarTabs } from '../shared/containers/profile/sidebar/EntitySidebarTabs';
 import { ANTD_GRAY, REDESIGN_COLORS } from '../shared/constants';

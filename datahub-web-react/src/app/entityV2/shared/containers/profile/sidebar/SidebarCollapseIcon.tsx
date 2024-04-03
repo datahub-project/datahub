@@ -2,7 +2,7 @@ import { Tooltip } from 'antd';
 import React, { useContext } from 'react';
 import styled from 'styled-components';
 import KeyboardTabOutlinedIcon from '@mui/icons-material/KeyboardTabOutlined';
-import EntitySidebarContext from '../../../../../shared/EntitySidebarContext';
+import EntitySidebarContext from '../../../../../sharedV2/EntitySidebarContext';
 import { REDESIGN_COLORS, SEARCH_COLORS } from '../../../constants';
 
 const Container = styled.div`

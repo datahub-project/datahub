@@ -4,7 +4,7 @@ import { EntityType, LineageDirection, SchemaFieldRef } from '../../types.genera
 import EntityRegistry from '../entityV2/EntityRegistry';
 import { GenericEntityProperties } from '../entityV2/shared/types';
 import { DBT_CLOUD_URN } from '../ingest/source/builder/constants';
-import { ColumnQueryData } from '../shared/EntitySidebarContext';
+import { ColumnQueryData } from '../sharedV2/EntitySidebarContext';
 import { getEntityTypeFromEntityUrn, getPlatformUrnFromEntityUrn } from './lineageUtils';
 import { FetchedEntityV2 } from './types';
 

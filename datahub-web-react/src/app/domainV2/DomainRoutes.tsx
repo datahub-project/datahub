@@ -5,7 +5,7 @@ import { PageRoutes } from '../../conf/Global';
 import { EntityType } from '../../types.generated';
 import { EntityPage } from '../entity/EntityPage';
 import { GenericEntityProperties } from '../entity/shared/types';
-import EntitySidebarContext from '../shared/EntitySidebarContext';
+import EntitySidebarContext from '../sharedV2/EntitySidebarContext';
 import useSidebarWidth from '../sharedV2/sidebar/useSidebarWidth';
 import { useEntityRegistry } from '../useEntityRegistry';
 import { DomainsContext } from './DomainsContext';

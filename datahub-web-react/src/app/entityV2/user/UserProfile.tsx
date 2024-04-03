@@ -18,7 +18,7 @@ import { StyledEntitySidebarContainer, StyledSidebar } from '../shared/container
 import CompactContext from '../../shared/CompactContext';
 import { EntitySidebarTabs } from '../shared/containers/profile/sidebar/EntitySidebarTabs';
 import EntitySidebarSectionsTab from '../shared/containers/profile/sidebar/EntitySidebarSectionsTab';
-import EntitySidebarContext from '../../shared/EntitySidebarContext';
+import EntitySidebarContext from '../../sharedV2/EntitySidebarContext';
 import SidebarCollapsibleHeader from '../shared/containers/profile/sidebar/SidebarCollapsibleHeader';
 
 export interface Props {

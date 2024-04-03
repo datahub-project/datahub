@@ -4,7 +4,7 @@ import { Tabs, Tooltip } from 'antd';
 import { EntitySidebarTab } from '../../../types';
 import { useBaseEntity, useEntityData } from '../../../EntityContext';
 import SidebarCollapseIcon from './SidebarCollapseIcon';
-import EntitySidebarContext from '../../../../../shared/EntitySidebarContext';
+import EntitySidebarContext from '../../../../../sharedV2/EntitySidebarContext';
 import { REDESIGN_COLORS } from '../../../constants';
 
 type Props = {
