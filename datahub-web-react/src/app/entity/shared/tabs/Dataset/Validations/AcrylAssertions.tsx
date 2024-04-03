@@ -2,14 +2,13 @@ import React, { useState } from 'react';
 import { PlusOutlined } from '@ant-design/icons';
 import { Button, Tooltip } from 'antd';
 import { useGetDatasetAssertionsWithMonitorsQuery } from '../../../../../../graphql/monitor.generated';
-import { Assertion } from '../../../../../../types.generated';
 import { useEntityData } from '../../../EntityContext';
 import { DatasetAssertionsSummary } from './DatasetAssertionsSummary';
 import { combineEntityDataWithSiblings, useIsSeparateSiblingsMode } from '../../../siblingUtils';
 import { useAppConfig } from '../../../../../useAppConfig';
 import { AssertionMonitorBuilderDrawer } from './assertion/builder/AssertionMonitorBuilderDrawer';
 import TabToolbar from '../../../components/styled/TabToolbar';
-import { createAssertionGroups, getLegacyAssertionsSummary } from './acrylUtils';
+import { AssertionWithMonitorDetails, createAssertionGroups, getLegacyAssertionsSummary, tryExtractMonitorDetailsFromAssertionsWithMonitorsQuery } from './acrylUtils';
 import { AssertionGroupTable } from './AssertionGroupTable';
 import { updateDatasetAssertionsCache, createCachedAssertionWithMonitor } from './acrylCacheUtils';
 import { useGetDatasetContractQuery } from '../../../../../../graphql/contract.generated';
@@ -36,8 +35,8 @@ export const AcrylAssertions = () => {
     });
 
     const combinedData = isHideSiblingMode ? data : combineEntityDataWithSiblings(data);
-    const assertions = combinedData?.dataset?.assertions?.assertions?.map((assertion) => assertion as Assertion) || [];
-    const assertionGroups = createAssertionGroups(assertions);
+    const assertionsWithMonitorsDetails: AssertionWithMonitorDetails[] = tryExtractMonitorDetailsFromAssertionsWithMonitorsQuery(combinedData) ?? [];
+    const assertionGroups = createAssertionGroups(assertionsWithMonitorsDetails);
 
     const contract = contractData?.dataset?.contract as any;
     const assertionMonitorsEnabled = config?.featureFlags?.assertionMonitorsEnabled || false;
@@ -67,7 +66,7 @@ export const AcrylAssertions = () => {
                     </Tooltip>
                 </TabToolbar>
             )}
-            <DatasetAssertionsSummary summary={getLegacyAssertionsSummary(assertions)} />
+            <DatasetAssertionsSummary summary={getLegacyAssertionsSummary(assertionsWithMonitorsDetails)} />
             <AssertionGroupTable
                 groups={assertionGroups}
                 contract={contract}

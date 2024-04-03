@@ -29,6 +29,7 @@ import { sortAssertions } from './assertionUtils';
 import { AssertionGroup, AssertionStatusSummary } from './acrylTypes';
 import { lowerFirstLetter } from '../../../../../shared/textUtil';
 import { useIngestionSourceForEntityQuery } from '../../../../../../graphql/ingestion.generated';
+import { GetDatasetAssertionsWithMonitorsQuery, MonitorDetailsFragment } from '../../../../../../graphql/monitor.generated';
 
 export const SUCCESS_COLOR_HEX = '#52C41A';
 export const FAILURE_COLOR_HEX = '#F5222D';
@@ -187,12 +188,23 @@ const getAssertionGroupTypeIcon = (type: AssertionType) => {
     return ASSERTION_TYPE_TO_INFO.has(type) ? ASSERTION_TYPE_TO_INFO.get(type).icon : undefined;
 };
 
+export type AssertionWithMonitorDetails = Assertion & {
+    monitors?: MonitorDetailsFragment[] // should almost always have 0-1 items
+};
+
+export const tryExtractMonitorDetailsFromAssertionsWithMonitorsQuery = (queryData?: GetDatasetAssertionsWithMonitorsQuery): AssertionWithMonitorDetails[] | undefined => {
+    return queryData?.dataset?.assertions?.assertions?.map(assertion => ({
+        ...(assertion as Assertion),
+        monitors: assertion.monitor?.relationships?.filter(r => r.entity?.__typename === 'Monitor').map(r => r.entity as MonitorDetailsFragment) ?? []
+    }));
+}
+
 /**
  * Returns a status summary for the assertions associated with a Dataset.
  *
  * @param assertions The assertions to extract the summary for
  */
-export const getAssertionsSummary = (assertions: Assertion[]): AssertionStatusSummary => {
+export const getAssertionsSummary = (assertions: AssertionWithMonitorDetails[]): AssertionStatusSummary => {
     const summary = {
         passing: 0,
         failing: 0,
@@ -201,6 +213,13 @@ export const getAssertionsSummary = (assertions: Assertion[]): AssertionStatusSu
         totalAssertions: assertions.length,
     };
     assertions.forEach((assertion) => {
+        // Skip inactive monitors
+        // NOTE: we don't assert that the status is Active, because in cases of external assertions they won't have monitors
+        const maybeInactiveMonitor = assertion.monitors?.find(item => item.info?.status.mode === MonitorMode.Inactive);
+        if (maybeInactiveMonitor) {
+            return;
+        }
+
         if ((assertion.runEvents?.runEvents?.length || 0) > 0) {
             const mostRecentRun = assertion.runEvents?.runEvents?.[0];
             const resultType = mostRecentRun?.result?.type;
@@ -243,7 +262,7 @@ export const getLegacyAssertionsSummary = (assertions: Assertion[]) => {
  *
  * @param assertions The assertions to group
  */
-export const createAssertionGroups = (assertions: Array<Assertion>): AssertionGroup[] => {
+export const createAssertionGroups = (assertions: Array<AssertionWithMonitorDetails>): AssertionGroup[] => {
     // Pre-sort the list of assertions based on which has been most recently executed.
     assertions.sort(sortAssertions);
 
