@@ -63,6 +63,12 @@ STATS_SCHEDULER_ASSERTION_REQUESTS = Gauge(
     ["executor_id", "embedded"],
 )
 
+STATS_SCHEDULER_SUBMISSION_ERRORS = Gauge(
+    "datahub_executor_scheduler_submission_errors",
+    "Number of execution submissions resulted in a failure",
+    ["executor_id", "embedded", "exception"],
+)
+
 STATS_INGESTION_HANDLER_REQUESTS = Gauge(
     "datahub_executor_ingestion_handler_requests",
     "Number of execution requests submitted by ingestion handler",

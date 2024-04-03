@@ -10,6 +10,7 @@ from datahub_executor.common.ingestion.helpers import emit_execution_request_inp
 from datahub_executor.common.monitoring.metrics import (
     STATS_SCHEDULER_ASSERTION_REQUESTS,
     STATS_SCHEDULER_INGESTION_REQUESTS,
+    STATS_SCHEDULER_SUBMISSION_ERRORS,
 )
 from datahub_executor.common.types import CronSchedule
 from datahub_executor.config import (
@@ -101,6 +102,11 @@ class ExecutionRequestScheduler:
 
                     logger.debug(f"started task assertion_request task_id = {task.id}")
         except Exception:
+            STATS_SCHEDULER_SUBMISSION_ERRORS.labels(
+                execution_request.executor_id,
+                str(self.should_execute_embedded(execution_request)),
+                "exception",
+            ).inc()
             logger.exception(
                 f"Failed to evaluate scheduled execution_request with exec_id {execution_request.exec_id}! This means that no execution_request results will be produced and could indicate missing data."
             )
