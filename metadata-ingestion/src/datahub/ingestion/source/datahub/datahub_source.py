@@ -39,6 +39,13 @@ class DataHubSource(StatefulIngestionSourceBase):
     def __init__(self, config: DataHubSourceConfig, ctx: PipelineContext):
         super().__init__(config, ctx)
         self.config = config
+
+        if (
+            ctx.pipeline_config
+            and ctx.pipeline_config.source
+            and ctx.pipeline_config.source.urn_pattern
+        ):
+            self.urn_pattern = ctx.pipeline_config.source.urn_pattern
         self.report: DataHubSourceReport = DataHubSourceReport()
         self.stateful_ingestion_handler = StatefulDataHubIngestionHandler(self)
 
@@ -92,6 +99,10 @@ class DataHubSource(StatefulIngestionSourceBase):
         )
         mcps = reader.get_aspects(from_createdon, self.report.stop_time)
         for i, (mcp, createdon) in enumerate(mcps):
+
+            if not self.urn_pattern.allowed(str(mcp.entityUrn)):
+                continue
+
             yield mcp.as_workunit()
             self.report.num_database_aspects_ingested += 1
 
@@ -126,6 +137,9 @@ class DataHubSource(StatefulIngestionSourceBase):
                     )
                     continue
 
+                if not self.urn_pattern.allowed(str(mcp.entityUrn)):
+                    continue
+
                 if isinstance(mcp, MetadataChangeProposalWrapper):
                     yield mcp.as_workunit()
                 else:
@@ -153,6 +167,8 @@ class DataHubSource(StatefulIngestionSourceBase):
 
         reader = DataHubApiReader(self.config, self.report, self.ctx.graph)
         for mcp in reader.get_aspects():
+            if not self.urn_pattern.allowed(str(mcp.entityUrn)):
+                continue
             yield mcp.as_workunit()
 
     def _commit_progress(self, i: Optional[int] = None) -> None:
