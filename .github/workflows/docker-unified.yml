@@ -145,7 +145,7 @@ jobs:
           tags: ${{ needs.setup.outputs.tag }}
           username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
           password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
-          publish: ${{ needs.setup.outputs.publish || needs.setup.outputs.pr-publish }}
+          publish: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
           context: .
           file: ./docker/datahub-gms/Dockerfile
           platforms: linux/amd64,linux/arm64/v8
@@ -209,7 +209,7 @@ jobs:
           tags: ${{ needs.setup.outputs.tag }}
           username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
           password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
-          publish: ${{ needs.setup.outputs.publish || needs.setup.outputs.pr-publish }}
+          publish: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
           context: .
           file: ./docker/datahub-mae-consumer/Dockerfile
           platforms: linux/amd64,linux/arm64/v8
@@ -273,7 +273,7 @@ jobs:
           tags: ${{ needs.setup.outputs.tag }}
           username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
           password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
-          publish: ${{ needs.setup.outputs.publish || needs.setup.outputs.pr-publish }}
+          publish: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
           context: .
           file: ./docker/datahub-mce-consumer/Dockerfile
           platforms: linux/amd64,linux/arm64/v8
@@ -337,7 +337,7 @@ jobs:
           tags: ${{ needs.setup.outputs.tag }}
           username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
           password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
-          publish: ${{ needs.setup.outputs.publish || needs.setup.outputs.pr-publish }}
+          publish: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
           context: .
           file: ./docker/datahub-upgrade/Dockerfile
           platforms: linux/amd64,linux/arm64/v8
@@ -403,7 +403,7 @@ jobs:
           tags: ${{ needs.setup.outputs.tag }}
           username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
           password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
-          publish: ${{ needs.setup.outputs.publish || needs.setup.outputs.pr-publish }}
+          publish: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
           context: .
           file: ./docker/datahub-frontend/Dockerfile
           platforms: linux/amd64,linux/arm64/v8
@@ -457,7 +457,7 @@ jobs:
           tags: ${{ needs.setup.outputs.tag }}
           username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
           password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
-          publish: ${{ needs.setup.outputs.publish || needs.setup.outputs.pr-publish }}
+          publish: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
           context: .
           file: ./docker/kafka-setup/Dockerfile
           platforms: linux/amd64,linux/arm64/v8
@@ -478,7 +478,7 @@ jobs:
           tags: ${{ needs.setup.outputs.tag }}
           username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
           password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
-          publish: ${{ needs.setup.outputs.publish || needs.setup.outputs.pr-publish }}
+          publish: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
           context: .
           file: ./docker/mysql-setup/Dockerfile
           platforms: linux/amd64,linux/arm64/v8
@@ -499,7 +499,7 @@ jobs:
           tags: ${{ needs.setup.outputs.tag }}
           username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
           password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
-          publish: ${{ needs.setup.outputs.publish || needs.setup.outputs.pr-publish }}
+          publish: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
           context: .
           file: ./docker/elasticsearch-setup/Dockerfile
           platforms: linux/amd64,linux/arm64/v8
@@ -530,7 +530,7 @@ jobs:
           tags: ${{ needs.setup.outputs.tag }}
           username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
           password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
-          publish: ${{ needs.setup.outputs.publish || needs.setup.outputs.pr-publish }}
+          publish: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
           context: .
           file: ./docker/datahub-ingestion-base/Dockerfile
           platforms: linux/amd64,linux/arm64/v8
@@ -571,7 +571,7 @@ jobs:
           build-args: |
             APP_ENV=slim
             BASE_IMAGE=${{ env.DATAHUB_INGESTION_BASE_IMAGE }}:${{ steps.filter.outputs.datahub-ingestion-base == 'true' && needs.setup.outputs.unique_tag || 'head' }}
-          publish: ${{ needs.setup.outputs.publish || needs.setup.outputs.pr-publish }}
+          publish: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
           context: .
           file: ./docker/datahub-ingestion-base/Dockerfile
           platforms: linux/amd64,linux/arm64/v8
@@ -612,7 +612,7 @@ jobs:
           build-args: |
             APP_ENV=full
             BASE_IMAGE=${{ env.DATAHUB_INGESTION_BASE_IMAGE }}:${{ steps.filter.outputs.datahub-ingestion-base == 'true' && needs.setup.outputs.unique_tag || 'head' }}
-          publish: ${{ needs.setup.outputs.publish || needs.setup.outputs.pr-publish }}
+          publish: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
           context: .
           file: ./docker/datahub-ingestion-base/Dockerfile
           platforms: linux/amd64,linux/arm64/v8
@@ -668,7 +668,7 @@ jobs:
           tags: ${{ needs.setup.outputs.slim_tag }}
           username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
           password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
-          publish: ${{ needs.setup.outputs.publish || needs.setup.outputs.pr-publish }}
+          publish: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
           context: .
           file: ./docker/datahub-ingestion/Dockerfile
           platforms: linux/amd64,linux/arm64/v8
@@ -756,7 +756,7 @@ jobs:
           tags: ${{ needs.setup.outputs.tag }}
           username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
           password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
-          publish: ${{ needs.setup.outputs.publish || needs.setup.outputs.pr-publish }}
+          publish: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
           context: .
           file: ./docker/datahub-ingestion/Dockerfile
           platforms: linux/amd64,linux/arm64/v8
