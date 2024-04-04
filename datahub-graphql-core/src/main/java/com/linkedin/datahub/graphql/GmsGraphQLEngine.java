@@ -128,7 +128,7 @@ import com.linkedin.datahub.graphql.resolvers.dataproduct.CreateDataProductResol
 import com.linkedin.datahub.graphql.resolvers.dataproduct.DeleteDataProductResolver;
 import com.linkedin.datahub.graphql.resolvers.dataproduct.ListDataProductAssetsResolver;
 import com.linkedin.datahub.graphql.resolvers.dataproduct.UpdateDataProductResolver;
-import com.linkedin.datahub.graphql.resolvers.dataset.ActorUsersResolver;
+import com.linkedin.datahub.graphql.resolvers.dataset.IsAssignedToMeResolver;
 import com.linkedin.datahub.graphql.resolvers.dataset.DatasetStatsSummaryResolver;
 import com.linkedin.datahub.graphql.resolvers.dataset.DatasetUsageStatsResolver;
 import com.linkedin.datahub.graphql.resolvers.deprecation.UpdateDeprecationResolver;
@@ -2930,7 +2930,7 @@ public class GmsGraphQLEngine {
 
   private void configureActorResolvers(final RuntimeWiring.Builder builder) {
     builder.type(
-        "Actor",
-        typeWiring -> typeWiring.dataFetcher("users", new ActorUsersResolver(this.entityClient)));
+        "Role",
+        typeWiring -> typeWiring.dataFetcher("isAssignedToMe", new IsAssignedToMeResolver()));
   }
 }

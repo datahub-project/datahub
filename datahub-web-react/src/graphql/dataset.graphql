@@ -310,7 +310,7 @@ query getDatasetSchema($urn: String!) {
     }
 }
 
-query getExternalRoles($urn: String!, $actorUserUrnFilter: UserFilter) {
+query getExternalRoles($urn: String!) {
     dataset(urn: $urn) {
         access {
             ...getRoles
@@ -330,13 +330,7 @@ fragment getRoles on Access {
                 requestUrl
             }
             urn
-            actors {
-                users(input: $actorUserUrnFilter) {
-                    user {
-                        urn
-                    }
-                }
-            }
+            isAssignedToMe
         }
     }
 }

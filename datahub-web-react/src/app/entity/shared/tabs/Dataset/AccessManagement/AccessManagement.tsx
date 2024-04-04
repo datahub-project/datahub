@@ -62,13 +62,9 @@ const AccessButton = styled(Button)`
 export default function AccessManagement() {
     const { data: loggedInUser } = useGetMeQuery({ fetchPolicy: 'cache-first' });
     const baseEntity = useBaseEntity<GetDatasetQuery>();
-    const authenticatedUser = useUserContext();
 
-    const actorUserUrnFilter = {
-        "userUrn": authenticatedUser?.user?.urn || ''
-    }
     const { data: externalRoles, loading: isLoading } = useGetExternalRolesQuery({
-        variables: { urn: baseEntity?.dataset?.urn as string, actorUserUrnFilter  },
+        variables: { urn: baseEntity?.dataset?.urn as string, },
         skip: !baseEntity?.dataset?.urn,
     });
 
