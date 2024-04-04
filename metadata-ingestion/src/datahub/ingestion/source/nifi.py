@@ -44,6 +44,7 @@ from datahub.metadata.schema_classes import (
     DataPlatformInstanceClass,
     DatasetPropertiesClass,
 )
+from datahub.specific.datajob import DataJobPatchBuilder
 
 logger = logging.getLogger(__name__)
 NIFI = "nifi"
@@ -140,6 +141,12 @@ class NifiSourceConfig(EnvConfigMixin):
     emit_process_group_as_container: bool = Field(
         default=False,
         description="Whether to emit Nifi process groups as container entities.",
+    )
+
+    incremental_lineage: bool = Field(
+        default=True,
+        description="When enabled, emits incremental/patch lineage for Nifi processors."
+        " When disabled, re-states lineage on each run.",
     )
 
     @root_validator(skip_on_failure=True)
@@ -380,21 +387,6 @@ class NifiSourceReport(SourceReport):
 @support_status(SupportStatus.CERTIFIED)
 @capability(SourceCapability.LINEAGE_COARSE, "Supported. See docs for limitations")
 class NifiSource(Source):
-    """
-    This plugin extracts the following:
-
-    - NiFi flow as `DataFlow` entity
-    - Ingress, egress processors, remote input and output ports as `DataJob` entity
-    - Input and output ports receiving remote connections as `Dataset` entity
-    - Lineage information between external datasets and ingress/egress processors by analyzing provenance events
-
-    Current limitations:
-
-    - Limited ingress/egress processors are supported
-      - S3: `ListS3`, `FetchS3Object`, `PutS3Object`
-      - SFTP: `ListSFTP`, `FetchSFTP`, `GetSFTP`, `PutSFTP`
-
-    """
 
     config: NifiSourceConfig
     report: NifiSourceReport
@@ -1148,12 +1140,27 @@ class NifiSource(Source):
         outlets.sort()
         inputJobs.sort()
 
-        yield MetadataChangeProposalWrapper(
-            entityUrn=job_urn,
-            aspect=DataJobInputOutputClass(
-                inputDatasets=inlets, outputDatasets=outlets, inputDatajobs=inputJobs
-            ),
-        ).as_workunit()
+        if self.config.incremental_lineage:
+            patch_builder: DataJobPatchBuilder = DataJobPatchBuilder(job_urn)
+            for inlet in inlets:
+                patch_builder.add_input_dataset(inlet)
+            for outlet in outlets:
+                patch_builder.add_output_dataset(outlet)
+            for inJob in inputJobs:
+                patch_builder.add_input_datajob(inJob)
+            for patch_mcp in patch_builder.build():
+                yield MetadataWorkUnit(
+                    id=f"{job_urn}-{patch_mcp.aspectName}", mcp_raw=patch_mcp
+                )
+        else:
+            yield MetadataChangeProposalWrapper(
+                entityUrn=job_urn,
+                aspect=DataJobInputOutputClass(
+                    inputDatasets=inlets,
+                    outputDatasets=outlets,
+                    inputDatajobs=inputJobs,
+                ),
+            ).as_workunit()
 
     def gen_browse_path_v2_workunit(
         self, entity_urn: str, process_group_id: str
