@@ -19,6 +19,7 @@ record BusinessAttributeInfo includes EditableSchemaFieldInfo, CustomProperties,
     "fieldType": "WORD_GRAM",
     "enableAutocomplete": true,
     "boostScore": 10.0,
+    "fieldNameAliases": [ "_entityName" ]
   }
   name: string
   type: optional SchemaFieldDataType

@@ -448,6 +448,7 @@ entities:
     category: core
     keyAspect: schemaFieldKey
     aspects:
+      - schemafieldInfo
       - structuredProperties
       - forms
       - businessAttributes
