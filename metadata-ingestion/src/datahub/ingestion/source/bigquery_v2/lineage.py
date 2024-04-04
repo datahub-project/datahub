@@ -1,8 +1,6 @@
 import collections
 import itertools
 import logging
-
-import sqlglot
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import (
@@ -19,6 +17,7 @@ from typing import (
 )
 
 import humanfriendly
+import sqlglot
 from google.cloud.datacatalog import lineage_v1
 from google.cloud.logging_v2.client import Client as GCPLoggingClient
 
