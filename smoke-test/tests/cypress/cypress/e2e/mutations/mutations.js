@@ -1,4 +1,25 @@
+import { aliasQuery, hasOperationName } from "../utils";
+
 describe("mutations", () => {
+  let businessAttributeEntityEnabled;
+
+  beforeEach(() => {
+      cy.intercept("POST", "/api/v2/graphql", (req) => {
+          aliasQuery(req, "appConfig");
+      });
+      });
+  
+      const setBusinessAttributeFeatureFlag = () => {
+          cy.intercept("POST", "/api/v2/graphql", (req) => {
+              if (hasOperationName(req, "appConfig")) {
+              req.reply((res) => {
+                      businessAttributeEntityEnabled = res.body.data.appConfig.featureFlags.businessAttributeEntityEnabled;
+                      return res;            
+                  });
+              }
+          }).as('apiCall');
+      };
+
   before(() => {
     // warm up elastic by issuing a `*` search
     cy.login();
@@ -173,34 +194,40 @@ describe("mutations", () => {
   });
 
   it("can add and remove business attribute from a dataset field", () => {
-    cy.login();
-    // make space for the glossary term column
-    cy.viewport(2000, 800);
+    setBusinessAttributeFeatureFlag();
+        cy.login();
+        // make space for the glossary term column
+        cy.viewport(2000, 800);
+        cy.visit("/dataset/" + "urn:li:dataset:(urn:li:dataPlatform:hive,cypress_logging_events,PROD)");
+        cy.wait('@apiCall').then(() => {
+            if (!businessAttributeEntityEnabled) {
+                return;
+            }
+            cy.wait(5000);
+            cy.waitTextVisible("cypress_logging_events");
+            cy.clickOptionWithText("event_data");
+            cy.get('[data-testid="schema-field-event_data-businessAttribute"]').trigger(
+                "mouseover",
+                { force: true }
+            );
+            cy.get('[data-testid="schema-field-event_data-businessAttribute"]').within(() =>
+                cy.contains("Add Attribute").click({ force: true })
+            );
 
-    cy.goToDataset("urn:li:dataset:(urn:li:dataPlatform:hive,cypress_logging_events,PROD)", "cypress_logging_events");
-    cy.clickOptionWithText("event_data");
-    cy.wait(2000);
-    cy.get('[data-testid="schema-field-event_data-businessAttribute"]').trigger(
-        "mouseover",
-        { force: true }
-    );
-    cy.get('[data-testid="schema-field-event_data-businessAttribute"]').within(() =>
-        cy.contains("Add Attribute").click({ force: true })
-    );
+            cy.selectOptionInAttributeModal("cypressTestAttribute");
+            cy.wait(2000);
+            cy.contains("cypressTestAttribute");
 
-    cy.selectOptionInAttributeModal("cypressTestAttribute");
+            cy.get('[data-testid="schema-field-event_data-businessAttribute"]').
+            within(() =>
+                cy
+                    .get("span[aria-label=close]")
+                    .trigger("mouseover", { force: true })
+                    .click({ force: true })
+            );
+            cy.contains("Yes").click({ force: true });
 
-    cy.contains("cypressTestAttribute");
-
-    cy.get('[data-testid="schema-field-event_data-businessAttribute"]').
-    within(() =>
-        cy
-            .get("span[aria-label=close]")
-            .trigger("mouseover", { force: true })
-            .click({ force: true })
-    );
-    cy.contains("Yes").click({ force: true });
-
-    cy.contains("cypressTestAttribute").should("not.exist");
-  });
+            cy.contains("cypressTestAttribute").should("not.exist");
+          });
+      });
 });
