@@ -266,6 +266,9 @@ databricks = {
     # Version 2.4.0 includes sqlalchemy dialect, 2.8.0 includes some bug fixes
     # Version 3.0.0 required SQLAlchemy > 2.0.21
     "databricks-sql-connector>=2.8.0,<3.0.0",
+    # Due to https://github.com/databricks/databricks-sql-python/issues/326
+    # databricks-sql-connector<3.0.0 requires pandas<2.2.0
+    "pandas<2.2.0",
 }
 
 mysql = sql_common | {"pymysql>=1.0.2"}
