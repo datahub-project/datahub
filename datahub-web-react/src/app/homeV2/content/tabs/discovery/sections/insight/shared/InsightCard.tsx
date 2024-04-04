@@ -14,7 +14,7 @@ const Card = styled.div<{ clickable: boolean; maxWidth: number; minWidth: number
         ${(props) => props.clickable && 'cursor: pointer;'}
     }
     overflow: hidden;
-    height: auto;
+    height: 100%;
 `;
 
 const Title = styled.div`

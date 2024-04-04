@@ -12,13 +12,19 @@ type Props = {
     children: React.ReactNode;
 };
 
+const StyleCarousel = styled(Carousel)`
+    &&& {
+        align-items: stretch;
+    }
+`;
+
 export const InsightsSection = ({ children }: Props) => {
     const { insightStatuses } = useInsightStatusContext();
     const hasInsights = Array.from(insightStatuses.values()).some((status) => status);
     return (
         <Container hide={!hasInsights}>
             <Section title="For you">
-                <Carousel>{children}</Carousel>
+                <StyleCarousel>{children}</StyleCarousel>
             </Section>
         </Container>
     );
