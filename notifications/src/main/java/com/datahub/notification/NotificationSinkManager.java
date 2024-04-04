@@ -49,17 +49,12 @@ public class NotificationSinkManager {
   }
 
   public CompletableFuture<Void> handle(@Nonnull final NotificationRequest request) {
-    log.info(
-        String.format("About to handle with sinks: %s, %s", this.sinkRegistry, request.toString()));
-
     if (NotificationManagerMode.DISABLED.equals(this.mode)) {
       log.debug("NotificationSinkManager is disabled. Skipping sending notification...");
       return CompletableFuture.completedFuture(null);
     }
 
-    log.info(
-        String.format(
-            "About to validate request sinks: %s, %s", this.sinkRegistry, request.toString()));
+    log.info("Handling notification request: {}, sinks: {}", request.toString(), this.sinkRegistry);
 
     // 1. Validate & extract the requested template and corresponding arguments.
     final NotificationTemplateType template =
@@ -72,7 +67,8 @@ public class NotificationSinkManager {
     // 3. Send the messages via each sink.
     final List<CompletableFuture<Void>> notificationFutures = new ArrayList<>();
     for (final NotificationSink sink : eligibleSinks) {
-      log.info(String.format("About to send request %s", request.toString()));
+      log.info(
+          "Sinking notification request to sink with type {}", sink.getClass().getCanonicalName());
 
       // Run each sink asynchronously.
       notificationFutures.add(

@@ -179,4 +179,6 @@ public interface AspectsBatch {
                 Collectors.mapping(
                     Pair::getValue, Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue))));
   }
+
+  String toAbbreviatedString(int maxWidth);
 }
