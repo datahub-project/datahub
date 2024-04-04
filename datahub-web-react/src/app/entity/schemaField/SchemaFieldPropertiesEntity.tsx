@@ -37,7 +37,6 @@ export class SchemaFieldPropertiesEntity implements Entity<SchemaFieldEntity> {
         <Preview
             previewType={previewType}
             datasetUrn={data.parent.urn}
-            businessAttributeUrn={data.businessAttributes?.businessAttribute?.businessAttribute.urn || ''}
             name={data.fieldPath}
         />
     );
