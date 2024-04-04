@@ -338,11 +338,6 @@ class DBTCommonConfig(
         description="When enabled, column-level lineage will be extracted from the dbt node definition. Requires `infer_dbt_schemas` to be enabled. "
         "If you run into issues where the column name casing does not match up with properly, providing a datahub_api or using the rest sink will improve accuracy.",
     )
-    # override default value to True.
-    incremental_lineage: bool = Field(
-        default=True,
-        description="When enabled, emits incremental/patch lineage for non-dbt entities. When disabled, re-states lineage on each run.",
-    )
 
     _remove_use_compiled_code = pydantic_removed_field("use_compiled_code")
 

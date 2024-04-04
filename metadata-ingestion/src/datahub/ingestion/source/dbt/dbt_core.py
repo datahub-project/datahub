@@ -563,7 +563,7 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
         if (
             catalog_version
             and catalog_version.startswith("1.7.")
-            and catalog_version < "1.7.3"
+            and int(catalog_version.split(".", maxsplit=2)[2]) < 3
         ):
             self.report.report_warning(
                 "dbt_catalog_version",

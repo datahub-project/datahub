@@ -68,6 +68,6 @@ def auto_incremental_lineage(
 
 class IncrementalLineageConfigMixin(ConfigModel):
     incremental_lineage: bool = Field(
-        default=False,
+        default=True,
         description="When enabled, emits lineage as incremental to existing lineage already in DataHub. When disabled, re-states lineage on each run.",
     )
