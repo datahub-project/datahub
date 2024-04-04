@@ -276,7 +276,9 @@ class DataHubGraph(DatahubRestEmitter):
                 'Cannot get a timeseries aspect using "get_aspect". Use "get_latest_timeseries_value" instead.'
             )
 
-        url: str = f"{self._gms_server}/aspects/{Urn.url_encode(entity_urn)}?aspect={aspect}&version={version}"
+        url: str = (
+            f"{self._gms_server}/aspects/{Urn.url_encode(entity_urn)}?aspect={aspect}&version={version}"
+        )
         response = self._session.get(url)
         if response.status_code == 404:
             # not found
@@ -859,15 +861,21 @@ class DataHubGraph(DatahubRestEmitter):
         results = self._post_generic(self._aspect_count_endpoint, args)
         return results["value"]
 
-    def execute_graphql(self, query: str, variables: Optional[Dict] = None) -> Dict:
+    def execute_graphql(
+        self,
+        query: str,
+        variables: Optional[Dict] = None,
+        operation_name: Optional[str] = None,
+    ) -> Dict:
         url = f"{self.config.server}/api/graphql"
 
         body: Dict = {
             "query": query,
         }
-
         if variables:
             body["variables"] = variables
+        if operation_name:
+            body["operationName"] = operation_name
 
         logger.debug(
             f"Executing graphql query: {query} with variables: {json.dumps(variables)}"
