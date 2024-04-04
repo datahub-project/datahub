@@ -1,18 +1,23 @@
 import { Link } from 'react-router-dom';
 import { useTheme } from 'styled-components/macro';
 import * as React from 'react';
+import styled from 'styled-components';
 import { QuestionCircleOutlined } from '@ant-design/icons';
 import { Button, Dropdown, Menu } from 'antd';
 import { MenuItem } from './components';
 import { useGlobalSettingsContext } from '../../context/GlobalSettings/GlobalSettingsContext';
 import { useAppConfig } from '../../useAppConfig';
 import { useUserContext } from '../../context/useUserContext';
+import { useHandleOnboardingTour } from '../../onboarding/useHandleOnboardingTour';
+
+const TourContainer = styled.div``;
 
 export default function HelpDropdown() {
     const themeConfig = useTheme();
     const me = useUserContext();
     const { config } = useAppConfig();
     const { helpLinkState } = useGlobalSettingsContext();
+    const { showOnboardingTour } = useHandleOnboardingTour();
     const { isEnabled: isHelpLinkEnabled, label, link } = helpLinkState;
     const version = config?.appVersion;
     const showAddHelpLink = !isHelpLinkEnabled && me.platformPrivileges?.manageGlobalSettings;
@@ -32,6 +37,9 @@ export default function HelpDropdown() {
                             <Menu.Divider />
                         </>
                     )}
+                    <MenuItem key="productTour">
+                        <TourContainer onClick={showOnboardingTour}>Product Tour</TourContainer>
+                    </MenuItem>
                     {themeConfig.content.menu.items.map((value) => {
                         return (
                             <MenuItem key={value.label}>

@@ -8,6 +8,7 @@ import { SearchRoutes } from './SearchRoutes';
 import EmbedRoutes from './EmbedRoutes';
 import { AcrylPageRoutes, PageRoutes } from '../conf/Global';
 import { useIsThemeV2Enabled } from './useIsThemeV2Enabled';
+import { OnboardingContextProvider } from './onboarding/OnboardingContextProvider';
 
 /**
  * Container for all views behind an authentication wall.
@@ -17,13 +18,15 @@ export const ProtectedRoutes = (): JSX.Element => {
     const FinalHomePage = isThemeV2 ? HomePageV2 : HomePage;
 
     return (
-        <Layout className={isThemeV2 ? 'themeV2' : undefined}>
-            <Switch>
-                <Route exact path="/" render={() => <FinalHomePage />} />
-                <Route path={PageRoutes.EMBED} render={() => <EmbedRoutes />} />
-                <Route path={Object.values(AcrylPageRoutes)} component={AcrylRoutes} />
-                <Route path="/*" render={() => <SearchRoutes />} />
-            </Switch>
-        </Layout>
+        <OnboardingContextProvider>
+            <Layout className={isThemeV2 ? 'themeV2' : undefined}>
+                <Switch>
+                    <Route exact path="/" render={() => <FinalHomePage />} />
+                    <Route path={PageRoutes.EMBED} render={() => <EmbedRoutes />} />
+                    <Route path={Object.values(AcrylPageRoutes)} component={AcrylRoutes} />
+                    <Route path="/*" render={() => <SearchRoutes />} />
+                </Switch>
+            </Layout>
+        </OnboardingContextProvider>
     );
 };

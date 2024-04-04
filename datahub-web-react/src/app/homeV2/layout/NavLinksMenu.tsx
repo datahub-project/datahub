@@ -20,6 +20,7 @@ import HelpMenuIcon from '../../../images/help-icon.svg?react';
 import { useGlobalSettingsContext } from '../../context/GlobalSettings/GlobalSettingsContext';
 import CustomNavLink from './CustomNavLink';
 import { NavMenuItem, NavSubMenuItem } from './types';
+import { useHandleOnboardingTour } from '../../onboarding/useHandleOnboardingTour';
 
 const LinksWrapper = styled.div<{ areLinksHidden?: boolean }>`
     opacity: 1;
@@ -143,6 +144,8 @@ export function NavLinksMenu(props: Props) {
     // Update education steps allow list
     useUpdateEducationStepsAllowList(!!showIngestion, HOME_PAGE_INGESTION_ID);
 
+    const { showOnboardingTour } = useHandleOnboardingTour();
+
     // Help menu options
     const HelpContentMenuItems = themeConfig.content.menu.items.map((value) => ({
         title: value.label,
@@ -259,6 +262,13 @@ export function NavLinksMenu(props: Props) {
                         isHidden: !isHelpLinkEnabled,
                         target: '_blank',
                         rel: 'noopener noreferrer',
+                    },
+                    {
+                        title: 'Product Tour',
+                        description: 'Take a quick tour of this page',
+                        isHidden: false,
+                        rel: 'noopener noreferrer',
+                        onClick: showOnboardingTour,
                     },
                     {
                         title: 'GraphiQL',
