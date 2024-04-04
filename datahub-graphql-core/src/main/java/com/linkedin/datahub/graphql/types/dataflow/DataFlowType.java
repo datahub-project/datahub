@@ -117,7 +117,7 @@ public class DataFlowType
               ASPECTS_TO_RESOLVE,
               context.getAuthentication());
 
-      final List<EntityResponse> gmsResults = new ArrayList<>();
+      final List<EntityResponse> gmsResults = new ArrayList<>(urnStrs.size());
       for (Urn urn : urns) {
         gmsResults.add(dataFlowMap.getOrDefault(urn, null));
       }
@@ -127,7 +127,7 @@ public class DataFlowType
                   gmsDataFlow == null
                       ? null
                       : DataFetcherResult.<DataFlow>newResult()
-                          .data(DataFlowMapper.map(gmsDataFlow))
+                          .data(DataFlowMapper.map(context, gmsDataFlow))
                           .build())
           .collect(Collectors.toList());
     } catch (Exception e) {
@@ -152,7 +152,7 @@ public class DataFlowType
             facetFilters,
             start,
             count);
-    return UrnSearchResultsMapper.map(searchResult);
+    return UrnSearchResultsMapper.map(context, searchResult);
   }
 
   @Override
@@ -166,7 +166,7 @@ public class DataFlowType
     final AutoCompleteResult result =
         _entityClient.autoComplete(
             context.getOperationContext(), "dataFlow", query, filters, limit);
-    return AutoCompleteResultsMapper.map(result);
+    return AutoCompleteResultsMapper.map(context, result);
   }
 
   @Override
@@ -188,7 +188,7 @@ public class DataFlowType
             facetFilters,
             start,
             count);
-    return BrowseResultMapper.map(result);
+    return BrowseResultMapper.map(context, result);
   }
 
   @Override
@@ -197,7 +197,7 @@ public class DataFlowType
     final StringArray result =
         _entityClient.getBrowsePaths(
             DataFlowUrn.createFromString(urn), context.getAuthentication());
-    return BrowsePathsMapper.map(result);
+    return BrowsePathsMapper.map(context, result);
   }
 
   @Override
@@ -206,10 +206,9 @@ public class DataFlowType
       throws Exception {
 
     if (isAuthorized(urn, input, context)) {
-      final CorpuserUrn actor =
-          CorpuserUrn.createFromString(context.getAuthentication().getActor().toUrnStr());
+      final CorpuserUrn actor = CorpuserUrn.createFromString(context.getActorUrn());
       final Collection<MetadataChangeProposal> proposals =
-          DataFlowUpdateInputMapper.map(input, actor);
+          DataFlowUpdateInputMapper.map(context, input, actor);
       proposals.forEach(proposal -> proposal.setEntityUrn(UrnUtils.getUrn(urn)));
 
       try {
@@ -230,7 +229,7 @@ public class DataFlowType
     final DisjunctivePrivilegeGroup orPrivilegeGroups = getAuthorizedPrivileges(update);
     return AuthorizationUtils.isAuthorized(
         context.getAuthorizer(),
-        context.getAuthentication().getActor().toUrnStr(),
+        context.getActorUrn(),
         PoliciesConfig.DATA_FLOW_PRIVILEGES.getResourceType(),
         urn,
         orPrivilegeGroups);

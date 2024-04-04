@@ -67,7 +67,9 @@ public class FormType implements com.linkedin.datahub.graphql.types.EntityType<F
               gmsResult ->
                   gmsResult == null
                       ? null
-                      : DataFetcherResult.<Form>newResult().data(FormMapper.map(gmsResult)).build())
+                      : DataFetcherResult.<Form>newResult()
+                          .data(FormMapper.map(context, gmsResult))
+                          .build())
           .collect(Collectors.toList());
     } catch (Exception e) {
       throw new RuntimeException("Failed to batch load Forms", e);

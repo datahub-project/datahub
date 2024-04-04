@@ -8,7 +8,7 @@ module.exports = {
         'plugin:vitest/recommended',
         'prettier',
     ],
-    plugins: ['@typescript-eslint'],
+    plugins: ['@typescript-eslint', 'react-refresh'],
     parserOptions: {
         ecmaVersion: 2020, // Allows for the parsing of modern ECMAScript features
         sourceType: 'module', // Allows for the use of imports
@@ -48,6 +48,7 @@ module.exports = {
         ],
         'vitest/prefer-to-be': 'off',
         '@typescript-eslint/no-use-before-define': ['error', { functions: false, classes: false }],
+        'react-refresh/only-export-components': ['warn', { 'allowConstantExport': true }],
     },
     settings: {
         react: {

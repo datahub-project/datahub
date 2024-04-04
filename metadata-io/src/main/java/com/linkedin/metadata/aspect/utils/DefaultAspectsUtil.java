@@ -22,6 +22,7 @@ import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.aspect.batch.MCPItem;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.EntityUtils;
+import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
 import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.utils.DataPlatformInstanceUtils;
@@ -29,6 +30,7 @@ import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.util.Pair;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
@@ -47,13 +49,47 @@ public class DefaultAspectsUtil {
   private DefaultAspectsUtil() {}
 
   public static final Set<ChangeType> SUPPORTED_TYPES =
-      Set.of(ChangeType.UPSERT, ChangeType.CREATE, ChangeType.PATCH);
+      Set.of(ChangeType.UPSERT, ChangeType.CREATE, ChangeType.CREATE_ENTITY, ChangeType.PATCH);
+
+  private static boolean keyAspectExcludeFilter(BatchItem item) {
+    return !item.getEntitySpec().getKeyAspectName().equals(item.getAspectName());
+  }
+
+  public static AspectsBatch withAdditionalChanges(
+      @Nonnull final AspectsBatch inputBatch,
+      @Nonnull EntityService<?> entityService,
+      boolean enableBrowseV2) {
+    /*
+     * 1. When deadlock occurs within the transaction the default entity key may need to be removed. This cannot happen
+     *    if the batch is fixed with a key aspect prior to the transaction.
+     * 2. The CreateIfNotExists validator makes decisions based on the presence of the key aspect which
+     *    is based on a database read. We cannot allow manual key aspects to trick the validator into
+     *    thinking the entity doesn't exist. This optimization avoids having to perform yet another read.
+     * 3. Technically key aspects should always be a CREATE_ENTITY if not exist operation preserving accurate entity creation timestamps
+     * Removing provided key aspect from input batch, will be replaced with default key aspect if needed based on
+     * whether it exists in the database.
+     */
+    List<BatchItem> result =
+        inputBatch.getItems().stream()
+            .filter(DefaultAspectsUtil::keyAspectExcludeFilter)
+            .collect(Collectors.toCollection(LinkedList::new));
+    // Key aspect restored if needed
+    result.addAll(
+        DefaultAspectsUtil.getAdditionalChanges(
+            inputBatch.getMCPItems(), entityService, enableBrowseV2));
+    return AspectsBatchImpl.builder()
+        .aspectRetriever(inputBatch.getAspectRetriever())
+        .items(result)
+        .build();
+  }
 
   public static List<MCPItem> getAdditionalChanges(
-      @Nonnull AspectsBatch batch, @Nonnull EntityService<?> entityService, boolean browsePathV2) {
+      @Nonnull Collection<MCPItem> batch,
+      @Nonnull EntityService<?> entityService,
+      boolean browsePathV2) {
 
     Map<Urn, List<MCPItem>> itemsByUrn =
-        batch.getMCPItems().stream()
+        batch.stream()
             .filter(item -> SUPPORTED_TYPES.contains(item.getChangeType()))
             .collect(Collectors.groupingBy(BatchItem::getUrn));
 
@@ -86,7 +122,7 @@ public class DefaultAspectsUtil {
                   .map(
                       entry ->
                           ChangeItemImpl.ChangeItemImplBuilder.build(
-                              getProposalFromAspect(
+                              getProposalFromAspectForDefault(
                                   entry.getKey(), entry.getValue(), entityKeyAspect, templateItem),
                               templateItem.getAuditStamp(),
                               entityService))
@@ -102,7 +138,7 @@ public class DefaultAspectsUtil {
    * @param urn entity urn
    * @return a list of aspect name/aspect pairs to be written
    */
-  public static List<Pair<String, RecordTemplate>> generateDefaultAspects(
+  private static List<Pair<String, RecordTemplate>> generateDefaultAspects(
       @Nonnull EntityService<?> entityService,
       @Nonnull final Urn urn,
       @Nonnull Set<String> currentBatchAspectNames,
@@ -276,7 +312,7 @@ public class DefaultAspectsUtil {
     return null;
   }
 
-  private static MetadataChangeProposal getProposalFromAspect(
+  private static MetadataChangeProposal getProposalFromAspectForDefault(
       String aspectName,
       RecordTemplate aspect,
       RecordTemplate entityKeyAspect,
@@ -287,15 +323,10 @@ public class DefaultAspectsUtil {
     // Set net new fields
     proposal.setAspect(genericAspect);
     proposal.setAspectName(aspectName);
+    // already checked existence, default aspects should be changeType CREATE
+    proposal.setChangeType(ChangeType.CREATE);
 
     // Set fields determined from original
-    // Additional changes should never be set as PATCH, if a PATCH is coming across it should be an
-    // UPSERT
-    proposal.setChangeType(templateItem.getChangeType());
-    if (ChangeType.PATCH.equals(proposal.getChangeType())) {
-      proposal.setChangeType(ChangeType.UPSERT);
-    }
-
     if (templateItem.getSystemMetadata() != null) {
       proposal.setSystemMetadata(templateItem.getSystemMetadata());
     }

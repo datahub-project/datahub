@@ -1,7 +1,7 @@
 import json
 import logging
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import urlparse
 
@@ -25,9 +25,11 @@ from datahub.ingestion.api.source import (
     TestConnectionReport,
 )
 from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
+from datahub.ingestion.source.aws.s3_util import is_s3_uri
 from datahub.ingestion.source.dbt.dbt_common import (
     DBTColumn,
     DBTCommonConfig,
+    DBTModelPerformance,
     DBTNode,
     DBTSourceBase,
     DBTSourceReport,
@@ -48,9 +50,20 @@ class DBTCoreConfig(DBTCommonConfig):
         default=None,
         description="Path to dbt sources JSON. See https://docs.getdbt.com/reference/artifacts/sources-json. If not specified, last-modified fields will not be populated. Note this can be a local file or a URI.",
     )
-    test_results_path: Optional[str] = Field(
-        default=None,
-        description="Path to output of dbt test run as run_results file in JSON format. See https://docs.getdbt.com/reference/artifacts/run-results-json. If not specified, test execution results will not be populated in DataHub.",
+    run_results_paths: List[str] = Field(
+        default=[],
+        description="Path to output of dbt test run as run_results files in JSON format. "
+        "If not specified, test execution results and model performance metadata will not be populated in DataHub."
+        "If invoking dbt multiple times, you can provide paths to multiple run result files. "
+        "See https://docs.getdbt.com/reference/artifacts/run-results-json.",
+    )
+
+    # Because we now also collect model performance metadata, the "test_results" field was renamed to "run_results".
+    _convert_test_results_path = pydantic_renamed_field(
+        "test_results_path", "run_results_paths", transform=lambda x: [x] if x else []
+    )
+    _convert_run_result_path_singular = pydantic_renamed_field(
+        "run_results_path", "run_results_paths", transform=lambda x: [x] if x else []
     )
 
     aws_connection: Optional[AwsConnectionConfig] = Field(
@@ -70,20 +83,19 @@ class DBTCoreConfig(DBTCommonConfig):
         cls, aws_connection: Optional[AwsConnectionConfig], values: Dict, **kwargs: Any
     ) -> Optional[AwsConnectionConfig]:
         # first check if there are fields that contain s3 uris
-        uri_containing_fields = [
-            f
+        uris = [
+            values.get(f)
             for f in [
                 "manifest_path",
                 "catalog_path",
                 "sources_path",
-                "test_results_path",
             ]
-            if (values.get(f) or "").startswith("s3://")
-        ]
+        ] + values.get("run_results_paths", [])
+        s3_uris = [uri for uri in uris if is_s3_uri(uri or "")]
 
-        if uri_containing_fields and aws_connection is None:
+        if s3_uris and aws_connection is None:
             raise ValueError(
-                f"Please provide aws_connection configuration, since s3 uris have been provided in fields {uri_containing_fields}"
+                f"Please provide aws_connection configuration, since s3 uris have been provided {s3_uris}"
             )
         return aws_connection
 
@@ -272,10 +284,18 @@ def extract_dbt_entities(
     return dbt_entities
 
 
+def _parse_dbt_timestamp(timestamp: str) -> datetime:
+    return datetime.strptime(timestamp, "%Y-%m-%dT%H:%M:%S.%fZ").replace(
+        tzinfo=timezone.utc
+    )
+
+
 class DBTRunTiming(BaseModel):
     name: Optional[str] = None
     started_at: Optional[str] = None
     completed_at: Optional[str] = None
+
+    # TODO parse these into datetime objects
 
 
 class DBTRunResult(BaseModel):
@@ -288,6 +308,10 @@ class DBTRunResult(BaseModel):
     failures: Optional[int] = None
     message: Optional[str] = None
 
+    @property
+    def timing_map(self) -> Dict[str, DBTRunTiming]:
+        return {x.name: x for x in self.timing if x.name}
+
 
 class DBTRunMetadata(BaseModel):
     dbt_schema_version: str
@@ -296,64 +320,105 @@ class DBTRunMetadata(BaseModel):
     invocation_id: str
 
 
-def load_test_results(
+def _parse_test_result(
+    dbt_metadata: DBTRunMetadata,
+    run_result: DBTRunResult,
+) -> Optional[DBTTestResult]:
+    if run_result.status == "success":
+        # This was probably a docs generate run result, so this isn't actually
+        # a test result.
+        return None
+
+    if run_result.status != "pass":
+        native_results = {"message": run_result.message or ""}
+        if run_result.failures:
+            native_results.update({"failures": str(run_result.failures)})
+    else:
+        native_results = {}
+
+    execution_timestamp = run_result.timing_map.get("execute")
+    if execution_timestamp and execution_timestamp.started_at:
+        execution_timestamp_parsed = _parse_dbt_timestamp(
+            execution_timestamp.started_at
+        )
+    else:
+        execution_timestamp_parsed = _parse_dbt_timestamp(dbt_metadata.generated_at)
+
+    return DBTTestResult(
+        invocation_id=dbt_metadata.invocation_id,
+        status=run_result.status,
+        native_results=native_results,
+        execution_time=execution_timestamp_parsed,
+    )
+
+
+def _parse_model_run(
+    dbt_metadata: DBTRunMetadata,
+    run_result: DBTRunResult,
+) -> Optional[DBTModelPerformance]:
+    status = run_result.status
+    if status not in {"success", "error"}:
+        return None
+
+    execution_timestamp = run_result.timing_map.get("execute")
+    if not execution_timestamp:
+        return None
+    if not execution_timestamp.started_at or not execution_timestamp.completed_at:
+        return None
+
+    return DBTModelPerformance(
+        run_id=dbt_metadata.invocation_id,
+        status=status,
+        start_time=_parse_dbt_timestamp(execution_timestamp.started_at),
+        end_time=_parse_dbt_timestamp(execution_timestamp.completed_at),
+    )
+
+
+def load_run_results(
     config: DBTCommonConfig,
     test_results_json: Dict[str, Any],
     all_nodes: List[DBTNode],
 ) -> List[DBTNode]:
+    if test_results_json.get("args", {}).get("which") == "generate":
+        logger.warning(
+            "The run results file is from a `dbt docs generate` command, "
+            "instead of a build/run/test command. Skipping this file."
+        )
+        return all_nodes
+
     dbt_metadata = DBTRunMetadata.parse_obj(test_results_json.get("metadata", {}))
 
-    test_nodes_map: Dict[str, DBTNode] = {
-        x.dbt_name: x for x in all_nodes if x.node_type == "test"
-    }
+    all_nodes_map: Dict[str, DBTNode] = {x.dbt_name: x for x in all_nodes}
 
     results = test_results_json.get("results", [])
     for result in results:
         run_result = DBTRunResult.parse_obj(result)
         id = run_result.unique_id
 
-        if not id.startswith("test."):
-            continue
+        if id.startswith("test."):
+            test_result = _parse_test_result(dbt_metadata, run_result)
+            if not test_result:
+                continue
 
-        test_node = test_nodes_map.get(id)
-        if not test_node:
-            logger.debug(f"Failed to find test node {id} in the catalog")
-            continue
+            test_node = all_nodes_map.get(id)
+            if not test_node:
+                logger.debug(f"Failed to find test node {id} in the catalog")
+                continue
 
-        if run_result.status == "success":
-            # This was probably a docs generate run result, so this isn't actually
-            # a test result.
-            continue
+            assert test_node.test_info is not None
+            test_node.test_results.append(test_result)
 
-        if run_result.status != "pass":
-            native_results = {"message": run_result.message or ""}
-            if run_result.failures:
-                native_results.update({"failures": str(run_result.failures)})
         else:
-            native_results = {}
+            model_performance = _parse_model_run(dbt_metadata, run_result)
+            if not model_performance:
+                continue
 
-        stage_timings = {x.name: x.started_at for x in run_result.timing}
-        # look for execution start time, fall back to compile start time and finally generation time
-        execution_timestamp = (
-            stage_timings.get("execute")
-            or stage_timings.get("compile")
-            or dbt_metadata.generated_at
-        )
+            model_node = all_nodes_map.get(id)
+            if not model_node:
+                logger.debug(f"Failed to find model node {id} in the catalog")
+                continue
 
-        execution_timestamp_parsed = datetime.strptime(
-            execution_timestamp, "%Y-%m-%dT%H:%M:%S.%fZ"
-        )
-
-        test_result = DBTTestResult(
-            invocation_id=dbt_metadata.invocation_id,
-            status=run_result.status,
-            native_results=native_results,
-            execution_time=execution_timestamp_parsed,
-        )
-
-        assert test_node.test_info is not None
-        assert test_node.test_result is None
-        test_node.test_result = test_result
+            model_node.model_performances.append(model_performance)
 
     return all_nodes
 
@@ -515,13 +580,11 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
             "catalog_version": catalog_version,
         }
 
-        if self.config.test_results_path:
-            # This will populate the test_results field on each test node.
-            all_nodes = load_test_results(
+        for run_results_path in self.config.run_results_paths:
+            # This will populate the test_results and model_performance fields on each node.
+            all_nodes = load_run_results(
                 self.config,
-                self.load_file_as_json(
-                    self.config.test_results_path, self.config.aws_connection
-                ),
+                self.load_file_as_json(run_results_path, self.config.aws_connection),
                 all_nodes,
             )
 

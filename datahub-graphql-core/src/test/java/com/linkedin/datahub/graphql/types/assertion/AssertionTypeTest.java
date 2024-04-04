@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.types.assertion;
 
+import static org.mockito.Mockito.mock;
 import static org.testng.Assert.*;
 
 import com.datahub.authentication.Authentication;
@@ -23,8 +24,10 @@ import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.key.AssertionKey;
+import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.r2.RemoteInvocationException;
 import graphql.execution.DataFetcherResult;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -87,6 +90,10 @@ public class AssertionTypeTest {
 
     QueryContext mockContext = Mockito.mock(QueryContext.class);
     Mockito.when(mockContext.getAuthentication()).thenReturn(Mockito.mock(Authentication.class));
+    Mockito.when(mockContext.getOperationContext())
+        .thenReturn(
+            TestOperationContexts.userContextNoSearchAuthorization(mock(EntityRegistry.class)));
+
     List<DataFetcherResult<Assertion>> result =
         type.batchLoad(ImmutableList.of(TEST_ASSERTION_URN, TEST_ASSERTION_URN_2), mockContext);
 

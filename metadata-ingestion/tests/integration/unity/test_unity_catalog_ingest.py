@@ -1,4 +1,5 @@
 import uuid
+from collections import namedtuple
 from unittest import mock
 from unittest.mock import patch
 
@@ -274,6 +275,9 @@ def register_mock_data(workspace_client):
     ]
 
 
+TableEntry = namedtuple("TableEntry", ["database", "tableName", "isTemporary"])
+
+
 def mock_hive_sql(query):
 
     if query == "DESCRIBE EXTENDED `bronze_kambi`.`bet` betStatusId":
@@ -367,12 +371,24 @@ def mock_hive_sql(query):
             ("Type", "VIEW", ""),
             ("Owner", "root", ""),
         ]
+    elif query == "DESCRIBE EXTENDED `bronze_kambi`.`delta_error_table`":
+        raise Exception(
+            "[DELTA_PATH_DOES_NOT_EXIST] doesn't exist, or is not a Delta table."
+        )
     elif query == "SHOW CREATE TABLE `bronze_kambi`.`view1`":
         return [
             (
                 "CREATE VIEW `hive_metastore`.`bronze_kambi`.`view1` AS SELECT * FROM `hive_metastore`.`bronze_kambi`.`bet`",
             )
         ]
+    elif query == "SHOW TABLES FROM `bronze_kambi`":
+        return [
+            TableEntry("bronze_kambi", "bet", False),
+            TableEntry("bronze_kambi", "delta_error_table", False),
+            TableEntry("bronze_kambi", "view1", False),
+        ]
+    elif query == "SHOW VIEWS FROM `bronze_kambi`":
+        return [TableEntry("bronze_kambi", "view1", False)]
 
     return []
 
@@ -394,8 +410,6 @@ def test_ingestion(pytestconfig, tmp_path, requests_mock):
 
         inspector = mock.MagicMock()
         inspector.get_schema_names.return_value = ["bronze_kambi"]
-        inspector.get_view_names.return_value = ["view1"]
-        inspector.get_table_names.return_value = ["bet", "view1"]
         get_inspector.return_value = inspector
 
         execute_sql.side_effect = mock_hive_sql

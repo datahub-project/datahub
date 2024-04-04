@@ -159,12 +159,8 @@ class PrestoOnHiveConfig(BasicSQLAlchemyConfig):
 @config_class(PrestoOnHiveConfig)
 @support_status(SupportStatus.CERTIFIED)
 @capability(SourceCapability.DELETION_DETECTION, "Enabled via stateful ingestion")
-@capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")
-@capability(
-    SourceCapability.CLASSIFICATION,
-    "Optionally enabled via `classification.enabled`",
-    supported=True,
-)
+@capability(SourceCapability.DATA_PROFILING, "Not Supported", False)
+@capability(SourceCapability.CLASSIFICATION, "Not Supported", False)
 class PrestoOnHiveSource(SQLAlchemySource):
     """
     This plugin extracts the following:

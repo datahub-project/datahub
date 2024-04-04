@@ -3,6 +3,7 @@ package com.linkedin.datahub.graphql.types.common.mappers;
 import static com.linkedin.metadata.Constants.*;
 
 import com.linkedin.common.urn.Urn;
+import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.Assertion;
 import com.linkedin.datahub.graphql.generated.Chart;
 import com.linkedin.datahub.graphql.generated.Container;
@@ -40,16 +41,18 @@ import com.linkedin.datahub.graphql.generated.Tag;
 import com.linkedin.datahub.graphql.generated.Test;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 public class UrnToEntityMapper implements ModelMapper<com.linkedin.common.urn.Urn, Entity> {
   public static final UrnToEntityMapper INSTANCE = new UrnToEntityMapper();
 
-  public static Entity map(@Nonnull final com.linkedin.common.urn.Urn urn) {
-    return INSTANCE.apply(urn);
+  public static Entity map(
+      @Nullable QueryContext context, @Nonnull final com.linkedin.common.urn.Urn urn) {
+    return INSTANCE.apply(context, urn);
   }
 
   @Override
-  public Entity apply(Urn input) {
+  public Entity apply(@Nullable QueryContext context, Urn input) {
     Entity partialEntity = null;
     if (input.getEntityType().equals("dataset")) {
       partialEntity = new Dataset();

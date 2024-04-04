@@ -822,7 +822,7 @@ public class DgraphGraphServiceTest extends GraphServiceTestBaseNoVia {
   }
 
   @Override
-  public void testPopulatedGraphServiceGetLineageMultihop(boolean attemptMultiHop) {
+  public void testPopulatedGraphServiceGetLineageMultihop(Boolean attemptMultiHop) {
     // TODO: Remove this overridden method once the multihop for dGraph is implemented!
   }
 
@@ -848,5 +848,10 @@ public class DgraphGraphServiceTest extends GraphServiceTestBaseNoVia {
       throws Exception {
     super.testFindRelatedEntitiesSourceType(
         datasetType, relationshipTypes, relationships, expectedRelatedEntities);
+  }
+
+  @Override
+  public void testHighlyConnectedGraphWalk() throws Exception {
+    // TODO: explore limit not supported for DGraph
   }
 }

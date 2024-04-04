@@ -117,7 +117,7 @@ public class ERModelRelationshipType
                   gmsResult == null
                       ? null
                       : DataFetcherResult.<ERModelRelationship>newResult()
-                          .data(ERModelRelationMapper.map(gmsResult))
+                          .data(ERModelRelationMapper.map(context, gmsResult))
                           .build())
           .collect(Collectors.toList());
     } catch (Exception e) {
@@ -145,7 +145,7 @@ public class ERModelRelationshipType
             facetFilters,
             start,
             count);
-    return BrowseResultMapper.map(result);
+    return BrowseResultMapper.map(context, result);
   }
 
   @Nonnull
@@ -154,7 +154,7 @@ public class ERModelRelationshipType
       throws Exception {
     final StringArray result =
         _entityClient.getBrowsePaths(UrnUtils.getUrn(urn), context.getAuthentication());
-    return BrowsePathsMapper.map(result);
+    return BrowsePathsMapper.map(context, result);
   }
 
   @Override
@@ -174,7 +174,7 @@ public class ERModelRelationshipType
             facetFilters,
             start,
             count);
-    return UrnSearchResultsMapper.map(searchResult);
+    return UrnSearchResultsMapper.map(context, searchResult);
   }
 
   @Override
@@ -188,7 +188,7 @@ public class ERModelRelationshipType
     final AutoCompleteResult result =
         _entityClient.autoComplete(
             context.getOperationContext(), ENTITY_NAME, query, filters, limit);
-    return AutoCompleteResultsMapper.map(result);
+    return AutoCompleteResultsMapper.map(context, result);
   }
 
   public static boolean canUpdateERModelRelation(

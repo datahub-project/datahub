@@ -517,19 +517,23 @@ class BigqueryLineageExtractor:
                     ]
                 )
 
-            # Convert project tables to <project_id>.<dataset_id>.<table_id> format
-            project_table_names = list(
-                map(
-                    lambda table: "{}.{}.{}".format(
-                        table.project, table.dataset_id, table.table_id
-                    ),
-                    project_tables,
-                )
-            )
-
             lineage_map: Dict[str, Set[LineageEdge]] = {}
             curr_date = datetime.now()
-            for table in project_table_names:
+            for project_table in project_tables:
+                # Convert project table to <project_id>.<dataset_id>.<table_id> format
+                table = f"{project_table.project}.{project_table.dataset_id}.{project_table.table_id}"
+
+                if not is_schema_allowed(
+                    self.config.dataset_pattern,
+                    schema_name=project_table.dataset_id,
+                    db_name=project_table.project,
+                    match_fully_qualified_schema_name=self.config.match_fully_qualified_names,
+                ) or not self.config.table_pattern.allowed(table):
+                    self.report.num_skipped_lineage_entries_not_allowed[
+                        project_table.project
+                    ] += 1
+                    continue
+
                 logger.info("Creating lineage map for table %s", table)
                 upstreams = set()
                 downstream_table = lineage_v1.EntityReference()
@@ -559,6 +563,7 @@ class BigqueryLineageExtractor:
                 )
 
                 # Only builds lineage map when the table has upstreams
+                logger.debug("Found %d upstreams for table %s", len(upstreams), table)
                 if upstreams:
                     lineage_map[destination_table_str] = set(
                         [
@@ -747,8 +752,17 @@ class BigqueryLineageExtractor:
 
             # Try the sql parser first.
             if self.config.lineage_use_sql_parser:
+                if e.statementType == "SELECT":
+                    # We wrap select statements in a CTE to make them parseable as insert statement.
+                    # This is a workaround for the sql parser to support the case where the user runs a query and inserts the result into a table..
+                    query = f"""create table `{destination_table.table_identifier.get_table_name()}` AS
+                    (
+                        {e.query}
+                    )"""
+                else:
+                    query = e.query
                 raw_lineage = sqlglot_lineage(
-                    e.query,
+                    query,
                     schema_resolver=sql_parser_schema_resolver,
                     default_db=e.project_id,
                 )

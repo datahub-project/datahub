@@ -68,7 +68,7 @@ public class DataTypeType
                   gmsResult == null
                       ? null
                       : DataFetcherResult.<DataTypeEntity>newResult()
-                          .data(DataTypeEntityMapper.map(gmsResult))
+                          .data(DataTypeEntityMapper.map(context, gmsResult))
                           .build())
           .collect(Collectors.toList());
     } catch (Exception e) {

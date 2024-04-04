@@ -41,7 +41,7 @@ public class UpdateERModelRelationshipResolver implements DataFetcher<Completabl
           try {
             log.debug("Create ERModelRelation input: {}", input);
             final Collection<MetadataChangeProposal> proposals =
-                ERModelRelationshipUpdateInputMapper.map(input, actor);
+                ERModelRelationshipUpdateInputMapper.map(context, input, actor);
             proposals.forEach(proposal -> proposal.setEntityUrn(inputUrn));
 
             try {

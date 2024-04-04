@@ -1,11 +1,17 @@
 package com.linkedin.metadata.graph;
 
 import com.linkedin.common.urn.Urn;
+import com.linkedin.metadata.query.filter.SortCriterion;
+import com.linkedin.metadata.query.filter.SortOrder;
+import com.linkedin.metadata.utils.SearchUtil;
+import com.linkedin.util.Pair;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Base64;
+import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
@@ -75,8 +81,24 @@ public class Edge {
     }
   }
 
-  public static final String[] KEY_FIELDS = {
-    "source.urn", "destination.urn", "relationshipType", "lifeCycleOwner"
-  };
+  public static final String EDGE_FIELD_SOURCE = "source";
+  public static final String EDGE_FIELD_DESTINATION = "destination";
+  public static final String EDGE_FIELD_RELNSHIP_TYPE = "relationshipType";
+  public static final String EDGE_FIELD_PROPERTIES = "properties";
+  public static final String EDGE_FIELD_VIA = "via";
+  public static final String EDGE_FIELD_LIFECYCLE_OWNER = "lifecycleOwner";
+  public static final String EDGE_SOURCE_URN_FIELD = "source.urn";
+  public static final String EDGE_DESTINATION_URN_FIELD = "destination.urn";
+
+  public static final List<Pair<String, SortOrder>> KEY_SORTS =
+      List.of(
+          new Pair<>(EDGE_SOURCE_URN_FIELD, SortOrder.ASCENDING),
+          new Pair<>(EDGE_DESTINATION_URN_FIELD, SortOrder.ASCENDING),
+          new Pair<>(EDGE_FIELD_RELNSHIP_TYPE, SortOrder.ASCENDING),
+          new Pair<>(EDGE_FIELD_LIFECYCLE_OWNER, SortOrder.ASCENDING));
+  public static List<SortCriterion> EDGE_SORT_CRITERION =
+      KEY_SORTS.stream()
+          .map(entry -> SearchUtil.sortBy(entry.getKey(), entry.getValue()))
+          .collect(Collectors.toList());
   private static final String DOC_DELIMETER = "--";
 }

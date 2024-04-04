@@ -1,6 +1,12 @@
 package com.linkedin.metadata.search.utils;
 
-import static org.mockito.ArgumentMatchers.eq;
+import static com.linkedin.metadata.Constants.CORP_USER_ENTITY_NAME;
+import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
+import static com.linkedin.metadata.Constants.GROUP_MEMBERSHIP_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.OWNERSHIP_ASPECT_NAME;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anySet;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
@@ -8,29 +14,52 @@ import static org.testng.Assert.assertEquals;
 import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
-import com.datahub.authorization.config.SearchAuthorizationConfiguration;
+import com.datahub.authorization.AuthorizerContext;
+import com.datahub.authorization.DataHubAuthorizer;
+import com.datahub.authorization.DefaultEntitySpecResolver;
+import com.datahub.authorization.config.ViewAuthorizationConfiguration;
 import com.datahub.plugins.auth.authorization.Authorizer;
+import com.linkedin.common.Owner;
+import com.linkedin.common.OwnerArray;
+import com.linkedin.common.Ownership;
+import com.linkedin.common.OwnershipType;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.StringArray;
-import com.linkedin.metadata.aspect.hooks.OwnerTypeMap;
+import com.linkedin.entity.Aspect;
+import com.linkedin.entity.EntityResponse;
+import com.linkedin.entity.EnvelopedAspect;
+import com.linkedin.entity.EnvelopedAspectMap;
+import com.linkedin.entity.client.EntityClient;
+import com.linkedin.identity.GroupMembership;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.TestEntityRegistry;
+import com.linkedin.metadata.search.MatchedFieldArray;
+import com.linkedin.metadata.search.SearchEntity;
+import com.linkedin.metadata.search.SearchEntityArray;
+import com.linkedin.metadata.search.SearchResult;
+import com.linkedin.metadata.search.SearchResultMetadata;
 import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
 import com.linkedin.policy.DataHubActorFilter;
 import com.linkedin.policy.DataHubPolicyInfo;
 import com.linkedin.policy.DataHubResourceFilter;
-import com.linkedin.policy.PolicyMatchCondition;
-import com.linkedin.policy.PolicyMatchCriterion;
 import com.linkedin.policy.PolicyMatchCriterionArray;
 import com.linkedin.policy.PolicyMatchFilter;
+import com.linkedin.r2.RemoteInvocationException;
+import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.OperationContextConfig;
+import io.datahubproject.metadata.context.RequestContext;
+import io.datahubproject.metadata.context.ServicesRegistryContext;
+import io.datahubproject.metadata.services.RestrictedService;
+import java.net.URISyntaxException;
 import java.util.List;
-import java.util.Optional;
+import java.util.Map;
 import java.util.Set;
-import org.opensearch.index.query.QueryBuilders;
+import java.util.stream.Collectors;
+import javax.annotation.Nonnull;
+import org.testcontainers.shaded.com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
 public class ESAccessControlUtilTest {
@@ -39,608 +68,562 @@ public class ESAccessControlUtilTest {
   private static final Urn TEST_GROUP_A = UrnUtils.getUrn("urn:li:corpGroup:a");
   private static final Urn TEST_GROUP_B = UrnUtils.getUrn("urn:li:corpGroup:b");
   private static final Urn TEST_GROUP_C = UrnUtils.getUrn("urn:li:corpGroup:c");
-  private static final Urn TEST_USER_A = UrnUtils.getUrn("urn:li:corpUser:a");
-  private static final Urn TEST_USER_B = UrnUtils.getUrn("urn:li:corpUser:b");
+
+  // User A belongs to Groups A and C
+  private static final Urn TEST_USER_A = UrnUtils.getUrn("urn:li:corpuser:a");
+  private static final Urn TEST_USER_B = UrnUtils.getUrn("urn:li:corpuser:b");
   private static final Urn TECH_OWNER =
       UrnUtils.getUrn("urn:li:ownershipType:__system__technical_owner");
   private static final Urn BUS_OWNER =
       UrnUtils.getUrn("urn:li:ownershipType:__system__business_owner");
-  private static final Authentication USER_AUTH =
+  private static final Authentication USER_A_AUTH =
       new Authentication(new Actor(ActorType.USER, TEST_USER_A.getId()), "");
+  private static final Authentication USER_B_AUTH =
+      new Authentication(new Actor(ActorType.USER, TEST_USER_B.getId()), "");
   private static final OperationContext ENABLED_CONTEXT =
       OperationContext.asSystem(
           OperationContextConfig.builder()
               .allowSystemAuthentication(true)
-              .searchAuthorizationConfiguration(
-                  SearchAuthorizationConfiguration.builder().enabled(true).build())
+              .viewAuthorizationConfiguration(
+                  ViewAuthorizationConfiguration.builder().enabled(true).build())
               .build(),
-          new TestEntityRegistry(),
           SYSTEM_AUTH,
+          new TestEntityRegistry(),
+          ServicesRegistryContext.builder().restrictedService(mockRestrictedService()).build(),
           IndexConventionImpl.NO_PREFIX);
 
+  private static final String VIEW_PRIVILEGE = "VIEW_ENTITY_PAGE";
+
+  private static final Urn UNRESTRICTED_RESULT_URN =
+      UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)");
+  private static final Urn RESTRICTED_RESULT_URN =
+      UrnUtils.getUrn("urn:li:restricted:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)");
+
+  /** Comprehensive list of policy variations */
+  private static final Map<String, DataHubPolicyInfo> TEST_POLICIES =
+      ImmutableMap.<String, DataHubPolicyInfo>builder()
+          .put(
+              "allUsers",
+              new DataHubPolicyInfo()
+                  .setDisplayName("")
+                  .setState(PoliciesConfig.ACTIVE_POLICY_STATE)
+                  .setType(PoliciesConfig.METADATA_POLICY_TYPE)
+                  .setActors(
+                      new DataHubActorFilter()
+                          .setAllUsers(true)
+                          .setGroups(new UrnArray())
+                          .setUsers(new UrnArray()))
+                  .setPrivileges(new StringArray(List.of(VIEW_PRIVILEGE)))
+                  .setResources(
+                      new DataHubResourceFilter()
+                          .setFilter(
+                              new PolicyMatchFilter()
+                                  .setCriteria(new PolicyMatchCriterionArray()))))
+          .put(
+              "userA",
+              new DataHubPolicyInfo()
+                  .setDisplayName("")
+                  .setState(PoliciesConfig.ACTIVE_POLICY_STATE)
+                  .setType(PoliciesConfig.METADATA_POLICY_TYPE)
+                  .setActors(
+                      new DataHubActorFilter()
+                          .setGroups(new UrnArray())
+                          .setUsers(new UrnArray(TEST_USER_A)))
+                  .setPrivileges(new StringArray(List.of(VIEW_PRIVILEGE)))
+                  .setResources(
+                      new DataHubResourceFilter()
+                          .setFilter(
+                              new PolicyMatchFilter()
+                                  .setCriteria(new PolicyMatchCriterionArray()))))
+          .put(
+              "allGroups",
+              new DataHubPolicyInfo()
+                  .setDisplayName("")
+                  .setState(PoliciesConfig.ACTIVE_POLICY_STATE)
+                  .setType(PoliciesConfig.METADATA_POLICY_TYPE)
+                  .setActors(
+                      new DataHubActorFilter()
+                          .setAllGroups(true)
+                          .setGroups(new UrnArray())
+                          .setUsers(new UrnArray()))
+                  .setPrivileges(new StringArray(List.of(VIEW_PRIVILEGE)))
+                  .setResources(
+                      new DataHubResourceFilter()
+                          .setFilter(
+                              new PolicyMatchFilter()
+                                  .setCriteria(new PolicyMatchCriterionArray()))))
+          .put(
+              "groupB",
+              new DataHubPolicyInfo()
+                  .setDisplayName("")
+                  .setState(PoliciesConfig.ACTIVE_POLICY_STATE)
+                  .setType(PoliciesConfig.METADATA_POLICY_TYPE)
+                  .setActors(
+                      new DataHubActorFilter()
+                          .setGroups(new UrnArray(TEST_GROUP_B))
+                          .setUsers(new UrnArray()))
+                  .setPrivileges(new StringArray(List.of(VIEW_PRIVILEGE)))
+                  .setResources(
+                      new DataHubResourceFilter()
+                          .setFilter(
+                              new PolicyMatchFilter()
+                                  .setCriteria(new PolicyMatchCriterionArray()))))
+          .put(
+              "groupC",
+              new DataHubPolicyInfo()
+                  .setDisplayName("")
+                  .setState(PoliciesConfig.ACTIVE_POLICY_STATE)
+                  .setType(PoliciesConfig.METADATA_POLICY_TYPE)
+                  .setActors(
+                      new DataHubActorFilter()
+                          .setGroups(new UrnArray(TEST_GROUP_C))
+                          .setUsers(new UrnArray()))
+                  .setPrivileges(new StringArray(List.of(VIEW_PRIVILEGE)))
+                  .setResources(
+                      new DataHubResourceFilter()
+                          .setFilter(
+                              new PolicyMatchFilter()
+                                  .setCriteria(new PolicyMatchCriterionArray()))))
+          .put(
+              "anyOwner",
+              new DataHubPolicyInfo()
+                  .setDisplayName("")
+                  .setState(PoliciesConfig.ACTIVE_POLICY_STATE)
+                  .setType(PoliciesConfig.METADATA_POLICY_TYPE)
+                  .setActors(
+                      new DataHubActorFilter()
+                          .setResourceOwners(true)
+                          .setGroups(new UrnArray())
+                          .setUsers(new UrnArray()))
+                  .setPrivileges(new StringArray(List.of(VIEW_PRIVILEGE)))
+                  .setResources(
+                      new DataHubResourceFilter()
+                          .setFilter(
+                              new PolicyMatchFilter()
+                                  .setCriteria(new PolicyMatchCriterionArray()))))
+          .put(
+              "businessOwner",
+              new DataHubPolicyInfo()
+                  .setDisplayName("")
+                  .setState(PoliciesConfig.ACTIVE_POLICY_STATE)
+                  .setType(PoliciesConfig.METADATA_POLICY_TYPE)
+                  .setActors(
+                      new DataHubActorFilter()
+                          .setResourceOwners(true)
+                          .setResourceOwnersTypes(new UrnArray(BUS_OWNER))
+                          .setGroups(new UrnArray())
+                          .setUsers(new UrnArray()))
+                  .setPrivileges(new StringArray(List.of(VIEW_PRIVILEGE)))
+                  .setResources(
+                      new DataHubResourceFilter()
+                          .setFilter(
+                              new PolicyMatchFilter()
+                                  .setCriteria(new PolicyMatchCriterionArray()))))
+          .build();
+
+  /** User A is a technical owner of the result User B has no ownership */
+  private static final Map<Urn, Map<Urn, Set<Urn>>> TEST_OWNERSHIP =
+      ImmutableMap.<Urn, Map<Urn, Set<Urn>>>builder()
+          .put(UNRESTRICTED_RESULT_URN, Map.of(TEST_USER_A, Set.of(TECH_OWNER)))
+          .build();
+
   @Test
-  public void testAllUserAllGroup() {
-    OperationContext allUsers =
-        sessionWithPolicy(
-            Set.of(
-                new DataHubPolicyInfo()
-                    .setState(PoliciesConfig.ACTIVE_POLICY_STATE)
-                    .setType(PoliciesConfig.METADATA_POLICY_TYPE)
-                    .setActors(new DataHubActorFilter().setAllUsers(true))
-                    .setPrivileges(
-                        new StringArray(List.of(PoliciesConfig.VIEW_ENTITY_PRIVILEGE.getType())))));
-    OperationContext allGroups =
-        sessionWithPolicy(
-            Set.of(
-                new DataHubPolicyInfo()
-                    .setState(PoliciesConfig.ACTIVE_POLICY_STATE)
-                    .setType(PoliciesConfig.METADATA_POLICY_TYPE)
-                    .setActors(new DataHubActorFilter().setAllGroups(true))
-                    .setPrivileges(
-                        new StringArray(List.of(PoliciesConfig.VIEW_ENTITY_PRIVILEGE.getType())))));
+  public void testAllUsersRestrictions() throws RemoteInvocationException, URISyntaxException {
 
-    assertEquals(
-        ESAccessControlUtil.buildAccessControlFilters(allUsers),
-        Optional.empty(),
-        "Expected no ES filters for all user access without resource restrictions");
-    assertEquals(
-        ESAccessControlUtil.buildAccessControlFilters(allGroups),
-        Optional.empty(),
-        "Expected no ES filters for all user access without resource restrictions");
-  }
+    // USER A
+    OperationContext userAContext =
+        sessionWithUserAGroupAandC(Set.of(TEST_POLICIES.get("allUsers")));
 
-  @Test
-  public void testAllUserAllGroupEntityType() {
-    OperationContext resourceAllUsersPolicy =
-        sessionWithPolicy(
-            Set.of(
-                new DataHubPolicyInfo()
-                    .setState(PoliciesConfig.ACTIVE_POLICY_STATE)
-                    .setType(PoliciesConfig.METADATA_POLICY_TYPE)
-                    .setActors(new DataHubActorFilter().setAllUsers(true))
-                    .setResources(
-                        new DataHubResourceFilter()
-                            .setFilter(
-                                new PolicyMatchFilter()
-                                    .setCriteria(
-                                        new PolicyMatchCriterionArray(
-                                            new PolicyMatchCriterion()
-                                                .setField("TYPE")
-                                                .setCondition(PolicyMatchCondition.EQUALS)
-                                                .setValues(new StringArray("dataset", "chart"))))))
-                    .setPrivileges(
-                        new StringArray(List.of(PoliciesConfig.VIEW_ENTITY_PRIVILEGE.getType())))));
-    OperationContext resourceAllGroupsPolicy =
-        sessionWithPolicy(
-            Set.of(
-                new DataHubPolicyInfo()
-                    .setState(PoliciesConfig.ACTIVE_POLICY_STATE)
-                    .setType(PoliciesConfig.METADATA_POLICY_TYPE)
-                    .setActors(new DataHubActorFilter().setAllGroups(true))
-                    .setResources(
-                        new DataHubResourceFilter()
-                            .setFilter(
-                                new PolicyMatchFilter()
-                                    .setCriteria(
-                                        new PolicyMatchCriterionArray(
-                                            new PolicyMatchCriterion()
-                                                .setField("TYPE")
-                                                .setCondition(PolicyMatchCondition.EQUALS)
-                                                .setValues(new StringArray("dataset", "chart"))))))
-                    .setPrivileges(
-                        new StringArray(List.of(PoliciesConfig.VIEW_ENTITY_PRIVILEGE.getType())))));
+    SearchResult result = mockSearchResult();
+    ESAccessControlUtil.restrictSearchResult(
+        userAContext.withSearchFlags(flags -> flags.setIncludeRestricted(true)), result);
+    assertEquals(result.getEntities().get(0).getEntity(), UNRESTRICTED_RESULT_URN);
 
-    assertEquals(
-        ESAccessControlUtil.buildAccessControlFilters(resourceAllUsersPolicy),
-        Optional.of(
-            QueryBuilders.boolQuery()
-                .should(
-                    QueryBuilders.boolQuery()
-                        .filter(
-                            QueryBuilders.termsQuery(
-                                "_index", List.of("datasetindex_v2", "chartindex_v2"))))
-                .minimumShouldMatch(1)),
-        "Expected index filter for each entity");
+    result = mockSearchResult();
+    ESAccessControlUtil.restrictSearchResult(
+        userAContext.withSearchFlags(flags -> flags.setIncludeRestricted(false)), result);
+    assertEquals(result.getEntities().get(0).getEntity(), UNRESTRICTED_RESULT_URN);
 
-    assertEquals(
-        ESAccessControlUtil.buildAccessControlFilters(resourceAllGroupsPolicy),
-        Optional.of(
-            QueryBuilders.boolQuery()
-                .should(
-                    QueryBuilders.boolQuery()
-                        .filter(
-                            QueryBuilders.termsQuery(
-                                "_index", List.of("datasetindex_v2", "chartindex_v2"))))
-                .minimumShouldMatch(1)),
-        "Expected index filter for each entity");
-  }
+    // USER B
+    OperationContext userBContext = sessionWithUserBNoGroup(Set.of(TEST_POLICIES.get("allUsers")));
+    result = mockSearchResult();
+    ESAccessControlUtil.restrictSearchResult(
+        userBContext.withSearchFlags(flags -> flags.setIncludeRestricted(true)), result);
+    assertEquals(result.getEntities().get(0).getEntity(), UNRESTRICTED_RESULT_URN);
 
-  @Test
-  public void testAllUserAllGroupUrn() {
-    OperationContext resourceAllUsersPolicy =
-        sessionWithPolicy(
-            Set.of(
-                new DataHubPolicyInfo()
-                    .setState(PoliciesConfig.ACTIVE_POLICY_STATE)
-                    .setType(PoliciesConfig.METADATA_POLICY_TYPE)
-                    .setActors(new DataHubActorFilter().setAllUsers(true))
-                    .setResources(
-                        new DataHubResourceFilter()
-                            .setFilter(
-                                new PolicyMatchFilter()
-                                    .setCriteria(
-                                        new PolicyMatchCriterionArray(
-                                            new PolicyMatchCriterion()
-                                                .setField("URN")
-                                                .setCondition(PolicyMatchCondition.EQUALS)
-                                                .setValues(
-                                                    new StringArray(
-                                                        "urn:li:dataset:(urn:li:dataPlatform:snowflake,long_tail_companions.analytics.ShelterDogs,PROD)",
-                                                        "urn:li:dataset:(urn:li:dataPlatform:snowflake,long_tail_companions.ecommerce.account,PROD)"))))))
-                    .setPrivileges(
-                        new StringArray(List.of(PoliciesConfig.VIEW_ENTITY_PRIVILEGE.getType())))));
-    OperationContext resourceAllGroupsPolicy =
-        sessionWithPolicy(
-            Set.of(
-                new DataHubPolicyInfo()
-                    .setState(PoliciesConfig.ACTIVE_POLICY_STATE)
-                    .setType(PoliciesConfig.METADATA_POLICY_TYPE)
-                    .setActors(new DataHubActorFilter().setAllGroups(true))
-                    .setResources(
-                        new DataHubResourceFilter()
-                            .setFilter(
-                                new PolicyMatchFilter()
-                                    .setCriteria(
-                                        new PolicyMatchCriterionArray(
-                                            new PolicyMatchCriterion()
-                                                .setField("URN")
-                                                .setCondition(PolicyMatchCondition.EQUALS)
-                                                .setValues(
-                                                    new StringArray(
-                                                        "urn:li:dataset:(urn:li:dataPlatform:snowflake,long_tail_companions.analytics.ShelterDogs,PROD)",
-                                                        "urn:li:dataset:(urn:li:dataPlatform:snowflake,long_tail_companions.ecommerce.account,PROD)"))))))
-                    .setPrivileges(
-                        new StringArray(List.of(PoliciesConfig.VIEW_ENTITY_PRIVILEGE.getType())))));
-
-    assertEquals(
-        ESAccessControlUtil.buildAccessControlFilters(resourceAllUsersPolicy),
-        Optional.of(
-            QueryBuilders.boolQuery()
-                .should(
-                    QueryBuilders.boolQuery()
-                        .filter(
-                            QueryBuilders.termsQuery(
-                                "urn",
-                                List.of(
-                                    "urn:li:dataset:(urn:li:dataPlatform:snowflake,long_tail_companions.analytics.ShelterDogs,PROD)",
-                                    "urn:li:dataset:(urn:li:dataPlatform:snowflake,long_tail_companions.ecommerce.account,PROD)"))))
-                .minimumShouldMatch(1)),
-        "Expected filter for each urn");
-
-    assertEquals(
-        ESAccessControlUtil.buildAccessControlFilters(resourceAllGroupsPolicy),
-        Optional.of(
-            QueryBuilders.boolQuery()
-                .should(
-                    QueryBuilders.boolQuery()
-                        .filter(
-                            QueryBuilders.termsQuery(
-                                "urn",
-                                List.of(
-                                    "urn:li:dataset:(urn:li:dataPlatform:snowflake,long_tail_companions.analytics.ShelterDogs,PROD)",
-                                    "urn:li:dataset:(urn:li:dataPlatform:snowflake,long_tail_companions.ecommerce.account,PROD)"))))
-                .minimumShouldMatch(1)),
-        "Expected filter for each urn");
+    result = mockSearchResult();
+    ESAccessControlUtil.restrictSearchResult(
+        userBContext.withSearchFlags(flags -> flags.setIncludeRestricted(false)), result);
+    assertEquals(result.getEntities().get(0).getEntity(), UNRESTRICTED_RESULT_URN);
   }
 
   @Test
-  public void testAllUserAllGroupTag() {
-    OperationContext resourceAllUsersPolicy =
-        sessionWithPolicy(
-            Set.of(
-                new DataHubPolicyInfo()
-                    .setState(PoliciesConfig.ACTIVE_POLICY_STATE)
-                    .setType(PoliciesConfig.METADATA_POLICY_TYPE)
-                    .setActors(new DataHubActorFilter().setAllUsers(true))
-                    .setResources(
-                        new DataHubResourceFilter()
-                            .setFilter(
-                                new PolicyMatchFilter()
-                                    .setCriteria(
-                                        new PolicyMatchCriterionArray(
-                                            new PolicyMatchCriterion()
-                                                .setField("TAG")
-                                                .setCondition(PolicyMatchCondition.EQUALS)
-                                                .setValues(
-                                                    new StringArray(
-                                                        "urn:li:tag:pii", "urn:li:tag:prod"))))))
-                    .setPrivileges(
-                        new StringArray(List.of(PoliciesConfig.VIEW_ENTITY_PRIVILEGE.getType())))));
-    OperationContext resourceAllGroupsPolicy =
-        sessionWithPolicy(
-            Set.of(
-                new DataHubPolicyInfo()
-                    .setState(PoliciesConfig.ACTIVE_POLICY_STATE)
-                    .setType(PoliciesConfig.METADATA_POLICY_TYPE)
-                    .setActors(new DataHubActorFilter().setAllGroups(true))
-                    .setResources(
-                        new DataHubResourceFilter()
-                            .setFilter(
-                                new PolicyMatchFilter()
-                                    .setCriteria(
-                                        new PolicyMatchCriterionArray(
-                                            new PolicyMatchCriterion()
-                                                .setField("TAG")
-                                                .setCondition(PolicyMatchCondition.EQUALS)
-                                                .setValues(
-                                                    new StringArray(
-                                                        "urn:li:tag:pii", "urn:li:tag:prod"))))))
-                    .setPrivileges(
-                        new StringArray(List.of(PoliciesConfig.VIEW_ENTITY_PRIVILEGE.getType())))));
+  public void testSingeUserRestrictions() throws RemoteInvocationException, URISyntaxException {
 
-    assertEquals(
-        ESAccessControlUtil.buildAccessControlFilters(resourceAllUsersPolicy),
-        Optional.of(
-            QueryBuilders.boolQuery()
-                .should(
-                    QueryBuilders.boolQuery()
-                        .filter(
-                            QueryBuilders.termsQuery(
-                                "tags.keyword", List.of("urn:li:tag:pii", "urn:li:tag:prod"))))
-                .minimumShouldMatch(1)),
-        "Expected filter each tag");
+    // USER A
+    OperationContext userAContext = sessionWithUserAGroupAandC(Set.of(TEST_POLICIES.get("userA")));
 
+    SearchResult result = mockSearchResult();
+    ESAccessControlUtil.restrictSearchResult(
+        userAContext.withSearchFlags(flags -> flags.setIncludeRestricted(true)), result);
+    assertEquals(result.getEntities().get(0).getEntity(), UNRESTRICTED_RESULT_URN);
+
+    result = mockSearchResult();
+    ESAccessControlUtil.restrictSearchResult(
+        userAContext.withSearchFlags(flags -> flags.setIncludeRestricted(false)), result);
+    assertEquals(result.getEntities().get(0).getEntity(), UNRESTRICTED_RESULT_URN);
+
+    // USER B
+    OperationContext userBContext = sessionWithUserBNoGroup(Set.of(TEST_POLICIES.get("userA")));
+
+    result = mockSearchResult();
+    ESAccessControlUtil.restrictSearchResult(
+        userBContext.withSearchFlags(flags -> flags.setIncludeRestricted(true)), result);
     assertEquals(
-        ESAccessControlUtil.buildAccessControlFilters(resourceAllGroupsPolicy),
-        Optional.of(
-            QueryBuilders.boolQuery()
-                .should(
-                    QueryBuilders.boolQuery()
-                        .filter(
-                            QueryBuilders.termsQuery(
-                                "tags.keyword", List.of("urn:li:tag:pii", "urn:li:tag:prod"))))
-                .minimumShouldMatch(1)),
-        "Expected filter each tag");
+        result.getEntities().get(0).getEntity(),
+        RESTRICTED_RESULT_URN,
+        "Expected User B (not User A) to receive a restricted urn");
   }
 
   @Test
-  public void testAllUserAllGroupDomain() {
-    OperationContext resourceAllUsersPolicy =
-        sessionWithPolicy(
-            Set.of(
-                new DataHubPolicyInfo()
-                    .setState(PoliciesConfig.ACTIVE_POLICY_STATE)
-                    .setType(PoliciesConfig.METADATA_POLICY_TYPE)
-                    .setActors(new DataHubActorFilter().setAllUsers(true))
-                    .setResources(
-                        new DataHubResourceFilter()
-                            .setFilter(
-                                new PolicyMatchFilter()
-                                    .setCriteria(
-                                        new PolicyMatchCriterionArray(
-                                            new PolicyMatchCriterion()
-                                                .setField("DOMAIN")
-                                                .setCondition(PolicyMatchCondition.EQUALS)
-                                                .setValues(
-                                                    new StringArray(
-                                                        "urn:li:domain:f9229a0b-c5ad-47e7-9ff3-f4248c5cb634",
-                                                        "urn:li:domain:7d64d0fa-66c3-445c-83db-3a324723daf8"))))))
-                    .setPrivileges(
-                        new StringArray(List.of(PoliciesConfig.VIEW_ENTITY_PRIVILEGE.getType())))));
-    OperationContext resourceAllGroupsPolicy =
-        sessionWithPolicy(
-            Set.of(
-                new DataHubPolicyInfo()
-                    .setState(PoliciesConfig.ACTIVE_POLICY_STATE)
-                    .setType(PoliciesConfig.METADATA_POLICY_TYPE)
-                    .setActors(new DataHubActorFilter().setAllGroups(true))
-                    .setResources(
-                        new DataHubResourceFilter()
-                            .setFilter(
-                                new PolicyMatchFilter()
-                                    .setCriteria(
-                                        new PolicyMatchCriterionArray(
-                                            new PolicyMatchCriterion()
-                                                .setField("DOMAIN")
-                                                .setCondition(PolicyMatchCondition.EQUALS)
-                                                .setValues(
-                                                    new StringArray(
-                                                        "urn:li:domain:f9229a0b-c5ad-47e7-9ff3-f4248c5cb634",
-                                                        "urn:li:domain:7d64d0fa-66c3-445c-83db-3a324723daf8"))))))
-                    .setPrivileges(
-                        new StringArray(List.of(PoliciesConfig.VIEW_ENTITY_PRIVILEGE.getType())))));
+  public void testAllGroupsRestrictions() throws RemoteInvocationException, URISyntaxException {
 
-    assertEquals(
-        ESAccessControlUtil.buildAccessControlFilters(resourceAllUsersPolicy),
-        Optional.of(
-            QueryBuilders.boolQuery()
-                .should(
-                    QueryBuilders.boolQuery()
-                        .filter(
-                            QueryBuilders.termsQuery(
-                                "domains.keyword",
-                                List.of(
-                                    "urn:li:domain:f9229a0b-c5ad-47e7-9ff3-f4248c5cb634",
-                                    "urn:li:domain:7d64d0fa-66c3-445c-83db-3a324723daf8"))))
-                .minimumShouldMatch(1)),
-        "Expected filter each domain");
+    // USER A
+    OperationContext userAContext =
+        sessionWithUserAGroupAandC(Set.of(TEST_POLICIES.get("allGroups")));
 
+    SearchResult result = mockSearchResult();
+    ESAccessControlUtil.restrictSearchResult(
+        userAContext.withSearchFlags(flags -> flags.setIncludeRestricted(true)), result);
+    assertEquals(result.getEntities().get(0).getEntity(), UNRESTRICTED_RESULT_URN);
+
+    result = mockSearchResult();
+    ESAccessControlUtil.restrictSearchResult(
+        userAContext.withSearchFlags(flags -> flags.setIncludeRestricted(false)), result);
+    assertEquals(result.getEntities().get(0).getEntity(), UNRESTRICTED_RESULT_URN);
+
+    // USER B (No Groups!)
+    OperationContext userBContext = sessionWithUserBNoGroup(Set.of(TEST_POLICIES.get("allGroups")));
+
+    result = mockSearchResult();
+    ESAccessControlUtil.restrictSearchResult(
+        userBContext.withSearchFlags(flags -> flags.setIncludeRestricted(true)), result);
     assertEquals(
-        ESAccessControlUtil.buildAccessControlFilters(resourceAllGroupsPolicy),
-        Optional.of(
-            QueryBuilders.boolQuery()
-                .should(
-                    QueryBuilders.boolQuery()
-                        .filter(
-                            QueryBuilders.termsQuery(
-                                "domains.keyword",
-                                List.of(
-                                    "urn:li:domain:f9229a0b-c5ad-47e7-9ff3-f4248c5cb634",
-                                    "urn:li:domain:7d64d0fa-66c3-445c-83db-3a324723daf8"))))
-                .minimumShouldMatch(1)),
-        "Expected filter each domain");
+        result.getEntities().get(0).getEntity(),
+        RESTRICTED_RESULT_URN,
+        "Expected User B (no groups) to receive a restricted urn");
   }
 
   @Test
-  public void testAllUserAllGroupUnknownField() {
-    OperationContext resourceAllUsersPolicy =
-        sessionWithPolicy(
-            Set.of(
-                new DataHubPolicyInfo()
-                    .setState(PoliciesConfig.ACTIVE_POLICY_STATE)
-                    .setType(PoliciesConfig.METADATA_POLICY_TYPE)
-                    .setActors(new DataHubActorFilter().setAllUsers(true))
-                    .setResources(
-                        new DataHubResourceFilter()
-                            .setFilter(
-                                new PolicyMatchFilter()
-                                    .setCriteria(
-                                        new PolicyMatchCriterionArray(
-                                            new PolicyMatchCriterion()
-                                                .setField("UNKNOWN FIELD")
-                                                .setCondition(PolicyMatchCondition.EQUALS)
-                                                .setValues(new StringArray("dataset", "chart"))))))
-                    .setPrivileges(
-                        new StringArray(List.of(PoliciesConfig.VIEW_ENTITY_PRIVILEGE.getType())))));
-    OperationContext resourceAllGroupsPolicy =
-        sessionWithPolicy(
-            Set.of(
-                new DataHubPolicyInfo()
-                    .setState(PoliciesConfig.ACTIVE_POLICY_STATE)
-                    .setType(PoliciesConfig.METADATA_POLICY_TYPE)
-                    .setActors(new DataHubActorFilter().setAllGroups(true))
-                    .setResources(
-                        new DataHubResourceFilter()
-                            .setFilter(
-                                new PolicyMatchFilter()
-                                    .setCriteria(
-                                        new PolicyMatchCriterionArray(
-                                            new PolicyMatchCriterion()
-                                                .setField("UNKNOWN FIELD")
-                                                .setCondition(PolicyMatchCondition.EQUALS)
-                                                .setValues(new StringArray("dataset", "chart"))))))
-                    .setPrivileges(
-                        new StringArray(List.of(PoliciesConfig.VIEW_ENTITY_PRIVILEGE.getType())))));
+  public void testSingleGroupRestrictions() throws RemoteInvocationException, URISyntaxException {
 
-    assertEquals(
-        ESAccessControlUtil.buildAccessControlFilters(resourceAllUsersPolicy),
-        Optional.of(QueryBuilders.boolQuery().mustNot(QueryBuilders.matchAllQuery())),
-        "Expected match-none query when an unknown field is encountered");
+    // GROUP B Policy
+    // USER A
+    final OperationContext userAContext =
+        sessionWithUserAGroupAandC(Set.of(TEST_POLICIES.get("groupB")));
 
+    SearchResult result = mockSearchResult();
+    ESAccessControlUtil.restrictSearchResult(
+        userAContext.withSearchFlags(flags -> flags.setIncludeRestricted(true)), result);
     assertEquals(
-        ESAccessControlUtil.buildAccessControlFilters(resourceAllGroupsPolicy),
-        Optional.of(QueryBuilders.boolQuery().mustNot(QueryBuilders.matchAllQuery())),
-        "Expected match-none query when an unknown field is encountered");
+        result.getEntities().get(0).getEntity(),
+        RESTRICTED_RESULT_URN,
+        "Expected restricted urn because not a member of Group B");
+
+    // USER B (No Groups!)
+    final OperationContext userBContext =
+        sessionWithUserBNoGroup(Set.of(TEST_POLICIES.get("groupB")));
+
+    result = mockSearchResult();
+    ESAccessControlUtil.restrictSearchResult(
+        userBContext.withSearchFlags(flags -> flags.setIncludeRestricted(true)), result);
+    assertEquals(
+        result.getEntities().get(0).getEntity(),
+        RESTRICTED_RESULT_URN,
+        "Expected User B (no groups) to receive a restricted urn");
+
+    // Group C Policy
+    // USER A
+    final OperationContext userAGroupCContext =
+        sessionWithUserAGroupAandC(Set.of(TEST_POLICIES.get("groupC")));
+
+    result = mockSearchResult();
+    ESAccessControlUtil.restrictSearchResult(
+        userAGroupCContext.withSearchFlags(flags -> flags.setIncludeRestricted(true)), result);
+    assertEquals(result.getEntities().get(0).getEntity(), UNRESTRICTED_RESULT_URN);
+
+    result = mockSearchResult();
+    ESAccessControlUtil.restrictSearchResult(
+        userAGroupCContext.withSearchFlags(flags -> flags.setIncludeRestricted(false)), result);
+    assertEquals(result.getEntities().get(0).getEntity(), UNRESTRICTED_RESULT_URN);
+
+    // USER B (No Groups!)
+    final OperationContext userBgroupCContext =
+        sessionWithUserBNoGroup(Set.of(TEST_POLICIES.get("groupC")));
+
+    result = mockSearchResult();
+    ESAccessControlUtil.restrictSearchResult(
+        userBgroupCContext.withSearchFlags(flags -> flags.setIncludeRestricted(true)), result);
+    assertEquals(
+        result.getEntities().get(0).getEntity(),
+        RESTRICTED_RESULT_URN,
+        "Expected User B (no groups) to receive a restricted urn");
   }
 
   @Test
-  public void testUserGroupOwner() {
-    OperationContext ownerNoGroupsNoType =
-        sessionWithPolicy(
-            Set.of(
-                new DataHubPolicyInfo()
-                    .setState(PoliciesConfig.ACTIVE_POLICY_STATE)
-                    .setType(PoliciesConfig.METADATA_POLICY_TYPE)
-                    .setActors(new DataHubActorFilter().setResourceOwners(true))
-                    .setPrivileges(
-                        new StringArray(List.of(PoliciesConfig.VIEW_ENTITY_PRIVILEGE.getType())))));
-    assertEquals(
-        ESAccessControlUtil.buildAccessControlFilters(ownerNoGroupsNoType),
-        Optional.of(
-            QueryBuilders.boolQuery()
-                .should(
-                    QueryBuilders.termsQuery(
-                        "owners.keyword",
-                        List.of(
-                            TEST_USER_A.toString().toLowerCase(),
-                            TEST_GROUP_A.toString().toLowerCase(),
-                            TEST_GROUP_C.toString().toLowerCase())))
-                .minimumShouldMatch(1)),
-        "Expected user filter for owners without group filter");
+  public void testAnyOwnerRestrictions() throws RemoteInvocationException, URISyntaxException {
 
-    OperationContext ownerWithGroupsNoType =
-        sessionWithPolicy(
-            Set.of(
-                new DataHubPolicyInfo()
-                    .setState(PoliciesConfig.ACTIVE_POLICY_STATE)
-                    .setType(PoliciesConfig.METADATA_POLICY_TYPE)
-                    .setActors(
-                        new DataHubActorFilter()
-                            .setResourceOwners(true)
-                            .setGroups(new UrnArray(TEST_GROUP_A)))
-                    .setPrivileges(
-                        new StringArray(List.of(PoliciesConfig.VIEW_ENTITY_PRIVILEGE.getType())))));
+    // USER A
+    OperationContext userAContext =
+        sessionWithUserAGroupAandC(Set.of(TEST_POLICIES.get("anyOwner")));
+
+    SearchResult result = mockSearchResult();
+    ESAccessControlUtil.restrictSearchResult(
+        userAContext.withSearchFlags(flags -> flags.setIncludeRestricted(true)), result);
+    assertEquals(result.getEntities().get(0).getEntity(), UNRESTRICTED_RESULT_URN);
+
+    result = mockSearchResult();
+    ESAccessControlUtil.restrictSearchResult(
+        userAContext.withSearchFlags(flags -> flags.setIncludeRestricted(false)), result);
+    assertEquals(result.getEntities().get(0).getEntity(), UNRESTRICTED_RESULT_URN);
+
+    // USER B (not an owner)
+    OperationContext userBContext = sessionWithUserBNoGroup(Set.of(TEST_POLICIES.get("anyOwner")));
+
+    result = mockSearchResult();
+    ESAccessControlUtil.restrictSearchResult(
+        userBContext.withSearchFlags(flags -> flags.setIncludeRestricted(true)), result);
     assertEquals(
-        ESAccessControlUtil.buildAccessControlFilters(ownerWithGroupsNoType),
-        Optional.of(
-            QueryBuilders.boolQuery()
-                .should(
-                    QueryBuilders.termsQuery(
-                        "owners.keyword",
-                        List.of(
-                            TEST_USER_A.toString().toLowerCase(),
-                            TEST_GROUP_A.toString().toLowerCase(),
-                            TEST_GROUP_C.toString().toLowerCase())))
-                .minimumShouldMatch(1)),
-        "Expected user AND group filter for owners");
+        result.getEntities().get(0).getEntity(),
+        RESTRICTED_RESULT_URN,
+        "Expected User B to receive a restricted urn because User B doesn't own anything");
   }
 
   @Test
-  public void testUserGroupOwnerTypes() {
-    OperationContext ownerTypeBusinessNoUserNoGroup =
-        sessionWithPolicy(
-            Set.of(
-                new DataHubPolicyInfo()
-                    .setState(PoliciesConfig.ACTIVE_POLICY_STATE)
-                    .setType(PoliciesConfig.METADATA_POLICY_TYPE)
-                    .setActors(
-                        new DataHubActorFilter().setResourceOwnersTypes(new UrnArray(BUS_OWNER)))
-                    .setPrivileges(
-                        new StringArray(List.of(PoliciesConfig.VIEW_ENTITY_PRIVILEGE.getType())))));
-    assertEquals(
-        ESAccessControlUtil.buildAccessControlFilters(ownerTypeBusinessNoUserNoGroup),
-        Optional.of(
-            QueryBuilders.boolQuery()
-                .should(
-                    QueryBuilders.boolQuery()
-                        .should(
-                            QueryBuilders.termsQuery(
-                                "ownerTypes."
-                                    + OwnerTypeMap.encodeFieldName(BUS_OWNER.toString())
-                                    + ".keyword",
-                                List.of(
-                                    TEST_USER_A.toString().toLowerCase(),
-                                    TEST_GROUP_A.toString().toLowerCase(),
-                                    TEST_GROUP_C.toString().toLowerCase())))
-                        .minimumShouldMatch(1))
-                .minimumShouldMatch(1)),
-        "Expected user filter for business owner via user or group urn");
+  public void testBusinessOwnerRestrictions() throws RemoteInvocationException, URISyntaxException {
 
-    OperationContext ownerTypeBusinessMultiUserNoGroup =
-        sessionWithPolicy(
-            Set.of(
-                new DataHubPolicyInfo()
-                    .setState(PoliciesConfig.ACTIVE_POLICY_STATE)
-                    .setType(PoliciesConfig.METADATA_POLICY_TYPE)
-                    .setActors(
-                        new DataHubActorFilter()
-                            .setResourceOwnersTypes(new UrnArray(BUS_OWNER))
-                            .setUsers(new UrnArray(List.of(TEST_USER_A, TEST_USER_B))))
-                    .setPrivileges(
-                        new StringArray(List.of(PoliciesConfig.VIEW_ENTITY_PRIVILEGE.getType())))));
-    assertEquals(
-        ESAccessControlUtil.buildAccessControlFilters(ownerTypeBusinessMultiUserNoGroup),
-        Optional.of(
-            QueryBuilders.boolQuery()
-                .should(
-                    QueryBuilders.boolQuery()
-                        .should(
-                            QueryBuilders.termsQuery(
-                                "ownerTypes."
-                                    + OwnerTypeMap.encodeFieldName(BUS_OWNER.toString())
-                                    + ".keyword",
-                                List.of(
-                                    TEST_USER_A.toString().toLowerCase(),
-                                    TEST_GROUP_A.toString().toLowerCase(),
-                                    TEST_GROUP_C.toString().toLowerCase())))
-                        .minimumShouldMatch(1))
-                .minimumShouldMatch(1)),
-        "Expected user filter for `business owner` by owner user/group A urn (excluding other user/group B)");
+    // USER A
+    final OperationContext userAContext =
+        sessionWithUserAGroupAandC(Set.of(TEST_POLICIES.get("businessOwner")));
 
-    OperationContext ownerWithGroupsBusTechMultiGroup =
-        sessionWithPolicy(
-            Set.of(
-                new DataHubPolicyInfo()
-                    .setState(PoliciesConfig.ACTIVE_POLICY_STATE)
-                    .setType(PoliciesConfig.METADATA_POLICY_TYPE)
-                    .setActors(
-                        new DataHubActorFilter()
-                            .setResourceOwnersTypes(new UrnArray(BUS_OWNER, TECH_OWNER))
-                            .setGroups(new UrnArray(TEST_GROUP_A, TEST_GROUP_B)))
-                    .setPrivileges(
-                        new StringArray(List.of(PoliciesConfig.VIEW_ENTITY_PRIVILEGE.getType())))));
+    SearchResult result = mockSearchResult();
+    ESAccessControlUtil.restrictSearchResult(
+        userAContext.withSearchFlags(flags -> flags.setIncludeRestricted(true)), result);
     assertEquals(
-        ESAccessControlUtil.buildAccessControlFilters(ownerWithGroupsBusTechMultiGroup),
-        Optional.of(
-            QueryBuilders.boolQuery()
-                .should(
-                    QueryBuilders.boolQuery()
-                        .should(
-                            QueryBuilders.termsQuery(
-                                "ownerTypes."
-                                    + OwnerTypeMap.encodeFieldName(BUS_OWNER.toString())
-                                    + ".keyword",
-                                List.of(
-                                    TEST_USER_A.toString().toLowerCase(),
-                                    TEST_GROUP_A.toString().toLowerCase(),
-                                    TEST_GROUP_C.toString().toLowerCase())))
-                        .should(
-                            QueryBuilders.termsQuery(
-                                "ownerTypes."
-                                    + OwnerTypeMap.encodeFieldName(TECH_OWNER.toString())
-                                    + ".keyword",
-                                List.of(
-                                    TEST_USER_A.toString().toLowerCase(),
-                                    TEST_GROUP_A.toString().toLowerCase(),
-                                    TEST_GROUP_C.toString().toLowerCase())))
-                        .minimumShouldMatch(1))
-                .minimumShouldMatch(1)),
-        "Expected filter for business owner or technical owner by group A (excluding other group B and owner privilege)");
+        result.getEntities().get(0).getEntity(),
+        RESTRICTED_RESULT_URN,
+        "Expected restricted urn because not a Business Owner");
 
-    OperationContext ownerWithMultiUserMultiGroupsBusTech =
-        sessionWithPolicy(
-            Set.of(
-                new DataHubPolicyInfo()
-                    .setState(PoliciesConfig.ACTIVE_POLICY_STATE)
-                    .setType(PoliciesConfig.METADATA_POLICY_TYPE)
-                    .setActors(
-                        new DataHubActorFilter()
-                            .setResourceOwnersTypes(new UrnArray(BUS_OWNER, TECH_OWNER))
-                            .setUsers(new UrnArray(List.of(TEST_USER_A, TEST_USER_B)))
-                            .setGroups(new UrnArray(TEST_GROUP_A, TEST_GROUP_B)))
-                    .setPrivileges(
-                        new StringArray(List.of(PoliciesConfig.VIEW_ENTITY_PRIVILEGE.getType())))));
+    // USER B
+    final OperationContext userBContext =
+        sessionWithUserBNoGroup(Set.of(TEST_POLICIES.get("businessOwner")));
+
+    result = mockSearchResult();
+    ESAccessControlUtil.restrictSearchResult(
+        userBContext.withSearchFlags(flags -> flags.setIncludeRestricted(true)), result);
     assertEquals(
-        ESAccessControlUtil.buildAccessControlFilters(ownerWithMultiUserMultiGroupsBusTech),
-        Optional.of(
-            QueryBuilders.boolQuery()
-                .should(
-                    QueryBuilders.boolQuery()
-                        .should(
-                            QueryBuilders.termsQuery(
-                                "ownerTypes."
-                                    + OwnerTypeMap.encodeFieldName(BUS_OWNER.toString())
-                                    + ".keyword",
-                                List.of(
-                                    TEST_USER_A.toString().toLowerCase(),
-                                    TEST_GROUP_A.toString().toLowerCase(),
-                                    TEST_GROUP_C.toString().toLowerCase())))
-                        .should(
-                            QueryBuilders.termsQuery(
-                                "ownerTypes."
-                                    + OwnerTypeMap.encodeFieldName(TECH_OWNER.toString())
-                                    + ".keyword",
-                                List.of(
-                                    TEST_USER_A.toString().toLowerCase(),
-                                    TEST_GROUP_A.toString().toLowerCase(),
-                                    TEST_GROUP_C.toString().toLowerCase())))
-                        .minimumShouldMatch(1))
-                .minimumShouldMatch(1)),
-        "Expected filter for business owner or technical owner by user A and group A (excluding other group B and owner privilege)");
+        result.getEntities().get(0).getEntity(),
+        RESTRICTED_RESULT_URN,
+        "Expected User B to receive a restricted urn because not a Business Owner");
   }
 
-  private static OperationContext sessionWithPolicy(Set<DataHubPolicyInfo> policies) {
-    return sessionWithPolicy(policies, List.of(TEST_GROUP_A, TEST_GROUP_C));
+  private static RestrictedService mockRestrictedService() {
+    RestrictedService mockRestrictedService = mock(RestrictedService.class);
+    when(mockRestrictedService.encryptRestrictedUrn(any()))
+        .thenAnswer(
+            args -> {
+              Urn urn = args.getArgument(0);
+              return UrnUtils.getUrn(urn.toString().replace("urn:li:dataset", "urn:li:restricted"));
+            });
+    return mockRestrictedService;
   }
 
-  private static OperationContext sessionWithPolicy(
-      Set<DataHubPolicyInfo> policies, List<Urn> groups) {
-    Authorizer mockAuthorizer = mock(Authorizer.class);
-    when(mockAuthorizer.getActorPolicies(eq(UrnUtils.getUrn(USER_AUTH.getActor().toUrnStr()))))
-        .thenReturn(policies);
-    when(mockAuthorizer.getActorGroups(eq(UrnUtils.getUrn(USER_AUTH.getActor().toUrnStr()))))
-        .thenReturn(groups);
+  private static SearchResult mockSearchResult() {
+    SearchResult result = new SearchResult();
+    result.setFrom(0);
+    result.setPageSize(10);
+    result.setNumEntities(1);
+    result.setEntities(
+        new SearchEntityArray(
+            new SearchEntity()
+                .setEntity(UNRESTRICTED_RESULT_URN)
+                .setMatchedFields(new MatchedFieldArray())));
+    result.setMetadata(mock(SearchResultMetadata.class));
+    return result;
+  }
 
-    return ENABLED_CONTEXT.asSession(mockAuthorizer, USER_AUTH);
+  private static OperationContext sessionWithUserAGroupAandC(Set<DataHubPolicyInfo> policies)
+      throws RemoteInvocationException, URISyntaxException {
+    return sessionWithUserGroups(USER_A_AUTH, policies, List.of(TEST_GROUP_A, TEST_GROUP_C));
+  }
+
+  private static OperationContext sessionWithUserBNoGroup(Set<DataHubPolicyInfo> policies)
+      throws RemoteInvocationException, URISyntaxException {
+    return sessionWithUserGroups(USER_B_AUTH, policies, List.of());
+  }
+
+  private static OperationContext sessionWithUserGroups(
+      Authentication auth, Set<DataHubPolicyInfo> policies, List<Urn> groups)
+      throws RemoteInvocationException, URISyntaxException {
+    Urn actorUrn = UrnUtils.getUrn(auth.getActor().toUrnStr());
+    Authorizer dataHubAuthorizer =
+        new TestDataHubAuthorizer(policies, Map.of(actorUrn, groups), TEST_OWNERSHIP);
+    return ENABLED_CONTEXT.asSession(RequestContext.TEST, dataHubAuthorizer, auth);
+  }
+
+  public static class TestDataHubAuthorizer extends DataHubAuthorizer {
+
+    public TestDataHubAuthorizer(
+        @Nonnull Set<DataHubPolicyInfo> policies,
+        @Nonnull Map<Urn, List<Urn>> userGroups,
+        @Nonnull Map<Urn, Map<Urn, Set<Urn>>> resourceOwnerTypes)
+        throws RemoteInvocationException, URISyntaxException {
+      super(
+          ENABLED_CONTEXT,
+          mockUserGroupEntityClient(userGroups, resourceOwnerTypes),
+          0,
+          0,
+          AuthorizationMode.DEFAULT,
+          0);
+
+      DefaultEntitySpecResolver specResolver =
+          new DefaultEntitySpecResolver(
+              ENABLED_CONTEXT.getSystemAuthentication().get(),
+              mockUserGroupEntityClient(userGroups, resourceOwnerTypes));
+
+      AuthorizerContext ctx = mock(AuthorizerContext.class);
+      when(ctx.getEntitySpecResolver()).thenReturn(specResolver);
+      init(Map.of(), ctx);
+
+      readWriteLock.writeLock().lock();
+      try {
+        policyCache.clear();
+        Map<String, List<DataHubPolicyInfo>> byPrivilegeName =
+            policies.stream()
+                .flatMap(
+                    policy -> policy.getPrivileges().stream().map(priv -> Pair.of(priv, policy)))
+                .collect(
+                    Collectors.groupingBy(
+                        Pair::getKey, Collectors.mapping(Pair::getValue, Collectors.toList())));
+        policyCache.putAll(byPrivilegeName);
+      } finally {
+        readWriteLock.writeLock().unlock();
+      }
+    }
+
+    private static EntityClient mockUserGroupEntityClient(
+        @Nonnull Map<Urn, List<Urn>> userGroups,
+        @Nonnull Map<Urn, Map<Urn, Set<Urn>>> resourceOwnerTypes)
+        throws RemoteInvocationException, URISyntaxException {
+      EntityClient mockEntityClient = mock(EntityClient.class);
+      when(mockEntityClient.batchGetV2(anyString(), anySet(), anySet(), any()))
+          .thenAnswer(
+              args -> {
+                String entityType = args.getArgument(0);
+                Set<Urn> urns = args.getArgument(1);
+                Set<String> aspectNames = args.getArgument(2);
+
+                switch (entityType) {
+                  case CORP_USER_ENTITY_NAME:
+                    if (aspectNames.contains(GROUP_MEMBERSHIP_ASPECT_NAME)) {
+                      return urns.stream()
+                          .filter(userGroups::containsKey)
+                          .map(
+                              urn ->
+                                  Pair.of(
+                                      urn,
+                                      new EntityResponse()
+                                          .setUrn(urn)
+                                          .setEntityName(entityType)
+                                          .setAspects(
+                                              new EnvelopedAspectMap(
+                                                  new EnvelopedAspectMap(
+                                                      Map.of(
+                                                          GROUP_MEMBERSHIP_ASPECT_NAME,
+                                                          new EnvelopedAspect()
+                                                              .setName(GROUP_MEMBERSHIP_ASPECT_NAME)
+                                                              .setValue(
+                                                                  new Aspect(
+                                                                      new GroupMembership()
+                                                                          .setGroups(
+                                                                              new UrnArray(
+                                                                                  userGroups.get(
+                                                                                      urn)))
+                                                                          .data()))))))))
+                          .collect(Collectors.toMap(Pair::getKey, Pair::getValue));
+                    }
+                    return Map.of();
+                  case DATASET_ENTITY_NAME:
+                    if (aspectNames.contains(OWNERSHIP_ASPECT_NAME)) {
+                      return urns.stream()
+                          .filter(resourceOwnerTypes::containsKey)
+                          .map(
+                              urn ->
+                                  Pair.of(
+                                      urn,
+                                      new EntityResponse()
+                                          .setUrn(urn)
+                                          .setEntityName(entityType)
+                                          .setAspects(
+                                              new EnvelopedAspectMap(
+                                                  new EnvelopedAspectMap(
+                                                      Map.of(
+                                                          OWNERSHIP_ASPECT_NAME,
+                                                          new EnvelopedAspect()
+                                                              .setName(OWNERSHIP_ASPECT_NAME)
+                                                              .setValue(
+                                                                  new Aspect(
+                                                                      new Ownership()
+                                                                          .setOwners(
+                                                                              new OwnerArray(
+                                                                                  resourceOwnerTypes
+                                                                                      .get(urn)
+                                                                                      .keySet()
+                                                                                      .stream()
+                                                                                      .flatMap(
+                                                                                          ownerUrn ->
+                                                                                              resourceOwnerTypes
+                                                                                                  .get(
+                                                                                                      urn)
+                                                                                                  .get(
+                                                                                                      ownerUrn)
+                                                                                                  .stream()
+                                                                                                  .map(
+                                                                                                      ownerTypeUrn ->
+                                                                                                          new Owner()
+                                                                                                              .setTypeUrn(
+                                                                                                                  ownerTypeUrn)
+                                                                                                              .setOwner(
+                                                                                                                  ownerUrn)
+                                                                                                              .setType(
+                                                                                                                  OwnershipType
+                                                                                                                      .CUSTOM)))
+                                                                                      .collect(
+                                                                                          Collectors
+                                                                                              .toSet())))
+                                                                          .data()))))))))
+                          .collect(Collectors.toMap(Pair::getKey, Pair::getValue));
+                    }
+                    return Map.of();
+                  default:
+                    return Map.of();
+                }
+              });
+
+      // call batch interface above
+      when(mockEntityClient.getV2(anyString(), any(), anySet(), any()))
+          .thenAnswer(
+              args -> {
+                Urn entityUrn = args.getArgument(1);
+                Map<Urn, EntityResponse> batchResponse =
+                    mockEntityClient.batchGetV2(
+                        args.getArgument(0),
+                        Set.of(entityUrn),
+                        args.getArgument(2),
+                        args.getArgument(3));
+                return batchResponse.get(entityUrn);
+              });
+      return mockEntityClient;
+    }
   }
 }

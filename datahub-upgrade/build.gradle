@@ -14,7 +14,7 @@ ext {
 dependencies {
   implementation project(':metadata-io')
   implementation project(':metadata-service:factories')
-  implementation project(':metadata-service:restli-client')
+  implementation project(':metadata-service:restli-client-api')
   implementation project(':metadata-service:configuration')
   implementation project(':metadata-dao-impl:kafka-producer')
   implementation externalDependency.charle

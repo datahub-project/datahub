@@ -23,4 +23,4 @@ python -m build
 if [[ ! ${RELEASE_SKIP_UPLOAD:-} ]]; then
     python -m twine upload 'dist/*'
 fi
-git restore src/${MODULE}/__init__.py
+mv src/${MODULE}/__init__.py.bak src/${MODULE}/__init__.py

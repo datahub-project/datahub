@@ -1,9 +1,14 @@
 package com.linkedin.metadata.resources.entity;
 
-import static com.linkedin.metadata.Constants.*;
+import static com.datahub.authorization.AuthUtil.isAPIAuthorized;
+import static com.datahub.authorization.AuthUtil.isAPIAuthorizedEntityUrns;
+import static com.datahub.authorization.AuthUtil.isAPIAuthorizedUrns;
+import static com.linkedin.metadata.authorization.ApiGroup.COUNTS;
+import static com.linkedin.metadata.authorization.ApiGroup.ENTITY;
+import static com.linkedin.metadata.authorization.ApiGroup.TIMESERIES;
+import static com.linkedin.metadata.authorization.ApiOperation.READ;
 import static com.linkedin.metadata.resources.operations.OperationsResource.*;
 import static com.linkedin.metadata.resources.restli.RestliConstants.*;
-import static com.linkedin.metadata.resources.restli.RestliUtils.*;
 
 import com.codahale.metrics.MetricRegistry;
 import com.datahub.authentication.Authentication;
@@ -11,12 +16,12 @@ import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authorization.EntitySpec;
 import com.datahub.plugins.auth.authorization.Authorizer;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.ImmutableList;
 import com.linkedin.aspect.GetTimeseriesAspectValuesResponse;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.aspect.EnvelopedAspectArray;
 import com.linkedin.metadata.aspect.VersionedAspect;
+import com.linkedin.metadata.authorization.Disjunctive;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.IngestResult;
@@ -29,7 +34,6 @@ import com.linkedin.metadata.resources.operations.Utils;
 import com.linkedin.metadata.restli.RestliUtil;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
-import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.parseq.Task;
@@ -43,11 +47,13 @@ import com.linkedin.restli.server.annotations.QueryParam;
 import com.linkedin.restli.server.annotations.RestLiCollection;
 import com.linkedin.restli.server.annotations.RestMethod;
 import com.linkedin.restli.server.resources.CollectionResourceTaskTemplate;
+import com.linkedin.util.Pair;
 import io.opentelemetry.extension.annotations.WithSpan;
 import java.net.URISyntaxException;
 import java.time.Clock;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.inject.Inject;
@@ -86,11 +92,11 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
 
   @Inject
   @Named("entitySearchService")
-  private EntitySearchService _entitySearchService;
+  private EntitySearchService entitySearchService;
 
   @Inject
   @Named("timeseriesAspectService")
-  private TimeseriesAspectService _timeseriesAspectService;
+  private TimeseriesAspectService timeseriesAspectService;
 
   @Inject
   @Named("authorizerChain")
@@ -117,15 +123,13 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
     final Urn urn = Urn.createFromString(urnStr);
     return RestliUtil.toTask(
         () -> {
-          Authentication authentication = AuthenticationContext.getAuthentication();
-          if (Boolean.parseBoolean(System.getenv(REST_API_AUTHORIZATION_ENABLED_ENV))
-              && !isAuthorized(
-                  authentication,
+          if (!isAPIAuthorizedEntityUrns(
+                  AuthenticationContext.getAuthentication(),
                   _authorizer,
-                  ImmutableList.of(PoliciesConfig.GET_ENTITY_PRIVILEGE),
-                  new EntitySpec(urn.getEntityType(), urn.toString()))) {
+                  READ,
+                  List.of(urn))) {
             throw new RestLiServiceException(
-                HttpStatus.S_401_UNAUTHORIZED, "User is unauthorized to get aspect for " + urn);
+                HttpStatus.S_403_FORBIDDEN, "User is unauthorized to get aspect for " + urn);
           }
           final VersionedAspect aspect =
               _entityService.getVersionedAspect(urn, aspectName, version);
@@ -164,15 +168,13 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
     final Urn urn = Urn.createFromString(urnStr);
     return RestliUtil.toTask(
         () -> {
-          Authentication authentication = AuthenticationContext.getAuthentication();
-          if (Boolean.parseBoolean(System.getenv(REST_API_AUTHORIZATION_ENABLED_ENV))
-              && !isAuthorized(
-                  authentication,
+          if (!isAPIAuthorizedUrns(
+                  AuthenticationContext.getAuthentication(),
                   _authorizer,
-                  ImmutableList.of(PoliciesConfig.GET_TIMESERIES_ASPECT_PRIVILEGE),
-                  new EntitySpec(urn.getEntityType(), urn.toString()))) {
+                  TIMESERIES, READ,
+                  List.of(urn))) {
             throw new RestLiServiceException(
-                HttpStatus.S_401_UNAUTHORIZED,
+                HttpStatus.S_403_FORBIDDEN,
                 "User is unauthorized to get timeseries aspect for " + urn);
           }
           GetTimeseriesAspectValuesResponse response = new GetTimeseriesAspectValuesResponse();
@@ -191,7 +193,7 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
           }
           response.setValues(
               new EnvelopedAspectArray(
-                  _timeseriesAspectService.getAspectValues(
+                  timeseriesAspectService.getAspectValues(
                       urn,
                       entityName,
                       aspectName,
@@ -222,19 +224,21 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
     }
 
     Authentication authentication = AuthenticationContext.getAuthentication();
-    com.linkedin.metadata.models.EntitySpec entitySpec =
-        _entityService.getEntityRegistry().getEntitySpec(metadataChangeProposal.getEntityType());
-    Urn urn =
-        EntityKeyUtils.getUrnFromProposal(metadataChangeProposal, entitySpec.getKeyAspectSpec());
-    if (Boolean.parseBoolean(System.getenv(REST_API_AUTHORIZATION_ENABLED_ENV))
-        && !isAuthorized(
-            authentication,
-            _authorizer,
-            ImmutableList.of(PoliciesConfig.EDIT_ENTITY_PRIVILEGE),
-            new EntitySpec(urn.getEntityType(), urn.toString()))) {
-      throw new RestLiServiceException(
-          HttpStatus.S_401_UNAUTHORIZED, "User is unauthorized to modify entity " + urn);
-    }
+
+    /*
+      Ingest Authorization Checks
+     */
+     List<Pair<MetadataChangeProposal, Integer>> exceptions = isAPIAuthorized(authentication, _authorizer, ENTITY,
+             _entityService.getEntityRegistry(), List.of(metadataChangeProposal))
+             .stream().filter(p -> p.getSecond() != HttpStatus.S_200_OK.getCode())
+             .collect(Collectors.toList());
+     if (!exceptions.isEmpty()) {
+         throw new RestLiServiceException(
+                 HttpStatus.S_403_FORBIDDEN, "User is unauthorized to modify entity: " + exceptions.stream()
+                 .map(ex -> String.format("HttpStatus: %s Urn: %s", ex.getSecond(), ex.getFirst().getEntityUrn()))
+                 .collect(Collectors.toList()));
+     }
+
     String actorUrnStr = authentication.getActor().toUrnStr();
     final AuditStamp auditStamp =
         new AuditStamp().setTime(_clock.millis()).setActor(Urn.createFromString(actorUrnStr));
@@ -249,13 +253,13 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
         Set<IngestResult> results =
                 _entityService.ingestProposal(batch, asyncBool);
 
-            IngestResult one = results.stream().findFirst().get();
+            java.util.Optional<IngestResult> one = results.stream().findFirst();
 
             // Update runIds, only works for existing documents, so ES document must exist
-            Urn resultUrn = one.getUrn();
-            if (one.isProcessedMCL() || one.isUpdate()) {
+            Urn resultUrn = one.map(IngestResult::getUrn).orElse(metadataChangeProposal.getEntityUrn());
+            if (one.map(result -> result.isProcessedMCL() || result.isUpdate()).orElse(false)) {
               tryIndexRunId(
-                  resultUrn, metadataChangeProposal.getSystemMetadata(), _entitySearchService);
+                  resultUrn, metadataChangeProposal.getSystemMetadata(), entitySearchService);
             }
             return resultUrn.toString();
           } catch (ValidationException e) {
@@ -273,15 +277,12 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
       @ActionParam(PARAM_URN_LIKE) @Optional @Nullable String urnLike) {
     return RestliUtil.toTask(
         () -> {
-          Authentication authentication = AuthenticationContext.getAuthentication();
-          if (Boolean.parseBoolean(System.getenv(REST_API_AUTHORIZATION_ENABLED_ENV))
-              && !isAuthorized(
-                  authentication,
+          if (!isAPIAuthorized(
+                  AuthenticationContext.getAuthentication(),
                   _authorizer,
-                  ImmutableList.of(PoliciesConfig.GET_COUNTS_PRIVILEGE),
-                  (EntitySpec) null)) {
+                  COUNTS, READ)) {
             throw new RestLiServiceException(
-                HttpStatus.S_401_UNAUTHORIZED, "User is unauthorized to get aspect counts.");
+                HttpStatus.S_403_FORBIDDEN, "User is unauthorized to get aspect counts.");
           }
           return _entityService.getCountAspect(aspectName, urnLike);
         },
@@ -296,11 +297,21 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
       @ActionParam(PARAM_URN) @Optional @Nullable String urn,
       @ActionParam(PARAM_URN_LIKE) @Optional @Nullable String urnLike,
       @ActionParam("start") @Optional @Nullable Integer start,
-      @ActionParam("batchSize") @Optional @Nullable Integer batchSize) {
+      @ActionParam("batchSize") @Optional @Nullable Integer batchSize,
+      @ActionParam("limit") @Optional @Nullable Integer limit,
+      @ActionParam("gePitEpochMs") @Optional @Nullable Long gePitEpochMs,
+      @ActionParam("lePitEpochMs") @Optional @Nullable Long lePitEpochMs) {
     return RestliUtil.toTask(
         () -> {
+            if (!isAPIAuthorized(
+                    AuthenticationContext.getAuthentication(),
+                    _authorizer,
+                    PoliciesConfig.RESTORE_INDICES_PRIVILEGE)) {
+                throw new RestLiServiceException(
+                        HttpStatus.S_403_FORBIDDEN, "User is unauthorized to update entities.");
+            }
           return Utils.restoreIndices(
-              aspectName, urn, urnLike, start, batchSize, _authorizer, _entityService);
+              aspectName, urn, urnLike, start, batchSize, limit, gePitEpochMs, lePitEpochMs, _authorizer, _entityService);
         },
         MetricRegistry.name(this.getClass(), "restoreIndices"));
   }

@@ -90,7 +90,7 @@ public class ContainerType
               ASPECTS_TO_FETCH,
               context.getAuthentication());
 
-      final List<EntityResponse> gmsResults = new ArrayList<>();
+      final List<EntityResponse> gmsResults = new ArrayList<>(urns.size());
       for (Urn urn : containerUrns) {
         gmsResults.add(entities.getOrDefault(urn, null));
       }
@@ -100,7 +100,7 @@ public class ContainerType
                   gmsResult == null
                       ? null
                       : DataFetcherResult.<Container>newResult()
-                          .data(ContainerMapper.map(gmsResult))
+                          .data(ContainerMapper.map(context, gmsResult))
                           .build())
           .collect(Collectors.toList());
     } catch (Exception e) {
@@ -133,7 +133,7 @@ public class ContainerType
             facetFilters,
             start,
             count);
-    return UrnSearchResultsMapper.map(searchResult);
+    return UrnSearchResultsMapper.map(context, searchResult);
   }
 
   @Override
@@ -147,6 +147,6 @@ public class ContainerType
     final AutoCompleteResult result =
         _entityClient.autoComplete(
             context.getOperationContext(), ENTITY_NAME, query, filters, limit);
-    return AutoCompleteResultsMapper.map(result);
+    return AutoCompleteResultsMapper.map(context, result);
   }
 }

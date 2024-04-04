@@ -1,23 +1,27 @@
 package io.datahubproject.openapi.v2.controller;
 
-import static io.datahubproject.openapi.v2.utils.ControllerUtil.checkAuthorized;
+import static com.linkedin.metadata.authorization.ApiOperation.CREATE;
+import static com.linkedin.metadata.authorization.ApiOperation.DELETE;
+import static com.linkedin.metadata.authorization.ApiOperation.EXISTS;
+import static com.linkedin.metadata.authorization.ApiOperation.READ;
+import static com.linkedin.metadata.authorization.ApiOperation.UPDATE;
 
 import com.datahub.authentication.Actor;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
+import com.datahub.authorization.AuthUtil;
 import com.datahub.authorization.AuthorizerChain;
 import com.datahub.util.RecordUtils;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.ByteString;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.entity.EnvelopedAspect;
+import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.batch.ChangeMCP;
 import com.linkedin.metadata.aspect.patch.GenericJsonPatch;
 import com.linkedin.metadata.aspect.patch.template.common.GenericPatchTemplate;
-import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.UpdateAspectResult;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
@@ -38,6 +42,8 @@ import com.linkedin.metadata.utils.SearchUtil;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.RequestContext;
+import io.datahubproject.openapi.exception.UnauthorizedException;
 import io.datahubproject.openapi.v2.models.BatchGetUrnRequest;
 import io.datahubproject.openapi.v2.models.BatchGetUrnResponse;
 import io.datahubproject.openapi.v2.models.GenericEntity;
@@ -85,7 +91,6 @@ public class EntityController {
   @Autowired private SearchService searchService;
   @Autowired private EntityService<?> entityService;
   @Autowired private AuthorizerChain authorizationChain;
-  @Autowired private boolean restApiAuthorizationEnabled;
   @Autowired private ObjectMapper objectMapper;
 
   @Qualifier("systemOperationContext")
@@ -109,18 +114,20 @@ public class EntityController {
       throws URISyntaxException {
 
     EntitySpec entitySpec = entityRegistry.getEntitySpec(entityName);
-
     Authentication authentication = AuthenticationContext.getAuthentication();
-    if (restApiAuthorizationEnabled) {
-      checkAuthorized(
-          authorizationChain,
-          authentication.getActor(),
-          entitySpec,
-          ImmutableList.of(PoliciesConfig.GET_ENTITY_PRIVILEGE.getType()));
+
+    if (!AuthUtil.isAPIAuthorizedEntityType(authentication, authorizationChain, READ, entityName)) {
+      throw new UnauthorizedException(
+          authentication.getActor().toUrnStr() + " is unauthorized to " + READ + "  entities.");
     }
+
     OperationContext opContext =
         OperationContext.asSession(
-            systemOperationContext, authorizationChain, authentication, true);
+            systemOperationContext,
+            RequestContext.builder().buildOpenapi("getEntities", entityName),
+            authorizationChain,
+            authentication,
+            true);
 
     // TODO: support additional and multiple sort params
     SortCriterion sortCriterion = SearchUtil.sortBy(sortField, SortOrder.valueOf(sortOrder));
@@ -136,6 +143,11 @@ public class EntityController {
             null,
             count);
 
+    if (!AuthUtil.isAPIAuthorizedResult(authentication, authorizationChain, result)) {
+      throw new UnauthorizedException(
+          authentication.getActor().toUrnStr() + " is unauthorized to " + READ + " entities.");
+    }
+
     return ResponseEntity.ok(
         GenericScrollResult.<GenericEntity>builder()
             .results(toRecordTemplates(result.getEntities(), aspectNames, withSystemMetadata))
@@ -150,19 +162,12 @@ public class EntityController {
       @PathVariable("entityName") String entityName, @RequestBody BatchGetUrnRequest request)
       throws URISyntaxException {
 
-    if (restApiAuthorizationEnabled) {
-      Authentication authentication = AuthenticationContext.getAuthentication();
-      EntitySpec entitySpec = entityRegistry.getEntitySpec(entityName);
-      request
-          .getUrns()
-          .forEach(
-              entityUrn ->
-                  checkAuthorized(
-                      authorizationChain,
-                      authentication.getActor(),
-                      entitySpec,
-                      entityUrn,
-                      ImmutableList.of(PoliciesConfig.GET_ENTITY_PRIVILEGE.getType())));
+    List<Urn> urns = request.getUrns().stream().map(UrnUtils::getUrn).collect(Collectors.toList());
+
+    Authentication authentication = AuthenticationContext.getAuthentication();
+    if (!AuthUtil.isAPIAuthorizedEntityUrns(authentication, authorizationChain, READ, urns)) {
+      throw new UnauthorizedException(
+          authentication.getActor().toUrnStr() + " is unauthorized to " + READ + "  entities.");
     }
 
     return ResponseEntity.of(
@@ -171,9 +176,7 @@ public class EntityController {
                 .entities(
                     new ArrayList<>(
                         toRecordTemplates(
-                            request.getUrns().stream()
-                                .map(UrnUtils::getUrn)
-                                .collect(Collectors.toList()),
+                            urns,
                             new HashSet<>(request.getAspectNames()),
                             request.isWithSystemMetadata())))
                 .build()));
@@ -191,21 +194,16 @@ public class EntityController {
           Boolean withSystemMetadata)
       throws URISyntaxException {
 
-    if (restApiAuthorizationEnabled) {
-      Authentication authentication = AuthenticationContext.getAuthentication();
-      EntitySpec entitySpec = entityRegistry.getEntitySpec(entityName);
-      checkAuthorized(
-          authorizationChain,
-          authentication.getActor(),
-          entitySpec,
-          entityUrn,
-          ImmutableList.of(PoliciesConfig.GET_ENTITY_PRIVILEGE.getType()));
+    Urn urn = UrnUtils.getUrn(entityUrn);
+    Authentication authentication = AuthenticationContext.getAuthentication();
+    if (!AuthUtil.isAPIAuthorizedEntityUrns(
+        authentication, authorizationChain, READ, List.of(urn))) {
+      throw new UnauthorizedException(
+          authentication.getActor().toUrnStr() + " is unauthorized to " + READ + " entities.");
     }
 
     return ResponseEntity.of(
-        toRecordTemplates(List.of(UrnUtils.getUrn(entityUrn)), aspectNames, withSystemMetadata)
-            .stream()
-            .findFirst());
+        toRecordTemplates(List.of(urn), aspectNames, withSystemMetadata).stream().findFirst());
   }
 
   @Tag(name = "Generic Entities")
@@ -216,18 +214,15 @@ public class EntityController {
   public ResponseEntity<Object> headEntity(
       @PathVariable("entityName") String entityName, @PathVariable("entityUrn") String entityUrn) {
 
-    if (restApiAuthorizationEnabled) {
-      Authentication authentication = AuthenticationContext.getAuthentication();
-      EntitySpec entitySpec = entityRegistry.getEntitySpec(entityName);
-      checkAuthorized(
-          authorizationChain,
-          authentication.getActor(),
-          entitySpec,
-          entityUrn,
-          ImmutableList.of(PoliciesConfig.GET_ENTITY_PRIVILEGE.getType()));
+    Urn urn = UrnUtils.getUrn(entityUrn);
+    Authentication authentication = AuthenticationContext.getAuthentication();
+    if (!AuthUtil.isAPIAuthorizedEntityUrns(
+        authentication, authorizationChain, EXISTS, List.of(urn))) {
+      throw new UnauthorizedException(
+          authentication.getActor().toUrnStr() + " is unauthorized to " + EXISTS + " entities.");
     }
 
-    return exists(UrnUtils.getUrn(entityUrn), null)
+    return exists(urn, null)
         ? ResponseEntity.noContent().build()
         : ResponseEntity.notFound().build();
   }
@@ -243,19 +238,16 @@ public class EntityController {
       @PathVariable("aspectName") String aspectName)
       throws URISyntaxException {
 
-    if (restApiAuthorizationEnabled) {
-      Authentication authentication = AuthenticationContext.getAuthentication();
-      EntitySpec entitySpec = entityRegistry.getEntitySpec(entityName);
-      checkAuthorized(
-          authorizationChain,
-          authentication.getActor(),
-          entitySpec,
-          entityUrn,
-          ImmutableList.of(PoliciesConfig.GET_ENTITY_PRIVILEGE.getType()));
+    Urn urn = UrnUtils.getUrn(entityUrn);
+    Authentication authentication = AuthenticationContext.getAuthentication();
+    if (!AuthUtil.isAPIAuthorizedEntityUrns(
+        authentication, authorizationChain, READ, List.of(urn))) {
+      throw new UnauthorizedException(
+          authentication.getActor().toUrnStr() + " is unauthorized to " + READ + " entities.");
     }
 
     return ResponseEntity.of(
-        toRecordTemplates(List.of(UrnUtils.getUrn(entityUrn)), Set.of(aspectName), true).stream()
+        toRecordTemplates(List.of(urn), Set.of(aspectName), true).stream()
             .findFirst()
             .flatMap(e -> e.getAspects().values().stream().findFirst()));
   }
@@ -270,18 +262,15 @@ public class EntityController {
       @PathVariable("entityUrn") String entityUrn,
       @PathVariable("aspectName") String aspectName) {
 
-    if (restApiAuthorizationEnabled) {
-      Authentication authentication = AuthenticationContext.getAuthentication();
-      EntitySpec entitySpec = entityRegistry.getEntitySpec(entityName);
-      checkAuthorized(
-          authorizationChain,
-          authentication.getActor(),
-          entitySpec,
-          entityUrn,
-          ImmutableList.of(PoliciesConfig.GET_ENTITY_PRIVILEGE.getType()));
+    Urn urn = UrnUtils.getUrn(entityUrn);
+    Authentication authentication = AuthenticationContext.getAuthentication();
+    if (!AuthUtil.isAPIAuthorizedEntityUrns(
+        authentication, authorizationChain, EXISTS, List.of(urn))) {
+      throw new UnauthorizedException(
+          authentication.getActor().toUrnStr() + " is unauthorized to " + EXISTS + " entities.");
     }
 
-    return exists(UrnUtils.getUrn(entityUrn), aspectName)
+    return exists(urn, aspectName)
         ? ResponseEntity.noContent().build()
         : ResponseEntity.notFound().build();
   }
@@ -293,15 +282,12 @@ public class EntityController {
       @PathVariable("entityName") String entityName, @PathVariable("entityUrn") String entityUrn) {
 
     EntitySpec entitySpec = entityRegistry.getEntitySpec(entityName);
-
-    if (restApiAuthorizationEnabled) {
-      Authentication authentication = AuthenticationContext.getAuthentication();
-      checkAuthorized(
-          authorizationChain,
-          authentication.getActor(),
-          entitySpec,
-          entityUrn,
-          ImmutableList.of(PoliciesConfig.DELETE_ENTITY_PRIVILEGE.getType()));
+    Urn urn = UrnUtils.getUrn(entityUrn);
+    Authentication authentication = AuthenticationContext.getAuthentication();
+    if (!AuthUtil.isAPIAuthorizedEntityUrns(
+        authentication, authorizationChain, DELETE, List.of(urn))) {
+      throw new UnauthorizedException(
+          authentication.getActor().toUrnStr() + " is unauthorized to " + DELETE + " entities.");
     }
 
     entityService.deleteAspect(entityUrn, entitySpec.getKeyAspectName(), Map.of(), true);
@@ -315,15 +301,12 @@ public class EntityController {
       @PathVariable("entityUrn") String entityUrn,
       @PathVariable("aspectName") String aspectName) {
 
-    if (restApiAuthorizationEnabled) {
-      Authentication authentication = AuthenticationContext.getAuthentication();
-      EntitySpec entitySpec = entityRegistry.getEntitySpec(entityName);
-      checkAuthorized(
-          authorizationChain,
-          authentication.getActor(),
-          entitySpec,
-          entityUrn,
-          ImmutableList.of(PoliciesConfig.DELETE_ENTITY_PRIVILEGE.getType()));
+    Urn urn = UrnUtils.getUrn(entityUrn);
+    Authentication authentication = AuthenticationContext.getAuthentication();
+    if (!AuthUtil.isAPIAuthorizedEntityUrns(
+        authentication, authorizationChain, DELETE, List.of(urn))) {
+      throw new UnauthorizedException(
+          authentication.getActor().toUrnStr() + " is unauthorized to " + DELETE + " entities.");
     }
 
     entityService.deleteAspect(entityUrn, aspectName, Map.of(), true);
@@ -340,24 +323,24 @@ public class EntityController {
       @PathVariable("aspectName") String aspectName,
       @RequestParam(value = "systemMetadata", required = false, defaultValue = "false")
           Boolean withSystemMetadata,
+      @RequestParam(value = "createIfNotExists", required = false, defaultValue = "false")
+          Boolean createIfNotExists,
       @RequestBody @Nonnull String jsonAspect)
       throws URISyntaxException {
 
+    Urn urn = UrnUtils.getUrn(entityUrn);
     EntitySpec entitySpec = entityRegistry.getEntitySpec(entityName);
     Authentication authentication = AuthenticationContext.getAuthentication();
 
-    if (restApiAuthorizationEnabled) {
-      checkAuthorized(
-          authorizationChain,
-          authentication.getActor(),
-          entitySpec,
-          entityUrn,
-          ImmutableList.of(PoliciesConfig.EDIT_ENTITY_PRIVILEGE.getType()));
+    if (!AuthUtil.isAPIAuthorizedEntityUrns(
+        authentication, authorizationChain, CREATE, List.of(urn))) {
+      throw new UnauthorizedException(
+          authentication.getActor().toUrnStr() + " is unauthorized to " + CREATE + " entities.");
     }
 
     AspectSpec aspectSpec = entitySpec.getAspectSpec(aspectName);
     ChangeMCP upsert =
-        toUpsertItem(UrnUtils.getUrn(entityUrn), aspectSpec, jsonAspect, authentication.getActor());
+        toUpsertItem(urn, aspectSpec, createIfNotExists, jsonAspect, authentication.getActor());
 
     List<UpdateAspectResult> results =
         entityService.ingestAspects(
@@ -403,20 +386,16 @@ public class EntityController {
           InstantiationException,
           IllegalAccessException {
 
+    Urn urn = UrnUtils.getUrn(entityUrn);
     EntitySpec entitySpec = entityRegistry.getEntitySpec(entityName);
     Authentication authentication = AuthenticationContext.getAuthentication();
-
-    if (restApiAuthorizationEnabled) {
-      checkAuthorized(
-          authorizationChain,
-          authentication.getActor(),
-          entitySpec,
-          entityUrn,
-          ImmutableList.of(PoliciesConfig.EDIT_ENTITY_PRIVILEGE.getType()));
+    if (!AuthUtil.isAPIAuthorizedEntityUrns(
+        authentication, authorizationChain, UPDATE, List.of(urn))) {
+      throw new UnauthorizedException(
+          authentication.getActor().toUrnStr() + " is unauthorized to " + UPDATE + " entities.");
     }
 
-    RecordTemplate currentValue =
-        entityService.getAspect(UrnUtils.getUrn(entityUrn), aspectName, 0);
+    RecordTemplate currentValue = entityService.getAspect(urn, aspectName, 0);
 
     AspectSpec aspectSpec = entitySpec.getAspectSpec(aspectName);
     GenericPatchTemplate<? extends RecordTemplate> genericPatchTemplate =
@@ -537,11 +516,16 @@ public class EntityController {
   }
 
   private ChangeMCP toUpsertItem(
-      Urn entityUrn, AspectSpec aspectSpec, String jsonAspect, Actor actor)
+      Urn entityUrn,
+      AspectSpec aspectSpec,
+      Boolean createIfNotExists,
+      String jsonAspect,
+      Actor actor)
       throws URISyntaxException {
     return ChangeItemImpl.builder()
         .urn(entityUrn)
         .aspectName(aspectSpec.getName())
+        .changeType(Boolean.TRUE.equals(createIfNotExists) ? ChangeType.CREATE : ChangeType.UPSERT)
         .auditStamp(AuditStampUtils.createAuditStamp(actor.toUrnStr()))
         .recordTemplate(
             GenericRecordUtils.deserializeAspect(

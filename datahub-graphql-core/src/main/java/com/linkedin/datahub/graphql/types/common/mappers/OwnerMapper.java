@@ -4,6 +4,7 @@ import static com.linkedin.datahub.graphql.resolvers.mutate.util.OwnerUtils.*;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.CorpGroup;
 import com.linkedin.datahub.graphql.generated.CorpUser;
 import com.linkedin.datahub.graphql.generated.EntityType;
@@ -11,6 +12,7 @@ import com.linkedin.datahub.graphql.generated.Owner;
 import com.linkedin.datahub.graphql.generated.OwnershipType;
 import com.linkedin.datahub.graphql.generated.OwnershipTypeEntity;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 /**
  * Maps Pegasus {@link RecordTemplate} objects to objects conforming to the GQL schema.
@@ -22,11 +24,16 @@ public class OwnerMapper {
   public static final OwnerMapper INSTANCE = new OwnerMapper();
 
   public static Owner map(
-      @Nonnull final com.linkedin.common.Owner owner, @Nonnull final Urn entityUrn) {
-    return INSTANCE.apply(owner, entityUrn);
+      @Nullable QueryContext context,
+      @Nonnull final com.linkedin.common.Owner owner,
+      @Nonnull final Urn entityUrn) {
+    return INSTANCE.apply(context, owner, entityUrn);
   }
 
-  public Owner apply(@Nonnull final com.linkedin.common.Owner owner, @Nonnull final Urn entityUrn) {
+  public Owner apply(
+      @Nullable QueryContext context,
+      @Nonnull final com.linkedin.common.Owner owner,
+      @Nonnull final Urn entityUrn) {
     final Owner result = new Owner();
     // Deprecated
     result.setType(Enum.valueOf(OwnershipType.class, owner.getType().toString()));
@@ -52,7 +59,7 @@ public class OwnerMapper {
       result.setOwner(partialOwner);
     }
     if (owner.hasSource()) {
-      result.setSource(OwnershipSourceMapper.map(owner.getSource()));
+      result.setSource(OwnershipSourceMapper.map(context, owner.getSource()));
     }
     result.setAssociatedUrn(entityUrn.toString());
     return result;

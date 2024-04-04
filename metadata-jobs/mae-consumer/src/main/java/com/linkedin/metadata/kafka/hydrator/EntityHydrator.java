@@ -32,7 +32,7 @@ public class EntityHydrator {
   private final DataJobHydrator _dataJobHydrator = new DataJobHydrator();
   private final DatasetHydrator _datasetHydrator = new DatasetHydrator();
 
-  public Optional<ObjectNode> getHydratedEntity(String entityTypeName, String urn) {
+  public Optional<ObjectNode> getHydratedEntity(String urn) {
     final ObjectNode document = JsonNodeFactory.instance.objectNode();
     // Hydrate fields from urn
     Urn urnObj;

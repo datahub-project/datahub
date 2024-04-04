@@ -88,7 +88,7 @@ public class CreateERModelRelationshipResolver
           try {
             log.debug("Create ERModelRelation input: {}", input);
             final Collection<MetadataChangeProposal> proposals =
-                ERModelRelationshipUpdateInputMapper.map(input, actor);
+                ERModelRelationshipUpdateInputMapper.map(context, input, actor);
             proposals.forEach(proposal -> proposal.setEntityUrn(inputUrn));
             try {
               _entityClient.batchIngestProposals(proposals, context.getAuthentication(), false);
@@ -96,6 +96,7 @@ public class CreateERModelRelationshipResolver
               throw new RuntimeException("Failed to create erModelRelationship entity", e);
             }
             return ERModelRelationMapper.map(
+                context,
                 _erModelRelationshipService.getERModelRelationshipResponse(
                     Urn.createFromString(inputUrn.toString()), authentication));
           } catch (Exception e) {

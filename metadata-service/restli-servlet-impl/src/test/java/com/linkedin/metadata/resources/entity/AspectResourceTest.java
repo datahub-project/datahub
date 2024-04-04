@@ -123,7 +123,7 @@ public class AspectResourceTest {
                     .request(req)
                     .build())));
     aspectResource.ingestProposal(mcp, "false");
-    verify(producer, times(10))
+    verify(producer, times(5))
         .produceMetadataChangeLog(eq(urn), any(AspectSpec.class), any(MetadataChangeLog.class));
     verifyNoMoreInteractions(producer);
   }

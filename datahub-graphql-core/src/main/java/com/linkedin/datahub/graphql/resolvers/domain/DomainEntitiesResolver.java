@@ -85,6 +85,7 @@ public class DomainEntitiesResolver implements DataFetcher<CompletableFuture<Sea
             }
 
             return UrnSearchResultsMapper.map(
+                context,
                 _entityClient.searchAcrossEntities(
                     context.getOperationContext(),
                     SEARCHABLE_ENTITY_TYPES.stream()
