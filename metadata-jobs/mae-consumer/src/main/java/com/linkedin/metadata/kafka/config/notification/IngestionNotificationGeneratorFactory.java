@@ -1,10 +1,11 @@
 package com.linkedin.metadata.kafka.config.notification;
 
 import com.datahub.notification.provider.SettingsProvider;
-import com.datahub.notification.recipient.SlackNotificationRecipientBuilder;
+import com.datahub.notification.recipient.NotificationRecipientBuilders;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.gms.factory.common.GraphClientFactory;
 import com.linkedin.gms.factory.notifications.SettingsProviderFactory;
+import com.linkedin.gms.factory.notifications.recipient.NotificationRecipientBuildersFactory;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.kafka.hook.notification.ingestion.IngestionNotificationGenerator;
@@ -20,7 +21,11 @@ import org.springframework.context.annotation.PropertySource;
 import org.springframework.context.annotation.Scope;
 
 @Configuration
-@Import({GraphClientFactory.class, SettingsProviderFactory.class})
+@Import({
+  GraphClientFactory.class,
+  SettingsProviderFactory.class,
+  NotificationRecipientBuildersFactory.class
+})
 @PropertySource(value = "classpath:/application.yml", factory = YamlPropertySourceFactory.class)
 public class IngestionNotificationGeneratorFactory {
 
@@ -37,8 +42,8 @@ public class IngestionNotificationGeneratorFactory {
   private SettingsProvider _settingsProvider;
 
   @Autowired
-  @Qualifier("slackNotificationRecipientBuilder")
-  private SlackNotificationRecipientBuilder _slackNotificationRecipientBuilder;
+  @Qualifier("notificationRecipientBuilders")
+  private NotificationRecipientBuilders _notificationRecipientBuilders;
 
   @Bean(name = "ingestionNotificationGenerator")
   @Scope("singleton")
@@ -52,6 +57,6 @@ public class IngestionNotificationGeneratorFactory {
         systemEntityClient,
         _graphClient,
         _settingsProvider,
-        _slackNotificationRecipientBuilder);
+        _notificationRecipientBuilders);
   }
 }

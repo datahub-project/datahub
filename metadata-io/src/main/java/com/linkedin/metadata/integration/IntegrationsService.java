@@ -1,10 +1,12 @@
 package com.linkedin.metadata.integration;
 
 import com.datahub.authentication.Authentication;
+import com.datahub.util.RecordUtils;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.event.notification.NotificationRequest;
 import com.linkedin.link.LinkPreviewInfo;
 import com.linkedin.link.LinkPreviewType;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
@@ -55,6 +57,7 @@ public class IntegrationsService {
 
   private static final String REGISTER_ACTION_ENDPOINT = "private/actions/register";
 
+  private static final String SEND_NOTIFICATION_ENDPOINT = "private/notifications/send";
   private static final String ANALYTICS_QUERY_ENDPOINT = "private/analytics/query";
 
   private final String integrationsServiceHost;
@@ -213,6 +216,54 @@ public class IntegrationsService {
     }
   }
 
+  public void sendNotification(@Nonnull final NotificationRequest notificationRequest) {
+    Objects.requireNonNull(notificationRequest, "notificationRequest must not be null");
+
+    CloseableHttpResponse response = null;
+    try {
+
+      // Build request
+      final HttpPost request =
+          new HttpPost(
+              String.format(
+                  "%s://%s:%s/%s",
+                  protocol,
+                  this.integrationsServiceHost,
+                  this.integrationsServicePort,
+                  SEND_NOTIFICATION_ENDPOINT));
+
+      addRequestHeaders(request);
+
+      final String jsonBody = buildNotificationRequestBodyJson(notificationRequest);
+      request.setEntity(new StringEntity(jsonBody, StandardCharsets.UTF_8));
+
+      // Execute request
+      response = executeRequest(request);
+
+      if (response.getStatusLine().getStatusCode() == HttpStatus.SC_OK) {
+        log.debug("Successfully sent notification to integrations service.");
+      } else {
+        // Otherwise, something went wrong. We bubble this up.
+        throw new RuntimeException(
+            String.format(
+                "Failed to send notification! Bad response from the Integrations Service: %s",
+                response.getStatusLine().toString()));
+      }
+    } catch (Exception e) {
+      throw new RuntimeException(
+          "Failed to send notification! Caught exception while attempting to send notification to integrations ervice.",
+          e);
+    } finally {
+      try {
+        if (response != null) {
+          response.close();
+        }
+      } catch (Exception e) {
+        log.error("Failed to close http response to integration service.", e);
+      }
+    }
+  }
+
   private void addRequestHeaders(@Nonnull final HttpUriRequest request) {
     // Add authorization header with DataHub frontend system id and secret.
     request.addHeader("Authorization", this.systemAuthentication.getCredentials());
@@ -249,6 +300,11 @@ public class IntegrationsService {
     objectNode.put("type", type.toString());
     objectNode.put("url", url);
     return objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(objectNode);
+  }
+
+  private static String buildNotificationRequestBodyJson(
+      @Nonnull final NotificationRequest notificationRequest) {
+    return RecordUtils.toJsonString(notificationRequest);
   }
 
   private static LinkPreviewInfo buildGetLinkPreviewResult(

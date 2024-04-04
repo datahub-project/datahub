@@ -1,5 +1,9 @@
 package com.datahub.notification;
 
+import com.linkedin.data.template.GetMode;
+import com.linkedin.data.template.SetMode;
+import com.linkedin.event.notification.NotificationRecipient;
+import com.linkedin.event.notification.NotificationRecipientArray;
 import com.linkedin.event.notification.NotificationRequest;
 import com.linkedin.event.notification.NotificationSinkType;
 import java.util.ArrayList;
@@ -67,6 +71,7 @@ public class NotificationSinkManager {
     // 3. Send the messages via each sink.
     final List<CompletableFuture<Void>> notificationFutures = new ArrayList<>();
     for (final NotificationSink sink : eligibleSinks) {
+
       log.info(
           "Sinking notification request to sink with type {}", sink.getClass().getCanonicalName());
 
@@ -75,7 +80,16 @@ public class NotificationSinkManager {
           CompletableFuture.runAsync(
               () -> {
                 try {
-                  sink.send(request, new NotificationContext());
+                  final NotificationRequest finalRequest =
+                      filterForEligibleRecipients(request, sink);
+                  if (finalRequest.getRecipients().isEmpty()) {
+                    log.info(
+                        String.format(
+                            "Skipping notification request for sink %s. No eligible recipients found.",
+                            sink.getClass()));
+                    return;
+                  }
+                  sink.send(finalRequest, new NotificationContext());
                 } catch (Exception e) {
                   log.error(
                       String.format(
@@ -117,6 +131,19 @@ public class NotificationSinkManager {
       validateRequiredParameters(templateType, parameters);
     }
     return templateType;
+  }
+
+  @Nonnull
+  private NotificationRequest filterForEligibleRecipients(
+      @Nonnull final NotificationRequest request, @Nonnull final NotificationSink sink) {
+    final List<NotificationRecipient> eligibleRecipients =
+        request.getRecipients().stream()
+            .filter(recipient -> sink.recipientTypes().contains(recipient.getType()))
+            .collect(Collectors.toList());
+    return new NotificationRequest()
+        .setMessage(request.getMessage())
+        .setRecipients(new NotificationRecipientArray(eligibleRecipients))
+        .setSinks(request.getSinks(GetMode.NULL), SetMode.IGNORE_NULL);
   }
 
   private void validateRequiredParameters(

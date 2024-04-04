@@ -23,6 +23,7 @@ import com.linkedin.event.notification.NotificationRecipientArray;
 import com.linkedin.event.notification.NotificationRecipientType;
 import com.linkedin.event.notification.NotificationRequest;
 import com.linkedin.metadata.connection.ConnectionService;
+import com.linkedin.metadata.integration.IntegrationsService;
 import com.linkedin.settings.global.GlobalIntegrationSettings;
 import com.linkedin.settings.global.GlobalNotificationSettings;
 import com.linkedin.settings.global.GlobalSettingsInfo;
@@ -54,6 +55,8 @@ public class SlackNotificationSinkTest {
     SettingsProvider mockSettingsProvider = Mockito.mock(SettingsProvider.class);
     IdentityProvider mockIdentityProvider = Mockito.mock(IdentityProvider.class);
     SecretProvider mockSecretProvider = Mockito.mock(SecretProvider.class);
+    IntegrationsService mockIntegrationsService = Mockito.mock(IntegrationsService.class);
+
     SlackNotificationSink sink = new SlackNotificationSink();
 
     ConnectionService mockConnectionService = Mockito.mock(ConnectionService.class);
@@ -69,6 +72,7 @@ public class SlackNotificationSinkTest {
             mockIdentityProvider,
             mockSecretProvider,
             mockConnectionService,
+            mockIntegrationsService,
             TEST_BASE_URL));
 
     // Case 2: No Connection, Static config with bot token and default channel
@@ -87,6 +91,7 @@ public class SlackNotificationSinkTest {
             mockIdentityProvider,
             mockSecretProvider,
             mockConnectionService,
+            mockIntegrationsService,
             TEST_BASE_URL));
   }
 
@@ -105,6 +110,8 @@ public class SlackNotificationSinkTest {
     IdentityProvider mockIdentityProvider = Mockito.mock(IdentityProvider.class);
     Mockito.when(mockIdentityProvider.getUser(TEST_USER_URN)).thenReturn(testUser());
     SecretProvider mockSecretProvider = Mockito.mock(SecretProvider.class);
+    IntegrationsService mockIntegrationsService = Mockito.mock(IntegrationsService.class);
+
     Mockito.when(mockSecretProvider.decryptSecret("blob"))
         .thenReturn("{\"bot_token\": \"test-token\"}");
 
@@ -121,6 +128,7 @@ public class SlackNotificationSinkTest {
             mockIdentityProvider,
             mockSecretProvider,
             mockConnectionService,
+            mockIntegrationsService,
             TEST_BASE_URL));
 
     Assert.assertTrue(sink.isEnabled());
@@ -138,6 +146,7 @@ public class SlackNotificationSinkTest {
             mockIdentityProvider,
             mockSecretProvider,
             mockConnectionService,
+            mockIntegrationsService,
             TEST_BASE_URL));
 
     Assert.assertTrue(sink.isEnabled());
@@ -156,6 +165,7 @@ public class SlackNotificationSinkTest {
             mockIdentityProvider,
             mockSecretProvider,
             mockConnectionService,
+            mockIntegrationsService,
             TEST_BASE_URL));
 
     Assert.assertTrue(sink.isEnabled());
@@ -210,6 +220,7 @@ public class SlackNotificationSinkTest {
     IdentityProvider mockIdentityProvider = Mockito.mock(IdentityProvider.class);
     Mockito.when(mockIdentityProvider.getUser(TEST_USER_URN)).thenReturn(testUser());
     SecretProvider mockSecretProvider = Mockito.mock(SecretProvider.class);
+    IntegrationsService mockIntegrationsService = Mockito.mock(IntegrationsService.class);
 
     // Init the slack client mock
     MethodsClient mockSlackClient = Mockito.mock(MethodsClient.class);
@@ -266,6 +277,7 @@ public class SlackNotificationSinkTest {
             mockIdentityProvider,
             mockSecretProvider,
             mockConnectionService,
+            mockIntegrationsService,
             TEST_BASE_URL));
 
     // Now, construct a message request and verify that it is sent to the slack client.
@@ -289,13 +301,10 @@ public class SlackNotificationSinkTest {
                     .setId(TEST_USER_URN.toString()),
                 // Custom Channel Recipient
                 new NotificationRecipient()
-                    .setType(NotificationRecipientType.CUSTOM)
-                    .setCustomType("SLACK_CHANNEL")
+                    .setType(NotificationRecipientType.SLACK_CHANNEL)
                     .setId("#test-channel"),
                 // Default Channel Recipient
-                new NotificationRecipient()
-                    .setType(NotificationRecipientType.CUSTOM)
-                    .setCustomType("SLACK_CHANNEL"))));
+                new NotificationRecipient().setType(NotificationRecipientType.SLACK_CHANNEL))));
 
     // Send the request
     sink.send(notificationRequest, new NotificationContext());
@@ -326,6 +335,7 @@ public class SlackNotificationSinkTest {
     SecretProvider mockSecretProvider = Mockito.mock(SecretProvider.class);
     MethodsClient mockSlackClient = Mockito.mock(MethodsClient.class);
     ConnectionService mockConnectionService = Mockito.mock(ConnectionService.class);
+    IntegrationsService mockIntegrationsService = Mockito.mock(IntegrationsService.class);
 
     // Init with a mock slack client.
     SlackNotificationSink sink = new SlackNotificationSink(mockSlackClient);
@@ -336,6 +346,7 @@ public class SlackNotificationSinkTest {
             mockIdentityProvider,
             mockSecretProvider,
             mockConnectionService,
+            mockIntegrationsService,
             "http://localhost:9002"));
 
     // Now, construct a message request and verify that it is sent to the slack client.
@@ -381,6 +392,7 @@ public class SlackNotificationSinkTest {
     IdentityProvider mockIdentityProvider = Mockito.mock(IdentityProvider.class);
     Mockito.when(mockIdentityProvider.getUser(TEST_USER_URN)).thenReturn(testUser());
     SecretProvider mockSecretProvider = Mockito.mock(SecretProvider.class);
+    IntegrationsService mockIntegrationsService = Mockito.mock(IntegrationsService.class);
 
     // Init the slack client mock
     MethodsClient mockSlackClient = Mockito.mock(MethodsClient.class);
@@ -421,6 +433,7 @@ public class SlackNotificationSinkTest {
             mockIdentityProvider,
             mockSecretProvider,
             mockConnectionService,
+            mockIntegrationsService,
             TEST_BASE_URL));
 
     // Now, construct an assertion message request and verify that it is sent to the slack client.
@@ -453,8 +466,102 @@ public class SlackNotificationSinkTest {
             ImmutableList.of(
                 // Custom DM recipient
                 new NotificationRecipient()
-                    .setType(NotificationRecipientType.CUSTOM)
-                    .setCustomType("SLACK_DM")
+                    .setType(NotificationRecipientType.SLACK_DM)
+                    .setId("12345"))));
+
+    // Send the request
+    sink.send(notificationRequest, new NotificationContext());
+
+    Mockito.verify(mockSlackClient, Mockito.times(1)).chatPostMessage(Mockito.eq(dmMsgRequest));
+  }
+
+  @Test
+  public void testDeprecationNotification() throws Exception {
+    /*
+     * This test verifies that sending a notification for deprecation updates work as expected.
+     */
+    SettingsProvider mockSettingsProvider = Mockito.mock(SettingsProvider.class);
+    Mockito.when(mockSettingsProvider.getGlobalSettings()).thenReturn(enabledSettings());
+    ConnectionService mockConnectionService = Mockito.mock(ConnectionService.class);
+    Mockito.when(mockConnectionService.getConnectionDetails(Mockito.any(Urn.class)))
+        .thenReturn(null);
+    IdentityProvider mockIdentityProvider = Mockito.mock(IdentityProvider.class);
+    Mockito.when(mockIdentityProvider.getUser(TEST_USER_URN)).thenReturn(testUser());
+    SecretProvider mockSecretProvider = Mockito.mock(SecretProvider.class);
+    IntegrationsService mockIntegrationsService = Mockito.mock(IntegrationsService.class);
+
+    // Init the slack client mock
+    MethodsClient mockSlackClient = Mockito.mock(MethodsClient.class);
+    UsersLookupByEmailRequest lookupRequests =
+        UsersLookupByEmailRequest.builder().email("test@gmail.com").build();
+    UsersLookupByEmailResponse lookupResponse = new UsersLookupByEmailResponse();
+    lookupResponse.setOk(true);
+    User slackUser = new User();
+    slackUser.setId("test-id");
+    lookupResponse.setUser(slackUser);
+    Mockito.when(mockSlackClient.usersLookupByEmail(Mockito.eq(lookupRequests)))
+        .thenReturn(lookupResponse);
+
+    ChatPostMessageRequest dmMsgRequest =
+        ChatPostMessageRequest.builder()
+            .channel("12345")
+            .text(
+                String.format(
+                    ">:pencil2:  %s *<%s|%s>* has been %s by *%s*.",
+                    "Dataset",
+                    "http://localhost:9002/dataset/test",
+                    "SampleName",
+                    "marked as deprecated",
+                    "Test User"))
+            .iconUrl(String.format("http://localhost:9002%s", ACRYL_LOGO_FILE_PATH))
+            .build();
+    ChatPostMessageResponse defaultChannelMsgResponse = new ChatPostMessageResponse();
+    defaultChannelMsgResponse.setOk(true);
+    Mockito.when(mockSlackClient.chatPostMessage(Mockito.eq(dmMsgRequest)))
+        .thenReturn(defaultChannelMsgResponse);
+
+    // Init with a mock slack client.
+    SlackNotificationSink sink = new SlackNotificationSink(mockSlackClient);
+    sink.botToken = TEST_BOT_TOKEN;
+    sink.init(
+        new NotificationSinkConfig(
+            ImmutableMap.of("botToken", TEST_BOT_TOKEN, "defaultChannel", "#test"),
+            mockSettingsProvider,
+            mockIdentityProvider,
+            mockSecretProvider,
+            mockConnectionService,
+            mockIntegrationsService,
+            TEST_BASE_URL));
+
+    // Now, construct an assertion message request and verify that it is sent to the slack client.
+    NotificationRequest notificationRequest = new NotificationRequest();
+    notificationRequest.setMessage(
+        new NotificationMessage()
+            .setTemplate(
+                com.linkedin.event.notification.template.NotificationTemplateType.valueOf(
+                    NotificationTemplateType.BROADCAST_ENTITY_CHANGE.name()))
+            .setParameters(
+                new StringMap(
+                    ImmutableMap.of(
+                        "actorUrn",
+                        TEST_USER_URN.toString(),
+                        "entityType",
+                        "Dataset",
+                        "entityName",
+                        "SampleName",
+                        "entityPath",
+                        "/dataset/test",
+                        "operation",
+                        "marked as deprecated",
+                        "modifierType",
+                        "deprecation"))));
+
+    notificationRequest.setRecipients(
+        new NotificationRecipientArray(
+            ImmutableList.of(
+                // Custom DM recipient
+                new NotificationRecipient()
+                    .setType(NotificationRecipientType.SLACK_DM)
                     .setId("12345"))));
 
     // Send the request
@@ -477,6 +584,7 @@ public class SlackNotificationSinkTest {
     IdentityProvider mockIdentityProvider = Mockito.mock(IdentityProvider.class);
     Mockito.when(mockIdentityProvider.getUser(TEST_USER_URN)).thenReturn(testUser());
     SecretProvider mockSecretProvider = Mockito.mock(SecretProvider.class);
+    IntegrationsService mockIntegrationsService = Mockito.mock(IntegrationsService.class);
 
     // Init the slack client mock
     MethodsClient mockSlackClient = Mockito.mock(MethodsClient.class);
@@ -517,6 +625,7 @@ public class SlackNotificationSinkTest {
             mockIdentityProvider,
             mockSecretProvider,
             mockConnectionService,
+            mockIntegrationsService,
             TEST_BASE_URL));
 
     // Now, construct an assertion message request and verify that it is sent to the slack client.
@@ -553,8 +662,7 @@ public class SlackNotificationSinkTest {
             ImmutableList.of(
                 // Custom DM recipient
                 new NotificationRecipient()
-                    .setType(NotificationRecipientType.CUSTOM)
-                    .setCustomType("SLACK_DM")
+                    .setType(NotificationRecipientType.SLACK_DM)
                     .setId("12345"))));
 
     // Send the request
@@ -577,6 +685,7 @@ public class SlackNotificationSinkTest {
     IdentityProvider mockIdentityProvider = Mockito.mock(IdentityProvider.class);
     Mockito.when(mockIdentityProvider.getUser(TEST_USER_URN)).thenReturn(testUser());
     SecretProvider mockSecretProvider = Mockito.mock(SecretProvider.class);
+    IntegrationsService mockIntegrationsService = Mockito.mock(IntegrationsService.class);
 
     // Init the slack client mock
     MethodsClient mockSlackClient = Mockito.mock(MethodsClient.class);
@@ -619,6 +728,7 @@ public class SlackNotificationSinkTest {
             mockIdentityProvider,
             mockSecretProvider,
             mockConnectionService,
+            mockIntegrationsService,
             TEST_BASE_URL));
 
     // Now, construct an assertion message request and verify that it is sent to the slack client.
@@ -651,8 +761,7 @@ public class SlackNotificationSinkTest {
             ImmutableList.of(
                 // Custom DM recipient
                 new NotificationRecipient()
-                    .setType(NotificationRecipientType.CUSTOM)
-                    .setCustomType("SLACK_DM")
+                    .setType(NotificationRecipientType.SLACK_DM)
                     .setId("12345"))));
 
     // Send the request

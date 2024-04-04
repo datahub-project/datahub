@@ -21,6 +21,7 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.settings.NotificationSettingMap;
 import com.linkedin.settings.NotificationSettingValue;
+import com.linkedin.settings.global.EmailIntegrationSettings;
 import com.linkedin.settings.global.GlobalIntegrationSettings;
 import com.linkedin.settings.global.GlobalNotificationSettings;
 import com.linkedin.settings.global.GlobalSettingsInfo;
@@ -81,6 +82,10 @@ public class GlobalSettingsResolverTest {
         actual.getIntegrationSettings().getSlackSettings().getDefaultChannelName(),
         expected.getIntegrations().getSlackSettings().getDefaultChannelName());
 
+    assertEquals(
+        actual.getIntegrationSettings().getEmailSettings().getDefaultEmail(),
+        expected.getIntegrations().getEmailSettings().getDefaultEmail());
+
     // Verify notification settings settings.
     for (NotificationSetting actualSetting : actual.getNotificationSettings().getSettings()) {
       assertEquals(
@@ -137,7 +142,8 @@ public class GlobalSettingsResolverTest {
     globalSettingsInfo.setIntegrations(
         new GlobalIntegrationSettings()
             .setSlackSettings(
-                new SlackIntegrationSettings().setEnabled(true).setDefaultChannelName("test")));
+                new SlackIntegrationSettings().setEnabled(true).setDefaultChannelName("test"))
+            .setEmailSettings(new EmailIntegrationSettings().setDefaultEmail("test@test.com")));
     NotificationSettingMap map = new NotificationSettingMap();
     map.put(
         NotificationScenarioType.INGESTION_RUN_CHANGE.toString(),

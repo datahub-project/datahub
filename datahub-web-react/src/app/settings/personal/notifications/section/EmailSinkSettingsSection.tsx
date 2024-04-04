@@ -1,10 +1,8 @@
-import { MoreOutlined } from '@ant-design/icons';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components/macro';
 import { Typography, Switch, Input, Button, Form } from 'antd';
 import { ANTD_GRAY } from '../../../../entity/shared/constants';
-import { UpdateSettingsInput } from '../../../../shared/subscribe/drawer/useSinkSettings';
-import { NotificationSinkType } from '../../../../../types.generated';
+import { EmailNotificationSettings, EmailNotificationSettingsInput } from '../../../../../types.generated';
 
 const SinkSettings = styled.div`
     margin-top: 12px;
@@ -70,75 +68,73 @@ const HelperText = styled.div`
 type Props = {
     isPersonal: boolean;
     sinkEnabled: boolean;
-    sinkName: string;
-    updateSinkSetting: (input: UpdateSettingsInput) => void;
-    sinkSettingValue?: string;
+    sinkSupported: boolean;
+    updateSinkSetting: (input?: EmailNotificationSettingsInput) => void;
+    toggleSink: (enabled: boolean) => void;
+    settings?: EmailNotificationSettings;
     groupName?: string;
-    sinkTypes?: NotificationSinkType[];
 };
 
 /**
- * Notification sink settings section component
+ * Personal or Group Email settings section
  */
-export const SinkSettingsSection = ({
+export const EmailSinkSettingsSection = ({
     isPersonal,
+    sinkSupported,
     sinkEnabled,
-    sinkName,
-    sinkSettingValue,
+    settings,
     updateSinkSetting,
+    toggleSink,
     groupName,
-    sinkTypes,
 }: Props) => {
+    const email = settings?.email;
     const [editing, setIsEditing] = useState<boolean>(false);
-    const [allowEditing, setAllowEditing] = useState<boolean>(!!sinkTypes?.includes(NotificationSinkType.Slack));
-    const [inputValue, setInputValue] = useState(sinkSettingValue);
+    const [inputValue, setInputValue] = useState(email);
     const [form] = Form.useForm();
-    form.setFieldsValue({ slackFormValue: inputValue });
+
+    form.setFieldsValue({ emailFormValue: inputValue });
+
     useEffect(() => {
-        if (!sinkSettingValue) {
+        if (!email) {
             setIsEditing(true);
         } else {
             setIsEditing(false);
         }
-        setInputValue(sinkSettingValue);
-    }, [sinkSettingValue]);
-    useEffect(() => {
-        if (sinkTypes) {
-            setAllowEditing(sinkTypes.includes(NotificationSinkType.Slack));
-        }
-    }, [sinkTypes]);
+        setInputValue(email);
+    }, [email]);
 
     const actorDescription = isPersonal ? 'you are' : `${groupName || 'the group'} is`;
-    const sinkEnabledDescription = `Receive ${sinkName} notifications for entities ${actorDescription} subscribed to at ${sinkName} ${
-        isPersonal ? 'member' : 'channel'
-    } ID: `;
-    const sinkDisabledDescription = `In order to enable, ask your DataHub admin to setup the ${sinkName} integration.`;
-    const slackInputPlaceholder = isPersonal ? 'Slack Member ID' : 'Slack Channel ID';
+    const supportedSinkDescription = `Receive Email notifications for entities ${actorDescription} subscribed to.`;
+    const unsupportedSinkDescription = `In order to enable, ask your DataHub admin to enable Email notifications.`;
+
+    const saveSettings = () => {
+        const input = inputValue ? { email: inputValue } : undefined;
+        updateSinkSetting(input);
+    };
 
     const saveButtonOnClick = () => {
         if (inputValue) {
-            updateSinkSetting({ text: inputValue, sinkTypes: allowEditing ? [NotificationSinkType.Slack] : [] });
+            saveSettings();
         }
         setIsEditing(false);
     };
 
     const cancelButtonOnClick = () => {
-        setInputValue(sinkSettingValue);
+        setInputValue(email);
         setIsEditing(false);
     };
 
     const onToggle = (enabled: boolean) => {
-        setAllowEditing(enabled);
-        updateSinkSetting({ text: sinkSettingValue || '', sinkTypes: enabled ? [NotificationSinkType.Slack] : [] });
+        toggleSink(enabled);
     };
 
     return (
         <SinkSettings>
-            <Switch disabled={!sinkEnabled} checked={allowEditing && sinkEnabled} onChange={onToggle} />
+            <Switch disabled={!sinkSupported} checked={sinkEnabled} onChange={onToggle} />
             <SinkTextContainer>
-                <SinkTitle strong>{`${sinkName} Notifications`}</SinkTitle>
+                <SinkTitle strong>Email Notifications</SinkTitle>
                 <SinkDescription>
-                    {sinkEnabled ? sinkEnabledDescription : sinkDisabledDescription}
+                    {sinkSupported ? supportedSinkDescription : unsupportedSinkDescription}
                     {sinkEnabled && inputValue && !editing && (
                         <>
                             <strong>{inputValue}</strong>
@@ -154,12 +150,11 @@ export const SinkSettingsSection = ({
                             {editing && (
                                 <>
                                     <Form form={form}>
-                                        <StyledFormItem name="slackFormValue">
+                                        <StyledFormItem name="emailFormValue">
                                             <StyledInput
-                                                placeholder={slackInputPlaceholder}
+                                                placeholder="Email Address"
                                                 value={inputValue}
                                                 onChange={(e) => setInputValue(e.target.value)}
-                                                disabled={!allowEditing}
                                             />
                                         </StyledFormItem>
                                     </Form>
@@ -174,17 +169,7 @@ export const SinkSettingsSection = ({
                                 </>
                             )}
                         </SinkButtonsContainer>
-                        {editing && (
-                            <HelperText>
-                                {isPersonal ? (
-                                    <>
-                                        Find a member ID from the <MoreOutlined /> menu in your Slack profile
-                                    </>
-                                ) : (
-                                    <>Find a channel ID at the bottom of the &quot;About&quot; tab for a channel</>
-                                )}
-                            </HelperText>
-                        )}
+                        {editing && <HelperText>This is the email address where notifications will be sent</HelperText>}
                     </>
                 )}
             </SinkTextContainer>

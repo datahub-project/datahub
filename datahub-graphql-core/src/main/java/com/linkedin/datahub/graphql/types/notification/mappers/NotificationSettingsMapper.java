@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.types.notification.mappers;
 
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.generated.EmailNotificationSettings;
 import com.linkedin.datahub.graphql.generated.NotificationSettings;
 import com.linkedin.datahub.graphql.generated.NotificationSinkType;
 import com.linkedin.datahub.graphql.generated.SlackNotificationSettings;
@@ -43,6 +44,11 @@ public class NotificationSettingsMapper
     if (notificationSettings.hasSlackSettings()) {
       result.setSlackSettings(mapSlackSettings(notificationSettings.getSlackSettings()));
     }
+
+    if (notificationSettings.hasEmailSettings()) {
+      result.setEmailSettings(mapEmailSettings(notificationSettings.getEmailSettings()));
+    }
+
     return result;
   }
 
@@ -57,6 +63,16 @@ public class NotificationSettingsMapper
       result.setChannels(slackSettings.getChannels());
     }
 
+    return result;
+  }
+
+  private EmailNotificationSettings mapEmailSettings(
+      @Nonnull
+          final com.linkedin.event.notification.settings.EmailNotificationSettings emailSettings) {
+    final EmailNotificationSettings result = new EmailNotificationSettings();
+    if (emailSettings.hasEmail()) {
+      result.setEmail(emailSettings.getEmail());
+    }
     return result;
   }
 }

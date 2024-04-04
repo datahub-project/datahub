@@ -1,5 +1,6 @@
 import { aliasQuery, hasOperationName } from "../utils";
 const test_id = Math.floor(Math.random() * 100000);
+const test_email = `${test_id}@acryl.io`;
 const datasetUrn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,climate.daily_temperature,PROD)";
 const datasetName = "daily_temperature";
 const group_name = `Test group ${test_id}`;
@@ -63,12 +64,21 @@ describe("group subscription test", () => {
       cy.goToDataset(datasetUrn, datasetName);
       cy.clickOptionWithTestId("subscription-dropdown");
       cy.clickOptionWithText("Manage Group Subscriptions");
-      cy.waitTextVisible(group_name)
+      cy.openMultiSelect("select-group-dropdown");
+      cy.clickOptionWithText(group_name);
+
       cy.get(".ant-tree-checkbox").click({ multiple: true });
+
+      // Slack
       cy.clickOptionWithTestId("alternative-slack-radio");
       cy.enterTextInTestId("alternative-slack-member-id", test_id);
+
+      // Email
+      cy.clickOptionWithTestId("alternative-email-radio");
+      cy.enterTextInTestId("alternative-email", test_email);
+
       cy.clickOptionWithTestId("subscribe-button");
-      cy.waitTextVisible("Your group is now subcribed to this entity.").wait(3000);
+      cy.waitTextVisible("Your group is now subscribed to this entity.").wait(3000);
 
       // Verify subscription in not present in My Subscriptions
       cy.goToSubscriptionsSettings();
@@ -86,6 +96,10 @@ describe("group subscription test", () => {
       cy.goToDataset(datasetUrn, datasetName);
       cy.clickOptionWithTestId("subscription-dropdown");
       cy.clickOptionWithText("Manage Group Subscription");
+
+      cy.openMultiSelect("select-group-dropdown");
+      cy.clickOptionWithText(group_name);
+
       cy.get("[data-testid='cancel-button']").contains("Unsubscribe").click();
       cy.waitTextVisible("You have unsubscribed your group from this entity.").wait(3000);
       cy.visit(`/group/urn:li:corpGroup:${test_id}/subscriptions`);

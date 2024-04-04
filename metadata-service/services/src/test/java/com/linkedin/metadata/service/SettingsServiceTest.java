@@ -253,11 +253,6 @@ public class SettingsServiceTest {
   }
 
   @Test
-  public void testCreateSlackNotificationSettingsNullInputs() {
-    assertThrows(() -> _settingsService.createSlackNotificationSettings(null, null));
-  }
-
-  @Test
   public void testCreateSlackNotificationSettingsNullUserHandle() {
     final SlackNotificationSettings slackNotificationSettings =
         _settingsService.createSlackNotificationSettings(null, CHANNELS);

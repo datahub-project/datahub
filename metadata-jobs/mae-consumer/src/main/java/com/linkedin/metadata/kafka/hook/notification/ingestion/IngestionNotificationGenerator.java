@@ -3,15 +3,13 @@ package com.linkedin.metadata.kafka.hook.notification.ingestion;
 import com.datahub.notification.NotificationScenarioType;
 import com.datahub.notification.NotificationTemplateType;
 import com.datahub.notification.provider.SettingsProvider;
-import com.datahub.notification.recipient.SlackNotificationRecipientBuilder;
-import com.google.common.collect.ImmutableMap;
+import com.datahub.notification.recipient.NotificationRecipientBuilders;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.event.notification.NotificationRecipient;
 import com.linkedin.event.notification.NotificationRequest;
-import com.linkedin.event.notification.NotificationSinkType;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.execution.ExecutionRequestInput;
 import com.linkedin.execution.ExecutionRequestResult;
@@ -43,14 +41,14 @@ public class IngestionNotificationGenerator extends BaseMclNotificationGenerator
       @Nonnull final EntityClient entityClient,
       @Nonnull final GraphClient graphClient,
       @Nonnull final SettingsProvider settingsProvider,
-      @Nonnull final SlackNotificationRecipientBuilder slackNotificationRecipientBuilder) {
+      @Nonnull final NotificationRecipientBuilders notificationRecipientBuilders) {
     super(
         systemOpContext,
         eventProducer,
         entityClient,
         graphClient,
         settingsProvider,
-        ImmutableMap.of(NotificationSinkType.SLACK, slackNotificationRecipientBuilder));
+        notificationRecipientBuilders);
   }
 
   @Override

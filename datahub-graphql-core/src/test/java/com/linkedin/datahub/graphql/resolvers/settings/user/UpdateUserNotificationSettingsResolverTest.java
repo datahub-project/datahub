@@ -8,8 +8,11 @@ import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
 import com.datahub.authentication.Authentication;
+import com.google.common.collect.ImmutableList;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.generated.EmailNotificationSettingsInput;
 import com.linkedin.datahub.graphql.generated.NotificationSettingsInput;
+import com.linkedin.datahub.graphql.generated.NotificationSinkType;
 import com.linkedin.datahub.graphql.generated.SlackNotificationSettingsInput;
 import com.linkedin.datahub.graphql.generated.UpdateUserNotificationSettingsInput;
 import com.linkedin.datahub.graphql.resolvers.settings.NotificationSettingsMatcher;
@@ -42,7 +45,11 @@ public class UpdateUserNotificationSettingsResolverTest {
     final SlackNotificationSettingsInput slackSettings = new SlackNotificationSettingsInput();
     slackSettings.setUserHandle(SLACK_USER_HANDLE);
     notificationSettings.setSlackSettings(slackSettings);
-    notificationSettings.setSinkTypes(new ArrayList<>());
+    final EmailNotificationSettingsInput emailSettings = new EmailNotificationSettingsInput();
+    emailSettings.setEmail(EMAIL_ADDRESS);
+    notificationSettings.setEmailSettings(emailSettings);
+    notificationSettings.setSinkTypes(
+        new ArrayList<>(ImmutableList.of(NotificationSinkType.EMAIL, NotificationSinkType.SLACK)));
     input.setNotificationSettings(notificationSettings);
     when(_dataFetchingEnvironment.getArgument(eq("input"))).thenReturn(input);
 
@@ -61,6 +68,8 @@ public class UpdateUserNotificationSettingsResolverTest {
   public void testUpdateUserNotificationSettingsExceptionThrown() {
     when(_settingsService.createSlackNotificationSettings(eq(SLACK_USER_HANDLE), isNull()))
         .thenReturn(USER_SLACK_NOTIFICATION_SETTINGS);
+    when(_settingsService.createEmailNotificationSettings(eq(EMAIL_ADDRESS)))
+        .thenReturn(GROUP_EMAIL_NOTIFICATION_SETTINGS);
     doThrow(new RuntimeException())
         .when(_settingsService)
         .updateCorpUserSettings(eq(USER_URN), any(CorpUserSettings.class), eq(_authentication));
@@ -73,6 +82,8 @@ public class UpdateUserNotificationSettingsResolverTest {
     when(_settingsService.getCorpUserSettings(eq(USER_URN), eq(_authentication))).thenReturn(null);
     when(_settingsService.createSlackNotificationSettings(eq(SLACK_USER_HANDLE), isNull()))
         .thenReturn(USER_SLACK_NOTIFICATION_SETTINGS);
+    when(_settingsService.createEmailNotificationSettings(eq(EMAIL_ADDRESS)))
+        .thenReturn(USER_EMAIL_NOTIFICATION_SETTINGS);
 
     final NotificationSettingsMatcher matcher =
         new NotificationSettingsMatcher(getMappedUserNotificationSettings());
@@ -87,6 +98,8 @@ public class UpdateUserNotificationSettingsResolverTest {
         .thenReturn(DEFAULT_CORP_USER_SETTINGS);
     when(_settingsService.createSlackNotificationSettings(eq(SLACK_USER_HANDLE), isNull()))
         .thenReturn(USER_SLACK_NOTIFICATION_SETTINGS);
+    when(_settingsService.createEmailNotificationSettings(eq(EMAIL_ADDRESS)))
+        .thenReturn(USER_EMAIL_NOTIFICATION_SETTINGS);
 
     final NotificationSettingsMatcher matcher =
         new NotificationSettingsMatcher(getMappedUserNotificationSettings());

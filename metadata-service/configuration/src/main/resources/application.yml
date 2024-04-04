@@ -323,6 +323,9 @@ notifications:
   # Enable if you want to enable creation of the Notification Manager.
   enabled: ${METADATA_SERVICE_NOTIFICATIONS_ENABLED:true} # Enable to turn on notifications.
 
+  defaultSettingsHook:
+    enabled: ${DEFAULT_NOTIFICATION_SETTINGS_HOOK_ENABLED:true}
+
   # Required if enabled is true! The set of notification sinks to use.
   sinks:
     - type: com.datahub.notification.slack.SlackNotificationSink
@@ -336,6 +339,8 @@ notifications:
         retryEnabled: ${SLACK_RETRY_NOTIFICATION_ENABLED:true}
         maxNumRetries: ${SLACK_MAX_NUM_RETRIES:2}
         proxyUrl: ${SLACK_PROXY_URL:}
+    - type: com.datahub.notification.proxy.IntegrationsServiceProxySink
+      enabled: ${INTEGRATIONS_SERVICE_NOTIFICATIONS_ENABLED:true}
 
 # Mirroring events to external systems (e.g. Event Bridge)
 eventSinks:
@@ -431,7 +436,7 @@ featureFlags:
   platformBrowseV2: ${PLATFORM_BROWSE_V2:true} # Enables the platform browse experience, instead of the entity-oriented browse default.
   lineageGraphV2: ${LINEAGE_GRAPH_V2:true} # Enables the new lineage visualization.
   assertionMonitorsEnabled: ${ASSERTION_MONITORS_ENABLED:false} # Enables the ability to create native assertions inside the UI.
-  subscriptionsEnabled: ${SUBSCRIPTIONS_ENABLED:false} # Enables the ability to subscribe to notifications
+  subscriptionsEnabled: ${SUBSCRIPTIONS_ENABLED:true} # Enables the ability to subscribe to notifications
   datasetHealthDashboardEnabled: ${DATASET_HEALTH_DASHBOARD_ENABLED:false} # Enables the Dataset Health dashboard in the application
   dataContractsEnabled: ${DATA_CONTRACTS_ENABLED:false} # Enables the Data Contracts feature (Tab) in the UI
   documentationAiEnabled: ${DOCUMENTATION_AI_ENABLED:false} # Enables the AI-powered documentation feature in the UI

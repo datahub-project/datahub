@@ -1,5 +1,6 @@
 import { aliasQuery, hasOperationName } from "../utils";
 const test_id = Math.floor(Math.random() * 100000);
+const test_email = `${test_id}@acryl.io`;
 const datasetUrn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,climate.daily_temperature,PROD)";
 const datasetName = "daily_temperature";
 
@@ -39,8 +40,15 @@ describe("entity subscription test", () => {
       cy.clickOptionWithTestId("subscription-dropdown");
       cy.clickOptionWithText("Subscribe Me");
       cy.get(".ant-tree-checkbox").click({ multiple: true });
+
+      // Slack
       cy.clickOptionWithTestId("alternative-slack-radio");
       cy.enterTextInTestId("alternative-slack-member-id", test_id);
+
+      // Email
+      cy.clickOptionWithTestId("alternative-email-radio");
+      cy.enterTextInTestId("alternative-email", test_email);
+
       cy.clickOptionWithTestId("subscribe-button");
       cy.waitTextVisible("You are now subscribed to this entity.").wait(3000);
 
@@ -68,8 +76,15 @@ describe("entity subscription test", () => {
       cy.clickOptionWithTestId("subscription-dropdown");
       cy.clickOptionWithText("Subscribe Me");
       cy.get(".ant-tree-checkbox").click({ multiple: true });
+
+      // Slack
       cy.clickOptionWithTestId("alternative-slack-radio");
       cy.enterTextInTestId("alternative-slack-member-id", test_id);
+
+      // Email
+      cy.clickOptionWithTestId("alternative-email-radio");
+      cy.enterTextInTestId("alternative-email", test_email);
+
       cy.clickOptionWithTestId("subscribe-button");
       cy.waitTextVisible("You are now subscribed to this entity.").wait(3000);
       cy.goToSubscriptionsSettings();

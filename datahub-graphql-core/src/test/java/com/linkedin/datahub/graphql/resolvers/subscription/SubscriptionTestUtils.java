@@ -29,19 +29,29 @@ public class SubscriptionTestUtils {
   public static final String SUBSCRIPTION_URN_1_STRING = "urn:li:subscription:1";
   public static final Urn SUBSCRIPTION_URN_1 = UrnUtils.getUrn(SUBSCRIPTION_URN_1_STRING);
   public static final List<NotificationSinkType> NOTIFICATION_SINK_GRAPHQL_TYPES =
-      ImmutableList.of(NotificationSinkType.SLACK);
+      ImmutableList.of(NotificationSinkType.SLACK, NotificationSinkType.EMAIL);
   public static final NotificationSinkTypeArray NOTIFICATION_SINK_TYPES =
-      new NotificationSinkTypeArray(com.linkedin.event.notification.NotificationSinkType.SLACK);
+      new NotificationSinkTypeArray(
+          com.linkedin.event.notification.NotificationSinkType.SLACK,
+          com.linkedin.event.notification.NotificationSinkType.EMAIL);
 
   public static final String SLACK_USER_HANDLE = "testUser";
+  public static final String EMAIL_ADDRESS = "testUser@gmail.com";
+
   public static final com.linkedin.event.notification.settings.SlackNotificationSettings
       USER_SLACK_NOTIFICATION_SETTINGS =
           new com.linkedin.event.notification.settings.SlackNotificationSettings()
               .setUserHandle(SLACK_USER_HANDLE);
+
+  public static final com.linkedin.event.notification.settings.EmailNotificationSettings
+      USER_EMAIL_NOTIFICATION_SETTINGS =
+          new com.linkedin.event.notification.settings.EmailNotificationSettings()
+              .setEmail(EMAIL_ADDRESS);
   public static final com.linkedin.event.notification.settings.NotificationSettings
       USER_NOTIFICATION_SETTINGS =
           new com.linkedin.event.notification.settings.NotificationSettings()
               .setSlackSettings(USER_SLACK_NOTIFICATION_SETTINGS)
+              .setEmailSettings(USER_EMAIL_NOTIFICATION_SETTINGS)
               .setSinkTypes(NOTIFICATION_SINK_TYPES);
   public static final com.linkedin.subscription.SubscriptionNotificationConfig NOTIFICATION_CONFIG =
       new com.linkedin.subscription.SubscriptionNotificationConfig()
@@ -99,11 +109,19 @@ public class SubscriptionTestUtils {
 
     final NotificationSettings notificationSettings = new NotificationSettings();
     notificationSettings.setSinkTypes(NOTIFICATION_SINK_GRAPHQL_TYPES);
+
     final com.linkedin.datahub.graphql.generated.SlackNotificationSettings
         slackNotificationSettings =
             new com.linkedin.datahub.graphql.generated.SlackNotificationSettings();
     slackNotificationSettings.setUserHandle(SLACK_USER_HANDLE);
     notificationSettings.setSlackSettings(slackNotificationSettings);
+
+    final com.linkedin.datahub.graphql.generated.EmailNotificationSettings
+        emailNotificationSettings =
+            new com.linkedin.datahub.graphql.generated.EmailNotificationSettings();
+    emailNotificationSettings.setEmail(EMAIL_ADDRESS);
+    notificationSettings.setEmailSettings(emailNotificationSettings);
+
     notificationConfig.setNotificationSettings(notificationSettings);
 
     return notificationConfig;

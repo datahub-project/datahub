@@ -498,6 +498,11 @@ type GlobalIntegrationSettings {
   Slack-related settings.
   """
   slackSettings: SlackIntegrationSettings
+
+  """
+  Email-related settings.
+  """
+  emailSettings: EmailIntegrationSettings
 }
 
 """
@@ -514,6 +519,16 @@ type SlackIntegrationSettings {
   Deprecated! Use connection entity instead.
   """
   botToken: String
+}
+
+"""
+Email integration settings.
+"""
+type EmailIntegrationSettings {
+  """
+  A default email to send global notifications to.
+  """
+  defaultEmail: String
 }
 
 """
@@ -786,9 +801,14 @@ Input required to update Integration Settings.
 """
 input UpdateGlobalIntegrationSettingsInput {
   """
-  Input required to update Slack Integration Settings
+  Input required to update Slack Integration Settings. If not provided, existing settings will remain.
   """
   slackSettings: UpdateSlackIntegrationSettingsInput
+
+  """
+  Input required to update Email Integration Settings. If not provided, existing settings will remain.
+  """
+  emailSettings: UpdateEmailIntegrationSettingsInput
 }
 
 """
@@ -805,6 +825,16 @@ input UpdateSlackIntegrationSettingsInput {
   Deprecated! Use upsertConnection to create slack connections instead.
   """
   botToken: String
+}
+
+"""
+Input required to update Email settings.
+"""
+input UpdateEmailIntegrationSettingsInput {
+  """
+  A default email to send global notifications to
+  """
+  defaultEmail: String
 }
 
 """

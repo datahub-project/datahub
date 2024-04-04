@@ -10,6 +10,7 @@ import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.connection.ConnectionServiceFactory;
 import com.linkedin.metadata.config.notification.NotificationSinkConfiguration;
 import com.linkedin.metadata.connection.ConnectionService;
+import com.linkedin.metadata.integration.IntegrationsService;
 import com.linkedin.metadata.spring.YamlPropertySourceFactory;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -49,6 +50,10 @@ public class NotificationSinkManagerFactory {
   @Autowired
   @Qualifier("connectionService")
   private ConnectionService connectionService;
+
+  @Autowired
+  @Qualifier("integrationsService")
+  private IntegrationsService integrationsService;
 
   @Autowired private ConfigurationProvider configurationProvider;
 
@@ -94,6 +99,7 @@ public class NotificationSinkManagerFactory {
                     this.identityProvider,
                     this.secretProvider,
                     this.connectionService,
+                    this.integrationsService,
                     baseUrl));
             configuredSinks.add(notificationSink);
           } catch (Exception e) {

@@ -14,6 +14,7 @@ from datahub_integrations.app import (
     internal_router,
 )
 from datahub_integrations.gen_ai.router import router as gen_ai_router
+from datahub_integrations.notifications.router import router as notifications_router
 from datahub_integrations.share.share_router import router as share_router
 from datahub_integrations.slack.slack import SlackLinkPreview, get_slack_link_preview
 from datahub_integrations.slack.slack import private_router as slack_private_router
@@ -54,6 +55,9 @@ internal_router.include_router(actions_router, prefix=ACTIONS_ROUTE, tags=["Acti
 internal_router.include_router(gen_ai_router, prefix="/ai", tags=["AI"])
 internal_router.include_router(
     analytics_router, prefix="/analytics", tags=["Analytics"]
+)
+internal_router.include_router(
+    notifications_router, prefix="/notifications", tags=["Notifications"]
 )
 internal_router.include_router(share_router, prefix="/share", tags=["Share"])
 

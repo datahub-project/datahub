@@ -4,6 +4,7 @@ import com.datahub.notification.provider.IdentityProvider;
 import com.datahub.notification.provider.SecretProvider;
 import com.datahub.notification.provider.SettingsProvider;
 import com.linkedin.metadata.connection.ConnectionService;
+import com.linkedin.metadata.integration.IntegrationsService;
 import java.util.Map;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -27,6 +28,9 @@ public class NotificationSinkConfig {
 
   /** A provider of connection information. */
   private final ConnectionService connectionService;
+
+  /** A provider of access to the integrations service. */
+  private final IntegrationsService integrationsService;
 
   /** The base URL where DataHub is deployed. Used to construct URL strings. */
   private final String baseUrl;

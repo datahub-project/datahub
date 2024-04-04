@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
 import { Typography, Modal, Button, Form, Input } from 'antd';
-import { NotificationSink, PlatformNotificationOptions, SLACK_SINK } from './types';
+import { EMAIL_SINK, NotificationSink, PlatformNotificationOptions, SLACK_SINK } from '../types';
 
 type Props = {
     initialState?: PlatformNotificationOptions;
@@ -20,7 +20,8 @@ const InputDiv = styled.div`
  * Default notification options
  */
 const DEFAULT_OPTIONS = {
-    slackChannel: undefined,
+    slackChannel: null,
+    email: null,
 };
 
 export const PlatformNotificationOptionsModal = ({ initialState, visible, sinks, onDone, onClose }: Props) => {
@@ -31,6 +32,7 @@ export const PlatformNotificationOptionsModal = ({ initialState, visible, sinks,
     }, [initialState, setOptions]);
 
     const isSlackEnabled = sinks.some((sink) => sink.id === SLACK_SINK.id);
+    const isEmailEnabled = sinks.some((sink) => sink.id === EMAIL_SINK.id);
 
     return (
         <Modal
@@ -50,15 +52,30 @@ export const PlatformNotificationOptionsModal = ({ initialState, visible, sinks,
             }
         >
             <Form layout="vertical">
+                {isEmailEnabled && (
+                    <Form.Item label={<Typography.Text strong>Email Address</Typography.Text>}>
+                        <Typography.Text type="secondary">
+                            Enter a custom email address to notify. If not provided, the configured default will be
+                            used.
+                        </Typography.Text>
+                        <InputDiv>
+                            <Input
+                                value={options.email || undefined}
+                                onChange={(e) => setOptions({ ...options, email: e.target.value || null })}
+                                placeholder="admin@your-company.com"
+                            />
+                        </InputDiv>
+                    </Form.Item>
+                )}
                 {isSlackEnabled && (
-                    <Form.Item label={<Typography.Text strong>Slack channel</Typography.Text>}>
+                    <Form.Item label={<Typography.Text strong>Slack Channel</Typography.Text>}>
                         <Typography.Text type="secondary">
                             Enter a custom channel to notify. If not provided, the configured default will be used.
                         </Typography.Text>
                         <InputDiv>
                             <Input
-                                value={options.slackChannel}
-                                onChange={(e) => setOptions({ ...options, slackChannel: e.target.value })}
+                                value={options.slackChannel || undefined}
+                                onChange={(e) => setOptions({ ...options, slackChannel: e.target.value || null })}
                                 placeholder="#datahub-slack-notifications"
                             />
                         </InputDiv>

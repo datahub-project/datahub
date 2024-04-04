@@ -6,6 +6,7 @@ import com.datahub.authentication.Authentication;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.generated.EmailNotificationSettingsInput;
 import com.linkedin.datahub.graphql.generated.NotificationSettings;
 import com.linkedin.datahub.graphql.generated.NotificationSettingsInput;
 import com.linkedin.datahub.graphql.generated.SlackNotificationSettingsInput;
@@ -13,6 +14,7 @@ import com.linkedin.datahub.graphql.generated.UpdateUserNotificationSettingsInpu
 import com.linkedin.datahub.graphql.types.notification.mappers.NotificationSettingsMapper;
 import com.linkedin.event.notification.NotificationSinkType;
 import com.linkedin.event.notification.NotificationSinkTypeArray;
+import com.linkedin.event.notification.settings.EmailNotificationSettings;
 import com.linkedin.event.notification.settings.SlackNotificationSettings;
 import com.linkedin.identity.CorpUserSettings;
 import com.linkedin.metadata.service.SettingsService;
@@ -62,13 +64,21 @@ public class UpdateUserNotificationSettingsResolver
 
             final SlackNotificationSettingsInput slackNotificationSettingsInput =
                 notificationSettingsInput.getSlackSettings();
-            // In the future, add blocks for other notification settings.
             if (slackNotificationSettingsInput != null) {
               final SlackNotificationSettings slackNotificationSettings =
                   _settingsService.createSlackNotificationSettings(
                       slackNotificationSettingsInput.getUserHandle(),
                       slackNotificationSettingsInput.getChannels());
               notificationSettings.setSlackSettings(slackNotificationSettings);
+            }
+
+            final EmailNotificationSettingsInput emailNotificationSettingsInput =
+                notificationSettingsInput.getEmailSettings();
+            if (emailNotificationSettingsInput != null) {
+              final EmailNotificationSettings emailNotificationSettings =
+                  _settingsService.createEmailNotificationSettings(
+                      emailNotificationSettingsInput.getEmail());
+              notificationSettings.setEmailSettings(emailNotificationSettings);
             }
 
             corpUserSettings.setNotificationSettings(notificationSettings);

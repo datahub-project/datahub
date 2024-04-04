@@ -205,6 +205,9 @@ fragment subscriptionFields on DataHubSubscription {
                 userHandle
                 channels
             }
+            emailSettings {
+                email
+            }
         }
     }
 }

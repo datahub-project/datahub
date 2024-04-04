@@ -22,6 +22,8 @@ public class NotificationSinkManagerTest {
     Mockito.when(notificationSink.templates())
         .thenReturn(ImmutableList.of(NotificationTemplateType.CUSTOM));
     Mockito.when(notificationSink.type()).thenReturn(NotificationSinkType.SLACK);
+    Mockito.when(notificationSink.recipientTypes())
+        .thenReturn(ImmutableList.of(NotificationRecipientType.SLACK_CHANNEL));
 
     NotificationSinkManager manager =
         new NotificationSinkManager(
@@ -42,8 +44,8 @@ public class NotificationSinkManagerTest {
         new NotificationRecipientArray(
             ImmutableList.of(
                 new NotificationRecipient()
-                    .setType(NotificationRecipientType.USER)
-                    .setId("urn:li:corpuser:test"))));
+                    .setType(NotificationRecipientType.SLACK_CHANNEL)
+                    .setId("#channel"))));
 
     manager.handle(request).join();
 
@@ -185,9 +187,61 @@ public class NotificationSinkManagerTest {
                     .setType(NotificationRecipientType.USER)
                     .setId("urn:li:corpuser:test"))));
 
-    manager.handle(request);
+    manager.handle(request).join();
 
     // Verify that "send" was NOT called on the sink.
     Mockito.verify(notificationSink, Mockito.times(0)).send(Mockito.same(request), Mockito.any());
+  }
+
+  @Test
+  public void testHandleFilterRecipientByType() throws Exception {
+    NotificationSink notificationSink = Mockito.mock(NotificationSink.class);
+    Mockito.when(notificationSink.templates())
+        .thenReturn(ImmutableList.of(NotificationTemplateType.CUSTOM));
+    Mockito.when(notificationSink.type()).thenReturn(NotificationSinkType.SLACK);
+    Mockito.when(notificationSink.recipientTypes())
+        .thenReturn(ImmutableList.of(NotificationRecipientType.SLACK_CHANNEL));
+
+    // Create manager in "enabled" state.
+    NotificationSinkManager manager =
+        new NotificationSinkManager(
+            NotificationSinkManager.NotificationManagerMode.ENABLED,
+            ImmutableList.of(notificationSink));
+
+    // Test Handle
+    NotificationRequest request = new NotificationRequest();
+    request.setMessage(
+        new NotificationMessage()
+            .setTemplate(com.linkedin.event.notification.template.NotificationTemplateType.CUSTOM)
+            .setParameters(
+                new StringMap(
+                    ImmutableMap.of(
+                        "title", "Test Title",
+                        "body", "Test Body"))));
+    request.setRecipients(
+        new NotificationRecipientArray(
+            ImmutableList.of(
+                new NotificationRecipient()
+                    .setType(NotificationRecipientType.SLACK_CHANNEL)
+                    .setId("#custom-slack-channel"),
+                new NotificationRecipient()
+                    .setType(NotificationRecipientType.USER)
+                    .setId("urn:li:corpuser:test"))));
+
+    manager.handle(request).join();
+
+    final NotificationRequest expectedRequest =
+        new NotificationRequest()
+            .setMessage(request.getMessage())
+            .setRecipients(
+                new NotificationRecipientArray(
+                    ImmutableList.of(
+                        new NotificationRecipient()
+                            .setType(NotificationRecipientType.SLACK_CHANNEL)
+                            .setId("#custom-slack-channel"))));
+
+    // Verify that "send" was called with the appropriate recipient types
+    Mockito.verify(notificationSink, Mockito.times(1))
+        .send(Mockito.eq(expectedRequest), Mockito.any());
   }
 }

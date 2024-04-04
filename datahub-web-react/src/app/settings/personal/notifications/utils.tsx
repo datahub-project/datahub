@@ -5,18 +5,24 @@ import {
     useUpdateGroupNotificationSettingsMutation,
     useUpdateUserNotificationSettingsMutation,
 } from '../../../../graphql/settings.generated';
-import { NotificationSinkType } from '../../../../types.generated';
+import {
+    EmailNotificationSettingsInput,
+    NotificationSinkType,
+    SlackNotificationSettingsInput,
+} from '../../../../types.generated';
 import analytics from '../../../analytics/analytics';
 import { EventType } from '../../../analytics';
 
 export const updateUserNotificationSettingsFunction = ({
-    newUserHandle,
+    emailSettings,
+    slackSettings,
     baseSinkTypes,
     sinkTypes,
     updateUserNotificationSettings,
     refetchUserNotificationSettings,
 }: {
-    newUserHandle: string;
+    slackSettings?: SlackNotificationSettingsInput;
+    emailSettings?: EmailNotificationSettingsInput;
     baseSinkTypes: NotificationSinkType[] | undefined;
     sinkTypes: NotificationSinkType[];
     updateUserNotificationSettings: ReturnType<typeof useUpdateUserNotificationSettingsMutation>[0];
@@ -30,9 +36,8 @@ export const updateUserNotificationSettingsFunction = ({
             input: {
                 notificationSettings: {
                     sinkTypes,
-                    slackSettings: {
-                        userHandle: newUserHandle,
-                    },
+                    slackSettings,
+                    emailSettings,
                 },
             },
         },
@@ -45,9 +50,7 @@ export const updateUserNotificationSettingsFunction = ({
                 sinkTypesRemoved,
                 actorType: 'personal',
             });
-            setTimeout(() => {
-                refetchUserNotificationSettings();
-            }, 3000);
+            refetchUserNotificationSettings();
         })
         .catch((e: unknown) => {
             analytics.event({
@@ -66,14 +69,16 @@ export const updateUserNotificationSettingsFunction = ({
 
 export const updateGroupNotificationSettingsFunction = ({
     groupUrn,
-    newGroupChannel,
+    emailSettings,
+    slackSettings,
     baseSinkTypes,
     sinkTypes,
     updateGroupNotificationSettings,
     refetchGroupNotificationSettings,
 }: {
     groupUrn: string;
-    newGroupChannel: string;
+    slackSettings?: SlackNotificationSettingsInput;
+    emailSettings?: EmailNotificationSettingsInput;
     baseSinkTypes: NotificationSinkType[] | undefined;
     sinkTypes: NotificationSinkType[];
     updateGroupNotificationSettings: ReturnType<typeof useUpdateGroupNotificationSettingsMutation>[0];
@@ -88,9 +93,8 @@ export const updateGroupNotificationSettingsFunction = ({
                 groupUrn,
                 notificationSettings: {
                     sinkTypes,
-                    slackSettings: {
-                        channels: [newGroupChannel],
-                    },
+                    slackSettings,
+                    emailSettings,
                 },
             },
         },
@@ -103,9 +107,7 @@ export const updateGroupNotificationSettingsFunction = ({
                 sinkTypesRemoved,
                 actorType: 'group',
             });
-            setTimeout(() => {
-                refetchGroupNotificationSettings();
-            }, 3000);
+            refetchGroupNotificationSettings();
         })
         .catch((e: unknown) => {
             analytics.event({
@@ -117,7 +119,7 @@ export const updateGroupNotificationSettingsFunction = ({
             });
             message.destroy();
             if (e instanceof Error) {
-                message.error({ content: `Failed to update settings: \n ${e.message || ''}`, duration: 3 });
+                message.error({ content: `Failed to update settings. An unknown error occurred!`, duration: 3 });
             }
         });
 };

@@ -1,0 +1,233 @@
+package com.linkedin.metadata.kafka.hook.notification.settings;
+
+import static com.linkedin.metadata.Constants.CORP_GROUP_EDITABLE_INFO_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.CORP_GROUP_ENTITY_NAME;
+import static com.linkedin.metadata.Constants.CORP_GROUP_INFO_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.CORP_USER_EDITABLE_INFO_NAME;
+import static com.linkedin.metadata.Constants.CORP_USER_ENTITY_NAME;
+import static com.linkedin.metadata.Constants.CORP_USER_INFO_ASPECT_NAME;
+
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
+import com.linkedin.common.urn.Urn;
+import com.linkedin.event.notification.NotificationSinkType;
+import com.linkedin.event.notification.NotificationSinkTypeArray;
+import com.linkedin.event.notification.settings.EmailNotificationSettings;
+import com.linkedin.event.notification.settings.NotificationSettings;
+import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.gms.factory.auth.SystemAuthenticationFactory;
+import com.linkedin.gms.factory.settings.SettingsServiceFactory;
+import com.linkedin.identity.CorpGroupEditableInfo;
+import com.linkedin.identity.CorpGroupInfo;
+import com.linkedin.identity.CorpGroupSettings;
+import com.linkedin.identity.CorpUserEditableInfo;
+import com.linkedin.identity.CorpUserInfo;
+import com.linkedin.identity.CorpUserSettings;
+import com.linkedin.metadata.kafka.hook.MetadataChangeLogHook;
+import com.linkedin.metadata.service.SettingsService;
+import com.linkedin.metadata.utils.GenericRecordUtils;
+import com.linkedin.mxe.MetadataChangeLog;
+import java.util.Objects;
+import java.util.Set;
+import javax.annotation.Nonnull;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Import;
+import org.springframework.stereotype.Component;
+
+/**
+ * Assigns a default email address for users and groups if they do not have one set in their
+ * personal notification settings. It is useful for growth hacking notifications by seeding an email
+ * address.
+ *
+ * <p>The logic is as follows:
+ *
+ * <p>- When a user or group is created, the hook will attempt to find an email address (e.g. from
+ * signup or SSO flow) and then will create a default instance of the notification settings for the
+ * user or group.
+ *
+ * <p>This hook is enabled by default and can be disabled in application configurations.
+ */
+@Slf4j
+@Component
+@Import({SettingsServiceFactory.class, SystemAuthenticationFactory.class})
+public class DefaultNotificationSettingsHook implements MetadataChangeLogHook {
+
+  private static final Set<String> SUPPORTED_ENTITY_TYPES =
+      ImmutableSet.of(CORP_USER_ENTITY_NAME, CORP_GROUP_ENTITY_NAME);
+
+  private static final Set<String> SUPPORTED_ASPECT_TYPES =
+      ImmutableSet.of(
+          CORP_USER_INFO_ASPECT_NAME,
+          CORP_USER_EDITABLE_INFO_NAME,
+          CORP_GROUP_INFO_ASPECT_NAME,
+          CORP_GROUP_EDITABLE_INFO_ASPECT_NAME);
+  private final SettingsService settingsService;
+
+  private final boolean isEnabled;
+
+  @Autowired
+  public DefaultNotificationSettingsHook(
+      @Nonnull final SettingsService settingsService,
+      @Nonnull @Value("${notifications.defaultSettingsHook.enabled:true}") Boolean isEnabled) {
+    this.settingsService =
+        Objects.requireNonNull(settingsService, "settingsService must not be null");
+    this.isEnabled = isEnabled;
+  }
+
+  @Override
+  public void init() {
+    // pass.
+    log.info("Initialized Default Notification Settings hook");
+  }
+
+  @Override
+  public boolean isEnabled() {
+    return this.isEnabled;
+  }
+
+  @Override
+  public void invoke(@Nonnull MetadataChangeLog event) {
+    if (this.isEnabled && isEligibleForProcessing(event)) {
+      log.debug(
+          "Found user or group info change event. Attempting to populate default notification settings.");
+      if (event.getEntityType().equals(CORP_USER_ENTITY_NAME)) {
+        handleUserUpdate(event);
+      } else if (event.getEntityType().equals(CORP_GROUP_ENTITY_NAME)) {
+        handleGroupUpdate(event);
+      }
+    }
+  }
+
+  private void handleUserUpdate(@Nonnull MetadataChangeLog event) {
+    final Urn userUrn = event.getEntityUrn();
+    if (userUrn == null) {
+      log.error("Unexpected found user urn to be null. Skipping processing.");
+      return;
+    }
+    final String aspectName = event.getAspectName();
+    if (aspectName.equals(CORP_USER_INFO_ASPECT_NAME)) {
+      handleUserInfoUpdate(
+          userUrn,
+          GenericRecordUtils.deserializeAspect(
+              event.getAspect().getValue(),
+              event.getAspect().getContentType(),
+              CorpUserInfo.class));
+    } else if (aspectName.equals(CORP_USER_EDITABLE_INFO_NAME)) {
+      handleUserEditableInfoUpdate(
+          userUrn,
+          GenericRecordUtils.deserializeAspect(
+              event.getAspect().getValue(),
+              event.getAspect().getContentType(),
+              CorpUserEditableInfo.class));
+    }
+  }
+
+  private void handleGroupUpdate(@Nonnull MetadataChangeLog event) {
+    final Urn groupUrn = event.getEntityUrn();
+    if (groupUrn == null) {
+      log.error("Unexpected found group urn to be null. Skipping processing.");
+      return;
+    }
+    final String aspectName = event.getAspectName();
+    if (aspectName.equals(CORP_GROUP_INFO_ASPECT_NAME)) {
+      handleGroupInfoUpdate(
+          groupUrn,
+          GenericRecordUtils.deserializeAspect(
+              event.getAspect().getValue(),
+              event.getAspect().getContentType(),
+              CorpGroupInfo.class));
+    } else if (aspectName.equals(CORP_GROUP_EDITABLE_INFO_ASPECT_NAME)) {
+      handleGroupEditableInfoUpdate(
+          groupUrn,
+          GenericRecordUtils.deserializeAspect(
+              event.getAspect().getValue(),
+              event.getAspect().getContentType(),
+              CorpGroupEditableInfo.class));
+    }
+  }
+
+  private void handleUserInfoUpdate(@Nonnull Urn userUrn, @Nonnull CorpUserInfo userInfo) {
+    if (userInfo.getEmail() == null) {
+      log.debug("User {} has no email address. Skipping updating notification settings", userUrn);
+      return;
+    }
+    handleUserEmailUpdate(userUrn, userInfo.getEmail());
+  }
+
+  private void handleUserEditableInfoUpdate(
+      @Nonnull Urn userUrn, @Nonnull CorpUserEditableInfo userEditableInfo) {
+    if (userEditableInfo.getEmail() == null) {
+      log.debug("User {} has no email address. Skipping updating notification settings", userUrn);
+      return;
+    }
+    handleUserEmailUpdate(userUrn, userEditableInfo.getEmail());
+  }
+
+  private void handleUserEmailUpdate(@Nonnull Urn userUrn, @Nonnull String email) {
+    final CorpUserSettings userSettings = settingsService.getCorpUserSettings(userUrn);
+    if (userSettings != null && userSettings.getNotificationSettings() != null) {
+      log.debug(
+          "User {} already has notification settings. Skipping default notification settings creation.",
+          userUrn);
+      return;
+    }
+    // Then there are no notification settings. We can feel free to override.
+    final CorpUserSettings newSettings =
+        userSettings == null ? new CorpUserSettings() : userSettings;
+    log.debug("Creating default notification settings for user {}", userUrn);
+    final NotificationSettings defaultSettings = createDefaultNotificationSettings(email);
+    settingsService.updateCorpUserSettings(
+        userUrn, newSettings.setNotificationSettings(defaultSettings));
+  }
+
+  private void handleGroupInfoUpdate(@Nonnull Urn groupUrn, @Nonnull CorpGroupInfo groupInfo) {
+    if (groupInfo.getEmail() == null) {
+      log.debug("Group {} has no email address. Skipping updating notification settings", groupUrn);
+      return;
+    }
+    handleGroupEmailUpdate(groupUrn, groupInfo.getEmail());
+  }
+
+  private void handleGroupEditableInfoUpdate(
+      @Nonnull Urn groupUrn, @Nonnull CorpGroupEditableInfo groupEditableInfo) {
+    if (groupEditableInfo.getEmail() == null) {
+      log.debug("Group {} has no email address. Skipping updating notification settings", groupUrn);
+      return;
+    }
+    handleGroupEmailUpdate(groupUrn, groupEditableInfo.getEmail());
+  }
+
+  private void handleGroupEmailUpdate(@Nonnull Urn groupUrn, @Nonnull String email) {
+    final CorpGroupSettings groupSettings = settingsService.getCorpGroupSettings(groupUrn);
+    if (groupSettings != null && groupSettings.getNotificationSettings() != null) {
+      log.debug(
+          "Group {} already has notification settings. Skipping default notification settings creation.",
+          groupUrn);
+      return;
+    }
+    // Then there are no notification settings. We can feel free to override.
+    final CorpGroupSettings newSettings =
+        groupSettings == null ? new CorpGroupSettings() : groupSettings;
+    log.debug("Creating default notification settings for group {}", groupUrn);
+    final NotificationSettings defaultSettings = createDefaultNotificationSettings(email);
+    settingsService.updateCorpGroupSettings(
+        groupUrn, newSettings.setNotificationSettings(defaultSettings));
+  }
+
+  private NotificationSettings createDefaultNotificationSettings(@Nonnull String email) {
+    NotificationSettings notificationSettings = new NotificationSettings();
+    notificationSettings.setSinkTypes(
+        new NotificationSinkTypeArray(ImmutableList.of(NotificationSinkType.EMAIL)));
+    notificationSettings.setEmailSettings(new EmailNotificationSettings().setEmail(email));
+    return notificationSettings;
+  }
+
+  /** Returns true if the event should be processed, false otherwise. */
+  private boolean isEligibleForProcessing(final MetadataChangeLog event) {
+    return SUPPORTED_ENTITY_TYPES.contains(event.getEntityType())
+        && SUPPORTED_ASPECT_TYPES.contains(event.getAspectName())
+        && !event.getChangeType().equals(ChangeType.DELETE);
+  }
+}

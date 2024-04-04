@@ -43,4 +43,4 @@ cd "${DIR}/../.." && \
     -f "${DIR}/docker-compose-without-neo4j.override.yml" \
     -f "${DIR}/docker-compose.dev.yml" \
     -f "${DIR}/docker-compose.acryl.dev.yml" \
-    $CONSUMERS_COMPOSE $MONITORING_COMPOSE $M1_COMPOSE up $@
+    $CONSUMERS_COMPOSE $MONITORING_COMPOSE $M1_COMPOSE up --build $@

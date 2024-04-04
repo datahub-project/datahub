@@ -3,12 +3,15 @@ package com.linkedin.metadata.kafka.hook.notification;
 import static com.linkedin.metadata.AcrylConstants.*;
 import static com.linkedin.metadata.Constants.DEFAULT_RUN_ID;
 
+import com.datahub.notification.provider.EntityNameProvider;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.data.template.SetMode;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.event.notification.NotificationRecipient;
+import com.linkedin.event.notification.NotificationRecipientOriginType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
@@ -24,6 +27,7 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -60,53 +64,6 @@ public class NotificationUtils {
         return String.format("/user/%s", encodedEntityUrn);
       case Constants.CORP_GROUP_ENTITY_NAME:
         return String.format("/group/%s", encodedEntityUrn);
-      default:
-        return "";
-    }
-  }
-
-  /** Given an Entity Urn, get the type of the entity */
-  @Nonnull
-  public static String getEntityType(final Urn entityUrn) {
-    switch (entityUrn.getEntityType()) {
-      case Constants.DATASET_ENTITY_NAME:
-        return "Dataset";
-      case Constants.CHART_ENTITY_NAME:
-        return "Chart";
-      case Constants.DASHBOARD_ENTITY_NAME:
-        return "Dashboard";
-      case Constants.DATA_FLOW_ENTITY_NAME:
-        return "Data Pipeline (Flow)";
-      case Constants.DATA_JOB_ENTITY_NAME:
-        return "Data Task (Job)";
-      case Constants.TAG_ENTITY_NAME:
-        return "Tag";
-      case Constants.GLOSSARY_TERM_ENTITY_NAME:
-        return "Glossary Term";
-      case Constants.DOMAIN_ENTITY_NAME:
-        return "Domain";
-      case Constants.CONTAINER_ENTITY_NAME:
-        return "Container";
-      case Constants.CORP_USER_ENTITY_NAME:
-        return "User";
-      case Constants.CORP_GROUP_ENTITY_NAME:
-        return "Group";
-      case Constants.INCIDENT_ENTITY_NAME:
-        return "Incident";
-      case Constants.ML_FEATURE_ENTITY_NAME:
-        return "Feature";
-      case Constants.ML_MODEL_ENTITY_NAME:
-        return "ML Model";
-      case Constants.ML_MODEL_GROUP_ENTITY_NAME:
-        return "ML Group";
-      case Constants.ML_FEATURE_TABLE_ENTITY_NAME:
-        return "Feature Table";
-      case Constants.ML_PRIMARY_KEY_ENTITY_NAME:
-        return "ML Primary Key";
-      case Constants.DATA_PRODUCT_ENTITY_NAME:
-        return "Data Product";
-      case Constants.NOTEBOOK_ENTITY_NAME:
-        return "Notebook";
       default:
         return "";
     }
@@ -223,11 +180,22 @@ public class NotificationUtils {
         && !event.getSystemMetadata().getRunId().equals(DEFAULT_RUN_ID);
   }
 
-  public static List<NotificationRecipient> getUniqueRecipients(
-      List<NotificationRecipient> recipients) {
+  public static List<NotificationRecipient> getUniqueHydratedSubscriberRecipients(
+      List<NotificationRecipient> recipients, EntityNameProvider nameProvider) {
     HashSet<String> existingIds = new HashSet<>();
     return recipients.stream()
+        .filter(Objects::nonNull)
         .filter(recipient -> existingIds.add(recipient.getId()))
+        .map(
+            recipient -> {
+              recipient.setOrigin(NotificationRecipientOriginType.SUBSCRIPTION);
+              if (recipient.hasActor()) {
+                // Hydrate recipient display name, if there is one.
+                recipient.setDisplayName(
+                    nameProvider.getName(recipient.getActor()), SetMode.IGNORE_NULL);
+              }
+              return recipient;
+            })
         .collect(Collectors.toList());
   }
 

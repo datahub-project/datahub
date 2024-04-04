@@ -47,7 +47,7 @@ public class NotificationGeneratorHook implements MetadataChangeLogHook {
                             // Skip notification generation since this is an initial ingestion run
                             // to prevent slamming notifications on this run
                             if (!NotificationUtils.isEligibleForNotificationGeneration(event)) {
-                              log.debug(
+                              log.warn(
                                   String.format(
                                       "Skipping NotificationGenerationHook since this aspect is not eligible for generation. aspect: %s, Run ID: %s",
                                       event.getAspectName(),

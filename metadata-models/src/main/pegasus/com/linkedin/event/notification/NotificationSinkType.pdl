@@ -7,5 +7,10 @@ enum NotificationSinkType {
   /**
   * Slack target type.
   */
-  SLACK
+  SLACK,
+
+  /**
+  * Email target type.
+  */
+  EMAIL
 }

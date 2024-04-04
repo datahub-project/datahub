@@ -15,6 +15,7 @@ import com.linkedin.datahub.graphql.generated.NotificationScenarioType;
 import com.linkedin.datahub.graphql.generated.NotificationSettingInput;
 import com.linkedin.datahub.graphql.generated.NotificationSettingValue;
 import com.linkedin.datahub.graphql.generated.StringMapEntryInput;
+import com.linkedin.datahub.graphql.generated.UpdateEmailIntegrationSettingsInput;
 import com.linkedin.datahub.graphql.generated.UpdateGlobalIntegrationSettingsInput;
 import com.linkedin.datahub.graphql.generated.UpdateGlobalNotificationSettingsInput;
 import com.linkedin.datahub.graphql.generated.UpdateGlobalSettingsInput;
@@ -33,6 +34,7 @@ import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.settings.NotificationSettingMap;
+import com.linkedin.settings.global.EmailIntegrationSettings;
 import com.linkedin.settings.global.GlobalIntegrationSettings;
 import com.linkedin.settings.global.GlobalNotificationSettings;
 import com.linkedin.settings.global.GlobalSettingsInfo;
@@ -56,7 +58,8 @@ public class UpdateGlobalSettingsResolverTest {
   public void setUp() {
     TEST_INPUT.setIntegrationSettings(
         new UpdateGlobalIntegrationSettingsInput(
-            new UpdateSlackIntegrationSettingsInput("channel", "token")));
+            new UpdateSlackIntegrationSettingsInput("channel", "token"),
+            new UpdateEmailIntegrationSettingsInput("test@test.com")));
     TEST_INPUT.setNotificationSettings(
         new UpdateGlobalNotificationSettingsInput(
             ImmutableList.of(
@@ -184,7 +187,8 @@ public class UpdateGlobalSettingsResolverTest {
     globalSettingsInfo.setIntegrations(
         new GlobalIntegrationSettings()
             .setSlackSettings(
-                new SlackIntegrationSettings().setEnabled(true).setDefaultChannelName("test")));
+                new SlackIntegrationSettings().setEnabled(true).setDefaultChannelName("test"))
+            .setEmailSettings(new EmailIntegrationSettings().setDefaultEmail("test@test.com")));
     NotificationSettingMap map = new NotificationSettingMap();
     map.put(
         NotificationScenarioType.INGESTION_RUN_CHANGE.toString(),

@@ -16,4 +16,9 @@ record NotificationSettings {
      * Slack Notification Settings
      */
     slackSettings: optional SlackNotificationSettings
+
+    /**
+     * Email Notification Settings
+     */
+    emailSettings: optional EmailNotificationSettings
 }

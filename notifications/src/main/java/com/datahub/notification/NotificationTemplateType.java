@@ -22,6 +22,7 @@ public enum NotificationTemplateType {
           "incidentTitle",
           "incidentDescription",
           "actorUrn",
+          "actorName",
           "entityOwners",
           "downstreamEntityOwners")),
   /** Broadcast that a incident's status has changed. */
@@ -32,13 +33,15 @@ public enum NotificationTemplateType {
           "incidentTitle",
           "incidentDescription",
           "actorUrn",
+          "actorName",
           "entityOwners",
           "downstreamEntityOwners")),
   /**
    * Broadcast that an entity has changed: owners added or removed, tags, terms, domain, deprecation
    */
   BROADCAST_ENTITY_CHANGE(
-      ImmutableSet.of("entityName", "entityPath", "entityType", "operation", "actorUrn"),
+      ImmutableSet.of(
+          "entityName", "entityPath", "entityType", "operation", "actorUrn", "actorName"),
       ImmutableSet.of(
           "modifierType",
           "modifierCount",
@@ -49,7 +52,10 @@ public enum NotificationTemplateType {
           "modifier2Name",
           "modifier2Path",
           "subResource",
-          "subResourceType")),
+          "subResourceType",
+          // Deprecation Optional Parameters.
+          "timestamp",
+          "note")),
   /** Broadcast that an managed ingestion run has changed. */
   BROADCAST_INGESTION_RUN_CHANGE(
       ImmutableSet.of("sourceName", "sourceType", "statusText"),
@@ -64,7 +70,8 @@ public enum NotificationTemplateType {
           "entityName",
           "entityType",
           "entityPath",
-          "actorUrn"),
+          "actorUrn",
+          "actorName"),
       ImmutableSet.of("subResourceType", "subResourceUrn")),
   /** Broadcast a change proposal update, eg an APPROVE or DENY. */
   BROADCAST_PROPOSAL_STATUS_CHANGE(
@@ -77,7 +84,8 @@ public enum NotificationTemplateType {
           "entityType",
           "entityPath",
           "action",
-          "actorUrn"),
+          "actorUrn",
+          "actorName"),
       ImmutableSet.of("subResourceType", "subResourceUrn")),
   /** Broadcast an Assertion status change as a FAILURE or SUCCESS */
   BROADCAST_ASSERTION_STATUS_CHANGE(

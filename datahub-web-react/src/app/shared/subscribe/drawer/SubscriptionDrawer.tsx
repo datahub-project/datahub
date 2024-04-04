@@ -7,23 +7,32 @@ import NotificationRecipientSection from './section/NotificationRecipientSection
 import Footer from './section/Footer';
 import SelectGroupSection from './section/SelectGroupSection';
 import { DataHubSubscription, EntityType, NotificationSinkType } from '../../../../types.generated';
-import { getSubscriptionChannel } from './utils';
+import {
+    getEmailSettingsChannel,
+    getEmailSubscriptionChannel,
+    getSlackSettingsChannel,
+    getSlackSubscriptionChannel,
+} from './utils';
 import { useGetGlobalSettingsQuery } from '../../../../graphql/settings.generated';
 import { useGetLineageCountsQuery } from '../../../../graphql/lineage.generated';
-import { NOTIFICATION_SINKS, SLACK_SINK } from '../../../settings/platform/types';
+import { EMAIL_SINK, NOTIFICATION_SINKS, SLACK_SINK } from '../../../settings/platform/types';
 import { isSinkEnabled } from '../../../settings/utils';
 import { ENABLE_UPSTREAM_NOTIFICATIONS } from '../../../settings/personal/notifications/constants';
 import SubscriptionDrawerProvider from './state/context';
 import useDrawerActions from './state/actions';
-import useSinkSettings from './useSinkSettings';
+import useActorSinkSettings from './useSinkSettings';
 import useUpsertSubscription from './useUpsertSubscription';
 import useDelayedKey from './useDelayedKey';
 import {
     selectIsSlackEnabled,
     selectShouldTurnOnSlackInSettings,
-    selectSubscriptionSlackChannel,
+    selectSlackSubscriptionChannel,
     selectSlackSaveAsDefault,
     useDrawerSelector,
+    selectShouldTurnOnEmailInSettings,
+    selectIsEmailEnabled,
+    selectEmailSaveAsDefault,
+    selectEmailSubscriptionChannel,
 } from './state/selectors';
 
 const SubscribeDrawer = styled(Drawer)`
@@ -67,6 +76,7 @@ interface Props {
     onDeleteSubscription: () => void;
 }
 
+// TODO: Decide whether the abstraction used within this component is really warranted.
 const SubscriptionDrawerContent = ({
     isOpen,
     onClose,
@@ -84,13 +94,26 @@ const SubscriptionDrawerContent = ({
     onDeleteSubscription,
 }: Props) => {
     const { data: globalSettings } = useGetGlobalSettingsQuery();
-    const enabledSinks = NOTIFICATION_SINKS.filter((sink) => isSinkEnabled(sink.id, globalSettings?.globalSettings));
-    const slackSinkEnabled = enabledSinks.some((sink) => sink.id === SLACK_SINK.id);
 
-    const channel = useDrawerSelector(selectSubscriptionSlackChannel);
-    const saveAsDefault = useDrawerSelector(selectSlackSaveAsDefault);
+    const globallyEnabledSinks = NOTIFICATION_SINKS.filter((sink) =>
+        isSinkEnabled(sink.id, globalSettings?.globalSettings),
+    );
+
+    const slackSinkSupported = globallyEnabledSinks.some((sink) => sink.id === SLACK_SINK.id);
+    const emailSinkSupported = globallyEnabledSinks.some((sink) => sink.id === EMAIL_SINK.id);
+
+    // Slack selectors
+    const slackChannel = useDrawerSelector(selectSlackSubscriptionChannel);
+    const slackSaveAsDefault = useDrawerSelector(selectSlackSaveAsDefault);
     const slackEnabled = useDrawerSelector(selectIsSlackEnabled);
     const shouldTurnOnSlackInSettings = useDrawerSelector(selectShouldTurnOnSlackInSettings);
+
+    // Email selectors
+    const emailChannel = useDrawerSelector(selectEmailSubscriptionChannel);
+    const emailSaveAsDefault = useDrawerSelector(selectEmailSaveAsDefault);
+    const emailEnabled = useDrawerSelector(selectIsEmailEnabled);
+    const shouldTurnOnEmailInSettings = useDrawerSelector(selectShouldTurnOnEmailInSettings);
+
     const actions = useDrawerActions();
 
     // Skipping until we want to enable upstreams
@@ -123,33 +146,89 @@ const SubscriptionDrawerContent = ({
 
     const showBottomDrawerSection = isPersonal || (groupUrn && canManageSubscription);
 
-    const { settingsChannel, sinkTypes, updateSinkSettings } = useSinkSettings({
+    // Retrieve the default settings for the user for each sink type.
+    const { slackSettings, emailSettings, sinkTypes, updateSinkSettings } = useActorSinkSettings({
         isPersonal,
         groupUrn,
     });
 
+    // Slack initial configs.
+    const slackSettingsChannel = getSlackSettingsChannel(isPersonal, slackSettings);
+    const slackSubscriptionChannel = getSlackSubscriptionChannel(isPersonal, subscription);
+
+    // Email initial configs.
+    const emailSettingsChannel = getEmailSettingsChannel(isPersonal, emailSettings);
+    const emailSubscriptionChannel = getEmailSubscriptionChannel(isPersonal, subscription);
+
     useEffect(() => {
         actions.initialize({
             isPersonal,
-            slackSinkEnabled,
+            slackSinkEnabled: slackSinkSupported,
+            emailSinkEnabled: emailSinkSupported,
             entityType,
             subscription,
-            subscriptionChannel: getSubscriptionChannel(isPersonal, subscription),
-            settingsChannel,
+            slackSubscriptionChannel,
+            slackSettingsChannel,
+            emailSubscriptionChannel,
+            emailSettingsChannel,
             settingsSinkTypes: sinkTypes,
         });
-    }, [actions, entityType, isPersonal, settingsChannel, slackSinkEnabled, subscription, sinkTypes]);
+    }, [
+        actions,
+        entityType,
+        isPersonal,
+        slackSettingsChannel,
+        slackSubscriptionChannel,
+        emailSettingsChannel,
+        emailSubscriptionChannel,
+        slackSinkSupported,
+        emailSinkSupported,
+        subscription,
+        sinkTypes,
+    ]);
 
     const onUpdate = () => {
         upsertSubscription();
-        if (channel && saveAsDefault) {
-            updateSinkSettings({ text: channel, sinkTypes: slackEnabled ? [NotificationSinkType.Slack] : [] });
-        } else if (shouldTurnOnSlackInSettings) {
+
+        const shouldUpdateNotificationSettings =
+            slackSaveAsDefault || emailSaveAsDefault || shouldTurnOnSlackInSettings || shouldTurnOnEmailInSettings;
+
+        if (shouldUpdateNotificationSettings) {
+            const newSinkTypes: NotificationSinkType[] = [];
+
+            if (slackEnabled) {
+                newSinkTypes.push(NotificationSinkType.Slack);
+            }
+
+            if (emailEnabled) {
+                newSinkTypes.push(NotificationSinkType.Email);
+            }
+
+            // New slack settings
+            let newSlackSettings = isPersonal
+                ? { userHandle: slackSettingsChannel }
+                : { channels: slackSettingsChannel ? [slackSettingsChannel] : [] };
+
+            if (slackSaveAsDefault) {
+                newSlackSettings = isPersonal
+                    ? { userHandle: slackChannel }
+                    : { channels: slackChannel ? [slackChannel] : [] };
+            }
+
+            // New email settings
+            let newEmailSettings = emailSettingsChannel ? { email: emailSettingsChannel } : undefined;
+
+            if (emailSaveAsDefault) {
+                newEmailSettings = emailChannel ? { email: emailChannel } : undefined;
+            }
+
             updateSinkSettings({
-                text: settingsChannel as string,
-                sinkTypes: slackEnabled ? [NotificationSinkType.Slack] : [],
+                slackSettings: newSlackSettings,
+                emailSettings: newEmailSettings,
+                sinkTypes: sinkTypes || [],
             });
         }
+
         onClose();
     };
 

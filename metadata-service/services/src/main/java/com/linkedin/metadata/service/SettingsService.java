@@ -9,6 +9,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.event.notification.settings.EmailNotificationSettings;
 import com.linkedin.event.notification.settings.SlackNotificationSettings;
 import com.linkedin.identity.CorpGroupSettings;
 import com.linkedin.identity.CorpUserAppearanceSettings;
@@ -83,7 +84,7 @@ public class SettingsService extends BaseService {
         return new CorpUserSettings(
             getDataMapFromEntityResponse(response, CORP_USER_SETTINGS_ASPECT_NAME));
       }
-      // No aspect found
+      // No aspect found.
       return null;
     } catch (Exception e) {
       throw new RuntimeException(
@@ -147,6 +148,21 @@ public class SettingsService extends BaseService {
    * class have already authorized the operation.
    *
    * @param userUrn the urn of the user
+   * @param newSettings the new settings to apply
+   */
+  public void updateCorpUserSettings(
+      @Nonnull final Urn userUrn, @Nonnull final CorpUserSettings newSettings) {
+    updateCorpUserSettings(userUrn, newSettings, this.systemAuthentication);
+  }
+
+  /**
+   * Updates the settings for a given user.
+   *
+   * <p>Note that this method does not do authorization validation. It is assumed that users of this
+   * class have already authorized the operation.
+   *
+   * @param userUrn the urn of the user
+   * @param newSettings the new settings to apply
    * @param authentication the current authentication
    */
   public void updateCorpUserSettings(
@@ -178,6 +194,21 @@ public class SettingsService extends BaseService {
    * class have already authorized the operation.
    *
    * @param groupUrn the urn of the group
+   * @param newSettings the new settings to apply
+   */
+  public void updateCorpGroupSettings(
+      @Nonnull final Urn groupUrn, @Nonnull final CorpGroupSettings newSettings) {
+    updateCorpGroupSettings(groupUrn, newSettings, this.systemAuthentication);
+  }
+
+  /**
+   * Updates the settings for a given group.
+   *
+   * <p>Note that this method does not do authorization validation. It is assumed that users of this
+   * class have already authorized the operation.
+   *
+   * @param groupUrn the urn of the group
+   * @param newSettings the new settings to apply
    * @param authentication the current authentication
    */
   public void updateCorpGroupSettings(
@@ -205,10 +236,6 @@ public class SettingsService extends BaseService {
   @Nonnull
   public SlackNotificationSettings createSlackNotificationSettings(
       @Nullable String userHandle, @Nullable List<String> channels) {
-    if (userHandle == null && channels == null) {
-      throw new RuntimeException("User handle and channels cannot both be null");
-    }
-
     final SlackNotificationSettings slackNotificationSettings = new SlackNotificationSettings();
     if (userHandle != null) {
       slackNotificationSettings.setUserHandle(userHandle);
@@ -217,6 +244,13 @@ public class SettingsService extends BaseService {
       slackNotificationSettings.setChannels(new StringArray(channels));
     }
     return slackNotificationSettings;
+  }
+
+  @Nonnull
+  public EmailNotificationSettings createEmailNotificationSettings(@Nonnull final String email) {
+    final EmailNotificationSettings emailNotificationSettings = new EmailNotificationSettings();
+    emailNotificationSettings.setEmail(email);
+    return emailNotificationSettings;
   }
 
   /**

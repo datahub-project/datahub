@@ -17,6 +17,7 @@ import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.EntityIndexBuilders;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.service.FormService;
+import com.linkedin.metadata.service.SettingsService;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
@@ -68,6 +69,8 @@ public class MCLSpringTestConfiguration {
   @MockBean public EntityService<?> entityService;
 
   @MockBean public FormService formService;
+
+  @MockBean public SettingsService settingsService;
 
   @MockBean(name = "cachingAspectRetriever")
   CachingAspectRetriever cachingAspectRetriever;

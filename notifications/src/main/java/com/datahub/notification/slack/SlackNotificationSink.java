@@ -66,7 +66,7 @@ import lombok.extern.slf4j.Slf4j;
  */
 @Slf4j
 public class SlackNotificationSink implements NotificationSink {
-
+  private static final String DEPRECATION_MODIFIER_TYPE = "deprecation";
   static final Urn SLACK_CONNECTION_URN =
       UrnUtils.getUrn("urn:li:dataHubConnection:__system_slack-0");
 
@@ -82,9 +82,11 @@ public class SlackNotificationSink implements NotificationSink {
           NotificationTemplateType.BROADCAST_INGESTION_RUN_CHANGE,
           NotificationTemplateType.BROADCAST_ASSERTION_STATUS_CHANGE);
 
+  /** A list of recipient types that can be handled by the sink */
+  private static final List<NotificationRecipientType> RECIPIENT_TYPES =
+      ImmutableList.of(NotificationRecipientType.SLACK_CHANNEL, NotificationRecipientType.SLACK_DM);
+
   // TODO: consolidate this fricken duplicated mess
-  private static final String SLACK_CHANNEL_RECIPIENT_TYPE = "SLACK_CHANNEL";
-  private static final String SLACK_DM_CUSTOM_TYPE = "SLACK_DM";
   private static final String BOT_TOKEN_CONFIG_NAME = "botToken";
   private static final String RETRY_ENABLED_CONFIG_NAME = "retryEnabled";
   private static final String MAX_NUM_RETRIES_CONFIG_NAME = "maxNumRetries";
@@ -136,6 +138,11 @@ public class SlackNotificationSink implements NotificationSink {
   @Override
   public Collection<NotificationTemplateType> templates() {
     return SUPPORTED_TEMPLATES;
+  }
+
+  @Override
+  public Collection<NotificationRecipientType> recipientTypes() {
+    return RECIPIENT_TYPES;
   }
 
   @Override
@@ -298,6 +305,10 @@ public class SlackNotificationSink implements NotificationSink {
     final String modifierStr =
         buildEntityChangeModifierString(request.getMessage().getParameters());
 
+    if (DEPRECATION_MODIFIER_TYPE.equals(modifierType)) {
+      return buildDeprecationMessage(actorName, entityName, entityUrl, entityType, operation);
+    }
+
     // TODO: Handle Sub-resources (fields, etc)
     /*
      * Example:
@@ -308,6 +319,15 @@ public class SlackNotificationSink implements NotificationSink {
     return String.format(
         ">:pencil2:  *%s* has %s %s%s for %s *<%s|%s>*.",
         actorName, operation, modifierType, modifierStr, entityType, entityUrl, entityName);
+  }
+
+  private String buildDeprecationMessage(
+      String actorName, String entityName, String entityUrl, String entityType, String operation) {
+    // Deprecation following a slightly different structure:
+    // Dataset SampleHiveDataset has been marked as deprecated by John Joyce.
+    return String.format(
+        ">:pencil2:  %s *<%s|%s>* has been %s by *%s*.",
+        entityType, entityUrl, entityName, operation, actorName);
   }
 
   private String buildEntityChangeModifierString(Map<String, String> params) {
@@ -625,19 +645,25 @@ public class SlackNotificationSink implements NotificationSink {
 
   private void sendNotificationToRecipient(
       final NotificationRecipient recipient, final String text, RetryMode retryMode) {
+
+    if (!isEligibleRecipientType(recipient)) {
+      log.debug(
+          "Skipping send notification to recipient. Unsupported recipient type {}",
+          recipient.getType());
+      return;
+    }
+
     // Try to sink message to each user.
     try {
       if (NotificationRecipientType.USER.equals(recipient.getType())) {
         sendNotificationToUser(UrnUtils.getUrn(recipient.getId()), text, retryMode);
-      } else if (NotificationRecipientType.CUSTOM.equals(recipient.getType())
-          && SLACK_DM_CUSTOM_TYPE.equals(recipient.getCustomType())) {
+      } else if (NotificationRecipientType.SLACK_DM.equals(recipient.getType())) {
         if (!recipient.hasId() || recipient.getId() == null) {
           throw new UnsupportedOperationException(
               String.format("Tried to send a DM to user without ID set", recipient.getType()));
         }
         sendMessage(recipient.getId(), text, retryMode);
-      } else if (NotificationRecipientType.CUSTOM.equals(recipient.getType())
-          && SLACK_CHANNEL_RECIPIENT_TYPE.equals(recipient.getCustomType())) {
+      } else if (NotificationRecipientType.SLACK_CHANNEL.equals(recipient.getType())) {
         // We only support "SLACK_CHANNEL" as a custom type.
         String channel = getRecipientChannelOrDefault(recipient.getId(GetMode.NULL));
         if (channel != null) {
@@ -646,7 +672,7 @@ public class SlackNotificationSink implements NotificationSink {
           log.warn(
               String.format(
                   "Failed to resolve channel for recipient of type %s. No default or provided channel.",
-                  SLACK_CHANNEL_RECIPIENT_TYPE));
+                  NotificationRecipientType.SLACK_CHANNEL));
         }
       } else {
         throw new UnsupportedOperationException(
@@ -686,9 +712,7 @@ public class SlackNotificationSink implements NotificationSink {
     } else {
       // Broadcast to the default configured channel.
       NotificationRecipient defaultChannelRecipient =
-          new NotificationRecipient()
-              .setType(NotificationRecipientType.CUSTOM)
-              .setCustomType(SLACK_CHANNEL_RECIPIENT_TYPE);
+          new NotificationRecipient().setType(NotificationRecipientType.SLACK_CHANNEL);
       sendNotificationToRecipient(defaultChannelRecipient, text, retryMode);
     }
   }
@@ -976,6 +1000,16 @@ public class SlackNotificationSink implements NotificationSink {
     } catch (UnsupportedEncodingException e) {
       throw new RuntimeException("Failed to encode string", e);
     }
+  }
+
+  /**
+   * Returns true if the recipient is of an eligible type to receive a slack notification, false
+   * otherwise which means the recipient cannot be handled by this sink.
+   */
+  private boolean isEligibleRecipientType(NotificationRecipient recipient) {
+    return NotificationRecipientType.USER.equals(recipient.getType())
+        || NotificationRecipientType.SLACK_DM.equals(recipient.getType())
+        || NotificationRecipientType.SLACK_CHANNEL.equals(recipient.getType());
   }
 
   private synchronized boolean hasChanged(final String newBotToken) {

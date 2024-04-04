@@ -1,8 +1,7 @@
-import { FormOutlined } from '@ant-design/icons';
+import { EditOutlined } from '@ant-design/icons';
 import { Button } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import { ANTD_GRAY } from '../../entity/shared/constants';
 
 type Props = {
     onClick: () => void;
@@ -15,10 +14,18 @@ const StyledButton = styled(Button)`
     margin: 0px;
 `;
 
+const EditIcon = styled(EditOutlined)`
+    color: #00615f;
+    font-size: 16px;
+    &:hover {
+        color: #30baaa;
+    }
+`;
+
 export const NotificationTypeOptionsButton = ({ onClick }: Props) => {
     return (
         <StyledButton type="text" onClick={onClick}>
-            <FormOutlined style={{ color: ANTD_GRAY[8] }} />
+            <EditIcon type="text" />
         </StyledButton>
     );
 };

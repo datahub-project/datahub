@@ -25,6 +25,7 @@ import java.util.Set;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
@@ -51,18 +52,26 @@ public abstract class NotificationRecipientBuilder {
 
   /** Builds a list of recipients based on subscriber information. */
   public List<NotificationRecipient> buildSubscriberRecipients(
-      @Nonnull Map<Urn, SubscriptionInfo> subscriptions) {
+      @Nonnull Map<Urn, SubscriptionInfo> subscriptions, @Nullable Urn actorUrn) {
     final Map<Urn, SubscriptionInfo> userToSubscriptionMap = new HashMap<>();
     final Map<Urn, SubscriptionInfo> groupToSubscriptionMap = new HashMap<>();
     for (Map.Entry<Urn, SubscriptionInfo> entry : subscriptions.entrySet()) {
       final SubscriptionInfo subscriptionInfo = entry.getValue();
-      final com.linkedin.common.urn.Urn actorUrn = subscriptionInfo.getActorUrn();
+      final com.linkedin.common.urn.Urn recipientActorUrn = subscriptionInfo.getActorUrn();
+
+      if (actorUrn != null && actorUrn.equals(recipientActorUrn)) {
+        log.debug(
+            "Skipping notification for actor {} as it is the same as the actor that triggered the event",
+            actorUrn);
+        continue;
+      }
+
       switch (subscriptionInfo.getActorType()) {
         case CORP_USER_ENTITY_NAME:
-          userToSubscriptionMap.put(actorUrn, subscriptionInfo);
+          userToSubscriptionMap.put(recipientActorUrn, subscriptionInfo);
           break;
         case CORP_GROUP_ENTITY_NAME:
-          groupToSubscriptionMap.put(actorUrn, subscriptionInfo);
+          groupToSubscriptionMap.put(recipientActorUrn, subscriptionInfo);
           break;
         default:
           log.warn("Unsupported actor type: " + subscriptionInfo.getActorType());
@@ -75,10 +84,13 @@ public abstract class NotificationRecipientBuilder {
 
     final Map<Urn, NotificationSettings> userToNotificationSettings =
         getNotificationSettings(CORP_USER_ENTITY_NAME, userUrns);
+
     final Map<Urn, NotificationSettings> groupToNotificationSettings =
         getNotificationSettings(CORP_GROUP_ENTITY_NAME, groupUrns);
+
     final List<NotificationRecipient> userRecipients =
         buildUserSubscriberRecipients(userToSubscriptionMap, userToNotificationSettings);
+
     final List<NotificationRecipient> groupRecipients =
         buildGroupSubscriberRecipients(groupToSubscriptionMap, groupToNotificationSettings);
 
@@ -93,6 +105,11 @@ public abstract class NotificationRecipientBuilder {
   public Map<Urn, NotificationSettings> getNotificationSettings(
       @Nonnull final String entityName, @Nonnull final Set<Urn> actorUrns) {
     Map<Urn, EntityResponse> notificationSettingsMap;
+
+    if (actorUrns.isEmpty()) {
+      return Collections.emptyMap();
+    }
+
     String aspectName =
         entityName.equals(CORP_USER_ENTITY_NAME)
             ? CORP_USER_SETTINGS_ASPECT_NAME

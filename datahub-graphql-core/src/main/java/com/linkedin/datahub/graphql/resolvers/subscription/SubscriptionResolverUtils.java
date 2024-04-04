@@ -5,6 +5,7 @@ import com.linkedin.datahub.graphql.generated.EntityChangeDetailsInput;
 import com.linkedin.datahub.graphql.generated.SubscriptionType;
 import com.linkedin.event.notification.NotificationSinkType;
 import com.linkedin.event.notification.NotificationSinkTypeArray;
+import com.linkedin.event.notification.settings.EmailNotificationSettings;
 import com.linkedin.event.notification.settings.NotificationSettings;
 import com.linkedin.event.notification.settings.SlackNotificationSettings;
 import com.linkedin.subscription.EntityChangeDetails;
@@ -92,6 +93,11 @@ public class SubscriptionResolverUtils {
           mapSlackNotificationSettings(notificationSettings.getSlackSettings()));
     }
 
+    if (notificationSettings.getEmailSettings() != null) {
+      result.setEmailSettings(
+          mapEmailNotificationSettings(notificationSettings.getEmailSettings()));
+    }
+
     return result;
   }
 
@@ -107,6 +113,17 @@ public class SubscriptionResolverUtils {
       result.setChannels(new StringArray(slackSettings.getChannels()));
     }
 
+    return result;
+  }
+
+  @Nonnull
+  public static EmailNotificationSettings mapEmailNotificationSettings(
+      @Nonnull
+          com.linkedin.datahub.graphql.generated.EmailNotificationSettingsInput emailSettings) {
+    final EmailNotificationSettings result = new EmailNotificationSettings();
+    if (emailSettings.getEmail() != null) {
+      result.setEmail(emailSettings.getEmail());
+    }
     return result;
   }
 

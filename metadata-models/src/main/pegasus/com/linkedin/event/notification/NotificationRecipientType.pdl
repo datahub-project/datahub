@@ -1,17 +1,38 @@
 namespace com.linkedin.event.notification
 
 /**
- * A type of target (recipient) for a notification.
- * If a user or group is provided, their default notification settings will apply.
+ * A type of target (recipient) channel for a notification. Typically a single recipient
+ * maps to a single sink type. Each sink can support one or more recipient types.
+ *
+ * Each type of Notification Sink exposes the recipient types that they support sinking to. This
+ * is used by the notification manager to filter out recipients that are not supported by a given sink.
  */
 enum NotificationRecipientType {
   /**
-  * A DataHub user (via urn.)
-  */
-  USER
+   * A specific email address to send a notification to.
+   */
+  EMAIL
 
   /**
-   * A custom target, e.g. a slack channel or specific email address.
+   * A slack channel to send a notification to.
+   */
+  SLACK_CHANNEL
+
+  /**
+   * A slack member to send a notification to.
+   */
+  SLACK_DM
+
+  /**
+   * A custom target, e.g. a slack channel or dm, that a specific sink can handle. Sinks are expected to handle custom
+   * types appropriately.
    */
   CUSTOM
+
+  /**
+   * Deprecated! A DataHub user (via urn.). Currently this is NOT USED and may be removed in future versions.
+   * Recipient type should correspond to the sink type, and the sink should understand how to handle the recipient type appropriately.
+   * Instead, typically notifications have specific recipients as Slack handles, slack channels, or email addresses.
+   */
+  USER
 }

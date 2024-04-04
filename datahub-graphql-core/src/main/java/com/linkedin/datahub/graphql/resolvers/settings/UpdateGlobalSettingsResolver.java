@@ -4,11 +4,13 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.*;
 import static com.linkedin.metadata.Constants.*;
 
+import com.linkedin.data.template.SetMode;
 import com.linkedin.data.template.StringMap;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.NotificationSettingInput;
 import com.linkedin.datahub.graphql.generated.StringMapEntryInput;
+import com.linkedin.datahub.graphql.generated.UpdateEmailIntegrationSettingsInput;
 import com.linkedin.datahub.graphql.generated.UpdateGlobalIntegrationSettingsInput;
 import com.linkedin.datahub.graphql.generated.UpdateGlobalNotificationSettingsInput;
 import com.linkedin.datahub.graphql.generated.UpdateGlobalSettingsInput;
@@ -20,6 +22,7 @@ import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.settings.NotificationSetting;
 import com.linkedin.settings.NotificationSettingMap;
 import com.linkedin.settings.NotificationSettingValue;
+import com.linkedin.settings.global.EmailIntegrationSettings;
 import com.linkedin.settings.global.GlobalIntegrationSettings;
 import com.linkedin.settings.global.GlobalNotificationSettings;
 import com.linkedin.settings.global.GlobalSettingsInfo;
@@ -30,6 +33,7 @@ import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.services.SecretService;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 
 public class UpdateGlobalSettingsResolver implements DataFetcher<CompletableFuture<Boolean>> {
@@ -39,8 +43,8 @@ public class UpdateGlobalSettingsResolver implements DataFetcher<CompletableFutu
 
   public UpdateGlobalSettingsResolver(
       final EntityClient entityClient, final SecretService secretService) {
-    _entityClient = entityClient;
-    _secretService = secretService;
+    _entityClient = Objects.requireNonNull(entityClient, "entityClient must not be null");
+    _secretService = Objects.requireNonNull(secretService, "secretService must not be null");
   }
 
   @Override
@@ -108,6 +112,14 @@ public class UpdateGlobalSettingsResolver implements DataFetcher<CompletableFutu
       updateSlackIntegrationSettings(existingSlackSettings, update.getSlackSettings());
       existingSettings.setSlackSettings(existingSlackSettings);
     }
+    if (update.getEmailSettings() != null) {
+      EmailIntegrationSettings existingEmailSettings =
+          existingSettings.hasEmailSettings()
+              ? existingSettings.getEmailSettings()
+              : new EmailIntegrationSettings();
+      updateEmailIntegrationSettings(existingEmailSettings, update.getEmailSettings());
+      existingSettings.setEmailSettings(existingEmailSettings);
+    }
   }
 
   private void updateSlackIntegrationSettings(
@@ -120,6 +132,12 @@ public class UpdateGlobalSettingsResolver implements DataFetcher<CompletableFutu
     if (update.getBotToken() != null) {
       existingSettings.setEncryptedBotToken(_secretService.encrypt(update.getBotToken()));
     }
+  }
+
+  private void updateEmailIntegrationSettings(
+      final EmailIntegrationSettings existingSettings,
+      final UpdateEmailIntegrationSettingsInput update) {
+    existingSettings.setDefaultEmail(update.getDefaultEmail(), SetMode.IGNORE_NULL);
   }
 
   private void updateGlobalNotificationSettings(

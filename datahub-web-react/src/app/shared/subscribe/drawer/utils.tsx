@@ -6,15 +6,13 @@ import { CheckCircleFilled, QuestionCircleOutlined } from '@ant-design/icons';
 import styled from 'styled-components/macro';
 import {
     DataHubSubscription,
+    EmailNotificationSettings,
     EntityChangeType,
     EntityType,
     NotificationSettingsInput,
+    SlackNotificationSettings,
     SubscriptionType,
 } from '../../../../types.generated';
-import {
-    GetGroupNotificationSettingsQuery,
-    GetUserNotificationSettingsQuery,
-} from '../../../../graphql/settings.generated';
 import {
     useCreateSubscriptionMutation,
     useDeleteSubscriptionMutation,
@@ -62,7 +60,7 @@ export const getEntityChangeTypesFromCheckedKeys = (checkedKeys: Key[]): EntityC
 
 const assertionsNode: DataNode = {
     key: ASSERTION_NODE_KEY,
-    title: <NotificationTypeText>Assertion status changes</NotificationTypeText>,
+    title: <NotificationTypeText>Assertion status</NotificationTypeText>,
     children: [
         {
             key: EntityChangeType.AssertionFailed,
@@ -342,7 +340,7 @@ export const createSubscriptionFunction = ({
             });
             const description = isPersonal
                 ? 'You are now subscribed to this entity.'
-                : 'Your group is now subcribed to this entity.';
+                : 'Your group is now subscribed to this entity.';
             notification.success({
                 message: 'Success',
                 description,
@@ -466,21 +464,29 @@ export const updateSubscriptionFunction = ({
     }
 };
 
-export const getSubscriptionChannel = (isPersonal: boolean, subscription?: DataHubSubscription) => {
-    const subUserHandle = subscription?.notificationConfig?.notificationSettings?.slackSettings.userHandle || undefined;
+export const getSinkTypesForSubscription = (subscription?: DataHubSubscription) => {
+    return subscription?.notificationConfig?.notificationSettings?.sinkTypes || [];
+};
+
+export const getSlackSubscriptionChannel = (isPersonal: boolean, subscription?: DataHubSubscription) => {
+    const subUserHandle =
+        subscription?.notificationConfig?.notificationSettings?.slackSettings?.userHandle || undefined;
     const subChannels = subscription?.notificationConfig?.notificationSettings?.slackSettings?.channels;
     const subGroupChannel = subChannels?.length ? subChannels[0] : undefined;
     return isPersonal ? subUserHandle : subGroupChannel;
 };
 
-export const getSettingsChannel = (
-    isPersonal: boolean,
-    userNotificationSettings?: GetUserNotificationSettingsQuery,
-    groupNotificationSettings?: GetGroupNotificationSettingsQuery,
-) => {
-    const settingsUserHandle =
-        userNotificationSettings?.getUserNotificationSettings?.slackSettings?.userHandle || undefined;
-    const settingsChannels = groupNotificationSettings?.getGroupNotificationSettings?.slackSettings?.channels;
+export const getSlackSettingsChannel = (isPersonal: boolean, settings?: SlackNotificationSettings) => {
+    const settingsUserHandle = settings?.userHandle || undefined;
+    const settingsChannels = settings?.channels;
     const settingsGroupChannel = settingsChannels?.length ? settingsChannels[0] : undefined;
     return isPersonal ? settingsUserHandle : settingsGroupChannel;
+};
+
+export const getEmailSubscriptionChannel = (_: boolean, subscription?: DataHubSubscription) => {
+    return subscription?.notificationConfig?.notificationSettings?.emailSettings?.email;
+};
+
+export const getEmailSettingsChannel = (_: boolean, settings?: EmailNotificationSettings) => {
+    return settings?.email;
 };

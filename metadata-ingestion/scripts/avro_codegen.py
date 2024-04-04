@@ -46,6 +46,7 @@ def load_schemas(schemas_path: str) -> Dict[str, dict]:
         "mxe/PlatformEvent.avsc",
         "platform/event/v1/EntityChangeEvent.avsc",
         "metadata/query/filter/Filter.avsc",  # temporarily added to test reserved keywords support
+        "event/notification/NotificationRequest.avsc",
     }
 
     # Find all the aspect schemas / other important schemas.

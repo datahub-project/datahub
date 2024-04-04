@@ -55,6 +55,7 @@ export default function SelectGroupSection({ groupUrn, setGroupUrn }: Props) {
             <SelectGroupContainer>
                 <TitleText>Group to notify</TitleText>
                 <GroupSelect
+                    data-testid="select-group-dropdown"
                     placeholder="Select a group"
                     options={options}
                     value={groupUrn}

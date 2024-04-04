@@ -57,7 +57,12 @@ input NotificationSettingsInput {
     """
     Slack Notification Settings
     """
-    slackSettings: SlackNotificationSettingsInput!
+    slackSettings: SlackNotificationSettingsInput
+
+    """
+    Email Notification Settings
+    """
+    emailSettings: EmailNotificationSettingsInput
 }
 
 type NotificationSettings {
@@ -69,7 +74,12 @@ type NotificationSettings {
     """
     Slack Notification Settings
     """
-    slackSettings: SlackNotificationSettings!
+    slackSettings: SlackNotificationSettings
+
+    """
+    Email Notification Settings
+    """
+    emailSettings: EmailNotificationSettings
 }
 
 input SlackNotificationSettingsInput {
@@ -84,6 +94,13 @@ input SlackNotificationSettingsInput {
     channels: [String!]
 }
 
+input EmailNotificationSettingsInput {
+    """
+    The email to send the notification to, either associated with a user or a group.
+    """
+    email: String!
+}
+
 type SlackNotificationSettings {
     """
     The actor's handle. Only filled if the actor is a user. Should be a Slack member UUID.
@@ -96,9 +113,21 @@ type SlackNotificationSettings {
     channels: [String!]
 }
 
+type EmailNotificationSettings {
+    """
+    The email to send the notification to, either associated with a user or a group.
+    """
+    email: String!
+}
+
 enum NotificationSinkType {
     """
     Slack
     """
     SLACK
+
+    """
+    Email
+    """
+    EMAIL
 }

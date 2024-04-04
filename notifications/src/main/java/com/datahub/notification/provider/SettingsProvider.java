@@ -11,6 +11,7 @@ import com.linkedin.settings.global.GlobalSettingsInfo;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
@@ -38,6 +39,7 @@ public class SettingsProvider {
    *
    * @throws {@link RuntimeException} if Global Settings are unable to be fetched.
    */
+  @Nullable
   public GlobalSettingsInfo getGlobalSettings() {
     return _globalSettingsSupplier.get();
   }

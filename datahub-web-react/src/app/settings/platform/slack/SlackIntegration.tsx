@@ -137,7 +137,7 @@ export const SlackIntegration = () => {
             variables: {
                 input: {
                     slackSettings: {
-                        defaultChannelName: settings.defaultChannelName,
+                        defaultChannelName: settings.defaultChannelName || '',
                     },
                 },
             },
@@ -252,21 +252,6 @@ export const SlackIntegration = () => {
                                     </Form.Item>
                                 </>
                             )}
-                            <Form.Item label={<Typography.Text strong>Default Channel</Typography.Text>}>
-                                <Typography.Text type="secondary">
-                                    Set a default channel. This is where notifications will be routed by default.
-                                </Typography.Text>
-                                <SettingValueContainer>
-                                    <StyledInput
-                                        value={settings.defaultChannelName || ''}
-                                        placeholder="datahub-slack-notifications"
-                                        data-testid="default-channel-input"
-                                        onChange={(e) =>
-                                            setSettings({ ...settings, defaultChannelName: e.target.value })
-                                        }
-                                    />
-                                </SettingValueContainer>
-                            </Form.Item>
                         </Form>
 
                         <Button onClick={() => updateSlackSettings()} data-testid="connect-to-slack-button">

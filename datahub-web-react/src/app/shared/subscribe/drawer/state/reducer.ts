@@ -8,6 +8,7 @@ export const createInitialState = (): State => ({
     isPersonal: true,
     settings: {
         slack: {},
+        email: {},
     },
     notificationTypes: {
         checkedKeys: [],
@@ -22,6 +23,13 @@ export const createInitialState = (): State => ({
             saveAsDefault: false,
         },
     },
+    email: {
+        enabled: false,
+        channelSelection: ChannelSelections.SUBSCRIPTION,
+        subscription: {
+            saveAsDefault: false,
+        },
+    },
 });
 
 export const reducer = (state: State, action: Action): State => {
@@ -30,9 +38,12 @@ export const reducer = (state: State, action: Action): State => {
             const {
                 isPersonal,
                 slackSinkEnabled,
+                emailSinkEnabled,
                 subscription,
-                subscriptionChannel,
-                settingsChannel,
+                slackSubscriptionChannel,
+                slackSettingsChannel,
+                emailSubscriptionChannel,
+                emailSettingsChannel,
                 settingsSinkTypes,
             } = action.payload;
 
@@ -41,14 +52,30 @@ export const reducer = (state: State, action: Action): State => {
             const notificationSinkTypes = subscription?.notificationConfig?.notificationSettings?.sinkTypes ?? [];
 
             if (slackSinkEnabled && !subscription) notificationSinkTypes.push(NotificationSinkType.Slack);
+            if (emailSinkEnabled && !subscription) notificationSinkTypes.push(NotificationSinkType.Email);
 
+            // Slack specific logic.
             const isSlackAndSubscriptionEnabled =
                 slackSinkEnabled && notificationSinkTypes.includes(NotificationSinkType.Slack);
+
+            const slackChannelSelection =
+                !!slackSettingsChannel && !slackSubscriptionChannel
+                    ? ChannelSelections.SETTINGS
+                    : ChannelSelections.SUBSCRIPTION;
+
+            // Email specific logic.
+            const isEmailAndSubscriptionEnabled =
+                emailSinkEnabled && notificationSinkTypes.includes(NotificationSinkType.Email);
+
+            const emailChannelSelection =
+                !!emailSettingsChannel && !emailSubscriptionChannel
+                    ? ChannelSelections.SETTINGS
+                    : ChannelSelections.SUBSCRIPTION;
+
+            // TODO: once we implement upstream subscriptions.
             const hasUpstreamSubscription =
                 ENABLE_UPSTREAM_NOTIFICATIONS &&
                 !!subscription?.subscriptionTypes?.includes(SubscriptionType.UpstreamEntityChange);
-            const channelSelection =
-                !!settingsChannel && !subscriptionChannel ? ChannelSelections.SETTINGS : ChannelSelections.SUBSCRIPTION;
 
             return {
                 ...state,
@@ -57,7 +84,10 @@ export const reducer = (state: State, action: Action): State => {
                 settings: {
                     sinkTypes: settingsSinkTypes,
                     slack: {
-                        channel: settingsChannel,
+                        channel: slackSettingsChannel,
+                    },
+                    email: {
+                        channel: emailSettingsChannel,
                     },
                 },
                 notificationTypes: {
@@ -69,14 +99,24 @@ export const reducer = (state: State, action: Action): State => {
                 slack: {
                     ...state.slack,
                     enabled: isSlackAndSubscriptionEnabled,
-                    channelSelection,
+                    channelSelection: slackChannelSelection,
                     subscription: {
-                        channel: subscriptionChannel,
-                        saveAsDefault: !settingsChannel && !subscription,
+                        channel: slackSubscriptionChannel,
+                        saveAsDefault: !slackSettingsChannel && !subscription,
+                    },
+                },
+                email: {
+                    ...state.email,
+                    enabled: isEmailAndSubscriptionEnabled,
+                    channelSelection: emailChannelSelection,
+                    subscription: {
+                        channel: emailSubscriptionChannel,
+                        saveAsDefault: !emailSettingsChannel && !subscription,
                     },
                 },
             };
         }
+        /** Slack-specific reducers */
         case ActionTypes.SET_SLACK_ENABLED: {
             const newNotificationSinkTypes = uniq(
                 action.payload
@@ -94,7 +134,7 @@ export const reducer = (state: State, action: Action): State => {
                 },
             };
         }
-        case ActionTypes.SET_CHANNEL_SELECTION: {
+        case ActionTypes.SET_SLACK_CHANNEL_SELECTION: {
             return {
                 ...state,
                 edited: true,
@@ -112,7 +152,7 @@ export const reducer = (state: State, action: Action): State => {
                 },
             };
         }
-        case ActionTypes.SET_SUBSCRIPTION_CHANNEL: {
+        case ActionTypes.SET_SLACK_SUBSCRIPTION_CHANNEL: {
             return {
                 ...state,
                 edited: true,
@@ -125,7 +165,7 @@ export const reducer = (state: State, action: Action): State => {
                 },
             };
         }
-        case ActionTypes.SET_SAVE_AS_DEFAULT: {
+        case ActionTypes.SET_SLACK_SAVE_AS_DEFAULT: {
             return {
                 ...state,
                 edited: true,
@@ -133,6 +173,68 @@ export const reducer = (state: State, action: Action): State => {
                     ...state.slack,
                     subscription: {
                         ...state.slack.subscription,
+                        saveAsDefault: action.payload,
+                    },
+                },
+            };
+        }
+        /** Email-specific reducers */
+        case ActionTypes.SET_EMAIL_ENABLED: {
+            const newNotificationSinkTypes = uniq(
+                action.payload
+                    ? [...state.notificationSinkTypes, NotificationSinkType.Email]
+                    : state.notificationSinkTypes.filter((sinkType) => sinkType !== NotificationSinkType.Email),
+            ).sort((a, b) => a.localeCompare(b));
+
+            return {
+                ...state,
+                edited: true,
+                notificationSinkTypes: newNotificationSinkTypes,
+                email: {
+                    ...state.email,
+                    enabled: action.payload,
+                },
+            };
+        }
+        case ActionTypes.SET_EMAIL_CHANNEL_SELECTION: {
+            return {
+                ...state,
+                edited: true,
+                email: {
+                    ...state.email,
+                    channelSelection: action.payload,
+                    subscription: {
+                        ...state.email.subscription,
+                        channel:
+                            action.payload === ChannelSelections.SETTINGS
+                                ? undefined
+                                : state.email.subscription.channel,
+                        saveAsDefault: !state.settings.email.channel,
+                    },
+                },
+            };
+        }
+        case ActionTypes.SET_EMAIL_SUBSCRIPTION_CHANNEL: {
+            return {
+                ...state,
+                edited: true,
+                email: {
+                    ...state.email,
+                    subscription: {
+                        ...state.email.subscription,
+                        channel: action.payload,
+                    },
+                },
+            };
+        }
+        case ActionTypes.SET_EMAIL_SAVE_AS_DEFAULT: {
+            return {
+                ...state,
+                edited: true,
+                email: {
+                    ...state.email,
+                    subscription: {
+                        ...state.email.subscription,
                         saveAsDefault: action.payload,
                     },
                 },

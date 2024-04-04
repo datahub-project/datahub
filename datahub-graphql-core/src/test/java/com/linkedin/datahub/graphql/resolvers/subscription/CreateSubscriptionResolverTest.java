@@ -12,6 +12,7 @@ import com.datahub.authentication.Authentication;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.CreateSubscriptionInput;
 import com.linkedin.datahub.graphql.generated.DataHubSubscription;
+import com.linkedin.datahub.graphql.generated.EmailNotificationSettingsInput;
 import com.linkedin.datahub.graphql.generated.NotificationSettingsInput;
 import com.linkedin.datahub.graphql.generated.SlackNotificationSettingsInput;
 import com.linkedin.datahub.graphql.generated.SubscriptionNotificationConfigInput;
@@ -48,9 +49,15 @@ public class CreateSubscriptionResolverTest {
         new SubscriptionNotificationConfigInput();
     final NotificationSettingsInput notificationSettings = new NotificationSettingsInput();
     notificationSettings.setSinkTypes(NOTIFICATION_SINK_GRAPHQL_TYPES);
+
     final SlackNotificationSettingsInput slackSettings = new SlackNotificationSettingsInput();
     slackSettings.setUserHandle(SLACK_USER_HANDLE);
     notificationSettings.setSlackSettings(slackSettings);
+
+    final EmailNotificationSettingsInput emailSettings = new EmailNotificationSettingsInput();
+    emailSettings.setEmail(EMAIL_ADDRESS);
+    notificationSettings.setEmailSettings(emailSettings);
+
     notificationConfigInput.setNotificationSettings(notificationSettings);
 
     input.setNotificationConfig(notificationConfigInput);

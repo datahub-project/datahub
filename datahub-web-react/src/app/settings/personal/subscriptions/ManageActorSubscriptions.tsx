@@ -13,7 +13,7 @@ import { SubscribedSinceColumn } from './table/SubscribedSinceColumn';
 import { scrollToTop } from '../../../shared/searchUtils';
 import { ENABLE_UPSTREAM_NOTIFICATIONS } from '../notifications/constants';
 import ChannelColumn from './table/ChannelColumn';
-import useSinkSettings from '../../../shared/subscribe/drawer/useSinkSettings';
+import useActorSinkSettings from '../../../shared/subscribe/drawer/useSinkSettings';
 import { DataHubSubscription } from '../../../../types.generated';
 import { useUserContext } from '../../../context/useUserContext';
 
@@ -110,7 +110,7 @@ export const ManageActorSubscriptions = ({ isPersonal, groupUrn }: Props) => {
             },
         },
     });
-    const { settingsChannel } = useSinkSettings({ isPersonal, groupUrn });
+    const { slackSettings, emailSettings } = useActorSinkSettings({ isPersonal, groupUrn });
     const subscriptions = listSubscriptionData?.listSubscriptions?.subscriptions || [];
     const numSubscriptions = listSubscriptionData?.listSubscriptions?.total || 0;
     const pageTitle = isPersonal ? 'My Subscriptions' : 'Group Subscriptions';
@@ -126,7 +126,12 @@ export const ManageActorSubscriptions = ({ isPersonal, groupUrn }: Props) => {
             dataIndex: 'channels',
             key: 'channels',
             render: (_, subscription: DataHubSubscription) => (
-                <ChannelColumn isPersonal={isPersonal} subscription={subscription} settingsChannel={settingsChannel} />
+                <ChannelColumn
+                    isPersonal={isPersonal}
+                    subscription={subscription}
+                    slackSettings={slackSettings}
+                    emailSettings={emailSettings}
+                />
             ),
         },
         ...(ENABLE_UPSTREAM_NOTIFICATIONS

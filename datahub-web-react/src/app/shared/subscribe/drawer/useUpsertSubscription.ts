@@ -36,7 +36,10 @@ const useUpsertSubscription = ({
         subscribeToUpstream,
         notificationSinkTypes,
         slack: {
-            subscription: { channel, saveAsDefault },
+            subscription: { channel: slackChannel, saveAsDefault: slackSaveAsDefault },
+        },
+        email: {
+            subscription: { channel: emailChannel, saveAsDefault: emailSaveAsDefault },
         },
     } = useDrawerState();
 
@@ -52,9 +55,15 @@ const useUpsertSubscription = ({
     const notificationSettings: NotificationSettingsInput = {
         sinkTypes: notificationSinkTypes,
         slackSettings: {
-            userHandle: !saveAsDefault && isPersonal && channel ? channel : undefined,
-            channels: !saveAsDefault && !isPersonal && channel ? [channel] : undefined,
+            userHandle: !slackSaveAsDefault && isPersonal && slackChannel ? slackChannel : undefined,
+            channels: !slackSaveAsDefault && !isPersonal && slackChannel ? [slackChannel] : undefined,
         },
+        emailSettings:
+            !emailSaveAsDefault && emailChannel
+                ? {
+                    email: emailChannel,
+                }
+                : undefined,
     };
 
     const onCreateSubscription = () => {

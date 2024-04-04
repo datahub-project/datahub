@@ -23,7 +23,7 @@ import { ManagePermissions } from '../permissions/ManagePermissions';
 import { useAppConfig } from '../useAppConfig';
 import { AccessTokens } from './AccessTokens';
 import { PlatformIntegrations } from './platform/PlatformIntegrations';
-import { PlatformNotifications } from './platform/PlatformNotifications';
+import { PlatformNotifications } from './platform/notifications/PlatformNotifications';
 import { PlatformSsoIntegrations } from './platform/PlatformSsoIntegrations';
 import { Preferences } from './Preferences';
 import { ManagePolicies } from '../permissions/policy/ManagePolicies';

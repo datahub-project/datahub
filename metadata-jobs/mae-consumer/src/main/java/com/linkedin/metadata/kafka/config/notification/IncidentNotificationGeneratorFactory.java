@@ -1,13 +1,13 @@
 package com.linkedin.metadata.kafka.config.notification;
 
 import com.datahub.notification.provider.SettingsProvider;
-import com.datahub.notification.recipient.SlackNotificationRecipientBuilder;
+import com.datahub.notification.recipient.NotificationRecipientBuilders;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.gms.factory.common.GraphClientFactory;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.kafka.DataHubKafkaEventProducerFactory;
 import com.linkedin.gms.factory.notifications.SettingsProviderFactory;
-import com.linkedin.gms.factory.notifications.recipient.SlackNotificationRecipientBuilderFactory;
+import com.linkedin.gms.factory.notifications.recipient.NotificationRecipientBuildersFactory;
 import com.linkedin.metadata.dao.producer.KafkaHealthChecker;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.graph.GraphClient;
@@ -29,7 +29,7 @@ import org.springframework.context.annotation.Scope;
   SettingsProviderFactory.class,
   DataHubKafkaEventProducerFactory.class,
   KafkaHealthChecker.class,
-  SlackNotificationRecipientBuilderFactory.class
+  NotificationRecipientBuildersFactory.class
 })
 @PropertySource(value = "classpath:/application.yml", factory = YamlPropertySourceFactory.class)
 public class IncidentNotificationGeneratorFactory {
@@ -47,8 +47,8 @@ public class IncidentNotificationGeneratorFactory {
   private SettingsProvider _settingsProvider;
 
   @Autowired
-  @Qualifier("slackNotificationRecipientBuilder")
-  private SlackNotificationRecipientBuilder _slackNotificationRecipientBuilder;
+  @Qualifier("notificationRecipientBuilders")
+  private NotificationRecipientBuilders _notificationRecipientBuilders;
 
   @Autowired
   @Qualifier("configurationProvider")
@@ -66,7 +66,7 @@ public class IncidentNotificationGeneratorFactory {
         systemEntityClient,
         _graphClient,
         _settingsProvider,
-        _slackNotificationRecipientBuilder,
+        _notificationRecipientBuilders,
         _configProvider.getFeatureFlags());
   }
 }

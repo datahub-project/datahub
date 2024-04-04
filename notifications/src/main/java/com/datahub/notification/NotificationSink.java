@@ -1,5 +1,6 @@
 package com.datahub.notification;
 
+import com.linkedin.event.notification.NotificationRecipientType;
 import com.linkedin.event.notification.NotificationRequest;
 import com.linkedin.event.notification.NotificationSinkType;
 import java.util.Collection;
@@ -20,6 +21,9 @@ public interface NotificationSink {
 
   /** Returns the set of notification template types supported by the sink. */
   Collection<NotificationTemplateType> templates();
+
+  /** Returns the types of recipients that can be handled by a given sink. */
+  Collection<NotificationRecipientType> recipientTypes();
 
   /** Initializes a notification sink. */
   void init(@Nonnull final NotificationSinkConfig cfg);

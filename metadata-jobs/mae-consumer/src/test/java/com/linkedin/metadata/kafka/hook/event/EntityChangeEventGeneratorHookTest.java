@@ -399,6 +399,7 @@ public class EntityChangeEventGeneratorHookTest {
     Deprecation newDeprecation = new Deprecation();
     newDeprecation.setDeprecated(true);
     newDeprecation.setNote("Test Note");
+    newDeprecation.setDecommissionTime(EVENT_TIME);
     newDeprecation.setActor(actorUrn);
 
     event.setAspect(GenericRecordUtils.serializeAspect(newDeprecation));
@@ -417,7 +418,13 @@ public class EntityChangeEventGeneratorHookTest {
             ChangeCategory.DEPRECATION,
             ChangeOperation.MODIFY,
             null,
-            ImmutableMap.of("status", "DEPRECATED"),
+            ImmutableMap.of(
+                "status",
+                "DEPRECATED",
+                "timestamp",
+                String.valueOf(EVENT_TIME),
+                "note",
+                "Test Note"),
             actorUrn);
 
     verifyProducePlatformEvent(_mockClient, platformEvent);

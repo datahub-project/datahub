@@ -5,7 +5,9 @@ import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.*;
 import com.datahub.authentication.Authentication;
 import com.datahub.authorization.AuthUtil;
 import com.google.common.collect.ImmutableSet;
+import com.linkedin.data.template.GetMode;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.generated.EmailIntegrationSettings;
 import com.linkedin.datahub.graphql.generated.GlobalIntegrationSettings;
 import com.linkedin.datahub.graphql.generated.GlobalNotificationSettings;
 import com.linkedin.datahub.graphql.generated.GlobalSettings;
@@ -94,6 +96,9 @@ public class SettingsMapper {
     if (input.hasSlackSettings()) {
       result.setSlackSettings(mapSlackIntegrationSettings(input.getSlackSettings()));
     }
+    if (input.hasEmailSettings()) {
+      result.setEmailSettings(mapEmailIntegrationSettings(input.getEmailSettings()));
+    }
     return result;
   }
 
@@ -107,6 +112,13 @@ public class SettingsMapper {
     if (input.hasEncryptedBotToken()) {
       result.setBotToken(_secretService.decrypt(input.getEncryptedBotToken()));
     }
+    return result;
+  }
+
+  private EmailIntegrationSettings mapEmailIntegrationSettings(
+      @Nonnull com.linkedin.settings.global.EmailIntegrationSettings input) {
+    final EmailIntegrationSettings result = new EmailIntegrationSettings();
+    result.setDefaultEmail(input.getDefaultEmail(GetMode.NULL));
     return result;
   }
 

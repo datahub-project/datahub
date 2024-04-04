@@ -3,10 +3,14 @@ package com.datahub.notification.provider;
 import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.chart.ChartInfo;
+import com.linkedin.common.DataPlatformInstance;
+import com.linkedin.common.SubTypes;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.container.ContainerProperties;
 import com.linkedin.dashboard.DashboardInfo;
 import com.linkedin.data.DataMap;
+import com.linkedin.datajob.DataFlowInfo;
+import com.linkedin.datajob.DataJobInfo;
 import com.linkedin.dataplatform.DataPlatformInfo;
 import com.linkedin.dataproduct.DataProductProperties;
 import com.linkedin.dataset.DatasetProperties;
@@ -28,7 +32,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
-/** Provider of basic information about a Tag entity. */
+/** Provider of basic information about entity names. */
 @Slf4j
 public class EntityNameProvider {
 
@@ -45,7 +49,7 @@ public class EntityNameProvider {
   }
 
   /**
-   * Returns the name for use when displaying a glossary term.
+   * Returns the name for use when displaying any entity.
    *
    * <p>Returns the urn of the term if one cannot be resolved.
    */
@@ -57,6 +61,10 @@ public class EntityNameProvider {
         return getDashboardName(entityUrn);
       case Constants.CHART_ENTITY_NAME:
         return getChartName(entityUrn);
+      case Constants.DATA_JOB_ENTITY_NAME:
+        return getDataJobName(entityUrn);
+      case Constants.DATA_FLOW_ENTITY_NAME:
+        return getDataFlowName(entityUrn);
       case Constants.CONTAINER_ENTITY_NAME:
         return getContainerName(entityUrn);
       case Constants.GLOSSARY_TERM_ENTITY_NAME:
@@ -94,6 +102,45 @@ public class EntityNameProvider {
     }
   }
 
+  /**
+   * Returns the platform name of any entity.
+   *
+   * <p>Returns null if not found.
+   */
+  @Nullable
+  public String getPlatformName(@Nonnull final Urn entityUrn) {
+    switch (entityUrn.getEntityType()) {
+      case Constants.DATASET_ENTITY_NAME:
+      case Constants.NOTEBOOK_ENTITY_NAME:
+      case Constants.DASHBOARD_ENTITY_NAME:
+      case Constants.CHART_ENTITY_NAME:
+      case Constants.DATA_JOB_ENTITY_NAME:
+      case Constants.DATA_FLOW_ENTITY_NAME:
+      case Constants.CONTAINER_ENTITY_NAME:
+      case Constants.ML_MODEL_ENTITY_NAME:
+      case Constants.ML_MODEL_GROUP_ENTITY_NAME:
+      case Constants.ML_FEATURE_TABLE_ENTITY_NAME:
+      case Constants.ML_PRIMARY_KEY_ENTITY_NAME:
+        return getAssetPlatform(entityUrn);
+      default:
+        return null;
+    }
+  }
+
+  /**
+   * Returns the type name of an entity.
+   *
+   * <p>Returns null if not found.
+   */
+  @Nonnull
+  public String getTypeName(@Nonnull final Urn entityUrn) {
+    String maybeSubType = getEntitySubType(entityUrn);
+    if (maybeSubType != null) {
+      return capitalizeFirstLetter(maybeSubType);
+    }
+    return getEntityTypeNameFromEntity(entityUrn.getEntityType());
+  }
+
   private String getDatasetName(Urn datasetUrn) {
     DataMap data = getAspectData(datasetUrn, Constants.DATASET_PROPERTIES_ASPECT_NAME);
     if (data != null) {
@@ -111,6 +158,22 @@ public class EntityNameProvider {
       return new DashboardInfo(data).getTitle();
     }
     return dashboardUrn.toString();
+  }
+
+  private String getDataJobName(Urn dataJobUrn) {
+    DataMap data = getAspectData(dataJobUrn, Constants.DATA_JOB_INFO_ASPECT_NAME);
+    if (data != null) {
+      return new DataJobInfo(data).getName();
+    }
+    return dataJobUrn.toString();
+  }
+
+  private String getDataFlowName(Urn dataFlowUrn) {
+    DataMap data = getAspectData(dataFlowUrn, Constants.DATA_FLOW_INFO_ASPECT_NAME);
+    if (data != null) {
+      return new DataFlowInfo(data).getName();
+    }
+    return dataFlowUrn.toString();
   }
 
   private String getChartName(Urn chartUrn) {
@@ -254,6 +317,37 @@ public class EntityNameProvider {
   }
 
   @Nullable
+  private String getAssetPlatform(Urn assetUrn) {
+    DataMap data = getAspectData(assetUrn, Constants.DATA_PLATFORM_INSTANCE_ASPECT_NAME);
+    if (data != null) {
+      DataPlatformInstance dataPlatformInstance = new DataPlatformInstance(data);
+      if (dataPlatformInstance.hasPlatform()) {
+        DataMap platformData =
+            getAspectData(
+                dataPlatformInstance.getPlatform(), Constants.DATA_PLATFORM_INFO_ASPECT_NAME);
+        if (platformData != null) {
+          DataPlatformInfo info = new DataPlatformInfo(platformData);
+          return info.hasDisplayName() ? info.getDisplayName() : info.getName();
+        }
+        return dataPlatformInstance.getPlatform().getId();
+      }
+    }
+    return null;
+  }
+
+  @Nullable
+  private String getEntitySubType(Urn assetUrn) {
+    DataMap data = getAspectData(assetUrn, Constants.SUB_TYPES_ASPECT_NAME);
+    if (data != null) {
+      SubTypes subTypes = new SubTypes(data);
+      if (subTypes.hasTypeNames() && subTypes.getTypeNames().size() > 0) {
+        return subTypes.getTypeNames().get(0);
+      }
+    }
+    return null;
+  }
+
+  @Nullable
   private DataMap getAspectData(Urn urn, String aspectName) {
     try {
       EntityResponse response =
@@ -273,5 +367,60 @@ public class EntityNameProvider {
               "Failed to get aspect data for  urn %s aspect %s", urn.toString(), aspectName));
       return null;
     }
+  }
+
+  private String getEntityTypeNameFromEntity(@Nonnull final String entityType) {
+    switch (entityType) {
+      case Constants.DATASET_ENTITY_NAME:
+        return "Dataset";
+      case Constants.DASHBOARD_ENTITY_NAME:
+        return "Dashboard";
+      case Constants.CHART_ENTITY_NAME:
+        return "Chart";
+      case Constants.DATA_JOB_ENTITY_NAME:
+        return "Data Job";
+      case Constants.DATA_FLOW_ENTITY_NAME:
+        return "Data Flow";
+      case Constants.CONTAINER_ENTITY_NAME:
+        return "Container";
+      case Constants.ML_MODEL_ENTITY_NAME:
+        return "ML Model";
+      case Constants.ML_MODEL_GROUP_ENTITY_NAME:
+        return "ML Model Group";
+      case Constants.ML_FEATURE_TABLE_ENTITY_NAME:
+        return "ML Feature Table";
+      case Constants.ML_PRIMARY_KEY_ENTITY_NAME:
+        return "ML Primary Key";
+      case Constants.NOTEBOOK_ENTITY_NAME:
+        return "Notebook";
+      case Constants.GLOSSARY_TERM_ENTITY_NAME:
+        return "Glossary Term";
+      case Constants.TAG_ENTITY_NAME:
+        return "Tag";
+      case Constants.DOMAIN_ENTITY_NAME:
+        return "Domain";
+      case Constants.CORP_USER_ENTITY_NAME:
+        return "User";
+      case Constants.CORP_GROUP_ENTITY_NAME:
+        return "Group";
+      case Constants.INGESTION_SOURCE_ENTITY_NAME:
+        return "Ingestion Source";
+      case Constants.DATA_PLATFORM_ENTITY_NAME:
+        return "Data Platform";
+      case Constants.SCHEMA_FIELD_ENTITY_NAME:
+        return "Column";
+      case Constants.DATA_PRODUCT_ENTITY_NAME:
+        return "Data Product";
+      default:
+        // JUST RETURN THE ENTITY TYPE ITSELF OTHERWISE.
+        return entityType;
+    }
+  }
+
+  public static String capitalizeFirstLetter(String str) {
+    if (str == null || str.isEmpty()) {
+      return str;
+    }
+    return str.substring(0, 1).toUpperCase() + str.substring(1);
   }
 }

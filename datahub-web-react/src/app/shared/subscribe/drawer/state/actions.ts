@@ -16,14 +16,26 @@ const useDrawerActions = () => {
             setSlackEnabled: (payload: boolean) => {
                 dispatch({ type: ActionTypes.SET_SLACK_ENABLED, payload });
             },
-            setChannelSelection: (payload: ChannelSelection) => {
-                dispatch({ type: ActionTypes.SET_CHANNEL_SELECTION, payload });
+            setSlackChannelSelection: (payload: ChannelSelection) => {
+                dispatch({ type: ActionTypes.SET_SLACK_CHANNEL_SELECTION, payload });
             },
-            setSubscriptionChannel: (payload: string) => {
-                dispatch({ type: ActionTypes.SET_SUBSCRIPTION_CHANNEL, payload });
+            setSlackSubscriptionChannel: (payload: string) => {
+                dispatch({ type: ActionTypes.SET_SLACK_SUBSCRIPTION_CHANNEL, payload });
             },
-            setSaveAsDefault: (payload: boolean) => {
-                dispatch({ type: ActionTypes.SET_SAVE_AS_DEFAULT, payload });
+            setSlackSaveAsDefault: (payload: boolean) => {
+                dispatch({ type: ActionTypes.SET_SLACK_SAVE_AS_DEFAULT, payload });
+            },
+            setEmailEnabled: (payload: boolean) => {
+                dispatch({ type: ActionTypes.SET_EMAIL_ENABLED, payload });
+            },
+            setEmailChannelSelection: (payload: ChannelSelection) => {
+                dispatch({ type: ActionTypes.SET_EMAIL_CHANNEL_SELECTION, payload });
+            },
+            setEmailSubscriptionChannel: (payload: string) => {
+                dispatch({ type: ActionTypes.SET_EMAIL_SUBSCRIPTION_CHANNEL, payload });
+            },
+            setEmailSaveAsDefault: (payload: boolean) => {
+                dispatch({ type: ActionTypes.SET_EMAIL_SAVE_AS_DEFAULT, payload });
             },
             setSubscribeToUpstream: (payload: boolean) => {
                 dispatch({ type: ActionTypes.SET_SUBSCRIBE_TO_UPSTREAM, payload });
