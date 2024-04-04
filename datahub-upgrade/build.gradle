@@ -14,7 +14,7 @@ ext {
 dependencies {
   implementation project(':metadata-io')
   implementation project(':metadata-service:factories')
-  implementation project(':metadata-service:restli-client')
+  implementation project(':metadata-service:restli-client-api')
   implementation project(':metadata-service:configuration')
   implementation project(':metadata-dao-impl:kafka-producer')
   implementation externalDependency.charle
@@ -69,9 +69,7 @@ dependencies {
   runtimeOnly externalDependency.mysqlConnector
   runtimeOnly externalDependency.postgresql
 
-  implementation(externalDependency.awsMskIamAuth) {
-    exclude group: 'software.amazon.awssdk', module: 'third-party-jackson-core'
-  }
+  implementation externalDependency.awsMskIamAuth
 
   annotationProcessor externalDependency.lombok
   annotationProcessor externalDependency.picocli

@@ -96,7 +96,7 @@ public class GlossaryTermType
               ASPECTS_TO_RESOLVE,
               context.getAuthentication());
 
-      final List<EntityResponse> gmsResults = new ArrayList<>();
+      final List<EntityResponse> gmsResults = new ArrayList<>(urns.size());
       for (Urn urn : glossaryTermUrns) {
         gmsResults.add(glossaryTermMap.getOrDefault(urn, null));
       }
@@ -106,7 +106,7 @@ public class GlossaryTermType
                   gmsGlossaryTerm == null
                       ? null
                       : DataFetcherResult.<GlossaryTerm>newResult()
-                          .data(GlossaryTermMapper.map(gmsGlossaryTerm))
+                          .data(GlossaryTermMapper.map(context, gmsGlossaryTerm))
                           .build())
           .collect(Collectors.toList());
     } catch (Exception e) {
@@ -131,7 +131,7 @@ public class GlossaryTermType
             facetFilters,
             start,
             count);
-    return UrnSearchResultsMapper.map(searchResult);
+    return UrnSearchResultsMapper.map(context, searchResult);
   }
 
   @Override
@@ -145,7 +145,7 @@ public class GlossaryTermType
     final AutoCompleteResult result =
         _entityClient.autoComplete(
             context.getOperationContext(), "glossaryTerm", query, filters, limit);
-    return AutoCompleteResultsMapper.map(result);
+    return AutoCompleteResultsMapper.map(context, result);
   }
 
   @Override
@@ -167,7 +167,7 @@ public class GlossaryTermType
             facetFilters,
             start,
             count);
-    return BrowseResultMapper.map(result);
+    return BrowseResultMapper.map(context, result);
   }
 
   @Override
@@ -176,6 +176,6 @@ public class GlossaryTermType
     final StringArray result =
         _entityClient.getBrowsePaths(
             GlossaryTermUtils.getGlossaryTermUrn(urn), context.getAuthentication());
-    return BrowsePathsMapper.map(result);
+    return BrowsePathsMapper.map(context, result);
   }
 }

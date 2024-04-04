@@ -104,7 +104,7 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
 
         self.report.gms_version = (
             gms_config.get("versions", {})
-            .get("linkedin/datahub", {})
+            .get("acryldata/datahub", {})
             .get("version", "")
         )
         self.report.max_threads = self.config.max_threads

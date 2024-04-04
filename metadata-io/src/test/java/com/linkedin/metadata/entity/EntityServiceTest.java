@@ -11,6 +11,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.AuditStamp;
+import com.linkedin.common.Owner;
+import com.linkedin.common.OwnerArray;
+import com.linkedin.common.Ownership;
+import com.linkedin.common.OwnershipType;
 import com.linkedin.common.Status;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.VersionedUrn;
@@ -41,6 +45,7 @@ import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
 import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
+import com.linkedin.metadata.entity.validation.ValidationException;
 import com.linkedin.metadata.entity.validation.ValidationUtils;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.key.CorpUserKey;
@@ -1573,13 +1578,13 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
       clearInvocations(_mockProducer);
 
       RestoreIndicesArgs args = new RestoreIndicesArgs();
-      args.setAspectName(UPSTREAM_LINEAGE_ASPECT_NAME);
-      args.setBatchSize(1);
-      args.setStart(0);
-      args.setBatchDelayMs(1L);
-      args.setNumThreads(1);
-      args.setUrn(urnStr);
-      _entityServiceImpl.restoreIndices(args, obj -> {});
+      args.aspectName(UPSTREAM_LINEAGE_ASPECT_NAME);
+      args.batchSize(1);
+      args.start(0);
+      args.batchDelayMs(1L);
+      args.numThreads(1);
+      args.urn(urnStr);
+      _entityServiceImpl.streamRestoreIndices(args, obj -> {}).collect(Collectors.toList());
 
       ArgumentCaptor<MetadataChangeLog> mclCaptor =
           ArgumentCaptor.forClass(MetadataChangeLog.class);
@@ -1901,6 +1906,51 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
                 new StructuredPropertyValueAssignmentArray(assignment, secondAssignment));
     assertEquals(
         _entityServiceImpl.getAspect(entityUrn, "structuredProperties", 0), expectedProperties);
+  }
+
+  @Test
+  public void testCreateChangeTypeProposal() {
+    Urn user1 = UrnUtils.getUrn("urn:li:corpuser:test1");
+    Urn user2 = UrnUtils.getUrn("urn:li:corpuser:test2");
+    Urn entityUrn =
+        UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:looker,sample_dataset,PROD)");
+
+    MetadataChangeProposal initialCreateProposal = new MetadataChangeProposal();
+    initialCreateProposal.setEntityUrn(entityUrn);
+    initialCreateProposal.setChangeType(ChangeType.CREATE);
+    initialCreateProposal.setEntityType(entityUrn.getEntityType());
+    initialCreateProposal.setAspectName(OWNERSHIP_ASPECT_NAME);
+    initialCreateProposal.setAspect(
+        GenericRecordUtils.serializeAspect(
+            new Ownership()
+                .setOwners(
+                    new OwnerArray(
+                        new Owner()
+                            .setOwner(user1)
+                            .setType(OwnershipType.CUSTOM)
+                            .setTypeUrn(DEFAULT_OWNERSHIP_TYPE_URN)))));
+
+    MetadataChangeProposal secondCreateProposal = new MetadataChangeProposal();
+    secondCreateProposal.setEntityUrn(entityUrn);
+    secondCreateProposal.setChangeType(ChangeType.CREATE);
+    secondCreateProposal.setEntityType(entityUrn.getEntityType());
+    secondCreateProposal.setAspectName(OWNERSHIP_ASPECT_NAME);
+    secondCreateProposal.setAspect(
+        GenericRecordUtils.serializeAspect(
+            new Ownership()
+                .setOwners(
+                    new OwnerArray(
+                        new Owner()
+                            .setOwner(user2)
+                            .setType(OwnershipType.CUSTOM)
+                            .setTypeUrn(DEFAULT_OWNERSHIP_TYPE_URN)))));
+
+    _entityServiceImpl.ingestProposal(initialCreateProposal, TEST_AUDIT_STAMP, false);
+
+    // create when entity exists should be denied
+    assertThrows(
+        ValidationException.class,
+        () -> _entityServiceImpl.ingestProposal(secondCreateProposal, TEST_AUDIT_STAMP, false));
   }
 
   @Nonnull

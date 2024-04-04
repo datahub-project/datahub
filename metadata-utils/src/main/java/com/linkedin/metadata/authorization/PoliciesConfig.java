@@ -1,11 +1,28 @@
 package com.linkedin.metadata.authorization;
 
+import static com.linkedin.metadata.authorization.ApiGroup.ENTITY;
+import static com.linkedin.metadata.authorization.ApiOperation.READ;
+import static com.linkedin.metadata.authorization.Disjunctive.DENY_ACCESS;
+
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.linkedin.common.UrnArray;
+import com.linkedin.common.urn.Urn;
+import com.linkedin.data.template.StringArray;
+import com.linkedin.metadata.Constants;
+import com.linkedin.policy.DataHubActorFilter;
+import com.linkedin.policy.DataHubPolicyInfo;
+import com.linkedin.policy.DataHubResourceFilter;
+import com.linkedin.policy.PolicyMatchCondition;
+import com.linkedin.policy.PolicyMatchCriterion;
+import com.linkedin.policy.PolicyMatchCriterionArray;
+import com.linkedin.policy.PolicyMatchFilter;
 import java.util.Collection;
 import java.util.List;
-import java.util.Set;
+import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import javax.annotation.Nonnull;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.Getter;
@@ -20,32 +37,32 @@ public class PoliciesConfig {
 
   // Platform Privileges //
 
-  public static final Privilege MANAGE_POLICIES_PRIVILEGE =
+  static final Privilege MANAGE_POLICIES_PRIVILEGE =
       Privilege.of(
           "MANAGE_POLICIES",
           "Manage Policies",
           "Create and remove access control policies. Be careful - Actors with this privilege are effectively super users.");
 
-  public static final Privilege MANAGE_INGESTION_PRIVILEGE =
+  static final Privilege MANAGE_INGESTION_PRIVILEGE =
       Privilege.of(
           "MANAGE_INGESTION",
           "Manage Metadata Ingestion",
           "Create, remove, and update Metadata Ingestion sources.");
 
-  public static final Privilege MANAGE_SECRETS_PRIVILEGE =
+  static final Privilege MANAGE_SECRETS_PRIVILEGE =
       Privilege.of(
           "MANAGE_SECRETS", "Manage Secrets", "Create & remove Secrets stored inside DataHub.");
 
-  public static final Privilege MANAGE_USERS_AND_GROUPS_PRIVILEGE =
+  static final Privilege MANAGE_USERS_AND_GROUPS_PRIVILEGE =
       Privilege.of(
           "MANAGE_USERS_AND_GROUPS",
           "Manage Users & Groups",
           "Create, remove, and update users and groups on DataHub.");
 
-  public static final Privilege VIEW_ANALYTICS_PRIVILEGE =
+  private static final Privilege VIEW_ANALYTICS_PRIVILEGE =
       Privilege.of("VIEW_ANALYTICS", "View Analytics", "View the DataHub analytics dashboard.");
 
-  public static final Privilege GET_ANALYTICS_PRIVILEGE =
+  private static final Privilege GET_ANALYTICS_PRIVILEGE =
       Privilege.of(
           "GET_ANALYTICS_PRIVILEGE",
           "Analytics API access",
@@ -137,21 +154,16 @@ public class PoliciesConfig {
 
   // Resource Privileges //
 
-  public static final Privilege VIEW_ENTITY_PAGE_PRIVILEGE =
+  static final Privilege VIEW_ENTITY_PAGE_PRIVILEGE =
       Privilege.of("VIEW_ENTITY_PAGE", "View Entity Page", "The ability to view the entity page.");
 
-  public static final Privilege VIEW_ENTITY_PRIVILEGE =
+  static final Privilege EXISTS_ENTITY_PRIVILEGE =
       Privilege.of(
-          "VIEW_ENTITY", "View Entity", "The ability to view the entity in search results.");
+          "EXISTS_ENTITY", "Entity Exists", "The ability to determine whether the entity exists.");
 
-  /*
-    These two privileges are logically the same for search for now.
-    In the future, we might allow search but not the entity page view.
-  */
-  public static final Set<String> VIEW_ENTITY_PRIVILEGES =
-      Set.of(
-          PoliciesConfig.VIEW_ENTITY_PRIVILEGE.getType(),
-          PoliciesConfig.VIEW_ENTITY_PAGE_PRIVILEGE.getType());
+  static final Privilege CREATE_ENTITY_PRIVILEGE =
+      Privilege.of(
+          "CREATE_ENTITY", "Create Entity", "The ability to create an entity if it doesn't exist.");
 
   public static final Privilege EDIT_ENTITY_TAGS_PRIVILEGE =
       Privilege.of(
@@ -227,10 +239,10 @@ public class PoliciesConfig {
           "Edit Entity",
           "The ability to edit any information about an entity. Super user privileges for the entity.");
 
-  public static final Privilege DELETE_ENTITY_PRIVILEGE =
+  static final Privilege DELETE_ENTITY_PRIVILEGE =
       Privilege.of("DELETE_ENTITY", "Delete", "The ability to delete the delete this entity.");
 
-  public static final Privilege EDIT_LINEAGE_PRIVILEGE =
+  static final Privilege EDIT_LINEAGE_PRIVILEGE =
       Privilege.of(
           "EDIT_LINEAGE",
           "Edit Lineage",
@@ -241,6 +253,18 @@ public class PoliciesConfig {
           "EDIT_ENTITY_EMBED",
           "Edit Embedded Content",
           "The ability to edit the embedded content for an entity.");
+
+  public static final Privilege EDIT_ENTITY_PROPERTIES_PRIVILEGE =
+      Privilege.of(
+          "EDIT_ENTITY_PROPERTIES",
+          "Edit Properties",
+          "The ability to edit the properties for an entity.");
+
+  public static final Privilege CREATE_ER_MODEL_RELATIONSHIP_PRIVILEGE =
+      Privilege.of(
+          "CREATE_ENTITY_ER_MODEL_RELATIONSHIP",
+          "Create erModelRelationship",
+          "The ability to add erModelRelationship on a dataset.");
 
   public static final List<Privilege> COMMON_ENTITY_PRIVILEGES =
       ImmutableList.of(
@@ -256,8 +280,10 @@ public class PoliciesConfig {
           EDIT_ENTITY_DEPRECATION_PRIVILEGE,
           EDIT_ENTITY_PRIVILEGE,
           DELETE_ENTITY_PRIVILEGE,
-          VIEW_ENTITY_PRIVILEGE,
-          EDIT_ENTITY_INCIDENTS_PRIVILEGE);
+          EDIT_ENTITY_PROPERTIES_PRIVILEGE,
+          EDIT_ENTITY_INCIDENTS_PRIVILEGE,
+          CREATE_ENTITY_PRIVILEGE,
+          EXISTS_ENTITY_PRIVILEGE);
 
   // Dataset Privileges
   public static final Privilege EDIT_DATASET_COL_TAGS_PRIVILEGE =
@@ -341,19 +367,19 @@ public class PoliciesConfig {
       Privilege.of(
           "GET_TIMELINE_PRIVILEGE", "Get Timeline API", "The ability to use the GET Timeline API.");
 
-  public static final Privilege GET_ENTITY_PRIVILEGE =
+  static final Privilege GET_ENTITY_PRIVILEGE =
       Privilege.of(
           "GET_ENTITY_PRIVILEGE",
           "Get Entity + Relationships API",
           "The ability to use the GET Entity and Relationships API.");
 
-  public static final Privilege GET_TIMESERIES_ASPECT_PRIVILEGE =
+  static final Privilege GET_TIMESERIES_ASPECT_PRIVILEGE =
       Privilege.of(
           "GET_TIMESERIES_ASPECT_PRIVILEGE",
           "Get Timeseries Aspect API",
           "The ability to use the GET Timeseries Aspect API.");
 
-  public static final Privilege GET_COUNTS_PRIVILEGE =
+  static final Privilege GET_COUNTS_PRIVILEGE =
       Privilege.of(
           "GET_COUNTS_PRIVILEGE",
           "Get Aspect/Entity Count APIs",
@@ -389,7 +415,9 @@ public class PoliciesConfig {
           "Explain ElasticSearch Query API",
           "The ability to use the Operations API explain endpoint.");
 
-  public static final Privilege SEARCH_PRIVILEGE =
+  /* Prefer per entity READ */
+  @Deprecated
+  static final Privilege SEARCH_PRIVILEGE =
       Privilege.of("SEARCH_PRIVILEGE", "Search API", "The ability to access search APIs.");
 
   public static final Privilege SET_WRITEABLE_PRIVILEGE =
@@ -426,7 +454,8 @@ public class PoliciesConfig {
                       EDIT_ENTITY_ASSERTIONS_PRIVILEGE,
                       EDIT_LINEAGE_PRIVILEGE,
                       EDIT_ENTITY_EMBED_PRIVILEGE,
-                      EDIT_QUERIES_PRIVILEGE))
+                      EDIT_QUERIES_PRIVILEGE,
+                      CREATE_ER_MODEL_RELATIONSHIP_PRIVILEGE))
               .flatMap(Collection::stream)
               .collect(Collectors.toList()));
 
@@ -488,7 +517,9 @@ public class PoliciesConfig {
               EDIT_TAG_COLOR_PRIVILEGE,
               EDIT_ENTITY_DOCS_PRIVILEGE,
               EDIT_ENTITY_PRIVILEGE,
-              DELETE_ENTITY_PRIVILEGE));
+              DELETE_ENTITY_PRIVILEGE,
+              CREATE_ENTITY_PRIVILEGE,
+              EXISTS_ENTITY_PRIVILEGE));
 
   // Container Privileges
   public static final ResourcePrivileges CONTAINER_PRIVILEGES =
@@ -515,7 +546,10 @@ public class PoliciesConfig {
               EDIT_ENTITY_DOC_LINKS_PRIVILEGE,
               EDIT_ENTITY_PRIVILEGE,
               DELETE_ENTITY_PRIVILEGE,
-              MANAGE_DATA_PRODUCTS_PRIVILEGE));
+              MANAGE_DATA_PRODUCTS_PRIVILEGE,
+              EDIT_ENTITY_PROPERTIES_PRIVILEGE,
+              CREATE_ENTITY_PRIVILEGE,
+              EXISTS_ENTITY_PRIVILEGE));
 
   // Data Product Privileges
   public static final ResourcePrivileges DATA_PRODUCT_PRIVILEGES =
@@ -532,7 +566,10 @@ public class PoliciesConfig {
               DELETE_ENTITY_PRIVILEGE,
               EDIT_ENTITY_TAGS_PRIVILEGE,
               EDIT_ENTITY_GLOSSARY_TERMS_PRIVILEGE,
-              EDIT_ENTITY_DOMAINS_PRIVILEGE));
+              EDIT_ENTITY_DOMAINS_PRIVILEGE,
+              EDIT_ENTITY_PROPERTIES_PRIVILEGE,
+              CREATE_ENTITY_PRIVILEGE,
+              EXISTS_ENTITY_PRIVILEGE));
 
   // Glossary Term Privileges
   public static final ResourcePrivileges GLOSSARY_TERM_PRIVILEGES =
@@ -546,7 +583,10 @@ public class PoliciesConfig {
               EDIT_ENTITY_DOCS_PRIVILEGE,
               EDIT_ENTITY_DOC_LINKS_PRIVILEGE,
               EDIT_ENTITY_DEPRECATION_PRIVILEGE,
-              EDIT_ENTITY_PRIVILEGE));
+              EDIT_ENTITY_PRIVILEGE,
+              EDIT_ENTITY_PROPERTIES_PRIVILEGE,
+              CREATE_ENTITY_PRIVILEGE,
+              EXISTS_ENTITY_PRIVILEGE));
 
   // Glossary Node Privileges
   public static final ResourcePrivileges GLOSSARY_NODE_PRIVILEGES =
@@ -562,7 +602,10 @@ public class PoliciesConfig {
               EDIT_ENTITY_DEPRECATION_PRIVILEGE,
               EDIT_ENTITY_PRIVILEGE,
               MANAGE_GLOSSARY_CHILDREN_PRIVILEGE,
-              MANAGE_ALL_GLOSSARY_CHILDREN_PRIVILEGE));
+              MANAGE_ALL_GLOSSARY_CHILDREN_PRIVILEGE,
+              EDIT_ENTITY_PROPERTIES_PRIVILEGE,
+              CREATE_ENTITY_PRIVILEGE,
+              EXISTS_ENTITY_PRIVILEGE));
 
   // Group Privileges
   public static final ResourcePrivileges CORP_GROUP_PRIVILEGES =
@@ -576,7 +619,10 @@ public class PoliciesConfig {
               EDIT_GROUP_MEMBERS_PRIVILEGE,
               EDIT_CONTACT_INFO_PRIVILEGE,
               EDIT_ENTITY_DOCS_PRIVILEGE,
-              EDIT_ENTITY_PRIVILEGE));
+              EDIT_ENTITY_PRIVILEGE,
+              EDIT_ENTITY_PROPERTIES_PRIVILEGE,
+              CREATE_ENTITY_PRIVILEGE,
+              EXISTS_ENTITY_PRIVILEGE));
 
   // User Privileges
   public static final ResourcePrivileges CORP_USER_PRIVILEGES =
@@ -588,8 +634,18 @@ public class PoliciesConfig {
               VIEW_ENTITY_PAGE_PRIVILEGE,
               EDIT_CONTACT_INFO_PRIVILEGE,
               EDIT_USER_PROFILE_PRIVILEGE,
-              EDIT_ENTITY_PRIVILEGE));
+              EDIT_ENTITY_PRIVILEGE,
+              EDIT_ENTITY_PROPERTIES_PRIVILEGE,
+              CREATE_ENTITY_PRIVILEGE,
+              EXISTS_ENTITY_PRIVILEGE));
 
+  // ERModelRelationship Privileges
+  public static final ResourcePrivileges ER_MODEL_RELATIONSHIP_PRIVILEGES =
+      ResourcePrivileges.of(
+          "erModelRelationship",
+          "ERModelRelationship",
+          "update privileges for ermodelrelations",
+          COMMON_ENTITY_PRIVILEGES);
   public static final List<ResourcePrivileges> ENTITY_RESOURCE_PRIVILEGES =
       ImmutableList.of(
           DATASET_PRIVILEGES,
@@ -605,7 +661,8 @@ public class PoliciesConfig {
           CORP_GROUP_PRIVILEGES,
           CORP_USER_PRIVILEGES,
           NOTEBOOK_PRIVILEGES,
-          DATA_PRODUCT_PRIVILEGES);
+          DATA_PRODUCT_PRIVILEGES,
+          ER_MODEL_RELATIONSHIP_PRIVILEGES);
 
   // Merge all entity specific resource privileges to create a superset of all resource privileges
   public static final ResourcePrivileges ALL_RESOURCE_PRIVILEGES =
@@ -624,16 +681,290 @@ public class PoliciesConfig {
           .add(ALL_RESOURCE_PRIVILEGES)
           .build();
 
+  /*
+   * This is an attempt to piece together and organize CRUD-like semantics from the various existing
+   * privileges. These are intended to govern lower level APIs to which CRUD semantics apply.
+   *
+   * These are collections of disjoint privileges, meaning a single privilege will grant access to
+   * the operation.
+   */
+  public static Map<ApiGroup, Map<ApiOperation, Disjunctive<Conjunctive<Privilege>>>>
+      API_PRIVILEGE_MAP =
+          ImmutableMap.<ApiGroup, Map<ApiOperation, Disjunctive<Conjunctive<Privilege>>>>builder()
+              .put(
+                  ApiGroup.ENTITY,
+                  ImmutableMap.<ApiOperation, Disjunctive<Conjunctive<Privilege>>>builder()
+                      .put(
+                          ApiOperation.CREATE,
+                          Disjunctive.disjoint(CREATE_ENTITY_PRIVILEGE, EDIT_ENTITY_PRIVILEGE))
+                      .put(
+                          ApiOperation.READ,
+                          Disjunctive.disjoint(
+                              VIEW_ENTITY_PAGE_PRIVILEGE,
+                              GET_ENTITY_PRIVILEGE,
+                              EDIT_ENTITY_PRIVILEGE,
+                              DELETE_ENTITY_PRIVILEGE))
+                      .put(ApiOperation.UPDATE, Disjunctive.disjoint(EDIT_ENTITY_PRIVILEGE))
+                      .put(ApiOperation.DELETE, Disjunctive.disjoint(DELETE_ENTITY_PRIVILEGE))
+                      .put(
+                          ApiOperation.EXISTS,
+                          Disjunctive.disjoint(
+                              EXISTS_ENTITY_PRIVILEGE,
+                              EDIT_ENTITY_PRIVILEGE,
+                              DELETE_ENTITY_PRIVILEGE,
+                              VIEW_ENTITY_PAGE_PRIVILEGE,
+                              SEARCH_PRIVILEGE))
+                      .build())
+              .put(
+                  ApiGroup.LINEAGE,
+                  ImmutableMap.<ApiOperation, Disjunctive<Conjunctive<Privilege>>>builder()
+                      .put(
+                          ApiOperation.CREATE,
+                          Disjunctive.disjoint(EDIT_ENTITY_PRIVILEGE, EDIT_LINEAGE_PRIVILEGE))
+                      .put(
+                          ApiOperation.READ,
+                          Disjunctive.disjoint(
+                              VIEW_ENTITY_PAGE_PRIVILEGE,
+                              GET_ENTITY_PRIVILEGE,
+                              EDIT_ENTITY_PRIVILEGE,
+                              EDIT_LINEAGE_PRIVILEGE,
+                              DELETE_ENTITY_PRIVILEGE))
+                      .put(
+                          ApiOperation.UPDATE,
+                          Disjunctive.disjoint(EDIT_ENTITY_PRIVILEGE, EDIT_LINEAGE_PRIVILEGE))
+                      .put(
+                          ApiOperation.DELETE,
+                          Disjunctive.disjoint(
+                              EDIT_ENTITY_PRIVILEGE,
+                              DELETE_ENTITY_PRIVILEGE,
+                              EDIT_LINEAGE_PRIVILEGE))
+                      .put(
+                          ApiOperation.EXISTS,
+                          Disjunctive.disjoint(
+                              EXISTS_ENTITY_PRIVILEGE,
+                              VIEW_ENTITY_PAGE_PRIVILEGE,
+                              SEARCH_PRIVILEGE,
+                              EDIT_ENTITY_PRIVILEGE,
+                              EDIT_LINEAGE_PRIVILEGE,
+                              DELETE_ENTITY_PRIVILEGE,
+                              GET_ENTITY_PRIVILEGE))
+                      .build())
+              .put(
+                  ApiGroup.RELATIONSHIP,
+                  ImmutableMap.<ApiOperation, Disjunctive<Conjunctive<Privilege>>>builder()
+                      .put(ApiOperation.CREATE, Disjunctive.disjoint(EDIT_ENTITY_PRIVILEGE))
+                      .put(
+                          ApiOperation.READ,
+                          Disjunctive.disjoint(
+                              VIEW_ENTITY_PAGE_PRIVILEGE,
+                              GET_ENTITY_PRIVILEGE,
+                              EDIT_ENTITY_PRIVILEGE))
+                      .put(ApiOperation.UPDATE, Disjunctive.disjoint(EDIT_ENTITY_PRIVILEGE))
+                      .put(
+                          ApiOperation.DELETE,
+                          Disjunctive.disjoint(EDIT_ENTITY_PRIVILEGE, DELETE_ENTITY_PRIVILEGE))
+                      .put(
+                          ApiOperation.EXISTS,
+                          Disjunctive.disjoint(
+                              EXISTS_ENTITY_PRIVILEGE,
+                              VIEW_ENTITY_PAGE_PRIVILEGE,
+                              SEARCH_PRIVILEGE,
+                              EDIT_ENTITY_PRIVILEGE,
+                              DELETE_ENTITY_PRIVILEGE,
+                              GET_ENTITY_PRIVILEGE))
+                      .build())
+              .put(
+                  ApiGroup.ANALYTICS,
+                  ImmutableMap.<ApiOperation, Disjunctive<Conjunctive<Privilege>>>builder()
+                      .put(ApiOperation.CREATE, DENY_ACCESS)
+                      .put(
+                          ApiOperation.READ,
+                          Disjunctive.disjoint(VIEW_ANALYTICS_PRIVILEGE, GET_ANALYTICS_PRIVILEGE))
+                      .put(ApiOperation.UPDATE, DENY_ACCESS)
+                      .put(ApiOperation.DELETE, DENY_ACCESS)
+                      .put(
+                          ApiOperation.EXISTS,
+                          Disjunctive.disjoint(
+                              VIEW_ANALYTICS_PRIVILEGE, GET_ANALYTICS_PRIVILEGE, SEARCH_PRIVILEGE))
+                      .build())
+              .put(
+                  ApiGroup.TIMESERIES,
+                  ImmutableMap.<ApiOperation, Disjunctive<Conjunctive<Privilege>>>builder()
+                      .put(ApiOperation.CREATE, Disjunctive.disjoint(EDIT_ENTITY_PRIVILEGE))
+                      .put(
+                          ApiOperation.READ,
+                          Disjunctive.disjoint(
+                              GET_TIMESERIES_ASPECT_PRIVILEGE,
+                              EDIT_ENTITY_PRIVILEGE,
+                              DELETE_ENTITY_PRIVILEGE))
+                      .put(ApiOperation.UPDATE, Disjunctive.disjoint(EDIT_ENTITY_PRIVILEGE))
+                      .put(ApiOperation.DELETE, Disjunctive.disjoint(DELETE_ENTITY_PRIVILEGE))
+                      .put(
+                          ApiOperation.EXISTS,
+                          Disjunctive.disjoint(
+                              EXISTS_ENTITY_PRIVILEGE,
+                              DELETE_ENTITY_PRIVILEGE,
+                              SEARCH_PRIVILEGE,
+                              EDIT_ENTITY_PRIVILEGE,
+                              GET_TIMESERIES_ASPECT_PRIVILEGE,
+                              VIEW_ENTITY_PAGE_PRIVILEGE))
+                      .build())
+              .put(
+                  ApiGroup.COUNTS,
+                  ImmutableMap.<ApiOperation, Disjunctive<Conjunctive<Privilege>>>builder()
+                      .put(ApiOperation.CREATE, DENY_ACCESS)
+                      .put(ApiOperation.READ, Disjunctive.disjoint(GET_COUNTS_PRIVILEGE))
+                      .put(ApiOperation.UPDATE, DENY_ACCESS)
+                      .put(ApiOperation.DELETE, DENY_ACCESS)
+                      .put(ApiOperation.EXISTS, DENY_ACCESS)
+                      .build())
+              .build();
+
+  /** Contains entity specific privileges, default to map above for non-specific entities */
+  public static final Map<String, Map<ApiOperation, Disjunctive<Conjunctive<Privilege>>>>
+      API_ENTITY_PRIVILEGE_MAP =
+          ImmutableMap.<String, Map<ApiOperation, Disjunctive<Conjunctive<Privilege>>>>builder()
+              .put(
+                  Constants.POLICY_ENTITY_NAME,
+                  ImmutableMap.<ApiOperation, Disjunctive<Conjunctive<Privilege>>>builder()
+                      .put(ApiOperation.CREATE, Disjunctive.disjoint(MANAGE_POLICIES_PRIVILEGE))
+                      .put(
+                          ApiOperation.READ,
+                          API_PRIVILEGE_MAP.get(ApiGroup.ENTITY).get(ApiOperation.READ))
+                      .put(ApiOperation.UPDATE, Disjunctive.disjoint(MANAGE_POLICIES_PRIVILEGE))
+                      .put(ApiOperation.DELETE, Disjunctive.disjoint(MANAGE_POLICIES_PRIVILEGE))
+                      .put(
+                          ApiOperation.EXISTS,
+                          API_PRIVILEGE_MAP.get(ApiGroup.ENTITY).get(ApiOperation.EXISTS))
+                      .build())
+              .put(
+                  Constants.CORP_USER_ENTITY_NAME,
+                  ImmutableMap.<ApiOperation, Disjunctive<Conjunctive<Privilege>>>builder()
+                      .put(
+                          ApiOperation.CREATE,
+                          Disjunctive.disjoint(MANAGE_USERS_AND_GROUPS_PRIVILEGE))
+                      .put(
+                          ApiOperation.READ,
+                          API_PRIVILEGE_MAP.get(ApiGroup.ENTITY).get(ApiOperation.READ))
+                      .put(
+                          ApiOperation.UPDATE,
+                          Disjunctive.disjoint(MANAGE_USERS_AND_GROUPS_PRIVILEGE))
+                      .put(
+                          ApiOperation.DELETE,
+                          Disjunctive.disjoint(MANAGE_USERS_AND_GROUPS_PRIVILEGE))
+                      .put(
+                          ApiOperation.EXISTS,
+                          API_PRIVILEGE_MAP.get(ApiGroup.ENTITY).get(ApiOperation.EXISTS))
+                      .build())
+              .put(
+                  Constants.CORP_GROUP_ENTITY_NAME,
+                  ImmutableMap.<ApiOperation, Disjunctive<Conjunctive<Privilege>>>builder()
+                      .put(
+                          ApiOperation.CREATE,
+                          Disjunctive.disjoint(MANAGE_USERS_AND_GROUPS_PRIVILEGE))
+                      .put(
+                          ApiOperation.READ,
+                          API_PRIVILEGE_MAP.get(ApiGroup.ENTITY).get(ApiOperation.READ))
+                      .put(
+                          ApiOperation.UPDATE,
+                          Disjunctive.disjoint(MANAGE_USERS_AND_GROUPS_PRIVILEGE))
+                      .put(
+                          ApiOperation.DELETE,
+                          Disjunctive.disjoint(MANAGE_USERS_AND_GROUPS_PRIVILEGE))
+                      .put(
+                          ApiOperation.EXISTS,
+                          API_PRIVILEGE_MAP.get(ApiGroup.ENTITY).get(ApiOperation.EXISTS))
+                      .build())
+              .put(
+                  Constants.INGESTION_SOURCE_ENTITY_NAME,
+                  ImmutableMap.<ApiOperation, Disjunctive<Conjunctive<Privilege>>>builder()
+                      .put(ApiOperation.CREATE, Disjunctive.disjoint(MANAGE_INGESTION_PRIVILEGE))
+                      .put(
+                          ApiOperation.READ,
+                          API_PRIVILEGE_MAP.get(ApiGroup.ENTITY).get(ApiOperation.READ))
+                      .put(ApiOperation.UPDATE, Disjunctive.disjoint(MANAGE_INGESTION_PRIVILEGE))
+                      .put(ApiOperation.DELETE, Disjunctive.disjoint(MANAGE_INGESTION_PRIVILEGE))
+                      .put(
+                          ApiOperation.EXISTS,
+                          API_PRIVILEGE_MAP.get(ApiGroup.ENTITY).get(ApiOperation.EXISTS))
+                      .build())
+              .put(
+                  Constants.SECRETS_ENTITY_NAME,
+                  ImmutableMap.<ApiOperation, Disjunctive<Conjunctive<Privilege>>>builder()
+                      .put(ApiOperation.CREATE, Disjunctive.disjoint(MANAGE_SECRETS_PRIVILEGE))
+                      .put(ApiOperation.READ, Disjunctive.disjoint(MANAGE_SECRETS_PRIVILEGE))
+                      .put(ApiOperation.UPDATE, Disjunctive.disjoint(MANAGE_SECRETS_PRIVILEGE))
+                      .put(ApiOperation.DELETE, Disjunctive.disjoint(MANAGE_SECRETS_PRIVILEGE))
+                      .put(
+                          ApiOperation.EXISTS,
+                          API_PRIVILEGE_MAP.get(ApiGroup.ENTITY).get(ApiOperation.EXISTS))
+                      .build())
+              .build();
+
+  /**
+   * Define default policies for given actors. Typically used to define allow privileges on self in
+   * a common way across APIs
+   *
+   * @param actorUrn
+   * @return
+   */
+  public static List<DataHubPolicyInfo> getDefaultPolicies(Urn actorUrn) {
+    return ImmutableList.<DataHubPolicyInfo>builder()
+        .add(
+            new DataHubPolicyInfo()
+                .setDisplayName("View Self")
+                .setDescription("View self entity page.")
+                .setActors(new DataHubActorFilter().setUsers(new UrnArray(actorUrn)))
+                .setPrivileges(
+                    PoliciesConfig.API_PRIVILEGE_MAP.get(ENTITY).get(READ).stream()
+                        .flatMap(Collection::stream)
+                        .map(PoliciesConfig.Privilege::getType)
+                        .collect(Collectors.toCollection(StringArray::new)))
+                .setType(PoliciesConfig.METADATA_POLICY_TYPE)
+                .setState(PoliciesConfig.ACTIVE_POLICY_STATE)
+                .setEditable(false)
+                .setResources(
+                    new DataHubResourceFilter()
+                        .setFilter(
+                            new PolicyMatchFilter()
+                                .setCriteria(
+                                    new PolicyMatchCriterionArray(
+                                        List.of(
+                                            new PolicyMatchCriterion()
+                                                .setField("URN")
+                                                .setCondition(PolicyMatchCondition.EQUALS)
+                                                .setValues(
+                                                    new StringArray(
+                                                        List.of(actorUrn.toString())))))))))
+        .build();
+  }
+
   @Data
   @Getter
   @AllArgsConstructor
   public static class Privilege {
-    private String type;
+    @Nonnull private String type;
     private String displayName;
     private String description;
 
     static Privilege of(String type, String displayName, String description) {
       return new Privilege(type, displayName, description);
+    }
+
+    // Not using displayName or description in equality by design
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) return true;
+      if (o == null || getClass() != o.getClass()) return false;
+
+      Privilege privilege = (Privilege) o;
+
+      return type.equals(privilege.type);
+    }
+
+    @Override
+    public int hashCode() {
+      return type.hashCode();
     }
   }
 

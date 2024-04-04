@@ -9,6 +9,7 @@ import pydantic.dataclasses
 import sqlglot
 import sqlglot.errors
 import sqlglot.lineage
+import sqlglot.optimizer
 import sqlglot.optimizer.annotate_types
 import sqlglot.optimizer.optimizer
 import sqlglot.optimizer.qualify
@@ -479,6 +480,8 @@ def _column_level_lineage(  # noqa: C901
     try:
         assert isinstance(statement, _SupportedColumnLineageTypesTuple)
 
+        cached_scope = sqlglot.optimizer.build_scope(statement)
+
         # List output columns.
         output_columns = [
             (select_col.alias_or_name, select_col) for select_col in statement.selects
@@ -505,6 +508,8 @@ def _column_level_lineage(  # noqa: C901
                 statement,
                 dialect=dialect,
                 schema=sqlglot_db_schema,
+                scope=cached_scope,
+                trim_selects=False,
             )
             # pathlib.Path("sqlglot.html").write_text(
             #     str(lineage_node.to_html(dialect=dialect))
@@ -834,6 +839,7 @@ def _sqlglot_lineage_inner(
     # Fetch schema info for the relevant tables.
     table_name_urn_mapping: Dict[_TableName, str] = {}
     table_name_schema_mapping: Dict[_TableName, SchemaInfo] = {}
+
     for table in tables | modified:
         # For select statements, qualification will be a no-op. For other statements, this
         # is where the qualification actually happens.
@@ -1016,8 +1022,9 @@ def create_lineage_sql_parsed_result(
     env: str,
     default_schema: Optional[str] = None,
     graph: Optional[DataHubGraph] = None,
+    schema_aware: bool = True,
 ) -> SqlParsingResult:
-    if graph:
+    if graph and schema_aware:
         needs_close = False
         schema_resolver = graph._make_schema_resolver(
             platform=platform,

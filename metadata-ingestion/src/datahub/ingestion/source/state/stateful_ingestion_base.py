@@ -53,7 +53,7 @@ class StatefulIngestionConfig(ConfigModel):
     enabled: bool = Field(
         default=False,
         description="Whether or not to enable stateful ingest. "
-        "Default: True if datahub-rest sink is used or if a `datahub_api` is specified, otherwise False",
+        "Default: True if a pipeline_name is set and either a datahub-rest sink or `datahub_api` is specified, otherwise False",
     )
     max_checkpoint_state_size: pydantic.PositiveInt = Field(
         default=2**24,  # 16 MB
@@ -233,9 +233,13 @@ class StateProviderWrapper:
             IngestionCheckpointingProviderBase
         ] = None
 
-        if self.stateful_ingestion_config is None and self.ctx.graph:
+        if (
+            self.stateful_ingestion_config is None
+            and self.ctx.graph
+            and self.ctx.pipeline_name
+        ):
             logger.info(
-                "Stateful ingestion got enabled by default, as datahub-rest sink is used or `datahub_api` is specified"
+                "Stateful ingestion will be automatically enabled, as datahub-rest sink is used or `datahub_api` is specified"
             )
             self.stateful_ingestion_config = StatefulIngestionConfig(
                 enabled=True,

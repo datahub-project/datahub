@@ -54,7 +54,7 @@ public abstract class GoldenTestBase extends AbstractTestNGSpringContextTests {
   @Nonnull
   protected OperationContext getOperationContext() {
     return TestOperationContexts.userContextNoSearchAuthorization(
-        getEntityRegistry(), Authorizer.EMPTY, TestOperationContexts.TEST_USER_AUTH);
+        Authorizer.EMPTY, TestOperationContexts.TEST_USER_AUTH, getEntityRegistry());
   }
 
   @Test

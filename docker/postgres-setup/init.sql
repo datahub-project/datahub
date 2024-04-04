@@ -14,7 +14,7 @@ CREATE TABLE IF NOT EXISTS metadata_aspect_v2 (
 create index timeIndex ON metadata_aspect_v2 (createdon);
 
 -- create default records for datahub user if not exists
-CREATE TEMP TABLE temp_metadata_aspect_v2 AS TABLE metadata_aspect_v2;
+CREATE TEMP TABLE temp_metadata_aspect_v2 AS TABLE metadata_aspect_v2 WITH NO DATA;
 INSERT INTO temp_metadata_aspect_v2 (urn, aspect, version, metadata, createdon, createdby) VALUES(
   'urn:li:corpuser:datahub',
   'corpUserInfo',

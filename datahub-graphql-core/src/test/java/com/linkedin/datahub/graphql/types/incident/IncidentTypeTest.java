@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.types.incident;
 
+import static org.mockito.Mockito.mock;
 import static org.testng.Assert.*;
 
 import com.datahub.authentication.Authentication;
@@ -25,8 +26,10 @@ import com.linkedin.incident.IncidentStatus;
 import com.linkedin.incident.IncidentType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.key.IncidentKey;
+import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.r2.RemoteInvocationException;
 import graphql.execution.DataFetcherResult;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -107,6 +110,10 @@ public class IncidentTypeTest {
 
     QueryContext mockContext = Mockito.mock(QueryContext.class);
     Mockito.when(mockContext.getAuthentication()).thenReturn(Mockito.mock(Authentication.class));
+    Mockito.when(mockContext.getOperationContext())
+        .thenReturn(
+            TestOperationContexts.userContextNoSearchAuthorization(mock(EntityRegistry.class)));
+
     List<DataFetcherResult<Incident>> result =
         type.batchLoad(ImmutableList.of(TEST_INCIDENT_URN, TEST_INCIDENT_URN_2), mockContext);
 

@@ -58,7 +58,7 @@ public class GetIngestionExecutionRequestResolver
                     DataHubGraphQLErrorCode.NOT_FOUND);
               }
               // Execution request found
-              return IngestionResolverUtils.mapExecutionRequest(entities.get(urn));
+              return IngestionResolverUtils.mapExecutionRequest(context, entities.get(urn));
             } catch (Exception e) {
               throw new RuntimeException("Failed to retrieve execution request", e);
             }

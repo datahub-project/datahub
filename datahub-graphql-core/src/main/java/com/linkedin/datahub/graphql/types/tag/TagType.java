@@ -88,7 +88,7 @@ public class TagType
           _entityClient.batchGetV2(
               TAG_ENTITY_NAME, new HashSet<>(tagUrns), null, context.getAuthentication());
 
-      final List<EntityResponse> gmsResults = new ArrayList<>();
+      final List<EntityResponse> gmsResults = new ArrayList<>(urns.size());
       for (Urn urn : tagUrns) {
         gmsResults.add(tagMap.getOrDefault(urn, null));
       }
@@ -97,7 +97,9 @@ public class TagType
               gmsTag ->
                   gmsTag == null
                       ? null
-                      : DataFetcherResult.<Tag>newResult().data(TagMapper.map(gmsTag)).build())
+                      : DataFetcherResult.<Tag>newResult()
+                          .data(TagMapper.map(context, gmsTag))
+                          .build())
           .collect(Collectors.toList());
     } catch (Exception e) {
       throw new RuntimeException("Failed to batch load Tags", e);
@@ -121,7 +123,7 @@ public class TagType
             facetFilters,
             start,
             count);
-    return UrnSearchResultsMapper.map(searchResult);
+    return UrnSearchResultsMapper.map(context, searchResult);
   }
 
   @Override
@@ -134,7 +136,7 @@ public class TagType
       throws Exception {
     final AutoCompleteResult result =
         _entityClient.autoComplete(context.getOperationContext(), "tag", query, filters, limit);
-    return AutoCompleteResultsMapper.map(result);
+    return AutoCompleteResultsMapper.map(context, result);
   }
 
   @Override
@@ -142,9 +144,9 @@ public class TagType
       @Nonnull String urn, @Nonnull TagUpdateInput input, @Nonnull QueryContext context)
       throws Exception {
     if (isAuthorized(input, context)) {
-      final CorpuserUrn actor =
-          CorpuserUrn.createFromString(context.getAuthentication().getActor().toUrnStr());
-      final Collection<MetadataChangeProposal> proposals = TagUpdateInputMapper.map(input, actor);
+      final CorpuserUrn actor = CorpuserUrn.createFromString(context.getActorUrn());
+      final Collection<MetadataChangeProposal> proposals =
+          TagUpdateInputMapper.map(context, input, actor);
       proposals.forEach(proposal -> proposal.setEntityUrn(UrnUtils.getUrn(urn)));
       try {
         _entityClient.batchIngestProposals(proposals, context.getAuthentication(), false);
@@ -163,7 +165,7 @@ public class TagType
     final DisjunctivePrivilegeGroup orPrivilegeGroups = getAuthorizedPrivileges(update);
     return AuthorizationUtils.isAuthorized(
         context.getAuthorizer(),
-        context.getAuthentication().getActor().toUrnStr(),
+        context.getActorUrn(),
         PoliciesConfig.TAG_PRIVILEGES.getResourceType(),
         update.getUrn(),
         orPrivilegeGroups);

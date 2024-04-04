@@ -62,7 +62,7 @@ public class UpdateDataProductResolver implements DataFetcher<CompletableFuture<
             EntityResponse response =
                 _dataProductService.getDataProductEntityResponse(urn, authentication);
             if (response != null) {
-              return DataProductMapper.map(response);
+              return DataProductMapper.map(context, response);
             }
             // should never happen
             log.error(String.format("Unable to find data product with urn %s", dataProductUrn));

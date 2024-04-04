@@ -1,14 +1,11 @@
 package com.linkedin.metadata.resources.platform;
 
-import static com.linkedin.metadata.Constants.*;
-import static com.linkedin.metadata.resources.restli.RestliUtils.*;
+import static com.datahub.authorization.AuthUtil.isAPIAuthorized;
 
-import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
-import com.datahub.authorization.EntitySpec;
 import com.datahub.plugins.auth.authorization.Authorizer;
-import com.google.common.collect.ImmutableList;
 import com.linkedin.entity.Entity;
+import com.linkedin.metadata.authorization.Disjunctive;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.restli.RestliUtil;
@@ -49,15 +46,13 @@ public class PlatformResource extends CollectionResourceTaskTemplate<String, Ent
       @ActionParam("name") @Nonnull String eventName,
       @ActionParam("key") @Optional String key,
       @ActionParam("event") @Nonnull PlatformEvent event) {
-    Authentication auth = AuthenticationContext.getAuthentication();
-    if (Boolean.parseBoolean(System.getenv(REST_API_AUTHORIZATION_ENABLED_ENV))
-        && !isAuthorized(
-            auth,
+
+    if (!isAPIAuthorized(
+            AuthenticationContext.getAuthentication(),
             _authorizer,
-            ImmutableList.of(PoliciesConfig.PRODUCE_PLATFORM_EVENT_PRIVILEGE),
-            (EntitySpec) null)) {
+            PoliciesConfig.PRODUCE_PLATFORM_EVENT_PRIVILEGE)) {
       throw new RestLiServiceException(
-          HttpStatus.S_401_UNAUTHORIZED, "User is unauthorized to produce platform events.");
+          HttpStatus.S_403_FORBIDDEN, "User is unauthorized to produce platform events.");
     }
     log.info(String.format("Emitting platform event. name: %s, key: %s", eventName, key));
     return RestliUtil.toTask(

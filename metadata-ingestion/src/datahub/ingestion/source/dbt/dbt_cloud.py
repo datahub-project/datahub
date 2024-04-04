@@ -454,7 +454,8 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
             compiled_code=compiled_code,
             columns=columns,
             test_info=test_info,
-            test_result=test_result,
+            test_results=[test_result] if test_result else [],
+            model_performances=[],  # TODO: support model performance with dbt Cloud
         )
 
     def _parse_into_dbt_column(

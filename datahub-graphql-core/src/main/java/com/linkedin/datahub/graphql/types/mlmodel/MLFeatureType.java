@@ -81,7 +81,7 @@ public class MLFeatureType implements SearchableEntityType<MLFeature, String> {
                   gmsMlFeature == null
                       ? null
                       : DataFetcherResult.<MLFeature>newResult()
-                          .data(MLFeatureMapper.map(gmsMlFeature))
+                          .data(MLFeatureMapper.map(context, gmsMlFeature))
                           .build())
           .collect(Collectors.toList());
     } catch (Exception e) {
@@ -106,7 +106,7 @@ public class MLFeatureType implements SearchableEntityType<MLFeature, String> {
             facetFilters,
             start,
             count);
-    return UrnSearchResultsMapper.map(searchResult);
+    return UrnSearchResultsMapper.map(context, searchResult);
   }
 
   @Override
@@ -120,6 +120,6 @@ public class MLFeatureType implements SearchableEntityType<MLFeature, String> {
     final AutoCompleteResult result =
         _entityClient.autoComplete(
             context.getOperationContext(), "mlFeature", query, filters, limit);
-    return AutoCompleteResultsMapper.map(result);
+    return AutoCompleteResultsMapper.map(context, result);
   }
 }

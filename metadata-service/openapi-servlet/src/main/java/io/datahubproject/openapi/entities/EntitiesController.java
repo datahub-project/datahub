@@ -1,5 +1,9 @@
 package io.datahubproject.openapi.entities;
 
+import static com.datahub.authorization.AuthUtil.isAPIAuthorized;
+import static com.linkedin.metadata.authorization.ApiGroup.ENTITY;
+import static com.linkedin.metadata.authorization.ApiOperation.DELETE;
+import static com.linkedin.metadata.authorization.ApiOperation.READ;
 import static com.linkedin.metadata.utils.PegasusUtils.urnToEntityName;
 
 import com.codahale.metrics.MetricRegistry;
@@ -8,17 +12,13 @@ import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authorization.AuthUtil;
 import com.datahub.authorization.AuthorizerChain;
-import com.datahub.authorization.ConjunctivePrivilegeGroup;
-import com.datahub.authorization.DisjunctivePrivilegeGroup;
-import com.datahub.authorization.EntitySpec;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
-import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
+import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.util.Pair;
 import io.datahubproject.openapi.dto.RollbackRunResultDto;
 import io.datahubproject.openapi.dto.UpsertAspectRequest;
@@ -34,14 +34,12 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.beans.propertyeditors.StringArrayPropertyEditor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -68,9 +66,6 @@ public class EntitiesController {
   private final EntityService<ChangeItemImpl> _entityService;
   private final ObjectMapper _objectMapper;
   private final AuthorizerChain _authorizerChain;
-
-  @Value("${authorization.restApiAuthorization:false}")
-  private boolean restApiAuthorizationEnabled;
 
   @InitBinder
   public void initBinder(WebDataBinder binder) {
@@ -102,21 +97,11 @@ public class EntitiesController {
     log.debug("GET ENTITIES {}", entityUrns);
     Authentication authentication = AuthenticationContext.getAuthentication();
     String actorUrnStr = authentication.getActor().toUrnStr();
-    DisjunctivePrivilegeGroup orGroup =
-        new DisjunctivePrivilegeGroup(
-            ImmutableList.of(
-                new ConjunctivePrivilegeGroup(
-                    ImmutableList.of(PoliciesConfig.GET_ENTITY_PRIVILEGE.getType()))));
 
-    List<Optional<EntitySpec>> resourceSpecs =
-        entityUrns.stream()
-            .map(urn -> Optional.of(new EntitySpec(urn.getEntityType(), urn.toString())))
-            .collect(Collectors.toList());
-    if (restApiAuthorizationEnabled
-        && !AuthUtil.isAuthorizedForResources(
-            _authorizerChain, actorUrnStr, resourceSpecs, orGroup)) {
+    if (!AuthUtil.isAPIAuthorizedEntityUrns(authentication, _authorizerChain, READ, entityUrns)) {
       throw new UnauthorizedException(actorUrnStr + " is unauthorized to get entities.");
     }
+
     if (entityUrns.size() <= 0) {
       return ResponseEntity.ok(UrnResponseMap.builder().responses(Collections.emptyMap()).build());
     }
@@ -155,37 +140,54 @@ public class EntitiesController {
   @PostMapping(value = "/", produces = MediaType.APPLICATION_JSON_VALUE)
   public ResponseEntity<List<String>> postEntities(
       @RequestBody @Nonnull List<UpsertAspectRequest> aspectRequests,
-      @RequestParam(required = false, name = "async") Boolean async) {
+      @RequestParam(required = false, name = "async") Boolean async,
+      @RequestParam(required = false, name = "createIfNotExists") Boolean createIfNotExists,
+      @RequestParam(required = false, name = "createEntityIfNotExists")
+          Boolean createEntityIfNotExists) {
+
     log.info("INGEST PROPOSAL proposal: {}", aspectRequests);
 
     Authentication authentication = AuthenticationContext.getAuthentication();
     String actorUrnStr = authentication.getActor().toUrnStr();
-    DisjunctivePrivilegeGroup orGroup =
-        new DisjunctivePrivilegeGroup(
-            ImmutableList.of(
-                new ConjunctivePrivilegeGroup(
-                    ImmutableList.of(PoliciesConfig.EDIT_ENTITY_PRIVILEGE.getType()))));
+
     List<com.linkedin.mxe.MetadataChangeProposal> proposals =
         aspectRequests.stream()
-            .map(MappingUtil::mapToProposal)
+            .map(req -> MappingUtil.mapToProposal(req, createIfNotExists, createEntityIfNotExists))
             .map(proposal -> MappingUtil.mapToServiceProposal(proposal, _objectMapper))
             .collect(Collectors.toList());
 
-    if (restApiAuthorizationEnabled
-        && !MappingUtil.authorizeProposals(
-            proposals, _entityService, _authorizerChain, actorUrnStr, orGroup)) {
-      throw new UnauthorizedException(actorUrnStr + " is unauthorized to edit entities.");
+    /*
+     Ingest Authorization Checks
+    */
+    List<Pair<MetadataChangeProposal, Integer>> exceptions =
+        isAPIAuthorized(
+                authentication,
+                _authorizerChain,
+                ENTITY,
+                _entityService.getEntityRegistry(),
+                proposals)
+            .stream()
+            .filter(p -> p.getSecond() != com.linkedin.restli.common.HttpStatus.S_200_OK.getCode())
+            .collect(Collectors.toList());
+    if (!exceptions.isEmpty()) {
+      throw new UnauthorizedException(
+          actorUrnStr
+              + " is unauthorized to edit entities. "
+              + exceptions.stream()
+                  .map(
+                      ex ->
+                          String.format(
+                              "HttpStatus: %s Urn: %s",
+                              ex.getSecond(), ex.getFirst().getEntityUrn()))
+                  .collect(Collectors.toList()));
     }
 
     boolean asyncBool =
         Objects.requireNonNullElseGet(
             async, () -> Boolean.parseBoolean(System.getenv("ASYNC_INGEST_DEFAULT")));
     List<Pair<String, Boolean>> responses =
-        proposals.stream()
-            .map(
-                proposal ->
-                    MappingUtil.ingestProposal(proposal, actorUrnStr, _entityService, asyncBool))
-            .collect(Collectors.toList());
+        MappingUtil.ingestBatchProposal(proposals, actorUrnStr, _entityService, asyncBool);
+
     if (responses.stream().anyMatch(Pair::getSecond)) {
       return ResponseEntity.status(HttpStatus.CREATED)
           .body(
@@ -219,11 +221,7 @@ public class EntitiesController {
     try (Timer.Context context = MetricUtils.timer("deleteEntities").time()) {
       Authentication authentication = AuthenticationContext.getAuthentication();
       String actorUrnStr = authentication.getActor().toUrnStr();
-      DisjunctivePrivilegeGroup orGroup =
-          new DisjunctivePrivilegeGroup(
-              ImmutableList.of(
-                  new ConjunctivePrivilegeGroup(
-                      ImmutableList.of(PoliciesConfig.DELETE_ENTITY_PRIVILEGE.getType()))));
+
       final Set<Urn> entityUrns =
           Arrays.stream(urns)
               // Have to decode here because of frontend routing, does No-op for already unencoded
@@ -232,17 +230,9 @@ public class EntitiesController {
               .map(UrnUtils::getUrn)
               .collect(Collectors.toSet());
 
-      List<Optional<EntitySpec>> resourceSpecs =
-          entityUrns.stream()
-              .map(urn -> Optional.of(new EntitySpec(urn.getEntityType(), urn.toString())))
-              .collect(Collectors.toList());
-      if (restApiAuthorizationEnabled
-          && !AuthUtil.isAuthorizedForResources(
-              _authorizerChain, actorUrnStr, resourceSpecs, orGroup)) {
-        UnauthorizedException unauthorizedException =
-            new UnauthorizedException(actorUrnStr + " is unauthorized to delete entities.");
-        exceptionally = unauthorizedException;
-        throw unauthorizedException;
+      if (!AuthUtil.isAPIAuthorizedEntityUrns(
+          authentication, _authorizerChain, DELETE, entityUrns)) {
+        throw new UnauthorizedException(actorUrnStr + " is unauthorized to delete entities.");
       }
 
       if (!soft) {
@@ -267,7 +257,7 @@ public class EntitiesController {
                 RollbackRunResultDto.builder()
                     .rowsRolledBack(
                         deleteRequests.stream()
-                            .map(MappingUtil::mapToProposal)
+                            .map(req -> MappingUtil.mapToProposal(req, null, null))
                             .map(
                                 proposal ->
                                     MappingUtil.mapToServiceProposal(proposal, _objectMapper))

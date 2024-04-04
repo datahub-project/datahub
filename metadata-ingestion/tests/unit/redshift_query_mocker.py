@@ -63,7 +63,7 @@ query_vs_cursor_mocker = {
         "\\\\n\\\\s\\\\t]+(?:temp|temporary))?(?:[\\\\n\\\\s\\\\t]+)table(?:[\\\\n\\\\s\\\\t]+)["
         "^\\\\n\\\\s\\\\t()-]+)', 0, 1, 'ipe'),'[\\\\n\\\\s\\\\t]+',' ',1,'p') as create_command,\n          "
         "          query_text,\n                    row_number() over (\n                        partition "
-        "by TRIM(query_text)\n                        order by start_time desc\n                    ) rn\n   "
+        "by session_id, TRIM(query_text)\n                        order by start_time desc\n                    ) rn\n   "
         "             from\n                    (\n                    select\n                        pid "
         "as session_id,\n                        xid as transaction_id,\n                        starttime "
         "as start_time,\n                        type,\n                        query_text,\n                "

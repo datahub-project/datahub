@@ -135,7 +135,7 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
                   MISSING_SPECIAL_TYPE
                       + AGGREGATION_SPECIAL_TYPE_DELIMITER
                       + "textFieldOverride")) {
-        fail("Found unexepected aggregation: " + aggBuilder.getName());
+        fail("Found unexpected aggregation: " + aggBuilder.getName());
       }
     }
     // Highlights should not be present
@@ -149,7 +149,9 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
             TestEntitySpecBuilder.getSpec(), testQueryConfig, null, aspectRetriever);
     SearchRequest searchRequest =
         requestHandler.getSearchRequest(
-            operationContext.withSearchFlags(flags -> flags.setFulltext(false)),
+            operationContext.withSearchFlags(
+                flags ->
+                    flags.setFulltext(false).setSkipHighlighting(false).setSkipAggregates(false)),
             "testQuery",
             null,
             null,
@@ -175,7 +177,7 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
                   MISSING_SPECIAL_TYPE
                       + AGGREGATION_SPECIAL_TYPE_DELIMITER
                       + "textFieldOverride")) {
-        fail("Found unexepected aggregation: " + aggBuilder.getName());
+        fail("Found unexpected aggregation: " + aggBuilder.getName());
       }
     }
     // Highlights
