@@ -77,7 +77,7 @@ class ExtractOwnersFromTagsTransformer(DatasetTagsTransformer):
         """
         if self.config.tag_character_mapping:
             # indices list to keep track of the indices where replacements have been made
-            indices = []
+            indices: List[int] = list()
             for old_char in sorted(
                 self.config.tag_character_mapping.keys(),
                 key=len,
