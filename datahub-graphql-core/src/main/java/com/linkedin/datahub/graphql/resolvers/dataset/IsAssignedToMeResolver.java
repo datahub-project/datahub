@@ -6,12 +6,11 @@ import com.linkedin.datahub.graphql.generated.Role;
 import com.linkedin.datahub.graphql.generated.RoleUser;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
-import lombok.extern.slf4j.Slf4j;
-
 import java.util.Collections;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
+import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 public class IsAssignedToMeResolver implements DataFetcher<CompletableFuture<Boolean>> {
@@ -24,13 +23,17 @@ public class IsAssignedToMeResolver implements DataFetcher<CompletableFuture<Boo
     return CompletableFuture.supplyAsync(
         () -> {
           try {
-              final Set<String> assignedUserUrns =
-                      role.getActors() != null && role.getActors().getUsers() != null
-                              ? role.getActors().getUsers().stream().map(RoleUser::getUser).map(CorpUser::getUrn).collect(Collectors.toSet())
-                              : Collections.emptySet();
-              return assignedUserUrns.contains(context.getActorUrn());
+            final Set<String> assignedUserUrns =
+                role.getActors() != null && role.getActors().getUsers() != null
+                    ? role.getActors().getUsers().stream()
+                        .map(RoleUser::getUser)
+                        .map(CorpUser::getUrn)
+                        .collect(Collectors.toSet())
+                    : Collections.emptySet();
+            return assignedUserUrns.contains(context.getActorUrn());
           } catch (Exception e) {
-            throw new RuntimeException("Failed to determine if current user is assigned to Role", e);
+            throw new RuntimeException(
+                "Failed to determine if current user is assigned to Role", e);
           }
         });
   }

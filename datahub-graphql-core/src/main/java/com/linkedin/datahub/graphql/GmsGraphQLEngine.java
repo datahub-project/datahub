@@ -128,9 +128,9 @@ import com.linkedin.datahub.graphql.resolvers.dataproduct.CreateDataProductResol
 import com.linkedin.datahub.graphql.resolvers.dataproduct.DeleteDataProductResolver;
 import com.linkedin.datahub.graphql.resolvers.dataproduct.ListDataProductAssetsResolver;
 import com.linkedin.datahub.graphql.resolvers.dataproduct.UpdateDataProductResolver;
-import com.linkedin.datahub.graphql.resolvers.dataset.IsAssignedToMeResolver;
 import com.linkedin.datahub.graphql.resolvers.dataset.DatasetStatsSummaryResolver;
 import com.linkedin.datahub.graphql.resolvers.dataset.DatasetUsageStatsResolver;
+import com.linkedin.datahub.graphql.resolvers.dataset.IsAssignedToMeResolver;
 import com.linkedin.datahub.graphql.resolvers.deprecation.UpdateDeprecationResolver;
 import com.linkedin.datahub.graphql.resolvers.domain.CreateDomainResolver;
 import com.linkedin.datahub.graphql.resolvers.domain.DeleteDomainResolver;
