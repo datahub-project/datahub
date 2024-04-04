@@ -88,7 +88,7 @@ export default function useSearchAcrossLineage(
                 result.entity.urn,
                 entityNodeDefault(result.entity.urn, result.entity.type, direction),
             );
-            if (maxDepth) {
+            if (result.explored) {
                 node.fetchStatus = { ...node.fetchStatus, [direction]: FetchStatus.COMPLETE };
                 node.isExpanded = true;
             }
@@ -105,11 +105,7 @@ export default function useSearchAcrossLineage(
                 } else {
                     addToAdjacencyList(adjacencyList, direction, parent.urn, result.entity.urn);
                 }
-            });
-        });
 
-        data?.searchAcrossLineage?.searchResults.forEach((result) => {
-            result.paths?.forEach((path) => {
                 const filteredPath = path?.path.filter((p): p is Pick<Entity, 'urn' | 'type'> => !!p) || [];
                 addQueryNodes(filteredPath, direction, smallContext);
             });
@@ -163,7 +159,7 @@ export function pruneParentsThroughDbt(
     const stack = Array.from(adjacencyList[direction].get(urn) || []).filter((p) => isUrnDbt(p, entityRegistry));
     const seen = new Set<string>(stack);
     for (let u = stack.pop(); u; u = stack.pop()) {
-        Array.from(adjacencyList[direction].get(urn) || []).forEach((parent) => {
+        Array.from(adjacencyList[direction].get(u) || []).forEach((parent) => {
             if (isUrnDbt(parent, entityRegistry)) {
                 if (!seen.has(parent)) {
                     stack.push(parent);
