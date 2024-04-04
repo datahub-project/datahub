@@ -69,8 +69,7 @@ public class EntityChangeEventSinkManagerFactory {
               e);
         }
       } else {
-        log.info(
-            String.format("Skipping disabled change event sink with type %s", sink.getType()));
+        log.info(String.format("Skipping disabled change event sink with type %s", sink.getType()));
       }
     }
     log.info(String.format("Creating ChangeEventSink. sinks: %s", configuredSinks));
