@@ -1,4 +1,4 @@
-export function handleAccessRoles(externalRoles, loggedInUser) {
+export function handleAccessRoles(externalRoles) {
     const accessRoles = new Array<any>();
     if (
         externalRoles?.dataset?.access &&
