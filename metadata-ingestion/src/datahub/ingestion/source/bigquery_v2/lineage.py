@@ -756,13 +756,17 @@ class BigqueryLineageExtractor:
                 if e.statementType == "SELECT":
                     # We wrap select statements in a CTE to make them parseable as insert statement.
                     # This is a workaround for the sql parser to support the case where the user runs a query and inserts the result into a table..
-                    parsed_queries = sqlglot.parse(e.query, "bigquery")
-                    if parsed_queries:
+                    try:
+                        parsed_queries = sqlglot.parse(e.query, "bigquery")
                         query = f"""create table `{destination_table.table_identifier.get_table_name()}` AS
                         (
-                            {parsed_queries[-1]}
+                            {parsed_queries[-1].sql(dialect='bigquery')}
                         )"""
-                    else:
+                    except Exception:
+                        logger.debug(
+                            f"Failed to parse select-based lineage query {e.query} for table {destination_table}."
+                            "Sql parsing will likely fail for this query, which will result in a fallback to audit log."
+                        )
                         query = e.query
                 else:
                     query = e.query
