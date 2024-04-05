@@ -59,6 +59,7 @@ def update_celery_config(
         config.broker_transport_options = {
             "region": executor_configs[0].region,
             "predefined_queues": queues,
+            "sts_role_arn": "redirect-to-patched-handle-sts-session",
             "visibility_timeout": DATAHUB_EXECUTOR_SQS_VISIBILITY_TIMEOUT,
         }
     return config
