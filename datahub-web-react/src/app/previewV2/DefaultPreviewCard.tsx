@@ -24,9 +24,9 @@ import {
     SearchInsight,
 } from '../../types.generated';
 import { PreviewType } from '../entityV2/Entity';
-import { useEntityData } from '../entityV2/shared/EntityContext';
 import { ANTD_GRAY } from '../entityV2/shared/constants';
 import { PopularityTier } from '../entityV2/shared/containers/profile/sidebar/shared/utils';
+import { usePreviewData } from '../entityV2/shared/PreviewContext';
 import useContentTruncation from '../shared/useContentTruncation';
 import { useEntityRegistryV2 } from '../useEntityRegistry';
 import CardActionCircle from './CardActionCircle';
@@ -146,40 +146,28 @@ const HeaderContainer = styled.div`
 `;
 
 export default function DefaultPreviewCard({
-    name,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    name, // eslint-disable-next-line @typescript-eslint/no-unused-vars
     urn,
-    logoUrl,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    logoUrl, // eslint-disable-next-line @typescript-eslint/no-unused-vars
     logoComponent,
     url,
     entityType,
     type,
     typeIcon,
     platform,
-    platformInstanceId,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    tags,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    owners,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    topUsers,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    glossaryTerms,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    paths,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    platformInstanceId, // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    tags, // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    owners, // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    topUsers, // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    glossaryTerms, // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    paths, // eslint-disable-next-line @typescript-eslint/no-unused-vars
     subHeader,
     snippet,
-    insights,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    domain,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    insights, // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    domain, // eslint-disable-next-line @typescript-eslint/no-unused-vars
     dataProduct,
-    container,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    deprecation,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    container, // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    deprecation, // eslint-disable-next-line @typescript-eslint/no-unused-vars
     entityCount,
     titleSizePx,
     dataTestID,
@@ -190,17 +178,13 @@ export default function DefaultPreviewCard({
     parentEntities,
     platforms,
     logoUrls,
-    previewType,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    health,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    previewType, // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    health, // eslint-disable-next-line @typescript-eslint/no-unused-vars
     lastUpdatedMs,
     externalUrl,
     tier,
-    isOutputPort,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    upstreamTotal,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    isOutputPort, // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    upstreamTotal, // eslint-disable-next-line @typescript-eslint/no-unused-vars
     downstreamTotal,
     entityIcon,
     headerDropdownItems,
@@ -212,7 +196,7 @@ export default function DefaultPreviewCard({
 
     // sometimes these lists will be rendered inside an entity container (for example, in the case of impact analysis)
     // in those cases, we may want to enrich the preview w/ context about the container entity
-    const { entityData } = useEntityData();
+    const previewData = usePreviewData();
     const insightViews: Array<ReactNode> =
         insights?.map((insight) => (
             <>
@@ -260,7 +244,7 @@ export default function DefaultPreviewCard({
                                 menuItems={headerDropdownItems}
                                 urn={urn}
                                 entityType={entityType}
-                                entityData={entityData}
+                                entityData={previewData}
                                 triggerType={['click']}
                             />
                         )}
@@ -279,7 +263,7 @@ export default function DefaultPreviewCard({
                         deprecation={deprecation}
                         health={health}
                         degree={degree}
-                        connectionName={entityData?.name}
+                        connectionName={previewData?.name}
                     />
                 </HeaderContainer>
             </RowContainer>

@@ -14,6 +14,7 @@ import { FetchedEntity } from '../lineage/types';
 import { SearchResultProvider } from '../search/context/SearchResultContext';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from './Entity';
 import { GLOSSARY_ENTITY_TYPES } from './shared/constants';
+import PreviewContext from './shared/PreviewContext';
 import { EntitySidebarTab, GenericEntityProperties } from './shared/types';
 import { dictToQueryStringParams, getFineGrainedLineageWithSiblings, urlEncodeUrn } from './shared/utils';
 import { FetchedEntityV2, FetchedEntityV2Relationship, LineageAsset, LineageAssetType } from '../lineageV2/types';
@@ -137,7 +138,12 @@ export default class EntityRegistry {
 
     renderPreview<T>(entityType: EntityType, type: PreviewType, data: T): JSX.Element {
         const entity = validatedGet(entityType, this.entityTypeToEntity);
-        return entity.renderPreview(type, data);
+        const genericEntityData = entity.getGenericEntityProperties(data);
+        return (
+            <PreviewContext.Provider value={genericEntityData}>
+                {entity.renderPreview(type, data)}
+            </PreviewContext.Provider>
+        );
     }
 
     renderSearchResult(type: EntityType, searchResult: SearchResult): JSX.Element {
