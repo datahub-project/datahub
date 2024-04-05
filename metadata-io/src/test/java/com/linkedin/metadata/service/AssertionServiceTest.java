@@ -245,6 +245,7 @@ public class AssertionServiceTest {
             Mockito.mock(Authentication.class),
             Mockito.mock(OpenApiClient.class),
             clock);
+
     service.updateAssertionMetadata(
         TEST_ASSERTION_URN, mockAssertionActions(), null, getMockAuthentication());
     Mockito.verify(mockClient, Mockito.times(1))
