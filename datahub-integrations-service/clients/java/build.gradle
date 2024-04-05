@@ -8,18 +8,6 @@ apply plugin: 'java'
 group = 'org.openapitools'
 version = '0.1.0'
 
-buildscript {
-    repositories {
-        mavenCentral()
-    }
-    dependencies {
-        classpath 'com.android.tools.build:gradle:2.3.+'
-    }
-}
-
-repositories {
-    mavenCentral()
-}
 sourceSets {
     main.java.srcDirs = ['src/main/java']
 }
