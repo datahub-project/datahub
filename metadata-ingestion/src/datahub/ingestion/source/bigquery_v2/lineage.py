@@ -758,10 +758,13 @@ class BigqueryLineageExtractor:
                     # This is a workaround for the sql parser to support the case where the user runs a query and inserts the result into a table..
                     try:
                         parsed_queries = sqlglot.parse(e.query, "bigquery")
-                        query = f"""create table `{destination_table.table_identifier.get_table_name()}` AS
-                        (
-                            {parsed_queries[-1].sql(dialect='bigquery')}
-                        )"""
+                        if parsed_queries[-1]:
+                            query = f"""create table `{destination_table.table_identifier.get_table_name()}` AS
+                            (
+                                {parsed_queries[-1].sql(dialect='bigquery')}
+                            )"""
+                        else:
+                            query = e.query
                     except Exception:
                         logger.debug(
                             f"Failed to parse select-based lineage query {e.query} for table {destination_table}."
