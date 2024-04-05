@@ -80,7 +80,7 @@ const PlatformNode = () => {
             header={
                 <ExpandableNode.SelectableHeader
                     isOpen={isOpen}
-                    isSelected={isPlatformOnlySelected}
+                    $isSelected={isPlatformOnlySelected}
                     showBorder
                     onClick={onClickHeader}
                 >

@@ -3,7 +3,7 @@ import styled from 'styled-components';
 import { ANTD_GRAY } from '../../entity/shared/constants';
 import { SEARCH_COLORS } from '../../entityV2/shared/constants';
 
-export const SearchFilterLabel = styled(Button)<{ isActive: boolean }>`
+export const SearchFilterLabel = styled(Button)<{ $isActive: boolean }>`
     font-size: 14px;
     font-weight: 700;
     margin-right: 12px;
@@ -13,7 +13,7 @@ export const SearchFilterLabel = styled(Button)<{ isActive: boolean }>`
     align-items: center;
     box-shadow: none;
     ${(props) =>
-        props.isActive &&
+        props.$isActive &&
         `
         background-color: ${SEARCH_COLORS.TITLE_PURPLE};
         border: 1px solid ${SEARCH_COLORS.BACKGROUND_PURPLE};
@@ -21,7 +21,7 @@ export const SearchFilterLabel = styled(Button)<{ isActive: boolean }>`
     `}
 `;
 
-export const MoreFilterOptionLabel = styled.div<{ isActive: boolean; isOpen?: boolean }>`
+export const MoreFilterOptionLabel = styled.div<{ $isActive: boolean; isOpen?: boolean }>`
     padding: 5px 12px;
     font-size: 14px;
     display: flex;
@@ -33,7 +33,7 @@ export const MoreFilterOptionLabel = styled.div<{ isActive: boolean; isOpen?: bo
         background-color: ${ANTD_GRAY[3]};
     }
 
-    ${(props) => props.isActive && `color: ${SEARCH_COLORS.TITLE_PURPLE};`}
+    ${(props) => props.$isActive && `color: ${SEARCH_COLORS.TITLE_PURPLE};`}
     ${(props) => props.isOpen && `background-color: ${ANTD_GRAY[3]};`}
 `;
 

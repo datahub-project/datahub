@@ -19,14 +19,14 @@ const Container = styled.div`
     flex-direction: column;
 `;
 
-const LineageButton = styled(Button)<{ isSelected: boolean }>`
+const LineageButton = styled(Button)<{ $isSelected: boolean }>`
     &&& {
-        background-color: ${(props) => (props.isSelected ? SEARCH_COLORS.TITLE_PURPLE : 'none')};
-        color: ${(props) => (props.isSelected ? '#ffffff' : ANTD_GRAY[7])};
+        background-color: ${(props) => (props.$isSelected ? SEARCH_COLORS.TITLE_PURPLE : 'none')};
+        color: ${(props) => (props.$isSelected ? '#ffffff' : ANTD_GRAY[7])};
         border-radius: 8px;
         margin-right: 12px;
         min-height: 32px;
-        ${(props) => props.isSelected && `border-color: ${SEARCH_COLORS.TITLE_PURPLE}`};
+        ${(props) => props.$isSelected && `border-color: ${SEARCH_COLORS.TITLE_PURPLE}`};
     }
 `;
 
@@ -56,24 +56,24 @@ const LevelFilters = styled.div`
     justify-content: start;
 `;
 
-const LevelFilter = styled.div<{ isSelected: boolean }>`
+const LevelFilter = styled.div<{ $isSelected: boolean }>`
     font-size: 14px;
     padding: 2px 8px;
     margin-right: 12px;
     border-radius: 8px;
-    color: ${(props) => (props.isSelected ? SEARCH_COLORS.TITLE_PURPLE : ANTD_GRAY[7])};
-    border: 1px solid ${(props) => (props.isSelected ? SEARCH_COLORS.TITLE_PURPLE : ANTD_GRAY[7])};
+    color: ${(props) => (props.$isSelected ? SEARCH_COLORS.TITLE_PURPLE : ANTD_GRAY[7])};
+    border: 1px solid ${(props) => (props.$isSelected ? SEARCH_COLORS.TITLE_PURPLE : ANTD_GRAY[7])};
     &:hover {
         opacity: 0.8;
         cursor: pointer;
     }
 `;
 
-const AdvancedFiltersButton = styled(Button)<{ isSelected: boolean }>`
+const AdvancedFiltersButton = styled(Button)<{ $isSelected: boolean }>`
     && {
         padding: 0px 4px;
         font-size: 16px;
-        color: ${(props) => (props.isSelected ? '#00615F' : ANTD_GRAY[7])};
+        color: ${(props) => (props.$isSelected ? '#00615F' : ANTD_GRAY[7])};
     }
 `;
 
@@ -185,7 +185,7 @@ export const CompactLineageTab = ({ defaultDirection }: { defaultDirection: Line
                 {directionOptions.map((option) => (
                     <Tooltip title={option.tip} placement="bottom" showArrow={false}>
                         <LineageButton
-                            isSelected={selectedDirection === option.value}
+                            $isSelected={selectedDirection === option.value}
                             onClick={() => setDirection(option.value)}
                         >
                             {option.label}
@@ -198,7 +198,7 @@ export const CompactLineageTab = ({ defaultDirection }: { defaultDirection: Line
                 <LevelFilters>
                     <Tooltip title="Show directly related data assets" placement="bottom" showArrow={false}>
                         <LevelFilter
-                            isSelected={selectedLevels.has(LevelFilterType.DIRECT)}
+                            $isSelected={selectedLevels.has(LevelFilterType.DIRECT)}
                             onClick={() => toggleLevelFilter(LevelFilterType.DIRECT)}
                         >
                             direct
@@ -206,7 +206,7 @@ export const CompactLineageTab = ({ defaultDirection }: { defaultDirection: Line
                     </Tooltip>
                     <Tooltip title="Show indirectly related data assets" placement="bottom" showArrow={false}>
                         <LevelFilter
-                            isSelected={selectedLevels.has(LevelFilterType.INDIRECT)}
+                            $isSelected={selectedLevels.has(LevelFilterType.INDIRECT)}
                             onClick={() => toggleLevelFilter(LevelFilterType.INDIRECT)}
                         >
                             indirect
@@ -220,7 +220,7 @@ export const CompactLineageTab = ({ defaultDirection }: { defaultDirection: Line
                 >
                     <AdvancedFiltersButton
                         type="link"
-                        isSelected={showAdvancedFilters}
+                        $isSelected={showAdvancedFilters}
                         onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
                     >
                         <SearchOutlined />

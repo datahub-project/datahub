@@ -74,7 +74,7 @@ export default function MoreFilters({ filters, filterPredicates, activeFilters, 
             open={isMenuOpen}
             onOpenChange={onOpenChange}
         >
-            <SearchFilterLabel data-testid="more-filters-dropdown" isActive={!!numActiveFilters}>
+            <SearchFilterLabel data-testid="more-filters-dropdown" $isActive={!!numActiveFilters}>
                 More {numActiveFilters ? `(${numActiveFilters}) ` : ''}
                 <CaretDownFilled style={{ fontSize: '12px', height: '12px' }} />
             </SearchFilterLabel>

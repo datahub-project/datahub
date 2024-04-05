@@ -37,7 +37,7 @@ export default function SearchFilterView({
         onChangeValues={onChangeValues}
     >
         <SearchFilterLabel
-                isActive={!!numActiveFilters}
+                $isActive={!!numActiveFilters}
                 data-testid={`filter-dropdown-${capitalizeFirstLetterOnly(displayName)}`}
             >
                 {filterIcon && <IconWrapper>{filterIcon}</IconWrapper>}

@@ -26,13 +26,13 @@ import { ANTD_GRAY } from '../../entity/shared/constants';
 import PlatformIcon from '../../sharedV2/icons/PlatformIcon';
 import { DataPlatform } from '../../../types.generated';
 
-const Count = styled(Typography.Text) <{ isPlatformBrowse: boolean; isOpen: boolean }>`
+const Count = styled(Typography.Text) <{ $isPlatformBrowse: boolean; isOpen: boolean }>`
     font-size: 10px;
     color: ${(props) => props.color};
     padding: 2px 8px;
     margin-left: 8px;
-    ${(props) => props.isPlatformBrowse && `border-radius: 8px;`}
-    ${(props) => props.isPlatformBrowse && `background-color: ${props.isOpen ? '#fff' : ANTD_GRAY[3]};`}
+    ${(props) => props.$isPlatformBrowse && `border-radius: 8px;`}
+    ${(props) => props.$isPlatformBrowse && `background-color: ${props.isOpen ? '#fff' : ANTD_GRAY[3]};`}
 `;
 
 type Props = {
@@ -104,7 +104,7 @@ const PlatformNode = ({ iconSize = 20, hasOnlyOnePlatform = false, toggleCollaps
             header={
                 <ExpandableNode.SelectableHeader
                     isOpen={isOpen}
-                    isSelected={isPlatformOnlySelected}
+                    $isSelected={isPlatformOnlySelected}
                     showBorder
                     onClick={onClick}
                 >
@@ -143,13 +143,13 @@ const PlatformNode = ({ iconSize = 20, hasOnlyOnePlatform = false, toggleCollaps
                             </ExpandableNode.Title>
                         )}
                         {!collapsed && isPlatformBrowse && (
-                            <Count color={color} isOpen={isOpen} isPlatformBrowse>
+                            <Count color={color} isOpen={isOpen} $isPlatformBrowse>
                                 {formatNumber(platformAggregation.count)}
                             </Count>
                         )}
                     </ExpandableNode.HeaderLeft>
                     {!collapsed && !isPlatformBrowse && (
-                        <Count color={color} isOpen={isOpen} isPlatformBrowse={false}>
+                        <Count color={color} isOpen={isOpen} $isPlatformBrowse={false}>
                             {formatNumber(platformAggregation.count)}
                         </Count>
                     )}

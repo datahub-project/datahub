@@ -22,7 +22,7 @@ const Padding = styled.span<{ padding: number }>`
     margin-left: ${(props) => props.padding}px;
 `;
 
-const Down = styled(DownOutlined)<{ isCompact?: boolean }>`
+const Down = styled(DownOutlined)<{ $isCompact?: boolean }>`
     :hover {
         color: ${SEARCH_COLORS.TITLE_PURPLE};
         stroke: ${SEARCH_COLORS.TITLE_PURPLE};
@@ -33,7 +33,7 @@ const Down = styled(DownOutlined)<{ isCompact?: boolean }>`
     stroke-width: 100px;
     padding-right: 5px;
     ${(props) =>
-        props.isCompact &&
+        props.$isCompact &&
         `
         font-size: 8px;
         
@@ -139,7 +139,7 @@ export default function ExpandIcon(props: Props) {
                 {expandable &&
                     record.children !== undefined &&
                     (expanded ? (
-                        <Down onClick={toggleExpand} isCompact={isCompact} />
+                        <Down onClick={toggleExpand} $isCompact={isCompact} />
                     ) : (
                         <Right onClick={toggleExpand} isCompact={isCompact} />
                     ))}

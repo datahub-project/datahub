@@ -80,7 +80,7 @@ const StyledPopover = styled(Popover)`
     background: ${REDESIGN_COLORS.GREY};
 `;
 
-const StyledFilterIcon = styled(FilterOutlined)<{ hasFiltered: boolean }>`
+const StyledFilterIcon = styled(FilterOutlined)<{ $hasFiltered: boolean }>`
     cursor: pointer;
     margin-left: -14px;
     margin-right: -14px;
@@ -91,10 +91,10 @@ const StyledFilterIcon = styled(FilterOutlined)<{ hasFiltered: boolean }>`
     padding-top: 12px;
     padding-bottom: 12px;
     border-radius: 50%;
-    color: ${(props) => (props.hasFiltered ? props.theme.styles['primary-color'] : 'inherit')};
+    color: ${(props) => (props.$hasFiltered ? props.theme.styles['primary-color'] : 'inherit')};
 
     :hover {
-        color: ${(props) => (!props.hasFiltered ? props.theme.styles['primary-color'] : 'inherit')};
+        color: ${(props) => (!props.$hasFiltered ? props.theme.styles['primary-color'] : 'inherit')};
     }
 `;
 
@@ -139,7 +139,7 @@ const SchemaSearchInput: React.FC<SchemaSearchProps> = ({
             overlayInnerStyle={{ padding: 0 }}
         >
             <StyledFilterIcon
-                hasFiltered={schemaFilterTypes.length < 4}
+                $hasFiltered={schemaFilterTypes.length < 4}
                 style={{ cursor: 'pointer', margin: '-10px', padding: '10px' }}
             />
         </StyledPopover>

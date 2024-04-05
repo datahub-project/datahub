@@ -82,7 +82,7 @@ const BrowseNode = () => {
             header={
                 <ExpandableNode.SelectableHeader
                     isOpen={isOpen}
-                    isSelected={isBrowsePathSelected}
+                    $isSelected={isBrowsePathSelected}
                     onClick={onClickBrowseHeader}
                     data-testid={`browse-node-${displayName}`}
                 >

@@ -31,13 +31,13 @@ const DetailIcon = styled(InfoCircleOutlined)`
     padding-right: 6px;
 `;
 
-const IconGroup = styled.div<{ isSelected: boolean; disabled?: boolean }>`
+const IconGroup = styled.div<{ $isSelected: boolean; disabled?: boolean }>`
     font-size: 14px;
     color: ${(props) => {
         if (props.disabled) {
             return grey[2];
         }
-        return !props.isSelected ? 'black' : props.theme.styles['primary-color'] || blue[4];
+        return !props.$isSelected ? 'black' : props.theme.styles['primary-color'] || blue[4];
     }};
     &:hover {
         color: ${(props) => (props.disabled ? grey[2] : props.theme.styles['primary-color'] || blue[4])};
@@ -110,7 +110,7 @@ export const LineageSelector = ({ urn, type }: Props): JSX.Element => {
             <LineageIconGroup>
                 <IconGroup
                     disabled={!canNavigateToLineage}
-                    isSelected={!isLineageMode}
+                    $isSelected={!isLineageMode}
                     onClick={() => {
                         if (canNavigateToLineage) {
                             navigateToLineageUrl({
@@ -128,7 +128,7 @@ export const LineageSelector = ({ urn, type }: Props): JSX.Element => {
                 </IconGroup>
                 <IconGroup
                     disabled={!canNavigateToLineage}
-                    isSelected={isLineageMode}
+                    $isSelected={isLineageMode}
                     onClick={() => {
                         if (canNavigateToLineage) {
                             navigateToLineageUrl({

@@ -13,8 +13,8 @@ import EntitySidebarSectionsTab from '../shared/containers/profile/sidebar/Entit
 import { EntitySidebarTabs } from '../shared/containers/profile/sidebar/EntitySidebarTabs';
 import { defaultTabDisplayConfig } from '../shared/containers/profile/utils';
 
-const CompactEntityWrapper = styled.div<{ isClosed: boolean }>`
-    ${(props) => !props.isClosed && 'padding: 16px;'}
+const CompactEntityWrapper = styled.div<{ $isClosed: boolean }>`
+    ${(props) => !props.$isClosed && 'padding: 16px;'}
     border-right: 1px solid #e8e8e8;
     flex: 1;
     overflow: inherit;
@@ -54,7 +54,7 @@ export default function CompactTagProfile({ urn }: Props) {
             isFocused={isInSearch}
         >
             <StyledSidebar isCard={isInSearch} isFocused={isInSearch}>
-                <CompactEntityWrapper isClosed={isClosed}>
+                <CompactEntityWrapper $isClosed={isClosed}>
                     <TagStyleEntity urn={urn} />
                 </CompactEntityWrapper>
                 <TabsContainer>

@@ -48,10 +48,10 @@ ExpandableNode.Header = styled.div<{
     border-bottom: 1px solid ${(props) => (props.isOpen || !props.showBorder ? 'transparent' : ANTD_GRAY[4])};
 `;
 
-ExpandableNode.SelectableHeader = styled(ExpandableNode.Header) <{ isSelected: boolean }>`
+ExpandableNode.SelectableHeader = styled(ExpandableNode.Header) <{ $isSelected: boolean }>`
     & {
-        border: 1px solid ${(props) => (props.isSelected ? SEARCH_COLORS.BACKGROUND_PURPLE : 'transparent')};
-        background-color: ${(props) => (props.isSelected ? SEARCH_COLORS.BACKGROUND_PURPLE : 'transparent')};
+        border: 1px solid ${(props) => (props.$isSelected ? SEARCH_COLORS.BACKGROUND_PURPLE : 'transparent')};
+        background-color: ${(props) => (props.$isSelected ? SEARCH_COLORS.BACKGROUND_PURPLE : 'transparent')};
         border-radius: 8px;
     }
 

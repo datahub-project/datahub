@@ -30,9 +30,9 @@ const FieldPathContainer = styled.div`
     vertical-align: top;
     display: inline-block;
 `;
-const FieldPathText = styled(Typography.Text)<{ isCompact: boolean }>`
+const FieldPathText = styled(Typography.Text)<{ $isCompact: boolean }>`
     font-size: 12px;
-    line-height: ${(props) => (props.isCompact ? '14px' : '24px')};
+    line-height: ${(props) => (props.$isCompact ? '14px' : '24px')};
     font-weight: 600;
     color: ${REDESIGN_COLORS.DARK_GREY};
 `;
@@ -76,7 +76,7 @@ export const InteriorTitleContent = ({
     return (
         <FieldTitleWrapper>
             <FieldPathContainer>
-                <FieldPathText isCompact={!!isCompact}>
+                <FieldPathText $isCompact={!!isCompact}>
                     <Highlight search={filterText}>{pathToDisplay}</Highlight>
                 </FieldPathText>
             </FieldPathContainer>

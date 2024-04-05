@@ -14,7 +14,7 @@ type Props = {
     hideCollapse?: boolean;
 };
 
-const UnborderedTabs = styled(Tabs)<{ isClosed: boolean }>`
+const UnborderedTabs = styled(Tabs)<{ $isClosed: boolean }>`
     height: 100%;
 
     &&& .ant-tabs-nav {
@@ -39,18 +39,18 @@ const UnborderedTabs = styled(Tabs)<{ isClosed: boolean }>`
     }
 
     &&& .ant-tabs-tab-active {
-        background-color: ${(props) => !props.isClosed && `${REDESIGN_COLORS.TITLE_PURPLE}`};
+        background-color: ${(props) => !props.$isClosed && `${REDESIGN_COLORS.TITLE_PURPLE}`};
 
         :hover {
-            color: ${(props) => (props.isClosed ? `${REDESIGN_COLORS.LINK_HOVER_BLUE}` : 'white')};
+            color: ${(props) => (props.$isClosed ? `${REDESIGN_COLORS.LINK_HOVER_BLUE}` : 'white')};
         }
     }
 
     &&& .ant-tabs-tab-active .ant-tabs-tab-btn {
-        color: ${(props) => (props.isClosed ? 'black' : 'white')};
+        color: ${(props) => (props.$isClosed ? 'black' : 'white')};
 
         :hover {
-            color: ${(props) => (props.isClosed ? `${REDESIGN_COLORS.LINK_HOVER_BLUE}` : 'white')};
+            color: ${(props) => (props.$isClosed ? `${REDESIGN_COLORS.LINK_HOVER_BLUE}` : 'white')};
         }
     }
 
@@ -89,7 +89,7 @@ export const EntitySidebarTabs = <T,>({ tabs, selectedTab, onSelectTab, hideColl
                     onSelectTab(name);
                     setSidebarClosed(false);
                 }}
-                isClosed={isClosed}
+                $isClosed={isClosed}
             >
                 {tabs.map((tab) => {
                     const TabIcon = tab.icon;

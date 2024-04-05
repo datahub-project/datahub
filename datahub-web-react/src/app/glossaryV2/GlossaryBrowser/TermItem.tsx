@@ -36,18 +36,18 @@ const nameStyles = `
 `;
 
 interface TermLinkProps {
-    isSelected: boolean;
-    areChildrenVisible?: boolean;
-    isChildNode?: boolean;
+    $isSelected: boolean;
+    $areChildrenVisible?: boolean;
+    $isChildNode?: boolean;
     entityType?: string;
 }
 
 export const TermLink = styled(Link)<TermLinkProps>`
     ${nameStyles}
 
-    ${(props) => props.isChildNode && `opacity: 1;`}
-    ${(props) => props.areChildrenVisible && `color: ${REDESIGN_COLORS.HOVER_PURPLE_2}; font-weight: 400; opacity: 1;`}
-    ${(props) => props.isSelected && `color: ${REDESIGN_COLORS.HOVER_PURPLE}; font-weight: 700; opacity: 1;`}
+    ${(props) => props.$isChildNode && `opacity: 1;`}
+    ${(props) => props.$areChildrenVisible && `color: ${REDESIGN_COLORS.HOVER_PURPLE_2}; font-weight: 400; opacity: 1;`}
+    ${(props) => props.$isSelected && `color: ${REDESIGN_COLORS.HOVER_PURPLE}; font-weight: 700; opacity: 1;`}
 `;
 
 export const NameWrapper = styled.span<{ showSelectStyles?: boolean }>`
@@ -94,8 +94,8 @@ function TermItem(props: Props) {
                     to={`${entityRegistry.getEntityUrl(term.type, term.urn)}${
                         includeActiveTabPath ? `/${activeTabPath}` : ''
                     }`}
-                    isSelected={entityData?.urn === term.urn}
-                    areChildrenVisible={areChildrenVisible}
+                    $isSelected={entityData?.urn === term.urn}
+                    $areChildrenVisible={areChildrenVisible}
                     entityType={term.type}
                 >
                     {entityRegistry.getDisplayName(term.type, isOnEntityPage ? entityData : term)}

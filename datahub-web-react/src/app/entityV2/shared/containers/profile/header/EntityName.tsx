@@ -12,7 +12,7 @@ import CompactContext from '../../../../../shared/CompactContext';
 import { EntityType } from '../../../../../../types.generated';
 import { PageRoutes } from '../../../../../../conf/Global';
 
-const EntityTitle = styled(Typography.Text)<{ showEntityLink?: boolean }>`
+const EntityTitle = styled(Typography.Text)<{ $showEntityLink?: boolean }>`
     font-size: 16px;
     font-weight: 700;
     color: ${REDESIGN_COLORS.TITLE_PURPLE};
@@ -20,7 +20,7 @@ const EntityTitle = styled(Typography.Text)<{ showEntityLink?: boolean }>`
     margin-right: 10px;
 
     ${(props) =>
-        props.showEntityLink &&
+        props.$showEntityLink &&
         `
     :hover {
         color: ${REDESIGN_COLORS.HOVER_PURPLE};
@@ -103,12 +103,12 @@ function EntityName(props: Props) {
                 onChange: handleChangeName,
                 onStart: handleStartEditing,
             }}
-            showEntityLink={showEntityLink}
+            $showEntityLink={showEntityLink}
         >
             {updatedName}
         </EntityTitle>
     ) : (
-        <EntityTitle showEntityLink={showEntityLink}>{entityName}</EntityTitle>
+        <EntityTitle $showEntityLink={showEntityLink}>{entityName}</EntityTitle>
     );
 
     // have entity link open new tab if in the chrome extension

@@ -13,9 +13,9 @@ const ButtonsWrapper = styled.div`
     margin-bottom: 20px;
 `;
 
-const StyledButton = styled(Button)<{ isSelected: boolean }>`
+const StyledButton = styled(Button)<{ $isSelected: boolean }>`
     ${(props) =>
-        props.isSelected &&
+        props.$isSelected &&
         `
         color: ${blue[5]};
         &:focus {
@@ -50,11 +50,11 @@ function DescriptionDifferenceModal({ oldDescription, newDescription, closeModal
     return (
         <StyledModal width="minContent" title="Update Description Proposal" footer={null} visible onCancel={closeModal}>
             <ButtonsWrapper>
-                <StyledButton type="text" isSelected={isViewingMarkdown} onClick={() => setIsViewingMarkdown(true)}>
+                <StyledButton type="text" $isSelected={isViewingMarkdown} onClick={() => setIsViewingMarkdown(true)}>
                     <FileMarkdownOutlined />
                     Markdown
                 </StyledButton>
-                <StyledButton type="text" isSelected={!isViewingMarkdown} onClick={() => setIsViewingMarkdown(false)}>
+                <StyledButton type="text" $isSelected={!isViewingMarkdown} onClick={() => setIsViewingMarkdown(false)}>
                     <FileTextOutlined />
                     Formatted Text
                 </StyledButton>

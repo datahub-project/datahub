@@ -11,11 +11,11 @@ import { useEntityRegistry } from '../../../useEntityRegistry';
 import { TagProfileDrawer } from '../../../shared/tags/TagProfileDrawer';
 import { useHasMatchedFieldByUrn } from '../../../search/context/SearchResultContext';
 
-const TagLink = styled.span<{ showOneAndCount?: boolean }>`
+const TagLink = styled.span<{ $showOneAndCount?: boolean }>`
     display: inline-block;
     margin-bottom: 4px;
     ${(props) =>
-        props.showOneAndCount &&
+        props.$showOneAndCount &&
         `
             width: 70%;
             max-width: max-content;
@@ -109,7 +109,7 @@ export default function Tag({
     return (
         <>
             <HoverEntityTooltip entity={tag.tag} width={250}>
-                <TagLink data-testid={`tag-${displayName}`} showOneAndCount={showOneAndCount}>
+                <TagLink data-testid={`tag-${displayName}`} $showOneAndCount={showOneAndCount}>
                     <StyledTag
                         style={{ cursor: 'pointer' }}
                         onClick={() => showTagProfileDrawer(tag?.tag?.urn)}
@@ -121,8 +121,8 @@ export default function Tag({
                             removeTag(tag);
                         }}
                         fontSize={fontSize}
-                        highlightTag={highlightTag}
-                        showOneAndCount={showOneAndCount}
+                        $highlightTag={highlightTag}
+                        $showOneAndCount={showOneAndCount}
                     >
                         <Highlight
                             style={{ marginLeft: 0, fontSize }}

@@ -21,9 +21,9 @@ const ControlsContainer = styled.div`
     margin-top: 8px;
 `;
 
-const StyledButton = styled(Button)<{ isSelected: boolean }>`
+const StyledButton = styled(Button)<{ $isSelected: boolean }>`
     ${(props) =>
-        (props.isSelected &&
+        (props.$isSelected &&
             `
         color: ${ANTD_GRAY[9]};
         &:focus {
@@ -130,12 +130,12 @@ export const YamlStep = ({
                 {(onPrev && <Button onClick={onPrev}>Back</Button>) || <div> </div>}
                 <ToggleViewButtonWrapper>
                     <Tooltip title="Use Form builder to author your test (recommended)">
-                        <StyledButton type="text" isSelected={!showYamlEditor} onClick={() => onChangeView(false)}>
+                        <StyledButton type="text" $isSelected={!showYamlEditor} onClick={() => onChangeView(false)}>
                             <FormOutlined /> Form
                         </StyledButton>
                     </Tooltip>
                     <Tooltip title="Use YAML builder to author your test">
-                        <StyledButton type="text" isSelected={showYamlEditor} onClick={() => onChangeView(true)}>
+                        <StyledButton type="text" $isSelected={showYamlEditor} onClick={() => onChangeView(true)}>
                             <CodeOutlined /> YAML
                         </StyledButton>
                     </Tooltip>

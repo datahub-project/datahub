@@ -17,7 +17,7 @@ const StyledKeyboardTabOutlinedIcon = styled(KeyboardTabOutlinedIcon)<{ directio
     ${(props) => (props.direction === 'left' && 'transform: scaleX(-1);') || undefined}
 `;
 
-const CloseButton = styled.div<{ isClosed: boolean }>`
+const CloseButton = styled.div<{ $isClosed: boolean }>`
     cursor: pointer;
     margin: 0px;
     padding: 2px 6px;
@@ -28,14 +28,14 @@ const CloseButton = styled.div<{ isClosed: boolean }>`
     border-radius: 6px;
     justify-content: center;
     ${(props) =>
-        props.isClosed &&
+        props.$isClosed &&
         `
         background-color: ${REDESIGN_COLORS.TITLE_PURPLE};
         color: ${REDESIGN_COLORS.WHITE}; 
     `}
     :hover {
         ${(props) =>
-            !props.isClosed &&
+            !props.$isClosed &&
             `color: ${SEARCH_COLORS.TITLE_PURPLE};
         `}
 `;
@@ -46,7 +46,7 @@ export default function SidebarCollapseIcon() {
     return (
         <Container>
             <Tooltip placement="left" showArrow={false} title={!isClosed ? 'Close sidebar' : 'Open sidebar'}>
-                <CloseButton isClosed={isClosed} onClick={() => setSidebarClosed(!isClosed)}>
+                <CloseButton $isClosed={isClosed} onClick={() => setSidebarClosed(!isClosed)}>
                     <StyledKeyboardTabOutlinedIcon direction={isClosed ? 'left' : 'right'} />
                 </CloseButton>
             </Tooltip>

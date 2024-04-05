@@ -14,14 +14,14 @@ import useHasDomainChildren from './useHasDomainChildren';
 import { DomainColoredIcon } from '../../../entityV2/shared/links/DomainColoredIcon';
 import { REDESIGN_COLORS, SEARCH_COLORS } from '../../../entityV2/shared/constants';
 
-const RowWrapper = styled.div<{ isSelected: boolean }>`
+const RowWrapper = styled.div<{ $isSelected: boolean }>`
     align-items: center;
     display: flex;
     padding: 12px;
     overflow: hidden;
     border-bottom: 1px solid #f0f0f0;
     ${(props) =>
-        props.isSelected && `background-color: ${applyOpacity(props.theme.styles['primary-color'] || '', 10)};`}
+        props.$isSelected && `background-color: ${applyOpacity(props.theme.styles['primary-color'] || '', 10)};`}
 `;
 
 const Count = styled.div`
@@ -42,12 +42,12 @@ const Count = styled.div`
     transition: opacity 0.3s ease; /* add a smooth transition effect */
 `;
 
-const NameWrapper = styled(Typography.Text)<{ isSelected: boolean; addLeftPadding: boolean }>`
+const NameWrapper = styled(Typography.Text)<{ $isSelected: boolean; $addLeftPadding: boolean }>`
     flex: 1;
     overflow: hidden;
     padding: 2px;
-    ${(props) => props.addLeftPadding && 'padding-left: 22px;'}
-    ${(props) => props.isSelected && `color: ${SEARCH_COLORS.TITLE_PURPLE}; font-weight: 700;`}
+    ${(props) => props.$addLeftPadding && 'padding-left: 22px;'}
+    ${(props) => props.$isSelected && `color: ${SEARCH_COLORS.TITLE_PURPLE}; font-weight: 700;`}
   &:hover {
         font-weight: 700;
         cursor: pointer;
@@ -139,7 +139,7 @@ export default function DomainNode({ domain, numDomainChildren, domainUrnToHide,
 
     return (
         <>
-            <RowWrapper data-testid="domain-list-item" isSelected={isDomainNodeSelected}>
+            <RowWrapper data-testid="domain-list-item" $isSelected={isDomainNodeSelected}>
                 {hasDomainChildren && (
                     <ButtonWrapper>
                         <RotatingTriangle isOpen={isOpen && !isClosing} onClick={toggle} />
@@ -148,8 +148,8 @@ export default function DomainNode({ domain, numDomainChildren, domainUrnToHide,
                 <NameWrapper
                     ellipsis={{ tooltip: displayName }}
                     onClick={handleSelectDomain}
-                    isSelected={isDomainNodeSelected}
-                    addLeftPadding={!hasDomainChildren}
+                    $isSelected={isDomainNodeSelected}
+                    $addLeftPadding={!hasDomainChildren}
                 >
                     <Text>
                         <DomainColoredIcon

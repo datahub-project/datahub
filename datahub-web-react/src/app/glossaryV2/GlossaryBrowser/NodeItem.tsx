@@ -13,7 +13,7 @@ import { useGlossaryEntityData } from '../../entityV2/shared/GlossaryEntityConte
 import { generateColorFromPalette } from '../colorUtils';
 
 interface ItemWrapperProps {
-    isSelected: boolean;
+    $isSelected: boolean;
 }
 
 const ItemWrapper = styled.div<ItemWrapperProps>`
@@ -24,7 +24,7 @@ const ItemWrapper = styled.div<ItemWrapperProps>`
     border-bottom: 1px solid ${REDESIGN_COLORS.BORDER_3};
     position: relative;
     overflow: hidden;
-    background-color: ${(props) => props.isSelected && REDESIGN_COLORS.BACKGROUND_GRAY_2};
+    background-color: ${(props) => props.$isSelected && REDESIGN_COLORS.BACKGROUND_GRAY_2};
 `;
 
 const NodeBadge = styled.span<{ color: string }>`
@@ -158,7 +158,7 @@ function NodeItem(props: Props) {
     const glossaryColor = node.displayProperties?.colorHex || generateColorFromPalette(node.urn);
 
     return (
-        <ItemWrapper isSelected={entityData?.urn === node.urn}>
+        <ItemWrapper $isSelected={entityData?.urn === node.urn}>
             {!isChildNode && <NodeBadge color={glossaryColor} />}
             <NodeWrapper>
                 {areChildrenVisible && (
@@ -178,9 +178,9 @@ function NodeItem(props: Props) {
                 {!isSelecting && (
                     <NodeLink
                         to={`${entityRegistry.getEntityUrl(node.type, node.urn)}`}
-                        isSelected={entityData?.urn === node.urn}
-                        areChildrenVisible={areChildrenVisible}
-                        isChildNode
+                        $isSelected={entityData?.urn === node.urn}
+                        $areChildrenVisible={areChildrenVisible}
+                        $isChildNode
                     >
                         {entityRegistry.getDisplayName(node.type, node)}
                     </NodeLink>

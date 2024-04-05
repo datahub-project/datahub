@@ -55,7 +55,7 @@ export default function MoreFilterOption({ filter, filterPredicates, activeFilte
             }}
         >
             <MoreFilterOptionLabel
-                isActive={!!numActiveFilters}
+                $isActive={!!numActiveFilters}
                 data-testid={`more-filter-${capitalizeFirstLetterOnly(filter.displayName)}`}
                 ref={labelRef}
             >

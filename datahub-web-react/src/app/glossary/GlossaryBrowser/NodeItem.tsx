@@ -131,7 +131,7 @@ function NodeItem(props: Props) {
                 {!isSelecting && (
                     <NodeLink
                         to={`${entityRegistry.getEntityUrl(node.type, node.urn)}`}
-                        isSelected={entityData?.urn === node.urn}
+                        $isSelected={entityData?.urn === node.urn}
                     >
                         <StyledFolderOutlined />
                         {entityRegistry.getDisplayName(node.type, isOnEntityPage ? entityData : node)}

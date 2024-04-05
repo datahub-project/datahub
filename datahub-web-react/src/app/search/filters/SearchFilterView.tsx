@@ -63,7 +63,7 @@ export default function SearchFilterView({
         >
             <SearchFilterLabel
                 onClick={() => updateIsMenuOpen(!isMenuOpen)}
-                isActive={!!numActiveFilters}
+                $isActive={!!numActiveFilters}
                 data-testid={`filter-dropdown-${capitalizeFirstLetterOnly(displayName)}`}
             >
                 {filterIcon && <IconWrapper>{filterIcon}</IconWrapper>}

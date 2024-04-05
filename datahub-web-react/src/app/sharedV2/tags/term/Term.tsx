@@ -7,22 +7,22 @@ import { HoverEntityTooltip } from '../../../recommendations/renderer/component/
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import TermContent from './TermContent';
 
-const TermLink = styled(Link)<{ showOneAndCount?: boolean }>`
+const TermLink = styled(Link)<{ $showOneAndCount?: boolean }>`
     display: inline-block;
     margin-bottom: 4px;
     ${(props) =>
-        props.showOneAndCount &&
+        props.$showOneAndCount &&
         `
             width: 70%;
             max-width: max-content;
         `}
 `;
 
-const TermWrapper = styled.span<{ showOneAndCount?: boolean }>`
+const TermWrapper = styled.span<{ $showOneAndCount?: boolean }>`
     display: inline-block;
     margin-bottom: 4px;
     ${(props) =>
-        props.showOneAndCount &&
+        props.$showOneAndCount &&
         `
             width: 70%;
             max-width: max-content;
@@ -49,7 +49,7 @@ export default function Term(props: Props) {
     if (readOnly) {
         return (
             <HoverEntityTooltip entity={term.term}>
-                <TermWrapper showOneAndCount={showOneAndCount}>
+                <TermWrapper $showOneAndCount={showOneAndCount}>
                     <TermContent {...props} />
                 </TermWrapper>
             </HoverEntityTooltip>
@@ -61,7 +61,7 @@ export default function Term(props: Props) {
             <TermLink
                 to={entityRegistry.getEntityUrl(EntityType.GlossaryTerm, term.term.urn)}
                 key={term.term.urn}
-                showOneAndCount={showOneAndCount}
+                $showOneAndCount={showOneAndCount}
             >
                 <TermContent {...props} />
             </TermLink>

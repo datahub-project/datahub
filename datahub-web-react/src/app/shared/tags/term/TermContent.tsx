@@ -14,10 +14,10 @@ const PROPAGATOR_URN = 'urn:li:corpuser:__datahub_propagator';
 
 const highlightMatchStyle = { background: '#ffe58f', padding: '0' };
 
-const StyledTag = styled(Tag)<{ fontSize?: number; highlightTerm?: boolean; showOneAndCount?: boolean }>`
+const StyledTag = styled(Tag)<{ fontSize?: number; $highlightTerm?: boolean; $showOneAndCount?: boolean }>`
     &&& {
         ${(props) =>
-            props.highlightTerm &&
+            props.$highlightTerm &&
             `
                 background: ${props.theme.styles['highlight-color']};
                 border: 1px solid ${props.theme.styles['highlight-border-color']};
@@ -27,7 +27,7 @@ const StyledTag = styled(Tag)<{ fontSize?: number; highlightTerm?: boolean; show
     color: ${REDESIGN_COLORS.DARK_GREY};
     font-weight: 400;
     ${(props) =>
-        props.showOneAndCount &&
+        props.$showOneAndCount &&
         `
             width: 100%;
             max-width: max-content;
@@ -118,8 +118,8 @@ export default function TermContent({
                 removeTerm(term);
             }}
             fontSize={fontSize}
-            highlightTerm={highlightTerm}
-            showOneAndCount={showOneAndCount}
+            $highlightTerm={highlightTerm}
+            $showOneAndCount={showOneAndCount}
         >
             <BookOutlined style={{ fill: '#56668E', marginRight: '4px', marginBottom: 4, verticalAlign: 'middle' }} />
             <Highlight style={{ marginLeft: 0 }} matchStyle={highlightMatchStyle} search={highlightText}>

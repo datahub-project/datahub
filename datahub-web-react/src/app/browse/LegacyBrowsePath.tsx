@@ -26,22 +26,22 @@ const LineageIconGroup = styled.div`
     justify-content: space-between;
 `;
 
-const HoverableVscPreview = styled(({ isSelected: _, ...props }: IconBaseProps & { isSelected: boolean }) => (
+const HoverableVscPreview = styled(({ $isSelected: _, ...props }: IconBaseProps & { $isSelected: boolean }) => (
     <VscPreview {...props} />
 ))`
-    color: ${(props) => (props.isSelected ? 'black' : grey[2])};
+    color: ${(props) => (props.$isSelected ? 'black' : grey[2])};
     &:hover {
-        color: ${(props) => (props.isSelected ? 'black' : blue[4])};
+        color: ${(props) => (props.$isSelected ? 'black' : blue[4])};
         cursor: pointer;
     }
 `;
 
-const HoverableVscRepoForked = styled(({ isSelected: _, ...props }: IconBaseProps & { isSelected: boolean }) => (
+const HoverableVscRepoForked = styled(({ $isSelected: _, ...props }: IconBaseProps & { $isSelected: boolean }) => (
     <VscRepoForked {...props} />
 ))`
-    color: ${(props) => (props.isSelected ? 'black' : grey[2])};
+    color: ${(props) => (props.$isSelected ? 'black' : grey[2])};
     &:hover {
-        color: ${(props) => (props.isSelected ? 'black' : blue[4])};
+        color: ${(props) => (props.$isSelected ? 'black' : blue[4])};
         cursor: pointer;
     }
     transform: rotate(90deg);
@@ -95,13 +95,13 @@ export const LegacyBrowsePath = ({ type, path, lineageSupported, isProfilePage, 
             {lineageSupported && (
                 <LineageIconGroup>
                     <HoverableVscPreview
-                        isSelected={!isLineageMode}
+                        $isSelected={!isLineageMode}
                         size={26}
                         onClick={() => navigateToLineageUrl({ location, history, isLineageMode: false })}
                     />
                     <HoverableVscRepoForked
                         size={26}
-                        isSelected={isLineageMode}
+                        $isSelected={isLineageMode}
                         onClick={() => navigateToLineageUrl({ location, history, isLineageMode: true })}
                     />
                 </LineageIconGroup>

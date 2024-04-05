@@ -11,12 +11,12 @@ export const StyledTag = styled(Tag)<{
     $color: any;
     $colorHash?: string;
     fontSize?: number;
-    highlightTag?: boolean;
-    showOneAndCount?: boolean;
+    $highlightTag?: boolean;
+    $showOneAndCount?: boolean;
 }>`
     &&& {
         ${(props) =>
-            props.highlightTag &&
+            props.$highlightTag &&
             `
                 background: ${props.theme.styles['highlight-color']};
                 border: 1px solid ${props.theme.styles['highlight-border-color']};
@@ -41,7 +41,7 @@ export const StyledTag = styled(Tag)<{
     color: ${REDESIGN_COLORS.DARK_GREY};
     font-weight: 400;
     ${(props) =>
-        props.showOneAndCount &&
+        props.$showOneAndCount &&
         `
             width: 100%;
             max-width: max-content;

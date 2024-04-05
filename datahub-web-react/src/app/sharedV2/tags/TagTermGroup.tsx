@@ -56,9 +56,9 @@ const NoElementButton = styled.div`
         color: ${REDESIGN_COLORS.LINK_HOVER_BLUE};
     }
 `;
-const TagTermWrapper = styled.div<{ showOneAndCount?: boolean }>`
+const TagTermWrapper = styled.div<{ $showOneAndCount?: boolean }>`
     display: flex;
-    flex-wrap: ${(props) => (!props.showOneAndCount ? 'wrap' : '')};
+    flex-wrap: ${(props) => (!props.$showOneAndCount ? 'wrap' : '')};
 `;
 
 const TagText = styled.span`
@@ -215,7 +215,7 @@ export default function TagTermGroup({
     let renderTagsCount = false;
 
     return (
-        <TagTermWrapper showOneAndCount={showOneAndCount}>
+        <TagTermWrapper $showOneAndCount={showOneAndCount}>
             {domain && (
                 <DomainLink domain={domain} name={entityRegistry.getDisplayName(EntityType.Domain, domain) || ''} />
             )}

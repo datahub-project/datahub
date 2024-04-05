@@ -70,7 +70,7 @@ export default function BooleanMoreFilter({ icon, title, option, count, initialS
                 ref={labelRef}
                 onClick={() => setIsMenuOpen(!isMenuOpen)}
                 isOpen={isMenuOpen}
-                isActive={isSelected}
+                $isActive={isSelected}
                 data-testid={`more-filter-${title}`}
             >
                 <IconNameWrapper>

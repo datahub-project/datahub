@@ -4,8 +4,8 @@ import { Section } from '../Section';
 import { useInsightStatusContext } from './InsightStatusProvider';
 import { Carousel } from '../../../../../../sharedV2/carousel/Carousel';
 
-const Container = styled.div<{ hide: boolean }>`
-    ${(props) => props.hide && 'display: none;'}
+const Container = styled.div<{ $hide: boolean }>`
+    ${(props) => props.$hide && 'display: none;'}
 `;
 
 type Props = {
@@ -22,7 +22,7 @@ export const InsightsSection = ({ children }: Props) => {
     const { insightStatuses } = useInsightStatusContext();
     const hasInsights = Array.from(insightStatuses.values()).some((status) => status);
     return (
-        <Container hide={!hasInsights}>
+        <Container $hide={!hasInsights}>
             <Section title="For you">
                 <StyleCarousel>{children}</StyleCarousel>
             </Section>

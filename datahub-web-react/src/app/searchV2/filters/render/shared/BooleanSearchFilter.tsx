@@ -63,7 +63,7 @@ export default function BooleanSearchFilter({ icon, title, option, count, initia
         >
             <SearchFilterLabel
                 onClick={() => setIsMenuOpen(!isMenuOpen)}
-                isActive={isSelected}
+                $isActive={isSelected}
                 data-testid={`filter-dropdown-${title}`}
             >
                 <IconNameWrapper>

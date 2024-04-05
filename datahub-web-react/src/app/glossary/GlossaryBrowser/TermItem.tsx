@@ -20,13 +20,13 @@ const nameStyles = `
     width: 100%;
 `;
 
-export const TermLink = styled(Link)<{ isSelected }>`
+export const TermLink = styled(Link)<{ $isSelected }>`
     ${nameStyles}
 
-    ${(props) => props.isSelected && `background-color: #F0FFFB;`}
+    ${(props) => props.$isSelected && `background-color: #F0FFFB;`}
 
     &:hover {
-        ${(props) => !props.isSelected && `background-color: ${ANTD_GRAY[3]};`}
+        ${(props) => !props.$isSelected && `background-color: ${ANTD_GRAY[3]};`}
         color: #262626;
     }
 `;
@@ -74,7 +74,7 @@ function TermItem(props: Props) {
                     to={`${entityRegistry.getEntityUrl(term.type, term.urn)}${
                         includeActiveTabPath ? `/${activeTabPath}` : ''
                     }`}
-                    isSelected={entityData?.urn === term.urn}
+                    $isSelected={entityData?.urn === term.urn}
                 >
                     {entityRegistry.getDisplayName(term.type, isOnEntityPage ? entityData : term)}
                 </TermLink>

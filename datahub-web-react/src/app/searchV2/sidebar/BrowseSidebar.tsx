@@ -58,17 +58,17 @@ const NavigateTitle = styled(Typography.Title) <{ isClosed: boolean }>`
     }
 `;
 
-const CloseButton = styled(Button) <{ isActive }>`
+const CloseButton = styled(Button) <{ $isActive }>`
     margin: 0px;
     padding: 2px 6px;
     display: flex;
     align-items: center;
 
-    transform: ${(props) => (props.isActive ? 'translateX(0)' : 'translateX(-75px)')};
+    transform: ${(props) => (props.$isActive ? 'translateX(0)' : 'translateX(-75px)')};
     transition: transform ${PLATFORM_BROWSE_TRANSITION_MS}ms ease;
 
     && {
-        color: ${(props) => (props.isActive ? ANTD_GRAY[9] : ANTD_GRAY[8])};
+        color: ${(props) => (props.$isActive ? ANTD_GRAY[9] : ANTD_GRAY[8])};
     }
 `;
 
@@ -112,7 +112,7 @@ const BrowseSidebar = ({ visible, width }: Props) => {
                     mouseEnterDelay={0.7}
                     mouseLeaveDelay={0}
                 >
-                    <CloseButton isActive={!isClosed} type="link" onClick={() => setIsClosed(!isClosed)}>
+                    <CloseButton $isActive={!isClosed} type="link" onClick={() => setIsClosed(!isClosed)}>
                         <StyledSidebarBackArrow direction={isClosed ? 'left' : 'right'} />
                     </CloseButton>
                 </Tooltip>
