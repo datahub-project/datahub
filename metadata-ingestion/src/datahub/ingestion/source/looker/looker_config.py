@@ -108,14 +108,14 @@ class LookerCommonConfig(EnvConfigMixin, PlatformInstanceConfigMixin):
     )
     explore_browse_pattern: LookerNamingPattern = pydantic.Field(
         description=f"Pattern for providing browse paths to explores. {LookerNamingPattern.allowed_docstring()}",
-        default=LookerNamingPattern(pattern="/{env}/{platform}/{project}/explores"),
+        default=LookerNamingPattern(pattern="/Explore/{project}/{model}"),
     )
     view_naming_pattern: LookerViewNamingPattern = Field(
         LookerViewNamingPattern(pattern="{project}.view.{name}"),
         description=f"Pattern for providing dataset names to views. {LookerViewNamingPattern.allowed_docstring()}",
     )
     view_browse_pattern: LookerViewNamingPattern = Field(
-        LookerViewNamingPattern(pattern="/{env}/{platform}/{project}/views"),
+        LookerViewNamingPattern(pattern="/Develop/{project}/{file_path}"),
         description=f"Pattern for providing browse paths to views. {LookerViewNamingPattern.allowed_docstring()}",
     )
     tag_measures_and_dimensions: bool = Field(

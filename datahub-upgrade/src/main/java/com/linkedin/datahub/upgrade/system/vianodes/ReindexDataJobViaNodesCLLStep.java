@@ -10,14 +10,13 @@ import com.linkedin.datahub.upgrade.impl.DefaultUpgradeStepResult;
 import com.linkedin.metadata.boot.BootstrapStep;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
-import com.linkedin.metadata.entity.restoreindices.RestoreIndicesResult;
 import java.util.function.Function;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 public class ReindexDataJobViaNodesCLLStep implements UpgradeStep {
 
-  private static final String UPGRADE_ID = "via-node-cll-reindex-datajob";
+  public static final String UPGRADE_ID = "via-node-cll-reindex-datajob-v2";
   private static final Urn UPGRADE_ID_URN = BootstrapStep.getUpgradeUrn(UPGRADE_ID);
 
   private final EntityService<?> entityService;
@@ -33,13 +32,17 @@ public class ReindexDataJobViaNodesCLLStep implements UpgradeStep {
     return (context) -> {
       RestoreIndicesArgs args =
           new RestoreIndicesArgs()
-              .setAspectName(DATA_JOB_INPUT_OUTPUT_ASPECT_NAME)
-              .setUrnLike("urn:li:" + DATA_JOB_ENTITY_NAME + ":%")
-              .setBatchSize(batchSize);
-      RestoreIndicesResult result =
-          entityService.restoreIndices(args, x -> context.report().addLine((String) x));
-      context.report().addLine("Rows migrated: " + result.rowsMigrated);
-      context.report().addLine("Rows ignored: " + result.ignored);
+              .aspectName(DATA_JOB_INPUT_OUTPUT_ASPECT_NAME)
+              .urnLike("urn:li:" + DATA_JOB_ENTITY_NAME + ":%")
+              .batchSize(batchSize);
+
+      entityService
+          .streamRestoreIndices(args, x -> context.report().addLine((String) x))
+          .forEach(
+              result -> {
+                context.report().addLine("Rows migrated: " + result.rowsMigrated);
+                context.report().addLine("Rows ignored: " + result.ignored);
+              });
 
       BootstrapStep.setUpgradeResult(UPGRADE_ID_URN, entityService);
       context.report().addLine("State updated: " + UPGRADE_ID_URN);

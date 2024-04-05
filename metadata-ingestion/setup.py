@@ -99,7 +99,7 @@ usage_common = {
 sqlglot_lib = {
     # Using an Acryl fork of sqlglot.
     # https://github.com/tobymao/sqlglot/compare/main...hsheth2:sqlglot:hsheth?expand=1
-    "acryl-sqlglot==22.4.1.dev4",
+    "acryl-sqlglot==23.2.1.dev5",
 }
 
 classification_lib = {
@@ -266,6 +266,9 @@ databricks = {
     # Version 2.4.0 includes sqlalchemy dialect, 2.8.0 includes some bug fixes
     # Version 3.0.0 required SQLAlchemy > 2.0.21
     "databricks-sql-connector>=2.8.0,<3.0.0",
+    # Due to https://github.com/databricks/databricks-sql-python/issues/326
+    # databricks-sql-connector<3.0.0 requires pandas<2.2.0
+    "pandas<2.2.0",
 }
 
 mysql = sql_common | {"pymysql>=1.0.2"}
@@ -314,7 +317,7 @@ plugins: Dict[str, Set[str]] = {
     "dbt": {"requests"} | sqlglot_lib | aws_common,
     "dbt-cloud": {"requests"} | sqlglot_lib,
     "druid": sql_common | {"pydruid>=0.6.2"},
-    "dynamodb": aws_common,
+    "dynamodb": aws_common | classification_lib,
     # Starting with 7.14.0 python client is checking if it is connected to elasticsearch client. If its not it throws
     # UnsupportedProductError
     # https://www.elastic.co/guide/en/elasticsearch/client/python-api/current/release-notes.html#rn-7-14-0
