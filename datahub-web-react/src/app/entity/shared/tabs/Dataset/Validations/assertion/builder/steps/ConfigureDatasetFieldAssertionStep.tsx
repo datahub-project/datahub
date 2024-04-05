@@ -12,6 +12,7 @@ import { builderStateToTestFieldAssertionVariables } from '../utils';
 import { useTestAssertionModal } from './utils';
 import { FieldAssertionBuilder } from './field/FieldAssertionBuilder';
 import { useConnectionWithTestAssertionCapabilitiesForEntityExists } from '../../../acrylUtils';
+import { AssertionActionsSection } from './actions/AssertionActionsSection';
 
 const Step = styled.div`
     height: 100%;
@@ -41,7 +42,10 @@ export const ConfigureDatasetFieldAssertionStep = ({ state, updateState, goTo, p
 
     return (
         <Step>
-            <FieldAssertionBuilder state={state} updateState={updateState} disabled={false} />
+            <div>
+                <FieldAssertionBuilder state={state} updateState={updateState} disabled={false} />
+                <AssertionActionsSection state={state} updateState={updateState} />
+            </div>
             <Controls>
                 <Button onClick={prev}>Back</Button>
                 <ControlsGroup>

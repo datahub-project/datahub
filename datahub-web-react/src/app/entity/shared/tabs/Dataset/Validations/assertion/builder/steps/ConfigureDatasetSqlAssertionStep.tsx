@@ -8,6 +8,7 @@ import { builderStateToTestSqlAssertionVariables } from '../utils';
 import { useTestAssertionModal } from './utils';
 import { SqlAssertionBuilder } from './sql/SqlAssertionBuilder';
 import { useConnectionWithTestAssertionCapabilitiesForEntityExists } from '../../../acrylUtils';
+import { AssertionActionsSection } from './actions/AssertionActionsSection';
 
 const Step = styled.div`
     height: 100%;
@@ -37,7 +38,10 @@ export const ConfigureDatasetSqlAssertionStep = ({ state, updateState, goTo, pre
 
     return (
         <Step>
-            <SqlAssertionBuilder state={state} updateState={updateState} disabled={false} />
+            <div>
+                <SqlAssertionBuilder state={state} updateState={updateState} disabled={false} />
+                <AssertionActionsSection state={state} updateState={updateState} />
+            </div>
             <Controls>
                 <Button onClick={prev}>Back</Button>
                 <ControlsGroup>

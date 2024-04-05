@@ -31,6 +31,7 @@ const ControlsContainer = styled.div`
 `;
 
 /**
+ * @deprecated
  * Step for configuring the actions for an assertion, i.e. what happens when it fails
  */
 export const ConfigureActionsStep = ({ state, updateState, prev, submit }: StepProps) => {

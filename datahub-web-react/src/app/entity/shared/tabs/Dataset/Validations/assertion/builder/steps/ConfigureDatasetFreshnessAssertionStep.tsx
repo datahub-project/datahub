@@ -12,6 +12,7 @@ import { builderStateToTestFreshnessAssertionVariables } from '../utils';
 import { useTestAssertionModal } from './utils';
 import { DatasetFreshnessAssertionBuilder } from './freshness/DatasetFreshnessAssertionBuilder';
 import { useConnectionWithTestAssertionCapabilitiesForEntityExists } from '../../../acrylUtils';
+import { AssertionActionsSection } from './actions/AssertionActionsSection';
 
 const Step = styled.div`
     height: 100%;
@@ -41,7 +42,10 @@ export const ConfigureDatasetFreshnessAssertionStep = ({ state, updateState, goT
 
     return (
         <Step>
-            <DatasetFreshnessAssertionBuilder state={state} updateState={updateState} disabled={false} />
+            <div>
+                <DatasetFreshnessAssertionBuilder state={state} updateState={updateState} disabled={false} />
+                <AssertionActionsSection state={state} updateState={updateState} />
+            </div>
             <Controls>
                 <Button onClick={prev}>Back</Button>
                 <ControlsGroup>

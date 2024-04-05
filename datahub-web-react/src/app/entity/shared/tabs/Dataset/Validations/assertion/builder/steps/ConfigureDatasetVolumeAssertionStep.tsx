@@ -12,6 +12,7 @@ import { builderStateToTestVolumeAssertionVariables } from '../utils';
 import { useTestAssertionModal } from './utils';
 import { VolumeAssertionBuilder } from './volume/VolumeAssertionBuilder';
 import { useConnectionWithTestAssertionCapabilitiesForEntityExists } from '../../../acrylUtils';
+import { AssertionActionsSection } from './actions/AssertionActionsSection';
 
 const Step = styled.div`
     height: 100%;
@@ -40,7 +41,10 @@ export const ConfigureDatasetVolumeAssertionStep = ({ state, updateState, goTo, 
 
     return (
         <Step>
-            <VolumeAssertionBuilder state={state} updateState={updateState} disabled={false} />
+            <div>
+                <VolumeAssertionBuilder state={state} updateState={updateState} disabled={false} />
+                <AssertionActionsSection state={state} updateState={updateState} />
+            </div>
             <Controls>
                 <Button onClick={prev}>Back</Button>
                 <ControlsGroup>
