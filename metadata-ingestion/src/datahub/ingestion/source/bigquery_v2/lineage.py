@@ -762,7 +762,7 @@ class BigqueryLineageExtractor:
                     try:
                         parsed_queries = sqlglot.parse(e.query, "bigquery")
                         if parsed_queries[-1]:
-                            query = f"""create table `{destination_table.table_identifier.get_table_name()}` AS
+                            query = f"""create table `{destination_table.get_sanitized_table_ref().table_identifier.get_table_name()}` AS
                             (
                                 {parsed_queries[-1].sql(dialect='bigquery')}
                             )"""
