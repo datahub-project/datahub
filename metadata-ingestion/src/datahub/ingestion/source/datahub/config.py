@@ -1,6 +1,7 @@
 import os
 from typing import Optional
 
+from datahub.configuration.common import AllowDenyPattern
 from pydantic import Field, root_validator
 
 from datahub.configuration.kafka import KafkaConsumerConnectionConfig
@@ -79,6 +80,8 @@ class DataHubSourceConfig(StatefulIngestionConfigBase):
         description="Number of worker threads to use for datahub api ingestion.",
         hidden_from_docs=True,
     )
+
+    urn_pattern: AllowDenyPattern = Field(default=AllowDenyPattern())
 
     @root_validator(skip_on_failure=True)
     def check_ingesting_data(cls, values):
