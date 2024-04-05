@@ -1,4 +1,5 @@
-from typing import Dict, Optional
+import logging
+from typing import Any, Dict
 
 import boto3
 import botocore
@@ -8,13 +9,16 @@ from kombu.transport.SQS import Channel
 from datahub_executor.common.client.config.resolver import ExecutorConfigResolver
 from datahub_executor.config import DATAHUB_EXECUTOR_WORKER_ID
 
+logger = logging.getLogger(__name__)
 
-def refresh_external_credentials() -> Dict[str, str]:
+
+def refresh_external_credentials(queue_id: str) -> Dict[str, str]:
     executor_config_resolver = ExecutorConfigResolver()
     _, executor_configs = executor_config_resolver.refresh_executor_configs()
     for executor_config in executor_configs:
-        if executor_config.executor_id == DATAHUB_EXECUTOR_WORKER_ID:
+        if executor_config.executor_id == queue_id:
             return {
+                "region": executor_config.region,
                 "access_key": executor_config.access_key,
                 "secret_key": executor_config.secret_key,
                 "token": executor_config.session_token,
@@ -22,25 +26,29 @@ def refresh_external_credentials() -> Dict[str, str]:
                 if executor_config.expiration
                 else "",
             }
+
+    logger.error(f"Failed to find credentials for queue_id = {queue_id}")
     return {}
 
 
-def patched_new_sqs_client(
-    self: Channel,
-    region: str,
-    access_key_id: str,
-    secret_access_key: str,
-    session_token: Optional[str] = None,
+def patched_handle_sts_session(
+    self: Channel, queue: str, q: Dict[str, Any]
 ) -> BaseClient:
+    if queue in self._predefined_queue_clients:
+        return self._predefined_queue_clients[queue]
+
+    queue_id = queue if queue is not None else DATAHUB_EXECUTOR_WORKER_ID
+    metadata = refresh_external_credentials(queue_id)
+
     credentials = botocore.credentials.RefreshableCredentials.create_from_metadata(
-        metadata=refresh_external_credentials(),
-        refresh_using=refresh_external_credentials,
+        metadata=metadata,
+        refresh_using=lambda: refresh_external_credentials(queue_id),
         method="sts-assume-role",
     )
 
     botocore_session = botocore.session.get_session()
     botocore_session._credentials = credentials
-    botocore_session.set_config_variable("region", region)
+    botocore_session.set_config_variable("region", metadata.get("region"))
     session = boto3.session.Session(botocore_session=botocore_session)
 
     is_secure = self.is_secure if self.is_secure is not None else True
@@ -49,4 +57,8 @@ def patched_new_sqs_client(
         client_kwargs["endpoint_url"] = self.endpoint_url
     client_config = self.transport_options.get("client-config") or {}
     config = Config(**client_config)
-    return session.client("sqs", config=config, **client_kwargs)
+
+    client = session.client("sqs", config=config, **client_kwargs)
+    self._predefined_queue_clients[queue] = client
+
+    return client

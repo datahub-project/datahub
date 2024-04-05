@@ -30,7 +30,7 @@ from datahub_executor.config import (
 from .config import update_celery_credentials
 from .health import kube_health_check
 from .init import app
-from .kombu_patch import patched_new_sqs_client
+from .kombu_patch import patched_handle_sts_session
 
 logger = logging.getLogger(__name__)
 
@@ -38,7 +38,7 @@ logger = logging.getLogger(__name__)
 monitoring_start()
 
 # Kombu credentials patch
-Channel.new_sqs_client = patched_new_sqs_client
+Channel._handle_sts_session = patched_handle_sts_session
 
 update_celery_credentials(app, True, "")
 
