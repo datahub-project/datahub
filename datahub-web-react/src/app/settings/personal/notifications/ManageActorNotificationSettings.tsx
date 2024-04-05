@@ -12,6 +12,7 @@ import {
     SlackNotificationSettingsInput,
 } from '../../../../types.generated';
 import { EmailSinkSettingsSection } from './section/EmailSinkSettingsSection';
+import { useAppConfig } from '../../../useAppConfig';
 
 const NotificationSettingsTitle = styled(Typography.Text)`
     font-family: 'Manrope', sans-serif;
@@ -38,13 +39,14 @@ type Props = {
  * Component used for managing actor notification settings.
  */
 export const ManageActorNotificationSettings = ({ isPersonal, groupUrn, groupName }: Props) => {
+    const { config } = useAppConfig();
     const { data: globalSettings } = useGetGlobalSettingsQuery();
     const { emailSettings, slackSettings, updateSinkSettings, sinkTypes } = useActorSinkSettings({
         isPersonal,
         groupUrn,
     });
     const globallyEnabledSinks = NOTIFICATION_SINKS.filter((sink) =>
-        isSinkEnabled(sink.id, globalSettings?.globalSettings),
+        isSinkEnabled(sink.id, globalSettings?.globalSettings, config),
     );
 
     // Slack is enabled if global settings have been configured AND the actor has it enabled.

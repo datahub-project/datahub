@@ -8,6 +8,7 @@ import { SlackDefaults } from './SlackDefaults';
 import { GlobalSettings } from '../../../../types.generated';
 import { isSinkEnabled } from '../../utils';
 import { EMAIL_SINK, SLACK_SINK } from '../types';
+import { useAppConfig } from '../../../useAppConfig';
 
 const CardContainer = styled(Card)`
     margin-bottom: 24px;
@@ -42,11 +43,14 @@ type Props = {
 };
 
 export const DefaultsCard = ({ globalSettings, refetch }: Props) => {
+
+    const { config } = useAppConfig();
+
     const defaultEmailAddress = globalSettings?.integrationSettings?.emailSettings?.defaultEmail;
     const defaultSlackChannel = globalSettings?.integrationSettings?.slackSettings?.defaultChannelName;
 
-    const isSlackEnabled = !!isSinkEnabled(SLACK_SINK.id, globalSettings);
-    const isEmailEnabled = !!isSinkEnabled(EMAIL_SINK.id, globalSettings);
+    const isSlackEnabled = !!isSinkEnabled(SLACK_SINK.id, globalSettings, config);
+    const isEmailEnabled = !!isSinkEnabled(EMAIL_SINK.id, globalSettings, config);
 
     const [updateGlobalIntegrationSettings] = useUpdateGlobalIntegrationSettingsMutation();
 

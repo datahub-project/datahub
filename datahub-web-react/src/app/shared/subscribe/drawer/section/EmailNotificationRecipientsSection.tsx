@@ -15,6 +15,7 @@ import {
     selectEmailSettingsChannel,
     selectShouldShowUpdateEmailSettingsWarning,
 } from '../state/selectors';
+import { useAppConfig } from '../../../../useAppConfig';
 
 const LEFT_PADDING = 36;
 
@@ -89,6 +90,7 @@ const StyledAlert = styled(Alert)`
 `;
 
 export default function EmailNotificationRecipientSection() {
+    const { config } = useAppConfig(); 
     const [form] = useForm();
     const actions = useDrawerActions();
 
@@ -104,7 +106,7 @@ export default function EmailNotificationRecipientSection() {
     const channelInputRef = useRef<InputRef>(null);
     const { data: globalSettings } = useGetGlobalSettingsQuery();
     const globallyEnabledSinks = NOTIFICATION_SINKS.filter((sink) =>
-        isSinkEnabled(sink.id, globalSettings?.globalSettings),
+        isSinkEnabled(sink.id, globalSettings?.globalSettings, config),
     );
     const emailSinkSupported = globallyEnabledSinks.some((sink) => sink.id === EMAIL_SINK.id);
     const emailInputPlaceholder = 'Alterate Email address';
@@ -192,7 +194,7 @@ export default function EmailNotificationRecipientSection() {
                 </StyledRadioGroup>
             ) : (
                 <DisabledText>
-                    Reach out to your admin to enable your Email integration to turn on Email notifications.
+                    Email notifications are disabled. Reach out to your Acryl admins for more information.
                 </DisabledText>
             )}
             {isSubscriptionChannelSelected && (

@@ -5,8 +5,9 @@ import styled from 'styled-components';
 import { GlobalNotificationSettings, GlobalSettings, NotificationScenarioType } from '../../../../types.generated';
 import { isSinkEnabled } from '../../utils';
 import { isSinkNotificationTypeEnabled, updateSinkNotificationTypeEnabled } from './settingUtils';
-import { FormattedNotificationSetting, NotificationSink } from '../types';
+import { EMAIL_SINK, FormattedNotificationSetting, NotificationSink } from '../types';
 import { useUpdateGlobalNotificationSettingsMutation } from '../../../../graphql/settings.generated';
+import { useAppConfig } from '../../../useAppConfig';
 
 const SettingValue = styled.div`
     width: 64px;
@@ -30,6 +31,7 @@ export const NotificationSettingValue = ({
     refetch,
     globalSettings,
 }: Props) => {
+    const { config } = useAppConfig();
     const [updateGlobalNotificationSettings] = useUpdateGlobalNotificationSettingsMutation();
     const globalNotificationSettings = globalSettings?.notificationSettings as GlobalNotificationSettings;
 
@@ -45,7 +47,7 @@ export const NotificationSettingValue = ({
 
     return (
         <SettingValue key={`${notificationType}-${sink.id}`}>
-            {isSinkEnabled(sink.id, globalSettings) ? (
+            {isSinkEnabled(sink.id, globalSettings, config) ? (
                 <Checkbox
                     checked={selected}
                     onChange={(e) => {
@@ -62,7 +64,7 @@ export const NotificationSettingValue = ({
                 />
             ) : (
                 <Tooltip
-                    title={`${sink.name} integration is currently disabled! You can enable it inside Integrations settings.`}
+                    title={`${sink.name} notifications are currently disabled! ${sink.id === EMAIL_SINK.id ? 'Contact your Acryl representative for more details.' : `You can enable it inside Integrations settings.`}`}
                 >
                     <Checkbox disabled />
                 </Tooltip>

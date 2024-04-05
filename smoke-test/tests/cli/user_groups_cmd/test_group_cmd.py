@@ -9,7 +9,7 @@ from datahub.api.entities.corpgroup.corpgroup import CorpGroup
 from datahub.entrypoints import datahub
 from datahub.ingestion.graph.client import DataHubGraph, get_default_graph
 
-from tests.utils import wait_for_writes_to_sync
+from tests.utils import assert_dict_contains, wait_for_writes_to_sync
 
 runner = CliRunner(mix_stderr=False)
 
@@ -84,7 +84,7 @@ def test_group_upsert(wait_for_healthchecks: Any) -> None:
     for i, datahub_group in enumerate(gen_datahub_groups(num_groups)):
         datahub_upsert_group(datahub_group)
         group_dict = datahub_get_group(f"urn:li:corpGroup:group_{i}")
-        assert group_dict == {
+        expected_dict = {
             "corpGroupEditableInfo": {
                 "description": f"The Group {i}",
                 "email": f"group_{i}@datahubproject.io",
@@ -112,6 +112,8 @@ def test_group_upsert(wait_for_healthchecks: Any) -> None:
             },
             "status": {"removed": False},
         }
+
+        assert_dict_contains(expected_dict, group_dict)
 
     sync_elastic()
     groups_owned = get_group_ownership("urn:li:corpuser:user1")

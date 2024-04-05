@@ -29,4 +29,5 @@ public class FeatureFlags {
   private boolean themeV2Default = false;
   private boolean metadataShareEnabled = false;
   private boolean documentationFormsEnabled = false;
+  private boolean emailNotificationsEnabled = false;
 }

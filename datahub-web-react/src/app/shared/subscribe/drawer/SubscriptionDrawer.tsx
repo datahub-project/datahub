@@ -34,6 +34,7 @@ import {
     selectEmailSaveAsDefault,
     selectEmailSubscriptionChannel,
 } from './state/selectors';
+import { useAppConfig } from '../../../useAppConfig';
 
 const SubscribeDrawer = styled(Drawer)`
     .ant-drawer-body {
@@ -93,10 +94,11 @@ const SubscriptionDrawerContent = ({
     onUpsertSubscription,
     onDeleteSubscription,
 }: Props) => {
+    const { config } = useAppConfig();
     const { data: globalSettings } = useGetGlobalSettingsQuery();
 
     const globallyEnabledSinks = NOTIFICATION_SINKS.filter((sink) =>
-        isSinkEnabled(sink.id, globalSettings?.globalSettings),
+        isSinkEnabled(sink.id, globalSettings?.globalSettings, config),
     );
 
     const slackSinkSupported = globallyEnabledSinks.some((sink) => sink.id === SLACK_SINK.id);

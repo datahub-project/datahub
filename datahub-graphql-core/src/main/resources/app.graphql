@@ -1081,6 +1081,11 @@ type FeatureFlagsConfig {
   Enables the documentation forms feature for filling out metadata and tracking analytics
   """
   documentationFormsEnabled: Boolean!
+
+  """
+  Enables email notifications
+  """
+  emailNotificationsEnabled: Boolean!
 }
 
 """

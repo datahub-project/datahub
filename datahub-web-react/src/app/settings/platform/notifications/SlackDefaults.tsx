@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 
 import styled from 'styled-components';
-import { Typography, Form, Input, Button, Space } from 'antd';
+import { Typography, Form, Input, Button, Space, Tooltip } from 'antd';
 
 const InputDiv = styled.div`
     width: 360px;
@@ -63,16 +63,18 @@ export const SlackDefaults = ({ isSlackEnabled = false, channel, onChange }: Pro
                                 disabled={!isSlackEnabled}
                                 style={{ marginRight: '16px', display: 'inline-block' }}
                             >
-                                #{channel}
+                                {channel ? `#${channel}` : 'None'}
                             </StyledLabel>
-                            <Button
-                                size="small"
-                                disabled={!isSlackEnabled || editing}
-                                type="default"
-                                onClick={() => setEditing(true)}
-                            >
-                                Edit
-                            </Button>
+                            <Tooltip title={!isSlackEnabled ? 'Slack notifications are currently disabled.' : undefined}>
+                                <Button
+                                    size="small"
+                                    disabled={!isSlackEnabled || editing}
+                                    type="default"
+                                    onClick={() => setEditing(true)}
+                                >
+                                    Edit
+                                </Button>
+                            </Tooltip>
                         </>
                     ) : (
                         <>

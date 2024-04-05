@@ -84,6 +84,7 @@ query appConfig {
             lineageGraphV2
             metadataShareEnabled
             documentationFormsEnabled
+            emailNotificationsEnabled
         }
         chromeExtensionConfig {
             enabled

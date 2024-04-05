@@ -453,6 +453,7 @@ featureFlags:
   themeV2Default: ${THEME_V2_DEFAULT:false} # Globally sets the theme to V2. If false, determined by per-user settings.
   metadataShareEnabled: ${METADATA_SHARE_ENABLED:true} # Enables the metadata sharing feature to share entities between instances
   documentationFormsEnabled: ${FEATURE_DOCUMENTATION_FORMS_ENABLED:false} # Enables the documentation forms feature and shows/hides everything for it in the UI
+  emailNotificationsEnabled: ${EMAIL_NOTIFICATIONS_ENABLED:false} # Enables the email notifications feature.
 
 entityChangeEvents:
   enabled: ${ENABLE_ENTITY_CHANGE_EVENTS_HOOK:true}

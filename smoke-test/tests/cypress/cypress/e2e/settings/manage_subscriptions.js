@@ -18,6 +18,7 @@ describe("entity subscription test", () => {
           req.reply((res) => {
             // Modify the response body directly
             res.body.data.appConfig.featureFlags.subscriptionsEnabled = isOn;
+            res.body.data.appConfig.featureFlags.emailNotificationsEnabled = isOn;
           });
         }
       });

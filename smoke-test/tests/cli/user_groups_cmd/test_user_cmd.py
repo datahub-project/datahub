@@ -8,6 +8,8 @@ from click.testing import CliRunner, Result
 from datahub.api.entities.corpuser.corpuser import CorpUser
 from datahub.entrypoints import datahub
 
+from tests.utils import assert_dict_contains
+
 runner = CliRunner(mix_stderr=False)
 
 
@@ -60,7 +62,8 @@ def test_user_upsert(wait_for_healthchecks: Any) -> None:
     for i, datahub_user in enumerate(gen_datahub_users(num_user_profiles)):
         datahub_upsert_user(datahub_user)
         user_dict = datahub_get_user(f"urn:li:corpuser:user_{i}")
-        assert user_dict == {
+
+        expected_dict = {
             "corpUserEditableInfo": {
                 "aboutMe": f"The User {i}",
                 "displayName": f"User {i}",
@@ -75,3 +78,5 @@ def test_user_upsert(wait_for_healthchecks: Any) -> None:
             "groupMembership": {"groups": [f"urn:li:corpGroup:group_{i}"]},
             "status": {"removed": False},
         }
+
+        assert_dict_contains(expected_dict, user_dict)

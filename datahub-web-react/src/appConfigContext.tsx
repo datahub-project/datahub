@@ -65,6 +65,7 @@ export const DEFAULT_APP_CONFIG = {
         lineageGraphV2: false,
         metadataShareEnabled: false,
         documentationFormsEnabled: false,
+        emailNotificationsEnabled: false,
     },
     chromeExtensionConfig: {
         enabled: false,

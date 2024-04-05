@@ -16,6 +16,7 @@ import {
 } from './settingUtils';
 import { NotificationSettingValue } from './NotificationSettingValue';
 import { ANTD_GRAY } from '../../../entity/shared/constants';
+import { useAppConfig } from '../../../useAppConfig';
 
 const StyledCard = styled(Card)``;
 
@@ -84,6 +85,9 @@ type Props = {
 };
 
 export const PlatformNotificationsConfigurationCard = ({ globalSettings, loading, error, refetch }: Props) => {
+
+    const { config } = useAppConfig(); 
+
     // Determine which notification sinks are enabled
     const [showNotificationOptions, setShowNotificationOptions] = useState(false);
     const [focusedNotificationType, setFocusedNotificationType] = useState<NotificationScenarioType | undefined>(
@@ -140,13 +144,13 @@ export const PlatformNotificationsConfigurationCard = ({ globalSettings, loading
      * A list of the enabled notification sinks. Sinks are destinations
      * to which notifications are routed.
      */
-    const enabledSinks = NOTIFICATION_SINKS.filter((sink) => isSinkEnabled(sink.id, globalSettings));
+    const enabledSinks = NOTIFICATION_SINKS.filter((sink) => isSinkEnabled(sink.id, globalSettings, config));
 
     /**
      * Only show notification options button if relevant sink is enabled.
      */
     const notificationOptionsEnabled = NOTIFICATION_SINKS.some(
-        (sink) => sink.options && isSinkEnabled(sink.id, globalSettings),
+        (sink) => sink.options && isSinkEnabled(sink.id, globalSettings, config),
     );
 
     return (

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 
 import styled from 'styled-components';
-import { Typography, Form, Input, Button, Space } from 'antd';
+import { Typography, Form, Input, Button, Space, Tooltip } from 'antd';
 
 const InputDiv = styled.div`
     width: 360px;
@@ -61,16 +61,18 @@ export const EmailDefaults = ({ isEmailEnabled, emailAddress, onChange }: Props)
                                 disabled={!isEmailEnabled}
                                 style={{ marginRight: '16px', display: 'inline-block' }}
                             >
-                                {emailAddress}
+                                {emailAddress || 'None'}
                             </StyledLabel>
-                            <Button
-                                size="small"
-                                disabled={!isEmailEnabled || editing}
-                                type="default"
-                                onClick={() => setEditing(true)}
-                            >
-                                Edit
-                            </Button>
+                            <Tooltip title={!isEmailEnabled ? 'Email notifications are currently disabled.' : undefined}>
+                                <Button
+                                    size="small"
+                                    disabled={!isEmailEnabled || editing}
+                                    type="default"
+                                    onClick={() => setEditing(true)}
+                                >
+                                    Edit
+                                </Button>
+                            </Tooltip>
                         </>
                     ) : (
                         <>

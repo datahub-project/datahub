@@ -16,6 +16,7 @@ import {
     selectSlackSettingsChannel,
     selectSlack,
 } from '../state/selectors';
+import { useAppConfig } from '../../../../useAppConfig';
 
 const LEFT_PADDING = 36;
 
@@ -90,6 +91,7 @@ const StyledAlert = styled(Alert)`
 `;
 
 export default function SlackNotificationRecipientSection() {
+    const { config } = useAppConfig();
     const [form] = useForm();
     const actions = useDrawerActions();
 
@@ -106,7 +108,7 @@ export default function SlackNotificationRecipientSection() {
     const channelInputRef = useRef<InputRef>(null);
     const { data: globalSettings } = useGetGlobalSettingsQuery();
     const globallyEnabledSinks = NOTIFICATION_SINKS.filter((sink) =>
-        isSinkEnabled(sink.id, globalSettings?.globalSettings),
+        isSinkEnabled(sink.id, globalSettings?.globalSettings, config),
     );
     const slackSinkSupported = globallyEnabledSinks.some((sink) => sink.id === SLACK_SINK.id);
     const slackInputPlaceholder = isPersonal ? 'Alternate Slack Member ID' : 'Alternate Slack Channel ID';
@@ -192,7 +194,7 @@ export default function SlackNotificationRecipientSection() {
                 </StyledRadioGroup>
             ) : (
                 <DisabledText>
-                    Reach out to your admin to enable your Slack integration to turn on Slack notifications.
+                    Slack notifications are disabled. Reach out to your Acryl admins for more information..
                 </DisabledText>
             )}
             {isSubscriptionChannelSelected && (

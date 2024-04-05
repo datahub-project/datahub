@@ -213,6 +213,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
             .setLineageGraphV2(_featureFlags.isLineageGraphV2())
             .setMetadataShareEnabled(_featureFlags.isMetadataShareEnabled())
             .setDocumentationFormsEnabled(_featureFlags.isDocumentationFormsEnabled())
+            .setEmailNotificationsEnabled(_featureFlags.isEmailNotificationsEnabled())
             .build();
 
     appConfig.setFeatureFlags(featureFlagsConfig);

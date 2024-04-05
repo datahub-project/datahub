@@ -19,6 +19,7 @@ describe("group subscription test", () => {
         if (hasOperationName(req, "appConfig")) {
           req.reply((res) => {
             res.body.data.appConfig.featureFlags.subscriptionsEnabled = isOn;
+            res.body.data.appConfig.featureFlags.emailNotificationsEnabled = isOn;
           });
         }
       });

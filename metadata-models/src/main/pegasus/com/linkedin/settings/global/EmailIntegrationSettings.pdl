@@ -3,7 +3,7 @@ namespace com.linkedin.settings.global
 import com.linkedin.common.Urn
 
 /**
- * Email integration settings.
+ * Email integration settings. Enabled by default and only disable-able via the application configs.
  */
 record EmailIntegrationSettings {
   /**

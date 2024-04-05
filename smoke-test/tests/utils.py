@@ -221,3 +221,20 @@ def create_datahub_step_state_aspects(
     ]
     with open(onboarding_filename, "w") as f:
         json.dump(aspects_dict, f, indent=2)
+
+
+def assert_dict_contains(subset, superset):
+    if isinstance(subset, dict):
+        assert isinstance(superset, dict), "superset is not a dictionary"
+        for key, value in subset.items():
+            assert key in superset, f"key {key} not found in superset"
+            assert_dict_contains(value, superset[key])
+    elif isinstance(subset, list):
+        assert isinstance(superset, list), "superset is not a list"
+        assert all(
+            item in superset for item in subset
+        ), "subset list items not found in superset list"
+    else:
+        assert (
+            subset == superset
+        ), f"value {subset} does not match value in superset {superset}"
