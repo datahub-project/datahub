@@ -754,7 +754,7 @@ class BigqueryLineageExtractor:
             # Try the sql parser first.
             if self.config.lineage_use_sql_parser:
                 logger.debug(
-                    f"Using sql parser for lineage extraction for queryType: {e.statementType} query: {e.query}"
+                    f"Using sql parser for lineage extraction for destination table: {destination_table.table_identifier.get_table_name()}, queryType: {e.statementType}, query: {e.query}"
                 )
                 if e.statementType == "SELECT":
                     # We wrap select statements in a CTE to make them parseable as insert statement.
