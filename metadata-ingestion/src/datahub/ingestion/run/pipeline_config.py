@@ -8,10 +8,7 @@ from pydantic import Field, root_validator, validator
 
 from datahub.cli.cli_utils import get_url_and_token
 from datahub.configuration import config_loader
-from datahub.configuration.common import (
-    ConfigModel,
-    DynamicTypedConfig,
-)
+from datahub.configuration.common import ConfigModel, DynamicTypedConfig
 from datahub.ingestion.graph.client import DatahubClientConfig
 from datahub.ingestion.sink.file import FileSinkConfig
 

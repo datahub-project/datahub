@@ -40,9 +40,9 @@ class DataHubSource(StatefulIngestionSourceBase):
         super().__init__(config, ctx)
         self.config = config
 
-        if (self.config.urn_pattern):
+        if self.config.urn_pattern:
             self.urn_pattern = self.config.urn_pattern
-        
+
         self.report: DataHubSourceReport = DataHubSourceReport()
         self.stateful_ingestion_handler = StatefulDataHubIngestionHandler(self)
 
