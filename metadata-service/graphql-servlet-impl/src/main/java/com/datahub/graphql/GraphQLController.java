@@ -90,7 +90,8 @@ public class GraphQLController {
      * Extract "operationName" field
      */
     JsonNode operationNameJson = bodyJson.get("operationName");
-    final String operationName = (operationNameJson != null && !operationNameJson.isNull())
+    final String operationName =
+        (operationNameJson != null && !operationNameJson.isNull())
             ? operationNameJson.asText()
             : null;
 
@@ -126,7 +127,8 @@ public class GraphQLController {
           /*
            * Execute GraphQL Query
            */
-          ExecutionResult executionResult = _engine.execute(queryJson.asText(), operationName, variables, context);
+          ExecutionResult executionResult =
+              _engine.execute(queryJson.asText(), operationName, variables, context);
 
           if (executionResult.getErrors().size() != 0) {
             // There were GraphQL errors. Report in error logs.
