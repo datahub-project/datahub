@@ -753,6 +753,9 @@ class BigqueryLineageExtractor:
 
             # Try the sql parser first.
             if self.config.lineage_use_sql_parser:
+                logger.debug(
+                    f"Using sql parser for lineage extraction for queryType: {e.statementType} query: {e.query}"
+                )
                 if e.statementType == "SELECT":
                     # We wrap select statements in a CTE to make them parseable as insert statement.
                     # This is a workaround for the sql parser to support the case where the user runs a query and inserts the result into a table..
@@ -777,6 +780,9 @@ class BigqueryLineageExtractor:
                     query,
                     schema_resolver=sql_parser_schema_resolver,
                     default_db=e.project_id,
+                )
+                log.debug(
+                    f"Input tables: {raw_lineage.in_tables}, Output tables: {raw_lineage.out_tables}"
                 )
                 if raw_lineage.debug_info.table_error:
                     logger.debug(
