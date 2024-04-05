@@ -2,6 +2,8 @@ package com.linkedin.metadata.service;
 
 import static com.linkedin.metadata.Constants.*;
 
+import com.datahub.authentication.Actor;
+import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -35,6 +37,7 @@ import com.linkedin.assertion.SqlAssertionType;
 import com.linkedin.assertion.VolumeAssertionInfo;
 import com.linkedin.assertion.VolumeAssertionType;
 import com.linkedin.common.AssertionsSummary;
+import com.linkedin.common.AuditStamp;
 import com.linkedin.common.DataPlatformInstance;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
@@ -53,6 +56,9 @@ import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.schema.SchemaFieldSpec;
 import com.linkedin.timeseries.CalendarInterval;
 import io.datahubproject.openapi.client.OpenApiClient;
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneId;
 import java.util.Collections;
 import java.util.List;
 import org.mockito.Mockito;
@@ -62,6 +68,7 @@ import org.testng.annotations.Test;
 
 public class AssertionServiceTest {
 
+  private static final Urn TEST_ACTOR_URN = UrnUtils.getUrn("urn:li:corpuser:test");
   private static final Urn TEST_ASSERTION_URN = UrnUtils.getUrn("urn:li:assertion:test");
   private static final Urn TEST_FRESHNESS_ASSERTION_URN =
       UrnUtils.getUrn("urn:li:assertion:test-dataset-freshness");
@@ -81,6 +88,10 @@ public class AssertionServiceTest {
   private static final Urn TEST_NON_EXISTENT_DATASET_URN =
       UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,non-existant,PROD)");
   private static final Urn TEST_PLATFORM_URN = UrnUtils.getUrn("urn:li:dataPlatform:hive");
+
+  private Authentication getMockAuthentication() {
+    return new Authentication(new Actor(ActorType.USER, TEST_ACTOR_URN.getId()), "creds");
+  }
 
   @Test
   private void testGetAssertionInfo() throws Exception {
@@ -197,16 +208,51 @@ public class AssertionServiceTest {
   }
 
   @Test
-  private void testUpdateAssertionMetadata() throws Exception {
+  public void testUpdateAssertionMetadata() throws Exception {
     final EntityClient mockClient = createMockEntityClient();
+
+    final AssertionInfo mockAssertionInfo = mockAssertionInfo();
+    // Init for assertion info
+    Mockito.when(
+            mockClient.getV2(
+                Mockito.eq(Constants.ASSERTION_ENTITY_NAME),
+                Mockito.eq(TEST_ASSERTION_URN),
+                Mockito.eq(
+                    ImmutableSet.of(
+                        Constants.ASSERTION_INFO_ASPECT_NAME,
+                        ASSERTION_ACTIONS_ASPECT_NAME,
+                        DATA_PLATFORM_INSTANCE_ASPECT_NAME)),
+                Mockito.any(Authentication.class)))
+        .thenReturn(
+            new EntityResponse()
+                .setUrn(TEST_ASSERTION_URN)
+                .setEntityName(ASSERTION_ENTITY_NAME)
+                .setAspects(
+                    new EnvelopedAspectMap(
+                        ImmutableMap.of(
+                            ASSERTION_INFO_ASPECT_NAME,
+                            new EnvelopedAspect().setValue(new Aspect(mockAssertionInfo.data())),
+                            DATA_PLATFORM_INSTANCE_ASPECT_NAME,
+                            new EnvelopedAspect()
+                                .setValue(new Aspect(mockDataPlatformInstance().data()))))));
+
+    final Instant nowInstant = Instant.now();
+    final Clock clock = Clock.fixed(nowInstant, ZoneId.systemDefault());
+
     final AssertionService service =
         new AssertionService(
-            mockClient, Mockito.mock(Authentication.class), Mockito.mock(OpenApiClient.class));
+            mockClient,
+            Mockito.mock(Authentication.class),
+            Mockito.mock(OpenApiClient.class),
+            clock);
     service.updateAssertionMetadata(
-        TEST_ASSERTION_URN, mockAssertionActions(), null, Mockito.mock(Authentication.class));
+        TEST_ASSERTION_URN, mockAssertionActions(), null, getMockAuthentication());
     Mockito.verify(mockClient, Mockito.times(1))
         .batchIngestProposals(
-            Mockito.eq(List.of(mockAssertionActionsMcp())),
+            Mockito.eq(
+                List.of(
+                    mockAssertionActionsMcp(),
+                    mockAssertionInfoLastUpdatedMcp(mockAssertionInfo, clock.millis()))),
             Mockito.any(Authentication.class),
             Mockito.eq(false));
   }
@@ -240,12 +286,7 @@ public class AssertionServiceTest {
     // Test method
     Urn result =
         service.createFreshnessAssertion(
-            entityUrn,
-            freshnessAssertionType,
-            schedule,
-            null,
-            null,
-            Mockito.mock(Authentication.class));
+            entityUrn, freshnessAssertionType, schedule, null, null, getMockAuthentication());
 
     // Assert result
     Assert.assertEquals(result.getEntityType(), "assertion");
@@ -286,12 +327,7 @@ public class AssertionServiceTest {
     // Test method
     Urn result =
         service.createFreshnessAssertion(
-            entityUrn,
-            freshnessAssertionType,
-            schedule,
-            filter,
-            actions,
-            Mockito.mock(Authentication.class));
+            entityUrn, freshnessAssertionType, schedule, filter, actions, getMockAuthentication());
 
     // Assert result
     Assert.assertEquals(result.getEntityType(), "assertion");
@@ -326,7 +362,7 @@ public class AssertionServiceTest {
     // Test method
     Urn result =
         service.createVolumeAssertion(
-            entityUrn, volumeAssertionType, info, null, Mockito.mock(Authentication.class));
+            entityUrn, volumeAssertionType, info, null, getMockAuthentication());
 
     // Assert result
     Assert.assertEquals(result.getEntityType(), "assertion");
@@ -372,7 +408,7 @@ public class AssertionServiceTest {
     // Test method
     Urn result =
         service.createVolumeAssertion(
-            entityUrn, volumeAssertionType, info, actions, Mockito.mock(Authentication.class));
+            entityUrn, volumeAssertionType, info, actions, getMockAuthentication());
 
     // Assert result
     Assert.assertEquals(result.getEntityType(), "assertion");
@@ -403,7 +439,7 @@ public class AssertionServiceTest {
     // Test method
     Urn result =
         service.createDatasetAssertion(
-            entityUrn, scope, null, null, operator, null, null, Mockito.mock(Authentication.class));
+            entityUrn, scope, null, null, operator, null, null, getMockAuthentication());
 
     // Assert result
     Assert.assertEquals(result.getEntityType(), "assertion");
@@ -453,7 +489,7 @@ public class AssertionServiceTest {
             operator,
             parameters,
             actions,
-            Mockito.mock(Authentication.class));
+            getMockAuthentication());
 
     // Assert result
     Assert.assertEquals(result.getEntityType(), "assertion");
@@ -507,7 +543,8 @@ public class AssertionServiceTest {
             schedule,
             null,
             null,
-            Mockito.mock(Authentication.class));
+            null,
+            getMockAuthentication());
 
     // Assert result
     Assert.assertEquals(result, TEST_FRESHNESS_ASSERTION_URN);
@@ -580,7 +617,8 @@ public class AssertionServiceTest {
             schedule,
             filter,
             actions,
-            Mockito.mock(Authentication.class));
+            null,
+            getMockAuthentication());
 
     // Assert result
     Assert.assertEquals(result, TEST_FRESHNESS_ASSERTION_URN);
@@ -637,7 +675,8 @@ public class AssertionServiceTest {
             "description",
             info,
             null,
-            Mockito.mock(Authentication.class));
+            null,
+            getMockAuthentication());
 
     // Assert result
     Assert.assertEquals(result.getEntityType(), "assertion");
@@ -716,7 +755,8 @@ public class AssertionServiceTest {
             "description",
             info,
             actions,
-            Mockito.mock(Authentication.class));
+            null,
+            getMockAuthentication());
 
     // Assert result
     Assert.assertEquals(result.getEntityType(), "assertion");
@@ -783,7 +823,8 @@ public class AssertionServiceTest {
             description,
             info,
             null,
-            Mockito.mock(Authentication.class));
+            null,
+            getMockAuthentication());
 
     // Assert result
     Assert.assertEquals(result.getEntityType(), "assertion");
@@ -863,7 +904,8 @@ public class AssertionServiceTest {
             description,
             info,
             actions,
-            Mockito.mock(Authentication.class));
+            null,
+            getMockAuthentication());
 
     // Assert result
     Assert.assertEquals(result.getEntityType(), "assertion");
@@ -937,7 +979,8 @@ public class AssertionServiceTest {
             "description",
             info,
             null,
-            Mockito.mock(Authentication.class));
+            null,
+            getMockAuthentication());
 
     // Assert result
     Assert.assertEquals(result.getEntityType(), "assertion");
@@ -1024,7 +1067,8 @@ public class AssertionServiceTest {
             "description",
             info,
             actions,
-            Mockito.mock(Authentication.class));
+            null,
+            getMockAuthentication());
 
     // Assert result
     Assert.assertEquals(result.getEntityType(), "assertion");
@@ -1055,14 +1099,7 @@ public class AssertionServiceTest {
     // Test method
     Urn result =
         service.updateDatasetAssertion(
-            assertionUrn,
-            scope,
-            null,
-            null,
-            operator,
-            null,
-            null,
-            Mockito.mock(Authentication.class));
+            assertionUrn, scope, null, null, operator, null, null, getMockAuthentication());
 
     // Assert result
     Assert.assertEquals(result, TEST_ASSERTION_URN);
@@ -1112,7 +1149,7 @@ public class AssertionServiceTest {
             operator,
             parameters,
             actions,
-            Mockito.mock(Authentication.class));
+            getMockAuthentication());
 
     // Assert result
     Assert.assertEquals(result, TEST_ASSERTION_URN);
@@ -1331,6 +1368,27 @@ public class AssertionServiceTest {
     mcp.setAspectName(ASSERTION_ACTIONS_ASPECT_NAME);
     mcp.setChangeType(ChangeType.UPSERT);
     mcp.setAspect(GenericRecordUtils.serializeAspect(mockAssertionActions()));
+
+    return mcp;
+  }
+
+  private static AssertionInfo mockAssertionInfoWithLastUpdated(
+      AssertionInfo baseInfo, long tsMillis) {
+    AssertionInfo info = baseInfo;
+    info.setLastUpdated(new AuditStamp().setTime(tsMillis).setActor(TEST_ACTOR_URN));
+    return info;
+  }
+
+  private static MetadataChangeProposal mockAssertionInfoLastUpdatedMcp(
+      AssertionInfo baseInfo, Long tsMillis) throws Exception {
+
+    final MetadataChangeProposal mcp = new MetadataChangeProposal();
+    mcp.setEntityUrn(TEST_ASSERTION_URN);
+    mcp.setEntityType(ASSERTION_ENTITY_NAME);
+    mcp.setAspectName(ASSERTION_INFO_ASPECT_NAME);
+    mcp.setChangeType(ChangeType.UPSERT);
+    mcp.setAspect(
+        GenericRecordUtils.serializeAspect(mockAssertionInfoWithLastUpdated(baseInfo, tsMillis)));
 
     return mcp;
   }

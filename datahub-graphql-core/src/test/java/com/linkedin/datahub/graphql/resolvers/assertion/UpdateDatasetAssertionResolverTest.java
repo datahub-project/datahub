@@ -10,10 +10,13 @@ import com.linkedin.assertion.AssertionAction;
 import com.linkedin.assertion.AssertionActionArray;
 import com.linkedin.assertion.AssertionActions;
 import com.linkedin.assertion.AssertionInfo;
+import com.linkedin.assertion.AssertionSource;
+import com.linkedin.assertion.AssertionSourceType;
 import com.linkedin.assertion.AssertionStdParameter;
 import com.linkedin.assertion.AssertionStdParameters;
 import com.linkedin.assertion.AssertionType;
 import com.linkedin.assertion.DatasetAssertionInfo;
+import com.linkedin.common.AuditStamp;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -50,6 +53,7 @@ public class UpdateDatasetAssertionResolverTest {
       UrnUtils.getUrn(
           "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,name,PROD),field)");
   private static final Urn TEST_ASSERTION_URN = UrnUtils.getUrn("urn:li:assertion:test");
+  private static final Urn TEST_ACTOR_URN = UrnUtils.getUrn("urn:li:actor:test");
 
   private static final UpdateDatasetAssertionInput TEST_INPUT =
       new UpdateDatasetAssertionInput(
@@ -68,6 +72,13 @@ public class UpdateDatasetAssertionResolverTest {
   private static final AssertionInfo TEST_ASSERTION_INFO =
       new AssertionInfo()
           .setType(AssertionType.DATASET)
+          .setSource(
+              new AssertionSource()
+                  .setType(AssertionSourceType.EXTERNAL)
+                  .setCreated(
+                      new AuditStamp()
+                          .setTime(System.currentTimeMillis())
+                          .setActor(TEST_ACTOR_URN)))
           .setDatasetAssertion(
               new DatasetAssertionInfo()
                   .setDataset(TEST_DATASET_URN)

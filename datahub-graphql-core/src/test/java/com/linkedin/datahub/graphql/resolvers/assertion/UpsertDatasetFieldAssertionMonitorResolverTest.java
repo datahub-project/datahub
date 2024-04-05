@@ -6,20 +6,8 @@ import static org.testng.Assert.*;
 import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.linkedin.assertion.AssertionAction;
-import com.linkedin.assertion.AssertionActionArray;
-import com.linkedin.assertion.AssertionActions;
-import com.linkedin.assertion.AssertionInfo;
-import com.linkedin.assertion.AssertionType;
-import com.linkedin.assertion.FieldAssertionInfo;
-import com.linkedin.assertion.FreshnessAssertionInfo;
-import com.linkedin.assertion.FreshnessAssertionSchedule;
-import com.linkedin.assertion.FreshnessAssertionType;
-import com.linkedin.assertion.FreshnessCronSchedule;
-import com.linkedin.common.CronSchedule;
-import com.linkedin.common.EntityRelationship;
-import com.linkedin.common.EntityRelationshipArray;
-import com.linkedin.common.EntityRelationships;
+import com.linkedin.assertion.*;
+import com.linkedin.common.*;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -73,6 +61,7 @@ public class UpsertDatasetFieldAssertionMonitorResolverTest {
   private static final Urn TEST_DATASET_URN =
       UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,name,PROD)");
   private static final Urn TEST_ASSERTION_URN = UrnUtils.getUrn("urn:li:assertion:test");
+  private static final Urn TEST_ACTOR_URN = UrnUtils.getUrn("urn:li:actor:test");
 
   private static final Urn TEST_MONITOR_URN =
       UrnUtils.getUrn(String.format("urn:li:monitor:(%s,test)", TEST_DATASET_URN));
@@ -153,6 +142,13 @@ public class UpsertDatasetFieldAssertionMonitorResolverTest {
   private static final AssertionInfo TEST_ASSERTION_INFO =
       new AssertionInfo()
           .setType(AssertionType.FIELD)
+          .setSource(
+              new AssertionSource()
+                  .setType(AssertionSourceType.NATIVE)
+                  .setCreated(
+                      new AuditStamp()
+                          .setTime(System.currentTimeMillis())
+                          .setActor(TEST_ACTOR_URN)))
           .setFieldAssertion(
               new FieldAssertionInfo()
                   .setEntity(TEST_DATASET_URN)
@@ -260,6 +256,7 @@ public class UpsertDatasetFieldAssertionMonitorResolverTest {
             Mockito.eq("description"),
             Mockito.eq(TEST_ASSERTION_INFO.getFieldAssertion()),
             Mockito.eq(TEST_ASSERTION_ACTIONS),
+            Mockito.isNull(),
             Mockito.any(Authentication.class));
 
     // Validate that we created the monitor
@@ -388,6 +385,7 @@ public class UpsertDatasetFieldAssertionMonitorResolverTest {
             Mockito.eq("description"),
             Mockito.eq(TEST_ASSERTION_INFO.getFieldAssertion()),
             Mockito.eq(TEST_ASSERTION_ACTIONS),
+            Mockito.eq(TEST_ASSERTION_INFO.getSource()),
             Mockito.any(Authentication.class));
 
     // Validate that we created the monitor
@@ -524,6 +522,7 @@ public class UpsertDatasetFieldAssertionMonitorResolverTest {
             Mockito.eq("description"),
             Mockito.eq(TEST_ASSERTION_INFO.getFieldAssertion()),
             Mockito.eq(TEST_ASSERTION_ACTIONS),
+            Mockito.isNull(),
             Mockito.any(Authentication.class));
 
     // Validate that we deleted the assertion
@@ -580,6 +579,7 @@ public class UpsertDatasetFieldAssertionMonitorResolverTest {
             Mockito.any(),
             Mockito.any(),
             Mockito.any(),
+            Mockito.any(),
             Mockito.any(Authentication.class));
 
     UpsertDatasetFieldAssertionMonitorResolver resolver =
@@ -604,6 +604,7 @@ public class UpsertDatasetFieldAssertionMonitorResolverTest {
 
     Mockito.when(
             service.upsertDatasetFieldAssertion(
+                Mockito.any(),
                 Mockito.any(),
                 Mockito.any(),
                 Mockito.any(),

@@ -21,6 +21,7 @@ import com.linkedin.assertion.SqlAssertionType;
 import com.linkedin.assertion.VolumeAssertionInfo;
 import com.linkedin.assertion.VolumeAssertionType;
 import com.linkedin.common.AssertionsSummary;
+import com.linkedin.common.AuditStamp;
 import com.linkedin.common.DataPlatformInstance;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
@@ -35,6 +36,7 @@ import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.r2.RemoteInvocationException;
 import io.datahubproject.openapi.client.OpenApiClient;
+import java.time.Clock;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -46,11 +48,23 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class AssertionService extends BaseService {
 
+  private final Clock _clock;
+
+  public AssertionService(
+      @Nonnull final EntityClient entityClient,
+      @Nonnull final Authentication systemAuthentication,
+      @Nonnull final OpenApiClient openApiClient,
+      @Nonnull final Clock clock) {
+    super(entityClient, systemAuthentication, openApiClient);
+    _clock = clock;
+  }
+
   public AssertionService(
       @Nonnull final EntityClient entityClient,
       @Nonnull final Authentication systemAuthentication,
       @Nonnull final OpenApiClient openApiClient) {
     super(entityClient, systemAuthentication, openApiClient);
+    _clock = Clock.systemUTC();
   }
 
   /**
@@ -221,11 +235,17 @@ public class AssertionService extends BaseService {
       @Nullable final DatasetFilter filter,
       @Nullable final AssertionActions actions,
       @Nonnull final Authentication authentication) {
-
     Objects.requireNonNull(entityUrn, "entityUrn must not be null");
     Objects.requireNonNull(type, "type must not be null");
     Objects.requireNonNull(schedule, "schedule must not be null");
     Objects.requireNonNull(authentication, "authentication must not be null");
+    Urn actorUrn = null;
+    try {
+      actorUrn = Urn.createFromString(authentication.getActor().toUrnStr());
+    } catch (Exception e) {
+      log.error("Could not parse actor urn", e);
+    }
+    Objects.requireNonNull(actorUrn, "actorUrn obtained through authentication must not be null");
 
     final Urn assertionUrn = generateAssertionUrn();
 
@@ -239,7 +259,7 @@ public class AssertionService extends BaseService {
     final AssertionInfo assertion = new AssertionInfo();
     assertion.setFreshnessAssertion(freshnessInfo);
     assertion.setType(AssertionType.FRESHNESS);
-    assertion.setSource(getNativeAssertionSource());
+    assertion.setSource(getNativeAssertionSource(actorUrn));
 
     final List<MetadataChangeProposal> aspects = new ArrayList<>();
     aspects.add(
@@ -277,6 +297,13 @@ public class AssertionService extends BaseService {
     Objects.requireNonNull(type, "type must not be null");
     Objects.requireNonNull(info, "info must not be null");
     Objects.requireNonNull(authentication, "authentication must not be null");
+    Urn actorUrn = null;
+    try {
+      actorUrn = Urn.createFromString(authentication.getActor().toUrnStr());
+    } catch (Exception e) {
+      log.error("Could not parse actor urn", e);
+    }
+    Objects.requireNonNull(actorUrn, "actorUrn obtained through authentication must not be null");
 
     switch (type) {
       case ROW_COUNT_TOTAL:
@@ -306,7 +333,7 @@ public class AssertionService extends BaseService {
     final AssertionInfo assertion = new AssertionInfo();
     assertion.setVolumeAssertion(info);
     assertion.setType(AssertionType.VOLUME);
-    assertion.setSource(getNativeAssertionSource());
+    assertion.setSource(getNativeAssertionSource(actorUrn));
 
     final List<MetadataChangeProposal> aspects = new ArrayList<>();
     aspects.add(
@@ -345,6 +372,13 @@ public class AssertionService extends BaseService {
     Objects.requireNonNull(description, "description must not be null");
     Objects.requireNonNull(info, "info must not be null");
     Objects.requireNonNull(authentication, "authentication must not be null");
+    Urn actorUrn = null;
+    try {
+      actorUrn = Urn.createFromString(authentication.getActor().toUrnStr());
+    } catch (Exception e) {
+      log.error("Could not parse actor urn", e);
+    }
+    Objects.requireNonNull(actorUrn, "actorUrn obtained through authentication must not be null");
 
     final Urn assertionUrn = generateAssertionUrn();
 
@@ -352,7 +386,7 @@ public class AssertionService extends BaseService {
     assertion.setSqlAssertion(info);
     assertion.setType(AssertionType.SQL);
     assertion.setDescription(description);
-    assertion.setSource(getNativeAssertionSource());
+    assertion.setSource(getNativeAssertionSource(actorUrn));
 
     final List<MetadataChangeProposal> aspects = new ArrayList<>();
     aspects.add(
@@ -386,13 +420,20 @@ public class AssertionService extends BaseService {
     Objects.requireNonNull(entityUrn, "entityUrn must not be null");
     Objects.requireNonNull(info, "info must not be null");
     Objects.requireNonNull(authentication, "authentication must not be null");
+    Urn actorUrn = null;
+    try {
+      actorUrn = Urn.createFromString(authentication.getActor().toUrnStr());
+    } catch (Exception e) {
+      log.error("Could not parse actor urn", e);
+    }
+    Objects.requireNonNull(actorUrn, "actorUrn obtained through authentication must not be null");
 
     final Urn assertionUrn = generateAssertionUrn();
 
     final AssertionInfo assertion = new AssertionInfo();
     assertion.setFieldAssertion(info);
     assertion.setType(AssertionType.FIELD);
-    assertion.setSource(getNativeAssertionSource());
+    assertion.setSource(getNativeAssertionSource(actorUrn));
 
     final List<MetadataChangeProposal> aspects = new ArrayList<>();
     aspects.add(
@@ -432,6 +473,13 @@ public class AssertionService extends BaseService {
     Objects.requireNonNull(scope, "scope must not be null");
     Objects.requireNonNull(operator, "operator must not be null");
     Objects.requireNonNull(authentication, "authentication must not be null");
+    Urn actorUrn = null;
+    try {
+      actorUrn = Urn.createFromString(authentication.getActor().toUrnStr());
+    } catch (Exception e) {
+      log.error("Could not parse actor urn", e);
+    }
+    Objects.requireNonNull(actorUrn, "actorUrn obtained through authentication must not be null");
 
     final Urn assertionUrn = generateAssertionUrn();
 
@@ -447,7 +495,7 @@ public class AssertionService extends BaseService {
     final AssertionInfo assertion = new AssertionInfo();
     assertion.setDatasetAssertion(datasetAssertion);
     assertion.setType(AssertionType.DATASET);
-    assertion.setSource(getNativeAssertionSource());
+    assertion.setSource(getNativeAssertionSource(actorUrn));
 
     final List<MetadataChangeProposal> aspects = new ArrayList<>();
     aspects.add(
@@ -482,11 +530,19 @@ public class AssertionService extends BaseService {
       @Nonnull final FreshnessAssertionSchedule schedule,
       @Nullable final DatasetFilter filter,
       @Nullable final AssertionActions actions,
+      @Nullable final AssertionSource assertionSource,
       @Nonnull final Authentication authentication) {
     Objects.requireNonNull(assertionUrn, "assertionUrn must not be null");
     Objects.requireNonNull(entityUrn, "entityUrn must not be null");
     Objects.requireNonNull(schedule, "schedule must not be null");
     Objects.requireNonNull(authentication, "authentication must not be null");
+    Urn actorUrn = null;
+    try {
+      actorUrn = Urn.createFromString(authentication.getActor().toUrnStr());
+    } catch (Exception e) {
+      log.error("Could not parse actor urn", e);
+    }
+    Objects.requireNonNull(actorUrn, "actorUrn obtained through authentication must not be null");
 
     final FreshnessAssertionInfo freshnessInfo =
         new FreshnessAssertionInfo()
@@ -498,8 +554,10 @@ public class AssertionService extends BaseService {
     final AssertionInfo assertion = new AssertionInfo();
     assertion.setFreshnessAssertion(freshnessInfo);
     assertion.setType(AssertionType.FRESHNESS);
-    assertion.setSource(getNativeAssertionSource());
+    assertion.setSource(
+        assertionSource != null ? assertionSource : getNativeAssertionSource(actorUrn));
     assertion.setDescription(description, SetMode.IGNORE_NULL);
+    assertion.setLastUpdated(new AuditStamp().setTime(getCurrentTime()).setActor(actorUrn));
 
     final List<MetadataChangeProposal> aspects = new ArrayList<>();
     aspects.add(
@@ -531,12 +589,20 @@ public class AssertionService extends BaseService {
       @Nullable final String description,
       @Nonnull final VolumeAssertionInfo info,
       @Nullable final AssertionActions actions,
+      @Nullable final AssertionSource assertionSource,
       @Nonnull final Authentication authentication) {
     Objects.requireNonNull(assertionUrn, "assertionUrn must not be null");
     Objects.requireNonNull(entityUrn, "entityUrn must not be null");
     Objects.requireNonNull(info.getType(), "type must not be null");
     Objects.requireNonNull(info, "info must not be null");
     Objects.requireNonNull(authentication, "authentication must not be null");
+    Urn actorUrn = null;
+    try {
+      actorUrn = Urn.createFromString(authentication.getActor().toUrnStr());
+    } catch (Exception e) {
+      log.error("Could not parse actor urn", e);
+    }
+    Objects.requireNonNull(actorUrn, "actorUrn obtained through authentication must not be null");
 
     switch (info.getType()) {
       case ROW_COUNT_TOTAL:
@@ -555,8 +621,10 @@ public class AssertionService extends BaseService {
     final AssertionInfo assertion = new AssertionInfo();
     assertion.setVolumeAssertion(info);
     assertion.setType(AssertionType.VOLUME);
-    assertion.setSource(getNativeAssertionSource());
+    assertion.setSource(
+        assertionSource != null ? assertionSource : getNativeAssertionSource(actorUrn));
     assertion.setDescription(description, SetMode.IGNORE_NULL);
+    assertion.setLastUpdated(new AuditStamp().setTime(getCurrentTime()).setActor(actorUrn));
 
     final List<MetadataChangeProposal> aspects = new ArrayList<>();
     aspects.add(
@@ -589,6 +657,7 @@ public class AssertionService extends BaseService {
       @Nonnull final String description,
       @Nonnull final SqlAssertionInfo info,
       @Nullable final AssertionActions actions,
+      @Nullable final AssertionSource assertionSource,
       @Nonnull final Authentication authentication) {
     Objects.requireNonNull(assertionUrn, "assertionUrn must not be null");
     Objects.requireNonNull(entityUrn, "entityUrn must not be null");
@@ -596,12 +665,21 @@ public class AssertionService extends BaseService {
     Objects.requireNonNull(description, "description must not be null");
     Objects.requireNonNull(info, "info must not be null");
     Objects.requireNonNull(authentication, "authentication must not be null");
+    Urn actorUrn = null;
+    try {
+      actorUrn = Urn.createFromString(authentication.getActor().toUrnStr());
+    } catch (Exception e) {
+      log.error("Could not parse actor urn", e);
+    }
+    Objects.requireNonNull(actorUrn, "actorUrn obtained through authentication must not be null");
 
     final AssertionInfo assertion = new AssertionInfo();
     assertion.setSqlAssertion(info);
     assertion.setType(AssertionType.SQL);
     assertion.setDescription(description);
-    assertion.setSource(getNativeAssertionSource());
+    assertion.setSource(
+        assertionSource != null ? assertionSource : getNativeAssertionSource(actorUrn));
+    assertion.setLastUpdated(new AuditStamp().setTime(getCurrentTime()).setActor(actorUrn));
 
     final List<MetadataChangeProposal> aspects = new ArrayList<>();
     aspects.add(
@@ -633,17 +711,27 @@ public class AssertionService extends BaseService {
       @Nullable final String description,
       @Nonnull final FieldAssertionInfo info,
       @Nullable final AssertionActions actions,
+      @Nullable final AssertionSource assertionSource,
       @Nonnull final Authentication authentication) {
     Objects.requireNonNull(assertionUrn, "assertionUrn must not be null");
     Objects.requireNonNull(entityUrn, "entityUrn must not be null");
     Objects.requireNonNull(info, "info must not be null");
     Objects.requireNonNull(authentication, "authentication must not be null");
+    Urn actorUrn = null;
+    try {
+      actorUrn = Urn.createFromString(authentication.getActor().toUrnStr());
+    } catch (Exception e) {
+      log.error("Could not parse actor urn", e);
+    }
+    Objects.requireNonNull(actorUrn, "actorUrn obtained through authentication must not be null");
 
     final AssertionInfo assertion = new AssertionInfo();
     assertion.setFieldAssertion(info);
     assertion.setType(AssertionType.FIELD);
-    assertion.setSource(getNativeAssertionSource());
+    assertion.setSource(
+        assertionSource != null ? assertionSource : getNativeAssertionSource(actorUrn));
     assertion.setDescription(description, SetMode.IGNORE_NULL);
+    assertion.setLastUpdated(new AuditStamp().setTime(getCurrentTime()).setActor(actorUrn));
 
     final List<MetadataChangeProposal> aspects = new ArrayList<>();
     aspects.add(
@@ -674,6 +762,13 @@ public class AssertionService extends BaseService {
       @Nonnull final Authentication authentication) {
     Objects.requireNonNull(assertionUrn, "assertionUrn must not be null");
     Objects.requireNonNull(authentication, "authentication must not be null");
+    Urn actorUrn = null;
+    try {
+      actorUrn = Urn.createFromString(authentication.getActor().toUrnStr());
+    } catch (Exception e) {
+      log.error("Could not parse actor urn", e);
+    }
+    Objects.requireNonNull(actorUrn, "actorUrn obtained through authentication must not be null");
 
     // 1. Check whether the Assertion exists
     AssertionInfo existingInfo = getAssertionInfo(assertionUrn);
@@ -694,10 +789,11 @@ public class AssertionService extends BaseService {
     // 3. Ingest assertion info aspect changes
     if (assertionDescription != null) {
       existingInfo.setDescription(assertionDescription);
-      aspects.add(
-          AspectUtils.buildMetadataChangeProposal(
-              assertionUrn, Constants.ASSERTION_INFO_ASPECT_NAME, existingInfo));
     }
+    existingInfo.setLastUpdated(new AuditStamp().setTime(getCurrentTime()).setActor(actorUrn));
+    aspects.add(
+        AspectUtils.buildMetadataChangeProposal(
+            assertionUrn, Constants.ASSERTION_INFO_ASPECT_NAME, existingInfo));
 
     try {
       this.entityClient.batchIngestProposals(aspects, authentication, false);
@@ -726,6 +822,13 @@ public class AssertionService extends BaseService {
     Objects.requireNonNull(scope, "scope must not be null");
     Objects.requireNonNull(operator, "operator must not be null");
     Objects.requireNonNull(authentication, "authentication must not be null");
+    Urn actorUrn = null;
+    try {
+      actorUrn = Urn.createFromString(authentication.getActor().toUrnStr());
+    } catch (Exception e) {
+      log.error("Could not parse actor urn", e);
+    }
+    Objects.requireNonNull(actorUrn, "actorUrn obtained through authentication must not be null");
 
     // 1. Check whether the Assertion exists
     AssertionInfo existingInfo = getAssertionInfo(assertionUrn);
@@ -760,6 +863,8 @@ public class AssertionService extends BaseService {
     existingDatasetAssertion.setOperator(operator);
     existingDatasetAssertion.setParameters(parameters, SetMode.IGNORE_NULL);
 
+    existingInfo.setLastUpdated(new AuditStamp().setTime(getCurrentTime()).setActor(actorUrn));
+
     final List<MetadataChangeProposal> aspects = new ArrayList<>();
     aspects.add(
         AspectUtils.buildMetadataChangeProposal(
@@ -781,9 +886,10 @@ public class AssertionService extends BaseService {
   }
 
   @Nonnull
-  private AssertionSource getNativeAssertionSource() {
+  private AssertionSource getNativeAssertionSource(Urn actorUrn) {
     final AssertionSource source = new AssertionSource();
     source.setType(AssertionSourceType.NATIVE);
+    source.setCreated(new AuditStamp().setTime(getCurrentTime()).setActor(actorUrn));
     return source;
   }
 
@@ -815,5 +921,9 @@ public class AssertionService extends BaseService {
       log.error(
           String.format("Failed to delete assertion references for urn %s! ", assertionUrn), ex);
     }
+  }
+
+  private long getCurrentTime() {
+    return _clock.millis();
   }
 }

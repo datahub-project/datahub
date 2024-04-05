@@ -6,20 +6,8 @@ import static org.testng.Assert.*;
 import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.linkedin.assertion.AssertionAction;
-import com.linkedin.assertion.AssertionActionArray;
-import com.linkedin.assertion.AssertionActions;
-import com.linkedin.assertion.AssertionInfo;
-import com.linkedin.assertion.AssertionType;
-import com.linkedin.assertion.FreshnessAssertionInfo;
-import com.linkedin.assertion.FreshnessAssertionSchedule;
-import com.linkedin.assertion.FreshnessAssertionType;
-import com.linkedin.assertion.FreshnessCronSchedule;
-import com.linkedin.assertion.VolumeAssertionInfo;
-import com.linkedin.common.CronSchedule;
-import com.linkedin.common.EntityRelationship;
-import com.linkedin.common.EntityRelationshipArray;
-import com.linkedin.common.EntityRelationships;
+import com.linkedin.assertion.*;
+import com.linkedin.common.*;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -71,6 +59,7 @@ public class UpsertDatasetVolumeAssertionMonitorResolverTest {
   private static final Urn TEST_DATASET_URN =
       UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,name,PROD)");
   private static final Urn TEST_ASSERTION_URN = UrnUtils.getUrn("urn:li:assertion:test");
+  private static final Urn TEST_ACTOR_URN = UrnUtils.getUrn("urn:li:actor:test");
 
   private static final Urn TEST_MONITOR_URN =
       UrnUtils.getUrn(String.format("urn:li:monitor:(%s,test)", TEST_DATASET_URN));
@@ -151,6 +140,13 @@ public class UpsertDatasetVolumeAssertionMonitorResolverTest {
   private static final AssertionInfo TEST_ASSERTION_INFO =
       new AssertionInfo()
           .setType(AssertionType.VOLUME)
+          .setSource(
+              new AssertionSource()
+                  .setType(AssertionSourceType.NATIVE)
+                  .setCreated(
+                      new AuditStamp()
+                          .setTime(System.currentTimeMillis())
+                          .setActor(TEST_ACTOR_URN)))
           .setVolumeAssertion(
               new VolumeAssertionInfo()
                   .setEntity(TEST_DATASET_URN)
@@ -249,6 +245,7 @@ public class UpsertDatasetVolumeAssertionMonitorResolverTest {
             Mockito.eq("description"),
             Mockito.eq(TEST_ASSERTION_INFO.getVolumeAssertion()),
             Mockito.eq(TEST_ASSERTION_ACTIONS),
+            Mockito.isNull(),
             Mockito.any(Authentication.class));
 
     // Validate that we created the monitor
@@ -305,6 +302,7 @@ public class UpsertDatasetVolumeAssertionMonitorResolverTest {
             Mockito.eq("description"),
             Mockito.eq(TEST_ASSERTION_INFO.getVolumeAssertion()),
             Mockito.eq(TEST_ASSERTION_ACTIONS),
+            Mockito.isNull(),
             Mockito.any(Authentication.class));
 
     // Validate that we deleted the assertion
@@ -430,6 +428,7 @@ public class UpsertDatasetVolumeAssertionMonitorResolverTest {
             Mockito.eq("description"),
             Mockito.eq(TEST_ASSERTION_INFO.getVolumeAssertion()),
             Mockito.eq(TEST_ASSERTION_ACTIONS),
+            Mockito.eq(TEST_ASSERTION_INFO.getSource()),
             Mockito.any(Authentication.class));
 
     // Validate that we created the monitor
@@ -575,6 +574,7 @@ public class UpsertDatasetVolumeAssertionMonitorResolverTest {
             Mockito.any(),
             Mockito.any(),
             Mockito.any(),
+            Mockito.any(),
             Mockito.any(Authentication.class));
 
     UpsertDatasetVolumeAssertionMonitorResolver resolver =
@@ -599,6 +599,7 @@ public class UpsertDatasetVolumeAssertionMonitorResolverTest {
 
     Mockito.when(
             service.upsertDatasetVolumeAssertion(
+                Mockito.any(),
                 Mockito.any(),
                 Mockito.any(),
                 Mockito.any(),

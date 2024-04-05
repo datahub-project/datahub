@@ -3,6 +3,7 @@ package com.linkedin.datahub.graphql.resolvers.assertion;
 import static com.linkedin.datahub.graphql.resolvers.monitor.MonitorUtils.*;
 
 import com.linkedin.assertion.AssertionInfo;
+import com.linkedin.assertion.AssertionSource;
 import com.linkedin.assertion.AssertionType;
 import com.linkedin.assertion.SqlAssertionType;
 import com.linkedin.common.urn.Urn;
@@ -54,6 +55,7 @@ public class UpsertDatasetSqlAssertionMonitorResolver
             environment.getArgument("input"), UpsertDatasetSqlAssertionMonitorInput.class);
 
     final Urn entityUrn, monitorUrn, assertionUrn;
+    final AssertionSource assertionSource;
 
     boolean isCreate = maybeAssertionUrn == null;
     if (isCreate) {
@@ -61,14 +63,19 @@ public class UpsertDatasetSqlAssertionMonitorResolver
       if (input.getEntityUrn() == null) {
         throw new IllegalArgumentException("Failed to create Assertion. entityUrn is required.");
       }
-      entityUrn = UrnUtils.getUrn(input.getEntityUrn());
       assertionUrn = _assertionService.generateAssertionUrn();
+      assertionSource = null;
+      entityUrn = UrnUtils.getUrn(input.getEntityUrn());
+
       monitorUrn = _monitorService.generateMonitorUrn(entityUrn);
     } else {
       // Update Assertion - only assertionUrn is known. Extract entityUrn and monitorUrn using
       // assertionUrn.
       assertionUrn = UrnUtils.getUrn(maybeAssertionUrn);
-      entityUrn = getEntityUrnForSqlAssertion(assertionUrn, input);
+      AssertionInfo info = getAssertionInfoForSQLAssertion(assertionUrn);
+      assertionSource = info.getSource();
+      entityUrn = getEntityUrnForSqlAssertion(assertionUrn, info, input);
+
       monitorUrn = getMonitorUrnForAssertionOrThrow(_graphClient, assertionUrn);
     }
 
@@ -88,6 +95,7 @@ public class UpsertDatasetSqlAssertionMonitorResolver
                 input.getActions() != null
                     ? AssertionUtils.createAssertionActions(input.getActions())
                     : null,
+                assertionSource,
                 context.getAuthentication());
 
             // Then, upsert the monitor
@@ -128,9 +136,7 @@ public class UpsertDatasetSqlAssertionMonitorResolver
         });
   }
 
-  private Urn getEntityUrnForSqlAssertion(
-      Urn assertionUrn, UpsertDatasetSqlAssertionMonitorInput input) {
-    final Urn entityUrn;
+  private AssertionInfo getAssertionInfoForSQLAssertion(Urn assertionUrn) {
     final AssertionInfo info = _assertionService.getAssertionInfo(assertionUrn);
     if (info == null) {
       throw new IllegalArgumentException(
@@ -143,6 +149,13 @@ public class UpsertDatasetSqlAssertionMonitorResolver
               "Failed to update Assertion. Assertion with urn %s is not an SQL assertion.",
               assertionUrn));
     }
+    return info;
+  }
+
+  private Urn getEntityUrnForSqlAssertion(
+      Urn assertionUrn, AssertionInfo info, UpsertDatasetSqlAssertionMonitorInput input) {
+    final Urn entityUrn;
+
     entityUrn = AssertionUtils.getAsserteeUrnFromInfo(info);
     if (input.getEntityUrn() != null && !input.getEntityUrn().equals(entityUrn.toString())) {
       throw new IllegalArgumentException(
