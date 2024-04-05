@@ -1,6 +1,6 @@
 package com.linkedin.metadata.graph.elastic;
 
-import static com.linkedin.metadata.graph.elastic.GraphRelationshipMappingsBuilder.*;
+import static com.linkedin.metadata.graph.Edge.*;
 
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;

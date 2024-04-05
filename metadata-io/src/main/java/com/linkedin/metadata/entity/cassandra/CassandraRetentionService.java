@@ -195,7 +195,7 @@ public class CassandraRetentionService<U extends ChangeMCP> extends RetentionSer
       @Nonnull final Urn urn,
       @Nonnull final String aspectName,
       @Nonnull final TimeBasedRetention retention) {
-    Timestamp threshold = new Timestamp(_clock.millis() - retention.getMaxAgeInSeconds() * 1000);
+    Timestamp threshold = new Timestamp(_clock.millis() - retention.getMaxAgeInSeconds() * 1000L);
     SimpleStatement ss =
         deleteFrom(CassandraAspect.TABLE_NAME)
             .whereColumn(CassandraAspect.URN_COLUMN)
