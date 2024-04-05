@@ -3,6 +3,8 @@ import styled from 'styled-components';
 import { Tooltip } from 'antd';
 import { AuditOutlined } from '@ant-design/icons';
 import { Link } from 'react-router-dom';
+import moment from 'moment';
+import WarningIcon from '@ant-design/icons/WarningFilled';
 import {
     Assertion,
     EntityType,
@@ -59,6 +61,8 @@ const DataContractLogo = styled(AuditOutlined)`
     color: ${REDESIGN_COLORS.BLUE};
 `;
 
+const SMART_ASSERTION_STALE_IN_DAYS = 3;
+
 interface DetailsColumnProps {
     assertion: Assertion;
     monitor?: Monitor;
@@ -83,6 +87,8 @@ export function DetailsColumn({
     const isPartOfContract = contract && isAssertionPartOfContract(assertion, contract);
     const assertionInfo = assertion.info;
     const isSmartAssertion = assertionInfo.source?.type === AssertionSourceType.Inferred;
+    const smartAssertionAgeDays = assertion.inferenceDetails?.generatedAt ? moment(assertion.inferenceDetails.generatedAt).diff(moment(), 'days') : undefined;
+    const isSmartAssertionStale = isSmartAssertion && smartAssertionAgeDays && (smartAssertionAgeDays > SMART_ASSERTION_STALE_IN_DAYS);
     return (
         <DetailsContainer>
             <AssertionResultPopover
@@ -98,11 +104,14 @@ export function DetailsColumn({
                 </Result>
             </AssertionResultPopover>
             <AssertionDescription assertion={assertion} />
-            {isSmartAssertion && (
+            {isSmartAssertionStale ? <Tooltip title={<>Stale smart assertion.<br />This may be due to insufficient profiling data on this asset.</>}>
+                <WarningIcon style={{ marginLeft: 16, marginRight: 4, color: '#e9a641' }} />
+            </Tooltip> : null}
+            {isSmartAssertion ? (
                 <InferredAssertionPopover>
                     <InferredAssertionBadge />
                 </InferredAssertionPopover>
-            )}
+            ) : null}
             {(isPartOfContract && assertionEntityUrn && (
                 <Tooltip
                     title={

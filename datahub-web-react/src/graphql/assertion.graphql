@@ -184,6 +184,9 @@ fragment assertionDetails on Assertion {
     info {
         ...assertionInfo
     }
+    inferenceDetails {
+        generatedAt
+    }
     actions {
         onSuccess {
             type
