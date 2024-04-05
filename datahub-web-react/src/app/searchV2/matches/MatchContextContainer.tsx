@@ -1,10 +1,12 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 import { ANTD_GRAY } from '../../entity/shared/constants';
 import { SEARCH_COLORS } from '../../entityV2/shared/constants';
 import MatchContext, { PreviewSection } from '../../shared/MatchesContext';
 import { SearchCardSlideoutContent } from '../searchSlideout/SearchCardSlideoutContent';
 import { CombinedSearchResult } from '../utils/combineSiblingsInSearchResults';
+import HorizontalScroller from '../../sharedV2/carousel/HorizontalScroller';
+
 
 const MATCHES_CONTAINER_HEIGHT = 52;
 
@@ -12,7 +14,7 @@ const MatchesContainer = styled.div<{ expanded: boolean; selected: boolean }>`
     z-index: 1;
     border-radius: 8px;
     margin: 0 auto 12px auto;
-    padding: 8px 19px;
+    padding: 4px;
     box-shadow: 0px 0px 5px rgba(0, 0, 0, 0.08);
     border-bottom: 1px solid ${ANTD_GRAY[5]};
     :hover {
@@ -39,8 +41,17 @@ const MatchesContainer = styled.div<{ expanded: boolean; selected: boolean }>`
     `}
 `;
 
-const MatchesBottomGroup = styled.div`
+const MatchesBottomGroup = styled.div<{ addMargin?: boolean }>`
     margin-top: auto;
+    ${(props) => (props.addMargin ? 'margin-bottom: 4px;' : ``)}
+    /* The following div ensures that Tags, Terms, etc., override their default flex-wrap: wrap; with flex-wrap: nowrap; 
+    and maintain alignment as needed, making them scrollable horizontally */    
+    div {
+        display: flex;
+        flex-wrap: nowrap;
+        align-items: center;
+        height: 100%;
+    }
 `;
 
 type Props = {
@@ -70,6 +81,12 @@ export const MatchContextContianer = ({
 }: Props) => {
     const expandedSection = urnToExpandedSection[item.entity.urn];
 
+    const [cachedExpandedSection, setCachedExpandedSection] = useState<PreviewSection | undefined>(expandedSection);
+    useEffect(() => {
+        if (!expandedSection) return;
+        setCachedExpandedSection(expandedSection);
+    }, [expandedSection]);
+
     return (
         <MatchContext.Provider
             value={{
@@ -89,14 +106,16 @@ export const MatchContextContianer = ({
             }}
         >
             <MatchesContainer expanded={!!expandedSection} selected={selected} onClick={onClick}>
-                <MatchesBottomGroup>
+                <MatchesBottomGroup addMargin={cachedExpandedSection !== PreviewSection.GLOSSARY_TERMS}>
                     <MatchContext.Provider
                         value={{
                             expandedSection: undefined,
                             setExpandedSection: () => {},
                         }}
                     >
-                        <SearchCardSlideoutContent item={item} expandedSection={expandedSection} />
+                        <HorizontalScroller alwaysVisible>
+                            <SearchCardSlideoutContent item={item} expandedSection={expandedSection} />
+                        </HorizontalScroller>
                     </MatchContext.Provider>
                 </MatchesBottomGroup>
             </MatchesContainer>

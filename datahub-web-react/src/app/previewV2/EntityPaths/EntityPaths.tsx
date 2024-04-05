@@ -5,7 +5,7 @@ import ColumnPathsText from './ColumnPathsText';
 import EntityPathsModal from './EntityPathsModal';
 
 const EntityPathsWrapper = styled.div`
-    margin-bottom: 5px;
+    padding-bottom: 10px;
 `;
 
 interface Props {

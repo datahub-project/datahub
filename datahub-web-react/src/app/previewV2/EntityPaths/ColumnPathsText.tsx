@@ -8,15 +8,16 @@ import DisplayedColumns from './DisplayedColumns';
 import { LineageTabContext } from '../../entityV2/shared/tabs/Lineage/LineageTabContext';
 
 export const ResultText = styled.span`
+    white-space: nowrap;
     &:hover {
         border-bottom: 1px solid black;
         cursor: pointer;
     }
 `;
 
-const DescriptionWrapper = styled.div`
+const DescriptionWrapper = styled.span`
     color: ${ANTD_GRAY[8]};
-    padding-top: 4px;
+    white-space: nowrap;
 `;
 
 export function getDisplayedColumns(paths: EntityPath[], resultEntityUrn: string) {
@@ -48,7 +49,7 @@ export default function ColumnPathsText({ paths, resultEntityUrn, openModal }: P
         <>
             <DescriptionWrapper>
                 {lineageDirection === LineageDirection.Downstream ? 'Downstream' : 'Upstream'} column
-                {displayedColumns.length > 1 && 's'}
+                {displayedColumns.length > 1 && 's'}:&nbsp;
             </DescriptionWrapper>
             <ResultText onClick={openModal}>
                 <Tooltip
