@@ -120,4 +120,4 @@ mutation deletePosting {
 
 ## FAQ and Troubleshooting
 
-*Need more help with Posts? Join the conversation in [Slack](http://slack.datahubproject.io)! Please post in the **#ui** channel!*
+*Need more help with Posts? Join the conversation in [Slack](https://datahubproject.io/slack?utm_source=docs&utm_medium=docs&utm_campaign=docs_page_link)! Please post in the **#ui** channel!*

@@ -154,4 +154,4 @@ Make a note of the private key file. You must paste the file's contents into the
 
 Once you've done all the above steps, it's time to move on to [configuring the actual ingestion source](configuration.md) within DataHub.
 
-_Need more help? Join the conversation in [Slack](http://slack.datahubproject.io)!_
+_Need more help? Join the conversation in [Slack](https://datahubproject.io/slack?utm_source=docs&utm_medium=docs&utm_campaign=docs_page_link)!_

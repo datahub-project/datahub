@@ -43,4 +43,4 @@ You can hover over the sync status message in the UI to view the exact timestamp
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/master/imgs/sync-status-hover-card.png"/>
 </p>
 
-_Need more help? Join the conversation in [Slack](http://slack.datahubproject.io)!_
+_Need more help? Join the conversation in [Slack](https://datahubproject.io/slack?utm_source=docs&utm_medium=docs&utm_campaign=docs_page_link)!_

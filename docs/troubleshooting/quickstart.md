@@ -72,7 +72,7 @@ docker system prune
 Still stuck?
 </summary>
 
-Hop over to our [Slack community](https://slack.datahubproject.io) and ask for help in the [#troubleshoot](https://datahubspace.slack.com/archives/C029A3M079U) channel!
+Hop over to our [Slack community](https://datahubproject.io/slack?utm_source=docs&utm_medium=docs&utm_campaign=docs_page_link) and ask for help in the [#troubleshoot](https://datahubspace.slack.com/archives/C029A3M079U) channel!
 
 </details>
 
