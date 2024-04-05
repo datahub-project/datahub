@@ -781,7 +781,7 @@ class BigqueryLineageExtractor:
                     schema_resolver=sql_parser_schema_resolver,
                     default_db=e.project_id,
                 )
-                log.debug(
+                logger.debug(
                     f"Input tables: {raw_lineage.in_tables}, Output tables: {raw_lineage.out_tables}"
                 )
                 if raw_lineage.debug_info.table_error:
