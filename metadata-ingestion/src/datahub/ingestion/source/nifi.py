@@ -1171,12 +1171,12 @@ class NifiSource(Source):
             aspect=BrowsePathsV2Class(
                 path=[
                     BrowsePathEntryClass(id=flow_urn, urn=flow_urn),
-                    *self.get_browse_path_entries(process_group_id),
+                    *self._get_browse_path_v2_entries(process_group_id),
                 ]
             ),
         ).as_workunit()
 
-    def get_browse_path_entries(
+    def _get_browse_path_v2_entries(
         self, process_group_id: str
     ) -> List[BrowsePathEntryClass]:
         """Browse path entries till current process group"""
@@ -1184,11 +1184,12 @@ class NifiSource(Source):
             return []
 
         current_process_group = self.nifi_flow.processGroups[process_group_id]
-        parent_pg_id = current_process_group.parent_group_id
-        if parent_pg_id and not self._is_root_process_group(parent_pg_id):
-            parent_browse_path = self.get_browse_path_entries(parent_pg_id)
-        else:
-            parent_browse_path = []
+        assert (
+            current_process_group.parent_group_id
+        )  # always present for non-root process group
+        parent_browse_path = self._get_browse_path_v2_entries(
+            current_process_group.parent_group_id
+        )
 
         if self.config.emit_process_group_as_container:
             container_urn = self.gen_process_group_key(process_group_id).as_urn()
