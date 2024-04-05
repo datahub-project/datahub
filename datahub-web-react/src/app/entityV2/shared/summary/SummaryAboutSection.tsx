@@ -69,7 +69,7 @@ export default function SummaryAboutSection() {
         <Container>
             <HeaderTitle>
                 <FileOutlined style={{ fontSize: 16, color: ANTD_GRAY[8] }} />
-                About
+                Documentation
             </HeaderTitle>
             <DocumentationWrapper canExpand={canExpand ? true : undefined}>
                 {!!description && (
