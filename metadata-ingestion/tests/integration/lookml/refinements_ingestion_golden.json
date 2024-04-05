@@ -7,7 +7,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/looker/lkml_samples/foo.view.lkml/views"
+                            "/prod/looker/lkml_samples/foo/views"
                         ]
                     }
                 },
@@ -231,7 +231,7 @@
                     "id": "lkml_samples"
                 },
                 {
-                    "id": "foo.view.lkml"
+                    "id": "foo"
                 },
                 {
                     "id": "views"
@@ -253,7 +253,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/looker/lkml_samples/bar.view.lkml/views"
+                            "/prod/looker/lkml_samples/bar/views"
                         ]
                     }
                 },
@@ -456,7 +456,7 @@
                     "id": "lkml_samples"
                 },
                 {
-                    "id": "bar.view.lkml"
+                    "id": "bar"
                 },
                 {
                     "id": "views"
@@ -478,7 +478,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/looker/lkml_samples/included_view_file.view.lkml/views"
+                            "/prod/looker/lkml_samples/included_view_file/views"
                         ]
                     }
                 },
@@ -570,7 +570,7 @@
                     "id": "lkml_samples"
                 },
                 {
-                    "id": "included_view_file.view.lkml"
+                    "id": "included_view_file"
                 },
                 {
                     "id": "views"
@@ -592,7 +592,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/looker/lkml_samples/view_declarations.view.lkml/views"
+                            "/prod/looker/lkml_samples/view_declarations/views"
                         ]
                     }
                 },
@@ -684,7 +684,7 @@
                     "id": "lkml_samples"
                 },
                 {
-                    "id": "view_declarations.view.lkml"
+                    "id": "view_declarations"
                 },
                 {
                     "id": "views"
@@ -706,7 +706,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/looker/lkml_samples/view_declarations.view.lkml/views"
+                            "/prod/looker/lkml_samples/view_declarations/views"
                         ]
                     }
                 },
@@ -843,7 +843,7 @@
                     "id": "lkml_samples"
                 },
                 {
-                    "id": "view_declarations.view.lkml"
+                    "id": "view_declarations"
                 },
                 {
                     "id": "views"
@@ -865,7 +865,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/looker/lkml_samples/view_declarations.view.lkml/views"
+                            "/prod/looker/lkml_samples/view_declarations/views"
                         ]
                     }
                 },
@@ -957,7 +957,7 @@
                     "id": "lkml_samples"
                 },
                 {
-                    "id": "view_declarations.view.lkml"
+                    "id": "view_declarations"
                 },
                 {
                     "id": "views"
@@ -979,7 +979,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/looker/lkml_samples/view_declarations.view.lkml/views"
+                            "/prod/looker/lkml_samples/view_declarations/views"
                         ]
                     }
                 },
@@ -1071,7 +1071,7 @@
                     "id": "lkml_samples"
                 },
                 {
-                    "id": "view_declarations.view.lkml"
+                    "id": "view_declarations"
                 },
                 {
                     "id": "views"
@@ -1093,7 +1093,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/looker/lkml_samples/nested/fragment_derived.view.lkml/views"
+                            "/prod/looker/lkml_samples/nested/fragment_derived/views"
                         ]
                     }
                 },
@@ -1263,7 +1263,7 @@
                     "id": "nested"
                 },
                 {
-                    "id": "fragment_derived.view.lkml"
+                    "id": "fragment_derived"
                 },
                 {
                     "id": "views"
@@ -1285,7 +1285,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/looker/lkml_samples/liquid.view.lkml/views"
+                            "/prod/looker/lkml_samples/liquid/views"
                         ]
                     }
                 },
@@ -1377,7 +1377,7 @@
                     "id": "lkml_samples"
                 },
                 {
-                    "id": "liquid.view.lkml"
+                    "id": "liquid"
                 },
                 {
                     "id": "views"
@@ -1399,7 +1399,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/looker/lkml_samples/ability.view.lkml/views"
+                            "/prod/looker/lkml_samples/ability/views"
                         ]
                     }
                 },
@@ -1570,7 +1570,7 @@
                     "id": "lkml_samples"
                 },
                 {
-                    "id": "ability.view.lkml"
+                    "id": "ability"
                 },
                 {
                     "id": "views"
@@ -1592,7 +1592,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/looker/lkml_samples/owners.view.lkml/views"
+                            "/prod/looker/lkml_samples/owners/views"
                         ]
                     }
                 },
@@ -1808,7 +1808,7 @@
                     "id": "lkml_samples"
                 },
                 {
-                    "id": "owners.view.lkml"
+                    "id": "owners"
                 },
                 {
                     "id": "views"
@@ -1830,7 +1830,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/looker/lkml_samples/native_derived_table.view.lkml/views"
+                            "/prod/looker/lkml_samples/native_derived_table/views"
                         ]
                     }
                 },
@@ -2054,7 +2054,7 @@
                     "id": "lkml_samples"
                 },
                 {
-                    "id": "native_derived_table.view.lkml"
+                    "id": "native_derived_table"
                 },
                 {
                     "id": "views"
@@ -2076,7 +2076,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/looker/lkml_samples/flights.view.lkml/views"
+                            "/prod/looker/lkml_samples/flights/views"
                         ]
                     }
                 },
@@ -2228,7 +2228,7 @@
                     "id": "lkml_samples"
                 },
                 {
-                    "id": "flights.view.lkml"
+                    "id": "flights"
                 },
                 {
                     "id": "views"

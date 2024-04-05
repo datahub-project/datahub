@@ -311,7 +311,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/Explore/lkml_samples/data"
+                            "/Explore/data"
                         ]
                     }
                 },
@@ -444,9 +444,6 @@
             "path": [
                 {
                     "id": "Explore"
-                },
-                {
-                    "id": "lkml_samples"
                 },
                 {
                     "id": "data"

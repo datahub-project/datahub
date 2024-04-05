@@ -435,7 +435,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/Explore/lkml_samples/data"
+                            "/Explore/data"
                         ]
                     }
                 },
@@ -570,9 +570,6 @@
                     "id": "Explore"
                 },
                 {
-                    "id": "lkml_samples"
-                },
-                {
                     "id": "data"
                 }
             ]
@@ -592,7 +589,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/Explore/lkml_samples/sales_model"
+                            "/Explore/sales_model"
                         ]
                     }
                 },
@@ -725,9 +722,6 @@
             "path": [
                 {
                     "id": "Explore"
-                },
-                {
-                    "id": "lkml_samples"
                 },
                 {
                     "id": "sales_model"

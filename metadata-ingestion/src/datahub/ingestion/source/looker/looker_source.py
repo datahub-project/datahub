@@ -624,6 +624,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
             },
         )
         chart_snapshot.aspects.append(chart_info)
+        # TODO: BrowsePathsV2, container for charts can be emitted here
 
         if dashboard and dashboard.folder_path is not None:
             browse_path = BrowsePathsClass(
@@ -691,6 +692,8 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         )
 
         dashboard_snapshot.aspects.append(dashboard_info)
+
+        # TODO: BrowsePathsV2, container for dashboard can be emitted here
         if looker_dashboard.folder_path is not None:
             browse_path = BrowsePathsClass(
                 paths=[f"/Folders/{looker_dashboard.folder_path}"]
@@ -792,6 +795,9 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
     def _make_dashboard_and_chart_mces(
         self, looker_dashboard: LookerDashboard
     ) -> Iterable[Union[MetadataChangeEvent, MetadataChangeProposalWrapper]]:
+
+        # TODO: LookerFolders can be emitted here as container
+
         # Step 1: Emit metadata for each Chart inside the Dashboard.
         chart_events = []
         for element in looker_dashboard.dashboard_elements:
@@ -878,6 +884,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
 
     def _get_folder_path(self, folder: FolderBase, client: LookerAPI) -> str:
         assert folder.id
+        # TODO: LookerFolder object can be minted here and added to looker model entity
         ancestors = [
             ancestor.name for ancestor in client.folder_ancestors(folder_id=folder.id)
         ]

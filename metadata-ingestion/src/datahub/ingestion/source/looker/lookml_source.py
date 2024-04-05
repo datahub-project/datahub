@@ -1749,6 +1749,8 @@ class LookMLSource(StatefulIngestionSourceBase):
         browse_paths = BrowsePaths(
             paths=[looker_view.id.get_browse_path(self.source_config)]
         )
+
+        # TODO: BrowsePathsV2, container for view can be emitted here
         dataset_snapshot.aspects.append(browse_paths)
         dataset_snapshot.aspects.append(Status(removed=False))
         upstream_lineage = self._get_upstream_lineage(looker_view)
@@ -2054,6 +2056,9 @@ class LookMLSource(StatefulIngestionSourceBase):
             )
 
             project_name = self.get_project_name(model_name)
+
+            # TODO: emit model and project container here. We reach here once per model
+
             logger.debug(f"Model: {model_name}; Includes: {model.resolved_includes}")
 
             for include in model.resolved_includes:

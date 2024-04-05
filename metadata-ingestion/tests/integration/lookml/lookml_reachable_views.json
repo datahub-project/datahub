@@ -7,7 +7,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/Develop/lkml_samples/foo.view.lkml"
+                            "/Develop/lkml_samples/"
                         ]
                     }
                 },
@@ -229,9 +229,6 @@
                 },
                 {
                     "id": "lkml_samples"
-                },
-                {
-                    "id": "foo.view.lkml"
                 }
             ]
         }
@@ -250,7 +247,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/Develop/lkml_samples/owners.view.lkml"
+                            "/Develop/lkml_samples/"
                         ]
                     }
                 },
@@ -432,9 +429,6 @@
                 },
                 {
                     "id": "lkml_samples"
-                },
-                {
-                    "id": "owners.view.lkml"
                 }
             ]
         }
@@ -453,7 +447,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/Develop/lkml_samples/foo2.view.lkml"
+                            "/Develop/lkml_samples/"
                         ]
                     }
                 },
@@ -675,9 +669,6 @@
                 },
                 {
                     "id": "lkml_samples"
-                },
-                {
-                    "id": "foo2.view.lkml"
                 }
             ]
         }

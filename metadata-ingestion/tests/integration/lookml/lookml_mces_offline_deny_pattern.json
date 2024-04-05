@@ -7,7 +7,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/Develop/lkml_samples/included_view_file.view.lkml"
+                            "/Develop/lkml_samples/"
                         ]
                     }
                 },
@@ -97,9 +97,6 @@
                 },
                 {
                     "id": "lkml_samples"
-                },
-                {
-                    "id": "included_view_file.view.lkml"
                 }
             ]
         }
@@ -118,7 +115,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/Develop/lkml_samples/view_declarations.view.lkml"
+                            "/Develop/lkml_samples/"
                         ]
                     }
                 },
@@ -208,9 +205,6 @@
                 },
                 {
                     "id": "lkml_samples"
-                },
-                {
-                    "id": "view_declarations.view.lkml"
                 }
             ]
         }
@@ -229,7 +223,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/Develop/lkml_samples/view_declarations.view.lkml"
+                            "/Develop/lkml_samples/"
                         ]
                     }
                 },
@@ -364,9 +358,6 @@
                 },
                 {
                     "id": "lkml_samples"
-                },
-                {
-                    "id": "view_declarations.view.lkml"
                 }
             ]
         }
@@ -385,7 +376,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/Develop/lkml_samples/view_declarations.view.lkml"
+                            "/Develop/lkml_samples/"
                         ]
                     }
                 },
@@ -475,9 +466,6 @@
                 },
                 {
                     "id": "lkml_samples"
-                },
-                {
-                    "id": "view_declarations.view.lkml"
                 }
             ]
         }
@@ -496,7 +484,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/Develop/lkml_samples/view_declarations.view.lkml"
+                            "/Develop/lkml_samples/"
                         ]
                     }
                 },
@@ -586,9 +574,6 @@
                 },
                 {
                     "id": "lkml_samples"
-                },
-                {
-                    "id": "view_declarations.view.lkml"
                 }
             ]
         }

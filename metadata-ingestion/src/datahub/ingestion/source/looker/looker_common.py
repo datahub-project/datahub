@@ -1,6 +1,7 @@
 import datetime
 import itertools
 import logging
+import os
 import re
 from contextlib import contextmanager
 from dataclasses import dataclass, field as dataclasses_field
@@ -116,7 +117,8 @@ class LookerViewId:
             project=self.project_name,
             model=self.model_name,
             name=self.view_name,
-            file_path=self.file_path,
+            file_path=self.file_path.removesuffix(".view.lkml"),
+            folder_path=os.path.dirname(self.file_path),
         )
 
     @validator("view_name")
@@ -493,12 +495,16 @@ class LookerUtil:
             type=LookerUtil._get_field_type(field.type, reporter),
             nativeDataType=field.type,
             label=field.label,
-            description=field.description
-            if tag_measures_and_dimensions is True
-            else f"{field.field_type.value}. {field.description}",
-            globalTags=LookerUtil._get_tags_from_field_type(field.field_type, reporter)
-            if tag_measures_and_dimensions is True
-            else None,
+            description=(
+                field.description
+                if tag_measures_and_dimensions is True
+                else f"{field.field_type.value}. {field.description}"
+            ),
+            globalTags=(
+                LookerUtil._get_tags_from_field_type(field.field_type, reporter)
+                if tag_measures_and_dimensions is True
+                else None
+            ),
             isPartOfKey=field.is_primary_key,
         )
 
@@ -741,24 +747,32 @@ class LookerExplore:
                                 ViewField(
                                     name=dim_field.name,
                                     label=dim_field.label_short,
-                                    description=dim_field.description
-                                    if dim_field.description
-                                    else "",
-                                    type=dim_field.type
-                                    if dim_field.type is not None
-                                    else "",
-                                    field_type=ViewFieldType.DIMENSION_GROUP
-                                    if dim_field.dimension_group is not None
-                                    else ViewFieldType.DIMENSION,
+                                    description=(
+                                        dim_field.description
+                                        if dim_field.description
+                                        else ""
+                                    ),
+                                    type=(
+                                        dim_field.type
+                                        if dim_field.type is not None
+                                        else ""
+                                    ),
+                                    field_type=(
+                                        ViewFieldType.DIMENSION_GROUP
+                                        if dim_field.dimension_group is not None
+                                        else ViewFieldType.DIMENSION
+                                    ),
                                     project_name=LookerUtil.extract_project_name_from_source_file(
                                         dim_field.source_file
                                     ),
                                     view_name=LookerUtil.extract_view_name_from_lookml_model_explore_field(
                                         dim_field
                                     ),
-                                    is_primary_key=dim_field.primary_key
-                                    if dim_field.primary_key
-                                    else False,
+                                    is_primary_key=(
+                                        dim_field.primary_key
+                                        if dim_field.primary_key
+                                        else False
+                                    ),
                                     upstream_fields=[dim_field.name],
                                 )
                             )
@@ -771,12 +785,16 @@ class LookerExplore:
                                 ViewField(
                                     name=measure_field.name,
                                     label=measure_field.label_short,
-                                    description=measure_field.description
-                                    if measure_field.description
-                                    else "",
-                                    type=measure_field.type
-                                    if measure_field.type is not None
-                                    else "",
+                                    description=(
+                                        measure_field.description
+                                        if measure_field.description
+                                        else ""
+                                    ),
+                                    type=(
+                                        measure_field.type
+                                        if measure_field.type is not None
+                                        else ""
+                                    ),
                                     field_type=ViewFieldType.MEASURE,
                                     project_name=LookerUtil.extract_project_name_from_source_file(
                                         measure_field.source_file
@@ -784,9 +802,11 @@ class LookerExplore:
                                     view_name=LookerUtil.extract_view_name_from_lookml_model_explore_field(
                                         measure_field
                                     ),
-                                    is_primary_key=measure_field.primary_key
-                                    if measure_field.primary_key
-                                    else False,
+                                    is_primary_key=(
+                                        measure_field.primary_key
+                                        if measure_field.primary_key
+                                        else False
+                                    ),
                                     upstream_fields=[measure_field.name],
                                 )
                             )
@@ -888,6 +908,8 @@ class LookerExplore:
             urn=self.get_explore_urn(config),
             aspects=[],  # we append to this list later on
         )
+
+        # TODO: BrowsePathsV2, container for explore can be emitted here
         browse_paths = BrowsePathsClass(paths=[self.get_explore_browse_path(config)])
         dataset_snapshot.aspects.append(browse_paths)
         dataset_snapshot.aspects.append(StatusClass(removed=False))
@@ -919,9 +941,11 @@ class LookerExplore:
                     else ViewFieldValue.NOT_AVAILABLE.value
                 )
                 view_urn = LookerViewId(
-                    project_name=view_ref.project
-                    if view_ref.project != _BASE_PROJECT_NAME
-                    else self.project_name,
+                    project_name=(
+                        view_ref.project
+                        if view_ref.project != _BASE_PROJECT_NAME
+                        else self.project_name
+                    ),
                     model_name=self.model_name,
                     view_name=view_ref.include,
                     file_path=file_path,

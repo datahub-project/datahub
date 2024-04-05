@@ -7,7 +7,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/Develop/lkml_refinement_sample1/views/book.view.lkml"
+                            "/Develop/lkml_refinement_sample1/views"
                         ]
                     }
                 },
@@ -275,9 +275,6 @@
                 },
                 {
                     "id": "views"
-                },
-                {
-                    "id": "book.view.lkml"
                 }
             ]
         }
@@ -296,7 +293,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/Develop/lkml_refinement_sample1/views/extend_book.view.lkml"
+                            "/Develop/lkml_refinement_sample1/views"
                         ]
                     }
                 },
@@ -389,9 +386,6 @@
                 },
                 {
                     "id": "views"
-                },
-                {
-                    "id": "extend_book.view.lkml"
                 }
             ]
         }
@@ -410,7 +404,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/Develop/lkml_refinement_sample1/views/order.view.lkml"
+                            "/Develop/lkml_refinement_sample1/views"
                         ]
                     }
                 },
@@ -593,9 +587,6 @@
                 },
                 {
                     "id": "views"
-                },
-                {
-                    "id": "order.view.lkml"
                 }
             ]
         }
@@ -614,7 +605,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/Develop/lkml_refinement_sample1/views/issue_history.view.lkml"
+                            "/Develop/lkml_refinement_sample1/views"
                         ]
                     }
                 },
@@ -818,9 +809,6 @@
                 },
                 {
                     "id": "views"
-                },
-                {
-                    "id": "issue_history.view.lkml"
                 }
             ]
         }

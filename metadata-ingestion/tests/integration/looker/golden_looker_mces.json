@@ -241,7 +241,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/Explore/lkml_samples/bogus data"
+                            "/Explore/bogus data"
                         ]
                     }
                 },
@@ -376,9 +376,6 @@
                     "id": "Explore"
                 },
                 {
-                    "id": "lkml_samples"
-                },
-                {
                     "id": "bogus data"
                 }
             ]
@@ -398,7 +395,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/Explore/lkml_samples/data"
+                            "/Explore/data"
                         ]
                     }
                 },
@@ -531,9 +528,6 @@
             "path": [
                 {
                     "id": "Explore"
-                },
-                {
-                    "id": "lkml_samples"
                 },
                 {
                     "id": "data"

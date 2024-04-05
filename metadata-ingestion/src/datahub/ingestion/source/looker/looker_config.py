@@ -14,6 +14,7 @@ from datahub.configuration.source_common import (
     PlatformInstanceConfigMixin,
 )
 from datahub.configuration.validate_field_removal import pydantic_removed_field
+from datahub.emitter.mcp_builder import ContainerKey
 from datahub.ingestion.source.looker.looker_lib_wrapper import LookerAPIConfig
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulStaleMetadataRemovalConfig,
@@ -89,6 +90,7 @@ class NamingPatternMapping:
 @dataclasses.dataclass
 class ViewNamingPatternMapping(NamingPatternMapping):
     file_path: str
+    folder_path: str
 
 
 class LookerNamingPattern(NamingPattern):
@@ -101,6 +103,16 @@ class LookerViewNamingPattern(NamingPattern):
     ]
 
 
+class LookMLProjectKey(ContainerKey):
+    project_name: str
+
+
+class LookerModelKey(ContainerKey):
+    project_name: str
+    model_name: str
+
+
+# TODO: deprecate browse_pattern configs
 class LookerCommonConfig(EnvConfigMixin, PlatformInstanceConfigMixin):
     explore_naming_pattern: LookerNamingPattern = pydantic.Field(
         description=f"Pattern for providing dataset names to explores. {LookerNamingPattern.allowed_docstring()}",
@@ -108,14 +120,14 @@ class LookerCommonConfig(EnvConfigMixin, PlatformInstanceConfigMixin):
     )
     explore_browse_pattern: LookerNamingPattern = pydantic.Field(
         description=f"Pattern for providing browse paths to explores. {LookerNamingPattern.allowed_docstring()}",
-        default=LookerNamingPattern(pattern="/Explore/{project}/{model}"),
+        default=LookerNamingPattern(pattern="/Explore/{model}"),
     )
     view_naming_pattern: LookerViewNamingPattern = Field(
         LookerViewNamingPattern(pattern="{project}.view.{name}"),
         description=f"Pattern for providing dataset names to views. {LookerViewNamingPattern.allowed_docstring()}",
     )
     view_browse_pattern: LookerViewNamingPattern = Field(
-        LookerViewNamingPattern(pattern="/Develop/{project}/{file_path}"),
+        LookerViewNamingPattern(pattern="/Develop/{project}/{folder_path}"),
         description=f"Pattern for providing browse paths to views. {LookerViewNamingPattern.allowed_docstring()}",
     )
     tag_measures_and_dimensions: bool = Field(
