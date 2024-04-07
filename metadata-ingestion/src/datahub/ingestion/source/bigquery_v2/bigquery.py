@@ -615,8 +615,28 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 BigqueryProject(id=project_id, name=project_id)
                 for project_id in project_ids
             ]
-        else:
-            return list(self._query_project_list())
+
+        if self.config.folder_ids:
+            return list(self._query_project_list_from_folders())
+
+        return list(self._query_project_list())
+    
+    def _query_project_list_from_folders(self) -> Iterable[BigqueryProject]:
+        projects = self.bigquery_data_dictionary.get_projects_in_folders(self.config.folder_ids)
+        if not projects:  # Report failure on exception and if empty list is returned
+            self.report.report_failure(
+                "metadata-extraction",
+                "Get projects didn't return any project in the specified folder(s). "
+                "Maybe resourcemanager.projects.list permission is missing for the service account. "
+                "You can assign predefined roles/bigquery.metadataViewer role to your service account.",
+            )
+            return []
+
+        for project in projects:
+            if self.config.project_id_pattern.allowed(project.id):
+                yield project
+            else:
+                self.report.report_dropped(project.id)
 
     def _query_project_list(self) -> Iterable[BigqueryProject]:
         projects = self.bigquery_data_dictionary.get_projects()

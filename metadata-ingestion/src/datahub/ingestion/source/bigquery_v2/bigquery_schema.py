@@ -11,6 +11,7 @@ from google.cloud.bigquery.table import (
     TimePartitioning,
     TimePartitioningType,
 )
+from google.cloud import resourcemanager_v3
 
 from datahub.ingestion.source.bigquery_v2.bigquery_audit import BigqueryTableIdentifier
 from datahub.ingestion.source.bigquery_v2.bigquery_report import (
@@ -137,9 +138,13 @@ class BigqueryProject:
 
 class BigQuerySchemaApi:
     def __init__(
-        self, report: BigQuerySchemaApiPerfReport, client: bigquery.Client
+        self,
+        report: BigQuerySchemaApiPerfReport,
+        client: bigquery.Client,
+        projects_client: resourcemanager_v3.ProjectsClient()
     ) -> None:
         self.bq_client = client
+        self.projects_client = projects_client
         self.report = report
 
     def get_query_result(self, query: str) -> RowIterator:
@@ -158,6 +163,21 @@ class BigQuerySchemaApi:
                 ]
             except Exception as e:
                 logger.error(f"Error getting projects. {e}", exc_info=True)
+                return []
+            
+    def get_projects_in_folders(self, folder_ids: List[str]) -> List[BigqueryProject]:
+        try:
+            projects = []
+            for folder_id in folder_ids:
+                for project in self.projects_client.list_projects(parent=f"folders/{folder_id}"):
+                    projects.append(
+                        BigqueryProject(id=project.project_id, name=project.display_name)
+                    )
+
+            return projects
+
+        except Exception as e:
+                logger.error(f"Error getting projects in Folder: {folder_id}. {e}", exc_info=True)
                 return []
 
     def get_datasets_for_project_id(

@@ -193,6 +193,13 @@ class BigQueryV2Config(
             "Overrides `project_id_pattern`."
         ),
     )
+    folder_ids: List[str] = Field(
+        default_factory=list,
+        description=(
+            "Ingests projects that are direct children of the specified folders. Use this property if you want to specify what "
+            "projects to ingest based on their direct parent folders. Your service account will require resourcemanager.projects.list."
+        ),
+    )
 
     storage_project_id: None = Field(default=None, hidden_from_docs=True)
 
