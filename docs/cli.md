@@ -190,14 +190,14 @@ Running `datahub init` will allow you to customize the datahub instance you are 
 ```
 # locally hosted example
 datahub init
-/Users/gabe/.datahubenv already exists. Overwrite? [y/N]: y
+/Users/user/.datahubenv already exists. Overwrite? [y/N]: y
 Configure which datahub instance to connect to
 Enter your DataHub host [http://localhost:8080]: http://localhost:8080
 Enter your DataHub access token (Supports env vars via `{VAR_NAME}` syntax) []:
 
 # acryl example
 datahub init
-/Users/gabe/.datahubenv already exists. Overwrite? [y/N]: y
+/Users/user/.datahubenv already exists. Overwrite? [y/N]: y
 Configure which datahub instance to connect to
 Enter your DataHub host [http://localhost:8080]: https://<your-instance-id>.acryl.io/gms
 Enter your DataHub access token (Supports env vars via `{VAR_NAME}` syntax) []: <token generated from https://<your-instance-id>.acryl.io/settings/tokens>
