@@ -192,6 +192,7 @@ def test_get_projects_with_project_ids(get_bq_client_mock):
     ]
     assert client_mock.list_projects.call_count == 0
 
+
 @patch.object(BigQueryV2Config, "get_bigquery_client")
 def test_get_projects_with_project_ids_overrides_project_id_pattern(
     get_bq_client_mock,
@@ -208,6 +209,7 @@ def test_get_projects_with_project_ids_overrides_project_id_pattern(
         BigqueryProject(id="test-project", name="test-project"),
         BigqueryProject(id="test-project-2", name="test-project-2"),
     ]
+
 
 def test_platform_instance_config_always_none():
     config = BigQueryV2Config.parse_obj(
@@ -307,6 +309,7 @@ def test_get_projects_filter_by_pattern(get_bq_client_mock, get_projects_mock):
     assert projects == [
         BigqueryProject(id="test-project-2", name="Test Project 2"),
     ]
+
 
 @patch.object(BigQuerySchemaApi, "get_projects")
 @patch.object(BigQueryV2Config, "get_bigquery_client")
