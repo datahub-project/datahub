@@ -58,7 +58,6 @@ from datahub.metadata.schema_classes import (
     UpstreamClass,
     UpstreamLineageClass,
 )
-from datahub.specific.dataset import DatasetPatchBuilder
 from datahub.sql_parsing.schema_resolver import SchemaResolver
 from datahub.sql_parsing.sqlglot_lineage import SqlParsingResult, sqlglot_lineage
 from datahub.utilities import memory_footprint
@@ -451,29 +450,15 @@ class BigqueryLineageExtractor:
             return
 
         if upstream_lineage is not None:
-            if self.config.incremental_lineage:
-                patch_builder: DatasetPatchBuilder = DatasetPatchBuilder(
-                    urn=dataset_urn
-                )
-                for upstream in upstream_lineage.upstreams:
-                    patch_builder.add_upstream_lineage(upstream)
+            if not self.config.extract_column_lineage:
+                upstream_lineage.fineGrainedLineages = None
 
-                yield from [
-                    MetadataWorkUnit(
-                        id=f"upstreamLineage-for-{dataset_urn}",
-                        mcp_raw=mcp,
-                    )
-                    for mcp in patch_builder.build()
-                ]
-            else:
-                if not self.config.extract_column_lineage:
-                    upstream_lineage.fineGrainedLineages = None
-
-                yield from [
-                    MetadataChangeProposalWrapper(
-                        entityUrn=dataset_urn, aspect=upstream_lineage
-                    ).as_workunit()
-                ]
+            # Incremental lineage is handled by the auto_incremental_lineage helper.
+            yield from [
+                MetadataChangeProposalWrapper(
+                    entityUrn=dataset_urn, aspect=upstream_lineage
+                ).as_workunit()
+            ]
 
     def lineage_via_catalog_lineage_api(
         self, project_id: str
@@ -563,6 +548,7 @@ class BigqueryLineageExtractor:
                 )
 
                 # Only builds lineage map when the table has upstreams
+                logger.debug("Found %d upstreams for table %s", len(upstreams), table)
                 if upstreams:
                     lineage_map[destination_table_str] = set(
                         [
@@ -751,8 +737,17 @@ class BigqueryLineageExtractor:
 
             # Try the sql parser first.
             if self.config.lineage_use_sql_parser:
+                if e.statementType == "SELECT":
+                    # We wrap select statements in a CTE to make them parseable as insert statement.
+                    # This is a workaround for the sql parser to support the case where the user runs a query and inserts the result into a table..
+                    query = f"""create table `{destination_table.table_identifier.get_table_name()}` AS
+                    (
+                        {e.query}
+                    )"""
+                else:
+                    query = e.query
                 raw_lineage = sqlglot_lineage(
-                    e.query,
+                    query,
                     schema_resolver=sql_parser_schema_resolver,
                     default_db=e.project_id,
                 )

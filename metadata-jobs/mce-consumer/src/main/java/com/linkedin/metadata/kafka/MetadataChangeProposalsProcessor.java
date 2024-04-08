@@ -62,6 +62,16 @@ public class MetadataChangeProposalsProcessor {
     try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "consume").time()) {
       kafkaLagStats.update(System.currentTimeMillis() - consumerRecord.timestamp());
       final GenericRecord record = consumerRecord.value();
+
+      log.info(
+          "Got MCP event key: {}, topic: {}, partition: {}, offset: {}, value size: {}, timestamp: {}",
+          consumerRecord.key(),
+          consumerRecord.topic(),
+          consumerRecord.partition(),
+          consumerRecord.offset(),
+          consumerRecord.serializedValueSize(),
+          consumerRecord.timestamp());
+
       log.debug("Record {}", record);
 
       MetadataChangeProposal event = new MetadataChangeProposal();
@@ -69,7 +79,8 @@ public class MetadataChangeProposalsProcessor {
         event = EventUtils.avroToPegasusMCP(record);
         log.debug("MetadataChangeProposal {}", event);
         // TODO: Get this from the event itself.
-        entityClient.ingestProposal(event, false);
+        String urn = entityClient.ingestProposal(event, false);
+        log.info("Successfully processed MCP event urn: {}", urn);
       } catch (Throwable throwable) {
         log.error("MCP Processor Error", throwable);
         log.error("Message: {}", record);

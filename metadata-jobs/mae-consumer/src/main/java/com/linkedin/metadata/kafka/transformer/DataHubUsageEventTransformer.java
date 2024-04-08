@@ -11,8 +11,6 @@ import com.google.common.collect.ImmutableSet;
 import com.linkedin.metadata.datahubusage.DataHubUsageEventType;
 import com.linkedin.metadata.kafka.hydrator.EntityHydrator;
 import com.linkedin.metadata.kafka.hydrator.EntityType;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import lombok.Value;
@@ -44,18 +42,6 @@ public class DataHubUsageEventTransformer {
           DataHubUsageEventType.ENTITY_ACTION_EVENT);
 
   private final EntityHydrator _entityHydrator;
-
-  private static final Map<EntityType, String> ENTITY_TYPE_MAP;
-
-  static {
-    ENTITY_TYPE_MAP = new HashMap<>(6);
-    ENTITY_TYPE_MAP.put(EntityType.CHART, CHART_ENTITY_NAME);
-    ENTITY_TYPE_MAP.put(EntityType.CORP_USER, CORP_GROUP_ENTITY_NAME);
-    ENTITY_TYPE_MAP.put(EntityType.DASHBOARD, DASHBOARD_ENTITY_NAME);
-    ENTITY_TYPE_MAP.put(EntityType.DATA_FLOW, DATA_FLOW_ENTITY_NAME);
-    ENTITY_TYPE_MAP.put(EntityType.DATA_JOB, DATA_JOB_ENTITY_NAME);
-    ENTITY_TYPE_MAP.put(EntityType.DATASET, DATASET_ENTITY_NAME);
-  }
 
   @Value
   public static class TransformedDocument {
@@ -130,8 +116,7 @@ public class DataHubUsageEventTransformer {
   }
 
   private void setFieldsForEntity(EntityType entityType, String urn, ObjectNode searchObject) {
-    String entityTypeName = ENTITY_TYPE_MAP.get(entityType);
-    Optional<ObjectNode> entityObject = _entityHydrator.getHydratedEntity(entityTypeName, urn);
+    Optional<ObjectNode> entityObject = _entityHydrator.getHydratedEntity(urn);
     if (!entityObject.isPresent()) {
       log.info("No matches for urn {}", urn);
       return;

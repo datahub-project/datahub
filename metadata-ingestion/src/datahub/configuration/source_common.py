@@ -3,7 +3,7 @@ from typing import Dict, Optional, Set
 from pydantic import validator
 from pydantic.fields import Field
 
-from datahub.configuration.common import ConfigModel, ConfigurationError
+from datahub.configuration.common import ConfigModel
 from datahub.configuration.validate_field_deprecation import pydantic_field_deprecated
 from datahub.metadata.schema_classes import FabricTypeClass
 
@@ -45,7 +45,7 @@ class EnvConfigMixin(ConfigModel):
     @validator("env")
     def env_must_be_one_of(cls, v: str) -> str:
         if v.upper() not in ALL_ENV_TYPES:
-            raise ConfigurationError(f"env must be one of {ALL_ENV_TYPES}, found {v}")
+            raise ValueError(f"env must be one of {ALL_ENV_TYPES}, found {v}")
         return v.upper()
 
 

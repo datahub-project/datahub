@@ -41,7 +41,7 @@ public interface SystemEntityClient extends EntityClient {
       Class<?> metricClazz, EntityClientCacheConfig cacheConfig) {
     return EntityClientCache.builder()
         .config(cacheConfig)
-        .loadFunction(
+        .build(
             (EntityClientCache.CollectionKey collectionKey) -> {
               try {
                 String entityName =
@@ -61,8 +61,8 @@ public interface SystemEntityClient extends EntityClient {
               } catch (RemoteInvocationException | URISyntaxException e) {
                 throw new RuntimeException(e);
               }
-            })
-        .build(metricClazz);
+            },
+            metricClazz);
   }
 
   /**

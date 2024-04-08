@@ -450,6 +450,20 @@ public interface EntityClient {
   boolean exists(@Nonnull Urn urn, @Nonnull Authentication authentication)
       throws RemoteInvocationException;
 
+  /**
+   * Checks whether an entity with a given urn exists
+   *
+   * @param urn the urn of the entity
+   * @param includeSoftDelete whether to consider soft deletion.
+   * @return true if an entity exists, i.e. there are > 0 aspects in the DB for the entity. This
+   *     means that the entity has not been hard-deleted when includeSoftDelete is true. Else will
+   *     check for value of the status aspect
+   * @throws RemoteInvocationException when unable to execute request
+   */
+  boolean exists(
+      @Nonnull Urn urn, @Nonnull Boolean includeSoftDelete, @Nonnull Authentication authentication)
+      throws RemoteInvocationException;
+
   @Nullable
   @Deprecated
   VersionedAspect getAspect(

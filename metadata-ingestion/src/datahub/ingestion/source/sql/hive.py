@@ -134,11 +134,6 @@ class HiveConfig(TwoTierSQLAlchemyConfig):
 @support_status(SupportStatus.CERTIFIED)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
-@capability(
-    SourceCapability.CLASSIFICATION,
-    "Optionally enabled via `classification.enabled`",
-    supported=True,
-)
 class HiveSource(TwoTierSQLAlchemySource):
     """
     This plugin extracts the following:

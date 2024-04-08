@@ -29,7 +29,7 @@ import lombok.NonNull;
 public class EntityClientCache {
   @NonNull private EntityClientCacheConfig config;
   @NonNull private final ClientCache<Key, EnvelopedAspect, EntityClientCacheConfig> cache;
-  @NonNull private Function<CollectionKey, Map<Urn, EntityResponse>> loadFunction;
+  @NonNull private final Function<CollectionKey, Map<Urn, EntityResponse>> loadFunction;
 
   public EntityResponse getV2(
       @Nonnull OperationContext opContext,
@@ -104,7 +104,14 @@ public class EntityClientCache {
       return this;
     }
 
-    public EntityClientCache build(Class<?> metricClazz) {
+    private EntityClientCacheBuilder loadFunction(
+        Function<CollectionKey, Map<Urn, EntityResponse>> loadFunction) {
+      return this;
+    }
+
+    public EntityClientCache build(
+        @Nonnull final Function<CollectionKey, Map<Urn, EntityResponse>> fetchFunction,
+        Class<?> metricClazz) {
       // estimate size
       Weigher<Key, EnvelopedAspect> weighByEstimatedSize =
           (key, value) -> value.getValue().data().toString().getBytes().length;
@@ -118,7 +125,7 @@ public class EntityClientCache {
             return keysByContextEntity.entrySet().stream()
                 .flatMap(
                     entry ->
-                        loadByEntity(entry.getKey(), entry.getValue(), loadFunction)
+                        loadByEntity(entry.getKey(), entry.getValue(), fetchFunction)
                             .entrySet()
                             .stream())
                 .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
@@ -133,15 +140,15 @@ public class EntityClientCache {
                   .getOrDefault(key.getEntityName(), Map.of())
                   .getOrDefault(key.getAspectName(), config.getDefaultTTLSeconds());
 
-      cache =
+      this.cache =
           ClientCache.<Key, EnvelopedAspect, EntityClientCacheConfig>builder()
               .weigher(weighByEstimatedSize)
-              .config(config)
+              .config(this.config)
               .loadFunction(loader)
               .ttlSecondsFunction(ttlSeconds)
               .build(metricClazz);
 
-      return new EntityClientCache(config, cache, loadFunction);
+      return new EntityClientCache(this.config, this.cache, fetchFunction);
     }
   }
 
@@ -191,6 +198,7 @@ public class EntityClientCache {
                         envAspect -> {
                           Key key =
                               Key.builder()
+                                  .contextId(contextId)
                                   .urn(resp.getKey())
                                   .aspectName(envAspect.getName())
                                   .build();

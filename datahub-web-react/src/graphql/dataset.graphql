@@ -236,7 +236,7 @@ fragment viewProperties on Dataset {
 }
 
 fragment assertionsQuery on Dataset {
-    assertions(start: 0, count: 1000) {
+    assertions(start: 0, count: 1000, includeSoftDeleted: false) {
         start
         count
         total

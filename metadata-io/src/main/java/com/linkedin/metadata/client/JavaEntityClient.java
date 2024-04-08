@@ -618,6 +618,15 @@ public class JavaEntityClient implements EntityClient {
     return entityService.exists(urn, true);
   }
 
+  @Override
+  public boolean exists(
+      @Nonnull Urn urn,
+      @Nonnull Boolean includeSoftDelete,
+      @Nonnull final Authentication authentication)
+      throws RemoteInvocationException {
+    return entityService.exists(urn, includeSoftDelete);
+  }
+
   @SneakyThrows
   @Override
   @Deprecated

@@ -452,6 +452,12 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                 else:
                     slug = ""
 
+                look_folder_path = None
+                if element.look.folder is not None:
+                    look_folder_path = self._get_folder_path(
+                        element.look.folder, self.looker_api
+                    )
+
                 return LookerDashboardElement(
                     id=element.id,
                     title=title,
@@ -464,6 +470,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                         for exp in explores
                     ],
                     input_fields=input_fields,
+                    folder_path=look_folder_path,
                 )
 
         # Failing the above two approaches, pick out details from result_maker
@@ -524,10 +531,12 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                 type=element.type,
                 description=element.subtitle_text,
                 look_id=element.look_id,
-                query_slug=element.result_maker.query.slug
-                if element.result_maker.query is not None
-                and element.result_maker.query.slug is not None
-                else "",
+                query_slug=(
+                    element.result_maker.query.slug
+                    if element.result_maker.query is not None
+                    and element.result_maker.query.slug is not None
+                    else ""
+                ),
                 upstream_explores=[
                     LookerExplore(model_name=model, name=exp) for exp in explores
                 ],
@@ -603,18 +612,29 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
             chartUrl=dashboard_element.url(self.source_config.external_base_url or ""),
             inputs=dashboard_element.get_view_urns(self.source_config),
             customProperties={
-                "upstream_fields": ",".join(
-                    sorted(set(field.name for field in dashboard_element.input_fields))
+                "upstream_fields": (
+                    ",".join(
+                        sorted(
+                            set(field.name for field in dashboard_element.input_fields)
+                        )
+                    )
+                    if dashboard_element.input_fields
+                    else ""
                 )
-                if dashboard_element.input_fields
-                else ""
             },
         )
         chart_snapshot.aspects.append(chart_info)
 
         if dashboard and dashboard.folder_path is not None:
             browse_path = BrowsePathsClass(
-                paths=[f"/looker/{dashboard.folder_path}/{dashboard.title}"]
+                paths=[f"/Folders/{dashboard.folder_path}/{dashboard.title}"]
+            )
+            chart_snapshot.aspects.append(browse_path)
+        elif (
+            dashboard is None and dashboard_element.folder_path is not None
+        ):  # independent look
+            browse_path = BrowsePathsClass(
+                paths=[f"/Folders/{dashboard_element.folder_path}"]
             )
             chart_snapshot.aspects.append(browse_path)
 
@@ -673,7 +693,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         dashboard_snapshot.aspects.append(dashboard_info)
         if looker_dashboard.folder_path is not None:
             browse_path = BrowsePathsClass(
-                paths=[f"/looker/{looker_dashboard.folder_path}"]
+                paths=[f"/Folders/{looker_dashboard.folder_path}"]
             )
             dashboard_snapshot.aspects.append(browse_path)
 
@@ -1084,10 +1104,12 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         looker_dashboard = self._get_looker_dashboard(dashboard_object, self.looker_api)
         mces = self._make_dashboard_and_chart_mces(looker_dashboard)
         workunits = [
-            MetadataWorkUnit(id=f"looker-{mce.proposedSnapshot.urn}", mce=mce)
-            if isinstance(mce, MetadataChangeEvent)
-            else MetadataWorkUnit(
-                id=f"looker-{mce.aspectName}-{mce.entityUrn}", mcp=mce
+            (
+                MetadataWorkUnit(id=f"looker-{mce.proposedSnapshot.urn}", mce=mce)
+                if isinstance(mce, MetadataChangeEvent)
+                else MetadataWorkUnit(
+                    id=f"looker-{mce.aspectName}-{mce.entityUrn}", mcp=mce
+                )
             )
             for mce in mces
         ]
@@ -1177,12 +1199,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         self.reporter.report_stage_start("extract_independent_looks")
 
         logger.debug("Extracting looks not part of Dashboard")
-        look_fields: List[str] = [
-            "id",
-            "title",
-            "description",
-            "query_id",
-        ]
+        look_fields: List[str] = ["id", "title", "description", "query_id", "folder"]
         query_fields: List[str] = [
             "id",
             "view",
@@ -1227,8 +1244,8 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                     subtitle_text=look.description,
                     look_id=look.id,
                     dashboard_id=None,  # As this is independent look
-                    look=LookWithQuery(query=query),
-                )
+                    look=LookWithQuery(query=query, folder=look.folder),
+                ),
             )
 
             if dashboard_element is not None:
