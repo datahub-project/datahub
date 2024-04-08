@@ -16,7 +16,7 @@ from datahub.metadata.schema_classes import (
     FineGrainedLineageClass,
     FineGrainedLineageDownstreamTypeClass,
     FineGrainedLineageUpstreamTypeClass,
-    TagPropertiesClass
+    StatusClass,
 )
 from datahub.sql_parsing.sqlglot_lineage import SqlParsingResult
 from datahub.telemetry import telemetry
@@ -497,17 +497,12 @@ class DataHubListener:
         # emit tags
         for tag in dataflow.tags:
             tag_urn = builder.make_tag_urn(tag)
-            tag_properties_aspect = TagPropertiesClass(
-                name=tag,
-                description="",
-            )
 
             event: MetadataChangeProposalWrapper = MetadataChangeProposalWrapper(
-                entityUrn=tag_urn,
-                aspect=tag_properties_aspect,
+                entityUrn=tag_urn, aspect=StatusClass(removed=False)
             )
 
-        self.emitter.emit(event)
+            self.emitter.emit(event)
 
     if HAS_AIRFLOW_DAG_LISTENER_API:
 
