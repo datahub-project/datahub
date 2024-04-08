@@ -240,6 +240,36 @@ def test_get_projects_with_project_ids_overrides_project_id_pattern(
         BigqueryProject(id="test-project-2", name="test-project-2"),
     ]
 
+@patch.object(BigQueryV2Config, "get_projects_client")
+def test_get_projects_with_project_ids_overrides_folder_ids(
+    get_proj_client_mock,
+):
+    client_mock = MagicMock()
+    get_proj_client_mock.return_value = client_mock
+    client_mock.list_projects.return_value = [
+        SimpleNamespace(
+            project_id="test-1",
+            friendly_name="one",
+        ),
+        SimpleNamespace(
+            project_id="test-2",
+            friendly_name="two",
+        ),
+    ]
+    config = BigQueryV2Config.parse_obj(
+        {
+            "project_ids": ["test-project", "test-project-2"],
+            "folder_ids": ["123", "456"],
+        }
+    )
+    source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test"))
+    projects = source._get_projects()
+    assert projects == [
+        BigqueryProject(id="test-project", name="test-project"),
+        BigqueryProject(id="test-project-2", name="test-project-2"),
+    ]
+
+
 
 def test_platform_instance_config_always_none():
     config = BigQueryV2Config.parse_obj(
