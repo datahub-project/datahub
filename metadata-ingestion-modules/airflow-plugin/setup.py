@@ -18,29 +18,27 @@ _version: str = package_metadata["__version__"]
 _self_pin = (
     f"=={_version}" if not (_version.endswith("dev0") or "docker" in _version) else ""
 )
-DATAHUB_PACKAGE_NAME: str = package_metadata['DATAHUB_PACKAGE_NAME']
-_package_name = package_metadata["__package_name__"]
 
 
 base_requirements = {
-    f"{DATAHUB_PACKAGE_NAME}[datahub-rest]{_self_pin}",
+    f"acryl-datahub[datahub-rest]{_self_pin}",
     # Actual dependencies.
     "apache-airflow >= 2.0.2",
 }
 
 plugins: Dict[str, Set[str]] = {
     "datahub-rest": {
-        f"{DATAHUB_PACKAGE_NAME}[datahub-rest]{_self_pin}",
+        f"acryl-datahub[datahub-rest]{_self_pin}",
     },
     "datahub-kafka": {
-        f"{DATAHUB_PACKAGE_NAME}[datahub-kafka]{_self_pin}",
+        f"acryl-datahub[datahub-kafka]{_self_pin}",
     },
     "datahub-file": {
-        f"{DATAHUB_PACKAGE_NAME}[sync-file-emitter]{_self_pin}",
+        f"acryl-datahub[sync-file-emitter]{_self_pin}",
     },
     "plugin-v1": set(),
     "plugin-v2": {
-        f"{DATAHUB_PACKAGE_NAME}[sql-parser]{_self_pin}",
+        f"acryl-datahub[sql-parser]{_self_pin}",
         "openlineage-airflow==1.2.0",
     },
 }
@@ -95,7 +93,7 @@ integration_test_requirements = {
     *dev_requirements,
     *plugins["datahub-file"],
     *plugins["datahub-kafka"],
-    f"{DATAHUB_PACKAGE_NAME}[testing-utils]{_self_pin}",
+    f"acryl-datahub[testing-utils]{_self_pin}",
     # Extra requirements for loading our test dags.
     "apache-airflow[snowflake]>=2.0.2",
     # Connexion's new version breaks Airflow:
@@ -117,7 +115,7 @@ integration_test_requirements = {
 
 
 entry_points = {
-    "airflow.plugins": f"{_package_name} = datahub_airflow_plugin.datahub_plugin:DatahubPlugin",
+    "airflow.plugins": "acryl-datahub-airflow-plugin = datahub_airflow_plugin.datahub_plugin:DatahubPlugin",
     "apache_airflow_provider": ["provider_info=datahub_provider:get_provider_info"],
 }
 
