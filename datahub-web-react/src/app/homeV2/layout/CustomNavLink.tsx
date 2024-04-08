@@ -24,7 +24,7 @@ const CustomNavLink: React.FC<Props> = ({
 
     if (onClick) {
         return (
-            <OptionContainer onClick={onClick}>
+            <OptionContainer onClick={onClick} key={key}>
                 {title}
                 {description && <span>{description}</span>}
             </OptionContainer>

@@ -109,7 +109,7 @@ export const Resources = () => {
             </Header>
             <Section>
                 {selectedGuides.map((guide) => (
-                    <ResourceLink target="_blank" rel="noreferrer noopener" href={guide.url}>
+                    <ResourceLink target="_blank" rel="noreferrer noopener" href={guide.url} key={guide.title}>
                         <guide.icon style={{ fontSize: 20, width: 18, height: 18, color: ANTD_GRAY[8] }} />
                         <ResourceTitle>{guide.title}</ResourceTitle>
                     </ResourceLink>

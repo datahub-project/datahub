@@ -58,13 +58,13 @@ export default function ParentEntities({ parentEntities, numVisible = DEFAULT_NU
             title={
                 <>
                     {orderedParentEntities.map((parentEntity, index) => (
-                        <>
+                        <React.Fragment key={parentEntity.urn}>
                             <FolderOpenOutlined />
                             <ParentNode color="white">
                                 {entityRegistry.getDisplayName(parentEntity.type, parentEntity)}
                             </ParentNode>
                             {index !== orderedParentEntities.length - 1 && <ArrowWrapper>{'>'}</ArrowWrapper>}
-                        </>
+                        </React.Fragment>
                     ))}
                 </>
             }

@@ -330,9 +330,10 @@ export function NavLinksMenu(props: Props) {
                     return (
                         <LinkWrapper
                             aria-label={menuItem.title}
-                            aria-description={menuItem.description}
+                            aria-describedby={menuItem.description}
                             onMouseEnter={menuItem.subMenu?.open}
                             onMouseLeave={menuItem.subMenu?.close}
+                            key={menuItem.title.toLowerCase()}
                         >
                             {menuItem.icon && <menuItem.icon />}
                             {menuItem.subMenu?.isOpen && subMenu}
@@ -343,7 +344,7 @@ export function NavLinksMenu(props: Props) {
                 // Render a single menu item
                 return (
                     <LinkWrapper key={menuItem.title.toLowerCase()}>
-                        <Link to={menuItem.link} aria-label={menuItem.title} aria-description={menuItem.description}>
+                        <Link to={menuItem.link} aria-label={menuItem.title} aria-describedby={menuItem.description}>
                             <Tooltip placement="right" title={menuItem.title}>
                                 {menuItem.icon && <menuItem.icon />}
                             </Tooltip>
