@@ -20,6 +20,16 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 ### Breaking Changes
 
+### Potential Downtime
+
+### Deprecations
+
+### Other Notable Change
+
+## 0.13.1
+
+### Breaking Changes
+
 - #9934 and #10075 - Stateful ingestion is now enabled by default if a `pipeline_name` is set and either a datahub-rest sink or `datahub_api` is specified. It will still be disabled by default when any other sink type is used or if there is no pipeline name set.
 - #10002 - The `DataHubGraph` client no longer makes a request to the backend during initialization. If you want to preserve the old behavior, call `graph.test_connection()` after constructing the client.
 - #10026 - The dbt `use_compiled_code` option has been removed, because we now support capturing both source and compiled dbt SQL. This can be configured using `include_compiled_code`, which will be default enabled in 0.13.1.
@@ -27,6 +37,7 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 - #10090 - For Redshift ingestion, `use_lineage_v2` is now enabled by default.
 - #10147 - For looker ingestion, the browse paths for looker Dashboard, Chart, View, Explore have been updated to align with Looker UI. This does not affect URNs or lineage but primarily affects (improves) browsing experience.
 - #10164 - For dbt ingestion, `entities_enabled.model_performance` and `include_compiled_code` are now both enabled by default. Upgrading dbt ingestion will also require upgrading the backend to 0.13.1.
+- #10066 - For view access controls, `SEARCH_AUTHORIZATION_ENABLED` replaced by `VIEW_AUTHORIZATION_ENABLED` to more accurately represent the feature.
 
 ### Potential Downtime
 
