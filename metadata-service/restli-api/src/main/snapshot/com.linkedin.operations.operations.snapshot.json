@@ -973,12 +973,12 @@
           "items" : "Urn"
         }
       },
-      "doc" : "Owners to ownership type map, populated with mutation hook.",
+      "doc" : "Ownership type to Owners map, populated via mutation hook.",
       "default" : { },
       "optional" : true,
       "Searchable" : {
         "/*" : {
-          "fieldType" : "OBJECT",
+          "fieldType" : "MAP_ARRAY",
           "queryByDefault" : false
         }
       }
@@ -3781,6 +3781,18 @@
         }, {
           "name" : "batchSize",
           "type" : "int",
+          "optional" : true
+        }, {
+          "name" : "limit",
+          "type" : "int",
+          "optional" : true
+        }, {
+          "name" : "gePitEpochMs",
+          "type" : "long",
+          "optional" : true
+        }, {
+          "name" : "lePitEpochMs",
+          "type" : "long",
           "optional" : true
         } ],
         "returns" : "string"

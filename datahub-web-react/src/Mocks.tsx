@@ -29,6 +29,7 @@ import {
     PlatformPrivileges,
     FilterOperator,
     AppConfig,
+    EntityPrivileges,
 } from './types.generated';
 import { GetTagDocument } from './graphql/tag.generated';
 import { GetMlModelDocument } from './graphql/mlModel.generated';
@@ -42,6 +43,16 @@ import { DEFAULT_APP_CONFIG } from './appConfigContext';
 import { GetQuickFiltersDocument } from './graphql/quickFilters.generated';
 import { GetGrantedPrivilegesDocument } from './graphql/policy.generated';
 import { VIEW_ENTITY_PAGE } from './app/entity/shared/constants';
+
+export const entityPrivileges: EntityPrivileges = {
+    canEditLineage: true,
+    canManageEntity: true,
+    canManageChildren: true,
+    canEditEmbed: true,
+    canEditQueries: true,
+    canEditProperties: true,
+    __typename: 'EntityPrivileges',
+};
 
 export const user1 = {
     __typename: 'CorpUser',
@@ -211,9 +222,7 @@ export const dataset1 = {
     tags: ['Private', 'PII'],
     uri: 'www.google.com',
     privileges: {
-        canEditLineage: false,
-        canEditEmbed: false,
-        canEditQueries: false,
+        ...entityPrivileges,
     },
     properties: {
         name: 'The Great Test Dataset',
@@ -318,9 +327,7 @@ export const dataset2 = {
         type: EntityType.DataPlatform,
     },
     privileges: {
-        canEditLineage: false,
-        canEditEmbed: false,
-        canEditQueries: false,
+        ...entityPrivileges,
     },
     lastIngested: null,
     exists: true,
@@ -422,10 +429,7 @@ export const dataset3 = {
         properties: null,
     },
     privileges: {
-        __typename: 'EntityPrivileges',
-        canEditLineage: false,
-        canEditEmbed: false,
-        canEditQueries: false,
+        ...entityPrivileges,
     },
     exists: true,
     lastIngested: null,
@@ -621,8 +625,7 @@ export const dataset3 = {
     health: [],
     assertions: null,
     status: null,
-    readRuns: null,
-    writeRuns: null,
+    runs: null,
     testResults: null,
     siblings: null,
     statsSummary: null,
@@ -1384,8 +1387,7 @@ export const dataJob1 = {
         },
     },
     privileges: {
-        canEditLineage: false,
-        canEditEmbed: false,
+        ...entityPrivileges,
     },
     properties: {
         name: 'DataJobInfoName',
@@ -1449,8 +1451,7 @@ export const dataJob2 = {
     dataFlow: dataFlow1,
     jobId: 'jobId2',
     privileges: {
-        canEditLineage: false,
-        canEditEmbed: false,
+        ...entityPrivileges,
     },
     ownership: {
         __typename: 'Ownership',
@@ -1523,8 +1524,7 @@ export const dataJob3 = {
     lastIngested: null,
     exists: true,
     privileges: {
-        canEditLineage: false,
-        canEditEmbed: false,
+        ...entityPrivileges,
     },
     ownership: {
         __typename: 'Ownership',

@@ -9,12 +9,14 @@ import airflow
 import datahub.emitter.mce_builder as builder
 from datahub.api.entities.datajob import DataJob
 from datahub.api.entities.dataprocess.dataprocess_instance import InstanceRunResult
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata.schema_classes import (
     FineGrainedLineageClass,
     FineGrainedLineageDownstreamTypeClass,
     FineGrainedLineageUpstreamTypeClass,
+    StatusClass,
 )
 from datahub.sql_parsing.sqlglot_lineage import SqlParsingResult
 from datahub.telemetry import telemetry
@@ -491,6 +493,16 @@ class DataHubListener:
             capture_owner=self.config.capture_ownership_info,
         )
         dataflow.emit(self.emitter, callback=self._make_emit_callback())
+
+        # emit tags
+        for tag in dataflow.tags:
+            tag_urn = builder.make_tag_urn(tag)
+
+            event: MetadataChangeProposalWrapper = MetadataChangeProposalWrapper(
+                entityUrn=tag_urn, aspect=StatusClass(removed=False)
+            )
+
+            self.emitter.emit(event)
 
     if HAS_AIRFLOW_DAG_LISTENER_API:
 

@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.resolvers.deprecation;
 
+import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.ALL_PRIVILEGES_GROUP;
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 import static com.linkedin.metadata.Constants.*;
 
@@ -13,7 +14,6 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.UpdateDeprecationInput;
-import com.linkedin.datahub.graphql.resolvers.AuthUtils;
 import com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.authorization.PoliciesConfig;
@@ -89,7 +89,7 @@ public class UpdateDeprecationResolver implements DataFetcher<CompletableFuture<
     final DisjunctivePrivilegeGroup orPrivilegeGroups =
         new DisjunctivePrivilegeGroup(
             ImmutableList.of(
-                AuthUtils.ALL_PRIVILEGES_GROUP,
+                ALL_PRIVILEGES_GROUP,
                 new ConjunctivePrivilegeGroup(
                     ImmutableList.of(PoliciesConfig.EDIT_ENTITY_DEPRECATION_PRIVILEGE.getType()))));
 

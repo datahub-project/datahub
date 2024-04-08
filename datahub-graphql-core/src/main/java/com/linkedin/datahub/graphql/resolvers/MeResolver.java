@@ -1,11 +1,13 @@
 package com.linkedin.datahub.graphql.resolvers;
 
+import static com.datahub.authorization.AuthUtil.isAuthorized;
+import static com.datahub.authorization.AuthUtil.isAuthorizedEntityType;
 import static com.linkedin.datahub.graphql.resolvers.ingest.IngestionAuthUtils.*;
 import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.authorization.ApiGroup.ANALYTICS;
+import static com.linkedin.metadata.authorization.ApiOperation.MANAGE;
+import static com.linkedin.metadata.authorization.ApiOperation.READ;
 
-import com.datahub.authorization.AuthorizationRequest;
-import com.datahub.authorization.AuthorizationResult;
-import com.datahub.plugins.auth.authorization.Authorizer;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
@@ -22,7 +24,7 @@ import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.net.URISyntaxException;
 import java.util.Collections;
-import java.util.Optional;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import javax.annotation.Nonnull;
 
@@ -59,7 +61,7 @@ public class MeResolver implements DataFetcher<CompletableFuture<AuthenticatedUs
                         null,
                         context.getAuthentication())
                     .get(userUrn);
-            final CorpUser corpUser = CorpUserMapper.map(gmsUser, _featureFlags);
+            final CorpUser corpUser = CorpUserMapper.map(context, gmsUser, _featureFlags);
 
             // 2. Get platform privileges
             final PlatformPrivileges platformPrivileges = new PlatformPrivileges();
@@ -98,22 +100,22 @@ public class MeResolver implements DataFetcher<CompletableFuture<AuthenticatedUs
 
   /** Returns true if the authenticated user has privileges to view analytics. */
   private boolean canViewAnalytics(final QueryContext context) {
-    return isAuthorized(
-        context.getAuthorizer(), context.getActorUrn(), PoliciesConfig.VIEW_ANALYTICS_PRIVILEGE);
+    return isAuthorized(context.getActorUrn(), context.getAuthorizer(), ANALYTICS, READ);
   }
 
   /** Returns true if the authenticated user has privileges to manage policies analytics. */
   private boolean canManagePolicies(final QueryContext context) {
-    return isAuthorized(
-        context.getAuthorizer(), context.getActorUrn(), PoliciesConfig.MANAGE_POLICIES_PRIVILEGE);
+    return isAuthorizedEntityType(
+        context.getActorUrn(), context.getAuthorizer(), MANAGE, List.of(POLICY_ENTITY_NAME));
   }
 
   /** Returns true if the authenticated user has privileges to manage users & groups. */
   private boolean canManageUsersGroups(final QueryContext context) {
-    return isAuthorized(
-        context.getAuthorizer(),
+    return isAuthorizedEntityType(
         context.getActorUrn(),
-        PoliciesConfig.MANAGE_USERS_AND_GROUPS_PRIVILEGE);
+        context.getAuthorizer(),
+        MANAGE,
+        List.of(CORP_USER_ENTITY_NAME, CORP_GROUP_ENTITY_NAME));
   }
 
   /** Returns true if the authenticated user has privileges to generate personal access tokens */
@@ -154,16 +156,5 @@ public class MeResolver implements DataFetcher<CompletableFuture<AuthenticatedUs
         context.getAuthorizer(),
         context.getActorUrn(),
         PoliciesConfig.MANAGE_USER_CREDENTIALS_PRIVILEGE);
-  }
-
-  /**
-   * Returns true if the provided actor is authorized for a particular privilege, false otherwise.
-   */
-  private boolean isAuthorized(
-      final Authorizer authorizer, String actor, PoliciesConfig.Privilege privilege) {
-    final AuthorizationRequest request =
-        new AuthorizationRequest(actor, privilege.getType(), Optional.empty());
-    final AuthorizationResult result = authorizer.authorize(request);
-    return AuthorizationResult.Type.ALLOW.equals(result.getType());
   }
 }

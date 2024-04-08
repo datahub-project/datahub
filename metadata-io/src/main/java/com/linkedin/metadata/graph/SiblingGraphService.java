@@ -9,7 +9,8 @@ import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.metadata.shared.ValidationUtils;
+import com.linkedin.metadata.entity.validation.ValidationUtils;
+import com.linkedin.metadata.query.LineageFlags;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -37,8 +38,7 @@ public class SiblingGraphService {
       int count,
       int maxHops) {
     return ValidationUtils.validateEntityLineageResult(
-        getLineage(
-            entityUrn, direction, offset, count, maxHops, false, new HashSet<>(), null, null),
+        getLineage(entityUrn, direction, offset, count, maxHops, false, new HashSet<>(), null),
         _entityService);
   }
 
@@ -58,12 +58,10 @@ public class SiblingGraphService {
       int maxHops,
       boolean separateSiblings,
       @Nonnull Set<Urn> visitedUrns,
-      @Nullable Long startTimeMillis,
-      @Nullable Long endTimeMillis) {
+      @Nullable LineageFlags lineageFlags) {
     if (separateSiblings) {
       return ValidationUtils.validateEntityLineageResult(
-          _graphService.getLineage(
-              entityUrn, direction, offset, count, maxHops, startTimeMillis, endTimeMillis),
+          _graphService.getLineage(entityUrn, direction, offset, count, maxHops, lineageFlags),
           _entityService);
     }
 
@@ -74,8 +72,7 @@ public class SiblingGraphService {
     }
 
     EntityLineageResult entityLineage =
-        _graphService.getLineage(
-            entityUrn, direction, offset, count, maxHops, startTimeMillis, endTimeMillis);
+        _graphService.getLineage(entityUrn, direction, offset, count, maxHops, lineageFlags);
 
     Siblings siblingAspectOfEntity =
         (Siblings) _entityService.getLatestAspect(entityUrn, SIBLINGS_ASPECT_NAME);
@@ -83,7 +80,7 @@ public class SiblingGraphService {
     // if you have siblings, we want to fetch their lineage too and merge it in
     if (siblingAspectOfEntity != null && siblingAspectOfEntity.hasSiblings()) {
       UrnArray siblingUrns = siblingAspectOfEntity.getSiblings();
-      Set<Urn> allSiblingsInGroup = siblingUrns.stream().collect(Collectors.toSet());
+      Set<Urn> allSiblingsInGroup = new HashSet<>(siblingUrns);
       allSiblingsInGroup.add(entityUrn);
 
       // remove your siblings from your lineage
@@ -114,8 +111,7 @@ public class SiblingGraphService {
                     maxHops,
                     false,
                     visitedUrns,
-                    startTimeMillis,
-                    endTimeMillis),
+                    lineageFlags),
                 entityLineage);
 
         // Update offset and count to fetch the correct number of edges from the next sibling node

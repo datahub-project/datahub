@@ -90,7 +90,7 @@ public class EntityIncidentsResolver
             final List<Incident> incidents =
                 entityResult.stream()
                     .filter(Objects::nonNull)
-                    .map(IncidentMapper::map)
+                    .map(i -> IncidentMapper.map(context, i))
                     .collect(Collectors.toList());
 
             // Step 4: Package and return result

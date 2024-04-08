@@ -34,6 +34,7 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -160,11 +161,13 @@ public class IngestPoliciesStep implements BootstrapStep {
     Optional<String> searchDocument;
     try {
       searchDocument =
-          _searchDocumentTransformer.transformAspect(
-              entityResponse.getUrn(),
-              new DataHubPolicyInfo(aspect.getValue().data()),
-              aspectSpec,
-              false);
+          _searchDocumentTransformer
+              .transformAspect(
+                  entityResponse.getUrn(),
+                  new DataHubPolicyInfo(aspect.getValue().data()),
+                  aspectSpec,
+                  false)
+              .map(Objects::toString);
     } catch (Exception e) {
       log.error(
           "Error in getting documents from aspect: {} for aspect {}", e, aspectSpec.getName());

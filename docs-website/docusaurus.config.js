@@ -23,7 +23,7 @@ module.exports = {
   noIndex: isSaas,
   customFields: {
     isSaas: isSaas,
-    markpromptProjectKey: process.env.DOCUSAURUS_MARKPROMPT_PROJECT_KEY || "IeF3CUFCUQWuouZ8MP5Np9nES52QAtaA",
+    markpromptProjectKey: process.env.DOCUSAURUS_MARKPROMPT_PROJECT_KEY || "0U6baUoEdHVV4fyPpr5pxcX3dFlAMEu9",
   },
 
   // See https://github.com/facebook/docusaurus/issues/4765
@@ -51,7 +51,7 @@ module.exports = {
       announcementBar: {
         id: "announcement",
         content:
-          '<div><img src="/img/acryl-logo-white-mark.svg" /><p><strong>Managed DataHub</strong><span> &nbsp;Acryl Data delivers an easy to consume DataHub platform for the enterprise</span></p></div> <a href="https://www.acryldata.io/datahub-sign-up?utm_source=datahub&utm_medium=referral&utm_campaign=acryl_signup" target="_blank" class="button button--primary">Sign up for Managed DataHub&nbsp;→</a>',
+          '<div><img src="/img/acryl-logo-white-mark.svg" /><p><strong>Acryl DataHub</strong><span> &nbsp;Acryl Data delivers an easy to consume DataHub platform for the enterprise</span></p></div> <a href="https://www.acryldata.io?utm_source=datahub&utm_medium=referral&utm_campaign=acryl_signup" target="_blank" class="button button--primary">Learn about Acryl DataHub&nbsp;→</a>',
         backgroundColor: "#070707",
         textColor: "#ffffff",
         isCloseable: false,
@@ -66,7 +66,7 @@ module.exports = {
       },
       items: [
         {
-          to: "docs/",
+          to: "docs/features",
           activeBasePath: "docs",
           label: "Docs",
           position: "right",
@@ -85,6 +85,10 @@ module.exports = {
             {
               to: "/slack",
               label: "Join Slack",
+            },
+            {
+              href: "https://forum.datahubproject.io/",
+              label: "Community Forum",
             },
             {
               to: "/events",
@@ -137,12 +141,28 @@ module.exports = {
           dropdownActiveClassDisabled: true,
             dropdownItemsAfter: [
                 {
-                href: "https://docs-website-irpoe2osc-acryldata.vercel.app/docs/",
-                label: "0.11.0",
+                type: 'html',
+                value: '<hr class="dropdown-separator" style="margin: 0.4rem;">',
                 },
                 {
-                href: "https://docs-website-1gv2yzn9d-acryldata.vercel.app/docs/",
-                label: "0.10.5",
+                type: 'html',
+                value: '<div class="dropdown__link"><b>Archived versions</b></div>',
+                },
+                {
+                value: `
+                   <a class="dropdown__link" href="https://docs-website-irpoe2osc-acryldata.vercel.app/docs/features">0.11.0
+                   <svg width="12" height="12" aria-hidden="true" viewBox="0 0 24 24"><path fill="currentColor" d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"></path></svg>
+                   </a>
+                   `,
+                type: "html",
+                },
+                {
+                value: `
+                   <a class="dropdown__link" href="https://docs-website-1gv2yzn9d-acryldata.vercel.app/docs/features">0.10.5
+                   <svg width="12" height="12" aria-hidden="true" viewBox="0 0 24 24"><path fill="currentColor" d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"></path></svg>
+                   </a>
+                   `,
+                type: "html",
                 },
             ],
         },
@@ -264,6 +284,9 @@ module.exports = {
           path: "src/pages",
           mdxPageComponent: "@theme/MDXPage",
         },
+        googleTagManager: {
+          containerId: 'GTM-WK28RLTG',
+        },
       },
     ],
   ],
@@ -277,7 +300,6 @@ module.exports = {
         routeBasePath: "/docs/graphql",
       },
     ],
-    // '@docusaurus/plugin-google-gtag',
     // [
     //   require.resolve("@easyops-cn/docusaurus-search-local"),
     //   {

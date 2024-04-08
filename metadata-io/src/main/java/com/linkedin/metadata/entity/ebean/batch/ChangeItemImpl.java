@@ -33,12 +33,12 @@ import lombok.Getter;
 import lombok.Setter;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 
 @Slf4j
 @Getter
 @Builder(toBuilder = true)
 public class ChangeItemImpl implements ChangeMCP {
-
   public static ChangeItemImpl fromPatch(
       @Nonnull Urn urn,
       @Nonnull AspectSpec aspectSpec,
@@ -61,6 +61,9 @@ public class ChangeItemImpl implements ChangeMCP {
     return builder.build(aspectRetriever);
   }
 
+  // type of change
+  @Nonnull private final ChangeType changeType;
+
   // urn an urn associated with the new aspect
   @Nonnull private final Urn urn;
 
@@ -81,12 +84,6 @@ public class ChangeItemImpl implements ChangeMCP {
 
   @Setter @Nullable private SystemAspect previousSystemAspect;
   @Setter private long nextAspectVersion;
-
-  @Nonnull
-  @Override
-  public ChangeType getChangeType() {
-    return ChangeType.UPSERT;
-  }
 
   @Nonnull
   @Override
@@ -117,6 +114,9 @@ public class ChangeItemImpl implements ChangeMCP {
 
     @SneakyThrows
     public ChangeItemImpl build(AspectRetriever aspectRetriever) {
+      // Apply change type default
+      this.changeType = validateOrDefaultChangeType(changeType);
+
       ValidationUtils.validateUrn(aspectRetriever.getEntityRegistry(), this.urn);
       log.debug("entity type = {}", this.urn.getEntityType());
 
@@ -130,6 +130,7 @@ public class ChangeItemImpl implements ChangeMCP {
           this.entitySpec, this.urn, this.recordTemplate, aspectRetriever);
 
       return new ChangeItemImpl(
+          this.changeType,
           this.urn,
           this.aspectName,
           this.recordTemplate,
@@ -144,10 +145,6 @@ public class ChangeItemImpl implements ChangeMCP {
 
     public static ChangeItemImpl build(
         MetadataChangeProposal mcp, AuditStamp auditStamp, AspectRetriever aspectRetriever) {
-      if (!mcp.getChangeType().equals(ChangeType.UPSERT)) {
-        throw new IllegalArgumentException(
-            "Invalid MCP, this class only supports change type of UPSERT.");
-      }
 
       log.debug("entity type = {}", mcp.getEntityType());
       EntitySpec entitySpec =
@@ -168,6 +165,7 @@ public class ChangeItemImpl implements ChangeMCP {
       }
 
       return ChangeItemImpl.builder()
+          .changeType(mcp.getChangeType())
           .urn(urn)
           .aspectName(mcp.getAspectName())
           .systemMetadata(
@@ -176,6 +174,16 @@ public class ChangeItemImpl implements ChangeMCP {
           .auditStamp(auditStamp)
           .recordTemplate(convertToRecordTemplate(mcp, aspectSpec))
           .build(aspectRetriever);
+    }
+
+    // specific to impl, other impls support PATCH, etc
+    private static ChangeType validateOrDefaultChangeType(@Nullable ChangeType changeType) {
+      final ChangeType finalChangeType = changeType == null ? ChangeType.UPSERT : changeType;
+      if (!CHANGE_TYPES.contains(finalChangeType)) {
+        throw new IllegalArgumentException(
+            String.format("ChangeType %s not in %s", changeType, CHANGE_TYPES));
+      }
+      return finalChangeType;
     }
 
     private static RecordTemplate convertToRecordTemplate(
@@ -218,16 +226,34 @@ public class ChangeItemImpl implements ChangeMCP {
 
   @Override
   public String toString() {
-    return "UpsertBatchItem{"
-        + "urn="
+    return "ChangeItemImpl{"
+        + "changeType="
+        + changeType
+        + ", urn="
         + urn
         + ", aspectName='"
         + aspectName
         + '\''
-        + ", systemMetadata="
-        + systemMetadata
         + ", recordTemplate="
         + recordTemplate
+        + ", systemMetadata="
+        + systemMetadata
+        + '}';
+  }
+
+  public String toAbbreviatedString() {
+    return "ChangeItemImpl{"
+        + "changeType="
+        + changeType
+        + ", urn="
+        + urn
+        + ", aspectName='"
+        + aspectName
+        + '\''
+        + ", recordTemplate="
+        + StringUtils.abbreviate(recordTemplate.toString(), 256)
+        + ", systemMetadata="
+        + StringUtils.abbreviate(systemMetadata.toString(), 128)
         + '}';
   }
 }

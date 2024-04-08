@@ -31,6 +31,7 @@ import { EmbedTab } from '../shared/tabs/Embed/EmbedTab';
 import EmbeddedProfile from '../shared/embed/EmbeddedProfile';
 import DataProductSection from '../shared/containers/profile/sidebar/DataProduct/DataProductSection';
 import { getDataProduct } from '../shared/utils';
+import { RelationshipsTab } from '../shared/tabs/Dataset/Relationship/RelationshipsTab';
 import AccessManagement from '../shared/tabs/Dataset/AccessManagement/AccessManagement';
 import { matchedFieldPathsRenderer } from '../../search/matches/matchedFieldPathsRenderer';
 import { getLastUpdatedMs } from './shared/utils';
@@ -106,6 +107,14 @@ export class DatasetEntity implements Entity<Dataset> {
                     component: SchemaTab,
                 },
                 {
+                    name: 'Relationships',
+                    component: RelationshipsTab,
+                    display: {
+                        visible: (_, _1) => false,
+                        enabled: (_, _2) => false,
+                    },
+                },
+                {
                     name: 'View Definition',
                     component: ViewDefinitionTab,
                     display: {
@@ -169,18 +178,15 @@ export class DatasetEntity implements Entity<Dataset> {
                     },
                 },
                 {
-                    name: 'Operations',
+                    name: 'Runs',
+                    // TODO: Rename this to DatasetRunsTab.
                     component: OperationsTab,
                     display: {
                         visible: (_, dataset: GetDatasetQuery) => {
-                            return (
-                                (dataset?.dataset?.readRuns?.total || 0) + (dataset?.dataset?.writeRuns?.total || 0) > 0
-                            );
+                            return (dataset?.dataset?.runs?.total || 0) > 0;
                         },
                         enabled: (_, dataset: GetDatasetQuery) => {
-                            return (
-                                (dataset?.dataset?.readRuns?.total || 0) + (dataset?.dataset?.writeRuns?.total || 0) > 0
-                            );
+                            return (dataset?.dataset?.runs?.total || 0) > 0;
                         },
                     },
                 },
@@ -189,7 +195,11 @@ export class DatasetEntity implements Entity<Dataset> {
                     component: AccessManagement,
                     display: {
                         visible: (_, _1) => this.appconfig().config.featureFlags.showAccessManagement,
-                        enabled: (_, _2) => true,
+                        enabled: (_, dataset: GetDatasetQuery) => {
+                            const accessAspect = dataset?.dataset?.access;
+                            const rolesList = accessAspect?.roles;
+                            return !!accessAspect && !!rolesList && rolesList.length > 0;
+                        },
                     },
                 },
                 {

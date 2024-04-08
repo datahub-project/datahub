@@ -49,11 +49,11 @@ public class BatchIngestionRunResource
 
   @Inject
   @Named("systemMetadataService")
-  private SystemMetadataService _systemMetadataService;
+  private SystemMetadataService systemMetadataService;
 
   @Inject
   @Named("entityService")
-  private EntityService<?> _entityService;
+  private EntityService<?> entityService;
 
   @Inject
   @Named("rollbackService")
@@ -61,7 +61,7 @@ public class BatchIngestionRunResource
 
     @Inject
     @Named("authorizerChain")
-    private Authorizer _authorizer;
+    private Authorizer authorizer;
 
   /** Rolls back an ingestion run */
   @Action(name = "rollback")
@@ -88,10 +88,10 @@ public class BatchIngestionRunResource
 
               Authentication auth = AuthenticationContext.getAuthentication();
               try {
-                  return rollbackService.rollbackIngestion(runId, dryRun, doHardDelete, _authorizer, auth);
+                  return rollbackService.rollbackIngestion(runId, dryRun, doHardDelete, authorizer, auth);
               } catch (AuthenticationException authException) {
                   throw new RestLiServiceException(
-                          HttpStatus.S_401_UNAUTHORIZED, authException.getMessage());
+                          HttpStatus.S_403_FORBIDDEN, authException.getMessage());
               }
           },
           MetricRegistry.name(this.getClass(), "rollback"));
@@ -102,7 +102,7 @@ public class BatchIngestionRunResource
     }
   }
 
-  /** Retrieves the value for an entity that is made up of latest versions of specified aspects. */
+  /** Retrieves the ingestion run summaries. */
   @Action(name = "list")
   @Nonnull
   @WithSpan
@@ -115,7 +115,7 @@ public class BatchIngestionRunResource
     return RestliUtil.toTask(
         () -> {
           List<IngestionRunSummary> summaries =
-              _systemMetadataService.listRuns(
+              systemMetadataService.listRuns(
                   pageOffset != null ? pageOffset : DEFAULT_OFFSET,
                   pageSize != null ? pageSize : DEFAULT_PAGE_SIZE,
                   includeSoft != null ? includeSoft : DEFAULT_INCLUDE_SOFT_DELETED);
@@ -139,7 +139,7 @@ public class BatchIngestionRunResource
     return RestliUtil.toTask(
         () -> {
           List<AspectRowSummary> summaries =
-              _systemMetadataService.findByRunId(
+              systemMetadataService.findByRunId(
                   runId, includeSoft != null && includeSoft, start, count);
 
           if (includeAspect != null && includeAspect) {
@@ -148,7 +148,7 @@ public class BatchIngestionRunResource
                   Urn urn = UrnUtils.getUrn(summary.getUrn());
                   try {
                     EnvelopedAspect aspect =
-                        _entityService.getLatestEnvelopedAspect(
+                        entityService.getLatestEnvelopedAspect(
                             urn.getEntityType(), urn, summary.getAspectName());
                     if (aspect == null) {
                       log.error("Aspect for summary {} not found", summary);

@@ -1,5 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.assertion;
 
+import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.ALL_PRIVILEGES_GROUP;
+
 import com.datahub.authorization.ConjunctivePrivilegeGroup;
 import com.datahub.authorization.DisjunctivePrivilegeGroup;
 import com.google.common.collect.ImmutableList;
@@ -8,7 +10,6 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
-import com.linkedin.datahub.graphql.resolvers.AuthUtils;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.authorization.PoliciesConfig;
@@ -104,7 +105,7 @@ public class DeleteAssertionResolver implements DataFetcher<CompletableFuture<Bo
     final DisjunctivePrivilegeGroup orPrivilegeGroups =
         new DisjunctivePrivilegeGroup(
             ImmutableList.of(
-                AuthUtils.ALL_PRIVILEGES_GROUP,
+                ALL_PRIVILEGES_GROUP,
                 new ConjunctivePrivilegeGroup(
                     ImmutableList.of(PoliciesConfig.EDIT_ENTITY_ASSERTIONS_PRIVILEGE.getType()))));
     return AuthorizationUtils.isAuthorized(

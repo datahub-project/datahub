@@ -3,24 +3,30 @@ package io.datahubproject.openapi.operations.elastic;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authorization.AuthUtil;
-import com.datahub.authorization.ConjunctivePrivilegeGroup;
-import com.datahub.authorization.DisjunctivePrivilegeGroup;
 import com.datahub.plugins.auth.authorization.Authorizer;
-import com.google.common.collect.ImmutableList;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.authorization.PoliciesConfig;
+import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
+import com.linkedin.metadata.entity.restoreindices.RestoreIndicesResult;
 import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
+import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.timeseries.TimeseriesIndexSizeResult;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.RequestContext;
 import io.datahubproject.openapi.util.ElasticsearchUtils;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import java.net.URISyntaxException;
 import java.util.List;
+import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -28,7 +34,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.json.JSONObject;
 import org.opensearch.action.explain.ExplainResponse;
 import org.opensearch.client.tasks.GetTaskResponse;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.beans.propertyeditors.StringArrayPropertyEditor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -36,6 +41,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.WebDataBinder;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.InitBinder;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -49,25 +56,23 @@ import org.springframework.web.bind.annotation.RestController;
 public class OperationsController {
   private final Authorizer authorizerChain;
   private final OperationContext systemOperationContext;
-
-  @Value("${authorization.restApiAuthorization:false}")
-  private boolean restApiAuthorizationEnabled;
-
   private final SystemMetadataService systemMetadataService;
   private final TimeseriesAspectService timeseriesAspectService;
-
   private final EntitySearchService searchService;
+  private final EntityService<?> entityService;
 
   public OperationsController(
       OperationContext systemOperationContext,
       SystemMetadataService systemMetadataService,
       TimeseriesAspectService timeseriesAspectService,
-      EntitySearchService searchService) {
+      EntitySearchService searchService,
+      EntityService<?> entityService) {
     this.systemOperationContext = systemOperationContext;
     this.authorizerChain = systemOperationContext.getAuthorizerContext().getAuthorizer();
     this.systemMetadataService = systemMetadataService;
     this.timeseriesAspectService = timeseriesAspectService;
     this.searchService = searchService;
+    this.entityService = entityService;
   }
 
   @InitBinder
@@ -81,14 +86,9 @@ public class OperationsController {
   public ResponseEntity<String> getTaskStatus(String task) {
     Authentication authentication = AuthenticationContext.getAuthentication();
     String actorUrnStr = authentication.getActor().toUrnStr();
-    DisjunctivePrivilegeGroup orGroup =
-        new DisjunctivePrivilegeGroup(
-            ImmutableList.of(
-                new ConjunctivePrivilegeGroup(
-                    ImmutableList.of(PoliciesConfig.GET_ES_TASK_STATUS_PRIVILEGE.getType()))));
-    if (restApiAuthorizationEnabled
-        && !AuthUtil.isAuthorizedForResources(
-            authorizerChain, actorUrnStr, List.of(java.util.Optional.empty()), orGroup)) {
+
+    if (!AuthUtil.isAPIAuthorized(
+        authentication, authorizerChain, PoliciesConfig.GET_ES_TASK_STATUS_PRIVILEGE)) {
       return ResponseEntity.status(HttpStatus.FORBIDDEN)
           .body(String.format(actorUrnStr + " is not authorized to get ElasticSearch task status"));
     }
@@ -122,15 +122,9 @@ public class OperationsController {
   public ResponseEntity<String> getIndexSizes() {
     Authentication authentication = AuthenticationContext.getAuthentication();
     String actorUrnStr = authentication.getActor().toUrnStr();
-    DisjunctivePrivilegeGroup orGroup =
-        new DisjunctivePrivilegeGroup(
-            ImmutableList.of(
-                new ConjunctivePrivilegeGroup(
-                    ImmutableList.of(
-                        PoliciesConfig.GET_TIMESERIES_INDEX_SIZES_PRIVILEGE.getType()))));
-    if (restApiAuthorizationEnabled
-        && !AuthUtil.isAuthorizedForResources(
-            authorizerChain, actorUrnStr, List.of(java.util.Optional.empty()), orGroup)) {
+
+    if (!AuthUtil.isAPIAuthorized(
+        authentication, authorizerChain, PoliciesConfig.GET_TIMESERIES_INDEX_SIZES_PRIVILEGE)) {
       return ResponseEntity.status(HttpStatus.FORBIDDEN)
           .body(String.format(actorUrnStr + " is not authorized to get timeseries index sizes"));
     }
@@ -223,20 +217,18 @@ public class OperationsController {
 
     Authentication authentication = AuthenticationContext.getAuthentication();
     String actorUrnStr = authentication.getActor().toUrnStr();
-    DisjunctivePrivilegeGroup orGroup =
-        new DisjunctivePrivilegeGroup(
-            ImmutableList.of(
-                new ConjunctivePrivilegeGroup(
-                    ImmutableList.of(PoliciesConfig.ES_EXPLAIN_QUERY_PRIVILEGE.getType()))));
-    if (restApiAuthorizationEnabled
-        && !AuthUtil.isAuthorizedForResources(
-            authorizerChain, actorUrnStr, List.of(java.util.Optional.empty()), orGroup)) {
+
+    if (!AuthUtil.isAPIAuthorized(
+        authentication, authorizerChain, PoliciesConfig.ES_EXPLAIN_QUERY_PRIVILEGE)) {
       log.error("{} is not authorized to get timeseries index sizes", actorUrnStr);
       return ResponseEntity.status(HttpStatus.FORBIDDEN).body(null);
     }
     OperationContext opContext =
         systemOperationContext
-            .asSession(authorizerChain, authentication)
+            .asSession(
+                RequestContext.builder().buildOpenapi("explainSearchQuery", entityName),
+                authorizerChain,
+                authentication)
             .withSearchFlags(flags -> searchFlags);
 
     ExplainResponse response =
@@ -253,5 +245,69 @@ public class OperationsController {
             facets);
 
     return ResponseEntity.ok(response);
+  }
+
+  @Tag(name = "RestoreIndices")
+  @GetMapping(path = "/restoreIndices", produces = MediaType.APPLICATION_JSON_VALUE)
+  @Operation(summary = "Restore ElasticSearch indices from primary storage based on URNs.")
+  public ResponseEntity<List<RestoreIndicesResult>> restoreIndices(
+      @RequestParam(required = false, name = "aspectName") @Nullable String aspectName,
+      @RequestParam(required = false, name = "urn") @Nullable String urn,
+      @RequestParam(required = false, name = "urnLike") @Nullable String urnLike,
+      @RequestParam(required = false, name = "batchSize", defaultValue = "500") @Nullable
+          Integer batchSize,
+      @RequestParam(required = false, name = "start", defaultValue = "0") @Nullable Integer start,
+      @RequestParam(required = false, name = "limit", defaultValue = "0") @Nullable Integer limit,
+      @RequestParam(required = false, name = "gePitEpochMs", defaultValue = "0") @Nullable
+          Long gePitEpochMs,
+      @RequestParam(required = false, name = "lePitEpochMs") @Nullable Long lePitEpochMs) {
+
+    Authentication authentication = AuthenticationContext.getAuthentication();
+    if (!AuthUtil.isAPIAuthorized(
+        authentication, authorizerChain, PoliciesConfig.RESTORE_INDICES_PRIVILEGE)) {
+      return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+    }
+
+    RestoreIndicesArgs args =
+        new RestoreIndicesArgs()
+            .aspectName(aspectName)
+            .urnLike(urnLike)
+            .urn(
+                Optional.ofNullable(urn)
+                    .map(urnStr -> UrnUtils.getUrn(urnStr).toString())
+                    .orElse(null))
+            .start(start)
+            .batchSize(batchSize)
+            .limit(limit)
+            .gePitEpochMs(gePitEpochMs)
+            .lePitEpochMs(lePitEpochMs);
+
+    return ResponseEntity.of(
+        Optional.of(
+            entityService.streamRestoreIndices(args, log::info).collect(Collectors.toList())));
+  }
+
+  @Tag(name = "RestoreIndices")
+  @PostMapping(path = "/restoreIndices", produces = MediaType.APPLICATION_JSON_VALUE)
+  @Operation(summary = "Restore ElasticSearch indices from primary storage based on URNs.")
+  public ResponseEntity<List<RestoreIndicesResult>> restoreIndices(
+      @RequestParam(required = false, name = "aspectNames") @Nullable Set<String> aspectNames,
+      @RequestParam(required = false, name = "batchSize", defaultValue = "100") @Nullable
+          Integer batchSize,
+      @RequestBody @Nonnull Set<String> urns)
+      throws RemoteInvocationException, URISyntaxException {
+
+    Authentication authentication = AuthenticationContext.getAuthentication();
+    if (!AuthUtil.isAPIAuthorized(
+        authentication, authorizerChain, PoliciesConfig.RESTORE_INDICES_PRIVILEGE)) {
+      return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+    }
+
+    return ResponseEntity.of(
+        Optional.of(
+            entityService.restoreIndices(
+                urns.stream().map(UrnUtils::getUrn).collect(Collectors.toSet()),
+                aspectNames,
+                batchSize)));
   }
 }

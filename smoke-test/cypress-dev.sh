@@ -15,7 +15,7 @@ export KAFKA_BOOTSTRAP_SERVER="broker:9092"
 python -c 'from tests.cypress.integration_test import ingest_data; ingest_data()'
 
 cd tests/cypress
-npm install
+yarn install
 
 source "$DIR/set-cypress-creds.sh"
 

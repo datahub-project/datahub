@@ -34,7 +34,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "looker-test"
+        "runId": "looker-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -49,7 +50,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "looker-test"
+        "runId": "looker-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -109,7 +111,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "looker-test"
+        "runId": "looker-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -169,7 +172,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "looker-test"
+        "runId": "looker-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -180,7 +184,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/looker/lkml_samples/explores"
+                            "/Explore/lkml_samples/data"
                         ]
                     }
                 },
@@ -281,7 +285,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "looker-test"
+        "runId": "looker-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -298,7 +303,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "looker-test"
+        "runId": "looker-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -313,7 +319,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "looker-test"
+        "runId": "looker-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -325,17 +332,21 @@
         "json": {
             "path": [
                 {
+                    "id": "Explore"
+                },
+                {
                     "id": "lkml_samples"
                 },
                 {
-                    "id": "explores"
+                    "id": "data"
                 }
             ]
         }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "looker-test"
+        "runId": "looker-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -354,7 +365,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "looker-test"
+        "runId": "looker-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -373,7 +385,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "looker-test"
+        "runId": "looker-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -392,7 +405,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "looker-test"
+        "runId": "looker-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -407,7 +421,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "looker-test"
+        "runId": "looker-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -422,7 +437,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "looker-test"
+        "runId": "looker-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -437,7 +453,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "looker-test"
+        "runId": "looker-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -452,7 +469,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "looker-test"
+        "runId": "looker-test",
+        "lastRunId": "no-run-id-provided"
     }
 }
 ]

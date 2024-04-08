@@ -55,6 +55,18 @@
         "name" : "batchSize",
         "type" : "int",
         "optional" : true
+      }, {
+        "name" : "limit",
+        "type" : "int",
+        "optional" : true
+      }, {
+        "name" : "gePitEpochMs",
+        "type" : "long",
+        "optional" : true
+      }, {
+        "name" : "lePitEpochMs",
+        "type" : "long",
+        "optional" : true
       } ],
       "returns" : "string"
     }, {

@@ -23,6 +23,7 @@ import graphql.schema.DataFetchingEnvironment;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
+import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -62,13 +63,14 @@ public class AggregateAcrossEntitiesResolver
 
           final Filter inputFilter = ResolverUtils.buildFilter(null, input.getOrFilters());
 
-          final SearchFlags searchFlags = mapInputFlags(input.getSearchFlags());
+          final SearchFlags searchFlags = mapInputFlags(context, input.getSearchFlags());
 
           final List<String> facets =
               input.getFacets() != null && input.getFacets().size() > 0 ? input.getFacets() : null;
 
           try {
             return mapAggregateResults(
+                context,
                 _entityClient.searchAcrossEntities(
                     context.getOperationContext().withSearchFlags(flags -> searchFlags),
                     maybeResolvedView != null
@@ -100,11 +102,12 @@ public class AggregateAcrossEntitiesResolver
         });
   }
 
-  AggregateResults mapAggregateResults(SearchResult searchResult) {
+  static AggregateResults mapAggregateResults(
+      @Nullable QueryContext context, SearchResult searchResult) {
     final AggregateResults results = new AggregateResults();
     results.setFacets(
         searchResult.getMetadata().getAggregations().stream()
-            .map(MapperUtils::mapFacet)
+            .map(f -> MapperUtils.mapFacet(context, f))
             .collect(Collectors.toList()));
 
     return results;

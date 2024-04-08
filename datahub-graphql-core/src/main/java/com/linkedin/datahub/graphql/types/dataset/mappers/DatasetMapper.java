@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.types.dataset.mappers;
 
+import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
 import static com.linkedin.metadata.Constants.*;
 
 import com.linkedin.common.Access;
@@ -18,6 +19,8 @@ import com.linkedin.common.SubTypes;
 import com.linkedin.common.TimeStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
+import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.generated.AuditStamp;
 import com.linkedin.datahub.graphql.generated.Container;
 import com.linkedin.datahub.graphql.generated.DataPlatform;
@@ -58,6 +61,7 @@ import com.linkedin.schema.EditableSchemaMetadata;
 import com.linkedin.schema.SchemaMetadata;
 import com.linkedin.structured.StructuredProperties;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -70,11 +74,17 @@ public class DatasetMapper implements ModelMapper<EntityResponse, Dataset> {
 
   public static final DatasetMapper INSTANCE = new DatasetMapper();
 
-  public static Dataset map(@Nonnull final EntityResponse dataset) {
-    return INSTANCE.apply(dataset);
+  public static Dataset map(
+      @Nullable final QueryContext context, @Nonnull final EntityResponse dataset) {
+    return INSTANCE.apply(context, dataset);
   }
 
   public Dataset apply(@Nonnull final EntityResponse entityResponse) {
+    return apply(null, entityResponse);
+  }
+
+  public Dataset apply(
+      @Nullable final QueryContext context, @Nonnull final EntityResponse entityResponse) {
     Dataset result = new Dataset();
     Urn entityUrn = entityResponse.getUrn();
     result.setUrn(entityResponse.getUrn().toString());
@@ -92,11 +102,12 @@ public class DatasetMapper implements ModelMapper<EntityResponse, Dataset> {
     mappingHelper.mapToResult(
         DATASET_DEPRECATION_ASPECT_NAME,
         (dataset, dataMap) ->
-            dataset.setDeprecation(DatasetDeprecationMapper.map(new DatasetDeprecation(dataMap))));
+            dataset.setDeprecation(
+                DatasetDeprecationMapper.map(context, new DatasetDeprecation(dataMap))));
     mappingHelper.mapToResult(
         SCHEMA_METADATA_ASPECT_NAME,
         (dataset, dataMap) ->
-            dataset.setSchema(SchemaMapper.map(new SchemaMetadata(dataMap), entityUrn)));
+            dataset.setSchema(SchemaMapper.map(context, new SchemaMetadata(dataMap), entityUrn)));
     mappingHelper.mapToResult(
         EDITABLE_DATASET_PROPERTIES_ASPECT_NAME, this::mapEditableDatasetProperties);
     mappingHelper.mapToResult(VIEW_PROPERTIES_ASPECT_NAME, this::mapViewProperties);
@@ -104,41 +115,44 @@ public class DatasetMapper implements ModelMapper<EntityResponse, Dataset> {
         INSTITUTIONAL_MEMORY_ASPECT_NAME,
         (dataset, dataMap) ->
             dataset.setInstitutionalMemory(
-                InstitutionalMemoryMapper.map(new InstitutionalMemory(dataMap), entityUrn)));
+                InstitutionalMemoryMapper.map(
+                    context, new InstitutionalMemory(dataMap), entityUrn)));
     mappingHelper.mapToResult(
         OWNERSHIP_ASPECT_NAME,
         (dataset, dataMap) ->
-            dataset.setOwnership(OwnershipMapper.map(new Ownership(dataMap), entityUrn)));
+            dataset.setOwnership(OwnershipMapper.map(context, new Ownership(dataMap), entityUrn)));
     mappingHelper.mapToResult(
         STATUS_ASPECT_NAME,
-        (dataset, dataMap) -> dataset.setStatus(StatusMapper.map(new Status(dataMap))));
+        (dataset, dataMap) -> dataset.setStatus(StatusMapper.map(context, new Status(dataMap))));
     mappingHelper.mapToResult(
         GLOBAL_TAGS_ASPECT_NAME,
-        (dataset, dataMap) -> this.mapGlobalTags(dataset, dataMap, entityUrn));
+        (dataset, dataMap) -> mapGlobalTags(context, dataset, dataMap, entityUrn));
     mappingHelper.mapToResult(
         EDITABLE_SCHEMA_METADATA_ASPECT_NAME,
         (dataset, dataMap) ->
             dataset.setEditableSchemaMetadata(
-                EditableSchemaMetadataMapper.map(new EditableSchemaMetadata(dataMap), entityUrn)));
+                EditableSchemaMetadataMapper.map(
+                    context, new EditableSchemaMetadata(dataMap), entityUrn)));
     mappingHelper.mapToResult(
         GLOSSARY_TERMS_ASPECT_NAME,
         (dataset, dataMap) ->
             dataset.setGlossaryTerms(
-                GlossaryTermsMapper.map(new GlossaryTerms(dataMap), entityUrn)));
-    mappingHelper.mapToResult(CONTAINER_ASPECT_NAME, this::mapContainers);
-    mappingHelper.mapToResult(DOMAINS_ASPECT_NAME, this::mapDomains);
+                GlossaryTermsMapper.map(context, new GlossaryTerms(dataMap), entityUrn)));
+    mappingHelper.mapToResult(context, CONTAINER_ASPECT_NAME, DatasetMapper::mapContainers);
+    mappingHelper.mapToResult(context, DOMAINS_ASPECT_NAME, DatasetMapper::mapDomains);
     mappingHelper.mapToResult(
         DEPRECATION_ASPECT_NAME,
         (dataset, dataMap) ->
-            dataset.setDeprecation(DeprecationMapper.map(new Deprecation(dataMap))));
+            dataset.setDeprecation(DeprecationMapper.map(context, new Deprecation(dataMap))));
     mappingHelper.mapToResult(
         DATA_PLATFORM_INSTANCE_ASPECT_NAME,
         (dataset, dataMap) ->
             dataset.setDataPlatformInstance(
-                DataPlatformInstanceAspectMapper.map(new DataPlatformInstance(dataMap))));
+                DataPlatformInstanceAspectMapper.map(context, new DataPlatformInstance(dataMap))));
     mappingHelper.mapToResult(
         SIBLINGS_ASPECT_NAME,
-        (dataset, dataMap) -> dataset.setSiblings(SiblingsMapper.map(new Siblings(dataMap))));
+        (dataset, dataMap) ->
+            dataset.setSiblings(SiblingsMapper.map(context, new Siblings(dataMap))));
     mappingHelper.mapToResult(
         UPSTREAM_LINEAGE_ASPECT_NAME,
         (dataset, dataMap) ->
@@ -146,11 +160,11 @@ public class DatasetMapper implements ModelMapper<EntityResponse, Dataset> {
                 UpstreamLineagesMapper.map(new UpstreamLineage(dataMap))));
     mappingHelper.mapToResult(
         EMBED_ASPECT_NAME,
-        (dataset, dataMap) -> dataset.setEmbed(EmbedMapper.map(new Embed(dataMap))));
+        (dataset, dataMap) -> dataset.setEmbed(EmbedMapper.map(context, new Embed(dataMap))));
     mappingHelper.mapToResult(
         BROWSE_PATHS_V2_ASPECT_NAME,
         (dataset, dataMap) ->
-            dataset.setBrowsePathV2(BrowsePathsV2Mapper.map(new BrowsePathsV2(dataMap))));
+            dataset.setBrowsePathV2(BrowsePathsV2Mapper.map(context, new BrowsePathsV2(dataMap))));
     mappingHelper.mapToResult(
         ACCESS_DATASET_ASPECT_NAME,
         ((dataset, dataMap) ->
@@ -159,15 +173,21 @@ public class DatasetMapper implements ModelMapper<EntityResponse, Dataset> {
         STRUCTURED_PROPERTIES_ASPECT_NAME,
         ((entity, dataMap) ->
             entity.setStructuredProperties(
-                StructuredPropertiesMapper.map(new StructuredProperties(dataMap)))));
+                StructuredPropertiesMapper.map(context, new StructuredProperties(dataMap)))));
     mappingHelper.mapToResult(
         FORMS_ASPECT_NAME,
         ((dataset, dataMap) ->
             dataset.setForms(FormsMapper.map(new Forms(dataMap), entityUrn.toString()))));
     mappingHelper.mapToResult(
         SUB_TYPES_ASPECT_NAME,
-        (dashboard, dataMap) -> dashboard.setSubTypes(SubTypesMapper.map(new SubTypes(dataMap))));
-    return mappingHelper.getResult();
+        (dashboard, dataMap) ->
+            dashboard.setSubTypes(SubTypesMapper.map(context, new SubTypes(dataMap))));
+
+    if (context != null && !canView(context.getOperationContext(), entityUrn)) {
+      return AuthorizationUtils.restrictEntity(mappingHelper.getResult(), Dataset.class);
+    } else {
+      return mappingHelper.getResult();
+    }
   }
 
   private void mapDatasetKey(@Nonnull Dataset dataset, @Nonnull DataMap dataMap) {
@@ -238,18 +258,23 @@ public class DatasetMapper implements ModelMapper<EntityResponse, Dataset> {
     graphqlProperties.setMaterialized(properties.isMaterialized());
     graphqlProperties.setLanguage(properties.getViewLanguage());
     graphqlProperties.setLogic(properties.getViewLogic());
+    graphqlProperties.setFormattedLogic(properties.getFormattedViewLogic());
     dataset.setViewProperties(graphqlProperties);
   }
 
-  private void mapGlobalTags(
-      @Nonnull Dataset dataset, @Nonnull DataMap dataMap, @Nonnull final Urn entityUrn) {
+  private static void mapGlobalTags(
+      @Nullable final QueryContext context,
+      @Nonnull Dataset dataset,
+      @Nonnull DataMap dataMap,
+      @Nonnull final Urn entityUrn) {
     com.linkedin.datahub.graphql.generated.GlobalTags globalTags =
-        GlobalTagsMapper.map(new GlobalTags(dataMap), entityUrn);
+        GlobalTagsMapper.map(context, new GlobalTags(dataMap), entityUrn);
     dataset.setGlobalTags(globalTags);
     dataset.setTags(globalTags);
   }
 
-  private void mapContainers(@Nonnull Dataset dataset, @Nonnull DataMap dataMap) {
+  private static void mapContainers(
+      @Nullable final QueryContext context, @Nonnull Dataset dataset, @Nonnull DataMap dataMap) {
     final com.linkedin.container.Container gmsContainer =
         new com.linkedin.container.Container(dataMap);
     dataset.setContainer(
@@ -259,8 +284,9 @@ public class DatasetMapper implements ModelMapper<EntityResponse, Dataset> {
             .build());
   }
 
-  private void mapDomains(@Nonnull Dataset dataset, @Nonnull DataMap dataMap) {
+  private static void mapDomains(
+      @Nullable final QueryContext context, @Nonnull Dataset dataset, @Nonnull DataMap dataMap) {
     final Domains domains = new Domains(dataMap);
-    dataset.setDomain(DomainAssociationMapper.map(domains, dataset.getUrn()));
+    dataset.setDomain(DomainAssociationMapper.map(context, domains, dataset.getUrn()));
   }
 }

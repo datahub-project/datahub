@@ -29,6 +29,7 @@ from datahub.metadata.schema_classes import (
     DatasetUsageStatisticsClass,
     MetadataChangeEventClass,
     MetadataChangeProposalClass,
+    OwnershipClass as Ownership,
     StatusClass,
     TimeWindowSizeClass,
 )
@@ -75,6 +76,19 @@ def create_dataset_props_patch_builder(
     patch_builder.set_last_modified(dataset_properties.lastModified)
     patch_builder.set_qualified_name(dataset_properties.qualifiedName)
     patch_builder.add_custom_properties(dataset_properties.customProperties)
+
+    return patch_builder
+
+
+def create_dataset_owners_patch_builder(
+    dataset_urn: str,
+    ownership: Ownership,
+) -> DatasetPatchBuilder:
+    """Creates a patch builder with a dataset's owners"""
+    patch_builder = DatasetPatchBuilder(dataset_urn)
+
+    for owner in ownership.owners:
+        patch_builder.add_owner(owner)
 
     return patch_builder
 

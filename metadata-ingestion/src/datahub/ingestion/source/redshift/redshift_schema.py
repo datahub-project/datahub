@@ -200,6 +200,7 @@ class RedshiftDataDictionary:
     def get_tables_and_views(
         self,
         conn: redshift_connector.Connection,
+        skip_external_tables: bool = False,
     ) -> Tuple[Dict[str, List[RedshiftTable]], Dict[str, List[RedshiftView]]]:
         tables: Dict[str, List[RedshiftTable]] = {}
         views: Dict[str, List[RedshiftView]] = {}
@@ -209,7 +210,8 @@ class RedshiftDataDictionary:
         enriched_table = self.enrich_tables(conn)
 
         cur = RedshiftDataDictionary.get_query_result(
-            conn, RedshiftCommonQuery.list_tables
+            conn,
+            RedshiftCommonQuery.list_tables(skip_external_tables=skip_external_tables),
         )
         field_names = [i[0] for i in cur.description]
         db_tables = cur.fetchall()

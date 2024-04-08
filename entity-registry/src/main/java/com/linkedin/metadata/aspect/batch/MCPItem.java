@@ -1,13 +1,18 @@
 package com.linkedin.metadata.aspect.batch;
 
+import com.google.common.collect.ImmutableSet;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.patch.template.AspectTemplateEngine;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.mxe.MetadataChangeProposal;
+import java.util.Set;
 import javax.annotation.Nullable;
 
 /** Represents a proposal to write to the primary data store which may be represented by an MCP */
 public interface MCPItem extends BatchItem {
+
+  Set<ChangeType> CHANGE_TYPES =
+      ImmutableSet.of(ChangeType.UPSERT, ChangeType.CREATE, ChangeType.CREATE_ENTITY);
 
   @Nullable
   MetadataChangeProposal getMetadataChangeProposal();
@@ -27,7 +32,7 @@ public interface MCPItem extends BatchItem {
       if (ChangeType.PATCH.equals(changeType)) {
         return supportsPatch(aspectSpec);
       } else {
-        return ChangeType.UPSERT.equals(changeType);
+        return CHANGE_TYPES.contains(changeType);
       }
     }
   }

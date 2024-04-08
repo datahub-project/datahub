@@ -2,7 +2,7 @@ import html
 import logging
 from dataclasses import dataclass
 from functools import lru_cache
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from pydantic.fields import Field
 from tableauserverclient import Server
@@ -573,7 +573,7 @@ def get_fully_qualified_table_name(
         .replace("`", "")
     )
 
-    if platform in ("athena", "hive", "mysql"):
+    if platform in ("athena", "hive", "mysql", "clickhouse"):
         # it two tier database system (athena, hive, mysql), just take final 2
         fully_qualified_table_name = ".".join(
             fully_qualified_table_name.split(".")[-2:]
@@ -762,8 +762,19 @@ def make_upstream_class(
 
 
 def make_fine_grained_lineage_class(
-    parsed_result: Optional[SqlParsingResult], dataset_urn: str
+    parsed_result: Optional[SqlParsingResult],
+    dataset_urn: str,
+    out_columns: List[Dict[Any, Any]],
 ) -> List[FineGrainedLineage]:
+    # 1) fine grained lineage links are case sensitive
+    # 2) parsed out columns are always lower cased
+    # 3) corresponding Custom SQL output columns can be in any case lower/upper/mix
+    #
+    # we need a map between 2 and 3 that will be used during building column level linage links (see below)
+    out_columns_map = {
+        col.get(c.NAME, "").lower(): col.get(c.NAME, "") for col in out_columns
+    }
+
     fine_grained_lineages: List[FineGrainedLineage] = []
 
     if parsed_result is None:
@@ -775,7 +786,15 @@ def make_fine_grained_lineage_class(
 
     for cll_info in cll:
         downstream = (
-            [builder.make_schema_field_urn(dataset_urn, cll_info.downstream.column)]
+            [
+                builder.make_schema_field_urn(
+                    dataset_urn,
+                    out_columns_map.get(
+                        cll_info.downstream.column.lower(),
+                        cll_info.downstream.column,
+                    ),
+                )
+            ]
             if cll_info.downstream is not None
             and cll_info.downstream.column is not None
             else []

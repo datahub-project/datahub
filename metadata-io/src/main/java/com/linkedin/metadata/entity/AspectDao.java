@@ -5,7 +5,6 @@ import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
-import io.ebean.PagedList;
 import io.ebean.Transaction;
 import java.sql.Timestamp;
 import java.util.List;
@@ -106,7 +105,7 @@ public interface AspectDao {
   Integer countAspect(@Nonnull final String aspectName, @Nullable String urnLike);
 
   @Nonnull
-  PagedList<EbeanAspectV2> getPagedAspects(final RestoreIndicesArgs args);
+  Stream<Stream<EbeanAspectV2>> streamAspectBatches(final RestoreIndicesArgs args);
 
   @Nonnull
   Stream<EntityAspect> streamAspects(String entityName, String aspectName);

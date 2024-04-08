@@ -11,6 +11,7 @@ import com.linkedin.metadata.aspect.batch.ChangeMCP;
 import com.linkedin.metadata.aspect.plugins.validation.ValidationExceptionCollection;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.util.Pair;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedList;
 import java.util.List;
@@ -22,6 +23,7 @@ import javax.annotation.Nonnull;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 
 @Slf4j
 @Getter
@@ -33,6 +35,8 @@ public class AspectsBatchImpl implements AspectsBatch {
 
   /**
    * Convert patches to upserts, apply hooks at the aspect and batch level.
+   *
+   * <p>Filter CREATE if not exists
    *
    * @param latestAspects latest version in the database
    * @return The new urn/aspectnames and the uniform upserts, possibly expanded/mutated by the
@@ -145,5 +149,21 @@ public class AspectsBatchImpl implements AspectsBatch {
   @Override
   public String toString() {
     return "AspectsBatchImpl{" + "items=" + items + '}';
+  }
+
+  public String toAbbreviatedString(int maxWidth) {
+    List<String> itemsAbbreviated = new ArrayList<String>();
+    items.forEach(
+        item -> {
+          if (item instanceof ChangeItemImpl) {
+            itemsAbbreviated.add(((ChangeItemImpl) item).toAbbreviatedString());
+          } else {
+            itemsAbbreviated.add(item.toString());
+          }
+        });
+    return "AspectsBatchImpl{"
+        + "items="
+        + StringUtils.abbreviate(itemsAbbreviated.toString(), maxWidth)
+        + '}';
   }
 }

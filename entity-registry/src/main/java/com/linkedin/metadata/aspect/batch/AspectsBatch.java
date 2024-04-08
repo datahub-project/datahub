@@ -31,7 +31,7 @@ public interface AspectsBatch {
    *
    * @return batch items
    */
-  default Collection<? extends MCPItem> getMCPItems() {
+  default List<MCPItem> getMCPItems() {
     return getItems().stream()
         .filter(item -> item instanceof MCPItem)
         .map(item -> (MCPItem) item)
@@ -179,4 +179,6 @@ public interface AspectsBatch {
                 Collectors.mapping(
                     Pair::getValue, Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue))));
   }
+
+  String toAbbreviatedString(int maxWidth);
 }
