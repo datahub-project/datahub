@@ -45,7 +45,7 @@ import org.jetbrains.annotations.NotNull;
  */
 @Slf4j
 public class BackfillPolicyFieldsStep implements UpgradeStep {
-  private static final String UPGRADE_ID = "BackfillPolicyFieldsStep";
+  private static final String UPGRADE_ID = "BackfillPolicyFieldsStep_V2";
   private static final Urn UPGRADE_ID_URN = BootstrapStep.getUpgradeUrn(UPGRADE_ID);
 
   private final OperationContext opContext;
