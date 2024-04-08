@@ -193,37 +193,6 @@ def test_get_projects_with_project_ids(get_bq_client_mock):
     assert client_mock.list_projects.call_count == 0
 
 @patch.object(BigQueryV2Config, "get_bigquery_client")
-def test_get_projects_with_project_ids_and_folder_ids(get_bq_client_mock):
-    bq_client_mock = MagicMock()
-    get_bq_client_mock.return_value = bq_client_mock
-    config = BigQueryV2Config.parse_obj(
-        {
-            "project_ids": ["test-1", "test-2"],
-            "folder_ids": ["123", "456"],
-        }
-    )
-    source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test1"))
-    assert source._get_projects() == [
-        BigqueryProject("test-1", "test-1"),
-        BigqueryProject("test-2", "test-2"),
-    ]
-    assert bq_client_mock.list_projects.call_count == 0
-
-    config = BigQueryV2Config.parse_obj(
-        {
-            "project_ids": ["test-1", "test-2"],
-            "project_id": "test-3",
-            "folder_ids": ["123", "456"],
-        }
-    )
-    source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test2"))
-    assert source._get_projects() == [
-        BigqueryProject("test-1", "test-1"),
-        BigqueryProject("test-2", "test-2"),
-    ]
-    assert bq_client_mock.list_projects.call_count == 0
-
-@patch.object(BigQueryV2Config, "get_bigquery_client")
 def test_get_projects_with_project_ids_overrides_project_id_pattern(
     get_bq_client_mock,
 ):
@@ -239,37 +208,6 @@ def test_get_projects_with_project_ids_overrides_project_id_pattern(
         BigqueryProject(id="test-project", name="test-project"),
         BigqueryProject(id="test-project-2", name="test-project-2"),
     ]
-
-@patch.object(BigQueryV2Config, "get_projects_client")
-def test_get_projects_with_project_ids_overrides_folder_ids(
-    get_proj_client_mock,
-):
-    client_mock = MagicMock()
-    get_proj_client_mock.return_value = client_mock
-    client_mock.list_projects.return_value = [
-        SimpleNamespace(
-            project_id="test-1",
-            friendly_name="one",
-        ),
-        SimpleNamespace(
-            project_id="test-2",
-            friendly_name="two",
-        ),
-    ]
-    config = BigQueryV2Config.parse_obj(
-        {
-            "project_ids": ["test-project", "test-project-2"],
-            "folder_ids": ["123", "456"],
-        }
-    )
-    source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test"))
-    projects = source._get_projects()
-    assert projects == [
-        BigqueryProject(id="test-project", name="test-project"),
-        BigqueryProject(id="test-project-2", name="test-project-2"),
-    ]
-
-
 
 def test_platform_instance_config_always_none():
     config = BigQueryV2Config.parse_obj(
@@ -369,26 +307,6 @@ def test_get_projects_filter_by_pattern(get_bq_client_mock, get_projects_mock):
     assert projects == [
         BigqueryProject(id="test-project-2", name="Test Project 2"),
     ]
-
-@patch.object(BigQuerySchemaApi, "get_projects_in_folders")
-def test_get_projects_with_folder_ids_filter_by_pattern(get_projects_in_folders_mock):
-    get_projects_in_folders_mock.return_value = [
-        BigqueryProject("test-project", "Test Project"),
-        BigqueryProject("test-project-2", "Test Project 2"),
-    ]
-
-    config = BigQueryV2Config.parse_obj(
-        {
-            "folder_ids": ["123"],
-            "project_id_pattern": {"deny": ["^test-project$"]},
-        }
-    )
-    source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test"))
-    projects = source._get_projects()
-    assert projects == [
-        BigqueryProject(id="test-project-2", name="Test Project 2"),
-    ]
-
 
 @patch.object(BigQuerySchemaApi, "get_projects")
 @patch.object(BigQueryV2Config, "get_bigquery_client")

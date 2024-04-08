@@ -196,11 +196,11 @@ class BigQueryV2Config(
             "Overrides `project_id_pattern`."
         ),
     )
-    folder_ids: List[str] = Field(
+    project_labels: List[str] = Field(
         default_factory=list,
         description=(
-            "Ingests projects that are direct children of the specified folders. Use this property if you want to specify what "
-            "projects to ingest based on their direct parent folders. Your service account will require resourcemanager.projects.list."
+            "Ingests projects with the specified labels. Use this properly if you want to specify what "
+            "projects to ignest based on project-level labels. Your service account will require resourcemanager.projects.list."
         ),
     )
 

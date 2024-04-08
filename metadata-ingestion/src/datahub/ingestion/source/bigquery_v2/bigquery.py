@@ -620,13 +620,13 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 for project_id in project_ids
             ]
 
-        if self.config.folder_ids:
-            return list(self._query_project_list_from_folders())
+        if self.config.project_labels:
+            return list(self._query_project_list_from_labels())
 
         return list(self._query_project_list())
     
-    def _query_project_list_from_folders(self) -> Iterable[BigqueryProject]:
-        projects = self.bigquery_data_dictionary.get_projects_in_folders(self.config.folder_ids)
+    def _query_project_list_from_labels(self) -> Iterable[BigqueryProject]:
+        projects = self.bigquery_data_dictionary.get_projects_with_labels(self.config.project_labels)
         if not projects:  # Report failure on exception and if empty list is returned
             self.report.report_failure(
                 "metadata-extraction",

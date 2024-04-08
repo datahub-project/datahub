@@ -165,21 +165,21 @@ class BigQuerySchemaApi:
                 logger.error(f"Error getting projects. {e}", exc_info=True)
                 return []
             
-    def get_projects_in_folders(self, folder_ids: List[str]) -> List[BigqueryProject]:
-        with self.report.list_projects_in_folders:
+    def get_projects_with_labels(self, labels: List[str]) -> List[BigqueryProject]:
+        with self.report.list_projects_with_labels:
             try:
                 projects = []
-                for folder_id in folder_ids:
-                    for project in self.projects_client.list_projects(parent=f"folders/{folder_id}"):
-                        projects.append(
-                            BigqueryProject(id=project.project_id, name=project.display_name)
-                        )
+                labels_query = " OR ".join([f"labels.{label}" for label in labels])
+                for project in self.projects_client.search_projects(query=labels_query):
+                    projects.append(
+                        BigqueryProject(id=project.project_id, name=project.display_name)
+                    )
 
                 return projects
 
             except Exception as e:
-                    logger.error(f"Error getting projects in Folder: {folder_id}. {e}", exc_info=True)
-                    return []
+                logger.error(f"Error getting projects with labels: {labels}. {e}", exc_info=True)
+                return []
 
     def get_datasets_for_project_id(
         self, project_id: str, maxResults: Optional[int] = None
