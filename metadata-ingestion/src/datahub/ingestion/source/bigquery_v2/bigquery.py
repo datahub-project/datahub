@@ -630,7 +630,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         if not projects:  # Report failure on exception and if empty list is returned
             self.report.report_failure(
                 "metadata-extraction",
-                "Get projects didn't return any project in the specified folder(s). "
+                "Get projects didn't return any project with any of the specified label(s). "
                 "Maybe resourcemanager.projects.list permission is missing for the service account. "
                 "You can assign predefined roles/bigquery.metadataViewer role to your service account.",
             )
