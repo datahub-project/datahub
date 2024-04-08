@@ -567,7 +567,7 @@ jobs:
         with:
           image: ${{ env.DATAHUB_INGESTION_BASE_IMAGE }}:${{ steps.filter.outputs.datahub-ingestion-base == 'true' && needs.setup.outputs.unique_tag || 'head' }}
       - name: Login to DockerHub
-        uses: docker/login-action@v2
+        uses: docker/login-action@v3
         if: ${{ needs.setup.outputs.docker-login == 'true' && needs.setup.outputs.publish == 'false' && needs.setup.outputs.pr-publish == 'false' &&  steps.filter.outputs.datahub-ingestion-base == 'false' }}
         with:
           username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
@@ -614,7 +614,7 @@ jobs:
         with:
           image: ${{ env.DATAHUB_INGESTION_BASE_IMAGE }}:${{ steps.filter.outputs.datahub-ingestion-base == 'true' && needs.setup.outputs.unique_tag || 'head' }}
       - name: Login to DockerHub
-        uses: docker/login-action@v2
+        uses: docker/login-action@v3
         if: ${{ needs.setup.outputs.docker-login == 'true' && needs.setup.outputs.publish == 'false' && needs.setup.outputs.pr-publish == 'false' &&  steps.filter.outputs.datahub-ingestion-base == 'false' }}
         with:
           username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
@@ -674,7 +674,7 @@ jobs:
         with:
           image: ${{ env.DATAHUB_INGESTION_BASE_IMAGE }}:${{ steps.filter.outputs.datahub-ingestion-base == 'true' && needs.setup.outputs.unique_slim_tag || 'head-slim' }}
       - name: Login to DockerHub
-        uses: docker/login-action@v2
+        uses: docker/login-action@v3
         if: ${{ needs.setup.outputs.docker-login == 'true' && needs.setup.outputs.publish == 'false' && needs.setup.outputs.pr-publish == 'false' &&  steps.filter.outputs.datahub-ingestion-base == 'false' }}
         with:
           username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
@@ -769,7 +769,7 @@ jobs:
         with:
           image: ${{ env.DATAHUB_INGESTION_BASE_IMAGE }}:${{ steps.filter.outputs.datahub-ingestion-base == 'true' && needs.setup.outputs.unique_tag || 'head' }}
       - name: Login to DockerHub
-        uses: docker/login-action@v2
+        uses: docker/login-action@v3
         if: ${{ needs.setup.outputs.docker-login == 'true' && needs.setup.outputs.publish == 'false' && needs.setup.outputs.pr-publish == 'false' &&  steps.filter.outputs.datahub-ingestion-base == 'false' }}
         with:
           username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
@@ -890,7 +890,7 @@ jobs:
         run: |
           ./gradlew :metadata-ingestion:install
       - name: Login to DockerHub
-        uses: docker/login-action@v2
+        uses: docker/login-action@v3
         if: ${{ needs.setup.outputs.docker-login == 'true' }}
         with:
             username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
