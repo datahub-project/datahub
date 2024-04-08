@@ -117,7 +117,7 @@ def init(use_password: bool = False) -> None:
     if os.path.isfile(DATAHUB_CONFIG_PATH):
         click.confirm(f"{DATAHUB_CONFIG_PATH} already exists. Overwrite?", abort=True)
 
-    click.echo("Configure which datahub instance to connect to")
+    click.echo("Configure which datahub instance to connect to (https://your-instance.acryl.io/gms for Acryl hosted users)")
     host = click.prompt(
         "Enter your DataHub host", type=str, default="http://localhost:8080"
     )
