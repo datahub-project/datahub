@@ -232,7 +232,9 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             BigqueryTableIdentifier._BQ_SHARDED_TABLE_SUFFIX = ""
 
         self.bigquery_data_dictionary = BigQuerySchemaApi(
-            self.report.schema_api_perf, self.config.get_bigquery_client()
+            self.report.schema_api_perf,
+            self.config.get_bigquery_client(),
+            self.config.get_projects_client()
         )
         self.sql_parser_schema_resolver = self._init_schema_resolver()
 
@@ -337,10 +339,12 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         for project_id in project_ids:
             try:
                 logger.info((f"Metadata read capability test for project {project_id}"))
-                client: bigquery.Client = config.get_bigquery_client()
-                assert client
+                bq_client: bigquery.Client = config.get_bigquery_client()
+                assert bq_client
+                proj_client: resourcemanager_v3.Client = config.get_projects_client()
+                assert proj_client
                 bigquery_data_dictionary = BigQuerySchemaApi(
-                    BigQueryV2Report().schema_api_perf, client
+                    BigQueryV2Report().schema_api_perf, bq_client, proj_client
                 )
                 result = bigquery_data_dictionary.get_datasets_for_project_id(
                     project_id, 10

@@ -484,7 +484,9 @@ class BigqueryLineageExtractor:
             lineage_client: lineage_v1.LineageClient = lineage_v1.LineageClient()
 
             data_dictionary = BigQuerySchemaApi(
-                self.report.schema_api_perf, self.config.get_bigquery_client()
+                self.report.schema_api_perf,
+                self.config.get_bigquery_client(),
+                self.config.get_projects_client(),
             )
 
             # Filtering datasets

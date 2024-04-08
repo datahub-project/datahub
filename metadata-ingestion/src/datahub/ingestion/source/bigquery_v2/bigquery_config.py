@@ -69,6 +69,9 @@ class BigQueryConnectionConfig(ConfigModel):
     def get_bigquery_client(self) -> bigquery.Client:
         client_options = self.extra_client_options
         return bigquery.Client(self.project_on_behalf, **client_options)
+    
+    def get_projects_client(self) -> resourcemanager_v3.ProjectsClient:
+        return resourcemanager_v3.ProjectsClient()
 
     def make_gcp_logging_client(
         self, project_id: Optional[str] = None

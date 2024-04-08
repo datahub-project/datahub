@@ -166,19 +166,20 @@ class BigQuerySchemaApi:
                 return []
             
     def get_projects_in_folders(self, folder_ids: List[str]) -> List[BigqueryProject]:
-        try:
-            projects = []
-            for folder_id in folder_ids:
-                for project in self.projects_client.list_projects(parent=f"folders/{folder_id}"):
-                    projects.append(
-                        BigqueryProject(id=project.project_id, name=project.display_name)
-                    )
+        with self.report.list_projects_in_folders:
+            try:
+                projects = []
+                for folder_id in folder_ids:
+                    for project in self.projects_client.list_projects(parent=f"folders/{folder_id}"):
+                        projects.append(
+                            BigqueryProject(id=project.project_id, name=project.display_name)
+                        )
 
-            return projects
+                return projects
 
-        except Exception as e:
-                logger.error(f"Error getting projects in Folder: {folder_id}. {e}", exc_info=True)
-                return []
+            except Exception as e:
+                    logger.error(f"Error getting projects in Folder: {folder_id}. {e}", exc_info=True)
+                    return []
 
     def get_datasets_for_project_id(
         self, project_id: str, maxResults: Optional[int] = None
