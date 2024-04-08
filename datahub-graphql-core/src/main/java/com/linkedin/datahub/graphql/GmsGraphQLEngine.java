@@ -717,7 +717,7 @@ public class GmsGraphQLEngine {
     configureVersionedDatasetResolvers(builder);
     configureAccessAccessTokenMetadataResolvers(builder);
     configureTestResultResolvers(builder);
-    configureRoleResolvers(builder);
+    configureDataHubRoleResolvers(builder);
     configureSchemaFieldResolvers(builder);
     configureERModelRelationshipResolvers(builder);
     configureEntityPathResolvers(builder);
@@ -730,7 +730,7 @@ public class GmsGraphQLEngine {
     configureFormResolvers(builder);
     configureIncidentResolvers(builder);
     configureRestrictedResolvers(builder);
-    configureActorResolvers(builder);
+    configureRoleResolvers(builder);
   }
 
   private void configureOrganisationRoleResolvers(RuntimeWiring.Builder builder) {
@@ -2692,7 +2692,7 @@ public class GmsGraphQLEngine {
                         })));
   }
 
-  private void configureRoleResolvers(final RuntimeWiring.Builder builder) {
+  private void configureDataHubRoleResolvers(final RuntimeWiring.Builder builder) {
     builder.type(
         "DataHubRole",
         typeWiring ->
@@ -2928,7 +2928,7 @@ public class GmsGraphQLEngine {
                 .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient)));
   }
 
-  private void configureActorResolvers(final RuntimeWiring.Builder builder) {
+  private void configureRoleResolvers(final RuntimeWiring.Builder builder) {
     builder.type(
         "Role",
         typeWiring -> typeWiring.dataFetcher("isAssignedToMe", new IsAssignedToMeResolver()));
