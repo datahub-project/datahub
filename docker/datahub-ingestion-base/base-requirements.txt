@@ -249,7 +249,7 @@ pydash==7.0.7
 pydruid==0.6.6
 Pygments==2.17.2
 pyiceberg==0.4.0
-pymongo==4.6.2
+pymongo==4.6.3
 PyMySQL==1.1.0
 pyOpenSSL==24.1.0
 pyparsing==3.0.9
