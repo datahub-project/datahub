@@ -22,6 +22,7 @@ class SigmaAPI:
         self.config = config
         self.workspaces: Dict[str, Workspace] = {}
         self.users: Dict[str, str] = {}
+        self.datasets: Dict[str, str] = {}
         self.session = requests.Session()
         # Test connection by generating access token
         logger.info("Trying to connect to {}".format(self.config.api_url))
@@ -102,20 +103,46 @@ class SigmaAPI:
             )
         return dataset
 
-    def _get_element_lineage(self, element_id: str, workbook_id: str) -> List[str]:
-        upstream_datasets: List[str] = []
+    def _get_element_upstream_sources(
+        self, element_id: str, workbook_id: str
+    ) -> Dict[str, str]:
+        """
+        Returns upstream sources with keys as id and values as type that source
+        """
+        upstream_sources: Dict[str, str] = {}
         try:
             response = self.session.get(
                 f"{self.config.api_url}/workbooks/{workbook_id}/lineage/elements/{element_id}"
             )
             response.raise_for_status()
-            for edge in response.json()[Constant.EDGES]:
-                upstream_datasets.append(edge[Constant.SOURCE].split("-")[-1])
-        except Exception:
+            response_dict = response.json()
+            for edge in response_dict[Constant.EDGES]:
+                upstream_sources[edge[Constant.SOURCE]] = response_dict[
+                    Constant.DEPENDENCIES
+                ][edge[Constant.SOURCE]][Constant.TYPE]
+        except Exception as e:
             self._log_http_error(
-                message=f"Unable to fetch lineage of element {element_id}."
+                message=f"Unable to fetch lineage of element {element_id}. Exception: {e}"
             )
-        return upstream_datasets
+        return upstream_sources
+
+    def _get_element_sql_query(
+        self, element_id: str, workbook_id: str
+    ) -> Optional[str]:
+        query: Optional[str] = None
+        try:
+            response = self.session.get(
+                f"{self.config.api_url}/workbooks/{workbook_id}/elements/{element_id}/query"
+            )
+            response.raise_for_status()
+            response_dict = response.json()
+            if "sql" in response_dict:
+                query = response_dict["sql"]
+        except Exception as e:
+            self._log_http_error(
+                message=f"Unable to fetch sql query for a element {element_id}. Exception: {e}"
+            )
+        return query
 
     def get_page_elements(self, workbook: Workbook, page: Page) -> List[Element]:
         elements: List[Element] = []
@@ -131,7 +158,10 @@ class SigmaAPI:
                     Constant.URL
                 ] = f"{workbook.url}?:nodeId={element_dict[Constant.ELEMENTID]}&:fullScreen=true"
                 element = Element.parse_obj(element_dict)
-                element.upstream_datasets = self._get_element_lineage(
+                element.upstream_sources = self._get_element_upstream_sources(
+                    element.elementId, workbook.workbookId
+                )
+                element.query = self._get_element_sql_query(
                     element.elementId, workbook.workbookId
                 )
                 elements.append(element)
@@ -214,6 +244,7 @@ class SigmaAPI:
                         if dataset:
                             dataset.badge = entity[Constant.BADGE]
                             entities.append(dataset)
+                            self.datasets[dataset.datasetId] = dataset.name
                     elif type == Constant.WORKBOOK:
                         workbook = self.get_workbook(entity[Constant.ID], workspace_id)
                         if workbook:

@@ -1,5 +1,5 @@
 import logging
-from typing import Iterable, List, Optional
+from typing import Dict, Iterable, List, Optional
 
 import datahub.emitter.mce_builder as builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -25,7 +25,11 @@ from datahub.ingestion.source.common.subtypes import (
     BIContainerSubTypes,
     DatasetSubTypes,
 )
-from datahub.ingestion.source.sigma.config import SigmaSourceConfig, SigmaSourceReport
+from datahub.ingestion.source.sigma.config import (
+    PlatformDetail,
+    SigmaSourceConfig,
+    SigmaSourceReport,
+)
 from datahub.ingestion.source.sigma.data_classes import (
     Element,
     Page,
@@ -47,7 +51,12 @@ from datahub.metadata.com.linkedin.pegasus2avro.common import (
     SubTypes,
     TimeStamp,
 )
-from datahub.metadata.com.linkedin.pegasus2avro.dataset import DatasetProperties
+from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
+    DatasetLineageType,
+    DatasetProperties,
+    Upstream,
+    UpstreamLineage,
+)
 from datahub.metadata.schema_classes import (
     BrowsePathEntryClass,
     BrowsePathsV2Class,
@@ -61,6 +70,8 @@ from datahub.metadata.schema_classes import (
     OwnershipTypeClass,
     TagAssociationClass,
 )
+from datahub.sql_parsing.sqlglot_lineage import create_lineage_sql_parsed_result
+from datahub.utilities.urns.dataset_urn import DatasetUrn
 
 # Logger instance
 logger = logging.getLogger(__name__)
@@ -91,6 +102,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         super(SigmaSource, self).__init__(config, ctx)
         self.config = config
         self.reporter = SigmaSourceReport()
+        self.dataset_upstream_urn_mapping: Dict[str, str] = {}
         try:
             self.sigma_api = SigmaAPI(self.config)
         except Exception as e:
@@ -159,7 +171,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         )
 
     def _get_sigma_dataset_identifier(self, dataset: SigmaDataset) -> str:
-        return f"{dataset.datasetId}".lower()
+        return dataset.datasetId
 
     def _gen_sigma_dataset_urn(self, dataset_identifier: str) -> str:
         return builder.make_dataset_urn_with_platform_instance(
@@ -324,8 +336,79 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             entityUrn=dashboard_urn, aspect=dashboard_info_cls
         ).as_workunit()
 
+    def _get_element_data_source_platform_details(
+        self, full_path: str
+    ) -> Optional[PlatformDetail]:
+        data_source_platform_details: Optional[PlatformDetail] = None
+        while full_path != "":
+            if full_path in self.config.chart_sources_platform_mapping:
+                data_source_platform_details = (
+                    self.config.chart_sources_platform_mapping[full_path]
+                )
+                break
+            else:
+                full_path = "/".join(full_path.split("/")[:-1])
+        if (
+            not data_source_platform_details
+            and "*" in self.config.chart_sources_platform_mapping
+        ):
+            data_source_platform_details = self.config.chart_sources_platform_mapping[
+                "*"
+            ]
+
+        return data_source_platform_details
+
+    def _get_element_input_details(
+        self, element: Element, workbook: Workbook
+    ) -> Dict[str, Optional[str]]:
+        """
+        Returns dict with keys as the all element input dataset urn and values as their upstream dataset urn
+        """
+        inputs: Dict[str, Optional[str]] = {}
+        sql_parser_in_tables: List[str] = []
+
+        data_source_platform_details = self._get_element_data_source_platform_details(
+            f"{workbook.path}/{workbook.name}/{element.name}"
+        )
+
+        if element.query and data_source_platform_details:
+            try:
+                sql_parser_in_tables = create_lineage_sql_parsed_result(
+                    query=element.query.strip(),
+                    default_db=None,
+                    platform=data_source_platform_details.data_source_platform,
+                    env=data_source_platform_details.env,
+                    platform_instance=data_source_platform_details.platform_instance,
+                ).in_tables
+            except Exception:
+                logging.debug(f"Unable to parse query of element {element.name}")
+
+        # Add sigma dataset as input of element if present
+        # and its matched sql parser in_table as its upsteam dataset
+        for source_id, source_type in element.upstream_sources.items():
+            if source_type == "dataset":
+                source_id = source_id.split("-")[-1]
+                source_dataset_name = self.sigma_api.datasets.get(source_id)
+                if source_dataset_name:
+                    for in_table_urn in sql_parser_in_tables:
+                        if (
+                            DatasetUrn.from_string(in_table_urn).name.split(".")[-1]
+                            in source_dataset_name.lower()
+                        ):
+                            inputs[
+                                self._gen_sigma_dataset_urn(source_id)
+                            ] = in_table_urn
+                            sql_parser_in_tables.remove(in_table_urn)
+                            break
+
+        # Add remaining sql parser in_tables as direct input of element
+        for in_table_urn in sql_parser_in_tables:
+            inputs[in_table_urn] = None
+
+        return inputs
+
     def _gen_elements_workunit(
-        self, elements: List[Element], workbook_id: str
+        self, elements: List[Element], workbook: Workbook
     ) -> Iterable[MetadataWorkUnit]:
         """
         Map Sigma page element to Datahub Chart
@@ -345,6 +428,10 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
 
             yield self._gen_entity_status_aspect(chart_urn)
 
+            inputs: Dict[str, Optional[str]] = self._get_element_input_details(
+                element, workbook
+            )
+
             yield MetadataChangeProposalWrapper(
                 entityUrn=chart_urn,
                 aspect=ChartInfoClass(
@@ -353,18 +440,25 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                     lastModified=ChangeAuditStampsClass(),
                     customProperties=custom_properties,
                     externalUrl=element.url,
-                    inputs=[
-                        self._gen_sigma_dataset_urn(dataset_id.lower())
-                        for dataset_id in element.upstream_datasets
-                    ],
+                    inputs=list(inputs.keys()),
                 ),
             ).as_workunit()
 
             yield from add_entity_to_container(
-                container_key=self._gen_workbook_key(workbook_id),
+                container_key=self._gen_workbook_key(workbook.workbookId),
                 entity_type="chart",
                 entity_urn=chart_urn,
             )
+
+            # Add sigma dataset's upstream dataset urn mapping
+            for dataset_urn, upstream_dataset_urn in inputs.items():
+                if (
+                    upstream_dataset_urn
+                    and dataset_urn not in self.dataset_upstream_urn_mapping
+                ):
+                    self.dataset_upstream_urn_mapping[
+                        dataset_urn
+                    ] = upstream_dataset_urn
 
     def _gen_pages_workunit(self, workbook: Workbook) -> Iterable[MetadataWorkUnit]:
         """
@@ -387,7 +481,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             if dpi_aspect:
                 yield dpi_aspect
 
-            yield from self._gen_elements_workunit(page.elements, workbook.workbookId)
+            yield from self._gen_elements_workunit(page.elements, workbook)
 
     def _gen_workbook_workunit(self, workbook: Workbook) -> Iterable[MetadataWorkUnit]:
         """
@@ -426,6 +520,24 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
 
         yield from self._gen_pages_workunit(workbook)
 
+    def _gen_sigma_dataset_upstream_lineage_workunit(
+        self,
+    ) -> Iterable[MetadataWorkUnit]:
+        for (
+            dataset_urn,
+            upstream_dataset_urn,
+        ) in self.dataset_upstream_urn_mapping.items():
+            yield MetadataChangeProposalWrapper(
+                entityUrn=dataset_urn,
+                aspect=UpstreamLineage(
+                    upstreams=[
+                        Upstream(
+                            dataset=upstream_dataset_urn, type=DatasetLineageType.COPY
+                        )
+                    ],
+                ),
+            ).as_workunit()
+
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         """
         Datahub Ingestion framework invoke this method
@@ -439,6 +551,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 yield from self._gen_dataset_workunit(entity)
         for workspace in self._get_allowed_workspaces():
             yield from self._gen_workspace_workunit(workspace)
+        yield from self._gen_sigma_dataset_upstream_lineage_workunit()
 
     def get_report(self) -> SourceReport:
         return self.reporter

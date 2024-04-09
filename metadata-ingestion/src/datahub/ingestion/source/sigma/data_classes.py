@@ -47,8 +47,9 @@ class Element(BaseModel):
     name: str
     url: str
     vizualizationType: Optional[str] = None
+    query: Optional[str] = None
     columns: List[str] = []
-    upstream_datasets: List[str] = []
+    upstream_sources: Dict[str, str] = {}
 
 
 class Page(BaseModel):

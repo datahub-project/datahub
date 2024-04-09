@@ -1,6 +1,6 @@
 import logging
 from dataclasses import dataclass
-from typing import Optional
+from typing import Dict, Optional
 
 import pydantic
 
@@ -29,6 +29,7 @@ class Constant:
     FIRSTNAME = "firstName"
     LASTNAME = "lastName"
     EDGES = "edges"
+    DEPENDENCIES = "dependencies"
     SOURCE = "source"
     WORKSPACEID = "workspaceId"
     PATH = "path"
@@ -55,6 +56,12 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
         self.number_of_workspaces = number_of_workspaces
 
 
+class PlatformDetail(PlatformInstanceConfigMixin, EnvConfigMixin):
+    data_source_platform: str = pydantic.Field(
+        description="A chart's data sources platform name.",
+    )
+
+
 class SigmaSourceConfig(
     StatefulIngestionConfigBase, PlatformInstanceConfigMixin, EnvConfigMixin
 ):
@@ -72,4 +79,12 @@ class SigmaSourceConfig(
     ingest_owner: Optional[bool] = pydantic.Field(
         default=True,
         description="Ingest Owner from source. This will override Owner info entered from UI",
+    )
+    chart_sources_platform_mapping: Dict[str, PlatformDetail] = pydantic.Field(
+        default={},
+        description="A mapping of the sigma workspace/workbook/chart folder path to all chart's data sources platform details present inside that folder path. "
+        "For example: Provide key as 'workspace_name/[folder_name/]workbook_name/chart_name' if just for one specific chart, "
+        "key as 'workspace_name/[folder_name/]workbook_name' if for all charts within a specific workbook, "
+        "key as 'workspace_name' if for all workbook's charts within a specific workspace, and "
+        "key as '*' for all ingested charts",
     )
