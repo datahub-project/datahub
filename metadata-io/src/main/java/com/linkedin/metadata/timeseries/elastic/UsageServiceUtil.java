@@ -261,17 +261,17 @@ public class UsageServiceUtil {
   }
 
   private static UsageQueryResultAggregations getAggregations(
-          @Nonnull OperationContext opContext,
-          @Nonnull TimeseriesAspectService timeseriesAspectService,
-          Filter filter) {
+      @Nonnull OperationContext opContext,
+      @Nonnull TimeseriesAspectService timeseriesAspectService,
+      Filter filter) {
     UsageQueryResultAggregations aggregations = new UsageQueryResultAggregations();
     List<UserUsageCounts> userUsageCounts =
-            getUserUsageCounts(opContext, timeseriesAspectService, filter);
+        getUserUsageCounts(opContext, timeseriesAspectService, filter);
     aggregations.setUsers(new UserUsageCountsArray(userUsageCounts));
     aggregations.setUniqueUserCount(userUsageCounts.size());
 
     List<FieldUsageCounts> fieldUsageCounts =
-            getFieldUsageCounts(opContext, timeseriesAspectService, filter);
+        getFieldUsageCounts(opContext, timeseriesAspectService, filter);
     aggregations.setFields(new FieldUsageCountsArray(fieldUsageCounts));
 
     return aggregations;
@@ -398,7 +398,8 @@ public class UsageServiceUtil {
   }
 
   @Nonnull
-  private static Long convertRangeToStartTime(@Nonnull UsageTimeRange range, long currentEpochMillis) {
+  private static Long convertRangeToStartTime(
+      @Nonnull UsageTimeRange range, long currentEpochMillis) {
     // TRICKY: since start_time must be before the bucket's start, we actually
     // need to subtract extra from the current time to ensure that we get precisely
     // what we're looking for. Note that start_time and end_time are both inclusive,

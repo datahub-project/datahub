@@ -40,7 +40,6 @@ import com.linkedin.metadata.timeline.TimelineService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.version.GitVersion;
-import com.linkedin.usage.RestliUsageClient;
 import io.datahubproject.metadata.services.RestrictedService;
 import io.datahubproject.metadata.services.SecretService;
 import javax.annotation.Nonnull;
@@ -191,7 +190,9 @@ public class GraphQLEngineFactory {
     args.setEntityClient(entityClient);
     args.setSystemEntityClient(systemEntityClient);
     args.setGraphClient(graphClient);
-    args.setUsageClient(new UsageStatsJavaClient(timeseriesAspectService, configProvider.getCache().getClient().getUsageClient()));
+    args.setUsageClient(
+        new UsageStatsJavaClient(
+            timeseriesAspectService, configProvider.getCache().getClient().getUsageClient()));
     if (isAnalyticsEnabled) {
       args.setAnalyticsService(new AnalyticsService(elasticClient, indexConvention));
     }
