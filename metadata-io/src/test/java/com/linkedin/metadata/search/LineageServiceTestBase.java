@@ -1338,4 +1338,31 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
     filter = new Filter().setOr(conCritArr);
     Assert.assertTrue(lineageSearchService.canDoLightning(lineageRelationships, "*", filter, null));
   }
+
+  @Test
+  public void testPlatform() {
+    assertEquals(
+        lineageSearchService.getPlatform(
+            "dataset",
+            UrnUtils.getUrn(
+                "urn:li:dataset:(urn:li:dataPlatform:custom,file:///custom/path,PROD)")),
+        "urn:li:dataPlatform:custom");
+    assertEquals(
+        lineageSearchService.getPlatform(
+            "chart", UrnUtils.getUrn("urn:li:chart:(looker,foobar.1234)")),
+        "urn:li:dataPlatform:looker");
+    assertEquals(
+        lineageSearchService.getPlatform(
+            "dashboard", UrnUtils.getUrn("urn:li:dashboard:(looker,dashboards.1234)")),
+        "urn:li:dataPlatform:looker");
+    assertEquals(
+        lineageSearchService.getPlatform(
+            "dataFlow", UrnUtils.getUrn("urn:li:dataFlow:(airflow,foobar,PROD)")),
+        "urn:li:dataPlatform:airflow");
+    assertEquals(
+        lineageSearchService.getPlatform(
+            "dataJob",
+            UrnUtils.getUrn("urn:li:dataJob:(urn:li:dataFlow:(airflow,foobar,PROD),End)")),
+        "urn:li:dataPlatform:airflow");
+  }
 }

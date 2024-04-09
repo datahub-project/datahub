@@ -80,12 +80,6 @@ def get_airflow_plugin_listener() -> Optional["DataHubListener"]:
         if plugin_config.enabled:
             _airflow_listener = DataHubListener(config=plugin_config)
 
-            if plugin_config.disable_openlineage_plugin:
-                # Deactivate the OpenLineagePlugin listener to avoid conflicts.
-                from openlineage.airflow.plugin import OpenLineagePlugin
-
-                OpenLineagePlugin.listeners = []
-
             telemetry.telemetry_instance.ping(
                 "airflow-plugin-init",
                 {
@@ -99,6 +93,13 @@ def get_airflow_plugin_listener() -> Optional["DataHubListener"]:
                     "disable_openlineage_plugin": plugin_config.disable_openlineage_plugin,
                 },
             )
+
+        if plugin_config.disable_openlineage_plugin:
+            # Deactivate the OpenLineagePlugin listener to avoid conflicts/errors.
+            from openlineage.airflow.plugin import OpenLineagePlugin
+
+            OpenLineagePlugin.listeners = []
+
     return _airflow_listener
 
 
@@ -127,7 +128,7 @@ def run_in_thread(f: _F) -> _F:
             else:
                 f(*args, **kwargs)
         except Exception as e:
-            logger.exception(e)
+            logger.warning(e, exc_info=True)
 
     return cast(_F, wrapper)
 
