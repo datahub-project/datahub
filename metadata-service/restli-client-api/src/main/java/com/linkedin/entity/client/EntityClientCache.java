@@ -44,12 +44,21 @@ public class EntityClientCache {
       @Nonnull final Set<String> aspectNames) {
     final Map<Urn, EntityResponse> response;
 
+    final Set<String> projectedAspects =
+        !aspectNames.isEmpty()
+            ? aspectNames
+            : urns.stream()
+                .map(Urn::getEntityType)
+                .distinct()
+                .flatMap(entityName -> opContext.getEntityAspectNames(entityName).stream())
+                .collect(Collectors.toSet());
+
     if (config.isEnabled()) {
       Set<Key> keys =
           urns.stream()
               .flatMap(
                   urn ->
-                      aspectNames.stream()
+                      projectedAspects.stream()
                           .map(
                               a ->
                                   Key.builder()
@@ -79,7 +88,7 @@ public class EntityClientCache {
               CollectionKey.builder()
                   .contextId(opContext.getEntityContextId())
                   .urns(urns)
-                  .aspectNames(aspectNames)
+                  .aspectNames(projectedAspects)
                   .build());
     }
 
