@@ -573,7 +573,7 @@ def get_fully_qualified_table_name(
         .replace("`", "")
     )
 
-    if platform in ("athena", "hive", "mysql"):
+    if platform in ("athena", "hive", "mysql", "clickhouse"):
         # it two tier database system (athena, hive, mysql), just take final 2
         fully_qualified_table_name = ".".join(
             fully_qualified_table_name.split(".")[-2:]

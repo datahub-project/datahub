@@ -92,7 +92,7 @@ tables_1 = [
         "Retention": 0,
         "StorageDescriptor": {
             "Columns": [
-                {"Name": "yr", "Type": "int"},
+                {"Name": "yr", "Type": "int", "Comment": "test comment"},
                 {"Name": "flightdate", "Type": "string"},
                 {"Name": "uniquecarrier", "Type": "string"},
                 {"Name": "airlineid", "Type": "int"},
@@ -129,7 +129,9 @@ tables_1 = [
             },
             "StoredAsSubDirectories": False,
         },
-        "PartitionKeys": [{"Name": "year", "Type": "string"}],
+        "PartitionKeys": [
+            {"Name": "year", "Type": "string", "Comment": "partition test comment"}
+        ],
         "TableType": "EXTERNAL_TABLE",
         "Parameters": {
             "CrawlerSchemaDeserializerVersion": "1.0",
