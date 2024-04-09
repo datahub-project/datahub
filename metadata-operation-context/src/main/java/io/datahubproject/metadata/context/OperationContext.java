@@ -355,6 +355,11 @@ public class OperationContext {
             .sum());
   }
 
+  @Nonnull
+  public String getRequestID() {
+    return Optional.ofNullable(requestContext).map(RequestContext::getRequestID).orElse("");
+  }
+
   public static class OperationContextBuilder {
 
     @Nonnull
