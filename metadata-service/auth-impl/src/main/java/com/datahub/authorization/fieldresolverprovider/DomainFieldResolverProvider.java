@@ -11,7 +11,7 @@ import com.linkedin.domain.DomainProperties;
 import com.linkedin.domain.Domains;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
-import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.client.SystemEntityClient;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.Collections;
 import java.util.HashSet;
@@ -28,7 +28,7 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class DomainFieldResolverProvider implements EntityFieldResolverProvider {
 
-  private final EntityClient _entityClient;
+  private final SystemEntityClient _entityClient;
 
   @Override
   public List<EntityFieldType> getFieldTypes() {

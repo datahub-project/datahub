@@ -9,7 +9,7 @@ import com.datahub.authorization.fieldresolverprovider.GroupMembershipFieldResol
 import com.datahub.authorization.fieldresolverprovider.OwnerFieldResolverProvider;
 import com.datahub.authorization.fieldresolverprovider.TagFieldResolverProvider;
 import com.google.common.collect.ImmutableList;
-import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.List;
@@ -22,7 +22,7 @@ public class DefaultEntitySpecResolver implements EntitySpecResolver {
   private final OperationContext systemOperationContext;
 
   public DefaultEntitySpecResolver(
-      @Nonnull OperationContext systemOperationContext, EntityClient entityClient) {
+      @Nonnull OperationContext systemOperationContext, SystemEntityClient entityClient) {
     _entityFieldResolverProviders =
         ImmutableList.of(
             new EntityTypeFieldResolverProvider(),

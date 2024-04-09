@@ -38,7 +38,7 @@ import com.linkedin.entity.Aspect;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
-import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.identity.GroupMembership;
 import com.linkedin.identity.RoleMembership;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -74,13 +74,13 @@ public class DataHubAuthorizerTest {
   private static final Urn USER_WITH_ADMIN_ROLE =
       UrnUtils.getUrn("urn:li:corpuser:user-with-admin");
 
-  private EntityClient _entityClient;
+  private SystemEntityClient _entityClient;
   private DataHubAuthorizer _dataHubAuthorizer;
   private OperationContext systemOpContext;
 
   @BeforeMethod
   public void setupTest() throws Exception {
-    _entityClient = mock(EntityClient.class);
+    _entityClient = mock(SystemEntityClient.class);
 
     // Init mocks.
     final Urn activePolicyUrn = Urn.createFromString("urn:li:dataHubPolicy:0");
@@ -700,7 +700,7 @@ public class DataHubAuthorizerTest {
   }
 
   private AuthorizerContext createAuthorizerContext(
-      final OperationContext systemOpContext, final EntityClient entityClient) {
+      final OperationContext systemOpContext, final SystemEntityClient entityClient) {
     return new AuthorizerContext(
         Collections.emptyMap(), new DefaultEntitySpecResolver(systemOpContext, entityClient));
   }

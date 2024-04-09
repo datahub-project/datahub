@@ -1,5 +1,7 @@
 package com.linkedin.metadata.client;
 
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClientCache;
@@ -19,7 +21,6 @@ import io.datahubproject.metadata.context.OperationContext;
 import java.net.URISyntaxException;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.Getter;
@@ -29,7 +30,7 @@ import lombok.Getter;
 public class SystemJavaEntityClient extends JavaEntityClient implements SystemEntityClient {
 
   private final EntityClientCache entityClientCache;
-  private final ConcurrentHashMap<String, OperationContext> operationContextMap;
+  private final Cache<String, OperationContext> operationContextMap;
 
   public SystemJavaEntityClient(
       EntityService<?> entityService,
@@ -52,7 +53,7 @@ public class SystemJavaEntityClient extends JavaEntityClient implements SystemEn
         timeseriesAspectService,
         rollbackService,
         eventProducer);
-    this.operationContextMap = new ConcurrentHashMap<>();
+    this.operationContextMap = CacheBuilder.newBuilder().maximumSize(500).build();
     this.entityClientCache = buildEntityClientCache(SystemJavaEntityClient.class, cacheConfig);
   }
 

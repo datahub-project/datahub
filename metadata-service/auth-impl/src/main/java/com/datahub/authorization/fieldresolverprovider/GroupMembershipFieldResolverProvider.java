@@ -11,7 +11,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
-import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.identity.GroupMembership;
 import com.linkedin.identity.NativeGroupMembership;
 import com.linkedin.metadata.Constants;
@@ -29,7 +29,7 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class GroupMembershipFieldResolverProvider implements EntityFieldResolverProvider {
 
-  private final EntityClient _entityClient;
+  private final SystemEntityClient _entityClient;
 
   @Override
   public List<EntityFieldType> getFieldTypes() {

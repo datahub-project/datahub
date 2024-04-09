@@ -1,5 +1,7 @@
 package com.linkedin.entity.client;
 
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.metadata.config.cache.client.EntityClientCacheConfig;
@@ -10,7 +12,6 @@ import io.datahubproject.metadata.context.OperationContext;
 import java.net.URISyntaxException;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.Getter;
@@ -19,7 +20,7 @@ import lombok.Getter;
 @Getter
 public class SystemRestliEntityClient extends RestliEntityClient implements SystemEntityClient {
   private final EntityClientCache entityClientCache;
-  private final ConcurrentHashMap<String, OperationContext> operationContextMap;
+  private final Cache<String, OperationContext> operationContextMap;
 
   public SystemRestliEntityClient(
       @Nonnull final Client restliClient,
@@ -27,7 +28,7 @@ public class SystemRestliEntityClient extends RestliEntityClient implements Syst
       int retryCount,
       EntityClientCacheConfig cacheConfig) {
     super(restliClient, backoffPolicy, retryCount);
-    this.operationContextMap = new ConcurrentHashMap<>();
+    this.operationContextMap = CacheBuilder.newBuilder().maximumSize(500).build();
     this.entityClientCache = buildEntityClientCache(SystemRestliEntityClient.class, cacheConfig);
   }
 

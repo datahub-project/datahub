@@ -1,32 +1,30 @@
-package com.linkedin.usage;
+package com.linkedin.metadata.client;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
-import com.linkedin.common.EntityRelationships;
 import com.linkedin.common.WindowDuration;
-import com.linkedin.common.client.BaseClient;
 import com.linkedin.metadata.config.cache.client.UsageClientCacheConfig;
-import com.linkedin.parseq.retry.backoff.BackoffPolicy;
+import com.linkedin.metadata.timeseries.TimeseriesAspectService;
+import com.linkedin.metadata.timeseries.elastic.UsageServiceUtil;
 import com.linkedin.r2.RemoteInvocationException;
-import com.linkedin.restli.client.Client;
+import com.linkedin.usage.UsageClient;
+import com.linkedin.usage.UsageClientCache;
+import com.linkedin.usage.UsageQueryResult;
+import com.linkedin.usage.UsageTimeRange;
 import io.datahubproject.metadata.context.OperationContext;
 import java.net.URISyntaxException;
 import javax.annotation.Nonnull;
 
-public class RestliUsageClient extends BaseClient implements UsageClient {
-  private static final UsageStatsRequestBuilders USAGE_STATS_REQUEST_BUILDERS =
-      new UsageStatsRequestBuilders();
+public class UsageStatsJavaClient implements UsageClient {
 
   private final UsageClientCache usageClientCache;
+  private final TimeseriesAspectService timeseriesAspectService;
+  private final Cache<String, OperationContext> operationContextMap;
 
-  @Nonnull private final Cache<String, OperationContext> operationContextMap;
-
-  public RestliUsageClient(
-      @Nonnull final Client restliClient,
-      @Nonnull final BackoffPolicy backoffPolicy,
-      int retryCount,
-      UsageClientCacheConfig cacheConfig) {
-    super(restliClient, backoffPolicy, retryCount);
+  public UsageStatsJavaClient(
+      @Nonnull TimeseriesAspectService timeseriesAspectService,
+      @Nonnull UsageClientCacheConfig cacheConfig) {
+    this.timeseriesAspectService = timeseriesAspectService;
     this.operationContextMap = Caffeine.newBuilder().maximumSize(500).build();
     this.usageClientCache =
         UsageClientCache.builder()
@@ -45,11 +43,8 @@ public class RestliUsageClient extends BaseClient implements UsageClient {
             .build();
   }
 
-  /**
-   * Gets a specific version of downstream {@link EntityRelationships} for the given dataset. Using
-   * cache and system authentication. Validate permissions before use!
-   */
   @Nonnull
+  @Override
   public UsageQueryResult getUsageStats(
       @Nonnull OperationContext opContext,
       @Nonnull String resource,
@@ -58,19 +53,13 @@ public class RestliUsageClient extends BaseClient implements UsageClient {
     return usageClientCache.getUsageStats(opContext, resource, range);
   }
 
-  /** Gets a specific version of downstream {@link EntityRelationships} for the given dataset. */
-  @Override
   @Nonnull
+  @Override
   public UsageQueryResult getUsageStatsNoCache(
       @Nonnull OperationContext opContext, @Nonnull String resource, @Nonnull UsageTimeRange range)
       throws RemoteInvocationException, URISyntaxException {
 
-    final UsageStatsDoQueryRangeRequestBuilder requestBuilder =
-        USAGE_STATS_REQUEST_BUILDERS
-            .actionQueryRange()
-            .resourceParam(resource)
-            .durationParam(WindowDuration.DAY)
-            .rangeFromEndParam(range);
-    return sendClientRequest(requestBuilder, opContext.getSessionAuthentication()).getEntity();
+    return UsageServiceUtil.queryRange(
+        opContext, timeseriesAspectService, resource, WindowDuration.DAY, range);
   }
 }

@@ -20,6 +20,7 @@ import com.linkedin.datahub.graphql.generated.DatasetStatsSummary;
 import com.linkedin.datahub.graphql.resolvers.dataset.DatasetStatsSummaryResolver;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.EnvelopedAspect;
+import com.linkedin.metadata.client.UsageStatsJavaClient;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.utils.GenericRecordUtils;
@@ -31,6 +32,7 @@ import com.linkedin.usage.UsageTimeRange;
 import com.linkedin.usage.UserUsageCounts;
 import com.linkedin.usage.UserUsageCountsArray;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.OperationContext;
 import org.mockito.Mockito;
 import org.testng.Assert;
 import org.testng.annotations.Test;
@@ -118,10 +120,12 @@ public class DashboardStatsSummaryTest {
                             .setUserEmail("test2@gmail.com")
                             .setCount(30)))));
 
-    UsageClient mockClient = Mockito.mock(UsageClient.class);
+    UsageStatsJavaClient mockClient = Mockito.mock(UsageStatsJavaClient.class);
     Mockito.when(
             mockClient.getUsageStats(
-                Mockito.eq(TEST_DASHBOARD_URN), Mockito.eq(UsageTimeRange.MONTH)))
+                any(OperationContext.class),
+                Mockito.eq(TEST_DASHBOARD_URN),
+                Mockito.eq(UsageTimeRange.MONTH)))
         .thenThrow(RuntimeException.class);
 
     // Execute resolver

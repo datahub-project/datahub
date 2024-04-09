@@ -31,7 +31,7 @@ import com.linkedin.entity.Aspect;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
-import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.identity.GroupMembership;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.search.MatchedFieldArray;
@@ -574,11 +574,11 @@ public class ESAccessControlUtilTest {
       }
     }
 
-    private static EntityClient mockUserGroupEntityClient(
+    private static SystemEntityClient mockUserGroupEntityClient(
         @Nonnull Map<Urn, List<Urn>> userGroups,
         @Nonnull Map<Urn, Map<Urn, Set<Urn>>> resourceOwnerTypes)
         throws RemoteInvocationException, URISyntaxException {
-      EntityClient mockEntityClient = mock(EntityClient.class);
+      SystemEntityClient mockEntityClient = mock(SystemEntityClient.class);
       when(mockEntityClient.batchGetV2(
               any(OperationContext.class), anyString(), anySet(), anySet()))
           .thenAnswer(

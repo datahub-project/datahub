@@ -13,7 +13,6 @@ import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
-import com.datahub.authentication.Authentication;
 import com.datahub.authorization.EntityFieldType;
 import com.datahub.authorization.EntitySpec;
 import com.linkedin.common.DataPlatformInstance;
@@ -22,7 +21,7 @@ import com.linkedin.entity.Aspect;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
-import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.r2.RemoteInvocationException;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
@@ -42,8 +41,7 @@ public class DataPlatformInstanceFieldResolverProviderTest {
       "urn:li:dataset:(urn:li:dataPlatform:s3,test-platform-instance.testDataset,PROD)";
   private static final EntitySpec RESOURCE_SPEC = new EntitySpec(DATASET_ENTITY_NAME, RESOURCE_URN);
 
-  @Mock private EntityClient entityClientMock;
-  @Mock private Authentication systemAuthenticationMock;
+  @Mock private SystemEntityClient entityClientMock;
 
   private OperationContext systemOperationContext;
 

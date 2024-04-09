@@ -84,7 +84,7 @@ public class OperationContext {
     return opContext.toBuilder()
         // update search flags for the request's session
         .searchContext(opContext.getSearchContext().withFlagDefaults(flagDefaults))
-        .build(opContext.getSessionAuthentication());
+        .build(opContext.getSessionActorContext());
   }
 
   /**
@@ -100,7 +100,7 @@ public class OperationContext {
     return opContext.toBuilder()
         // update lineage flags for the request's session
         .searchContext(opContext.getSearchContext().withLineageFlagDefaults(flagDefaults))
-        .build(opContext.getSessionAuthentication());
+        .build(opContext.getSessionActorContext());
   }
 
   /**
@@ -365,8 +365,7 @@ public class OperationContext {
     @Nonnull
     public OperationContext build(@Nonnull Authentication sessionAuthentication) {
       final Urn actorUrn = UrnUtils.getUrn(sessionAuthentication.getActor().toUrnStr());
-      return new OperationContext(
-          this.operationContextConfig,
+      final ActorContext sessionActor =
           ActorContext.builder()
               .authentication(sessionAuthentication)
               .systemAuth(
@@ -377,7 +376,15 @@ public class OperationContext {
                           .equals(sessionAuthentication.getActor()))
               .policyInfoSet(this.authorizerContext.getAuthorizer().getActorPolicies(actorUrn))
               .groupMembership(this.authorizerContext.getAuthorizer().getActorGroups(actorUrn))
-              .build(),
+              .build();
+      return build(sessionActor);
+    }
+
+    @Nonnull
+    public OperationContext build(@Nonnull ActorContext sessionActor) {
+      return new OperationContext(
+          this.operationContextConfig,
+          sessionActor,
           this.systemActorContext,
           Objects.requireNonNull(this.searchContext),
           Objects.requireNonNull(this.authorizerContext),

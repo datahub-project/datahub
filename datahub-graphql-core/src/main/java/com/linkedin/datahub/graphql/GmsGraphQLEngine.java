@@ -347,6 +347,7 @@ import com.linkedin.datahub.graphql.types.test.TestType;
 import com.linkedin.datahub.graphql.types.view.DataHubViewType;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.entity.client.SystemEntityClient;
+import com.linkedin.metadata.client.UsageStatsJavaClient;
 import com.linkedin.metadata.config.DataHubConfiguration;
 import com.linkedin.metadata.config.IngestionConfiguration;
 import com.linkedin.metadata.config.TestsConfiguration;
@@ -411,7 +412,7 @@ public class GmsGraphQLEngine {
   private final EntityClient entityClient;
   private final SystemEntityClient systemEntityClient;
   private final GraphClient graphClient;
-  private final UsageClient usageClient;
+  private final UsageStatsJavaClient usageClient;
   private final SiblingGraphService siblingGraphService;
 
   private final EntityService entityService;

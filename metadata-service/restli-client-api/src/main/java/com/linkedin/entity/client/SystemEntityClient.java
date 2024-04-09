@@ -1,5 +1,6 @@
 package com.linkedin.entity.client;
 
+import com.google.common.cache.Cache;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.metadata.config.cache.client.EntityClientCacheConfig;
@@ -8,7 +9,6 @@ import io.datahubproject.metadata.context.OperationContext;
 import java.net.URISyntaxException;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
@@ -18,7 +18,7 @@ public interface SystemEntityClient extends EntityClient {
   EntityClientCache getEntityClientCache();
 
   @Nonnull
-  ConcurrentHashMap<String, OperationContext> getOperationContextMap();
+  Cache<String, OperationContext> getOperationContextMap();
 
   /**
    * Builds the cache
@@ -44,7 +44,7 @@ public interface SystemEntityClient extends EntityClient {
                   }
 
                   return batchGetV2NoCache(
-                      getOperationContextMap().get(collectionKey.getContextId()),
+                      getOperationContextMap().getIfPresent(collectionKey.getContextId()),
                       entityName,
                       collectionKey.getUrns(),
                       collectionKey.getAspectNames());
@@ -71,7 +71,7 @@ public interface SystemEntityClient extends EntityClient {
   default EntityResponse getV2(
       @Nonnull OperationContext opContext, @Nonnull Urn urn, @Nullable Set<String> aspectNames)
       throws RemoteInvocationException, URISyntaxException {
-    getOperationContextMap().putIfAbsent(opContext.getEntityContextId(), opContext);
+    getOperationContextMap().put(opContext.getEntityContextId(), opContext);
     return getEntityClientCache()
         .getV2(opContext, urn, aspectNames != null ? aspectNames : Set.of());
   }
@@ -89,7 +89,7 @@ public interface SystemEntityClient extends EntityClient {
       @Nonnull Set<Urn> urns,
       @Nullable Set<String> aspectNames)
       throws RemoteInvocationException, URISyntaxException {
-    getOperationContextMap().putIfAbsent(opContext.getEntityContextId(), opContext);
+    getOperationContextMap().put(opContext.getEntityContextId(), opContext);
     return getEntityClientCache()
         .batchGetV2(opContext, urns, aspectNames != null ? aspectNames : Set.of());
   }

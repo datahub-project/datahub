@@ -8,7 +8,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
-import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.Constants;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.Collections;
@@ -23,7 +23,7 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class TagFieldResolverProvider implements EntityFieldResolverProvider {
 
-  private final EntityClient _entityClient;
+  private final SystemEntityClient _entityClient;
 
   @Override
   public List<EntityFieldType> getFieldTypes() {

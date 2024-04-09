@@ -7,7 +7,6 @@ import static org.mockito.Mockito.*;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
-import com.datahub.authentication.Authentication;
 import com.datahub.authorization.EntityFieldType;
 import com.datahub.authorization.EntitySpec;
 import com.google.common.collect.ImmutableList;
@@ -18,7 +17,7 @@ import com.linkedin.entity.Aspect;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
-import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.identity.GroupMembership;
 import com.linkedin.identity.NativeGroupMembership;
 import com.linkedin.r2.RemoteInvocationException;
@@ -39,8 +38,7 @@ public class GroupMembershipFieldResolverProviderTest {
       "urn:li:dataset:(urn:li:dataPlatform:testPlatform,testDataset,PROD)";
   private static final EntitySpec RESOURCE_SPEC = new EntitySpec(DATASET_ENTITY_NAME, RESOURCE_URN);
 
-  @Mock private EntityClient entityClientMock;
-  @Mock private Authentication systemAuthenticationMock;
+  @Mock private SystemEntityClient entityClientMock;
 
   private OperationContext systemOperationContext;
 
