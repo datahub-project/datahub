@@ -7,6 +7,7 @@ import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.UnionTemplate;
 import com.linkedin.metadata.aspect.patch.template.AspectTemplateEngine;
 import com.linkedin.metadata.aspect.patch.template.Template;
+import com.linkedin.metadata.aspect.patch.template.assertion.AssertionInferenceTemplate;
 import com.linkedin.metadata.aspect.patch.template.chart.ChartInfoTemplate;
 import com.linkedin.metadata.aspect.patch.template.common.GlobalTagsTemplate;
 import com.linkedin.metadata.aspect.patch.template.common.GlossaryTermsTemplate;
@@ -98,6 +99,8 @@ public class SnapshotEntityRegistry implements EntityRegistry {
     // SaaS only goes in this function to avoid conflicts
     aspectSpecTemplateMap.put(MONITOR_INFO_ASPECT_NAME, new MonitorInfoTemplate());
     aspectSpecTemplateMap.put(TEST_RESULTS_ASPECT_NAME, new TestResultsTemplate());
+    aspectSpecTemplateMap.put(
+        ASSERTION_INFERENCE_DETAILS_ASPECT_NAME, new AssertionInferenceTemplate());
   }
 
   @Nonnull

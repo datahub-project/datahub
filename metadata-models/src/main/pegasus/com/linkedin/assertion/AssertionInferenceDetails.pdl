@@ -27,14 +27,14 @@ record AssertionInferenceDetails {
    * The parameters used to make the inference.
    */
   parameters: optional map[string, string]
-  
-  /**
-   * The settings used to adjust the assertion.
-   */
-  adjustmentSettings: optional AssertionAdjustmentSettings
 
   /**
    * The time the inferred assertion was generated at in milliseconds.
    */
   generatedAt: optional long
+
+  /**
+   * The settings used to adjust the assertion.
+   */
+  adjustmentSettings: optional AssertionAdjustmentSettings
 }
