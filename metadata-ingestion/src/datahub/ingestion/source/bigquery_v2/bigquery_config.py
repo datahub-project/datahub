@@ -280,6 +280,11 @@ class BigQueryV2Config(
         description="Option to exclude empty projects from being ingested.",
     )
 
+    schema_resolution_batch_size: int = Field(
+        default=100,
+        description="The number of tables to process in a batch when resolving schema from DataHub.",
+    )
+
     @root_validator(skip_on_failure=True)
     def profile_default_settings(cls, values: Dict) -> Dict:
         # Extra default SQLAlchemy option for better connection pooling and threading.
