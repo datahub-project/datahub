@@ -880,7 +880,7 @@ class SnowflakeQuery:
             on qid.query_id = query_history.query_id
         )
         SELECT
-            h.downstream_table_name AS "DOWNSTREAM_TABLE_NAME",
+            REGEXP_REPLACE(h.downstream_table_name, '__DBT_TMP', '') AS "DOWNSTREAM_TABLE_NAME",
             ANY_VALUE(h.downstream_table_domain) AS "DOWNSTREAM_TABLE_DOMAIN",
             ARRAY_UNIQUE_AGG(
                 OBJECT_CONSTRUCT(
