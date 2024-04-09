@@ -38,7 +38,7 @@ class AllowedTypes(Enum):
 
 class AllowedValue(ConfigModel):
     value: str
-    description: Optional[str]
+    description: Optional[str] = None
 
 
 class TypeQualifierAllowedTypes(ConfigModel):
