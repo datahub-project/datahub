@@ -38,7 +38,9 @@ jobs:
       unique_tag: ${{ steps.tag.outputs.unique_tag }}
       unique_slim_tag: ${{ steps.tag.outputs.unique_slim_tag }}
       unique_full_tag: ${{ steps.tag.outputs.unique_full_tag }}
+      docker-login: ${{ steps.docker-login.outputs.docker-login }}
       publish: ${{ steps.publish.outputs.publish }}
+      pr-publish: ${{ steps.pr-publish.outputs.publish }}
       python_release_version: ${{ steps.tag.outputs.python_release_version }}
       short_sha: ${{ steps.tag.outputs.short_sha }}
       branch_name: ${{ steps.tag.outputs.branch_name }}
@@ -70,12 +72,34 @@ jobs:
           echo "python_release_version=$(get_python_docker_release_v)" >> $GITHUB_OUTPUT
           echo "branch_name=${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}" >> $GITHUB_OUTPUT
           echo "repository_name=${GITHUB_REPOSITORY#*/}" >> $GITHUB_OUTPUT
+      - name: Check whether docker login is possible
+        id: docker-login
+        env:
+          ENABLE_DOCKER_LOGIN: ${{ secrets.ACRYL_DOCKER_PASSWORD != '' }}
+        run: |
+          echo "Enable Docker Login: ${{ env.ENABLE_DOCKER_LOGIN }}"
+          echo "docker-login=${{ env.ENABLE_DOCKER_LOGIN }}" >> $GITHUB_OUTPUT
       - name: Check whether publishing enabled
         id: publish
         env:
-          ENABLE_PUBLISH: ${{ secrets.ACRYL_DOCKER_PASSWORD != '' }}
+          ENABLE_PUBLISH: >-
+             ${{
+                github.event_name != 'pull_request'
+                && ( secrets.ACRYL_DOCKER_PASSWORD != '' )
+             }}
         run: |
           echo "Enable publish: ${{ env.ENABLE_PUBLISH }}"
+          echo "publish=${{ env.ENABLE_PUBLISH }}" >> $GITHUB_OUTPUT
+      - name: Check whether PR publishing enabled
+        id: pr-publish
+        env:
+          ENABLE_PUBLISH: >-
+             ${{
+                (github.event_name == 'pull_request' && (contains(github.event.pull_request.labels.*.name, 'publish') || contains(github.event.pull_request.labels.*.name, 'publish-docker')))
+                && ( secrets.ACRYL_DOCKER_PASSWORD != '' )
+             }}
+        run: |
+          echo "Enable PR publish: ${{ env.ENABLE_PUBLISH }}"
           echo "publish=${{ env.ENABLE_PUBLISH }}" >> $GITHUB_OUTPUT
       - uses: ./.github/actions/ci-optimization
         id: ci-optimize
@@ -116,7 +140,7 @@ jobs:
           java-version: 17
       - uses: gradle/gradle-build-action@v2
       - name: Check out the repo
-        uses: hsheth2/sane-checkout-action@v1
+        uses: acryldata/sane-checkout-action@v3
       - name: Pre-build artifacts for docker image
         run: |
           ./gradlew :metadata-service:war:build -x test --parallel
@@ -129,7 +153,7 @@ jobs:
           tags: ${{ needs.setup.outputs.tag }}
           username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
           password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
-          publish: ${{ needs.setup.outputs.publish }}
+          publish: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
           context: .
           file: ./docker/datahub-gms/Dockerfile
           platforms: linux/amd64,linux/arm64/v8
@@ -147,7 +171,7 @@ jobs:
         uses: acryldata/sane-checkout-action@v3
       - name: Download image
         uses: ishworkh/docker-image-artifact-download@v1
-        if: ${{ needs.setup.outputs.publish != 'true' }}
+        if: ${{ needs.setup.outputs.publish != 'true' && needs.setup.outputs.pr-publish != 'true' }}
         with:
           image: ${{ env.DATAHUB_GMS_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
       - name: Run Trivy vulnerability scanner
@@ -180,7 +204,7 @@ jobs:
           java-version: 17
       - uses: gradle/gradle-build-action@v2
       - name: Check out the repo
-        uses: hsheth2/sane-checkout-action@v1
+        uses: acryldata/sane-checkout-action@v3
       - name: Pre-build artifacts for docker image
         run: |
           ./gradlew :metadata-jobs:mae-consumer-job:build -x test --parallel
@@ -193,7 +217,7 @@ jobs:
           tags: ${{ needs.setup.outputs.tag }}
           username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
           password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
-          publish: ${{ needs.setup.outputs.publish }}
+          publish: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
           context: .
           file: ./docker/datahub-mae-consumer/Dockerfile
           platforms: linux/amd64,linux/arm64/v8
@@ -211,7 +235,7 @@ jobs:
         uses: acryldata/sane-checkout-action@v3
       - name: Download image
         uses: ishworkh/docker-image-artifact-download@v1
-        if: ${{ needs.setup.outputs.publish != 'true' }}
+        if: ${{ needs.setup.outputs.publish != 'true' && needs.setup.outputs.pr-publish != 'true' }}
         with:
           image: ${{ env.DATAHUB_MAE_CONSUMER_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
       - name: Run Trivy vulnerability scanner
@@ -257,7 +281,7 @@ jobs:
           tags: ${{ needs.setup.outputs.tag }}
           username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
           password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
-          publish: ${{ needs.setup.outputs.publish }}
+          publish: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
           context: .
           file: ./docker/datahub-mce-consumer/Dockerfile
           platforms: linux/amd64,linux/arm64/v8
@@ -275,7 +299,7 @@ jobs:
         uses: acryldata/sane-checkout-action@v3
       - name: Download image
         uses: ishworkh/docker-image-artifact-download@v1
-        if: ${{ needs.setup.outputs.publish != 'true' }}
+        if: ${{ needs.setup.outputs.publish != 'true' && needs.setup.outputs.pr-publish != 'true' }}
         with:
           image: ${{ env.DATAHUB_MCE_CONSUMER_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
       - name: Run Trivy vulnerability scanner
@@ -321,7 +345,7 @@ jobs:
           tags: ${{ needs.setup.outputs.tag }}
           username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
           password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
-          publish: ${{ needs.setup.outputs.publish }}
+          publish: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
           context: .
           file: ./docker/datahub-upgrade/Dockerfile
           platforms: linux/amd64,linux/arm64/v8
@@ -339,7 +363,7 @@ jobs:
         uses: acryldata/sane-checkout-action@v3
       - name: Download image
         uses: ishworkh/docker-image-artifact-download@v1
-        if: ${{ needs.setup.outputs.publish != 'true' }}
+        if: ${{ needs.setup.outputs.publish != 'true' && needs.setup.outputs.pr-publish != 'true' }}
         with:
           image: ${{ env.DATAHUB_UPGRADE_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
       - name: Run Trivy vulnerability scanner
@@ -387,7 +411,7 @@ jobs:
           tags: ${{ needs.setup.outputs.tag }}
           username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
           password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
-          publish: ${{ needs.setup.outputs.publish }}
+          publish: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
           context: .
           file: ./docker/datahub-frontend/Dockerfile
           platforms: linux/amd64,linux/arm64/v8
@@ -405,7 +429,7 @@ jobs:
         uses: actions/checkout@v3
       - name: Download image
         uses: ishworkh/docker-image-artifact-download@v1
-        if: ${{ needs.setup.outputs.publish != 'true' }}
+        if: ${{ needs.setup.outputs.publish != 'true' && needs.setup.outputs.pr-publish != 'true' }}
         with:
           image: ${{ env.DATAHUB_FRONTEND_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
       - name: Run Trivy vulnerability scanner
@@ -441,7 +465,7 @@ jobs:
           tags: ${{ needs.setup.outputs.tag }}
           username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
           password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
-          publish: ${{ needs.setup.outputs.publish }}
+          publish: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
           context: .
           file: ./docker/kafka-setup/Dockerfile
           platforms: linux/amd64,linux/arm64/v8
@@ -462,7 +486,7 @@ jobs:
           tags: ${{ needs.setup.outputs.tag }}
           username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
           password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
-          publish: ${{ needs.setup.outputs.publish }}
+          publish: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
           context: .
           file: ./docker/mysql-setup/Dockerfile
           platforms: linux/amd64,linux/arm64/v8
@@ -483,7 +507,7 @@ jobs:
           tags: ${{ needs.setup.outputs.tag }}
           username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
           password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
-          publish: ${{ needs.setup.outputs.publish }}
+          publish: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
           context: .
           file: ./docker/elasticsearch-setup/Dockerfile
           platforms: linux/amd64,linux/arm64/v8
@@ -514,7 +538,7 @@ jobs:
           tags: ${{ needs.setup.outputs.tag }}
           username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
           password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
-          publish: ${{ needs.setup.outputs.publish }}
+          publish: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
           context: .
           file: ./docker/datahub-ingestion-base/Dockerfile
           platforms: linux/amd64,linux/arm64/v8
@@ -539,9 +563,15 @@ jobs:
               - 'docker/datahub-ingestion-base/**'
       - name: Download Base Image
         uses: ishworkh/docker-image-artifact-download@v1
-        if: ${{ needs.setup.outputs.publish != 'true' &&  steps.filter.outputs.datahub-ingestion-base == 'true' }}
+        if: ${{ needs.setup.outputs.publish != 'true' && needs.setup.outputs.pr-publish != 'true' && steps.filter.outputs.datahub-ingestion-base == 'true' }}
         with:
           image: ${{ env.DATAHUB_INGESTION_BASE_IMAGE }}:${{ steps.filter.outputs.datahub-ingestion-base == 'true' && needs.setup.outputs.unique_tag || 'head' }}
+      - name: Login to DockerHub
+        uses: docker/login-action@v3
+        if: ${{ needs.setup.outputs.docker-login == 'true' && needs.setup.outputs.publish == 'false' && needs.setup.outputs.pr-publish == 'false' &&  steps.filter.outputs.datahub-ingestion-base == 'false' }}
+        with:
+          username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
+          password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
       - name: Build and push Base-Slim Image
         if: ${{ steps.filter.outputs.datahub-ingestion-base == 'true' }}
         uses: ./.github/actions/docker-custom-build-and-push
@@ -555,7 +585,7 @@ jobs:
           build-args: |
             APP_ENV=slim
             BASE_IMAGE=${{ env.DATAHUB_INGESTION_BASE_IMAGE }}:${{ steps.filter.outputs.datahub-ingestion-base == 'true' && needs.setup.outputs.unique_tag || 'head' }}
-          publish: ${{ needs.setup.outputs.publish }}
+          publish: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
           context: .
           file: ./docker/datahub-ingestion-base/Dockerfile
           platforms: linux/amd64,linux/arm64/v8
@@ -580,9 +610,15 @@ jobs:
               - 'docker/datahub-ingestion-base/**'
       - name: Download Base Image
         uses: ishworkh/docker-image-artifact-download@v1
-        if: ${{ needs.setup.outputs.publish != 'true' &&  steps.filter.outputs.datahub-ingestion-base == 'true' }}
+        if: ${{ needs.setup.outputs.publish != 'true' && needs.setup.outputs.pr-publish != 'true' && steps.filter.outputs.datahub-ingestion-base == 'true' }}
         with:
           image: ${{ env.DATAHUB_INGESTION_BASE_IMAGE }}:${{ steps.filter.outputs.datahub-ingestion-base == 'true' && needs.setup.outputs.unique_tag || 'head' }}
+      - name: Login to DockerHub
+        uses: docker/login-action@v3
+        if: ${{ needs.setup.outputs.docker-login == 'true' && needs.setup.outputs.publish == 'false' && needs.setup.outputs.pr-publish == 'false' &&  steps.filter.outputs.datahub-ingestion-base == 'false' }}
+        with:
+          username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
+          password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
       - name: Build and push (Base-Full) Image
         if: ${{ steps.filter.outputs.datahub-ingestion-base == 'true' }}
         uses: ./.github/actions/docker-custom-build-and-push
@@ -596,7 +632,7 @@ jobs:
           build-args: |
             APP_ENV=full
             BASE_IMAGE=${{ env.DATAHUB_INGESTION_BASE_IMAGE }}:${{ steps.filter.outputs.datahub-ingestion-base == 'true' && needs.setup.outputs.unique_tag || 'head' }}
-          publish: ${{ needs.setup.outputs.publish }}
+          publish: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
           context: .
           file: ./docker/datahub-ingestion-base/Dockerfile
           platforms: linux/amd64,linux/arm64/v8
@@ -609,7 +645,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       tag: ${{ steps.tag.outputs.tag }}
-      needs_artifact_download: ${{ (steps.filter.outputs.datahub-ingestion-base == 'true' || steps.filter.outputs.datahub-ingestion == 'true') && needs.setup.outputs.publish != 'true' }}
+      needs_artifact_download: ${{ (steps.filter.outputs.datahub-ingestion-base == 'true' || steps.filter.outputs.datahub-ingestion == 'true') && ( needs.setup.outputs.publish != 'true' || needs.setup.outputs.pr-publish != 'true') }}
     needs: [setup, datahub_ingestion_base_slim_build]
     if: ${{ needs.setup.outputs.ingestion_change == 'true' || needs.setup.outputs.publish == 'true' }}
     steps:
@@ -634,9 +670,15 @@ jobs:
         run: ./gradlew :metadata-ingestion:codegen
       - name: Download Base Image
         uses: ishworkh/docker-image-artifact-download@v1
-        if: ${{ needs.setup.outputs.publish != 'true' && steps.filter.outputs.datahub-ingestion-base == 'true' }}
+        if: ${{ needs.setup.outputs.publish != 'true' && needs.setup.outputs.pr-publish != 'true' && steps.filter.outputs.datahub-ingestion-base == 'true' }}
         with:
           image: ${{ env.DATAHUB_INGESTION_BASE_IMAGE }}:${{ steps.filter.outputs.datahub-ingestion-base == 'true' && needs.setup.outputs.unique_slim_tag || 'head-slim' }}
+      - name: Login to DockerHub
+        uses: docker/login-action@v3
+        if: ${{ needs.setup.outputs.docker-login == 'true' && needs.setup.outputs.publish == 'false' && needs.setup.outputs.pr-publish == 'false' &&  steps.filter.outputs.datahub-ingestion-base == 'false' }}
+        with:
+          username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
+          password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
       - name: Build and push Slim Image
         if: ${{ steps.filter.outputs.datahub-ingestion-base == 'true' || steps.filter.outputs.datahub-ingestion == 'true' || needs.setup.outputs.publish }}
         uses: ./.github/actions/docker-custom-build-and-push
@@ -652,7 +694,7 @@ jobs:
           tags: ${{ needs.setup.outputs.slim_tag }}
           username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
           password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
-          publish: ${{ needs.setup.outputs.publish }}
+          publish: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
           context: .
           file: ./docker/datahub-ingestion/Dockerfile
           platforms: linux/amd64,linux/arm64/v8
@@ -698,7 +740,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       tag: ${{ steps.tag.outputs.tag }}
-      needs_artifact_download: ${{ (steps.filter.outputs.datahub-ingestion-base == 'true' || steps.filter.outputs.datahub-ingestion == 'true') && needs.setup.outputs.publish != 'true' }}
+      needs_artifact_download: ${{ (steps.filter.outputs.datahub-ingestion-base == 'true' || steps.filter.outputs.datahub-ingestion == 'true') && ( needs.setup.outputs.publish != 'true' || needs.setup.outputs.pr-publish != 'true' ) }}
     needs: [setup, datahub_ingestion_base_full_build]
     if: ${{ needs.setup.outputs.ingestion_change == 'true' || needs.setup.outputs.publish == 'true' }}
     steps:
@@ -723,9 +765,15 @@ jobs:
         run: ./gradlew :metadata-ingestion:codegen
       - name: Download Base Image
         uses: ishworkh/docker-image-artifact-download@v1
-        if: ${{ needs.setup.outputs.publish != 'true' && steps.filter.outputs.datahub-ingestion-base == 'true' }}
+        if: ${{ needs.setup.outputs.publish != 'true' && needs.setup.outputs.pr-publish != 'true' && steps.filter.outputs.datahub-ingestion-base == 'true' }}
         with:
           image: ${{ env.DATAHUB_INGESTION_BASE_IMAGE }}:${{ steps.filter.outputs.datahub-ingestion-base == 'true' && needs.setup.outputs.unique_tag || 'head' }}
+      - name: Login to DockerHub
+        uses: docker/login-action@v3
+        if: ${{ needs.setup.outputs.docker-login == 'true' && needs.setup.outputs.publish == 'false' && needs.setup.outputs.pr-publish == 'false' &&  steps.filter.outputs.datahub-ingestion-base == 'false' }}
+        with:
+          username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
+          password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
       - name: Build and push Full Image
         if: ${{ steps.filter.outputs.datahub-ingestion-base == 'true' || steps.filter.outputs.datahub-ingestion == 'true' || needs.setup.outputs.publish }}
         uses: ./.github/actions/docker-custom-build-and-push
@@ -740,7 +788,7 @@ jobs:
           tags: ${{ needs.setup.outputs.tag }}
           username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
           password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
-          publish: ${{ needs.setup.outputs.publish }}
+          publish: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
           context: .
           file: ./docker/datahub-ingestion/Dockerfile
           platforms: linux/amd64,linux/arm64/v8
@@ -841,6 +889,12 @@ jobs:
       - name: Build datahub cli
         run: |
           ./gradlew :metadata-ingestion:install
+      - name: Login to DockerHub
+        uses: docker/login-action@v3
+        if: ${{ needs.setup.outputs.docker-login == 'true' }}
+        with:
+            username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
+            password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
       - name: Disk Check
         run: df -h . && docker images
       - name: Remove images
@@ -849,42 +903,42 @@ jobs:
         run: df -h . && docker images
       - name: Download GMS image
         uses: ishworkh/docker-image-artifact-download@v1
-        if: ${{ needs.setup.outputs.publish != 'true' && needs.gms_build.result == 'success' }}
+        if: ${{ ( needs.setup.outputs.publish != 'true' && needs.setup.outputs.pr-publish != 'true' ) && needs.gms_build.result == 'success' }}
         with:
           image: ${{ env.DATAHUB_GMS_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
       - name: Download Frontend image
         uses: ishworkh/docker-image-artifact-download@v1
-        if: ${{ needs.setup.outputs.publish != 'true' && needs.frontend_build.result == 'success' }}
+        if: ${{ ( needs.setup.outputs.publish != 'true' && needs.setup.outputs.pr-publish != 'true' ) && needs.frontend_build.result == 'success' }}
         with:
           image: ${{ env.DATAHUB_FRONTEND_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
       - name: Download Kafka Setup image
         uses: ishworkh/docker-image-artifact-download@v1
-        if: ${{ needs.setup.outputs.publish != 'true' && needs.kafka_setup_build.result == 'success' }}
+        if: ${{ ( needs.setup.outputs.publish != 'true' && needs.setup.outputs.pr-publish != 'true' ) && needs.kafka_setup_build.result == 'success' }}
         with:
           image: ${{ env.DATAHUB_KAFKA_SETUP_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
       - name: Download Mysql Setup image
         uses: ishworkh/docker-image-artifact-download@v1
-        if: ${{ needs.setup.outputs.publish != 'true' && needs.mysql_setup_build.result == 'success' }}
+        if: ${{ ( needs.setup.outputs.publish != 'true' && needs.setup.outputs.pr-publish != 'true' ) && needs.mysql_setup_build.result == 'success' }}
         with:
           image: ${{ env.DATAHUB_MYSQL_SETUP_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
       - name: Download Elastic Setup image
         uses: ishworkh/docker-image-artifact-download@v1
-        if: ${{ needs.setup.outputs.publish != 'true' && needs.elasticsearch_setup_build.result == 'success' }}
+        if: ${{ ( needs.setup.outputs.publish != 'true' && needs.setup.outputs.pr-publish != 'true' ) && needs.elasticsearch_setup_build.result == 'success' }}
         with:
           image: ${{ env.DATAHUB_ELASTIC_SETUP_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
       - name: Download MCE Consumer image
         uses: ishworkh/docker-image-artifact-download@v1
-        if: ${{ needs.setup.outputs.publish != 'true' && needs.mce_consumer_build.result == 'success' }}
+        if: ${{ ( needs.setup.outputs.publish != 'true' && needs.setup.outputs.pr-publish != 'true' ) && needs.mce_consumer_build.result == 'success' }}
         with:
           image: ${{ env.DATAHUB_MCE_CONSUMER_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
       - name: Download MAE Consumer image
         uses: ishworkh/docker-image-artifact-download@v1
-        if: ${{ needs.setup.outputs.publish != 'true' && needs.mae_consumer_build.result == 'success' }}
+        if: ${{ ( needs.setup.outputs.publish != 'true' && needs.setup.outputs.pr-publish != 'true' ) && needs.mae_consumer_build.result == 'success' }}
         with:
           image: ${{ env.DATAHUB_MAE_CONSUMER_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
       - name: Download upgrade image
         uses: ishworkh/docker-image-artifact-download@v1
-        if: ${{ needs.setup.outputs.publish != 'true' && needs.datahub_upgrade_build.result == 'success' }}
+        if: ${{ ( needs.setup.outputs.publish != 'true' && needs.setup.outputs.pr-publish != 'true' ) && needs.datahub_upgrade_build.result == 'success' }}
         with:
           image: ${{ env.DATAHUB_UPGRADE_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
       - name: Download datahub-ingestion-slim image
@@ -988,6 +1042,7 @@ jobs:
           docker logs datahub-mysql-1 >& mysql-${{ matrix.test_strategy }}.log || true
           docker logs datahub-elasticsearch-1 >& elasticsearch-${{ matrix.test_strategy }}.log || true
           docker logs datahub-datahub-frontend-react-1 >& frontend-${{ matrix.test_strategy }}.log || true
+          docker logs datahub-upgrade-1 >& upgrade-${{ matrix.test_strategy }}.log || true
       - name: Upload logs
         uses: actions/upload-artifact@v3
         if: failure()

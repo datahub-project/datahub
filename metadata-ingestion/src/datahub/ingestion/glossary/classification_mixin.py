@@ -15,7 +15,6 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.glossary.classifier import ClassificationConfig, Classifier
 from datahub.ingestion.glossary.classifier_registry import classifier_registry
 from datahub.ingestion.source.common.data_reader import DataReader
-from datahub.ingestion.source.sql.sqlalchemy_data_reader import SAMPLE_SIZE_MULTIPLIER
 from datahub.metadata.com.linkedin.pegasus2avro.common import (
     AuditStamp,
     GlossaryTermAssociation,
@@ -25,6 +24,9 @@ from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.com.linkedin.pegasus2avro.schema import SchemaMetadata
 from datahub.utilities.lossy_collections import LossyDict, LossyList
 from datahub.utilities.perf_timer import PerfTimer
+
+SAMPLE_SIZE_MULTIPLIER = 1.2
+
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -289,7 +291,7 @@ def classification_workunit_processor(
     classification_handler: ClassificationHandler,
     data_reader: Optional[DataReader],
     table_id: List[str],
-    data_reader_kwargs: dict = {},
+    data_reader_kwargs: Optional[dict] = None,
 ) -> Iterable[MetadataWorkUnit]:
     """
     Classification handling for a particular table.
@@ -317,7 +319,7 @@ def classification_workunit_processor(
                             table_id,
                             classification_handler.config.classification.sample_size
                             * SAMPLE_SIZE_MULTIPLIER,
-                            **data_reader_kwargs,
+                            **(data_reader_kwargs or {}),
                         )
                         if data_reader
                         else dict()
