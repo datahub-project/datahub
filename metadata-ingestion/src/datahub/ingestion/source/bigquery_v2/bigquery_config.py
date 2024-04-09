@@ -6,7 +6,6 @@ from typing import Any, Dict, List, Optional, Union
 from google.cloud import bigquery
 from google.cloud.logging_v2.client import Client as GCPLoggingClient
 from pydantic import Field, PositiveInt, PrivateAttr, root_validator, validator
-from typing_extensions import Literal
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.configuration.validate_field_removal import pydantic_removed_field
@@ -120,12 +119,12 @@ class BigQueryV2Config(
         description="Generate usage statistic",
     )
 
-    capture_table_label_as_tag: Union[Literal[False], AllowDenyPattern] = Field(
+    capture_table_label_as_tag: Union[bool, AllowDenyPattern] = Field(
         default=False,
         description="Capture BigQuery table labels as DataHub tag",
     )
 
-    capture_dataset_label_as_tag: Union[Literal[False], AllowDenyPattern] = Field(
+    capture_dataset_label_as_tag: Union[bool, AllowDenyPattern] = Field(
         default=False,
         description="Capture BigQuery dataset labels as DataHub tag",
     )

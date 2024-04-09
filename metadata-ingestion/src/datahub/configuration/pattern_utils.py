@@ -15,5 +15,7 @@ def is_schema_allowed(
         return schema_pattern.allowed(schema_name)
 
 
-def is_tag_allowed(tag_pattern: AllowDenyPattern, tag: str) -> bool:
-    return tag_pattern.allowed(tag)
+def is_tag_allowed(tag_pattern: Union[bool, AllowDenyPattern], tag: str) -> bool:
+    if isinstance(tag_pattern, AllowDenyPattern):
+        return tag_pattern.allowed(tag)
+    return tag_pattern
