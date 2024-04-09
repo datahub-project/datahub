@@ -3,6 +3,7 @@ import { ActionMenuItem } from './styledComponents';
 import { EntityMenuItems } from './EntityMenuActions';
 import EntityDropdown from './EntityDropdown';
 import { EntityType } from '../../../../types.generated';
+import { EntityMenuActions } from '../../Entity';
 
 interface Props {
     menuItems: Set<EntityMenuItems>;
@@ -12,6 +13,7 @@ interface Props {
     refetch?: () => void;
     size?: number;
     triggerType?: ('click' | 'contextMenu' | 'hover')[] | undefined;
+    actions?: EntityMenuActions;
 }
 
 export default function MoreOptionsMenuAction({
@@ -22,6 +24,7 @@ export default function MoreOptionsMenuAction({
     refetch,
     size,
     triggerType,
+    actions,
 }: Props) {
     return (
         <ActionMenuItem key="view-more" fontSize={size}>
@@ -32,6 +35,7 @@ export default function MoreOptionsMenuAction({
                 menuItems={menuItems}
                 refetchForEntity={refetch}
                 triggerType={triggerType}
+                onDeleteEntity={actions?.onDelete}
             />
         </ActionMenuItem>
     );

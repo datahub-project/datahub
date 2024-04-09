@@ -12,7 +12,7 @@ import {
 import { EntitySidebarSection } from '../entity/shared/types';
 import { FetchedEntity } from '../lineage/types';
 import { SearchResultProvider } from '../search/context/SearchResultContext';
-import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from './Entity';
+import { Entity, EntityCapabilityType, EntityMenuActions, IconStyleType, PreviewType } from './Entity';
 import { GLOSSARY_ENTITY_TYPES } from './shared/constants';
 import PreviewContext from './shared/PreviewContext';
 import { EntitySidebarTab, GenericEntityProperties } from './shared/types';
@@ -136,12 +136,12 @@ export default class EntityRegistry {
         return entity.renderProfile(urn);
     }
 
-    renderPreview<T>(entityType: EntityType, type: PreviewType, data: T): JSX.Element {
+    renderPreview<T>(entityType: EntityType, type: PreviewType, data: T, actions?: EntityMenuActions): JSX.Element {
         const entity = validatedGet(entityType, this.entityTypeToEntity);
         const genericEntityData = entity.getGenericEntityProperties(data);
         return (
             <PreviewContext.Provider value={genericEntityData}>
-                {entity.renderPreview(type, data)}
+                {entity.renderPreview(type, data, actions)}
             </PreviewContext.Provider>
         );
     }

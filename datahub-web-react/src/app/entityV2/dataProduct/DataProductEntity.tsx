@@ -150,7 +150,7 @@ export class DataProductEntity implements Entity<DataProduct> {
         },
     ];
 
-    renderPreview = (previewType: PreviewType, data: DataProduct) => {
+    renderPreview = (previewType: PreviewType, data: DataProduct, actions) => {
         return (
             <Preview
                 urn={data.urn}
@@ -164,6 +164,7 @@ export class DataProductEntity implements Entity<DataProduct> {
                 externalUrl={data.properties?.externalUrl}
                 headerDropdownItems={headerDropdownItems}
                 previewType={previewType}
+                actions={actions}
             />
         );
     };

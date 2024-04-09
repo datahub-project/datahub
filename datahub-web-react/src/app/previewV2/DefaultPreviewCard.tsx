@@ -23,7 +23,7 @@ import {
     ParentContainersResult,
     SearchInsight,
 } from '../../types.generated';
-import { PreviewType } from '../entityV2/Entity';
+import { EntityMenuActions, PreviewType } from '../entityV2/Entity';
 import { ANTD_GRAY } from '../entityV2/shared/constants';
 import { PopularityTier } from '../entityV2/shared/containers/profile/sidebar/shared/utils';
 import { usePreviewData } from '../entityV2/shared/PreviewContext';
@@ -125,6 +125,7 @@ interface Props {
     entityIcon?: JSX.Element;
     headerDropdownItems?: Set<EntityMenuItems>;
     statsSummary?: any;
+    actions?: EntityMenuActions;
 }
 
 const ActionsSection = styled.div`
@@ -189,6 +190,7 @@ export default function DefaultPreviewCard({
     entityIcon,
     headerDropdownItems,
     statsSummary,
+    actions,
 }: Props) {
     const entityRegistry = useEntityRegistryV2();
     const history = useHistory();
@@ -246,6 +248,7 @@ export default function DefaultPreviewCard({
                                 entityType={entityType}
                                 entityData={previewData}
                                 triggerType={['click']}
+                                actions={actions}
                             />
                         )}
                     </ActionsSection>

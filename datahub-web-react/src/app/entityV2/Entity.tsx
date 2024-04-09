@@ -99,6 +99,10 @@ export enum EntityCapabilityType {
     LINEAGE,
 }
 
+export interface EntityMenuActions {
+    onDelete?: () => void;
+}
+
 /**
  * Base interface used for authoring DataHub Entities on the client side.
  *
@@ -158,7 +162,7 @@ export interface Entity<T> {
      *
      * TODO: Explore using getGenericEntityProperties for rendering previews.
      */
-    renderPreview: (type: PreviewType, data: T) => JSX.Element;
+    renderPreview: (type: PreviewType, data: T, actions?: EntityMenuActions) => JSX.Element;
 
     /**
      * Renders a search result

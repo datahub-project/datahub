@@ -1,12 +1,11 @@
-import { EditOutlined, CloseOutlined } from '@ant-design/icons';
-import { Button, Modal, message } from 'antd';
+import { EditOutlined } from '@ant-design/icons';
+import { Button } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 import { DataProduct, EntityType } from '../../../../types.generated';
-import { useEntityRegistry } from '../../../useEntityRegistry';
+import { useEntityRegistryV2 } from '../../../useEntityRegistry';
 import { PreviewType } from '../../Entity';
 import EditDataProductModal from './EditDataProductModal';
-import { useDeleteDataProductMutation } from '../../../../graphql/dataProduct.generated';
 import { REDESIGN_COLORS } from '../../shared/constants';
 
 const TransparentButton = styled(Button)`
@@ -73,47 +72,25 @@ interface Props {
 }
 
 export default function DataProductResult({ dataProduct, onUpdateDataProduct, setDeletedDataProductUrns }: Props) {
-    const entityRegistry = useEntityRegistry();
+    const entityRegistry = useEntityRegistryV2();
     const [isEditModalVisible, setIsEditModalVisible] = useState(false);
-    const [deleteDataProductMutation] = useDeleteDataProductMutation();
 
     function deleteDataProduct() {
-        deleteDataProductMutation({ variables: { urn: dataProduct.urn } })
-            .then(() => {
-                message.success('Deleted Data Product');
-                setDeletedDataProductUrns((currentUrns) => [...currentUrns, dataProduct.urn]);
-            })
-            .catch(() => {
-                message.destroy();
-                message.error({ content: 'Failed to delete Data Product. An unexpected error occurred' });
-            });
+        setDeletedDataProductUrns((currentUrns) => [...currentUrns, dataProduct.urn]);
     }
 
-    function onRemove() {
-        Modal.confirm({
-            title: `Delete ${entityRegistry.getDisplayName(EntityType.DataProduct, dataProduct)}`,
-            content: `Are you sure you want to delete this Data Product?`,
-            onOk() {
-                deleteDataProduct();
-            },
-            onCancel() { },
-            okText: 'Yes',
-            maskClosable: true,
-            closable: true,
-        });
-    }
+    const actions = {
+        onDelete: deleteDataProduct,
+    };
 
     return (
         <>
             <ResultWrapper>
                 <PreviewWrapper>
-                    {entityRegistry.renderPreview(EntityType.DataProduct, PreviewType.SEARCH, dataProduct)}
+                    {entityRegistry.renderPreview(EntityType.DataProduct, PreviewType.PREVIEW, dataProduct, actions)}
                 </PreviewWrapper>
                 <ButtonsWrapper>
                     <StyledButton icon={<EditOutlined />} onClick={() => setIsEditModalVisible(true)} />
-                    <TransparentButton size="small" onClick={onRemove}>
-                        <CloseOutlined size={5} /> Remove Data Product
-                    </TransparentButton>
                 </ButtonsWrapper>
             </ResultWrapper>
             {isEditModalVisible && (
