@@ -28,7 +28,6 @@ import useDescriptionRenderer from './utils/useDescriptionRenderer';
 import useTagsAndTermsRenderer from './utils/useTagsAndTermsRenderer';
 import useUsageStatsRenderer from './utils/useUsageStatsRenderer';
 import useKeyboardControls from './useKeyboardControls';
-import { StyledTerm } from '../../../../../sharedV2/tags/term/TermContent';
 
 const TableContainer = styled.div<{ isSearchActive: boolean; hasRowWithDepth: boolean }>`
     overflow: inherit;
@@ -102,8 +101,8 @@ const TableContainer = styled.div<{ isSearchActive: boolean; hasRowWithDepth: bo
             background-color: ${REDESIGN_COLORS.BACKGROUND_PURPLE};
         }
 
-        ${StyledTerm} {
-            background: ${REDESIGN_COLORS.BACKGROUND_PURPLE} !important;
+        .ant-tag {
+            background-color: ${REDESIGN_COLORS.BACKGROUND_PURPLE};
         }
     }
 
