@@ -72,7 +72,7 @@ public class GlossaryNodeType
               ASPECTS_TO_RESOLVE,
               context.getAuthentication());
 
-      final List<EntityResponse> gmsResults = new ArrayList<>();
+      final List<EntityResponse> gmsResults = new ArrayList<>(urns.size());
       for (Urn urn : glossaryNodeUrns) {
         gmsResults.add(glossaryNodeMap.getOrDefault(urn, null));
       }
@@ -82,7 +82,7 @@ public class GlossaryNodeType
                   gmsGlossaryNode == null
                       ? null
                       : DataFetcherResult.<GlossaryNode>newResult()
-                          .data(GlossaryNodeMapper.map(gmsGlossaryNode))
+                          .data(GlossaryNodeMapper.map(context, gmsGlossaryNode))
                           .build())
           .collect(Collectors.toList());
     } catch (Exception e) {

@@ -6,6 +6,7 @@ import static com.linkedin.metadata.Constants.OWNERSHIP_ASPECT_NAME;
 import com.linkedin.common.Ownership;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
+import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.CorpGroup;
 import com.linkedin.datahub.graphql.generated.CorpUser;
 import com.linkedin.datahub.graphql.generated.EntityType;
@@ -26,16 +27,18 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 public class FormMapper implements ModelMapper<EntityResponse, Form> {
 
   public static final FormMapper INSTANCE = new FormMapper();
 
-  public static Form map(@Nonnull final EntityResponse form) {
-    return INSTANCE.apply(form);
+  public static Form map(@Nullable final QueryContext context, @Nonnull final EntityResponse form) {
+    return INSTANCE.apply(context, form);
   }
 
-  public Form apply(@Nonnull final EntityResponse entityResponse) {
+  public Form apply(
+      @Nullable final QueryContext context, @Nonnull final EntityResponse entityResponse) {
     Form result = new Form();
     Urn entityUrn = entityResponse.getUrn();
     result.setUrn(entityUrn.toString());
@@ -47,7 +50,7 @@ public class FormMapper implements ModelMapper<EntityResponse, Form> {
     mappingHelper.mapToResult(
         OWNERSHIP_ASPECT_NAME,
         (form, dataMap) ->
-            form.setOwnership(OwnershipMapper.map(new Ownership(dataMap), entityUrn)));
+            form.setOwnership(OwnershipMapper.map(context, new Ownership(dataMap), entityUrn)));
 
     return mappingHelper.getResult();
   }

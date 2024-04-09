@@ -349,7 +349,7 @@ public class DeleteEntityService {
     final IngestResult ingestProposalResult =
         _entityService.ingestProposal(proposal, auditStamp, false);
 
-    if (!ingestProposalResult.isSqlCommitted()) {
+    if (ingestProposalResult != null && !ingestProposalResult.isSqlCommitted()) {
       log.error(
           "Failed to ingest aspect with references removed. Before {}, after: {}, please check MCP processor"
               + " logs for more information",

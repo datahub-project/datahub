@@ -19,6 +19,9 @@ fragment dataFlowFields on DataFlow {
             value
         }
     }
+    privileges {
+        ...entityPrivileges
+    }
     editableProperties {
         description
     }

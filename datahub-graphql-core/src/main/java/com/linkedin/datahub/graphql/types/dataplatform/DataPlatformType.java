@@ -58,7 +58,7 @@ public class DataPlatformType implements EntityType<DataPlatform, String> {
                   gmsPlatform == null
                       ? null
                       : DataFetcherResult.<DataPlatform>newResult()
-                          .data(DataPlatformMapper.map(gmsPlatform))
+                          .data(DataPlatformMapper.map(context, gmsPlatform))
                           .build())
           .collect(Collectors.toList());
     } catch (Exception e) {

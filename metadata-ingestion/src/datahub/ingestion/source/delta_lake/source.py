@@ -36,7 +36,6 @@ from datahub.ingestion.source.delta_lake.delta_lake_utils import (
     read_delta_table,
 )
 from datahub.ingestion.source.delta_lake.report import DeltaLakeSourceReport
-from datahub.metadata._schema_classes import SchemaFieldClass
 from datahub.metadata.com.linkedin.pegasus2avro.common import Status
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
@@ -49,6 +48,7 @@ from datahub.metadata.schema_classes import (
     OperationClass,
     OperationTypeClass,
     OtherSchemaClass,
+    SchemaFieldClass,
 )
 from datahub.telemetry import telemetry
 from datahub.utilities.hive_schema_to_avro import get_schema_fields_for_hive_column

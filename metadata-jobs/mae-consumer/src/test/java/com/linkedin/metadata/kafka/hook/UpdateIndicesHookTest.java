@@ -140,10 +140,23 @@ public class UpdateIndicesHookTest {
     Urn downstreamUrn =
         UrnUtils.getUrn(
             "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,SampleCypressHiveDataset,PROD),field_foo)");
+    Urn lifeCycleOwner =
+        UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,SampleCypressHiveDataset,PROD)");
     MetadataChangeLog event = createUpstreamLineageMCL(upstreamUrn, downstreamUrn);
     updateIndicesHook.invoke(event);
 
-    Edge edge = new Edge(downstreamUrn, upstreamUrn, DOWNSTREAM_OF, null, null, null, null, null);
+    Edge edge =
+        new Edge(
+            downstreamUrn,
+            upstreamUrn,
+            DOWNSTREAM_OF,
+            null,
+            null,
+            null,
+            null,
+            null,
+            lifeCycleOwner,
+            null);
     Mockito.verify(mockGraphService, Mockito.times(1)).addEdge(Mockito.eq(edge));
     Mockito.verify(mockGraphService, Mockito.times(1))
         .removeEdgesFromNode(
@@ -164,11 +177,24 @@ public class UpdateIndicesHookTest {
     Urn downstreamUrn =
         UrnUtils.getUrn(
             "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,SampleCypressHiveDataset,PROD),field_foo)");
+    Urn lifeCycleOwner =
+        UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,SampleCypressHiveDataset,PROD)");
     MetadataChangeLog event =
         createUpstreamLineageMCL(upstreamUrn, downstreamUrn, ChangeType.RESTATE);
     updateIndicesHook.invoke(event);
 
-    Edge edge = new Edge(downstreamUrn, upstreamUrn, DOWNSTREAM_OF, null, null, null, null, null);
+    Edge edge =
+        new Edge(
+            downstreamUrn,
+            upstreamUrn,
+            DOWNSTREAM_OF,
+            null,
+            null,
+            null,
+            null,
+            null,
+            lifeCycleOwner,
+            null);
     Mockito.verify(mockGraphService, Mockito.times(1)).addEdge(Mockito.eq(edge));
     Mockito.verify(mockGraphService, Mockito.times(1))
         .removeEdgesFromNode(

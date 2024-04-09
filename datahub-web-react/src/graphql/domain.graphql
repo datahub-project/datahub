@@ -13,6 +13,9 @@ query getDomain($urn: String!) {
         ownership {
             ...ownershipFields
         }
+        privileges {
+            ...entityPrivileges
+        }
         institutionalMemory {
             elements {
                 url

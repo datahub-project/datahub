@@ -38,6 +38,7 @@ public class EntityTypeMapper {
           .put(EntityType.NOTEBOOK, "notebook")
           .put(EntityType.DATA_PLATFORM_INSTANCE, "dataPlatformInstance")
           .put(EntityType.TEST, "test")
+          .put(EntityType.ER_MODEL_RELATIONSHIP, Constants.ER_MODEL_RELATIONSHIP_ENTITY_NAME)
           .put(EntityType.DATAHUB_VIEW, Constants.DATAHUB_VIEW_ENTITY_NAME)
           .put(EntityType.DATA_PRODUCT, Constants.DATA_PRODUCT_ENTITY_NAME)
           .put(EntityType.SCHEMA_FIELD, "schemaField")

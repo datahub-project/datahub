@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useEntityContext } from '../../../EntityContext';
 import { FormPrompt, FormPromptType, SchemaField, SubmitFormPromptInput } from '../../../../../../types.generated';
 import { getInitialValues } from './utils';
@@ -6,6 +6,7 @@ import usePrevious from '../../../../../shared/usePrevious';
 import { useGetEntityWithSchema } from '../../../tabs/Dataset/Schema/useGetEntitySchema';
 import { FormView, useEntityFormContext } from '../../EntityFormContext';
 import { SCHEMA_FIELD_PROMPT_TYPES } from '../../constants';
+import { useEditStructuredProperty } from '../../../components/styled/StructuredProperty/useEditStructuredProperty';
 
 interface Props {
     prompt: FormPrompt;
@@ -17,12 +18,19 @@ export default function useStructuredPropertyPrompt({ prompt, submitResponse, fi
     const { refetch: refetchSchema } = useGetEntityWithSchema(!SCHEMA_FIELD_PROMPT_TYPES.includes(prompt.type));
     const { refetch, entityData } = useEntityContext();
     const { selectedPromptId, formView } = useEntityFormContext();
-    const [hasEditedPrompt, setHasEditedPrompt] = useState(false);
     const initialValues = useMemo(
         () => (formView === FormView.BY_ENTITY ? getInitialValues(prompt, entityData, field) : []),
         [formView, entityData, prompt, field],
     );
-    const [selectedValues, setSelectedValues] = useState<any[]>(initialValues || []);
+    const {
+        selectedValues,
+        setSelectedValues,
+        selectSingleValue,
+        toggleSelectedValue,
+        updateSelectedValues,
+        hasEdited,
+        setHasEdited,
+    } = useEditStructuredProperty();
 
     const structuredProperty = prompt.structuredPropertyParams?.structuredProperty;
 
@@ -31,35 +39,15 @@ export default function useStructuredPropertyPrompt({ prompt, submitResponse, fi
         if (entityData?.urn !== previousEntityUrn) {
             setSelectedValues(initialValues || []);
         }
-    }, [entityData?.urn, previousEntityUrn, initialValues]);
+    }, [entityData?.urn, previousEntityUrn, initialValues, setSelectedValues]);
 
     const previousSelectedPromptId = usePrevious(selectedPromptId);
     useEffect(() => {
         if (selectedPromptId !== previousSelectedPromptId) {
-            setHasEditedPrompt(false);
+            setHasEdited(false);
             setSelectedValues(initialValues || []);
         }
-    }, [previousSelectedPromptId, selectedPromptId, initialValues]);
-
-    // respond to prompts
-    function selectSingleValue(value: string | number) {
-        setHasEditedPrompt(true);
-        setSelectedValues([value as string]);
-    }
-
-    function toggleSelectedValue(value: string | number) {
-        setHasEditedPrompt(true);
-        if (selectedValues.includes(value)) {
-            setSelectedValues((prev) => prev.filter((v) => v !== value));
-        } else {
-            setSelectedValues((prev) => [...prev, value]);
-        }
-    }
-
-    function updateSelectedValues(values: any[]) {
-        setSelectedValues(values);
-        setHasEditedPrompt(true);
-    }
+    }, [previousSelectedPromptId, selectedPromptId, initialValues, setSelectedValues, setHasEdited]);
 
     // submit structured property prompt
     function submitStructuredPropertyResponse() {
@@ -81,7 +69,7 @@ export default function useStructuredPropertyPrompt({ prompt, submitResponse, fi
             },
             () => {
                 refetch();
-                setHasEditedPrompt(false);
+                setHasEdited(false);
                 if (field) {
                     refetchSchema();
                 }
@@ -90,7 +78,7 @@ export default function useStructuredPropertyPrompt({ prompt, submitResponse, fi
     }
 
     return {
-        hasEditedPrompt,
+        hasEdited,
         selectedValues,
         selectSingleValue,
         toggleSelectedValue,

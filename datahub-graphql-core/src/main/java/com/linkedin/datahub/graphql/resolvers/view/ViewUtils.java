@@ -80,9 +80,7 @@ public class ViewUtils {
     }
 
     // If the View is Personal, then the current actor must be the owner.
-    return isViewOwner(
-        viewInfo.getCreated().getActor(),
-        UrnUtils.getUrn(context.getAuthentication().getActor().toUrnStr()));
+    return isViewOwner(viewInfo.getCreated().getActor(), UrnUtils.getUrn(context.getActorUrn()));
   }
 
   /**

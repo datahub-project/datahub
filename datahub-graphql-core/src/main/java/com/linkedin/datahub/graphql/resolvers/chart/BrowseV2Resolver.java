@@ -30,6 +30,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
+import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -53,7 +54,7 @@ public class BrowseV2Resolver implements DataFetcher<CompletableFuture<BrowseRes
     final int start = input.getStart() != null ? input.getStart() : DEFAULT_START;
     final int count = input.getCount() != null ? input.getCount() : DEFAULT_COUNT;
     final String query = input.getQuery() != null ? input.getQuery() : "*";
-    final SearchFlags searchFlags = mapInputFlags(input.getSearchFlags());
+    final SearchFlags searchFlags = mapInputFlags(context, input.getSearchFlags());
     // escape forward slash since it is a reserved character in Elasticsearch
     final String sanitizedQuery = ResolverUtils.escapeForwardSlash(query);
 
@@ -86,7 +87,7 @@ public class BrowseV2Resolver implements DataFetcher<CompletableFuture<BrowseRes
                     sanitizedQuery,
                     start,
                     count);
-            return mapBrowseResults(browseResults);
+            return mapBrowseResults(context, browseResults);
           } catch (Exception e) {
             throw new RuntimeException("Failed to execute browse V2", e);
           }
@@ -105,7 +106,8 @@ public class BrowseV2Resolver implements DataFetcher<CompletableFuture<BrowseRes
     return entityTypes.stream().map(EntityTypeMapper::getName).collect(Collectors.toList());
   }
 
-  private BrowseResultsV2 mapBrowseResults(BrowseResultV2 browseResults) {
+  private BrowseResultsV2 mapBrowseResults(
+      @Nullable QueryContext context, BrowseResultV2 browseResults) {
     BrowseResultsV2 results = new BrowseResultsV2();
     results.setTotal(browseResults.getNumGroups());
     results.setStart(browseResults.getFrom());
@@ -121,7 +123,7 @@ public class BrowseV2Resolver implements DataFetcher<CompletableFuture<BrowseRes
               browseGroup.setCount(group.getCount());
               browseGroup.setHasSubGroups(group.isHasSubGroups());
               if (group.hasUrn() && group.getUrn() != null) {
-                browseGroup.setEntity(UrnToEntityMapper.map(group.getUrn()));
+                browseGroup.setEntity(UrnToEntityMapper.map(context, group.getUrn()));
               }
               groups.add(browseGroup);
             });

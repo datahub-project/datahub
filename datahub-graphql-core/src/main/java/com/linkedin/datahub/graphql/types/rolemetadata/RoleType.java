@@ -86,7 +86,9 @@ public class RoleType
               gmsResult ->
                   gmsResult == null
                       ? null
-                      : DataFetcherResult.<Role>newResult().data(RoleMapper.map(gmsResult)).build())
+                      : DataFetcherResult.<Role>newResult()
+                          .data(RoleMapper.map(context, gmsResult))
+                          .build())
           .collect(Collectors.toList());
     } catch (Exception e) {
       throw new RuntimeException("Failed to batch load Role", e);
@@ -109,7 +111,7 @@ public class RoleType
             Collections.emptyMap(),
             start,
             count);
-    return UrnSearchResultsMapper.map(searchResult);
+    return UrnSearchResultsMapper.map(context, searchResult);
   }
 
   @Override
@@ -123,6 +125,6 @@ public class RoleType
     final AutoCompleteResult result =
         _entityClient.autoComplete(
             context.getOperationContext(), Constants.ROLE_ENTITY_NAME, query, filters, limit);
-    return AutoCompleteResultsMapper.map(result);
+    return AutoCompleteResultsMapper.map(context, result);
   }
 }

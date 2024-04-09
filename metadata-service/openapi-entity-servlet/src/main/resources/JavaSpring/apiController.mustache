@@ -95,12 +95,11 @@ public class {{classname}}Controller implements {{classname}} {
     public {{classname}}Controller(ObjectMapper objectMapper, HttpServletRequest request,
     @org.springframework.beans.factory.annotation.Qualifier("systemOperationContext") OperationContext systemOperationContext,
     EntityService entityService,
-    SearchService searchService, EntitiesController v1Controller, AuthorizerChain authorizationChain,
-    @Value("${authorization.restApiAuthorization:false}") boolean restApiAuthorizationEnabled) {
+    SearchService searchService, EntitiesController v1Controller, AuthorizerChain authorizationChain) {
         this.objectMapper = objectMapper;
         this.request = request;
         this.delegate = new EntityApiDelegateImpl<{{requestClass}}, {{responseClass}}, {{scrollResponseClass}}>(systemOperationContext, entityService, searchService, v1Controller,
-        restApiAuthorizationEnabled, authorizationChain, {{requestClass}}.class, {{responseClass}}.class, {{scrollResponseClass}}.class);
+        authorizationChain, {{requestClass}}.class, {{responseClass}}.class, {{scrollResponseClass}}.class);
     }
     {{#isJava8or11}}
 

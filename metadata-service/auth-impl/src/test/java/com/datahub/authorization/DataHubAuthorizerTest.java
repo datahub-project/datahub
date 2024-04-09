@@ -50,6 +50,7 @@ import com.linkedin.policy.DataHubPolicyInfo;
 import com.linkedin.policy.DataHubResourceFilter;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.OperationContextConfig;
+import io.datahubproject.metadata.context.ServicesRegistryContext;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -269,8 +270,9 @@ public class DataHubAuthorizerTest {
     systemOpContext =
         OperationContext.asSystem(
             OperationContextConfig.builder().build(),
-            mock(EntityRegistry.class),
             systemAuthentication,
+            mock(EntityRegistry.class),
+            mock(ServicesRegistryContext.class),
             mock(IndexConvention.class));
 
     _dataHubAuthorizer =

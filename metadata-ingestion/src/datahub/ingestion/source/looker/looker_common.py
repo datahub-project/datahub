@@ -1199,6 +1199,7 @@ class LookerDashboardElement:
     type: Optional[str] = None
     description: Optional[str] = None
     input_fields: Optional[List[InputFieldElement]] = None
+    folder_path: Optional[str] = None  # for independent looks.
 
     def url(self, base_url: str) -> str:
         # A dashboard element can use a look or just a raw query against an explore

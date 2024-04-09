@@ -1,10 +1,12 @@
 package com.linkedin.metadata.resources.usage;
 
+import static com.datahub.authorization.AuthUtil.isAPIAuthorized;
+import static com.datahub.authorization.AuthUtil.isAPIAuthorizedEntityUrns;
 import static com.linkedin.metadata.Constants.*;
-import static com.linkedin.metadata.resources.restli.RestliUtils.*;
+import static com.linkedin.metadata.authorization.ApiOperation.UPDATE;
 
 import com.codahale.metrics.MetricRegistry;
-import com.datahub.authentication.Authentication;
+import com.codahale.metrics.Timer;
 import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authorization.EntitySpec;
 import com.datahub.plugins.auth.authorization.Authorizer;
@@ -12,7 +14,6 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.StreamReadConstraints;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.common.collect.ImmutableList;
 import com.linkedin.common.WindowDuration;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -34,6 +35,7 @@ import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.restli.RestliUtil;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.timeseries.transformer.TimeseriesAspectTransformer;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.parseq.Task;
 import com.linkedin.restli.common.HttpStatus;
 import com.linkedin.restli.server.RestLiServiceException;
@@ -62,8 +64,11 @@ import io.opentelemetry.extension.annotations.WithSpan;
 import java.net.URISyntaxException;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
+import java.util.concurrent.TimeUnit;
 import javax.annotation.Nonnull;
 import javax.inject.Inject;
 import javax.inject.Named;
@@ -128,15 +133,14 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
     log.info("Ingesting {} usage stats aggregations", buckets.length);
     return RestliUtil.toTask(
         () -> {
-          Authentication auth = AuthenticationContext.getAuthentication();
-          if (Boolean.parseBoolean(System.getenv(REST_API_AUTHORIZATION_ENABLED_ENV))
-              && !isAuthorized(
-                  auth,
+
+          if (!isAPIAuthorizedEntityUrns(
+                  AuthenticationContext.getAuthentication(),
                   _authorizer,
-                  ImmutableList.of(PoliciesConfig.EDIT_ENTITY_PRIVILEGE),
-                  (EntitySpec) null)) {
+                  UPDATE,
+                  Arrays.stream(buckets).sequential().map(UsageAggregation::getResource).collect(Collectors.toSet()))) {
             throw new RestLiServiceException(
-                HttpStatus.S_401_UNAUTHORIZED, "User is unauthorized to edit entities.");
+                HttpStatus.S_403_FORBIDDEN, "User is unauthorized to edit entities.");
           }
           for (UsageAggregation agg : buckets) {
             this.ingest(agg);
@@ -368,32 +372,33 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
       @ActionParam(PARAM_END_TIME) @com.linkedin.restli.server.annotations.Optional Long endTime,
       @ActionParam(PARAM_MAX_BUCKETS) @com.linkedin.restli.server.annotations.Optional
           Integer maxBuckets) {
-    log.info("Attempting to query usage stats");
+    log.info(
+        "Querying usage stats for resource: {}, duration: {}, start time: {}, end time: {}, max buckets: {}",
+        resource, duration, startTime, endTime, maxBuckets);
     return RestliUtil.toTask(
         () -> {
-          Authentication auth = AuthenticationContext.getAuthentication();
+
           Urn resourceUrn = UrnUtils.getUrn(resource);
-          if (Boolean.parseBoolean(System.getenv(REST_API_AUTHORIZATION_ENABLED_ENV))
-              && !isAuthorized(
-                  auth,
+          if (!isAPIAuthorized(
+                  AuthenticationContext.getAuthentication(),
                   _authorizer,
-                  ImmutableList.of(PoliciesConfig.VIEW_DATASET_USAGE_PRIVILEGE),
+                  PoliciesConfig.VIEW_DATASET_USAGE_PRIVILEGE,
                   new EntitySpec(resourceUrn.getEntityType(), resourceUrn.toString()))) {
             throw new RestLiServiceException(
-                HttpStatus.S_401_UNAUTHORIZED, "User is unauthorized to query usage.");
+                HttpStatus.S_403_FORBIDDEN, "User is unauthorized to query usage.");
           }
           // 1. Populate the filter. This is common for all queries.
           Filter filter = new Filter();
           ArrayList<Criterion> criteria = new ArrayList<>();
           Criterion hasUrnCriterion =
-              new Criterion().setField("urn").setCondition(Condition.EQUAL).setValue(resource);
+              new Criterion().setField("urn").setCondition(Condition.EQUAL).setValues(new StringArray(resource));
           criteria.add(hasUrnCriterion);
           if (startTime != null) {
             Criterion startTimeCriterion =
                 new Criterion()
                     .setField(ES_FIELD_TIMESTAMP)
                     .setCondition(Condition.GREATER_THAN_OR_EQUAL_TO)
-                    .setValue(startTime.toString());
+                    .setValues(new StringArray(startTime.toString()));
             criteria.add(startTimeCriterion);
           }
           if (endTime != null) {
@@ -401,7 +406,7 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
                 new Criterion()
                     .setField(ES_FIELD_TIMESTAMP)
                     .setCondition(Condition.LESS_THAN_OR_EQUAL_TO)
-                    .setValue(endTime.toString());
+                    .setValues(new StringArray(endTime.toString()));
             criteria.add(endTimeCriterion);
           }
 
@@ -409,11 +414,20 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
               new ConjunctiveCriterionArray(
                   new ConjunctiveCriterion().setAnd(new CriterionArray(criteria))));
 
+          Timer.Context timer;
+          long took;
+
           // 2. Get buckets.
+          timer = MetricUtils.timer(this.getClass(), "getBuckets").time();
           UsageAggregationArray buckets = getBuckets(filter, resource, duration);
+          took = timer.stop();
+          log.info("Usage stats for resource {} returned {} buckets in {} ms", resource, buckets.size(), TimeUnit.NANOSECONDS.toMillis(took));
 
           // 3. Get aggregations.
+          timer = MetricUtils.timer(this.getClass(), "getAggregations").time();
           UsageQueryResultAggregations aggregations = getAggregations(filter);
+          took = timer.stop();
+          log.info("Usage stats aggregation for resource {} took {} ms", resource, TimeUnit.NANOSECONDS.toMillis(took));
 
           // 4. Compute totalSqlQuery count from the buckets itself.
           // We want to avoid issuing an additional query with a sum aggregation.
@@ -444,16 +458,15 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
       @ActionParam(PARAM_RESOURCE) @Nonnull String resource,
       @ActionParam(PARAM_DURATION) @Nonnull WindowDuration duration,
       @ActionParam(PARAM_RANGE) UsageTimeRange range) {
-    Authentication auth = AuthenticationContext.getAuthentication();
+
     Urn resourceUrn = UrnUtils.getUrn(resource);
-    if (Boolean.parseBoolean(System.getenv(REST_API_AUTHORIZATION_ENABLED_ENV))
-        && !isAuthorized(
-            auth,
+    if (!isAPIAuthorized(
+            AuthenticationContext.getAuthentication(),
             _authorizer,
-            ImmutableList.of(PoliciesConfig.VIEW_DATASET_USAGE_PRIVILEGE),
+            PoliciesConfig.VIEW_DATASET_USAGE_PRIVILEGE,
             new EntitySpec(resourceUrn.getEntityType(), resourceUrn.toString()))) {
       throw new RestLiServiceException(
-          HttpStatus.S_401_UNAUTHORIZED, "User is unauthorized to query usage.");
+          HttpStatus.S_403_FORBIDDEN, "User is unauthorized to query usage.");
     }
     final long now = Instant.now().toEpochMilli();
     return this.query(resource, duration, convertRangeToStartTime(range, now), now, null);

@@ -162,11 +162,13 @@ public class DataGenerator {
               if (generateDefaultAspects) {
                 // Expand with default aspects instead of relying on default generation
                 return Stream.concat(
-                        Stream.of(mcp),
+                        // Remove duplicate key aspects (generated as default aspects)
+                        Stream.of(mcp).filter(m -> !m.getAspectName().endsWith("Key")),
                         DefaultAspectsUtil.getAdditionalChanges(
                                 AspectsBatchImpl.builder()
                                     .mcps(List.of(mcp), auditStamp, entityService)
-                                    .build(),
+                                    .build()
+                                    .getMCPItems(),
                                 entityService,
                                 true)
                             .stream()

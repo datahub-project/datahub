@@ -15,7 +15,7 @@ dependencies {
   api project(':metadata-events:mxe-registration')
   api project(':metadata-events:mxe-utils-avro')
   api project(':metadata-models')
-  api project(':metadata-service:restli-client')
+  api project(':metadata-service:restli-client-api')
   api project(':metadata-service:configuration')
   api project(':metadata-service:services')
   api project(':metadata-operation-context')
@@ -62,6 +62,7 @@ dependencies {
   testImplementation project(path: ':test-models', configuration: 'testDataTemplate')
   testImplementation project(':datahub-graphql-core')
   testImplementation project(path: ':metadata-integration:java:datahub-client', configuration: 'shadow')
+  testImplementation project(':metadata-service:auth-impl')
   testImplementation externalDependency.testng
   testImplementation externalDependency.h2
   testImplementation externalDependency.mysqlConnector

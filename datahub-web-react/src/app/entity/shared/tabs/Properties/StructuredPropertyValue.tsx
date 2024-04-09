@@ -1,7 +1,7 @@
 import Icon from '@ant-design/icons/lib/components/Icon';
-import React from 'react';
+import React, { useState } from 'react';
 import Highlight from 'react-highlighter';
-import { Typography } from 'antd';
+import { Button, Typography } from 'antd';
 import styled from 'styled-components';
 import { ValueColumnData } from './types';
 import { ANTD_GRAY } from '../../constants';
@@ -30,14 +30,27 @@ const IconWrapper = styled.span`
     margin-right: 4px;
 `;
 
+const StyledButton = styled(Button)`
+    margin-top: 2px;
+`;
+
 interface Props {
     value: ValueColumnData;
     isRichText?: boolean;
     filterText?: string;
 }
 
+const MAX_CHARACTERS = 200;
+
 export default function StructuredPropertyValue({ value, isRichText, filterText }: Props) {
     const entityRegistry = useEntityRegistry();
+    const [showMore, setShowMore] = useState(false);
+
+    const toggleShowMore = () => {
+        setShowMore(!showMore);
+    };
+
+    const valueAsString = value?.value?.toString() ?? '';
 
     return (
         <ValueText>
@@ -60,7 +73,16 @@ export default function StructuredPropertyValue({ value, isRichText, filterText 
                     {isRichText ? (
                         <MarkdownViewer source={value.value as string} />
                     ) : (
-                        <Highlight search={filterText}>{value.value?.toString()}</Highlight>
+                        <>
+                            <Highlight search={filterText}>
+                                {showMore ? valueAsString : valueAsString?.substring(0, MAX_CHARACTERS)}
+                            </Highlight>
+                            {valueAsString?.length > MAX_CHARACTERS && (
+                                <StyledButton type="link" onClick={toggleShowMore}>
+                                    {showMore ? 'Show less' : 'Show more'}
+                                </StyledButton>
+                            )}
+                        </>
                     )}
                 </>
             )}

@@ -21,6 +21,7 @@ import com.linkedin.metadata.run.AspectRowSummary;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
+import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.util.Pair;
 import java.net.URISyntaxException;
 import java.util.Collection;
@@ -30,6 +31,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.Future;
 import java.util.function.Consumer;
+import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
@@ -243,8 +245,15 @@ public interface EntityService<U extends ChangeMCP> extends AspectRetriever {
   Integer getCountAspect(@Nonnull String aspectName, @Nullable String urnLike);
 
   // TODO: Extract this to a different service, doesn't need to be here
-  RestoreIndicesResult restoreIndices(
+  Stream<RestoreIndicesResult> streamRestoreIndices(
       @Nonnull RestoreIndicesArgs args, @Nonnull Consumer<String> logger);
+
+  // Restore indices from list using key lookups (no scans)
+  List<RestoreIndicesResult> restoreIndices(
+      @Nonnull Set<Urn> urns,
+      @Nullable Set<String> inputAspectNames,
+      @Nullable Integer inputBatchSize)
+      throws RemoteInvocationException, URISyntaxException;
 
   ListUrnsResult listUrns(@Nonnull final String entityName, final int start, final int count);
 

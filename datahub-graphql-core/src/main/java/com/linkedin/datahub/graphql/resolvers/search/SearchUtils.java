@@ -19,6 +19,7 @@ import static com.linkedin.metadata.Constants.ML_PRIMARY_KEY_ENTITY_NAME;
 import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.FacetFilterInput;
 import com.linkedin.datahub.graphql.types.common.mappers.SearchFlagsInputMapper;
@@ -89,7 +90,8 @@ public class SearchUtils {
           EntityType.CORP_USER,
           EntityType.CORP_GROUP,
           EntityType.NOTEBOOK,
-          EntityType.DATA_PRODUCT);
+          EntityType.DATA_PRODUCT,
+          EntityType.DOMAIN);
 
   /** Entities that are part of browse by default */
   public static final List<EntityType> BROWSE_ENTITY_TYPES =
@@ -287,10 +289,11 @@ public class SearchUtils {
   }
 
   public static SearchFlags mapInputFlags(
+      @Nullable QueryContext context,
       com.linkedin.datahub.graphql.generated.SearchFlags inputFlags) {
     SearchFlags searchFlags = null;
     if (inputFlags != null) {
-      searchFlags = SearchFlagsInputMapper.INSTANCE.apply(inputFlags);
+      searchFlags = SearchFlagsInputMapper.INSTANCE.apply(context, inputFlags);
     }
     return searchFlags;
   }

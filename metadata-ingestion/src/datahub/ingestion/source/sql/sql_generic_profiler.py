@@ -226,6 +226,7 @@ class GenericProfiler:
             report=self.report,
             config=self.config.profiling,
             platform=self.platform,
+            env=self.config.env,
         )
 
     def is_dataset_eligible_for_profiling(

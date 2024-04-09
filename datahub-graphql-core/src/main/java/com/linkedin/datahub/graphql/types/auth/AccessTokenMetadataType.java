@@ -60,7 +60,7 @@ public class AccessTokenMetadataType
               ASPECTS_TO_FETCH,
               context.getAuthentication());
 
-      final List<EntityResponse> gmsResults = new ArrayList<>();
+      final List<EntityResponse> gmsResults = new ArrayList<>(keys.size());
       for (Urn urn : tokenInfoUrns) {
         gmsResults.add(entities.getOrDefault(urn, null));
       }
@@ -70,7 +70,7 @@ public class AccessTokenMetadataType
                   gmsResult == null
                       ? null
                       : DataFetcherResult.<AccessTokenMetadata>newResult()
-                          .data(AccessTokenMetadataMapper.map(gmsResult))
+                          .data(AccessTokenMetadataMapper.map(context, gmsResult))
                           .build())
           .collect(Collectors.toList());
     } catch (Exception e) {

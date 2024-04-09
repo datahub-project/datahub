@@ -22,6 +22,7 @@ import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.OperationContextConfig;
+import io.datahubproject.metadata.context.ServicesRegistryContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import org.apache.avro.generic.GenericRecord;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -94,8 +95,9 @@ public class MCLSpringTestConfiguration {
         .thenReturn(TestOperationContexts.TEST_SYSTEM_AUTH.getActor());
     return OperationContext.asSystem(
         OperationContextConfig.builder().build(),
-        entityRegistry,
         systemAuthentication,
+        entityRegistry,
+        mock(ServicesRegistryContext.class),
         indexConvention);
   }
 }

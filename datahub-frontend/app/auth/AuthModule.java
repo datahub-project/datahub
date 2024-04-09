@@ -172,7 +172,7 @@ public class AuthModule extends AbstractModule {
                     .authentication(systemAuthentication)
                     .build();
     OperationContextConfig systemConfig = OperationContextConfig.builder()
-            .searchAuthorizationConfiguration(configurationProvider.getAuthorization().getSearch())
+            .viewAuthorizationConfiguration(configurationProvider.getAuthorization().getView())
             .allowSystemAuthentication(true)
             .build();
 

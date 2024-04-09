@@ -1,16 +1,15 @@
 package com.linkedin.metadata.resources.operations;
 
-import static com.linkedin.metadata.Constants.*;
+import static com.datahub.authorization.AuthUtil.isAPIAuthorized;
 import static com.linkedin.metadata.resources.restli.RestliConstants.*;
-import static com.linkedin.metadata.resources.restli.RestliUtils.*;
 
 import com.codahale.metrics.MetricRegistry;
-import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
+import com.datahub.authorization.EntitySpec;
 import com.datahub.plugins.auth.authorization.Authorizer;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.ImmutableList;
 import com.linkedin.metadata.aspect.VersionedAspect;
+import com.linkedin.metadata.authorization.Disjunctive;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.query.filter.Condition;
@@ -92,12 +91,12 @@ public class OperationsResource extends CollectionResourceTaskTemplate<String, V
       @ActionParam(PARAM_URN) @Optional @Nullable String urn,
       @ActionParam(PARAM_URN_LIKE) @Optional @Nullable String urnLike,
       @ActionParam("start") @Optional @Nullable Integer start,
-      @ActionParam("batchSize") @Optional @Nullable Integer batchSize) {
+      @ActionParam("batchSize") @Optional @Nullable Integer batchSize,
+      @ActionParam("limit") @Optional @Nullable Integer limit,
+      @ActionParam("gePitEpochMs") @Optional @Nullable Long gePitEpochMs,
+      @ActionParam("lePitEpochMs") @Optional @Nullable Long lePitEpochMs) {
     return RestliUtil.toTask(
-        () -> {
-          return Utils.restoreIndices(
-              aspectName, urn, urnLike, start, batchSize, _authorizer, _entityService);
-        },
+        () -> Utils.restoreIndices(aspectName, urn, urnLike, start, batchSize, limit, gePitEpochMs, lePitEpochMs, _authorizer, _entityService),
         MetricRegistry.name(this.getClass(), "restoreIndices"));
   }
 
@@ -122,15 +121,13 @@ public class OperationsResource extends CollectionResourceTaskTemplate<String, V
       @ActionParam(PARAM_TASK) @Optional String task) {
     return RestliUtil.toTask(
         () -> {
-          Authentication authentication = AuthenticationContext.getAuthentication();
-          if (Boolean.parseBoolean(System.getenv(REST_API_AUTHORIZATION_ENABLED_ENV))
-              && !isAuthorized(
-                  authentication,
+
+          if (!isAPIAuthorized(
+                  AuthenticationContext.getAuthentication(),
                   _authorizer,
-                  ImmutableList.of(PoliciesConfig.GET_ES_TASK_STATUS_PRIVILEGE),
-                  List.of(java.util.Optional.empty()))) {
+                  PoliciesConfig.GET_ES_TASK_STATUS_PRIVILEGE)) {
             throw new RestLiServiceException(
-                HttpStatus.S_401_UNAUTHORIZED, "User is unauthorized to get ES task status");
+                HttpStatus.S_403_FORBIDDEN, "User is unauthorized to get ES task status");
           }
           boolean taskSpecified = task != null;
           boolean nodeAndTaskIdSpecified = nodeId != null && taskId > 0;
@@ -183,15 +180,13 @@ public class OperationsResource extends CollectionResourceTaskTemplate<String, V
   public Task<TimeseriesIndicesSizesResult> getIndexSizes() {
     return RestliUtil.toTask(
         () -> {
-          Authentication authentication = AuthenticationContext.getAuthentication();
-          if (Boolean.parseBoolean(System.getenv(REST_API_AUTHORIZATION_ENABLED_ENV))
-              && !isAuthorized(
-                  authentication,
+
+          if (!isAPIAuthorized(
+                  AuthenticationContext.getAuthentication(),
                   _authorizer,
-                  ImmutableList.of(PoliciesConfig.GET_TIMESERIES_INDEX_SIZES_PRIVILEGE),
-                  List.of(java.util.Optional.empty()))) {
+                  PoliciesConfig.GET_TIMESERIES_INDEX_SIZES_PRIVILEGE)) {
             throw new RestLiServiceException(
-                HttpStatus.S_401_UNAUTHORIZED, "User is unauthorized to get index sizes.");
+                HttpStatus.S_403_FORBIDDEN, "User is unauthorized to get index sizes.");
           }
           TimeseriesIndicesSizesResult result = new TimeseriesIndicesSizesResult();
           result.setIndexSizes(
@@ -211,15 +206,13 @@ public class OperationsResource extends CollectionResourceTaskTemplate<String, V
       @Nullable Long timeoutSeconds,
       @Nullable Boolean forceDeleteByQuery,
       @Nullable Boolean forceReindex) {
-    Authentication authentication = AuthenticationContext.getAuthentication();
-    if (Boolean.parseBoolean(System.getenv(REST_API_AUTHORIZATION_ENABLED_ENV))
-        && !isAuthorized(
-            authentication,
+
+    if (!isAPIAuthorized(
+            AuthenticationContext.getAuthentication(),
             _authorizer,
-            ImmutableList.of(PoliciesConfig.TRUNCATE_TIMESERIES_INDEX_PRIVILEGE),
-            List.of(java.util.Optional.empty()))) {
+            PoliciesConfig.TRUNCATE_TIMESERIES_INDEX_PRIVILEGE)) {
       throw new RestLiServiceException(
-          HttpStatus.S_401_UNAUTHORIZED, "User is unauthorized to truncate timeseries index");
+          HttpStatus.S_403_FORBIDDEN, "User is unauthorized to truncate timeseries index");
     }
 
     if (forceDeleteByQuery != null && forceDeleteByQuery.equals(forceReindex)) {

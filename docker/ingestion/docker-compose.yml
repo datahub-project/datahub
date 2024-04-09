@@ -5,7 +5,7 @@ services:
     build:
       context: ../../
       dockerfile: docker/datahub-ingestion/Dockerfile
-    image: linkedin/datahub-ingestion:${DATAHUB_VERSION:-head}
+    image: acryldata/datahub-ingestion:${DATAHUB_VERSION:-head}
     hostname: ingestion
     command: "ingest -c /sample_recipe.yml"
     volumes: 
