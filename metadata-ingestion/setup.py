@@ -230,6 +230,11 @@ iceberg_common = {
     *pydantic_no_v2,
 }
 
+postgres_common = {
+    "psycopg2-binary",
+    "GeoAlchemy2",
+}
+
 s3_base = {
     *aws_common,
     "more-itertools>=8.12.0",
@@ -311,7 +316,7 @@ plugins: Dict[str, Set[str]] = {
     | classification_lib,
     "clickhouse": sql_common | clickhouse_common,
     "clickhouse-usage": sql_common | usage_common | clickhouse_common,
-    "cockroachdb": sql_common | {"psycopg2-binary", "GeoAlchemy2", "sqlalchemy-cockroachdb<2.0.0"},
+    "cockroachdb": sql_common | postgres_common | {"sqlalchemy-cockroachdb<2.0.0"},
     "datahub-lineage-file": set(),
     "datahub-business-glossary": set(),
     "delta-lake": {*data_lake_profiling, *delta_lake},
@@ -366,7 +371,7 @@ plugins: Dict[str, Set[str]] = {
     "mariadb": sql_common | {"pymysql>=1.0.2"},
     "okta": {"okta~=1.7.0", "nest-asyncio"},
     "oracle": sql_common | {"cx_Oracle"},
-    "postgres": sql_common | {"psycopg2-binary", "GeoAlchemy2"},
+    "postgres": sql_common | postgres_common,
     "presto": sql_common | pyhive_common | trino,
     "presto-on-hive": sql_common
     | pyhive_common

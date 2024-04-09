@@ -41,5 +41,3 @@ class CockroachDBSource(PostgresSource):
     def create(cls, config_dict, ctx):
         config = CockroachDBConfig.parse_obj(config_dict)
         return cls(config, ctx)
-
-    pass
