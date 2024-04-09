@@ -232,16 +232,5 @@ public class DebugAccessResolver implements DataFetcher<CompletableFuture<DebugA
       conjunctiveCriteria.add(new ConjunctiveCriterion().setAnd(rolesAndArray));
     }
     return new Filter().setOr(conjunctiveCriteria);
-
-    /*
-    final AndFilterInput globalCriteria = new AndFilterInput();
-    List<FacetFilterInput> orConditions = new ArrayList<>();
-
-    orConditions.add(new FacetFilterInput("users", null, List.of(user), false, FilterOperator.EQUAL));
-    orConditions.add(new FacetFilterInput("groups", null, groups, false, FilterOperator.EQUAL));
-    orConditions.add(new FacetFilterInput("roles", null, roles, false, FilterOperator.EQUAL));
-    globalCriteria.setAnd(orConditions);
-    return buildFilter(Collections.emptyList(), List.of(globalCriteria));
-    */
   }
 }

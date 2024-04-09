@@ -174,7 +174,8 @@ public class BackfillPolicyFieldsStep implements UpgradeStep {
   }
 
   private Filter backfillPolicyFieldFilter() {
-    // Condition: Does not have at least 1 of: `privileges`, `editable`, `state`, `type`, `users`, `groups`, `allUsers`
+    // Condition: Does not have at least 1 of: `privileges`, `editable`, `state`, `type`, `users`,
+    // `groups`, `allUsers`
     // `allGroups` or `roles`
     ConjunctiveCriterionArray conjunctiveCriterionArray = new ConjunctiveCriterionArray();
 
