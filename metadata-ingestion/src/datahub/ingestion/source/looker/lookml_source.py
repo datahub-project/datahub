@@ -36,6 +36,7 @@ from datahub.configuration.source_common import EnvConfigMixin
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
 from datahub.emitter.mce_builder import make_schema_field_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.mcp_builder import gen_containers
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SupportStatus,
@@ -47,7 +48,10 @@ from datahub.ingestion.api.decorators import (
 from datahub.ingestion.api.registry import import_path
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor, SourceCapability
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.common.subtypes import DatasetSubTypes
+from datahub.ingestion.source.common.subtypes import (
+    BIContainerSubTypes,
+    DatasetSubTypes,
+)
 from datahub.ingestion.source.git.git_import import GitClone
 from datahub.ingestion.source.looker.lkml_patched import load_lkml
 from datahub.ingestion.source.looker.looker_common import (
@@ -60,6 +64,7 @@ from datahub.ingestion.source.looker.looker_common import (
     ViewField,
     ViewFieldType,
     ViewFieldValue,
+    gen_project_key,
 )
 from datahub.ingestion.source.looker.looker_lib_wrapper import (
     LookerAPI,
@@ -87,6 +92,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import Dataset
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import (
     AuditStampClass,
+    ContainerClass,
     DatasetPropertiesClass,
     FineGrainedLineageClass,
     FineGrainedLineageUpstreamTypeClass,
@@ -1478,6 +1484,10 @@ class LookMLSource(StatefulIngestionSourceBase):
         super().__init__(config, ctx)
         self.source_config = config
         self.reporter = LookMLSourceReport()
+
+        # To keep track of projects (containers) which have already been ingested
+        self.processed_projects: List[str] = []
+
         if self.source_config.api:
             self.looker_client = LookerAPI(self.source_config.api)
             self.reporter._looker_api = self.looker_client
@@ -1722,17 +1732,35 @@ class LookMLSource(StatefulIngestionSourceBase):
     def _build_dataset_mcps(
         self, looker_view: LookerView
     ) -> List[MetadataChangeProposalWrapper]:
+
+        view_urn = looker_view.id.get_urn(self.source_config)
+
         subTypeEvent = MetadataChangeProposalWrapper(
-            entityUrn=looker_view.id.get_urn(self.source_config),
+            entityUrn=view_urn,
             aspect=SubTypesClass(typeNames=[DatasetSubTypes.VIEW]),
         )
         events = [subTypeEvent]
         if looker_view.view_details is not None:
+
             viewEvent = MetadataChangeProposalWrapper(
-                entityUrn=looker_view.id.get_urn(self.source_config),
+                entityUrn=view_urn,
                 aspect=looker_view.view_details,
             )
             events.append(viewEvent)
+
+        project_key = gen_project_key(self.source_config, looker_view.id.project_name)
+
+        container = ContainerClass(container=project_key.as_urn())
+        events.append(
+            MetadataChangeProposalWrapper(entityUrn=view_urn, aspect=container)
+        )
+
+        events.append(
+            MetadataChangeProposalWrapper(
+                entityUrn=view_urn,
+                aspect=looker_view.id.get_browse_path_v2(self.source_config),
+            )
+        )
 
         return events
 
@@ -1750,7 +1778,6 @@ class LookMLSource(StatefulIngestionSourceBase):
             paths=[looker_view.id.get_browse_path(self.source_config)]
         )
 
-        # TODO: BrowsePathsV2, container for view can be emitted here
         dataset_snapshot.aspects.append(browse_paths)
         dataset_snapshot.aspects.append(Status(removed=False))
         upstream_lineage = self._get_upstream_lineage(looker_view)
@@ -1843,9 +1870,11 @@ class LookMLSource(StatefulIngestionSourceBase):
                             tmp_path=f"{tmp_dir}/_included_/{project}",
                             # If a deploy key was provided, use it. Otherwise, fall back
                             # to the main project deploy key, if present.
-                            fallback_deploy_key=self.source_config.git_info.deploy_key
-                            if self.source_config.git_info
-                            else None,
+                            fallback_deploy_key=(
+                                self.source_config.git_info.deploy_key
+                                if self.source_config.git_info
+                                else None
+                            ),
                         )
 
                         p_ref = p_checkout_dir.resolve()
@@ -2057,8 +2086,6 @@ class LookMLSource(StatefulIngestionSourceBase):
 
             project_name = self.get_project_name(model_name)
 
-            # TODO: emit model and project container here. We reach here once per model
-
             logger.debug(f"Model: {model_name}; Includes: {model.resolved_includes}")
 
             for include in model.resolved_includes:
@@ -2153,16 +2180,37 @@ class LookMLSource(StatefulIngestionSourceBase):
                                     logger.debug(
                                         f"Generating MCP for view {raw_view['name']}"
                                     )
+
+                                    if (
+                                        maybe_looker_view.id.project_name
+                                        not in self.processed_projects
+                                    ):
+                                        project_key = gen_project_key(
+                                            self.source_config,
+                                            maybe_looker_view.id.project_name,
+                                        )
+                                        yield from gen_containers(
+                                            container_key=project_key,
+                                            name=maybe_looker_view.id.project_name,
+                                            sub_types=[
+                                                BIContainerSubTypes.LOOKML_PROJECT
+                                            ],
+                                        )
+
+                                        self.processed_projects.append(
+                                            maybe_looker_view.id.project_name
+                                        )
+
+                                    for mcp in self._build_dataset_mcps(
+                                        maybe_looker_view
+                                    ):
+                                        yield mcp.as_workunit()
                                     mce = self._build_dataset_mce(maybe_looker_view)
                                     yield MetadataWorkUnit(
                                         id=f"lookml-view-{maybe_looker_view.id}",
                                         mce=mce,
                                     )
                                     processed_view_files.add(include.include)
-                                    for mcp in self._build_dataset_mcps(
-                                        maybe_looker_view
-                                    ):
-                                        yield mcp.as_workunit()
                                 else:
                                     (
                                         prev_model_name,

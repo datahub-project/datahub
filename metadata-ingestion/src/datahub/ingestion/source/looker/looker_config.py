@@ -13,8 +13,8 @@ from datahub.configuration.source_common import (
     EnvConfigMixin,
     PlatformInstanceConfigMixin,
 )
+from datahub.configuration.validate_field_deprecation import pydantic_field_deprecated
 from datahub.configuration.validate_field_removal import pydantic_removed_field
-from datahub.emitter.mcp_builder import ContainerKey
 from datahub.ingestion.source.looker.looker_lib_wrapper import LookerAPIConfig
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulStaleMetadataRemovalConfig,
@@ -103,15 +103,6 @@ class LookerViewNamingPattern(NamingPattern):
     ]
 
 
-class LookMLProjectKey(ContainerKey):
-    project_name: str
-
-
-class LookerModelKey(ContainerKey):
-    project_name: str
-    model_name: str
-
-
 # TODO: deprecate browse_pattern configs
 class LookerCommonConfig(EnvConfigMixin, PlatformInstanceConfigMixin):
     explore_naming_pattern: LookerNamingPattern = pydantic.Field(
@@ -130,6 +121,12 @@ class LookerCommonConfig(EnvConfigMixin, PlatformInstanceConfigMixin):
         LookerViewNamingPattern(pattern="/Develop/{project}/{folder_path}"),
         description=f"Pattern for providing browse paths to views. {LookerViewNamingPattern.allowed_docstring()}",
     )
+
+    _deprecate_explore_browse_pattern = pydantic_field_deprecated(
+        "explore_browse_pattern"
+    )
+    _deprecate_view_browse_pattern = pydantic_field_deprecated("view_browse_pattern")
+
     tag_measures_and_dimensions: bool = Field(
         True,
         description="When enabled, attaches tags to measures, dimensions and dimension groups to make them more "

@@ -32,7 +32,7 @@ from pydantic.class_validators import validator
 
 import datahub.emitter.mce_builder as builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.mcp_builder import create_embed_mcp
+from datahub.emitter.mcp_builder import ContainerKey, create_embed_mcp
 from datahub.ingestion.api.report import Report
 from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
@@ -77,7 +77,10 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     UnionTypeClass,
 )
 from datahub.metadata.schema_classes import (
+    BrowsePathEntryClass,
     BrowsePathsClass,
+    BrowsePathsV2Class,
+    ContainerClass,
     DatasetPropertiesClass,
     EnumTypeClass,
     FineGrainedLineageClass,
@@ -104,6 +107,32 @@ logger = logging.getLogger(__name__)
 
 
 @dataclass
+class LookerFolder:
+    id: str
+    name: str
+    parent_id: Optional[str]
+
+
+class LookMLProjectKey(ContainerKey):
+    project_name: str
+
+
+class LookMLModelKey(ContainerKey):
+    model_name: str
+
+
+class LookerFolderKey(ContainerKey):
+    folder_id: str
+
+
+def remove_suffix(original: str, suffix: str) -> str:
+    # This can be removed in favour of original.removesuffix for python>3.8
+    if original.endswith(suffix):
+        return original[: -len(suffix)]
+    return original
+
+
+@dataclass
 class LookerViewId:
     project_name: str
     model_name: str
@@ -117,7 +146,7 @@ class LookerViewId:
             project=self.project_name,
             model=self.model_name,
             name=self.view_name,
-            file_path=self.file_path.removesuffix(".view.lkml"),
+            file_path=remove_suffix(self.file_path, ".view.lkml"),
             folder_path=os.path.dirname(self.file_path),
         )
 
@@ -169,6 +198,27 @@ class LookerViewId:
             self.get_mapping(config)
         )
         return browse_path
+
+    def get_browse_path_v2(self, config: LookerCommonConfig) -> BrowsePathsV2Class:
+        project_key = gen_project_key(config, self.project_name)
+        view_path = (
+            remove_suffix(self.file_path, ".view.lkml")
+            if "{file_path}" in config.view_browse_pattern.pattern
+            else os.path.dirname(self.file_path)
+        )
+        if view_path:
+            path_entries = [
+                BrowsePathEntryClass(id=path) for path in view_path.split("/")
+            ]
+        else:
+            path_entries = []
+        return BrowsePathsV2Class(
+            path=[
+                BrowsePathEntryClass(id="Develop"),
+                BrowsePathEntryClass(id=project_key.as_urn(), urn=project_key.as_urn()),
+                *path_entries,
+            ]
+        )
 
 
 class ViewFieldType(Enum):
@@ -909,8 +959,15 @@ class LookerExplore:
             aspects=[],  # we append to this list later on
         )
 
-        # TODO: BrowsePathsV2, container for explore can be emitted here
+        model_key = gen_model_key(config, self.model_name)
         browse_paths = BrowsePathsClass(paths=[self.get_explore_browse_path(config)])
+        browse_paths_v2 = BrowsePathsV2Class(
+            path=[
+                BrowsePathEntryClass(id="Explore"),
+                BrowsePathEntryClass(id=model_key.as_urn(), urn=model_key.as_urn()),
+            ]
+        )
+        container = ContainerClass(container=model_key.as_urn())
         dataset_snapshot.aspects.append(browse_paths)
         dataset_snapshot.aspects.append(StatusClass(removed=False))
 
@@ -1023,7 +1080,38 @@ class LookerExplore:
             )
             proposals.append(embed_mcp)
 
+        proposals.append(
+            MetadataChangeProposalWrapper(
+                entityUrn=dataset_snapshot.urn,
+                aspect=browse_paths_v2,
+            )
+        )
+        proposals.append(
+            MetadataChangeProposalWrapper(
+                entityUrn=dataset_snapshot.urn,
+                aspect=container,
+            )
+        )
+
         return proposals
+
+
+def gen_project_key(config: LookerCommonConfig, project_name: str) -> LookMLProjectKey:
+    return LookMLProjectKey(
+        platform=config.platform_name,
+        instance=config.platform_instance,
+        env=config.env,
+        project_name=project_name,
+    )
+
+
+def gen_model_key(config: LookerCommonConfig, model_name: str) -> LookMLModelKey:
+    return LookMLModelKey(
+        platform=config.platform_name,
+        instance=config.platform_instance,
+        env=config.env,
+        model_name=model_name,
+    )
 
 
 class LookerExploreRegistry:
@@ -1224,6 +1312,7 @@ class LookerDashboardElement:
     description: Optional[str] = None
     input_fields: Optional[List[InputFieldElement]] = None
     folder_path: Optional[str] = None  # for independent looks.
+    folder: Optional[LookerFolder] = None
 
     def url(self, base_url: str) -> str:
         # A dashboard element can use a look or just a raw query against an explore
@@ -1267,6 +1356,7 @@ class LookerDashboard:
     created_at: Optional[datetime.datetime]
     description: Optional[str] = None
     folder_path: Optional[str] = None
+    folder: Optional[LookerFolder] = None
     is_deleted: bool = False
     is_hidden: bool = False
     owner: Optional[LookerUser] = None
