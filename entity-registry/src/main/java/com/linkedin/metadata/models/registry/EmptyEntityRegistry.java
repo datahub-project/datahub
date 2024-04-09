@@ -4,6 +4,7 @@ import com.linkedin.metadata.aspect.patch.template.AspectTemplateEngine;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.EventSpec;
+import java.util.Collections;
 import java.util.Map;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -26,19 +27,19 @@ public class EmptyEntityRegistry implements EntityRegistry {
   @Nonnull
   @Override
   public Map<String, EntitySpec> getEntitySpecs() {
-    return Map.of();
+    return Collections.emptyMap();
   }
 
   @Nonnull
   @Override
   public Map<String, AspectSpec> getAspectSpecs() {
-    return Map.of();
+    return Collections.emptyMap();
   }
 
   @Nonnull
   @Override
   public Map<String, EventSpec> getEventSpecs() {
-    return Map.of();
+    return Collections.emptyMap();
   }
 
   @Nonnull

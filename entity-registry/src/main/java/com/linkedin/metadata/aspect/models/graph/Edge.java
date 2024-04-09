@@ -1,5 +1,6 @@
 package com.linkedin.metadata.aspect.models.graph;
 
+import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
@@ -91,7 +92,7 @@ public class Edge {
   public static final String EDGE_DESTINATION_URN_FIELD = "destination.urn";
 
   public static final List<Pair<String, SortOrder>> KEY_SORTS =
-      List.of(
+      ImmutableList.of(
           new Pair<>(EDGE_SOURCE_URN_FIELD, SortOrder.ASCENDING),
           new Pair<>(EDGE_DESTINATION_URN_FIELD, SortOrder.ASCENDING),
           new Pair<>(EDGE_FIELD_RELNSHIP_TYPE, SortOrder.ASCENDING),
