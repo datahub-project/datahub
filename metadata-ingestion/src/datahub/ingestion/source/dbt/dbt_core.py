@@ -1,7 +1,7 @@
 import json
 import logging
 import re
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import urlparse
 
@@ -208,7 +208,7 @@ def extract_dbt_entities(
         max_loaded_at_str = sources_by_id.get(key, {}).get("max_loaded_at")
         max_loaded_at = None
         if max_loaded_at_str:
-            max_loaded_at = dateutil.parser.parse(max_loaded_at_str)
+            max_loaded_at = parse_dbt_timestamp(max_loaded_at_str)
 
         test_info = None
         if manifest_node.get("resource_type") == "test":
@@ -284,10 +284,8 @@ def extract_dbt_entities(
     return dbt_entities
 
 
-def _parse_dbt_timestamp(timestamp: str) -> datetime:
-    return datetime.strptime(timestamp, "%Y-%m-%dT%H:%M:%S.%fZ").replace(
-        tzinfo=timezone.utc
-    )
+def parse_dbt_timestamp(timestamp: str) -> datetime:
+    return dateutil.parser.parse(timestamp)
 
 
 class DBTRunTiming(BaseModel):
@@ -338,11 +336,9 @@ def _parse_test_result(
 
     execution_timestamp = run_result.timing_map.get("execute")
     if execution_timestamp and execution_timestamp.started_at:
-        execution_timestamp_parsed = _parse_dbt_timestamp(
-            execution_timestamp.started_at
-        )
+        execution_timestamp_parsed = parse_dbt_timestamp(execution_timestamp.started_at)
     else:
-        execution_timestamp_parsed = _parse_dbt_timestamp(dbt_metadata.generated_at)
+        execution_timestamp_parsed = parse_dbt_timestamp(dbt_metadata.generated_at)
 
     return DBTTestResult(
         invocation_id=dbt_metadata.invocation_id,
@@ -369,8 +365,8 @@ def _parse_model_run(
     return DBTModelPerformance(
         run_id=dbt_metadata.invocation_id,
         status=status,
-        start_time=_parse_dbt_timestamp(execution_timestamp.started_at),
-        end_time=_parse_dbt_timestamp(execution_timestamp.completed_at),
+        start_time=parse_dbt_timestamp(execution_timestamp.started_at),
+        end_time=parse_dbt_timestamp(execution_timestamp.completed_at),
     )
 
 

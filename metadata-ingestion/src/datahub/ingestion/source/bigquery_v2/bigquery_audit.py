@@ -94,6 +94,7 @@ class BigqueryTableIdentifier:
             - removes shard suffix (table_yyyymmdd-> table)
             - removes wildcard part (table_yyyy* -> table)
             - remove time decorator (table@1624046611000 -> table)
+            - removes partition ids (table$20210101 -> table or table$__UNPARTITIONED__ -> table)
         """
         # if table name ends in _* or * or _yyyy* or _yyyymm* then we strip it as that represents a query on a sharded table
         shortened_table_name = re.sub(self._BIGQUERY_WILDCARD_REGEX, "", self.table)
@@ -103,6 +104,12 @@ class BigqueryTableIdentifier:
             shortened_table_name = matches.group(1)
             logger.debug(
                 f"Found table snapshot. Using {shortened_table_name} as the table name."
+            )
+
+        if "$" in shortened_table_name:
+            shortened_table_name = shortened_table_name.split("$", maxsplit=1)[0]
+            logger.debug(
+                f"Found partitioned table. Using {shortened_table_name} as the table name."
             )
 
         table_name, _ = self.get_table_and_shard(shortened_table_name)

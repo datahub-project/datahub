@@ -90,7 +90,8 @@ public class SearchUtils {
           EntityType.CORP_USER,
           EntityType.CORP_GROUP,
           EntityType.NOTEBOOK,
-          EntityType.DATA_PRODUCT);
+          EntityType.DATA_PRODUCT,
+          EntityType.DOMAIN);
 
   /** Entities that are part of browse by default */
   public static final List<EntityType> BROWSE_ENTITY_TYPES =
