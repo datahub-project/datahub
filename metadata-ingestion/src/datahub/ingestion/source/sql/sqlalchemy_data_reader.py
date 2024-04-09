@@ -72,6 +72,3 @@ class SqlAlchemyTableDataReader(DataReader):
 
     def close(self) -> None:
         self.connection.close()
-
-
-SAMPLE_SIZE_MULTIPLIER = 1.2

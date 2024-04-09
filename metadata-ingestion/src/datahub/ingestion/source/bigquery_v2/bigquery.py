@@ -38,6 +38,7 @@ from datahub.ingestion.api.source import (
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.glossary.classification_mixin import (
+    SAMPLE_SIZE_MULTIPLIER,
     ClassificationHandler,
     classification_workunit_processor,
 )
@@ -77,7 +78,6 @@ from datahub.ingestion.source.sql.sql_utils import (
     gen_schema_container,
     get_domain_wu,
 )
-from datahub.ingestion.source.sql.sqlalchemy_data_reader import SAMPLE_SIZE_MULTIPLIER
 from datahub.ingestion.source.state.profiling_state_handler import ProfilingHandler
 from datahub.ingestion.source.state.redundant_run_skip_handler import (
     RedundantLineageRunSkipHandler,
