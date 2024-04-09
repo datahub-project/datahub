@@ -4,6 +4,7 @@ import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.metadata.authorization.PoliciesConfig.ACTIVE_POLICY_STATE;
 import static com.linkedin.metadata.authorization.PoliciesConfig.INACTIVE_POLICY_STATE;
 import static com.linkedin.metadata.authorization.PoliciesConfig.METADATA_POLICY_TYPE;
+import static org.mockito.ArgumentMatchers.anySet;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.any;
@@ -211,7 +212,7 @@ public class DataHubAuthorizerTest {
         .thenReturn(policySearchResult5);
 
     when(_entityClient.batchGetV2(
-            any(OperationContext.class), eq(POLICY_ENTITY_NAME), any(), eq(null)))
+            any(OperationContext.class), eq(POLICY_ENTITY_NAME), any(), anySet()))
         .thenAnswer(
             args -> {
               Set<Urn> inputUrns = args.getArgument(2);
