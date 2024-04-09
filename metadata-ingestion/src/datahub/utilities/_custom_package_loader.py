@@ -52,6 +52,9 @@ def model_version_name() -> str:
     if not custom_entrypoint:
         return "bundled"
 
+    if not custom_entrypoint.dist:
+        return custom_entrypoint.value
+
     custom_model_package = custom_entrypoint.dist.name
     version = custom_entrypoint.dist.version
 
