@@ -748,7 +748,11 @@ module.exports = {
       ],
     },
     {
-      "Release History": ["releases", "docs/how/updating-datahub"],
+      "Release History": [
+        "releases",
+        "docs/how/updating-datahub",
+        "docs/how/updating-datahub-saas",
+      ],
     },
 
     // "Candidates for Deprecation": [
