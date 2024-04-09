@@ -16,6 +16,7 @@ from typing import (
     Union,
     cast,
 )
+from urllib.parse import urlparse
 
 import dateutil.parser as dp
 import tableauserverclient as TSC
@@ -87,6 +88,7 @@ from datahub.ingestion.source.tableau_common import (
     clean_query,
     custom_sql_graphql_query,
     dashboard_graphql_query,
+    database_servers_graphql_query,
     database_tables_graphql_query,
     embedded_datasource_graphql_query,
     get_overridden_info,
@@ -344,6 +346,11 @@ class TableauConfig(
         description="Mappings to change generated dataset urns. Use only if you really know what you are doing.",
     )
 
+    database_hostname_to_platform_instance_map: Optional[Dict[str, str]] = Field(
+        default=None,
+        description="Mappings to change platform instance in generated dataset urns based on database. Use only if you really know what you are doing.",
+    )
+
     extract_usage_stats: bool = Field(
         default=False,
         description="[experimental] Extract usage statistics for dashboards and charts.",
@@ -536,6 +543,8 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
         self.workbook_project_map: Dict[str, str] = {}
         self.datasource_project_map: Dict[str, str] = {}
 
+        # This map keeps track of the database server connection hostnames.
+        self.database_server_hostname_map: Dict[str, str] = {}
         # This list keeps track of sheets in workbooks so that we retrieve those
         # when emitting sheets.
         self.sheet_ids: List[str] = []
@@ -607,6 +616,24 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
                 continue
             self.tableau_stat_registry[view.id] = UsageStat(view_count=view.total_views)
         logger.debug("Tableau stats %s", self.tableau_stat_registry)
+
+    def _populate_database_server_hostname_map(self) -> None:
+        def maybe_parse_hostname():
+            # If the connection string is a URL instead of a hostname, parse it
+            # and extract the hostname, otherwise just return the connection string.
+            parsed_host_name = urlparse(server_connection).hostname
+            if parsed_host_name:
+                return parsed_host_name
+            return server_connection
+
+        for database_server in self.get_connection_objects(
+            database_servers_graphql_query, c.DATABASE_SERVERS_CONNECTION
+        ):
+            database_server_id = database_server.get(c.ID)
+            server_connection = database_server.get(c.HOST_NAME)
+            host_name = maybe_parse_hostname()
+            if host_name:
+                self.database_server_hostname_map[str(database_server_id)] = host_name
 
     def _get_all_project(self) -> Dict[str, TableauProject]:
         all_project_map: Dict[str, TableauProject] = {}
@@ -862,7 +889,7 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
         self,
         query: str,
         connection_type: str,
-        query_filter: str,
+        query_filter: str = "",
         page_size_override: Optional[int] = None,
     ) -> Iterable[dict]:
         # Calls the get_connection_object_page function to get the objects,
@@ -1113,6 +1140,8 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
                 self.config.env,
                 self.config.platform_instance_map,
                 self.config.lineage_overrides,
+                self.config.database_hostname_to_platform_instance_map,
+                self.database_server_hostname_map,
             )
             table_id_to_urn[table[c.ID]] = table_urn
 
@@ -1681,8 +1710,11 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
                 [
                     str,
                     Optional[str],
+                    Optional[str],
                     Optional[Dict[str, str]],
                     Optional[TableauLineageOverrides],
+                    Optional[Dict[str, str]],
+                    Optional[Dict[str, str]],
                 ],
                 Tuple[Optional[str], Optional[str], str, str],
             ]
@@ -1723,8 +1755,11 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
             upstream_db, platform_instance, platform, _ = func_overridden_info(
                 database_info[c.CONNECTION_TYPE],
                 database_info.get(c.NAME),
+                database_info.get(c.ID),
                 self.config.platform_instance_map,
                 self.config.lineage_overrides,
+                self.config.database_hostname_to_platform_instance_map,
+                self.database_server_hostname_map,
             )
 
         logger.debug(
@@ -2730,6 +2765,11 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
             # Initialise the dictionary to later look-up for chart and dashboard stat
             if self.config.extract_usage_stats:
                 self._populate_usage_stat_registry()
+
+            # Populate the map of database names and database hostnames to be used later to map
+            # databases to platform instances.
+            if self.config.database_hostname_to_platform_instance_map:
+                self._populate_database_server_hostname_map()
 
             self._populate_projects_registry()
             yield from self.emit_project_containers()
