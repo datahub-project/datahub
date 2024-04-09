@@ -41,6 +41,7 @@ jobs:
       unique_tag: ${{ steps.tag.outputs.unique_tag }}
       unique_slim_tag: ${{ steps.tag.outputs.unique_slim_tag }}
       unique_full_tag: ${{ steps.tag.outputs.unique_full_tag }}
+      docker-login: ${{ steps.docker-login.outputs.docker-login }}
       publish: ${{ steps.publish.outputs.publish }}
       pr-publish: ${{ steps.pr-publish.outputs.publish }}
       python_release_version: ${{ steps.tag.outputs.python_release_version }}
@@ -76,6 +77,13 @@ jobs:
           echo "python_release_version=$(get_python_docker_release_v)" >> $GITHUB_OUTPUT
           echo "branch_name=${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}" >> $GITHUB_OUTPUT
           echo "repository_name=${GITHUB_REPOSITORY#*/}" >> $GITHUB_OUTPUT
+      - name: Check whether docker login is possible
+        id: docker-login
+        env:
+          ENABLE_DOCKER_LOGIN: ${{ secrets.ACRYL_DOCKER_PASSWORD != '' || secrets.AWS_ECR_SECRET_ACCESS_KEY != '' }}
+        run: |
+          echo "Enable Docker Login: ${{ env.ENABLE_DOCKER_LOGIN }}"
+          echo "docker-login=${{ env.ENABLE_DOCKER_LOGIN }}" >> $GITHUB_OUTPUT
       - name: Check whether publishing enabled
         id: publish
         env:
@@ -584,8 +592,8 @@ jobs:
         with:
           image: ${{ env.DATAHUB_INGESTION_BASE_IMAGE }}:${{ steps.filter.outputs.datahub-ingestion-base == 'true' && needs.setup.outputs.unique_tag || 'head' }}
       - name: Login to AWS ECR
-        uses: docker/login-action@v2
-        if: ${{ needs.setup.outputs.publish == 'false' && needs.setup.outputs.pr-publish == 'false' &&  steps.filter.outputs.datahub-ingestion-base == 'false' }}
+        uses: docker/login-action@v3
+        if: ${{ needs.setup.outputs.docker-login == 'true' && needs.setup.outputs.publish == 'false' && needs.setup.outputs.pr-publish == 'false' &&  steps.filter.outputs.datahub-ingestion-base == 'false' }}
         with:
           registry: 795586375822.dkr.ecr.us-west-2.amazonaws.com
           username: ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
@@ -632,8 +640,8 @@ jobs:
         with:
           image: ${{ env.DATAHUB_INGESTION_BASE_IMAGE }}:${{ steps.filter.outputs.datahub-ingestion-base == 'true' && needs.setup.outputs.unique_tag || 'head' }}
       - name: Login to AWS ECR
-        uses: docker/login-action@v2
-        if: ${{ needs.setup.outputs.publish == 'false' && needs.setup.outputs.pr-publish == 'false' &&  steps.filter.outputs.datahub-ingestion-base == 'false' }}
+        uses: docker/login-action@v3
+        if: ${{ needs.setup.outputs.docker-login == 'true' && needs.setup.outputs.publish == 'false' && needs.setup.outputs.pr-publish == 'false' &&  steps.filter.outputs.datahub-ingestion-base == 'false' }}
         with:
           registry: 795586375822.dkr.ecr.us-west-2.amazonaws.com
           username: ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
@@ -693,8 +701,8 @@ jobs:
         with:
           image: ${{ env.DATAHUB_INGESTION_BASE_IMAGE }}:${{ steps.filter.outputs.datahub-ingestion-base == 'true' && needs.setup.outputs.unique_slim_tag || 'head-slim' }}
       - name: Login to AWS ECR
-        uses: docker/login-action@v2
-        if: ${{ needs.setup.outputs.publish == 'false' && needs.setup.outputs.pr-publish == 'false' &&  steps.filter.outputs.datahub-ingestion-base == 'false' }}
+        uses: docker/login-action@v3
+        if: ${{ needs.setup.outputs.docker-login == 'true' && needs.setup.outputs.publish == 'false' && needs.setup.outputs.pr-publish == 'false' &&  steps.filter.outputs.datahub-ingestion-base == 'false' }}
         with:
           registry: 795586375822.dkr.ecr.us-west-2.amazonaws.com
           username: ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
@@ -793,8 +801,8 @@ jobs:
         with:
           image: ${{ env.DATAHUB_INGESTION_BASE_IMAGE }}:${{ steps.filter.outputs.datahub-ingestion-base == 'true' && needs.setup.outputs.unique_tag || 'head' }}
       - name: Login to AWS ECR
-        uses: docker/login-action@v2
-        if: ${{ needs.setup.outputs.publish == 'false' && needs.setup.outputs.pr-publish == 'false' &&  steps.filter.outputs.datahub-ingestion-base == 'false' }}
+        uses: docker/login-action@v3
+        if: ${{ needs.setup.outputs.docker-login == 'true' && needs.setup.outputs.publish == 'false' && needs.setup.outputs.pr-publish == 'false' &&  steps.filter.outputs.datahub-ingestion-base == 'false' }}
         with:
           registry: 795586375822.dkr.ecr.us-west-2.amazonaws.com
           username: ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
@@ -919,7 +927,8 @@ jobs:
         run: |
           ./gradlew :metadata-ingestion:install
       - name: Login to AWS ECR
-        uses: docker/login-action@v2
+        uses: docker/login-action@v3
+        if: ${{ needs.setup.outputs.docker-login == 'true' }}
         with:
             registry: 795586375822.dkr.ecr.us-west-2.amazonaws.com
             username: ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
@@ -1133,7 +1142,7 @@ jobs:
         with:
           image: ${{ env.DATAHUB_INGESTION_IMAGE }}:${{ needs.datahub_ingestion_slim_build.outputs.tag }}
       - name: Login to AWS ECR
-        uses: docker/login-action@v2
+        uses: docker/login-action@v3
         if: ${{ needs.datahub_ingestion_slim_build.outputs.needs_artifact_download != 'true' &&  steps.filter.outputs.datahub-ingestion == 'false' }}
         with:
           registry: 795586375822.dkr.ecr.us-west-2.amazonaws.com
@@ -1209,7 +1218,7 @@ jobs:
         with:
           image: ${{ env.DATAHUB_INGESTION_IMAGE }}:${{ needs.datahub_ingestion_slim_build.outputs.tag }}
       - name: Login to AWS ECR
-        uses: docker/login-action@v2
+        uses: docker/login-action@v3
         if: ${{ needs.datahub_ingestion_slim_build.outputs.needs_artifact_download != 'true' &&  steps.filter.outputs.datahub-ingestion == 'false' }}
         with:
           registry: 795586375822.dkr.ecr.us-west-2.amazonaws.com
