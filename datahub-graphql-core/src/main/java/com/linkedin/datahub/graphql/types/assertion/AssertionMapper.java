@@ -345,7 +345,8 @@ public class AssertionMapper {
     SchemaAssertionInfo result = new SchemaAssertionInfo();
     result.setEntityUrn(gmsSchemaAssertionInfo.getEntity().toString());
     result.setSchema(
-        SchemaMetadataMapper.INSTANCE.apply(context, gmsSchemaAssertionInfo.getSchema(), null, 0L));
+        SchemaMetadataMapper.INSTANCE.apply(
+            context, gmsSchemaAssertionInfo.getSchema(), gmsSchemaAssertionInfo.getEntity(), 0L));
     return result;
   }
 

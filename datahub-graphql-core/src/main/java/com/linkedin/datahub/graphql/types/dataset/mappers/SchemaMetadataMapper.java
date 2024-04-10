@@ -13,12 +13,16 @@ public class SchemaMetadataMapper {
   public static final SchemaMetadataMapper INSTANCE = new SchemaMetadataMapper();
 
   public static com.linkedin.datahub.graphql.generated.SchemaMetadata map(
-      @Nullable QueryContext context, @Nonnull final EnvelopedAspect aspect, final Urn entityUrn) {
+      @Nullable QueryContext context,
+      @Nonnull final EnvelopedAspect aspect,
+      @Nonnull final Urn entityUrn) {
     return INSTANCE.apply(context, aspect, entityUrn);
   }
 
   public com.linkedin.datahub.graphql.generated.SchemaMetadata apply(
-      @Nullable QueryContext context, @Nonnull final EnvelopedAspect aspect, final Urn entityUrn) {
+      @Nullable QueryContext context,
+      @Nonnull final EnvelopedAspect aspect,
+      @Nonnull final Urn entityUrn) {
     final SchemaMetadata input = new SchemaMetadata(aspect.getValue().data());
     return apply(context, input, entityUrn, aspect.getVersion());
   }
@@ -26,7 +30,7 @@ public class SchemaMetadataMapper {
   public com.linkedin.datahub.graphql.generated.SchemaMetadata apply(
       @Nullable QueryContext context,
       @Nonnull final SchemaMetadata input,
-      final Urn entityUrn,
+      @Nonnull final Urn entityUrn,
       final long version) {
     final com.linkedin.datahub.graphql.generated.SchemaMetadata result =
         new com.linkedin.datahub.graphql.generated.SchemaMetadata();
