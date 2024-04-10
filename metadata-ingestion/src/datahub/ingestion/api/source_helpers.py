@@ -350,7 +350,6 @@ def auto_browse_path_v2(
             "num_out_of_batch": num_out_of_batch,
             "num_out_of_order": num_out_of_order,
         }
-        breakpoint()
         telemetry.telemetry_instance.ping("incorrect_browse_path_v2", properties)
 
 
