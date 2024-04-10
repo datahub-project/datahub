@@ -1367,6 +1367,14 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 dataset=dataset_name,
                 table=table.table_id,
             )
+            if not self.config.table_pattern.allowed(
+                table_identifier.raw_table_name()
+            ) and not (
+                self.config.include_views
+                and self.config.view_pattern.allowed(table_identifier.raw_table_name())
+            ):
+                self.report.report_dropped(table_identifier.raw_table_name())
+                continue
 
             _, shard = BigqueryTableIdentifier.get_table_and_shard(
                 table_identifier.table
@@ -1403,10 +1411,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 self.report.report_dropped(table_identifier.raw_table_name())
                 continue
 
-            if self.config.table_pattern.allowed(table_identifier.raw_table_name()):
-                table_items[table.table_id] = table
-                self.report.report_dropped(table_identifier.raw_table_name())
-                continue
+            table_items[table.table_id] = table
 
         # Adding maximum shards to the list of tables
         table_items.update({value.table_id: value for value in sharded_tables.values()})

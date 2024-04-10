@@ -248,6 +248,9 @@ class GenericProfiler:
         )
 
         if not self.config.table_pattern.allowed(dataset_name):
+            logger.debug(
+                f"Table {dataset_name} is not allowed for profiling due to table pattern"
+            )
             return False
 
         last_profiled: Optional[int] = None
@@ -271,6 +274,9 @@ class GenericProfiler:
             )
 
         if not self.config.profile_pattern.allowed(dataset_name):
+            logger.debug(
+                f"Table {dataset_name} is not allowed for profiling due to profile pattern"
+            )
             return False
 
         schema_name = dataset_name.rsplit(".", 1)[0]
@@ -278,6 +284,9 @@ class GenericProfiler:
             last_altered is not None and last_altered < threshold_time
         ):
             self.report.profiling_skipped_not_updated[schema_name] += 1
+            logger.debug(
+                f"Table {dataset_name} is not allowed for profiling due to it was not updated recently enough"
+            )
             return False
 
         if self.config.profiling.profile_table_size_limit is not None and (
@@ -286,6 +295,9 @@ class GenericProfiler:
             > self.config.profiling.profile_table_size_limit
         ):
             self.report.profiling_skipped_size_limit[schema_name] += 1
+            logger.debug(
+                f"Table {dataset_name} is not allowed for profiling due to size limit"
+            )
             return False
 
         if self.config.profiling.profile_table_row_limit is not None and (
@@ -293,6 +305,9 @@ class GenericProfiler:
             and rows_count > self.config.profiling.profile_table_row_limit
         ):
             self.report.profiling_skipped_row_limit[schema_name] += 1
+            logger.debug(
+                f"Table {dataset_name} is not allowed for profiling due to row limit"
+            )
             return False
 
         return True

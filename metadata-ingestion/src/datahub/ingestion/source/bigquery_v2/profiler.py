@@ -175,7 +175,7 @@ WHERE
 
                 # Emit the profile work unit
                 logger.debug(
-                    f"Creating proflie request for table {normalized_table_name}"
+                    f"Creating profile request for table {normalized_table_name}"
                 )
                 profile_request = self.get_profile_request(table, dataset, project_id)
                 if profile_request is not None:
