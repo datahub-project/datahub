@@ -24,6 +24,9 @@ def datahub_url() -> str:
     )
 
 
+DATAHUB_HOSTNAME = os.environ.get("HOSTNAME", "Undefined")
+DATAHUB_APPNAME = os.environ.get("DATAHUB_NAMESPACE", DATAHUB_HOSTNAME)
+
 DATAHUB_GMS_TOKEN = os.environ.get("DATAHUB_GMS_TOKEN", None)
 DATAHUB_GMS_URL = datahub_url()
 
