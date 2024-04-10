@@ -237,7 +237,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "Model"
+                "LookML Model"
             ]
         }
     },

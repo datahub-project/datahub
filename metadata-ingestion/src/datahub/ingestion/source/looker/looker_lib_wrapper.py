@@ -202,23 +202,6 @@ class LookerAPI:
             transport_options=self.transport_options,
         )
 
-    def all_folders(
-        self,
-        fields: Union[str, List[str]] = [
-            "id",
-            "name",
-            "parent_id",
-            "child_count",
-            "is_personal",
-            "is_personal_descendant",
-        ],
-    ) -> Sequence[Folder]:
-        self.client_stats.folder_calls += 1
-        return self.client.all_folders(
-            self.__fields_mapper(fields),
-            transport_options=self.transport_options,
-        )
-
     def all_connections(self):
         self.client_stats.all_connections_calls += 1
         return self.client.all_connections(transport_options=self.transport_options)

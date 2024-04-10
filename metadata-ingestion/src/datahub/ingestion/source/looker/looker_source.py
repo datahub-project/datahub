@@ -783,13 +783,6 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                 MetadataChangeProposalWrapper(entityUrn=dashboard_urn, aspect=container)
             )
 
-        #        if browse_path_v2:
-        #            proposals.append(
-        #                MetadataChangeProposalWrapper(
-        #                    entityUrn=dashboard_urn, aspect=browse_path_v2
-        #                )
-        #            )
-
         # If extracting embeds is enabled, produce an MCP for embed URL.
         if (
             self.source_config.extract_embed_urls

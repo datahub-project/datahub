@@ -251,7 +251,7 @@ def auto_browse_path_v2(
 
     Calculates the correct BrowsePathsV2 at end of workunit stream,
     and emits "corrections", i.e. a final BrowsePathsV2 for any urns that have changed.
-    Existing BrowsePathsV2 are assumed to be correct and are preferred over other aspects
+    Source-generated original BrowsePathsV2 are assumed to be correct and are preferred over other aspects
     when generating BrowsePathsV2 of an entity or its children.
     """
 
