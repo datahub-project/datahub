@@ -938,8 +938,6 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                 ),
             )
             if folder.parent_id is None:
-                # Root folder. emit browse path v2 correctly
-                # This will be used for all folders and entities within
                 yield MetadataChangeProposalWrapper(
                     entityUrn=self._gen_folder_key(folder.id).as_urn(),
                     aspect=BrowsePathsV2Class(
