@@ -448,7 +448,9 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
             title: str = (
                 element.title
                 if element.title is not None and element.title != ""
-                else element.look.title if element.look.title is not None else ""
+                else element.look.title
+                if element.look.title is not None
+                else ""
             )
             if element.look.query is not None:
                 input_fields = self._get_input_fields_from_query(element.look.query)
@@ -607,7 +609,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         return chart_type
 
     def _get_folder_browse_path_v2_entries(
-        self, folder: LookerFolder, include_current_folder=True
+        self, folder: LookerFolder, include_current_folder: bool = True
     ) -> Iterable[BrowsePathEntryClass]:
         for ancestor in self.looker_api.folder_ancestors(folder_id=folder.id):
             assert ancestor.id
@@ -891,7 +893,9 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                     continue
                 yield (model.name, explore.name)
 
-    def fetch_one_explore(self, model: str, explore: str) -> Tuple[
+    def fetch_one_explore(
+        self, model: str, explore: str
+    ) -> Tuple[
         List[Union[MetadataChangeEvent, MetadataChangeProposalWrapper]],
         str,
         datetime.datetime,
@@ -987,9 +991,9 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         yield from chart_events
 
         # Step 2: Emit metadata events for the Dashboard itself.
-        chart_urns: Set[str] = (
-            set()
-        )  # Collect the unique child chart urns for dashboard input lineage.
+        chart_urns: Set[
+            str
+        ] = set()  # Collect the unique child chart urns for dashboard input lineage.
         for chart_event in chart_events:
             chart_event_urn = self._extract_event_urn(chart_event)
             if chart_event_urn:
@@ -1254,7 +1258,9 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
             aspect=input_fields_aspect,
         )
 
-    def process_dashboard(self, dashboard_id: str, fields: List[str]) -> Tuple[
+    def process_dashboard(
+        self, dashboard_id: str, fields: List[str]
+    ) -> Tuple[
         List[MetadataWorkUnit],
         Optional[looker_usage.LookerDashboardForUsage],
         str,
@@ -1447,17 +1453,17 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                     }
                 )
 
-            dashboard_element: Optional[LookerDashboardElement] = (
-                self._get_looker_dashboard_element(
-                    DashboardElement(
-                        id=f"looks_{look.id}",  # to avoid conflict with non-standalone looks (element.id prefixes), we add the "looks_" prefix to look.id.
-                        title=look.title,
-                        subtitle_text=look.description,
-                        look_id=look.id,
-                        dashboard_id=None,  # As this is independent look
-                        look=LookWithQuery(query=query, folder=look.folder),
-                    ),
-                )
+            dashboard_element: Optional[
+                LookerDashboardElement
+            ] = self._get_looker_dashboard_element(
+                DashboardElement(
+                    id=f"looks_{look.id}",  # to avoid conflict with non-standalone looks (element.id prefixes), we add the "looks_" prefix to look.id.
+                    title=look.title,
+                    subtitle_text=look.description,
+                    look_id=look.id,
+                    dashboard_id=None,  # As this is independent look
+                    look=LookWithQuery(query=query, folder=look.folder),
+                ),
             )
 
             if dashboard_element is not None:
