@@ -174,10 +174,15 @@ WHERE
                     )
 
                 # Emit the profile work unit
+                log.debug(f"Creating proflie request for table {normalized_table_name}")
                 profile_request = self.get_profile_request(table, dataset, project_id)
                 if profile_request is not None:
                     self.report.report_entity_profiled(profile_request.pretty_name)
-                    profile_requests.append(profile_request)
+                else:
+                    log.debug(
+                        f"Table {normalized_table_name} was not eliagible for profiling."
+                    )
+                profile_requests.append(profile_request)
 
         if len(profile_requests) == 0:
             return
