@@ -6,6 +6,7 @@ import { loadUserPersonaFromLocalStorage } from '../homeV2/persona/useUserPerson
 import { loadThemeV2FromLocalStorage } from '../useIsThemeV2Enabled';
 import { Event, EventType } from './event';
 import plugins from './plugin';
+import { loadUserTitleFromLocalStorage } from '../identity/user/useUserTitle';
 
 const appName = 'datahub-react';
 
@@ -33,7 +34,8 @@ export function getMergedTrackingOptions(options?: any) {
 export default {
     page: (data?: PageData, options?: any, callback?: (...params: any[]) => any) => {
         const isThemeV2Enabled = loadThemeV2FromLocalStorage();
-        const userPersona = isThemeV2Enabled ? loadUserPersonaFromLocalStorage() : undefined;
+        const userPersona = loadUserPersonaFromLocalStorage();
+        const userTitle = loadUserTitleFromLocalStorage();
         const actorUrn = Cookies.get(CLIENT_AUTH_COOKIE) || undefined;
         const modifiedData = {
             ...data,
@@ -45,7 +47,8 @@ export default {
             browserId: getBrowserId(),
             origin: window.location.origin,
             isThemeV2Enabled,
-            userPersona: userPersona ?? undefined,
+            userPersona: userPersona || undefined,
+            userTitle: userTitle || undefined,
         };
         if (NODE_ENV === 'test' || !actorUrn) {
             return null;
@@ -55,7 +58,8 @@ export default {
     },
     event: (event: Event, options?: any, callback?: (...params: any[]) => any): Promise<any> => {
         const isThemeV2Enabled = loadThemeV2FromLocalStorage();
-        const userPersona = isThemeV2Enabled ? loadUserPersonaFromLocalStorage() : undefined;
+        const userPersona = loadUserPersonaFromLocalStorage();
+        const userTitle = loadUserTitleFromLocalStorage();
         const eventTypeName = EventType[event.type];
         const modifiedEvent = {
             ...event,
@@ -67,7 +71,8 @@ export default {
             browserId: getBrowserId(),
             origin: window.location.origin,
             isThemeV2Enabled,
-            userPersona: userPersona ?? undefined,
+            userPersona: userPersona || undefined,
+            userTitle: userTitle || undefined,
         };
         if (NODE_ENV === 'test') {
             return Promise.resolve();

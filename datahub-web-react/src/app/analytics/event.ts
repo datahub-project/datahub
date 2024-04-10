@@ -132,6 +132,7 @@ interface BaseEvent {
     browserId?: string;
     isThemeV2Enabled?: boolean;
     userPersona?: PersonaType;
+    userTitle?: string;
 }
 
 /**

@@ -1,4 +1,5 @@
 import { useSetUserPersona } from './homeV2/persona/useUserPersona';
+import { useSetUserTitle } from './identity/user/useUserTitle';
 import { useSetThemeIsV2 } from './useIsThemeV2Enabled';
 
 /**
@@ -7,6 +8,7 @@ import { useSetThemeIsV2 } from './useIsThemeV2Enabled';
 export default function AcrylApp({ children }: { children: JSX.Element }) {
     useSetThemeIsV2();
     useSetUserPersona();
+    useSetUserTitle();
 
     return children;
 }
