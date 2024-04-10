@@ -5,7 +5,7 @@ import { EntityType } from '../../../../../../../../types.generated';
 import { ANTD_GRAY } from '../../../../../../../entity/shared/constants';
 import { buildRecentlyCreatedDatasetsFilters, buildRecentlyCreatedDatasetsSort } from './useRecentlyCreatedDatasets';
 
-const MAX_AGE = 1000 * 60 * 60 * 24 * 14; // 14 days
+const MAX_AGE_DAYS = 14;
 
 export const RecentlyCreatedDatasetsCard = () => {
     return (
@@ -14,7 +14,7 @@ export const RecentlyCreatedDatasetsCard = () => {
             types={[EntityType.Dataset]}
             tip="Tables created in the last 2 weeks"
             title="Recently Created Tables"
-            filters={buildRecentlyCreatedDatasetsFilters(MAX_AGE)}
+            filters={buildRecentlyCreatedDatasetsFilters(MAX_AGE_DAYS)}
             sort={buildRecentlyCreatedDatasetsSort()}
         />
     );
