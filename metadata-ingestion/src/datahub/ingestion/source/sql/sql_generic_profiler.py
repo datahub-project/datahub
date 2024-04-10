@@ -273,12 +273,6 @@ class GenericProfiler:
                 self.config.profiling.profile_if_updated_since_days
             )
 
-        if not self.config.profile_pattern.allowed(dataset_name):
-            logger.debug(
-                f"Table {dataset_name} is not allowed for profiling due to profile pattern"
-            )
-            return False
-
         schema_name = dataset_name.rsplit(".", 1)[0]
         if (threshold_time is not None) and (
             last_altered is not None and last_altered < threshold_time
