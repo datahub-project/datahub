@@ -16,4 +16,7 @@ public class TelemetryConfiguration {
 
   /** Whether or not server telemetry should be enabled */
   public boolean enabledServer;
+
+  /** Whether or not user tracking is enabled in the product (using external tool like hotjar) */
+  public boolean userTrackingEnabled;
 }

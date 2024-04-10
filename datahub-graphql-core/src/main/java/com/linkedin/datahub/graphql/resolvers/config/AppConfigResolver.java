@@ -182,6 +182,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
 
     final TelemetryConfig telemetryConfig = new TelemetryConfig();
     telemetryConfig.setEnableThirdPartyLogging(_telemetryConfiguration.isEnableThirdPartyLogging());
+    telemetryConfig.setUserTrackingEnabled(_telemetryConfiguration.isUserTrackingEnabled());
     appConfig.setTelemetryConfig(telemetryConfig);
 
     final TestsConfig testsConfig = new TestsConfig();

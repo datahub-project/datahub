@@ -39,6 +39,7 @@ export const DEFAULT_APP_CONFIG = {
     },
     telemetryConfig: {
         enableThirdPartyLogging: false,
+        userTrackingEnabled: false,
     },
     testsConfig: {
         enabled: false,

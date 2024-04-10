@@ -57,6 +57,7 @@ query appConfig {
         }
         telemetryConfig {
             enableThirdPartyLogging
+            userTrackingEnabled
         }
         testsConfig {
             enabled
