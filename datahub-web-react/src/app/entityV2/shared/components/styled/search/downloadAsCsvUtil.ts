@@ -7,7 +7,7 @@ import {
 } from '../../../../../../types.generated';
 import { capitalizeFirstLetterOnly } from '../../../../../shared/textUtil';
 import { EntityRegistry } from '../../../../../../entityRegistryContext';
-import { GenericEntityProperties } from '../../../types';
+import { GenericEntityProperties } from '../../../../../entity/shared/types';
 import { SearchResultInterface } from './types';
 
 const searchCsvDownloadHeader = [

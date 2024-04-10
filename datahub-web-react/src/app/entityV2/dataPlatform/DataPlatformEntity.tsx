@@ -2,7 +2,7 @@ import * as React from 'react';
 import { DatabaseOutlined } from '@ant-design/icons';
 import { DataPlatform, EntityType, SearchResult } from '../../../types.generated';
 import { Entity, IconStyleType, PreviewType } from '../Entity';
-import { GenericEntityProperties } from '../shared/types';
+import { GenericEntityProperties } from '../../entity/shared/types';
 import { TYPE_ICON_CLASS_NAME } from '../shared/components/subtypes';
 
 const getDisplayName = (data?: DataPlatform): string => {

@@ -2,7 +2,7 @@ import React from 'react';
 import { Dropdown } from 'antd';
 import { ShareAltOutlined } from '@ant-design/icons';
 import { ActionMenuItem } from '../../../entityV2/shared/EntityDropdown/styledComponents';
-import { useEntityData } from '../../../entityV2/shared/EntityContext';
+import { useEntityData } from '../../../entity/shared/EntityContext';
 import ShareButtonMenu from './ShareButtonMenu';
 import { StyledMenu } from './styledComponents';
 

@@ -17,7 +17,7 @@ import { VolumeParametersBuilder } from '../steps/volume/VolumeParametersBuilder
 import { getSelectedVolumeTypeOption, getVolumeTypeInfo } from '../steps/volume/utils';
 import { VolumeSourceTypeBuilder } from '../steps/volume/VolumeSourceTypeBuilder';
 import { VolumeFilterBuilder } from '../steps/volume/VolumeFilterBuilder';
-import { useEntityData } from '../../../../../../EntityContext';
+import { useEntityData } from '../../../../../../../../entity/shared/EntityContext';
 
 const Section = styled.div`
     display: flex;

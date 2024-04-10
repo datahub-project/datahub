@@ -8,7 +8,7 @@ import { EntityCapabilityType } from '../../Entity';
 import { useBatchAddTermsMutation, useBatchSetDomainMutation } from '../../../../graphql/mutations.generated';
 import { handleBatchError } from '../utils';
 import { useBatchSetDataProductMutation } from '../../../../graphql/dataProduct.generated';
-import { useEntityContext, useEntityData } from '../EntityContext';
+import { useEntityContext, useEntityData } from '../../../entity/shared/EntityContext';
 import CreateGlossaryEntityModal from '../EntityDropdown/CreateGlossaryEntityModal';
 import { EntityType } from '../../../../types.generated';
 

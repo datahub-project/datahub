@@ -1,7 +1,7 @@
 import React from 'react';
 import { Button, Checkbox, Modal, Typography } from 'antd';
 import styled from 'styled-components';
-import { EntityAndType } from '../../../types';
+import { EntityAndType } from '../../../../../entity/shared/types';
 import { SearchSelectActions } from './SearchSelectActions';
 
 const CheckboxContainer = styled.div`

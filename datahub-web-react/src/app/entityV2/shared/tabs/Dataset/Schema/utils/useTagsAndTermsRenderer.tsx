@@ -4,7 +4,7 @@ import TagTermGroup from '../../../../../../sharedV2/tags/TagTermGroup';
 import { findFieldPathProposal } from '../../../../../../shared/tags/utils/proposalUtils';
 import { pathMatchesNewPath } from '../../../../../dataset/profile/schema/utils/utils';
 import { useSchemaRefetch } from '../SchemaContext';
-import { useBaseEntity, useMutationUrn, useRefetch } from '../../../../EntityContext';
+import { useBaseEntity, useMutationUrn, useRefetch } from '../../../../../../entity/shared/EntityContext';
 
 export default function useTagsAndTermsRenderer(
     editableSchemaMetadata: EditableSchemaMetadata | null | undefined,

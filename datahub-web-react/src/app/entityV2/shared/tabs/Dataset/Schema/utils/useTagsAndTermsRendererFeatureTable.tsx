@@ -2,7 +2,7 @@ import React from 'react';
 import { EditableSchemaMetadata, EntityType, GlobalTags, SchemaField } from '../../../../../../../types.generated';
 import TagTermGroup from '../../../../../../sharedV2/tags/TagTermGroup';
 import { pathMatchesNewPath } from '../../../../../dataset/profile/schema/utils/utils';
-import { useEntityData, useRefetch } from '../../../../EntityContext';
+import { useEntityData, useRefetch } from '../../../../../../entity/shared/EntityContext';
 
 export default function useTagsAndTermsRendererFeatureTable(
     editableSchemaMetadata: EditableSchemaMetadata | null | undefined,

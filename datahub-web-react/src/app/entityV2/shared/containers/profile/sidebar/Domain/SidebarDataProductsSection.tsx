@@ -1,7 +1,7 @@
 import React from 'react';
 import styled from 'styled-components/macro';
 import { useHistory } from 'react-router';
-import { useEntityData } from '../../../../EntityContext';
+import { useEntityData } from '../../../../../../entity/shared/EntityContext';
 import { SidebarSection } from '../SidebarSection';
 import { useEntityRegistry } from '../../../../../../useEntityRegistry';
 import { navigateToDomainDataProducts } from './utils';

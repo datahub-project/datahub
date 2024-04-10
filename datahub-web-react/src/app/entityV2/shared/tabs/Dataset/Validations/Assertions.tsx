@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useGetDatasetAssertionsQuery } from '../../../../../../graphql/dataset.generated';
 import { Assertion, AssertionResultType } from '../../../../../../types.generated';
-import { useEntityData } from '../../../EntityContext';
+import { useEntityData } from '../../../../../entity/shared/EntityContext';
 import { DatasetAssertionsList } from './DatasetAssertionsList';
 import { DatasetAssertionsSummary } from './DatasetAssertionsSummary';
 import { sortAssertions } from './assertionUtils';

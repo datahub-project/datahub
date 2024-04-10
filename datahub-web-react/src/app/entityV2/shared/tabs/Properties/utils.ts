@@ -1,6 +1,6 @@
 import { CustomPropertiesEntry } from '../../../../../types.generated';
 import EntityRegistry from '../../../EntityRegistry';
-import { GenericEntityProperties } from '../../types';
+import { GenericEntityProperties } from '../../../../entity/shared/types';
 import { PropertyRow, ValueColumnData } from './types';
 
 export function mapCustomPropertiesToPropertyRows(customProperties: CustomPropertiesEntry[]) {

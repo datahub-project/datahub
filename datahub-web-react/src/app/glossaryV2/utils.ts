@@ -1,5 +1,5 @@
 import { EntityType } from '../../types.generated';
-import { GenericEntityProperties } from '../entityV2/shared/types';
+import { GenericEntityProperties } from '../entity/shared/types';
 
 export const ROOT_NODES = 'rootNodes';
 export const ROOT_TERMS = 'rootTerms';

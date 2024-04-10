@@ -2,7 +2,7 @@ import React from 'react';
 import { Popover } from 'antd';
 import styled from 'styled-components';
 import { ConsoleSqlOutlined, UserOutlined, ToolOutlined } from '@ant-design/icons';
-import { useEntityData } from '../../../../EntityContext';
+import { useEntityData } from '../../../../../../entity/shared/EntityContext';
 import { getBarsStatusFromPopularityTier, getDatasetPopularityTier, isValuePresent } from './utils';
 import { ANTD_GRAY } from '../../../../constants';
 import { PopularityBars } from '../../../../tabs/Dataset/Schema/components/SchemaFieldDrawer/PopularityBars';

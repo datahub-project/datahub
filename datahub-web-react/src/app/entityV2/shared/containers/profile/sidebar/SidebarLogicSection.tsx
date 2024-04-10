@@ -3,7 +3,7 @@ import styled from 'styled-components/macro';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { Button, Modal } from 'antd';
 import { GetDatasetQuery } from '../../../../../../graphql/dataset.generated';
-import { useBaseEntity } from '../../../EntityContext';
+import { useBaseEntity } from '../../../../../entity/shared/EntityContext';
 import { QueryEntity } from '../../../../../../types.generated';
 import EntitySidebarContext from '../../../../../sharedV2/EntitySidebarContext';
 import { SidebarSection } from './SidebarSection';

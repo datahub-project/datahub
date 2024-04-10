@@ -5,7 +5,7 @@ import { Tooltip } from 'antd';
 import { REDESIGN_COLORS } from '../../../constants';
 import { getEntityPath } from '../utils';
 import { useEntityRegistry } from '../../../../../useEntityRegistry';
-import { useEntityData } from '../../../EntityContext';
+import { useEntityData } from '../../../../../entity/shared/EntityContext';
 
 const ActionButton = styled(Link)`
     height: 22px;

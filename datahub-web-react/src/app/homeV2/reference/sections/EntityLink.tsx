@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import styled, { CSSObject } from 'styled-components';
 
 import { Entity, EntityType } from '../../../../types.generated';
-import { GenericEntityProperties } from '../../../entityV2/shared/types';
+import { GenericEntityProperties } from '../../../entity/shared/types';
 import { HoverEntityTooltip } from '../../../recommendations/renderer/component/HoverEntityTooltip';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import PlatformIcon from '../../../sharedV2/icons/PlatformIcon';

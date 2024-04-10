@@ -3,7 +3,7 @@ import styled from 'styled-components/macro';
 import { Typography } from 'antd';
 import { Owner, OwnershipTypeEntity } from '../../../../../../../../types.generated';
 import { ExpandedOwner } from '../../../../../components/styled/ExpandedOwner/ExpandedOwner';
-import { useMutationUrn, useRefetch } from '../../../../../EntityContext';
+import { useMutationUrn, useRefetch } from '../../../../../../../entity/shared/EntityContext';
 import { getOwnershipTypeName } from '../ownershipUtils';
 import { REDESIGN_COLORS } from '../../../../../constants';
 

@@ -8,7 +8,7 @@ import { decodeSchemaField } from '../../../../../../lineage/utils/columnLineage
 import CompactContext from '../../../../../../shared/CompactContext';
 import { useEntityRegistry } from '../../../../../../useEntityRegistry';
 import { ANTD_GRAY } from '../../../../constants';
-import { useBaseEntity } from '../../../../EntityContext';
+import { useBaseEntity } from '../../../../../../entity/shared/EntityContext';
 import { FkContext } from '../utils/selectedFkContext';
 
 const ForeignKeyContent = styled.tr`

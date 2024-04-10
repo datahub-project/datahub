@@ -12,7 +12,7 @@ import {
     buildRemoveAssertionFromContractMutationVariables,
 } from '../../../contract/builder/utils';
 import { getDataContractCategoryFromAssertion, isAssertionPartOfContract } from '../../../contract/utils';
-import { useEntityData } from '../../../../../../EntityContext';
+import { useEntityData } from '../../../../../../../../entity/shared/EntityContext';
 import { useIsContractsEnabled } from './useIsContractsEnabled';
 
 const StyledMinusOutlined = styled(MinusOutlined)`

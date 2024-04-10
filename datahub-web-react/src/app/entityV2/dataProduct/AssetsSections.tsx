@@ -8,7 +8,7 @@ import { pluralize } from '../../shared/textUtil';
 import { EntityCountCard } from '../../sharedV2/cards/EntityCountCard';
 import { useEntityRegistry } from '../../useEntityRegistry';
 import ContentSectionLoading from '../domain/summary/ContentSectionLoading';
-import { useEntityData } from '../shared/EntityContext';
+import { useEntityData } from '../../entity/shared/EntityContext';
 import {
     getContentsSummary,
     getDomainEntitiesFilterUrl,

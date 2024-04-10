@@ -7,7 +7,7 @@ import { EntitySidebarTab } from '../../../types';
 import { TitleAction } from './TitleAction';
 import MoreOptionsMenuAction from '../../../EntityDropdown/MoreOptionsMenuAction';
 import { EntityMenuItems } from '../../../EntityDropdown/EntityMenuActions';
-import { useEntityData, useRefetch } from '../../../EntityContext';
+import { useEntityData, useRefetch } from '../../../../../entity/shared/EntityContext';
 
 const Controls = styled.div<{ isCollapsed: boolean }>`
     display: flex;

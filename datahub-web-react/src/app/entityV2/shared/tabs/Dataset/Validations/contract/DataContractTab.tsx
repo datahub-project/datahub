@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import styled from 'styled-components';
 import { useGetDatasetContractQuery } from '../../../../../../../graphql/contract.generated';
 import { DataContractState } from '../../../../../../../types.generated';
-import { useEntityData } from '../../../../EntityContext';
+import { useEntityData } from '../../../../../../entity/shared/EntityContext';
 import { DataContractProposal } from './proposal/DataContractProposal';
 import { DataContractSummary } from './DataContractSummary';
 import { DataQualityContractSummary } from './DataQualityContractSummary';

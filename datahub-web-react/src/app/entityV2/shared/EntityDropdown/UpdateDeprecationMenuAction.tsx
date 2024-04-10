@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { ExclamationCircleOutlined } from '@ant-design/icons';
 import { message, Tooltip } from 'antd';
-import { useEntityData, useRefetch } from '../EntityContext';
+import { useEntityData, useRefetch } from '../../../entity/shared/EntityContext';
 import { ActionMenuItem } from './styledComponents';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { UpdateDeprecationModal } from './UpdateDeprecationModal';

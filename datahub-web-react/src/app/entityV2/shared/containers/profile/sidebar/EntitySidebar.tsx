@@ -1,6 +1,6 @@
 import React from 'react';
 import styled from 'styled-components/macro';
-import { useBaseEntity, useEntityData } from '../../../EntityContext';
+import { useBaseEntity, useEntityData } from '../../../../../entity/shared/EntityContext';
 import { EntitySidebarSection, TabContextType, TabRenderType } from '../../../types';
 import { ENTITY_PROFILE_V2_SIDEBAR_ID } from '../../../../../onboarding/config/EntityProfileOnboardingConfig';
 

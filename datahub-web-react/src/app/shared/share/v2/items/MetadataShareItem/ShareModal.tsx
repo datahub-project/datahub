@@ -10,7 +10,7 @@ import { PLATFORM_FILTER_NAME } from '../../../../../searchV2/utils/constants';
 import { PLATFORM_CONNECTION_URN } from '../../../../constants';
 import { useShareEntityMutation } from '../../../../../../graphql/share.generated';
 import analytics, { EventType } from '../../../../../analytics';
-import { useEntityContext } from '../../../../../entityV2/shared/EntityContext';
+import { useEntityContext } from '../../../../../entity/shared/EntityContext';
 import { SharedEntityInfo } from '../../../../../entityV2/shared/containers/profile/sidebar/SharedEntityInfo';
 
 const ModalTitle = styled.span`

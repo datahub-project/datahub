@@ -4,7 +4,7 @@ import { GetMlModelGroupQuery } from '../../../../graphql/mlModelGroup.generated
 import { EntityType } from '../../../../types.generated';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { PreviewType } from '../../Entity';
-import { useBaseEntity } from '../../shared/EntityContext';
+import { useBaseEntity } from '../../../entity/shared/EntityContext';
 
 export default function MLGroupModels() {
     const baseEntity = useBaseEntity<GetMlModelGroupQuery>();

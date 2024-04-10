@@ -12,7 +12,7 @@ import { useEntityRegistry } from '../../../useEntityRegistry';
 import { scrollToTop } from '../../../shared/searchUtils';
 import { DomainsPaginationContainer } from '../../../domain/DomainsList';
 import { ANTD_GRAY } from '../../shared/constants';
-import { useEntityData } from '../../shared/EntityContext';
+import { useEntityData } from '../../../entity/shared/EntityContext';
 import { DOMAINS_FILTER_NAME } from '../../../search/utils/constants';
 import DataProductResult from './DataProductResult';
 import CreateDataProductModal from './CreateDataProductModal';

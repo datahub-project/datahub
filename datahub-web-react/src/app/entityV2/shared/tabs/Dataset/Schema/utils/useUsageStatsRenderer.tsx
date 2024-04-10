@@ -6,7 +6,7 @@ import QueryStatsOutlinedIcon from '@mui/icons-material/QueryStatsOutlined';
 import { DatasetProfile, UsageQueryResult } from '../../../../../../../types.generated';
 // import { ReactComponent as LineageDisabledIcon } from '../../../../../../../images/lineage-disabled-icon.svg';
 import { GetDatasetQuery } from '../../../../../../../graphql/dataset.generated';
-import { useBaseEntity } from '../../../../EntityContext';
+import { useBaseEntity } from '../../../../../../entity/shared/EntityContext';
 import { REDESIGN_COLORS } from '../../../../constants';
 import { FieldPopularity } from '../components/SchemaFieldDrawer/FieldPopularity';
 

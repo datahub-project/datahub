@@ -3,7 +3,7 @@ import { EntityType } from '../../../types.generated';
 import { useIsSeparateSiblingsMode } from './siblingUtils';
 import { EntityContextType, UpdateEntityType } from './types';
 
-const EntityContext = React.createContext<EntityContextType>({
+export const EntityContext = React.createContext<EntityContextType>({
     urn: '',
     entityType: EntityType.Dataset,
     entityData: null,

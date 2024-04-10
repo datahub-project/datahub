@@ -2,7 +2,7 @@ import React from 'react';
 import { Select } from 'antd';
 import { EntityType, GlossaryNode, SearchResult } from '../../../../types.generated';
 import { useEntityRegistry } from '../../../useEntityRegistry';
-import { useEntityData } from '../EntityContext';
+import { useEntityData } from '../../../entity/shared/EntityContext';
 import ClickOutside from '../../../shared/ClickOutside';
 import GlossaryBrowser from '../../../glossary/GlossaryBrowser/GlossaryBrowser';
 import { BrowserWrapper } from '../../../shared/tags/AddTagsTermsModal';

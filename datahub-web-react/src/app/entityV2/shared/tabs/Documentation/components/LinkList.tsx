@@ -4,7 +4,7 @@ import styled from 'styled-components/macro';
 import { message, Button, List, Typography } from 'antd';
 import { LinkOutlined, DeleteOutlined } from '@ant-design/icons';
 import { EntityType, InstitutionalMemoryMetadata } from '../../../../../../types.generated';
-import { useEntityData } from '../../../EntityContext';
+import { useEntityData } from '../../../../../entity/shared/EntityContext';
 import { useEntityRegistry } from '../../../../../useEntityRegistry';
 import { ANTD_GRAY } from '../../../constants';
 import { formatDateString } from '../../../containers/profile/utils';

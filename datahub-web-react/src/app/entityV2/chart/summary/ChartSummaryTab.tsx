@@ -1,11 +1,11 @@
 import React from 'react';
-import { useEntityData } from '../../shared/EntityContext';
 import { SummaryTabWrapper } from '../../shared/summary/HeaderComponents';
 import TableauEmbed from './TableauEmbed';
 import ChartSummaryOverview from './ChartSummaryOverview';
 import { TABLEAU_URN } from '../../../ingest/source/builder/constants';
 import SummaryAboutSection from '../../shared/summary/SummaryAboutSection';
 import TableauFieldsSummary from './TableauFieldsSummary';
+import { useEntityData } from '../../../entity/shared/EntityContext';
 
 export default function ChartSummaryTab(): JSX.Element | null {
     const { entityData } = useEntityData();

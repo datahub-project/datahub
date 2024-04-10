@@ -7,7 +7,7 @@ import { useHistory, useLocation } from 'react-router';
 import { ImpactAnalysisIcon } from '../Dataset/Schema/components/MenuColumn';
 import updateQueryParams from '../../../../shared/updateQueryParams';
 import { downgradeV2FieldPath } from '../../../dataset/profile/schema/utils/utils';
-import { useEntityData } from '../../EntityContext';
+import { useEntityData } from '../../../../entity/shared/EntityContext';
 import { useGetEntityWithSchema } from '../Dataset/Schema/useGetEntitySchema';
 
 const StyledSelect = styled(Select)`

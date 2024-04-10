@@ -2,7 +2,7 @@ import { Drawer } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 import CloseOutlinedIcon from '@mui/icons-material/CloseOutlined';
-import { useEntityData } from '../../../../EntityContext';
+import { useEntityData } from '../../../../../../entity/shared/EntityContext';
 import { useGetTimelineQuery } from '../../../../../../../graphql/timeline.generated';
 import { ChangeCategoryType } from '../../../../../../../types.generated';
 import ChangeTransaction from './ChangeTransaction';

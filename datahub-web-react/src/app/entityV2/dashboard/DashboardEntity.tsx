@@ -41,7 +41,7 @@ import { DashboardChartsTab } from '../shared/tabs/Entity/DashboardChartsTab';
 import { DashboardDatasetsTab } from '../shared/tabs/Entity/DashboardDatasetsTab';
 import { LineageTab } from '../shared/tabs/Lineage/LineageTab';
 import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
-import { GenericEntityProperties } from '../shared/types';
+import { GenericEntityProperties } from '../../entity/shared/types';
 import { SidebarTitleActionType, getDataProduct, isOutputPort } from '../shared/utils';
 import { DashboardPreview } from './preview/DashboardPreview';
 import { DashboardStatsSummarySubHeader } from './profile/DashboardStatsSummarySubHeader';

@@ -2,7 +2,7 @@ import React from 'react';
 import styled from 'styled-components';
 import { Typography } from 'antd';
 import { PlusOutlined } from '@ant-design/icons';
-import { useRouteToTab } from '../../../../EntityContext';
+import { useRouteToTab } from '../../../../../../entity/shared/EntityContext';
 import { EMPTY_MESSAGES } from '../../../../constants';
 
 const EmptyContentWrapper = styled.div`

@@ -5,7 +5,7 @@ import { GetDatasetQuery } from '../../../../../../../graphql/dataset.generated'
 import { DatasetProfile, Operation, UsageQueryResult } from '../../../../../../../types.generated';
 import UsageFacepile from '../../../../../dataset/profile/UsageFacepile';
 import { ANTD_GRAY } from '../../../../constants';
-import { useBaseEntity, useRouteToTab } from '../../../../EntityContext';
+import { useBaseEntity, useRouteToTab } from '../../../../../../entity/shared/EntityContext';
 import { SidebarHeader } from '../SidebarHeader';
 import { InfoItem } from '../../../../components/styled/InfoItem';
 import { formatNumberWithoutAbbreviation } from '../../../../../../shared/formatNumber';

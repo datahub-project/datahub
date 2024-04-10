@@ -3,7 +3,7 @@ import React from 'react';
 import styled from 'styled-components';
 import StripMarkdownText from '../../shared/components/styled/StripMarkdownText';
 import { SidebarHeader } from '../../shared/containers/profile/sidebar/SidebarHeader';
-import { useEntityData, useRouteToTab } from '../../shared/EntityContext';
+import { useEntityData, useRouteToTab } from '../../../entity/shared/EntityContext';
 
 const DescriptionTypography = styled(Typography.Paragraph)`
     max-width: 65ch;

@@ -1,6 +1,6 @@
 import { message, Modal } from 'antd';
 import { useEntityRegistry } from '../../../useEntityRegistry';
-import { useEntityData, useRefetch } from '../../shared/EntityContext';
+import { useEntityData, useRefetch } from '../../../entity/shared/EntityContext';
 import { useRemoveRelatedTermsMutation } from '../../../../graphql/glossaryTerm.generated';
 import { TermRelationshipType } from '../../../../types.generated';
 

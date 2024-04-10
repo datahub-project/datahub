@@ -8,7 +8,7 @@ import { FAILURE_COLOR_HEX, getNameFromType, SUCCESS_COLOR_HEX } from '../incide
 import { useGetUserQuery } from '../../../../../../graphql/user.generated';
 import { useEntityRegistry } from '../../../../../useEntityRegistry';
 import { toLocalDateTimeString, toRelativeTimeString } from '../../../../../shared/time/timeUtils';
-import { useEntityData, useRefetch } from '../../../EntityContext';
+import { useEntityData, useRefetch } from '../../../../../entity/shared/EntityContext';
 import analytics, { EntityActionType, EventType } from '../../../../../analytics';
 import { useUpdateIncidentStatusMutation } from '../../../../../../graphql/mutations.generated';
 import { ResolveIncidentModal } from './ResolveIncidentModal';

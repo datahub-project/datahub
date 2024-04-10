@@ -6,7 +6,7 @@ import { EditableSchemaMetadata, SchemaField, SubResourceType } from '../../../.
 import DescriptionField from '../../../../../dataset/profile/schema/components/SchemaDescriptionField';
 import { pathMatchesNewPath } from '../../../../../dataset/profile/schema/utils/utils';
 import { useUpdateDescriptionMutation } from '../../../../../../../graphql/mutations.generated';
-import { useMutationUrn, useRefetch } from '../../../../EntityContext';
+import { useMutationUrn, useRefetch } from '../../../../../../entity/shared/EntityContext';
 import { useSchemaRefetch } from '../SchemaContext';
 import { useProposeUpdateDescriptionMutation } from '../../../../../../../graphql/proposals.generated';
 import { REDESIGN_COLORS } from '../../../../constants';

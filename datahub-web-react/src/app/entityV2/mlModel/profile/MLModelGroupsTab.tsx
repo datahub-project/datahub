@@ -6,7 +6,7 @@ import styled from 'styled-components';
 
 import { EntityType, MlModelGroup } from '../../../../types.generated';
 import { useEntityRegistry } from '../../../useEntityRegistry';
-import { useBaseEntity } from '../../shared/EntityContext';
+import { useBaseEntity } from '../../../entity/shared/EntityContext';
 import { GetMlModelQuery } from '../../../../graphql/mlModel.generated';
 
 const TabContent = styled.div`

@@ -13,7 +13,7 @@ import useSchemaTitleRenderer from '../../../../dataset/profile/schema/utils/sch
 import { ExtendedSchemaFields } from '../../../../dataset/profile/schema/utils/types';
 import useDescriptionRenderer from './utils/useDescriptionRenderer';
 import useUsageStatsRenderer from './utils/useUsageStatsRenderer';
-import { useEntityData } from '../../../EntityContext';
+import { useEntityData } from '../../../../../entity/shared/EntityContext';
 import { useEntityRegistry } from '../../../../../useEntityRegistry';
 import { REDESIGN_COLORS } from '../../../constants';
 import ExpandIcon from './components/ExpandIcon';

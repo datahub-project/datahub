@@ -4,7 +4,7 @@ import { MlFeatureTable, EntityType, SearchResult, OwnershipType } from '../../.
 import { Preview } from './preview/Preview';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Entity';
 import { getDataForEntityType } from '../shared/containers/profile/utils';
-import { GenericEntityProperties } from '../shared/types';
+import { GenericEntityProperties } from '../../entity/shared/types';
 import { useGetMlFeatureTableQuery } from '../../../graphql/mlFeatureTable.generated';
 import { EntityProfile } from '../shared/containers/profile/EntityProfile';
 import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domain/SidebarDomainSection';

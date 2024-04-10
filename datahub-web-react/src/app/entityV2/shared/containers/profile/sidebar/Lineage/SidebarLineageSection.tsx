@@ -4,7 +4,7 @@ import styled from 'styled-components/macro';
 import { Tooltip } from 'antd';
 import { ArrowDownOutlined, ArrowUpOutlined, PartitionOutlined } from '@ant-design/icons';
 import { useGetSearchAcrossLineageCountsQuery } from '../../../../../../../graphql/lineage.generated';
-import { useEntityData } from '../../../../EntityContext';
+import { useEntityData } from '../../../../../../entity/shared/EntityContext';
 import { SidebarSection } from '../SidebarSection';
 import { getDirectDownstreamSummary, getDirectUpstreamSummary, getRelatedEntitySummary } from './utils';
 import SidebarLineageLoadingSection from './SidebarLineageLoadingSection';

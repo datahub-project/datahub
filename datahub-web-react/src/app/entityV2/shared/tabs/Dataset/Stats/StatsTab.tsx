@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import styled from 'styled-components';
 import { GetDatasetQuery, useGetLastMonthUsageAggregationsQuery } from '../../../../../../graphql/dataset.generated';
 import { DatasetProfile, Operation, UsageQueryResult } from '../../../../../../types.generated';
-import { useBaseEntity } from '../../../EntityContext';
+import { useBaseEntity } from '../../../../../entity/shared/EntityContext';
 import { toLocalDateString, toLocalTimeString, toLocalDateTimeString } from '../../../../../shared/time/timeUtils';
 import HistoricalStats from './historical/HistoricalStats';
 import { LOOKBACK_WINDOWS } from './lookbackWindows';

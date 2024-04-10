@@ -1,7 +1,7 @@
 import { QueryHookOptions, QueryResult } from '@apollo/client';
 import { getDataForEntityType } from './utils';
 import { combineEntityDataWithSiblings, useIsSeparateSiblingsMode } from '../../siblingUtils';
-import { GenericEntityProperties } from '../../types';
+import { GenericEntityProperties } from '../../../../entity/shared/types';
 import { EntityType, Exact } from '../../../../../types.generated';
 
 interface Props<T> {

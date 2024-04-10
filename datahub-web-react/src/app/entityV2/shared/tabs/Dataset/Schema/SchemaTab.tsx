@@ -15,7 +15,7 @@ import SchemaRawView from '../../../../dataset/profile/schema/components/SchemaR
 import { KEY_SCHEMA_PREFIX } from '../../../../dataset/profile/schema/utils/constants';
 import { groupByFieldPath } from '../../../../dataset/profile/schema/utils/utils';
 import { ANTD_GRAY } from '../../../constants';
-import { useBaseEntity } from '../../../EntityContext';
+import { useBaseEntity } from '../../../../../entity/shared/EntityContext';
 import { TabRenderType } from '../../../types';
 import CompactSchemaTable from './CompactSchemaTable';
 import HistorySidebar from './history/HistorySidebar';

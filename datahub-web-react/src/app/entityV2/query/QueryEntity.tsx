@@ -2,7 +2,7 @@ import * as React from 'react';
 import { ConsoleSqlOutlined, FileOutlined } from '@ant-design/icons';
 import { DataPlatform, EntityType, QueryEntity as Query } from '../../../types.generated';
 import { Entity, IconStyleType } from '../Entity';
-import { GenericEntityProperties } from '../shared/types';
+import { GenericEntityProperties } from '../../entity/shared/types';
 import { getDataForEntityType } from '../shared/containers/profile/utils';
 import { EntityProfile } from '../shared/containers/profile/EntityProfile';
 import { useGetQueryQuery } from '../../../graphql/query.generated';

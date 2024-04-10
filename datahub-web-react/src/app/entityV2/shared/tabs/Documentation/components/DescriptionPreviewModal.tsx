@@ -3,7 +3,7 @@ import { Modal } from 'antd';
 import ClickOutside from '../../../../../shared/ClickOutside';
 import { DescriptionEditor } from './DescriptionEditor';
 import { DescriptionPreview } from './DescriptionPreview';
-import { useRouteToTab } from '../../../EntityContext';
+import { useRouteToTab } from '../../../../../entity/shared/EntityContext';
 
 const modalStyle = {
     top: '5%',

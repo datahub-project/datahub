@@ -10,7 +10,7 @@ import {
     SearchResult,
 } from '../../../types.generated';
 import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
-import { GenericEntityProperties } from './types';
+import { GenericEntityProperties } from '../../entity/shared/types';
 import { OUTPUT_PORTS_FIELD } from '../../search/utils/constants';
 
 export function dictToQueryStringParams(params: Record<string, string | boolean>) {

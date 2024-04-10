@@ -37,13 +37,13 @@ import { ChartDashboardsTab } from '../shared/tabs/Entity/ChartDashboardsTab';
 import { InputFieldsTab } from '../shared/tabs/Entity/InputFieldsTab';
 import { LineageTab } from '../shared/tabs/Lineage/LineageTab';
 import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
-import { GenericEntityProperties } from '../shared/types';
 import { SidebarTitleActionType, getDataProduct, isOutputPort } from '../shared/utils';
 import { ChartPreview } from './preview/ChartPreview';
 import { ChartStatsSummarySubHeader } from './profile/stats/ChartStatsSummarySubHeader';
 import ChartSummaryTab from './summary/ChartSummaryTab';
 import SidebarEntityHeader from '../shared/containers/profile/sidebar/SidebarEntityHeader';
 import { IncidentTab } from '../shared/tabs/Incident/IncidentTab';
+import { GenericEntityProperties } from '../../entity/shared/types';
 
 const headerDropdownItems = new Set([
     EntityMenuItems.EXTERNAL_URL,

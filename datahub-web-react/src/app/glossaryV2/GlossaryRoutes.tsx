@@ -3,7 +3,7 @@ import styled from 'styled-components/macro';
 import { Switch, Route, Redirect } from 'react-router-dom';
 import { PageRoutes } from '../../conf/Global';
 import { GlossaryEntityContext } from '../entityV2/shared/GlossaryEntityContext';
-import { GenericEntityProperties } from '../entityV2/shared/types';
+import { GenericEntityProperties } from '../entity/shared/types';
 import BusinessGlossaryPage from './BusinessGlossaryPage';
 import { EntityPage as EntityPageV2 } from '../entityV2/EntityPage';
 import GlossarySidebar from './GlossarySidebar';

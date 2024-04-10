@@ -4,7 +4,7 @@ import { MlPrimaryKey, EntityType, SearchResult, OwnershipType } from '../../../
 import { Preview } from './preview/Preview';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Entity';
 import { getDataForEntityType } from '../shared/containers/profile/utils';
-import { GenericEntityProperties } from '../shared/types';
+import { GenericEntityProperties } from '../../entity/shared/types';
 import { useGetMlPrimaryKeyQuery } from '../../../graphql/mlPrimaryKey.generated';
 import { EntityProfile } from '../shared/containers/profile/EntityProfile';
 import { FeatureTableTab } from '../shared/tabs/ML/MlPrimaryKeyFeatureTableTab';

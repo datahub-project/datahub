@@ -1,7 +1,7 @@
 import { Menu } from 'antd';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components/macro';
-import { useEntityData } from '../../shared/EntityContext';
+import { useEntityData } from '../../../entity/shared/EntityContext';
 import GlossaryRelatedTermsResult, { RelatedTermTypes } from './GlossaryRelatedTermsResult';
 
 const DetailWrapper = styled.div`

@@ -22,7 +22,7 @@ import { EntityActionItem } from '../shared/entity/EntityActions';
 import { SchemaTab } from '../shared/tabs/Dataset/Schema/SchemaTab';
 import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab';
 import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
-import { GenericEntityProperties } from '../shared/types';
+import { GenericEntityProperties } from '../../entity/shared/types';
 import { Preview } from './preview/Preview';
 import GlossaryRelatedEntity from './profile/GlossaryRelatedEntity';
 import GlossayRelatedTerms from './profile/GlossaryRelatedTerms';

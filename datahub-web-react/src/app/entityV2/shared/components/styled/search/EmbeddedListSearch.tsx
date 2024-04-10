@@ -15,7 +15,7 @@ import EmbeddedListSearchHeader from './EmbeddedListSearchHeader';
 import { useGetSearchResultsForMultipleQuery } from '../../../../../../graphql/search.generated';
 import { FilterSet, GetSearchResultsParams, SearchResultsInterface } from './types';
 import { isListSubset } from '../../../utils';
-import { EntityAndType } from '../../../types';
+import { EntityAndType } from '../../../../../entity/shared/types';
 import { Message } from '../../../../../shared/Message';
 import { generateOrFilters } from '../../../../../search/utils/generateOrFilters';
 import { mergeFilterSets } from '../../../../../search/utils/filterUtils';
@@ -25,7 +25,7 @@ import {
     DownloadSearchResultsInput,
     DownloadSearchResults,
 } from '../../../../../search/utils/types';
-import { useEntityContext } from '../../../EntityContext';
+import { useEntityContext } from '../../../../../entity/shared/EntityContext';
 import { EntityActionProps } from './EntitySearchResults';
 import { useUserContext } from '../../../../../context/useUserContext';
 import analytics, { EventType } from '../../../../../analytics';

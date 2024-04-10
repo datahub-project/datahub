@@ -1,6 +1,6 @@
 import React from 'react';
 
-import EntityContext, { useEntityContext } from '../EntityContext';
+import { EntityContext, useEntityContext } from '../EntityContext';
 
 import FormByEntity from './FormByEntity';
 import { FormView, useEntityFormContext } from './EntityFormContext';

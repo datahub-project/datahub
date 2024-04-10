@@ -9,7 +9,7 @@ import { useProposeUpdateDescriptionMutation } from '../../../../../../../../gra
 import { EditableSchemaFieldInfo, SchemaField, SubResourceType } from '../../../../../../../../types.generated';
 import analytics, { EntityActionType, EventType } from '../../../../../../../analytics';
 import SchemaEditableContext from '../../../../../../../shared/SchemaEditableContext';
-import { useEntityData, useMutationUrn, useRefetch } from '../../../../../EntityContext';
+import { useEntityData, useMutationUrn, useRefetch } from '../../../../../../../entity/shared/EntityContext';
 import UpdateDescriptionModal from '../../../../../components/legacy/DescriptionModal';
 import { REDESIGN_COLORS } from '../../../../../constants';
 import DescriptionSection from '../../../../../containers/profile/sidebar/AboutSection/DescriptionSection';

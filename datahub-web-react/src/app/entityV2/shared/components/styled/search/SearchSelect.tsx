@@ -12,7 +12,7 @@ import { useGetSearchResultsForMultipleQuery } from '../../../../../../graphql/s
 import { isListSubset } from '../../../utils';
 import { SearchBar } from '../../../../../search/SearchBar';
 import { ANTD_GRAY } from '../../../constants';
-import { EntityAndType } from '../../../types';
+import { EntityAndType } from '../../../../../entity/shared/types';
 import { SearchSelectBar } from './SearchSelectBar';
 import TabToolbar from '../TabToolbar';
 

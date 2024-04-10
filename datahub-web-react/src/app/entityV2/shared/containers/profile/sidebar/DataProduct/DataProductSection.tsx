@@ -3,7 +3,7 @@ import styled from 'styled-components';
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import { Modal, message } from 'antd';
-import { useEntityData } from '../../../../EntityContext';
+import { useEntityData } from '../../../../../../entity/shared/EntityContext';
 import { EMPTY_MESSAGES } from '../../../../constants';
 import SetDataProductModal from './SetDataProductModal';
 import { DataProductLink } from '../../../../../../sharedV2/tags/DataProductLink';

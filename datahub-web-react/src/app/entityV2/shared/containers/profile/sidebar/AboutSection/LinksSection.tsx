@@ -1,7 +1,7 @@
 import React from 'react';
 import styled from 'styled-components';
 import LinkButton from '../LinkButton';
-import { useEntityData, useRefetch } from '../../../../EntityContext';
+import { useEntityData, useRefetch } from '../../../../../../entity/shared/EntityContext';
 import { AddLinkModal } from '../../../../components/styled/AddLinkModal';
 import { shouldTryLinkPreview } from '../../../../../../integration/linkPreviews';
 import LinkPreview from '../../../../../../integration/LinkPreview';

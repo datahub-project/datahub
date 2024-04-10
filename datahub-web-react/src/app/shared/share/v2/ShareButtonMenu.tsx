@@ -5,7 +5,7 @@ import CopyLinkMenuItem from './items/CopyLinkMenuItem';
 import CopyUrnMenuItem from './items/CopyUrnMenuItem';
 import EmailMenuItem from './items/EmailMenuItem';
 import { useAppConfig } from '../../../useAppConfig';
-import { useEntityData } from '../../../entityV2/shared/EntityContext';
+import { useEntityData } from '../../../entity/shared/EntityContext';
 import MetadataShareItem from './items/MetadataShareItem/MetadataShareItem';
 
 interface ShareButtonMenuProps {

@@ -5,7 +5,7 @@ import { dataJob1, mocks } from '../../../../../../Mocks';
 import { EntityType } from '../../../../../../types.generated';
 import TestPageContainer from '../../../../../../utils/test-utils/TestPageContainer';
 import { getDataForEntityType } from '../../../containers/profile/utils';
-import EntityContext from '../../../EntityContext';
+import { EntityContext } from '../../../EntityContext';
 import { DataJobFlowTab } from '../DataJobFlowTab';
 
 describe('DataJobFlowTab', () => {

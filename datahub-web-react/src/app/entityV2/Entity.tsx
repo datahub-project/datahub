@@ -1,7 +1,7 @@
 import { EntityType, SearchResult } from '../../types.generated';
-import { EntitySidebarSection } from '../entity/shared/types';
+import { GenericEntityProperties } from '../entity/shared/types';
 import { FetchedEntity } from '../lineage/types';
-import { EntitySidebarTab, GenericEntityProperties } from './shared/types';
+import { EntitySidebarSection, EntitySidebarTab } from './shared/types';
 
 export enum PreviewType {
     /**

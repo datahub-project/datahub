@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { DataPlatformInstance, EntityType } from '../../../types.generated';
 import { Entity } from '../Entity';
-import { GenericEntityProperties } from '../shared/types';
+import { GenericEntityProperties } from '../../entity/shared/types';
 import { getDataForEntityType } from '../shared/containers/profile/utils';
 
 /**

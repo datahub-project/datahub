@@ -4,7 +4,7 @@ import { HeaderTitle } from '../../shared/summary/HeaderComponents';
 import { GetChartQuery } from '../../../../graphql/chart.generated';
 import { Entity, EntityType } from '../../../../types.generated';
 import { useEntityRegistryV2 } from '../../../useEntityRegistry';
-import { useBaseEntity } from '../../shared/EntityContext';
+import { useBaseEntity } from '../../../entity/shared/EntityContext';
 import { getSubTypeIcon, SubType } from '../../shared/components/subtypes';
 import { HorizontalList, SummaryColumns } from '../../shared/summary/ListComponents';
 import SummaryEntityCard from '../../../sharedV2/cards/SummaryEntityCard';

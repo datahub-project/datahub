@@ -2,7 +2,7 @@ import * as React from 'react';
 import { UnionType } from '../../../search/utils/constants';
 import { EmbeddedListSearchSection } from '../../shared/components/styled/search/EmbeddedListSearchSection';
 
-import { useEntityData } from '../../shared/EntityContext';
+import { useEntityData } from '../../../entity/shared/EntityContext';
 
 export default function GlossaryRelatedEntity() {
     const { entityData } = useEntityData();

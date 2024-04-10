@@ -18,7 +18,7 @@ import { useEntityRegistry } from '../../../../useEntityRegistry';
 import { downgradeV2FieldPath } from '../../../dataset/profile/schema/utils/utils';
 import TabToolbar from '../../components/styled/TabToolbar';
 import { ANTD_GRAY } from '../../constants';
-import { useEntityData } from '../../EntityContext';
+import { useEntityData } from '../../../../entity/shared/EntityContext';
 import ColumnsLineageSelect from './ColumnLineageSelect';
 import { ImpactAnalysis } from './ImpactAnalysis';
 import { LineageTabContext } from './LineageTabContext';

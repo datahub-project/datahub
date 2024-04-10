@@ -2,7 +2,7 @@ import React, { Dispatch, SetStateAction } from 'react';
 import { Maybe } from 'graphql/jsutils/Maybe';
 import { EntityType, LineageDirection, SchemaFieldRef } from '../../types.generated';
 import EntityRegistry from '../entityV2/EntityRegistry';
-import { GenericEntityProperties } from '../entityV2/shared/types';
+import { GenericEntityProperties } from '../entity/shared/types';
 import { DBT_CLOUD_URN } from '../ingest/source/builder/constants';
 import { ColumnQueryData } from '../sharedV2/EntitySidebarContext';
 import { getEntityTypeFromEntityUrn, getPlatformUrnFromEntityUrn } from './lineageUtils';

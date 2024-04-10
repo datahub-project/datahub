@@ -1,5 +1,5 @@
 import React from 'react';
-import { useEntityData } from '../shared/EntityContext';
+import { useEntityData } from '../../entity/shared/EntityContext';
 import { EmbeddedListSearchSection } from '../shared/components/styled/search/EmbeddedListSearchSection';
 import generateUseListDataProductAssets from './generateUseListDataProductAssets';
 

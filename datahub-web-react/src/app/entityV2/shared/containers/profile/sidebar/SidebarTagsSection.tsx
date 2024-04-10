@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import styled from 'styled-components';
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
 import TagTermGroup from '../../../../../sharedV2/tags/TagTermGroup';
-import { useEntityData, useMutationUrn, useRefetch } from '../../../EntityContext';
+import { useEntityData, useMutationUrn, useRefetch } from '../../../../../entity/shared/EntityContext';
 import { findTopLevelProposals } from '../../../../../shared/tags/utils/proposalUtils';
 import { ENTITY_PROFILE_TAGS_ID } from '../../../../../onboarding/config/EntityProfileOnboardingConfig';
 import { SidebarSection } from './SidebarSection';

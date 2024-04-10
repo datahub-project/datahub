@@ -4,7 +4,7 @@ import { LoadingOutlined } from '@ant-design/icons';
 import styled from 'styled-components';
 import { FacetFilterInput, FacetMetadata, SearchResults as SearchResultType } from '../../../../../../types.generated';
 import { SearchCfg } from '../../../../../../conf';
-import { EntityAndType } from '../../../types';
+import { EntityAndType } from '../../../../../entity/shared/types';
 import { UnionType } from '../../../../../search/utils/constants';
 import { SearchFiltersSection } from '../../../../../search/SearchFiltersSection';
 import { EntitySearchResults, EntityActionProps } from './EntitySearchResults';

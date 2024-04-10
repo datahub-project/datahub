@@ -4,7 +4,7 @@ import { Button, Empty, List, Select, Typography } from 'antd';
 import { PlusOutlined } from '@ant-design/icons';
 import { useGetEntityIncidentsQuery } from '../../../../../graphql/incident.generated';
 import TabToolbar from '../../components/styled/TabToolbar';
-import { useEntityData } from '../../EntityContext';
+import { useEntityData } from '../../../../entity/shared/EntityContext';
 import IncidentListItem from './components/IncidentListItem';
 import { INCIDENT_DISPLAY_STATES, PAGE_SIZE, getIncidentsStatusSummary } from './incidentUtils';
 import { EntityType, Incident, IncidentState } from '../../../../../types.generated';

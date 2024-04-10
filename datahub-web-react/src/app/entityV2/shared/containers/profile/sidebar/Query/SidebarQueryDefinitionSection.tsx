@@ -1,6 +1,6 @@
 import React from 'react';
 import styled from 'styled-components';
-import { useBaseEntity } from '../../../../EntityContext';
+import { useBaseEntity } from '../../../../../../entity/shared/EntityContext';
 import { QueryEntity } from '../../../../../../../types.generated';
 import { SidebarSection } from '../SidebarSection';
 import PlatformIcon from '../../../../../../sharedV2/icons/PlatformIcon';

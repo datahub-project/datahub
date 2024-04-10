@@ -1,7 +1,7 @@
 import React from 'react';
 // import styled from 'styled-components/macro';
 
-import { useBaseEntity } from '../../../../EntityContext';
+import { useBaseEntity } from '../../../../../../entity/shared/EntityContext';
 import { SidebarSection } from '../SidebarSection';
 import { QueryEntity } from '../../../../../../../types.generated';
 import { toRelativeTimeString } from '../../../../../../shared/time/timeUtils';

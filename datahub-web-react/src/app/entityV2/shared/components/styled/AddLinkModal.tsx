@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { message, Modal, Button, Form, Input } from 'antd';
 import styled from 'styled-components/macro';
 import { PlusOutlined } from '@ant-design/icons';
-import { useEntityData, useMutationUrn } from '../../EntityContext';
+import { useEntityData, useMutationUrn } from '../../../../entity/shared/EntityContext';
 import { useAddLinkMutation } from '../../../../../graphql/mutations.generated';
 import analytics, { EventType, EntityActionType } from '../../../../analytics';
 import { useUserContext } from '../../../../context/useUserContext';

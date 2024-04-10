@@ -9,16 +9,16 @@ import {
     SchemaField,
     SearchResult,
 } from '../../types.generated';
-import { EntitySidebarSection } from '../entity/shared/types';
+import { GenericEntityProperties } from '../entity/shared/types';
 import { FetchedEntity } from '../lineage/types';
 import { SearchResultProvider } from '../search/context/SearchResultContext';
 import { Entity, EntityCapabilityType, EntityMenuActions, IconStyleType, PreviewType } from './Entity';
 import { GLOSSARY_ENTITY_TYPES } from './shared/constants';
 import PreviewContext from './shared/PreviewContext';
-import { EntitySidebarTab, GenericEntityProperties } from './shared/types';
 import { dictToQueryStringParams, getFineGrainedLineageWithSiblings, urlEncodeUrn } from './shared/utils';
 import { FetchedEntityV2, FetchedEntityV2Relationship, LineageAsset, LineageAssetType } from '../lineageV2/types';
 import { EntityLineageV2Fragment } from '../../graphql/lineage.generated';
+import { EntitySidebarSection, EntitySidebarTab } from './shared/types';
 
 function validatedGet<K, V>(key: K, map: Map<K, V>): V {
     if (map.has(key)) {

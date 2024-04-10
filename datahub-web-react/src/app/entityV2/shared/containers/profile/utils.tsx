@@ -33,7 +33,8 @@ import { useEntityRegistry } from '../../../../useEntityRegistry';
 import { GLOSSARY_ENTITY_TYPES } from '../../constants';
 import { useGlossaryEntityData } from '../../GlossaryEntityContext';
 import { SEPARATE_SIBLINGS_URL_PARAM, useIsSeparateSiblingsMode } from '../../siblingUtils';
-import { EntitySidebarSection, EntitySidebarTab, EntityTab, GenericEntityProperties } from '../../types';
+import { EntitySidebarSection, EntitySidebarTab, EntityTab } from '../../types';
+import { GenericEntityProperties } from '../../../../entity/shared/types';
 import EntitySidebarSectionsTab from './sidebar/EntitySidebarSectionsTab';
 
 /**

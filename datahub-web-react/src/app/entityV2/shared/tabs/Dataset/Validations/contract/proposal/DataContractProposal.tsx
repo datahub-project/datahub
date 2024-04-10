@@ -9,7 +9,7 @@ import {
     PlusOutlined,
     StopOutlined,
 } from '@ant-design/icons';
-import { useEntityData } from '../../../../../EntityContext';
+import { useEntityData } from '../../../../../../../entity/shared/EntityContext';
 import { useGetContractProposalsQuery } from '../../../../../../../../graphql/contract.generated';
 import { ActionRequestStatus, ActionRequestType, DataContractProposalParams, EntityType } from '../../../../../../../../types.generated';
 import { DataContractProposalDescription } from './DataContractProposalDescription';

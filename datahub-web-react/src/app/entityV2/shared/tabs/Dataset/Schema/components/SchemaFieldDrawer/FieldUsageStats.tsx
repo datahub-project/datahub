@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import styled from 'styled-components';
 import { GetDatasetQuery } from '../../../../../../../../graphql/dataset.generated';
-import { useBaseEntity } from '../../../../../EntityContext';
+import { useBaseEntity } from '../../../../../../../entity/shared/EntityContext';
 import { ANTD_GRAY_V2 } from '../../../../../constants';
 import { SectionHeader } from './components';
 import { pathMatchesNewPath } from '../../../../../../dataset/profile/schema/utils/utils';

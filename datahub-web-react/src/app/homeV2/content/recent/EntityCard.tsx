@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
-import { GenericEntityProperties } from '../../../entityV2/shared/types';
+import { GenericEntityProperties } from '../../../entity/shared/types';
 import { Entity, EntityType } from '../../../../types.generated';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { getDisplayedEntityType } from '../../../entityV2/shared/containers/profile/header/utils';

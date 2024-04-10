@@ -1,14 +1,14 @@
 import React from 'react';
 import styled from 'styled-components/macro';
-import { useEntityData, useRefetch } from '../../../EntityContext';
 import { EntityMenuItems } from '../../../EntityDropdown/EntityMenuActions';
 import { DisplayProperties, EntityType, PlatformPrivileges } from '../../../../../../types.generated';
-import { EntitySubHeaderSection, GenericEntityProperties } from '../../../types';
 import { EntityActionItem } from '../../../entity/EntityActions';
 import { useUserContext } from '../../../../../context/useUserContext';
 import { useEntityRegistry } from '../../../../../useEntityRegistry';
 import { CompactEntityHeader } from './CompactEntityHeader';
 import { DefaultEntityHeader } from './DefaultEntityHeader';
+import { useEntityData, useRefetch } from '../../../../../entity/shared/EntityContext';
+import { EntitySubHeaderSection, GenericEntityProperties } from '../../../../../entity/shared/types';
 
 const Container = styled.div``;
 

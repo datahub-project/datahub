@@ -13,7 +13,7 @@ import {
     SiblingProperties,
 } from '../../../types.generated';
 import EntitySidebarContext from '../../sharedV2/EntitySidebarContext';
-import { GenericEntityProperties } from './types';
+import { GenericEntityProperties } from '../../entity/shared/types';
 
 export function stripSiblingsFromEntity(entity: any) {
     return {

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import styled from 'styled-components/macro';
 import { message, Button, Modal, Typography, Form } from 'antd';
-import { useRefetch } from '../EntityContext';
+import { useRefetch } from '../../../entity/shared/EntityContext';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { useMoveDomainMutation } from '../../../../graphql/domain.generated';
 import DomainParentSelect from './DomainParentSelect';

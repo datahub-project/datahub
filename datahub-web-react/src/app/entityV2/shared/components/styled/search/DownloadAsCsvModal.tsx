@@ -6,7 +6,7 @@ import { AndFilterInput } from '../../../../../../types.generated';
 import { getSearchCsvDownloadHeader, transformResultsToCsvRow } from './downloadAsCsvUtil';
 import { downloadRowsAsCsv } from '../../../../../search/utils/csvUtils';
 import { useEntityRegistry } from '../../../../../useEntityRegistry';
-import { useEntityData } from '../../../EntityContext';
+import { useEntityData } from '../../../../../entity/shared/EntityContext';
 import analytics, { EventType } from '../../../../../analytics';
 import { DownloadSearchResultsInput, DownloadSearchResults } from '../../../../../search/utils/types';
 

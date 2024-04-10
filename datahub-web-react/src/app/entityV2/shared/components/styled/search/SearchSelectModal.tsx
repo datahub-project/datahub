@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import styled from 'styled-components';
 import { EntityType } from '../../../../../../types.generated';
 import ClickOutside from '../../../../../shared/ClickOutside';
-import { EntityAndType } from '../../../types';
+import { EntityAndType } from '../../../../../entity/shared/types';
 import { SearchSelect } from './SearchSelect';
 
 const StyledModal = styled(Modal)`

@@ -5,7 +5,7 @@ import { EntityLink } from './EntityLink';
 import { EntityLinkListLoadingSection } from './EntityLinkListLoadingSection';
 import { DefaultEmptyEntityList } from './DefaultEmptyEntityList';
 import { ANTD_GRAY } from '../../../entity/shared/constants';
-import { GenericEntityProperties } from '../../../entityV2/shared/types';
+import { GenericEntityProperties } from '../../../entity/shared/types';
 
 const Title = styled.div<{ hasAction: boolean }>`
     ${(props) => props.hasAction && `:hover { cursor: pointer; }`}

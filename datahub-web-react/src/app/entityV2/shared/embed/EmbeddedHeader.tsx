@@ -7,7 +7,7 @@ import { DEFAULT_APP_CONFIG } from '../../../../appConfigContext';
 import { useAppConfig } from '../../../useAppConfig';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { IconStyleType } from '../../Entity';
-import { useEntityData } from '../EntityContext';
+import { useEntityData } from '../../../entity/shared/EntityContext';
 import { getDisplayedEntityType } from '../containers/profile/header/utils';
 import { ANTD_GRAY } from '../constants';
 import analytics from '../../../analytics/analytics';

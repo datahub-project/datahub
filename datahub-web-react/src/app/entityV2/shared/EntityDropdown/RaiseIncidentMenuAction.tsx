@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { WarningOutlined } from '@ant-design/icons';
 import { Tooltip } from 'antd';
 import { useHistory } from 'react-router';
-import { useEntityData, useRefetch } from '../EntityContext';
+import { useEntityData, useRefetch } from '../../../entity/shared/EntityContext';
 import { ActionMenuItem } from './styledComponents';
 import { AddIncidentModal } from '../tabs/Incident/components/AddIncidentModal';
 import { getEntityPath } from '../containers/profile/utils';

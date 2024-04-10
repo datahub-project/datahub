@@ -1,7 +1,7 @@
 import React from 'react';
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
-import { useEntityData, useRouteToTab } from '../../../../EntityContext';
+import { useEntityData, useRouteToTab } from '../../../../../../entity/shared/EntityContext';
 import DescriptionSection from './DescriptionSection';
 import LinksSection from './LinksSection';
 import SourceRefSection from './SourceRefSection';

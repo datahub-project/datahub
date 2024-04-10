@@ -12,7 +12,7 @@ import {
 } from '../../../ingest/source/utils';
 import { CompactEntityNameList } from '../../../recommendations/renderer/component/CompactEntityNameList';
 import { ANTD_GRAY } from '../../shared/constants';
-import { useEntityData } from '../../shared/EntityContext';
+import { useEntityData } from '../../../entity/shared/EntityContext';
 import LoadingSvg from '../../../../images/datahub-logo-color-loading_pendulum.svg?react';
 import { scrollToTop } from '../../../shared/searchUtils';
 

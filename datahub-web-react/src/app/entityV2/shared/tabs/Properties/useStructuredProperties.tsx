@@ -1,8 +1,8 @@
 import { PropertyValue, StructuredPropertiesEntry } from '../../../../../types.generated';
 import { getStructuredPropertyValue } from '../../../../entity/shared/utils';
 import EntityRegistry from '../../../EntityRegistry';
-import { useEntityData } from '../../EntityContext';
-import { GenericEntityProperties } from '../../types';
+import { useEntityData } from '../../../../entity/shared/EntityContext';
+import { GenericEntityProperties } from '../../../../entity/shared/types';
 import { useGetEntityWithSchema } from '../Dataset/Schema/useGetEntitySchema';
 import { PropertyRow } from './types';
 import { filterStructuredProperties } from './utils';

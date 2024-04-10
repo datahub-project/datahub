@@ -6,7 +6,7 @@ import { DeprecationPill } from '../../../components/styled/DeprecationPill';
 import EntityActions, { EntityActionItem } from '../../../entity/EntityActions';
 import EntityTitleLoadingSection from './EntityHeaderLoadingSection';
 import IconColorPicker from './IconPicker/IconColorPicker';
-import { EntitySubHeaderSection } from '../../../types';
+import { EntitySubHeaderSection } from '../../../../../entity/shared/types';
 import { Container, DisplayProperties, Domain, EntityType } from '../../../../../../types.generated';
 import { DomainColoredIcon } from '../../../links/DomainColoredIcon';
 import { useEntityRegistry } from '../../../../../useEntityRegistry';

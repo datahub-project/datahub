@@ -4,7 +4,7 @@ import { Typography, Button, Tooltip, message } from 'antd';
 import { SyncOutlined, LoadingOutlined } from '@ant-design/icons';
 import styled from 'styled-components';
 
-import { useEntityContext } from '../../../EntityContext';
+import { useEntityContext } from '../../../../../entity/shared/EntityContext';
 import { ANTD_GRAY } from '../../../constants';
 import { toLocalDateTimeString } from '../../../../../shared/time/timeUtils';
 import { sortSharedList } from '../../../../../entity/shared/containers/profile/utils';

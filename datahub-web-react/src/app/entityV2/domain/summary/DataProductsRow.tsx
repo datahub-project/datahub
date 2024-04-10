@@ -1,7 +1,7 @@
 import React from 'react';
 import styled from 'styled-components';
 import { useHistory } from 'react-router';
-import { useEntityData } from '../../shared/EntityContext';
+import { useEntityData } from '../../../entity/shared/EntityContext';
 import ContentSectionLoading from './ContentSectionLoading';
 import { useGetSearchResultsForMultipleQuery } from '../../../../graphql/search.generated';
 import { DataProduct, EntityType } from '../../../../types.generated';

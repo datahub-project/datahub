@@ -3,7 +3,7 @@ import styled from 'styled-components';
 import { Space, Table, Typography } from 'antd';
 
 import { MlHyperParam, MlMetric } from '../../../../types.generated';
-import { useBaseEntity } from '../../shared/EntityContext';
+import { useBaseEntity } from '../../../entity/shared/EntityContext';
 import { GetMlModelQuery } from '../../../../graphql/mlModel.generated';
 
 const TabContent = styled.div`

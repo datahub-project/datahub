@@ -3,9 +3,7 @@ import React from 'react';
 import styled from 'styled-components';
 
 import { useEntityRegistry } from '../../../useEntityRegistry';
-import { EntityContext as EntityContextV2 } from '../../../entityV2/shared/EntityContext'; // Importing from entityV2
-
-import EntityContext, { useEntityContext } from '../EntityContext';
+import { EntityContext, useEntityContext } from '../EntityContext';
 import { useEntityFormContext } from './EntityFormContext';
 
 import { ANTD_GRAY_V2 } from '../constants';
@@ -52,9 +50,6 @@ export default function FormByEntity({ formUrn }: Props) {
     const sidebarSections = type ? entityRegistry.getSidebarSections(type) : [];
     const isV2 = useIsThemeV2Enabled();
 
-    // Provider based on theme version
-    const Provider = isV2 ? EntityContextV2.Provider : EntityContext.Provider;
-
     // Used for v2 - removes repeated entity header (we use EntityInfo in this component)
     // SidebarEntityHeader is always the first index in sidebarSections, so remove it here
     // TODO (OBS-677): remove this logic once we get form info into V2 sidebar
@@ -64,7 +59,7 @@ export default function FormByEntity({ formUrn }: Props) {
     const sections = isV2 ? cleanedSidebarSections : sidebarSections;
 
     return (
-        <Provider
+        <EntityContext.Provider
             value={{
                 urn: selectedEntity?.urn || '',
                 entityType: selectedEntity?.type || entityType,
@@ -91,6 +86,6 @@ export default function FormByEntity({ formUrn }: Props) {
                     )}
                 </FlexWrapper>
             </ContentWrapper>
-        </Provider>
+        </EntityContext.Provider>
     );
 }

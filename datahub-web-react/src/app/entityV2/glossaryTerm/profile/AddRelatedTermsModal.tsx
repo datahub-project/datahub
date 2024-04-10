@@ -9,7 +9,7 @@ import ClickOutside from '../../../shared/ClickOutside';
 import { BrowserWrapper } from '../../../shared/tags/AddTagsTermsModal';
 import TermLabel from '../../../shared/TermLabel';
 import { useEntityRegistry } from '../../../useEntityRegistry';
-import { useEntityData, useRefetch } from '../../shared/EntityContext';
+import { useEntityData, useRefetch } from '../../../entity/shared/EntityContext';
 import ParentEntities from '../../../searchV2/filters/ParentEntities';
 import { getParentEntities } from '../../../searchV2/filters/utils';
 

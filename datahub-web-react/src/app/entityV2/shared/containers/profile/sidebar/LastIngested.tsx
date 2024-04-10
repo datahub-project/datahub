@@ -6,7 +6,7 @@ import React from 'react';
 import { QuestionCircleOutlined } from '@ant-design/icons';
 import { toLocalDateTimeString, toRelativeTimeString } from '../../../../../shared/time/timeUtils';
 import { ANTD_GRAY, REDESIGN_COLORS } from '../../../constants';
-import { useEntityData } from '../../../EntityContext';
+import { useEntityData } from '../../../../../entity/shared/EntityContext';
 import { useEntityRegistry } from '../../../../../useEntityRegistry';
 import { getPlatformName } from '../../../utils';
 import { getDisplayedEntityType } from '../header/utils';

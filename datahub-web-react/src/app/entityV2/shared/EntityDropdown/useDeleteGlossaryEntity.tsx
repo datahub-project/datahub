@@ -1,6 +1,6 @@
 import { message, Modal } from 'antd';
 import { useState } from 'react';
-import { useEntityData } from '../EntityContext';
+import { useEntityData } from '../../../entity/shared/EntityContext';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { useDeleteGlossaryEntityMutation } from '../../../../graphql/glossary.generated';
 

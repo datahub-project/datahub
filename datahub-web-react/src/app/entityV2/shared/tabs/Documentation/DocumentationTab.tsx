@@ -12,7 +12,7 @@ import { EmptyTab } from '../../components/styled/EmptyTab';
 import { DescriptionEditor } from './components/DescriptionEditor';
 import { LinkList } from './components/LinkList';
 
-import { useEntityData, useRefetch, useRouteToTab } from '../../EntityContext';
+import { useEntityData, useRefetch, useRouteToTab } from '../../../../entity/shared/EntityContext';
 import { EDITED_DESCRIPTIONS_CACHE_NAME } from '../../utils';
 import { Editor } from './components/editor/Editor';
 import { DescriptionPreviewModal } from './components/DescriptionPreviewModal';

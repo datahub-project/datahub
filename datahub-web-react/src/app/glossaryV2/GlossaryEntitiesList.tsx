@@ -6,8 +6,8 @@ import { ChildGlossaryTermFragment } from '../../graphql/glossaryNode.generated'
 import { EntityType, GlossaryNode, GlossaryTerm } from '../../types.generated';
 import { useEntityRegistry } from '../useEntityRegistry';
 import GlossaryEntityItem from './GlossaryEntityItem';
-import { useEntityData } from '../entityV2/shared/EntityContext';
-import { GenericEntityProperties } from '../entityV2/shared/types';
+import { useEntityData } from '../entity/shared/EntityContext';
+import { GenericEntityProperties } from '../entity/shared/types';
 import { REDESIGN_COLORS } from '../entityV2/shared/constants';
 
 interface GlossaryEntityWrapperProps {

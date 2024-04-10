@@ -5,7 +5,7 @@ import React from 'react';
 import { mocks } from '../../../../../../Mocks';
 import { EntityType } from '../../../../../../types.generated';
 import TestPageContainer from '../../../../../../utils/test-utils/TestPageContainer';
-import { EntityContext } from '../../../EntityContext';
+import { EntityContext } from '../../../../../entity/shared/EntityContext';
 import { getShouldShowProposeButton } from '../components/DescriptionEditor';
 import { DocumentationTab } from '../DocumentationTab';
 

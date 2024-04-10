@@ -1,6 +1,6 @@
 import React from 'react';
 import styled from 'styled-components';
-import { useEntityData } from '../../../../../EntityContext';
+import { useEntityData } from '../../../../../../../entity/shared/EntityContext';
 import { SidebarHeaderSectionColumns } from '../../SidebarHeaderSectionColumns';
 import SidebarPopularityHeaderSection from './SidebarPopularityHeaderSection';
 import SidebarTopUsersHeaderSection from '../../shared/SidebarTopUsersHeaderSection';

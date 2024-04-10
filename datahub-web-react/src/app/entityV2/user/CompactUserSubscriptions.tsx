@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Container, SubscriptionContainer } from '../shared/SidebarStyledComponents';
 import { EntityLink } from '../../homeV2/reference/sections/EntityLink';
-import { GenericEntityProperties } from '../shared/types';
+import { GenericEntityProperties } from '../../entity/shared/types';
 import { ShowMoreSection } from '../shared/sidebarSection/ShowMoreSection';
 import { DataHubSubscription } from '../../../types.generated';
 

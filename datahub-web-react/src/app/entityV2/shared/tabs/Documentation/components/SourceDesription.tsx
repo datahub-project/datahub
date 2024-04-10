@@ -1,6 +1,6 @@
 import React from 'react';
 import styled from 'styled-components';
-import { useEntityData } from '../../../EntityContext';
+import { useEntityData } from '../../../../../entity/shared/EntityContext';
 import { ANTD_GRAY } from '../../../constants';
 import DescriptionSection from '../../../containers/profile/sidebar/AboutSection/DescriptionSection';
 import { getPlatformName } from '../../../utils';

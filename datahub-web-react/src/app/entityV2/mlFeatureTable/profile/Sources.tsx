@@ -5,7 +5,7 @@ import { GetMlFeatureTableQuery } from '../../../../graphql/mlFeatureTable.gener
 import { Dataset, EntityType } from '../../../../types.generated';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { PreviewType } from '../../Entity';
-import { useBaseEntity } from '../../shared/EntityContext';
+import { useBaseEntity } from '../../../entity/shared/EntityContext';
 import { notEmpty } from '../../shared/utils';
 
 const ViewRawButtonContainer = styled.div`

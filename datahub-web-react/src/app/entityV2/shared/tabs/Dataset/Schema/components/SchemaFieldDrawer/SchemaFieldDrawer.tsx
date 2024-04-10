@@ -11,7 +11,7 @@ import {
     TimeWindow,
     UsageQueryResult,
 } from '../../../../../../../../types.generated';
-import { useBaseEntity } from '../../../../../EntityContext';
+import { useBaseEntity } from '../../../../../../../entity/shared/EntityContext';
 import { REDESIGN_COLORS } from '../../../../../constants';
 import { SchemaTimelineSection } from '../../../Timeline/SchemaTimelineSection';
 import { AboutFieldTab } from './AboutFieldTab';

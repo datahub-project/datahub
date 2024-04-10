@@ -7,7 +7,7 @@ import { MATCHES_CONTAINER_HEIGHT } from '../../../../../searchV2/SearchResultLi
 import { MatchContextContianer } from '../../../../../searchV2/matches/MatchContextContainer';
 import { PreviewSection } from '../../../../../shared/MatchesContext';
 import { useEntityRegistry } from '../../../../../useEntityRegistry';
-import { EntityAndType } from '../../../types';
+import { EntityAndType } from '../../../../../entity/shared/types';
 import { useInitializeColumnLineageCards } from './useInitializeColumnLineageCards';
 
 export const StyledList = styled(List)`

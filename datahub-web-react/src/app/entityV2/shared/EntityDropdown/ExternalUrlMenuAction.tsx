@@ -4,7 +4,7 @@ import LaunchIcon from '@mui/icons-material/Launch';
 import { Tooltip } from 'antd';
 import { EntityType } from '../../../../types.generated';
 import analytics, { EventType, EntityActionType } from '../../../analytics';
-import { useEntityData } from '../EntityContext';
+import { useEntityData } from '../../../entity/shared/EntityContext';
 import { getPlatformName } from '../utils';
 import { ActionMenuItem } from './styledComponents';
 

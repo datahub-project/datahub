@@ -8,7 +8,7 @@ import { useIsNestedDomainsEnabled } from '../../../useAppConfig';
 import { isMoveDisabled } from './utils';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { EntityType } from '../../../../types.generated';
-import { useEntityData } from '../EntityContext';
+import { useEntityData } from '../../../entity/shared/EntityContext';
 import { ActionMenuItem } from './styledComponents';
 
 export default function MoveEntityMenuAction() {

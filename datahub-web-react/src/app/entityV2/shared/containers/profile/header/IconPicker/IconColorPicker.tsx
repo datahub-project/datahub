@@ -5,7 +5,7 @@ import styled from 'styled-components';
 
 import { useUpdateDisplayPropertiesMutation } from '../../../../../../../graphql/mutations.generated';
 import { IconLibrary } from '../../../../../../../types.generated';
-import { useEntityData, useRefetch } from '../../../../EntityContext';
+import { useEntityData, useRefetch } from '../../../../../../entity/shared/EntityContext';
 import { ChatIconPicker } from './IconPicker';
 
 type IconColorPickerProps = {

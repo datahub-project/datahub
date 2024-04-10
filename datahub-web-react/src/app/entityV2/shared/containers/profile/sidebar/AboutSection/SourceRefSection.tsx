@@ -1,7 +1,7 @@
 import { LinkOutlined } from '@ant-design/icons';
 import { Typography } from 'antd';
 import React from 'react';
-import { useEntityData } from '../../../../EntityContext';
+import { useEntityData } from '../../../../../../entity/shared/EntityContext';
 import { SidebarHeader } from '../SidebarHeader';
 import { StyledLink } from '../LinkButton';
 

@@ -8,7 +8,7 @@ import {
     HAS_FAILING_ASSERTIONS_FILTER_NAME,
 } from '../../../../search/utils/constants';
 import { useAppConfig } from '../../../../useAppConfig';
-import { useEntityData } from '../../EntityContext';
+import { useEntityData } from '../../../../entity/shared/EntityContext';
 import FailingInputs from './FailingInputs';
 import { DATASET_COUNT, generateQueryVariables } from './utils';
 

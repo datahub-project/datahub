@@ -16,19 +16,8 @@ import {
     useUpdateGlossaryEntityDataOnChange,
     defaultTabDisplayConfig,
 } from './utils';
-import {
-    EntitySidebarSection,
-    EntitySubHeaderSection,
-    EntitySidebarTab,
-    EntityTab,
-    GenericEntityProperties,
-    GenericEntityUpdate,
-    TabContextType,
-    TabRenderType,
-} from '../../types';
 import { EntityHeader } from './header/EntityHeader';
 import { EntityTabs } from './header/EntityTabs';
-import { EntityContext } from '../../EntityContext';
 import useIsLineageMode from '../../../../lineage/utils/useIsLineageMode';
 import { useEntityRegistry } from '../../../../useEntityRegistry';
 import LineageExplorer from '../../../../lineage/LineageExplorer';
@@ -54,6 +43,13 @@ import EntitySidebarContext from '../../../../sharedV2/EntitySidebarContext';
 import TabFullsizeContext from '../../../../shared/TabFullsizedContext';
 import { useUpdateDomainEntityDataOnChange as useUpdateDomainEntityDataOnChangeV2 } from '../../../../domainV2/utils';
 import { ENTITY_PROFILE_V2_SUBSCRIPTION_ID } from '../../../../onboarding/configV2/EntityProfileOnboardingConfig';
+import { EntityContext } from '../../../../entity/shared/EntityContext';
+import {
+    EntitySubHeaderSection,
+    GenericEntityProperties,
+    GenericEntityUpdate,
+} from '../../../../entity/shared/types';
+import { EntitySidebarSection, EntitySidebarTab, EntityTab, TabContextType, TabRenderType } from '../../types';
 
 type Props<T, U> = {
     urn: string;

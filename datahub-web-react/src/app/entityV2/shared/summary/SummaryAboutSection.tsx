@@ -2,7 +2,7 @@ import React, { useCallback, useState } from 'react';
 import styled from 'styled-components';
 import { Button } from 'antd';
 import { EditOutlined, FileOutlined } from '@ant-design/icons';
-import { useEntityData, useRefetch, useRouteToTab } from '../EntityContext';
+import { useEntityData, useRefetch, useRouteToTab } from '../../../entity/shared/EntityContext';
 import { Editor } from '../tabs/Documentation/components/editor/Editor';
 import { EmptyTab } from '../components/styled/EmptyTab';
 import { AddLinkModal } from '../components/styled/AddLinkModal';

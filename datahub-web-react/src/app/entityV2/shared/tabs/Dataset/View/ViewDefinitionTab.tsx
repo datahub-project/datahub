@@ -4,7 +4,7 @@ import styled from 'styled-components';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { GetDatasetQuery } from '../../../../../../graphql/dataset.generated';
 import { ANTD_GRAY } from '../../../constants';
-import { useBaseEntity } from '../../../EntityContext';
+import { useBaseEntity } from '../../../../../entity/shared/EntityContext';
 import { InfoItem } from '../../../components/styled/InfoItem';
 
 const InfoSection = styled.div`

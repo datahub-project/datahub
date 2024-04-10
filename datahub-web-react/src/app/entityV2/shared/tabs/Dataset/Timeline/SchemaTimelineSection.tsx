@@ -2,7 +2,7 @@ import React from 'react';
 import styled from 'styled-components';
 import { Typography } from 'antd';
 import { VerticalTimeline, VerticalTimelineElement } from 'react-vertical-timeline-component';
-import { useEntityData } from '../../../EntityContext';
+import { useEntityData } from '../../../../../entity/shared/EntityContext';
 import { useGetTimelineQuery } from '../../../../../../graphql/timeline.generated';
 import { ChangeCategoryType } from '../../../../../../types.generated';
 import 'react-vertical-timeline-component/style.min.css';

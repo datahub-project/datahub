@@ -1,5 +1,5 @@
 import React from 'react';
-import { useEntityData } from '../../shared/EntityContext';
+import { useEntityData } from '../../../entity/shared/EntityContext';
 import { useGetSearchResultsForMultipleQuery } from '../../../../graphql/search.generated';
 import { EntityType, FilterOperator } from '../../../../types.generated';
 import { HorizontalList } from '../../shared/summary/ListComponents';

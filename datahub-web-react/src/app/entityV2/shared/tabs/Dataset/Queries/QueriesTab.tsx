@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { debounce } from 'lodash';
 import { useListQueriesQuery } from '../../../../../../graphql/query.generated';
 import { GetDatasetQuery, useGetRecentQueriesQuery } from '../../../../../../graphql/dataset.generated';
-import { useBaseEntity } from '../../../EntityContext';
+import { useBaseEntity } from '../../../../../entity/shared/EntityContext';
 import getTopNQueries from './utils/getTopNQueries';
 import { useAppConfig } from '../../../../../useAppConfig';
 import QueryBuilderModal from './QueryBuilderModal';

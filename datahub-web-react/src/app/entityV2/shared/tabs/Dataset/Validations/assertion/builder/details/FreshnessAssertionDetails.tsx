@@ -14,7 +14,7 @@ import { EvaluationScheduleBuilder } from '../steps/freshness/EvaluationSchedule
 import { DatasetFreshnessScheduleBuilder } from '../steps/freshness/DatasetFreshnessScheduleBuilder';
 import { DatasetFreshnessSourceBuilder } from '../steps/freshness/DatasetFreshnessSourceBuilder';
 import { DatasetFreshnessFilterBuilder } from '../steps/freshness/DatasetFreshnessFilterBuilder';
-import { useEntityData } from '../../../../../../EntityContext';
+import { useEntityData } from '../../../../../../../../entity/shared/EntityContext';
 
 const Section = styled.div`
     display: flex;

@@ -1,6 +1,6 @@
 import React from 'react';
 import styled from 'styled-components';
-import { useBaseEntity, useEntityData } from '../../shared/EntityContext';
+import { useBaseEntity, useEntityData } from '../../../entity/shared/EntityContext';
 import { GetChartQuery } from '../../../../graphql/chart.generated';
 import ChartFieldsTable from './ChartFieldsTable';
 import { SchemaField } from '../../../../types.generated';

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Table, Empty } from 'antd';
 import styled from 'styled-components';
-import { useEntityData } from '../../EntityContext';
+import { useEntityData } from '../../../../entity/shared/EntityContext';
 import TabHeader from '../../../../entity/shared/tabs/Properties/TabHeader';
 import useUpdateExpandedRowsFromFilter from '../../../../entity/shared/tabs/Properties/useUpdateExpandedRowsFromFilter';
 import {

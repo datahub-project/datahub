@@ -5,7 +5,7 @@ import styled from 'styled-components/macro';
 import { useUpdateNameMutation } from '../../../../../../graphql/mutations.generated';
 import { getParentNodeToUpdate, updateGlossarySidebar } from '../../../../../glossary/utils';
 import { useEntityRegistry } from '../../../../../useEntityRegistry';
-import { useEntityData, useRefetch } from '../../../EntityContext';
+import { useEntityData, useRefetch } from '../../../../../entity/shared/EntityContext';
 import { useGlossaryEntityData } from '../../../GlossaryEntityContext';
 import { REDESIGN_COLORS } from '../../../constants';
 import CompactContext from '../../../../../shared/CompactContext';

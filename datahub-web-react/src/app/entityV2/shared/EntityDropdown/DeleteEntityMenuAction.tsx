@@ -8,7 +8,7 @@ import { useEntityRegistry } from '../../../useEntityRegistry';
 import useDeleteEntity from './useDeleteEntity';
 import { getEntityProfileDeleteRedirectPath } from '../../../shared/deleteUtils';
 import { EntityType } from '../../../../types.generated';
-import { useEntityData } from '../EntityContext';
+import { useEntityData } from '../../../entity/shared/EntityContext';
 import { ActionMenuItem } from './styledComponents';
 
 interface Props {

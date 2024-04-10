@@ -5,7 +5,7 @@ import styled from 'styled-components/macro';
 import { LineageDirection } from '../../../../../types.generated';
 import { UnionType } from '../../../../search/utils/constants';
 import { useEntityRegistry } from '../../../../useEntityRegistry';
-import { useEntityData } from '../../EntityContext';
+import { useEntityData } from '../../../../entity/shared/EntityContext';
 import { ANTD_GRAY, SEARCH_COLORS } from '../../constants';
 import { ImpactAnalysis } from './ImpactAnalysis';
 import { LineageTabContext } from './LineageTabContext';

@@ -1,5 +1,5 @@
 import React from 'react';
-import { useBaseEntity } from '../../EntityContext';
+import { useBaseEntity } from '../../../../entity/shared/EntityContext';
 import { EntityType } from '../../../../../types.generated';
 import { EntityList } from '../Entity/components/EntityList';
 import { useEntityRegistry } from '../../../../useEntityRegistry';

@@ -7,7 +7,7 @@ import { SearchBar } from '../../../../../search/SearchBar';
 import { useEntityRegistry } from '../../../../../useEntityRegistry';
 import { AndFilterInput } from '../../../../../../types.generated';
 import { SearchSelectBar } from './SearchSelectBar';
-import { EntityAndType } from '../../../types';
+import { EntityAndType } from '../../../../../entity/shared/types';
 import { DownloadSearchResultsInput, DownloadSearchResults } from '../../../../../search/utils/types';
 import SearchMenuItems from '../../../../../sharedV2/search/SearchMenuItems';
 

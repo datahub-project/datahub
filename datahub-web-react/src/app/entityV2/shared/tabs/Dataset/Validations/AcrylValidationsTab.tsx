@@ -3,7 +3,7 @@ import { Button } from 'antd';
 import { useHistory, useLocation } from 'react-router';
 import styled from 'styled-components';
 import { AuditOutlined, FileDoneOutlined, FileProtectOutlined } from '@ant-design/icons';
-import { useEntityData } from '../../../EntityContext';
+import { useEntityData } from '../../../../../entity/shared/EntityContext';
 import { AcrylTestResults } from './AcrylTestResults';
 import TabToolbar from '../../../components/styled/TabToolbar';
 import { useGetValidationsTab } from './useGetValidationsTab';

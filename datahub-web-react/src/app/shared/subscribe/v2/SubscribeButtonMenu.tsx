@@ -3,7 +3,7 @@ import SubscriptionDrawer from '../drawer/SubscriptionDrawer';
 import useSubscription from '../useSubscription';
 import useDeleteSubscription from '../useDeleteSubscription';
 import useGroupRelationships from '../useGroupRelationships';
-import { useEntityData } from '../../../entityV2/shared/EntityContext';
+import { useEntityData } from '../../../entity/shared/EntityContext';
 import { StyledMenuItem } from '../../share/v2/styledComponents';
 
 const DROPDOWN_KEYS = {

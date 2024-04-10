@@ -7,7 +7,7 @@ import { EntityType, Owner } from '../../../../../../types.generated';
 import { getNameFromType } from '../../../containers/profile/sidebar/Ownership/ownershipUtils';
 import { useEntityRegistry } from '../../../../../useEntityRegistry';
 import analytics, { EventType, EntityActionType } from '../../../../../analytics';
-import { useEntityData } from '../../../EntityContext';
+import { useEntityData } from '../../../../../entity/shared/EntityContext';
 import OwnerContent from './OwnerContent';
 
 const OwnerTag = styled(Tag)`

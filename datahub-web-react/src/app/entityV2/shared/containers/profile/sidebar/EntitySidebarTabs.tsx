@@ -2,7 +2,7 @@ import React, { useContext } from 'react';
 import styled from 'styled-components/macro';
 import { Tabs, Tooltip } from 'antd';
 import { EntitySidebarTab } from '../../../types';
-import { useBaseEntity, useEntityData } from '../../../EntityContext';
+import { useBaseEntity, useEntityData } from '../../../../../entity/shared/EntityContext';
 import SidebarCollapseIcon from './SidebarCollapseIcon';
 import EntitySidebarContext from '../../../../../sharedV2/EntitySidebarContext';
 import { REDESIGN_COLORS } from '../../../constants';

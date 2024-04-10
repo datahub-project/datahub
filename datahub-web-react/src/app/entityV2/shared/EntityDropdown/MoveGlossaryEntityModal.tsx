@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import styled from 'styled-components/macro';
 import { message, Button, Modal, Typography, Form } from 'antd';
-import { useEntityData, useRefetch } from '../EntityContext';
+import { useEntityData, useRefetch } from '../../../entity/shared/EntityContext';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { useUpdateParentNodeMutation } from '../../../../graphql/glossary.generated';
 import NodeParentSelect from './NodeParentSelect';

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import styled from 'styled-components';
 import { Checkbox, Empty, Table } from 'antd';
 import { Assertion, AssertionRunStatus, AssertionType, DataContract, Entity } from '../../../../../../types.generated';
-import { useEntityData } from '../../../EntityContext';
+import { useEntityData } from '../../../../../entity/shared/EntityContext';
 import { ActionsColumn, DetailsColumn } from './AcrylAssertionsTableColumns';
 import { AssertionProfileDrawer } from './assertion/profile/AssertionProfileDrawer';
 import { ANTD_GRAY } from '../../../constants';

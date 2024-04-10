@@ -10,7 +10,7 @@ import {
 import { EntityType } from '../../../../types.generated';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import NodeParentSelect from './NodeParentSelect';
-import { useEntityData, useRefetch } from '../EntityContext';
+import { useEntityData, useRefetch } from '../../../entity/shared/EntityContext';
 import {
     useProposeCreateGlossaryNodeMutation,
     useProposeCreateGlossaryTermMutation,

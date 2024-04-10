@@ -3,7 +3,7 @@ import { message, Modal, Button, Form, Input, Typography, Select } from 'antd';
 import { useApolloClient } from '@apollo/client';
 import TextArea from 'antd/lib/input/TextArea';
 import analytics, { EventType, EntityActionType } from '../../../../../analytics';
-import { useEntityData } from '../../../EntityContext';
+import { useEntityData } from '../../../../../entity/shared/EntityContext';
 import { EntityType, IncidentSourceType, IncidentState, IncidentType } from '../../../../../../types.generated';
 import { INCIDENT_DISPLAY_TYPES, PAGE_SIZE, addActiveIncidentToCache } from '../incidentUtils';
 import { useRaiseIncidentMutation } from '../../../../../../graphql/mutations.generated';

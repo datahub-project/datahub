@@ -10,7 +10,7 @@ import DeleteEntityMenuItem from './DeleteEntityMenuAction';
 import MoreOptionsMenuAction from './MoreOptionsMenuAction';
 import { SubscribeMenuAction } from '../../../shared/subscribe/v2/SubscribeMenuAction';
 import EntitySidebarContext from '../../../sharedV2/EntitySidebarContext';
-import { useEntityData, useRefetch } from '../EntityContext';
+import { useEntityData, useRefetch } from '../../../entity/shared/EntityContext';
 import { ENTITY_PROFILE_V2_SUBSCRIPTION_ID } from '../../../onboarding/configV2/EntityProfileOnboardingConfig';
 
 export enum EntityMenuItems {

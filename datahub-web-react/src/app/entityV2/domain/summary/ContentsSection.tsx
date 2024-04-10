@@ -2,7 +2,7 @@ import React from 'react';
 import { useHistory } from 'react-router';
 import styled from 'styled-components';
 import { AppstoreOutlined } from '@ant-design/icons';
-import { useEntityData } from '../../shared/EntityContext';
+import { useEntityData } from '../../../entity/shared/EntityContext';
 import { useGetDomainEntitySummaryQuery } from '../../../../graphql/domain.generated';
 import {
     getContentsSummary,

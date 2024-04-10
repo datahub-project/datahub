@@ -1,6 +1,6 @@
 import React from 'react';
 import { DatasetStatsSummary as DatasetStatsSummaryObj, EntityType } from '../../../../../../types.generated';
-import { useBaseEntity } from '../../../../shared/EntityContext';
+import { useBaseEntity } from '../../../../../entity/shared/EntityContext';
 import { GetDatasetQuery } from '../../../../../../graphql/dataset.generated';
 import { DatasetStatsSummary } from '../../../shared/DatasetStatsSummary';
 import { useEntityRegistry } from '../../../../../useEntityRegistry';

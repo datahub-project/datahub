@@ -2,7 +2,7 @@ import React, { useContext } from 'react';
 import styled from 'styled-components';
 import { useLineageV2 } from '../../../../lineageV2/useLineageV2';
 import { EntityType, LineageDirection } from '../../../../../types.generated';
-import { useEntityData } from '../../EntityContext';
+import { useEntityData } from '../../../../entity/shared/EntityContext';
 import { TabRenderType } from '../../types';
 import { CompactLineageTab } from './CompactLineageTab';
 import LineageExplorer from '../../../../lineage/LineageExplorer';

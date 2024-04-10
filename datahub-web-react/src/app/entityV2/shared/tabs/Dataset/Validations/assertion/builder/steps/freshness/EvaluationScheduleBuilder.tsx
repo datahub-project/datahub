@@ -10,10 +10,10 @@ import { ANTD_GRAY, REDESIGN_COLORS } from '../../../../../../../constants';
 import { TimezoneSelect } from '../../../../../../../../../ingest/source/builder/TimezoneSelect';
 import { DEFAULT_ASSERTION_EVALUATION_SCHEDULE } from '../../constants';
 import { adjustCronText } from '../../utils';
-import { useEntityData } from '../../../../../../../EntityContext';
 import { getPlatformName } from '../../../../../../../utils';
 import { TruncatedTextWithTooltip } from '../../../../../../../../../shared/TruncatedTextWithTooltip';
 import { getEvaluationScheduleTitle, getEvaluationScheduleTooltipDescription } from '../utils';
+import { useEntityData } from '../../../../../../../../../entity/shared/EntityContext';
 
 const TitleSection = styled.div`
     display: flex;

@@ -1,5 +1,5 @@
 import React from 'react';
-import { useEntityData } from '../shared/EntityContext';
+import { useEntityData } from '../../entity/shared/EntityContext';
 import { SubType } from '../shared/components/subtypes';
 import TableauWorkbookSummaryTab from './tableau/TableauWorkbookSummaryTab';
 

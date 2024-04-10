@@ -1,7 +1,7 @@
 import React from 'react';
 import styled from 'styled-components';
 import { useEntityRegistry } from '../../../../../useEntityRegistry';
-import { useEntityData } from '../../../EntityContext';
+import { useEntityData } from '../../../../../entity/shared/EntityContext';
 import { Container, DataPlatform, EntityType } from '../../../../../../types.generated';
 import EntityTitleLoadingSection from '../header/EntityHeaderLoadingSection';
 import PlatformHeaderIcons from '../header/PlatformContent/PlatformHeaderIcons';

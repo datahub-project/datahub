@@ -8,7 +8,7 @@ import { UpdateDatasetMutation } from '../../../../../../graphql/dataset.generat
 import UpdateDescriptionModal from '../../../../shared/components/legacy/DescriptionModal';
 import { removeMarkdown } from '../../../../shared/components/styled/StripMarkdownText';
 import SchemaEditableContext from '../../../../../shared/SchemaEditableContext';
-import { useEntityData } from '../../../../shared/EntityContext';
+import { useEntityData } from '../../../../../entity/shared/EntityContext';
 import analytics, { EventType, EntityActionType } from '../../../../../analytics';
 import { Editor } from '../../../../shared/tabs/Documentation/components/editor/Editor';
 import { REDESIGN_COLORS } from '../../../../shared/constants';

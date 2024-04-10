@@ -4,7 +4,7 @@ import EmptyGlossarySection from '../../glossaryV2/EmptyGlossarySection';
 import GlossaryEntitiesList from '../../glossaryV2/GlossaryEntitiesList';
 import { useEntityRegistry } from '../../useEntityRegistry';
 import { sortGlossaryTerms } from '../glossaryTerm/utils';
-import { useEntityData } from '../shared/EntityContext';
+import { useEntityData } from '../../entity/shared/EntityContext';
 import { sortGlossaryNodes } from './utils';
 
 function ChildrenTab() {
