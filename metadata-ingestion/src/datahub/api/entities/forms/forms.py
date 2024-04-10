@@ -23,6 +23,7 @@ from datahub.emitter.mce_builder import (
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.graph.client import DataHubGraph, get_default_graph
 from datahub.metadata.schema_classes import (
+    FormActorAssignmentClass,
     FormInfoClass,
     FormPromptClass,
     OwnerClass,
@@ -82,22 +83,30 @@ class Entities(ConfigModel):
     filters: Optional[Filters] = None
 
 
+class Actors(ConfigModel):
+    owners: Optional[bool] = True
+    groups: Optional[List[str]] = None
+    users: Optional[List[str]] = None
+
+
 class Forms(ConfigModel):
+    version: Optional[Literal[1]] = None
     id: Optional[str] = None
     urn: Optional[str] = None
     name: str
     description: Optional[str] = None
-    prompts: List[Prompt] = []
     type: Optional[str] = None
-    version: Optional[Literal[1]] = None
+    prompts: List[Prompt] = []
     entities: Optional[Entities] = None
+    actors: Optional[Actors] = None
     owners: Optional[List[str]] = None  # can be user IDs or urns
     group_owners: Optional[List[str]] = None  # can be group IDs or urns
 
     @validator("urn", pre=True, always=True)
     def urn_must_be_present(cls, v, values):
         if not v:
-            assert values.get("id") is not None, "Form id must be present if urn is not"
+            if values.get("id") is None:
+                raise ValueError("Form id must be present if urn is not")
             return f"urn:li:form:{values['id']}"
         return v
 
@@ -122,8 +131,25 @@ class Forms(ConfigModel):
                             aspect=FormInfoClass(
                                 name=form.name,
                                 description=form.description,
-                                prompts=form.validate_prompts(emitter),
                                 type=form.type,
+                                prompts=form.validate_prompts(emitter),
+                                actors=(
+                                    FormActorAssignmentClass(
+                                        owners=form.actors.owners,
+                                        groups=(
+                                            Forms.format_groups(form.actors.groups)
+                                            if form.actors.groups is not None
+                                            else None
+                                        ),
+                                        users=(
+                                            Forms.format_users(form.actors.users)
+                                            if form.actors.users is not None
+                                            else None
+                                        ),
+                                    )
+                                    if form.actors is not None
+                                    else None
+                                ),
                             ),
                         )
                         emitter.emit_mcp(mcp)
@@ -188,11 +214,13 @@ class Forms(ConfigModel):
                         title=prompt.title,
                         description=prompt.description,
                         type=prompt.type,
-                        structuredPropertyParams=StructuredPropertyParamsClass(
-                            urn=prompt.structured_property_urn
-                        )
-                        if prompt.structured_property_urn
-                        else None,
+                        structuredPropertyParams=(
+                            StructuredPropertyParamsClass(
+                                urn=prompt.structured_property_urn
+                            )
+                            if prompt.structured_property_urn
+                            else None
+                        ),
                         required=prompt.required,
                     )
                 )
@@ -303,7 +331,8 @@ class Forms(ConfigModel):
     @staticmethod
     def from_datahub(graph: DataHubGraph, urn: str) -> "Forms":
         form: Optional[FormInfoClass] = graph.get_aspect(urn, FormInfoClass)
-        assert form is not None
+        if form is None:
+            raise Exception("FormInfo aspect is None. Unable to create form.")
         prompts = []
         for prompt_raw in form.prompts:
             prompts.append(
@@ -312,42 +341,61 @@ class Forms(ConfigModel):
                     title=prompt_raw.title,
                     description=prompt_raw.description,
                     type=prompt_raw.type,
-                    structured_property_urn=prompt_raw.structuredPropertyParams.urn
-                    if prompt_raw.structuredPropertyParams
-                    else None,
+                    structured_property_urn=(
+                        prompt_raw.structuredPropertyParams.urn
+                        if prompt_raw.structuredPropertyParams
+                        else None
+                    ),
                 )
             )
         return Forms(
             urn=urn,
             name=form.name,
             description=form.description,
-            prompts=prompts,
             type=form.type,
+            prompts=prompts,
+            actors=(
+                Actors(
+                    owners=form.actors.owners,
+                    groups=form.actors.groups,
+                    users=form.actors.users,
+                )
+                if form.actors is not None
+                else None
+            ),
         )
 
     @staticmethod
-    def format_owners(owners: List[str]) -> List[str]:
-        formatted_owners: List[str] = []
+    def format_users(users: List[str]) -> List[str]:
+        formatted_users: List[str] = []
 
-        for owner in owners:
-            if owner.startswith("urn:li:"):
-                formatted_owners.append(owner)
+        for user in users:
+            if user.startswith("urn:li:"):
+                formatted_users.append(user)
             else:
-                formatted_owners.append(make_user_urn(owner))
+                formatted_users.append(make_user_urn(user))
 
-        return formatted_owners
+        return formatted_users
+
+    @staticmethod
+    def format_groups(groups: List[str]) -> List[str]:
+        formatted_groups: List[str] = []
+
+        for group in groups:
+            if group.startswith("urn:li:"):
+                formatted_groups.append(group)
+            else:
+                formatted_groups.append(make_group_urn(group))
+
+        return formatted_groups
+
+    @staticmethod
+    def format_owners(owners: List[str]) -> List[str]:
+        return Forms.format_users(owners)
 
     @staticmethod
     def format_group_owners(owners: List[str]) -> List[str]:
-        formatted_owners: List[str] = []
-
-        for owner in owners:
-            if owner.startswith("urn:li:"):
-                formatted_owners.append(owner)
-            else:
-                formatted_owners.append(make_group_urn(owner))
-
-        return formatted_owners
+        return Forms.format_groups(owners)
 
     def to_yaml(
         self,
