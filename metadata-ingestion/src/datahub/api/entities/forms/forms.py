@@ -46,13 +46,13 @@ class PromptType(Enum):
 
 
 class Prompt(ConfigModel):
-    id: Optional[str]
+    id: Optional[str] = None
     title: str
-    description: Optional[str]
+    description: Optional[str] = None
     type: str
-    structured_property_id: Optional[str]
-    structured_property_urn: Optional[str]
-    required: Optional[bool]
+    structured_property_id: Optional[str] = None
+    structured_property_urn: Optional[str] = None
+    required: Optional[bool] = None
 
     @validator("structured_property_urn", pre=True, always=True)
     def structured_property_urn_must_be_present(cls, v, values):
@@ -71,28 +71,28 @@ class FormType(Enum):
 
 
 class Filters(ConfigModel):
-    types: Optional[List[str]]
-    platforms: Optional[List[str]]
-    domains: Optional[List[str]]
-    containers: Optional[List[str]]
+    types: Optional[List[str]] = None
+    platforms: Optional[List[str]] = None
+    domains: Optional[List[str]] = None
+    containers: Optional[List[str]] = None
 
 
 class Entities(ConfigModel):
-    urns: Optional[List[str]]
-    filters: Optional[Filters]
+    urns: Optional[List[str]] = None
+    filters: Optional[Filters] = None
 
 
 class Forms(ConfigModel):
-    id: Optional[str]
-    urn: Optional[str]
+    id: Optional[str] = None
+    urn: Optional[str] = None
     name: str
-    description: Optional[str]
+    description: Optional[str] = None
     prompts: List[Prompt] = []
-    type: Optional[str]
-    version: Optional[Literal[1]]
-    entities: Optional[Entities]
-    owners: Optional[List[str]]  # can be user IDs or urns
-    group_owners: Optional[List[str]]  # can be group IDs or urns
+    type: Optional[str] = None
+    version: Optional[Literal[1]] = None
+    entities: Optional[Entities] = None
+    owners: Optional[List[str]] = None  # can be user IDs or urns
+    group_owners: Optional[List[str]] = None  # can be group IDs or urns
 
     @validator("urn", pre=True, always=True)
     def urn_must_be_present(cls, v, values):
