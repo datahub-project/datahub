@@ -145,7 +145,10 @@ class PostgresSource(SQLAlchemySource):
     config: PostgresConfig
 
     def __init__(self, config: PostgresConfig, ctx: PipelineContext):
-        super().__init__(config, ctx, "postgres")
+        super().__init__(config, ctx, self.get_platform())
+
+    def get_platform(self):
+        return "postgres"
 
     @classmethod
     def create(cls, config_dict, ctx):

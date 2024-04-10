@@ -45,6 +45,10 @@ class BIContainerSubTypes(str, Enum):
     QLIK_APP = "Qlik App"
 
 
+class JobContainerSubTypes(str, Enum):
+    NIFI_PROCESS_GROUP = "Process Group"
+
+
 class BIAssetSubTypes(str, Enum):
     # Generic SubTypes
     REPORT = "Report"
