@@ -7,12 +7,13 @@ import getAvatarColor from '../../shared/avatar/getAvatarColor';
 import { toLocalDateTimeString } from '../../shared/time/timeUtils';
 import { useEntityRegistry } from '../../useEntityRegistry';
 
-const StyledAvatar = styled(Avatar)<{ backgroundColor: string }>`
+const StyledAvatar = styled(Avatar)<{ $backgroundColor: string }>`
     color: #fff;
-    background-color: ${(props) => props.backgroundColor};
+    background-color: ${(props) => props.$backgroundColor};
     margin-right: 20px;
     height: 22px;
     width: 22px;
+
     .ant-avatar-string {
         text-align: center;
         line-height: 22px;
@@ -52,7 +53,7 @@ export default function UserAvatar({ createdActor, createdOn }: Props) {
                 </PopoverWrapper>
             }
         >
-            <StyledAvatar src={avatarPhotoUrl} backgroundColor={getAvatarColor(userName)}>
+            <StyledAvatar src={avatarPhotoUrl} $backgroundColor={getAvatarColor(userName)}>
                 {userName.charAt(0).toUpperCase()}
             </StyledAvatar>
         </Popover>

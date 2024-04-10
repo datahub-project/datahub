@@ -13,6 +13,7 @@ import OverflowTitle from '../../sharedV2/text/OverflowTitle';
 import { useEntityRegistry } from '../../useEntityRegistry';
 import { FetchStatus, getNodeColor, LineageEntity, onMouseDownCapturePreventSelect } from '../common';
 import { NUM_COLUMNS_PER_PAGE } from '../constants';
+import { EditLineageButton } from '../nodeCommon/EditLineageButton';
 import { FetchedEntityV2 } from '../types';
 import Columns from './Columns';
 import { ExpandLineageButton } from './ExpandLineageButton';
@@ -180,6 +181,7 @@ interface Props {
     setFilterText: Dispatch<SetStateAction<string>>;
     pageIndex: number;
     setPageIndex: Dispatch<SetStateAction<number>>;
+    refetch: Record<LineageDirection, () => void>;
 }
 
 export default React.memo(NodeContents);
@@ -207,6 +209,7 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
         numColumnsTotal,
         numFilteredColumns,
         numColumnsWithLineage,
+        refetch,
     } = props;
 
     const entityRegistry = useEntityRegistry();
@@ -224,6 +227,7 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
 
     const platformName = entityRegistry.getDisplayName(EntityType.DataPlatform, entity?.platform);
     const [nodeColor] = getNodeColor(type);
+
     return (
         <NodeWrapper
             selected={selected}
@@ -250,6 +254,20 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
                             display={fetchStatus[LineageDirection.Downstream] === FetchStatus.UNFETCHED}
                         />
                     )}
+                {fetchStatus[LineageDirection.Upstream] === FetchStatus.COMPLETE && (
+                    <EditLineageButton
+                        node={props}
+                        direction={LineageDirection.Upstream}
+                        refetch={refetch[LineageDirection.Upstream]}
+                    />
+                )}
+                {fetchStatus[LineageDirection.Downstream] === FetchStatus.COMPLETE && (
+                    <EditLineageButton
+                        node={props}
+                        direction={LineageDirection.Downstream}
+                        refetch={refetch[LineageDirection.Downstream]}
+                    />
+                )}
                 {fetchStatus[LineageDirection.Upstream] === FetchStatus.LOADING && (
                     <LoadingWrapper className="nodrag" style={{ left: -30 }}>
                         <Spin delay={urn === rootUrn ? undefined : 500} indicator={<LoadingOutlined />} />

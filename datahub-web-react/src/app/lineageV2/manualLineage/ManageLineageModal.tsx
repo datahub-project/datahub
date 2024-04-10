@@ -1,18 +1,20 @@
-import { LoadingOutlined } from '@ant-design/icons';
+import React, { useContext, useState } from 'react';
 import { Button, message, Modal } from 'antd';
-import React, { useState } from 'react';
 import styled from 'styled-components/macro';
-import { useGetEntityLineageQuery } from '../../../graphql/lineage.generated';
+import { toTitleCase } from '../../../graphql-mock/helper';
 import { EventType } from '../../analytics';
 import analytics from '../../analytics/analytics';
+import { useUserContext } from '../../context/useUserContext';
 import EntityRegistry from '../../entity/EntityRegistry';
-import { Direction, UpdatedLineages } from '../../lineage/types';
+import { Direction } from '../../lineage/types';
+import { LineageEntity, LineageNodesContext } from '../common';
 import AddEntityEdge from './AddEntityEdge';
 import LineageEntityView from './LineageEntityView';
 import LineageEdges from './LineageEdges';
-import { Entity, EntityType, LineageEdge } from '../../../types.generated';
+import { Entity, EntityType, LineageDirection, LineageEdge } from '../../../types.generated';
 import { useUpdateLineageMutation } from '../../../graphql/mutations.generated';
 import { useEntityRegistry } from '../../useEntityRegistry';
+import updateNodeContext from './updateNodeContext';
 
 const ModalFooter = styled.div`
     display: flex;
@@ -29,88 +31,44 @@ const StyledModal = styled(Modal)`
     }
 `;
 
-const LoadingWrapper = styled.div`
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    height: 350px;
-    font-size: 30px;
-`;
-
 interface Props {
-    entityUrn: string;
-    lineageDirection: Direction;
+    node: LineageEntity;
+    direction: LineageDirection;
     closeModal: () => void;
-    refetchEntity: () => void;
-    setUpdatedLineages: React.Dispatch<React.SetStateAction<UpdatedLineages>>;
-    showLoading?: boolean;
-    entityType?: EntityType;
-    entityPlatform?: string;
+    refetch?: () => void;
 }
 
-export default function ManageLineageModal({
-    entityUrn,
-    lineageDirection,
-    closeModal,
-    refetchEntity,
-    setUpdatedLineages,
-    showLoading,
-    entityType,
-    entityPlatform,
-}: Props) {
+export default function ManageLineageModal({ node, direction, closeModal, refetch }: Props) {
+    const nodeContext = useContext(LineageNodesContext);
+    const { user } = useUserContext();
     const entityRegistry = useEntityRegistry();
     const [entitiesToAdd, setEntitiesToAdd] = useState<Entity[]>([]);
     const [entitiesToRemove, setEntitiesToRemove] = useState<Entity[]>([]);
     const [updateLineage] = useUpdateLineageMutation();
 
-    const { data, loading } = useGetEntityLineageQuery({
-        variables: {
-            urn: entityUrn,
-            showColumns: false,
-            excludeDownstream: lineageDirection === Direction.Upstream,
-            excludeUpstream: lineageDirection === Direction.Downstream,
-        },
-    });
-
     function saveLineageChanges() {
-        const payload = buildUpdateLineagePayload(lineageDirection, entitiesToAdd, entitiesToRemove, entityUrn);
+        const payload = buildUpdateLineagePayload(direction, entitiesToAdd, entitiesToRemove, node.urn);
         updateLineage({ variables: { input: payload } })
             .then((res) => {
                 if (res.data?.updateLineage) {
                     closeModal();
-                    if (showLoading) {
-                        message.loading('Loading...');
-                    } else {
-                        message.success('Updated lineage!');
-                    }
-                    setTimeout(() => {
-                        refetchEntity();
-                        if (showLoading) {
-                            message.destroy();
-                            message.success('Updated lineage!');
-                        }
-                    }, 2000);
+                    message.success('Updated lineage, refetching graph!');
+                    updateNodeContext(node.urn, direction, user, nodeContext, entitiesToAdd, entitiesToRemove);
+                    refetch?.();
 
-                    setUpdatedLineages((updatedLineages) => ({
-                        ...updatedLineages,
-                        [entityUrn]: {
-                            lineageDirection,
-                            entitiesToAdd,
-                            urnsToRemove: entitiesToRemove.map((entity) => entity.urn),
-                        },
-                    }));
                     recordAnalyticsEvents({
-                        lineageDirection,
+                        direction,
                         entitiesToAdd,
                         entitiesToRemove,
                         entityRegistry,
-                        entityType,
-                        entityPlatform,
+                        entityType: node.type,
+                        entityPlatform: entityRegistry.getDisplayName(EntityType.DataPlatform, node.entity?.platform),
                     });
                 }
             })
-            .catch(() => {
+            .catch((e) => {
                 message.error('Error updating lineage');
+                console.warn(e);
             });
     }
 
@@ -118,10 +76,10 @@ export default function ManageLineageModal({
 
     return (
         <StyledModal
-            title={<TitleText>Manage {lineageDirection} Lineage</TitleText>}
-            visible
+            title={<TitleText>Manage {toTitleCase(direction.toLocaleLowerCase())} Lineage</TitleText>}
             onCancel={closeModal}
             keyboard
+            open
             footer={
                 <ModalFooter>
                     <Button onClick={closeModal} type="text">
@@ -133,58 +91,28 @@ export default function ManageLineageModal({
                 </ModalFooter>
             }
         >
-            {loading && (
-                <LoadingWrapper>
-                    <LoadingOutlined />
-                </LoadingWrapper>
-            )}
-            {!loading && (
-                <>
-                    {data?.entity && <LineageEntityView entity={data.entity} />}
-                    <AddEntityEdge
-                        lineageDirection={lineageDirection}
-                        setEntitiesToAdd={setEntitiesToAdd}
-                        entitiesToAdd={entitiesToAdd}
-                        entityUrn={entityUrn}
-                        entityType={entityType}
-                    />
-                    <LineageEdges
-                        entity={data?.entity}
-                        lineageDirection={lineageDirection}
-                        entitiesToAdd={entitiesToAdd}
-                        entitiesToRemove={entitiesToRemove}
-                        setEntitiesToAdd={setEntitiesToAdd}
-                        setEntitiesToRemove={setEntitiesToRemove}
-                    />
-                </>
-            )}
+            {node.entity && <LineageEntityView entity={node.entity} />}
+            <AddEntityEdge
+                direction={direction}
+                setEntitiesToAdd={setEntitiesToAdd}
+                entitiesToAdd={entitiesToAdd}
+                entityUrn={node.urn}
+                entityType={node.type}
+            />
+            <LineageEdges
+                parentUrn={node.urn}
+                direction={direction}
+                entitiesToAdd={entitiesToAdd}
+                entitiesToRemove={entitiesToRemove}
+                setEntitiesToAdd={setEntitiesToAdd}
+                setEntitiesToRemove={setEntitiesToRemove}
+            />
         </StyledModal>
     );
 }
 
-function buildUpdateLineagePayload(
-    lineageDirection: Direction,
-    entitiesToAdd: Entity[],
-    entitiesToRemove: Entity[],
-    entityUrn: string,
-) {
-    let edgesToAdd: LineageEdge[] = [];
-    let edgesToRemove: LineageEdge[] = [];
-
-    if (lineageDirection === Direction.Upstream) {
-        edgesToAdd = entitiesToAdd.map((entity) => ({ upstreamUrn: entity.urn, downstreamUrn: entityUrn }));
-        edgesToRemove = entitiesToRemove.map((entity) => ({ upstreamUrn: entity.urn, downstreamUrn: entityUrn }));
-    }
-    if (lineageDirection === Direction.Downstream) {
-        edgesToAdd = entitiesToAdd.map((entity) => ({ upstreamUrn: entityUrn, downstreamUrn: entity.urn }));
-        edgesToRemove = entitiesToRemove.map((entity) => ({ upstreamUrn: entityUrn, downstreamUrn: entity.urn }));
-    }
-
-    return { edgesToAdd, edgesToRemove };
-}
-
 interface AnalyticsEventsProps {
-    lineageDirection: Direction;
+    direction: LineageDirection;
     entitiesToAdd: Entity[];
     entitiesToRemove: Entity[];
     entityRegistry: EntityRegistry;
@@ -193,7 +121,7 @@ interface AnalyticsEventsProps {
 }
 
 function recordAnalyticsEvents({
-    lineageDirection,
+    direction,
     entitiesToAdd,
     entitiesToRemove,
     entityRegistry,
@@ -204,7 +132,7 @@ function recordAnalyticsEvents({
         const genericProps = entityRegistry.getGenericEntityProperties(entityToAdd.type, entityToAdd);
         analytics.event({
             type: EventType.ManuallyCreateLineageEvent,
-            direction: lineageDirection,
+            direction: directionFromLineageDirection(direction),
             sourceEntityType: entityType,
             sourceEntityPlatform: entityPlatform,
             destinationEntityType: entityToAdd.type,
@@ -215,11 +143,36 @@ function recordAnalyticsEvents({
         const genericProps = entityRegistry.getGenericEntityProperties(entityToRemove.type, entityToRemove);
         analytics.event({
             type: EventType.ManuallyDeleteLineageEvent,
-            direction: lineageDirection,
+            direction: directionFromLineageDirection(direction),
             sourceEntityType: entityType,
             sourceEntityPlatform: entityPlatform,
             destinationEntityType: entityToRemove.type,
             destinationEntityPlatform: genericProps?.platform?.name,
         });
     });
+}
+
+function buildUpdateLineagePayload(
+    lineageDirection: LineageDirection,
+    entitiesToAdd: Entity[],
+    entitiesToRemove: Entity[],
+    entityUrn: string,
+) {
+    let edgesToAdd: LineageEdge[] = [];
+    let edgesToRemove: LineageEdge[] = [];
+
+    if (lineageDirection === LineageDirection.Upstream) {
+        edgesToAdd = entitiesToAdd.map((entity) => ({ upstreamUrn: entity.urn, downstreamUrn: entityUrn }));
+        edgesToRemove = entitiesToRemove.map((entity) => ({ upstreamUrn: entity.urn, downstreamUrn: entityUrn }));
+    }
+    if (lineageDirection === LineageDirection.Downstream) {
+        edgesToAdd = entitiesToAdd.map((entity) => ({ upstreamUrn: entityUrn, downstreamUrn: entity.urn }));
+        edgesToRemove = entitiesToRemove.map((entity) => ({ upstreamUrn: entityUrn, downstreamUrn: entity.urn }));
+    }
+
+    return { edgesToAdd, edgesToRemove };
+}
+
+function directionFromLineageDirection(lineageDirection: LineageDirection): Direction {
+    return lineageDirection === LineageDirection.Upstream ? Direction.Upstream : Direction.Downstream;
 }

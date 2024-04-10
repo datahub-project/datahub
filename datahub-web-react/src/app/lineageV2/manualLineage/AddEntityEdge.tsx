@@ -1,14 +1,18 @@
-import { LoadingOutlined, SubnodeOutlined } from '@ant-design/icons';
-import { AutoComplete, Empty } from 'antd';
 import React, { useState } from 'react';
+import { useDebounce } from 'react-use';
 import styled from 'styled-components/macro';
-import { Direction } from '../../lineage/types';
+import { AutoComplete, Empty } from 'antd';
+import { LoadingOutlined, SubnodeOutlined } from '@ant-design/icons';
+import { toTitleCase } from '../../../graphql-mock/helper';
 import { useEntityRegistry } from '../../useEntityRegistry';
 import { useGetSearchResultsForMultipleLazyQuery } from '../../../graphql/search.generated';
-import { Entity, EntityType, SearchResult } from '../../../types.generated';
+import { Entity, EntityType, LineageDirection, SearchResult } from '../../../types.generated';
 import LineageEntityView from './LineageEntityView';
 import EntityRegistry from '../../entity/EntityRegistry';
 import { ANTD_GRAY } from '../../entity/shared/constants';
+import { getValidEntityTypes } from './utils';
+
+const DEBOUNCE_WAIT_MS = 200;
 
 const AddEdgeWrapper = styled.div`
     padding: 15px 20px;
@@ -21,6 +25,7 @@ const AddLabel = styled.span`
     font-weight: bold;
     display: flex;
     align-items: center;
+    white-space: nowrap;
 `;
 
 const AddIcon = styled(SubnodeOutlined)`
@@ -28,7 +33,7 @@ const AddIcon = styled(SubnodeOutlined)`
     font-size: 16px;
 `;
 
-const StyledAutoComplete = styled(AutoComplete)`
+const StyledAutoComplete = styled(AutoComplete<string>)`
     margin-left: 10px;
     flex: 1;
 `;
@@ -45,62 +50,39 @@ const LoadingWrapper = styled.div`
     }
 `;
 
-function getPlaceholderText(validEntityTypes: EntityType[], entityRegistry: EntityRegistry) {
-    let placeholderText = 'Search for ';
-    if (!validEntityTypes.length) {
-        placeholderText = `${placeholderText} entities to add...`;
-    } else if (validEntityTypes.length === 1) {
-        placeholderText = `${placeholderText} ${entityRegistry.getCollectionName(validEntityTypes[0])}...`;
-    } else {
-        validEntityTypes.forEach((type, index) => {
-            placeholderText = `${placeholderText} ${entityRegistry.getCollectionName(type)}${
-                index !== validEntityTypes.length - 1 ? ', ' : '...'
-            }`;
-        });
-    }
-    return placeholderText;
-}
-
-export function existsInEntitiesToAdd(result: SearchResult, entitiesAlreadyAdded: Entity[]) {
-    return !!entitiesAlreadyAdded.find((entity) => entity.urn === result.entity.urn);
-}
-
 interface Props {
-    lineageDirection: Direction;
+    direction: LineageDirection;
     setEntitiesToAdd: React.Dispatch<React.SetStateAction<Entity[]>>;
     entitiesToAdd: Entity[];
     entityUrn: string;
     entityType?: EntityType;
 }
 
-export default function AddEntityEdge({
-    lineageDirection,
-    setEntitiesToAdd,
-    entitiesToAdd,
-    entityUrn,
-    entityType,
-}: Props) {
+export default function AddEntityEdge({ direction, setEntitiesToAdd, entitiesToAdd, entityUrn, entityType }: Props) {
     const entityRegistry = useEntityRegistry();
     const [search, { data: searchData, loading }] = useGetSearchResultsForMultipleLazyQuery();
     const [queryText, setQueryText] = useState<string>('');
 
-    const validEntityTypes = getValidEntityTypes(lineageDirection, entityType);
+    const validEntityTypes = getValidEntityTypes(direction, entityType);
 
-    function handleSearch(text: string) {
-        setQueryText(text);
-        if (text !== '') {
-            search({
-                variables: {
-                    input: {
-                        types: validEntityTypes,
-                        query: text,
-                        start: 0,
-                        count: 15,
+    useDebounce(
+        () => {
+            if (queryText && queryText.trim() !== '') {
+                search({
+                    variables: {
+                        input: {
+                            types: validEntityTypes,
+                            query: queryText,
+                            start: 0,
+                            count: 15,
+                        },
                     },
-                },
-            });
-        }
-    }
+                });
+            }
+        },
+        DEBOUNCE_WAIT_MS,
+        [queryText],
+    );
 
     function selectEntity(urn: string) {
         const selectedEntity = searchData?.searchAcrossEntities?.searchResults.find(
@@ -129,17 +111,17 @@ export default function AddEntityEdge({
         <AddEdgeWrapper>
             <AddLabel>
                 <AddIcon />
-                Add {lineageDirection}
+                Add {toTitleCase(direction.toLocaleLowerCase())}
             </AddLabel>
             <StyledAutoComplete
                 autoFocus
                 showSearch
-                value={queryText}
                 placeholder={placeholderText}
-                onSearch={handleSearch}
-                onSelect={(urn: any) => selectEntity(urn)}
+                value={queryText}
+                onSearch={(value) => setQueryText(value)}
+                onSelect={(urn: string) => selectEntity(urn)}
                 filterOption={false}
-                notFoundContent={(queryText.length > 3 && <Empty description="No Assets Found" />) || undefined}
+                notFoundContent={queryText.length > 3 && <Empty description="No Assets Found" />}
             >
                 {!searchData && loading && (
                     <AutoComplete.Option value="loading">
@@ -148,41 +130,28 @@ export default function AddEntityEdge({
                         </LoadingWrapper>
                     </AutoComplete.Option>
                 )}
-                {searchResults}
+                {!!queryText && searchResults}
             </StyledAutoComplete>
         </AddEdgeWrapper>
     );
 }
 
-function getValidEntityTypes(lineageDirection: Direction, entityType?: EntityType) {
-    if (lineageDirection === Direction.Upstream) {
-        switch (entityType) {
-            case EntityType.Dataset:
-                return [EntityType.Dataset, EntityType.DataJob];
-            case EntityType.Chart:
-                return [EntityType.Dataset];
-            case EntityType.Dashboard:
-                return [EntityType.Chart, EntityType.Dataset];
-            case EntityType.DataJob:
-                return [EntityType.DataJob, EntityType.Dataset];
-            default:
-                console.warn('Unexpected entity type to get valid upstream entity types for');
-                return [];
-        }
+function existsInEntitiesToAdd(result: SearchResult, entitiesAlreadyAdded: Entity[]) {
+    return !!entitiesAlreadyAdded.find((entity) => entity.urn === result.entity.urn);
+}
+
+function getPlaceholderText(validEntityTypes: EntityType[], entityRegistry: EntityRegistry) {
+    let placeholderText = 'Search for ';
+    if (!validEntityTypes.length) {
+        placeholderText = `${placeholderText} entities to add...`;
+    } else if (validEntityTypes.length === 1) {
+        placeholderText = `${placeholderText} ${entityRegistry.getCollectionName(validEntityTypes[0])}...`;
     } else {
-        switch (entityType) {
-            case EntityType.Dataset:
-                return [EntityType.Dataset, EntityType.Chart, EntityType.Dashboard, EntityType.DataJob];
-            case EntityType.Chart:
-                return [EntityType.Dashboard];
-            case EntityType.Dashboard:
-                console.warn('There are no valid lineage entities downstream of Dashboard entities');
-                return [];
-            case EntityType.DataJob:
-                return [EntityType.DataJob, EntityType.Dataset];
-            default:
-                console.warn('Unexpected entity type to get valid downstream entity types for');
-                return [];
-        }
+        validEntityTypes.forEach((type, index) => {
+            placeholderText = `${placeholderText} ${entityRegistry.getCollectionName(type)}${
+                index !== validEntityTypes.length - 1 ? ', ' : '...'
+            }`;
+        });
     }
+    return placeholderText;
 }

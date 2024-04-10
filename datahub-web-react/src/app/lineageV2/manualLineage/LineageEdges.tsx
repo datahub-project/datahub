@@ -1,10 +1,9 @@
 import { Empty } from 'antd';
-import React from 'react';
+import React, { useContext, useMemo } from 'react';
 import styled from 'styled-components/macro';
-import { CorpUser, Entity, Maybe } from '../../../types.generated';
+import { CorpUser, Entity, LineageDirection } from '../../../types.generated';
 import { ANTD_GRAY } from '../../entity/shared/constants';
-import { Direction, FetchedEntity } from '../../lineage/types';
-import { useEntityRegistry } from '../../useEntityRegistry';
+import { getEdgeId, LineageNodesContext, setDifference } from '../common';
 import EntityEdge from './EntityEdge';
 
 const LineageEdgesWrapper = styled.div`
@@ -22,8 +21,8 @@ const EmptyWrapper = styled.div`
 `;
 
 interface Props {
-    entity?: Maybe<Entity>;
-    lineageDirection: Direction;
+    parentUrn: string;
+    direction: LineageDirection;
     entitiesToAdd: Entity[];
     entitiesToRemove: Entity[];
     setEntitiesToAdd: React.Dispatch<React.SetStateAction<Entity[]>>;
@@ -31,31 +30,24 @@ interface Props {
 }
 
 export default function LineageEdges({
-    entity,
-    lineageDirection,
+    parentUrn,
+    direction,
     entitiesToAdd,
     entitiesToRemove,
     setEntitiesToAdd,
     setEntitiesToRemove,
 }: Props) {
-    const entityRegistry = useEntityRegistry();
+    const { nodes, edges, adjacencyList } = useContext(LineageNodesContext);
 
-    let fetchedEntity: FetchedEntity | null | undefined = null;
-    if (entity) {
-        fetchedEntity = entityRegistry.getLineageVizConfig(entity?.type, entity);
-    }
-
-    const lineageRelationships =
-        lineageDirection === Direction.Upstream
-            ? fetchedEntity?.upstreamRelationships
-            : fetchedEntity?.downstreamRelationships;
-    const urnsToRemove = entitiesToRemove.map((entityToRemove) => entityToRemove.urn);
-    const filteredRelationships = lineageRelationships?.filter(
-        (relationship) => !urnsToRemove.includes(relationship.entity?.urn || ''),
+    const children = adjacencyList[direction].get(parentUrn) || new Set();
+    const urnsToRemove = useMemo(
+        () => new Set(entitiesToRemove.map((entityToRemove) => entityToRemove.urn)),
+        [entitiesToRemove],
     );
+    const filteredChildren = setDifference(children, urnsToRemove);
 
     function removeEntity(removedEntity: Entity) {
-        if (lineageRelationships?.find((relationship) => relationship.entity?.urn === removedEntity.urn)) {
+        if (children.has(removedEntity.urn)) {
             setEntitiesToRemove((existingEntitiesToRemove) => [...existingEntitiesToRemove, removedEntity]);
         } else {
             setEntitiesToAdd((existingEntitiesToAdd) =>
@@ -66,23 +58,26 @@ export default function LineageEdges({
 
     return (
         <LineageEdgesWrapper>
-            {!filteredRelationships?.length && !entitiesToAdd.length && (
+            {!filteredChildren?.length && !entitiesToAdd.length && (
                 <EmptyWrapper data-testid="empty-lineage">
-                    <Empty description={`No ${lineageDirection.toLocaleLowerCase()} entities`} />
+                    <Empty description={`No ${direction.toLocaleLowerCase()} entities`} />
                 </EmptyWrapper>
             )}
-            {filteredRelationships &&
-                filteredRelationships?.map((relationship) =>
-                    relationship.entity ? (
-                        <EntityEdge
-                            key={relationship.entity.urn}
-                            entity={relationship.entity}
-                            removeEntity={removeEntity}
-                            createdActor={relationship.createdActor as CorpUser}
-                            createdOn={relationship.createdOn}
-                        />
-                    ) : null,
-                )}
+            {filteredChildren?.map((childUrn) => {
+                const edge = edges.get(getEdgeId(parentUrn, childUrn, direction));
+                const childNode = nodes.get(childUrn);
+                if (!childNode) return null;
+                const backupEntity = { urn: childUrn, type: childNode.type };
+                return (
+                    <EntityEdge
+                        key={childUrn}
+                        entity={childNode.rawEntity || backupEntity}
+                        removeEntity={removeEntity}
+                        createdOn={edge?.created?.timestamp}
+                        createdActor={edge?.created?.actor as CorpUser | undefined}
+                    />
+                );
+            })}
             {entitiesToAdd.map((addedEntity) => (
                 <EntityEdge key={addedEntity.urn} entity={addedEntity} removeEntity={removeEntity} />
             ))}

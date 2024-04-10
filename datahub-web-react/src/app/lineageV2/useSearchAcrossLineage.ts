@@ -29,6 +29,7 @@ import {
  * @param direction Direction for which to fetch lineage
  * @param lazy Whether to fetch the lineage immediately
  * @param maxDepth Whether to fetch all lineage, default depth 1
+ * @param skipCache Whether to bypass Apollo and Elasticsearch caches
  */
 export default function useSearchAcrossLineage(
     urn: string,
@@ -36,10 +37,14 @@ export default function useSearchAcrossLineage(
     direction: LineageDirection,
     lazy?: boolean,
     maxDepth?: boolean,
-): { fetchLineage: () => void; processed: boolean } {
+    skipCache?: boolean,
+): {
+    fetchLineage: () => void;
+    processed: boolean;
+} {
     const entityRegistry = useEntityRegistryV2();
     const { startTimeMillis, endTimeMillis } = useGetLineageTimeParams();
-    const { nodes, edges, adjacencyList, rootUrn, setNodeVersion } = context;
+    const { nodes, edges, adjacencyList, rootUrn, setNodeVersion, setDisplayVersion } = context;
 
     const input: SearchAcrossLineageInput = {
         urn,
@@ -68,27 +73,34 @@ export default function useSearchAcrossLineage(
                 { entityType: EntityType.DataJob },
             ],
         },
+        searchFlags: {
+            skipCache: !!skipCache,
+        },
     };
 
     const [processed, setProcessed] = useState(false);
-    const [fetchLineage, { data }] = useSearchAcrossLineageStructureLazyQuery({ variables: { input } });
+    const [fetchLineage, { data }] = useSearchAcrossLineageStructureLazyQuery({
+        variables: { input },
+        fetchPolicy: skipCache ? 'no-cache' : undefined,
+    });
     useEffect(() => {
         if (!lazy) {
             fetchLineage();
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [fetchLineage, lazy]);
 
     useEffect(() => {
         const smallContext = { nodes, edges, adjacencyList };
+        let addedNode = false;
 
         data?.searchAcrossLineage?.searchResults.forEach((result) => {
+            addedNode = addedNode || !nodes.has(result.entity.urn);
             const node = setDefault(
                 nodes,
                 result.entity.urn,
                 entityNodeDefault(result.entity.urn, result.entity.type, direction),
             );
-            if (result.explored) {
+            if (result.explored || result.ignoredAsHop) {
                 node.fetchStatus = { ...node.fetchStatus, [direction]: FetchStatus.COMPLETE };
                 node.isExpanded = true;
             }
@@ -118,8 +130,9 @@ export default function useSearchAcrossLineage(
 
         if (data) {
             pruneParentsThroughDbt(urn, direction, smallContext, entityRegistry);
-            setNodeVersion((version) => version + 1);
             setProcessed(true);
+            if (addedNode) setNodeVersion((version) => version + 1);
+            else setDisplayVersion(([version, n]) => [version + 1, n]);
         }
     }, [
         urn,
@@ -130,6 +143,7 @@ export default function useSearchAcrossLineage(
         adjacencyList,
         rootUrn,
         setNodeVersion,
+        setDisplayVersion,
         maxDepth,
         entityRegistry,
         setProcessed,
@@ -177,7 +191,7 @@ export function pruneParentsThroughDbt(
     });
 }
 
-function entityNodeDefault(urn: string, type: EntityType, direction: LineageDirection): LineageEntity {
+export function entityNodeDefault(urn: string, type: EntityType, direction: LineageDirection): LineageEntity {
     const otherDirection =
         direction === LineageDirection.Upstream ? LineageDirection.Downstream : LineageDirection.Upstream;
     return {

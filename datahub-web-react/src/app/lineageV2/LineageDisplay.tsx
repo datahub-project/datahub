@@ -29,8 +29,7 @@ export default function LineageDisplay({ urn, type, loaded }: Props) {
         () => flowNodes.filter((node) => node.type !== LINEAGE_FILTER_NODE_NAME).map((node) => node.id),
         [flowNodes],
     );
-    useBulkEntityLineage(shownUrns);
-    // useLineageNodePreview(shownUrns); TODO: Add back for lineage filter nodes?
+    const refetchUrn = useBulkEntityLineage(shownUrns);
 
     const { highlightedNodes, highlightedEdges } = useNodeHighlighting(hoveredNode);
 
@@ -79,6 +78,7 @@ export default function LineageDisplay({ urn, type, loaded }: Props) {
                 fineGrainedLineage: fineGrainedLineage.direct,
                 columnQueryData: fineGrainedLineage.columnQueryData,
                 numNodes: flowNodes.length,
+                refetchUrn,
             }}
         >
             <LineageVisualization initialNodes={flowNodes} initialEdges={flowEdges} />

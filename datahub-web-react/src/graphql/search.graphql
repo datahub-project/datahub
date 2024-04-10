@@ -1076,6 +1076,7 @@ query searchAcrossLineageStructure($input: SearchAcrossLineageInput!) {
                 }
             }
             explored
+            ignoredAsHop
         }
     }
 }

@@ -126,12 +126,12 @@ function applyFilters(
         }
         if (facet === PLATFORM_FILTER_NAME) {
             filteredChildren = filteredChildren.filter((n) => {
-                const platform = n.entity?.platform?.urn || n.backupEntity?.platform?.urn;
+                const platform = n.entity?.platform?.urn;
                 return platform && values.has(platform);
             });
         } else if (facet === ENTITY_SUB_TYPE_FILTER_NAME) {
             filteredChildren = filteredChildren.filter((n) => {
-                const subtype = n.entity?.subtype || n.backupEntity?.subTypes?.typeNames?.[0];
+                const subtype = n.entity?.subtype;
                 const selectedSubtypes = Array.from(values).map((v) => v.split(FILTER_DELIMITER)[1]);
                 return subtype && selectedSubtypes.includes(subtype);
             });

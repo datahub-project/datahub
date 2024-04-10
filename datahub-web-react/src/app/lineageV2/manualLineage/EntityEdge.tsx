@@ -37,11 +37,11 @@ const EntityName = styled(Text)`
 interface Props {
     entity: Entity;
     removeEntity: (removedEntity: Entity) => void;
-    createdActor?: CorpUser | null;
-    createdOn?: number | null;
+    createdOn?: number;
+    createdActor?: CorpUser;
 }
 
-export default function EntityEdge({ entity, removeEntity, createdActor, createdOn }: Props) {
+export default function EntityEdge({ entity, removeEntity, createdOn, createdActor }: Props) {
     const entityRegistry = useEntityRegistry();
     const genericProps = entityRegistry.getGenericEntityProperties(entity.type, entity);
     const platformLogoUrl = genericProps?.platform?.properties?.logoUrl;

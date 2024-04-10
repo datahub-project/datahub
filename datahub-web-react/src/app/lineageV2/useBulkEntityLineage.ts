@@ -1,4 +1,4 @@
-import { useContext, useEffect, useMemo, useState } from 'react';
+import { useCallback, useContext, useEffect, useState } from 'react';
 import { useGetBulkEntityLineageV2Query } from '../../graphql/lineage.generated';
 import { LineageDirection } from '../../types.generated';
 import { useGetLineageTimeParams } from '../lineage/utils/useGetLineageTimeParams';
@@ -6,18 +6,21 @@ import usePrevious from '../shared/usePrevious';
 import { useEntityRegistryV2 } from '../useEntityRegistry';
 import {
     addToAdjacencyList,
+    clearEdges,
+    FetchStatus,
     getEdgeId,
     isQuery,
     LineageEdge,
+    LineageEntity,
     LineageNodesContext,
     NodeContext,
     reverseDirection,
     setDefault,
 } from './common';
-import { FetchedEntityV2, FetchedEntityV2Relationship } from './types';
-import { pruneParentsThroughDbt } from './useSearchAcrossLineage';
+import { FetchedEntityV2Relationship } from './types';
+import { entityNodeDefault, pruneParentsThroughDbt } from './useSearchAcrossLineage';
 
-export default function useBulkEntityLineage(shownUrns: string[]): void {
+export default function useBulkEntityLineage(shownUrns: string[]): (urn: string) => void {
     const { nodes, edges, adjacencyList, setDataVersion, setDisplayVersion } = useContext(LineageNodesContext);
     shownUrns.sort();
     const prevShownUrns = usePrevious(shownUrns);
@@ -35,7 +38,8 @@ export default function useBulkEntityLineage(shownUrns: string[]): void {
     }, [nodes, prevShownUrns, shownUrns]);
 
     const { startTimeMillis, endTimeMillis } = useGetLineageTimeParams();
-    const { data } = useGetBulkEntityLineageV2Query({
+
+    const { data, refetch } = useGetBulkEntityLineageV2Query({
         skip: !urnsToFetch?.length,
         fetchPolicy: 'cache-first',
         variables: {
@@ -49,36 +53,28 @@ export default function useBulkEntityLineage(shownUrns: string[]): void {
 
     const entityRegistry = useEntityRegistryV2();
 
-    const entityDetails = useMemo(
-        () =>
-            data?.entities?.map<FetchedEntityV2 | null>((entity) => {
-                if (!entity) return null;
-                const config = entityRegistry.getLineageVizConfigV2(entity.type, entity);
-                if (!config) return null;
-                return {
-                    ...config,
-                    lineageAssets: entityRegistry.getLineageAssets(entity.type, entity),
-                };
-            }),
-        [data, entityRegistry],
-    );
     useEffect(() => {
-        const smallContext = { edges, adjacencyList };
+        const smallContext = { nodes, edges, adjacencyList };
         let changed = false;
-        entityDetails?.forEach((entity) => {
-            if (!entity) {
-                return;
-            }
+        data?.entities?.forEach((rawEntity) => {
+            if (!rawEntity) return;
+            const config = entityRegistry.getLineageVizConfigV2(rawEntity.type, rawEntity);
+            if (!config) return;
+            const entity = { ...config, lineageAssets: entityRegistry.getLineageAssets(rawEntity.type, rawEntity) };
+
             const node = nodes.get(entity.urn);
             if (node) {
                 node.entity = entity;
+                node.rawEntity = rawEntity;
                 changed = true;
+
                 // TODO: Remove once using bulk edges query
+                clearEdges(node.urn, smallContext);
                 entity.downstreamRelationships?.forEach((relationship) =>
-                    processEdge(entity.urn, relationship, LineageDirection.Downstream, smallContext),
+                    processEdge(node, relationship, LineageDirection.Downstream, smallContext),
                 );
                 entity.upstreamRelationships?.forEach((relationship) => {
-                    processEdge(entity.urn, relationship, LineageDirection.Upstream, smallContext);
+                    processEdge(node, relationship, LineageDirection.Upstream, smallContext);
                 });
                 pruneParentsThroughDbt(node.urn, LineageDirection.Upstream, smallContext, entityRegistry);
                 pruneParentsThroughDbt(node.urn, LineageDirection.Downstream, smallContext, entityRegistry);
@@ -88,34 +84,61 @@ export default function useBulkEntityLineage(shownUrns: string[]): void {
             setDataVersion((version) => version + 1);
             setDisplayVersion(([version, n]) => [version + 1, n]); // TODO: Also remove with above todo
         }
-    }, [nodes, edges, adjacencyList, entityDetails, entityRegistry, setDataVersion, setDisplayVersion]);
+    }, [data, nodes, edges, adjacencyList, entityRegistry, setDataVersion, setDisplayVersion]);
+
+    return useCallback(
+        (urn: string) =>
+            refetch({
+                urns: [urn],
+                startTimeMillis,
+                endTimeMillis,
+                separateSiblings: true,
+                showColumns: true,
+            }),
+        [refetch, startTimeMillis, endTimeMillis],
+    );
 }
 
 function processEdge(
-    urn: string,
+    node: LineageEntity,
     relationship: FetchedEntityV2Relationship,
     direction: LineageDirection,
-    context: Pick<NodeContext, 'adjacencyList' | 'edges'>,
+    context: Pick<NodeContext, 'adjacencyList' | 'nodes' | 'edges'>,
 ): void {
-    const { adjacencyList, edges } = context;
+    const { adjacencyList, nodes, edges } = context;
+
+    if (!nodes.has(relationship.urn)) return;
 
     if (!relationship.entity || isQuery(relationship.entity)) {
         // For query nodes, don't store them as other nodes' children
-        setDefault(adjacencyList[reverseDirection(direction)], relationship.urn, new Set()).add(urn);
+        setDefault(adjacencyList[reverseDirection(direction)], relationship.urn, new Set()).add(node.urn);
     } else {
-        const edgeId = getEdgeId(urn, relationship.urn, direction);
-        edges.set(getEdgeId(urn, relationship.urn, direction), {
-            ...edges.get(edgeId),
-            ...makeLineageEdge(relationship),
-        });
-        addToAdjacencyList(adjacencyList, direction, urn, relationship.urn);
+        const edgeId = getEdgeId(node.urn, relationship.urn, direction);
+        edges.set(edgeId, { ...edges.get(edgeId), ...makeLineageEdge(relationship) });
+        addToAdjacencyList(adjacencyList, direction, node.urn, relationship.urn);
+
+        if ([FetchStatus.COMPLETE, FetchStatus.LOADING].includes(node.fetchStatus[direction])) {
+            // Add nodes that should be in the graph
+            // TODO: Bust search across lineage cache?
+            setDefault(
+                nodes,
+                relationship.urn,
+                entityNodeDefault(relationship.urn, relationship.entity.type, direction),
+            );
+        }
     }
 }
 
-function makeLineageEdge({ createdOn, updatedOn, isManual }: FetchedEntityV2Relationship): LineageEdge {
+function makeLineageEdge({
+    createdOn,
+    createdActor,
+    updatedOn,
+    updatedActor,
+    isManual,
+}: FetchedEntityV2Relationship): LineageEdge {
     return {
-        created: createdOn ? { timestamp: createdOn } : undefined,
-        updated: updatedOn ? { timestamp: updatedOn } : undefined,
+        created: createdOn ? { timestamp: createdOn, actor: createdActor ?? undefined } : undefined,
+        updated: updatedOn ? { timestamp: updatedOn, actor: updatedActor ?? undefined } : undefined,
         isManual: isManual ?? false,
         isDisplayed: true,
     };

@@ -1,8 +1,7 @@
 import React, { Dispatch, SetStateAction } from 'react';
 import { Maybe } from 'graphql/jsutils/Maybe';
-import { EntityType, LineageDirection, SchemaFieldRef } from '../../types.generated';
+import { Entity, EntityType, LineageDirection, SchemaFieldRef } from '../../types.generated';
 import EntityRegistry from '../entityV2/EntityRegistry';
-import { GenericEntityProperties } from '../entity/shared/types';
 import { DBT_CLOUD_URN } from '../ingest/source/builder/constants';
 import { ColumnQueryData } from '../sharedV2/EntitySidebarContext';
 import { getEntityTypeFromEntityUrn, getPlatformUrnFromEntityUrn } from './lineageUtils';
@@ -38,9 +37,9 @@ export interface LineageEntity extends NodeBase {
     urn: Urn;
     type: EntityType;
     entity?: FetchedEntityV2;
+    rawEntity?: Entity; // TODO: Don't store this -- waste of memory? Currently used for manual lineage modal
     fetchStatus: Record<LineageDirection, FetchStatus>;
     filters?: Record<LineageDirection, Filters>;
-    backupEntity?: GenericEntityProperties; // TODO: Implement in a cleaner way
 }
 
 export const LINEAGE_FILTER_TYPE = 'lineage-filter';
@@ -121,7 +120,7 @@ export function parseColumnQueryRef(queryRef: ColumnRef): Urn {
 
 interface AuditStamp {
     timestamp: number;
-    // TODO: Add actor
+    actor?: Entity;
 }
 
 export interface LineageEdge {
@@ -200,6 +199,26 @@ export function addToAdjacencyList(
     setDefault(adjacencyList[reverseDirection(direction)], child, new Set()).add(parent);
 }
 
+export function removeFromAdjacencyList(
+    adjacencyList: NodeContext['adjacencyList'],
+    direction: LineageDirection,
+    parent: Urn,
+    child: Urn,
+): void {
+    adjacencyList[direction].get(parent)?.delete(child);
+    adjacencyList[reverseDirection(direction)].get(child)?.delete(parent);
+}
+
+export function clearEdges(urn: Urn, context: Pick<NodeContext, 'edges' | 'adjacencyList'>): void {
+    const { edges, adjacencyList } = context;
+    adjacencyList[LineageDirection.Upstream].get(urn)?.forEach((upstream) => edges.delete(createEdgeId(upstream, urn)));
+    adjacencyList[LineageDirection.Downstream]
+        .get(urn)
+        ?.forEach((downstream) => edges.delete(createEdgeId(urn, downstream)));
+    adjacencyList[LineageDirection.Upstream].delete(urn);
+    adjacencyList[LineageDirection.Downstream].delete(urn);
+}
+
 export type FineGrainedLineageMap = Map<ColumnRef, ColumnRef[]>;
 export type FineGrainedLineage = { forward: FineGrainedLineageMap; backward: FineGrainedLineageMap };
 export type HighlightedColumns = Map<Urn, Set<string>>;
@@ -219,6 +238,7 @@ interface DisplayContext {
     fineGrainedLineage: FineGrainedLineage;
     columnQueryData: Map<ColumnRef, ColumnQueryData>;
     numNodes: number;
+    refetchUrn: (urn: string) => void;
 }
 
 export const LineageDisplayContext = React.createContext<DisplayContext>({
@@ -237,6 +257,7 @@ export const LineageDisplayContext = React.createContext<DisplayContext>({
     },
     columnQueryData: new Map(),
     numNodes: 0,
+    refetchUrn: () => {},
 });
 
 export function setDefault<K, V>(map: Map<K, V>, key: K, defaultValue: V): V {
