@@ -240,7 +240,7 @@ def auto_browse_path_v2(
     platform: Optional[str] = None,
     platform_instance: Optional[str] = None,
 ) -> Iterable[MetadataWorkUnit]:
-    """Generate BrowsePathsV2 from Container and BrowsePaths aspects.
+    """Generate BrowsePathsV2 from Container and BrowsePaths and BrowsePathsV2 aspects.
 
     Generates browse paths v2 on demand, rather than waiting for end of ingestion,
     for better UI experience while ingestion is running.
@@ -251,6 +251,8 @@ def auto_browse_path_v2(
 
     Calculates the correct BrowsePathsV2 at end of workunit stream,
     and emits "corrections", i.e. a final BrowsePathsV2 for any urns that have changed.
+    Existing BrowsePathsV2 are assumed to be correct and are preferred over other aspects
+    when generating BrowsePathsV2 of an entity or its children.
     """
 
     # For telemetry, to see if our sources violate assumptions
@@ -258,8 +260,9 @@ def auto_browse_path_v2(
     num_out_of_batch = 0
 
     # Set for all containers and urns with a Container aspect
-    # Used to construct container paths while iterating through stream
-    # Assumes topological order of entities in stream
+    # Used to construct browse path v2 while iterating through stream
+    # Assumes topological order of entities in stream, i.e. parent's
+    # browse path/container is seen before child's browse path/container.
     paths: Dict[str, List[BrowsePathEntryClass]] = {}
 
     emitted_urns: Set[str] = set()
@@ -267,6 +270,7 @@ def auto_browse_path_v2(
     for urn, batch in _batch_workunits_by_urn(stream):
         container_path: Optional[List[BrowsePathEntryClass]] = None
         legacy_path: Optional[List[BrowsePathEntryClass]] = None
+        browse_path_v2: Optional[List[BrowsePathEntryClass]] = None
         has_browse_path_v2 = False
 
         for wu in batch:
@@ -297,11 +301,21 @@ def auto_browse_path_v2(
                     if p.strip() and p.strip() not in drop_dirs
                 ]
 
-            if wu.get_aspect_of_type(BrowsePathsV2Class):
+            browse_path_v2_aspect = wu.get_aspect_of_type(BrowsePathsV2Class)
+            if browse_path_v2_aspect:
+                browse_path_v2 = browse_path_v2_aspect.path
+
+                # If a container has both parent container and browsePathsV2
+                # emitted from source, the one that's emitted later would take precedence
+                # for children of that container. As of now, this does not seem to be a
+                # common scenario.
+                if urn.startswith("urn:li:container"):  # save if this is container urn
+                    paths[urn] = browse_path_v2
                 has_browse_path_v2 = True
 
-        path = container_path or legacy_path
-        if (path is not None or has_browse_path_v2) and urn in emitted_urns:
+        # Order of preference: browse path v2, container path, legacy browse path
+        path = browse_path_v2 or container_path or legacy_path
+        if path is not None and urn in emitted_urns:
             # Batch invariant violated
             # TODO: Add sentry alert
             num_out_of_batch += 1
@@ -313,7 +327,7 @@ def auto_browse_path_v2(
                 yield MetadataChangeProposalWrapper(
                     entityUrn=urn,
                     aspect=BrowsePathsV2Class(
-                        path=_prepend_platform_instance(
+                        path=prepend_platform_instance(
                             path, platform, platform_instance
                         )
                     ),
@@ -325,7 +339,7 @@ def auto_browse_path_v2(
                 yield MetadataChangeProposalWrapper(
                     entityUrn=urn,
                     aspect=BrowsePathsV2Class(
-                        path=_prepend_platform_instance([], platform, platform_instance)
+                        path=prepend_platform_instance([], platform, platform_instance)
                     ),
                 ).as_workunit()
 
@@ -336,6 +350,7 @@ def auto_browse_path_v2(
             "num_out_of_batch": num_out_of_batch,
             "num_out_of_order": num_out_of_order,
         }
+        breakpoint()
         telemetry.telemetry_instance.ping("incorrect_browse_path_v2", properties)
 
 
@@ -415,7 +430,7 @@ def _batch_workunits_by_urn(
         yield batch_urn, batch
 
 
-def _prepend_platform_instance(
+def prepend_platform_instance(
     entries: List[BrowsePathEntryClass],
     platform: Optional[str],
     platform_instance: Optional[str],

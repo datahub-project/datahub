@@ -243,8 +243,11 @@ def test_auto_browse_path_v2_ignores_urns_already_with(telemetry_ping_mock):
     paths = _get_browse_paths_from_wu(new_wus)
     assert paths["a"] == []
     assert paths["c"] == _make_container_browse_path_entries(["custom", "path"])
-    assert paths["e"] == _make_container_browse_path_entries(["a", "b", "c", "d"])
     assert paths["f"] == _make_browse_path_entries(["my", "path"])
+    assert paths["d"] == _make_container_browse_path_entries(["custom", "path", "c"])
+    assert paths["e"] == _make_container_browse_path_entries(
+        ["custom", "path", "c", "d"]
+    )
 
 
 @patch("datahub.ingestion.api.source_helpers.telemetry.telemetry_instance.ping")

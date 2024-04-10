@@ -35,6 +35,7 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import ContainerKey, create_embed_mcp
 from datahub.ingestion.api.report import Report
 from datahub.ingestion.api.source import SourceReport
+from datahub.ingestion.api.source_helpers import prepend_platform_instance
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.looker.looker_config import (
     LookerCommonConfig,
@@ -213,11 +214,17 @@ class LookerViewId:
         else:
             path_entries = []
         return BrowsePathsV2Class(
-            path=[
-                BrowsePathEntryClass(id="Develop"),
-                BrowsePathEntryClass(id=project_key.as_urn(), urn=project_key.as_urn()),
-                *path_entries,
-            ]
+            path=prepend_platform_instance(
+                [
+                    BrowsePathEntryClass(id="Develop"),
+                    BrowsePathEntryClass(
+                        id=project_key.as_urn(), urn=project_key.as_urn()
+                    ),
+                    *path_entries,
+                ],
+                config.platform_name,
+                config.platform_instance,
+            )
         )
 
 
@@ -961,12 +968,6 @@ class LookerExplore:
 
         model_key = gen_model_key(config, self.model_name)
         browse_paths = BrowsePathsClass(paths=[self.get_explore_browse_path(config)])
-        browse_paths_v2 = BrowsePathsV2Class(
-            path=[
-                BrowsePathEntryClass(id="Explore"),
-                BrowsePathEntryClass(id=model_key.as_urn(), urn=model_key.as_urn()),
-            ]
-        )
         container = ContainerClass(container=model_key.as_urn())
         dataset_snapshot.aspects.append(browse_paths)
         dataset_snapshot.aspects.append(StatusClass(removed=False))
@@ -1080,12 +1081,6 @@ class LookerExplore:
             )
             proposals.append(embed_mcp)
 
-        proposals.append(
-            MetadataChangeProposalWrapper(
-                entityUrn=dataset_snapshot.urn,
-                aspect=browse_paths_v2,
-            )
-        )
         proposals.append(
             MetadataChangeProposalWrapper(
                 entityUrn=dataset_snapshot.urn,

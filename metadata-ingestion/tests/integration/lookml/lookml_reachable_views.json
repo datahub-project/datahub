@@ -77,7 +77,11 @@
     "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
-            "path": []
+            "path": [
+                {
+                    "id": "Folders"
+                }
+            ]
         }
     },
     "systemMetadata": {
@@ -328,7 +332,8 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "looker.file.path": "foo.view.lkml"
+                            "looker.file.path": "foo.view.lkml",
+                            "looker.model": "data"
                         },
                         "name": "my_view",
                         "tags": []
@@ -545,7 +550,8 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "looker.file.path": "owners.view.lkml"
+                            "looker.file.path": "owners.view.lkml",
+                            "looker.model": "data"
                         },
                         "name": "owners",
                         "tags": []
@@ -802,7 +808,8 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "looker.file.path": "foo2.view.lkml"
+                            "looker.file.path": "foo2.view.lkml",
+                            "looker.model": "data2"
                         },
                         "name": "my_view2",
                         "tags": []

@@ -47,6 +47,7 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.registry import import_path
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor, SourceCapability
+from datahub.ingestion.api.source_helpers import prepend_platform_instance
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import (
     BIContainerSubTypes,
@@ -92,6 +93,8 @@ from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import Dataset
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import (
     AuditStampClass,
+    BrowsePathEntryClass,
+    BrowsePathsV2Class,
     ContainerClass,
     DatasetPropertiesClass,
     FineGrainedLineageClass,
@@ -1709,6 +1712,7 @@ class LookMLSource(StatefulIngestionSourceBase):
 
         custom_properties = {
             "looker.file.path": file_path or looker_view.absolute_file_path,
+            "looker.model": looker_view.id.model_name,
         }
         dataset_props = DatasetPropertiesClass(
             name=looker_view.id.view_name, customProperties=custom_properties
@@ -2185,16 +2189,8 @@ class LookMLSource(StatefulIngestionSourceBase):
                                         maybe_looker_view.id.project_name
                                         not in self.processed_projects
                                     ):
-                                        project_key = gen_project_key(
-                                            self.source_config,
-                                            maybe_looker_view.id.project_name,
-                                        )
-                                        yield from gen_containers(
-                                            container_key=project_key,
-                                            name=maybe_looker_view.id.project_name,
-                                            sub_types=[
-                                                BIContainerSubTypes.LOOKML_PROJECT
-                                            ],
+                                        yield from self.gen_project_workunits(
+                                            maybe_looker_view.id.project_name
                                         )
 
                                         self.processed_projects.append(
@@ -2241,6 +2237,27 @@ class LookMLSource(StatefulIngestionSourceBase):
                 yield MetadataWorkUnit(
                     id=f"tag-{tag_mce.proposedSnapshot.urn}", mce=tag_mce
                 )
+
+    def gen_project_workunits(self, project_name: str) -> Iterable[MetadataWorkUnit]:
+        project_key = gen_project_key(
+            self.source_config,
+            project_name,
+        )
+        yield from gen_containers(
+            container_key=project_key,
+            name=project_name,
+            sub_types=[BIContainerSubTypes.LOOKML_PROJECT],
+        )
+        yield MetadataChangeProposalWrapper(
+            entityUrn=project_key.as_urn(),
+            aspect=BrowsePathsV2Class(
+                path=prepend_platform_instance(
+                    [BrowsePathEntryClass("Folders")],
+                    self.source_config.platform_name,
+                    self.source_config.platform_instance,
+                )
+            ),
+        ).as_workunit()
 
     def get_report(self):
         return self.reporter

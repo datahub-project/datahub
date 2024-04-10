@@ -77,7 +77,11 @@
     "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
-            "path": []
+            "path": [
+                {
+                    "id": "Folders"
+                }
+            ]
         }
     },
     "systemMetadata": {
@@ -196,7 +200,8 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "looker.file.path": "included_view_file.view.lkml"
+                            "looker.file.path": "included_view_file.view.lkml",
+                            "looker.model": "second"
                         },
                         "name": "include_able_view",
                         "tags": []
@@ -321,7 +326,8 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "looker.file.path": "view_declarations.view.lkml"
+                            "looker.file.path": "view_declarations.view.lkml",
+                            "looker.model": "second"
                         },
                         "name": "looker_events",
                         "tags": []
@@ -491,7 +497,8 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "looker.file.path": "view_declarations.view.lkml"
+                            "looker.file.path": "view_declarations.view.lkml",
+                            "looker.model": "second"
                         },
                         "name": "extending_looker_events",
                         "tags": []
@@ -616,7 +623,8 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "looker.file.path": "view_declarations.view.lkml"
+                            "looker.file.path": "view_declarations.view.lkml",
+                            "looker.model": "second"
                         },
                         "name": "autodetect_sql_name_based_on_view_name",
                         "tags": []
@@ -741,7 +749,8 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "looker.file.path": "view_declarations.view.lkml"
+                            "looker.file.path": "view_declarations.view.lkml",
+                            "looker.model": "second"
                         },
                         "name": "test_include_external_view",
                         "tags": []

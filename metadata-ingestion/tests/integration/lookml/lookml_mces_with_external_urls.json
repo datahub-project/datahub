@@ -77,7 +77,11 @@
     "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
-            "path": []
+            "path": [
+                {
+                    "id": "Folders"
+                }
+            ]
         }
     },
     "systemMetadata": {
@@ -328,7 +332,8 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "looker.file.path": "foo.view.lkml"
+                            "looker.file.path": "foo.view.lkml",
+                            "looker.model": "data"
                         },
                         "externalUrl": "https://github.com/datahub/looker-demo/blob/master/foo.view.lkml",
                         "name": "my_view",
@@ -565,7 +570,8 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "looker.file.path": "bar.view.lkml"
+                            "looker.file.path": "bar.view.lkml",
+                            "looker.model": "data"
                         },
                         "externalUrl": "https://github.com/datahub/looker-demo/blob/master/bar.view.lkml",
                         "name": "my_derived_view",
@@ -691,7 +697,8 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "looker.file.path": "included_view_file.view.lkml"
+                            "looker.file.path": "included_view_file.view.lkml",
+                            "looker.model": "data"
                         },
                         "externalUrl": "https://github.com/datahub/looker-demo/blob/master/included_view_file.view.lkml",
                         "name": "include_able_view",
@@ -817,7 +824,8 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "looker.file.path": "view_declarations.view.lkml"
+                            "looker.file.path": "view_declarations.view.lkml",
+                            "looker.model": "data"
                         },
                         "externalUrl": "https://github.com/datahub/looker-demo/blob/master/view_declarations.view.lkml",
                         "name": "looker_events",
@@ -988,7 +996,8 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "looker.file.path": "view_declarations.view.lkml"
+                            "looker.file.path": "view_declarations.view.lkml",
+                            "looker.model": "data"
                         },
                         "externalUrl": "https://github.com/datahub/looker-demo/blob/master/view_declarations.view.lkml",
                         "name": "extending_looker_events",
@@ -1114,7 +1123,8 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "looker.file.path": "view_declarations.view.lkml"
+                            "looker.file.path": "view_declarations.view.lkml",
+                            "looker.model": "data"
                         },
                         "externalUrl": "https://github.com/datahub/looker-demo/blob/master/view_declarations.view.lkml",
                         "name": "autodetect_sql_name_based_on_view_name",
@@ -1240,7 +1250,8 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "looker.file.path": "view_declarations.view.lkml"
+                            "looker.file.path": "view_declarations.view.lkml",
+                            "looker.model": "data"
                         },
                         "externalUrl": "https://github.com/datahub/looker-demo/blob/master/view_declarations.view.lkml",
                         "name": "test_include_external_view",
@@ -1444,7 +1455,8 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "looker.file.path": "nested/fragment_derived.view.lkml"
+                            "looker.file.path": "nested/fragment_derived.view.lkml",
+                            "looker.model": "data"
                         },
                         "externalUrl": "https://github.com/datahub/looker-demo/blob/master/nested/fragment_derived.view.lkml",
                         "name": "fragment_derived_view",
@@ -1570,7 +1582,8 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "looker.file.path": "liquid.view.lkml"
+                            "looker.file.path": "liquid.view.lkml",
+                            "looker.model": "data"
                         },
                         "externalUrl": "https://github.com/datahub/looker-demo/blob/master/liquid.view.lkml",
                         "name": "customer_facts",
@@ -1775,7 +1788,8 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "looker.file.path": "ability.view.lkml"
+                            "looker.file.path": "ability.view.lkml",
+                            "looker.model": "data"
                         },
                         "externalUrl": "https://github.com/datahub/looker-demo/blob/master/ability.view.lkml",
                         "name": "ability",
@@ -1993,7 +2007,8 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "looker.file.path": "owners.view.lkml"
+                            "looker.file.path": "owners.view.lkml",
+                            "looker.model": "data"
                         },
                         "externalUrl": "https://github.com/datahub/looker-demo/blob/master/owners.view.lkml",
                         "name": "owners",
@@ -2251,7 +2266,8 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "looker.file.path": "native_derived_table.view.lkml"
+                            "looker.file.path": "native_derived_table.view.lkml",
+                            "looker.model": "data"
                         },
                         "externalUrl": "https://github.com/datahub/looker-demo/blob/master/native_derived_table.view.lkml",
                         "name": "view_derived_explore",
@@ -2437,7 +2453,8 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "looker.file.path": "flights.view.lkml"
+                            "looker.file.path": "flights.view.lkml",
+                            "looker.model": "data"
                         },
                         "externalUrl": "https://github.com/datahub/looker-demo/blob/master/flights.view.lkml",
                         "name": "flights",

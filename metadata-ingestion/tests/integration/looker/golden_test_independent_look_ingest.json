@@ -77,7 +77,11 @@
     "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
-            "path": []
+            "path": [
+                {
+                    "id": "Folders"
+                }
+            ]
         }
     },
     "systemMetadata": {
@@ -250,18 +254,10 @@
     "entityType": "dashboard",
     "entityUrn": "urn:li:dashboard:(looker,dashboards.1)",
     "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
+    "aspectName": "embed",
     "aspect": {
         "json": {
-            "path": [
-                {
-                    "id": "Folders"
-                },
-                {
-                    "id": "urn:li:container:691314a7b63628684d62a14861d057a8",
-                    "urn": "urn:li:container:691314a7b63628684d62a14861d057a8"
-                }
-            ]
+            "renderUrl": "https://looker.company.com/embed/dashboards/1"
         }
     },
     "systemMetadata": {
@@ -274,10 +270,18 @@
     "entityType": "dashboard",
     "entityUrn": "urn:li:dashboard:(looker,dashboards.1)",
     "changeType": "UPSERT",
-    "aspectName": "embed",
+    "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
-            "renderUrl": "https://looker.company.com/embed/dashboards/1"
+            "path": [
+                {
+                    "id": "Folders"
+                },
+                {
+                    "id": "urn:li:container:691314a7b63628684d62a14861d057a8",
+                    "urn": "urn:li:container:691314a7b63628684d62a14861d057a8"
+                }
+            ]
         }
     },
     "systemMetadata": {
@@ -513,18 +517,10 @@
     "entityType": "chart",
     "entityUrn": "urn:li:chart:(looker,dashboard_elements.looks_1)",
     "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
+    "aspectName": "inputFields",
     "aspect": {
         "json": {
-            "path": [
-                {
-                    "id": "Folders"
-                },
-                {
-                    "id": "urn:li:container:691314a7b63628684d62a14861d057a8",
-                    "urn": "urn:li:container:691314a7b63628684d62a14861d057a8"
-                }
-            ]
+            "fields": []
         }
     },
     "systemMetadata": {
@@ -537,10 +533,18 @@
     "entityType": "chart",
     "entityUrn": "urn:li:chart:(looker,dashboard_elements.looks_1)",
     "changeType": "UPSERT",
-    "aspectName": "inputFields",
+    "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
-            "fields": []
+            "path": [
+                {
+                    "id": "Folders"
+                },
+                {
+                    "id": "urn:li:container:691314a7b63628684d62a14861d057a8",
+                    "urn": "urn:li:container:691314a7b63628684d62a14861d057a8"
+                }
+            ]
         }
     },
     "systemMetadata": {
@@ -627,7 +631,11 @@
     "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
-            "path": []
+            "path": [
+                {
+                    "id": "Explore"
+                }
+            ]
         }
     },
     "systemMetadata": {
@@ -714,7 +722,11 @@
     "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
-            "path": []
+            "path": [
+                {
+                    "id": "Explore"
+                }
+            ]
         }
     },
     "systemMetadata": {
@@ -858,18 +870,10 @@
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,data.explore.my_view,PROD)",
     "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
+    "aspectName": "container",
     "aspect": {
         "json": {
-            "path": [
-                {
-                    "id": "Explore"
-                },
-                {
-                    "id": "urn:li:container:59a5aa45397364e6882e793f1bc77b42",
-                    "urn": "urn:li:container:59a5aa45397364e6882e793f1bc77b42"
-                }
-            ]
+            "container": "urn:li:container:59a5aa45397364e6882e793f1bc77b42"
         }
     },
     "systemMetadata": {
@@ -882,10 +886,18 @@
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,data.explore.my_view,PROD)",
     "changeType": "UPSERT",
-    "aspectName": "container",
+    "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
-            "container": "urn:li:container:59a5aa45397364e6882e793f1bc77b42"
+            "path": [
+                {
+                    "id": "Explore"
+                },
+                {
+                    "id": "urn:li:container:59a5aa45397364e6882e793f1bc77b42",
+                    "urn": "urn:li:container:59a5aa45397364e6882e793f1bc77b42"
+                }
+            ]
         }
     },
     "systemMetadata": {
@@ -1029,18 +1041,10 @@
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,sales_model.explore.sales_explore,PROD)",
     "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
+    "aspectName": "container",
     "aspect": {
         "json": {
-            "path": [
-                {
-                    "id": "Explore"
-                },
-                {
-                    "id": "urn:li:container:d38ab60586a6e39b4cf63f14946969c5",
-                    "urn": "urn:li:container:d38ab60586a6e39b4cf63f14946969c5"
-                }
-            ]
+            "container": "urn:li:container:d38ab60586a6e39b4cf63f14946969c5"
         }
     },
     "systemMetadata": {
@@ -1053,10 +1057,18 @@
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,sales_model.explore.sales_explore,PROD)",
     "changeType": "UPSERT",
-    "aspectName": "container",
+    "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
-            "container": "urn:li:container:d38ab60586a6e39b4cf63f14946969c5"
+            "path": [
+                {
+                    "id": "Explore"
+                },
+                {
+                    "id": "urn:li:container:d38ab60586a6e39b4cf63f14946969c5",
+                    "urn": "urn:li:container:d38ab60586a6e39b4cf63f14946969c5"
+                }
+            ]
         }
     },
     "systemMetadata": {

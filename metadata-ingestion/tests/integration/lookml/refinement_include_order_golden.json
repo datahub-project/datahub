@@ -77,7 +77,11 @@
     "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
-            "path": []
+            "path": [
+                {
+                    "id": "Folders"
+                }
+            ]
         }
     },
     "systemMetadata": {
@@ -374,7 +378,8 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "looker.file.path": "views/book.view.lkml"
+                            "looker.file.path": "views/book.view.lkml",
+                            "looker.model": "model_1"
                         },
                         "name": "book",
                         "tags": []
@@ -502,7 +507,8 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "looker.file.path": "views/extend_book.view.lkml"
+                            "looker.file.path": "views/extend_book.view.lkml",
+                            "looker.model": "model_1"
                         },
                         "name": "extend_book",
                         "tags": []
@@ -720,7 +726,8 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "looker.file.path": "views/order.view.lkml"
+                            "looker.file.path": "views/order.view.lkml",
+                            "looker.model": "model_1"
                         },
                         "name": "order",
                         "tags": []
@@ -959,7 +966,8 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "looker.file.path": "views/issue_history.view.lkml"
+                            "looker.file.path": "views/issue_history.view.lkml",
+                            "looker.model": "model_2"
                         },
                         "name": "issue_history",
                         "tags": []

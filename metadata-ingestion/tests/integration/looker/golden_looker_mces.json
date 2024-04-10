@@ -311,7 +311,11 @@
     "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
-            "path": []
+            "path": [
+                {
+                    "id": "Explore"
+                }
+            ]
         }
     },
     "systemMetadata": {
@@ -398,7 +402,11 @@
     "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
-            "path": []
+            "path": [
+                {
+                    "id": "Explore"
+                }
+            ]
         }
     },
     "systemMetadata": {
@@ -542,18 +550,10 @@
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,bogus data.explore.my_view,PROD)",
     "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
+    "aspectName": "container",
     "aspect": {
         "json": {
-            "path": [
-                {
-                    "id": "Explore"
-                },
-                {
-                    "id": "urn:li:container:621eb6e00da9abece0f64522f81be0e7",
-                    "urn": "urn:li:container:621eb6e00da9abece0f64522f81be0e7"
-                }
-            ]
+            "container": "urn:li:container:621eb6e00da9abece0f64522f81be0e7"
         }
     },
     "systemMetadata": {
@@ -566,10 +566,18 @@
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,bogus data.explore.my_view,PROD)",
     "changeType": "UPSERT",
-    "aspectName": "container",
+    "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
-            "container": "urn:li:container:621eb6e00da9abece0f64522f81be0e7"
+            "path": [
+                {
+                    "id": "Explore"
+                },
+                {
+                    "id": "urn:li:container:621eb6e00da9abece0f64522f81be0e7",
+                    "urn": "urn:li:container:621eb6e00da9abece0f64522f81be0e7"
+                }
+            ]
         }
     },
     "systemMetadata": {
@@ -713,18 +721,10 @@
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,data.explore.my_view,PROD)",
     "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
+    "aspectName": "container",
     "aspect": {
         "json": {
-            "path": [
-                {
-                    "id": "Explore"
-                },
-                {
-                    "id": "urn:li:container:59a5aa45397364e6882e793f1bc77b42",
-                    "urn": "urn:li:container:59a5aa45397364e6882e793f1bc77b42"
-                }
-            ]
+            "container": "urn:li:container:59a5aa45397364e6882e793f1bc77b42"
         }
     },
     "systemMetadata": {
@@ -737,10 +737,18 @@
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,data.explore.my_view,PROD)",
     "changeType": "UPSERT",
-    "aspectName": "container",
+    "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
-            "container": "urn:li:container:59a5aa45397364e6882e793f1bc77b42"
+            "path": [
+                {
+                    "id": "Explore"
+                },
+                {
+                    "id": "urn:li:container:59a5aa45397364e6882e793f1bc77b42",
+                    "urn": "urn:li:container:59a5aa45397364e6882e793f1bc77b42"
+                }
+            ]
         }
     },
     "systemMetadata": {
