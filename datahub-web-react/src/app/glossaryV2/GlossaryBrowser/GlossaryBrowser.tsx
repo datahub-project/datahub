@@ -2,7 +2,7 @@ import React, { useEffect } from 'react';
 import styled from 'styled-components/macro';
 import { useGetRootGlossaryNodesQuery, useGetRootGlossaryTermsQuery } from '../../../graphql/glossary.generated';
 import { ChildGlossaryTermFragment } from '../../../graphql/glossaryNode.generated';
-import { GlossaryNode } from '../../../types.generated';
+import { GlossaryNodeFragment } from '../../../graphql/fragments.generated';
 import { sortGlossaryNodes } from '../../entityV2/glossaryNode/utils';
 import { sortGlossaryTerms } from '../../entityV2/glossaryTerm/utils';
 import { useGlossaryEntityData } from '../../entityV2/shared/GlossaryEntityContext';
@@ -21,7 +21,7 @@ const BrowserWrapper = styled.div`
 `;
 
 interface Props {
-    rootNodes?: GlossaryNode[];
+    rootNodes?: GlossaryNodeFragment[];
     rootTerms?: ChildGlossaryTermFragment[];
     isSelecting?: boolean;
     hideTerms?: boolean;
@@ -89,6 +89,7 @@ function GlossaryBrowser(props: Props) {
                     nodeUrnToHide={nodeUrnToHide}
                     selectTerm={selectTerm}
                     selectNode={selectNode}
+                    depth={0}
                 />
             ))}
             {!hideTerms &&

@@ -8,13 +8,8 @@ import { useGlossaryEntityData } from '../../entityV2/shared/GlossaryEntityConte
 import { useGlossaryActiveTabPath } from '../../entityV2/shared/containers/profile/utils';
 
 const TermWrapper = styled.div`
-    font-weight: normal;
-    line-height: normal;
     margin-left: 2px;
-
-    &:not(:first-child) {
-        padding-top: 11px;
-    }
+    padding: 11px 0;
 `;
 
 const nameStyles = `
@@ -24,7 +19,7 @@ const nameStyles = `
     font-size: 12px;
     font-weight: 400;
     line-height: normal;
-    color: ${REDESIGN_COLORS.SUBTITLE};
+    color: ${REDESIGN_COLORS.TEXT_HEADING};
     overflow: hidden;
     white-space: nowrap;
     text-overflow: ellipsis;
@@ -46,7 +41,7 @@ export const TermLink = styled(Link)<TermLinkProps>`
     ${nameStyles}
 
     ${(props) => props.$isChildNode && `opacity: 1;`}
-    ${(props) => props.$areChildrenVisible && `color: ${REDESIGN_COLORS.HOVER_PURPLE_2}; font-weight: 400; opacity: 1;`}
+    ${(props) => props.$areChildrenVisible && `color: ${REDESIGN_COLORS.HOVER_PURPLE_2}; font-weight: 500; opacity: 1;`}
     ${(props) => props.$isSelected && `color: ${REDESIGN_COLORS.HOVER_PURPLE}; font-weight: 700; opacity: 1;`}
 `;
 
