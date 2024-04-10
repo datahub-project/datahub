@@ -158,7 +158,7 @@ class GenericProfiler:
             size_in_bytes=table.size_in_bytes,
             rows_count=table.rows_count,
         ):
-            log.debug(
+            logger.debug(
                 f"Dataset {dataset_name} was not eliagable for profiling due to last_altered, size in bytes or count of rows limit"
             )
             # Profile only table level if dataset is filtered from profiling
