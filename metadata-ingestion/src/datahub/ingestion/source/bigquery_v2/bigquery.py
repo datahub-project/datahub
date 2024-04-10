@@ -1394,7 +1394,8 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 self.report.report_dropped(table_identifier.raw_table_name())
                 continue
 
-            table_items[table.table_id] = table
+            if self.config.table_pattern.allowed(table_identifier.raw_table_name()):
+                table_items[table.table_id] = table
         # Adding maximum shards to the list of tables
         table_items.update({value.table_id: value for value in sharded_tables.values()})
 
