@@ -121,7 +121,6 @@ services:
       timeout: 10s
       retries: 5
     volumes:
-      - ./mysql/init.sql:/docker-entrypoint-initdb.d/init.sql
       - mysqldata:/var/lib/mysql
   mysql-setup: &mysql-setup
     profiles: *mysql-profiles-quickstart
