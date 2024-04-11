@@ -14,7 +14,9 @@ import com.linkedin.test.TestResult;
 import com.linkedin.test.TestResultArray;
 import com.linkedin.test.TestResultType;
 import com.linkedin.test.TestResults;
+import io.datahubproject.metadata.context.OperationContext;
 import java.net.URISyntaxException;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -32,14 +34,17 @@ public class ElasticSearchTestExecutor {
   private final EntitySearchService searchService;
   private final TimeseriesAspectService timeseriesAspectService;
   private final ElasticTestDefinitionConvertor convertor;
+  private final OperationContext opContext;
 
   public ElasticSearchTestExecutor(
       EntitySearchService searchService,
       TimeseriesAspectService timeseriesAspectService,
-      EntityRegistry entityRegistry) {
+      EntityRegistry entityRegistry,
+      OperationContext opContext) {
     this.searchService = searchService;
     this.timeseriesAspectService = timeseriesAspectService;
     this.convertor = new ElasticTestDefinitionConvertor(entityRegistry);
+    this.opContext = opContext;
   }
 
   public boolean canSelect(TestDefinition testDefinition) {
@@ -57,7 +62,8 @@ public class ElasticSearchTestExecutor {
             entityType ->
                 searchService
                     .search(
-                        List.of(entityType),
+                        opContext,
+                        Collections.singletonList(entityType),
                         "*",
                         elasticTestDefinition.getSelectionFilters(entityType),
                         null,
@@ -102,7 +108,8 @@ public class ElasticSearchTestExecutor {
           entityType,
           passingFilters);
       SearchResult passingSearchResult =
-          searchService.search(List.of(entityType), "*", passingFilters, null, 0, 1000, null);
+          searchService.search(opContext, Collections.singletonList(entityType), "*", passingFilters,
+              null, 0, 1000, null);
       passingSearchResult
           .getEntities()
           .forEach(
@@ -125,7 +132,8 @@ public class ElasticSearchTestExecutor {
         failingEntities =
             searchService
                 .search(
-                    List.of(entityType),
+                    opContext,
+                    Collections.singletonList(entityType),
                     "*",
                     elasticTestDefinition.getFailingFilters(entityType),
                     null,
@@ -138,7 +146,8 @@ public class ElasticSearchTestExecutor {
         Filter selectionFilter = elasticTestDefinition.getSelectionFilters(entityType);
         SearchResult selectionSearchResult =
             searchService.search(
-                List.of(entityType),
+                opContext,
+                Collections.singletonList(entityType),
                 "*",
                 elasticTestDefinition.getSelectionFilters(entityType),
                 null,
