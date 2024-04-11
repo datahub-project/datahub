@@ -67,6 +67,7 @@ from datahub.metadata.schema_classes import (
     InputFieldClass,
     InputFieldsClass,
     OperationClass,
+    OperationTypeClass,
     OtherSchemaClass,
     OwnerClass,
     OwnershipClass,
@@ -813,7 +814,7 @@ class ModeSource(StatefulIngestionSourceBase):
         )
 
         operation = OperationClass(
-            operationType="UPDATE",
+            operationType=OperationTypeClass.UPDATE,
             lastUpdatedTimestamp=int(
                 dp.parse(query_data.get("updated_at", "now")).timestamp() * 1000
             ),
@@ -821,10 +822,7 @@ class ModeSource(StatefulIngestionSourceBase):
         )
 
         yield MetadataChangeProposalWrapper(
-            entityType="dataset",
-            changeType=ChangeTypeClass.UPSERT,
             entityUrn=query_urn,
-            aspectName="operation",
             aspect=operation,
         ).as_workunit()
 
