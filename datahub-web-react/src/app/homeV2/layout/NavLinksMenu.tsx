@@ -275,6 +275,7 @@ export function NavLinksMenu(props: Props) {
                         description: 'Explore the GraphQL API',
                         link: HelpLinkRoutes.GRAPHIQL || null,
                         isHidden: false,
+                        target: '_blank',
                         rel: 'noopener noreferrer',
                     },
                     {
