@@ -1,6 +1,8 @@
 import os
 
 import fastapi
+import reactpy
+import reactpy.backend.fastapi
 from fastapi import APIRouter, FastAPI, HTTPException, Response, status
 from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
@@ -8,6 +10,7 @@ from pydantic import BaseModel
 
 from datahub_integrations.actions.router import (
     ACTIONS_ROUTE,
+    ActionsAdminUi,
     actions_lifespan,
     actions_router,
 )
@@ -97,6 +100,38 @@ if os.environ.get("DEV_MODE_BYPASS_FRONTEND", False):
     # need to mount the external router on /integrations because that's what the frontend
     # route is.
     app.include_router(external_router, prefix="/integrations")
+
+# ReactPy UI.
+reactpy.backend.fastapi.configure(
+    app,
+    ActionsAdminUi,
+    reactpy.backend.fastapi.Options(
+        url_prefix="/ui",
+        head=[
+            reactpy.html.link(
+                {
+                    "rel": "stylesheet",
+                    "type": "text/css",
+                    "href": "https://unpkg.com/semantic-ui@2.5.0/dist/semantic.min.css",
+                    "crossorigin": "anonymous",
+                }
+            ),
+            reactpy.html.script(
+                {
+                    "src": "https://code.jquery.com/jquery-3.1.1.min.js",
+                    "integrity": "sha256-hVVnYaiADRTO2PzUGmuLJr8BLUSjGIZsDYGmIJLv2b8=",
+                    "crossorigin": "anonymous",
+                }
+            ),
+            reactpy.html.script(
+                {
+                    "src": "https://unpkg.com/semantic-ui@2.5.0/dist/semantic.min.js",
+                    "crossorigin": "anonymous",
+                }
+            ),
+        ],
+    ),
+)
 
 
 def use_route_names_as_operation_ids(app: fastapi.FastAPI) -> None:

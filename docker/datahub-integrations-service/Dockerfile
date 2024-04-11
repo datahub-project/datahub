@@ -33,8 +33,8 @@ RUN if [ "${PIP_MIRROR_URL}" != "null" ] ; then pip config set global.index-url 
 
 # Note that the requirements file contains editable installs for
 # metadata-ingestion and datahub-integrations-service
-RUN --mount=type=cache,target=/datahub-ingestion/.cache/uv \
-    uv pip install --no-cache -r requirements.txt
+RUN --mount=type=cache,target=/datahub-ingestion/.cache/uv,uid=1000,gid=1000 \
+    uv pip sync requirements.txt
 
 # Production Image Built From Build Image
 FROM base as prod-install
@@ -57,7 +57,6 @@ FROM prod-install as dev-install
 # COPY ./datahub-actions/datahub-actions/README.md /datahub-actions/datahub-actions/
 # COPY ./datahub-actions/datahub-actions/src/datahub_actions/__init__.py /datahub-actions/datahub-actions/src/datahub_actions/__init__.py
 
-ENV PYTHONPATH="/metadata-ingestion/src:/datahub-integrations-service/src:${PYTHONPATH}"
 ENV EXTRA_UVICORN_ARGS="--reload --reload-dir /datahub-integrations-service/src --reload-dir /metadata-ingestion/src"
 
 FROM ${APP_ENV}-install as final

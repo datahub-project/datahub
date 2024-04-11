@@ -11,6 +11,7 @@ import logging
 import signal
 import sys
 import threading
+from datetime import datetime
 
 import fastapi
 import fastapi.responses
@@ -36,11 +37,11 @@ def make_api(pipeline: Pipeline) -> fastapi.FastAPI:
     @app.get("/stats")
     def stats() -> dict:
         stats_obj = pipeline.stats()
-        stats_obj.pretty_print_summary("foo")
 
         # Hacky was to convert stats_obj to a dict.
         # TODO: Change datahub-actions to use reports properly.
         stats = {
+            "stats_generated_at": datetime.now().isoformat(),
             "main": json.loads(stats_obj.as_string()),
             "transformers": {
                 key: json.loads(transformer_stats.as_string())

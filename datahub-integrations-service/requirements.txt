@@ -20,8 +20,11 @@ anyio==3.7.1
     #   acryl-datahub-integrations
     #   fastapi
     #   httpx
+    #   reactpy
     #   starlette
     #   watchfiles
+asgiref==3.8.1
+    # via reactpy
 async-timeout==4.0.3
     # via aiohttp
 attrs==23.1.0
@@ -66,6 +69,8 @@ click-default-group==1.2.4
     #   acryl-datahub-actions
 click-spinner==0.1.10
     # via acryl-datahub
+colorlog==6.8.2
+    # via reactpy
 confluent-kafka==2.3.0
     # via acryl-datahub
 deprecated==1.2.14
@@ -90,6 +95,8 @@ fastapi==0.103.1
     # via acryl-datahub-integrations
 fastavro==1.9.0
     # via acryl-datahub
+fastjsonschema==2.19.1
+    # via reactpy
 frozenlist==1.4.0
     # via
     #   aiohttp
@@ -126,12 +133,18 @@ jmespath==1.0.1
     # via
     #   boto3
     #   botocore
+jsonpatch==1.33
+    # via reactpy
+jsonpointer==2.4
+    # via jsonpatch
 jsonref==1.1.0
     # via acryl-datahub
 jsonschema==4.17.3
     # via acryl-datahub
 loguru==0.7.1
     # via acryl-datahub-integrations
+lxml==5.2.1
+    # via reactpy
 markupsafe==2.1.5
     # via jinja2
 mixpanel==4.10.0
@@ -143,6 +156,7 @@ multidict==6.0.4
 mypy-extensions==1.0.0
     # via
     #   acryl-datahub-actions
+    #   reactpy
     #   typing-inspect
 networkx==3.2.1
     # via acryl-datahub
@@ -174,7 +188,7 @@ psutil==5.9.5
     # via acryl-datahub
 pyarrow==15.0.0
     # via acryl-datahub-integrations
-pydantic==1.10.12
+pydantic==1.10.15
     # via
     #   acryl-datahub
     #   acryl-datahub-actions
@@ -205,11 +219,18 @@ pyyaml==6.0.1
     #   uvicorn
 ratelimit==2.2.1
     # via acryl-datahub-actions
+reactpy==1.0.2
+    # via
+    #   acryl-datahub-integrations
+    #   reactpy-router
+reactpy-router==0.1.1
+    # via acryl-datahub-integrations
 requests==2.31.0
     # via
     #   docker
     #   mixpanel
     #   openai
+    #   reactpy
     #   requests-file
 requests-file==1.5.1
     # via acryl-datahub
@@ -217,10 +238,10 @@ ruamel-yaml==0.17.32
     # via acryl-datahub
 ruamel-yaml-clib==0.2.7
     # via ruamel-yaml
-sendgrid==6.11.0
-    # via acryl-datahub-integrations (pyproject.toml)
 s3transfer==0.10.0
     # via boto3
+sendgrid==6.11.0
+    # via acryl-datahub-integrations
 sentry-sdk==1.30.0
     # via acryl-datahub
 setuptools==69.2.0
@@ -259,12 +280,15 @@ toml==0.10.2
     #   acryl-datahub-actions
 tqdm==4.66.1
     # via openai
-typing-extensions==4.5.0
+typing-extensions==4.11.0
     # via
     #   acryl-datahub
+    #   asgiref
     #   fastapi
     #   pydantic
     #   python-utils
+    #   reactpy
+    #   reactpy-router
     #   typing-inspect
     #   uvicorn
 typing-inspect==0.9.0

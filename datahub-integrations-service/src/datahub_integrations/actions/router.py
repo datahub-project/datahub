@@ -1,14 +1,19 @@
+import asyncio
 import contextlib
 import json
 import pathlib
-from typing import AsyncIterator
+from datetime import datetime
+from typing import Any, AsyncIterator, Callable
 
+import anyio
 import fastapi
 import httpx
+import reactpy
 import starlette
 import starlette.background
 from fastapi import HTTPException, status
 from loguru import logger
+from reactpy import html
 
 from datahub_integrations.actions.actions_manager import ActionsManager, ActionSpec
 from datahub_integrations.app import DATAHUB_SERVER, graph
@@ -198,4 +203,114 @@ async def actions_proxy(
         status_code=res.status_code,
         headers=res.headers,
         background=starlette.background.BackgroundTask(res.aclose),
+    )
+
+
+@reactpy.component
+def ActionInfo(spec: ActionSpec) -> reactpy.types.VdomDict:
+    async def handle_reload(event: Any = None) -> None:
+        await reload_action(spec.urn)
+
+    async def handle_stop(event: Any = None) -> None:
+        await stop_action(spec.urn)
+
+    stats, set_stats = reactpy.use_state("Loading...")
+
+    async def update_stats(event: Any = None) -> None:
+        if not spec.is_running():
+            set_stats("Action is not running.")
+            return
+
+        try:
+            stat_res = await action_stats(spec.urn)
+            logger.debug(f"Got stats in router: {stat_res}")
+            set_stats(json.dumps(stat_res, indent=2))
+        except Exception as e:
+            set_stats(f"Failed to get stats: {e}")
+
+    # TODO: Set a timer to update stats every n seconds.
+    reactpy.use_effect(update_stats, dependencies=[spec.urn])
+
+    button_css = {"className": "ui button"}
+
+    return html.div(
+        {"className": "ui segment", "style": {"margin": "1rem 0"}},
+        html.h2(html.code(spec.urn)),
+        (
+            html.div(
+                html.span("Stats:"),
+                html.pre(stats),
+            )
+            if spec.is_running()
+            else html._()
+        ),
+        html.div(
+            html.span("Logs:"),
+            html.pre(spec.logs.get_logs()),
+        ),
+        (
+            html.button(
+                {"onClick": update_stats, **button_css},
+                "Reload Stats",
+            )
+            if spec.is_running()
+            else html._()
+        ),
+        html.button(
+            {"onClick": handle_reload, **button_css},
+            "Restart",
+        ),
+        (
+            html.button(
+                {"onClick": handle_stop, **button_css},
+                "Stop",
+            )
+            if spec.is_running()
+            else html._()
+        ),
+    )
+
+
+@reactpy.component
+def ActionsAdminUi() -> reactpy.types.VdomDict:
+    # TODO Add reactpy-router to create multiple pages.
+
+    last_updated, set_last_updated = reactpy.use_state(datetime.now().isoformat())
+    inner_pipeline_manager, set_inner_pipeline_manager = reactpy.use_state(
+        pipeline_manager
+    )
+
+    async def pipeline_updater() -> None:
+        while True:
+            set_inner_pipeline_manager(pipeline_manager)
+            set_last_updated(datetime.now().isoformat())
+            await anyio.sleep(2)
+
+    @reactpy.use_effect(dependencies=[])
+    def update_pipeline_effect() -> Callable:
+        # Via https://github.com/reactive-python/reactpy/discussions/966
+        task = asyncio.create_task(pipeline_updater())
+        return task.cancel
+
+    # TODO: Show pipelines that have died/crashed, including their logs.
+    return html.div(
+        {"style": {"margin": "1rem 2rem 0"}},
+        html.span(f"Last updated: {last_updated}"),
+        html.section(
+            html.h1("Active Actions"),
+            *[
+                ActionInfo(spec, key=spec.urn)
+                for spec in inner_pipeline_manager.pipelines.values()
+            ],
+        ),
+        html.section(
+            html.h1("Stopped Actions"),
+            html.p(
+                "These actions have stopped running. This includes the last failure of any action that has since been restarted."
+            ),
+            *[
+                ActionInfo(spec, key=spec.urn)
+                for spec in inner_pipeline_manager.dead_pipelines.values()
+            ],
+        ),
     )

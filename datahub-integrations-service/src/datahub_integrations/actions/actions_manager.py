@@ -4,6 +4,7 @@ import json
 import os
 import pathlib
 import random
+from datetime import datetime, timezone
 
 import anyio
 import anyio.abc
@@ -38,16 +39,25 @@ class ActionSpec:
     venv: VenvReference
     port: int
 
+    started_at: datetime = dataclasses.field(
+        default_factory=lambda: datetime.now(tz=timezone.utc)
+    )
+    ended_at: datetime | None = None
     _action_tg: anyio.abc.TaskGroup = dataclasses.field(init=False)
 
     @property
     def base_url(self) -> str:
         return f"http://localhost:{self.port}"
 
+    def is_running(self) -> bool:
+        return self.ended_at is None
+
 
 @dataclasses.dataclass
 class ActionsManager(contextlib.AbstractAsyncContextManager):
     pipelines: dict[str, ActionSpec] = dataclasses.field(default_factory=dict)
+    dead_pipelines: dict[str, ActionSpec] = dataclasses.field(default_factory=dict)
+
     context_stack: contextlib.AsyncExitStack = dataclasses.field(
         default_factory=contextlib.AsyncExitStack
     )
@@ -122,8 +132,12 @@ class ActionsManager(contextlib.AbstractAsyncContextManager):
                 )
 
             finally:
+                # TODO: If it wasn't manually stopped, we should restart it.
                 logger.info(f"Pipeline with urn {action_spec.urn} has stopped.")
-                self.pipelines.pop(action_spec.urn)
+                action_spec.ended_at = datetime.now(tz=timezone.utc)
+                self.dead_pipelines[action_spec.urn] = self.pipelines.pop(
+                    action_spec.urn
+                )
 
     def is_running(self, urn: str) -> bool:
         return urn in self.pipelines

@@ -13,8 +13,8 @@ requires-python = ">=3.9"
 
 dependencies = [
 	"acryl-datahub[base]",
-	"fastapi",
-	"uvicorn[standard]",
+	"fastapi>=0.103.1",
+	"uvicorn[standard]>=0.23.2",
 	"loguru",
 	"slack-bolt",
 	"acryl-datahub-actions==0.0.14",
@@ -29,6 +29,8 @@ dependencies = [
 	"cachetools",
 	"anyio",
 	"httpx",
+	"reactpy",
+	"reactpy-router",
 ]
 
 [project.optional-dependencies]

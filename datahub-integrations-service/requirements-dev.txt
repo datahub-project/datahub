@@ -20,8 +20,11 @@ anyio==3.7.1
     #   acryl-datahub-integrations
     #   fastapi
     #   httpx
+    #   reactpy
     #   starlette
     #   watchfiles
+asgiref==3.8.1
+    # via reactpy
 async-timeout==4.0.3
     # via aiohttp
 attrs==23.1.0
@@ -68,6 +71,8 @@ click-default-group==1.2.4
     #   acryl-datahub-actions
 click-spinner==0.1.10
     # via acryl-datahub
+colorlog==6.8.2
+    # via reactpy
 confluent-kafka==2.3.0
     # via acryl-datahub
 coverage==7.3.1
@@ -97,6 +102,8 @@ fastapi==0.103.1
     # via acryl-datahub-integrations
 fastavro==1.9.0
     # via acryl-datahub
+fastjsonschema==2.19.1
+    # via reactpy
 frozenlist==1.4.0
     # via
     #   aiohttp
@@ -136,12 +143,18 @@ jmespath==1.0.1
     # via
     #   boto3
     #   botocore
+jsonpatch==1.33
+    # via reactpy
+jsonpointer==2.4
+    # via jsonpatch
 jsonref==1.1.0
     # via acryl-datahub
 jsonschema==4.17.3
     # via acryl-datahub
 loguru==0.7.1
     # via acryl-datahub-integrations
+lxml==5.2.1
+    # via reactpy
 markupsafe==2.1.5
     # via jinja2
 mixpanel==4.10.0
@@ -156,6 +169,7 @@ mypy-extensions==1.0.0
     #   acryl-datahub-actions
     #   black
     #   mypy
+    #   reactpy
     #   typing-inspect
 networkx==3.2.1
     # via acryl-datahub
@@ -195,7 +209,7 @@ psutil==5.9.5
     # via acryl-datahub
 pyarrow==15.0.0
     # via acryl-datahub-integrations
-pydantic==1.10.12
+pydantic==1.10.15
     # via
     #   acryl-datahub
     #   acryl-datahub-actions
@@ -204,7 +218,10 @@ pydantic==1.10.12
 pyrsistent==0.19.3
     # via jsonschema
 pytest==7.4.2
-    # via pytest-cov
+    # via
+    #   pytest-asyncio
+    #   pytest-cov
+pytest-asyncio==0.23.6
 pytest-cov==4.1.0
 python-dateutil==2.8.2
     # via
@@ -216,9 +233,7 @@ python-dateutil==2.8.2
 python-dotenv==1.0.0
     # via uvicorn
 python-http-client==3.3.7
-    # via
-    #   -r requirements.txt
-    #   sendgrid
+    # via sendgrid
 python-utils==3.7.0
     # via progressbar2
 pytz==2024.1
@@ -232,11 +247,18 @@ pyyaml==6.0.1
     #   uvicorn
 ratelimit==2.2.1
     # via acryl-datahub-actions
+reactpy==1.0.2
+    # via
+    #   acryl-datahub-integrations
+    #   reactpy-router
+reactpy-router==0.1.1
+    # via acryl-datahub-integrations
 requests==2.31.0
     # via
     #   docker
     #   mixpanel
     #   openai
+    #   reactpy
     #   requests-file
 requests-file==1.5.1
     # via acryl-datahub
@@ -245,13 +267,10 @@ ruamel-yaml==0.17.32
 ruamel-yaml-clib==0.2.7
     # via ruamel-yaml
 ruff==0.0.287
-    # via acryl-datahub-integrations (pyproject.toml)
-sendgrid==6.11.0
-    # via
-    #   -r requirements.txt
-    #   acryl-datahub-integrations (pyproject.toml)
 s3transfer==0.10.0
     # via boto3
+sendgrid==6.11.0
+    # via acryl-datahub-integrations
 sentry-sdk==1.30.0
     # via acryl-datahub
 setuptools==69.2.0
@@ -273,9 +292,7 @@ sniffio==1.3.0
 stackprinter==0.2.10
     # via acryl-datahub-actions
 starkbank-ecdsa==2.2.0
-    # via
-    #   -r requirements.txt
-    #   sendgrid
+    # via sendgrid
 starlette==0.27.0
     # via fastapi
 tabulate==0.9.0
@@ -300,13 +317,16 @@ tqdm==4.66.1
     # via openai
 types-cachetools==5.3.0.7
 types-setuptools==68.2.0.0
-typing-extensions==4.5.0
+typing-extensions==4.11.0
     # via
     #   acryl-datahub
+    #   asgiref
     #   fastapi
     #   mypy
     #   pydantic
     #   python-utils
+    #   reactpy
+    #   reactpy-router
     #   typing-inspect
     #   uvicorn
 typing-inspect==0.9.0
