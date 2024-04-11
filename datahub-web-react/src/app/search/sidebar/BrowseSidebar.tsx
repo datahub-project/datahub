@@ -45,11 +45,9 @@ const SidebarBody = styled.div<{ visible: boolean }>`
 const SelectWrapper = styled.div`
     display: inline-flex;
     align-items: center;
-
-    .ant-select-selection-item {
+    width: 200px .ant-select-selection-item {
         color: ${ANTD_GRAY[8]} !important;
         font-weight: 700;
-        width:100px
     }
 
     .ant-select-selection-placeholder {
@@ -91,6 +89,7 @@ const BrowseSidebar = ({ visible }: Props) => {
                             <Select
                                 placeholder="Sort"
                                 placement="bottomRight"
+                                dropdownStyle={{ minWidth: '70px' }}
                                 onChange={(value) => setSortBy(value)}
                                 bordered={false}
                                 suffixIcon={<CaretDownFilled />}
