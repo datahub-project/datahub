@@ -47,7 +47,6 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.registry import import_path
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor, SourceCapability
-from datahub.ingestion.api.source_helpers import prepend_platform_instance
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import (
     BIContainerSubTypes,
@@ -2251,11 +2250,7 @@ class LookMLSource(StatefulIngestionSourceBase):
         yield MetadataChangeProposalWrapper(
             entityUrn=project_key.as_urn(),
             aspect=BrowsePathsV2Class(
-                path=prepend_platform_instance(
-                    [BrowsePathEntryClass("Folders")],
-                    self.source_config.platform_name,
-                    self.source_config.platform_instance,
-                )
+                path=[BrowsePathEntryClass("Folders")],
             ),
         ).as_workunit()
 

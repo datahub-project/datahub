@@ -34,7 +34,9 @@ def platform_name(
 
     def wrapper(cls: Type) -> Type:
         cls.get_platform_name = lambda: platform_name
-        cls.get_platform_id = lambda: id or platform_name.lower().replace(" ", "-")
+        cls.get_platform_id = lambda *args: id or platform_name.lower().replace(
+            " ", "-"
+        )
         cls.get_platform_doc_order = lambda: doc_order or None
 
         return cls

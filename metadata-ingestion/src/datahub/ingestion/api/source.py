@@ -277,7 +277,17 @@ class Source(Closeable, metaclass=ABCMeta):
 
     def _get_browse_path_processor(self, dry_run: bool) -> MetadataWorkUnitProcessor:
         config = self.get_config()
-        platform = getattr(self, "platform", None) or getattr(config, "platform", None)
+
+        platform_id = (
+            self.get_platform_id()
+            if hasattr(self, "get_platform_id") and callable(self.get_platform_id)
+            else None
+        )
+        platform = (
+            platform_id
+            or getattr(self, "platform", None)
+            or getattr(config, "platform", None)
+        )
         env = getattr(config, "env", None)
         browse_path_drop_dirs = [
             platform,

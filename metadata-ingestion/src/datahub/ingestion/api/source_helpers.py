@@ -251,8 +251,11 @@ def auto_browse_path_v2(
 
     Calculates the correct BrowsePathsV2 at end of workunit stream,
     and emits "corrections", i.e. a final BrowsePathsV2 for any urns that have changed.
-    Source-generated original BrowsePathsV2 are assumed to be correct and are preferred over other aspects
-    when generating BrowsePathsV2 of an entity or its children.
+
+    Source-generated original BrowsePathsV2 are assumed to be correct and are preferred
+    over other aspects when generating BrowsePathsV2 of an entity or its children.
+    This helper also prepends platform instance BrowsePathEntry to BrowsePathsV2 so the
+    source need not include it in its browse paths v2.
     """
 
     # For telemetry, to see if our sources violate assumptions
@@ -271,21 +274,33 @@ def auto_browse_path_v2(
         container_path: Optional[List[BrowsePathEntryClass]] = None
         legacy_path: Optional[List[BrowsePathEntryClass]] = None
         browse_path_v2: Optional[List[BrowsePathEntryClass]] = None
-        has_browse_path_v2 = False
 
         for wu in batch:
-            yield wu
             if not wu.is_primary_source:
+                yield wu
                 continue
+
+            browse_path_v2_aspect = wu.get_aspect_of_type(BrowsePathsV2Class)
+            if browse_path_v2_aspect is None:
+                yield wu
+            else:
+                browse_path_v2 = browse_path_v2_aspect.path
+                if guess_entity_type(urn) == "container":
+                    paths[urn] = browse_path_v2
 
             container_aspect = wu.get_aspect_of_type(ContainerClass)
             if container_aspect:
                 parent_urn = container_aspect.container
                 containers_used_as_parent.add(parent_urn)
-                paths[urn] = [
-                    *paths.setdefault(parent_urn, []),  # Guess parent has no parents
-                    BrowsePathEntryClass(id=parent_urn, urn=parent_urn),
-                ]
+                paths.setdefault(
+                    urn,
+                    [
+                        *paths.setdefault(
+                            parent_urn, []
+                        ),  # Guess parent has no parents
+                        BrowsePathEntryClass(id=parent_urn, urn=parent_urn),
+                    ],
+                )
                 container_path = paths[urn]
 
                 if urn in containers_used_as_parent:
@@ -301,26 +316,28 @@ def auto_browse_path_v2(
                     if p.strip() and p.strip() not in drop_dirs
                 ]
 
-            browse_path_v2_aspect = wu.get_aspect_of_type(BrowsePathsV2Class)
-            if browse_path_v2_aspect:
-                browse_path_v2 = browse_path_v2_aspect.path
-
-                # If a container has both parent container and browsePathsV2
-                # emitted from source, the one that's emitted later would take precedence
-                # for children of that container. As of now, this does not seem to be a
-                # common scenario.
-                if urn.startswith("urn:li:container"):  # save if this is container urn
-                    paths[urn] = browse_path_v2
-                has_browse_path_v2 = True
-
         # Order of preference: browse path v2, container path, legacy browse path
         path = browse_path_v2 or container_path or legacy_path
         if path is not None and urn in emitted_urns:
             # Batch invariant violated
             # TODO: Add sentry alert
             num_out_of_batch += 1
-        elif has_browse_path_v2:
+        elif browse_path_v2 is not None:
             emitted_urns.add(urn)
+            if not dry_run:
+                yield MetadataChangeProposalWrapper(
+                    entityUrn=urn,
+                    aspect=BrowsePathsV2Class(
+                        path=prepend_platform_instance(
+                            browse_path_v2, platform, platform_instance
+                        )
+                    ),
+                ).as_workunit()
+            else:
+                yield MetadataChangeProposalWrapper(
+                    entityUrn=urn,
+                    aspect=BrowsePathsV2Class(path=browse_path_v2),
+                ).as_workunit()
         elif path is not None:
             emitted_urns.add(urn)
             if not dry_run:

@@ -35,7 +35,6 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import ContainerKey, create_embed_mcp
 from datahub.ingestion.api.report import Report
 from datahub.ingestion.api.source import SourceReport
-from datahub.ingestion.api.source_helpers import prepend_platform_instance
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.looker.looker_config import (
     LookerCommonConfig,
@@ -214,17 +213,11 @@ class LookerViewId:
         else:
             path_entries = []
         return BrowsePathsV2Class(
-            path=prepend_platform_instance(
-                [
-                    BrowsePathEntryClass(id="Develop"),
-                    BrowsePathEntryClass(
-                        id=project_key.as_urn(), urn=project_key.as_urn()
-                    ),
-                    *path_entries,
-                ],
-                config.platform_name,
-                config.platform_instance,
-            )
+            path=[
+                BrowsePathEntryClass(id="Develop"),
+                BrowsePathEntryClass(id=project_key.as_urn(), urn=project_key.as_urn()),
+                *path_entries,
+            ],
         )
 
 

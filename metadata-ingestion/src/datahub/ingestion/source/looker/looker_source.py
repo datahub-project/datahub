@@ -46,10 +46,7 @@ from datahub.ingestion.api.source import (
     TestableSource,
     TestConnectionReport,
 )
-from datahub.ingestion.api.source_helpers import (
-    auto_workunit,
-    prepend_platform_instance,
-)
+from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import (
     BIAssetSubTypes,
@@ -669,15 +666,11 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
             chart_snapshot.aspects.append(browse_path)
 
             browse_path_v2 = BrowsePathsV2Class(
-                path=prepend_platform_instance(
-                    [
-                        BrowsePathEntryClass("Folders"),
-                        *self._get_folder_browse_path_v2_entries(dashboard.folder),
-                        BrowsePathEntryClass(id=dashboard.title),
-                    ],
-                    self.source_config.platform_name,
-                    self.source_config.platform_instance,
-                )
+                path=[
+                    BrowsePathEntryClass("Folders"),
+                    *self._get_folder_browse_path_v2_entries(dashboard.folder),
+                    BrowsePathEntryClass(id=dashboard.title),
+                ],
             )
         elif (
             dashboard is None
@@ -689,16 +682,10 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
             )
             chart_snapshot.aspects.append(browse_path)
             browse_path_v2 = BrowsePathsV2Class(
-                path=prepend_platform_instance(
-                    [
-                        BrowsePathEntryClass("Folders"),
-                        *self._get_folder_browse_path_v2_entries(
-                            dashboard_element.folder
-                        ),
-                    ],
-                    self.source_config.platform_name,
-                    self.source_config.platform_instance,
-                )
+                path=[
+                    BrowsePathEntryClass("Folders"),
+                    *self._get_folder_browse_path_v2_entries(dashboard_element.folder),
+                ],
             )
 
         if dashboard is not None:
@@ -775,16 +762,10 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                 paths=[f"/Folders/{looker_dashboard.folder_path}"]
             )
             browse_path_v2 = BrowsePathsV2Class(
-                path=prepend_platform_instance(
-                    [
-                        BrowsePathEntryClass("Folders"),
-                        *self._get_folder_browse_path_v2_entries(
-                            looker_dashboard.folder
-                        ),
-                    ],
-                    self.source_config.platform_name,
-                    self.source_config.platform_instance,
-                )
+                path=[
+                    BrowsePathEntryClass("Folders"),
+                    *self._get_folder_browse_path_v2_entries(looker_dashboard.folder),
+                ],
             )
             dashboard_snapshot.aspects.append(browse_path)
 
@@ -858,11 +839,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                 yield MetadataChangeProposalWrapper(
                     entityUrn=model_key.as_urn(),
                     aspect=BrowsePathsV2Class(
-                        path=prepend_platform_instance(
-                            [BrowsePathEntryClass("Explore")],
-                            self.source_config.platform_name,
-                            self.source_config.platform_instance,
-                        )
+                        path=[BrowsePathEntryClass("Explore")],
                     ),
                 )
 
@@ -941,27 +918,19 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                 yield MetadataChangeProposalWrapper(
                     entityUrn=self._gen_folder_key(folder.id).as_urn(),
                     aspect=BrowsePathsV2Class(
-                        path=prepend_platform_instance(
-                            [BrowsePathEntryClass("Folders")],
-                            self.source_config.platform_name,
-                            self.source_config.platform_instance,
-                        )
+                        path=[BrowsePathEntryClass("Folders")],
                     ),
                 ).as_workunit()
             else:
                 yield MetadataChangeProposalWrapper(
                     entityUrn=self._gen_folder_key(folder.id).as_urn(),
                     aspect=BrowsePathsV2Class(
-                        path=prepend_platform_instance(
-                            [
-                                BrowsePathEntryClass("Folders"),
-                                *self._get_folder_browse_path_v2_entries(
-                                    folder, include_current_folder=False
-                                ),
-                            ],
-                            self.source_config.platform_name,
-                            self.source_config.platform_instance,
-                        )
+                        path=[
+                            BrowsePathEntryClass("Folders"),
+                            *self._get_folder_browse_path_v2_entries(
+                                folder, include_current_folder=False
+                            ),
+                        ],
                     ),
                 ).as_workunit()
             self.processed_folders.append(folder.id)
