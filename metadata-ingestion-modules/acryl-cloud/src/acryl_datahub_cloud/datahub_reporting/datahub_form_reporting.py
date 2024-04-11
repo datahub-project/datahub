@@ -7,10 +7,10 @@ from typing import Any, Callable, Dict, Iterable, List, Optional
 import pandas as pd
 from pydantic import BaseModel
 
+from acryl_datahub_cloud.datahub_reporting.datahub_dataset import BaseModelRow
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.graph.filters import SearchFilterRule
-from datahub.ingestion.source.datahub_reporting.datahub_dataset import BaseModelRow
 from datahub.metadata.schema_classes import (
     DomainPropertiesClass,
     FormInfoClass,
@@ -381,13 +381,11 @@ class DataHubFormReportingData(FormData):
                 )
                 assignees = self.get_assignees(form_info, search_row.owners)
                 form_prompts = [x.id for x in form_info.prompts]
-                for i, prompt_id in enumerate(
-                    [
-                        p
-                        for p in search_row.completedFormsIncompletePromptIds
-                        for p in form_prompts
-                    ]
-                ):
+                for prompt_id in [
+                    p
+                    for p in search_row.completedFormsIncompletePromptIds
+                    for p in form_prompts
+                ]:
                     logger.warning("Unexpected incomplete prompt in completed form")
                     for owner in assignees:
                         yield FormReportingRow(

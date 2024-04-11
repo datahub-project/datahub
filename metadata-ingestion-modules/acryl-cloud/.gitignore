@@ -2,6 +2,7 @@
 /src/acryl_datahub_cloud/_codegen_config.json
 /src/acryl_datahub_cloud/_codegen_config.json.bak
 junit.*.xml
+/.envrc
 
 # Created by https://www.toptal.com/developers/gitignore/api/python
 # Edit at https://www.toptal.com/developers/gitignore?templates=python

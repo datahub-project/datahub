@@ -6,6 +6,19 @@ from typing import Dict, List, Optional
 import boto3
 from pydantic import BaseModel
 
+from acryl_datahub_cloud.datahub_reporting.datahub_dataset import (
+    DataHubBasedS3Dataset,
+    DatasetMetadata,
+    DatasetRegistrationSpec,
+    FileStoreBackedDatasetConfig,
+)
+from acryl_datahub_cloud.datahub_reporting.datahub_form_reporting import (
+    DataHubFormReportingData,
+)
+from acryl_datahub_cloud.datahub_reporting.forms_config import (
+    DataHubReportingFormSourceConfig,
+    DataHubReportingFormSourceReport,
+)
 from datahub.emitter.mce_builder import make_dataset_urn
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -16,19 +29,6 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.graph.client import DataHubGraph
-from datahub.ingestion.source.datahub_reporting.datahub_dataset import (
-    DataHubBasedS3Dataset,
-    DatasetMetadata,
-    DatasetRegistrationSpec,
-    FileStoreBackedDatasetConfig,
-)
-from datahub.ingestion.source.datahub_reporting.datahub_form_reporting import (
-    DataHubFormReportingData,
-)
-from datahub.ingestion.source.datahub_reporting.forms_config import (
-    DataHubReportingFormSourceConfig,
-    DataHubReportingFormSourceReport,
-)
 
 logger = logging.getLogger(__name__)
 

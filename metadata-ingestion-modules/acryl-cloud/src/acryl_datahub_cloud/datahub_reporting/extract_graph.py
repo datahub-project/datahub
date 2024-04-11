@@ -8,6 +8,13 @@ import boto3
 from opensearchpy import OpenSearch
 from pydantic import validator
 
+from acryl_datahub_cloud.datahub_reporting.datahub_dataset import (
+    BaseModelRow,
+    DataHubBasedS3Dataset,
+    DatasetMetadata,
+    DatasetRegistrationSpec,
+    FileStoreBackedDatasetConfig,
+)
 from datahub.configuration.common import ConfigModel
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -18,13 +25,6 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
-from datahub.ingestion.source.datahub_reporting.datahub_dataset import (
-    BaseModelRow,
-    DataHubBasedS3Dataset,
-    DatasetMetadata,
-    DatasetRegistrationSpec,
-    FileStoreBackedDatasetConfig,
-)
 from datahub.metadata.schema_classes import DatasetPropertiesClass
 
 logger = logging.getLogger(__name__)
