@@ -1,20 +1,11 @@
-import { FilterOperator, SortCriterion, SortOrder } from '../../../../../../../../types.generated';
+import { EntityType, SortCriterion, SortOrder } from '../../../../../../../../types.generated';
 import { FilterSet } from '../../../../../../../entityV2/shared/components/styled/search/types';
-import { UnionType } from '../../../../../../../searchV2/utils/constants';
-
-const MIN_QUERIES = '10';
+import { ENTITY_FILTER_NAME, UnionType } from '../../../../../../../searchV2/utils/constants';
 
 export const buildMostViewedDashboardsFilter = (): FilterSet => {
     return {
         unionType: UnionType.AND,
-        filters: [
-            {
-                field: 'viewCountLast30DaysFeature',
-                values: [MIN_QUERIES],
-                condition: FilterOperator.GreaterThanOrEqualTo,
-                negated: false,
-            },
-        ],
+        filters: [{ field: ENTITY_FILTER_NAME, values: [EntityType.Dashboard] }],
     };
 };
 
