@@ -279,7 +279,7 @@ class GenericProfiler:
         ):
             self.report.profiling_skipped_not_updated[schema_name] += 1
             logger.debug(
-                f"Table {dataset_name} is not allowed for profiling due to it was not updated recently enough"
+                f"Table {dataset_name} was skipped because it was not updated recently enough"
             )
             return False
 
