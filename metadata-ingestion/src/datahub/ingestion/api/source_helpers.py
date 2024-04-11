@@ -284,6 +284,8 @@ def auto_browse_path_v2(
             if browse_path_v2_aspect is None:
                 yield wu
             else:
+                # This is browse path v2 aspect. We will process
+                # and emit it later with platform instance, as required.
                 browse_path_v2 = browse_path_v2_aspect.path
                 if guess_entity_type(urn) == "container":
                     paths[urn] = browse_path_v2
@@ -292,6 +294,8 @@ def auto_browse_path_v2(
             if container_aspect:
                 parent_urn = container_aspect.container
                 containers_used_as_parent.add(parent_urn)
+                # If a container has both parent container and browsePathsV2
+                # emitted from source, prefer browsePathsV2, so using setdefault.
                 paths.setdefault(
                     urn,
                     [
@@ -328,7 +332,7 @@ def auto_browse_path_v2(
                 yield MetadataChangeProposalWrapper(
                     entityUrn=urn,
                     aspect=BrowsePathsV2Class(
-                        path=prepend_platform_instance(
+                        path=_prepend_platform_instance(
                             browse_path_v2, platform, platform_instance
                         )
                     ),
@@ -344,7 +348,7 @@ def auto_browse_path_v2(
                 yield MetadataChangeProposalWrapper(
                     entityUrn=urn,
                     aspect=BrowsePathsV2Class(
-                        path=prepend_platform_instance(
+                        path=_prepend_platform_instance(
                             path, platform, platform_instance
                         )
                     ),
@@ -356,7 +360,7 @@ def auto_browse_path_v2(
                 yield MetadataChangeProposalWrapper(
                     entityUrn=urn,
                     aspect=BrowsePathsV2Class(
-                        path=prepend_platform_instance([], platform, platform_instance)
+                        path=_prepend_platform_instance([], platform, platform_instance)
                     ),
                 ).as_workunit()
 
@@ -446,7 +450,7 @@ def _batch_workunits_by_urn(
         yield batch_urn, batch
 
 
-def prepend_platform_instance(
+def _prepend_platform_instance(
     entries: List[BrowsePathEntryClass],
     platform: Optional[str],
     platform_instance: Optional[str],

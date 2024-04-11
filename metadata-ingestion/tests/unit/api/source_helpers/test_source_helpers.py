@@ -15,12 +15,12 @@ from datahub.emitter.mce_builder import (
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.source_helpers import (
+    _prepend_platform_instance,
     auto_browse_path_v2,
     auto_empty_dataset_usage_statistics,
     auto_lowercase_urns,
     auto_status_aspect,
     auto_workunit,
-    prepend_platform_instance,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 
@@ -143,13 +143,13 @@ def _make_browse_path_entries(path: List[str]) -> List[models.BrowsePathEntryCla
     return [models.BrowsePathEntryClass(id=s, urn=None) for s in path]
 
 
-def _prepend_platform_instance(
+def prepend_platform_instance(
     path: List[models.BrowsePathEntryClass],
 ) -> List[models.BrowsePathEntryClass]:
 
     platform = "platform"
     instance = "instance"
-    return prepend_platform_instance(path, platform, instance)
+    return _prepend_platform_instance(path, platform, instance)
 
 
 def _get_browse_paths_from_wu(
@@ -293,28 +293,28 @@ def test_auto_browse_path_v2_with_platform_instance_and_source_browse_path_v2(
     )
 
     paths = _get_browse_paths_from_wu(new_wus)
-    assert paths["a"] == _prepend_platform_instance(
+    assert paths["a"] == prepend_platform_instance(
         _make_browse_path_entries(["my", "path"]),
     )
-    assert paths["b"] == _prepend_platform_instance(
+    assert paths["b"] == prepend_platform_instance(
         [
             *_make_browse_path_entries(["my", "path"]),
             *_make_container_browse_path_entries(["a"]),
         ],
     )
-    assert paths["c"] == _prepend_platform_instance(
+    assert paths["c"] == prepend_platform_instance(
         [
             *_make_browse_path_entries(["my", "path"]),
             *_make_container_browse_path_entries(["a", "b"]),
         ],
     )
-    assert paths["d"] == _prepend_platform_instance(
+    assert paths["d"] == prepend_platform_instance(
         [
             *_make_browse_path_entries(["my", "path"]),
             *_make_container_browse_path_entries(["a", "b", "c"]),
         ],
     )
-    assert paths["e"] == _prepend_platform_instance(
+    assert paths["e"] == prepend_platform_instance(
         [
             *_make_browse_path_entries(["my", "path"]),
             *_make_container_browse_path_entries(["a", "b", "c", "d"]),
