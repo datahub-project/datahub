@@ -352,7 +352,7 @@ plugins: Dict[str, Set[str]] = {
     "lookml": looker_common,
     "metabase": {"requests"} | sqlglot_lib,
     "mlflow": {"mlflow-skinny>=2.3.0"},
-    "mode": {"requests", "tenacity>=8.0.1"} | sqllineage_lib,
+    "mode": {"requests", "tenacity>=8.0.1"} | sqllineage_lib | sqlglot_lib,
     "mongodb": {"pymongo[srv]>=3.11", "packaging"},
     "mssql": sql_common
     | {
