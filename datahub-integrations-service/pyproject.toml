@@ -26,7 +26,9 @@ dependencies = [
 	"boto3",
 	"pyarrow",
 	"jinja2",
-	"cachetools"
+	"cachetools",
+	"anyio",
+	"httpx",
 ]
 
 [project.optional-dependencies]

@@ -20,7 +20,6 @@ import io.datahubproject.integrations.invoker.ApiClient;
 import io.datahubproject.integrations.invoker.ApiException;
 import io.datahubproject.integrations.invoker.ApiResponse;
 import io.datahubproject.integrations.invoker.ServerConfiguration;
-import io.datahubproject.integrations.model.BodyRegisterActionPrivateActionsRegisterPost;
 import io.datahubproject.integrations.model.ExecuteShareResult;
 import io.datahubproject.integrations.model.SuggestedDescription;
 import java.net.URLEncoder;
@@ -362,28 +361,22 @@ public class IntegrationsService {
     return objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(objectNode);
   }
 
-  public boolean registerAction(Urn actionPipelineUrn, String recipe) {
+  public boolean reloadAction(String actionPipelineUrn) {
 
-    // CloseableHttpResponse response = null;
     ApiResponse<Object> response = null;
     try {
-      response =
-          this.actionsApi.registerActionWithHttpInfo(
-              new BodyRegisterActionPrivateActionsRegisterPost()
-                  .actionUrn(actionPipelineUrn.toString())
-                  .actionConfig(recipe));
+      response = this.actionsApi.reloadActionWithHttpInfo(actionPipelineUrn);
 
       if (response.getStatusCode() != HttpStatus.SC_OK) {
-        log.error("Failed to register action! Integrations service returned non-200 error code!");
+        log.error("Failed to reload action! Integrations service returned non-200 error code!");
         log.error(String.valueOf(response.getData().toString()));
         return false;
       }
       return true;
     } catch (Exception e) {
       log.error(
-          "Failed to register action after retrying! Exceptions encountered when trying to access integrations service");
+          "Failed to reload action! Exceptions encountered when trying to access integrations service");
       return false;
-    } finally {
     }
   }
 

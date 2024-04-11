@@ -57,7 +57,7 @@ extend type Mutation {
   createIngestionSource(input: UpdateIngestionSourceInput!): String
 
   """
-  Update an existing ingestion source
+  Create or update an ingestion source
   """
   updateIngestionSource(urn: String!, input: UpdateIngestionSourceInput!): String
 

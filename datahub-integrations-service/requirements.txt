@@ -17,7 +17,9 @@ aiosignal==1.3.1
     # via aiohttp
 anyio==3.7.1
     # via
+    #   acryl-datahub-integrations
     #   fastapi
+    #   httpx
     #   starlette
     #   watchfiles
 async-timeout==4.0.3
@@ -44,6 +46,8 @@ cachetools==5.3.3
     # via acryl-datahub-integrations
 certifi==2023.7.22
     # via
+    #   httpcore
+    #   httpx
     #   requests
     #   sentry-sdk
 charset-normalizer==3.2.0
@@ -97,14 +101,21 @@ grpcio==1.59.0
 grpcio-tools==1.59.0
     # via acryl-datahub
 h11==0.14.0
-    # via uvicorn
+    # via
+    #   httpcore
+    #   uvicorn
+httpcore==1.0.5
+    # via httpx
 httptools==0.6.0
     # via uvicorn
+httpx==0.27.0
+    # via acryl-datahub-integrations
 humanfriendly==10.0
     # via acryl-datahub
 idna==3.4
     # via
     #   anyio
+    #   httpx
     #   requests
     #   yarl
 ijson==3.2.3
@@ -225,7 +236,9 @@ slack-bolt==1.18.0
 slack-sdk==3.21.3
     # via slack-bolt
 sniffio==1.3.0
-    # via anyio
+    # via
+    #   anyio
+    #   httpx
 stackprinter==0.2.10
     # via acryl-datahub-actions
 starkbank-ecdsa==2.2.0

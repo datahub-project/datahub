@@ -1,18 +1,18 @@
 import os
 
 import fastapi
-from fastapi import HTTPException, status
+from fastapi import APIRouter, FastAPI, HTTPException, Response, status
+from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from datahub_integrations.actions.router import ACTIONS_ROUTE, actions_router
-from datahub_integrations.analytics.router import router as analytics_router
-from datahub_integrations.app import (
-    STATIC_ASSETS_DIR,
-    app,
-    external_router,
-    internal_router,
+from datahub_integrations.actions.router import (
+    ACTIONS_ROUTE,
+    actions_lifespan,
+    actions_router,
 )
+from datahub_integrations.analytics.router import router as analytics_router
+from datahub_integrations.app import STATIC_ASSETS_DIR
 from datahub_integrations.gen_ai.router import router as gen_ai_router
 from datahub_integrations.notifications.router import router as notifications_router
 from datahub_integrations.share.share_router import router as share_router
@@ -20,6 +20,25 @@ from datahub_integrations.slack.slack import SlackLinkPreview, get_slack_link_pr
 from datahub_integrations.slack.slack import private_router as slack_private_router
 from datahub_integrations.slack.slack import public_router as slack_public_router
 from datahub_integrations.slack.slack import reload_slack_credentials
+
+app = FastAPI(lifespan=actions_lifespan)
+
+external_router = APIRouter()
+internal_router = APIRouter(
+    dependencies=[
+        # TODO: Add middleware for requiring system auth here.
+    ]
+)
+
+
+@app.get("/ping")
+def ping() -> str:
+    return "pong"
+
+
+@app.get("/", include_in_schema=False)
+def redirect_to_docs() -> Response:
+    return RedirectResponse(url="/docs")
 
 
 @internal_router.post("/reload_credentials")

@@ -404,6 +404,10 @@ public class Constants {
   public static final String DATAHUB_CONNECTION_ENTITY_NAME = "dataHubConnection";
   public static final String DATAHUB_CONNECTION_DETAILS_ASPECT_NAME = "dataHubConnectionDetails";
 
+  // Actions Pipeline
+  public static final String ACTIONS_PIPELINE_ENTITY_NAME = "dataHubAction";
+  public static final String ACTIONS_PIPELINE_INFO_ASPECT_NAME = "dataHubActionInfo";
+
   // Anomaly
   public static final String ANOMALY_ENTITY_NAME = "anomaly";
   public static final String ANOMALY_KEY_ASPECT_NAME = "anomalyKey";

@@ -462,6 +462,11 @@ public class AuthorizationUtils {
         List.of(INGESTION_SOURCE_ENTITY_NAME));
   }
 
+  public static boolean canManageActionPipelines(@Nonnull QueryContext context) {
+    // TODO: add a dedicated permission for this
+    return canManageIngestion(context);
+  }
+
   public static boolean canManageSecrets(@Nonnull QueryContext context) {
     return AuthUtil.isAuthorizedEntityType(
         context.getActorUrn(), context.getAuthorizer(), MANAGE, List.of(SECRETS_ENTITY_NAME));

@@ -9,13 +9,19 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
+import com.linkedin.datahub.graphql.exception.DataHubGraphQLErrorCode;
+import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
 import com.linkedin.datahub.graphql.generated.UpdateActionPipelineInput;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.integration.IntegrationsService;
 import com.linkedin.metadata.key.DataHubActionKey;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import java.net.URISyntaxException;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -23,32 +29,10 @@ import org.json.JSONObject;
 
 @AllArgsConstructor
 @Slf4j
-public class CreateActionPipelineResolver implements DataFetcher<CompletableFuture<String>> {
+public class UpsertActionPipelineResolver implements DataFetcher<CompletableFuture<String>> {
 
   private final EntityClient _entityClient;
-
-  private static JSONObject getSourceBlock() {
-    return new JSONObject(
-        "{\n"
-            + "            \"type\": \"kafka\",\n"
-            + "            \"config\": {\n"
-            + "                \"connection\": {\n"
-            + "                    \"bootstrap\": \"broker:29092\",\n"
-            + "                    \"schema_registry_url\": \"http://schema-registry:8081\",\n"
-            + "                }\n"
-            + "            }\n"
-            + "        }");
-  }
-
-  private static JSONObject getServerBlock() {
-    return new JSONObject(
-        "{\n" + "            \"server\": \"http://datahub-gms:8080\"\n" + "        }");
-  }
-
-  private static JSONObject getFilterBlock() {
-    return new JSONObject(
-        "{\n" + "            \"event_type\": \"EntityChangeEvent_v1\"\n" + "        }");
-  }
+  private final IntegrationsService _integrationsService;
 
   @Override
   public CompletableFuture<String> get(DataFetchingEnvironment environment) throws Exception {
@@ -57,41 +41,52 @@ public class CreateActionPipelineResolver implements DataFetcher<CompletableFutu
 
     return CompletableFuture.supplyAsync(
         () -> {
-          if (AuthorizationUtils.canManageIngestion(context)) {
+          if (AuthorizationUtils.canManageActionPipelines(context)) {
 
             final UpdateActionPipelineInput input =
                 bindArgument(environment.getArgument("input"), UpdateActionPipelineInput.class);
 
-            try {
-              JSONObject actionPipeline = new JSONObject();
-              actionPipeline.put("name", input.getName());
-              actionPipeline.put("source", getSourceBlock());
-              actionPipeline.put("filter", getFilterBlock());
-              actionPipeline.put("datahub", getServerBlock());
-              actionPipeline.put(
-                  "action", getActionBlock(input.getType(), input.getConfig().getRecipe()));
-
-              // Fetch the original ingestion source
+            Optional<String> actionPipelineUrnString =
+                Optional.ofNullable(environment.getArgument("urn"));
+            Urn actionPipelineUrn = null;
+            if (actionPipelineUrnString.isPresent()) {
+              try {
+                actionPipelineUrn = Urn.createFromString(actionPipelineUrnString.get());
+              } catch (URISyntaxException e) {
+                throw new DataHubGraphQLException(
+                    String.format("Malformed urn %s provided.", actionPipelineUrnString.get()),
+                    DataHubGraphQLErrorCode.BAD_REQUEST);
+              }
+            } else {
+              // When an urn is not provided (e.g. create), we generate an urn from the name.
               final DataHubActionKey key = new DataHubActionKey();
               key.setId(input.getName());
-              final Urn actionPipelineUrn =
-                  EntityKeyUtils.convertEntityKeyToUrn(key, "dataHubAction");
-              log.info("Action pipeline = {}", actionPipelineUrn);
+              actionPipelineUrn =
+                  EntityKeyUtils.convertEntityKeyToUrn(key, Constants.ACTIONS_PIPELINE_ENTITY_NAME);
+            }
+            log.info("Action pipeline = {}", actionPipelineUrn);
+
+            try {
               log.info("Action pipeline config = {}", input.getConfig().getRecipe());
               DataHubActionInfo actionInfo = new DataHubActionInfo();
               actionInfo.setType(input.getType());
               actionInfo.setName(input.getName());
-              actionInfo.setConfig(new DataHubActionConfig().setRecipe(actionPipeline.toString()));
+              actionInfo.setConfig(
+                  new DataHubActionConfig().setRecipe(input.getConfig().getRecipe()));
               log.info("Action Info aspect = {}", actionInfo);
 
               final MetadataChangeProposal proposal =
                   buildMetadataChangeProposalWithUrn(
-                      actionPipelineUrn, "dataHubActionInfo", actionInfo);
-              log.info("Entity client = {}", _entityClient);
-              log.info("proposal = {}", proposal);
+                      actionPipelineUrn, Constants.ACTIONS_PIPELINE_INFO_ASPECT_NAME, actionInfo);
+
               String result =
                   _entityClient.ingestProposal(proposal, context.getAuthentication(), false);
-              log.info("result = {}", result);
+
+              if (!_integrationsService.reloadAction(result)) {
+                throw new DataHubGraphQLException(
+                    String.format("Failed to reload action pipeline %s", result),
+                    DataHubGraphQLErrorCode.SERVER_ERROR);
+              }
               return result;
             } catch (Exception e) {
               log.error("Failed to ingest action pipeline", e);

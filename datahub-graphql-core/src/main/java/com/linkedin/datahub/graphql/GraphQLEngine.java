@@ -87,6 +87,7 @@ public class GraphQLEngine {
 
   public ExecutionResult execute(
       @Nonnull final String query,
+      @Nullable final String operationName,
       @Nullable final Map<String, Object> variables,
       @Nonnull final QueryContext context) {
     /*
@@ -100,6 +101,7 @@ public class GraphQLEngine {
     ExecutionInput executionInput =
         ExecutionInput.newExecutionInput()
             .query(query)
+            .operationName(operationName)
             .variables(variables)
             .dataLoaderRegistry(register)
             .context(context)

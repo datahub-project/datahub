@@ -1135,7 +1135,7 @@ jobs:
     name: Build and Push DataHub Integrations Service Docker Images
     runs-on: ubuntu-latest
     needs: [setup, datahub_ingestion_slim_build]
-    if: ${{ needs.setup.outputs.integrations_service_change == 'true' || needs.setup.outputs.publish == 'true' }}
+    if: ${{ needs.setup.outputs.integrations_service_change == 'true' || ( needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' ) }}
     steps:
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@v3
@@ -1146,7 +1146,7 @@ jobs:
           image: ${{ env.DATAHUB_INGESTION_IMAGE }}:${{ needs.datahub_ingestion_slim_build.outputs.tag }}
       - name: Login to AWS ECR
         uses: docker/login-action@v3
-        if: ${{ needs.datahub_ingestion_slim_build.outputs.needs_artifact_download != 'true' &&  steps.filter.outputs.datahub-ingestion == 'false' }}
+        if: ${{ needs.datahub_ingestion_slim_build.outputs.needs_artifact_download != 'true' }}
         with:
           registry: 795586375822.dkr.ecr.us-west-2.amazonaws.com
           username: ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
@@ -1176,7 +1176,7 @@ jobs:
     name: "[Monitoring] Scan Datahub Integrations Service images for vulnerabilities"
     runs-on: ubuntu-latest
     needs: [setup, datahub_integrations_service_build]
-    if: ${{ needs.setup.outputs.integrations_service_change == 'true' || needs.setup.outputs.publish == 'true' }}
+    if: ${{ needs.setup.outputs.integrations_service_change == 'true' || ( needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' ) }}
     steps:
       - name: Checkout # adding checkout step just to make trivy upload happy
         uses: actions/checkout@v3
@@ -1211,7 +1211,7 @@ jobs:
     name: Build and Push DataHub Executor Docker Images
     runs-on: ubuntu-latest
     needs: [setup, datahub_ingestion_slim_build]
-    if: ${{ needs.setup.outputs.datahub_executor_change == 'true' || needs.setup.outputs.publish == 'true' }}
+    if: ${{ needs.setup.outputs.datahub_executor_change == 'true' || ( needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' ) }}
     steps:
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@v3
@@ -1222,7 +1222,7 @@ jobs:
           image: ${{ env.DATAHUB_INGESTION_IMAGE }}:${{ needs.datahub_ingestion_slim_build.outputs.tag }}
       - name: Login to AWS ECR
         uses: docker/login-action@v3
-        if: ${{ needs.datahub_ingestion_slim_build.outputs.needs_artifact_download != 'true' &&  steps.filter.outputs.datahub-ingestion == 'false' }}
+        if: ${{ needs.datahub_ingestion_slim_build.outputs.needs_artifact_download != 'true' }}
         with:
           registry: 795586375822.dkr.ecr.us-west-2.amazonaws.com
           username: ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
@@ -1252,7 +1252,7 @@ jobs:
     name: "[Monitoring] Scan Datahub Monitors Service images for vulnerabilities"
     runs-on: ubuntu-latest
     needs: [setup, datahub_executor_build]
-    if: ${{ needs.setup.outputs.datahub_executor_change == 'true' || needs.setup.outputs.publish == 'true' }}
+    if: ${{ needs.setup.outputs.datahub_executor_change == 'true' || ( needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' ) }}
     steps:
       - name: Checkout # adding checkout step just to make trivy upload happy
         uses: actions/checkout@v3

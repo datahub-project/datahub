@@ -66,7 +66,7 @@ task lint(type: Exec, dependsOn: installDev) {
         "source ${venv_name}/bin/activate && set -x && " +
         "black --check --diff src/ tests/ && " +
         "isort --check --diff src/ tests/ && " +
-        "ruff --statistics src/ tests/ && " +
+        "ruff src/ tests/ && " +
         "mypy src/ tests/"
 }
 task lintFix(type: Exec, dependsOn: installDev) {

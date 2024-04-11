@@ -1,17 +1,17 @@
 # DataHub UI Application-Specific GraphQL Types
 
-extend type Query {
+ extend type Query {
 
-  """
-  List all action pipelines
-  """
-  listActionPipelines(input: ListActionPipelinesInput!): ListActionPipelinesResult
+   """
+   Fetch a specific action pipeline
+   urn: The primary key associated with the action pipeline.
+   """
+   actionPipeline(urn: String!): ActionPipeline
 
-  """
-  Fetch a specific action pipeline
-  urn: The primary key associated with the action pipeline.
-  """
-  actionPipeline(urn: String!): ActionPipeline
+   """
+   List all action pipelines
+   """
+   listActionPipelines(input: ListActionPipelinesInput!): ListActionPipelinesResult
 
 }
 
@@ -22,26 +22,64 @@ extend type Mutation {
   createActionPipeline(input: UpdateActionPipelineInput!): String
 
   """
-  Update an existing action pipeline
+  Upsert an existing action pipeline
   """
-  updateActionPipeline(urn: String!, input: UpdateActionPipelineInput!): String
+  upsertActionPipeline(urn: String!, input: UpdateActionPipelineInput!): String
 
-  """
-  Delete an existing action pipeline
-  """
-  deleteActionPipeline(urn: String!): String
+  # TODO: Not implemented yet.
+  # """
+  # Delete an existing action pipeline
+  # """
+  # deleteActionPipeline(urn: String!): String
 
   """
   Create a request to execute an action pipeline
   input: Input required for creating an action pipeline request
   """
+  # TODO remove this
   createActionExecutionRequest(input: CreateActionExecutionRequestInput!): String
+}
+
+"""
+An Action Pipeline Entity
+"""
+type ActionPipeline implements Entity {
+  """
+  The primary key of the Action Pipeline
+  """
+  urn: String!
 
   """
-  Cancel a running execution request, provided the urn of the original execution request
+  The standard Entity Type field
   """
-  cancelActionExecutionRequest(input: CancelActionExecutionRequestInput!): String
+  type: EntityType!
 
+  """
+  The action pipeline details
+  """
+  details: ActionPipelineDetails!
+
+  """
+  Not implemented!
+  """
+  relationships(input: RelationshipsInput!): EntityRelationshipsResult
+}
+
+type ActionPipelineDetails {
+  """
+  The type of the action itself, e.g. tag-propagation, term-propagation. Should match the recipe.
+  """
+  type: String!
+
+  """
+  The display name of the Action Pipeline
+  """
+  name: String!
+
+  """
+  An type-specific set of configurations for the action pipeline
+  """
+  config: ActionConfig!
 }
 
 
@@ -53,22 +91,6 @@ input CreateActionExecutionRequestInput {
   Urn of the action pipeline to execute
   """
   actionPipelineUrn: String!
-}
-
-
-"""
-Input for cancelling an action execution request input
-"""
-input CancelActionExecutionRequestInput {
-  """
-  Urn of the action pipeline
-  """
-  actionPipelineUrn: String!
-
-  """
-  Urn of the specific execution request to cancel
-  """
-  executionRequestUrn: String!
 }
 
 
@@ -99,32 +121,6 @@ type ActionConfig {
 
 
 """
-An Action Pipeline Entity
-"""
-type ActionPipeline {
-  """
-  The primary key of the Action Pipeline
-  """
-  urn: String!
-
-  """
-  The type of the action itself, e.g. tag-propagation, term-propagation. Should match the recipe.
-  """
-  type: String!
-
-  """
-  The display name of the Action Pipeline
-  """
-  name: String!
-
-  """
-  An type-specific set of configurations for the action pipeline
-  """
-  config: ActionConfig!
-
-}
-
-"""
 Input arguments for listing Action Pipelines
 """
 input ListActionPipelinesInput {
@@ -142,6 +138,11 @@ input ListActionPipelinesInput {
   An optional search query
   """
   query: String
+
+  """
+  Optional Facet filters to apply to the result set
+  """
+  filters: [FacetFilterInput!]
 }
 
 """
