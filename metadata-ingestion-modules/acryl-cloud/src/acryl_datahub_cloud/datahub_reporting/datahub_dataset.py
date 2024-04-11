@@ -296,6 +296,7 @@ class DataHubBasedS3Dataset:
         if self.config.snapshot_partitioning_strategy == PartitioningStrategy.DATE:
             assert date is not None
             assert dataset_uri_prefix is not None
+            # TODO: This should be date.strftime('year=%Y/month=%m/day=%d') for correct time partition in S3
             return f"{dataset_uri_prefix.rstrip('/')}/{date.strftime('%Y-%m-%d')}/{self.config.file_name}.{self.config.file_extension}"
         elif (
             self.config.snapshot_partitioning_strategy == PartitioningStrategy.SNAPSHOT
