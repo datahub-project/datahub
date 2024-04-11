@@ -43,7 +43,6 @@ services:
       retries: 3
       timeout: 5s
     volumes:
-    - ./mysql/init.sql:/docker-entrypoint-initdb.d/init.sql
     - mysqldata:/var/lib/mysql
 volumes:
   mysqldata:
