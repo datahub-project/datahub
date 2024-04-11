@@ -102,7 +102,8 @@ export default function IngestionExecutionTable({
         },
     ];
 
-    const mostRecentSuccessfulExecution = executionRequests.find((execution) => execution.result?.status === SUCCESS);
+    const mostRecentSuccessfulExecution =
+        page === 1 && executionRequests.find((execution) => execution.result?.status === SUCCESS);
 
     const tableData = executionRequests.map((execution) => ({
         urn: execution.urn,
@@ -112,7 +113,7 @@ export default function IngestionExecutionTable({
         executedAt: execution.result?.startTimeMs,
         duration: execution.result?.durationMs,
         status: execution.result?.status,
-        showRollback: execution.urn === mostRecentSuccessfulExecution?.urn,
+        showRollback: mostRecentSuccessfulExecution && execution?.urn === mostRecentSuccessfulExecution?.urn,
     }));
 
     return (
