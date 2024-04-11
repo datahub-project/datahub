@@ -859,15 +859,21 @@ class DataHubGraph(DatahubRestEmitter):
         results = self._post_generic(self._aspect_count_endpoint, args)
         return results["value"]
 
-    def execute_graphql(self, query: str, variables: Optional[Dict] = None) -> Dict:
+    def execute_graphql(
+        self,
+        query: str,
+        variables: Optional[Dict] = None,
+        operation_name: Optional[str] = None,
+    ) -> Dict:
         url = f"{self.config.server}/api/graphql"
 
         body: Dict = {
             "query": query,
         }
-
         if variables:
             body["variables"] = variables
+        if operation_name:
+            body["operationName"] = operation_name
 
         logger.debug(
             f"Executing graphql query: {query} with variables: {json.dumps(variables)}"

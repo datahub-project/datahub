@@ -394,6 +394,8 @@ class MongoDBSource(StatefulIngestionSourceBase):
                     customProperties={},
                 )
 
+                schema_metadata: Optional[SchemaMetadata] = None
+
                 if self.config.enableSchemaInference:
                     assert self.config.maxDocumentSize is not None
                     collection_schema = construct_schema_pymongo(
