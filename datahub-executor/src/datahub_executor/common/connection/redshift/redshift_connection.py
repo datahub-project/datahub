@@ -7,6 +7,7 @@ from datahub.ingestion.source.redshift.config import RedshiftConfig
 
 from datahub_executor.common.connection.connection import Connection
 from datahub_executor.common.constants import REDSHIFT_PLATFORM_URN
+from datahub_executor.config import DATAHUB_APPNAME
 
 logger = logging.getLogger(__name__)
 
@@ -27,6 +28,7 @@ class RedshiftConnection(Connection):
             client_options = self.config.extra_client_options
             host, port = self.config.host_port.split(":")
             self.connection = redshift_connector.connect(
+                application_name=f"datahub-executor.{DATAHUB_APPNAME}",
                 host=host,
                 port=int(port),
                 user=self.config.username,
@@ -36,4 +38,5 @@ class RedshiftConnection(Connection):
                 else None,
                 **client_options,
             )
+            self.connection.autocommit = True
         return self.connection
