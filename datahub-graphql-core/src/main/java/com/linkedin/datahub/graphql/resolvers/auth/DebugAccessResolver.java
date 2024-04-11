@@ -107,7 +107,7 @@ public class DebugAccessResolver implements DataFetcher<CompletableFuture<DebugA
       result.setRolesViaGroups(new ArrayList<>(rolesViaGroups));
       result.setAllRoles(new ArrayList<>(allRoles));
 
-      Set<Urn> policyUrns = getPoliciesFor(context, userUrn, groups, roles);
+      Set<Urn> policyUrns = getPoliciesFor(context, userUrn, groups, result.getAllRoles());
 
       // List of Policy that apply to this user directly or indirectly.
       result.setPolicies(policyUrns.stream().map(Urn::toString).collect(Collectors.toList()));
@@ -154,6 +154,7 @@ public class DebugAccessResolver implements DataFetcher<CompletableFuture<DebugA
         .map(EntityRelationship::getEntity)
         .filter(entity -> entityName.equals(entity.getEntityType()))
         .map(Urn::toString)
+        .distinct()
         .collect(Collectors.toList());
   }
 
