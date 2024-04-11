@@ -3,12 +3,13 @@ import React from 'react';
 import styled from 'styled-components';
 import { ClockCircleOutlined, StopOutlined } from '@ant-design/icons';
 
-import { Assertion, CronSchedule } from '../../../../../../../../../../types.generated';
+import { Assertion, AssertionSourceType, CronSchedule } from '../../../../../../../../../../types.generated';
 import { getLocaleTimezone } from '../../../../../../../../../shared/time/timeUtils';
 import { getCronAsText } from '../../../../acrylUtils';
 import { AssertionScheduleSummarySection } from './AssertionScheduleSummarySection';
 import { isExternalAssertion } from '../../shared/isExternalAssertion';
 import { ProviderSummarySection } from './ProviderSummarySection';
+import { InferredAssertionLogo } from '../../../../InferredAssertionLogo';
 
 const Container = styled.div`
     margin-top: 20px;
@@ -26,6 +27,10 @@ const StyledClockCircleOutlined = styled(ClockCircleOutlined)`
 const StyledStopOutlined = styled(StopOutlined)`
     margin-right: 8px;
     font-size: 14px;
+`;
+
+const StyledLastUpdatedLogo = styled(InferredAssertionLogo)`
+    margin-right: 8px;
 `;
 
 type Props = {
@@ -79,6 +84,16 @@ export const AssertionScheduleSummary = ({
      */
     const isExternal = isExternalAssertion(assertion);
 
+    /**
+     * For smart assertions, show the last time the rule was updated. 
+     */
+    const isSmartAssertion = assertion?.info?.source?.type === AssertionSourceType.Inferred;
+    const generatedAt = isSmartAssertion && assertion?.inferenceDetails?.generatedAt ? new Date(assertion?.inferenceDetails?.generatedAt) : undefined;
+    const lastUpdatedAtTimeLocal = generatedAt
+        ? `${generatedAt.toLocaleDateString()} at ${generatedAt.toLocaleTimeString()} (${localeTimezone})`
+        : null;
+    const lastUpdatedAtTimeGmt = generatedAt ? generatedAt.toUTCString() : null;
+
     return (
         <Container>
             <Sections>
@@ -118,6 +133,16 @@ export const AssertionScheduleSummary = ({
                             showDivider={false}
                         />
                     )) ||
+                    null}
+                {lastUpdatedAtTimeLocal ? (
+                    <AssertionScheduleSummarySection
+                        icon={<StyledLastUpdatedLogo />}
+                        title="Last updated"
+                        subtitle={`This Smart Assertion was last updated at ${lastUpdatedAtTimeLocal}.`}
+                        tooltip={lastUpdatedAtTimeGmt}
+                        showDivider={false}
+                    />
+                ) :
                     null}
             </Sections>
         </Container>

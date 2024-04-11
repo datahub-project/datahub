@@ -117,7 +117,7 @@ const useBuildSecondaryLabel = (assertionInfo?: Maybe<AssertionInfo>): JSX.Eleme
             </>
         }
     >
-        <Typography.Text style={{ color: ANTD_GRAY_V2['6'], marginLeft: 4, fontSize: 12, }}>{secondaryLabelMessage}</Typography.Text>
+        <Typography.Text style={{ color: ANTD_GRAY_V2['6'], marginLeft: 12, fontSize: 12, }}>{secondaryLabelMessage}</Typography.Text>
     </Tooltip> : null;
 }
 
