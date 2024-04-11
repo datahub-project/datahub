@@ -802,6 +802,5 @@ export const createAssertionMonitorBuilderState = (
         // eslint-disable-next-line @typescript-eslint/ban-ts-comment
         // @ts-ignore TODO(@jjoyce0510): same as l784
         parameters: monitor?.info?.assertionMonitor?.assertions?.[0]?.parameters,
-        executorId: monitor?.info?.executorId,
     };
 };
