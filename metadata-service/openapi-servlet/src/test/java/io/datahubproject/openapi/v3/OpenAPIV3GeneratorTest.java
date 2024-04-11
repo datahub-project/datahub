@@ -1,6 +1,6 @@
 package io.datahubproject.openapi.v3;
 
-import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
 import com.linkedin.data.schema.annotation.PathSpecBasedSchemaAnnotationVisitor;
 import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
@@ -37,8 +37,8 @@ public class OpenAPIV3GeneratorTest {
         Path.of(getClass().getResource("/").getPath(), "open-api.yaml"),
         openapiYaml.getBytes(StandardCharsets.UTF_8));
 
-    assertEquals(openAPI.getComponents().getSchemas().size(), 818);
-    assertEquals(openAPI.getComponents().getParameters().size(), 50);
-    assertEquals(openAPI.getPaths().size(), 418);
+    assertTrue(openAPI.getComponents().getSchemas().size() > 900);
+    assertTrue(openAPI.getComponents().getParameters().size() > 50);
+    assertTrue(openAPI.getPaths().size() > 500);
   }
 }

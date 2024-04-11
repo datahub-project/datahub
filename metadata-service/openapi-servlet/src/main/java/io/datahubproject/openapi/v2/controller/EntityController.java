@@ -22,6 +22,8 @@ import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.AspectRetriever;
+import com.linkedin.metadata.aspect.batch.AspectsBatch;
+import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.aspect.batch.ChangeMCP;
 import com.linkedin.metadata.aspect.patch.GenericJsonPatch;
 import com.linkedin.metadata.aspect.patch.template.common.GenericPatchTemplate;
@@ -287,9 +289,7 @@ public class EntityController {
             true);
 
     return ResponseEntity.of(
-        toRecordTemplates(
-                opContext, List.of(urn), Set.of(aspectName), withSystemMetadata)
-            .stream()
+        toRecordTemplates(opContext,List.of(urn), Set.of(aspectName), withSystemMetadata).stream()
             .findFirst()
             .flatMap(
                 e ->
@@ -365,20 +365,13 @@ public class EntityController {
       @RequestBody @Nonnull String jsonEntityList)
       throws URISyntaxException, JsonProcessingException {
 
-    EntitySpec entitySpec = entityRegistry.getEntitySpec(entityName);
     Authentication authentication = AuthenticationContext.getAuthentication();
-
     AspectsBatch batch = toBatch(jsonEntityList, authentication.getActor());
 
-    if (restApiAuthorizationEnabled) {
-      for (BatchItem item : batch.getItems()) {
-        checkAuthorized(
-            authorizationChain,
-            authentication.getActor(),
-            entitySpec,
-            item.getUrn().toString(),
-            ImmutableList.of(PoliciesConfig.EDIT_ENTITY_PRIVILEGE.getType()));
-      }
+    if (!AuthUtil.isAPIAuthorizedEntityType(
+        authentication, authorizationChain, CREATE, entityName)) {
+      throw new UnauthorizedException(
+          authentication.getActor().toUrnStr() + " is unauthorized to " + CREATE + " entities.");
     }
 
     Set<IngestResult> results = entityService.ingestProposal(batch, async);
@@ -705,8 +698,8 @@ public class EntityController {
           AspectSpec aspectSpec = lookupAspectSpec(entityUrn, aspect.getKey());
 
           if (aspectSpec != null) {
-            MCPUpsertBatchItem.MCPUpsertBatchItemBuilder builder =
-                MCPUpsertBatchItem.builder()
+            ChangeItemImpl.ChangeItemImplBuilder builder =
+                ChangeItemImpl.builder()
                     .urn(entityUrn)
                     .aspectName(aspectSpec.getName())
                     .auditStamp(AuditStampUtils.createAuditStamp(actor.toUrnStr()))

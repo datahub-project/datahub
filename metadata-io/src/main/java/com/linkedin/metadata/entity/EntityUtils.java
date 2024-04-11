@@ -308,7 +308,7 @@ public class EntityUtils {
     return proposal;
   }
 
-  static SystemMetadata parseSystemMetadata(String jsonSystemMetadata) {
+  public static SystemMetadata parseSystemMetadata(String jsonSystemMetadata) {
     if (jsonSystemMetadata == null || jsonSystemMetadata.equals("")) {
       SystemMetadata response = new SystemMetadata();
       response.setRunId(DEFAULT_RUN_ID);

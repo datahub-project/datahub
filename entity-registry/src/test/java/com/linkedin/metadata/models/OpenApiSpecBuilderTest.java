@@ -98,7 +98,9 @@ public class OpenApiSpecBuilderTest {
         new ConfigEntityRegistry(
             TestEntityProfile.class.getClassLoader().getResourceAsStream("entity-registry.yml"));
     MergedEntityRegistry er = new MergedEntityRegistry(configEntityRegistry);
-    new PluginEntityRegistryLoader(TestConstants.BASE_DIRECTORY).withBaseRegistry(er).start(true);
+    new PluginEntityRegistryLoader(TestConstants.BASE_DIRECTORY, 1)
+        .withBaseRegistry(er)
+        .start(true);
 
     OpenAPI openAPI = generateOpenApiSpec(er);
     String openapiYaml = Yaml.pretty(openAPI);
