@@ -283,6 +283,7 @@ class BigQueryV2Config(
     schema_resolution_batch_size: int = Field(
         default=100,
         description="The number of tables to process in a batch when resolving schema from DataHub.",
+        hidden_from_schema=True,
     )
 
     @root_validator(skip_on_failure=True)
