@@ -278,13 +278,8 @@ class Source(Closeable, metaclass=ABCMeta):
     def _get_browse_path_processor(self, dry_run: bool) -> MetadataWorkUnitProcessor:
         config = self.get_config()
 
-        platform_id = (
-            self.get_platform_id()
-            if hasattr(self, "get_platform_id") and callable(self.get_platform_id)
-            else None
-        )
         platform = (
-            platform_id
+            getattr(config, "platform_name", None)
             or getattr(self, "platform", None)
             or getattr(config, "platform", None)
         )
