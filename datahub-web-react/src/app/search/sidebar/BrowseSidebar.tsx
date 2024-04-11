@@ -89,7 +89,7 @@ const BrowseSidebar = ({ visible }: Props) => {
                             <Select
                                 placeholder="Sort"
                                 placement="bottomRight"
-                                dropdownStyle={{ minWidth: '70px' }}
+                                dropdownStyle={{ minWidth: '110px' }}
                                 onChange={(value) => setSortBy(value)}
                                 bordered={false}
                                 suffixIcon={<CaretDownFilled />}
