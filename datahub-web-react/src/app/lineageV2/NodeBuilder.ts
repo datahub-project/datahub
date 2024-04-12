@@ -8,10 +8,10 @@ import {
     isQuery,
     isTransformational,
     LINEAGE_FILTER_TYPE,
-    LineageEdge,
     LineageEntity,
     LineageFilter,
     LineageNode,
+    LineageTableEdgeData,
     NodeContext,
     parseEdgeId,
     setDefault,
@@ -126,7 +126,12 @@ export default class NodeBuilder {
         return nodes;
     }
 
-    #addEdge(edgeMap: Map<EdgeId, BaseEdge<LineageEdge>>, source: string, target: string, data?: LineageEdge): void {
+    #addEdge(
+        edgeMap: Map<EdgeId, BaseEdge<LineageTableEdgeData>>,
+        source: string,
+        target: string,
+        data?: LineageTableEdgeData,
+    ): void {
         const edge = setDefault(edgeMap, createEdgeId(source, target), {
             source,
             target,
@@ -137,17 +142,19 @@ export default class NodeBuilder {
         }
     }
 
-    createEdges(edges: NodeContext['edges']): Edge[] {
-        const baseEdges = new Map<EdgeId, BaseEdge<LineageEdge>>();
+    createEdges(edges: NodeContext['edges']): Edge<LineageTableEdgeData>[] {
+        const baseEdges = new Map<EdgeId, BaseEdge<LineageTableEdgeData>>();
         edges.forEach((edge, edgeId) => {
             if (!edge.isDisplayed) return;
             const [upstream, downstream] = parseEdgeId(edgeId);
             if (upstream in this.nodeInformation && downstream in this.nodeInformation) {
+                const originalId = createEdgeId(upstream, downstream);
+                const edgeData = { ...edge, originalId };
                 if (edge.via) {
-                    this.#addEdge(baseEdges, upstream, edge.via, edge);
-                    this.#addEdge(baseEdges, edge.via, downstream, edge);
+                    this.#addEdge(baseEdges, upstream, edge.via, edgeData);
+                    this.#addEdge(baseEdges, edge.via, downstream, edgeData);
                 } else {
-                    this.#addEdge(baseEdges, upstream, downstream, edge);
+                    this.#addEdge(baseEdges, upstream, downstream, edgeData);
                 }
             }
         });

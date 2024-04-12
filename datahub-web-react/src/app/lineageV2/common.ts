@@ -131,6 +131,10 @@ export interface LineageEdge {
     via?: Urn;
 }
 
+export interface LineageTableEdgeData extends LineageEdge {
+    originalId: string; // For edges to via nodes, stores table->table edge id. Otherwise, identical to edge id.
+}
+
 export type EdgeId = string;
 
 export function createEdgeId(upstream: Urn, downstream: Urn): EdgeId {

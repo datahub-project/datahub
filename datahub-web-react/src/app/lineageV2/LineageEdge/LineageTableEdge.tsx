@@ -1,7 +1,7 @@
-import React, { useContext } from 'react';
+import React, { useContext, useMemo } from 'react';
 import { EdgeLabelRenderer, EdgeProps, getBezierPath } from 'reactflow';
 import styled from 'styled-components';
-import { LineageDisplayContext, LineageEdge } from '../common';
+import { LineageDisplayContext, LineageTableEdgeData } from '../common';
 import { LINEAGE_COLORS } from '../../entityV2/shared/constants';
 
 export const LINEAGE_TABLE_EDGE_NAME = 'table-table';
@@ -34,8 +34,15 @@ export function LineageTableEdge({
     targetPosition,
     markerStart,
     markerEnd,
-}: EdgeProps<LineageEdge>) {
+}: EdgeProps<LineageTableEdgeData>) {
+    const { isManual, originalId } = data || { isManual: false, originalId: '' };
+
     const { selectedColumn, highlightedEdges } = useContext(LineageDisplayContext);
+
+    const isHighlighted = useMemo(
+        () => !selectedColumn && (highlightedEdges.has(id) || highlightedEdges.has(originalId)),
+        [id, originalId, selectedColumn, highlightedEdges],
+    );
 
     const [edgePath, labelX, labelY] = getBezierPath({
         sourceX,
@@ -55,9 +62,9 @@ export function LineageTableEdge({
                 className="react-flow__edge-path"
                 markerEnd={markerEnd}
                 markerStart={markerStart}
-                isHighlighted={!selectedColumn && highlightedEdges.has(id)}
+                isHighlighted={isHighlighted}
                 isColumnSelected={!!selectedColumn}
-                isManual={data?.isManual}
+                isManual={isManual}
             />
             <InteractionPath d={edgePath} fill="none" className="react-flow__edge-interaction" />
             <EdgeLabelRenderer>
