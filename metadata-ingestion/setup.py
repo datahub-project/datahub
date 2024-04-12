@@ -349,6 +349,9 @@ plugins: Dict[str, Set[str]] = {
         # https://github.com/great-expectations/great_expectations/pull/6149.
         "great-expectations != 0.15.23, != 0.15.24, != 0.15.25, != 0.15.26",
     },
+    "hive-metastore": sql_common
+    | pyhive_common
+    | {"psycopg2-binary", "pymysql>=1.0.2"},
     "iceberg": iceberg_common,
     "json-schema": set(),
     "kafka": kafka_common | kafka_protobuf,
@@ -616,6 +619,7 @@ entry_points = {
         "sagemaker = datahub.ingestion.source.aws.sagemaker:SagemakerSource",
         "hana = datahub.ingestion.source.sql.hana:HanaSource",
         "hive = datahub.ingestion.source.sql.hive:HiveSource",
+        "hive-metastore = datahub.ingestion.source.sql.presto_on_hive:HiveMetastoreSource",
         "json-schema = datahub.ingestion.source.schema.json_schema:JsonSchemaSource",
         "kafka = datahub.ingestion.source.kafka:KafkaSource",
         "kafka-connect = datahub.ingestion.source.kafka_connect:KafkaConnectSource",
@@ -651,7 +655,8 @@ entry_points = {
         "iceberg = datahub.ingestion.source.iceberg.iceberg:IcebergSource",
         "vertica = datahub.ingestion.source.sql.vertica:VerticaSource",
         "presto = datahub.ingestion.source.sql.presto:PrestoSource",
-        "presto-on-hive = datahub.ingestion.source.sql.presto_on_hive:PrestoOnHiveSource",
+        # This is only here for backward compatibility. Use the `hive-metastore` source instead.
+        "presto-on-hive = datahub.ingestion.source.sql.presto_on_hive:HiveMetastoreSource",
         "pulsar = datahub.ingestion.source.pulsar:PulsarSource",
         "salesforce = datahub.ingestion.source.salesforce:SalesforceSource",
         "demo-data = datahub.ingestion.source.demo_data.DemoDataSource",
