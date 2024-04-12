@@ -1,10 +1,12 @@
 import json
 from datetime import datetime, timezone
+from unittest.mock import MagicMock
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.time_window_config import BucketDuration
 from datahub.ingestion.source.snowflake import snowflake_query
 from datahub.ingestion.source.snowflake.snowflake_query import SnowflakeQuery
+from snowflake.connector.cursor import SnowflakeCursor
 
 NUM_TABLES = 10
 NUM_VIEWS = 2
@@ -269,7 +271,7 @@ def default_query_results(  # noqa: C901
             email_filter=AllowDenyPattern.allow_all(),
         )
     ):
-        return []
+        return MagicMock(spec=SnowflakeCursor)
     elif query in (
         snowflake_query.SnowflakeQuery.table_to_table_lineage_history(
             1654473600000,

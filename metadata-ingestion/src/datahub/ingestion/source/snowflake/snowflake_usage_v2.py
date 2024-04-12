@@ -216,6 +216,7 @@ class SnowflakeUsageExtractor(
                         include_top_n_queries=self.config.include_top_n_queries,
                         email_domain=self.config.email_domain,
                         email_filter=self.config.user_email_pattern,
+                        table_deny_pattern=self.config.temporary_tables_pattern,
                     ),
                 )
             except Exception as e:
