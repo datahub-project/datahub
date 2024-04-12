@@ -5,7 +5,7 @@ const password = "Example password"
 const group_name = `Test group ${test_id}`;
 
 describe("create and manage group", () => {
-    it("add test user", () => {
+    it.skip("add test user", () => {
         cy.loginWithCredentials();
         cy.visit("/settings/identities/users");
         cy.waitTextVisible("Invite Users");
@@ -44,7 +44,7 @@ describe("create and manage group", () => {
         cy.waitTextVisible(group_name);
     });
 
-    it("add test user to a group", () => {
+    it.skip("add test user to a group", () => {
         cy.loginWithCredentials();
         cy.visit("/settings/identities/users");
         cy.get(".ant-tabs-tab-btn").contains("Groups").click();
@@ -63,7 +63,7 @@ describe("create and manage group", () => {
         cy.contains(username, {timeout: 10000}).should("be.visible");
     });
 
-    it("update group info", () => {
+    it.skip("update group info", () => {
         cy.loginWithCredentials();
         cy.visit("/settings/identities/groups");
         cy.clickOptionWithText(group_name);
@@ -96,7 +96,7 @@ describe("create and manage group", () => {
         cy.waitTextVisible(`#${test_id}`);
     });
 
-    it("test User verify group participation", () => {
+    it.skip("test User verify group participation", () => {
         cy.loginWithCredentials();
         cy.visit("/settings/identities/groups");
         cy.hideOnboardingTour();

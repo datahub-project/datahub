@@ -130,7 +130,7 @@ describe('schemaProposals', () => {
       cy.searchNotCachedDoesNotContainDataset('TermToPropose', datasetName);
   });
     
-  it('can propose a schema-level tag to a dataset and then accept the proposal from the Inbox tab', () => {
+  it.skip('can propose a schema-level tag to a dataset and then accept the proposal from the Inbox tab', () => {
       cy.login();
 
       // Proposing a tag

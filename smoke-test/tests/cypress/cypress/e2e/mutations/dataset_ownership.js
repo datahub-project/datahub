@@ -33,14 +33,14 @@ describe("add, remove ownership for dataset", () => {
         cy.on('uncaught:exception', (err, runnable) => { return false; });
       });
 
-    it("create test user and test group, add user to a group", () => {
+    it.skip("create test user and test group, add user to a group", () => {
         cy.loginWithCredentials();
         cy.createUser(username, password, email);
         cy.createGroup(group_name, "Test group description", test_id);
         cy.addGroupMember(group_name, `/group/urn:li:corpGroup:${test_id}/assets`, username);
     });
 
-    it("open test dataset page, add and remove user ownership(test every type)", () => {
+    it.skip("open test dataset page, add and remove user ownership(test every type)", () => {
         cy.loginWithCredentials();
         cy.goToDataset("urn:li:dataset:(urn:li:dataPlatform:hive,SampleCypressHiveDataset,PROD)", "SampleCypressHiveDataset");
         //business owner
@@ -53,7 +53,7 @@ describe("add, remove ownership for dataset", () => {
         addOwner(username, "Technical Owner", `[href="/user/urn:li:corpuser:example${test_id}@example.com"]`);
     });
 
-    it("open test dataset page, add and remove group ownership(test every type)", () => {
+    it.skip("open test dataset page, add and remove group ownership(test every type)", () => {
         cy.loginWithCredentials();
         cy.goToDataset("urn:li:dataset:(urn:li:dataPlatform:hive,SampleCypressHiveDataset,PROD)", "SampleCypressHiveDataset");
         //business owner

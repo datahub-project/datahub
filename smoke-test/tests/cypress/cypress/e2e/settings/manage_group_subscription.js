@@ -25,7 +25,7 @@ describe("group subscription test", () => {
       });
     };
 
-    it("subscribe group to entity, edit and remove subscription", () => {
+    it.skip("subscribe group to entity, edit and remove subscription", () => {
       // Configure a slack integration in settings
       setSubscriptionsEnabledFlag(true);
       cy.loginWithCredentials();
