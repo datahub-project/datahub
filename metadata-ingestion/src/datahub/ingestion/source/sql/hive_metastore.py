@@ -155,7 +155,7 @@ class HiveMetastore(BasicSQLAlchemyConfig):
         )
 
 
-@platform_name("Hive Metastore")
+@platform_name("hive-metastore")
 @config_class(HiveMetastore)
 @support_status(SupportStatus.CERTIFIED)
 @capability(SourceCapability.DELETION_DETECTION, "Enabled via stateful ingestion")
