@@ -228,24 +228,31 @@ class SnowflakeUsageExtractor(
                 return
 
             self.report.usage_aggregation_query_secs = timer.elapsed_seconds()
+            self.report.usage_aggregation_query_row_count = results.rowcount
 
-        for row in results:
-            if not self._is_dataset_pattern_allowed(
-                row["OBJECT_NAME"],
-                row["OBJECT_DOMAIN"],
-            ):
-                continue
+        with self.report.usage_aggregation_result_fetch_secs as current_timer:
+            for row in results:
+                with current_timer.pause():
+                    if not self._is_dataset_pattern_allowed(
+                        row["OBJECT_NAME"],
+                        row["OBJECT_DOMAIN"],
+                    ):
+                        continue
 
-            dataset_identifier = self.get_dataset_identifier_from_qualified_name(
-                row["OBJECT_NAME"]
-            )
-            if dataset_identifier not in discovered_datasets:
-                logger.debug(
-                    f"Skipping usage for table {dataset_identifier}, as table schema is not accessible or not allowed by recipe."
-                )
-                continue
+                    dataset_identifier = (
+                        self.get_dataset_identifier_from_qualified_name(
+                            row["OBJECT_NAME"]
+                        )
+                    )
+                    if dataset_identifier not in discovered_datasets:
+                        logger.debug(
+                            f"Skipping usage for table {dataset_identifier}, as table is not accessible or not allowed by recipe."
+                        )
+                        continue
 
-            yield from self.build_usage_statistics_for_dataset(dataset_identifier, row)
+                    yield from self.build_usage_statistics_for_dataset(
+                        dataset_identifier, row
+                    )
 
     def build_usage_statistics_for_dataset(
         self, dataset_identifier: str, row: dict
@@ -258,11 +265,11 @@ class SnowflakeUsageExtractor(
                 ),
                 totalSqlQueries=row["TOTAL_QUERIES"],
                 uniqueUserCount=row["TOTAL_USERS"],
-                topSqlQueries=self._map_top_sql_queries(
-                    json.loads(row["TOP_SQL_QUERIES"])
-                )
-                if self.config.include_top_n_queries
-                else None,
+                topSqlQueries=(
+                    self._map_top_sql_queries(json.loads(row["TOP_SQL_QUERIES"]))
+                    if self.config.include_top_n_queries
+                    else None
+                ),
                 userCounts=self._map_user_counts(
                     json.loads(row["USER_COUNTS"]),
                 ),
@@ -287,9 +294,11 @@ class SnowflakeUsageExtractor(
         )
         return sorted(
             [
-                trim_query(format_sql_query(query), budget_per_query)
-                if self.config.format_sql_queries
-                else trim_query(query, budget_per_query)
+                (
+                    trim_query(format_sql_query(query), budget_per_query)
+                    if self.config.format_sql_queries
+                    else trim_query(query, budget_per_query)
+                )
                 for query in top_sql_queries
             ]
         )
@@ -438,9 +447,11 @@ class SnowflakeUsageExtractor(
                     lastUpdatedTimestamp=last_updated_timestamp,
                     actor=user_urn,
                     operationType=operation_type,
-                    customOperationType=query_type
-                    if operation_type is OperationTypeClass.CUSTOM
-                    else None,
+                    customOperationType=(
+                        query_type
+                        if operation_type is OperationTypeClass.CUSTOM
+                        else None
+                    ),
                 )
                 mcp = MetadataChangeProposalWrapper(
                     entityUrn=self.dataset_urn_builder(dataset_identifier),

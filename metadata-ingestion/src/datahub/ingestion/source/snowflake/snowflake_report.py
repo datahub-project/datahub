@@ -11,6 +11,7 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 from datahub.ingestion.source_report.ingestion_stage import IngestionStageReport
 from datahub.ingestion.source_report.time_window import BaseTimeWindowReport
 from datahub.sql_parsing.sql_parsing_aggregator import SqlAggregatorReport
+from datahub.utilities.perf_timer import PerfTimer
 
 
 @dataclass
@@ -84,6 +85,8 @@ class SnowflakeV2Report(
     include_column_lineage: bool = False
 
     usage_aggregation_query_secs: float = -1
+    usage_aggregation_query_row_count: int = -1
+    usage_aggregation_result_fetch_secs: PerfTimer = field(default_factory=PerfTimer)
     table_lineage_query_secs: float = -1
     # view_lineage_parse_secs: float = -1
     # view_upstream_lineage_query_secs: float = -1
