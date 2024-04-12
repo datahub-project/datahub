@@ -81,6 +81,7 @@ export const ANTD_GRAY = {
     4: '#F0F0F0',
     4.5: '#E9E9E9',
     5: '#D9D9D9',
+    5.5: '#CCCCCC',
     6: '#BFBFBF',
     7: '#8C8C8C',
     8: '#595959',

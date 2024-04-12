@@ -49,8 +49,6 @@ export const ChartPreview = ({
     subType,
     isOutputPort,
     tier,
-    upstreamTotal,
-    downstreamTotal,
     headerDropdownItems,
 }: {
     urn: string;
@@ -79,8 +77,6 @@ export const ChartPreview = ({
     subType?: string | null;
     isOutputPort?: boolean;
     tier?: PopularityTier;
-    upstreamTotal?: number;
-    downstreamTotal?: number;
     headerDropdownItems?: Set<EntityMenuItems>;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
@@ -128,8 +124,6 @@ export const ChartPreview = ({
             lastUpdatedMs={lastUpdatedMs}
             isOutputPort={isOutputPort}
             tier={tier}
-            upstreamTotal={upstreamTotal}
-            downstreamTotal={downstreamTotal}
             headerDropdownItems={headerDropdownItems}
             statsSummary={statsSummary}
         />

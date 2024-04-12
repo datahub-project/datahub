@@ -5,7 +5,6 @@ import LaunchIcon from '@mui/icons-material/Launch';
 import { Typography } from 'antd';
 import React, { ReactNode } from 'react';
 import styled from 'styled-components';
-import { useHistory } from 'react-router';
 import {
     Container,
     CorpUser,
@@ -120,8 +119,6 @@ interface Props {
     externalUrl?: string | null;
     tier?: PopularityTier;
     isOutputPort?: boolean;
-    upstreamTotal?: number;
-    downstreamTotal?: number;
     entityIcon?: JSX.Element;
     headerDropdownItems?: Set<EntityMenuItems>;
     statsSummary?: any;
@@ -185,15 +182,12 @@ export default function DefaultPreviewCard({
     externalUrl,
     tier,
     isOutputPort, // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    upstreamTotal, // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    downstreamTotal,
     entityIcon,
     headerDropdownItems,
     statsSummary,
     actions,
 }: Props) {
     const entityRegistry = useEntityRegistryV2();
-    const history = useHistory();
     const supportedCapabilities = entityRegistry.getSupportedEntityCapabilities(entityType);
 
     // sometimes these lists will be rendered inside an entity container (for example, in the case of impact analysis)
@@ -316,11 +310,8 @@ export default function DefaultPreviewCard({
                 tier={tier}
                 previewType={previewType}
                 entityTitleSuffix={entityTitleSuffix}
-                upstreamTotal={upstreamTotal}
-                downstreamTotal={downstreamTotal}
                 entityType={entityType}
                 urn={urn}
-                history={history}
                 entityRegistry={entityRegistry}
                 lastUpdatedMs={lastUpdatedMs}
                 statsSummary={statsSummary}

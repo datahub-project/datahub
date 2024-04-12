@@ -148,8 +148,13 @@ export default class EntityRegistry {
 
     renderSearchResult(type: EntityType, searchResult: SearchResult): JSX.Element {
         const entity = validatedGet(type, this.entityTypeToEntity);
+        const genericEntityData = entity.getGenericEntityProperties(searchResult.entity);
         return (
-            <SearchResultProvider searchResult={searchResult}>{entity.renderSearch(searchResult)}</SearchResultProvider>
+            <SearchResultProvider searchResult={searchResult}>
+                <PreviewContext.Provider value={genericEntityData}>
+                    {entity.renderSearch(searchResult)}
+                </PreviewContext.Provider>
+            </SearchResultProvider>
         );
     }
 

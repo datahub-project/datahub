@@ -1,45 +1,63 @@
 import React from 'react';
-import { useHistory } from 'react-router';
 import styled from 'styled-components';
-import { Tooltip } from 'antd';
+import { Link } from 'react-router-dom';
+import { Popover } from 'antd';
 import { EntityType } from '../../types.generated';
 import EntityRegistry from '../entityV2/EntityRegistry';
 import LineageStatusIcon from '../../images/lineage-status.svg?react';
+import { ANTD_GRAY, REDESIGN_COLORS, SEARCH_COLORS } from '../entityV2/shared/constants';
+import { pluralize } from '../shared/textUtil';
 
-const Container = styled.div<{ highlighted?: boolean }>`
+const Icon = styled(LineageStatusIcon)<{ highlighted?: boolean }>`
     display: flex;
-    & svg {
-        height: 16px;
-        width: 16px;
-        color: ${({ highlighted }) => (highlighted ? '#3F54D1' : '#b0a2c2')} !important;
-    }
+    color: ${({ highlighted }) => (highlighted ? SEARCH_COLORS.SUBTEXT_PURPPLE : ANTD_GRAY[5.5])};
+    font-size: 16px;
+
+    :hover {
+        ${({ highlighted }) => highlighted && `color: ${SEARCH_COLORS.LINK_BLUE};`}
 `;
 
-interface LineageBadgeProps {
-    upstreamTotal: number | undefined;
-    downstreamTotal: number | undefined;
-    history: ReturnType<typeof useHistory>;
+const PopoverContent = styled.div`
+    align-items: center;
+    display: flex;
+    color: ${REDESIGN_COLORS.DARK_GREY};
+`;
+
+interface Props {
+    upstreamTotal: number | null | undefined;
+    downstreamTotal: number | null | undefined;
     entityRegistry: EntityRegistry;
     entityType: EntityType;
     urn: string;
 }
 
-const LineageBadge: React.FC<LineageBadgeProps> = ({
-    upstreamTotal,
-    downstreamTotal,
-    history,
-    entityRegistry,
-    entityType,
-    urn,
-}) => (
-    <Tooltip title={`${upstreamTotal} upstreams, ${downstreamTotal} downstreams`} showArrow={false}>
-        <Container
-            highlighted={(upstreamTotal || 0) + (downstreamTotal || 0) > 0}
-            onClick={() => history.push(`${entityRegistry.getEntityUrl(entityType, urn)}/Lineage`)}
-        >
-            <LineageStatusIcon />
-        </Container>
-    </Tooltip>
-);
+export default function LineageBadge({ upstreamTotal, downstreamTotal, entityRegistry, entityType, urn }: Props) {
+    const hasLineage = !!upstreamTotal || !!downstreamTotal;
 
-export default LineageBadge;
+    const upstreamContent = upstreamTotal ? `${upstreamTotal} ${pluralize(upstreamTotal, 'upstream')}` : '';
+    const downstreamContent = downstreamTotal ? `${downstreamTotal} ${pluralize(downstreamTotal, 'downstream')}` : '';
+    const separator = upstreamContent && downstreamContent ? ', ' : '';
+
+    return (
+        <Popover
+            content={
+                hasLineage && (
+                    <PopoverContent>
+                        {upstreamContent}
+                        {separator}
+                        {downstreamContent}
+                    </PopoverContent>
+                )
+            }
+            showArrow={false}
+            placement="bottom"
+        >
+            {hasLineage && (
+                <Link to={`${entityRegistry.getEntityUrl(entityType, urn)}/Lineage`}>
+                    <Icon highlighted />
+                </Link>
+            )}
+            {!hasLineage && <Icon highlighted={false} />}
+        </Popover>
+    );
+}

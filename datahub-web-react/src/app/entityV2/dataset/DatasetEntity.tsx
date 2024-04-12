@@ -197,8 +197,7 @@ export class DatasetEntity implements Entity<Dataset> {
                     icon: CheckCircleOutlined,
                 },
                 {
-                    name: 'Runs',
-                    // TODO: Rename this to DatasetRunsTab.
+                    name: 'Runs', // TODO: Rename this to DatasetRunsTab.
                     component: OperationsTab,
                     display: {
                         visible: (_, dataset: GetDatasetQuery) => {
@@ -352,15 +351,13 @@ export class DatasetEntity implements Entity<Dataset> {
                 health={data.health}
                 tier={
                     isValuePresent(data?.statsSummary?.queryCountPercentileLast30Days) &&
-                        isValuePresent(data?.statsSummary?.uniqueUserPercentileLast30Days)
+                    isValuePresent(data?.statsSummary?.uniqueUserPercentileLast30Days)
                         ? getDatasetPopularityTier(
-                            data.statsSummary?.queryCountPercentileLast30Days,
-                            data.statsSummary?.uniqueUserPercentileLast30Days,
-                        )
+                              data.statsSummary?.queryCountPercentileLast30Days,
+                              data.statsSummary?.uniqueUserPercentileLast30Days,
+                          )
                         : undefined
                 }
-                upstreamTotal={(data as any)?.upstream?.total}
-                downstreamTotal={(data as any)?.downstream?.total}
                 headerDropdownItems={headerDropdownItems}
                 previewType={previewType}
             />
@@ -410,15 +407,13 @@ export class DatasetEntity implements Entity<Dataset> {
                 isOutputPort={isOutputPort(result)}
                 tier={
                     isValuePresent(data?.statsSummary?.queryCountPercentileLast30Days) &&
-                        isValuePresent(data?.statsSummary?.uniqueUserPercentileLast30Days)
+                    isValuePresent(data?.statsSummary?.uniqueUserPercentileLast30Days)
                         ? getDatasetPopularityTier(
-                            data.statsSummary?.queryCountPercentileLast30Days,
-                            data.statsSummary?.uniqueUserPercentileLast30Days,
-                        )
+                              data.statsSummary?.queryCountPercentileLast30Days,
+                              data.statsSummary?.uniqueUserPercentileLast30Days,
+                          )
                         : undefined
                 }
-                upstreamTotal={(data as any)?.upstream?.total}
-                downstreamTotal={(data as any)?.downstream?.total}
                 headerDropdownItems={headerDropdownItems}
             />
         );

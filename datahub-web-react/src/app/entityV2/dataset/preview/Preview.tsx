@@ -56,8 +56,6 @@ export const Preview = ({
     paths,
     isOutputPort,
     tier,
-    upstreamTotal,
-    downstreamTotal,
     headerDropdownItems,
     previewType,
 }: {
@@ -91,8 +89,6 @@ export const Preview = ({
     paths?: EntityPath[];
     isOutputPort?: boolean;
     tier?: PopularityTier;
-    upstreamTotal?: number;
-    downstreamTotal?: number;
     headerDropdownItems?: Set<EntityMenuItems>;
     previewType?: Maybe<PreviewType>;
 }): JSX.Element => {
@@ -146,8 +142,6 @@ export const Preview = ({
             isOutputPort={isOutputPort}
             lastUpdatedMs={lastUpdatedMs}
             tier={tier}
-            upstreamTotal={upstreamTotal}
-            downstreamTotal={downstreamTotal}
             headerDropdownItems={headerDropdownItems}
             statsSummary={statsSummary}
             previewType={previewType}

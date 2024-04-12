@@ -1,10 +1,10 @@
 import React from 'react';
-import { useHistory } from 'react-router';
 import styled from 'styled-components';
 import { Divider } from 'antd';
 import { DatasetStatsSummary, EntityType } from '../../types.generated';
 import { REDESIGN_COLORS } from '../entityV2/shared/constants';
 import { EntityCapabilityType } from '../entityV2/Entity';
+import { usePreviewData } from '../entityV2/shared/PreviewContext';
 import { entityHasCapability } from './utils';
 import EntityRegistry from '../entityV2/EntityRegistry';
 import LineageBadge from './LineageBadge';
@@ -30,11 +30,8 @@ const StyledDivider = styled(Divider)`
 `;
 
 interface Props {
-    upstreamTotal: number | undefined;
-    downstreamTotal: number | undefined;
     entityType: EntityType;
     urn: string;
-    history: ReturnType<typeof useHistory>;
     entityRegistry: EntityRegistry;
     entityCapabilities: Set<EntityCapabilityType>;
     lastUpdatedMs?: number | null;
@@ -43,19 +40,17 @@ interface Props {
 }
 
 const PreviewCardFooterRightSection = ({
-    upstreamTotal,
-    downstreamTotal,
     entityType,
     urn,
-    history,
     entityRegistry,
     entityCapabilities,
     lastUpdatedMs,
     tier,
     statsSummary,
 }: Props) => {
-    const status = tier !== undefined ? getBarsStatusFromPopularityTier(tier) : 0;
+    const previewData = usePreviewData();
 
+    const status = tier !== undefined ? getBarsStatusFromPopularityTier(tier) : 0;
     const showLineageBadge = entityHasCapability(entityCapabilities, EntityCapabilityType.LINEAGE);
 
     return (
@@ -70,9 +65,8 @@ const PreviewCardFooterRightSection = ({
                 {showLineageBadge && (
                     <>
                         <LineageBadge
-                            upstreamTotal={upstreamTotal}
-                            downstreamTotal={downstreamTotal}
-                            history={history}
+                            upstreamTotal={previewData?.upstream?.total}
+                            downstreamTotal={previewData?.downstream?.total}
                             entityRegistry={entityRegistry}
                             entityType={entityType}
                             urn={urn}

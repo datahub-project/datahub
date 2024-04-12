@@ -1,11 +1,18 @@
 import React from 'react';
 import styled from 'styled-components';
 import { Divider } from 'antd';
-import { useHistory } from 'react-router';
 import Pills from './Pills';
 import { REDESIGN_COLORS } from '../entityV2/shared/constants';
 import { PopularityTier } from '../entityV2/shared/containers/profile/sidebar/shared/utils';
-import { DatasetStatsSummary, EntityPath, EntityType, GlobalTags, GlossaryTerms, Maybe, Owner } from '../../types.generated';
+import {
+    DatasetStatsSummary,
+    EntityPath,
+    EntityType,
+    GlobalTags,
+    GlossaryTerms,
+    Maybe,
+    Owner,
+} from '../../types.generated';
 import { EntityCapabilityType, PreviewType } from '../entityV2/Entity';
 import PreviewCardFooterRightSection from './PreviewCardFooterRightSection';
 import EntityRegistry from '../entityV2/EntityRegistry';
@@ -19,11 +26,8 @@ interface DefaultPreviewCardFooterProps {
     tier?: PopularityTier;
     entityTitleSuffix?: React.ReactNode;
     previewType: Maybe<PreviewType> | undefined;
-    upstreamTotal: number | undefined;
-    downstreamTotal: number | undefined;
     entityType: EntityType;
     urn: string;
-    history: ReturnType<typeof useHistory>;
     entityRegistry: EntityRegistry;
     lastUpdatedMs?: number | null;
     statsSummary?: DatasetStatsSummary | null;
@@ -36,6 +40,7 @@ const Container = styled.div`
     display: flex;
     justify-content: space-between;
     align-items: center;
+
     .ant-btn-link {
         padding: inherit;
     }
@@ -83,11 +88,8 @@ const DefaultPreviewCardFooter: React.FC<DefaultPreviewCardFooterProps> = ({
     tier,
     entityTitleSuffix,
     previewType,
-    upstreamTotal,
-    downstreamTotal,
     entityType,
     urn,
-    history,
     entityRegistry,
     lastUpdatedMs,
     statsSummary,
@@ -116,11 +118,8 @@ const DefaultPreviewCardFooter: React.FC<DefaultPreviewCardFooterProps> = ({
                 />
                 <RightSection>
                     <PreviewCardFooterRightSection
-                        upstreamTotal={upstreamTotal}
-                        downstreamTotal={downstreamTotal}
                         entityType={entityType}
                         urn={urn}
-                        history={history}
                         entityRegistry={entityRegistry}
                         entityCapabilities={entityCapabilities}
                         lastUpdatedMs={lastUpdatedMs}

@@ -267,15 +267,13 @@ export class DashboardEntity implements Entity<Dashboard> {
                 subtype={data.subTypes?.typeNames?.[0]}
                 tier={
                     isValuePresent(data?.statsSummary?.viewCountPercentileLast30Days) &&
-                        isValuePresent(data?.statsSummary?.uniqueUserPercentileLast30Days)
+                    isValuePresent(data?.statsSummary?.uniqueUserPercentileLast30Days)
                         ? getDashboardPopularityTier(
-                            data.statsSummary?.viewCountPercentileLast30Days,
-                            data.statsSummary?.uniqueUserPercentileLast30Days,
-                        )
+                              data.statsSummary?.viewCountPercentileLast30Days,
+                              data.statsSummary?.uniqueUserPercentileLast30Days,
+                          )
                         : undefined
                 }
-                upstreamTotal={(data as any)?.upstream?.total}
-                downstreamTotal={(data as any)?.downstream?.total}
                 headerDropdownItems={headerDropdownItems}
                 previewType={previewType}
             />
@@ -320,15 +318,13 @@ export class DashboardEntity implements Entity<Dashboard> {
                 isOutputPort={isOutputPort(result)}
                 tier={
                     isValuePresent(data?.statsSummary?.viewCountPercentileLast30Days) &&
-                        isValuePresent(data?.statsSummary?.uniqueUserPercentileLast30Days)
+                    isValuePresent(data?.statsSummary?.uniqueUserPercentileLast30Days)
                         ? getDashboardPopularityTier(
-                            data.statsSummary?.viewCountPercentileLast30Days,
-                            data.statsSummary?.uniqueUserPercentileLast30Days,
-                        )
+                              data.statsSummary?.viewCountPercentileLast30Days,
+                              data.statsSummary?.uniqueUserPercentileLast30Days,
+                          )
                         : undefined
                 }
-                upstreamTotal={(data as any)?.upstream?.total}
-                downstreamTotal={(data as any)?.downstream?.total}
                 headerDropdownItems={headerDropdownItems}
             />
         );
