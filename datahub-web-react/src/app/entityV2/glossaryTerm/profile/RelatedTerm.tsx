@@ -1,6 +1,6 @@
 import React from 'react';
 import { CloseOutlined } from '@ant-design/icons';
-import { Divider, Button } from 'antd';
+import { Button } from 'antd';
 import styled from 'styled-components/macro';
 import { useGetGlossaryTermQuery } from '../../../../graphql/glossaryTerm.generated';
 import { EntityType, TermRelationshipType } from '../../../../types.generated';
@@ -8,6 +8,7 @@ import { useEntityRegistry } from '../../../useEntityRegistry';
 import { PreviewType } from '../../Entity';
 import useRemoveRelatedTerms from './useRemoveRelatedTerms';
 import { REDESIGN_COLORS } from '../../shared/constants';
+import { EntityHeaderDecoration } from '../../shared/containers/profile/header/EntityHeaderDecoration';
 
 const TransparentButton = styled(Button)`
     color: ${REDESIGN_COLORS.TITLE_PURPLE};
@@ -16,8 +17,8 @@ const TransparentButton = styled(Button)`
     border: none;
     padding: 0px 10px;
     position: absolute;
-    top: 3px;
-    right: 40px;
+    top: 19px;
+    right: 50px;
     display: none;
 
     &:hover {
@@ -28,17 +29,23 @@ const TransparentButton = styled(Button)`
 `;
 
 const ListItem = styled.div`
-    margin: 0 20px;
     position: relative;
+    border: 1px solid #ebebeb;
+    border-radius: 11px;
 
     &:hover ${TransparentButton} {
         display: inline-block;
+    }
+    &:hover{
+        border: 1px solid ${REDESIGN_COLORS.TITLE_PURPLE};
     }
 `;
 
 const Profile = styled.div`
     display: flex;
-    margin-bottom: 20px;
+    position: relative;
+    overflow: hidden;
+    padding: 16px;
 `;
 
 interface Props {
@@ -63,14 +70,19 @@ function RelatedTerm(props: Props) {
     return (
         <ListItem>
             <Profile>
+                <EntityHeaderDecoration
+                    urn={urn}
+                    entityData={data?.glossaryTerm}
+                    entityType={EntityType.GlossaryTerm}
+                    displayProperties={undefined}
+                />
                 {entityRegistry.renderPreview(EntityType.GlossaryTerm, PreviewType.PREVIEW, data?.glossaryTerm)}
                 {isEditable && (
                     <TransparentButton size="small" onClick={onRemove}>
-                        <CloseOutlined size={5}/> Remove Term
+                        <CloseOutlined size={5} /> Remove Relationship
                     </TransparentButton>
                 )}
             </Profile>
-            <Divider style={{ margin: '20px 0' }} />
         </ListItem>
     );
 }
