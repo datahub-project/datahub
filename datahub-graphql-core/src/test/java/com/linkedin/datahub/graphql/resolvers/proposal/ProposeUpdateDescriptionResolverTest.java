@@ -7,8 +7,10 @@ import static org.testng.Assert.*;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.proposal.ProposalService;
 import com.datahub.plugins.auth.authorization.Authorizer;
+import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.DescriptionUpdateInput;
+import com.linkedin.datahub.graphql.generated.SubResourceType;
 import graphql.schema.DataFetchingEnvironment;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -40,15 +42,6 @@ public class ProposeUpdateDescriptionResolverTest {
   }
 
   @Test
-  public void testFailsNotNullSubresource() {
-    DescriptionUpdateInput input = new DescriptionUpdateInput();
-    input.setSubResource("subresource");
-    when(_dataFetchingEnvironment.getArgument(eq("input"))).thenReturn(input);
-
-    assertThrows(() -> _resolver.get(_dataFetchingEnvironment).join());
-  }
-
-  @Test
   public void testFailsUnsupportedEntityType() throws Exception {
     QueryContext mockContext = getMockAllowContext();
     when(_dataFetchingEnvironment.getContext()).thenReturn(mockContext);
@@ -72,7 +65,7 @@ public class ProposeUpdateDescriptionResolverTest {
     input.setResourceUrn(GLOSSARY_NODE_URN_STRING);
     when(_dataFetchingEnvironment.getArgument(eq("input"))).thenReturn(input);
     when(_proposalService.proposeUpdateResourceDescription(
-            any(), any(), any(), any(Authorizer.class)))
+            any(), any(), any(), any(), any(), any(Authorizer.class)))
         .thenReturn(true);
 
     assertTrue(_resolver.get(_dataFetchingEnvironment).join());
@@ -89,7 +82,7 @@ public class ProposeUpdateDescriptionResolverTest {
     input.setResourceUrn(GLOSSARY_TERM_URN_STRING);
     when(_dataFetchingEnvironment.getArgument(eq("input"))).thenReturn(input);
     when(_proposalService.proposeUpdateResourceDescription(
-            any(), any(), any(), any(Authorizer.class)))
+            any(), any(), any(), any(), any(), any(Authorizer.class)))
         .thenReturn(true);
 
     assertTrue(_resolver.get(_dataFetchingEnvironment).join());
@@ -106,7 +99,34 @@ public class ProposeUpdateDescriptionResolverTest {
     input.setResourceUrn(DATASET_URN_STRING);
     when(_dataFetchingEnvironment.getArgument(eq("input"))).thenReturn(input);
     when(_proposalService.proposeUpdateResourceDescription(
-            any(), any(), any(), any(Authorizer.class)))
+            any(), any(), any(), any(), any(), any(Authorizer.class)))
+        .thenReturn(true);
+
+    assertTrue(_resolver.get(_dataFetchingEnvironment).join());
+  }
+
+  @Test
+  public void testPassesColumn() throws Exception {
+    QueryContext mockContext = getMockAllowContext();
+    when(_dataFetchingEnvironment.getContext()).thenReturn(mockContext);
+    when(mockContext.getActorUrn()).thenReturn(ACTOR_URN_STRING);
+
+    String fieldPath = "someField";
+
+    DescriptionUpdateInput input = new DescriptionUpdateInput();
+    input.setDescription(DESCRIPTION);
+    input.setResourceUrn(DATASET_URN_STRING);
+    input.setSubResourceType(SubResourceType.DATASET_FIELD);
+    input.setSubResource(fieldPath);
+
+    when(_dataFetchingEnvironment.getArgument(eq("input"))).thenReturn(input);
+    when(_proposalService.proposeUpdateResourceDescription(
+            eq(Urn.createFromString(ACTOR_URN_STRING)),
+            eq(Urn.createFromString(DATASET_URN_STRING)),
+            eq(SubResourceType.DATASET_FIELD.toString()),
+            eq(fieldPath),
+            eq(DESCRIPTION),
+            any(Authorizer.class)))
         .thenReturn(true);
 
     assertTrue(_resolver.get(_dataFetchingEnvironment).join());

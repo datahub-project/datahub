@@ -11,7 +11,11 @@ import com.linkedin.glossary.GlossaryTermInfo;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
+import com.linkedin.schema.EditableSchemaFieldInfo;
+import com.linkedin.schema.EditableSchemaFieldInfoArray;
+import com.linkedin.schema.EditableSchemaMetadata;
 import java.util.Objects;
+import java.util.Optional;
 import javax.annotation.Nonnull;
 
 public class DescriptionUtils {
@@ -73,6 +77,53 @@ public class DescriptionUtils {
     proposal.setChangeType(ChangeType.UPSERT);
 
     return proposal;
+  }
+
+  public static MetadataChangeProposal createSchemaFieldDescriptionChangeProposal(
+      @Nonnull final EditableSchemaMetadata editableSchemaMetadata,
+      @Nonnull final Urn resourceUrn,
+      @Nonnull final String fieldPath,
+      @Nonnull final String description,
+      @Nonnull final Actor actor) {
+    Objects.requireNonNull(editableSchemaMetadata, "editableSchemaMetadata cannot be null");
+
+    AuditStamp auditStamp = getAuditStamp(UrnUtils.getUrn(actor.toUrnStr()));
+
+    getFieldInfoFromSchema(editableSchemaMetadata, fieldPath).setDescription(description);
+
+    editableSchemaMetadata.setLastModified(auditStamp);
+
+    final MetadataChangeProposal proposal = new MetadataChangeProposal();
+    proposal.setEntityUrn(resourceUrn);
+    proposal.setEntityType(Constants.DATASET_ENTITY_NAME);
+    proposal.setAspectName(Constants.EDITABLE_SCHEMA_METADATA_ASPECT_NAME);
+    proposal.setAspect(GenericRecordUtils.serializeAspect(editableSchemaMetadata));
+    proposal.setChangeType(ChangeType.UPSERT);
+
+    return proposal;
+  }
+
+  // copied from graphql-core/.../MutationUtils
+  static EditableSchemaFieldInfo getFieldInfoFromSchema(
+      EditableSchemaMetadata editableSchemaMetadata, String fieldPath) {
+    if (!editableSchemaMetadata.hasEditableSchemaFieldInfo()) {
+      editableSchemaMetadata.setEditableSchemaFieldInfo(new EditableSchemaFieldInfoArray());
+    }
+    EditableSchemaFieldInfoArray editableSchemaMetadataArray =
+        editableSchemaMetadata.getEditableSchemaFieldInfo();
+    Optional<EditableSchemaFieldInfo> fieldMetadata =
+        editableSchemaMetadataArray.stream()
+            .filter(fieldInfo -> fieldInfo.getFieldPath().equals(fieldPath))
+            .findFirst();
+
+    if (fieldMetadata.isPresent()) {
+      return fieldMetadata.get();
+    } else {
+      EditableSchemaFieldInfo newFieldInfo = new EditableSchemaFieldInfo();
+      newFieldInfo.setFieldPath(fieldPath);
+      editableSchemaMetadataArray.add(newFieldInfo);
+      return newFieldInfo;
+    }
   }
 
   public static AuditStamp getAuditStamp(Urn actor) {

@@ -5,13 +5,14 @@ import React, { useState } from 'react';
 import styled from 'styled-components';
 import { SectionHeader, StyledDivider } from './components';
 import UpdateDescriptionModal from '../../../../../components/legacy/DescriptionModal';
-import { EditableSchemaFieldInfo, SchemaField, SubResourceType } from '../../../../../../../../types.generated';
+import { EditableSchemaFieldInfo, EntityType, SchemaField, SubResourceType } from '../../../../../../../../types.generated';
 import DescriptionSection from '../../../../../containers/profile/sidebar/AboutSection/DescriptionSection';
 import { useEntityData, useMutationUrn, useRefetch } from '../../../../../EntityContext';
 import { useSchemaRefetch } from '../../SchemaContext';
 import { useUpdateDescriptionMutation } from '../../../../../../../../graphql/mutations.generated';
 import analytics, { EntityActionType, EventType } from '../../../../../../../analytics';
 import SchemaEditableContext from '../../../../../../../shared/SchemaEditableContext';
+import { useProposeUpdateDescriptionMutation } from '../../../../../../../../graphql/proposals.generated';
 
 const DescriptionWrapper = styled.div`
     display: flex;
@@ -29,12 +30,18 @@ interface Props {
     expandedField: SchemaField;
     editableFieldInfo?: EditableSchemaFieldInfo;
 }
+const PROPOSAL_ENTITY_TYPES = [EntityType.GlossaryTerm, EntityType.GlossaryNode, EntityType.Dataset];
+
+export function getShouldShowProposeButton(entityType: EntityType) {
+    return PROPOSAL_ENTITY_TYPES.includes(entityType);
+}
 
 export default function FieldDescription({ expandedField, editableFieldInfo }: Props) {
     const isSchemaEditable = React.useContext(SchemaEditableContext);
     const urn = useMutationUrn();
     const refetch = useRefetch();
     const schemaRefetch = useSchemaRefetch();
+    const [proposeUpdateDescription] = useProposeUpdateDescriptionMutation();
     const [updateDescription] = useUpdateDescriptionMutation();
     const [isModalVisible, setIsModalVisible] = useState(false);
     const { entityType } = useEntityData();
@@ -77,6 +84,7 @@ export default function FieldDescription({ expandedField, editableFieldInfo }: P
     });
 
     const displayedDescription = editableFieldInfo?.description || expandedField.description;
+    const shouldShowProposeButton = getShouldShowProposeButton(entityType);
 
     return (
         <>
@@ -98,9 +106,17 @@ export default function FieldDescription({ expandedField, editableFieldInfo }: P
                         description={displayedDescription || ''}
                         original={expandedField.description || ''}
                         onClose={() => setIsModalVisible(false)}
+                        showPropose={shouldShowProposeButton}
                         onSubmit={(updatedDescription: string) => {
                             message.loading({ content: 'Updating...' });
                             updateDescription(generateMutationVariables(updatedDescription))
+                                .then(onSuccessfulMutation)
+                                .catch(onFailMutation);
+                            setIsModalVisible(false);
+                        }}
+                        onPropose={(updatedDescription) => {
+                            message.loading({ content: 'Updating...' });
+                            proposeUpdateDescription(generateMutationVariables(updatedDescription))
                                 .then(onSuccessfulMutation)
                                 .catch(onFailMutation);
                             setIsModalVisible(false);

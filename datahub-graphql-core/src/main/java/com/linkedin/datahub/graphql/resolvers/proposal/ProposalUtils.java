@@ -131,7 +131,9 @@ public class ProposalUtils {
   }
 
   public static boolean isAuthorizedToProposeDescription(
-      @Nonnull QueryContext context, Urn targetUrn) {
+      @Nonnull QueryContext context, Urn targetUrn, String subResource) {
+
+    boolean isTargetingSchema = subResource != null && !subResource.isEmpty();
 
     // If you either have all entity privileges, or have the specific privileges required, you are
     // authorized.
@@ -140,7 +142,10 @@ public class ProposalUtils {
             ImmutableList.of(
                 ALL_PRIVILEGES_GROUP,
                 new ConjunctivePrivilegeGroup(
-                    ImmutableList.of(PoliciesConfig.PROPOSE_ENTITY_DOCS_PRIVILEGE.getType()))));
+                    ImmutableList.of(
+                        isTargetingSchema
+                            ? PoliciesConfig.PROPOSE_DATASET_COL_DESCRIPTION_PRIVILEGE.getType()
+                            : PoliciesConfig.PROPOSE_ENTITY_DOCS_PRIVILEGE.getType()))));
 
     return AuthorizationUtils.isAuthorized(
         context.getAuthorizer(),
@@ -226,6 +231,9 @@ public class ProposalUtils {
     // Decide whether the current principal should be allowed to update the Dataset.
     // If you either have all entity privileges, or have the specific privileges required, you are
     // authorized.
+
+    // NOTE: for editing column descriptions also, we are piggybacking on
+    // MANAGE_ENTITY_DOCS_PROPOSALS_PRIVILEGE
     final DisjunctivePrivilegeGroup orPrivilegeGroups =
         new DisjunctivePrivilegeGroup(
             new ArrayList<>(

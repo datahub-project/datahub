@@ -1,5 +1,6 @@
 package com.datahub.authentication.proposal;
 
+import static com.datahub.authentication.proposal.ProposalService.*;
 import static com.linkedin.metadata.Constants.*;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
@@ -8,28 +9,47 @@ import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
 import com.datahub.authorization.AuthorizationResult;
+import com.datahub.authorization.AuthorizedActors;
+import com.datahub.authorization.EntitySpec;
 import com.datahub.plugins.auth.authorization.Authorizer;
 import com.google.common.collect.ImmutableList;
+import com.linkedin.actionrequest.ActionRequestInfo;
+import com.linkedin.actionrequest.ActionRequestParams;
 import com.linkedin.common.Owner;
 import com.linkedin.common.OwnerArray;
 import com.linkedin.common.Ownership;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.CorpGroupUrn;
 import com.linkedin.common.urn.CorpuserUrn;
+import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.common.urn.GlossaryNodeUrn;
 import com.linkedin.common.urn.GlossaryTermUrn;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.dataset.EditableDatasetProperties;
 import com.linkedin.entity.Entity;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.glossary.GlossaryNodeInfo;
 import com.linkedin.glossary.GlossaryTermInfo;
 import com.linkedin.identity.GroupMembership;
+import com.linkedin.metadata.aspect.ActionRequestAspect;
+import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.graph.GraphClient;
+import com.linkedin.metadata.resource.SubResourceType;
 import com.linkedin.metadata.snapshot.ActionRequestSnapshot;
 import com.linkedin.metadata.snapshot.Snapshot;
+import com.linkedin.metadata.utils.GenericRecordUtils;
+import com.linkedin.mxe.GenericAspect;
+import com.linkedin.mxe.MetadataChangeProposal;
+import com.linkedin.schema.EditableSchemaFieldInfo;
+import com.linkedin.schema.EditableSchemaFieldInfoArray;
+import com.linkedin.schema.EditableSchemaMetadata;
+import java.net.URISyntaxException;
 import java.util.Collections;
+import java.util.Objects;
 import java.util.Optional;
+import org.mockito.ArgumentMatcher;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -45,6 +65,8 @@ public class ProposalServiceTest {
       "urn:li:glossaryNode:12372c2ec7754c308993202dc44f548b";
   private static final String GLOSSARY_TERM_URN_STRING =
       "urn:li:glossaryTerm:12372c2ec7754c308993202dc44f548b";
+  private static final String DATASET_URN_STRING =
+      "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-project.my-dataset.user-table,PROD)";
   private static final String DESCRIPTION = "description";
   private static final String ACTION_REQUEST_STATUS_COMPLETE = "COMPLETE";
   private static final String ACTION_REQUEST_RESULT_ACCEPTED = "ACCEPTED";
@@ -52,6 +74,10 @@ public class ProposalServiceTest {
   private static Authorizer _authorizer;
   private static Urn _glossaryNodeUrn;
   private static Urn _glossaryTermUrn;
+
+  private static Urn _datasetUrn;
+
+  private static String _fieldPath;
 
   private EntityService _entityService;
   private EntityClient _entityClient;
@@ -68,6 +94,8 @@ public class ProposalServiceTest {
 
     _glossaryNodeUrn = GlossaryNodeUrn.createFromString(GLOSSARY_NODE_URN_STRING);
     _glossaryTermUrn = GlossaryTermUrn.createFromString(GLOSSARY_TERM_URN_STRING);
+    _datasetUrn = DatasetUrn.createFromString(DATASET_URN_STRING);
+    _fieldPath = "someField";
 
     _entityService = mock(EntityService.class);
     _entityClient = mock(EntityClient.class);
@@ -127,15 +155,32 @@ public class ProposalServiceTest {
     assertThrows(
         () ->
             _proposalService.proposeUpdateResourceDescription(
-                null, _glossaryNodeUrn, DESCRIPTION, _authorizer));
+                null, _glossaryNodeUrn, null, null, DESCRIPTION, _authorizer));
     assertThrows(
         () ->
             _proposalService.proposeUpdateResourceDescription(
-                ACTOR_URN, null, DESCRIPTION, _authorizer));
+                ACTOR_URN, null, null, null, DESCRIPTION, _authorizer));
     assertThrows(
         () ->
             _proposalService.proposeUpdateResourceDescription(
-                ACTOR_URN, _glossaryNodeUrn, null, _authorizer));
+                ACTOR_URN, _glossaryNodeUrn, null, null, null, _authorizer));
+  }
+
+  private static class DescriptionUpdateActionRequestMatcher extends ActionRequestSnapshotMatcher {
+
+    private final String description;
+
+    private DescriptionUpdateActionRequestMatcher(
+        String resourceUrn, String subResourceType, String subResource, String description) {
+      super("UPDATE_DESCRIPTION", resourceUrn, subResourceType, subResource);
+      this.description = description;
+    }
+
+    @Override
+    boolean matchesActionRequestParams(ActionRequestParams params) {
+      return params.hasUpdateDescriptionProposal()
+          && Objects.equals(description, params.getUpdateDescriptionProposal().getDescription());
+    }
   }
 
   @Test
@@ -143,8 +188,83 @@ public class ProposalServiceTest {
     when(_entityService.exists(eq(_glossaryNodeUrn), anyBoolean())).thenReturn(true);
 
     _proposalService.proposeUpdateResourceDescription(
-        ACTOR_URN, _glossaryNodeUrn, DESCRIPTION, _authorizer);
-    verify(_entityService).ingestEntity(any(), any());
+        ACTOR_URN, _glossaryNodeUrn, null, null, DESCRIPTION, _authorizer);
+
+    DescriptionUpdateActionRequestMatcher snapshotMatcher =
+        new DescriptionUpdateActionRequestMatcher(
+            _glossaryNodeUrn.toString(), null, null, DESCRIPTION);
+
+    verify(_entityService).ingestEntity(argThat(snapshotMatcher), any());
+  }
+
+  @Test
+  public void proposeUpdateColumnDescriptionPasses() throws URISyntaxException {
+    when(_entityService.exists(eq(_datasetUrn), anyBoolean())).thenReturn(true);
+
+    EntitySpec spec = new EntitySpec(_datasetUrn.getEntityType(), _datasetUrn.toString());
+    AuthorizedActors actors =
+        new Authorizer() {}.authorizedActors(
+            PoliciesConfig.MANAGE_ENTITY_DOCS_PROPOSALS_PRIVILEGE.getType(), Optional.of(spec));
+    when(_authorizer.authorizedActors(any(), any())).thenReturn(actors);
+
+    _proposalService.proposeUpdateResourceDescription(
+        ACTOR_URN,
+        _datasetUrn,
+        SubResourceType.DATASET_FIELD.toString(),
+        _fieldPath,
+        DESCRIPTION,
+        _authorizer);
+
+    DescriptionUpdateActionRequestMatcher snapshotMatcher =
+        new DescriptionUpdateActionRequestMatcher(
+            _datasetUrn.toString(),
+            SubResourceType.DATASET_FIELD.toString(),
+            _fieldPath,
+            DESCRIPTION);
+
+    verify(_entityService).ingestEntity(argThat(snapshotMatcher), any());
+  }
+
+  @Test
+  public void proposeUpdateDescriptionErrPartialSpec() throws URISyntaxException {
+    // error should occur when only one of subResourceType or subResource are specified
+    Urn datasetUrn =
+        Urn.createFromString(
+            "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-project.my-dataset.user-table,PROD)");
+
+    String fieldPath = "someField";
+
+    when(_entityService.exists(eq(datasetUrn), anyBoolean())).thenReturn(true);
+
+    EntitySpec spec = new EntitySpec(datasetUrn.getEntityType(), datasetUrn.toString());
+    AuthorizedActors actors =
+        new Authorizer() {}.authorizedActors(
+            PoliciesConfig.MANAGE_ENTITY_DOCS_PROPOSALS_PRIVILEGE.getType(), Optional.of(spec));
+    when(_authorizer.authorizedActors(any(), any())).thenReturn(actors);
+
+    DescriptionUpdateActionRequestMatcher snapshotMatcher =
+        new DescriptionUpdateActionRequestMatcher(
+            datasetUrn.toString(),
+            SubResourceType.DATASET_FIELD.toString(),
+            fieldPath,
+            DESCRIPTION);
+
+    assertThrows(
+        () ->
+            _proposalService.proposeUpdateResourceDescription(
+                ACTOR_URN,
+                datasetUrn,
+                SubResourceType.DATASET_FIELD.toString(),
+                null,
+                DESCRIPTION,
+                _authorizer));
+
+    assertThrows(
+        () ->
+            _proposalService.proposeUpdateResourceDescription(
+                ACTOR_URN, datasetUrn, null, fieldPath, DESCRIPTION, _authorizer));
+
+    verify(_entityService, never()).ingestEntity(any(), any());
   }
 
   @Test
@@ -278,6 +398,8 @@ public class ProposalServiceTest {
         _proposalService.createUpdateDescriptionProposalActionRequest(
             ACTOR_URN,
             _glossaryNodeUrn,
+            null,
+            null,
             Collections.singletonList(ACTOR_URN),
             Collections.EMPTY_LIST,
             Collections.EMPTY_LIST,
@@ -301,6 +423,8 @@ public class ProposalServiceTest {
         _proposalService.createUpdateDescriptionProposalActionRequest(
             ACTOR_URN,
             _glossaryTermUrn,
+            null,
+            null,
             Collections.singletonList(ACTOR_URN),
             Collections.EMPTY_LIST,
             Collections.EMPTY_LIST,
@@ -309,6 +433,206 @@ public class ProposalServiceTest {
         actionRequestSnapshot, SYSTEM_AUTHENTICATION);
 
     verify(_entityClient).ingestProposal(any(), any());
+  }
+
+  private static class DatasetDescriptionMatcher extends MetadataChangeProposalMatcher {
+    private final String description;
+
+    private DatasetDescriptionMatcher(
+        Urn urn, String entityType, String aspectName, ChangeType changeType, String description) {
+      super(urn, entityType, aspectName, changeType);
+      this.description = description;
+    }
+
+    @Override
+    boolean matchesAspect(GenericAspect aspect) {
+      EditableDatasetProperties editableDatasetProperties =
+          GenericRecordUtils.deserializeAspect(
+              aspect.getValue(), GenericRecordUtils.JSON, EditableDatasetProperties.class);
+
+      return Objects.equals(description, editableDatasetProperties.getDescription());
+    }
+  }
+
+  @Test
+  public void acceptUpdateDatasetDescriptionProposalNewAspectPasses() throws Exception {
+    when(_entityService.getLatestAspect(
+            eq(_datasetUrn), eq(EDITABLE_DATASET_PROPERTIES_ASPECT_NAME)))
+        .thenReturn(null);
+
+    ActionRequestSnapshot actionRequestSnapshot =
+        _proposalService.createUpdateDescriptionProposalActionRequest(
+            ACTOR_URN,
+            _datasetUrn,
+            null,
+            null,
+            Collections.singletonList(ACTOR_URN),
+            Collections.EMPTY_LIST,
+            Collections.EMPTY_LIST,
+            DESCRIPTION);
+
+    _proposalService.acceptUpdateResourceDescriptionProposal(
+        actionRequestSnapshot, SYSTEM_AUTHENTICATION);
+
+    DatasetDescriptionMatcher datasetDescriptionMatcher =
+        new DatasetDescriptionMatcher(
+            _datasetUrn,
+            DATASET_ENTITY_NAME,
+            EDITABLE_DATASET_PROPERTIES_ASPECT_NAME,
+            ChangeType.UPSERT,
+            DESCRIPTION);
+
+    verify(_entityClient).ingestProposal(argThat(datasetDescriptionMatcher), any());
+  }
+
+  @Test
+  public void acceptUpdateDatasetDescriptionProposalExistingAspectPasses() throws Exception {
+    EditableDatasetProperties editableDatasetProperties = new EditableDatasetProperties();
+    editableDatasetProperties.setDescription("OLD_" + DESCRIPTION);
+
+    when(_entityService.getLatestAspect(
+            eq(_datasetUrn), eq(EDITABLE_DATASET_PROPERTIES_ASPECT_NAME)))
+        .thenReturn(editableDatasetProperties);
+
+    ActionRequestSnapshot actionRequestSnapshot =
+        _proposalService.createUpdateDescriptionProposalActionRequest(
+            ACTOR_URN,
+            _datasetUrn,
+            null,
+            null,
+            Collections.singletonList(ACTOR_URN),
+            Collections.EMPTY_LIST,
+            Collections.EMPTY_LIST,
+            DESCRIPTION);
+
+    _proposalService.acceptUpdateResourceDescriptionProposal(
+        actionRequestSnapshot, SYSTEM_AUTHENTICATION);
+
+    DatasetDescriptionMatcher datasetDescriptionMatcher =
+        new DatasetDescriptionMatcher(
+            _datasetUrn,
+            DATASET_ENTITY_NAME,
+            EDITABLE_DATASET_PROPERTIES_ASPECT_NAME,
+            ChangeType.UPSERT,
+            DESCRIPTION);
+
+    verify(_entityClient).ingestProposal(argThat(datasetDescriptionMatcher), any());
+  }
+
+  private static class ColumnDescriptionMatcher extends MetadataChangeProposalMatcher {
+    private final String description;
+
+    private ColumnDescriptionMatcher(
+        Urn urn, String entityType, String aspectName, ChangeType changeType, String description) {
+      super(urn, entityType, aspectName, changeType);
+      this.description = description;
+    }
+
+    @Override
+    boolean matchesAspect(GenericAspect aspect) {
+      EditableSchemaMetadata editableSchemaMetadata =
+          GenericRecordUtils.deserializeAspect(
+              aspect.getValue(), GenericRecordUtils.JSON, EditableSchemaMetadata.class);
+
+      EditableSchemaFieldInfo editableSchemaFieldInfo =
+          DescriptionUtils.getFieldInfoFromSchema(editableSchemaMetadata, _fieldPath);
+
+      return Objects.equals(description, editableSchemaFieldInfo.getDescription());
+    }
+  }
+
+  @Test
+  public void acceptUpdateColumnDescriptionProposalNewAspectPasses() throws Exception {
+    when(_entityService.getLatestAspect(eq(_datasetUrn), eq(EDITABLE_SCHEMA_METADATA_ASPECT_NAME)))
+        .thenReturn(null);
+
+    ActionRequestSnapshot actionRequestSnapshot =
+        _proposalService.createUpdateDescriptionProposalActionRequest(
+            ACTOR_URN,
+            _datasetUrn,
+            SubResourceType.DATASET_FIELD.toString(),
+            _fieldPath,
+            Collections.singletonList(ACTOR_URN),
+            Collections.EMPTY_LIST,
+            Collections.EMPTY_LIST,
+            DESCRIPTION);
+
+    _proposalService.acceptUpdateResourceDescriptionProposal(
+        actionRequestSnapshot, SYSTEM_AUTHENTICATION);
+
+    ColumnDescriptionMatcher columnDescriptionMatcher =
+        new ColumnDescriptionMatcher(
+            _datasetUrn,
+            DATASET_ENTITY_NAME,
+            EDITABLE_SCHEMA_METADATA_ASPECT_NAME,
+            ChangeType.UPSERT,
+            DESCRIPTION);
+
+    verify(_entityClient).ingestProposal(argThat(columnDescriptionMatcher), any());
+  }
+
+  @Test
+  public void acceptUpdateColumnDescriptionProposalExistingAspectPasses() throws Exception {
+    EditableSchemaMetadata editableSchemaMetadata = new EditableSchemaMetadata();
+    EditableSchemaFieldInfo editableSchemaFieldInfo = new EditableSchemaFieldInfo();
+    editableSchemaMetadata.setEditableSchemaFieldInfo(
+        new EditableSchemaFieldInfoArray(editableSchemaFieldInfo));
+    editableSchemaFieldInfo.setDescription("OLD_" + DESCRIPTION);
+    editableSchemaFieldInfo.setFieldPath(_fieldPath);
+
+    when(_entityService.getLatestAspect(eq(_datasetUrn), eq(EDITABLE_SCHEMA_METADATA_ASPECT_NAME)))
+        .thenReturn(editableSchemaMetadata);
+
+    ActionRequestSnapshot actionRequestSnapshot =
+        _proposalService.createUpdateDescriptionProposalActionRequest(
+            ACTOR_URN,
+            _datasetUrn,
+            SubResourceType.DATASET_FIELD.toString(),
+            _fieldPath,
+            Collections.singletonList(ACTOR_URN),
+            Collections.EMPTY_LIST,
+            Collections.EMPTY_LIST,
+            DESCRIPTION);
+
+    _proposalService.acceptUpdateResourceDescriptionProposal(
+        actionRequestSnapshot, SYSTEM_AUTHENTICATION);
+
+    ColumnDescriptionMatcher columnDescriptionMatcher =
+        new ColumnDescriptionMatcher(
+            _datasetUrn,
+            DATASET_ENTITY_NAME,
+            EDITABLE_SCHEMA_METADATA_ASPECT_NAME,
+            ChangeType.UPSERT,
+            DESCRIPTION);
+
+    verify(_entityClient).ingestProposal(argThat(columnDescriptionMatcher), any());
+  }
+
+  @Test
+  public void acceptUpdateColumnDescriptionProposalNoSubResourceFails() throws Exception {
+    when(_entityService.getLatestAspect(eq(_datasetUrn), eq(EDITABLE_SCHEMA_METADATA_ASPECT_NAME)))
+        .thenReturn(null);
+
+    ActionRequestSnapshot actionRequestSnapshot =
+        _proposalService.createUpdateDescriptionProposalActionRequest(
+            ACTOR_URN,
+            _datasetUrn,
+            SubResourceType.DATASET_FIELD.toString(),
+            _fieldPath,
+            Collections.singletonList(ACTOR_URN),
+            Collections.EMPTY_LIST,
+            Collections.EMPTY_LIST,
+            DESCRIPTION);
+
+    // set subresource to null
+    actionRequestSnapshot.getAspects().get(1).getActionRequestInfo().removeSubResource();
+    assertThrows(
+        NullPointerException.class,
+        () ->
+            _proposalService.acceptUpdateResourceDescriptionProposal(
+                actionRequestSnapshot, SYSTEM_AUTHENTICATION));
+
+    verify(_entityClient, never()).ingestProposal(any(), any());
   }
 
   @Test
@@ -340,6 +664,8 @@ public class ProposalServiceTest {
         _proposalService.createUpdateDescriptionProposalActionRequest(
             ACTOR_URN,
             _glossaryNodeUrn,
+            null,
+            null,
             Collections.singletonList(ACTOR_URN),
             Collections.EMPTY_LIST,
             Collections.EMPTY_LIST,
@@ -349,5 +675,72 @@ public class ProposalServiceTest {
         ACTOR_URN, ACTION_REQUEST_STATUS_COMPLETE, ACTION_REQUEST_RESULT_ACCEPTED, entity);
 
     verify(_entityService).ingestEntity(any(), any());
+  }
+
+  private abstract static class ActionRequestSnapshotMatcher implements ArgumentMatcher<Entity> {
+
+    private final String infoType;
+    private final String resourceUrn;
+    private final String subResourceType;
+    private final String subResource;
+
+    private ActionRequestSnapshotMatcher(
+        String infoType, String resourceUrn, String subResourceType, String subResource) {
+      this.infoType = infoType;
+      this.resourceUrn = resourceUrn;
+      this.subResourceType = subResourceType;
+      this.subResource = subResource;
+    }
+
+    @Override
+    public boolean matches(Entity entity) {
+      Snapshot snapshot = entity.getValue();
+      if (!snapshot.isActionRequestSnapshot()) {
+        return false;
+      }
+
+      for (ActionRequestAspect aspect : snapshot.getActionRequestSnapshot().getAspects()) {
+        if (aspect.isActionRequestInfo()) {
+          ActionRequestInfo actual = aspect.getActionRequestInfo();
+          return Objects.equals(infoType, actual.getType())
+              && Objects.equals(resourceUrn, actual.getResource())
+              && Objects.equals(subResourceType, actual.getSubResourceType())
+              && Objects.equals(subResource, actual.getSubResource())
+              && matchesActionRequestParams(actual.getParams());
+        }
+      }
+
+      return false;
+    }
+
+    abstract boolean matchesActionRequestParams(ActionRequestParams params);
+  }
+
+  private abstract static class MetadataChangeProposalMatcher
+      implements ArgumentMatcher<MetadataChangeProposal> {
+
+    private final Urn urn;
+    private final String entityType;
+    private final String aspectName;
+    private final ChangeType changeType;
+
+    private MetadataChangeProposalMatcher(
+        Urn urn, String entityType, String aspectName, ChangeType changeType) {
+      this.urn = urn;
+      this.entityType = entityType;
+      this.aspectName = aspectName;
+      this.changeType = changeType;
+    }
+
+    @Override
+    public boolean matches(MetadataChangeProposal mcp) {
+      return Objects.equals(urn, mcp.getEntityUrn())
+          && Objects.equals(entityType, mcp.getEntityType())
+          && Objects.equals(aspectName, mcp.getAspectName())
+          && Objects.equals(changeType, mcp.getChangeType())
+          && matchesAspect(mcp.getAspect());
+    }
+
+    abstract boolean matchesAspect(GenericAspect aspect);
   }
 }

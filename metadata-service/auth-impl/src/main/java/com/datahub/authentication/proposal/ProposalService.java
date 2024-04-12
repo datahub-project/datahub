@@ -6,6 +6,7 @@ import com.datahub.authentication.Authentication;
 import com.datahub.authorization.AuthorizedActors;
 import com.datahub.authorization.EntitySpec;
 import com.datahub.plugins.auth.authorization.Authorizer;
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.actionrequest.ActionRequestInfo;
@@ -52,11 +53,13 @@ import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.key.GlossaryNodeKey;
 import com.linkedin.metadata.key.GlossaryTermKey;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
+import com.linkedin.metadata.resource.SubResourceType;
 import com.linkedin.metadata.snapshot.ActionRequestSnapshot;
 import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
+import com.linkedin.schema.EditableSchemaMetadata;
 import com.linkedin.util.Pair;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -152,6 +155,8 @@ public class ProposalService {
   public boolean proposeUpdateResourceDescription(
       @Nonnull final Urn actorUrn,
       @Nonnull final Urn resourceUrn,
+      final String subResourceType,
+      final String subResource,
       @Nonnull final String description,
       final Authorizer dataHubAuthorizer) {
     Objects.requireNonNull(actorUrn, "actorUrn cannot be null");
@@ -188,7 +193,14 @@ public class ProposalService {
 
     ActionRequestSnapshot snapshot =
         createUpdateDescriptionProposalActionRequest(
-            actorUrn, resourceUrn, assignedUsers, assignedGroups, assignedRoles, description);
+            actorUrn,
+            resourceUrn,
+            subResourceType,
+            subResource,
+            assignedUsers,
+            assignedGroups,
+            assignedRoles,
+            description);
 
     final AuditStamp auditStamp = new AuditStamp();
     auditStamp.setActor(actorUrn, SetMode.IGNORE_NULL);
@@ -416,7 +428,17 @@ public class ProposalService {
         updateGlossaryTermDescription(resourceUrn, description, authentication);
         break;
       case DATASET_ENTITY_NAME:
-        updateDatasetDescription(resourceUrn, description, authentication);
+        String subResourceType = actionRequestInfo.getSubResourceType(GetMode.NULL);
+        if (!Strings.isNullOrEmpty(subResourceType)
+            && SubResourceType.valueOf(subResourceType) == SubResourceType.DATASET_FIELD) {
+          updateSchemaFieldDescription(
+              resourceUrn,
+              Objects.requireNonNull(actionRequestInfo.getSubResource()),
+              description,
+              authentication);
+        } else {
+          updateDatasetDescription(resourceUrn, description, authentication);
+        }
         break;
       default:
         log.warn(
@@ -777,6 +799,8 @@ public class ProposalService {
   static ActionRequestSnapshot createUpdateDescriptionProposalActionRequest(
       @Nonnull final Urn actorUrn,
       @Nonnull final Urn resourceUrn,
+      final String subResourceType,
+      final String subResource,
       @Nonnull final List<Urn> assignedUsers,
       @Nonnull final List<Urn> assignedGroups,
       @Nonnull final List<Urn> assignedRoles,
@@ -792,7 +816,14 @@ public class ProposalService {
     aspects.add(
         ActionRequestAspect.create(
             createUpdateDescriptionActionRequestInfo(
-                actorUrn, resourceUrn, assignedUsers, assignedGroups, assignedRoles, description)));
+                actorUrn,
+                resourceUrn,
+                subResourceType,
+                subResource,
+                assignedUsers,
+                assignedGroups,
+                assignedRoles,
+                description)));
 
     result.setAspects(aspects);
 
@@ -879,6 +910,8 @@ public class ProposalService {
   static ActionRequestInfo createUpdateDescriptionActionRequestInfo(
       @Nonnull final Urn actorUrn,
       @Nonnull final Urn resourceUrn,
+      final String subResourceType,
+      final String subResource,
       @Nonnull final List<Urn> assignedUsers,
       @Nonnull final List<Urn> assignedGroups,
       @Nonnull final List<Urn> assignedRoles,
@@ -890,6 +923,17 @@ public class ProposalService {
     info.setAssignedGroups(new UrnArray(assignedGroups));
     info.setAssignedRoles(new UrnArray(assignedRoles));
     info.setResourceType(resourceUrn.getEntityType());
+    if (subResourceType != null || subResource != null) {
+      if (subResourceType == null || subResource == null) {
+        throw new RuntimeException(
+            String.format(
+                "Only one of subResourceType and subResource specified. (subResourceType: %s, subResource: %s)",
+                subResourceType, subResource));
+      }
+      info.setSubResourceType(subResourceType);
+      info.setSubResource(subResource);
+    }
+
     info.setParams(createUpdateDescriptionActionRequestParams(description));
 
     info.setCreated(System.currentTimeMillis());
@@ -1106,6 +1150,25 @@ public class ProposalService {
     final MetadataChangeProposal proposal =
         DescriptionUtils.createDatasetDescriptionChangeProposal(
             editableDatasetProperties, resourceUrn, description, authentication.getActor());
+    _entityClient.ingestProposal(proposal, authentication);
+  }
+
+  void updateSchemaFieldDescription(
+      @Nonnull final Urn resourceUrn,
+      @Nonnull final String fieldPath,
+      @Nonnull final String description,
+      final Authentication authentication)
+      throws Exception {
+    EditableSchemaMetadata editableSchemaMetadata =
+        (EditableSchemaMetadata)
+            _entityService.getLatestAspect(resourceUrn, EDITABLE_SCHEMA_METADATA_ASPECT_NAME);
+    if (editableSchemaMetadata == null) {
+      editableSchemaMetadata = new EditableSchemaMetadata();
+    }
+
+    final MetadataChangeProposal proposal =
+        DescriptionUtils.createSchemaFieldDescriptionChangeProposal(
+            editableSchemaMetadata, resourceUrn, fieldPath, description, authentication.getActor());
     _entityClient.ingestProposal(proposal, authentication);
   }
 
