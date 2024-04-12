@@ -30,10 +30,9 @@ const HomeNodeBubble = styled.div`
 
 export default function LineageEntityNode(props: NodeProps<LineageEntity>) {
     const { data, selected } = props;
-    const { urn, type } = data;
-    const { nodes, rootUrn } = useContext(LineageNodesContext);
+    const { urn, type, entity } = data;
+    const { rootUrn } = useContext(LineageNodesContext);
     const { numNodes, setHoveredNode } = useContext(LineageDisplayContext);
-    const entity = nodes.get(urn)?.entity;
 
     const [showColumns, setShowColumns] = useState(false);
     const [onlyWithLineage, setOnlyWithLineage] = useState(false);

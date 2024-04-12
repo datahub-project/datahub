@@ -43,6 +43,7 @@ interface NormalizedReturn {
 }
 
 export default function useDisplayedColumns(args: Arguments): DisplayedColumns {
+    // Prevent unnecessary NodeContents rerenders
     const oldVals = useRef<DisplayedColumns>({
         paginatedColumns: [],
         extraHighlightedColumns: [],
@@ -135,6 +136,6 @@ function filterColumnsByText(fields: FieldPath[], filterText: string): FieldPath
 function filterColumnsByLineage(fields: FieldPath[], urn: string, fineGrainedLineage: FineGrainedLineage): FieldPath[] {
     return fields.filter((fieldPath) => {
         const columnRef = createColumnRef(urn, fieldPath);
-        return fineGrainedLineage.forward.has(columnRef) || fineGrainedLineage.backward.has(columnRef);
+        return fineGrainedLineage.downstream.has(columnRef) || fineGrainedLineage.upstream.has(columnRef);
     });
 }

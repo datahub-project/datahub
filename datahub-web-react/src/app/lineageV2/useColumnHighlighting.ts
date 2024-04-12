@@ -113,8 +113,8 @@ function computeSingleColumnHighlights(
     highlightedColumns.set(urn, new Set([field]));
 
     const lineages = {
-        [LineageDirection.Downstream]: fineGrainedLineage.forward,
-        [LineageDirection.Upstream]: fineGrainedLineage.backward,
+        [LineageDirection.Downstream]: fineGrainedLineage.downstream,
+        [LineageDirection.Upstream]: fineGrainedLineage.upstream,
     };
     Object.entries(lineages).forEach(([direction, fgl]) => {
         function addEdge(ref: ColumnRef, childRef: ColumnRef) {
@@ -175,12 +175,12 @@ function createColumnQueryNode(
     highlightedColumns: HighlightedColumns,
     nodePositions: Map<string, [number, number]>,
 ): Node<LineageEntity> {
-    const upstreamPos = Array.from(fineGrainedLineage.backward.get(queryRef) || [])
+    const upstreamPos = Array.from(fineGrainedLineage.upstream.get(queryRef) || [])
         .map(parseColumnRef)
         .filter(([childUrn, field]) => highlightedColumns.get(childUrn)?.has(field))
         .map(([childUrn]) => nodePositions.get(childUrn))
         .filter((pos): pos is [number, number] => pos !== undefined);
-    const downstreamPos = Array.from(fineGrainedLineage.forward.get(queryRef) || [])
+    const downstreamPos = Array.from(fineGrainedLineage.downstream.get(queryRef) || [])
         .map(parseColumnRef)
         .filter(([childUrn, field]) => highlightedColumns.get(childUrn)?.has(field))
         .map(([childUrn]) => nodePositions.get(childUrn))

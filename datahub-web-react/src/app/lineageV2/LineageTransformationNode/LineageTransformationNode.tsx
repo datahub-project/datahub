@@ -77,8 +77,7 @@ export default function LineageTransformationNode(props: NodeProps<LineageEntity
     const { setHoveredNode } = useContext(LineageDisplayContext);
 
     const entity = nodes.get(urn)?.entity;
-
-    const backupLogoUrl = useFetchQuery(urn);
+    const backupLogoUrl = useFetchQuery(urn); // TODO: Remove when query nodes not instantiated on column select
     const icon = entity?.icon || backupLogoUrl;
 
     const { selectedColumn } = useContext(LineageDisplayContext);

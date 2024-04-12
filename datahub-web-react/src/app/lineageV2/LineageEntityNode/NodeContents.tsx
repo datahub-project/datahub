@@ -87,7 +87,7 @@ const CustomHandle = styled(Handle)<{ position: Position }>`
     background: initial;
     border: initial;
     top: 50%;
-    ${({ position }) => (position === Position.Left ? 'left: -3px;' : 'right: 0;')}
+    ${({ position }) => (position === Position.Left ? 'left: -3px;' : 'right: -3px;')}
 `;
 
 const IconsWrapper = styled.div`
@@ -184,7 +184,8 @@ interface Props {
     refetch: Record<LineageDirection, () => void>;
 }
 
-export default React.memo(NodeContents);
+const MemoizedNodeContents = React.memo(NodeContents);
+export default MemoizedNodeContents;
 
 function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
     const {

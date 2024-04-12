@@ -220,7 +220,7 @@ export function clearEdges(urn: Urn, context: Pick<NodeContext, 'edges' | 'adjac
 }
 
 export type FineGrainedLineageMap = Map<ColumnRef, ColumnRef[]>;
-export type FineGrainedLineage = { forward: FineGrainedLineageMap; backward: FineGrainedLineageMap };
+export type FineGrainedLineage = { downstream: FineGrainedLineageMap; upstream: FineGrainedLineageMap };
 export type HighlightedColumns = Map<Urn, Set<string>>;
 
 interface DisplayContext {
@@ -232,7 +232,7 @@ interface DisplayContext {
     selectedColumn: ColumnRef | null;
     setSelectedColumn: Dispatch<SetStateAction<ColumnRef | null>>;
     // Outputs
-    highlightedNodes: Set<Urn>;
+    highlightedNodes: Set<Urn>; // TODO: Remove? Not currently used
     highlightedColumns: HighlightedColumns;
     highlightedEdges: Set<string>;
     fineGrainedLineage: FineGrainedLineage;
@@ -252,8 +252,8 @@ export const LineageDisplayContext = React.createContext<DisplayContext>({
     highlightedColumns: new Map(),
     highlightedEdges: new Set(),
     fineGrainedLineage: {
-        forward: new Map(),
-        backward: new Map(),
+        downstream: new Map(),
+        upstream: new Map(),
     },
     columnQueryData: new Map(),
     numNodes: 0,

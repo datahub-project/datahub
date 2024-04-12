@@ -114,8 +114,8 @@ function Columns(props: Props) {
 
     const updateNodeInternals = useUpdateNodeInternals();
     useEffect(() => {
-        updateNodeInternals(entity.urn);
-    }, [entity.urn, updateNodeInternals, paginatedColumns]);
+        updateNodeInternals(entity.urn); // Register new column handle positions with React Flow
+    }, [entity.urn, updateNodeInternals, showAllColumns, paginatedColumns, highlightedColumns]);
 
     const hasColumnPagination = showAllColumns && numFiltered > NUM_COLUMNS_PER_PAGE;
 

@@ -258,11 +258,11 @@ function getFineGrainedLineage(context: Pick<NodeContext, 'nodes' | 'edges'>): F
     const { nodes } = context;
 
     // Edges through query nodes
-    const forward: FineGrainedLineageMap = new Map();
-    const backward: FineGrainedLineageMap = new Map();
+    const downstream: FineGrainedLineageMap = new Map();
+    const upstream: FineGrainedLineageMap = new Map();
     // Edges skip query nodes
-    const forwardDirect: FineGrainedLineageMap = new Map();
-    const backwardDirect: FineGrainedLineageMap = new Map();
+    const downstreamDirect: FineGrainedLineageMap = new Map();
+    const upstreamDirect: FineGrainedLineageMap = new Map();
 
     const columnQueryData: Map<ColumnRef, ColumnQueryData> = new Map();
 
@@ -282,8 +282,8 @@ function getFineGrainedLineage(context: Pick<NodeContext, 'nodes' | 'edges'>): F
                 entry.downstreams?.forEach((to) => {
                     if (shouldAddFineGrainedEdge(context, from.urn, to.urn)) {
                         addFineGrainedEdges(
-                            forward,
-                            forwardDirect,
+                            downstream,
+                            downstreamDirect,
                             fromRef,
                             createColumnRef(to.urn, to.path),
                             queryRef,
@@ -296,8 +296,8 @@ function getFineGrainedLineage(context: Pick<NodeContext, 'nodes' | 'edges'>): F
                 entry.upstreams?.forEach((to) => {
                     if (shouldAddFineGrainedEdge(context, to.urn, from.urn)) {
                         addFineGrainedEdges(
-                            backward,
-                            backwardDirect,
+                            upstream,
+                            upstreamDirect,
                             fromRef,
                             createColumnRef(to.urn, to.path),
                             queryRef,
@@ -307,21 +307,22 @@ function getFineGrainedLineage(context: Pick<NodeContext, 'nodes' | 'edges'>): F
             });
         });
         node.entity?.inputFields?.fields?.forEach((input) => {
+            // Upstream of chart's field `schemaField` comes in as `schemaFieldUrn`
             if (input?.schemaFieldUrn && input?.schemaField) {
                 const upstreamUrn = getSourceUrnFromSchemaFieldUrn(input.schemaFieldUrn);
                 const upstreamRef = createColumnRef(upstreamUrn, getFieldPathFromSchemaFieldUrn(input.schemaFieldUrn));
                 const downstreamRef = createColumnRef(node.urn, input.schemaField.fieldPath);
                 if (nodes.has(upstreamUrn)) {
-                    addFineGrainedEdges(forward, forwardDirect, upstreamRef, downstreamRef, undefined);
-                    addFineGrainedEdges(backward, backwardDirect, downstreamRef, upstreamRef, undefined);
+                    addFineGrainedEdges(downstream, downstreamDirect, upstreamRef, downstreamRef, undefined);
+                    addFineGrainedEdges(upstream, upstreamDirect, downstreamRef, upstreamRef, undefined);
                 }
             }
         });
     });
 
     return {
-        indirect: { forward, backward },
-        direct: { forward: forwardDirect, backward: backwardDirect },
+        indirect: { downstream, upstream },
+        direct: { downstream: downstreamDirect, upstream: upstreamDirect },
         columnQueryData,
     };
 }

@@ -59,7 +59,7 @@ export default function Column({ urn, fieldPath, highlighted, type, nativeDataTy
     const { selectedColumn, setSelectedColumn, setHoveredColumn, fineGrainedLineage } =
         useContext(LineageDisplayContext);
     const id = useMemo(() => createColumnRef(urn, fieldPath), [urn, fieldPath]);
-    const hasLineage = fineGrainedLineage.forward.has(id) || fineGrainedLineage.backward.has(id);
+    const hasLineage = fineGrainedLineage.downstream.has(id) || fineGrainedLineage.upstream.has(id);
 
     // TODO: Add hover text if overflowed
     return (

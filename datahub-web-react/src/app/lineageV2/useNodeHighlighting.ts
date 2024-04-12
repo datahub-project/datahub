@@ -2,12 +2,12 @@ import { useContext, useMemo } from 'react';
 import { Node, useReactFlow } from 'reactflow';
 import { LineageDirection } from '../../types.generated';
 import {
-    COLUMN_QUERY_ID_PREFIX,
     createEdgeId,
+    LINEAGE_FILTER_ID_PREFIX,
     LineageFilter,
     LineageNode,
     LineageNodesContext,
-    NeighborMap,
+    NodeContext,
 } from './common';
 
 export default function useNodeHighlighting(hoveredNode: string | null): {
@@ -27,7 +27,7 @@ export default function useNodeHighlighting(hoveredNode: string | null): {
 /** Compute highlighted nodes and table->table edges. */
 function computeHighlights(
     node: Node<LineageNode> | undefined | null,
-    childMaps: Record<LineageDirection, NeighborMap>,
+    adjacencyList: NodeContext['adjacencyList'],
 ): {
     highlightedNodes: Set<string>;
     highlightedEdges: Set<string>;
@@ -37,14 +37,14 @@ function computeHighlights(
     if (!node) {
         return { highlightedNodes, highlightedEdges };
     }
-    if (node.id.startsWith(COLUMN_QUERY_ID_PREFIX)) {
+    if (node.id.startsWith(LINEAGE_FILTER_ID_PREFIX)) {
         (node as Node<LineageFilter>).data.contents.forEach((urn) => {
             highlightedNodes.add(urn);
         });
         return { highlightedNodes, highlightedEdges };
     }
 
-    Object.entries(childMaps).forEach(([direction, childMap]) => {
+    Object.entries(adjacencyList).forEach(([direction, neighborMap]) => {
         const seen = new Set<string>();
         const toVisit = [node.id];
         while (toVisit.length) {
@@ -53,7 +53,7 @@ function computeHighlights(
                 break;
             }
             highlightedNodes.add(urn);
-            childMap.get(urn)?.forEach((childUrn) => {
+            neighborMap.get(urn)?.forEach((childUrn) => {
                 if (!seen.has(childUrn)) {
                     seen.add(childUrn);
                     toVisit.push(childUrn);
