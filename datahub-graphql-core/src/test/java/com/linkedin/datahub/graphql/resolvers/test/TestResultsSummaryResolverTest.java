@@ -3,6 +3,7 @@ package com.linkedin.datahub.graphql.resolvers.test;
 import static com.linkedin.datahub.graphql.TestUtils.*;
 import static com.linkedin.datahub.graphql.resolvers.test.TestResultsSummaryResolver.*;
 import static com.linkedin.metadata.AcrylConstants.*;
+import static com.linkedin.metadata.test.util.TestUtils.*;
 import static org.testng.Assert.*;
 
 import com.google.common.collect.ImmutableList;
@@ -44,7 +45,7 @@ public class TestResultsSummaryResolverTest {
                 Mockito.any(),
                 Mockito.eq(null),
                 Mockito.eq(PASSING_TESTS_FIELD),
-                Mockito.eq(buildFilter(PASSING_TESTS_FIELD)),
+                Mockito.eq(buildTestPassingFilter(TEST_URN, null)),
                 Mockito.eq(MAX_AGGREGATION_LIMIT)))
         .thenReturn(ImmutableMap.of(TEST_URN.toString(), 50L));
 
@@ -54,7 +55,7 @@ public class TestResultsSummaryResolverTest {
                 Mockito.any(),
                 Mockito.eq(null),
                 Mockito.eq(FAILING_TESTS_FIELD),
-                Mockito.eq(buildFilter(FAILING_TESTS_FIELD)),
+                Mockito.eq(buildTestFailingFilter(TEST_URN, null)),
                 Mockito.eq(MAX_AGGREGATION_LIMIT)))
         .thenReturn(ImmutableMap.of(TEST_URN.toString(), 20L));
 

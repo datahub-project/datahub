@@ -71,14 +71,13 @@ public class TestResultsSummaryResolver
           long failingCount = 0;
           List<EnvelopedAspect> lastComputed =
               timeseriesAspectService.getAspectValues(
-                  testUrn, "test", "batchTestRunEvent", null, null, 1, null);
+                  testUrn, TEST_ENTITY_NAME, BATCH_TEST_RUN_EVENT_ASPECT_NAME, null,
+                  null, 1, null);
           Long timestamp = null;
-          if (lastComputed.size() > 0) {
+          if (!lastComputed.isEmpty()) {
             EnvelopedAspect envelopedAspect = lastComputed.get(0);
             BatchTestRunEvent batchTestRunEvent =
-                GenericRecordUtils.deserializeAspect(
-                    envelopedAspect.getAspect().getValue(),
-                    "application/json",
+                GenericRecordUtils.deserializeAspect(envelopedAspect.getAspect().getValue(), "application/json",
                     BatchTestRunEvent.class);
             timestamp = batchTestRunEvent.getTimestampMillis();
             if (batchTestRunEvent.getResult() != null) {
@@ -86,22 +85,22 @@ public class TestResultsSummaryResolver
               passingCount = batchTestRunEvent.getResult().getPassingCount();
               failingCount = batchTestRunEvent.getResult().getFailingCount();
             }
-            if (passingCount == 0 && failingCount == 0) {
-              // If the batchTestRunEvent does not have the results, we fall back to fetching the
-              // counts from the search index
-              passingCount =
-                  getResultsCount(
-                      context.getOperationContext(),
-                      testUrn,
-                      PASSING_TESTS_FIELD,
-                      () -> TestUtils.buildTestPassingFilter(testUrn, md5));
-              failingCount =
-                  getResultsCount(
-                      context.getOperationContext(),
-                      testUrn,
-                      FAILING_TESTS_FIELD,
-                      () -> TestUtils.buildTestFailingFilter(testUrn, md5));
-            }
+          }
+          if (passingCount == 0 && failingCount == 0) {
+            // If the batchTestRunEvent does not have the results, we fall back to fetching the
+            // counts from the search index
+            passingCount =
+                getResultsCount(
+                    context.getOperationContext(),
+                    testUrn,
+                    PASSING_TESTS_FIELD,
+                    () -> TestUtils.buildTestPassingFilter(testUrn, md5));
+            failingCount =
+                getResultsCount(
+                    context.getOperationContext(),
+                    testUrn,
+                    FAILING_TESTS_FIELD,
+                    () -> TestUtils.buildTestFailingFilter(testUrn, md5));
           }
           final TestResultsSummary result = new TestResultsSummary();
           result.setPassingCount(passingCount);
