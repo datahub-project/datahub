@@ -4,7 +4,6 @@ import { FacetFilterInput, FacetMetadata } from '../../../types.generated';
 import { UnionType } from '../utils/constants';
 import { SEARCH_RESULTS_FILTERS_V2_INTRO } from '../../onboarding/config/SearchOnboardingConfig';
 import SearchFilters from './SearchFilters';
-import { EXCLUDED_ACTIVE_FILTERS } from './constants';
 
 const Section = styled.div<{ removePadding?: boolean }>`
     padding: ${(props) => (props.removePadding ? '8px 20px 4px 20px' : '8px 12px 0px 12px')};
@@ -30,8 +29,6 @@ export default function SearchFiltersSection({
     onClearFilters,
     onChangeUnionType,
 }: Props) {
-    const finalActiveFilters = activeFilters.filter((filter) => !EXCLUDED_ACTIVE_FILTERS.includes(filter.field));
-
     const [finalAvailableFilters, setFinalAvailableFilters] = useState(availableFilters);
 
     /**
@@ -49,7 +46,7 @@ export default function SearchFiltersSection({
                 <SearchFilters
                     loading={loading}
                     availableFilters={finalAvailableFilters}
-                    activeFilters={finalActiveFilters}
+                    activeFilters={activeFilters}
                     unionType={unionType}
                     onChangeFilters={onChangeFilters}
                     onChangeUnionType={onChangeUnionType}

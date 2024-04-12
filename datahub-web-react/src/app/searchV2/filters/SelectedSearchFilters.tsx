@@ -5,6 +5,7 @@ import { convertToSelectedFilterPredictes } from './utils';
 import { convertFrontendToBackendOperatorType } from './operator/operator';
 import SearchFiltersBuilder from './SearchFiltersBuilder';
 import { UnionType } from '../utils/constants';
+import { EXCLUDED_ACTIVE_FILTERS } from './constants';
 
 interface Props {
     availableFilters: FacetMetadata[] | null;
@@ -28,8 +29,10 @@ export default function SelectedSearchFilters({
     showUnionType,
 }: Props) {
     // Create the final filter predicates required to render a selected filter option.
+    const finalSelectedFilters = selectedFilters.filter((filter) => !EXCLUDED_ACTIVE_FILTERS.includes(filter.field));
+
     const filterPredicates: FilterPredicate[] = convertToSelectedFilterPredictes(
-        selectedFilters,
+        finalSelectedFilters,
         availableFilters || [],
     );
 
