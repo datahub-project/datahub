@@ -28,6 +28,7 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 - #10147 - For looker ingestion, the browse paths for looker Dashboard, Chart, View, Explore have been updated to align with Looker UI. This does not affect URNs or lineage but primarily affects (improves) browsing experience.
 - #10164 - For dbt ingestion, `entities_enabled.model_performance` and `include_compiled_code` are now both enabled by default. Upgrading dbt ingestion will also require upgrading the backend to 0.13.1.
 - #8231 - Google Analytics 3 has been fully sunsetted by Google as of July 2023, so we now support GA4 thanks to this PR and no longer support GA3 (which would have been broken since last year anyways).
+- #10278 - Renaming Presto-On-Hive Source to Hive Metastore source to reflect better its purpose
 
 ### Potential Downtime
 

@@ -155,13 +155,13 @@ class HiveMetastore(BasicSQLAlchemyConfig):
         )
 
 
-@platform_name("hive-metastore")
+@platform_name("Hive Metastore")
 @config_class(HiveMetastore)
 @support_status(SupportStatus.CERTIFIED)
 @capability(SourceCapability.DELETION_DETECTION, "Enabled via stateful ingestion")
 @capability(SourceCapability.DATA_PROFILING, "Not Supported", False)
 @capability(SourceCapability.CLASSIFICATION, "Not Supported", False)
-class PrestoOnHiveSource(SQLAlchemySource):
+class HiveMetastoreSource(SQLAlchemySource):
     """
     This plugin extracts the following:
 
