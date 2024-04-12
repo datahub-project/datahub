@@ -104,7 +104,7 @@ export const TestResultsSummary = ({ urn, name }: Props) => {
             : '-';
 
     const lastComputed = results?.test?.results?.lastRunTimestampMillis !== undefined
-        ? toRelativeTimeString(results?.test?.results?.lastRunTimestampMillis)
+        ? toRelativeTimeString(results?.test?.results?.lastRunTimestampMillis || 0)
         : 'unknown';
 
 
