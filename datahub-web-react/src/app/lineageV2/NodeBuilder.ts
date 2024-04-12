@@ -3,6 +3,7 @@ import { Edge, MarkerType, Node } from 'reactflow';
 import { EntityType, LineageDirection } from '../../types.generated';
 import {
     createEdgeId,
+    EdgeId,
     getParents,
     isQuery,
     isTransformational,
@@ -125,47 +126,39 @@ export default class NodeBuilder {
         return nodes;
     }
 
+    #addEdge(edgeMap: Map<EdgeId, BaseEdge<LineageEdge>>, source: string, target: string, data?: LineageEdge): void {
+        const edge = setDefault(edgeMap, createEdgeId(source, target), {
+            source,
+            target,
+            markerEnd: this.#getMarker(this.nodeInformation[target]),
+        });
+        if (data) {
+            edge.data = { ...edge.data, ...data };
+        }
+    }
+
     createEdges(edges: NodeContext['edges']): Edge[] {
-        const baseEdges: BaseEdge<LineageEdge>[] = [];
+        const baseEdges = new Map<EdgeId, BaseEdge<LineageEdge>>();
         edges.forEach((edge, edgeId) => {
             if (!edge.isDisplayed) return;
             const [upstream, downstream] = parseEdgeId(edgeId);
             if (upstream in this.nodeInformation && downstream in this.nodeInformation) {
                 if (edge.via) {
-                    baseEdges.push({
-                        source: upstream,
-                        target: edge.via,
-                        markerEnd: this.#getMarker(this.nodeInformation[edge.via]),
-                        data: edge,
-                    });
-                    baseEdges.push({
-                        source: edge.via,
-                        target: downstream,
-                        markerEnd: this.#getMarker(this.nodeInformation[downstream]),
-                        data: edge,
-                    });
+                    this.#addEdge(baseEdges, upstream, edge.via, edge);
+                    this.#addEdge(baseEdges, edge.via, downstream, edge);
                 } else {
-                    baseEdges.push({
-                        source: upstream,
-                        target: downstream,
-                        markerEnd: this.#getMarker(this.nodeInformation[downstream]),
-                        data: edge,
-                    });
+                    this.#addEdge(baseEdges, upstream, downstream, edge);
                 }
             }
         });
         this.filterNodes.forEach((node) => {
             if (node.direction === LineageDirection.Upstream) {
-                baseEdges.push({
-                    source: node.id,
-                    target: node.parent,
-                    markerEnd: this.#getMarker(this.nodeInformation[node.parent]),
-                });
+                this.#addEdge(baseEdges, node.id, node.parent);
             } else {
-                baseEdges.push({ source: node.parent, target: node.id, markerEnd: this.#getMarker(node) });
+                this.#addEdge(baseEdges, node.parent, node.id);
             }
         });
-        return baseEdges.map(createEdge);
+        return Array.from(baseEdges.values()).map(createEdge);
     }
 
     /**

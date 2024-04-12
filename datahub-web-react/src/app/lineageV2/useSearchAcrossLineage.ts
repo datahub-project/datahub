@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useSearchAcrossLineageStructureLazyQuery } from '../../graphql/search.generated';
-import { Entity, EntityType, LineageDirection, SearchAcrossLineageInput } from '../../types.generated';
+import { Entity, EntityType, LineageDirection, Maybe, SearchAcrossLineageInput } from '../../types.generated';
 import EntityRegistry from '../entityV2/EntityRegistry';
 import { DBT_URN } from '../ingest/source/builder/constants';
 import { useGetLineageTimeParams } from '../lineage/utils/useGetLineageTimeParams';
@@ -118,8 +118,7 @@ export default function useSearchAcrossLineage(
                     addToAdjacencyList(adjacencyList, direction, parent.urn, result.entity.urn);
                 }
 
-                const filteredPath = path?.path.filter((p): p is Pick<Entity, 'urn' | 'type'> => !!p) || [];
-                addQueryNodes(filteredPath, direction, smallContext);
+                addQueryNodes(path.path, direction, smallContext);
             });
         });
 
@@ -213,12 +212,14 @@ export function entityNodeDefault(urn: string, type: EntityType, direction: Line
     };
 }
 
-function addQueryNodes(
-    path: Array<Pick<Entity, 'urn' | 'type'>>,
+export function addQueryNodes(
+    maybePath: Array<Maybe<Pick<Entity, 'urn' | 'type'>>> | undefined,
     direction: LineageDirection,
     context: Pick<NodeContext, 'nodes' | 'edges' | 'adjacencyList'>,
 ) {
     const { nodes, edges, adjacencyList } = context;
+
+    const path = maybePath?.filter((p): p is Pick<Entity, 'urn' | 'type'> => !!p) || [];
     path.forEach((node, i) => {
         if (!node || node.type !== EntityType.Query || i === 0 || i === path.length - 1) return;
         setDefault(nodes, node.urn, {
@@ -233,7 +234,7 @@ function addQueryNodes(
             },
         });
         edges.set(getEdgeId(path[i - 1].urn, path[i + 1].urn, direction), {
-            isDisplayed: false,
+            isDisplayed: true,
             isManual: false,
             via: node.urn,
         });

@@ -14,11 +14,10 @@ import {
     LineageEntity,
     LineageNodesContext,
     NodeContext,
-    reverseDirection,
     setDefault,
 } from './common';
 import { FetchedEntityV2Relationship } from './types';
-import { entityNodeDefault, pruneParentsThroughDbt } from './useSearchAcrossLineage';
+import { addQueryNodes, entityNodeDefault, pruneParentsThroughDbt } from './useSearchAcrossLineage';
 
 export default function useBulkEntityLineage(shownUrns: string[]): (urn: string) => void {
     const { nodes, edges, adjacencyList, setDataVersion, setDisplayVersion } = useContext(LineageNodesContext);
@@ -69,15 +68,17 @@ export default function useBulkEntityLineage(shownUrns: string[]): (urn: string)
                 changed = true;
 
                 // TODO: Remove once using bulk edges query
-                clearEdges(node.urn, smallContext);
-                entity.downstreamRelationships?.forEach((relationship) =>
-                    processEdge(node, relationship, LineageDirection.Downstream, smallContext),
-                );
-                entity.upstreamRelationships?.forEach((relationship) => {
-                    processEdge(node, relationship, LineageDirection.Upstream, smallContext);
-                });
-                pruneParentsThroughDbt(node.urn, LineageDirection.Upstream, smallContext, entityRegistry);
-                pruneParentsThroughDbt(node.urn, LineageDirection.Downstream, smallContext, entityRegistry);
+                if (!isQuery(node)) {
+                    clearEdges(node.urn, smallContext);
+                    entity.downstreamRelationships?.forEach((relationship) =>
+                        processEdge(node, relationship, LineageDirection.Downstream, smallContext),
+                    );
+                    entity.upstreamRelationships?.forEach((relationship) => {
+                        processEdge(node, relationship, LineageDirection.Upstream, smallContext);
+                    });
+                    pruneParentsThroughDbt(node.urn, LineageDirection.Upstream, smallContext, entityRegistry);
+                    pruneParentsThroughDbt(node.urn, LineageDirection.Downstream, smallContext, entityRegistry);
+                }
             }
         });
         if (changed) {
@@ -107,15 +108,14 @@ function processEdge(
 ): void {
     const { adjacencyList, nodes, edges } = context;
 
-    if (!nodes.has(relationship.urn)) return;
-
-    if (!relationship.entity || isQuery(relationship.entity)) {
-        // For query nodes, don't store them as other nodes' children
-        setDefault(adjacencyList[reverseDirection(direction)], relationship.urn, new Set()).add(node.urn);
-    } else {
+    if (nodes.has(relationship.urn) && relationship.entity && !isQuery(relationship.entity)) {
         const edgeId = getEdgeId(node.urn, relationship.urn, direction);
         edges.set(edgeId, { ...edges.get(edgeId), ...makeLineageEdge(relationship) });
         addToAdjacencyList(adjacencyList, direction, node.urn, relationship.urn);
+
+        relationship.paths?.forEach((path) => {
+            addQueryNodes(path?.path, direction, context);
+        });
 
         if ([FetchStatus.COMPLETE, FetchStatus.LOADING].includes(node.fetchStatus[direction])) {
             // Add nodes that should be in the graph

@@ -458,6 +458,24 @@ fragment entityLineage on Entity {
     }
 }
 
+fragment lineageV2ResultFields on EntityLineageResult {
+    filtered
+    total
+    relationships {
+        ...lineageRelationshipFields
+        paths {
+            path {
+                urn
+                type
+            }
+        }
+        entity {
+            urn
+            type
+        }
+    }
+}
+
 fragment entityLineageV2 on Entity {
     urn
     type
@@ -484,15 +502,7 @@ fragment entityLineageV2 on Entity {
                 endTimeMillis: $endTimeMillis
             }
         ) @skip(if: $excludeUpstream) {
-            filtered
-            total
-            relationships {
-                ...lineageRelationshipFields
-                entity {
-                    urn
-                    type
-                }
-            }
+            ...lineageV2ResultFields
         }
         downstream: lineage(
             input: {
@@ -504,15 +514,7 @@ fragment entityLineageV2 on Entity {
                 endTimeMillis: $endTimeMillis
             }
         ) @skip(if: $excludeDownstream) {
-            filtered
-            total
-            relationships {
-                ...lineageRelationshipFields
-                entity {
-                    urn
-                    type
-                }
-            }
+            ...lineageV2ResultFields
         }
     }
     ... on Container {  # For Workbooks in lineage
