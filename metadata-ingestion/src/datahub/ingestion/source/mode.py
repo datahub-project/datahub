@@ -1,7 +1,10 @@
+import logging
 import re
 import time
+from dataclasses import dataclass
+from datetime import datetime, timezone
 from functools import lru_cache
-from typing import Dict, Iterable, Optional, Tuple, Union
+from typing import Dict, Iterable, List, Optional, Set, Tuple, Union
 
 import dateutil.parser as dp
 import pydantic
@@ -15,6 +18,7 @@ from tenacity import retry_if_exception_type, stop_after_attempt, wait_exponenti
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import ConfigModel
 from datahub.configuration.source_common import DatasetLineageProviderConfigBase
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -24,8 +28,17 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import Source, SourceReport
+from datahub.ingestion.api.source import MetadataWorkUnitProcessor, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.state.stale_entity_removal_handler import (
+    StaleEntityRemovalHandler,
+    StaleEntityRemovalSourceReport,
+    StatefulStaleMetadataRemovalConfig,
+)
+from datahub.ingestion.source.state.stateful_ingestion_base import (
+    StatefulIngestionConfigBase,
+    StatefulIngestionSourceBase,
+)
 from datahub.metadata.com.linkedin.pegasus2avro.common import (
     AuditStamp,
     ChangeAuditStamps,
@@ -37,16 +50,52 @@ from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import (
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import (
     BrowsePathsClass,
+    ChangeTypeClass,
     ChartInfoClass,
     ChartQueryClass,
     ChartQueryTypeClass,
     ChartTypeClass,
     DashboardInfoClass,
+    DashboardUsageStatisticsClass,
+    DatasetLineageTypeClass,
+    DatasetPropertiesClass,
+    EmbedClass,
+    FineGrainedLineageClass,
+    FineGrainedLineageDownstreamTypeClass,
+    FineGrainedLineageUpstreamTypeClass,
+    GlobalTagsClass,
+    InputFieldClass,
+    InputFieldsClass,
+    OperationClass,
+    OperationTypeClass,
+    OtherSchemaClass,
     OwnerClass,
     OwnershipClass,
     OwnershipTypeClass,
+    QueryLanguageClass,
+    QueryPropertiesClass,
+    QuerySourceClass,
+    QueryStatementClass,
+    SchemaFieldClass,
+    SchemaFieldDataTypeClass,
+    SchemaMetadataClass,
+    StringTypeClass,
+    SubTypesClass,
+    TagAssociationClass,
+    TagPropertiesClass,
+    UpstreamClass,
+    UpstreamLineageClass,
+)
+from datahub.metadata.urns import QueryUrn
+from datahub.sql_parsing.sqlglot_lineage import (
+    ColumnLineageInfo,
+    SqlParsingResult,
+    create_lineage_sql_parsed_result,
+    infer_output_schema,
 )
 from datahub.utilities import config_clean
+
+logger: logging.Logger = logging.getLogger(__name__)
 
 
 class ModeAPIConfig(ConfigModel):
@@ -62,7 +111,7 @@ class ModeAPIConfig(ConfigModel):
     )
 
 
-class ModeConfig(DatasetLineageProviderConfigBase):
+class ModeConfig(StatefulIngestionConfigBase, DatasetLineageProviderConfigBase):
     # See https://mode.com/developer/api-reference/authentication/
     # for authentication
     connect_uri: str = Field(
@@ -85,6 +134,16 @@ class ModeConfig(DatasetLineageProviderConfigBase):
         description='Retry/Wait settings for Mode API to avoid "Too many Requests" error. See Mode API Options below',
     )
 
+    ingest_embed_url: bool = Field(
+        default=True, description="Whether to Ingest embed URL for Reports"
+    )
+
+    stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = None
+
+    tag_measures_and_dimensions: Optional[bool] = Field(
+        default=True, description="Tag measures and dimensions in the schema"
+    )
+
     @validator("connect_uri")
     def remove_trailing_slash(cls, v):
         return config_clean.remove_trailing_slashes(v)
@@ -94,12 +153,17 @@ class HTTPError429(HTTPError):
     pass
 
 
+@dataclass
+class ModeSourceReport(StaleEntityRemovalSourceReport):
+    pass
+
+
 @platform_name("Mode")
 @config_class(ModeConfig)
 @support_status(SupportStatus.CERTIFIED)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.LINEAGE_COARSE, "Supported by default")
-class ModeSource(Source):
+class ModeSource(StatefulIngestionSourceBase):
     """
 
     This plugin extracts Charts, Reports, and associated metadata from a given Mode workspace. This plugin is in beta and has only been tested
@@ -158,17 +222,33 @@ class ModeSource(Source):
 
     """
 
+    ctx: PipelineContext
     config: ModeConfig
-    report: SourceReport
+    report: ModeSourceReport
     platform = "mode"
+
+    DIMENSION_TAG_URN = "urn:li:tag:Dimension"
+    MEASURE_TAG_URN = "urn:li:tag:Measure"
+
+    tag_definitions: Dict[str, TagPropertiesClass] = {
+        DIMENSION_TAG_URN: TagPropertiesClass(
+            name=DIMENSION_TAG_URN.split(":")[-1],
+            description="A tag that is applied to all dimension fields.",
+        ),
+        MEASURE_TAG_URN: TagPropertiesClass(
+            name=MEASURE_TAG_URN.split(":")[-1],
+            description="A tag that is applied to all measures (metrics). Measures are typically the columns that you aggregate on",
+        ),
+    }
 
     def __hash__(self):
         return id(self)
 
     def __init__(self, ctx: PipelineContext, config: ModeConfig):
-        super().__init__(ctx)
+        super().__init__(config, ctx)
         self.config = config
-        self.report = SourceReport()
+        self.report = ModeSourceReport()
+        self.ctx = ctx
 
         self.session = requests.session()
         self.session.auth = HTTPBasicAuth(
@@ -184,7 +264,7 @@ class ModeSource(Source):
 
         # Test the connection
         try:
-            self._get_request_json(f"{self.config.connect_uri}/api/account")
+            self._get_request_json(f"{self.config.connect_uri}/api/verify")
         except HTTPError as http_error:
             self.report.report_failure(
                 key="mode-session",
@@ -208,16 +288,16 @@ class ModeSource(Source):
             aspects=[],
         )
 
-        title = report_info.get("name", "") or ""
-        description = report_info.get("description", "") or ""
+        title = report_info.get("name", "")
+        description = report_info.get("description", "")
 
         last_modified = ChangeAuditStamps()
         creator = self._get_creator(
             report_info.get("_links", {}).get("creator", {}).get("href", "")
         )
-        if creator is not None:
+        if creator:
             modified_actor = builder.make_user_urn(creator)
-            if report_info.get("last_saved_at") is None:
+            if not report_info.get("last_saved_at"):
                 # Sometimes mode returns null for last_saved_at.
                 # In that case, we use the created_at timestamp instead.
                 report_info["last_saved_at"] = report_info.get("created_at")
@@ -239,9 +319,7 @@ class ModeSource(Source):
             title=title,
             charts=self._get_chart_urns(report_token),
             lastModified=last_modified,
-            dashboardUrl=f"{self.config.connect_uri}/"
-            f"{self.config.workspace}/"
-            f"reports/{report_token}",
+            dashboardUrl=f"{self.config.connect_uri}/{self.config.workspace}/reports/{report_token}",
             customProperties={},
         )
         dashboard_snapshot.aspects.append(dashboard_info_class)
@@ -438,6 +516,7 @@ class ModeSource(Source):
             "jdbc:redshift": "redshift",
             "jdbc:snowflake": "snowflake",
             "jdbc:spark": "spark",
+            "jdbc:trino": "trino",
             "jdbc:sqlserver": "mssql",
             "jdbc:teradata": "teradata",
         }
@@ -483,7 +562,7 @@ class ModeSource(Source):
                 database = data_source.get("database", "")
                 return platform, database
         else:
-            self.report.report_failure(
+            self.report.report_warning(
                 key=f"mode-datasource-{data_source_id}",
                 reason=f"Cannot create datasource urn for datasource id: "
                 f"{data_source_id}",
@@ -568,7 +647,13 @@ class ModeSource(Source):
 
         return source_paths
 
-    def _get_datasource_urn(self, platform, platform_instance, database, source_tables):
+    def _get_datasource_urn(
+        self,
+        platform: str,
+        platform_instance: Optional[str],
+        database: str,
+        source_tables: List[str],
+    ) -> List[str]:
         dataset_urn = None
         if platform or database is not None:
             dataset_urn = [
@@ -583,9 +668,324 @@ class ModeSource(Source):
 
         return dataset_urn
 
+    def get_custom_props_from_dict(self, obj: dict, keys: List[str]) -> Optional[dict]:
+        return {key: str(obj[key]) for key in keys if obj.get(key)} or None
+
+    def get_dataset_urn_from_query(self, query_data: dict) -> str:
+        return builder.make_dataset_urn_with_platform_instance(
+            platform=self.platform,
+            name=str(query_data.get("id")),
+            platform_instance=None,
+            env=self.config.env,
+        )
+
+    def get_query_instance_urn_from_query(self, query_data: dict) -> str:
+        id = query_data.get("id")
+        last_run_id = query_data.get("last_run_id")
+        data_source_id = query_data.get("data_source_id")
+        return QueryUrn(f"{id}.{data_source_id}.{last_run_id}").urn()
+
+    def _get_upstream_warehouse_urn_for_query(self, query: dict) -> List[str]:
+        # create datasource urn
+        platform, db_name = self._get_platform_and_dbname(query.get("data_source_id"))
+        source_tables = self._get_source_from_query(query.get("raw_query"))
+        if not platform or not db_name or not source_tables:
+            return []
+        datasource_urn = self._get_datasource_urn(
+            platform=platform,
+            platform_instance=(
+                self.config.platform_instance_map.get(platform)
+                if platform and self.config.platform_instance_map
+                else None
+            ),
+            database=db_name,
+            source_tables=list(source_tables),
+        )
+        return datasource_urn
+
+    def set_field_tags(self, fields: List[SchemaFieldClass]) -> None:
+        for field in fields:
+            # It is not clear how to distinguish between measures and dimensions in Mode.
+            # We are using a heuristic to tag fields that are not named `id` or `_id` or ends with '_number' and are not of type `NumberType` as dimensions.
+            # This is a heuristic and may not be accurate.
+            if field.type.type.RECORD_SCHEMA.name in ["NumberType"] and (
+                not field.fieldPath.endswith("_number")
+                and not re.findall(r"(^(id)[_\d]?)|([_\d?](id)$)", field.fieldPath)
+            ):
+                tag = TagAssociationClass(tag=self.MEASURE_TAG_URN)
+            else:
+                tag = TagAssociationClass(tag=self.DIMENSION_TAG_URN)
+            field.globalTags = GlobalTagsClass(tags=[tag])
+
+    def construct_query_from_api_data(
+        self,
+        report_token: str,
+        query_data: dict,
+    ) -> Iterable[MetadataWorkUnit]:
+        query_urn = self.get_dataset_urn_from_query(query_data)
+
+        dataset_props = DatasetPropertiesClass(
+            name=query_data.get("name"),
+            description="",
+            externalUrl=f"{self.config.connect_uri}/{self.config.workspace}/reports/{report_token}/details/queries/{query_data.get('token')}",
+            customProperties=self.get_custom_props_from_dict(
+                query_data,
+                [
+                    "id" "created_at",
+                    "updated_at",
+                    "last_run_id",
+                    "data_source_id",
+                    "explorations_count",
+                    "report_imports_count",
+                    "dbt_metric_id",
+                ],
+            ),
+        )
+
+        yield (
+            MetadataChangeProposalWrapper(
+                entityType="dataset",
+                changeType=ChangeTypeClass.UPSERT,
+                entityUrn=query_urn,
+                aspectName="datasetProperties",
+                aspect=dataset_props,
+            ).as_workunit()
+        )
+
+        subtypes = SubTypesClass(typeNames=(["Query"]))
+        yield (
+            MetadataChangeProposalWrapper(
+                entityType="dataset",
+                changeType=ChangeTypeClass.UPSERT,
+                entityUrn=query_urn,
+                aspectName="subTypes",
+                aspect=subtypes,
+            ).as_workunit()
+        )
+
+        (
+            upstream_warehouse_platform,
+            upstream_warehouse_db_name,
+        ) = self._get_platform_and_dbname(query_data.get("data_source_id"))
+
+        if upstream_warehouse_platform is None:
+            # this means we can't infer the platform
+            return
+
+        parsed_query_object = create_lineage_sql_parsed_result(
+            query=query_data["raw_query"],
+            default_db=upstream_warehouse_db_name,
+            platform=upstream_warehouse_platform,
+            platform_instance=(
+                self.config.platform_instance_map.get(upstream_warehouse_platform)
+                if upstream_warehouse_platform and self.config.platform_instance_map
+                else None
+            ),
+            env=self.config.env,
+            graph=self.ctx.graph,
+        )
+
+        schema_fields = infer_output_schema(parsed_query_object)
+        if schema_fields:
+
+            schema_metadata = SchemaMetadataClass(
+                schemaName="mode_query",
+                platform=f"urn:li:dataPlatform:{self.platform}",
+                version=0,
+                fields=schema_fields,
+                hash="",
+                platformSchema=OtherSchemaClass(rawSchema=""),
+            )
+            if self.config.tag_measures_and_dimensions:
+                self.set_field_tags(schema_fields)
+
+            yield (
+                MetadataChangeProposalWrapper(
+                    entityType="dataset",
+                    changeType=ChangeTypeClass.UPSERT,
+                    entityUrn=query_urn,
+                    aspectName="schemaMetadata",
+                    aspect=schema_metadata,
+                ).as_workunit()
+            )
+
+        yield from self.get_upstream_lineage_for_parsed_sql(
+            query_data, parsed_query_object
+        )
+
+        operation = OperationClass(
+            operationType=OperationTypeClass.UPDATE,
+            lastUpdatedTimestamp=int(
+                dp.parse(query_data.get("updated_at", "now")).timestamp() * 1000
+            ),
+            timestampMillis=int(datetime.now(tz=timezone.utc).timestamp() * 1000),
+        )
+
+        yield MetadataChangeProposalWrapper(
+            entityUrn=query_urn,
+            aspect=operation,
+        ).as_workunit()
+
+        creator = self._get_creator(
+            query_data.get("_links", {}).get("creator", {}).get("href", "")
+        )
+        modified_actor = builder.make_user_urn(
+            creator if creator is not None else "unknown"
+        )
+
+        created_ts = int(
+            dp.parse(query_data.get("created_at", "now")).timestamp() * 1000
+        )
+        modified_ts = int(
+            dp.parse(query_data.get("updated_at", "now")).timestamp() * 1000
+        )
+
+        query_instance_urn = self.get_query_instance_urn_from_query(query_data)
+        value = query_data.get("raw_query")
+        if value:
+            query_properties = QueryPropertiesClass(
+                statement=QueryStatementClass(
+                    value=value,
+                    language=QueryLanguageClass.SQL,
+                ),
+                source=QuerySourceClass.SYSTEM,
+                created=AuditStamp(time=created_ts, actor=modified_actor),
+                lastModified=AuditStamp(time=modified_ts, actor=modified_actor),
+            )
+
+            yield MetadataChangeProposalWrapper(
+                entityType="query",
+                changeType=ChangeTypeClass.UPSERT,
+                entityUrn=query_instance_urn,
+                aspectName="queryProperties",
+                aspect=query_properties,
+            ).as_workunit()
+
+    def get_upstream_lineage_for_parsed_sql(
+        self, query_data: dict, parsed_query_object: SqlParsingResult
+    ) -> List[MetadataWorkUnit]:
+        wu = []
+        query_urn = self.get_dataset_urn_from_query(query_data)
+
+        if parsed_query_object is None:
+            logger.info(
+                f"Failed to extract column level lineage from datasource {query_urn}"
+            )
+            return []
+        if parsed_query_object.debug_info.error:
+            logger.info(
+                f"Failed to extract column level lineage from datasource {query_urn}: {parsed_query_object.debug_info.error}"
+            )
+            return []
+
+        cll: List[ColumnLineageInfo] = (
+            parsed_query_object.column_lineage
+            if parsed_query_object.column_lineage is not None
+            else []
+        )
+
+        fine_grained_lineages: List[FineGrainedLineageClass] = []
+
+        table_urn = None
+
+        for cll_info in cll:
+            if table_urn is None:
+                for column_ref in cll_info.upstreams:
+                    table_urn = column_ref.table
+                    break
+
+            downstream = (
+                [builder.make_schema_field_urn(query_urn, cll_info.downstream.column)]
+                if cll_info.downstream is not None
+                and cll_info.downstream.column is not None
+                else []
+            )
+            upstreams = [
+                builder.make_schema_field_urn(column_ref.table, column_ref.column)
+                for column_ref in cll_info.upstreams
+            ]
+            fine_grained_lineages.append(
+                FineGrainedLineageClass(
+                    downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+                    downstreams=downstream,
+                    upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                    upstreams=upstreams,
+                )
+            )
+
+        upstream_lineage = UpstreamLineageClass(
+            upstreams=[
+                UpstreamClass(
+                    type=DatasetLineageTypeClass.TRANSFORMED,
+                    dataset=input_table_urn,
+                    query=self.get_query_instance_urn_from_query(query_data),
+                )
+                for input_table_urn in parsed_query_object.in_tables
+            ],
+            fineGrainedLineages=fine_grained_lineages,
+        )
+
+        wu.append(
+            MetadataChangeProposalWrapper(
+                entityType="dataset",
+                changeType=ChangeTypeClass.UPSERT,
+                entityUrn=query_urn,
+                aspectName="upstreamLineage",
+                aspect=upstream_lineage,
+            ).as_workunit()
+        )
+
+        return wu
+
+    def get_formula_columns(self, node: Dict, columns: Set[str] = set()) -> Set[str]:
+        if isinstance(node, dict):
+            for key, item in node.items():
+                node = item
+                if isinstance(item, dict):
+                    self.get_formula_columns(node, columns)
+                elif isinstance(node, list):
+                    for i in node:
+                        if isinstance(i, dict):
+                            self.get_formula_columns(i, columns)
+                elif isinstance(node, str):
+                    if key == "formula":
+                        column_names = re.findall(r"\[(.+?)\]", node)
+                        columns.update(column_names)
+        return columns
+
+    def get_input_fields(
+        self, chart_urn: str, chart_data: Dict, chart_fields: List[str], query_urn: str
+    ) -> Iterable[MetadataWorkUnit]:
+        fields = self.get_formula_columns(chart_data)
+
+        input_fields = []
+
+        for field in sorted(fields):
+            if field.lower() not in chart_fields:
+                continue
+            input_field = InputFieldClass(
+                schemaFieldUrn=builder.make_schema_field_urn(query_urn, field.lower()),
+                schemaField=SchemaFieldClass(
+                    fieldPath=field.lower(),
+                    type=SchemaFieldDataTypeClass(type=StringTypeClass()),
+                    nativeDataType="string",
+                ),
+            )
+            input_fields.append(input_field)
+
+        if not input_fields:
+            return
+
+        inputFields = InputFieldsClass(fields=input_fields)
+
+        yield MetadataChangeProposalWrapper(
+            entityUrn=chart_urn,
+            aspect=inputFields,
+        ).as_workunit()
+
     def construct_chart_from_api_data(
-        self, chart_data: dict, query: dict, path: str
-    ) -> ChartSnapshot:
+        self, chart_data: dict, chart_fields: List[str], query: dict, path: str
+    ) -> Iterable[MetadataWorkUnit]:
         chart_urn = builder.make_chart_urn(self.platform, chart_data.get("token", ""))
         chart_snapshot = ChartSnapshot(
             urn=chart_urn,
@@ -627,20 +1027,12 @@ class ModeSource(Source):
         title = chart_detail.get("title") or chart_detail.get("chartTitle") or ""
 
         # create datasource urn
-        platform, db_name = self._get_platform_and_dbname(query.get("data_source_id"))
-        source_tables = self._get_source_from_query(query.get("raw_query"))
-        datasource_urn = self._get_datasource_urn(
-            platform=platform,
-            platform_instance=self.config.platform_instance_map.get(platform)
-            if platform and self.config.platform_instance_map
-            else None,
-            database=db_name,
-            source_tables=source_tables,
-        )
         custom_properties = self.construct_chart_custom_properties(
             chart_detail, mode_chart_type
         )
 
+        query_urn = self.get_dataset_urn_from_query(query)
+        custom_properties["upstream_fields"] = "profile_id"
         # Chart Info
         chart_info = ChartInfoClass(
             type=chart_type,
@@ -649,11 +1041,14 @@ class ModeSource(Source):
             lastModified=last_modified,
             chartUrl=f"{self.config.connect_uri}"
             f"{chart_data.get('_links', {}).get('report_viz_web', {}).get('href', '')}",
-            inputs=datasource_urn,
+            inputs=[query_urn],
             customProperties=custom_properties,
+            inputEdges=[],
         )
         chart_snapshot.aspects.append(chart_info)
 
+        query_urn = self.get_dataset_urn_from_query(query)
+        yield from self.get_input_fields(chart_urn, chart_data, chart_fields, query_urn)
         # Browse Path
         browse_path = BrowsePathsClass(paths=[path])
         chart_snapshot.aspects.append(browse_path)
@@ -674,7 +1069,8 @@ class ModeSource(Source):
         if ownership is not None:
             chart_snapshot.aspects.append(ownership)
 
-        return chart_snapshot
+        mce = MetadataChangeEvent(proposedSnapshot=chart_snapshot)
+        yield MetadataWorkUnit(id=chart_snapshot.urn, mce=mce)
 
     @lru_cache(maxsize=None)
     def _get_reports(self, space_token: str) -> list:
@@ -706,6 +1102,24 @@ class ModeSource(Source):
                 reason=f"Unable to retrieve queries for report token: {report_token}, "
                 f"Reason: {str(http_error)}",
             )
+        return queries
+
+    @lru_cache(maxsize=None)
+    def _get_last_query_run(
+        self, report_token: str, report_run_id: str, query_run_id: str
+    ) -> Dict:
+        try:
+            queries_json = self._get_request_json(
+                f"{self.workspace_uri}/reports/{report_token}/runs/{report_run_id}/query_runs{query_run_id}"
+            )
+            queries = queries_json.get("_embedded", {}).get("queries", {})
+        except HTTPError as http_error:
+            self.report.report_failure(
+                key=f"mode-query-{report_token}",
+                reason=f"Unable to retrieve queries for report token: {report_token}, "
+                f"Reason: {str(http_error)}",
+            )
+            return {}
         return queries
 
     @lru_cache(maxsize=None)
@@ -753,9 +1167,17 @@ class ModeSource(Source):
                     raise HTTPError429
 
                 raise http_error
-            return {}
 
         return get_request()
+
+    @staticmethod
+    def create_embed_aspect_mcp(
+        entity_urn: str, embed_url: str
+    ) -> MetadataChangeProposalWrapper:
+        return MetadataChangeProposalWrapper(
+            entityUrn=entity_urn,
+            aspect=EmbedClass(renderUrl=embed_url),
+        )
 
     def emit_dashboard_mces(self) -> Iterable[MetadataWorkUnit]:
         for space_token, space_name in self.space_tokens.items():
@@ -768,6 +1190,35 @@ class ModeSource(Source):
                 mce = MetadataChangeEvent(
                     proposedSnapshot=dashboard_snapshot_from_report
                 )
+
+                mcpw = MetadataChangeProposalWrapper(
+                    entityType="dashboard",
+                    changeType=ChangeTypeClass.UPSERT,
+                    entityUrn=dashboard_snapshot_from_report.urn,
+                    aspectName="subTypes",
+                    aspect=SubTypesClass(typeNames=["Report"]),
+                )
+                yield mcpw.as_workunit()
+
+                usage_statistics = DashboardUsageStatisticsClass(
+                    timestampMillis=round(datetime.now().timestamp() * 1000),
+                    viewsCount=report.get("view_count", 0),
+                )
+
+                yield MetadataChangeProposalWrapper(
+                    entityType="dashboard",
+                    changeType=ChangeTypeClass.UPSERT,
+                    entityUrn=dashboard_snapshot_from_report.urn,
+                    aspectName="dashboardUsageStatistics",
+                    aspect=usage_statistics,
+                ).as_workunit()
+
+                if self.config.ingest_embed_url is True:
+                    yield self.create_embed_aspect_mcp(
+                        entity_urn=dashboard_snapshot_from_report.urn,
+                        embed_url=f"{self.config.connect_uri}/{self.config.workspace}/reports/{report.get('token')}/embed",
+                    ).as_workunit()
+
                 yield MetadataWorkUnit(id=dashboard_snapshot_from_report.urn, mce=mce)
 
     def emit_chart_mces(self) -> Iterable[MetadataWorkUnit]:
@@ -778,26 +1229,42 @@ class ModeSource(Source):
                 report_token = report.get("token", "")
                 queries = self._get_queries(report_token)
                 for query in queries:
+                    query_mcps = self.construct_query_from_api_data(report_token, query)
+                    chart_fields: List[str] = []
+                    for wu in query_mcps:
+                        if (
+                            isinstance(wu.metadata, MetadataChangeProposalWrapper)
+                            and wu.metadata.aspectName == "schemaMetadata"
+                        ):
+                            if isinstance(wu.metadata.aspect, SchemaMetadataClass):
+                                schema_metadata = wu.metadata.aspect
+                                for field in schema_metadata.fields:
+                                    chart_fields.append(field.fieldPath)
+
+                        yield wu
+
                     charts = self._get_charts(report_token, query.get("token", ""))
                     # build charts
                     for chart in charts:
                         view = chart.get("view") or chart.get("view_vegas")
                         chart_name = view.get("title") or view.get("chartTitle") or ""
-                        path = (
-                            f"/mode/{self.config.workspace}/{space_name}"
-                            f"/{report.get('name')}/{query.get('name')}/"
-                            f"{chart_name}"
+                        path = f"/mode/{self.config.workspace}/{space_name}/{report.get('name')}/{query.get('name')}/{chart_name}"
+                        yield from self.construct_chart_from_api_data(
+                            chart, chart_fields, query, path
                         )
-                        chart_snapshot = self.construct_chart_from_api_data(
-                            chart, query, path
-                        )
-                        mce = MetadataChangeEvent(proposedSnapshot=chart_snapshot)
-                        yield MetadataWorkUnit(id=chart_snapshot.urn, mce=mce)
 
     @classmethod
-    def create(cls, config_dict: dict, ctx: PipelineContext) -> Source:
-        config = ModeConfig.parse_obj(config_dict)
+    def create(cls, config_dict: dict, ctx: PipelineContext) -> "ModeSource":
+        config: ModeConfig = ModeConfig.parse_obj(config_dict)
         return cls(ctx, config)
+
+    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
+        return [
+            *super().get_workunit_processors(),
+            StaleEntityRemovalHandler.create(
+                self, self.config, self.ctx
+            ).workunit_processor,
+        ]
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         yield from self.emit_dashboard_mces()
