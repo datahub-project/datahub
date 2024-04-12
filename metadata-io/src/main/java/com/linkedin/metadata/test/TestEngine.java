@@ -1,5 +1,7 @@
 package com.linkedin.metadata.test;
 
+import static com.linkedin.metadata.AcrylConstants.*;
+import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.metadata.test.TestConstants.*;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -74,7 +76,7 @@ import lombok.extern.slf4j.Slf4j;
  */
 @Slf4j
 public class TestEngine {
-  private final EntityService _entityService;
+  private final EntityService<?> _entityService;
 
   private final EntitySearchService _searchService;
 
@@ -247,7 +249,7 @@ public class TestEngine {
    *
    * @param urn Entity urn to evaluate
    * @param testUrns Tests to evaluate
-   * @param mode Whether or not to push the test results into DataHub
+   * @param mode Whether to push the test results into DataHub or not
    * @return Test results.
    * @throws UnsupportedOperationException if the provided entity type is not supported.
    */
@@ -790,7 +792,7 @@ public class TestEngine {
   private Optional<BatchTestRunEvent> getLastExecution(Urn testUrn) {
     List<EnvelopedAspect> lastComputed =
         this._timeseriesAspectService.getAspectValues(
-            testUrn, "test", "batchTestRunEvent", null, null, 1, null);
+            testUrn, TEST_ENTITY_NAME, BATCH_TEST_RUN_EVENT_ASPECT_NAME, null, null, 1, null);
     if (!lastComputed.isEmpty()) {
       EnvelopedAspect envelopedAspect = lastComputed.get(0);
       BatchTestRunEvent batchTestRunEvent =
@@ -823,7 +825,7 @@ public class TestEngine {
         .getEntities()
         .forEach(
             (entity) -> {
-              log.info("Old Passing entity: {} ", entity.getEntity().toString());
+              log.info("Old Passing entity: {} ", entity.getEntity());
               Urn urn = entity.getEntity();
               TestResults testResults =
                   new TestResults()
@@ -854,7 +856,7 @@ public class TestEngine {
           .getEntities()
           .forEach(
               (entity) -> {
-                log.info("Old Passing entity: {} ", entity.getEntity().toString());
+                log.info("Old Passing entity: {} ", entity.getEntity());
                 Urn urn = entity.getEntity();
                 TestResults testResults =
                     new TestResults()
@@ -884,7 +886,7 @@ public class TestEngine {
         .getEntities()
         .forEach(
             (entity) -> {
-              log.info("Old Failing entity: {} ", entity.getEntity().toString());
+              log.info("Old Failing entity: {} ", entity.getEntity());
               Urn urn = entity.getEntity();
               TestResults testResults =
                   new TestResults()
@@ -915,7 +917,7 @@ public class TestEngine {
           .getEntities()
           .forEach(
               (entity) -> {
-                log.info("Old Failing entity: {} ", entity.getEntity().toString());
+                log.info("Old Failing entity: {} ", entity.getEntity());
                 Urn urn = entity.getEntity();
                 TestResults testResults =
                     new TestResults()
@@ -937,8 +939,8 @@ public class TestEngine {
   /**
    * Evaluates a single test
    *
-   * @param testUrn
-   * @param mode
+   * @param testUrn test entity to evaluate
+   * @param mode whether to run actions
    */
   public Map<Urn, TestResults> evaluateSingleTest(
       @Nonnull final Urn testUrn, @Nonnull EvaluationMode mode) {
@@ -958,14 +960,16 @@ public class TestEngine {
     }
 
     // First retrieve the last execution of this test
-    final Optional<BatchTestRunEvent> lastExecution = getLastExecution(testUrn);
+    final Optional<BatchTestRunEvent> maybeLastExecution = getLastExecution(testUrn);
     Map<Urn, TestResults> oldResults = null;
-    if (lastExecution.isPresent()) {
-      log.info("Last execution of test {} found: {}", testUrn, lastExecution.get());
-      if (lastExecution.get().getResult().getTestDefinition() != null) {
+    if (maybeLastExecution.isPresent()) {
+      BatchTestRunEvent lastExecution = maybeLastExecution.get();
+      log.info("Last execution of test {} found: {}", testUrn, lastExecution);
+      if (lastExecution.getResult() != null
+          && lastExecution.getResult().getTestDefinition() != null) {
         TestDefinition oldTestDefinition =
             this._testDefinitionParser.deserialize(
-                testUrn, lastExecution.get().getResult().getTestDefinition());
+                testUrn, lastExecution.getResult().getTestDefinition());
         // if (!oldTestDefinition.getMd5().equals(testDefinition.getMd5())) {
         final Map<Urn, BatchTestRunResult> oldBatchTestRunResults = new HashMap<>();
         oldBatchTestRunResults.put(
@@ -1093,7 +1097,7 @@ public class TestEngine {
    * Refreshes test definitions for a single test urn. Use when you want to make sure that the cache
    * is up to date for a single test
    *
-   * @param testUrn
+   * @param testUrn test entity to refresh
    */
   public void refreshSingleTest(@Nonnull final Urn testUrn) {
     _testRefreshRunnable.refreshOneUrn(testUrn);
