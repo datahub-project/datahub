@@ -12,6 +12,8 @@ fragment testResultsSummaryFields on Test {
     results {
         passingCount
         failingCount
+        testDefinitionMd5
+        lastRunTimestampMillis
     }
 }
 

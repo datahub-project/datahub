@@ -111,6 +111,7 @@ import com.linkedin.metadata.service.SettingsService;
 import com.linkedin.metadata.service.ShareService;
 import com.linkedin.metadata.service.SubscriptionService;
 import com.linkedin.metadata.test.TestEngine;
+import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.usage.UsageClient;
 import graphql.schema.idl.RuntimeWiring;
 import io.datahubproject.metadata.services.SecretService;
@@ -149,6 +150,7 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
   private SettingsService settingsService;
   private ShareService shareService;
   private FormService formService;
+  private TimeseriesAspectService timeseriesAspectService;
 
   // Config
   private ExecutorConfiguration executorConfiguration;
@@ -188,6 +190,7 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
     this.subscriptionService = args.getSubscriptionService();
     this.groupService = args.getGroupService();
     this.settingsService = args.getSettingsService();
+    this.timeseriesAspectService = args.getTimeseriesAspectService();
     this.testEngine = args.getTestEngine();
     this.shareService = args.getShareService();
     this.formService = args.getFormService();
@@ -679,7 +682,10 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
         "Test",
         typeWiring ->
             typeWiring
-                .dataFetcher("results", new TestResultsSummaryResolver(this.entitySearchService))
+                .dataFetcher(
+                    "results",
+                    new TestResultsSummaryResolver(
+                        this.entitySearchService, this.entityService, this.timeseriesAspectService))
                 .dataFetcher("batchRunEvents", new BatchTestRunEventsResolver(this.entityClient)));
   }
 

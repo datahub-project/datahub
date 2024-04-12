@@ -13,6 +13,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.test.action.ActionType;
 import com.linkedin.metadata.test.definition.expression.Expression;
 import com.linkedin.metadata.test.definition.expression.Query;
+import com.linkedin.metadata.test.definition.literal.DateLiteral;
 import com.linkedin.metadata.test.definition.literal.StringListLiteral;
 import com.linkedin.metadata.test.definition.operator.Operand;
 import com.linkedin.metadata.test.definition.operator.OperandConstants;
@@ -21,6 +22,7 @@ import com.linkedin.metadata.test.definition.operator.Predicate;
 import com.linkedin.metadata.test.eval.PredicateEvaluator;
 import com.linkedin.metadata.test.exception.InvalidOperandException;
 import com.linkedin.metadata.test.exception.TestDefinitionParsingException;
+import com.linkedin.metadata.test.util.TestMd5;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -125,6 +127,12 @@ public class TestDefinitionParser {
 
   public TestDefinition deserialize(Urn testUrn, String jsonTestDefinition)
       throws TestDefinitionParsingException {
+    return deserialize(testUrn, jsonTestDefinition, TestMd5.getMd5(jsonTestDefinition));
+  }
+
+  public TestDefinition deserialize(Urn testUrn, String jsonTestDefinition, String md5)
+      throws TestDefinitionParsingException {
+
     JsonNode parsedTestDefinition;
     try {
       parsedTestDefinition = OBJECT_MAPPER.readTree(jsonTestDefinition);
@@ -143,7 +151,9 @@ public class TestDefinitionParser {
         testUrn,
         deserializeMatchConditions(parsedTestDefinition.get(ON_FIELD)),
         deserializeRule(parsedTestDefinition.get(RULES_FIELD)),
-        deserializeActions(parsedTestDefinition.get(ACTIONS_FIELD)));
+        deserializeActions(parsedTestDefinition.get(ACTIONS_FIELD)),
+        md5,
+        jsonTestDefinition);
   }
 
   private TestMatch deserializeMatchConditions(JsonNode jsonTargetingRule) {
@@ -353,6 +363,18 @@ public class TestDefinitionParser {
           StreamSupport.stream(paramArray.spliterator(), false)
               .map(JsonNode::asText)
               .collect(Collectors.toList()));
+    } else {
+      if (paramJson.has("type")) {
+        String paramType = paramJson.get("type").asText();
+        if (paramType.equals("relativeDate")) {
+          return new DateLiteral(paramJson.get("value").asText());
+        } else {
+          throw new TestDefinitionParsingException(
+              String.format(
+                  "Failed to deserialize param %s: unsupported param type %s",
+                  paramJson.toString(), paramType));
+        }
+      }
     }
     return new StringListLiteral(Collections.singletonList(paramJson.asText()));
   }

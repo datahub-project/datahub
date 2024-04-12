@@ -318,6 +318,17 @@ type TestResultsSummary {
   The number of assets failing the test
   """
   failingCount: Long!
+
+  """
+  The definition of the test that was used to generate these results
+  """
+  testDefinitionMd5: String
+
+  """
+  The timestamp of the last batch run of the test.
+  Note: This is a lower bound on how fresh the results are.
+  """
+  lastRunTimestampMillis: Long
 }
 
 """

@@ -4,6 +4,7 @@ import com.linkedin.gms.factory.entity.EntityServiceFactory;
 import com.linkedin.gms.factory.entityregistry.EntityRegistryFactory;
 import com.linkedin.gms.factory.search.ElasticSearchServiceFactory;
 import com.linkedin.gms.factory.search.EntitySearchServiceFactory;
+import com.linkedin.gms.factory.timeseries.TimeseriesAspectServiceFactory;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.EntitySearchService;
@@ -14,6 +15,7 @@ import com.linkedin.metadata.test.action.ActionApplier;
 import com.linkedin.metadata.test.definition.TestDefinitionParser;
 import com.linkedin.metadata.test.eval.PredicateEvaluator;
 import com.linkedin.metadata.test.query.QueryEngine;
+import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import io.datahubproject.metadata.context.OperationContext;
 import javax.annotation.Nonnull;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -25,7 +27,12 @@ import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.PropertySource;
 
 @Configuration
-@Import({EntityRegistryFactory.class, EntityServiceFactory.class, EntitySearchServiceFactory.class})
+@Import({
+  EntityRegistryFactory.class,
+  EntityServiceFactory.class,
+  EntitySearchServiceFactory.class,
+  TimeseriesAspectServiceFactory.class
+})
 @PropertySource(value = "classpath:/application.yml", factory = YamlPropertySourceFactory.class)
 public class TestEngineFactory {
   @Autowired
@@ -39,6 +46,10 @@ public class TestEngineFactory {
   @Autowired
   @Qualifier("entitySearchService")
   private EntitySearchService entitySearchService;
+
+  @Autowired
+  @Qualifier("timeseriesAspectService")
+  private TimeseriesAspectService timeseriesAspectService;
 
   @Autowired
   @Qualifier("queryEngine")
@@ -62,6 +73,8 @@ public class TestEngineFactory {
     return new TestEngine(
         systemOpContext,
         entityService,
+        entitySearchService,
+        timeseriesAspectService,
         new TestFetcher(entityService, entitySearchService),
         new TestDefinitionParser(predicateEvaluator),
         queryEngine,

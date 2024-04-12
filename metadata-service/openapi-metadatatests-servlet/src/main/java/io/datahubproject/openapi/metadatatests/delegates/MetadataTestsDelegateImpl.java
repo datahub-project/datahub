@@ -15,6 +15,7 @@ import com.linkedin.metadata.test.action.ActionApplier;
 import com.linkedin.metadata.test.definition.TestDefinitionParser;
 import com.linkedin.metadata.test.eval.PredicateEvaluator;
 import com.linkedin.metadata.test.query.QueryEngine;
+import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.test.TestInfo;
 import com.linkedin.test.TestMode;
@@ -51,6 +52,8 @@ public class MetadataTestsDelegateImpl implements MetadataTestApiDelegate {
   private final OperationContext systemOpContext;
   private final EntityService<?> entityService;
   private final EntitySearchService entitySearchService;
+
+  private final TimeseriesAspectService timeseriesAspectService;
   private final EntityApiDelegateImpl<
           TestEntityRequestV2, TestEntityResponseV2, ScrollTestEntityResponseV2>
       entityApiDelegate;
@@ -65,6 +68,7 @@ public class MetadataTestsDelegateImpl implements MetadataTestApiDelegate {
       @Nonnull OperationContext systemOpContext,
       EntityService<?> entityService,
       EntitySearchService entitySearchService,
+      TimeseriesAspectService timeseriesAspectService,
       EntityApiDelegateImpl<TestEntityRequestV2, TestEntityResponseV2, ScrollTestEntityResponseV2>
           entityApiDelegate,
       AuthorizerChain authorizationChain,
@@ -74,6 +78,7 @@ public class MetadataTestsDelegateImpl implements MetadataTestApiDelegate {
     this.systemOpContext = systemOpContext;
     this.entityService = entityService;
     this.entitySearchService = entitySearchService;
+    this.timeseriesAspectService = timeseriesAspectService;
     this.entityApiDelegate = entityApiDelegate;
     this.authorizationChain = authorizationChain;
     this.queryEngine = queryEngine;
@@ -85,6 +90,7 @@ public class MetadataTestsDelegateImpl implements MetadataTestApiDelegate {
       @Nonnull OperationContext systemOpContext,
       EntityService<?> entityService,
       EntitySearchService entitySearchService,
+      TimeseriesAspectService timeseriesAspectService,
       EntityApiDelegateImpl<TestEntityRequestV2, TestEntityResponseV2, ScrollTestEntityResponseV2>
           entityApiDelegate,
       AuthorizerChain authorizationChain,
@@ -94,6 +100,7 @@ public class MetadataTestsDelegateImpl implements MetadataTestApiDelegate {
         systemOpContext,
         entityService,
         entitySearchService,
+        timeseriesAspectService,
         entityApiDelegate,
         authorizationChain,
         queryEngine,
@@ -271,6 +278,8 @@ public class MetadataTestsDelegateImpl implements MetadataTestApiDelegate {
     return new TestEngine(
         systemOpContext,
         entityService,
+        entitySearchService,
+        timeseriesAspectService,
         testFetcher,
         new TestDefinitionParser(predicateEvaluator),
         queryEngine,

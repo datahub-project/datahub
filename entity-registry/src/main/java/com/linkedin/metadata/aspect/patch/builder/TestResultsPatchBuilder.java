@@ -3,6 +3,7 @@ package com.linkedin.metadata.aspect.patch.builder;
 import static com.fasterxml.jackson.databind.node.JsonNodeFactory.instance;
 import static com.linkedin.metadata.Constants.TEST_RESULTS_ASPECT_NAME;
 
+import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.aspect.patch.PatchOperationType;
 import com.linkedin.test.TestResult;
 import com.linkedin.test.TestResults;
@@ -39,6 +40,30 @@ public class TestResultsPatchBuilder
     return this;
   }
 
+  public TestResultsPatchBuilder addPassing(@Nonnull Urn testUrn, @Nonnull TestResult testResult) {
+    addPatchOperation(PatchOperationType.ADD, PASSING_BASE_PATH + testUrn.toString(), testResult);
+    return this;
+  }
+
+  public TestResultsPatchBuilder addFailing(@Nonnull Urn testUrn, @Nonnull TestResult testResult) {
+    addPatchOperation(PatchOperationType.ADD, FAILING_BASE_PATH + testUrn.toString(), testResult);
+    return this;
+  }
+
+  public TestResultsPatchBuilder removePassing(
+      @Nonnull Urn testUrn, @Nonnull TestResult testResult) {
+    addPatchOperation(
+        PatchOperationType.REMOVE, PASSING_BASE_PATH + testUrn.toString(), testResult);
+    return this;
+  }
+
+  public TestResultsPatchBuilder removeFailing(
+      @Nonnull Urn testUrn, @Nonnull TestResult testResult) {
+    addPatchOperation(
+        PatchOperationType.REMOVE, FAILING_BASE_PATH + testUrn.toString(), testResult);
+    return this;
+  }
+
   private void addPatchOperation(
       PatchOperationType op, String path, @Nullable TestResult testResult) {
     pathValues.add(
@@ -50,6 +75,11 @@ public class TestResultsPatchBuilder
                     .objectNode()
                     .put(TEST_KEY, testResult.getTest().toString())
                     .put(TYPE_KEY, testResult.getType().toString())
+                    .put(
+                        "testDefinitionMd5",
+                        testResult.getTestDefinitionMd5() != null
+                            ? testResult.getTestDefinitionMd5()
+                            : null)
                 : null));
   }
 

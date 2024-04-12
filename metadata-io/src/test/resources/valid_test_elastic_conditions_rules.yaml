@@ -1,0 +1,25 @@
+on:
+  types:
+    - dataset
+    - container
+  conditions:
+    and:
+      -
+        property: 'dataPlatformInstance.platform'
+        operator: equals
+        values:
+          - 'urn:li:dataPlatform:teradata'
+rules:
+  and:
+    -
+      property: subTypes.typeNames
+      operator: equals
+      values:
+        - table
+actions:
+  passing:
+    -
+      type: add_tags
+      values:
+        - 'urn:li:tag:Legacy'
+  failing: []
