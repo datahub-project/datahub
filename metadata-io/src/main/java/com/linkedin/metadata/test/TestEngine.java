@@ -17,7 +17,6 @@ import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.ScrollResult;
-import com.linkedin.metadata.search.api.SearchDocFieldFetchConfig;
 import com.linkedin.metadata.test.action.ActionApplier;
 import com.linkedin.metadata.test.action.ActionParameters;
 import com.linkedin.metadata.test.definition.TestAction;
@@ -172,7 +171,10 @@ public class TestEngine {
     _supportedEntityTypes = TestUtils.getSupportedEntityTypes(entityService.getEntityRegistry());
     _elasticSearchTestExecutor =
         new ElasticSearchTestExecutor(
-            searchService, timeseriesAspectService, entityService.getEntityRegistry(), systemOpContext);
+            searchService,
+            timeseriesAspectService,
+            entityService.getEntityRegistry(),
+            systemOpContext);
     _timeseriesAspectService = timeseriesAspectService;
   }
 
@@ -808,8 +810,15 @@ public class TestEngine {
     Filter failingFilter = TestUtils.buildTestFailingFilter(testUrn, testDefinition.getMd5());
     Map<Urn, TestResults> results = new HashMap<>();
     ScrollResult scrollResult =
-        this._searchService.scroll(systemOpContext, testDefinition.getOn().getEntityTypes(), passingFilter,
-            null, 1000, null, "1m", null);
+        this._searchService.scroll(
+            systemOpContext,
+            testDefinition.getOn().getEntityTypes(),
+            passingFilter,
+            null,
+            1000,
+            null,
+            "1m",
+            null);
     scrollResult
         .getEntities()
         .forEach(
@@ -832,8 +841,15 @@ public class TestEngine {
     while (scrollResult.getNumEntities() == 1000) {
       String scrollId = scrollResult.getScrollId();
       scrollResult =
-          this._searchService.scroll(systemOpContext, testDefinition.getOn().getEntityTypes(), passingFilter,
-              null, 1000, scrollId, "1m", null);
+          this._searchService.scroll(
+              systemOpContext,
+              testDefinition.getOn().getEntityTypes(),
+              passingFilter,
+              null,
+              1000,
+              scrollId,
+              "1m",
+              null);
       scrollResult
           .getEntities()
           .forEach(
@@ -855,8 +871,15 @@ public class TestEngine {
               });
     }
     scrollResult =
-        this._searchService.scroll(systemOpContext, testDefinition.getOn().getEntityTypes(), failingFilter,
-            null, 1000, null, "1m", null);
+        this._searchService.scroll(
+            systemOpContext,
+            testDefinition.getOn().getEntityTypes(),
+            failingFilter,
+            null,
+            1000,
+            null,
+            "1m",
+            null);
     scrollResult
         .getEntities()
         .forEach(
@@ -879,8 +902,15 @@ public class TestEngine {
     while (scrollResult.getNumEntities() == 1000) {
       String scrollId = scrollResult.getScrollId();
       scrollResult =
-          this._searchService.scroll(systemOpContext, testDefinition.getOn().getEntityTypes(), failingFilter,
-              null, 1000, scrollId, "1m", null);
+          this._searchService.scroll(
+              systemOpContext,
+              testDefinition.getOn().getEntityTypes(),
+              failingFilter,
+              null,
+              1000,
+              scrollId,
+              "1m",
+              null);
       scrollResult
           .getEntities()
           .forEach(

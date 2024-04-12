@@ -108,8 +108,15 @@ public class ElasticSearchTestExecutor {
           entityType,
           passingFilters);
       SearchResult passingSearchResult =
-          searchService.search(opContext, Collections.singletonList(entityType), "*", passingFilters,
-              null, 0, 1000, null);
+          searchService.search(
+              opContext,
+              Collections.singletonList(entityType),
+              "*",
+              passingFilters,
+              null,
+              0,
+              1000,
+              null);
       passingSearchResult
           .getEntities()
           .forEach(

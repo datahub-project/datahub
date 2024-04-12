@@ -71,13 +71,14 @@ public class TestResultsSummaryResolver
           long failingCount = 0;
           List<EnvelopedAspect> lastComputed =
               timeseriesAspectService.getAspectValues(
-                  testUrn, TEST_ENTITY_NAME, BATCH_TEST_RUN_EVENT_ASPECT_NAME, null,
-                  null, 1, null);
+                  testUrn, TEST_ENTITY_NAME, BATCH_TEST_RUN_EVENT_ASPECT_NAME, null, null, 1, null);
           Long timestamp = null;
           if (!lastComputed.isEmpty()) {
             EnvelopedAspect envelopedAspect = lastComputed.get(0);
             BatchTestRunEvent batchTestRunEvent =
-                GenericRecordUtils.deserializeAspect(envelopedAspect.getAspect().getValue(), "application/json",
+                GenericRecordUtils.deserializeAspect(
+                    envelopedAspect.getAspect().getValue(),
+                    "application/json",
                     BatchTestRunEvent.class);
             timestamp = batchTestRunEvent.getTimestampMillis();
             if (batchTestRunEvent.getResult() != null) {
