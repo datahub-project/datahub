@@ -301,8 +301,8 @@ class DataProcessInstance:
         :return: DataProcessInstance
         """
         dpi: DataProcessInstance = DataProcessInstance(
-            orchestrator=datajob.flow_urn.get_orchestrator_name(),
-            cluster=datajob.flow_urn.get_env(),
+            orchestrator=datajob.flow_urn.orchestrator,
+            cluster=datajob.flow_urn.cluster,
             template_urn=datajob.urn,
             id=id,
         )
