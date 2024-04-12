@@ -376,11 +376,11 @@ class HiveMetastoreSource(SQLAlchemySource):
             where_clause_suffix = f"{self.config.schemas_where_clause_suffix} {self._get_db_filter_where_clause()}"
 
         statement: str = (
-            PrestoOnHiveSource._SCHEMAS_POSTGRES_SQL_STATEMENT.format(
+            HiveMetastoreSource._SCHEMAS_POSTGRES_SQL_STATEMENT.format(
                 where_clause_suffix=where_clause_suffix
             )
             if "postgresql" in self.config.scheme
-            else PrestoOnHiveSource._SCHEMAS_SQL_STATEMENT.format(
+            else HiveMetastoreSource._SCHEMAS_SQL_STATEMENT.format(
                 where_clause_suffix=where_clause_suffix
             )
         )
@@ -427,11 +427,11 @@ class HiveMetastoreSource(SQLAlchemySource):
         self, db_name: str, scheme: str, where_clause_suffix: str
     ) -> Dict[str, Dict[str, str]]:
         statement: str = (
-            PrestoOnHiveSource._HIVE_PROPERTIES_POSTGRES_SQL_STATEMENT.format(
+            HiveMetastoreSource._HIVE_PROPERTIES_POSTGRES_SQL_STATEMENT.format(
                 where_clause_suffix=where_clause_suffix
             )
             if "postgresql" in scheme
-            else PrestoOnHiveSource._HIVE_PROPERTIES_SQL_STATEMENT.format(
+            else HiveMetastoreSource._HIVE_PROPERTIES_SQL_STATEMENT.format(
                 where_clause_suffix=where_clause_suffix
             )
         )
@@ -465,11 +465,11 @@ class HiveMetastoreSource(SQLAlchemySource):
         assert isinstance(sql_config, HiveMetastore)
         where_clause_suffix = f"{sql_config.tables_where_clause_suffix} {self._get_db_filter_where_clause()}"
         statement: str = (
-            PrestoOnHiveSource._TABLES_POSTGRES_SQL_STATEMENT.format(
+            HiveMetastoreSource._TABLES_POSTGRES_SQL_STATEMENT.format(
                 where_clause_suffix=where_clause_suffix
             )
             if "postgresql" in sql_config.scheme
-            else PrestoOnHiveSource._TABLES_SQL_STATEMENT.format(
+            else HiveMetastoreSource._TABLES_SQL_STATEMENT.format(
                 where_clause_suffix=where_clause_suffix
             )
         )
@@ -631,11 +631,11 @@ class HiveMetastoreSource(SQLAlchemySource):
             where_clause_suffix = f"{self.config.views_where_clause_suffix} {self._get_db_filter_where_clause()}"
 
         statement: str = (
-            PrestoOnHiveSource._HIVE_VIEWS_POSTGRES_SQL_STATEMENT.format(
+            HiveMetastoreSource._HIVE_VIEWS_POSTGRES_SQL_STATEMENT.format(
                 where_clause_suffix=where_clause_suffix
             )
             if "postgresql" in self.config.scheme
-            else PrestoOnHiveSource._HIVE_VIEWS_SQL_STATEMENT.format(
+            else HiveMetastoreSource._HIVE_VIEWS_SQL_STATEMENT.format(
                 where_clause_suffix=where_clause_suffix
             )
         )
@@ -676,11 +676,11 @@ class HiveMetastoreSource(SQLAlchemySource):
             where_clause_suffix = f"{self.config.views_where_clause_suffix} {self._get_db_filter_where_clause()}"
 
         statement: str = (
-            PrestoOnHiveSource._VIEWS_POSTGRES_SQL_STATEMENT.format(
+            HiveMetastoreSource._VIEWS_POSTGRES_SQL_STATEMENT.format(
                 where_clause_suffix=where_clause_suffix
             )
             if "postgresql" in self.config.scheme
-            else PrestoOnHiveSource._VIEWS_SQL_STATEMENT.format(
+            else HiveMetastoreSource._VIEWS_SQL_STATEMENT.format(
                 where_clause_suffix=where_clause_suffix
             )
         )
@@ -855,8 +855,8 @@ class HiveMetastoreSource(SQLAlchemySource):
         """
         # remove encoded Presto View data prefix and suffix
         encoded_view_info = view_original_text.split(
-            PrestoOnHiveSource._PRESTO_VIEW_PREFIX, 1
-        )[-1].rsplit(PrestoOnHiveSource._PRESTO_VIEW_SUFFIX, 1)[0]
+            HiveMetastoreSource._PRESTO_VIEW_PREFIX, 1
+        )[-1].rsplit(HiveMetastoreSource._PRESTO_VIEW_SUFFIX, 1)[0]
 
         # view_original_text is b64 encoded:
         decoded_view_info = base64.b64decode(encoded_view_info)
