@@ -327,7 +327,6 @@ module.exports = {
           label: "Spark",
         },
         //"docker/airflow/local_airflow",
-        ,
         "metadata-ingestion/integration_docs/great-expectations",
         "metadata-integration/java/datahub-protobuf/README",
         //"metadata-ingestion/source-docs-template",
