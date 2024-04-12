@@ -330,13 +330,7 @@ fragment getRoles on Access {
                 requestUrl
             }
             urn
-            actors {
-                users {
-                    user {
-                        urn
-                    }
-                }
-            }
+            isAssignedToMe
         }
     }
 }
