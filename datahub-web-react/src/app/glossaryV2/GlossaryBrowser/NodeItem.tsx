@@ -22,7 +22,7 @@ const ItemWrapper = styled.div<ItemWrapperProps>`
     display: flex;
     flex-direction: column;
     font-weight: 700;
-    padding: ${(props) => (props.$isChildNode ? '0' : '0 13px')};
+    padding: ${(props) => (props.$isChildNode ? '0' : '0 0 0 13px')};
     position: relative;
     overflow: ${(props) => !props.$isChildNode && 'hidden'};
     background-color: ${(props) => props.$isSelected && '#F9F8FF'};
@@ -93,6 +93,7 @@ const ChildrenCount = styled.div`
     color: #434863;
     font-size: 10px;
     font-weight: 400;
+    margin-right: 13px;
 `;
 
 const StyledDivider = styled.div<{ depth: number }>`
