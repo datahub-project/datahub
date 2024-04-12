@@ -2,11 +2,12 @@ import json
 from datetime import datetime, timezone
 from unittest.mock import MagicMock
 
+from snowflake.connector.cursor import SnowflakeCursor
+
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.time_window_config import BucketDuration
 from datahub.ingestion.source.snowflake import snowflake_query
 from datahub.ingestion.source.snowflake.snowflake_query import SnowflakeQuery
-from snowflake.connector.cursor import SnowflakeCursor
 
 NUM_TABLES = 10
 NUM_VIEWS = 2
