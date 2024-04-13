@@ -1,9 +1,12 @@
 package com.linkedin.datahub.graphql.resolvers.recommendation;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
+import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.*;
 
+import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.ContentParams;
 import com.linkedin.datahub.graphql.generated.EntityProfileParams;
@@ -16,12 +19,16 @@ import com.linkedin.datahub.graphql.generated.RecommendationParams;
 import com.linkedin.datahub.graphql.generated.RecommendationRenderType;
 import com.linkedin.datahub.graphql.generated.RecommendationRequestContext;
 import com.linkedin.datahub.graphql.generated.SearchParams;
+import com.linkedin.datahub.graphql.resolvers.search.SearchUtils;
 import com.linkedin.datahub.graphql.types.common.mappers.UrnToEntityMapper;
 import com.linkedin.datahub.graphql.types.entitytype.EntityTypeMapper;
 import com.linkedin.metadata.query.filter.CriterionArray;
+import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.recommendation.EntityRequestContext;
 import com.linkedin.metadata.recommendation.RecommendationsService;
 import com.linkedin.metadata.recommendation.SearchRequestContext;
+import com.linkedin.metadata.service.ViewService;
+import com.linkedin.view.DataHubViewInfo;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import io.opentelemetry.extension.annotations.WithSpan;
@@ -44,6 +51,7 @@ public class ListRecommendationsResolver
       new ListRecommendationsResult(Collections.emptyList());
 
   private final RecommendationsService _recommendationsService;
+  private final ViewService _viewService;
 
   @WithSpan
   @Override
@@ -60,6 +68,7 @@ public class ListRecommendationsResolver
                 _recommendationsService.listRecommendations(
                     context.getOperationContext(),
                     mapRequestContext(input.getRequestContext()),
+                    viewFilter(input.getViewUrn(), context.getOperationContext().getAuthentication()),
                     input.getLimit());
             return ListRecommendationsResult.builder()
                 .setModules(
@@ -74,6 +83,15 @@ public class ListRecommendationsResolver
             return EMPTY_RECOMMENDATIONS;
           }
         });
+  }
+
+  private Filter viewFilter(String viewUrn, Authentication authentication) {
+    if (viewUrn == null) {
+      return null;
+    }
+    DataHubViewInfo viewInfo = resolveView(_viewService, UrnUtils.getUrn(viewUrn), authentication);
+    Filter result = SearchUtils.combineFilters(null, viewInfo.getDefinition().getFilter());
+    return result;
   }
 
   private com.linkedin.metadata.recommendation.RecommendationRequestContext mapRequestContext(

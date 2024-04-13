@@ -1,15 +1,20 @@
 package com.linkedin.metadata.recommendation.candidatesource;
 
+import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.recommendation.RecommendationContent;
 import com.linkedin.metadata.recommendation.RecommendationContentArray;
 import com.linkedin.metadata.recommendation.RecommendationModule;
 import com.linkedin.metadata.recommendation.RecommendationRenderType;
 import com.linkedin.metadata.recommendation.RecommendationRequestContext;
+import com.linkedin.metadata.search.utils.QueryUtils;
+import com.linkedin.view.DataHubViewInfo;
 import io.datahubproject.metadata.context.OperationContext;
 import io.opentelemetry.extension.annotations.WithSpan;
 import java.util.List;
 import java.util.Optional;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+
 
 /** Base interface for defining a candidate source for recommendation module */
 public interface RecommendationSource {
@@ -42,7 +47,8 @@ public interface RecommendationSource {
    */
   @WithSpan
   List<RecommendationContent> getRecommendations(
-      @Nonnull OperationContext opContext, @Nonnull RecommendationRequestContext requestContext);
+      @Nonnull OperationContext opContext, @Nonnull RecommendationRequestContext requestContext,
+      @Nullable Filter filter);
 
   /**
    * Get the full recommendations module itself provided the request context.
@@ -52,12 +58,13 @@ public interface RecommendationSource {
    * @return list of recommendation candidates
    */
   default Optional<RecommendationModule> getRecommendationModule(
-      @Nonnull OperationContext opContext, @Nonnull RecommendationRequestContext requestContext) {
+      @Nonnull OperationContext opContext, @Nonnull RecommendationRequestContext requestContext,
+      @Nullable Filter filter) {
     if (!isEligible(opContext, requestContext)) {
       return Optional.empty();
     }
 
-    List<RecommendationContent> recommendations = getRecommendations(opContext, requestContext);
+    List<RecommendationContent> recommendations = getRecommendations(opContext, requestContext, filter);
     if (recommendations.isEmpty()) {
       return Optional.empty();
     }
