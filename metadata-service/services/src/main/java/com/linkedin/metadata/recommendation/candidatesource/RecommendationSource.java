@@ -50,6 +50,12 @@ public interface RecommendationSource {
       @Nonnull OperationContext opContext, @Nonnull RecommendationRequestContext requestContext,
       @Nullable Filter filter);
 
+  // retaining this for backward compatibility
+  default List<RecommendationContent> getRecommendations(
+      @Nonnull OperationContext opContext, @Nonnull RecommendationRequestContext requestContext) {
+    return getRecommendations(opContext, requestContext, null);
+  }
+
   /**
    * Get the full recommendations module itself provided the request context.
    *
@@ -75,5 +81,11 @@ public interface RecommendationSource {
             .setModuleId(getModuleId())
             .setRenderType(getRenderType())
             .setContent(new RecommendationContentArray(recommendations)));
+  }
+
+  // retaining this for backward compatibility
+  default Optional<RecommendationModule> getRecommendationModule(
+      @Nonnull OperationContext opContext, @Nonnull RecommendationRequestContext requestContext) {
+    return getRecommendationModule(opContext, requestContext);
   }
 }
