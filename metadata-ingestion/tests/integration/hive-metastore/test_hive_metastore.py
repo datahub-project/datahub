@@ -17,7 +17,7 @@ data_platform = "hive-metastore"
 
 
 @pytest.fixture(scope="module")
-def presto_on_hive_runner(docker_compose_runner, pytestconfig):
+def hive_metastore_runner(docker_compose_runner, pytestconfig):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/hive-metastore"
     with docker_compose_runner(
         test_resources_dir / "docker-compose.yml", "hive-metastore"
@@ -42,7 +42,7 @@ def test_resources_dir(pytestconfig):
 
 
 @pytest.fixture(scope="module")
-def loaded_presto_on_hive(presto_on_hive_runner):
+def loaded_hive_metastore(hive_metastore_runner):
     # Set up the container.
     command = "docker exec hiveserver2 /opt/hive/bin/beeline -u jdbc:hive2://localhost:10000 -f /hive_setup.sql"
     subprocess.run(command, shell=True, check=True)
@@ -63,8 +63,8 @@ def loaded_presto_on_hive(presto_on_hive_runner):
         ("hive", False, False, False, True, "_5"),
     ],
 )
-def test_presto_on_hive_ingest(
-    loaded_presto_on_hive,
+def test_hive_metastore_ingest(
+    loaded_hive_metastore,
     test_resources_dir,
     pytestconfig,
     tmp_path,
@@ -123,9 +123,8 @@ def test_presto_on_hive_ingest(
         # Verify the output.
         mce_helpers.check_golden_file(
             pytestconfig,
-            output_path=f"presto_on_hive_mces{test_suffix}.json",
-            golden_path=test_resources_dir
-            / f"presto_on_hive_mces_golden{test_suffix}.json",
+            output_path=f"hive_metastore_mces{test_suffix}.json",
+            golden_path=test_resources_dir / f"hive_metastore_mces{test_suffix}.json",
             ignore_paths=[
                 r"root\[\d+\]\['proposedSnapshot'\]\['com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot'\]\['aspects'\]\[\d+\]\['com.linkedin.pegasus2avro.dataset.DatasetProperties'\]\['customProperties'\]\['transient_lastDdlTime'\]",
                 r"root\[\d+\]\['proposedSnapshot'\]\['com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot'\]\['aspects'\]\[\d+\]\['com.linkedin.pegasus2avro.dataset.DatasetProperties'\]\['customProperties'\]\['numfiles'\]",
@@ -136,8 +135,8 @@ def test_presto_on_hive_ingest(
 
 
 @freeze_time(FROZEN_TIME)
-def test_presto_on_hive_instance_ingest(
-    loaded_presto_on_hive, test_resources_dir, pytestconfig, tmp_path, mock_time
+def test_hive_metastore_instance_ingest(
+    loaded_hive_metastore, test_resources_dir, pytestconfig, tmp_path, mock_time
 ):
     instance = "production_warehouse"
     platform = "hive"
