@@ -25,7 +25,6 @@ RUN sed -i.bak "s/__version__ = \"1!0.0.0.dev0\"/__version__ = \"$(echo $RELEASE
 
 USER datahub
 
-# Build only for production/non-development
 FROM base as build
 
 ARG PIP_MIRROR_URL
@@ -34,11 +33,11 @@ RUN if [ "${PIP_MIRROR_URL}" != "null" ] ; then pip config set global.index-url 
 # Note that the requirements file contains editable installs for
 # metadata-ingestion and datahub-integrations-service
 RUN --mount=type=cache,target=/datahub-ingestion/.cache/uv,uid=1000,gid=1000 \
+    uv pip uninstall acryl-datahub && \
     uv pip sync requirements.txt
 
 # Production Image Built From Build Image
-FROM base as prod-install
-COPY --from=build $VIRTUAL_ENV $VIRTUAL_ENV
+FROM build as prod-install
 
 COPY ./docker/datahub-integrations-service/start.sh /start_datahub_integrations_service.sh
 USER 0
@@ -49,7 +48,7 @@ FROM prod-install as dev-install
 
 # Dummy stage for development. Assumes most of the code is built on your machine and mounted to this image.
 # The behavior is a bit tricky - we're mounting dev code over the code that was baked into the image
-# as part of the production step.
+# as part of the build step.
 # See this excellent thread https://github.com/docker/cli/issues/1134
 
 # Bring in DataHub Actions
