@@ -971,7 +971,7 @@ public class GmsGraphQLEngine {
                 .dataFetcher(
                     "listRecommendations",
                     new ListRecommendationsResolver(recommendationsService, viewService))
-                .dataFetcher("getEntityCounts", new EntityCountsResolver(this.entityClient))
+                .dataFetcher("getEntityCounts", new EntityCountsResolver(this.entityClient, viewService))
                 .dataFetcher("getAccessToken", new GetAccessTokenResolver(statefulTokenService))
                 .dataFetcher("listAccessTokens", new ListAccessTokensResolver(this.entityClient))
                 .dataFetcher(

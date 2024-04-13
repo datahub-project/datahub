@@ -82,12 +82,16 @@ public class ESSearchDAO {
   @Nullable private final CustomSearchConfiguration customSearchConfiguration;
 
   public long docCount(@Nonnull OperationContext opContext, @Nonnull String entityName) {
+    return docCount(opContext, entityName, null);
+  }
+
+  public long docCount(@Nonnull OperationContext opContext, @Nonnull String entityName, @Nullable Filter filter) {
     EntitySpec entitySpec = aspectRetriever.getEntityRegistry().getEntitySpec(entityName);
     CountRequest countRequest =
         new CountRequest(indexConvention.getIndexName(entitySpec))
             .query(
                 SearchRequestHandler.getFilterQuery(
-                    opContext, null, entitySpec.getSearchableFieldTypes(), aspectRetriever));
+                    opContext, filter, entitySpec.getSearchableFieldTypes(), aspectRetriever));
     try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "docCount").time()) {
       return client.count(countRequest, RequestOptions.DEFAULT).getCount();
     } catch (IOException e) {

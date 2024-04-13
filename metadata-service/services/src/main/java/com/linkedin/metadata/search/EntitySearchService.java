@@ -32,8 +32,13 @@ public interface EntitySearchService {
    * Get the number of documents corresponding to the entity
    *
    * @param entityName name of the entity
+   * @param filter optional filter
    */
-  long docCount(@Nonnull OperationContext opContext, @Nonnull String entityName);
+  long docCount(@Nonnull OperationContext opContext, @Nonnull String entityName, @Nullable Filter filter);
+
+  default long docCount(@Nonnull OperationContext opContext, @Nonnull String entityName) {
+    return docCount(opContext, entityName, null);
+  }
 
   /**
    * Updates or inserts the given search document.

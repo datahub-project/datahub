@@ -1,13 +1,12 @@
 package com.linkedin.datahub.graphql.resolvers.group;
 
-import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
-
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.EntityCountInput;
 import com.linkedin.datahub.graphql.generated.EntityCountResult;
 import com.linkedin.datahub.graphql.generated.EntityCountResults;
 import com.linkedin.datahub.graphql.types.entitytype.EntityTypeMapper;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.metadata.service.ViewService;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import io.opentelemetry.extension.annotations.WithSpan;
@@ -16,12 +15,17 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
+import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
+
 public class EntityCountsResolver implements DataFetcher<CompletableFuture<EntityCountResults>> {
 
   private final EntityClient _entityClient;
 
-  public EntityCountsResolver(final EntityClient entityClient) {
+  private final ViewService _viewService;
+
+  public EntityCountsResolver(final EntityClient entityClient, final ViewService viewService) {
     _entityClient = entityClient;
+    _viewService = viewService;
   }
 
   @Override
@@ -44,7 +48,8 @@ public class EntityCountsResolver implements DataFetcher<CompletableFuture<Entit
                     context.getOperationContext(),
                     input.getTypes().stream()
                         .map(EntityTypeMapper::getName)
-                        .collect(Collectors.toList()));
+                        .collect(Collectors.toList()),
+                    viewFilter(_viewService, input.getViewUrn(), context.getOperationContext().getAuthentication()));
 
             // bind to a result.
             List<EntityCountResult> resultList =

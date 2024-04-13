@@ -1,17 +1,17 @@
 package com.linkedin.datahub.graphql.resolvers;
 
-import static com.linkedin.metadata.Constants.*;
-
 import com.datahub.authentication.Authentication;
 import com.fasterxml.jackson.core.StreamReadConstraints;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.ValidationException;
 import com.linkedin.datahub.graphql.generated.AndFilterInput;
 import com.linkedin.datahub.graphql.generated.FacetFilterInput;
+import com.linkedin.datahub.graphql.resolvers.search.SearchUtils;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
@@ -20,6 +20,8 @@ import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.search.utils.QueryUtils;
+import com.linkedin.metadata.service.ViewService;
+import com.linkedin.view.DataHubViewInfo;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.Collections;
 import java.util.HashMap;
@@ -31,6 +33,9 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.*;
+import static com.linkedin.metadata.Constants.*;
 
 public class ResolverUtils {
 
@@ -225,5 +230,14 @@ public class ResolverUtils {
       return inputFilters;
     }
     return QueryUtils.newFilter(urnMatchCriterion);
+  }
+
+  public static Filter viewFilter(ViewService viewService, String viewUrn, Authentication authentication) {
+    if (viewUrn == null) {
+      return null;
+    }
+    DataHubViewInfo viewInfo = resolveView(viewService, UrnUtils.getUrn(viewUrn), authentication);
+    Filter result = SearchUtils.combineFilters(null, viewInfo.getDefinition().getFilter());
+    return result;
   }
 }
