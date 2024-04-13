@@ -88,10 +88,10 @@ jobs:
         id: publish
         env:
           ENABLE_PUBLISH: >-
-             ${{
-                github.event_name != 'pull_request'
-                && (( secrets.DOCKER_PASSWORD != '' && secrets.ACRYL_DOCKER_PASSWORD != '' ) || secrets.AWS_ECR_SECRET_ACCESS_KEY != '')
-             }}
+            ${{
+               github.event_name != 'pull_request'
+               && (( secrets.DOCKER_PASSWORD != '' && secrets.ACRYL_DOCKER_PASSWORD != '' ) || secrets.AWS_ECR_SECRET_ACCESS_KEY != '')
+            }}
         run: |
           echo "Enable publish: ${{ env.ENABLE_PUBLISH }}"
           echo "publish=${{ env.ENABLE_PUBLISH }}" >> $GITHUB_OUTPUT
@@ -99,10 +99,10 @@ jobs:
         id: pr-publish
         env:
           ENABLE_PUBLISH: >-
-             ${{
-                (github.event_name == 'pull_request' && (contains(github.event.pull_request.labels.*.name, 'publish') || contains(github.event.pull_request.labels.*.name, 'publish-docker')))
-                && (( secrets.DOCKER_PASSWORD != '' && secrets.ACRYL_DOCKER_PASSWORD != '' ) || secrets.AWS_ECR_SECRET_ACCESS_KEY != '')
-             }}
+            ${{
+               (github.event_name == 'pull_request' && (contains(github.event.pull_request.labels.*.name, 'publish') || contains(github.event.pull_request.labels.*.name, 'publish-docker')))
+               && (( secrets.DOCKER_PASSWORD != '' && secrets.ACRYL_DOCKER_PASSWORD != '' ) || secrets.AWS_ECR_SECRET_ACCESS_KEY != '')
+            }}
         run: |
           echo "Enable PR publish: ${{ env.ENABLE_PUBLISH }}"
           echo "publish=${{ env.ENABLE_PUBLISH }}" >> $GITHUB_OUTPUT
@@ -935,9 +935,9 @@ jobs:
         uses: docker/login-action@v3
         if: ${{ needs.setup.outputs.docker-login == 'true' }}
         with:
-            registry: 795586375822.dkr.ecr.us-west-2.amazonaws.com
-            username: ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
-            password: ${{ secrets.AWS_ECR_SECRET_ACCESS_KEY }}
+          registry: 795586375822.dkr.ecr.us-west-2.amazonaws.com
+          username: ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
+          password: ${{ secrets.AWS_ECR_SECRET_ACCESS_KEY }}
       - name: Disk Check
         run: df -h . && docker images
       - name: Download GMS image
@@ -1139,6 +1139,8 @@ jobs:
     steps:
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@v3
+      - name: Build codegen
+        run: ./gradlew :datahub-integrations-service:codegenPython
       - name: Download datahub-ingestion-slim image
         uses: ishworkh/docker-image-artifact-download@v1
         if: ${{ needs.datahub_ingestion_slim_build.outputs.needs_artifact_download == 'true' && needs.datahub_ingestion_slim_build.result == 'success' }}

@@ -41,7 +41,9 @@ task environmentSetup(type: Exec, dependsOn: checkPythonVersion) {
         "${venv_name}/bin/python -m pip install --upgrade pip uv wheel setuptools"
 }
 
-task installPackage(type: Exec, dependsOn: [environmentSetup, ':metadata-ingestion:codegen']) {
+task codegenPython(dependsOn: [":metadata-ingestion:codegen"])
+
+task installPackage(type: Exec, dependsOn: [environmentSetup, codegenPython]) {
     inputs.files(
         file('pyproject.toml'),
         file('scripts/sync.sh'),
@@ -117,7 +119,7 @@ openApiGenerate {
 
 }
 
-task codegen(type: Exec, dependsOn: [install]) {
+task codegen(type: Exec, dependsOn: [codegenPython, install]) {
     commandLine 'bash', '-c',
         "set -x &&" +
         "${venv_name}/bin/python ./scripts/generate_openapi_spec.py"
