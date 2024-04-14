@@ -1139,6 +1139,12 @@ jobs:
     steps:
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@v3
+      - name: Set up JDK 17
+        uses: actions/setup-java@v3
+        with:
+          distribution: "zulu"
+          java-version: 17
+      - uses: gradle/gradle-build-action@v2
       - name: Build codegen
         run: ./gradlew :datahub-integrations-service:codegenPython
       - name: Download datahub-ingestion-slim image
