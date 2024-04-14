@@ -38,11 +38,17 @@ class DatasetContainerSubTypes(str, Enum):
 
 class BIContainerSubTypes(str, Enum):
     LOOKER_FOLDER = "Folder"
+    LOOKML_PROJECT = "LookML Project"
+    LOOKML_MODEL = "LookML Model"
     TABLEAU_WORKBOOK = "Workbook"
     POWERBI_WORKSPACE = "Workspace"
     POWERBI_DATASET = "PowerBI Dataset"
     QLIK_SPACE = "Qlik Space"
     QLIK_APP = "Qlik App"
+
+
+class JobContainerSubTypes(str, Enum):
+    NIFI_PROCESS_GROUP = "Process Group"
 
 
 class BIAssetSubTypes(str, Enum):

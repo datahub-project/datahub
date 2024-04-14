@@ -16,10 +16,7 @@ import com.linkedin.metadata.graph.elastic.ElasticSearchGraphService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.query.filter.RelationshipFilter;
-import com.linkedin.metadata.query.filter.SortCriterion;
-import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.metadata.search.utils.QueryUtils;
-import com.linkedin.metadata.utils.SearchUtil;
 import io.datahubproject.openapi.exception.UnauthorizedException;
 import io.datahubproject.openapi.v2.models.GenericRelationship;
 import io.datahubproject.openapi.v2.models.GenericScrollResult;
@@ -28,7 +25,6 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -49,16 +45,6 @@ import org.springframework.web.bind.annotation.RestController;
     name = "Generic Relationships",
     description = "APIs for ingesting and accessing entity relationships.")
 public class RelationshipController {
-  private static final String[] SORT_ORDERS = {"ASCENDING", "ASCENDING", "ASCENDING", "ASCENDING"};
-  private static final List<SortCriterion> EDGE_SORT_CRITERION;
-
-  static {
-    EDGE_SORT_CRITERION =
-        IntStream.range(0, Edge.KEY_FIELDS.length)
-            .mapToObj(
-                idx -> SearchUtil.sortBy(Edge.KEY_FIELDS[idx], SortOrder.valueOf(SORT_ORDERS[idx])))
-            .collect(Collectors.toList());
-  }
 
   @Autowired private EntityRegistry entityRegistry;
   @Autowired private ElasticSearchGraphService graphService;
@@ -97,7 +83,7 @@ public class RelationshipController {
             null,
             List.of(relationshipType),
             new RelationshipFilter().setDirection(RelationshipDirection.UNDIRECTED),
-            EDGE_SORT_CRITERION,
+            Edge.EDGE_SORT_CRITERION,
             scrollId,
             count,
             null,
@@ -180,7 +166,7 @@ public class RelationshipController {
               new RelationshipFilter()
                   .setDirection(RelationshipDirection.UNDIRECTED)
                   .setOr(QueryUtils.newFilter("destination.urn", entityUrn).getOr()),
-              EDGE_SORT_CRITERION,
+              Edge.EDGE_SORT_CRITERION,
               scrollId,
               count,
               null,
@@ -197,7 +183,7 @@ public class RelationshipController {
               new RelationshipFilter()
                   .setDirection(RelationshipDirection.UNDIRECTED)
                   .setOr(QueryUtils.newFilter("source.urn", entityUrn).getOr()),
-              EDGE_SORT_CRITERION,
+              Edge.EDGE_SORT_CRITERION,
               scrollId,
               count,
               null,

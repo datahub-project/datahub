@@ -18,6 +18,13 @@ source:
     stateful_ingestion:
       enabled: true
       ignore_old_state: false
+    urn_pattern:
+    deny:
+      # Ignores all datahub metadata where the urn matches the regex
+      - ^denied.urn.*
+    allow:
+      # Ingests all datahub metadata where the urn matches the regex.
+      - ^allowed.urn.*
   extractor_config:
     set_system_metadata: false # Replicate system metadata
 

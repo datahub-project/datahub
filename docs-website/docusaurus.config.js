@@ -51,7 +51,7 @@ module.exports = {
       announcementBar: {
         id: "announcement",
         content:
-          '<div><img src="/img/acryl-logo-white-mark.svg" /><p><strong>Managed DataHub</strong><span> &nbsp;Acryl Data delivers an easy to consume DataHub platform for the enterprise</span></p></div> <a href="https://www.acryldata.io/datahub-sign-up?utm_source=datahub&utm_medium=referral&utm_campaign=acryl_signup" target="_blank" class="button button--primary">Sign up for Managed DataHub&nbsp;→</a>',
+          '<div><img src="/img/acryl-logo-white-mark.svg" /><p><strong>Acryl DataHub</strong><span> &nbsp;Acryl Data delivers an easy to consume DataHub platform for the enterprise</span></p></div> <a href="https://www.acryldata.io/datahub-sign-up?utm_source=datahub&utm_medium=referral&utm_campaign=acryl_signup" target="_blank" class="button button--primary">Sign Up for Acryl DataHub&nbsp;→</a>',
         backgroundColor: "#070707",
         textColor: "#ffffff",
         isCloseable: false,
@@ -85,6 +85,10 @@ module.exports = {
             {
               to: "/slack",
               label: "Join Slack",
+            },
+            {
+              href: "https://forum.datahubproject.io/",
+              label: "Community Forum",
             },
             {
               to: "/events",

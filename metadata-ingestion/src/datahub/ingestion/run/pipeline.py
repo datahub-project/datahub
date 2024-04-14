@@ -39,6 +39,7 @@ from datahub.ingestion.source.source_registry import source_registry
 from datahub.ingestion.transformer.transform_registry import transform_registry
 from datahub.metadata.schema_classes import MetadataChangeProposalClass
 from datahub.telemetry import stats, telemetry
+from datahub.utilities._custom_package_loader import model_version_name
 from datahub.utilities.global_warning_util import (
     clear_global_warnings,
     get_global_warnings,
@@ -127,6 +128,7 @@ def _add_init_error_context(step: str) -> Iterator[None]:
 class CliReport(Report):
     cli_version: str = datahub.nice_version_name()
     cli_entry_location: str = datahub.__file__
+    models_version: str = model_version_name()
     py_version: str = sys.version
     py_exec_path: str = sys.executable
     os_details: str = platform.platform()

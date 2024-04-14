@@ -6,6 +6,7 @@ import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.metadata.authorization.ApiOperation.UPDATE;
 
 import com.codahale.metrics.MetricRegistry;
+import com.codahale.metrics.Timer;
 import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authorization.EntitySpec;
 import com.datahub.plugins.auth.authorization.Authorizer;
@@ -34,6 +35,7 @@ import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.restli.RestliUtil;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.timeseries.transformer.TimeseriesAspectTransformer;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.parseq.Task;
 import com.linkedin.restli.common.HttpStatus;
 import com.linkedin.restli.server.RestLiServiceException;
@@ -66,6 +68,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import java.util.concurrent.TimeUnit;
 import javax.annotation.Nonnull;
 import javax.inject.Inject;
 import javax.inject.Named;
@@ -369,7 +372,9 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
       @ActionParam(PARAM_END_TIME) @com.linkedin.restli.server.annotations.Optional Long endTime,
       @ActionParam(PARAM_MAX_BUCKETS) @com.linkedin.restli.server.annotations.Optional
           Integer maxBuckets) {
-    log.info("Attempting to query usage stats");
+    log.info(
+        "Querying usage stats for resource: {}, duration: {}, start time: {}, end time: {}, max buckets: {}",
+        resource, duration, startTime, endTime, maxBuckets);
     return RestliUtil.toTask(
         () -> {
 
@@ -409,11 +414,20 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
               new ConjunctiveCriterionArray(
                   new ConjunctiveCriterion().setAnd(new CriterionArray(criteria))));
 
+          Timer.Context timer;
+          long took;
+
           // 2. Get buckets.
+          timer = MetricUtils.timer(this.getClass(), "getBuckets").time();
           UsageAggregationArray buckets = getBuckets(filter, resource, duration);
+          took = timer.stop();
+          log.info("Usage stats for resource {} returned {} buckets in {} ms", resource, buckets.size(), TimeUnit.NANOSECONDS.toMillis(took));
 
           // 3. Get aggregations.
+          timer = MetricUtils.timer(this.getClass(), "getAggregations").time();
           UsageQueryResultAggregations aggregations = getAggregations(filter);
+          took = timer.stop();
+          log.info("Usage stats aggregation for resource {} took {} ms", resource, TimeUnit.NANOSECONDS.toMillis(took));
 
           // 4. Compute totalSqlQuery count from the buckets itself.
           // We want to avoid issuing an additional query with a sum aggregation.

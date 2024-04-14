@@ -99,7 +99,7 @@ usage_common = {
 sqlglot_lib = {
     # Using an Acryl fork of sqlglot.
     # https://github.com/tobymao/sqlglot/compare/main...hsheth2:sqlglot:hsheth?expand=1
-    "acryl-sqlglot==22.4.1.dev4",
+    "acryl-sqlglot==23.2.1.dev5",
 }
 
 classification_lib = {
@@ -230,6 +230,11 @@ iceberg_common = {
     *pydantic_no_v2,
 }
 
+postgres_common = {
+    "psycopg2-binary",
+    "GeoAlchemy2",
+}
+
 s3_base = {
     *aws_common,
     "more-itertools>=8.12.0",
@@ -266,6 +271,9 @@ databricks = {
     # Version 2.4.0 includes sqlalchemy dialect, 2.8.0 includes some bug fixes
     # Version 3.0.0 required SQLAlchemy > 2.0.21
     "databricks-sql-connector>=2.8.0,<3.0.0",
+    # Due to https://github.com/databricks/databricks-sql-python/issues/326
+    # databricks-sql-connector<3.0.0 requires pandas<2.2.0
+    "pandas<2.2.0",
 }
 
 mysql = sql_common | {"pymysql>=1.0.2"}
@@ -308,13 +316,14 @@ plugins: Dict[str, Set[str]] = {
     | classification_lib,
     "clickhouse": sql_common | clickhouse_common,
     "clickhouse-usage": sql_common | usage_common | clickhouse_common,
+    "cockroachdb": sql_common | postgres_common | {"sqlalchemy-cockroachdb<2.0.0"},
     "datahub-lineage-file": set(),
     "datahub-business-glossary": set(),
     "delta-lake": {*data_lake_profiling, *delta_lake},
     "dbt": {"requests"} | sqlglot_lib | aws_common,
     "dbt-cloud": {"requests"} | sqlglot_lib,
     "druid": sql_common | {"pydruid>=0.6.2"},
-    "dynamodb": aws_common,
+    "dynamodb": aws_common | classification_lib,
     # Starting with 7.14.0 python client is checking if it is connected to elasticsearch client. If its not it throws
     # UnsupportedProductError
     # https://www.elastic.co/guide/en/elasticsearch/client/python-api/current/release-notes.html#rn-7-14-0
@@ -349,7 +358,7 @@ plugins: Dict[str, Set[str]] = {
     "lookml": looker_common,
     "metabase": {"requests"} | sqlglot_lib,
     "mlflow": {"mlflow-skinny>=2.3.0"},
-    "mode": {"requests", "tenacity>=8.0.1"} | sqllineage_lib,
+    "mode": {"requests", "tenacity>=8.0.1"} | sqllineage_lib | sqlglot_lib,
     "mongodb": {"pymongo[srv]>=3.11", "packaging"},
     "mssql": sql_common
     | {
@@ -362,7 +371,7 @@ plugins: Dict[str, Set[str]] = {
     "mariadb": sql_common | {"pymysql>=1.0.2"},
     "okta": {"okta~=1.7.0", "nest-asyncio"},
     "oracle": sql_common | {"cx_Oracle"},
-    "postgres": sql_common | {"psycopg2-binary", "GeoAlchemy2"},
+    "postgres": sql_common | postgres_common,
     "presto": sql_common | pyhive_common | trino,
     "presto-on-hive": sql_common
     | pyhive_common
@@ -502,6 +511,7 @@ base_dev_requirements = {
             "bigquery",
             "clickhouse",
             "clickhouse-usage",
+            "cockroachdb",
             "delta-lake",
             "druid",
             "elasticsearch",
@@ -593,6 +603,7 @@ entry_points = {
         "bigquery = datahub.ingestion.source.bigquery_v2.bigquery:BigqueryV2Source",
         "clickhouse = datahub.ingestion.source.sql.clickhouse:ClickHouseSource",
         "clickhouse-usage = datahub.ingestion.source.usage.clickhouse_usage:ClickHouseUsageSource",
+        "cockroachdb = datahub.ingestion.source.sql.cockroachdb:CockroachDBSource",
         "delta-lake = datahub.ingestion.source.delta_lake:DeltaLakeSource",
         "s3 = datahub.ingestion.source.s3:S3Source",
         "dbt = datahub.ingestion.source.dbt.dbt_core:DBTCoreSource",

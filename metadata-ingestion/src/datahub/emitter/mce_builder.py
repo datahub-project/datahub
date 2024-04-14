@@ -246,6 +246,10 @@ def make_owner_urn(owner: str, owner_type: OwnerType) -> str:
     return f"urn:li:{owner_type.value}:{owner}"
 
 
+def make_ownership_type_urn(type: str) -> str:
+    return f"urn:li:ownershipType:{type}"
+
+
 def make_term_urn(term: str) -> str:
     """
     Makes a term urn if the input is not a term urn already

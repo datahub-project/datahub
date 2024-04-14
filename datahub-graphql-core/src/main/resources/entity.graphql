@@ -1379,6 +1379,10 @@ type LineageRelationship {
     """
     isManual: Boolean
 
+    """
+    The paths traversed for this relationship
+    """
+    paths: [EntityPath]
 }
 
 """
@@ -1764,6 +1768,7 @@ type Role implements Entity {
     """
     actors: Actor
 
+    isAssignedToMe: Boolean!
 
 }
 
