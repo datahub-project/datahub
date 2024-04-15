@@ -397,9 +397,12 @@ class ModeSource(StatefulIngestionSourceBase):
     def _get_space_name_and_tokens(self) -> dict:
         space_info = {}
         try:
+            logger.debug(f"Retrieving spaces for {self.workspace_uri}")
             payload = self._get_request_json(f"{self.workspace_uri}/spaces")
             spaces = payload.get("_embedded", {}).get("spaces", {})
-
+            logger.debug(
+                f"Got {len(spaces)} spaces from workspace {self.workspace_uri}"
+            )
             for s in spaces:
                 logger.debug(f"Space: {s.get('name')}")
                 space_info[s.get("token", "")] = s.get("name", "")
