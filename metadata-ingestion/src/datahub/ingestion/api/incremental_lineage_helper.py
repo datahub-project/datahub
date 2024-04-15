@@ -1,4 +1,4 @@
-from typing import Iterable, Optional
+from typing import Iterable, Optional, Union
 
 from pydantic.fields import Field
 
@@ -6,11 +6,15 @@ from datahub.configuration.common import ConfigModel
 from datahub.emitter.mce_builder import datahub_guid, set_aspect
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.schema_classes import (
+    ChartInfoClass,
+    DashboardInfoClass,
     FineGrainedLineageClass,
     MetadataChangeEventClass,
     SystemMetadataClass,
     UpstreamLineageClass,
 )
+from datahub.specific.chart import ChartPatchBuilder
+from datahub.specific.dashboard import DashboardPatchBuilder
 from datahub.specific.dataset import DatasetPatchBuilder
 
 
@@ -26,6 +30,62 @@ def convert_upstream_lineage_to_patch(
         patch_builder.add_fine_grained_upstream_lineage(fine_upstream)
     mcp = next(iter(patch_builder.build()))
     return MetadataWorkUnit(id=MetadataWorkUnit.generate_workunit_id(mcp), mcp_raw=mcp)
+
+
+def convert_chart_info_to_patch(
+    urn: str, aspect: ChartInfoClass, system_metadata: Optional[SystemMetadataClass]
+) -> Union[MetadataWorkUnit, None]:
+    patch_builder = ChartPatchBuilder(urn, system_metadata)
+
+    if aspect.customProperties:
+        for key in aspect.customProperties:
+            patch_builder.add_custom_property(
+                key, str(aspect.customProperties.get(key))
+            )
+
+    if aspect.inputEdges:
+        for inputEdge in aspect.inputEdges:
+            patch_builder.add_input_edge(inputEdge)
+
+    values = patch_builder.build()
+
+    if values:
+        mcp = next(iter(values))
+        return MetadataWorkUnit(
+            id=MetadataWorkUnit.generate_workunit_id(mcp), mcp_raw=mcp
+        )
+    else:
+        return None
+
+
+def convert_dashboard_info_to_patch(
+    urn: str, aspect: DashboardInfoClass, system_metadata: Optional[SystemMetadataClass]
+) -> Union[MetadataWorkUnit, None]:
+    patch_builder = DashboardPatchBuilder(urn, system_metadata)
+
+    if aspect.customProperties:
+        for key in aspect.customProperties:
+            patch_builder.add_custom_property(
+                key, str(aspect.customProperties.get(key))
+            )
+
+    if aspect.datasetEdges:
+        for datasetEdge in aspect.datasetEdges:
+            patch_builder.add_dataset_edge(datasetEdge)
+
+    if aspect.chartEdges:
+        for chartEdge in aspect.chartEdges:
+            patch_builder.add_chart_edge(chartEdge)
+
+    values = patch_builder.build()
+
+    if values:
+        mcp = next(iter(values))
+        return MetadataWorkUnit(
+            id=MetadataWorkUnit.generate_workunit_id(mcp), mcp_raw=mcp
+        )
+    else:
+        return None
 
 
 def get_fine_grained_lineage_key(fine_upstream: FineGrainedLineageClass) -> str:
