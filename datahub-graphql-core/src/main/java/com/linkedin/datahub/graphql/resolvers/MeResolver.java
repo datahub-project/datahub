@@ -15,6 +15,7 @@ import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.datahub.graphql.generated.AuthenticatedUser;
 import com.linkedin.datahub.graphql.generated.CorpUser;
 import com.linkedin.datahub.graphql.generated.PlatformPrivileges;
+import com.linkedin.datahub.graphql.resolvers.businessattribute.BusinessAttributeAuthorizationUtils;
 import com.linkedin.datahub.graphql.types.corpuser.mappers.CorpUserMapper;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
@@ -86,7 +87,10 @@ public class MeResolver implements DataFetcher<CompletableFuture<AuthenticatedUs
                 AuthorizationUtils.canManageOwnershipTypes(context));
             platformPrivileges.setManageGlobalAnnouncements(
                 AuthorizationUtils.canManageGlobalAnnouncements(context));
-
+            platformPrivileges.setCreateBusinessAttributes(
+                BusinessAttributeAuthorizationUtils.canCreateBusinessAttribute(context));
+            platformPrivileges.setManageBusinessAttributes(
+                BusinessAttributeAuthorizationUtils.canManageBusinessAttribute(context));
             // Construct and return authenticated user object.
             final AuthenticatedUser authUser = new AuthenticatedUser();
             authUser.setCorpUser(corpUser);
