@@ -1,6 +1,6 @@
 import Icon from '@ant-design/icons/lib/components/Icon';
 import React from 'react';
-import { ReactComponent as DomainsIcon } from '../../images/domain.svg';
+import DomainsIcon from '../../images/domain.svg?react';
 
 type Props = {
     style?: React.CSSProperties;

@@ -17,7 +17,8 @@ public class Features {
   public enum Name {
     SEARCH_BACKEND_SCORE, // Score returned by search backend
     NUM_ENTITIES_PER_TYPE, // Number of entities per entity type
-    RANK_WITHIN_TYPE; // Rank within the entity type
+    RANK_WITHIN_TYPE,
+    ONLY_MATCH_CUSTOM_PROPERTIES; // Rank within the entity type
   }
 
   public Double getNumericFeature(Name featureName, double defaultValue) {

@@ -1,0 +1,87 @@
+name: 'Identify CI Optimizations'
+description: 'Determine if code changes are specific to certain modules.'
+
+outputs:
+  frontend-only:
+    description: "Frontend only change"
+    value: ${{ steps.filter.outputs.frontend == 'true' && steps.filter.outputs.ingestion == 'false' && steps.filter.outputs.backend == 'false' }}
+  ingestion-only:
+    description: "Ingestion only change"
+    value: ${{ steps.filter.outputs.frontend == 'false' && steps.filter.outputs.ingestion == 'true' && steps.filter.outputs.backend == 'false' }}
+  backend-only:
+    description: "Backend only change"
+    value: ${{ steps.filter.outputs.frontend == 'false' && steps.filter.outputs.ingestion == 'false' && steps.filter.outputs.backend == 'true' }}
+  backend-change:
+    description: "Backend code has changed"
+    value: ${{ steps.filter.outputs.backend == 'true' }}
+  ingestion-change:
+    description: "Ingestion code has changed"
+    value: ${{ steps.filter.outputs.ingestion == 'true' }}
+  frontend-change:
+    description: "Frontend code has changed"
+    value: ${{ steps.filter.outputs.frontend == 'true' }}
+  docker-change:
+    description: "Docker code has changed"
+    value: ${{ steps.filter.outputs.docker == 'true' }}
+  kafka-setup-change:
+    description: "Kafka setup docker change"
+    value: ${{ steps.filter.outputs.kafka-setup == 'true' }}
+  mysql-setup-change:
+    description: "Mysql setup docker change"
+    value: ${{ steps.filter.outputs.mysql-setup == 'true' }}
+  postgres-setup-change:
+    description: "Postgres setup docker change"
+    value: ${{ steps.filter.outputs.postgres-setup == 'true' }}
+  elasticsearch-setup-change:
+    description: "Elasticsearch setup docker change"
+    value: ${{ steps.filter.outputs.elasticsearch-setup == 'true' }}
+  smoke-test-change:
+    description: "Smoke test change"
+    value: ${{ steps.filter.outputs.smoke-test == 'true' }}
+runs:
+  using: "composite"
+  steps:
+    - uses: dorny/paths-filter@v2
+      id: filter
+      with:
+        filters: |
+          frontend:
+            - "datahub-frontend/**"
+            - "datahub-web-react/**"
+            - "smoke-test/tests/cypress/**"
+            - "docker/datahub-frontend/**"
+          ingestion:
+            - "metadata-ingestion-modules/**"
+            - "metadata-ingestion/**"
+            - "metadata-models/**"
+            - "smoke-test/**"
+            - "docker/datahub-ingestion**"
+          docker:
+            - "docker/**"
+          backend:
+            - ".github/**"
+            - "metadata-models/**"
+            - "datahub-upgrade/**"
+            - "entity-registry/**"
+            - "li-utils/**"
+            - "metadata-auth/**"
+            - "metadata-dao-impl/**"
+            - "metadata-events/**"
+            - "metadata-io/**"
+            - "metadata-jobs/**"
+            - "metadata-service/**"
+            - "metadata-utils/**"
+            - "metadata-operation-context/**"
+            - "datahub-graphql-core/**"
+            - "smoke-test/**"
+            - "docker/**"
+          kafka-setup:
+            - "docker/kafka-setup/**"
+          mysql-setup:
+            - "docker/mysql-setup/**"
+          postgres-setup:
+            - "docker/postgres-setup/**"
+          elasticsearch-setup:
+            - "docker/elasticsearch-setup/**"
+          smoke-test:
+            - "smoke-test/**"

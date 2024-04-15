@@ -1,0 +1,45 @@
+{
+    "query_type": "CREATE_TABLE_AS_SELECT",
+    "query_type_props": {
+        "kind": "TABLE"
+    },
+    "query_fingerprint": "93a463cd97acfcf1bf0a57a087596771f72d65e013f856a9d8c17c81b6439a2f",
+    "in_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:redshift,my_db.public.permanent_1,PROD)"
+    ],
+    "out_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:redshift,my_db.pg_automv.mv_tbl__auto_mv_12708107__0_recomputed,PROD)"
+    ],
+    "column_lineage": [
+        {
+            "downstream": {
+                "table": "urn:li:dataset:(urn:li:dataPlatform:redshift,my_db.pg_automv.mv_tbl__auto_mv_12708107__0_recomputed,PROD)",
+                "column": "aggvar_3",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                },
+                "native_column_type": "BIGINT"
+            },
+            "upstreams": []
+        },
+        {
+            "downstream": {
+                "table": "urn:li:dataset:(urn:li:dataPlatform:redshift,my_db.pg_automv.mv_tbl__auto_mv_12708107__0_recomputed,PROD)",
+                "column": "num_rec",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                },
+                "native_column_type": "BIGINT"
+            },
+            "upstreams": []
+        }
+    ],
+    "debug_info": {
+        "confidence": 0.2,
+        "generalized_statement": "CREATE TABLE \"pg_automv\".\"mv_tbl__auto_mv_12708107__0_recomputed\" AS (SELECT COUNT(CAST(? AS INTEGER)) AS \"aggvar_3\", COUNT(CAST(? AS INTEGER)) AS \"num_rec\" FROM \"public\".\"permanent_1\" AS \"permanent_1\" WHERE ((CAST(\"permanent_1\".\"insertxid\" AS SMALLINT) <= ?) AND (CAST(\"permanent_1\".\"deletexid\" AS SMALLINT) > ?)) OR (CAST(FALSE AS BOOLEAN) AND (CAST(\"permanent_1\".\"insertxid\" AS SMALLINT) = ?) AND (CAST(\"permanent_1\".\"deletexid\" AS SMALLINT) <> ?)))"
+    }
+}

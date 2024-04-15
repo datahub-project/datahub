@@ -2,14 +2,14 @@ package datahub.protobuf.model;
 
 import static datahub.protobuf.TestFixtures.getTestProtobufFileSet;
 import static datahub.protobuf.TestFixtures.getTestProtobufGraph;
-import static org.junit.jupiter.api.Assertions.*;
+import static org.testng.Assert.*;
 
 import com.google.protobuf.DescriptorProtos.FileDescriptorSet;
 import java.io.IOException;
 import java.util.HashSet;
 import java.util.List;
 import java.util.stream.Collectors;
-import org.junit.jupiter.api.Test;
+import org.testng.annotations.Test;
 
 public class ProtobufGraphTest {
 

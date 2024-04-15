@@ -3,6 +3,7 @@ package com.linkedin.datahub.graphql.resolvers.container;
 import static com.linkedin.metadata.Constants.CONTAINER_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.CONTAINER_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.CONTAINER_PROPERTIES_ASPECT_NAME;
+import static org.mockito.Mockito.mock;
 import static org.testng.Assert.*;
 
 import com.datahub.authentication.Authentication;
@@ -18,7 +19,9 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.metadata.models.registry.EntityRegistry;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -31,6 +34,9 @@ public class ParentContainersResolverTest {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     QueryContext mockContext = Mockito.mock(QueryContext.class);
     Mockito.when(mockContext.getAuthentication()).thenReturn(Mockito.mock(Authentication.class));
+    Mockito.when(mockContext.getOperationContext())
+        .thenReturn(
+            TestOperationContexts.userContextNoSearchAuthorization(mock(EntityRegistry.class)));
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 

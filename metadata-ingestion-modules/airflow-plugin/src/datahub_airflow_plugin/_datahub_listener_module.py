@@ -29,6 +29,6 @@ if _listener:
     if hasattr(_listener, "on_dag_run_running"):
 
         @hookimpl
-        def on_dag_run_running(dag_run, session):
+        def on_dag_run_running(dag_run, msg):
             assert _listener
-            _listener.on_dag_run_running(dag_run, session)
+            _listener.on_dag_run_running(dag_run, msg)

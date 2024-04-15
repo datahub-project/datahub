@@ -70,7 +70,9 @@ export const SelectTemplateStep = ({ state, updateState, goTo, cancel, ingestion
     };
 
     const filteredSources = ingestionSources.filter(
-        (source) => source.displayName.includes(searchFilter) || source.name.includes(searchFilter),
+        (source) =>
+            source.displayName.toLocaleLowerCase().includes(searchFilter.toLocaleLowerCase()) ||
+            source.name.toLocaleLowerCase().includes(searchFilter.toLocaleLowerCase()),
     );
 
     return (

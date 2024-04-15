@@ -46,7 +46,7 @@ public class RestoreDbtSiblingsIndices implements BootstrapStep {
   private static final Integer BATCH_SIZE = 1000;
   private static final Integer SLEEP_SECONDS = 120;
 
-  private final EntityService _entityService;
+  private final EntityService<?> _entityService;
   private final EntityRegistry _entityRegistry;
 
   @Override

@@ -1,0 +1,106 @@
+{
+  "type": "record",
+  "Aspect": {
+    "name": "structuredProperties"
+  },
+  "name": "StructuredProperties",
+  "namespace": "com.linkedin.pegasus2avro.structured",
+  "fields": [
+    {
+      "type": {
+        "type": "array",
+        "items": {
+          "type": "record",
+          "name": "StructuredPropertyValueAssignment",
+          "namespace": "com.linkedin.pegasus2avro.structured",
+          "fields": [
+            {
+              "java": {
+                "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+              },
+              "type": "string",
+              "name": "propertyUrn",
+              "doc": "The property that is being assigned a value.",
+              "Urn": "Urn"
+            },
+            {
+              "type": {
+                "type": "array",
+                "items": [
+                  "string",
+                  "double"
+                ]
+              },
+              "name": "values",
+              "doc": "The value assigned to the property."
+            },
+            {
+              "type": [
+                "null",
+                {
+                  "type": "record",
+                  "name": "AuditStamp",
+                  "namespace": "com.linkedin.pegasus2avro.common",
+                  "fields": [
+                    {
+                      "type": "long",
+                      "name": "time",
+                      "doc": "When did the resource/association/sub-resource move into the specific lifecycle stage represented by this AuditEvent."
+                    },
+                    {
+                      "java": {
+                        "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+                      },
+                      "type": "string",
+                      "name": "actor",
+                      "doc": "The entity (e.g. a member URN) which will be credited for moving the resource/association/sub-resource into the specific lifecycle stage. It is also the one used to authorize the change.",
+                      "Urn": "Urn"
+                    },
+                    {
+                      "java": {
+                        "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+                      },
+                      "type": [
+                        "null",
+                        "string"
+                      ],
+                      "name": "impersonator",
+                      "default": null,
+                      "doc": "The entity (e.g. a service URN) which performs the change on behalf of the Actor and must be authorized to act as the Actor.",
+                      "Urn": "Urn"
+                    },
+                    {
+                      "type": [
+                        "null",
+                        "string"
+                      ],
+                      "name": "message",
+                      "default": null,
+                      "doc": "Additional context around how DataHub was informed of the particular change. For example: was the change created by an automated process, or manually."
+                    }
+                  ],
+                  "doc": "Data captured on a resource/association/sub-resource level giving insight into when that resource/association/sub-resource moved into a particular lifecycle stage, and who acted to move it into that specific lifecycle stage."
+                }
+              ],
+              "name": "created",
+              "default": null,
+              "doc": "Audit stamp containing who created this relationship edge and when"
+            },
+            {
+              "type": [
+                "null",
+                "com.linkedin.pegasus2avro.common.AuditStamp"
+              ],
+              "name": "lastModified",
+              "default": null,
+              "doc": "Audit stamp containing who last modified this relationship edge and when"
+            }
+          ]
+        }
+      },
+      "name": "properties",
+      "doc": "Custom property bag."
+    }
+  ],
+  "doc": "Properties about an entity governed by StructuredPropertyDefinition"
+}

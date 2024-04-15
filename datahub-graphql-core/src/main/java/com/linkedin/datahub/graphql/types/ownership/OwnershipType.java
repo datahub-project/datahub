@@ -69,7 +69,7 @@ public class OwnershipType
                   gmsResult == null
                       ? null
                       : DataFetcherResult.<OwnershipTypeEntity>newResult()
-                          .data(OwnershipTypeMapper.map(gmsResult))
+                          .data(OwnershipTypeMapper.map(context, gmsResult))
                           .build())
           .collect(Collectors.toList());
     } catch (Exception e) {

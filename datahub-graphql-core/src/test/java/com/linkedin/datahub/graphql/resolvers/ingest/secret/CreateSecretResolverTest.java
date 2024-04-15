@@ -13,12 +13,12 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.key.DataHubSecretKey;
-import com.linkedin.metadata.secret.SecretService;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.secret.DataHubSecretValue;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.services.SecretService;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
 

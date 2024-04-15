@@ -3,6 +3,7 @@ package com.linkedin.datahub.graphql.resolvers.glossary;
 import static com.linkedin.datahub.graphql.TestUtils.getMockAllowContext;
 import static com.linkedin.datahub.graphql.TestUtils.getMockEntityService;
 import static com.linkedin.metadata.Constants.*;
+import static org.mockito.ArgumentMatchers.any;
 import static org.testng.Assert.assertThrows;
 
 import com.datahub.authentication.Authentication;
@@ -127,12 +128,12 @@ public class CreateGlossaryTermResolverTest {
 
     Mockito.when(
             mockClient.filter(
+                any(),
                 Mockito.eq(GLOSSARY_TERM_ENTITY_NAME),
                 Mockito.any(),
                 Mockito.eq(null),
                 Mockito.eq(0),
-                Mockito.eq(1000),
-                Mockito.any()))
+                Mockito.eq(1000)))
         .thenReturn(
             new SearchResult()
                 .setEntities(
@@ -177,12 +178,12 @@ public class CreateGlossaryTermResolverTest {
 
     Mockito.when(
             mockClient.filter(
+                any(),
                 Mockito.eq(GLOSSARY_TERM_ENTITY_NAME),
                 Mockito.any(),
                 Mockito.eq(null),
                 Mockito.eq(0),
-                Mockito.eq(1000),
-                Mockito.any()))
+                Mockito.eq(1000)))
         .thenReturn(new SearchResult().setEntities(new SearchEntityArray()));
     Mockito.when(
             mockClient.batchGetV2(

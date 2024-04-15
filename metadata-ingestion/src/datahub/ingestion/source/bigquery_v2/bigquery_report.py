@@ -7,6 +7,7 @@ from typing import Counter, Dict, List, Optional
 import pydantic
 
 from datahub.ingestion.api.report import Report
+from datahub.ingestion.glossary.classification_mixin import ClassificationReportMixin
 from datahub.ingestion.source.sql.sql_generic_profiler import ProfilingSqlReport
 from datahub.ingestion.source_report.ingestion_stage import IngestionStageReport
 from datahub.ingestion.source_report.time_window import BaseTimeWindowReport
@@ -25,6 +26,7 @@ class BigQuerySchemaApiPerfReport(Report):
     get_tables_for_dataset: PerfTimer = field(default_factory=PerfTimer)
     list_tables: PerfTimer = field(default_factory=PerfTimer)
     get_views_for_dataset: PerfTimer = field(default_factory=PerfTimer)
+    get_snapshots_for_dataset: PerfTimer = field(default_factory=PerfTimer)
 
 
 @dataclass
@@ -34,7 +36,19 @@ class BigQueryAuditLogApiPerfReport(Report):
 
 
 @dataclass
-class BigQueryV2Report(ProfilingSqlReport, IngestionStageReport, BaseTimeWindowReport):
+class BigQueryProcessingPerfReport(Report):
+    sql_parsing_sec: PerfTimer = field(default_factory=PerfTimer)
+    store_usage_event_sec: PerfTimer = field(default_factory=PerfTimer)
+    usage_state_size: Optional[str] = None
+
+
+@dataclass
+class BigQueryV2Report(
+    ProfilingSqlReport,
+    IngestionStageReport,
+    BaseTimeWindowReport,
+    ClassificationReportMixin,
+):
     num_total_lineage_entries: TopKDict[str, int] = field(default_factory=TopKDict)
     num_skipped_lineage_entries_missing_data: TopKDict[str, int] = field(
         default_factory=int_top_k_dict
@@ -112,6 +126,8 @@ class BigQueryV2Report(ProfilingSqlReport, IngestionStageReport, BaseTimeWindowR
     num_usage_query_hash_collisions: int = 0
     num_operational_stats_workunits_emitted: int = 0
 
+    snapshots_scanned: int = 0
+
     num_view_definitions_parsed: int = 0
     num_view_definitions_failed_parsing: int = 0
     num_view_definitions_failed_column_parsing: int = 0
@@ -120,8 +136,6 @@ class BigQueryV2Report(ProfilingSqlReport, IngestionStageReport, BaseTimeWindowR
     read_reasons_stat: Counter[str] = field(default_factory=collections.Counter)
     operation_types_stat: Counter[str] = field(default_factory=collections.Counter)
 
-    usage_state_size: Optional[str] = None
-
     exclude_empty_projects: Optional[bool] = None
 
     schema_api_perf: BigQuerySchemaApiPerfReport = field(
@@ -129,6 +143,9 @@ class BigQueryV2Report(ProfilingSqlReport, IngestionStageReport, BaseTimeWindowR
     )
     audit_log_api_perf: BigQueryAuditLogApiPerfReport = field(
         default_factory=BigQueryAuditLogApiPerfReport
+    )
+    processing_perf: BigQueryProcessingPerfReport = field(
+        default_factory=BigQueryProcessingPerfReport
     )
 
     lineage_start_time: Optional[datetime] = None

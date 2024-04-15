@@ -17,14 +17,17 @@ import com.linkedin.metadata.graph.LineageDirection;
 import com.linkedin.metadata.graph.LineageRelationship;
 import com.linkedin.metadata.graph.LineageRelationshipArray;
 import com.linkedin.metadata.graph.RelatedEntitiesResult;
+import com.linkedin.metadata.graph.RelatedEntitiesScrollResult;
 import com.linkedin.metadata.graph.RelatedEntity;
 import com.linkedin.metadata.models.registry.LineageRegistry;
+import com.linkedin.metadata.query.LineageFlags;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.query.filter.RelationshipFilter;
+import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.util.Pair;
 import io.opentelemetry.extension.annotations.WithSpan;
@@ -263,7 +266,7 @@ public class Neo4jGraphService implements GraphService {
       int offset,
       int count,
       int maxHops) {
-    return getLineage(entityUrn, direction, graphFilters, offset, count, maxHops, null, null);
+    return getLineage(entityUrn, direction, graphFilters, offset, count, maxHops, null);
   }
 
   @Nonnull
@@ -275,13 +278,12 @@ public class Neo4jGraphService implements GraphService {
       int offset,
       int count,
       int maxHops,
-      @Nullable Long startTimeMillis,
-      @Nullable Long endTimeMillis) {
+      @Nullable LineageFlags lineageFlags) {
     log.debug(String.format("Neo4j getLineage maxHops = %d", maxHops));
 
     final var statementAndParams =
         generateLineageStatementAndParameters(
-            entityUrn, direction, graphFilters, maxHops, startTimeMillis, endTimeMillis);
+            entityUrn, direction, graphFilters, maxHops, lineageFlags);
 
     final var statement = statementAndParams.getFirst();
     final var parameters = statementAndParams.getSecond();
@@ -370,8 +372,7 @@ public class Neo4jGraphService implements GraphService {
       @Nonnull LineageDirection direction,
       GraphFilters graphFilters,
       int maxHops,
-      @Nullable Long startTimeMillis,
-      @Nullable Long endTimeMillis) {
+      @Nullable LineageFlags lineageFlags) {
 
     final var parameterMap =
         new HashMap<String, Object>(
@@ -383,7 +384,8 @@ public class Neo4jGraphService implements GraphService {
                         graphFilters.getAllowedEntityTypes(), direction),
                 "maxHops", maxHops));
 
-    if (startTimeMillis == null && endTimeMillis == null) {
+    if (lineageFlags == null
+        || (lineageFlags.getStartTimeMillis() == null && lineageFlags.getEndTimeMillis() == null)) {
       // if no time filtering required, simply find all expansion paths to other nodes
       final var statement =
           "MATCH (a {urn: $urn}) "
@@ -432,8 +434,8 @@ public class Neo4jGraphService implements GraphService {
               + "(b)) "
               + "WHERE a <> b "
               + "  AND ALL(rt IN relationships(path) WHERE "
-              + "    (EXISTS(rt.source) AND rt.source = 'UI') OR "
-              + "    (NOT EXISTS(rt.createdOn) AND NOT EXISTS(rt.updatedOn)) OR "
+              + "    (rt.source IS NOT NULL AND rt.source = 'UI') OR "
+              + "    (rt.createdOn IS NULL AND rt.updatedOn IS NULL) OR "
               + "    ($startTimeMillis <= rt.createdOn <= $endTimeMillis OR "
               + "     $startTimeMillis <= rt.updatedOn <= $endTimeMillis) "
               + "  ) "
@@ -441,9 +443,14 @@ public class Neo4jGraphService implements GraphService {
 
       // provide dummy start/end time when not provided, so no need to
       // format clause differently if either of them is missing
-      parameterMap.put("startTimeMillis", startTimeMillis == null ? 0 : startTimeMillis);
       parameterMap.put(
-          "endTimeMillis", endTimeMillis == null ? System.currentTimeMillis() : endTimeMillis);
+          "startTimeMillis",
+          lineageFlags.getStartTimeMillis() == null ? 0 : lineageFlags.getStartTimeMillis());
+      parameterMap.put(
+          "endTimeMillis",
+          lineageFlags.getEndTimeMillis() == null
+              ? System.currentTimeMillis()
+              : lineageFlags.getEndTimeMillis());
 
       return Pair.of(statement, parameterMap);
     }
@@ -532,7 +539,8 @@ public class Neo4jGraphService implements GraphService {
                             .get(0)
                             .asNode()
                             .get("urn")
-                            .asString())); // Urn TODO: Validate this works against Neo4j.
+                            .asString(), // Urn TODO: Validate this works against Neo4j.
+                        null));
     final int totalCount = runQuery(countStatement).single().get(0).asInt();
     return new RelatedEntitiesResult(offset, relatedEntities.size(), totalCount, relatedEntities);
   }
@@ -881,5 +889,22 @@ public class Neo4jGraphService implements GraphService {
     } catch (URISyntaxException e) {
       return null;
     }
+  }
+
+  @Nonnull
+  @Override
+  public RelatedEntitiesScrollResult scrollRelatedEntities(
+      @Nullable List<String> sourceTypes,
+      @Nonnull Filter sourceEntityFilter,
+      @Nullable List<String> destinationTypes,
+      @Nonnull Filter destinationEntityFilter,
+      @Nonnull List<String> relationshipTypes,
+      @Nonnull RelationshipFilter relationshipFilter,
+      @Nonnull List<SortCriterion> sortCriterion,
+      @Nullable String scrollId,
+      int count,
+      @Nullable Long startTimeMillis,
+      @Nullable Long endTimeMillis) {
+    throw new IllegalArgumentException("Not implemented");
   }
 }

@@ -6,6 +6,7 @@
 
 # pylint: skip-file
 # fmt: off
+# isort: skip_file
 from .....schema_classes import DataHubActorFilterClass
 from .....schema_classes import DataHubPolicyInfoClass
 from .....schema_classes import DataHubResourceFilterClass

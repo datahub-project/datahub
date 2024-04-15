@@ -74,6 +74,11 @@ type Query {
     role(urn: String!): Role
 
     """
+    Fetch a ERModelRelationship by primary key (urn)
+    """
+    erModelRelationship(urn: String!): ERModelRelationship
+
+    """
     Fetch a Glossary Term by primary key (urn)
     """
     glossaryTerm(urn: String!): GlossaryTerm
@@ -231,6 +236,140 @@ type Query {
     Fetch a Data Platform Instance by primary key (urn)
     """
     dataPlatformInstance(urn: String!): DataPlatformInstance
+}
+
+"""
+An ERModelRelationship is a high-level abstraction that dictates what datasets fields are erModelRelationshiped.
+"""
+type ERModelRelationship implements EntityWithRelationships & Entity {
+    """
+    The primary key of the role
+    """
+    urn: String!
+
+    """
+    The standard Entity Type
+    """
+    type: EntityType!
+
+    """
+    Unique id for the erModelRelationship
+    """
+    id: String!
+
+    """
+    An additional set of read only properties
+    """
+    properties: ERModelRelationshipProperties
+
+    """
+    An additional set of of read write properties
+    """
+    editableProperties: ERModelRelationshipEditableProperties
+
+    """
+    References to internal resources related to the dataset
+    """
+    institutionalMemory: InstitutionalMemory
+
+    """
+    Ownership metadata of the dataset
+    """
+    ownership: Ownership
+
+    """
+    Status of the Dataset
+    """
+    status: Status
+
+    """
+    Tags used for searching dataset
+    """
+    tags: GlobalTags
+
+    """
+    The structured glossary terms associated with the dataset
+    """
+    glossaryTerms: GlossaryTerms
+
+    """
+    List of relationships between the source Entity and some destination entities with a given types
+    """
+    relationships(input: RelationshipsInput!): EntityRelationshipsResult
+
+    """
+    Privileges given to a user relevant to this entity
+    """
+    privileges: EntityPrivileges
+
+    """
+    No-op required for the model
+    """
+    lineage(input: LineageInput!): EntityLineageResult
+}
+
+"""
+Additional properties about a ERModelRelationship
+"""
+type ERModelRelationshipEditableProperties {
+
+    """
+    Documentation of the ERModelRelationship
+    """
+    description: String
+    """
+    Display name of the ERModelRelationship
+    """
+    name: String
+}
+
+"""
+Additional properties about a ERModelRelationship
+"""
+type ERModelRelationshipProperties {
+
+    """
+    The name of the ERModelRelationship used in display
+    """
+    name: String!
+    """
+    The urn of source
+    """
+    source: Dataset!
+
+    """
+    The urn of destination
+    """
+    destination: Dataset!
+
+    """
+    The relationFieldMappings
+    """
+    relationshipFieldMappings: [RelationshipFieldMapping!]
+
+    """
+    Created timestamp millis associated with the ERModelRelationship
+    """
+    createdTime: Long
+
+    """
+    Created actor urn associated with the ERModelRelationship
+    """
+    createdActor: Entity
+}
+
+"""
+ERModelRelationship FieldMap
+"""
+type RelationshipFieldMapping {
+    """
+    left field
+    """
+    sourceField: String!
+    """
+    bfield
+    """
+    destinationField: String!
 }
 
 """
@@ -468,6 +607,31 @@ type Mutation {
     unsetDomain(entityUrn: String!): Boolean
 
     """
+    Create a ERModelRelationship
+    """
+    createERModelRelationship(
+        "Input required to create a new ERModelRelationship"
+        input: ERModelRelationshipUpdateInput!): ERModelRelationship
+
+    """
+    Update a ERModelRelationship
+    """
+    updateERModelRelationship(
+        "The urn of the ERModelRelationship to update"
+        urn: String!,
+        "Input required to updat an existing DataHub View"
+        input: ERModelRelationshipUpdateInput!): Boolean
+
+    """
+    Delete a ERModelRelationship
+    """
+    deleteERModelRelationship(
+        "The urn of the ERModelRelationship to delete"
+        urn: String!): Boolean
+
+
+
+    """
     Sets the Deprecation status for a Metadata Entity. Requires the Edit Deprecation status privilege for an entity.
     """
     updateDeprecation(
@@ -583,6 +747,11 @@ type Mutation {
     createPost(input: CreatePostInput!): Boolean
 
     """
+    Update or edit a post
+    """
+    updatePost(input: UpdatePostInput!): Boolean
+
+    """
     Delete a post
     """
     deletePost(urn: String!): Boolean
@@ -695,6 +864,31 @@ type Mutation {
     deleteOwnershipType(
         "Urn of the Custom Ownership Type to remove."
         urn: String!, deleteReferences: Boolean): Boolean
+
+    """
+    Submit a response to a prompt from a form collecting metadata on different entities.
+    Provide the urn of the entity you're submitting a form response as well as the required input.
+    """
+    submitFormPrompt(urn: String!, input: SubmitFormPromptInput!): Boolean
+
+    """
+    Assign a form to different entities. This will be a patch by adding this form to the list
+    of forms on an entity.
+    """
+    batchAssignForm(input: BatchAssignFormInput!): Boolean
+
+    """
+    Creates a filter for a form to apply it to certain entities. Entities that match this filter will have
+    a given form applied to them.
+    This feature is ONLY supported in Acryl DataHub.
+    """
+    createDynamicFormAssignment(input: CreateDynamicFormAssignmentInput!): Boolean
+
+    """
+    Verifies a form on an entity when all of the required questions on the form are complete and the form
+    is of type VERIFICATION.
+    """
+    verifyForm(input: VerifyFormInput!): Boolean
 }
 
 """
@@ -755,6 +949,11 @@ enum EntityType {
     The DataPlatform Entity
     """
     DATA_PLATFORM
+
+    """
+    The ERModelRelationship Entity
+    """
+    ER_MODEL_RELATIONSHIP
 
     """
     The Dashboard Entity
@@ -901,10 +1100,45 @@ enum EntityType {
     """
     CUSTOM_OWNERSHIP_TYPE
 
+    """
+    A DataHub incident - SaaS only
+    """
+    INCIDENT
+
     """"
     A Role from an organisation
     """
     ROLE
+
+    """"
+    An structured property on entities
+    """
+    STRUCTURED_PROPERTY
+
+    """"
+    A form entity on entities
+    """
+    FORM
+
+    """"
+    A data type registered to DataHub
+    """
+    DATA_TYPE
+
+    """"
+    A type of entity registered to DataHub
+    """
+    ENTITY_TYPE
+
+    """"
+    A type of entity that is restricted to the user
+    """
+    RESTRICTED
+
+    """
+    Another entity type - refer to a provided entity type urn.
+    """
+    OTHER
 }
 
 """
@@ -1280,6 +1514,11 @@ type Dataset implements EntityWithRelationships & Entity & BrowsableEntity {
     domain: DomainAssociation
 
     """
+    The forms associated with the Dataset
+    """
+    forms: Forms
+
+    """
     The Roles and the properties to access the dataset
     """
     access: Access
@@ -1309,7 +1548,7 @@ type Dataset implements EntityWithRelationships & Entity & BrowsableEntity {
     """
     Assertions associated with the Dataset
     """
-    assertions(start: Int, count: Int): EntityAssertionsResult
+    assertions(start: Int, count: Int, includeSoftDeleted: Boolean): EntityAssertionsResult
 
     """
     Edges extending from this entity
@@ -1421,6 +1660,11 @@ type Dataset implements EntityWithRelationships & Entity & BrowsableEntity {
     Whether or not this entity exists on DataHub
     """
     exists: Boolean
+
+    """
+    Structured properties about this Dataset
+    """
+    structuredProperties: StructuredProperties
 }
 
 type RoleAssociation {
@@ -1491,7 +1735,7 @@ type RoleUser {
 
 type RoleProperties {
     """
-    Name of the Role in an organisation 
+    Name of the Role in an organisation
     """
     name: String!
 
@@ -1514,6 +1758,8 @@ type RoleProperties {
 type FineGrainedLineage {
     upstreams: [SchemaFieldRef!]
     downstreams: [SchemaFieldRef!]
+    query: String
+    transformOperation: String
 }
 
 """
@@ -1524,6 +1770,7 @@ type SiblingProperties {
     If this entity is the primary sibling among the sibling set
     """
     isPrimary: Boolean
+
     """
     The sibling entities
     """
@@ -1631,7 +1878,7 @@ type VersionedDataset implements Entity {
     domain: DomainAssociation
 
     """
-    Experimental! The resolved health status of the Dataset
+    Experimental! The resolved health status of the asset
     """
     health: [Health!]
 
@@ -1697,6 +1944,12 @@ input AspectParams {
     Only fetch auto render aspects
     """
     autoRenderOnly: Boolean
+
+    """
+    Fetch using aspect names
+    If absent, returns all aspects matching other inputs
+    """
+    aspectNames: [String!]
 }
 
 
@@ -1905,6 +2158,22 @@ type GlossaryTerm implements Entity {
     Whether or not this entity exists on DataHub
     """
     exists: Boolean
+
+    """
+    Experimental API.
+    For fetching extra entities that do not have custom UI code yet
+    """
+    aspects(input: AspectParams): [RawAspect!]
+
+    """
+    Structured properties about this asset
+    """
+    structuredProperties: StructuredProperties
+
+    """
+    The forms associated with the Dataset
+    """
+    forms: Forms
 }
 
 """
@@ -2042,6 +2311,22 @@ type GlossaryNode implements Entity {
     Whether or not this entity exists on DataHub
     """
     exists: Boolean
+
+    """
+    Experimental API.
+    For fetching extra entities that do not have custom UI code yet
+    """
+    aspects(input: AspectParams): [RawAspect!]
+
+    """
+    Structured properties about this asset
+    """
+    structuredProperties: StructuredProperties
+
+    """
+    The forms associated with the Dataset
+    """
+    forms: Forms
 }
 
 """
@@ -2071,6 +2356,11 @@ type GlossaryNodeProperties {
     Description of the glossary term
     """
     description: String
+
+    """
+    Custom properties of the Glossary Node
+    """
+    customProperties: [CustomPropertiesEntry!]
 }
 
 """
@@ -2442,6 +2732,27 @@ type Container implements Entity {
     Whether or not this entity exists on DataHub
     """
     exists: Boolean
+
+    """
+    Experimental API.
+    For fetching extra entities that do not have custom UI code yet
+    """
+    aspects(input: AspectParams): [RawAspect!]
+
+    """
+    Structured properties about this asset
+    """
+    structuredProperties: StructuredProperties
+
+    """
+    The forms associated with the Dataset
+    """
+    forms: Forms
+
+    """
+    Privileges given to a user relevant to this entity
+    """
+    privileges: EntityPrivileges
 }
 
 """
@@ -2818,9 +3129,29 @@ type SchemaFieldEntity implements Entity {
     parent: Entity!
 
     """
+    Structured properties on this schema field
+    """
+    structuredProperties: StructuredProperties
+
+    """
+    The forms associated with the Dataset
+    """
+    forms: Forms
+
+    """
     Granular API for querying edges extending from this entity
     """
     relationships(input: RelationshipsInput!): EntityRelationshipsResult
+}
+
+"""
+Object containing structured properties for an entity
+"""
+type StructuredProperties {
+    """
+    Structured properties on this entity
+    """
+    properties: [StructuredPropertiesEntry!]
 }
 
 """
@@ -2892,6 +3223,16 @@ type SchemaField {
     Whether the field is part of a partitioning key schema
     """
     isPartitioningKey: Boolean
+
+    """
+    For schema fields that have other properties that are not modeled explicitly, represented as a JSON string.
+    """
+    jsonProps: String
+
+    """
+    Schema field entity that exist in the database for this schema field
+    """
+    schemaFieldEntity: SchemaFieldEntity
 }
 
 """
@@ -3018,6 +3359,12 @@ type ViewProperties {
   The logic associated with the view, most commonly a SQL statement
   """
   logic: String!
+
+  """
+  A formatted version of the logic associated with the view.
+  For dbt, this contains the compiled SQL.
+  """
+  formattedLogic: String
 
   """
   The language in which the view logic is written, for example SQL
@@ -3431,9 +3778,35 @@ type CorpUser implements Entity {
     globalTags: GlobalTags @deprecated
 
     """
+    Whether or not this entity exists on DataHub
+    """
+    exists: Boolean
+
+    """
     Settings that a user can customize through the datahub ui
     """
     settings: CorpUserSettings
+
+    """
+    Experimental API.
+    For fetching extra aspects that do not have custom UI code yet
+    """
+    aspects(input: AspectParams): [RawAspect!]
+
+    """
+    Structured properties about this asset
+    """
+    structuredProperties: StructuredProperties
+
+    """
+    The forms associated with the Dataset
+    """
+    forms: Forms
+
+    """
+    Privileges given to a user relevant to this entity
+    """
+    privileges: EntityPrivileges
 }
 
 """
@@ -3794,6 +4167,27 @@ type CorpGroup implements Entity {
     Whether or not this entity exists on DataHub
     """
     exists: Boolean
+
+    """
+    Experimental API.
+    For fetching extra entities that do not have custom UI code yet
+    """
+    aspects(input: AspectParams): [RawAspect!]
+
+    """
+    Structured properties about this asset
+    """
+    structuredProperties: StructuredProperties
+
+    """
+    The forms associated with the Dataset
+    """
+    forms: Forms
+
+    """
+    Privileges given to a user relevant to this entity
+    """
+    privileges: EntityPrivileges
 }
 
 """
@@ -3878,6 +4272,11 @@ type CorpGroupEditableProperties {
   Email address for the group
   """
   email: String
+
+  """ 
+  A URL which points to a picture which user wants to set as a profile photo
+  """
+  pictureLink: String
 }
 
 """
@@ -3898,6 +4297,11 @@ input CorpGroupUpdateInput {
   Email address for the group
   """
   email: String
+
+  """
+  A URL which points to a picture which user wants to set as a profile photo
+  """
+  pictureLink: String
 }
 
 """
@@ -3995,6 +4399,12 @@ type Tag implements Entity {
     Deprecated, use properties.description field instead
     """
     description: String @deprecated
+
+    """
+    Experimental API.
+    For fetching extra entities that do not have custom UI code yet
+    """
+    aspects(input: AspectParams): [RawAspect!]
 }
 
 """
@@ -4088,6 +4498,11 @@ type GlossaryTermAssociation {
     The glossary term itself
     """
     term: GlossaryTerm!
+
+    """
+    The actor who is responsible for the term being added"
+    """
+    actor: CorpUser
 
     """
     Reference back to the associated urn for tracking purposes e.g. when sibling nodes are merged together
@@ -4318,6 +4733,21 @@ input DatasetEditablePropertiesUpdate {
 }
 
 """
+Update to writable Dataset fields
+"""
+input ERModelRelationshipEditablePropertiesUpdate {
+    """
+    Display name of the ERModelRelationship
+    """
+    name: String
+
+    """
+    Writable description for ERModelRelationship
+    """
+    description: String!
+}
+
+"""
 Update to writable Chart fields
 """
 input ChartEditablePropertiesUpdate {
@@ -4433,6 +4863,68 @@ input CreateTagInput {
   Optional description for the Tag
   """
   description: String
+}
+
+"""
+Input required to create/update a new ERModelRelationship
+"""
+input ERModelRelationshipUpdateInput {
+    """
+    Details about the ERModelRelationship
+    """
+    properties: ERModelRelationshipPropertiesInput
+    """
+    Update to editable properties
+    """
+    editableProperties: ERModelRelationshipEditablePropertiesUpdate
+}
+
+"""
+Details about the ERModelRelationship
+"""
+input ERModelRelationshipPropertiesInput {
+    """
+    Details about the ERModelRelationship
+    """
+    name: String!
+    """
+    Details about the ERModelRelationship
+    """
+    source: String!
+    """
+    Details about the ERModelRelationship
+    """
+    destination: String!
+    """
+    Details about the ERModelRelationship
+    """
+    relationshipFieldmappings: [RelationshipFieldMappingInput!]
+    """
+    optional flag about the ERModelRelationship is getting create
+    """
+    created: Boolean
+    """
+    optional field to prevent created time while the ERModelRelationship is getting update
+    """
+    createdAt: Long
+    """
+    optional field to prevent create actor while the ERModelRelationship is getting update
+    """
+    createdBy: String
+}
+
+"""
+Details about the ERModelRelationship
+"""
+input RelationshipFieldMappingInput {
+    """
+    Details about the ERModelRelationship
+    """
+    sourceField: String
+    """
+    Details about the ERModelRelationship
+    """
+    destinationField: String
 }
 
 """
@@ -4625,6 +5117,12 @@ type Notebook implements Entity & BrowsableEntity {
     Whether or not this entity exists on DataHub
     """
     exists: Boolean
+
+    """
+    Experimental API.
+    For fetching extra entities that do not have custom UI code yet
+    """
+    aspects(input: AspectParams): [RawAspect!]
 }
 
 """
@@ -4945,6 +5443,27 @@ type Dashboard implements EntityWithRelationships & Entity & BrowsableEntity {
     Whether or not this entity exists on DataHub
     """
     exists: Boolean
+
+    """
+    Experimental API.
+    For fetching extra entities that do not have custom UI code yet
+    """
+    aspects(input: AspectParams): [RawAspect!]
+
+    """
+    Structured properties about this asset
+    """
+    structuredProperties: StructuredProperties
+
+    """
+    Experimental! The resolved health statuses of the asset
+    """
+    health: [Health!]
+
+    """
+    The forms associated with the Dataset
+    """
+    forms: Forms
 }
 
 """
@@ -5255,6 +5774,27 @@ type Chart implements EntityWithRelationships & Entity & BrowsableEntity {
     Sub Types that this entity implements
     """
     subTypes: SubTypes
+
+    """
+    Experimental API.
+    For fetching extra entities that do not have custom UI code yet
+    """
+    aspects(input: AspectParams): [RawAspect!]
+
+    """
+    Structured properties about this asset
+    """
+    structuredProperties: StructuredProperties
+
+    """
+    Experimental! The resolved health statuses of the asset
+    """
+    health: [Health!]
+
+    """
+    The forms associated with the Dataset
+    """
+    forms: Forms
 }
 
 """
@@ -5612,6 +6152,32 @@ type DataFlow implements EntityWithRelationships & Entity & BrowsableEntity {
     Whether or not this entity exists on DataHub
     """
     exists: Boolean
+
+    """
+    Experimental API.
+    For fetching extra entities that do not have custom UI code yet
+    """
+    aspects(input: AspectParams): [RawAspect!]
+
+    """
+    Structured properties about this asset
+    """
+    structuredProperties: StructuredProperties
+
+    """
+    Experimental! The resolved health statuses of the asset
+    """
+    health: [Health!]
+
+    """
+    The forms associated with the Dataset
+    """
+    forms: Forms
+
+    """
+    Privileges given to a user relevant to this entity
+    """
+    privileges: EntityPrivileges
 }
 
 """
@@ -5812,6 +6378,27 @@ type DataJob implements EntityWithRelationships & Entity & BrowsableEntity {
     Whether or not this entity exists on DataHub
     """
     exists: Boolean
+
+    """
+    Experimental API.
+    For fetching extra entities that do not have custom UI code yet
+    """
+    aspects(input: AspectParams): [RawAspect!]
+
+    """
+    Structured properties about this asset
+    """
+    structuredProperties: StructuredProperties
+
+    """
+    Experimental! The resolved health statuses of the asset
+    """
+    health: [Health!]
+
+    """
+    The forms associated with the Dataset
+    """
+    forms: Forms
 }
 
 """
@@ -5884,6 +6471,11 @@ type DataProcessRunEvent implements TimeSeriesAspect {
     The timestamp associated with the run event in milliseconds
     """
     timestampMillis: Long!
+
+    """
+    The duration of the run in milliseconds
+    """
+    durationMillis: Long
 }
 
 """
@@ -6548,10 +7140,10 @@ type PartitionSpec {
   """
   The partition identifier
   """
-  partition: String!
+  partition: String
 
   """
-  The optional time window partition information
+  The optional time window partition information - required if type is TIMESTAMP_FIELD.
   """
   timePartition: TimeWindow
 }
@@ -6576,7 +7168,6 @@ type TimeWindow {
   """
   durationMillis: Long!
 }
-
 
 """
 An assertion represents a programmatic validation, check, or test performed periodically against another Entity.
@@ -6622,6 +7213,17 @@ type Assertion implements EntityWithRelationships & Entity {
     Edges extending from this entity grouped by direction in the lineage graph
     """
     lineage(input: LineageInput!): EntityLineageResult
+
+    """
+    Status metadata of the assertion
+    """
+    status: Status
+
+    """
+    Experimental API.
+    For fetching extra aspects that do not have custom UI code yet
+    """
+    aspects(input: AspectParams): [RawAspect!]
 }
 
 """
@@ -6637,6 +7239,11 @@ type AssertionInfo {
     Dataset-specific assertion information
     """
     datasetAssertion: DatasetAssertionInfo
+
+    """
+    An optional human-readable description of the assertion
+    """
+    description: String
 }
 
 """
@@ -7038,10 +7645,29 @@ type AssertionStdParameter {
 The type of an AssertionStdParameter
 """
 enum AssertionStdParameterType {
+  """
+  A string value
+  """
   STRING
+
+  """
+  A numeric value
+  """
   NUMBER
+
+  """
+  A list of values. When used, the value should be formatted as a serialized JSON array.
+  """
   LIST
+
+  """
+  A set of values. When used, the value should be formatted as a serialized JSON array.
+  """
   SET
+
+  """
+  A value of unknown type
+  """
   UNKNOWN
 }
 
@@ -8358,6 +8984,11 @@ input ListPoliciesInput {
   Optional search query
   """
   query: String
+
+  """
+  A list of disjunctive criterion for the filter. (or operation to combine filters)
+  """
+  orFilters: [AndFilterInput!]
 }
 
 """
@@ -8728,6 +9359,27 @@ type MLModel implements EntityWithRelationships & Entity & BrowsableEntity {
     Whether or not this entity exists on DataHub
     """
     exists: Boolean
+
+    """
+    Experimental API.
+    For fetching extra entities that do not have custom UI code yet
+    """
+    aspects(input: AspectParams): [RawAspect!]
+
+    """
+    Structured properties about this asset
+    """
+    structuredProperties: StructuredProperties
+
+    """
+    The forms associated with the Dataset
+    """
+    forms: Forms
+
+    """
+    Privileges given to a user relevant to this entity
+    """
+    privileges: EntityPrivileges
 }
 
 """
@@ -8839,6 +9491,27 @@ type MLModelGroup implements EntityWithRelationships & Entity & BrowsableEntity 
     Whether or not this entity exists on DataHub
     """
     exists: Boolean
+
+    """
+    Experimental API.
+    For fetching extra entities that do not have custom UI code yet
+    """
+    aspects(input: AspectParams): [RawAspect!]
+
+    """
+    Structured properties about this asset
+    """
+    structuredProperties: StructuredProperties
+
+    """
+    The forms associated with the Dataset
+    """
+    forms: Forms
+
+    """
+    Privileges given to a user relevant to this entity
+    """
+    privileges: EntityPrivileges
 }
 
 type MLModelGroupProperties {
@@ -8963,6 +9636,27 @@ type MLFeature implements EntityWithRelationships & Entity {
     Whether or not this entity exists on DataHub
     """
     exists: Boolean
+
+    """
+    Experimental API.
+    For fetching extra entities that do not have custom UI code yet
+    """
+    aspects(input: AspectParams): [RawAspect!]
+
+    """
+    Structured properties about this asset
+    """
+    structuredProperties: StructuredProperties
+
+    """
+    The forms associated with the Dataset
+    """
+    forms: Forms
+
+    """
+    Privileges given to a user relevant to this entity
+    """
+    privileges: EntityPrivileges
 }
 
 type MLHyperParam {
@@ -9132,6 +9826,27 @@ type MLPrimaryKey implements EntityWithRelationships & Entity {
     Whether or not this entity exists on DataHub
     """
     exists: Boolean
+
+    """
+    Experimental API.
+    For fetching extra entities that do not have custom UI code yet
+    """
+    aspects(input: AspectParams): [RawAspect!]
+
+    """
+    Structured properties about this asset
+    """
+    structuredProperties: StructuredProperties
+
+    """
+    The forms associated with the Dataset
+    """
+    forms: Forms
+
+    """
+    Privileges given to a user relevant to this entity
+    """
+    privileges: EntityPrivileges
 }
 
 type MLPrimaryKeyProperties {
@@ -9259,6 +9974,27 @@ type MLFeatureTable implements EntityWithRelationships & Entity & BrowsableEntit
     Whether or not this entity exists on DataHub
     """
     exists: Boolean
+
+    """
+    Experimental API.
+    For fetching extra entities that do not have custom UI code yet
+    """
+    aspects(input: AspectParams): [RawAspect!]
+
+    """
+    Structured properties about this asset
+    """
+    structuredProperties: StructuredProperties
+
+    """
+    The forms associated with the Dataset
+    """
+    forms: Forms
+
+    """
+    Privileges given to a user relevant to this entity
+    """
+    privileges: EntityPrivileges
 }
 
 type MLFeatureTableEditableProperties {
@@ -9567,6 +10303,22 @@ enum CostType {
     ORG_COST_TYPE
 }
 
+
+"""
+Audit stamp containing a resolved actor
+"""
+type ResolvedAuditStamp {
+    """
+    When the audited action took place
+    """
+    time: Long!
+
+    """
+    Who performed the audited action
+    """
+    actor: CorpUser
+}
+
 type SubTypes {
    """
     The sub-types that this entity implements. e.g. Datasets that are views will implement the "view" subtype
@@ -9634,6 +10386,27 @@ type Domain implements Entity {
     Edges extending from this entity
     """
     relationships(input: RelationshipsInput!): EntityRelationshipsResult
+
+    """
+    Experimental API.
+    For fetching extra entities that do not have custom UI code yet
+    """
+    aspects(input: AspectParams): [RawAspect!]
+
+    """
+    Structured properties about this asset
+    """
+    structuredProperties: StructuredProperties
+
+    """
+    The forms associated with the Dataset
+    """
+    forms: Forms
+
+    """
+    Privileges given to a user relevant to this entity
+    """
+    privileges: EntityPrivileges
 }
 
 """
@@ -9881,6 +10654,11 @@ enum HealthStatusType {
   Assertions status
   """
   ASSERTIONS
+
+  """
+  Incidents status
+  """
+  INCIDENTS
 }
 
 """
@@ -10129,6 +10907,12 @@ type DataHubRole implements Entity {
     The description of the Role
     """
     description: String!
+
+    """
+    Experimental API.
+    For fetching extra entities that do not have custom UI code yet
+    """
+    aspects(input: AspectParams): [RawAspect!]
 }
 
 """
@@ -10200,6 +10984,26 @@ enum MediaType {
 Input provided when creating a Post
 """
 input CreatePostInput {
+    """
+    The type of post
+    """
+    postType: PostType!
+
+    """
+    The content of the post
+    """
+    content: UpdatePostContentInput!
+}
+
+"""
+Input provided when creating a Post
+"""
+input UpdatePostInput {
+    """
+    The urn of the post to edit or update
+    """
+    urn: String!,
+
     """
     The type of post
     """
@@ -10680,6 +11484,11 @@ enum QuerySource {
   The query was provided manually, e.g. from the UI.
   """
   MANUAL
+
+  """
+  The query was extracted by the system, e.g. from a dashboard.
+  """
+  SYSTEM
 }
 
 """
@@ -10730,6 +11539,11 @@ type QueryProperties {
   An Audit Stamp corresponding to the update of this resource
   """
   lastModified: AuditStamp!
+
+  """
+  The asset that this query originated from, e.g. a View, a dbt Model, etc.
+  """
+  origin: Entity
 }
 
 """
@@ -10770,6 +11584,11 @@ type QueryEntity implements Entity {
   Granular API for querying edges extending from this entity
   """
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
+
+  """
+  Platform from which the Query was detected
+  """
+  platform: DataPlatform
 }
 
 """
@@ -10985,6 +11804,27 @@ type DataProduct implements Entity {
     Tags used for searching Data Product
     """
     tags: GlobalTags
+
+    """
+    Experimental API.
+    For fetching extra entities that do not have custom UI code yet
+    """
+    aspects(input: AspectParams): [RawAspect!]
+
+    """
+    Structured properties about this asset
+    """
+    structuredProperties: StructuredProperties
+
+    """
+    The forms associated with the Dataset
+    """
+    forms: Forms
+
+    """
+    Privileges given to a user relevant to this entity
+    """
+    privileges: EntityPrivileges
 }
 
 """
@@ -11055,6 +11895,10 @@ input CreateDataProductInput {
     The primary key of the Domain
     """
     domainUrn: String!
+    """
+    An optional id for the new data product
+    """
+    id: String
 }
 
 """
@@ -11235,4 +12079,121 @@ input UpdateOwnershipTypeInput {
     The description of the Custom Ownership Type
     """
     description: String
+}
+
+"""
+Describes a generic filter on a dataset
+"""
+type DatasetFilter {
+    """
+    Type of partition
+    """
+    type: DatasetFilterType!
+
+    """
+    The raw query if using a SQL FilterType
+    """
+    sql: String
+}
+
+"""
+Type of partition
+"""
+enum DatasetFilterType {
+  """
+  Use a SQL string to apply the filter
+  """
+  SQL
+}
+
+
+"""
+Input required to create or update a DatasetFilter
+"""
+input DatasetFilterInput {
+    """
+    Type of partition
+    """
+    type: DatasetFilterType!
+
+    """
+    The raw query if using a SQL FilterType
+    """
+    sql: String
+}
+
+"""
+An entity type registered in DataHub
+"""
+type EntityTypeEntity implements Entity {
+    """
+    A primary key associated with the Query
+    """
+    urn: String!
+
+    """
+    A standard Entity Type
+    """
+    type: EntityType!
+
+    """
+    Info about this type including its name
+    """
+    info: EntityTypeInfo!
+
+    """
+    Granular API for querying edges extending from this entity
+    """
+    relationships(input: RelationshipsInput!): EntityRelationshipsResult
+}
+
+"""
+Properties about an individual entity type
+"""
+type EntityTypeInfo {
+    """
+    The standard entity type
+    """
+    type: EntityType!
+
+    """
+    The fully qualified name of the entity type. This includes its namespace
+    """
+    qualifiedName: String!
+
+    """
+    The display name of this type
+    """
+    displayName: String
+
+    """
+    The description of this type
+    """
+    description: String
+}
+
+"""
+A restricted entity that the user does not have full permissions to view.
+This entity type does not relate to an entity type in the database.
+"""
+type Restricted implements Entity & EntityWithRelationships {
+    """
+    The primary key of the restricted entity
+    """
+    urn: String!
+
+    """
+    The standard Entity Type
+    """
+    type: EntityType!
+
+    """
+    Edges extending from this entity
+    """
+    relationships(input: RelationshipsInput!): EntityRelationshipsResult
+
+    """
+    Edges extending from this entity grouped by direction in the lineage graph
+    """
+    lineage(input: LineageInput!): EntityLineageResult
 }

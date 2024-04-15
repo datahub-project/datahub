@@ -18,7 +18,6 @@ import io.datahubproject.openapi.exception.UnauthorizedException;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.net.URISyntaxException;
 import java.util.List;
-import java.util.Optional;
 import java.util.Set;
 import lombok.AllArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -58,10 +57,10 @@ public class TimelineController {
   @GetMapping(path = "/{urn}", produces = MediaType.APPLICATION_JSON_VALUE)
   public ResponseEntity<List<ChangeTransaction>> getTimeline(
       @PathVariable("urn") String rawUrn,
-      @RequestParam(defaultValue = "-1") long startTime,
-      @RequestParam(defaultValue = "0") long endTime,
-      @RequestParam(defaultValue = "false") boolean raw,
-      @RequestParam Set<ChangeCategory> categories)
+      @RequestParam(name = "startTime", defaultValue = "-1") long startTime,
+      @RequestParam(name = "endTime", defaultValue = "0") long endTime,
+      @RequestParam(name = "raw", defaultValue = "false") boolean raw,
+      @RequestParam(name = "categories") Set<ChangeCategory> categories)
       throws URISyntaxException, JsonProcessingException {
     // Make request params when implemented
     String startVersionStamp = null;
@@ -76,8 +75,7 @@ public class TimelineController {
                 new ConjunctivePrivilegeGroup(
                     ImmutableList.of(PoliciesConfig.GET_TIMELINE_PRIVILEGE.getType()))));
     if (restApiAuthorizationEnabled
-        && !AuthUtil.isAuthorized(
-            _authorizerChain, actorUrnStr, Optional.of(resourceSpec), orGroup)) {
+        && !AuthUtil.isAuthorized(_authorizerChain, actorUrnStr, orGroup, resourceSpec)) {
       throw new UnauthorizedException(actorUrnStr + " is unauthorized to edit entities.");
     }
     return ResponseEntity.ok(

@@ -4,6 +4,8 @@ import com.datahub.authentication.AuthenticationConfiguration;
 import com.datahub.authorization.AuthorizationConfiguration;
 import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.metadata.config.DataHubConfiguration;
+import com.linkedin.metadata.config.EbeanConfiguration;
+import com.linkedin.metadata.config.GraphQLConfiguration;
 import com.linkedin.metadata.config.IngestionConfiguration;
 import com.linkedin.metadata.config.SystemUpdateConfiguration;
 import com.linkedin.metadata.config.TestsConfiguration;
@@ -60,9 +62,21 @@ public class ConfigurationProvider {
   /** System Update configurations */
   private SystemUpdateConfiguration systemUpdate;
 
+  /** The base URL where DataHub is hosted. */
+  private String baseUrl;
+
   /** Configuration for caching */
   private CacheConfiguration cache;
 
   /** Configuration for the health check server */
   private HealthCheckConfiguration healthCheck;
+
+  /** Structured properties related configurations */
+  private StructuredPropertiesConfiguration structuredProperties;
+
+  /** Ebean related configuration */
+  private EbeanConfiguration ebean;
+
+  /** GraphQL Configurations */
+  private GraphQLConfiguration graphQL;
 }

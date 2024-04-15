@@ -3,13 +3,15 @@ import os
 from datetime import timedelta
 from typing import Any, Dict, List, Optional
 
-import pydantic
 from google.cloud import bigquery
 from google.cloud.logging_v2.client import Client as GCPLoggingClient
 from pydantic import Field, PositiveInt, PrivateAttr, root_validator, validator
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.configuration.validate_field_removal import pydantic_removed_field
+from datahub.ingestion.glossary.classification_mixin import (
+    ClassificationSourceConfigMixin,
+)
 from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulLineageConfigMixin,
@@ -64,9 +66,9 @@ class BigQueryConnectionConfig(ConfigModel):
             )
             os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = self._credentials_path
 
-    def get_bigquery_client(config) -> bigquery.Client:
-        client_options = config.extra_client_options
-        return bigquery.Client(config.project_on_behalf, **client_options)
+    def get_bigquery_client(self) -> bigquery.Client:
+        client_options = self.extra_client_options
+        return bigquery.Client(self.project_on_behalf, **client_options)
 
     def make_gcp_logging_client(
         self, project_id: Optional[str] = None
@@ -80,6 +82,14 @@ class BigQueryConnectionConfig(ConfigModel):
         else:
             return GCPLoggingClient(**client_options)
 
+    def get_sql_alchemy_url(self) -> str:
+        if self.project_on_behalf:
+            return f"bigquery://{self.project_on_behalf}"
+        # When project_id is not set, we will attempt to detect the project ID
+        # based on the credentials or environment variables.
+        # See https://github.com/mxmzdlv/pybigquery#authentication.
+        return "bigquery://"
+
 
 class BigQueryV2Config(
     BigQueryConnectionConfig,
@@ -88,10 +98,16 @@ class BigQueryV2Config(
     StatefulUsageConfigMixin,
     StatefulLineageConfigMixin,
     StatefulProfilingConfigMixin,
+    ClassificationSourceConfigMixin,
 ):
     project_id_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns for project_id to filter in ingestion.",
+    )
+
+    include_schema_metadata: bool = Field(
+        default=True,
+        description="Whether to ingest the BigQuery schema, i.e. projects, schemas, tables, and views.",
     )
 
     usage: BigQueryUsageConfig = Field(
@@ -133,6 +149,15 @@ class BigQueryV2Config(
         description="Whether to create a DataPlatformInstance aspect, equal to the BigQuery project id."
         " If enabled, will cause redundancy in the browse path for BigQuery entities in the UI,"
         " because the project id is represented as the top-level container.",
+    )
+
+    include_table_snapshots: Optional[bool] = Field(
+        default=True, description="Whether table snapshots should be ingested."
+    )
+
+    table_snapshot_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Regex patterns for table snapshots to filter in ingestion. Specify regex to match the entire snapshot name in database.schema.snapshot format. e.g. to match all snapshots starting with customer in Customer database and public schema, use the regex 'Customer.public.customer.*'",
     )
 
     debug_include_full_payloads: bool = Field(
@@ -186,20 +211,10 @@ class BigQueryV2Config(
     )
 
     extract_column_lineage: bool = Field(
-        # TODO: Flip this default to True once we support patching column-level lineage.
         default=False,
         description="If enabled, generate column level lineage. "
-        "Requires lineage_use_sql_parser to be enabled. "
-        "This and `incremental_lineage` cannot both be enabled.",
+        "Requires lineage_use_sql_parser to be enabled.",
     )
-
-    @pydantic.validator("extract_column_lineage")
-    def validate_column_lineage(cls, v: bool, values: Dict[str, Any]) -> bool:
-        if v and values.get("incremental_lineage"):
-            raise ValueError(
-                "Cannot enable `extract_column_lineage` and `incremental_lineage` at the same time."
-            )
-        return v
 
     extract_lineage_from_catalog: bool = Field(
         default=False,
@@ -284,7 +299,7 @@ class BigQueryV2Config(
 
         return v
 
-    @root_validator(pre=False)
+    @root_validator(pre=False, skip_on_failure=True)
     def backward_compatibility_configs_set(cls, values: Dict) -> Dict:
         project_id = values.get("project_id")
         project_id_pattern = values.get("project_id_pattern")
@@ -350,14 +365,6 @@ class BigQueryV2Config(
 
     def get_table_pattern(self, pattern: List[str]) -> str:
         return "|".join(pattern) if pattern else ""
-
-    def get_sql_alchemy_url(self) -> str:
-        if self.project_on_behalf:
-            return f"bigquery://{self.project_on_behalf}"
-        # When project_id is not set, we will attempt to detect the project ID
-        # based on the credentials or environment variables.
-        # See https://github.com/mxmzdlv/pybigquery#authentication.
-        return "bigquery://"
 
     platform_instance_not_supported_for_bigquery = pydantic_removed_field(
         "platform_instance"

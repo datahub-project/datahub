@@ -14,3 +14,19 @@ entities:
     keyAspect: dataPlatformKey
     aspects:
       - dataPlatformInfo
+  - name: entityType
+    doc: A type of entity in the DataHub Metadata Model.
+    category: core
+    keyAspect: entityTypeKey
+    aspects:
+      - entityTypeInfo
+      - institutionalMemory
+      - status
+  - name: dataType
+    doc: A type of data element stored within DataHub.
+    category: core
+    keyAspect: dataTypeKey
+    aspects:
+      - dataTypeInfo
+      - institutionalMemory
+      - status

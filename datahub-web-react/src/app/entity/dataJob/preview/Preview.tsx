@@ -10,6 +10,7 @@ import {
     EntityPath,
     EntityType,
     GlobalTags,
+    Health,
     Owner,
     SearchInsight,
 } from '../../../../types.generated';
@@ -42,6 +43,7 @@ export const Preview = ({
     externalUrl,
     degree,
     paths,
+    health,
 }: {
     urn: string;
     name: string;
@@ -61,6 +63,7 @@ export const Preview = ({
     externalUrl?: string | null;
     degree?: number;
     paths?: EntityPath[];
+    health?: Health[] | null;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
     return (
@@ -69,7 +72,7 @@ export const Preview = ({
             name={name}
             urn={urn}
             description={description || ''}
-            type={subType || "Data Task"}
+            type={subType || 'Data Task'}
             typeIcon={entityRegistry.getIcon(EntityType.DataJob, 14, IconStyleType.ACCENT)}
             platform={platformName}
             logoUrl={platformLogo || ''}
@@ -94,6 +97,7 @@ export const Preview = ({
             }
             degree={degree}
             paths={paths}
+            health={health || undefined}
         />
     );
 };

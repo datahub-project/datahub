@@ -4,19 +4,20 @@ import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.SEARCHAB
 import static com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBuilder.KEYWORD_ANALYZER;
 
 import com.datahub.gms.util.CSVWriter;
-import com.linkedin.datahub.graphql.resolvers.EntityTypeMapper;
+import com.linkedin.datahub.graphql.types.entitytype.EntityTypeMapper;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
+import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
-import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchRequestHandler;
+import io.datahubproject.metadata.context.OperationContext;
+import jakarta.servlet.http.HttpServlet;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import java.io.PrintWriter;
 import java.util.Map;
 import java.util.Optional;
-import javax.servlet.http.HttpServlet;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.index.query.BoolQueryBuilder;
@@ -38,13 +39,18 @@ public class ConfigSearchExport extends HttpServlet {
     return (ConfigurationProvider) ctx.getBean("configurationProvider");
   }
 
-  private EntityRegistry getEntityRegistry(WebApplicationContext ctx) {
-    return (EntityRegistry) ctx.getBean("entityRegistry");
+  private AspectRetriever getAspectRetriever(WebApplicationContext ctx) {
+    return (AspectRetriever) ctx.getBean("aspectRetriever");
+  }
+
+  private OperationContext getOperationContext(WebApplicationContext ctx) {
+    return (OperationContext) ctx.getBean("systemOperationContext");
   }
 
   private void writeSearchCsv(WebApplicationContext ctx, PrintWriter pw) {
     SearchConfiguration searchConfiguration = getConfigProvider(ctx).getElasticSearch().getSearch();
-    EntityRegistry entityRegistry = getEntityRegistry(ctx);
+    AspectRetriever aspectRetriever = getAspectRetriever(ctx);
+    EntityRegistry entityRegistry = aspectRetriever.getEntityRegistry();
 
     CSVWriter writer = CSVWriter.builder().printWriter(pw).build();
 
@@ -79,17 +85,21 @@ public class ConfigSearchExport extends HttpServlet {
             entitySpecOpt -> {
               EntitySpec entitySpec = entitySpecOpt.get();
               SearchRequest searchRequest =
-                  SearchRequestHandler.getBuilder(entitySpec, searchConfiguration, null)
+                  SearchRequestHandler.getBuilder(
+                          entitySpec, searchConfiguration, null, aspectRetriever)
                       .getSearchRequest(
+                          getOperationContext(ctx)
+                              .withSearchFlags(
+                                  flags ->
+                                      flags
+                                          .setFulltext(true)
+                                          .setSkipHighlighting(true)
+                                          .setSkipAggregates(true)),
                           "*",
                           null,
                           null,
                           0,
                           0,
-                          new SearchFlags()
-                              .setFulltext(true)
-                              .setSkipHighlighting(true)
-                              .setSkipAggregates(true),
                           null);
 
               FunctionScoreQueryBuilder rankingQuery =

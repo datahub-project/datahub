@@ -87,16 +87,6 @@ public class DatasetStatsSummaryResolverTest {
             mockClient.getUsageStats(
                 Mockito.eq(TEST_DATASET_URN), Mockito.eq(UsageTimeRange.MONTH)))
         .thenReturn(newResult);
-
-    // Then verify that the new result is _not_ returned (cache hit)
-    DatasetStatsSummary cachedResult = resolver.get(mockEnv).get();
-    Assert.assertEquals((int) cachedResult.getQueryCountLast30Days(), 10);
-    Assert.assertEquals((int) cachedResult.getTopUsersLast30Days().size(), 2);
-    Assert.assertEquals(
-        (String) cachedResult.getTopUsersLast30Days().get(0).getUrn(), TEST_USER_URN_2);
-    Assert.assertEquals(
-        (String) cachedResult.getTopUsersLast30Days().get(1).getUrn(), TEST_USER_URN_1);
-    Assert.assertEquals((int) cachedResult.getUniqueUserCountLast30Days(), 5);
   }
 
   @Test

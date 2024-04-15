@@ -15,7 +15,6 @@ import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeLog;
 import javax.annotation.Nonnull;
-import javax.inject.Singleton;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -28,7 +27,6 @@ import org.springframework.stereotype.Component;
  */
 @Slf4j
 @Component
-@Singleton
 @Import({EntityRegistryFactory.class, IngestionSchedulerFactory.class})
 public class IngestionSchedulerHook implements MetadataChangeLogHook {
 
@@ -91,6 +89,7 @@ public class IngestionSchedulerHook implements MetadataChangeLogHook {
     return Constants.INGESTION_INFO_ASPECT_NAME.equals(event.getAspectName())
         && (ChangeType.UPSERT.equals(event.getChangeType())
             || ChangeType.CREATE.equals(event.getChangeType())
+            || ChangeType.CREATE_ENTITY.equals(event.getChangeType())
             || ChangeType.DELETE.equals(event.getChangeType()));
   }
 

@@ -13,6 +13,7 @@ import com.linkedin.common.OwnershipType;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.SetMode;
+import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.TagUpdateInput;
 import com.linkedin.datahub.graphql.types.common.mappers.util.UpdateMappingHelper;
 import com.linkedin.datahub.graphql.types.mappers.InputModelMapper;
@@ -21,6 +22,7 @@ import com.linkedin.tag.TagProperties;
 import java.util.ArrayList;
 import java.util.Collection;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 public class TagUpdateInputMapper
     implements InputModelMapper<TagUpdateInput, Collection<MetadataChangeProposal>, Urn> {
@@ -28,13 +30,17 @@ public class TagUpdateInputMapper
   public static final TagUpdateInputMapper INSTANCE = new TagUpdateInputMapper();
 
   public static Collection<MetadataChangeProposal> map(
-      @Nonnull final TagUpdateInput tagUpdate, @Nonnull final Urn actor) {
-    return INSTANCE.apply(tagUpdate, actor);
+      @Nullable final QueryContext context,
+      @Nonnull final TagUpdateInput tagUpdate,
+      @Nonnull final Urn actor) {
+    return INSTANCE.apply(context, tagUpdate, actor);
   }
 
   @Override
   public Collection<MetadataChangeProposal> apply(
-      @Nonnull final TagUpdateInput tagUpdate, @Nonnull final Urn actor) {
+      @Nullable final QueryContext context,
+      @Nonnull final TagUpdateInput tagUpdate,
+      @Nonnull final Urn actor) {
     final Collection<MetadataChangeProposal> proposals = new ArrayList<>(2);
     final UpdateMappingHelper updateMappingHelper = new UpdateMappingHelper(TAG_ENTITY_NAME);
 

@@ -28,7 +28,6 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.query.AutoCompleteResult;
-import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.SearchResult;
 import graphql.execution.DataFetcherResult;
@@ -92,7 +91,7 @@ public class MLFeatureTableType
                   gmsMlFeatureTable == null
                       ? null
                       : DataFetcherResult.<MLFeatureTable>newResult()
-                          .data(MLFeatureTableMapper.map(gmsMlFeatureTable))
+                          .data(MLFeatureTableMapper.map(context, gmsMlFeatureTable))
                           .build())
           .collect(Collectors.toList());
     } catch (Exception e) {
@@ -111,14 +110,13 @@ public class MLFeatureTableType
     final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
     final SearchResult searchResult =
         _entityClient.search(
+            context.getOperationContext().withSearchFlags(flags -> flags.setFulltext(true)),
             "mlFeatureTable",
             query,
             facetFilters,
             start,
-            count,
-            context.getAuthentication(),
-            new SearchFlags().setFulltext(true));
-    return UrnSearchResultsMapper.map(searchResult);
+            count);
+    return UrnSearchResultsMapper.map(context, searchResult);
   }
 
   @Override
@@ -131,8 +129,8 @@ public class MLFeatureTableType
       throws Exception {
     final AutoCompleteResult result =
         _entityClient.autoComplete(
-            "mlFeatureTable", query, filters, limit, context.getAuthentication());
-    return AutoCompleteResultsMapper.map(result);
+            context.getOperationContext(), "mlFeatureTable", query, filters, limit);
+    return AutoCompleteResultsMapper.map(context, result);
   }
 
   @Override
@@ -148,8 +146,13 @@ public class MLFeatureTableType
         path.size() > 0 ? BROWSE_PATH_DELIMITER + String.join(BROWSE_PATH_DELIMITER, path) : "";
     final BrowseResult result =
         _entityClient.browse(
-            "mlFeatureTable", pathStr, facetFilters, start, count, context.getAuthentication());
-    return BrowseResultMapper.map(result);
+            context.getOperationContext().withSearchFlags(flags -> flags.setFulltext(false)),
+            "mlFeatureTable",
+            pathStr,
+            facetFilters,
+            start,
+            count);
+    return BrowseResultMapper.map(context, result);
   }
 
   @Override
@@ -157,6 +160,6 @@ public class MLFeatureTableType
       throws Exception {
     final StringArray result =
         _entityClient.getBrowsePaths(MLModelUtils.getUrn(urn), context.getAuthentication());
-    return BrowsePathsMapper.map(result);
+    return BrowsePathsMapper.map(context, result);
   }
 }

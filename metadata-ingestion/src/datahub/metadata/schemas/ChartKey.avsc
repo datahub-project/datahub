@@ -22,7 +22,10 @@
       "globalTags",
       "glossaryTerms",
       "browsePathsV2",
-      "subTypes"
+      "subTypes",
+      "structuredProperties",
+      "incidentsSummary",
+      "forms"
     ]
   },
   "name": "ChartKey",

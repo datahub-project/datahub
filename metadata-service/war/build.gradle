@@ -47,17 +47,17 @@ configurations.all{
   
 }
 configurations {
-  jetty9
+  jetty11
 }
 
 dependencies {
-  jetty9 "org.eclipse.jetty:jetty-runner:9.4.46.v20220331"
+  jetty11 "org.eclipse.jetty:jetty-runner:11.0.19"
 }
 
 task run(type: JavaExec, dependsOn: build) {
   main = "org.eclipse.jetty.runner.Runner"
   args = ["${projectDir}/build/libs/war.war"]
-  classpath configurations.jetty9
+  classpath configurations.jetty11
 }
 
 war {

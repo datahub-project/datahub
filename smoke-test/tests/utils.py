@@ -2,14 +2,10 @@ import functools
 import json
 import logging
 import os
-import subprocess
-import time
 from datetime import datetime, timedelta, timezone
-from time import sleep
 from typing import Any, Dict, List, Tuple
 
-from datahub.cli import cli_utils
-from datahub.cli.cli_utils import get_system_auth
+from datahub.cli import cli_utils, env_utils
 from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
 from datahub.ingestion.run.pipeline import Pipeline
 from joblib import Parallel, delayed
@@ -22,23 +18,14 @@ logger = logging.getLogger(__name__)
 
 
 def get_frontend_session():
-    session = requests.Session()
+    username, password = get_admin_credentials()
+    return login_as(username, password)
 
-    headers = {
-        "Content-Type": "application/json",
-    }
-    system_auth = get_system_auth()
-    if system_auth is not None:
-        session.headers.update({"Authorization": system_auth})
-    else:
-        username, password = get_admin_credentials()
-        data = '{"username":"' + username + '", "password":"' + password + '"}'
-        response = session.post(
-            f"{get_frontend_url()}/logIn", headers=headers, data=data
-        )
-        response.raise_for_status()
 
-    return session
+def login_as(username: str, password: str):
+    return cli_utils.get_session_login_as(
+        username=username, password=password, frontend_url=get_frontend_url()
+    )
 
 
 def get_admin_username() -> str:
@@ -146,7 +133,7 @@ def delete_urns(urns: List[str]) -> None:
 
 
 def delete_urns_from_file(filename: str, shared_data: bool = False) -> None:
-    if not cli_utils.get_boolean_env_variable("CLEANUP_DATA", True):
+    if not env_utils.get_boolean_env_variable("CLEANUP_DATA", True):
         print("Not cleaning data to save time")
         return
     session = requests.Session()
@@ -223,7 +210,7 @@ def create_datahub_step_state_aspect(
 
 
 def create_datahub_step_state_aspects(
-    username: str, onboarding_ids: str, onboarding_filename
+    username: str, onboarding_ids: List[str], onboarding_filename: str
 ) -> None:
     """
     For a specific user, creates dataHubStepState aspects for each onboarding id in the list

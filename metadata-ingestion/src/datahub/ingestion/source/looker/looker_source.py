@@ -1,4 +1,3 @@
-import concurrent.futures
 import datetime
 import json
 import logging
@@ -48,6 +47,7 @@ from datahub.ingestion.api.source import (
 )
 from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.common.subtypes import BIAssetSubTypes
 from datahub.ingestion.source.looker import looker_usage
 from datahub.ingestion.source.looker.looker_common import (
     InputFieldElement,
@@ -90,7 +90,9 @@ from datahub.metadata.schema_classes import (
     OwnerClass,
     OwnershipClass,
     OwnershipTypeClass,
+    SubTypesClass,
 )
+from datahub.utilities.advanced_thread_executor import BackpressureAwareExecutor
 
 logger = logging.getLogger(__name__)
 
@@ -129,9 +131,6 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
     source_config: LookerDashboardSourceConfig
     reporter: LookerDashboardSourceReport
     user_registry: LookerUserRegistry
-    accessed_dashboards: int = 0
-    resolved_user_ids: int = 0
-    email_ids_missing: int = 0  # resolved users with missing email addresses
     reachable_look_registry: Set[
         str
     ]  # Keep track of look-id which are reachable from Dashboard
@@ -453,6 +452,12 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                 else:
                     slug = ""
 
+                look_folder_path = None
+                if element.look.folder is not None:
+                    look_folder_path = self._get_folder_path(
+                        element.look.folder, self.looker_api
+                    )
+
                 return LookerDashboardElement(
                     id=element.id,
                     title=title,
@@ -465,6 +470,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                         for exp in explores
                     ],
                     input_fields=input_fields,
+                    folder_path=look_folder_path,
                 )
 
         # Failing the above two approaches, pick out details from result_maker
@@ -525,10 +531,12 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                 type=element.type,
                 description=element.subtitle_text,
                 look_id=element.look_id,
-                query_slug=element.result_maker.query.slug
-                if element.result_maker.query is not None
-                and element.result_maker.query.slug is not None
-                else "",
+                query_slug=(
+                    element.result_maker.query.slug
+                    if element.result_maker.query is not None
+                    and element.result_maker.query.slug is not None
+                    else ""
+                ),
                 upstream_explores=[
                     LookerExplore(model_name=model, name=exp) for exp in explores
                 ],
@@ -604,15 +612,32 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
             chartUrl=dashboard_element.url(self.source_config.external_base_url or ""),
             inputs=dashboard_element.get_view_urns(self.source_config),
             customProperties={
-                "upstream_fields": ",".join(
-                    sorted(set(field.name for field in dashboard_element.input_fields))
+                "upstream_fields": (
+                    ",".join(
+                        sorted(
+                            set(field.name for field in dashboard_element.input_fields)
+                        )
+                    )
+                    if dashboard_element.input_fields
+                    else ""
                 )
-                if dashboard_element.input_fields
-                else ""
             },
         )
-
         chart_snapshot.aspects.append(chart_info)
+
+        if dashboard and dashboard.folder_path is not None:
+            browse_path = BrowsePathsClass(
+                paths=[f"/Folders/{dashboard.folder_path}/{dashboard.title}"]
+            )
+            chart_snapshot.aspects.append(browse_path)
+        elif (
+            dashboard is None and dashboard_element.folder_path is not None
+        ):  # independent look
+            browse_path = BrowsePathsClass(
+                paths=[f"/Folders/{dashboard_element.folder_path}"]
+            )
+            chart_snapshot.aspects.append(browse_path)
+
         if dashboard is not None:
             ownership = self.get_ownership(dashboard)
             if ownership is not None:
@@ -621,7 +646,11 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         chart_mce = MetadataChangeEvent(proposedSnapshot=chart_snapshot)
 
         proposals: List[Union[MetadataChangeEvent, MetadataChangeProposalWrapper]] = [
-            chart_mce
+            chart_mce,
+            MetadataChangeProposalWrapper(
+                entityUrn=chart_urn,
+                aspect=SubTypesClass(typeNames=[BIAssetSubTypes.LOOKER_LOOK]),
+            ),
         ]
 
         # If extracting embeds is enabled, produce an MCP for embed URL.
@@ -664,7 +693,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         dashboard_snapshot.aspects.append(dashboard_info)
         if looker_dashboard.folder_path is not None:
             browse_path = BrowsePathsClass(
-                paths=[f"/looker/{looker_dashboard.folder_path}"]
+                paths=[f"/Folders/{looker_dashboard.folder_path}"]
             )
             dashboard_snapshot.aspects.append(browse_path)
 
@@ -703,28 +732,19 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
             explores_to_fetch = list(self.list_all_explores())
         explores_to_fetch.sort()
 
-        with concurrent.futures.ThreadPoolExecutor(
-            max_workers=self.source_config.max_threads
-        ) as async_executor:
-            self.reporter.total_explores = len(explores_to_fetch)
-
-            explore_futures = {
-                async_executor.submit(self.fetch_one_explore, model, explore): (
-                    model,
-                    explore,
-                )
-                for (model, explore) in explores_to_fetch
-            }
-
-            for future in concurrent.futures.wait(explore_futures).done:
-                events, explore_id, start_time, end_time = future.result()
-                del explore_futures[future]
-                self.reporter.explores_scanned += 1
-                yield from events
-                self.reporter.report_upstream_latency(start_time, end_time)
-                logger.debug(
-                    f"Running time of fetch_one_explore for {explore_id}: {(end_time - start_time).total_seconds()}"
-                )
+        self.reporter.total_explores = len(explores_to_fetch)
+        for future in BackpressureAwareExecutor.map(
+            self.fetch_one_explore,
+            ((model, explore) for (model, explore) in explores_to_fetch),
+            max_workers=self.source_config.max_threads,
+        ):
+            events, explore_id, start_time, end_time = future.result()
+            self.reporter.explores_scanned += 1
+            yield from events
+            self.reporter.report_upstream_latency(start_time, end_time)
+            logger.debug(
+                f"Running time of fetch_one_explore for {explore_id}: {(end_time - start_time).total_seconds()}"
+            )
 
     def list_all_explores(self) -> Iterable[Tuple[str, str]]:
         # returns a list of (model, explore) tuples
@@ -753,7 +773,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                 looker_explore._to_metadata_events(
                     self.source_config,
                     self.reporter,
-                    self.source_config.base_url,
+                    self.source_config.external_base_url or self.source_config.base_url,
                     self.source_config.extract_embed_urls,
                 )
                 or events
@@ -866,7 +886,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
     def _get_looker_dashboard(
         self, dashboard: Dashboard, client: LookerAPI
     ) -> LookerDashboard:
-        self.accessed_dashboards += 1
+        self.reporter.accessed_dashboards += 1
         if dashboard.folder is None:
             logger.debug(f"{dashboard.id} has no folder")
         dashboard_folder_path = None
@@ -928,9 +948,9 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
 
         if user is not None and self.source_config.extract_owners:
             # Keep track of how many user ids we were able to resolve
-            self.resolved_user_ids += 1
+            self.reporter.resolved_user_ids += 1
             if user.email is None:
-                self.email_ids_missing += 1
+                self.reporter.email_ids_missing += 1
 
         return user
 
@@ -1047,7 +1067,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         self, dashboard_id: str, fields: List[str]
     ) -> Tuple[
         List[MetadataWorkUnit],
-        Optional[Dashboard],
+        Optional[looker_usage.LookerDashboardForUsage],
         str,
         datetime.datetime,
         datetime.datetime,
@@ -1084,10 +1104,12 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         looker_dashboard = self._get_looker_dashboard(dashboard_object, self.looker_api)
         mces = self._make_dashboard_and_chart_mces(looker_dashboard)
         workunits = [
-            MetadataWorkUnit(id=f"looker-{mce.proposedSnapshot.urn}", mce=mce)
-            if isinstance(mce, MetadataChangeEvent)
-            else MetadataWorkUnit(
-                id=f"looker-{mce.aspectName}-{mce.entityUrn}", mcp=mce
+            (
+                MetadataWorkUnit(id=f"looker-{mce.proposedSnapshot.urn}", mce=mce)
+                if isinstance(mce, MetadataChangeEvent)
+                else MetadataWorkUnit(
+                    id=f"looker-{mce.aspectName}-{mce.entityUrn}", mcp=mce
+                )
             )
             for mce in mces
         ]
@@ -1098,9 +1120,15 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         )
         workunits.extend(metric_dim_workunits)
         self.reporter.report_dashboards_scanned()
+
+        # generate usage tracking object
+        dashboard_usage = looker_usage.LookerDashboardForUsage.from_dashboard(
+            dashboard_object
+        )
+
         return (
             workunits,
-            dashboard_object,
+            dashboard_usage,
             dashboard_id,
             start_time,
             datetime.datetime.now(),
@@ -1171,12 +1199,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         self.reporter.report_stage_start("extract_independent_looks")
 
         logger.debug("Extracting looks not part of Dashboard")
-        look_fields: List[str] = [
-            "id",
-            "title",
-            "description",
-            "query_id",
-        ]
+        look_fields: List[str] = ["id", "title", "description", "query_id", "folder"]
         query_fields: List[str] = [
             "id",
             "view",
@@ -1199,7 +1222,18 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                 logger.info(f"query_id is None for look {look.title}({look.id})")
                 continue
 
-            query: Query = self.looker_api.get_query(look.query_id, query_fields)
+            if look.id is not None:
+                query: Optional[Query] = self.looker_api.get_look(
+                    look.id, fields=["query"]
+                ).query
+                # Only include fields that are in the query_fields list
+                query = Query(
+                    **{
+                        key: getattr(query, key)
+                        for key in query_fields
+                        if hasattr(query, key)
+                    }
+                )
 
             dashboard_element: Optional[
                 LookerDashboardElement
@@ -1210,8 +1244,8 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                     subtitle_text=look.description,
                     look_id=look.id,
                     dashboard_id=None,  # As this is independent look
-                    look=LookWithQuery(query=query),
-                )
+                    look=LookWithQuery(query=query, folder=look.folder),
+                ),
             )
 
             if dashboard_element is not None:
@@ -1274,47 +1308,37 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
             ]
 
         looker_dashboards_for_usage: List[looker_usage.LookerDashboardForUsage] = []
-        self.reporter.report_stage_start("dashboard_chart_metadata")
 
-        with concurrent.futures.ThreadPoolExecutor(
-            max_workers=self.source_config.max_threads
-        ) as async_executor:
-            async_workunits = {}
-            for dashboard_id in dashboard_ids:
-                if dashboard_id is not None:
-                    job = async_executor.submit(
-                        self.process_dashboard, dashboard_id, fields
-                    )
-                    async_workunits[job] = dashboard_id
-
-            for job in concurrent.futures.as_completed(async_workunits):
+        with self.reporter.report_stage("dashboard_chart_metadata"):
+            for job in BackpressureAwareExecutor.map(
+                self.process_dashboard,
+                (
+                    (dashboard_id, fields)
+                    for dashboard_id in dashboard_ids
+                    if dashboard_id is not None
+                ),
+                max_workers=self.source_config.max_threads,
+            ):
                 (
                     work_units,
-                    dashboard_object,
+                    dashboard_usage,
                     dashboard_id,
                     start_time,
                     end_time,
                 ) = job.result()
-                del async_workunits[job]
                 logger.debug(
                     f"Running time of process_dashboard for {dashboard_id} = {(end_time - start_time).total_seconds()}"
                 )
                 self.reporter.report_upstream_latency(start_time, end_time)
 
                 yield from work_units
-                if dashboard_object is not None:
-                    looker_dashboards_for_usage.append(
-                        looker_usage.LookerDashboardForUsage.from_dashboard(
-                            dashboard_object
-                        )
-                    )
-
-        self.reporter.report_stage_end("dashboard_chart_metadata")
+                if dashboard_usage is not None:
+                    looker_dashboards_for_usage.append(dashboard_usage)
 
         if (
             self.source_config.extract_owners
-            and self.resolved_user_ids > 0
-            and self.email_ids_missing == self.resolved_user_ids
+            and self.reporter.resolved_user_ids > 0
+            and self.reporter.email_ids_missing == self.reporter.resolved_user_ids
         ):
             # Looks like we tried to extract owners and could not find their email addresses. This is likely a permissions issue
             self.reporter.report_warning(

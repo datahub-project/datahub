@@ -8,7 +8,9 @@
       "glossaryNodeInfo",
       "institutionalMemory",
       "ownership",
-      "status"
+      "status",
+      "structuredProperties",
+      "forms"
     ]
   },
   "name": "GlossaryNodeKey",

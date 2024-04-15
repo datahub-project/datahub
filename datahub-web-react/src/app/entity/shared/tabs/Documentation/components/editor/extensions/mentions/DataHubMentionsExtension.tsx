@@ -1,6 +1,6 @@
 /* eslint-disable class-methods-use-this */
 import React, { ComponentType } from 'react';
-import { Plugin } from '@remirror/pm/state';
+import type { Plugin } from 'prosemirror-state';
 import {
     ApplySchemaAttributes,
     CommandFunction,
@@ -64,7 +64,7 @@ class DataHubMentionsExtension extends NodeExtension<DataHubMentionsOptions> {
         });
     }
 
-    createNodeSpec(extra: ApplySchemaAttributes, override: NodeSpecOverride): NodeExtensionSpec {
+    createNodeSpec(extra: ApplySchemaAttributes, override: Partial<NodeSpecOverride>): NodeExtensionSpec {
         return {
             inline: true,
             marks: '',

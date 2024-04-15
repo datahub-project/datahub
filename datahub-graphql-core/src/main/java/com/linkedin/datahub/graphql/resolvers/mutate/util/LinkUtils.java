@@ -28,7 +28,11 @@ public class LinkUtils {
   private LinkUtils() {}
 
   public static void addLink(
-      String linkUrl, String linkLabel, Urn resourceUrn, Urn actor, EntityService entityService) {
+      String linkUrl,
+      String linkLabel,
+      Urn resourceUrn,
+      Urn actor,
+      EntityService<?> entityService) {
     InstitutionalMemory institutionalMemoryAspect =
         (InstitutionalMemory)
             EntityUtils.getAspectFromEntity(
@@ -46,7 +50,7 @@ public class LinkUtils {
   }
 
   public static void removeLink(
-      String linkUrl, Urn resourceUrn, Urn actor, EntityService entityService) {
+      String linkUrl, Urn resourceUrn, Urn actor, EntityService<?> entityService) {
     InstitutionalMemory institutionalMemoryAspect =
         (InstitutionalMemory)
             EntityUtils.getAspectFromEntity(
@@ -109,7 +113,7 @@ public class LinkUtils {
   }
 
   public static Boolean validateAddRemoveInput(
-      String linkUrl, Urn resourceUrn, EntityService entityService) {
+      String linkUrl, Urn resourceUrn, EntityService<?> entityService) {
 
     try {
       new Url(linkUrl);
@@ -120,7 +124,7 @@ public class LinkUtils {
               resourceUrn));
     }
 
-    if (!entityService.exists(resourceUrn)) {
+    if (!entityService.exists(resourceUrn, true)) {
       throw new IllegalArgumentException(
           String.format(
               "Failed to change institutional memory for resource %s. Resource does not exist.",

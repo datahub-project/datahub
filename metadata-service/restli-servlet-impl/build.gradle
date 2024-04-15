@@ -1,5 +1,7 @@
-apply plugin: 'java'
-apply plugin: 'pegasus'
+plugins {
+  id 'java-library'
+  id 'pegasus'
+}
 
 sourceSets {
   integTest {

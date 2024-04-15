@@ -18,6 +18,7 @@
       "testResults",
       "siblings",
       "embed",
+      "incidentsSummary",
       "datasetProperties",
       "editableDatasetProperties",
       "datasetDeprecation",
@@ -31,7 +32,9 @@
       "browsePaths",
       "dataPlatformInstance",
       "browsePathsV2",
-      "access"
+      "access",
+      "structuredProperties",
+      "forms"
     ],
     "entityDoc": "Datasets represent logical or physical data assets stored or represented in various data platforms. Tables, Views, Streams are all instances of datasets."
   },

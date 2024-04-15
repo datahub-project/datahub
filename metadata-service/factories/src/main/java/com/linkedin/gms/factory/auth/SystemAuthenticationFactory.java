@@ -34,8 +34,8 @@ public class SystemAuthenticationFactory {
   @Nonnull
   protected Authentication getInstance() {
     // TODO: Change to service
-    final Actor systemActor = new Actor(ActorType.USER, this.systemClientId);
+    final Actor systemActor = new Actor(ActorType.USER, systemClientId);
     return new Authentication(
-        systemActor, String.format("Basic %s:%s", this.systemClientId, this.systemSecret));
+        systemActor, String.format("Basic %s:%s", systemClientId, systemSecret));
   }
 }

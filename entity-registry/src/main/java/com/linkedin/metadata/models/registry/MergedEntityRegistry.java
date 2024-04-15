@@ -3,12 +3,13 @@ package com.linkedin.metadata.models.registry;
 import com.linkedin.data.schema.compatibility.CompatibilityChecker;
 import com.linkedin.data.schema.compatibility.CompatibilityOptions;
 import com.linkedin.data.schema.compatibility.CompatibilityResult;
+import com.linkedin.metadata.aspect.patch.template.AspectTemplateEngine;
+import com.linkedin.metadata.aspect.plugins.PluginFactory;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.ConfigEntitySpec;
 import com.linkedin.metadata.models.DefaultEntitySpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.EventSpec;
-import com.linkedin.metadata.models.registry.template.AspectTemplateEngine;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -27,6 +28,7 @@ public class MergedEntityRegistry implements EntityRegistry {
   private final Map<String, EventSpec> eventNameToSpec;
   private final AspectTemplateEngine _aspectTemplateEngine;
   private final Map<String, AspectSpec> _aspectNameToSpec;
+  @Nonnull private PluginFactory pluginFactory;
 
   public MergedEntityRegistry(EntityRegistry baseEntityRegistry) {
     // baseEntityRegistry.get*Specs() can return immutable Collections.emptyMap() which fails
@@ -42,6 +44,13 @@ public class MergedEntityRegistry implements EntityRegistry {
     baseEntityRegistry.getAspectTemplateEngine();
     _aspectTemplateEngine = baseEntityRegistry.getAspectTemplateEngine();
     _aspectNameToSpec = baseEntityRegistry.getAspectSpecs();
+    if (baseEntityRegistry instanceof ConfigEntityRegistry) {
+      this.pluginFactory = ((ConfigEntityRegistry) baseEntityRegistry).getPluginFactory();
+    } else if (baseEntityRegistry instanceof PatchEntityRegistry) {
+      this.pluginFactory = ((PatchEntityRegistry) baseEntityRegistry).getPluginFactory();
+    } else {
+      this.pluginFactory = PluginFactory.empty();
+    }
   }
 
   private void validateEntitySpec(EntitySpec entitySpec, final ValidationResult validationResult) {
@@ -49,7 +58,7 @@ public class MergedEntityRegistry implements EntityRegistry {
       validationResult.setValid(false);
       validationResult
           .getValidationFailures()
-          .add(String.format("Key aspect is missing in entity {}", entitySpec.getName()));
+          .add(String.format("Key aspect is missing in entity %s", entitySpec.getName()));
     }
   }
 
@@ -77,10 +86,15 @@ public class MergedEntityRegistry implements EntityRegistry {
     }
 
     // Merge Event Specs
-    if (patchEntityRegistry.getEventSpecs().size() > 0) {
+    if (!patchEntityRegistry.getEventSpecs().isEmpty()) {
       eventNameToSpec.putAll(patchEntityRegistry.getEventSpecs());
     }
     // TODO: Validate that the entity registries don't have conflicts among each other
+
+    // Merge Plugins
+    this.pluginFactory =
+        PluginFactory.merge(this.pluginFactory, patchEntityRegistry.getPluginFactory());
+
     return this;
   }
 
@@ -102,19 +116,18 @@ public class MergedEntityRegistry implements EntityRegistry {
     if (existingEntitySpec != null) {
       existingEntitySpec
           .getAspectSpecMap()
-          .entrySet()
           .forEach(
-              aspectSpecEntry -> {
-                if (newEntitySpec.hasAspect(aspectSpecEntry.getKey())) {
+              (key, value) -> {
+                if (newEntitySpec.hasAspect(key)) {
                   CompatibilityResult result =
                       CompatibilityChecker.checkCompatibility(
-                          aspectSpecEntry.getValue().getPegasusSchema(),
-                          newEntitySpec.getAspectSpec(aspectSpecEntry.getKey()).getPegasusSchema(),
+                          value.getPegasusSchema(),
+                          newEntitySpec.getAspectSpec(key).getPegasusSchema(),
                           new CompatibilityOptions());
                   if (result.isError()) {
                     log.error(
                         "{} schema is not compatible with previous schema due to {}",
-                        aspectSpecEntry.getKey(),
+                        key,
                         result.getMessages());
                     // we want to continue processing all aspects to collect all failures
                     validationResult.setValid(false);
@@ -123,11 +136,11 @@ public class MergedEntityRegistry implements EntityRegistry {
                         .add(
                             String.format(
                                 "%s schema is not compatible with previous schema due to %s",
-                                aspectSpecEntry.getKey(), result.getMessages()));
+                                key, result.getMessages()));
                   } else {
                     log.info(
                         "{} schema is compatible with previous schema due to {}",
-                        aspectSpecEntry.getKey(),
+                        key,
                         result.getMessages());
                   }
                 }
@@ -200,9 +213,15 @@ public class MergedEntityRegistry implements EntityRegistry {
     return _aspectTemplateEngine;
   }
 
+  @Nonnull
+  @Override
+  public PluginFactory getPluginFactory() {
+    return this.pluginFactory;
+  }
+
   @Setter
   @Getter
-  private class ValidationResult {
+  private static class ValidationResult {
     boolean valid = true;
     List<String> validationFailures = new ArrayList<>();
   }

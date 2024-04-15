@@ -28,6 +28,7 @@ public class PluginEntityRegistryLoader {
   private static int _MAXLOADFAILURES = 5;
   private final Boolean scanningEnabled;
   private final String pluginDirectory;
+  private final int loadDelaySeconds;
   // Registry Name -> Registry Version -> (Registry, LoadResult)
   private final Map<String, Map<ComparableVersion, Pair<EntityRegistry, EntityRegistryLoadResult>>>
       patchRegistries;
@@ -38,7 +39,7 @@ public class PluginEntityRegistryLoader {
   private boolean booted = false;
   private final ScheduledExecutorService executorService = Executors.newScheduledThreadPool(1);
 
-  public PluginEntityRegistryLoader(String pluginDirectory) {
+  public PluginEntityRegistryLoader(String pluginDirectory, int loadDelaySeconds) {
     File directory = new File(pluginDirectory);
     if (!directory.exists() || !directory.isDirectory()) {
       log.warn(
@@ -50,6 +51,7 @@ public class PluginEntityRegistryLoader {
     }
     this.pluginDirectory = pluginDirectory;
     this.patchRegistries = new HashMap<>();
+    this.loadDelaySeconds = loadDelaySeconds;
   }
 
   public Map<String, Map<ComparableVersion, Pair<EntityRegistry, EntityRegistryLoadResult>>>
@@ -133,7 +135,7 @@ public class PluginEntityRegistryLoader {
           }
         },
         0,
-        5,
+        loadDelaySeconds,
         TimeUnit.SECONDS);
     started = true;
     if (waitForInitialization) {
@@ -181,6 +183,10 @@ public class PluginEntityRegistryLoader {
       entityRegistry = new PatchEntityRegistry(patchDirectory, registryName, registryVersion);
       parentRegistry.apply(entityRegistry);
       loadResultBuilder.loadResult(LoadStatus.SUCCESS);
+
+      // Load plugin information
+      loadResultBuilder.plugins(entityRegistry.getPluginFactory().getPluginLoadResult());
+
       log.info("Loaded registry {} successfully", entityRegistry);
     } catch (RuntimeException | EntityRegistryException | IOException e) {
       log.debug("{}: Failed to load registry {} with {}", this, registryName, e.getMessage());
@@ -189,6 +195,7 @@ public class PluginEntityRegistryLoader {
       e.printStackTrace(pw);
       loadResultBuilder.loadResult(LoadStatus.FAILURE).failureReason(sw.toString()).failureCount(1);
     }
+
     addLoadResult(registryName, registryVersion, loadResultBuilder.build(), entityRegistry);
   }
 

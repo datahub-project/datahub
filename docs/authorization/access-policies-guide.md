@@ -93,28 +93,29 @@ In the second step, we can simply select the Privileges that this Platform Polic
 
 **Platform** Privileges most often provide access to perform administrative functions on the Platform. These include:
 
-| Platform Privileges                 | Description                                                                                                                    |
-|-------------------------------------|--------------------------------------------------------------------------------------------------------------------------------|
-| Manage Policies                     | Allow actor to create and remove access control policies. Be careful - Actors with this Privilege are effectively super users. |
-| Manage Metadata Ingestion           | Allow actor to create, remove, and update Metadata Ingestion sources.                                                          |
-| Manage Secrets                      | Allow actor to create & remove secrets stored inside DataHub.                                                                  |
-| Manage Users & Groups               | Allow actor to create, remove, and update users and groups on DataHub.                                                         |
-| Manage All Access Tokens            | Allow actor to create, remove, and list access tokens for all users on DataHub.                                                |
-| Create Domains                      | Allow the actor to create new Domains                                                                                          |
-| Manage Domains                      | Allow actor to create and remove any Domains.                                                                                  |
-| View Analytics                      | Allow the actor access to the DataHub analytics dashboard.                                                                     |
-| Generate Personal Access Tokens     | Allow the actor to generate access tokens for personal use with DataHub APIs.                                                  |
-| Manage User Credentials             | Allow the actor to generate invite links for new native DataHub users, and password reset links for existing native users.     |
-| Manage Glossaries                   | Allow the actor to create, edit, move, and delete Glossary Terms and Term Groups                                               |
-| Create Tags                         | Allow the actor to create new Tags                                                                                             |
-| Manage Tags                         | Allow the actor to create and remove any Tags                                                                                  |
-| Manage Public Views                 | Allow the actor to create, edit, and remove any public (shared) Views.                                                         |
-| Manage Ownership Types              | Allow the actor to create, edit, and remove any Ownership Types.                                                               |
-| Manage Platform Settings            | (Acryl DataHub only) Allow the actor to manage global integrations and notification settings                                   |
-| Manage Monitors                     | (Acryl DataHub only) Allow the actor to create, remove, start, or stop any entity assertion monitors                           |
-| Restore Indices API[^1]             | Allow the actor to restore indices for a set of entities via API                                                               |
-| Enable/Disable Writeability API[^1] | Allow the actor to enable or disable GMS writeability for use in data migrations                                               |
-| Apply Retention API[^1]             | Allow the actor to apply aspect retention via API                                                                              |
+| Platform Privileges                         | Description                                                                                                                                                  |
+|---------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Manage Policies                             | Allow actor to create and remove access control policies. Be careful - Actors with this Privilege are effectively super users.                               |
+| Manage Metadata Ingestion                   | Allow actor to create, remove, and update Metadata Ingestion sources.                                                                                        |
+| Manage Secrets                              | Allow actor to create & remove secrets stored inside DataHub.                                                                                                |
+| Manage Users & Groups                       | Allow actor to create, remove, and update users and groups on DataHub.                                                                                       |
+| Manage All Access Tokens                    | Allow actor to create, remove, and list access tokens for all users on DataHub.                                                                              |
+| Create Domains                              | Allow the actor to create new Domains                                                                                                                        |
+| Manage Domains                              | Allow actor to create and remove any Domains.                                                                                                                |
+| View Analytics                              | Allow the actor access to the DataHub analytics dashboard.                                                                                                   |
+| Generate Personal Access Tokens             | Allow the actor to generate access tokens for personal use with DataHub APIs.                                                                                |
+| Manage User Credentials                     | Allow the actor to generate invite links for new native DataHub users, and password reset links for existing native users.                                   |
+| Manage Glossaries                           | Allow the actor to create, edit, move, and delete Glossary Terms and Term Groups                                                                             |
+| Create Tags                                 | Allow the actor to create new Tags                                                                                                                           |
+| Manage Tags                                 | Allow the actor to create and remove any Tags                                                                                                                |
+| Manage Public Views                         | Allow the actor to create, edit, and remove any public (shared) Views.                                                                                       |
+| Manage Ownership Types                      | Allow the actor to create, edit, and remove any Ownership Types.                                                                                             |
+| Manage Platform Settings                    | (Acryl DataHub only) Allow the actor to manage global integrations and notification settings                                                                 |
+| Manage Monitors                             | (Acryl DataHub only) Allow the actor to create, remove, start, or stop any entity assertion monitors                                                         |
+| Restore Indices API[^1]                     | Allow the actor to restore indices for a set of entities via API                                                                                             |
+| Enable/Disable Writeability API[^1]         | Allow the actor to enable or disable GMS writeability for use in data migrations                                                                             |
+| Apply Retention API[^1]                     | Allow the actor to apply aspect retention via API                                                                                                            |
+| Explain ElasticSearch Query API[^1]         | Allow actor to explain an ElasticSearch query.                                                                                                               |
 
 
 [^1]: Only active if REST_API_AUTHORIZATION_ENABLED environment flag is enabled
@@ -209,6 +210,7 @@ The common Metadata Privileges, which span across entity types, include:
 | Edit Deprecation                 | Allow actor to edit the Deprecation status of an entity.                                                                                                     |
 | Edit Lineage                     | Allow actor to edit custom lineage edges for the entity.                                                                                                     |
 | Edit Data Product                | Allow actor to edit the data product that an entity is part of                                                                                               |
+| Edit Incidents                   | Allow actor to raise and resolve incidents associated with an entity.                                                                                        |
 | Propose Tags                     | (Acryl DataHub only) Allow actor to propose new Tags for the entity.                                                                                         |
 | Propose Glossary Terms           | (Acryl DataHub only) Allow actor to propose new Glossary Terms for the entity.                                                                               |
 | Propose Documentation            | (Acryl DataHub only) Allow actor to propose new Documentation for the entity.                                                                                |
@@ -236,7 +238,6 @@ The common Metadata Privileges, which span across entity types, include:
 | Dataset      | View Dataset Usage                 | Allow actor to access usage metadata about a dataset both in the UI and in the GraphQL API. This includes example queries, number of queries, etc. Also applies to REST APIs when REST API Authorization is enabled. |
 | Dataset      | View Dataset Profile               | Allow actor to access a dataset's profile both in the UI and in the GraphQL API. This includes snapshot statistics like #rows, #columns, null percentage per field, etc.                                             |
 | Dataset      | Edit Assertions                    | Allow actor to change the assertions associated with a dataset.                                                                                                                                                      |
-| Dataset      | Edit Incidents                     | (Acryl DataHub only) Allow actor to change the incidents associated with a dataset.                                                                                                                                  |
 | Dataset      | Edit Monitors                      | (Acryl DataHub only) Allow actor to change the assertion monitors associated with a dataset.                                                                                                                         |
 | Tag          | Edit Tag Color                     | Allow actor to change the color of a Tag.                                                                                                                                                                            |
 | Group        | Edit Group Members                 | Allow actor to add and remove members to a group.                                                                                                                                                                    |

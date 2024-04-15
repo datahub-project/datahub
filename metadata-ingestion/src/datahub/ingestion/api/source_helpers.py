@@ -25,13 +25,15 @@ from datahub.metadata.schema_classes import (
     BrowsePathsV2Class,
     ChangeTypeClass,
     ContainerClass,
+    DatasetPropertiesClass,
     DatasetUsageStatisticsClass,
     MetadataChangeEventClass,
     MetadataChangeProposalClass,
+    OwnershipClass as Ownership,
     StatusClass,
-    TagKeyClass,
     TimeWindowSizeClass,
 )
+from datahub.specific.dataset import DatasetPatchBuilder
 from datahub.telemetry import telemetry
 from datahub.utilities.urns.dataset_urn import DatasetUrn
 from datahub.utilities.urns.tag_urn import TagUrn
@@ -54,9 +56,41 @@ def auto_workunit(
 
     for item in stream:
         if isinstance(item, MetadataChangeEventClass):
-            yield MetadataWorkUnit(id=f"{item.proposedSnapshot.urn}/mce", mce=item)
+            yield MetadataWorkUnit(
+                id=MetadataWorkUnit.generate_workunit_id(item),
+                mce=item,
+            )
         else:
             yield item.as_workunit()
+
+
+def create_dataset_props_patch_builder(
+    dataset_urn: str,
+    dataset_properties: DatasetPropertiesClass,
+) -> DatasetPatchBuilder:
+    """Creates a patch builder with a table's or view's attributes and dataset properties"""
+    patch_builder = DatasetPatchBuilder(dataset_urn)
+    patch_builder.set_display_name(dataset_properties.name)
+    patch_builder.set_description(dataset_properties.description)
+    patch_builder.set_created(dataset_properties.created)
+    patch_builder.set_last_modified(dataset_properties.lastModified)
+    patch_builder.set_qualified_name(dataset_properties.qualifiedName)
+    patch_builder.add_custom_properties(dataset_properties.customProperties)
+
+    return patch_builder
+
+
+def create_dataset_owners_patch_builder(
+    dataset_urn: str,
+    ownership: Ownership,
+) -> DatasetPatchBuilder:
+    """Creates a patch builder with a dataset's owners"""
+    patch_builder = DatasetPatchBuilder(dataset_urn)
+
+    for owner in ownership.owners:
+        patch_builder.add_owner(owner)
+
+    return patch_builder
 
 
 def auto_status_aspect(
@@ -173,11 +207,11 @@ def auto_materialize_referenced_tags(
         yield wu
 
     for urn in sorted(referenced_tags - tags_with_aspects):
-        tag_urn = TagUrn.create_from_string(urn)
+        tag_urn = TagUrn.from_string(urn)
 
         yield MetadataChangeProposalWrapper(
             entityUrn=urn,
-            aspect=TagKeyClass(name=tag_urn.get_entity_id()[0]),
+            aspect=tag_urn.to_key_aspect(),
         ).as_workunit()
 
 
@@ -196,21 +230,6 @@ def auto_lowercase_urns(
         except Exception as e:
             logger.warning(f"Failed to lowercase urns for {wu}: {e}", exc_info=True)
             yield wu
-
-
-def re_emit_browse_path_v2(
-    stream: Iterable[MetadataWorkUnit],
-) -> Iterable[MetadataWorkUnit]:
-    """Re-emit browse paths v2 aspects, to avoid race condition where server overwrites with default."""
-    browse_path_v2_workunits = []
-
-    for wu in stream:
-        yield wu
-        if wu.is_primary_source and wu.get_aspect_of_type(BrowsePathsV2Class):
-            browse_path_v2_workunits.append(wu)
-
-    for wu in browse_path_v2_workunits:
-        yield wu
 
 
 def auto_browse_path_v2(
@@ -372,9 +391,9 @@ def auto_empty_dataset_usage_statistics(
                     userCounts=[],
                     fieldCounts=[],
                 ),
-                changeType=ChangeTypeClass.CREATE
-                if all_buckets
-                else ChangeTypeClass.UPSERT,
+                changeType=(
+                    ChangeTypeClass.CREATE if all_buckets else ChangeTypeClass.UPSERT
+                ),
             ).as_workunit()
 
 

@@ -493,10 +493,32 @@ def generate_stitched_record(
                 ],
             )
 
+@dataclass
+class EntityAspectName:
+    entityName: str
+    aspectName: str
+
+
+@dataclass
+class AspectPluginConfig:
+    className: str
+    enabled: bool
+    supportedEntityAspectNames: List[EntityAspectName]
+    supportedOperations: Optional[List[str]] = None
+
+
+@dataclass
+class PluginConfiguration:
+    aspectPayloadValidators: Optional[List[AspectPluginConfig]] = None
+    mutationHooks: Optional[List[AspectPluginConfig]] = None
+    mclSideEffects: Optional[List[AspectPluginConfig]] = None
+    mcpSideEffects: Optional[List[AspectPluginConfig]] = None
+
 
 class EntityRegistry(ConfigModel):
     entities: List[EntityDefinition]
     events: Optional[List[EventDefinition]]
+    plugins: Optional[PluginConfiguration] = None
 
 
 def load_registry_file(registry_file: str) -> Dict[str, EntityDefinition]:

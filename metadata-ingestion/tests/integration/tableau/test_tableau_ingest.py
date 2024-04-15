@@ -27,8 +27,8 @@ from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     UpstreamLineage,
 )
 from datahub.metadata.schema_classes import MetadataChangeProposalClass, UpstreamClass
-from datahub.utilities.sqlglot_lineage import SqlParsingResult
-from tests.test_helpers import mce_helpers
+from datahub.sql_parsing.sqlglot_lineage import SqlParsingResult
+from tests.test_helpers import mce_helpers, test_connection_helpers
 from tests.test_helpers.state_helpers import (
     get_current_checkpoint_from_pipeline,
     validate_all_providers_have_committed_successfully,
@@ -294,6 +294,25 @@ def test_tableau_ingest(pytestconfig, tmp_path, mock_datahub_graph):
 
 @freeze_time(FROZEN_TIME)
 @pytest.mark.integration
+def test_tableau_test_connection_success():
+    with mock.patch("datahub.ingestion.source.tableau.Server"):
+        report = test_connection_helpers.run_test_connection(
+            TableauSource, config_source_default
+        )
+        test_connection_helpers.assert_basic_connectivity_success(report)
+
+
+@freeze_time(FROZEN_TIME)
+@pytest.mark.integration
+def test_tableau_test_connection_failure():
+    report = test_connection_helpers.run_test_connection(
+        TableauSource, config_source_default
+    )
+    test_connection_helpers.assert_basic_connectivity_failure(report, "Unable to login")
+
+
+@freeze_time(FROZEN_TIME)
+@pytest.mark.integration
 def test_tableau_cll_ingest(pytestconfig, tmp_path, mock_datahub_graph):
     enable_logging()
     output_file_name: str = "tableau_mces_cll.json"
@@ -302,6 +321,8 @@ def test_tableau_cll_ingest(pytestconfig, tmp_path, mock_datahub_graph):
     new_pipeline_config: Dict[Any, Any] = {
         **config_source_default,
         "extract_lineage_from_unsupported_custom_sql_queries": True,
+        "force_extraction_of_lineage_from_custom_sql_queries": False,
+        "sql_parsing_disable_schema_awareness": False,
         "extract_column_level_lineage": True,
     }
 
@@ -668,7 +689,7 @@ def test_tableau_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_graph)
         "urn:li:dataset:(urn:li:dataPlatform:tableau,4644ccb1-2adc-cf26-c654-04ed1dcc7090,PROD)",
         "urn:li:dataset:(urn:li:dataPlatform:tableau,618c87db-5959-338b-bcc7-6f5f4cc0b6c6,PROD)",
         "urn:li:dataset:(urn:li:dataPlatform:webdata-direct:servicenowitsm-servicenowitsm,ven01911.sys_user_group,PROD)",
-        "urn:li:dataset:(urn:li:dataPlatform:postgres,demo_postgres_instance.dvdrental.public.customer,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:postgres,demo_postgres_instance.dvdrental.customer,PROD)",
         "urn:li:dataset:(urn:li:dataPlatform:webdata-direct:marketo-marketo,marketo.activity11,PROD)",
         "urn:li:dataset:(urn:li:dataPlatform:webdata-direct:servicenowitsm-servicenowitsm,ven01911.task,PROD)",
         "urn:li:dataset:(urn:li:dataPlatform:tableau,d8d4c0ea-3162-fa11-31e6-26675da44a38,PROD)",
@@ -676,7 +697,7 @@ def test_tableau_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_graph)
         "urn:li:dataset:(urn:li:dataPlatform:postgres,demo_postgres_instance.dvdrental.public.address,PROD)",
         "urn:li:dataset:(urn:li:dataPlatform:webdata-direct:marketo-marketo,marketo.activity6,PROD)",
         "urn:li:dataset:(urn:li:dataPlatform:webdata-direct:servicenowitsm-servicenowitsm,ven01911.incident,PROD)",
-        "urn:li:dataset:(urn:li:dataPlatform:postgres,demo_postgres_instance.dvdrental.public.payment,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:postgres,demo_postgres_instance.dvdrental.payment,PROD)",
         "urn:li:dataset:(urn:li:dataPlatform:webdata-direct:servicenowitsm-servicenowitsm,ven01911.cmdb_ci,PROD)",
         "urn:li:dataset:(urn:li:dataPlatform:webdata-direct:servicenowitsm-servicenowitsm,ven01911.sc_req_item,PROD)",
         "urn:li:dataset:(urn:li:dataPlatform:tableau,06c3e060-8133-4b58-9b53-a0fced25e056,PROD)",
@@ -686,7 +707,7 @@ def test_tableau_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_graph)
         "urn:li:dataset:(urn:li:dataPlatform:tableau,6cbbeeb2-9f3a-00f6-2342-17139d6e97ae,PROD)",
         "urn:li:dataset:(urn:li:dataPlatform:webdata-direct:marketo-marketo,marketo.activity10,PROD)",
         "urn:li:dataset:(urn:li:dataPlatform:webdata-direct:servicenowitsm-servicenowitsm,ven01911.sc_request,PROD)",
-        "urn:li:dataset:(urn:li:dataPlatform:postgres,demo_postgres_instance.dvdrental.public.staff,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:postgres,demo_postgres_instance.dvdrental.staff,PROD)",
         "urn:li:dataset:(urn:li:dataPlatform:webdata-direct:marketo-marketo,marketo.campaignstable,PROD)",
         "urn:li:dataset:(urn:li:dataPlatform:external,sample - superstore%2C %28new%29.xls.people,PROD)",
         "urn:li:dataset:(urn:li:dataPlatform:webdata-direct:servicenowitsm-servicenowitsm,ven01911.sc_cat_item,PROD)",
@@ -797,16 +818,16 @@ def test_tableau_unsupported_csql(mock_datahub_graph):
         database_override_map={"production database": "prod"}
     )
 
-    with mock.patch("datahub.ingestion.source.tableau.sqlglot_l") as sqlglot_lineage:
-
-        sqlglot_lineage.create_lineage_sql_parsed_result.return_value = SqlParsingResult(  # type:ignore
+    with mock.patch(
+        "datahub.ingestion.source.tableau.create_lineage_sql_parsed_result",
+        return_value=SqlParsingResult(
             in_tables=[
                 "urn:li:dataset:(urn:li:dataPlatform:bigquery,my_bigquery_project.invent_dw.userdetail,PROD)"
             ],
             out_tables=[],
             column_lineage=None,
-        )
-
+        ),
+    ):
         source = TableauSource(config=config, ctx=context)
 
         lineage = source._create_lineage_from_unsupported_csql(
@@ -819,6 +840,7 @@ def test_tableau_unsupported_csql(mock_datahub_graph):
                     "connectionType": "bigquery",
                 },
             },
+            out_columns=[],
         )
 
         mcp = cast(MetadataChangeProposalClass, next(iter(lineage)).metadata)

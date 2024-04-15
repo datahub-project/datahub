@@ -23,10 +23,10 @@ import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.settings.global.GlobalSettingsInfo;
+import jakarta.annotation.Nonnull;
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.util.Objects;
-import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.ClassPathResource;
 
@@ -41,15 +41,15 @@ import org.springframework.core.io.ClassPathResource;
 public class IngestDefaultGlobalSettingsStep implements BootstrapStep {
 
   private static final String DEFAULT_SETTINGS_RESOURCE_PATH = "./boot/global_settings.json";
-  private final EntityService _entityService;
+  private final EntityService<?> _entityService;
   private final String _resourcePath;
 
-  public IngestDefaultGlobalSettingsStep(@Nonnull final EntityService entityService) {
+  public IngestDefaultGlobalSettingsStep(@Nonnull final EntityService<?> entityService) {
     this(entityService, DEFAULT_SETTINGS_RESOURCE_PATH);
   }
 
   public IngestDefaultGlobalSettingsStep(
-      @Nonnull final EntityService entityService, @Nonnull final String resourcePath) {
+      @Nonnull final EntityService<?> entityService, @Nonnull final String resourcePath) {
     _entityService = Objects.requireNonNull(entityService);
     _resourcePath = Objects.requireNonNull(resourcePath);
   }

@@ -21,7 +21,10 @@
       "institutionalMemory",
       "dataPlatformInstance",
       "browsePathsV2",
-      "subTypes"
+      "structuredProperties",
+      "forms",
+      "subTypes",
+      "incidentsSummary"
     ]
   },
   "name": "DataJobKey",

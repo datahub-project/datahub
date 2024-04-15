@@ -140,9 +140,10 @@
       "type": {
         "type": "enum",
         "symbolDocs": {
-          "CREATE": "NOT SUPPORTED YET\ninsert if not exists. otherwise fail",
-          "DELETE": "NOT SUPPORTED YET\ndelete action",
-          "PATCH": "NOT SUPPORTED YET\npatch the changes instead of full replace",
+          "CREATE": "insert if not exists. otherwise fail",
+          "CREATE_ENTITY": "insert if entity not exists. otherwise fail",
+          "DELETE": "delete action",
+          "PATCH": "patch the changes instead of full replace",
           "RESTATE": "Restate an aspect, eg. in a index refresh.",
           "UPDATE": "NOT SUPPORTED YET\nupdate if exists. otherwise fail",
           "UPSERT": "insert if not exists. otherwise update"
@@ -155,7 +156,8 @@
           "UPDATE",
           "DELETE",
           "PATCH",
-          "RESTATE"
+          "RESTATE",
+          "CREATE_ENTITY"
         ],
         "doc": "Descriptor for a change action"
       },

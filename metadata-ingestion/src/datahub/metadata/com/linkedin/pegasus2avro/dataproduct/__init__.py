@@ -6,6 +6,7 @@
 
 # pylint: skip-file
 # fmt: off
+# isort: skip_file
 from .....schema_classes import DataProductAssociationClass
 from .....schema_classes import DataProductKeyClass
 from .....schema_classes import DataProductPropertiesClass

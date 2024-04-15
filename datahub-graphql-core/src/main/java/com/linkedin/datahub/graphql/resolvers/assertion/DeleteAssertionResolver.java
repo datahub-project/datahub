@@ -1,5 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.assertion;
 
+import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.ALL_PRIVILEGES_GROUP;
+
 import com.datahub.authorization.ConjunctivePrivilegeGroup;
 import com.datahub.authorization.DisjunctivePrivilegeGroup;
 import com.google.common.collect.ImmutableList;
@@ -8,7 +10,6 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
-import com.linkedin.datahub.graphql.resolvers.AuthUtils;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.authorization.PoliciesConfig;
@@ -24,10 +25,10 @@ import lombok.extern.slf4j.Slf4j;
 public class DeleteAssertionResolver implements DataFetcher<CompletableFuture<Boolean>> {
 
   private final EntityClient _entityClient;
-  private final EntityService _entityService;
+  private final EntityService<?> _entityService;
 
   public DeleteAssertionResolver(
-      final EntityClient entityClient, final EntityService entityService) {
+      final EntityClient entityClient, final EntityService<?> entityService) {
     _entityClient = entityClient;
     _entityService = entityService;
   }
@@ -41,7 +42,7 @@ public class DeleteAssertionResolver implements DataFetcher<CompletableFuture<Bo
         () -> {
 
           // 1. check the entity exists. If not, return false.
-          if (!_entityService.exists(assertionUrn)) {
+          if (!_entityService.exists(assertionUrn, true)) {
             return true;
           }
 
@@ -104,7 +105,7 @@ public class DeleteAssertionResolver implements DataFetcher<CompletableFuture<Bo
     final DisjunctivePrivilegeGroup orPrivilegeGroups =
         new DisjunctivePrivilegeGroup(
             ImmutableList.of(
-                AuthUtils.ALL_PRIVILEGES_GROUP,
+                ALL_PRIVILEGES_GROUP,
                 new ConjunctivePrivilegeGroup(
                     ImmutableList.of(PoliciesConfig.EDIT_ENTITY_ASSERTIONS_PRIVILEGE.getType()))));
     return AuthorizationUtils.isAuthorized(

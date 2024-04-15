@@ -353,6 +353,29 @@ TRINO_SQL_TYPES_MAP: Dict[str, Any] = {
     "array": ArrayType,
 }
 
+# https://docs.aws.amazon.com/athena/latest/ug/data-types.html
+# https://github.com/dbt-athena/dbt-athena/tree/main
+ATHENA_SQL_TYPES_MAP: Dict[str, Any] = {
+    "boolean": BooleanType,
+    "tinyint": NumberType,
+    "smallint": NumberType,
+    "int": NumberType,
+    "integer": NumberType,
+    "bigint": NumberType,
+    "float": NumberType,
+    "double": NumberType,
+    "decimal": NumberType,
+    "varchar": StringType,
+    "char": StringType,
+    "binary": BytesType,
+    "date": DateType,
+    "timestamp": TimeType,
+    "struct": RecordType,
+    "map": MapType,
+    "array": ArrayType,
+    "row": RecordType,
+}
+
 # https://www.vertica.com/docs/11.1.x/HTML/Content/Authoring/SQLReferenceManual/DataTypes/SQLDataTypes.htm
 VERTICA_SQL_TYPES_MAP: Dict[str, Any] = {
     "binary": BytesType,

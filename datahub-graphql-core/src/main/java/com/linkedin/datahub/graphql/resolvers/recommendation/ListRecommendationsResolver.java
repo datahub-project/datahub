@@ -4,6 +4,7 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.ContentParams;
 import com.linkedin.datahub.graphql.generated.EntityProfileParams;
 import com.linkedin.datahub.graphql.generated.FacetFilter;
@@ -15,8 +16,8 @@ import com.linkedin.datahub.graphql.generated.RecommendationParams;
 import com.linkedin.datahub.graphql.generated.RecommendationRenderType;
 import com.linkedin.datahub.graphql.generated.RecommendationRequestContext;
 import com.linkedin.datahub.graphql.generated.SearchParams;
-import com.linkedin.datahub.graphql.resolvers.EntityTypeMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.UrnToEntityMapper;
+import com.linkedin.datahub.graphql.types.entitytype.EntityTypeMapper;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.recommendation.EntityRequestContext;
 import com.linkedin.metadata.recommendation.RecommendationsService;
@@ -30,6 +31,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
+import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -46,6 +48,7 @@ public class ListRecommendationsResolver
   @WithSpan
   @Override
   public CompletableFuture<ListRecommendationsResult> get(DataFetchingEnvironment environment) {
+    final QueryContext context = environment.getContext();
     final ListRecommendationsInput input =
         bindArgument(environment.getArgument("input"), ListRecommendationsInput.class);
 
@@ -55,13 +58,13 @@ public class ListRecommendationsResolver
             log.debug("Listing recommendations for input {}", input);
             List<com.linkedin.metadata.recommendation.RecommendationModule> modules =
                 _recommendationsService.listRecommendations(
-                    Urn.createFromString(input.getUserUrn()),
+                    context.getOperationContext(),
                     mapRequestContext(input.getRequestContext()),
                     input.getLimit());
             return ListRecommendationsResult.builder()
                 .setModules(
                     modules.stream()
-                        .map(this::mapRecommendationModule)
+                        .map(m -> mapRecommendationModule(context, m))
                         .filter(Optional::isPresent)
                         .map(Optional::get)
                         .collect(Collectors.toList()))
@@ -121,6 +124,7 @@ public class ListRecommendationsResolver
   }
 
   private Optional<RecommendationModule> mapRecommendationModule(
+      @Nullable QueryContext context,
       com.linkedin.metadata.recommendation.RecommendationModule module) {
     RecommendationModule mappedModule = new RecommendationModule();
     mappedModule.setTitle(module.getTitle());
@@ -134,17 +138,18 @@ public class ListRecommendationsResolver
     }
     mappedModule.setContent(
         module.getContent().stream()
-            .map(this::mapRecommendationContent)
+            .map(c -> mapRecommendationContent(context, c))
             .collect(Collectors.toList()));
     return Optional.of(mappedModule);
   }
 
   private RecommendationContent mapRecommendationContent(
+      @Nullable QueryContext context,
       com.linkedin.metadata.recommendation.RecommendationContent content) {
     RecommendationContent mappedContent = new RecommendationContent();
     mappedContent.setValue(content.getValue());
     if (content.hasEntity()) {
-      mappedContent.setEntity(UrnToEntityMapper.map(content.getEntity()));
+      mappedContent.setEntity(UrnToEntityMapper.map(context, content.getEntity()));
     }
     if (content.hasParams()) {
       mappedContent.setParams(mapRecommendationParams(content.getParams()));

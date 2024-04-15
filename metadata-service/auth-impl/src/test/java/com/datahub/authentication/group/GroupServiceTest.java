@@ -55,7 +55,7 @@ public class GroupServiceTest {
   private static EntityRelationships _entityRelationships;
 
   private EntityClient _entityClient;
-  private EntityService _entityService;
+  private EntityService<?> _entityService;
   private GraphClient _graphClient;
   private GroupService _groupService;
 
@@ -121,7 +121,7 @@ public class GroupServiceTest {
 
   @Test
   public void testGroupExistsPasses() {
-    when(_entityService.exists(_groupUrn)).thenReturn(true);
+    when(_entityService.exists(eq(_groupUrn), eq(true))).thenReturn(true);
     assertTrue(_groupService.groupExists(_groupUrn));
   }
 
@@ -147,7 +147,7 @@ public class GroupServiceTest {
 
   @Test
   public void testAddUserToNativeGroupPasses() throws Exception {
-    when(_entityService.exists(USER_URN)).thenReturn(true);
+    when(_entityService.exists(eq(USER_URN), eq(true))).thenReturn(true);
     when(_entityClient.batchGetV2(
             eq(CORP_USER_ENTITY_NAME), any(), any(), eq(SYSTEM_AUTHENTICATION)))
         .thenReturn(_entityResponseMap);
@@ -232,7 +232,7 @@ public class GroupServiceTest {
     when(_entityClient.batchGetV2(
             eq(CORP_USER_ENTITY_NAME), any(), any(), eq(SYSTEM_AUTHENTICATION)))
         .thenReturn(_entityResponseMap);
-    when(_entityService.exists(USER_URN)).thenReturn(true);
+    when(_entityService.exists(eq(USER_URN), eq(true))).thenReturn(true);
 
     _groupService.migrateGroupMembershipToNativeGroupMembership(
         Urn.createFromString(EXTERNAL_GROUP_URN_STRING),

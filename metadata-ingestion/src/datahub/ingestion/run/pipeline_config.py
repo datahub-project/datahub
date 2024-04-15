@@ -1,5 +1,6 @@
 import datetime
 import logging
+import os
 import uuid
 from typing import Any, Dict, List, Optional
 
@@ -112,7 +113,7 @@ class PipelineConfig(ConfigModel):
             }
             # resolve env variables if present
             default_sink_config = config_loader.resolve_env_variables(
-                default_sink_config
+                default_sink_config, environ=os.environ
             )
             values["sink"] = default_sink_config
 

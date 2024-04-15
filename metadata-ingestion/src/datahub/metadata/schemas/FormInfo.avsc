@@ -1,0 +1,197 @@
+{
+  "type": "record",
+  "Aspect": {
+    "name": "formInfo"
+  },
+  "name": "FormInfo",
+  "namespace": "com.linkedin.pegasus2avro.form",
+  "fields": [
+    {
+      "Searchable": {
+        "fieldType": "TEXT_PARTIAL"
+      },
+      "type": "string",
+      "name": "name",
+      "doc": "Display name of the form"
+    },
+    {
+      "type": [
+        "null",
+        "string"
+      ],
+      "name": "description",
+      "default": null,
+      "doc": "Description of the form"
+    },
+    {
+      "Searchable": {
+        "fieldType": "KEYWORD"
+      },
+      "type": {
+        "type": "enum",
+        "symbolDocs": {
+          "COMPLETION": "A form simply used for collecting metadata fields for an entity.",
+          "VERIFICATION": "This form is used for \"verifying\" that entities comply with a policy via presence of a specific set of metadata fields."
+        },
+        "name": "FormType",
+        "namespace": "com.linkedin.pegasus2avro.form",
+        "symbols": [
+          "COMPLETION",
+          "VERIFICATION"
+        ]
+      },
+      "name": "type",
+      "default": "COMPLETION",
+      "doc": "The type of this form"
+    },
+    {
+      "type": {
+        "type": "array",
+        "items": {
+          "type": "record",
+          "name": "FormPrompt",
+          "namespace": "com.linkedin.pegasus2avro.form",
+          "fields": [
+            {
+              "type": "string",
+              "name": "id",
+              "doc": "The unique id for this prompt. This must be GLOBALLY unique."
+            },
+            {
+              "type": "string",
+              "name": "title",
+              "doc": "The title of this prompt"
+            },
+            {
+              "type": [
+                "null",
+                "string"
+              ],
+              "name": "description",
+              "default": null,
+              "doc": "The description of this prompt"
+            },
+            {
+              "type": {
+                "type": "enum",
+                "symbolDocs": {
+                  "FIELDS_STRUCTURED_PROPERTY": "This prompt is meant to apply a structured property to a schema fields entity",
+                  "STRUCTURED_PROPERTY": "This prompt is meant to apply a structured property to an entity"
+                },
+                "name": "FormPromptType",
+                "namespace": "com.linkedin.pegasus2avro.form",
+                "symbols": [
+                  "STRUCTURED_PROPERTY",
+                  "FIELDS_STRUCTURED_PROPERTY"
+                ]
+              },
+              "name": "type",
+              "doc": "The type of prompt"
+            },
+            {
+              "type": [
+                "null",
+                {
+                  "type": "record",
+                  "name": "StructuredPropertyParams",
+                  "namespace": "com.linkedin.pegasus2avro.form",
+                  "fields": [
+                    {
+                      "java": {
+                        "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+                      },
+                      "type": "string",
+                      "name": "urn",
+                      "doc": "The structured property that is required on this entity",
+                      "Urn": "Urn"
+                    }
+                  ]
+                }
+              ],
+              "name": "structuredPropertyParams",
+              "default": null,
+              "doc": "An optional set of information specific to structured properties prompts.\nThis should be filled out if the prompt is type STRUCTURED_PROPERTY or FIELDS_STRUCTURED_PROPERTY."
+            },
+            {
+              "type": "boolean",
+              "name": "required",
+              "default": false,
+              "doc": "Whether the prompt is required to be completed, in order for the form to be marked as complete."
+            }
+          ],
+          "doc": "A prompt to present to the user to encourage filling out metadata"
+        }
+      },
+      "name": "prompts",
+      "default": [],
+      "doc": "List of prompts to present to the user to encourage filling out metadata"
+    },
+    {
+      "type": {
+        "type": "record",
+        "name": "FormActorAssignment",
+        "namespace": "com.linkedin.pegasus2avro.form",
+        "fields": [
+          {
+            "Searchable": {
+              "fieldName": "isOwnershipForm",
+              "fieldType": "BOOLEAN"
+            },
+            "type": "boolean",
+            "name": "owners",
+            "default": true,
+            "doc": "Whether the form should be assigned to the owners of assets that it is applied to.\nThis is the default."
+          },
+          {
+            "Searchable": {
+              "/*": {
+                "fieldName": "assignedGroups",
+                "fieldType": "URN"
+              }
+            },
+            "type": [
+              "null",
+              {
+                "type": "array",
+                "items": "string"
+              }
+            ],
+            "name": "groups",
+            "default": null,
+            "doc": "Optional: Specific set of groups that are targeted by this form assignment.",
+            "Urn": "Urn",
+            "urn_is_array": true
+          },
+          {
+            "Searchable": {
+              "/*": {
+                "fieldName": "assignedUsers",
+                "fieldType": "URN"
+              }
+            },
+            "type": [
+              "null",
+              {
+                "type": "array",
+                "items": "string"
+              }
+            ],
+            "name": "users",
+            "default": null,
+            "doc": "Optional: Specific set of users that are targeted by this form assignment.",
+            "Urn": "Urn",
+            "urn_is_array": true
+          }
+        ]
+      },
+      "name": "actors",
+      "default": {
+        "groups": null,
+        "owners": true,
+        "users": null
+      },
+      "doc": "Who the form is assigned to, e.g. who should see the form when visiting the entity page or governance center"
+    }
+  ],
+  "doc": "Information about a form to help with filling out metadata on entities."
+}

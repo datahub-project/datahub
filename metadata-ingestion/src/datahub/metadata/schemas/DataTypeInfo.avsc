@@ -1,0 +1,33 @@
+{
+  "type": "record",
+  "Aspect": {
+    "name": "dataTypeInfo"
+  },
+  "name": "DataTypeInfo",
+  "namespace": "com.linkedin.pegasus2avro.datatype",
+  "fields": [
+    {
+      "type": "string",
+      "name": "qualifiedName",
+      "doc": "The qualified name for the data type. Usually a unique namespace + name, e.g. datahub.string"
+    },
+    {
+      "type": [
+        "null",
+        "string"
+      ],
+      "name": "displayName",
+      "default": null,
+      "doc": "An optional display name for the data type."
+    },
+    {
+      "type": [
+        "null",
+        "string"
+      ],
+      "name": "description",
+      "default": null,
+      "doc": "An optional description for the data type."
+    }
+  ]
+}

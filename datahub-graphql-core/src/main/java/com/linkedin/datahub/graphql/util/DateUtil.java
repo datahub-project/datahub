@@ -13,6 +13,10 @@ public class DateUtil {
     return setTimeToZero(getNow().withDayOfWeek(DateTimeConstants.SUNDAY).plusDays(1));
   }
 
+  public DateTime getStartOfThisMonth() {
+    return setTimeToZero(getNow().withDayOfMonth(1));
+  }
+
   public DateTime getStartOfNextMonth() {
     return setTimeToZero(getNow().withDayOfMonth(1).plusMonths(1));
   }

@@ -6,10 +6,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import javax.annotation.Nonnull;
+import lombok.AllArgsConstructor;
 import lombok.Value;
 
 /** Simple object representation of the @Relationship annotation metadata. */
 @Value
+@AllArgsConstructor
 public class RelationshipAnnotation {
 
   public static final String ANNOTATION_NAME = "Relationship";
@@ -23,6 +25,8 @@ public class RelationshipAnnotation {
   private static final String UPDATED_ACTOR = "updatedActor";
   private static final String PROPERTIES = "properties";
 
+  private static final String VIA = "via";
+
   String name;
   List<String> validDestinationTypes;
   boolean isUpstream;
@@ -32,6 +36,7 @@ public class RelationshipAnnotation {
   String updatedOn;
   String updatedActor;
   String properties;
+  String via;
 
   @Nonnull
   public static RelationshipAnnotation fromPegasusAnnotationObject(
@@ -78,6 +83,7 @@ public class RelationshipAnnotation {
     final Optional<String> updatedActor =
         AnnotationUtils.getField(map, UPDATED_ACTOR, String.class);
     final Optional<String> properties = AnnotationUtils.getField(map, PROPERTIES, String.class);
+    final Optional<String> via = AnnotationUtils.getField(map, VIA, String.class);
 
     return new RelationshipAnnotation(
         name.get(),
@@ -88,6 +94,43 @@ public class RelationshipAnnotation {
         createdActor.orElse(null),
         updatedOn.orElse(null),
         updatedActor.orElse(null),
-        properties.orElse(null));
+        properties.orElse(null),
+        via.orElse(null));
+  }
+
+  /**
+   * Constructor for backwards compatibility
+   *
+   * @param name
+   * @param entityTypes
+   * @param isUpstream
+   * @param isLineage
+   * @param createdOn
+   * @param createdActor
+   * @param updatedOn
+   * @param updatedActor
+   * @param properties
+   */
+  public RelationshipAnnotation(
+      String name,
+      List<String> validDestinationTypes,
+      boolean isUpstream,
+      boolean isLineage,
+      String createdOn,
+      String createdActor,
+      String updatedOn,
+      String updatedActor,
+      String properties) {
+    this(
+        name,
+        validDestinationTypes,
+        isUpstream,
+        isLineage,
+        createdOn,
+        createdActor,
+        updatedOn,
+        updatedActor,
+        properties,
+        null);
   }
 }

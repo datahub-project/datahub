@@ -9,6 +9,7 @@ import javax.annotation.Nonnull;
  * Strings
  */
 public interface BackupReader<T extends ReaderWrapper> {
+
   String getName();
 
   @Nonnull

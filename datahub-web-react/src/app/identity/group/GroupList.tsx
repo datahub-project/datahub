@@ -4,7 +4,7 @@ import styled from 'styled-components';
 import { useLocation } from 'react-router';
 import * as QueryString from 'query-string';
 import { UsergroupAddOutlined } from '@ant-design/icons';
-import { CorpGroup } from '../../../types.generated';
+import { CorpGroup, DataHubRole } from '../../../types.generated';
 import { Message } from '../../shared/Message';
 import { useListGroupsQuery } from '../../../graphql/group.generated';
 import GroupListItem from './GroupListItem';
@@ -16,6 +16,7 @@ import { scrollToTop } from '../../shared/searchUtils';
 import { GROUPS_CREATE_GROUP_ID, GROUPS_INTRO_ID } from '../../onboarding/config/GroupsOnboardingConfig';
 import { OnboardingTour } from '../../onboarding/OnboardingTour';
 import { addGroupToListGroupsCache, DEFAULT_GROUP_LIST_PAGE_SIZE, removeGroupFromListGroupsCache } from './cacheUtils';
+import { useListRolesQuery } from '../../../graphql/role.generated';
 
 const GroupContainer = styled.div`
     display: flex;
@@ -53,7 +54,13 @@ export const GroupList = () => {
     const pageSize = DEFAULT_GROUP_LIST_PAGE_SIZE;
     const start = (page - 1) * pageSize;
 
-    const { loading, error, data, refetch, client } = useListGroupsQuery({
+    const {
+        loading,
+        error,
+        data,
+        refetch: groupRefetch,
+        client,
+    } = useListGroupsQuery({
         variables: {
             input: {
                 start,
@@ -75,6 +82,18 @@ export const GroupList = () => {
     const handleDelete = (urn: string) => {
         removeGroupFromListGroupsCache(urn, client, page, pageSize);
     };
+
+    const { data: rolesData } = useListRolesQuery({
+        fetchPolicy: 'cache-first',
+        variables: {
+            input: {
+                start: 0,
+                count: 10,
+            },
+        },
+    });
+
+    const selectRoleOptions = rolesData?.listRoles?.roles?.map((role) => role as DataHubRole) || [];
 
     return (
         <>
@@ -114,7 +133,12 @@ export const GroupList = () => {
                     }}
                     dataSource={groups}
                     renderItem={(item: any) => (
-                        <GroupListItem onDelete={() => handleDelete(item.urn)} group={item as CorpGroup} />
+                        <GroupListItem
+                            onDelete={() => handleDelete(item.urn)}
+                            group={item as CorpGroup}
+                            selectRoleOptions={selectRoleOptions}
+                            refetch={groupRefetch}
+                        />
                     )}
                 />
                 <GroupPaginationContainer>
@@ -131,9 +155,9 @@ export const GroupList = () => {
                 {isCreatingGroup && (
                     <CreateGroupModal
                         onClose={() => setIsCreatingGroup(false)}
-                        onCreate={(group) => {
+                        onCreate={(group: CorpGroup) => {
                             addGroupToListGroupsCache(group, client);
-                            setTimeout(() => refetch(), 3000);
+                            setTimeout(() => groupRefetch(), 3000);
                         }}
                     />
                 )}

@@ -44,12 +44,14 @@
       "type": {
         "type": "enum",
         "symbolDocs": {
-          "MANUAL": "The query was entered manually by a user (via the UI)."
+          "MANUAL": "The query was entered manually by a user (via the UI).",
+          "SYSTEM": "The query was discovered by a crawler."
         },
         "name": "QuerySource",
         "namespace": "com.linkedin.pegasus2avro.query",
         "symbols": [
-          "MANUAL"
+          "MANUAL",
+          "SYSTEM"
         ]
       },
       "name": "source",
@@ -150,6 +152,19 @@
       "type": "com.linkedin.pegasus2avro.common.AuditStamp",
       "name": "lastModified",
       "doc": "Audit stamp capturing the time and actor who last modified the Query."
+    },
+    {
+      "java": {
+        "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+      },
+      "type": [
+        "null",
+        "string"
+      ],
+      "name": "origin",
+      "default": null,
+      "doc": "The origin of the Query.\nThis is the source of the Query (e.g. a View, Stored Procedure, dbt Model, etc.) that the Query was created from.",
+      "Urn": "Urn"
     }
   ],
   "doc": "Information about a Query against one or more data assets (e.g. Tables or Views)."

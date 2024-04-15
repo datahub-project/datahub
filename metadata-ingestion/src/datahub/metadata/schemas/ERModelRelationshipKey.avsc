@@ -1,0 +1,27 @@
+{
+  "type": "record",
+  "Aspect": {
+    "name": "erModelRelationshipKey",
+    "keyForEntity": "erModelRelationship",
+    "entityCategory": "_unset_",
+    "entityAspects": [
+      "erModelRelationshipProperties",
+      "editableERModelRelationshipProperties",
+      "institutionalMemory",
+      "ownership",
+      "status",
+      "globalTags",
+      "glossaryTerms"
+    ],
+    "entityDoc": "ER Model Relationship of  Dataset Fields"
+  },
+  "name": "ERModelRelationshipKey",
+  "namespace": "com.linkedin.pegasus2avro.metadata.key",
+  "fields": [
+    {
+      "type": "string",
+      "name": "id"
+    }
+  ],
+  "doc": "Key for a ERModelRelationship"
+}

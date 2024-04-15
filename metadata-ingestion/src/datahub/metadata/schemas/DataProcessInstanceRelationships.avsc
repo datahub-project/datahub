@@ -10,7 +10,8 @@
       "Relationship": {
         "entityTypes": [
           "dataJob",
-          "dataFlow"
+          "dataFlow",
+          "dataset"
         ],
         "name": "InstanceOf"
       },
@@ -34,7 +35,8 @@
       "Urn": "Urn",
       "entityTypes": [
         "dataJob",
-        "dataFlow"
+        "dataFlow",
+        "dataset"
       ]
     },
     {

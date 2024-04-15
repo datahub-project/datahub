@@ -91,7 +91,7 @@ class BigqueryProfiler(GenericProfiler):
                     )
                 else:
                     logger.warning(
-                        f"Partitioned table {table.name} without partiton column"
+                        f"Partitioned table {table.name} without partition column"
                     )
                     self.report.profiling_skipped_invalid_partition_ids[
                         f"{project}.{schema}.{table.name}"

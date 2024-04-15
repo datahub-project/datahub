@@ -70,7 +70,9 @@ public class AssertionRunEventResolver
 
             // Step 2: Bind profiles into GraphQL strong types.
             List<AssertionRunEvent> runEvents =
-                aspects.stream().map(AssertionRunEventMapper::map).collect(Collectors.toList());
+                aspects.stream()
+                    .map(a -> AssertionRunEventMapper.map(context, a))
+                    .collect(Collectors.toList());
 
             // Step 3: Package and return response.
             final AssertionRunEventsResult result = new AssertionRunEventsResult();

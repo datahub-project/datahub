@@ -6,6 +6,7 @@
 
 # pylint: skip-file
 # fmt: off
+# isort: skip_file
 from .....schema_classes import AssertionActionClass
 from .....schema_classes import AssertionActionTypeClass
 from .....schema_classes import AssertionActionsClass

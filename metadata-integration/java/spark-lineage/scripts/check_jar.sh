@@ -16,6 +16,7 @@ jar -tvf $jarFile |\
       grep -v "git.properties" |\
       grep -v " org/$" |\
       grep -v " io/$" |\
+      grep -v "io/micrometer/" |\
       grep -v "git.properties" |\
       grep -v "org/aopalliance" |\
       grep -v "javax/" |\
@@ -34,7 +35,9 @@ jar -tvf $jarFile |\
       grep -v "linux/" |\
       grep -v "darwin" |\
       grep -v "MetadataChangeProposal.avsc" |\
-      grep -v "aix"
+      grep -v "aix" |\
+      grep -v "library.properties" |\
+      grep -v "rootdoc.txt"
 
 if [ $? -ne 0 ]; then
   echo "✅ No unexpected class paths found in ${jarFile}"

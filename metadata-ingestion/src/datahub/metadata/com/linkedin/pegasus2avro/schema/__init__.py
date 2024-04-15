@@ -6,6 +6,7 @@
 
 # pylint: skip-file
 # fmt: off
+# isort: skip_file
 from .....schema_classes import ArrayTypeClass
 from .....schema_classes import BinaryJsonSchemaClass
 from .....schema_classes import BooleanTypeClass

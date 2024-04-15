@@ -1,0 +1,23 @@
+{
+  "type": "record",
+  "Aspect": {
+    "name": "structuredPropertyKey",
+    "keyForEntity": "structuredProperty",
+    "entityCategory": "core",
+    "entityAspects": [
+      "propertyDefinition",
+      "institutionalMemory",
+      "status"
+    ],
+    "entityDoc": "Structured Property represents a property meant for extending the core model of a logical entity"
+  },
+  "name": "StructuredPropertyKey",
+  "namespace": "com.linkedin.pegasus2avro.structured",
+  "fields": [
+    {
+      "type": "string",
+      "name": "id",
+      "doc": "The id for a structured proeprty."
+    }
+  ]
+}

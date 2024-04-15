@@ -6,11 +6,16 @@
 
 # pylint: skip-file
 # fmt: off
+# isort: skip_file
 from ......schema_classes import GlobalSettingsInfoClass
 from ......schema_classes import GlobalViewsSettingsClass
+from ......schema_classes import OidcSettingsClass
+from ......schema_classes import SsoSettingsClass
 
 
 GlobalSettingsInfo = GlobalSettingsInfoClass
 GlobalViewsSettings = GlobalViewsSettingsClass
+OidcSettings = OidcSettingsClass
+SsoSettings = SsoSettingsClass
 
 # fmt: on

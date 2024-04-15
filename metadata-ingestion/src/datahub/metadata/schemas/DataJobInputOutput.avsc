@@ -434,6 +434,19 @@
                 "name": "confidenceScore",
                 "default": 1.0,
                 "doc": "The confidence in this lineage between 0 (low confidence) and 1 (high confidence)"
+              },
+              {
+                "java": {
+                  "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+                },
+                "type": [
+                  "null",
+                  "string"
+                ],
+                "name": "query",
+                "default": null,
+                "doc": "The query that was used to generate this lineage. \nPresent only if the lineage was generated from a detected query.",
+                "Urn": "Urn"
               }
             ],
             "doc": "A fine-grained lineage from upstream fields/datasets to downstream field(s)"

@@ -42,7 +42,11 @@ public class LabelUtils {
   private LabelUtils() {}
 
   public static void removeTermFromResource(
-      Urn labelUrn, Urn resourceUrn, String subResource, Urn actor, EntityService entityService) {
+      Urn labelUrn,
+      Urn resourceUrn,
+      String subResource,
+      Urn actor,
+      EntityService<?> entityService) {
     if (subResource == null || subResource.equals("")) {
       com.linkedin.common.GlossaryTerms terms =
           (com.linkedin.common.GlossaryTerms)
@@ -80,7 +84,7 @@ public class LabelUtils {
   }
 
   public static void removeTagsFromResources(
-      List<Urn> tags, List<ResourceRefInput> resources, Urn actor, EntityService entityService)
+      List<Urn> tags, List<ResourceRefInput> resources, Urn actor, EntityService<?> entityService)
       throws Exception {
     final List<MetadataChangeProposal> changes = new ArrayList<>();
     for (ResourceRefInput resource : resources) {
@@ -90,7 +94,10 @@ public class LabelUtils {
   }
 
   public static void addTagsToResources(
-      List<Urn> tagUrns, List<ResourceRefInput> resources, Urn actor, EntityService entityService)
+      List<Urn> tagUrns,
+      List<ResourceRefInput> resources,
+      Urn actor,
+      EntityService<?> entityService)
       throws Exception {
     final List<MetadataChangeProposal> changes = new ArrayList<>();
     for (ResourceRefInput resource : resources) {
@@ -100,7 +107,10 @@ public class LabelUtils {
   }
 
   public static void removeTermsFromResources(
-      List<Urn> termUrns, List<ResourceRefInput> resources, Urn actor, EntityService entityService)
+      List<Urn> termUrns,
+      List<ResourceRefInput> resources,
+      Urn actor,
+      EntityService<?> entityService)
       throws Exception {
     final List<MetadataChangeProposal> changes = new ArrayList<>();
     for (ResourceRefInput resource : resources) {
@@ -110,7 +120,10 @@ public class LabelUtils {
   }
 
   public static void addTermsToResources(
-      List<Urn> termUrns, List<ResourceRefInput> resources, Urn actor, EntityService entityService)
+      List<Urn> termUrns,
+      List<ResourceRefInput> resources,
+      Urn actor,
+      EntityService<?> entityService)
       throws Exception {
     final List<MetadataChangeProposal> changes = new ArrayList<>();
     for (ResourceRefInput resource : resources) {
@@ -124,7 +137,7 @@ public class LabelUtils {
       Urn resourceUrn,
       String subResource,
       Urn actor,
-      EntityService entityService)
+      EntityService<?> entityService)
       throws URISyntaxException {
     if (subResource == null || subResource.equals("")) {
       com.linkedin.common.GlossaryTerms terms =
@@ -248,7 +261,7 @@ public class LabelUtils {
       String subResource,
       SubResourceType subResourceType,
       String labelEntityType,
-      EntityService entityService,
+      EntityService<?> entityService,
       Boolean isRemoving) {
     for (Urn urn : labelUrns) {
       validateResourceAndLabel(
@@ -263,14 +276,14 @@ public class LabelUtils {
   }
 
   public static void validateLabel(
-      Urn labelUrn, String labelEntityType, EntityService entityService) {
+      Urn labelUrn, String labelEntityType, EntityService<?> entityService) {
     if (!labelUrn.getEntityType().equals(labelEntityType)) {
       throw new IllegalArgumentException(
           String.format(
               "Failed to validate label with urn %s. Urn type does not match entity type %s..",
               labelUrn, labelEntityType));
     }
-    if (!entityService.exists(labelUrn)) {
+    if (!entityService.exists(labelUrn, true)) {
       throw new IllegalArgumentException(
           String.format("Failed to validate label with urn %s. Urn does not exist.", labelUrn));
     }
@@ -281,8 +294,8 @@ public class LabelUtils {
       Urn resourceUrn,
       String subResource,
       SubResourceType subResourceType,
-      EntityService entityService) {
-    if (!entityService.exists(resourceUrn)) {
+      EntityService<?> entityService) {
+    if (!entityService.exists(resourceUrn, true)) {
       throw new IllegalArgumentException(
           String.format(
               "Failed to update resource with urn %s. Entity does not exist.", resourceUrn));
@@ -310,7 +323,7 @@ public class LabelUtils {
       String subResource,
       SubResourceType subResourceType,
       String labelEntityType,
-      EntityService entityService,
+      EntityService<?> entityService,
       Boolean isRemoving) {
     if (!isRemoving) {
       validateLabel(labelUrn, labelEntityType, entityService);
@@ -319,7 +332,7 @@ public class LabelUtils {
   }
 
   private static MetadataChangeProposal buildAddTagsProposal(
-      List<Urn> tagUrns, ResourceRefInput resource, Urn actor, EntityService entityService)
+      List<Urn> tagUrns, ResourceRefInput resource, Urn actor, EntityService<?> entityService)
       throws URISyntaxException {
     if (resource.getSubResource() == null || resource.getSubResource().equals("")) {
       // Case 1: Adding tags to a top-level entity
@@ -331,7 +344,7 @@ public class LabelUtils {
   }
 
   private static MetadataChangeProposal buildRemoveTagsProposal(
-      List<Urn> tagUrns, ResourceRefInput resource, Urn actor, EntityService entityService)
+      List<Urn> tagUrns, ResourceRefInput resource, Urn actor, EntityService<?> entityService)
       throws URISyntaxException {
     if (resource.getSubResource() == null || resource.getSubResource().equals("")) {
       // Case 1: Adding tags to a top-level entity
@@ -343,7 +356,7 @@ public class LabelUtils {
   }
 
   private static MetadataChangeProposal buildRemoveTagsToEntityProposal(
-      List<Urn> tagUrns, ResourceRefInput resource, Urn actor, EntityService entityService) {
+      List<Urn> tagUrns, ResourceRefInput resource, Urn actor, EntityService<?> entityService) {
     com.linkedin.common.GlobalTags tags =
         (com.linkedin.common.GlobalTags)
             EntityUtils.getAspectFromEntity(
@@ -361,7 +374,7 @@ public class LabelUtils {
   }
 
   private static MetadataChangeProposal buildRemoveTagsToSubResourceProposal(
-      List<Urn> tagUrns, ResourceRefInput resource, Urn actor, EntityService entityService) {
+      List<Urn> tagUrns, ResourceRefInput resource, Urn actor, EntityService<?> entityService) {
     com.linkedin.schema.EditableSchemaMetadata editableSchemaMetadata =
         (com.linkedin.schema.EditableSchemaMetadata)
             EntityUtils.getAspectFromEntity(
@@ -383,7 +396,7 @@ public class LabelUtils {
   }
 
   private static MetadataChangeProposal buildAddTagsToEntityProposal(
-      List<Urn> tagUrns, ResourceRefInput resource, Urn actor, EntityService entityService)
+      List<Urn> tagUrns, ResourceRefInput resource, Urn actor, EntityService<?> entityService)
       throws URISyntaxException {
     com.linkedin.common.GlobalTags tags =
         (com.linkedin.common.GlobalTags)
@@ -402,7 +415,7 @@ public class LabelUtils {
   }
 
   private static MetadataChangeProposal buildAddTagsToSubResourceProposal(
-      List<Urn> tagUrns, ResourceRefInput resource, Urn actor, EntityService entityService)
+      List<Urn> tagUrns, ResourceRefInput resource, Urn actor, EntityService<?> entityService)
       throws URISyntaxException {
     com.linkedin.schema.EditableSchemaMetadata editableSchemaMetadata =
         (com.linkedin.schema.EditableSchemaMetadata)
@@ -455,7 +468,7 @@ public class LabelUtils {
   }
 
   private static MetadataChangeProposal buildAddTermsProposal(
-      List<Urn> termUrns, ResourceRefInput resource, Urn actor, EntityService entityService)
+      List<Urn> termUrns, ResourceRefInput resource, Urn actor, EntityService<?> entityService)
       throws URISyntaxException {
     if (resource.getSubResource() == null || resource.getSubResource().equals("")) {
       // Case 1: Adding terms to a top-level entity
@@ -467,7 +480,7 @@ public class LabelUtils {
   }
 
   private static MetadataChangeProposal buildRemoveTermsProposal(
-      List<Urn> termUrns, ResourceRefInput resource, Urn actor, EntityService entityService)
+      List<Urn> termUrns, ResourceRefInput resource, Urn actor, EntityService<?> entityService)
       throws URISyntaxException {
     if (resource.getSubResource() == null || resource.getSubResource().equals("")) {
       // Case 1: Removing terms from a top-level entity
@@ -479,7 +492,7 @@ public class LabelUtils {
   }
 
   private static MetadataChangeProposal buildAddTermsToEntityProposal(
-      List<Urn> termUrns, ResourceRefInput resource, Urn actor, EntityService entityService)
+      List<Urn> termUrns, ResourceRefInput resource, Urn actor, EntityService<?> entityService)
       throws URISyntaxException {
     com.linkedin.common.GlossaryTerms terms =
         (com.linkedin.common.GlossaryTerms)
@@ -500,7 +513,7 @@ public class LabelUtils {
   }
 
   private static MetadataChangeProposal buildAddTermsToSubResourceProposal(
-      List<Urn> termUrns, ResourceRefInput resource, Urn actor, EntityService entityService)
+      List<Urn> termUrns, ResourceRefInput resource, Urn actor, EntityService<?> entityService)
       throws URISyntaxException {
     com.linkedin.schema.EditableSchemaMetadata editableSchemaMetadata =
         (com.linkedin.schema.EditableSchemaMetadata)
@@ -526,7 +539,7 @@ public class LabelUtils {
   }
 
   private static MetadataChangeProposal buildRemoveTermsToEntityProposal(
-      List<Urn> termUrns, ResourceRefInput resource, Urn actor, EntityService entityService) {
+      List<Urn> termUrns, ResourceRefInput resource, Urn actor, EntityService<?> entityService) {
     com.linkedin.common.GlossaryTerms terms =
         (com.linkedin.common.GlossaryTerms)
             EntityUtils.getAspectFromEntity(
@@ -542,7 +555,7 @@ public class LabelUtils {
   }
 
   private static MetadataChangeProposal buildRemoveTermsToSubResourceProposal(
-      List<Urn> termUrns, ResourceRefInput resource, Urn actor, EntityService entityService) {
+      List<Urn> termUrns, ResourceRefInput resource, Urn actor, EntityService<?> entityService) {
     com.linkedin.schema.EditableSchemaMetadata editableSchemaMetadata =
         (com.linkedin.schema.EditableSchemaMetadata)
             EntityUtils.getAspectFromEntity(

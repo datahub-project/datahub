@@ -28,7 +28,7 @@ import lombok.extern.slf4j.Slf4j;
 public class SetDomainResolver implements DataFetcher<CompletableFuture<Boolean>> {
 
   private final EntityClient _entityClient;
-  private final EntityService
+  private final EntityService<?>
       _entityService; // TODO: Remove this when 'exists' added to EntityClient
 
   @Override
@@ -74,16 +74,16 @@ public class SetDomainResolver implements DataFetcher<CompletableFuture<Boolean>
   }
 
   public static Boolean validateSetDomainInput(
-      Urn entityUrn, Urn domainUrn, EntityService entityService) {
+      Urn entityUrn, Urn domainUrn, EntityService<?> entityService) {
 
-    if (!entityService.exists(domainUrn)) {
+    if (!entityService.exists(domainUrn, true)) {
       throw new IllegalArgumentException(
           String.format(
               "Failed to add Entity %s to Domain %s. Domain does not exist.",
               entityUrn, domainUrn));
     }
 
-    if (!entityService.exists(entityUrn)) {
+    if (!entityService.exists(entityUrn, true)) {
       throw new IllegalArgumentException(
           String.format(
               "Failed to add Entity %s to Domain %s. Entity does not exist.",

@@ -17,6 +17,7 @@ import { LineageTab } from '../shared/tabs/Lineage/LineageTab';
 import { EntityMenuItems } from '../shared/EntityDropdown/EntityDropdown';
 import DataProductSection from '../shared/containers/profile/sidebar/DataProduct/DataProductSection';
 import { getDataProduct } from '../shared/utils';
+import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
 
 /**
  * Definition of the DataHub MLFeature entity.
@@ -57,6 +58,8 @@ export class MLFeatureEntity implements Entity<MlFeature> {
 
     getCollectionName = () => 'Features';
 
+    useEntityQuery = useGetMlFeatureQuery;
+
     getOverridePropertiesFromEntity = (feature?: MlFeature | null): GenericEntityProperties => {
         return {
             // eslint-disable-next-line
@@ -85,33 +88,39 @@ export class MLFeatureEntity implements Entity<MlFeature> {
                     name: 'Lineage',
                     component: LineageTab,
                 },
-            ]}
-            sidebarSections={[
                 {
-                    component: SidebarAboutSection,
-                },
-                {
-                    component: SidebarOwnerSection,
-                    properties: {
-                        defaultOwnerType: OwnershipType.TechnicalOwner,
-                    },
-                },
-                {
-                    component: SidebarTagsSection,
-                    properties: {
-                        hasTags: true,
-                        hasTerms: true,
-                    },
-                },
-                {
-                    component: SidebarDomainSection,
-                },
-                {
-                    component: DataProductSection,
+                    name: 'Properties',
+                    component: PropertiesTab,
                 },
             ]}
+            sidebarSections={this.getSidebarSections()}
         />
     );
+
+    getSidebarSections = () => [
+        {
+            component: SidebarAboutSection,
+        },
+        {
+            component: SidebarOwnerSection,
+            properties: {
+                defaultOwnerType: OwnershipType.TechnicalOwner,
+            },
+        },
+        {
+            component: SidebarTagsSection,
+            properties: {
+                hasTags: true,
+                hasTerms: true,
+            },
+        },
+        {
+            component: SidebarDomainSection,
+        },
+        {
+            component: DataProductSection,
+        },
+    ];
 
     renderPreview = (_: PreviewType, data: MlFeature) => {
         const genericProperties = this.getGenericEntityProperties(data);

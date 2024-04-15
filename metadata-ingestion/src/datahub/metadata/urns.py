@@ -6,6 +6,7 @@
 
 # pylint: skip-file
 # fmt: off
+# isort: skip_file
 
 # This is a specialized shim layer that allows us to dynamically load custom URN types from elsewhere.
 

@@ -6,6 +6,7 @@
 
 # pylint: skip-file
 # fmt: off
+# isort: skip_file
 from .....schema_classes import DataHubIngestionSourceConfigClass
 from .....schema_classes import DataHubIngestionSourceInfoClass
 from .....schema_classes import DataHubIngestionSourceScheduleClass

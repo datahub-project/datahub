@@ -3,6 +3,7 @@ package com.linkedin.datahub.graphql.resolvers.dashboard;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.StringArray;
+import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.CorpUser;
 import com.linkedin.datahub.graphql.generated.DashboardUsageAggregation;
 import com.linkedin.datahub.graphql.generated.DashboardUsageAggregationMetrics;
@@ -31,6 +32,7 @@ import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
+import javax.annotation.Nullable;
 
 public class DashboardUsageStatsUtils {
 
@@ -40,6 +42,7 @@ public class DashboardUsageStatsUtils {
   public static final String ES_NULL_VALUE = "NULL";
 
   public static List<DashboardUsageMetrics> getDashboardUsageMetrics(
+      @Nullable QueryContext context,
       String dashboardUrn,
       Long maybeStartTimeMillis,
       Long maybeEndTimeMillis,
@@ -58,7 +61,9 @@ public class DashboardUsageStatsUtils {
               maybeLimit,
               filter);
       dashboardUsageMetrics =
-          aspects.stream().map(DashboardUsageMetricMapper::map).collect(Collectors.toList());
+          aspects.stream()
+              .map(m -> DashboardUsageMetricMapper.map(context, m))
+              .collect(Collectors.toList());
     } catch (URISyntaxException e) {
       throw new IllegalArgumentException("Invalid resource", e);
     }

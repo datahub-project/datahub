@@ -1,4 +1,6 @@
-apply plugin: 'java'
+plugins {
+    id 'java'
+}
 
 dependencies {
     implementation project(':metadata-service:factories')
@@ -15,6 +17,7 @@ dependencies {
     implementation externalDependency.springBeans
     implementation externalDependency.springContext
     implementation externalDependency.springBootAutoconfigure
+    implementation externalDependency.servletApi
     implementation externalDependency.slf4jApi
     compileOnly externalDependency.lombok
     implementation externalDependency.antlr4Runtime

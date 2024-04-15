@@ -1,10 +1,10 @@
 package com.linkedin.restli.server;
 
-import com.linkedin.r2.transport.http.server.RAPServlet;
+import com.linkedin.r2.transport.http.server.RAPJakartaServlet;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.web.HttpRequestHandler;
@@ -12,7 +12,7 @@ import org.springframework.web.context.support.HttpRequestHandlerServlet;
 
 @Component
 public class RestliHandlerServlet extends HttpRequestHandlerServlet implements HttpRequestHandler {
-  @Autowired private RAPServlet _r2Servlet;
+  @Autowired private RAPJakartaServlet _r2Servlet;
 
   @Override
   public void service(HttpServletRequest req, HttpServletResponse res)

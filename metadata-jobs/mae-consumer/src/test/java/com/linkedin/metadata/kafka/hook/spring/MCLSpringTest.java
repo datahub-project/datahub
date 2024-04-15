@@ -6,6 +6,7 @@ import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.kafka.MetadataChangeLogProcessor;
 import com.linkedin.metadata.kafka.hook.UpdateIndicesHook;
 import com.linkedin.metadata.kafka.hook.event.EntityChangeEventGeneratorHook;
+import com.linkedin.metadata.kafka.hook.incident.IncidentsSummaryHook;
 import com.linkedin.metadata.kafka.hook.ingestion.IngestionSchedulerHook;
 import com.linkedin.metadata.kafka.hook.siblings.SiblingAssociationHook;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
@@ -44,5 +45,10 @@ public class MCLSpringTest extends AbstractTestNGSpringContextTests {
     assertTrue(
         metadataChangeLogProcessor.getHooks().stream()
             .anyMatch(hook -> hook instanceof EntityChangeEventGeneratorHook));
+    assertEquals(
+        1,
+        metadataChangeLogProcessor.getHooks().stream()
+            .filter(hook -> hook instanceof IncidentsSummaryHook)
+            .count());
   }
 }

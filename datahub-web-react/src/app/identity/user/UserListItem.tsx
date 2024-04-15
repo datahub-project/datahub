@@ -98,8 +98,8 @@ export default function UserListItem({ user, canManageUserCredentials, selectRol
                             <div>
                                 <Typography.Text>{displayName}</Typography.Text>
                             </div>
-                            <div>
-                                <Typography.Text type="secondary">{user.username}</Typography.Text>
+                            <div   data-testid={`email-${shouldShowPasswordReset ? 'native' : 'non-native'}`}>
+                                <Typography.Text type="secondary"   >{user.username}</Typography.Text>
                             </div>
                         </div>
                         {userStatus && (
@@ -121,8 +121,12 @@ export default function UserListItem({ user, canManageUserCredentials, selectRol
                     trigger={['click']}
                     overlay={
                         <Menu>
-                            <Menu.Item disabled={!shouldShowPasswordReset} onClick={() => setIsViewingResetToken(true)}>
-                                <UnlockOutlined /> &nbsp; Reset user password
+                            <Menu.Item
+                                disabled={!shouldShowPasswordReset}
+                                onClick={() => setIsViewingResetToken(true)}
+                                data-testid="reset-menu-item"
+                            >
+                                <UnlockOutlined data-testid="resetButton" /> &nbsp; Reset user password
                             </Menu.Item>
                             <Menu.Item onClick={onDeleteEntity}>
                                 <DeleteOutlined /> &nbsp;Delete
@@ -130,7 +134,10 @@ export default function UserListItem({ user, canManageUserCredentials, selectRol
                         </Menu>
                     }
                 >
-                    <MenuIcon fontSize={20} />
+                    <MenuIcon
+                        fontSize={20}
+                        data-testid={`userItem-${shouldShowPasswordReset ? 'native' : 'non-native'}`}
+                    />
                 </Dropdown>
             </ButtonGroup>
             <ViewResetTokenModal

@@ -4,7 +4,6 @@ from unittest.mock import patch
 
 import pytest
 
-from datahub.configuration.common import ConfigurationError
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.pulsar import (
@@ -24,6 +23,9 @@ mock_schema_response: Dict[str, Any] = {
 
 
 class TestPulsarSourceConfig:
+    # TODO: While these tests work, we really shouldn't be calling pydantic
+    # validator methods directly.
+
     def test_pulsar_source_config_valid_web_service_url(self):
         assert (
             PulsarSourceConfig().web_service_url_scheme_host_port(
@@ -34,7 +36,7 @@ class TestPulsarSourceConfig:
 
     def test_pulsar_source_config_invalid_web_service_url_scheme(self):
         with pytest.raises(
-            ConfigurationError, match=r"Scheme should be http or https, found ftp"
+            ValueError, match=r"Scheme should be http or https, found ftp"
         ):
             PulsarSourceConfig().web_service_url_scheme_host_port(
                 "ftp://localhost:8080/"
@@ -42,7 +44,7 @@ class TestPulsarSourceConfig:
 
     def test_pulsar_source_config_invalid_web_service_url_host(self):
         with pytest.raises(
-            ConfigurationError,
+            ValueError,
             match=r"Not a valid hostname, hostname contains invalid characters, found localhost&",
         ):
             PulsarSourceConfig().web_service_url_scheme_host_port(

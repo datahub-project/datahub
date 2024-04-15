@@ -9,7 +9,7 @@ import com.linkedin.parseq.Engine;
 import com.linkedin.parseq.EngineBuilder;
 import com.linkedin.r2.filter.FilterChains;
 import com.linkedin.r2.filter.transport.FilterChainDispatcher;
-import com.linkedin.r2.transport.http.server.RAPServlet;
+import com.linkedin.r2.transport.http.server.RAPJakartaServlet;
 import com.linkedin.restli.docgen.DefaultDocumentationRequestHandler;
 import com.linkedin.restli.server.spring.SpringInjectResourceFactory;
 import java.util.concurrent.Executors;
@@ -41,7 +41,7 @@ public class RAPServletFactory {
   }
 
   @Bean
-  public RAPServlet rapServlet(
+  public RAPJakartaServlet rapServlet(
       @Qualifier("restliSpringInjectResourceFactory")
           SpringInjectResourceFactory springInjectResourceFactory,
       @Qualifier("parseqEngineThreads") int threads) {
@@ -66,7 +66,7 @@ public class RAPServletFactory {
     config.addFilter(new RestliLoggingFilter());
 
     RestLiServer restLiServer = new RestLiServer(config, springInjectResourceFactory, parseqEngine);
-    return new RAPServlet(
+    return new RAPJakartaServlet(
         new FilterChainDispatcher(
             new DelegatingTransportDispatcher(restLiServer, restLiServer), FilterChains.empty()));
   }

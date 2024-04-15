@@ -140,7 +140,9 @@ class SnowflakeV2Config(
     # This is required since access_history table does not capture whether the table was temporary table.
     temporary_tables_pattern: List[str] = Field(
         default=DEFAULT_TABLES_DENY_LIST,
-        description="[Advanced] Regex patterns for temporary tables to filter in lineage ingestion. Specify regex to match the entire table name in database.schema.table format. Defaults are to set in such a way to ignore the temporary staging tables created by known ETL tools.",
+        description="[Advanced] Regex patterns for temporary tables to filter in lineage ingestion. Specify regex to "
+        "match the entire table name in database.schema.table format. Defaults are to set in such a way "
+        "to ignore the temporary staging tables created by known ETL tools.",
     )
 
     rename_upstreams_deny_pattern_to_temporary_table_pattern = pydantic_renamed_field(
@@ -150,13 +152,16 @@ class SnowflakeV2Config(
     shares: Optional[Dict[str, SnowflakeShareConfig]] = Field(
         default=None,
         description="Required if current account owns or consumes snowflake share."
-        " If specified, connector creates lineage and siblings relationship between current account's database tables and consumer/producer account's database tables."
+        "If specified, connector creates lineage and siblings relationship between current account's database tables "
+        "and consumer/producer account's database tables."
         " Map of share name -> details of share.",
     )
 
     email_as_user_identifier: bool = Field(
         default=True,
-        description="Format user urns as an email, if the snowflake user's email is set. If `email_domain` is provided, generates email addresses for snowflake users with unset emails, based on their username.",
+        description="Format user urns as an email, if the snowflake user's email is set. If `email_domain` is "
+        "provided, generates email addresses for snowflake users with unset emails, based on their "
+        "username.",
     )
 
     @validator("convert_urns_to_lowercase")
@@ -176,7 +181,7 @@ class SnowflakeV2Config(
             )
         return v
 
-    @root_validator(pre=False)
+    @root_validator(pre=False, skip_on_failure=True)
     def validate_unsupported_configs(cls, values: Dict) -> Dict:
         value = values.get("include_read_operational_stats")
         if value is not None and value:
@@ -215,7 +220,7 @@ class SnowflakeV2Config(
             and values["stateful_ingestion"].remove_stale_metadata
         )
 
-        # TODO: Allow lineage extraction and profiling irrespective of basic schema extraction,
+        # TODO: Allow profiling irrespective of basic schema extraction,
         # as it seems possible with some refactor
         if not include_technical_schema and any(
             [include_profiles, delete_detection_enabled]

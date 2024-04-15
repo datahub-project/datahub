@@ -3,13 +3,13 @@ package io.datahubproject.schema_registry.openapi.generated;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.Objects;
-import javax.validation.constraints.*;
+import jakarta.validation.constraints.*;
 import org.springframework.validation.annotation.Validated;
 
 /** Schema register response */
 @io.swagger.v3.oas.annotations.media.Schema(description = "Schema register response")
 @Validated
-@javax.annotation.Generated(
+@jakarta.annotation.Generated(
     value = "io.swagger.codegen.v3.generators.java.SpringCodegen",
     date = "2022-12-20T16:52:36.517693Z[Europe/Lisbon]")
 @JsonInclude(JsonInclude.Include.NON_NULL)

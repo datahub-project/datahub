@@ -6,6 +6,9 @@
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.glossary.GlossaryNodeInfo": {
+                        "customProperties": {
+                            "is_confidential": "True"
+                        },
                         "definition": "A set of terms related to Data Classification",
                         "name": "Classification"
                     }
@@ -29,7 +32,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1629795600000,
-        "runId": "remote-4"
+        "runId": "remote-4",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -54,7 +58,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1629795600000,
-        "runId": "remote-4"
+        "runId": "remote-4",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -94,7 +99,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1629795600000,
-        "runId": "remote-4"
+        "runId": "remote-4",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -119,7 +125,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1629795600000,
-        "runId": "remote-4"
+        "runId": "remote-4",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -159,7 +166,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1629795600000,
-        "runId": "remote-4"
+        "runId": "remote-4",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -176,7 +184,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1629795600000,
-        "runId": "remote-4"
+        "runId": "remote-4",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -216,7 +225,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1629795600000,
-        "runId": "remote-4"
+        "runId": "remote-4",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -226,6 +236,7 @@
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.glossary.GlossaryNodeInfo": {
+                        "customProperties": {},
                         "definition": "All terms related to personal information",
                         "name": "Personal Information"
                     }
@@ -249,7 +260,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1629795600000,
-        "runId": "remote-4"
+        "runId": "remote-4",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -294,7 +306,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1629795600000,
-        "runId": "remote-4"
+        "runId": "remote-4",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -332,7 +345,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1629795600000,
-        "runId": "remote-4"
+        "runId": "remote-4",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -377,7 +391,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1629795600000,
-        "runId": "remote-4"
+        "runId": "remote-4",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -387,6 +402,7 @@
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.glossary.GlossaryNodeInfo": {
+                        "customProperties": {},
                         "definition": "Provides basic concepts such as account, account holder, account provider, relationship manager that are commonly used by financial services providers to describe customers and to determine counterparty identities",
                         "name": "Clients And Accounts"
                     }
@@ -410,7 +426,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1629795600000,
-        "runId": "remote-4"
+        "runId": "remote-4",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -458,7 +475,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1629795600000,
-        "runId": "remote-4"
+        "runId": "remote-4",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -496,7 +514,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1629795600000,
-        "runId": "remote-4"
+        "runId": "remote-4",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -506,6 +525,7 @@
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.glossary.GlossaryNodeInfo": {
+                        "customProperties": {},
                         "definition": "Common Business KPIs",
                         "name": "KPIs"
                     }
@@ -529,7 +549,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1629795600000,
-        "runId": "remote-4"
+        "runId": "remote-4",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -567,7 +588,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1629795600000,
-        "runId": "remote-4"
+        "runId": "remote-4",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -582,7 +604,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1629795600000,
-        "runId": "remote-4"
+        "runId": "remote-4",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -597,7 +620,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1629795600000,
-        "runId": "remote-4"
+        "runId": "remote-4",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -612,7 +636,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1629795600000,
-        "runId": "remote-4"
+        "runId": "remote-4",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -627,7 +652,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1629795600000,
-        "runId": "remote-4"
+        "runId": "remote-4",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -642,7 +668,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1629795600000,
-        "runId": "remote-4"
+        "runId": "remote-4",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -657,7 +684,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1629795600000,
-        "runId": "remote-4"
+        "runId": "remote-4",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -672,7 +700,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1629795600000,
-        "runId": "remote-4"
+        "runId": "remote-4",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -687,7 +716,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1629795600000,
-        "runId": "remote-4"
+        "runId": "remote-4",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -702,7 +732,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1629795600000,
-        "runId": "remote-4"
+        "runId": "remote-4",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -717,7 +748,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1629795600000,
-        "runId": "remote-4"
+        "runId": "remote-4",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -732,7 +764,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1629795600000,
-        "runId": "remote-4"
+        "runId": "remote-4",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -747,7 +780,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1629795600000,
-        "runId": "remote-4"
+        "runId": "remote-4",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -762,7 +796,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1629795600000,
-        "runId": "remote-4"
+        "runId": "remote-4",
+        "lastRunId": "no-run-id-provided"
     }
 }
 ]

@@ -11,7 +11,7 @@ import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.boot.BootstrapStep;
 import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.metadata.entity.ebean.transactions.AspectsBatchImpl;
+import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
@@ -34,7 +34,7 @@ import org.springframework.core.io.Resource;
 public class IngestOwnershipTypesStep implements BootstrapStep {
 
   private static final ObjectMapper JSON_MAPPER = new ObjectMapper();
-  private final EntityService _entityService;
+  private final EntityService<?> _entityService;
   private final Resource _ownershipTypesResource;
 
   @Override
@@ -100,9 +100,8 @@ public class IngestOwnershipTypesStep implements BootstrapStep {
 
     _entityService.ingestProposal(
         AspectsBatchImpl.builder()
-            .mcps(List.of(keyAspectProposal, proposal), _entityService.getEntityRegistry())
+            .mcps(List.of(keyAspectProposal, proposal), auditStamp, _entityService)
             .build(),
-        auditStamp,
         false);
   }
 }

@@ -6,6 +6,7 @@
 
 # pylint: skip-file
 # fmt: off
+# isort: skip_file
 from .......schema_classes import ConditionClass
 from .......schema_classes import ConjunctiveCriterionClass
 from .......schema_classes import CriterionClass

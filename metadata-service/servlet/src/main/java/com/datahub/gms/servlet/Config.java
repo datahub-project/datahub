@@ -10,15 +10,15 @@ import com.linkedin.metadata.models.registry.PluginEntityRegistryLoader;
 import com.linkedin.metadata.models.registry.config.EntityRegistryLoadResult;
 import com.linkedin.metadata.version.GitVersion;
 import com.linkedin.util.Pair;
+import jakarta.servlet.ServletContext;
+import jakarta.servlet.http.HttpServlet;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.time.ZoneId;
 import java.util.HashMap;
 import java.util.Map;
-import javax.servlet.ServletContext;
-import javax.servlet.http.HttpServlet;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
 import org.apache.maven.artifact.versioning.ComparableVersion;
 import org.springframework.web.context.WebApplicationContext;
 import org.springframework.web.context.support.WebApplicationContextUtils;
@@ -97,7 +97,7 @@ public class Config extends HttpServlet {
 
     GitVersion version = getGitVersion(ctx);
     Map<String, Object> versionConfig = new HashMap<>();
-    versionConfig.put("linkedin/datahub", version.toConfig());
+    versionConfig.put("acryldata/datahub", version.toConfig());
     config.put("versions", versionConfig);
 
     ConfigurationProvider configProvider = getConfigProvider(ctx);

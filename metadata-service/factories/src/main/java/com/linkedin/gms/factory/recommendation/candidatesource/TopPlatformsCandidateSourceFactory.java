@@ -18,7 +18,7 @@ public class TopPlatformsCandidateSourceFactory {
 
   @Autowired
   @Qualifier("entityService")
-  private EntityService entityService;
+  private EntityService<?> entityService;
 
   @Autowired
   @Qualifier("entitySearchService")

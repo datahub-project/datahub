@@ -118,3 +118,8 @@ class DatasetBrowsePathsTransformer(DatasetTransformer, metaclass=ABCMeta):
 class DatasetSchemaMetadataTransformer(DatasetTransformer, metaclass=ABCMeta):
     def aspect_name(self) -> str:
         return "schemaMetadata"
+
+
+class DatasetDataproductTransformer(DatasetTransformer, metaclass=ABCMeta):
+    def aspect_name(self) -> str:
+        return "dataProductProperties"

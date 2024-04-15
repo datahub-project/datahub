@@ -38,7 +38,8 @@ const EntityNode = () => {
         onToggle: (isNowOpen: boolean) => trackToggleNodeEvent(isNowOpen, 'entity'),
     });
 
-    const onClickHeader = () => {
+    const onClickHeader = (e) => {
+        e.preventDefault();
         if (count) toggle();
     };
 

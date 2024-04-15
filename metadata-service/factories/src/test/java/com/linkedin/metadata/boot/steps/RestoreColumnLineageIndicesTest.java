@@ -22,12 +22,12 @@ import com.linkedin.metadata.query.ExtraInfoArray;
 import com.linkedin.metadata.query.ListResultMetadata;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.util.Pair;
+import jakarta.annotation.Nonnull;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Future;
-import javax.annotation.Nonnull;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
@@ -46,7 +46,7 @@ public class RestoreColumnLineageIndicesTest {
 
   @Test
   public void testExecuteFirstTime() throws Exception {
-    final EntityService mockService = Mockito.mock(EntityService.class);
+    final EntityService<?> mockService = Mockito.mock(EntityService.class);
     final EntityRegistry mockRegistry = Mockito.mock(EntityRegistry.class);
 
     mockGetUpgradeStep(false, VERSION_1, mockService);
@@ -109,7 +109,7 @@ public class RestoreColumnLineageIndicesTest {
 
   @Test
   public void testExecuteWithNewVersion() throws Exception {
-    final EntityService mockService = Mockito.mock(EntityService.class);
+    final EntityService<?> mockService = Mockito.mock(EntityService.class);
     final EntityRegistry mockRegistry = Mockito.mock(EntityRegistry.class);
 
     mockGetUpgradeStep(true, VERSION_2, mockService);
@@ -172,7 +172,7 @@ public class RestoreColumnLineageIndicesTest {
 
   @Test
   public void testDoesNotExecuteWithSameVersion() throws Exception {
-    final EntityService mockService = Mockito.mock(EntityService.class);
+    final EntityService<?> mockService = Mockito.mock(EntityService.class);
     final EntityRegistry mockRegistry = Mockito.mock(EntityRegistry.class);
 
     mockGetUpgradeStep(true, VERSION_1, mockService);
@@ -233,7 +233,8 @@ public class RestoreColumnLineageIndicesTest {
             Mockito.eq(ChangeType.RESTATE));
   }
 
-  private void mockGetUpstreamLineage(@Nonnull Urn datasetUrn, @Nonnull EntityService mockService) {
+  private void mockGetUpstreamLineage(
+      @Nonnull Urn datasetUrn, @Nonnull EntityService<?> mockService) {
     final List<ExtraInfo> extraInfos =
         ImmutableList.of(
             new ExtraInfo()
@@ -276,7 +277,7 @@ public class RestoreColumnLineageIndicesTest {
   }
 
   private void mockGetInputFields(
-      @Nonnull Urn entityUrn, @Nonnull String entityName, @Nonnull EntityService mockService) {
+      @Nonnull Urn entityUrn, @Nonnull String entityName, @Nonnull EntityService<?> mockService) {
     final List<ExtraInfo> extraInfos =
         ImmutableList.of(
             new ExtraInfo()
@@ -325,7 +326,7 @@ public class RestoreColumnLineageIndicesTest {
   }
 
   private void mockGetUpgradeStep(
-      boolean shouldReturnResponse, @Nonnull String version, @Nonnull EntityService mockService)
+      boolean shouldReturnResponse, @Nonnull String version, @Nonnull EntityService<?> mockService)
       throws Exception {
 
     final Urn upgradeEntityUrn = UrnUtils.getUrn(COLUMN_LINEAGE_UPGRADE_URN);

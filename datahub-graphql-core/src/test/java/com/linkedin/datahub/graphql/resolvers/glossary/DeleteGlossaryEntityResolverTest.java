@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.resolvers.glossary;
 
 import static com.linkedin.datahub.graphql.TestUtils.getMockAllowContext;
 import static com.linkedin.datahub.graphql.TestUtils.getMockEntityService;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
 
@@ -26,7 +27,8 @@ public class DeleteGlossaryEntityResolverTest {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     EntityService mockService = getMockEntityService();
 
-    Mockito.when(mockService.exists(Urn.createFromString(TEST_TERM_URN))).thenReturn(true);
+    Mockito.when(mockService.exists(eq(Urn.createFromString(TEST_TERM_URN)), eq(true)))
+        .thenReturn(true);
 
     QueryContext mockContext = getMockAllowContext();
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
@@ -50,7 +52,8 @@ public class DeleteGlossaryEntityResolverTest {
         .deleteEntity(Mockito.any(), Mockito.any(Authentication.class));
 
     EntityService mockService = getMockEntityService();
-    Mockito.when(mockService.exists(Urn.createFromString(TEST_TERM_URN))).thenReturn(true);
+    Mockito.when(mockService.exists(eq(Urn.createFromString(TEST_TERM_URN)), eq(true)))
+        .thenReturn(true);
 
     DeleteGlossaryEntityResolver resolver =
         new DeleteGlossaryEntityResolver(mockClient, mockService);

@@ -29,6 +29,7 @@ import {
     PlatformPrivileges,
     FilterOperator,
     AppConfig,
+    EntityPrivileges,
 } from './types.generated';
 import { GetTagDocument } from './graphql/tag.generated';
 import { GetMlModelDocument } from './graphql/mlModel.generated';
@@ -39,6 +40,19 @@ import { GetMeDocument } from './graphql/me.generated';
 import { ListRecommendationsDocument } from './graphql/recommendations.generated';
 import { FetchedEntity } from './app/lineage/types';
 import { DEFAULT_APP_CONFIG } from './appConfigContext';
+import { GetQuickFiltersDocument } from './graphql/quickFilters.generated';
+import { GetGrantedPrivilegesDocument } from './graphql/policy.generated';
+import { VIEW_ENTITY_PAGE } from './app/entity/shared/constants';
+
+export const entityPrivileges: EntityPrivileges = {
+    canEditLineage: true,
+    canManageEntity: true,
+    canManageChildren: true,
+    canEditEmbed: true,
+    canEditQueries: true,
+    canEditProperties: true,
+    __typename: 'EntityPrivileges',
+};
 
 export const user1 = {
     __typename: 'CorpUser',
@@ -85,6 +99,7 @@ export const user1 = {
     editableInfo: null,
     properties: null,
     editableProperties: null,
+    autoRenderAspects: [],
 };
 
 const user2 = {
@@ -207,9 +222,7 @@ export const dataset1 = {
     tags: ['Private', 'PII'],
     uri: 'www.google.com',
     privileges: {
-        canEditLineage: false,
-        canEditEmbed: false,
-        canEditQueries: false,
+        ...entityPrivileges,
     },
     properties: {
         name: 'The Great Test Dataset',
@@ -292,6 +305,10 @@ export const dataset1 = {
     statsSummary: null,
     embed: null,
     browsePathV2: { path: [{ name: 'test', entity: null }], __typename: 'BrowsePathV2' },
+    autoRenderAspects: [],
+    structuredProperties: null,
+    forms: null,
+    activeIncidents: null,
 };
 
 export const dataset2 = {
@@ -310,9 +327,7 @@ export const dataset2 = {
         type: EntityType.DataPlatform,
     },
     privileges: {
-        canEditLineage: false,
-        canEditEmbed: false,
-        canEditQueries: false,
+        ...entityPrivileges,
     },
     lastIngested: null,
     exists: true,
@@ -387,6 +402,10 @@ export const dataset2 = {
     statsSummary: null,
     embed: null,
     browsePathV2: { path: [{ name: 'test', entity: null }], __typename: 'BrowsePathV2' },
+    autoRenderAspects: [],
+    structuredProperties: null,
+    forms: null,
+    activeIncidents: null,
 };
 
 export const dataset3 = {
@@ -410,10 +429,7 @@ export const dataset3 = {
         properties: null,
     },
     privileges: {
-        __typename: 'EntityPrivileges',
-        canEditLineage: false,
-        canEditEmbed: false,
-        canEditQueries: false,
+        ...entityPrivileges,
     },
     exists: true,
     lastIngested: null,
@@ -592,7 +608,7 @@ export const dataset3 = {
     viewProperties: null,
     autoRenderAspects: [
         {
-            __typename: 'AutoRenderAspect',
+            __typename: 'RawAspect',
             aspectName: 'autoRenderAspect',
             payload: '{ "values": [{ "autoField1": "autoValue1", "autoField2": "autoValue2" }] }',
             renderSpec: {
@@ -609,8 +625,7 @@ export const dataset3 = {
     health: [],
     assertions: null,
     status: null,
-    readRuns: null,
-    writeRuns: null,
+    runs: null,
     testResults: null,
     siblings: null,
     statsSummary: null,
@@ -620,6 +635,9 @@ export const dataset3 = {
     dataProduct: null,
     lastProfile: null,
     lastOperation: null,
+    structuredProperties: null,
+    forms: null,
+    activeIncidents: null,
 } as Dataset;
 
 export const dataset3WithSchema = {
@@ -644,6 +662,7 @@ export const dataset3WithSchema = {
                     globalTags: null,
                     glossaryTerms: null,
                     label: 'hi',
+                    schemaFieldEntity: null,
                 },
                 {
                     __typename: 'SchemaField',
@@ -659,6 +678,7 @@ export const dataset3WithSchema = {
                     globalTags: null,
                     glossaryTerms: null,
                     label: 'hi',
+                    schemaFieldEntity: null,
                 },
             ],
             hash: '',
@@ -959,6 +979,7 @@ export const container1 = {
         externalUrl: null,
         __typename: 'ContainerProperties',
     },
+    autoRenderAspects: [],
     __typename: 'Container',
 } as Container;
 
@@ -973,6 +994,7 @@ export const container2 = {
         externalUrl: null,
         __typename: 'ContainerProperties',
     },
+    autoRenderAspects: [],
     __typename: 'Container',
 } as Container;
 
@@ -1020,6 +1042,7 @@ export const glossaryTerm1 = {
     },
     parentNodes: null,
     deprecation: null,
+    autoRenderAspects: [],
 } as GlossaryTerm;
 
 const glossaryTerm2 = {
@@ -1092,6 +1115,7 @@ const glossaryTerm2 = {
         __typename: 'EntityRelationshipsResult',
     },
     parentNodes: null,
+    autoRenderAspects: [],
     __typename: 'GlossaryTerm',
 };
 
@@ -1158,6 +1182,7 @@ const glossaryTerm3 = {
         __typename: 'GlossaryRelatedTerms',
     },
     deprecation: null,
+    autoRenderAspects: [],
     __typename: 'GlossaryTerm',
 } as GlossaryTerm;
 
@@ -1254,6 +1279,7 @@ export const sampleTag = {
         description: 'sample tag description',
         colorHex: 'sample tag color',
     },
+    autoRenderAspects: [],
 };
 
 export const dataFlow1 = {
@@ -1325,6 +1351,9 @@ export const dataFlow1 = {
     },
     domain: null,
     deprecation: null,
+    autoRenderAspects: [],
+    activeIncidents: null,
+    health: [],
 } as DataFlow;
 
 export const dataJob1 = {
@@ -1358,8 +1387,7 @@ export const dataJob1 = {
         },
     },
     privileges: {
-        canEditLineage: false,
-        canEditEmbed: false,
+        ...entityPrivileges,
     },
     properties: {
         name: 'DataJobInfoName',
@@ -1411,6 +1439,9 @@ export const dataJob1 = {
     domain: null,
     status: null,
     deprecation: null,
+    autoRenderAspects: [],
+    activeIncidents: null,
+    health: [],
 } as DataJob;
 
 export const dataJob2 = {
@@ -1420,8 +1451,7 @@ export const dataJob2 = {
     dataFlow: dataFlow1,
     jobId: 'jobId2',
     privileges: {
-        canEditLineage: false,
-        canEditEmbed: false,
+        ...entityPrivileges,
     },
     ownership: {
         __typename: 'Ownership',
@@ -1480,6 +1510,9 @@ export const dataJob2 = {
     upstream: null,
     downstream: null,
     deprecation: null,
+    autoRenderAspects: [],
+    activeIncidents: null,
+    health: [],
 } as DataJob;
 
 export const dataJob3 = {
@@ -1491,8 +1524,7 @@ export const dataJob3 = {
     lastIngested: null,
     exists: true,
     privileges: {
-        canEditLineage: false,
-        canEditEmbed: false,
+        ...entityPrivileges,
     },
     ownership: {
         __typename: 'Ownership',
@@ -1552,6 +1584,9 @@ export const dataJob3 = {
     downstream: null,
     status: null,
     deprecation: null,
+    autoRenderAspects: [],
+    activeIncidents: null,
+    health: [],
 } as DataJob;
 
 export const mlModel = {
@@ -1633,6 +1668,7 @@ export const mlModel = {
     downstream: null,
     status: null,
     deprecation: null,
+    autoRenderAspects: [],
 } as MlModel;
 
 export const dataset1FetchedEntity = {
@@ -3699,6 +3735,31 @@ export const mocks = [
                     ],
                 },
             } as GetSearchResultsForMultipleQuery,
+        },
+    },
+    {
+        request: {
+            query: GetQuickFiltersDocument,
+            variables: {
+                input: {},
+            },
+        },
+        result: {
+            data: [],
+        },
+    },
+    {
+        request: {
+            query: GetGrantedPrivilegesDocument,
+            variables: {
+                input: {
+                    actorUrn: 'urn:li:corpuser:3',
+                    resourceSpec: { resourceType: EntityType.Dataset, resourceUrn: dataset3.urn },
+                },
+            },
+        },
+        result: {
+            data: { getGrantedPrivileges: { privileges: [VIEW_ENTITY_PAGE] } },
         },
     },
 ];

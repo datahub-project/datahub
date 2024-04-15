@@ -1,7 +1,7 @@
 plugins {
   id 'java'
+  id 'pegasus'
 }
-apply plugin: 'pegasus'
 
 configurations {
   avro
@@ -37,6 +37,7 @@ task avroSchemaSources(type: Copy) {
 }
 
 compileJava.dependsOn avroSchemaSources
+processResources.dependsOn avroSchemaSources
 
 clean {
   project.delete("src/main/resources/avro")

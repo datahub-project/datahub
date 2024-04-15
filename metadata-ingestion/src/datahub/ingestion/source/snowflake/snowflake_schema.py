@@ -5,7 +5,6 @@ from datetime import datetime
 from functools import lru_cache
 from typing import Dict, List, Optional
 
-import pandas as pd
 from snowflake.connector import SnowflakeConnection
 
 from datahub.ingestion.source.snowflake.constants import SnowflakeObjectDomain
@@ -77,13 +76,13 @@ class SnowflakeColumn(BaseColumn):
 
 @dataclass
 class SnowflakeTable(BaseTable):
+    type: Optional[str] = None
     clustering_key: Optional[str] = None
     pk: Optional[SnowflakePK] = None
     columns: List[SnowflakeColumn] = field(default_factory=list)
     foreign_keys: List[SnowflakeFK] = field(default_factory=list)
     tags: Optional[List[SnowflakeTag]] = None
     column_tags: Dict[str, List[SnowflakeTag]] = field(default_factory=dict)
-    sample_data: Optional[pd.DataFrame] = None
 
 
 @dataclass
@@ -265,6 +264,7 @@ class SnowflakeDataDictionary(SnowflakeQueryMixin):
             tables[table["TABLE_SCHEMA"]].append(
                 SnowflakeTable(
                     name=table["TABLE_NAME"],
+                    type=table["TABLE_TYPE"],
                     created=table["CREATED"],
                     last_altered=table["LAST_ALTERED"],
                     size_in_bytes=table["BYTES"],
@@ -288,6 +288,7 @@ class SnowflakeDataDictionary(SnowflakeQueryMixin):
             tables.append(
                 SnowflakeTable(
                     name=table["TABLE_NAME"],
+                    type=table["TABLE_TYPE"],
                     created=table["CREATED"],
                     last_altered=table["LAST_ALTERED"],
                     size_in_bytes=table["BYTES"],

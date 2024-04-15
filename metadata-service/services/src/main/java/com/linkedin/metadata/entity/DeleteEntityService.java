@@ -46,7 +46,7 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class DeleteEntityService {
 
-  private final EntityService _entityService;
+  private final EntityService<?> _entityService;
   private final GraphService _graphService;
 
   private static final Integer ELASTIC_BATCH_DELETE_SLEEP_SEC = 5;
@@ -349,7 +349,7 @@ public class DeleteEntityService {
     final IngestResult ingestProposalResult =
         _entityService.ingestProposal(proposal, auditStamp, false);
 
-    if (!ingestProposalResult.isSqlCommitted()) {
+    if (ingestProposalResult != null && !ingestProposalResult.isSqlCommitted()) {
       log.error(
           "Failed to ingest aspect with references removed. Before {}, after: {}, please check MCP processor"
               + " logs for more information",

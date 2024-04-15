@@ -23,11 +23,17 @@
       "doc": "Description of the Policy"
     },
     {
+      "Searchable": {
+        "fieldType": "KEYWORD"
+      },
       "type": "string",
       "name": "type",
       "doc": "The type of policy"
     },
     {
+      "Searchable": {
+        "fieldType": "KEYWORD"
+      },
       "type": "string",
       "name": "state",
       "doc": "The state of policy, ACTIVE or INACTIVE"
@@ -140,6 +146,12 @@
       "doc": "The resource that the policy applies to. Not required for some 'Platform' privileges."
     },
     {
+      "Searchable": {
+        "/*": {
+          "addToFilters": true,
+          "fieldType": "KEYWORD"
+        }
+      },
       "type": {
         "type": "array",
         "items": "string"
@@ -242,6 +254,9 @@
       "doc": "The actors that the policy applies to."
     },
     {
+      "Searchable": {
+        "fieldType": "BOOLEAN"
+      },
       "type": "boolean",
       "name": "editable",
       "default": true,

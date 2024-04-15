@@ -1,9 +1,10 @@
 import React from 'react';
 import Editor, { loader } from '@monaco-editor/react';
 
+const baseUrl = import.meta.env.BASE_URL;
 loader.config({
     paths: {
-        vs: `${process.env.PUBLIC_URL}/monaco-editor/vs`,
+        vs: `${baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`}node_modules/monaco-editor/min/vs`,
     },
 });
 

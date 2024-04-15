@@ -34,7 +34,7 @@ public class IndexDataPlatformsStep extends UpgradeStep {
   private final EntityRegistry _entityRegistry;
 
   public IndexDataPlatformsStep(
-      EntityService entityService,
+      EntityService<?> entityService,
       EntitySearchService entitySearchService,
       EntityRegistry entityRegistry) {
     super(entityService, VERSION, UPGRADE_ID);

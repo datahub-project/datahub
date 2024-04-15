@@ -5,6 +5,7 @@ import os
 import platform
 import shutil
 import sys
+import threading
 import time
 from dataclasses import dataclass
 from typing import Any, Dict, Iterable, Iterator, List, Optional, cast
@@ -129,8 +130,18 @@ class CliReport(Report):
     py_version: str = sys.version
     py_exec_path: str = sys.executable
     os_details: str = platform.platform()
+
+    mem_info: Optional[str] = None
+    peak_memory_usage: Optional[str] = None
     _peak_memory_usage: int = 0
+
+    disk_info: Optional[dict] = None
+    peak_disk_usage: Optional[str] = None
+    _initial_disk_usage: int = -1
     _peak_disk_usage: int = 0
+
+    thread_count: Optional[int] = None
+    peak_thread_count: Optional[int] = None
 
     def compute_stats(self) -> None:
         try:
@@ -141,18 +152,30 @@ class CliReport(Report):
                     self._peak_memory_usage
                 )
             self.mem_info = humanfriendly.format_size(mem_usage)
+        except Exception as e:
+            logger.warning(f"Failed to compute memory usage: {e}")
 
+        try:
             disk_usage = shutil.disk_usage("/")
+            if self._initial_disk_usage < 0:
+                self._initial_disk_usage = disk_usage.used
             if self._peak_disk_usage < disk_usage.used:
                 self._peak_disk_usage = disk_usage.used
                 self.peak_disk_usage = humanfriendly.format_size(self._peak_disk_usage)
             self.disk_info = {
                 "total": humanfriendly.format_size(disk_usage.total),
                 "used": humanfriendly.format_size(disk_usage.used),
+                "used_initally": humanfriendly.format_size(self._initial_disk_usage),
                 "free": humanfriendly.format_size(disk_usage.free),
             }
         except Exception as e:
-            logger.warning(f"Failed to compute report memory usage: {e}")
+            logger.warning(f"Failed to compute disk usage: {e}")
+
+        try:
+            self.thread_count = threading.active_count()
+            self.peak_thread_count = max(self.peak_thread_count or 0, self.thread_count)
+        except Exception as e:
+            logger.warning(f"Failed to compute thread count: {e}")
 
         return super().compute_stats()
 
@@ -173,6 +196,7 @@ class Pipeline:
         preview_workunits: int = 10,
         report_to: Optional[str] = None,
         no_default_report: bool = False,
+        no_progress: bool = False,
     ):
         self.config = config
         self.dry_run = dry_run
@@ -180,6 +204,7 @@ class Pipeline:
         self.preview_workunits = preview_workunits
         self.report_to = report_to
         self.reporters: List[PipelineRunListener] = []
+        self.no_progress = no_progress
         self.num_intermediate_workunits = 0
         self.last_time_printed = int(time.time())
         self.cli_report = CliReport()
@@ -188,6 +213,7 @@ class Pipeline:
         with _add_init_error_context("connect to DataHub"):
             if self.config.datahub_api:
                 self.graph = DataHubGraph(self.config.datahub_api)
+                self.graph.test_connection()
 
             telemetry.telemetry_instance.update_capture_exception_context(
                 server=self.graph
@@ -330,6 +356,7 @@ class Pipeline:
         preview_workunits: int = 10,
         report_to: Optional[str] = "datahub",
         no_default_report: bool = False,
+        no_progress: bool = False,
         raw_config: Optional[dict] = None,
     ) -> "Pipeline":
         config = PipelineConfig.from_dict(config_dict, raw_config)
@@ -340,6 +367,7 @@ class Pipeline:
             preview_workunits=preview_workunits,
             report_to=report_to,
             no_default_report=no_default_report,
+            no_progress=no_progress,
         )
 
     def _time_to_print(self) -> bool:
@@ -379,7 +407,7 @@ class Pipeline:
                     self.preview_workunits if self.preview_mode else None,
                 ):
                     try:
-                        if self._time_to_print():
+                        if self._time_to_print() and not self.no_progress:
                             self.pretty_print_summary(currently_running=True)
                     except Exception as e:
                         logger.warning(f"Failed to print summary {e}")
@@ -524,6 +552,9 @@ class Pipeline:
             {
                 "source_type": self.config.source.type,
                 "sink_type": self.config.sink.type,
+                "transformer_types": [
+                    transformer.type for transformer in self.config.transformers or []
+                ],
                 "records_written": stats.discretize(
                     self.sink.get_report().total_records_written
                 ),
@@ -536,6 +567,7 @@ class Pipeline:
                 "warnings": stats.discretize(
                     source_warnings + sink_warnings + global_warnings
                 ),
+                "has_pipeline_name": bool(self.config.pipeline_name),
             },
             self.ctx.graph,
         )

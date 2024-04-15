@@ -6,8 +6,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.SetMode;
-import com.linkedin.entity.client.SystemRestliEntityClient;
-import com.linkedin.gms.factory.entity.RestliEntityClientFactory;
+import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.gms.factory.entityregistry.EntityRegistryFactory;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.kafka.hook.MetadataChangeLogHook;
@@ -32,6 +31,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Import;
 import org.springframework.stereotype.Component;
@@ -42,11 +42,7 @@ import org.springframework.stereotype.Component;
  */
 @Slf4j
 @Component
-@Import({
-  EntityChangeEventGeneratorRegistry.class,
-  EntityRegistryFactory.class,
-  RestliEntityClientFactory.class
-})
+@Import({EntityRegistryFactory.class})
 public class EntityChangeEventGeneratorHook implements MetadataChangeLogHook {
 
   /** The list of aspects that are supported for generating semantic change events. */
@@ -81,14 +77,15 @@ public class EntityChangeEventGeneratorHook implements MetadataChangeLogHook {
       ImmutableSet.of("CREATE", "UPSERT", "DELETE");
 
   private final EntityChangeEventGeneratorRegistry _entityChangeEventGeneratorRegistry;
-  private final SystemRestliEntityClient _entityClient;
+  private final SystemEntityClient _entityClient;
   private final EntityRegistry _entityRegistry;
   private final Boolean _isEnabled;
 
   @Autowired
   public EntityChangeEventGeneratorHook(
-      @Nonnull final EntityChangeEventGeneratorRegistry entityChangeEventGeneratorRegistry,
-      @Nonnull final SystemRestliEntityClient entityClient,
+      @Nonnull @Qualifier("entityChangeEventGeneratorRegistry")
+          final EntityChangeEventGeneratorRegistry entityChangeEventGeneratorRegistry,
+      @Nonnull final SystemEntityClient entityClient,
       @Nonnull final EntityRegistry entityRegistry,
       @Nonnull @Value("${entityChangeEvents.enabled:true}") Boolean isEnabled) {
     _entityChangeEventGeneratorRegistry =

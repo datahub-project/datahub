@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.types.rolemetadata.mappers;
 
+import com.linkedin.common.RoleAssociationArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.Role;
@@ -19,8 +20,10 @@ public class AccessMapper {
       @Nonnull final com.linkedin.common.Access access, @Nonnull final Urn entityUrn) {
     com.linkedin.datahub.graphql.generated.Access result =
         new com.linkedin.datahub.graphql.generated.Access();
+    RoleAssociationArray roles =
+        access.getRoles() != null ? access.getRoles() : new RoleAssociationArray();
     result.setRoles(
-        access.getRoles().stream()
+        roles.stream()
             .map(association -> this.mapRoleAssociation(association, entityUrn))
             .collect(Collectors.toList()));
     return result;

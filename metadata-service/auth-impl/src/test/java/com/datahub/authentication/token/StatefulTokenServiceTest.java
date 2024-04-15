@@ -1,6 +1,7 @@
 package com.datahub.authentication.token;
 
 import static com.datahub.authentication.token.TokenClaims.*;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.testng.Assert.*;
 
 import com.datahub.authentication.Actor;
@@ -180,7 +181,7 @@ public class StatefulTokenServiceTest {
     Mockito.when(mockService.getEntityRegistry()).thenReturn(configEntityRegistry);
     Mockito.when(mockService.getKeyAspectSpec(Mockito.eq(Constants.ACCESS_TOKEN_ENTITY_NAME)))
         .thenReturn(keyAspectSpec);
-    Mockito.when(mockService.exists(Mockito.any(Urn.class))).thenReturn(true);
+    Mockito.when(mockService.exists(Mockito.any(Urn.class), eq(true))).thenReturn(true);
     final RollbackRunResult result = new RollbackRunResult(ImmutableList.of(), 0);
     Mockito.when(mockService.deleteUrn(Mockito.any(Urn.class))).thenReturn(result);
 

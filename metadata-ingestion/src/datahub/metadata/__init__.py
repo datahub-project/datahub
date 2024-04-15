@@ -6,6 +6,7 @@
 
 # pylint: skip-file
 # fmt: off
+# isort: skip_file
 # This file is intentionally empty.
 
 # fmt: on

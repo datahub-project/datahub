@@ -6,6 +6,7 @@
 
 # pylint: skip-file
 # fmt: off
+# isort: skip_file
 from .....schema_classes import DashboardInfoClass
 from .....schema_classes import DashboardUsageStatisticsClass
 from .....schema_classes import DashboardUserUsageCountsClass

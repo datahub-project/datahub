@@ -29,7 +29,7 @@ public class IngestRootUserStep implements BootstrapStep {
 
   private static final String USER_INFO_ASPECT_NAME = "corpUserInfo";
 
-  private final EntityService _entityService;
+  private final EntityService<?> _entityService;
 
   @Override
   public String name() {

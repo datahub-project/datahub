@@ -17,7 +17,7 @@ public final class TelemetryUtils {
 
   private static String _clientId;
 
-  public static String getClientId(EntityService entityService) {
+  public static String getClientId(EntityService<?> entityService) {
     if (_clientId == null) {
       createClientIdIfNotPresent(entityService);
       RecordTemplate clientIdTemplate =
@@ -28,7 +28,7 @@ public final class TelemetryUtils {
     return _clientId;
   }
 
-  private static void createClientIdIfNotPresent(EntityService entityService) {
+  private static void createClientIdIfNotPresent(EntityService<?> entityService) {
     String uuid = UUID.randomUUID().toString();
     TelemetryClientId clientId = new TelemetryClientId().setClientId(uuid);
     final AuditStamp clientIdStamp = new AuditStamp();

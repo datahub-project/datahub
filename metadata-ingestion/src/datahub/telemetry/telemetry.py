@@ -13,9 +13,11 @@ from mixpanel import Consumer, Mixpanel
 from typing_extensions import ParamSpec
 
 import datahub as datahub_package
-from datahub.cli.cli_utils import DATAHUB_ROOT_FOLDER, get_boolean_env_variable
+from datahub.cli.config_utils import DATAHUB_ROOT_FOLDER
+from datahub.cli.env_utils import get_boolean_env_variable
 from datahub.configuration.common import ExceptionWithProps
 from datahub.ingestion.graph.client import DataHubGraph
+from datahub.metadata.schema_classes import _custom_package_path
 from datahub.utilities.perf_timer import PerfTimer
 
 logger = logging.getLogger(__name__)
@@ -87,6 +89,10 @@ CI_ENV_VARS = {
 
 # disable when running in any CI
 if any(var in os.environ for var in CI_ENV_VARS):
+    ENV_ENABLED = False
+
+# Also disable if a custom metadata model package is in use.
+if _custom_package_path:
     ENV_ENABLED = False
 
 TIMEOUT = int(os.environ.get("DATAHUB_TELEMETRY_TIMEOUT", "10"))
@@ -329,7 +335,7 @@ class Telemetry:
                     "serverType", "missing"
                 ),
                 "server_version": server.server_config.get("versions", {})
-                .get("linkedin/datahub", {})
+                .get("acryldata/datahub", {})
                 .get("version", "missing"),
                 "server_id": server.server_id or "missing",
             }

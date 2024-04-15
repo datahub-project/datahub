@@ -23,8 +23,9 @@ import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.graph.SiblingGraphService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.recommendation.RecommendationsService;
-import com.linkedin.metadata.secret.SecretService;
 import com.linkedin.metadata.service.DataProductService;
+import com.linkedin.metadata.service.ERModelRelationshipService;
+import com.linkedin.metadata.service.FormService;
 import com.linkedin.metadata.service.LineageService;
 import com.linkedin.metadata.service.OwnershipTypeService;
 import com.linkedin.metadata.service.QueryService;
@@ -34,6 +35,8 @@ import com.linkedin.metadata.timeline.TimelineService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.version.GitVersion;
 import com.linkedin.usage.UsageClient;
+import io.datahubproject.metadata.services.RestrictedService;
+import io.datahubproject.metadata.services.SecretService;
 import lombok.Data;
 
 @Data
@@ -73,6 +76,11 @@ public class GmsGraphQLEngineArgs {
   QueryService queryService;
   FeatureFlags featureFlags;
   DataProductService dataProductService;
+  ERModelRelationshipService erModelRelationshipService;
+  FormService formService;
+  RestrictedService restrictedService;
+  int graphQLQueryComplexityLimit;
+  int graphQLQueryDepthLimit;
 
   // any fork specific args should go below this line
 }

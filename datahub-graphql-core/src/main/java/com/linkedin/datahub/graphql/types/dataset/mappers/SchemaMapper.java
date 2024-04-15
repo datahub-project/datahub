@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.types.dataset.mappers;
 
 import com.linkedin.common.urn.Urn;
+import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.Schema;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.schema.SchemaMetadata;
@@ -12,18 +13,23 @@ public class SchemaMapper {
 
   public static final SchemaMapper INSTANCE = new SchemaMapper();
 
-  public static Schema map(@Nonnull final SchemaMetadata metadata, @Nonnull final Urn entityUrn) {
-    return INSTANCE.apply(metadata, null, entityUrn);
+  public static Schema map(
+      @Nullable QueryContext context,
+      @Nonnull final SchemaMetadata metadata,
+      @Nonnull final Urn entityUrn) {
+    return INSTANCE.apply(context, metadata, null, entityUrn);
   }
 
   public static Schema map(
+      @Nullable QueryContext context,
       @Nonnull final SchemaMetadata metadata,
       @Nullable final SystemMetadata systemMetadata,
       @Nonnull final Urn entityUrn) {
-    return INSTANCE.apply(metadata, systemMetadata, entityUrn);
+    return INSTANCE.apply(context, metadata, systemMetadata, entityUrn);
   }
 
   public Schema apply(
+      @Nullable QueryContext context,
       @Nonnull final com.linkedin.schema.SchemaMetadata input,
       @Nullable final SystemMetadata systemMetadata,
       @Nonnull final Urn entityUrn) {
@@ -42,13 +48,13 @@ public class SchemaMapper {
     result.setPrimaryKeys(input.getPrimaryKeys());
     result.setFields(
         input.getFields().stream()
-            .map(field -> SchemaFieldMapper.map(field, entityUrn))
+            .map(field -> SchemaFieldMapper.map(context, field, entityUrn))
             .collect(Collectors.toList()));
-    result.setPlatformSchema(PlatformSchemaMapper.map(input.getPlatformSchema()));
+    result.setPlatformSchema(PlatformSchemaMapper.map(context, input.getPlatformSchema()));
     if (input.getForeignKeys() != null) {
       result.setForeignKeys(
           input.getForeignKeys().stream()
-              .map(ForeignKeyConstraintMapper::map)
+              .map(fk -> ForeignKeyConstraintMapper.map(context, fk))
               .collect(Collectors.toList()));
     }
     return result;

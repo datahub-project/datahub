@@ -75,4 +75,27 @@ public class ESGraphWriteDAO {
         .deleteByQuery(finalQuery, indexConvention.getIndexName(INDEX_NAME))
         .orElse(null);
   }
+
+  public BulkByScrollResponse deleteByQuery(
+      @Nullable final String sourceType,
+      @Nonnull final Filter sourceEntityFilter,
+      @Nullable final String destinationType,
+      @Nonnull final Filter destinationEntityFilter,
+      @Nonnull final List<String> relationshipTypes,
+      @Nonnull final RelationshipFilter relationshipFilter,
+      String lifecycleOwner) {
+    BoolQueryBuilder finalQuery =
+        buildQuery(
+            sourceType == null ? ImmutableList.of() : ImmutableList.of(sourceType),
+            sourceEntityFilter,
+            destinationType == null ? ImmutableList.of() : ImmutableList.of(destinationType),
+            destinationEntityFilter,
+            relationshipTypes,
+            relationshipFilter,
+            lifecycleOwner);
+
+    return bulkProcessor
+        .deleteByQuery(finalQuery, indexConvention.getIndexName(INDEX_NAME))
+        .orElse(null);
+  }
 }

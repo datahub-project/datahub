@@ -140,7 +140,8 @@ public class SearchQueryBuilderTest extends AbstractTestNGSpringContextTests {
             "urn.delimited", 7.0f,
             "textArrayField.delimited", 0.4f,
             "nestedArrayStringField.delimited", 0.4f,
-            "wordGramField.delimited", 0.4f));
+            "wordGramField.delimited", 0.4f,
+            "customProperties.delimited", 0.4f));
 
     BoolQueryBuilder boolPrefixQuery = (BoolQueryBuilder) shouldQueries.get(1);
     assertTrue(boolPrefixQuery.should().size() > 0);
@@ -165,7 +166,7 @@ public class SearchQueryBuilderTest extends AbstractTestNGSpringContextTests {
                 })
             .collect(Collectors.toList());
 
-    assertEquals(prefixFieldWeights.size(), 28);
+    assertEquals(prefixFieldWeights.size(), 29);
 
     List.of(
             Pair.of("urn", 100.0f),
@@ -200,7 +201,7 @@ public class SearchQueryBuilderTest extends AbstractTestNGSpringContextTests {
     assertEquals(keywordQuery.queryString(), "testQuery");
     assertNull(keywordQuery.analyzer());
     Map<String, Float> keywordFields = keywordQuery.fields();
-    assertEquals(keywordFields.size(), 21);
+    assertEquals(keywordFields.size(), 22);
     assertEquals(keywordFields.get("keyPart1").floatValue(), 10.0f);
     assertFalse(keywordFields.containsKey("keyPart3"));
     assertEquals(keywordFields.get("textFieldOverride").floatValue(), 1.0f);
@@ -360,7 +361,7 @@ public class SearchQueryBuilderTest extends AbstractTestNGSpringContextTests {
   public void testGetStandardFields() {
     Set<SearchFieldConfig> fieldConfigs =
         TEST_CUSTOM_BUILDER.getStandardFields(ImmutableList.of(TestEntitySpecBuilder.getSpec()));
-    assertEquals(fieldConfigs.size(), 21);
+    assertEquals(fieldConfigs.size(), 22);
     assertEquals(
         fieldConfigs.stream().map(SearchFieldConfig::fieldName).collect(Collectors.toSet()),
         Set.of(
@@ -384,7 +385,8 @@ public class SearchQueryBuilderTest extends AbstractTestNGSpringContextTests {
             "wordGramField.wordGrams3",
             "textFieldOverride.delimited",
             "urn",
-            "wordGramField.wordGrams2"));
+            "wordGramField.wordGrams2",
+            "customProperties.delimited")); // customProperties.delimited Saas only
 
     assertEquals(
         fieldConfigs.stream()
@@ -424,7 +426,8 @@ public class SearchQueryBuilderTest extends AbstractTestNGSpringContextTests {
                         Optional.empty(),
                         Optional.empty(),
                         Map.of(),
-                        List.of()),
+                        List.of(),
+                        false),
                     Mockito.mock(DataSchema.class)),
                 new SearchableFieldSpec(
                     Mockito.mock(PathSpec.class),
@@ -441,7 +444,8 @@ public class SearchQueryBuilderTest extends AbstractTestNGSpringContextTests {
                         Optional.empty(),
                         Optional.empty(),
                         Map.of(),
-                        List.of()),
+                        List.of(),
+                        false),
                     Mockito.mock(DataSchema.class)),
                 new SearchableFieldSpec(
                     Mockito.mock(PathSpec.class),
@@ -458,15 +462,16 @@ public class SearchQueryBuilderTest extends AbstractTestNGSpringContextTests {
                         Optional.empty(),
                         Optional.empty(),
                         Map.of(),
-                        List.of()),
+                        List.of(),
+                        false),
                     Mockito.mock(DataSchema.class))));
 
     fieldConfigs =
         TEST_CUSTOM_BUILDER.getStandardFields(
             ImmutableList.of(TestEntitySpecBuilder.getSpec(), mockEntitySpec));
-    // Same 21 from the original entity + newFieldNotInOriginal + 3 word gram fields from the
+    // Same 22 from the original entity + newFieldNotInOriginal + 3 word gram fields from the
     // textFieldOverride
-    assertEquals(fieldConfigs.size(), 26);
+    assertEquals(fieldConfigs.size(), 27);
     assertEquals(
         fieldConfigs.stream().map(SearchFieldConfig::fieldName).collect(Collectors.toSet()),
         Set.of(
@@ -495,7 +500,8 @@ public class SearchQueryBuilderTest extends AbstractTestNGSpringContextTests {
             "fieldDoesntExistInOriginal.delimited",
             "textFieldOverride.wordGrams2",
             "textFieldOverride.wordGrams3",
-            "textFieldOverride.wordGrams4"));
+            "textFieldOverride.wordGrams4",
+            "customProperties.delimited"));
 
     // Field which only exists in first one: Should be the same
     assertEquals(

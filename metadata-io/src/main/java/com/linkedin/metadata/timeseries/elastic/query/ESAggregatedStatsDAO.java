@@ -5,6 +5,7 @@ import com.google.common.collect.ImmutableList;
 import com.linkedin.data.schema.DataSchema;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.data.template.StringArrayArray;
+import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.TimeseriesFieldCollectionSpec;
@@ -29,6 +30,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
@@ -61,17 +63,18 @@ public class ESAggregatedStatsDAO {
       ES_AGGREGATION_PREFIX + ES_MAX_AGGREGATION_PREFIX + ES_FIELD_TIMESTAMP;
   private static final int MAX_TERM_BUCKETS = 24 * 60; // minutes in a day.
 
-  private final IndexConvention _indexConvention;
-  private final RestHighLevelClient _searchClient;
-  private final EntityRegistry _entityRegistry;
+  private final IndexConvention indexConvention;
+  private final RestHighLevelClient searchClient;
+  private final EntityRegistry entityRegistry;
+  @Setter private AspectRetriever aspectRetriever;
 
   public ESAggregatedStatsDAO(
       @Nonnull IndexConvention indexConvention,
       @Nonnull RestHighLevelClient searchClient,
       @Nonnull EntityRegistry entityRegistry) {
-    _indexConvention = indexConvention;
-    _searchClient = searchClient;
-    _entityRegistry = entityRegistry;
+    this.indexConvention = indexConvention;
+    this.searchClient = searchClient;
+    this.entityRegistry = entityRegistry;
   }
 
   private static String toEsAggName(final String aggName) {
@@ -353,7 +356,7 @@ public class ESAggregatedStatsDAO {
 
   private AspectSpec getTimeseriesAspectSpec(
       @Nonnull String entityName, @Nonnull String aspectName) {
-    EntitySpec entitySpec = _entityRegistry.getEntitySpec(entityName);
+    EntitySpec entitySpec = entityRegistry.getEntitySpec(entityName);
     AspectSpec aspectSpec = entitySpec.getAspectSpec(aspectName);
     if (aspectSpec == null) {
       new IllegalArgumentException(
@@ -377,7 +380,12 @@ public class ESAggregatedStatsDAO {
       @Nullable GroupingBucket[] groupingBuckets) {
 
     // Setup the filter query builder using the input filter provided.
-    final BoolQueryBuilder filterQueryBuilder = ESUtils.buildFilterQuery(filter, true);
+    final BoolQueryBuilder filterQueryBuilder =
+        ESUtils.buildFilterQuery(
+            filter,
+            true,
+            entityRegistry.getEntitySpec(entityName).getSearchableFieldTypes(),
+            aspectRetriever);
 
     AspectSpec aspectSpec = getTimeseriesAspectSpec(entityName, aspectName);
     // Build and attach the grouping aggregations
@@ -400,14 +408,14 @@ public class ESAggregatedStatsDAO {
     final SearchRequest searchRequest = new SearchRequest();
     searchRequest.source(searchSourceBuilder);
 
-    final String indexName = _indexConvention.getTimeseriesAspectIndexName(entityName, aspectName);
+    final String indexName = indexConvention.getTimeseriesAspectIndexName(entityName, aspectName);
     searchRequest.indices(indexName);
 
     log.debug("Search request is: " + searchRequest);
 
     try {
       final SearchResponse searchResponse =
-          _searchClient.search(searchRequest, RequestOptions.DEFAULT);
+          searchClient.search(searchRequest, RequestOptions.DEFAULT);
       return generateResponseFromElastic(
           searchResponse, groupingBuckets, aggregationSpecs, aspectSpec);
     } catch (Exception e) {

@@ -14,6 +14,7 @@ describe('schema blame', () => {
       cy.contains('field_bar').should('not.exist');
       cy.contains('Foo field description has changed');
       cy.contains('Baz field description');
+      cy.clickOptionWithText("field_foo");
       cy.get('[data-testid="schema-field-field_foo-tags"]').contains('Legacy');
 
       // Make sure the schema blame is accurate
@@ -41,6 +42,7 @@ describe('schema blame', () => {
     cy.contains('field_baz').should('not.exist');
     cy.contains('Foo field description');
     cy.contains('Bar field description');
+    cy.clickOptionWithText("field_foo");
     cy.get('[data-testid="schema-field-field_foo-tags"]').contains('Legacy').should('not.exist');
 
     // Make sure the schema blame is accurate

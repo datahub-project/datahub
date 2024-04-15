@@ -1,6 +1,8 @@
 import React from 'react';
 import styled from 'styled-components';
 import { Button, Table } from 'antd';
+import { SpinProps } from 'antd/es/spin';
+import { LoadingOutlined } from '@ant-design/icons';
 import { useBaseEntity } from '../../../EntityContext';
 import { GetDatasetQuery, useGetExternalRolesQuery } from '../../../../../../graphql/dataset.generated';
 import { useGetMeQuery } from '../../../../../../graphql/me.generated';
@@ -59,7 +61,7 @@ const AccessButton = styled(Button)`
 export default function AccessManagement() {
     const { data: loggedInUser } = useGetMeQuery({ fetchPolicy: 'cache-first' });
     const baseEntity = useBaseEntity<GetDatasetQuery>();
-    const { data: externalRoles } = useGetExternalRolesQuery({
+    const { data: externalRoles, loading: isLoading } = useGetExternalRolesQuery({
         variables: { urn: baseEntity?.dataset?.urn as string },
         skip: !baseEntity?.dataset?.urn,
     });
@@ -108,8 +110,12 @@ export default function AccessManagement() {
             hidden: true,
         },
     ];
-
+    const spinProps: SpinProps = { indicator: <LoadingOutlined style={{ fontSize: 28 }} spin /> }
     return (
-        <StyledTable dataSource={handleAccessRoles(externalRoles, loggedInUser)} columns={columns} pagination={false} />
-    );
+        <StyledTable
+            loading={isLoading ? spinProps : false}
+            dataSource={handleAccessRoles(externalRoles, loggedInUser)}
+            columns={columns} pagination={false}
+        />
+    )
 }

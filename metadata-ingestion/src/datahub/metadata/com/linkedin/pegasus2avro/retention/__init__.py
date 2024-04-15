@@ -6,6 +6,7 @@
 
 # pylint: skip-file
 # fmt: off
+# isort: skip_file
 from .....schema_classes import DataHubRetentionConfigClass
 from .....schema_classes import RetentionClass
 from .....schema_classes import TimeBasedRetentionClass

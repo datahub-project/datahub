@@ -90,7 +90,7 @@ public class DataPlatformInstanceType
                   gmsResult == null
                       ? null
                       : DataFetcherResult.<DataPlatformInstance>newResult()
-                          .data(DataPlatformInstanceMapper.map(gmsResult))
+                          .data(DataPlatformInstanceMapper.map(context, gmsResult))
                           .build())
           .collect(Collectors.toList());
 
@@ -121,7 +121,11 @@ public class DataPlatformInstanceType
       throws Exception {
     final AutoCompleteResult result =
         _entityClient.autoComplete(
-            DATA_PLATFORM_INSTANCE_ENTITY_NAME, query, filters, limit, context.getAuthentication());
-    return AutoCompleteResultsMapper.map(result);
+            context.getOperationContext(),
+            DATA_PLATFORM_INSTANCE_ENTITY_NAME,
+            query,
+            filters,
+            limit);
+    return AutoCompleteResultsMapper.map(context, result);
   }
 }

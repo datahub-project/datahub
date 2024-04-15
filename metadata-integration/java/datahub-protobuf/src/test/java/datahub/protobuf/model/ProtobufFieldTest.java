@@ -1,7 +1,7 @@
 package datahub.protobuf.model;
 
 import static datahub.protobuf.TestFixtures.*;
-import static org.junit.jupiter.api.Assertions.*;
+import static org.testng.Assert.*;
 
 import com.google.protobuf.DescriptorProtos.DescriptorProto;
 import com.google.protobuf.DescriptorProtos.FieldDescriptorProto;
@@ -22,7 +22,7 @@ import datahub.protobuf.ProtobufDataset;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Set;
-import org.junit.jupiter.api.Test;
+import org.testng.annotations.Test;
 
 public class ProtobufFieldTest {
   private static final DescriptorProto EXPECTED_MESSAGE_PROTO =
@@ -322,5 +322,37 @@ public class ProtobufFieldTest {
             .orElseThrow();
 
     assertEquals("Zip code, alphanumeric", addressField.getDescription());
+  }
+
+  @Test
+  public void nestedTypeReservedFieldsTest() throws IOException {
+    ProtobufDataset test = getTestProtobufDataset("extended_protobuf", "messageD");
+    SchemaMetadata testMetadata = test.getSchemaMetadata();
+
+    SchemaField msg3Field13 =
+        testMetadata.getFields().stream()
+            .filter(
+                v ->
+                    v.getFieldPath()
+                        .equals(
+                            "[version=2.0].[type=extended_protobuf_MyMsg]."
+                                + "[type=extended_protobuf_MyMsg_Msg3].field3.[type=google_protobuf_StringValue].msg3_13"))
+            .findFirst()
+            .orElseThrow();
+
+    assertEquals("test comment 13", msg3Field13.getDescription());
+
+    SchemaField msg3Field14 =
+        testMetadata.getFields().stream()
+            .filter(
+                v ->
+                    v.getFieldPath()
+                        .equals(
+                            "[version=2.0].[type=extended_protobuf_MyMsg]."
+                                + "[type=extended_protobuf_MyMsg_Msg3].field3.[type=google_protobuf_StringValue].msg3_14"))
+            .findFirst()
+            .orElseThrow();
+
+    assertEquals("test comment 14", msg3Field14.getDescription());
   }
 }

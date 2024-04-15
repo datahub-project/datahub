@@ -91,6 +91,7 @@ public final class GetChartsResolver implements DataFetcher<List<AnalyticsChartG
     final List<AnalyticsChart> charts = new ArrayList<>();
     DateUtil dateUtil = new DateUtil();
     final DateTime startOfNextWeek = dateUtil.getStartOfNextWeek();
+    final DateTime startOfThisMonth = dateUtil.getStartOfThisMonth();
     final DateTime startOfNextMonth = dateUtil.getStartOfNextMonth();
     final DateRange trailingWeekDateRange = dateUtil.getTrailingWeekDateRange();
 
@@ -103,7 +104,7 @@ public final class GetChartsResolver implements DataFetcher<List<AnalyticsChartG
     charts.add(
         getActiveUsersTimeSeriesChart(
             startOfNextMonth.minusMonths(12),
-            startOfNextMonth.minusMillis(1),
+            startOfThisMonth.minusMillis(1),
             "Monthly Active Users",
             DateInterval.MONTH));
 

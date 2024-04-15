@@ -2,13 +2,13 @@ package datahub.protobuf;
 
 import static datahub.protobuf.TestFixtures.getTestProtobufFileSet;
 import static datahub.protobuf.TestFixtures.getTestProtoc;
-import static org.junit.jupiter.api.Assertions.*;
+import static org.testng.Assert.*;
 
 import com.google.protobuf.DescriptorProtos;
 import com.google.protobuf.ExtensionRegistry;
 import datahub.protobuf.model.ProtobufGraph;
 import java.io.IOException;
-import org.junit.jupiter.api.Test;
+import org.testng.annotations.Test;
 
 public class ProtobufUtilsTest {
 
