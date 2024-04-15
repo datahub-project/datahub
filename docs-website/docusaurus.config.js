@@ -66,7 +66,7 @@ module.exports = {
       },
       items: [
         {
-          to: "docs/features",
+          to: "docs/",
           activeBasePath: "docs",
           label: "Docs",
           position: "right",
@@ -197,10 +197,6 @@ module.exports = {
             {
               label: "Quickstart",
               to: "docs/quickstart",
-            },
-            {
-              label: "Features",
-              to: "docs/features",
             },
           ],
         },
