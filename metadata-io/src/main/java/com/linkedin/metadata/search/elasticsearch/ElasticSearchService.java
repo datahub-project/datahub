@@ -89,7 +89,8 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
   }
 
   @Override
-  public long docCount(@Nonnull OperationContext opContext, @Nonnull String entityName, @Nullable Filter filter) {
+  public long docCount(
+      @Nonnull OperationContext opContext, @Nonnull String entityName, @Nullable Filter filter) {
     return esSearchDAO.docCount(
         opContext.withSearchFlags(
             flags -> applyDefaultSearchFlags(flags, null, DEFAULT_SERVICE_SEARCH_FLAGS)),

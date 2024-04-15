@@ -44,7 +44,9 @@ public class SearchService {
   }
 
   public Map<String, Long> docCountPerEntity(
-      @Nonnull OperationContext opContext, @Nonnull List<String> entityNames, @Nullable Filter filter) {
+      @Nonnull OperationContext opContext,
+      @Nonnull List<String> entityNames,
+      @Nullable Filter filter) {
     return getEntitiesToSearch(opContext, entityNames, 0).stream()
         .collect(
             Collectors.toMap(

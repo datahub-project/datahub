@@ -100,7 +100,8 @@ public class RecentlyViewedSource implements EntityRecommendationSource {
   @Override
   @WithSpan
   public List<RecommendationContent> getRecommendations(
-      @Nonnull OperationContext opContext, @Nonnull RecommendationRequestContext requestContext,
+      @Nonnull OperationContext opContext,
+      @Nonnull RecommendationRequestContext requestContext,
       @Nullable Filter filter) {
     SearchRequest searchRequest =
         buildSearchRequest(opContext.getSessionActorContext().getActorUrn());

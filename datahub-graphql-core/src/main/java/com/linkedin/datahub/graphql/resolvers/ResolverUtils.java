@@ -1,5 +1,8 @@
 package com.linkedin.datahub.graphql.resolvers;
 
+import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.*;
+import static com.linkedin.metadata.Constants.*;
+
 import com.datahub.authentication.Authentication;
 import com.fasterxml.jackson.core.StreamReadConstraints;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -33,9 +36,6 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.*;
-import static com.linkedin.metadata.Constants.*;
 
 public class ResolverUtils {
 
@@ -232,7 +232,8 @@ public class ResolverUtils {
     return QueryUtils.newFilter(urnMatchCriterion);
   }
 
-  public static Filter viewFilter(ViewService viewService, String viewUrn, Authentication authentication) {
+  public static Filter viewFilter(
+      ViewService viewService, String viewUrn, Authentication authentication) {
     if (viewUrn == null) {
       return null;
     }

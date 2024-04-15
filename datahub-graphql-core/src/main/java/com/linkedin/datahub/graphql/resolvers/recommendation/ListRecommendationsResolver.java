@@ -1,5 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.recommendation;
 
+import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
+
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -34,8 +36,6 @@ import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
-import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
-
 @Slf4j
 @RequiredArgsConstructor
 public class ListRecommendationsResolver
@@ -62,8 +62,10 @@ public class ListRecommendationsResolver
                 _recommendationsService.listRecommendations(
                     context.getOperationContext(),
                     mapRequestContext(input.getRequestContext()),
-                    viewFilter(_viewService,
-                        input.getViewUrn(), context.getOperationContext().getAuthentication()),
+                    viewFilter(
+                        _viewService,
+                        input.getViewUrn(),
+                        context.getOperationContext().getAuthentication()),
                     input.getLimit());
             return ListRecommendationsResult.builder()
                 .setModules(

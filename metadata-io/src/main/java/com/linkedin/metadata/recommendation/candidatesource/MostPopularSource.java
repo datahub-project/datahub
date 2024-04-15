@@ -101,7 +101,8 @@ public class MostPopularSource implements EntityRecommendationSource {
   @Override
   @WithSpan
   public List<RecommendationContent> getRecommendations(
-      @Nonnull OperationContext opContext, @Nonnull RecommendationRequestContext requestContext,
+      @Nonnull OperationContext opContext,
+      @Nonnull RecommendationRequestContext requestContext,
       @Nullable Filter filter) {
     SearchRequest searchRequest = buildSearchRequest(opContext);
     try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "getMostPopular").time()) {

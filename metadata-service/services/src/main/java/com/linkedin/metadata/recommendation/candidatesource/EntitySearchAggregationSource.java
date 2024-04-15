@@ -73,11 +73,16 @@ public abstract class EntitySearchAggregationSource implements RecommendationSou
   @Override
   @WithSpan
   public List<RecommendationContent> getRecommendations(
-      @Nonnull OperationContext opContext, @Nullable RecommendationRequestContext requestContext,
+      @Nonnull OperationContext opContext,
+      @Nullable RecommendationRequestContext requestContext,
       @Nullable Filter filter) {
     Map<String, Long> aggregationResult =
         entitySearchService.aggregateByValue(
-            opContext, getEntityNames(entityRegistry), getSearchFieldName(), filter, getMaxContent());
+            opContext,
+            getEntityNames(entityRegistry),
+            getSearchFieldName(),
+            filter,
+            getMaxContent());
 
     if (aggregationResult.isEmpty()) {
       return Collections.emptyList();

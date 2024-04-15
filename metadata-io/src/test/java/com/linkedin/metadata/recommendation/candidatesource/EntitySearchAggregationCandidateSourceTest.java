@@ -102,7 +102,8 @@ public class EntitySearchAggregationCandidateSourceTest {
     List<RecommendationContent> candidates =
         valueBasedCandidateSource.getRecommendations(opContext, CONTEXT, null);
     assertTrue(candidates.isEmpty());
-    assertFalse(valueBasedCandidateSource.getRecommendationModule(opContext, CONTEXT, null).isPresent());
+    assertFalse(
+        valueBasedCandidateSource.getRecommendationModule(opContext, CONTEXT, null).isPresent());
   }
 
   @Test
@@ -128,7 +129,8 @@ public class EntitySearchAggregationCandidateSourceTest {
         new Criterion().setField("testValue").setValue("value1"));
     assertNotNull(params.getContentParams());
     assertEquals(params.getContentParams().getCount().longValue(), 1L);
-    assertTrue(valueBasedCandidateSource.getRecommendationModule(opContext, CONTEXT, null).isPresent());
+    assertTrue(
+        valueBasedCandidateSource.getRecommendationModule(opContext, CONTEXT, null).isPresent());
 
     // Multiple result
     Mockito.when(
@@ -163,7 +165,8 @@ public class EntitySearchAggregationCandidateSourceTest {
         new Criterion().setField("testValue").setValue("value2"));
     assertNotNull(params.getContentParams());
     assertEquals(params.getContentParams().getCount().longValue(), 2L);
-    assertTrue(valueBasedCandidateSource.getRecommendationModule(opContext, CONTEXT, null).isPresent());
+    assertTrue(
+        valueBasedCandidateSource.getRecommendationModule(opContext, CONTEXT, null).isPresent());
   }
 
   @Test
@@ -192,7 +195,8 @@ public class EntitySearchAggregationCandidateSourceTest {
         new Criterion().setField("testUrn").setValue(testUrn1.toString()));
     assertNotNull(params.getContentParams());
     assertEquals(params.getContentParams().getCount().longValue(), 1L);
-    assertTrue(urnBasedCandidateSource.getRecommendationModule(opContext, CONTEXT, null).isPresent());
+    assertTrue(
+        urnBasedCandidateSource.getRecommendationModule(opContext, CONTEXT, null).isPresent());
 
     // Multiple result
     Mockito.when(
@@ -229,6 +233,7 @@ public class EntitySearchAggregationCandidateSourceTest {
         new Criterion().setField("testUrn").setValue(testUrn2.toString()));
     assertNotNull(params.getContentParams());
     assertEquals(params.getContentParams().getCount().longValue(), 2L);
-    assertTrue(urnBasedCandidateSource.getRecommendationModule(opContext, CONTEXT, null).isPresent());
+    assertTrue(
+        urnBasedCandidateSource.getRecommendationModule(opContext, CONTEXT, null).isPresent());
   }
 }

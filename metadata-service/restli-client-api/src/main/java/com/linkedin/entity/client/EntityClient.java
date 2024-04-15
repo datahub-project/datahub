@@ -400,11 +400,14 @@ public interface EntityClient {
 
   @Nonnull
   Map<String, Long> batchGetTotalEntityCount(
-      @Nonnull OperationContext opContext, @Nonnull List<String> entityName, @Nullable Filter filter)
+      @Nonnull OperationContext opContext,
+      @Nonnull List<String> entityName,
+      @Nullable Filter filter)
       throws RemoteInvocationException;
 
   default Map<String, Long> batchGetTotalEntityCount(
-      @Nonnull OperationContext opContext, @Nonnull List<String> entityName) throws RemoteInvocationException {
+      @Nonnull OperationContext opContext, @Nonnull List<String> entityName)
+      throws RemoteInvocationException {
     return batchGetTotalEntityCount(opContext, entityName, null);
   }
 

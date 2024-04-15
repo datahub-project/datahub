@@ -44,7 +44,8 @@ public class TestSource implements RecommendationSource {
 
   @Override
   public List<RecommendationContent> getRecommendations(
-      @Nonnull OperationContext opContext, @Nonnull RecommendationRequestContext requestContext,
+      @Nonnull OperationContext opContext,
+      @Nonnull RecommendationRequestContext requestContext,
       @Nullable Filter filter) {
     return contents;
   }

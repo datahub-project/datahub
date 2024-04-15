@@ -563,7 +563,9 @@ public class JavaEntityClient implements EntityClient {
   @Override
   @Nonnull
   public Map<String, Long> batchGetTotalEntityCount(
-      @Nonnull OperationContext opContext, @Nonnull List<String> entityNames, @Nullable Filter filter)
+      @Nonnull OperationContext opContext,
+      @Nonnull List<String> entityNames,
+      @Nullable Filter filter)
       throws RemoteInvocationException {
     return searchService.docCountPerEntity(opContext, entityNames, filter);
   }

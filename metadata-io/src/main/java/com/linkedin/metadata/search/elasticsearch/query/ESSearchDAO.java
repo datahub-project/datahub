@@ -85,7 +85,8 @@ public class ESSearchDAO {
     return docCount(opContext, entityName, null);
   }
 
-  public long docCount(@Nonnull OperationContext opContext, @Nonnull String entityName, @Nullable Filter filter) {
+  public long docCount(
+      @Nonnull OperationContext opContext, @Nonnull String entityName, @Nullable Filter filter) {
     EntitySpec entitySpec = aspectRetriever.getEntityRegistry().getEntitySpec(entityName);
     CountRequest countRequest =
         new CountRequest(indexConvention.getIndexName(entitySpec))

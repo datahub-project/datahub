@@ -1,5 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.group;
 
+import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
+
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.EntityCountInput;
 import com.linkedin.datahub.graphql.generated.EntityCountResult;
@@ -14,8 +16,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
-
-import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 
 public class EntityCountsResolver implements DataFetcher<CompletableFuture<EntityCountResults>> {
 
@@ -49,7 +49,10 @@ public class EntityCountsResolver implements DataFetcher<CompletableFuture<Entit
                     input.getTypes().stream()
                         .map(EntityTypeMapper::getName)
                         .collect(Collectors.toList()),
-                    viewFilter(_viewService, input.getViewUrn(), context.getOperationContext().getAuthentication()));
+                    viewFilter(
+                        _viewService,
+                        input.getViewUrn(),
+                        context.getOperationContext().getAuthentication()));
 
             // bind to a result.
             List<EntityCountResult> resultList =

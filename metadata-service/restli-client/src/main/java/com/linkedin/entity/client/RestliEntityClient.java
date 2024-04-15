@@ -770,7 +770,9 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
   @Override
   @Nonnull
   public Map<String, Long> batchGetTotalEntityCount(
-      @Nonnull OperationContext opContext, @Nonnull List<String> entityName, @Nullable Filter filter)
+      @Nonnull OperationContext opContext,
+      @Nonnull List<String> entityName,
+      @Nullable Filter filter)
       throws RemoteInvocationException {
     // TODO incorporate Filter
     EntitiesDoBatchGetTotalEntityCountRequestBuilder requestBuilder =

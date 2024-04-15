@@ -20,7 +20,6 @@ import javax.annotation.Nullable;
 import lombok.AllArgsConstructor;
 import lombok.EqualsAndHashCode;
 
-
 public class EntityDocCountCache {
   private final EntityRegistry entityRegistry;
   private final EntitySearchService entitySearchService;
@@ -44,11 +43,13 @@ public class EntityDocCountCache {
     this.entityDocCounts = new ConcurrentHashMap<>();
   }
 
-  private Map<String, Long> fetchEntityDocCount(@Nonnull OperationContext opContext, @Nullable Filter filter) {
+  private Map<String, Long> fetchEntityDocCount(
+      @Nonnull OperationContext opContext, @Nullable Filter filter) {
     return ConcurrencyUtils.transformAndCollectAsync(
         entityRegistry.getEntitySpecs().keySet(),
         Function.identity(),
-        Collectors.toMap(Function.identity(), v -> entitySearchService.docCount(opContext, v, filter)));
+        Collectors.toMap(
+            Function.identity(), v -> entitySearchService.docCount(opContext, v, filter)));
   }
 
   @WithSpan
@@ -57,7 +58,8 @@ public class EntityDocCountCache {
   }
 
   @WithSpan
-  public Map<String, Long> getEntityDocCount(@Nonnull OperationContext opContext, @Nullable Filter filter) {
+  public Map<String, Long> getEntityDocCount(
+      @Nonnull OperationContext opContext, @Nullable Filter filter) {
     return entityDocCounts
         .computeIfAbsent(
             new EntityDocCountsKey(opContext.getSearchContextId(), filter),
@@ -72,7 +74,8 @@ public class EntityDocCountCache {
         .collect(Collectors.toList());
   }
 
-  private Supplier<Map<String, Long>> buildSupplier(@Nonnull OperationContext opContext, @Nullable Filter filter) {
+  private Supplier<Map<String, Long>> buildSupplier(
+      @Nonnull OperationContext opContext, @Nullable Filter filter) {
     return Suppliers.memoizeWithExpiration(
         () -> fetchEntityDocCount(opContext, filter), config.getTtlSeconds(), TimeUnit.SECONDS);
   }
