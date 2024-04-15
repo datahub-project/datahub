@@ -83,7 +83,7 @@ def test_hive_metastore_ingest(
         events_file = tmp_path / mce_out_file
 
         pipeline_config: Dict = {
-            "run_id": "presto-on-hive-test",
+            "run_id": "hive-metastore-test",
             "source": {
                 "type": data_platform,
                 "config": {
@@ -145,7 +145,7 @@ def test_hive_metastore_instance_ingest(
     events_file = tmp_path / mce_out_file
 
     pipeline_config: Dict = {
-        "run_id": "presto-on-hive-test-2",
+        "run_id": "hive-metastore-test-2",
         "source": {
             "type": data_platform,
             "config": {
