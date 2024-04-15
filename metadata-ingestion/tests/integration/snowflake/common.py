@@ -1,8 +1,7 @@
 import json
+import random
 from datetime import datetime, timezone
 from unittest.mock import MagicMock
-
-from snowflake.connector.cursor import SnowflakeCursor
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.time_window_config import BucketDuration
@@ -13,7 +12,7 @@ NUM_TABLES = 10
 NUM_VIEWS = 2
 NUM_COLS = 10
 NUM_OPS = 10
-
+NUM_USAGE = 0
 
 FROZEN_TIME = "2022-06-07 17:00:00"
 
@@ -24,6 +23,7 @@ def default_query_results(  # noqa: C901
     num_views=NUM_VIEWS,
     num_cols=NUM_COLS,
     num_ops=NUM_OPS,
+    num_usages=NUM_USAGE,
 ):
     if query == SnowflakeQuery.current_account():
         return [{"CURRENT_ACCOUNT()": "ABC12345"}]
@@ -272,7 +272,25 @@ def default_query_results(  # noqa: C901
             email_filter=AllowDenyPattern.allow_all(),
         )
     ):
-        return MagicMock(spec=SnowflakeCursor)
+        mock = MagicMock()
+        mock.__iter__.return_value = [
+            {
+                "OBJECT_NAME": f"TEST_DB.TEST_SCHEMA.TABLE_{i}{random.randint(99, 999) if i > num_tables else ''}",
+                "BUCKET_START_TIME": datetime.now(),
+                "OBJECT_DOMAIN": "Table",
+                "TOTAL_QUERIES": 2,
+                "TOTAL_USERS": 1,
+                "TOP_SQL_QUERIES": json.dumps(["some random sql"]),
+                "FIELD_COUNTS": json.dumps(
+                    [{"col": f"col{c}", "total": 2} for c in range(num_cols)]
+                ),
+                "USER_COUNTS": json.dumps(
+                    [{"email": "abc@xyz.com", "user_name": "abc", "total": 2}]
+                ),
+            }
+            for i in range(num_usages)
+        ]
+        return mock
     elif query in (
         snowflake_query.SnowflakeQuery.table_to_table_lineage_history(
             1654473600000,

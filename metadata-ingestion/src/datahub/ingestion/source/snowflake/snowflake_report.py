@@ -86,7 +86,9 @@ class SnowflakeV2Report(
 
     usage_aggregation_query_secs: float = -1
     usage_aggregation_query_row_count: int = -1
-    usage_aggregation_result_fetch_secs: PerfTimer = field(default_factory=PerfTimer)
+    usage_aggregation_result_fetch_timer: PerfTimer = field(default_factory=PerfTimer)
+    usage_aggregation_result_skip_timer: PerfTimer = field(default_factory=PerfTimer)
+    usage_aggregation_result_map_timer: PerfTimer = field(default_factory=PerfTimer)
     table_lineage_query_secs: float = -1
     # view_lineage_parse_secs: float = -1
     # view_upstream_lineage_query_secs: float = -1

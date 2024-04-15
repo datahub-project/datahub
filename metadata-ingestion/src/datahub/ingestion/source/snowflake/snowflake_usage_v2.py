@@ -231,14 +231,16 @@ class SnowflakeUsageExtractor(
             self.report.usage_aggregation_query_secs = timer.elapsed_seconds()
             self.report.usage_aggregation_query_row_count = results.rowcount
 
-        with self.report.usage_aggregation_result_fetch_secs as current_timer:
+        with self.report.usage_aggregation_result_fetch_timer as fetch_timer:
             for row in results:
-                with current_timer.pause():
+                with fetch_timer.pause(), self.report.usage_aggregation_result_skip_timer as skip_timer:
                     if not self._is_dataset_pattern_allowed(
                         row["OBJECT_NAME"],
                         row["OBJECT_DOMAIN"],
                     ):
-                        continue
+                        logger.debug(
+                            f"Skipping usage for {row['OBJECT_DOMAIN']} {row['OBJECT_NAME']}, as table is not allowed by recipe."
+                        )
 
                     dataset_identifier = (
                         self.get_dataset_identifier_from_qualified_name(
@@ -247,13 +249,13 @@ class SnowflakeUsageExtractor(
                     )
                     if dataset_identifier not in discovered_datasets:
                         logger.debug(
-                            f"Skipping usage for table {dataset_identifier}, as table is not accessible or not allowed by recipe."
+                            f"Skipping usage for table {dataset_identifier}, as table is not accessible."
                         )
                         continue
-
-                    yield from self.build_usage_statistics_for_dataset(
-                        dataset_identifier, row
-                    )
+                    with skip_timer.pause(), self.report.usage_aggregation_result_map_timer:
+                        yield from self.build_usage_statistics_for_dataset(
+                            dataset_identifier, row
+                        )
 
     def build_usage_statistics_for_dataset(
         self, dataset_identifier: str, row: dict
