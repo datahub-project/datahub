@@ -53,26 +53,30 @@ async def actions_lifespan(app: fastapi.FastAPI) -> AsyncIterator[None]:
     async with pipeline_manager:
         logger.debug("Fetching registered actions.")
 
-        all_actions = graph.execute_graphql(
-            query=actions_gql, operation_name="listActions"
-        )
-        logger.debug(f"Got actions: {all_actions}")
-
         try:
-            for action in all_actions["listActionPipelines"]["actionPipelines"]:
-                action_urn = action["urn"]
-                action_details = action["details"]
+            all_actions = graph.execute_graphql(
+                query=actions_gql, operation_name="listActions"
+            )
+            logger.debug(f"Got actions: {all_actions}")
 
-                logger.info(f"Starting action {action_urn}.")
-                await start_or_restart_action(action_urn, action_details)
+            try:
+                for action in all_actions["listActionPipelines"]["actionPipelines"]:
+                    action_urn = action["urn"]
+                    action_details = action["details"]
 
+                    logger.info(f"Starting action {action_urn}.")
+                    await start_or_restart_action(action_urn, action_details)
+
+                yield
+
+            finally:
+                logger.info("Stopping all running actions.")
+                await pipeline_manager.stop_all()
+
+                logger.info("All actions stopped.")
+        except Exception as e:
+            logger.exception(f"Failed to start actions: {e}. Continuing with no actions.")
             yield
-
-        finally:
-            logger.info("Stopping all running actions.")
-            await pipeline_manager.stop_all()
-
-            logger.info("All actions stopped.")
 
 
 @actions_router.get("/")

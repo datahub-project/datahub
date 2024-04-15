@@ -89,9 +89,12 @@ class CacheManager:
                     return s3_path
             return local_fs_path
         else:
-            self._enqueue_download(
-                s3_path=s3_path, local_path=self._compute_local_path(s3_path)
-            )
+            # if path does not contain glob patterns, then enqueue download
+            if "*" not in s3_path:
+                # Start a background thread to download the file
+                self._enqueue_download(
+                    s3_path=s3_path, local_path=self._compute_local_path(s3_path)
+                )
             return s3_path
 
     def _compute_local_path(self, s3_path: str) -> str:

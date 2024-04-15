@@ -10,13 +10,20 @@ assert LOGGING_SETUP_COMPLETE
 STATIC_ASSETS_DIR = pathlib.Path(__file__).parent / "../../static"
 
 # A global config and graph object that can be used by all routers.
-DATAHUB_SERVER = f"{os.environ.get('DATAHUB_GMS_PROTOCOL', 'http')}://{os.environ.get('DATAHUB_GMS_HOST','localhost')}:{os.environ.get('DATAHUB_GMS_PORT',8080)}"
+if os.environ.get("DATAHUB_GMS_PORT") != "":
+    port_fragment = f":{os.environ.get('DATAHUB_GMS_PORT',8080)}"
+else:
+    port_fragment = ""
+DATAHUB_SERVER = f"{os.environ.get('DATAHUB_GMS_PROTOCOL', 'http')}://{os.environ.get('DATAHUB_GMS_HOST','localhost')}{port_fragment}"
 graph = DataHubGraph(
     DatahubClientConfig(
         server=DATAHUB_SERVER,
-        # When token is not set, the client will automatically try to use
-        # DATAHUB_SYSTEM_CLIENT_ID and DATAHUB_SYSTEM_CLIENT_SECRET to authenticate.
-        token=None,
+        # If the DATAHUB_GMS_API_TOKEN env variable is set, then we use it
+        # Else, we pass in None.
+        # When the token is not set, the client will automatically try to use
+        # DATAHUB_SYSTEM_CLIENT_ID and DATAHUB_SYSTEM_CLIENT_SECRET to
+        # authenticate, which is what we want in production.
+        token=os.environ.get("DATAHUB_GMS_API_TOKEN"),
     )
 )
 
