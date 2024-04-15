@@ -288,11 +288,9 @@ class DataHubBasedS3Dataset:
         yield from self._register_dataset()
 
     def _upload_file_to_s3(self):
-        logger.warning(f"get_file_uri: {self.get_file_uri()}")
         bucket, key = self.get_file_uri().replace("s3://", "").split("/", 1)
         assert self.s3_client is not None
         assert self.local_file_path is not None
-        logger.warning(f"Uploading file: {self.local_file_path} to {bucket} in {key}")
         self.s3_client.upload_file(self.local_file_path, bucket, key)
 
     def _register_dataset(self) -> Iterable[MetadataChangeProposalWrapper]:

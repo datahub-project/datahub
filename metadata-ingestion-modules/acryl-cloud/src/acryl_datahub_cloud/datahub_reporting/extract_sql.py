@@ -1,6 +1,5 @@
 import logging
 import os
-import json
 import boto3
 import zipfile
 from pathlib import Path
@@ -50,15 +49,14 @@ class DataHubReportingExtractSQLSourceConfig(ConfigModel):
                 v["dataset_registration_spec"]["soft_deleted"] = False
 
             if "file" not in v:
-                logger.warning(f"here: {v}")
                 default_config = FileStoreBackedDatasetConfig.dummy()
-                v["file"] = f"{default_config.file_name}.{default_config.file_extension}:"
+                v["file"] = f"{default_config.file_name}.{default_config.file_extension}"
             else:
-                logger.warning(f"instead: {v}")
                 v["file_name"] = v["file"].split(".")[0]
                 v["file_extension"] = v["file"].split(".")[-1]
 
         return v
+
 
 class SQLGraphRow(BaseModelRow):
     urn: str
@@ -150,15 +148,16 @@ class DataHubReportingExtractSQLSource(Source):
             previous_date = datetime.now() - timedelta(days=1)
             # Must be a static path, so we consistently delete the data (possibly based on pipeline name)
             tmp_dir: str = self.ctx.pipeline_name
-            time_partition_path="year={}/month={:02d}/day={:02d}".format(previous_date.year, previous_date.month, previous_date.day)
-            output_file = self.datahub_based_s3_dataset.config.file_name
-
-            self._clean_up_old_state(state_directory=tmp_dir, result_file_path=output_file)
-            self._download_files(bucket=self.config.sql_backup_config.bucket,
-                                 prefix=f"{self.config.sql_backup_config.path}/{time_partition_path}", target_dir=tmp_dir)
+            time_partition_path = "year={}/month={:02d}/day={:02d}".format(previous_date.year, previous_date.month,
+                                                                           previous_date.day)
+            output_file = self.datahub_based_s3_dataset.config.file
+            # self._clean_up_old_state(state_directory=tmp_dir, result_file_path=output_file)
+            # self._download_files(bucket=self.config.sql_backup_config.bucket,
+            #                     prefix=f"{self.config.sql_backup_config.path}/{time_partition_path}", target_dir=tmp_dir)
             self._zip_folder(folder_path=tmp_dir, output_file=output_file)
+            logger.warning(self.datahub_based_s3_dataset.dataset_metadata)
             mcps = self.datahub_based_s3_dataset.commit()
-            self._clean_up_old_state(state_directory=tmp_dir, result_file_path=output_file)
+            # self._clean_up_old_state(state_directory=tmp_dir, result_file_path=output_file)
 
             for mcp in mcps:
                 logger.info(
