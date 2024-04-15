@@ -78,9 +78,7 @@ from datahub.ingestion.transformer.pattern_cleanup_ownership import (
 from datahub.ingestion.transformer.remove_dataset_ownership import (
     SimpleRemoveDatasetOwnership,
 )
-from datahub.ingestion.transformer.replace_external_url import (
-    ReplaceExternalUrl,
-)
+from datahub.ingestion.transformer.replace_external_url import ReplaceExternalUrl
 from datahub.metadata.schema_classes import (
     BrowsePathsClass,
     DatasetPropertiesClass,
@@ -93,7 +91,6 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.utilities.urns.dataset_urn import DatasetUrn
 from datahub.utilities.urns.urn import Urn
-
 
 
 def make_generic_dataset(
@@ -3214,6 +3211,7 @@ def test_clean_owner_urn_transformation_should_not_remove_system_identifier(
 
     _test_clean_owner_urns(pipeline_context, in_owner_urns, config, in_owner_urns)
 
+
 def test_replace_external_url_word_replace(
     mock_datahub_graph,
 ):
@@ -3226,19 +3224,20 @@ def test_replace_external_url_word_replace(
         transformer_type=ReplaceExternalUrl,
         aspect=models.DatasetPropertiesClass(
             externalUrl="https://github.com/datahub/looker-demo/blob/master/foo.view.lkml",
-            customProperties=EXISTING_PROPERTIES.copy()
+            customProperties=EXISTING_PROPERTIES.copy(),
         ),
-        config={
-            "input_pattern": "datahub",
-            "replacement": "starhub"
-        },
+        config={"input_pattern": "datahub", "replacement": "starhub"},
         pipeline_context=pipeline_context,
     )
 
     assert len(output) == 2
     assert output[0].record
     assert output[0].record.aspect
-    assert output[0].record.aspect.externalUrl == "https://github.com/starhub/looker-demo/blob/master/foo.view.lkml"
+    assert (
+        output[0].record.aspect.externalUrl
+        == "https://github.com/starhub/looker-demo/blob/master/foo.view.lkml"
+    )
+
 
 def test_replace_external_regex_replace_1(
     mock_datahub_graph,
@@ -3252,19 +3251,20 @@ def test_replace_external_regex_replace_1(
         transformer_type=ReplaceExternalUrl,
         aspect=models.DatasetPropertiesClass(
             externalUrl="https://github.com/datahub/looker-demo/blob/master/foo.view.lkml",
-            customProperties=EXISTING_PROPERTIES.copy()
+            customProperties=EXISTING_PROPERTIES.copy(),
         ),
-        config={
-            "input_pattern": r"datahub/.*/",
-            "replacement": "starhub/test/"
-        },
+        config={"input_pattern": r"datahub/.*/", "replacement": "starhub/test/"},
         pipeline_context=pipeline_context,
     )
 
     assert len(output) == 2
     assert output[0].record
     assert output[0].record.aspect
-    assert output[0].record.aspect.externalUrl == "https://github.com/starhub/test/foo.view.lkml"
+    assert (
+        output[0].record.aspect.externalUrl
+        == "https://github.com/starhub/test/foo.view.lkml"
+    )
+
 
 def test_replace_external_regex_replace_2(
     mock_datahub_graph,
@@ -3278,16 +3278,16 @@ def test_replace_external_regex_replace_2(
         transformer_type=ReplaceExternalUrl,
         aspect=models.DatasetPropertiesClass(
             externalUrl="https://github.com/datahub/looker-demo/blob/master/foo.view.lkml",
-            customProperties=EXISTING_PROPERTIES.copy()
+            customProperties=EXISTING_PROPERTIES.copy(),
         ),
-        config={
-            "input_pattern": r"\b\w*hub\b",
-            "replacement": "test"
-        },
+        config={"input_pattern": r"\b\w*hub\b", "replacement": "test"},
         pipeline_context=pipeline_context,
     )
 
     assert len(output) == 2
     assert output[0].record
     assert output[0].record.aspect
-    assert output[0].record.aspect.externalUrl == "https://test.com/test/looker-demo/blob/master/foo.view.lkml"
+    assert (
+        output[0].record.aspect.externalUrl
+        == "https://test.com/test/looker-demo/blob/master/foo.view.lkml"
+    )
