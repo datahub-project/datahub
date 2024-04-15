@@ -660,7 +660,7 @@ entry_points = {
         "qlik-sense = datahub.ingestion.source.qlik_sense.qlik_sense:QlikSenseSource",
         "datahub-reporting-forms = datahub.ingestion.source.datahub_reporting.forms:DataHubReportingFormsSource",
         "datahub-reporting-extract-graph = datahub.ingestion.source.datahub_reporting.extract_graph:DataHubReportingExtractGraphSource",
-        "datahub-reporting-extract-sql = datahub.ingestion.source.datahub_reporting.extract_sql:DataHubReportingExtractSqlSource",
+        "datahub-reporting-extract-sql = datahub.ingestion.source.datahub_reporting.extract_sql:DataHubReportingExtractSQLSource",
     ],
     "datahub.ingestion.transformer.plugins": [
         "pattern_cleanup_ownership = datahub.ingestion.transformer.pattern_cleanup_ownership:PatternCleanUpOwnership",

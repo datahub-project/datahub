@@ -1,5 +1,6 @@
 import logging
 import os
+import json
 import boto3
 import zipfile
 from pathlib import Path
@@ -33,7 +34,7 @@ class S3ClientConfig(ConfigModel):
     path: str = os.getenv("RDS_DATA_PATH", "rds_backup/metadata_aspect_v2")
 
 
-class DataHubReportingExtractSqlSourceConfig(ConfigModel):
+class DataHubReportingExtractSQLSourceConfig(ConfigModel):
     server: Optional[DatahubClientConfig] = None
     sql_backup_config: S3ClientConfig
     extract_sql_store: FileStoreBackedDatasetConfig
@@ -47,27 +48,17 @@ class DataHubReportingExtractSqlSourceConfig(ConfigModel):
                 )
             elif "soft_deleted" not in v["dataset_registration_spec"]:
                 v["dataset_registration_spec"]["soft_deleted"] = False
+
+            if "file" not in v:
+                logger.warning(f"here: {v}")
+                default_config = FileStoreBackedDatasetConfig.dummy()
+                v["file"] = f"{default_config.file_name}.{default_config.file_extension}:"
+            else:
+                logger.warning(f"instead: {v}")
+                v["file_name"] = v["file"].split(".")[0]
+                v["file_extension"] = v["file"].split(".")[-1]
+
         return v
-
-
-"""
-@dataclass
-class DataHubReportingExtractSQLSourceReport(SourceReport):
-    edges_scanned: int = 0
-    edges_skipped: int = 0
-    file_store_connection_status: str = "Not connected"
-    file_store_uri: str = ""
-
-    def increment_edges_scanned(self):
-        self.edges_scanned += 1
-
-    def increment_edges_skipped(self):
-        self.edges_skipped += 1
-
-    def as_string(self) -> str:
-        return super().as_string()
-"""
-
 
 class SQLGraphRow(BaseModelRow):
     urn: str
@@ -94,16 +85,16 @@ class SQLGraphRow(BaseModelRow):
 
 
 @platform_name(id="datahub", platform_name="DataHub")
-@config_class(DataHubReportingExtractSqlSourceConfig)
+@config_class(DataHubReportingExtractSQLSourceConfig)
 @support_status(SupportStatus.INCUBATING)
 class DataHubReportingExtractSQLSource(Source):
     platform = "datahub"
 
     def __init__(
-            self, config: DataHubReportingExtractSqlSourceConfig, ctx: PipelineContext
+            self, config: DataHubReportingExtractSQLSourceConfig, ctx: PipelineContext
     ):
         super().__init__(ctx)
-        self.config: DataHubReportingExtractSqlSourceConfig = config
+        self.config: DataHubReportingExtractSQLSourceConfig = config
         self.report = SourceReport()
         self.opened_files: List[str] = []
         self.s3_client = boto3.client("s3")
@@ -112,18 +103,12 @@ class DataHubReportingExtractSQLSource(Source):
             dataset_metadata=DatasetMetadata(
                 displayName="SQL Extract",
                 description="This is an automated SQL Extract from DataHub's backend",
+                schemaFields=SQLGraphRow.datahub_schema()
             ),
-        )
-        self.graph = (
-            self.ctx.require_graph("Loading default graph coordinates.")
-            if self.config.server is None
-            else DataHubGraph(config=self.config.server)
         )
 
     @staticmethod
-    def should_skip_extract(
-            self, dataset_properties: Optional[DatasetPropertiesClass]
-    ) -> bool:
+    def should_skip_extract(dataset_properties: Optional[DatasetPropertiesClass]) -> bool:
         """Skip graph extraction if the dataset has already been pushed to DataHub today"""
 
         skip_extract = False
@@ -142,12 +127,17 @@ class DataHubReportingExtractSQLSource(Source):
 
     def get_workunits(self):
 
+        self.graph = (
+            self.ctx.require_graph("Loading default graph coordinates.")
+            if self.config.server is None
+            else DataHubGraph(config=self.config.server)
+        )
+
         dataset_properties: Optional[DatasetPropertiesClass] = self.graph.get_aspect(
             self.datahub_based_s3_dataset.get_dataset_urn(), DatasetPropertiesClass
         )
 
-        if (
-                self.should_skip_extract(dataset_properties)
+        if (self.should_skip_extract(dataset_properties)
                 and self.datahub_based_s3_dataset.config.generate_presigned_url
         ):
             mcps = self.datahub_based_s3_dataset.update_presigned_url(
@@ -161,22 +151,20 @@ class DataHubReportingExtractSQLSource(Source):
             # Must be a static path, so we consistently delete the data (possibly based on pipeline name)
             tmp_dir: str = self.ctx.pipeline_name
             time_partition_path="year={}/month={:02d}/day={:02d}".format(previous_date.year, previous_date.month, previous_date.day)
-            output_file = f"{self.datahub_based_s3_dataset.local_file_path}.{self.datahub_based_s3_dataset.config.file_extension}"
-            logger.info(tmp_dir)
-            logger.info(time_partition_path)
-            logger.info(output_file)
-            exit(0)
+            output_file = self.datahub_based_s3_dataset.config.file_name
+
             self._clean_up_old_state(state_directory=tmp_dir, result_file_path=output_file)
             self._download_files(bucket=self.config.sql_backup_config.bucket,
                                  prefix=f"{self.config.sql_backup_config.path}/{time_partition_path}", target_dir=tmp_dir)
             self._zip_folder(folder_path=tmp_dir, output_file=output_file)
-            #self._upload_file(bucket=self.config.sql_backup_config.bucket,
-            #                  prefix=f"reporting/rds_raw/{time_partition_path}/{output_file}", file=output_file)
+            mcps = self.datahub_based_s3_dataset.commit()
             self._clean_up_old_state(state_directory=tmp_dir, result_file_path=output_file)
 
-            #TODO: Emit S3 Acryl Dataset with a presigned url to `output_file`, no stats are available for this.
-            self.datahub_based_s3_dataset.commit()
-        return None
+            for mcp in mcps:
+                logger.info(
+                    f"Reporting dataset registered at {self.datahub_based_s3_dataset.get_dataset_urn()}"
+                )
+                yield mcp.as_workunit()
 
     @staticmethod
     def _clean_up_old_state(state_directory: str, result_file_path: Optional[str] = None):
@@ -211,7 +199,7 @@ class DataHubReportingExtractSQLSource(Source):
 
     @staticmethod
     def _zip_folder(folder_path: str, output_file: str) -> None:
-        with zipfile.ZipFile(output_file, 'w', zipfile.ZIP_DEFLATED) as zipf:
+        with zipfile.ZipFile(output_file, 'x', zipfile.ZIP_DEFLATED) as zipf:
             for root, _, files in os.walk(folder_path):
                 for file in files:
                     file_path = os.path.join(root, file)

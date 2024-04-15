@@ -89,6 +89,10 @@ class FileStoreBackedDatasetConfig(ConfigModel):
             raise ValueError(f"Unsupported partitioning strategy: {v}")
         return v
 
+    @staticmethod
+    def dummy():
+        return FileStoreBackedDatasetConfig(dataset_name="none", bucket_prefix="none")
+
 
 class SchemaField(BaseModel):
     name: str
@@ -106,7 +110,7 @@ class BaseModelRow(BaseModel):
         return self.__dict__
 
     @staticmethod
-    # Mapping function: Pydantic types to PyArrow types
+    # Mapping function: Pydantic types to SchemaField types
     def pydantic_type_to_pyarrow(type_):
         if issubclass(type_, bool):
             return pa.bool_()
@@ -124,6 +128,25 @@ class BaseModelRow(BaseModel):
         else:
             raise ValueError(f"No mapping for type {type_}")
 
+    @staticmethod
+    # Mapping function: Pydantic types to DataHub types (based on SchemaFieldDataType)
+    def pydantic_type_to_datahub(type_):
+        if issubclass(type_, bool):
+            return "BooleanType"
+        elif issubclass(type_, int):
+            return "NumberType"
+        elif issubclass(type_, float):
+            return "NumberType"
+        elif issubclass(type_, str):
+            return "StringType"
+        elif issubclass(type_, datetime.datetime):
+            return "TimeType"
+        elif issubclass(type_, datetime.date):
+            return "TimeType"
+        # Extend with additional mappings as needed
+        else:
+            raise ValueError(f"No mapping for type {type_}")
+
     @classmethod
     def arrow_schema(cls) -> pa.Schema:
         fields = []
@@ -133,6 +156,16 @@ class BaseModelRow(BaseModel):
             )
             fields.append(pa.field(field_name, pyarrow_type))
         return pa.schema(fields)
+
+    @classmethod
+    def datahub_schema(cls) -> List[SchemaField]:
+        fields = []
+        for field_name, field_model in cls.__fields__.items():
+            datahub_type = BaseModelRow.pydantic_type_to_datahub(
+                field_model.outer_type_
+            )
+            fields.append(SchemaField(name=field_name, type=datahub_type))
+        return fields
 
 
 class DataHubBasedS3Dataset:
@@ -255,9 +288,11 @@ class DataHubBasedS3Dataset:
         yield from self._register_dataset()
 
     def _upload_file_to_s3(self):
+        logger.warning(f"get_file_uri: {self.get_file_uri()}")
         bucket, key = self.get_file_uri().replace("s3://", "").split("/", 1)
         assert self.s3_client is not None
         assert self.local_file_path is not None
+        logger.warning(f"Uploading file: {self.local_file_path} to {bucket} in {key}")
         self.s3_client.upload_file(self.local_file_path, bucket, key)
 
     def _register_dataset(self) -> Iterable[MetadataChangeProposalWrapper]:
