@@ -79,7 +79,7 @@ def test_hive_metastore_ingest(
     # Run the metadata ingestion pipeline.
     with fs_helpers.isolated_filesystem(tmp_path):
         # Run the metadata ingestion pipeline for presto catalog referring to postgres database
-        mce_out_file = f"hive_metastore_mces{test_suffix}.json"
+        mce_out_file = f"hive_metastore_mces_golden{test_suffix}.json"
         events_file = tmp_path / mce_out_file
 
         pipeline_config: Dict = {
