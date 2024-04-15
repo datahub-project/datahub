@@ -13,6 +13,13 @@ source:
     #     - workspace_name
 
     ingest_owner: true
+    
+    # Optional - mapping of sigma workspace/workbook/chart folder path to all chart's data sources platform details present inside that folder path.
+    # chart_sources_platform_mapping:
+    #   folder_path:
+    #     data_source_platform: postgres
+    #     platform_instance: cloud_instance
+    #     env: DEV
 
 sink:
   # sink configs

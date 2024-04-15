@@ -82,9 +82,5 @@ class SigmaSourceConfig(
     )
     chart_sources_platform_mapping: Dict[str, PlatformDetail] = pydantic.Field(
         default={},
-        description="A mapping of the sigma workspace/workbook/chart folder path to all chart's data sources platform details present inside that folder path. "
-        "For example: Provide key as 'workspace_name/[folder_name/]workbook_name/chart_name' if just for one specific chart, "
-        "key as 'workspace_name/[folder_name/]workbook_name' if for all charts within a specific workbook, "
-        "key as 'workspace_name' if for all workbook's charts within a specific workspace, and "
-        "key as '*' for all ingested charts",
+        description="A mapping of the sigma workspace/workbook/chart folder path to all chart's data sources platform details present inside that folder path.",
     )

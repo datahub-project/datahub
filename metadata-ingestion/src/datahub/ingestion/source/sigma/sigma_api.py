@@ -22,7 +22,6 @@ class SigmaAPI:
         self.config = config
         self.workspaces: Dict[str, Workspace] = {}
         self.users: Dict[str, str] = {}
-        self.datasets: Dict[str, str] = {}
         self.session = requests.Session()
         # Test connection by generating access token
         logger.info("Trying to connect to {}".format(self.config.api_url))
@@ -107,7 +106,7 @@ class SigmaAPI:
         self, element_id: str, workbook_id: str
     ) -> Dict[str, str]:
         """
-        Returns upstream sources with keys as id and values as type that source
+        Returns upstream dataset sources with keys as id and values as name of that dataset
         """
         upstream_sources: Dict[str, str] = {}
         try:
@@ -117,9 +116,13 @@ class SigmaAPI:
             response.raise_for_status()
             response_dict = response.json()
             for edge in response_dict[Constant.EDGES]:
-                upstream_sources[edge[Constant.SOURCE]] = response_dict[
-                    Constant.DEPENDENCIES
-                ][edge[Constant.SOURCE]][Constant.TYPE]
+                source_type = response_dict[Constant.DEPENDENCIES][
+                    edge[Constant.SOURCE]
+                ][Constant.TYPE]
+                if source_type == "dataset":
+                    upstream_sources[edge[Constant.SOURCE]] = response_dict[
+                        Constant.DEPENDENCIES
+                    ][edge[Constant.SOURCE]][Constant.NAME]
         except Exception as e:
             self._log_http_error(
                 message=f"Unable to fetch lineage of element {element_id}. Exception: {e}"
@@ -244,7 +247,6 @@ class SigmaAPI:
                         if dataset:
                             dataset.badge = entity[Constant.BADGE]
                             entities.append(dataset)
-                            self.datasets[dataset.datasetId] = dataset.name
                     elif type == Constant.WORKBOOK:
                         workbook = self.get_workbook(entity[Constant.ID], workspace_id)
                         if workbook:
