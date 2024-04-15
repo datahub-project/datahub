@@ -79,7 +79,7 @@ def test_hive_metastore_ingest(
     # Run the metadata ingestion pipeline.
     with fs_helpers.isolated_filesystem(tmp_path):
         # Run the metadata ingestion pipeline for presto catalog referring to postgres database
-        mce_out_file = f"hive_metastore_mces_golden{test_suffix}.json"
+        mce_out_file = f"hive_metastore_mces{test_suffix}.json"
         events_file = tmp_path / mce_out_file
 
         pipeline_config: Dict = {
@@ -124,7 +124,8 @@ def test_hive_metastore_ingest(
         mce_helpers.check_golden_file(
             pytestconfig,
             output_path=f"hive_metastore_mces{test_suffix}.json",
-            golden_path=test_resources_dir / f"hive_metastore_mces{test_suffix}.json",
+            golden_path=test_resources_dir
+            / f"hive_metastore_mces_golden{test_suffix}.json",
             ignore_paths=[
                 r"root\[\d+\]\['proposedSnapshot'\]\['com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot'\]\['aspects'\]\[\d+\]\['com.linkedin.pegasus2avro.dataset.DatasetProperties'\]\['customProperties'\]\['transient_lastDdlTime'\]",
                 r"root\[\d+\]\['proposedSnapshot'\]\['com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot'\]\['aspects'\]\[\d+\]\['com.linkedin.pegasus2avro.dataset.DatasetProperties'\]\['customProperties'\]\['numfiles'\]",
