@@ -282,7 +282,7 @@ class ModeSource(StatefulIngestionSourceBase):
         except HTTPError as http_error:
             self.report.report_failure(
                 key="mode-session",
-                reason=f"Unable to retrieve user "
+                reason=f"Unable to verify connection"
                 f"{self.config.token} information, "
                 f"{str(http_error)}",
             )
@@ -401,7 +401,7 @@ class ModeSource(StatefulIngestionSourceBase):
                 else user_json.get("email")
             )
         except HTTPError as http_error:
-            self.report.report_failure(
+            self.report.report_warning(
                 key="mode-user",
                 reason=f"Unable to retrieve user for {href}, "
                 f"Reason: {str(http_error)}",
