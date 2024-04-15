@@ -1,3 +1,4 @@
+import dataclasses
 import logging
 import re
 import time
@@ -16,7 +17,7 @@ from sqllineage.runner import LineageRunner
 from tenacity import retry_if_exception_type, stop_after_attempt, wait_exponential
 
 import datahub.emitter.mce_builder as builder
-from datahub.configuration.common import ConfigModel
+from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.configuration.source_common import DatasetLineageProviderConfigBase
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
@@ -94,6 +95,7 @@ from datahub.sql_parsing.sqlglot_lineage import (
     infer_output_schema,
 )
 from datahub.utilities import config_clean
+from datahub.utilities.lossy_collections import LossyList
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -121,11 +123,20 @@ class ModeConfig(StatefulIngestionConfigBase, DatasetLineageProviderConfigBase):
     password: pydantic.SecretStr = Field(
         description="Mode password for authentication."
     )
+
     workspace: Optional[str] = Field(default=None, description="")
     default_schema: str = Field(
         default="public",
         description="Default schema to use when schema is not provided in an SQL query",
     )
+
+    space_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern(
+            deny=["^Personal$"],
+        ),
+        description="Regex patterns for mode spaces to filter in ingestion (Spaces named as 'Personal' are filtered by default.) Specify regex to only match the space name. e.g. to only ingest space named analytics, use the regex 'analytics'",
+    )
+
     owner_username_instead_of_email: Optional[bool] = Field(
         default=True, description="Use username for owner URN instead of Email"
     )
@@ -155,7 +166,10 @@ class HTTPError429(HTTPError):
 
 @dataclass
 class ModeSourceReport(StaleEntityRemovalSourceReport):
-    pass
+    filtered_spaces: LossyList[str] = dataclasses.field(default_factory=LossyList)
+
+    def report_dropped_space(self, ent_name: str) -> None:
+        self.filtered_spaces.append(ent_name)
 
 
 @platform_name("Mode")
@@ -278,8 +292,23 @@ class ModeSource(StatefulIngestionSourceBase):
 
     def construct_dashboard(
         self, space_name: str, report_info: dict
-    ) -> DashboardSnapshot:
+    ) -> Optional[DashboardSnapshot]:
         report_token = report_info.get("token", "")
+
+        if not report_token:
+            self.report.report_warning(
+                key="mode-report",
+                reason=f"Report token is missing for {report_info.get('id', '')}",
+            )
+            return None
+
+        if not report_info.get("id"):
+            self.report.report_warning(
+                key="mode-report",
+                reason=f"Report id is missing for {report_info.get('token', '')}",
+            )
+            return None
+
         dashboard_urn = builder.make_dashboard_urn(
             self.platform, report_info.get("id", "")
         )
@@ -315,8 +344,8 @@ class ModeSource(StatefulIngestionSourceBase):
             )
 
         dashboard_info_class = DashboardInfoClass(
-            description=description,
-            title=title,
+            description=description if description else "",
+            title=title if title else "",
             charts=self._get_chart_urns(report_token),
             lastModified=last_modified,
             dashboardUrl=f"{self.config.connect_uri}/{self.config.workspace}/reports/{report_token}",
@@ -329,7 +358,7 @@ class ModeSource(StatefulIngestionSourceBase):
             paths=[
                 f"/mode/{self.config.workspace}/"
                 f"{space_name}/"
-                f"{report_info.get('name')}"
+                f"{title if title else report_info.get('id', '')}"
             ]
         )
         dashboard_snapshot.aspects.append(browse_path)
@@ -405,6 +434,11 @@ class ModeSource(StatefulIngestionSourceBase):
             )
             for s in spaces:
                 logger.debug(f"Space: {s.get('name')}")
+                space_name = s.get("name", "")
+                if not self.config.space_pattern.allowed(space_name):
+                    self.report.report_dropped_space(space_name)
+                    logging.debug(f"Skipping space {space_name} due to space pattern")
+                    continue
                 space_info[s.get("token", "")] = s.get("name", "")
         except HTTPError as http_error:
             self.report.report_failure(
@@ -1194,6 +1228,9 @@ class ModeSource(StatefulIngestionSourceBase):
                 dashboard_snapshot_from_report = self.construct_dashboard(
                     space_name, report
                 )
+
+                if dashboard_snapshot_from_report is None:
+                    continue
 
                 mce = MetadataChangeEvent(
                     proposedSnapshot=dashboard_snapshot_from_report
