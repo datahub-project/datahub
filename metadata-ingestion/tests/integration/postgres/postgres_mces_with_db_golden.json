@@ -657,5 +657,21 @@
         "runId": "postgres-test",
         "lastRunId": "no-run-id-provided"
     }
+},
+{
+    "entityType": "glossaryTerm",
+    "entityUrn": "urn:li:glossaryTerm:URN",
+    "changeType": "UPSERT",
+    "aspectName": "glossaryTermKey",
+    "aspect": {
+        "json": {
+            "name": "URN"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1646575200000,
+        "runId": "postgres-test",
+        "lastRunId": "no-run-id-provided"
+    }
 }
 ]
