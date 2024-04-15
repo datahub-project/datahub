@@ -438,15 +438,19 @@ Cypress.Commands.add('rejectProposalInbox', () => {
   cy.doInInbox('Decline');
 });
 
-Cypress.Commands.add ('handleIntroducePage', ()=>{
+Cypress.Commands.add('handleIntroducePage', () => {
   cy.url().then(url => {
-   let myUrl = url;
+  let myUrl = url;
   if(myUrl.includes("/introduce")){
      cy.get(".ant-select ").first().click()
      cy.get(".ant-select-item-option-content").contains("Data Analyst").should('be.visible').click()
+     cy.get(".ant-select-selection-overflow").click()
+     cy.get('[src*="bigquerylogo.png"]').should('be.visible').click() 
+     cy.get('body').click();
      cy.get(".ant-btn-primary").click()
     }else{
-     cy.waitTextVisible("Discover")    }
+     cy.get('[class^="NavLinksMenu__LinksWrapper').should('be.visible')   
+    }
   });
 })
 
