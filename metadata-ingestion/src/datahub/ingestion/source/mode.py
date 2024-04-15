@@ -398,7 +398,7 @@ class ModeSource(StatefulIngestionSourceBase):
         space_info = {}
         try:
             logger.debug(f"Retrieving spaces for {self.workspace_uri}")
-            payload = self._get_request_json(f"{self.workspace_uri}/spaces")
+            payload = self._get_request_json(f"{self.workspace_uri}/spaces?filter=all")
             spaces = payload.get("_embedded", {}).get("spaces", {})
             logger.debug(
                 f"Got {len(spaces)} spaces from workspace {self.workspace_uri}"
