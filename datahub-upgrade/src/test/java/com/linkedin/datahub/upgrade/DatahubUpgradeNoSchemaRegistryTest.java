@@ -1,10 +1,13 @@
 package com.linkedin.datahub.upgrade;
 
 import static org.mockito.Mockito.mock;
-import static org.testng.AssertJUnit.assertEquals;
-import static org.testng.AssertJUnit.assertNotNull;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNotNull;
 
 import com.linkedin.datahub.upgrade.system.SystemUpdate;
+import com.linkedin.gms.factory.kafka.schemaregistry.SchemaRegistryConfig;
+import com.linkedin.metadata.boot.kafka.MockSystemUpdateDeserializer;
+import com.linkedin.metadata.boot.kafka.MockSystemUpdateSerializer;
 import com.linkedin.metadata.dao.producer.KafkaEventProducer;
 import com.linkedin.metadata.entity.EntityServiceImpl;
 import io.datahubproject.metadata.context.OperationContext;
@@ -43,6 +46,10 @@ public class DatahubUpgradeNoSchemaRegistryTest extends AbstractTestNGSpringCont
 
   @Autowired private EntityServiceImpl entityService;
 
+  @Autowired
+  @Named("schemaRegistryConfig")
+  private SchemaRegistryConfig schemaRegistryConfig;
+
   @Test
   public void testSystemUpdateInit() {
     assertNotNull(systemUpdate);
@@ -50,6 +57,8 @@ public class DatahubUpgradeNoSchemaRegistryTest extends AbstractTestNGSpringCont
 
   @Test
   public void testSystemUpdateKafkaProducerOverride() {
+    assertEquals(schemaRegistryConfig.getDeserializer(), MockSystemUpdateDeserializer.class);
+    assertEquals(schemaRegistryConfig.getSerializer(), MockSystemUpdateSerializer.class);
     assertEquals(kafkaEventProducer, duheKafkaEventProducer);
     assertEquals(entityService.getProducer(), duheKafkaEventProducer);
   }

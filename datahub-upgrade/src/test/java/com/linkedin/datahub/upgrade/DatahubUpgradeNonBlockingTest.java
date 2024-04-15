@@ -4,13 +4,19 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.testng.Assert.assertEquals;
 import static org.testng.AssertJUnit.assertNotNull;
 
 import com.linkedin.datahub.upgrade.impl.DefaultUpgradeManager;
 import com.linkedin.datahub.upgrade.system.SystemUpdateNonBlocking;
 import com.linkedin.datahub.upgrade.system.vianodes.ReindexDataJobViaNodesCLL;
+import com.linkedin.gms.factory.kafka.schemaregistry.SchemaRegistryConfig;
+import com.linkedin.metadata.boot.kafka.MockSystemUpdateDeserializer;
+import com.linkedin.metadata.boot.kafka.MockSystemUpdateSerializer;
+import com.linkedin.metadata.dao.producer.KafkaEventProducer;
 import com.linkedin.metadata.entity.AspectDao;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.EntityServiceImpl;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.List;
@@ -38,9 +44,28 @@ public class DatahubUpgradeNonBlockingTest extends AbstractTestNGSpringContextTe
   private SystemUpdateNonBlocking systemUpdateNonBlocking;
 
   @Autowired
+  @Named("schemaRegistryConfig")
+  private SchemaRegistryConfig schemaRegistryConfig;
+
+  @Autowired
+  @Named("duheKafkaEventProducer")
+  private KafkaEventProducer duheKafkaEventProducer;
+
+  @Autowired
+  @Named("kafkaEventProducer")
+  private KafkaEventProducer kafkaEventProducer;
+
+  @Autowired private EntityServiceImpl entityService;
+
   @Test
   public void testSystemUpdateNonBlockingInit() {
     assertNotNull(systemUpdateNonBlocking);
+
+    // Expected system update configuration and producer
+    assertEquals(schemaRegistryConfig.getDeserializer(), MockSystemUpdateDeserializer.class);
+    assertEquals(schemaRegistryConfig.getSerializer(), MockSystemUpdateSerializer.class);
+    assertEquals(duheKafkaEventProducer, kafkaEventProducer);
+    assertEquals(entityService.getProducer(), duheKafkaEventProducer);
   }
 
   @Test

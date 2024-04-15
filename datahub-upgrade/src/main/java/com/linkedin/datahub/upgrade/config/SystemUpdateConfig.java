@@ -6,9 +6,9 @@ import com.linkedin.datahub.upgrade.system.SystemUpdate;
 import com.linkedin.datahub.upgrade.system.SystemUpdateBlocking;
 import com.linkedin.datahub.upgrade.system.SystemUpdateNonBlocking;
 import com.linkedin.datahub.upgrade.system.elasticsearch.steps.DataHubStartupStep;
-import com.linkedin.gms.factory.common.TopicConventionFactory;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.kafka.DataHubKafkaProducerFactory;
+import com.linkedin.gms.factory.kafka.common.TopicConventionFactory;
 import com.linkedin.gms.factory.kafka.schemaregistry.InternalSchemaRegistryFactory;
 import com.linkedin.gms.factory.kafka.schemaregistry.SchemaRegistryConfig;
 import com.linkedin.metadata.config.kafka.KafkaConfiguration;
@@ -109,5 +109,26 @@ public class SystemUpdateConfig {
   protected KafkaEventProducer kafkaEventProducer(
       @Qualifier("duheKafkaEventProducer") KafkaEventProducer kafkaEventProducer) {
     return kafkaEventProducer;
+  }
+
+  @Primary
+  @Bean(name = "schemaRegistryConfig")
+  @ConditionalOnProperty(
+      name = "kafka.schemaRegistry.type",
+      havingValue = InternalSchemaRegistryFactory.TYPE)
+  protected SchemaRegistryConfig schemaRegistryConfig(
+      @Qualifier("duheSchemaRegistryConfig") SchemaRegistryConfig duheSchemaRegistryConfig) {
+    return duheSchemaRegistryConfig;
+  }
+
+  @Configuration
+  public static class SystemUpdateSetup {
+    @Autowired private EntityService<?> entityService;
+    @Autowired private EntitySearchService entitySearchService;
+
+    @PostConstruct
+    protected void postConstruct() {
+      entitySearchService.postConstruct(entityService);
+    }
   }
 }

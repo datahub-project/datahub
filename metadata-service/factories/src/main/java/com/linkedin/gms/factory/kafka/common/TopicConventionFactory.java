@@ -1,4 +1,4 @@
-package com.linkedin.gms.factory.common;
+package com.linkedin.gms.factory.kafka.common;
 
 import com.linkedin.mxe.TopicConvention;
 import com.linkedin.mxe.TopicConventionImpl;

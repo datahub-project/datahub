@@ -1,5 +1,5 @@
 plugins {
-    id 'java'
+    id 'java-library'
 }
 
 apply plugin: 'pegasus'
@@ -32,7 +32,7 @@ dependencies {
     implementation externalDependency.neo4jJavaDriver
 
     implementation externalDependency.springKafka
-    implementation externalDependency.springActuator
+    implementation externalDependency.annotationApi
 
     implementation externalDependency.slf4jApi
     compileOnly externalDependency.lombok

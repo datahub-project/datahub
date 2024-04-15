@@ -4,6 +4,7 @@ import static com.linkedin.gms.factory.kafka.schemaregistry.SystemUpdateSchemaRe
 import static com.linkedin.gms.factory.kafka.schemaregistry.SystemUpdateSchemaRegistryFactory.MCL_VERSIONED_SCHEMA_REGISTRY_TOPIC_KEY;
 import static com.linkedin.gms.factory.kafka.schemaregistry.SystemUpdateSchemaRegistryFactory.SYSTEM_UPDATE_TOPIC_KEY_ID_SUFFIX;
 import static com.linkedin.gms.factory.kafka.schemaregistry.SystemUpdateSchemaRegistryFactory.SYSTEM_UPDATE_TOPIC_KEY_PREFIX;
+import static io.datahubproject.openapi.schema.registry.Constants.FIXED_SCHEMA_VERSION;
 
 import com.linkedin.metadata.EventUtils;
 import com.linkedin.util.Pair;
@@ -60,7 +61,10 @@ public class MockSystemUpdateSerializer extends KafkaAvroSerializer {
           (topicName, schemaId) -> {
             try {
               schemaRegistry.register(
-                  topicToSubjectName(topicName), schemaId.getFirst(), 0, schemaId.getSecond());
+                  topicToSubjectName(topicName),
+                  schemaId.getFirst(),
+                  FIXED_SCHEMA_VERSION,
+                  schemaId.getSecond());
             } catch (IOException | RestClientException e) {
               throw new RuntimeException(e);
             }
