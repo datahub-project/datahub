@@ -386,6 +386,7 @@ class ModeSource(StatefulIngestionSourceBase):
             charts = self._get_charts(report_token, query.get("token", ""))
             # build chart urns
             for chart in charts:
+                logger.debug(f"Chart: {chart.get('token')}")
                 chart_urn = builder.make_chart_urn(
                     self.platform, chart.get("token", "")
                 )
@@ -400,6 +401,7 @@ class ModeSource(StatefulIngestionSourceBase):
             spaces = payload.get("_embedded", {}).get("spaces", {})
 
             for s in spaces:
+                logger.debug(f"Space: {s.get('name')}")
                 space_info[s.get("token", "")] = s.get("name", "")
         except HTTPError as http_error:
             self.report.report_failure(
@@ -577,7 +579,7 @@ class ModeSource(StatefulIngestionSourceBase):
                 definition_variable
             )
             definition_query = self._get_definition(definition_name)
-            # if unable to retrieve definition, then replace the {{}} so that it doesn't get picked up again in recurive call
+            # if unable to retrieve definition, then replace the {{}} so that it doesn't get picked up again in recursive call
             if definition_query is not None:
                 query = query.replace(
                     definition_variable, f"({definition_query}) as {definition_alias}"
@@ -1183,6 +1185,9 @@ class ModeSource(StatefulIngestionSourceBase):
         for space_token, space_name in self.space_tokens.items():
             reports = self._get_reports(space_token)
             for report in reports:
+                logger.debug(
+                    f"Report: name: {report.get('name')} token: {report.get('token')}"
+                )
                 dashboard_snapshot_from_report = self.construct_dashboard(
                     space_name, report
                 )
