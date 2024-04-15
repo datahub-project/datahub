@@ -48,6 +48,12 @@ public class SimpleKafkaConsumerFactory {
     customizedProperties.put(
         ConsumerConfig.MAX_PARTITION_FETCH_BYTES_CONFIG,
         kafkaConfiguration.getConsumer().getMaxPartitionFetchBytes());
+    customizedProperties.put(
+        ConsumerConfig.MAX_POLL_RECORDS_CONFIG,
+        kafkaConfiguration.getConsumer().getMaxPollRecords());
+    customizedProperties.put(
+        ConsumerConfig.MAX_POLL_INTERVAL_MS_CONFIG,
+        kafkaConfiguration.getConsumer().getMaxPollIntervalMs());
 
     ConcurrentKafkaListenerContainerFactory<String, GenericRecord> factory =
         new ConcurrentKafkaListenerContainerFactory<>();

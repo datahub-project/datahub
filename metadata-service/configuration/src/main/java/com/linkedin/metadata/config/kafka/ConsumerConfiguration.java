@@ -6,6 +6,8 @@ import lombok.Data;
 public class ConsumerConfiguration {
 
   private int maxPartitionFetchBytes;
+  private int maxPollRecords;
+  private int maxPollIntervalMs;
   private boolean stopOnDeserializationError;
   private boolean healthCheckEnabled;
 }
