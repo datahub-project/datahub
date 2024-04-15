@@ -14,6 +14,7 @@ plugins = {
     "datahub-reporting-extract-graph": stats_common
     | aws_common
     | {"opensearch-py==2.4.2"},
+    "datahub-reporting-extract-sql": stats_common | aws_common,
 }
 
 dev_requirements = {
@@ -24,6 +25,7 @@ dev_requirements = {
         for plugin in [
             "datahub-reporting-forms",
             "datahub-reporting-extract-graph",
+            "datahub-reporting-extract-sql"
         ]
         for dependency in plugins[plugin]
     ),
@@ -43,6 +45,7 @@ setup(
             "datahub.ingestion.source.plugins": [
                 "datahub-reporting-forms = acryl_datahub_cloud.datahub_reporting.forms:DataHubReportingFormsSource",
                 "datahub-reporting-extract-graph = acryl_datahub_cloud.datahub_reporting.extract_graph:DataHubReportingExtractGraphSource",
+                "datahub-reporting-extract-sql = datahub.ingestion.source.datahub_reporting.extract_sql:DataHubReportingExtractSQLSource",
             ],
         },
     },
