@@ -7,7 +7,7 @@ const OptionContainer = styled.div``;
 
 interface Props {
     menuItem: NavMenuItem;
-    key?: string;
+    key: string;
 }
 
 const CustomNavLink: React.FC<Props> = ({

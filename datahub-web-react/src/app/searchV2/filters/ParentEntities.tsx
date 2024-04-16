@@ -71,16 +71,16 @@ export default function ParentEntities({ parentEntities, numVisible = DEFAULT_NU
         >
             <ParentNodesWrapper>
                 {hasHiddenEntities &&
-                    [...Array(numHiddenEntities)].map(() => (
-                        <>
+                    [...Array(numHiddenEntities)].map((index) => (
+                        <React.Fragment key={`icons-${index}`}>
                             <FolderOpenOutlined />
                             <ArrowWrapper>{'>'}</ArrowWrapper>
-                        </>
+                        </React.Fragment>
                     ))}
                 {visibleNodes.map((parentEntity, index) => {
                     const displayName = entityRegistry.getDisplayName(parentEntity.type, parentEntity);
                     return (
-                        <>
+                        <React.Fragment key={displayName}>
                             <FolderOpenOutlined />
                             <ParentNode
                                 ellipsis={!hasHiddenEntities ? { tooltip: displayName } : true}
@@ -89,7 +89,7 @@ export default function ParentEntities({ parentEntities, numVisible = DEFAULT_NU
                                 {displayName}
                             </ParentNode>
                             {index !== visibleNodes.length - 1 && <ArrowWrapper>{'>'}</ArrowWrapper>}
-                        </>
+                        </React.Fragment>
                     );
                 })}
             </ParentNodesWrapper>

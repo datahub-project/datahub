@@ -188,6 +188,7 @@ export const PlatformNotificationsConfigurationCard = ({ globalSettings, loading
                                                 existingNotificationSettings={formattedNotificationSettings}
                                                 refetch={refetch}
                                                 globalSettings={globalSettings as GlobalSettings}
+                                                key={sink.id}
                                             />
                                         ))}
                                         {(notificationOptionsEnabled && (

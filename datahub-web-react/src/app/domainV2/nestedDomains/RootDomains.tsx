@@ -45,7 +45,7 @@ export default function RootDomains({ setIsCreatingDomain }: Props) {
             )}
             <DomainsWrapper>
                 {sortedDomains?.map((domain) => (
-                    <ResultWrapper>
+                    <ResultWrapper key={domain.urn}>
                         {entityRegistry.renderSearchResult(EntityType.Domain, { entity: domain, matchedFields: [] })}
                     </ResultWrapper>
                 ))}

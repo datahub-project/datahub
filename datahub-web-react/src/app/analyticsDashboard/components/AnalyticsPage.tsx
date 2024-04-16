@@ -106,7 +106,7 @@ export const AnalyticsPage = () => {
                     <Alert type="error" message={highlightError?.message || 'Highlights failed to load'} />
                 )}
                 {highlightData?.getHighlights?.map((highlight) => (
-                    <Highlight highlight={highlight} shortenValue />
+                    <Highlight highlight={highlight} shortenValue key={highlight.title}/>
                 ))}
             </HighlightGroup>
             <>
@@ -116,7 +116,7 @@ export const AnalyticsPage = () => {
                 {chartData?.getAnalyticsCharts
                     ?.filter((chartGroup) => chartGroup.groupId === 'GlobalMetadataAnalytics')
                     .map((chartGroup) => (
-                        <ChartGroup chartGroup={chartGroup} />
+                        <ChartGroup chartGroup={chartGroup} key={chartGroup.title}/>
                     ))}
             </>
             <>
@@ -137,7 +137,7 @@ export const AnalyticsPage = () => {
                             >
                                 <Select.Option value="ALL">All</Select.Option>
                                 {domainData?.listDomains?.domains.map((domainChoice) => (
-                                    <Select.Option value={domainChoice.urn}>
+                                    <Select.Option value={domainChoice.urn} key={domainChoice.urn}>
                                         {domainChoice?.properties?.name}
                                     </Select.Option>
                                 ))}
@@ -170,7 +170,7 @@ export const AnalyticsPage = () => {
                         </MetadataAnalyticsPlaceholder>
                     )
                     : metadataAnalyticsData?.getMetadataAnalyticsCharts?.map((chartGroup) => (
-                        <ChartGroup chartGroup={chartGroup} />
+                        <ChartGroup chartGroup={chartGroup} key={chartGroup.title}/>
                     ))}
             </>
             <>
@@ -179,10 +179,10 @@ export const AnalyticsPage = () => {
                     chartData?.getAnalyticsCharts
                         ?.filter((chartGroup) => chartGroup.groupId === 'DataHubUsageAnalytics')
                         .map((chartGroup) => (
-                            <>
+                            <React.Fragment key={chartGroup.title}>
                                 <Divider />
                                 <ChartGroup chartGroup={chartGroup} />
-                            </>
+                            </React.Fragment>
                         ))}
             </>
         </PageContainer>

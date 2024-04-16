@@ -101,7 +101,7 @@ export default function ViewInviteTokenModal({ visible, onClose }: Props) {
     const roleSelectOptions = () =>
         selectRoleOptions.map((role) => {
             return (
-                <Select.Option value={role.urn}>
+                <Select.Option value={role.urn} key={role.urn}>
                     <RoleIcon>{mapRoleIcon(role.name)}</RoleIcon>
                     {role.name}
                 </Select.Option>

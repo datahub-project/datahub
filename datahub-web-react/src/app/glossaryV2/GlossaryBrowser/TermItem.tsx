@@ -34,7 +34,7 @@ interface TermLinkProps {
     $isSelected: boolean;
     $areChildrenVisible?: boolean;
     $isChildNode?: boolean;
-    entityType?: string;
+    $entityType?: string;
 }
 
 export const TermLink = styled(Link)<TermLinkProps>`
@@ -91,7 +91,7 @@ function TermItem(props: Props) {
                     }`}
                     $isSelected={entityData?.urn === term.urn}
                     $areChildrenVisible={areChildrenVisible}
-                    entityType={term.type}
+                    $entityType={term.type}
                 >
                     {entityRegistry.getDisplayName(term.type, isOnEntityPage ? entityData : term)}
                 </TermLink>

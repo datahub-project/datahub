@@ -185,7 +185,7 @@ export const TabLayout = () => {
 								</Tooltip>
 							</Filters>
 						</BodyHeader>
-						{!thisTab?.disabled ? charts.map((chart) => chart) : 'No data for this tab during this timeframe.'}
+						{!thisTab?.disabled ? charts.map((chart) => <React.Fragment key={chart.props}>{chart}</React.Fragment>) : 'No data for this tab during this timeframe.'}
 					</>
 				}
 			</Body>

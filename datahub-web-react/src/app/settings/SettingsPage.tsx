@@ -84,7 +84,7 @@ const ACRYL_PATHS = [
     { path: 'personal-notifications', content: <ManageActorNotifications isPersonal /> },
     { path: 'personal-subscriptions', content: <ManageActorSubscriptions isPersonal /> },
 ];
-const menuStyle = { width: 256, 'margin-top': 8, overflow: 'hidden auto' };
+const menuStyle = { width: 256, marginTop: 8, overflow: 'hidden auto' };
 
 /**
  * URL Paths for each settings page.
