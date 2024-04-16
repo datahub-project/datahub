@@ -1,0 +1,9 @@
+namespace com.linkedin.businessattribute
+import com.linkedin.common.BusinessAttributeUrn
+
+record BusinessAttributeAssociation {
+  /**
+  * Urn of the applied businessAttribute
+  */
+   businessAttributeUrn: BusinessAttributeUrn
+}

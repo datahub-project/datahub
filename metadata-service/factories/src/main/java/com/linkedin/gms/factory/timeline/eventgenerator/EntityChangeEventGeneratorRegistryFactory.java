@@ -4,6 +4,8 @@ import static com.linkedin.metadata.Constants.*;
 
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.timeline.eventgenerator.AssertionRunEventChangeEventGenerator;
+import com.linkedin.metadata.timeline.eventgenerator.BusinessAttributeAssociationChangeEventGenerator;
+import com.linkedin.metadata.timeline.eventgenerator.BusinessAttributeInfoChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.DataProcessInstanceRunEventChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.DatasetPropertiesChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.DeprecationChangeEventGenerator;
@@ -51,6 +53,10 @@ public class EntityChangeEventGeneratorRegistryFactory {
     registry.register(
         EDITABLE_DATASET_PROPERTIES_ASPECT_NAME,
         new EditableDatasetPropertiesChangeEventGenerator());
+    registry.register(
+        BUSINESS_ATTRIBUTE_INFO_ASPECT_NAME, new BusinessAttributeInfoChangeEventGenerator());
+    registry.register(
+        BUSINESS_ATTRIBUTE_ASSOCIATION, new BusinessAttributeAssociationChangeEventGenerator());
 
     // Entity Lifecycle Differs
     registry.register(DATASET_KEY_ASPECT_NAME, new EntityKeyChangeEventGenerator<>());
@@ -65,6 +71,7 @@ public class EntityChangeEventGeneratorRegistryFactory {
     registry.register(CORP_GROUP_KEY_ASPECT_NAME, new EntityKeyChangeEventGenerator<>());
     registry.register(STATUS_ASPECT_NAME, new StatusChangeEventGenerator());
     registry.register(DEPRECATION_ASPECT_NAME, new DeprecationChangeEventGenerator());
+    registry.register(BUSINESS_ATTRIBUTE_KEY_ASPECT_NAME, new EntityKeyChangeEventGenerator<>());
 
     // Assertion differs
     registry.register(ASSERTION_RUN_EVENT_ASPECT_NAME, new AssertionRunEventChangeEventGenerator());
