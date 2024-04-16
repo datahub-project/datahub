@@ -79,6 +79,9 @@ class ExecutorConfigResolver:
     @retry(
         wait=wait_exponential(multiplier=2, min=4, max=60),
         before_sleep=before_sleep_log(logger, logging.ERROR, True),
+        retry_error_callback=lambda x: STATS_CONFIG_FETCHER_ERRORS.labels(
+            "Retry"
+        ).inc(),
     )
     @STATS_CONFIG_FETCHER_REQUESTS.time()
     def _fetch_executor_configs(self) -> List[ExecutorConfig]:

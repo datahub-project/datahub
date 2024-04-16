@@ -120,6 +120,12 @@ STATS_CREDENTIALS_REFRESH_REQUESTS = Gauge(
     "Number of requests to refresh credentials",
     ["executor_id"],
 )
+STATS_CREDENTIALS_REFRESH_ERRORS = Gauge(
+    "datahub_executor_credentials_refresh_errors",
+    "Number of errors occurred when refreshing credentials",
+    ["exception", "executor_id"],
+)
+
 
 STATS_WORKER_INGESTION_REQUESTS = Gauge(
     "datahub_executor_worker_ingestion_requests",

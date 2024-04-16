@@ -16,8 +16,13 @@ def apply_remote_assertion_request(
     execution_request: ExecutionRequest, executor_id: str
 ) -> Any:
     if DATAHUB_EXECUTOR_WORKER_IMPLEMENTATION == "default":
+        logger.info(
+            f"Going to submit SQS assertion execution request {execution_request.args['urn']} via {executor_id}"
+        )
+
         # before we try to send a task over celery, we make sure we have valid SQS creds
-        update_celery_credentials(app, False, executor_id)
+        if not update_celery_credentials(app, False, executor_id):
+            return
 
         # for others (monitors/assertions) we directly trigger the task run.
         task = assertion_request.apply_async(
@@ -38,8 +43,13 @@ def apply_remote_ingestion_request(
     event: MetadataChangeLogClass, executor_id: str
 ) -> Any:
     if DATAHUB_EXECUTOR_WORKER_IMPLEMENTATION == "default":
+        logger.info(
+            f"Going to submit SQS ingestion execution request {event.entityUrn} via {executor_id}"
+        )
+
         # before we try to send a task over celery, we make sure we have valid SQS creds
-        update_celery_credentials(app, False, executor_id)
+        if not update_celery_credentials(app, False, executor_id):
+            return
 
         # for others (monitors/assertions) we directly trigger the task run.
         task = ingestion_request.apply_async(

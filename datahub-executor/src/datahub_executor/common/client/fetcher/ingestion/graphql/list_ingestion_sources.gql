@@ -20,15 +20,6 @@ query getIngestion($input: ListIngestionSourcesInput!) {
         version
         debugMode
       }
-      executions {
-        start
-        count
-        total
-        executionRequests {
-          urn
-          id
-        }
-      }
     }
   }
 }
