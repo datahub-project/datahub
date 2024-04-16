@@ -18,6 +18,7 @@ import com.linkedin.metadata.entity.AspectDao;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.EntityServiceImpl;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
+import com.linkedin.mxe.Topics;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.List;
 import javax.inject.Named;
@@ -33,8 +34,8 @@ import org.testng.annotations.Test;
     properties = {
       "BOOTSTRAP_SYSTEM_UPDATE_DATA_JOB_NODE_CLL_ENABLED=true",
       "kafka.schemaRegistry.type=INTERNAL",
-      "DATAHUB_UPGRADE_HISTORY_TOPIC_NAME=test_due_topic",
-      "METADATA_CHANGE_LOG_VERSIONED_TOPIC_NAME=test_mcl_versioned_topic"
+      "DATAHUB_UPGRADE_HISTORY_TOPIC_NAME=" + Topics.DATAHUB_UPGRADE_HISTORY_TOPIC_NAME,
+      "METADATA_CHANGE_LOG_VERSIONED_TOPIC_NAME=" + Topics.METADATA_CHANGE_LOG_VERSIONED,
     },
     args = {"-u", "SystemUpdateNonBlocking"})
 public class DatahubUpgradeNonBlockingTest extends AbstractTestNGSpringContextTests {

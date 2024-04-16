@@ -2,7 +2,6 @@ package com.linkedin.gms.factory.form;
 
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.service.FormService;
-import io.datahubproject.metadata.context.OperationContext;
 import javax.annotation.Nonnull;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;

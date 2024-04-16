@@ -120,15 +120,4 @@ public class SystemUpdateConfig {
       @Qualifier("duheSchemaRegistryConfig") SchemaRegistryConfig duheSchemaRegistryConfig) {
     return duheSchemaRegistryConfig;
   }
-
-  @Configuration
-  public static class SystemUpdateSetup {
-    @Autowired private EntityService<?> entityService;
-    @Autowired private EntitySearchService entitySearchService;
-
-    @PostConstruct
-    protected void postConstruct() {
-      entitySearchService.postConstruct(entityService);
-    }
-  }
 }

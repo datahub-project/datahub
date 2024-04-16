@@ -6,8 +6,6 @@ import static org.mockito.Mockito.when;
 import com.datahub.authentication.Authentication;
 import com.datahub.metadata.ingestion.IngestionScheduler;
 import com.linkedin.entity.client.SystemEntityClient;
-import com.linkedin.gms.factory.kafka.schemaregistry.SchemaRegistryConfig;
-import com.linkedin.metadata.aspect.CachingAspectRetriever;
 import com.linkedin.metadata.boot.kafka.DataHubUpgradeKafkaListener;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.graph.elastic.ElasticSearchGraphService;

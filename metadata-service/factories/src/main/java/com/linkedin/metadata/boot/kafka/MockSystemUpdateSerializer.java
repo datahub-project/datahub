@@ -6,10 +6,12 @@ import static com.linkedin.gms.factory.kafka.schemaregistry.SystemUpdateSchemaRe
 import static com.linkedin.gms.factory.kafka.schemaregistry.SystemUpdateSchemaRegistryFactory.SYSTEM_UPDATE_TOPIC_KEY_PREFIX;
 import static io.datahubproject.openapi.schema.registry.Constants.FIXED_SCHEMA_VERSION;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.metadata.EventUtils;
 import com.linkedin.util.Pair;
 import io.confluent.kafka.schemaregistry.avro.AvroSchema;
 import io.confluent.kafka.schemaregistry.client.MockSchemaRegistryClient;
+import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
 import io.confluent.kafka.schemaregistry.client.rest.exceptions.RestClientException;
 import io.confluent.kafka.serializers.KafkaAvroSerializer;
 import java.io.IOException;
@@ -27,7 +29,7 @@ public class MockSystemUpdateSerializer extends KafkaAvroSerializer {
       Map.of(
           DUHE_SCHEMA_REGISTRY_TOPIC_KEY, new AvroSchema(EventUtils.ORIGINAL_DUHE_AVRO_SCHEMA),
           MCL_VERSIONED_SCHEMA_REGISTRY_TOPIC_KEY,
-              new AvroSchema(EventUtils.ORIGINAL_MCL_AVRO_SCHEMA));
+              new AvroSchema(EventUtils.RENAMED_MCL_AVRO_SCHEMA));
 
   private Map<String, Pair<AvroSchema, Integer>> topicNameToAvroSchemaMap;
 
@@ -71,6 +73,11 @@ public class MockSystemUpdateSerializer extends KafkaAvroSerializer {
           });
     }
 
+    return schemaRegistry;
+  }
+
+  @VisibleForTesting
+  public SchemaRegistryClient getSchemaRegistryClient() {
     return schemaRegistry;
   }
 
