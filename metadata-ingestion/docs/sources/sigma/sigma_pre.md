@@ -64,7 +64,7 @@ If you want to provide platform details(platform name, platform instance and env
         env: PROD
 ```
 
-#### Example - For all ingested charts
+#### Example - All workbooks use the same connection
 ```yml
     chart_sources_platform_mapping:
       '*': 
