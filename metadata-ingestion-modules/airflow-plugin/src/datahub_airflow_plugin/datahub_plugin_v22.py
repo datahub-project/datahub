@@ -134,7 +134,7 @@ def datahub_task_status_callback(context, status):
 
     task.log.info(f"Emitting Datahub Datajob: {datajob}")
     for mcp in datajob.generate_mcp(materialize_iolets=config.materialize_iolets):
-        emitter.emit(mcp, _make_emit_callback())
+        emitter.emit(mcp, _make_emit_callback(task.log))
 
     if config.capture_executions:
         dpi = AirflowGenerator.run_datajob(
@@ -202,7 +202,7 @@ def datahub_pre_execution(context):
 
     task.log.info(f"Emitting Datahub dataJob {datajob}")
     for mcp in datajob.generate_mcp(materialize_iolets=config.materialize_iolets):
-        emitter.emit(mcp, _make_emit_callback())
+        emitter.emit(mcp, _make_emit_callback(task.log))
 
     if config.capture_executions:
         dpi = AirflowGenerator.run_datajob(
