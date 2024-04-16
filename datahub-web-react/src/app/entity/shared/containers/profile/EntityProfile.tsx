@@ -46,6 +46,7 @@ import { useAppConfig } from '../../../../useAppConfig';
 import { useUpdateDomainEntityDataOnChange } from '../../../../domain/utils';
 import ProfileSidebar from './sidebar/ProfileSidebar';
 import SidebarFormInfoWrapper from './sidebar/FormInfo/SidebarFormInfoWrapper';
+import { useTaskPagination } from '../../tabs/Entity/components/TaskPaginationContext';
 
 type Props<T, U> = {
     urn: string;
@@ -164,6 +165,7 @@ export const EntityProfile = <T, U>({
     const entityRegistry = useEntityRegistry();
     const history = useHistory();
     const appConfig = useAppConfig();
+    const { count, start } = useTaskPagination();
     const isCompact = React.useContext(CompactContext);
     const tabsWithDefaults = tabs.map((tab) => ({ ...tab, display: { ...defaultTabDisplayConfig, ...tab.display } }));
 
@@ -214,7 +216,7 @@ export const EntityProfile = <T, U>({
     );
 
     const { entityData, dataPossiblyCombinedWithSiblings, dataNotCombinedWithSiblings, loading, error, refetch } =
-        useGetDataForProfile({ urn, entityType, useEntityQuery, getOverrideProperties });
+        useGetDataForProfile({ urn, entityType, count ,start , useEntityQuery, getOverrideProperties });
 
     useUpdateGlossaryEntityDataOnChange(entityData, entityType);
     useUpdateDomainEntityDataOnChange(entityData, entityType);

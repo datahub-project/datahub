@@ -19,6 +19,7 @@ import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
 import DataProductSection from '../shared/containers/profile/sidebar/DataProduct/DataProductSection';
 import { getDataProduct } from '../shared/utils';
 import { IncidentTab } from '../shared/tabs/Incident/IncidentTab';
+import { TaskPaginationProvider } from '../shared/tabs/Entity/components/TaskPaginationContext';
 
 /**
  * Definition of the DataHub DataFlow entity.
@@ -62,37 +63,39 @@ export class DataFlowEntity implements Entity<DataFlow> {
     useEntityQuery = useGetDataFlowQuery;
 
     renderProfile = (urn: string) => (
-        <EntityProfile
-            urn={urn}
-            entityType={EntityType.DataFlow}
-            useEntityQuery={this.useEntityQuery}
-            useUpdateQuery={useUpdateDataFlowMutation}
-            getOverrideProperties={this.getOverridePropertiesFromEntity}
-            headerDropdownItems={new Set([EntityMenuItems.UPDATE_DEPRECATION, EntityMenuItems.RAISE_INCIDENT])}
-            tabs={[
-                {
-                    name: 'Documentation',
-                    component: DocumentationTab,
-                },
-                {
-                    name: 'Properties',
-                    component: PropertiesTab,
-                },
-                {
-                    name: 'Tasks',
-                    component: DataFlowJobsTab,
-                },
-                {
-                    name: 'Incidents',
-                    component: IncidentTab,
-                    getDynamicName: (_, dataFlow) => {
-                        const activeIncidentCount = dataFlow?.dataFlow?.activeIncidents.total;
-                        return `Incidents${(activeIncidentCount && ` (${activeIncidentCount})`) || ''}`;
+        <TaskPaginationProvider>
+            <EntityProfile
+                urn={urn}
+                entityType={EntityType.DataFlow}
+                useEntityQuery={this.useEntityQuery}
+                useUpdateQuery={useUpdateDataFlowMutation}
+                getOverrideProperties={this.getOverridePropertiesFromEntity}
+                headerDropdownItems={new Set([EntityMenuItems.UPDATE_DEPRECATION, EntityMenuItems.RAISE_INCIDENT])}
+                tabs={[
+                    {
+                        name: 'Documentation',
+                        component: DocumentationTab,
                     },
-                },
-            ]}
-            sidebarSections={this.getSidebarSections()}
-        />
+                    {
+                        name: 'Properties',
+                        component: PropertiesTab,
+                    },
+                    {
+                        name: 'Tasks',
+                        component: DataFlowJobsTab,
+                    },
+                    {
+                        name: 'Incidents',
+                        component: IncidentTab,
+                        getDynamicName: (_, dataFlow) => {
+                            const activeIncidentCount = dataFlow?.dataFlow?.activeIncidents.total;
+                            return `Incidents${(activeIncidentCount && ` (${activeIncidentCount})`) || ''}`;
+                        },
+                    },
+                ]}
+                sidebarSections={this.getSidebarSections()}
+            />
+        </TaskPaginationProvider>
     );
 
     getSidebarSections = () => [
