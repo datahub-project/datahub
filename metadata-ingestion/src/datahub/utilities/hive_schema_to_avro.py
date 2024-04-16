@@ -28,6 +28,7 @@ class HiveColumnToAvroConverter:
         "bigint": "long",
         "varchar": "string",
         "char": "string",
+        "long": "long",
     }
 
     _COMPLEX_TYPE = re.compile("^(struct|map|array|uniontype)")

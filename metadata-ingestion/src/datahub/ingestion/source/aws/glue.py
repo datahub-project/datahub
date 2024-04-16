@@ -1,3 +1,4 @@
+import json
 import logging
 from collections import defaultdict
 from dataclasses import dataclass, field as dataclass_field
@@ -98,6 +99,7 @@ from datahub.metadata.schema_classes import (
     UpstreamClass,
     UpstreamLineageClass,
 )
+from datahub.utilities.delta import delta_type_to_hive_type
 from datahub.utilities.hive_schema_to_avro import get_schema_fields_for_hive_column
 
 logger = logging.getLogger(__name__)
@@ -204,6 +206,8 @@ class GlueSourceReport(StaleEntityRemovalSourceReport):
     num_job_script_failed_parsing: int = 0
     num_job_without_nodes: int = 0
     num_dataset_to_dataset_edges_in_job: int = 0
+    num_dataset_schema_invalid: int = 0
+    num_dataset_buggy_delta_schema: int = 0
 
     def report_table_scanned(self) -> None:
         self.tables_scanned += 1
@@ -1148,8 +1152,40 @@ class GlueSource(StatefulIngestionSourceBase):
             return new_tags
 
         def get_schema_metadata() -> Optional[SchemaMetadata]:
-            if not table.get("StorageDescriptor"):
+            def is_delta_schema(
+                columns: Optional[List[Mapping[str, Any]]]
+            ) -> bool:
+                return (
+                    columns is not None
+                    and (len(columns) == 1)
+                    and (columns[0].get("Name", "") == "col")
+                    and (columns[0].get("Type", "") == "array<string>")
+                )
+
+            # https://github.com/delta-io/delta/pull/2310
+            provider = table.get("Parameters", {}).get("spark.sql.sources.provider", "")
+            num_parts = int(
+                table.get("Parameters", {}).get(
+                    "spark.sql.sources.schema.numParts", "0"
+                )
+            )
+            columns = table.get("StorageDescriptor", {}).get("Columns", [{}])
+
+            if (
+                (provider == "delta")
+                and (num_parts > 0)
+                and is_delta_schema(columns)
+            ):
+                return _get_delta_schema_metadata()
+
+            elif table.get("StorageDescriptor"):
+                return _get_glue_schema_metadata()
+
+            else:
                 return None
+
+        def _get_glue_schema_metadata() -> Optional[SchemaMetadata]:
+            assert table.get("StorageDescriptor")
 
             schema = table["StorageDescriptor"]["Columns"]
             fields: List[SchemaField] = []
@@ -1182,6 +1218,51 @@ class GlueSource(StatefulIngestionSourceBase):
                 hash="",
                 platformSchema=MySqlDDL(tableSchema=""),
             )
+
+        def _get_delta_schema_metadata() -> Optional[SchemaMetadata]:
+            assert (
+                table["Parameters"]["spark.sql.sources.provider"] == "delta"
+                and int(table["Parameters"]["spark.sql.sources.schema.numParts"]) > 0
+            )
+
+            try:
+                numParts = int(table["Parameters"]["spark.sql.sources.schema.numParts"])
+                schema_str = "".join(
+                    [
+                        table["Parameters"][f"spark.sql.sources.schema.part.{i}"]
+                        for i in range(numParts)
+                    ]
+                )
+                schema_json = json.loads(schema_str)
+                fields: List[SchemaField] = []
+                for field in schema_json["fields"]:
+                    field_type = delta_type_to_hive_type(field.get("type", "unknown"))
+                    schema_fields = get_schema_fields_for_hive_column(
+                        hive_column_name=field["name"],
+                        hive_column_type=field_type,
+                        description=field.get("description"),
+                        default_nullable=bool(field.get("nullable", True)),
+                    )
+                    assert schema_fields
+                    fields.extend(schema_fields)
+
+                self.report.num_dataset_buggy_delta_schema += 1
+                return SchemaMetadata(
+                    schemaName=table_name,
+                    version=0,
+                    fields=fields,
+                    platform=f"urn:li:dataPlatform:{self.platform}",
+                    hash="",
+                    platformSchema=MySqlDDL(tableSchema=""),
+                )
+
+            except Exception as e:
+                self.report_warning(
+                    dataset_urn,
+                    f"Could not parse schema for {table_name} because of {type(e).__name__}: {e}",
+                )
+                self.report.num_dataset_schema_invalid += 1
+                return None
 
         def get_data_platform_instance() -> DataPlatformInstanceClass:
             return DataPlatformInstanceClass(
