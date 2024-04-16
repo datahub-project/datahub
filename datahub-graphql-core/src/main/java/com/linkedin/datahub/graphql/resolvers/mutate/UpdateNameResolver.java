@@ -303,6 +303,7 @@ public class UpdateNameResolver implements DataFetcher<CompletableFuture<Boolean
       BusinessAttributeInfo businessAttributeInfo =
           (BusinessAttributeInfo)
               EntityUtils.getAspectFromEntity(
+                  context.getOperationContext(),
                   targetUrn.toString(),
                   Constants.BUSINESS_ATTRIBUTE_INFO_ASPECT_NAME,
                   _entityService,
@@ -323,6 +324,7 @@ public class UpdateNameResolver implements DataFetcher<CompletableFuture<Boolean
       businessAttributeInfo.setName(input.getName());
       Urn actor = CorpuserUrn.createFromString(context.getActorUrn());
       persistAspect(
+          context.getOperationContext(),
           targetUrn,
           Constants.BUSINESS_ATTRIBUTE_INFO_ASPECT_NAME,
           businessAttributeInfo,

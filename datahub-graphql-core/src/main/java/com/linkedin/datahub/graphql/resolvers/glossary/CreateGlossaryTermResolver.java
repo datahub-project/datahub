@@ -88,11 +88,7 @@ public class CreateGlossaryTermResolver implements DataFetcher<CompletableFuture
                   _entityClient.ingestProposal(context.getOperationContext(), proposal, false);
 
               OwnerUtils.addCreatorAsOwner(
-                  context.getOperationContext(),
-                  context,
-                  glossaryTermUrn,
-                  OwnerEntityType.CORP_USER,
-                  _entityService);
+                  context, glossaryTermUrn, OwnerEntityType.CORP_USER, _entityService);
               return glossaryTermUrn;
             } catch (Exception e) {
               log.error(

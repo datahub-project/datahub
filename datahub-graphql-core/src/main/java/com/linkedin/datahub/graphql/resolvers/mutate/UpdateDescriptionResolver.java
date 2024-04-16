@@ -534,12 +534,17 @@ public class UpdateDescriptionResolver implements DataFetcher<CompletableFuture<
           }
 
           // validate label input
-          DescriptionUtils.validateLabelInput(targetUrn, _entityService);
+          DescriptionUtils.validateLabelInput(
+              context.getOperationContext(), targetUrn, _entityService);
 
           try {
             Urn actor = CorpuserUrn.createFromString(context.getActorUrn());
             DescriptionUtils.updateBusinessAttributeDescription(
-                input.getDescription(), targetUrn, actor, _entityService);
+                context.getOperationContext(),
+                input.getDescription(),
+                targetUrn,
+                actor,
+                _entityService);
             return true;
           } catch (Exception e) {
             log.error(

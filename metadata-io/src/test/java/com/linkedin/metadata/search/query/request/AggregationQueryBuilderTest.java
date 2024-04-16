@@ -58,9 +58,7 @@ public class AggregationQueryBuilderTest {
 
     AggregationQueryBuilder builder =
         new AggregationQueryBuilder(
-            config,
-            ImmutableMap.of(mock(EntitySpec.class), ImmutableList.of(annotation)),
-            aspectRetriever);
+            config, ImmutableMap.of(mock(EntitySpec.class), ImmutableList.of(annotation)));
 
     List<AggregationBuilder> aggs =
         builder.getAggregations(TestOperationContexts.systemContextNoSearchAuthorization());
@@ -93,9 +91,7 @@ public class AggregationQueryBuilderTest {
 
     AggregationQueryBuilder builder =
         new AggregationQueryBuilder(
-            config,
-            ImmutableMap.of(mock(EntitySpec.class), ImmutableList.of(annotation)),
-            aspectRetriever);
+            config, ImmutableMap.of(mock(EntitySpec.class), ImmutableList.of(annotation)));
 
     List<AggregationBuilder> aggs =
         builder.getAggregations(TestOperationContexts.systemContextNoSearchAuthorization());
@@ -145,8 +141,7 @@ public class AggregationQueryBuilderTest {
     AggregationQueryBuilder builder =
         new AggregationQueryBuilder(
             config,
-            ImmutableMap.of(mock(EntitySpec.class), ImmutableList.of(annotation1, annotation2)),
-            aspectRetriever);
+            ImmutableMap.of(mock(EntitySpec.class), ImmutableList.of(annotation1, annotation2)));
 
     // Case 1: Ask for fields that should exist.
     List<AggregationBuilder> aggs =
@@ -172,7 +167,7 @@ public class AggregationQueryBuilderTest {
 
     AggregationQueryBuilder builder =
         new AggregationQueryBuilder(
-            config, ImmutableMap.of(mock(EntitySpec.class), ImmutableList.of()), aspectRetriever);
+            config, ImmutableMap.of(mock(EntitySpec.class), ImmutableList.of()));
 
     List<AggregationBuilder> aggs =
         builder.getAggregations(
@@ -240,8 +235,7 @@ public class AggregationQueryBuilderTest {
     AggregationQueryBuilder builder =
         new AggregationQueryBuilder(
             config,
-            ImmutableMap.of(mock(EntitySpec.class), ImmutableList.of(annotation1, annotation2)),
-            aspectRetriever);
+            ImmutableMap.of(mock(EntitySpec.class), ImmutableList.of(annotation1, annotation2)));
 
     // Aggregate over fields and structured properties
     List<AggregationBuilder> aggs =
@@ -293,9 +287,7 @@ public class AggregationQueryBuilderTest {
 
     AggregationQueryBuilder builder =
         new AggregationQueryBuilder(
-            config,
-            ImmutableMap.of(mock(EntitySpec.class), ImmutableList.of(annotation)),
-            aspectRetriever);
+            config, ImmutableMap.of(mock(EntitySpec.class), ImmutableList.of(annotation)));
 
     List<AggregationBuilder> aggs =
         builder.getAggregations(TestOperationContexts.systemContextNoSearchAuthorization());

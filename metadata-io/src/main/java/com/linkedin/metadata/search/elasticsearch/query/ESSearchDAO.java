@@ -83,10 +83,7 @@ public class ESSearchDAO {
         new CountRequest(opContext.getSearchContext().getIndexConvention().getIndexName(entitySpec))
             .query(
                 SearchRequestHandler.getFilterQuery(
-                    opContext,
-                    null,
-                    entitySpec.getSearchableFieldTypes(),
-                    opContext.getRetrieverContext().get().getAspectRetriever()));
+                    opContext, null, entitySpec.getSearchableFieldTypes()));
     try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "docCount").time()) {
       return client.count(countRequest, RequestOptions.DEFAULT).getCount();
     } catch (IOException e) {

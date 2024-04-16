@@ -99,11 +99,7 @@ public class CreateDomainResolver implements DataFetcher<CompletableFuture<Strin
             String domainUrn =
                 _entityClient.ingestProposal(context.getOperationContext(), proposal, false);
             OwnerUtils.addCreatorAsOwner(
-                context.getOperationContext(),
-                context,
-                domainUrn,
-                OwnerEntityType.CORP_USER,
-                _entityService);
+                context, domainUrn, OwnerEntityType.CORP_USER, _entityService);
             return domainUrn;
           } catch (DataHubGraphQLException e) {
             throw e;

@@ -296,7 +296,6 @@ public class OwnerUtils {
   }
 
   public static void addCreatorAsOwner(
-      @Nonnull OperationContext opContext,
       QueryContext context,
       String urn,
       OwnerEntityType ownerEntityType,
@@ -305,19 +304,22 @@ public class OwnerUtils {
       Urn actorUrn = CorpuserUrn.createFromString(context.getActorUrn());
       OwnershipType ownershipType = OwnershipType.TECHNICAL_OWNER;
       if (!entityService.exists(
-          opContext, UrnUtils.getUrn(mapOwnershipTypeToEntity(ownershipType.name())), true)) {
+          context.getOperationContext(),
+          UrnUtils.getUrn(mapOwnershipTypeToEntity(ownershipType.name())),
+          true)) {
         log.warn("Technical owner does not exist, defaulting to None ownership.");
         ownershipType = OwnershipType.NONE;
       }
       String ownershipTypeUrn = mapOwnershipTypeToEntity(ownershipType.name());
 
-      if (!entityService.exists(opContext, UrnUtils.getUrn(ownershipTypeUrn), true)) {
+      if (!entityService.exists(
+          context.getOperationContext(), UrnUtils.getUrn(ownershipTypeUrn), true)) {
         throw new RuntimeException(
             String.format("Unknown ownership type urn %s", ownershipTypeUrn));
       }
 
       addOwnersToResources(
-          opContext,
+          context.getOperationContext(),
           ImmutableList.of(
               new OwnerInput(
                   actorUrn.toString(), ownerEntityType, ownershipType, ownershipTypeUrn)),

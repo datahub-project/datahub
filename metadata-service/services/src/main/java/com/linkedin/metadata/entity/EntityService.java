@@ -106,8 +106,8 @@ public interface EntityService<U extends ChangeMCP> {
    * @param urn the urn of the entity to check
    * @return entities exists.
    */
-  default boolean exists(@Nonnull Urn urn) {
-    return exists(urn, true);
+  default boolean exists(@Nonnull OperationContext opContext, @Nonnull Urn urn) {
+    return exists(opContext, urn, true);
   }
 
   /**

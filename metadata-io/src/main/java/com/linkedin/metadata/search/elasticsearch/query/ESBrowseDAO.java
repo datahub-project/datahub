@@ -613,6 +613,7 @@ public class ESBrowseDAO {
                 customSearchConfiguration,
                 opContext.getRetrieverContext().get().getAspectRetriever())
             .getQuery(
+                finalOpContext,
                 input,
                 Boolean.TRUE.equals(
                     finalOpContext.getSearchContext().getSearchFlags().isFulltext()));
@@ -626,10 +627,7 @@ public class ESBrowseDAO {
 
     queryBuilder.filter(
         SearchRequestHandler.getFilterQuery(
-            finalOpContext,
-            filter,
-            entitySpec.getSearchableFieldTypes(),
-            opContext.getRetrieverContext().get().getAspectRetriever()));
+            finalOpContext, filter, entitySpec.getSearchableFieldTypes()));
 
     return queryBuilder;
   }
@@ -655,6 +653,7 @@ public class ESBrowseDAO {
                 customSearchConfiguration,
                 opContext.getRetrieverContext().get().getAspectRetriever())
             .getQuery(
+                finalOpContext,
                 input,
                 Boolean.TRUE.equals(
                     finalOpContext.getSearchContext().getSearchFlags().isFulltext()));
@@ -678,11 +677,7 @@ public class ESBrowseDAO {
                       return set1;
                     }));
     queryBuilder.filter(
-        SearchRequestHandler.getFilterQuery(
-            finalOpContext,
-            filter,
-            searchableFields,
-            opContext.getRetrieverContext().get().getAspectRetriever()));
+        SearchRequestHandler.getFilterQuery(finalOpContext, filter, searchableFields));
 
     return queryBuilder;
   }

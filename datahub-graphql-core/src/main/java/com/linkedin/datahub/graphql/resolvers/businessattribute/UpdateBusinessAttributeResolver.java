@@ -2,7 +2,6 @@ package com.linkedin.datahub.graphql.resolvers.businessattribute;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
 
-import com.datahub.authentication.Authentication;
 import com.linkedin.businessattribute.BusinessAttributeInfo;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
@@ -22,6 +21,7 @@ import com.linkedin.metadata.entity.AspectUtils;
 import com.linkedin.metadata.service.BusinessAttributeService;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import javax.annotation.Nonnull;
@@ -48,7 +48,7 @@ public class UpdateBusinessAttributeResolver
       throw new AuthorizationException(
           "Unauthorized to perform this action. Please contact your DataHub administrator.");
     }
-    if (!_entityClient.exists(businessAttributeUrn, context.getAuthentication())) {
+    if (!_entityClient.exists(context.getOperationContext(), businessAttributeUrn)) {
       throw new RuntimeException(
           String.format("This urn does not exist: %s", businessAttributeUrn));
     }
@@ -60,7 +60,7 @@ public class UpdateBusinessAttributeResolver
             return BusinessAttributeMapper.map(
                 context,
                 businessAttributeService.getBusinessAttributeEntityResponse(
-                    updatedBusinessAttributeUrn, context.getAuthentication()));
+                    context.getOperationContext(), updatedBusinessAttributeUrn));
           } catch (DataHubGraphQLException e) {
             throw e;
           } catch (Exception e) {
@@ -76,7 +76,7 @@ public class UpdateBusinessAttributeResolver
       UpdateBusinessAttributeInput input, Urn businessAttributeUrn, QueryContext context) {
     try {
       BusinessAttributeInfo businessAttributeInfo =
-          getBusinessAttributeInfo(businessAttributeUrn, context.getAuthentication());
+          getBusinessAttributeInfo(context.getOperationContext(), businessAttributeUrn);
       // 1. Check whether the Business Attribute exists
       if (businessAttributeInfo == null) {
         throw new IllegalArgumentException(
@@ -111,11 +111,11 @@ public class UpdateBusinessAttributeResolver
       // 3. Write changes to GMS
       return UrnUtils.getUrn(
           _entityClient.ingestProposal(
+              context.getOperationContext(),
               AspectUtils.buildMetadataChangeProposal(
                   businessAttributeUrn,
                   Constants.BUSINESS_ATTRIBUTE_INFO_ASPECT_NAME,
-                  businessAttributeInfo),
-              context.getAuthentication()));
+                  businessAttributeInfo)));
 
     } catch (DataHubGraphQLException e) {
       throw e;
@@ -126,12 +126,12 @@ public class UpdateBusinessAttributeResolver
 
   @Nullable
   private BusinessAttributeInfo getBusinessAttributeInfo(
-      @Nonnull final Urn businessAttributeUrn, @Nonnull final Authentication authentication) {
+      @Nonnull OperationContext opContext, @Nonnull final Urn businessAttributeUrn) {
     Objects.requireNonNull(businessAttributeUrn, "businessAttributeUrn must not be null");
-    Objects.requireNonNull(authentication, "authentication must not be null");
+    Objects.requireNonNull(opContext, "opContext must not be null");
     final EntityResponse response =
         businessAttributeService.getBusinessAttributeEntityResponse(
-            businessAttributeUrn, authentication);
+            opContext, businessAttributeUrn);
     if (response != null
         && response.getAspects().containsKey(Constants.BUSINESS_ATTRIBUTE_INFO_ASPECT_NAME)) {
       return new BusinessAttributeInfo(

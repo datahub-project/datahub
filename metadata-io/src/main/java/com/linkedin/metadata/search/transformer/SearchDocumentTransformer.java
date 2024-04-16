@@ -18,6 +18,7 @@ import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.entity.Aspect;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.validation.StructuredPropertiesValidator;
 import com.linkedin.metadata.entity.EntityUtils;
 import com.linkedin.metadata.models.AspectSpec;
@@ -134,7 +135,8 @@ public class SearchDocumentTransformer {
       extractedSearchableFields.forEach(
           (key, values) -> setSearchableValue(key, values, searchDocument, forDelete));
       extractedSearchRefFields.forEach(
-          (key, values) -> setSearchableRefValue(key, values, searchDocument, forDelete));
+          (key, values) ->
+              setSearchableRefValue(opContext, key, values, searchDocument, forDelete));
       extractedSearchScoreFields.forEach(
           (key, values) -> setSearchScoreValue(key, values, searchDocument, forDelete));
       result = Optional.of(searchDocument);
@@ -445,6 +447,7 @@ public class SearchDocumentTransformer {
   }
 
   public void setSearchableRefValue(
+      @Nonnull final OperationContext opContext,
       final SearchableRefFieldSpec searchableRefFieldSpec,
       final List<Object> fieldValues,
       final ObjectNode searchDocument,
@@ -462,11 +465,12 @@ public class SearchDocumentTransformer {
       ArrayNode arrayNode = JsonNodeFactory.instance.arrayNode();
       fieldValues
           .subList(0, Math.min(fieldValues.size(), maxArrayLength))
-          .forEach(value -> getNodeForRef(depth, value, fieldType).ifPresent(arrayNode::add));
+          .forEach(
+              value -> getNodeForRef(opContext, depth, value, fieldType).ifPresent(arrayNode::add));
       searchDocument.set(fieldName, arrayNode);
     } else if (!fieldValues.isEmpty()) {
       String finalFieldName = fieldName;
-      getNodeForRef(depth, fieldValues.get(0), fieldType)
+      getNodeForRef(opContext, depth, fieldValues.get(0), fieldType)
           .ifPresent(node -> searchDocument.set(finalFieldName, node));
     } else {
       searchDocument.set(fieldName, JsonNodeFactory.instance.nullNode());
@@ -474,8 +478,13 @@ public class SearchDocumentTransformer {
   }
 
   private Optional<JsonNode> getNodeForRef(
-      final int depth, final Object fieldValue, final FieldType fieldType) {
-    EntityRegistry entityRegistry = aspectRetriever.getEntityRegistry();
+      @Nonnull OperationContext opContext,
+      final int depth,
+      final Object fieldValue,
+      final FieldType fieldType) {
+    EntityRegistry entityRegistry = opContext.getEntityRegistry();
+    AspectRetriever aspectRetriever = opContext.getRetrieverContext().get().getAspectRetriever();
+
     if (depth == 0) {
       if (fieldValue.toString().isEmpty()) {
         return Optional.empty();
@@ -538,6 +547,7 @@ public class SearchDocumentTransformer {
                         .forEach(
                             val ->
                                 getNodeForRef(
+                                        opContext,
                                         newDepth,
                                         val,
                                         spec.getSearchableRefAnnotation().getFieldType())
@@ -546,6 +556,7 @@ public class SearchDocumentTransformer {
                   } else {
                     Optional<JsonNode> node =
                         getNodeForRef(
+                            opContext,
                             newDepth,
                             value.get(0),
                             spec.getSearchableRefAnnotation().getFieldType());
@@ -555,7 +566,7 @@ public class SearchDocumentTransformer {
                   }
                 }
               }
-            } catch (RemoteInvocationException e) {
+            } catch (Exception e) {
               log.error(
                   "Error while fetching aspect details of {} for urn {} : {}",
                   aspectName,

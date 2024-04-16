@@ -71,11 +71,7 @@ public class CreateTagResolver implements DataFetcher<CompletableFuture<String>>
                 _entityClient.ingestProposal(context.getOperationContext(), proposal, false);
 
             OwnerUtils.addCreatorAsOwner(
-                context.getOperationContext(),
-                context,
-                tagUrn,
-                OwnerEntityType.CORP_USER,
-                _entityService);
+                context, tagUrn, OwnerEntityType.CORP_USER, _entityService);
             return tagUrn;
           } catch (Exception e) {
             log.error(

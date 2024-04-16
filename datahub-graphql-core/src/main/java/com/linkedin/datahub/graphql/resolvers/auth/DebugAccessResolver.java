@@ -125,10 +125,10 @@ public class DebugAccessResolver implements DataFetcher<CompletableFuture<DebugA
     try {
       final Map<Urn, EntityResponse> policies =
           _entityClient.batchGetV2(
+              context.getOperationContext(),
               Constants.POLICY_ENTITY_NAME,
               policyUrns,
-              ImmutableSet.of(Constants.DATAHUB_POLICY_INFO_ASPECT_NAME),
-              context.getAuthentication());
+              ImmutableSet.of(Constants.DATAHUB_POLICY_INFO_ASPECT_NAME));
 
       return policies.keySet().stream()
           .filter(Objects::nonNull)

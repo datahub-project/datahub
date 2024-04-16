@@ -96,7 +96,7 @@ public class TestOperationContexts {
 
   public static OperationContext systemContextNoSearchAuthorization(
       @Nullable EntityRegistry entityRegistry) {
-    return systemContextNoSearchAuthorization(entityRegistry, null);
+    return systemContextNoSearchAuthorization(entityRegistry, (IndexConvention) null);
   }
 
   public static OperationContext systemContextNoSearchAuthorization(
@@ -111,6 +111,14 @@ public class TestOperationContexts {
   public static OperationContext systemContextNoSearchAuthorization(
       @Nullable EntityRegistry entityRegistry, @Nullable IndexConvention indexConvention) {
     return systemContextNoSearchAuthorization(() -> entityRegistry, null, () -> indexConvention);
+  }
+
+  public static OperationContext systemContextNoSearchAuthorization(
+      @Nullable RetrieverContext retrieverContext) {
+    return systemContextNoSearchAuthorization(
+        () -> retrieverContext.getAspectRetriever().getEntityRegistry(),
+        () -> retrieverContext,
+        null);
   }
 
   public static OperationContext systemContextNoSearchAuthorization(

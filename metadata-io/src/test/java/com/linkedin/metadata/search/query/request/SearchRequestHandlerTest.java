@@ -652,8 +652,7 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
         SearchRequestHandler.getFilterQuery(
             operationContext.withSearchFlags(flags -> flags.setFulltext(false)),
             filter,
-            new HashMap<>(),
-            operationContext.getRetrieverContext().get().getAspectRetriever());
+            new HashMap<>());
 
     assertEquals(test.should().size(), 1);
 

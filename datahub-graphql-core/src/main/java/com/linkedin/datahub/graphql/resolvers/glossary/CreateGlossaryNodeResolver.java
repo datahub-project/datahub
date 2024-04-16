@@ -70,11 +70,7 @@ public class CreateGlossaryNodeResolver implements DataFetcher<CompletableFuture
                   _entityClient.ingestProposal(context.getOperationContext(), proposal, false);
 
               OwnerUtils.addCreatorAsOwner(
-                  context.getOperationContext(),
-                  context,
-                  glossaryNodeUrn,
-                  OwnerEntityType.CORP_USER,
-                  _entityService);
+                  context, glossaryNodeUrn, OwnerEntityType.CORP_USER, _entityService);
               return glossaryNodeUrn;
             } catch (Exception e) {
               log.error(

@@ -551,10 +551,15 @@ public class DescriptionUtils {
   }
 
   public static void updateBusinessAttributeDescription(
-      String newDescription, Urn resourceUrn, Urn actor, EntityService entityService) {
+      @Nonnull OperationContext opContext,
+      String newDescription,
+      Urn resourceUrn,
+      Urn actor,
+      EntityService<?> entityService) {
     BusinessAttributeInfo businessAttributeInfo =
         (BusinessAttributeInfo)
             EntityUtils.getAspectFromEntity(
+                opContext,
                 resourceUrn.toString(),
                 Constants.BUSINESS_ATTRIBUTE_INFO_ASPECT_NAME,
                 entityService,
@@ -563,6 +568,7 @@ public class DescriptionUtils {
       businessAttributeInfo.setDescription(newDescription);
     }
     persistAspect(
+        opContext,
         resourceUrn,
         Constants.BUSINESS_ATTRIBUTE_INFO_ASPECT_NAME,
         businessAttributeInfo,

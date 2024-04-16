@@ -379,7 +379,8 @@ public class LabelUtils {
       // Case 1: Adding tags to a top-level entity
       Urn targetUrn = Urn.createFromString(resource.getResourceUrn());
       if (targetUrn.getEntityType().equals(Constants.BUSINESS_ATTRIBUTE_ENTITY_NAME)) {
-        return buildAddTagsToBusinessAttributeProposal(tagUrns, resource, actor, entityService);
+        return buildAddTagsToBusinessAttributeProposal(
+            opContext, tagUrns, resource, actor, entityService);
       }
       return buildAddTagsToEntityProposal(opContext, tagUrns, resource, actor, entityService);
     } else {
@@ -399,7 +400,8 @@ public class LabelUtils {
       // Case 1: Adding tags to a top-level entity
       Urn targetUrn = Urn.createFromString(resource.getResourceUrn());
       if (targetUrn.getEntityType().equals(Constants.BUSINESS_ATTRIBUTE_ENTITY_NAME)) {
-        return buildRemoveTagsToBusinessAttributeProposal(tagUrns, resource, actor, entityService);
+        return buildRemoveTagsToBusinessAttributeProposal(
+            opContext, tagUrns, resource, actor, entityService);
       }
       return buildRemoveTagsToEntityProposal(opContext, tagUrns, resource, actor, entityService);
     } else {
@@ -552,7 +554,8 @@ public class LabelUtils {
       // Case 1: Adding terms to a top-level entity
       Urn targetUrn = Urn.createFromString(resource.getResourceUrn());
       if (targetUrn.getEntityType().equals(Constants.BUSINESS_ATTRIBUTE_ENTITY_NAME)) {
-        return buildAddTermsToBusinessAttributeProposal(termUrns, resource, actor, entityService);
+        return buildAddTermsToBusinessAttributeProposal(
+            opContext, termUrns, resource, actor, entityService);
       }
       return buildAddTermsToEntityProposal(opContext, termUrns, resource, actor, entityService);
     } else {
@@ -574,7 +577,7 @@ public class LabelUtils {
       Urn targetUrn = Urn.createFromString(resource.getResourceUrn());
       if (targetUrn.getEntityType().equals(Constants.BUSINESS_ATTRIBUTE_ENTITY_NAME)) {
         return buildRemoveTermsToBusinessAttributeProposal(
-            termUrns, resource, actor, entityService);
+            opContext, termUrns, resource, actor, entityService);
       }
       return buildRemoveTermsToEntityProposal(opContext, termUrns, resource, actor, entityService);
     } else {
@@ -730,11 +733,16 @@ public class LabelUtils {
   }
 
   private static MetadataChangeProposal buildAddTagsToBusinessAttributeProposal(
-      List<Urn> tagUrns, ResourceRefInput resource, Urn actor, EntityService entityService)
+      OperationContext opContext,
+      List<Urn> tagUrns,
+      ResourceRefInput resource,
+      Urn actor,
+      EntityService<?> entityService)
       throws URISyntaxException {
     BusinessAttributeInfo businessAttributeInfo =
         (BusinessAttributeInfo)
             EntityUtils.getAspectFromEntity(
+                opContext,
                 resource.getResourceUrn(),
                 Constants.BUSINESS_ATTRIBUTE_INFO_ASPECT_NAME,
                 entityService,
@@ -751,11 +759,16 @@ public class LabelUtils {
   }
 
   private static MetadataChangeProposal buildAddTermsToBusinessAttributeProposal(
-      List<Urn> termUrns, ResourceRefInput resource, Urn actor, EntityService entityService)
+      OperationContext opContext,
+      List<Urn> termUrns,
+      ResourceRefInput resource,
+      Urn actor,
+      EntityService<?> entityService)
       throws URISyntaxException {
     BusinessAttributeInfo businessAttributeInfo =
         (BusinessAttributeInfo)
             EntityUtils.getAspectFromEntity(
+                opContext,
                 resource.getResourceUrn(),
                 Constants.BUSINESS_ATTRIBUTE_INFO_ASPECT_NAME,
                 entityService,
@@ -772,10 +785,15 @@ public class LabelUtils {
   }
 
   private static MetadataChangeProposal buildRemoveTagsToBusinessAttributeProposal(
-      List<Urn> tagUrns, ResourceRefInput resource, Urn actor, EntityService entityService) {
+      OperationContext opContext,
+      List<Urn> tagUrns,
+      ResourceRefInput resource,
+      Urn actor,
+      EntityService<?> entityService) {
     BusinessAttributeInfo businessAttributeInfo =
         (BusinessAttributeInfo)
             EntityUtils.getAspectFromEntity(
+                opContext,
                 resource.getResourceUrn(),
                 Constants.BUSINESS_ATTRIBUTE_INFO_ASPECT_NAME,
                 entityService,
@@ -792,10 +810,15 @@ public class LabelUtils {
   }
 
   private static MetadataChangeProposal buildRemoveTermsToBusinessAttributeProposal(
-      List<Urn> termUrns, ResourceRefInput resource, Urn actor, EntityService entityService) {
+      OperationContext opContext,
+      List<Urn> termUrns,
+      ResourceRefInput resource,
+      Urn actor,
+      EntityService<?> entityService) {
     BusinessAttributeInfo businessAttributeInfo =
         (BusinessAttributeInfo)
             EntityUtils.getAspectFromEntity(
+                opContext,
                 resource.getResourceUrn(),
                 Constants.BUSINESS_ATTRIBUTE_INFO_ASPECT_NAME,
                 entityService,
