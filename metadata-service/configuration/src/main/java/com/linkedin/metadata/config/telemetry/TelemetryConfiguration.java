@@ -2,7 +2,7 @@ package com.linkedin.metadata.config.telemetry;
 
 import lombok.Data;
 
-/** POJO representing the "telemetry" configuration block in application.yml. */
+/** POJO representing the "telemetry" configuration block in application.yaml. */
 @Data
 public class TelemetryConfiguration {
   /** Whether cli telemetry is enabled */
