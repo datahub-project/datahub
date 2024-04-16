@@ -1319,7 +1319,7 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
 
     def _get_dashboard_patch_work_unit(
         self, work_unit: MetadataWorkUnit
-    ) -> MetadataWorkUnit:
+    ) -> Optional[MetadataWorkUnit]:
         dashboard_info_aspect: Optional[
             DashboardInfoClass
         ] = work_unit.get_aspect_of_type(DashboardInfoClass)
