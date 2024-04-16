@@ -323,7 +323,9 @@ systemUpdate:
   waitForSystemUpdate: ${BOOTSTRAP_SYSTEM_UPDATE_WAIT_FOR_SYSTEM_UPDATE:true}
   dataJobNodeCLL:
     enabled: ${BOOTSTRAP_SYSTEM_UPDATE_DATA_JOB_NODE_CLL_ENABLED:false}
-    batchSize: ${BOOTSTRAP_SYSTEM_UPDATE_DATA_JOB_NODE_CLL_BATCH_SIZE:200}
+    batchSize: ${BOOTSTRAP_SYSTEM_UPDATE_DATA_JOB_NODE_CLL_BATCH_SIZE:1000}
+    delayMs: ${BOOTSTRAP_SYSTEM_UPDATE_DATA_JOB_NODE_CLL_DELAY_MS:30000}
+    limit: ${BOOTSTRAP_SYSTEM_UPDATE_DATA_JOB_NODE_CLL_LIMIT:0}
   browsePathsV2:
     enabled: ${BOOTSTRAP_SYSTEM_UPDATE_BROWSE_PATHS_V2_ENABLED:true}
     batchSize: ${BOOTSTRAP_SYSTEM_UPDATE_BROWSE_PATHS_V2_BATCH_SIZE:5000}
@@ -367,6 +369,7 @@ featureFlags:
   erModelRelationshipFeatureEnabled: ${ER_MODEL_RELATIONSHIP_FEATURE_ENABLED:false} # Enable Join Tables Feature and show within Dataset view as Relations
   nestedDomainsEnabled: ${NESTED_DOMAINS_ENABLED:true} # Enables the nested Domains feature that allows users to have sub-Domains. If this is off, Domains appear "flat" again
   schemaFieldEntityFetchEnabled: ${SCHEMA_FIELD_ENTITY_FETCH_ENABLED:true} # Enables fetching for schema field entities from the database when we hydrate them on schema fields
+  businessAttributeEntityEnabled: ${BUSINESS_ATTRIBUTE_ENTITY_ENABLED:false} # Enables business attribute entity which can be associated with field of dataset
 
 entityChangeEvents:
   enabled: ${ENABLE_ENTITY_CHANGE_EVENTS_HOOK:true}
@@ -440,3 +443,6 @@ springdoc.api-docs.groups.enabled: true
 forms:
   hook:
     enabled: { $FORMS_HOOK_ENABLED:true }
+
+businessAttribute:
+  fetchRelatedEntitiesCount: ${BUSINESS_ATTRIBUTE_RELATED_ENTITIES_COUNT:100000}

@@ -230,6 +230,11 @@ iceberg_common = {
     *pydantic_no_v2,
 }
 
+postgres_common = {
+    "psycopg2-binary",
+    "GeoAlchemy2",
+}
+
 s3_base = {
     *aws_common,
     "more-itertools>=8.12.0",
@@ -311,6 +316,7 @@ plugins: Dict[str, Set[str]] = {
     | classification_lib,
     "clickhouse": sql_common | clickhouse_common,
     "clickhouse-usage": sql_common | usage_common | clickhouse_common,
+    "cockroachdb": sql_common | postgres_common | {"sqlalchemy-cockroachdb<2.0.0"},
     "datahub-lineage-file": set(),
     "datahub-business-glossary": set(),
     "delta-lake": {*data_lake_profiling, *delta_lake},
@@ -352,7 +358,7 @@ plugins: Dict[str, Set[str]] = {
     "lookml": looker_common,
     "metabase": {"requests"} | sqlglot_lib,
     "mlflow": {"mlflow-skinny>=2.3.0"},
-    "mode": {"requests", "tenacity>=8.0.1"} | sqllineage_lib,
+    "mode": {"requests", "tenacity>=8.0.1"} | sqllineage_lib | sqlglot_lib,
     "mongodb": {"pymongo[srv]>=3.11", "packaging"},
     "mssql": sql_common
     | {
@@ -365,7 +371,7 @@ plugins: Dict[str, Set[str]] = {
     "mariadb": sql_common | {"pymysql>=1.0.2"},
     "okta": {"okta~=1.7.0", "nest-asyncio"},
     "oracle": sql_common | {"cx_Oracle"},
-    "postgres": sql_common | {"psycopg2-binary", "GeoAlchemy2"},
+    "postgres": sql_common | postgres_common,
     "presto": sql_common | pyhive_common | trino,
     "presto-on-hive": sql_common
     | pyhive_common
@@ -411,6 +417,7 @@ plugins: Dict[str, Set[str]] = {
     "databricks": databricks | sql_common | sqllineage_lib,
     "fivetran": snowflake_common | bigquery_common,
     "qlik-sense": sqlglot_lib | {"requests", "websocket-client"},
+    "sigma": {"requests"},
 }
 
 # This is mainly used to exclude plugins from the Docker image.
@@ -505,6 +512,7 @@ base_dev_requirements = {
             "bigquery",
             "clickhouse",
             "clickhouse-usage",
+            "cockroachdb",
             "delta-lake",
             "druid",
             "elasticsearch",
@@ -546,6 +554,7 @@ base_dev_requirements = {
             "fivetran",
             "kafka-connect",
             "qlik-sense",
+            "sigma",
         ]
         if plugin
         for dependency in plugins[plugin]
@@ -596,6 +605,7 @@ entry_points = {
         "bigquery = datahub.ingestion.source.bigquery_v2.bigquery:BigqueryV2Source",
         "clickhouse = datahub.ingestion.source.sql.clickhouse:ClickHouseSource",
         "clickhouse-usage = datahub.ingestion.source.usage.clickhouse_usage:ClickHouseUsageSource",
+        "cockroachdb = datahub.ingestion.source.sql.cockroachdb:CockroachDBSource",
         "delta-lake = datahub.ingestion.source.delta_lake:DeltaLakeSource",
         "s3 = datahub.ingestion.source.s3:S3Source",
         "dbt = datahub.ingestion.source.dbt.dbt_core:DBTCoreSource",
@@ -652,6 +662,7 @@ entry_points = {
         "sql-queries = datahub.ingestion.source.sql_queries:SqlQueriesSource",
         "fivetran = datahub.ingestion.source.fivetran.fivetran:FivetranSource",
         "qlik-sense = datahub.ingestion.source.qlik_sense.qlik_sense:QlikSenseSource",
+        "sigma = datahub.ingestion.source.sigma.sigma:SigmaSource",
     ],
     "datahub.ingestion.transformer.plugins": [
         "pattern_cleanup_ownership = datahub.ingestion.transformer.pattern_cleanup_ownership:PatternCleanUpOwnership",
@@ -679,6 +690,7 @@ entry_points = {
         "add_dataset_dataproduct = datahub.ingestion.transformer.add_dataset_dataproduct:AddDatasetDataProduct",
         "simple_add_dataset_dataproduct = datahub.ingestion.transformer.add_dataset_dataproduct:SimpleAddDatasetDataProduct",
         "pattern_add_dataset_dataproduct = datahub.ingestion.transformer.add_dataset_dataproduct:PatternAddDatasetDataProduct",
+        "replace_external_url = datahub.ingestion.transformer.replace_external_url:ReplaceExternalUrl"
     ],
     "datahub.ingestion.sink.plugins": [
         "file = datahub.ingestion.sink.file:FileSink",
