@@ -76,10 +76,10 @@ public class BusinessAttributeType implements SearchableEntityType<BusinessAttri
     try {
       final Map<Urn, EntityResponse> businessAttributeMap =
           _entityClient.batchGetV2(
+              context.getOperationContext(),
               BUSINESS_ATTRIBUTE_ENTITY_NAME,
               new HashSet<>(businessAttributeUrns),
-              ASPECTS_TO_FETCH,
-              context.getAuthentication());
+              ASPECTS_TO_FETCH);
 
       final List<EntityResponse> gmsResults = new ArrayList<>();
       for (Urn urn : businessAttributeUrns) {

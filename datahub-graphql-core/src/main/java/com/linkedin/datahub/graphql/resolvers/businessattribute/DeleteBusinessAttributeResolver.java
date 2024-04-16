@@ -25,19 +25,19 @@ public class DeleteBusinessAttributeResolver implements DataFetcher<CompletableF
       throw new AuthorizationException(
           "Unauthorized to perform this action. Please contact your DataHub administrator.");
     }
-    if (!_entityClient.exists(businessAttributeUrn, context.getAuthentication())) {
+    if (!_entityClient.exists(context.getOperationContext(), businessAttributeUrn)) {
       throw new RuntimeException(
           String.format("This urn does not exist: %s", businessAttributeUrn));
     }
     return CompletableFuture.supplyAsync(
         () -> {
           try {
-            _entityClient.deleteEntity(businessAttributeUrn, context.getAuthentication());
+            _entityClient.deleteEntity(context.getOperationContext(), businessAttributeUrn);
             CompletableFuture.runAsync(
                 () -> {
                   try {
                     _entityClient.deleteEntityReferences(
-                        businessAttributeUrn, context.getAuthentication());
+                        context.getOperationContext(), businessAttributeUrn);
                   } catch (Exception e) {
                     log.error(
                         String.format(

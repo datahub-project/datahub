@@ -15,9 +15,11 @@ import com.linkedin.metadata.entity.EntityUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import javax.annotation.Nonnull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -37,7 +39,10 @@ public class RemoveBusinessAttributeResolver implements DataFetcher<CompletableF
     return CompletableFuture.supplyAsync(
         () -> {
           try {
-            removeBusinessAttribute(resourceRefInputs, UrnUtils.getUrn(context.getActorUrn()));
+            removeBusinessAttribute(
+                context.getOperationContext(),
+                resourceRefInputs,
+                UrnUtils.getUrn(context.getActorUrn()));
             return true;
           } catch (Exception e) {
             log.error(
@@ -53,20 +58,25 @@ public class RemoveBusinessAttributeResolver implements DataFetcher<CompletableF
         });
   }
 
-  private void removeBusinessAttribute(List<ResourceRefInput> resourceRefInputs, Urn actorUrn) {
+  private void removeBusinessAttribute(
+      @Nonnull OperationContext opContext, List<ResourceRefInput> resourceRefInputs, Urn actorUrn) {
     List<MetadataChangeProposal> proposals = new ArrayList<>();
     for (ResourceRefInput resourceRefInput : resourceRefInputs) {
       proposals.add(
-          buildRemoveBusinessAttributeFromResourceProposal(resourceRefInput, entityService));
+          buildRemoveBusinessAttributeFromResourceProposal(
+              opContext, resourceRefInput, entityService));
     }
-    EntityUtils.ingestChangeProposals(proposals, entityService, actorUrn, false);
+    EntityUtils.ingestChangeProposals(opContext, proposals, entityService, actorUrn, false);
   }
 
   private MetadataChangeProposal buildRemoveBusinessAttributeFromResourceProposal(
-      ResourceRefInput resource, EntityService entityService) {
+      @Nonnull OperationContext opContext,
+      ResourceRefInput resource,
+      EntityService<?> entityService) {
     BusinessAttributes businessAttributes =
         (BusinessAttributes)
             EntityUtils.getAspectFromEntity(
+                opContext,
                 resource.getResourceUrn(),
                 BUSINESS_ATTRIBUTE_ASPECT,
                 entityService,

@@ -18,6 +18,7 @@ import com.linkedin.metadata.search.utils.BrowsePathUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.Set;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
@@ -45,7 +46,7 @@ public class UpgradeDefaultBrowsePathsStep extends UpgradeStep {
   }
 
   @Override
-  public void upgrade() throws Exception {
+  public void upgrade(@Nonnull OperationContext systemOperationContext) throws Exception {
     final AuditStamp auditStamp =
         new AuditStamp()
             .setActor(Urn.createFromString(Constants.SYSTEM_ACTOR))
@@ -59,7 +60,8 @@ public class UpgradeDefaultBrowsePathsStep extends UpgradeStep {
             String.format(
                 "Upgrading batch %s-%s out of %s of browse paths for entity type %s",
                 migratedCount, migratedCount + BATCH_SIZE, total, entityType));
-        total = getAndMigrateBrowsePaths(entityType, migratedCount, auditStamp);
+        total =
+            getAndMigrateBrowsePaths(systemOperationContext, entityType, migratedCount, auditStamp);
         migratedCount += BATCH_SIZE;
       } while (migratedCount < total);
     }
@@ -72,12 +74,13 @@ public class UpgradeDefaultBrowsePathsStep extends UpgradeStep {
     return ExecutionMode.BLOCKING; // ensure there are no write conflicts.
   }
 
-  private int getAndMigrateBrowsePaths(String entityType, int start, AuditStamp auditStamp)
+  private int getAndMigrateBrowsePaths(
+      @Nonnull OperationContext opContext, String entityType, int start, AuditStamp auditStamp)
       throws Exception {
 
     final ListResult<RecordTemplate> latestAspects =
-        _entityService.listLatestAspects(
-            entityType, Constants.BROWSE_PATHS_ASPECT_NAME, start, BATCH_SIZE);
+        entityService.listLatestAspects(
+            opContext, entityType, Constants.BROWSE_PATHS_ASPECT_NAME, start, BATCH_SIZE);
 
     if (latestAspects.getTotalCount() == 0
         || latestAspects.getValues() == null
@@ -115,10 +118,10 @@ public class UpgradeDefaultBrowsePathsStep extends UpgradeStep {
 
       if (browsePaths.hasPaths() && browsePaths.getPaths().size() == 1) {
         String legacyBrowsePath =
-            BrowsePathUtils.getLegacyDefaultBrowsePath(urn, _entityService.getEntityRegistry());
+            BrowsePathUtils.getLegacyDefaultBrowsePath(urn, opContext.getEntityRegistry());
         log.debug(String.format("Legacy browse path for urn %s, value %s", urn, legacyBrowsePath));
         if (legacyBrowsePath.equals(browsePaths.getPaths().get(0))) {
-          migrateBrowsePath(urn, auditStamp);
+          migrateBrowsePath(opContext, urn, auditStamp);
         }
       }
     }
@@ -126,8 +129,9 @@ public class UpgradeDefaultBrowsePathsStep extends UpgradeStep {
     return latestAspects.getTotalCount();
   }
 
-  private void migrateBrowsePath(Urn urn, AuditStamp auditStamp) throws Exception {
-    BrowsePaths newPaths = DefaultAspectsUtil.buildDefaultBrowsePath(urn, _entityService);
+  private void migrateBrowsePath(
+      @Nonnull OperationContext opContext, Urn urn, AuditStamp auditStamp) throws Exception {
+    BrowsePaths newPaths = DefaultAspectsUtil.buildDefaultBrowsePath(opContext, urn, entityService);
     log.debug(String.format("Updating browse path for urn %s to value %s", urn, newPaths));
     MetadataChangeProposal proposal = new MetadataChangeProposal();
     proposal.setEntityUrn(urn);
@@ -137,6 +141,6 @@ public class UpgradeDefaultBrowsePathsStep extends UpgradeStep {
     proposal.setSystemMetadata(
         new SystemMetadata().setRunId(DEFAULT_RUN_ID).setLastObserved(System.currentTimeMillis()));
     proposal.setAspect(GenericRecordUtils.serializeAspect(newPaths));
-    _entityService.ingestProposal(proposal, auditStamp, false);
+    entityService.ingestProposal(opContext, proposal, auditStamp, false);
   }
 }

@@ -17,6 +17,6 @@ public class QueryServiceFactory {
   @Scope("singleton")
   @Nonnull
   protected QueryService getInstance(final SystemEntityClient entityClient) throws Exception {
-    return new QueryService(entityClient, entityClient.getSystemAuthentication());
+    return new QueryService(entityClient);
   }
 }

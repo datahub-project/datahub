@@ -1,9 +1,9 @@
 package com.linkedin.datahub.graphql.analytics.resolver;
 
-import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.analytics.service.AnalyticsService;
 import com.linkedin.datahub.graphql.analytics.service.AnalyticsUtil;
 import com.linkedin.datahub.graphql.generated.AnalyticsChart;
@@ -17,16 +17,17 @@ import com.linkedin.datahub.graphql.generated.NamedLine;
 import com.linkedin.datahub.graphql.generated.Row;
 import com.linkedin.datahub.graphql.generated.TableChart;
 import com.linkedin.datahub.graphql.generated.TimeSeriesChart;
-import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
 import com.linkedin.datahub.graphql.util.DateUtil;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+import javax.annotation.Nonnull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.joda.time.DateTime;
@@ -41,18 +42,19 @@ public final class GetChartsResolver implements DataFetcher<List<AnalyticsChartG
 
   @Override
   public final List<AnalyticsChartGroup> get(DataFetchingEnvironment environment) throws Exception {
-    Authentication authentication = ResolverUtils.getAuthentication(environment);
+    final QueryContext context = environment.getContext();
+
     try {
       return ImmutableList.of(
           AnalyticsChartGroup.builder()
               .setGroupId("DataHubUsageAnalytics")
               .setTitle("DataHub Usage Analytics")
-              .setCharts(getProductAnalyticsCharts(authentication))
+              .setCharts(getProductAnalyticsCharts(context.getOperationContext()))
               .build(),
           AnalyticsChartGroup.builder()
               .setGroupId("GlobalMetadataAnalytics")
               .setTitle("Data Landscape Summary")
-              .setCharts(getGlobalMetadataAnalyticsCharts(authentication))
+              .setCharts(getGlobalMetadataAnalyticsCharts(context.getOperationContext()))
               .build());
     } catch (Exception e) {
       log.error("Failed to retrieve analytics charts!", e);
@@ -86,7 +88,7 @@ public final class GetChartsResolver implements DataFetcher<List<AnalyticsChartG
   }
 
   /** TODO: Config Driven Charts Instead of Hardcoded. */
-  private List<AnalyticsChart> getProductAnalyticsCharts(Authentication authentication)
+  private List<AnalyticsChart> getProductAnalyticsCharts(@Nonnull OperationContext opContext)
       throws Exception {
     final List<AnalyticsChart> charts = new ArrayList<>();
     DateUtil dateUtil = new DateUtil();
@@ -192,12 +194,12 @@ public final class GetChartsResolver implements DataFetcher<List<AnalyticsChartG
             10,
             AnalyticsUtil::buildCellWithEntityLandingPage);
     AnalyticsUtil.hydrateDisplayNameForTable(
+        opContext,
         _entityClient,
         topViewedDatasets,
         Constants.DATASET_ENTITY_NAME,
         ImmutableSet.of(Constants.DATASET_KEY_ASPECT_NAME),
-        AnalyticsUtil::getDatasetName,
-        authentication);
+        AnalyticsUtil::getDatasetName);
     charts.add(
         TableChart.builder()
             .setTitle(topViewedTitle)
@@ -208,7 +210,7 @@ public final class GetChartsResolver implements DataFetcher<List<AnalyticsChartG
     return charts;
   }
 
-  private List<AnalyticsChart> getGlobalMetadataAnalyticsCharts(Authentication authentication)
+  private List<AnalyticsChart> getGlobalMetadataAnalyticsCharts(@Nonnull OperationContext opContext)
       throws Exception {
     final List<AnalyticsChart> charts = new ArrayList<>();
     // Chart 1: Entities per domain
@@ -222,19 +224,19 @@ public final class GetChartsResolver implements DataFetcher<List<AnalyticsChartG
             Optional.empty(),
             false);
     AnalyticsUtil.hydrateDisplayNameForBars(
+        opContext,
         _entityClient,
         entitiesPerDomain,
         Constants.DOMAIN_ENTITY_NAME,
         ImmutableSet.of(Constants.DOMAIN_PROPERTIES_ASPECT_NAME),
-        AnalyticsUtil::getDomainName,
-        authentication);
+        AnalyticsUtil::getDomainName);
     AnalyticsUtil.hydrateDisplayNameForSegments(
+        opContext,
         _entityClient,
         entitiesPerDomain,
         Constants.DATA_PLATFORM_ENTITY_NAME,
         ImmutableSet.of(Constants.DATA_PLATFORM_INFO_ASPECT_NAME),
-        AnalyticsUtil::getPlatformName,
-        authentication);
+        AnalyticsUtil::getPlatformName);
     if (!entitiesPerDomain.isEmpty()) {
       charts.add(
           BarChart.builder().setTitle("Entities per Domain").setBars(entitiesPerDomain).build());
@@ -251,12 +253,12 @@ public final class GetChartsResolver implements DataFetcher<List<AnalyticsChartG
             Optional.empty(),
             false);
     AnalyticsUtil.hydrateDisplayNameForBars(
+        opContext,
         _entityClient,
         entitiesPerPlatform,
         Constants.DATA_PLATFORM_ENTITY_NAME,
         ImmutableSet.of(Constants.DATA_PLATFORM_INFO_ASPECT_NAME),
-        AnalyticsUtil::getPlatformName,
-        authentication);
+        AnalyticsUtil::getPlatformName);
     if (!entitiesPerPlatform.isEmpty()) {
       charts.add(
           BarChart.builder()
@@ -276,13 +278,13 @@ public final class GetChartsResolver implements DataFetcher<List<AnalyticsChartG
             Optional.empty(),
             false);
     AnalyticsUtil.hydrateDisplayNameForBars(
+        opContext,
         _entityClient,
         entitiesPerTerm,
         Constants.GLOSSARY_TERM_ENTITY_NAME,
         ImmutableSet.of(
             Constants.GLOSSARY_TERM_KEY_ASPECT_NAME, Constants.GLOSSARY_TERM_INFO_ASPECT_NAME),
-        AnalyticsUtil::getTermName,
-        authentication);
+        AnalyticsUtil::getTermName);
     if (!entitiesPerTerm.isEmpty()) {
       charts.add(BarChart.builder().setTitle("Entities per Term").setBars(entitiesPerTerm).build());
     }

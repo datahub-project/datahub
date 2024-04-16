@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.resolvers.assertion;
 
+import static org.mockito.ArgumentMatchers.any;
 import static org.testng.Assert.*;
 
 import com.datahub.authentication.Authentication;
@@ -107,10 +108,10 @@ public class EntityAssertionsResolverTest {
 
     Mockito.when(
             mockClient.batchGetV2(
+                any(),
                 Mockito.eq(Constants.ASSERTION_ENTITY_NAME),
                 Mockito.eq(ImmutableSet.of(assertionUrn)),
-                Mockito.eq(null),
-                Mockito.any(Authentication.class)))
+                Mockito.eq(null)))
         .thenReturn(
             ImmutableMap.of(
                 assertionUrn,
@@ -119,9 +120,7 @@ public class EntityAssertionsResolverTest {
                     .setUrn(assertionUrn)
                     .setAspects(new EnvelopedAspectMap(assertionAspects))));
 
-    Mockito.when(
-            mockClient.exists(
-                Mockito.any(Urn.class), Mockito.eq(false), Mockito.any(Authentication.class)))
+    Mockito.when(mockClient.exists(any(), Mockito.any(Urn.class), Mockito.eq(false)))
         .thenReturn(true);
 
     EntityAssertionsResolver resolver = new EntityAssertionsResolver(mockClient, graphClient);

@@ -27,7 +27,7 @@ public class DeletePolicyResolver implements DataFetcher<CompletableFuture<Strin
       return CompletableFuture.supplyAsync(
           () -> {
             try {
-              _entityClient.deleteEntity(urn, context.getAuthentication());
+              _entityClient.deleteEntity(context.getOperationContext(), urn);
               if (context.getAuthorizer() instanceof AuthorizerChain) {
                 ((AuthorizerChain) context.getAuthorizer())
                     .getDefaultAuthorizer()

@@ -20,12 +20,16 @@ import com.linkedin.entity.Aspect;
 import com.linkedin.metadata.TestEntitySpecBuilder;
 import com.linkedin.metadata.TestEntityUtil;
 import com.linkedin.metadata.aspect.AspectRetriever;
+import com.linkedin.metadata.aspect.GraphRetriever;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.SearchableRefFieldSpec;
 import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.elasticsearch.query.request.TestSearchFieldConfig;
 import com.linkedin.r2.RemoteInvocationException;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.RetrieverContext;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.util.*;
@@ -149,8 +153,8 @@ public class SearchDocumentTransformerTest {
    *
    *
    * <ul>
-   *   <li>{@link SearchDocumentTransformer#setSearchableRefValue(SearchableRefFieldSpec, List,
-   *       ObjectNode, Boolean ) }
+   *   <li>{@link SearchDocumentTransformer#setSearchableRefValue(OperationContext,
+   *       SearchableRefFieldSpec, List, ObjectNode, Boolean ) }
    * </ul>
    */
   @Test
@@ -158,7 +162,7 @@ public class SearchDocumentTransformerTest {
     AspectRetriever aspectRetriever = Mockito.mock(AspectRetriever.class);
     SearchDocumentTransformer searchDocumentTransformer =
         new SearchDocumentTransformer(1000, 1000, 1000);
-    searchDocumentTransformer.setAspectRetriever(aspectRetriever);
+
     EntityRegistry entityRegistry = getTestEntityRegistry();
     List<Object> urnList = List.of(Urn.createFromString("urn:li:refEntity:1"));
 
@@ -175,9 +179,15 @@ public class SearchDocumentTransformerTest {
     // Mock Behaviour
     Mockito.when(aspectRetriever.getEntityRegistry()).thenReturn(entityRegistry);
     Mockito.when(aspectRetriever.getLatestAspectObject(any(), anyString())).thenReturn(aspect);
+    OperationContext opContext =
+        TestOperationContexts.systemContextNoSearchAuthorization(
+            RetrieverContext.builder()
+                .aspectRetriever(aspectRetriever)
+                .graphRetriever(mock(GraphRetriever.class))
+                .build());
 
     searchDocumentTransformer.setSearchableRefValue(
-        searchableRefFieldSpec, urnList, searchDocument, false);
+        opContext, searchableRefFieldSpec, urnList, searchDocument, false);
     assertTrue(searchDocument.has("refEntityUrns"));
     assertEquals(searchDocument.get("refEntityUrns").size(), 3);
     assertTrue(searchDocument.get("refEntityUrns").has("urn"));
@@ -193,28 +203,29 @@ public class SearchDocumentTransformerTest {
 
   @Test
   public void testSetSearchableRefValue_WithNonURNField() throws URISyntaxException {
-    AspectRetriever aspectRetriever = Mockito.mock(AspectRetriever.class);
     SearchDocumentTransformer searchDocumentTransformer =
         new SearchDocumentTransformer(1000, 1000, 1000);
-    searchDocumentTransformer.setAspectRetriever(aspectRetriever);
+
     EntityRegistry entityRegistry = getTestEntityRegistry();
+    OperationContext opContext =
+        TestOperationContexts.systemContextNoSearchAuthorization(entityRegistry);
     List<Object> urnList = List.of(Urn.createFromString("urn:li:refEntity:1"));
 
     ObjectNode searchDocument = JsonNodeFactory.instance.objectNode();
     SearchableRefFieldSpec searchableRefFieldSpecText =
         entityRegistry.getEntitySpec("testRefEntity").getSearchableRefFieldSpecs().get(1);
     searchDocumentTransformer.setSearchableRefValue(
-        searchableRefFieldSpecText, urnList, searchDocument, false);
+        opContext, searchableRefFieldSpecText, urnList, searchDocument, false);
     assertTrue(searchDocument.isEmpty());
   }
 
   @Test
-  public void testSetSearchableRefValue_RemoteInvocationException()
+  public void testSetSearchableRefValue_RuntimeException()
       throws URISyntaxException, RemoteInvocationException {
     AspectRetriever aspectRetriever = Mockito.mock(AspectRetriever.class);
     SearchDocumentTransformer searchDocumentTransformer =
         new SearchDocumentTransformer(1000, 1000, 1000);
-    searchDocumentTransformer.setAspectRetriever(aspectRetriever);
+
     EntityRegistry entityRegistry = getTestEntityRegistry();
     List<Object> urnList = List.of(Urn.createFromString("urn:li:refEntity:1"));
 
@@ -222,23 +233,29 @@ public class SearchDocumentTransformerTest {
     Mockito.when(
             aspectRetriever.getLatestAspectObject(
                 eq(Urn.createFromString("urn:li:refEntity:1")), anyString()))
-        .thenThrow(new RemoteInvocationException("Error"));
+        .thenThrow(new RuntimeException("Error"));
+    OperationContext opContext =
+        TestOperationContexts.systemContextNoSearchAuthorization(
+            RetrieverContext.builder()
+                .aspectRetriever(aspectRetriever)
+                .graphRetriever(mock(GraphRetriever.class))
+                .build());
 
     ObjectNode searchDocument = JsonNodeFactory.instance.objectNode();
     SearchableRefFieldSpec searchableRefFieldSpec =
         entityRegistry.getEntitySpec("testRefEntity").getSearchableRefFieldSpecs().get(0);
     searchDocumentTransformer.setSearchableRefValue(
-        searchableRefFieldSpec, urnList, searchDocument, false);
+        opContext, searchableRefFieldSpec, urnList, searchDocument, false);
     assertTrue(searchDocument.isEmpty());
   }
 
   @Test
-  public void testSetSearchableRefValue_RemoteInvocationException_URNExist()
+  public void testSetSearchableRefValue_RuntimeException_URNExist()
       throws URISyntaxException, RemoteInvocationException {
     AspectRetriever aspectRetriever = Mockito.mock(AspectRetriever.class);
     SearchDocumentTransformer searchDocumentTransformer =
         new SearchDocumentTransformer(1000, 1000, 1000);
-    searchDocumentTransformer.setAspectRetriever(aspectRetriever);
+
     EntityRegistry entityRegistry = getTestEntityRegistry();
     List<Object> urnList = List.of(Urn.createFromString("urn:li:refEntity:1"));
     DataMapBuilder dataMapBuilder = new DataMapBuilder();
@@ -252,13 +269,19 @@ public class SearchDocumentTransformerTest {
             aspectRetriever.getLatestAspectObject(
                 eq(Urn.createFromString("urn:li:refEntity:1")), anyString()))
         .thenReturn(aspect)
-        .thenThrow(new RemoteInvocationException("Error"));
+        .thenThrow(new RuntimeException("Error"));
+    OperationContext opContext =
+        TestOperationContexts.systemContextNoSearchAuthorization(
+            RetrieverContext.builder()
+                .aspectRetriever(aspectRetriever)
+                .graphRetriever(mock(GraphRetriever.class))
+                .build());
 
     ObjectNode searchDocument = JsonNodeFactory.instance.objectNode();
     SearchableRefFieldSpec searchableRefFieldSpec =
         entityRegistry.getEntitySpec("testRefEntity").getSearchableRefFieldSpecs().get(0);
     searchDocumentTransformer.setSearchableRefValue(
-        searchableRefFieldSpec, urnList, searchDocument, false);
+        opContext, searchableRefFieldSpec, urnList, searchDocument, false);
     assertTrue(searchDocument.has("refEntityUrns"));
     assertEquals(searchDocument.get("refEntityUrns").size(), 1);
     assertTrue(searchDocument.get("refEntityUrns").has("urn"));
@@ -271,7 +294,7 @@ public class SearchDocumentTransformerTest {
     AspectRetriever aspectRetriever = Mockito.mock(AspectRetriever.class);
     SearchDocumentTransformer searchDocumentTransformer =
         new SearchDocumentTransformer(1000, 1000, 1000);
-    searchDocumentTransformer.setAspectRetriever(aspectRetriever);
+
     EntityRegistry entityRegistry = getTestEntityRegistry();
     List<Object> urnList = List.of(Urn.createFromString("urn:li:refEntity:1"));
 
@@ -279,10 +302,16 @@ public class SearchDocumentTransformerTest {
     Mockito.when(aspectRetriever.getLatestAspectObject(any(), anyString())).thenReturn(null);
     SearchableRefFieldSpec searchableRefFieldSpec =
         entityRegistry.getEntitySpec("testRefEntity").getSearchableRefFieldSpecs().get(0);
+    OperationContext opContext =
+        TestOperationContexts.systemContextNoSearchAuthorization(
+            RetrieverContext.builder()
+                .aspectRetriever(aspectRetriever)
+                .graphRetriever(mock(GraphRetriever.class))
+                .build());
 
     ObjectNode searchDocument = JsonNodeFactory.instance.objectNode();
     searchDocumentTransformer.setSearchableRefValue(
-        searchableRefFieldSpec, urnList, searchDocument, false);
+        opContext, searchableRefFieldSpec, urnList, searchDocument, false);
     assertTrue(searchDocument.has("refEntityUrns"));
     assertTrue(searchDocument.get("refEntityUrns").getNodeType().equals(JsonNodeType.NULL));
   }

@@ -20,6 +20,7 @@ import com.linkedin.gms.factory.common.SiblingGraphServiceFactory;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.entityregistry.EntityRegistryFactory;
 import com.linkedin.gms.factory.recommendation.RecommendationServiceFactory;
+import com.linkedin.metadata.client.UsageStatsJavaClient;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.graph.GraphService;
@@ -39,7 +40,6 @@ import com.linkedin.metadata.timeline.TimelineService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.version.GitVersion;
-import com.linkedin.usage.RestliUsageClient;
 import io.datahubproject.metadata.services.RestrictedService;
 import io.datahubproject.metadata.services.SecretService;
 import javax.annotation.Nonnull;
@@ -73,10 +73,6 @@ public class GraphQLEngineFactory {
   @Autowired
   @Qualifier("graphClient")
   private GraphClient graphClient;
-
-  @Autowired
-  @Qualifier("usageClient")
-  private RestliUsageClient usageClient;
 
   @Autowired
   @Qualifier("entityService")
@@ -194,7 +190,9 @@ public class GraphQLEngineFactory {
     args.setEntityClient(entityClient);
     args.setSystemEntityClient(systemEntityClient);
     args.setGraphClient(graphClient);
-    args.setUsageClient(usageClient);
+    args.setUsageClient(
+        new UsageStatsJavaClient(
+            timeseriesAspectService, configProvider.getCache().getClient().getUsageClient()));
     if (isAnalyticsEnabled) {
       args.setAnalyticsService(new AnalyticsService(elasticClient, indexConvention));
     }

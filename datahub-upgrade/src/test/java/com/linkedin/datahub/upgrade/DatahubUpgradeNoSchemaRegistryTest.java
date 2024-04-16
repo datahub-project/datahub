@@ -1,11 +1,13 @@
 package com.linkedin.datahub.upgrade;
 
+import static org.mockito.Mockito.mock;
 import static org.testng.AssertJUnit.assertEquals;
 import static org.testng.AssertJUnit.assertNotNull;
 
 import com.linkedin.datahub.upgrade.system.SystemUpdate;
 import com.linkedin.metadata.dao.producer.KafkaEventProducer;
 import com.linkedin.metadata.entity.EntityServiceImpl;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -85,6 +87,11 @@ public class DatahubUpgradeNoSchemaRegistryTest extends AbstractTestNGSpringCont
                   @Override
                   public Map<String, Optional<String>> parsedArgs() {
                     return null;
+                  }
+
+                  @Override
+                  public OperationContext opContext() {
+                    return mock(OperationContext.class);
                   }
                 })
             .result();

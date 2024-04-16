@@ -7,7 +7,6 @@ import com.linkedin.parseq.retry.backoff.ExponentialBackoff;
 import com.linkedin.r2.transport.http.client.HttpClientFactory;
 import com.linkedin.restli.client.Client;
 import com.linkedin.usage.RestliUsageClient;
-import io.datahubproject.metadata.context.OperationContext;
 import java.util.HashMap;
 import java.util.Map;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -47,8 +46,7 @@ public class UsageClientFactory {
   private ConfigurationProvider configurationProvider;
 
   @Bean("usageClient")
-  public RestliUsageClient getUsageClient(
-      @Qualifier("systemOperationContext") final OperationContext systemOperationContext) {
+  public RestliUsageClient getUsageClient() {
     Map<String, String> params = new HashMap<>();
     params.put(HttpClientFactory.HTTP_REQUEST_TIMEOUT, String.valueOf(timeoutMs));
 
@@ -56,7 +54,6 @@ public class UsageClientFactory {
         DefaultRestliClientFactory.getRestLiClient(
             gmsHost, gmsPort, gmsUseSSL, gmsSslProtocol, params);
     return new RestliUsageClient(
-        systemOperationContext,
         restClient,
         new ExponentialBackoff(retryInterval),
         numRetries,

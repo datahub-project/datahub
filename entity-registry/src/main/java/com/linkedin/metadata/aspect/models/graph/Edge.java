@@ -1,9 +1,9 @@
-package com.linkedin.metadata.graph;
+package com.linkedin.metadata.aspect.models.graph;
 
+import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
-import com.linkedin.metadata.utils.SearchUtil;
 import com.linkedin.util.Pair;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -11,6 +11,7 @@ import java.security.NoSuchAlgorithmException;
 import java.util.Base64;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -91,14 +92,24 @@ public class Edge {
   public static final String EDGE_DESTINATION_URN_FIELD = "destination.urn";
 
   public static final List<Pair<String, SortOrder>> KEY_SORTS =
-      List.of(
+      ImmutableList.of(
           new Pair<>(EDGE_SOURCE_URN_FIELD, SortOrder.ASCENDING),
           new Pair<>(EDGE_DESTINATION_URN_FIELD, SortOrder.ASCENDING),
           new Pair<>(EDGE_FIELD_RELNSHIP_TYPE, SortOrder.ASCENDING),
           new Pair<>(EDGE_FIELD_LIFECYCLE_OWNER, SortOrder.ASCENDING));
   public static List<SortCriterion> EDGE_SORT_CRITERION =
       KEY_SORTS.stream()
-          .map(entry -> SearchUtil.sortBy(entry.getKey(), entry.getValue()))
+          .map(
+              entry -> {
+                SortCriterion sortCriterion = new SortCriterion();
+                sortCriterion.setField(entry.getKey());
+                sortCriterion.setOrder(
+                    com.linkedin.metadata.query.filter.SortOrder.valueOf(
+                        Optional.ofNullable(entry.getValue())
+                            .orElse(SortOrder.ASCENDING)
+                            .toString()));
+                return sortCriterion;
+              })
           .collect(Collectors.toList());
   private static final String DOC_DELIMETER = "--";
 }

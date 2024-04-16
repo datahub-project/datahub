@@ -6,7 +6,9 @@ import static com.linkedin.metadata.Constants.SCHEMA_FIELD_ENTITY_NAME;
 import static com.linkedin.metadata.search.utils.QueryUtils.EMPTY_FILTER;
 import static com.linkedin.metadata.search.utils.QueryUtils.newFilter;
 import static com.linkedin.metadata.search.utils.QueryUtils.newRelationshipFilter;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
 import static org.testng.Assert.assertEquals;
 
 import com.google.common.collect.ImmutableList;
@@ -24,10 +26,10 @@ import com.linkedin.entity.Aspect;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.aspect.models.graph.RelatedEntity;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.RelatedEntitiesResult;
-import com.linkedin.metadata.graph.RelatedEntity;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.service.BusinessAttributeUpdateHookService;
@@ -40,6 +42,7 @@ import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.platform.event.v1.EntityChangeEvent;
 import com.linkedin.platform.event.v1.Parameters;
 import com.linkedin.util.Pair;
+import io.datahubproject.metadata.context.OperationContext;
 import java.net.URISyntaxException;
 import java.util.Arrays;
 import java.util.Map;
@@ -67,8 +70,8 @@ public class BusinessAttributeUpdateHookTest {
 
   @BeforeMethod
   public void setupTest() throws URISyntaxException {
-    mockGraphService = Mockito.mock(GraphService.class);
-    mockEntityService = Mockito.mock(EntityService.class);
+    mockGraphService = mock(GraphService.class);
+    mockEntityService = mock(EntityService.class);
     actorUrn = Urn.createFromString(TEST_ACTOR_URN);
     businessAttributeServiceHook =
         new BusinessAttributeUpdateHookService(
@@ -102,51 +105,49 @@ public class BusinessAttributeUpdateHookTest {
 
     Mockito.when(
             mockEntityService.getLatestEnvelopedAspect(
-                eq(SCHEMA_FIELD_ENTITY_NAME), eq(SCHEMA_FIELD_URN), eq(BUSINESS_ATTRIBUTE_ASPECT)))
+                any(OperationContext.class),
+                eq(SCHEMA_FIELD_ENTITY_NAME),
+                eq(SCHEMA_FIELD_URN),
+                eq(BUSINESS_ATTRIBUTE_ASPECT)))
         .thenReturn(envelopedAspect());
 
     // mock response
     Mockito.when(
             mockEntityService.alwaysProduceMCLAsync(
-                Mockito.any(Urn.class),
+                any(OperationContext.class),
+                any(Urn.class),
                 Mockito.anyString(),
                 Mockito.anyString(),
-                Mockito.any(AspectSpec.class),
+                any(AspectSpec.class),
                 eq(null),
-                Mockito.any(),
-                Mockito.any(),
-                Mockito.any(),
-                Mockito.any(),
-                Mockito.any(ChangeType.class)))
-        .thenReturn(Pair.of(Mockito.mock(Future.class), false));
+                any(),
+                any(),
+                any(),
+                any(),
+                any(ChangeType.class)))
+        .thenReturn(Pair.of(mock(Future.class), false));
 
     // invoke
-    businessAttributeServiceHook.handleChangeEvent(platformEvent);
+    businessAttributeServiceHook.handleChangeEvent(mock(OperationContext.class), platformEvent);
 
     // verify
     Mockito.verify(mockGraphService, Mockito.times(1))
         .findRelatedEntities(
-            Mockito.any(),
-            Mockito.any(),
-            Mockito.any(),
-            Mockito.any(),
-            Mockito.any(),
-            Mockito.any(),
-            Mockito.anyInt(),
-            Mockito.anyInt());
+            any(), any(), any(), any(), any(), any(), Mockito.anyInt(), Mockito.anyInt());
 
     Mockito.verify(mockEntityService, Mockito.times(1))
         .alwaysProduceMCLAsync(
-            Mockito.any(Urn.class),
+            any(OperationContext.class),
+            any(Urn.class),
             Mockito.anyString(),
             Mockito.anyString(),
-            Mockito.any(AspectSpec.class),
+            any(AspectSpec.class),
             eq(null),
-            Mockito.any(),
-            Mockito.any(),
-            Mockito.any(),
-            Mockito.any(),
-            Mockito.any(ChangeType.class));
+            any(),
+            any(),
+            any(),
+            any(),
+            any(ChangeType.class));
   }
 
   @Test
@@ -154,32 +155,26 @@ public class BusinessAttributeUpdateHookTest {
     PlatformEvent platformEvent = createPlatformEventInvalidCategory();
 
     // invoke
-    businessAttributeServiceHook.handleChangeEvent(platformEvent);
+    businessAttributeServiceHook.handleChangeEvent(mock(OperationContext.class), platformEvent);
 
     // verify
     Mockito.verify(mockGraphService, Mockito.times(0))
         .findRelatedEntities(
-            Mockito.any(),
-            Mockito.any(),
-            Mockito.any(),
-            Mockito.any(),
-            Mockito.any(),
-            Mockito.any(),
-            Mockito.anyInt(),
-            Mockito.anyInt());
+            any(), any(), any(), any(), any(), any(), Mockito.anyInt(), Mockito.anyInt());
 
     Mockito.verify(mockEntityService, Mockito.times(0))
         .alwaysProduceMCLAsync(
-            Mockito.any(Urn.class),
+            any(OperationContext.class),
+            any(Urn.class),
             Mockito.anyString(),
             Mockito.anyString(),
-            Mockito.any(AspectSpec.class),
+            any(AspectSpec.class),
             eq(null),
-            Mockito.any(),
-            Mockito.any(),
-            Mockito.any(),
-            Mockito.any(),
-            Mockito.any(ChangeType.class));
+            any(),
+            any(),
+            any(),
+            any(),
+            any(ChangeType.class));
   }
 
   public static PlatformEvent createPlatformEventBusinessAttribute() throws Exception {
