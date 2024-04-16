@@ -91,6 +91,16 @@ public interface EntityService<U extends ChangeMCP> extends AspectRetriever {
   }
 
   /**
+   * Returns whether the urn of the entity exists (has materialized aspects).
+   *
+   * @param urn the urn of the entity to check
+   * @return entities exists.
+   */
+  default boolean exists(@Nonnull Urn urn) {
+    return exists(urn, true);
+  }
+
+  /**
    * Retrieves the latest aspects corresponding to a batch of {@link Urn}s based on a provided set
    * of aspect names.
    *
