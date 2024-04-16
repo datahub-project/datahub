@@ -58,6 +58,7 @@ module.exports = {
         "docs/sync-status",
         "docs/incidents/incidents",
         "docs/generated/lineage/lineage-feature-guide",
+        "docs/businessattributes",
         {
           type: "doc",
           id: "docs/tests/metadata-tests",

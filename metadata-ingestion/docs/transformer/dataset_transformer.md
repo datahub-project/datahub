@@ -907,6 +907,24 @@ Then define your class to return a list of custom properties, for example:
           add_properties_resolver_class: "<your_module>.<your_class>"
     ```
 
+## Replace ExternalUrl
+### Config Details
+| Field                       | Required | Type    | Default       | Description                                 |
+|-----------------------------|----------|---------|---------------|---------------------------------------------|
+| `input_pattern`                 | ✅         | string    |    | String or pattern to replace |
+| `replacement`                 | ✅         | string    |    | Replacement string |
+
+
+Matches the full/partial string in the externalUrl of the dataset properties and replace that with the replacement string
+
+```yaml
+transformers:
+  - type: "replace_external_url"
+    config:
+      input_pattern: '\b\w*hub\b'
+      replacement: "sub"
+```
+
 ## Simple Add Dataset domains 
 ### Config Details
 | Field              | Required | Type                   | Default       | Description                                                      |

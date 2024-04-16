@@ -24,6 +24,8 @@ import io.datahubproject.openapi.entities.EntitiesController;
 import io.datahubproject.openapi.exception.UnauthorizedException;
 import io.datahubproject.openapi.generated.BrowsePathsV2AspectRequestV2;
 import io.datahubproject.openapi.generated.BrowsePathsV2AspectResponseV2;
+import io.datahubproject.openapi.generated.BusinessAttributeInfoAspectRequestV2;
+import io.datahubproject.openapi.generated.BusinessAttributeInfoAspectResponseV2;
 import io.datahubproject.openapi.generated.ChartInfoAspectRequestV2;
 import io.datahubproject.openapi.generated.ChartInfoAspectResponseV2;
 import io.datahubproject.openapi.generated.DataProductPropertiesAspectRequestV2;
@@ -66,10 +68,12 @@ import java.util.stream.Stream;
 import javax.annotation.Nullable;
 import javax.validation.Valid;
 import javax.validation.constraints.Min;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
+@Slf4j
 public class EntityApiDelegateImpl<I, O, S> {
   private final OperationContext systemOperationContext;
   private final EntityRegistry _entityRegistry;
@@ -81,6 +85,8 @@ public class EntityApiDelegateImpl<I, O, S> {
   private final Class<O> _respClazz;
   private final Class<S> _scrollRespClazz;
 
+  private static final String BUSINESS_ATTRIBUTE_ERROR_MESSAGE =
+      "business attribute is disabled, enable it using featureflag : BUSINESS_ATTRIBUTE_ENTITY_ENABLED";
   private final StackWalker walker = StackWalker.getInstance();
 
   public EntityApiDelegateImpl(
@@ -104,6 +110,9 @@ public class EntityApiDelegateImpl<I, O, S> {
   }
 
   public ResponseEntity<O> get(String urn, Boolean systemMetadata, List<String> aspects) {
+    if (checkBusinessAttributeFlagFromUrn(urn)) {
+      throw new UnsupportedOperationException(BUSINESS_ATTRIBUTE_ERROR_MESSAGE);
+    }
     String[] requestedAspects =
         Optional.ofNullable(aspects)
             .map(asp -> asp.stream().distinct().toArray(String[]::new))
@@ -128,6 +137,14 @@ public class EntityApiDelegateImpl<I, O, S> {
                     OpenApiEntitiesUtil.convertEntityToUpsert(b, _reqClazz, _entityRegistry)
                         .stream())
             .collect(Collectors.toList());
+
+    Optional<UpsertAspectRequest> aspect = aspects.stream().findFirst();
+    if (aspect.isPresent()) {
+      String entityType = aspect.get().getEntityType();
+      if (checkBusinessAttributeFlagFromEntityType(entityType)) {
+        throw new UnsupportedOperationException(BUSINESS_ATTRIBUTE_ERROR_MESSAGE);
+      }
+    }
     _v1Controller.postEntities(aspects, false, createIfNotExists, createEntityIfNotExists);
     List<O> responses =
         body.stream()
@@ -137,14 +154,19 @@ public class EntityApiDelegateImpl<I, O, S> {
   }
 
   public ResponseEntity<Void> delete(String urn) {
+    if (checkBusinessAttributeFlagFromUrn(urn)) {
+      throw new UnsupportedOperationException(BUSINESS_ATTRIBUTE_ERROR_MESSAGE);
+    }
     _v1Controller.deleteEntities(new String[] {urn}, false, false);
     return new ResponseEntity<>(HttpStatus.OK);
   }
 
   public ResponseEntity<Void> head(String urn) {
+    if (checkBusinessAttributeFlagFromUrn(urn)) {
+      throw new UnsupportedOperationException(BUSINESS_ATTRIBUTE_ERROR_MESSAGE);
+    }
     try {
       Urn entityUrn = Urn.createFromString(urn);
-
       final Authentication auth = AuthenticationContext.getAuthentication();
       if (!AuthUtil.isAPIAuthorizedEntityUrns(
           auth, _authorizationChain, EXISTS, List.of(entityUrn))) {
@@ -278,6 +300,9 @@ public class EntityApiDelegateImpl<I, O, S> {
       String urn,
       @Nullable Boolean createIfNotExists,
       @Nullable Boolean createEntityIfNotExists) {
+    if (checkBusinessAttributeFlagFromUrn(urn)) {
+      throw new UnsupportedOperationException(BUSINESS_ATTRIBUTE_ERROR_MESSAGE);
+    }
     String methodName =
         walker.walk(frames -> frames.findFirst().map(StackWalker.StackFrame::getMethodName)).get();
     return createAspect(
@@ -295,6 +320,9 @@ public class EntityApiDelegateImpl<I, O, S> {
       String urn,
       @Nullable Boolean createIfNotExists,
       @Nullable Boolean createEntityIfNotExists) {
+    if (checkBusinessAttributeFlagFromUrn(urn)) {
+      throw new UnsupportedOperationException(BUSINESS_ATTRIBUTE_ERROR_MESSAGE);
+    }
     String methodName =
         walker.walk(frames -> frames.findFirst().map(StackWalker.StackFrame::getMethodName)).get();
     return createAspect(
@@ -326,12 +354,18 @@ public class EntityApiDelegateImpl<I, O, S> {
   }
 
   public ResponseEntity<Void> deleteOwnership(String urn) {
+    if (checkBusinessAttributeFlagFromUrn(urn)) {
+      throw new UnsupportedOperationException(BUSINESS_ATTRIBUTE_ERROR_MESSAGE);
+    }
     String methodName =
         walker.walk(frames -> frames.findFirst().map(StackWalker.StackFrame::getMethodName)).get();
     return deleteAspect(urn, methodNameToAspectName(methodName));
   }
 
   public ResponseEntity<Void> deleteStatus(String urn) {
+    if (checkBusinessAttributeFlagFromUrn(urn)) {
+      throw new UnsupportedOperationException(BUSINESS_ATTRIBUTE_ERROR_MESSAGE);
+    }
     String methodName =
         walker.walk(frames -> frames.findFirst().map(StackWalker.StackFrame::getMethodName)).get();
     return deleteAspect(urn, methodNameToAspectName(methodName));
@@ -374,6 +408,9 @@ public class EntityApiDelegateImpl<I, O, S> {
 
   public ResponseEntity<OwnershipAspectResponseV2> getOwnership(
       String urn, Boolean systemMetadata) {
+    if (checkBusinessAttributeFlagFromUrn(urn)) {
+      throw new UnsupportedOperationException(BUSINESS_ATTRIBUTE_ERROR_MESSAGE);
+    }
     String methodName =
         walker.walk(frames -> frames.findFirst().map(StackWalker.StackFrame::getMethodName)).get();
     return getAspect(
@@ -385,6 +422,9 @@ public class EntityApiDelegateImpl<I, O, S> {
   }
 
   public ResponseEntity<StatusAspectResponseV2> getStatus(String urn, Boolean systemMetadata) {
+    if (checkBusinessAttributeFlagFromUrn(urn)) {
+      throw new UnsupportedOperationException(BUSINESS_ATTRIBUTE_ERROR_MESSAGE);
+    }
     String methodName =
         walker.walk(frames -> frames.findFirst().map(StackWalker.StackFrame::getMethodName)).get();
     return getAspect(
@@ -414,12 +454,18 @@ public class EntityApiDelegateImpl<I, O, S> {
   }
 
   public ResponseEntity<Void> headOwnership(String urn) {
+    if (checkBusinessAttributeFlagFromUrn(urn)) {
+      throw new UnsupportedOperationException(BUSINESS_ATTRIBUTE_ERROR_MESSAGE);
+    }
     String methodName =
         walker.walk(frames -> frames.findFirst().map(StackWalker.StackFrame::getMethodName)).get();
     return headAspect(urn, methodNameToAspectName(methodName));
   }
 
   public ResponseEntity<Void> headStatus(String urn) {
+    if (checkBusinessAttributeFlagFromUrn(urn)) {
+      throw new UnsupportedOperationException(BUSINESS_ATTRIBUTE_ERROR_MESSAGE);
+    }
     String methodName =
         walker.walk(frames -> frames.findFirst().map(StackWalker.StackFrame::getMethodName)).get();
     return headAspect(urn, methodNameToAspectName(methodName));
@@ -624,6 +670,9 @@ public class EntityApiDelegateImpl<I, O, S> {
       String urn,
       @Nullable Boolean createIfNotExists,
       @Nullable Boolean createEntityIfNotExists) {
+    if (checkBusinessAttributeFlagFromUrn(urn)) {
+      throw new UnsupportedOperationException(BUSINESS_ATTRIBUTE_ERROR_MESSAGE);
+    }
     String methodName =
         walker.walk(frames -> frames.findFirst().map(StackWalker.StackFrame::getMethodName)).get();
     return createAspect(
@@ -700,6 +749,9 @@ public class EntityApiDelegateImpl<I, O, S> {
   }
 
   public ResponseEntity<Void> deleteInstitutionalMemory(String urn) {
+    if (checkBusinessAttributeFlagFromUrn(urn)) {
+      throw new UnsupportedOperationException(BUSINESS_ATTRIBUTE_ERROR_MESSAGE);
+    }
     String methodName =
         walker.walk(frames -> frames.findFirst().map(StackWalker.StackFrame::getMethodName)).get();
     return deleteAspect(urn, methodNameToAspectName(methodName));
@@ -737,6 +789,9 @@ public class EntityApiDelegateImpl<I, O, S> {
 
   public ResponseEntity<InstitutionalMemoryAspectResponseV2> getInstitutionalMemory(
       String urn, Boolean systemMetadata) {
+    if (checkBusinessAttributeFlagFromUrn(urn)) {
+      throw new UnsupportedOperationException(BUSINESS_ATTRIBUTE_ERROR_MESSAGE);
+    }
     String methodName =
         walker.walk(frames -> frames.findFirst().map(StackWalker.StackFrame::getMethodName)).get();
     return getAspect(
@@ -796,6 +851,9 @@ public class EntityApiDelegateImpl<I, O, S> {
   }
 
   public ResponseEntity<Void> headInstitutionalMemory(String urn) {
+    if (checkBusinessAttributeFlagFromUrn(urn)) {
+      throw new UnsupportedOperationException(BUSINESS_ATTRIBUTE_ERROR_MESSAGE);
+    }
     String methodName =
         walker.walk(frames -> frames.findFirst().map(StackWalker.StackFrame::getMethodName)).get();
     return headAspect(urn, methodNameToAspectName(methodName));
@@ -952,5 +1010,75 @@ public class EntityApiDelegateImpl<I, O, S> {
     String methodName =
         walker.walk(frames -> frames.findFirst().map(StackWalker.StackFrame::getMethodName)).get();
     return deleteAspect(urn, methodNameToAspectName(methodName));
+  }
+
+  public ResponseEntity<BusinessAttributeInfoAspectResponseV2> createBusinessAttributeInfo(
+      BusinessAttributeInfoAspectRequestV2 body,
+      String urn,
+      @Nullable Boolean createIfNotExists,
+      @Nullable Boolean createEntityIfNotExists) {
+    if (checkBusinessAttributeFlagFromUrn(urn)) {
+      throw new UnsupportedOperationException(BUSINESS_ATTRIBUTE_ERROR_MESSAGE);
+    }
+    String methodName =
+        walker.walk(frames -> frames.findFirst().map(StackWalker.StackFrame::getMethodName)).get();
+    return createAspect(
+        urn,
+        methodNameToAspectName(methodName),
+        body,
+        BusinessAttributeInfoAspectRequestV2.class,
+        BusinessAttributeInfoAspectResponseV2.class,
+        createIfNotExists,
+        createEntityIfNotExists);
+  }
+
+  public ResponseEntity<Void> deleteBusinessAttributeInfo(String urn) {
+    if (checkBusinessAttributeFlagFromUrn(urn)) {
+      throw new UnsupportedOperationException(BUSINESS_ATTRIBUTE_ERROR_MESSAGE);
+    }
+    String methodName =
+        walker.walk(frames -> frames.findFirst().map(StackWalker.StackFrame::getMethodName)).get();
+    return deleteAspect(urn, methodNameToAspectName(methodName));
+  }
+
+  public ResponseEntity<BusinessAttributeInfoAspectResponseV2> getBusinessAttributeInfo(
+      String urn, Boolean systemMetadata) {
+    if (checkBusinessAttributeFlagFromUrn(urn)) {
+      throw new UnsupportedOperationException(BUSINESS_ATTRIBUTE_ERROR_MESSAGE);
+    }
+    String methodName =
+        walker.walk(frames -> frames.findFirst().map(StackWalker.StackFrame::getMethodName)).get();
+    return getAspect(
+        urn,
+        systemMetadata,
+        methodNameToAspectName(methodName),
+        _respClazz,
+        BusinessAttributeInfoAspectResponseV2.class);
+  }
+
+  public ResponseEntity<Void> headBusinessAttributeInfo(String urn) {
+    if (checkBusinessAttributeFlagFromUrn(urn)) {
+      throw new UnsupportedOperationException(BUSINESS_ATTRIBUTE_ERROR_MESSAGE);
+    }
+    String methodName =
+        walker.walk(frames -> frames.findFirst().map(StackWalker.StackFrame::getMethodName)).get();
+    return headAspect(urn, methodNameToAspectName(methodName));
+  }
+
+  private boolean checkBusinessAttributeFlagFromUrn(String urn) {
+    try {
+      return checkBusinessAttributeFlagFromEntityType(Urn.createFromString(urn).getEntityType());
+    } catch (URISyntaxException e) {
+      return true;
+    }
+  }
+
+  private boolean checkBusinessAttributeFlagFromEntityType(String entityType) {
+    return entityType.equals("businessAttribute") && !businessAttributeEntityEnabled();
+  }
+
+  private boolean businessAttributeEntityEnabled() {
+    return System.getenv("BUSINESS_ATTRIBUTE_ENTITY_ENABLED") != null
+        && Boolean.parseBoolean(System.getenv("BUSINESS_ATTRIBUTE_ENTITY_ENABLED"));
   }
 }
