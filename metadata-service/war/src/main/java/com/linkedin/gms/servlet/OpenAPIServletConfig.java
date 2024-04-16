@@ -15,7 +15,9 @@ import org.springframework.web.servlet.config.annotation.EnableWebMvc;
       "io.datahubproject.openapi.relationships",
       "io.datahubproject.openapi.timeline",
       "io.datahubproject.openapi.entities",
+      "io.datahubproject.openapi.v1",
       "io.datahubproject.openapi.v2",
+      "io.datahubproject.openapi.v3",
       "com.linkedin.gms.factory.timeline"
     })
 @Configuration
