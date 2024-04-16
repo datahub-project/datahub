@@ -21,21 +21,23 @@ import com.linkedin.metadata.timeline.eventgenerator.OwnershipChangeEventGenerat
 import com.linkedin.metadata.timeline.eventgenerator.SchemaMetadataChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.SingleDomainChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.StatusChangeEventGenerator;
+import io.datahubproject.metadata.context.OperationContext;
 import javax.annotation.Nonnull;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.DependsOn;
 
 @Configuration
 public class EntityChangeEventGeneratorRegistryFactory {
   @Autowired ApplicationContext applicationContext;
 
   @Bean(name = "entityChangeEventGeneratorRegistry")
-  @DependsOn({"systemEntityClient"})
   @Nonnull
-  protected EntityChangeEventGeneratorRegistry entityChangeEventGeneratorRegistry() {
+  protected EntityChangeEventGeneratorRegistry entityChangeEventGeneratorRegistry(
+      @Qualifier("systemOperationContext") final OperationContext systemOperationContext,
+      @Qualifier("systemEntityClient") final SystemEntityClient systemEntityClient) {
     final SystemEntityClient entityClient = applicationContext.getBean(SystemEntityClient.class);
     final EntityChangeEventGeneratorRegistry registry = new EntityChangeEventGeneratorRegistry();
     registry.register(SCHEMA_METADATA_ASPECT_NAME, new SchemaMetadataChangeEventGenerator());
@@ -79,7 +81,8 @@ public class EntityChangeEventGeneratorRegistryFactory {
     // Data Process Instance differs
     registry.register(
         DATA_PROCESS_INSTANCE_RUN_EVENT_ASPECT_NAME,
-        new DataProcessInstanceRunEventChangeEventGenerator(entityClient));
+        new DataProcessInstanceRunEventChangeEventGenerator(
+            systemOperationContext, systemEntityClient));
 
     // TODO: Add ML models.
 

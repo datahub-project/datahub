@@ -9,6 +9,8 @@ import com.datahub.authorization.role.RoleService;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.entity.client.EntityClient;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -22,12 +24,14 @@ public class RoleServiceTest {
   private Urn roleUrn;
   private EntityClient _entityClient;
   private RoleService _roleService;
+  private OperationContext opContext =
+      TestOperationContexts.userContextNoSearchAuthorization(SYSTEM_AUTHENTICATION);
 
   @BeforeMethod
   public void setupTest() throws Exception {
     roleUrn = Urn.createFromString(ROLE_URN_STRING);
     _entityClient = mock(EntityClient.class);
-    when(_entityClient.exists(eq(roleUrn), eq(SYSTEM_AUTHENTICATION))).thenReturn(true);
+    when(_entityClient.exists(any(), eq(roleUrn))).thenReturn(true);
 
     _roleService = new RoleService(_entityClient);
   }
@@ -35,51 +39,46 @@ public class RoleServiceTest {
   @Test
   public void testBatchAssignRoleNoActorExists() throws Exception {
     when(_entityClient.exists(
-            eq(Urn.createFromString(FIRST_ACTOR_URN_STRING)), eq(SYSTEM_AUTHENTICATION)))
+            any(OperationContext.class), eq(Urn.createFromString(FIRST_ACTOR_URN_STRING))))
         .thenReturn(false);
 
     _roleService.batchAssignRoleToActors(
-        ImmutableList.of(FIRST_ACTOR_URN_STRING), roleUrn, SYSTEM_AUTHENTICATION);
-    verify(_entityClient, never()).ingestProposal(any(), eq(SYSTEM_AUTHENTICATION), eq(false));
+        opContext, ImmutableList.of(FIRST_ACTOR_URN_STRING), roleUrn);
+    verify(_entityClient, never()).ingestProposal(any(OperationContext.class), any(), eq(false));
   }
 
   @Test
   public void testBatchAssignRoleSomeActorExists() throws Exception {
     when(_entityClient.exists(
-            eq(Urn.createFromString(FIRST_ACTOR_URN_STRING)), eq(SYSTEM_AUTHENTICATION)))
+            any(OperationContext.class), eq(Urn.createFromString(FIRST_ACTOR_URN_STRING))))
         .thenReturn(true);
 
     _roleService.batchAssignRoleToActors(
-        ImmutableList.of(FIRST_ACTOR_URN_STRING, SECOND_ACTOR_URN_STRING),
-        roleUrn,
-        SYSTEM_AUTHENTICATION);
-    verify(_entityClient, times(1)).ingestProposal(any(), eq(SYSTEM_AUTHENTICATION), eq(false));
+        opContext, ImmutableList.of(FIRST_ACTOR_URN_STRING, SECOND_ACTOR_URN_STRING), roleUrn);
+    verify(_entityClient, times(1)).ingestProposal(any(OperationContext.class), any(), eq(false));
   }
 
   @Test
   public void testBatchAssignRoleAllActorsExist() throws Exception {
     when(_entityClient.exists(
-            eq(Urn.createFromString(FIRST_ACTOR_URN_STRING)), eq(SYSTEM_AUTHENTICATION)))
+            any(OperationContext.class), eq(Urn.createFromString(FIRST_ACTOR_URN_STRING))))
         .thenReturn(true);
     when(_entityClient.exists(
-            eq(Urn.createFromString(SECOND_ACTOR_URN_STRING)), eq(SYSTEM_AUTHENTICATION)))
+            any(OperationContext.class), eq(Urn.createFromString(SECOND_ACTOR_URN_STRING))))
         .thenReturn(true);
 
     _roleService.batchAssignRoleToActors(
-        ImmutableList.of(FIRST_ACTOR_URN_STRING, SECOND_ACTOR_URN_STRING),
-        roleUrn,
-        SYSTEM_AUTHENTICATION);
-    verify(_entityClient, times(2)).ingestProposal(any(), eq(SYSTEM_AUTHENTICATION), eq(false));
+        opContext, ImmutableList.of(FIRST_ACTOR_URN_STRING, SECOND_ACTOR_URN_STRING), roleUrn);
+    verify(_entityClient, times(2)).ingestProposal(any(OperationContext.class), any(), eq(false));
   }
 
   @Test
   public void testAssignNullRoleToActorAllActorsExist() throws Exception {
     when(_entityClient.exists(
-            eq(Urn.createFromString(FIRST_ACTOR_URN_STRING)), eq(SYSTEM_AUTHENTICATION)))
+            any(OperationContext.class), eq(Urn.createFromString(FIRST_ACTOR_URN_STRING))))
         .thenReturn(true);
 
-    _roleService.batchAssignRoleToActors(
-        ImmutableList.of(FIRST_ACTOR_URN_STRING), null, SYSTEM_AUTHENTICATION);
-    verify(_entityClient, times(1)).ingestProposal(any(), eq(SYSTEM_AUTHENTICATION), eq(false));
+    _roleService.batchAssignRoleToActors(opContext, ImmutableList.of(FIRST_ACTOR_URN_STRING), null);
+    verify(_entityClient, times(1)).ingestProposal(any(OperationContext.class), any(), eq(false));
   }
 }

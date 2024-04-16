@@ -340,7 +340,7 @@ public class ESUtils {
             break;
           }
         }
-        if (fieldTypeForDefault.isEmpty()) {
+        if (fieldTypeForDefault.isEmpty() && !entitySpecs.isEmpty()) {
           log.warn(
               "Sort criterion field "
                   + sortCriteria.getField()

@@ -68,13 +68,13 @@ public class CreateDomainResolver implements DataFetcher<CompletableFuture<Strin
             key.setId(id);
 
             if (_entityClient.exists(
-                EntityKeyUtils.convertEntityKeyToUrn(key, DOMAIN_ENTITY_NAME),
-                context.getAuthentication())) {
+                context.getOperationContext(),
+                EntityKeyUtils.convertEntityKeyToUrn(key, DOMAIN_ENTITY_NAME))) {
               throw new IllegalArgumentException("This Domain already exists!");
             }
 
             if (parentDomain != null
-                && !_entityClient.exists(parentDomain, context.getAuthentication())) {
+                && !_entityClient.exists(context.getOperationContext(), parentDomain)) {
               throw new IllegalArgumentException("Parent Domain does not exist!");
             }
 
@@ -97,7 +97,7 @@ public class CreateDomainResolver implements DataFetcher<CompletableFuture<Strin
             proposal.setEntityKeyAspect(GenericRecordUtils.serializeAspect(key));
 
             String domainUrn =
-                _entityClient.ingestProposal(proposal, context.getAuthentication(), false);
+                _entityClient.ingestProposal(context.getOperationContext(), proposal, false);
             OwnerUtils.addCreatorAsOwner(
                 context, domainUrn, OwnerEntityType.CORP_USER, _entityService);
             return domainUrn;

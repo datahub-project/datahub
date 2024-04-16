@@ -34,6 +34,7 @@ import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.structured.StructuredProperties;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import com.linkedin.structured.StructuredPropertyValueAssignment;
+import io.datahubproject.metadata.context.OperationContext;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -62,8 +63,6 @@ public class SearchDocumentTransformer {
 
   // Maximum customProperties value length
   private final int maxValueLength;
-
-  private AspectRetriever aspectRetriever;
 
   private static final String BROWSE_PATH_V2_DELIMITER = "␟";
 
@@ -111,6 +110,7 @@ public class SearchDocumentTransformer {
   }
 
   public Optional<ObjectNode> transformAspect(
+      @Nonnull OperationContext opContext,
       final @Nonnull Urn urn,
       final @Nonnull RecordTemplate aspect,
       final @Nonnull AspectSpec aspectSpec,
@@ -135,7 +135,8 @@ public class SearchDocumentTransformer {
       extractedSearchableFields.forEach(
           (key, values) -> setSearchableValue(key, values, searchDocument, forDelete));
       extractedSearchRefFields.forEach(
-          (key, values) -> setSearchableRefValue(key, values, searchDocument, forDelete));
+          (key, values) ->
+              setSearchableRefValue(opContext, key, values, searchDocument, forDelete));
       extractedSearchScoreFields.forEach(
           (key, values) -> setSearchScoreValue(key, values, searchDocument, forDelete));
       result = Optional.of(searchDocument);
@@ -143,7 +144,7 @@ public class SearchDocumentTransformer {
       final ObjectNode searchDocument = JsonNodeFactory.instance.objectNode();
       searchDocument.put("urn", urn.toString());
       setStructuredPropertiesSearchValue(
-          new StructuredProperties(aspect.data()), searchDocument, forDelete);
+          opContext, new StructuredProperties(aspect.data()), searchDocument, forDelete);
       result = Optional.of(searchDocument);
     }
 
@@ -350,7 +351,10 @@ public class SearchDocumentTransformer {
   }
 
   private void setStructuredPropertiesSearchValue(
-      final StructuredProperties values, final ObjectNode searchDocument, final Boolean forDelete)
+      @Nonnull OperationContext opContext,
+      final StructuredProperties values,
+      final ObjectNode searchDocument,
+      final Boolean forDelete)
       throws RemoteInvocationException, URISyntaxException {
     Map<Urn, Set<StructuredPropertyValueAssignment>> propertyMap =
         values.getProperties().stream()
@@ -359,8 +363,12 @@ public class SearchDocumentTransformer {
                     StructuredPropertyValueAssignment::getPropertyUrn, Collectors.toSet()));
 
     Map<Urn, Map<String, Aspect>> definitions =
-        aspectRetriever.getLatestAspectObjects(
-            propertyMap.keySet(), Set.of(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME));
+        opContext
+            .getRetrieverContext()
+            .get()
+            .getAspectRetriever()
+            .getLatestAspectObjects(
+                propertyMap.keySet(), Set.of(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME));
 
     if (definitions.size() < propertyMap.size()) {
       String message =
@@ -439,6 +447,7 @@ public class SearchDocumentTransformer {
   }
 
   public void setSearchableRefValue(
+      @Nonnull final OperationContext opContext,
       final SearchableRefFieldSpec searchableRefFieldSpec,
       final List<Object> fieldValues,
       final ObjectNode searchDocument,
@@ -456,11 +465,12 @@ public class SearchDocumentTransformer {
       ArrayNode arrayNode = JsonNodeFactory.instance.arrayNode();
       fieldValues
           .subList(0, Math.min(fieldValues.size(), maxArrayLength))
-          .forEach(value -> getNodeForRef(depth, value, fieldType).ifPresent(arrayNode::add));
+          .forEach(
+              value -> getNodeForRef(opContext, depth, value, fieldType).ifPresent(arrayNode::add));
       searchDocument.set(fieldName, arrayNode);
     } else if (!fieldValues.isEmpty()) {
       String finalFieldName = fieldName;
-      getNodeForRef(depth, fieldValues.get(0), fieldType)
+      getNodeForRef(opContext, depth, fieldValues.get(0), fieldType)
           .ifPresent(node -> searchDocument.set(finalFieldName, node));
     } else {
       searchDocument.set(fieldName, JsonNodeFactory.instance.nullNode());
@@ -468,8 +478,13 @@ public class SearchDocumentTransformer {
   }
 
   private Optional<JsonNode> getNodeForRef(
-      final int depth, final Object fieldValue, final FieldType fieldType) {
-    EntityRegistry entityRegistry = aspectRetriever.getEntityRegistry();
+      @Nonnull OperationContext opContext,
+      final int depth,
+      final Object fieldValue,
+      final FieldType fieldType) {
+    EntityRegistry entityRegistry = opContext.getEntityRegistry();
+    AspectRetriever aspectRetriever = opContext.getRetrieverContext().get().getAspectRetriever();
+
     if (depth == 0) {
       if (fieldValue.toString().isEmpty()) {
         return Optional.empty();
@@ -532,6 +547,7 @@ public class SearchDocumentTransformer {
                         .forEach(
                             val ->
                                 getNodeForRef(
+                                        opContext,
                                         newDepth,
                                         val,
                                         spec.getSearchableRefAnnotation().getFieldType())
@@ -540,6 +556,7 @@ public class SearchDocumentTransformer {
                   } else {
                     Optional<JsonNode> node =
                         getNodeForRef(
+                            opContext,
                             newDepth,
                             value.get(0),
                             spec.getSearchableRefAnnotation().getFieldType());
@@ -549,7 +566,7 @@ public class SearchDocumentTransformer {
                   }
                 }
               }
-            } catch (RemoteInvocationException e) {
+            } catch (Exception e) {
               log.error(
                   "Error while fetching aspect details of {} for urn {} : {}",
                   aspectName,

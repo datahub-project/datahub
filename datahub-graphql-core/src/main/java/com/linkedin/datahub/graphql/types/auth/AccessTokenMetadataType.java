@@ -55,10 +55,10 @@ public class AccessTokenMetadataType
     try {
       final Map<Urn, EntityResponse> entities =
           _entityClient.batchGetV2(
+              context.getOperationContext(),
               Constants.ACCESS_TOKEN_ENTITY_NAME,
               new HashSet<>(tokenInfoUrns),
-              ASPECTS_TO_FETCH,
-              context.getAuthentication());
+              ASPECTS_TO_FETCH);
 
       final List<EntityResponse> gmsResults = new ArrayList<>(keys.size());
       for (Urn urn : tokenInfoUrns) {

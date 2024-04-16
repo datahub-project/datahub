@@ -264,10 +264,10 @@ public class IngestionScheduler {
             // 2. Fetch all ingestion sources, specifically the "info" aspect.
             final Map<Urn, EntityResponse> ingestionSources =
                 entityClient.batchGetV2(
+                    systemOpContext,
                     Constants.INGESTION_SOURCE_ENTITY_NAME,
                     new HashSet<>(ingestionSourceUrns.getEntities()),
-                    ImmutableSet.of(Constants.INGESTION_INFO_ASPECT_NAME),
-                    systemOpContext.getSessionAuthentication());
+                    ImmutableSet.of(Constants.INGESTION_INFO_ASPECT_NAME));
 
             // 3. Reschedule ingestion sources based on the fetched schedules (inside "info")
             log.debug(
@@ -421,7 +421,7 @@ public class IngestionScheduler {
         proposal.setAspect(GenericRecordUtils.serializeAspect(input));
         proposal.setChangeType(ChangeType.UPSERT);
 
-        entityClient.ingestProposal(proposal, systemOpContext.getSystemAuthentication().get());
+        entityClient.ingestProposal(systemOpContext, proposal, true);
       } catch (Exception e) {
         // TODO: This type of thing should likely be proactively reported.
         log.error(

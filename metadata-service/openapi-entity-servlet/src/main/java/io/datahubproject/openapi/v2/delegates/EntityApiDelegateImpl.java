@@ -9,6 +9,7 @@ import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authorization.AuthUtil;
 import com.datahub.authorization.AuthorizerChain;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.SearchFlags;
@@ -101,7 +102,7 @@ public class EntityApiDelegateImpl<I, O, S> {
     this.systemOperationContext = systemOperationContext;
     this._entityService = entityService;
     this._searchService = searchService;
-    this._entityRegistry = entityService.getEntityRegistry();
+    this._entityRegistry = systemOperationContext.getEntityRegistry();
     this._v1Controller = entitiesController;
     this._authorizationChain = authorizationChain;
     this._reqClazz = reqClazz;
@@ -173,8 +174,15 @@ public class EntityApiDelegateImpl<I, O, S> {
         throw new UnauthorizedException(
             auth.getActor().toUrnStr() + " is unauthorized to check existence of entities.");
       }
+      OperationContext opContext =
+          OperationContext.asSession(
+              systemOperationContext,
+              RequestContext.builder().buildOpenapi("head", entityUrn.getEntityType()),
+              _authorizationChain,
+              auth,
+              true);
 
-      if (_entityService.exists(entityUrn, true)) {
+      if (_entityService.exists(opContext, entityUrn, true)) {
         return new ResponseEntity<>(HttpStatus.NO_CONTENT);
       } else {
         return new ResponseEntity<>(HttpStatus.NOT_FOUND);
@@ -227,8 +235,15 @@ public class EntityApiDelegateImpl<I, O, S> {
         throw new UnauthorizedException(
             auth.getActor().toUrnStr() + " is unauthorized to check existence of entities.");
       }
+      OperationContext opContext =
+          OperationContext.asSession(
+              systemOperationContext,
+              RequestContext.builder().buildOpenapi("headAspect", entityUrn.getEntityType()),
+              _authorizationChain,
+              auth,
+              true);
 
-      if (_entityService.exists(entityUrn, aspect, true)) {
+      if (_entityService.exists(opContext, entityUrn, aspect, true)) {
         return new ResponseEntity<>(HttpStatus.NO_CONTENT);
       } else {
         return new ResponseEntity<>(HttpStatus.NOT_FOUND);
@@ -239,7 +254,16 @@ public class EntityApiDelegateImpl<I, O, S> {
   }
 
   public ResponseEntity<Void> deleteAspect(String urn, String aspect) {
-    _entityService.deleteAspect(urn, aspect, Map.of(), false);
+    final Authentication auth = AuthenticationContext.getAuthentication();
+    Urn entityUrn = UrnUtils.getUrn(urn);
+    OperationContext opContext =
+        OperationContext.asSession(
+            systemOperationContext,
+            RequestContext.builder().buildOpenapi("deleteAspect", entityUrn.getEntityType()),
+            _authorizationChain,
+            auth,
+            true);
+    _entityService.deleteAspect(opContext, urn, aspect, Map.of(), false);
     _v1Controller.deleteEntities(new String[] {urn}, false, false);
     return new ResponseEntity<>(HttpStatus.OK);
   }

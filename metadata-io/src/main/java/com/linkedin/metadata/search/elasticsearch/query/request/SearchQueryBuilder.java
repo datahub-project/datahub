@@ -27,6 +27,7 @@ import com.linkedin.metadata.models.annotation.SearchableAnnotation;
 import com.linkedin.metadata.models.annotation.SearchableRefAnnotation;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.utils.ESUtils;
+import io.datahubproject.metadata.context.OperationContext;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -91,7 +92,6 @@ public class SearchQueryBuilder {
   private final WordGramConfiguration wordGramConfiguration;
 
   private final CustomizedQueryHandler customizedQueryHandler;
-  private EntityRegistry entityRegistry;
 
   public SearchQueryBuilder(
       @Nonnull SearchConfiguration searchConfiguration,
@@ -102,17 +102,16 @@ public class SearchQueryBuilder {
     this.customizedQueryHandler = CustomizedQueryHandler.builder(customSearchConfiguration).build();
   }
 
-  public void setEntityRegistry(EntityRegistry entityRegistry) {
-    this.entityRegistry = entityRegistry;
-  }
-
   public QueryBuilder buildQuery(
-      @Nonnull List<EntitySpec> entitySpecs, @Nonnull String query, boolean fulltext) {
+      @Nonnull OperationContext opContext,
+      @Nonnull List<EntitySpec> entitySpecs,
+      @Nonnull String query,
+      boolean fulltext) {
     QueryConfiguration customQueryConfig =
         customizedQueryHandler.lookupQueryConfig(query).orElse(null);
 
     final QueryBuilder queryBuilder =
-        buildInternalQuery(customQueryConfig, entitySpecs, query, fulltext);
+        buildInternalQuery(opContext, customQueryConfig, entitySpecs, query, fulltext);
     return buildScoreFunctions(customQueryConfig, entitySpecs, queryBuilder);
   }
 
@@ -126,6 +125,7 @@ public class SearchQueryBuilder {
    * @return query builder
    */
   private QueryBuilder buildInternalQuery(
+      @Nonnull OperationContext opContext,
       @Nullable QueryConfiguration customQueryConfig,
       @Nonnull List<EntitySpec> entitySpecs,
       @Nonnull String query,
@@ -138,18 +138,22 @@ public class SearchQueryBuilder {
             .minimumShouldMatch(1);
 
     if (fulltext && !query.startsWith(STRUCTURED_QUERY_PREFIX)) {
-      getSimpleQuery(customQueryConfig, entitySpecs, sanitizedQuery).ifPresent(finalQuery::should);
-      getPrefixAndExactMatchQuery(customQueryConfig, entitySpecs, sanitizedQuery)
+      getSimpleQuery(opContext.getEntityRegistry(), customQueryConfig, entitySpecs, sanitizedQuery)
+          .ifPresent(finalQuery::should);
+      getPrefixAndExactMatchQuery(
+              opContext.getEntityRegistry(), customQueryConfig, entitySpecs, sanitizedQuery)
           .ifPresent(finalQuery::should);
     } else {
       final String withoutQueryPrefix =
           query.startsWith(STRUCTURED_QUERY_PREFIX)
               ? query.substring(STRUCTURED_QUERY_PREFIX.length())
               : query;
-      getStructuredQuery(customQueryConfig, entitySpecs, withoutQueryPrefix)
+      getStructuredQuery(
+              opContext.getEntityRegistry(), customQueryConfig, entitySpecs, withoutQueryPrefix)
           .ifPresent(finalQuery::should);
       if (exactMatchConfiguration.isEnableStructured()) {
-        getPrefixAndExactMatchQuery(customQueryConfig, entitySpecs, withoutQueryPrefix)
+        getPrefixAndExactMatchQuery(
+                opContext.getEntityRegistry(), customQueryConfig, entitySpecs, withoutQueryPrefix)
             .ifPresent(finalQuery::should);
       }
     }
@@ -165,7 +169,8 @@ public class SearchQueryBuilder {
    * @return A set of SearchFieldConfigs containing the searchable fields from the input entities.
    */
   @VisibleForTesting
-  public Set<SearchFieldConfig> getStandardFields(@Nonnull Collection<EntitySpec> entitySpecs) {
+  public Set<SearchFieldConfig> getStandardFields(
+      @Nonnull EntityRegistry entityRegistry, @Nonnull Collection<EntitySpec> entitySpecs) {
     Set<SearchFieldConfig> fields = new HashSet<>();
     // Always present
     final float urnBoost =
@@ -182,7 +187,7 @@ public class SearchQueryBuilder {
             true));
 
     entitySpecs.stream()
-        .map(this::getFieldsFromEntitySpec)
+        .map(spec -> getFieldsFromEntitySpec(entityRegistry, spec))
         .flatMap(Set::stream)
         .collect(Collectors.groupingBy(SearchFieldConfig::fieldName))
         .forEach(
@@ -209,7 +214,8 @@ public class SearchQueryBuilder {
   }
 
   @VisibleForTesting
-  public Set<SearchFieldConfig> getFieldsFromEntitySpec(EntitySpec entitySpec) {
+  public Set<SearchFieldConfig> getFieldsFromEntitySpec(
+      @Nonnull EntityRegistry entityRegistry, EntitySpec entitySpec) {
     Set<SearchFieldConfig> fields = new HashSet<>();
     List<SearchableFieldSpec> searchableFieldSpecs = entitySpec.getSearchableFieldSpecs();
     for (SearchableFieldSpec fieldSpec : searchableFieldSpecs) {
@@ -297,7 +303,8 @@ public class SearchQueryBuilder {
             .build());
   }
 
-  private Set<SearchFieldConfig> getStandardFields(@Nonnull EntitySpec entitySpec) {
+  private Set<SearchFieldConfig> getStandardFields(
+      @Nonnull EntityRegistry entityRegistry, @Nonnull EntitySpec entitySpec) {
     Set<SearchFieldConfig> fields = new HashSet<>();
 
     // Always present
@@ -314,7 +321,7 @@ public class SearchQueryBuilder {
             SearchableAnnotation.FieldType.URN,
             true));
 
-    fields.addAll(getFieldsFromEntitySpec(entitySpec));
+    fields.addAll(getFieldsFromEntitySpec(entityRegistry, entitySpec));
 
     return fields;
   }
@@ -328,6 +335,7 @@ public class SearchQueryBuilder {
   }
 
   private Optional<QueryBuilder> getSimpleQuery(
+      @Nonnull EntityRegistry entityRegistry,
       @Nullable QueryConfiguration customQueryConfig,
       List<EntitySpec> entitySpecs,
       String sanitizedQuery) {
@@ -351,7 +359,7 @@ public class SearchQueryBuilder {
       // Group the fields by analyzer
       Map<String, List<SearchFieldConfig>> analyzerGroup =
           entitySpecs.stream()
-              .map(this::getStandardFields)
+              .map(spec -> getStandardFields(entityRegistry, spec))
               .flatMap(Set::stream)
               .filter(SearchFieldConfig::isQueryByDefault)
               .collect(Collectors.groupingBy(SearchFieldConfig::analyzer));
@@ -385,6 +393,7 @@ public class SearchQueryBuilder {
   }
 
   private Optional<QueryBuilder> getPrefixAndExactMatchQuery(
+      @Nonnull EntityRegistry entityRegistry,
       @Nullable QueryConfiguration customQueryConfig,
       @Nonnull List<EntitySpec> entitySpecs,
       String query) {
@@ -398,7 +407,7 @@ public class SearchQueryBuilder {
     BoolQueryBuilder finalQuery = QueryBuilders.boolQuery();
     String unquotedQuery = unquote(query);
 
-    getStandardFields(entitySpecs)
+    getStandardFields(entityRegistry, entitySpecs)
         .forEach(
             searchFieldConfig -> {
               if (searchFieldConfig.isDelimitedSubfield() && isPrefixQuery) {
@@ -453,6 +462,7 @@ public class SearchQueryBuilder {
   }
 
   private Optional<QueryBuilder> getStructuredQuery(
+      @Nonnull EntityRegistry entityRegistry,
       @Nullable QueryConfiguration customQueryConfig,
       List<EntitySpec> entitySpecs,
       String sanitizedQuery) {
@@ -468,7 +478,7 @@ public class SearchQueryBuilder {
     if (executeStructuredQuery) {
       QueryStringQueryBuilder queryBuilder = QueryBuilders.queryStringQuery(sanitizedQuery);
       queryBuilder.defaultOperator(Operator.AND);
-      getStandardFields(entitySpecs)
+      getStandardFields(entityRegistry, entitySpecs)
           .forEach(entitySpec -> queryBuilder.field(entitySpec.fieldName(), entitySpec.boost()));
       result = Optional.of(queryBuilder);
     }

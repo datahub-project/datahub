@@ -1,6 +1,6 @@
 package com.linkedin.gms.factory.lineage;
 
-import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.service.LineageService;
 import com.linkedin.metadata.spring.YamlPropertySourceFactory;
 import javax.annotation.Nonnull;
@@ -17,8 +17,8 @@ public class LineageServiceFactory {
   @Bean(name = "lineageService")
   @Scope("singleton")
   @Nonnull
-  protected LineageService getInstance(@Qualifier("entityClient") final EntityClient entityClient)
-      throws Exception {
+  protected LineageService getInstance(
+      @Qualifier("systemEntityClient") final SystemEntityClient entityClient) throws Exception {
     return new LineageService(entityClient);
   }
 }

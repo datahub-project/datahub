@@ -18,6 +18,6 @@ public class OwnershipTypeServiceFactory {
   @Nonnull
   protected OwnershipTypeService getInstance(final SystemEntityClient entityClient)
       throws Exception {
-    return new OwnershipTypeService(entityClient, entityClient.getSystemAuthentication());
+    return new OwnershipTypeService(entityClient);
   }
 }

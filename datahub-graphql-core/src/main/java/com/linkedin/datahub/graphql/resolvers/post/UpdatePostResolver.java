@@ -61,7 +61,8 @@ public class UpdatePostResolver implements DataFetcher<CompletableFuture<Boolean
     return CompletableFuture.supplyAsync(
         () -> {
           try {
-            return postService.updatePost(postUrn, type.toString(), postContent, authentication);
+            return postService.updatePost(
+                context.getOperationContext(), postUrn, type.toString(), postContent);
           } catch (Exception e) {
             throw new GraphQLException("Failed to update or edit post", e);
           }

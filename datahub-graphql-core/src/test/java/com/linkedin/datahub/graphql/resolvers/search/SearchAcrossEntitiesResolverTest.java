@@ -4,7 +4,6 @@ import static com.linkedin.datahub.graphql.TestUtils.*;
 import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.*;
 import static org.mockito.ArgumentMatchers.any;
 
-import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
@@ -465,8 +464,7 @@ public class SearchAcrossEntitiesResolverTest {
 
   private static ViewService initMockViewService(Urn viewUrn, DataHubViewInfo viewInfo) {
     ViewService service = Mockito.mock(ViewService.class);
-    Mockito.when(service.getViewInfo(Mockito.eq(viewUrn), Mockito.any(Authentication.class)))
-        .thenReturn(viewInfo);
+    Mockito.when(service.getViewInfo(any(), Mockito.eq(viewUrn))).thenReturn(viewInfo);
     return service;
   }
 
@@ -512,8 +510,7 @@ public class SearchAcrossEntitiesResolverTest {
   }
 
   private static void verifyMockViewService(ViewService mockService, Urn viewUrn) {
-    Mockito.verify(mockService, Mockito.times(1))
-        .getViewInfo(Mockito.eq(viewUrn), Mockito.any(Authentication.class));
+    Mockito.verify(mockService, Mockito.times(1)).getViewInfo(any(), Mockito.eq(viewUrn));
   }
 
   private SearchAcrossEntitiesResolverTest() {}

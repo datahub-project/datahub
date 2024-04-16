@@ -91,14 +91,14 @@ public class CreateERModelRelationshipResolver
                 ERModelRelationshipUpdateInputMapper.map(context, input, actor);
             proposals.forEach(proposal -> proposal.setEntityUrn(inputUrn));
             try {
-              _entityClient.batchIngestProposals(proposals, context.getAuthentication(), false);
+              _entityClient.batchIngestProposals(context.getOperationContext(), proposals, false);
             } catch (RemoteInvocationException e) {
               throw new RuntimeException("Failed to create erModelRelationship entity", e);
             }
             return ERModelRelationMapper.map(
                 context,
                 _erModelRelationshipService.getERModelRelationshipResponse(
-                    Urn.createFromString(inputUrn.toString()), authentication));
+                    context.getOperationContext(), Urn.createFromString(inputUrn.toString())));
           } catch (Exception e) {
             log.error(
                 "Failed to create ERModelRelation to resource with input {}, {}",

@@ -15,7 +15,6 @@ import com.linkedin.metadata.search.client.CachingEntitySearchService;
 import com.linkedin.metadata.service.RollbackService;
 import com.linkedin.metadata.spring.YamlPropertySourceFactory;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
-import io.datahubproject.metadata.context.OperationContext;
 import javax.inject.Singleton;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -32,7 +31,6 @@ public class JavaEntityClientFactory {
   @Bean("entityClient")
   @Singleton
   public EntityClient entityClient(
-      final OperationContext opContext,
       final @Qualifier("entityService") EntityService<?> _entityService,
       final @Qualifier("deleteEntityService") DeleteEntityService _deleteEntityService,
       final @Qualifier("searchService") SearchService _searchService,
@@ -44,7 +42,6 @@ public class JavaEntityClientFactory {
       final @Qualifier("kafkaEventProducer") EventProducer _eventProducer,
       final RollbackService rollbackService) {
     return new JavaEntityClient(
-        opContext,
         _entityService,
         _deleteEntityService,
         _entitySearchService,
@@ -59,7 +56,6 @@ public class JavaEntityClientFactory {
   @Bean("systemEntityClient")
   @Singleton
   public SystemEntityClient systemEntityClient(
-      final @Qualifier("systemOperationContext") OperationContext systemOperationContext,
       final @Qualifier("entityService") EntityService<?> _entityService,
       final @Qualifier("deleteEntityService") DeleteEntityService _deleteEntityService,
       final @Qualifier("searchService") SearchService _searchService,
@@ -72,7 +68,6 @@ public class JavaEntityClientFactory {
       final RollbackService rollbackService,
       final EntityClientCacheConfig entityClientCacheConfig) {
     return new SystemJavaEntityClient(
-        systemOperationContext,
         _entityService,
         _deleteEntityService,
         _entitySearchService,

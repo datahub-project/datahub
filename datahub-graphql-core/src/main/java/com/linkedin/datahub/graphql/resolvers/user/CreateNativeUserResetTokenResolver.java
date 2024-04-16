@@ -45,7 +45,7 @@ public class CreateNativeUserResetTokenResolver
           try {
             String resetToken =
                 _nativeUserService.generateNativeUserPasswordResetToken(
-                    userUrnString, context.getAuthentication());
+                    context.getOperationContext(), userUrnString);
             return new ResetToken(resetToken);
           } catch (Exception e) {
             throw new RuntimeException(

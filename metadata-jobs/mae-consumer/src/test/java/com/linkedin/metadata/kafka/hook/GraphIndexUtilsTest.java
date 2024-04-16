@@ -15,7 +15,7 @@ import com.linkedin.dataset.UpstreamArray;
 import com.linkedin.dataset.UpstreamLineage;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
-import com.linkedin.metadata.graph.Edge;
+import com.linkedin.metadata.aspect.models.graph.Edge;
 import com.linkedin.metadata.graph.GraphIndexUtils;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;

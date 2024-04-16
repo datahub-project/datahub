@@ -17,6 +17,6 @@ public class ViewServiceFactory {
   @Scope("singleton")
   @Nonnull
   protected ViewService getInstance(final SystemEntityClient entityClient) throws Exception {
-    return new ViewService(entityClient, entityClient.getSystemAuthentication());
+    return new ViewService(entityClient);
   }
 }

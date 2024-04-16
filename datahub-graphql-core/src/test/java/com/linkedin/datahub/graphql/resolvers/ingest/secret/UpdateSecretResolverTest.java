@@ -7,7 +7,6 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.Mockito.when;
 
-import com.datahub.authentication.Authentication;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -92,7 +91,6 @@ public class UpdateSecretResolverTest {
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
     resolver.get(mockEnv).join();
-    Mockito.verify(mockClient, Mockito.times(0))
-        .ingestProposal(any(), any(Authentication.class), anyBoolean());
+    Mockito.verify(mockClient, Mockito.times(0)).ingestProposal(any(), any(), anyBoolean());
   }
 }

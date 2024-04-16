@@ -31,10 +31,8 @@ public class ElasticSearchTimeseriesAspectServiceFactory {
   protected ElasticSearchTimeseriesAspectService getInstance() {
     return new ElasticSearchTimeseriesAspectService(
         components.getSearchClient(),
-        components.getIndexConvention(),
         new TimeseriesAspectIndexBuilders(
             components.getIndexBuilder(), entityRegistry, components.getIndexConvention()),
-        entityRegistry,
         components.getBulkProcessor(),
         components.getNumRetries());
   }

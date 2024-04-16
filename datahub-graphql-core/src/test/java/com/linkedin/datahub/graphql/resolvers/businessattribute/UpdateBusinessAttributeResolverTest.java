@@ -3,6 +3,8 @@ package com.linkedin.datahub.graphql.resolvers.businessattribute;
 import static com.linkedin.datahub.graphql.TestUtils.getMockAllowContext;
 import static com.linkedin.datahub.graphql.TestUtils.getMockDenyContext;
 import static com.linkedin.metadata.Constants.BUSINESS_ATTRIBUTE_INFO_ASPECT_NAME;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.expectThrows;
 
@@ -72,11 +74,12 @@ public class UpdateBusinessAttributeResolverTest {
             SchemaFieldDataType.NUMBER);
     Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(testInput);
     Mockito.when(mockEnv.getArgument("urn")).thenReturn(TEST_BUSINESS_ATTRIBUTE_URN);
-    Mockito.when(mockClient.exists(TEST_BUSINESS_ATTRIBUTE_URN_OBJ, mockAuthentication))
+    Mockito.when(
+            mockClient.exists(any(OperationContext.class), eq(TEST_BUSINESS_ATTRIBUTE_URN_OBJ)))
         .thenReturn(true);
     Mockito.when(
             businessAttributeService.getBusinessAttributeEntityResponse(
-                TEST_BUSINESS_ATTRIBUTE_URN_OBJ, mockAuthentication))
+                any(OperationContext.class), eq(TEST_BUSINESS_ATTRIBUTE_URN_OBJ)))
         .thenReturn(getBusinessAttributeEntityResponse());
     Mockito.when(
             mockClient.filter(
@@ -90,7 +93,7 @@ public class UpdateBusinessAttributeResolverTest {
     Mockito.when(searchResult.getNumEntities()).thenReturn(0);
     Mockito.when(
             mockClient.ingestProposal(
-                Mockito.any(MetadataChangeProposal.class), Mockito.eq(mockAuthentication)))
+                any(OperationContext.class), Mockito.any(MetadataChangeProposal.class)))
         .thenReturn(TEST_BUSINESS_ATTRIBUTE_URN);
 
     UpdateBusinessAttributeResolver resolver =
@@ -100,9 +103,9 @@ public class UpdateBusinessAttributeResolverTest {
     // verify
     Mockito.verify(mockClient, Mockito.times(1))
         .ingestProposal(
+            any(OperationContext.class),
             Mockito.argThat(
-                new CreateBusinessAttributeProposalMatcher(updatedMetadataChangeProposal())),
-            Mockito.any(Authentication.class));
+                new CreateBusinessAttributeProposalMatcher(updatedMetadataChangeProposal())));
   }
 
   @Test
@@ -116,7 +119,8 @@ public class UpdateBusinessAttributeResolverTest {
             SchemaFieldDataType.NUMBER);
     Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(testInput);
     Mockito.when(mockEnv.getArgument("urn")).thenReturn(TEST_BUSINESS_ATTRIBUTE_URN);
-    Mockito.when(mockClient.exists(TEST_BUSINESS_ATTRIBUTE_URN_OBJ, mockAuthentication))
+    Mockito.when(
+            mockClient.exists(any(OperationContext.class), eq(TEST_BUSINESS_ATTRIBUTE_URN_OBJ)))
         .thenReturn(false);
 
     UpdateBusinessAttributeResolver resolver =
@@ -129,8 +133,7 @@ public class UpdateBusinessAttributeResolverTest {
             .equals(String.format("This urn does not exist: %s", TEST_BUSINESS_ATTRIBUTE_URN)));
 
     Mockito.verify(mockClient, Mockito.times(0))
-        .ingestProposal(
-            Mockito.any(MetadataChangeProposal.class), Mockito.any(Authentication.class));
+        .ingestProposal(any(OperationContext.class), Mockito.any(MetadataChangeProposal.class));
   }
 
   @Test
@@ -144,11 +147,12 @@ public class UpdateBusinessAttributeResolverTest {
             SchemaFieldDataType.NUMBER);
     Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(testInput);
     Mockito.when(mockEnv.getArgument("urn")).thenReturn(TEST_BUSINESS_ATTRIBUTE_URN);
-    Mockito.when(mockClient.exists(TEST_BUSINESS_ATTRIBUTE_URN_OBJ, mockAuthentication))
+    Mockito.when(
+            mockClient.exists(any(OperationContext.class), eq(TEST_BUSINESS_ATTRIBUTE_URN_OBJ)))
         .thenReturn(true);
     Mockito.when(
             businessAttributeService.getBusinessAttributeEntityResponse(
-                TEST_BUSINESS_ATTRIBUTE_URN_OBJ, mockAuthentication))
+                any(OperationContext.class), eq(TEST_BUSINESS_ATTRIBUTE_URN_OBJ)))
         .thenReturn(getBusinessAttributeEntityResponse());
     Mockito.when(
             mockClient.filter(
@@ -175,8 +179,7 @@ public class UpdateBusinessAttributeResolverTest {
             .equals(
                 "\"test-business-attribute\" already exists as Business Attribute. Please pick a unique name."));
     Mockito.verify(mockClient, Mockito.times(0))
-        .ingestProposal(
-            Mockito.any(MetadataChangeProposal.class), Mockito.any(Authentication.class));
+        .ingestProposal(any(OperationContext.class), Mockito.any(MetadataChangeProposal.class));
   }
 
   @Test
@@ -202,8 +205,7 @@ public class UpdateBusinessAttributeResolverTest {
             .equals(
                 "Unauthorized to perform this action. Please contact your DataHub administrator."));
     Mockito.verify(mockClient, Mockito.times(0))
-        .ingestProposal(
-            Mockito.any(MetadataChangeProposal.class), Mockito.any(Authentication.class));
+        .ingestProposal(any(OperationContext.class), Mockito.any(MetadataChangeProposal.class));
   }
 
   private EntityResponse getBusinessAttributeEntityResponse() throws Exception {

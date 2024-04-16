@@ -1,6 +1,5 @@
 package com.linkedin.metadata.service;
 
-import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.IncidentsSummary;
@@ -8,7 +7,7 @@ import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.SetMode;
 import com.linkedin.entity.EntityResponse;
-import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.incident.IncidentInfo;
 import com.linkedin.incident.IncidentSource;
 import com.linkedin.incident.IncidentState;
@@ -18,6 +17,7 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.AspectUtils;
 import com.linkedin.metadata.key.IncidentKey;
 import com.linkedin.metadata.utils.EntityKeyUtils;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
@@ -28,10 +28,8 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class IncidentService extends BaseService {
 
-  public IncidentService(
-      @Nonnull final EntityClient entityClient,
-      @Nonnull final Authentication systemAuthentication) {
-    super(entityClient, systemAuthentication);
+  public IncidentService(@Nonnull final SystemEntityClient entityClient) {
+    super(entityClient);
   }
 
   /**
@@ -42,10 +40,10 @@ public class IncidentService extends BaseService {
    * @return an instance of {@link IncidentInfo} for the Incident, null if it does not exist.
    */
   @Nullable
-  public IncidentInfo getIncidentInfo(@Nonnull final Urn incidentUrn) {
+  public IncidentInfo getIncidentInfo(
+      @Nonnull OperationContext opContext, @Nonnull final Urn incidentUrn) {
     Objects.requireNonNull(incidentUrn, "incidentUrn must not be null");
-    final EntityResponse response =
-        getIncidentEntityResponse(incidentUrn, this.systemAuthentication);
+    final EntityResponse response = getIncidentEntityResponse(opContext, incidentUrn);
     if (response != null
         && response.getAspects().containsKey(Constants.INCIDENT_INFO_ASPECT_NAME)) {
       return new IncidentInfo(
@@ -63,10 +61,10 @@ public class IncidentService extends BaseService {
    * @return an instance of {@link IncidentsSummary} for the Entity, null if it does not exist.
    */
   @Nullable
-  public IncidentsSummary getIncidentsSummary(@Nonnull final Urn entityUrn) {
+  public IncidentsSummary getIncidentsSummary(
+      @Nonnull OperationContext opContext, @Nonnull final Urn entityUrn) {
     Objects.requireNonNull(entityUrn, "entityUrn must not be null");
-    final EntityResponse response =
-        getIncidentsSummaryResponse(entityUrn, this.systemAuthentication);
+    final EntityResponse response = getIncidentsSummaryResponse(opContext, entityUrn);
     if (response != null
         && response.getAspects().containsKey(Constants.INCIDENTS_SUMMARY_ASPECT_NAME)) {
       return new IncidentsSummary(
@@ -80,25 +78,30 @@ public class IncidentService extends BaseService {
    * Produces a Metadata Change Proposal to update the IncidentsSummary aspect for a given entity.
    */
   public void updateIncidentsSummary(
-      @Nonnull final Urn entityUrn, @Nonnull final IncidentsSummary newSummary) throws Exception {
+      @Nonnull OperationContext opContext,
+      @Nonnull final Urn entityUrn,
+      @Nonnull final IncidentsSummary newSummary)
+      throws Exception {
     Objects.requireNonNull(entityUrn, "entityUrn must not be null");
     Objects.requireNonNull(newSummary, "newSummary must not be null");
     this.entityClient.ingestProposal(
+        opContext,
         AspectUtils.buildMetadataChangeProposal(
             entityUrn, Constants.INCIDENTS_SUMMARY_ASPECT_NAME, newSummary),
-        this.systemAuthentication,
         false);
   }
 
   /** Deletes an incident with a given URN */
-  public void deleteIncident(@Nonnull final Urn incidentUrn) throws Exception {
+  public void deleteIncident(@Nonnull OperationContext opContext, @Nonnull final Urn incidentUrn)
+      throws Exception {
     Objects.requireNonNull(incidentUrn, "incidentUrn must not be null");
-    this.entityClient.deleteEntity(incidentUrn, this.systemAuthentication);
-    this.entityClient.deleteEntityReferences(incidentUrn, this.systemAuthentication);
+    this.entityClient.deleteEntity(opContext, incidentUrn);
+    this.entityClient.deleteEntityReferences(opContext, incidentUrn);
   }
 
   /** Updates an existing incident's status. */
   public Urn raiseIncident(
+      @Nonnull OperationContext opContext,
       @Nonnull final IncidentType type,
       @Nullable final String customType,
       @Nullable final Integer priority,
@@ -133,14 +136,15 @@ public class IncidentService extends BaseService {
             .setLastUpdated(new AuditStamp().setActor(actor).setTime(System.currentTimeMillis())));
     newInfo.setCreated(new AuditStamp().setActor(actor).setTime(System.currentTimeMillis()));
     this.entityClient.ingestProposal(
+        opContext,
         AspectUtils.buildMetadataChangeProposal(urn, Constants.INCIDENT_INFO_ASPECT_NAME, newInfo),
-        this.systemAuthentication,
         false);
     return urn;
   }
 
   /** Updates an existing incident's status. */
   public void updateIncidentStatus(
+      @Nonnull OperationContext opContext,
       @Nonnull final Urn urn,
       @Nonnull final IncidentState state,
       @Nonnull final Urn actor,
@@ -149,7 +153,7 @@ public class IncidentService extends BaseService {
     Objects.requireNonNull(urn, "urn must not be null");
     Objects.requireNonNull(state, "state must not be null");
     Objects.requireNonNull(actor, "actor must not be null");
-    final IncidentInfo existingInfo = getIncidentInfo(urn);
+    final IncidentInfo existingInfo = getIncidentInfo(opContext, urn);
     if (existingInfo != null) {
       final IncidentStatus newStatus =
           new IncidentStatus()
@@ -158,9 +162,9 @@ public class IncidentService extends BaseService {
               .setMessage(message, SetMode.IGNORE_NULL);
       existingInfo.setStatus(newStatus);
       this.entityClient.ingestProposal(
+          opContext,
           AspectUtils.buildMetadataChangeProposal(
               urn, Constants.INCIDENT_INFO_ASPECT_NAME, existingInfo),
-          this.systemAuthentication,
           false);
     } else {
       throw new IllegalArgumentException(
@@ -178,15 +182,15 @@ public class IncidentService extends BaseService {
    */
   @Nullable
   private EntityResponse getIncidentEntityResponse(
-      @Nonnull final Urn incidentUrn, @Nonnull final Authentication authentication) {
+      @Nonnull OperationContext opContext, @Nonnull final Urn incidentUrn) {
     Objects.requireNonNull(incidentUrn, "incidentUrn must not be null");
-    Objects.requireNonNull(authentication, "authentication must not be null");
+    Objects.requireNonNull(opContext.getSessionAuthentication(), "authentication must not be null");
     try {
       return this.entityClient.getV2(
+          opContext,
           Constants.INCIDENT_ENTITY_NAME,
           incidentUrn,
-          ImmutableSet.of(Constants.INCIDENT_INFO_ASPECT_NAME),
-          authentication);
+          ImmutableSet.of(Constants.INCIDENT_INFO_ASPECT_NAME));
     } catch (Exception e) {
       throw new RuntimeException(
           String.format("Failed to retrieve Incident with urn %s", incidentUrn), e);
@@ -203,15 +207,15 @@ public class IncidentService extends BaseService {
    */
   @Nullable
   private EntityResponse getIncidentsSummaryResponse(
-      @Nonnull final Urn entityUrn, @Nonnull final Authentication authentication) {
+      @Nonnull OperationContext opContext, @Nonnull final Urn entityUrn) {
     Objects.requireNonNull(entityUrn, "entityUrn must not be null");
-    Objects.requireNonNull(authentication, "authentication must not be null");
+    Objects.requireNonNull(opContext.getSessionAuthentication(), "authentication must not be null");
     try {
       return this.entityClient.getV2(
+          opContext,
           entityUrn.getEntityType(),
           entityUrn,
-          ImmutableSet.of(Constants.INCIDENTS_SUMMARY_ASPECT_NAME),
-          authentication);
+          ImmutableSet.of(Constants.INCIDENTS_SUMMARY_ASPECT_NAME));
     } catch (Exception e) {
       throw new RuntimeException(
           String.format("Failed to retrieve Incident Summary for entity with urn %s", entityUrn),
