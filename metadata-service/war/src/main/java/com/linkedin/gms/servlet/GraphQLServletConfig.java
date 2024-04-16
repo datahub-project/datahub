@@ -17,7 +17,8 @@ import org.springframework.web.servlet.config.annotation.EnableWebMvc;
       "com.linkedin.gms.factory.lineage",
       "com.linkedin.gms.factory.query",
       "com.linkedin.gms.factory.ermodelrelation",
-      "com.linkedin.gms.factory.dataproduct"
+      "com.linkedin.gms.factory.dataproduct",
+      "com.linkedin.gms.factory.businessattribute"
     })
 @Configuration
 public class GraphQLServletConfig {}
