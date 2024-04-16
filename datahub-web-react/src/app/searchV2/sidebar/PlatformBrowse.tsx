@@ -19,10 +19,11 @@ type Props = {
     visible: boolean;
     collapsed?: boolean;
     expand: () => void;
-    closeSidebar: () => void;
+    hideSidebar: () => void;
+    unhideSidebar: () => void;
 };
 
-const PlatformBrowse = ({ visible, collapsed = false, expand, closeSidebar }: Props) => {
+const PlatformBrowse = ({ visible, collapsed = false, expand, hideSidebar, unhideSidebar }: Props) => {
     const { error, platformAggregations, retry } = useSidebarPlatforms({
         skip: !visible,
     });
@@ -31,9 +32,11 @@ const PlatformBrowse = ({ visible, collapsed = false, expand, closeSidebar }: Pr
 
     useEffect(() => {
         if (platformAggregations === null || platformAggregations?.length === 0) {
-            closeSidebar();
+            hideSidebar();
+        } else {
+            unhideSidebar();
         }
-    }, [platformAggregations, closeSidebar]);
+    }, [platformAggregations, hideSidebar, unhideSidebar]);
 
     return (
         <>

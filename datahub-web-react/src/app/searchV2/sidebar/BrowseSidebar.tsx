@@ -12,11 +12,13 @@ const PLATFORM_BROWSE_TRANSITION_MS = 200;
 
 const StyledEntitySidebarContainer = styled.div<{
     isCollapsed: boolean;
+    isHidden: boolean;
     $width?: number;
     backgroundColor?: string;
 }>`
     flex: 1;
     overflow: hidden;
+    display: ${(props) => (props.isHidden ? 'none' : undefined)};
 
     ${(props) => !props.isCollapsed && props.$width && `min-width: ${props.$width}px; max-width: ${props.$width}px;`}
     ${(props) => props.isCollapsed && 'min-width: 63px; max-width: 63px;'}
@@ -49,7 +51,7 @@ const Controls = styled.div<{ isCollapsed: boolean }>`
     overflow: hidden;
 `;
 
-const NavigateTitle = styled(Typography.Title) <{ isClosed: boolean }>`
+const NavigateTitle = styled(Typography.Title)<{ isClosed: boolean }>`
     && {
         padding: 0px;
         margin: 4px 0px 4px 8px;
@@ -58,7 +60,7 @@ const NavigateTitle = styled(Typography.Title) <{ isClosed: boolean }>`
     }
 `;
 
-const CloseButton = styled(Button) <{ $isActive }>`
+const CloseButton = styled(Button)<{ $isActive }>`
     margin: 0px;
     padding: 2px 6px;
     display: flex;
@@ -83,7 +85,7 @@ const SidebarBody = styled.div`
     white-space: nowrap;
 `;
 
-const StyledSidebarBackArrow = styled(SidebarBackArrow) <{ direction: 'left' | 'right' }>`
+const StyledSidebarBackArrow = styled(SidebarBackArrow)<{ direction: 'left' | 'right' }>`
     cursor: pointer;
     ${(props) => (props.direction === 'right' && 'transform: scaleX(-1);') || undefined}
 `;
@@ -96,15 +98,21 @@ type Props = {
 const BrowseSidebar = ({ visible, width }: Props) => {
     const isPlatformBrowseMode = useIsPlatformBrowseMode();
     const [isClosed, setIsClosed] = useState(false);
+    const [isHidden, setIsHidden] = useState(false);
 
-    const closeSidebar = useCallback(() => {
+    const hideSidebar = useCallback(() => {
+        setIsHidden(true);
         setIsClosed(true);
     }, []);
 
+    const unhideSidebar = useCallback(() => setIsHidden(false), []);
+
     return (
-        <StyledEntitySidebarContainer isCollapsed={isClosed} $width={width} id="browse-v2">
+        <StyledEntitySidebarContainer isCollapsed={isClosed} isHidden={isHidden} $width={width} id="browse-v2">
             <Controls isCollapsed={isClosed}>
-                <NavigateTitle level={5} isClosed={isClosed}>Navigate</NavigateTitle>
+                <NavigateTitle level={5} isClosed={isClosed}>
+                    Navigate
+                </NavigateTitle>
                 <Tooltip
                     placement="left"
                     showArrow={false}
@@ -127,7 +135,8 @@ const BrowseSidebar = ({ visible, width }: Props) => {
                             collapsed={isClosed}
                             expand={() => setIsClosed(false)}
                             visible={visible}
-                            closeSidebar={closeSidebar}
+                            hideSidebar={hideSidebar}
+                            unhideSidebar={unhideSidebar}
                         />
                     )}
                 </SidebarBody>
