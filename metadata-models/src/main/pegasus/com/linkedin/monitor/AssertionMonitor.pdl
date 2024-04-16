@@ -8,4 +8,9 @@ record AssertionMonitor {
     * Specs for each assertion to evaluate
     */
     assertions: array[AssertionEvaluationSpec]
+
+    /**
+    * Specific settings for an assertion monitor
+    */
+    settings: optional AssertionMonitorSettings
 }

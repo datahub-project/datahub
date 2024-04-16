@@ -42,17 +42,17 @@ record Operation includes TimeseriesAspectBase {
   affectedDatasets: optional array[Urn]
 
   /**
-   * Source Type
+   * Source Type - E.g. which process produced this operation. Note that this field will be superseded by the richer information
+    * provided inside the "source" field (e.g source > producerType)
    */
    @TimeseriesField = {}
+   @deprecated
    sourceType: optional OperationSourceType
 
-  /**
-   * The source urn for the operation. Only provided is sourceType == MONITOR currently,
-   * where it will be set to the monitor urn that sampled the operation.
-   */
-   @TimeseriesField = {}
-   sourceUrn: optional Urn
+   /**
+    * More detailed information about the source of the operation.
+    */
+   source: optional OperationSourceDetails
 
   /**
    * Custom properties

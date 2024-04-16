@@ -1,0 +1,72 @@
+namespace com.linkedin.dataset
+
+import com.linkedin.assertion.FreshnessFieldSpec
+import com.linkedin.common.MetadataProducerType
+import com.linkedin.common.Urn
+
+/**
+ * Additional details about the origins of a captured source-platform Metric or Metric Set.
+ */
+record DatasetMetricsSourceDetails {
+  /**
+  * The specific type of producer for the operation.
+  */
+  @TimeseriesField = {}
+  producerType: MetadataProducerType
+
+  /**
+   * The producer urn for the operation. Only provided is producerType == MONITOR currently,
+   * where it will be set to the monitor urn that sampled the operation. Ideally, this also contains
+   * the ingestion source urn if applicable.
+  */
+  @TimeseriesField = {}
+  producerUrn: optional Urn
+
+  /**
+  * The specific origin of the metric with regards to the source platform.
+  */
+  @TimeseriesField = {}
+  originType: enum DatasetMetricsOriginType {
+    /**
+    * Issue a query to the table to obtain the metric or values across
+    * all rows.
+    */
+    ALL_ROWS_QUERY
+
+    /**
+    * Issue a query to the table to obtain the metric values across
+    * only the rows which have changed since the previous evaluation.
+    */
+    CHANGED_ROWS_QUERY
+
+    /**
+    * Operation was identified by inspecting an information schema table, or other system metadata table.
+    */
+    INFORMATION_SCHEMA
+
+    /**
+    * Operation was identified by inspecting an audit log API
+    */
+    AUDIT_LOG
+
+    /**
+    * Operation was identified by inspecting underlying file system.
+    */
+    FILE_METADATA
+  }
+
+  /**
+  * A field that can be used to filter for the fresh rows since the previous assertion
+  * evaluation. This should be present when sourceType = CHANGED_ROWS_QUERY.
+  *
+  * If not provided, or the metricSourceType is not QUERY, then the assertion will be evaluated against the
+  * entire dataset.
+  */
+  changedRowsField: optional FreshnessFieldSpec
+
+  /**
+   * Any additional filters that were applied in a query to retrieve the metric.
+   * Only possible to be present if originType is ALL_ROWS_QUERY or CHANGED_ROWS_QUERY.
+   */
+  filter: optional DatasetFilter
+}

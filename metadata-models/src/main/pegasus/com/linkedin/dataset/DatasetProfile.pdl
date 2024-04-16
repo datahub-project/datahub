@@ -49,4 +49,9 @@ record DatasetProfile includes TimeseriesAspectBase {
    * field urn directly. This field is kept for backward compatibility.
    */
   fieldProfiles: optional array[DatasetFieldProfile]
+
+  /**
+   * Rich details about the source of the metrics provided in this profile.
+   */
+  source: optional DatasetMetricsSourceDetails
 }

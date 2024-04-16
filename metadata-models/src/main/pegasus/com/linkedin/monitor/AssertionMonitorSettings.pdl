@@ -1,0 +1,15 @@
+namespace com.linkedin.monitor
+
+
+/**
+ * General purpose settings for the assertion monitor.
+ */
+record AssertionMonitorSettings {
+    /**
+     * Capabilities that are currently enabled for the assertion monitor.
+     */
+    @Searchable = {
+        "/*": {}
+    }
+    capabilities: array[AssertionMonitorCapability] = ["ASSERTION_EVALUATION"]
+}

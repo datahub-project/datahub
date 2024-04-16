@@ -1,0 +1,17 @@
+namespace com.linkedin.common
+
+
+/**
+ * The type of the producer of the metadata, e.g. reflective of the process that produced the metadata.
+ */
+enum MetadataProducerType {
+    /**
+    * Operation was produced during a normal ingestion source run.
+    */
+    INGESTION_SOURCE
+
+    /**
+    * A running monitor produced the metadata.
+    */
+    MONITOR
+  }

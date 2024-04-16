@@ -1,0 +1,23 @@
+namespace com.linkedin.monitor
+
+/**
+ * Individual toggle-able capability for an assertion monitor.
+ */
+enum AssertionMonitorCapability {
+  /**
+   * Whether the metrics used for evaluating an assertion should be collected and saved. These metrics
+   * can be used for training, debugging, and even display in other contexts of the application.
+   *
+   * This is particularly useful for smart assertion evaluation, where the assertion is evaluated based on the metrics collected.
+   */
+  ASSERTION_EVALUATION
+
+  /**
+   * Whether the metrics used for evaluating an assertion should be collected and saved in a shared, globally accessible location (e.g. asset profiles).
+   * These metrics can be used for training, debugging, and even display in other contexts of the application.
+   *
+   * This is particularly useful for offline smart assertion training, where the smart assertion inference pipeline
+   * is de-coupled process that trains and updates the assertion itself based on historical metric values.
+   */
+  METRIC_COLLECTION
+}
