@@ -7,7 +7,6 @@ import com.datahub.authentication.Authentication;
 import com.datahub.metadata.ingestion.IngestionScheduler;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.gms.factory.kafka.schemaregistry.SchemaRegistryConfig;
-import com.linkedin.metadata.aspect.CachingAspectRetriever;
 import com.linkedin.metadata.boot.kafka.DataHubUpgradeKafkaListener;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.graph.elastic.ElasticSearchGraphService;
@@ -22,6 +21,7 @@ import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.OperationContextConfig;
+import io.datahubproject.metadata.context.RetrieverContext;
 import io.datahubproject.metadata.context.ServicesRegistryContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import org.apache.avro.generic.GenericRecord;
@@ -53,22 +53,14 @@ public class MCLSpringTestConfiguration {
 
   @MockBean public IngestionScheduler ingestionScheduler;
 
-  @Bean(name = "systemEntityClient")
-  public SystemEntityClient systemEntityClient(
-      @Qualifier("systemAuthentication") Authentication systemAuthentication) {
-    SystemEntityClient systemEntityClient = mock(SystemEntityClient.class);
-    when(systemEntityClient.getSystemAuthentication()).thenReturn(systemAuthentication);
-    return systemEntityClient;
-  }
+  @MockBean(name = "systemEntityClient")
+  public SystemEntityClient systemEntityClient;
 
   @MockBean public ElasticSearchService searchService;
 
   @MockBean public EntityService<?> entityService;
 
   @MockBean public FormService formService;
-
-  @MockBean(name = "cachingAspectRetriever")
-  CachingAspectRetriever cachingAspectRetriever;
 
   @MockBean(name = "systemAuthentication")
   public Authentication systemAuthentication;
@@ -98,6 +90,7 @@ public class MCLSpringTestConfiguration {
         systemAuthentication,
         entityRegistry,
         mock(ServicesRegistryContext.class),
-        indexConvention);
+        indexConvention,
+        mock(RetrieverContext.class));
   }
 }

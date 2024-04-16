@@ -2,6 +2,9 @@ package com.linkedin.datahub.graphql.resolvers.businessattribute;
 
 import static com.linkedin.datahub.graphql.TestUtils.getMockAllowContext;
 import static com.linkedin.datahub.graphql.TestUtils.getMockEntityService;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.expectThrows;
 
@@ -17,7 +20,6 @@ import com.linkedin.datahub.graphql.resolvers.mutate.UpdateNameResolver;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.metadata.entity.EntityUtils;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.mxe.MetadataChangeProposal;
@@ -26,6 +28,7 @@ import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.concurrent.ExecutionException;
 import org.mockito.Mockito;
+import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 public class UpdateNameResolverTest {
@@ -38,12 +41,13 @@ public class UpdateNameResolverTest {
   private static final Urn TEST_BUSINESS_ATTRIBUTE_URN_OBJ =
       UrnUtils.getUrn(TEST_BUSINESS_ATTRIBUTE_URN);
   private EntityClient mockClient;
-  private EntityService mockService;
+  private EntityService<?> mockService;
   private QueryContext mockContext;
   private DataFetchingEnvironment mockEnv;
   private Authentication mockAuthentication;
   private SearchResult searchResult;
 
+  @BeforeMethod
   private void init() {
     mockClient = Mockito.mock(EntityClient.class);
     mockService = getMockEntityService();
@@ -54,19 +58,22 @@ public class UpdateNameResolverTest {
 
   @Test
   public void testSuccess() throws Exception {
-    init();
     setupAllowContext();
     UpdateNameInput testInput =
         new UpdateNameInput(TEST_BUSINESS_ATTRIBUTE_NAME_UPDATED, TEST_BUSINESS_ATTRIBUTE_URN);
     Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(testInput);
     Mockito.when(mockEnv.getArgument("urn")).thenReturn(TEST_BUSINESS_ATTRIBUTE_URN);
-    Mockito.when(mockService.exists(TEST_BUSINESS_ATTRIBUTE_URN_OBJ, true)).thenReturn(true);
     Mockito.when(
-            EntityUtils.getAspectFromEntity(
-                TEST_BUSINESS_ATTRIBUTE_URN_OBJ.toString(),
-                Constants.BUSINESS_ATTRIBUTE_INFO_ASPECT_NAME,
-                mockService,
-                null))
+            mockService.exists(
+                any(OperationContext.class), eq(TEST_BUSINESS_ATTRIBUTE_URN_OBJ), eq(true)))
+        .thenReturn(true);
+
+    Mockito.when(
+            mockService.getAspect(
+                any(OperationContext.class),
+                eq(TEST_BUSINESS_ATTRIBUTE_URN_OBJ),
+                eq(Constants.BUSINESS_ATTRIBUTE_INFO_ASPECT_NAME),
+                eq(0L)))
         .thenReturn(businessAttributeInfo());
 
     Mockito.when(
@@ -74,7 +81,7 @@ public class UpdateNameResolverTest {
                 Mockito.any(OperationContext.class),
                 Mockito.any(String.class),
                 Mockito.any(Filter.class),
-                Mockito.isNull(),
+                isNull(),
                 Mockito.eq(0),
                 Mockito.eq(1000)))
         .thenReturn(searchResult);
@@ -95,6 +102,7 @@ public class UpdateNameResolverTest {
     // verify
     Mockito.verify(mockService, Mockito.times(1))
         .ingestProposal(
+            any(OperationContext.class),
             Mockito.argThat(new CreateBusinessAttributeProposalMatcher(proposal)),
             Mockito.any(AuditStamp.class),
             Mockito.eq(false));
@@ -102,19 +110,21 @@ public class UpdateNameResolverTest {
 
   @Test
   public void testNameConflict() throws Exception {
-    init();
     setupAllowContext();
     UpdateNameInput testInput =
         new UpdateNameInput(TEST_BUSINESS_ATTRIBUTE_NAME, TEST_BUSINESS_ATTRIBUTE_URN);
     Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(testInput);
     Mockito.when(mockEnv.getArgument("urn")).thenReturn(TEST_BUSINESS_ATTRIBUTE_URN);
-    Mockito.when(mockService.exists(TEST_BUSINESS_ATTRIBUTE_URN_OBJ, true)).thenReturn(true);
     Mockito.when(
-            EntityUtils.getAspectFromEntity(
-                TEST_BUSINESS_ATTRIBUTE_URN_OBJ.toString(),
-                Constants.BUSINESS_ATTRIBUTE_INFO_ASPECT_NAME,
-                mockService,
-                null))
+            mockService.exists(
+                any(OperationContext.class), eq(TEST_BUSINESS_ATTRIBUTE_URN_OBJ), eq(true)))
+        .thenReturn(true);
+    Mockito.when(
+            mockService.getAspect(
+                any(OperationContext.class),
+                eq(TEST_BUSINESS_ATTRIBUTE_URN_OBJ),
+                eq(Constants.BUSINESS_ATTRIBUTE_INFO_ASPECT_NAME),
+                eq(0L)))
         .thenReturn(businessAttributeInfo());
 
     Mockito.when(
@@ -122,7 +132,7 @@ public class UpdateNameResolverTest {
                 Mockito.any(OperationContext.class),
                 Mockito.any(String.class),
                 Mockito.any(Filter.class),
-                Mockito.isNull(),
+                isNull(),
                 Mockito.eq(0),
                 Mockito.eq(1000)))
         .thenReturn(searchResult);
@@ -139,8 +149,7 @@ public class UpdateNameResolverTest {
             .equals(
                 "\"test-business-attribute\" already exists as Business Attribute. Please pick a unique name."));
     Mockito.verify(mockClient, Mockito.times(0))
-        .ingestProposal(
-            Mockito.any(MetadataChangeProposal.class), Mockito.any(Authentication.class));
+        .ingestProposal(any(OperationContext.class), Mockito.any(MetadataChangeProposal.class));
   }
 
   private void setupAllowContext() {

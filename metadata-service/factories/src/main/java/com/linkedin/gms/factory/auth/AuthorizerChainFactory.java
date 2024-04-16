@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableMap;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.spring.YamlPropertySourceFactory;
+import io.datahubproject.metadata.context.OperationContext;
 import jakarta.annotation.Nonnull;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -51,7 +52,8 @@ public class AuthorizerChainFactory {
   @Nonnull
   protected AuthorizerChain getInstance(
       final DataHubAuthorizer dataHubAuthorizer, final SystemEntityClient systemEntityClient) {
-    final EntitySpecResolver resolver = initResolver(systemEntityClient);
+    final EntitySpecResolver resolver =
+        initResolver(dataHubAuthorizer.getSystemOpContext(), systemEntityClient);
 
     // Extract + initialize customer authorizers from application configs.
     final List<Authorizer> authorizers = new ArrayList<>(initCustomAuthorizers(resolver));
@@ -66,9 +68,9 @@ public class AuthorizerChainFactory {
     return new AuthorizerChain(authorizers, dataHubAuthorizer);
   }
 
-  private EntitySpecResolver initResolver(SystemEntityClient systemEntityClient) {
-    return new DefaultEntitySpecResolver(
-        systemEntityClient.getSystemAuthentication(), systemEntityClient);
+  private EntitySpecResolver initResolver(
+      @Nonnull OperationContext systemOpContext, SystemEntityClient systemEntityClient) {
+    return new DefaultEntitySpecResolver(systemOpContext, systemEntityClient);
   }
 
   private List<Authorizer> initCustomAuthorizers(EntitySpecResolver resolver) {

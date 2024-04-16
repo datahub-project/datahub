@@ -1,19 +1,21 @@
-package com.linkedin.metadata.graph;
+package com.linkedin.metadata.aspect.models.graph;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
+import lombok.Getter;
 
 @AllArgsConstructor
+@Getter
 @Data
 public class RelatedEntity {
   /** How the entity is related, along which edge. */
-  String relationshipType;
+  protected final String relationshipType;
 
   /** Urn associated with the related entity. */
-  String urn;
+  protected final String urn;
 
   /** Urn associated with an entity through which this relationship is established */
-  String via;
+  protected final String via;
 
   /**
    * Constructor for backwards compatibility

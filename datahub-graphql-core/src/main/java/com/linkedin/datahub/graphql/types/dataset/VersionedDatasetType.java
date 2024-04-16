@@ -79,10 +79,10 @@ public class VersionedDatasetType
     try {
       final Map<Urn, EntityResponse> datasetMap =
           _entityClient.batchGetVersionedV2(
+              context.getOperationContext(),
               Constants.DATASET_ENTITY_NAME,
               new HashSet<>(versionedUrns),
-              ASPECTS_TO_RESOLVE,
-              context.getAuthentication());
+              ASPECTS_TO_RESOLVE);
 
       final List<EntityResponse> gmsResults = new ArrayList<>();
       for (VersionedUrn versionedUrn : versionedUrns) {

@@ -15,7 +15,6 @@ import com.datahub.authorization.AuthorizerChain;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.metadata.entity.EntityServiceImpl;
 import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistryException;
@@ -51,13 +50,7 @@ public class OpenAPIEntityTestConfiguration {
     return new ObjectMapper(new YAMLFactory());
   }
 
-  @Bean
-  @Primary
-  public EntityService entityService(final EntityRegistry mockRegistry) {
-    EntityService entityService = mock(EntityServiceImpl.class);
-    when(entityService.getEntityRegistry()).thenReturn(mockRegistry);
-    return entityService;
-  }
+  @MockBean EntityService<?> entityService;
 
   @Bean
   @Primary

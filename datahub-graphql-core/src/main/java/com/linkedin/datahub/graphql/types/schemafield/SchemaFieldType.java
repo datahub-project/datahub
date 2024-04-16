@@ -63,10 +63,10 @@ public class SchemaFieldType
       if (_featureFlags.isSchemaFieldEntityFetchEnabled()) {
         entities =
             _entityClient.batchGetV2(
+                context.getOperationContext(),
                 SCHEMA_FIELD_ENTITY_NAME,
                 new HashSet<>(schemaFieldUrns),
-                ASPECTS_TO_FETCH,
-                context.getAuthentication());
+                ASPECTS_TO_FETCH);
       }
 
       final List<EntityResponse> gmsResults = new ArrayList<>();

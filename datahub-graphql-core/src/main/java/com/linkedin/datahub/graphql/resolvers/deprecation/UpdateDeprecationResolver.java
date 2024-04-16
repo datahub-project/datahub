@@ -22,8 +22,10 @@ import com.linkedin.metadata.entity.EntityUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.OperationContext;
 import java.net.URISyntaxException;
 import java.util.concurrent.CompletableFuture;
+import javax.annotation.Nonnull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -54,11 +56,12 @@ public class UpdateDeprecationResolver implements DataFetcher<CompletableFuture<
             throw new AuthorizationException(
                 "Unauthorized to perform this action. Please contact your DataHub administrator.");
           }
-          validateUpdateDeprecationInput(entityUrn, _entityService);
+          validateUpdateDeprecationInput(context.getOperationContext(), entityUrn, _entityService);
           try {
             Deprecation deprecation =
                 (Deprecation)
                     EntityUtils.getAspectFromEntity(
+                        context.getOperationContext(),
                         entityUrn.toString(),
                         DEPRECATION_ASPECT_NAME,
                         _entityService,
@@ -69,7 +72,7 @@ public class UpdateDeprecationResolver implements DataFetcher<CompletableFuture<
             final MetadataChangeProposal proposal =
                 MutationUtils.buildMetadataChangeProposalWithUrn(
                     entityUrn, DEPRECATION_ASPECT_NAME, deprecation);
-            _entityClient.ingestProposal(proposal, context.getAuthentication(), false);
+            _entityClient.ingestProposal(context.getOperationContext(), proposal, false);
             return true;
           } catch (Exception e) {
             log.error(
@@ -102,9 +105,9 @@ public class UpdateDeprecationResolver implements DataFetcher<CompletableFuture<
   }
 
   public static Boolean validateUpdateDeprecationInput(
-      Urn entityUrn, EntityService<?> entityService) {
+      @Nonnull OperationContext opContext, Urn entityUrn, EntityService<?> entityService) {
 
-    if (!entityService.exists(entityUrn, true)) {
+    if (!entityService.exists(opContext, entityUrn, true)) {
       throw new IllegalArgumentException(
           String.format(
               "Failed to update deprecation for Entity %s. Entity does not exist.", entityUrn));

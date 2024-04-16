@@ -1,6 +1,7 @@
 package com.datahub.event.hook;
 
 import com.linkedin.mxe.PlatformEvent;
+import io.datahubproject.metadata.context.OperationContext;
 import javax.annotation.Nonnull;
 
 /**
@@ -24,5 +25,5 @@ public interface PlatformEventHook {
   }
 
   /** Invoke the hook when a PlatformEvent is received */
-  void invoke(@Nonnull PlatformEvent event);
+  void invoke(@Nonnull OperationContext opContext, @Nonnull PlatformEvent event);
 }

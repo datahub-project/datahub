@@ -63,9 +63,17 @@ public class DashboardUsageStatsResolver
           Filter bucketStatsFilter =
               createUsageFilter(dashboardUrn, maybeStartTimeMillis, maybeEndTimeMillis, true);
           List<DashboardUsageAggregation> dailyUsageBuckets =
-              getBuckets(bucketStatsFilter, dashboardUrn, timeseriesAspectService);
+              getBuckets(
+                  context.getOperationContext(),
+                  bucketStatsFilter,
+                  dashboardUrn,
+                  timeseriesAspectService);
           DashboardUsageQueryResultAggregations aggregations =
-              getAggregations(bucketStatsFilter, dailyUsageBuckets, timeseriesAspectService);
+              getAggregations(
+                  context.getOperationContext(),
+                  bucketStatsFilter,
+                  dailyUsageBuckets,
+                  timeseriesAspectService);
 
           usageQueryResult.setBuckets(dailyUsageBuckets);
           usageQueryResult.setAggregations(aggregations);
@@ -103,6 +111,7 @@ public class DashboardUsageStatsResolver
 
       List<EnvelopedAspect> aspects =
           timeseriesAspectService.getAspectValues(
+              context.getOperationContext(),
               Urn.createFromString(dashboardUrn),
               Constants.DASHBOARD_ENTITY_NAME,
               Constants.DASHBOARD_USAGE_STATISTICS_ASPECT_NAME,

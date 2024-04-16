@@ -5,6 +5,7 @@ import static com.linkedin.datahub.graphql.TestUtils.getMockDenyContext;
 import static com.linkedin.datahub.graphql.TestUtils.getMockEntityService;
 import static com.linkedin.metadata.Constants.BUSINESS_ATTRIBUTE_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.BUSINESS_ATTRIBUTE_INFO_ASPECT_NAME;
+import static org.mockito.ArgumentMatchers.any;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.expectThrows;
 
@@ -77,7 +78,7 @@ public class CreateBusinessAttributeResolverTest {
     init();
     setupAllowContext();
     Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(TEST_INPUT);
-    Mockito.when(mockClient.exists(Mockito.any(Urn.class), Mockito.eq(mockAuthentication)))
+    Mockito.when(mockClient.exists(any(OperationContext.class), Mockito.any(Urn.class)))
         .thenReturn(false);
     Mockito.when(
             mockClient.filter(
@@ -91,11 +92,11 @@ public class CreateBusinessAttributeResolverTest {
     Mockito.when(searchResult.getNumEntities()).thenReturn(0);
     Mockito.when(
             mockClient.ingestProposal(
-                Mockito.any(MetadataChangeProposal.class), Mockito.eq(mockAuthentication)))
+                any(OperationContext.class), Mockito.any(MetadataChangeProposal.class)))
         .thenReturn(BUSINESS_ATTRIBUTE_URN);
     Mockito.when(
             businessAttributeService.getBusinessAttributeEntityResponse(
-                Mockito.any(Urn.class), Mockito.eq(mockAuthentication)))
+                any(OperationContext.class), Mockito.any(Urn.class)))
         .thenReturn(getBusinessAttributeEntityResponse());
 
     // Execute
@@ -106,8 +107,8 @@ public class CreateBusinessAttributeResolverTest {
     // verify
     Mockito.verify(mockClient, Mockito.times(1))
         .ingestProposal(
-            Mockito.argThat(new CreateBusinessAttributeProposalMatcher(metadataChangeProposal())),
-            Mockito.any(Authentication.class));
+            any(OperationContext.class),
+            Mockito.argThat(new CreateBusinessAttributeProposalMatcher(metadataChangeProposal())));
   }
 
   @Test
@@ -116,7 +117,7 @@ public class CreateBusinessAttributeResolverTest {
     init();
     setupAllowContext();
     Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(TEST_INPUT_NULL_NAME);
-    Mockito.when(mockClient.exists(Mockito.any(Urn.class), Mockito.eq(mockAuthentication)))
+    Mockito.when(mockClient.exists(any(OperationContext.class), Mockito.any(Urn.class)))
         .thenReturn(false);
 
     // Execute
@@ -133,8 +134,7 @@ public class CreateBusinessAttributeResolverTest {
             .equals("Failed to create Business Attribute with name: null"));
 
     Mockito.verify(mockClient, Mockito.times(0))
-        .ingestProposal(
-            Mockito.any(MetadataChangeProposal.class), Mockito.any(Authentication.class));
+        .ingestProposal(any(OperationContext.class), Mockito.any(MetadataChangeProposal.class));
   }
 
   @Test
@@ -143,7 +143,7 @@ public class CreateBusinessAttributeResolverTest {
     init();
     setupAllowContext();
     Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(TEST_INPUT);
-    Mockito.when(mockClient.exists(Mockito.any(Urn.class), Mockito.eq(mockAuthentication)))
+    Mockito.when(mockClient.exists(any(OperationContext.class), Mockito.any(Urn.class)))
         .thenReturn(false);
     Mockito.when(
             mockClient.filter(
@@ -170,8 +170,7 @@ public class CreateBusinessAttributeResolverTest {
             .equals(
                 "\"test-business-attribute\" already exists as Business Attribute. Please pick a unique name."));
     Mockito.verify(mockClient, Mockito.times(0))
-        .ingestProposal(
-            Mockito.any(MetadataChangeProposal.class), Mockito.any(Authentication.class));
+        .ingestProposal(any(OperationContext.class), Mockito.any(MetadataChangeProposal.class));
   }
 
   @Test
@@ -191,8 +190,7 @@ public class CreateBusinessAttributeResolverTest {
             .equals(
                 "Unauthorized to perform this action. Please contact your DataHub administrator."));
     Mockito.verify(mockClient, Mockito.times(0))
-        .ingestProposal(
-            Mockito.any(MetadataChangeProposal.class), Mockito.any(Authentication.class));
+        .ingestProposal(any(OperationContext.class), Mockito.any(MetadataChangeProposal.class));
   }
 
   private EntityResponse getBusinessAttributeEntityResponse() throws Exception {

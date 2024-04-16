@@ -4,9 +4,7 @@ import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.entity.Aspect;
 import com.linkedin.metadata.models.registry.EntityRegistry;
-import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.util.Pair;
-import java.net.URISyntaxException;
 import java.util.Collections;
 import java.util.Map;
 import java.util.Set;
@@ -17,8 +15,7 @@ import javax.annotation.Nullable;
 public interface AspectRetriever {
 
   @Nullable
-  default Aspect getLatestAspectObject(@Nonnull final Urn urn, @Nonnull final String aspectName)
-      throws RemoteInvocationException, URISyntaxException {
+  default Aspect getLatestAspectObject(@Nonnull final Urn urn, @Nonnull final String aspectName) {
     return getLatestAspectObjects(ImmutableSet.of(urn), ImmutableSet.of(aspectName))
         .getOrDefault(urn, Collections.emptyMap())
         .get(aspectName);
@@ -32,8 +29,7 @@ public interface AspectRetriever {
    * @return urn to aspect name and values
    */
   @Nonnull
-  Map<Urn, Map<String, Aspect>> getLatestAspectObjects(Set<Urn> urns, Set<String> aspectNames)
-      throws RemoteInvocationException, URISyntaxException;
+  Map<Urn, Map<String, Aspect>> getLatestAspectObjects(Set<Urn> urns, Set<String> aspectNames);
 
   @Nonnull
   default Map<Urn, Boolean> entityExists(Set<Urn> urns) {
@@ -44,14 +40,10 @@ public interface AspectRetriever {
             .map(entityType -> getEntityRegistry().getEntitySpec(entityType).getKeyAspectName())
             .collect(Collectors.toSet());
 
-    try {
-      Map<Urn, Map<String, Aspect>> latest = getLatestAspectObjects(urns, keyAspectNames);
-      return urns.stream()
-          .map(urn -> Pair.of(urn, latest.containsKey(urn)))
-          .collect(Collectors.toMap(Pair::getKey, Pair::getValue));
-    } catch (RemoteInvocationException | URISyntaxException e) {
-      throw new RuntimeException(e);
-    }
+    Map<Urn, Map<String, Aspect>> latest = getLatestAspectObjects(urns, keyAspectNames);
+    return urns.stream()
+        .map(urn -> Pair.of(urn, latest.containsKey(urn)))
+        .collect(Collectors.toMap(Pair::getKey, Pair::getValue));
   }
 
   @Nonnull

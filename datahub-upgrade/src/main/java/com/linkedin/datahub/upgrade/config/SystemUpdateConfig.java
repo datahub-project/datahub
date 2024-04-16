@@ -14,12 +14,9 @@ import com.linkedin.gms.factory.kafka.schemaregistry.SchemaRegistryConfig;
 import com.linkedin.metadata.config.kafka.KafkaConfiguration;
 import com.linkedin.metadata.dao.producer.KafkaEventProducer;
 import com.linkedin.metadata.dao.producer.KafkaHealthChecker;
-import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.version.GitVersion;
 import com.linkedin.mxe.TopicConvention;
 import java.util.List;
-import javax.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.generic.IndexedRecord;
 import org.apache.kafka.clients.producer.KafkaProducer;
@@ -112,16 +109,5 @@ public class SystemUpdateConfig {
   protected KafkaEventProducer kafkaEventProducer(
       @Qualifier("duheKafkaEventProducer") KafkaEventProducer kafkaEventProducer) {
     return kafkaEventProducer;
-  }
-
-  @Configuration
-  public static class SystemUpdateSetup {
-    @Autowired private EntityService<?> entityService;
-    @Autowired private EntitySearchService entitySearchService;
-
-    @PostConstruct
-    protected void postConstruct() {
-      entitySearchService.postConstruct(entityService);
-    }
   }
 }

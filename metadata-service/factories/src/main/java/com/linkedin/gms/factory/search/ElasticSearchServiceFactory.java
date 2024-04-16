@@ -10,7 +10,6 @@ import com.linkedin.gms.factory.entityregistry.EntityRegistryFactory;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
-import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.EntityIndexBuilders;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBuilder;
@@ -50,10 +49,6 @@ public class ElasticSearchServiceFactory {
   private BaseElasticSearchComponentsFactory.BaseElasticSearchComponents components;
 
   @Autowired
-  @Qualifier("entityRegistry")
-  private EntityRegistry entityRegistry;
-
-  @Autowired
   @Qualifier("settingsBuilder")
   private SettingsBuilder settingsBuilder;
 
@@ -78,7 +73,6 @@ public class ElasticSearchServiceFactory {
     ESSearchDAO esSearchDAO =
         new ESSearchDAO(
             components.getSearchClient(),
-            components.getIndexConvention(),
             configurationProvider.getFeatureFlags().isPointInTimeCreationEnabled(),
             elasticSearchConfiguration.getImplementation(),
             searchConfiguration,
@@ -87,14 +81,9 @@ public class ElasticSearchServiceFactory {
         entityIndexBuilders,
         esSearchDAO,
         new ESBrowseDAO(
-            components.getSearchClient(),
-            components.getIndexConvention(),
-            searchConfiguration,
-            customSearchConfiguration),
+            components.getSearchClient(), searchConfiguration, customSearchConfiguration),
         new ESWriteDAO(
-            entityRegistry,
             components.getSearchClient(),
-            components.getIndexConvention(),
             components.getBulkProcessor(),
             components.getNumRetries()));
   }

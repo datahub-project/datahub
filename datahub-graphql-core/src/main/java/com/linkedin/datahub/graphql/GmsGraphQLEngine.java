@@ -347,6 +347,7 @@ import com.linkedin.datahub.graphql.types.test.TestType;
 import com.linkedin.datahub.graphql.types.view.DataHubViewType;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.entity.client.SystemEntityClient;
+import com.linkedin.metadata.client.UsageStatsJavaClient;
 import com.linkedin.metadata.config.DataHubConfiguration;
 import com.linkedin.metadata.config.IngestionConfiguration;
 import com.linkedin.metadata.config.TestsConfiguration;
@@ -372,7 +373,6 @@ import com.linkedin.metadata.service.ViewService;
 import com.linkedin.metadata.timeline.TimelineService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.version.GitVersion;
-import com.linkedin.usage.UsageClient;
 import graphql.execution.DataFetcherResult;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -411,7 +411,7 @@ public class GmsGraphQLEngine {
   private final EntityClient entityClient;
   private final SystemEntityClient systemEntityClient;
   private final GraphClient graphClient;
-  private final UsageClient usageClient;
+  private final UsageStatsJavaClient usageClient;
   private final SiblingGraphService siblingGraphService;
 
   private final EntityService entityService;
