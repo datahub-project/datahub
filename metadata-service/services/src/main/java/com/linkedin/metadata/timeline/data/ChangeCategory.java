@@ -23,7 +23,9 @@ public enum ChangeCategory {
   // Entity Lifecycle events (create, soft delete, hard delete)
   LIFECYCLE,
   // Run event
-  RUN;
+  RUN,
+
+  BUSINESS_ATTRIBUTE;
 
   public static final Map<List<String>, ChangeCategory> COMPOUND_CATEGORIES;
 
