@@ -361,7 +361,11 @@ plugins: Dict[str, Set[str]] = {
     "looker": looker_common,
     "lookml": looker_common,
     "metabase": {"requests"} | sqlglot_lib,
-    "mlflow": {"mlflow-skinny>=2.3.0"},
+    "mlflow": {
+        "mlflow-skinny>=2.3.0",
+        # It's technically wrong for packages to depend on setuptools. However, it seems mlflow does it anyways.
+        "setuptools",
+    },
     "mode": {"requests", "tenacity>=8.0.1"} | sqllineage_lib | sqlglot_lib,
     "mongodb": {"pymongo[srv]>=3.11", "packaging"},
     "mssql": sql_common
@@ -422,7 +426,7 @@ plugins: Dict[str, Set[str]] = {
     "databricks": databricks | sql_common | sqllineage_lib,
     "fivetran": snowflake_common | bigquery_common,
     "qlik-sense": sqlglot_lib | {"requests", "websocket-client"},
-    "sigma": {"requests"},
+    "sigma": sqlglot_lib | {"requests"},
 }
 
 # This is mainly used to exclude plugins from the Docker image.
@@ -697,7 +701,7 @@ entry_points = {
         "add_dataset_dataproduct = datahub.ingestion.transformer.add_dataset_dataproduct:AddDatasetDataProduct",
         "simple_add_dataset_dataproduct = datahub.ingestion.transformer.add_dataset_dataproduct:SimpleAddDatasetDataProduct",
         "pattern_add_dataset_dataproduct = datahub.ingestion.transformer.add_dataset_dataproduct:PatternAddDatasetDataProduct",
-        "replace_external_url = datahub.ingestion.transformer.replace_external_url:ReplaceExternalUrl"
+        "replace_external_url = datahub.ingestion.transformer.replace_external_url:ReplaceExternalUrl",
     ],
     "datahub.ingestion.sink.plugins": [
         "file = datahub.ingestion.sink.file:FileSink",
