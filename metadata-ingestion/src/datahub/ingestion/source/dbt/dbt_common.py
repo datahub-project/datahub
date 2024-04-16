@@ -1416,11 +1416,12 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             owner_aspect.owners = transformed_owner_list
 
         tag_aspect = self.get_aspect_from_dataset(mce.proposedSnapshot, GlobalTagsClass)
+        print("============== HI ==============")
+        print(f"tag_aspect: {tag_aspect}")
         if tag_aspect:
             transformed_tag_list = self.get_transformed_tags_by_prefix(
                 tag_aspect.tags,
                 mce.proposedSnapshot.urn,
-                mce_builder.make_tag_urn(self.config.tag_prefix),
             )
             tag_aspect.tags = transformed_tag_list
 
@@ -1817,16 +1818,15 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         self,
         new_tags: List[TagAssociationClass],
         entity_urn: str,
-        tags_prefix_filter: str,
     ) -> List[TagAssociationClass]:
         tag_set = set([new_tag.tag for new_tag in new_tags])
 
         if self.ctx.graph:
             existing_tags_class = self.ctx.graph.get_tags(entity_urn)
+            print(f"existing_tags_class: {existing_tags_class}")
             if existing_tags_class and existing_tags_class.tags:
                 for exiting_tag in existing_tags_class.tags:
-                    if not exiting_tag.tag.startswith(tags_prefix_filter):
-                        tag_set.add(exiting_tag.tag)
+                    tag_set.add(exiting_tag.tag)
         return [TagAssociationClass(tag) for tag in sorted(tag_set)]
 
     # This method attempts to read-modify and return the glossary terms of a dataset.
