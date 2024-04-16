@@ -15,23 +15,28 @@ import { getNumberWithOrdinal } from '../entityV2/shared/utils';
 const EntityTitleContainer = styled.div`
     display: flex;
     align-items: center;
+    width: 100%;
 `;
 
 const StyledLink = styled(Link)`
     display: block;
+    max-width: 75%;
 `;
 
 const EntityTitle = styled(Typography.Text)<{ $titleSizePx?: number }>`
     display: block;
+
     &&& {
         margin-right 8px;
         font-size: ${(props) => props.$titleSizePx || 16}px;
         font-weight: 700;
         vertical-align: middle;
+
         :hover {
             color: ${REDESIGN_COLORS.HOVER_PURPLE};
         }
     }
+
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -90,8 +95,12 @@ const EntityHeader: React.FC<EntityHeaderProps> = ({
         <EntityTitleContainer>
             <StyledLink to={url} {...linkProps}>
                 {previewType === PreviewType.HOVER_CARD ? (
-                    <CardEntityTitle onClick={onClick} $titleSizePx={titleSizePx}>
-                        {name || ' '}
+                    <CardEntityTitle
+                        onClick={onClick}
+                        ellipsis={{ tooltip: { title: name, showArrow: false, mouseEnterDelay: 0.5 } }}
+                        $titleSizePx={titleSizePx}
+                    >
+                        {name || ''}
                     </CardEntityTitle>
                 ) : (
                     <EntityTitle onClick={onClick} $titleSizePx={titleSizePx}>
