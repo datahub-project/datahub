@@ -114,6 +114,16 @@ public class SystemUpdateConfig {
     return kafkaEventProducer;
   }
 
+  @Primary
+  @Bean(name = "schemaRegistryConfig")
+  @ConditionalOnProperty(
+      name = "kafka.schemaRegistry.type",
+      havingValue = InternalSchemaRegistryFactory.TYPE)
+  protected SchemaRegistryConfig schemaRegistryConfig(
+      @Qualifier("duheSchemaRegistryConfig") SchemaRegistryConfig duheSchemaRegistryConfig) {
+    return duheSchemaRegistryConfig;
+  }
+
   @Configuration
   public static class SystemUpdateSetup {
     @Autowired private EntityService<?> entityService;
