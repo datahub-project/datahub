@@ -169,6 +169,7 @@ class HTTPError429(HTTPError):
 @dataclass
 class ModeSourceReport(StaleEntityRemovalSourceReport):
     filtered_spaces: LossyList[str] = dataclasses.field(default_factory=LossyList)
+    num_sql_parser_failures: int = 0
 
     def report_dropped_space(self, ent_name: str) -> None:
         self.filtered_spaces.append(ent_name)
@@ -455,6 +456,7 @@ class ModeSource(StatefulIngestionSourceBase):
         type_mapping = {
             "table": ChartTypeClass.TABLE,
             "bar": ChartTypeClass.BAR,
+            "bigNumber": ChartTypeClass.TEXT,
             "line": ChartTypeClass.LINE,
             "stackedBar100": ChartTypeClass.BAR,
             "stackedBar": ChartTypeClass.BAR,
@@ -858,9 +860,14 @@ class ModeSource(StatefulIngestionSourceBase):
             graph=self.ctx.graph,
         )
 
+        if parsed_query_object.debug_info.error:
+            self.report.num_sql_parser_failures += 1
+            logger.debug(
+                f"Failed to parse query {normalized_query} with error: {parsed_query_object.debug_info.error}"
+            )
+
         schema_fields = infer_output_schema(parsed_query_object)
         if schema_fields:
-
             schema_metadata = SchemaMetadataClass(
                 schemaName="mode_query",
                 platform=f"urn:li:dataPlatform:{self.platform}",
@@ -1027,7 +1034,7 @@ class ModeSource(StatefulIngestionSourceBase):
         return columns
 
     def get_input_fields(
-        self, chart_urn: str, chart_data: Dict, chart_fields: List[str], query_urn: str
+        self, chart_urn: str, chart_data: Dict, chart_fields: Set[str], query_urn: str
     ) -> Iterable[MetadataWorkUnit]:
         fields = self.get_formula_columns(chart_data)
 
@@ -1057,7 +1064,7 @@ class ModeSource(StatefulIngestionSourceBase):
         ).as_workunit()
 
     def construct_chart_from_api_data(
-        self, chart_data: dict, chart_fields: List[str], query: dict, path: str
+        self, chart_data: dict, chart_fields: Set[str], query: dict, path: str
     ) -> Iterable[MetadataWorkUnit]:
         chart_urn = builder.make_chart_urn(self.platform, chart_data.get("token", ""))
         chart_snapshot = ChartSnapshot(
@@ -1309,7 +1316,7 @@ class ModeSource(StatefulIngestionSourceBase):
                 queries = self._get_queries(report_token)
                 for query in queries:
                     query_mcps = self.construct_query_from_api_data(report_token, query)
-                    chart_fields: List[str] = []
+                    chart_fields: Set[str] = set()
                     for wu in query_mcps:
                         if (
                             isinstance(wu.metadata, MetadataChangeProposalWrapper)
@@ -1318,7 +1325,7 @@ class ModeSource(StatefulIngestionSourceBase):
                             if isinstance(wu.metadata.aspect, SchemaMetadataClass):
                                 schema_metadata = wu.metadata.aspect
                                 for field in schema_metadata.fields:
-                                    chart_fields.append(field.fieldPath)
+                                    chart_fields.add(field.fieldPath)
 
                         yield wu
 
