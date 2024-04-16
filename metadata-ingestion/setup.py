@@ -349,6 +349,7 @@ plugins: Dict[str, Set[str]] = {
         # https://github.com/great-expectations/great_expectations/pull/6149.
         "great-expectations != 0.15.23, != 0.15.24, != 0.15.25, != 0.15.26",
     },
+    # keep in sync with presto-on-hive until presto-on-hive will be removed
     "hive-metastore": sql_common
     | pyhive_common
     | {"psycopg2-binary", "pymysql>=1.0.2"},
@@ -376,6 +377,7 @@ plugins: Dict[str, Set[str]] = {
     "oracle": sql_common | {"cx_Oracle"},
     "postgres": sql_common | postgres_common,
     "presto": sql_common | pyhive_common | trino,
+    # presto-on-hive is an alias for hive-metastore and needs to be kept in sync
     "presto-on-hive": sql_common
     | pyhive_common
     | {"psycopg2-binary", "pymysql>=1.0.2"},
