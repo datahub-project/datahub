@@ -5,10 +5,9 @@ import { Query as QueryType } from './types';
 
 const List = styled.div`
     margin-bottom: 28px;
-    display: flex;
-    align-items: center;
-    justify-content: left;
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 20px;
 `;
 
 type Props = {

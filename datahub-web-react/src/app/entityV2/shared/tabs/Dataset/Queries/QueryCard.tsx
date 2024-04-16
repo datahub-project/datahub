@@ -10,10 +10,8 @@ const Card = styled.div`
     border-radius: 4px;
     box-shadow: ${(props) => props.theme.styles['box-shadow']};
     height: 380px;
-    width: 32%;
-    margin-right: 6px;
-    margin-left: 6px;
-    margin-bottom: 20px;
+    width: 100%;
+    max-width: 450px;
 `;
 
 export type Props = {

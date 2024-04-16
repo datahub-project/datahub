@@ -1,12 +1,12 @@
 import React from 'react';
 import { Typography } from 'antd';
 import styled from 'styled-components';
-import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 
 import { ANTD_GRAY } from '../../../constants';
 import DynamicTabularTab from './DynamicTabularTab';
 import DynamicPropertiesTab from './DynamicPropertiesTab';
 import { AspectRenderSpec } from '../../../../../../types.generated';
+import { StyledSyntaxHighlighter } from '../../../StyledSyntaxHighlighter';
 
 type Props = {
     payload: string | undefined | null;
@@ -24,7 +24,7 @@ const QueryText = styled(Typography.Paragraph)`
 
 // NOTE: Yes, using `!important` is a shame. However, the SyntaxHighlighter is applying styles directly
 // to the component, so there's no way around this
-const NestedSyntax = styled(SyntaxHighlighter)`
+const NestedSyntax = styled(StyledSyntaxHighlighter)`
     background-color: transparent !important;
     border: none !important;
 `;

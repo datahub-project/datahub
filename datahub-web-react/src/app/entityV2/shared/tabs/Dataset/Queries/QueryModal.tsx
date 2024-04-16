@@ -1,10 +1,10 @@
 import React from 'react';
 import { Button, Modal, Typography } from 'antd';
-import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import styled from 'styled-components';
 import CopyQuery from './CopyQuery';
 import { ANTD_GRAY } from '../../../constants';
 import { Editor as MarkdownEditor } from '../../Documentation/components/editor/Editor';
+import { StyledSyntaxHighlighter } from '../../../StyledSyntaxHighlighter';
 
 const StyledModal = styled(Modal)`
     top: 4vh;
@@ -53,7 +53,7 @@ const QueryContainer = styled.div`
     border-radius: 4px;
 `;
 
-const NestedSyntax = styled(SyntaxHighlighter)`
+const NestedSyntax = styled(StyledSyntaxHighlighter)`
     background-color: transparent !important;
     border: none !important;
     height: 100% !important;

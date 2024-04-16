@@ -1,11 +1,11 @@
 import { Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { GetDatasetQuery } from '../../../../../../graphql/dataset.generated';
 import { ANTD_GRAY } from '../../../constants';
 import { useBaseEntity } from '../../../../../entity/shared/EntityContext';
 import { InfoItem } from '../../../components/styled/InfoItem';
+import { StyledSyntaxHighlighter } from '../../../StyledSyntaxHighlighter';
 
 const InfoSection = styled.div`
     border-bottom: 1px solid ${ANTD_GRAY[4.5]};
@@ -37,7 +37,7 @@ const QueryText = styled(Typography.Paragraph)`
 
 // NOTE: Yes, using `!important` is a shame. However, the SyntaxHighlighter is applying styles directly
 // to the component, so there's no way around this
-const NestedSyntax = styled(SyntaxHighlighter)`
+const NestedSyntax = styled(StyledSyntaxHighlighter)`
     background-color: transparent !important;
     border: none !important;
 `;
