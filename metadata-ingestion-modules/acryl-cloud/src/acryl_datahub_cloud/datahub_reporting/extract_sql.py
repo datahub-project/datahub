@@ -3,7 +3,7 @@ import os
 import zipfile
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import List, Optional
+from typing import Iterable, List, Optional
 
 import boto3
 from pydantic import validator
@@ -16,6 +16,7 @@ from acryl_datahub_cloud.datahub_reporting.datahub_dataset import (
     FileStoreBackedDatasetConfig,
 )
 from datahub.configuration.common import ConfigModel
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SupportStatus,
@@ -141,6 +142,7 @@ class DataHubReportingExtractSQLSource(Source):
             self.datahub_based_s3_dataset.get_dataset_urn(), DatasetPropertiesClass
         )
 
+        mcps: Iterable[MetadataChangeProposalWrapper] = []
         if (
             self.should_skip_extract(dataset_properties)
             and self.datahub_based_s3_dataset.config.generate_presigned_url
@@ -159,7 +161,11 @@ class DataHubReportingExtractSQLSource(Source):
             time_partition_path = "year={}/month={:02d}/day={:02d}".format(
                 previous_date.year, previous_date.month, previous_date.day
             )
-            output_file = self.datahub_based_s3_dataset.config.file
+            output_file = (
+                self.datahub_based_s3_dataset.config.file
+                if self.datahub_based_s3_dataset.config.file
+                else f"{self.datahub_based_s3_dataset.config.file_name}.zip"
+            )
             self._clean_up_old_state(
                 state_directory=tmp_dir, result_file_path=output_file
             )
@@ -175,11 +181,12 @@ class DataHubReportingExtractSQLSource(Source):
                 state_directory=tmp_dir, result_file_path=output_file
             )
 
-            for mcp in mcps:
-                logger.info(
-                    f"Reporting dataset registered at {self.datahub_based_s3_dataset.get_dataset_urn()}"
-                )
-                yield mcp.as_workunit()
+            logger.info(
+                f"Reporting dataset registered at {self.datahub_based_s3_dataset.get_dataset_urn()}"
+            )
+
+        for mcp in mcps:
+            yield mcp.as_workunit()
 
     @staticmethod
     def _clean_up_old_state(
