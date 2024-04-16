@@ -289,7 +289,7 @@ public class EntityController {
             true);
 
     return ResponseEntity.of(
-        toRecordTemplates(opContext,List.of(urn), Set.of(aspectName), withSystemMetadata).stream()
+        toRecordTemplates(opContext, List.of(urn), Set.of(aspectName), withSystemMetadata).stream()
             .findFirst()
             .flatMap(
                 e ->
@@ -366,7 +366,6 @@ public class EntityController {
       throws URISyntaxException, JsonProcessingException {
 
     Authentication authentication = AuthenticationContext.getAuthentication();
-    AspectsBatch batch = toBatch(jsonEntityList, authentication.getActor());
 
     if (!AuthUtil.isAPIAuthorizedEntityType(
         authentication, authorizationChain, CREATE, entityName)) {
@@ -374,7 +373,16 @@ public class EntityController {
           authentication.getActor().toUrnStr() + " is unauthorized to " + CREATE + " entities.");
     }
 
-    Set<IngestResult> results = entityService.ingestProposal(batch, async);
+    OperationContext opContext =
+        OperationContext.asSession(
+            systemOperationContext,
+            RequestContext.builder().buildOpenapi("createEntity", entityName),
+            authorizationChain,
+            authentication,
+            true);
+
+    AspectsBatch batch = toBatch(opContext, jsonEntityList, authentication.getActor());
+    Set<IngestResult> results = entityService.ingestProposal(opContext, batch, async);
 
     if (!async) {
       return ResponseEntity.ok(toEntityListResponse(results, withSystemMetadata));
@@ -680,7 +688,8 @@ public class EntityController {
         aspectRetriever);
   }
 
-  private AspectsBatch toBatch(String entityArrayList, Actor actor)
+  private AspectsBatch toBatch(
+      @Nonnull OperationContext opContext, String entityArrayList, Actor actor)
       throws JsonProcessingException, URISyntaxException {
     JsonNode entities = objectMapper.readTree(entityArrayList);
 
@@ -717,7 +726,7 @@ public class EntityController {
                       objectMapper.writeValueAsString(aspect.getValue().get("systemMetadata"))));
             }
 
-            items.add(builder.build(entityService));
+            items.add(builder.build(opContext.getRetrieverContext().get().getAspectRetriever()));
           }
         }
       }
