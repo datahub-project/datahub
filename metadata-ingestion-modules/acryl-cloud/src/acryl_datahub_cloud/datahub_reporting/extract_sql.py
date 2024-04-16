@@ -8,7 +8,7 @@ from typing import List, Optional
 import boto3
 from pydantic import validator
 
-from acryl_datahub_cloud.ingestion.source.datahub_reporting.datahub_dataset import (
+from acryl_datahub_cloud.datahub_reporting.datahub_dataset import (
     BaseModelRow,
     DataHubBasedS3Dataset,
     DatasetMetadata,
