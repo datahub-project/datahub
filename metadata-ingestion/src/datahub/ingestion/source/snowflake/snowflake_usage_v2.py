@@ -241,6 +241,7 @@ class SnowflakeUsageExtractor(
                         logger.debug(
                             f"Skipping usage for {row['OBJECT_DOMAIN']} {row['OBJECT_NAME']}, as table is not allowed by recipe."
                         )
+                        continue
 
                     dataset_identifier = (
                         self.get_dataset_identifier_from_qualified_name(
@@ -249,7 +250,7 @@ class SnowflakeUsageExtractor(
                     )
                     if dataset_identifier not in discovered_datasets:
                         logger.debug(
-                            f"Skipping usage for table {dataset_identifier}, as table is not accessible."
+                            f"Skipping usage for {row['OBJECT_DOMAIN']} {dataset_identifier}, as table is not accessible."
                         )
                         continue
                     with skip_timer.pause(), self.report.usage_aggregation_result_map_timer:
