@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euxo pipefail
 
-if [[ ! ${RELEASE_SKIP_TEST:-} ]]; then
+if [[ ! ${RELEASE_SKIP_TEST:-} ]] && [[ ! ${RELEASE_SKIP_INSTALL:-} ]]; then
 	../../gradlew build  # also runs tests
 elif [[ ! ${RELEASE_SKIP_INSTALL:-} ]]; then
 	../../gradlew install
