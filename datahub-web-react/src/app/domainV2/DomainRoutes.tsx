@@ -16,6 +16,7 @@ const ContentWrapper = styled.div`
     display: flex;
     overflow: hidden;
     border-radius: 8px;
+    flex: 1;
 `;
 
 export default function DomainRoutes() {
