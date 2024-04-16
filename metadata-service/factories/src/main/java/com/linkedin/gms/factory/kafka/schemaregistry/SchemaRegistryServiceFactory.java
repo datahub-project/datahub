@@ -1,6 +1,6 @@
 package com.linkedin.gms.factory.kafka.schemaregistry;
 
-import com.linkedin.gms.factory.common.TopicConventionFactory;
+import com.linkedin.gms.factory.kafka.common.TopicConventionFactory;
 import com.linkedin.metadata.registry.SchemaRegistryService;
 import com.linkedin.metadata.registry.SchemaRegistryServiceImpl;
 import com.linkedin.mxe.TopicConvention;

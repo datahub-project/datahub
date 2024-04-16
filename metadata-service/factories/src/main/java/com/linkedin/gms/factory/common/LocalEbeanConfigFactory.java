@@ -1,8 +1,7 @@
 package com.linkedin.gms.factory.common;
 
-import com.linkedin.metadata.spring.YamlPropertySourceFactory;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
-import io.ebean.config.ServerConfig;
+import io.ebean.config.DatabaseConfig;
 import io.ebean.datasource.DataSourceConfig;
 import io.ebean.datasource.DataSourcePoolListener;
 import java.sql.Connection;
@@ -13,12 +12,10 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.PropertySource;
 
 @Slf4j
 @Configuration
-@PropertySource(value = "classpath:/application.yml", factory = YamlPropertySourceFactory.class)
-public class LocalEbeanServerConfigFactory {
+public class LocalEbeanConfigFactory {
 
   @Value("${ebean.username}")
   private String ebeanDatasourceUsername;
@@ -91,11 +88,11 @@ public class LocalEbeanServerConfigFactory {
     return dataSourceConfig;
   }
 
-  @Bean(name = "gmsEbeanServiceConfig")
-  protected ServerConfig createInstance(
+  @Bean(name = "gmsEbeanDatabaseConfig")
+  protected DatabaseConfig createInstance(
       @Qualifier("ebeanDataSourceConfig") DataSourceConfig config) {
-    ServerConfig serverConfig = new ServerConfig();
-    serverConfig.setName("gmsEbeanServiceConfig");
+    DatabaseConfig serverConfig = new DatabaseConfig();
+    serverConfig.setName("gmsEbeanDatabaseConfig");
     serverConfig.setDataSourceConfig(config);
     serverConfig.setDdlGenerate(ebeanAutoCreate);
     serverConfig.setDdlRun(ebeanAutoCreate);
