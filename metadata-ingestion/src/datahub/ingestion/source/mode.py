@@ -8,9 +8,11 @@ from functools import lru_cache
 from typing import Dict, Iterable, List, Optional, Set, Tuple, Union
 
 import dateutil.parser as dp
+import jinja2
 import pydantic
 import requests
 import tenacity
+import yaml
 from pydantic import Field, validator
 from requests.models import HTTPBasicAuth, HTTPError
 from sqllineage.runner import LineageRunner
@@ -467,6 +469,8 @@ class ModeSource(StatefulIngestionSourceBase):
             "bigValue": ChartTypeClass.TEXT,
             "pivotTable": ChartTypeClass.TABLE,
             "linePlusBar": None,
+            "vegas": None,
+            "vegasPivotTable": ChartTypeClass.TABLE,
         }
         if not display_type:
             self.report.report_warning(
@@ -610,7 +614,7 @@ class ModeSource(StatefulIngestionSourceBase):
 
     def _replace_definitions(self, raw_query: str) -> str:
         query = raw_query
-        definitions = re.findall("({{[^}{]+}})", raw_query)
+        definitions = re.findall(r"({{(?:\s+)?@[^}{]+}})", raw_query)
         for definition_variable in definitions:
             definition_name, definition_alias = self._parse_definition_name(
                 definition_variable
@@ -626,6 +630,8 @@ class ModeSource(StatefulIngestionSourceBase):
                     definition_variable, f"{definition_name} as {definition_alias}"
                 )
             query = self._replace_definitions(query)
+            query = query.replace("\\n", "\n")
+            query = query.replace("\\t", "\t")
 
         return query
 
@@ -756,6 +762,31 @@ class ModeSource(StatefulIngestionSourceBase):
                 tag = TagAssociationClass(tag=self.DIMENSION_TAG_URN)
             field.globalTags = GlobalTagsClass(tags=[tag])
 
+    def normalize_mode_query(self, query: str) -> str:
+        regex = r"{% form %}(.*){% endform %}"
+        rendered_query: str = query
+
+        matches = re.search(regex, query, re.MULTILINE | re.DOTALL)
+        if matches:
+            try:
+                parameters = yaml.safe_load(matches.group(1))
+                jinja_params = {}
+                for key in parameters.keys():
+                    jinja_params[key] = parameters[key].get("default", "")
+
+                normalized_query = re.sub(
+                    r"{% form %}(.*){% endform %}",
+                    "",
+                    query,
+                    0,
+                    re.MULTILINE | re.DOTALL,
+                )
+                rendered_query = jinja2.Template(normalized_query).render(jinja_params)
+            except Exception as e:
+                logger.debug(f"Rendering query {query} failed with {e}")
+                return rendered_query
+        return rendered_query
+
     def construct_query_from_api_data(
         self,
         report_token: str,
@@ -811,8 +842,11 @@ class ModeSource(StatefulIngestionSourceBase):
             # this means we can't infer the platform
             return
 
+        query = query_data["raw_query"]
+        query = self._replace_definitions(query)
+        normalized_query = self.normalize_mode_query(query)
         parsed_query_object = create_lineage_sql_parsed_result(
-            query=query_data["raw_query"],
+            query=normalized_query,
             default_db=upstream_warehouse_db_name,
             platform=upstream_warehouse_platform,
             platform_instance=(
