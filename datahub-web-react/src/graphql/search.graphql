@@ -967,10 +967,6 @@ fragment searchResults on SearchResults {
 fragment entityField on SchemaFieldEntity {
   urn
   type
-  parent {
-    urn
-    type
-  }
   fieldPath
   structuredProperties {
     properties {
