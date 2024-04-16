@@ -130,6 +130,17 @@ type PlatformPrivileges {
   Whether the user can create and delete posts pinned to the home page.
   """
   manageGlobalAnnouncements: Boolean!
+
+  """
+  Whether the user can create Business Attributes.
+  """
+  createBusinessAttributes: Boolean!
+
+  """
+  Whether the user can manage Business Attributes.
+  """
+  manageBusinessAttributes: Boolean!
+
 }
 
 """
@@ -471,6 +482,11 @@ type FeatureFlagsConfig {
   If this is off, Domains appear "flat" again.
   """
   nestedDomainsEnabled: Boolean!
+
+  """
+  Whether business attribute entity should be shown
+  """
+  businessAttributeEntityEnabled: Boolean!
 }
 
 """

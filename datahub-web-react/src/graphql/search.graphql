@@ -241,6 +241,12 @@ fragment autoCompleteFields on Entity {
     ... on DataPlatform {
         ...nonConflictingPlatformFields
     }
+    ... on BusinessAttribute {
+        properties {
+            name
+            description
+        }
+    }
 }
 
 query getAutoCompleteResults($input: AutoCompleteInput!) {
@@ -845,6 +851,12 @@ fragment searchResultFields on Entity {
             ...glossaryTerms
         }
     }
+    ... on BusinessAttribute {
+        ...businessAttributeFields
+    }
+    ... on SchemaFieldEntity {
+          ...entityField
+    }
 }
 
 fragment facetFields on FacetMetadata {
@@ -950,6 +962,26 @@ fragment searchResults on SearchResults {
         frequency
         score
     }
+}
+
+fragment entityField on SchemaFieldEntity {
+  urn
+  type
+  parent {
+    urn
+    type
+  }
+  fieldPath
+  structuredProperties {
+    properties {
+      ...structuredPropertiesFields
+    }
+  }
+  businessAttributes {
+    businessAttribute {
+      ...businessAttribute
+    }
+  }
 }
 
 fragment schemaFieldEntityFields on SchemaFieldEntity {

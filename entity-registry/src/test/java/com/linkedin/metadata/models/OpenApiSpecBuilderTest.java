@@ -108,9 +108,9 @@ public class OpenApiSpecBuilderTest {
         Path.of(getClass().getResource("/").getPath(), "open-api.yaml"),
         openapiYaml.getBytes(StandardCharsets.UTF_8));
 
-    assertEquals(openAPI.getComponents().getSchemas().size(), 914);
-    assertEquals(openAPI.getComponents().getParameters().size(), 56);
-    assertEquals(openAPI.getPaths().size(), 102);
+    assertEquals(openAPI.getComponents().getSchemas().size(), 930);
+    assertEquals(openAPI.getComponents().getParameters().size(), 57);
+    assertEquals(openAPI.getPaths().size(), 104);
   }
 
   private OpenAPI generateOpenApiSpec(EntityRegistry entityRegistry) {

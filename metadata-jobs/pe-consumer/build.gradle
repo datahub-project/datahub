@@ -24,6 +24,8 @@ dependencies {
   runtimeOnly externalDependency.logbackClassic
   testImplementation externalDependency.mockito
   testRuntimeOnly externalDependency.logbackClassic
+  testImplementation externalDependency.springBootTest
+  testImplementation externalDependency.testng
 }
 
 task avroSchemaSources(type: Copy) {
