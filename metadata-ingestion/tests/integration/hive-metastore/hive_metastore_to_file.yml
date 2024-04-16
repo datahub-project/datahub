@@ -1,7 +1,7 @@
-run_id: presto-on-hive-test
+run_id: hive-metastore-test
 
 source:
-  type: presto-on-hive
+  type: hive-metastore
   config:
     host_port: localhost:5432
     database: metastore
@@ -18,4 +18,4 @@ source:
 sink:
   type: file
   config:
-    filename: "./presto_on_hive_mces.json"
+    filename: "./hive_metastore_mces.json"
