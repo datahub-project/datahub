@@ -62,9 +62,9 @@ GMS_SERVER = f"http://localhost:{GMS_PORT}"
 
 
 def glue_source(
-        platform_instance: Optional[str] = None,
-        use_s3_bucket_tags: bool = True,
-        use_s3_object_tags: bool = True,
+    platform_instance: Optional[str] = None,
+    use_s3_bucket_tags: bool = True,
+    use_s3_object_tags: bool = True,
 ) -> GlueSource:
     return GlueSource(
         ctx=PipelineContext(run_id="glue-source-test"),
@@ -347,8 +347,8 @@ def test_glue_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
 
 
 def test_glue_with_delta_schema_ingest(
-        tmp_path: Path,
-        pytestconfig: PytestConfig,
+    tmp_path: Path,
+    pytestconfig: PytestConfig,
 ) -> None:
     glue_source_instance = glue_source(
         platform_instance="delta_platform_instance",
@@ -383,8 +383,8 @@ def test_glue_with_delta_schema_ingest(
 
 
 def test_glue_with_malformed_delta_schema_ingest(
-        tmp_path: Path,
-        pytestconfig: PytestConfig,
+    tmp_path: Path,
+    pytestconfig: PytestConfig,
 ) -> None:
     glue_source_instance = glue_source(
         platform_instance="delta_platform_instance",

@@ -271,7 +271,7 @@ tables_2 = [
     },
 ]
 get_tables_response_2 = {"TableList": tables_2}
-get_jobs_response_empty = {
+get_jobs_response_empty: Dict[str, Any] = {
     "Jobs": [],
 }
 get_jobs_response = {

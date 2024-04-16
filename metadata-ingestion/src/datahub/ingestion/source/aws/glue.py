@@ -1152,9 +1152,7 @@ class GlueSource(StatefulIngestionSourceBase):
             return new_tags
 
         def get_schema_metadata() -> Optional[SchemaMetadata]:
-            def is_delta_schema(
-                columns: Optional[List[Mapping[str, Any]]]
-            ) -> bool:
+            def is_delta_schema(columns: Optional[List[Mapping[str, Any]]]) -> bool:
                 return (
                     columns is not None
                     and (len(columns) == 1)
@@ -1171,11 +1169,7 @@ class GlueSource(StatefulIngestionSourceBase):
             )
             columns = table.get("StorageDescriptor", {}).get("Columns", [{}])
 
-            if (
-                (provider == "delta")
-                and (num_parts > 0)
-                and is_delta_schema(columns)
-            ):
+            if (provider == "delta") and (num_parts > 0) and is_delta_schema(columns):
                 return _get_delta_schema_metadata()
 
             elif table.get("StorageDescriptor"):
