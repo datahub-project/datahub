@@ -3,6 +3,7 @@ import enum
 import functools
 import json
 import logging
+import os
 import textwrap
 import time
 from dataclasses import dataclass
@@ -26,6 +27,7 @@ from deprecated import deprecated
 from requests.models import HTTPError
 
 from datahub.cli.cli_utils import get_url_and_token
+from datahub.cli.env_utils import get_boolean_env_variable
 from datahub.configuration.common import ConfigModel, GraphError, OperationalError
 from datahub.emitter.aspect import TIMESERIES_ASPECT_MAP
 from datahub.emitter.mce_builder import DEFAULT_ENV, Aspect
@@ -68,7 +70,7 @@ if TYPE_CHECKING:
         GenericCheckpointState,
     )
     from datahub.sql_parsing.schema_resolver import (
-        GraphQLSchemaMetadata,
+        OpenAPISchemaMetadata,
         SchemaResolver,
     )
     from datahub.sql_parsing.sqlglot_lineage import SqlParsingResult
@@ -77,6 +79,13 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 _MISSING_SERVER_ID = "missing"
 _GRAPH_DUMMY_RUN_ID = "__datahub-graph-client"
+
+_DEFAULT_BULK_SCHEMA_FETCH_BATCH_SIZE = int(
+    os.environ.get("DEFAULT_BULK_SCHEMA_FETCH_BATCH_SIZE", 1000)
+)
+_DEFAULT_BULK_SCHEMA_LAZY = get_boolean_env_variable(
+    "DEFAULT_BULK_SCHEMA_LAZY", default=False
+)
 
 
 class DatahubClientConfig(ConfigModel):
@@ -625,77 +634,55 @@ class DataHubGraph(DatahubRestEmitter):
     def _bulk_fetch_schema_info_by_filter(
         self,
         *,
-        platform: Optional[str] = None,
-        platform_instance: Optional[str] = None,
-        env: Optional[str] = None,
-        query: Optional[str] = None,
-        container: Optional[str] = None,
-        status: RemovedStatusFilter = RemovedStatusFilter.NOT_SOFT_DELETED,
-        batch_size: int = 100,
-        extraFilters: Optional[List[SearchFilterRule]] = None,
-    ) -> Iterable[Tuple[str, "GraphQLSchemaMetadata"]]:
+        platform: str,
+        platform_instance: Optional[str],
+        env: str,
+        batch_size: int,
+    ) -> Iterable[Tuple[str, "OpenAPISchemaMetadata"]]:
         """Fetch schema info for datasets that match all of the given filters.
 
         :return: An iterable of (urn, schema info) tuple that match the filters.
         """
-        types = [_graphql_entity_type("dataset")]
 
-        # Add the query default of * if no query is specified.
-        query = query or "*"
+        # Uses the OpenAPI scroll endpoint. This is more performant than graphql.
 
-        orFilters = generate_filter(
-            platform, platform_instance, env, container, status, extraFilters
-        )
-
-        graphql_query = textwrap.dedent(
-            """
-            query scrollUrnsWithFilters(
-                $types: [EntityType!],
-                $query: String!,
-                $orFilters: [AndFilterInput!],
-                $batchSize: Int!,
-                $scrollId: String) {
-
-                scrollAcrossEntities(input: {
-                    query: $query,
-                    count: $batchSize,
-                    scrollId: $scrollId,
-                    types: $types,
-                    orFilters: $orFilters,
-                    searchFlags: {
-                        skipHighlighting: true
-                        skipAggregates: true
-                    }
-                }) {
-                    nextScrollId
-                    searchResults {
-                        entity {
-                            urn
-                            ... on Dataset {
-                                schemaMetadata(version: 0) {
-                                    fields {
-                                        fieldPath
-                                        nativeDataType
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            """
-        )
-
-        variables = {
-            "types": types,
-            "query": query,
-            "orFilters": orFilters,
-            "batchSize": batch_size,
+        url = f"{self.config.server}/openapi/v2/entity/dataset"
+        params = {
+            "systemMetadata": "false",
+            "aspects": "schemaMetadata",
+            "count": str(batch_size),
+            "query": " ".join(
+                [
+                    f'platform.keyword:"urn:li:dataPlatform:{platform}"',
+                    f'platformInstance.keyword:"{platform_instance}"'
+                    if platform_instance
+                    else "",
+                    f'origin:"{env}"',
+                ]
+            ),
         }
 
-        for entity in self._scroll_across_entities(graphql_query, variables):
-            if entity.get("schemaMetadata"):
-                yield entity["urn"], entity["schemaMetadata"]
+        first_iter = True
+        scroll_id: Optional[str] = None
+
+        while first_iter or scroll_id:
+            logger.debug(
+                f"Sending request to {url} with params {params} and scroll_id {scroll_id}"
+            )
+            res = self._session.get(
+                url,
+                params={**params, "scrollId": scroll_id},
+            )
+            data = res.json()
+
+            for entity in data["entities"]:
+                if entity.get("schemaMetadata"):
+                    urn = entity["urn"]
+                    schema_raw = entity["schemaMetadata"]["value"]
+                    yield urn, schema_raw
+
+            first_iter = False
+            scroll_id = data.get("scrollId")
 
     def get_urns_by_filter(
         self,
@@ -1096,8 +1083,15 @@ class DataHubGraph(DatahubRestEmitter):
         platform: str,
         platform_instance: Optional[str],
         env: str,
-        batch_size: int = 100,
+        batch_size: int = _DEFAULT_BULK_SCHEMA_FETCH_BATCH_SIZE,
+        lazy: bool = _DEFAULT_BULK_SCHEMA_LAZY,
     ) -> "SchemaResolver":
+        if lazy:
+            logger.info("Initializing a lazy schema resolver")
+            return self._make_schema_resolver(
+                platform, platform_instance, env, include_graph=True
+            )
+
         logger.info("Initializing schema resolver")
         schema_resolver = self._make_schema_resolver(
             platform, platform_instance, env, include_graph=False
@@ -1113,7 +1107,7 @@ class DataHubGraph(DatahubRestEmitter):
                 batch_size=batch_size,
             ):
                 try:
-                    schema_resolver.add_graphql_schema_metadata(urn, schema_info)
+                    schema_resolver.add_openapi_schema_metadata(urn, schema_info)
                     count += 1
                 except Exception:
                     logger.warning("Failed to add schema info", exc_info=True)
