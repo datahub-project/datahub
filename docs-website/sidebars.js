@@ -421,7 +421,7 @@ module.exports = {
       "Advanced Guides": [
         "docs/how/delete-metadata",
         "docs/how/configuring-authorization-with-apache-ranger",
-        "docs/how/configuring-identity-provisioning-with-ms-entra",
+        "docs/managed-datahub/configuring-identity-provisioning-with-ms-entra",
         "docs/how/backup-datahub",
         "docs/how/restore-indices",
         "docs/advanced/db-retention",
