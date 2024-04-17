@@ -67,7 +67,7 @@ logger: logging.Logger = logging.getLogger(__name__)
 TableKey = namedtuple("TableKey", ["schema", "table"])
 
 
-class PrestoOnHiveConfigMode(str, Enum):
+class HiveMetastoreConfigMode(str, Enum):
     hive: str = "hive"  # noqa: F811
     presto: str = "presto"
     presto_on_hive: str = "presto-on-hive"
@@ -82,7 +82,7 @@ class ViewDataset:
     view_definition: Optional[str] = None
 
 
-class PrestoOnHiveConfig(BasicSQLAlchemyConfig):
+class HiveMetastore(BasicSQLAlchemyConfig):
     views_where_clause_suffix: str = Field(
         default="",
         description="Where clause to specify what Presto views should be ingested.",
@@ -111,9 +111,9 @@ class PrestoOnHiveConfig(BasicSQLAlchemyConfig):
         default=None,
         description="Name of the Hive metastore's database (usually: metastore). For backward compatibility, if this field is not provided, the database field will be used. If both the 'database' and 'metastore_db_name' fields are set then the 'database' field will be used to filter the hive/presto/trino database",
     )
-    mode: PrestoOnHiveConfigMode = Field(
-        default=PrestoOnHiveConfigMode.presto_on_hive,
-        description=f"The ingested data will be stored under this platform. Valid options: {[e.value for e in PrestoOnHiveConfigMode]}",
+    mode: HiveMetastoreConfigMode = Field(
+        default=HiveMetastoreConfigMode.hive,
+        description=f"The ingested data will be stored under this platform. Valid options: {[e.value for e in HiveMetastoreConfigMode]}",
     )
     use_catalog_subtype: bool = Field(
         default=True,
@@ -155,13 +155,13 @@ class PrestoOnHiveConfig(BasicSQLAlchemyConfig):
         )
 
 
-@platform_name("Presto on Hive")
-@config_class(PrestoOnHiveConfig)
+@platform_name("Hive Metastore")
+@config_class(HiveMetastore)
 @support_status(SupportStatus.CERTIFIED)
 @capability(SourceCapability.DELETION_DETECTION, "Enabled via stateful ingestion")
 @capability(SourceCapability.DATA_PROFILING, "Not Supported", False)
 @capability(SourceCapability.CLASSIFICATION, "Not Supported", False)
-class PrestoOnHiveSource(SQLAlchemySource):
+class HiveMetastoreSource(SQLAlchemySource):
     """
     This plugin extracts the following:
 
@@ -309,9 +309,9 @@ class PrestoOnHiveSource(SQLAlchemySource):
     ORDER BY d."NAME" desc;
     """
 
-    def __init__(self, config: PrestoOnHiveConfig, ctx: PipelineContext) -> None:
+    def __init__(self, config: HiveMetastore, ctx: PipelineContext) -> None:
         super().__init__(config, ctx, config.mode.value)
-        self.config: PrestoOnHiveConfig = config
+        self.config: HiveMetastore = config
         self._alchemy_client = SQLAlchemyClient(config)
         self.database_container_subtype = (
             DatasetContainerSubTypes.CATALOG
@@ -337,7 +337,7 @@ class PrestoOnHiveSource(SQLAlchemySource):
 
     @classmethod
     def create(cls, config_dict, ctx):
-        config = PrestoOnHiveConfig.parse_obj(config_dict)
+        config = HiveMetastore.parse_obj(config_dict)
         return cls(config, ctx)
 
     def gen_database_containers(
@@ -367,7 +367,7 @@ class PrestoOnHiveSource(SQLAlchemySource):
         database: str,
         extra_properties: Optional[Dict[str, Any]] = None,
     ) -> Iterable[MetadataWorkUnit]:
-        assert isinstance(self.config, PrestoOnHiveConfig)
+        assert isinstance(self.config, HiveMetastore)
         where_clause_suffix: str = ""
         if (
             self.config.schemas_where_clause_suffix
@@ -376,11 +376,11 @@ class PrestoOnHiveSource(SQLAlchemySource):
             where_clause_suffix = f"{self.config.schemas_where_clause_suffix} {self._get_db_filter_where_clause()}"
 
         statement: str = (
-            PrestoOnHiveSource._SCHEMAS_POSTGRES_SQL_STATEMENT.format(
+            HiveMetastoreSource._SCHEMAS_POSTGRES_SQL_STATEMENT.format(
                 where_clause_suffix=where_clause_suffix
             )
             if "postgresql" in self.config.scheme
-            else PrestoOnHiveSource._SCHEMAS_SQL_STATEMENT.format(
+            else HiveMetastoreSource._SCHEMAS_SQL_STATEMENT.format(
                 where_clause_suffix=where_clause_suffix
             )
         )
@@ -427,11 +427,11 @@ class PrestoOnHiveSource(SQLAlchemySource):
         self, db_name: str, scheme: str, where_clause_suffix: str
     ) -> Dict[str, Dict[str, str]]:
         statement: str = (
-            PrestoOnHiveSource._HIVE_PROPERTIES_POSTGRES_SQL_STATEMENT.format(
+            HiveMetastoreSource._HIVE_PROPERTIES_POSTGRES_SQL_STATEMENT.format(
                 where_clause_suffix=where_clause_suffix
             )
             if "postgresql" in scheme
-            else PrestoOnHiveSource._HIVE_PROPERTIES_SQL_STATEMENT.format(
+            else HiveMetastoreSource._HIVE_PROPERTIES_SQL_STATEMENT.format(
                 where_clause_suffix=where_clause_suffix
             )
         )
@@ -462,14 +462,14 @@ class PrestoOnHiveSource(SQLAlchemySource):
         ):
             return
 
-        assert isinstance(sql_config, PrestoOnHiveConfig)
+        assert isinstance(sql_config, HiveMetastore)
         where_clause_suffix = f"{sql_config.tables_where_clause_suffix} {self._get_db_filter_where_clause()}"
         statement: str = (
-            PrestoOnHiveSource._TABLES_POSTGRES_SQL_STATEMENT.format(
+            HiveMetastoreSource._TABLES_POSTGRES_SQL_STATEMENT.format(
                 where_clause_suffix=where_clause_suffix
             )
             if "postgresql" in sql_config.scheme
-            else PrestoOnHiveSource._TABLES_SQL_STATEMENT.format(
+            else HiveMetastoreSource._TABLES_SQL_STATEMENT.format(
                 where_clause_suffix=where_clause_suffix
             )
         )
@@ -631,11 +631,11 @@ class PrestoOnHiveSource(SQLAlchemySource):
             where_clause_suffix = f"{self.config.views_where_clause_suffix} {self._get_db_filter_where_clause()}"
 
         statement: str = (
-            PrestoOnHiveSource._HIVE_VIEWS_POSTGRES_SQL_STATEMENT.format(
+            HiveMetastoreSource._HIVE_VIEWS_POSTGRES_SQL_STATEMENT.format(
                 where_clause_suffix=where_clause_suffix
             )
             if "postgresql" in self.config.scheme
-            else PrestoOnHiveSource._HIVE_VIEWS_SQL_STATEMENT.format(
+            else HiveMetastoreSource._HIVE_VIEWS_SQL_STATEMENT.format(
                 where_clause_suffix=where_clause_suffix
             )
         )
@@ -676,11 +676,11 @@ class PrestoOnHiveSource(SQLAlchemySource):
             where_clause_suffix = f"{self.config.views_where_clause_suffix} {self._get_db_filter_where_clause()}"
 
         statement: str = (
-            PrestoOnHiveSource._VIEWS_POSTGRES_SQL_STATEMENT.format(
+            HiveMetastoreSource._VIEWS_POSTGRES_SQL_STATEMENT.format(
                 where_clause_suffix=where_clause_suffix
             )
             if "postgresql" in self.config.scheme
-            else PrestoOnHiveSource._VIEWS_SQL_STATEMENT.format(
+            else HiveMetastoreSource._VIEWS_SQL_STATEMENT.format(
                 where_clause_suffix=where_clause_suffix
             )
         )
@@ -719,7 +719,7 @@ class PrestoOnHiveSource(SQLAlchemySource):
         schema: str,
         sql_config: SQLCommonConfig,
     ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
-        assert isinstance(sql_config, PrestoOnHiveConfig)
+        assert isinstance(sql_config, HiveMetastore)
 
         # In mysql we get tables for all databases and we should filter out the non metastore one
         if (
@@ -730,7 +730,7 @@ class PrestoOnHiveSource(SQLAlchemySource):
             return
 
         iter: Iterable[ViewDataset]
-        if self.config.mode in [PrestoOnHiveConfigMode.hive]:
+        if self.config.mode in [HiveMetastoreConfigMode.hive]:
             iter = self.get_hive_view_columns(inspector=inspector)
         else:
             iter = self.get_presto_view_columns(inspector=inspector)
@@ -855,8 +855,8 @@ class PrestoOnHiveSource(SQLAlchemySource):
         """
         # remove encoded Presto View data prefix and suffix
         encoded_view_info = view_original_text.split(
-            PrestoOnHiveSource._PRESTO_VIEW_PREFIX, 1
-        )[-1].rsplit(PrestoOnHiveSource._PRESTO_VIEW_SUFFIX, 1)[0]
+            HiveMetastoreSource._PRESTO_VIEW_PREFIX, 1
+        )[-1].rsplit(HiveMetastoreSource._PRESTO_VIEW_SUFFIX, 1)[0]
 
         # view_original_text is b64 encoded:
         decoded_view_info = base64.b64decode(encoded_view_info)
@@ -883,9 +883,9 @@ class PrestoOnHiveSource(SQLAlchemySource):
         return get_schema_fields_for_hive_column(
             column["col_name"],
             column["col_type"],
-            description=column["col_description"]
-            if "col_description" in column
-            else "",
+            description=(
+                column["col_description"] if "col_description" in column else ""
+            ),
             default_nullable=True,
         )
 

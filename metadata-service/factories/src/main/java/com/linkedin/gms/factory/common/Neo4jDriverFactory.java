@@ -1,6 +1,5 @@
 package com.linkedin.gms.factory.common;
 
-import com.linkedin.metadata.spring.YamlPropertySourceFactory;
 import java.util.concurrent.TimeUnit;
 import org.neo4j.driver.AuthTokens;
 import org.neo4j.driver.Config;
@@ -9,10 +8,8 @@ import org.neo4j.driver.GraphDatabase;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.PropertySource;
 
 @Configuration
-@PropertySource(value = "classpath:/application.yml", factory = YamlPropertySourceFactory.class)
 public class Neo4jDriverFactory {
   @Value("${neo4j.username}")
   private String username;

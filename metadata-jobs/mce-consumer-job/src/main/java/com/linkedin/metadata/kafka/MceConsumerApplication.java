@@ -40,7 +40,7 @@ import org.springframework.context.annotation.PropertySource;
           type = FilterType.ASSIGNABLE_TYPE,
           classes = {ScheduledAnalyticsFactory.class})
     })
-@PropertySource(value = "classpath:/application.yml", factory = YamlPropertySourceFactory.class)
+@PropertySource(value = "classpath:/application.yaml", factory = YamlPropertySourceFactory.class)
 public class MceConsumerApplication {
 
   public static void main(String[] args) {
