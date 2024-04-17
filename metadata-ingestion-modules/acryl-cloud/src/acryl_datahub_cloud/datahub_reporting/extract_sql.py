@@ -142,6 +142,15 @@ class DataHubReportingExtractSQLSource(Source):
             self.datahub_based_s3_dataset.get_dataset_urn(), DatasetPropertiesClass
         )
 
+        # Generate a static path used for temporary files,
+        # so we consistently delete the data (possibly based on pipeline name)
+        tmp_dir = self.ctx.pipeline_name if self.ctx.pipeline_name else "default"
+        output_file = (
+            self.datahub_based_s3_dataset.config.file
+            if self.datahub_based_s3_dataset.config.file
+            else f"{self.datahub_based_s3_dataset.config.file_name}.zip"
+        )
+
         mcps: Iterable[MetadataChangeProposalWrapper] = []
         if (
             self.should_skip_extract(dataset_properties)
@@ -155,17 +164,10 @@ class DataHubReportingExtractSQLSource(Source):
         else:
             # Get yesterday's RDS data dump.
             previous_date = datetime.now() - timedelta(days=1)
-            # Must be a static path, so we consistently delete the data (possibly based on pipeline name)
-            tmp_dir = self.ctx.pipeline_name if self.ctx.pipeline_name else "default"
-
             time_partition_path = "year={}/month={:02d}/day={:02d}".format(
                 previous_date.year, previous_date.month, previous_date.day
             )
-            output_file = (
-                self.datahub_based_s3_dataset.config.file
-                if self.datahub_based_s3_dataset.config.file
-                else f"{self.datahub_based_s3_dataset.config.file_name}.zip"
-            )
+
             self._clean_up_old_state(
                 state_directory=tmp_dir, result_file_path=output_file
             )
@@ -177,9 +179,6 @@ class DataHubReportingExtractSQLSource(Source):
             self._zip_folder(folder_path=tmp_dir, output_file=output_file)
             logger.warning(self.datahub_based_s3_dataset.dataset_metadata)
             mcps = self.datahub_based_s3_dataset.commit()
-            self._clean_up_old_state(
-                state_directory=tmp_dir, result_file_path=output_file
-            )
 
             logger.info(
                 f"Reporting dataset registered at {self.datahub_based_s3_dataset.get_dataset_urn()}"
@@ -187,6 +186,8 @@ class DataHubReportingExtractSQLSource(Source):
 
         for mcp in mcps:
             yield mcp.as_workunit()
+
+        self._clean_up_old_state(state_directory=tmp_dir, result_file_path=output_file)
 
     @staticmethod
     def _clean_up_old_state(
