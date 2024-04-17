@@ -121,7 +121,7 @@ grpcio==1.62.1
 grpcio-status==1.62.1
 grpcio-tools==1.62.1
 gssapi==1.8.3
-gunicorn==21.2.0
+gunicorn==22.0.0
 h11==0.14.0
 httpcore==1.0.4
 httpx==0.27.0
