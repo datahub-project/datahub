@@ -26,6 +26,7 @@ import com.linkedin.metadata.search.utils.QueryUtils;
 import com.linkedin.metadata.service.ViewService;
 import com.linkedin.view.DataHubViewInfo;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -233,11 +234,11 @@ public class ResolverUtils {
   }
 
   public static Filter viewFilter(
-      ViewService viewService, String viewUrn, Authentication authentication) {
+      OperationContext opContext, ViewService viewService, String viewUrn) {
     if (viewUrn == null) {
       return null;
     }
-    DataHubViewInfo viewInfo = resolveView(viewService, UrnUtils.getUrn(viewUrn), authentication);
+    DataHubViewInfo viewInfo = resolveView(opContext, viewService, UrnUtils.getUrn(viewUrn));
     Filter result = SearchUtils.combineFilters(null, viewInfo.getDefinition().getFilter());
     return result;
   }
