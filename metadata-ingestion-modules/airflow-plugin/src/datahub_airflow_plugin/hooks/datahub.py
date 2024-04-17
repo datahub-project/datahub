@@ -2,6 +2,7 @@ from typing import TYPE_CHECKING, Any, Dict, Optional, Sequence, Tuple, Union
 
 from airflow.exceptions import AirflowException
 from airflow.hooks.base import BaseHook
+from datahub.cli.cli_utils import fixup_gms_url
 from datahub.emitter.generic_emitter import Emitter
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
@@ -91,7 +92,7 @@ class DatahubRestHook(BaseHook):
 
         host, token, extra_args = self._get_config_v2()
         return datahub.emitter.rest_emitter.DataHubRestEmitter(
-            host, token, **extra_args
+            fixup_gms_url(host), token, **extra_args
         )
 
     def emit(
