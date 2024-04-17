@@ -102,7 +102,7 @@ export default function SchemaTable({
 
     const schemaFields = schemaMetadata ? schemaMetadata.fields : inputFields;
 
-    const descriptionRender = useDescriptionRenderer();
+    const descriptionRender = useDescriptionRenderer(editableSchemaMetadata);
     const usageStatsRenderer = useUsageStatsRenderer(usageStats);
     const tagRenderer = useTagsAndTermsRenderer(
         editableSchemaMetadata,
