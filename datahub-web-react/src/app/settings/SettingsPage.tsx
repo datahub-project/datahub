@@ -39,6 +39,7 @@ import ManageHelpLink from './helpLink/ManageHelpLink';
 import analytics, { EventType } from '../analytics';
 import { GlobalCfg } from '../../conf';
 import { isLoggedInVar } from '../auth/checkAuthStatus';
+import { useIsThemeV2Enabled } from '../useIsThemeV2Enabled';
 
 const PageContainer = styled.div`
     display: flex;
@@ -135,6 +136,7 @@ export const SettingsPage = () => {
     const showOwnershipTypes = me && me?.platformPrivileges?.manageOwnershipTypes;
     const showHomePagePosts = me && me?.platformPrivileges?.manageGlobalAnnouncements && !readOnlyModeEnabled;
     const showCustomHelpLink = me?.platformPrivileges?.manageGlobalSettings;
+    const isThemeV2 = useIsThemeV2Enabled();
 
     const handleLogout = () => {
         analytics.event({ type: EventType.LogOutEvent });
@@ -149,16 +151,18 @@ export const SettingsPage = () => {
                 <SettingsBarHeader>
                     <PageTitle level={3}>Settings</PageTitle>
                     <Typography.Paragraph type="secondary">Manage your DataHub settings.</Typography.Paragraph>
-                    <Button
-                        type="link"
-                        href="/logOut"
-                        onClick={handleLogout}
-                        data-testid="log-out-menu-item"
-                        style={{ padding: 0, margin: 0, height: 'auto', lineHeight: 'inherit' }}
-                        danger
-                    >
-                        Sign Out
-                    </Button>
+                    {isThemeV2 && (
+                        <Button
+                            type="link"
+                            href="/logOut"
+                            onClick={handleLogout}
+                            data-testid="log-out-menu-item"
+                            style={{ padding: 0, margin: 0, height: 'auto', lineHeight: 'inherit' }}
+                            danger
+                        >
+                            Sign Out
+                        </Button>
+                    )}
                 </SettingsBarHeader>
                 <ThinDivider />
                 <Menu
