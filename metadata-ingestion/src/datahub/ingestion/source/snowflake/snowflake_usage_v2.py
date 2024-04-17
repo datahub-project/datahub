@@ -234,6 +234,8 @@ class SnowflakeUsageExtractor(
         with self.report.usage_aggregation_result_fetch_timer as fetch_timer:
             for row in results:
                 with fetch_timer.pause(), self.report.usage_aggregation_result_skip_timer as skip_timer:
+                    if results.rownumber and results.rownumber % 100 == 0:
+                        logger.debug(f"Processing usage row number {results.rownumber}")
                     if not self._is_dataset_pattern_allowed(
                         row["OBJECT_NAME"],
                         row["OBJECT_DOMAIN"],
