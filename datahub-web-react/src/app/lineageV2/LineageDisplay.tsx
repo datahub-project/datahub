@@ -23,6 +23,7 @@ export default function LineageDisplay({ urn, type, loaded }: Props) {
     const [selectedColumn, setSelectedColumn] = useState<ColumnRef | null>(null);
     const [hoveredColumn, setHoveredColumn] = useState<ColumnRef | null>(null);
     const [hoveredNode, setHoveredNode] = useState<string | null>(null);
+    const [displayedMenuNode, setDisplayedMenuNode] = useState<string | null>(null);
 
     const { fineGrainedLineage, flowNodes, flowEdges } = useProcessData(urn, type);
     const shownUrns = useMemo(
@@ -68,6 +69,8 @@ export default function LineageDisplay({ urn, type, loaded }: Props) {
             value={{
                 hoveredNode,
                 setHoveredNode,
+                displayedMenuNode,
+                setDisplayedMenuNode,
                 selectedColumn,
                 setSelectedColumn,
                 hoveredColumn,

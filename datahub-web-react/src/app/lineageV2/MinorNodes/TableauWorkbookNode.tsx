@@ -111,6 +111,8 @@ export default function TableauWorkbookNode(props: NodeProps<LineageEntity>) {
                         urn={urn}
                         direction={LineageDirection.Upstream}
                         display={fetchStatus[LineageDirection.Upstream] === FetchStatus.UNFETCHED}
+                        entityType={type}
+                        fetchStatus={fetchStatus}
                     />
                 )}
                 {[FetchStatus.UNFETCHED, FetchStatus.LOADING].includes(fetchStatus[LineageDirection.Downstream]) && (
@@ -118,6 +120,8 @@ export default function TableauWorkbookNode(props: NodeProps<LineageEntity>) {
                         urn={urn}
                         direction={LineageDirection.Downstream}
                         display={fetchStatus[LineageDirection.Downstream] === FetchStatus.UNFETCHED}
+                        entityType={type}
+                        fetchStatus={fetchStatus}
                     />
                 )}
             </FakeCard>

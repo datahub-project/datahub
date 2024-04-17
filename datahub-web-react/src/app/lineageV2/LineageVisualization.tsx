@@ -50,7 +50,7 @@ const MemoizedLineageVisualization = React.memo(LineageVisualization);
 export default MemoizedLineageVisualization;
 
 function LineageVisualization({ initialNodes, initialEdges }: Props) {
-    const { highlightedEdges, setSelectedColumn } = useContext(LineageDisplayContext);
+    const { highlightedEdges, setSelectedColumn, setDisplayedMenuNode } = useContext(LineageDisplayContext);
 
     useEffect(() => {
         function handleKeyPress(e: KeyboardEvent) {
@@ -74,6 +74,7 @@ function LineageVisualization({ initialNodes, initialEdges }: Props) {
             defaultEdges={initialEdges}
             // Selection change event does not get emitted without timeout
             onPaneClick={() => setTimeout(() => setSelectedColumn(null), 0)}
+            onClick={() => setDisplayedMenuNode(null)}
             nodeTypes={nodeTypes}
             edgeTypes={edgeTypes}
             proOptions={{ hideAttribution: true }}

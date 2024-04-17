@@ -1,7 +1,7 @@
 import { LoadingOutlined } from '@ant-design/icons';
 import { KeyboardArrowDown, KeyboardArrowUp } from '@mui/icons-material';
 import { Skeleton, Spin } from 'antd';
-import React, { Dispatch, SetStateAction } from 'react';
+import React, { Dispatch, SetStateAction, useContext } from 'react';
 import { Handle, Position } from 'reactflow';
 import styled from 'styled-components';
 import { EntityType, LineageDirection } from '../../../types.generated';
@@ -11,15 +11,22 @@ import { ContainerIconBase } from '../../entityV2/shared/containers/profile/head
 import getTypeIcon from '../../sharedV2/icons/getTypeIcon';
 import OverflowTitle from '../../sharedV2/text/OverflowTitle';
 import { useEntityRegistry } from '../../useEntityRegistry';
-import { FetchStatus, getNodeColor, LineageEntity, onMouseDownCapturePreventSelect } from '../common';
+import {
+    FetchStatus,
+    getNodeColor,
+    LineageEntity,
+    LineageNodesContext,
+    onMouseDownCapturePreventSelect,
+} from '../common';
 import { NUM_COLUMNS_PER_PAGE } from '../constants';
-import { EditLineageButton } from '../nodeCommon/EditLineageButton';
 import { FetchedEntityV2 } from '../types';
 import Columns from './Columns';
 import { ExpandLineageButton } from './ExpandLineageButton';
 import NodeSkeleton from './NodeSkeleton';
 import useAvoidIntersections from './useAvoidIntersections';
 import { DisplayedColumns, LINEAGE_NODE_HEIGHT, LINEAGE_NODE_WIDTH } from './useDisplayedColumns';
+import { ContractLineageButton } from './ContractLineageButton';
+import ManageLineageMenu from './ManageLineageMenu';
 
 const NodeWrapper = styled.div<{
     selected: boolean;
@@ -214,6 +221,8 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
     } = props;
 
     const entityRegistry = useEntityRegistry();
+    const { nodes } = useContext(LineageNodesContext);
+    const node = nodes.get(urn);
 
     const numDisplayedColumns = extraHighlightedColumns.length + (showColumns ? paginatedColumns.length : 0);
     const expandHeight =
@@ -228,6 +237,13 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
 
     const platformName = entityRegistry.getDisplayName(EntityType.DataPlatform, entity?.platform);
     const [nodeColor] = getNodeColor(type);
+    const hasUpstreamChildren = !!entity?.numUpstreamChildren;
+    const hasDownstreamChildren = !!entity?.numDownstreamChildren;
+    const isExpandedDownstream = node?.isExpanded[LineageDirection.Downstream];
+    const isExpandedUpstream = node?.isExpanded[LineageDirection.Upstream];
+    const isDownstreamHidden =
+        fetchStatus[LineageDirection.Downstream] === FetchStatus.COMPLETE && !isExpandedDownstream;
+    const isUpstreamHidden = fetchStatus[LineageDirection.Upstream] === FetchStatus.COMPLETE && !isExpandedUpstream;
 
     return (
         <NodeWrapper
@@ -239,36 +255,41 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
             <EntityTypeShadow color={nodeColor} />
             <FakeCard />
             <FakeCard style={{ position: 'absolute' }}>
-                {!!entity?.numUpstreamChildren &&
-                    [FetchStatus.UNFETCHED, FetchStatus.LOADING].includes(fetchStatus[LineageDirection.Upstream]) && (
+                {hasUpstreamChildren &&
+                    ([FetchStatus.UNFETCHED, FetchStatus.LOADING].includes(fetchStatus[LineageDirection.Upstream]) ||
+                        isUpstreamHidden) && (
                         <ExpandLineageButton
                             urn={urn}
                             direction={LineageDirection.Upstream}
-                            display={fetchStatus[LineageDirection.Upstream] === FetchStatus.UNFETCHED}
+                            display={
+                                fetchStatus[LineageDirection.Upstream] === FetchStatus.UNFETCHED || !isExpandedUpstream
+                            }
+                            entityType={type}
+                            fetchStatus={fetchStatus}
                         />
                     )}
-                {!!entity?.numDownstreamChildren &&
-                    [FetchStatus.UNFETCHED, FetchStatus.LOADING].includes(fetchStatus[LineageDirection.Downstream]) && (
+                {hasDownstreamChildren &&
+                    ([FetchStatus.UNFETCHED, FetchStatus.LOADING].includes(fetchStatus[LineageDirection.Downstream]) ||
+                        isDownstreamHidden) && (
                         <ExpandLineageButton
                             urn={urn}
                             direction={LineageDirection.Downstream}
-                            display={fetchStatus[LineageDirection.Downstream] === FetchStatus.UNFETCHED}
+                            display={
+                                fetchStatus[LineageDirection.Downstream] === FetchStatus.UNFETCHED ||
+                                !isExpandedDownstream
+                            }
+                            entityType={type}
+                            fetchStatus={fetchStatus}
                         />
                     )}
-                {fetchStatus[LineageDirection.Upstream] === FetchStatus.COMPLETE && (
-                    <EditLineageButton
-                        node={props}
-                        direction={LineageDirection.Upstream}
-                        refetch={refetch[LineageDirection.Upstream]}
-                    />
-                )}
-                {fetchStatus[LineageDirection.Downstream] === FetchStatus.COMPLETE && (
-                    <EditLineageButton
-                        node={props}
-                        direction={LineageDirection.Downstream}
-                        refetch={refetch[LineageDirection.Downstream]}
-                    />
-                )}
+                {fetchStatus[LineageDirection.Upstream] === FetchStatus.COMPLETE &&
+                    isExpandedUpstream &&
+                    hasUpstreamChildren && <ContractLineageButton urn={urn} direction={LineageDirection.Upstream} />}
+                {fetchStatus[LineageDirection.Downstream] === FetchStatus.COMPLETE &&
+                    isExpandedDownstream &&
+                    hasDownstreamChildren && (
+                        <ContractLineageButton urn={urn} direction={LineageDirection.Downstream} />
+                    )}
                 {fetchStatus[LineageDirection.Upstream] === FetchStatus.LOADING && (
                     <LoadingWrapper className="nodrag" style={{ left: -30 }}>
                         <Spin delay={urn === rootUrn ? undefined : 500} indicator={<LoadingOutlined />} />
@@ -307,6 +328,7 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
                                     fontSize={10}
                                 />
                             )}
+                            <ManageLineageMenu node={props} refetch={refetch} />
                         </TitleWrapper>
                         <ContainerPath parentContainers={entity?.parentContainers} />
                         {!!numColumnsTotal && (

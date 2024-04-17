@@ -91,7 +91,10 @@ function makeInitialNode(urn: string, type: EntityType): LineageEntity {
         id: urn,
         urn,
         type,
-        isExpanded: true,
+        isExpanded: {
+            [LineageDirection.Upstream]: true,
+            [LineageDirection.Downstream]: true,
+        },
         fetchStatus: {
             [LineageDirection.Upstream]: FetchStatus.LOADING,
             [LineageDirection.Downstream]: FetchStatus.LOADING,

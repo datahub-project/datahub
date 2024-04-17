@@ -84,23 +84,26 @@ function filterNodes(urn: string, context: Pick<NodeContext, 'adjacencyList' | '
     while (queue.length > 0) {
         const current = queue.shift() as string; // Just checked length
         const node = nodes.get(current);
-        const directionsToSearch = node?.direction ? [node.direction] : Object.values(LineageDirection);
-        const filteredChildren = directionsToSearch
-            .map((direction) => applyFilters(current, direction, orderedNodes, context))
-            .flat();
-
-        filteredChildren.forEach((child) => {
-            if (!seenNodes.has(child.id)) {
-                displayedNodes.push(child);
-                seenNodes.add(child.id);
-                if (!isTransformational(child) && child.isExpanded) {
-                    queue.push(child.id);
+        getDirectionsToExpand(node).forEach((direction) => {
+            const filteredChildren = applyFilters(current, direction, orderedNodes, context);
+            filteredChildren.forEach((child) => {
+                if (!seenNodes.has(child.id)) {
+                    displayedNodes.push(child);
+                    seenNodes.add(child.id);
+                    if (!isTransformational(child) && child.isExpanded[direction]) {
+                        queue.push(child.id);
+                    }
                 }
-            }
+            });
         });
     }
 
     return displayedNodes;
+}
+
+function getDirectionsToExpand(node) {
+    if (node?.direction) return [node.direction];
+    return Object.values(LineageDirection).filter((direction) => !!node.isExpanded[direction]);
 }
 
 function applyFilters(
@@ -150,7 +153,10 @@ function applyFilters(
             parent: urn,
             direction,
             limit,
-            isExpanded: false,
+            isExpanded: {
+                [LineageDirection.Upstream]: false,
+                [LineageDirection.Downstream]: false,
+            },
             contents: Array.from(childrenToFilter),
             shown: new Set(shownNodes.map((n) => n.urn)),
         };

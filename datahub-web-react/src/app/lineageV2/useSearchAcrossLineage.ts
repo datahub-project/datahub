@@ -102,7 +102,7 @@ export default function useSearchAcrossLineage(
             );
             if (result.explored || result.ignoredAsHop) {
                 node.fetchStatus = { ...node.fetchStatus, [direction]: FetchStatus.COMPLETE };
-                node.isExpanded = true;
+                node.isExpanded = { ...node.isExpanded, [direction]: true };
             }
 
             result.paths?.forEach((path) => {
@@ -198,7 +198,10 @@ export function entityNodeDefault(urn: string, type: EntityType, direction: Line
         urn,
         type,
         direction, // TODO: Handle a node that is both upstream and downstream?
-        isExpanded: isTransformational({ urn, type }),
+        isExpanded: {
+            [direction]: isTransformational({ urn, type }),
+            [otherDirection]: false,
+        } as Record<LineageDirection, boolean>,
         fetchStatus: {
             [direction]: FetchStatus.UNFETCHED,
             [otherDirection]: FetchStatus.UNNEEDED,
@@ -227,7 +230,10 @@ export function addQueryNodes(
             urn: node.urn,
             type: node.type,
             direction,
-            isExpanded: true,
+            isExpanded: {
+                [LineageDirection.Upstream]: true,
+                [LineageDirection.Downstream]: true,
+            },
             fetchStatus: {
                 [LineageDirection.Upstream]: FetchStatus.UNNEEDED,
                 [LineageDirection.Downstream]: FetchStatus.UNNEEDED,

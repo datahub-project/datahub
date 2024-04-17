@@ -2,6 +2,7 @@ import {
     DataHubViewType,
     EntityChangeType,
     EntityType,
+    LineageDirection,
     NotificationSinkType,
     RecommendationRenderType,
     ScenarioType,
@@ -119,6 +120,8 @@ export enum EventType {
     IntroduceYourselfViewEvent,
     IntroduceYourselfSubmitEvent,
     SharedEntityEvent,
+    ExpandLineageEvent,
+    ContractLineageEvent,
 }
 
 /**
@@ -885,6 +888,21 @@ export interface NotificationSettingsErrorEvent extends BaseEvent {
     actorType: ActorType;
 }
 
+export interface ExpandLineageEvent extends BaseEvent {
+    type: EventType.ExpandLineageEvent;
+    direction: LineageDirection;
+    levelsExpanded: '1' | 'all';
+    entityUrn: string;
+    entityType: EntityType;
+}
+
+export interface ContractLineageEvent extends BaseEvent {
+    type: EventType.ContractLineageEvent;
+    direction: LineageDirection;
+    entityUrn: string;
+    entityType?: EntityType;
+}
+
 /**
  * Event consisting of a union of specific event types.
  */
@@ -990,4 +1008,6 @@ export type Event =
     | NotificationSettingsSuccessEvent
     | NotificationSettingsErrorEvent
     | InboxPageViewEvent
-    | SharedEntityEvent;
+    | SharedEntityEvent
+    | ExpandLineageEvent
+    | ContractLineageEvent;

@@ -207,7 +207,10 @@ function createColumnQueryNode(
         data: {
             id,
             urn,
-            isExpanded: true,
+            isExpanded: {
+                [LineageDirection.Upstream]: true,
+                [LineageDirection.Downstream]: true,
+            },
             type: EntityType.Query,
             fetchStatus: {
                 [LineageDirection.Upstream]: FetchStatus.UNNEEDED,

@@ -106,7 +106,9 @@ public enum DataHubUsageEventType {
   REVERT_THEME_V2_EVENT("RevertV2ThemeEvent"),
   INTRODUCE_YOURSELF_VIEW_EVENT("IntroduceYourselfViewEvent"),
   INTRODUCE_YOURSELF_SUBMIT_EVENT("IntroduceYourselfSubmitEvent"),
-  SHARE_ENTITY_EVENT("SharedEntityEvent");
+  SHARE_ENTITY_EVENT("SharedEntityEvent"),
+  EXPAND_LINEAGE_EVENT("ExpandLineageEvent"),
+  CONTRACT_LINEAGE_EVENT("ContractLineageEvent");
 
   private final String type;
 

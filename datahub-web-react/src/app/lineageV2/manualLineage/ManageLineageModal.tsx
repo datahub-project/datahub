@@ -1,4 +1,5 @@
-import React, { useContext, useState } from 'react';
+import { LoadingOutlined } from '@ant-design/icons';
+import React, { useContext, useEffect, useState } from 'react';
 import { Button, message, Modal } from 'antd';
 import styled from 'styled-components/macro';
 import { toTitleCase } from '../../../graphql-mock/helper';
@@ -7,7 +8,7 @@ import analytics from '../../analytics/analytics';
 import { useUserContext } from '../../context/useUserContext';
 import EntityRegistry from '../../entity/EntityRegistry';
 import { Direction } from '../../lineage/types';
-import { LineageEntity, LineageNodesContext } from '../common';
+import { FetchStatus, LineageEntity, LineageNodesContext } from '../common';
 import AddEntityEdge from './AddEntityEdge';
 import LineageEntityView from './LineageEntityView';
 import LineageEdges from './LineageEdges';
@@ -15,6 +16,7 @@ import { Entity, EntityType, LineageDirection, LineageEdge } from '../../../type
 import { useUpdateLineageMutation } from '../../../graphql/mutations.generated';
 import { useEntityRegistry } from '../../useEntityRegistry';
 import updateNodeContext from './updateNodeContext';
+import { useOnClickExpandLineage } from '../LineageEntityNode/useOnClickExpandLineage';
 
 const ModalFooter = styled.div`
     display: flex;
@@ -31,6 +33,14 @@ const StyledModal = styled(Modal)`
     }
 `;
 
+const LoadingWrapper = styled.div`
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 225px;
+    font-size: 30px;
+`;
+
 interface Props {
     node: LineageEntity;
     direction: LineageDirection;
@@ -40,11 +50,20 @@ interface Props {
 
 export default function ManageLineageModal({ node, direction, closeModal, refetch }: Props) {
     const nodeContext = useContext(LineageNodesContext);
+    const expandOneLevel = useOnClickExpandLineage(node.urn, direction, false);
     const { user } = useUserContext();
     const entityRegistry = useEntityRegistry();
     const [entitiesToAdd, setEntitiesToAdd] = useState<Entity[]>([]);
     const [entitiesToRemove, setEntitiesToRemove] = useState<Entity[]>([]);
     const [updateLineage] = useUpdateLineageMutation();
+    const fetchStatus = node.fetchStatus[direction];
+    const loading = node.fetchStatus[direction] === FetchStatus.LOADING;
+
+    useEffect(() => {
+        if (fetchStatus === FetchStatus.UNFETCHED) {
+            expandOneLevel();
+        }
+    }, [fetchStatus, expandOneLevel]);
 
     function saveLineageChanges() {
         const payload = buildUpdateLineagePayload(direction, entitiesToAdd, entitiesToRemove, node.urn);
@@ -99,14 +118,21 @@ export default function ManageLineageModal({ node, direction, closeModal, refetc
                 entityUrn={node.urn}
                 entityType={node.type}
             />
-            <LineageEdges
-                parentUrn={node.urn}
-                direction={direction}
-                entitiesToAdd={entitiesToAdd}
-                entitiesToRemove={entitiesToRemove}
-                setEntitiesToAdd={setEntitiesToAdd}
-                setEntitiesToRemove={setEntitiesToRemove}
-            />
+            {!loading && (
+                <LineageEdges
+                    parentUrn={node.urn}
+                    direction={direction}
+                    entitiesToAdd={entitiesToAdd}
+                    entitiesToRemove={entitiesToRemove}
+                    setEntitiesToAdd={setEntitiesToAdd}
+                    setEntitiesToRemove={setEntitiesToRemove}
+                />
+            )}
+            {loading && (
+                <LoadingWrapper>
+                    <LoadingOutlined />
+                </LoadingWrapper>
+            )}
         </StyledModal>
     );
 }

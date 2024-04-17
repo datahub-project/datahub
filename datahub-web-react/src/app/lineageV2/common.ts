@@ -29,7 +29,7 @@ export interface Filters {
 
 export interface NodeBase {
     id: string;
-    isExpanded: boolean;
+    isExpanded:  Record<LineageDirection, boolean>;
     direction?: LineageDirection;
 }
 
@@ -76,6 +76,11 @@ export function isTransformational(node: Pick<LineageNode, 'urn' | 'type'>): boo
 export function isUrnDbt(urn: string, entityRegistry: EntityRegistry): boolean {
     const type = getEntityTypeFromEntityUrn(urn, entityRegistry);
     return type === EntityType.Dataset && getPlatformUrnFromEntityUrn(urn) === DBT_CLOUD_URN;
+}
+
+export function isUrnQuery(urn: string, entityRegistry: EntityRegistry): boolean {
+    const type = getEntityTypeFromEntityUrn(urn, entityRegistry);
+    return type === EntityType.Query;
 }
 
 export function isUrnTransformational(urn: string, entityRegistry: EntityRegistry): boolean {
@@ -231,6 +236,8 @@ interface DisplayContext {
     // Params
     hoveredNode: Urn | null;
     setHoveredNode: Dispatch<SetStateAction<Urn | null>>;
+    displayedMenuNode: Urn | null;
+    setDisplayedMenuNode: Dispatch<SetStateAction<Urn | null>>;
     hoveredColumn: ColumnRef | null;
     setHoveredColumn: Dispatch<SetStateAction<ColumnRef | null>>;
     selectedColumn: ColumnRef | null;
@@ -248,6 +255,8 @@ interface DisplayContext {
 export const LineageDisplayContext = React.createContext<DisplayContext>({
     hoveredNode: null,
     setHoveredNode: () => {},
+    displayedMenuNode: null,
+    setDisplayedMenuNode: () => {},
     hoveredColumn: null,
     setHoveredColumn: () => {},
     selectedColumn: null,
