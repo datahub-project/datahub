@@ -1,5 +1,5 @@
 import logging
-from typing import Callable, List, Optional, Union, cast
+from typing import Callable, List, Optional, Union, cast, Dict
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import (
@@ -33,7 +33,7 @@ class AddDatasetTags(DatasetTagsTransformer):
 
     ctx: PipelineContext
     config: AddDatasetTagsConfig
-    processed_tags: List[TagAssociationClass]
+    processed_tags: Dict[str, TagAssociationClass]
 
     def __init__(self, config: AddDatasetTagsConfig, ctx: PipelineContext):
         super().__init__()
@@ -58,9 +58,9 @@ class AddDatasetTags(DatasetTagsTransformer):
         tags_to_add = self.config.get_tags_to_add(entity_urn)
         if tags_to_add is not None:
             out_global_tags_aspect.tags.extend(tags_to_add)
-            self.processed_tags.extend(
-                tags_to_add
-            )  # Keep track of tags added so that we can create them in handle_end_of_stream
+            # Keep track of tags added so that we can create them in handle_end_of_stream
+            for tag in tags_to_add:
+                self.processed_tags.setdefault(tag.tag, tag)
 
         return self.get_result_semantics(
             self.config, self.ctx.graph, entity_urn, out_global_tags_aspect
@@ -76,7 +76,7 @@ class AddDatasetTags(DatasetTagsTransformer):
 
         logger.debug("Generating tags")
 
-        for tag_association in self.processed_tags:
+        for tag_association in self.processed_tags.values():
             ids: List[str] = TagUrn.create_from_string(
                 tag_association.tag
             ).get_entity_id()
