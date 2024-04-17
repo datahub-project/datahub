@@ -1,117 +1,91 @@
 # How Acryl DataHub compares to DataHub
 
 DataHub is the #1 open source metadata platform for developers.
+
 Acryl DataHub takes DataHub to the next level by offering features that allow
 you to roll out the product to the entire organization beyond your central data
 platform team.
 
-We’ve organized this comparison using a few categories:
-* Search and Discovery: the ability to discover data assets at your organization and understand relationships between them
-* Data Governance: features that help you govern the crown jewels of your organization, and trim out the datasets that seem to grow like weeds when no one’s looking
-* Data Quality: features that help you ensure your data pipelines are producing high quality assets, and if they’re not, you’re the first to know
-* Enterprise Grade: features needed to roll out at scale to large enterprises
-* Implementation and Support: features related to ease of deployment and maintenance
-
-## How to read this list
-
-Not a fan of checkboxes? Neither are we. 
-As a result we simply color coded this list to give you a simple visual representation of things that are present in these platforms. 
-* Features available in *both* open source DataHub and Acryl DataHub are in <span style={{color: 'green'}}>green</span>,
-* Features available only in Acryl DataHub are in <span style={{color: 'purple'}}>purple</span>, and 
-* Features that are only available in open source DataHub are in <span style={{color: 'blue'}}>blue</span>.
+We’ve organized this comparison using a few categories. We love well-organized
+checklists and we hope you love them too!
 
 ## Search and Discovery
+Features aimed at making it easy to discover data assets at your organization and understand relationships between them.
 
-<span style={{color: 'green'}}>
-Integrations for 50+ Data Sources<br/>
-Table level, Column-level, Job-level lineage<br/>
-Search across all metadata (technical, operational, business)<br/>
-</span>
-
-<span style={{color: 'purple'}}>
-Usage and graph-based search ranking<br/>
-</span>
-
-<span style={{color: 'green'}}>
-Table and column-level lineage and impact analysis<br/>
-Support for domains, data products, data contracts<br/>
-Developer friendly experiences (for data engineers, AI engineers, etc.)<br/>
-</span>
-<span style={{color: 'purple'}}>
-Business User friendly experiences (for data analysts, BI analysts, data
-governance leads, PMs, etc.)<br/>
-Personalization across the product<br/>
-BI tool browser extension<br/>
-No-code metadata automations<br/>
-Slack integration<br/>
-Subscribe to changes and notify affected owners<br/>
-</span>
+| Feature | DataHub | Acryl DataHub | 
+| ---------------------------------------------- | ------- | ------------- |
+| Integrations for 50+ data sources | ✅ | ✅ | 
+| Table level, Column-level, Job-level lineage | ✅ | ✅ |
+| Search across all metadata (technical, operational, business) | ✅ | ✅ |
+| Usage and graph-based search ranking | ❌ | ✅ |
+| Table and column-level lineage and impact analysis | ✅ | ✅ |
+| Support for domains, data products, data contracts | ✅ | ✅ |
+| Developer friendly experiences (for data engineers, AI engineers, etc.) | ✅ | ✅ |
+| Business User friendly experiences (for data analysts, BI analysts, data governance leads, PMs etc.) | ❌ | ✅ |
+| Personalization across the product | ❌ | ✅ |
+| Browser extension for BI Tools | ❌ | ✅ |
+| No-code metadata automations for automated enrichment | ❌ | ✅ |
+| Slack integration | ❌ | ✅ |
+| Subscribe to assets, activity, and notifications | ❌ | ✅ |
 
 ## Data Governance
+Features that help you govern the crown jewels of your organization, and trim
+out the datasets that seem to grow like weeds when no one’s looking.
 
-<span style={{color: 'green'}}>
-Shift-Left governance<br/>
-Dataset ownership management<br/>
-Business glossary basics<br/>
-</span>
-
-<span style={{color: 'purple'}}>
-Human-assisted Asset Certification Workflows (data owners, stewards)<br/>
-Computational Governance standards as continuous tests<br/>
-Approval Workflows - Business glossary modifications<br/>
-Approval Workflows - Associating glossary terms with assets<br/>
-Approval Workflows - Ownership<br/>
-</span>
+| Feature | DataHub | Acryl DataHub |
+| ---------------------------------------------- | ------- | ------------- |
+| Shift-Left governance | ✅ | ✅ |
+| Dataset ownership management | ✅ | ✅ |
+| Business glossary basics | ✅ | ✅ |
+| Human-assisted Asset Certification Workflows (data owners, stewards) | ❌ | ✅ |
+| Computational Governance standards as continuous tests | ❌ | ✅ |
+| Approval Workflows - Business glossary modifications | ❌ | ✅ |
+| Approval Workflows - Associating glossary terms with assets | ❌ | ✅ |
+| Approval Workflows - Ownership | ❌ | ✅ |
 
 ## Data Observability
+Features that help you ensure your data pipelines are producing high quality
+assets, and if they’re not, making sure you and impacted users are the first to
+know. 
 
-<span style={{color: 'green'}}>
-Surface data quality results<br/>
-</span>
+| Feature | DataHub | Acryl DataHub |
+| ---------------------------------------------- | ------- | ------------- |
+| Surface data quality results | ✅ | ✅ |
+| Build and enforce continuous data SLAs | ❌ | ✅ |
+| Continuous monitoring of dataset health | ❌ | ✅ |
+| Data observability alerts and notifications | ❌ | ✅ |
+| Data Incident management | ❌ | ✅ |
 
-<span style={{color: 'purple'}}>
-Build and enforce continuous data SLAs<br/>
-Continuous monitoring of dataset health<br/>
-Data observability alerts and notifications<br/>
-Data Incident management<br/>
-</span>
 
 ## Enterprise Grade
+Features needed to roll out at scale to large enterprises.
 
-<span style={{color: 'green'}}>
-Battle-tested open source metadata platform<br/>
-Metadata change events as a real-time stream<br/>
-</span>
-
-<span style={{color: 'purple'}}>
-99.5% Uptime SLA<br/>
-Data Lake and Data Warehouse off-ramp for metadata analytics<br/>
-Fine-grained access control policies (e.g., default DENY)<br/>
-Pre-defined roles for permissions<br/>
-Shared audit logs<br/>
-</span>
+| Feature | DataHub | Acryl DataHub |
+| ---------------------------------------------- | ------- | ------------- |
+| Battle-tested open source metadata platform | ✅ | ✅ |
+| Metadata change events as a real-time stream | ✅ | ✅ |
+| 99.5% Uptime SLA | ❌ | ✅ |
+| Data Lake and Data Warehouse off-ramp for metadata analytics | ❌ | ✅ |
+| Fine-grained access control policies (e.g., default DENY) | ❌ | ✅ |
+| Pre-defined roles for permissions | ❌ | ✅ |
+| Shared audit logs | ❌ | ✅ |
 
 
 ## Implementation and Support
+Features related to ease of deployment and maintenance.
 
-<span style={{color: 'blue'}}>
-Your own engineering team<br/>
-Your private fork of DataHub<br/>
-</span>
-
-<span style={{color: 'green'}}>
-Community support<br/>
-</span>
-
-<span style={{color: 'purple'}}>
-Cloud-hosted instance (AWS, GCP, BYOC)<br/>
-Support for AWS PrivateLink, IP address restrictions, etc.<br/>
-Accelerators for your code contributions to DataHub<br/>
-Dedicated customer success team<br/>
-Implementation Support<br/>
-Ingestion Support<br/>
-Dedicated Slack Support<br/>
-</span>
+| Feature | DataHub | Acryl DataHub |
+| ---------------------------------------------- | ------- | ------------- |
+| Community support | ✅ | ✅ |
+| Your own engineering team | ✅ | ❌ (they can instead focus on high-value work like contributing features to the open source product, or build amazing data applications with the APIs!)|
+| Your private fork of DataHub | ✅ | ❌ (you won't need to manage and maintain your own fork, upgrade to latest releases etc.)|
+| Accelerators for your code contributions to DataHub | ❌ | ✅ |
+| Cloud-hosted instance (AWS, GCP, BYOC) | ❌ | ✅ |
+| Support for AWS PrivateLink, IP address restrictions, etc. | ❌ | ✅ |
+| Dedicated customer success team | ❌ | ✅ |
+| Implementation Support | ❌ | ✅ |
+| Ingestion Support | ❌ | ✅ |
+| Dedicated Slack Support | ❌ | ✅ |
 
 ## More Questions?
 
@@ -119,7 +93,7 @@ Have more questions and want to talk to someone? Fill out
 the form using the link below, and someone from the Acryl team will reach
 out to set up a chat.
 
-<a href="https://www.acryldata.io/sign-up?utm_source=datahubproject&utm_content=acryl_vs_datahub" style={{ display: 'inline-block', padding: '10px 20px', margin: '10px 0', backgroundColor: '#007bff', color: 'white', borderRadius: '5px', textDecoration: 'none', textAlign: 'center' }}>
+<a href="https://www.acryldata.io/sign-up?utm_source=datahub&utm_medium=referral&utm_campaign=acryl_vs_datahub" style={{ display: 'inline-block', padding: '10px 20px', margin: '10px 0', backgroundColor: '#007bff', color: 'white', borderRadius: '5px', textDecoration: 'none', textAlign: 'center' }}>
   Learn about Acryl DataHub
 </a>
 
