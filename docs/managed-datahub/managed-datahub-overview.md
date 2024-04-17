@@ -77,7 +77,7 @@ Features related to ease of deployment and maintenance.
 | Feature | DataHub | Acryl DataHub |
 | ---------------------------------------------- | ------- | ------------- |
 | Community support | ✅ | ✅ |
-| Your own engineering team | ✅ | ❌ (they can instead focus on high-value work like contributing features to the open source product, or build amazing data applications with the APIs!)|
+| Your own engineering team | ✅ | ❌ (They can instead focus on high-value work like contributing features to the open source product, or build amazing data applications with the APIs!)|
 | Your private fork of DataHub | ✅ | ❌ (You won't need to manage and maintain your own fork, upgrade to latest releases etc.)|
 | Accelerators for your code contributions to DataHub | ❌ | ✅ |
 | Cloud-hosted instance (AWS, GCP, BYOC) | ❌ | ✅ |
