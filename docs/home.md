@@ -1,3 +1,9 @@
+---
+title: Home
+sidebar_label: Home
+slug: /
+---
+
 # DataHub Documentation
 
 import Docs from '@site/src/pages/docs';

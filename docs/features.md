@@ -1,6 +1,5 @@
 ---
 hide_title: true
-slug: /
 ---
 
 
