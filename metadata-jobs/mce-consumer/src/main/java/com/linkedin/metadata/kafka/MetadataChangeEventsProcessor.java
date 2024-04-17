@@ -6,8 +6,6 @@ import com.codahale.metrics.Timer;
 import com.linkedin.entity.Entity;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.gms.factory.entityclient.RestliEntityClientFactory;
-import com.linkedin.gms.factory.kafka.DataHubKafkaProducerFactory;
-import com.linkedin.gms.factory.kafka.KafkaEventConsumerFactory;
 import com.linkedin.metadata.EventUtils;
 import com.linkedin.metadata.kafka.config.MetadataChangeProposalProcessorCondition;
 import com.linkedin.metadata.snapshot.Snapshot;
@@ -38,11 +36,7 @@ import org.springframework.stereotype.Component;
 @Slf4j
 @Component
 @Conditional(MetadataChangeProposalProcessorCondition.class)
-@Import({
-  RestliEntityClientFactory.class,
-  KafkaEventConsumerFactory.class,
-  DataHubKafkaProducerFactory.class
-})
+@Import({RestliEntityClientFactory.class})
 @EnableKafka
 @RequiredArgsConstructor
 public class MetadataChangeEventsProcessor {

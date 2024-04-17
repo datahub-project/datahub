@@ -1,4 +1,4 @@
-from typing import Iterable, Optional, Union
+from typing import Iterable, Optional
 
 from pydantic.fields import Field
 
@@ -34,7 +34,7 @@ def convert_upstream_lineage_to_patch(
 
 def convert_chart_info_to_patch(
     urn: str, aspect: ChartInfoClass, system_metadata: Optional[SystemMetadataClass]
-) -> Union[MetadataWorkUnit, None]:
+) -> Optional[MetadataWorkUnit]:
     patch_builder = ChartPatchBuilder(urn, system_metadata)
 
     if aspect.customProperties:
@@ -48,19 +48,17 @@ def convert_chart_info_to_patch(
             patch_builder.add_input_edge(inputEdge)
 
     values = patch_builder.build()
-
     if values:
         mcp = next(iter(values))
         return MetadataWorkUnit(
             id=MetadataWorkUnit.generate_workunit_id(mcp), mcp_raw=mcp
         )
-    else:
-        return None
+    return None
 
 
 def convert_dashboard_info_to_patch(
     urn: str, aspect: DashboardInfoClass, system_metadata: Optional[SystemMetadataClass]
-) -> Union[MetadataWorkUnit, None]:
+) -> Optional[MetadataWorkUnit]:
     patch_builder = DashboardPatchBuilder(urn, system_metadata)
 
     if aspect.customProperties:
@@ -78,14 +76,12 @@ def convert_dashboard_info_to_patch(
             patch_builder.add_chart_edge(chartEdge)
 
     values = patch_builder.build()
-
     if values:
         mcp = next(iter(values))
         return MetadataWorkUnit(
             id=MetadataWorkUnit.generate_workunit_id(mcp), mcp_raw=mcp
         )
-    else:
-        return None
+    return None
 
 
 def get_fine_grained_lineage_key(fine_upstream: FineGrainedLineageClass) -> str:

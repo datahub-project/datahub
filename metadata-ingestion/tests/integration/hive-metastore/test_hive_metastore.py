@@ -13,14 +13,14 @@ from tests.test_helpers.docker_helpers import wait_for_port
 pytestmark = pytest.mark.integration_batch_1
 FROZEN_TIME = "2021-09-23 12:00:00"
 
-data_platform = "presto-on-hive"
+data_platform = "hive-metastore"
 
 
 @pytest.fixture(scope="module")
-def presto_on_hive_runner(docker_compose_runner, pytestconfig):
-    test_resources_dir = pytestconfig.rootpath / "tests/integration/presto-on-hive"
+def hive_metastore_runner(docker_compose_runner, pytestconfig):
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/hive-metastore"
     with docker_compose_runner(
-        test_resources_dir / "docker-compose.yml", "presto-on-hive"
+        test_resources_dir / "docker-compose.yml", "hive-metastore"
     ) as docker_services:
         wait_for_port(docker_services, "presto", 8080)
         wait_for_port(docker_services, "hiveserver2", 10000, timeout=120)
@@ -38,11 +38,11 @@ def presto_on_hive_runner(docker_compose_runner, pytestconfig):
 
 @pytest.fixture(scope="module")
 def test_resources_dir(pytestconfig):
-    return pytestconfig.rootpath / "tests/integration/presto-on-hive"
+    return pytestconfig.rootpath / "tests/integration/hive-metastore"
 
 
 @pytest.fixture(scope="module")
-def loaded_presto_on_hive(presto_on_hive_runner):
+def loaded_hive_metastore(hive_metastore_runner):
     # Set up the container.
     command = "docker exec hiveserver2 /opt/hive/bin/beeline -u jdbc:hive2://localhost:10000 -f /hive_setup.sql"
     subprocess.run(command, shell=True, check=True)
@@ -63,8 +63,8 @@ def loaded_presto_on_hive(presto_on_hive_runner):
         ("hive", False, False, False, True, "_5"),
     ],
 )
-def test_presto_on_hive_ingest(
-    loaded_presto_on_hive,
+def test_hive_metastore_ingest(
+    loaded_hive_metastore,
     test_resources_dir,
     pytestconfig,
     tmp_path,
@@ -79,11 +79,11 @@ def test_presto_on_hive_ingest(
     # Run the metadata ingestion pipeline.
     with fs_helpers.isolated_filesystem(tmp_path):
         # Run the metadata ingestion pipeline for presto catalog referring to postgres database
-        mce_out_file = f"presto_on_hive_mces{test_suffix}.json"
+        mce_out_file = f"hive_metastore_mces{test_suffix}.json"
         events_file = tmp_path / mce_out_file
 
         pipeline_config: Dict = {
-            "run_id": "presto-on-hive-test",
+            "run_id": "hive-metastore-test",
             "source": {
                 "type": data_platform,
                 "config": {
@@ -123,9 +123,9 @@ def test_presto_on_hive_ingest(
         # Verify the output.
         mce_helpers.check_golden_file(
             pytestconfig,
-            output_path=f"presto_on_hive_mces{test_suffix}.json",
+            output_path=f"hive_metastore_mces{test_suffix}.json",
             golden_path=test_resources_dir
-            / f"presto_on_hive_mces_golden{test_suffix}.json",
+            / f"hive_metastore_mces_golden{test_suffix}.json",
             ignore_paths=[
                 r"root\[\d+\]\['proposedSnapshot'\]\['com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot'\]\['aspects'\]\[\d+\]\['com.linkedin.pegasus2avro.dataset.DatasetProperties'\]\['customProperties'\]\['transient_lastDdlTime'\]",
                 r"root\[\d+\]\['proposedSnapshot'\]\['com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot'\]\['aspects'\]\[\d+\]\['com.linkedin.pegasus2avro.dataset.DatasetProperties'\]\['customProperties'\]\['numfiles'\]",
@@ -136,16 +136,16 @@ def test_presto_on_hive_ingest(
 
 
 @freeze_time(FROZEN_TIME)
-def test_presto_on_hive_instance_ingest(
-    loaded_presto_on_hive, test_resources_dir, pytestconfig, tmp_path, mock_time
+def test_hive_metastore_instance_ingest(
+    loaded_hive_metastore, test_resources_dir, pytestconfig, tmp_path, mock_time
 ):
     instance = "production_warehouse"
-    platform = "presto-on-hive"
-    mce_out_file = "presto_on_hive_instance_mces.json"
+    platform = "hive"
+    mce_out_file = "hive_metastore_instance_mces.json"
     events_file = tmp_path / mce_out_file
 
     pipeline_config: Dict = {
-        "run_id": "presto-on-hive-test-2",
+        "run_id": "hive-metastore-test-2",
         "source": {
             "type": data_platform,
             "config": {

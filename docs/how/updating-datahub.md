@@ -28,6 +28,7 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 - #10147 - For looker ingestion, the browse paths for looker Dashboard, Chart, View, Explore have been updated to align with Looker UI. This does not affect URNs or lineage but primarily affects (improves) browsing experience.
 - #10164 - For dbt ingestion, `entities_enabled.model_performance` and `include_compiled_code` are now both enabled by default. Upgrading dbt ingestion will also require upgrading the backend to 0.13.1.
 - #8231 - Google Analytics 3 has been fully sunsetted by Google as of July 2023, so we now support GA4 thanks to this PR and no longer support GA3 (which would have been broken since last year anyways).
+- #10278 - Renaming Presto-On-Hive Source to Hive Metastore source to reflect better its purpose
 
 ### Potential Downtime
 
@@ -328,7 +329,7 @@ Helm with `--atomic`: In general, it is recommended to not use the `--atomic` se
 
 - #6243 apache-ranger authorizer is no longer the core part of DataHub GMS, and it is shifted as plugin. Please refer updated documentation [Configuring Authorization with Apache Ranger](./configuring-authorization-with-apache-ranger.md#configuring-your-datahub-deployment) for configuring `apache-ranger-plugin` in DataHub GMS.
 - #6243 apache-ranger authorizer as plugin is not supported in DataHub Kubernetes deployment.
-- #6243 Authentication and Authorization plugins configuration are removed from [application.yml](../../metadata-service/configuration/src/main/resources/application.yml). Refer documentation [Migration Of Plugins From application.yml](../plugins.md#migration-of-plugins-from-applicationyml) for migrating any existing custom plugins.
+- #6243 Authentication and Authorization plugins configuration are removed from [application.yaml](../../metadata-service/configuration/src/main/resources/application.yaml). Refer documentation [Migration Of Plugins From application.yaml](../plugins.md#migration-of-plugins-from-applicationyml) for migrating any existing custom plugins.
 - `datahub check graph-consistency` command has been removed. It was a beta API that we had considered but decided there are better solutions for this. So removing this.
 - `graphql_url` option of `powerbi-report-server` source deprecated as the options is not used.
 - #6789 BigQuery ingestion: If `enable_legacy_sharded_table_support` is set to False, sharded table names will be suffixed with \_yyyymmdd to make sure they don't clash with non-sharded tables. This means if stateful ingestion is enabled then old sharded tables will be recreated with a new id and attached tags/glossary terms/etc will need to be added again. _This behavior is not enabled by default yet, but will be enabled by default in a future release._
