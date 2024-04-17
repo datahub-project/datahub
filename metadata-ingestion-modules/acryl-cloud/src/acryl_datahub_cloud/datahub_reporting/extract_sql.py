@@ -106,7 +106,8 @@ class DataHubReportingExtractSQLSource(Source):
             dataset_metadata=DatasetMetadata(
                 displayName="SQL Extract",
                 description="This is an automated SQL Extract from DataHub's backend",
-                schemaFields=SQLGraphRow.datahub_schema(),
+                # TODO: Add schema to dataset
+                # schemaFields=SQLGraphRow.datahub_schema(),
             ),
         )
 
