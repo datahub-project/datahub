@@ -383,7 +383,7 @@ fragment nonSiblingsDatasetSearchFields on Dataset {
     ...datasetStatsFields
 }
 
-fragment searchResultFields on Entity {
+fragment searchResultsWithoutSchemaField on Entity {
     urn
     type
     ... on Dataset {
@@ -854,6 +854,10 @@ fragment searchResultFields on Entity {
     ... on BusinessAttribute {
         ...businessAttributeFields
     }
+}
+
+fragment searchResultFields on Entity {
+    ...searchResultsWithoutSchemaField
     ... on SchemaFieldEntity {
           ...entityField
     }
@@ -989,7 +993,7 @@ fragment schemaFieldEntityFields on SchemaFieldEntity {
     type
     fieldPath
     parent {
-        ...searchResultFields
+        ...searchResultsWithoutSchemaField
     }
 }
 
@@ -1022,7 +1026,7 @@ fragment searchAcrossRelationshipResults on SearchAcrossLineageResults {
         }
         paths {
             path {
-                ...searchResultFields
+                ...searchResultsWithoutSchemaField
                 ... on SchemaFieldEntity {
                     ...schemaFieldEntityFields
                 }

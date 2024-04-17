@@ -1,5 +1,5 @@
 source:
-  type: presto-on-hive
+  type: hive-metastore
   config:
     # Hive metastore DB connection
     host_port: localhost:5432
