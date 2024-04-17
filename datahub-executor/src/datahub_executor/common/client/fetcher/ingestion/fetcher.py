@@ -2,6 +2,7 @@ import logging
 from typing import List
 
 from tenacity import retry, stop_after_attempt, wait_exponential
+from tenacity.before_sleep import before_sleep_log
 
 from datahub_executor.common.client.fetcher.base import Fetcher
 from datahub_executor.common.client.fetcher.ingestion.graphql.query import (
@@ -13,6 +14,7 @@ from datahub_executor.common.client.fetcher.ingestion.mapper import (
 )
 from datahub_executor.common.client.fetcher.ingestion.types import IngestionSource
 from datahub_executor.common.constants import LIST_INGESTION_SOURCES_BATCH_SIZE
+from datahub_executor.common.helpers import paginate_datahub_query_results
 from datahub_executor.common.monitoring.metrics import (
     STATS_INGESTION_FETCHER_ERRORS,
     STATS_INGESTION_FETCHER_REQUESTS,
@@ -26,7 +28,12 @@ class IngestionFetcher(Fetcher):
     """Class used to fetch ingestion sources from an external API."""
 
     @retry(
-        stop=stop_after_attempt(3), wait=wait_exponential(multiplier=2, min=4, max=10)
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=2, min=4, max=10),
+        before_sleep=before_sleep_log(logger, logging.ERROR, True),
+        retry_error_callback=lambda x: STATS_INGESTION_FETCHER_ERRORS.labels(
+            "Retry"
+        ).inc(),
     )
     @STATS_INGESTION_FETCHER_REQUESTS.time()
     def _fetch_ingestion_sources(self) -> List[IngestionSource]:
@@ -35,42 +42,14 @@ class IngestionFetcher(Fetcher):
 
         :return: The list of monitors.
         """
-        result = self.graph.execute_graphql(
-            GRAPHQL_LIST_INGESTION_SOURCES_QUERY,
-            variables={
-                "input": {
-                    "start": 0,
-                    "count": LIST_INGESTION_SOURCES_BATCH_SIZE,
-                }
-            },
+        result = paginate_datahub_query_results(
+            graph=self.graph,
+            query=GRAPHQL_LIST_INGESTION_SOURCES_QUERY,
+            query_key="listIngestionSources",
+            result_key="ingestionSources",
+            page_size=LIST_INGESTION_SOURCES_BATCH_SIZE,
         )
-
-        if "error" in result and result["error"] is not None:
-            STATS_INGESTION_FETCHER_ERRORS.labels("GmsError").inc()
-            # TODO: add either logging or throwing here.
-            logger.error(
-                f"Received error while fetching ingestion sources from GMS! {result.get('error')}"
-            )
-            raise RuntimeError("GMS error")
-
-        if (
-            "listIngestionSources" not in result
-            or "ingestionSources" not in result["listIngestionSources"]
-        ):
-            STATS_INGESTION_FETCHER_ERRORS.labels("IncompleteResults").inc()
-            logger.error(
-                "Found incomplete search results when fetching ingestion sources from GMS!"
-            )
-            raise RuntimeError("Parse error")
-
-        return graphql_to_ingestion_sources(
-            [
-                ingestion_source
-                for ingestion_source in result["listIngestionSources"][
-                    "ingestionSources"
-                ]
-            ]
-        )
+        return graphql_to_ingestion_sources(result)
 
     def fetch_execution_requests(self) -> List[ExecutionRequestSchedule]:
         raw = self._fetch_ingestion_sources()
