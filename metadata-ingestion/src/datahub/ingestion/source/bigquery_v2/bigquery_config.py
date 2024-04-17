@@ -199,7 +199,7 @@ class BigQueryV2Config(
     project_labels: List[str] = Field(
         default_factory=list,
         description=(
-            "Ingests projects with the specified labels. Use this properly if you want to specify what "
+            "Ingests projects with the specified labels. Use this property if you want to specify what "
             "projects to ignest based on project-level labels. Your service account will require resourcemanager.projects.list."
         ),
     )
