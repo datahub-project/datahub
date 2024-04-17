@@ -15,8 +15,8 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.events.metadata.ChangeType;
-import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.ReadItem;
+import com.linkedin.metadata.aspect.RetrieverContext;
 import com.linkedin.metadata.aspect.SystemAspect;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
@@ -32,12 +32,12 @@ import com.linkedin.metadata.utils.PegasusUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.util.Pair;
+import io.datahubproject.metadata.context.OperationContext;
 import java.net.URISyntaxException;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -71,12 +71,16 @@ public class EntityUtils {
   }
 
   public static void ingestChangeProposals(
+      @Nonnull OperationContext opContext,
       @Nonnull List<MetadataChangeProposal> changes,
       @Nonnull EntityService<?> entityService,
       @Nonnull Urn actor,
       @Nonnull Boolean async) {
     entityService.ingestProposal(
-        AspectsBatchImpl.builder().mcps(changes, getAuditStamp(actor), entityService).build(),
+        opContext,
+        AspectsBatchImpl.builder()
+            .mcps(changes, getAuditStamp(actor), opContext.getRetrieverContext().get())
+            .build(),
         async);
   }
 
@@ -91,6 +95,7 @@ public class EntityUtils {
    */
   @Nullable
   public static RecordTemplate getAspectFromEntity(
+      @Nonnull OperationContext opContext,
       String entityUrn,
       String aspectName,
       EntityService<?> entityService,
@@ -100,7 +105,7 @@ public class EntityUtils {
       return defaultValue;
     }
     try {
-      RecordTemplate aspect = entityService.getAspect(urn, aspectName, 0);
+      RecordTemplate aspect = entityService.getAspect(opContext, urn, aspectName, 0);
       if (aspect == null) {
         return defaultValue;
       }
@@ -166,17 +171,6 @@ public class EntityUtils {
     return response;
   }
 
-  static Map<String, Set<String>> buildEntityToValidAspects(final EntityRegistry entityRegistry) {
-    return entityRegistry.getEntitySpecs().values().stream()
-        .collect(
-            Collectors.toMap(
-                EntitySpec::getName,
-                entry ->
-                    entry.getAspectSpecs().stream()
-                        .map(AspectSpec::getName)
-                        .collect(Collectors.toSet())));
-  }
-
   /**
    * Prefer batched interfaces
    *
@@ -185,9 +179,9 @@ public class EntityUtils {
    * @return
    */
   public static Optional<SystemAspect> toSystemAspect(
-      @Nullable EntityAspect entityAspect, @Nonnull AspectRetriever aspectRetriever) {
+      @Nonnull RetrieverContext retrieverContext, @Nullable EntityAspect entityAspect) {
     return Optional.ofNullable(entityAspect)
-        .map(aspect -> EntityUtils.toSystemAspects(List.of(aspect), aspectRetriever))
+        .map(aspect -> EntityUtils.toSystemAspects(retrieverContext, List.of(aspect)))
         .filter(systemAspects -> !systemAspects.isEmpty())
         .map(systemAspects -> systemAspects.get(0));
   }
@@ -202,14 +196,14 @@ public class EntityUtils {
    */
   @Nonnull
   public static Map<String, Map<String, SystemAspect>> toSystemAspects(
-      @Nonnull Map<String, Map<String, EntityAspect>> rawAspects,
-      @Nonnull AspectRetriever aspectRetriever) {
+      @Nonnull RetrieverContext retrieverContext,
+      @Nonnull Map<String, Map<String, EntityAspect>> rawAspects) {
     List<SystemAspect> systemAspects =
         toSystemAspects(
+            retrieverContext,
             rawAspects.values().stream()
                 .flatMap(m -> m.values().stream())
-                .collect(Collectors.toList()),
-            aspectRetriever);
+                .collect(Collectors.toList()));
 
     // map the list into the desired shape
     return systemAspects.stream()
@@ -232,10 +226,10 @@ public class EntityUtils {
 
   @Nonnull
   public static List<SystemAspect> toSystemAspectFromEbeanAspects(
-      @Nonnull Collection<EbeanAspectV2> rawAspects, @Nonnull AspectRetriever aspectRetriever) {
+      @Nonnull RetrieverContext retrieverContext, @Nonnull Collection<EbeanAspectV2> rawAspects) {
     return toSystemAspects(
-        rawAspects.stream().map(EbeanAspectV2::toEntityAspect).collect(Collectors.toList()),
-        aspectRetriever);
+        retrieverContext,
+        rawAspects.stream().map(EbeanAspectV2::toEntityAspect).collect(Collectors.toList()));
   }
 
   /**
@@ -249,8 +243,9 @@ public class EntityUtils {
    */
   @Nonnull
   public static List<SystemAspect> toSystemAspects(
-      @Nonnull Collection<EntityAspect> rawAspects, @Nonnull AspectRetriever aspectRetriever) {
-    EntityRegistry entityRegistry = aspectRetriever.getEntityRegistry();
+      @Nonnull final RetrieverContext retrieverContext,
+      @Nonnull Collection<EntityAspect> rawAspects) {
+    EntityRegistry entityRegistry = retrieverContext.getAspectRetriever().getEntityRegistry();
 
     // Build
     List<SystemAspect> systemAspects =
@@ -281,7 +276,7 @@ public class EntityUtils {
 
     grouped.forEach(
         (key, value) -> {
-          AspectsBatch.applyReadMutationHooks(value, aspectRetriever);
+          AspectsBatch.applyReadMutationHooks(value, retrieverContext);
         });
 
     // Read Validate

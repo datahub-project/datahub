@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.resolvers.mutate;
 
 import static com.linkedin.datahub.graphql.TestUtils.*;
 import static com.linkedin.metadata.Constants.*;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 
 import com.linkedin.common.urn.Urn;
@@ -23,7 +24,7 @@ public class UpdateUserSettingResolverTest {
   @Test
   public void testWriteCorpUserSettings() throws Exception {
     EntityService mockService = getMockEntityService();
-    Mockito.when(mockService.exists(eq(Urn.createFromString(TEST_USER_URN)), eq(true)))
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_USER_URN)), eq(true)))
         .thenReturn(true);
 
     UpdateUserSettingResolver resolver = new UpdateUserSettingResolver(mockService);

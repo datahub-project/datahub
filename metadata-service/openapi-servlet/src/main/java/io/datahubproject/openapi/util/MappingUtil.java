@@ -9,6 +9,7 @@ import com.codahale.metrics.Timer;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.avro2pegasus.events.KafkaAuditHeader;
@@ -32,6 +33,7 @@ import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.util.Pair;
+import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.openapi.dto.RollbackRunResultDto;
 import io.datahubproject.openapi.dto.UpsertAspectRequest;
 import io.datahubproject.openapi.generated.AspectRowSummary;
@@ -43,6 +45,7 @@ import io.datahubproject.openapi.generated.MetadataChangeProposal;
 import io.datahubproject.openapi.generated.OneOfEnvelopedAspectValue;
 import io.datahubproject.openapi.generated.OneOfGenericAspectValue;
 import io.datahubproject.openapi.generated.Status;
+import io.datahubproject.openapi.generated.StructuredProperties;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.HashMap;
@@ -274,8 +277,47 @@ public class MappingUtil {
         ENVELOPED_ASPECT_TYPE_MAP.get(aspectName);
     DataMap wrapper = insertDiscriminator(aspectClass, aspect.data());
     try {
-      String dataMapAsJson = objectMapper.writeValueAsString(wrapper);
-      return objectMapper.readValue(dataMapAsJson, aspectClass);
+      if (aspectClass.equals(StructuredProperties.class)) {
+        return mapStructuredPropertyValues(wrapper, objectMapper);
+      } else {
+        String dataMapAsJson = objectMapper.writeValueAsString(wrapper);
+        return objectMapper.readValue(dataMapAsJson, aspectClass);
+      }
+    } catch (JsonProcessingException e) {
+      throw new RuntimeException(e);
+    }
+  }
+
+  public static OneOfEnvelopedAspectValue mapStructuredPropertyValues(
+      DataMap dataMap, ObjectMapper objectMapper) {
+    try {
+      String dataMapAsJson = objectMapper.writeValueAsString(dataMap);
+      JsonNode jsonObject = objectMapper.readTree(dataMapAsJson);
+      ArrayNode properties = (ArrayNode) jsonObject.get("properties");
+
+      if (properties.isEmpty()) {
+        return objectMapper.readValue(dataMapAsJson, StructuredProperties.class);
+      }
+
+      properties.forEach(
+          property -> {
+            ArrayNode values = (ArrayNode) property.get("values");
+            ArrayNode newValues = JsonNodeFactory.instance.arrayNode();
+            values.forEach(
+                value -> {
+                  if (value.has("string")) {
+                    newValues.add(value.get("string").textValue());
+                  } else if (value.has("double")) {
+                    newValues.add(value.get("double").doubleValue());
+                  }
+                });
+            if (!newValues.isEmpty()) {
+              values.removeAll();
+              values.addAll(newValues);
+            }
+          });
+      return objectMapper.readValue(
+          objectMapper.writeValueAsString(jsonObject), StructuredProperties.class);
     } catch (JsonProcessingException e) {
       throw new RuntimeException(e);
     }
@@ -421,14 +463,17 @@ public class MappingUtil {
   }
 
   public static Pair<String, Boolean> ingestProposal(
+      @Nonnull OperationContext opContext,
       com.linkedin.mxe.MetadataChangeProposal serviceProposal,
       String actorUrn,
       EntityService<ChangeItemImpl> entityService,
       boolean async) {
-    return ingestBatchProposal(List.of(serviceProposal), actorUrn, entityService, async).get(0);
+    return ingestBatchProposal(opContext, List.of(serviceProposal), actorUrn, entityService, async)
+        .get(0);
   }
 
   public static List<Pair<String, Boolean>> ingestBatchProposal(
+      @Nonnull OperationContext opContext,
       List<com.linkedin.mxe.MetadataChangeProposal> serviceProposals,
       String actorUrn,
       EntityService<ChangeItemImpl> entityService,
@@ -445,10 +490,12 @@ public class MappingUtil {
     Throwable exceptionally = null;
     try {
       AspectsBatch batch =
-          AspectsBatchImpl.builder().mcps(serviceProposals, auditStamp, entityService).build();
+          AspectsBatchImpl.builder()
+              .mcps(serviceProposals, auditStamp, opContext.getRetrieverContext().get())
+              .build();
 
       Map<Urn, List<IngestResult>> resultMap =
-          entityService.ingestProposal(batch, async).stream()
+          entityService.ingestProposal(opContext, batch, async).stream()
               .collect(Collectors.groupingBy(IngestResult::getUrn));
 
       return resultMap.entrySet().stream()
@@ -588,9 +635,10 @@ public class MappingUtil {
         .build();
   }
 
-  public static UpsertAspectRequest createStatusRemoval(Urn urn, EntityService entityService) {
+  public static UpsertAspectRequest createStatusRemoval(
+      @Nonnull OperationContext opContext, Urn urn) {
     com.linkedin.metadata.models.EntitySpec entitySpec =
-        entityService.getEntityRegistry().getEntitySpec(urn.getEntityType());
+        opContext.getEntityRegistry().getEntitySpec(urn.getEntityType());
     if (entitySpec == null || !entitySpec.getAspectSpecMap().containsKey(STATUS_ASPECT_NAME)) {
       throw new IllegalArgumentException(
           "Entity type is not valid for soft deletes: " + urn.getEntityType());

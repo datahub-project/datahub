@@ -66,10 +66,10 @@ public class MLPrimaryKeyType implements SearchableEntityType<MLPrimaryKey, Stri
     try {
       final Map<Urn, EntityResponse> mlPrimaryKeyMap =
           _entityClient.batchGetV2(
+              context.getOperationContext(),
               ML_PRIMARY_KEY_ENTITY_NAME,
               new HashSet<>(mlPrimaryKeyUrns),
-              null,
-              context.getAuthentication());
+              null);
 
       final List<EntityResponse> gmsResults =
           mlPrimaryKeyUrns.stream()

@@ -50,12 +50,12 @@ public class SubmitFormPromptResolver implements DataFetcher<CompletableFuture<B
                   FormUtils.getStructuredPropertyValuesFromInput(input);
 
               return _formService.submitStructuredPropertyPromptResponse(
+                  context.getOperationContext(),
                   entityUrn,
                   structuredPropertyUrn,
                   values,
                   formUrn,
-                  promptId,
-                  context.getAuthentication());
+                  promptId);
             } else if (input.getType().equals(FormPromptType.FIELDS_STRUCTURED_PROPERTY)) {
               if (input.getStructuredPropertyParams() == null) {
                 throw new IllegalArgumentException(
@@ -71,13 +71,13 @@ public class SubmitFormPromptResolver implements DataFetcher<CompletableFuture<B
                   FormUtils.getStructuredPropertyValuesFromInput(input);
 
               return _formService.submitFieldStructuredPropertyPromptResponse(
+                  context.getOperationContext(),
                   entityUrn,
                   structuredPropertyUrn,
                   values,
                   formUrn,
                   promptId,
-                  fieldPath,
-                  context.getAuthentication());
+                  fieldPath);
             }
             return false;
           } catch (Exception e) {

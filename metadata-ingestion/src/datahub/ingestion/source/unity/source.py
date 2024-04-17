@@ -489,9 +489,10 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
 
         if self.config.include_notebooks:
             for notebook_id in table.downstream_notebooks:
-                self.notebooks[str(notebook_id)] = Notebook.add_upstream(
-                    table.ref, self.notebooks[str(notebook_id)]
-                )
+                if str(notebook_id) in self.notebooks:
+                    self.notebooks[str(notebook_id)] = Notebook.add_upstream(
+                        table.ref, self.notebooks[str(notebook_id)]
+                    )
 
         # Sql parsing is required only for hive metastore view lineage
         if (

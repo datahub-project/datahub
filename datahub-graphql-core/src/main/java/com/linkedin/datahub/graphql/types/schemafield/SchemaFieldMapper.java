@@ -1,11 +1,14 @@
 package com.linkedin.datahub.graphql.types.schemafield;
 
+import static com.linkedin.metadata.Constants.BUSINESS_ATTRIBUTE_ASPECT;
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTIES_ASPECT_NAME;
 
+import com.linkedin.businessattribute.BusinessAttributes;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.SchemaFieldEntity;
+import com.linkedin.datahub.graphql.types.businessattribute.mappers.BusinessAttributesMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.UrnToEntityMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
@@ -38,7 +41,11 @@ public class SchemaFieldMapper implements ModelMapper<EntityResponse, SchemaFiel
         ((schemaField, dataMap) ->
             schemaField.setStructuredProperties(
                 StructuredPropertiesMapper.map(context, new StructuredProperties(dataMap)))));
-
+    mappingHelper.mapToResult(
+        BUSINESS_ATTRIBUTE_ASPECT,
+        (((schemaField, dataMap) ->
+            schemaField.setBusinessAttributes(
+                BusinessAttributesMapper.map(new BusinessAttributes(dataMap), entityUrn)))));
     return result;
   }
 

@@ -13,7 +13,6 @@ import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
-import com.datahub.authentication.Authentication;
 import com.datahub.authorization.EntityFieldType;
 import com.datahub.authorization.EntitySpec;
 import com.linkedin.common.DataPlatformInstance;
@@ -22,8 +21,10 @@ import com.linkedin.entity.Aspect;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
-import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.r2.RemoteInvocationException;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.net.URISyntaxException;
 import java.util.Collections;
 import java.util.Set;
@@ -40,8 +41,9 @@ public class DataPlatformInstanceFieldResolverProviderTest {
       "urn:li:dataset:(urn:li:dataPlatform:s3,test-platform-instance.testDataset,PROD)";
   private static final EntitySpec RESOURCE_SPEC = new EntitySpec(DATASET_ENTITY_NAME, RESOURCE_URN);
 
-  @Mock private EntityClient entityClientMock;
-  @Mock private Authentication systemAuthenticationMock;
+  @Mock private SystemEntityClient entityClientMock;
+
+  private OperationContext systemOperationContext;
 
   private DataPlatformInstanceFieldResolverProvider dataPlatformInstanceFieldResolverProvider;
 
@@ -49,7 +51,8 @@ public class DataPlatformInstanceFieldResolverProviderTest {
   public void setup() {
     MockitoAnnotations.initMocks(this);
     dataPlatformInstanceFieldResolverProvider =
-        new DataPlatformInstanceFieldResolverProvider(entityClientMock, systemAuthenticationMock);
+        new DataPlatformInstanceFieldResolverProvider(entityClientMock);
+    systemOperationContext = TestOperationContexts.systemContextNoSearchAuthorization();
   }
 
   @Test
@@ -64,7 +67,9 @@ public class DataPlatformInstanceFieldResolverProviderTest {
     var resourceSpec =
         new EntitySpec(DATA_PLATFORM_INSTANCE_ENTITY_NAME, DATA_PLATFORM_INSTANCE_URN);
 
-    var result = dataPlatformInstanceFieldResolverProvider.getFieldResolver(resourceSpec);
+    var result =
+        dataPlatformInstanceFieldResolverProvider.getFieldResolver(
+            systemOperationContext, resourceSpec);
 
     assertEquals(
         Set.of(DATA_PLATFORM_INSTANCE_URN), result.getFieldValuesFuture().join().getValues());
@@ -75,21 +80,23 @@ public class DataPlatformInstanceFieldResolverProviderTest {
   public void shouldReturnEmptyFieldValueWhenResponseIsNull()
       throws RemoteInvocationException, URISyntaxException {
     when(entityClientMock.getV2(
+            eq(systemOperationContext),
             eq(DATASET_ENTITY_NAME),
             any(Urn.class),
-            eq(Collections.singleton(DATA_PLATFORM_INSTANCE_ASPECT_NAME)),
-            eq(systemAuthenticationMock)))
+            eq(Collections.singleton(DATA_PLATFORM_INSTANCE_ASPECT_NAME))))
         .thenReturn(null);
 
-    var result = dataPlatformInstanceFieldResolverProvider.getFieldResolver(RESOURCE_SPEC);
+    var result =
+        dataPlatformInstanceFieldResolverProvider.getFieldResolver(
+            systemOperationContext, RESOURCE_SPEC);
 
     assertTrue(result.getFieldValuesFuture().join().getValues().isEmpty());
     verify(entityClientMock, times(1))
         .getV2(
+            eq(systemOperationContext),
             eq(DATASET_ENTITY_NAME),
             any(Urn.class),
-            eq(Collections.singleton(DATA_PLATFORM_INSTANCE_ASPECT_NAME)),
-            eq(systemAuthenticationMock));
+            eq(Collections.singleton(DATA_PLATFORM_INSTANCE_ASPECT_NAME)));
   }
 
   @Test
@@ -98,42 +105,46 @@ public class DataPlatformInstanceFieldResolverProviderTest {
     var entityResponseMock = mock(EntityResponse.class);
     when(entityResponseMock.getAspects()).thenReturn(new EnvelopedAspectMap());
     when(entityClientMock.getV2(
+            eq(systemOperationContext),
             eq(DATASET_ENTITY_NAME),
             any(Urn.class),
-            eq(Collections.singleton(DATA_PLATFORM_INSTANCE_ASPECT_NAME)),
-            eq(systemAuthenticationMock)))
+            eq(Collections.singleton(DATA_PLATFORM_INSTANCE_ASPECT_NAME))))
         .thenReturn(entityResponseMock);
 
-    var result = dataPlatformInstanceFieldResolverProvider.getFieldResolver(RESOURCE_SPEC);
+    var result =
+        dataPlatformInstanceFieldResolverProvider.getFieldResolver(
+            systemOperationContext, RESOURCE_SPEC);
 
     assertTrue(result.getFieldValuesFuture().join().getValues().isEmpty());
     verify(entityClientMock, times(1))
         .getV2(
+            eq(systemOperationContext),
             eq(DATASET_ENTITY_NAME),
             any(Urn.class),
-            eq(Collections.singleton(DATA_PLATFORM_INSTANCE_ASPECT_NAME)),
-            eq(systemAuthenticationMock));
+            eq(Collections.singleton(DATA_PLATFORM_INSTANCE_ASPECT_NAME)));
   }
 
   @Test
   public void shouldReturnEmptyFieldValueWhenThereIsAnException()
       throws RemoteInvocationException, URISyntaxException {
     when(entityClientMock.getV2(
+            eq(systemOperationContext),
             eq(DATASET_ENTITY_NAME),
             any(Urn.class),
-            eq(Collections.singleton(DATA_PLATFORM_INSTANCE_ASPECT_NAME)),
-            eq(systemAuthenticationMock)))
+            eq(Collections.singleton(DATA_PLATFORM_INSTANCE_ASPECT_NAME))))
         .thenThrow(new RemoteInvocationException());
 
-    var result = dataPlatformInstanceFieldResolverProvider.getFieldResolver(RESOURCE_SPEC);
+    var result =
+        dataPlatformInstanceFieldResolverProvider.getFieldResolver(
+            systemOperationContext, RESOURCE_SPEC);
 
     assertTrue(result.getFieldValuesFuture().join().getValues().isEmpty());
     verify(entityClientMock, times(1))
         .getV2(
+            eq(systemOperationContext),
             eq(DATASET_ENTITY_NAME),
             any(Urn.class),
-            eq(Collections.singleton(DATA_PLATFORM_INSTANCE_ASPECT_NAME)),
-            eq(systemAuthenticationMock));
+            eq(Collections.singleton(DATA_PLATFORM_INSTANCE_ASPECT_NAME)));
   }
 
   @Test
@@ -149,21 +160,23 @@ public class DataPlatformInstanceFieldResolverProviderTest {
         new EnvelopedAspect().setValue(new Aspect(dataPlatform.data())));
     when(entityResponseMock.getAspects()).thenReturn(envelopedAspectMap);
     when(entityClientMock.getV2(
+            eq(systemOperationContext),
             eq(DATASET_ENTITY_NAME),
             any(Urn.class),
-            eq(Collections.singleton(DATA_PLATFORM_INSTANCE_ASPECT_NAME)),
-            eq(systemAuthenticationMock)))
+            eq(Collections.singleton(DATA_PLATFORM_INSTANCE_ASPECT_NAME))))
         .thenReturn(entityResponseMock);
 
-    var result = dataPlatformInstanceFieldResolverProvider.getFieldResolver(RESOURCE_SPEC);
+    var result =
+        dataPlatformInstanceFieldResolverProvider.getFieldResolver(
+            systemOperationContext, RESOURCE_SPEC);
 
     assertTrue(result.getFieldValuesFuture().join().getValues().isEmpty());
     verify(entityClientMock, times(1))
         .getV2(
+            eq(systemOperationContext),
             eq(DATASET_ENTITY_NAME),
             any(Urn.class),
-            eq(Collections.singleton(DATA_PLATFORM_INSTANCE_ASPECT_NAME)),
-            eq(systemAuthenticationMock));
+            eq(Collections.singleton(DATA_PLATFORM_INSTANCE_ASPECT_NAME)));
   }
 
   @Test
@@ -181,21 +194,23 @@ public class DataPlatformInstanceFieldResolverProviderTest {
         new EnvelopedAspect().setValue(new Aspect(dataPlatformInstance.data())));
     when(entityResponseMock.getAspects()).thenReturn(envelopedAspectMap);
     when(entityClientMock.getV2(
+            eq(systemOperationContext),
             eq(DATASET_ENTITY_NAME),
             any(Urn.class),
-            eq(Collections.singleton(DATA_PLATFORM_INSTANCE_ASPECT_NAME)),
-            eq(systemAuthenticationMock)))
+            eq(Collections.singleton(DATA_PLATFORM_INSTANCE_ASPECT_NAME))))
         .thenReturn(entityResponseMock);
 
-    var result = dataPlatformInstanceFieldResolverProvider.getFieldResolver(RESOURCE_SPEC);
+    var result =
+        dataPlatformInstanceFieldResolverProvider.getFieldResolver(
+            systemOperationContext, RESOURCE_SPEC);
 
     assertEquals(
         Set.of(DATA_PLATFORM_INSTANCE_URN), result.getFieldValuesFuture().join().getValues());
     verify(entityClientMock, times(1))
         .getV2(
+            eq(systemOperationContext),
             eq(DATASET_ENTITY_NAME),
             any(Urn.class),
-            eq(Collections.singleton(DATA_PLATFORM_INSTANCE_ASPECT_NAME)),
-            eq(systemAuthenticationMock));
+            eq(Collections.singleton(DATA_PLATFORM_INSTANCE_ASPECT_NAME)));
   }
 }

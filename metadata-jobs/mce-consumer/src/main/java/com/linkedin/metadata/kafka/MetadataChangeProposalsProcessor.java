@@ -5,14 +5,13 @@ import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.Timer;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.gms.factory.entityclient.RestliEntityClientFactory;
-import com.linkedin.gms.factory.kafka.DataHubKafkaProducerFactory;
-import com.linkedin.gms.factory.kafka.KafkaEventConsumerFactory;
 import com.linkedin.metadata.EventUtils;
 import com.linkedin.metadata.kafka.config.MetadataChangeProposalProcessorCondition;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.FailedMetadataChangeProposal;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.Topics;
+import io.datahubproject.metadata.context.OperationContext;
 import java.io.IOException;
 import javax.annotation.Nonnull;
 import lombok.RequiredArgsConstructor;
@@ -32,16 +31,13 @@ import org.springframework.stereotype.Component;
 
 @Slf4j
 @Component
-@Import({
-  RestliEntityClientFactory.class,
-  KafkaEventConsumerFactory.class,
-  DataHubKafkaProducerFactory.class
-})
+@Import({RestliEntityClientFactory.class})
 @Conditional(MetadataChangeProposalProcessorCondition.class)
 @EnableKafka
 @RequiredArgsConstructor
 public class MetadataChangeProposalsProcessor {
 
+  private final OperationContext systemOperationContext;
   private final SystemEntityClient entityClient;
   private final Producer<String, IndexedRecord> kafkaProducer;
 
@@ -79,7 +75,7 @@ public class MetadataChangeProposalsProcessor {
         event = EventUtils.avroToPegasusMCP(record);
         log.debug("MetadataChangeProposal {}", event);
         // TODO: Get this from the event itself.
-        String urn = entityClient.ingestProposal(event, false);
+        String urn = entityClient.ingestProposal(systemOperationContext, event, false);
         log.info("Successfully processed MCP event urn: {}", urn);
       } catch (Throwable throwable) {
         log.error("MCP Processor Error", throwable);

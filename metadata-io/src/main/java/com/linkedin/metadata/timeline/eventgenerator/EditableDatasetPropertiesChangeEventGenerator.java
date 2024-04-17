@@ -4,6 +4,7 @@ import static com.linkedin.metadata.Constants.*;
 
 import com.datahub.util.RecordUtils;
 import com.github.fge.jsonpatch.JsonPatch;
+import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.dataset.EditableDatasetProperties;
@@ -20,6 +21,7 @@ import javax.annotation.Nonnull;
 
 public class EditableDatasetPropertiesChangeEventGenerator
     extends EntityChangeEventGenerator<EditableDatasetProperties> {
+
   public static final String DESCRIPTION_ADDED = "Documentation for '%s' has been added: '%s'.";
   public static final String DESCRIPTION_REMOVED = "Documentation for '%s' has been removed: '%s'.";
   public static final String DESCRIPTION_CHANGED =
@@ -57,6 +59,7 @@ public class EditableDatasetPropertiesChangeEventGenerator
           .operation(ChangeOperation.ADD)
           .semVerChange(SemanticChangeType.MINOR)
           .description(String.format(DESCRIPTION_ADDED, entityUrn, targetDescription))
+          .parameters(ImmutableMap.of("description", targetDescription))
           .auditStamp(auditStamp)
           .build();
     } else if (baseDescription != null && targetDescription == null) {
@@ -67,6 +70,7 @@ public class EditableDatasetPropertiesChangeEventGenerator
           .operation(ChangeOperation.REMOVE)
           .semVerChange(SemanticChangeType.MINOR)
           .description(String.format(DESCRIPTION_REMOVED, entityUrn, baseDescription))
+          .parameters(ImmutableMap.of("description", baseDescription))
           .auditStamp(auditStamp)
           .build();
     } else if (baseDescription != null
@@ -80,6 +84,7 @@ public class EditableDatasetPropertiesChangeEventGenerator
           .semVerChange(SemanticChangeType.MINOR)
           .description(
               String.format(DESCRIPTION_CHANGED, entityUrn, baseDescription, targetDescription))
+          .parameters(ImmutableMap.of("description", targetDescription))
           .auditStamp(auditStamp)
           .build();
     }

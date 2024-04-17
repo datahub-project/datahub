@@ -58,7 +58,8 @@ public class UpdateUserSettingResolver implements DataFetcher<CompletableFuture<
                 buildMetadataChangeProposalWithUrn(
                     actor, CORP_USER_SETTINGS_ASPECT_NAME, newSettings);
 
-            _entityService.ingestProposal(proposal, EntityUtils.getAuditStamp(actor), false);
+            _entityService.ingestProposal(
+                context.getOperationContext(), proposal, EntityUtils.getAuditStamp(actor), false);
 
             return true;
           } catch (Exception e) {

@@ -20,12 +20,14 @@ import com.linkedin.gms.factory.common.SiblingGraphServiceFactory;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.entityregistry.EntityRegistryFactory;
 import com.linkedin.gms.factory.recommendation.RecommendationServiceFactory;
+import com.linkedin.metadata.client.UsageStatsJavaClient;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.SiblingGraphService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.recommendation.RecommendationsService;
+import com.linkedin.metadata.service.BusinessAttributeService;
 import com.linkedin.metadata.service.DataProductService;
 import com.linkedin.metadata.service.ERModelRelationshipService;
 import com.linkedin.metadata.service.FormService;
@@ -38,7 +40,6 @@ import com.linkedin.metadata.timeline.TimelineService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.version.GitVersion;
-import com.linkedin.usage.RestliUsageClient;
 import io.datahubproject.metadata.services.RestrictedService;
 import io.datahubproject.metadata.services.SecretService;
 import javax.annotation.Nonnull;
@@ -72,10 +73,6 @@ public class GraphQLEngineFactory {
   @Autowired
   @Qualifier("graphClient")
   private GraphClient graphClient;
-
-  @Autowired
-  @Qualifier("usageClient")
-  private RestliUsageClient usageClient;
 
   @Autowired
   @Qualifier("entityService")
@@ -180,6 +177,10 @@ public class GraphQLEngineFactory {
   @Value("${platformAnalytics.enabled}") // TODO: Migrate to DATAHUB_ANALYTICS_ENABLED
   private Boolean isAnalyticsEnabled;
 
+  @Autowired
+  @Qualifier("businessAttributeService")
+  private BusinessAttributeService businessAttributeService;
+
   @Bean(name = "graphQLEngine")
   @Nonnull
   protected GraphQLEngine graphQLEngine(
@@ -189,7 +190,9 @@ public class GraphQLEngineFactory {
     args.setEntityClient(entityClient);
     args.setSystemEntityClient(systemEntityClient);
     args.setGraphClient(graphClient);
-    args.setUsageClient(usageClient);
+    args.setUsageClient(
+        new UsageStatsJavaClient(
+            timeseriesAspectService, configProvider.getCache().getClient().getUsageClient()));
     if (isAnalyticsEnabled) {
       args.setAnalyticsService(new AnalyticsService(elasticClient, indexConvention));
     }
@@ -229,6 +232,7 @@ public class GraphQLEngineFactory {
     args.setGraphQLQueryComplexityLimit(
         configProvider.getGraphQL().getQuery().getComplexityLimit());
     args.setGraphQLQueryDepthLimit(configProvider.getGraphQL().getQuery().getDepthLimit());
+    args.setBusinessAttributeService(businessAttributeService);
     return new GmsGraphQLEngine(args).builder().build();
   }
 }
