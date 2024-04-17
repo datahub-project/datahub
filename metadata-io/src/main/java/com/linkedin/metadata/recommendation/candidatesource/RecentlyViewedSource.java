@@ -114,7 +114,7 @@ public class RecentlyViewedSource implements EntityRecommendationSource {
           parsedTerms.getBuckets().stream()
               .map(MultiBucketsAggregation.Bucket::getKeyAsString)
               .collect(Collectors.toList());
-      return buildContent(bucketUrns, _entityService)
+      return buildContent(opContext, bucketUrns, _entityService)
           .limit(MAX_CONTENT)
           .collect(Collectors.toList());
     } catch (Exception e) {

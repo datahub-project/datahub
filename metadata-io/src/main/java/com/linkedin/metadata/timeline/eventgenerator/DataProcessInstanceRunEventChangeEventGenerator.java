@@ -13,6 +13,7 @@ import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.timeline.data.ChangeCategory;
 import com.linkedin.metadata.timeline.data.ChangeEvent;
 import com.linkedin.metadata.timeline.data.ChangeOperation;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -25,9 +26,14 @@ public class DataProcessInstanceRunEventChangeEventGenerator
   private static final String COMPLETED_STATUS = "COMPLETED";
   private static final String STARTED_STATUS = "STARTED";
 
+  private final OperationContext systemOperationContext;
+  private final SystemEntityClient systemEntityClient;
+
   public DataProcessInstanceRunEventChangeEventGenerator(
-      @Nonnull final SystemEntityClient entityClient) {
-    super(entityClient);
+      @Nonnull OperationContext systemOperationContext,
+      @Nonnull final SystemEntityClient systemEntityClient) {
+    this.systemOperationContext = systemOperationContext;
+    this.systemEntityClient = systemEntityClient;
   }
 
   @Override
@@ -109,8 +115,10 @@ public class DataProcessInstanceRunEventChangeEventGenerator
     try {
       entityUrn = Urn.createFromString(entityUrnString);
       entityResponse =
-          _entityClient.getV2(
-              entityUrn, Collections.singleton(DATA_PROCESS_INSTANCE_RELATIONSHIPS_ASPECT_NAME));
+          systemEntityClient.getV2(
+              systemOperationContext,
+              entityUrn,
+              Collections.singleton(DATA_PROCESS_INSTANCE_RELATIONSHIPS_ASPECT_NAME));
     } catch (Exception e) {
       return null;
     }

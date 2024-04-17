@@ -18,9 +18,9 @@ export const BrowseEntityCard = ({ entityType, count }: { entityType: EntityType
     const history = useHistory();
     const entityRegistry = useEntityRegistry();
     const showBrowseV2 = useIsBrowseV2();
-    const isGlossaryEntityCard = entityType === EntityType.GlossaryTerm;
     const entityPathName = entityRegistry.getPathName(entityType);
-    const url = isGlossaryEntityCard ? PageRoutes.GLOSSARY : `${PageRoutes.BROWSE}/${entityPathName}`;
+    const customCardUrlPath = entityRegistry.getCustomCardUrlPath(entityType);
+    const url = customCardUrlPath || `${PageRoutes.BROWSE}/${entityPathName}`;
     const onBrowseEntityCardClick = () => {
         analytics.event({
             type: EventType.HomePageBrowseResultClickEvent,
@@ -29,7 +29,7 @@ export const BrowseEntityCard = ({ entityType, count }: { entityType: EntityType
     };
 
     function browse() {
-        if (showBrowseV2 && !isGlossaryEntityCard) {
+        if (showBrowseV2 && !customCardUrlPath) {
             navigateToSearchUrl({
                 query: '*',
                 filters: [{ field: ENTITY_SUB_TYPE_FILTER_NAME, values: [entityType] }],

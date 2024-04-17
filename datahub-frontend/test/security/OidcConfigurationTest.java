@@ -322,7 +322,7 @@ public class OidcConfigurationTest {
 
   @Test
   public void readPreferredJwsAlgorithmPropagationFromConfig() {
-    final String SSO_SETTINGS_JSON_STR = new JSONObject().put(PREFERRED_JWS_ALGORITHM, "HS256").toString();
+    final String SSO_SETTINGS_JSON_STR = new JSONObject().toString();
     CONFIG.withValue(OIDC_PREFERRED_JWS_ALGORITHM, ConfigValueFactory.fromAnyRef("RS256"));
     OidcConfigs.Builder oidcConfigsBuilder = new OidcConfigs.Builder();
     oidcConfigsBuilder.from(CONFIG, SSO_SETTINGS_JSON_STR);
@@ -333,7 +333,7 @@ public class OidcConfigurationTest {
 
   @Test
   public void readPreferredJwsAlgorithmPropagationFromJSON() {
-    final String SSO_SETTINGS_JSON_STR = new JSONObject().put(PREFERRED_JWS_ALGORITHM, "Unused").put(PREFERRED_JWS_ALGORITHM_2, "HS256").toString();
+    final String SSO_SETTINGS_JSON_STR = new JSONObject().put(PREFERRED_JWS_ALGORITHM, "HS256").toString();
     CONFIG.withValue(OIDC_PREFERRED_JWS_ALGORITHM, ConfigValueFactory.fromAnyRef("RS256"));
     OidcConfigs.Builder oidcConfigsBuilder = new OidcConfigs.Builder();
     oidcConfigsBuilder.from(CONFIG, SSO_SETTINGS_JSON_STR);

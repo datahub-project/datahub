@@ -81,13 +81,13 @@ public class ListSecretsResolver implements DataFetcher<CompletableFuture<ListSe
               // Then, resolve all secrets
               final Map<Urn, EntityResponse> entities =
                   _entityClient.batchGetV2(
+                      context.getOperationContext(),
                       Constants.SECRETS_ENTITY_NAME,
                       new HashSet<>(
                           gmsResult.getEntities().stream()
                               .map(SearchEntity::getEntity)
                               .collect(Collectors.toList())),
-                      ImmutableSet.of(Constants.SECRET_VALUE_ASPECT_NAME),
-                      context.getAuthentication());
+                      ImmutableSet.of(Constants.SECRET_VALUE_ASPECT_NAME));
 
               // Now that we have entities we can bind this to a result.
               final ListSecretsResult result = new ListSecretsResult();

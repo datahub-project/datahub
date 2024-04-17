@@ -16,7 +16,7 @@ import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.testng.annotations.Test;
 
-@TestPropertySource(locations = "classpath:/application.yml")
+@TestPropertySource(locations = "classpath:/application.yaml")
 @SpringBootTest(classes = {SecretServiceFactory.class})
 @EnableConfigurationProperties(ConfigurationProvider.class)
 public class SecretServiceFactoryTest extends AbstractTestNGSpringContextTests {

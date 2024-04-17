@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.types.domain;
 
 import static com.linkedin.datahub.graphql.TestUtils.*;
+import static org.mockito.ArgumentMatchers.any;
 import static org.testng.Assert.*;
 
 import com.datahub.authentication.Authentication;
@@ -74,10 +75,10 @@ public class DomainTypeTest {
 
     Mockito.when(
             client.batchGetV2(
+                any(),
                 Mockito.eq(Constants.DOMAIN_ENTITY_NAME),
                 Mockito.eq(new HashSet<>(ImmutableSet.of(domainUrn1, domainUrn2))),
-                Mockito.eq(DomainType.ASPECTS_TO_FETCH),
-                Mockito.any(Authentication.class)))
+                Mockito.eq(DomainType.ASPECTS_TO_FETCH)))
         .thenReturn(
             ImmutableMap.of(
                 domainUrn1,
@@ -110,10 +111,10 @@ public class DomainTypeTest {
     // Verify response
     Mockito.verify(client, Mockito.times(1))
         .batchGetV2(
+            any(),
             Mockito.eq(Constants.DOMAIN_ENTITY_NAME),
             Mockito.eq(ImmutableSet.of(domainUrn1, domainUrn2)),
-            Mockito.eq(DomainType.ASPECTS_TO_FETCH),
-            Mockito.any(Authentication.class));
+            Mockito.eq(DomainType.ASPECTS_TO_FETCH));
 
     assertEquals(result.size(), 2);
 
@@ -135,11 +136,7 @@ public class DomainTypeTest {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     Mockito.doThrow(RemoteInvocationException.class)
         .when(mockClient)
-        .batchGetV2(
-            Mockito.anyString(),
-            Mockito.anySet(),
-            Mockito.anySet(),
-            Mockito.any(Authentication.class));
+        .batchGetV2(any(), Mockito.anyString(), Mockito.anySet(), Mockito.anySet());
     DomainType type = new DomainType(mockClient);
 
     // Execute Batch load

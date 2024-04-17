@@ -24,7 +24,7 @@ import org.testng.annotations.Test;
       "kafka.schemaRegistry.type=INTERNAL"
     })
 @TestPropertySource(
-    locations = "classpath:/application.yml",
+    locations = "classpath:/application.yaml",
     properties = {"MCL_CONSUMER_ENABLED=true"})
 @EnableAutoConfiguration(exclude = {CassandraAutoConfiguration.class})
 public class MCLSpringTest extends AbstractTestNGSpringContextTests {

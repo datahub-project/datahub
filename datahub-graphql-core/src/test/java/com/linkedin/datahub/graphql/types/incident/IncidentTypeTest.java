@@ -1,6 +1,6 @@
 package com.linkedin.datahub.graphql.types.incident;
 
-import static org.mockito.Mockito.mock;
+import static org.mockito.ArgumentMatchers.any;
 import static org.testng.Assert.*;
 
 import com.datahub.authentication.Authentication;
@@ -26,7 +26,6 @@ import com.linkedin.incident.IncidentStatus;
 import com.linkedin.incident.IncidentType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.key.IncidentKey;
-import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.r2.RemoteInvocationException;
 import graphql.execution.DataFetcherResult;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
@@ -92,11 +91,11 @@ public class IncidentTypeTest {
         new EnvelopedAspect().setValue(new Aspect(TEST_INCIDENT_INFO.data())));
     Mockito.when(
             client.batchGetV2(
+                any(),
                 Mockito.eq(Constants.INCIDENT_ENTITY_NAME),
                 Mockito.eq(new HashSet<>(ImmutableSet.of(incidentUrn1, incidentUrn2))),
                 Mockito.eq(
-                    com.linkedin.datahub.graphql.types.incident.IncidentType.ASPECTS_TO_FETCH),
-                Mockito.any(Authentication.class)))
+                    com.linkedin.datahub.graphql.types.incident.IncidentType.ASPECTS_TO_FETCH)))
         .thenReturn(
             ImmutableMap.of(
                 incidentUrn1,
@@ -111,8 +110,7 @@ public class IncidentTypeTest {
     QueryContext mockContext = Mockito.mock(QueryContext.class);
     Mockito.when(mockContext.getAuthentication()).thenReturn(Mockito.mock(Authentication.class));
     Mockito.when(mockContext.getOperationContext())
-        .thenReturn(
-            TestOperationContexts.userContextNoSearchAuthorization(mock(EntityRegistry.class)));
+        .thenReturn(TestOperationContexts.systemContextNoSearchAuthorization());
 
     List<DataFetcherResult<Incident>> result =
         type.batchLoad(ImmutableList.of(TEST_INCIDENT_URN, TEST_INCIDENT_URN_2), mockContext);
@@ -120,10 +118,10 @@ public class IncidentTypeTest {
     // Verify response
     Mockito.verify(client, Mockito.times(1))
         .batchGetV2(
+            any(),
             Mockito.eq(Constants.INCIDENT_ENTITY_NAME),
             Mockito.eq(ImmutableSet.of(incidentUrn1, incidentUrn2)),
-            Mockito.eq(com.linkedin.datahub.graphql.types.incident.IncidentType.ASPECTS_TO_FETCH),
-            Mockito.any(Authentication.class));
+            Mockito.eq(com.linkedin.datahub.graphql.types.incident.IncidentType.ASPECTS_TO_FETCH));
 
     assertEquals(result.size(), 2);
 
@@ -163,11 +161,7 @@ public class IncidentTypeTest {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     Mockito.doThrow(RemoteInvocationException.class)
         .when(mockClient)
-        .batchGetV2(
-            Mockito.anyString(),
-            Mockito.anySet(),
-            Mockito.anySet(),
-            Mockito.any(Authentication.class));
+        .batchGetV2(any(), Mockito.anyString(), Mockito.anySet(), Mockito.anySet());
     com.linkedin.datahub.graphql.types.incident.IncidentType type =
         new com.linkedin.datahub.graphql.types.incident.IncidentType(mockClient);
 

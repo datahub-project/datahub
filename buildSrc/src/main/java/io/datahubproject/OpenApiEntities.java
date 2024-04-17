@@ -60,6 +60,7 @@ public class OpenApiEntities {
                 .add("dataProductProperties")
                 .add("institutionalMemory")
                 .add("forms").add("formInfo").add("dynamicFormAssignment")
+                .add("businessAttributeInfo")
                 .build();
 
     private final static ImmutableSet<String> ENTITY_EXCLUSIONS = ImmutableSet.<String>builder()

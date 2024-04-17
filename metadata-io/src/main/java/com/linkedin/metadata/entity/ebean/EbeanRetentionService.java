@@ -16,6 +16,7 @@ import com.linkedin.retention.DataHubRetentionConfig;
 import com.linkedin.retention.Retention;
 import com.linkedin.retention.TimeBasedRetention;
 import com.linkedin.retention.VersionBasedRetention;
+import io.datahubproject.metadata.context.OperationContext;
 import io.ebean.Database;
 import io.ebean.Expression;
 import io.ebean.ExpressionList;
@@ -54,8 +55,12 @@ public class EbeanRetentionService<U extends ChangeMCP> extends RetentionService
 
   @Override
   protected AspectsBatch buildAspectsBatch(
-      List<MetadataChangeProposal> mcps, @Nonnull AuditStamp auditStamp) {
-    return AspectsBatchImpl.builder().mcps(mcps, auditStamp, _entityService).build();
+      @Nonnull OperationContext opContext,
+      List<MetadataChangeProposal> mcps,
+      @Nonnull AuditStamp auditStamp) {
+    return AspectsBatchImpl.builder()
+        .mcps(mcps, auditStamp, opContext.getRetrieverContext().get())
+        .build();
   }
 
   @Override

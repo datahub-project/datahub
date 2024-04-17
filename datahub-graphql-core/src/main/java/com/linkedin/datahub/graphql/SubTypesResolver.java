@@ -36,10 +36,10 @@ public class SubTypesResolver implements DataFetcher<CompletableFuture<SubTypes>
             EntityResponse entityResponse =
                 _entityClient
                     .batchGetV2(
+                        context.getOperationContext(),
                         urn.getEntityType(),
                         Collections.singleton(urn),
-                        Collections.singleton(_aspectName),
-                        context.getAuthentication())
+                        Collections.singleton(_aspectName))
                     .get(urn);
             if (entityResponse != null && entityResponse.getAspects().containsKey(_aspectName)) {
               subType =

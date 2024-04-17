@@ -11,6 +11,8 @@ import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
 import com.linkedin.metadata.search.client.CachingEntitySearchService;
 import com.linkedin.util.Pair;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.RequestContext;
 import io.datahubproject.openapi.exception.UnauthorizedException;
 import io.datahubproject.openapi.generated.MetadataChangeProposal;
 import io.datahubproject.openapi.util.MappingUtil;
@@ -43,6 +45,7 @@ import org.springframework.web.bind.annotation.RestController;
     description = "Platform level APIs intended for lower level access to entities")
 public class PlatformEntitiesController {
 
+  private final OperationContext systemOperationContext;
   private final EntityService<ChangeItemImpl> _entityService;
   private final CachingEntitySearchService _cachingEntitySearchService;
   private final ObjectMapper _objectMapper;
@@ -61,6 +64,19 @@ public class PlatformEntitiesController {
 
     Authentication authentication = AuthenticationContext.getAuthentication();
     String actorUrnStr = authentication.getActor().toUrnStr();
+    OperationContext opContext =
+        OperationContext.asSession(
+            systemOperationContext,
+            RequestContext.builder()
+                .buildOpenapi(
+                    "postEntities",
+                    metadataChangeProposals.stream()
+                        .map(MetadataChangeProposal::getEntityType)
+                        .distinct()
+                        .collect(Collectors.toList())),
+            _authorizerChain,
+            authentication,
+            true);
 
     List<com.linkedin.mxe.MetadataChangeProposal> proposals =
         metadataChangeProposals.stream()
@@ -72,11 +88,7 @@ public class PlatformEntitiesController {
     */
     List<Pair<com.linkedin.mxe.MetadataChangeProposal, Integer>> exceptions =
         isAPIAuthorized(
-                authentication,
-                _authorizerChain,
-                ENTITY,
-                _entityService.getEntityRegistry(),
-                proposals)
+                authentication, _authorizerChain, ENTITY, opContext.getEntityRegistry(), proposals)
             .stream()
             .filter(p -> p.getSecond() != com.linkedin.restli.common.HttpStatus.S_200_OK.getCode())
             .collect(Collectors.toList());
@@ -100,7 +112,8 @@ public class PlatformEntitiesController {
         proposals.stream()
             .map(
                 proposal ->
-                    MappingUtil.ingestProposal(proposal, actorUrnStr, _entityService, asyncBool))
+                    MappingUtil.ingestProposal(
+                        opContext, proposal, actorUrnStr, _entityService, asyncBool))
             .collect(Collectors.toList());
     if (responses.stream().anyMatch(Pair::getSecond)) {
       return ResponseEntity.status(HttpStatus.CREATED)
