@@ -1416,8 +1416,6 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             owner_aspect.owners = transformed_owner_list
 
         tag_aspect = self.get_aspect_from_dataset(mce.proposedSnapshot, GlobalTagsClass)
-        print("============== HI ==============")
-        print(f"tag_aspect: {tag_aspect}")
         if tag_aspect:
             transformed_tag_list = self.get_transformed_tags_by_prefix(
                 tag_aspect.tags,
@@ -1823,7 +1821,6 @@ class DBTSourceBase(StatefulIngestionSourceBase):
 
         if self.ctx.graph:
             existing_tags_class = self.ctx.graph.get_tags(entity_urn)
-            print(f"existing_tags_class: {existing_tags_class}")
             if existing_tags_class and existing_tags_class.tags:
                 for exiting_tag in existing_tags_class.tags:
                     tag_set.add(exiting_tag.tag)
