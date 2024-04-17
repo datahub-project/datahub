@@ -15,6 +15,9 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import javax.annotation.Nonnull;
 import javax.inject.Inject;
+import javax.inject.Named;
+
+import io.datahubproject.metadata.context.OperationContext;
 import lombok.extern.slf4j.Slf4j;
 import org.pac4j.core.client.Client;
 import org.pac4j.core.client.Clients;
@@ -43,7 +46,7 @@ public class SsoCallbackController extends CallbackController {
   @Inject
   public SsoCallbackController(
       @Nonnull SsoManager ssoManager,
-      @Nonnull Authentication systemAuthentication,
+      @Named("systemOperationContext") @Nonnull OperationContext systemOperationContext,
       @Nonnull SystemEntityClient entityClient,
       @Nonnull AuthServiceClient authClient,
       @Nonnull Config config,
@@ -55,7 +58,7 @@ public class SsoCallbackController extends CallbackController {
     setCallbackLogic(
         new SsoCallbackLogic(
             ssoManager,
-            systemAuthentication,
+                systemOperationContext,
             entityClient,
             authClient,
             new CookieConfigs(configs)));
@@ -96,13 +99,13 @@ public class SsoCallbackController extends CallbackController {
 
     SsoCallbackLogic(
         final SsoManager ssoManager,
-        final Authentication systemAuthentication,
+        final OperationContext systemOperationContext,
         final SystemEntityClient entityClient,
         final AuthServiceClient authClient,
         final CookieConfigs cookieConfigs) {
       _oidcCallbackLogic =
           new OidcCallbackLogic(
-              ssoManager, systemAuthentication, entityClient, authClient, cookieConfigs);
+              ssoManager, systemOperationContext, entityClient, authClient, cookieConfigs);
     }
 
     @Override

@@ -1,0 +1,13 @@
+namespace com.linkedin.schemafield
+
+@Aspect = {
+   "name": "schemafieldInfo"
+}
+
+record SchemaFieldInfo {
+    @Searchable = {
+        "fieldType": "KEYWORD",
+        "fieldNameAliases": [ "_entityName" ]
+      }
+      name: optional string
+}

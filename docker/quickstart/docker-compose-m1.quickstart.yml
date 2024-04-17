@@ -222,7 +222,6 @@ services:
     - ${DATAHUB_MAPPED_MYSQL_PORT:-3306}:3306
     restart: on-failure
     volumes:
-    - ../mysql/init.sql:/docker-entrypoint-initdb.d/init.sql
     - mysqldata:/var/lib/mysql
   mysql-setup:
     depends_on:

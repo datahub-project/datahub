@@ -28,6 +28,7 @@ import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
+import io.datahubproject.metadata.context.OperationContext;
 import java.net.URISyntaxException;
 import java.net.URLEncoder;
 import java.util.Objects;
@@ -46,8 +47,7 @@ public class ValidationUtils {
   public static final String URN_DELIMITER_SEPARATOR = "␟";
 
   /**
-   * Validates a {@link RecordTemplate} and throws {@link
-   * com.linkedin.restli.server.RestLiServiceException} if validation fails.
+   * Validates a {@link RecordTemplate} and throws {@link ValidationException} if validation fails.
    *
    * @param record record to be validated.
    */
@@ -149,7 +149,9 @@ public class ValidationUtils {
   }
 
   public static SearchResult validateSearchResult(
-      final SearchResult searchResult, @Nonnull final EntityService<?> entityService) {
+      @Nonnull OperationContext opContext,
+      final SearchResult searchResult,
+      @Nonnull final EntityService<?> entityService) {
     try (Timer.Context ignored =
         MetricUtils.timer(ValidationUtils.class, "validateSearchResult").time()) {
       if (searchResult == null) {
@@ -166,7 +168,12 @@ public class ValidationUtils {
 
       SearchEntityArray validatedEntities =
           validateSearchUrns(
-                  searchResult.getEntities(), SearchEntity::getEntity, entityService, true, true)
+                  opContext,
+                  searchResult.getEntities(),
+                  SearchEntity::getEntity,
+                  entityService,
+                  true,
+                  true)
               .collect(Collectors.toCollection(SearchEntityArray::new));
       validatedSearchResult.setEntities(validatedEntities);
 
@@ -175,7 +182,9 @@ public class ValidationUtils {
   }
 
   public static ScrollResult validateScrollResult(
-      final ScrollResult scrollResult, @Nonnull final EntityService<?> entityService) {
+      @Nonnull OperationContext opContext,
+      final ScrollResult scrollResult,
+      @Nonnull final EntityService<?> entityService) {
     if (scrollResult == null) {
       return null;
     }
@@ -192,7 +201,12 @@ public class ValidationUtils {
 
     SearchEntityArray validatedEntities =
         validateSearchUrns(
-                scrollResult.getEntities(), SearchEntity::getEntity, entityService, true, true)
+                opContext,
+                scrollResult.getEntities(),
+                SearchEntity::getEntity,
+                entityService,
+                true,
+                true)
             .collect(Collectors.toCollection(SearchEntityArray::new));
 
     validatedScrollResult.setEntities(validatedEntities);
@@ -201,7 +215,9 @@ public class ValidationUtils {
   }
 
   public static BrowseResult validateBrowseResult(
-      final BrowseResult browseResult, @Nonnull final EntityService<?> entityService) {
+      @Nonnull OperationContext opContext,
+      final BrowseResult browseResult,
+      @Nonnull final EntityService<?> entityService) {
     try (Timer.Context ignored =
         MetricUtils.timer(ValidationUtils.class, "validateBrowseResult").time()) {
       if (browseResult == null) {
@@ -221,7 +237,12 @@ public class ValidationUtils {
 
       BrowseResultEntityArray validatedEntities =
           validateSearchUrns(
-                  browseResult.getEntities(), BrowseResultEntity::getUrn, entityService, true, true)
+                  opContext,
+                  browseResult.getEntities(),
+                  BrowseResultEntity::getUrn,
+                  entityService,
+                  true,
+                  true)
               .collect(Collectors.toCollection(BrowseResultEntityArray::new));
       validatedBrowseResult.setEntities(validatedEntities);
 
@@ -230,7 +251,9 @@ public class ValidationUtils {
   }
 
   public static ListResult validateListResult(
-      final ListResult listResult, @Nonnull final EntityService<?> entityService) {
+      @Nonnull OperationContext opContext,
+      final ListResult listResult,
+      @Nonnull final EntityService<?> entityService) {
     try (Timer.Context ignored =
         MetricUtils.timer(ValidationUtils.class, "validateListResult").time()) {
       if (listResult == null) {
@@ -246,7 +269,12 @@ public class ValidationUtils {
 
       UrnArray validatedEntities =
           validateSearchUrns(
-                  listResult.getEntities(), Function.identity(), entityService, true, true)
+                  opContext,
+                  listResult.getEntities(),
+                  Function.identity(),
+                  entityService,
+                  true,
+                  true)
               .collect(Collectors.toCollection(UrnArray::new));
       validatedListResult.setEntities(validatedEntities);
 
@@ -255,6 +283,7 @@ public class ValidationUtils {
   }
 
   public static LineageSearchResult validateLineageSearchResult(
+      @Nonnull OperationContext opContext,
       final LineageSearchResult lineageSearchResult,
       @Nonnull final EntityService<?> entityService) {
     try (Timer.Context ignored =
@@ -273,6 +302,7 @@ public class ValidationUtils {
 
       LineageSearchEntityArray validatedEntities =
           validateSearchUrns(
+                  opContext,
                   lineageSearchResult.getEntities(),
                   LineageSearchEntity::getEntity,
                   entityService,
@@ -287,6 +317,7 @@ public class ValidationUtils {
   }
 
   public static EntityLineageResult validateEntityLineageResult(
+      @Nonnull OperationContext opContext,
       @Nullable final EntityLineageResult entityLineageResult,
       @Nonnull final EntityService<?> entityService) {
     if (entityLineageResult == null) {
@@ -302,6 +333,7 @@ public class ValidationUtils {
 
     LineageRelationshipArray validatedRelationships =
         validateSearchUrns(
+                opContext,
                 entityLineageResult.getRelationships(),
                 LineageRelationship::getEntity,
                 entityService,
@@ -321,6 +353,7 @@ public class ValidationUtils {
   }
 
   public static LineageScrollResult validateLineageScrollResult(
+      @Nonnull OperationContext opContext,
       final LineageScrollResult lineageScrollResult,
       @Nonnull final EntityService<?> entityService) {
     if (lineageScrollResult == null) {
@@ -339,6 +372,7 @@ public class ValidationUtils {
 
     LineageSearchEntityArray validatedEntities =
         validateSearchUrns(
+                opContext,
                 lineageScrollResult.getEntities(),
                 LineageSearchEntity::getEntity,
                 entityService,
@@ -352,6 +386,7 @@ public class ValidationUtils {
   }
 
   private static <T> Stream<T> validateSearchUrns(
+      @Nonnull OperationContext opContext,
       final AbstractArrayTemplate<T> array,
       Function<T, Urn> urnFunction,
       @Nonnull final EntityService<?> entityService,
@@ -361,7 +396,9 @@ public class ValidationUtils {
     if (enforceSQLExistence) {
       Set<Urn> existingUrns =
           entityService.exists(
-              array.stream().map(urnFunction).collect(Collectors.toList()), includeSoftDeleted);
+              opContext,
+              array.stream().map(urnFunction).collect(Collectors.toList()),
+              includeSoftDeleted);
       return array.stream().filter(item -> existingUrns.contains(urnFunction.apply(item)));
     } else {
       Set<Urn> validatedUrns =
@@ -370,7 +407,7 @@ public class ValidationUtils {
               .filter(
                   urn -> {
                     try {
-                      validateUrn(entityService.getEntityRegistry(), urn);
+                      validateUrn(opContext.getEntityRegistry(), urn);
                       return true;
                     } catch (Exception e) {
                       log.warn(

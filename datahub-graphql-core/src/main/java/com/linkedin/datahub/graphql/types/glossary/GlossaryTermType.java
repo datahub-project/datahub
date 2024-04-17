@@ -91,10 +91,10 @@ public class GlossaryTermType
     try {
       final Map<Urn, EntityResponse> glossaryTermMap =
           _entityClient.batchGetV2(
+              context.getOperationContext(),
               GLOSSARY_TERM_ENTITY_NAME,
               new HashSet<>(glossaryTermUrns),
-              ASPECTS_TO_RESOLVE,
-              context.getAuthentication());
+              ASPECTS_TO_RESOLVE);
 
       final List<EntityResponse> gmsResults = new ArrayList<>(urns.size());
       for (Urn urn : glossaryTermUrns) {
@@ -175,7 +175,7 @@ public class GlossaryTermType
       throws Exception {
     final StringArray result =
         _entityClient.getBrowsePaths(
-            GlossaryTermUtils.getGlossaryTermUrn(urn), context.getAuthentication());
+            context.getOperationContext(), GlossaryTermUtils.getGlossaryTermUrn(urn));
     return BrowsePathsMapper.map(context, result);
   }
 }

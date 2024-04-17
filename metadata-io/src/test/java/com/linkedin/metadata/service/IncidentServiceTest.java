@@ -1,6 +1,9 @@
 package com.linkedin.metadata.service;
 
 import static com.linkedin.metadata.Constants.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableList;
@@ -14,7 +17,7 @@ import com.linkedin.entity.Aspect;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
-import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.incident.IncidentInfo;
 import com.linkedin.incident.IncidentSource;
@@ -26,6 +29,7 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.AspectUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.Collections;
 import org.mockito.Mockito;
 import org.testcontainers.shaded.com.google.common.collect.ImmutableMap;
@@ -45,77 +49,73 @@ public class IncidentServiceTest {
 
   @Test
   private void testGetIncidentInfo() throws Exception {
-    final EntityClient mockClient = createMockEntityClient();
-    final IncidentService service =
-        new IncidentService(mockClient, Mockito.mock(Authentication.class));
+    final SystemEntityClient mockClient = createMockEntityClient();
+    final IncidentService service = new IncidentService(mockClient);
 
     // Case 1: Info exists
-    IncidentInfo info = service.getIncidentInfo(TEST_INCIDENT_URN);
+    IncidentInfo info = service.getIncidentInfo(mockOperationContext(), TEST_INCIDENT_URN);
     Assert.assertEquals(info, mockIncidentInfo());
     Mockito.verify(mockClient, Mockito.times(1))
         .getV2(
+            any(OperationContext.class),
             Mockito.eq(Constants.INCIDENT_ENTITY_NAME),
             Mockito.eq(TEST_INCIDENT_URN),
-            Mockito.eq(ImmutableSet.of(Constants.INCIDENT_INFO_ASPECT_NAME)),
-            Mockito.any(Authentication.class));
+            Mockito.eq(ImmutableSet.of(Constants.INCIDENT_INFO_ASPECT_NAME)));
 
     // Case 2: Info does not exist
-    info = service.getIncidentInfo(TEST_NON_EXISTENT_INCIDENT_URN);
+    info = service.getIncidentInfo(mockOperationContext(), TEST_NON_EXISTENT_INCIDENT_URN);
     Assert.assertNull(info);
     Mockito.verify(mockClient, Mockito.times(1))
         .getV2(
+            any(OperationContext.class),
             Mockito.eq(Constants.INCIDENT_ENTITY_NAME),
             Mockito.eq(TEST_NON_EXISTENT_INCIDENT_URN),
-            Mockito.eq(ImmutableSet.of(Constants.INCIDENT_INFO_ASPECT_NAME)),
-            Mockito.any(Authentication.class));
+            Mockito.eq(ImmutableSet.of(Constants.INCIDENT_INFO_ASPECT_NAME)));
   }
 
   @Test
   private void testGetIncidentsSummary() throws Exception {
-    final EntityClient mockClient = createMockEntityClient();
-    final IncidentService service =
-        new IncidentService(mockClient, Mockito.mock(Authentication.class));
+    final SystemEntityClient mockClient = createMockEntityClient();
+    final IncidentService service = new IncidentService(mockClient);
 
     // Case 1: Summary exists
-    IncidentsSummary summary = service.getIncidentsSummary(TEST_DATASET_URN);
+    IncidentsSummary summary =
+        service.getIncidentsSummary(mockOperationContext(), TEST_DATASET_URN);
     Assert.assertEquals(summary, mockIncidentSummary());
     Mockito.verify(mockClient, Mockito.times(1))
         .getV2(
+            any(OperationContext.class),
             Mockito.eq(DATASET_ENTITY_NAME),
             Mockito.eq(TEST_DATASET_URN),
-            Mockito.eq(ImmutableSet.of(INCIDENTS_SUMMARY_ASPECT_NAME)),
-            Mockito.any(Authentication.class));
+            Mockito.eq(ImmutableSet.of(INCIDENTS_SUMMARY_ASPECT_NAME)));
 
     // Case 2: Summary does not exist
-    summary = service.getIncidentsSummary(TEST_NON_EXISTENT_DATASET_URN);
+    summary = service.getIncidentsSummary(mockOperationContext(), TEST_NON_EXISTENT_DATASET_URN);
     Assert.assertNull(summary);
     Mockito.verify(mockClient, Mockito.times(1))
         .getV2(
+            any(OperationContext.class),
             Mockito.eq(Constants.DATASET_ENTITY_NAME),
             Mockito.eq(TEST_DATASET_URN),
-            Mockito.eq(ImmutableSet.of(Constants.INCIDENTS_SUMMARY_ASPECT_NAME)),
-            Mockito.any(Authentication.class));
+            Mockito.eq(ImmutableSet.of(Constants.INCIDENTS_SUMMARY_ASPECT_NAME)));
   }
 
   @Test
   private void testUpdateIncidentsSummary() throws Exception {
-    final EntityClient mockClient = createMockEntityClient();
-    final IncidentService service =
-        new IncidentService(mockClient, Mockito.mock(Authentication.class));
-    service.updateIncidentsSummary(TEST_DATASET_URN, mockIncidentSummary());
+    final SystemEntityClient mockClient = createMockEntityClient();
+    final IncidentService service = new IncidentService(mockClient);
+    service.updateIncidentsSummary(mockOperationContext(), TEST_DATASET_URN, mockIncidentSummary());
     Mockito.verify(mockClient, Mockito.times(1))
         .ingestProposal(
-            Mockito.eq(mockIncidentSummaryMcp()),
-            Mockito.any(Authentication.class),
-            Mockito.eq(false));
+            any(OperationContext.class), Mockito.eq(mockIncidentSummaryMcp()), Mockito.eq(false));
   }
 
   @Test
   private void testRaiseIncidentRequiredFields() throws Exception {
-    final EntityClient mockClient = Mockito.mock(EntityClient.class);
-    final IncidentService service =
-        new IncidentService(mockClient, Mockito.mock(Authentication.class));
+    final SystemEntityClient mockClient = mock(SystemEntityClient.class);
+    final IncidentService service = new IncidentService(mockClient);
     service.raiseIncident(
+        mockOperationContext(),
         IncidentType.OPERATIONAL,
         null,
         null,
@@ -138,20 +138,20 @@ public class IncidentServiceTest {
 
     Mockito.verify(mockClient, Mockito.times(1))
         .ingestProposal(
+            any(OperationContext.class),
             Mockito.argThat(
                 new IncidentInfoArgumentMatcher(
                     AspectUtils.buildMetadataChangeProposal(
                         TEST_INCIDENT_URN, INCIDENT_INFO_ASPECT_NAME, expectedInfo))),
-            Mockito.any(Authentication.class),
             Mockito.eq(false));
   }
 
   @Test
   private void testRaiseIncidentAllFields() throws Exception {
-    final EntityClient mockClient = Mockito.mock(EntityClient.class);
-    final IncidentService service =
-        new IncidentService(mockClient, Mockito.mock(Authentication.class));
+    final SystemEntityClient mockClient = mock(SystemEntityClient.class);
+    final IncidentService service = new IncidentService(mockClient);
     service.raiseIncident(
+        mockOperationContext(),
         IncidentType.OPERATIONAL,
         "custom type",
         2,
@@ -180,21 +180,24 @@ public class IncidentServiceTest {
 
     Mockito.verify(mockClient, Mockito.times(1))
         .ingestProposal(
+            any(OperationContext.class),
             Mockito.argThat(
                 new IncidentInfoArgumentMatcher(
                     AspectUtils.buildMetadataChangeProposal(
                         TEST_INCIDENT_URN, INCIDENT_INFO_ASPECT_NAME, expectedInfo))),
-            Mockito.any(Authentication.class),
             Mockito.eq(false));
   }
 
   @Test
   private void testUpdateIncidentStatus() throws Exception {
-    final EntityClient mockClient = createMockEntityClient();
-    final IncidentService service =
-        new IncidentService(mockClient, Mockito.mock(Authentication.class));
+    final SystemEntityClient mockClient = createMockEntityClient();
+    final IncidentService service = new IncidentService(mockClient);
     service.updateIncidentStatus(
-        TEST_INCIDENT_URN, IncidentState.RESOLVED, TEST_USER_URN, "message");
+        mockOperationContext(),
+        TEST_INCIDENT_URN,
+        IncidentState.RESOLVED,
+        TEST_USER_URN,
+        "message");
 
     IncidentInfo expectedInfo = new IncidentInfo(mockIncidentInfo().data());
     expectedInfo.setStatus(
@@ -205,36 +208,34 @@ public class IncidentServiceTest {
 
     Mockito.verify(mockClient, Mockito.times(1))
         .ingestProposal(
+            any(OperationContext.class),
             Mockito.argThat(
                 new IncidentInfoArgumentMatcher(
                     AspectUtils.buildMetadataChangeProposal(
                         TEST_INCIDENT_URN, INCIDENT_INFO_ASPECT_NAME, expectedInfo))),
-            Mockito.any(Authentication.class),
             Mockito.eq(false));
   }
 
   @Test
   private void testDeleteIncident() throws Exception {
-    final EntityClient mockClient = Mockito.mock(EntityClient.class);
-    final IncidentService service =
-        new IncidentService(mockClient, Mockito.mock(Authentication.class));
-    service.deleteIncident(TEST_INCIDENT_URN);
+    final SystemEntityClient mockClient = mock(SystemEntityClient.class);
+    final IncidentService service = new IncidentService(mockClient);
+    service.deleteIncident(mockOperationContext(), TEST_INCIDENT_URN);
     Mockito.verify(mockClient, Mockito.times(1))
-        .deleteEntity(Mockito.eq(TEST_INCIDENT_URN), Mockito.any(Authentication.class));
+        .deleteEntity(any(OperationContext.class), Mockito.eq(TEST_INCIDENT_URN));
     Mockito.verify(mockClient, Mockito.times(1))
-        .deleteEntityReferences(Mockito.eq(TEST_INCIDENT_URN), Mockito.any(Authentication.class));
+        .deleteEntityReferences(any(OperationContext.class), Mockito.eq(TEST_INCIDENT_URN));
   }
 
-  private static EntityClient createMockEntityClient() throws Exception {
-    EntityClient mockClient = Mockito.mock(EntityClient.class);
+  private static SystemEntityClient createMockEntityClient() throws Exception {
+    SystemEntityClient mockClient = mock(SystemEntityClient.class);
 
     // Init for incident info
-    Mockito.when(
-            mockClient.getV2(
-                Mockito.eq(Constants.INCIDENT_ENTITY_NAME),
-                Mockito.eq(TEST_INCIDENT_URN),
-                Mockito.eq(ImmutableSet.of(Constants.INCIDENT_INFO_ASPECT_NAME)),
-                Mockito.any(Authentication.class)))
+    when(mockClient.getV2(
+            any(OperationContext.class),
+            Mockito.eq(Constants.INCIDENT_ENTITY_NAME),
+            Mockito.eq(TEST_INCIDENT_URN),
+            Mockito.eq(ImmutableSet.of(Constants.INCIDENT_INFO_ASPECT_NAME))))
         .thenReturn(
             new EntityResponse()
                 .setUrn(TEST_INCIDENT_URN)
@@ -245,12 +246,11 @@ public class IncidentServiceTest {
                             INCIDENT_INFO_ASPECT_NAME,
                             new EnvelopedAspect()
                                 .setValue(new Aspect(mockIncidentInfo().data()))))));
-    Mockito.when(
-            mockClient.getV2(
-                Mockito.eq(Constants.INCIDENT_ENTITY_NAME),
-                Mockito.eq(TEST_NON_EXISTENT_INCIDENT_URN),
-                Mockito.eq(ImmutableSet.of(Constants.INCIDENT_INFO_ASPECT_NAME)),
-                Mockito.any(Authentication.class)))
+    when(mockClient.getV2(
+            any(OperationContext.class),
+            Mockito.eq(Constants.INCIDENT_ENTITY_NAME),
+            Mockito.eq(TEST_NON_EXISTENT_INCIDENT_URN),
+            Mockito.eq(ImmutableSet.of(Constants.INCIDENT_INFO_ASPECT_NAME))))
         .thenReturn(
             new EntityResponse()
                 .setUrn(TEST_NON_EXISTENT_INCIDENT_URN)
@@ -258,12 +258,11 @@ public class IncidentServiceTest {
                 .setAspects(new EnvelopedAspectMap(Collections.emptyMap())));
 
     // Init for incidents summary
-    Mockito.when(
-            mockClient.getV2(
-                Mockito.eq(DATASET_ENTITY_NAME),
-                Mockito.eq(TEST_DATASET_URN),
-                Mockito.eq(ImmutableSet.of(INCIDENTS_SUMMARY_ASPECT_NAME)),
-                Mockito.any(Authentication.class)))
+    when(mockClient.getV2(
+            any(OperationContext.class),
+            Mockito.eq(DATASET_ENTITY_NAME),
+            Mockito.eq(TEST_DATASET_URN),
+            Mockito.eq(ImmutableSet.of(INCIDENTS_SUMMARY_ASPECT_NAME))))
         .thenReturn(
             new EntityResponse()
                 .setUrn(TEST_DATASET_URN)
@@ -274,12 +273,11 @@ public class IncidentServiceTest {
                             INCIDENTS_SUMMARY_ASPECT_NAME,
                             new EnvelopedAspect()
                                 .setValue(new Aspect(mockIncidentSummary().data()))))));
-    Mockito.when(
-            mockClient.getV2(
-                Mockito.eq(DATASET_ENTITY_NAME),
-                Mockito.eq(TEST_NON_EXISTENT_DATASET_URN),
-                Mockito.eq(ImmutableSet.of(INCIDENTS_SUMMARY_ASPECT_NAME)),
-                Mockito.any(Authentication.class)))
+    when(mockClient.getV2(
+            any(OperationContext.class),
+            Mockito.eq(DATASET_ENTITY_NAME),
+            Mockito.eq(TEST_NON_EXISTENT_DATASET_URN),
+            Mockito.eq(ImmutableSet.of(INCIDENTS_SUMMARY_ASPECT_NAME))))
         .thenReturn(
             new EntityResponse()
                 .setUrn(TEST_NON_EXISTENT_DATASET_URN)
@@ -287,11 +285,8 @@ public class IncidentServiceTest {
                 .setAspects(new EnvelopedAspectMap(Collections.emptyMap())));
 
     // Init for update summary
-    Mockito.when(
-            mockClient.ingestProposal(
-                Mockito.eq(mockIncidentSummaryMcp()),
-                Mockito.any(Authentication.class),
-                Mockito.eq(false)))
+    when(mockClient.ingestProposal(
+            any(OperationContext.class), Mockito.eq(mockIncidentSummaryMcp()), Mockito.eq(false)))
         .thenReturn(TEST_DATASET_URN.toString());
 
     return mockClient;
@@ -324,5 +319,11 @@ public class IncidentServiceTest {
     mcp.setAspect(GenericRecordUtils.serializeAspect(mockIncidentSummary()));
 
     return mcp;
+  }
+
+  private static OperationContext mockOperationContext() {
+    OperationContext operationContext = mock(OperationContext.class);
+    when(operationContext.getSessionAuthentication()).thenReturn(mock(Authentication.class));
+    return operationContext;
   }
 }

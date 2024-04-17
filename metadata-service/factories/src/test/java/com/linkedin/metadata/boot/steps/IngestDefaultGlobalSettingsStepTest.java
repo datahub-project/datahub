@@ -11,6 +11,7 @@ import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.settings.global.GlobalSettingsInfo;
 import com.linkedin.settings.global.GlobalViewsSettings;
+import io.datahubproject.metadata.context.OperationContext;
 import org.mockito.Mockito;
 import org.testng.Assert;
 import org.testng.annotations.Test;
@@ -32,7 +33,7 @@ public class IngestDefaultGlobalSettingsStepTest {
         new IngestDefaultGlobalSettingsStep(
             entityService, "./boot/test_global_settings_valid.json");
 
-    step.execute();
+    step.execute(mock(OperationContext.class));
 
     GlobalSettingsInfo expectedResult = new GlobalSettingsInfo();
     expectedResult.setViews(
@@ -40,6 +41,7 @@ public class IngestDefaultGlobalSettingsStepTest {
 
     Mockito.verify(entityService, times(1))
         .ingestProposal(
+            any(OperationContext.class),
             Mockito.eq(buildUpdateSettingsProposal(expectedResult)),
             Mockito.any(AuditStamp.class),
             Mockito.eq(false));
@@ -61,7 +63,7 @@ public class IngestDefaultGlobalSettingsStepTest {
         new IngestDefaultGlobalSettingsStep(
             entityService, "./boot/test_global_settings_valid.json");
 
-    step.execute();
+    step.execute(mock(OperationContext.class));
 
     // Verify that the merge preserves the user settings.
     GlobalSettingsInfo expectedResult = new GlobalSettingsInfo();
@@ -70,6 +72,7 @@ public class IngestDefaultGlobalSettingsStepTest {
 
     Mockito.verify(entityService, times(1))
         .ingestProposal(
+            any(OperationContext.class),
             Mockito.eq(buildUpdateSettingsProposal(expectedResult)),
             Mockito.any(AuditStamp.class),
             Mockito.eq(false));
@@ -84,7 +87,7 @@ public class IngestDefaultGlobalSettingsStepTest {
         new IngestDefaultGlobalSettingsStep(
             entityService, "./boot/test_global_settings_invalid_json.json");
 
-    Assert.assertThrows(RuntimeException.class, step::execute);
+    Assert.assertThrows(RuntimeException.class, () -> step.execute(mock(OperationContext.class)));
 
     // Verify no interactions
     verifyNoInteractions(entityService);
@@ -99,7 +102,7 @@ public class IngestDefaultGlobalSettingsStepTest {
         new IngestDefaultGlobalSettingsStep(
             entityService, "./boot/test_global_settings_invalid_model.json");
 
-    Assert.assertThrows(RuntimeException.class, step::execute);
+    Assert.assertThrows(RuntimeException.class, () -> step.execute(mock(OperationContext.class)));
 
     // Verify no interactions
     verifyNoInteractions(entityService);
@@ -109,6 +112,7 @@ public class IngestDefaultGlobalSettingsStepTest {
       final EntityService<?> mockService, final GlobalSettingsInfo settingsInfo) {
     Mockito.when(
             mockService.getAspect(
+                any(OperationContext.class),
                 Mockito.eq(GLOBAL_SETTINGS_URN),
                 Mockito.eq(GLOBAL_SETTINGS_INFO_ASPECT_NAME),
                 Mockito.eq(0L)))

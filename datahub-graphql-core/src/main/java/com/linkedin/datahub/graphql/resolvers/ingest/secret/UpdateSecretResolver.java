@@ -45,11 +45,11 @@ public class UpdateSecretResolver implements DataFetcher<CompletableFuture<Strin
             try {
               EntityResponse response =
                   entityClient.getV2(
+                      context.getOperationContext(),
                       secretUrn.getEntityType(),
                       secretUrn,
-                      Set.of(SECRET_VALUE_ASPECT_NAME),
-                      context.getAuthentication());
-              if (!entityClient.exists(secretUrn, context.getAuthentication())
+                      Set.of(SECRET_VALUE_ASPECT_NAME));
+              if (!entityClient.exists(context.getOperationContext(), secretUrn)
                   || response == null) {
                 throw new IllegalArgumentException(
                     String.format("Secret for urn %s doesn't exists!", secretUrn));
@@ -66,7 +66,7 @@ public class UpdateSecretResolver implements DataFetcher<CompletableFuture<Strin
               final MetadataChangeProposal proposal =
                   buildMetadataChangeProposalWithUrn(
                       secretUrn, SECRET_VALUE_ASPECT_NAME, updatedVal);
-              return entityClient.ingestProposal(proposal, context.getAuthentication(), false);
+              return entityClient.ingestProposal(context.getOperationContext(), proposal, false);
             } catch (Exception e) {
               throw new RuntimeException(
                   String.format(

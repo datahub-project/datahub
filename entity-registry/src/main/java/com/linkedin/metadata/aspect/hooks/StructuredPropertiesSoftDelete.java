@@ -1,8 +1,8 @@
 package com.linkedin.metadata.aspect.hooks;
 
 import com.linkedin.common.urn.Urn;
-import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.ReadItem;
+import com.linkedin.metadata.aspect.RetrieverContext;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.aspect.plugins.hooks.MutationHook;
 import com.linkedin.metadata.models.StructuredPropertyUtils;
@@ -21,7 +21,7 @@ public class StructuredPropertiesSoftDelete extends MutationHook {
 
   @Override
   protected Stream<Pair<ReadItem, Boolean>> readMutation(
-      @Nonnull Collection<ReadItem> items, @Nonnull AspectRetriever aspectRetriever) {
+      @Nonnull Collection<ReadItem> items, @Nonnull RetrieverContext retrieverContext) {
     Map<Urn, StructuredProperties> entityStructuredPropertiesMap =
         items.stream()
             .filter(i -> i.getRecordTemplate() != null)
@@ -30,7 +30,8 @@ public class StructuredPropertiesSoftDelete extends MutationHook {
 
     // Apply filter
     Map<Urn, Boolean> mutatedEntityStructuredPropertiesMap =
-        StructuredPropertyUtils.filterSoftDelete(entityStructuredPropertiesMap, aspectRetriever);
+        StructuredPropertyUtils.filterSoftDelete(
+            entityStructuredPropertiesMap, retrieverContext.getAspectRetriever());
 
     return items.stream()
         .map(i -> Pair.of(i, mutatedEntityStructuredPropertiesMap.getOrDefault(i.getUrn(), false)));

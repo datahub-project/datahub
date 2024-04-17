@@ -5,13 +5,11 @@ import static io.datahubproject.test.search.SearchTestUtils.searchAcrossEntities
 import static org.testng.Assert.*;
 import static org.testng.AssertJUnit.assertNotNull;
 
-import com.datahub.plugins.auth.authorization.Authorizer;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.types.entitytype.EntityTypeMapper;
-import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.Criterion;
@@ -23,7 +21,6 @@ import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchService;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.SearchRetry;
-import io.datahubproject.test.metadata.context.TestOperationContexts;
 import io.datahubproject.test.search.SearchTestUtils;
 import java.util.Collections;
 import java.util.List;
@@ -47,16 +44,10 @@ public abstract class GoldenTestBase extends AbstractTestNGSpringContextTests {
           .collect(Collectors.toList());
 
   @Nonnull
-  protected abstract EntityRegistry getEntityRegistry();
-
-  @Nonnull
   protected abstract SearchService getSearchService();
 
   @Nonnull
-  protected OperationContext getOperationContext() {
-    return TestOperationContexts.userContextNoSearchAuthorization(
-        Authorizer.EMPTY, TestOperationContexts.TEST_USER_AUTH, getEntityRegistry());
-  }
+  protected abstract OperationContext getOperationContext();
 
   @Test
   public void testNameMatchPetProfiles() {
@@ -64,7 +55,7 @@ public abstract class GoldenTestBase extends AbstractTestNGSpringContextTests {
      Searching for "pet profiles" should return "pet_profiles" as the first 2 search results
     */
     assertNotNull(getSearchService());
-    assertNotNull(getEntityRegistry());
+    assertNotNull(getOperationContext().getEntityRegistry());
     SearchResult searchResult =
         searchAcrossEntities(
             getOperationContext(),

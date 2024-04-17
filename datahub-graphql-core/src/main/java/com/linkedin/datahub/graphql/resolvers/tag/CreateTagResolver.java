@@ -58,8 +58,8 @@ public class CreateTagResolver implements DataFetcher<CompletableFuture<String>>
             key.setName(id);
 
             if (_entityClient.exists(
-                EntityKeyUtils.convertEntityKeyToUrn(key, TAG_ENTITY_NAME),
-                context.getAuthentication())) {
+                context.getOperationContext(),
+                EntityKeyUtils.convertEntityKeyToUrn(key, TAG_ENTITY_NAME))) {
               throw new IllegalArgumentException("This Tag already exists!");
             }
 
@@ -68,7 +68,7 @@ public class CreateTagResolver implements DataFetcher<CompletableFuture<String>>
                 buildMetadataChangeProposalWithKey(
                     key, TAG_ENTITY_NAME, TAG_PROPERTIES_ASPECT_NAME, mapTagProperties(input));
             String tagUrn =
-                _entityClient.ingestProposal(proposal, context.getAuthentication(), false);
+                _entityClient.ingestProposal(context.getOperationContext(), proposal, false);
 
             OwnerUtils.addCreatorAsOwner(
                 context, tagUrn, OwnerEntityType.CORP_USER, _entityService);

@@ -2,9 +2,9 @@ package com.linkedin.datahub.graphql.resolvers.operation;
 
 import static com.linkedin.datahub.graphql.TestUtils.*;
 import static com.linkedin.metadata.Constants.*;
+import static org.mockito.ArgumentMatchers.any;
 import static org.testng.Assert.*;
 
-import com.datahub.authentication.Authentication;
 import com.linkedin.common.Operation;
 import com.linkedin.common.OperationSourceType;
 import com.linkedin.common.OperationType;
@@ -45,9 +45,7 @@ public class ReportOperationResolverTest {
             UrnUtils.getUrn(TEST_ENTITY_URN), OPERATION_ASPECT_NAME, expectedOperation);
 
     // Test setting the domain
-    Mockito.when(
-            mockClient.ingestProposal(
-                Mockito.eq(expectedProposal), Mockito.any(Authentication.class)))
+    Mockito.when(mockClient.ingestProposal(any(), Mockito.eq(expectedProposal)))
         .thenReturn(TEST_ENTITY_URN);
 
     ReportOperationResolver resolver = new ReportOperationResolver(mockClient);
@@ -60,8 +58,7 @@ public class ReportOperationResolverTest {
     resolver.get(mockEnv).get();
 
     Mockito.verify(mockClient, Mockito.times(1))
-        .ingestProposal(
-            Mockito.eq(expectedProposal), Mockito.any(Authentication.class), Mockito.eq(false));
+        .ingestProposal(any(), Mockito.eq(expectedProposal), Mockito.eq(false));
   }
 
   @Test
@@ -77,8 +74,7 @@ public class ReportOperationResolverTest {
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
-    Mockito.verify(mockClient, Mockito.times(0))
-        .ingestProposal(Mockito.any(), Mockito.any(Authentication.class));
+    Mockito.verify(mockClient, Mockito.times(0)).ingestProposal(any(), Mockito.any());
   }
 
   private ReportOperationInput getTestInput() {

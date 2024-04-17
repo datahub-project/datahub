@@ -2,6 +2,7 @@ package com.linkedin.metadata.boot;
 
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.kafka.schemaregistry.InternalSchemaRegistryFactory;
+import io.datahubproject.metadata.context.OperationContext;
 import java.io.IOException;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
@@ -51,6 +52,10 @@ public class OnBootApplicationListener {
   @Value("${bootstrap.servlets.waitTimeout}")
   private int _servletsWaitTimeout;
 
+  @Autowired
+  @Qualifier("systemOperationContext")
+  private OperationContext systemOperationContext;
+
   @EventListener(ContextRefreshedEvent.class)
   public void onApplicationEvent(@Nonnull ContextRefreshedEvent event) {
     log.warn(
@@ -62,7 +67,7 @@ public class OnBootApplicationListener {
       if (InternalSchemaRegistryFactory.TYPE.equals(schemaRegistryType)) {
         executorService.submit(isSchemaRegistryAPIServletReady());
       } else {
-        _bootstrapManager.start();
+        _bootstrapManager.start(systemOperationContext);
       }
     }
   }
@@ -92,7 +97,7 @@ public class OnBootApplicationListener {
             timeouts);
         System.exit(1);
       } else {
-        _bootstrapManager.start();
+        _bootstrapManager.start(systemOperationContext);
       }
     };
   }
