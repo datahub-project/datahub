@@ -182,6 +182,10 @@ module.exports = {
               label: "Quickstart",
               to: "docs/quickstart",
             },
+            {
+              label: "Features",
+              to: "docs/features",
+            },
           ],
         },
         {
