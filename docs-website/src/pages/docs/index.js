@@ -53,7 +53,7 @@ const introductionContent =  [
   {
     title: "Acryl DataHub",
     description: "A hosted version of DataHub.",
-    to: "/",
+    to: "docs/managed-datahub/managed-datahub-overview/",
     icon: <AlertTwoTone />
   },
 ];
@@ -62,7 +62,7 @@ const gettingStartedContent =  [
   {
     title: "Quickstart",
     description: "Deploy DataHub locally in minutes.",
-    to: "/quickstart",
+    to: "docs/quickstart",
     icon: <EyeTwoTone />
   },
   {
