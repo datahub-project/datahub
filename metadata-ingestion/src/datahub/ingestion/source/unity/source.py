@@ -236,7 +236,14 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
 
     @staticmethod
     def test_connection(config_dict: dict) -> TestConnectionReport:
-        return UnityCatalogConnectionTest(config_dict).get_connection_test()
+        try:
+            config = UnityCatalogSourceConfig.parse_obj_allow_extras(config_dict)
+        except Exception as e:
+            return TestConnectionReport(
+                internal_failure=True,
+                internal_failure_reason=f"Failed to parse config due to {e}",
+            )
+        return UnityCatalogConnectionTest(config).get_connection_test()
 
     @classmethod
     def create(cls, config_dict, ctx):
