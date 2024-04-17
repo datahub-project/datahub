@@ -6,37 +6,24 @@ import { EntityType, Exact } from '../../../../../types.generated';
 
 interface Props<T> {
     urn: string;
-    count?: number;
-    start?: number;
     entityType: EntityType;
     useEntityQuery: (
         baseOptions: QueryHookOptions<
             T,
             Exact<{
                 urn: string;
-                count?: number;
-                start?: number;
             }>
         >,
     ) => QueryResult<
         T,
         Exact<{
             urn: string;
-            count?: number;
-            start?: number;
         }>
     >;
     getOverrideProperties: (T) => GenericEntityProperties;
 }
 
-export default function useGetDataForProfile<T>({
-    urn,
-    count,
-    start,
-    entityType,
-    useEntityQuery,
-    getOverrideProperties,
-}: Props<T>) {
+export default function useGetDataForProfile<T>({ urn, entityType, useEntityQuery, getOverrideProperties }: Props<T>) {
     const isHideSiblingMode = useIsSeparateSiblingsMode();
     const {
         loading,
@@ -44,7 +31,7 @@ export default function useGetDataForProfile<T>({
         data: dataNotCombinedWithSiblings,
         refetch,
     } = useEntityQuery({
-        variables: { urn, count, start },
+        variables: { urn },
         fetchPolicy: 'cache-first',
     });
 
