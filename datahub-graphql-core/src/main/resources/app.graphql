@@ -161,6 +161,17 @@ type PlatformPrivileges {
   manageGlobalAnnouncements: Boolean!
 
   """
+  Whether the user can create Business Attributes.
+  """
+  createBusinessAttributes: Boolean!
+
+  """
+  Whether the user can manage Business Attributes.
+  """
+  manageBusinessAttributes: Boolean!
+
+
+  """
   Whether the user can create, edit, and assign documentation forms.
   """
   manageDocumentationForms: Boolean!
@@ -1055,6 +1066,11 @@ type FeatureFlagsConfig {
   If this is off, Domains appear "flat" again.
   """
   nestedDomainsEnabled: Boolean!
+
+  """
+  Whether business attribute entity should be shown
+  """
+  businessAttributeEntityEnabled: Boolean!
 
   """
   Whether data contracts should be enabled

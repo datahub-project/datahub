@@ -7,7 +7,7 @@ import com.datahub.notification.recipient.NotificationRecipientBuilders;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
-import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.event.notification.NotificationRecipient;
 import com.linkedin.event.notification.NotificationRequest;
 import com.linkedin.events.metadata.ChangeType;
@@ -38,7 +38,7 @@ public class IngestionNotificationGenerator extends BaseMclNotificationGenerator
   public IngestionNotificationGenerator(
       @Nonnull OperationContext systemOpContext,
       @Nonnull final EventProducer eventProducer,
-      @Nonnull final EntityClient entityClient,
+      @Nonnull final SystemEntityClient entityClient,
       @Nonnull final GraphClient graphClient,
       @Nonnull final SettingsProvider settingsProvider,
       @Nonnull final NotificationRecipientBuilders notificationRecipientBuilders) {
@@ -135,7 +135,7 @@ public class IngestionNotificationGenerator extends BaseMclNotificationGenerator
       Urn executionRequestUrn,
       NotificationScenarioType scenarioType) {
     Set<NotificationRecipient> recipients =
-        new HashSet<>(buildRecipients(scenarioType, ingestionSourceUrn, null));
+        new HashSet<>(buildRecipients(systemOpContext, scenarioType, ingestionSourceUrn, null));
     if (recipients.isEmpty()) {
       log.warn(
           "Found empty recipients for ingestion source notification for urn {}. Skipping sending..",

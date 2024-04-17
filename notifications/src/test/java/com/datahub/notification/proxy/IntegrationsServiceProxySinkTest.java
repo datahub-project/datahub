@@ -9,6 +9,7 @@ import com.linkedin.event.notification.NotificationRecipientType;
 import com.linkedin.event.notification.NotificationRequest;
 import com.linkedin.event.notification.NotificationSinkType;
 import com.linkedin.metadata.integration.IntegrationsService;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.Collection;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
@@ -61,7 +62,7 @@ public class IntegrationsServiceProxySinkTest {
     NotificationContext context = mock(NotificationContext.class);
     doNothing().when(integrationsService).sendNotification(any(NotificationRequest.class));
 
-    sink.send(request, context);
+    sink.send(mock(OperationContext.class), request, context);
 
     verify(integrationsService, times(1)).sendNotification(request);
   }

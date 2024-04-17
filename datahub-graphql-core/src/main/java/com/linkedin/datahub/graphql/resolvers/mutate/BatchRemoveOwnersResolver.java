@@ -71,7 +71,11 @@ public class BatchRemoveOwnersResolver implements DataFetcher<CompletableFuture<
 
     OwnerUtils.validateAuthorizedToUpdateOwners(context, resourceUrn);
     LabelUtils.validateResource(
-        resourceUrn, resource.getSubResource(), resource.getSubResourceType(), _entityService);
+        context.getOperationContext(),
+        resourceUrn,
+        resource.getSubResource(),
+        resource.getSubResourceType(),
+        _entityService);
   }
 
   private void batchRemoveOwners(
@@ -82,6 +86,7 @@ public class BatchRemoveOwnersResolver implements DataFetcher<CompletableFuture<
     log.debug("Batch removing owners. owners: {}, resources: {}", ownerUrns, resources);
     try {
       OwnerUtils.removeOwnersFromResources(
+          context.getOperationContext(),
           ownerUrns.stream().map(UrnUtils::getUrn).collect(Collectors.toList()),
           ownershipTypeUrn,
           resources,

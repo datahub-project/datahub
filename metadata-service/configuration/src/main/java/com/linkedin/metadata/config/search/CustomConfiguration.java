@@ -17,7 +17,7 @@ public class CustomConfiguration {
   private String file;
 
   /**
-   * Materialize the search configuration from a location external to main application.yml
+   * Materialize the search configuration from a location external to main application.yaml
    *
    * @param mapper yaml enabled jackson mapper
    * @return search configuration class

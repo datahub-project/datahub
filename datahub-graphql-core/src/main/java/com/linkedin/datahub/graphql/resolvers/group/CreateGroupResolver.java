@@ -46,7 +46,7 @@ public class CreateGroupResolver implements DataFetcher<CompletableFuture<String
             final String description = input.getDescription() != null ? input.getDescription() : "";
             key.setName(id); // 'name' in the key really reflects nothing more than a stable "id".
             return _groupService.createNativeGroup(
-                key, input.getName(), description, authentication);
+                context.getOperationContext(), key, input.getName(), description);
           } catch (Exception e) {
             throw new RuntimeException("Failed to create group", e);
           }

@@ -29,6 +29,7 @@ public class AddTagsResolver implements DataFetcher<CompletableFuture<Boolean>> 
 
   @Override
   public CompletableFuture<Boolean> get(DataFetchingEnvironment environment) throws Exception {
+    final QueryContext context = environment.getContext();
     final AddTagsInput input = bindArgument(environment.getArgument("input"), AddTagsInput.class);
     List<Urn> tagUrns =
         input.getTagUrns().stream().map(UrnUtils::getUrn).collect(Collectors.toList());
@@ -36,13 +37,13 @@ public class AddTagsResolver implements DataFetcher<CompletableFuture<Boolean>> 
 
     return CompletableFuture.supplyAsync(
         () -> {
-          if (!LabelUtils.isAuthorizedToUpdateTags(
-              environment.getContext(), targetUrn, input.getSubResource())) {
+          if (!LabelUtils.isAuthorizedToUpdateTags(context, targetUrn, input.getSubResource())) {
             throw new AuthorizationException(
                 "Unauthorized to perform this action. Please contact your DataHub administrator.");
           }
 
           LabelUtils.validateResourceAndLabel(
+              context.getOperationContext(),
               tagUrns,
               targetUrn,
               input.getSubResource(),
@@ -52,10 +53,9 @@ public class AddTagsResolver implements DataFetcher<CompletableFuture<Boolean>> 
               false);
           try {
             log.info("Adding Tags. input: {}", input.toString());
-            Urn actor =
-                CorpuserUrn.createFromString(
-                    ((QueryContext) environment.getContext()).getActorUrn());
+            Urn actor = CorpuserUrn.createFromString(context.getActorUrn());
             LabelUtils.addTagsToResources(
+                context.getOperationContext(),
                 tagUrns,
                 ImmutableList.of(
                     new ResourceRefInput(

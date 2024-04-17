@@ -1,5 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.query;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.testng.Assert.*;
 
 import com.datahub.authentication.Actor;
@@ -87,6 +89,7 @@ public class CreateQueryResolverTest {
 
     Mockito.verify(mockService, Mockito.times(1))
         .createQuery(
+            any(),
             Mockito.eq(TEST_INPUT.getProperties().getName()),
             Mockito.eq(TEST_INPUT.getProperties().getDescription()),
             Mockito.eq(QuerySource.MANUAL),
@@ -97,7 +100,6 @@ public class CreateQueryResolverTest {
                         com.linkedin.query.QueryLanguage.valueOf(
                             TEST_INPUT.getProperties().getStatement().getLanguage().toString()))),
             Mockito.eq(ImmutableList.of(new QuerySubject().setEntity(TEST_DATASET_URN))),
-            Mockito.any(Authentication.class),
             Mockito.anyLong());
   }
 
@@ -115,8 +117,7 @@ public class CreateQueryResolverTest {
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
-    Mockito.verify(mockClient, Mockito.times(0))
-        .ingestProposal(Mockito.any(), Mockito.any(Authentication.class));
+    Mockito.verify(mockClient, Mockito.times(0)).ingestProposal(any(), Mockito.any(), anyBoolean());
   }
 
   @Test
@@ -126,12 +127,12 @@ public class CreateQueryResolverTest {
     Mockito.doThrow(RuntimeException.class)
         .when(mockService)
         .createQuery(
+            any(),
             Mockito.any(),
             Mockito.any(),
             Mockito.any(),
             Mockito.any(),
             Mockito.any(),
-            Mockito.any(Authentication.class),
             Mockito.anyLong());
 
     CreateQueryResolver resolver = new CreateQueryResolver(mockService);
@@ -149,6 +150,7 @@ public class CreateQueryResolverTest {
     QueryService service = Mockito.mock(QueryService.class);
     Mockito.when(
             service.createQuery(
+                any(),
                 Mockito.eq(TEST_INPUT.getProperties().getName()),
                 Mockito.eq(TEST_INPUT.getProperties().getDescription()),
                 Mockito.eq(QuerySource.MANUAL),
@@ -163,7 +165,6 @@ public class CreateQueryResolverTest {
                                     .getLanguage()
                                     .toString()))),
                 Mockito.eq(ImmutableList.of(new QuerySubject().setEntity(TEST_DATASET_URN))),
-                Mockito.any(Authentication.class),
                 Mockito.anyLong()))
         .thenReturn(TEST_QUERY_URN);
 
@@ -187,9 +188,7 @@ public class CreateQueryResolverTest {
                 new QuerySubjectArray(
                     ImmutableList.of(new QuerySubject().setEntity(TEST_DATASET_URN))));
 
-    Mockito.when(
-            service.getQueryEntityResponse(
-                Mockito.eq(TEST_QUERY_URN), Mockito.any(Authentication.class)))
+    Mockito.when(service.getQueryEntityResponse(any(), Mockito.eq(TEST_QUERY_URN)))
         .thenReturn(
             new EntityResponse()
                 .setUrn(TEST_QUERY_URN)

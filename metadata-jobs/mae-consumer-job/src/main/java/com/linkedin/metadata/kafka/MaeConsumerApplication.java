@@ -14,6 +14,7 @@ import org.springframework.context.annotation.FilterType;
     exclude = {ElasticsearchRestClientAutoConfiguration.class, CassandraAutoConfiguration.class})
 @ComponentScan(
     basePackages = {
+      "com.linkedin.gms.factory.common",
       "com.linkedin.gms.factory.kafka",
       "com.linkedin.metadata.boot.kafka",
       "com.linkedin.metadata.kafka",
@@ -33,7 +34,8 @@ import org.springframework.context.annotation.FilterType;
       "com.linkedin.gms.factory.context",
       "com.linkedin.gms.factory.subscription",
       "com.linkedin.gms.factory.settings",
-      "com.linkedin.gms.factory.test.openapi"
+      "com.linkedin.gms.factory.test.openapi",
+      "com.linkedin.metadata.service"
     },
     excludeFilters = {
       @ComponentScan.Filter(

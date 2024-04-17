@@ -45,7 +45,7 @@ public class UpdateUserNotificationSettingsResolver
             final Urn userUrn = UrnUtils.getUrn(userUrnString);
 
             CorpUserSettings corpUserSettings =
-                _settingsService.getCorpUserSettings(userUrn, authentication);
+                _settingsService.getCorpUserSettings(context.getOperationContext(), userUrn);
             if (corpUserSettings == null) {
               corpUserSettings = SettingsService.DEFAULT_CORP_USER_SETTINGS;
             }
@@ -82,7 +82,8 @@ public class UpdateUserNotificationSettingsResolver
             }
 
             corpUserSettings.setNotificationSettings(notificationSettings);
-            _settingsService.updateCorpUserSettings(userUrn, corpUserSettings, authentication);
+            _settingsService.updateCorpUserSettings(
+                context.getOperationContext(), userUrn, corpUserSettings);
 
             return NotificationSettingsMapper.map(context, notificationSettings);
           } catch (Exception e) {

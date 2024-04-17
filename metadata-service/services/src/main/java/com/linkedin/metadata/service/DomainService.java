@@ -3,16 +3,17 @@ package com.linkedin.metadata.service;
 import static com.linkedin.metadata.entity.AspectUtils.*;
 import static com.linkedin.metadata.service.util.MetadataTestServiceUtils.*;
 
-import com.datahub.authentication.Authentication;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.domain.Domains;
-import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.resource.ResourceReference;
 import com.linkedin.mxe.MetadataChangeProposal;
+import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.openapi.client.OpenApiClient;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
@@ -28,10 +29,10 @@ import lombok.extern.slf4j.Slf4j;
 public class DomainService extends BaseService {
 
   public DomainService(
-      @Nonnull EntityClient entityClient,
-      @Nonnull Authentication systemAuthentication,
-      @Nonnull final OpenApiClient openApiClient) {
-    super(entityClient, systemAuthentication, openApiClient);
+      @Nonnull SystemEntityClient entityClient,
+      @Nonnull final OpenApiClient openApiClient,
+      @Nonnull ObjectMapper objectMapper) {
+    super(entityClient, openApiClient, objectMapper);
   }
 
   /**
@@ -43,29 +44,13 @@ public class DomainService extends BaseService {
    *     processing logic when matching particular sources
    */
   public void batchSetDomain(
+      @Nonnull OperationContext opContext,
       @Nonnull Urn domainUrn,
       @Nonnull List<ResourceReference> resources,
-      @Nullable String appSource) {
-    batchSetDomain(domainUrn, resources, this.systemAuthentication, appSource);
-  }
-
-  /**
-   * Batch sets a single domain for a set of resources.
-   *
-   * @param domainUrn the urns of the domain to set
-   * @param resources references to the resources to change
-   * @param authentication authentication to use when making the change
-   * @param appSource optional indication of the origin for this request, used for additional
-   *     processing logic when matching particular sources
-   */
-  public void batchSetDomain(
-      @Nonnull Urn domainUrn,
-      @Nonnull List<ResourceReference> resources,
-      @Nonnull Authentication authentication,
       @Nullable String appSource) {
     log.debug("Batch setting Domain to entities. domain: {}, resources: {}", resources, domainUrn);
     try {
-      setDomainForResources(domainUrn, resources, authentication, appSource);
+      setDomainForResources(opContext, domainUrn, resources, appSource);
     } catch (Exception e) {
       throw new RuntimeException(
           String.format(
@@ -85,30 +70,14 @@ public class DomainService extends BaseService {
    *     processing logic when matching particular sources
    */
   public void batchAddDomains(
+      @Nonnull OperationContext opContext,
       @Nonnull List<Urn> domainUrns,
       @Nonnull List<ResourceReference> resources,
-      @Nullable String appSource) {
-    batchAddDomains(domainUrns, resources, this.systemAuthentication, appSource);
-  }
-
-  /**
-   * Batch adds multiple domains for a set of resources. (NOT YET USED)
-   *
-   * @param domainUrns the urns of the domain to set
-   * @param resources references to the resources to change
-   * @param authentication authentication to use when making the change
-   * @param appSource optional indication of the origin for this request, used for additional
-   *     processing logic when matching particular sources
-   */
-  public void batchAddDomains(
-      @Nonnull List<Urn> domainUrns,
-      @Nonnull List<ResourceReference> resources,
-      @Nonnull Authentication authentication,
       @Nullable String appSource) {
     log.debug(
         "Batch adding Domains to entities. domains: {}, resources: {}", resources, domainUrns);
     try {
-      addDomainsToResources(domainUrns, resources, authentication, appSource);
+      addDomainsToResources(opContext, domainUrns, resources, appSource);
     } catch (Exception e) {
       throw new RuntimeException(
           String.format(
@@ -127,25 +96,12 @@ public class DomainService extends BaseService {
    *     processing logic when matching particular sources
    */
   public void batchUnsetDomain(
-      @Nonnull List<ResourceReference> resources, @Nullable String appSource) {
-    batchUnsetDomain(resources, this.systemAuthentication, appSource);
-  }
-
-  /**
-   * Batch unsets a domains for a set of resources. This removes all domains.
-   *
-   * @param resources references to the resources to change
-   * @param authentication authentication to use when making the change
-   * @param appSource optional indication of the origin for this request, used for additional
-   *     processing logic when matching particular sources
-   */
-  public void batchUnsetDomain(
+      @Nonnull OperationContext opContext,
       @Nonnull List<ResourceReference> resources,
-      @Nullable Authentication authentication,
       @Nullable String appSource) {
     log.debug("Batch unsetting Domains to entities. resources: {}", resources);
     try {
-      unsetDomainForResources(resources, authentication, appSource);
+      unsetDomainForResources(opContext, resources, appSource);
     } catch (Exception e) {
       throw new RuntimeException(
           String.format(
@@ -164,30 +120,14 @@ public class DomainService extends BaseService {
    *     processing logic when matching particular sources
    */
   public void batchRemoveDomains(
+      @Nonnull OperationContext opContext,
       @Nonnull List<Urn> domainUrns,
       @Nonnull List<ResourceReference> resources,
-      @Nullable String appSource) {
-    batchRemoveDomains(domainUrns, resources, this.systemAuthentication, appSource);
-  }
-
-  /**
-   * Batch removes a specific set of domains for a set of resources. (NOT YET USED)
-   *
-   * @param domainUrns the urns of domains to remove
-   * @param resources references to the resources to change
-   * @param authentication authentication to use when making the change
-   * @param appSource optional indication of the origin for this request, used for additional
-   *     processing logic when matching particular sources
-   */
-  public void batchRemoveDomains(
-      @Nonnull List<Urn> domainUrns,
-      @Nonnull List<ResourceReference> resources,
-      @Nonnull Authentication authentication,
       @Nullable String appSource) {
     log.debug(
         "Batch adding Domains to entities. domains: {}, resources: {}", resources, domainUrns);
     try {
-      removeDomainsFromResources(domainUrns, resources, authentication, appSource);
+      removeDomainsFromResources(opContext, domainUrns, resources, appSource);
     } catch (Exception e) {
       throw new RuntimeException(
           String.format(
@@ -199,56 +139,56 @@ public class DomainService extends BaseService {
   }
 
   private void setDomainForResources(
+      @Nonnull OperationContext opContext,
       com.linkedin.common.urn.Urn domainUrn,
       List<ResourceReference> resources,
-      @Nonnull Authentication authentication,
       @Nullable String appSource)
       throws Exception {
     final List<MetadataChangeProposal> changes = buildSetDomainProposals(domainUrn, resources);
     if (appSource != null) {
       applyAppSource(changes, appSource);
     }
-    ingestChangeProposals(changes, authentication);
+    ingestChangeProposals(opContext, changes);
   }
 
   private void addDomainsToResources(
+      @Nonnull OperationContext opContext,
       List<com.linkedin.common.urn.Urn> domainUrns,
       List<ResourceReference> resources,
-      @Nonnull Authentication authentication,
       @Nullable String appSource)
       throws Exception {
     final List<MetadataChangeProposal> changes =
-        buildAddDomainsProposals(domainUrns, resources, authentication);
+        buildAddDomainsProposals(opContext, domainUrns, resources);
     if (appSource != null) {
       applyAppSource(changes, appSource);
     }
-    ingestChangeProposals(changes, authentication);
+    ingestChangeProposals(opContext, changes);
   }
 
   private void unsetDomainForResources(
+      @Nonnull OperationContext opContext,
       List<ResourceReference> resources,
-      @Nonnull Authentication authentication,
       @Nullable String appSource)
       throws Exception {
     final List<MetadataChangeProposal> changes = buildUnsetDomainProposals(resources);
     if (appSource != null) {
       applyAppSource(changes, appSource);
     }
-    ingestChangeProposals(changes, authentication);
+    ingestChangeProposals(opContext, changes);
   }
 
   public void removeDomainsFromResources(
+      @Nonnull OperationContext opContext,
       List<Urn> domains,
       List<ResourceReference> resources,
-      @Nonnull Authentication authentication,
       @Nullable String appSource)
       throws Exception {
     final List<MetadataChangeProposal> changes =
-        buildRemoveDomainsProposals(domains, resources, authentication);
+        buildRemoveDomainsProposals(opContext, domains, resources);
     if (appSource != null) {
       applyAppSource(changes, appSource);
     }
-    ingestChangeProposals(changes, authentication);
+    ingestChangeProposals(opContext, changes);
   }
 
   @VisibleForTesting
@@ -268,16 +208,16 @@ public class DomainService extends BaseService {
   @VisibleForTesting
   @Nonnull
   List<MetadataChangeProposal> buildAddDomainsProposals(
+      @Nonnull OperationContext opContext,
       List<com.linkedin.common.urn.Urn> domainUrns,
-      List<ResourceReference> resources,
-      @Nonnull Authentication authentication)
+      List<ResourceReference> resources)
       throws URISyntaxException {
 
     final Map<Urn, Domains> domainAspects =
         getDomainsAspects(
+            opContext,
             resources.stream().map(ResourceReference::getUrn).collect(Collectors.toSet()),
-            new Domains(),
-            authentication);
+            new Domains());
 
     final List<MetadataChangeProposal> proposals = new ArrayList<>();
     for (ResourceReference resource : resources) {
@@ -311,14 +251,14 @@ public class DomainService extends BaseService {
   @VisibleForTesting
   @Nonnull
   List<MetadataChangeProposal> buildRemoveDomainsProposals(
+      @Nonnull OperationContext opContext,
       List<Urn> domainUrns,
-      List<ResourceReference> resources,
-      @Nonnull Authentication authentication) {
+      List<ResourceReference> resources) {
     final Map<Urn, Domains> domainAspects =
         getDomainsAspects(
+            opContext,
             resources.stream().map(ResourceReference::getUrn).collect(Collectors.toSet()),
-            new Domains(),
-            authentication);
+            new Domains());
 
     final List<MetadataChangeProposal> proposals = new ArrayList<>();
     for (ResourceReference resource : resources) {

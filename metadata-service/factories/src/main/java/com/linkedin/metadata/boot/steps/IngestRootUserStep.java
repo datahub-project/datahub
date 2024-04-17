@@ -16,9 +16,11 @@ import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.util.Pair;
+import io.datahubproject.metadata.context.OperationContext;
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.util.List;
+import javax.annotation.Nonnull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.ClassPathResource;
@@ -37,7 +39,8 @@ public class IngestRootUserStep implements BootstrapStep {
   }
 
   @Override
-  public void execute() throws IOException, URISyntaxException {
+  public void execute(@Nonnull OperationContext systemOperationContext)
+      throws IOException, URISyntaxException {
 
     final ObjectMapper mapper = new ObjectMapper();
     int maxSize =
@@ -71,21 +74,23 @@ public class IngestRootUserStep implements BootstrapStep {
     final CorpUserInfo info =
         RecordUtils.toRecordTemplate(CorpUserInfo.class, userObj.get("info").toString());
     final CorpUserKey key =
-        (CorpUserKey) EntityKeyUtils.convertUrnToEntityKey(urn, getUserKeyAspectSpec());
+        (CorpUserKey)
+            EntityKeyUtils.convertUrnToEntityKey(urn, getUserKeyAspectSpec(systemOperationContext));
     final AuditStamp aspectAuditStamp =
         new AuditStamp()
             .setActor(Urn.createFromString(SYSTEM_ACTOR))
             .setTime(System.currentTimeMillis());
 
     _entityService.ingestAspects(
+        systemOperationContext,
         urn,
         List.of(Pair.of(CORP_USER_KEY_ASPECT_NAME, key), Pair.of(USER_INFO_ASPECT_NAME, info)),
         aspectAuditStamp,
         null);
   }
 
-  private AspectSpec getUserKeyAspectSpec() {
-    final EntitySpec spec = _entityService.getEntityRegistry().getEntitySpec(CORP_USER_ENTITY_NAME);
+  private AspectSpec getUserKeyAspectSpec(@Nonnull OperationContext opContext) {
+    final EntitySpec spec = opContext.getEntityRegistry().getEntitySpec(CORP_USER_ENTITY_NAME);
     return spec.getKeyAspectSpec();
   }
 }

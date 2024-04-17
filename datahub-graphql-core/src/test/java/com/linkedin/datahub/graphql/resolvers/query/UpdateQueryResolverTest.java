@@ -1,5 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.query;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.testng.Assert.*;
 
 import com.datahub.authentication.Actor;
@@ -90,6 +92,7 @@ public class UpdateQueryResolverTest {
 
     Mockito.verify(mockService, Mockito.times(1))
         .updateQuery(
+            any(),
             Mockito.eq(TEST_QUERY_URN),
             Mockito.eq(TEST_INPUT.getProperties().getName()),
             Mockito.eq(TEST_INPUT.getProperties().getDescription()),
@@ -100,7 +103,6 @@ public class UpdateQueryResolverTest {
                         com.linkedin.query.QueryLanguage.valueOf(
                             TEST_INPUT.getProperties().getStatement().getLanguage().toString()))),
             Mockito.eq(ImmutableList.of(new QuerySubject().setEntity(TEST_DATASET_URN_2))),
-            Mockito.any(Authentication.class),
             Mockito.anyLong());
   }
 
@@ -119,8 +121,7 @@ public class UpdateQueryResolverTest {
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
-    Mockito.verify(mockClient, Mockito.times(0))
-        .ingestProposal(Mockito.any(), Mockito.any(Authentication.class));
+    Mockito.verify(mockClient, Mockito.times(0)).ingestProposal(any(), Mockito.any(), anyBoolean());
   }
 
   @Test
@@ -130,12 +131,12 @@ public class UpdateQueryResolverTest {
     Mockito.doThrow(RuntimeException.class)
         .when(mockService)
         .updateQuery(
+            any(),
             Mockito.any(),
             Mockito.any(),
             Mockito.any(),
             Mockito.any(),
             Mockito.any(),
-            Mockito.any(Authentication.class),
             Mockito.anyLong());
 
     UpdateQueryResolver resolver = new UpdateQueryResolver(mockService);
@@ -161,8 +162,7 @@ public class UpdateQueryResolverTest {
                 new QuerySubjectArray(
                     ImmutableList.of(new QuerySubject().setEntity(TEST_DATASET_URN))));
 
-    Mockito.when(
-            service.getQuerySubjects(Mockito.eq(TEST_QUERY_URN), Mockito.any(Authentication.class)))
+    Mockito.when(service.getQuerySubjects(any(), Mockito.eq(TEST_QUERY_URN)))
         .thenReturn(existingSubjects);
 
     // Post-Update
@@ -186,9 +186,7 @@ public class UpdateQueryResolverTest {
                 new QuerySubjectArray(
                     ImmutableList.of(new QuerySubject().setEntity(TEST_DATASET_URN_2))));
 
-    Mockito.when(
-            service.getQueryEntityResponse(
-                Mockito.eq(TEST_QUERY_URN), Mockito.any(Authentication.class)))
+    Mockito.when(service.getQueryEntityResponse(any(), Mockito.eq(TEST_QUERY_URN)))
         .thenReturn(
             new EntityResponse()
                 .setUrn(TEST_QUERY_URN)

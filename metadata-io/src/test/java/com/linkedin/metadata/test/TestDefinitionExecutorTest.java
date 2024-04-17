@@ -63,7 +63,7 @@ public class TestDefinitionExecutorTest {
     Filter filter = PredicateToFilter.transformPredicateToFilter(testPredicate);
     assertEquals(
         filter.toString(),
-        "{or=[{and=[{condition=EQUAL, field=platform, value=urn:li:dataPlatform:teradata}]}]}");
+        "{or=[{and=[{condition=EQUAL, field=platform, value=urn:li:dataPlatform:teradata, values=[urn:li:dataPlatform:teradata]}]}]}");
     System.out.println("Hello World");
 
     ElasticTestDefinitionConvertor convertor = new ElasticTestDefinitionConvertor(mockRegistry);

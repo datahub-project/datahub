@@ -247,6 +247,11 @@ export default class EntityRegistry {
         );
     }
 
+    getCustomCardUrlPath(type: EntityType): string | undefined {
+        const entity = validatedGet(type, this.entityTypeToEntity);
+        return entity.getCustomCardUrlPath?.();
+    }
+
     getTypeFromGraphName(name: string): EntityType | undefined {
         return this.graphNameToEntityType.get(name);
     }

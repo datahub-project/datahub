@@ -1,10 +1,12 @@
 package com.linkedin.metadata.service;
 
 import static com.linkedin.metadata.service.OwnerService.*;
-import static com.linkedin.metadata.service.util.ServiceTestUtils.*;
+import static org.mockito.ArgumentMatchers.any;
 
-import com.datahub.authentication.Authentication;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.Owner;
 import com.linkedin.common.OwnerArray;
 import com.linkedin.common.Ownership;
@@ -12,13 +14,21 @@ import com.linkedin.common.OwnershipType;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.RecordTemplate;
-import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.Aspect;
+import com.linkedin.entity.EntityResponse;
+import com.linkedin.entity.EnvelopedAspect;
+import com.linkedin.entity.EnvelopedAspectMap;
+import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.resource.ResourceReference;
+import com.linkedin.metadata.service.util.ServiceTestUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
-import io.datahubproject.openapi.client.OpenApiClient;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
+import java.util.Collections;
 import java.util.List;
+import javax.annotation.Nullable;
 import org.mockito.Mockito;
 import org.testng.Assert;
 import org.testng.annotations.Test;
@@ -32,6 +42,10 @@ public class OwnerServiceTest {
       UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:kafka,test,PROD)");
   private static final Urn TEST_ENTITY_URN_2 =
       UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:kafka,test1,PROD)");
+  private static OperationContext opContext =
+      TestOperationContexts.systemContextNoSearchAuthorization();
+  private static final ObjectMapper objectMapper = new ObjectMapper();
+  @Nullable private static Ownership existingOwnership;
 
   @Test
   private void testAddOwnersExistingOwner() throws Exception {
@@ -39,21 +53,18 @@ public class OwnerServiceTest {
     existingOwnership.setOwners(
         new OwnerArray(
             ImmutableList.of(new Owner().setOwner(TEST_OWNER_URN_1).setType(OwnershipType.NONE))));
-    OpenApiClient mockClient = createMockOwnersClient(existingOwnership);
 
-    final OwnerService service =
-        new OwnerService(
-            Mockito.mock(EntityClient.class), Mockito.mock(Authentication.class), mockClient);
+    final OwnerService service = createMockOwnersService(existingOwnership);
 
     Urn newOwnerUrn = UrnUtils.getUrn("urn:li:corpuser:newTag");
     List<MetadataChangeProposal> events =
         service.buildAddOwnersProposals(
+            opContext,
             ImmutableList.of(newOwnerUrn),
             ImmutableList.of(
                 new ResourceReference(TEST_ENTITY_URN_1, null, null),
                 new ResourceReference(TEST_ENTITY_URN_2, null, null)),
-            OwnershipType.NONE,
-            mockAuthentication());
+            OwnershipType.NONE);
 
     OwnerArray expected =
         new OwnerArray(
@@ -83,21 +94,18 @@ public class OwnerServiceTest {
 
   @Test
   private void testAddOwnersNoExistingOwners() throws Exception {
-    OpenApiClient mockClient = createMockOwnersClient(null);
 
-    final OwnerService service =
-        new OwnerService(
-            Mockito.mock(EntityClient.class), Mockito.mock(Authentication.class), mockClient);
+    final OwnerService service = createMockOwnersService(null);
 
     Urn newOwnerUrn = UrnUtils.getUrn("urn:li:corpuser:newOwner");
     List<MetadataChangeProposal> events =
         service.buildAddOwnersProposals(
+            opContext,
             ImmutableList.of(newOwnerUrn),
             ImmutableList.of(
                 new ResourceReference(TEST_ENTITY_URN_1, null, null),
                 new ResourceReference(TEST_ENTITY_URN_2, null, null)),
-            OwnershipType.NONE,
-            mockAuthentication());
+            OwnershipType.NONE);
 
     OwnerArray expectedOwners =
         new OwnerArray(
@@ -132,19 +140,16 @@ public class OwnerServiceTest {
             ImmutableList.of(
                 new Owner().setOwner(TEST_OWNER_URN_1).setType(OwnershipType.TECHNICAL_OWNER),
                 new Owner().setOwner(TEST_OWNER_URN_2).setType(OwnershipType.DATA_STEWARD))));
-    OpenApiClient mockClient = createMockOwnersClient(existingOwnership);
 
-    final OwnerService service =
-        new OwnerService(
-            Mockito.mock(EntityClient.class), Mockito.mock(Authentication.class), mockClient);
+    final OwnerService service = createMockOwnersService(existingOwnership);
 
     List<MetadataChangeProposal> events =
         service.buildRemoveOwnersProposals(
+            opContext,
             ImmutableList.of(TEST_OWNER_URN_1),
             ImmutableList.of(
                 new ResourceReference(TEST_ENTITY_URN_1, null, null),
-                new ResourceReference(TEST_ENTITY_URN_2, null, null)),
-            mockAuthentication());
+                new ResourceReference(TEST_ENTITY_URN_2, null, null)));
 
     Ownership expected =
         new Ownership()
@@ -174,20 +179,16 @@ public class OwnerServiceTest {
 
   @Test
   private void testRemoveOwnerNoExistingOwners() throws Exception {
-    OpenApiClient mockClient = createMockOwnersClient(null);
-
-    final OwnerService service =
-        new OwnerService(
-            Mockito.mock(EntityClient.class), Mockito.mock(Authentication.class), mockClient);
+    final OwnerService service = createMockOwnersService(null);
 
     Urn newTagUrn = UrnUtils.getUrn("urn:li:corpuser:newOwner");
     List<MetadataChangeProposal> events =
         service.buildRemoveOwnersProposals(
+            opContext,
             ImmutableList.of(newTagUrn),
             ImmutableList.of(
                 new ResourceReference(TEST_ENTITY_URN_1, null, null),
-                new ResourceReference(TEST_ENTITY_URN_2, null, null)),
-            mockAuthentication());
+                new ResourceReference(TEST_ENTITY_URN_2, null, null)));
 
     OwnerArray expected = new OwnerArray(ImmutableList.of());
 
@@ -206,5 +207,48 @@ public class OwnerServiceTest {
         GenericRecordUtils.deserializeAspect(
             event2.getAspect().getValue(), event2.getAspect().getContentType(), Ownership.class);
     Assert.assertEquals(ownersAspect2.getOwners(), expected);
+  }
+
+  private static OwnerService createMockOwnersService(@Nullable Ownership existingOwnership)
+      throws Exception {
+    OwnerServiceTest.existingOwnership = existingOwnership;
+    return new OwnerService(
+        createMockEntityClient(existingOwnership, Constants.OWNERSHIP_ASPECT_NAME),
+        ServiceTestUtils.createMockOwnersClient(existingOwnership),
+        objectMapper);
+  }
+
+  private static SystemEntityClient createMockEntityClient(
+      @Nullable RecordTemplate aspect, String aspectName) throws Exception {
+    SystemEntityClient mockClient = Mockito.mock(SystemEntityClient.class);
+    Mockito.when(
+            mockClient.batchGetV2(
+                any(OperationContext.class),
+                Mockito.eq(Constants.DATASET_ENTITY_NAME),
+                Mockito.eq(ImmutableSet.of(TEST_ENTITY_URN_1, TEST_ENTITY_URN_2)),
+                Mockito.eq(ImmutableSet.of(aspectName))))
+        .thenReturn(
+            aspect != null
+                ? ImmutableMap.of(
+                    TEST_ENTITY_URN_1,
+                    new EntityResponse()
+                        .setUrn(TEST_ENTITY_URN_1)
+                        .setEntityName(Constants.DATASET_ENTITY_NAME)
+                        .setAspects(
+                            new EnvelopedAspectMap(
+                                ImmutableMap.of(
+                                    aspectName,
+                                    new EnvelopedAspect().setValue(new Aspect(aspect.data()))))),
+                    TEST_ENTITY_URN_2,
+                    new EntityResponse()
+                        .setUrn(TEST_ENTITY_URN_2)
+                        .setEntityName(Constants.DATASET_ENTITY_NAME)
+                        .setAspects(
+                            new EnvelopedAspectMap(
+                                ImmutableMap.of(
+                                    aspectName,
+                                    new EnvelopedAspect().setValue(new Aspect(aspect.data()))))))
+                : Collections.emptyMap());
+    return mockClient;
   }
 }

@@ -48,7 +48,10 @@ public class SendMAEStep implements UpgradeStep {
 
     @Override
     public RestoreIndicesResult call() {
-      return _entityService.streamRestoreIndices(args, context.report()::addLine).findFirst().get();
+      return _entityService
+          .streamRestoreIndices(context.opContext(), args, context.report()::addLine)
+          .findFirst()
+          .get();
     }
   }
 

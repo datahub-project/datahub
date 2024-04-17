@@ -1,6 +1,6 @@
 package com.linkedin.metadata.restli;
 
-import static com.linkedin.gms.factory.common.LocalEbeanServerConfigFactory.getListenerToTrackCounts;
+import static com.linkedin.gms.factory.common.LocalEbeanConfigFactory.getListenerToTrackCounts;
 
 import io.ebean.datasource.DataSourceConfig;
 import java.util.HashMap;

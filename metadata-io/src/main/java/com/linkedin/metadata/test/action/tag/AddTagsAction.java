@@ -10,9 +10,11 @@ import com.linkedin.metadata.test.action.ActionParameters;
 import com.linkedin.metadata.test.action.ActionType;
 import com.linkedin.metadata.test.action.api.ValuesAction;
 import com.linkedin.metadata.test.exception.InvalidOperandException;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import javax.annotation.Nonnull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -28,19 +30,22 @@ public class AddTagsAction extends ValuesAction {
   }
 
   @Override
-  public void apply(List<Urn> urns, ActionParameters params) throws InvalidOperandException {
+  public void apply(@Nonnull OperationContext opContext, List<Urn> urns, ActionParameters params)
+      throws InvalidOperandException {
     List<String> tagUrnStrs = params.getParams().get(VALUES_PARAM);
     List<Urn> tagUrns = tagUrnStrs.stream().map(UrnUtils::getUrn).collect(Collectors.toList());
 
     final Map<String, List<Urn>> entityTypesToUrns = getEntityTypeToUrns(urns);
     for (Map.Entry<String, List<Urn>> entityTypeToUrns : entityTypesToUrns.entrySet()) {
-      applyInternal(tagUrns, entityTypeToUrns.getValue());
+      applyInternal(opContext, tagUrns, entityTypeToUrns.getValue());
     }
   }
 
-  private void applyInternal(List<Urn> tagUrns, List<Urn> urns) {
+  private void applyInternal(
+      @Nonnull OperationContext opContext, List<Urn> tagUrns, List<Urn> urns) {
     if (!urns.isEmpty()) {
-      this.tagService.batchAddTags(tagUrns, getResourceReferences(urns), METADATA_TESTS_SOURCE);
+      this.tagService.batchAddTags(
+          opContext, tagUrns, getResourceReferences(urns), METADATA_TESTS_SOURCE);
     }
   }
 }

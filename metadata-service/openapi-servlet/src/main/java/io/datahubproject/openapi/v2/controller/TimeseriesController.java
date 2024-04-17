@@ -16,6 +16,8 @@ import com.linkedin.metadata.timeseries.GenericTimeseriesDocument;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.timeseries.TimeseriesScrollResult;
 import com.linkedin.metadata.utils.SearchUtil;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.RequestContext;
 import io.datahubproject.openapi.exception.UnauthorizedException;
 import io.datahubproject.openapi.v2.models.GenericScrollResult;
 import io.datahubproject.openapi.v2.models.GenericTimeseriesAspect;
@@ -23,9 +25,9 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import java.net.URISyntaxException;
 import java.util.List;
 import java.util.stream.Collectors;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -35,7 +37,6 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequiredArgsConstructor
 @RequestMapping("/v2/timeseries")
 @Slf4j
 @Tag(
@@ -48,6 +49,10 @@ public class TimeseriesController {
   @Autowired private TimeseriesAspectService timeseriesAspectService;
 
   @Autowired private AuthorizerChain authorizationChain;
+
+  @Autowired
+  @Qualifier("systemOperationContext")
+  private OperationContext systemOperationContext;
 
   @GetMapping(value = "/{entityName}/{aspectName}", produces = MediaType.APPLICATION_JSON_VALUE)
   public ResponseEntity<GenericScrollResult<GenericTimeseriesAspect>> getAspects(
@@ -68,6 +73,13 @@ public class TimeseriesController {
       throw new UnauthorizedException(
           authentication.getActor().toUrnStr() + " is unauthorized to " + READ + " " + TIMESERIES);
     }
+    OperationContext opContext =
+        OperationContext.asSession(
+            systemOperationContext,
+            RequestContext.builder().buildOpenapi("getAspects", entityName),
+            authorizationChain,
+            authentication,
+            true);
 
     AspectSpec aspectSpec = entityRegistry.getEntitySpec(entityName).getAspectSpec(aspectName);
     if (!aspectSpec.isTimeseries()) {
@@ -81,6 +93,7 @@ public class TimeseriesController {
 
     TimeseriesScrollResult result =
         timeseriesAspectService.scrollAspects(
+            opContext,
             entityName,
             aspectName,
             null,

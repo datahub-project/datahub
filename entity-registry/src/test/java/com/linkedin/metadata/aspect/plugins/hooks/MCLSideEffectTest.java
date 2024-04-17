@@ -5,7 +5,7 @@ import static org.testng.Assert.assertEquals;
 import com.datahub.test.TestEntityProfile;
 import com.linkedin.data.schema.annotation.PathSpecBasedSchemaAnnotationVisitor;
 import com.linkedin.events.metadata.ChangeType;
-import com.linkedin.metadata.aspect.AspectRetriever;
+import com.linkedin.metadata.aspect.RetrieverContext;
 import com.linkedin.metadata.aspect.batch.MCLItem;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
@@ -63,7 +63,7 @@ public class MCLSideEffectTest {
 
     @Override
     protected Stream<MCLItem> applyMCLSideEffect(
-        @Nonnull Collection<MCLItem> batchItems, @Nonnull AspectRetriever aspectRetriever) {
+        @Nonnull Collection<MCLItem> batchItems, @Nonnull RetrieverContext retrieverContext) {
       return null;
     }
   }

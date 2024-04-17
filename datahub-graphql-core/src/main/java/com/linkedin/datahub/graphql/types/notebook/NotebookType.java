@@ -147,7 +147,7 @@ public class NotebookType
       throws Exception {
     final StringArray result =
         _entityClient.getBrowsePaths(
-            NotebookUrn.createFromString(urn), context.getAuthentication());
+            context.getOperationContext(), NotebookUrn.createFromString(urn));
     return BrowsePathsMapper.map(context, result);
   }
 
@@ -173,12 +173,12 @@ public class NotebookType
     try {
       final Map<Urn, EntityResponse> notebookMap =
           _entityClient.batchGetV2(
+              context.getOperationContext(),
               NOTEBOOK_ENTITY_NAME,
               urns.stream()
                   .filter(urn -> canView(context.getOperationContext(), urn))
                   .collect(Collectors.toSet()),
-              ASPECTS_TO_RESOLVE,
-              context.getAuthentication());
+              ASPECTS_TO_RESOLVE);
 
       return urns.stream()
           .map(urn -> notebookMap.getOrDefault(urn, null))
@@ -215,7 +215,7 @@ public class NotebookType
     proposals.forEach(proposal -> proposal.setEntityUrn(UrnUtils.getUrn(urn)));
 
     try {
-      _entityClient.batchIngestProposals(proposals, context.getAuthentication(), false);
+      _entityClient.batchIngestProposals(context.getOperationContext(), proposals, false);
     } catch (RemoteInvocationException e) {
       throw new RuntimeException(String.format("Failed to write entity with urn %s", urn), e);
     }

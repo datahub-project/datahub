@@ -61,7 +61,9 @@ public class TestResultsSummaryResolver
     final QueryContext context = environment.getContext();
     final Urn testUrn = Urn.createFromString(((Test) environment.getSource()).getUrn());
     final TestInfo testInfo =
-        (TestInfo) entityService.getLatestAspect(testUrn, TEST_INFO_ASPECT_NAME);
+        (TestInfo)
+            entityService.getLatestAspect(
+                context.getOperationContext(), testUrn, TEST_INFO_ASPECT_NAME);
 
     String md5 = testInfo == null ? null : testInfo.getDefinition().getMd5();
 
@@ -71,7 +73,14 @@ public class TestResultsSummaryResolver
           long failingCount = 0;
           List<EnvelopedAspect> lastComputed =
               timeseriesAspectService.getAspectValues(
-                  testUrn, TEST_ENTITY_NAME, BATCH_TEST_RUN_EVENT_ASPECT_NAME, null, null, 1, null);
+                  context.getOperationContext(),
+                  testUrn,
+                  TEST_ENTITY_NAME,
+                  BATCH_TEST_RUN_EVENT_ASPECT_NAME,
+                  null,
+                  null,
+                  1,
+                  null);
           Long timestamp = null;
           if (!lastComputed.isEmpty()) {
             EnvelopedAspect envelopedAspect = lastComputed.get(0);

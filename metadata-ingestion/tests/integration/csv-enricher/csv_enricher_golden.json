@@ -316,6 +316,36 @@
             "owners": [
                 {
                     "owner": "urn:li:corpuser:datahub",
+                    "type": "BUSINESS_OWNER"
+                },
+                {
+                    "owner": "urn:li:corpuser:jdoe",
+                    "type": "BUSINESS_OWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 1643871600000,
+                "actor": "urn:li:corpuser:ingestion"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "test-csv-enricher",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(looker,baz)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:datahub",
                     "type": "TECHNICAL_OWNER"
                 },
                 {

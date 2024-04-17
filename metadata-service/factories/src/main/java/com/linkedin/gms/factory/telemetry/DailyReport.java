@@ -7,10 +7,11 @@ import com.linkedin.datahub.graphql.analytics.service.AnalyticsService;
 import com.linkedin.datahub.graphql.generated.DateRange;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.version.GitVersion;
 import com.mixpanel.mixpanelapi.MessageBuilder;
 import com.mixpanel.mixpanelapi.MixpanelAPI;
+import io.datahubproject.metadata.context.OperationContext;
+import jakarta.annotation.Nonnull;
 import java.io.IOException;
 import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
@@ -21,8 +22,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 
 @Slf4j
 public class DailyReport {
-
-  private final IndexConvention _indexConvention;
+  private final OperationContext systemOperationContext;
   private final RestHighLevelClient _elasticClient;
   private final ConfigurationProvider _configurationProvider;
   private final EntityService<?> _entityService;
@@ -33,18 +33,18 @@ public class DailyReport {
   private MessageBuilder mixpanelBuilder;
 
   public DailyReport(
-      IndexConvention indexConvention,
+      @Nonnull OperationContext systemOperationContext,
       RestHighLevelClient elasticClient,
       ConfigurationProvider configurationProvider,
       EntityService<?> entityService,
       GitVersion gitVersion) {
-    this._indexConvention = indexConvention;
+    this.systemOperationContext = systemOperationContext;
     this._elasticClient = elasticClient;
     this._configurationProvider = configurationProvider;
     this._entityService = entityService;
     this._gitVersion = gitVersion;
     try {
-      String clientId = getClientId(entityService);
+      String clientId = getClientId(systemOperationContext, entityService);
 
       // initialize MixPanel instance and message builder
       mixpanel =
@@ -72,7 +72,9 @@ public class DailyReport {
   // statistics to send daily
   @Scheduled(fixedDelay = 24 * 60 * 60 * 1000)
   public void dailyReport() {
-    AnalyticsService analyticsService = new AnalyticsService(_elasticClient, _indexConvention);
+    AnalyticsService analyticsService =
+        new AnalyticsService(
+            _elasticClient, systemOperationContext.getSearchContext().getIndexConvention());
 
     DateTime endDate = DateTime.now();
     DateTime yesterday = endDate.minusDays(1);
@@ -140,7 +142,9 @@ public class DailyReport {
     }
 
     try {
-      JSONObject event = mixpanelBuilder.event(getClientId(_entityService), eventName, properties);
+      JSONObject event =
+          mixpanelBuilder.event(
+              getClientId(systemOperationContext, _entityService), eventName, properties);
       mixpanel.sendMessage(event);
     } catch (IOException e) {
       log.error("Error reporting telemetry:", e);

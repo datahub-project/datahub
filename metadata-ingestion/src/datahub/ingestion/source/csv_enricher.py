@@ -228,12 +228,19 @@ class CSVEnricherSource(Source):
             # If we want to overwrite or there are no existing tags, create a new GlobalTags object
             current_ownership = OwnershipClass(owners, lastModified=get_audit_stamp())
         else:
-            current_owner_urns: Set[str] = set(
-                [owner.owner for owner in current_ownership.owners]
-            )
-            owners_filtered: List[OwnerClass] = [
-                owner for owner in owners if owner.owner not in current_owner_urns
-            ]
+            owners_filtered: List[OwnerClass] = []
+            for owner in owners:
+                owner_exists = False
+                for current_owner in current_ownership.owners:
+                    if (
+                        owner.owner == current_owner.owner
+                        and owner.type == current_owner.type
+                    ):
+                        owner_exists = True
+                        break
+                if not owner_exists:
+                    owners_filtered.append(owner)
+
             # If there are no new owners to add, we don't need to emit a work unit.
             if len(owners_filtered) <= 0:
                 return None

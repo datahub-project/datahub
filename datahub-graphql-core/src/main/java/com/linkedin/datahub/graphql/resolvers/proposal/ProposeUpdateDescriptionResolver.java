@@ -48,12 +48,12 @@ public class ProposeUpdateDescriptionResolver implements DataFetcher<Completable
               case Constants.GLOSSARY_NODE_ENTITY_NAME:
               case Constants.DATASET_ENTITY_NAME:
                 return _proposalService.proposeUpdateResourceDescription(
+                    context.getOperationContext(),
                     actor,
                     resourceUrn,
                     subResourceType,
                     subresource,
-                    description,
-                    context.getAuthorizer());
+                    description);
               default:
                 log.warn(
                     String.format(

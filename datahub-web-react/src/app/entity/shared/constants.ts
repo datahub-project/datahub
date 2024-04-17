@@ -78,6 +78,10 @@ export const EMPTY_MESSAGES = {
         title: 'Is not inherited by any terms',
         description: 'Terms can be inherited by other terms to represent an "Is A" style relationship.',
     },
+    businessAttributes: {
+        title: 'No business attributes added yet',
+        description: 'Add business attributes to entities to classify their data.',
+    },
 };
 
 export const ELASTIC_MAX_COUNT = 10000;

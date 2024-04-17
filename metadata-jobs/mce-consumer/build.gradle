@@ -1,5 +1,5 @@
 plugins {
-    id 'java'
+    id 'java-library'
     id 'pegasus'
 }
 
@@ -28,7 +28,6 @@ dependencies {
     implementation externalDependency.protobuf
 
     implementation externalDependency.springKafka
-    implementation externalDependency.springActuator
 
     implementation externalDependency.slf4jApi
     compileOnly externalDependency.lombok

@@ -9,6 +9,7 @@ import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.test.definition.ValidationResult;
 import com.linkedin.metadata.utils.SystemMetadataUtils;
 import com.linkedin.mxe.SystemMetadata;
+import io.datahubproject.metadata.context.OperationContext;
 import java.net.URISyntaxException;
 import java.util.Collections;
 import java.util.HashMap;
@@ -32,7 +33,7 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class SystemAspectEvaluator extends BaseQueryEvaluator {
 
-  private final EntityService entityService;
+  private final EntityService<?> entityService;
 
   private static final String FIRST_SYNCHRONIZED_FIELD_NAME = "__firstSynchronized";
 
@@ -66,13 +67,14 @@ public class SystemAspectEvaluator extends BaseQueryEvaluator {
   @Override
   @Nonnull
   public Map<Urn, Map<TestQuery, TestQueryResponse>> evaluate(
+      @Nonnull OperationContext opContext,
       @Nonnull final String entityType,
       @Nonnull final Set<Urn> urns,
       @Nonnull final Set<TestQuery> queries) {
     final Map<Urn, Map<TestQuery, TestQueryResponse>> result = new HashMap<>();
     for (TestQuery query : queries) {
       try {
-        final EntitySpec entitySpec = entityService.getEntityRegistry().getEntitySpec(entityType);
+        final EntitySpec entitySpec = opContext.getEntityRegistry().getEntitySpec(entityType);
         final Set<String> aspectSpecNames =
             query.getQuery().equalsIgnoreCase(FIRST_SYNCHRONIZED_FIELD_NAME)
                 ? Set.of(entitySpec.getKeyAspectName())
@@ -81,13 +83,15 @@ public class SystemAspectEvaluator extends BaseQueryEvaluator {
                     .collect(Collectors.toSet());
 
         entityService
-            .getEntitiesV2(entityType, urns, aspectSpecNames)
+            .getEntitiesV2(opContext, entityType, urns, aspectSpecNames)
             .forEach(
                 (BiConsumer<Urn, EntityResponse>)
                     (urn, response) -> {
                       result.putIfAbsent(urn, new HashMap<>());
                       try {
-                        result.get(urn).put(query, buildSystemQueryResponse(query, urn, response));
+                        result
+                            .get(urn)
+                            .put(query, buildSystemQueryResponse(opContext, query, urn, response));
                       } catch (RuntimeException e) {
                         log.error(
                             "RuntimeException for urn: {} for query {}. Skipping running test for urn",
@@ -105,13 +109,15 @@ public class SystemAspectEvaluator extends BaseQueryEvaluator {
   }
 
   private TestQueryResponse buildSystemQueryResponse(
+      @Nonnull OperationContext opContext,
       @Nonnull final TestQuery query,
       @Nonnull final Urn urn,
       @Nonnull final EntityResponse entityResponse) {
     final String queryName = query.getQuery();
     switch (queryName) {
       case FIRST_SYNCHRONIZED_FIELD_NAME:
-        final String keyAspectCreatedTime = computeFirstSynchronized(urn, entityResponse);
+        final String keyAspectCreatedTime =
+            computeFirstSynchronized(opContext, urn, entityResponse);
         return new TestQueryResponse(Collections.singletonList(keyAspectCreatedTime));
       case LAST_SYNCHRONIZED_FIELD_NAME:
         final Long lastIngested = SystemMetadataUtils.getLastIngested(entityResponse.getAspects());
@@ -171,9 +177,10 @@ public class SystemAspectEvaluator extends BaseQueryEvaluator {
         .toString();
   }
 
-  private String computeFirstSynchronized(Urn urn, EntityResponse entityResponse) {
+  private String computeFirstSynchronized(
+      @Nonnull OperationContext opContext, Urn urn, EntityResponse entityResponse) {
     final String keyAspectName =
-        entityService.getEntityRegistry().getEntitySpec(urn.getEntityType()).getKeyAspectName();
+        opContext.getEntityRegistry().getEntitySpec(urn.getEntityType()).getKeyAspectName();
     final EnvelopedAspect keyAspect = entityResponse.getAspects().get(keyAspectName);
     if (keyAspect == null) {
       log.error(

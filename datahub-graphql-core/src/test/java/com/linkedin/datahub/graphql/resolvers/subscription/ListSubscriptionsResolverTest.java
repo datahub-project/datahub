@@ -16,6 +16,7 @@ import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.service.SubscriptionService;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.Comparator;
 import java.util.List;
@@ -53,7 +54,8 @@ public class ListSubscriptionsResolverTest {
 
   @Test
   public void testListSubscriptionsExceptionThrown() {
-    when(_subscriptionService.listSubscriptions(any(SearchResult.class), eq(_authentication)))
+    when(_subscriptionService.listSubscriptions(
+            any(OperationContext.class), any(SearchResult.class)))
         .thenThrow(new RuntimeException("Failed to list subscriptions"));
 
     assertThrows(() -> _resolver.get(_dataFetchingEnvironment).join());
@@ -69,9 +71,11 @@ public class ListSubscriptionsResolverTest {
                     ImmutableSet.of(
                         new SearchEntity().setEntity(SUBSCRIPTION_URN_1),
                         new SearchEntity().setEntity(SUBSCRIPTION_URN_2))));
-    when(_subscriptionService.getSubscriptionsSearchResult(eq(USER_URN), anyInt(), anyInt(), any()))
+    when(_subscriptionService.getSubscriptionsSearchResult(
+            any(OperationContext.class), eq(USER_URN), anyInt(), anyInt()))
         .thenReturn(searchResult);
-    when(_subscriptionService.listSubscriptions(any(SearchResult.class), eq(_authentication)))
+    when(_subscriptionService.listSubscriptions(
+            any(OperationContext.class), any(SearchResult.class)))
         .thenReturn(
             ImmutableMap.of(
                 SUBSCRIPTION_URN_1, SUBSCRIPTION_INFO_1, SUBSCRIPTION_URN_2, SUBSCRIPTION_INFO_2));

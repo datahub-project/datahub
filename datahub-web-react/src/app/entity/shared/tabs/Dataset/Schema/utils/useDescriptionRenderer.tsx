@@ -2,10 +2,10 @@ import React, { useState } from 'react';
 import DOMPurify from 'dompurify';
 import { EditableSchemaMetadata, SchemaField, SubResourceType } from '../../../../../../../types.generated';
 import DescriptionField from '../../../../../dataset/profile/schema/components/SchemaDescriptionField';
-import { pathMatchesNewPath } from '../../../../../dataset/profile/schema/utils/utils';
 import { useUpdateDescriptionMutation } from '../../../../../../../graphql/mutations.generated';
 import { useMutationUrn, useRefetch } from '../../../../EntityContext';
 import { useSchemaRefetch } from '../SchemaContext';
+import { pathMatchesNewPath } from '../../../../../dataset/profile/schema/utils/utils';
 import { useProposeUpdateDescriptionMutation } from '../../../../../../../graphql/proposals.generated';
 
 export default function useDescriptionRenderer(editableSchemaMetadata: EditableSchemaMetadata | null | undefined) {
@@ -14,6 +14,7 @@ export default function useDescriptionRenderer(editableSchemaMetadata: EditableS
     const schemaRefetch = useSchemaRefetch();
     const [updateDescription] = useUpdateDescriptionMutation();
     const [expandedRows, setExpandedRows] = useState({});
+    const [expandedBARows, setExpandedBARows] = useState({});
     const [proposeUpdateDescription] = useProposeUpdateDescriptionMutation();
 
     const refresh: any = () => {
@@ -28,13 +29,20 @@ export default function useDescriptionRenderer(editableSchemaMetadata: EditableS
         const displayedDescription = relevantEditableFieldInfo?.description || description;
         const sanitizedDescription = DOMPurify.sanitize(displayedDescription);
         const original = record.description ? DOMPurify.sanitize(record.description) : undefined;
+        const businessAttributeDescription =
+            record?.schemaFieldEntity?.businessAttributes?.businessAttribute?.businessAttribute?.properties
+                ?.description || '';
 
         const handleExpandedRows = (expanded) => setExpandedRows((prev) => ({ ...prev, [index]: expanded }));
+        const handleBAExpandedRows = (expanded) => setExpandedBARows((prev) => ({ ...prev, [index]: expanded }));
 
         return (
             <DescriptionField
+                businessAttributeDescription={businessAttributeDescription}
                 onExpanded={handleExpandedRows}
+                onBAExpanded={handleBAExpandedRows}
                 expanded={!!expandedRows[index]}
+                baExpanded={!!expandedBARows[index]}
                 description={sanitizedDescription}
                 original={original}
                 isEdited={!!relevantEditableFieldInfo?.description}

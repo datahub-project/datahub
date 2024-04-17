@@ -2,7 +2,6 @@ package com.linkedin.datahub.graphql.resolvers.constraint;
 
 import static com.linkedin.metadata.Constants.*;
 
-import com.datahub.authentication.Authentication;
 import com.datahub.authorization.AuthUtil;
 import com.datahub.authorization.EntitySpec;
 import com.google.common.collect.ImmutableSet;
@@ -28,6 +27,7 @@ import com.linkedin.metadata.entity.EntityUtils;
 import com.linkedin.policy.DataHubResourceFilter;
 import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.util.Pair;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.Objects;
 import java.util.Optional;
 import javax.annotation.Nonnull;
@@ -43,23 +43,23 @@ public class ConstraintUtils {
 
   @SneakyThrows
   private static Pair<Boolean, String> isEntityConstraintSatisfied(
+      @Nonnull OperationContext opContext,
       @Nonnull String urn,
       @Nonnull EntitySpec spec,
       @Nonnull ConstraintInfo constraintInfo,
-      @Nonnull final EntityService entityService,
-      @Nonnull final EntityClient entityClient,
-      @Nonnull final Authentication authentication) {
+      @Nonnull final EntityService<?> entityService,
+      @Nonnull final EntityClient entityClient) {
     Objects.requireNonNull(urn, "Urn provided to check constraint is null");
     Objects.requireNonNull(constraintInfo, "ConstraintInfo provided to check constraint is null");
     Objects.requireNonNull(entityClient, "entityClient provided to check constraint is null");
-    Objects.requireNonNull(authentication, "authentication provided to check constraint is null");
+    Objects.requireNonNull(opContext, "opContext provided to check constraint is null");
 
     // By default, the constraint does not apply to this entity - the entity cannot be failing the
     // constraint then
     if (isResourceMatch(constraintInfo.getResources(), spec)) {
       if (constraintInfo.getParams().hasHasGlossaryTermInNodeParams()) {
         return isDatasetOrContainerGlossaryTermConstraintSatisfied(
-            urn, entityService, entityClient, authentication, constraintInfo);
+            opContext, urn, entityService, entityClient, constraintInfo);
       }
     }
 
@@ -90,10 +90,10 @@ public class ConstraintUtils {
   }
 
   private static Pair<Boolean, String> isDatasetOrContainerGlossaryTermConstraintSatisfied(
+      @Nonnull OperationContext opContext,
       @Nonnull String urn,
       @Nonnull final EntityService entityService,
       @Nonnull final EntityClient entityClient,
-      @Nonnull final Authentication authentication,
       @Nonnull ConstraintInfo constraintInfo)
       throws RemoteInvocationException {
 
@@ -106,7 +106,7 @@ public class ConstraintUtils {
             .get(0);
 
     Pair<Boolean, String> datasetConstraintSatisfied =
-        isEntityGlossaryTermConstraintSatisfied(urn, entityClient, authentication, constraintInfo);
+        isEntityGlossaryTermConstraintSatisfied(opContext, urn, entityClient, constraintInfo);
 
     if (datasetConstraintSatisfied.getFirst()) {
       return Pair.of(
@@ -119,12 +119,12 @@ public class ConstraintUtils {
     Container container =
         (Container)
             EntityUtils.getAspectFromEntity(
-                urn, CONTAINER_ASPECT_NAME, entityService, new Container());
+                opContext, urn, CONTAINER_ASPECT_NAME, entityService, new Container());
     if (container != null && container.hasContainer()) {
       Urn containerUrn = container.getContainer();
       Pair<Boolean, String> containerConstraintSatisfied =
           isEntityGlossaryTermConstraintSatisfied(
-              containerUrn.toString(), entityClient, authentication, constraintInfo);
+              opContext, containerUrn.toString(), entityClient, constraintInfo);
       if (containerConstraintSatisfied.getFirst()) {
         return Pair.of(
             true,
@@ -138,20 +138,20 @@ public class ConstraintUtils {
   }
 
   private static Pair<Boolean, String> isEntityGlossaryTermConstraintSatisfied(
+      @Nonnull OperationContext opContext,
       @Nonnull String urn,
       @Nonnull final EntityClient entityClient,
-      @Nonnull final Authentication authentication,
       @Nonnull ConstraintInfo constraintInfo)
       throws RemoteInvocationException {
     Optional<GlossaryTerms> glossaryTerms =
         entityClient.getVersionedAspect(
-            urn, GLOSSARY_TERMS_ASPECT, 0L, GlossaryTerms.class, authentication);
+            opContext, urn, GLOSSARY_TERMS_ASPECT, 0L, GlossaryTerms.class);
 
     return isGlossaryTermConstraintSatisfied(
+        opContext,
         constraintInfo.getParams().getHasGlossaryTermInNodeParams(),
         glossaryTerms.orElse(new GlossaryTerms()),
-        entityClient,
-        authentication);
+        entityClient);
   }
 
   /**
@@ -159,10 +159,10 @@ public class ConstraintUtils {
    * that satisfies the constraint.
    */
   private static Pair<Boolean, String> isGlossaryTermConstraintSatisfied(
+      @Nonnull OperationContext opContext,
       final @Nonnull GlossaryTermInNodeConstraint params,
       final @Nonnull GlossaryTerms glossaryTerms,
-      final @Nonnull EntityClient entityClient,
-      final @Nonnull Authentication authentication) {
+      final @Nonnull EntityClient entityClient) {
     if (!glossaryTerms.hasTerms()) {
       return Pair.of(false, "");
     }
@@ -171,10 +171,7 @@ public class ConstraintUtils {
         .filter(
             glossaryTermAssociation ->
                 isGlossaryNodeInTermsAncestry(
-                    glossaryTermAssociation.getUrn(),
-                    glossaryNodeUrn,
-                    entityClient,
-                    authentication))
+                    opContext, glossaryTermAssociation.getUrn(), glossaryNodeUrn, entityClient))
         .findFirst()
         .map(
             glossaryTermAssociation ->
@@ -183,16 +180,16 @@ public class ConstraintUtils {
   }
 
   private static GlossaryTermInfo getGlossaryTermInfo(
+      @Nonnull OperationContext opContext,
       final Urn glossaryTermUrn,
-      @Nonnull final EntityClient entityClient,
-      @Nonnull final Authentication authentication) {
+      @Nonnull final EntityClient entityClient) {
     try {
       EntityResponse entityResponse =
           entityClient.getV2(
+              opContext,
               GLOSSARY_TERM_ENTITY_NAME,
               glossaryTermUrn,
-              ImmutableSet.of(GLOSSARY_TERM_INFO_ASPECT_NAME),
-              authentication);
+              ImmutableSet.of(GLOSSARY_TERM_INFO_ASPECT_NAME));
 
       if (entityResponse != null
           && entityResponse.hasAspects()
@@ -212,16 +209,16 @@ public class ConstraintUtils {
   }
 
   private static GlossaryNodeInfo getGlossaryNodeInfo(
+      @Nonnull OperationContext opContext,
       final Urn glossaryNodeUrn,
-      @Nonnull final EntityClient entityClient,
-      @Nonnull final Authentication authentication) {
+      @Nonnull final EntityClient entityClient) {
     try {
       EntityResponse entityResponse =
           entityClient.getV2(
+              opContext,
               GLOSSARY_NODE_ENTITY_NAME,
               glossaryNodeUrn,
-              ImmutableSet.of(GLOSSARY_NODE_INFO_ASPECT_NAME),
-              authentication);
+              ImmutableSet.of(GLOSSARY_NODE_INFO_ASPECT_NAME));
 
       if (entityResponse != null
           && entityResponse.hasAspects()
@@ -241,12 +238,11 @@ public class ConstraintUtils {
   }
 
   private static boolean isGlossaryNodeInTermsAncestry(
+      @Nonnull OperationContext opContext,
       @Nonnull final Urn candidateTerm,
       @Nonnull final Urn requiredNode,
-      @Nonnull final EntityClient entityClient,
-      @Nonnull final Authentication authentication) {
-    GlossaryTermInfo candidateInfo =
-        getGlossaryTermInfo(candidateTerm, entityClient, authentication);
+      @Nonnull final EntityClient entityClient) {
+    GlossaryTermInfo candidateInfo = getGlossaryTermInfo(opContext, candidateTerm, entityClient);
     if (candidateInfo == null) {
       return false;
     }
@@ -260,16 +256,15 @@ public class ConstraintUtils {
       return true;
     }
     return isGlossaryNodeInNodesAncestry(
-        candidateParentNode, requiredNode, entityClient, authentication);
+        opContext, candidateParentNode, requiredNode, entityClient);
   }
 
   private static boolean isGlossaryNodeInNodesAncestry(
+      @Nonnull OperationContext opContext,
       final @Nonnull Urn candidateNode,
       final @Nonnull Urn requiredParentNode,
-      final @Nonnull EntityClient entityClient,
-      final @Nonnull Authentication authentication) {
-    GlossaryNodeInfo candidateInfo =
-        getGlossaryNodeInfo(candidateNode, entityClient, authentication);
+      final @Nonnull EntityClient entityClient) {
+    GlossaryNodeInfo candidateInfo = getGlossaryNodeInfo(opContext, candidateNode, entityClient);
     if (candidateInfo == null) {
       return false;
     }
@@ -283,16 +278,16 @@ public class ConstraintUtils {
       return true;
     }
     return isGlossaryNodeInNodesAncestry(
-        candidateParentNode, requiredParentNode, entityClient, authentication);
+        opContext, candidateParentNode, requiredParentNode, entityClient);
   }
 
   public static Constraint mapConstraintInfoToConstraint(
+      @Nonnull OperationContext opContext,
       @Nonnull String urn,
       @Nonnull EntitySpec spec,
       @Nonnull ConstraintInfo constraintInfo,
       @Nonnull final EntityService entityService,
-      @Nonnull final EntityClient entityClient,
-      @Nonnull final Authentication authentication) {
+      @Nonnull final EntityClient entityClient) {
     Constraint constraint = new Constraint();
     constraint.setType(ConstraintType.valueOf(constraintInfo.getType()));
     constraint.setDisplayName(constraintInfo.getDisplayName());
@@ -315,7 +310,7 @@ public class ConstraintUtils {
 
     Pair<Boolean, String> entityConstraintSatisfied =
         ConstraintUtils.isEntityConstraintSatisfied(
-            urn, spec, constraintInfo, entityService, entityClient, authentication);
+            opContext, urn, spec, constraintInfo, entityService, entityClient);
     constraint.setIsSatisfied(entityConstraintSatisfied.getFirst());
     constraint.setReason(entityConstraintSatisfied.getSecond());
 

@@ -77,10 +77,10 @@ public class EntityIncidentsResolver
             // Step 2: Hydrate the incident entities
             final Map<Urn, EntityResponse> entities =
                 _entityClient.batchGetV2(
+                    context.getOperationContext(),
                     Constants.INCIDENT_ENTITY_NAME,
                     new HashSet<>(incidentUrns),
-                    null,
-                    context.getAuthentication());
+                    null);
 
             // Step 3: Map GMS incident model to GraphQL model
             final List<EntityResponse> entityResult = new ArrayList<>();

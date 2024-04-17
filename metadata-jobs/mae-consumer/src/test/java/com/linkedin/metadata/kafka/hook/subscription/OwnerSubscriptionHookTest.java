@@ -32,6 +32,7 @@ import com.linkedin.subscription.EntityChangeType;
 import com.linkedin.subscription.SubscriptionNotificationConfig;
 import com.linkedin.subscription.SubscriptionType;
 import com.linkedin.subscription.SubscriptionTypeArray;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -66,17 +67,21 @@ public class OwnerSubscriptionHookTest {
     // Given
     MetadataChangeLog event = createEligibleEvent();
     CorpUserSettings mockUserSettings = createMockUserSettings();
-    when(settingsService.getCorpUserSettings(Mockito.eq(TEST_USER_URN)))
+    when(settingsService.getCorpUserSettings(
+            nullable(OperationContext.class), Mockito.eq(TEST_USER_URN)))
         .thenReturn(mockUserSettings);
-    when(settingsService.getCorpGroupSettings(any())).thenReturn(null);
+    when(settingsService.getCorpGroupSettings(nullable(OperationContext.class), any()))
+        .thenReturn(null);
 
     // When
     ownerSubscriptionHook.invoke(event);
 
     // Then
-    verify(settingsService, times(1)).getCorpUserSettings(Mockito.eq(TEST_USER_URN));
+    verify(settingsService, times(1))
+        .getCorpUserSettings(nullable(OperationContext.class), Mockito.eq(TEST_USER_URN));
     verify(subscriptionService, times(1))
         .createSubscription(
+            nullable(OperationContext.class),
             Mockito.eq(TEST_USER_URN),
             Mockito.eq(TEST_ENTITY_URN),
             Mockito.eq(new SubscriptionTypeArray(ImmutableList.of(SubscriptionType.ENTITY_CHANGE))),
@@ -89,17 +94,21 @@ public class OwnerSubscriptionHookTest {
     // Given
     MetadataChangeLog event = createEligibleEvent();
     CorpGroupSettings mockGroupSettings = createMockGroupSettings();
-    when(settingsService.getCorpGroupSettings(Mockito.eq(TEST_GROUP_URN)))
+    when(settingsService.getCorpGroupSettings(
+            nullable(OperationContext.class), Mockito.eq(TEST_GROUP_URN)))
         .thenReturn(mockGroupSettings);
-    when(settingsService.getCorpUserSettings(any())).thenReturn(null);
+    when(settingsService.getCorpUserSettings(nullable(OperationContext.class), any()))
+        .thenReturn(null);
 
     // When
     ownerSubscriptionHook.invoke(event);
 
     // Then
-    verify(settingsService, times(1)).getCorpGroupSettings(Mockito.eq(TEST_GROUP_URN));
+    verify(settingsService, times(1))
+        .getCorpGroupSettings(nullable(OperationContext.class), Mockito.eq(TEST_GROUP_URN));
     verify(subscriptionService, times(1))
         .createSubscription(
+            nullable(OperationContext.class),
             Mockito.eq(TEST_GROUP_URN),
             Mockito.eq(TEST_ENTITY_URN),
             Mockito.eq(new SubscriptionTypeArray(ImmutableList.of(SubscriptionType.ENTITY_CHANGE))),
@@ -111,19 +120,26 @@ public class OwnerSubscriptionHookTest {
   public void testInvokeWithEligibleEventNoNotificationConfig() {
     // Given
     MetadataChangeLog event = createEligibleEvent();
-    when(settingsService.getCorpUserSettings(Mockito.eq(TEST_USER_URN))).thenReturn(null);
-    when(settingsService.getCorpGroupSettings(Mockito.eq(TEST_GROUP_URN))).thenReturn(null);
+    when(settingsService.getCorpUserSettings(
+            any(OperationContext.class), Mockito.eq(TEST_USER_URN)))
+        .thenReturn(null);
+    when(settingsService.getCorpGroupSettings(
+            any(OperationContext.class), Mockito.eq(TEST_GROUP_URN)))
+        .thenReturn(null);
 
     // When
     ownerSubscriptionHook.invoke(event);
 
     // Then
-    verify(settingsService, atLeastOnce()).getCorpUserSettings(Mockito.eq(TEST_USER_URN));
-    verify(settingsService, atLeastOnce()).getCorpGroupSettings(Mockito.eq(TEST_GROUP_URN));
+    verify(settingsService, atLeastOnce())
+        .getCorpUserSettings(nullable(OperationContext.class), Mockito.eq(TEST_USER_URN));
+    verify(settingsService, atLeastOnce())
+        .getCorpGroupSettings(nullable(OperationContext.class), Mockito.eq(TEST_GROUP_URN));
 
     // Verify user invocation.
     verify(subscriptionService, times(1))
         .createSubscription(
+            nullable(OperationContext.class),
             Mockito.eq(TEST_USER_URN),
             Mockito.eq(TEST_ENTITY_URN),
             Mockito.eq(new SubscriptionTypeArray(ImmutableList.of(SubscriptionType.ENTITY_CHANGE))),
@@ -133,6 +149,7 @@ public class OwnerSubscriptionHookTest {
     // Verify group invocation.
     verify(subscriptionService, times(1))
         .createSubscription(
+            nullable(OperationContext.class),
             Mockito.eq(TEST_GROUP_URN),
             Mockito.eq(TEST_ENTITY_URN),
             Mockito.eq(new SubscriptionTypeArray(ImmutableList.of(SubscriptionType.ENTITY_CHANGE))),
@@ -149,12 +166,13 @@ public class OwnerSubscriptionHookTest {
     ownerSubscriptionHook.invoke(event);
 
     // Then
-    verify(settingsService, times(0)).getCorpUserSettings(any());
-    verify(settingsService, times(0)).getCorpGroupSettings(any());
+    verify(settingsService, times(0)).getCorpUserSettings(any(OperationContext.class), any());
+    verify(settingsService, times(0)).getCorpGroupSettings(any(OperationContext.class), any());
 
     // Verify no invocations
     verify(subscriptionService, times(0))
-        .createSubscription(any(Urn.class), any(Urn.class), any(), any(), any());
+        .createSubscription(
+            any(OperationContext.class), any(Urn.class), any(Urn.class), any(), any(), any());
   }
 
   @Test
@@ -168,12 +186,13 @@ public class OwnerSubscriptionHookTest {
     ownerSubscriptionHook.invoke(event2);
 
     // Then
-    verify(settingsService, times(0)).getCorpUserSettings(any());
-    verify(settingsService, times(0)).getCorpGroupSettings(any());
+    verify(settingsService, times(0)).getCorpUserSettings(any(OperationContext.class), any());
+    verify(settingsService, times(0)).getCorpGroupSettings(any(OperationContext.class), any());
 
     // Verify no invocations
     verify(subscriptionService, times(0))
-        .createSubscription(any(Urn.class), any(Urn.class), any(), any(), any());
+        .createSubscription(
+            any(OperationContext.class), any(Urn.class), any(Urn.class), any(), any(), any());
   }
 
   // Utility methods to create mock settings

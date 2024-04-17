@@ -24,6 +24,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.ArrayUtils;
 
 @Slf4j
 public class PluginFactory {
@@ -68,6 +69,7 @@ public class PluginFactory {
       @Nullable PluginConfiguration pluginConfiguration, @Nonnull List<ClassLoader> classLoaders) {
     this.classGraph =
         new ClassGraph()
+            .acceptPackages(ArrayUtils.addAll(HOOK_PACKAGES, VALIDATOR_PACKAGES))
             .enableRemoteJarScanning()
             .enableExternalClasses()
             .enableClassInfo()

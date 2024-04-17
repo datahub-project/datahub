@@ -1,6 +1,6 @@
 package com.linkedin.metadata.aspect.plugins.hooks;
 
-import com.linkedin.metadata.aspect.AspectRetriever;
+import com.linkedin.metadata.aspect.RetrieverContext;
 import com.linkedin.metadata.aspect.batch.ChangeMCP;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.util.Pair;
@@ -19,7 +19,7 @@ public class CustomDataQualityRulesMutator extends MutationHook {
 
   @Override
   protected Stream<Pair<ChangeMCP, Boolean>> writeMutation(
-      @Nonnull Collection<ChangeMCP> changeMCPS, @Nonnull AspectRetriever aspectRetriever) {
+      @Nonnull Collection<ChangeMCP> changeMCPS, @Nonnull RetrieverContext retrieverContext) {
     return changeMCPS.stream()
         .map(
             changeMCP -> {

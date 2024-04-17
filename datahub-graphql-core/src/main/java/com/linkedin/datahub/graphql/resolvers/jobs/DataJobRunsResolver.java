@@ -77,10 +77,10 @@ public class DataJobRunsResolver
             // Step 2: Hydrate the incident entities
             final Map<Urn, EntityResponse> entities =
                 _entityClient.batchGetV2(
+                    context.getOperationContext(),
                     Constants.DATA_PROCESS_INSTANCE_ENTITY_NAME,
                     new HashSet<>(dataProcessInstanceUrns),
-                    null,
-                    context.getAuthentication());
+                    null);
 
             // Step 3: Map GMS incident model to GraphQL model
             final List<EntityResponse> gmsResults = new ArrayList<>();

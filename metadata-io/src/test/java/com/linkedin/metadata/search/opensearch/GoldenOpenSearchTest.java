@@ -2,17 +2,18 @@ package com.linkedin.metadata.search.opensearch;
 
 import static org.testng.AssertJUnit.assertNotNull;
 
-import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.search.fixtures.GoldenTestBase;
+import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.fixtures.search.SampleDataFixtureConfiguration;
 import io.datahubproject.test.search.config.SearchTestContainerConfiguration;
-import org.jetbrains.annotations.NotNull;
+import lombok.Getter;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Import;
 import org.testng.annotations.Test;
 
+@Getter
 @Import({
   OpenSearchSuite.class,
   SampleDataFixtureConfiguration.class,
@@ -25,20 +26,8 @@ public class GoldenOpenSearchTest extends GoldenTestBase {
   protected SearchService searchService;
 
   @Autowired
-  @Qualifier("entityRegistry")
-  private EntityRegistry entityRegistry;
-
-  @NotNull
-  @Override
-  protected EntityRegistry getEntityRegistry() {
-    return entityRegistry;
-  }
-
-  @NotNull
-  @Override
-  protected SearchService getSearchService() {
-    return searchService;
-  }
+  @Qualifier("longTailOperationContext")
+  protected OperationContext operationContext;
 
   @Test
   public void initTest() {

@@ -14,6 +14,7 @@ import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import java.util.Collection;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Function;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -50,6 +51,7 @@ public class OperationContext {
    * @param allowSystemAuthentication whether the context is allowed to escalate as needed
    * @return the new context
    */
+  @Nonnull
   public static OperationContext asSession(
       OperationContext systemOperationContext,
       @Nonnull RequestContext requestContext,
@@ -82,7 +84,7 @@ public class OperationContext {
     return opContext.toBuilder()
         // update search flags for the request's session
         .searchContext(opContext.getSearchContext().withFlagDefaults(flagDefaults))
-        .build(opContext.getSessionAuthentication());
+        .build(opContext.getSessionActorContext());
   }
 
   /**
@@ -98,7 +100,7 @@ public class OperationContext {
     return opContext.toBuilder()
         // update lineage flags for the request's session
         .searchContext(opContext.getSearchContext().withLineageFlagDefaults(flagDefaults))
-        .build(opContext.getSessionAuthentication());
+        .build(opContext.getSessionActorContext());
   }
 
   /**
@@ -114,7 +116,7 @@ public class OperationContext {
   public static OperationContext asSystem(
       @Nonnull OperationContextConfig config,
       @Nonnull Authentication systemAuthentication,
-      @Nullable EntityRegistry entityRegistry,
+      @Nonnull EntityRegistry entityRegistry,
       @Nullable ServicesRegistryContext servicesRegistryContext,
       @Nullable IndexConvention indexConvention,
       @Nullable RetrieverContext retrieverContext) {
@@ -132,10 +134,7 @@ public class OperationContext {
         .operationContextConfig(systemConfig)
         .systemActorContext(systemActorContext)
         .searchContext(systemSearchContext)
-        .entityRegistryContext(
-            entityRegistry == null
-                ? null
-                : EntityRegistryContext.builder().entityRegistry(entityRegistry).build())
+        .entityRegistryContext(EntityRegistryContext.builder().build(entityRegistry))
         .servicesRegistryContext(servicesRegistryContext)
         // Authorizer.EMPTY doesn't actually apply to system auth
         .authorizerContext(AuthorizerContext.builder().authorizer(Authorizer.EMPTY).build())
@@ -148,7 +147,7 @@ public class OperationContext {
   @Nullable private final ActorContext systemActorContext;
   @Nonnull private final SearchContext searchContext;
   @Nonnull private final AuthorizerContext authorizerContext;
-  @Nullable private final EntityRegistryContext entityRegistryContext;
+  @Nonnull private final EntityRegistryContext entityRegistryContext;
   @Nullable private final ServicesRegistryContext servicesRegistryContext;
   @Nullable private final RequestContext requestContext;
   @Nullable private final ViewAuthorizationContext viewAuthorizationContext;
@@ -176,11 +175,24 @@ public class OperationContext {
         getOperationContextConfig().isAllowSystemAuthentication());
   }
 
-  @Nullable
+  @Nonnull
   public EntityRegistry getEntityRegistry() {
-    return Optional.ofNullable(getEntityRegistryContext())
-        .map(EntityRegistryContext::getEntityRegistry)
-        .orElse(null);
+    return entityRegistryContext.getEntityRegistry();
+  }
+
+  @Nonnull
+  public Set<String> getEntityAspectNames(String entityType) {
+    return getEntityRegistryContext().getEntityAspectNames(entityType);
+  }
+
+  @Nonnull
+  public Set<String> getEntityAspectNames(Urn urn) {
+    return getEntityRegistryContext().getEntityAspectNames(urn);
+  }
+
+  @Nonnull
+  public String getKeyAspectName(@Nonnull final Urn urn) {
+    return getEntityRegistryContext().getKeyAspectName(urn);
   }
 
   /**
@@ -309,6 +321,10 @@ public class OperationContext {
                 getServicesRegistryContext() == null
                     ? EmptyContext.EMPTY
                     : getServicesRegistryContext())
+            .add(
+                getRetrieverContext().isPresent()
+                    ? getRetrieverContext().get()
+                    : EmptyContext.EMPTY)
             .build()
             .stream()
             .map(ContextInterface::getCacheKeyComponent)
@@ -339,12 +355,17 @@ public class OperationContext {
             .sum());
   }
 
+  @Nonnull
+  public String getRequestID() {
+    return Optional.ofNullable(requestContext).map(RequestContext::getRequestID).orElse("");
+  }
+
   public static class OperationContextBuilder {
 
+    @Nonnull
     public OperationContext build(@Nonnull Authentication sessionAuthentication) {
       final Urn actorUrn = UrnUtils.getUrn(sessionAuthentication.getActor().toUrnStr());
-      return new OperationContext(
-          this.operationContextConfig,
+      final ActorContext sessionActor =
           ActorContext.builder()
               .authentication(sessionAuthentication)
               .systemAuth(
@@ -355,7 +376,15 @@ public class OperationContext {
                           .equals(sessionAuthentication.getActor()))
               .policyInfoSet(this.authorizerContext.getAuthorizer().getActorPolicies(actorUrn))
               .groupMembership(this.authorizerContext.getAuthorizer().getActorGroups(actorUrn))
-              .build(),
+              .build();
+      return build(sessionActor);
+    }
+
+    @Nonnull
+    public OperationContext build(@Nonnull ActorContext sessionActor) {
+      return new OperationContext(
+          this.operationContextConfig,
+          sessionActor,
           this.systemActorContext,
           Objects.requireNonNull(this.searchContext),
           Objects.requireNonNull(this.authorizerContext),

@@ -12,6 +12,8 @@ import com.linkedin.common.UrnArrayMap;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.aspect.AspectRetriever;
+import com.linkedin.metadata.aspect.GraphRetriever;
+import com.linkedin.metadata.aspect.RetrieverContext;
 import com.linkedin.metadata.aspect.batch.ChangeMCP;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -26,7 +28,18 @@ import javax.annotation.Nullable;
 import org.testng.annotations.Test;
 
 public class OwnerTypeMapTest {
-  private static final AspectRetriever ASPECT_RETRIEVER = mock(AspectRetriever.class);
+  private static final RetrieverContext RETRIEVER_CONTEXT =
+      new RetrieverContext() {
+        @Override
+        public GraphRetriever getGraphRetriever() {
+          return mock(GraphRetriever.class);
+        }
+
+        @Override
+        public AspectRetriever getAspectRetriever() {
+          return mock(AspectRetriever.class);
+        }
+      };
   private static final EntityRegistry ENTITY_REGISTRY = new TestEntityRegistry();
   private static final AspectPluginConfig ASPECT_PLUGIN_CONFIG =
       AspectPluginConfig.builder()
@@ -55,7 +68,7 @@ public class OwnerTypeMapTest {
   public void ownershipTypeMutationNoneType() {
     OwnerTypeMap testHook = new OwnerTypeMap(ASPECT_PLUGIN_CONFIG);
     Ownership ownership = buildOwnership(Map.of(TEST_USER_A, List.of(), TEST_GROUP_A, List.of()));
-    testHook.writeMutation(buildMCP(null, ownership), ASPECT_RETRIEVER);
+    testHook.writeMutation(buildMCP(null, ownership), RETRIEVER_CONTEXT);
 
     assertEquals(
         ownership.getOwnerTypes(),
@@ -72,7 +85,7 @@ public class OwnerTypeMapTest {
     Ownership oldOwnership = buildOwnership(Map.of(TEST_USER_A, List.of()));
     Ownership newOwnership =
         buildOwnership(Map.of(TEST_USER_A, List.of(), TEST_GROUP_A, List.of()));
-    testHook.writeMutation(buildMCP(oldOwnership, newOwnership), ASPECT_RETRIEVER);
+    testHook.writeMutation(buildMCP(oldOwnership, newOwnership), RETRIEVER_CONTEXT);
 
     assertEquals(
         newOwnership.getOwnerTypes(),
@@ -89,7 +102,7 @@ public class OwnerTypeMapTest {
     Ownership oldOwnership =
         buildOwnership(Map.of(TEST_USER_A, List.of(), TEST_GROUP_A, List.of()));
     Ownership newOwnership = buildOwnership(Map.of(TEST_USER_A, List.of()));
-    testHook.writeMutation(buildMCP(oldOwnership, newOwnership), ASPECT_RETRIEVER);
+    testHook.writeMutation(buildMCP(oldOwnership, newOwnership), RETRIEVER_CONTEXT);
 
     assertEquals(
         newOwnership.getOwnerTypes(),
@@ -112,7 +125,7 @@ public class OwnerTypeMapTest {
                 List.of(BUS_OWNER),
                 TEST_GROUP_B,
                 List.of(TECH_OWNER)));
-    testHook.writeMutation(buildMCP(null, ownership), ASPECT_RETRIEVER);
+    testHook.writeMutation(buildMCP(null, ownership), RETRIEVER_CONTEXT);
 
     assertEquals(
         ownership.getOwnerTypes(),
@@ -143,7 +156,7 @@ public class OwnerTypeMapTest {
                 List.of(BUS_OWNER),
                 TEST_GROUP_B,
                 List.of(TECH_OWNER)));
-    testHook.writeMutation(buildMCP(oldOwnership, newOwnership), ASPECT_RETRIEVER);
+    testHook.writeMutation(buildMCP(oldOwnership, newOwnership), RETRIEVER_CONTEXT);
 
     assertEquals(
         newOwnership.getOwnerTypes(),
@@ -174,7 +187,7 @@ public class OwnerTypeMapTest {
                 List.of(TECH_OWNER)));
     Ownership newOwnership =
         buildOwnership(Map.of(TEST_GROUP_A, List.of(), TEST_GROUP_B, List.of(TECH_OWNER)));
-    testHook.writeMutation(buildMCP(oldOwnership, newOwnership), ASPECT_RETRIEVER);
+    testHook.writeMutation(buildMCP(oldOwnership, newOwnership), RETRIEVER_CONTEXT);
 
     assertEquals(
         newOwnership.getOwnerTypes(),

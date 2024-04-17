@@ -11,7 +11,7 @@ from typing import Dict, Iterable, List, Optional, Set, Type, Union, cast
 from google.cloud import bigquery
 from google.cloud.bigquery.table import TableListItem
 
-from datahub.configuration.pattern_utils import is_schema_allowed
+from datahub.configuration.pattern_utils import is_schema_allowed, is_tag_allowed
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataplatform_instance_urn,
@@ -38,6 +38,7 @@ from datahub.ingestion.api.source import (
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.glossary.classification_mixin import (
+    SAMPLE_SIZE_MULTIPLIER,
     ClassificationHandler,
     classification_workunit_processor,
 )
@@ -77,7 +78,6 @@ from datahub.ingestion.source.sql.sql_utils import (
     gen_schema_container,
     get_domain_wu,
 )
-from datahub.ingestion.source.sql.sqlalchemy_data_reader import SAMPLE_SIZE_MULTIPLIER
 from datahub.ingestion.source.state.profiling_state_handler import ProfilingHandler
 from datahub.ingestion.source.state.redundant_run_skip_handler import (
     RedundantLineageRunSkipHandler,
@@ -489,6 +489,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                     platform=self.platform,
                     platform_instance=self.config.platform_instance,
                     env=self.config.env,
+                    batch_size=self.config.schema_resolution_batch_size,
                 )
             else:
                 logger.warning(
@@ -548,7 +549,12 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
 
         tags_joined: Optional[List[str]] = None
         if tags and self.config.capture_dataset_label_as_tag:
-            tags_joined = [f"{k}:{v}" for k, v in tags.items()]
+            tags_joined = [
+                f"{k}:{v}"
+                for k, v in tags.items()
+                if is_tag_allowed(self.config.capture_dataset_label_as_tag, k)
+            ]
+
         database_container_key = self.gen_project_id_key(database=project_id)
 
         yield from gen_schema_container(
@@ -1014,7 +1020,11 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         if table.labels and self.config.capture_table_label_as_tag:
             tags_to_add = []
             tags_to_add.extend(
-                [make_tag_urn(f"""{k}:{v}""") for k, v in table.labels.items()]
+                [
+                    make_tag_urn(f"""{k}:{v}""")
+                    for k, v in table.labels.items()
+                    if is_tag_allowed(self.config.capture_table_label_as_tag, k)
+                ]
             )
 
         yield from self.gen_dataset_workunits(
@@ -1358,6 +1368,22 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 table=table.table_id,
             )
 
+            if table.table_type == "VIEW":
+                if (
+                    not self.config.include_views
+                    or not self.config.view_pattern.allowed(
+                        table_identifier.raw_table_name()
+                    )
+                ):
+                    self.report.report_dropped(table_identifier.raw_table_name())
+                    continue
+            else:
+                if not self.config.table_pattern.allowed(
+                    table_identifier.raw_table_name()
+                ):
+                    self.report.report_dropped(table_identifier.raw_table_name())
+                    continue
+
             _, shard = BigqueryTableIdentifier.get_table_and_shard(
                 table_identifier.table
             )
@@ -1394,6 +1420,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 continue
 
             table_items[table.table_id] = table
+
         # Adding maximum shards to the list of tables
         table_items.update({value.table_id: value for value in sharded_tables.values()})
 

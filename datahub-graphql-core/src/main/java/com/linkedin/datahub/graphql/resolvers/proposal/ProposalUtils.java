@@ -7,7 +7,6 @@ import com.datahub.authorization.AuthorizedActors;
 import com.datahub.authorization.ConjunctivePrivilegeGroup;
 import com.datahub.authorization.DisjunctivePrivilegeGroup;
 import com.datahub.authorization.EntitySpec;
-import com.datahub.plugins.auth.authorization.Authorizer;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.actionrequest.ActionRequestInfo;
 import com.linkedin.actionrequest.ActionRequestParams;
@@ -281,28 +280,35 @@ public class ProposalUtils {
   }
 
   public static boolean proposeTag(
+      @Nonnull OperationContext opContext,
       Urn creator,
       Urn tagUrn,
       Urn targetUrn,
       String subResource,
       SubResourceType subResourceType,
-      EntityService entityService,
-      Authorizer dataHubAuthorizer) {
+      EntityService entityService) {
     AuthorizedActors actors;
 
     EntitySpec spec = new EntitySpec(targetUrn.getEntityType(), targetUrn.toString());
     if (subResource != null && subResource.length() > 0) {
       actors =
-          dataHubAuthorizer.authorizedActors(
-              PoliciesConfig.MANAGE_DATASET_COL_TAGS_PRIVILEGE.getType(), Optional.of(spec));
+          opContext
+              .getAuthorizerContext()
+              .getAuthorizer()
+              .authorizedActors(
+                  PoliciesConfig.MANAGE_DATASET_COL_TAGS_PRIVILEGE.getType(), Optional.of(spec));
 
-      addTagToSchemaProposalsAspect(creator, tagUrn, targetUrn, subResource, entityService);
+      addTagToSchemaProposalsAspect(
+          opContext, creator, tagUrn, targetUrn, subResource, entityService);
     } else {
       actors =
-          dataHubAuthorizer.authorizedActors(
-              PoliciesConfig.MANAGE_ENTITY_TAGS_PRIVILEGE.getType(), Optional.of(spec));
+          opContext
+              .getAuthorizerContext()
+              .getAuthorizer()
+              .authorizedActors(
+                  PoliciesConfig.MANAGE_ENTITY_TAGS_PRIVILEGE.getType(), Optional.of(spec));
 
-      addTagToEntityProposalsAspect(creator, tagUrn, targetUrn, entityService);
+      addTagToEntityProposalsAspect(opContext, creator, tagUrn, targetUrn, entityService);
     }
 
     List<Urn> assignedUsers = new ArrayList<>();
@@ -332,7 +338,7 @@ public class ProposalUtils {
 
     Entity entity = new Entity();
     entity.setValue(Snapshot.create(snapshot));
-    entityService.ingestEntity(entity, auditStamp);
+    entityService.ingestEntity(opContext, entity, auditStamp);
 
     return true;
   }
@@ -373,30 +379,38 @@ public class ProposalUtils {
   }
 
   public static boolean proposeTerm(
+      @Nonnull OperationContext opContext,
       Urn creator,
       Urn termUrn,
       Urn targetUrn,
       String subResource,
       SubResourceType subResourceType,
-      EntityService entityService,
-      Authorizer dataHubAuthorizer) {
+      EntityService<?> entityService) {
     AuthorizedActors actors;
 
     if (subResource != null && subResource.length() > 0) {
       EntitySpec spec = new EntitySpec(targetUrn.getEntityType(), targetUrn.toString());
       actors =
-          dataHubAuthorizer.authorizedActors(
-              PoliciesConfig.MANAGE_DATASET_COL_GLOSSARY_TERMS_PRIVILEGE.getType(),
-              Optional.of(spec));
+          opContext
+              .getAuthorizerContext()
+              .getAuthorizer()
+              .authorizedActors(
+                  PoliciesConfig.MANAGE_DATASET_COL_GLOSSARY_TERMS_PRIVILEGE.getType(),
+                  Optional.of(spec));
 
-      addTermToSchemaProposalsAspect(creator, termUrn, targetUrn, subResource, entityService);
+      addTermToSchemaProposalsAspect(
+          opContext, creator, termUrn, targetUrn, subResource, entityService);
     } else {
       EntitySpec spec = new EntitySpec(targetUrn.getEntityType(), targetUrn.toString());
       actors =
-          dataHubAuthorizer.authorizedActors(
-              PoliciesConfig.MANAGE_ENTITY_GLOSSARY_TERMS_PRIVILEGE.getType(), Optional.of(spec));
+          opContext
+              .getAuthorizerContext()
+              .getAuthorizer()
+              .authorizedActors(
+                  PoliciesConfig.MANAGE_ENTITY_GLOSSARY_TERMS_PRIVILEGE.getType(),
+                  Optional.of(spec));
 
-      addTermToEntityProposalsAspect(creator, termUrn, targetUrn, entityService);
+      addTermToEntityProposalsAspect(opContext, creator, termUrn, targetUrn, entityService);
     }
 
     List<Urn> assignedUsers = new ArrayList<>();
@@ -415,13 +429,18 @@ public class ProposalUtils {
       Container containerAspect =
           (Container)
               EntityUtils.getAspectFromEntity(
-                  targetUrn.toString(), CONTAINER_ASPECT_NAME, entityService, new Container());
+                  opContext,
+                  targetUrn.toString(),
+                  CONTAINER_ASPECT_NAME,
+                  entityService,
+                  new Container());
 
       if (containerAspect.hasContainer()) {
         // the dataset has a container- fetch the container's owners
         Ownership ownership =
             (Ownership)
                 EntityUtils.getAspectFromEntity(
+                    opContext,
                     containerAspect.getContainer().toString(),
                     OWNERSHIP_ASPECT_NAME,
                     entityService,
@@ -463,21 +482,29 @@ public class ProposalUtils {
 
     Entity entity = new Entity();
     entity.setValue(Snapshot.create(snapshot));
-    entityService.ingestEntity(entity, auditStamp);
+    entityService.ingestEntity(opContext, entity, auditStamp);
 
     return true;
   }
 
   private static void ingestEntityProposalsUpdate(
-      Urn creator, Urn targetUrn, EntityService entityService, Proposals proposals) {
+      @Nonnull OperationContext opContext,
+      Urn creator,
+      Urn targetUrn,
+      EntityService<?> entityService,
+      Proposals proposals) {
     final MetadataChangeProposal metadataChangeProposal =
         buildMetadataChangeProposalWithUrn(targetUrn, PROPOSALS_ASPECT_NAME, proposals);
 
-    ingestMetadataChangeProposal(creator, entityService, metadataChangeProposal);
+    ingestMetadataChangeProposal(opContext, creator, entityService, metadataChangeProposal);
   }
 
   private static void ingestSchemaProposalsUpdate(
-      Urn creator, Urn targetUrn, EntityService entityService, SchemaProposals schemaProposals) {
+      @Nonnull OperationContext opContext,
+      Urn creator,
+      Urn targetUrn,
+      EntityService<?> entityService,
+      SchemaProposals schemaProposals) {
     final MetadataChangeProposal metadataChangeProposal = new MetadataChangeProposal();
     metadataChangeProposal.setAspect(GenericRecordUtils.serializeAspect(schemaProposals));
     metadataChangeProposal.setEntityUrn(targetUrn);
@@ -489,29 +516,40 @@ public class ProposalUtils {
     auditStamp.setActor(creator, SetMode.IGNORE_NULL);
     auditStamp.setTime(System.currentTimeMillis());
 
-    ingestMetadataChangeProposal(creator, entityService, metadataChangeProposal);
+    ingestMetadataChangeProposal(opContext, creator, entityService, metadataChangeProposal);
   }
 
   private static void ingestMetadataChangeProposal(
-      Urn creator, EntityService entityService, MetadataChangeProposal metadataChangeProposal) {
+      @Nonnull OperationContext opContext,
+      Urn creator,
+      EntityService<?> entityService,
+      MetadataChangeProposal metadataChangeProposal) {
     final AuditStamp auditStamp = new AuditStamp();
     auditStamp.setActor(creator, SetMode.IGNORE_NULL);
     auditStamp.setTime(System.currentTimeMillis());
 
     System.out.println(String.format("About to ingest %s", metadataChangeProposal));
     try {
-      entityService.ingestProposal(metadataChangeProposal, auditStamp, false);
+      entityService.ingestProposal(opContext, metadataChangeProposal, auditStamp, false);
     } catch (Exception e) {
       throw new RuntimeException(String.format("Failed to ingest %s", metadataChangeProposal), e);
     }
   }
 
   private static void addTagToEntityProposalsAspect(
-      Urn creator, Urn tagUrn, Urn targetUrn, EntityService entityService) {
+      @Nonnull OperationContext opContext,
+      Urn creator,
+      Urn tagUrn,
+      Urn targetUrn,
+      EntityService<?> entityService) {
     Proposals proposals =
         (Proposals)
             EntityUtils.getAspectFromEntity(
-                targetUrn.toString(), PROPOSALS_ASPECT_NAME, entityService, new Proposals());
+                opContext,
+                targetUrn.toString(),
+                PROPOSALS_ASPECT_NAME,
+                entityService,
+                new Proposals());
     if (!proposals.hasProposedTags()) {
       proposals.setProposedTags(new UrnArray());
     }
@@ -522,15 +560,21 @@ public class ProposalUtils {
     }
     tagUrnArray.add(tagUrn);
 
-    ingestEntityProposalsUpdate(creator, targetUrn, entityService, proposals);
+    ingestEntityProposalsUpdate(opContext, creator, targetUrn, entityService, proposals);
   }
 
   private static void addTagToSchemaProposalsAspect(
-      Urn creator, Urn tagUrn, Urn targetUrn, String subResource, EntityService entityService) {
+      @Nonnull OperationContext opContext,
+      Urn creator,
+      Urn tagUrn,
+      Urn targetUrn,
+      String subResource,
+      EntityService<?> entityService) {
 
     SchemaProposals schemaProposals =
         (SchemaProposals)
             EntityUtils.getAspectFromEntity(
+                opContext,
                 targetUrn.toString(),
                 SCHEMA_PROPOSALS_ASPECT_NAME,
                 entityService,
@@ -564,24 +608,38 @@ public class ProposalUtils {
     }
     tagUrnArray.add(tagUrn);
 
-    ingestSchemaProposalsUpdate(creator, targetUrn, entityService, schemaProposals);
+    ingestSchemaProposalsUpdate(opContext, creator, targetUrn, entityService, schemaProposals);
   }
 
   public static void deleteTagFromEntityOrSchemaProposalsAspect(
-      Urn creator, Urn tagUrn, Urn targetUrn, String subResource, EntityService entityService) {
+      @Nonnull OperationContext opContext,
+      Urn creator,
+      Urn tagUrn,
+      Urn targetUrn,
+      String subResource,
+      EntityService<?> entityService) {
     if (subResource != null && subResource.length() > 0) {
-      deleteTagFromSchemaProposalsAspect(creator, tagUrn, targetUrn, subResource, entityService);
+      deleteTagFromSchemaProposalsAspect(
+          opContext, creator, tagUrn, targetUrn, subResource, entityService);
     } else {
-      deleteTagFromEntityProposalsAspect(creator, tagUrn, targetUrn, entityService);
+      deleteTagFromEntityProposalsAspect(opContext, creator, tagUrn, targetUrn, entityService);
     }
   }
 
   private static void deleteTagFromEntityProposalsAspect(
-      Urn creator, Urn tagUrn, Urn targetUrn, EntityService entityService) {
+      @Nonnull OperationContext opContext,
+      Urn creator,
+      Urn tagUrn,
+      Urn targetUrn,
+      EntityService<?> entityService) {
     Proposals proposals =
         (Proposals)
             EntityUtils.getAspectFromEntity(
-                targetUrn.toString(), PROPOSALS_ASPECT_NAME, entityService, new Proposals());
+                opContext,
+                targetUrn.toString(),
+                PROPOSALS_ASPECT_NAME,
+                entityService,
+                new Proposals());
     if (!proposals.hasProposedTags()) {
       return;
     }
@@ -590,14 +648,20 @@ public class ProposalUtils {
     tagUrnArray.remove(tagUrn);
     proposals.setProposedTags(tagUrnArray);
 
-    ingestEntityProposalsUpdate(creator, targetUrn, entityService, proposals);
+    ingestEntityProposalsUpdate(opContext, creator, targetUrn, entityService, proposals);
   }
 
   private static void deleteTagFromSchemaProposalsAspect(
-      Urn creator, Urn tagUrn, Urn targetUrn, String subResource, EntityService entityService) {
+      @Nonnull OperationContext opContext,
+      Urn creator,
+      Urn tagUrn,
+      Urn targetUrn,
+      String subResource,
+      EntityService<?> entityService) {
     SchemaProposals schemaProposals =
         (SchemaProposals)
             EntityUtils.getAspectFromEntity(
+                opContext,
                 targetUrn.toString(),
                 SCHEMA_PROPOSALS_ASPECT_NAME,
                 entityService,
@@ -619,15 +683,23 @@ public class ProposalUtils {
     tagUrnArray.remove(tagUrn);
     schemaProposal.setProposedSchemaTags(tagUrnArray);
 
-    ingestSchemaProposalsUpdate(creator, targetUrn, entityService, schemaProposals);
+    ingestSchemaProposalsUpdate(opContext, creator, targetUrn, entityService, schemaProposals);
   }
 
   private static void addTermToEntityProposalsAspect(
-      Urn creator, Urn termUrn, Urn targetUrn, EntityService entityService) {
+      @Nonnull OperationContext opContext,
+      Urn creator,
+      Urn termUrn,
+      Urn targetUrn,
+      EntityService<?> entityService) {
     Proposals proposals =
         (Proposals)
             EntityUtils.getAspectFromEntity(
-                targetUrn.toString(), PROPOSALS_ASPECT_NAME, entityService, new Proposals());
+                opContext,
+                targetUrn.toString(),
+                PROPOSALS_ASPECT_NAME,
+                entityService,
+                new Proposals());
     if (!proposals.hasProposedGlossaryTerms()) {
       proposals.setProposedGlossaryTerms(new UrnArray());
     }
@@ -639,15 +711,21 @@ public class ProposalUtils {
     }
     glossaryTermUrnArray.add(termUrn);
 
-    ingestEntityProposalsUpdate(creator, targetUrn, entityService, proposals);
+    ingestEntityProposalsUpdate(opContext, creator, targetUrn, entityService, proposals);
   }
 
   private static void addTermToSchemaProposalsAspect(
-      Urn creator, Urn termUrn, Urn targetUrn, String subResource, EntityService entityService) {
+      @Nonnull OperationContext opContext,
+      Urn creator,
+      Urn termUrn,
+      Urn targetUrn,
+      String subResource,
+      EntityService<?> entityService) {
 
     SchemaProposals schemaProposals =
         (SchemaProposals)
             EntityUtils.getAspectFromEntity(
+                opContext,
                 targetUrn.toString(),
                 SCHEMA_PROPOSALS_ASPECT_NAME,
                 entityService,
@@ -682,24 +760,38 @@ public class ProposalUtils {
     }
     glossaryTermUrnArray.add(termUrn);
 
-    ingestSchemaProposalsUpdate(creator, targetUrn, entityService, schemaProposals);
+    ingestSchemaProposalsUpdate(opContext, creator, targetUrn, entityService, schemaProposals);
   }
 
   public static void deleteTermFromEntityOrSchemaProposalsAspect(
-      Urn creator, Urn termUrn, Urn targetUrn, String subResource, EntityService entityService) {
+      @Nonnull OperationContext opContext,
+      Urn creator,
+      Urn termUrn,
+      Urn targetUrn,
+      String subResource,
+      EntityService<?> entityService) {
     if (subResource != null && subResource.length() > 0) {
-      deleteTermFromSchemaProposalsAspect(creator, termUrn, targetUrn, subResource, entityService);
+      deleteTermFromSchemaProposalsAspect(
+          opContext, creator, termUrn, targetUrn, subResource, entityService);
     } else {
-      deleteTermFromEntityProposalsAspect(creator, termUrn, targetUrn, entityService);
+      deleteTermFromEntityProposalsAspect(opContext, creator, termUrn, targetUrn, entityService);
     }
   }
 
   private static void deleteTermFromEntityProposalsAspect(
-      Urn creator, Urn termUrn, Urn targetUrn, EntityService entityService) {
+      @Nonnull OperationContext opContext,
+      Urn creator,
+      Urn termUrn,
+      Urn targetUrn,
+      EntityService<?> entityService) {
     Proposals proposals =
         (Proposals)
             EntityUtils.getAspectFromEntity(
-                targetUrn.toString(), PROPOSALS_ASPECT_NAME, entityService, new Proposals());
+                opContext,
+                targetUrn.toString(),
+                PROPOSALS_ASPECT_NAME,
+                entityService,
+                new Proposals());
     if (!proposals.hasProposedGlossaryTerms()) {
       return;
     }
@@ -708,14 +800,20 @@ public class ProposalUtils {
     glossaryTermUrnArray.remove(termUrn);
     proposals.setProposedGlossaryTerms(glossaryTermUrnArray);
 
-    ingestEntityProposalsUpdate(creator, targetUrn, entityService, proposals);
+    ingestEntityProposalsUpdate(opContext, creator, targetUrn, entityService, proposals);
   }
 
   private static void deleteTermFromSchemaProposalsAspect(
-      Urn creator, Urn termUrn, Urn targetUrn, String subResource, EntityService entityService) {
+      @Nonnull OperationContext opContext,
+      Urn creator,
+      Urn termUrn,
+      Urn targetUrn,
+      String subResource,
+      EntityService<?> entityService) {
     SchemaProposals schemaProposals =
         (SchemaProposals)
             EntityUtils.getAspectFromEntity(
+                opContext,
                 targetUrn.toString(),
                 SCHEMA_PROPOSALS_ASPECT_NAME,
                 entityService,
@@ -738,7 +836,7 @@ public class ProposalUtils {
     glossaryTermUrnArray.remove(termUrn);
     schemaProposal.setProposedSchemaGlossaryTerms(glossaryTermUrnArray);
 
-    ingestSchemaProposalsUpdate(creator, targetUrn, entityService, schemaProposals);
+    ingestSchemaProposalsUpdate(opContext, creator, targetUrn, entityService, schemaProposals);
   }
 
   private static ActionRequestSnapshot createTermProposalRequest(
@@ -938,11 +1036,11 @@ public class ProposalUtils {
         entityClient.filter(opContext, ACTION_REQUEST_ENTITY_NAME, filter, null, 0, 20);
     final Map<Urn, Entity> entities =
         entityClient.batchGet(
+            opContext,
             new HashSet<>(
                 searchResult.getEntities().stream()
                     .map(result -> result.getEntity())
-                    .collect(Collectors.toList())),
-            opContext.getAuthentication());
+                    .collect(Collectors.toList())));
 
     return entities.values().stream()
         .map(
@@ -956,12 +1054,20 @@ public class ProposalUtils {
   }
 
   public static Boolean isTagAlreadyAttachedToTarget(
-      Urn labelUrn, Urn targetUrn, String subResource, EntityService entityService) {
+      @Nonnull OperationContext opContext,
+      Urn labelUrn,
+      Urn targetUrn,
+      String subResource,
+      EntityService<?> entityService) {
     if (subResource == null || subResource.equals("")) {
       com.linkedin.common.GlobalTags tags =
           (com.linkedin.common.GlobalTags)
               EntityUtils.getAspectFromEntity(
-                  targetUrn.toString(), GLOBAL_TAGS_ASPECT_NAME, entityService, new GlobalTags());
+                  opContext,
+                  targetUrn.toString(),
+                  GLOBAL_TAGS_ASPECT_NAME,
+                  entityService,
+                  new GlobalTags());
 
       if (!tags.hasTags()) {
         return false;
@@ -972,6 +1078,7 @@ public class ProposalUtils {
       com.linkedin.schema.EditableSchemaMetadata editableSchemaMetadata =
           (com.linkedin.schema.EditableSchemaMetadata)
               EntityUtils.getAspectFromEntity(
+                  opContext,
                   targetUrn.toString(),
                   EDITABLE_SCHEMA_METADATA_ASPECT_NAME,
                   entityService,
@@ -988,11 +1095,16 @@ public class ProposalUtils {
   }
 
   public static Boolean isTermAlreadyAttachedToTarget(
-      Urn labelUrn, Urn targetUrn, String subResource, EntityService entityService) {
+      @Nonnull OperationContext opContext,
+      Urn labelUrn,
+      Urn targetUrn,
+      String subResource,
+      EntityService<?> entityService) {
     if (subResource == null || subResource.equals("")) {
       com.linkedin.common.GlossaryTerms terms =
           (com.linkedin.common.GlossaryTerms)
               EntityUtils.getAspectFromEntity(
+                  opContext,
                   targetUrn.toString(),
                   GLOSSARY_TERMS_ASPECT_NAME,
                   entityService,
@@ -1007,6 +1119,7 @@ public class ProposalUtils {
       com.linkedin.schema.EditableSchemaMetadata editableSchemaMetadata =
           (com.linkedin.schema.EditableSchemaMetadata)
               EntityUtils.getAspectFromEntity(
+                  opContext,
                   targetUrn.toString(),
                   EDITABLE_SCHEMA_METADATA_ASPECT_NAME,
                   entityService,

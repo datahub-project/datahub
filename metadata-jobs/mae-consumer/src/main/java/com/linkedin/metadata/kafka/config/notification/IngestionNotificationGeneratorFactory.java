@@ -9,7 +9,6 @@ import com.linkedin.gms.factory.notifications.recipient.NotificationRecipientBui
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.kafka.hook.notification.ingestion.IngestionNotificationGenerator;
-import com.linkedin.metadata.spring.YamlPropertySourceFactory;
 import io.datahubproject.metadata.context.OperationContext;
 import javax.annotation.Nonnull;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -17,7 +16,6 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
-import org.springframework.context.annotation.PropertySource;
 import org.springframework.context.annotation.Scope;
 
 @Configuration
@@ -26,7 +24,6 @@ import org.springframework.context.annotation.Scope;
   SettingsProviderFactory.class,
   NotificationRecipientBuildersFactory.class
 })
-@PropertySource(value = "classpath:/application.yml", factory = YamlPropertySourceFactory.class)
 public class IngestionNotificationGeneratorFactory {
 
   @Autowired

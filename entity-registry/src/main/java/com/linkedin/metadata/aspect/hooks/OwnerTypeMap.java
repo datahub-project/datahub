@@ -9,7 +9,7 @@ import com.linkedin.common.UrnArray;
 import com.linkedin.common.UrnArrayMap;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
-import com.linkedin.metadata.aspect.AspectRetriever;
+import com.linkedin.metadata.aspect.RetrieverContext;
 import com.linkedin.metadata.aspect.batch.ChangeMCP;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.aspect.plugins.hooks.MutationHook;
@@ -33,7 +33,7 @@ public class OwnerTypeMap extends MutationHook {
 
   @Override
   protected Stream<Pair<ChangeMCP, Boolean>> writeMutation(
-      @Nonnull Collection<ChangeMCP> changeMCPS, @Nonnull AspectRetriever aspectRetriever) {
+      @Nonnull Collection<ChangeMCP> changeMCPS, @Nonnull RetrieverContext retrieverContext) {
 
     List<Pair<ChangeMCP, Boolean>> results = new LinkedList<>();
 

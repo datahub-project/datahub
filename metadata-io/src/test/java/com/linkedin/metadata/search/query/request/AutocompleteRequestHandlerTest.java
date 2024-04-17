@@ -5,7 +5,6 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
 import com.linkedin.metadata.TestEntitySpecBuilder;
-import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.elasticsearch.query.request.AutocompleteRequestHandler;
 import io.datahubproject.metadata.context.OperationContext;
@@ -24,7 +23,7 @@ import org.testng.annotations.Test;
 public class AutocompleteRequestHandlerTest {
   private AutocompleteRequestHandler handler =
       AutocompleteRequestHandler.getBuilder(
-          TestEntitySpecBuilder.getSpec(), mock(AspectRetriever.class));
+          TestEntitySpecBuilder.getSpec(), TestOperationContexts.emptyAspectRetriever(null));
   private OperationContext mockOpContext =
       TestOperationContexts.systemContextNoSearchAuthorization(mock(EntityRegistry.class));
 

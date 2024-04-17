@@ -1,6 +1,5 @@
 package com.datahub.notification.provider;
 
-import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.chart.ChartInfo;
 import com.linkedin.common.DataPlatformInstance;
@@ -16,7 +15,7 @@ import com.linkedin.dataproduct.DataProductProperties;
 import com.linkedin.dataset.DatasetProperties;
 import com.linkedin.domain.DomainProperties;
 import com.linkedin.entity.EntityResponse;
-import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.glossary.GlossaryTermInfo;
 import com.linkedin.identity.CorpGroupInfo;
 import com.linkedin.ingestion.DataHubIngestionSourceInfo;
@@ -28,6 +27,7 @@ import com.linkedin.metadata.key.MLModelKey;
 import com.linkedin.metadata.key.MLPrimaryKeyKey;
 import com.linkedin.notebook.NotebookInfo;
 import com.linkedin.tag.TagProperties;
+import io.datahubproject.metadata.context.OperationContext;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
@@ -36,16 +36,12 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class EntityNameProvider {
 
-  protected final EntityClient _entityClient;
-  protected final Authentication _systemAuthentication;
+  protected final SystemEntityClient _entityClient;
   protected final IdentityProvider _identityProvider;
 
-  public EntityNameProvider(
-      @Nonnull final EntityClient entityClient,
-      @Nonnull final Authentication systemAuthentication) {
+  public EntityNameProvider(@Nonnull final SystemEntityClient entityClient) {
     _entityClient = entityClient;
-    _systemAuthentication = systemAuthentication;
-    _identityProvider = new IdentityProvider(entityClient, systemAuthentication);
+    _identityProvider = new IdentityProvider(entityClient);
   }
 
   /**
@@ -53,50 +49,50 @@ public class EntityNameProvider {
    *
    * <p>Returns the urn of the term if one cannot be resolved.
    */
-  public String getName(@Nonnull final Urn entityUrn) {
+  public String getName(@Nonnull OperationContext opContext, @Nonnull final Urn entityUrn) {
     switch (entityUrn.getEntityType()) {
       case Constants.DATASET_ENTITY_NAME:
-        return getDatasetName(entityUrn);
+        return getDatasetName(opContext, entityUrn);
       case Constants.DASHBOARD_ENTITY_NAME:
-        return getDashboardName(entityUrn);
+        return getDashboardName(opContext, entityUrn);
       case Constants.CHART_ENTITY_NAME:
-        return getChartName(entityUrn);
+        return getChartName(opContext, entityUrn);
       case Constants.DATA_JOB_ENTITY_NAME:
-        return getDataJobName(entityUrn);
+        return getDataJobName(opContext, entityUrn);
       case Constants.DATA_FLOW_ENTITY_NAME:
-        return getDataFlowName(entityUrn);
+        return getDataFlowName(opContext, entityUrn);
       case Constants.CONTAINER_ENTITY_NAME:
-        return getContainerName(entityUrn);
+        return getContainerName(opContext, entityUrn);
       case Constants.GLOSSARY_TERM_ENTITY_NAME:
-        return getGlossaryTermName(entityUrn);
+        return getGlossaryTermName(opContext, entityUrn);
       case Constants.TAG_ENTITY_NAME:
-        return getTagName(entityUrn);
+        return getTagName(opContext, entityUrn);
       case Constants.DOMAIN_ENTITY_NAME:
-        return getDomainName(entityUrn);
+        return getDomainName(opContext, entityUrn);
       case Constants.CORP_USER_ENTITY_NAME:
-        return getUserName(entityUrn);
+        return getUserName(opContext, entityUrn);
       case Constants.CORP_GROUP_ENTITY_NAME:
-        return getGroupName(entityUrn);
+        return getGroupName(opContext, entityUrn);
       case Constants.INGESTION_SOURCE_ENTITY_NAME:
-        return getIngestionSourceName(entityUrn);
+        return getIngestionSourceName(opContext, entityUrn);
       case Constants.DATA_PLATFORM_ENTITY_NAME:
-        return getDataPlatformName(entityUrn);
+        return getDataPlatformName(opContext, entityUrn);
       case Constants.SCHEMA_FIELD_ENTITY_NAME:
         return getSchemaFieldName(entityUrn);
       case Constants.ML_FEATURE_ENTITY_NAME:
-        return getMLFeatureName(entityUrn);
+        return getMLFeatureName(opContext, entityUrn);
       case Constants.ML_MODEL_ENTITY_NAME:
-        return getMLModelName(entityUrn);
+        return getMLModelName(opContext, entityUrn);
       case Constants.ML_MODEL_GROUP_ENTITY_NAME:
-        return getMLModelGroupName(entityUrn);
+        return getMLModelGroupName(opContext, entityUrn);
       case Constants.ML_FEATURE_TABLE_ENTITY_NAME:
-        return getMLFeatureTableName(entityUrn);
+        return getMLFeatureTableName(opContext, entityUrn);
       case Constants.ML_PRIMARY_KEY_ENTITY_NAME:
-        return getMLPrimaryKeyName(entityUrn);
+        return getMLPrimaryKeyName(opContext, entityUrn);
       case Constants.DATA_PRODUCT_ENTITY_NAME:
-        return getDataProductName(entityUrn);
+        return getDataProductName(opContext, entityUrn);
       case Constants.NOTEBOOK_ENTITY_NAME:
-        return getNotebookName(entityUrn);
+        return getNotebookName(opContext, entityUrn);
       default:
         return entityUrn.toString();
     }
@@ -108,7 +104,7 @@ public class EntityNameProvider {
    * <p>Returns null if not found.
    */
   @Nullable
-  public String getPlatformName(@Nonnull final Urn entityUrn) {
+  public String getPlatformName(@Nonnull OperationContext opContext, @Nonnull final Urn entityUrn) {
     switch (entityUrn.getEntityType()) {
       case Constants.DATASET_ENTITY_NAME:
       case Constants.NOTEBOOK_ENTITY_NAME:
@@ -121,7 +117,7 @@ public class EntityNameProvider {
       case Constants.ML_MODEL_GROUP_ENTITY_NAME:
       case Constants.ML_FEATURE_TABLE_ENTITY_NAME:
       case Constants.ML_PRIMARY_KEY_ENTITY_NAME:
-        return getAssetPlatform(entityUrn);
+        return getAssetPlatform(opContext, entityUrn);
       default:
         return null;
     }
@@ -133,16 +129,16 @@ public class EntityNameProvider {
    * <p>Returns null if not found.
    */
   @Nonnull
-  public String getTypeName(@Nonnull final Urn entityUrn) {
-    String maybeSubType = getEntitySubType(entityUrn);
+  public String getTypeName(@Nonnull OperationContext opContext, @Nonnull final Urn entityUrn) {
+    String maybeSubType = getEntitySubType(opContext, entityUrn);
     if (maybeSubType != null) {
       return capitalizeFirstLetter(maybeSubType);
     }
     return getEntityTypeNameFromEntity(entityUrn.getEntityType());
   }
 
-  private String getDatasetName(Urn datasetUrn) {
-    DataMap data = getAspectData(datasetUrn, Constants.DATASET_PROPERTIES_ASPECT_NAME);
+  private String getDatasetName(@Nonnull OperationContext opContext, Urn datasetUrn) {
+    DataMap data = getAspectData(opContext, datasetUrn, Constants.DATASET_PROPERTIES_ASPECT_NAME);
     if (data != null) {
       DatasetProperties datasetProperties = new DatasetProperties(data);
       return datasetProperties.hasName()
@@ -152,48 +148,50 @@ public class EntityNameProvider {
     return datasetUrn.getEntityKey().get(1);
   }
 
-  private String getDashboardName(Urn dashboardUrn) {
-    DataMap data = getAspectData(dashboardUrn, Constants.DASHBOARD_INFO_ASPECT_NAME);
+  private String getDashboardName(@Nonnull OperationContext opContext, Urn dashboardUrn) {
+    DataMap data = getAspectData(opContext, dashboardUrn, Constants.DASHBOARD_INFO_ASPECT_NAME);
     if (data != null) {
       return new DashboardInfo(data).getTitle();
     }
     return dashboardUrn.toString();
   }
 
-  private String getDataJobName(Urn dataJobUrn) {
-    DataMap data = getAspectData(dataJobUrn, Constants.DATA_JOB_INFO_ASPECT_NAME);
+  private String getDataJobName(@Nonnull OperationContext opContext, Urn dataJobUrn) {
+    DataMap data = getAspectData(opContext, dataJobUrn, Constants.DATA_JOB_INFO_ASPECT_NAME);
     if (data != null) {
       return new DataJobInfo(data).getName();
     }
     return dataJobUrn.toString();
   }
 
-  private String getDataFlowName(Urn dataFlowUrn) {
-    DataMap data = getAspectData(dataFlowUrn, Constants.DATA_FLOW_INFO_ASPECT_NAME);
+  private String getDataFlowName(@Nonnull OperationContext opContext, Urn dataFlowUrn) {
+    DataMap data = getAspectData(opContext, dataFlowUrn, Constants.DATA_FLOW_INFO_ASPECT_NAME);
     if (data != null) {
       return new DataFlowInfo(data).getName();
     }
     return dataFlowUrn.toString();
   }
 
-  private String getChartName(Urn chartUrn) {
-    DataMap data = getAspectData(chartUrn, Constants.CHART_INFO_ASPECT_NAME);
+  private String getChartName(@Nonnull OperationContext opContext, Urn chartUrn) {
+    DataMap data = getAspectData(opContext, chartUrn, Constants.CHART_INFO_ASPECT_NAME);
     if (data != null) {
       return new ChartInfo(data).getTitle();
     }
     return chartUrn.toString();
   }
 
-  private String getContainerName(Urn containerUrn) {
-    DataMap data = getAspectData(containerUrn, Constants.CONTAINER_PROPERTIES_ASPECT_NAME);
+  private String getContainerName(@Nonnull OperationContext opContext, Urn containerUrn) {
+    DataMap data =
+        getAspectData(opContext, containerUrn, Constants.CONTAINER_PROPERTIES_ASPECT_NAME);
     if (data != null) {
       return new ContainerProperties(data).getName();
     }
     return containerUrn.toString();
   }
 
-  private String getGlossaryTermName(Urn glossaryTermUrn) {
-    DataMap data = getAspectData(glossaryTermUrn, Constants.GLOSSARY_TERM_INFO_ASPECT_NAME);
+  private String getGlossaryTermName(@Nonnull OperationContext opContext, Urn glossaryTermUrn) {
+    DataMap data =
+        getAspectData(opContext, glossaryTermUrn, Constants.GLOSSARY_TERM_INFO_ASPECT_NAME);
     if (data != null) {
       GlossaryTermInfo info = new GlossaryTermInfo(data);
       return info.hasName() ? info.getName() : glossaryTermUrn.getId();
@@ -201,29 +199,29 @@ public class EntityNameProvider {
     return glossaryTermUrn.toString();
   }
 
-  private String getTagName(Urn tagUrn) {
-    DataMap data = getAspectData(tagUrn, Constants.TAG_PROPERTIES_ASPECT_NAME);
+  private String getTagName(@Nonnull OperationContext opContext, Urn tagUrn) {
+    DataMap data = getAspectData(opContext, tagUrn, Constants.TAG_PROPERTIES_ASPECT_NAME);
     if (data != null) {
       return new TagProperties(data).getName();
     }
     return tagUrn.toString();
   }
 
-  private String getDomainName(Urn domainUrn) {
-    DataMap data = getAspectData(domainUrn, Constants.DOMAIN_PROPERTIES_ASPECT_NAME);
+  private String getDomainName(@Nonnull OperationContext opContext, Urn domainUrn) {
+    DataMap data = getAspectData(opContext, domainUrn, Constants.DOMAIN_PROPERTIES_ASPECT_NAME);
     if (data != null) {
       return new DomainProperties(data).getName();
     }
     return domainUrn.toString();
   }
 
-  private String getUserName(Urn userUrn) {
-    IdentityProvider.User maybeUser = _identityProvider.getUser(userUrn);
+  private String getUserName(@Nonnull OperationContext opContext, Urn userUrn) {
+    IdentityProvider.User maybeUser = _identityProvider.getUser(opContext, userUrn);
     return maybeUser != null ? maybeUser.getResolvedDisplayName() : userUrn.getId();
   }
 
-  private String getGroupName(Urn groupUrn) {
-    DataMap data = getAspectData(groupUrn, Constants.CORP_GROUP_INFO_ASPECT_NAME);
+  private String getGroupName(@Nonnull OperationContext opContext, Urn groupUrn) {
+    DataMap data = getAspectData(opContext, groupUrn, Constants.CORP_GROUP_INFO_ASPECT_NAME);
     if (data != null) {
       CorpGroupInfo info = new CorpGroupInfo(data);
       return info.hasDisplayName() ? info.getDisplayName() : groupUrn.getId();
@@ -231,8 +229,10 @@ public class EntityNameProvider {
     return groupUrn.toString();
   }
 
-  private String getIngestionSourceName(Urn ingestionSourceUrn) {
-    DataMap data = getAspectData(ingestionSourceUrn, Constants.INGESTION_INFO_ASPECT_NAME);
+  private String getIngestionSourceName(
+      @Nonnull OperationContext opContext, Urn ingestionSourceUrn) {
+    DataMap data =
+        getAspectData(opContext, ingestionSourceUrn, Constants.INGESTION_INFO_ASPECT_NAME);
     if (data != null) {
       DataHubIngestionSourceInfo info = new DataHubIngestionSourceInfo(data);
       return info.hasName() ? info.getName() : ingestionSourceUrn.toString();
@@ -240,8 +240,9 @@ public class EntityNameProvider {
     return ingestionSourceUrn.toString();
   }
 
-  private String getDataPlatformName(Urn dataPlatformUrn) {
-    DataMap data = getAspectData(dataPlatformUrn, Constants.DATA_PLATFORM_INFO_ASPECT_NAME);
+  private String getDataPlatformName(@Nonnull OperationContext opContext, Urn dataPlatformUrn) {
+    DataMap data =
+        getAspectData(opContext, dataPlatformUrn, Constants.DATA_PLATFORM_INFO_ASPECT_NAME);
     if (data != null) {
       DataPlatformInfo info = new DataPlatformInfo(data);
       return info.hasDisplayName() ? info.getDisplayName() : info.getName();
@@ -253,8 +254,8 @@ public class EntityNameProvider {
     return schemaFieldUrn.getEntityKey().get(1);
   }
 
-  private String getMLFeatureName(Urn mlFeatureUrn) {
-    DataMap data = getAspectData(mlFeatureUrn, Constants.ML_FEATURE_KEY_ASPECT_NAME);
+  private String getMLFeatureName(@Nonnull OperationContext opContext, Urn mlFeatureUrn) {
+    DataMap data = getAspectData(opContext, mlFeatureUrn, Constants.ML_FEATURE_KEY_ASPECT_NAME);
     if (data != null) {
       MLFeatureKey mlFeatureKey = new MLFeatureKey(data);
       return mlFeatureKey.getName();
@@ -262,8 +263,8 @@ public class EntityNameProvider {
     return mlFeatureUrn.getEntityKey().get(1);
   }
 
-  private String getMLModelName(Urn mlModelUrn) {
-    DataMap data = getAspectData(mlModelUrn, Constants.ML_MODEL_KEY_ASPECT_NAME);
+  private String getMLModelName(@Nonnull OperationContext opContext, Urn mlModelUrn) {
+    DataMap data = getAspectData(opContext, mlModelUrn, Constants.ML_MODEL_KEY_ASPECT_NAME);
     if (data != null) {
       MLModelKey mlModelKey = new MLModelKey(data);
       return mlModelKey.getName();
@@ -271,8 +272,9 @@ public class EntityNameProvider {
     return mlModelUrn.getEntityKey().get(1);
   }
 
-  private String getMLModelGroupName(Urn mlModelGroupUrn) {
-    DataMap data = getAspectData(mlModelGroupUrn, Constants.ML_MODEL_GROUP_KEY_ASPECT_NAME);
+  private String getMLModelGroupName(@Nonnull OperationContext opContext, Urn mlModelGroupUrn) {
+    DataMap data =
+        getAspectData(opContext, mlModelGroupUrn, Constants.ML_MODEL_GROUP_KEY_ASPECT_NAME);
     if (data != null) {
       MLModelGroupKey mlModelGroupKey = new MLModelGroupKey(data);
       return mlModelGroupKey.getName();
@@ -280,8 +282,9 @@ public class EntityNameProvider {
     return mlModelGroupUrn.getEntityKey().get(1);
   }
 
-  private String getMLFeatureTableName(Urn mlFeatureTableUrn) {
-    DataMap data = getAspectData(mlFeatureTableUrn, Constants.ML_FEATURE_TABLE_KEY_ASPECT_NAME);
+  private String getMLFeatureTableName(@Nonnull OperationContext opContext, Urn mlFeatureTableUrn) {
+    DataMap data =
+        getAspectData(opContext, mlFeatureTableUrn, Constants.ML_FEATURE_TABLE_KEY_ASPECT_NAME);
     if (data != null) {
       MLFeatureTableKey mlFeatureTableKey = new MLFeatureTableKey(data);
       return mlFeatureTableKey.getName();
@@ -289,8 +292,9 @@ public class EntityNameProvider {
     return mlFeatureTableUrn.getEntityKey().get(1);
   }
 
-  private String getMLPrimaryKeyName(Urn mlPrimaryKeyUrn) {
-    DataMap data = getAspectData(mlPrimaryKeyUrn, Constants.ML_PRIMARY_KEY_KEY_ASPECT_NAME);
+  private String getMLPrimaryKeyName(@Nonnull OperationContext opContext, Urn mlPrimaryKeyUrn) {
+    DataMap data =
+        getAspectData(opContext, mlPrimaryKeyUrn, Constants.ML_PRIMARY_KEY_KEY_ASPECT_NAME);
     if (data != null) {
       MLPrimaryKeyKey mlPrimaryKeyKey = new MLPrimaryKeyKey(data);
       return mlPrimaryKeyKey.getName();
@@ -298,8 +302,9 @@ public class EntityNameProvider {
     return mlPrimaryKeyUrn.getEntityKey().get(1);
   }
 
-  private String getDataProductName(Urn dataProductUrn) {
-    DataMap data = getAspectData(dataProductUrn, Constants.DATA_PRODUCT_PROPERTIES_ASPECT_NAME);
+  private String getDataProductName(@Nonnull OperationContext opContext, Urn dataProductUrn) {
+    DataMap data =
+        getAspectData(opContext, dataProductUrn, Constants.DATA_PRODUCT_PROPERTIES_ASPECT_NAME);
     if (data != null) {
       DataProductProperties dataProductProperties = new DataProductProperties(data);
       return dataProductProperties.getName();
@@ -307,8 +312,8 @@ public class EntityNameProvider {
     return dataProductUrn.toString();
   }
 
-  private String getNotebookName(Urn notebookUrn) {
-    DataMap data = getAspectData(notebookUrn, Constants.NOTEBOOK_INFO_ASPECT_NAME);
+  private String getNotebookName(@Nonnull OperationContext opContext, Urn notebookUrn) {
+    DataMap data = getAspectData(opContext, notebookUrn, Constants.NOTEBOOK_INFO_ASPECT_NAME);
     if (data != null) {
       NotebookInfo notebookInfo = new NotebookInfo(data);
       return notebookInfo.getTitle();
@@ -317,14 +322,16 @@ public class EntityNameProvider {
   }
 
   @Nullable
-  private String getAssetPlatform(Urn assetUrn) {
-    DataMap data = getAspectData(assetUrn, Constants.DATA_PLATFORM_INSTANCE_ASPECT_NAME);
+  private String getAssetPlatform(@Nonnull OperationContext opContext, Urn assetUrn) {
+    DataMap data = getAspectData(opContext, assetUrn, Constants.DATA_PLATFORM_INSTANCE_ASPECT_NAME);
     if (data != null) {
       DataPlatformInstance dataPlatformInstance = new DataPlatformInstance(data);
       if (dataPlatformInstance.hasPlatform()) {
         DataMap platformData =
             getAspectData(
-                dataPlatformInstance.getPlatform(), Constants.DATA_PLATFORM_INFO_ASPECT_NAME);
+                opContext,
+                dataPlatformInstance.getPlatform(),
+                Constants.DATA_PLATFORM_INFO_ASPECT_NAME);
         if (platformData != null) {
           DataPlatformInfo info = new DataPlatformInfo(platformData);
           return info.hasDisplayName() ? info.getDisplayName() : info.getName();
@@ -336,8 +343,8 @@ public class EntityNameProvider {
   }
 
   @Nullable
-  private String getEntitySubType(Urn assetUrn) {
-    DataMap data = getAspectData(assetUrn, Constants.SUB_TYPES_ASPECT_NAME);
+  private String getEntitySubType(@Nonnull OperationContext opContext, Urn assetUrn) {
+    DataMap data = getAspectData(opContext, assetUrn, Constants.SUB_TYPES_ASPECT_NAME);
     if (data != null) {
       SubTypes subTypes = new SubTypes(data);
       if (subTypes.hasTypeNames() && subTypes.getTypeNames().size() > 0) {
@@ -348,11 +355,10 @@ public class EntityNameProvider {
   }
 
   @Nullable
-  private DataMap getAspectData(Urn urn, String aspectName) {
+  private DataMap getAspectData(@Nonnull OperationContext opContext, Urn urn, String aspectName) {
     try {
       EntityResponse response =
-          _entityClient.getV2(
-              urn.getEntityType(), urn, ImmutableSet.of(aspectName), _systemAuthentication);
+          _entityClient.getV2(opContext, urn.getEntityType(), urn, ImmutableSet.of(aspectName));
       if (response != null && response.getAspects().containsKey(aspectName)) {
         return response.getAspects().get(aspectName).getValue().data();
       } else {

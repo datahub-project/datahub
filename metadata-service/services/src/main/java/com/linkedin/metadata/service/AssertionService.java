@@ -1,6 +1,6 @@
 package com.linkedin.metadata.service;
 
-import com.datahub.authentication.Authentication;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.assertion.AssertionActions;
 import com.linkedin.assertion.AssertionInfo;
@@ -28,13 +28,14 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.SetMode;
 import com.linkedin.dataset.DatasetFilter;
 import com.linkedin.entity.EntityResponse;
-import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.AspectUtils;
 import com.linkedin.metadata.key.AssertionKey;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.r2.RemoteInvocationException;
+import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.openapi.client.OpenApiClient;
 import java.time.Clock;
 import java.util.ArrayList;
@@ -51,19 +52,19 @@ public class AssertionService extends BaseService {
   private final Clock _clock;
 
   public AssertionService(
-      @Nonnull final EntityClient entityClient,
-      @Nonnull final Authentication systemAuthentication,
+      @Nonnull final SystemEntityClient entityClient,
       @Nonnull final OpenApiClient openApiClient,
-      @Nonnull final Clock clock) {
-    super(entityClient, systemAuthentication, openApiClient);
+      @Nonnull final Clock clock,
+      @Nonnull ObjectMapper objectMapper) {
+    super(entityClient, openApiClient, objectMapper);
     _clock = clock;
   }
 
   public AssertionService(
-      @Nonnull final EntityClient entityClient,
-      @Nonnull final Authentication systemAuthentication,
-      @Nonnull final OpenApiClient openApiClient) {
-    super(entityClient, systemAuthentication, openApiClient);
+      @Nonnull final SystemEntityClient entityClient,
+      @Nonnull final OpenApiClient openApiClient,
+      @Nonnull ObjectMapper objectMapper) {
+    super(entityClient, openApiClient, objectMapper);
     _clock = Clock.systemUTC();
   }
 
@@ -75,10 +76,10 @@ public class AssertionService extends BaseService {
    * @return an instance of {@link AssertionInfo} for the Assertion, null if it does not exist.
    */
   @Nullable
-  public AssertionInfo getAssertionInfo(@Nonnull final Urn assertionUrn) {
+  public AssertionInfo getAssertionInfo(
+      @Nonnull OperationContext opContext, @Nonnull final Urn assertionUrn) {
     Objects.requireNonNull(assertionUrn, "assertionUrn must not be null");
-    final EntityResponse response =
-        getAssertionEntityResponse(assertionUrn, this.systemAuthentication);
+    final EntityResponse response = getAssertionEntityResponse(opContext, assertionUrn);
     if (response != null
         && response.getAspects().containsKey(Constants.ASSERTION_INFO_ASPECT_NAME)) {
       return new AssertionInfo(
@@ -96,10 +97,10 @@ public class AssertionService extends BaseService {
    * @return an instance of {@link AssertionsSummary} for the Entity, null if it does not exist.
    */
   @Nullable
-  public AssertionsSummary getAssertionsSummary(@Nonnull final Urn entityUrn) {
+  public AssertionsSummary getAssertionsSummary(
+      @Nonnull OperationContext opContext, @Nonnull final Urn entityUrn) {
     Objects.requireNonNull(entityUrn, "entityUrn must not be null");
-    final EntityResponse response =
-        getAssertionsSummaryResponse(entityUrn, this.systemAuthentication);
+    final EntityResponse response = getAssertionsSummaryResponse(opContext, entityUrn);
     if (response != null
         && response.getAspects().containsKey(Constants.ASSERTIONS_SUMMARY_ASPECT_NAME)) {
       return new AssertionsSummary(
@@ -117,10 +118,10 @@ public class AssertionService extends BaseService {
    * @return an instance of AssertionActions for the Entity, null if it does not exist.
    */
   @Nullable
-  public AssertionActions getAssertionActions(@Nonnull final Urn entityUrn) {
+  public AssertionActions getAssertionActions(
+      @Nonnull OperationContext opContext, @Nonnull final Urn entityUrn) {
     Objects.requireNonNull(entityUrn, "entityUrn must not be null");
-    final EntityResponse response =
-        getAssertionEntityResponse(entityUrn, this.systemAuthentication);
+    final EntityResponse response = getAssertionEntityResponse(opContext, entityUrn);
     if (response != null
         && response.getAspects().containsKey(Constants.ASSERTION_ACTIONS_ASPECT_NAME)) {
       return new AssertionActions(
@@ -138,10 +139,10 @@ public class AssertionService extends BaseService {
    * @return an instance of {@link AssertionInfo} for the Assertion, null if it does not exist.
    */
   @Nullable
-  public DataPlatformInstance getAssertionDataPlatformInstance(@Nonnull final Urn assertionUrn) {
+  public DataPlatformInstance getAssertionDataPlatformInstance(
+      @Nonnull OperationContext opContext, @Nonnull final Urn assertionUrn) {
     Objects.requireNonNull(assertionUrn, "assertionUrn must not be null");
-    final EntityResponse response =
-        getAssertionEntityResponse(assertionUrn, this.systemAuthentication);
+    final EntityResponse response = getAssertionEntityResponse(opContext, assertionUrn);
     if (response != null
         && response.getAspects().containsKey(Constants.DATA_PLATFORM_INSTANCE_ASPECT_NAME)) {
       return new DataPlatformInstance(
@@ -159,13 +160,16 @@ public class AssertionService extends BaseService {
    * Produces a Metadata Change Proposal to update the AssertionsSummary aspect for a given entity.
    */
   public void updateAssertionsSummary(
-      @Nonnull final Urn entityUrn, @Nonnull final AssertionsSummary newSummary) throws Exception {
+      @Nonnull OperationContext opContext,
+      @Nonnull final Urn entityUrn,
+      @Nonnull final AssertionsSummary newSummary)
+      throws Exception {
     Objects.requireNonNull(entityUrn, "entityUrn must not be null");
     Objects.requireNonNull(newSummary, "newSummary must not be null");
     this.entityClient.ingestProposal(
+        opContext,
         AspectUtils.buildMetadataChangeProposal(
             entityUrn, Constants.ASSERTIONS_SUMMARY_ASPECT_NAME, newSummary),
-        this.systemAuthentication,
         false);
   }
 
@@ -179,18 +183,18 @@ public class AssertionService extends BaseService {
    */
   @Nullable
   public EntityResponse getAssertionEntityResponse(
-      @Nonnull final Urn assertionUrn, @Nonnull final Authentication authentication) {
+      @Nonnull OperationContext opContext, @Nonnull final Urn assertionUrn) {
     Objects.requireNonNull(assertionUrn, "assertionUrn must not be null");
-    Objects.requireNonNull(authentication, "authentication must not be null");
+    Objects.requireNonNull(opContext, "opContext must not be null");
     try {
       return this.entityClient.getV2(
+          opContext,
           Constants.ASSERTION_ENTITY_NAME,
           assertionUrn,
           ImmutableSet.of(
               Constants.ASSERTION_INFO_ASPECT_NAME,
               Constants.ASSERTION_ACTIONS_ASPECT_NAME,
-              Constants.DATA_PLATFORM_INSTANCE_ASPECT_NAME),
-          authentication);
+              Constants.DATA_PLATFORM_INSTANCE_ASPECT_NAME));
     } catch (Exception e) {
       throw new RuntimeException(
           String.format("Failed to retrieve Assertion with urn %s", assertionUrn), e);
@@ -207,15 +211,15 @@ public class AssertionService extends BaseService {
    */
   @Nullable
   private EntityResponse getAssertionsSummaryResponse(
-      @Nonnull final Urn entityUrn, @Nonnull final Authentication authentication) {
+      @Nonnull OperationContext opContext, @Nonnull final Urn entityUrn) {
     Objects.requireNonNull(entityUrn, "entityUrn must not be null");
-    Objects.requireNonNull(authentication, "authentication must not be null");
+    Objects.requireNonNull(opContext, "opContext must not be null");
     try {
       return this.entityClient.getV2(
+          opContext,
           entityUrn.getEntityType(),
           entityUrn,
-          ImmutableSet.of(Constants.ASSERTIONS_SUMMARY_ASPECT_NAME),
-          authentication);
+          ImmutableSet.of(Constants.ASSERTIONS_SUMMARY_ASPECT_NAME));
     } catch (Exception e) {
       throw new RuntimeException(
           String.format("Failed to retrieve Assertion Summary for entity with urn %s", entityUrn),
@@ -229,19 +233,19 @@ public class AssertionService extends BaseService {
    */
   @Nonnull
   public Urn createFreshnessAssertion(
+      @Nonnull OperationContext opContext,
       @Nonnull final Urn entityUrn,
       @Nonnull final FreshnessAssertionType type,
       @Nonnull final FreshnessAssertionSchedule schedule,
       @Nullable final DatasetFilter filter,
-      @Nullable final AssertionActions actions,
-      @Nonnull final Authentication authentication) {
+      @Nullable final AssertionActions actions) {
     Objects.requireNonNull(entityUrn, "entityUrn must not be null");
     Objects.requireNonNull(type, "type must not be null");
     Objects.requireNonNull(schedule, "schedule must not be null");
-    Objects.requireNonNull(authentication, "authentication must not be null");
+    Objects.requireNonNull(opContext, "authentication must not be null");
     Urn actorUrn = null;
     try {
-      actorUrn = Urn.createFromString(authentication.getActor().toUrnStr());
+      actorUrn = Urn.createFromString(opContext.getSessionAuthentication().getActor().toUrnStr());
     } catch (Exception e) {
       log.error("Could not parse actor urn", e);
     }
@@ -272,7 +276,7 @@ public class AssertionService extends BaseService {
     }
 
     try {
-      this.entityClient.batchIngestProposals(aspects, authentication, false);
+      this.entityClient.batchIngestProposals(opContext, aspects, false);
       return assertionUrn;
     } catch (Exception e) {
       throw new RuntimeException(
@@ -288,18 +292,18 @@ public class AssertionService extends BaseService {
    */
   @Nonnull
   public Urn createVolumeAssertion(
+      @Nonnull OperationContext opContext,
       @Nonnull final Urn entityUrn,
       @Nonnull final VolumeAssertionType type,
       @Nonnull final VolumeAssertionInfo info,
-      @Nullable final AssertionActions actions,
-      @Nonnull final Authentication authentication) {
+      @Nullable final AssertionActions actions) {
     Objects.requireNonNull(entityUrn, "entityUrn must not be null");
     Objects.requireNonNull(type, "type must not be null");
     Objects.requireNonNull(info, "info must not be null");
-    Objects.requireNonNull(authentication, "authentication must not be null");
+    Objects.requireNonNull(opContext, "opContext must not be null");
     Urn actorUrn = null;
     try {
-      actorUrn = Urn.createFromString(authentication.getActor().toUrnStr());
+      actorUrn = Urn.createFromString(opContext.getSessionAuthentication().getActor().toUrnStr());
     } catch (Exception e) {
       log.error("Could not parse actor urn", e);
     }
@@ -346,7 +350,7 @@ public class AssertionService extends BaseService {
     }
 
     try {
-      this.entityClient.batchIngestProposals(aspects, authentication, false);
+      this.entityClient.batchIngestProposals(opContext, aspects, false);
       return assertionUrn;
     } catch (Exception e) {
       throw new RuntimeException(
@@ -361,20 +365,20 @@ public class AssertionService extends BaseService {
    */
   @Nonnull
   public Urn createSqlAssertion(
+      @Nonnull OperationContext opContext,
       @Nonnull final Urn entityUrn,
       @Nonnull final SqlAssertionType type,
       @Nonnull final String description,
       @Nonnull final SqlAssertionInfo info,
-      @Nullable final AssertionActions actions,
-      @Nonnull final Authentication authentication) {
+      @Nullable final AssertionActions actions) {
     Objects.requireNonNull(entityUrn, "entityUrn must not be null");
     Objects.requireNonNull(type, "type must not be null");
     Objects.requireNonNull(description, "description must not be null");
     Objects.requireNonNull(info, "info must not be null");
-    Objects.requireNonNull(authentication, "authentication must not be null");
+    Objects.requireNonNull(opContext, "opContext must not be null");
     Urn actorUrn = null;
     try {
-      actorUrn = Urn.createFromString(authentication.getActor().toUrnStr());
+      actorUrn = Urn.createFromString(opContext.getSessionAuthentication().getActor().toUrnStr());
     } catch (Exception e) {
       log.error("Could not parse actor urn", e);
     }
@@ -399,7 +403,7 @@ public class AssertionService extends BaseService {
     }
 
     try {
-      this.entityClient.batchIngestProposals(aspects, authentication, false);
+      this.entityClient.batchIngestProposals(opContext, aspects, false);
       return assertionUrn;
     } catch (Exception e) {
       throw new RuntimeException(
@@ -413,16 +417,16 @@ public class AssertionService extends BaseService {
    */
   @Nonnull
   public Urn createFieldAssertion(
+      @Nonnull OperationContext opContext,
       @Nonnull final Urn entityUrn,
       @Nonnull final FieldAssertionInfo info,
-      @Nullable final AssertionActions actions,
-      @Nonnull final Authentication authentication) {
+      @Nullable final AssertionActions actions) {
     Objects.requireNonNull(entityUrn, "entityUrn must not be null");
     Objects.requireNonNull(info, "info must not be null");
-    Objects.requireNonNull(authentication, "authentication must not be null");
+    Objects.requireNonNull(opContext, "opContext must not be null");
     Urn actorUrn = null;
     try {
-      actorUrn = Urn.createFromString(authentication.getActor().toUrnStr());
+      actorUrn = Urn.createFromString(opContext.getSessionAuthentication().getActor().toUrnStr());
     } catch (Exception e) {
       log.error("Could not parse actor urn", e);
     }
@@ -446,7 +450,7 @@ public class AssertionService extends BaseService {
     }
 
     try {
-      this.entityClient.batchIngestProposals(aspects, authentication, false);
+      this.entityClient.batchIngestProposals(opContext, aspects, false);
       return assertionUrn;
     } catch (Exception e) {
       throw new RuntimeException(
@@ -461,21 +465,21 @@ public class AssertionService extends BaseService {
    */
   @Nonnull
   public Urn createDatasetAssertion(
+      @Nonnull OperationContext opContext,
       @Nonnull final Urn datasetUrn,
       @Nonnull final DatasetAssertionScope scope,
       @Nullable final List<Urn> fields,
       @Nullable final AssertionStdAggregation aggregation,
       @Nonnull final AssertionStdOperator operator,
       @Nullable final AssertionStdParameters parameters,
-      @Nullable final AssertionActions actions,
-      @Nonnull final Authentication authentication) {
+      @Nullable final AssertionActions actions) {
     Objects.requireNonNull(datasetUrn, "datasetUrn must not be null");
     Objects.requireNonNull(scope, "scope must not be null");
     Objects.requireNonNull(operator, "operator must not be null");
-    Objects.requireNonNull(authentication, "authentication must not be null");
+    Objects.requireNonNull(opContext, "opContext must not be null");
     Urn actorUrn = null;
     try {
-      actorUrn = Urn.createFromString(authentication.getActor().toUrnStr());
+      actorUrn = Urn.createFromString(opContext.getSessionAuthentication().getActor().toUrnStr());
     } catch (Exception e) {
       log.error("Could not parse actor urn", e);
     }
@@ -508,7 +512,7 @@ public class AssertionService extends BaseService {
     }
 
     try {
-      this.entityClient.batchIngestProposals(aspects, authentication, false);
+      this.entityClient.batchIngestProposals(opContext, aspects, false);
       return assertionUrn;
     } catch (Exception e) {
       throw new RuntimeException(
@@ -524,21 +528,21 @@ public class AssertionService extends BaseService {
    */
   @Nonnull
   public Urn upsertDatasetFreshnessAssertion(
+      @Nonnull OperationContext opContext,
       @Nonnull final Urn assertionUrn,
       @Nonnull final Urn entityUrn,
       @Nullable final String description,
       @Nonnull final FreshnessAssertionSchedule schedule,
       @Nullable final DatasetFilter filter,
       @Nullable final AssertionActions actions,
-      @Nullable final AssertionSource assertionSource,
-      @Nonnull final Authentication authentication) {
+      @Nullable final AssertionSource assertionSource) {
     Objects.requireNonNull(assertionUrn, "assertionUrn must not be null");
     Objects.requireNonNull(entityUrn, "entityUrn must not be null");
     Objects.requireNonNull(schedule, "schedule must not be null");
-    Objects.requireNonNull(authentication, "authentication must not be null");
+    Objects.requireNonNull(opContext, "authentication must not be null");
     Urn actorUrn = null;
     try {
-      actorUrn = Urn.createFromString(authentication.getActor().toUrnStr());
+      actorUrn = Urn.createFromString(opContext.getSessionAuthentication().getActor().toUrnStr());
     } catch (Exception e) {
       log.error("Could not parse actor urn", e);
     }
@@ -570,7 +574,7 @@ public class AssertionService extends BaseService {
     }
 
     try {
-      this.entityClient.batchIngestProposals(aspects, authentication, false);
+      this.entityClient.batchIngestProposals(opContext, aspects, false);
       return assertionUrn;
     } catch (Exception e) {
       throw new RuntimeException(
@@ -584,21 +588,21 @@ public class AssertionService extends BaseService {
    */
   @Nonnull
   public Urn upsertDatasetVolumeAssertion(
+      @Nonnull OperationContext opContext,
       @Nonnull final Urn assertionUrn,
       @Nonnull final Urn entityUrn,
       @Nullable final String description,
       @Nonnull final VolumeAssertionInfo info,
       @Nullable final AssertionActions actions,
-      @Nullable final AssertionSource assertionSource,
-      @Nonnull final Authentication authentication) {
+      @Nullable final AssertionSource assertionSource) {
     Objects.requireNonNull(assertionUrn, "assertionUrn must not be null");
     Objects.requireNonNull(entityUrn, "entityUrn must not be null");
     Objects.requireNonNull(info.getType(), "type must not be null");
     Objects.requireNonNull(info, "info must not be null");
-    Objects.requireNonNull(authentication, "authentication must not be null");
+    Objects.requireNonNull(opContext, "opContext must not be null");
     Urn actorUrn = null;
     try {
-      actorUrn = Urn.createFromString(authentication.getActor().toUrnStr());
+      actorUrn = Urn.createFromString(opContext.getSessionAuthentication().getActor().toUrnStr());
     } catch (Exception e) {
       log.error("Could not parse actor urn", e);
     }
@@ -637,7 +641,7 @@ public class AssertionService extends BaseService {
     }
 
     try {
-      this.entityClient.batchIngestProposals(aspects, authentication, false);
+      this.entityClient.batchIngestProposals(opContext, aspects, false);
       return assertionUrn;
     } catch (Exception e) {
       throw new RuntimeException(
@@ -651,23 +655,23 @@ public class AssertionService extends BaseService {
    */
   @Nonnull
   public Urn upsertDatasetSqlAssertion(
+      @Nonnull OperationContext opContext,
       @Nonnull final Urn assertionUrn,
       @Nonnull final Urn entityUrn,
       @Nonnull final SqlAssertionType type,
       @Nonnull final String description,
       @Nonnull final SqlAssertionInfo info,
       @Nullable final AssertionActions actions,
-      @Nullable final AssertionSource assertionSource,
-      @Nonnull final Authentication authentication) {
+      @Nullable final AssertionSource assertionSource) {
     Objects.requireNonNull(assertionUrn, "assertionUrn must not be null");
     Objects.requireNonNull(entityUrn, "entityUrn must not be null");
     Objects.requireNonNull(type, "type must not be null");
     Objects.requireNonNull(description, "description must not be null");
     Objects.requireNonNull(info, "info must not be null");
-    Objects.requireNonNull(authentication, "authentication must not be null");
+    Objects.requireNonNull(opContext, "opContext must not be null");
     Urn actorUrn = null;
     try {
-      actorUrn = Urn.createFromString(authentication.getActor().toUrnStr());
+      actorUrn = Urn.createFromString(opContext.getSessionAuthentication().getActor().toUrnStr());
     } catch (Exception e) {
       log.error("Could not parse actor urn", e);
     }
@@ -692,7 +696,7 @@ public class AssertionService extends BaseService {
     }
 
     try {
-      this.entityClient.batchIngestProposals(aspects, authentication, false);
+      this.entityClient.batchIngestProposals(opContext, aspects, false);
       return assertionUrn;
     } catch (Exception e) {
       throw new RuntimeException(
@@ -706,20 +710,20 @@ public class AssertionService extends BaseService {
    */
   @Nonnull
   public Urn upsertDatasetFieldAssertion(
+      @Nonnull OperationContext opContext,
       @Nonnull final Urn assertionUrn,
       @Nonnull final Urn entityUrn,
       @Nullable final String description,
       @Nonnull final FieldAssertionInfo info,
       @Nullable final AssertionActions actions,
-      @Nullable final AssertionSource assertionSource,
-      @Nonnull final Authentication authentication) {
+      @Nullable final AssertionSource assertionSource) {
     Objects.requireNonNull(assertionUrn, "assertionUrn must not be null");
     Objects.requireNonNull(entityUrn, "entityUrn must not be null");
     Objects.requireNonNull(info, "info must not be null");
-    Objects.requireNonNull(authentication, "authentication must not be null");
+    Objects.requireNonNull(opContext, "opContext must not be null");
     Urn actorUrn = null;
     try {
-      actorUrn = Urn.createFromString(authentication.getActor().toUrnStr());
+      actorUrn = Urn.createFromString(opContext.getSessionAuthentication().getActor().toUrnStr());
     } catch (Exception e) {
       log.error("Could not parse actor urn", e);
     }
@@ -744,7 +748,7 @@ public class AssertionService extends BaseService {
     }
 
     try {
-      this.entityClient.batchIngestProposals(aspects, authentication, false);
+      this.entityClient.batchIngestProposals(opContext, aspects, false);
       return assertionUrn;
     } catch (Exception e) {
       throw new RuntimeException(
@@ -756,22 +760,22 @@ public class AssertionService extends BaseService {
   /** Updates basic metadata for a given assertion such as description and actions executed. */
   @Nonnull
   public Urn updateAssertionMetadata(
+      @Nonnull OperationContext opContext,
       @Nonnull final Urn assertionUrn,
       @Nullable final AssertionActions actions,
-      @Nullable final String assertionDescription,
-      @Nonnull final Authentication authentication) {
+      @Nullable final String assertionDescription) {
     Objects.requireNonNull(assertionUrn, "assertionUrn must not be null");
-    Objects.requireNonNull(authentication, "authentication must not be null");
+    Objects.requireNonNull(opContext, "opContext must not be null");
     Urn actorUrn = null;
     try {
-      actorUrn = Urn.createFromString(authentication.getActor().toUrnStr());
+      actorUrn = Urn.createFromString(opContext.getSessionAuthentication().getActor().toUrnStr());
     } catch (Exception e) {
       log.error("Could not parse actor urn", e);
     }
     Objects.requireNonNull(actorUrn, "actorUrn obtained through authentication must not be null");
 
     // 1. Check whether the Assertion exists
-    AssertionInfo existingInfo = getAssertionInfo(assertionUrn);
+    AssertionInfo existingInfo = getAssertionInfo(opContext, assertionUrn);
 
     if (existingInfo == null) {
       throw new IllegalArgumentException(
@@ -796,7 +800,7 @@ public class AssertionService extends BaseService {
             assertionUrn, Constants.ASSERTION_INFO_ASPECT_NAME, existingInfo));
 
     try {
-      this.entityClient.batchIngestProposals(aspects, authentication, false);
+      this.entityClient.batchIngestProposals(opContext, aspects, false);
       return assertionUrn;
     } catch (Exception e) {
       throw new RuntimeException(
@@ -810,28 +814,28 @@ public class AssertionService extends BaseService {
    */
   @Nonnull
   public Urn updateDatasetAssertion(
+      @Nonnull OperationContext opContext,
       @Nonnull final Urn assertionUrn,
       @Nonnull final DatasetAssertionScope scope,
       @Nullable final List<Urn> fields,
       @Nullable final AssertionStdAggregation aggregation,
       @Nonnull final AssertionStdOperator operator,
       @Nullable final AssertionStdParameters parameters,
-      @Nullable final AssertionActions actions,
-      @Nonnull final Authentication authentication) {
+      @Nullable final AssertionActions actions) {
     Objects.requireNonNull(assertionUrn, "assertionUrn must not be null");
     Objects.requireNonNull(scope, "scope must not be null");
     Objects.requireNonNull(operator, "operator must not be null");
-    Objects.requireNonNull(authentication, "authentication must not be null");
+    Objects.requireNonNull(operator, "opContext must not be null");
     Urn actorUrn = null;
     try {
-      actorUrn = Urn.createFromString(authentication.getActor().toUrnStr());
+      actorUrn = Urn.createFromString(opContext.getSessionAuthentication().getActor().toUrnStr());
     } catch (Exception e) {
       log.error("Could not parse actor urn", e);
     }
     Objects.requireNonNull(actorUrn, "actorUrn obtained through authentication must not be null");
 
     // 1. Check whether the Assertion exists
-    AssertionInfo existingInfo = getAssertionInfo(assertionUrn);
+    AssertionInfo existingInfo = getAssertionInfo(opContext, assertionUrn);
 
     if (existingInfo == null) {
       throw new IllegalArgumentException(
@@ -877,7 +881,7 @@ public class AssertionService extends BaseService {
 
     // 3. Ingest updates aspects
     try {
-      this.entityClient.batchIngestProposals(aspects, authentication, false);
+      this.entityClient.batchIngestProposals(opContext, aspects, false);
       return assertionUrn;
     } catch (Exception e) {
       throw new RuntimeException(
@@ -901,22 +905,17 @@ public class AssertionService extends BaseService {
     return EntityKeyUtils.convertEntityKeyToUrn(key, Constants.ASSERTION_ENTITY_NAME);
   }
 
-  public void tryDeleteAssertion(Urn assertionUrn, Authentication authentication) {
+  public void tryDeleteAssertion(@Nonnull OperationContext opContext, Urn assertionUrn) {
     try {
-      entityClient.deleteEntity(assertionUrn, authentication);
+      entityClient.deleteEntity(opContext, assertionUrn);
     } catch (RemoteInvocationException ex) {
       log.error(String.format("Failed to delete assertion with urn %s ", assertionUrn), ex);
     }
   }
 
-  public void tryDeleteAssertionReferences(Urn assertionUrn) {
-    // Simply ensure that we've cleaned up references.
-    tryDeleteAssertionReferences(assertionUrn, systemAuthentication);
-  }
-
-  public void tryDeleteAssertionReferences(Urn assertionUrn, Authentication authentication) {
+  public void tryDeleteAssertionReferences(@Nonnull OperationContext opContext, Urn assertionUrn) {
     try {
-      entityClient.deleteEntityReferences(assertionUrn, authentication);
+      entityClient.deleteEntityReferences(opContext, assertionUrn);
     } catch (RemoteInvocationException ex) {
       log.error(
           String.format("Failed to delete assertion references for urn %s! ", assertionUrn), ex);

@@ -34,14 +34,14 @@ import com.linkedin.entity.Aspect;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
-import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.identity.GroupMembership;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.GraphRetriever;
 import com.linkedin.metadata.aspect.models.graph.RelatedEntities;
 import com.linkedin.metadata.aspect.models.graph.RelatedEntitiesScrollResult;
 import com.linkedin.metadata.authorization.PoliciesConfig;
-import com.linkedin.metadata.entity.TestEntityRegistry;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.query.filter.RelationshipFilter;
@@ -50,7 +50,6 @@ import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchResultMetadata;
-import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
 import com.linkedin.policy.DataHubActorFilter;
 import com.linkedin.policy.DataHubPolicyInfo;
 import com.linkedin.policy.DataHubResourceFilter;
@@ -66,6 +65,7 @@ import io.datahubproject.metadata.context.RequestContext;
 import io.datahubproject.metadata.context.RetrieverContext;
 import io.datahubproject.metadata.context.ServicesRegistryContext;
 import io.datahubproject.metadata.services.RestrictedService;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.net.URISyntaxException;
 import java.util.List;
 import java.util.Map;
@@ -99,17 +99,20 @@ public class ESAccessControlUtilTest {
   private static final Authentication USER_B_AUTH =
       new Authentication(new Actor(ActorType.USER, TEST_USER_B.getId()), "");
   private static final OperationContext ENABLED_CONTEXT =
-      OperationContext.asSystem(
-          OperationContextConfig.builder()
-              .allowSystemAuthentication(true)
-              .viewAuthorizationConfiguration(
-                  ViewAuthorizationConfiguration.builder().enabled(true).build())
-              .build(),
-          SYSTEM_AUTH,
-          new TestEntityRegistry(),
-          ServicesRegistryContext.builder().restrictedService(mockRestrictedService()).build(),
-          IndexConventionImpl.NO_PREFIX,
-          RetrieverContext.builder().graphRetriever(mock(GraphRetriever.class)).build());
+      TestOperationContexts.systemContext(
+          () ->
+              OperationContextConfig.builder()
+                  .allowSystemAuthentication(true)
+                  .viewAuthorizationConfiguration(
+                      ViewAuthorizationConfiguration.builder().enabled(true).build())
+                  .build(),
+          () -> SYSTEM_AUTH,
+          () ->
+              ServicesRegistryContext.builder().restrictedService(mockRestrictedService()).build(),
+          null,
+          null,
+          null,
+          null);
 
   private static final String VIEW_PRIVILEGE = "VIEW_ENTITY_PAGE";
 
@@ -466,6 +469,36 @@ public class ESAccessControlUtilTest {
         "Expected User B to receive a restricted urn because not a Business Owner");
   }
 
+  @Test
+  public void testDomainRestrictions() throws RemoteInvocationException, URISyntaxException {
+
+    // USER A
+    OperationContext userAContext =
+        sessionWithUserAGroupAandC(List.of(TEST_POLICIES.get("domainA")));
+
+    SearchResult result = mockSearchResult();
+    ESAccessControlUtil.restrictSearchResult(
+        userAContext.withSearchFlags(flags -> flags.setIncludeRestricted(true)), result);
+    assertEquals(result.getEntities().get(0).getEntity(), RESTRICTED_RESULT_URN);
+
+    result = mockSearchResult();
+    ESAccessControlUtil.restrictSearchResult(
+        userAContext.withSearchFlags(flags -> flags.setIncludeRestricted(false)), result);
+    assertEquals(result.getEntities().get(0).getEntity(), UNRESTRICTED_RESULT_URN);
+
+    // USER B
+    OperationContext userBContext = sessionWithUserBNoGroup(List.of(TEST_POLICIES.get("domainA")));
+    result = mockSearchResult();
+    ESAccessControlUtil.restrictSearchResult(
+        userBContext.withSearchFlags(flags -> flags.setIncludeRestricted(true)), result);
+    assertEquals(result.getEntities().get(0).getEntity(), RESTRICTED_RESULT_URN);
+
+    result = mockSearchResult();
+    ESAccessControlUtil.restrictSearchResult(
+        userBContext.withSearchFlags(flags -> flags.setIncludeRestricted(false)), result);
+    assertEquals(result.getEntities().get(0).getEntity(), UNRESTRICTED_RESULT_URN);
+  }
+
   private static RestrictedService mockRestrictedService() {
     RestrictedService mockRestrictedService = mock(RestrictedService.class);
     when(mockRestrictedService.encryptRestrictedUrn(any()))
@@ -506,13 +539,15 @@ public class ESAccessControlUtilTest {
       throws RemoteInvocationException, URISyntaxException {
     Urn actorUrn = UrnUtils.getUrn(auth.getActor().toUrnStr());
     Authorizer dataHubAuthorizer =
-        new TestDataHubAuthorizer(policies, Map.of(actorUrn, groups), TEST_OWNERSHIP);
+        new TestDataHubAuthorizer(
+            ENABLED_CONTEXT, policies, Map.of(actorUrn, groups), TEST_OWNERSHIP);
     return ENABLED_CONTEXT.asSession(RequestContext.TEST, dataHubAuthorizer, auth);
   }
 
   public static class TestDataHubAuthorizer extends DataHubAuthorizer {
 
     public TestDataHubAuthorizer(
+        @Nonnull OperationContext opContext,
         @Nonnull List<DataHubPolicyInfo> policies,
         @Nonnull Map<Urn, List<Urn>> userGroups,
         @Nonnull Map<Urn, Map<Urn, Set<Urn>>> resourceOwnerTypes)
@@ -527,8 +562,7 @@ public class ESAccessControlUtilTest {
 
       DefaultEntitySpecResolver specResolver =
           new DefaultEntitySpecResolver(
-              ENABLED_CONTEXT.getSystemAuthentication().get(),
-              mockUserGroupEntityClient(userGroups, resourceOwnerTypes));
+              opContext, mockUserGroupEntityClient(userGroups, resourceOwnerTypes));
 
       AuthorizerContext ctx = mock(AuthorizerContext.class);
       when(ctx.getEntitySpecResolver()).thenReturn(specResolver);
@@ -551,17 +585,18 @@ public class ESAccessControlUtilTest {
       }
     }
 
-    private static EntityClient mockUserGroupEntityClient(
+    private static SystemEntityClient mockUserGroupEntityClient(
         @Nonnull Map<Urn, List<Urn>> userGroups,
         @Nonnull Map<Urn, Map<Urn, Set<Urn>>> resourceOwnerTypes)
         throws RemoteInvocationException, URISyntaxException {
-      EntityClient mockEntityClient = mock(EntityClient.class);
-      when(mockEntityClient.batchGetV2(anyString(), anySet(), anySet(), any()))
+      SystemEntityClient mockEntityClient = mock(SystemEntityClient.class);
+      when(mockEntityClient.batchGetV2(
+              any(OperationContext.class), anyString(), anySet(), anySet()))
           .thenAnswer(
               args -> {
-                String entityType = args.getArgument(0);
-                Set<Urn> urns = args.getArgument(1);
-                Set<String> aspectNames = args.getArgument(2);
+                String entityType = args.getArgument(1);
+                Set<Urn> urns = args.getArgument(2);
+                Set<String> aspectNames = args.getArgument(3);
 
                 switch (entityType) {
                   case CORP_USER_ENTITY_NAME:
@@ -651,15 +686,16 @@ public class ESAccessControlUtilTest {
               });
 
       // call batch interface above
-      when(mockEntityClient.getV2(anyString(), any(), anySet(), any()))
+      when(mockEntityClient.getV2(
+              any(OperationContext.class), anyString(), any(Urn.class), anySet()))
           .thenAnswer(
               args -> {
-                Urn entityUrn = args.getArgument(1);
+                Urn entityUrn = args.getArgument(2);
                 Map<Urn, EntityResponse> batchResponse =
                     mockEntityClient.batchGetV2(
                         args.getArgument(0),
+                        entityUrn.getEntityType(),
                         Set.of(entityUrn),
-                        args.getArgument(2),
                         args.getArgument(3));
                 return batchResponse.get(entityUrn);
               });
@@ -866,7 +902,11 @@ public class ESAccessControlUtilTest {
     GraphRetriever mockGraphRetriever = mock(GraphRetriever.class);
     OperationContext mockGraphUserAContext =
         sessionWithUserAGroupAandC(List.of(TEST_POLICIES.get("domainA"))).toBuilder()
-            .retrieverContext(RetrieverContext.builder().graphRetriever(mockGraphRetriever).build())
+            .retrieverContext(
+                RetrieverContext.builder()
+                    .aspectRetriever(mock(AspectRetriever.class))
+                    .graphRetriever(mockGraphRetriever)
+                    .build())
             .build(USER_A_AUTH);
 
     when(mockGraphRetriever.scrollRelatedEntities(

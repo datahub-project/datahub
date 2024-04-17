@@ -28,6 +28,8 @@ import com.linkedin.schema.SchemaFieldDataType;
 import com.linkedin.schema.SchemaMetadata;
 import com.linkedin.schema.StringType;
 import com.linkedin.util.Pair;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -65,6 +67,8 @@ public abstract class TimelineServiceTest<T_AD extends AspectDao> {
   protected EntityServiceImpl _entityServiceImpl;
   protected EventProducer _mockProducer;
   protected UpdateIndicesService _mockUpdateIndicesService = mock(UpdateIndicesService.class);
+  protected OperationContext opContext =
+      TestOperationContexts.systemContextNoSearchAuthorization(_testEntityRegistry);
 
   protected TimelineServiceTest() throws EntityRegistryException {}
 
@@ -86,6 +90,7 @@ public abstract class TimelineServiceTest<T_AD extends AspectDao> {
       AuditStamp daysAgo = createTestAuditStamp(i);
       timestamps.add(daysAgo);
       _entityServiceImpl.ingestAspects(
+          opContext,
           entityUrn,
           Collections.singletonList(new Pair<>(aspectName, schemaMetadata)),
           daysAgo,
@@ -94,7 +99,7 @@ public abstract class TimelineServiceTest<T_AD extends AspectDao> {
 
     Map<String, RecordTemplate> latestAspects =
         _entityServiceImpl.getLatestAspectsForUrn(
-            entityUrn, new HashSet<>(Arrays.asList(aspectName)));
+            opContext, entityUrn, new HashSet<>(Arrays.asList(aspectName)));
 
     Set<ChangeCategory> elements = new HashSet<>();
     elements.add(ChangeCategory.TECHNICAL_SCHEMA);

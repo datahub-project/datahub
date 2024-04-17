@@ -44,7 +44,7 @@ public class UpdateHelpLinkResolver implements DataFetcher<CompletableFuture<Boo
           }
           try {
             final GlobalSettingsInfo maybeGlobalSettings =
-                _settingsService.getGlobalSettings(context.getAuthentication());
+                _settingsService.getGlobalSettings(context.getOperationContext());
 
             final GlobalSettingsInfo newGlobalSettings =
                 maybeGlobalSettings != null ? maybeGlobalSettings : new GlobalSettingsInfo();
@@ -59,7 +59,7 @@ public class UpdateHelpLinkResolver implements DataFetcher<CompletableFuture<Boo
             newGlobalSettings.setVisual(newGlobalVisualSettings);
 
             // Finally, write back to GMS.
-            _settingsService.updateGlobalSettings(newGlobalSettings, context.getAuthentication());
+            _settingsService.updateGlobalSettings(context.getOperationContext(), newGlobalSettings);
             return true;
           } catch (Exception e) {
             throw new RuntimeException(String.format("Failed to update help link! %s", input), e);

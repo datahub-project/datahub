@@ -45,6 +45,8 @@ import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.schema.EditableSchemaFieldInfo;
 import com.linkedin.schema.EditableSchemaFieldInfoArray;
 import com.linkedin.schema.EditableSchemaMetadata;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.net.URISyntaxException;
 import java.util.Collections;
 import java.util.Objects;
@@ -79,9 +81,10 @@ public class ProposalServiceTest {
 
   private static String _fieldPath;
 
-  private EntityService _entityService;
+  private EntityService<?> _entityService;
   private EntityClient _entityClient;
   private GraphClient _graphClient;
+  private OperationContext opContext;
 
   private ProposalService _proposalService;
 
@@ -101,6 +104,9 @@ public class ProposalServiceTest {
     _entityClient = mock(EntityClient.class);
     _graphClient = mock(GraphClient.class);
 
+    opContext =
+        TestOperationContexts.userContextNoSearchAuthorization(_authorizer, SYSTEM_AUTHENTICATION);
+
     _proposalService = new ProposalService(_entityService, _entityClient, _graphClient);
   }
 
@@ -109,22 +115,22 @@ public class ProposalServiceTest {
     assertThrows(
         () ->
             _proposalService.proposeCreateGlossaryNode(
-                null, GLOSSARY_NODE_NAME, Optional.empty(), "test", _authorizer));
+                opContext, null, GLOSSARY_NODE_NAME, Optional.empty(), "test"));
     assertThrows(
         () ->
             _proposalService.proposeCreateGlossaryNode(
-                ACTOR_URN, null, Optional.empty(), "test", _authorizer));
+                opContext, ACTOR_URN, null, Optional.empty(), "test"));
     assertThrows(
         () ->
             _proposalService.proposeCreateGlossaryNode(
-                ACTOR_URN, GLOSSARY_NODE_NAME, null, "test", _authorizer));
+                opContext, ACTOR_URN, GLOSSARY_NODE_NAME, null, "test"));
   }
 
   @Test
   public void proposeCreateGlossaryNodePasses() {
     _proposalService.proposeCreateGlossaryNode(
-        ACTOR_URN, GLOSSARY_NODE_NAME, Optional.empty(), "test", _authorizer);
-    verify(_entityService).ingestEntity(any(), any());
+        opContext, ACTOR_URN, GLOSSARY_NODE_NAME, Optional.empty(), "test");
+    verify(_entityService).ingestEntity(any(OperationContext.class), any(), any());
   }
 
   @Test
@@ -132,22 +138,22 @@ public class ProposalServiceTest {
     assertThrows(
         () ->
             _proposalService.proposeCreateGlossaryTerm(
-                null, GLOSSARY_TERM_NAME, Optional.empty(), "test", _authorizer));
+                opContext, null, GLOSSARY_TERM_NAME, Optional.empty(), "test"));
     assertThrows(
         () ->
             _proposalService.proposeCreateGlossaryTerm(
-                ACTOR_URN, null, Optional.empty(), "test", _authorizer));
+                opContext, ACTOR_URN, null, Optional.empty(), "test"));
     assertThrows(
         () ->
             _proposalService.proposeCreateGlossaryTerm(
-                ACTOR_URN, GLOSSARY_TERM_NAME, null, "test", _authorizer));
+                opContext, ACTOR_URN, GLOSSARY_TERM_NAME, null, "test"));
   }
 
   @Test
   public void proposeCreateGlossaryTermPasses() {
     _proposalService.proposeCreateGlossaryTerm(
-        ACTOR_URN, GLOSSARY_TERM_NAME, Optional.empty(), "test", _authorizer);
-    verify(_entityService).ingestEntity(any(), any());
+        opContext, ACTOR_URN, GLOSSARY_TERM_NAME, Optional.empty(), "test");
+    verify(_entityService).ingestEntity(any(OperationContext.class), any(), any());
   }
 
   @Test
@@ -155,15 +161,15 @@ public class ProposalServiceTest {
     assertThrows(
         () ->
             _proposalService.proposeUpdateResourceDescription(
-                null, _glossaryNodeUrn, null, null, DESCRIPTION, _authorizer));
+                opContext, null, _glossaryNodeUrn, null, null, DESCRIPTION));
     assertThrows(
         () ->
             _proposalService.proposeUpdateResourceDescription(
-                ACTOR_URN, null, null, null, DESCRIPTION, _authorizer));
+                opContext, ACTOR_URN, null, null, null, DESCRIPTION));
     assertThrows(
         () ->
             _proposalService.proposeUpdateResourceDescription(
-                ACTOR_URN, _glossaryNodeUrn, null, null, null, _authorizer));
+                opContext, ACTOR_URN, _glossaryNodeUrn, null, null, null));
   }
 
   private static class DescriptionUpdateActionRequestMatcher extends ActionRequestSnapshotMatcher {
@@ -185,21 +191,24 @@ public class ProposalServiceTest {
 
   @Test
   public void proposeUpdateResourceDescriptionPasses() {
-    when(_entityService.exists(eq(_glossaryNodeUrn), anyBoolean())).thenReturn(true);
+    when(_entityService.exists(any(OperationContext.class), eq(_glossaryNodeUrn), anyBoolean()))
+        .thenReturn(true);
 
     _proposalService.proposeUpdateResourceDescription(
-        ACTOR_URN, _glossaryNodeUrn, null, null, DESCRIPTION, _authorizer);
+        opContext, ACTOR_URN, _glossaryNodeUrn, null, null, DESCRIPTION);
 
     DescriptionUpdateActionRequestMatcher snapshotMatcher =
         new DescriptionUpdateActionRequestMatcher(
             _glossaryNodeUrn.toString(), null, null, DESCRIPTION);
 
-    verify(_entityService).ingestEntity(argThat(snapshotMatcher), any());
+    verify(_entityService)
+        .ingestEntity(any(OperationContext.class), argThat(snapshotMatcher), any());
   }
 
   @Test
   public void proposeUpdateColumnDescriptionPasses() throws URISyntaxException {
-    when(_entityService.exists(eq(_datasetUrn), anyBoolean())).thenReturn(true);
+    when(_entityService.exists(any(OperationContext.class), eq(_datasetUrn), anyBoolean()))
+        .thenReturn(true);
 
     EntitySpec spec = new EntitySpec(_datasetUrn.getEntityType(), _datasetUrn.toString());
     AuthorizedActors actors =
@@ -208,12 +217,12 @@ public class ProposalServiceTest {
     when(_authorizer.authorizedActors(any(), any())).thenReturn(actors);
 
     _proposalService.proposeUpdateResourceDescription(
+        opContext,
         ACTOR_URN,
         _datasetUrn,
         SubResourceType.DATASET_FIELD.toString(),
         _fieldPath,
-        DESCRIPTION,
-        _authorizer);
+        DESCRIPTION);
 
     DescriptionUpdateActionRequestMatcher snapshotMatcher =
         new DescriptionUpdateActionRequestMatcher(
@@ -222,7 +231,8 @@ public class ProposalServiceTest {
             _fieldPath,
             DESCRIPTION);
 
-    verify(_entityService).ingestEntity(argThat(snapshotMatcher), any());
+    verify(_entityService)
+        .ingestEntity(any(OperationContext.class), argThat(snapshotMatcher), any());
   }
 
   @Test
@@ -234,7 +244,8 @@ public class ProposalServiceTest {
 
     String fieldPath = "someField";
 
-    when(_entityService.exists(eq(datasetUrn), anyBoolean())).thenReturn(true);
+    when(_entityService.exists(any(OperationContext.class), eq(datasetUrn), anyBoolean()))
+        .thenReturn(true);
 
     EntitySpec spec = new EntitySpec(datasetUrn.getEntityType(), datasetUrn.toString());
     AuthorizedActors actors =
@@ -252,19 +263,19 @@ public class ProposalServiceTest {
     assertThrows(
         () ->
             _proposalService.proposeUpdateResourceDescription(
+                opContext,
                 ACTOR_URN,
                 datasetUrn,
                 SubResourceType.DATASET_FIELD.toString(),
                 null,
-                DESCRIPTION,
-                _authorizer));
+                DESCRIPTION));
 
     assertThrows(
         () ->
             _proposalService.proposeUpdateResourceDescription(
-                ACTOR_URN, datasetUrn, null, fieldPath, DESCRIPTION, _authorizer));
+                opContext, ACTOR_URN, datasetUrn, null, fieldPath, DESCRIPTION));
 
-    verify(_entityService, never()).ingestEntity(any(), any());
+    verify(_entityService, never()).ingestEntity(any(OperationContext.class), any(), any());
   }
 
   @Test
@@ -272,13 +283,14 @@ public class ProposalServiceTest {
     assertThrows(
         () ->
             _proposalService.isAuthorizedToResolveGlossaryEntityAsOwner(
-                null, Optional.of(_glossaryNodeUrn)));
+                opContext, null, Optional.of(_glossaryNodeUrn)));
   }
 
   @Test
   public void isAuthorizedToResolveGlossaryEntityAsOwnerEmptyParentNode() {
     assertFalse(
-        _proposalService.isAuthorizedToResolveGlossaryEntityAsOwner(ACTOR_URN, Optional.empty()));
+        _proposalService.isAuthorizedToResolveGlossaryEntityAsOwner(
+            opContext, ACTOR_URN, Optional.empty()));
   }
 
   @Test
@@ -286,12 +298,13 @@ public class ProposalServiceTest {
     Ownership ownership =
         new Ownership()
             .setOwners(new OwnerArray(ImmutableList.of(new Owner().setOwner(ACTOR_URN))));
-    when(_entityService.getLatestAspect(eq(_glossaryNodeUrn), eq(OWNERSHIP_ASPECT_NAME)))
+    when(_entityService.getLatestAspect(
+            any(OperationContext.class), eq(_glossaryNodeUrn), eq(OWNERSHIP_ASPECT_NAME)))
         .thenReturn(ownership);
 
     assertTrue(
         _proposalService.isAuthorizedToResolveGlossaryEntityAsOwner(
-            ACTOR_URN, Optional.of(_glossaryNodeUrn)));
+            opContext, ACTOR_URN, Optional.of(_glossaryNodeUrn)));
   }
 
   @Test
@@ -302,14 +315,16 @@ public class ProposalServiceTest {
     GroupMembership groupMembership =
         new GroupMembership().setGroups(new UrnArray(Collections.singletonList(GROUP_URN)));
 
-    when(_entityService.getLatestAspect(eq(_glossaryNodeUrn), eq(OWNERSHIP_ASPECT_NAME)))
+    when(_entityService.getLatestAspect(
+            any(OperationContext.class), eq(_glossaryNodeUrn), eq(OWNERSHIP_ASPECT_NAME)))
         .thenReturn(ownership);
-    when(_entityService.getLatestAspect(eq(ACTOR_URN), eq(GROUP_MEMBERSHIP_ASPECT_NAME)))
+    when(_entityService.getLatestAspect(
+            any(OperationContext.class), eq(ACTOR_URN), eq(GROUP_MEMBERSHIP_ASPECT_NAME)))
         .thenReturn(groupMembership);
 
     assertTrue(
         _proposalService.isAuthorizedToResolveGlossaryEntityAsOwner(
-            ACTOR_URN, Optional.of(_glossaryNodeUrn)));
+            opContext, ACTOR_URN, Optional.of(_glossaryNodeUrn)));
   }
 
   @Test
@@ -317,11 +332,9 @@ public class ProposalServiceTest {
     assertThrows(
         () ->
             _proposalService.acceptCreateGlossaryNodeProposal(
-                null, new ActionRequestSnapshot(), true, SYSTEM_AUTHENTICATION));
+                opContext, null, new ActionRequestSnapshot(), true));
     assertThrows(
-        () ->
-            _proposalService.acceptCreateGlossaryNodeProposal(
-                ACTOR_URN, null, true, SYSTEM_AUTHENTICATION));
+        () -> _proposalService.acceptCreateGlossaryNodeProposal(opContext, ACTOR_URN, null, true));
   }
 
   @Test
@@ -338,7 +351,7 @@ public class ProposalServiceTest {
             Optional.empty(),
             "test");
     _proposalService.acceptCreateGlossaryNodeProposal(
-        ACTOR_URN, actionRequestSnapshot, true, SYSTEM_AUTHENTICATION);
+        opContext, ACTOR_URN, actionRequestSnapshot, true);
 
     verify(_entityClient).ingestProposal(any(), any());
   }
@@ -348,11 +361,9 @@ public class ProposalServiceTest {
     assertThrows(
         () ->
             _proposalService.acceptCreateGlossaryTermProposal(
-                null, new ActionRequestSnapshot(), true, SYSTEM_AUTHENTICATION));
+                opContext, null, new ActionRequestSnapshot(), true));
     assertThrows(
-        () ->
-            _proposalService.acceptCreateGlossaryTermProposal(
-                ACTOR_URN, null, true, SYSTEM_AUTHENTICATION));
+        () -> _proposalService.acceptCreateGlossaryTermProposal(opContext, ACTOR_URN, null, true));
   }
 
   @Test
@@ -369,20 +380,18 @@ public class ProposalServiceTest {
             Optional.empty(),
             "test");
     _proposalService.acceptCreateGlossaryTermProposal(
-        ACTOR_URN, actionRequestSnapshot, true, SYSTEM_AUTHENTICATION);
+        opContext, ACTOR_URN, actionRequestSnapshot, true);
 
     verify(_entityClient).ingestProposal(any(), any());
   }
 
   @Test
   public void acceptUpdateResourceDescriptionProposalNullArguments() {
-    assertThrows(
-        () ->
-            _proposalService.acceptUpdateResourceDescriptionProposal(null, SYSTEM_AUTHENTICATION));
+    assertThrows(() -> _proposalService.acceptUpdateResourceDescriptionProposal(opContext, null));
     assertThrows(
         () ->
             _proposalService.acceptUpdateResourceDescriptionProposal(
-                new ActionRequestSnapshot(), null));
+                opContext, new ActionRequestSnapshot()));
   }
 
   @Test
@@ -391,7 +400,8 @@ public class ProposalServiceTest {
         _proposalService.mapGlossaryNodeInfo(
             GLOSSARY_NODE_NAME, Optional.empty(), Optional.of("test"));
     when(_entityClient.exists(any(), any())).thenReturn(false);
-    when(_entityService.getLatestAspect(eq(_glossaryNodeUrn), eq(GLOSSARY_NODE_INFO_ASPECT_NAME)))
+    when(_entityService.getLatestAspect(
+            any(OperationContext.class), eq(_glossaryNodeUrn), eq(GLOSSARY_NODE_INFO_ASPECT_NAME)))
         .thenReturn(glossaryNodeInfo);
 
     ActionRequestSnapshot actionRequestSnapshot =
@@ -404,8 +414,7 @@ public class ProposalServiceTest {
             Collections.EMPTY_LIST,
             Collections.EMPTY_LIST,
             DESCRIPTION);
-    _proposalService.acceptUpdateResourceDescriptionProposal(
-        actionRequestSnapshot, SYSTEM_AUTHENTICATION);
+    _proposalService.acceptUpdateResourceDescriptionProposal(opContext, actionRequestSnapshot);
 
     verify(_entityClient).ingestProposal(any(), any());
   }
@@ -416,7 +425,8 @@ public class ProposalServiceTest {
         _proposalService.mapGlossaryTermInfo(
             GLOSSARY_TERM_NAME, Optional.empty(), Optional.of("test"));
     when(_entityClient.exists(any(), any())).thenReturn(false);
-    when(_entityService.getLatestAspect(eq(_glossaryTermUrn), eq(GLOSSARY_TERM_INFO_ASPECT_NAME)))
+    when(_entityService.getLatestAspect(
+            any(OperationContext.class), eq(_glossaryTermUrn), eq(GLOSSARY_TERM_INFO_ASPECT_NAME)))
         .thenReturn(glossaryTermInfo);
 
     ActionRequestSnapshot actionRequestSnapshot =
@@ -429,8 +439,7 @@ public class ProposalServiceTest {
             Collections.EMPTY_LIST,
             Collections.EMPTY_LIST,
             DESCRIPTION);
-    _proposalService.acceptUpdateResourceDescriptionProposal(
-        actionRequestSnapshot, SYSTEM_AUTHENTICATION);
+    _proposalService.acceptUpdateResourceDescriptionProposal(opContext, actionRequestSnapshot);
 
     verify(_entityClient).ingestProposal(any(), any());
   }
@@ -457,7 +466,9 @@ public class ProposalServiceTest {
   @Test
   public void acceptUpdateDatasetDescriptionProposalNewAspectPasses() throws Exception {
     when(_entityService.getLatestAspect(
-            eq(_datasetUrn), eq(EDITABLE_DATASET_PROPERTIES_ASPECT_NAME)))
+            any(OperationContext.class),
+            eq(_datasetUrn),
+            eq(EDITABLE_DATASET_PROPERTIES_ASPECT_NAME)))
         .thenReturn(null);
 
     ActionRequestSnapshot actionRequestSnapshot =
@@ -471,8 +482,7 @@ public class ProposalServiceTest {
             Collections.EMPTY_LIST,
             DESCRIPTION);
 
-    _proposalService.acceptUpdateResourceDescriptionProposal(
-        actionRequestSnapshot, SYSTEM_AUTHENTICATION);
+    _proposalService.acceptUpdateResourceDescriptionProposal(opContext, actionRequestSnapshot);
 
     DatasetDescriptionMatcher datasetDescriptionMatcher =
         new DatasetDescriptionMatcher(
@@ -482,7 +492,8 @@ public class ProposalServiceTest {
             ChangeType.UPSERT,
             DESCRIPTION);
 
-    verify(_entityClient).ingestProposal(argThat(datasetDescriptionMatcher), any());
+    verify(_entityClient)
+        .ingestProposal(any(OperationContext.class), argThat(datasetDescriptionMatcher));
   }
 
   @Test
@@ -491,7 +502,9 @@ public class ProposalServiceTest {
     editableDatasetProperties.setDescription("OLD_" + DESCRIPTION);
 
     when(_entityService.getLatestAspect(
-            eq(_datasetUrn), eq(EDITABLE_DATASET_PROPERTIES_ASPECT_NAME)))
+            any(OperationContext.class),
+            eq(_datasetUrn),
+            eq(EDITABLE_DATASET_PROPERTIES_ASPECT_NAME)))
         .thenReturn(editableDatasetProperties);
 
     ActionRequestSnapshot actionRequestSnapshot =
@@ -505,8 +518,7 @@ public class ProposalServiceTest {
             Collections.EMPTY_LIST,
             DESCRIPTION);
 
-    _proposalService.acceptUpdateResourceDescriptionProposal(
-        actionRequestSnapshot, SYSTEM_AUTHENTICATION);
+    _proposalService.acceptUpdateResourceDescriptionProposal(opContext, actionRequestSnapshot);
 
     DatasetDescriptionMatcher datasetDescriptionMatcher =
         new DatasetDescriptionMatcher(
@@ -516,7 +528,8 @@ public class ProposalServiceTest {
             ChangeType.UPSERT,
             DESCRIPTION);
 
-    verify(_entityClient).ingestProposal(argThat(datasetDescriptionMatcher), any());
+    verify(_entityClient)
+        .ingestProposal(any(OperationContext.class), argThat(datasetDescriptionMatcher));
   }
 
   private static class ColumnDescriptionMatcher extends MetadataChangeProposalMatcher {
@@ -543,7 +556,8 @@ public class ProposalServiceTest {
 
   @Test
   public void acceptUpdateColumnDescriptionProposalNewAspectPasses() throws Exception {
-    when(_entityService.getLatestAspect(eq(_datasetUrn), eq(EDITABLE_SCHEMA_METADATA_ASPECT_NAME)))
+    when(_entityService.getLatestAspect(
+            any(OperationContext.class), eq(_datasetUrn), eq(EDITABLE_SCHEMA_METADATA_ASPECT_NAME)))
         .thenReturn(null);
 
     ActionRequestSnapshot actionRequestSnapshot =
@@ -557,8 +571,7 @@ public class ProposalServiceTest {
             Collections.EMPTY_LIST,
             DESCRIPTION);
 
-    _proposalService.acceptUpdateResourceDescriptionProposal(
-        actionRequestSnapshot, SYSTEM_AUTHENTICATION);
+    _proposalService.acceptUpdateResourceDescriptionProposal(opContext, actionRequestSnapshot);
 
     ColumnDescriptionMatcher columnDescriptionMatcher =
         new ColumnDescriptionMatcher(
@@ -568,7 +581,8 @@ public class ProposalServiceTest {
             ChangeType.UPSERT,
             DESCRIPTION);
 
-    verify(_entityClient).ingestProposal(argThat(columnDescriptionMatcher), any());
+    verify(_entityClient)
+        .ingestProposal(any(OperationContext.class), argThat(columnDescriptionMatcher));
   }
 
   @Test
@@ -580,7 +594,8 @@ public class ProposalServiceTest {
     editableSchemaFieldInfo.setDescription("OLD_" + DESCRIPTION);
     editableSchemaFieldInfo.setFieldPath(_fieldPath);
 
-    when(_entityService.getLatestAspect(eq(_datasetUrn), eq(EDITABLE_SCHEMA_METADATA_ASPECT_NAME)))
+    when(_entityService.getLatestAspect(
+            any(OperationContext.class), eq(_datasetUrn), eq(EDITABLE_SCHEMA_METADATA_ASPECT_NAME)))
         .thenReturn(editableSchemaMetadata);
 
     ActionRequestSnapshot actionRequestSnapshot =
@@ -594,8 +609,7 @@ public class ProposalServiceTest {
             Collections.EMPTY_LIST,
             DESCRIPTION);
 
-    _proposalService.acceptUpdateResourceDescriptionProposal(
-        actionRequestSnapshot, SYSTEM_AUTHENTICATION);
+    _proposalService.acceptUpdateResourceDescriptionProposal(opContext, actionRequestSnapshot);
 
     ColumnDescriptionMatcher columnDescriptionMatcher =
         new ColumnDescriptionMatcher(
@@ -605,12 +619,14 @@ public class ProposalServiceTest {
             ChangeType.UPSERT,
             DESCRIPTION);
 
-    verify(_entityClient).ingestProposal(argThat(columnDescriptionMatcher), any());
+    verify(_entityClient)
+        .ingestProposal(any(OperationContext.class), argThat(columnDescriptionMatcher));
   }
 
   @Test
   public void acceptUpdateColumnDescriptionProposalNoSubResourceFails() throws Exception {
-    when(_entityService.getLatestAspect(eq(_datasetUrn), eq(EDITABLE_SCHEMA_METADATA_ASPECT_NAME)))
+    when(_entityService.getLatestAspect(
+            any(OperationContext.class), eq(_datasetUrn), eq(EDITABLE_SCHEMA_METADATA_ASPECT_NAME)))
         .thenReturn(null);
 
     ActionRequestSnapshot actionRequestSnapshot =
@@ -630,7 +646,7 @@ public class ProposalServiceTest {
         NullPointerException.class,
         () ->
             _proposalService.acceptUpdateResourceDescriptionProposal(
-                actionRequestSnapshot, SYSTEM_AUTHENTICATION));
+                opContext, actionRequestSnapshot));
 
     verify(_entityClient, never()).ingestProposal(any(), any());
   }
@@ -640,6 +656,7 @@ public class ProposalServiceTest {
     assertThrows(
         () ->
             _proposalService.completeProposal(
+                opContext,
                 null,
                 ACTION_REQUEST_STATUS_COMPLETE,
                 ACTION_REQUEST_RESULT_ACCEPTED,
@@ -647,15 +664,19 @@ public class ProposalServiceTest {
     assertThrows(
         () ->
             _proposalService.completeProposal(
-                ACTOR_URN, null, ACTION_REQUEST_RESULT_ACCEPTED, new Entity()));
+                opContext, ACTOR_URN, null, ACTION_REQUEST_RESULT_ACCEPTED, new Entity()));
     assertThrows(
         () ->
             _proposalService.completeProposal(
-                ACTOR_URN, ACTION_REQUEST_STATUS_COMPLETE, null, new Entity()));
+                opContext, ACTOR_URN, ACTION_REQUEST_STATUS_COMPLETE, null, new Entity()));
     assertThrows(
         () ->
             _proposalService.completeProposal(
-                ACTOR_URN, ACTION_REQUEST_STATUS_COMPLETE, ACTION_REQUEST_RESULT_ACCEPTED, null));
+                opContext,
+                ACTOR_URN,
+                ACTION_REQUEST_STATUS_COMPLETE,
+                ACTION_REQUEST_RESULT_ACCEPTED,
+                null));
   }
 
   @Test
@@ -672,9 +693,13 @@ public class ProposalServiceTest {
             DESCRIPTION);
     Entity entity = new Entity().setValue(Snapshot.create(actionRequestSnapshot));
     _proposalService.completeProposal(
-        ACTOR_URN, ACTION_REQUEST_STATUS_COMPLETE, ACTION_REQUEST_RESULT_ACCEPTED, entity);
+        opContext,
+        ACTOR_URN,
+        ACTION_REQUEST_STATUS_COMPLETE,
+        ACTION_REQUEST_RESULT_ACCEPTED,
+        entity);
 
-    verify(_entityService).ingestEntity(any(), any());
+    verify(_entityService).ingestEntity(any(OperationContext.class), any(), any());
   }
 
   private abstract static class ActionRequestSnapshotMatcher implements ArgumentMatcher<Entity> {

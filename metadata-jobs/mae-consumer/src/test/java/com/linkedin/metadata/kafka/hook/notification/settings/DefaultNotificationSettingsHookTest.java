@@ -25,6 +25,7 @@ import com.linkedin.identity.CorpUserSettings;
 import com.linkedin.metadata.service.SettingsService;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeLog;
+import io.datahubproject.metadata.context.OperationContext;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
@@ -57,44 +58,56 @@ public class DefaultNotificationSettingsHookTest {
     MetadataChangeLog event = createMockUserInfoEventWithNoEmail();
     hook.invoke(event);
     verify(settingsService, never())
-        .updateCorpUserSettings(any(Urn.class), any(CorpUserSettings.class));
+        .updateCorpUserSettings(
+            any(OperationContext.class), any(Urn.class), any(CorpUserSettings.class));
 
     event = createMockUserEditableEventWithNoEmail();
     hook.invoke(event);
     verify(settingsService, never())
-        .updateCorpUserSettings(any(Urn.class), any(CorpUserSettings.class));
+        .updateCorpUserSettings(
+            any(OperationContext.class), any(Urn.class), any(CorpUserSettings.class));
   }
 
   @Test
   public void testDefaultNotificationSettingsAppliedToNewUser() {
-    when(settingsService.getCorpUserSettings(any(Urn.class))).thenReturn(null);
+    when(settingsService.getCorpUserSettings(any(OperationContext.class), any(Urn.class)))
+        .thenReturn(null);
 
     MetadataChangeLog event = createMockUserInfoEventWithEmail();
     hook.invoke(event);
     verify(settingsService, times(1))
-        .updateCorpUserSettings(Mockito.eq(TEST_USER_URN), Mockito.eq(getMockUserSettings()));
+        .updateCorpUserSettings(
+            nullable(OperationContext.class),
+            Mockito.eq(TEST_USER_URN),
+            Mockito.eq(getMockUserSettings()));
 
     event = createMockUserEditableInfoEventWithEmail();
     hook.invoke(event);
     verify(settingsService, times(2))
-        .updateCorpUserSettings(Mockito.eq(TEST_USER_URN), Mockito.eq(getMockUserSettings()));
+        .updateCorpUserSettings(
+            nullable(OperationContext.class),
+            Mockito.eq(TEST_USER_URN),
+            Mockito.eq(getMockUserSettings()));
   }
 
   @Test
   public void testExistingUserNotificationSettingsNotOverwritten() {
     CorpUserSettings existingSettings =
         new CorpUserSettings().setNotificationSettings(new NotificationSettings());
-    when(settingsService.getCorpUserSettings(any(Urn.class))).thenReturn(existingSettings);
+    when(settingsService.getCorpUserSettings(any(OperationContext.class), any(Urn.class)))
+        .thenReturn(existingSettings);
 
     MetadataChangeLog event = createMockUserInfoEventWithEmail();
     hook.invoke(event);
     verify(settingsService, never())
-        .updateCorpUserSettings(any(Urn.class), any(CorpUserSettings.class));
+        .updateCorpUserSettings(
+            any(OperationContext.class), any(Urn.class), any(CorpUserSettings.class));
 
     event = createMockUserEditableInfoEventWithEmail();
     hook.invoke(event);
     verify(settingsService, never())
-        .updateCorpUserSettings(any(Urn.class), any(CorpUserSettings.class));
+        .updateCorpUserSettings(
+            any(OperationContext.class), any(Urn.class), any(CorpUserSettings.class));
   }
 
   @Test
@@ -102,44 +115,56 @@ public class DefaultNotificationSettingsHookTest {
     MetadataChangeLog event = createMockGroupInfoEventWithNoEmail();
     hook.invoke(event);
     verify(settingsService, never())
-        .updateCorpGroupSettings(any(Urn.class), any(CorpGroupSettings.class));
+        .updateCorpGroupSettings(
+            any(OperationContext.class), any(Urn.class), any(CorpGroupSettings.class));
 
     event = createMockGroupEditableInfoEventWithNoEmail();
     hook.invoke(event);
     verify(settingsService, never())
-        .updateCorpGroupSettings(any(Urn.class), any(CorpGroupSettings.class));
+        .updateCorpGroupSettings(
+            any(OperationContext.class), any(Urn.class), any(CorpGroupSettings.class));
   }
 
   @Test
   public void testDefaultNotificationSettingsAppliedToNewGroup() {
-    when(settingsService.getCorpGroupSettings(any(Urn.class))).thenReturn(null);
+    when(settingsService.getCorpGroupSettings(any(OperationContext.class), any(Urn.class)))
+        .thenReturn(null);
 
     MetadataChangeLog event = createMockGroupInfoEventWithEmail();
     hook.invoke(event);
     verify(settingsService, times(1))
-        .updateCorpGroupSettings(Mockito.eq(TEST_GROUP_URN), Mockito.eq(getMockGroupSettings()));
+        .updateCorpGroupSettings(
+            nullable(OperationContext.class),
+            Mockito.eq(TEST_GROUP_URN),
+            Mockito.eq(getMockGroupSettings()));
 
     event = createMockGroupEditableEventWithEmail();
     hook.invoke(event);
     verify(settingsService, times(2))
-        .updateCorpGroupSettings(Mockito.eq(TEST_GROUP_URN), Mockito.eq(getMockGroupSettings()));
+        .updateCorpGroupSettings(
+            nullable(OperationContext.class),
+            Mockito.eq(TEST_GROUP_URN),
+            Mockito.eq(getMockGroupSettings()));
   }
 
   @Test
   public void testExistingGroupNotificationSettingsNotOverwritten() {
     CorpGroupSettings existingSettings =
         new CorpGroupSettings().setNotificationSettings(new NotificationSettings());
-    when(settingsService.getCorpGroupSettings(any(Urn.class))).thenReturn(existingSettings);
+    when(settingsService.getCorpGroupSettings(any(OperationContext.class), any(Urn.class)))
+        .thenReturn(existingSettings);
 
     MetadataChangeLog event = createMockGroupInfoEventWithEmail();
     hook.invoke(event);
     verify(settingsService, never())
-        .updateCorpGroupSettings(any(Urn.class), any(CorpGroupSettings.class));
+        .updateCorpGroupSettings(
+            any(OperationContext.class), any(Urn.class), any(CorpGroupSettings.class));
 
     event = createMockGroupEditableEventWithEmail();
     hook.invoke(event);
     verify(settingsService, never())
-        .updateCorpGroupSettings(any(Urn.class), any(CorpGroupSettings.class));
+        .updateCorpGroupSettings(
+            any(OperationContext.class), any(Urn.class), any(CorpGroupSettings.class));
   }
 
   @Test
@@ -152,12 +177,16 @@ public class DefaultNotificationSettingsHookTest {
             new CorpUserInfo().setEmail(TEST_EMAIL));
 
     hook.invoke(event);
-    verify(settingsService, never()).getCorpUserSettings(any(Urn.class));
-    verify(settingsService, never()).getCorpGroupSettings(any(Urn.class));
     verify(settingsService, never())
-        .updateCorpUserSettings(any(Urn.class), any(CorpUserSettings.class));
+        .getCorpUserSettings(any(OperationContext.class), any(Urn.class));
     verify(settingsService, never())
-        .updateCorpGroupSettings(any(Urn.class), any(CorpGroupSettings.class));
+        .getCorpGroupSettings(any(OperationContext.class), any(Urn.class));
+    verify(settingsService, never())
+        .updateCorpUserSettings(
+            any(OperationContext.class), any(Urn.class), any(CorpUserSettings.class));
+    verify(settingsService, never())
+        .updateCorpGroupSettings(
+            any(OperationContext.class), any(Urn.class), any(CorpGroupSettings.class));
   }
 
   private CorpUserSettings getMockUserSettings() {

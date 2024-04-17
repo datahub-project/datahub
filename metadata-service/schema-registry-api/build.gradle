@@ -1,13 +1,12 @@
 plugins {
     id 'org.hidetake.swagger.generator'
-    id 'java'
+    id 'java-library'
 }
 
 
 dependencies {
 // Dependencies for open api
     implementation externalDependency.reflections
-    implementation externalDependency.springBoot
     implementation externalDependency.springCore
     implementation externalDependency.springWeb
     implementation externalDependency.springWebMVC
@@ -15,9 +14,9 @@ dependencies {
     implementation externalDependency.springContext
     implementation externalDependency.antlr4Runtime
     implementation externalDependency.antlr4
-    implementation externalDependency.springBootStarterValidation
     implementation externalDependency.servletApi
-    implementation group: 'javax.annotation', name: 'javax.annotation-api', version: '1.3.2'
+    implementation externalDependency.jakartaValidation
+    implementation externalDependency.jakartaAnnotationApi
     implementation externalDependency.jacksonDataBind
     implementation externalDependency.slf4jApi
 

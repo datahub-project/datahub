@@ -46,6 +46,7 @@ public interface RecommendationSourceWithOffline extends RecommendationSource {
         moduleAspect =
             getEntityService()
                 .getLatestEnvelopedAspect(
+                    opContext,
                     Constants.RECOMMENDATION_MODULE_ENTITY_NAME,
                     getRecommendationModuleUrn(opContext, requestContext),
                     Constants.RECOMMENDATION_MODULE_ASPECT_NAME);

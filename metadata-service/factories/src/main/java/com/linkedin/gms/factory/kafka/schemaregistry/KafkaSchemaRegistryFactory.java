@@ -1,7 +1,6 @@
 package com.linkedin.gms.factory.kafka.schemaregistry;
 
 import com.linkedin.gms.factory.config.ConfigurationProvider;
-import com.linkedin.metadata.spring.YamlPropertySourceFactory;
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClientConfig;
 import io.confluent.kafka.serializers.AbstractKafkaSchemaSerDeConfig;
 import io.confluent.kafka.serializers.KafkaAvroDeserializer;
@@ -16,14 +15,10 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.PropertySource;
 
 @Slf4j
 @Configuration
-@PropertySource(value = "classpath:/application.yml", factory = YamlPropertySourceFactory.class)
-@ConditionalOnProperty(
-    name = "kafka.schemaRegistry.type",
-    havingValue = KafkaSchemaRegistryFactory.TYPE)
+@ConditionalOnProperty(name = "kafka.schemaRegistry.type", havingValue = "KAFKA")
 public class KafkaSchemaRegistryFactory {
 
   public static final String TYPE = "KAFKA";

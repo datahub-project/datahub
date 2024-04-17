@@ -24,6 +24,7 @@ import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.mxe.MetadataChangeProposal;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.concurrent.CompletionException;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
@@ -49,7 +50,10 @@ public class MoveDomainResolverTest {
     final String name = "test name";
     Mockito.when(
             mockService.getAspect(
-                Urn.createFromString(DOMAIN_URN), Constants.DOMAIN_PROPERTIES_ASPECT_NAME, 0))
+                any(),
+                eq(Urn.createFromString(DOMAIN_URN)),
+                eq(Constants.DOMAIN_PROPERTIES_ASPECT_NAME),
+                eq(0L)))
         .thenReturn(new DomainProperties().setName(name));
 
     Mockito.when(
@@ -75,7 +79,9 @@ public class MoveDomainResolverTest {
   public void testGetSuccess() throws Exception {
     EntityService mockService = Mockito.mock(EntityService.class);
     EntityClient mockClient = Mockito.mock(EntityClient.class);
-    Mockito.when(mockService.exists(eq(Urn.createFromString(PARENT_DOMAIN_URN)), eq(true)))
+    Mockito.when(
+            mockService.exists(
+                any(OperationContext.class), eq(Urn.createFromString(PARENT_DOMAIN_URN)), eq(true)))
         .thenReturn(true);
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     Mockito.when(mockEnv.getArgument("input")).thenReturn(INPUT);
@@ -86,6 +92,7 @@ public class MoveDomainResolverTest {
     assertTrue(resolver.get(mockEnv).get());
     Mockito.verify(mockService, Mockito.times(1))
         .ingestProposal(
+            any(),
             Mockito.any(MetadataChangeProposal.class),
             Mockito.any(AuditStamp.class),
             Mockito.eq(false));
@@ -95,7 +102,7 @@ public class MoveDomainResolverTest {
   public void testGetFailureEntityDoesNotExist() throws Exception {
     EntityService mockService = Mockito.mock(EntityService.class);
     EntityClient mockClient = Mockito.mock(EntityClient.class);
-    Mockito.when(mockService.exists(eq(Urn.createFromString(PARENT_DOMAIN_URN)), eq(true)))
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(PARENT_DOMAIN_URN)), eq(true)))
         .thenReturn(true);
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     Mockito.when(mockEnv.getArgument("input")).thenReturn(INPUT);
@@ -107,7 +114,10 @@ public class MoveDomainResolverTest {
 
     Mockito.when(
             mockService.getAspect(
-                Urn.createFromString(DOMAIN_URN), DOMAIN_PROPERTIES_ASPECT_NAME, 0))
+                any(),
+                eq(Urn.createFromString(DOMAIN_URN)),
+                eq(DOMAIN_PROPERTIES_ASPECT_NAME),
+                eq(0)))
         .thenReturn(null);
 
     MoveDomainResolver resolver = new MoveDomainResolver(mockService, mockClient);
@@ -119,7 +129,7 @@ public class MoveDomainResolverTest {
   public void testGetFailureParentDoesNotExist() throws Exception {
     EntityService mockService = Mockito.mock(EntityService.class);
     EntityClient mockClient = Mockito.mock(EntityClient.class);
-    Mockito.when(mockService.exists(eq(Urn.createFromString(PARENT_DOMAIN_URN)), eq(true)))
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(PARENT_DOMAIN_URN)), eq(true)))
         .thenReturn(false);
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     Mockito.when(mockEnv.getArgument("input")).thenReturn(INPUT);
@@ -135,7 +145,7 @@ public class MoveDomainResolverTest {
   public void testGetFailureParentIsNotDomain() throws Exception {
     EntityService mockService = Mockito.mock(EntityService.class);
     EntityClient mockClient = Mockito.mock(EntityClient.class);
-    Mockito.when(mockService.exists(eq(Urn.createFromString(PARENT_DOMAIN_URN)), eq(true)))
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(PARENT_DOMAIN_URN)), eq(true)))
         .thenReturn(true);
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     Mockito.when(mockEnv.getArgument("input")).thenReturn(INVALID_INPUT);

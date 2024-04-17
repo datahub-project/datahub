@@ -42,20 +42,22 @@ public class AddOwnersResolverTest {
 
     Mockito.when(
             mockService.getAspect(
+                any(),
                 Mockito.eq(UrnUtils.getUrn(TEST_ENTITY_URN)),
                 Mockito.eq(Constants.OWNERSHIP_ASPECT_NAME),
                 Mockito.eq(0L)))
         .thenReturn(null);
 
-    Mockito.when(mockService.exists(eq(Urn.createFromString(TEST_ENTITY_URN)), eq(true)))
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN)), eq(true)))
         .thenReturn(true);
-    Mockito.when(mockService.exists(eq(Urn.createFromString(TEST_OWNER_1_URN)), eq(true)))
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_OWNER_1_URN)), eq(true)))
         .thenReturn(true);
-    Mockito.when(mockService.exists(eq(Urn.createFromString(TEST_OWNER_2_URN)), eq(true)))
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_OWNER_2_URN)), eq(true)))
         .thenReturn(true);
 
     Mockito.when(
             mockService.exists(
+                any(),
                 eq(
                     Urn.createFromString(
                         OwnerUtils.mapOwnershipTypeToEntity(
@@ -91,10 +93,10 @@ public class AddOwnersResolverTest {
     verifyIngestProposal(mockService, 1);
 
     Mockito.verify(mockService, Mockito.times(1))
-        .exists(Mockito.eq(Urn.createFromString(TEST_OWNER_1_URN)), eq(true));
+        .exists(any(), Mockito.eq(Urn.createFromString(TEST_OWNER_1_URN)), eq(true));
 
     Mockito.verify(mockService, Mockito.times(1))
-        .exists(Mockito.eq(Urn.createFromString(TEST_OWNER_2_URN)), eq(true));
+        .exists(any(), Mockito.eq(Urn.createFromString(TEST_OWNER_2_URN)), eq(true));
   }
 
   @Test
@@ -114,18 +116,20 @@ public class AddOwnersResolverTest {
 
     Mockito.when(
             mockService.getAspect(
+                any(),
                 Mockito.eq(UrnUtils.getUrn(TEST_ENTITY_URN)),
                 Mockito.eq(Constants.OWNERSHIP_ASPECT_NAME),
                 Mockito.eq(0L)))
         .thenReturn(oldOwnership);
 
-    Mockito.when(mockService.exists(eq(Urn.createFromString(TEST_ENTITY_URN)), eq(true)))
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN)), eq(true)))
         .thenReturn(true);
-    Mockito.when(mockService.exists(eq(Urn.createFromString(TEST_OWNER_1_URN)), eq(true)))
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_OWNER_1_URN)), eq(true)))
         .thenReturn(true);
 
     Mockito.when(
             mockService.exists(
+                any(),
                 eq(
                     Urn.createFromString(
                         OwnerUtils.mapOwnershipTypeToEntity(
@@ -158,7 +162,7 @@ public class AddOwnersResolverTest {
     verifyIngestProposal(mockService, 1);
 
     Mockito.verify(mockService, Mockito.times(1))
-        .exists(Mockito.eq(Urn.createFromString(TEST_OWNER_1_URN)), eq(true));
+        .exists(any(), Mockito.eq(Urn.createFromString(TEST_OWNER_1_URN)), eq(true));
   }
 
   @Test
@@ -178,15 +182,17 @@ public class AddOwnersResolverTest {
 
     Mockito.when(
             mockService.getAspect(
+                any(),
                 Mockito.eq(UrnUtils.getUrn(TEST_ENTITY_URN)),
                 Mockito.eq(Constants.OWNERSHIP_ASPECT_NAME),
                 Mockito.eq(0L)))
         .thenReturn(oldOwnership);
 
-    Mockito.when(mockService.exists(any(Urn.class), eq(true))).thenReturn(true);
+    Mockito.when(mockService.exists(any(), any(Urn.class), eq(true))).thenReturn(true);
 
     Mockito.when(
             mockService.exists(
+                any(),
                 eq(
                     Urn.createFromString(
                         OwnerUtils.mapOwnershipTypeToEntity(
@@ -219,7 +225,7 @@ public class AddOwnersResolverTest {
     verifyIngestProposal(mockService, 1);
 
     Mockito.verify(mockService, Mockito.times(1))
-        .exists(Mockito.eq(Urn.createFromString(TEST_OWNER_1_URN)), eq(true));
+        .exists(any(), Mockito.eq(Urn.createFromString(TEST_OWNER_1_URN)), eq(true));
   }
 
   @Test
@@ -239,22 +245,24 @@ public class AddOwnersResolverTest {
 
     Mockito.when(
             mockService.getAspect(
+                any(),
                 Mockito.eq(UrnUtils.getUrn(TEST_ENTITY_URN)),
                 Mockito.eq(Constants.OWNERSHIP_ASPECT_NAME),
                 Mockito.eq(0L)))
         .thenReturn(oldOwnership);
 
-    Mockito.when(mockService.exists(eq(Urn.createFromString(TEST_ENTITY_URN)), eq(true)))
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN)), eq(true)))
         .thenReturn(true);
-    Mockito.when(mockService.exists(eq(Urn.createFromString(TEST_OWNER_1_URN)), eq(true)))
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_OWNER_1_URN)), eq(true)))
         .thenReturn(true);
-    Mockito.when(mockService.exists(eq(Urn.createFromString(TEST_OWNER_2_URN)), eq(true)))
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_OWNER_2_URN)), eq(true)))
         .thenReturn(true);
-    Mockito.when(mockService.exists(eq(Urn.createFromString(TEST_OWNER_3_URN)), eq(true)))
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_OWNER_3_URN)), eq(true)))
         .thenReturn(true);
 
     Mockito.when(
             mockService.exists(
+                any(),
                 eq(
                     Urn.createFromString(
                         OwnerUtils.mapOwnershipTypeToEntity(
@@ -264,6 +272,7 @@ public class AddOwnersResolverTest {
         .thenReturn(true);
     Mockito.when(
             mockService.exists(
+                any(),
                 eq(
                     Urn.createFromString(
                         OwnerUtils.mapOwnershipTypeToEntity(
@@ -308,13 +317,13 @@ public class AddOwnersResolverTest {
     verifyIngestProposal(mockService, 1);
 
     Mockito.verify(mockService, Mockito.times(1))
-        .exists(Mockito.eq(Urn.createFromString(TEST_OWNER_1_URN)), eq(true));
+        .exists(any(), Mockito.eq(Urn.createFromString(TEST_OWNER_1_URN)), eq(true));
 
     Mockito.verify(mockService, Mockito.times(1))
-        .exists(Mockito.eq(Urn.createFromString(TEST_OWNER_2_URN)), eq(true));
+        .exists(any(), Mockito.eq(Urn.createFromString(TEST_OWNER_2_URN)), eq(true));
 
     Mockito.verify(mockService, Mockito.times(1))
-        .exists(Mockito.eq(Urn.createFromString(TEST_OWNER_3_URN)), eq(true));
+        .exists(any(), Mockito.eq(Urn.createFromString(TEST_OWNER_3_URN)), eq(true));
   }
 
   @Test
@@ -323,14 +332,15 @@ public class AddOwnersResolverTest {
 
     Mockito.when(
             mockService.getAspect(
+                any(),
                 Mockito.eq(UrnUtils.getUrn(TEST_ENTITY_URN)),
                 Mockito.eq(Constants.OWNERSHIP_ASPECT_NAME),
                 Mockito.eq(0L)))
         .thenReturn(null);
 
-    Mockito.when(mockService.exists(eq(Urn.createFromString(TEST_ENTITY_URN)), eq(true)))
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN)), eq(true)))
         .thenReturn(true);
-    Mockito.when(mockService.exists(eq(Urn.createFromString(TEST_OWNER_1_URN)), eq(true)))
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_OWNER_1_URN)), eq(true)))
         .thenReturn(false);
 
     AddOwnersResolver resolver = new AddOwnersResolver(mockService);
@@ -360,14 +370,15 @@ public class AddOwnersResolverTest {
 
     Mockito.when(
             mockService.getAspect(
+                any(),
                 Mockito.eq(UrnUtils.getUrn(TEST_ENTITY_URN)),
                 Mockito.eq(Constants.OWNERSHIP_ASPECT_NAME),
                 Mockito.eq(0L)))
         .thenReturn(null);
 
-    Mockito.when(mockService.exists(eq(Urn.createFromString(TEST_ENTITY_URN)), eq(true)))
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN)), eq(true)))
         .thenReturn(false);
-    Mockito.when(mockService.exists(eq(Urn.createFromString(TEST_OWNER_1_URN)), eq(true)))
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_OWNER_1_URN)), eq(true)))
         .thenReturn(true);
 
     AddOwnersResolver resolver = new AddOwnersResolver(mockService);
@@ -422,7 +433,7 @@ public class AddOwnersResolverTest {
 
     Mockito.doThrow(RuntimeException.class)
         .when(mockService)
-        .ingestProposal(any(AspectsBatchImpl.class), Mockito.anyBoolean());
+        .ingestProposal(any(), any(AspectsBatchImpl.class), Mockito.anyBoolean());
 
     AddOwnersResolver resolver = new AddOwnersResolver(Mockito.mock(EntityService.class));
 

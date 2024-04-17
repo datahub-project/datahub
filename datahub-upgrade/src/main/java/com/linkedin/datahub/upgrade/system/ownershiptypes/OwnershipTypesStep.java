@@ -69,7 +69,7 @@ public class OwnershipTypesStep implements UpgradeStep {
           Constants.DATA_PRODUCT_ENTITY_NAME,
           Constants.NOTEBOOK_ENTITY_NAME);
 
-  private final OperationContext opContext;
+  private final OperationContext systemOpContext;
   private final EntityService<?> entityService;
   private final SearchService searchService;
   private final boolean enabled;
@@ -77,13 +77,13 @@ public class OwnershipTypesStep implements UpgradeStep {
   private final Integer batchSize;
 
   public OwnershipTypesStep(
-      OperationContext opContext,
+      OperationContext systemOpContext,
       EntityService<?> entityService,
       SearchService searchService,
       boolean enabled,
       boolean reprocessEnabled,
       Integer batchSize) {
-    this.opContext = opContext;
+    this.systemOpContext = systemOpContext;
     this.entityService = entityService;
     this.searchService = searchService;
     this.enabled = enabled;
@@ -109,7 +109,7 @@ public class OwnershipTypesStep implements UpgradeStep {
         } while (scrollId != null);
       }
 
-      BootstrapStep.setUpgradeResult(UPGRADE_ID_URN, entityService);
+      BootstrapStep.setUpgradeResult(systemOpContext, UPGRADE_ID_URN, entityService);
 
       return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.SUCCEEDED);
     };
@@ -127,7 +127,7 @@ public class OwnershipTypesStep implements UpgradeStep {
 
     final ScrollResult scrollResult =
         searchService.scrollAcrossEntities(
-            opContext.withSearchFlags(
+            systemOpContext.withSearchFlags(
                 flags ->
                     flags
                         .setFulltext(true)
@@ -210,9 +210,13 @@ public class OwnershipTypesStep implements UpgradeStep {
   private void ingestOwnershipTypes(SearchEntityArray searchBatch, AuditStamp auditStamp)
       throws Exception {
     Map<Urn, Map<String, Aspect>> existing =
-        entityService.getLatestAspectObjects(
-            searchBatch.stream().map(SearchEntity::getEntity).collect(Collectors.toSet()),
-            Set.of(Constants.OWNERSHIP_ASPECT_NAME));
+        systemOpContext
+            .getRetrieverContext()
+            .get()
+            .getAspectRetriever()
+            .getLatestAspectObjects(
+                searchBatch.stream().map(SearchEntity::getEntity).collect(Collectors.toSet()),
+                Set.of(Constants.OWNERSHIP_ASPECT_NAME));
 
     List<MetadataChangeProposal> mcps =
         existing.entrySet().stream()
@@ -236,9 +240,12 @@ public class OwnershipTypesStep implements UpgradeStep {
             .collect(Collectors.toList());
 
     log.debug(String.format("Reingesting ownership for %s urns", mcps.size()));
-    AspectsBatch batch = AspectsBatchImpl.builder().mcps(mcps, auditStamp, entityService).build();
+    AspectsBatch batch =
+        AspectsBatchImpl.builder()
+            .mcps(mcps, auditStamp, systemOpContext.getRetrieverContext().get())
+            .build();
 
-    entityService.ingestProposal(batch, false);
+    entityService.ingestProposal(systemOpContext, batch, false);
   }
 
   @Override
@@ -266,7 +273,8 @@ public class OwnershipTypesStep implements UpgradeStep {
     }
 
     boolean previouslyRun =
-        entityService.exists(UPGRADE_ID_URN, DATA_HUB_UPGRADE_RESULT_ASPECT_NAME, true);
+        entityService.exists(
+            systemOpContext, UPGRADE_ID_URN, DATA_HUB_UPGRADE_RESULT_ASPECT_NAME, true);
 
     if (previouslyRun) {
       log.info("{} was already run. Skipping.", id());

@@ -1,8 +1,8 @@
 package com.linkedin.datahub.graphql.resolvers.browse;
 
 import static com.linkedin.datahub.graphql.TestUtils.getMockAllowContext;
+import static org.mockito.ArgumentMatchers.any;
 
-import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
@@ -269,8 +269,7 @@ public class BrowseV2ResolverTest {
 
   private static ViewService initMockViewService(Urn viewUrn, DataHubViewInfo viewInfo) {
     ViewService service = Mockito.mock(ViewService.class);
-    Mockito.when(service.getViewInfo(Mockito.eq(viewUrn), Mockito.any(Authentication.class)))
-        .thenReturn(viewInfo);
+    Mockito.when(service.getViewInfo(any(), Mockito.eq(viewUrn))).thenReturn(viewInfo);
     return service;
   }
 

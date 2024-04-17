@@ -5,7 +5,6 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.testng.Assert.*;
 
-import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -66,13 +65,13 @@ public class IngestionSourceExecutionRequestsResolverTest {
 
     Mockito.when(
             mockClient.batchGetV2(
+                any(),
                 Mockito.eq(Constants.EXECUTION_REQUEST_ENTITY_NAME),
                 Mockito.eq(new HashSet<>(ImmutableSet.of(TEST_EXECUTION_REQUEST_URN))),
                 Mockito.eq(
                     ImmutableSet.of(
                         Constants.EXECUTION_REQUEST_INPUT_ASPECT_NAME,
-                        Constants.EXECUTION_REQUEST_RESULT_ASPECT_NAME)),
-                Mockito.any(Authentication.class)))
+                        Constants.EXECUTION_REQUEST_RESULT_ASPECT_NAME))))
         .thenReturn(
             ImmutableMap.of(
                 TEST_EXECUTION_REQUEST_URN,
@@ -141,8 +140,7 @@ public class IngestionSourceExecutionRequestsResolverTest {
 
     assertThrows(RuntimeException.class, () -> resolver.get(mockEnv).join());
     Mockito.verify(mockClient, Mockito.times(0))
-        .batchGetV2(
-            Mockito.any(), Mockito.anySet(), Mockito.anySet(), Mockito.any(Authentication.class));
+        .batchGetV2(any(), Mockito.any(), Mockito.anySet(), Mockito.anySet());
     Mockito.verify(mockClient, Mockito.times(0))
         .list(Mockito.any(), Mockito.any(), Mockito.anyMap(), Mockito.anyInt(), Mockito.anyInt());
   }
@@ -153,8 +151,7 @@ public class IngestionSourceExecutionRequestsResolverTest {
     EntityClient mockClient = mock(EntityClient.class);
     Mockito.doThrow(RemoteInvocationException.class)
         .when(mockClient)
-        .batchGetV2(
-            Mockito.any(), Mockito.anySet(), Mockito.anySet(), Mockito.any(Authentication.class));
+        .batchGetV2(any(), Mockito.any(), Mockito.anySet(), Mockito.anySet());
     IngestionSourceExecutionRequestsResolver resolver =
         new IngestionSourceExecutionRequestsResolver(mockClient);
 

@@ -35,11 +35,11 @@ public class ConstraintsResolver implements DataFetcher<CompletableFuture<List<C
               try {
                 Optional<ConstraintInfo> constraintInfo =
                     _entityClient.getVersionedAspect(
+                        context.getOperationContext(),
                         result.toString(),
                         CONSTRAINT_INFO_ASPECT_NAME,
                         0L,
-                        ConstraintInfo.class,
-                        context.getAuthentication());
+                        ConstraintInfo.class);
                 if (constraintInfo.isPresent()) {
                   return constraintInfo.get();
                 }
@@ -72,12 +72,12 @@ public class ConstraintsResolver implements DataFetcher<CompletableFuture<List<C
                 .map(
                     aspect ->
                         ConstraintUtils.mapConstraintInfoToConstraint(
+                            context.getOperationContext(),
                             urn,
                             spec,
                             aspect,
                             _entityService,
-                            _entityClient,
-                            context.getAuthentication()))
+                            _entityClient))
                 .collect(Collectors.toList());
           } catch (Exception e) {
             throw new RuntimeException("Failed to load constraints", e);

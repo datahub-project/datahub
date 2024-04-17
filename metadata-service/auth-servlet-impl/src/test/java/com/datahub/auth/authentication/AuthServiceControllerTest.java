@@ -2,6 +2,8 @@ package com.datahub.auth.authentication;
 
 import static com.linkedin.metadata.Constants.GLOBAL_SETTINGS_INFO_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.GLOBAL_SETTINGS_URN;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.*;
 
@@ -12,6 +14,7 @@ import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.settings.global.GlobalSettingsInfo;
 import com.linkedin.settings.global.OidcSettings;
 import com.linkedin.settings.global.SsoSettings;
+import io.datahubproject.metadata.context.OperationContext;
 import java.io.IOException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -59,7 +62,10 @@ public class AuthServiceControllerTest extends AbstractTestNGSpringContextTests 
         new SsoSettings().setBaseUrl("http://localhost").setOidcSettings(mockOidcSettings);
     GlobalSettingsInfo mockGlobalSettingsInfo = new GlobalSettingsInfo().setSso(mockSsoSettings);
 
-    when(mockEntityService.getLatestAspect(GLOBAL_SETTINGS_URN, GLOBAL_SETTINGS_INFO_ASPECT_NAME))
+    when(mockEntityService.getLatestAspect(
+            any(OperationContext.class),
+            eq(GLOBAL_SETTINGS_URN),
+            eq(GLOBAL_SETTINGS_INFO_ASPECT_NAME)))
         .thenReturn(mockGlobalSettingsInfo);
 
     ResponseEntity<String> httpResponse = authServiceController.getSsoSettings(null).join();
@@ -83,7 +89,10 @@ public class AuthServiceControllerTest extends AbstractTestNGSpringContextTests 
         new SsoSettings().setBaseUrl("http://localhost").setOidcSettings(mockOidcSettings);
     GlobalSettingsInfo mockGlobalSettingsInfo = new GlobalSettingsInfo().setSso(mockSsoSettings);
 
-    when(mockEntityService.getLatestAspect(GLOBAL_SETTINGS_URN, GLOBAL_SETTINGS_INFO_ASPECT_NAME))
+    when(mockEntityService.getLatestAspect(
+            any(OperationContext.class),
+            eq(GLOBAL_SETTINGS_URN),
+            eq(GLOBAL_SETTINGS_INFO_ASPECT_NAME)))
         .thenReturn(mockGlobalSettingsInfo);
 
     ResponseEntity<String> httpResponse = authServiceController.getSsoSettings(null).join();

@@ -11,7 +11,6 @@ import com.linkedin.gms.factory.connection.ConnectionServiceFactory;
 import com.linkedin.metadata.config.notification.NotificationSinkConfiguration;
 import com.linkedin.metadata.connection.ConnectionService;
 import com.linkedin.metadata.integration.IntegrationsService;
-import com.linkedin.metadata.spring.YamlPropertySourceFactory;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -23,11 +22,9 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
-import org.springframework.context.annotation.PropertySource;
 
 @Slf4j
 @Configuration
-@PropertySource(value = "classpath:/application.yml", factory = YamlPropertySourceFactory.class)
 @Import({
   SettingsProviderFactory.class,
   IdentityProviderFactory.class,

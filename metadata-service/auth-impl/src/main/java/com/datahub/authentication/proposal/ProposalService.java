@@ -2,10 +2,8 @@ package com.datahub.authentication.proposal;
 
 import static com.linkedin.metadata.Constants.*;
 
-import com.datahub.authentication.Authentication;
 import com.datahub.authorization.AuthorizedActors;
 import com.datahub.authorization.EntitySpec;
-import com.datahub.plugins.auth.authorization.Authorizer;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -61,6 +59,7 @@ import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.schema.EditableSchemaMetadata;
 import com.linkedin.util.Pair;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -90,18 +89,18 @@ public class ProposalService {
   private final GraphClient _graphClient;
 
   public boolean proposeCreateGlossaryNode(
+      @Nonnull OperationContext opContext,
       @Nonnull final Urn actorUrn,
       @Nonnull final String name,
       @Nonnull final Optional<Urn> parentNode,
-      final String description,
-      final Authorizer dataHubAuthorizer) {
+      final String description) {
     Objects.requireNonNull(actorUrn, "actorUrn cannot be null");
     Objects.requireNonNull(name, "name cannot be null");
     Objects.requireNonNull(parentNode, "parentNode cannot be null");
 
     AssignedActors actors =
         getAssignedUsersAndGroups(
-            PoliciesConfig.MANAGE_GLOSSARIES_PRIVILEGE.getType(), parentNode, dataHubAuthorizer);
+            opContext, PoliciesConfig.MANAGE_GLOSSARIES_PRIVILEGE.getType(), parentNode);
     List<Urn> assignedUsers = actors.getUsers();
     List<Urn> assignedGroups = actors.getGroups();
     List<Urn> assignedRoles = actors.getRoles();
@@ -115,24 +114,24 @@ public class ProposalService {
 
     Entity entity = new Entity();
     entity.setValue(Snapshot.create(snapshot));
-    _entityService.ingestEntity(entity, auditStamp);
+    _entityService.ingestEntity(opContext, entity, auditStamp);
 
     return true;
   }
 
   public boolean proposeCreateGlossaryTerm(
+      @Nonnull OperationContext opContext,
       @Nonnull final Urn actorUrn,
       @Nonnull final String name,
       @Nonnull final Optional<Urn> parentNode,
-      final String description,
-      final Authorizer dataHubAuthorizer) {
+      final String description) {
     Objects.requireNonNull(actorUrn, "actorUrn cannot be null");
     Objects.requireNonNull(name, "name cannot be null");
     Objects.requireNonNull(parentNode, "parentNode cannot be null");
 
     AssignedActors actors =
         getAssignedUsersAndGroups(
-            PoliciesConfig.MANAGE_GLOSSARIES_PRIVILEGE.getType(), parentNode, dataHubAuthorizer);
+            opContext, PoliciesConfig.MANAGE_GLOSSARIES_PRIVILEGE.getType(), parentNode);
     List<Urn> assignedUsers = actors.getUsers();
     List<Urn> assignedGroups = actors.getGroups();
     List<Urn> assignedRoles = actors.getRoles();
@@ -147,23 +146,23 @@ public class ProposalService {
 
     Entity entity = new Entity();
     entity.setValue(Snapshot.create(snapshot));
-    _entityService.ingestEntity(entity, auditStamp);
+    _entityService.ingestEntity(opContext, entity, auditStamp);
 
     return true;
   }
 
   public boolean proposeUpdateResourceDescription(
+      @Nonnull OperationContext opContext,
       @Nonnull final Urn actorUrn,
       @Nonnull final Urn resourceUrn,
       final String subResourceType,
       final String subResource,
-      @Nonnull final String description,
-      final Authorizer dataHubAuthorizer) {
+      @Nonnull final String description) {
     Objects.requireNonNull(actorUrn, "actorUrn cannot be null");
     Objects.requireNonNull(resourceUrn, "resourceUrn cannot be null");
     Objects.requireNonNull(description, "description cannot be null");
 
-    if (!_entityService.exists(resourceUrn, true)) {
+    if (!_entityService.exists(opContext, resourceUrn, true)) {
       throw new RuntimeException(String.format("Entity %s does not exist", resourceUrn));
     }
 
@@ -176,16 +175,20 @@ public class ProposalService {
         || resourceUrn.getEntityType().equals(GLOSSARY_NODE_ENTITY_NAME)) {
       AssignedActors actors =
           getAssignedUsersAndGroups(
+              opContext,
               PoliciesConfig.MANAGE_GLOSSARIES_PRIVILEGE.getType(),
-              Optional.of(resourceUrn),
-              dataHubAuthorizer);
+              Optional.of(resourceUrn));
       assignedUsers = actors.getUsers();
       assignedGroups = actors.getGroups();
       assignedRoles = actors.getRoles();
     } else {
       AuthorizedActors actors =
-          dataHubAuthorizer.authorizedActors(
-              PoliciesConfig.MANAGE_ENTITY_DOCS_PROPOSALS_PRIVILEGE.getType(), Optional.of(spec));
+          opContext
+              .getAuthorizerContext()
+              .getAuthorizer()
+              .authorizedActors(
+                  PoliciesConfig.MANAGE_ENTITY_DOCS_PROPOSALS_PRIVILEGE.getType(),
+                  Optional.of(spec));
       assignedUsers = actors.getUsers();
       assignedGroups = actors.getGroups();
       assignedRoles = actors.getRoles();
@@ -208,39 +211,42 @@ public class ProposalService {
 
     Entity entity = new Entity();
     entity.setValue(Snapshot.create(snapshot));
-    _entityService.ingestEntity(entity, auditStamp);
+    _entityService.ingestEntity(opContext, entity, auditStamp);
 
     return true;
   }
 
   public boolean proposeDataContract(
+      @Nonnull OperationContext opContext,
       @Nonnull final Urn actorUrn,
       @Nonnull final Urn entityUrn,
       @Nonnull final DataContractProposalOperationType opType,
       @Nullable final List<FreshnessContract> freshness,
       @Nullable final List<SchemaContract> schema,
-      @Nullable final List<DataQualityContract> quality,
-      final Authorizer dataHubAuthorizer) {
+      @Nullable final List<DataQualityContract> quality) {
     Objects.requireNonNull(actorUrn, "actorUrn cannot be null");
     Objects.requireNonNull(entityUrn, "entityUrn cannot be null");
     Objects.requireNonNull(opType, "opType cannot be null");
 
-    if (!_entityService.exists(entityUrn, true)) {
+    if (!_entityService.exists(opContext, entityUrn, true)) {
       throw new RuntimeException(String.format("Entity %s does not exist", entityUrn));
     }
 
     if (freshness != null) {
       verifyAssertionsExist(
+          opContext,
           freshness.stream().map(FreshnessContract::getAssertion).collect(Collectors.toList()));
     }
 
     if (schema != null) {
       verifyAssertionsExist(
+          opContext,
           schema.stream().map(SchemaContract::getAssertion).collect(Collectors.toList()));
     }
 
     if (quality != null) {
       verifyAssertionsExist(
+          opContext,
           quality.stream().map(DataQualityContract::getAssertion).collect(Collectors.toList()));
     }
 
@@ -249,9 +255,12 @@ public class ProposalService {
     EntitySpec spec = new EntitySpec(entityUrn.getEntityType(), entityUrn.toString());
 
     AuthorizedActors actors =
-        dataHubAuthorizer.authorizedActors(
-            PoliciesConfig.MANAGE_ENTITY_DATA_CONTRACT_PROPOSALS_PRIVILEGE.getType(),
-            Optional.of(spec));
+        opContext
+            .getAuthorizerContext()
+            .getAuthorizer()
+            .authorizedActors(
+                PoliciesConfig.MANAGE_ENTITY_DATA_CONTRACT_PROPOSALS_PRIVILEGE.getType(),
+                Optional.of(spec));
     assignedUsers = actors.getUsers();
     assignedGroups = actors.getGroups();
 
@@ -265,20 +274,20 @@ public class ProposalService {
 
     Entity entity = new Entity();
     entity.setValue(Snapshot.create(snapshot));
-    _entityService.ingestEntity(entity, auditStamp);
+    _entityService.ingestEntity(opContext, entity, auditStamp);
 
     return true;
   }
 
   public boolean isAuthorizedToResolveGlossaryEntityAsOwner(
-      @Nonnull Urn actorUrn, Optional<Urn> parentNode) {
+      @Nonnull OperationContext opContext, @Nonnull Urn actorUrn, Optional<Urn> parentNode) {
     Objects.requireNonNull(actorUrn, "actorUrn cannot be null");
 
     if (!parentNode.isPresent()) {
       return false;
     }
 
-    Pair<List<Urn>, List<Urn>> parentNodeOwners = getUrnOwners(parentNode.get());
+    Pair<List<Urn>, List<Urn>> parentNodeOwners = getUrnOwners(opContext, parentNode.get());
     Set<Urn> userOwners = new HashSet<>(parentNodeOwners.getFirst());
     if (userOwners.contains(actorUrn)) {
       return true;
@@ -286,7 +295,8 @@ public class ProposalService {
 
     Set<Urn> groupOwners = new HashSet<>(parentNodeOwners.getSecond());
     GroupMembership groupMembership =
-        (GroupMembership) _entityService.getLatestAspect(actorUrn, GROUP_MEMBERSHIP_ASPECT_NAME);
+        (GroupMembership)
+            _entityService.getLatestAspect(opContext, actorUrn, GROUP_MEMBERSHIP_ASPECT_NAME);
 
     // TODO: Union with Native Group Membership
     Set<Urn> actorGroups = new HashSet<>(groupMembership.getGroups());
@@ -295,10 +305,10 @@ public class ProposalService {
   }
 
   public void acceptCreateGlossaryNodeProposal(
+      @Nonnull OperationContext opContext,
       @Nonnull final Urn actorUrn,
       @Nonnull final ActionRequestSnapshot actionRequestSnapshot,
-      final boolean canManageGlossaries,
-      final Authentication authentication)
+      final boolean canManageGlossaries)
       throws Exception {
     Objects.requireNonNull(actorUrn, "actorUrn cannot be null");
     Objects.requireNonNull(actionRequestSnapshot, "actionRequestSnapshot cannot be null");
@@ -316,19 +326,20 @@ public class ProposalService {
         createGlossaryNodeProposal.hasDescription()
             ? Optional.ofNullable(createGlossaryNodeProposal.getDescription())
             : Optional.empty();
-    if (!canManageGlossaries && !isAuthorizedToResolveGlossaryEntityAsOwner(actorUrn, parentNode)) {
+    if (!canManageGlossaries
+        && !isAuthorizedToResolveGlossaryEntityAsOwner(opContext, actorUrn, parentNode)) {
       throw new RuntimeException(
           "Unauthorized to accept creating this Glossary Node. Please contact your DataHub administrator.");
     }
 
-    createGlossaryNodeEntity(name, parentNode, description, authentication);
+    createGlossaryNodeEntity(opContext, name, parentNode, description);
   }
 
   public void acceptCreateGlossaryTermProposal(
+      @Nonnull OperationContext opContext,
       @Nonnull final Urn actorUrn,
       @Nonnull final ActionRequestSnapshot actionRequestSnapshot,
-      final boolean canManageGlossaries,
-      final Authentication authentication)
+      final boolean canManageGlossaries)
       throws Exception {
     Objects.requireNonNull(actorUrn, "actorUrn cannot be null");
     Objects.requireNonNull(actionRequestSnapshot, "actionRequestSnapshot cannot be null");
@@ -346,15 +357,17 @@ public class ProposalService {
         createGlossaryTermProposal.hasDescription()
             ? Optional.ofNullable(createGlossaryTermProposal.getDescription())
             : Optional.empty();
-    if (!canManageGlossaries && !isAuthorizedToResolveGlossaryEntityAsOwner(actorUrn, parentNode)) {
+    if (!canManageGlossaries
+        && !isAuthorizedToResolveGlossaryEntityAsOwner(opContext, actorUrn, parentNode)) {
       throw new RuntimeException(
           "Unauthorized to accept creating this Glossary Node. Please contact your DataHub administrator.");
     }
 
-    createGlossaryTermEntity(name, parentNode, description, authentication);
+    createGlossaryTermEntity(opContext, name, parentNode, description);
   }
 
   public boolean canResolveGlossaryNodeProposal(
+      @Nonnull OperationContext opContext,
       @Nonnull final Urn actorUrn,
       @Nonnull final ActionRequestSnapshot actionRequestSnapshot,
       final boolean canManageGlossaries) {
@@ -374,13 +387,14 @@ public class ProposalService {
                   && createGlossaryNodeProposal.getParentNode() != null
               ? Optional.of(createGlossaryNodeProposal.getParentNode())
               : Optional.empty();
-      return isAuthorizedToResolveGlossaryEntityAsOwner(actorUrn, parentNode);
+      return isAuthorizedToResolveGlossaryEntityAsOwner(opContext, actorUrn, parentNode);
     } catch (Exception e) {
       throw new RuntimeException("Failed to create glossary term entity");
     }
   }
 
   public boolean canResolveGlossaryTermProposal(
+      @Nonnull OperationContext opContext,
       @Nonnull final Urn actorUrn,
       @Nonnull final ActionRequestSnapshot actionRequestSnapshot,
       final boolean canManageGlossaries) {
@@ -400,15 +414,15 @@ public class ProposalService {
                   && createGlossaryTermProposal.getParentNode() != null
               ? Optional.of(createGlossaryTermProposal.getParentNode())
               : Optional.empty();
-      return isAuthorizedToResolveGlossaryEntityAsOwner(actorUrn, parentNode);
+      return isAuthorizedToResolveGlossaryEntityAsOwner(opContext, actorUrn, parentNode);
     } catch (Exception e) {
       throw new RuntimeException("Failed to create glossary term entity");
     }
   }
 
   public void acceptUpdateResourceDescriptionProposal(
-      @Nonnull final ActionRequestSnapshot actionRequestSnapshot,
-      final Authentication authentication)
+      @Nonnull OperationContext opContext,
+      @Nonnull final ActionRequestSnapshot actionRequestSnapshot)
       throws Exception {
     Objects.requireNonNull(actionRequestSnapshot, "actionRequestSnapshot cannot be null");
 
@@ -422,22 +436,22 @@ public class ProposalService {
     String description = descriptionProposal.getDescription();
     switch (resourceUrn.getEntityType()) {
       case GLOSSARY_NODE_ENTITY_NAME:
-        updateGlossaryNodeDescription(resourceUrn, description, authentication);
+        updateGlossaryNodeDescription(opContext, resourceUrn, description);
         break;
       case GLOSSARY_TERM_ENTITY_NAME:
-        updateGlossaryTermDescription(resourceUrn, description, authentication);
+        updateGlossaryTermDescription(opContext, resourceUrn, description);
         break;
       case DATASET_ENTITY_NAME:
         String subResourceType = actionRequestInfo.getSubResourceType(GetMode.NULL);
         if (!Strings.isNullOrEmpty(subResourceType)
             && SubResourceType.valueOf(subResourceType) == SubResourceType.DATASET_FIELD) {
           updateSchemaFieldDescription(
+              opContext,
               resourceUrn,
               Objects.requireNonNull(actionRequestInfo.getSubResource()),
-              description,
-              authentication);
+              description);
         } else {
-          updateDatasetDescription(resourceUrn, description, authentication);
+          updateDatasetDescription(opContext, resourceUrn, description);
         }
         break;
       default:
@@ -450,21 +464,21 @@ public class ProposalService {
   }
 
   public void acceptDataContractProposal(
-      @Nonnull final ActionRequestSnapshot actionRequestSnapshot,
-      @Nonnull final Authentication authentication)
+      @Nonnull OperationContext opContext,
+      @Nonnull final ActionRequestSnapshot actionRequestSnapshot)
       throws Exception {
     Objects.requireNonNull(actionRequestSnapshot, "actionRequestSnapshot cannot be null");
-    Objects.requireNonNull(authentication, "authentication cannot be null");
+    Objects.requireNonNull(opContext, "opContext cannot be null");
 
     ActionRequestInfo actionRequestInfo = findActionRequestInfoAspect(actionRequestSnapshot);
     DataContractProposal dataContractProposal =
         actionRequestInfo.getParams().getDataContractProposal();
     if (dataContractProposal != null) {
       final Urn entityUrn = UrnUtils.getUrn(actionRequestInfo.getResource());
-      final Urn existingContractUrn = getDataContractUrn(entityUrn, authentication);
+      final Urn existingContractUrn = getDataContractUrn(opContext, entityUrn);
       final DataContractProperties existingProperties =
           existingContractUrn != null
-              ? getDataContractProperties(existingContractUrn, authentication)
+              ? getDataContractProperties(opContext, existingContractUrn)
               : null;
       final Urn finalContractUrn =
           existingContractUrn != null
@@ -505,7 +519,7 @@ public class ProposalService {
       // are executable.
       // Currently, we are expecting that the assertions will be purely external.
       _entityClient.batchIngestProposals(
-          ImmutableList.of(propertiesProposal, statusProposal), authentication);
+          opContext, ImmutableList.of(propertiesProposal, statusProposal));
     } else {
       throw new IllegalArgumentException(
           "Failed to accept Data Contract Proposal. Action Request is missing required parameters.");
@@ -513,7 +527,7 @@ public class ProposalService {
   }
 
   @Nullable
-  private Urn getDataContractUrn(final Urn entityUrn, final Authentication authentication) {
+  private Urn getDataContractUrn(@Nonnull OperationContext opContext, final Urn entityUrn) {
     EntityRelationships relationships =
         _graphClient.getRelatedEntities(
             entityUrn.toString(),
@@ -521,7 +535,7 @@ public class ProposalService {
             RelationshipDirection.INCOMING,
             0,
             1,
-            authentication.getActor().toUrnStr());
+            opContext.getSessionAuthentication().getActor().toUrnStr());
 
     if (relationships.getTotal() > 1) {
       // Bad state - There are multiple contracts for a single entity! Cannot update.
@@ -539,14 +553,14 @@ public class ProposalService {
 
   @Nullable
   private DataContractProperties getDataContractProperties(
-      Urn contractUrn, Authentication authentication) {
+      @Nonnull OperationContext opContext, Urn contractUrn) {
     try {
       EntityResponse response =
           _entityClient.getV2(
+              opContext,
               DATA_CONTRACT_ENTITY_NAME,
               contractUrn,
-              ImmutableSet.of(DATA_CONTRACT_PROPERTIES_ASPECT_NAME),
-              authentication);
+              ImmutableSet.of(DATA_CONTRACT_PROPERTIES_ASPECT_NAME));
       if (response != null
           && response.getAspects().containsKey(DATA_CONTRACT_PROPERTIES_ASPECT_NAME)) {
         return new DataContractProperties(
@@ -596,6 +610,7 @@ public class ProposalService {
   }
 
   public void completeProposal(
+      @Nonnull OperationContext opContext,
       @Nonnull final Urn actorUrn,
       @Nonnull final String actionRequestStatus,
       @Nonnull final String actionRequestResult,
@@ -613,15 +628,18 @@ public class ProposalService {
 
     Entity entity = new Entity();
     entity.setValue(Snapshot.create(actionRequestSnapshot));
-    _entityService.ingestEntity(entity, auditStamp);
+    _entityService.ingestEntity(opContext, entity, auditStamp);
   }
 
   AssignedActors getAssignedUsersAndGroups(
+      @Nonnull OperationContext opContext,
       @Nonnull final String privilegeType,
-      @Nonnull final Optional<Urn> urnOptional,
-      Authorizer dataHubAuthorizer) {
+      @Nonnull final Optional<Urn> urnOptional) {
     AuthorizedActors authorizedActors =
-        dataHubAuthorizer.authorizedActors(privilegeType, Optional.empty());
+        opContext
+            .getAuthorizerContext()
+            .getAuthorizer()
+            .authorizedActors(privilegeType, Optional.empty());
 
     List<Urn> assignedUsers =
         authorizedActors == null ? new ArrayList<>() : authorizedActors.getUsers();
@@ -631,9 +649,10 @@ public class ProposalService {
         authorizedActors == null ? new ArrayList<>() : authorizedActors.getRoles();
     if (urnOptional.isPresent()) {
       Ownership ownership =
-          (Ownership) _entityService.getLatestAspect(urnOptional.get(), OWNERSHIP_ASPECT_NAME);
+          (Ownership)
+              _entityService.getLatestAspect(opContext, urnOptional.get(), OWNERSHIP_ASPECT_NAME);
       if (ownership != null && ownership.hasOwners()) {
-        Pair<List<Urn>, List<Urn>> urnOwners = getUrnOwners(urnOptional.get());
+        Pair<List<Urn>, List<Urn>> urnOwners = getUrnOwners(opContext, urnOptional.get());
         List<Urn> userOwners = urnOwners.getFirst();
         List<Urn> groupOwners = urnOwners.getSecond();
 
@@ -651,8 +670,10 @@ public class ProposalService {
     List<Urn> roles;
   }
 
-  Pair<List<Urn>, List<Urn>> getUrnOwners(@Nonnull final Urn urn) {
-    Ownership ownership = (Ownership) _entityService.getLatestAspect(urn, OWNERSHIP_ASPECT_NAME);
+  Pair<List<Urn>, List<Urn>> getUrnOwners(
+      @Nonnull OperationContext opContext, @Nonnull final Urn urn) {
+    Ownership ownership =
+        (Ownership) _entityService.getLatestAspect(opContext, urn, OWNERSHIP_ASPECT_NAME);
     List<Urn> userOwners =
         ownership.getOwners().stream()
             .map(Owner::getOwner)
@@ -1049,10 +1070,10 @@ public class ProposalService {
   }
 
   void createGlossaryNodeEntity(
+      @Nonnull OperationContext opContext,
       @Nonnull final String name,
       @Nonnull final Optional<Urn> parentNode,
-      @Nonnull final Optional<String> description,
-      final Authentication authentication)
+      @Nonnull final Optional<String> description)
       throws Exception {
     final GlossaryNodeKey key = new GlossaryNodeKey();
 
@@ -1060,8 +1081,8 @@ public class ProposalService {
     key.setName(id);
 
     if (_entityClient.exists(
-        EntityKeyUtils.convertEntityKeyToUrn(key, Constants.GLOSSARY_NODE_ENTITY_NAME),
-        authentication)) {
+        opContext,
+        EntityKeyUtils.convertEntityKeyToUrn(key, Constants.GLOSSARY_NODE_ENTITY_NAME))) {
       throw new IllegalArgumentException("This Glossary Node already exists!");
     }
 
@@ -1073,14 +1094,14 @@ public class ProposalService {
         GenericRecordUtils.serializeAspect(mapGlossaryNodeInfo(name, parentNode, description)));
     proposal.setChangeType(ChangeType.UPSERT);
 
-    _entityClient.ingestProposal(proposal, authentication);
+    _entityClient.ingestProposal(opContext, proposal);
   }
 
   void createGlossaryTermEntity(
+      @Nonnull OperationContext opContext,
       @Nonnull final String name,
       @Nonnull final Optional<Urn> parentNode,
-      @Nonnull final Optional<String> description,
-      final Authentication authentication)
+      @Nonnull final Optional<String> description)
       throws Exception {
     final GlossaryTermKey key = new GlossaryTermKey();
 
@@ -1088,8 +1109,8 @@ public class ProposalService {
     key.setName(id);
 
     if (_entityClient.exists(
-        EntityKeyUtils.convertEntityKeyToUrn(key, Constants.GLOSSARY_TERM_ENTITY_NAME),
-        authentication)) {
+        opContext,
+        EntityKeyUtils.convertEntityKeyToUrn(key, Constants.GLOSSARY_TERM_ENTITY_NAME))) {
       throw new IllegalArgumentException("This Glossary Term already exists!");
     }
 
@@ -1101,75 +1122,84 @@ public class ProposalService {
         GenericRecordUtils.serializeAspect(mapGlossaryTermInfo(name, parentNode, description)));
     proposal.setChangeType(ChangeType.UPSERT);
 
-    _entityClient.ingestProposal(proposal, authentication);
+    _entityClient.ingestProposal(opContext, proposal);
   }
 
   void updateGlossaryNodeDescription(
+      @Nonnull OperationContext opContext,
       @Nonnull final Urn resourceUrn,
-      @Nonnull final String description,
-      final Authentication authentication)
+      @Nonnull final String description)
       throws Exception {
     GlossaryNodeInfo glossaryNodeInfo =
         (GlossaryNodeInfo)
-            _entityService.getLatestAspect(resourceUrn, GLOSSARY_NODE_INFO_ASPECT_NAME);
+            _entityService.getLatestAspect(opContext, resourceUrn, GLOSSARY_NODE_INFO_ASPECT_NAME);
     Objects.requireNonNull(glossaryNodeInfo, "glossaryNodeInfo cannot be null");
 
     final MetadataChangeProposal proposal =
         DescriptionUtils.createGlossaryNodeDescriptionChangeProposal(
             glossaryNodeInfo, resourceUrn, description);
-    _entityClient.ingestProposal(proposal, authentication);
+    _entityClient.ingestProposal(opContext, proposal);
   }
 
   void updateGlossaryTermDescription(
+      @Nonnull OperationContext opContext,
       @Nonnull final Urn resourceUrn,
-      @Nonnull final String description,
-      final Authentication authentication)
+      @Nonnull final String description)
       throws Exception {
     GlossaryTermInfo glossaryTermInfo =
         (GlossaryTermInfo)
-            _entityService.getLatestAspect(resourceUrn, GLOSSARY_TERM_INFO_ASPECT_NAME);
+            _entityService.getLatestAspect(opContext, resourceUrn, GLOSSARY_TERM_INFO_ASPECT_NAME);
 
     final MetadataChangeProposal proposal =
         DescriptionUtils.createGlossaryTermDescriptionChangeProposal(
             glossaryTermInfo, resourceUrn, description);
-    _entityClient.ingestProposal(proposal, authentication);
+    _entityClient.ingestProposal(opContext, proposal);
   }
 
   void updateDatasetDescription(
+      @Nonnull OperationContext opContext,
       @Nonnull final Urn resourceUrn,
-      @Nonnull final String description,
-      final Authentication authentication)
+      @Nonnull final String description)
       throws Exception {
     EditableDatasetProperties editableDatasetProperties =
         (EditableDatasetProperties)
-            _entityService.getLatestAspect(resourceUrn, EDITABLE_DATASET_PROPERTIES_ASPECT_NAME);
+            _entityService.getLatestAspect(
+                opContext, resourceUrn, EDITABLE_DATASET_PROPERTIES_ASPECT_NAME);
     if (editableDatasetProperties == null) {
       editableDatasetProperties = new EditableDatasetProperties();
     }
 
     final MetadataChangeProposal proposal =
         DescriptionUtils.createDatasetDescriptionChangeProposal(
-            editableDatasetProperties, resourceUrn, description, authentication.getActor());
-    _entityClient.ingestProposal(proposal, authentication);
+            editableDatasetProperties,
+            resourceUrn,
+            description,
+            opContext.getSessionAuthentication().getActor());
+    _entityClient.ingestProposal(opContext, proposal);
   }
 
   void updateSchemaFieldDescription(
+      @Nonnull OperationContext opContext,
       @Nonnull final Urn resourceUrn,
       @Nonnull final String fieldPath,
-      @Nonnull final String description,
-      final Authentication authentication)
+      @Nonnull final String description)
       throws Exception {
     EditableSchemaMetadata editableSchemaMetadata =
         (EditableSchemaMetadata)
-            _entityService.getLatestAspect(resourceUrn, EDITABLE_SCHEMA_METADATA_ASPECT_NAME);
+            _entityService.getLatestAspect(
+                opContext, resourceUrn, EDITABLE_SCHEMA_METADATA_ASPECT_NAME);
     if (editableSchemaMetadata == null) {
       editableSchemaMetadata = new EditableSchemaMetadata();
     }
 
     final MetadataChangeProposal proposal =
         DescriptionUtils.createSchemaFieldDescriptionChangeProposal(
-            editableSchemaMetadata, resourceUrn, fieldPath, description, authentication.getActor());
-    _entityClient.ingestProposal(proposal, authentication);
+            editableSchemaMetadata,
+            resourceUrn,
+            fieldPath,
+            description,
+            opContext.getSessionAuthentication().getActor());
+    _entityClient.ingestProposal(opContext, proposal);
   }
 
   GlossaryNodeInfo mapGlossaryNodeInfo(
@@ -1219,8 +1249,9 @@ public class ProposalService {
     return DataContractState.ACTIVE;
   }
 
-  private void verifyAssertionsExist(@Nonnull final List<Urn> assertionUrns) {
-    final Set<Urn> existing = _entityService.exists(assertionUrns);
+  private void verifyAssertionsExist(
+      @Nonnull OperationContext opContext, @Nonnull final List<Urn> assertionUrns) {
+    final Set<Urn> existing = _entityService.exists(opContext, assertionUrns);
     for (final Urn assertionUrn : assertionUrns) {
       if (!existing.contains(assertionUrn)) {
         throw new RuntimeException(String.format("Assertion %s does not exist", assertionUrn));

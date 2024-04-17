@@ -140,6 +140,14 @@ mutation updateEmbed($input: UpdateEmbedInput!) {
     updateEmbed(input: $input)
 }
 
+mutation addBusinessAttribute($input: AddBusinessAttributeInput!) {
+    addBusinessAttribute(input: $input)
+}
+
+mutation removeBusinessAttribute($input: AddBusinessAttributeInput!) {
+    removeBusinessAttribute(input: $input)
+}
+
 mutation suggestDescription($urn: String!) {
     suggestDescription(urn: $urn)
 }

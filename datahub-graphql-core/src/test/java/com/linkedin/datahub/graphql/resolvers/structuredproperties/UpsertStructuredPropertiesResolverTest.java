@@ -2,10 +2,10 @@ package com.linkedin.datahub.graphql.resolvers.structuredproperties;
 
 import static com.linkedin.datahub.graphql.TestUtils.getMockAllowContext;
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTIES_ASPECT_NAME;
+import static org.mockito.ArgumentMatchers.any;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertThrows;
 
-import com.datahub.authentication.Authentication;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -27,6 +27,7 @@ import com.linkedin.structured.StructuredPropertyValueAssignmentArray;
 import graphql.com.google.common.collect.ImmutableList;
 import graphql.com.google.common.collect.ImmutableSet;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.concurrent.CompletionException;
 import javax.annotation.Nullable;
 import org.mockito.Mockito;
@@ -90,10 +91,7 @@ public class UpsertStructuredPropertiesResolverTest {
 
     // Validate that we called ingestProposal the correct number of times
     Mockito.verify(mockEntityClient, Mockito.times(1))
-        .ingestProposal(
-            Mockito.any(MetadataChangeProposal.class),
-            Mockito.any(Authentication.class),
-            Mockito.eq(false));
+        .ingestProposal(any(), Mockito.any(MetadataChangeProposal.class), Mockito.eq(false));
   }
 
   @Test
@@ -126,10 +124,7 @@ public class UpsertStructuredPropertiesResolverTest {
 
     // Validate that we called ingestProposal the correct number of times
     Mockito.verify(mockEntityClient, Mockito.times(1))
-        .ingestProposal(
-            Mockito.any(MetadataChangeProposal.class),
-            Mockito.any(Authentication.class),
-            Mockito.eq(false));
+        .ingestProposal(any(), Mockito.any(MetadataChangeProposal.class), Mockito.eq(false));
   }
 
   @Test
@@ -170,10 +165,7 @@ public class UpsertStructuredPropertiesResolverTest {
 
     // Validate that we called ingestProposal the correct number of times
     Mockito.verify(mockEntityClient, Mockito.times(1))
-        .ingestProposal(
-            Mockito.any(MetadataChangeProposal.class),
-            Mockito.any(Authentication.class),
-            Mockito.eq(false));
+        .ingestProposal(any(), Mockito.any(MetadataChangeProposal.class), Mockito.eq(false));
   }
 
   @Test
@@ -192,10 +184,7 @@ public class UpsertStructuredPropertiesResolverTest {
 
     // Validate that we called ingestProposal the correct number of times
     Mockito.verify(mockEntityClient, Mockito.times(0))
-        .ingestProposal(
-            Mockito.any(MetadataChangeProposal.class),
-            Mockito.any(Authentication.class),
-            Mockito.eq(false));
+        .ingestProposal(any(), Mockito.any(MetadataChangeProposal.class), Mockito.eq(false));
   }
 
   private EntityClient initMockEntityClient(
@@ -204,20 +193,22 @@ public class UpsertStructuredPropertiesResolverTest {
     Urn assetUrn = UrnUtils.getUrn(TEST_DATASET_URN);
     EntityClient client = Mockito.mock(EntityClient.class);
 
-    Mockito.when(client.exists(Mockito.eq(assetUrn), Mockito.any())).thenReturn(true);
+    Mockito.when(client.exists(any(OperationContext.class), Mockito.eq(assetUrn), any()))
+        .thenReturn(true);
+    Mockito.when(client.exists(any(OperationContext.class), Mockito.eq(assetUrn))).thenReturn(true);
 
     if (!shouldSucceed) {
       Mockito.doThrow(new RuntimeException())
           .when(client)
-          .getV2(Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any(Authentication.class));
+          .getV2(any(), Mockito.any(), Mockito.any(), Mockito.any());
     } else {
       if (properties == null) {
         Mockito.when(
                 client.getV2(
+                    any(),
                     Mockito.eq(assetUrn.getEntityType()),
                     Mockito.eq(assetUrn),
-                    Mockito.eq(ImmutableSet.of(STRUCTURED_PROPERTIES_ASPECT_NAME)),
-                    Mockito.any(Authentication.class)))
+                    Mockito.eq(ImmutableSet.of(STRUCTURED_PROPERTIES_ASPECT_NAME))))
             .thenReturn(null);
       } else {
         StructuredProperties structuredProps = new StructuredProperties();
@@ -230,10 +221,10 @@ public class UpsertStructuredPropertiesResolverTest {
         response.setAspects(aspectMap);
         Mockito.when(
                 client.getV2(
+                    any(),
                     Mockito.eq(assetUrn.getEntityType()),
                     Mockito.eq(assetUrn),
-                    Mockito.eq(ImmutableSet.of(STRUCTURED_PROPERTIES_ASPECT_NAME)),
-                    Mockito.any(Authentication.class)))
+                    Mockito.eq(ImmutableSet.of(STRUCTURED_PROPERTIES_ASPECT_NAME))))
             .thenReturn(response);
       }
     }

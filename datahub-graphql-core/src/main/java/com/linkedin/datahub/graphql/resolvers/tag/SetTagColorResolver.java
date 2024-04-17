@@ -53,7 +53,7 @@ public class SetTagColorResolver implements DataFetcher<CompletableFuture<Boolea
           }
 
           // If tag does not exist, then throw exception.
-          if (!_entityService.exists(tagUrn, true)) {
+          if (!_entityService.exists(context.getOperationContext(), tagUrn, true)) {
             throw new IllegalArgumentException(
                 String.format("Failed to set Tag %s color. Tag does not exist.", tagUrn));
           }
@@ -62,7 +62,11 @@ public class SetTagColorResolver implements DataFetcher<CompletableFuture<Boolea
             TagProperties tagProperties =
                 (TagProperties)
                     EntityUtils.getAspectFromEntity(
-                        tagUrn.toString(), TAG_PROPERTIES_ASPECT_NAME, _entityService, null);
+                        context.getOperationContext(),
+                        tagUrn.toString(),
+                        TAG_PROPERTIES_ASPECT_NAME,
+                        _entityService,
+                        null);
 
             if (tagProperties == null) {
               throw new IllegalArgumentException(
@@ -75,7 +79,7 @@ public class SetTagColorResolver implements DataFetcher<CompletableFuture<Boolea
             final MetadataChangeProposal proposal =
                 buildMetadataChangeProposalWithUrn(
                     tagUrn, TAG_PROPERTIES_ASPECT_NAME, tagProperties);
-            _entityClient.ingestProposal(proposal, context.getAuthentication(), false);
+            _entityClient.ingestProposal(context.getOperationContext(), proposal, false);
             return true;
           } catch (Exception e) {
             log.error("Failed to set color for Tag with urn {}: {}", tagUrn, e.getMessage());

@@ -55,6 +55,6 @@ public class BatchUpdateStepStatesResolverTest {
         _resolver.get(_dataFetchingEnvironment).join();
     assertNotNull(actualBatchResult);
     assertEquals(1, actualBatchResult.getResults().size());
-    verify(_entityClient, times(1)).ingestProposal(any(), eq(_authentication), eq(false));
+    verify(_entityClient, times(1)).ingestProposal(any(), any(), eq(false));
   }
 }

@@ -24,6 +24,7 @@ public class RemoveOwnerResolver implements DataFetcher<CompletableFuture<Boolea
 
   @Override
   public CompletableFuture<Boolean> get(DataFetchingEnvironment environment) throws Exception {
+    final QueryContext context = environment.getContext();
     final RemoveOwnerInput input =
         bindArgument(environment.getArgument("input"), RemoveOwnerInput.class);
 
@@ -34,16 +35,15 @@ public class RemoveOwnerResolver implements DataFetcher<CompletableFuture<Boolea
             ? null
             : Urn.createFromString(input.getOwnershipTypeUrn());
 
-    OwnerUtils.validateAuthorizedToUpdateOwners(environment.getContext(), targetUrn);
+    OwnerUtils.validateAuthorizedToUpdateOwners(context, targetUrn);
 
     return CompletableFuture.supplyAsync(
         () -> {
-          OwnerUtils.validateRemoveInput(targetUrn, _entityService);
+          OwnerUtils.validateRemoveInput(context.getOperationContext(), targetUrn, _entityService);
           try {
-            Urn actor =
-                CorpuserUrn.createFromString(
-                    ((QueryContext) environment.getContext()).getActorUrn());
+            Urn actor = CorpuserUrn.createFromString(context.getActorUrn());
             OwnerUtils.removeOwnersFromResources(
+                context.getOperationContext(),
                 ImmutableList.of(ownerUrn),
                 ownershipTypeUrn,
                 ImmutableList.of(new ResourceRefInput(input.getResourceUrn(), null, null)),

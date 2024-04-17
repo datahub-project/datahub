@@ -45,6 +45,7 @@ import com.linkedin.subscription.EntityChangeType;
 import com.linkedin.subscription.SubscriptionNotificationConfig;
 import com.linkedin.subscription.SubscriptionType;
 import com.linkedin.subscription.SubscriptionTypeArray;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -132,6 +133,7 @@ public class OwnerSubscriptionHook implements MetadataChangeLogHook {
 
   private final SubscriptionService subscriptionService;
   private final SettingsService settingsService;
+  private OperationContext systemOperationContext;
 
   private final boolean isEnabled;
 
@@ -148,9 +150,10 @@ public class OwnerSubscriptionHook implements MetadataChangeLogHook {
   }
 
   @Override
-  public void init() {
-    // pass.
+  public OwnerSubscriptionHook init(@Nonnull OperationContext systemOperationContext) {
+    this.systemOperationContext = systemOperationContext;
     log.info("Initialized Owner Subscription hook");
+    return this;
   }
 
   @Override
@@ -198,7 +201,8 @@ public class OwnerSubscriptionHook implements MetadataChangeLogHook {
   }
 
   private void subscribeOwnerToEntity(@Nonnull Urn entityUrn, @Nonnull Owner owner) {
-    if (subscriptionService.isActorSubscribed(entityUrn, owner.getOwner())) {
+    if (subscriptionService.isActorSubscribed(
+        systemOperationContext, entityUrn, owner.getOwner())) {
       log.debug(
           "Owner {} already has a subscription for the entity. Skipping subscription creation.",
           owner.getOwner());
@@ -211,6 +215,7 @@ public class OwnerSubscriptionHook implements MetadataChangeLogHook {
     final Set<EntityChangeType> entityChangeTypes =
         getSubscriptionChangeTypesForOwnerType(owner.getTypeUrn());
     subscriptionService.createSubscription(
+        systemOperationContext,
         owner.getOwner(),
         entityUrn,
         new SubscriptionTypeArray(ImmutableList.of(SubscriptionType.ENTITY_CHANGE)),
@@ -261,7 +266,8 @@ public class OwnerSubscriptionHook implements MetadataChangeLogHook {
 
   @Nullable
   private SubscriptionNotificationConfig getUserNotificationConfig(@Nonnull final Urn userUrn) {
-    CorpUserSettings settings = this.settingsService.getCorpUserSettings(userUrn);
+    CorpUserSettings settings =
+        this.settingsService.getCorpUserSettings(systemOperationContext, userUrn);
     if (settings == null || !settings.hasNotificationSettings()) {
       return null;
     }
@@ -270,7 +276,8 @@ public class OwnerSubscriptionHook implements MetadataChangeLogHook {
   }
 
   private SubscriptionNotificationConfig getGroupNotificationConfig(@Nonnull final Urn groupUrn) {
-    CorpGroupSettings settings = this.settingsService.getCorpGroupSettings(groupUrn);
+    CorpGroupSettings settings =
+        this.settingsService.getCorpGroupSettings(systemOperationContext, groupUrn);
     if (settings == null || !settings.hasNotificationSettings()) {
       return null;
     }

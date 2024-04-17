@@ -2,13 +2,11 @@ package com.datahub.notification.recipient;
 
 import static org.mockito.Mockito.*;
 
-import com.datahub.authentication.Authentication;
 import com.datahub.notification.NotificationScenarioType;
 import com.datahub.notification.provider.SettingsProvider;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.StringMap;
-import com.linkedin.entity.client.EntityClient;
 import com.linkedin.event.notification.NotificationRecipient;
 import com.linkedin.event.notification.NotificationSinkType;
 import com.linkedin.event.notification.NotificationSinkTypeArray;
@@ -25,6 +23,8 @@ import com.linkedin.subscription.EntityChangeDetailsArray;
 import com.linkedin.subscription.SubscriptionInfo;
 import com.linkedin.subscription.SubscriptionNotificationConfig;
 import com.linkedin.subscription.SubscriptionTypeArray;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -37,17 +37,17 @@ import org.testng.annotations.Test;
 
 public class EmailNotificationRecipientBuilderTest {
   @Mock private SettingsProvider settingsProvider;
-  @Mock private EntityClient entityClient;
-  @Mock private Authentication authentication;
   @Mock private GlobalSettingsInfo globalSettingsInfo;
 
   private EmailNotificationRecipientBuilder builder;
+  private OperationContext opContext;
 
   @BeforeMethod
   public void setUp() {
+    opContext = TestOperationContexts.systemContextNoSearchAuthorization();
     MockitoAnnotations.openMocks(this);
-    when(settingsProvider.getGlobalSettings()).thenReturn(globalSettingsInfo);
-    builder = new EmailNotificationRecipientBuilder(settingsProvider, entityClient, authentication);
+    when(settingsProvider.getGlobalSettings(opContext)).thenReturn(globalSettingsInfo);
+    builder = new EmailNotificationRecipientBuilder(settingsProvider);
   }
 
   @Test
@@ -72,7 +72,7 @@ public class EmailNotificationRecipientBuilderTest {
     when(globalSettingsInfo.getNotifications()).thenReturn(globalNotificationSettings);
 
     List<NotificationRecipient> recipients =
-        builder.buildGlobalRecipients(NotificationScenarioType.ASSERTION_STATUS_CHANGE);
+        builder.buildGlobalRecipients(opContext, NotificationScenarioType.ASSERTION_STATUS_CHANGE);
 
     Assert.assertEquals(recipients.size(), 1);
     Assert.assertEquals(recipients.get(0).getId(), "test@example.com");
@@ -100,7 +100,7 @@ public class EmailNotificationRecipientBuilderTest {
                 .setEmailSettings(new EmailIntegrationSettings().setDefaultEmail("test@test.com")));
 
     List<NotificationRecipient> recipients =
-        builder.buildGlobalRecipients(NotificationScenarioType.ASSERTION_STATUS_CHANGE);
+        builder.buildGlobalRecipients(opContext, NotificationScenarioType.ASSERTION_STATUS_CHANGE);
 
     Assert.assertEquals(recipients.size(), 1);
     Assert.assertEquals(recipients.get(0).getId(), "test@test.com");
@@ -259,7 +259,7 @@ public class EmailNotificationRecipientBuilderTest {
     groupToNotificationSettings.put(testUrn, settings);
 
     List<NotificationRecipient> recipients =
-        builder.buildSubscriberRecipients(groupToSubscriptionMap, testUrn);
+        builder.buildSubscriberRecipients(opContext, groupToSubscriptionMap, testUrn);
 
     // No recipients because current actor is a recipient.
     Assert.assertEquals(recipients.size(), 0);

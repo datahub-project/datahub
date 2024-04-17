@@ -79,6 +79,7 @@ def default_query_results(
                 "user_id": "reapply_phone",
                 "given_name": "Shubham",
                 "family_name": "Jagtap",
+                "email": "abc.xyz@email.com",
             }
         ]
     elif query == fivetran_log_query.get_sync_start_logs_query("calendar_elected"):

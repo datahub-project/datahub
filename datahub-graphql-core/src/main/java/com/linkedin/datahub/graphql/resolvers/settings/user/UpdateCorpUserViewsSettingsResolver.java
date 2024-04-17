@@ -39,7 +39,7 @@ public class UpdateCorpUserViewsSettingsResolver
             final Urn userUrn = UrnUtils.getUrn(context.getActorUrn());
 
             final CorpUserSettings maybeSettings =
-                _settingsService.getCorpUserSettings(userUrn, context.getAuthentication());
+                _settingsService.getCorpUserSettings(context.getOperationContext(), userUrn);
 
             final CorpUserSettings newSettings =
                 maybeSettings == null
@@ -52,7 +52,7 @@ public class UpdateCorpUserViewsSettingsResolver
             updateCorpUserSettings(newSettings, input);
 
             _settingsService.updateCorpUserSettings(
-                userUrn, newSettings, context.getAuthentication());
+                context.getOperationContext(), userUrn, newSettings);
             return true;
           } catch (Exception e) {
             log.error(

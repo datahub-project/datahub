@@ -1,7 +1,10 @@
 package com.linkedin.metadata.kafka.hook.form;
 
 import static com.linkedin.metadata.Constants.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.nullable;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -25,6 +28,7 @@ import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.service.FormService;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeLog;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.List;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
@@ -35,11 +39,12 @@ public class FormAssignmentHookTest {
   private static final String TEST_FORM_PROMPT_ID_1 = "test-id";
   private static final String TEST_FORM_PROMPT_ID_2 = "test-id-2";
   private static final Urn TEST_PROPERTY_URN = UrnUtils.getUrn("urn:li:structuredProperty:test.id");
+  private static final ObjectMapper objectMapper = new ObjectMapper();
 
   @Test
   public void testInvokeNotEnabled() throws Exception {
     FormService service = mockFormService();
-    FormAssignmentHook hook = new FormAssignmentHook(service, false);
+    FormAssignmentHook hook = new FormAssignmentHook(service, false, objectMapper);
     final MetadataChangeLog event =
         buildMetadataChangeLog(
             TEST_FORM_URN,
@@ -60,7 +65,7 @@ public class FormAssignmentHookTest {
   @Test
   public void testInvokeNotEligibleChange() throws Exception {
     FormService service = mockFormService();
-    FormAssignmentHook hook = new FormAssignmentHook(service, true);
+    FormAssignmentHook hook = new FormAssignmentHook(service, true, objectMapper);
 
     // Case 1: Bad aspect
     final MetadataChangeLog event1 =
@@ -90,7 +95,7 @@ public class FormAssignmentHookTest {
   @Test
   public void testInvokeFormInfoNoPrevious() throws Exception {
     FormService service = mockFormService();
-    FormAssignmentHook hook = new FormAssignmentHook(service, true);
+    FormAssignmentHook hook = new FormAssignmentHook(service, true, objectMapper);
     FormPrompt testPrompt1 =
         new FormPrompt()
             .setId(TEST_FORM_PROMPT_ID_1)
@@ -114,18 +119,20 @@ public class FormAssignmentHookTest {
             null);
     hook.invoke(event);
     Mockito.verify(service, Mockito.times(1))
-        .upsertFormPromptCompletionAutomation(Mockito.eq(TEST_FORM_URN), Mockito.eq(testPrompt1));
+        .upsertFormPromptCompletionAutomation(
+            nullable(OperationContext.class), Mockito.eq(TEST_FORM_URN), Mockito.eq(testPrompt1));
     Mockito.verify(service, Mockito.times(1))
-        .upsertFormPromptCompletionAutomation(Mockito.eq(TEST_FORM_URN), Mockito.eq(testPrompt2));
+        .upsertFormPromptCompletionAutomation(
+            nullable(OperationContext.class), Mockito.eq(TEST_FORM_URN), Mockito.eq(testPrompt2));
     Mockito.verify(service, Mockito.times(0))
         .removeFormPromptCompletionAutomation(
-            Mockito.eq(TEST_FORM_URN), Mockito.any(FormPrompt.class));
+            nullable(OperationContext.class), Mockito.eq(TEST_FORM_URN), any(FormPrompt.class));
   }
 
   @Test
   public void testInvokeFormInfoHasPrevious() throws Exception {
     FormService service = mockFormService();
-    FormAssignmentHook hook = new FormAssignmentHook(service, true);
+    FormAssignmentHook hook = new FormAssignmentHook(service, true, objectMapper);
 
     FormPrompt prevPrompt1 =
         new FormPrompt()
@@ -160,17 +167,20 @@ public class FormAssignmentHookTest {
             mockFormInfo(ImmutableList.of(prevPrompt1)));
     hook.invoke(event);
     Mockito.verify(service, Mockito.times(1))
-        .upsertFormPromptCompletionAutomation(Mockito.eq(TEST_FORM_URN), Mockito.eq(newPrompt1));
+        .upsertFormPromptCompletionAutomation(
+            nullable(OperationContext.class), Mockito.eq(TEST_FORM_URN), Mockito.eq(newPrompt1));
     Mockito.verify(service, Mockito.times(1))
-        .upsertFormPromptCompletionAutomation(Mockito.eq(TEST_FORM_URN), Mockito.eq(newPrompt2));
+        .upsertFormPromptCompletionAutomation(
+            nullable(OperationContext.class), Mockito.eq(TEST_FORM_URN), Mockito.eq(newPrompt2));
     Mockito.verify(service, Mockito.times(1))
-        .removeFormPromptCompletionAutomation(Mockito.eq(TEST_FORM_URN), Mockito.eq(prevPrompt1));
+        .removeFormPromptCompletionAutomation(
+            nullable(OperationContext.class), Mockito.eq(TEST_FORM_URN), Mockito.eq(prevPrompt1));
   }
 
   @Test
   public void testInvokeDynamicFilters() throws Exception {
     FormService service = mockFormService();
-    FormAssignmentHook hook = new FormAssignmentHook(service, true);
+    FormAssignmentHook hook = new FormAssignmentHook(service, true, objectMapper);
     final Filter newFilter =
         buildFilter(
             ImmutableList.of(
@@ -186,7 +196,11 @@ public class FormAssignmentHookTest {
             TEST_FORM_URN, DYNAMIC_FORM_ASSIGNMENT_ASPECT_NAME, ChangeType.UPSERT, newFormFilters);
     hook.invoke(event1);
     Mockito.verify(service, Mockito.times(1))
-        .upsertFormAssignmentAutomation(Mockito.eq(TEST_FORM_URN), Mockito.eq(newFormFilters));
+        .upsertFormAssignmentAutomation(
+            nullable(OperationContext.class),
+            Mockito.eq(TEST_FORM_URN),
+            Mockito.eq(newFormFilters),
+            any(ObjectMapper.class));
   }
 
   private FormInfo mockFormInfo(final List<FormPrompt> prompts) {

@@ -242,6 +242,10 @@ export function sortEntityProfileTabs(appConfig: AppConfig, entityType: EntityTy
     return sortedTabs;
 }
 
+export function getNestedValue(obj: any, path: string) {
+    return path.split('.').reduce((o, p) => (o || {})[p], obj);
+}
+
 export function sortSharedList(sharedItems: ShareResult[]) {
     // sort by lastSuccess time / descending
     return sharedItems.slice().sort((a, b) => b!.lastSuccess!.time - a!.lastSuccess!.time);

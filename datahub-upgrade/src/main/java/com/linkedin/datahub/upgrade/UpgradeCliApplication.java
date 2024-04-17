@@ -5,7 +5,6 @@ import com.linkedin.gms.factory.auth.DataHubAuthorizerFactory;
 import com.linkedin.gms.factory.graphql.GraphQLEngineFactory;
 import com.linkedin.gms.factory.kafka.KafkaEventConsumerFactory;
 import com.linkedin.gms.factory.kafka.SimpleKafkaConsumerFactory;
-import com.linkedin.gms.factory.kafka.schemaregistry.InternalSchemaRegistryFactory;
 import com.linkedin.gms.factory.notifications.NotificationSinkManagerFactory;
 import com.linkedin.gms.factory.telemetry.ScheduledAnalyticsFactory;
 import com.linkedin.gms.factory.test.TestEngineFactory;
@@ -33,7 +32,6 @@ import org.springframework.context.annotation.FilterType;
             DataHubAuthorizerFactory.class,
             SimpleKafkaConsumerFactory.class,
             KafkaEventConsumerFactory.class,
-            InternalSchemaRegistryFactory.class,
             GraphQLEngineFactory.class,
             NotificationSinkManagerFactory.class,
             TestEngineFactory.class

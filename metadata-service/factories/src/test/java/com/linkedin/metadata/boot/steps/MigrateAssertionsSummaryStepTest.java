@@ -1,5 +1,6 @@
 package com.linkedin.metadata.boot.steps;
 
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 
@@ -63,14 +64,13 @@ public class MigrateAssertionsSummaryStepTest {
 
     final MigrateAssertionsSummaryStep step =
         new MigrateAssertionsSummaryStep(
-            mock(OperationContext.class),
             entityService,
             entitySearchService,
             assertionService,
             timeseriesAspectService,
             configurationProvider);
 
-    step.upgrade();
+    step.upgrade(mock(OperationContext.class));
 
     AssertionsSummary expectedSummary = new AssertionsSummary();
     AssertionSummaryDetailsArray failingSummaryDetails = new AssertionSummaryDetailsArray();
@@ -80,7 +80,8 @@ public class MigrateAssertionsSummaryStepTest {
     expectedSummary.setFailingAssertions(new UrnArray());
 
     Mockito.verify(assertionService, times(1))
-        .updateAssertionsSummary(Mockito.eq(DATASET_URN), Mockito.eq(expectedSummary));
+        .updateAssertionsSummary(
+            any(OperationContext.class), Mockito.eq(DATASET_URN), Mockito.eq(expectedSummary));
   }
 
   private ConfigurationProvider createConfigurationProvider() {
@@ -107,14 +108,13 @@ public class MigrateAssertionsSummaryStepTest {
 
     final MigrateAssertionsSummaryStep step =
         new MigrateAssertionsSummaryStep(
-            mock(OperationContext.class),
             entityService,
             entitySearchService,
             assertionService,
             timeseriesAspectService,
             configurationProvider);
 
-    step.upgrade();
+    step.upgrade(mock(OperationContext.class));
 
     AssertionsSummary expectedSummary = new AssertionsSummary();
     AssertionSummaryDetailsArray passingAssertionSummary = new AssertionSummaryDetailsArray();
@@ -124,7 +124,8 @@ public class MigrateAssertionsSummaryStepTest {
     expectedSummary.setFailingAssertions(new UrnArray());
 
     Mockito.verify(assertionService, times(1))
-        .updateAssertionsSummary(Mockito.eq(DATASET_URN), Mockito.eq(expectedSummary));
+        .updateAssertionsSummary(
+            any(OperationContext.class), Mockito.eq(DATASET_URN), Mockito.eq(expectedSummary));
   }
 
   private static void configureEntitySearchServiceMock(
@@ -176,10 +177,14 @@ public class MigrateAssertionsSummaryStepTest {
             .setAggregation(AssertionStdAggregation.MAX));
     assertionInfo.setSource(new AssertionSource().setType(AssertionSourceType.EXTERNAL));
 
-    Mockito.when(mockAssertionService.getAssertionInfo(Mockito.eq(ASSERTION_URN)))
+    Mockito.when(
+            mockAssertionService.getAssertionInfo(
+                any(OperationContext.class), Mockito.eq(ASSERTION_URN)))
         .thenReturn(assertionInfo);
 
-    Mockito.when(mockAssertionService.getAssertionsSummary(Mockito.eq(DATASET_URN)))
+    Mockito.when(
+            mockAssertionService.getAssertionsSummary(
+                any(OperationContext.class), Mockito.eq(DATASET_URN)))
         .thenReturn(
             new AssertionsSummary()
                 .setPassingAssertions(new UrnArray(ImmutableList.of(ASSERTION_URN)))
@@ -200,6 +205,7 @@ public class MigrateAssertionsSummaryStepTest {
 
     Mockito.when(
             timeseriesAspectService.getAspectValues(
+                any(OperationContext.class),
                 Mockito.eq(ASSERTION_URN),
                 Mockito.eq(Constants.ASSERTION_ENTITY_NAME),
                 Mockito.eq(Constants.ASSERTION_RUN_EVENT_ASPECT_NAME),

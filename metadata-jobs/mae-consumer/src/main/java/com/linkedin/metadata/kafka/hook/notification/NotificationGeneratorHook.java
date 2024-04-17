@@ -2,6 +2,7 @@ package com.linkedin.metadata.kafka.hook.notification;
 
 import com.linkedin.metadata.kafka.hook.MetadataChangeLogHook;
 import com.linkedin.mxe.MetadataChangeLog;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
@@ -26,8 +27,8 @@ public class NotificationGeneratorHook implements MetadataChangeLogHook {
   }
 
   @Override
-  public void init() {
-    // pass.
+  public NotificationGeneratorHook init(@Nonnull OperationContext systemOperationContext) {
+    return this;
   }
 
   @Override

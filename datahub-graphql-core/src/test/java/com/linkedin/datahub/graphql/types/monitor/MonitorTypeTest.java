@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.types.monitor;
 
+import static org.mockito.ArgumentMatchers.nullable;
 import static org.testng.Assert.*;
 
 import com.datahub.authentication.Authentication;
@@ -26,6 +27,7 @@ import com.linkedin.monitor.MonitorStatus;
 import com.linkedin.monitor.MonitorType;
 import com.linkedin.r2.RemoteInvocationException;
 import graphql.execution.DataFetcherResult;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -65,10 +67,11 @@ public class MonitorTypeTest {
         new EnvelopedAspect().setValue(new Aspect(TEST_MONITOR_INFO.data())));
     Mockito.when(
             client.batchGetV2(
+                nullable(OperationContext.class),
                 Mockito.eq(Constants.MONITOR_ENTITY_NAME),
                 Mockito.eq(new HashSet<>(ImmutableSet.of(monitorUrn1, monitorUrn2))),
-                Mockito.eq(com.linkedin.datahub.graphql.types.monitor.MonitorType.ASPECTS_TO_FETCH),
-                Mockito.any(Authentication.class)))
+                Mockito.eq(
+                    com.linkedin.datahub.graphql.types.monitor.MonitorType.ASPECTS_TO_FETCH)))
         .thenReturn(
             ImmutableMap.of(
                 monitorUrn1,
@@ -88,10 +91,10 @@ public class MonitorTypeTest {
     // Verify response
     Mockito.verify(client, Mockito.times(1))
         .batchGetV2(
+            nullable(OperationContext.class),
             Mockito.eq(Constants.MONITOR_ENTITY_NAME),
             Mockito.eq(ImmutableSet.of(monitorUrn1, monitorUrn2)),
-            Mockito.eq(com.linkedin.datahub.graphql.types.monitor.MonitorType.ASPECTS_TO_FETCH),
-            Mockito.any(Authentication.class));
+            Mockito.eq(com.linkedin.datahub.graphql.types.monitor.MonitorType.ASPECTS_TO_FETCH));
 
     assertEquals(result.size(), 2);
 
@@ -112,10 +115,10 @@ public class MonitorTypeTest {
     Mockito.doThrow(RemoteInvocationException.class)
         .when(mockClient)
         .batchGetV2(
+            nullable(OperationContext.class),
             Mockito.anyString(),
             Mockito.anySet(),
-            Mockito.anySet(),
-            Mockito.any(Authentication.class));
+            Mockito.anySet());
     com.linkedin.datahub.graphql.types.monitor.MonitorType type =
         new com.linkedin.datahub.graphql.types.monitor.MonitorType(mockClient);
 

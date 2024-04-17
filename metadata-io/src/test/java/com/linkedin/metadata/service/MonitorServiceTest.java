@@ -5,7 +5,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
-import com.datahub.authentication.Authentication;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.assertion.AssertionResult;
@@ -35,7 +35,7 @@ import com.linkedin.entity.Aspect;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
-import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.monitor.AssertionEvaluationParameters;
@@ -56,6 +56,7 @@ import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.parseq.retry.backoff.BackoffPolicy;
 import com.linkedin.schema.SchemaFieldSpec;
 import com.linkedin.timeseries.CalendarInterval;
+import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.openapi.client.OpenApiClient;
 import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
@@ -92,42 +93,44 @@ public class MonitorServiceTest {
 
   @Mock private BackoffPolicy backoffPolicy;
 
+  private static final ObjectMapper objectMapper = new ObjectMapper();
+
   @Test
   private void testGetMonitorInfo() throws Exception {
-    final EntityClient mockClient = createMockEntityClient();
+    final SystemEntityClient mockClient = createMockEntityClient();
     final MonitorService service =
         new MonitorService(
             TEST_HOST,
             TEST_PORT,
             false,
             mockClient,
-            Mockito.mock(Authentication.class),
-            Mockito.mock(OpenApiClient.class));
+            Mockito.mock(OpenApiClient.class),
+            objectMapper);
     // Case 1: Info exists
-    MonitorInfo info = service.getMonitorInfo(TEST_MONITOR_URN);
+    MonitorInfo info = service.getMonitorInfo(mock(OperationContext.class), TEST_MONITOR_URN);
     Assert.assertEquals(info, mockMonitorInfo());
     Mockito.verify(mockClient, Mockito.times(1))
         .getV2(
+            any(OperationContext.class),
             Mockito.eq(Constants.MONITOR_ENTITY_NAME),
             Mockito.eq(TEST_MONITOR_URN),
-            Mockito.eq(ImmutableSet.of(Constants.MONITOR_INFO_ASPECT_NAME)),
-            Mockito.any(Authentication.class));
+            Mockito.eq(ImmutableSet.of(Constants.MONITOR_INFO_ASPECT_NAME)));
 
     // Case 2: Info does not exist
-    info = service.getMonitorInfo(TEST_NON_EXISTENT_MONITOR_URN);
+    info = service.getMonitorInfo(mock(OperationContext.class), TEST_NON_EXISTENT_MONITOR_URN);
     Assert.assertNull(info);
     Mockito.verify(mockClient, Mockito.times(1))
         .getV2(
+            any(OperationContext.class),
             Mockito.eq(Constants.MONITOR_ENTITY_NAME),
             Mockito.eq(TEST_NON_EXISTENT_MONITOR_URN),
-            Mockito.eq(ImmutableSet.of(Constants.MONITOR_INFO_ASPECT_NAME)),
-            Mockito.any(Authentication.class));
+            Mockito.eq(ImmutableSet.of(Constants.MONITOR_INFO_ASPECT_NAME)));
   }
 
   @Test
   public void testCreateAssertionMonitorRequiredFields() throws Exception {
     // Test data and mocks
-    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    SystemEntityClient mockClient = Mockito.mock(SystemEntityClient.class);
     Urn entityUrn = TEST_ENTITY_URN;
     Urn assertionUrn = TEST_ASSERTION_URN;
     CronSchedule schedule =
@@ -143,14 +146,14 @@ public class MonitorServiceTest {
                             .setUserName("test")
                             .setOperationTypes(new StringArray())));
 
-    Mockito.when(mockClient.exists(Mockito.eq(assertionUrn), Mockito.any(Authentication.class)))
+    Mockito.when(mockClient.exists(any(OperationContext.class), Mockito.eq(assertionUrn)))
         .thenReturn(true);
-    Mockito.when(mockClient.exists(Mockito.eq(entityUrn), Mockito.any(Authentication.class)))
+    Mockito.when(mockClient.exists(any(OperationContext.class), Mockito.eq(entityUrn)))
         .thenReturn(true);
 
     Mockito.doAnswer(
             invocation -> {
-              List<MetadataChangeProposal> aspects = invocation.getArgument(0);
+              List<MetadataChangeProposal> aspects = invocation.getArgument(1);
               Assert.assertEquals(aspects.size(), 1);
               MetadataChangeProposal proposal = aspects.get(0);
               Assert.assertEquals(proposal.getAspectName(), MONITOR_INFO_ASPECT_NAME);
@@ -174,8 +177,7 @@ public class MonitorServiceTest {
               return null;
             })
         .when(mockClient)
-        .batchIngestProposals(
-            Mockito.anyList(), Mockito.any(Authentication.class), Mockito.eq(false));
+        .batchIngestProposals(any(OperationContext.class), Mockito.anyList(), Mockito.eq(false));
 
     final MonitorService service =
         new MonitorService(
@@ -183,18 +185,13 @@ public class MonitorServiceTest {
             TEST_PORT,
             false,
             mockClient,
-            Mockito.mock(Authentication.class),
-            Mockito.mock(OpenApiClient.class));
+            Mockito.mock(OpenApiClient.class),
+            objectMapper);
 
     // Test method
     Urn result =
         service.createAssertionMonitor(
-            entityUrn,
-            assertionUrn,
-            schedule,
-            parameters,
-            null,
-            Mockito.mock(Authentication.class));
+            mock(OperationContext.class), entityUrn, assertionUrn, schedule, parameters, null);
 
     // Assert result
     Assert.assertEquals(result.getEntityType(), "monitor");
@@ -204,7 +201,7 @@ public class MonitorServiceTest {
   @Test
   public void testCreateAssertionMonitorRequiredFieldsAssertionDoesNotExist() throws Exception {
     // Test data and mocks
-    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    SystemEntityClient mockClient = Mockito.mock(SystemEntityClient.class);
     Urn entityUrn = TEST_ENTITY_URN;
     Urn assertionUrn = TEST_ASSERTION_URN;
     CronSchedule schedule =
@@ -226,26 +223,21 @@ public class MonitorServiceTest {
             TEST_PORT,
             false,
             mockClient,
-            Mockito.mock(Authentication.class),
-            Mockito.mock(OpenApiClient.class));
+            Mockito.mock(OpenApiClient.class),
+            objectMapper);
 
     // Method should throw because the assertion does not exist.
     Assert.assertThrows(
         IllegalArgumentException.class,
         () ->
             service.createAssertionMonitor(
-                entityUrn,
-                assertionUrn,
-                schedule,
-                parameters,
-                null,
-                Mockito.mock(Authentication.class)));
+                mock(OperationContext.class), entityUrn, assertionUrn, schedule, parameters, null));
   }
 
   @Test
   public void testCreateAssertionMonitorRequiredFieldsEntityDoesNotExist() throws Exception {
     // Test data and mocks
-    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    SystemEntityClient mockClient = Mockito.mock(SystemEntityClient.class);
     Urn entityUrn = TEST_ENTITY_URN;
     Urn assertionUrn = TEST_ASSERTION_URN;
     CronSchedule schedule =
@@ -267,12 +259,12 @@ public class MonitorServiceTest {
             TEST_PORT,
             false,
             mockClient,
-            Mockito.mock(Authentication.class),
-            Mockito.mock(OpenApiClient.class));
+            Mockito.mock(OpenApiClient.class),
+            objectMapper);
 
-    Mockito.when(mockClient.exists(Mockito.eq(assertionUrn), Mockito.any(Authentication.class)))
+    Mockito.when(mockClient.exists(any(OperationContext.class), Mockito.eq(assertionUrn)))
         .thenReturn(true);
-    Mockito.when(mockClient.exists(Mockito.eq(entityUrn), Mockito.any(Authentication.class)))
+    Mockito.when(mockClient.exists(any(OperationContext.class), Mockito.eq(entityUrn)))
         .thenReturn(false);
 
     // Method should throw because the assertion does not exist.
@@ -280,18 +272,13 @@ public class MonitorServiceTest {
         IllegalArgumentException.class,
         () ->
             service.createAssertionMonitor(
-                entityUrn,
-                assertionUrn,
-                schedule,
-                parameters,
-                null,
-                Mockito.mock(Authentication.class)));
+                mock(OperationContext.class), entityUrn, assertionUrn, schedule, parameters, null));
   }
 
   @Test
   public void testUpsertAssertionMonitorRequiredFields() throws Exception {
     // Test data and mocks
-    EntityClient mockClient = createMockEntityClient();
+    SystemEntityClient mockClient = createMockEntityClient();
     Urn entityUrn = TEST_ENTITY_URN;
     Urn assertionUrn = TEST_ASSERTION_URN;
     Urn monitorUrn = TEST_MONITOR_URN;
@@ -309,15 +296,15 @@ public class MonitorServiceTest {
                             .setOperationTypes(new StringArray())));
     MonitorMode monitorMode = MonitorMode.ACTIVE;
 
-    Mockito.when(mockClient.exists(Mockito.eq(monitorUrn), Mockito.any(Authentication.class)))
+    Mockito.when(mockClient.exists(any(OperationContext.class), Mockito.eq(monitorUrn)))
         .thenReturn(true);
-    Mockito.when(mockClient.exists(Mockito.eq(assertionUrn), Mockito.any(Authentication.class)))
+    Mockito.when(mockClient.exists(any(OperationContext.class), Mockito.eq(assertionUrn)))
         .thenReturn(true);
-    Mockito.when(mockClient.exists(Mockito.eq(entityUrn), Mockito.any(Authentication.class)))
+    Mockito.when(mockClient.exists(any(OperationContext.class), Mockito.eq(entityUrn)))
         .thenReturn(true);
     Mockito.doAnswer(
             invocation -> {
-              List<MetadataChangeProposal> aspects = invocation.getArgument(0);
+              List<MetadataChangeProposal> aspects = invocation.getArgument(1);
               Assert.assertEquals(aspects.size(), 1);
               MetadataChangeProposal proposal = aspects.get(0);
               Assert.assertEquals(proposal.getAspectName(), MONITOR_INFO_ASPECT_NAME);
@@ -341,8 +328,7 @@ public class MonitorServiceTest {
               return null;
             })
         .when(mockClient)
-        .batchIngestProposals(
-            Mockito.anyList(), Mockito.any(Authentication.class), Mockito.eq(false));
+        .batchIngestProposals(any(OperationContext.class), Mockito.anyList(), Mockito.eq(false));
 
     final MonitorService service =
         new MonitorService(
@@ -350,20 +336,20 @@ public class MonitorServiceTest {
             TEST_PORT,
             false,
             mockClient,
-            Mockito.mock(Authentication.class),
-            Mockito.mock(OpenApiClient.class));
+            Mockito.mock(OpenApiClient.class),
+            objectMapper);
 
     // Test method
     Urn result =
         service.upsertAssertionMonitor(
+            mock(OperationContext.class),
             monitorUrn,
             assertionUrn,
             entityUrn,
             schedule,
             parameters,
             monitorMode,
-            null,
-            Mockito.mock(Authentication.class));
+            null);
 
     // Assert result
     Assert.assertEquals(result, TEST_MONITOR_URN);
@@ -372,7 +358,7 @@ public class MonitorServiceTest {
   @Test
   public void testUpsertAssertionMonitorAllFields() throws Exception {
     // Test data and mocks
-    EntityClient mockClient = createMockEntityClient();
+    SystemEntityClient mockClient = createMockEntityClient();
     Urn entityUrn = TEST_ENTITY_URN;
     Urn assertionUrn = TEST_ASSERTION_URN;
     Urn monitorUrn = TEST_MONITOR_URN;
@@ -391,15 +377,15 @@ public class MonitorServiceTest {
     MonitorMode monitorMode = MonitorMode.ACTIVE;
     String executorId = "testExecutorId";
 
-    Mockito.when(mockClient.exists(Mockito.eq(monitorUrn), Mockito.any(Authentication.class)))
+    Mockito.when(mockClient.exists(any(OperationContext.class), Mockito.eq(monitorUrn)))
         .thenReturn(true);
-    Mockito.when(mockClient.exists(Mockito.eq(assertionUrn), Mockito.any(Authentication.class)))
+    Mockito.when(mockClient.exists(any(OperationContext.class), Mockito.eq(assertionUrn)))
         .thenReturn(true);
-    Mockito.when(mockClient.exists(Mockito.eq(entityUrn), Mockito.any(Authentication.class)))
+    Mockito.when(mockClient.exists(any(OperationContext.class), Mockito.eq(entityUrn)))
         .thenReturn(true);
     Mockito.doAnswer(
             invocation -> {
-              List<MetadataChangeProposal> aspects = invocation.getArgument(0);
+              List<MetadataChangeProposal> aspects = invocation.getArgument(1);
               Assert.assertEquals(aspects.size(), 1);
               MetadataChangeProposal proposal = aspects.get(0);
               Assert.assertEquals(proposal.getAspectName(), MONITOR_INFO_ASPECT_NAME);
@@ -424,8 +410,7 @@ public class MonitorServiceTest {
               return null;
             })
         .when(mockClient)
-        .batchIngestProposals(
-            Mockito.anyList(), Mockito.any(Authentication.class), Mockito.eq(false));
+        .batchIngestProposals(any(OperationContext.class), Mockito.anyList(), Mockito.eq(false));
 
     final MonitorService service =
         new MonitorService(
@@ -433,20 +418,20 @@ public class MonitorServiceTest {
             TEST_PORT,
             false,
             mockClient,
-            Mockito.mock(Authentication.class),
-            Mockito.mock(OpenApiClient.class));
+            Mockito.mock(OpenApiClient.class),
+            objectMapper);
 
     // Test method
     Urn result =
         service.upsertAssertionMonitor(
+            mock(OperationContext.class),
             monitorUrn,
             assertionUrn,
             entityUrn,
             schedule,
             parameters,
             monitorMode,
-            executorId,
-            Mockito.mock(Authentication.class));
+            executorId);
 
     // Assert result
     Assert.assertEquals(result, TEST_MONITOR_URN);
@@ -455,7 +440,7 @@ public class MonitorServiceTest {
   @Test
   public void testUpsertAssertionMonitorAssertionDoesNotExist() throws Exception {
     // Test data and mocks
-    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    SystemEntityClient mockClient = Mockito.mock(SystemEntityClient.class);
     Urn entityUrn = TEST_ENTITY_URN;
     Urn assertionUrn = TEST_ASSERTION_URN;
     Urn monitorUrn = TEST_MONITOR_URN;
@@ -478,28 +463,28 @@ public class MonitorServiceTest {
             TEST_PORT,
             false,
             mockClient,
-            Mockito.mock(Authentication.class),
-            Mockito.mock(OpenApiClient.class));
+            Mockito.mock(OpenApiClient.class),
+            objectMapper);
 
     // Method should throw because the assertion does not exist.
     Assert.assertThrows(
         IllegalArgumentException.class,
         () ->
             service.upsertAssertionMonitor(
+                mock(OperationContext.class),
                 monitorUrn,
                 assertionUrn,
                 entityUrn,
                 schedule,
                 parameters,
                 MonitorMode.ACTIVE,
-                null,
-                Mockito.mock(Authentication.class)));
+                null));
   }
 
   @Test
   public void testUpsertAssertionMonitorEntityDoesNotExist() throws Exception {
     // Test data and mocks
-    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    SystemEntityClient mockClient = Mockito.mock(SystemEntityClient.class);
     Urn entityUrn = TEST_ENTITY_URN;
     Urn assertionUrn = TEST_ASSERTION_URN;
     Urn monitorUrn = TEST_MONITOR_URN;
@@ -522,12 +507,12 @@ public class MonitorServiceTest {
             TEST_PORT,
             false,
             mockClient,
-            Mockito.mock(Authentication.class),
-            Mockito.mock(OpenApiClient.class));
+            Mockito.mock(OpenApiClient.class),
+            objectMapper);
 
-    Mockito.when(mockClient.exists(Mockito.eq(assertionUrn), Mockito.any(Authentication.class)))
+    Mockito.when(mockClient.exists(any(OperationContext.class), Mockito.eq(assertionUrn)))
         .thenReturn(true);
-    Mockito.when(mockClient.exists(Mockito.eq(entityUrn), Mockito.any(Authentication.class)))
+    Mockito.when(mockClient.exists(any(OperationContext.class), Mockito.eq(entityUrn)))
         .thenReturn(false);
 
     // Method should throw because the assertion does not exist.
@@ -535,20 +520,20 @@ public class MonitorServiceTest {
         IllegalArgumentException.class,
         () ->
             service.upsertAssertionMonitor(
+                mock(OperationContext.class),
                 monitorUrn,
                 assertionUrn,
                 entityUrn,
                 schedule,
                 parameters,
                 MonitorMode.ACTIVE,
-                null,
-                Mockito.mock(Authentication.class)));
+                null));
   }
 
   @Test
   public void testUpsertAssertionMonitorBadState() throws Exception {
     // Test data and mocks
-    EntityClient mockClient = createMockEntityClient();
+    SystemEntityClient mockClient = createMockEntityClient();
     Urn entityUrn = TEST_ENTITY_URN;
     Urn assertionUrn = TEST_ASSERTION_URN;
     Urn monitorUrn = TEST_BAD_STATE_MONITOR_URN;
@@ -559,12 +544,12 @@ public class MonitorServiceTest {
             TEST_PORT,
             false,
             mockClient,
-            Mockito.mock(Authentication.class),
-            Mockito.mock(OpenApiClient.class));
+            Mockito.mock(OpenApiClient.class),
+            objectMapper);
 
-    Mockito.when(mockClient.exists(Mockito.eq(assertionUrn), Mockito.any(Authentication.class)))
+    Mockito.when(mockClient.exists(any(OperationContext.class), Mockito.eq(assertionUrn)))
         .thenReturn(true);
-    Mockito.when(mockClient.exists(Mockito.eq(entityUrn), Mockito.any(Authentication.class)))
+    Mockito.when(mockClient.exists(any(OperationContext.class), Mockito.eq(entityUrn)))
         .thenReturn(true);
 
     // Method should throw because the monitor is in bad state.
@@ -573,14 +558,14 @@ public class MonitorServiceTest {
             Exception.class,
             () ->
                 service.upsertAssertionMonitor(
+                    mock(OperationContext.class),
                     monitorUrn,
                     assertionUrn,
                     entityUrn,
                     new CronSchedule(),
                     new AssertionEvaluationParameters(),
                     MonitorMode.ACTIVE,
-                    null,
-                    mock(Authentication.class)));
+                    null));
     assertEquals(
         e.getMessage(),
         String.format(
@@ -590,20 +575,20 @@ public class MonitorServiceTest {
 
   @Test
   private void testUpsertMonitorMode() throws Exception {
-    final EntityClient mockClient = createMockEntityClient();
+    final SystemEntityClient mockClient = createMockEntityClient();
     final MonitorService service =
         new MonitorService(
             TEST_HOST,
             TEST_PORT,
             false,
             mockClient,
-            Mockito.mock(Authentication.class),
-            Mockito.mock(OpenApiClient.class));
+            Mockito.mock(OpenApiClient.class),
+            objectMapper);
 
     // Case 1: Info exists
     Mockito.doAnswer(
             invocation -> {
-              List<MetadataChangeProposal> aspects = invocation.getArgument(0);
+              List<MetadataChangeProposal> aspects = invocation.getArgument(1);
               Assert.assertEquals(aspects.size(), 1);
               MetadataChangeProposal proposal = aspects.get(0);
               Assert.assertEquals(proposal.getAspectName(), MONITOR_INFO_ASPECT_NAME);
@@ -620,17 +605,16 @@ public class MonitorServiceTest {
               return null;
             })
         .when(mockClient)
-        .batchIngestProposals(
-            Mockito.anyList(), Mockito.any(Authentication.class), Mockito.eq(false));
+        .batchIngestProposals(any(OperationContext.class), Mockito.anyList(), Mockito.eq(false));
     Urn urn =
         service.upsertMonitorMode(
-            TEST_MONITOR_URN, MonitorMode.ACTIVE, Mockito.mock(Authentication.class));
+            mock(OperationContext.class), TEST_MONITOR_URN, MonitorMode.ACTIVE);
     Assert.assertEquals(urn, TEST_MONITOR_URN);
 
     // Case 2: Info does not exist
     Mockito.doAnswer(
             invocation -> {
-              List<MetadataChangeProposal> aspects = invocation.getArgument(0);
+              List<MetadataChangeProposal> aspects = invocation.getArgument(1);
               Assert.assertEquals(aspects.size(), 1);
               MetadataChangeProposal proposal = aspects.get(0);
               Assert.assertEquals(proposal.getAspectName(), MONITOR_INFO_ASPECT_NAME);
@@ -651,26 +635,23 @@ public class MonitorServiceTest {
               return null;
             })
         .when(mockClient)
-        .batchIngestProposals(
-            Mockito.anyList(), Mockito.any(Authentication.class), Mockito.eq(false));
+        .batchIngestProposals(any(OperationContext.class), Mockito.anyList(), Mockito.eq(false));
     urn =
         service.upsertMonitorMode(
-            TEST_NON_EXISTENT_MONITOR_URN,
-            MonitorMode.INACTIVE,
-            Mockito.mock(Authentication.class));
+            mock(OperationContext.class), TEST_NON_EXISTENT_MONITOR_URN, MonitorMode.INACTIVE);
     Assert.assertEquals(urn, TEST_NON_EXISTENT_MONITOR_URN);
   }
 
-  private static EntityClient createMockEntityClient() throws Exception {
-    EntityClient mockClient = Mockito.mock(EntityClient.class);
+  private static SystemEntityClient createMockEntityClient() throws Exception {
+    SystemEntityClient mockClient = Mockito.mock(SystemEntityClient.class);
 
     // Init for monitor info
     Mockito.when(
             mockClient.getV2(
+                any(OperationContext.class),
                 Mockito.eq(Constants.MONITOR_ENTITY_NAME),
                 Mockito.eq(TEST_MONITOR_URN),
-                Mockito.eq(ImmutableSet.of(Constants.MONITOR_INFO_ASPECT_NAME)),
-                Mockito.any(Authentication.class)))
+                Mockito.eq(ImmutableSet.of(Constants.MONITOR_INFO_ASPECT_NAME))))
         .thenReturn(
             new EntityResponse()
                 .setUrn(TEST_MONITOR_URN)
@@ -683,10 +664,10 @@ public class MonitorServiceTest {
                                 .setValue(new Aspect(mockMonitorInfo().data()))))));
     Mockito.when(
             mockClient.getV2(
+                any(OperationContext.class),
                 Mockito.eq(Constants.MONITOR_ENTITY_NAME),
                 Mockito.eq(TEST_NON_EXISTENT_MONITOR_URN),
-                Mockito.eq(ImmutableSet.of(Constants.MONITOR_INFO_ASPECT_NAME)),
-                Mockito.any(Authentication.class)))
+                Mockito.eq(ImmutableSet.of(Constants.MONITOR_INFO_ASPECT_NAME))))
         .thenReturn(
             new EntityResponse()
                 .setUrn(TEST_NON_EXISTENT_MONITOR_URN)
@@ -695,10 +676,10 @@ public class MonitorServiceTest {
 
     Mockito.when(
             mockClient.getV2(
+                any(OperationContext.class),
                 Mockito.eq(Constants.MONITOR_ENTITY_NAME),
                 Mockito.eq(TEST_BAD_STATE_MONITOR_URN),
-                Mockito.eq(ImmutableSet.of(Constants.MONITOR_INFO_ASPECT_NAME)),
-                Mockito.any(Authentication.class)))
+                Mockito.eq(ImmutableSet.of(Constants.MONITOR_INFO_ASPECT_NAME))))
         .thenReturn(
             new EntityResponse()
                 .setUrn(TEST_BAD_STATE_MONITOR_URN)
@@ -751,7 +732,7 @@ public class MonitorServiceTest {
 
   @Test
   public void testFreshnessAssertionSuccess() throws Exception {
-    final EntityClient mockClient = Mockito.mock(EntityClient.class);
+    final SystemEntityClient mockClient = Mockito.mock(SystemEntityClient.class);
     final CloseableHttpClient httpClient = Mockito.mock(CloseableHttpClient.class);
     final MonitorService service =
         new MonitorService(
@@ -759,11 +740,11 @@ public class MonitorServiceTest {
             TEST_PORT,
             false,
             mockClient,
-            Mockito.mock(Authentication.class),
             httpClient,
             backoffPolicy,
             3,
-            Mockito.mock(OpenApiClient.class));
+            Mockito.mock(OpenApiClient.class),
+            objectMapper);
 
     final FreshnessAssertionInfo freshnessAssertionInfo =
         new FreshnessAssertionInfo()
@@ -812,7 +793,7 @@ public class MonitorServiceTest {
 
   @Test
   public void testSqlAssertionSuccess() throws Exception {
-    final EntityClient mockClient = Mockito.mock(EntityClient.class);
+    final SystemEntityClient mockClient = Mockito.mock(SystemEntityClient.class);
     final CloseableHttpClient httpClient = Mockito.mock(CloseableHttpClient.class);
     final MonitorService service =
         new MonitorService(
@@ -820,11 +801,11 @@ public class MonitorServiceTest {
             TEST_PORT,
             false,
             mockClient,
-            Mockito.mock(Authentication.class),
             httpClient,
             backoffPolicy,
             3,
-            Mockito.mock(OpenApiClient.class));
+            Mockito.mock(OpenApiClient.class),
+            objectMapper);
 
     final SqlAssertionInfo sqlAssertionInfo =
         new SqlAssertionInfo()
@@ -866,7 +847,7 @@ public class MonitorServiceTest {
 
   @Test
   public void testFieldAssertionSuccess() throws Exception {
-    final EntityClient mockClient = Mockito.mock(EntityClient.class);
+    final SystemEntityClient mockClient = Mockito.mock(SystemEntityClient.class);
     final CloseableHttpClient httpClient = Mockito.mock(CloseableHttpClient.class);
     final MonitorService service =
         new MonitorService(
@@ -874,11 +855,11 @@ public class MonitorServiceTest {
             TEST_PORT,
             false,
             mockClient,
-            Mockito.mock(Authentication.class),
             httpClient,
             backoffPolicy,
             3,
-            Mockito.mock(OpenApiClient.class));
+            Mockito.mock(OpenApiClient.class),
+            objectMapper);
 
     final FieldAssertionInfo fieldAssertionInfo =
         new FieldAssertionInfo()

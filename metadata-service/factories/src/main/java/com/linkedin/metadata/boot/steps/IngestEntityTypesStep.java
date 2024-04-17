@@ -13,6 +13,7 @@ import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.util.Pair;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -37,15 +38,16 @@ public class IngestEntityTypesStep implements BootstrapStep {
   }
 
   @Override
-  public void execute() throws Exception {
+  public void execute(@Nonnull OperationContext systemOperationContext) throws Exception {
     log.info("Ingesting entity types from base entity registry...");
 
     log.info(
-        "Ingesting {} entity types", _entityService.getEntityRegistry().getEntitySpecs().size());
+        "Ingesting {} entity types",
+        systemOperationContext.getEntityRegistry().getEntitySpecs().size());
     int numIngested = 0;
 
     Map<Urn, EntitySpec> urnEntitySpecMap =
-        _entityService.getEntityRegistry().getEntitySpecs().values().stream()
+        systemOperationContext.getEntityRegistry().getEntitySpecs().values().stream()
             .map(
                 spec ->
                     Pair.of(
@@ -55,7 +57,8 @@ public class IngestEntityTypesStep implements BootstrapStep {
                         spec))
             .collect(Collectors.toMap(Pair::getKey, Pair::getValue));
 
-    Set<Urn> existingUrns = _entityService.exists(urnEntitySpecMap.keySet());
+    Set<Urn> existingUrns =
+        _entityService.exists(systemOperationContext, urnEntitySpecMap.keySet());
 
     for (final Map.Entry<Urn, EntitySpec> entry : urnEntitySpecMap.entrySet()) {
       if (!existingUrns.contains(entry.getKey())) {
@@ -67,14 +70,17 @@ public class IngestEntityTypesStep implements BootstrapStep {
                         .getName()) // TODO: Support display name in the entity registry.
                 .setQualifiedName(entry.getKey().getId());
         log.info(String.format("Ingesting entity type with urn %s", entry.getKey()));
-        ingestEntityType(entry.getKey(), info);
+        ingestEntityType(systemOperationContext, entry.getKey(), info);
         numIngested++;
       }
     }
     log.info("Ingested {} new entity types", numIngested);
   }
 
-  private void ingestEntityType(final Urn entityTypeUrn, final EntityTypeInfo info)
+  private void ingestEntityType(
+      @Nonnull OperationContext systemOperationContext,
+      final Urn entityTypeUrn,
+      final EntityTypeInfo info)
       throws Exception {
 
     final MetadataChangeProposal proposal = new MetadataChangeProposal();
@@ -85,6 +91,7 @@ public class IngestEntityTypesStep implements BootstrapStep {
     proposal.setChangeType(ChangeType.UPSERT);
 
     _entityService.ingestProposal(
+        systemOperationContext,
         proposal,
         new AuditStamp()
             .setActor(Urn.createFromString(SYSTEM_ACTOR))

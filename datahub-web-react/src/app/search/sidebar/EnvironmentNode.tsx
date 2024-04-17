@@ -22,7 +22,11 @@ const Count = styled(Typography.Text)`
     padding-right: 8px;
 `;
 
-const EnvironmentNode = () => {
+interface EntityNodeProps {
+    sortBy: string;
+}
+
+const EnvironmentNode: React.FC<EntityNodeProps> = ({ sortBy }) => {
     const isSelected = useIsEnvironmentSelected();
     const entityAggregation = useEntityAggregation();
     const environmentAggregation = useEnvironmentAggregation();
@@ -72,7 +76,7 @@ const EnvironmentNode = () => {
                             environmentAggregation={environmentAggregation}
                             platformAggregation={platformAggregation}
                         >
-                            <PlatformNode />
+                            <PlatformNode sortBy={sortBy} />
                         </BrowseProvider>
                     ))}
                     {error && <SidebarLoadingError onClickRetry={retry} />}

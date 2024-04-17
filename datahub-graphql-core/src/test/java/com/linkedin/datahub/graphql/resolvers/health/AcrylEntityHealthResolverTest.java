@@ -1,5 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.health;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.nullable;
 import static org.testng.Assert.*;
 
 import com.datahub.authentication.Authentication;
@@ -21,6 +23,7 @@ import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.List;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
@@ -51,10 +54,10 @@ public class AcrylEntityHealthResolverTest {
 
     Mockito.when(
             entityClient.getV2(
+                nullable(OperationContext.class),
                 Mockito.eq(Constants.DATASET_ENTITY_NAME),
                 Mockito.eq(UrnUtils.getUrn(TEST_DATASET_URN)),
-                Mockito.eq(ImmutableSet.of(Constants.ASSERTIONS_SUMMARY_ASPECT_NAME)),
-                Mockito.any()))
+                Mockito.eq(ImmutableSet.of(Constants.ASSERTIONS_SUMMARY_ASPECT_NAME))))
         .thenReturn(
             new EntityResponse()
                 .setUrn(UrnUtils.getUrn(TEST_ASSERTION_URN))
@@ -102,10 +105,10 @@ public class AcrylEntityHealthResolverTest {
 
     Mockito.when(
             entityClient.getV2(
+                nullable(OperationContext.class),
                 Mockito.eq(Constants.DATASET_ENTITY_NAME),
                 Mockito.eq(UrnUtils.getUrn(TEST_DATASET_URN)),
-                Mockito.eq(ImmutableSet.of(Constants.ASSERTIONS_SUMMARY_ASPECT_NAME)),
-                Mockito.any()))
+                Mockito.eq(ImmutableSet.of(Constants.ASSERTIONS_SUMMARY_ASPECT_NAME))))
         .thenReturn(
             new EntityResponse()
                 .setUrn(UrnUtils.getUrn(TEST_ASSERTION_URN))
@@ -142,10 +145,10 @@ public class AcrylEntityHealthResolverTest {
 
     Mockito.when(
             entityClient.getV2(
+                any(OperationContext.class),
                 Mockito.eq(Constants.DATASET_ENTITY_NAME),
                 Mockito.eq(UrnUtils.getUrn(TEST_DATASET_URN)),
-                Mockito.eq(ImmutableSet.of(Constants.ASSERTIONS_SUMMARY_ASPECT_NAME)),
-                Mockito.any()))
+                Mockito.eq(ImmutableSet.of(Constants.ASSERTIONS_SUMMARY_ASPECT_NAME))))
         .thenReturn(null);
 
     // Execute resolver
@@ -175,10 +178,10 @@ public class AcrylEntityHealthResolverTest {
 
     Mockito.when(
             entityClient.getV2(
+                any(OperationContext.class),
                 Mockito.eq(Constants.DATASET_ENTITY_NAME),
                 Mockito.eq(UrnUtils.getUrn(TEST_DATASET_URN)),
-                Mockito.eq(ImmutableSet.of(Constants.ASSERTIONS_SUMMARY_ASPECT_NAME)),
-                Mockito.any()))
+                Mockito.eq(ImmutableSet.of(Constants.ASSERTIONS_SUMMARY_ASPECT_NAME))))
         .thenReturn(
             new EntityResponse()
                 .setUrn(UrnUtils.getUrn(TEST_ASSERTION_URN))
@@ -217,10 +220,10 @@ public class AcrylEntityHealthResolverTest {
 
     Mockito.when(
             entityClient.getV2(
+                any(OperationContext.class),
                 Mockito.eq(Constants.DATASET_ENTITY_NAME),
                 Mockito.eq(UrnUtils.getUrn(TEST_DATASET_URN)),
-                Mockito.eq(ImmutableSet.of(Constants.ASSERTIONS_SUMMARY_ASPECT_NAME)),
-                Mockito.any()))
+                Mockito.eq(ImmutableSet.of(Constants.ASSERTIONS_SUMMARY_ASPECT_NAME))))
         .thenReturn(
             new EntityResponse()
                 .setUrn(UrnUtils.getUrn(TEST_DATASET_URN))
@@ -265,10 +268,10 @@ public class AcrylEntityHealthResolverTest {
 
     Mockito.when(
             entityClient.getV2(
+                nullable(OperationContext.class),
                 Mockito.eq(Constants.DATASET_ENTITY_NAME),
                 Mockito.eq(UrnUtils.getUrn(TEST_DATASET_URN)),
-                Mockito.eq(ImmutableSet.of(Constants.ASSERTIONS_SUMMARY_ASPECT_NAME)),
-                Mockito.any()))
+                Mockito.eq(ImmutableSet.of(Constants.ASSERTIONS_SUMMARY_ASPECT_NAME))))
         .thenReturn(
             new EntityResponse()
                 .setUrn(UrnUtils.getUrn(TEST_DATASET_URN))
@@ -317,10 +320,10 @@ public class AcrylEntityHealthResolverTest {
 
     Mockito.when(
             entityClient.getV2(
+                nullable(OperationContext.class),
                 Mockito.eq(Constants.DATASET_ENTITY_NAME),
                 Mockito.eq(UrnUtils.getUrn(TEST_DATASET_URN)),
-                Mockito.eq(ImmutableSet.of(Constants.ASSERTIONS_SUMMARY_ASPECT_NAME)),
-                Mockito.any()))
+                Mockito.eq(ImmutableSet.of(Constants.ASSERTIONS_SUMMARY_ASPECT_NAME))))
         .thenReturn(
             new EntityResponse()
                 .setUrn(UrnUtils.getUrn(TEST_DATASET_URN))
@@ -375,10 +378,10 @@ public class AcrylEntityHealthResolverTest {
 
     Mockito.when(
             entityClient.getV2(
+                nullable(OperationContext.class),
                 Mockito.eq(Constants.DATASET_ENTITY_NAME),
                 Mockito.eq(UrnUtils.getUrn(TEST_DATASET_URN)),
-                Mockito.eq(ImmutableSet.of(Constants.ASSERTIONS_SUMMARY_ASPECT_NAME)),
-                Mockito.any()))
+                Mockito.eq(ImmutableSet.of(Constants.ASSERTIONS_SUMMARY_ASPECT_NAME))))
         .thenReturn(
             new EntityResponse()
                 .setUrn(UrnUtils.getUrn(TEST_DATASET_URN))

@@ -1,9 +1,9 @@
 package com.linkedin.datahub.graphql.resolvers.assertion;
 
 import static com.linkedin.datahub.graphql.TestUtils.*;
+import static org.mockito.ArgumentMatchers.any;
 import static org.testng.Assert.*;
 
-import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.assertion.*;
@@ -51,6 +51,7 @@ import com.linkedin.monitor.MonitorStatus;
 import com.linkedin.monitor.MonitorType;
 import com.linkedin.r2.RemoteInvocationException;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.Collections;
 import java.util.concurrent.CompletionException;
 import org.mockito.Mockito;
@@ -251,17 +252,18 @@ public class UpsertDatasetFieldAssertionMonitorResolverTest {
     // Validate that we created the assertion
     Mockito.verify(assertionService, Mockito.times(1))
         .upsertDatasetFieldAssertion(
+            any(OperationContext.class),
             Mockito.eq(TEST_ASSERTION_URN),
             Mockito.eq(TEST_ASSERTION_INFO.getFieldAssertion().getEntity()),
             Mockito.eq("description"),
             Mockito.eq(TEST_ASSERTION_INFO.getFieldAssertion()),
             Mockito.eq(TEST_ASSERTION_ACTIONS),
-            Mockito.isNull(),
-            Mockito.any(Authentication.class));
+            Mockito.isNull());
 
     // Validate that we created the monitor
     Mockito.verify(monitorService, Mockito.times(1))
         .upsertAssertionMonitor(
+            any(OperationContext.class),
             Mockito.eq(TEST_MONITOR_URN),
             Mockito.eq(TEST_ASSERTION_URN),
             Mockito.eq(TEST_DATASET_URN),
@@ -269,8 +271,7 @@ public class UpsertDatasetFieldAssertionMonitorResolverTest {
             Mockito.eq(
                 TEST_MONITOR_INFO.getAssertionMonitor().getAssertions().get(0).getParameters()),
             Mockito.eq(TEST_MONITOR_INFO.getStatus().getMode()),
-            Mockito.eq(TEST_MONITOR_INFO.getExecutorId()),
-            Mockito.any(Authentication.class));
+            Mockito.eq(TEST_MONITOR_INFO.getExecutorId()));
   }
 
   @Test
@@ -321,7 +322,9 @@ public class UpsertDatasetFieldAssertionMonitorResolverTest {
   public void testGetUpdateNonFieldAssertionEntity() {
     // Update resolver
     AssertionService assertionService = Mockito.mock(AssertionService.class);
-    Mockito.when(assertionService.getAssertionInfo(Mockito.eq(TEST_ASSERTION_URN)))
+    Mockito.when(
+            assertionService.getAssertionInfo(
+                any(OperationContext.class), Mockito.eq(TEST_ASSERTION_URN)))
         .thenReturn(NON_FIELD_ASSERTION_INFO);
     MonitorService monitorService = initMockMonitorService();
     GraphClient graphClient = Mockito.mock(GraphClient.class);
@@ -380,25 +383,25 @@ public class UpsertDatasetFieldAssertionMonitorResolverTest {
     // Validate that we created the assertion
     Mockito.verify(assertionService, Mockito.times(1))
         .upsertDatasetFieldAssertion(
+            any(OperationContext.class),
             Mockito.eq(TEST_ASSERTION_URN),
             Mockito.eq(TEST_DATASET_URN),
             Mockito.eq("description"),
             Mockito.eq(TEST_ASSERTION_INFO.getFieldAssertion()),
             Mockito.eq(TEST_ASSERTION_ACTIONS),
-            Mockito.eq(TEST_ASSERTION_INFO.getSource()),
-            Mockito.any(Authentication.class));
+            Mockito.eq(TEST_ASSERTION_INFO.getSource()));
 
     // Validate that we created the monitor
     Mockito.verify(monitorService, Mockito.times(1))
         .upsertAssertionMonitor(
+            any(OperationContext.class),
             Mockito.eq(TEST_MONITOR_URN),
             Mockito.eq(TEST_ASSERTION_URN),
             Mockito.eq(TEST_DATASET_URN),
             Mockito.eq(evaluationSpec.getSchedule()),
             Mockito.eq(evaluationSpec.getParameters()),
             Mockito.eq(MonitorMode.ACTIVE),
-            Mockito.eq(TEST_EXECUTOR_ID),
-            Mockito.any(Authentication.class));
+            Mockito.eq(TEST_EXECUTOR_ID));
   }
 
   private GraphClient initMockGraphClient() {
@@ -445,7 +448,7 @@ public class UpsertDatasetFieldAssertionMonitorResolverTest {
             "Unauthorized to perform this action. Please contact your DataHub administrator.");
 
     Mockito.verify(mockClient, Mockito.times(0))
-        .ingestProposal(Mockito.any(), Mockito.any(Authentication.class));
+        .ingestProposal(any(OperationContext.class), Mockito.any());
   }
 
   @Test
@@ -454,7 +457,7 @@ public class UpsertDatasetFieldAssertionMonitorResolverTest {
     AssertionService mockService = Mockito.mock(AssertionService.class);
     Mockito.when(
             mockService.getAssertionEntityResponse(
-                Mockito.eq(TEST_ASSERTION_URN), Mockito.any(Authentication.class)))
+                any(OperationContext.class), Mockito.eq(TEST_ASSERTION_URN)))
         .thenReturn(
             new EntityResponse()
                 .setAspects(new EnvelopedAspectMap(Collections.emptyMap()))
@@ -501,6 +504,7 @@ public class UpsertDatasetFieldAssertionMonitorResolverTest {
 
     Mockito.when(
             monitorService.upsertAssertionMonitor(
+                any(OperationContext.class),
                 Mockito.eq(TEST_MONITOR_URN),
                 Mockito.eq(TEST_ASSERTION_URN),
                 Mockito.eq(TEST_DATASET_URN),
@@ -508,8 +512,7 @@ public class UpsertDatasetFieldAssertionMonitorResolverTest {
                 Mockito.eq(
                     TEST_MONITOR_INFO.getAssertionMonitor().getAssertions().get(0).getParameters()),
                 Mockito.eq(TEST_MONITOR_INFO.getStatus().getMode()),
-                Mockito.eq(TEST_MONITOR_INFO.getExecutorId()),
-                Mockito.any(Authentication.class)))
+                Mockito.eq(TEST_MONITOR_INFO.getExecutorId())))
         .thenThrow(RemoteInvocationException.class);
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
@@ -517,17 +520,17 @@ public class UpsertDatasetFieldAssertionMonitorResolverTest {
     // Validate that we created the assertion
     Mockito.verify(assertionService, Mockito.times(1))
         .upsertDatasetFieldAssertion(
+            any(OperationContext.class),
             Mockito.eq(TEST_ASSERTION_URN),
             Mockito.eq(TEST_ASSERTION_INFO.getFieldAssertion().getEntity()),
             Mockito.eq("description"),
             Mockito.eq(TEST_ASSERTION_INFO.getFieldAssertion()),
             Mockito.eq(TEST_ASSERTION_ACTIONS),
-            Mockito.isNull(),
-            Mockito.any(Authentication.class));
+            Mockito.isNull());
 
     // Validate that we deleted the assertion
     Mockito.verify(assertionService, Mockito.times(1))
-        .tryDeleteAssertion(Mockito.eq(TEST_ASSERTION_URN), Mockito.any(Authentication.class));
+        .tryDeleteAssertion(any(OperationContext.class), Mockito.eq(TEST_ASSERTION_URN));
   }
 
   @Test
@@ -574,13 +577,13 @@ public class UpsertDatasetFieldAssertionMonitorResolverTest {
     Mockito.doThrow(RuntimeException.class)
         .when(mockService)
         .upsertDatasetFieldAssertion(
+            any(OperationContext.class),
             Mockito.any(),
             Mockito.any(),
             Mockito.any(),
             Mockito.any(),
             Mockito.any(),
-            Mockito.any(),
-            Mockito.any(Authentication.class));
+            Mockito.any());
 
     UpsertDatasetFieldAssertionMonitorResolver resolver =
         new UpsertDatasetFieldAssertionMonitorResolver(
@@ -604,18 +607,18 @@ public class UpsertDatasetFieldAssertionMonitorResolverTest {
 
     Mockito.when(
             service.upsertDatasetFieldAssertion(
+                any(OperationContext.class),
                 Mockito.any(),
                 Mockito.any(),
                 Mockito.any(),
                 Mockito.any(),
                 Mockito.any(),
-                Mockito.any(),
-                Mockito.any(Authentication.class)))
+                Mockito.any()))
         .thenReturn(TEST_ASSERTION_URN);
 
     Mockito.when(
             service.getAssertionEntityResponse(
-                Mockito.eq(TEST_ASSERTION_URN), Mockito.any(Authentication.class)))
+                any(OperationContext.class), Mockito.eq(TEST_ASSERTION_URN)))
         .thenReturn(
             new EntityResponse()
                 .setAspects(
@@ -629,7 +632,8 @@ public class UpsertDatasetFieldAssertionMonitorResolverTest {
                 .setEntityName(Constants.ASSERTION_ENTITY_NAME)
                 .setUrn(TEST_ASSERTION_URN));
 
-    Mockito.when(service.getAssertionInfo(Mockito.eq(TEST_ASSERTION_URN)))
+    Mockito.when(
+            service.getAssertionInfo(any(OperationContext.class), Mockito.eq(TEST_ASSERTION_URN)))
         .thenReturn(TEST_ASSERTION_INFO);
 
     return service;

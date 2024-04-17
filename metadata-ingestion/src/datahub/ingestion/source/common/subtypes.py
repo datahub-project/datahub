@@ -17,6 +17,7 @@ class DatasetSubTypes(str, Enum):
     POWERBI_DATASET_TABLE = "PowerBI Dataset Table"
     QLIK_DATASET = "Qlik Dataset"
     BIGQUERY_TABLE_SNAPSHOT = "Bigquery Table Snapshot"
+    SIGMA_DATASET = "Sigma Dataset"
 
     # TODO: Create separate entity...
     NOTEBOOK = "Notebook"
@@ -38,11 +39,19 @@ class DatasetContainerSubTypes(str, Enum):
 
 class BIContainerSubTypes(str, Enum):
     LOOKER_FOLDER = "Folder"
+    LOOKML_PROJECT = "LookML Project"
+    LOOKML_MODEL = "LookML Model"
     TABLEAU_WORKBOOK = "Workbook"
     POWERBI_WORKSPACE = "Workspace"
     POWERBI_DATASET = "PowerBI Dataset"
     QLIK_SPACE = "Qlik Space"
     QLIK_APP = "Qlik App"
+    SIGMA_WORKSPACE = "Sigma Workspace"
+    SIGMA_WORKBOOK = "Sigma Workbook"
+
+
+class JobContainerSubTypes(str, Enum):
+    NIFI_PROCESS_GROUP = "Process Group"
 
 
 class BIAssetSubTypes(str, Enum):

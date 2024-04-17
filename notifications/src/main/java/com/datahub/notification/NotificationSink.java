@@ -3,6 +3,7 @@ package com.datahub.notification;
 import com.linkedin.event.notification.NotificationRecipientType;
 import com.linkedin.event.notification.NotificationRequest;
 import com.linkedin.event.notification.NotificationSinkType;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.Collection;
 import javax.annotation.Nonnull;
 
@@ -29,6 +30,9 @@ public interface NotificationSink {
   void init(@Nonnull final NotificationSinkConfig cfg);
 
   /** Sends a notification to one or more recipients based on a {@link NotificationRequest}. */
-  void send(@Nonnull final NotificationRequest request, @Nonnull final NotificationContext context)
+  void send(
+      @Nonnull OperationContext opContext,
+      @Nonnull final NotificationRequest request,
+      @Nonnull final NotificationContext context)
       throws Exception;
 }

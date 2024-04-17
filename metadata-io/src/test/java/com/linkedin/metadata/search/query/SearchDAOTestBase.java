@@ -3,22 +3,16 @@ package com.linkedin.metadata.search.query;
 import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.metadata.utils.SearchUtil.AGGREGATION_SEPARATOR_CHAR;
 import static com.linkedin.metadata.utils.SearchUtil.ES_INDEX_FIELD;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
-import com.datahub.plugins.auth.authorization.Authorizer;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.data.template.LongMap;
 import com.linkedin.data.template.StringArray;
-import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.config.search.SearchConfiguration;
-import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
@@ -35,20 +29,14 @@ import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.search.elasticsearch.query.ESSearchDAO;
 import com.linkedin.metadata.search.opensearch.SearchDAOOpenSearchTest;
 import com.linkedin.metadata.utils.SearchUtil;
-import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
-import com.linkedin.r2.RemoteInvocationException;
 import io.datahubproject.metadata.context.OperationContext;
-import io.datahubproject.test.metadata.context.TestOperationContexts;
-import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import lombok.Getter;
 import org.opensearch.action.explain.ExplainResponse;
 import org.opensearch.client.RestHighLevelClient;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
-import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 public abstract class SearchDAOTestBase extends AbstractTestNGSpringContextTests {
@@ -57,25 +45,7 @@ public abstract class SearchDAOTestBase extends AbstractTestNGSpringContextTests
 
   protected abstract SearchConfiguration getSearchConfiguration();
 
-  protected abstract IndexConvention getIndexConvention();
-
-  protected abstract EntityRegistry getEntityRegistry();
-
-  protected AspectRetriever aspectRetriever;
-
-  @Getter protected OperationContext operationContext;
-
-  @BeforeClass
-  public void setup() throws RemoteInvocationException, URISyntaxException {
-    aspectRetriever = mock(AspectRetriever.class);
-    when(aspectRetriever.getEntityRegistry()).thenReturn(getEntityRegistry());
-    when(aspectRetriever.getLatestAspectObjects(any(), any())).thenReturn(Map.of());
-    operationContext =
-        TestOperationContexts.userContextNoSearchAuthorization(
-            Authorizer.EMPTY,
-            TestOperationContexts.TEST_USER_AUTH,
-            aspectRetriever.getEntityRegistry());
-  }
+  protected abstract OperationContext getOperationContext();
 
   @Test
   public void testTransformFilterForEntitiesNoChange() {
@@ -93,14 +63,18 @@ public abstract class SearchDAOTestBase extends AbstractTestNGSpringContextTests
                 new ConjunctiveCriterionArray(
                     new ConjunctiveCriterion().setAnd(new CriterionArray(c))));
 
-    Filter transformedFilter = SearchUtil.transformFilterForEntities(f, getIndexConvention());
+    Filter transformedFilter =
+        SearchUtil.transformFilterForEntities(
+            f, getOperationContext().getSearchContext().getIndexConvention());
     assertEquals(f, transformedFilter);
   }
 
   @Test
   public void testTransformFilterForEntitiesNullFilter() {
-    Filter transformedFilter = SearchUtil.transformFilterForEntities(null, getIndexConvention());
-    assertNotNull(getIndexConvention());
+    Filter transformedFilter =
+        SearchUtil.transformFilterForEntities(
+            null, getOperationContext().getSearchContext().getIndexConvention());
+    assertNotNull(getOperationContext().getSearchContext().getIndexConvention());
     assertEquals(null, transformedFilter);
   }
 
@@ -128,7 +102,9 @@ public abstract class SearchDAOTestBase extends AbstractTestNGSpringContextTests
     }
     assertEquals(f, originalF);
 
-    Filter transformedFilter = SearchUtil.transformFilterForEntities(f, getIndexConvention());
+    Filter transformedFilter =
+        SearchUtil.transformFilterForEntities(
+            f, getOperationContext().getSearchContext().getIndexConvention());
     assertNotEquals(originalF, transformedFilter);
 
     Criterion expectedNewCriterion =
@@ -172,7 +148,9 @@ public abstract class SearchDAOTestBase extends AbstractTestNGSpringContextTests
     }
     assertEquals(f, originalF);
 
-    Filter transformedFilter = SearchUtil.transformFilterForEntities(f, getIndexConvention());
+    Filter transformedFilter =
+        SearchUtil.transformFilterForEntities(
+            f, getOperationContext().getSearchContext().getIndexConvention());
     assertNotEquals(originalF, transformedFilter);
 
     Criterion expectedNewCriterion =
@@ -224,7 +202,9 @@ public abstract class SearchDAOTestBase extends AbstractTestNGSpringContextTests
     }
     assertEquals(f, originalF);
 
-    Filter transformedFilter = SearchUtil.transformFilterForEntities(f, getIndexConvention());
+    Filter transformedFilter =
+        SearchUtil.transformFilterForEntities(
+            f, getOperationContext().getSearchContext().getIndexConvention());
     assertNotEquals(originalF, transformedFilter);
 
     Criterion expectedNewCriterion =
@@ -249,13 +229,11 @@ public abstract class SearchDAOTestBase extends AbstractTestNGSpringContextTests
   public void testTransformIndexIntoEntityNameSingle() {
     ESSearchDAO searchDAO =
         new ESSearchDAO(
-                getSearchClient(),
-                getIndexConvention(),
-                false,
-                ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH,
-                getSearchConfiguration(),
-                null)
-            .setAspectRetriever(aspectRetriever);
+            getSearchClient(),
+            false,
+            ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH,
+            getSearchConfiguration(),
+            null);
     // Empty aggregations
     final SearchResultMetadata searchResultMetadata =
         new SearchResultMetadata().setAggregations(new AggregationMetadataArray());
@@ -272,7 +250,10 @@ public abstract class SearchDAOTestBase extends AbstractTestNGSpringContextTests
     } catch (CloneNotSupportedException e) {
       fail(e.getMessage());
     }
-    assertEquals(expectedResult, searchDAO.transformIndexIntoEntityName(result));
+    assertEquals(
+        expectedResult,
+        searchDAO.transformIndexIntoEntityName(
+            getOperationContext().getSearchContext().getIndexConvention(), result));
 
     // one facet, do not transform
     Map<String, Long> aggMap = Map.of("urn:li:corpuser:datahub", Long.valueOf(3));
@@ -293,7 +274,10 @@ public abstract class SearchDAOTestBase extends AbstractTestNGSpringContextTests
     } catch (CloneNotSupportedException e) {
       fail(e.getMessage());
     }
-    assertEquals(searchDAO.transformIndexIntoEntityName(result), expectedResult);
+    assertEquals(
+        searchDAO.transformIndexIntoEntityName(
+            getOperationContext().getSearchContext().getIndexConvention(), result),
+        expectedResult);
 
     // one facet, transform
     Map<String, Long> entityTypeMap = Map.of("smpldat_datasetindex_v2", Long.valueOf(3));
@@ -325,20 +309,21 @@ public abstract class SearchDAOTestBase extends AbstractTestNGSpringContextTests
     expectedResult.setMetadata(
         new SearchResultMetadata()
             .setAggregations(new AggregationMetadataArray(expectedAggregationMetadataList)));
-    assertEquals(searchDAO.transformIndexIntoEntityName(result), expectedResult);
+    assertEquals(
+        searchDAO.transformIndexIntoEntityName(
+            getOperationContext().getSearchContext().getIndexConvention(), result),
+        expectedResult);
   }
 
   @Test
   public void testTransformIndexIntoEntityNameNested() {
     ESSearchDAO searchDAO =
         new ESSearchDAO(
-                getSearchClient(),
-                getIndexConvention(),
-                false,
-                ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH,
-                getSearchConfiguration(),
-                null)
-            .setAspectRetriever(aspectRetriever);
+            getSearchClient(),
+            false,
+            ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH,
+            getSearchConfiguration(),
+            null);
     // One nested facet
     Map<String, Long> entityTypeMap =
         Map.of(
@@ -397,7 +382,10 @@ public abstract class SearchDAOTestBase extends AbstractTestNGSpringContextTests
             .setFrom(0)
             .setPageSize(100)
             .setNumEntities(50);
-    assertEquals(searchDAO.transformIndexIntoEntityName(result), expectedResult);
+    assertEquals(
+        searchDAO.transformIndexIntoEntityName(
+            getOperationContext().getSearchContext().getIndexConvention(), result),
+        expectedResult);
 
     // One nested facet, opposite order
     entityTypeMap =
@@ -457,22 +445,23 @@ public abstract class SearchDAOTestBase extends AbstractTestNGSpringContextTests
             .setFrom(0)
             .setPageSize(100)
             .setNumEntities(50);
-    assertEquals(searchDAO.transformIndexIntoEntityName(result), expectedResult);
+    assertEquals(
+        searchDAO.transformIndexIntoEntityName(
+            getOperationContext().getSearchContext().getIndexConvention(), result),
+        expectedResult);
   }
 
   @Test
   public void testExplain() {
     ESSearchDAO searchDAO =
         new ESSearchDAO(
-                getSearchClient(),
-                getIndexConvention(),
-                false,
-                this instanceof SearchDAOOpenSearchTest
-                    ? ELASTICSEARCH_IMPLEMENTATION_OPENSEARCH
-                    : ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH,
-                getSearchConfiguration(),
-                null)
-            .setAspectRetriever(aspectRetriever);
+            getSearchClient(),
+            false,
+            this instanceof SearchDAOOpenSearchTest
+                ? ELASTICSEARCH_IMPLEMENTATION_OPENSEARCH
+                : ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH,
+            getSearchConfiguration(),
+            null);
     ExplainResponse explainResponse =
         searchDAO.explain(
             getOperationContext()

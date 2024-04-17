@@ -65,7 +65,7 @@ public class BatchUpdateSoftDeletedResolver implements DataFetcher<CompletableFu
       throw new AuthorizationException(
           "Unauthorized to perform this action. Please contact your DataHub administrator.");
     }
-    if (!_entityService.exists(urn, true)) {
+    if (!_entityService.exists(context.getOperationContext(), urn, true)) {
       throw new IllegalArgumentException(
           String.format("Failed to soft delete entity with urn %s. Entity does not exist.", urn));
     }
@@ -75,7 +75,11 @@ public class BatchUpdateSoftDeletedResolver implements DataFetcher<CompletableFu
     log.debug("Batch soft deleting assets. urns: {}", urnStrs);
     try {
       DeleteUtils.updateStatusForResources(
-          removed, urnStrs, UrnUtils.getUrn(context.getActorUrn()), _entityService);
+          context.getOperationContext(),
+          removed,
+          urnStrs,
+          UrnUtils.getUrn(context.getActorUrn()),
+          _entityService);
     } catch (Exception e) {
       throw new RuntimeException(
           String.format(

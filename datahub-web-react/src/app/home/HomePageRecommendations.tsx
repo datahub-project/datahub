@@ -16,7 +16,7 @@ import { useGetEntityCountsQuery } from '../../graphql/app.generated';
 import { ANTD_GRAY } from '../entity/shared/constants';
 import { useGetAuthenticatedUser } from '../useGetAuthenticatedUser';
 import { HomePagePosts } from './HomePagePosts';
-import { useAppConfig } from '../useAppConfig';
+import { useAppConfig, useBusinessAttributesFlag } from '../useAppConfig';
 import { shouldShowGlossary } from '../identity/user/UserUtils';
 import {
     HOME_PAGE_DOMAINS_ID,
@@ -112,6 +112,8 @@ export const HomePageRecommendations = ({ user }: Props) => {
     const showGlossary = shouldShowGlossary(canManageGlossary, hideGlossary);
     const userUrn = user?.urn;
 
+    const businessAttributesFlag = useBusinessAttributesFlag();
+
     const showSimplifiedHomepage = user?.settings?.appearance?.showSimplifiedHomepage;
 
     const { data: entityCountData } = useGetEntityCountsQuery({
@@ -190,7 +192,22 @@ export const HomePageRecommendations = ({ user }: Props) => {
                             {orderedEntityCounts.map(
                                 (entityCount) =>
                                     entityCount &&
-                                    entityCount.count !== 0 && (
+                                    entityCount.count !== 0 && 
+                                    entityCount.entityType !== EntityType.BusinessAttribute && 
+                                    (
+                                        <BrowseEntityCard
+                                            key={entityCount.entityType}
+                                            entityType={entityCount.entityType}
+                                            count={entityCount.count}
+                                        />
+                                    ),
+                            )}
+                            {orderedEntityCounts.map(
+                                (entityCount) =>
+                                    entityCount &&
+                                    entityCount.count !== 0 && 
+                                    entityCount.entityType === EntityType.BusinessAttribute && 
+                                    businessAttributesFlag && (
                                         <BrowseEntityCard
                                             key={entityCount.entityType}
                                             entityType={entityCount.entityType}
@@ -209,11 +226,11 @@ export const HomePageRecommendations = ({ user }: Props) => {
                                 />
                             )}
                         </BrowseCardContainer>
-                    ) : (
+                        ) : (
                         <NoMetadataContainer>
                             <NoMetadataEmpty description="No Metadata Found 😢" />
                         </NoMetadataContainer>
-                    )}
+                        )}
                 </RecommendationContainer>
             )}
             {recommendationModules &&

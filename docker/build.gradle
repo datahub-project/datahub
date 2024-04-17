@@ -48,6 +48,7 @@ tasks.register('quickstart') {}
 tasks.register('quickstartSlim') {}
 tasks.register('quickstartDebug') {}
 tasks.register('quickstartPg') {}
+tasks.register('quickstartStorage') {}
 
 tasks.register('quickstartNuke') {
     doFirst {
@@ -145,6 +146,19 @@ dockerCompose {
         environment.put "METADATA_TESTS_ENABLED", "true"
         environment.put "DATAHUB_REPO", "${docker_registry}"
         // SaaS only end
+
+        useComposeFiles = ['profiles/docker-compose.yml']
+        projectName = 'datahub'
+        projectNamePrefix = ''
+        buildBeforeUp = false
+        buildBeforePull = false
+        stopContainers = false
+        removeVolumes = false
+    }
+
+    quickstartStorage {
+        isRequiredBy(tasks.named('quickstartStorage'))
+        composeAdditionalArgs = ['--profile', 'quickstart-storage']
 
         useComposeFiles = ['profiles/docker-compose.yml']
         projectName = 'datahub'

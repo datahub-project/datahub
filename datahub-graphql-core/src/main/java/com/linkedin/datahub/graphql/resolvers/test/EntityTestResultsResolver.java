@@ -61,10 +61,10 @@ public class EntityTestResultsResolver implements DataFetcher<CompletableFuture<
     try {
       final EntityResponse entityResponse =
           _entityClient.getV2(
+              context.getOperationContext(),
               entityUrn.getEntityType(),
               entityUrn,
-              ImmutableSet.of(Constants.TEST_RESULTS_ASPECT_NAME),
-              context.getAuthentication());
+              ImmutableSet.of(Constants.TEST_RESULTS_ASPECT_NAME));
       if (entityResponse.hasAspects()
           && entityResponse.getAspects().containsKey(Constants.TEST_RESULTS_ASPECT_NAME)) {
         return new com.linkedin.test.TestResults(
@@ -97,10 +97,10 @@ public class EntityTestResultsResolver implements DataFetcher<CompletableFuture<
     try {
       batchGetResponse =
           _entityClient.batchGetV2(
+              context.getOperationContext(),
               Constants.TEST_ENTITY_NAME,
               testUrns,
-              Collections.singleton(Constants.TEST_INFO_ASPECT_NAME),
-              context.getAuthentication());
+              Collections.singleton(Constants.TEST_INFO_ASPECT_NAME));
     } catch (Exception e) {
       log.error("Error while fetching test info aspects for the given test results", e);
       return testUrns;

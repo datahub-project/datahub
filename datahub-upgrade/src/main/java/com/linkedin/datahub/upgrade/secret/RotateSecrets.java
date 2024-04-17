@@ -5,8 +5,10 @@ import com.linkedin.datahub.upgrade.Upgrade;
 import com.linkedin.datahub.upgrade.UpgradeCleanupStep;
 import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.metadata.entity.EntityService;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.List;
+import javax.annotation.Nonnull;
 
 /**
  * This upgrade performs the following steps:
@@ -33,8 +35,9 @@ public class RotateSecrets implements Upgrade {
 
   private final List<UpgradeStep> _steps;
 
-  public RotateSecrets(final EntityService entityService) {
-    _steps = buildSteps(entityService);
+  public RotateSecrets(
+      @Nonnull OperationContext systemOperationContext, final EntityService<?> entityService) {
+    _steps = buildSteps(systemOperationContext, entityService);
   }
 
   @Override
@@ -47,9 +50,10 @@ public class RotateSecrets implements Upgrade {
     return _steps;
   }
 
-  private List<UpgradeStep> buildSteps(final EntityService entityService) {
+  private List<UpgradeStep> buildSteps(
+      @Nonnull OperationContext systemOperationContext, final EntityService<?> entityService) {
     final List<UpgradeStep> steps = new ArrayList<>();
-    steps.add(new RotateSecretsStep(entityService));
+    steps.add(new RotateSecretsStep(systemOperationContext, entityService));
     return steps;
   }
 

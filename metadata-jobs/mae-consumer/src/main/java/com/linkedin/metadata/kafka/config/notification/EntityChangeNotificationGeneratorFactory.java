@@ -5,16 +5,13 @@ import com.datahub.notification.recipient.NotificationRecipientBuilders;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.gms.factory.common.GraphClientFactory;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
-import com.linkedin.gms.factory.entityregistry.EntityRegistryFactory;
 import com.linkedin.gms.factory.notifications.SettingsProviderFactory;
 import com.linkedin.gms.factory.notifications.recipient.NotificationRecipientBuildersFactory;
 import com.linkedin.gms.factory.timeline.eventgenerator.EntityChangeEventGeneratorRegistryFactory;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.kafka.hook.notification.change.EntityChangeNotificationGenerator;
-import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.service.AssertionService;
-import com.linkedin.metadata.spring.YamlPropertySourceFactory;
 import com.linkedin.metadata.timeline.eventgenerator.EntityChangeEventGeneratorRegistry;
 import io.datahubproject.metadata.context.OperationContext;
 import javax.annotation.Nonnull;
@@ -23,26 +20,19 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
-import org.springframework.context.annotation.PropertySource;
 import org.springframework.context.annotation.Scope;
 
 @Configuration
 @Import({
   GraphClientFactory.class,
   SettingsProviderFactory.class,
-  EntityRegistryFactory.class,
   EntityChangeEventGeneratorRegistryFactory.class,
   NotificationRecipientBuildersFactory.class
 })
-@PropertySource(value = "classpath:/application.yml", factory = YamlPropertySourceFactory.class)
 public class EntityChangeNotificationGeneratorFactory {
   @Autowired
   @Qualifier("entityChangeEventGeneratorRegistry")
   private EntityChangeEventGeneratorRegistry _entityChangeEventGeneratorRegistry;
-
-  @Autowired
-  @Qualifier("entityRegistry")
-  private EntityRegistry _entityRegistry;
 
   @Autowired
   @Qualifier("kafkaEventProducer")

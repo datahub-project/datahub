@@ -39,7 +39,8 @@ public class UpdateAssertionMetadataResolver implements DataFetcher<CompletableF
     return CompletableFuture.supplyAsync(
         () -> {
           // Check whether the current user is allowed to update the assertion.
-          final AssertionInfo info = _assertionService.getAssertionInfo(assertionUrn);
+          final AssertionInfo info =
+              _assertionService.getAssertionInfo(context.getOperationContext(), assertionUrn);
 
           if (info == null) {
             throw new IllegalArgumentException(
@@ -54,16 +55,16 @@ public class UpdateAssertionMetadataResolver implements DataFetcher<CompletableF
 
             // First update the existing assertion.
             _assertionService.updateAssertionMetadata(
+                context.getOperationContext(),
                 assertionUrn,
                 AssertionUtils.createAssertionActions(input.getActions()),
-                input.getDescription(),
-                context.getAuthentication());
+                input.getDescription());
 
             // Then, return the new assertion
             return AssertionMapper.map(
                 context,
                 _assertionService.getAssertionEntityResponse(
-                    assertionUrn, context.getAuthentication()));
+                    context.getOperationContext(), assertionUrn));
           }
           throw new AuthorizationException(
               "Unauthorized to perform this action. Please contact your DataHub administrator.");

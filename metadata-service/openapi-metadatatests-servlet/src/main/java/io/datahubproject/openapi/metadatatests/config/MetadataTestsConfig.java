@@ -1,6 +1,5 @@
 package io.datahubproject.openapi.metadatatests.config;
 
-import com.datahub.authorization.AuthorizerChain;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.SearchService;
@@ -31,7 +30,6 @@ public class MetadataTestsConfig {
       final EntitySearchService entitySearchService,
       final TimeseriesAspectService timeseriesAspectService,
       final EntitiesController entitiesController,
-      final AuthorizerChain authorizationChain,
       final QueryEngine queryEngine,
       final ActionApplier actionApplier,
       final PredicateEvaluator predicateEvaluator) {
@@ -43,17 +41,17 @@ public class MetadataTestsConfig {
                 entityService,
                 searchService,
                 entitiesController,
-                authorizationChain,
+                systemOpContext.getAuthorizerContext().getAuthorizer(),
                 TestEntityRequestV2.class,
                 TestEntityResponseV2.class,
                 ScrollTestEntityResponseV2.class);
     return new MetadataTestsDelegateImpl(
         systemOpContext,
+        systemOpContext.getAuthorizerContext().getAuthorizer(),
         entityService,
         entitySearchService,
         timeseriesAspectService,
         testApiDelegate,
-        authorizationChain,
         queryEngine,
         actionApplier,
         predicateEvaluator);

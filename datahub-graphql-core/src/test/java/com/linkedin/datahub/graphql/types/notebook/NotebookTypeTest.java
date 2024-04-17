@@ -1,6 +1,6 @@
 package com.linkedin.datahub.graphql.types.notebook;
 
-import static org.mockito.Mockito.mock;
+import static org.mockito.ArgumentMatchers.any;
 import static org.testng.Assert.*;
 
 import com.datahub.authentication.Authentication;
@@ -46,7 +46,6 @@ import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.key.NotebookKey;
-import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.notebook.EditableNotebookProperties;
 import com.linkedin.notebook.NotebookCell;
 import com.linkedin.notebook.NotebookCellArray;
@@ -180,10 +179,10 @@ public class NotebookTypeTest {
     Urn dummyNotebookUrn = new NotebookUrn("querybook", "dummy");
     Mockito.when(
             client.batchGetV2(
+                any(),
                 Mockito.eq(Constants.NOTEBOOK_ENTITY_NAME),
                 Mockito.eq(new HashSet<>(ImmutableSet.of(notebookUrn, dummyNotebookUrn))),
-                Mockito.eq(NotebookType.ASPECTS_TO_RESOLVE),
-                Mockito.any(Authentication.class)))
+                Mockito.eq(NotebookType.ASPECTS_TO_RESOLVE)))
         .thenReturn(
             ImmutableMap.of(
                 notebookUrn,
@@ -197,8 +196,7 @@ public class NotebookTypeTest {
     QueryContext mockContext = Mockito.mock(QueryContext.class);
     Mockito.when(mockContext.getAuthentication()).thenReturn(Mockito.mock(Authentication.class));
     Mockito.when(mockContext.getOperationContext())
-        .thenReturn(
-            TestOperationContexts.userContextNoSearchAuthorization(mock(EntityRegistry.class)));
+        .thenReturn(TestOperationContexts.systemContextNoSearchAuthorization());
 
     List<DataFetcherResult<Notebook>> result =
         type.batchLoad(ImmutableList.of(TEST_NOTEBOOK, dummyNotebookUrn.toString()), mockContext);
@@ -206,10 +204,10 @@ public class NotebookTypeTest {
     // Verify response
     Mockito.verify(client, Mockito.times(1))
         .batchGetV2(
+            any(),
             Mockito.eq(Constants.NOTEBOOK_ENTITY_NAME),
             Mockito.eq(ImmutableSet.of(notebookUrn, dummyNotebookUrn)),
-            Mockito.eq(NotebookType.ASPECTS_TO_RESOLVE),
-            Mockito.any(Authentication.class));
+            Mockito.eq(NotebookType.ASPECTS_TO_RESOLVE));
 
     assertEquals(result.size(), 2);
 
@@ -260,11 +258,7 @@ public class NotebookTypeTest {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     Mockito.doThrow(RemoteInvocationException.class)
         .when(mockClient)
-        .batchGetV2(
-            Mockito.anyString(),
-            Mockito.anySet(),
-            Mockito.anySet(),
-            Mockito.any(Authentication.class));
+        .batchGetV2(any(), Mockito.anyString(), Mockito.anySet(), Mockito.anySet());
     ContainerType type = new ContainerType(mockClient);
 
     // Execute Batch load

@@ -4,7 +4,6 @@ import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.metadata.kafka.hook.EntityRegistryTestUtil.*;
 import static org.mockito.Mockito.*;
 
-import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -39,10 +38,13 @@ import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeLog;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.net.URISyntaxException;
 import java.util.Collections;
 import javax.annotation.Nonnull;
 import org.mockito.Mockito;
+import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
 public class MonitorDeletionHookTest {
@@ -51,15 +53,20 @@ public class MonitorDeletionHookTest {
       UrnUtils.getUrn("urn:li:monitor:(urn:li:dataset:(urn:li:dataPlatform:hive,name,PROD),test)");
   private static final Urn TEST_DATASET_URN =
       UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,name,PROD)");
+  private OperationContext opContext;
+
+  @BeforeTest
+  public void setup() {
+    opContext = TestOperationContexts.systemContextNoSearchAuthorization();
+  }
 
   @Test
   public void testInvokeNotEnabled() throws Exception {
     SystemEntityClient entityClient = mock(SystemEntityClient.class);
     GraphClient graphClient = mock(GraphClient.class);
-    when(entityClient.getSystemAuthentication()).thenReturn(mock(Authentication.class));
 
     final MonitorDeletionHook hook =
-        new MonitorDeletionHook(ENTITY_REGISTRY, entityClient, graphClient, false);
+        new MonitorDeletionHook(entityClient, graphClient, false).init(opContext);
 
     final MetadataChangeLog event =
         buildMetadataChangeLog(
@@ -79,17 +86,16 @@ public class MonitorDeletionHookTest {
             Mockito.anyString());
 
     Mockito.verify(entityClient, Mockito.times(0))
-        .deleteEntity(Mockito.any(Urn.class), Mockito.any(Authentication.class));
+        .deleteEntity(any(OperationContext.class), Mockito.any(Urn.class));
   }
 
   @Test
   public void testInvokeNotEligibleChange() throws Exception {
     SystemEntityClient entityClient = mock(SystemEntityClient.class);
     GraphClient graphClient = mock(GraphClient.class);
-    when(entityClient.getSystemAuthentication()).thenReturn(mock(Authentication.class));
 
     final MonitorDeletionHook hook =
-        new MonitorDeletionHook(ENTITY_REGISTRY, entityClient, graphClient, true);
+        new MonitorDeletionHook(entityClient, graphClient, true).init(opContext);
 
     // Case 1: Incorrect aspect --- Assertion Info
     MetadataChangeLog event =
@@ -106,7 +112,7 @@ public class MonitorDeletionHookTest {
             Mockito.anyInt(),
             Mockito.anyString());
     Mockito.verify(entityClient, Mockito.times(0))
-        .deleteEntity(Mockito.any(Urn.class), Mockito.any(Authentication.class));
+        .deleteEntity(any(OperationContext.class), Mockito.any(Urn.class));
 
     // Case 2: Incorrect aspect - But Delete
     event =
@@ -128,10 +134,10 @@ public class MonitorDeletionHookTest {
             Mockito.anyString());
     Mockito.verify(entityClient, Mockito.times(0))
         .getV2(
+            any(OperationContext.class),
             Mockito.anyString(),
             Mockito.any(Urn.class),
-            Mockito.anySet(),
-            Mockito.any(Authentication.class));
+            Mockito.anySet());
 
     // Case 3: Incorrect aspect - Soft delete of assertion
     event =
@@ -148,20 +154,19 @@ public class MonitorDeletionHookTest {
             Mockito.anyString());
     Mockito.verify(entityClient, Mockito.times(0))
         .getV2(
+            any(OperationContext.class),
             Mockito.anyString(),
             Mockito.any(Urn.class),
-            Mockito.anySet(),
-            Mockito.any(Authentication.class));
+            Mockito.anySet());
   }
 
   @Test
   public void testInvokeMonitorDeleteFollowsAssertionHardDelete() throws Exception {
     SystemEntityClient entityClient = mock(SystemEntityClient.class);
     GraphClient graphClient = initGraphClient();
-    when(entityClient.getSystemAuthentication()).thenReturn(mock(Authentication.class));
 
     final MonitorDeletionHook hook =
-        new MonitorDeletionHook(ENTITY_REGISTRY, entityClient, graphClient, true);
+        new MonitorDeletionHook(entityClient, graphClient, true).init(opContext);
 
     MetadataChangeLog event =
         buildMetadataChangeLog(
@@ -171,17 +176,16 @@ public class MonitorDeletionHookTest {
             buildAssertionKey(TEST_ASSERTION_URN));
     hook.invoke(event);
     Mockito.verify(entityClient, Mockito.times(1))
-        .deleteEntity(Mockito.eq(TEST_MONITOR_URN), Mockito.any(Authentication.class));
+        .deleteEntity(any(OperationContext.class), Mockito.eq(TEST_MONITOR_URN));
   }
 
   @Test
   public void testInvokeAssertionDeleteFollowsMonitorHardDelete() throws Exception {
     SystemEntityClient entityClient = mock(SystemEntityClient.class);
     GraphClient graphClient = initGraphClient();
-    when(entityClient.getSystemAuthentication()).thenReturn(mock(Authentication.class));
 
     final MonitorDeletionHook hook =
-        new MonitorDeletionHook(ENTITY_REGISTRY, entityClient, graphClient, true);
+        new MonitorDeletionHook(entityClient, graphClient, true).init(opContext);
 
     MetadataChangeLog event =
         buildMetadataChangeLog(
@@ -191,7 +195,7 @@ public class MonitorDeletionHookTest {
             buildMonitorKey(TEST_MONITOR_URN));
     hook.invoke(event);
     Mockito.verify(entityClient, Mockito.times(1))
-        .deleteEntity(Mockito.eq(TEST_ASSERTION_URN), Mockito.any(Authentication.class));
+        .deleteEntity(any(OperationContext.class), Mockito.eq(TEST_ASSERTION_URN));
   }
 
   @Test
@@ -207,10 +211,9 @@ public class MonitorDeletionHookTest {
                 Mockito.any(),
                 Mockito.any()))
         .thenReturn(new EntityRelationships().setRelationships(new EntityRelationshipArray()));
-    when(entityClient.getSystemAuthentication()).thenReturn(mock(Authentication.class));
 
     final MonitorDeletionHook hook =
-        new MonitorDeletionHook(ENTITY_REGISTRY, entityClient, graphClient, true);
+        new MonitorDeletionHook(entityClient, graphClient, true).init(opContext);
 
     MetadataChangeLog event =
         buildMetadataChangeLog(
@@ -220,7 +223,7 @@ public class MonitorDeletionHookTest {
             buildAssertionKey(TEST_ASSERTION_URN));
     hook.invoke(event);
     Mockito.verify(entityClient, Mockito.times(0))
-        .deleteEntity(Mockito.any(), Mockito.any(Authentication.class));
+        .deleteEntity(any(OperationContext.class), Mockito.any());
   }
 
   @Test
@@ -236,10 +239,9 @@ public class MonitorDeletionHookTest {
                 Mockito.any(),
                 Mockito.any()))
         .thenReturn(new EntityRelationships().setRelationships(new EntityRelationshipArray()));
-    when(entityClient.getSystemAuthentication()).thenReturn(mock(Authentication.class));
 
     final MonitorDeletionHook hook =
-        new MonitorDeletionHook(ENTITY_REGISTRY, entityClient, graphClient, true);
+        new MonitorDeletionHook(entityClient, graphClient, true).init(opContext);
 
     MetadataChangeLog event =
         buildMetadataChangeLog(
@@ -249,7 +251,7 @@ public class MonitorDeletionHookTest {
             buildMonitorKey(TEST_MONITOR_URN));
     hook.invoke(event);
     Mockito.verify(entityClient, Mockito.times(0))
-        .deleteEntity(Mockito.any(), Mockito.any(Authentication.class));
+        .deleteEntity(any(OperationContext.class), Mockito.any());
   }
 
   private static GraphClient initGraphClient() {
@@ -292,14 +294,13 @@ public class MonitorDeletionHookTest {
       AssertionActions assertionActions)
       throws Exception {
     SystemEntityClient mockClient = mock(SystemEntityClient.class);
-    when(mockClient.getSystemAuthentication()).thenReturn(mock(Authentication.class));
 
     if (incidentUrn != null) {
       when(mockClient.getV2(
+              any(OperationContext.class),
               Mockito.eq(INCIDENT_ENTITY_NAME),
               Mockito.eq(incidentUrn),
-              Mockito.eq(ImmutableSet.of(INCIDENT_INFO_ASPECT_NAME)),
-              Mockito.any(Authentication.class)))
+              Mockito.eq(ImmutableSet.of(INCIDENT_INFO_ASPECT_NAME))))
           .thenReturn(
               new EntityResponse()
                   .setUrn(incidentUrn)
@@ -315,14 +316,14 @@ public class MonitorDeletionHookTest {
 
     if (assertionUrn != null) {
       when(mockClient.getV2(
+              any(OperationContext.class),
               Mockito.eq(ASSERTION_ENTITY_NAME),
               Mockito.eq(assertionUrn),
               Mockito.eq(
                   ImmutableSet.of(
                       ASSERTION_INFO_ASPECT_NAME,
                       ASSERTION_ACTIONS_ASPECT_NAME,
-                      DATA_PLATFORM_INSTANCE_ASPECT_NAME)),
-              Mockito.any(Authentication.class)))
+                      DATA_PLATFORM_INSTANCE_ASPECT_NAME))))
           .thenReturn(
               new EntityResponse()
                   .setUrn(assertionUrn)
@@ -367,14 +368,13 @@ public class MonitorDeletionHookTest {
       Urn anomalyUrn, AnomalyInfo anomalyInfo, Urn assertionUrn, AssertionInfo assertionInfo)
       throws Exception {
     SystemEntityClient mockClient = mock(SystemEntityClient.class);
-    when(mockClient.getSystemAuthentication()).thenReturn(mock(Authentication.class));
 
     if (anomalyUrn != null) {
       when(mockClient.getV2(
+              any(OperationContext.class),
               Mockito.eq(ANOMALY_ENTITY_NAME),
               Mockito.eq(anomalyUrn),
-              Mockito.eq(ImmutableSet.of(ANOMALY_INFO_ASPECT_NAME)),
-              Mockito.any(Authentication.class)))
+              Mockito.eq(ImmutableSet.of(ANOMALY_INFO_ASPECT_NAME))))
           .thenReturn(
               new EntityResponse()
                   .setUrn(anomalyUrn)
@@ -390,14 +390,14 @@ public class MonitorDeletionHookTest {
 
     if (assertionUrn != null) {
       when(mockClient.getV2(
+              any(OperationContext.class),
               Mockito.eq(ASSERTION_ENTITY_NAME),
               Mockito.eq(assertionUrn),
               Mockito.eq(
                   ImmutableSet.of(
                       ASSERTION_INFO_ASPECT_NAME,
                       ASSERTION_ACTIONS_ASPECT_NAME,
-                      DATA_PLATFORM_INSTANCE_ASPECT_NAME)),
-              Mockito.any(Authentication.class)))
+                      DATA_PLATFORM_INSTANCE_ASPECT_NAME))))
           .thenReturn(
               new EntityResponse()
                   .setUrn(assertionUrn)

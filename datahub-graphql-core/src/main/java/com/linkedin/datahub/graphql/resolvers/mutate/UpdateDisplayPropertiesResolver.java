@@ -38,7 +38,7 @@ public class UpdateDisplayPropertiesResolver implements DataFetcher<CompletableF
     log.info(
         "Updating display properties. urn: {} input: {}", targetUrn.toString(), input.toString());
 
-    if (!_entityService.exists(targetUrn, true)) {
+    if (!_entityService.exists(context.getOperationContext(), targetUrn, true)) {
       throw new IllegalArgumentException(
           String.format("Failed to update %s. %s does not exist.", targetUrn, targetUrn));
     }
@@ -54,6 +54,7 @@ public class UpdateDisplayPropertiesResolver implements DataFetcher<CompletableF
             DisplayProperties existingDisplayProperties =
                 (DisplayProperties)
                     EntityUtils.getAspectFromEntity(
+                        context.getOperationContext(),
                         targetUrn.toString(),
                         Constants.DISPLAY_PROPERTIES_ASPECT_NAME,
                         _entityService,
@@ -80,6 +81,7 @@ public class UpdateDisplayPropertiesResolver implements DataFetcher<CompletableF
             }
             Urn actor = CorpuserUrn.createFromString(context.getActorUrn());
             persistAspect(
+                context.getOperationContext(),
                 targetUrn,
                 Constants.DISPLAY_PROPERTIES_ASPECT_NAME,
                 existingDisplayProperties,

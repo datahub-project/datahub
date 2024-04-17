@@ -25,6 +25,7 @@ public class AddOwnerResolver implements DataFetcher<CompletableFuture<Boolean>>
 
   @Override
   public CompletableFuture<Boolean> get(DataFetchingEnvironment environment) throws Exception {
+    final QueryContext context = environment.getContext();
     final AddOwnerInput input = bindArgument(environment.getArgument("input"), AddOwnerInput.class);
     Urn ownerUrn = Urn.createFromString(input.getOwnerUrn());
     Urn targetUrn = Urn.createFromString(input.getResourceUrn());
@@ -39,20 +40,20 @@ public class AddOwnerResolver implements DataFetcher<CompletableFuture<Boolean>>
     }
 
     OwnerInput ownerInput = ownerInputBuilder.build();
-    OwnerUtils.validateAuthorizedToUpdateOwners(environment.getContext(), targetUrn);
+    OwnerUtils.validateAuthorizedToUpdateOwners(context, targetUrn);
 
     return CompletableFuture.supplyAsync(
         () -> {
-          OwnerUtils.validateAddOwnerInput(ownerInput, ownerUrn, _entityService);
+          OwnerUtils.validateAddOwnerInput(
+              context.getOperationContext(), ownerInput, ownerUrn, _entityService);
 
           try {
 
             log.debug("Adding Owner. input: {}", input);
 
-            Urn actor =
-                CorpuserUrn.createFromString(
-                    ((QueryContext) environment.getContext()).getActorUrn());
+            Urn actor = CorpuserUrn.createFromString(context.getActorUrn());
             OwnerUtils.addOwnersToResources(
+                context.getOperationContext(),
                 ImmutableList.of(ownerInput),
                 ImmutableList.of(new ResourceRefInput(input.getResourceUrn(), null, null)),
                 actor,

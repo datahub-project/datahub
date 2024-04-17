@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.owner;
 
 import static com.linkedin.datahub.graphql.TestUtils.*;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.testng.Assert.*;
 
@@ -38,25 +39,27 @@ public class BatchRemoveOwnersResolverTest {
 
     Mockito.when(
             mockService.getAspect(
+                any(),
                 eq(UrnUtils.getUrn(TEST_ENTITY_URN_1)),
                 eq(Constants.OWNERSHIP_ASPECT_NAME),
                 eq(0L)))
         .thenReturn(null);
     Mockito.when(
             mockService.getAspect(
+                any(),
                 eq(UrnUtils.getUrn(TEST_ENTITY_URN_2)),
                 eq(Constants.OWNERSHIP_ASPECT_NAME),
                 eq(0L)))
         .thenReturn(null);
 
-    Mockito.when(mockService.exists(eq(Urn.createFromString(TEST_ENTITY_URN_1)), eq(true)))
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN_1)), eq(true)))
         .thenReturn(true);
-    Mockito.when(mockService.exists(eq(Urn.createFromString(TEST_ENTITY_URN_2)), eq(true)))
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN_2)), eq(true)))
         .thenReturn(true);
 
-    Mockito.when(mockService.exists(eq(Urn.createFromString(TEST_OWNER_URN_1)), eq(true)))
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_OWNER_URN_1)), eq(true)))
         .thenReturn(true);
-    Mockito.when(mockService.exists(eq(Urn.createFromString(TEST_OWNER_URN_2)), eq(true)))
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_OWNER_URN_2)), eq(true)))
         .thenReturn(true);
 
     BatchRemoveOwnersResolver resolver = new BatchRemoveOwnersResolver(mockService);
@@ -93,6 +96,7 @@ public class BatchRemoveOwnersResolverTest {
 
     Mockito.when(
             mockService.getAspect(
+                any(),
                 eq(UrnUtils.getUrn(TEST_ENTITY_URN_1)),
                 eq(Constants.OWNERSHIP_ASPECT_NAME),
                 eq(0L)))
@@ -109,19 +113,20 @@ public class BatchRemoveOwnersResolverTest {
 
     Mockito.when(
             mockService.getAspect(
+                any(),
                 eq(UrnUtils.getUrn(TEST_ENTITY_URN_2)),
                 eq(Constants.OWNERSHIP_ASPECT_NAME),
                 eq(0L)))
         .thenReturn(oldOwners2);
 
-    Mockito.when(mockService.exists(eq(Urn.createFromString(TEST_ENTITY_URN_1)), eq(true)))
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN_1)), eq(true)))
         .thenReturn(true);
-    Mockito.when(mockService.exists(eq(Urn.createFromString(TEST_ENTITY_URN_2)), eq(true)))
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN_2)), eq(true)))
         .thenReturn(true);
 
-    Mockito.when(mockService.exists(eq(Urn.createFromString(TEST_OWNER_URN_1)), eq(true)))
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_OWNER_URN_1)), eq(true)))
         .thenReturn(true);
-    Mockito.when(mockService.exists(eq(Urn.createFromString(TEST_OWNER_URN_2)), eq(true)))
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_OWNER_URN_2)), eq(true)))
         .thenReturn(true);
 
     BatchRemoveOwnersResolver resolver = new BatchRemoveOwnersResolver(mockService);
@@ -149,22 +154,24 @@ public class BatchRemoveOwnersResolverTest {
 
     Mockito.when(
             mockService.getAspect(
+                any(),
                 eq(UrnUtils.getUrn(TEST_ENTITY_URN_1)),
                 eq(Constants.OWNERSHIP_ASPECT_NAME),
                 eq(0L)))
         .thenReturn(null);
     Mockito.when(
             mockService.getAspect(
+                any(),
                 eq(UrnUtils.getUrn(TEST_ENTITY_URN_2)),
                 eq(Constants.OWNERSHIP_ASPECT_NAME),
                 eq(0L)))
         .thenReturn(null);
 
-    Mockito.when(mockService.exists(eq(Urn.createFromString(TEST_ENTITY_URN_1)), eq(true)))
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN_1)), eq(true)))
         .thenReturn(false);
-    Mockito.when(mockService.exists(eq(Urn.createFromString(TEST_ENTITY_URN_2)), eq(true)))
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN_2)), eq(true)))
         .thenReturn(true);
-    Mockito.when(mockService.exists(eq(Urn.createFromString(TEST_OWNER_URN_1)), eq(true)))
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_OWNER_URN_1)), eq(true)))
         .thenReturn(true);
 
     BatchRemoveOwnersResolver resolver = new BatchRemoveOwnersResolver(mockService);
@@ -215,7 +222,7 @@ public class BatchRemoveOwnersResolverTest {
 
     Mockito.doThrow(RuntimeException.class)
         .when(mockService)
-        .ingestProposal(Mockito.any(AspectsBatchImpl.class), Mockito.anyBoolean());
+        .ingestProposal(any(), Mockito.any(AspectsBatchImpl.class), Mockito.anyBoolean());
 
     BatchRemoveOwnersResolver resolver = new BatchRemoveOwnersResolver(mockService);
 

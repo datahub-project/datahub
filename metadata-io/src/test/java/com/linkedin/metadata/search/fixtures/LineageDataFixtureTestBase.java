@@ -5,16 +5,13 @@ import static io.datahubproject.test.search.SearchTestUtils.searchAcrossEntities
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 
-import com.datahub.plugins.auth.authorization.Authorizer;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.LineageSearchResult;
 import com.linkedin.metadata.search.LineageSearchService;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchService;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
-import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.net.URISyntaxException;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
@@ -30,13 +27,7 @@ public abstract class LineageDataFixtureTestBase extends AbstractTestNGSpringCon
   protected abstract SearchService getSearchService();
 
   @Nonnull
-  protected abstract EntityRegistry getEntityRegistry();
-
-  @Nonnull
-  protected OperationContext getOperationContext() {
-    return TestOperationContexts.userContextNoSearchAuthorization(
-        Authorizer.EMPTY, TestOperationContexts.TEST_USER_AUTH, getEntityRegistry());
-  }
+  protected abstract OperationContext getOperationContext();
 
   @Test
   public void testFixtureInitialization() {

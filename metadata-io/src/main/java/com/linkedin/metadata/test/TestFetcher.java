@@ -33,7 +33,7 @@ public class TestFetcher {
 
   private static final String LAST_UPDATED_TIME_FIELD = "lastUpdatedTimestamp";
 
-  private final EntityService _entityService;
+  private final EntityService<?> _entityService;
   private final EntitySearchService _entitySearchService;
 
   private static final SortCriterion SORT_CRITERION =
@@ -48,12 +48,13 @@ public class TestFetcher {
     return false;
   }
 
-  public TestFetchResult fetchOne(Urn testUrn) {
+  public TestFetchResult fetchOne(@Nonnull OperationContext opContext, Urn testUrn) {
     try {
       EntityResponse entityResponse =
           (EntityResponse)
               _entityService
                   .getEntitiesV2(
+                      opContext,
                       TEST_ENTITY_NAME,
                       ImmutableSet.of(testUrn),
                       ImmutableSet.of(TEST_INFO_ASPECT_NAME))
@@ -97,7 +98,10 @@ public class TestFetcher {
     // Fetch aspects for each urn
     final Map<Urn, EntityResponse> testEntities =
         _entityService.getEntitiesV2(
-            TEST_ENTITY_NAME, new HashSet<>(testUrns), ImmutableSet.of(TEST_INFO_ASPECT_NAME));
+            systemOpContext,
+            TEST_ENTITY_NAME,
+            new HashSet<>(testUrns),
+            ImmutableSet.of(TEST_INFO_ASPECT_NAME));
     return new TestFetchResult(
         testUrns.stream()
             .map(testEntities::get)

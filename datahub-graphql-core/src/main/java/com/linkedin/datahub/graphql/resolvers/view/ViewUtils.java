@@ -65,7 +65,8 @@ public class ViewUtils {
     Objects.requireNonNull(context, "context must not be null");
 
     // Retrieve the view, determine it's type, and then go from there.
-    final DataHubViewInfo viewInfo = viewService.getViewInfo(viewUrn, context.getAuthentication());
+    final DataHubViewInfo viewInfo =
+        viewService.getViewInfo(context.getOperationContext(), viewUrn);
 
     if (viewInfo == null) {
       throw new IllegalArgumentException(

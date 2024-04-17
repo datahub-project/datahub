@@ -7,13 +7,13 @@ import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 
 import com.linkedin.common.urn.Urn;
-import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
-import com.linkedin.metadata.entity.TestEntityRegistry;
 import com.linkedin.metadata.search.elasticsearch.query.ESBrowseDAO;
 import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
 import com.linkedin.r2.RemoteInvocationException;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import io.datahubproject.test.search.config.SearchCommonTestConfiguration;
 import java.net.URISyntaxException;
 import java.util.Collections;
@@ -35,6 +35,7 @@ import org.testng.annotations.Test;
 public class BrowseDAOTest extends AbstractTestNGSpringContextTests {
   private RestHighLevelClient mockClient;
   private ESBrowseDAO browseDAO;
+  private OperationContext opContext;
 
   @Autowired private SearchConfiguration searchConfiguration;
   @Autowired private CustomSearchConfiguration customSearchConfiguration;
@@ -42,16 +43,10 @@ public class BrowseDAOTest extends AbstractTestNGSpringContextTests {
   @BeforeMethod
   public void setup() throws RemoteInvocationException, URISyntaxException {
     mockClient = mock(RestHighLevelClient.class);
-    AspectRetriever aspectRetriever = mock(AspectRetriever.class);
-    when(aspectRetriever.getEntityRegistry()).thenReturn(new TestEntityRegistry());
-    when(aspectRetriever.getLatestAspectObjects(any(), any())).thenReturn(Map.of());
-    browseDAO =
-        new ESBrowseDAO(
-                mockClient,
-                new IndexConventionImpl("es_browse_dao_test"),
-                searchConfiguration,
-                customSearchConfiguration)
-            .setAspectRetriever(aspectRetriever);
+    opContext =
+        TestOperationContexts.systemContextNoSearchAuthorization(
+            new IndexConventionImpl("es_browse_dao_test"));
+    browseDAO = new ESBrowseDAO(mockClient, searchConfiguration, customSearchConfiguration);
   }
 
   public static Urn makeUrn(Object id) {
@@ -74,7 +69,7 @@ public class BrowseDAOTest extends AbstractTestNGSpringContextTests {
     when(mockSearchHits.getHits()).thenReturn(new SearchHit[0]);
     when(mockSearchResponse.getHits()).thenReturn(mockSearchHits);
     when(mockClient.search(any(), eq(RequestOptions.DEFAULT))).thenReturn(mockSearchResponse);
-    assertEquals(browseDAO.getBrowsePaths("dataset", dummyUrn).size(), 0);
+    assertEquals(browseDAO.getBrowsePaths(opContext, "dataset", dummyUrn).size(), 0);
 
     // Test the case of single search hit & browsePaths field doesn't exist
     sourceMap.remove("browse_paths");
@@ -82,7 +77,7 @@ public class BrowseDAOTest extends AbstractTestNGSpringContextTests {
     when(mockSearchHits.getHits()).thenReturn(new SearchHit[] {mockSearchHit});
     when(mockSearchResponse.getHits()).thenReturn(mockSearchHits);
     when(mockClient.search(any(), eq(RequestOptions.DEFAULT))).thenReturn(mockSearchResponse);
-    assertEquals(browseDAO.getBrowsePaths("dataset", dummyUrn).size(), 0);
+    assertEquals(browseDAO.getBrowsePaths(opContext, "dataset", dummyUrn).size(), 0);
 
     // Test the case of single search hit & browsePaths field exists
     sourceMap.put("browsePaths", Collections.singletonList("foo"));
@@ -90,7 +85,7 @@ public class BrowseDAOTest extends AbstractTestNGSpringContextTests {
     when(mockSearchHits.getHits()).thenReturn(new SearchHit[] {mockSearchHit});
     when(mockSearchResponse.getHits()).thenReturn(mockSearchHits);
     when(mockClient.search(any(), eq(RequestOptions.DEFAULT))).thenReturn(mockSearchResponse);
-    List<String> browsePaths = browseDAO.getBrowsePaths("dataset", dummyUrn);
+    List<String> browsePaths = browseDAO.getBrowsePaths(opContext, "dataset", dummyUrn);
     assertEquals(browsePaths.size(), 1);
     assertEquals(browsePaths.get(0), "foo");
   }

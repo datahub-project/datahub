@@ -72,8 +72,8 @@ public class CreateGlossaryTermResolver implements DataFetcher<CompletableFuture
               key.setName(id);
 
               if (_entityClient.exists(
-                  EntityKeyUtils.convertEntityKeyToUrn(key, GLOSSARY_TERM_ENTITY_NAME),
-                  context.getAuthentication())) {
+                  context.getOperationContext(),
+                  EntityKeyUtils.convertEntityKeyToUrn(key, GLOSSARY_TERM_ENTITY_NAME))) {
                 throw new IllegalArgumentException("This Glossary Term already exists!");
               }
 
@@ -85,7 +85,7 @@ public class CreateGlossaryTermResolver implements DataFetcher<CompletableFuture
                       mapGlossaryTermInfo(input));
 
               String glossaryTermUrn =
-                  _entityClient.ingestProposal(proposal, context.getAuthentication(), false);
+                  _entityClient.ingestProposal(context.getOperationContext(), proposal, false);
 
               OwnerUtils.addCreatorAsOwner(
                   context, glossaryTermUrn, OwnerEntityType.CORP_USER, _entityService);
@@ -148,10 +148,10 @@ public class CreateGlossaryTermResolver implements DataFetcher<CompletableFuture
               .collect(Collectors.toList());
 
       return _entityClient.batchGetV2(
+          context.getOperationContext(),
           GLOSSARY_TERM_ENTITY_NAME,
           new HashSet<>(termUrns),
-          Collections.singleton(GLOSSARY_TERM_INFO_ASPECT_NAME),
-          context.getAuthentication());
+          Collections.singleton(GLOSSARY_TERM_INFO_ASPECT_NAME));
     } catch (Exception e) {
       throw new RuntimeException("Failed fetching Glossary Terms with the same parent", e);
     }

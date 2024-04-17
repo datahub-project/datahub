@@ -19,6 +19,7 @@ import com.linkedin.datahub.graphql.resolvers.settings.NotificationSettingsMatch
 import com.linkedin.identity.CorpUserSettings;
 import com.linkedin.metadata.service.SettingsService;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -72,14 +73,16 @@ public class UpdateUserNotificationSettingsResolverTest {
         .thenReturn(GROUP_EMAIL_NOTIFICATION_SETTINGS);
     doThrow(new RuntimeException())
         .when(_settingsService)
-        .updateCorpUserSettings(eq(USER_URN), any(CorpUserSettings.class), eq(_authentication));
+        .updateCorpUserSettings(
+            any(OperationContext.class), eq(USER_URN), any(CorpUserSettings.class));
 
     assertThrows(() -> _resolver.get(_dataFetchingEnvironment).join());
   }
 
   @Test
   public void testUpdateUserNotificationSettingsNewSettings() throws Exception {
-    when(_settingsService.getCorpUserSettings(eq(USER_URN), eq(_authentication))).thenReturn(null);
+    when(_settingsService.getCorpUserSettings(any(OperationContext.class), eq(USER_URN)))
+        .thenReturn(null);
     when(_settingsService.createSlackNotificationSettings(eq(SLACK_USER_HANDLE), isNull()))
         .thenReturn(USER_SLACK_NOTIFICATION_SETTINGS);
     when(_settingsService.createEmailNotificationSettings(eq(EMAIL_ADDRESS)))
@@ -89,12 +92,13 @@ public class UpdateUserNotificationSettingsResolverTest {
         new NotificationSettingsMatcher(getMappedUserNotificationSettings());
     assertTrue(matcher.matches(_resolver.get(_dataFetchingEnvironment).join()));
     verify(_settingsService, times(1))
-        .updateCorpUserSettings(eq(USER_URN), eq(UPDATED_CORP_USER_SETTINGS), eq(_authentication));
+        .updateCorpUserSettings(
+            any(OperationContext.class), eq(USER_URN), eq(UPDATED_CORP_USER_SETTINGS));
   }
 
   @Test
   public void testUpdateUserNotificationSettingsExistingSettings() throws Exception {
-    when(_settingsService.getCorpUserSettings(eq(USER_URN), eq(_authentication)))
+    when(_settingsService.getCorpUserSettings(any(OperationContext.class), eq(USER_URN)))
         .thenReturn(DEFAULT_CORP_USER_SETTINGS);
     when(_settingsService.createSlackNotificationSettings(eq(SLACK_USER_HANDLE), isNull()))
         .thenReturn(USER_SLACK_NOTIFICATION_SETTINGS);
@@ -105,6 +109,7 @@ public class UpdateUserNotificationSettingsResolverTest {
         new NotificationSettingsMatcher(getMappedUserNotificationSettings());
     assertTrue(matcher.matches(_resolver.get(_dataFetchingEnvironment).join()));
     verify(_settingsService, times(1))
-        .updateCorpUserSettings(eq(USER_URN), eq(UPDATED_CORP_USER_SETTINGS), eq(_authentication));
+        .updateCorpUserSettings(
+            any(OperationContext.class), eq(USER_URN), eq(UPDATED_CORP_USER_SETTINGS));
   }
 }

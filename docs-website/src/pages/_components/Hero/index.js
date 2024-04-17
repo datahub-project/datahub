@@ -73,8 +73,7 @@ const Hero = ({}) => {
             <QuestionCircleOutlined />
             Learn
           </div>
-          <Link to={useBaseUrl("docs/introduction")}>What is DataHub?</Link>
-          <Link to={useBaseUrl("docs/features")}>What can I do with DataHub?</Link>
+          <Link to={useBaseUrl("docs/")}>What is DataHub?</Link>
           <Link to={useBaseUrl("docs/architecture/architecture")}>How is DataHub architected?</Link>
           <Link to="https://demo.datahubproject.io">See DataHub in action</Link>
         </div>

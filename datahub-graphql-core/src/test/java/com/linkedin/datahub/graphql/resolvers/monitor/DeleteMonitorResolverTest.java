@@ -1,17 +1,18 @@
 package com.linkedin.datahub.graphql.resolvers.monitor;
 
 import static com.linkedin.datahub.graphql.TestUtils.*;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.testng.Assert.*;
 
-import com.datahub.authentication.Authentication;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.r2.RemoteInvocationException;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletionException;
@@ -28,7 +29,11 @@ public class DeleteMonitorResolverTest {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     EntityService mockService = Mockito.mock(EntityService.class);
 
-    Mockito.when(mockService.exists(eq(Urn.createFromString(TEST_MONITOR_URN)), anyBoolean()))
+    Mockito.when(
+            mockService.exists(
+                any(OperationContext.class),
+                eq(Urn.createFromString(TEST_MONITOR_URN)),
+                anyBoolean()))
         .thenReturn(true);
 
     DeleteMonitorResolver resolver = new DeleteMonitorResolver(mockClient, mockService);
@@ -42,11 +47,11 @@ public class DeleteMonitorResolverTest {
     assertTrue(resolver.get(mockEnv).get());
 
     Mockito.verify(mockClient, Mockito.times(1))
-        .deleteEntity(
-            eq(Urn.createFromString(TEST_MONITOR_URN)), Mockito.any(Authentication.class));
+        .deleteEntity(any(OperationContext.class), eq(Urn.createFromString(TEST_MONITOR_URN)));
 
     Mockito.verify(mockService, Mockito.times(1))
-        .exists(eq(Urn.createFromString(TEST_MONITOR_URN)), anyBoolean());
+        .exists(
+            any(OperationContext.class), eq(Urn.createFromString(TEST_MONITOR_URN)), anyBoolean());
   }
 
   @Test
@@ -56,7 +61,10 @@ public class DeleteMonitorResolverTest {
 
     EntityService mockService = Mockito.mock(EntityService.class);
     Mockito.when(
-            mockService.exists(eq(List.of(Urn.createFromString(TEST_MONITOR_URN))), anyBoolean()))
+            mockService.exists(
+                any(OperationContext.class),
+                eq(List.of(Urn.createFromString(TEST_MONITOR_URN))),
+                anyBoolean()))
         .thenReturn(Set.of());
 
     DeleteMonitorResolver resolver = new DeleteMonitorResolver(mockClient, mockService);
@@ -70,12 +78,11 @@ public class DeleteMonitorResolverTest {
     assertTrue(resolver.get(mockEnv).get());
 
     Mockito.verify(mockClient, Mockito.times(0))
-        .deleteEntity(
-            eq(Urn.createFromString(TEST_MONITOR_URN)), Mockito.any(Authentication.class));
+        .deleteEntity(any(OperationContext.class), eq(Urn.createFromString(TEST_MONITOR_URN)));
 
     Mockito.verify(mockClient, Mockito.times(0))
         .deleteEntityReferences(
-            eq(Urn.createFromString(TEST_MONITOR_URN)), Mockito.any(Authentication.class));
+            any(OperationContext.class), eq(Urn.createFromString(TEST_MONITOR_URN)));
   }
 
   @Test
@@ -83,7 +90,11 @@ public class DeleteMonitorResolverTest {
     // Create resolver
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     EntityService mockService = Mockito.mock(EntityService.class);
-    Mockito.when(mockService.exists(eq(Urn.createFromString(TEST_MONITOR_URN)), anyBoolean()))
+    Mockito.when(
+            mockService.exists(
+                any(OperationContext.class),
+                eq(Urn.createFromString(TEST_MONITOR_URN)),
+                anyBoolean()))
         .thenReturn(true);
     DeleteMonitorResolver resolver = new DeleteMonitorResolver(mockClient, mockService);
 
@@ -95,9 +106,9 @@ public class DeleteMonitorResolverTest {
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
     Mockito.verify(mockClient, Mockito.times(0))
-        .deleteEntity(Mockito.any(), Mockito.any(Authentication.class));
+        .deleteEntity(any(OperationContext.class), Mockito.any());
     Mockito.verify(mockClient, Mockito.times(0))
-        .deleteEntityReferences(Mockito.any(), Mockito.any(Authentication.class));
+        .deleteEntityReferences(any(OperationContext.class), Mockito.any());
   }
 
   @Test
@@ -105,10 +116,14 @@ public class DeleteMonitorResolverTest {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     Mockito.doThrow(RemoteInvocationException.class)
         .when(mockClient)
-        .deleteEntity(Mockito.any(), Mockito.any(Authentication.class));
+        .deleteEntity(any(OperationContext.class), Mockito.any());
 
     EntityService mockService = Mockito.mock(EntityService.class);
-    Mockito.when(mockService.exists(eq(Urn.createFromString(TEST_MONITOR_URN)), anyBoolean()))
+    Mockito.when(
+            mockService.exists(
+                any(OperationContext.class),
+                eq(Urn.createFromString(TEST_MONITOR_URN)),
+                anyBoolean()))
         .thenReturn(true);
 
     DeleteMonitorResolver resolver = new DeleteMonitorResolver(mockClient, mockService);

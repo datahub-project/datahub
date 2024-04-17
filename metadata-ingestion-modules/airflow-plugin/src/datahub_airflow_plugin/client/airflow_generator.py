@@ -274,7 +274,7 @@ class AirflowGenerator:
         if config and config.datajob_url_link == DatajobUrl.GRID:
             datajob.url = f"{base_url}/dags/{datajob.flow_urn.get_flow_id()}/grid?task_id={task.task_id}"
         else:
-            datajob.url = f"{base_url}/taskinstance/list/?flt1_dag_id_equals={datajob.flow_urn.get_flow_id()}&_flt_3_task_id={task.task_id}"
+            datajob.url = f"{base_url}/taskinstance/list/?flt1_dag_id_equals={datajob.flow_urn.flow_id}&_flt_3_task_id={task.task_id}"
 
         if capture_owner and dag.owner:
             datajob.owners.add(dag.owner)

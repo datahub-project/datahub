@@ -7,6 +7,7 @@ import com.linkedin.metadata.event.change.EntityChangeEventSinkManager;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.PlatformEvent;
 import com.linkedin.platform.event.v1.EntityChangeEvent;
+import io.datahubproject.metadata.context.OperationContext;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -35,7 +36,7 @@ public class EntityChangeEventSinkHook implements PlatformEventHook {
   }
 
   @Override
-  public void invoke(@Nonnull PlatformEvent event) {
+  public void invoke(@Nonnull OperationContext opContext, @Nonnull PlatformEvent event) {
     if (Constants.CHANGE_EVENT_PLATFORM_EVENT_NAME.equals(event.getName())) {
       final EntityChangeEvent changeEvent =
           GenericRecordUtils.deserializePayload(

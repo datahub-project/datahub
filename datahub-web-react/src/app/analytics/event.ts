@@ -93,6 +93,7 @@ export enum EventType {
     EmbedProfileViewEvent,
     EmbedProfileViewInDataHubEvent,
     EmbedLookupNotFoundEvent,
+    CreateBusinessAttributeEvent,
     ClickDocRequestCTA,
     CompleteDocRequestPrompt,
     CompleteVerification,
@@ -765,6 +766,11 @@ export interface EmbedLookupNotFoundEvent extends BaseEvent {
     reason: EmbedLookupNotFoundReason;
 }
 
+export interface CreateBusinessAttributeEvent extends BaseEvent {
+    type: EventType.CreateBusinessAttributeEvent;
+    name: string;
+}
+
 export enum DocRequestCTASource {
     TaskCenter = 'TaskCenter',
     AssetPage = 'AssetPage',
@@ -988,6 +994,7 @@ export type Event =
     | EmbedProfileViewEvent
     | EmbedProfileViewInDataHubEvent
     | EmbedLookupNotFoundEvent
+    | CreateBusinessAttributeEvent
     | ClickDocRequestCTA
     | CompleteDocRequestPrompt
     | CompleteVerification

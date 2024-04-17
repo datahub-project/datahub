@@ -78,6 +78,7 @@ query appConfig {
             showAccessManagement
             nestedDomainsEnabled
             platformBrowseV2
+            businessAttributeEntityEnabled
             dataContractsEnabled
             documentationAiEnabled
             themeV2Enabled

@@ -3,7 +3,6 @@ package com.linkedin.datahub.graphql.resolvers.form;
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
 import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.mapInputFlags;
 
-import com.datahub.authentication.Authentication;
 import com.datahub.authentication.group.GroupService;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -18,6 +17,7 @@ import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.service.FormService;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
@@ -43,7 +43,7 @@ public class GetFormsForActorResolver
   @Override
   public CompletableFuture<GetFormsForActorResult> get(DataFetchingEnvironment environment) {
     final QueryContext context = environment.getContext();
-    final Authentication authentication = context.getAuthentication();
+
     final Urn userUrn = UrnUtils.getUrn(context.getActorUrn());
     GetFormsForActorInput input = null;
     if (environment.getArgument("input") != null) {
@@ -51,26 +51,22 @@ public class GetFormsForActorResolver
     }
     final SearchFlags searchFlags =
         input != null ? mapInputFlags(context, input.getSearchFlags()) : null;
+    final OperationContext opContext =
+        context.getOperationContext().withSearchFlags(flags -> searchFlags);
 
     return CompletableFuture.supplyAsync(
         () -> {
           try {
             // get forms explicitly assigned to me on the form itself
-            final List<Urn> groupUrns = _groupService.getGroupsForUser(userUrn, authentication);
+            final List<Urn> groupUrns = _groupService.getGroupsForUser(opContext, userUrn);
             final List<Urn> formsExplicitlyAssigned =
-                _formService.getFormsAssignedToActor(
-                    userUrn, groupUrns, searchFlags, authentication);
+                _formService.getFormsAssignedToActor(opContext, userUrn, groupUrns);
 
             // get forms implicitly assigned to me because I own an entity with an ownership form
-            final List<Urn> ownershipForms =
-                _formService.getOwnershipForms(searchFlags, authentication);
+            final List<Urn> ownershipForms = _formService.getOwnershipForms(opContext);
             final List<Urn> formsByOwnership =
                 _formService.getFormsAssignedByOwnership(
-                    SearchUtils.getEntityNames(null),
-                    userUrn,
-                    ownershipForms,
-                    searchFlags,
-                    authentication);
+                    opContext, SearchUtils.getEntityNames(null), userUrn, ownershipForms);
 
             final Set<Urn> allFormUrns = new HashSet<>();
             allFormUrns.addAll(formsExplicitlyAssigned);

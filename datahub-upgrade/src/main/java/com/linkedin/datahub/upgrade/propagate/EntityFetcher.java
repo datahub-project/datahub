@@ -7,11 +7,13 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.schema.EditableSchemaMetadata;
 import com.linkedin.schema.SchemaMetadata;
+import io.datahubproject.metadata.context.OperationContext;
 import java.net.URISyntaxException;
 import java.util.Collections;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+import javax.annotation.Nonnull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -24,10 +26,10 @@ class EntityFetcher {
       ImmutableSet.of(
           Constants.SCHEMA_METADATA_ASPECT_NAME, Constants.EDITABLE_SCHEMA_METADATA_ASPECT_NAME);
 
-  Map<Urn, EntityDetails> fetchSchema(Set<Urn> urns) {
+  Map<Urn, EntityDetails> fetchSchema(@Nonnull OperationContext opContext, Set<Urn> urns) {
     try {
       return _entityService
-          .getEntitiesV2(Constants.DATASET_ENTITY_NAME, urns, ASPECTS_TO_FETCH)
+          .getEntitiesV2(opContext, Constants.DATASET_ENTITY_NAME, urns, ASPECTS_TO_FETCH)
           .entrySet()
           .stream()
           .collect(

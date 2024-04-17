@@ -104,9 +104,11 @@ class LookerAPI:
         # (since it's possible to initialize an invalid client without any complaints)
         try:
             self.me = self.client.me(
-                transport_options=self.transport_options
-                if config.transport_options is not None
-                else None
+                transport_options=(
+                    self.transport_options
+                    if config.transport_options is not None
+                    else None
+                )
             )
         except SDKError as e:
             raise ConfigurationError(
@@ -189,7 +191,9 @@ class LookerAPI:
 
     @lru_cache(maxsize=1000)
     def folder_ancestors(
-        self, folder_id: str, fields: Union[str, List[str]] = "name"
+        self,
+        folder_id: str,
+        fields: Union[str, List[str]] = ["id", "name", "parent_id"],
     ) -> Sequence[Folder]:
         self.client_stats.folder_calls += 1
         return self.client.folder_ancestors(

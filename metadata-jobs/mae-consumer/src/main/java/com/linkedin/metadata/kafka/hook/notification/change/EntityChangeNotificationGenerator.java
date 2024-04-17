@@ -19,7 +19,7 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.SetMode;
 import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
-import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.event.notification.NotificationContext;
 import com.linkedin.event.notification.NotificationRecipient;
 import com.linkedin.event.notification.NotificationRequest;
@@ -131,7 +131,7 @@ public class EntityChangeNotificationGenerator extends BaseMclNotificationGenera
       @Nonnull OperationContext systemOpContext,
       @Nonnull final EntityChangeEventGeneratorRegistry entityChangeEventGeneratorRegistry,
       @Nonnull final EventProducer eventProducer,
-      @Nonnull final EntityClient entityClient,
+      @Nonnull final SystemEntityClient entityClient,
       @Nonnull final GraphClient graphClient,
       @Nonnull final SettingsProvider settingsProvider,
       @Nonnull final AssertionService assertionService,
@@ -691,17 +691,18 @@ public class EntityChangeNotificationGenerator extends BaseMclNotificationGenera
     // 1. Determine who to send to.
     final Set<NotificationRecipient> recipients =
         new HashSet<>(
-            buildRecipients(notificationScenarioType, entityUrn, entityChangeType, actorUrn));
+            buildRecipients(
+                systemOpContext, notificationScenarioType, entityUrn, entityChangeType, actorUrn));
 
     if (recipients.isEmpty()) {
       return;
     }
 
     // 2. Build request.
-    final String entityName = _entityNameProvider.getName(entityUrn);
-    final String entityPlatform = _entityNameProvider.getPlatformName(entityUrn);
-    final String entityType = _entityNameProvider.getTypeName(entityUrn);
-    final String actorName = _entityNameProvider.getName(actorUrn);
+    final String entityName = _entityNameProvider.getName(systemOpContext, entityUrn);
+    final String entityPlatform = _entityNameProvider.getPlatformName(systemOpContext, entityUrn);
+    final String entityType = _entityNameProvider.getTypeName(systemOpContext, entityUrn);
+    final String actorName = _entityNameProvider.getName(systemOpContext, actorUrn);
     final Map<String, String> templateParams = new HashMap<>();
     templateParams.put("entityName", entityName);
     templateParams.put("entityPath", generateEntityPath(entityUrn));
@@ -723,7 +724,7 @@ public class EntityChangeNotificationGenerator extends BaseMclNotificationGenera
     if (modifierUrns != null) {
       for (int i = 0; i < modifierUrns.size() && i < 3; i++) {
         final Urn modifierUrn = modifierUrns.get(i);
-        final String modifierName = _entityNameProvider.getName(modifierUrn);
+        final String modifierName = _entityNameProvider.getName(systemOpContext, modifierUrn);
         templateParams.put(String.format("modifier%sName", i), modifierName);
         templateParams.put(String.format("modifier%sPath", i), generateEntityPath(modifierUrn));
       }
@@ -841,16 +842,20 @@ public class EntityChangeNotificationGenerator extends BaseMclNotificationGenera
     final Set<NotificationRecipient> recipients =
         new HashSet<>(
             buildRecipients(
-                NotificationScenarioType.ASSERTION_STATUS_CHANGE, entityUrn, entityChangeType));
+                systemOpContext,
+                NotificationScenarioType.ASSERTION_STATUS_CHANGE,
+                entityUrn,
+                entityChangeType));
 
     if (recipients.isEmpty()) {
       return;
     }
 
     // 2. Build request.
-    final AssertionInfo assertionInfo = _assertionService.getAssertionInfo(assertionUrn);
+    final AssertionInfo assertionInfo =
+        _assertionService.getAssertionInfo(systemOpContext, assertionUrn);
     final DataPlatformInstance maybeAssertionPlatform =
-        _assertionService.getAssertionDataPlatformInstance(assertionUrn);
+        _assertionService.getAssertionDataPlatformInstance(systemOpContext, assertionUrn);
 
     if (assertionInfo == null) {
       log.warn(
@@ -860,9 +865,9 @@ public class EntityChangeNotificationGenerator extends BaseMclNotificationGenera
       return;
     }
 
-    final String entityName = _entityNameProvider.getName(entityUrn);
-    final String entityPlatform = _entityNameProvider.getPlatformName(entityUrn);
-    final String entityType = _entityNameProvider.getTypeName(entityUrn);
+    final String entityName = _entityNameProvider.getName(systemOpContext, entityUrn);
+    final String entityPlatform = _entityNameProvider.getPlatformName(systemOpContext, entityUrn);
+    final String entityType = _entityNameProvider.getTypeName(systemOpContext, entityUrn);
     final Map<String, String> templateParams = new HashMap<>();
     templateParams.put("assertionType", assertionInfo.getType().toString());
     templateParams.put("assertionUrn", assertionUrn.toString());
@@ -880,7 +885,8 @@ public class EntityChangeNotificationGenerator extends BaseMclNotificationGenera
     }
     if (maybeAssertionPlatform != null) {
       templateParams.put(
-          "externalPlatform", _entityNameProvider.getName(maybeAssertionPlatform.getPlatform()));
+          "externalPlatform",
+          _entityNameProvider.getName(systemOpContext, maybeAssertionPlatform.getPlatform()));
     }
     if (assertionInfo.hasSource()) {
       templateParams.put("sourceType", assertionInfo.getSource().getType().toString());

@@ -23,6 +23,7 @@ import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.pegasus2avro.subscription.SubscriptionType;
 import com.linkedin.subscription.EntityChangeType;
 import com.linkedin.subscription.SubscriptionInfo;
+import io.datahubproject.metadata.context.OperationContext;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.HashSet;
@@ -181,7 +182,9 @@ public class NotificationUtils {
   }
 
   public static List<NotificationRecipient> getUniqueHydratedSubscriberRecipients(
-      List<NotificationRecipient> recipients, EntityNameProvider nameProvider) {
+      @Nonnull OperationContext opContext,
+      List<NotificationRecipient> recipients,
+      EntityNameProvider nameProvider) {
     HashSet<String> existingIds = new HashSet<>();
     return recipients.stream()
         .filter(Objects::nonNull)
@@ -192,7 +195,7 @@ public class NotificationUtils {
               if (recipient.hasActor()) {
                 // Hydrate recipient display name, if there is one.
                 recipient.setDisplayName(
-                    nameProvider.getName(recipient.getActor()), SetMode.IGNORE_NULL);
+                    nameProvider.getName(opContext, recipient.getActor()), SetMode.IGNORE_NULL);
               }
               return recipient;
             })

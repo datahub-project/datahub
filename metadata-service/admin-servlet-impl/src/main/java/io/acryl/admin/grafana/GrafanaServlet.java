@@ -2,6 +2,7 @@ package io.acryl.admin.grafana;
 
 import jakarta.servlet.ServletConfig;
 import jakarta.servlet.ServletException;
+import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
@@ -28,6 +29,7 @@ import org.springframework.web.context.WebApplicationContext;
 import org.springframework.web.context.support.WebApplicationContextUtils;
 
 @Component
+@WebServlet
 @Import({GrafanaConfiguration.class})
 public class GrafanaServlet extends ProxyServlet {
   @Autowired

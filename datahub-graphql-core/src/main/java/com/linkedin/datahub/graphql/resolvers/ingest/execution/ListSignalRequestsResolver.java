@@ -55,10 +55,10 @@ public class ListSignalRequestsResolver
 
             Map<Urn, EntityResponse> aspects =
                 _entityClient.batchGetV2(
+                    context.getOperationContext(),
                     Constants.EXECUTION_REQUEST_ENTITY_NAME,
                     urns,
-                    ImmutableSet.of(Constants.EXECUTION_REQUEST_SIGNAL_ASPECT_NAME),
-                    context.getAuthentication());
+                    ImmutableSet.of(Constants.EXECUTION_REQUEST_SIGNAL_ASPECT_NAME));
 
             List<SignalRequest> signalRequests = new ArrayList<>();
             for (Map.Entry<Urn, EntityResponse> entry : aspects.entrySet()) {

@@ -33,6 +33,7 @@ import com.linkedin.mxe.SystemMetadata;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.Set;
 import java.util.function.Function;
+import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
@@ -95,7 +96,7 @@ public class BackfillBrowsePathsV2Step implements UpgradeStep {
         } while (scrollId != null);
       }
 
-      BootstrapStep.setUpgradeResult(UPGRADE_ID_URN, entityService);
+      BootstrapStep.setUpgradeResult(context.opContext(), UPGRADE_ID_URN, entityService);
 
       return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.SUCCEEDED);
     };
@@ -134,7 +135,7 @@ public class BackfillBrowsePathsV2Step implements UpgradeStep {
 
     for (SearchEntity searchEntity : scrollResult.getEntities()) {
       try {
-        ingestBrowsePathsV2(searchEntity.getEntity(), auditStamp);
+        ingestBrowsePathsV2(opContext, searchEntity.getEntity(), auditStamp);
       } catch (Exception e) {
         // don't stop the whole step because of one bad urn or one bad ingestion
         log.error(
@@ -197,9 +198,10 @@ public class BackfillBrowsePathsV2Step implements UpgradeStep {
     return filter;
   }
 
-  private void ingestBrowsePathsV2(Urn urn, AuditStamp auditStamp) throws Exception {
+  private void ingestBrowsePathsV2(
+      @Nonnull OperationContext opContext, Urn urn, AuditStamp auditStamp) throws Exception {
     BrowsePathsV2 browsePathsV2 =
-        DefaultAspectsUtil.buildDefaultBrowsePathV2(urn, true, entityService);
+        DefaultAspectsUtil.buildDefaultBrowsePathV2(opContext, urn, true, entityService);
     log.debug(String.format("Adding browse path v2 for urn %s with value %s", urn, browsePathsV2));
     MetadataChangeProposal proposal = new MetadataChangeProposal();
     proposal.setEntityUrn(urn);
@@ -209,7 +211,7 @@ public class BackfillBrowsePathsV2Step implements UpgradeStep {
     proposal.setSystemMetadata(
         new SystemMetadata().setRunId(DEFAULT_RUN_ID).setLastObserved(System.currentTimeMillis()));
     proposal.setAspect(GenericRecordUtils.serializeAspect(browsePathsV2));
-    entityService.ingestProposal(proposal, auditStamp, true);
+    entityService.ingestProposal(opContext, proposal, auditStamp, true);
   }
 
   @Override
@@ -240,7 +242,8 @@ public class BackfillBrowsePathsV2Step implements UpgradeStep {
     }
 
     boolean previouslyRun =
-        entityService.exists(UPGRADE_ID_URN, DATA_HUB_UPGRADE_RESULT_ASPECT_NAME, true);
+        entityService.exists(
+            context.opContext(), UPGRADE_ID_URN, DATA_HUB_UPGRADE_RESULT_ASPECT_NAME, true);
     if (previouslyRun) {
       log.info("{} was already run. Skipping.", id());
     }

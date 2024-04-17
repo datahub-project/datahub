@@ -102,10 +102,10 @@ public class ERModelRelationshipType
     try {
       final Map<Urn, EntityResponse> entities =
           _entityClient.batchGetV2(
+              context.getOperationContext(),
               ER_MODEL_RELATIONSHIP_ENTITY_NAME,
               new HashSet<>(ermodelrelationUrns),
-              ASPECTS_TO_RESOLVE,
-              context.getAuthentication());
+              ASPECTS_TO_RESOLVE);
 
       final List<EntityResponse> gmsResults = new ArrayList<>();
       for (Urn urn : ermodelrelationUrns) {
@@ -153,7 +153,7 @@ public class ERModelRelationshipType
   public List<BrowsePath> browsePaths(@Nonnull String urn, @Nonnull QueryContext context)
       throws Exception {
     final StringArray result =
-        _entityClient.getBrowsePaths(UrnUtils.getUrn(urn), context.getAuthentication());
+        _entityClient.getBrowsePaths(context.getOperationContext(), UrnUtils.getUrn(urn));
     return BrowsePathsMapper.map(context, result);
   }
 

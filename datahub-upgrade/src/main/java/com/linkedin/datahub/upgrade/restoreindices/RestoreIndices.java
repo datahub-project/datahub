@@ -9,9 +9,11 @@ import com.linkedin.datahub.upgrade.common.steps.ClearSearchServiceStep;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.search.EntitySearchService;
+import io.datahubproject.metadata.context.OperationContext;
 import io.ebean.Database;
 import java.util.ArrayList;
 import java.util.List;
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 public class RestoreIndices implements Upgrade {
@@ -33,12 +35,15 @@ public class RestoreIndices implements Upgrade {
   private final List<UpgradeStep> _steps;
 
   public RestoreIndices(
+      @Nonnull OperationContext systemOperationContext,
       @Nullable final Database server,
       final EntityService<?> entityService,
       final EntitySearchService entitySearchService,
       final GraphService graphService) {
     if (server != null) {
-      _steps = buildSteps(server, entityService, entitySearchService, graphService);
+      _steps =
+          buildSteps(
+              systemOperationContext, server, entityService, entitySearchService, graphService);
     } else {
       _steps = List.of();
     }
@@ -55,6 +60,7 @@ public class RestoreIndices implements Upgrade {
   }
 
   private List<UpgradeStep> buildSteps(
+      @Nonnull OperationContext systemOperationContext,
       final Database server,
       final EntityService<?> entityService,
       final EntitySearchService entitySearchService,
@@ -63,7 +69,7 @@ public class RestoreIndices implements Upgrade {
     steps.add(new ClearSearchServiceStep(entitySearchService, false));
     steps.add(new ClearGraphServiceStep(graphService, false));
     steps.add(new SendMAEStep(server, entityService));
-    steps.add(new RestoreFromParquetStep(entityService));
+    steps.add(new RestoreFromParquetStep(systemOperationContext, entityService));
     return steps;
   }
 

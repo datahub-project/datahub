@@ -529,6 +529,23 @@ FROM `bq-proj.dataset.table_2023*`
     )
 
 
+def test_bigquery_partitioned_table_insert():
+    assert_sql_result(
+        """
+SELECT *
+FROM `bq-proj.dataset.my-table$__UNPARTITIONED__`
+""",
+        dialect="bigquery",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:bigquery,bq-proj.dataset.my-table,PROD)": {
+                "col1": "STRING",
+                "col2": "STRING",
+            },
+        },
+        expected_file=RESOURCE_DIR / "test_bigquery_partitioned_table_insert.json",
+    )
+
+
 def test_bigquery_star_with_replace():
     assert_sql_result(
         """

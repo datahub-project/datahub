@@ -1,10 +1,10 @@
 package com.linkedin.datahub.graphql.resolvers.form;
 
 import static com.linkedin.datahub.graphql.TestUtils.getMockAllowContext;
+import static org.mockito.ArgumentMatchers.any;
 import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
 
-import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -17,6 +17,7 @@ import com.linkedin.metadata.service.FormService;
 import com.linkedin.structured.PrimitivePropertyValue;
 import com.linkedin.structured.PrimitivePropertyValueArray;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.List;
 import java.util.concurrent.CompletionException;
 import javax.annotation.Nonnull;
@@ -53,12 +54,12 @@ public class BatchSubmitFormPromptResolverTest {
     // Validate that we called batchSubmitStructuredPropertyPromptResponse on the service
     Mockito.verify(mockFormService, Mockito.times(1))
         .batchSubmitStructuredPropertyPromptResponse(
+            any(OperationContext.class),
             Mockito.eq(ENTITY_URNS),
             Mockito.eq(UrnUtils.getUrn(STRUCTURED_PROP_URN)),
             Mockito.eq(new PrimitivePropertyValueArray(PrimitivePropertyValue.create("test"))),
             Mockito.eq(UrnUtils.getUrn(TEST_FORM_URN)),
-            Mockito.eq(PROMPT_ID),
-            Mockito.any(Authentication.class));
+            Mockito.eq(PROMPT_ID));
     Mockito.verify(mockFormService, Mockito.times(0))
         .batchSubmitFieldStructuredPropertyPromptResponse(
             Mockito.any(),
@@ -88,13 +89,13 @@ public class BatchSubmitFormPromptResolverTest {
     // Validate that we called batchSubmitStructuredPropertyPromptResponse on the service
     Mockito.verify(mockFormService, Mockito.times(1))
         .batchSubmitFieldStructuredPropertyPromptResponse(
+            any(OperationContext.class),
             Mockito.eq(ENTITY_URNS),
             Mockito.eq(UrnUtils.getUrn(STRUCTURED_PROP_URN)),
             Mockito.eq(new PrimitivePropertyValueArray(PrimitivePropertyValue.create("test"))),
             Mockito.eq(UrnUtils.getUrn(TEST_FORM_URN)),
             Mockito.eq(PROMPT_ID),
-            Mockito.eq("fieldPath1"),
-            Mockito.any(Authentication.class));
+            Mockito.eq("fieldPath1"));
     // ensure the other form service endpoint doesn't get called
     Mockito.verify(mockFormService, Mockito.times(0))
         .batchSubmitStructuredPropertyPromptResponse(
@@ -111,12 +112,12 @@ public class BatchSubmitFormPromptResolverTest {
     FormService mockFormService = Mockito.mock(FormService.class);
     Mockito.when(
             mockFormService.batchSubmitStructuredPropertyPromptResponse(
+                any(OperationContext.class),
                 Mockito.any(),
                 Mockito.any(),
                 Mockito.any(),
                 Mockito.any(),
-                Mockito.any(),
-                Mockito.any(Authentication.class)))
+                Mockito.any()))
         .thenThrow(new RuntimeException());
     BatchSubmitFormPromptResolver resolver = new BatchSubmitFormPromptResolver(mockFormService);
 
@@ -133,23 +134,23 @@ public class BatchSubmitFormPromptResolverTest {
     FormService service = Mockito.mock(FormService.class);
     Mockito.when(
             service.batchSubmitStructuredPropertyPromptResponse(
+                any(OperationContext.class),
                 Mockito.any(),
                 Mockito.any(),
                 Mockito.any(),
                 Mockito.any(),
-                Mockito.any(),
-                Mockito.any(Authentication.class)))
+                Mockito.any()))
         .thenReturn(true);
 
     Mockito.when(
             service.batchSubmitFieldStructuredPropertyPromptResponse(
+                any(OperationContext.class),
                 Mockito.any(),
                 Mockito.any(),
                 Mockito.any(),
                 Mockito.any(),
                 Mockito.any(),
-                Mockito.any(),
-                Mockito.any(Authentication.class)))
+                Mockito.any()))
         .thenReturn(true);
 
     return service;

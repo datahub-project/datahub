@@ -45,12 +45,14 @@
 }
 
 .feedbackButton {
-  width: 2rem;
-  height: 2rem;
+  width: 2.25rem;
+  height: 2.25rem;
   text-align: center;
   font-size: 1.25rem;
-  padding: 0.25rem;
+  padding: 0.3rem;
   border-radius: 1000em;
+  border: None;
+  background: None;
   margin-left: 1rem;
   cursor: pointer;
   transition: all 0.2s ease-in-out;

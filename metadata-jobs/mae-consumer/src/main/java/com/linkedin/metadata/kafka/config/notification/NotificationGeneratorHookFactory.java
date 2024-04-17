@@ -6,15 +6,12 @@ import com.linkedin.metadata.kafka.hook.notification.change.EntityChangeNotifica
 import com.linkedin.metadata.kafka.hook.notification.incident.IncidentNotificationGenerator;
 import com.linkedin.metadata.kafka.hook.notification.ingestion.IngestionNotificationGenerator;
 import com.linkedin.metadata.kafka.hook.notification.proposal.ProposalNotificationGenerator;
-import com.linkedin.metadata.spring.YamlPropertySourceFactory;
 import javax.annotation.Nonnull;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
-import org.springframework.context.annotation.PropertySource;
-import org.springframework.context.annotation.Scope;
 
 @Configuration
 @Import({
@@ -23,7 +20,6 @@ import org.springframework.context.annotation.Scope;
   EntityChangeNotificationGeneratorFactory.class,
   IngestionNotificationGeneratorFactory.class
 })
-@PropertySource(value = "classpath:/application.yml", factory = YamlPropertySourceFactory.class)
 public class NotificationGeneratorHookFactory {
 
   @Autowired private IncidentNotificationGenerator _incidentNotificationGenerator;
@@ -38,7 +34,6 @@ public class NotificationGeneratorHookFactory {
   private boolean isEnabled;
 
   @Bean(name = "notificationGeneratorHook")
-  @Scope("singleton")
   @Nonnull
   protected NotificationGeneratorHook getInstance() {
     return new NotificationGeneratorHook(

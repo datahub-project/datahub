@@ -1,9 +1,9 @@
 package com.linkedin.datahub.graphql.resolvers.assertion;
 
 import static com.linkedin.datahub.graphql.TestUtils.*;
+import static org.mockito.ArgumentMatchers.any;
 import static org.testng.Assert.*;
 
-import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.assertion.AssertionAction;
@@ -27,6 +27,7 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.service.AssertionService;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.Collections;
 import java.util.concurrent.CompletionException;
 import org.mockito.Mockito;
@@ -97,10 +98,10 @@ public class UpdateAssertionMetadataResolverTest {
     // Validate that we created the assertion
     Mockito.verify(mockService, Mockito.times(1))
         .updateAssertionMetadata(
+            any(OperationContext.class),
             Mockito.eq(TEST_ASSERTION_URN),
             Mockito.eq(TEST_ASSERTION_ACTIONS),
-            Mockito.eq(TEST_DESCRIPTION),
-            Mockito.any(Authentication.class));
+            Mockito.eq(TEST_DESCRIPTION));
   }
 
   @Test
@@ -119,7 +120,7 @@ public class UpdateAssertionMetadataResolverTest {
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
     Mockito.verify(mockClient, Mockito.times(0))
-        .batchIngestProposals(Mockito.any(), Mockito.any(Authentication.class));
+        .batchIngestProposals(any(OperationContext.class), Mockito.any());
   }
 
   @Test
@@ -128,7 +129,7 @@ public class UpdateAssertionMetadataResolverTest {
     AssertionService mockService = Mockito.mock(AssertionService.class);
     Mockito.when(
             mockService.getAssertionEntityResponse(
-                Mockito.eq(TEST_ASSERTION_URN), Mockito.any(Authentication.class)))
+                any(OperationContext.class), Mockito.eq(TEST_ASSERTION_URN)))
         .thenReturn(
             new EntityResponse()
                 .setAspects(new EnvelopedAspectMap(Collections.emptyMap()))
@@ -154,7 +155,7 @@ public class UpdateAssertionMetadataResolverTest {
     Mockito.doThrow(RuntimeException.class)
         .when(mockService)
         .updateAssertionMetadata(
-            Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any(Authentication.class));
+            any(OperationContext.class), Mockito.any(), Mockito.any(), Mockito.any());
 
     UpdateAssertionMetadataResolver resolver = new UpdateAssertionMetadataResolver(mockService);
 
@@ -172,7 +173,7 @@ public class UpdateAssertionMetadataResolverTest {
     AssertionService service = Mockito.mock(AssertionService.class);
     Mockito.when(
             service.getAssertionEntityResponse(
-                Mockito.eq(TEST_ASSERTION_URN), Mockito.any(Authentication.class)))
+                any(OperationContext.class), Mockito.eq(TEST_ASSERTION_URN)))
         .thenReturn(
             new EntityResponse()
                 .setAspects(
@@ -186,7 +187,8 @@ public class UpdateAssertionMetadataResolverTest {
                 .setEntityName(Constants.ASSERTION_ENTITY_NAME)
                 .setUrn(TEST_ASSERTION_URN));
 
-    Mockito.when(service.getAssertionInfo(Mockito.eq(TEST_ASSERTION_URN)))
+    Mockito.when(
+            service.getAssertionInfo(any(OperationContext.class), Mockito.eq(TEST_ASSERTION_URN)))
         .thenReturn(TEST_ASSERTION_INFO);
 
     return service;

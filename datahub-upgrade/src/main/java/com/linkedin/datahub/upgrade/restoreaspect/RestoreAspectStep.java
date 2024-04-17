@@ -19,7 +19,7 @@ import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
 import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
-import com.linkedin.metadata.models.registry.EntityRegistry;
+import io.datahubproject.metadata.context.OperationContext;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -30,19 +30,20 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.function.Function;
+import javax.annotation.Nonnull;
 
 public class RestoreAspectStep implements UpgradeStep {
 
   private final EntityService<?> _entityService;
-  private final EntityRegistry _entityRegistry;
+  private final OperationContext systemOperationContext;
   private final ExecutorService _fileReaderThreadPool;
 
   private static final int DEFAULT_THREAD_POOL = 4;
 
   public RestoreAspectStep(
-      final EntityService<?> entityService, final EntityRegistry entityRegistry) {
+      @Nonnull OperationContext systemOperationContext, final EntityService<?> entityService) {
     _entityService = entityService;
-    _entityRegistry = entityRegistry;
+    this.systemOperationContext = systemOperationContext;
     String poolSize = System.getenv(RestoreIndices.READER_POOL_SIZE);
     int intPoolSize;
     try {
@@ -93,7 +94,13 @@ public class RestoreAspectStep implements UpgradeStep {
         final ParquetReaderWrapper readerRef = reader;
         futureList.add(
             _fileReaderThreadPool.submit(
-                () -> readerExecutable(readerRef, context, urnToRestore, aspectToRestore)));
+                () ->
+                    readerExecutable(
+                        systemOperationContext,
+                        readerRef,
+                        context,
+                        urnToRestore,
+                        aspectToRestore)));
       }
 
       for (Future<UpgradeStepResult> future : futureList) {
@@ -115,6 +122,7 @@ public class RestoreAspectStep implements UpgradeStep {
   }
 
   private UpgradeStepResult readerExecutable(
+      @Nonnull OperationContext opContext,
       ParquetReaderWrapper reader,
       UpgradeContext context,
       Optional<String> urnToRestore,
@@ -144,7 +152,7 @@ public class RestoreAspectStep implements UpgradeStep {
         final String entityName = urn.getEntityType();
         final EntitySpec entitySpec;
         try {
-          entitySpec = _entityRegistry.getEntitySpec(entityName);
+          entitySpec = systemOperationContext.getEntityRegistry().getEntitySpec(entityName);
         } catch (Exception e) {
           context
               .report()
@@ -156,7 +164,9 @@ public class RestoreAspectStep implements UpgradeStep {
 
         // 3. Create record from json aspect
         final SystemAspect systemAspectRecord =
-            EntityUtils.toSystemAspectFromEbeanAspects(List.of(aspect), _entityService).get(0);
+            EntityUtils.toSystemAspectFromEbeanAspects(
+                    opContext.getRetrieverContext().get(), List.of(aspect))
+                .get(0);
 
         // 4. Verify that the aspect is a valid aspect associated with the entity
         AspectSpec aspectSpec;
@@ -189,10 +199,10 @@ public class RestoreAspectStep implements UpgradeStep {
                     .aspectName(aspectName)
                     .recordTemplate(systemAspectRecord.getRecordTemplate())
                     .auditStamp(toAuditStamp(aspect))
-                    .build(_entityService));
+                    .build(opContext.getRetrieverContext().get().getAspectRetriever()));
 
         _entityService.ingestAspects(
-            AspectsBatchImpl.builder().items(items).build(), emitMae, true);
+            opContext, AspectsBatchImpl.builder().items(items).build(), emitMae, true);
       }
     }
     return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.SUCCEEDED);

@@ -43,11 +43,11 @@ public class UpdateViewResolver implements DataFetcher<CompletableFuture<DataHub
           try {
             if (ViewUtils.canUpdateView(_viewService, urn, context)) {
               _viewService.updateView(
+                  context.getOperationContext(),
                   urn,
                   input.getName(),
                   input.getDescription(),
                   ViewUtils.mapDefinition(input.getDefinition()),
-                  context.getAuthentication(),
                   System.currentTimeMillis());
               log.info(String.format("Successfully updated View %s with urn", urn));
               return getView(context, urn, context.getAuthentication());
@@ -67,7 +67,8 @@ public class UpdateViewResolver implements DataFetcher<CompletableFuture<DataHub
       @Nullable QueryContext context,
       @Nonnull final Urn urn,
       @Nonnull final Authentication authentication) {
-    final EntityResponse maybeResponse = _viewService.getViewEntityResponse(urn, authentication);
+    final EntityResponse maybeResponse =
+        _viewService.getViewEntityResponse(context.getOperationContext(), urn);
     // If there is no response, there is a problem.
     if (maybeResponse == null) {
       throw new RuntimeException(

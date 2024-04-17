@@ -1,6 +1,8 @@
 package com.linkedin.datahub.graphql.types.datacontract;
 
 import static com.linkedin.datahub.graphql.TestUtils.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.nullable;
 import static org.testng.Assert.*;
 
 import com.datahub.authentication.Authentication;
@@ -30,6 +32,7 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.key.DataContractKey;
 import com.linkedin.r2.RemoteInvocationException;
 import graphql.execution.DataFetcherResult;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.HashSet;
 import java.util.List;
 import org.mockito.Mockito;
@@ -73,10 +76,10 @@ public class DataContractTypeTest {
 
     Mockito.when(
             client.batchGetV2(
+                any(OperationContext.class),
                 Mockito.eq(Constants.DATA_CONTRACT_ENTITY_NAME),
                 Mockito.eq(new HashSet<>(ImmutableSet.of(dataContractUrn1, dataContractUrn2))),
-                Mockito.eq(DataContractType.ASPECTS_TO_FETCH),
-                Mockito.any(Authentication.class)))
+                Mockito.eq(DataContractType.ASPECTS_TO_FETCH)))
         .thenReturn(
             ImmutableMap.of(
                 dataContractUrn1,
@@ -106,10 +109,10 @@ public class DataContractTypeTest {
     // Verify response
     Mockito.verify(client, Mockito.times(1))
         .batchGetV2(
+            any(OperationContext.class),
             Mockito.eq(Constants.DATA_CONTRACT_ENTITY_NAME),
             Mockito.eq(ImmutableSet.of(dataContractUrn1, dataContractUrn2)),
-            Mockito.eq(DataContractType.ASPECTS_TO_FETCH),
-            Mockito.any(Authentication.class));
+            Mockito.eq(DataContractType.ASPECTS_TO_FETCH));
 
     assertEquals(result.size(), 2);
 
@@ -131,10 +134,10 @@ public class DataContractTypeTest {
     Mockito.doThrow(RemoteInvocationException.class)
         .when(mockClient)
         .batchGetV2(
+            nullable(OperationContext.class),
             Mockito.anyString(),
             Mockito.anySet(),
-            Mockito.anySet(),
-            Mockito.any(Authentication.class));
+            Mockito.anySet());
     DataContractType type = new DataContractType(mockClient);
 
     // Execute Batch load

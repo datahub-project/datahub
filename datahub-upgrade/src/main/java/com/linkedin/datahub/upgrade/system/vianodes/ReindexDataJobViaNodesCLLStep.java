@@ -61,7 +61,11 @@ public class ReindexDataJobViaNodesCLLStep implements UpgradeStep {
               .limit(limit);
 
       final AspectSpec aspectSpec =
-          entityService.getEntityRegistry().getAspectSpecs().get(DATA_JOB_INPUT_OUTPUT_ASPECT_NAME);
+          context
+              .opContext()
+              .getEntityRegistry()
+              .getAspectSpecs()
+              .get(DATA_JOB_INPUT_OUTPUT_ASPECT_NAME);
 
       aspectDao
           .streamAspectBatches(args)
@@ -71,11 +75,13 @@ public class ReindexDataJobViaNodesCLLStep implements UpgradeStep {
 
                 List<Pair<Future<?>, Boolean>> futures =
                     EntityUtils.toSystemAspectFromEbeanAspects(
-                            batch.collect(Collectors.toList()), entityService)
+                            context.opContext().getRetrieverContext().get(),
+                            batch.collect(Collectors.toList()))
                         .stream()
                         .map(
                             systemAspect ->
                                 entityService.alwaysProduceMCLAsync(
+                                    context.opContext(),
                                     systemAspect.getUrn(),
                                     systemAspect.getUrn().getEntityType(),
                                     DATA_JOB_INPUT_OUTPUT_ASPECT_NAME,
@@ -111,14 +117,15 @@ public class ReindexDataJobViaNodesCLLStep implements UpgradeStep {
               });
 
       entityService
-          .streamRestoreIndices(args, x -> context.report().addLine((String) x))
+          .streamRestoreIndices(
+              context.opContext(), args, x -> context.report().addLine((String) x))
           .forEach(
               result -> {
                 context.report().addLine("Rows migrated: " + result.rowsMigrated);
                 context.report().addLine("Rows ignored: " + result.ignored);
               });
 
-      BootstrapStep.setUpgradeResult(UPGRADE_ID_URN, entityService);
+      BootstrapStep.setUpgradeResult(context.opContext(), UPGRADE_ID_URN, entityService);
       context.report().addLine("State updated: " + UPGRADE_ID_URN);
 
       return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.SUCCEEDED);
@@ -146,7 +153,8 @@ public class ReindexDataJobViaNodesCLLStep implements UpgradeStep {
    */
   public boolean skip(UpgradeContext context) {
     boolean previouslyRun =
-        entityService.exists(UPGRADE_ID_URN, DATA_HUB_UPGRADE_RESULT_ASPECT_NAME, true);
+        entityService.exists(
+            context.opContext(), UPGRADE_ID_URN, DATA_HUB_UPGRADE_RESULT_ASPECT_NAME, true);
     boolean envFlagRecommendsSkip =
         Boolean.parseBoolean(System.getenv("SKIP_REINDEX_DATA_JOB_INPUT_OUTPUT"));
     if (previouslyRun) {

@@ -1,18 +1,14 @@
 package com.linkedin.entity.client;
 
-import com.datahub.authentication.Authentication;
+import com.google.common.cache.Cache;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.entity.Aspect;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.metadata.config.cache.client.EntityClientCacheConfig;
-import com.linkedin.mxe.MetadataChangeProposal;
-import com.linkedin.mxe.PlatformEvent;
 import com.linkedin.r2.RemoteInvocationException;
 import io.datahubproject.metadata.context.OperationContext;
 import java.net.URISyntaxException;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
@@ -22,14 +18,7 @@ public interface SystemEntityClient extends EntityClient {
   EntityClientCache getEntityClientCache();
 
   @Nonnull
-  ConcurrentHashMap<String, OperationContext> getOperationContextMap();
-
-  @Nonnull
-  OperationContext getSystemOperationContext();
-
-  default Authentication getSystemAuthentication() {
-    return getSystemOperationContext().getAuthentication();
-  }
+  Cache<String, OperationContext> getOperationContextMap();
 
   /**
    * Builds the cache
@@ -44,20 +33,24 @@ public interface SystemEntityClient extends EntityClient {
         .build(
             (EntityClientCache.CollectionKey collectionKey) -> {
               try {
-                String entityName =
-                    collectionKey.getUrns().stream().findFirst().map(Urn::getEntityType).get();
+                if (collectionKey != null && !collectionKey.getUrns().isEmpty()) {
+                  String entityName =
+                      collectionKey.getUrns().stream().findFirst().map(Urn::getEntityType).get();
 
-                if (collectionKey.getUrns().stream()
-                    .anyMatch(urn -> !urn.getEntityType().equals(entityName))) {
-                  throw new IllegalArgumentException(
-                      "Urns must be of the same entity type. RestliEntityClient API limitation.");
+                  if (collectionKey.getUrns().stream()
+                      .anyMatch(urn -> !urn.getEntityType().equals(entityName))) {
+                    throw new IllegalArgumentException(
+                        "Urns must be of the same entity type. RestliEntityClient API limitation.");
+                  }
+
+                  return batchGetV2NoCache(
+                      getOperationContextMap().getIfPresent(collectionKey.getContextId()),
+                      entityName,
+                      collectionKey.getUrns(),
+                      collectionKey.getAspectNames());
+                } else {
+                  return Map.of();
                 }
-
-                return batchGetV2(
-                    entityName,
-                    collectionKey.getUrns(),
-                    collectionKey.getAspectNames(),
-                    getSystemOperationContext().getAuthentication());
               } catch (RemoteInvocationException | URISyntaxException e) {
                 throw new RuntimeException(e);
               }
@@ -75,9 +68,12 @@ public interface SystemEntityClient extends EntityClient {
    * @throws URISyntaxException
    */
   @Nullable
-  default EntityResponse getV2(@Nonnull Urn urn, @Nonnull Set<String> aspectNames)
+  default EntityResponse getV2(
+      @Nonnull OperationContext opContext, @Nonnull Urn urn, @Nullable Set<String> aspectNames)
       throws RemoteInvocationException, URISyntaxException {
-    return getEntityClientCache().getV2(getSystemOperationContext(), urn, aspectNames);
+    getOperationContextMap().put(opContext.getEntityContextId(), opContext);
+    return getEntityClientCache()
+        .getV2(opContext, urn, aspectNames != null ? aspectNames : Set.of());
   }
 
   /**
@@ -89,40 +85,19 @@ public interface SystemEntityClient extends EntityClient {
    */
   @Nonnull
   default Map<Urn, EntityResponse> batchGetV2(
-      @Nonnull Set<Urn> urns, @Nonnull Set<String> aspectNames)
+      @Nonnull OperationContext opContext,
+      @Nonnull Set<Urn> urns,
+      @Nullable Set<String> aspectNames)
       throws RemoteInvocationException, URISyntaxException {
-    return getEntityClientCache().batchGetV2(getSystemOperationContext(), urns, aspectNames);
+    getOperationContextMap().put(opContext.getEntityContextId(), opContext);
+    return getEntityClientCache()
+        .batchGetV2(opContext, urns, aspectNames != null ? aspectNames : Set.of());
   }
 
-  default void producePlatformEvent(
-      @Nonnull String name, @Nullable String key, @Nonnull PlatformEvent event) throws Exception {
-    producePlatformEvent(name, key, event, getSystemAuthentication());
-  }
-
-  default boolean exists(@Nonnull Urn urn) throws RemoteInvocationException {
-    return exists(urn, getSystemAuthentication());
-  }
-
-  default String ingestProposal(
-      @Nonnull final MetadataChangeProposal metadataChangeProposal, final boolean async)
-      throws RemoteInvocationException {
-    return ingestProposal(metadataChangeProposal, getSystemAuthentication(), async);
-  }
-
-  default void setWritable(boolean canWrite) throws RemoteInvocationException {
-    setWritable(canWrite, getSystemAuthentication());
-  }
-
-  @Nullable
-  default Aspect getLatestAspectObject(@Nonnull Urn urn, @Nonnull String aspectName)
-      throws RemoteInvocationException, URISyntaxException {
-    return getLatestAspectObject(urn, aspectName, getSystemAuthentication());
-  }
-
-  @Nonnull
-  default Map<Urn, Map<String, Aspect>> getLatestAspects(
-      @Nonnull Set<Urn> urns, @Nonnull Set<String> aspectNames)
-      throws RemoteInvocationException, URISyntaxException {
-    return getLatestAspects(urns, aspectNames, getSystemAuthentication());
-  }
+  Map<Urn, EntityResponse> batchGetV2NoCache(
+      @Nonnull OperationContext opContext,
+      @Nonnull String entityName,
+      @Nonnull Set<Urn> urns,
+      @Nullable Set<String> aspectNames)
+      throws RemoteInvocationException, URISyntaxException;
 }

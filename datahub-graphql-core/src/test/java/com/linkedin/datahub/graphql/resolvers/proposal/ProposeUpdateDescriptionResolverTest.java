@@ -6,12 +6,12 @@ import static org.testng.Assert.*;
 
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.proposal.ProposalService;
-import com.datahub.plugins.auth.authorization.Authorizer;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.DescriptionUpdateInput;
 import com.linkedin.datahub.graphql.generated.SubResourceType;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.OperationContext;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -65,7 +65,7 @@ public class ProposeUpdateDescriptionResolverTest {
     input.setResourceUrn(GLOSSARY_NODE_URN_STRING);
     when(_dataFetchingEnvironment.getArgument(eq("input"))).thenReturn(input);
     when(_proposalService.proposeUpdateResourceDescription(
-            any(), any(), any(), any(), any(), any(Authorizer.class)))
+            any(OperationContext.class), any(), any(), any(), any(), any()))
         .thenReturn(true);
 
     assertTrue(_resolver.get(_dataFetchingEnvironment).join());
@@ -82,7 +82,7 @@ public class ProposeUpdateDescriptionResolverTest {
     input.setResourceUrn(GLOSSARY_TERM_URN_STRING);
     when(_dataFetchingEnvironment.getArgument(eq("input"))).thenReturn(input);
     when(_proposalService.proposeUpdateResourceDescription(
-            any(), any(), any(), any(), any(), any(Authorizer.class)))
+            any(OperationContext.class), any(), any(), any(), any(), any()))
         .thenReturn(true);
 
     assertTrue(_resolver.get(_dataFetchingEnvironment).join());
@@ -99,7 +99,7 @@ public class ProposeUpdateDescriptionResolverTest {
     input.setResourceUrn(DATASET_URN_STRING);
     when(_dataFetchingEnvironment.getArgument(eq("input"))).thenReturn(input);
     when(_proposalService.proposeUpdateResourceDescription(
-            any(), any(), any(), any(), any(), any(Authorizer.class)))
+            any(OperationContext.class), any(), any(), any(), any(), any()))
         .thenReturn(true);
 
     assertTrue(_resolver.get(_dataFetchingEnvironment).join());
@@ -121,12 +121,12 @@ public class ProposeUpdateDescriptionResolverTest {
 
     when(_dataFetchingEnvironment.getArgument(eq("input"))).thenReturn(input);
     when(_proposalService.proposeUpdateResourceDescription(
+            any(OperationContext.class),
             eq(Urn.createFromString(ACTOR_URN_STRING)),
             eq(Urn.createFromString(DATASET_URN_STRING)),
             eq(SubResourceType.DATASET_FIELD.toString()),
             eq(fieldPath),
-            eq(DESCRIPTION),
-            any(Authorizer.class)))
+            eq(DESCRIPTION)))
         .thenReturn(true);
 
     assertTrue(_resolver.get(_dataFetchingEnvironment).join());

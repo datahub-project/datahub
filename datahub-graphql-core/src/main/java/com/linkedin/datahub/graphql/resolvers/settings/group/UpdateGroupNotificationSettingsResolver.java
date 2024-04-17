@@ -52,7 +52,7 @@ public class UpdateGroupNotificationSettingsResolver
             final Urn groupUrn = UrnUtils.getUrn(groupUrnString);
 
             CorpGroupSettings corpGroupSettings =
-                _settingsService.getCorpGroupSettings(groupUrn, authentication);
+                _settingsService.getCorpGroupSettings(context.getOperationContext(), groupUrn);
             if (corpGroupSettings == null) {
               corpGroupSettings = new CorpGroupSettings();
             }
@@ -89,7 +89,8 @@ public class UpdateGroupNotificationSettingsResolver
             }
 
             corpGroupSettings.setNotificationSettings(notificationSettings);
-            _settingsService.updateCorpGroupSettings(groupUrn, corpGroupSettings, authentication);
+            _settingsService.updateCorpGroupSettings(
+                context.getOperationContext(), groupUrn, corpGroupSettings);
 
             return NotificationSettingsMapper.map(context, notificationSettings);
           } catch (Exception e) {

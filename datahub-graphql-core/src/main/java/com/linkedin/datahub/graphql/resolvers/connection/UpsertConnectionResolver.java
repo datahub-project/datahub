@@ -54,6 +54,7 @@ public class UpsertConnectionResolver implements DataFetcher<CompletableFuture<D
           try {
             final Urn connectionUrn =
                 _connectionService.upsertConnection(
+                    context.getOperationContext(),
                     input.getId(),
                     UrnUtils.getUrn(input.getPlatformUrn()),
                     DataHubConnectionDetailsType.valueOf(input.getType().toString()),
@@ -62,12 +63,11 @@ public class UpsertConnectionResolver implements DataFetcher<CompletableFuture<D
                         ? new DataHubJsonConnection()
                             .setEncryptedBlob(_secretService.encrypt(input.getJson().getBlob()))
                         : null,
-                    input.getName(),
-                    authentication);
+                    input.getName());
 
             final EntityResponse connectionResponse =
                 _connectionService.getConnectionEntityResponse(
-                    connectionUrn, context.getAuthentication());
+                    context.getOperationContext(), connectionUrn);
             return ConnectionMapper.map(connectionResponse, _secretService);
           } catch (Exception e) {
             throw new RuntimeException(

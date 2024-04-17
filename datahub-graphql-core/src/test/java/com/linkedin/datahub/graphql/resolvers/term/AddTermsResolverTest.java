@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.term;
 
 import static com.linkedin.datahub.graphql.TestUtils.*;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.testng.Assert.*;
 
@@ -35,16 +36,17 @@ public class AddTermsResolverTest {
 
     Mockito.when(
             mockService.getAspect(
+                any(),
                 eq(UrnUtils.getUrn(TEST_ENTITY_URN)),
                 eq(Constants.GLOSSARY_TERMS_ASPECT_NAME),
                 eq(0L)))
         .thenReturn(null);
 
-    Mockito.when(mockService.exists(eq(Urn.createFromString(TEST_ENTITY_URN)), eq(true)))
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN)), eq(true)))
         .thenReturn(true);
-    Mockito.when(mockService.exists(eq(Urn.createFromString(TEST_TERM_1_URN)), eq(true)))
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_TERM_1_URN)), eq(true)))
         .thenReturn(true);
-    Mockito.when(mockService.exists(eq(Urn.createFromString(TEST_TERM_2_URN)), eq(true)))
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_TERM_2_URN)), eq(true)))
         .thenReturn(true);
 
     AddTermsResolver resolver = new AddTermsResolver(mockService);
@@ -61,13 +63,13 @@ public class AddTermsResolverTest {
 
     // Unable to easily validate exact payload due to the injected timestamp
     Mockito.verify(mockService, Mockito.times(1))
-        .ingestProposal(Mockito.any(AspectsBatchImpl.class), eq(false));
+        .ingestProposal(any(), Mockito.any(AspectsBatchImpl.class), eq(false));
 
     Mockito.verify(mockService, Mockito.times(1))
-        .exists(eq(Urn.createFromString(TEST_TERM_1_URN)), eq(true));
+        .exists(any(), eq(Urn.createFromString(TEST_TERM_1_URN)), eq(true));
 
     Mockito.verify(mockService, Mockito.times(1))
-        .exists(eq(Urn.createFromString(TEST_TERM_2_URN)), eq(true));
+        .exists(any(), eq(Urn.createFromString(TEST_TERM_2_URN)), eq(true));
   }
 
   @Test
@@ -84,16 +86,17 @@ public class AddTermsResolverTest {
 
     Mockito.when(
             mockService.getAspect(
+                any(),
                 eq(UrnUtils.getUrn(TEST_ENTITY_URN)),
                 eq(Constants.GLOSSARY_TERMS_ASPECT_NAME),
                 eq(0L)))
         .thenReturn(originalTerms);
 
-    Mockito.when(mockService.exists(eq(Urn.createFromString(TEST_ENTITY_URN)), eq(true)))
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN)), eq(true)))
         .thenReturn(true);
-    Mockito.when(mockService.exists(eq(Urn.createFromString(TEST_TERM_1_URN)), eq(true)))
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_TERM_1_URN)), eq(true)))
         .thenReturn(true);
-    Mockito.when(mockService.exists(eq(Urn.createFromString(TEST_TERM_2_URN)), eq(true)))
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_TERM_2_URN)), eq(true)))
         .thenReturn(true);
 
     AddTermsResolver resolver = new AddTermsResolver(mockService);
@@ -110,13 +113,13 @@ public class AddTermsResolverTest {
 
     // Unable to easily validate exact payload due to the injected timestamp
     Mockito.verify(mockService, Mockito.times(1))
-        .ingestProposal(Mockito.any(AspectsBatchImpl.class), eq(false));
+        .ingestProposal(any(), Mockito.any(AspectsBatchImpl.class), eq(false));
 
     Mockito.verify(mockService, Mockito.times(1))
-        .exists(eq(Urn.createFromString(TEST_TERM_1_URN)), eq(true));
+        .exists(any(), eq(Urn.createFromString(TEST_TERM_1_URN)), eq(true));
 
     Mockito.verify(mockService, Mockito.times(1))
-        .exists(eq(Urn.createFromString(TEST_TERM_2_URN)), eq(true));
+        .exists(any(), eq(Urn.createFromString(TEST_TERM_2_URN)), eq(true));
   }
 
   @Test
@@ -125,14 +128,15 @@ public class AddTermsResolverTest {
 
     Mockito.when(
             mockService.getAspect(
+                any(),
                 eq(UrnUtils.getUrn(TEST_ENTITY_URN)),
                 eq(Constants.GLOSSARY_TERMS_ASPECT_NAME),
                 eq(0L)))
         .thenReturn(null);
 
-    Mockito.when(mockService.exists(eq(Urn.createFromString(TEST_ENTITY_URN)), eq(true)))
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN)), eq(true)))
         .thenReturn(true);
-    Mockito.when(mockService.exists(eq(Urn.createFromString(TEST_TERM_1_URN)), eq(true)))
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_TERM_1_URN)), eq(true)))
         .thenReturn(false);
 
     AddTermsResolver resolver = new AddTermsResolver(mockService);
@@ -147,7 +151,7 @@ public class AddTermsResolverTest {
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
     Mockito.verify(mockService, Mockito.times(0))
-        .ingestProposal(Mockito.any(AspectsBatchImpl.class), Mockito.anyBoolean());
+        .ingestProposal(any(), Mockito.any(AspectsBatchImpl.class), Mockito.anyBoolean());
   }
 
   @Test
@@ -156,14 +160,15 @@ public class AddTermsResolverTest {
 
     Mockito.when(
             mockService.getAspect(
+                any(),
                 eq(UrnUtils.getUrn(TEST_ENTITY_URN)),
                 eq(Constants.GLOSSARY_TERMS_ASPECT_NAME),
                 eq(0L)))
         .thenReturn(null);
 
-    Mockito.when(mockService.exists(eq(Urn.createFromString(TEST_ENTITY_URN)), eq(true)))
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN)), eq(true)))
         .thenReturn(false);
-    Mockito.when(mockService.exists(eq(Urn.createFromString(TEST_TERM_1_URN)), eq(true)))
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_TERM_1_URN)), eq(true)))
         .thenReturn(true);
 
     AddTermsResolver resolver = new AddTermsResolver(mockService);
@@ -178,7 +183,7 @@ public class AddTermsResolverTest {
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
     Mockito.verify(mockService, Mockito.times(0))
-        .ingestProposal(Mockito.any(AspectsBatchImpl.class), Mockito.anyBoolean());
+        .ingestProposal(any(), Mockito.any(AspectsBatchImpl.class), Mockito.anyBoolean());
   }
 
   @Test
@@ -197,7 +202,7 @@ public class AddTermsResolverTest {
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
     Mockito.verify(mockService, Mockito.times(0))
-        .ingestProposal(Mockito.any(AspectsBatchImpl.class), Mockito.anyBoolean());
+        .ingestProposal(any(), Mockito.any(AspectsBatchImpl.class), Mockito.anyBoolean());
   }
 
   @Test
@@ -206,7 +211,7 @@ public class AddTermsResolverTest {
 
     Mockito.doThrow(RuntimeException.class)
         .when(mockService)
-        .ingestProposal(Mockito.any(AspectsBatchImpl.class), Mockito.anyBoolean());
+        .ingestProposal(any(), Mockito.any(AspectsBatchImpl.class), Mockito.anyBoolean());
 
     AddTermsResolver resolver = new AddTermsResolver(Mockito.mock(EntityService.class));
 

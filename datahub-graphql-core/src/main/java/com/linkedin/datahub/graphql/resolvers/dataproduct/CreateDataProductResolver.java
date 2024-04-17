@@ -36,7 +36,7 @@ public class CreateDataProductResolver implements DataFetcher<CompletableFuture<
 
     return CompletableFuture.supplyAsync(
         () -> {
-          if (!_dataProductService.verifyEntityExists(domainUrn, context.getAuthentication())) {
+          if (!_dataProductService.verifyEntityExists(context.getOperationContext(), domainUrn)) {
             throw new IllegalArgumentException("The Domain provided dos not exist");
           }
           if (!DataProductAuthorizationUtils.isAuthorizedToManageDataProducts(context, domainUrn)) {
@@ -47,14 +47,17 @@ public class CreateDataProductResolver implements DataFetcher<CompletableFuture<
           try {
             final Urn dataProductUrn =
                 _dataProductService.createDataProduct(
+                    context.getOperationContext(),
                     input.getId(),
                     input.getProperties().getName(),
-                    input.getProperties().getDescription(),
-                    authentication);
+                    input.getProperties().getDescription());
             _dataProductService.setDomain(
-                dataProductUrn, UrnUtils.getUrn(input.getDomainUrn()), authentication);
+                context.getOperationContext(),
+                dataProductUrn,
+                UrnUtils.getUrn(input.getDomainUrn()));
             EntityResponse response =
-                _dataProductService.getDataProductEntityResponse(dataProductUrn, authentication);
+                _dataProductService.getDataProductEntityResponse(
+                    context.getOperationContext(), dataProductUrn);
             if (response != null) {
               return DataProductMapper.map(context, response);
             }

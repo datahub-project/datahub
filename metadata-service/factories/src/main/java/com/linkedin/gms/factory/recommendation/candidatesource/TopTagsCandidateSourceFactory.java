@@ -3,9 +3,9 @@ package com.linkedin.gms.factory.recommendation.candidatesource;
 import com.linkedin.gms.factory.entity.EntityServiceFactory;
 import com.linkedin.gms.factory.search.EntitySearchServiceFactory;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.recommendation.candidatesource.TopTagsSource;
 import com.linkedin.metadata.search.EntitySearchService;
-import com.linkedin.metadata.spring.YamlPropertySourceFactory;
 import javax.annotation.Nonnull;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -13,11 +13,9 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
-import org.springframework.context.annotation.PropertySource;
 
 @Configuration
 @Import({EntitySearchServiceFactory.class, EntityServiceFactory.class})
-@PropertySource(value = "classpath:/application.yml", factory = YamlPropertySourceFactory.class)
 public class TopTagsCandidateSourceFactory {
 
   @Autowired
@@ -29,7 +27,8 @@ public class TopTagsCandidateSourceFactory {
 
   @Bean(name = "topTagsCandidateSource")
   @Nonnull
-  protected TopTagsSource getInstance(final EntityService<?> entityService) {
-    return new TopTagsSource(entitySearchService, entityService, fetchOffline);
+  protected TopTagsSource getInstance(
+      final EntityService<?> entityService, final EntityRegistry entityRegistry) {
+    return new TopTagsSource(entitySearchService, entityService, entityRegistry, fetchOffline);
   }
 }

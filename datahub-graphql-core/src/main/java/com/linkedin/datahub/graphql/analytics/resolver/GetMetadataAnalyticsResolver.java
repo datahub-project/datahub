@@ -90,12 +90,12 @@ public final class GetMetadataAnalyticsResolver implements DataFetcher<List<Anal
     if (StringUtils.isEmpty(input.getDomain()) && domainAggregation.isPresent()) {
       List<NamedBar> domainChart = buildBarChart(domainAggregation.get());
       AnalyticsUtil.hydrateDisplayNameForBars(
+          opContext,
           _entityClient,
           domainChart,
           Constants.DOMAIN_ENTITY_NAME,
           ImmutableSet.of(Constants.DOMAIN_PROPERTIES_ASPECT_NAME),
-          AnalyticsUtil::getDomainName,
-          opContext.getSessionAuthentication());
+          AnalyticsUtil::getDomainName);
       charts.add(BarChart.builder().setTitle("Entities by Domain").setBars(domainChart).build());
     }
 
@@ -107,12 +107,12 @@ public final class GetMetadataAnalyticsResolver implements DataFetcher<List<Anal
     if (platformAggregation.isPresent()) {
       List<NamedBar> platformChart = buildBarChart(platformAggregation.get());
       AnalyticsUtil.hydrateDisplayNameForBars(
+          opContext,
           _entityClient,
           platformChart,
           Constants.DATA_PLATFORM_ENTITY_NAME,
           ImmutableSet.of(Constants.DATA_PLATFORM_INFO_ASPECT_NAME),
-          AnalyticsUtil::getPlatformName,
-          opContext.getSessionAuthentication());
+          AnalyticsUtil::getPlatformName);
       charts.add(
           BarChart.builder().setTitle("Entities by Platform").setBars(platformChart).build());
     }
@@ -125,13 +125,13 @@ public final class GetMetadataAnalyticsResolver implements DataFetcher<List<Anal
     if (termAggregation.isPresent()) {
       List<NamedBar> termChart = buildBarChart(termAggregation.get());
       AnalyticsUtil.hydrateDisplayNameForBars(
+          opContext,
           _entityClient,
           termChart,
           Constants.GLOSSARY_TERM_ENTITY_NAME,
           ImmutableSet.of(
               Constants.GLOSSARY_TERM_KEY_ASPECT_NAME, Constants.GLOSSARY_TERM_INFO_ASPECT_NAME),
-          AnalyticsUtil::getTermName,
-          opContext.getSessionAuthentication());
+          AnalyticsUtil::getTermName);
       charts.add(BarChart.builder().setTitle("Entities by Term").setBars(termChart).build());
     }
 

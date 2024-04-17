@@ -62,7 +62,6 @@ public class JavaEntityClientTest {
 
   private JavaEntityClient getJavaEntityClient() {
     return new JavaEntityClient(
-        opContext,
         _entityService,
         _deleteEntityService,
         _entitySearchService,

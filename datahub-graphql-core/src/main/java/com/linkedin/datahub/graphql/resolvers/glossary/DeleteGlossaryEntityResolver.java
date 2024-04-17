@@ -33,18 +33,19 @@ public class DeleteGlossaryEntityResolver implements DataFetcher<CompletableFutu
     return CompletableFuture.supplyAsync(
         () -> {
           if (GlossaryUtils.canManageChildrenEntities(context, parentNodeUrn, _entityClient)) {
-            if (!_entityService.exists(entityUrn, true)) {
+            if (!_entityService.exists(context.getOperationContext(), entityUrn, true)) {
               throw new RuntimeException(String.format("This urn does not exist: %s", entityUrn));
             }
 
             try {
-              _entityClient.deleteEntity(entityUrn, context.getAuthentication());
+              _entityClient.deleteEntity(context.getOperationContext(), entityUrn);
 
               // Asynchronously Delete all references to the entity (to return quickly)
               CompletableFuture.runAsync(
                   () -> {
                     try {
-                      _entityClient.deleteEntityReferences(entityUrn, context.getAuthentication());
+                      _entityClient.deleteEntityReferences(
+                          context.getOperationContext(), entityUrn);
                     } catch (Exception e) {
                       log.error(
                           String.format(

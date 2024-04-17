@@ -9,10 +9,8 @@ import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.entity.Aspect;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.models.registry.EntityRegistry;
-import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import com.linkedin.util.Pair;
-import java.net.URISyntaxException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -56,7 +54,7 @@ public class MockAspectRetriever implements AspectRetriever {
   @Nonnull
   @Override
   public Map<Urn, Map<String, Aspect>> getLatestAspectObjects(
-      Set<Urn> urns, Set<String> aspectNames) throws RemoteInvocationException, URISyntaxException {
+      Set<Urn> urns, Set<String> aspectNames) {
     return urns.stream()
         .filter(data::containsKey)
         .map(urn -> Pair.of(urn, data.get(urn)))

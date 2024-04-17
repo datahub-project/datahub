@@ -75,6 +75,7 @@ public class ListIngestionSourcesResolver
               // Then, resolve all ingestion sources
               final Map<Urn, EntityResponse> entities =
                   _entityClient.batchGetV2(
+                      context.getOperationContext(),
                       Constants.INGESTION_SOURCE_ENTITY_NAME,
                       new HashSet<>(
                           gmsResult.getEntities().stream()
@@ -82,8 +83,7 @@ public class ListIngestionSourcesResolver
                               .collect(Collectors.toList())),
                       ImmutableSet.of(
                           Constants.INGESTION_INFO_ASPECT_NAME,
-                          Constants.INGESTION_SOURCE_KEY_ASPECT_NAME),
-                      context.getAuthentication());
+                          Constants.INGESTION_SOURCE_KEY_ASPECT_NAME));
 
               final Collection<EntityResponse> sortedEntities =
                   entities.values().stream()

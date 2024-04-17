@@ -26,7 +26,6 @@ import com.linkedin.gms.factory.auth.SystemAuthenticationFactory;
 import com.linkedin.gms.factory.entityregistry.EntityRegistryFactory;
 import com.linkedin.metadata.kafka.hook.HookUtils;
 import com.linkedin.metadata.kafka.hook.MetadataChangeLogHook;
-import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.service.AssertionService;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.monitor.AssertionEvaluationSpec;
@@ -34,6 +33,7 @@ import com.linkedin.monitor.MonitorInfo;
 import com.linkedin.monitor.MonitorMode;
 import com.linkedin.monitor.MonitorType;
 import com.linkedin.mxe.MetadataChangeLog;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.*;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
@@ -64,23 +64,23 @@ public class AssertionsSummaryHook implements MetadataChangeLogHook {
   private static final Set<String> SUPPORTED_UPDATE_ASPECTS =
       ImmutableSet.of(ASSERTION_RUN_EVENT_ASPECT_NAME, MONITOR_INFO_ASPECT_NAME);
 
-  private final EntityRegistry _entityRegistry;
   private final AssertionService _assertionService;
+  private OperationContext systemOperationContext;
   private final boolean _isEnabled;
 
   @Autowired
   public AssertionsSummaryHook(
-      @Nonnull final EntityRegistry entityRegistry,
       @Nonnull final AssertionService assertionService,
       @Nonnull @Value("${assertions.hook.enabled:true}") Boolean isEnabled) {
-    _entityRegistry = Objects.requireNonNull(entityRegistry, "entityRegistry is required");
     _assertionService = Objects.requireNonNull(assertionService, "assertionService is required");
     _isEnabled = isEnabled;
   }
 
   @Override
-  public void init() {
+  public AssertionsSummaryHook init(@Nonnull OperationContext systemOperationContext) {
+    this.systemOperationContext = systemOperationContext;
     log.info("Initialized the assertions summary hook");
+    return this;
   }
 
   @Override
@@ -92,7 +92,7 @@ public class AssertionsSummaryHook implements MetadataChangeLogHook {
   public void invoke(@Nonnull final MetadataChangeLog event) {
     if (_isEnabled && isEligibleForProcessing(event)) {
       log.debug("Urn {} received by Assertion Summary Hook.", event.getEntityUrn());
-      final Urn urn = HookUtils.getUrnFromEvent(event, _entityRegistry);
+      final Urn urn = HookUtils.getUrnFromEvent(event, systemOperationContext.getEntityRegistry());
       // Handle the deletion case.
       if (isAssertionSoftDeleted(event)) {
         handleAssertionSoftDeleted(urn);
@@ -143,7 +143,8 @@ public class AssertionsSummaryHook implements MetadataChangeLogHook {
     log.debug(
         "Attempting to clean up remaining references to assertion with urn {}.",
         event.getEntityUrn());
-    this._assertionService.tryDeleteAssertionReferences(event.getEntityUrn());
+    this._assertionService.tryDeleteAssertionReferences(
+        systemOperationContext, event.getEntityUrn());
   }
 
   private void handleAssertionTargetEntityChanged(
@@ -174,7 +175,8 @@ public class AssertionsSummaryHook implements MetadataChangeLogHook {
       @Nonnull final Urn assertionUrn, @Nonnull final AssertionRunEvent runEvent) {
 
     // 1. Fetch assertion info.
-    AssertionInfo assertionInfo = _assertionService.getAssertionInfo(assertionUrn);
+    AssertionInfo assertionInfo =
+        _assertionService.getAssertionInfo(systemOperationContext, assertionUrn);
 
     // 2. Retrieve associated urns.
     if (assertionInfo != null) {
@@ -227,7 +229,8 @@ public class AssertionsSummaryHook implements MetadataChangeLogHook {
 
   private void removeAssertionFromSummary(final Urn assertionUrn) {
     // 1. Fetch assertion info.
-    AssertionInfo assertionInfo = _assertionService.getAssertionInfo(assertionUrn);
+    AssertionInfo assertionInfo =
+        _assertionService.getAssertionInfo(systemOperationContext, assertionUrn);
 
     // 2. Retrieve associated urns.
     if (assertionInfo != null) {
@@ -333,7 +336,8 @@ public class AssertionsSummaryHook implements MetadataChangeLogHook {
 
   @Nonnull
   private AssertionsSummary getAssertionsSummary(@Nonnull final Urn entityUrn) {
-    AssertionsSummary maybeAssertionsSummary = _assertionService.getAssertionsSummary(entityUrn);
+    AssertionsSummary maybeAssertionsSummary =
+        _assertionService.getAssertionsSummary(systemOperationContext, entityUrn);
     return maybeAssertionsSummary == null
         ? new AssertionsSummary()
             .setFailingAssertionDetails(new AssertionSummaryDetailsArray())
@@ -508,7 +512,7 @@ public class AssertionsSummaryHook implements MetadataChangeLogHook {
   private void updateAssertionSummary(
       @Nonnull final Urn entityUrn, @Nonnull final AssertionsSummary newSummary) {
     try {
-      _assertionService.updateAssertionsSummary(entityUrn, newSummary);
+      _assertionService.updateAssertionsSummary(systemOperationContext, entityUrn, newSummary);
     } catch (Exception e) {
       log.error(
           String.format(

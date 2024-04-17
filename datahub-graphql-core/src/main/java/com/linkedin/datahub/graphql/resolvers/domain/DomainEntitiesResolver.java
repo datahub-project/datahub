@@ -3,8 +3,6 @@ package com.linkedin.datahub.graphql.resolvers.domain;
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.*;
 
-import com.linkedin.data.template.SetMode;
-import com.linkedin.data.template.StringArray;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.Domain;
 import com.linkedin.datahub.graphql.generated.DomainEntitiesInput;
@@ -79,21 +77,7 @@ public class DomainEntitiesResolver implements DataFetcher<CompletableFuture<Sea
                   .getFilters()
                   .forEach(
                       filter -> {
-                        criteria.add(
-                            new Criterion()
-                                .setField(filter.getField())
-                                .setValue(filter.getValue(), SetMode.IGNORE_NULL)
-                                .setValues(
-                                    filter.getValues() != null
-                                        ? new StringArray(filter.getValues())
-                                        : null,
-                                    SetMode.IGNORE_NULL)
-                                .setNegated(filter.getNegated(), SetMode.IGNORE_NULL)
-                                .setCondition(
-                                    filter.getCondition() != null
-                                        ? Condition.valueOf(filter.getCondition().name())
-                                        : null,
-                                    SetMode.IGNORE_NULL));
+                        criteria.add(criterionFromFilter(filter, true));
                       });
             }
 

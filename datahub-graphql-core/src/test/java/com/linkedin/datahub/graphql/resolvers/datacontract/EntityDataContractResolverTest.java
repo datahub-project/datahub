@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.datacontract;
 
 import static com.linkedin.datahub.graphql.resolvers.datacontract.EntityDataContractResolver.*;
+import static org.mockito.ArgumentMatchers.nullable;
 import static org.testng.Assert.*;
 
 import com.datahub.authentication.Authentication;
@@ -34,6 +35,7 @@ import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.key.DataContractKey;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -117,10 +119,10 @@ public class EntityDataContractResolverTest {
 
     Mockito.when(
             mockClient.getV2(
+                nullable(OperationContext.class),
                 Mockito.eq(Constants.DATA_CONTRACT_ENTITY_NAME),
                 Mockito.eq(TEST_DATA_CONTRACT_URN),
-                Mockito.eq(null),
-                Mockito.any(Authentication.class)))
+                Mockito.eq(null)))
         .thenReturn(
             new EntityResponse()
                 .setEntityName(Constants.DATA_CONTRACT_ENTITY_NAME)

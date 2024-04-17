@@ -19,8 +19,9 @@ import { ActionRequestsPage } from './actionrequest/ActionRequestsPage';
 import { ManageTestsPage } from './tests/ManageTestsPage';
 import { DatasetHealthPage } from './observe/dataset/DatasetHealthPage';
 import DomainRoutes from './domain/DomainRoutes';
-import { useIsNestedDomainsEnabled, useIsDocumentationFormsEnabled } from './useAppConfig';
+import { useBusinessAttributesFlag, useIsAppConfigContextLoaded, useIsNestedDomainsEnabled, useIsDocumentationFormsEnabled } from './useAppConfig';
 import { ManageDomainsPage } from './domain/ManageDomainsPage';
+import { BusinessAttributes } from './businessAttribute/BusinessAttributes';
 
 import { useIsThemeV2Enabled } from './useIsThemeV2Enabled';
 import DomainRoutesV2 from './domainV2/DomainRoutes';
@@ -43,6 +44,9 @@ export const SearchRoutes = (): JSX.Element => {
     const FinalSearchablePage = isThemeV2 ? SearchablePageV2 : SearchablePage;
     const isDocumentationFormsEnabled = useIsDocumentationFormsEnabled();
     const includeGovernDashboard = isDocumentationFormsEnabled && me.platformPrivileges?.manageDocumentationForms;
+
+    const businessAttributesFlag = useBusinessAttributesFlag();
+    const appConfigContextLoaded = useIsAppConfigContextLoaded();
 
     return (
         <FinalSearchablePage>
@@ -100,7 +104,15 @@ export const SearchRoutes = (): JSX.Element => {
                     path={`${PageRoutes.GLOSSARY}*`}
                     render={() => (isThemeV2 ? <GlossaryRoutesV2 /> : <GlossaryRoutes />)}
                 />
-
+                <Route path={PageRoutes.BUSINESS_ATTRIBUTE} render={() => {
+                    if (!appConfigContextLoaded) {
+                        return null;
+                    }
+                    if (businessAttributesFlag) {
+                        return <BusinessAttributes />;
+                    }
+                    return <NoPageFound />;
+                }}/>
                 <Route component={NoPageFound} />
             </Switch>
         </FinalSearchablePage>

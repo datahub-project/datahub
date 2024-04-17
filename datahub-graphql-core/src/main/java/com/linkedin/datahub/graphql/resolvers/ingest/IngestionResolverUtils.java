@@ -205,7 +205,8 @@ public class IngestionResolverUtils {
       throws Exception {
     // Fetch the aspects for the entity.
     final EntityResponse entityResponse =
-        entityClient.getV2(entityUrn.getEntityType(), entityUrn, null, context.getAuthentication());
+        entityClient.getV2(
+            context.getOperationContext(), entityUrn.getEntityType(), entityUrn, null);
 
     // Entity does not exist! Return no source.
     if (entityResponse == null) {
@@ -248,10 +249,10 @@ public class IngestionResolverUtils {
 
     final EntityResponse executionRequestEntityResponse =
         entityClient.getV2(
+            context.getOperationContext(),
             Constants.EXECUTION_REQUEST_ENTITY_NAME,
             runUrn,
-            Collections.singleton(EXECUTION_REQUEST_INPUT_ASPECT_NAME),
-            context.getAuthentication());
+            Collections.singleton(EXECUTION_REQUEST_INPUT_ASPECT_NAME));
 
     // If no execution request, return null.
     if (executionRequestEntityResponse == null) {
@@ -273,10 +274,10 @@ public class IngestionResolverUtils {
     // Get the ingestionSource entity to check for the source -> config -> executorId.
     final EntityResponse ingestionSourceEntityResponse =
         entityClient.getV2(
+            context.getOperationContext(),
             Constants.INGESTION_SOURCE_ENTITY_NAME,
             execRequestSource.getIngestionSource(),
-            Collections.singleton(INGESTION_INFO_ASPECT_NAME),
-            context.getAuthentication());
+            Collections.singleton(INGESTION_INFO_ASPECT_NAME));
 
     // If we cannot find the ingestion source, return null.
     if (ingestionSourceEntityResponse == null) {

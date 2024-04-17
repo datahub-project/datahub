@@ -3,7 +3,7 @@ package com.linkedin.metadata.service;
 import static com.linkedin.metadata.entity.AspectUtils.*;
 import static com.linkedin.metadata.service.util.MetadataTestServiceUtils.*;
 
-import com.datahub.authentication.Authentication;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.common.GlobalTags;
 import com.linkedin.common.GlossaryTerms;
@@ -11,7 +11,7 @@ import com.linkedin.common.TagAssociation;
 import com.linkedin.common.TagAssociationArray;
 import com.linkedin.common.urn.TagUrn;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.resource.ResourceReference;
 import com.linkedin.metadata.resource.SubResourceType;
@@ -19,6 +19,7 @@ import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.schema.EditableSchemaFieldInfo;
 import com.linkedin.schema.EditableSchemaFieldInfoArray;
 import com.linkedin.schema.EditableSchemaMetadata;
+import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.openapi.client.OpenApiClient;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
@@ -35,10 +36,10 @@ import org.apache.commons.lang3.StringUtils;
 public class TagService extends BaseService {
 
   public TagService(
-      @Nonnull EntityClient entityClient,
-      @Nonnull Authentication systemAuthentication,
-      @Nonnull final OpenApiClient openApiClient) {
-    super(entityClient, systemAuthentication, openApiClient);
+      @Nonnull SystemEntityClient entityClient,
+      @Nonnull final OpenApiClient openApiClient,
+      @Nonnull ObjectMapper objectMapper) {
+    super(entityClient, openApiClient, objectMapper);
   }
 
   /**
@@ -50,27 +51,13 @@ public class TagService extends BaseService {
    *     processing logic when matching particular sources
    */
   public void batchAddTags(
-      @Nonnull List<Urn> tagUrns, @Nonnull List<ResourceReference> resources, String appSource) {
-    batchAddTags(tagUrns, resources, this.systemAuthentication, appSource);
-  }
-
-  /**
-   * Batch adds multiple tags for a set of resources.
-   *
-   * @param tagUrns the urns of the tags to add
-   * @param resources references to the resources to change
-   * @param authentication authentication to use when making the change
-   * @param appSource optional indication of the origin for this request, used for additional
-   *     processing logic when matching particular sources
-   */
-  public void batchAddTags(
+      @Nonnull OperationContext opContext,
       @Nonnull List<Urn> tagUrns,
       @Nonnull List<ResourceReference> resources,
-      @Nonnull Authentication authentication,
       @Nullable String appSource) {
     log.debug("Batch adding Tags to entities. tags: {}, resources: {}", resources, tagUrns);
     try {
-      addTagsToResources(tagUrns, resources, authentication, appSource);
+      addTagsToResources(opContext, tagUrns, resources, appSource);
     } catch (Exception e) {
       throw new RuntimeException(
           String.format(
@@ -90,29 +77,13 @@ public class TagService extends BaseService {
    *     processing logic when matching particular sources
    */
   public void batchRemoveTags(
+      @Nonnull OperationContext opContext,
       @Nonnull List<Urn> tagUrns,
       @Nonnull List<ResourceReference> resources,
-      @Nullable String appSource) {
-    batchRemoveTags(tagUrns, resources, this.systemAuthentication, appSource);
-  }
-
-  /**
-   * Batch removes multiple tags for a set of resources.
-   *
-   * @param tagUrns the urns of the tags to remove
-   * @param resources references to the resources to change
-   * @param authentication authentication to use when making the change
-   * @param appSource optional indication of the origin for this request, used for additional
-   *     processing logic when matching particular sources
-   */
-  public void batchRemoveTags(
-      @Nonnull List<Urn> tagUrns,
-      @Nonnull List<ResourceReference> resources,
-      @Nonnull Authentication authentication,
       @Nullable String appSource) {
     log.debug("Batch adding Tags to entities. tags: {}, resources: {}", resources, tagUrns);
     try {
-      removeTagsFromResources(tagUrns, resources, authentication, appSource);
+      removeTagsFromResources(opContext, tagUrns, resources, appSource);
     } catch (Exception e) {
       throw new RuntimeException(
           String.format(
@@ -124,36 +95,36 @@ public class TagService extends BaseService {
   }
 
   private void addTagsToResources(
+      @Nonnull OperationContext opContext,
       List<com.linkedin.common.urn.Urn> tagUrns,
       List<ResourceReference> resources,
-      @Nonnull Authentication authentication,
       @Nullable String appSource)
       throws Exception {
     final List<MetadataChangeProposal> changes =
-        buildAddTagsProposals(tagUrns, resources, authentication);
+        buildAddTagsProposals(opContext, tagUrns, resources);
     if (StringUtils.isNotBlank(appSource)) {
       applyAppSource(changes, appSource);
     }
-    ingestChangeProposals(changes, authentication);
+    ingestChangeProposals(opContext, changes);
   }
 
   private void removeTagsFromResources(
+      @Nonnull OperationContext opContext,
       List<Urn> tags,
       List<ResourceReference> resources,
-      @Nonnull Authentication authentication,
       @Nullable String appSource)
       throws Exception {
     final List<MetadataChangeProposal> changes =
-        buildRemoveTagsProposals(tags, resources, authentication);
+        buildRemoveTagsProposals(opContext, tags, resources);
     if (StringUtils.isNotBlank(appSource)) {
       applyAppSource(changes, appSource);
     }
-    ingestChangeProposals(changes, authentication);
+    ingestChangeProposals(opContext, changes);
   }
 
   @VisibleForTesting
   List<MetadataChangeProposal> buildAddTagsProposals(
-      List<Urn> tagUrns, List<ResourceReference> resources, Authentication authentication)
+      @Nonnull OperationContext opContext, List<Urn> tagUrns, List<ResourceReference> resources)
       throws URISyntaxException {
 
     final List<MetadataChangeProposal> changes = new ArrayList<>();
@@ -165,7 +136,7 @@ public class TagService extends BaseService {
                     resource.getSubResource() == null || resource.getSubResource().equals(""))
             .collect(Collectors.toList());
     final List<MetadataChangeProposal> entityProposals =
-        buildAddTagsToEntityProposals(tagUrns, entityRefs, authentication);
+        buildAddTagsToEntityProposals(opContext, tagUrns, entityRefs);
 
     final List<ResourceReference> schemaFieldRefs =
         resources.stream()
@@ -175,7 +146,7 @@ public class TagService extends BaseService {
                         && resource.getSubResourceType().equals(SubResourceType.DATASET_FIELD))
             .collect(Collectors.toList());
     final List<MetadataChangeProposal> schemaFieldProposals =
-        buildAddTagsToSubResourceProposals(tagUrns, schemaFieldRefs, authentication);
+        buildAddTagsToSubResourceProposals(opContext, tagUrns, schemaFieldRefs);
 
     changes.addAll(entityProposals);
     changes.addAll(schemaFieldProposals);
@@ -185,7 +156,7 @@ public class TagService extends BaseService {
 
   @VisibleForTesting
   List<MetadataChangeProposal> buildRemoveTagsProposals(
-      List<Urn> tagUrns, List<ResourceReference> resources, Authentication authentication) {
+      @Nonnull OperationContext opContext, List<Urn> tagUrns, List<ResourceReference> resources) {
     final List<MetadataChangeProposal> changes = new ArrayList<>();
 
     final List<ResourceReference> entityRefs =
@@ -195,7 +166,7 @@ public class TagService extends BaseService {
                     resource.getSubResource() == null || resource.getSubResource().equals(""))
             .collect(Collectors.toList());
     final List<MetadataChangeProposal> entityProposals =
-        buildRemoveTagsToEntityProposals(tagUrns, entityRefs, authentication);
+        buildRemoveTagsToEntityProposals(opContext, tagUrns, entityRefs);
 
     final List<ResourceReference> schemaFieldRefs =
         resources.stream()
@@ -205,7 +176,7 @@ public class TagService extends BaseService {
                         && resource.getSubResourceType().equals(SubResourceType.DATASET_FIELD))
             .collect(Collectors.toList());
     final List<MetadataChangeProposal> schemaFieldProposals =
-        buildRemoveTagsToSubResourceProposals(tagUrns, schemaFieldRefs, authentication);
+        buildRemoveTagsToSubResourceProposals(opContext, tagUrns, schemaFieldRefs);
 
     changes.addAll(entityProposals);
     changes.addAll(schemaFieldProposals);
@@ -215,13 +186,13 @@ public class TagService extends BaseService {
 
   @VisibleForTesting
   List<MetadataChangeProposal> buildAddTagsToEntityProposals(
-      List<Urn> tagUrns, List<ResourceReference> resources, Authentication authentication)
+      @Nonnull OperationContext opContext, List<Urn> tagUrns, List<ResourceReference> resources)
       throws URISyntaxException {
     final Map<Urn, GlobalTags> tagsAspects =
         getTagsAspects(
+            opContext,
             resources.stream().map(ResourceReference::getUrn).collect(Collectors.toSet()),
-            new GlobalTags(),
-            authentication);
+            new GlobalTags());
 
     final List<MetadataChangeProposal> changes = new ArrayList<>();
     for (ResourceReference resource : resources) {
@@ -243,16 +214,16 @@ public class TagService extends BaseService {
 
   @VisibleForTesting
   List<MetadataChangeProposal> buildAddTagsToSubResourceProposals(
+      @Nonnull OperationContext opContext,
       final List<Urn> tagUrns,
-      final List<ResourceReference> resources,
-      final Authentication authentication)
+      final List<ResourceReference> resources)
       throws URISyntaxException {
 
     final Map<Urn, EditableSchemaMetadata> editableSchemaMetadataAspects =
         getEditableSchemaMetadataAspects(
+            opContext,
             resources.stream().map(ResourceReference::getUrn).collect(Collectors.toSet()),
-            new EditableSchemaMetadata(),
-            authentication);
+            new EditableSchemaMetadata());
 
     final List<MetadataChangeProposal> changes = new ArrayList<>();
     for (ResourceReference resource : resources) {
@@ -283,12 +254,12 @@ public class TagService extends BaseService {
 
   @VisibleForTesting
   List<MetadataChangeProposal> buildRemoveTagsToEntityProposals(
-      List<Urn> tagUrns, List<ResourceReference> resources, Authentication authentication) {
+      @Nonnull OperationContext opContext, List<Urn> tagUrns, List<ResourceReference> resources) {
     final Map<Urn, GlobalTags> tagsAspects =
         getTagsAspects(
+            opContext,
             resources.stream().map(ResourceReference::getUrn).collect(Collectors.toSet()),
-            new GlobalTags(),
-            authentication);
+            new GlobalTags());
 
     final List<MetadataChangeProposal> changes = new ArrayList<>();
     for (ResourceReference resource : resources) {
@@ -311,14 +282,12 @@ public class TagService extends BaseService {
 
   @VisibleForTesting
   List<MetadataChangeProposal> buildRemoveTagsToSubResourceProposals(
-      List<Urn> tagUrns,
-      List<ResourceReference> resources,
-      @Nonnull Authentication authentication) {
+      @Nonnull OperationContext opContext, List<Urn> tagUrns, List<ResourceReference> resources) {
     final Map<Urn, EditableSchemaMetadata> editableSchemaMetadataAspects =
         getEditableSchemaMetadataAspects(
+            opContext,
             resources.stream().map(ResourceReference::getUrn).collect(Collectors.toSet()),
-            new EditableSchemaMetadata(),
-            authentication);
+            new EditableSchemaMetadata());
 
     final List<MetadataChangeProposal> changes = new ArrayList<>();
     for (ResourceReference resource : resources) {

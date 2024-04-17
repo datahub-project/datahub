@@ -30,13 +30,13 @@ public class RemoveUserResolver implements DataFetcher<CompletableFuture<Boolean
       return CompletableFuture.supplyAsync(
           () -> {
             try {
-              _entityClient.deleteEntity(urn, context.getAuthentication());
+              _entityClient.deleteEntity(context.getOperationContext(), urn);
 
               // Asynchronously Delete all references to the entity (to return quickly)
               CompletableFuture.runAsync(
                   () -> {
                     try {
-                      _entityClient.deleteEntityReferences(urn, context.getAuthentication());
+                      _entityClient.deleteEntityReferences(context.getOperationContext(), urn);
                     } catch (Exception e) {
                       log.error(
                           String.format(

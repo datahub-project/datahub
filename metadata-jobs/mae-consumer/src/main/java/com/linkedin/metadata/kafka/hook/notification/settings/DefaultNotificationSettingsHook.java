@@ -27,6 +27,7 @@ import com.linkedin.metadata.kafka.hook.MetadataChangeLogHook;
 import com.linkedin.metadata.service.SettingsService;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeLog;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.Objects;
 import java.util.Set;
 import javax.annotation.Nonnull;
@@ -64,6 +65,7 @@ public class DefaultNotificationSettingsHook implements MetadataChangeLogHook {
           CORP_GROUP_INFO_ASPECT_NAME,
           CORP_GROUP_EDITABLE_INFO_ASPECT_NAME);
   private final SettingsService settingsService;
+  private OperationContext systemOperationContext;
 
   private final boolean isEnabled;
 
@@ -77,9 +79,10 @@ public class DefaultNotificationSettingsHook implements MetadataChangeLogHook {
   }
 
   @Override
-  public void init() {
-    // pass.
+  public DefaultNotificationSettingsHook init(@Nonnull OperationContext systemOperationContext) {
+    this.systemOperationContext = systemOperationContext;
     log.info("Initialized Default Notification Settings hook");
+    return this;
   }
 
   @Override
@@ -109,6 +112,7 @@ public class DefaultNotificationSettingsHook implements MetadataChangeLogHook {
     final String aspectName = event.getAspectName();
     if (aspectName.equals(CORP_USER_INFO_ASPECT_NAME)) {
       handleUserInfoUpdate(
+          systemOperationContext,
           userUrn,
           GenericRecordUtils.deserializeAspect(
               event.getAspect().getValue(),
@@ -116,6 +120,7 @@ public class DefaultNotificationSettingsHook implements MetadataChangeLogHook {
               CorpUserInfo.class));
     } else if (aspectName.equals(CORP_USER_EDITABLE_INFO_NAME)) {
       handleUserEditableInfoUpdate(
+          systemOperationContext,
           userUrn,
           GenericRecordUtils.deserializeAspect(
               event.getAspect().getValue(),
@@ -133,6 +138,7 @@ public class DefaultNotificationSettingsHook implements MetadataChangeLogHook {
     final String aspectName = event.getAspectName();
     if (aspectName.equals(CORP_GROUP_INFO_ASPECT_NAME)) {
       handleGroupInfoUpdate(
+          systemOperationContext,
           groupUrn,
           GenericRecordUtils.deserializeAspect(
               event.getAspect().getValue(),
@@ -140,6 +146,7 @@ public class DefaultNotificationSettingsHook implements MetadataChangeLogHook {
               CorpGroupInfo.class));
     } else if (aspectName.equals(CORP_GROUP_EDITABLE_INFO_ASPECT_NAME)) {
       handleGroupEditableInfoUpdate(
+          systemOperationContext,
           groupUrn,
           GenericRecordUtils.deserializeAspect(
               event.getAspect().getValue(),
@@ -148,25 +155,29 @@ public class DefaultNotificationSettingsHook implements MetadataChangeLogHook {
     }
   }
 
-  private void handleUserInfoUpdate(@Nonnull Urn userUrn, @Nonnull CorpUserInfo userInfo) {
+  private void handleUserInfoUpdate(
+      @Nonnull OperationContext opContext, @Nonnull Urn userUrn, @Nonnull CorpUserInfo userInfo) {
     if (userInfo.getEmail() == null) {
       log.debug("User {} has no email address. Skipping updating notification settings", userUrn);
       return;
     }
-    handleUserEmailUpdate(userUrn, userInfo.getEmail());
+    handleUserEmailUpdate(opContext, userUrn, userInfo.getEmail());
   }
 
   private void handleUserEditableInfoUpdate(
-      @Nonnull Urn userUrn, @Nonnull CorpUserEditableInfo userEditableInfo) {
+      @Nonnull OperationContext opContext,
+      @Nonnull Urn userUrn,
+      @Nonnull CorpUserEditableInfo userEditableInfo) {
     if (userEditableInfo.getEmail() == null) {
       log.debug("User {} has no email address. Skipping updating notification settings", userUrn);
       return;
     }
-    handleUserEmailUpdate(userUrn, userEditableInfo.getEmail());
+    handleUserEmailUpdate(opContext, userUrn, userEditableInfo.getEmail());
   }
 
-  private void handleUserEmailUpdate(@Nonnull Urn userUrn, @Nonnull String email) {
-    final CorpUserSettings userSettings = settingsService.getCorpUserSettings(userUrn);
+  private void handleUserEmailUpdate(
+      @Nonnull OperationContext opContext, @Nonnull Urn userUrn, @Nonnull String email) {
+    final CorpUserSettings userSettings = settingsService.getCorpUserSettings(opContext, userUrn);
     if (userSettings != null && userSettings.getNotificationSettings() != null) {
       log.debug(
           "User {} already has notification settings. Skipping default notification settings creation.",
@@ -179,28 +190,35 @@ public class DefaultNotificationSettingsHook implements MetadataChangeLogHook {
     log.debug("Creating default notification settings for user {}", userUrn);
     final NotificationSettings defaultSettings = createDefaultNotificationSettings(email);
     settingsService.updateCorpUserSettings(
-        userUrn, newSettings.setNotificationSettings(defaultSettings));
+        opContext, userUrn, newSettings.setNotificationSettings(defaultSettings));
   }
 
-  private void handleGroupInfoUpdate(@Nonnull Urn groupUrn, @Nonnull CorpGroupInfo groupInfo) {
+  private void handleGroupInfoUpdate(
+      @Nonnull OperationContext opContext,
+      @Nonnull Urn groupUrn,
+      @Nonnull CorpGroupInfo groupInfo) {
     if (groupInfo.getEmail() == null) {
       log.debug("Group {} has no email address. Skipping updating notification settings", groupUrn);
       return;
     }
-    handleGroupEmailUpdate(groupUrn, groupInfo.getEmail());
+    handleGroupEmailUpdate(opContext, groupUrn, groupInfo.getEmail());
   }
 
   private void handleGroupEditableInfoUpdate(
-      @Nonnull Urn groupUrn, @Nonnull CorpGroupEditableInfo groupEditableInfo) {
+      @Nonnull OperationContext opContext,
+      @Nonnull Urn groupUrn,
+      @Nonnull CorpGroupEditableInfo groupEditableInfo) {
     if (groupEditableInfo.getEmail() == null) {
       log.debug("Group {} has no email address. Skipping updating notification settings", groupUrn);
       return;
     }
-    handleGroupEmailUpdate(groupUrn, groupEditableInfo.getEmail());
+    handleGroupEmailUpdate(opContext, groupUrn, groupEditableInfo.getEmail());
   }
 
-  private void handleGroupEmailUpdate(@Nonnull Urn groupUrn, @Nonnull String email) {
-    final CorpGroupSettings groupSettings = settingsService.getCorpGroupSettings(groupUrn);
+  private void handleGroupEmailUpdate(
+      @Nonnull OperationContext opContext, @Nonnull Urn groupUrn, @Nonnull String email) {
+    final CorpGroupSettings groupSettings =
+        settingsService.getCorpGroupSettings(opContext, groupUrn);
     if (groupSettings != null && groupSettings.getNotificationSettings() != null) {
       log.debug(
           "Group {} already has notification settings. Skipping default notification settings creation.",
@@ -213,7 +231,7 @@ public class DefaultNotificationSettingsHook implements MetadataChangeLogHook {
     log.debug("Creating default notification settings for group {}", groupUrn);
     final NotificationSettings defaultSettings = createDefaultNotificationSettings(email);
     settingsService.updateCorpGroupSettings(
-        groupUrn, newSettings.setNotificationSettings(defaultSettings));
+        opContext, groupUrn, newSettings.setNotificationSettings(defaultSettings));
   }
 
   private NotificationSettings createDefaultNotificationSettings(@Nonnull String email) {

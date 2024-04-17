@@ -11,6 +11,7 @@ import java.security.NoSuchAlgorithmException;
 import java.util.Base64;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -100,10 +101,14 @@ public class Edge {
       KEY_SORTS.stream()
           .map(
               entry -> {
-                SortCriterion result = new SortCriterion();
-                result.setField(entry.getFirst());
-                result.setOrder(SortOrder.valueOf(entry.getSecond().name()));
-                return result;
+                SortCriterion sortCriterion = new SortCriterion();
+                sortCriterion.setField(entry.getKey());
+                sortCriterion.setOrder(
+                    com.linkedin.metadata.query.filter.SortOrder.valueOf(
+                        Optional.ofNullable(entry.getValue())
+                            .orElse(SortOrder.ASCENDING)
+                            .toString()));
+                return sortCriterion;
               })
           .collect(Collectors.toList());
   private static final String DOC_DELIMETER = "--";

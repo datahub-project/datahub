@@ -14,11 +14,13 @@ import com.linkedin.timeseries.AggregationType;
 import com.linkedin.timeseries.GenericTable;
 import com.linkedin.timeseries.GroupingBucket;
 import com.linkedin.timeseries.GroupingBucketType;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+import javax.annotation.Nonnull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.joda.time.DateTime;
@@ -36,9 +38,11 @@ public class UsageFeature extends BatchFeatureExtractor {
   }
 
   @Override
-  public List<Features> extractFeaturesForBatch(List<SearchEntity> entities) {
+  public List<Features> extractFeaturesForBatch(
+      @Nonnull OperationContext opContext, List<SearchEntity> entities) {
     Map<String, Long> urnToUsageCount =
         getUrnToUsageCount(
+            opContext,
             entities.stream()
                 .map(SearchEntity::getEntity)
                 .map(Object::toString)
@@ -55,7 +59,8 @@ public class UsageFeature extends BatchFeatureExtractor {
         .collect(Collectors.toList());
   }
 
-  private Map<String, Long> getUrnToUsageCount(Set<String> urnsToQuery) {
+  private Map<String, Long> getUrnToUsageCount(
+      @Nonnull OperationContext opContext, Set<String> urnsToQuery) {
 
     AggregationSpec queryCountAggregation =
         new AggregationSpec()
@@ -66,6 +71,7 @@ public class UsageFeature extends BatchFeatureExtractor {
         new GroupingBucket().setKey("urn").setType(GroupingBucketType.STRING_GROUPING_BUCKET);
     GenericTable usageStatsTable =
         _timeseriesAspectService.getAggregatedStats(
+            opContext,
             "dataset",
             "datasetUsageStatistics",
             new AggregationSpec[] {queryCountAggregation},

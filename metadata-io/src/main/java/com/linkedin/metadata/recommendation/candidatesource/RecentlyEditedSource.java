@@ -99,7 +99,8 @@ public class RecentlyEditedSource implements EntityRecommendationSource {
   @WithSpan
   public List<RecommendationContent> getRecommendations(
       @Nonnull OperationContext opContext, @Nonnull RecommendationRequestContext requestContext) {
-    SearchRequest searchRequest = buildSearchRequest(opContext.getActorContext().getActorUrn());
+    SearchRequest searchRequest =
+        buildSearchRequest(opContext.getSessionActorContext().getActorUrn());
     try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "getRecentlyEdited").time()) {
       final SearchResponse searchResponse =
           _searchClient.search(searchRequest, RequestOptions.DEFAULT);
@@ -109,7 +110,7 @@ public class RecentlyEditedSource implements EntityRecommendationSource {
           parsedTerms.getBuckets().stream()
               .map(MultiBucketsAggregation.Bucket::getKeyAsString)
               .collect(Collectors.toList());
-      return buildContent(bucketUrns, _entityService)
+      return buildContent(opContext, bucketUrns, _entityService)
           .limit(MAX_CONTENT)
           .collect(Collectors.toList());
     } catch (Exception e) {

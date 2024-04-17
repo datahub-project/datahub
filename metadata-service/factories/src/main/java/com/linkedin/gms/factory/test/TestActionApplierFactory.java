@@ -1,9 +1,9 @@
 package com.linkedin.gms.factory.test;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.service.*;
-import com.linkedin.metadata.spring.YamlPropertySourceFactory;
 import com.linkedin.metadata.test.action.Action;
 import com.linkedin.metadata.test.action.ActionApplier;
 import com.linkedin.metadata.test.action.cleanup.DeprecationAction;
@@ -19,7 +19,6 @@ import com.linkedin.metadata.test.action.tag.AddTagsAction;
 import com.linkedin.metadata.test.action.tag.RemoveTagsAction;
 import com.linkedin.metadata.test.action.term.AddGlossaryTermsAction;
 import com.linkedin.metadata.test.action.term.RemoveGlossaryTermsAction;
-import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.openapi.client.OpenApiClient;
 import java.util.ArrayList;
 import java.util.List;
@@ -28,35 +27,27 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.PropertySource;
 
 @Configuration
-@PropertySource(value = "classpath:/application.yml", factory = YamlPropertySourceFactory.class)
 public class TestActionApplierFactory {
   @Autowired
   @Qualifier("entityService")
-  private EntityService entityService;
+  private EntityService<?> entityService;
 
   @Bean(name = "testActionApplier")
   @Nonnull
   protected ActionApplier getInstance(
-      @Qualifier("systemOperationContext") final OperationContext systemOpContext,
-      final SystemEntityClient systemEntityClient,
-      @Qualifier("openApiClient") final OpenApiClient openApiClient) {
+      @Qualifier("systemEntityClient") final SystemEntityClient systemEntityClient,
+      @Qualifier("openApiClient") final OpenApiClient openApiClient,
+      final ObjectMapper objectMapper) {
     List<Action> appliers = new ArrayList<>();
-    TagService tagService =
-        new TagService(
-            systemEntityClient, systemEntityClient.getSystemAuthentication(), openApiClient);
+    TagService tagService = new TagService(systemEntityClient, openApiClient, objectMapper);
     GlossaryTermService termsService =
-        new GlossaryTermService(
-            systemEntityClient, systemEntityClient.getSystemAuthentication(), openApiClient);
-    OwnerService ownerService =
-        new OwnerService(
-            systemEntityClient, systemEntityClient.getSystemAuthentication(), openApiClient);
+        new GlossaryTermService(systemEntityClient, openApiClient, objectMapper);
+    OwnerService ownerService = new OwnerService(systemEntityClient, openApiClient, objectMapper);
     DomainService domainService =
-        new DomainService(
-            systemEntityClient, systemEntityClient.getSystemAuthentication(), openApiClient);
-    FormService formService = new FormService(systemOpContext, systemEntityClient, openApiClient);
+        new DomainService(systemEntityClient, openApiClient, objectMapper);
+    FormService formService = new FormService(systemEntityClient, openApiClient, objectMapper);
     appliers.add(new AddTagsAction(tagService));
     appliers.add(new RemoveTagsAction(tagService));
     appliers.add(new AddGlossaryTermsAction(termsService));

@@ -10,6 +10,7 @@ import com.linkedin.metadata.test.definition.ValidationResult;
 import com.linkedin.structured.PrimitivePropertyValue;
 import com.linkedin.structured.StructuredProperties;
 import com.linkedin.structured.StructuredPropertyValueAssignment;
+import io.datahubproject.metadata.context.OperationContext;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -58,6 +59,7 @@ public class StructuredPropertyEvaluator extends BaseQueryEvaluator {
   @Override
   @Nonnull
   public Map<Urn, Map<TestQuery, TestQueryResponse>> evaluate(
+      @Nonnull OperationContext opContext,
       @Nonnull final String entityType,
       @Nonnull final Set<Urn> urns,
       @Nonnull final Set<TestQuery> queries) {
@@ -68,7 +70,7 @@ public class StructuredPropertyEvaluator extends BaseQueryEvaluator {
             ImmutableSet.of(Constants.STRUCTURED_PROPERTIES_ASPECT_NAME);
 
         entityService
-            .getEntitiesV2(entityType, urns, aspectSpecNames)
+            .getEntitiesV2(opContext, entityType, urns, aspectSpecNames)
             .forEach(
                 (urn, response) -> {
                   result.putIfAbsent(urn, new HashMap<>());

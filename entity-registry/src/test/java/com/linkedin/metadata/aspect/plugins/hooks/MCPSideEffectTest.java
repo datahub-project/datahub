@@ -5,7 +5,7 @@ import static org.testng.Assert.assertEquals;
 import com.datahub.test.TestEntityProfile;
 import com.linkedin.data.schema.annotation.PathSpecBasedSchemaAnnotationVisitor;
 import com.linkedin.events.metadata.ChangeType;
-import com.linkedin.metadata.aspect.AspectRetriever;
+import com.linkedin.metadata.aspect.RetrieverContext;
 import com.linkedin.metadata.aspect.batch.ChangeMCP;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
@@ -64,7 +64,7 @@ public class MCPSideEffectTest {
 
     @Override
     protected Stream<ChangeMCP> applyMCPSideEffect(
-        Collection<ChangeMCP> changeMCPS, @Nonnull AspectRetriever aspectRetriever) {
+        Collection<ChangeMCP> changeMCPS, @Nonnull RetrieverContext retrieverContext) {
       return changeMCPS.stream();
     }
   }

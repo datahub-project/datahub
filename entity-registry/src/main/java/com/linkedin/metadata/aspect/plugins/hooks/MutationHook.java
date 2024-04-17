@@ -1,7 +1,7 @@
 package com.linkedin.metadata.aspect.plugins.hooks;
 
-import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.ReadItem;
+import com.linkedin.metadata.aspect.RetrieverContext;
 import com.linkedin.metadata.aspect.batch.ChangeMCP;
 import com.linkedin.metadata.aspect.plugins.PluginSpec;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
@@ -22,35 +22,35 @@ public abstract class MutationHook extends PluginSpec {
    * Mutating hook, original objects are potentially modified.
    *
    * @param changeMCPS input upsert items
-   * @param aspectRetriever aspect retriever
+   * @param retrieverContext aspect & graph retriever
    * @return all items, with a boolean to indicate mutation
    */
   public final Stream<Pair<ChangeMCP, Boolean>> applyWriteMutation(
-      @Nonnull Collection<ChangeMCP> changeMCPS, @Nonnull AspectRetriever aspectRetriever) {
+      @Nonnull Collection<ChangeMCP> changeMCPS, @Nonnull RetrieverContext retrieverContext) {
     return writeMutation(
         changeMCPS.stream()
             .filter(i -> shouldApply(i.getChangeType(), i.getEntitySpec(), i.getAspectSpec()))
             .collect(Collectors.toList()),
-        aspectRetriever);
+        retrieverContext);
   }
 
   // Read mutation
   public final Stream<Pair<ReadItem, Boolean>> applyReadMutation(
-      @Nonnull Collection<ReadItem> items, @Nonnull AspectRetriever aspectRetriever) {
+      @Nonnull Collection<ReadItem> items, @Nonnull RetrieverContext retrieverContext) {
     return readMutation(
         items.stream()
             .filter(i -> isEntityAspectSupported(i.getEntitySpec(), i.getAspectSpec()))
             .collect(Collectors.toList()),
-        aspectRetriever);
+        retrieverContext);
   }
 
   protected Stream<Pair<ReadItem, Boolean>> readMutation(
-      @Nonnull Collection<ReadItem> items, @Nonnull AspectRetriever aspectRetriever) {
+      @Nonnull Collection<ReadItem> items, @Nonnull RetrieverContext retrieverContext) {
     return items.stream().map(i -> Pair.of(i, false));
   }
 
   protected Stream<Pair<ChangeMCP, Boolean>> writeMutation(
-      @Nonnull Collection<ChangeMCP> changeMCPS, @Nonnull AspectRetriever aspectRetriever) {
+      @Nonnull Collection<ChangeMCP> changeMCPS, @Nonnull RetrieverContext retrieverContext) {
     return changeMCPS.stream().map(i -> Pair.of(i, false));
   }
 }

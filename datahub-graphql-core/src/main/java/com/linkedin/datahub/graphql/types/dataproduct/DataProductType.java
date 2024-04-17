@@ -82,12 +82,12 @@ public class DataProductType
     try {
       final Map<Urn, EntityResponse> entities =
           _entityClient.batchGetV2(
+              context.getOperationContext(),
               DATA_PRODUCT_ENTITY_NAME,
               dataProductUrns.stream()
                   .filter(urn -> canView(context.getOperationContext(), urn))
                   .collect(Collectors.toSet()),
-              ASPECTS_TO_FETCH,
-              context.getAuthentication());
+              ASPECTS_TO_FETCH);
 
       final List<EntityResponse> gmsResults = new ArrayList<>(urns.size());
       for (Urn urn : dataProductUrns) {

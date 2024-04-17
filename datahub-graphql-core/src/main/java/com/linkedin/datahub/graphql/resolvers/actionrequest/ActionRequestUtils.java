@@ -3,7 +3,6 @@ package com.linkedin.datahub.graphql.resolvers.actionrequest;
 import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
 import static com.linkedin.metadata.Constants.*;
 
-import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.actionrequest.ActionRequestInfo;
 import com.linkedin.actionrequest.CreateGlossaryNodeProposal;
@@ -62,6 +61,7 @@ import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.snapshot.ActionRequestSnapshot;
 import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.schema.EditableSchemaMetadata;
+import io.datahubproject.metadata.context.OperationContext;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -70,6 +70,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.Value;
 
@@ -174,6 +175,7 @@ public class ActionRequestUtils {
           com.linkedin.schema.EditableSchemaMetadata editableSchemaMetadataAspect =
               (EditableSchemaMetadata)
                   EntityUtils.getAspectFromEntity(
+                      context.getOperationContext(),
                       rejectedActionRequest.getEntity().getUrn(),
                       EDITABLE_SCHEMA_METADATA_ASPECT_NAME,
                       entityService,
@@ -207,6 +209,7 @@ public class ActionRequestUtils {
           com.linkedin.common.GlossaryTerms glossaryTermsAspect =
               (GlossaryTerms)
                   EntityUtils.getAspectFromEntity(
+                      context.getOperationContext(),
                       rejectedActionRequest.getEntity().getUrn(),
                       GLOSSARY_TERMS_ASPECT_NAME,
                       entityService,
@@ -231,6 +234,7 @@ public class ActionRequestUtils {
           com.linkedin.schema.EditableSchemaMetadata editableSchemaMetadataAspect =
               (EditableSchemaMetadata)
                   EntityUtils.getAspectFromEntity(
+                      context.getOperationContext(),
                       rejectedActionRequest.getEntity().getUrn(),
                       EDITABLE_SCHEMA_METADATA_ASPECT_NAME,
                       entityService,
@@ -263,6 +267,7 @@ public class ActionRequestUtils {
           com.linkedin.common.GlobalTags globalTagsAspect =
               (GlobalTags)
                   EntityUtils.getAspectFromEntity(
+                      context.getOperationContext(),
                       rejectedActionRequest.getEntity().getUrn(),
                       GLOBAL_TAGS_ASPECT_NAME,
                       entityService,
@@ -517,13 +522,13 @@ public class ActionRequestUtils {
   }
 
   public static AssignedUrns getGroupAndRoleUrns(
-      final Urn actor, final Authentication authentication, EntityClient entityClient)
+      @Nonnull OperationContext opContext, final Urn actor, EntityClient entityClient)
       throws Exception {
     List<Urn> groupUrns = new ArrayList<>();
     List<Urn> roleUrns = new ArrayList<>();
     try {
       final EntityResponse response =
-          entityClient.getV2(CORP_USER_ENTITY_NAME, actor, null, authentication);
+          entityClient.getV2(opContext, CORP_USER_ENTITY_NAME, actor, null);
       final EnvelopedAspectMap aspects = response.getAspects();
 
       if (aspects.get(GROUP_MEMBERSHIP_ASPECT_NAME) != null) {

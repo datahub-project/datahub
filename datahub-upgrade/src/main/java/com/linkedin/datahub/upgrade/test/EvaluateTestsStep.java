@@ -172,7 +172,9 @@ public class EvaluateTestsStep implements UpgradeStep {
     {
       Map<Urn, TestResults> result;
       try {
-        result = _testEngine.evaluateTests(entitiesInBatch, TestEngine.EvaluationMode.DEFAULT);
+        result =
+            _testEngine.evaluateTests(
+                systemOpContext, entitiesInBatch, TestEngine.EvaluationMode.DEFAULT);
         context
             .report()
             .addLine(
@@ -246,9 +248,9 @@ public class EvaluateTestsStep implements UpgradeStep {
             .setFailingCount(result.getFailCount()));
     try {
       _entityClient.ingestProposal(
+          systemOpContext,
           AspectUtils.buildMetadataChangeProposal(
-              testUrn, AcrylConstants.BATCH_TEST_RUN_EVENT_ASPECT_NAME, event),
-          systemOpContext.getAuthentication());
+              testUrn, AcrylConstants.BATCH_TEST_RUN_EVENT_ASPECT_NAME, event));
     } catch (Exception e) {
       log.error(
           "Failed to produce Metadata Test Run Result aspect! This may mean that the results shown in the UI are stale!",

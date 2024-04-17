@@ -17,6 +17,7 @@ import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.EntityUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.List;
 import javax.annotation.Nonnull;
@@ -49,6 +50,7 @@ public class DeprecationUtils {
   }
 
   public static void updateDeprecationForResources(
+      @Nonnull OperationContext opContext,
       boolean deprecated,
       @Nullable String note,
       @Nullable Long decommissionTime,
@@ -59,12 +61,13 @@ public class DeprecationUtils {
     for (ResourceRefInput resource : resources) {
       changes.add(
           buildUpdateDeprecationProposal(
-              deprecated, note, decommissionTime, resource, actor, entityService));
+              opContext, deprecated, note, decommissionTime, resource, actor, entityService));
     }
-    EntityUtils.ingestChangeProposals(changes, entityService, actor, false);
+    EntityUtils.ingestChangeProposals(opContext, changes, entityService, actor, false);
   }
 
   private static MetadataChangeProposal buildUpdateDeprecationProposal(
+      @Nonnull OperationContext opContext,
       boolean deprecated,
       @Nullable String note,
       @Nullable Long decommissionTime,
@@ -73,7 +76,8 @@ public class DeprecationUtils {
       EntityService entityService) {
     String resourceUrn = resource.getResourceUrn();
     Deprecation deprecation =
-        getDeprecation(entityService, resourceUrn, actor, note, deprecated, decommissionTime);
+        getDeprecation(
+            opContext, entityService, resourceUrn, actor, note, deprecated, decommissionTime);
     return MutationUtils.buildMetadataChangeProposalWithUrn(
         UrnUtils.getUrn(resourceUrn), Constants.DEPRECATION_ASPECT_NAME, deprecation);
   }

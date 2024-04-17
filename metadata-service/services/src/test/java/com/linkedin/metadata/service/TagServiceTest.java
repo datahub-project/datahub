@@ -1,9 +1,12 @@
 package com.linkedin.metadata.service;
 
 import static com.linkedin.metadata.service.util.ServiceTestUtils.*;
+import static org.mockito.ArgumentMatchers.any;
 
-import com.datahub.authentication.Authentication;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.GlobalTags;
 import com.linkedin.common.TagAssociation;
 import com.linkedin.common.TagAssociationArray;
@@ -11,18 +14,25 @@ import com.linkedin.common.urn.TagUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.RecordTemplate;
-import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.Aspect;
+import com.linkedin.entity.EntityResponse;
+import com.linkedin.entity.EnvelopedAspect;
+import com.linkedin.entity.EnvelopedAspectMap;
+import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.resource.ResourceReference;
 import com.linkedin.metadata.resource.SubResourceType;
+import com.linkedin.metadata.service.util.ServiceTestUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.schema.EditableSchemaFieldInfo;
 import com.linkedin.schema.EditableSchemaFieldInfoArray;
 import com.linkedin.schema.EditableSchemaMetadata;
-import io.datahubproject.openapi.client.OpenApiClient;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.Collections;
 import java.util.List;
+import javax.annotation.Nullable;
 import org.mockito.Mockito;
 import org.testng.Assert;
 import org.testng.annotations.Test;
@@ -32,26 +42,32 @@ public class TagServiceTest {
   private static final Urn TEST_TAG_URN_1 = UrnUtils.getUrn("urn:li:tag:test");
   private static final Urn TEST_TAG_URN_2 = UrnUtils.getUrn("urn:li:tag:test2");
 
+  private static final Urn TEST_ENTITY_URN_1 =
+      UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:kafka,test,PROD)");
+  private static final Urn TEST_ENTITY_URN_2 =
+      UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:kafka,test1,PROD)");
+  private static final OperationContext opContext =
+      TestOperationContexts.systemContextNoSearchAuthorization();
+
+  private static final ObjectMapper objectMapper = new ObjectMapper();
+
   @Test
   private void testAddTagToEntityExistingTag() throws Exception {
     GlobalTags existingGlobalTags = new GlobalTags();
     existingGlobalTags.setTags(
         new TagAssociationArray(
             ImmutableList.of(new TagAssociation().setTag(TagUrn.createFromUrn(TEST_TAG_URN_1)))));
-    OpenApiClient mockClient = createMockGlobalTagsClient(existingGlobalTags);
 
-    final TagService service =
-        new TagService(
-            Mockito.mock(EntityClient.class), Mockito.mock(Authentication.class), mockClient);
+    final TagService service = createMockGlobalTagService(existingGlobalTags);
 
     Urn newTagUrn = UrnUtils.getUrn("urn:li:tag:newTag");
     List<MetadataChangeProposal> events =
         service.buildAddTagsProposals(
+            opContext,
             ImmutableList.of(newTagUrn),
             ImmutableList.of(
                 new ResourceReference(TEST_ENTITY_URN_1, null, null),
-                new ResourceReference(TEST_ENTITY_URN_2, null, null)),
-            mockAuthentication());
+                new ResourceReference(TEST_ENTITY_URN_2, null, null)));
 
     TagAssociationArray expected =
         new TagAssociationArray(
@@ -78,20 +94,16 @@ public class TagServiceTest {
 
   @Test
   private void testAddGlobalTagsToEntityNoExistingTag() throws Exception {
-    OpenApiClient mockClient = createMockGlobalTagsClient(null);
-
-    final TagService service =
-        new TagService(
-            Mockito.mock(EntityClient.class), Mockito.mock(Authentication.class), mockClient);
+    final TagService service = createMockGlobalTagService(null);
 
     Urn newTagUrn = UrnUtils.getUrn("urn:li:tag:newTag");
     List<MetadataChangeProposal> events =
         service.buildAddTagsProposals(
+            opContext,
             ImmutableList.of(newTagUrn),
             ImmutableList.of(
                 new ResourceReference(TEST_ENTITY_URN_1, null, null),
-                new ResourceReference(TEST_ENTITY_URN_2, null, null)),
-            mockAuthentication());
+                new ResourceReference(TEST_ENTITY_URN_2, null, null)));
 
     TagAssociationArray expectedTermsArray =
         new TagAssociationArray(
@@ -129,20 +141,18 @@ public class TagServiceTest {
                                     ImmutableList.of(
                                         new TagAssociation()
                                             .setTag(TagUrn.createFromUrn(TEST_TAG_URN_1)))))))));
-    OpenApiClient mockClient = createMockSchemaMetadataClient(existingMetadata);
 
-    final TagService service =
-        new TagService(
-            Mockito.mock(EntityClient.class), Mockito.mock(Authentication.class), mockClient);
+    final TagService service = createMockSchemaMetadataTagService(existingMetadata);
 
     Urn newTagUrn = UrnUtils.getUrn("urn:li:tag:newTag");
     List<MetadataChangeProposal> events =
         service.buildAddTagsProposals(
+            opContext,
             ImmutableList.of(newTagUrn),
             ImmutableList.of(
                 new ResourceReference(TEST_ENTITY_URN_1, SubResourceType.DATASET_FIELD, "myfield"),
-                new ResourceReference(TEST_ENTITY_URN_2, SubResourceType.DATASET_FIELD, "myfield")),
-            mockAuthentication());
+                new ResourceReference(
+                    TEST_ENTITY_URN_2, SubResourceType.DATASET_FIELD, "myfield")));
 
     TagAssociationArray expected =
         new TagAssociationArray(
@@ -186,20 +196,17 @@ public class TagServiceTest {
                     .setFieldPath("myfield")
                     .setGlobalTags(new GlobalTags()))));
 
-    OpenApiClient mockClient = createMockSchemaMetadataClient(existingMetadata);
-
-    final TagService service =
-        new TagService(
-            Mockito.mock(EntityClient.class), Mockito.mock(Authentication.class), mockClient);
+    final TagService service = createMockSchemaMetadataTagService(existingMetadata);
 
     Urn newTagUrn = UrnUtils.getUrn("urn:li:tag:newTag");
     List<MetadataChangeProposal> events =
         service.buildAddTagsProposals(
+            opContext,
             ImmutableList.of(newTagUrn),
             ImmutableList.of(
                 new ResourceReference(TEST_ENTITY_URN_1, SubResourceType.DATASET_FIELD, "myfield"),
-                new ResourceReference(TEST_ENTITY_URN_2, SubResourceType.DATASET_FIELD, "myfield")),
-            mockAuthentication());
+                new ResourceReference(
+                    TEST_ENTITY_URN_2, SubResourceType.DATASET_FIELD, "myfield")));
 
     TagAssociationArray expected =
         new TagAssociationArray(
@@ -238,19 +245,16 @@ public class TagServiceTest {
             ImmutableList.of(
                 new TagAssociation().setTag(TagUrn.createFromUrn(TEST_TAG_URN_1)),
                 new TagAssociation().setTag(TagUrn.createFromUrn(TEST_TAG_URN_2)))));
-    OpenApiClient mockClient = createMockGlobalTagsClient(existingGlobalTags);
 
-    final TagService service =
-        new TagService(
-            Mockito.mock(EntityClient.class), Mockito.mock(Authentication.class), mockClient);
+    final TagService service = createMockGlobalTagService(existingGlobalTags);
 
     List<MetadataChangeProposal> events =
         service.buildRemoveTagsProposals(
+            opContext,
             ImmutableList.of(TEST_TAG_URN_1),
             ImmutableList.of(
                 new ResourceReference(TEST_ENTITY_URN_1, null, null),
-                new ResourceReference(TEST_ENTITY_URN_2, null, null)),
-            mockAuthentication());
+                new ResourceReference(TEST_ENTITY_URN_2, null, null)));
 
     GlobalTags expected =
         new GlobalTags()
@@ -278,20 +282,16 @@ public class TagServiceTest {
 
   @Test
   private void testRemoveGlobalTagsToEntityNoExistingTag() throws Exception {
-    OpenApiClient mockClient = createMockGlobalTagsClient(null);
-
-    final TagService service =
-        new TagService(
-            Mockito.mock(EntityClient.class), Mockito.mock(Authentication.class), mockClient);
+    final TagService service = createMockGlobalTagService((GlobalTags) null);
 
     Urn newTagUrn = UrnUtils.getUrn("urn:li:tag:newTag");
     List<MetadataChangeProposal> events =
         service.buildRemoveTagsProposals(
+            opContext,
             ImmutableList.of(newTagUrn),
             ImmutableList.of(
                 new ResourceReference(TEST_ENTITY_URN_1, null, null),
-                new ResourceReference(TEST_ENTITY_URN_2, null, null)),
-            mockAuthentication());
+                new ResourceReference(TEST_ENTITY_URN_2, null, null)));
 
     TagAssociationArray expected = new TagAssociationArray(ImmutableList.of());
 
@@ -329,19 +329,17 @@ public class TagServiceTest {
                                             .setTag(TagUrn.createFromUrn(TEST_TAG_URN_1)),
                                         new TagAssociation()
                                             .setTag(TagUrn.createFromUrn(TEST_TAG_URN_2)))))))));
-    OpenApiClient mockClient = createMockSchemaMetadataClient(existingMetadata);
 
-    final TagService service =
-        new TagService(
-            Mockito.mock(EntityClient.class), Mockito.mock(Authentication.class), mockClient);
+    final TagService service = createMockSchemaMetadataTagService(existingMetadata);
 
     List<MetadataChangeProposal> events =
         service.buildRemoveTagsProposals(
+            opContext,
             ImmutableList.of(TEST_TAG_URN_1),
             ImmutableList.of(
                 new ResourceReference(TEST_ENTITY_URN_1, SubResourceType.DATASET_FIELD, "myfield"),
-                new ResourceReference(TEST_ENTITY_URN_2, SubResourceType.DATASET_FIELD, "myfield")),
-            mockAuthentication());
+                new ResourceReference(
+                    TEST_ENTITY_URN_2, SubResourceType.DATASET_FIELD, "myfield")));
 
     TagAssociationArray expected =
         new TagAssociationArray(
@@ -383,19 +381,16 @@ public class TagServiceTest {
                     .setFieldPath("myfield")
                     .setGlobalTags(new GlobalTags()))));
 
-    OpenApiClient mockClient = createMockSchemaMetadataClient(existingMetadata);
-
-    final TagService service =
-        new TagService(
-            Mockito.mock(EntityClient.class), Mockito.mock(Authentication.class), mockClient);
+    final TagService service = createMockSchemaMetadataTagService(existingMetadata);
 
     List<MetadataChangeProposal> events =
         service.buildRemoveTagsProposals(
+            opContext,
             ImmutableList.of(TEST_ENTITY_URN_1),
             ImmutableList.of(
                 new ResourceReference(TEST_ENTITY_URN_1, SubResourceType.DATASET_FIELD, "myfield"),
-                new ResourceReference(TEST_ENTITY_URN_2, SubResourceType.DATASET_FIELD, "myfield")),
-            mockAuthentication());
+                new ResourceReference(
+                    TEST_ENTITY_URN_2, SubResourceType.DATASET_FIELD, "myfield")));
 
     MetadataChangeProposal event1 = events.get(0);
     Assert.assertEquals(event1.getAspectName(), Constants.EDITABLE_SCHEMA_METADATA_ASPECT_NAME);
@@ -420,5 +415,60 @@ public class TagServiceTest {
     Assert.assertEquals(
         editableSchemaMetadataAspect2.getEditableSchemaFieldInfo().get(0).getGlobalTags().getTags(),
         Collections.emptyList());
+  }
+
+  private static TagService createMockGlobalTagService(@Nullable GlobalTags existingGlobalTags)
+      throws Exception {
+    return new TagService(
+        createMockEntityClient(existingGlobalTags, Constants.GLOBAL_TAGS_ASPECT_NAME),
+        ServiceTestUtils.createMockGlobalTagsClient(existingGlobalTags),
+        objectMapper);
+  }
+
+  private static TagService createMockSchemaMetadataTagService(
+      @Nullable EditableSchemaMetadata existingMetadata) throws Exception {
+    return new TagService(
+        createMockSchemaMetadataEntityClient(existingMetadata),
+        ServiceTestUtils.createMockSchemaMetadataClient(existingMetadata),
+        objectMapper);
+  }
+
+  private static SystemEntityClient createMockSchemaMetadataEntityClient(
+      @Nullable EditableSchemaMetadata existingMetadata) throws Exception {
+    return createMockEntityClient(existingMetadata, Constants.EDITABLE_SCHEMA_METADATA_ASPECT_NAME);
+  }
+
+  private static SystemEntityClient createMockEntityClient(
+      @Nullable RecordTemplate aspect, String aspectName) throws Exception {
+    SystemEntityClient mockClient = Mockito.mock(SystemEntityClient.class);
+    Mockito.when(
+            mockClient.batchGetV2(
+                any(OperationContext.class),
+                Mockito.eq(Constants.DATASET_ENTITY_NAME),
+                Mockito.eq(ImmutableSet.of(TEST_ENTITY_URN_1, TEST_ENTITY_URN_2)),
+                Mockito.eq(ImmutableSet.of(aspectName))))
+        .thenReturn(
+            aspect != null
+                ? ImmutableMap.of(
+                    TEST_ENTITY_URN_1,
+                    new EntityResponse()
+                        .setUrn(TEST_ENTITY_URN_1)
+                        .setEntityName(Constants.DATASET_ENTITY_NAME)
+                        .setAspects(
+                            new EnvelopedAspectMap(
+                                ImmutableMap.of(
+                                    aspectName,
+                                    new EnvelopedAspect().setValue(new Aspect(aspect.data()))))),
+                    TEST_ENTITY_URN_2,
+                    new EntityResponse()
+                        .setUrn(TEST_ENTITY_URN_2)
+                        .setEntityName(Constants.DATASET_ENTITY_NAME)
+                        .setAspects(
+                            new EnvelopedAspectMap(
+                                ImmutableMap.of(
+                                    aspectName,
+                                    new EnvelopedAspect().setValue(new Aspect(aspect.data()))))))
+                : Collections.emptyMap());
+    return mockClient;
   }
 }

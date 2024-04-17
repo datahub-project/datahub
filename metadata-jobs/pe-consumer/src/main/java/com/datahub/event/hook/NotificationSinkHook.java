@@ -6,6 +6,7 @@ import com.linkedin.gms.factory.notifications.NotificationSinkManagerFactory;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.PlatformEvent;
+import io.datahubproject.metadata.context.OperationContext;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -31,7 +32,7 @@ public class NotificationSinkHook implements PlatformEventHook {
   }
 
   @Override
-  public void invoke(@Nonnull PlatformEvent event) {
+  public void invoke(@Nonnull OperationContext opContext, @Nonnull PlatformEvent event) {
     if (log.isDebugEnabled()) { // Avoid string formatting if not in debug mode
       log.debug(String.format("Received platform event %s", event.toString()));
     }
@@ -47,7 +48,7 @@ public class NotificationSinkHook implements PlatformEventHook {
       }
 
       try {
-        _sinkManager.handle(notificationRequest);
+        _sinkManager.handle(opContext, notificationRequest);
       } catch (Exception e) {
         // TODO: Determine what others means we have.
         log.error(

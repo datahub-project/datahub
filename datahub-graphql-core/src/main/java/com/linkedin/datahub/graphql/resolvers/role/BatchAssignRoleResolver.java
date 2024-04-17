@@ -39,7 +39,7 @@ public class BatchAssignRoleResolver implements DataFetcher<CompletableFuture<Bo
         () -> {
           try {
             final Urn roleUrn = roleUrnStr == null ? null : Urn.createFromString(roleUrnStr);
-            _roleService.batchAssignRoleToActors(actors, roleUrn, authentication);
+            _roleService.batchAssignRoleToActors(context.getOperationContext(), actors, roleUrn);
             return true;
           } catch (Exception e) {
             throw new RuntimeException(

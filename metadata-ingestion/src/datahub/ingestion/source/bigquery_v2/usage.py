@@ -204,7 +204,7 @@ class BigQueryUsageState(Closeable):
                     r.resource,
                     q.query,
                     COUNT(r.key) as query_count,
-                    ROW_NUMBER() over (PARTITION BY r.timestamp, r.resource, q.query ORDER BY COUNT(r.key) DESC, q.query) as rank
+                    ROW_NUMBER() over (PARTITION BY r.timestamp, r.resource ORDER BY COUNT(r.key) DESC) as rank
                 FROM
                     read_events r
                     INNER JOIN query_events q ON r.name = q.key
@@ -256,6 +256,7 @@ class BigQueryUsageState(Closeable):
 
     def usage_statistics(self, top_n: int) -> Iterator[UsageStatistic]:
         query = self.usage_statistics_query(top_n)
+
         rows = self.read_events.sql_query_iterator(
             query, refs=[self.query_events, self.column_accesses]
         )

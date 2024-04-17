@@ -59,7 +59,7 @@ public class IsFormAssignedToMeResolver implements DataFetcher<CompletableFuture
             // Next check whether the user is assigned indirectly, by group.
             if (assignedGroupUrns.size() > 0) {
               final List<Urn> groupUrns =
-                  _groupService.getGroupsForUser(userUrn, context.getAuthentication());
+                  _groupService.getGroupsForUser(context.getOperationContext(), userUrn);
               boolean isUserGroupAssigned =
                   groupUrns.stream()
                       .anyMatch(groupUrn -> assignedGroupUrns.contains(groupUrn.toString()));

@@ -156,7 +156,7 @@ class FivetranLogAPI:
             )
         return jobs
 
-    def _get_user_name(self, user_id: Optional[str]) -> Optional[str]:
+    def _get_user_email(self, user_id: Optional[str]) -> Optional[str]:
         if not user_id:
             return None
         user_details = self._query(
@@ -166,7 +166,7 @@ class FivetranLogAPI:
         if not user_details:
             return None
 
-        return f"{user_details[0][Constant.GIVEN_NAME]} {user_details[0][Constant.FAMILY_NAME]}"
+        return f"{user_details[0][Constant.EMAIL]}"
 
     def get_allowed_connectors_list(
         self, connector_patterns: AllowDenyPattern, report: FivetranSourceReport
@@ -185,7 +185,7 @@ class FivetranLogAPI:
                     paused=connector[Constant.PAUSED],
                     sync_frequency=connector[Constant.SYNC_FREQUENCY],
                     destination_id=connector[Constant.DESTINATION_ID],
-                    user_name=self._get_user_name(
+                    user_email=self._get_user_email(
                         connector[Constant.CONNECTING_USER_ID]
                     ),
                     table_lineage=self._get_table_lineage(

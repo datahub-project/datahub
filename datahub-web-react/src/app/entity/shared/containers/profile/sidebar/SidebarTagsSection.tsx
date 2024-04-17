@@ -11,6 +11,7 @@ import {
     ENTITY_PROFILE_GLOSSARY_TERMS_ID,
     ENTITY_PROFILE_TAGS_ID,
 } from '../../../../../onboarding/config/EntityProfileOnboardingConfig';
+import { getNestedValue } from '../utils';
 import ConstraintGroup from '../../../../../shared/constraints/ConstraintGroup';
 
 const StyledDivider = styled(Divider)`
@@ -38,7 +39,11 @@ export const SidebarTagsSection = ({ properties, readOnly }: Props) => {
             <span id={ENTITY_PROFILE_TAGS_ID}>
                 <SidebarHeader title="Tags" />
                 <TagTermGroup
-                    editableTags={entityData?.globalTags}
+                    editableTags={
+                        properties?.customTagPath
+                            ? getNestedValue(entityData, properties?.customTagPath)
+                            : entityData?.globalTags
+                    }
                     canAddTag={canAddTag}
                     canRemove
                     showEmptyMessage
@@ -55,7 +60,11 @@ export const SidebarTagsSection = ({ properties, readOnly }: Props) => {
                 <SidebarHeader title="Glossary Terms" />
                 <ConstraintGroup constraints={baseEntity?.dataset?.constraints || []} />
                 <TagTermGroup
-                    editableGlossaryTerms={entityData?.glossaryTerms}
+                    editableGlossaryTerms={
+                        properties?.customTermPath
+                            ? getNestedValue(entityData, properties?.customTermPath)
+                            : entityData?.glossaryTerms
+                    }
                     canAddTerm={canAddTerm}
                     canRemove
                     showEmptyMessage

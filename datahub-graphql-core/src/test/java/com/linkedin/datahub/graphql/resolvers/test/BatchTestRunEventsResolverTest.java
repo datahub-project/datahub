@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.resolvers.test;
 
+import static org.mockito.ArgumentMatchers.nullable;
 import static org.testng.Assert.*;
 
 import com.datahub.authentication.Authentication;
@@ -16,6 +17,7 @@ import com.linkedin.test.BatchTestRunEvent;
 import com.linkedin.test.BatchTestRunResult;
 import com.linkedin.test.BatchTestRunStatus;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.OperationContext;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
@@ -34,14 +36,14 @@ public class BatchTestRunEventsResolverTest {
 
     Mockito.when(
             mockClient.getTimeseriesAspectValues(
+                nullable(OperationContext.class),
                 Mockito.eq(testUrn.toString()),
                 Mockito.eq(Constants.TEST_ENTITY_NAME),
                 Mockito.eq(AcrylConstants.BATCH_TEST_RUN_EVENT_ASPECT_NAME),
                 Mockito.eq(0L),
                 Mockito.eq(10L),
                 Mockito.eq(5),
-                Mockito.eq(null),
-                Mockito.any(Authentication.class)))
+                Mockito.eq(null)))
         .thenReturn(
             ImmutableList.of(
                 new EnvelopedAspect().setAspect(GenericRecordUtils.serializeAspect(gmsRunEvent))));
@@ -69,14 +71,14 @@ public class BatchTestRunEventsResolverTest {
 
     Mockito.verify(mockClient, Mockito.times(1))
         .getTimeseriesAspectValues(
+            nullable(OperationContext.class),
             Mockito.eq(testUrn.toString()),
             Mockito.eq(Constants.TEST_ENTITY_NAME),
             Mockito.eq(AcrylConstants.BATCH_TEST_RUN_EVENT_ASPECT_NAME),
             Mockito.eq(0L),
             Mockito.eq(10L),
             Mockito.eq(5),
-            Mockito.eq(null),
-            Mockito.any(Authentication.class));
+            Mockito.eq(null));
 
     // Assert that GraphQL assertion run event matches expectations
     com.linkedin.datahub.graphql.generated.BatchTestRunEvent graphqlRunEvent =

@@ -7,6 +7,7 @@ def ensure_no_indirect_model_imports(dirs: List[pathlib.Path]) -> None:
     # e.g. https://pypi.org/project/flake8-custom-import-rules/
     # If our needs become more complex, we should move to a proper linter.
     denied_imports = {
+        "src.": "datahub.*",
         "datahub.metadata._schema_classes": "datahub.metadata.schema_classes",
         "datahub.metadata._urns": "datahub.metadata.urns",
     }
@@ -23,6 +24,8 @@ def ensure_no_indirect_model_imports(dirs: List[pathlib.Path]) -> None:
 
             with file.open() as f:
                 for line in f:
+                    if "import" not in line:
+                        continue
                     for denied_import, replacement in denied_imports.items():
                         if denied_import in line:
                             raise ValueError(

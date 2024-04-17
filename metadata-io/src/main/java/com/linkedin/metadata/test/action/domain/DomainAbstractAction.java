@@ -8,8 +8,10 @@ import com.linkedin.metadata.service.DomainService;
 import com.linkedin.metadata.test.action.ActionParameters;
 import com.linkedin.metadata.test.action.api.ValuesAction;
 import com.linkedin.metadata.test.exception.InvalidOperandException;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.List;
 import java.util.Map;
+import javax.annotation.Nonnull;
 import lombok.RequiredArgsConstructor;
 
 @RequiredArgsConstructor
@@ -18,7 +20,8 @@ public abstract class DomainAbstractAction extends ValuesAction {
   protected final DomainService domainService;
 
   @Override
-  public void apply(List<Urn> urns, ActionParameters params) throws InvalidOperandException {
+  public void apply(@Nonnull OperationContext opContext, List<Urn> urns, ActionParameters params)
+      throws InvalidOperandException {
     // For each entity type, group then apply the action.
     final List<String> domainUrnStrs = params.getParams().get(VALUES_PARAM);
     final Map<String, List<Urn>> entityTypesToUrns = getEntityTypeToUrns(urns);
@@ -28,9 +31,9 @@ public abstract class DomainAbstractAction extends ValuesAction {
       if (entityUrns.isEmpty()) {
         continue;
       }
-      applyInternal(domainUrn, entityUrns);
+      applyInternal(opContext, domainUrn, entityUrns);
     }
   }
 
-  abstract void applyInternal(Urn domainUrn, List<Urn> urns);
+  abstract void applyInternal(@Nonnull OperationContext opContext, Urn domainUrn, List<Urn> urns);
 }

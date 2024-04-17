@@ -7,7 +7,6 @@ import com.linkedin.metadata.entity.AspectDao;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.EntityServiceImpl;
 import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
-import com.linkedin.metadata.models.registry.EntityRegistry;
 import javax.annotation.Nonnull;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
@@ -22,13 +21,12 @@ public class EntityServiceFactory {
   private Integer _ebeanMaxTransactionRetry;
 
   @Bean(name = "entityService")
-  @DependsOn({"entityAspectDao", "kafkaEventProducer", "entityRegistry"})
+  @DependsOn({"entityAspectDao", "kafkaEventProducer"})
   @Nonnull
   protected EntityService<ChangeItemImpl> createInstance(
       @Qualifier("kafkaEventProducer") final KafkaEventProducer eventProducer,
-      @Qualifier("entityAspectDao") AspectDao aspectDao,
-      EntityRegistry entityRegistry,
-      ConfigurationProvider configurationProvider,
+      @Qualifier("entityAspectDao") final AspectDao aspectDao,
+      final ConfigurationProvider configurationProvider,
       @Value("${featureFlags.showBrowseV2}") final boolean enableBrowsePathV2) {
 
     FeatureFlags featureFlags = configurationProvider.getFeatureFlags();
@@ -36,7 +34,6 @@ public class EntityServiceFactory {
     return new EntityServiceImpl(
         aspectDao,
         eventProducer,
-        entityRegistry,
         featureFlags.isAlwaysEmitChangeLog(),
         featureFlags.getPreProcessHooks(),
         _ebeanMaxTransactionRetry,

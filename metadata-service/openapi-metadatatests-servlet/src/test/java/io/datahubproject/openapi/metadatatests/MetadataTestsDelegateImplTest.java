@@ -3,6 +3,7 @@ package io.datahubproject.openapi.metadatatests;
 import static com.linkedin.metadata.Constants.ASPECT_LATEST_VERSION;
 import static com.linkedin.metadata.Constants.SYSTEM_ACTOR;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static org.testng.Assert.assertNotNull;
@@ -10,7 +11,6 @@ import static org.testng.Assert.assertNotNull;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
-import com.linkedin.data.schema.annotation.PathSpecBasedSchemaAnnotationVisitor;
 import com.linkedin.entity.AspectType;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
@@ -25,6 +25,7 @@ import com.linkedin.test.TestDefinitionType;
 import com.linkedin.test.TestInfo;
 import com.linkedin.test.TestMode;
 import com.linkedin.test.TestStatus;
+import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.openapi.config.SpringWebConfig;
 import io.datahubproject.openapi.metadatatests.config.MetadataTestsTestConfiguration;
 import io.datahubproject.openapi.metadatatests.generated.controller.MetadataTestApiController;
@@ -43,7 +44,6 @@ import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers;
-import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
 @SpringBootTest(classes = {SpringWebConfig.class})
@@ -71,18 +71,9 @@ public class MetadataTestsDelegateImplTest extends AbstractTestNGSpringContextTe
     }
   }
 
-  @BeforeTest
-  public void disableAssert() {
-    PathSpecBasedSchemaAnnotationVisitor.class
-        .getClassLoader()
-        .setClassAssertionStatus(PathSpecBasedSchemaAnnotationVisitor.class.getName(), false);
-  }
-
   @Autowired private MetadataTestApiController metadataTestApiController;
   @Autowired private MockMvc mockMvc;
-
   @Autowired private EntityService<?> mockEntityService;
-
   @Autowired private QueryEngine mockQueryEngine;
 
   @Test
@@ -127,10 +118,10 @@ public class MetadataTestsDelegateImplTest extends AbstractTestNGSpringContextTe
   }
 
   private void setupMockQueryEngine() {
-    when(mockQueryEngine.batchEvaluateQueries(any(), any()))
+    when(mockQueryEngine.batchEvaluateQueries(any(OperationContext.class), any(), any()))
         .thenAnswer(
             args -> {
-              Collection<TestQuery> testQueries = args.getArgument(1);
+              Collection<TestQuery> testQueries = args.getArgument(2);
               TestQuery testQuery = testQueries.stream().findFirst().get();
 
               return Map.of(
@@ -174,9 +165,10 @@ public class MetadataTestsDelegateImplTest extends AbstractTestNGSpringContextTe
     entityResponse.setUrn(TEST_URN);
 
     when(mockEntityService.getEntitiesV2(
-            Constants.TEST_ENTITY_NAME,
-            Set.of(TEST_URN),
-            Set.of(Constants.TEST_INFO_ASPECT_NAME, Constants.STATUS_ASPECT_NAME)))
+            any(OperationContext.class),
+            eq(Constants.TEST_ENTITY_NAME),
+            eq(Set.of(TEST_URN)),
+            eq(Set.of(Constants.TEST_INFO_ASPECT_NAME, Constants.STATUS_ASPECT_NAME))))
         .thenReturn(Map.of(TEST_URN, entityResponse));
   }
 }

@@ -13,9 +13,11 @@ import com.linkedin.datahub.graphql.resolvers.mutate.util.LabelUtils;
 import com.linkedin.metadata.entity.EntityService;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -38,7 +40,7 @@ public class BatchSetDomainResolver implements DataFetcher<CompletableFuture<Boo
         () -> {
 
           // First, validate the domain
-          validateDomain(maybeDomainUrn);
+          validateDomain(context.getOperationContext(), maybeDomainUrn);
           validateInputResources(resources, context);
 
           try {
@@ -54,9 +56,10 @@ public class BatchSetDomainResolver implements DataFetcher<CompletableFuture<Boo
         });
   }
 
-  private void validateDomain(@Nullable String maybeDomainUrn) {
+  private void validateDomain(
+      @Nonnull OperationContext opContext, @Nullable String maybeDomainUrn) {
     if (maybeDomainUrn != null) {
-      DomainUtils.validateDomain(UrnUtils.getUrn(maybeDomainUrn), _entityService);
+      DomainUtils.validateDomain(opContext, UrnUtils.getUrn(maybeDomainUrn), _entityService);
     }
   }
 
@@ -73,7 +76,11 @@ public class BatchSetDomainResolver implements DataFetcher<CompletableFuture<Boo
           "Unauthorized to perform this action. Please contact your DataHub administrator.");
     }
     LabelUtils.validateResource(
-        resourceUrn, resource.getSubResource(), resource.getSubResourceType(), _entityService);
+        context.getOperationContext(),
+        resourceUrn,
+        resource.getSubResource(),
+        resource.getSubResourceType(),
+        _entityService);
   }
 
   private void batchSetDomains(
@@ -81,6 +88,7 @@ public class BatchSetDomainResolver implements DataFetcher<CompletableFuture<Boo
     log.debug("Batch adding Domains. domainUrn: {}, resources: {}", maybeDomainUrn, resources);
     try {
       DomainUtils.setDomainForResources(
+          context.getOperationContext(),
           maybeDomainUrn == null ? null : UrnUtils.getUrn(maybeDomainUrn),
           resources,
           UrnUtils.getUrn(context.getActorUrn()),

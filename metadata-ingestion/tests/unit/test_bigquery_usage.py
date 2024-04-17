@@ -190,7 +190,7 @@ def config() -> BigQueryV2Config:
         end_time=TS_2 + timedelta(minutes=1),
         usage=BigQueryUsageConfig(
             include_top_n_queries=True,
-            top_n_queries=3,
+            top_n_queries=30,
             bucket_duration=BucketDuration.DAY,
             include_operational_stats=False,
         ),
@@ -867,6 +867,125 @@ def test_usage_counts_no_columns(
                         DatasetUserUsageCountsClass(
                             user=ACTOR_1_URN,
                             count=1,
+                            userEmail=ACTOR_1,
+                        ),
+                    ],
+                    fieldCounts=[],
+                ),
+            )
+        ]
+        compare_workunits(workunits, expected)
+        assert not caplog.records
+
+
+def test_usage_counts_no_columns_and_top_n_limit_hit(
+    caplog: pytest.LogCaptureFixture,
+    usage_extractor: BigQueryUsageExtractor,
+    config: BigQueryV2Config,
+) -> None:
+    config.usage.top_n_queries = 1
+
+    job_name = "job_name"
+    ref = BigQueryTableRef(
+        BigqueryTableIdentifier(PROJECT_1, DATABASE_1.name, TABLE_1.name)
+    )
+    events = [
+        AuditEvent.create(
+            ReadEvent(
+                jobName=job_name,
+                timestamp=TS_1,
+                actor_email=ACTOR_1,
+                resource=ref,
+                fieldsRead=[],
+                readReason="JOB",
+                payload=None,
+            ),
+        ),
+        AuditEvent.create(
+            ReadEvent(
+                jobName="job_name_2",
+                timestamp=TS_1,
+                actor_email=ACTOR_1,
+                resource=ref,
+                fieldsRead=[],
+                readReason="JOB",
+                payload=None,
+            ),
+        ),
+        AuditEvent.create(
+            ReadEvent(
+                jobName="job_name_3",
+                timestamp=TS_1,
+                actor_email=ACTOR_1,
+                resource=ref,
+                fieldsRead=[],
+                readReason="JOB",
+                payload=None,
+            ),
+        ),
+        AuditEvent.create(
+            QueryEvent(
+                job_name=job_name,
+                timestamp=TS_1,
+                actor_email=ACTOR_1,
+                query="SELECT * FROM table_1",
+                statementType="SELECT",
+                project_id=PROJECT_1,
+                destinationTable=None,
+                referencedTables=[ref],
+                referencedViews=[],
+                payload=None,
+            )
+        ),
+        AuditEvent.create(
+            QueryEvent(
+                job_name="job_name_2",
+                timestamp=TS_1,
+                actor_email=ACTOR_1,
+                query="SELECT * FROM table_1",
+                statementType="SELECT",
+                project_id=PROJECT_1,
+                destinationTable=None,
+                referencedTables=[ref],
+                referencedViews=[],
+                payload=None,
+            )
+        ),
+        AuditEvent.create(
+            QueryEvent(
+                job_name="job_name_3",
+                timestamp=TS_1,
+                actor_email=ACTOR_1,
+                query="SELECT my_column FROM table_1",
+                statementType="SELECT",
+                project_id=PROJECT_1,
+                destinationTable=None,
+                referencedTables=[ref],
+                referencedViews=[],
+                payload=None,
+            )
+        ),
+    ]
+    caplog.clear()
+    with caplog.at_level(logging.WARNING):
+        workunits = usage_extractor._get_workunits_internal(
+            events, [TABLE_REFS[TABLE_1.name]]
+        )
+        expected = [
+            make_usage_workunit(
+                table=TABLE_1,
+                dataset_usage_statistics=DatasetUsageStatisticsClass(
+                    timestampMillis=int(TS_1.timestamp() * 1000),
+                    eventGranularity=TimeWindowSizeClass(
+                        unit=BucketDuration.DAY, multiple=1
+                    ),
+                    totalSqlQueries=3,
+                    topSqlQueries=["SELECT * FROM table_1"],
+                    uniqueUserCount=1,
+                    userCounts=[
+                        DatasetUserUsageCountsClass(
+                            user=ACTOR_1_URN,
+                            count=3,
                             userEmail=ACTOR_1,
                         ),
                     ],

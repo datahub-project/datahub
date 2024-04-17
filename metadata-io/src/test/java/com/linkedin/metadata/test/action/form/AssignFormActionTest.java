@@ -10,6 +10,7 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.service.FormService;
 import com.linkedin.metadata.test.action.ActionParameters;
 import com.linkedin.metadata.test.exception.InvalidActionParamsException;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -51,8 +52,9 @@ public class AssignFormActionTest {
     paramsMap.put("formUrn", Collections.singletonList(formUrn.toString()));
     ActionParameters params = new ActionParameters(paramsMap);
 
-    formAction.apply(Collections.singletonList(entityUrn), params);
+    formAction.apply(mock(OperationContext.class), Collections.singletonList(entityUrn), params);
     verify(formService, times(1))
-        .batchAssignFormToEntities(Collections.singletonList(entityUrn), formUrn);
+        .batchAssignFormToEntities(
+            any(OperationContext.class), eq(Collections.singletonList(entityUrn)), eq(formUrn));
   }
 }

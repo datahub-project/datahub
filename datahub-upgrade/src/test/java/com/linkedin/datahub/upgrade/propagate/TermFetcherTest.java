@@ -19,11 +19,14 @@ import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.net.URISyntaxException;
 import java.util.Collections;
 import java.util.Map;
 import java.util.Set;
+import javax.annotation.Nonnull;
 import org.mockito.Mockito;
+import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
 public class TermFetcherTest {
@@ -45,18 +48,25 @@ public class TermFetcherTest {
       UrnUtils.getUrn("urn:li:glossaryNode:d206c230-93b9-4cff-8389-f459c03b32ce");
   private static final String SCROLL_ID = "test123";
 
+  private OperationContext opContext;
+
+  @BeforeTest
+  public void setup() {
+    opContext = TestOperationContexts.systemContextNoSearchAuthorization();
+  }
+
   @Test
   public void testFetchAllowedTerms() throws URISyntaxException {
-    final EntityService entityService = mock(EntityService.class);
+    final EntityService<?> entityService = mock(EntityService.class);
     final EntitySearchService entitySearchService = mock(EntitySearchService.class);
-    configureEntityServiceMock(entityService);
+    configureEntityServiceMock(opContext, entityService);
     configureEntitySearchServiceMock(entitySearchService);
     Set<String> allowedGlossaryNodes = Set.of(ALLOWED_NODE_1.toString(), ALLOWED_NODE_2.toString());
 
     TermFetcher termFetcher =
         new TermFetcher(
             mock(OperationContext.class), entityService, entitySearchService, allowedGlossaryNodes);
-    Set<Urn> fetchedAllowedNodes = termFetcher.fetchAllowedTerms();
+    Set<Urn> fetchedAllowedNodes = termFetcher.fetchAllowedTerms(opContext);
     assertEquals(Set.of(ALLOWED_TERM_1, ALLOWED_TERM_2), fetchedAllowedNodes);
   }
 
@@ -76,11 +86,13 @@ public class TermFetcherTest {
                                     .data())))));
   }
 
-  private static void configureEntityServiceMock(final EntityService mockEntityService)
+  private static void configureEntityServiceMock(
+      @Nonnull OperationContext opContext, final EntityService<?> mockEntityService)
       throws URISyntaxException {
 
     Mockito.when(
             mockEntityService.getEntitiesV2(
+                opContext,
                 Constants.GLOSSARY_TERM_ENTITY_NAME,
                 Set.of(ALLOWED_TERM_1, NOT_ALLOWED_TERM_1),
                 Set.of(Constants.GLOSSARY_TERM_INFO_ASPECT_NAME)))
@@ -90,6 +102,7 @@ public class TermFetcherTest {
                 NOT_ALLOWED_TERM_1, createEntityResponse(NOT_ALLOWED_TERM_1, NOT_ALLOWED_NODE_1)));
     Mockito.when(
             mockEntityService.getEntitiesV2(
+                opContext,
                 Constants.GLOSSARY_TERM_ENTITY_NAME,
                 Set.of(ALLOWED_TERM_2, NOT_ALLOWED_TERM_2),
                 Set.of(Constants.GLOSSARY_TERM_INFO_ASPECT_NAME)))
@@ -114,7 +127,7 @@ public class TermFetcherTest {
 
     Mockito.when(
             mockSearchService.scroll(
-                Mockito.any(),
+                Mockito.any(OperationContext.class),
                 Mockito.eq(Collections.singletonList(Constants.GLOSSARY_TERM_ENTITY_NAME)),
                 Mockito.eq(null),
                 Mockito.eq(null),
@@ -137,7 +150,7 @@ public class TermFetcherTest {
 
     Mockito.when(
             mockSearchService.scroll(
-                Mockito.any(),
+                Mockito.any(OperationContext.class),
                 Mockito.eq(Collections.singletonList(Constants.GLOSSARY_TERM_ENTITY_NAME)),
                 Mockito.eq(null),
                 Mockito.eq(null),

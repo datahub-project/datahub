@@ -73,12 +73,12 @@ public class MLModelType
     try {
       final Map<Urn, EntityResponse> mlModelMap =
           _entityClient.batchGetV2(
+              context.getOperationContext(),
               ML_MODEL_ENTITY_NAME,
               mlModelUrns.stream()
                   .filter(urn -> canView(context.getOperationContext(), urn))
                   .collect(Collectors.toSet()),
-              null,
-              context.getAuthentication());
+              null);
 
       final List<EntityResponse> gmsResults =
           mlModelUrns.stream()
@@ -158,7 +158,8 @@ public class MLModelType
   public List<BrowsePath> browsePaths(@Nonnull String urn, @Nonnull final QueryContext context)
       throws Exception {
     final StringArray result =
-        _entityClient.getBrowsePaths(MLModelUtils.getMLModelUrn(urn), context.getAuthentication());
+        _entityClient.getBrowsePaths(
+            context.getOperationContext(), MLModelUtils.getMLModelUrn(urn));
     return BrowsePathsMapper.map(context, result);
   }
 }

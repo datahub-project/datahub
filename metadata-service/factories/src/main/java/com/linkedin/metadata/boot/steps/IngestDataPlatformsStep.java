@@ -14,6 +14,7 @@ import com.linkedin.metadata.boot.BootstrapStep;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
 import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
+import io.datahubproject.metadata.context.OperationContext;
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.util.List;
@@ -21,6 +22,7 @@ import java.util.Spliterator;
 import java.util.Spliterators;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
+import javax.annotation.Nonnull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.ClassPathResource;
@@ -39,7 +41,8 @@ public class IngestDataPlatformsStep implements BootstrapStep {
   }
 
   @Override
-  public void execute() throws IOException, URISyntaxException {
+  public void execute(@Nonnull OperationContext systemOperationContext)
+      throws IOException, URISyntaxException {
 
     final ObjectMapper mapper = new ObjectMapper();
     int maxSize =
@@ -91,7 +94,11 @@ public class IngestDataPlatformsStep implements BootstrapStep {
                             new AuditStamp()
                                 .setActor(Urn.createFromString(Constants.SYSTEM_ACTOR))
                                 .setTime(System.currentTimeMillis()))
-                        .build(_entityService);
+                        .build(
+                            systemOperationContext
+                                .getRetrieverContext()
+                                .get()
+                                .getAspectRetriever());
                   } catch (URISyntaxException e) {
                     throw new RuntimeException(e);
                   }
@@ -99,8 +106,9 @@ public class IngestDataPlatformsStep implements BootstrapStep {
             .collect(Collectors.toList());
 
     _entityService.ingestAspects(
+        systemOperationContext,
         AspectsBatchImpl.builder()
-            .aspectRetriever(_entityService)
+            .retrieverContext(systemOperationContext.getRetrieverContext().get())
             .items(dataPlatformAspects)
             .build(),
         true,

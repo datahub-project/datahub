@@ -4,8 +4,10 @@ import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.boot.BootstrapManager;
 import com.linkedin.metadata.boot.kafka.DataHubUpgradeKafkaListener;
 import com.linkedin.metadata.kafka.config.MetadataChangeLogProcessorCondition;
+import io.datahubproject.metadata.context.OperationContext;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.ApplicationListener;
 import org.springframework.context.annotation.Conditional;
@@ -26,6 +28,10 @@ public class ApplicationStartupListener implements ApplicationListener<ContextRe
   private final ConfigurationProvider _configurationProvider;
   private final BootstrapManager _mclBootstrapManager;
 
+  @Autowired
+  @Qualifier("systemOperationContext")
+  OperationContext systemOperationContext;
+
   public ApplicationStartupListener(
       @Qualifier("dataHubUpgradeKafkaListener")
           DataHubUpgradeKafkaListener dataHubUpgradeKafkaListener,
@@ -40,7 +46,7 @@ public class ApplicationStartupListener implements ApplicationListener<ContextRe
   public void onApplicationEvent(@Nonnull ContextRefreshedEvent event) {
     if (ROOT_WEB_APPLICATION_CONTEXT_ID.equals(event.getApplicationContext().getId())
         && _configurationProvider.getSystemUpdate().isWaitForSystemUpdate()) {
-      _mclBootstrapManager.start();
+      _mclBootstrapManager.start(systemOperationContext);
     }
   }
 }
