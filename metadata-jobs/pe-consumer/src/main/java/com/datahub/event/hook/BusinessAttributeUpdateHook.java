@@ -5,6 +5,7 @@ import com.linkedin.gms.factory.entity.EntityServiceFactory;
 import com.linkedin.gms.factory.entityregistry.EntityRegistryFactory;
 import com.linkedin.metadata.service.BusinessAttributeUpdateHookService;
 import com.linkedin.mxe.PlatformEvent;
+import io.datahubproject.metadata.context.OperationContext;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Import;
@@ -28,7 +29,7 @@ public class BusinessAttributeUpdateHook implements PlatformEventHook {
    * @param event
    */
   @Override
-  public void invoke(@Nonnull PlatformEvent event) {
-    businessAttributeUpdateHookService.handleChangeEvent(event);
+  public void invoke(@Nonnull OperationContext opContext, @Nonnull PlatformEvent event) {
+    businessAttributeUpdateHookService.handleChangeEvent(opContext, event);
   }
 }

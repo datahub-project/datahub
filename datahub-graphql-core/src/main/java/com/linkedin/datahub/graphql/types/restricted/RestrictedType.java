@@ -62,10 +62,10 @@ public class RestrictedType implements EntityType<Restricted, String> {
                 try {
                   entities.putAll(
                       _entityClient.batchGetV2(
+                          context.getOperationContext(),
                           entityType,
                           new HashSet<>(entityTypeToUrns.get(entityType)),
-                          ASPECTS_TO_FETCH,
-                          context.getAuthentication()));
+                          ASPECTS_TO_FETCH));
                 } catch (Exception e) {
                   throw new RuntimeException("Failed to fetch restricted entities", e);
                 }

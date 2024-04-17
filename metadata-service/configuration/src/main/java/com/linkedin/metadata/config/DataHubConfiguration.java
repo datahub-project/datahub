@@ -2,7 +2,7 @@ package com.linkedin.metadata.config;
 
 import lombok.Data;
 
-/** POJO representing the "datahub" configuration block in application.yml. */
+/** POJO representing the "datahub" configuration block in application.yaml. */
 @Data
 public class DataHubConfiguration {
   /**

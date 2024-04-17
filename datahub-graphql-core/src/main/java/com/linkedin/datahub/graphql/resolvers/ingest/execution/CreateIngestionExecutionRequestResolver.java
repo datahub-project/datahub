@@ -77,10 +77,10 @@ public class CreateIngestionExecutionRequestResolver
               final Urn ingestionSourceUrn = Urn.createFromString(input.getIngestionSourceUrn());
               final Map<Urn, EntityResponse> response =
                   _entityClient.batchGetV2(
+                      context.getOperationContext(),
                       INGESTION_SOURCE_ENTITY_NAME,
                       ImmutableSet.of(ingestionSourceUrn),
-                      ImmutableSet.of(INGESTION_INFO_ASPECT_NAME),
-                      context.getAuthentication());
+                      ImmutableSet.of(INGESTION_INFO_ASPECT_NAME));
 
               if (!response.containsKey(ingestionSourceUrn)) {
                 throw new DataHubGraphQLException(
@@ -143,7 +143,7 @@ public class CreateIngestionExecutionRequestResolver
                       EXECUTION_REQUEST_ENTITY_NAME,
                       EXECUTION_REQUEST_INPUT_ASPECT_NAME,
                       execInput);
-              return _entityClient.ingestProposal(proposal, context.getAuthentication(), false);
+              return _entityClient.ingestProposal(context.getOperationContext(), proposal, false);
             } catch (Exception e) {
               throw new RuntimeException(
                   String.format("Failed to create new ingestion execution request %s", input), e);

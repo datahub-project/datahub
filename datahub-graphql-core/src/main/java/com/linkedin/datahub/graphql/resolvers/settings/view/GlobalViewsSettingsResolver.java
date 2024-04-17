@@ -34,7 +34,7 @@ public class GlobalViewsSettingsResolver
         () -> {
           try {
             final GlobalSettingsInfo globalSettings =
-                _settingsService.getGlobalSettings(context.getAuthentication());
+                _settingsService.getGlobalSettings(context.getOperationContext());
             return globalSettings != null && globalSettings.hasViews()
                 ? mapGlobalViewsSettings(globalSettings.getViews())
                 : new GlobalViewsSettings();

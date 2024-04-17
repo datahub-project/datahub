@@ -45,12 +45,12 @@ public class GetIngestionExecutionRequestResolver
               final Urn urn = Urn.createFromString(urnStr);
               final Map<Urn, EntityResponse> entities =
                   _entityClient.batchGetV2(
+                      context.getOperationContext(),
                       Constants.EXECUTION_REQUEST_ENTITY_NAME,
                       new HashSet<>(ImmutableSet.of(urn)),
                       ImmutableSet.of(
                           Constants.EXECUTION_REQUEST_INPUT_ASPECT_NAME,
-                          Constants.EXECUTION_REQUEST_RESULT_ASPECT_NAME),
-                      context.getAuthentication());
+                          Constants.EXECUTION_REQUEST_RESULT_ASPECT_NAME));
               if (!entities.containsKey(urn)) {
                 // No execution request found
                 throw new DataHubGraphQLException(

@@ -13,13 +13,11 @@ import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.Filter;
-import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.structured.PrimitivePropertyValue;
 import com.linkedin.structured.StructuredProperties;
 import com.linkedin.structured.StructuredPropertyValueAssignment;
 import com.linkedin.structured.StructuredPropertyValueAssignmentArray;
 import com.linkedin.util.Pair;
-import java.net.URISyntaxException;
 import java.sql.Date;
 import java.time.format.DateTimeParseException;
 import java.util.Collection;
@@ -123,20 +121,16 @@ public class StructuredPropertyUtils {
   }
 
   private static Set<Urn> getRemovedUrns(Set<Urn> urns, AspectRetriever aspectRetriever) {
-    try {
-      return aspectRetriever
-          .getLatestAspectObjects(urns, ImmutableSet.of(STATUS_ASPECT_NAME))
-          .entrySet()
-          .stream()
-          .filter(
-              entry ->
-                  entry.getValue().containsKey(STATUS_ASPECT_NAME)
-                      && new Status(entry.getValue().get(STATUS_ASPECT_NAME).data()).isRemoved())
-          .map(Map.Entry::getKey)
-          .collect(Collectors.toSet());
-    } catch (RemoteInvocationException | URISyntaxException e) {
-      throw new RuntimeException(e);
-    }
+    return aspectRetriever
+        .getLatestAspectObjects(urns, ImmutableSet.of(STATUS_ASPECT_NAME))
+        .entrySet()
+        .stream()
+        .filter(
+            entry ->
+                entry.getValue().containsKey(STATUS_ASPECT_NAME)
+                    && new Status(entry.getValue().get(STATUS_ASPECT_NAME).data()).isRemoved())
+        .map(Map.Entry::getKey)
+        .collect(Collectors.toSet());
   }
 
   /**

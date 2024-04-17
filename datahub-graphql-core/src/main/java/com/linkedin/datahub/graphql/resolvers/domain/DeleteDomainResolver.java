@@ -38,7 +38,7 @@ public class DeleteDomainResolver implements DataFetcher<CompletableFuture<Boole
                     String.format("Cannot delete domain %s which has child domains", domainUrn));
               }
 
-              _entityClient.deleteEntity(urn, context.getAuthentication());
+              _entityClient.deleteEntity(context.getOperationContext(), urn);
               log.info(
                   String.format("I've successfully deleted the entity %s with urn", domainUrn));
 
@@ -46,7 +46,7 @@ public class DeleteDomainResolver implements DataFetcher<CompletableFuture<Boole
               CompletableFuture.runAsync(
                   () -> {
                     try {
-                      _entityClient.deleteEntityReferences(urn, context.getAuthentication());
+                      _entityClient.deleteEntityReferences(context.getOperationContext(), urn);
                     } catch (Exception e) {
                       log.error(
                           String.format(

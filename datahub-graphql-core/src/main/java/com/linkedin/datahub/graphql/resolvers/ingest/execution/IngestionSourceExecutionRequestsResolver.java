@@ -89,12 +89,12 @@ public class IngestionSourceExecutionRequestsResolver
 
             final Map<Urn, EntityResponse> entities =
                 _entityClient.batchGetV2(
+                    context.getOperationContext(),
                     Constants.EXECUTION_REQUEST_ENTITY_NAME,
                     relatedExecRequests,
                     ImmutableSet.of(
                         Constants.EXECUTION_REQUEST_INPUT_ASPECT_NAME,
-                        Constants.EXECUTION_REQUEST_RESULT_ASPECT_NAME),
-                    context.getAuthentication());
+                        Constants.EXECUTION_REQUEST_RESULT_ASPECT_NAME));
 
             // 3. Map the GMS ExecutionRequests into GraphQL Execution Requests
             final IngestionSourceExecutionRequests result = new IngestionSourceExecutionRequests();

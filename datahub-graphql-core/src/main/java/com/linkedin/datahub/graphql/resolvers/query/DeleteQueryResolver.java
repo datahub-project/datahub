@@ -34,7 +34,7 @@ public class DeleteQueryResolver implements DataFetcher<CompletableFuture<Boolea
     return CompletableFuture.supplyAsync(
         () -> {
           final QuerySubjects existingSubjects =
-              _queryService.getQuerySubjects(queryUrn, authentication);
+              _queryService.getQuerySubjects(context.getOperationContext(), queryUrn);
           final List<Urn> subjectUrns =
               existingSubjects != null
                   ? existingSubjects.getSubjects().stream()
@@ -48,7 +48,7 @@ public class DeleteQueryResolver implements DataFetcher<CompletableFuture<Boolea
           }
 
           try {
-            _queryService.deleteQuery(queryUrn, authentication);
+            _queryService.deleteQuery(context.getOperationContext(), queryUrn);
             return true;
           } catch (Exception e) {
             throw new RuntimeException("Failed to delete Query", e);

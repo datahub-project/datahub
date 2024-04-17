@@ -2,6 +2,8 @@ package com.linkedin.datahub.graphql.resolvers.businessattribute;
 
 import static com.linkedin.datahub.graphql.TestUtils.getMockAllowContext;
 import static com.linkedin.datahub.graphql.TestUtils.getMockDenyContext;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.expectThrows;
 
@@ -11,6 +13,7 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.entity.client.EntityClient;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.OperationContext;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
@@ -47,7 +50,7 @@ public class DeleteBusinessAttributeResolverTest {
     Mockito.when(mockEnv.getArgument("urn")).thenReturn(TEST_BUSINESS_ATTRIBUTE_URN);
     Mockito.when(
             mockClient.exists(
-                Urn.createFromString(TEST_BUSINESS_ATTRIBUTE_URN), mockAuthentication))
+                any(OperationContext.class), eq(Urn.createFromString(TEST_BUSINESS_ATTRIBUTE_URN))))
         .thenReturn(true);
 
     DeleteBusinessAttributeResolver resolver = new DeleteBusinessAttributeResolver(mockClient);
@@ -55,8 +58,8 @@ public class DeleteBusinessAttributeResolverTest {
 
     Mockito.verify(mockClient, Mockito.times(1))
         .deleteEntity(
-            Mockito.eq(Urn.createFromString(TEST_BUSINESS_ATTRIBUTE_URN)),
-            Mockito.any(Authentication.class));
+            any(OperationContext.class),
+            Mockito.eq(Urn.createFromString(TEST_BUSINESS_ATTRIBUTE_URN)));
   }
 
   @Test
@@ -76,8 +79,8 @@ public class DeleteBusinessAttributeResolverTest {
 
     Mockito.verify(mockClient, Mockito.times(0))
         .deleteEntity(
-            Mockito.eq(Urn.createFromString(TEST_BUSINESS_ATTRIBUTE_URN)),
-            Mockito.any(Authentication.class));
+            any(OperationContext.class),
+            Mockito.eq(Urn.createFromString(TEST_BUSINESS_ATTRIBUTE_URN)));
   }
 
   @Test
@@ -87,7 +90,7 @@ public class DeleteBusinessAttributeResolverTest {
     Mockito.when(mockEnv.getArgument("urn")).thenReturn(TEST_BUSINESS_ATTRIBUTE_URN);
     Mockito.when(
             mockClient.exists(
-                Urn.createFromString(TEST_BUSINESS_ATTRIBUTE_URN), mockAuthentication))
+                any(OperationContext.class), eq(Urn.createFromString(TEST_BUSINESS_ATTRIBUTE_URN))))
         .thenReturn(false);
 
     DeleteBusinessAttributeResolver resolver = new DeleteBusinessAttributeResolver(mockClient);
@@ -100,7 +103,7 @@ public class DeleteBusinessAttributeResolverTest {
 
     Mockito.verify(mockClient, Mockito.times(0))
         .deleteEntity(
-            Mockito.eq(Urn.createFromString(TEST_BUSINESS_ATTRIBUTE_URN)),
-            Mockito.any(Authentication.class));
+            any(OperationContext.class),
+            Mockito.eq(Urn.createFromString(TEST_BUSINESS_ATTRIBUTE_URN)));
   }
 }

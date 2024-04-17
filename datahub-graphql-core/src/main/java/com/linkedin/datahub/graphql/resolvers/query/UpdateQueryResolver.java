@@ -47,7 +47,7 @@ public class UpdateQueryResolver implements DataFetcher<CompletableFuture<QueryE
     return CompletableFuture.supplyAsync(
         () -> {
           final QuerySubjects existingSubjects =
-              _queryService.getQuerySubjects(queryUrn, authentication);
+              _queryService.getQuerySubjects(context.getOperationContext(), queryUrn);
 
           if (existingSubjects == null) {
             // No Query Found
@@ -77,6 +77,7 @@ public class UpdateQueryResolver implements DataFetcher<CompletableFuture<QueryE
 
           try {
             _queryService.updateQuery(
+                context.getOperationContext(),
                 queryUrn,
                 input.getProperties() != null ? input.getProperties().getName() : null,
                 input.getProperties() != null ? input.getProperties().getDescription() : null,
@@ -94,10 +95,10 @@ public class UpdateQueryResolver implements DataFetcher<CompletableFuture<QueryE
                                 new QuerySubject().setEntity(UrnUtils.getUrn(sub.getDatasetUrn())))
                         .collect(Collectors.toList())
                     : null,
-                authentication,
                 System.currentTimeMillis());
             return QueryMapper.map(
-                context, _queryService.getQueryEntityResponse(queryUrn, authentication));
+                context,
+                _queryService.getQueryEntityResponse(context.getOperationContext(), queryUrn));
           } catch (Exception e) {
             throw new RuntimeException(
                 String.format("Failed to update Query from input %s", input), e);

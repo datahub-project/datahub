@@ -54,6 +54,7 @@ public class CreateQueryResolver implements DataFetcher<CompletableFuture<QueryE
           try {
             final Urn queryUrn =
                 _queryService.createQuery(
+                    context.getOperationContext(),
                     input.getProperties().getName(),
                     input.getProperties().getDescription(),
                     QuerySource.MANUAL,
@@ -67,10 +68,10 @@ public class CreateQueryResolver implements DataFetcher<CompletableFuture<QueryE
                             sub ->
                                 new QuerySubject().setEntity(UrnUtils.getUrn(sub.getDatasetUrn())))
                         .collect(Collectors.toList()),
-                    authentication,
                     System.currentTimeMillis());
             return QueryMapper.map(
-                context, _queryService.getQueryEntityResponse(queryUrn, authentication));
+                context,
+                _queryService.getQueryEntityResponse(context.getOperationContext(), queryUrn));
           } catch (Exception e) {
             throw new RuntimeException(
                 String.format("Failed to create a new Query from input %s", input), e);

@@ -27,6 +27,7 @@ dependencies {
 
     testImplementation externalDependency.springBootTest
     testImplementation project(':mock-entity-registry')
+    testImplementation project(':metadata-dao-impl:kafka-producer')
     testImplementation externalDependency.springBoot
     testImplementation externalDependency.testContainers
     testImplementation externalDependency.testContainersKafka

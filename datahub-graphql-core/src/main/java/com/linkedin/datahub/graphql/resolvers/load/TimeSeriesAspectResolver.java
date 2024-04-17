@@ -112,6 +112,7 @@ public class TimeSeriesAspectResolver
             // Step 1: Get aspects.
             List<EnvelopedAspect> aspects =
                 _client.getTimeseriesAspectValues(
+                    context.getOperationContext(),
                     urn,
                     _entityName,
                     _aspectName,
@@ -119,8 +120,7 @@ public class TimeSeriesAspectResolver
                     maybeEndTimeMillis,
                     maybeLimit,
                     buildFilters(maybeFilters),
-                    maybeSort,
-                    context.getAuthentication());
+                    maybeSort);
 
             // Step 2: Bind profiles into GraphQL strong types.
             return aspects.stream()
