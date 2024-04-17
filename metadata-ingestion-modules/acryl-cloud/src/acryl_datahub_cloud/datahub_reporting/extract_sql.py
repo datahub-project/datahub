@@ -145,7 +145,9 @@ class DataHubReportingExtractSQLSource(Source):
 
         # Generate a static path used for temporary files,
         # so we consistently delete the data (possibly based on pipeline name)
-        tmp_dir = self.ctx.pipeline_name if self.ctx.pipeline_name else "default"
+        tmp_dir_aux = self.ctx.pipeline_name if self.ctx.pipeline_name else "sql_default_dir"
+        tmp_dir = f'/tmp/{tmp_dir_aux.replace(":", "_")}'
+
         output_file = (
             self.datahub_based_s3_dataset.config.file
             if self.datahub_based_s3_dataset.config.file
