@@ -2,16 +2,16 @@ package com.linkedin.metadata.service;
 
 import static com.linkedin.metadata.Constants.*;
 
-import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.entity.EntityResponse;
-import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.identity.CorpUserSettings;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.AspectUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.settings.global.GlobalSettingsInfo;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.Objects;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -27,10 +27,8 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class SettingsService extends BaseService {
 
-  public SettingsService(
-      @Nonnull final EntityClient entityClient,
-      @Nonnull final Authentication systemAuthentication) {
-    super(entityClient, systemAuthentication);
+  public SettingsService(@Nonnull final SystemEntityClient entityClient) {
+    super(entityClient);
   }
 
   /**
@@ -42,16 +40,16 @@ public class SettingsService extends BaseService {
    */
   @Nullable
   public CorpUserSettings getCorpUserSettings(
-      @Nonnull final Urn user, @Nonnull final Authentication authentication) {
+      @Nonnull OperationContext opContext, @Nonnull final Urn user) {
     Objects.requireNonNull(user, "user must not be null");
-    Objects.requireNonNull(authentication, "authentication must not be null");
+    Objects.requireNonNull(opContext.getSessionAuthentication(), "authentication must not be null");
     try {
       EntityResponse response =
           this.entityClient.getV2(
+              opContext,
               CORP_USER_ENTITY_NAME,
               user,
-              ImmutableSet.of(CORP_USER_SETTINGS_ASPECT_NAME),
-              authentication);
+              ImmutableSet.of(CORP_USER_SETTINGS_ASPECT_NAME));
       if (response != null
           && response.getAspects().containsKey(Constants.CORP_USER_SETTINGS_ASPECT_NAME)) {
         return new CorpUserSettings(
@@ -75,17 +73,17 @@ public class SettingsService extends BaseService {
    * @param authentication the current authentication
    */
   public void updateCorpUserSettings(
+      @Nonnull OperationContext opContext,
       @Nonnull final Urn user,
-      @Nonnull final CorpUserSettings newSettings,
-      @Nonnull final Authentication authentication) {
+      @Nonnull final CorpUserSettings newSettings) {
     Objects.requireNonNull(user, "user must not be null");
     Objects.requireNonNull(newSettings, "newSettings must not be null");
-    Objects.requireNonNull(authentication, "authentication must not be null");
+    Objects.requireNonNull(opContext.getSessionAuthentication(), "authentication must not be null");
     try {
       MetadataChangeProposal proposal =
           AspectUtils.buildMetadataChangeProposal(
               user, CORP_USER_SETTINGS_ASPECT_NAME, newSettings);
-      this.entityClient.ingestProposal(proposal, authentication, false);
+      this.entityClient.ingestProposal(opContext, proposal, false);
     } catch (Exception e) {
       throw new RuntimeException(
           String.format("Failed to update Corp User settings for user with urn %s", user), e);
@@ -98,15 +96,15 @@ public class SettingsService extends BaseService {
    * @param authentication the current authentication
    * @return an instance of {@link GlobalSettingsInfo}, or null if none exists.
    */
-  public GlobalSettingsInfo getGlobalSettings(@Nonnull final Authentication authentication) {
-    Objects.requireNonNull(authentication, "authentication must not be null");
+  public GlobalSettingsInfo getGlobalSettings(@Nonnull OperationContext opContext) {
+    Objects.requireNonNull(opContext.getSessionAuthentication(), "authentication must not be null");
     try {
       EntityResponse response =
           this.entityClient.getV2(
+              opContext,
               GLOBAL_SETTINGS_ENTITY_NAME,
               GLOBAL_SETTINGS_URN,
-              ImmutableSet.of(GLOBAL_SETTINGS_INFO_ASPECT_NAME),
-              authentication);
+              ImmutableSet.of(GLOBAL_SETTINGS_INFO_ASPECT_NAME));
       if (response != null
           && response.getAspects().containsKey(Constants.GLOBAL_SETTINGS_INFO_ASPECT_NAME)) {
         return new GlobalSettingsInfo(
@@ -137,14 +135,14 @@ public class SettingsService extends BaseService {
    * @param authentication the current authentication
    */
   public void updateGlobalSettings(
-      @Nonnull final GlobalSettingsInfo newSettings, @Nonnull final Authentication authentication) {
+      @Nonnull OperationContext opContext, @Nonnull final GlobalSettingsInfo newSettings) {
     Objects.requireNonNull(newSettings, "newSettings must not be null");
-    Objects.requireNonNull(authentication, "authentication must not be null");
+    Objects.requireNonNull(opContext.getSessionAuthentication(), "authentication must not be null");
     try {
       MetadataChangeProposal proposal =
           AspectUtils.buildMetadataChangeProposal(
               GLOBAL_SETTINGS_URN, GLOBAL_SETTINGS_INFO_ASPECT_NAME, newSettings);
-      this.entityClient.ingestProposal(proposal, authentication, false);
+      this.entityClient.ingestProposal(opContext, proposal, false);
     } catch (Exception e) {
       throw new RuntimeException("Failed to update Global settings", e);
     }

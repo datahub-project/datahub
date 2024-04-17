@@ -11,16 +11,17 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.aspect.models.graph.RelatedEntity;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.RelatedEntitiesResult;
-import com.linkedin.metadata.graph.RelatedEntity;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.PlatformEvent;
 import com.linkedin.platform.event.v1.EntityChangeEvent;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.Arrays;
 import java.util.Set;
 import lombok.extern.slf4j.Slf4j;
@@ -34,7 +35,7 @@ public class BusinessAttributeUpdateHookService {
   private static final String BUSINESS_ATTRIBUTE_OF = "BusinessAttributeOf";
 
   private final GraphService graphService;
-  private final EntityService entityService;
+  private final EntityService<?> entityService;
   private final EntityRegistry entityRegistry;
 
   private final int relatedEntitiesCount;
@@ -45,7 +46,7 @@ public class BusinessAttributeUpdateHookService {
 
   public BusinessAttributeUpdateHookService(
       GraphService graphService,
-      EntityService entityService,
+      EntityService<?> entityService,
       EntityRegistry entityRegistry,
       @NonNull @Value("${businessAttribute.fetchRelatedEntitiesCount}") int relatedEntitiesCount) {
     this.graphService = graphService;
@@ -54,7 +55,8 @@ public class BusinessAttributeUpdateHookService {
     this.relatedEntitiesCount = relatedEntitiesCount;
   }
 
-  public void handleChangeEvent(@NonNull final PlatformEvent event) {
+  public void handleChangeEvent(
+      @NonNull final OperationContext opContext, @NonNull final PlatformEvent event) {
     final EntityChangeEvent entityChangeEvent =
         GenericRecordUtils.deserializePayload(
             event.getPayload().getValue(), EntityChangeEvent.class);
@@ -96,7 +98,10 @@ public class BusinessAttributeUpdateHookService {
 
         EnvelopedAspect envelopedAspect =
             entityService.getLatestEnvelopedAspect(
-                Constants.SCHEMA_FIELD_ENTITY_NAME, entityUrn, Constants.BUSINESS_ATTRIBUTE_ASPECT);
+                opContext,
+                Constants.SCHEMA_FIELD_ENTITY_NAME,
+                entityUrn,
+                Constants.BUSINESS_ATTRIBUTE_ASPECT);
         BusinessAttributes businessAttributes =
             new BusinessAttributes(envelopedAspect.getValue().data());
 
@@ -107,6 +112,7 @@ public class BusinessAttributeUpdateHookService {
 
         entityService
             .alwaysProduceMCLAsync(
+                opContext,
                 entityUrn,
                 Constants.SCHEMA_FIELD_ENTITY_NAME,
                 Constants.BUSINESS_ATTRIBUTE_ASPECT,
@@ -116,7 +122,7 @@ public class BusinessAttributeUpdateHookService {
                 null,
                 null,
                 auditStamp,
-                ChangeType.RESTATE)
+                ChangeType.UPSERT)
             .getFirst();
 
       } catch (Exception e) {

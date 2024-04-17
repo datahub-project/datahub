@@ -45,7 +45,7 @@ public class UpdateERModelRelationshipResolver implements DataFetcher<Completabl
             proposals.forEach(proposal -> proposal.setEntityUrn(inputUrn));
 
             try {
-              _entityClient.batchIngestProposals(proposals, context.getAuthentication(), false);
+              _entityClient.batchIngestProposals(context.getOperationContext(), proposals, false);
             } catch (RemoteInvocationException e) {
               throw new RuntimeException(
                   String.format("Failed to update erModelRelationship entity"), e);

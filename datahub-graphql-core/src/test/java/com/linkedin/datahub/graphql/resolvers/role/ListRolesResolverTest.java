@@ -102,7 +102,7 @@ public class ListRolesResolverTest {
     when(_entityClient.search(
             any(), eq(DATAHUB_ROLE_ENTITY_NAME), any(), any(), anyInt(), anyInt()))
         .thenReturn(roleSearchResult);
-    when(_entityClient.batchGetV2(eq(DATAHUB_ROLE_ENTITY_NAME), any(), any(), any()))
+    when(_entityClient.batchGetV2(any(), eq(DATAHUB_ROLE_ENTITY_NAME), any(), any()))
         .thenReturn(_entityResponseMap);
 
     ListRolesResult result = _resolver.get(_dataFetchingEnvironment).join();

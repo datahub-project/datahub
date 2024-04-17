@@ -28,7 +28,6 @@ import com.datahub.plugins.loader.PluginPermissionManagerImpl;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.entity.EntityService;
-import jakarta.inject.Inject;
 import jakarta.inject.Named;
 import jakarta.servlet.Filter;
 import jakarta.servlet.FilterChain;
@@ -48,6 +47,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.context.support.SpringBeanAutowiringSupport;
 
@@ -58,13 +58,13 @@ import org.springframework.web.context.support.SpringBeanAutowiringSupport;
 @Slf4j
 public class AuthenticationFilter implements Filter {
 
-  @Inject private ConfigurationProvider configurationProvider;
+  @Autowired private ConfigurationProvider configurationProvider;
 
-  @Inject
+  @Autowired
   @Named("entityService")
-  private EntityService _entityService;
+  private EntityService<?> _entityService;
 
-  @Inject
+  @Autowired
   @Named("dataHubTokenService")
   private StatefulTokenService _tokenService;
 
@@ -252,7 +252,7 @@ public class AuthenticationFilter implements Filter {
     authenticatorChain.register(
         systemAuthenticator); // Always register authenticator for internal system.
 
-    // Register authenticator define in application.yml
+    // Register authenticator define in application.yaml
     final List<AuthenticatorConfiguration> authenticatorConfigurations =
         this.configurationProvider.getAuthentication().getAuthenticators();
     for (AuthenticatorConfiguration internalAuthenticatorConfig : authenticatorConfigurations) {

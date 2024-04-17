@@ -535,11 +535,7 @@ public class AuthUtil {
   public static Disjunctive<Conjunctive<PoliciesConfig.Privilege>> lookupAPIPrivilege(
       @Nonnull ApiGroup apiGroup, @Nonnull ApiOperation apiOperation, @Nullable String entityType) {
 
-    if (ApiGroup.ENTITY.equals(apiGroup) && entityType == null) {
-      throw new IllegalArgumentException("ENTITY API Group must include an entityType");
-    }
-
-    if (ApiGroup.ENTITY.equals(apiGroup)) {
+    if (ApiGroup.ENTITY.equals(apiGroup) && entityType != null) {
       return lookupEntityAPIPrivilege(apiOperation, Set.of(entityType)).get(entityType);
     }
 

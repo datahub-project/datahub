@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.entity;
 
 import static com.linkedin.datahub.graphql.TestUtils.*;
+import static org.mockito.ArgumentMatchers.any;
 import static org.testng.Assert.*;
 
 import com.datahub.authentication.Authentication;
@@ -118,10 +119,7 @@ public class EntityPrivilegesResolverTest {
     Mockito.doThrow(RemoteInvocationException.class)
         .when(mockClient)
         .getV2(
-            Mockito.eq(Constants.GLOSSARY_NODE_ENTITY_NAME),
-            Mockito.any(),
-            Mockito.any(),
-            Mockito.any(Authentication.class));
+            any(), Mockito.eq(Constants.GLOSSARY_NODE_ENTITY_NAME), Mockito.any(), Mockito.any());
 
     EntityPrivilegesResolver resolver = new EntityPrivilegesResolver(mockClient);
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
