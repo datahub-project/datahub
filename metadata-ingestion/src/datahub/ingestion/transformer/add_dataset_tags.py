@@ -1,7 +1,6 @@
 import logging
-from typing import Callable, List, Optional, Union, cast, Dict
+from typing import Callable, Dict, List, Optional, Union, cast
 
-import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import (
     KeyValuePattern,
     TransformerSemanticsConfigModel,
@@ -15,7 +14,6 @@ from datahub.metadata.schema_classes import (
     GlobalTagsClass,
     MetadataChangeProposalClass,
     TagAssociationClass,
-    TagKeyClass,
 )
 from datahub.utilities.urns.tag_urn import TagUrn
 
@@ -39,7 +37,7 @@ class AddDatasetTags(DatasetTagsTransformer):
         super().__init__()
         self.ctx = ctx
         self.config = config
-        self.processed_tags = []
+        self.processed_tags = {}
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "AddDatasetTags":
@@ -77,18 +75,11 @@ class AddDatasetTags(DatasetTagsTransformer):
         logger.debug("Generating tags")
 
         for tag_association in self.processed_tags.values():
-            ids: List[str] = TagUrn.create_from_string(
-                tag_association.tag
-            ).get_entity_id()
-
-            assert len(ids) == 1, "Invalid Tag Urn"
-
-            tag_name: str = ids[0]
-
+            tag_urn = TagUrn.create_from_string(tag_association.tag)
             mcps.append(
                 MetadataChangeProposalWrapper(
-                    entityUrn=builder.make_tag_urn(tag=tag_name),
-                    aspect=TagKeyClass(name=tag_name),
+                    entityUrn=tag_urn.urn(),
+                    aspect=tag_urn.to_key_aspect(),
                 )
             )
 
