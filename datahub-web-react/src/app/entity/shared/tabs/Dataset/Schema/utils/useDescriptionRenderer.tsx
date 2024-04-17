@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
 import DOMPurify from 'dompurify';
-import { SchemaField, SubResourceType } from '../../../../../../../types.generated';
+import { EditableSchemaMetadata, SchemaField, SubResourceType } from '../../../../../../../types.generated';
 import DescriptionField from '../../../../../dataset/profile/schema/components/SchemaDescriptionField';
 import { useUpdateDescriptionMutation } from '../../../../../../../graphql/mutations.generated';
 import { useMutationUrn, useRefetch } from '../../../../EntityContext';
 import { useSchemaRefetch } from '../SchemaContext';
+import { pathMatchesNewPath } from '../../../../../dataset/profile/schema/utils/utils';
 
-export default function useDescriptionRenderer() {
+export default function useDescriptionRenderer(editableSchemaMetadata: EditableSchemaMetadata | null | undefined) {
     const urn = useMutationUrn();
     const refetch = useRefetch();
     const schemaRefetch = useSchemaRefetch();
@@ -20,7 +21,10 @@ export default function useDescriptionRenderer() {
     };
 
     return (description: string, record: SchemaField, index: number): JSX.Element => {
-        const displayedDescription = record?.description || description;
+        const relevantEditableFieldInfo = editableSchemaMetadata?.editableSchemaFieldInfo.find(
+            (candidateEditableFieldInfo) => pathMatchesNewPath(candidateEditableFieldInfo.fieldPath, record.fieldPath),
+        );
+        const displayedDescription = relevantEditableFieldInfo?.description || description;
         const sanitizedDescription = DOMPurify.sanitize(displayedDescription);
         const original = record.description ? DOMPurify.sanitize(record.description) : undefined;
         const businessAttributeDescription =
@@ -39,7 +43,7 @@ export default function useDescriptionRenderer() {
                 baExpanded={!!expandedBARows[index]}
                 description={sanitizedDescription}
                 original={original}
-                isEdited={!!record.description}
+                isEdited={!!relevantEditableFieldInfo?.description}
                 onUpdate={(updatedDescription) =>
                     updateDescription({
                         variables: {
