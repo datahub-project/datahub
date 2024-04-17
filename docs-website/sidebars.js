@@ -14,6 +14,11 @@ module.exports = {
       defaultStyle: true,
     },
     {
+      type: "doc",
+      label: "Home",
+      id: "docs/home",
+    },
+    {
       label: "What Is DataHub?",
       type: "category",
       collapsed: true,
