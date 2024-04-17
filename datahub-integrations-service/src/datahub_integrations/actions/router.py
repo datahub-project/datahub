@@ -75,7 +75,9 @@ async def actions_lifespan(app: fastapi.FastAPI) -> AsyncIterator[None]:
 
                 logger.info("All actions stopped.")
         except Exception as e:
-            logger.exception(f"Failed to start actions: {e}. Continuing with no actions.")
+            logger.exception(
+                f"Failed to start actions: {e}. Continuing with no actions."
+            )
             yield
 
 
