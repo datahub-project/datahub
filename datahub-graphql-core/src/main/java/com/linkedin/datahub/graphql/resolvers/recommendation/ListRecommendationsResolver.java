@@ -62,10 +62,7 @@ public class ListRecommendationsResolver
                 _recommendationsService.listRecommendations(
                     context.getOperationContext(),
                     mapRequestContext(input.getRequestContext()),
-                    viewFilter(
-                        context.getOperationContext(),
-                        _viewService,
-                        input.getViewUrn()),
+                    viewFilter(context.getOperationContext(), _viewService, input.getViewUrn()),
                     input.getLimit());
             return ListRecommendationsResult.builder()
                 .setModules(

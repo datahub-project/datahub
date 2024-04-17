@@ -49,10 +49,7 @@ public class EntityCountsResolver implements DataFetcher<CompletableFuture<Entit
                     input.getTypes().stream()
                         .map(EntityTypeMapper::getName)
                         .collect(Collectors.toList()),
-                    viewFilter(
-                        context.getOperationContext(),
-                        _viewService,
-                        input.getViewUrn()));
+                    viewFilter(context.getOperationContext(), _viewService, input.getViewUrn()));
 
             // bind to a result.
             List<EntityCountResult> resultList =
