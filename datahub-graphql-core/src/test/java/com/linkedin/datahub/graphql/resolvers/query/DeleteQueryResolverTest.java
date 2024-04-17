@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.query;
 
 import static com.linkedin.datahub.graphql.TestUtils.*;
+import static org.mockito.ArgumentMatchers.any;
 import static org.testng.Assert.*;
 
 import com.datahub.authentication.Actor;
@@ -45,8 +46,7 @@ public class DeleteQueryResolverTest {
 
     assertTrue(resolver.get(mockEnv).get());
 
-    Mockito.verify(mockService, Mockito.times(1))
-        .deleteQuery(Mockito.eq(TEST_QUERY_URN), Mockito.any(Authentication.class));
+    Mockito.verify(mockService, Mockito.times(1)).deleteQuery(any(), Mockito.eq(TEST_QUERY_URN));
   }
 
   @Test
@@ -60,8 +60,7 @@ public class DeleteQueryResolverTest {
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
     assertTrue(resolver.get(mockEnv).get());
 
-    Mockito.verify(mockService, Mockito.times(1))
-        .deleteQuery(Mockito.eq(TEST_QUERY_URN), Mockito.any(Authentication.class));
+    Mockito.verify(mockService, Mockito.times(1)).deleteQuery(any(), Mockito.eq(TEST_QUERY_URN));
   }
 
   @Test
@@ -75,17 +74,14 @@ public class DeleteQueryResolverTest {
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
 
-    Mockito.verify(mockService, Mockito.times(0))
-        .deleteQuery(Mockito.eq(TEST_QUERY_URN), Mockito.any(Authentication.class));
+    Mockito.verify(mockService, Mockito.times(0)).deleteQuery(any(), Mockito.eq(TEST_QUERY_URN));
   }
 
   @Test
   public void testGetQueryServiceException() throws Exception {
     // Create resolver
     QueryService mockService = Mockito.mock(QueryService.class);
-    Mockito.doThrow(RuntimeException.class)
-        .when(mockService)
-        .deleteQuery(Mockito.any(), Mockito.any(Authentication.class));
+    Mockito.doThrow(RuntimeException.class).when(mockService).deleteQuery(any(), Mockito.any());
 
     DeleteQueryResolver resolver = new DeleteQueryResolver(mockService);
 
@@ -105,9 +101,7 @@ public class DeleteQueryResolverTest {
     existingQuerySubjects.setSubjects(
         new QuerySubjectArray(ImmutableList.of(new QuerySubject().setEntity(TEST_DATASET_URN))));
 
-    Mockito.when(
-            mockService.getQuerySubjects(
-                Mockito.eq(TEST_QUERY_URN), Mockito.any(Authentication.class)))
+    Mockito.when(mockService.getQuerySubjects(any(), Mockito.eq(TEST_QUERY_URN)))
         .thenReturn(existingQuerySubjects);
 
     return mockService;

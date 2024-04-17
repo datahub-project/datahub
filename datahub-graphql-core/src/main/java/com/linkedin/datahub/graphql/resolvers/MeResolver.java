@@ -57,10 +57,10 @@ public class MeResolver implements DataFetcher<CompletableFuture<AuthenticatedUs
             final EntityResponse gmsUser =
                 _entityClient
                     .batchGetV2(
+                        context.getOperationContext(),
                         CORP_USER_ENTITY_NAME,
                         Collections.singleton(userUrn),
-                        null,
-                        context.getAuthentication())
+                        null)
                     .get(userUrn);
             final CorpUser corpUser = CorpUserMapper.map(context, gmsUser, _featureFlags);
 

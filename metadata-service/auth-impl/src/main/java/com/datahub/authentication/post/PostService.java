@@ -3,7 +3,6 @@ package com.datahub.authentication.post;
 import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.metadata.entity.AspectUtils.*;
 
-import com.datahub.authentication.Authentication;
 import com.linkedin.common.Media;
 import com.linkedin.common.MediaType;
 import com.linkedin.common.url.Url;
@@ -19,6 +18,7 @@ import com.linkedin.post.PostContentType;
 import com.linkedin.post.PostInfo;
 import com.linkedin.post.PostType;
 import com.linkedin.r2.RemoteInvocationException;
+import io.datahubproject.metadata.context.OperationContext;
 import java.net.URISyntaxException;
 import java.time.Instant;
 import java.util.Set;
@@ -63,9 +63,9 @@ public class PostService {
   }
 
   public boolean createPost(
+      @Nonnull OperationContext opCcontext,
       @Nonnull String postType,
-      @Nonnull PostContent postContent,
-      @Nonnull Authentication authentication)
+      @Nonnull PostContent postContent)
       throws RemoteInvocationException {
     final String uuid = UUID.randomUUID().toString();
     final PostKey postKey = new PostKey().setId(uuid);
@@ -79,30 +79,30 @@ public class PostService {
 
     final MetadataChangeProposal proposal =
         buildMetadataChangeProposal(POST_ENTITY_NAME, postKey, POST_INFO_ASPECT_NAME, postInfo);
-    _entityClient.ingestProposal(proposal, authentication);
+    _entityClient.ingestProposal(opCcontext, proposal);
 
     return true;
   }
 
-  public boolean deletePost(@Nonnull Urn postUrn, @Nonnull Authentication authentication)
+  public boolean deletePost(@Nonnull OperationContext opContext, @Nonnull Urn postUrn)
       throws RemoteInvocationException {
-    if (!_entityClient.exists(postUrn, authentication)) {
+    if (!_entityClient.exists(opContext, postUrn)) {
       throw new RuntimeException("Post does not exist");
     }
-    _entityClient.deleteEntity(postUrn, authentication);
+    _entityClient.deleteEntity(opContext, postUrn);
     return true;
   }
 
   public boolean updatePost(
+      @Nonnull OperationContext opContext,
       @Nonnull Urn postUrn,
       @Nonnull String postType,
-      @Nonnull PostContent updatedContent,
-      @Nonnull Authentication authentication)
+      @Nonnull PostContent updatedContent)
       throws RemoteInvocationException, URISyntaxException {
 
     final EntityResponse response =
         _entityClient.getV2(
-            postUrn.getEntityType(), postUrn, Set.of(POST_INFO_ASPECT_NAME), authentication);
+            opContext, postUrn.getEntityType(), postUrn, Set.of(POST_INFO_ASPECT_NAME));
     if (response == null || !response.getAspects().containsKey(POST_INFO_ASPECT_NAME)) {
       throw new ValidationException(
           String.format("Failed to edit/update post for urn %s as post doesn't exist", postUrn));
@@ -119,7 +119,7 @@ public class PostService {
 
     final MetadataChangeProposal proposal =
         buildMetadataChangeProposal(postUrn, POST_INFO_ASPECT_NAME, existingPost);
-    _entityClient.ingestProposal(proposal, authentication, false);
+    _entityClient.ingestProposal(opContext, proposal, false);
 
     return true;
   }

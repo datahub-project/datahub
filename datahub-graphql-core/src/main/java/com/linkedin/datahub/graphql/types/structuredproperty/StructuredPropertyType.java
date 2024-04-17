@@ -54,10 +54,10 @@ public class StructuredPropertyType
     try {
       final Map<Urn, EntityResponse> entities =
           _entityClient.batchGetV2(
+              context.getOperationContext(),
               STRUCTURED_PROPERTY_ENTITY_NAME,
               new HashSet<>(extendedPropertyUrns),
-              ASPECTS_TO_FETCH,
-              context.getAuthentication());
+              ASPECTS_TO_FETCH);
 
       final List<EntityResponse> gmsResults = new ArrayList<>();
       for (Urn urn : extendedPropertyUrns) {

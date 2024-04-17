@@ -1,7 +1,7 @@
 package com.linkedin.metadata.service.util;
 
 import com.linkedin.common.urn.Urn;
-import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.form.DynamicFormAssignment;
 import io.datahubproject.metadata.context.OperationContext;
 import lombok.extern.slf4j.Slf4j;
@@ -14,7 +14,7 @@ public class SearchBasedFormAssignmentRunner {
       DynamicFormAssignment formFilters,
       Urn formUrn,
       int batchFormEntityCount,
-      EntityClient entityClient) {
+      SystemEntityClient entityClient) {
     Runnable runnable =
         new Runnable() {
           @Override

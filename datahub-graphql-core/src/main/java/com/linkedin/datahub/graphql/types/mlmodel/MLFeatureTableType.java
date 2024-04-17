@@ -75,10 +75,10 @@ public class MLFeatureTableType
     try {
       final Map<Urn, EntityResponse> mlFeatureTableMap =
           _entityClient.batchGetV2(
+              context.getOperationContext(),
               ML_FEATURE_TABLE_ENTITY_NAME,
               new HashSet<>(mlFeatureTableUrns),
-              null,
-              context.getAuthentication());
+              null);
 
       final List<EntityResponse> gmsResults =
           mlFeatureTableUrns.stream()
@@ -159,7 +159,7 @@ public class MLFeatureTableType
   public List<BrowsePath> browsePaths(@Nonnull String urn, @Nonnull final QueryContext context)
       throws Exception {
     final StringArray result =
-        _entityClient.getBrowsePaths(MLModelUtils.getUrn(urn), context.getAuthentication());
+        _entityClient.getBrowsePaths(context.getOperationContext(), MLModelUtils.getUrn(urn));
     return BrowsePathsMapper.map(context, result);
   }
 }

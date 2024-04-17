@@ -27,29 +27,35 @@ public class AddLinkResolver implements DataFetcher<CompletableFuture<Boolean>> 
 
   @Override
   public CompletableFuture<Boolean> get(DataFetchingEnvironment environment) throws Exception {
+    final QueryContext context = environment.getContext();
     final AddLinkInput input = bindArgument(environment.getArgument("input"), AddLinkInput.class);
 
     String linkUrl = input.getLinkUrl();
     String linkLabel = input.getLabel();
     Urn targetUrn = Urn.createFromString(input.getResourceUrn());
 
-    if (!LinkUtils.isAuthorizedToUpdateLinks(environment.getContext(), targetUrn)
-        && !canUpdateGlossaryEntityLinks(targetUrn, environment.getContext())) {
+    if (!LinkUtils.isAuthorizedToUpdateLinks(context, targetUrn)
+        && !canUpdateGlossaryEntityLinks(targetUrn, context)) {
       throw new AuthorizationException(
           "Unauthorized to perform this action. Please contact your DataHub administrator.");
     }
 
     return CompletableFuture.supplyAsync(
         () -> {
-          LinkUtils.validateAddRemoveInput(linkUrl, targetUrn, _entityService);
+          LinkUtils.validateAddRemoveInput(
+              context.getOperationContext(), linkUrl, targetUrn, _entityService);
           try {
 
             log.debug("Adding Link. input: {}", input.toString());
 
-            Urn actor =
-                CorpuserUrn.createFromString(
-                    ((QueryContext) environment.getContext()).getActorUrn());
-            LinkUtils.addLink(linkUrl, linkLabel, targetUrn, actor, _entityService);
+            Urn actor = CorpuserUrn.createFromString(context.getActorUrn());
+            LinkUtils.addLink(
+                context.getOperationContext(),
+                linkUrl,
+                linkLabel,
+                targetUrn,
+                actor,
+                _entityService);
             return true;
           } catch (Exception e) {
             log.error(

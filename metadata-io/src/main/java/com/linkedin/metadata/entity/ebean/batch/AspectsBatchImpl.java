@@ -3,7 +3,7 @@ package com.linkedin.metadata.entity.ebean.batch;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.events.metadata.ChangeType;
-import com.linkedin.metadata.aspect.AspectRetriever;
+import com.linkedin.metadata.aspect.RetrieverContext;
 import com.linkedin.metadata.aspect.SystemAspect;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.aspect.batch.BatchItem;
@@ -31,7 +31,7 @@ import org.apache.commons.lang3.StringUtils;
 public class AspectsBatchImpl implements AspectsBatch {
 
   @Nonnull private final Collection<? extends BatchItem> items;
-  @Nonnull private final AspectRetriever aspectRetriever;
+  @Nonnull private final RetrieverContext retrieverContext;
 
   /**
    * Convert patches to upserts, apply hooks at the aspect and batch level.
@@ -64,7 +64,9 @@ public class AspectsBatchImpl implements AspectsBatch {
                     PatchItemImpl patchBatchItem = (PatchItemImpl) item;
                     final RecordTemplate currentValue =
                         latest != null ? latest.getRecordTemplate() : null;
-                    upsertItem = patchBatchItem.applyPatch(currentValue, aspectRetriever);
+                    upsertItem =
+                        patchBatchItem.applyPatch(
+                            currentValue, retrieverContext.getAspectRetriever());
                   }
 
                   // Populate old aspect for write hooks
@@ -92,26 +94,30 @@ public class AspectsBatchImpl implements AspectsBatch {
      * @param data aspect data
      * @return builder
      */
-    public AspectsBatchImplBuilder one(BatchItem data, AspectRetriever aspectRetriever) {
-      aspectRetriever(aspectRetriever);
+    public AspectsBatchImplBuilder one(BatchItem data, RetrieverContext retrieverContext) {
+      retrieverContext(retrieverContext);
       items(List.of(data));
       return this;
     }
 
     public AspectsBatchImplBuilder mcps(
-        List<MetadataChangeProposal> mcps, AuditStamp auditStamp, AspectRetriever aspectRetriever) {
+        List<MetadataChangeProposal> mcps,
+        AuditStamp auditStamp,
+        RetrieverContext retrieverContext) {
 
-      aspectRetriever(aspectRetriever);
+      retrieverContext(retrieverContext);
       items(
           mcps.stream()
               .map(
                   mcp -> {
                     if (mcp.getChangeType().equals(ChangeType.PATCH)) {
                       return PatchItemImpl.PatchItemImplBuilder.build(
-                          mcp, auditStamp, aspectRetriever.getEntityRegistry());
+                          mcp,
+                          auditStamp,
+                          retrieverContext.getAspectRetriever().getEntityRegistry());
                     } else {
                       return ChangeItemImpl.ChangeItemImplBuilder.build(
-                          mcp, auditStamp, aspectRetriever);
+                          mcp, auditStamp, retrieverContext.getAspectRetriever());
                     }
                   })
               .collect(Collectors.toList()));
@@ -120,12 +126,12 @@ public class AspectsBatchImpl implements AspectsBatch {
 
     public AspectsBatchImpl build() {
       ValidationExceptionCollection exceptions =
-          AspectsBatch.validateProposed(this.items, this.aspectRetriever);
+          AspectsBatch.validateProposed(this.items, this.retrieverContext);
       if (!exceptions.isEmpty()) {
         throw new IllegalArgumentException("Failed to validate MCP due to: " + exceptions);
       }
 
-      return new AspectsBatchImpl(this.items, this.aspectRetriever);
+      return new AspectsBatchImpl(this.items, this.retrieverContext);
     }
   }
 

@@ -6704,7 +6704,8 @@
           "optional" : true
         }, {
           "name" : "scrollId",
-          "type" : "string"
+          "type" : "string",
+          "optional" : true
         }, {
           "name" : "keepAlive",
           "type" : "string"
@@ -6748,7 +6749,8 @@
           "optional" : true
         }, {
           "name" : "scrollId",
-          "type" : "string"
+          "type" : "string",
+          "optional" : true
         }, {
           "name" : "keepAlive",
           "type" : "string"

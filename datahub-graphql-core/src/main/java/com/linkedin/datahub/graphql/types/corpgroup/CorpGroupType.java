@@ -83,10 +83,10 @@ public class CorpGroupType
 
       final Map<Urn, EntityResponse> corpGroupMap =
           _entityClient.batchGetV2(
+              context.getOperationContext(),
               CORP_GROUP_ENTITY_NAME,
               new HashSet<>(corpGroupUrns),
-              null,
-              context.getAuthentication());
+              null);
 
       final List<EntityResponse> results = new ArrayList<>(urns.size());
       for (Urn urn : corpGroupUrns) {
@@ -148,10 +148,10 @@ public class CorpGroupType
       Urn groupUrn = Urn.createFromString(urn);
       Map<Urn, EntityResponse> gmsResponse =
           _entityClient.batchGetV2(
+              context.getOperationContext(),
               CORP_GROUP_ENTITY_NAME,
               ImmutableSet.of(groupUrn),
-              ImmutableSet.of(CORP_GROUP_EDITABLE_INFO_ASPECT_NAME),
-              context.getAuthentication());
+              ImmutableSet.of(CORP_GROUP_EDITABLE_INFO_ASPECT_NAME));
 
       CorpGroupEditableInfo existingCorpGroupEditableInfo = null;
       if (gmsResponse.containsKey(groupUrn)
@@ -175,7 +175,7 @@ public class CorpGroupType
               UrnUtils.getUrn(urn),
               CORP_GROUP_EDITABLE_INFO_ASPECT_NAME,
               mapCorpGroupEditableInfo(input, existingCorpGroupEditableInfo));
-      _entityClient.ingestProposal(proposal, context.getAuthentication(), false);
+      _entityClient.ingestProposal(context.getOperationContext(), proposal, false);
 
       return load(urn, context).getData();
     }

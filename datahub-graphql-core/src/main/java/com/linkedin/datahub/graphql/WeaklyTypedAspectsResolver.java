@@ -70,10 +70,10 @@ public class WeaklyTypedAspectsResolver implements DataFetcher<CompletableFuture
                       EntityResponse entityResponse =
                           _entityClient
                               .batchGetV2(
+                                  context.getOperationContext(),
                                   urn.getEntityType(),
                                   Collections.singleton(urn),
-                                  Collections.singleton(aspectSpec.getName()),
-                                  context.getAuthentication())
+                                  Collections.singleton(aspectSpec.getName()))
                               .get(urn);
                       if (entityResponse == null
                           || !entityResponse.getAspects().containsKey(aspectSpec.getName())) {

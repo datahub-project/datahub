@@ -33,6 +33,7 @@ import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.util.Pair;
+import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.openapi.dto.RollbackRunResultDto;
 import io.datahubproject.openapi.dto.UpsertAspectRequest;
 import io.datahubproject.openapi.generated.AspectRowSummary;
@@ -462,14 +463,17 @@ public class MappingUtil {
   }
 
   public static Pair<String, Boolean> ingestProposal(
+      @Nonnull OperationContext opContext,
       com.linkedin.mxe.MetadataChangeProposal serviceProposal,
       String actorUrn,
       EntityService<ChangeItemImpl> entityService,
       boolean async) {
-    return ingestBatchProposal(List.of(serviceProposal), actorUrn, entityService, async).get(0);
+    return ingestBatchProposal(opContext, List.of(serviceProposal), actorUrn, entityService, async)
+        .get(0);
   }
 
   public static List<Pair<String, Boolean>> ingestBatchProposal(
+      @Nonnull OperationContext opContext,
       List<com.linkedin.mxe.MetadataChangeProposal> serviceProposals,
       String actorUrn,
       EntityService<ChangeItemImpl> entityService,
@@ -486,10 +490,12 @@ public class MappingUtil {
     Throwable exceptionally = null;
     try {
       AspectsBatch batch =
-          AspectsBatchImpl.builder().mcps(serviceProposals, auditStamp, entityService).build();
+          AspectsBatchImpl.builder()
+              .mcps(serviceProposals, auditStamp, opContext.getRetrieverContext().get())
+              .build();
 
       Map<Urn, List<IngestResult>> resultMap =
-          entityService.ingestProposal(batch, async).stream()
+          entityService.ingestProposal(opContext, batch, async).stream()
               .collect(Collectors.groupingBy(IngestResult::getUrn));
 
       return resultMap.entrySet().stream()
@@ -629,9 +635,10 @@ public class MappingUtil {
         .build();
   }
 
-  public static UpsertAspectRequest createStatusRemoval(Urn urn, EntityService entityService) {
+  public static UpsertAspectRequest createStatusRemoval(
+      @Nonnull OperationContext opContext, Urn urn) {
     com.linkedin.metadata.models.EntitySpec entitySpec =
-        entityService.getEntityRegistry().getEntitySpec(urn.getEntityType());
+        opContext.getEntityRegistry().getEntitySpec(urn.getEntityType());
     if (entitySpec == null || !entitySpec.getAspectSpecMap().containsKey(STATUS_ASPECT_NAME)) {
       throw new IllegalArgumentException(
           "Entity type is not valid for soft deletes: " + urn.getEntityType());

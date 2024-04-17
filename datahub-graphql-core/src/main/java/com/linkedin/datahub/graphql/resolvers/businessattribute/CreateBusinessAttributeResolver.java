@@ -38,7 +38,7 @@ import lombok.extern.slf4j.Slf4j;
 public class CreateBusinessAttributeResolver
     implements DataFetcher<CompletableFuture<BusinessAttribute>> {
   private final EntityClient _entityClient;
-  private final EntityService _entityService;
+  private final EntityService<?> _entityService;
   private final BusinessAttributeService businessAttributeService;
 
   @Override
@@ -59,9 +59,9 @@ public class CreateBusinessAttributeResolver
             businessAttributeKey.setId(id);
 
             if (_entityClient.exists(
+                context.getOperationContext(),
                 EntityKeyUtils.convertEntityKeyToUrn(
-                    businessAttributeKey, BUSINESS_ATTRIBUTE_ENTITY_NAME),
-                context.getAuthentication())) {
+                    businessAttributeKey, BUSINESS_ATTRIBUTE_ENTITY_NAME))) {
               throw new IllegalArgumentException("This Business Attribute already exists!");
             }
 
@@ -84,7 +84,7 @@ public class CreateBusinessAttributeResolver
             // Ingest the MCP
             Urn businessAttributeUrn =
                 UrnUtils.getUrn(
-                    _entityClient.ingestProposal(changeProposal, context.getAuthentication()));
+                    _entityClient.ingestProposal(context.getOperationContext(), changeProposal));
             OwnerUtils.addCreatorAsOwner(
                 context,
                 businessAttributeUrn.toString(),
@@ -93,7 +93,7 @@ public class CreateBusinessAttributeResolver
             return BusinessAttributeMapper.map(
                 context,
                 businessAttributeService.getBusinessAttributeEntityResponse(
-                    businessAttributeUrn, context.getAuthentication()));
+                    context.getOperationContext(), businessAttributeUrn));
 
           } catch (DataHubGraphQLException e) {
             throw e;

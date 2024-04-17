@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.resolvers.businessattribute;
 
 import static com.linkedin.datahub.graphql.TestUtils.getMockAllowContext;
 import static com.linkedin.datahub.graphql.TestUtils.getMockEntityService;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.expectThrows;
@@ -18,6 +19,7 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.OperationContext;
 import java.net.URISyntaxException;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
@@ -47,12 +49,19 @@ public class AddBusinessAttributeResolverTest {
     setupAllowContext();
 
     Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(addBusinessAttributeInput());
-    Mockito.when(mockService.exists(Urn.createFromString((BUSINESS_ATTRIBUTE_URN)), true))
+    Mockito.when(
+            mockService.exists(
+                any(OperationContext.class),
+                eq(Urn.createFromString((BUSINESS_ATTRIBUTE_URN))),
+                eq(true)))
         .thenReturn(true);
 
     Mockito.when(
             mockService.getAspect(
-                Urn.createFromString(RESOURCE_URN), Constants.BUSINESS_ATTRIBUTE_ASPECT, 0))
+                any(OperationContext.class),
+                eq(Urn.createFromString(RESOURCE_URN)),
+                eq(Constants.BUSINESS_ATTRIBUTE_ASPECT),
+                eq(0L)))
         .thenReturn(new BusinessAttributes());
 
     AddBusinessAttributeResolver addBusinessAttributeResolver =
@@ -60,7 +69,7 @@ public class AddBusinessAttributeResolverTest {
     addBusinessAttributeResolver.get(mockEnv).get();
 
     Mockito.verify(mockService, Mockito.times(1))
-        .ingestProposal(Mockito.any(AspectsBatchImpl.class), eq(false));
+        .ingestProposal(any(OperationContext.class), any(AspectsBatchImpl.class), eq(false));
   }
 
   @Test
@@ -69,11 +78,18 @@ public class AddBusinessAttributeResolverTest {
     setupAllowContext();
 
     Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(addBusinessAttributeInput());
-    Mockito.when(mockService.exists(Urn.createFromString((BUSINESS_ATTRIBUTE_URN)), true))
+    Mockito.when(
+            mockService.exists(
+                any(OperationContext.class),
+                eq(Urn.createFromString((BUSINESS_ATTRIBUTE_URN))),
+                eq(true)))
         .thenReturn(true);
     Mockito.when(
             mockService.getAspect(
-                Urn.createFromString(RESOURCE_URN), Constants.BUSINESS_ATTRIBUTE_ASPECT, 0))
+                any(OperationContext.class),
+                eq(Urn.createFromString(RESOURCE_URN)),
+                eq(Constants.BUSINESS_ATTRIBUTE_ASPECT),
+                eq(0L)))
         .thenReturn(businessAttributes());
 
     AddBusinessAttributeResolver addBusinessAttributeResolver =
@@ -81,7 +97,7 @@ public class AddBusinessAttributeResolverTest {
     addBusinessAttributeResolver.get(mockEnv).get();
 
     Mockito.verify(mockService, Mockito.times(1))
-        .ingestProposal(Mockito.any(AspectsBatchImpl.class), eq(false));
+        .ingestProposal(any(OperationContext.class), any(AspectsBatchImpl.class), eq(false));
   }
 
   @Test
@@ -90,9 +106,16 @@ public class AddBusinessAttributeResolverTest {
     setupAllowContext();
 
     Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(addBusinessAttributeInput());
-    Mockito.when(mockService.exists(Urn.createFromString((BUSINESS_ATTRIBUTE_URN)), true))
+    Mockito.when(
+            mockService.exists(
+                any(OperationContext.class),
+                eq(Urn.createFromString((BUSINESS_ATTRIBUTE_URN))),
+                eq(true)))
         .thenReturn(false);
-    Mockito.when(mockService.exists(Urn.createFromString(RESOURCE_URN), true)).thenReturn(true);
+    Mockito.when(
+            mockService.exists(
+                any(OperationContext.class), eq(Urn.createFromString(RESOURCE_URN)), eq(true)))
+        .thenReturn(true);
 
     AddBusinessAttributeResolver addBusinessAttributeResolver =
         new AddBusinessAttributeResolver(mockService);
@@ -103,7 +126,7 @@ public class AddBusinessAttributeResolverTest {
             .getMessage()
             .equals(String.format("This urn does not exist: %s", BUSINESS_ATTRIBUTE_URN)));
     Mockito.verify(mockService, Mockito.times(0))
-        .ingestProposal(Mockito.any(AspectsBatchImpl.class), eq(false));
+        .ingestProposal(any(OperationContext.class), any(AspectsBatchImpl.class), eq(false));
   }
 
   public AddBusinessAttributeInput addBusinessAttributeInput() {
