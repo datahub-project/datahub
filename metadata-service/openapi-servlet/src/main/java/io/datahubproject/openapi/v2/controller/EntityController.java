@@ -381,7 +381,7 @@ public class EntityController {
             authentication,
             true);
 
-    AspectsBatch batch = toBatch(opContext, jsonEntityList, authentication.getActor());
+    AspectsBatch batch = toMCPBatch(opContext, jsonEntityList, authentication.getActor());
     Set<IngestResult> results = entityService.ingestProposal(opContext, batch, async);
 
     if (!async) {
@@ -688,7 +688,7 @@ public class EntityController {
         aspectRetriever);
   }
 
-  private AspectsBatch toBatch(
+  private AspectsBatch toMCPBatch(
       @Nonnull OperationContext opContext, String entityArrayList, Actor actor)
       throws JsonProcessingException, URISyntaxException {
     JsonNode entities = objectMapper.readTree(entityArrayList);
@@ -732,7 +732,10 @@ public class EntityController {
       }
     }
 
-    return AspectsBatchImpl.builder().items(items).build();
+    return AspectsBatchImpl.builder()
+        .items(items)
+        .retrieverContext(opContext.getRetrieverContext().get())
+        .build();
   }
 
   public List<GenericEntity> toEntityListResponse(
