@@ -15,6 +15,155 @@ NUM_OPS = 10
 NUM_USAGE = 0
 
 FROZEN_TIME = "2022-06-07 17:00:00"
+large_sql_query = """WITH object_access_history AS
+        (
+            select
+                object.value : "objectName"::varchar AS object_name,
+                object.value : "objectDomain"::varchar AS object_domain,
+                object.value : "columns" AS object_columns,
+                query_start_time,
+                query_id,
+                user_name
+            from
+                (
+                    select
+                        query_id,
+                        query_start_time,
+                        user_name,
+                        -- Construct the email in the query, should match the Python behavior.
+                        -- The user_email is only used by the email_filter_query.
+                        NVL(USERS.email, CONCAT(LOWER(user_name), '')) AS user_email,
+                        DIRECT_OBJECTS_ACCESSED
+                    from
+                        snowflake.account_usage.access_history
+                    LEFT JOIN
+                        snowflake.account_usage.users USERS
+                        ON user_name = users.name
+                    WHERE
+                        query_start_time >= to_timestamp_ltz(1710720000000, 3)
+                        AND query_start_time < to_timestamp_ltz(1713332173148, 3)
+                )
+                t,
+                lateral flatten(input => t.DIRECT_OBJECTS_ACCESSED) object
+            where
+                NOT RLIKE(object_name,'.*\\.FIVETRAN_.*_STAGING\\..*','i') AND NOT RLIKE(object_name,'.*__DBT_TMP$','i') AND NOT RLIKE(object_name,'.*\\.SEGMENT_[a-f0-9]{8}[-_][a-f0-9]{4}[-_][a-f0-9]{4}[-_][a-f0-9]{4}[-_][a-f0-9]{12}','i') AND NOT RLIKE(object_name,'.*\\.STAGING_.*_[a-f0-9]{8}[-_][a-f0-9]{4}[-_][a-f0-9]{4}[-_][a-f0-9]{4}[-_][a-f0-9]{12}','i')
+        )
+        ,
+        field_access_history AS
+        (
+            select
+                o.*,
+                col.value : "columnName"::varchar AS column_name
+            from
+                object_access_history o,
+                lateral flatten(input => o.object_columns) col
+        )
+        ,
+        basic_usage_counts AS
+        (
+            SELECT
+                object_name,
+                ANY_VALUE(object_domain) AS object_domain,
+                DATE_TRUNC('DAY', CONVERT_TIMEZONE('UTC', query_start_time)) AS bucket_start_time,
+                count(distinct(query_id)) AS total_queries,
+                count( distinct(user_name) ) AS total_users
+            FROM
+                object_access_history
+            GROUP BY
+                bucket_start_time,
+                object_name
+        )
+        ,
+        field_usage_counts AS
+        (
+            SELECT
+                object_name,
+                column_name,
+                DATE_TRUNC('DAY', CONVERT_TIMEZONE('UTC', query_start_time)) AS bucket_start_time,
+                count(distinct(query_id)) AS total_queries
+            FROM
+                field_access_history
+            GROUP BY
+                bucket_start_time,
+                object_name,
+                column_name
+        )
+        ,
+        user_usage_counts AS
+        (
+            SELECT
+                object_name,
+                DATE_TRUNC('DAY', CONVERT_TIMEZONE('UTC', query_start_time)) AS bucket_start_time,
+                count(distinct(query_id)) AS total_queries,
+                user_name,
+                ANY_VALUE(users.email) AS user_email
+            FROM
+                object_access_history
+                LEFT JOIN
+                    snowflake.account_usage.users users
+                    ON user_name = users.name
+            GROUP BY
+                bucket_start_time,
+                object_name,
+                user_name
+        )
+        ,
+        top_queries AS
+        (
+            SELECT
+                object_name,
+                DATE_TRUNC('DAY', CONVERT_TIMEZONE('UTC', query_start_time)) AS bucket_start_time,
+                query_history.query_text AS query_text,
+                count(distinct(access_history.query_id)) AS total_queries
+            FROM
+                object_access_history access_history
+            LEFT JOIN
+                (
+                    SELECT * FROM snowflake.account_usage.query_history
+                    WHERE query_history.start_time >= to_timestamp_ltz(1710720000000, 3)
+                        AND query_history.start_time < to_timestamp_ltz(1713332173148, 3)
+                ) query_history
+                ON access_history.query_id = query_history.query_id
+            GROUP BY
+                bucket_start_time,
+                object_name,
+                query_text
+            QUALIFY row_number() over ( partition by bucket_start_time, object_name
+            order by
+                total_queries desc, query_text asc ) <= 10
+        )
+        select
+            basic_usage_counts.object_name AS "OBJECT_NAME",
+            basic_usage_counts.bucket_start_time AS "BUCKET_START_TIME",
+            ANY_VALUE(basic_usage_counts.object_domain) AS "OBJECT_DOMAIN",
+            ANY_VALUE(basic_usage_counts.total_queries) AS "TOTAL_QUERIES",
+            ANY_VALUE(basic_usage_counts.total_users) AS "TOTAL_USERS",
+            ARRAY_UNIQUE_AGG(top_queries.query_text) AS "TOP_SQL_QUERIES",
+            ARRAY_UNIQUE_AGG(OBJECT_CONSTRUCT( 'col', field_usage_counts.column_name, 'total', field_usage_counts.total_queries ) ) AS "FIELD_COUNTS",
+            ARRAY_UNIQUE_AGG(OBJECT_CONSTRUCT( 'user_name', user_usage_counts.user_name, 'email', user_usage_counts.user_email, 'total', user_usage_counts.total_queries ) ) AS "USER_COUNTS"
+        from
+            basic_usage_counts basic_usage_counts
+            left join
+                top_queries top_queries
+                on basic_usage_counts.bucket_start_time = top_queries.bucket_start_time
+                and basic_usage_counts.object_name = top_queries.object_name
+            left join
+                field_usage_counts field_usage_counts
+                on basic_usage_counts.bucket_start_time = field_usage_counts.bucket_start_time
+                and basic_usage_counts.object_name = field_usage_counts.object_name
+            left join
+                user_usage_counts user_usage_counts
+                on basic_usage_counts.bucket_start_time = user_usage_counts.bucket_start_time
+                and basic_usage_counts.object_name = user_usage_counts.object_name
+        where
+            basic_usage_counts.object_domain in ('Table','External table','View','Materialized view')
+            and basic_usage_counts.object_name is not null
+        group by
+            basic_usage_counts.object_name,
+            basic_usage_counts.bucket_start_time
+        order by
+            basic_usage_counts.bucket_start_time
+                                               """
 
 
 def default_query_results(  # noqa: C901
@@ -276,16 +425,21 @@ def default_query_results(  # noqa: C901
         mock.__iter__.return_value = [
             {
                 "OBJECT_NAME": f"TEST_DB.TEST_SCHEMA.TABLE_{i}{random.randint(99, 999) if i > num_tables else ''}",
-                "BUCKET_START_TIME": datetime.now(),
+                "BUCKET_START_TIME": datetime(2022, 6, 6, 0, 0, 0, 0).replace(
+                    tzinfo=timezone.utc
+                ),
                 "OBJECT_DOMAIN": "Table",
-                "TOTAL_QUERIES": 2,
+                "TOTAL_QUERIES": 10,
                 "TOTAL_USERS": 1,
-                "TOP_SQL_QUERIES": json.dumps(["some random sql"]),
+                "TOP_SQL_QUERIES": json.dumps([large_sql_query for _ in range(10)]),
                 "FIELD_COUNTS": json.dumps(
-                    [{"col": f"col{c}", "total": 2} for c in range(num_cols)]
+                    [{"col": f"col{c}", "total": 10} for c in range(num_cols)]
                 ),
                 "USER_COUNTS": json.dumps(
-                    [{"email": "abc@xyz.com", "user_name": "abc", "total": 2}]
+                    [
+                        {"email": f"abc{i}@xyz.com", "user_name": f"abc{i}", "total": 1}
+                        for i in range(10)
+                    ]
                 ),
             }
             for i in range(num_usages)

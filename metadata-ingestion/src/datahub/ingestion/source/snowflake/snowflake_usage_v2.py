@@ -253,14 +253,17 @@ class SnowflakeUsageExtractor(
                             f"Skipping usage for {row['OBJECT_DOMAIN']} {dataset_identifier}, as table is not accessible."
                         )
                         continue
-                    with skip_timer.pause(), self.report.usage_aggregation_result_map_timer:
-                        yield from self.build_usage_statistics_for_dataset(
+                    with skip_timer.pause(), self.report.usage_aggregation_result_map_timer as map_timer:
+                        wu = self.build_usage_statistics_for_dataset(
                             dataset_identifier, row
                         )
+                        if wu:
+                            with map_timer.pause():
+                                yield wu
 
     def build_usage_statistics_for_dataset(
         self, dataset_identifier: str, row: dict
-    ) -> Iterable[MetadataWorkUnit]:
+    ) -> Optional[MetadataWorkUnit]:
         try:
             stats = DatasetUsageStatistics(
                 timestampMillis=int(row["BUCKET_START_TIME"].timestamp() * 1000),
@@ -280,7 +283,7 @@ class SnowflakeUsageExtractor(
                 fieldCounts=self._map_field_counts(json.loads(row["FIELD_COUNTS"])),
             )
 
-            yield MetadataChangeProposalWrapper(
+            return MetadataChangeProposalWrapper(
                 entityUrn=self.dataset_urn_builder(dataset_identifier), aspect=stats
             ).as_workunit()
         except Exception as e:
@@ -291,6 +294,8 @@ class SnowflakeUsageExtractor(
             self.report_warning(
                 "Failed to parse usage statistics for dataset", dataset_identifier
             )
+
+        return None
 
     def _map_top_sql_queries(self, top_sql_queries: Dict) -> List[str]:
         budget_per_query: int = int(
