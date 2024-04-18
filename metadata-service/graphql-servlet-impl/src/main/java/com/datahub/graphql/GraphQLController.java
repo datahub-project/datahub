@@ -139,9 +139,9 @@ public class GraphQLController {
           } else {
             if (log.isDebugEnabled()) {
               log.debug(
-                      String.format(
-                              "Executed graphQL query: %s, result: %s",
-                              queryJson, executionResult.toSpecification()));
+                  String.format(
+                      "Executed graphQL query: %s, result: %s",
+                      queryJson, executionResult.toSpecification()));
             }
           }
 
