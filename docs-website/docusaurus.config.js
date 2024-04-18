@@ -316,7 +316,7 @@ module.exports = {
         createRedirects(existingPath) {
           if (existingPath.includes('/next')) {
             return [
-              existingPath.replace('/next', '/'),
+              existingPath.replace('/', '/next'),
             ];
           }
           return undefined; // Return a falsy value: no redirect created
