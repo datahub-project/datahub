@@ -18,7 +18,7 @@ public class SecretUtils {
       MessageDigest sha = null;
       try {
         key = secret.getBytes(StandardCharsets.UTF_8);
-        sha = MessageDigest.getInstance("SHA-256");
+        sha = MessageDigest.getInstance("SHA-1");
         key = sha.digest(key);
         key = Arrays.copyOf(key, 16);
         secretKey = new SecretKeySpec(key, "AES");
@@ -41,7 +41,7 @@ public class SecretUtils {
       MessageDigest sha = null;
       try {
         key = secret.getBytes(StandardCharsets.UTF_8);
-        sha = MessageDigest.getInstance("SHA-256");
+        sha = MessageDigest.getInstance("SHA-1");
         key = sha.digest(key);
         key = Arrays.copyOf(key, 16);
         secretKey = new SecretKeySpec(key, "AES");
