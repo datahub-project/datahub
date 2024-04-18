@@ -776,7 +776,10 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
       @Nonnull List<String> entityName,
       @Nullable Filter filter)
       throws RemoteInvocationException {
-    // TODO incorporate Filter
+    if (filter != null) {
+      throw new UnsupportedOperationException("Filter not yet supported in restli-client.");
+    }
+
     EntitiesDoBatchGetTotalEntityCountRequestBuilder requestBuilder =
         ENTITIES_REQUEST_BUILDERS
             .actionBatchGetTotalEntityCount()
