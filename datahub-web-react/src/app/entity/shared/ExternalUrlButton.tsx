@@ -1,11 +1,10 @@
 import React from 'react';
 import { EntityType } from '../../../types.generated';
 import analytics, { EventType, EntityActionType } from '../../analytics';
-import { message } from 'antd';
 import UrlButton from './UrlButton';
 
-const GITHUB = 'github.com';
-const ALLOWED_GITHUB_HOSTS = ['github.com', 'www.github.com'];
+const GITHUB_LINK = 'github.com';
+const GITHUB = 'GitHub';
 
 interface Props {
     externalUrl: string;
@@ -25,13 +24,8 @@ export default function ExternalUrlButton({ externalUrl, platformName, entityTyp
     }
 
     let displayedName = platformName;
-    try {
-        const host = new URL(externalUrl).host;
-        if (ALLOWED_GITHUB_HOSTS.includes(host.toLocaleLowerCase())) {
-            displayedName = GITHUB;
-        }
-    } catch(e) {
-        message.error({ content: `Not a valid URL! \n ${e.message || ''}`, duration: 3 });
+    if (externalUrl.toLocaleLowerCase().includes(GITHUB_LINK)) {
+        displayedName = GITHUB;
     }
 
     return (
