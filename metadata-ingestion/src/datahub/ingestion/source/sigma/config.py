@@ -11,6 +11,7 @@ from datahub.configuration.source_common import (
 )
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalSourceReport,
+    StatefulStaleMetadataRemovalConfig,
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
@@ -84,3 +85,5 @@ class SigmaSourceConfig(
         default={},
         description="A mapping of the sigma workspace/workbook/chart folder path to all chart's data sources platform details present inside that folder path.",
     )
+
+    stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = None
