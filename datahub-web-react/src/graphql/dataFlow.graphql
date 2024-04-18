@@ -125,6 +125,53 @@ query getDataFlow($urn: String!) {
     }
 }
 
+query getDataFlowChildJobs($urn: String!, $start: Int, $count: Int) {
+    dataFlow(urn: $urn) {
+        ...dataFlowFields
+        childJobs: relationships(input: { types: ["IsPartOf"], direction: INCOMING, start: $start, count: $count }) {
+            start
+            count
+            total
+            relationships {
+                entity {
+                    ... on DataJob {
+                        urn
+                        type
+                        jobId
+                        dataFlow {
+                            urn
+                            type
+                            orchestrator
+                            platform {
+                                ...platformFields
+                            }
+                        }
+                        ownership {
+                            ...ownershipFields
+                        }
+                        properties {
+                            name
+                            description
+                        }
+                        editableProperties {
+                            description
+                        }
+                        globalTags {
+                            ...globalTagsFields
+                        }
+                        glossaryTerms {
+                            ...glossaryTerms
+                        }
+                        deprecation {
+                            ...deprecationFields
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 mutation updateDataFlow($urn: String!, $input: DataFlowUpdateInput!) {
     updateDataFlow(urn: $urn, input: $input) {
         urn
