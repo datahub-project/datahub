@@ -59,7 +59,8 @@ def send_lineage_to_datahub(
         entities_to_datajob_urn_list([let.urn for let in inlets])
     )
 
-    datajob.emit(emitter)
+    for mcp in datajob.generate_mcp(materialize_iolets=config.materialize_iolets):
+        emitter.emit(mcp)
     operator.log.info(f"Emitted from Lineage: {datajob}")
 
     if config.capture_executions:
