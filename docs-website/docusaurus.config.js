@@ -313,16 +313,10 @@ module.exports = {
     [
       '@docusaurus/plugin-client-redirects',
       {
-       redirects: [
-            {
-            to: '/docs/features',
-            from: '/docs/next/features',
-          },
-        ],
         createRedirects(existingPath) {
           if (existingPath.includes('/docs/next')) {
             return [
-              existingPath.replace('/docs/', '/docs/next'),
+              existingPath.replace('/docs', '/docs/next'),
             ];
           }
           return undefined; // Return a falsy value: no redirect created
