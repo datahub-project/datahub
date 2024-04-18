@@ -1,5 +1,6 @@
 import pathlib
 from typing import Any, Dict, Optional, Union
+from urllib.parse import urlparse
 
 from pydantic import Field, FilePath, SecretStr, validator
 
@@ -39,9 +40,14 @@ class GitReference(ConfigModel):
 
     @validator("repo", pre=True)
     def simplify_repo_url(cls, repo: str) -> str:
-        if repo.startswith("github.com/"):
-            repo = f"https://{repo}"
-        elif repo.startswith("gitlab.com"):
+        repo_host = urlparse(repo).hostname
+        allowedHosts = [
+            "github.com",
+            "www.github.com",
+            "gitlab.com",
+            "www.gitlab.com"
+        ]
+        if repo_host in allowedHosts:
             repo = f"https://{repo}"
         elif repo.count("/") == 1:
             repo = f"https://github.com/{repo}"

@@ -43,14 +43,14 @@ public class SecretService {
       MessageDigest sha = null;
       try {
         key = _secret.getBytes(StandardCharsets.UTF_8);
-        sha = MessageDigest.getInstance("SHA-1");
+        sha = MessageDigest.getInstance("SHA-256");
         key = sha.digest(key);
         key = Arrays.copyOf(key, 16);
         secretKey = new SecretKeySpec(key, "AES");
       } catch (NoSuchAlgorithmException e) {
         e.printStackTrace();
       }
-      Cipher cipher = Cipher.getInstance("AES/ECB/PKCS5Padding");
+      Cipher cipher = Cipher.getInstance("AES");
       cipher.init(Cipher.ENCRYPT_MODE, secretKey);
       return _encoder.encodeToString(cipher.doFinal(value.getBytes(StandardCharsets.UTF_8)));
     } catch (Exception e) {
@@ -65,14 +65,14 @@ public class SecretService {
       MessageDigest sha = null;
       try {
         key = _secret.getBytes(StandardCharsets.UTF_8);
-        sha = MessageDigest.getInstance("SHA-1");
+        sha = MessageDigest.getInstance("SHA-256");
         key = sha.digest(key);
         key = Arrays.copyOf(key, 16);
         secretKey = new SecretKeySpec(key, "AES");
       } catch (NoSuchAlgorithmException e) {
         e.printStackTrace();
       }
-      Cipher cipher = Cipher.getInstance("AES/ECB/PKCS5PADDING");
+      Cipher cipher = Cipher.getInstance("AES");
       cipher.init(Cipher.DECRYPT_MODE, secretKey);
       return new String(cipher.doFinal(_decoder.decode(encryptedValue)));
     } catch (Exception e) {

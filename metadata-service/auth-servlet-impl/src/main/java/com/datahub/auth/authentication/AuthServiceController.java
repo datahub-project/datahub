@@ -123,9 +123,7 @@ public class AuthServiceController {
     try {
       bodyJson = mapper.readTree(jsonStr);
     } catch (JsonProcessingException e) {
-      log.error(
-          String.format(
-              "Failed to parse json while attempting to generate session token %s", jsonStr));
+      log.error("Failed to parse json while attempting to generate session token ", e);
       return CompletableFuture.completedFuture(new ResponseEntity<>(HttpStatus.BAD_REQUEST));
     }
     if (bodyJson == null) {
@@ -189,8 +187,7 @@ public class AuthServiceController {
     try {
       bodyJson = mapper.readTree(jsonStr);
     } catch (JsonProcessingException e) {
-      log.error(
-          String.format("Failed to parse json while attempting to create native user %s", jsonStr));
+      log.error("Failed to parse json while attempting to create native user ", e);
       return CompletableFuture.completedFuture(new ResponseEntity<>(HttpStatus.BAD_REQUEST));
     }
     if (bodyJson == null) {
@@ -235,7 +232,7 @@ public class AuthServiceController {
           try {
             Urn inviteTokenUrn = _inviteTokenService.getInviteTokenUrn(inviteTokenString);
             if (!_inviteTokenService.isInviteTokenValid(systemOperationContext, inviteTokenUrn)) {
-              log.error(String.format("Invalid invite token %s", inviteTokenString));
+              log.error("Invalid invite token !");
               return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
             }
 
@@ -279,8 +276,7 @@ public class AuthServiceController {
     try {
       bodyJson = mapper.readTree(jsonStr);
     } catch (JsonProcessingException e) {
-      log.error(
-          String.format("Failed to parse json while attempting to create native user %s", jsonStr));
+      log.error("Failed to parse json while attempting to create native user ", e);
       return CompletableFuture.completedFuture(new ResponseEntity<>(HttpStatus.BAD_REQUEST));
     }
     if (bodyJson == null) {
@@ -338,9 +334,7 @@ public class AuthServiceController {
     try {
       bodyJson = mapper.readTree(jsonStr);
     } catch (JsonProcessingException e) {
-      log.error(
-          String.format(
-              "Failed to parse json while attempting to verify native user password %s", jsonStr));
+      log.error("Failed to parse json while attempting to verify native user password ", e);
       return CompletableFuture.completedFuture(new ResponseEntity<>(HttpStatus.BAD_REQUEST));
     }
     if (bodyJson == null) {
@@ -383,9 +377,7 @@ public class AuthServiceController {
     try {
       bodyJson = mapper.readTree(jsonStr);
     } catch (JsonProcessingException e) {
-      log.error(
-          String.format(
-              "Failed to parse json while attempting to track analytics event %s", jsonStr));
+      log.error("Failed to parse json while attempting to track analytics event ", e);
       return CompletableFuture.completedFuture(new ResponseEntity<>(HttpStatus.BAD_REQUEST));
     }
     if (bodyJson == null) {

@@ -173,7 +173,8 @@ public class RollbackService {
     // Rollback timeseries aspects
     DeleteAspectValuesResult timeseriesRollbackResult =
         timeseriesAspectService.rollbackTimeseriesAspects(opContext, runId);
-    rowsDeletedFromEntityDeletion += timeseriesRollbackResult.getNumDocsDeleted();
+    rowsDeletedFromEntityDeletion +=
+        timeseriesRollbackResult.getNumDocsDeleted().intValue();
 
     log.info("finished deleting {} rows", deletedRows.size());
     int aspectsReverted = deletedRows.size() + rowsDeletedFromEntityDeletion;
