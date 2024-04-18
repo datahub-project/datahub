@@ -129,7 +129,16 @@ public class TestEngine {
     DEFAULT,
 
     /** Default evaluation mode, where results are saved to storage sync and actions are applied. */
-    SYNC
+    SYNC;
+
+    public static EvaluationMode getEvaluationMode(String mode) {
+      try {
+        return EvaluationMode.valueOf(mode);
+      } catch (Exception e) {
+        log.info("Unable to resolve evaluation mode {}, using default.", mode);
+        return EvaluationMode.DEFAULT;
+      }
+    }
   }
 
   public TestEngine(

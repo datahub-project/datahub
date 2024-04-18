@@ -94,6 +94,9 @@ datahub:
       path: ${RETENTION_PLUGIN_PATH:/etc/datahub/plugins/retention}
     auth:
       path: ${AUTH_PLUGIN_PATH:/etc/datahub/plugins/auth}
+    openApiClient:
+      maxRetries: ${DATAHUB_GMS_OPENAPI_CLIENT_MAX_RETRIES:3}
+      backOffMillis: ${DATAHUB_GMS_OPENAPI_CLIENT_BACK_OFF_MILLIS:1000}
 
 entityService:
   impl: ${ENTITY_SERVICE_IMPL:ebean}

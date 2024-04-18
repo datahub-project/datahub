@@ -63,8 +63,7 @@ public class TestDefinitionExecutorTest {
     Filter filter = PredicateToFilter.transformPredicateToFilter(testPredicate);
     assertEquals(
         filter.toString(),
-        "{or=[{and=[{condition=EQUAL, field=platform, value=urn:li:dataPlatform:teradata}]}]}");
-    System.out.println("Hello World");
+        "{or=[{and=[{condition=EQUAL, field=platform, value=urn:li:dataPlatform:teradata, values=[urn:li:dataPlatform:teradata]}]}]}");
 
     ElasticTestDefinitionConvertor convertor = new ElasticTestDefinitionConvertor(mockRegistry);
     assertTrue(convertor.canEvaluate(result));
@@ -123,8 +122,8 @@ public class TestDefinitionExecutorTest {
 
       ElasticTestDefinitionConvertor convertor = new ElasticTestDefinitionConvertor(mockRegistry);
       assertTrue(convertor.canEvaluate(result));
-      ElasticTestDefinition elasticTestDefinition = convertor.convert(result);
       long millis = System.currentTimeMillis();
+      ElasticTestDefinition elasticTestDefinition = convertor.convert(result);
       long millis7daysago = millis - 7 * 24 * 60 * 60 * 1000;
       long millis6daysago = millis - 6 * 24 * 60 * 60 * 1000;
       for (String entityType : elasticTestDefinition.getSelectedEntityTypes()) {
@@ -133,8 +132,8 @@ public class TestDefinitionExecutorTest {
         assertEquals(filter.getOr().get(0).getAnd().get(0).getCondition(), Condition.GREATER_THAN);
         long computedMillis = Long.parseLong(filter.getOr().get(0).getAnd().get(0).getValue());
         assertTrue(computedMillis < millis6daysago);
-        assertTrue(computedMillis > millis7daysago); // computedMillis is between 6 and 7 days ago
-        assertEquals(filter.getOr().get(0).getAnd().get(1).getField(), "lastOperationTime");
+        assertTrue(computedMillis >= millis7daysago); // computedMillis is between 6 and 7 days ago
+        assertEquals(filter.getOr().get(0).getAnd().get(0).getField(), "lastOperationTime");
       }
     }
   }

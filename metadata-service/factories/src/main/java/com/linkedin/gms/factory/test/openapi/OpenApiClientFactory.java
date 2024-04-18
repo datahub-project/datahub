@@ -15,7 +15,10 @@ public class OpenApiClientFactory {
       @Value("${datahub.gms.host}") String gmsHost,
       @Value("${datahub.gms.port}") int gmsPort,
       @Value("${datahub.gms.useSSL}") boolean gmsUseSSL,
+      @Value("${datahub.gms.openApiClient.maxRetries:3}") int maxRetries,
+      @Value("${datahub.gms.openApiClient.backOffMillis:1000}") long backOffMillis,
       @Qualifier("systemOperationContext") OperationContext systemOperationContext) {
-    return new OpenApiClient(gmsHost, gmsPort, gmsUseSSL, systemOperationContext);
+    return new OpenApiClient(
+        gmsHost, gmsPort, gmsUseSSL, systemOperationContext, maxRetries, backOffMillis);
   }
 }
