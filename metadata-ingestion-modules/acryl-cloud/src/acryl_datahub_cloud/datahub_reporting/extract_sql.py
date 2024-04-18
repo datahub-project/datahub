@@ -1,5 +1,6 @@
 import logging
 import os
+import shutil
 import zipfile
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -145,7 +146,9 @@ class DataHubReportingExtractSQLSource(Source):
 
         # Generate a static path used for temporary files,
         # so we consistently delete the data (possibly based on pipeline name)
-        tmp_dir_aux = self.ctx.pipeline_name if self.ctx.pipeline_name else "sql_default_dir"
+        tmp_dir_aux = (
+            self.ctx.pipeline_name if self.ctx.pipeline_name else "sql_default_dir"
+        )
         tmp_dir = f'/tmp/{tmp_dir_aux.replace(":", "_")}'
 
         output_file = (
@@ -171,16 +174,19 @@ class DataHubReportingExtractSQLSource(Source):
                 previous_date.year, previous_date.month, previous_date.day
             )
 
-            self._clean_up_old_state(
-                state_directory=tmp_dir, result_file_path=output_file
-            )
+            self._clean_up_old_state(state_directory=tmp_dir)
             self._download_files(
                 bucket=self.config.sql_backup_config.bucket,
                 prefix=f"{self.config.sql_backup_config.path}/{time_partition_path}",
-                target_dir=tmp_dir,
+                target_dir=f"{tmp_dir}/download/",
             )
-            self._zip_folder(folder_path=tmp_dir, output_file=output_file)
-            logger.warning(self.datahub_based_s3_dataset.dataset_metadata)
+            self._zip_folder(
+                folder_path=f"{tmp_dir}/download",
+                output_file=f"{tmp_dir}/{output_file}",
+            )
+            # hard-code the local file from which the dataset will be created, other the upload to s3 will be in
+            # unexpected path
+            self.datahub_based_s3_dataset.local_file_path = f"{tmp_dir}/{output_file}"
             mcps = self.datahub_based_s3_dataset.commit()
 
             logger.info(
@@ -188,25 +194,26 @@ class DataHubReportingExtractSQLSource(Source):
             )
 
         for mcp in mcps:
+            # logger.warning(json.dumps(str(mcp)))
             yield mcp.as_workunit()
 
-        self._clean_up_old_state(state_directory=tmp_dir, result_file_path=output_file)
+        self._clean_up_old_state(state_directory=tmp_dir)
 
     @staticmethod
-    def _clean_up_old_state(
-        state_directory: str, result_file_path: Optional[str] = None
-    ) -> None:
-        path = Path(state_directory)
+    def _clean_up_old_state(state_directory: str) -> None:
+        path = Path(f"{state_directory}/download/")
         path.mkdir(parents=True, exist_ok=True)
         files = os.listdir(state_directory)
         if files:
-            logger.info("Some files found in the state directory, cleaning it")
+            logger.info("Some files found in the state directory, cleaning them")
             for file in files:
                 file_path = os.path.join(state_directory, file)
+                logger.info(f"Deleting {file_path}")
                 if os.path.isfile(file_path):
                     os.remove(file_path)
-        if result_file_path and os.path.isfile(result_file_path):
-            os.remove(result_file_path)
+                elif os.path.isdir(file_path):
+                    shutil.rmtree(file_path)
+        path.mkdir(parents=True, exist_ok=True)
 
     def _download_files(self, bucket: str, prefix: str, target_dir: str) -> None:
         objects = self.s3_client.list_objects_v2(Bucket=bucket, Prefix=prefix)

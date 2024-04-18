@@ -161,9 +161,7 @@ class BaseModelRow(BaseModel):
     def datahub_schema(cls) -> List[SchemaField]:
         fields = []
         for field_name, field_model in cls.__fields__.items():
-            datahub_type = BaseModelRow.pydantic_type_to_datahub(
-                field_model.type_
-            )
+            datahub_type = BaseModelRow.pydantic_type_to_datahub(field_model.type_)
             fields.append(SchemaField(name=field_name, type=datahub_type))
         return fields
 
