@@ -995,7 +995,9 @@ class DBTSourceBase(StatefulIngestionSourceBase):
     def _to_schema_info(schema_fields: List[SchemaField]) -> SchemaInfo:
         return {column.fieldPath: column.nativeDataType for column in schema_fields}
 
-    def _infer_schemas_and_update_cll(self, all_nodes_map: Dict[str, DBTNode]) -> None:
+    def _infer_schemas_and_update_cll(  # noqa: C901
+        self, all_nodes_map: Dict[str, DBTNode]
+    ) -> None:
         """Annotate the DBTNode objects with schema information and column-level lineage.
 
         Note that this mutates the DBTNode objects directly.
