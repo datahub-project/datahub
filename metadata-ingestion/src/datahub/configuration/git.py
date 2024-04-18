@@ -42,11 +42,8 @@ class GitReference(ConfigModel):
     def simplify_repo_url(cls, repo: str) -> str:
         repo_host = urlparse(repo).hostname
         allowedHosts = ["github.com", "www.github.com", "gitlab.com", "www.gitlab.com"]
-        index = allowedHosts.index(repo_host)
-        if index == 0 or index == 1:
-            repo = _GITHUB_PREFIX
-        elif index == 2 or index == 3:
-            repo = _GITLAB_PREFIX
+        if repo_host in allowedHosts and (repo.startswith("github.com/") or repo.startswith("gitlab.com")):
+            return f"https://{repo}"
         elif repo.count("/") == 1:
             repo = f"https://github.com/{repo}"
 
