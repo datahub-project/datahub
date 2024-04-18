@@ -10,7 +10,7 @@ from deprecated import deprecated
 from requests.adapters import HTTPAdapter, Retry
 from requests.exceptions import HTTPError, RequestException
 
-from datahub.cli.cli_utils import get_system_auth, fixup_gms_url
+from datahub.cli.cli_utils import fixup_gms_url, get_system_auth
 from datahub.configuration.common import ConfigurationError, OperationalError
 from datahub.emitter.generic_emitter import Emitter
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
