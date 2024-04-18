@@ -26,7 +26,7 @@ export default function ExternalUrlButton({ externalUrl, platformName, entityTyp
 
     let displayedName = platformName;
     try {
-      const host = new URL(externalUrl).host;
+      const { host } = new URL(externalUrl);
       if (ALLOWED_GITHUB_HOSTS.includes(host.toLocaleLowerCase())) {
           displayedName = GITHUB;
       }
