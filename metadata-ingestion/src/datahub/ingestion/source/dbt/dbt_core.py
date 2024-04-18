@@ -425,22 +425,6 @@ def load_run_results(
 @capability(SourceCapability.DELETION_DETECTION, "Enabled via stateful ingestion")
 @capability(SourceCapability.LINEAGE_COARSE, "Enabled by default")
 class DBTCoreSource(DBTSourceBase, TestableSource):
-    """
-    The artifacts used by this source are:
-    - [dbt manifest file](https://docs.getdbt.com/reference/artifacts/manifest-json)
-      - This file contains model, source, tests and lineage data.
-    - [dbt catalog file](https://docs.getdbt.com/reference/artifacts/catalog-json)
-      - This file contains schema data.
-      - dbt does not record schema data for Ephemeral models, as such datahub will show Ephemeral models in the lineage, however there will be no associated schema for Ephemeral models
-    - [dbt sources file](https://docs.getdbt.com/reference/artifacts/sources-json)
-      - This file contains metadata for sources with freshness checks.
-      - We transfer dbt's freshness checks to DataHub's last-modified fields.
-      - Note that this file is optional – if not specified, we'll use time of ingestion instead as a proxy for time last-modified.
-    - [dbt run_results file](https://docs.getdbt.com/reference/artifacts/run-results-json)
-      - This file contains metadata from the result of a dbt run, e.g. dbt test
-      - When provided, we transfer dbt test run results into assertion run events to see a timeline of test runs on the dataset
-    """
-
     config: DBTCoreConfig
 
     @classmethod
