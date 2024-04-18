@@ -17,7 +17,7 @@ dependencies = [
 	"uvicorn[standard]>=0.23.2",
 	"loguru",
 	"slack-bolt",
-	"acryl-datahub-actions==0.0.14",
+	"acryl-datahub-actions==0.0.15",
 	"openai",
 	"openai_function_call",
 	"sendgrid",

@@ -29,10 +29,21 @@ base_action_config = {
     "source": {
         "type": "kafka",
         "config": {
+            "topic_routes": {
+                "mcl": "${METADATA_CHANGE_LOG_VERSIONED_TOPIC_NAME:-MetadataChangeLog_Versioned_v1}",
+                "pe": "${PLATFORM_EVENT_TOPIC_NAME:-PlatformEvent_v1}",
+            },
             "connection": {
                 "bootstrap": "${KAFKA_BOOTSTRAP_SERVER:-broker:29092}",
                 "schema_registry_url": "${SCHEMA_REGISTRY_URL:-http://datahub-gms:8080/schema-registry/api/}",
-            }
+                "consumer_config": {
+                    "auto.offset.reset": "${KAFKA_AUTO_OFFSET_POLICY:-latest}",
+                    "security.protocol": "${KAFKA_PROPERTIES_SECURITY_PROTOCOL:-PLAINTEXT}",
+                    "sasl.mechanism": "${KAFKA_PROPERTIES_SASL_MECHANISM:-PLAIN}",
+                    "sasl.username": "${KAFKA_PROPERTIES_SASL_USERNAME:-}",
+                    "sasl.password": "${KAFKA_PROPERTIES_SASL_PASSWORD:-}",
+                },
+            },
         },
     },
     "datahub": {
