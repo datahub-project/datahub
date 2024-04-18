@@ -1,12 +1,12 @@
 import React, { useCallback, useContext, useState } from 'react';
 import { useOnSelectionChange, useStore } from 'reactflow';
 import styled from 'styled-components/macro';
-import EntitySidebarContext, { EntitySidebarQueryDetails } from '../sharedV2/EntitySidebarContext';
+import translateFieldPath from '../entityV2/dataset/profile/schema/utils/translateFieldPath';
+import EntitySidebarContext, { FineGrainedOperation } from '../sharedV2/EntitySidebarContext';
 import CompactContext from '../shared/CompactContext';
 import useSidebarWidth from '../sharedV2/sidebar/useSidebarWidth';
 import { useEntityRegistry } from '../useEntityRegistry';
-import { NeighborMap, LineageDisplayContext, LineageEntity, LineageNodesContext } from './common';
-import { EntityType } from '../../types.generated';
+import { LineageDisplayContext, LineageEntity, LineageNodesContext, isQuery } from './common';
 
 const SidebarWrapper = styled.div<{ $distanceFromTop: number }>`
     position: absolute;
@@ -57,7 +57,7 @@ export default function LineageSidebar() {
                 setSidebarClosed,
                 forLineage: true,
                 separateSiblings: true,
-                extra: queryDetails,
+                fineGrainedOperations: queryDetails,
             }}
         >
             <SidebarWrapper $distanceFromTop={0}>
@@ -84,25 +84,21 @@ function useSelectedNode() {
     return selectedNode;
 }
 
-function useQueryDetails(selectedNode: LineageEntity | null): EntitySidebarQueryDetails | undefined {
-    const { nodes, adjacencyList } = useContext(LineageNodesContext);
-    const { columnQueryData } = useContext(LineageDisplayContext);
+function useQueryDetails(selectedNode: LineageEntity | null): FineGrainedOperation[] | undefined {
+    const { nodes } = useContext(LineageNodesContext);
+    const { cllHighlightedNodes, fineGrainedOperations } = useContext(LineageDisplayContext);
 
-    if (selectedNode?.type === EntityType.Query) {
-        const data = columnQueryData.get(selectedNode.id);
-        return {
-            inputTables: getChildTableNames(nodes, selectedNode.urn, adjacencyList.UPSTREAM),
-            outputTables: getChildTableNames(nodes, selectedNode.urn, adjacencyList.DOWNSTREAM),
-            inputColumns: getColumnNames(nodes, data?.inputColumns),
-            outputColumns: getColumnNames(nodes, data?.outputColumns),
-            transformOperation: data?.transformOperation,
-        };
+    if (selectedNode && isQuery(selectedNode)) {
+        return Array.from(cllHighlightedNodes.get(selectedNode.urn) || []).map((ref) => {
+            const data = fineGrainedOperations.get(ref);
+            return {
+                inputColumns: getColumnNames(nodes, data?.inputColumns),
+                outputColumns: getColumnNames(nodes, data?.outputColumns),
+                transformOperation: data?.transformOperation,
+            };
+        });
     }
-    return undefined;
-}
-
-function getChildTableNames(nodes: Map<string, LineageEntity>, urn: string, childMap: NeighborMap): string[] {
-    return Array.from(childMap.get(urn) || []).map((childUrn) => nodes.get(childUrn)?.entity?.name || childUrn);
+    return [];
 }
 
 // TODO: Clean this up
@@ -110,5 +106,5 @@ function getColumnNames(
     nodes: Map<string, LineageEntity>,
     columns?: Array<[string, string]>,
 ): Array<[string, string]> | undefined {
-    return columns?.map(([urn, column]) => [nodes.get(urn)?.entity?.name || urn, column]);
+    return columns?.map(([urn, column]) => [nodes.get(urn)?.entity?.name || urn, translateFieldPath(column)]);
 }

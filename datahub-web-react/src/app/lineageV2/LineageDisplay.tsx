@@ -34,11 +34,10 @@ export default function LineageDisplay({ urn, type, loaded }: Props) {
 
     const { highlightedNodes, highlightedEdges } = useNodeHighlighting(hoveredNode);
 
-    const highlightedColumns = useColumnHighlighting(
+    const { cllHighlightedNodes, highlightedColumns } = useColumnHighlighting(
         selectedColumn,
         hoveredColumn,
         fineGrainedLineage.indirect,
-        fineGrainedLineage.direct,
     );
 
     useEffect(() => {
@@ -76,10 +75,11 @@ export default function LineageDisplay({ urn, type, loaded }: Props) {
                 hoveredColumn,
                 setHoveredColumn,
                 highlightedNodes,
+                cllHighlightedNodes,
                 highlightedColumns,
                 highlightedEdges,
                 fineGrainedLineage: fineGrainedLineage.direct,
-                columnQueryData: fineGrainedLineage.columnQueryData,
+                fineGrainedOperations: fineGrainedLineage.fineGrainedOperations,
                 numNodes: flowNodes.length,
                 refetchUrn,
             }}

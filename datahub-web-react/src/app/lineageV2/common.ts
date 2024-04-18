@@ -3,7 +3,8 @@ import { Maybe } from 'graphql/jsutils/Maybe';
 import { Entity, EntityType, LineageDirection, SchemaFieldRef } from '../../types.generated';
 import EntityRegistry from '../entityV2/EntityRegistry';
 import { DBT_CLOUD_URN } from '../ingest/source/builder/constants';
-import { ColumnQueryData } from '../sharedV2/EntitySidebarContext';
+import { hashString } from '../shared/avatar/getAvatarColor';
+import { FineGrainedOperation } from '../sharedV2/EntitySidebarContext';
 import { getEntityTypeFromEntityUrn, getPlatformUrnFromEntityUrn } from './lineageUtils';
 import { FetchedEntityV2 } from './types';
 
@@ -89,6 +90,7 @@ export function isUrnTransformational(urn: string, entityRegistry: EntityRegistr
 }
 
 export type ColumnRef = string;
+export type FineGrainedOperationRef = string;
 
 export function createColumnRef(urn: Urn, field: string): ColumnRef {
     const val = `${urn}::${field}`;
@@ -104,23 +106,14 @@ export function parseColumnRef(columnRef: ColumnRef): [Urn, string] {
     return [urn, field];
 }
 
-export const COLUMN_QUERY_ID_PREFIX = 'cq:';
-
-export function createColumnQueryRef(
+export function createFineGrainedOperationRef(
     queryUrn: Urn,
     upstreams: Maybe<SchemaFieldRef[]>,
     downstreams: Maybe<SchemaFieldRef[]>,
-): ColumnRef {
-    const upstreamsUrn = upstreams?.map((r) => `${r.urn}:${r.path}`).join('|');
-    const downstreamsUrn = downstreams?.map((r) => `${r.urn}:${r.path}`).join('|');
-    const base = COLUMN_QUERY_ID_PREFIX + [queryUrn, upstreamsUrn, downstreamsUrn].join('__');
-    return createColumnRef(base, '');
-}
-
-export function parseColumnQueryRef(queryRef: ColumnRef): Urn {
-    const [base] = queryRef.split('::', 2);
-    const [queryUrn] = base.slice(COLUMN_QUERY_ID_PREFIX.length).split('__', 1);
-    return queryUrn;
+): FineGrainedOperationRef {
+    const upstreamsUrn = upstreams?.map((r) => `${r.urn}:${r.path}`).join('␞');
+    const downstreamsUrn = downstreams?.map((r) => `${r.urn}:${r.path}`).join('␞');
+    return createColumnRef(queryUrn, hashString([upstreamsUrn, downstreamsUrn].join('::')).toString());
 }
 
 interface AuditStamp {
@@ -151,7 +144,7 @@ export function parseEdgeId(edgeId: EdgeId): [Urn, Urn] {
     return [upstream, downstream];
 }
 
-export function getEdgeId(parent: Urn, child: Urn, direction: LineageDirection) {
+export function getEdgeId(parent: Urn, child: Urn, direction: LineageDirection | string) {
     const upstream = direction === LineageDirection.Downstream ? parent : child;
     const downstream = direction === LineageDirection.Downstream ? child : parent;
     return createEdgeId(upstream, downstream);
@@ -228,7 +221,9 @@ export function clearEdges(urn: Urn, context: Pick<NodeContext, 'edges' | 'adjac
     adjacencyList[LineageDirection.Downstream].delete(urn);
 }
 
-export type FineGrainedLineageMap = Map<ColumnRef, ColumnRef[]>;
+// Mapping fromRef -> toRef -> operationRef represents a column-level edge (fromRef -> toRef)
+// with an operationRef attached if this is an edge to that operation's query node
+export type FineGrainedLineageMap = Map<ColumnRef, Map<ColumnRef, FineGrainedOperationRef | null>>;
 export type FineGrainedLineage = { downstream: FineGrainedLineageMap; upstream: FineGrainedLineageMap };
 export type HighlightedColumns = Map<Urn, Set<string>>;
 
@@ -244,10 +239,11 @@ interface DisplayContext {
     setSelectedColumn: Dispatch<SetStateAction<ColumnRef | null>>;
     // Outputs
     highlightedNodes: Set<Urn>; // TODO: Remove? Not currently used
+    cllHighlightedNodes: Map<Urn, Set<FineGrainedOperationRef> | null>;
     highlightedColumns: HighlightedColumns;
     highlightedEdges: Set<string>;
     fineGrainedLineage: FineGrainedLineage;
-    columnQueryData: Map<ColumnRef, ColumnQueryData>;
+    fineGrainedOperations: Map<FineGrainedOperationRef, FineGrainedOperation>;
     numNodes: number;
     refetchUrn: (urn: string) => void;
 }
@@ -262,13 +258,14 @@ export const LineageDisplayContext = React.createContext<DisplayContext>({
     selectedColumn: null,
     setSelectedColumn: () => {},
     highlightedNodes: new Set(),
+    cllHighlightedNodes: new Map(),
     highlightedColumns: new Map(),
     highlightedEdges: new Set(),
     fineGrainedLineage: {
         downstream: new Map(),
         upstream: new Map(),
     },
-    columnQueryData: new Map(),
+    fineGrainedOperations: new Map(),
     numNodes: 0,
     refetchUrn: () => {},
 });

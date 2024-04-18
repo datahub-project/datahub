@@ -7,12 +7,8 @@ import { REDESIGN_COLORS } from '../../../constants';
 import { CountStyle } from '../../../SidebarStyledComponents';
 
 const Container = styled.div`
-    display: flex;
-`;
-
-const Content = styled.div`
-    flex: 1;
     margin-left: 7px;
+    width: 100%;
 `;
 
 const StyledCollapse = styled(Collapse)`
@@ -20,14 +16,17 @@ const StyledCollapse = styled(Collapse)`
         padding: 0px 0px !important;
         align-items: center;
     }
+
     .ant-collapse-content-box {
         padding-top: 4px !important;
         padding-bottom: 0px !important;
     }
+
     .ant-collapse-arrow {
         margin-right: 5px !important;
         line-height: 32px;
     }
+
     .ant-collapse-expand-icon {
         height: 22px;
     }
@@ -77,9 +76,7 @@ export const SidebarSection = ({ title, content, extra, count = 0 }: Props) => {
                 key={title}
                 extra={extra}
             >
-                <Container>
-                    <Content>{content}</Content>
-                </Container>
+                <Container>{content}</Container>
             </Collapse.Panel>
         </StyledCollapse>
     );

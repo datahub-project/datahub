@@ -9,7 +9,7 @@ import { SidebarSection } from '../SidebarSection';
 import { getDirectDownstreamSummary, getDirectUpstreamSummary, getRelatedEntitySummary } from './utils';
 import SidebarLineageLoadingSection from './SidebarLineageLoadingSection';
 import { useEntityRegistry } from '../../../../../../useEntityRegistry';
-import { REDESIGN_COLORS } from '../../../../constants';
+import { ANTD_GRAY, REDESIGN_COLORS } from '../../../../constants';
 import SectionActionButton from '../SectionActionButton';
 
 const Section = styled.div`
@@ -51,7 +51,7 @@ const DirectionHeader = styled.div`
     font-size: 12px;
     letter-spacing: 1px;
     height: 20px;
-    color: #c1c1d7;
+    color: ${ANTD_GRAY[6]};
     min-width: 100px;
     margin-right: 6px;
 `;

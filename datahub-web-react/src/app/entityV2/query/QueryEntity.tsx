@@ -10,11 +10,7 @@ import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab'
 import SidebarQueryUpdatedAtSection from '../shared/containers/profile/sidebar/Query/SidebarQueryUpdatedAtSection';
 import SidebarQueryDescriptionSection from '../shared/containers/profile/sidebar/Query/SidebarQueryDescriptionSection';
 import { TYPE_ICON_CLASS_NAME } from '../shared/components/subtypes';
-import {
-    SidebarQueryInputsSection,
-    SidebarQueryOutputsSection,
-} from '../shared/containers/profile/sidebar/Query/SidebarQueryInputsOutputsSections';
-import SidebarOperationSection from '../shared/containers/profile/sidebar/Query/SidebarOperationSection';
+import SidebarQueryOperationsSection from '../shared/containers/profile/sidebar/Query/SidebarQueryOperationsSection';
 import SidebarQueryDefinitionSection from '../shared/containers/profile/sidebar/Query/SidebarQueryDefinitionSection';
 import { SidebarQueryLogicSection } from '../shared/containers/profile/sidebar/SidebarLogicSection';
 
@@ -67,11 +63,9 @@ export class QueryEntity implements Entity<Query> {
                 sidebarSections={[
                     { component: SidebarQueryUpdatedAtSection },
                     { component: SidebarQueryDefinitionSection },
-                    { component: SidebarOperationSection },
                     { component: SidebarQueryLogicSection },
-                    { component: SidebarQueryInputsSection },
-                    { component: SidebarQueryOutputsSection },
                     { component: SidebarQueryDescriptionSection },
+                    { component: SidebarQueryOperationsSection },
                 ]}
                 sidebarTabs={[]}
                 getOverrideProperties={() => ({})}

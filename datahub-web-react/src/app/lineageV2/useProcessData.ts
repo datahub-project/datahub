@@ -2,10 +2,9 @@ import { useContext, useMemo } from 'react';
 import { Edge } from 'reactflow';
 import { EntityType, LineageDirection } from '../../types.generated';
 import { ENTITY_SUB_TYPE_FILTER_NAME, FILTER_DELIMITER, PLATFORM_FILTER_NAME } from '../searchV2/utils/constants';
-import { ColumnQueryData } from '../sharedV2/EntitySidebarContext';
+import { FineGrainedOperation } from '../sharedV2/EntitySidebarContext';
 import {
     ColumnRef,
-    createColumnQueryRef,
     createColumnRef,
     createEdgeId,
     FineGrainedLineage,
@@ -22,8 +21,9 @@ import {
     LineageNode,
     LineageNodesContext,
     NodeContext,
-    parseColumnRef,
     setDefault,
+    createFineGrainedOperationRef,
+    FineGrainedOperationRef,
 } from './common';
 import { getFieldPathFromSchemaFieldUrn, getSourceUrnFromSchemaFieldUrn } from './lineageUtils';
 import NodeBuilder, { NodeWithMetadata } from './NodeBuilder';
@@ -31,7 +31,7 @@ import NodeBuilder, { NodeWithMetadata } from './NodeBuilder';
 interface FineGrainedLineageData {
     direct: FineGrainedLineage;
     indirect: FineGrainedLineage;
-    columnQueryData: Map<ColumnRef, ColumnQueryData>;
+    fineGrainedOperations: Map<FineGrainedOperationRef, FineGrainedOperation>;
 }
 
 interface ProcessedData {
@@ -270,18 +270,20 @@ function getFineGrainedLineage(context: Pick<NodeContext, 'nodes' | 'edges'>): F
     const downstreamDirect: FineGrainedLineageMap = new Map();
     const upstreamDirect: FineGrainedLineageMap = new Map();
 
-    const columnQueryData: Map<ColumnRef, ColumnQueryData> = new Map();
+    const fineGrainedOperations: Map<FineGrainedOperationRef, FineGrainedOperation> = new Map();
 
     nodes.forEach((node) => {
         node.entity?.fineGrainedLineages?.forEach((entry) => {
-            const queryRef = entry.query && createColumnQueryRef(entry.query, entry.upstreams, entry.downstreams);
-            if (queryRef) {
-                const [queryNodeId] = parseColumnRef(queryRef);
-                columnQueryData.set(queryNodeId, {
+            let queryInfo: [FineGrainedOperationRef, ColumnRef] | undefined;
+            if (entry.query) {
+                const operationRef = createFineGrainedOperationRef(entry.query, entry.upstreams, entry.downstreams);
+                const queryRef = createColumnRef(entry.query, operationRef);
+                fineGrainedOperations.set(operationRef, {
                     inputColumns: entry.upstreams?.map((ref) => [ref.urn, ref.path]) || undefined,
                     outputColumns: entry.downstreams?.map((ref) => [ref.urn, ref.path]) || undefined,
                     transformOperation: entry.transformOperation || undefined,
                 });
+                queryInfo = [operationRef, queryRef];
             }
             entry.upstreams?.forEach((from) => {
                 const fromRef = createColumnRef(from.urn, from.path);
@@ -292,7 +294,7 @@ function getFineGrainedLineage(context: Pick<NodeContext, 'nodes' | 'edges'>): F
                             downstreamDirect,
                             fromRef,
                             createColumnRef(to.urn, to.path),
-                            queryRef,
+                            queryInfo,
                         );
                     }
                 });
@@ -306,7 +308,7 @@ function getFineGrainedLineage(context: Pick<NodeContext, 'nodes' | 'edges'>): F
                             upstreamDirect,
                             fromRef,
                             createColumnRef(to.urn, to.path),
-                            queryRef,
+                            queryInfo,
                         );
                     }
                 });
@@ -329,7 +331,7 @@ function getFineGrainedLineage(context: Pick<NodeContext, 'nodes' | 'edges'>): F
     return {
         indirect: { downstream, upstream },
         direct: { downstream: downstreamDirect, upstream: upstreamDirect },
-        columnQueryData,
+        fineGrainedOperations,
     };
 }
 
@@ -351,13 +353,14 @@ function addFineGrainedEdges(
     directMap: FineGrainedLineageMap,
     from: ColumnRef,
     to: ColumnRef,
-    query: ColumnRef | null | undefined,
+    queryInfo: [FineGrainedOperationRef, ColumnRef] | undefined,
 ) {
-    if (query) {
-        setDefault(map, from, []).push(query);
-        setDefault(map, query, []).push(to);
+    if (queryInfo) {
+        const [operationRef, queryRef] = queryInfo;
+        setDefault(map, from, new Map()).set(queryRef, operationRef);
+        setDefault(map, queryRef, new Map()).set(to, null);
     } else {
-        setDefault(map, from, []).push(to);
+        setDefault(map, from, new Map()).set(to, null);
     }
-    setDefault(directMap, from, []).push(to);
+    setDefault(directMap, from, new Map()).set(to, null);
 }
