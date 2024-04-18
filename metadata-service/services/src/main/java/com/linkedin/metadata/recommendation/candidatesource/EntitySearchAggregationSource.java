@@ -6,6 +6,7 @@ import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
+import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.recommendation.ContentParams;
 import com.linkedin.metadata.recommendation.RecommendationContent;
 import com.linkedin.metadata.recommendation.RecommendationParams;
@@ -72,10 +73,16 @@ public abstract class EntitySearchAggregationSource implements RecommendationSou
   @Override
   @WithSpan
   public List<RecommendationContent> getRecommendations(
-      @Nonnull OperationContext opContext, @Nullable RecommendationRequestContext requestContext) {
+      @Nonnull OperationContext opContext,
+      @Nullable RecommendationRequestContext requestContext,
+      @Nullable Filter filter) {
     Map<String, Long> aggregationResult =
         entitySearchService.aggregateByValue(
-            opContext, getEntityNames(entityRegistry), getSearchFieldName(), null, getMaxContent());
+            opContext,
+            getEntityNames(entityRegistry),
+            getSearchFieldName(),
+            filter,
+            getMaxContent());
 
     if (aggregationResult.isEmpty()) {
       return Collections.emptyList();
