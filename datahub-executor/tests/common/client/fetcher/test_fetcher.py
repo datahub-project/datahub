@@ -99,7 +99,7 @@ def test_fetch_freshness_assertion() -> None:
                         },
                     }
                 }
-            ]
+            ],
         },
         "error": None,
     }
@@ -266,7 +266,7 @@ def test_fetch_volume_assertion() -> None:
                         },
                     }
                 }
-            ]
+            ],
         },
         "error": None,
     }
@@ -420,7 +420,7 @@ def test_fetch_sql_assertion() -> None:
                         },
                     }
                 }
-            ]
+            ],
         },
         "error": None,
     }
@@ -592,7 +592,7 @@ def test_fetch_field_assertion() -> None:
                         },
                     }
                 }
-            ]
+            ],
         },
         "error": None,
     }
