@@ -85,7 +85,7 @@ export function isUrnQuery(urn: string, entityRegistry: EntityRegistry): boolean
 
 export function isUrnTransformational(urn: string, entityRegistry: EntityRegistry): boolean {
     const type = getEntityTypeFromEntityUrn(urn, entityRegistry);
-    return !!type && TRANSFORMATION_TYPES.includes(type);
+    return (!!type && TRANSFORMATION_TYPES.includes(type)) || isUrnDbt(urn, entityRegistry);
 }
 
 export type ColumnRef = string;

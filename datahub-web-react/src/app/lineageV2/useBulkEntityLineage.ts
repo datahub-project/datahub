@@ -17,7 +17,7 @@ import {
     setDefault,
 } from './common';
 import { FetchedEntityV2Relationship } from './types';
-import { addQueryNodes, entityNodeDefault, pruneParentsThroughDbt } from './useSearchAcrossLineage';
+import { addQueryNodes, entityNodeDefault, pruneDuplicateEdges } from './useSearchAcrossLineage';
 
 export default function useBulkEntityLineage(shownUrns: string[]): (urn: string) => void {
     const { nodes, edges, adjacencyList, setDataVersion, setDisplayVersion } = useContext(LineageNodesContext);
@@ -76,8 +76,8 @@ export default function useBulkEntityLineage(shownUrns: string[]): (urn: string)
                     entity.upstreamRelationships?.forEach((relationship) => {
                         processEdge(node, relationship, LineageDirection.Upstream, smallContext);
                     });
-                    pruneParentsThroughDbt(node.urn, LineageDirection.Upstream, smallContext, entityRegistry);
-                    pruneParentsThroughDbt(node.urn, LineageDirection.Downstream, smallContext, entityRegistry);
+                    pruneDuplicateEdges(node.urn, LineageDirection.Upstream, smallContext, entityRegistry);
+                    pruneDuplicateEdges(node.urn, LineageDirection.Downstream, smallContext, entityRegistry);
                 }
             }
         });

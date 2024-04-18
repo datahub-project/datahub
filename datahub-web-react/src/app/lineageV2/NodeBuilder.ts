@@ -110,8 +110,8 @@ export default class NodeBuilder {
         return !isTransformational(node);
     }
 
-    #getMarker(information: NodeInformation): EdgeMarker | undefined {
-        return this.#isMainNode(information) ? { type: MarkerType.ArrowClosed } : undefined;
+    #getMarker(information?: NodeInformation): EdgeMarker | undefined {
+        return information && this.#isMainNode(information) ? { type: MarkerType.ArrowClosed } : undefined;
     }
 
     createNodes(adjacencyList: NodeContext['adjacencyList']): NodeWithMetadata[] {
