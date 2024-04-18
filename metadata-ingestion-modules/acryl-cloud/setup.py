@@ -6,7 +6,8 @@ from setuptools import setup
 _codegen_config_file = pathlib.Path("./src/acryl_datahub_cloud/_codegen_config.json")
 _codegen_config: dict = json.loads(_codegen_config_file.read_text())
 
-stats_common = {"pandas", "pyarrow", "duckdb"}
+# Adding pydantic<2 since we use pydantic models to map to pyarrow models and that is only compatible in pydantic v1
+stats_common = {"pandas", "pyarrow", "duckdb", "pydantic<2"}
 aws_common = {"boto3"}
 
 plugins = {

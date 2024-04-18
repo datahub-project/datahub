@@ -194,7 +194,7 @@ class DataHubReportingExtractSQLSource(Source):
 
     @staticmethod
     def _clean_up_old_state(state_directory: str) -> None:
-        shutil.rmtree(state_directory)
+        shutil.rmtree(state_directory, ignore_errors=True)
         path = Path(f"{state_directory}/download/")
         path.mkdir(parents=True, exist_ok=True)
 
