@@ -60,7 +60,6 @@ class DataHubReportingExtractSQLSourceConfig(ConfigModel):
             else:
                 v["file_name"] = v["file"].split(".")[0]
                 v["file_extension"] = v["file"].split(".")[-1]
-
         return v
 
 
@@ -73,19 +72,6 @@ class SQLGraphRow(BaseModelRow):
     createdon: float
     createdby: str
     createdfor: str
-
-    @classmethod
-    def from_sql_doc(cls, doc):
-        return cls(
-            urn=doc["urn"],
-            aspect=doc["aspect"],
-            version=doc["version"],
-            metadata=doc["metadata"],
-            systemmetadata=doc["systemmetadata"],
-            createdon=doc["createdon"],
-            createdby=doc["createdby"],
-            createdfor=doc["createdfor"],
-        )
 
 
 @platform_name(id="datahub", platform_name="DataHub")
@@ -107,8 +93,7 @@ class DataHubReportingExtractSQLSource(Source):
             dataset_metadata=DatasetMetadata(
                 displayName="SQL Extract",
                 description="This is an automated SQL Extract from DataHub's backend",
-                # TODO: Add schema to dataset
-                # schemaFields=SQLGraphRow.datahub_schema(),
+                schemaFields=SQLGraphRow.datahub_schema(),
             ),
         )
 
@@ -165,8 +150,6 @@ class DataHubReportingExtractSQLSource(Source):
             mcps = self.datahub_based_s3_dataset.update_presigned_url(
                 dataset_properties=dataset_properties
             )
-            for mcp in mcps:
-                yield mcp.as_workunit()
         else:
             # Get yesterday's RDS data dump.
             previous_date = datetime.now() - timedelta(days=1)
@@ -184,35 +167,35 @@ class DataHubReportingExtractSQLSource(Source):
                 folder_path=f"{tmp_dir}/download",
                 output_file=f"{tmp_dir}/{output_file}",
             )
-            # hard-code the local file from which the dataset will be created, other the upload to s3 will be in
-            # unexpected path
-            self.datahub_based_s3_dataset.local_file_path = f"{tmp_dir}/{output_file}"
-            mcps = self.datahub_based_s3_dataset.commit()
 
-            logger.info(
-                f"Reporting dataset registered at {self.datahub_based_s3_dataset.get_dataset_urn()}"
+            # Compute profile & schema information, this is based on the parquet files that were downloaded and not the zip file.
+            # We must hard-code the local file from which the dataset will be created, otherwise the upload to s3 will be in
+            # unexpected path.
+            mcps = self.datahub_based_s3_dataset.register_dataset(
+                dataset_urn=self.datahub_based_s3_dataset.get_dataset_urn(),
+                physical_uri=self.datahub_based_s3_dataset.get_file_uri(),
+                local_file=f"{tmp_dir}/download/*.parquet",
             )
+
+            # Force update the DataHubBasedS3Dataset local file path to match where the zip file was created.
+            self.datahub_based_s3_dataset.local_file_path = f"{tmp_dir}/{output_file}"
+            # Upload zip file to s3
+            self.datahub_based_s3_dataset.upload_file_to_s3()
 
         for mcp in mcps:
             # logger.warning(json.dumps(str(mcp)))
             yield mcp.as_workunit()
 
+        logger.info(
+            f"Reporting dataset registered at {self.datahub_based_s3_dataset.get_dataset_urn()}"
+        )
+
         self._clean_up_old_state(state_directory=tmp_dir)
 
     @staticmethod
     def _clean_up_old_state(state_directory: str) -> None:
+        shutil.rmtree(state_directory)
         path = Path(f"{state_directory}/download/")
-        path.mkdir(parents=True, exist_ok=True)
-        files = os.listdir(state_directory)
-        if files:
-            logger.info("Some files found in the state directory, cleaning them")
-            for file in files:
-                file_path = os.path.join(state_directory, file)
-                logger.info(f"Deleting {file_path}")
-                if os.path.isfile(file_path):
-                    os.remove(file_path)
-                elif os.path.isdir(file_path):
-                    shutil.rmtree(file_path)
         path.mkdir(parents=True, exist_ok=True)
 
     def _download_files(self, bucket: str, prefix: str, target_dir: str) -> None:

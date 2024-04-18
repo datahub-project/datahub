@@ -128,25 +128,6 @@ class BaseModelRow(BaseModel):
         else:
             raise ValueError(f"No mapping for type {type_}")
 
-    @staticmethod
-    # Mapping function: Pydantic types to DataHub types (based on SchemaFieldDataType)
-    def pydantic_type_to_datahub(type_):
-        if issubclass(type_, bool):
-            return "BooleanType"
-        elif issubclass(type_, int):
-            return "NumberType"
-        elif issubclass(type_, float):
-            return "NumberType"
-        elif issubclass(type_, str):
-            return "StringType"
-        elif issubclass(type_, datetime.datetime):
-            return "TimeType"
-        elif issubclass(type_, datetime.date):
-            return "TimeType"
-        # Extend with additional mappings as needed
-        else:
-            raise ValueError(f"No mapping for type {type_}")
-
     @classmethod
     def arrow_schema(cls) -> pa.Schema:
         fields = []
@@ -161,8 +142,10 @@ class BaseModelRow(BaseModel):
     def datahub_schema(cls) -> List[SchemaField]:
         fields = []
         for field_name, field_model in cls.__fields__.items():
-            datahub_type = BaseModelRow.pydantic_type_to_datahub(field_model.type_)
-            fields.append(SchemaField(name=field_name, type=datahub_type))
+            pyarrow_type = BaseModelRow.pydantic_type_to_pyarrow(
+                field_model.outer_type_
+            )
+            fields.append(SchemaField(name=field_name, type=str(pyarrow_type)))
         return fields
 
 
@@ -184,6 +167,10 @@ class DataHubBasedS3Dataset:
             config.file if config.file else self._initialize_local_file()
         )
         self.file_writer = None
+        if self.dataset_metadata.schemaFields:
+            self.schema = pa.schema(
+                [(x.name, x.type) for x in self.dataset_metadata.schemaFields]
+            )
 
     def get_dataset_urn(self) -> str:
         return self.config.dataset_urn or make_dataset_urn(
@@ -210,13 +197,8 @@ class DataHubBasedS3Dataset:
         return file_path
 
     def _init_parquet_writer(self, row: Dict[str, Any]) -> None:
-        if self.dataset_metadata.schemaFields:
-            self.schema = pa.schema(
-                [(x.name, x.type) for x in self.dataset_metadata.schemaFields]
-            )
-        else:
-            # infer schema from the first row
-
+        if not self.schema:
+            # infer schema from the first row, if schema not set in constructor
             self.schema = pa.schema([(key, pa.dtype()) for key in row.keys()])
         self.file_writer = pq.ParquetWriter(
             self.local_file_path,
@@ -230,11 +212,7 @@ class DataHubBasedS3Dataset:
             self.current_record_batch = []
             self.stringify_row: bool = False
 
-            if self.dataset_metadata.schemaFields:
-                self.schema = pa.schema(
-                    [(x.name, x.type) for x in self.dataset_metadata.schemaFields]
-                )
-            else:
+            if not self.schema:
                 if isinstance(row, BaseModelRow):
                     # BaseModelRow allows us to introspect the schema and
                     # generate an arrow schema from it
@@ -282,10 +260,10 @@ class DataHubBasedS3Dataset:
         if self.local_file_path:
             self.opened_files.append(self.local_file_path)
         if self.config.store_platform == "s3":
-            self._upload_file_to_s3()
+            self.upload_file_to_s3()
         yield from self._register_dataset()
 
-    def _upload_file_to_s3(self):
+    def upload_file_to_s3(self):
         bucket, key = self.get_file_uri().replace("s3://", "").split("/", 1)
         assert self.s3_client is not None
         assert self.local_file_path is not None
