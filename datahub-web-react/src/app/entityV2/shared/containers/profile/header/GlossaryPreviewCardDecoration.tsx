@@ -1,12 +1,12 @@
 import React from 'react';
 import styled from 'styled-components/macro';
-import { DisplayProperties, EntityType } from '../../../../../../types.generated';
+import { DisplayProperties } from '../../../../../../types.generated';
 import { generateColorFromPalette } from '../../../../../glossaryV2/colorUtils';
+import { GenericEntityProperties } from '../../../../../entity/shared/types';
 
 type Props = {
     urn: string;
-    entityType: EntityType;
-    entityData: any;
+    entityData: GenericEntityProperties | null;
     displayProperties?: DisplayProperties;
 };
 
@@ -22,21 +22,13 @@ const GlossaryItemRibbon = styled.span<GlossaryItemRibbonProps>`
     transform: rotate(-45deg);
     padding: 8px;
     opacity: 1;
-    background-color: ${(props) =>  `${props.color}`};
+    background-color: ${(props) => `${props.color}`};
 `;
 
-export const EntityHeaderDecoration = ({
-    urn,
-    entityType,
-    entityData,
-    displayProperties
-}: Props) => {
+export const GlossaryPreviewCardDecoration = ({ urn, entityData, displayProperties }: Props) => {
     const parentNodeCount = entityData?.parentNodes?.count || 0;
-    const urnText = parentNodeCount===0?urn : entityData.parentNodes.nodes[parentNodeCount-1].urn;
+    const urnText = parentNodeCount === 0 ? urn : entityData?.parentNodes?.nodes[parentNodeCount - 1].urn || '';
     const glossaryColor = displayProperties?.colorHex || generateColorFromPalette(urnText);
 
-    if(entityType === EntityType.GlossaryNode || entityType === EntityType.GlossaryTerm)
-    return <GlossaryItemRibbon color={glossaryColor}/>;
-
-    return null;
+    return <GlossaryItemRibbon color={glossaryColor} />;
 };

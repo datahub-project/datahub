@@ -36,6 +36,7 @@ import EntityExternalLink from '../entityV2/shared/links/EntityExternalLink';
 import { EntityMenuItems } from '../entityV2/shared/EntityDropdown/EntityMenuActions';
 import MoreOptionsMenuAction from '../entityV2/shared/EntityDropdown/MoreOptionsMenuAction';
 import DefaultPreviewCardFooter from './DefaultPreviewCardFooter';
+import { GlossaryPreviewCardDecoration } from '../entityV2/shared/containers/profile/header/GlossaryPreviewCardDecoration';
 
 const PreviewContainer = styled.div`
     display: flex;
@@ -215,6 +216,9 @@ export default function DefaultPreviewCard({
 
     return (
         <PreviewContainer data-testid={dataTestID}>
+            {(entityType === EntityType.GlossaryNode || entityType === EntityType.GlossaryTerm) && (
+                <GlossaryPreviewCardDecoration urn={urn} entityData={previewData} displayProperties={undefined} />
+            )}
             <RowContainer alignment="self-start">
                 {isIconPresent ? (
                     <ColoredBackgroundPlatformIconGroup

@@ -8,7 +8,6 @@ import { useEntityRegistry } from '../../../useEntityRegistry';
 import { PreviewType } from '../../Entity';
 import useRemoveRelatedTerms from './useRemoveRelatedTerms';
 import { REDESIGN_COLORS } from '../../shared/constants';
-import { EntityHeaderDecoration } from '../../shared/containers/profile/header/EntityHeaderDecoration';
 
 const TransparentButton = styled(Button)`
     color: ${REDESIGN_COLORS.TITLE_PURPLE};
@@ -36,7 +35,7 @@ const ListItem = styled.div`
     &:hover ${TransparentButton} {
         display: inline-block;
     }
-    &:hover{
+    &:hover {
         border: 1px solid ${REDESIGN_COLORS.TITLE_PURPLE};
     }
 `;
@@ -70,12 +69,6 @@ function RelatedTerm(props: Props) {
     return (
         <ListItem>
             <Profile>
-                <EntityHeaderDecoration
-                    urn={urn}
-                    entityData={data?.glossaryTerm}
-                    entityType={EntityType.GlossaryTerm}
-                    displayProperties={undefined}
-                />
                 {entityRegistry.renderPreview(EntityType.GlossaryTerm, PreviewType.PREVIEW, data?.glossaryTerm)}
                 {isEditable && (
                     <TransparentButton size="small" onClick={onRemove}>
