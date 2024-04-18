@@ -1,4 +1,5 @@
 import datetime
+import json
 import logging
 import pathlib
 import tempfile
@@ -142,7 +143,9 @@ class BaseModelRow(BaseModel):
     def datahub_schema(cls) -> List[SchemaField]:
         fields = []
         for field_name, field_model in cls.__fields__.items():
-            logger.warning(f"field_name: {field_name}, field_model {field_model}")
+            logger.warning(
+                f"field_name: {field_name}, field_model: {field_model}, {json.dumps(str(field_model))}"
+            )
             pyarrow_type = BaseModelRow.pydantic_type_to_pyarrow(
                 field_model.outer_type_
             )
