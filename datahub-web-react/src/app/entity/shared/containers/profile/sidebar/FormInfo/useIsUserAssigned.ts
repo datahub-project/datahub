@@ -12,13 +12,16 @@ export function isAssignedToForm(formAssociation: FormAssociation, isUserAnOwner
 export default function useIsUserAssigned(formUrn?: string) {
     const { entityData } = useEntityData();
     const owners = entityData?.ownership?.owners;
-    const { user: loggedInUser } = useUserContext();
+    const { user: loggedInUser, userGroups } = useUserContext();
+    const userGroupUrns = userGroups?.relationships.map((rel) => rel.entity?.urn);
     const isUserAnOwner = !!owners?.find((owner) => owner.owner.urn === loggedInUser?.urn);
+    const isUserInOwnerGroup = !!owners?.find((owner) => userGroupUrns?.includes(owner.owner.urn));
+    const isOwner = isUserAnOwner || isUserInOwnerGroup;
 
     const formAssociations = getFormAssociations(entityData);
     if (formUrn) {
         const formAssociation = formAssociations.find((association) => association.form.urn === formUrn);
-        return formAssociation ? isAssignedToForm(formAssociation, isUserAnOwner) : false;
+        return formAssociation ? isAssignedToForm(formAssociation, isOwner) : false;
     }
-    return formAssociations.some((formAssociation) => isAssignedToForm(formAssociation, isUserAnOwner));
+    return formAssociations.some((formAssociation) => isAssignedToForm(formAssociation, isOwner));
 }

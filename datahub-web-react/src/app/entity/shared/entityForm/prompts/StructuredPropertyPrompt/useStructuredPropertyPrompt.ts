@@ -18,9 +18,9 @@ export default function useStructuredPropertyPrompt({ prompt, submitResponse, fi
     const { refetch: refetchSchema } = useGetEntityWithSchema(!SCHEMA_FIELD_PROMPT_TYPES.includes(prompt.type));
     const { entityData } = useEntityContext();
     const {
-        prompt: { selectedPromptId }, form: { formView }
+        prompt: { selectedPromptId },
+        form: { formView },
     } = useEntityFormContext();
-
 
     const initialValues = useMemo(
         () =>
@@ -37,7 +37,7 @@ export default function useStructuredPropertyPrompt({ prompt, submitResponse, fi
         updateSelectedValues,
         hasEdited,
         setHasEdited,
-    } = useEditStructuredProperty();
+    } = useEditStructuredProperty(initialValues);
 
     const structuredProperty = prompt.structuredPropertyParams?.structuredProperty;
 

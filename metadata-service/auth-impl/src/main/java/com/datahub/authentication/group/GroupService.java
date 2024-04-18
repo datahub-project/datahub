@@ -183,10 +183,10 @@ public class GroupService {
     final NativeGroupMembership nativeGroupMembership =
         getExistingNativeGroupMembership(userUrn, authentication);
     final GroupMembership groupMembership = getExistingGroupMembership(userUrn, authentication);
-    final List<Urn> allGroups = new ArrayList<>();
+    final Set<Urn> allGroups = new HashSet<>();
     allGroups.addAll(nativeGroupMembership.getNativeGroups());
     allGroups.addAll(groupMembership.getGroups());
-    return allGroups;
+    return new ArrayList<>(allGroups);
   }
 
   NativeGroupMembership getExistingNativeGroupMembership(

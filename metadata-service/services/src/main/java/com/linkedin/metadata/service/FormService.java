@@ -1154,10 +1154,10 @@ public class FormService extends BaseService {
     final NativeGroupMembership nativeGroupMembership =
         getExistingNativeGroupMembership(userUrn, authentication);
     final GroupMembership groupMembership = getExistingGroupMembership(userUrn, authentication);
-    final List<Urn> allGroups = new ArrayList<>();
+    final Set<Urn> allGroups = new HashSet<>();
     allGroups.addAll(nativeGroupMembership.getNativeGroups());
     allGroups.addAll(groupMembership.getGroups());
-    return allGroups;
+    return new ArrayList<>(allGroups);
   }
 
   NativeGroupMembership getExistingNativeGroupMembership(
@@ -1331,22 +1331,19 @@ public class FormService extends BaseService {
   public List<Urn> getFormsAssignedByOwnership(
       @Nonnull List<String> entities,
       @Nonnull final Urn userUrn,
+      @Nonnull final List<Urn> groupUrns,
       @Nonnull final List<Urn> ownershipFormUrns,
       @Nullable final SearchFlags searchFlags,
       @Nonnull final Authentication authentication)
       throws RemoteInvocationException {
+    Criterion formOwnershipCriterion = FormUtils.getFormOwnershipCriterion(userUrn, groupUrns);
+
     // create filter for entities owned by this user
     Filter filter =
         new Filter()
             .setOr(
                 new ConjunctiveCriterionArray(
-                    new ConjunctiveCriterion()
-                        .setAnd(
-                            new CriterionArray(
-                                new Criterion()
-                                    .setField("owners")
-                                    .setValue(userUrn.toString())
-                                    .setCondition(Condition.EQUAL)))));
+                    new ConjunctiveCriterion().setAnd(new CriterionArray(formOwnershipCriterion))));
 
     // do an aggregations query to get all the form urns in completedForms and incompleteForms for
     // entities that this user owns

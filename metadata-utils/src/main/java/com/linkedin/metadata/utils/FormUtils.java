@@ -1,7 +1,10 @@
 package com.linkedin.metadata.utils;
 
 import com.linkedin.common.urn.Urn;
+import com.linkedin.data.template.StringArray;
 import com.linkedin.form.FormActorAssignment;
+import com.linkedin.metadata.query.filter.Condition;
+import com.linkedin.metadata.query.filter.Criterion;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
@@ -45,5 +48,18 @@ public class FormUtils {
     }
 
     return false;
+  }
+
+  public static Criterion getFormOwnershipCriterion(
+      @Nonnull final Urn userUrn, @Nonnull final List<Urn> groupUrns) {
+    StringArray ownershipUrns = new StringArray();
+    ownershipUrns.add(userUrn.toString());
+    groupUrns.forEach(groupUrn -> ownershipUrns.add(groupUrn.toString()));
+
+    // create filter for entities owned by this user or one of their groups
+    return new Criterion()
+        .setField("owners")
+        .setValues(ownershipUrns)
+        .setCondition(Condition.EQUAL);
   }
 }

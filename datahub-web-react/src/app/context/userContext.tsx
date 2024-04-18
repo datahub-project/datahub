@@ -1,5 +1,5 @@
 import React from 'react';
-import { CorpUser, PlatformPrivileges } from '../../types.generated';
+import { CorpUser, EntityRelationshipsResult, PlatformPrivileges } from '../../types.generated';
 
 /**
  * Local State is persisted to local storage.
@@ -33,6 +33,7 @@ export type State = {
 export type UserContextType = {
     urn?: string | null;
     user?: CorpUser | null;
+    userGroups?: EntityRelationshipsResult;
     platformPrivileges?: PlatformPrivileges | null;
     localState: LocalState;
     state: State;
@@ -62,6 +63,7 @@ export const DEFAULT_STATE: State = {
 export const DEFAULT_CONTEXT = {
     urn: undefined,
     user: undefined,
+    userGroups: undefined,
     state: DEFAULT_STATE,
     localState: DEFAULT_LOCAL_STATE,
     updateLocalState: (_: LocalState) => null,

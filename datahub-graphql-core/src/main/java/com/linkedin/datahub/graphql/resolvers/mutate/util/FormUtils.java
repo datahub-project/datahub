@@ -26,7 +26,6 @@ public class FormUtils {
   private static final String COMPLETED_FORMS = "completedForms";
   private static final String INCOMPLETE_FORMS = "incompleteForms";
   private static final String VERIFIED_FORMS = "verifiedForms";
-  private static final String OWNERS = "owners";
   private static final String COMPLETED_FORMS_COMPLETED_PROMPT_IDS =
       "completedFormsCompletedPromptIds";
   private static final String INCOMPLETE_FORMS_COMPLETED_PROMPT_IDS =
@@ -203,7 +202,8 @@ public class FormUtils {
       return null;
     }
     if (formInfo.getActors().isOwners()) {
-      return new Criterion().setField(OWNERS).setValue(assignedActor).setCondition(Condition.EQUAL);
+      return com.linkedin.metadata.utils.FormUtils.getFormOwnershipCriterion(
+          actorUrn, groupsForUser);
     }
     throw new RuntimeException("This form is not assigned to the provided assignedActor");
   }

@@ -103,6 +103,7 @@ public class GetFormsForActorResolverTest {
                 Mockito.eq(SearchUtils.getEntityNames(null)),
                 Mockito.eq(TEST_USER),
                 Mockito.eq(ImmutableList.of()),
+                Mockito.eq(ImmutableList.of()),
                 Mockito.eq(null),
                 Mockito.any(Authentication.class)))
         .thenReturn(ImmutableList.of(TEST_FORM_2, TEST_FORM_3));

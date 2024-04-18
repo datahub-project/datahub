@@ -68,6 +68,7 @@ public class GetFormsForActorResolver
                 _formService.getFormsAssignedByOwnership(
                     SearchUtils.getEntityNames(null),
                     userUrn,
+                    groupUrns,
                     ownershipForms,
                     searchFlags,
                     authentication);
