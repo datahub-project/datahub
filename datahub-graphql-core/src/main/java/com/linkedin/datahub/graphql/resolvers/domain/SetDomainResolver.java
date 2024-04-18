@@ -15,7 +15,9 @@ import com.linkedin.metadata.entity.EntityUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.concurrent.CompletableFuture;
+import javax.annotation.Nonnull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -45,18 +47,23 @@ public class SetDomainResolver implements DataFetcher<CompletableFuture<Boolean>
             throw new AuthorizationException(
                 "Unauthorized to perform this action. Please contact your DataHub administrator.");
           }
-          validateSetDomainInput(entityUrn, domainUrn, _entityService);
+          validateSetDomainInput(
+              context.getOperationContext(), entityUrn, domainUrn, _entityService);
           try {
             Domains domains =
                 (Domains)
                     EntityUtils.getAspectFromEntity(
-                        entityUrn.toString(), DOMAINS_ASPECT_NAME, _entityService, new Domains());
+                        context.getOperationContext(),
+                        entityUrn.toString(),
+                        DOMAINS_ASPECT_NAME,
+                        _entityService,
+                        new Domains());
             setDomain(domains, domainUrn);
 
             // Create the Domains aspects
             final MetadataChangeProposal proposal =
                 buildMetadataChangeProposalWithUrn(entityUrn, DOMAINS_ASPECT_NAME, domains);
-            _entityClient.ingestProposal(proposal, context.getAuthentication(), false);
+            _entityClient.ingestProposal(context.getOperationContext(), proposal, false);
             return true;
           } catch (Exception e) {
             log.error(
@@ -74,16 +81,19 @@ public class SetDomainResolver implements DataFetcher<CompletableFuture<Boolean>
   }
 
   public static Boolean validateSetDomainInput(
-      Urn entityUrn, Urn domainUrn, EntityService<?> entityService) {
+      @Nonnull OperationContext opContext,
+      Urn entityUrn,
+      Urn domainUrn,
+      EntityService<?> entityService) {
 
-    if (!entityService.exists(domainUrn, true)) {
+    if (!entityService.exists(opContext, domainUrn, true)) {
       throw new IllegalArgumentException(
           String.format(
               "Failed to add Entity %s to Domain %s. Domain does not exist.",
               entityUrn, domainUrn));
     }
 
-    if (!entityService.exists(entityUrn, true)) {
+    if (!entityService.exists(opContext, entityUrn, true)) {
       throw new IllegalArgumentException(
           String.format(
               "Failed to add Entity %s to Domain %s. Entity does not exist.",

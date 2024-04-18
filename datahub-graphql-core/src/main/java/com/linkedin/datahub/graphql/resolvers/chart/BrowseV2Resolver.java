@@ -64,9 +64,9 @@ public class BrowseV2Resolver implements DataFetcher<CompletableFuture<BrowseRes
             final DataHubViewInfo maybeResolvedView =
                 (input.getViewUrn() != null)
                     ? resolveView(
+                        context.getOperationContext(),
                         _viewService,
-                        UrnUtils.getUrn(input.getViewUrn()),
-                        context.getAuthentication())
+                        UrnUtils.getUrn(input.getViewUrn()))
                     : null;
             final String pathStr =
                 input.getPath().size() > 0

@@ -5,7 +5,6 @@ import static com.linkedin.metadata.search.utils.ESUtils.toFacetField;
 import static com.linkedin.metadata.utils.SearchUtil.*;
 
 import com.linkedin.data.template.LongMap;
-import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.StructuredPropertyUtils;
@@ -48,8 +47,6 @@ import org.opensearch.search.aggregations.bucket.terms.Terms;
 @Slf4j
 public class AggregationQueryBuilder {
   private static final String URN_FILTER = "urn";
-
-  private final AspectRetriever aspectRetriever;
   private final SearchConfiguration configs;
   private final Set<String> defaultFacetFields;
   private final Set<String> allFacetFields;
@@ -59,8 +56,7 @@ public class AggregationQueryBuilder {
 
   public AggregationQueryBuilder(
       @Nonnull final SearchConfiguration configs,
-      @Nonnull Map<EntitySpec, List<SearchableAnnotation>> entitySearchAnnotations,
-      @Nonnull AspectRetriever aspectRetriever) {
+      @Nonnull Map<EntitySpec, List<SearchableAnnotation>> entitySearchAnnotations) {
     this.configs = Objects.requireNonNull(configs, "configs must not be null");
     this.entitySearchAnnotations = entitySearchAnnotations;
 
@@ -70,7 +66,6 @@ public class AggregationQueryBuilder {
             .collect(Collectors.toList());
     this.defaultFacetFields = getDefaultFacetFields(annotations);
     this.allFacetFields = getAllFacetFields(annotations);
-    this.aspectRetriever = aspectRetriever;
   }
 
   /** Get the set of default aggregations, across all facets. */
@@ -144,7 +139,7 @@ public class AggregationQueryBuilder {
       if (facet.startsWith(STRUCTURED_PROPERTY_MAPPING_FIELD_PREFIX)) {
         String structPropFqn = facet.substring(STRUCTURED_PROPERTY_MAPPING_FIELD.length() + 1);
         StructuredPropertyUtils.validateStructuredPropertyFQN(
-            Set.of(structPropFqn), aspectRetriever);
+            Set.of(structPropFqn), opContext.getRetrieverContext().get().getAspectRetriever());
         facet =
             STRUCTURED_PROPERTY_MAPPING_FIELD_PREFIX
                 + StructuredPropertyUtils.sanitizeStructuredPropertyFQN(structPropFqn);

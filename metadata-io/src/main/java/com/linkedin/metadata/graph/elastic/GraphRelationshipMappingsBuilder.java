@@ -1,6 +1,6 @@
 package com.linkedin.metadata.graph.elastic;
 
-import static com.linkedin.metadata.graph.Edge.*;
+import static com.linkedin.metadata.aspect.models.graph.Edge.*;
 
 import com.google.common.collect.ImmutableMap;
 import java.util.HashMap;

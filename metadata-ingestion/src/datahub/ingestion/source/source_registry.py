@@ -23,3 +23,10 @@ source_registry.register_alias(
     "databricks",
     "unity-catalog",
 )
+
+# Use hive-metastore as alias for presto-on-hive ingestion source.
+# We would like to remove presto-on-hive at some point as it was a confusing name to the source.
+source_registry.register_alias(
+    "hive-metastore",
+    "presto-on-hive",
+)
