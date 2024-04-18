@@ -124,7 +124,11 @@ from datahub.sql_parsing.sqlglot_lineage import (
     infer_output_schema,
     sqlglot_lineage,
 )
-from datahub.sql_parsing.sqlglot_utils import detach_ctes, try_format_query
+from datahub.sql_parsing.sqlglot_utils import (
+    detach_ctes,
+    parse_statements_and_pick,
+    try_format_query,
+)
 from datahub.utilities.mapping import Constants, OperationProcessor
 from datahub.utilities.time import datetime_to_ts_millis
 from datahub.utilities.topological_sort import topological_sort
@@ -138,6 +142,8 @@ _DEFAULT_ACTOR = mce_builder.make_user_urn("unknown")
 @dataclass
 class DBTSourceReport(StaleEntityRemovalSourceReport):
     sql_statements_parsed: int = 0
+    sql_statements_table_error: int = 0
+    sql_statements_column_error: int = 0
     sql_parser_detach_ctes_failures: int = 0
     sql_parser_skipped_missing_code: int = 0
 
@@ -1107,7 +1113,10 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 try:
                     # Add CTE stops based on the upstreams list.
                     preprocessed_sql = detach_ctes(
-                        node.compiled_code,
+                        parse_statements_and_pick(
+                            node.compiled_code,
+                            platform=schema_resolver.platform,
+                        ),
                         platform=schema_resolver.platform,
                         cte_mapping={
                             cte_name: upstream_node.get_fake_ephemeral_table_name()
@@ -1132,7 +1141,18 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     sql_result = sqlglot_lineage(
                         preprocessed_sql, schema_resolver=schema_resolver
                     )
-                    self.report.sql_statements_parsed += 1
+                    if sql_result.debug_info.error:
+                        self.report.sql_statements_table_error += 1
+                        logger.info(
+                            f"Failed to parse compiled code for {node.dbt_name}: {sql_result.debug_info.error}"
+                        )
+                    elif sql_result.debug_info.column_error:
+                        self.report.sql_statements_column_error += 1
+                        logger.info(
+                            f"Failed to generate CLL for {node.dbt_name}: {sql_result.debug_info.column_error}"
+                        )
+                    else:
+                        self.report.sql_statements_parsed += 1
             else:
                 self.report.sql_parser_skipped_missing_code += 1
 
