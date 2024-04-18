@@ -223,7 +223,7 @@ microsoft_common = {"msal==1.22.0"}
 
 iceberg_common = {
     # Iceberg Python SDK
-    "pyiceberg",
+    "pyiceberg~=0.4",
     # We currently pin to pydantic v1, since we only test against pydantic v1 in CI.
     # However, we should remove this once we fix compatibility with newer versions
     # of pyiceberg, which depend on pydantic v2.
@@ -349,6 +349,10 @@ plugins: Dict[str, Set[str]] = {
         # https://github.com/great-expectations/great_expectations/pull/6149.
         "great-expectations != 0.15.23, != 0.15.24, != 0.15.25, != 0.15.26",
     },
+    # keep in sync with presto-on-hive until presto-on-hive will be removed
+    "hive-metastore": sql_common
+    | pyhive_common
+    | {"psycopg2-binary", "pymysql>=1.0.2"},
     "iceberg": iceberg_common,
     "json-schema": set(),
     "kafka": kafka_common | kafka_protobuf,
@@ -357,7 +361,11 @@ plugins: Dict[str, Set[str]] = {
     "looker": looker_common,
     "lookml": looker_common,
     "metabase": {"requests"} | sqlglot_lib,
-    "mlflow": {"mlflow-skinny>=2.3.0"},
+    "mlflow": {
+        "mlflow-skinny>=2.3.0",
+        # It's technically wrong for packages to depend on setuptools. However, it seems mlflow does it anyways.
+        "setuptools",
+    },
     "mode": {"requests", "tenacity>=8.0.1"} | sqllineage_lib | sqlglot_lib,
     "mongodb": {"pymongo[srv]>=3.11", "packaging"},
     "mssql": sql_common
@@ -373,6 +381,7 @@ plugins: Dict[str, Set[str]] = {
     "oracle": sql_common | {"cx_Oracle"},
     "postgres": sql_common | postgres_common,
     "presto": sql_common | pyhive_common | trino,
+    # presto-on-hive is an alias for hive-metastore and needs to be kept in sync
     "presto-on-hive": sql_common
     | pyhive_common
     | {"psycopg2-binary", "pymysql>=1.0.2"},
@@ -417,7 +426,7 @@ plugins: Dict[str, Set[str]] = {
     "databricks": databricks | sql_common | sqllineage_lib,
     "fivetran": snowflake_common | bigquery_common,
     "qlik-sense": sqlglot_lib | {"requests", "websocket-client"},
-    "sigma": {"requests"},
+    "sigma": sqlglot_lib | {"requests"},
 }
 
 # This is mainly used to exclude plugins from the Docker image.
@@ -618,6 +627,7 @@ entry_points = {
         "sagemaker = datahub.ingestion.source.aws.sagemaker:SagemakerSource",
         "hana = datahub.ingestion.source.sql.hana:HanaSource",
         "hive = datahub.ingestion.source.sql.hive:HiveSource",
+        "hive-metastore = datahub.ingestion.source.sql.hive_metastore:HiveMetastoreSource",
         "json-schema = datahub.ingestion.source.schema.json_schema:JsonSchemaSource",
         "kafka = datahub.ingestion.source.kafka:KafkaSource",
         "kafka-connect = datahub.ingestion.source.kafka_connect:KafkaConnectSource",
@@ -653,7 +663,8 @@ entry_points = {
         "iceberg = datahub.ingestion.source.iceberg.iceberg:IcebergSource",
         "vertica = datahub.ingestion.source.sql.vertica:VerticaSource",
         "presto = datahub.ingestion.source.sql.presto:PrestoSource",
-        "presto-on-hive = datahub.ingestion.source.sql.presto_on_hive:PrestoOnHiveSource",
+        # This is only here for backward compatibility. Use the `hive-metastore` source instead.
+        "presto-on-hive = datahub.ingestion.source.sql.hive_metastore:HiveMetastoreSource",
         "pulsar = datahub.ingestion.source.pulsar:PulsarSource",
         "salesforce = datahub.ingestion.source.salesforce:SalesforceSource",
         "demo-data = datahub.ingestion.source.demo_data.DemoDataSource",
@@ -690,7 +701,7 @@ entry_points = {
         "add_dataset_dataproduct = datahub.ingestion.transformer.add_dataset_dataproduct:AddDatasetDataProduct",
         "simple_add_dataset_dataproduct = datahub.ingestion.transformer.add_dataset_dataproduct:SimpleAddDatasetDataProduct",
         "pattern_add_dataset_dataproduct = datahub.ingestion.transformer.add_dataset_dataproduct:PatternAddDatasetDataProduct",
-        "replace_external_url = datahub.ingestion.transformer.replace_external_url:ReplaceExternalUrl"
+        "replace_external_url = datahub.ingestion.transformer.replace_external_url:ReplaceExternalUrl",
     ],
     "datahub.ingestion.sink.plugins": [
         "file = datahub.ingestion.sink.file:FileSink",
