@@ -35,6 +35,8 @@ import SidebarLineageSection from '../shared/containers/profile/sidebar/Lineage/
 import { TYPE_ICON_CLASS_NAME } from '../shared/components/subtypes';
 import SidebarEntityHeader from '../shared/containers/profile/sidebar/SidebarEntityHeader';
 import { IncidentTab } from '../shared/tabs/Incident/IncidentTab';
+import SyncedAssetSection from '../shared/containers/profile/sidebar/shared/SyncedAssetSection';
+import SharingAssetSection from '../shared/containers/profile/sidebar/shared/SharingAssetSection';
 
 const getDataJobPlatformName = (data?: DataJob): string => {
     return (
@@ -146,6 +148,12 @@ export class DataJobEntity implements Entity<DataJob> {
     getSidebarSections = () => [
         {
             component: SidebarEntityHeader,
+        },
+        {
+            component: SyncedAssetSection,
+        },
+        {
+            component: SharingAssetSection,
         },
         {
             component: SidebarDomainSection,

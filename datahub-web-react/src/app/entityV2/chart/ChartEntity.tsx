@@ -44,6 +44,8 @@ import ChartSummaryTab from './summary/ChartSummaryTab';
 import SidebarEntityHeader from '../shared/containers/profile/sidebar/SidebarEntityHeader';
 import { IncidentTab } from '../shared/tabs/Incident/IncidentTab';
 import { GenericEntityProperties } from '../../entity/shared/types';
+import SyncedAssetSection from '../shared/containers/profile/sidebar/shared/SyncedAssetSection';
+import SharingAssetSection from '../shared/containers/profile/sidebar/shared/SharingAssetSection';
 
 const headerDropdownItems = new Set([
     EntityMenuItems.EXTERNAL_URL,
@@ -190,6 +192,12 @@ export class ChartEntity implements Entity<Chart> {
         },
         {
             component: SidebarChartHeaderSection,
+        },
+        {
+            component: SyncedAssetSection,
+        },
+        {
+            component: SharingAssetSection,
         },
         {
             component: SidebarDomainSection,

@@ -22,6 +22,8 @@ import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
 import { EntityActionItem } from '../shared/entity/EntityActions';
 import { TYPE_ICON_CLASS_NAME } from '../shared/components/subtypes';
 import GlossaryNodeIcon from '../../../images/glossary_collections_bookmark.svg?react';
+import SyncedAssetSection from '../shared/containers/profile/sidebar/shared/SyncedAssetSection';
+import SharingAssetSection from '../shared/containers/profile/sidebar/shared/SharingAssetSection';
 
 const headerDropdownItems = new Set([
     EntityMenuItems.MOVE,
@@ -107,6 +109,12 @@ class GlossaryNodeEntity implements Entity<GlossaryNode> {
     };
 
     getSidebarSections = () => [
+        {
+            component: SyncedAssetSection,
+        },
+        {
+            component: SharingAssetSection,
+        },
         {
             component: SidebarAboutSection,
             properties: {

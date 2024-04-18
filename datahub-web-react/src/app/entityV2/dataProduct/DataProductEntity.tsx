@@ -28,6 +28,8 @@ import { DataProductSummaryTab } from './DataProductSummaryTab';
 import { Preview } from './preview/Preview';
 import { TYPE_ICON_CLASS_NAME } from '../shared/components/subtypes';
 import SidebarEntityHeader from '../shared/containers/profile/sidebar/SidebarEntityHeader';
+import SyncedAssetSection from '../shared/containers/profile/sidebar/shared/SyncedAssetSection';
+import SharingAssetSection from '../shared/containers/profile/sidebar/shared/SharingAssetSection';
 
 const headerDropdownItems = new Set([EntityMenuItems.SUBSCRIBE, EntityMenuItems.SHARE, EntityMenuItems.DELETE]);
 
@@ -119,6 +121,12 @@ export class DataProductEntity implements Entity<DataProduct> {
     getSidebarSections = () => [
         {
             component: SidebarEntityHeader,
+        },
+        {
+            component: SyncedAssetSection,
+        },
+        {
+            component: SharingAssetSection,
         },
         {
             component: SidebarDomainSection,
