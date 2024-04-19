@@ -168,10 +168,10 @@ class DataHubBasedS3Dataset:
             config.file if config.file else self._initialize_local_file()
         )
         self.file_writer = None
-        if self.dataset_metadata.schemaFields:
-            self.schema = pa.schema(
-                [(x.name, x.type) for x in self.dataset_metadata.schemaFields]
-            )
+        self.schema = (
+            pa.schema([(x.name, x.type) for x in self.dataset_metadata.schemaFields])
+            if self.dataset_metadata.schemaFields else None
+        )
 
     def get_dataset_urn(self) -> str:
         return self.config.dataset_urn or make_dataset_urn(
