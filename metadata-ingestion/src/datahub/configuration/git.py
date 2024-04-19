@@ -40,11 +40,9 @@ class GitReference(ConfigModel):
 
     @validator("repo", pre=True)
     def simplify_repo_url(cls, repo: str) -> str:
-        repo_host = urlparse(repo).hostname
-        allowedHosts = ["github.com", "www.github.com", "gitlab.com", "www.gitlab.com"]
-        if repo_host in allowedHosts and (
-            repo.startswith("github.com/") or repo.startswith("gitlab.com")
-        ):
+        repo_host = urlparse(repo).hostname.lstrip("www.")
+        allowedHosts = ["github.com", "gitlab.com"]
+        if repo_host in allowedHosts:
             return f"https://{repo}"
         elif repo.count("/") == 1:
             repo = f"https://github.com/{repo}"
