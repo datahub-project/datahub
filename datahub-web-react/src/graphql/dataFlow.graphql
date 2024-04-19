@@ -70,47 +70,6 @@ query getDataFlow($urn: String!) {
         downstream: lineage(input: { direction: DOWNSTREAM, start: 0, count: 100 }) {
             ...partialLineageResults
         }
-        childJobs: relationships(input: { types: ["IsPartOf"], direction: INCOMING, start: 0, count: 100 }) {
-            start
-            count
-            total
-            relationships {
-                entity {
-                    ... on DataJob {
-                        urn
-                        type
-                        jobId
-                        dataFlow {
-                            urn
-                            type
-                            orchestrator
-                            platform {
-                                ...platformFields
-                            }
-                        }
-                        ownership {
-                            ...ownershipFields
-                        }
-                        properties {
-                            name
-                            description
-                        }
-                        editableProperties {
-                            description
-                        }
-                        globalTags {
-                            ...globalTagsFields
-                        }
-                        glossaryTerms {
-                            ...glossaryTerms
-                        }
-                        deprecation {
-                            ...deprecationFields
-                        }
-                    }
-                }
-            }
-        }
         autoRenderAspects: aspects(input: { autoRenderOnly: true }) {
             ...autoRenderAspectFields
         }

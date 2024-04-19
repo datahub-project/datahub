@@ -9,7 +9,18 @@ import { Message } from '../../../../../shared/Message';
 
 const ScrollWrapper = styled.div`
     overflow: auto;
-    max-height: 100%;
+    height: 100%;
+
+    &::-webkit-scrollbar {
+        height: 12px;
+        width: 5px;
+        background: #f2f2f2;
+    }
+    &::-webkit-scrollbar-thumb {
+        background: #cccccc;
+        -webkit-border-radius: 1ex;
+        -webkit-box-shadow: 0px 1px 2px rgba(0, 0, 0, 0.75);
+    }
 `;
 
 const StyledList = styled(List)`
@@ -46,12 +57,16 @@ const PaginationInfoContainer = styled.span`
 `;
 
 const StyledPagination = styled(Pagination)`
-    margin: 0px;
-    padding: 0px;
+    padding: 12px 12px 12px 12px;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 `;
 
 const PaginationInfo = styled(Typography.Text)`
     padding: 0px;
+    width: 20%;
 `;
 
 type EntityListProps = {
