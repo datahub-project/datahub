@@ -12,6 +12,8 @@ import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authorization.AuthUtil;
 import com.datahub.authorization.AuthorizerChain;
 import com.datahub.util.RecordUtils;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -20,10 +22,14 @@ import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.AspectRetriever;
+import com.linkedin.metadata.aspect.batch.AspectsBatch;
+import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.aspect.batch.ChangeMCP;
 import com.linkedin.metadata.aspect.patch.GenericJsonPatch;
 import com.linkedin.metadata.aspect.patch.template.common.GenericPatchTemplate;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.EntityUtils;
+import com.linkedin.metadata.entity.IngestResult;
 import com.linkedin.metadata.entity.UpdateAspectResult;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
 import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
@@ -56,6 +62,8 @@ import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.Iterator;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -260,7 +268,9 @@ public class EntityController {
   public ResponseEntity<Object> getAspect(
       @PathVariable("entityName") String entityName,
       @PathVariable("entityUrn") String entityUrn,
-      @PathVariable("aspectName") String aspectName)
+      @PathVariable("aspectName") String aspectName,
+      @RequestParam(value = "systemMetadata", required = false, defaultValue = "false")
+          Boolean withSystemMetadata)
       throws URISyntaxException {
 
     Urn urn = UrnUtils.getUrn(entityUrn);
@@ -279,9 +289,14 @@ public class EntityController {
             true);
 
     return ResponseEntity.of(
-        toRecordTemplates(opContext, List.of(urn), Set.of(aspectName), true).stream()
+        toRecordTemplates(opContext, List.of(urn), Set.of(aspectName), withSystemMetadata).stream()
             .findFirst()
-            .flatMap(e -> e.getAspects().values().stream().findFirst()));
+            .flatMap(
+                e ->
+                    e.getAspects().entrySet().stream()
+                        .filter(entry -> entry.getKey().equals(aspectName))
+                        .map(Map.Entry::getValue)
+                        .findFirst()));
   }
 
   @Tag(name = "Generic Aspects")
@@ -337,6 +352,43 @@ public class EntityController {
             true);
 
     entityService.deleteAspect(opContext, entityUrn, entitySpec.getKeyAspectName(), Map.of(), true);
+  }
+
+  @Tag(name = "Generic Entities")
+  @PostMapping(value = "/{entityName}", produces = MediaType.APPLICATION_JSON_VALUE)
+  @Operation(summary = "Create a batch of entities.")
+  public ResponseEntity<List<GenericEntity>> createEntity(
+      @PathVariable("entityName") String entityName,
+      @RequestParam(value = "async", required = false, defaultValue = "true") Boolean async,
+      @RequestParam(value = "systemMetadata", required = false, defaultValue = "false")
+          Boolean withSystemMetadata,
+      @RequestBody @Nonnull String jsonEntityList)
+      throws URISyntaxException, JsonProcessingException {
+
+    Authentication authentication = AuthenticationContext.getAuthentication();
+
+    if (!AuthUtil.isAPIAuthorizedEntityType(
+        authentication, authorizationChain, CREATE, entityName)) {
+      throw new UnauthorizedException(
+          authentication.getActor().toUrnStr() + " is unauthorized to " + CREATE + " entities.");
+    }
+
+    OperationContext opContext =
+        OperationContext.asSession(
+            systemOperationContext,
+            RequestContext.builder().buildOpenapi("createEntity", entityName),
+            authorizationChain,
+            authentication,
+            true);
+
+    AspectsBatch batch = toMCPBatch(opContext, jsonEntityList, authentication.getActor());
+    Set<IngestResult> results = entityService.ingestProposal(opContext, batch, async);
+
+    if (!async) {
+      return ResponseEntity.ok(toEntityListResponse(results, withSystemMetadata));
+    } else {
+      return ResponseEntity.accepted().body(toEntityListResponse(results, withSystemMetadata));
+    }
   }
 
   @Tag(name = "Generic Aspects")
@@ -634,5 +686,80 @@ public class EntityController {
         genericPatchTemplate,
         AuditStampUtils.createAuditStamp(actor.toUrnStr()),
         aspectRetriever);
+  }
+
+  private AspectsBatch toMCPBatch(
+      @Nonnull OperationContext opContext, String entityArrayList, Actor actor)
+      throws JsonProcessingException, URISyntaxException {
+    JsonNode entities = objectMapper.readTree(entityArrayList);
+
+    List<BatchItem> items = new LinkedList<>();
+    if (entities.isArray()) {
+      Iterator<JsonNode> entityItr = entities.iterator();
+      while (entityItr.hasNext()) {
+        JsonNode entity = entityItr.next();
+        Urn entityUrn = UrnUtils.getUrn(entity.get("urn").asText());
+
+        Iterator<Map.Entry<String, JsonNode>> aspectItr = entity.get("aspects").fields();
+        while (aspectItr.hasNext()) {
+          Map.Entry<String, JsonNode> aspect = aspectItr.next();
+
+          AspectSpec aspectSpec = lookupAspectSpec(entityUrn, aspect.getKey());
+
+          if (aspectSpec != null) {
+            ChangeItemImpl.ChangeItemImplBuilder builder =
+                ChangeItemImpl.builder()
+                    .urn(entityUrn)
+                    .aspectName(aspectSpec.getName())
+                    .auditStamp(AuditStampUtils.createAuditStamp(actor.toUrnStr()))
+                    .recordTemplate(
+                        GenericRecordUtils.deserializeAspect(
+                            ByteString.copyString(
+                                objectMapper.writeValueAsString(aspect.getValue().get("value")),
+                                StandardCharsets.UTF_8),
+                            GenericRecordUtils.JSON,
+                            aspectSpec));
+
+            if (aspect.getValue().has("systemMetadata")) {
+              builder.systemMetadata(
+                  EntityUtils.parseSystemMetadata(
+                      objectMapper.writeValueAsString(aspect.getValue().get("systemMetadata"))));
+            }
+
+            items.add(builder.build(opContext.getRetrieverContext().get().getAspectRetriever()));
+          }
+        }
+      }
+    }
+
+    return AspectsBatchImpl.builder()
+        .items(items)
+        .retrieverContext(opContext.getRetrieverContext().get())
+        .build();
+  }
+
+  public List<GenericEntity> toEntityListResponse(
+      Set<IngestResult> ingestResults, boolean withSystemMetadata) {
+    List<GenericEntity> responseList = new LinkedList<>();
+
+    Map<Urn, List<IngestResult>> entityMap =
+        ingestResults.stream().collect(Collectors.groupingBy(IngestResult::getUrn));
+    for (Map.Entry<Urn, List<IngestResult>> urnAspects : entityMap.entrySet()) {
+      Map<String, Pair<RecordTemplate, SystemMetadata>> aspectsMap =
+          urnAspects.getValue().stream()
+              .map(
+                  ingest ->
+                      Map.entry(
+                          ingest.getRequest().getAspectName(),
+                          Pair.of(
+                              ingest.getRequest().getRecordTemplate(),
+                              withSystemMetadata ? ingest.getRequest().getSystemMetadata() : null)))
+              .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+      responseList.add(
+          GenericEntity.builder()
+              .urn(urnAspects.getKey().toString())
+              .build(objectMapper, aspectsMap));
+    }
+    return responseList;
   }
 }
