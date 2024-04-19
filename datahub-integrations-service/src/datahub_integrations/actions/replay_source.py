@@ -13,7 +13,6 @@ class ReplayEventSourceConfig(ConfigModel):
 
 
 class ReplayEventSource(EventSource):
-
     def __init__(self, config: ReplayEventSourceConfig, ctx: PipelineContext):
         self.config = config
         self.ctx = ctx
@@ -24,7 +23,6 @@ class ReplayEventSource(EventSource):
         return cls(config, ctx)
 
     def events(self) -> Iterable[EventEnvelope]:
-
         events_raw = pathlib.Path(self.config.filename).read_text()
         events_json = json.loads(events_raw)
 
