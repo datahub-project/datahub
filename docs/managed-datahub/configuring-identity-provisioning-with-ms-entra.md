@@ -10,7 +10,7 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 # Configuring User/Group/Roles provisioning from MS Entra to DataHub
 
 1. **Generate Personal Access Token**: 
-    Generate a personal access token from [DataHub](/docs/authentication/personal-access-tokens.md#creating-personal-access-tokens).
+    Generate a personal access token from [DataHub](../../docs/authentication/personal-access-tokens.md#creating-personal-access-tokens).
 
 2. **Integrate DataHub With MS Entra**: Follow steps [Integrate your SCIM endpoint with the Microsoft Entra provisioning service](https://learn.microsoft.com/en-gb/entra/identity/app-provisioning/use-scim-to-provision-users-and-groups#integrate-your-scim-endpoint-with-the-microsoft-entra-provisioning-service) to integrate DataHub SCIM endpoint into MS Entra.
 
