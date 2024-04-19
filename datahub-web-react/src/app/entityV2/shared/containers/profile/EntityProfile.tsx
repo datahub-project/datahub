@@ -25,7 +25,7 @@ import CompactContext from '../../../../shared/CompactContext';
 import DynamicTab from '../../tabs/Entity/weaklyTypedAspects/DynamicTab';
 import analytics, { EventType } from '../../../../analytics';
 import { EntityMenuItems } from '../../EntityDropdown/EntityMenuActions';
-import { useIsSeparateSiblingsMode } from '../../siblingUtils';
+import { useIsSeparateSiblingsMode } from '../../useIsSeparateSiblingsMode';
 import { EntityActionItem } from '../../entity/EntityActions';
 import { ErrorSection } from '../../../../shared/error/ErrorSection';
 import { EntityHead } from '../../../../shared/EntityHead';

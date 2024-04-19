@@ -1,5 +1,5 @@
 import { AutoCompleteResultForEntity, EntityType } from '../../../types.generated';
-import { CombinedEntity, createSiblingEntityCombiner } from '../../entityV2/shared/siblingUtils';
+import { CombinedEntity, createSiblingEntityCombiner } from '../../entity/shared/siblingUtils';
 
 export type CombinedSuggestion = {
     type: EntityType;

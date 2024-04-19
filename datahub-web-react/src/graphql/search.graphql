@@ -401,6 +401,9 @@ fragment searchResultFields on Entity {
                 type
                 ... on Dataset {
                     ...nonSiblingsDatasetSearchFields
+                    siblings {
+                        isPrimary
+                    }
                 }
             }
         }

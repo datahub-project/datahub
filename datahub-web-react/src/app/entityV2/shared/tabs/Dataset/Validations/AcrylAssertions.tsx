@@ -4,7 +4,7 @@ import { Button, Tooltip } from 'antd';
 import { useGetDatasetAssertionsWithMonitorsQuery } from '../../../../../../graphql/monitor.generated';
 import { useEntityData } from '../../../../../entity/shared/EntityContext';
 import { DatasetAssertionsSummary } from './DatasetAssertionsSummary';
-import { combineEntityDataWithSiblings, useIsSeparateSiblingsMode } from '../../../siblingUtils';
+import { useIsSeparateSiblingsMode } from '../../../useIsSeparateSiblingsMode';
 import { useAppConfig } from '../../../../../useAppConfig';
 import { AssertionMonitorBuilderDrawer } from './assertion/builder/AssertionMonitorBuilderDrawer';
 import TabToolbar from '../../../components/styled/TabToolbar';
@@ -12,6 +12,7 @@ import { AssertionWithMonitorDetails, createAssertionGroups, getLegacyAssertions
 import { AssertionGroupTable } from './AssertionGroupTable';
 import { updateDatasetAssertionsCache, createCachedAssertionWithMonitor } from './acrylCacheUtils';
 import { useGetDatasetContractQuery } from '../../../../../../graphql/contract.generated';
+import { combineEntityDataWithSiblings } from '../../../../../entity/shared/siblingUtils';
 
 /**
  * Component used for rendering the Assertions Sub Tab on the Validations Tab
