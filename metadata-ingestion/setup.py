@@ -104,6 +104,9 @@ sqlglot_lib = {
 
 classification_lib = {
     "acryl-datahub-classify==0.0.10",
+    # This is a bit of a hack. Because we download the SpaCy model at runtime in the classify plugin,
+    # we need pip to be available.
+    "pip",
 }
 
 sql_common = (
