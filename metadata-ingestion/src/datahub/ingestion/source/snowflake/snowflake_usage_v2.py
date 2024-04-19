@@ -279,9 +279,7 @@ class SnowflakeUsageExtractor(
                     if self.config.include_top_n_queries
                     else None
                 ),
-                userCounts=self._map_user_counts(
-                    row["USER_COUNTS"]
-                ),
+                userCounts=self._map_user_counts(row["USER_COUNTS"]),
                 fieldCounts=self._map_field_counts(row["FIELD_COUNTS"]),
             )
             return MetadataChangeProposalWrapper(
