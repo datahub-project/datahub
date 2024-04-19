@@ -15,7 +15,6 @@ const PlatformContentWrapper = styled.div`
     align-items: center;
     margin: 0px 8px 0px 0;
     flex-wrap: nowrap;
-    flex: 1;
 `;
 
 const iconStyles = {

@@ -4,10 +4,24 @@ import NavigateNextOutlinedIcon from '@mui/icons-material/NavigateNextOutlined';
 import NavigateBeforeOutlinedIcon from '@mui/icons-material/NavigateBeforeOutlined';
 import { REDESIGN_COLORS } from '../../entityV2/shared/constants';
 
-const ScrollButton = styled.button<{ alwaysVisible: boolean; size: number }>`
+const ScrollButton = styled.button<{
+    alwaysVisible: boolean;
+    size: number;
+    offset: number;
+    left?: boolean;
+    right?: boolean;
+}>`
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 2;
+    ${({ left, offset }) => left && `left: -${offset}px;`}
+    ${({ right, offset }) => right && `right: -${offset}px;`}
+
+    display: ${({ alwaysVisible }) => (alwaysVisible ? 'flex' : 'none')};
+
     border: none;
     cursor: pointer;
-    display: flex;
     align-items: center;
     justify-content: center;
     width: ${({ size }) => size + 6}px;
@@ -17,7 +31,7 @@ const ScrollButton = styled.button<{ alwaysVisible: boolean; size: number }>`
     background-color: ${REDESIGN_COLORS.WHITE};
     transition: background-color 0.3s ease-in-out, color 0.3s ease-in-out;
     box-shadow: 0px 2px 4px rgba(0, 0, 0, 0.3);
-    opacity: ${({ alwaysVisible }) => (alwaysVisible ? '1' : '0')};
+
     &:hover {
         color: ${REDESIGN_COLORS.WHITE};
         background-color: ${REDESIGN_COLORS.TITLE_PURPLE};
@@ -32,8 +46,9 @@ const ScrollContainerWrapper = styled.div`
 
 const Wrapper = styled.div`
     position: relative;
+
     &:hover ${ScrollButton} {
-        opacity: 0.9;
+        display: flex;
     }
 `;
 
@@ -49,11 +64,15 @@ type Props = {
     children: React.ReactNode;
     scrollDistance?: number;
     scrollButtonSize?: number;
+    scrollButtonOffset?: number;
     alwaysVisible?: boolean;
+    className?: string;
 };
 
 const HorizontalScroller: React.FC<Props> = ({
     children,
+    className,
+    scrollButtonOffset = 0,
     scrollDistance = 150,
     scrollButtonSize = 14,
     alwaysVisible = false,
@@ -66,7 +85,7 @@ const HorizontalScroller: React.FC<Props> = ({
         if (contentRef.current) {
             const { scrollLeft, scrollWidth, clientWidth } = contentRef.current;
             setShowScrollLeft(scrollLeft > 0);
-            setShowScrollRight(scrollWidth > clientWidth + scrollLeft);
+            setShowScrollRight(scrollWidth > clientWidth + scrollLeft + 1);
         }
     }, []);
 
@@ -105,13 +124,27 @@ const HorizontalScroller: React.FC<Props> = ({
     return (
         <Wrapper>
             {showScrollLeft && (
-                <ScrollButton onClick={scrollLeft} alwaysVisible={alwaysVisible} size={scrollButtonSize}>
+                <ScrollButton
+                    onClick={scrollLeft}
+                    alwaysVisible={alwaysVisible}
+                    size={scrollButtonSize}
+                    offset={scrollButtonOffset}
+                    left
+                >
                     <StyledNavigateBeforeOutlinedIcon buttonSize={scrollButtonSize} />
                 </ScrollButton>
             )}
-            <ScrollContainerWrapper ref={contentRef}>{children}</ScrollContainerWrapper>
+            <ScrollContainerWrapper ref={contentRef} className={className}>
+                {children}
+            </ScrollContainerWrapper>
             {showScrollRight && (
-                <ScrollButton onClick={scrollRight} alwaysVisible={alwaysVisible} size={scrollButtonSize}>
+                <ScrollButton
+                    onClick={scrollRight}
+                    alwaysVisible={alwaysVisible}
+                    size={scrollButtonSize}
+                    offset={scrollButtonOffset}
+                    right
+                >
                     <StyledNavigateNextOutlinedIcon buttonSize={scrollButtonSize} />
                 </ScrollButton>
             )}

@@ -1,20 +1,15 @@
 import React from 'react';
 import styled from 'styled-components';
+import HorizontalScroller from '../../../../../sharedV2/carousel/HorizontalScroller';
 import { REDESIGN_COLORS } from '../../../constants';
 
-const Container = styled.div`
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    gap: 10px;
-`;
-
-const ColumnsContainer = styled.div`
+const ColumnsContainer = styled(HorizontalScroller)`
     display: flex;
     flex-direction: row;
     align-items: start;
     justify-content: start;
     margin-left: 5px;
+    overflow: auto;
 
     & > div {
         &:not(:first-child) {
@@ -29,7 +24,6 @@ const Column = styled.div`
     font-size: 12px;
     display: flex;
     flex-direction: column;
-    align-items: space-between;
     justify-content: start;
     margin-right: 20px;
 
@@ -62,22 +56,18 @@ type Props = {
 };
 
 export const SidebarHeaderSectionColumns = ({ columns }: Props) => {
+    if (!columns.length) return null;
+
     return (
-        <>
-            {columns.length > 0 && (
-                <Container>
-                    <ColumnsContainer>
-                        {columns.map((column) => (
-                            <Column>
-                                <Heading>
-                                    <Title>{column.title}</Title>
-                                </Heading>
-                                {column.content}
-                            </Column>
-                        ))}
-                    </ColumnsContainer>
-                </Container>
-            )}
-        </>
+        <ColumnsContainer scrollButtonSize={18} scrollButtonOffset={15}>
+            {columns.map((column) => (
+                <Column>
+                    <Heading>
+                        <Title>{column.title}</Title>
+                    </Heading>
+                    {column.content}
+                </Column>
+            ))}
+        </ColumnsContainer>
     );
 };
