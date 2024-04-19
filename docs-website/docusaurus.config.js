@@ -314,7 +314,7 @@ module.exports = {
       '@docusaurus/plugin-client-redirects',
       {
         createRedirects(existingPath) {
-          if (existingPath.includes('/docs/next')) {
+          if (existingPath.includes('/docs')) {
             return [
               existingPath.replace('/docs', '/docs/next'),
             ];
