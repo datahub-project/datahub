@@ -1,4 +1,4 @@
-package io.datahubproject.openapi.timeline;
+package io.datahubproject.openapi.v2.controller;
 
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
@@ -31,7 +31,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @AllArgsConstructor
-@RequestMapping("/timeline/v1")
+@RequestMapping("/v2/timeline/v1")
 @Tag(
     name = "Timeline",
     description =
