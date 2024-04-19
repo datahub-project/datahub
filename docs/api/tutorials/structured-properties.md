@@ -95,24 +95,29 @@ curl -X 'POST' -v \
   -H 'accept: application/json' \
   -H 'Content-Type: application/json' \
   -d '{
-    "qualifiedName": "io.acryl.privacy.retentionTime",
-    "displayName": "io.acryl.privacy.retentionTime",
-    "valueType": "urn:li:dataType:datahub.string",
-    "allowedValues": [
-        {
-            "value": {"string": "foo"},
-            "description": "test foo value"
-        },
-        {
-            "value": {"string": "bar"},
-            "description": "test bar value"
-        }
-    ],
-    "cardinality": "SINGLE",
-    "entityTypes": [
-        "urn:li:entityType:datahub.dataset"
-    ],
-    "description": "test description"
+		"qualifiedName": "io.acryl.privacy.retentionTime",
+	  "valueType": "urn:li:dataType:datahub.number",
+	  "description": "Retention Time is used to figure out how long to retain records in a dataset",
+	  "displayName": "Retention Time",
+	  "cardinality": "MULTIPLE",
+	  "entityTypes": [
+        "urn:li:entityType:datahub.dataset",
+        "urn:li:entityType:datahub.dataFlow"
+		  ],
+	  "allowedValues": [
+	    {
+	      "value": {"double": 30},
+	      "description": "30 days, usually reserved for datasets that are ephemeral and contain pii"
+	    },
+	    {
+	      "value": {"double": 60},
+	      "description": "Use this for datasets that drive monthly reporting but contain pii"
+	    },
+	    {
+	      "value": {"double": 365},
+	      "description": "Use this for non-sensitive data that can be retained for longer"
+	    }
+	  ]
 }' | jq
 ```
 </TabItem>
@@ -132,6 +137,35 @@ datahub properties get --urn {urn}
 For Example, you can run `datahub properties get --urn urn:li:structuredProperty:io.acryl.privacy.retentionTime`.
 If successful, you should see metadata about your properties returned.
 
+```commandline
+{
+  "urn": "urn:li:structuredProperty:io.acryl.privacy.retentionTime",
+  "qualified_name": "io.acryl.privacy.retentionTime",
+  "type": "urn:li:dataType:datahub.number",
+  "description": "Retention Time is used to figure out how long to retain records in a dataset",
+  "display_name": "Retention Time",
+  "entity_types": [
+    "urn:li:entityType:datahub.dataset",
+    "urn:li:entityType:datahub.dataFlow"
+  ],
+  "cardinality": "MULTIPLE",
+  "allowed_values": [
+    {
+      "value": "30",
+      "description": "30 days, usually reserved for datasets that are ephemeral and contain pii"
+    },
+    {
+      "value": "90",
+      "description": "Use this for datasets that drive monthly reporting but contain pii"
+    },
+    {
+      "value": "365",
+      "description": "Use this for non-sensitive data that can be retained for longer"
+    }
+  ]
+}
+```
+
 </TabItem>
 <TabItem value="OpenAPI" label="OpenAPI">
 
@@ -150,29 +184,34 @@ Example Response:
     "allowedValues": [
       {
         "value": {
-          "string": "foo"
+          "double": 30.0
         },
-        "description": "test foo value"
+        "description": "30 days, usually reserved for datasets that are ephemeral and contain pii"
       },
       {
         "value": {
-          "string": "bar"
+          "double": 60.0
         },
-        "description": "test bar value"
+        "description": "Use this for datasets that drive monthly reporting but contain pii"
+      },
+      {
+        "value": {
+          "double": 365.0
+        },
+        "description": "Use this for non-sensitive data that can be retained for longer"
       }
     ],
     "qualifiedName": "io.acryl.privacy.retentionTime",
-    "displayName": "MyProperty01",
-    "valueType": "urn:li:dataType:datahub.string",
-    "description": "test description",
+    "displayName": "Retention Time",
+    "valueType": "urn:li:dataType:datahub.number",
+    "description": "Retention Time is used to figure out how long to retain records in a dataset",
     "entityTypes": [
-      "urn:li:entityType:datahub.dataset"
+      "urn:li:entityType:datahub.dataset",
+      "urn:li:entityType:datahub.dataFlow"
     ],
-    "cardinality": "SINGLE"
+    "cardinality": "MULTIPLE"
   }
 }
-
-
 ```
 
 </TabItem>
@@ -247,10 +286,7 @@ This action will set/replace all structured properties on the entity. See PATCH 
 <Tabs>
 <TabItem value="CLI" label="CLI" default>
 
-You can set structured properties to a dataset by creating a dataset yaml file with structured properties.
-Please refer to the [full example here.](https://github.com/datahub-project/datahub/blob/example-yaml-sp/metadata-ingestion/examples/structured_properties/datasets.yaml)
-
-You can define structured properties at the dataset level in the dataset yaml like below. 
+You can set structured properties to a dataset by creating a dataset yaml file with structured properties like below. Please refer to the [full example here.](https://github.com/datahub-project/datahub/blob/example-yaml-sp/metadata-ingestion/examples/structured_properties/datasets.yaml)
 
 ```yaml
 - id: user.clicks
@@ -310,7 +346,7 @@ This section will show you how to patch a structured property value - either by 
 ### Add Structured Property Value
 
 For this example, we'll extend create a second structured property and apply both properties to the same dataset used previously. 
-After this your system should include both io.acryl.privacy.retentionTime and my.test.MyProperty02.
+After this your system should include both io.acryl.privacy.retentionTime and acryl.privacy.retentionTime02.
 
 <Tabs>
 <TabItem value="OpenAPI" label="OpenAPI">
@@ -323,8 +359,8 @@ curl -X 'POST' -v \
   -H 'accept: application/json' \
   -H 'Content-Type: application/json' \
   -d '{
-    "qualifiedName": "my.test.MyProperty02",
-    "displayName": "MyProperty02",
+    "qualifiedName": "acryl.privacy.retentionTime02",
+    "displayName": "Retention Time 02",
     "valueType": "urn:li:dataType:datahub.string",
     "allowedValues": [
         {
@@ -360,7 +396,7 @@ curl -X 'POST' -v \
       ]
     },
     {
-      "propertyUrn": "urn:li:structuredProperty:my.test.MyProperty02",
+      "propertyUrn": "urn:li:structuredProperty:my.test.retentionTime02",
       "values": [
         {"string": "bar2"}
       ]
@@ -399,9 +435,10 @@ curl -X 'PATCH' -v \
         }
       }' | jq
 
-
+```
 The response will show that the expected property has been removed.
 
+```
 {
   "urn": "urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)",
   "aspects": {
