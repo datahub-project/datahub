@@ -1166,9 +1166,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     if (!unsupported.isEmpty()) {
       throw new UnsupportedOperationException(
           "ChangeType not supported: "
-              + unsupported.stream()
-                  .map(item -> item.getMetadataChangeProposal().getChangeType())
-                  .collect(Collectors.toSet()));
+              + unsupported.stream().map(item -> item.getChangeType()).collect(Collectors.toSet()));
     }
 
     List<UpdateAspectResult> upsertResults = ingestAspects(opContext, nonTimeseries, true, true);
