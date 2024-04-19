@@ -611,8 +611,7 @@ class SnowflakeQuery:
                 )
                 t,
                 lateral flatten(input => t.{objects_column}) object
-            where
-                {temp_table_filter}
+            {("where " + temp_table_filter) if temp_table_filter else ""}
         )
         ,
         field_access_history AS

@@ -275,16 +275,15 @@ class SnowflakeUsageExtractor(
                 totalSqlQueries=row["TOTAL_QUERIES"],
                 uniqueUserCount=row["TOTAL_USERS"],
                 topSqlQueries=(
-                    self._map_top_sql_queries(json.loads(row["TOP_SQL_QUERIES"]))
+                    self._map_top_sql_queries(row["TOP_SQL_QUERIES"])
                     if self.config.include_top_n_queries
                     else None
                 ),
                 userCounts=self._map_user_counts(
-                    json.loads(row["USER_COUNTS"]),
+                    row["USER_COUNTS"]
                 ),
-                fieldCounts=self._map_field_counts(json.loads(row["FIELD_COUNTS"])),
+                fieldCounts=self._map_field_counts(row["FIELD_COUNTS"]),
             )
-
             return MetadataChangeProposalWrapper(
                 entityUrn=self.dataset_urn_builder(dataset_identifier), aspect=stats
             ).as_workunit()
@@ -299,63 +298,75 @@ class SnowflakeUsageExtractor(
 
         return None
 
-    def _map_top_sql_queries(self, top_sql_queries: Dict) -> List[str]:
-        budget_per_query: int = int(
-            self.config.queries_character_limit / self.config.top_n_queries
-        )
-        return sorted(
-            [
-                (
-                    trim_query(format_sql_query(query), budget_per_query)
-                    if self.config.format_sql_queries
-                    else trim_query(query, budget_per_query)
-                )
-                for query in top_sql_queries
-            ]
-        )
+    def _map_top_sql_queries(self, top_sql_queries_str: str) -> List[str]:
+        with self.report.usage_aggregation_queries_map_timer:
+            top_sql_queries = json.loads(top_sql_queries_str)
+            budget_per_query: int = int(
+                self.config.queries_character_limit / self.config.top_n_queries
+            )
+            return sorted(
+                [
+                    (
+                        trim_query(format_sql_query(query), budget_per_query)
+                        if self.config.format_sql_queries
+                        else trim_query(query, budget_per_query)
+                    )
+                    for query in top_sql_queries
+                ]
+            )
 
     def _map_user_counts(
         self,
-        user_counts: Dict,
+        user_counts_str: str,
     ) -> List[DatasetUserUsageCounts]:
-        filtered_user_counts = []
-        for user_count in user_counts:
-            user_email = user_count.get("email")
-            if not user_email and self.config.email_domain and user_count["user_name"]:
-                user_email = "{0}@{1}".format(
-                    user_count["user_name"], self.config.email_domain
-                ).lower()
-            if not user_email or not self.config.user_email_pattern.allowed(user_email):
-                continue
+        with self.report.usage_aggregation_users_map_timer:
+            user_counts = json.loads(user_counts_str)
+            filtered_user_counts = []
+            for user_count in user_counts:
+                user_email = user_count.get("email")
+                if (
+                    not user_email
+                    and self.config.email_domain
+                    and user_count["user_name"]
+                ):
+                    user_email = "{0}@{1}".format(
+                        user_count["user_name"], self.config.email_domain
+                    ).lower()
+                if not user_email or not self.config.user_email_pattern.allowed(
+                    user_email
+                ):
+                    continue
 
-            filtered_user_counts.append(
-                DatasetUserUsageCounts(
-                    user=make_user_urn(
-                        self.get_user_identifier(
-                            user_count["user_name"],
-                            user_email,
-                            self.config.email_as_user_identifier,
-                        )
-                    ),
-                    count=user_count["total"],
-                    # NOTE: Generated emails may be incorrect, as email may be different than
-                    # username@email_domain
-                    userEmail=user_email,
+                filtered_user_counts.append(
+                    DatasetUserUsageCounts(
+                        user=make_user_urn(
+                            self.get_user_identifier(
+                                user_count["user_name"],
+                                user_email,
+                                self.config.email_as_user_identifier,
+                            )
+                        ),
+                        count=user_count["total"],
+                        # NOTE: Generated emails may be incorrect, as email may be different than
+                        # username@email_domain
+                        userEmail=user_email,
+                    )
                 )
+            return sorted(filtered_user_counts, key=lambda v: v.user)
+
+    def _map_field_counts(self, field_counts_str: str) -> List[DatasetFieldUsageCounts]:
+        with self.report.usage_aggregation_fields_map_timer:
+            field_counts = json.loads(field_counts_str)
+            return sorted(
+                [
+                    DatasetFieldUsageCounts(
+                        fieldPath=self.snowflake_identifier(field_count["col"]),
+                        count=field_count["total"],
+                    )
+                    for field_count in field_counts
+                ],
+                key=lambda v: v.fieldPath,
             )
-        return sorted(filtered_user_counts, key=lambda v: v.user)
-
-    def _map_field_counts(self, field_counts: Dict) -> List[DatasetFieldUsageCounts]:
-        return sorted(
-            [
-                DatasetFieldUsageCounts(
-                    fieldPath=self.snowflake_identifier(field_count["col"]),
-                    count=field_count["total"],
-                )
-                for field_count in field_counts
-            ],
-            key=lambda v: v.fieldPath,
-        )
 
     def _get_snowflake_history(self) -> Iterable[SnowflakeJoinedAccessEvent]:
         logger.info("Getting access history")

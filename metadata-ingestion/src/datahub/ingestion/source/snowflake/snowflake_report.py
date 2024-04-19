@@ -89,11 +89,14 @@ class SnowflakeV2Report(
     usage_aggregation_result_fetch_timer: PerfTimer = field(default_factory=PerfTimer)
     usage_aggregation_result_skip_timer: PerfTimer = field(default_factory=PerfTimer)
     usage_aggregation_result_map_timer: PerfTimer = field(default_factory=PerfTimer)
+    usage_aggregation_users_map_timer: PerfTimer = field(default_factory=PerfTimer)
+    usage_aggregation_queries_map_timer: PerfTimer = field(default_factory=PerfTimer)
+    usage_aggregation_fields_map_timer: PerfTimer = field(default_factory=PerfTimer)
+
     table_lineage_query_secs: float = -1
-    # view_lineage_parse_secs: float = -1
-    # view_upstream_lineage_query_secs: float = -1
-    # view_downstream_lineage_query_secs: float = -1
     external_lineage_queries_secs: float = -1
+    num_tables_with_known_upstreams: int = 0
+    num_upstream_lineage_edge_parsing_failed: int = 0
 
     # Reports how many times we reset in-memory `functools.lru_cache` caches of data,
     # which occurs when we occur a different database / schema.
@@ -119,14 +122,6 @@ class SnowflakeV2Report(
     _scanned_tags: MutableSet[str] = field(default_factory=set)
 
     edition: Optional[SnowflakeEdition] = None
-
-    # num_tables_with_external_upstreams_only: int = 0
-    num_tables_with_known_upstreams: int = 0
-    # num_views_with_upstreams: int = 0
-
-    # num_view_definitions_parsed: int = 0
-    # num_view_definitions_failed_parsing: int = 0
-    # num_view_definitions_failed_column_parsing: int = 0
 
     def report_entity_scanned(self, name: str, ent_type: str = "table") -> None:
         """

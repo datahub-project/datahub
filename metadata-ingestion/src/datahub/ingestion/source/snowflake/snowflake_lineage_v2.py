@@ -240,6 +240,7 @@ class SnowflakeLineageExtractor(
 
         downstream_table_urn = self.dataset_urn_builder(dataset_name)
 
+        # TODO: Can KnownQueryLineageInfo support unknown query lineage i.e. query = None
         known_lineage = KnownQueryLineageInfo(
             query_text=query.query_text,
             downstream=downstream_table_urn,
@@ -369,7 +370,9 @@ class SnowflakeLineageExtractor(
         )
         try:
             for db_row in self.query(query):
-                yield UpstreamLineageEdge.parse_obj(db_row)
+                edge = self._process_upstream_lineage_row(db_row)
+                if edge:
+                    yield edge
         except Exception as e:
             if isinstance(e, SnowflakePermissionError):
                 error_msg = "Failed to get table/view to table lineage. Please grant imported privileges on SNOWFLAKE database. "
@@ -381,6 +384,19 @@ class SnowflakeLineageExtractor(
                     f"Extracting lineage from Snowflake failed due to error {e}.",
                 )
             self.report_status(TABLE_LINEAGE, False)
+
+    def _process_upstream_lineage_row(
+        self, db_row: dict
+    ) -> Optional[UpstreamLineageEdge]:
+        try:
+            return UpstreamLineageEdge.parse_obj(db_row)
+        except Exception as e:
+            self.report.num_upstream_lineage_edge_parsing_failed += 1
+            self.report_warning(
+                f"Parsing lineage edge failed due to error {e}",
+                db_row.get("DOWNSTREAM_TABLE_NAME") or "",
+            )
+            return None
 
     def map_query_result_upstreams(
         self, upstream_tables: Optional[List[UpstreamTableNode]], query_id: str
