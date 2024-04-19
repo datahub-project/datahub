@@ -32,7 +32,8 @@ import org.mockito.MockitoAnnotations;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-public class TagFieldResolverProviderTest {
+public class TagFieldResolverProviderTest
+    extends EntityFieldResolverProviderBaseTest<TagFieldResolverProvider> {
 
   private static final String TAG_URN = "urn:li:tag:test";
   private static final String RESOURCE_URN =
@@ -47,8 +48,12 @@ public class TagFieldResolverProviderTest {
   @BeforeMethod
   public void setup() {
     MockitoAnnotations.initMocks(this);
-    tagFieldResolverProvider =
-        new TagFieldResolverProvider(entityClientMock, systemAuthenticationMock);
+    tagFieldResolverProvider = buildFieldResolverProvider();
+  }
+
+  @Override
+  protected TagFieldResolverProvider buildFieldResolverProvider() {
+    return new TagFieldResolverProvider(entityClientMock, systemAuthenticationMock);
   }
 
   @Test

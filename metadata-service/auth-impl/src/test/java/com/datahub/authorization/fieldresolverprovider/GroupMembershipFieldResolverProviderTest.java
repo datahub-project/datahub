@@ -29,7 +29,8 @@ import org.mockito.MockitoAnnotations;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-public class GroupMembershipFieldResolverProviderTest {
+public class GroupMembershipFieldResolverProviderTest
+    extends EntityFieldResolverProviderBaseTest<GroupMembershipFieldResolverProvider> {
 
   private static final String CORPGROUP_URN = "urn:li:corpGroup:groupname";
   private static final String NATIVE_CORPGROUP_URN = "urn:li:corpGroup:nativegroupname";
@@ -45,8 +46,12 @@ public class GroupMembershipFieldResolverProviderTest {
   @BeforeMethod
   public void setup() {
     MockitoAnnotations.initMocks(this);
-    groupMembershipFieldResolverProvider =
-        new GroupMembershipFieldResolverProvider(entityClientMock, systemAuthenticationMock);
+    groupMembershipFieldResolverProvider = buildFieldResolverProvider();
+  }
+
+  @Override
+  protected GroupMembershipFieldResolverProvider buildFieldResolverProvider() {
+    return new GroupMembershipFieldResolverProvider(entityClientMock, systemAuthenticationMock);
   }
 
   @Test

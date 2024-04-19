@@ -4,8 +4,8 @@ import com.datahub.authorization.EntityFieldType;
 import com.datahub.authorization.EntitySpec;
 import com.datahub.authorization.FieldResolver;
 import com.datastax.oss.driver.shaded.guava.common.collect.ImmutableList;
-import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 
 /** Provides field resolver for entity urn given entitySpec */
 public class EntityUrnFieldResolverProvider implements EntityFieldResolverProvider {
@@ -17,6 +17,13 @@ public class EntityUrnFieldResolverProvider implements EntityFieldResolverProvid
 
   @Override
   public FieldResolver getFieldResolver(EntitySpec entitySpec) {
-    return FieldResolver.getResolverFromValues(Collections.singleton(entitySpec.getEntity()));
+    return FieldResolver.getResolverFromFunction(entitySpec, this::getUrn);
+  }
+
+  private FieldResolver.FieldValue getUrn(EntitySpec entitySpec) {
+    if (entitySpec.getEntity().isEmpty()) {
+      return FieldResolver.emptyFieldValue();
+    }
+    return FieldResolver.FieldValue.builder().values(Set.of(entitySpec.getEntity())).build();
   }
 }

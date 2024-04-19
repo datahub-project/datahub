@@ -36,9 +36,14 @@ public class TagFieldResolverProvider implements EntityFieldResolverProvider {
   }
 
   private FieldResolver.FieldValue getTags(EntitySpec entitySpec) {
-    Urn entityUrn = UrnUtils.getUrn(entitySpec.getEntity());
     EnvelopedAspect globalTagsAspect;
     try {
+      if (entitySpec.getEntity().isEmpty()) {
+        return FieldResolver.emptyFieldValue();
+      }
+
+      Urn entityUrn = UrnUtils.getUrn(entitySpec.getEntity());
+
       EntityResponse response =
           _entityClient.getV2(
               entityUrn.getEntityType(),
@@ -51,7 +56,7 @@ public class TagFieldResolverProvider implements EntityFieldResolverProvider {
       }
       globalTagsAspect = response.getAspects().get(Constants.GLOBAL_TAGS_ASPECT_NAME);
     } catch (Exception e) {
-      log.error("Error while retrieving tags aspect for urn {}", entityUrn, e);
+      log.error("Error while retrieving tags aspect for entitySpec {}", entitySpec, e);
       return FieldResolver.emptyFieldValue();
     }
     GlobalTags globalTags = new GlobalTags(globalTagsAspect.getValue().data());
