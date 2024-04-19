@@ -105,6 +105,8 @@ module.exports = {
             },
           ],
         },
+        "docs/features/feature-guides/structured-properties",
+        "docs/features/feature-guides/forms",
         {
           Guides: ["docs/features/feature-guides/ui-lineage"],
         },
@@ -596,11 +598,6 @@ module.exports = {
               label: "OpenAPI",
               id: "docs/api/openapi/openapi-usage-guide",
             },
-            {
-              type: "doc",
-              label: "Structured Properties",
-              id: "docs/api/openapi/openapi-structured-properties",
-            },
           ],
         },
         "docs/dev-guides/timeline",
@@ -730,6 +727,8 @@ module.exports = {
         "docs/api/tutorials/descriptions",
         "docs/api/tutorials/custom-properties",
         "docs/api/tutorials/ml",
+        "docs/api/tutorials/structured-properties",
+        "docs/api/tutorials/forms",
       ],
     },
     {
