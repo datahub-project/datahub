@@ -496,7 +496,7 @@ fragment entityLineageV2 on Entity {
             input: {
                 direction: UPSTREAM
                 start: 0
-                count: 100
+                count: 1000
                 separateSiblings: $separateSiblings
                 startTimeMillis: $startTimeMillis
                 endTimeMillis: $endTimeMillis
@@ -508,7 +508,7 @@ fragment entityLineageV2 on Entity {
             input: {
                 direction: DOWNSTREAM
                 start: 0
-                count: 100
+                count: 1000
                 separateSiblings: $separateSiblings
                 startTimeMillis: $startTimeMillis
                 endTimeMillis: $endTimeMillis

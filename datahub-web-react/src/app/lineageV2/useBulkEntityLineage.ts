@@ -6,7 +6,6 @@ import usePrevious from '../shared/usePrevious';
 import { useEntityRegistryV2 } from '../useEntityRegistry';
 import {
     addToAdjacencyList,
-    clearEdges,
     FetchStatus,
     getEdgeId,
     isQuery,
@@ -69,7 +68,6 @@ export default function useBulkEntityLineage(shownUrns: string[]): (urn: string)
 
                 // TODO: Remove once using bulk edges query
                 if (!isQuery(node)) {
-                    clearEdges(node.urn, smallContext);
                     entity.downstreamRelationships?.forEach((relationship) =>
                         processEdge(node, relationship, LineageDirection.Downstream, smallContext),
                     );

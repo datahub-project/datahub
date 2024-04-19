@@ -105,9 +105,11 @@ export default function LineageFilterNode(props: NodeProps<LineageFilter>) {
                     ))}
                 </PillColumn>
                 <PillColumn>
-                    {subtypes?.map((agg, index) => (
-                        <SubtypeEntry agg={agg} key={agg[0]} index={index} />
-                    ))}
+                    {subtypes
+                        ?.filter(([filterValue]) => !filterValue.toLocaleLowerCase().endsWith('query'))
+                        .map((agg, index) => (
+                            <SubtypeEntry agg={agg} key={agg[0]} index={index} />
+                        ))}
                 </PillColumn>
             </PillsWrapper>
         </NodeWrapper>

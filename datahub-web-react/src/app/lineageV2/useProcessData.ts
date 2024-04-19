@@ -246,12 +246,12 @@ function getTransformationalNodes(
             if (nodesInBetween.has(child) && childNode) {
                 nodesToLeaves.push(childNode);
                 nodesInBetween.delete(child);
-            }
-            const edge = edges.get(getEdgeId(urn, child, direction));
-            if (edge?.isDisplayed && edge?.via) {
-                const queryNode = nodes.get(edge.via);
-                if (queryNode) {
-                    result.push(queryNode);
+                const edge = edges.get(getEdgeId(urn, child, direction));
+                if (edge?.isDisplayed && edge?.via) {
+                    const queryNode = nodes.get(edge.via);
+                    if (queryNode) {
+                        result.push(queryNode);
+                    }
                 }
             }
         });
