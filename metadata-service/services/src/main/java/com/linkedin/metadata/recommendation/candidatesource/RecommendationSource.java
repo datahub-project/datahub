@@ -1,5 +1,6 @@
 package com.linkedin.metadata.recommendation.candidatesource;
 
+import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.recommendation.RecommendationContent;
 import com.linkedin.metadata.recommendation.RecommendationContentArray;
 import com.linkedin.metadata.recommendation.RecommendationModule;
@@ -10,6 +11,7 @@ import io.opentelemetry.extension.annotations.WithSpan;
 import java.util.List;
 import java.util.Optional;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 /** Base interface for defining a candidate source for recommendation module */
 public interface RecommendationSource {
@@ -38,26 +40,38 @@ public interface RecommendationSource {
    *
    * @param opContext User's context requesting recommendations
    * @param requestContext Context of where the recommendations are being requested
+   * @param filter Filter to apply when searching for recommendations
    * @return list of recommendation candidates
    */
   @WithSpan
   List<RecommendationContent> getRecommendations(
-      @Nonnull OperationContext opContext, @Nonnull RecommendationRequestContext requestContext);
+      @Nonnull OperationContext opContext,
+      @Nonnull RecommendationRequestContext requestContext,
+      @Nullable Filter filter);
+
+  default Optional<RecommendationModule> getRecommendationModule(
+      @Nonnull OperationContext opContext, @Nonnull RecommendationRequestContext requestContext) {
+    return getRecommendationModule(opContext, requestContext, null);
+  }
 
   /**
    * Get the full recommendations module itself provided the request context.
    *
    * @param opContext User's context requesting recommendations
    * @param requestContext Context of where the recommendations are being requested
+   * @param filter Filter to apply when searching for recommendations
    * @return list of recommendation candidates
    */
   default Optional<RecommendationModule> getRecommendationModule(
-      @Nonnull OperationContext opContext, @Nonnull RecommendationRequestContext requestContext) {
+      @Nonnull OperationContext opContext,
+      @Nonnull RecommendationRequestContext requestContext,
+      @Nullable Filter filter) {
     if (!isEligible(opContext, requestContext)) {
       return Optional.empty();
     }
 
-    List<RecommendationContent> recommendations = getRecommendations(opContext, requestContext);
+    List<RecommendationContent> recommendations =
+        getRecommendations(opContext, requestContext, filter);
     if (recommendations.isEmpty()) {
       return Optional.empty();
     }

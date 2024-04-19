@@ -83,7 +83,8 @@ public class RecommendationsServiceTest {
             TestOperationContexts.userContextNoSearchAuthorization(
                 Urn.createFromString("urn:li:corpuser:me")),
             new RecommendationRequestContext().setScenario(ScenarioType.HOME),
-            10);
+            10,
+            null);
     assertTrue(result.isEmpty());
 
     // Test empty with one valid source
@@ -95,7 +96,8 @@ public class RecommendationsServiceTest {
             TestOperationContexts.userContextNoSearchAuthorization(
                 Urn.createFromString("urn:li:corpuser:me")),
             new RecommendationRequestContext().setScenario(ScenarioType.HOME),
-            10);
+            10,
+            null);
     assertEquals(result.size(), 1);
     RecommendationModule module = result.get(0);
     assertEquals(module.getTitle(), "values");
@@ -112,7 +114,8 @@ public class RecommendationsServiceTest {
             TestOperationContexts.userContextNoSearchAuthorization(
                 Urn.createFromString("urn:li:corpuser:me")),
             new RecommendationRequestContext().setScenario(ScenarioType.HOME),
-            10);
+            10,
+            null);
     assertEquals(result.size(), 4);
     module = result.get(0);
     assertEquals(module.getTitle(), "values");
@@ -141,7 +144,8 @@ public class RecommendationsServiceTest {
             TestOperationContexts.userContextNoSearchAuthorization(
                 Urn.createFromString("urn:li:corpuser:me")),
             new RecommendationRequestContext().setScenario(ScenarioType.HOME),
-            2);
+            2,
+            null);
     assertEquals(result.size(), 2);
     module = result.get(0);
     assertEquals(module.getTitle(), "values");

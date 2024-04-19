@@ -25,6 +25,7 @@ import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchResultMetadata;
+import com.linkedin.metadata.service.ViewService;
 import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.Collections;
@@ -41,6 +42,7 @@ public class DomainEntitiesResolverTest {
   public void testGetSuccess() throws Exception {
     // Create resolver
     EntityClient mockClient = Mockito.mock(EntityClient.class);
+    ViewService mockViewService = Mockito.mock(ViewService.class);
 
     final String childUrn = "urn:li:dataset:(test,test,test)";
     final String domainUrn = "urn:li:domain:test-domain";
@@ -82,7 +84,7 @@ public class DomainEntitiesResolverTest {
                 .setMetadata(
                     new SearchResultMetadata().setAggregations(new AggregationMetadataArray())));
 
-    DomainEntitiesResolver resolver = new DomainEntitiesResolver(mockClient);
+    DomainEntitiesResolver resolver = new DomainEntitiesResolver(mockClient, mockViewService);
 
     // Execute resolver
     QueryContext mockContext = Mockito.mock(QueryContext.class);

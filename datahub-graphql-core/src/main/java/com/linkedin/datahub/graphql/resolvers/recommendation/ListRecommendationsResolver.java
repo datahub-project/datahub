@@ -1,9 +1,11 @@
 package com.linkedin.datahub.graphql.resolvers.recommendation;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
+import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.resolveView;
 
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.ContentParams;
 import com.linkedin.datahub.graphql.generated.EntityProfileParams;
@@ -19,9 +21,12 @@ import com.linkedin.datahub.graphql.generated.SearchParams;
 import com.linkedin.datahub.graphql.types.common.mappers.UrnToEntityMapper;
 import com.linkedin.datahub.graphql.types.entitytype.EntityTypeMapper;
 import com.linkedin.metadata.query.filter.CriterionArray;
+import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.recommendation.EntityRequestContext;
 import com.linkedin.metadata.recommendation.RecommendationsService;
 import com.linkedin.metadata.recommendation.SearchRequestContext;
+import com.linkedin.metadata.service.ViewService;
+import com.linkedin.view.DataHubViewInfo;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import io.opentelemetry.extension.annotations.WithSpan;
@@ -44,6 +49,7 @@ public class ListRecommendationsResolver
       new ListRecommendationsResult(Collections.emptyList());
 
   private final RecommendationsService _recommendationsService;
+  private final ViewService _viewService;
 
   @WithSpan
   @Override
@@ -55,12 +61,22 @@ public class ListRecommendationsResolver
     return CompletableFuture.supplyAsync(
         () -> {
           try {
+            final DataHubViewInfo maybeResolvedView =
+                (input.getViewUrn() != null)
+                    ? resolveView(
+                        _viewService,
+                        UrnUtils.getUrn(input.getViewUrn()),
+                        context.getAuthentication())
+                    : null;
+            final Filter viewFilter =
+                maybeResolvedView != null ? maybeResolvedView.getDefinition().getFilter() : null;
             log.debug("Listing recommendations for input {}", input);
             List<com.linkedin.metadata.recommendation.RecommendationModule> modules =
                 _recommendationsService.listRecommendations(
                     context.getOperationContext(),
                     mapRequestContext(input.getRequestContext()),
-                    input.getLimit());
+                    input.getLimit(),
+                    viewFilter);
             return ListRecommendationsResult.builder()
                 .setModules(
                     modules.stream()

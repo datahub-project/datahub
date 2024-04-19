@@ -3,12 +3,15 @@ package com.linkedin.datahub.graphql.resolvers.domain;
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.*;
 
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.SetMode;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.Domain;
 import com.linkedin.datahub.graphql.generated.DomainEntitiesInput;
+import com.linkedin.datahub.graphql.generated.ListRecommendationsInput;
 import com.linkedin.datahub.graphql.generated.SearchResults;
+import com.linkedin.datahub.graphql.resolvers.search.SearchUtils;
 import com.linkedin.datahub.graphql.types.entitytype.EntityTypeMapper;
 import com.linkedin.datahub.graphql.types.mappers.UrnSearchResultsMapper;
 import com.linkedin.entity.client.EntityClient;
@@ -18,6 +21,8 @@ import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.service.ViewService;
+import com.linkedin.view.DataHubViewInfo;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.concurrent.CompletableFuture;
@@ -42,9 +47,11 @@ public class DomainEntitiesResolver implements DataFetcher<CompletableFuture<Sea
   }
 
   private final EntityClient _entityClient;
+  private final ViewService _viewService;
 
-  public DomainEntitiesResolver(final EntityClient entityClient) {
+  public DomainEntitiesResolver(final EntityClient entityClient, final ViewService viewService) {
     _entityClient = entityClient;
+    _viewService = viewService;
   }
 
   @Override
@@ -96,6 +103,11 @@ public class DomainEntitiesResolver implements DataFetcher<CompletableFuture<Sea
                                     SetMode.IGNORE_NULL));
                       });
             }
+            Filter baseFilter =
+                new Filter()
+                    .setOr(
+                        new ConjunctiveCriterionArray(new ConjunctiveCriterion().setAnd(criteria)));
+            DataHubViewInfo maybeResolvedView = getViewInfo(environment);
 
             return UrnSearchResultsMapper.map(
                 context,
@@ -105,10 +117,10 @@ public class DomainEntitiesResolver implements DataFetcher<CompletableFuture<Sea
                         .map(EntityTypeMapper::getName)
                         .collect(Collectors.toList()),
                     query,
-                    new Filter()
-                        .setOr(
-                            new ConjunctiveCriterionArray(
-                                new ConjunctiveCriterion().setAnd(criteria))),
+                    maybeResolvedView != null
+                        ? SearchUtils.combineFilters(
+                            baseFilter, maybeResolvedView.getDefinition().getFilter())
+                        : baseFilter,
                     start,
                     count,
                     null,
@@ -120,5 +132,28 @@ public class DomainEntitiesResolver implements DataFetcher<CompletableFuture<Sea
                 e);
           }
         });
+  }
+
+  /**
+   * Get viewUrn from parent listRecommendations query if this is the parent query, otherwise return
+   * null
+   */
+  DataHubViewInfo getViewInfo(final DataFetchingEnvironment environment) {
+    final QueryContext context = environment.getContext();
+
+    String viewUrn = null;
+    try {
+      ListRecommendationsInput listRecommendationsInput =
+          environment.getVariables().get(INPUT_ARG_NAME) != null
+              ? bindArgument(
+                  environment.getVariables().get(INPUT_ARG_NAME), ListRecommendationsInput.class)
+              : null;
+      viewUrn = listRecommendationsInput != null ? listRecommendationsInput.getViewUrn() : null;
+    } catch (Exception e) {
+      log.debug("DomainEntitiesResolver not being used in the listRecommendations context", e);
+    }
+    return (viewUrn != null)
+        ? resolveView(_viewService, UrnUtils.getUrn(viewUrn), context.getAuthentication())
+        : null;
   }
 }

@@ -100,7 +100,7 @@ public class EntitySearchAggregationCandidateSourceTest {
                 any(OperationContext.class), eq(null), eq("testValue"), eq(null), anyInt()))
         .thenReturn(Collections.emptyMap());
     List<RecommendationContent> candidates =
-        valueBasedCandidateSource.getRecommendations(opContext, CONTEXT);
+        valueBasedCandidateSource.getRecommendations(opContext, CONTEXT, null);
     assertTrue(candidates.isEmpty());
     assertFalse(valueBasedCandidateSource.getRecommendationModule(opContext, CONTEXT).isPresent());
   }
@@ -113,7 +113,7 @@ public class EntitySearchAggregationCandidateSourceTest {
                 any(OperationContext.class), any(), eq("testValue"), eq(null), anyInt()))
         .thenReturn(ImmutableMap.of("value1", 1L));
     List<RecommendationContent> candidates =
-        valueBasedCandidateSource.getRecommendations(opContext, CONTEXT);
+        valueBasedCandidateSource.getRecommendations(opContext, CONTEXT, null);
     assertEquals(candidates.size(), 1);
     RecommendationContent content = candidates.get(0);
     assertEquals(content.getValue(), "value1");
@@ -135,7 +135,7 @@ public class EntitySearchAggregationCandidateSourceTest {
             entitySearchService.aggregateByValue(
                 any(OperationContext.class), any(), eq("testValue"), eq(null), anyInt()))
         .thenReturn(ImmutableMap.of("value1", 1L, "value2", 2L, "value3", 3L));
-    candidates = valueBasedCandidateSource.getRecommendations(opContext, CONTEXT);
+    candidates = valueBasedCandidateSource.getRecommendations(opContext, CONTEXT, null);
     assertEquals(candidates.size(), 2);
     content = candidates.get(0);
     assertEquals(content.getValue(), "value3");
@@ -177,7 +177,7 @@ public class EntitySearchAggregationCandidateSourceTest {
                 any(OperationContext.class), any(), eq("testUrn"), eq(null), anyInt()))
         .thenReturn(ImmutableMap.of(testUrn1.toString(), 1L));
     List<RecommendationContent> candidates =
-        urnBasedCandidateSource.getRecommendations(opContext, CONTEXT);
+        urnBasedCandidateSource.getRecommendations(opContext, CONTEXT, null);
     assertEquals(candidates.size(), 1);
     RecommendationContent content = candidates.get(0);
     assertEquals(content.getValue(), testUrn1.toString());
@@ -201,7 +201,7 @@ public class EntitySearchAggregationCandidateSourceTest {
         .thenReturn(
             ImmutableMap.of(
                 testUrn1.toString(), 1L, testUrn2.toString(), 2L, testUrn3.toString(), 3L));
-    candidates = urnBasedCandidateSource.getRecommendations(opContext, CONTEXT);
+    candidates = urnBasedCandidateSource.getRecommendations(opContext, CONTEXT, null);
     assertEquals(candidates.size(), 2);
     content = candidates.get(0);
     assertEquals(content.getValue(), testUrn3.toString());
