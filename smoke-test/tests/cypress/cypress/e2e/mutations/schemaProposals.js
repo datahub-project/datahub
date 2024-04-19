@@ -15,6 +15,7 @@ let clickAddTermsSchemaLevel = (field_id) => {
 
 let createProposalOnModal = (to_type) => {
   cy.get('.ant-select-selector').eq(2).type(to_type);
+  cy.wait(1000)
   cy.get(".rc-virtual-list").find("div").contains(to_type).click();
   cy.get('[data-testid="create-proposal-btn"]').click({force: true});
   cy.contains(to_type).should('be.visible')
@@ -130,7 +131,7 @@ describe('schemaProposals', () => {
       cy.searchNotCachedDoesNotContainDataset('TermToPropose', datasetName);
   });
     
-  it.skip('can propose a schema-level tag to a dataset and then accept the proposal from the Inbox tab', () => {
+  it('can propose a schema-level tag to a dataset and then accept the proposal from the Inbox tab', () => {
       cy.login();
 
       // Proposing a tag
