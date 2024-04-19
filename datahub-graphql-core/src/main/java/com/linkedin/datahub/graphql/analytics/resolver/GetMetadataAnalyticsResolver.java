@@ -96,7 +96,7 @@ public final class GetMetadataAnalyticsResolver implements DataFetcher<List<Anal
           Constants.DOMAIN_ENTITY_NAME,
           ImmutableSet.of(Constants.DOMAIN_PROPERTIES_ASPECT_NAME),
           AnalyticsUtil::getDomainName);
-      charts.add(BarChart.builder().setTitle("Entities by Domain").setBars(domainChart).build());
+      charts.add(BarChart.builder().setTitle("Data Assets by Domain").setBars(domainChart).build());
     }
 
     Optional<AggregationMetadata> platformAggregation =
@@ -114,7 +114,7 @@ public final class GetMetadataAnalyticsResolver implements DataFetcher<List<Anal
           ImmutableSet.of(Constants.DATA_PLATFORM_INFO_ASPECT_NAME),
           AnalyticsUtil::getPlatformName);
       charts.add(
-          BarChart.builder().setTitle("Entities by Platform").setBars(platformChart).build());
+          BarChart.builder().setTitle("Data Assets by Platform").setBars(platformChart).build());
     }
 
     Optional<AggregationMetadata> termAggregation =
@@ -132,7 +132,7 @@ public final class GetMetadataAnalyticsResolver implements DataFetcher<List<Anal
           ImmutableSet.of(
               Constants.GLOSSARY_TERM_KEY_ASPECT_NAME, Constants.GLOSSARY_TERM_INFO_ASPECT_NAME),
           AnalyticsUtil::getTermName);
-      charts.add(BarChart.builder().setTitle("Entities by Term").setBars(termChart).build());
+      charts.add(BarChart.builder().setTitle("Data Assets by Term").setBars(termChart).build());
     }
 
     Optional<AggregationMetadata> envAggregation =
@@ -144,7 +144,7 @@ public final class GetMetadataAnalyticsResolver implements DataFetcher<List<Anal
       List<NamedBar> termChart = buildBarChart(envAggregation.get());
       if (termChart.size() > 1) {
         charts.add(
-            BarChart.builder().setTitle("Entities by Environment").setBars(termChart).build());
+            BarChart.builder().setTitle("Data Assets by Environment").setBars(termChart).build());
       }
     }
 
@@ -162,7 +162,7 @@ public final class GetMetadataAnalyticsResolver implements DataFetcher<List<Anal
                     .setSegments(
                         ImmutableList.of(
                             BarSegment.builder()
-                                .setLabel("#Entities")
+                                .setLabel("Count")
                                 .setValue(entry.getValue().intValue())
                                 .build()))
                     .build())
