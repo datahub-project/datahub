@@ -1,25 +1,16 @@
-package com.linkedin.metadata.models;
+package io.datahubproject.openapi.v3;
 
-import static org.testng.Assert.assertTrue;
+import static io.datahubproject.openapi.util.ReflectionCache.toUpperFirst;
 
-import com.datahub.test.TestEntityProfile;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.github.fge.processing.ProcessingUtil;
-import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableMap;
 import com.linkedin.data.avro.SchemaTranslator;
-import com.linkedin.data.schema.annotation.PathSpecBasedSchemaAnnotationVisitor;
-import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
+import com.linkedin.metadata.models.AspectSpec;
+import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
-import com.linkedin.metadata.models.registry.MergedEntityRegistry;
-import com.linkedin.metadata.models.registry.PluginEntityRegistryLoader;
-import com.linkedin.metadata.models.registry.TestConstants;
 import io.swagger.v3.core.util.Json;
-import io.swagger.v3.core.util.Yaml;
-import io.swagger.v3.oas.models.Components;
-import io.swagger.v3.oas.models.OpenAPI;
-import io.swagger.v3.oas.models.Operation;
-import io.swagger.v3.oas.models.PathItem;
-import io.swagger.v3.oas.models.Paths;
+import io.swagger.v3.oas.models.*;
 import io.swagger.v3.oas.models.info.Info;
 import io.swagger.v3.oas.models.media.Content;
 import io.swagger.v3.oas.models.media.MediaType;
@@ -29,19 +20,14 @@ import io.swagger.v3.oas.models.parameters.RequestBody;
 import io.swagger.v3.oas.models.responses.ApiResponse;
 import io.swagger.v3.oas.models.responses.ApiResponses;
 import java.math.BigDecimal;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import org.testng.annotations.BeforeTest;
-import org.testng.annotations.Test;
 
 @SuppressWarnings({"rawtypes", "unchecked"})
-public class OpenApiSpecBuilderTest {
+public class OpenAPIV3Generator {
   private static final String MODEL_VERSION = "_v3";
   private static final String TYPE_OBJECT = "object";
   private static final String TYPE_BOOLEAN = "boolean";
@@ -49,10 +35,14 @@ public class OpenApiSpecBuilderTest {
   private static final String TYPE_ARRAY = "array";
   private static final String TYPE_INTEGER = "integer";
   private static final String NAME_QUERY = "query";
+  private static final String NAME_PATH = "path";
   private static final String NAME_SYSTEM_METADATA = "systemMetadata";
+  private static final String NAME_ASYNC = "async";
   private static final String NAME_SCROLL_ID = "scrollId";
   private static final String PROPERTY_VALUE = "value";
   private static final String PROPERTY_URN = "urn";
+  private static final String PROPERTY_PATCH = "patch";
+  private static final String PROPERTY_PATCH_PKEY = "arrayPrimaryKeys";
   private static final String PATH_DEFINITIONS = "#/components/schemas/";
   private static final String FORMAT_PATH_DEFINITIONS = "#/components/schemas/%s%s";
   private static final String ASPECT_DESCRIPTION = "Aspect wrapper object.";
@@ -63,57 +53,8 @@ public class OpenApiSpecBuilderTest {
   private static final String ASPECT_RESPONSE_SUFFIX = "Aspect" + RESPONSE_SUFFIX;
   private static final String ENTITY_REQUEST_SUFFIX = "Entity" + REQUEST_SUFFIX;
   private static final String ENTITY_RESPONSE_SUFFIX = "Entity" + RESPONSE_SUFFIX;
-  private static final ImmutableSet<Object> SUPPORTED_ASPECT_PATHS =
-      ImmutableSet.builder()
-          .add("domains")
-          .add("ownership")
-          .add("deprecation")
-          .add("status")
-          .add("globalTags")
-          .add("glossaryTerms")
-          .add("dataContractInfo")
-          .add("browsePathsV2")
-          .add("datasetProperties")
-          .add("editableDatasetProperties")
-          .add("chartInfo")
-          .add("editableChartProperties")
-          .add("dashboardInfo")
-          .add("editableDashboardProperties")
-          .add("notebookInfo")
-          .add("editableNotebookProperties")
-          .add("dataProductProperties")
-          .add("institutionalMemory")
-          .build();
 
-  @BeforeTest
-  public void disableAssert() {
-    PathSpecBasedSchemaAnnotationVisitor.class
-        .getClassLoader()
-        .setClassAssertionStatus(PathSpecBasedSchemaAnnotationVisitor.class.getName(), false);
-  }
-
-  @Test
-  public void testOpenApiSpecBuilder() throws Exception {
-    ConfigEntityRegistry configEntityRegistry =
-        new ConfigEntityRegistry(
-            TestEntityProfile.class.getClassLoader().getResourceAsStream("entity-registry.yml"));
-    MergedEntityRegistry er = new MergedEntityRegistry(configEntityRegistry);
-    new PluginEntityRegistryLoader(TestConstants.BASE_DIRECTORY, 1)
-        .withBaseRegistry(er)
-        .start(true);
-
-    OpenAPI openAPI = generateOpenApiSpec(er);
-    String openapiYaml = Yaml.pretty(openAPI);
-    Files.write(
-        Path.of(getClass().getResource("/").getPath(), "open-api.yaml"),
-        openapiYaml.getBytes(StandardCharsets.UTF_8));
-
-    assertTrue(openAPI.getComponents().getSchemas().size() >= 882);
-    assertTrue(openAPI.getComponents().getParameters().size() >= 54);
-    assertTrue(openAPI.getPaths().size() >= 98);
-  }
-
-  private OpenAPI generateOpenApiSpec(EntityRegistry entityRegistry) {
+  public static OpenAPI generateOpenApiSpec(EntityRegistry entityRegistry) {
     final Set<String> aspectNames = entityRegistry.getAspectSpecs().keySet();
     final Set<String> entityNames =
         entityRegistry.getEntitySpecs().values().stream()
@@ -133,6 +74,7 @@ public class OpenApiSpecBuilderTest {
     // TODO: Correct handling of SystemMetadata and SortOrder
     components.addSchemas("SystemMetadata", new Schema().type(TYPE_STRING));
     components.addSchemas("SortOrder", new Schema()._enum(List.of("ASCENDING", "DESCENDING")));
+    components.addSchemas("AspectPatch", buildAspectPatchSchema());
     entityRegistry
         .getAspectSpecs()
         .values()
@@ -177,22 +119,23 @@ public class OpenApiSpecBuilderTest {
         .forEach(
             e -> {
               paths.addPathItem(
-                  String.format("/%s", e.getName().toLowerCase()), buildListEntityPath(e));
+                  String.format("/v3/entity/%s", e.getName().toLowerCase()),
+                  buildListEntityPath(e));
               paths.addPathItem(
-                  String.format("/%s/{urn}", e.getName().toLowerCase()), buildListEntityPath(e));
+                  String.format("/v3/entity/%s/{urn}", e.getName().toLowerCase()),
+                  buildSingleEntityPath(e));
             });
     entityRegistry.getEntitySpecs().values().stream()
         .filter(e -> definitionNames.contains(e.getName()))
         .forEach(
             e -> {
               e.getAspectSpecs().stream()
-                  .filter(a -> SUPPORTED_ASPECT_PATHS.contains(a.getName()))
-                  .filter(a -> definitionNames.contains(toUpperFirst(a.getName())))
+                  .filter(a -> definitionNames.contains(a.getName()))
                   .forEach(
                       a ->
                           paths.addPathItem(
                               String.format(
-                                  "/%s/{urn}/%s",
+                                  "/v3/entity/%s/{urn}/%s",
                                   e.getName().toLowerCase(), a.getName().toLowerCase()),
                               buildSingleEntityAspectPath(
                                   e, a.getName(), a.getPegasusSchema().getName())));
@@ -200,7 +143,98 @@ public class OpenApiSpecBuilderTest {
     return new OpenAPI().openapi("3.0.1").info(info).paths(paths).components(components);
   }
 
-  private PathItem buildListEntityPath(final EntitySpec entity) {
+  private static PathItem buildSingleEntityPath(final EntitySpec entity) {
+    final String upperFirst = toUpperFirst(entity.getName());
+    final String aspectParameterName = upperFirst + "Aspects";
+    final PathItem result = new PathItem();
+
+    // Get Operation
+    final List<Parameter> parameters =
+        List.of(
+            new Parameter()
+                .in(NAME_PATH)
+                .name("urn")
+                .description("The entity's unique URN id.")
+                .schema(new Schema().type(TYPE_STRING)),
+            new Parameter()
+                .in(NAME_QUERY)
+                .name("systemMetadata")
+                .description("Include systemMetadata with response.")
+                .schema(new Schema().type(TYPE_BOOLEAN)._default(false)),
+            new Parameter()
+                .$ref(
+                    String.format(
+                        "#/components/parameters/%s", aspectParameterName + MODEL_VERSION)));
+    final ApiResponse successApiResponse =
+        new ApiResponse()
+            .description("Success")
+            .content(
+                new Content()
+                    .addMediaType(
+                        "application/json",
+                        new MediaType()
+                            .schema(
+                                new Schema()
+                                    .$ref(
+                                        String.format(
+                                            "#/components/schemas/%s%s",
+                                            upperFirst, ENTITY_RESPONSE_SUFFIX)))));
+    final Operation getOperation =
+        new Operation()
+            .summary(String.format("Get %s.", upperFirst))
+            .operationId(String.format("get%s", upperFirst))
+            .parameters(parameters)
+            .tags(List.of(entity.getName() + " Entity"))
+            .responses(new ApiResponses().addApiResponse("200", successApiResponse));
+
+    // Head Operation
+    final ApiResponse successHeadResponse =
+        new ApiResponse()
+            .description(String.format("%s  exists.", entity.getName()))
+            .content(new Content().addMediaType("application/json", new MediaType()));
+    final ApiResponse notFoundHeadResponse =
+        new ApiResponse()
+            .description(String.format("%s does not exist.", entity.getName()))
+            .content(new Content().addMediaType("application/json", new MediaType()));
+    final Operation headOperation =
+        new Operation()
+            .summary(String.format("%s existence.", upperFirst))
+            .operationId(String.format("head%s", upperFirst))
+            .parameters(
+                List.of(
+                    new Parameter()
+                        .in(NAME_PATH)
+                        .name("urn")
+                        .description("The entity's unique URN id.")
+                        .schema(new Schema().type(TYPE_STRING))))
+            .tags(List.of(entity.getName() + " Entity"))
+            .responses(
+                new ApiResponses()
+                    .addApiResponse("204", successHeadResponse)
+                    .addApiResponse("404", notFoundHeadResponse));
+    // Delete Operation
+    final ApiResponse successDeleteResponse =
+        new ApiResponse()
+            .description(String.format("Delete %s entity.", upperFirst))
+            .content(new Content().addMediaType("application/json", new MediaType()));
+    final Operation deleteOperation =
+        new Operation()
+            .summary(String.format("Delete entity %s", upperFirst))
+            .operationId(String.format("delete%s", upperFirst))
+            .parameters(
+                List.of(
+                    new Parameter()
+                        .in(NAME_PATH)
+                        .name("urn")
+                        .description("The entity's unique URN id.")
+                        .schema(new Schema().type(TYPE_STRING))))
+            .tags(List.of(entity.getName() + " Entity"))
+            .responses(new ApiResponses().addApiResponse("200", successDeleteResponse));
+
+    return result.get(getOperation).head(headOperation).delete(deleteOperation);
+  }
+
+  private static PathItem buildListEntityPath(final EntitySpec entity) {
     final String upperFirst = toUpperFirst(entity.getName());
     final String aspectParameterName = upperFirst + "Aspects";
     final PathItem result = new PathItem();
@@ -236,12 +270,14 @@ public class OpenApiSpecBuilderTest {
                                             upperFirst, ENTITY_RESPONSE_SUFFIX)))));
     result.setGet(
         new Operation()
-            .summary(String.format("Scroll %s.", upperFirst))
+            .summary(String.format("Scroll/List %s.", upperFirst))
             .operationId("scroll")
             .parameters(parameters)
             .tags(List.of(entity.getName() + " Entity"))
             .responses(new ApiResponses().addApiResponse("200", successApiResponse)));
-    final Content requestContent =
+
+    // Post Operation
+    final Content requestCreateContent =
         new Content()
             .addMediaType(
                 "application/json",
@@ -255,9 +291,9 @@ public class OpenApiSpecBuilderTest {
                                         String.format(
                                             "#/components/schemas/%s%s",
                                             upperFirst, ENTITY_REQUEST_SUFFIX)))));
-    final ApiResponse apiResponse =
+    final ApiResponse apiCreateResponse =
         new ApiResponse()
-            .description("Create " + entity.getName() + " entities.")
+            .description("Create a batch of " + entity.getName() + " entities.")
             .content(
                 new Content()
                     .addMediaType(
@@ -272,21 +308,42 @@ public class OpenApiSpecBuilderTest {
                                                 String.format(
                                                     "#/components/schemas/%s%s",
                                                     upperFirst, ENTITY_RESPONSE_SUFFIX))))));
+    final ApiResponse apiCreateAsyncResponse =
+        new ApiResponse()
+            .description("Async batch creation of " + entity.getName() + " entities submitted.")
+            .content(new Content().addMediaType("application/json", new MediaType()));
+
     result.setPost(
         new Operation()
-            .summary("Create " + upperFirst)
-            .operationId("create")
+            .parameters(
+                List.of(
+                    new Parameter()
+                        .in(NAME_ASYNC)
+                        .name("async")
+                        .description("Use async ingestion for high throughput.")
+                        .schema(new Schema().type(TYPE_BOOLEAN)._default(true)),
+                    new Parameter()
+                        .in(NAME_QUERY)
+                        .name(NAME_SYSTEM_METADATA)
+                        .description("Include systemMetadata with response.")
+                        .schema(new Schema().type(TYPE_BOOLEAN)._default(false))))
+            .summary("Create " + upperFirst + " entities.")
+            .operationId("createEntities")
             .tags(List.of(entity.getName() + " Entity"))
             .requestBody(
                 new RequestBody()
                     .description("Create " + entity.getName() + " entities.")
                     .required(true)
-                    .content(requestContent))
-            .responses(new ApiResponses().addApiResponse("201", apiResponse)));
+                    .content(requestCreateContent))
+            .responses(
+                new ApiResponses()
+                    .addApiResponse("200", apiCreateResponse)
+                    .addApiResponse("202", apiCreateAsyncResponse)));
+
     return result;
   }
 
-  private void addExtraParameters(final Components components) {
+  private static void addExtraParameters(final Components components) {
     components.addParameters(
         "ScrollId" + MODEL_VERSION,
         new Parameter()
@@ -338,7 +395,7 @@ public class OpenApiSpecBuilderTest {
             .schema(new Schema().type(TYPE_STRING)._default("*")));
   }
 
-  private Parameter buildParameterSchema(
+  private static Parameter buildParameterSchema(
       final EntitySpec entity, final Set<String> definitionNames) {
     final List<String> aspectNames =
         entity.getAspectSpecs().stream()
@@ -362,7 +419,7 @@ public class OpenApiSpecBuilderTest {
         .schema(schema);
   }
 
-  private void addAspectSchemas(final Components components, final AspectSpec aspect) {
+  private static void addAspectSchemas(final Components components, final AspectSpec aspect) {
     final org.apache.avro.Schema avroSchema =
         SchemaTranslator.dataToAvroSchema(aspect.getPegasusSchema().getDereferencedDataSchema());
     try {
@@ -387,7 +444,8 @@ public class OpenApiSpecBuilderTest {
     }
   }
 
-  private Schema buildAspectRefSchema(final String aspectName, final boolean withSystemMetadata) {
+  private static Schema buildAspectRefSchema(
+      final String aspectName, final boolean withSystemMetadata) {
     final Schema result =
         new Schema<>()
             .type(TYPE_OBJECT)
@@ -404,7 +462,7 @@ public class OpenApiSpecBuilderTest {
     return result;
   }
 
-  private Schema buildEntitySchema(
+  private static Schema buildEntitySchema(
       final EntitySpec entity, Set<String> aspectNames, final boolean withSystemMetadata) {
     final Map<String, Schema> properties =
         entity.getAspectSpecMap().entrySet().stream()
@@ -428,10 +486,10 @@ public class OpenApiSpecBuilderTest {
         .properties(properties);
   }
 
-  private Schema buildEntityScrollSchema(final EntitySpec entity) {
+  private static Schema buildEntityScrollSchema(final EntitySpec entity) {
     return new Schema<>()
         .type(TYPE_OBJECT)
-        .description("Scroll across " + toUpperFirst(entity.getName()) + " objects.")
+        .description("Scroll across (list) " + toUpperFirst(entity.getName()) + " objects.")
         .required(List.of("entities"))
         .addProperty(
             NAME_SCROLL_ID,
@@ -449,7 +507,7 @@ public class OpenApiSpecBuilderTest {
                                 toUpperFirst(entity.getName()), ENTITY_RESPONSE_SUFFIX))));
   }
 
-  private Schema buildAspectRef(final String aspect, final boolean withSystemMetadata) {
+  private static Schema buildAspectRef(final String aspect, final boolean withSystemMetadata) {
     final Schema result = new Schema<>();
     if (withSystemMetadata) {
       result.set$ref(
@@ -461,7 +519,34 @@ public class OpenApiSpecBuilderTest {
     return result;
   }
 
-  private PathItem buildSingleEntityAspectPath(
+  private static Schema buildAspectPatchSchema() {
+    Map<String, Schema> properties =
+        ImmutableMap.<String, Schema>builder()
+            .put(
+                PROPERTY_PATCH,
+                new Schema<>()
+                    .type(TYPE_ARRAY)
+                    .items(
+                        new Schema<>()
+                            .type(TYPE_OBJECT)
+                            .required(List.of("op", "path"))
+                            .properties(
+                                Map.of(
+                                    "op", new Schema<>().type(TYPE_STRING),
+                                    "path", new Schema<>().type(TYPE_STRING),
+                                    "value", new Schema<>().type(TYPE_OBJECT)))))
+            .put(PROPERTY_PATCH_PKEY, new Schema<>().type(TYPE_OBJECT))
+            .build();
+
+    return new Schema<>()
+        .type(TYPE_OBJECT)
+        .description(
+            "Extended JSON Patch to allow for manipulating array sets which represent maps where each element has a unique primary key.")
+        .required(List.of(PROPERTY_PATCH))
+        .properties(properties);
+  }
+
+  private static PathItem buildSingleEntityAspectPath(
       final EntitySpec entity, final String aspect, final String upperFirstAspect) {
     final String upperFirstEntity = toUpperFirst(entity.getName());
 
@@ -560,6 +645,45 @@ public class OpenApiSpecBuilderTest {
             .tags(tags)
             .requestBody(requestBody)
             .responses(new ApiResponses().addApiResponse("201", successPostResponse));
+    // Patch Operation
+    final ApiResponse successPatchResponse =
+        new ApiResponse()
+            .description(String.format("Patch aspect %s on %s entity.", aspect, upperFirstEntity))
+            .content(
+                new Content()
+                    .addMediaType(
+                        "application/json",
+                        new MediaType()
+                            .schema(
+                                new Schema()
+                                    .$ref(
+                                        String.format(
+                                            "#/components/schemas/%s%s",
+                                            upperFirstAspect, ASPECT_RESPONSE_SUFFIX)))));
+    final RequestBody patchRequestBody =
+        new RequestBody()
+            .description(String.format("Patch aspect %s on %s entity.", aspect, upperFirstEntity))
+            .required(true)
+            .content(
+                new Content()
+                    .addMediaType(
+                        "application/json",
+                        new MediaType()
+                            .schema(new Schema().$ref("#/components/schemas/AspectPatch"))));
+    final Operation patchOperation =
+        new Operation()
+            .parameters(
+                List.of(
+                    new Parameter()
+                        .in(NAME_QUERY)
+                        .name("systemMetadata")
+                        .description("Include systemMetadata with response.")
+                        .schema(new Schema().type(TYPE_BOOLEAN)._default(false))))
+            .summary(String.format("Patch aspect %s on %s ", aspect, upperFirstEntity))
+            .operationId(String.format("patch%s", upperFirstAspect))
+            .tags(tags)
+            .requestBody(patchRequestBody)
+            .responses(new ApiResponses().addApiResponse("200", successPatchResponse));
     return new PathItem()
         .parameters(
             List.of(
@@ -571,10 +695,7 @@ public class OpenApiSpecBuilderTest {
         .get(getOperation)
         .head(headOperation)
         .delete(deleteOperation)
-        .post(postOperation);
-  }
-
-  private static String toUpperFirst(final String s) {
-    return s.substring(0, 1).toUpperCase() + s.substring(1);
+        .post(postOperation)
+        .patch(patchOperation);
   }
 }

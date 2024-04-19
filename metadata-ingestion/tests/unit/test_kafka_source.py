@@ -20,6 +20,7 @@ from datahub.emitter.mce_builder import (
     make_owner_urn,
     make_ownership_aspect_from_urn_list,
 )
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.kafka import KafkaSource, KafkaSourceConfig
@@ -643,7 +644,7 @@ def test_kafka_source_topic_meta_mappings(
         ctx,
     )
     workunits = [w for w in kafka_source.get_workunits()]
-    assert len(workunits) == 4
+    assert len(workunits) == 6
     mce = workunits[0].metadata
     assert isinstance(mce, MetadataChangeEvent)
 
@@ -676,3 +677,11 @@ def test_kafka_source_topic_meta_mappings(
             "urn:li:glossaryTerm:double_meta_property",
         ]
     )
+    assert isinstance(workunits[2].metadata, MetadataChangeProposalWrapper)
+    assert isinstance(workunits[3].metadata, MetadataChangeProposalWrapper)
+    assert isinstance(workunits[4].metadata, MetadataChangeProposalWrapper)
+    assert isinstance(workunits[5].metadata, MetadataChangeProposalWrapper)
+    assert workunits[2].metadata.aspectName == "glossaryTermKey"
+    assert workunits[3].metadata.aspectName == "glossaryTermKey"
+    assert workunits[4].metadata.aspectName == "tagKey"
+    assert workunits[5].metadata.aspectName == "tagKey"
