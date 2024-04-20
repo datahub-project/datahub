@@ -287,9 +287,7 @@ class ModeSource(StatefulIngestionSourceBase):
         except HTTPError as http_error:
             self.report.report_failure(
                 key="mode-session",
-                reason=f"Unable to verify connection"
-                f"{self.config.token} information, "
-                f"{str(http_error)}",
+                reason=f"Unable to verify connection. Error was: {str(http_error)}",
             )
 
         self.workspace_uri = f"{self.config.connect_uri}/api/{self.config.workspace}"
