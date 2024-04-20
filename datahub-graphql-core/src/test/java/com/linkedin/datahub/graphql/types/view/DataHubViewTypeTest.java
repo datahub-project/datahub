@@ -1,6 +1,6 @@
 package com.linkedin.datahub.graphql.types.view;
 
-import static org.mockito.Mockito.mock;
+import static org.mockito.ArgumentMatchers.any;
 import static org.testng.Assert.*;
 
 import com.datahub.authentication.Authentication;
@@ -22,7 +22,6 @@ import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
-import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
@@ -164,11 +163,11 @@ public class DataHubViewTypeTest {
         new EnvelopedAspect().setValue(new Aspect(TEST_VALID_VIEW_INFO.data())));
     Mockito.when(
             client.batchGetV2(
+                any(),
                 Mockito.eq(Constants.DATAHUB_VIEW_ENTITY_NAME),
                 Mockito.eq(new HashSet<>(ImmutableSet.of(viewUrn1, viewUrn2))),
                 Mockito.eq(
-                    com.linkedin.datahub.graphql.types.view.DataHubViewType.ASPECTS_TO_FETCH),
-                Mockito.any(Authentication.class)))
+                    com.linkedin.datahub.graphql.types.view.DataHubViewType.ASPECTS_TO_FETCH)))
         .thenReturn(
             ImmutableMap.of(
                 viewUrn1,
@@ -183,8 +182,7 @@ public class DataHubViewTypeTest {
     QueryContext mockContext = Mockito.mock(QueryContext.class);
     Mockito.when(mockContext.getAuthentication()).thenReturn(Mockito.mock(Authentication.class));
     Mockito.when(mockContext.getOperationContext())
-        .thenReturn(
-            TestOperationContexts.userContextNoSearchAuthorization(mock(EntityRegistry.class)));
+        .thenReturn(TestOperationContexts.systemContextNoSearchAuthorization());
 
     List<DataFetcherResult<DataHubView>> result =
         type.batchLoad(ImmutableList.of(TEST_VIEW_URN, TEST_VIEW_URN_2), mockContext);
@@ -192,10 +190,10 @@ public class DataHubViewTypeTest {
     // Verify response
     Mockito.verify(client, Mockito.times(1))
         .batchGetV2(
+            any(),
             Mockito.eq(Constants.DATAHUB_VIEW_ENTITY_NAME),
             Mockito.eq(ImmutableSet.of(viewUrn1, viewUrn2)),
-            Mockito.eq(com.linkedin.datahub.graphql.types.view.DataHubViewType.ASPECTS_TO_FETCH),
-            Mockito.any(Authentication.class));
+            Mockito.eq(com.linkedin.datahub.graphql.types.view.DataHubViewType.ASPECTS_TO_FETCH));
 
     assertEquals(result.size(), 2);
 
@@ -234,11 +232,11 @@ public class DataHubViewTypeTest {
         new EnvelopedAspect().setValue(new Aspect(TEST_INVALID_VIEW_INFO.data())));
     Mockito.when(
             client.batchGetV2(
+                any(),
                 Mockito.eq(Constants.DATAHUB_VIEW_ENTITY_NAME),
                 Mockito.eq(new HashSet<>(ImmutableSet.of(invalidViewUrn))),
                 Mockito.eq(
-                    com.linkedin.datahub.graphql.types.view.DataHubViewType.ASPECTS_TO_FETCH),
-                Mockito.any(Authentication.class)))
+                    com.linkedin.datahub.graphql.types.view.DataHubViewType.ASPECTS_TO_FETCH)))
         .thenReturn(
             ImmutableMap.of(
                 invalidViewUrn,
@@ -253,8 +251,7 @@ public class DataHubViewTypeTest {
     QueryContext mockContext = Mockito.mock(QueryContext.class);
     Mockito.when(mockContext.getAuthentication()).thenReturn(Mockito.mock(Authentication.class));
     Mockito.when(mockContext.getOperationContext())
-        .thenReturn(
-            TestOperationContexts.userContextNoSearchAuthorization(mock(EntityRegistry.class)));
+        .thenReturn(TestOperationContexts.systemContextNoSearchAuthorization());
 
     List<DataFetcherResult<DataHubView>> result =
         type.batchLoad(ImmutableList.of(TEST_VIEW_URN), mockContext);
@@ -262,10 +259,10 @@ public class DataHubViewTypeTest {
     // Verify response
     Mockito.verify(client, Mockito.times(1))
         .batchGetV2(
+            any(),
             Mockito.eq(Constants.DATAHUB_VIEW_ENTITY_NAME),
             Mockito.eq(ImmutableSet.of(invalidViewUrn)),
-            Mockito.eq(com.linkedin.datahub.graphql.types.view.DataHubViewType.ASPECTS_TO_FETCH),
-            Mockito.any(Authentication.class));
+            Mockito.eq(com.linkedin.datahub.graphql.types.view.DataHubViewType.ASPECTS_TO_FETCH));
 
     assertEquals(result.size(), 1);
 
@@ -287,11 +284,7 @@ public class DataHubViewTypeTest {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     Mockito.doThrow(RemoteInvocationException.class)
         .when(mockClient)
-        .batchGetV2(
-            Mockito.anyString(),
-            Mockito.anySet(),
-            Mockito.anySet(),
-            Mockito.any(Authentication.class));
+        .batchGetV2(any(), Mockito.anyString(), Mockito.anySet(), Mockito.anySet());
     com.linkedin.datahub.graphql.types.view.DataHubViewType type =
         new com.linkedin.datahub.graphql.types.view.DataHubViewType(mockClient);
 

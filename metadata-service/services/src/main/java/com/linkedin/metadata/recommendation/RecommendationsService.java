@@ -1,5 +1,6 @@
 package com.linkedin.metadata.recommendation;
 
+import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.recommendation.candidatesource.RecommendationSource;
 import com.linkedin.metadata.recommendation.ranker.RecommendationModuleRanker;
 import com.linkedin.metadata.utils.ConcurrencyUtils;
@@ -10,6 +11,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
@@ -57,6 +59,7 @@ public class RecommendationsService {
   public List<RecommendationModule> listRecommendations(
       @Nonnull OperationContext opContext,
       @Nonnull RecommendationRequestContext requestContext,
+      @Nullable Filter filter,
       int limit) {
 
     // Get recommendation candidates from sources which are eligible, in parallel
@@ -65,7 +68,7 @@ public class RecommendationsService {
                 _candidateSources.stream()
                     .filter(source -> source.isEligible(opContext, requestContext))
                     .collect(Collectors.toList()),
-                source -> source.getRecommendationModule(opContext, requestContext),
+                source -> source.getRecommendationModule(opContext, requestContext, filter),
                 (source, exception) -> {
                   log.error(
                       "Error while fetching candidate modules from source {}", source, exception);

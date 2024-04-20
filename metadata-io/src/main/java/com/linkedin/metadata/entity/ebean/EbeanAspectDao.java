@@ -11,7 +11,7 @@ import com.google.common.cache.LoadingCache;
 import com.google.common.collect.Iterators;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.metadata.aspect.AspectRetriever;
+import com.linkedin.metadata.aspect.RetrieverContext;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.aspect.batch.MCPItem;
 import com.linkedin.metadata.config.EbeanConfiguration;
@@ -672,7 +672,7 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
 
         // Split into batches by urn with key aspect, remaining aspects in the pair's second
         Pair<List<AspectsBatch>, AspectsBatch> splitBatches =
-            splitByUrn(batch, urnsWithKeyAspects, batch.getAspectRetriever());
+            splitByUrn(batch, urnsWithKeyAspects, batch.getRetrieverContext());
 
         // Run non-key aspect `other` batch per normal
         if (!splitBatches.getSecond().getItems().isEmpty()) {
@@ -931,13 +931,13 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
    * @return separated batches
    */
   private static Pair<List<AspectsBatch>, AspectsBatch> splitByUrn(
-      AspectsBatch batch, Set<Urn> urns, AspectRetriever aspectRetriever) {
+      AspectsBatch batch, Set<Urn> urns, RetrieverContext retrieverContext) {
     Map<Urn, List<MCPItem>> itemsByUrn =
         batch.getMCPItems().stream().collect(Collectors.groupingBy(MCPItem::getUrn));
 
     AspectsBatch other =
         AspectsBatchImpl.builder()
-            .aspectRetriever(aspectRetriever)
+            .retrieverContext(retrieverContext)
             .items(
                 itemsByUrn.entrySet().stream()
                     .filter(entry -> !urns.contains(entry.getKey()))
@@ -950,7 +950,7 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
             .map(
                 urn ->
                     AspectsBatchImpl.builder()
-                        .aspectRetriever(aspectRetriever)
+                        .retrieverContext(retrieverContext)
                         .items(itemsByUrn.get(urn))
                         .build())
             .filter(b -> !b.getItems().isEmpty())
