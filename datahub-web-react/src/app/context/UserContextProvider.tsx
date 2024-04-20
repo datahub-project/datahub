@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useGetMeLazyQuery } from '../../graphql/me.generated';
 import { useGetGlobalViewsSettingsLazyQuery } from '../../graphql/app.generated';
-import { ActionRequestStatus, CorpUser, PlatformPrivileges } from '../../types.generated';
+import { ActionRequestStatus, CorpUser, EntityRelationshipsResult, PlatformPrivileges } from '../../types.generated';
 import { UserContext, LocalState, DEFAULT_STATE, State } from './userContext';
 
 import { useListActionRequestsQuery } from '../../graphql/actionRequest.generated';
@@ -169,6 +169,7 @@ const UserContextProvider = ({ children }: { children: React.ReactNode }) => {
             value={{
                 urn: meData?.me?.corpUser?.urn,
                 user: meData?.me?.corpUser as CorpUser,
+                userGroups: meData?.me?.corpUser.groups as EntityRelationshipsResult,
                 platformPrivileges: meData?.me?.platformPrivileges as PlatformPrivileges,
                 state,
                 localState,

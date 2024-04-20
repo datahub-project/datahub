@@ -50,11 +50,10 @@ export default function SearchFiltersBuilder({
     onClearFilters,
     unionType,
     onChangeUnionType,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     disabled = false,
     showUnionType = false,
 }: Props) {
-    console.log(disabled);
-
     const hydratedFilters = useHydrateFilters(filters);
 
     const onChangeFilterOperator = (index, newOperator) => {

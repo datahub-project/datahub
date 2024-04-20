@@ -4,13 +4,7 @@ import React, { useContext } from 'react';
 import { Handle, NodeProps, Position } from 'reactflow';
 import styled from 'styled-components';
 import { EntityType, LineageDirection } from '../../../types.generated';
-import {
-    COLUMN_QUERY_ID_PREFIX,
-    FetchStatus,
-    LineageDisplayContext,
-    LineageEntity,
-    LineageNodesContext,
-} from '../common';
+import { FetchStatus, LineageDisplayContext, LineageEntity, LineageNodesContext } from '../common';
 import { LINEAGE_COLORS } from '../../entityV2/shared/constants';
 import { useGetQueryQuery } from '../../../graphql/query.generated';
 import { LoadingWrapper } from '../LineageEntityNode/NodeContents';
@@ -69,19 +63,19 @@ const CustomIcon = styled.img`
 `;
 
 export default function LineageTransformationNode(props: NodeProps<LineageEntity>) {
-    const { id, data, selected } = props;
+    const { data, selected } = props;
     const { urn, type, fetchStatus } = data;
     const isQuery = type === EntityType.Query;
 
     const { nodes, rootUrn } = useContext(LineageNodesContext);
-    const { setHoveredNode } = useContext(LineageDisplayContext);
+    const { cllHighlightedNodes, setHoveredNode } = useContext(LineageDisplayContext);
 
     const entity = nodes.get(urn)?.entity;
     const backupLogoUrl = useFetchQuery(urn); // TODO: Remove when query nodes not instantiated on column select
     const icon = entity?.icon || backupLogoUrl;
 
     const { selectedColumn } = useContext(LineageDisplayContext);
-    const opacity = selectedColumn && isQuery && !id.startsWith(COLUMN_QUERY_ID_PREFIX) ? 0.3 : 1;
+    const opacity = selectedColumn && !cllHighlightedNodes.has(urn) ? 0.3 : 1;
 
     // TODO: Combine home node code with LineageEntityNode
     return (

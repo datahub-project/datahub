@@ -66,7 +66,11 @@ public class GetFormsForActorResolver
             final List<Urn> ownershipForms = _formService.getOwnershipForms(opContext);
             final List<Urn> formsByOwnership =
                 _formService.getFormsAssignedByOwnership(
-                    opContext, SearchUtils.getEntityNames(null), userUrn, ownershipForms);
+                    opContext,
+                    SearchUtils.getEntityNames(null),
+                    userUrn,
+                    groupUrns,
+                    ownershipForms);
 
             final Set<Urn> allFormUrns = new HashSet<>();
             allFormUrns.addAll(formsExplicitlyAssigned);

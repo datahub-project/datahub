@@ -6,7 +6,6 @@ import usePrevious from '../shared/usePrevious';
 import { useEntityRegistryV2 } from '../useEntityRegistry';
 import {
     addToAdjacencyList,
-    clearEdges,
     FetchStatus,
     getEdgeId,
     isQuery,
@@ -17,7 +16,7 @@ import {
     setDefault,
 } from './common';
 import { FetchedEntityV2Relationship } from './types';
-import { addQueryNodes, entityNodeDefault, pruneParentsThroughDbt } from './useSearchAcrossLineage';
+import { addQueryNodes, entityNodeDefault, pruneDuplicateEdges } from './useSearchAcrossLineage';
 
 export default function useBulkEntityLineage(shownUrns: string[]): (urn: string) => void {
     const { nodes, edges, adjacencyList, setDataVersion, setDisplayVersion } = useContext(LineageNodesContext);
@@ -69,15 +68,14 @@ export default function useBulkEntityLineage(shownUrns: string[]): (urn: string)
 
                 // TODO: Remove once using bulk edges query
                 if (!isQuery(node)) {
-                    clearEdges(node.urn, smallContext);
                     entity.downstreamRelationships?.forEach((relationship) =>
                         processEdge(node, relationship, LineageDirection.Downstream, smallContext),
                     );
                     entity.upstreamRelationships?.forEach((relationship) => {
                         processEdge(node, relationship, LineageDirection.Upstream, smallContext);
                     });
-                    pruneParentsThroughDbt(node.urn, LineageDirection.Upstream, smallContext, entityRegistry);
-                    pruneParentsThroughDbt(node.urn, LineageDirection.Downstream, smallContext, entityRegistry);
+                    pruneDuplicateEdges(node.urn, LineageDirection.Upstream, smallContext, entityRegistry);
+                    pruneDuplicateEdges(node.urn, LineageDirection.Downstream, smallContext, entityRegistry);
                 }
             }
         });

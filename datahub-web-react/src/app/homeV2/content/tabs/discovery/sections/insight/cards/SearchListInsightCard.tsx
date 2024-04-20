@@ -10,6 +10,7 @@ import { FilterSet } from '../../../../../../../entityV2/shared/components/style
 import { useGetSearchAssets } from './useGetSearchAssets';
 import { useRegisterInsight } from '../InsightStatusProvider';
 import { InsightLoadingCard } from './InsightLoadingCard';
+import { useUserContext } from '../../../../../../../context/useUserContext';
 
 const Header = styled.div`
     display: flex;
@@ -58,7 +59,9 @@ type Props = {
 };
 
 export const SearchListInsightCard = ({ id, title, icon, tip, query, types, filters, sort, empty }: Props) => {
-    const { assets, loading } = useGetSearchAssets(types, query, filters, sort);
+    const { localState } = useUserContext();
+    const { selectedViewUrn } = localState;
+    const { assets, loading } = useGetSearchAssets(types, query, filters, sort, selectedViewUrn);
     const [showModal, setShowModal] = useState(false);
 
     // Register the insight module with parent component.

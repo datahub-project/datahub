@@ -1,58 +1,30 @@
 import { useEffect, useMemo } from 'react';
-import { Edge, MarkerType, Node, useReactFlow } from 'reactflow';
-import { EntityType, LineageDirection } from '../../types.generated';
+import { Edge, MarkerType, useReactFlow } from 'reactflow';
+import { LineageDirection } from '../../types.generated';
 import { LINEAGE_COLORS } from '../entityV2/shared/constants';
 import {
-    COLUMN_QUERY_ID_PREFIX,
     ColumnRef,
-    createColumnRef,
-    FetchStatus,
     FineGrainedLineage,
+    FineGrainedOperationRef,
     HighlightedColumns,
-    LineageEntity,
-    parseColumnQueryRef,
     parseColumnRef,
     setDefault,
     setDifference,
 } from './common';
-import { LINEAGE_NODE_WIDTH } from './LineageEntityNode/useDisplayedColumns';
-import {
-    LINEAGE_TRANSFORMATION_NODE_NAME,
-    TRANSFORMATION_NODE_SIZE,
-} from './LineageTransformationNode/LineageTransformationNode';
 
 export default function useColumnHighlighting(
     selectedColumn: ColumnRef | null,
     hoveredColumn: ColumnRef | null,
     indirect: FineGrainedLineage,
-    direct: FineGrainedLineage,
-): HighlightedColumns {
-    const { getNodes, setNodes, setEdges } = useReactFlow();
+): {
+    cllHighlightedNodes: Map<string, Set<FineGrainedOperationRef> | null>;
+    highlightedColumns: HighlightedColumns;
+} {
+    const { setEdges } = useReactFlow();
 
-    const { highlightedColumns, queryNodes, columnEdges } = useMemo(() => {
-        const nodes = getNodes();
-        const nodePositions = new Map<string, [number, number]>();
-        nodes.forEach((node) => {
-            nodePositions.set(node.data.id, [node.position.x, node.position.y]);
-        });
-        return processColumnHighlights(selectedColumn, hoveredColumn, indirect, direct, nodePositions);
-    }, [getNodes, selectedColumn, hoveredColumn, indirect, direct]);
-
-    useEffect(() => {
-        setNodes((oldNodes) => {
-            const currentNodeIds = new Set(
-                Array.from(queryNodes.keys()).map((queryRef) => parseColumnRef(queryRef)[0]),
-            );
-            const oldNodeIds = new Set(oldNodes.map((node) => node.id));
-            const addIds = setDifference(currentNodeIds, oldNodeIds);
-            return [
-                ...oldNodes.filter(
-                    (node) => !node.id.startsWith(COLUMN_QUERY_ID_PREFIX) || currentNodeIds.has(node.id),
-                ),
-                ...addIds.map((id) => queryNodes.get(createColumnRef(id, '')) as Node),
-            ];
-        });
-    }, [queryNodes, setNodes, getNodes]);
+    const { cllHighlightedNodes, highlightedColumns, columnEdges } = useMemo(() => {
+        return processColumnHighlights(selectedColumn, hoveredColumn, indirect);
+    }, [selectedColumn, hoveredColumn, indirect]);
 
     useEffect(() => {
         // TODO: Figure out how to only add edges once columns are rendered?
@@ -69,47 +41,39 @@ export default function useColumnHighlighting(
         });
     }, [columnEdges, setEdges]);
 
-    return highlightedColumns;
+    return { cllHighlightedNodes, highlightedColumns };
 }
 
 function processColumnHighlights(
     selectedColumn: ColumnRef | null,
     hoveredColumn: ColumnRef | null,
     fineGrainedLineage: FineGrainedLineage,
-    fineGrainedLineageDirect: FineGrainedLineage,
-    nodePositions: Map<string, [number, number]>,
 ) {
     if (selectedColumn) {
-        return computeSingleColumnHighlights(
-            selectedColumn,
-            fineGrainedLineage,
-            nodePositions,
-            LINEAGE_COLORS.PURPLE_3,
-        );
+        return computeSingleColumnHighlights(selectedColumn, fineGrainedLineage, LINEAGE_COLORS.PURPLE_3);
     }
-    return computeSingleColumnHighlights(hoveredColumn, fineGrainedLineageDirect, nodePositions, LINEAGE_COLORS.BLUE_2);
+    return computeSingleColumnHighlights(hoveredColumn, fineGrainedLineage, LINEAGE_COLORS.BLUE_2);
 }
 
 function computeSingleColumnHighlights(
     column: ColumnRef | null,
     fineGrainedLineage: FineGrainedLineage,
-    nodePositions: Map<string, [number, number]>,
     stroke: string,
 ): {
+    cllHighlightedNodes: Map<string, Set<FineGrainedOperationRef> | null>;
     highlightedColumns: HighlightedColumns;
-    queryNodes: Map<string, Node>;
     columnEdges: Map<string, Edge>;
 } {
+    const cllHighlightedNodes = new Map<string, Set<FineGrainedOperationRef> | null>();
     const highlightedColumns = new Map<string, Set<string>>();
-    const queryNodes = new Map<string, Node>();
     const columnEdges = new Map<string, Edge>();
-    const seenQueryRefs = new Set<ColumnRef>();
 
     if (column === null) {
-        return { highlightedColumns, queryNodes, columnEdges };
+        return { cllHighlightedNodes, highlightedColumns, columnEdges };
     }
 
     const [urn, field] = parseColumnRef(column);
+    cllHighlightedNodes.set(urn, null);
     highlightedColumns.set(urn, new Set([field]));
 
     const lineages = {
@@ -143,83 +107,25 @@ function computeSingleColumnHighlights(
             if (ref === undefined) {
                 break;
             }
-            if (ref.startsWith(COLUMN_QUERY_ID_PREFIX)) {
-                seenQueryRefs.add(ref);
-            }
-            fgl.get(ref)?.forEach((childRef) => {
+            fgl.get(ref)?.forEach((fineGrainedOperationRef, childRef) => {
                 const [childUrn, childField] = parseColumnRef(childRef);
                 if (!seen.has(childRef)) {
                     seen.add(childRef);
                     toVisit.push(childRef);
                 }
 
+                const queryRefsOnChild = setDefault(cllHighlightedNodes, childUrn, null);
+                if (fineGrainedOperationRef) {
+                    if (queryRefsOnChild === null) {
+                        cllHighlightedNodes.set(childUrn, new Set());
+                    }
+                    cllHighlightedNodes.get(childUrn)?.add(fineGrainedOperationRef);
+                }
                 setDefault(highlightedColumns, childUrn, new Set()).add(childField);
                 addEdge(ref, childRef);
             });
         }
     });
 
-    seenQueryRefs.forEach((queryRef) => {
-        queryNodes.set(
-            queryRef,
-            createColumnQueryNode(queryRef, fineGrainedLineage, highlightedColumns, nodePositions),
-        );
-    });
-
-    return { highlightedColumns, queryNodes, columnEdges };
-}
-
-function createColumnQueryNode(
-    queryRef: ColumnRef,
-    fineGrainedLineage: FineGrainedLineage,
-    highlightedColumns: HighlightedColumns,
-    nodePositions: Map<string, [number, number]>,
-): Node<LineageEntity> {
-    const upstreamPos = Array.from(fineGrainedLineage.upstream.get(queryRef) || [])
-        .map(parseColumnRef)
-        .filter(([childUrn, field]) => highlightedColumns.get(childUrn)?.has(field))
-        .map(([childUrn]) => nodePositions.get(childUrn))
-        .filter((pos): pos is [number, number] => pos !== undefined);
-    const downstreamPos = Array.from(fineGrainedLineage.downstream.get(queryRef) || [])
-        .map(parseColumnRef)
-        .filter(([childUrn, field]) => highlightedColumns.get(childUrn)?.has(field))
-        .map(([childUrn]) => nodePositions.get(childUrn))
-        .filter((pos): pos is [number, number] => pos !== undefined);
-
-    const maxUpstreamX = Math.max(...upstreamPos.map(([x]) => x));
-    const minDownstreamX = Math.min(...downstreamPos.map(([x]) => x));
-
-    const [sumY, total] = [...upstreamPos, ...downstreamPos].reduce(
-        ([y, t], childPos) => {
-            if (childPos === undefined) {
-                return [y, t];
-            }
-            return [y + childPos[1], t + 1];
-        },
-        [0, 0],
-    );
-
-    const urn = parseColumnQueryRef(queryRef);
-    const [id] = parseColumnRef(queryRef);
-    return {
-        id,
-        type: LINEAGE_TRANSFORMATION_NODE_NAME,
-        data: {
-            id,
-            urn,
-            isExpanded: {
-                [LineageDirection.Upstream]: true,
-                [LineageDirection.Downstream]: true,
-            },
-            type: EntityType.Query,
-            fetchStatus: {
-                [LineageDirection.Upstream]: FetchStatus.UNNEEDED,
-                [LineageDirection.Downstream]: FetchStatus.UNNEEDED,
-            },
-        },
-        position: {
-            x: (maxUpstreamX + minDownstreamX) / 2 + LINEAGE_NODE_WIDTH / 2 - TRANSFORMATION_NODE_SIZE / 2,
-            y: 120 + (total ? sumY / total : 0),
-        },
-    };
+    return { cllHighlightedNodes, highlightedColumns, columnEdges };
 }

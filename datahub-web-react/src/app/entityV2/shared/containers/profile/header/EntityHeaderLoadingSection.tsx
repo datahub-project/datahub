@@ -5,6 +5,7 @@ import { ANTD_GRAY } from '../../../constants';
 
 const Wrapper = styled(Space)`
     min-height: 50px;
+    width: 100%;
 `;
 
 const NameSkeleton = styled(Skeleton.Input)`

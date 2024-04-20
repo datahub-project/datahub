@@ -1,10 +1,13 @@
 import { useListRecommendationsQuery } from '../../../../../../../graphql/recommendations.generated';
 import { CorpUser, Domain, ScenarioType } from '../../../../../../../types.generated';
+import { useUserContext } from '../../../../../../context/useUserContext';
 
 const DOMAINS_MODULE_ID = 'Domains';
 const MAX_DOMAINS = 5;
 
 export const useGetDomains = (user?: CorpUser | null): Domain[] => {
+    const { localState } = useUserContext();
+    const { selectedViewUrn } = localState;
     const { data } = useListRecommendationsQuery({
         variables: {
             input: {
@@ -13,6 +16,7 @@ export const useGetDomains = (user?: CorpUser | null): Domain[] => {
                     scenario: ScenarioType.Home,
                 },
                 limit: 10,
+                viewUrn: selectedViewUrn,
             },
         },
         fetchPolicy: 'cache-first',

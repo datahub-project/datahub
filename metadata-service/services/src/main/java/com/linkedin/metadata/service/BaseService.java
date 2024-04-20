@@ -31,6 +31,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
@@ -69,12 +70,14 @@ public class BaseService {
               this.entityClient);
 
       final Map<Urn, GlobalTags> finalResult = new HashMap<>();
-      for (Urn entity : entityUrns) {
-        RecordTemplate aspect = aspects.get(entity);
-        if (aspect == null) {
-          finalResult.put(entity, defaultValue);
-        } else {
-          finalResult.put(entity, new GlobalTags(aspect.data()));
+      if (aspects != null) {
+        for (Urn entity : entityUrns) {
+          RecordTemplate aspect = aspects.get(entity);
+          if (aspect == null) {
+            finalResult.put(entity, defaultValue);
+          } else {
+            finalResult.put(entity, new GlobalTags(aspect.data()));
+          }
         }
       }
       return finalResult;
@@ -88,6 +91,7 @@ public class BaseService {
     }
   }
 
+  @Nullable
   protected Map<Urn, RecordTemplate> getAspectMap(
       @Nonnull OperationContext opContext, @Nonnull Set<Urn> entityUrns, String aspectName) {
     if (entityUrns.isEmpty()) {
@@ -106,15 +110,18 @@ public class BaseService {
               entityUrns.stream().findFirst().get().getEntityType(),
               getUrnRequest,
               opContext.getSessionAuthentication().getCredentials());
+      log.info("BatchGetUrnResponse: number of entities {}", response.getEntities().size());
+      log.debug("BatchGetUrnResponse: {}", response);
       return response.getEntities().stream()
+          .filter(entity -> entity.getAspects().get(aspectName) != null)
           .collect(
               Collectors.toMap(
                   entity -> UrnUtils.getUrn(entity.getUrn()),
                   entity -> convertToRecordTemplate(entity, aspectName)));
 
     } catch (Exception e) {
-      log.error("Error retrieving {}} for entities. Entities: {}", aspectName, entityUrns, e);
-      return Collections.emptyMap();
+      log.error("Error retrieving {} for entities. Entities: {}", aspectName, entityUrns, e);
+      return null;
     }
   }
 
@@ -126,6 +133,10 @@ public class BaseService {
             .getEntityRegistry()
             .getEntitySpec(UrnUtils.getUrn(entity.getUrn()).getEntityType())
             .getAspectSpec(aspectName);
+    if (valueNode == null) {
+      throw new IllegalStateException(
+          "Value for aspect " + aspectName + " for entity " + entity + " must not be null.");
+    }
     return RecordUtils.toRecordTemplate(aspectSpec.getDataTemplateClass(), valueNode.toString());
   }
 
@@ -145,12 +156,14 @@ public class BaseService {
               this.entityClient);
 
       final Map<Urn, EditableSchemaMetadata> finalResult = new HashMap<>();
-      for (Urn entity : entityUrns) {
-        RecordTemplate aspect = aspects.get(entity);
-        if (aspect == null) {
-          finalResult.put(entity, defaultValue);
-        } else {
-          finalResult.put(entity, new EditableSchemaMetadata(aspect.data()));
+      if (aspects != null) {
+        for (Urn entity : entityUrns) {
+          RecordTemplate aspect = aspects.get(entity);
+          if (aspect == null) {
+            finalResult.put(entity, defaultValue);
+          } else {
+            finalResult.put(entity, new EditableSchemaMetadata(aspect.data()));
+          }
         }
       }
       return finalResult;
@@ -184,12 +197,14 @@ public class BaseService {
               this.entityClient);
 
       final Map<Urn, Ownership> finalResult = new HashMap<>();
-      for (Urn entity : entityUrns) {
-        RecordTemplate aspect = aspects.get(entity);
-        if (aspect == null) {
-          finalResult.put(entity, defaultValue);
-        } else {
-          finalResult.put(entity, new Ownership(aspect.data()));
+      if (aspects != null) {
+        for (Urn entity : entityUrns) {
+          RecordTemplate aspect = aspects.get(entity);
+          if (aspect == null) {
+            finalResult.put(entity, defaultValue);
+          } else {
+            finalResult.put(entity, new Ownership(aspect.data()));
+          }
         }
       }
       return finalResult;
@@ -223,12 +238,14 @@ public class BaseService {
               this.entityClient);
 
       final Map<Urn, GlossaryTerms> finalResult = new HashMap<>();
-      for (Urn entity : entityUrns) {
-        RecordTemplate aspect = aspects.get(entity);
-        if (aspect == null) {
-          finalResult.put(entity, defaultValue);
-        } else {
-          finalResult.put(entity, new GlossaryTerms(aspect.data()));
+      if (aspects != null) {
+        for (Urn entity : entityUrns) {
+          RecordTemplate aspect = aspects.get(entity);
+          if (aspect == null) {
+            finalResult.put(entity, defaultValue);
+          } else {
+            finalResult.put(entity, new GlossaryTerms(aspect.data()));
+          }
         }
       }
       return finalResult;
@@ -262,12 +279,14 @@ public class BaseService {
               this.entityClient);
 
       final Map<Urn, Domains> finalResult = new HashMap<>();
-      for (Urn entity : entityUrns) {
-        RecordTemplate aspect = aspects.get(entity);
-        if (aspect == null) {
-          finalResult.put(entity, defaultValue);
-        } else {
-          finalResult.put(entity, new Domains(aspect.data()));
+      if (aspects != null) {
+        for (Urn entity : entityUrns) {
+          RecordTemplate aspect = aspects.get(entity);
+          if (aspect == null) {
+            finalResult.put(entity, defaultValue);
+          } else {
+            finalResult.put(entity, new Domains(aspect.data()));
+          }
         }
       }
       return finalResult;

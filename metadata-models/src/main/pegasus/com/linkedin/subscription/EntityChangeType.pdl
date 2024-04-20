@@ -17,7 +17,7 @@ enum EntityChangeType {
     OPERATION_ROWS_UPDATED
     OPERATION_ROWS_REMOVED
     /**
-    * Assertion run status changes.
+    * Assertion run event created with specified states.
     */
     ASSERTION_PASSED
     ASSERTION_FAILED

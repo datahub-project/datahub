@@ -45,6 +45,7 @@ public class EvaluateTestsStep implements UpgradeStep {
   private final EntitySearchService _entitySearchService;
   private final TestEngine _testEngine;
   private final ExecutorService _executorService;
+  private final TestEngine.EvaluationMode evaluationMode;
 
   public EvaluateTestsStep(
       @Nonnull OperationContext systemOpContext,
@@ -63,6 +64,8 @@ public class EvaluateTestsStep implements UpgradeStep {
                     EvaluateTests.EXECUTOR_POOL_SIZE,
                     String.valueOf(Runtime.getRuntime().availableProcessors() + 1)));
     _executorService = Executors.newFixedThreadPool(numThreads);
+    String envEvalMode = System.getenv(EvaluateTests.EVALUATION_MODE);
+    evaluationMode = TestEngine.EvaluationMode.getEvaluationMode(envEvalMode);
   }
 
   @Override

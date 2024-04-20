@@ -1,5 +1,6 @@
 import { useListRecommendationsQuery } from '../../../../../../../graphql/recommendations.generated';
 import { CorpUser, DataPlatform, ScenarioType } from '../../../../../../../types.generated';
+import { useUserContext } from '../../../../../../context/useUserContext';
 
 export const PLATFORMS_MODULE_ID = 'Platforms';
 
@@ -9,6 +10,8 @@ export type PlatformAndCount = {
 };
 
 export const useGetPlatforms = (user?: CorpUser | null): PlatformAndCount[] => {
+    const { localState } = useUserContext();
+    const { selectedViewUrn } = localState;
     const { data } = useListRecommendationsQuery({
         variables: {
             input: {
@@ -17,6 +20,7 @@ export const useGetPlatforms = (user?: CorpUser | null): PlatformAndCount[] => {
                     scenario: ScenarioType.Home,
                 },
                 limit: 10,
+                viewUrn: selectedViewUrn,
             },
         },
         fetchPolicy: 'cache-first',

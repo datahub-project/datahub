@@ -34,6 +34,7 @@ describe("create announcement and link post", () => {
     beforeEach(() => {
         cy.loginWithCredentials();
         cy.goToHomePagePostSettings();
+        cy.waitTextPresent('Platform')
     });
 
     it("create announcement post and verify", () => {
@@ -45,8 +46,9 @@ describe("create announcement and link post", () => {
     it("edit announced post and verify", () => {
         clickOnMoreOption()
         cy.clickOptionWithText("Edit");
-        addOrEditAnnouncement("Edit Post", "Test Announcement Title Edited", "Decription Edited", "update");
-        cy.waitTextPresent("Test Announcement Title Edited");
+        cy.contains('label', 'Announcement').click();
+        addOrEditAnnouncement("Edit Post", "Test Announcement Title Updated", "Decription Updated", "update");
+        cy.waitTextPresent("Test Announcement Title Updated");
     });
 
     it("delete announced post and verify", () => {
@@ -55,11 +57,11 @@ describe("create announcement and link post", () => {
         cy.clickOptionWithText("Yes");
         cy.reload();
         homePageRedirection();
-        cy.ensureTextNotPresent("Test Announcement Title Edited");
+        cy.ensureTextNotPresent("Test Announcement Title Updated");
     });
 
     it("create link post and verify", () => {
-        clickOnNewPost()
+        clickOnNewPost('Link')
         cy.waitTextPresent('Create new Post');
         cy.contains('label', 'Link').click();
         addOrEditLink("Create new Post", "Test Link Title", 'https://www.example.com', 'https://www.example.com/images/example-image.jpg', "create");
@@ -69,8 +71,8 @@ describe("create announcement and link post", () => {
     it("edit linked post and verify", () => {
         clickOnMoreOption()
         cy.clickOptionWithText("Edit");
-        addOrEditLink("Edit Post", "Test Link Edited Title", 'https://www.updatedexample.com', 'https://www.updatedexample.com/images/example-image.jpg', "update");
-        cy.waitTextPresent("Test Link Edited Title");
+        addOrEditLink("Edit Post", "Test Link Updated Title", 'https://www.updatedexample.com', 'https://www.updatedexample.com/images/example-image.jpg', "update");
+        cy.waitTextPresent("Test Link Updated Title");
     });
 
     it("delete linked post and verify", () => {
@@ -79,7 +81,7 @@ describe("create announcement and link post", () => {
         cy.clickOptionWithText("Yes");
         cy.reload();
         homePageRedirection();
-        cy.ensureTextNotPresent("Test Link Edited Title");
+        cy.ensureTextNotPresent("Test Link Updated Title");
     });
 });
 

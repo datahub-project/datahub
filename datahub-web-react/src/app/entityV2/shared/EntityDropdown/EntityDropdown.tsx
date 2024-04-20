@@ -27,7 +27,7 @@ import { AddIncidentModal } from '../tabs/Incident/components/AddIncidentModal';
 import { getEntityPath } from '../containers/profile/utils';
 import useDeleteEntity from './useDeleteEntity';
 import { getEntityProfileDeleteRedirectPath } from '../../../shared/deleteUtils';
-import { useIsSeparateSiblingsMode } from '../siblingUtils';
+import { useIsSeparateSiblingsMode } from '../useIsSeparateSiblingsMode';
 import { shouldDisplayChildDeletionWarning, isDeleteDisabled, isMoveDisabled } from './utils';
 import { useUserContext } from '../../../context/useUserContext';
 import MoveDomainModal from './MoveDomainModal';

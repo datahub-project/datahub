@@ -1,14 +1,7 @@
 import { useContext, useMemo } from 'react';
 import { Node, useReactFlow } from 'reactflow';
 import { LineageDirection } from '../../types.generated';
-import {
-    createEdgeId,
-    LINEAGE_FILTER_ID_PREFIX,
-    LineageFilter,
-    LineageNode,
-    LineageNodesContext,
-    NodeContext,
-} from './common';
+import { createEdgeId, LineageNode, LineageNodesContext, NodeContext } from './common';
 
 export default function useNodeHighlighting(hoveredNode: string | null): {
     highlightedNodes: Set<string>;
@@ -37,13 +30,6 @@ function computeHighlights(
     if (!node) {
         return { highlightedNodes, highlightedEdges };
     }
-    if (node.id.startsWith(LINEAGE_FILTER_ID_PREFIX)) {
-        (node as Node<LineageFilter>).data.contents.forEach((urn) => {
-            highlightedNodes.add(urn);
-        });
-        return { highlightedNodes, highlightedEdges };
-    }
-
     Object.entries(adjacencyList).forEach(([direction, neighborMap]) => {
         const seen = new Set<string>();
         const toVisit = [node.id];

@@ -7,7 +7,7 @@
     #   acryl-datahub-integrations
 accumulation-tree==0.6.2
     # via tdigest
-acryl-datahub-actions==0.0.14
+acryl-datahub-actions==0.0.15
     # via acryl-datahub-integrations
 aiohttp==3.8.5
     # via
@@ -108,12 +108,6 @@ frozenlist==1.4.0
     # via
     #   aiohttp
     #   aiosignal
-grpcio==1.59.0
-    # via
-    #   acryl-datahub
-    #   grpcio-tools
-grpcio-tools==1.59.0
-    # via acryl-datahub
 h11==0.14.0
     # via
     #   httpcore
@@ -171,8 +165,6 @@ mypy-extensions==1.0.0
     #   mypy
     #   reactpy
     #   typing-inspect
-networkx==3.2.1
-    # via acryl-datahub
 numpy==1.26.4
     # via
     #   pandas
@@ -203,8 +195,6 @@ progressbar2==4.2.0
     #   acryl-datahub-actions
 prometheus-client==0.17.1
     # via acryl-datahub-actions
-protobuf==4.24.4
-    # via grpcio-tools
 psutil==5.9.5
     # via acryl-datahub
 pyarrow==15.0.0
@@ -273,8 +263,6 @@ sendgrid==6.11.0
     # via acryl-datahub-integrations
 sentry-sdk==1.30.0
     # via acryl-datahub
-setuptools==69.2.0
-    # via grpcio-tools
 six==1.16.0
     # via
     #   avro-gen3

@@ -77,24 +77,23 @@ const datasetPrimary = {
     health: [
         {
             type: HealthStatusType.Assertions,
-            status: HealthStatus.Fail, 
-            message: "assertion base message",
-            causes: ["cause", "cause2"],
-
+            status: HealthStatus.Fail,
+            message: 'assertion base message',
+            causes: ['cause', 'cause2'],
         },
         {
             type: HealthStatusType.Incidents,
-            status: HealthStatus.Fail, 
-            message: "incident base message",
-            causes: ["cause", "cause2"]
+            status: HealthStatus.Fail,
+            message: 'incident base message',
+            causes: ['cause', 'cause2'],
         },
         {
             type: HealthStatusType.Tests,
-            status: HealthStatus.Fail, 
-            message: "test base message",
-            causes: ["cause", "cause2"]
+            status: HealthStatus.Fail,
+            message: 'test base message',
+            causes: ['cause', 'cause2'],
         },
-    ]
+    ],
 };
 
 const datasetUnprimary = {
@@ -161,21 +160,21 @@ const datasetUnprimary = {
     health: [
         {
             type: HealthStatusType.Assertions,
-            status: HealthStatus.Pass, 
-            message: "assertion secondary message",
-            causes: ["cause3", "cause4"],
+            status: HealthStatus.Pass,
+            message: 'assertion secondary message',
+            causes: ['cause3', 'cause4'],
         },
         {
             type: HealthStatusType.Incidents,
-            status: HealthStatus.Pass, 
-            message: "incident secondary message",
-            causes: ["cause3", "cause4"],
+            status: HealthStatus.Pass,
+            message: 'incident secondary message',
+            causes: ['cause3', 'cause4'],
         },
         {
             type: HealthStatusType.Tests,
             status: HealthStatus.Pass,
-            message: "test secondary message",
-            causes: ["cause3", "cause4"], 
+            message: 'test secondary message',
+            causes: ['cause3', 'cause4'],
         },
     ],
     siblings: {
@@ -207,17 +206,17 @@ const datasetPrimaryWithSiblings = {
         health: [
             {
                 type: HealthStatusType.Assertions,
-                status: HealthStatus.Fail, 
+                status: HealthStatus.Fail,
             },
             {
                 type: HealthStatusType.Incidents,
-                status: HealthStatus.Fail, 
+                status: HealthStatus.Fail,
             },
             {
                 type: HealthStatusType.Tests,
-                status: HealthStatus.Fail, 
+                status: HealthStatus.Fail,
             },
-        ]
+        ],
     },
     siblings: {
         isPrimary: true,
@@ -270,17 +269,41 @@ describe('siblingUtils', () => {
 
             // health status
             expect(combinedData.dataset.health).toHaveLength(3);
-            expect(combinedData.dataset.health.find(health => health.type === HealthStatusType.Assertions)?.status === HealthStatus.Fail).toBeTruthy();
-            expect(combinedData.dataset.health.find(health => health.type === HealthStatusType.Assertions)?.message === "Some failing assertions").toBeTruthy();
-            expect(combinedData.dataset.health.find(health => health.type === HealthStatusType.Assertions)?.causes).toHaveLength(4);
+            expect(
+                combinedData.dataset.health.find((health) => health.type === HealthStatusType.Assertions)?.status ===
+                    HealthStatus.Fail,
+            ).toBeTruthy();
+            expect(
+                combinedData.dataset.health.find((health) => health.type === HealthStatusType.Assertions)?.message ===
+                    'Some failing assertions',
+            ).toBeTruthy();
+            expect(
+                combinedData.dataset.health.find((health) => health.type === HealthStatusType.Assertions)?.causes,
+            ).toHaveLength(4);
 
-            expect(combinedData.dataset.health.find(health => health.type === HealthStatusType.Incidents)?.status === HealthStatus.Fail).toBeTruthy();
-            expect(combinedData.dataset.health.find(health => health.type === HealthStatusType.Incidents)?.message === "Some active incidents").toBeTruthy();
-            expect(combinedData.dataset.health.find(health => health.type === HealthStatusType.Incidents)?.causes).toHaveLength(4);
+            expect(
+                combinedData.dataset.health.find((health) => health.type === HealthStatusType.Incidents)?.status ===
+                    HealthStatus.Fail,
+            ).toBeTruthy();
+            expect(
+                combinedData.dataset.health.find((health) => health.type === HealthStatusType.Incidents)?.message ===
+                    'Some active incidents',
+            ).toBeTruthy();
+            expect(
+                combinedData.dataset.health.find((health) => health.type === HealthStatusType.Incidents)?.causes,
+            ).toHaveLength(4);
 
-            expect(combinedData.dataset.health.find(health => health.type === HealthStatusType.Tests)?.status === HealthStatus.Fail).toBeTruthy();
-            expect(combinedData.dataset.health.find(health => health.type === HealthStatusType.Tests)?.message === "Some failing governance tests").toBeTruthy();
-            expect(combinedData.dataset.health.find(health => health.type === HealthStatusType.Tests)?.causes).toHaveLength(4);
+            expect(
+                combinedData.dataset.health.find((health) => health.type === HealthStatusType.Tests)?.status ===
+                    HealthStatus.Fail,
+            ).toBeTruthy();
+            expect(
+                combinedData.dataset.health.find((health) => health.type === HealthStatusType.Tests)?.message ===
+                    'Some failing governance tests',
+            ).toBeTruthy();
+            expect(
+                combinedData.dataset.health.find((health) => health.type === HealthStatusType.Tests)?.causes,
+            ).toHaveLength(4);
 
             // will stay primary
             expect(combinedData.dataset.siblings.isPrimary).toBeTruthy();

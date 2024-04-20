@@ -1,21 +1,16 @@
 import React from 'react';
 
-export interface ColumnQueryData {
-    inputColumns?: Array<[string, string]>;
+export interface FineGrainedOperation {
+    inputColumns?: Array<[string, string]>; // [table, column]
     outputColumns?: Array<[string, string]>;
     transformOperation?: string;
-}
-
-export interface EntitySidebarQueryDetails extends ColumnQueryData {
-    inputTables: string[];
-    outputTables: string[];
 }
 
 interface EntitySidebarContextProps {
     width: number;
     setSidebarClosed: (isClosed: boolean) => void;
     isClosed: boolean;
-    extra?: EntitySidebarQueryDetails;
+    fineGrainedOperations?: FineGrainedOperation[]; // For query entities in lineage, when a column is selected
     forLineage?: boolean;
     separateSiblings?: boolean;
 }

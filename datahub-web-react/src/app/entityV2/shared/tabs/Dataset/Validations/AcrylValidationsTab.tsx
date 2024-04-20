@@ -13,7 +13,7 @@ import { AssertionSourceType } from '../../../../../../types.generated';
 import { AcrylAssertions } from './AcrylAssertions';
 import { useAppConfig } from '../../../../../useAppConfig';
 import { DataContractTab } from './contract/DataContractTab';
-import { SEPARATE_SIBLINGS_URL_PARAM, useIsSeparateSiblingsMode } from '../../../siblingUtils';
+import { SEPARATE_SIBLINGS_URL_PARAM, useIsSeparateSiblingsMode } from '../../../useIsSeparateSiblingsMode';
 
 const TabTitle = styled.span`
     margin-left: 4px;

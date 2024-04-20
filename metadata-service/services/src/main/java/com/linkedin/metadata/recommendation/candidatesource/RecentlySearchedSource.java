@@ -5,6 +5,7 @@ import com.datahub.util.exception.ESQueryException;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.datahubusage.DataHubUsageEventConstants;
 import com.linkedin.metadata.datahubusage.DataHubUsageEventType;
+import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.recommendation.RecommendationContent;
 import com.linkedin.metadata.recommendation.RecommendationParams;
 import com.linkedin.metadata.recommendation.RecommendationRenderType;
@@ -19,6 +20,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.opensearch.action.search.SearchRequest;
@@ -78,7 +80,9 @@ public class RecentlySearchedSource implements RecommendationSource {
 
   @Override
   public List<RecommendationContent> getRecommendations(
-      @Nonnull OperationContext opContext, @Nonnull RecommendationRequestContext requestContext) {
+      @Nonnull OperationContext opContext,
+      @Nonnull RecommendationRequestContext requestContext,
+      @Nullable Filter filter) {
     SearchRequest searchRequest =
         buildSearchRequest(opContext.getSessionActorContext().getActorUrn());
     try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "getRecentlySearched").time()) {

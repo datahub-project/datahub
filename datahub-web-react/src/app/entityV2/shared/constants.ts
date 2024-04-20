@@ -53,6 +53,11 @@ export const REDESIGN_COLORS = {
     SUB_TEXT: '#81879F',
     COLD_GREY_TEXT: '#A9ADBD',
     COLD_GREY_TEXT_BLUE_1: '#EBECF0',
+    RED_LIGHT: '#F6D5D5',
+    RED_NORMAL: '#CC6C6C',
+    BODY_TEXT: '#5f6685',
+    GREEN_LIGHT: '#d5e9c9',
+    GREEN_NORMAL: '#5f9240',
 };
 
 export const SEARCH_COLORS = {

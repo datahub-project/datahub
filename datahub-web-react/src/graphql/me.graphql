@@ -25,7 +25,9 @@ query getMe {
                     urn
                 }
             }
-            groups: relationships(input: { types: ["IsMemberOfGroup"], direction: OUTGOING, start: 0, count: 50 }) {
+            groups: relationships(
+                input: { types: ["IsMemberOfGroup", "IsMemberOfNativeGroup"], direction: OUTGOING, start: 0, count: 50 }
+            ) {
                 relationships {
                     entity {
                         ... on CorpGroup {

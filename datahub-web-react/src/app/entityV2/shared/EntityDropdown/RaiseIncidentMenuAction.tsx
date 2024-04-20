@@ -7,7 +7,7 @@ import { ActionMenuItem } from './styledComponents';
 import { AddIncidentModal } from '../tabs/Incident/components/AddIncidentModal';
 import { getEntityPath } from '../containers/profile/utils';
 import { useEntityRegistry } from '../../../useEntityRegistry';
-import { useIsSeparateSiblingsMode } from '../siblingUtils';
+import { useIsSeparateSiblingsMode } from '../useIsSeparateSiblingsMode';
 
 export default function RaiseIncidentMenuAction() {
     const { urn, entityType } = useEntityData();

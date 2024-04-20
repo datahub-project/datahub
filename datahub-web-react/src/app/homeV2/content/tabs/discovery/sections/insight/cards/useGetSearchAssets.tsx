@@ -23,6 +23,7 @@ export const useGetSearchAssets = (
     query?: string,
     filters?: FilterSet,
     sort?: SortCriterion,
+    viewUrn?: string | null,
 ): any => {
     const { data, loading } = useGetSearchResultsForMultipleQuery({
         variables: {
@@ -37,6 +38,7 @@ export const useGetSearchAssets = (
                         sortCriterion: sort,
                     }) ||
                     null,
+                viewUrn,
                 searchFlags: {
                     skipAggregates: true,
                 },

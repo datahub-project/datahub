@@ -10,9 +10,9 @@ import { INCIDENT_DISPLAY_STATES, PAGE_SIZE, getIncidentsStatusSummary } from '.
 import { EntityType, Incident, IncidentState } from '../../../../../types.generated';
 import { IncidentSummary } from './components/IncidentSummary';
 import { AddIncidentModal } from './components/AddIncidentModal';
-import { combineEntityDataWithSiblings } from '../../siblingUtils';
 import { IncidentsLoadingSection } from './components/IncidentsLoadingSection';
 import { ANTD_GRAY } from '../../constants';
+import { combineEntityDataWithSiblings } from '../../../../entity/shared/siblingUtils';
 
 const Header = styled.div`
     border-bottom: 1px solid ${ANTD_GRAY[3]};

@@ -1,9 +1,10 @@
 import React from 'react';
 import styled from 'styled-components';
 import { useDataNotCombinedWithSiblings, useEntityData } from '../../../../../entity/shared/EntityContext';
+import {stripSiblingsFromEntity} from "../../../../../entity/shared/siblingUtils";
 import { CompactEntityNameList } from '../../../../../recommendations/renderer/component/CompactEntityNameList';
 import { Dataset, Entity } from '../../../../../../types.generated';
-import { SEPARATE_SIBLINGS_URL_PARAM, stripSiblingsFromEntity, useIsSeparateSiblingsMode } from '../../../siblingUtils';
+import { SEPARATE_SIBLINGS_URL_PARAM, useIsSeparateSiblingsMode } from '../../../useIsSeparateSiblingsMode';
 import { GetDatasetQuery } from '../../../../../../graphql/dataset.generated';
 import { SidebarSection } from './SidebarSection';
 import { REDESIGN_COLORS } from '../../../constants';

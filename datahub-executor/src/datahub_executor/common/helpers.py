@@ -1,4 +1,6 @@
-from datahub.ingestion.graph.client import DatahubClientConfig
+from typing import Any, Dict, List
+
+from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
 from datahub.secret.datahub_secret_store import DataHubSecretStore
 
 from datahub_executor.common.assertion.engine.engine import AssertionEngine
@@ -47,6 +49,44 @@ def create_datahub_graph() -> DataHubAssertionGraph:
             token=DATAHUB_GMS_TOKEN,
         )
     )
+
+
+def paginate_datahub_query_results(
+    graph: DataHubGraph,
+    query: str,
+    query_key: str,
+    result_key: str,
+    page_size: int,
+    user_params: Dict = {},
+) -> List[Any]:
+    results = []
+    position = 0
+
+    while True:
+        params = dict(user_params)
+        params.setdefault("input", {})
+        params["input"]["start"] = position
+        params["input"]["count"] = page_size
+
+        response = graph.execute_graphql(query, variables=params)
+        error = response.get("error", None)
+        if error is not None:
+            raise RuntimeError(f"Received GraphQL error: {error}")
+
+        result = response.get(query_key, {})
+        if result_key not in result:
+            raise RuntimeError(f"Bad response from GMS: Key {result_key} not found.")
+
+        page_items = result.get(result_key)
+        results += page_items
+        position += page_size
+        if (
+            position >= result["total"]
+            or (result["start"] + result["count"]) >= result["total"]
+        ):
+            break
+
+    return results
 
 
 def create_assertion_engine(graph: DataHubAssertionGraph) -> AssertionEngine:

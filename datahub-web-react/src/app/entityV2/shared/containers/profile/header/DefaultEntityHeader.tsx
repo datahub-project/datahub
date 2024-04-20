@@ -12,7 +12,7 @@ import { DomainColoredIcon } from '../../../links/DomainColoredIcon';
 import { useEntityRegistry } from '../../../../../useEntityRegistry';
 import { EntityBackButton } from '../sidebar/EntityBackButton';
 import EntityMenuActions, { EntityMenuItems } from '../../../EntityDropdown/EntityMenuActions';
-import { EntityHeaderDecoration } from './EntityHeaderDecoration';
+import { GlossaryPreviewCardDecoration } from './GlossaryPreviewCardDecoration';
 import PlatformHeaderIcons from './PlatformContent/PlatformHeaderIcons';
 import { IconStyleType } from '../../../../Entity';
 import SearchCardBrowsePath from '../../../../../previewV2/SearchCardBrowsePath';
@@ -146,12 +146,13 @@ export const DefaultEntityHeader = ({
     return (
         <>
             <Row>
-                <EntityHeaderDecoration
-                    urn={urn}
-                    entityData={entityData}
-                    entityType={entityType}
-                    displayProperties={displayProperties}
-                />
+                {(entityType === EntityType.GlossaryNode || entityType === EntityType.GlossaryTerm) && (
+                    <GlossaryPreviewCardDecoration
+                        urn={urn}
+                        entityData={entityData}
+                        displayProperties={displayProperties}
+                    />
+                )}
                 <EntityBackButton />
                 <LeftColumn>
                     {(loading && <EntityTitleLoadingSection />) || (

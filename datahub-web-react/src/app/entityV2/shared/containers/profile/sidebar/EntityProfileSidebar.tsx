@@ -7,6 +7,8 @@ import { EntitySidebarTab, TabContextType, TabRenderType } from '../../../types'
 import { EntitySidebarTabs } from './EntitySidebarTabs';
 import SidebarCollapsibleHeader from './SidebarCollapsibleHeader';
 import { EntityMenuItems } from '../../../EntityDropdown/EntityMenuActions';
+import { useIsDocumentationFormsEnabled } from '../../../../../useAppConfig';
+import SidebarFormInfoWrapper from './FormInfo/SidebarFormInfoWrapper';
 
 export const StyledEntitySidebarContainer = styled.div<{
     isCollapsed: boolean;
@@ -76,6 +78,10 @@ const TabsContainer = styled.div``;
 
 const Tabs = styled.div``;
 
+const SidebarFormContentWrapper = styled.div`
+    padding: 0px 20px;
+`;
+
 interface Props {
     type?: 'card' | 'default';
     focused?: boolean;
@@ -106,6 +112,7 @@ export default function EntityProfileSidebar({
     const selectedTab = tabs.find((tab) => tab.name === selectedTabName);
 
     const isCardLayout = type === 'card';
+    const documentationFormsEnabled = useIsDocumentationFormsEnabled();
 
     // Open tab when selected tab is changed
     useEffect(() => {
@@ -129,6 +136,11 @@ export default function EntityProfileSidebar({
                     <Body>
                         {selectedTab && (
                             <Content>
+                                {documentationFormsEnabled && (
+                                    <SidebarFormContentWrapper>
+                                        <SidebarFormInfoWrapper />
+                                    </SidebarFormContentWrapper>
+                                )}
                                 <selectedTab.component
                                     properties={selectedTab.properties}
                                     renderType={TabRenderType.COMPACT}

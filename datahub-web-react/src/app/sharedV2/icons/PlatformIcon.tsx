@@ -15,6 +15,7 @@ type PlatformIconProps = {
     styles?: CSSObject | undefined;
     title?: string;
     imageStyles?: CSSObject | undefined;
+    className?: string;
     onError?: () => void;
 };
 
@@ -47,6 +48,7 @@ const PlatformIcon: React.FC<PlatformIconProps> = ({
     title,
     styles,
     imageStyles,
+    className,
     onError,
 }) => {
     const [background, setBackground] = useState<string | undefined>(undefined);
@@ -54,7 +56,7 @@ const PlatformIcon: React.FC<PlatformIconProps> = ({
     const entityRegistry = useEntityRegistry();
     const logoUrl = platform?.properties?.logoUrl;
     return (
-        <IconContainer background={background} styles={styles} title={title}>
+        <IconContainer background={background} styles={styles} title={title} className={className}>
             {logoUrl ? (
                 <PreviewImage
                     crossOrigin="anonymous"

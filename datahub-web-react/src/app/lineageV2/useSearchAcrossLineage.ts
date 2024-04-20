@@ -13,7 +13,6 @@ import {
     getEdgeId,
     isQuery,
     isTransformational,
-    isUrnDbt,
     isUrnTransformational,
     LINEAGE_FILTER_PAGINATION,
     LineageEntity,
@@ -128,7 +127,7 @@ export default function useSearchAcrossLineage(
         }
 
         if (data) {
-            pruneParentsThroughDbt(urn, direction, smallContext, entityRegistry);
+            pruneDuplicateEdges(urn, direction, smallContext, entityRegistry);
             setProcessed(true);
             if (addedNode) setNodeVersion((version) => version + 1);
             else setDisplayVersion(([version, n]) => [version + 1, n]);
@@ -152,14 +151,14 @@ export default function useSearchAcrossLineage(
 }
 
 /**
- * Remove direct edges between non-transformational nodes, if there is a path between them through only dbt nodes (and query nodes).
+ * Remove direct edges between non-transformational nodes, if there is a path between them through only transformational nodes.
  * This prevents the graph from being cluttered with effectively duplicate edges.
  * @param urn Urn for which to remove parent edges.
  * @param direction Direction to look for parents.
  * @param context Lineage node context.
  * @param entityRegistry EntityRegistry, used to get EntityType from an urn.
  */
-export function pruneParentsThroughDbt(
+export function pruneDuplicateEdges(
     urn: string,
     direction: LineageDirection,
     context: Pick<NodeContext, 'adjacencyList' | 'edges'>,
@@ -169,11 +168,13 @@ export function pruneParentsThroughDbt(
     if (isUrnTransformational(urn, entityRegistry)) return;
 
     const urnsToPrune = new Set<string>();
-    const stack = Array.from(adjacencyList[direction].get(urn) || []).filter((p) => isUrnDbt(p, entityRegistry));
+    const stack = Array.from(adjacencyList[direction].get(urn) || []).filter((p) =>
+        isUrnTransformational(p, entityRegistry),
+    );
     const seen = new Set<string>(stack);
     for (let u = stack.pop(); u; u = stack.pop()) {
         Array.from(adjacencyList[direction].get(u) || []).forEach((parent) => {
-            if (isUrnDbt(parent, entityRegistry)) {
+            if (isUrnTransformational(parent, entityRegistry)) {
                 if (!seen.has(parent)) {
                     stack.push(parent);
                     seen.add(parent);

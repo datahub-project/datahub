@@ -35,6 +35,9 @@ def test_fetch_freshness_assertion() -> None:
     # Configure the mock object to return a specific result when its execute_graphql method is called
     graph.execute_graphql.return_value = {
         "searchAcrossEntities": {
+            "start": 0,
+            "total": 1,
+            "count": 10,
             "searchResults": [
                 {
                     "entity": {
@@ -96,7 +99,7 @@ def test_fetch_freshness_assertion() -> None:
                         },
                     }
                 }
-            ]
+            ],
         },
         "error": None,
     }
@@ -197,6 +200,9 @@ def test_fetch_volume_assertion() -> None:
     # Configure the mock object to return a specific result when its execute_graphql method is called
     graph.execute_graphql.return_value = {
         "searchAcrossEntities": {
+            "start": 0,
+            "total": 1,
+            "count": 10,
             "searchResults": [
                 {
                     "entity": {
@@ -260,7 +266,7 @@ def test_fetch_volume_assertion() -> None:
                         },
                     }
                 }
-            ]
+            ],
         },
         "error": None,
     }
@@ -353,6 +359,9 @@ def test_fetch_sql_assertion() -> None:
     # Configure the mock object to return a specific result when its execute_graphql method is called
     graph.execute_graphql.return_value = {
         "searchAcrossEntities": {
+            "start": 0,
+            "total": 1,
+            "count": 10,
             "searchResults": [
                 {
                     "entity": {
@@ -411,7 +420,7 @@ def test_fetch_sql_assertion() -> None:
                         },
                     }
                 }
-            ]
+            ],
         },
         "error": None,
     }
@@ -498,6 +507,9 @@ def test_fetch_field_assertion() -> None:
     # Configure the mock object to return a specific result when its execute_graphql method is called
     graph.execute_graphql.return_value = {
         "searchAcrossEntities": {
+            "start": 0,
+            "total": 1,
+            "count": 10,
             "searchResults": [
                 {
                     "entity": {
@@ -580,7 +592,7 @@ def test_fetch_field_assertion() -> None:
                         },
                     }
                 }
-            ]
+            ],
         },
         "error": None,
     }

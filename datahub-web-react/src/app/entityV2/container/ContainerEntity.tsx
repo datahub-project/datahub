@@ -24,6 +24,8 @@ import ContainerSummaryTab from './ContainerSummaryTab';
 import { SUMMARY_TAB_ICON } from '../shared/summary/HeaderComponents';
 import { SubType, TYPE_ICON_CLASS_NAME } from '../shared/components/subtypes';
 import SidebarEntityHeader from '../shared/containers/profile/sidebar/SidebarEntityHeader';
+import SyncedAssetSection from '../shared/containers/profile/sidebar/shared/SyncedAssetSection';
+import SharingAssetSection from '../shared/containers/profile/sidebar/shared/SharingAssetSection';
 
 const headerDropdownItems = new Set([EntityMenuItems.EXTERNAL_URL, EntityMenuItems.SHARE, EntityMenuItems.SUBSCRIBE]);
 
@@ -116,6 +118,12 @@ export class ContainerEntity implements Entity<Container> {
         },
         {
             component: SidebarDomainSection,
+        },
+        {
+            component: SyncedAssetSection,
+        },
+        {
+            component: SharingAssetSection,
         },
         {
             component: DataProductSection,

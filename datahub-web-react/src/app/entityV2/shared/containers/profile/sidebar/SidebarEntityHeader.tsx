@@ -1,5 +1,6 @@
 import React from 'react';
 import styled from 'styled-components';
+import HorizontalScroller from '../../../../../sharedV2/carousel/HorizontalScroller';
 import { useEntityRegistry } from '../../../../../useEntityRegistry';
 import { useEntityData } from '../../../../../entity/shared/EntityContext';
 import { Container, DataPlatform, EntityType } from '../../../../../../types.generated';
@@ -14,14 +15,7 @@ import { IconStyleType } from '../../../../Entity';
 import HealthIcon from '../../../../../previewV2/HealthIcon';
 import { isUnhealthy } from '../../../../../shared/health/healthUtils';
 
-const Wrapper = styled.div`
-    display: flex;
-    border-bottom: 1px dashed;
-    border-bottom-color: currentcolor;
-    border-color: rgba(0, 0, 0, 0.3);
-`;
-
-const TitleContainer = styled.div`
+const TitleContainer = styled(HorizontalScroller)`
     display: flex;
     gap: 5px;
 `;
@@ -50,38 +44,37 @@ const SidebarEntityHeader = () => {
         );
     const displayedEntityType = getDisplayedEntityType(entityData, entityRegistry, entityType);
 
+    if (loading) {
+        return <EntityTitleLoadingSection />;
+    }
     return (
-        <Wrapper>
-            {(loading && <EntityTitleLoadingSection />) || (
-                <TitleContainer>
-                    <PlatformHeaderIcons
-                        platform={entityData?.platform as DataPlatform}
-                        platforms={entityData?.siblingPlatforms as DataPlatform[]}
-                        size={24}
+        <TitleContainer scrollButtonSize={18} scrollButtonOffset={15}>
+            <PlatformHeaderIcons
+                platform={entityData?.platform as DataPlatform}
+                platforms={entityData?.siblingPlatforms as DataPlatform[]}
+                size={24}
+            />
+            <EntityDetailsContainer>
+                <NameWrapper>
+                    <EntityName isNameEditable={false} />
+                    {entityData?.health && isUnhealthy(entityData.health) && (
+                        <HealthIcon health={entityData.health} baseUrl={entityUrl} />
+                    )}
+                </NameWrapper>
+                <div>
+                    <SearchCardBrowsePath
+                        instanceId={entityData?.dataPlatformInstance?.instanceId}
+                        typeIcon={typeIcon}
+                        type={displayedEntityType}
+                        entityType={entityType}
+                        parentContainers={entityData?.parentContainers?.containers}
+                        parentEntities={entityData?.parentDomains?.domains}
+                        parentContainersRef={contentRef}
+                        areContainersTruncated={isContentTruncated}
                     />
-                    <EntityDetailsContainer>
-                        <NameWrapper>
-                            <EntityName isNameEditable={false} />
-                            {entityData?.health && isUnhealthy(entityData.health) && (
-                                <HealthIcon health={entityData.health} baseUrl={entityUrl} />
-                            )}
-                        </NameWrapper>
-                        <div>
-                            <SearchCardBrowsePath
-                                instanceId={entityData?.dataPlatformInstance?.instanceId}
-                                typeIcon={typeIcon}
-                                type={displayedEntityType}
-                                entityType={entityType}
-                                parentContainers={entityData?.parentContainers?.containers}
-                                parentEntities={entityData?.parentDomains?.domains}
-                                parentContainersRef={contentRef}
-                                areContainersTruncated={isContentTruncated}
-                            />
-                        </div>
-                    </EntityDetailsContainer>
-                </TitleContainer>
-            )}
-        </Wrapper>
+                </div>
+            </EntityDetailsContainer>
+        </TitleContainer>
     );
 };
 

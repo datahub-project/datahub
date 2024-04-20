@@ -86,7 +86,8 @@ export default function StructuredPropertyPrompt({
     } = useStructuredPropertyPrompt({ prompt, submitResponse, field });
 
     const {
-        prompt: { displayBulkPromptStyles }, entity: { selectedEntities }
+        prompt: { displayBulkPromptStyles },
+        entity: { selectedEntities },
     } = useEntityFormContext();
 
     const { isComplete, completedByName, completedByTime } = usePromptCompletionInfo({
@@ -98,7 +99,7 @@ export default function StructuredPropertyPrompt({
     const structuredProperty = prompt.structuredPropertyParams?.structuredProperty;
     if (!structuredProperty) return null;
 
-    const { displayName, description, } = structuredProperty.definition;
+    const { displayName, description } = structuredProperty.definition;
     const showSaveButton = !displayBulkPromptStyles && hasEdited && selectedValues.length > 0;
     const showConfirmButton = !displayBulkPromptStyles && !hasEdited && !isComplete && selectedValues.length > 0;
 

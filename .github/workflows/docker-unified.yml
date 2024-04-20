@@ -672,7 +672,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       tag: ${{ steps.tag.outputs.tag }}
-      needs_artifact_download: ${{ (steps.filter.outputs.datahub-ingestion-base == 'true' || steps.filter.outputs.datahub-ingestion == 'true') && ( needs.setup.outputs.publish != 'true' || needs.setup.outputs.pr-publish != 'true') }}
+      needs_artifact_download: ${{ (steps.filter.outputs.datahub-ingestion-base == 'true' || steps.filter.outputs.datahub-ingestion == 'true') && ( needs.setup.outputs.publish != 'true' && needs.setup.outputs.pr-publish != 'true') }}
     needs: [setup, datahub_ingestion_base_slim_build]
     if: ${{ needs.setup.outputs.ingestion_change == 'true' || needs.setup.outputs.publish == 'true' }}
     steps:
@@ -772,7 +772,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       tag: ${{ steps.tag.outputs.tag }}
-      needs_artifact_download: ${{ (steps.filter.outputs.datahub-ingestion-base == 'true' || steps.filter.outputs.datahub-ingestion == 'true') && ( needs.setup.outputs.publish != 'true' || needs.setup.outputs.pr-publish != 'true' ) }}
+      needs_artifact_download: ${{ (steps.filter.outputs.datahub-ingestion-base == 'true' || steps.filter.outputs.datahub-ingestion == 'true') && ( needs.setup.outputs.publish != 'true' && needs.setup.outputs.pr-publish != 'true' ) }}
     needs: [setup, datahub_ingestion_base_full_build]
     if: ${{ needs.setup.outputs.ingestion_change == 'true' || needs.setup.outputs.publish == 'true' }}
     steps:

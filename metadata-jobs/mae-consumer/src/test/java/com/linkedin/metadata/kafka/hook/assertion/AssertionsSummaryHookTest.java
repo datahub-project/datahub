@@ -76,7 +76,7 @@ public class AssertionsSummaryHookTest {
   @Test
   public void testInvokeNotEnabled() throws Exception {
     AssertionService service = mockAssertionService(new AssertionsSummary());
-    AssertionsSummaryHook hook = new AssertionsSummaryHook(service, false);
+    AssertionsSummaryHook hook = new AssertionsSummaryHook(service, false).init(opContext);
     final MetadataChangeLog event =
         buildMetadataChangeLog(
             TEST_ASSERTION_URN,
@@ -92,7 +92,7 @@ public class AssertionsSummaryHookTest {
   @Test
   public void testInvokeNotEligibleChange() throws Exception {
     AssertionService service = mockAssertionService(new AssertionsSummary());
-    AssertionsSummaryHook hook = new AssertionsSummaryHook(service, true);
+    AssertionsSummaryHook hook = new AssertionsSummaryHook(service, true).init(opContext);
 
     // Case 1: Incorrect aspect
     MetadataChangeLog event =
@@ -184,7 +184,7 @@ public class AssertionsSummaryHookTest {
   @Test(dataProvider = "assertionsSummaryProvider")
   public void testInvokeAssertionRunEventSuccess(AssertionsSummary summary) throws Exception {
     AssertionService service = mockAssertionService(summary);
-    AssertionsSummaryHook hook = new AssertionsSummaryHook(service, true);
+    AssertionsSummaryHook hook = new AssertionsSummaryHook(service, true).init(opContext);
     final AssertionInfo info =
         new AssertionInfo()
             .setType(AssertionType.DATASET)
@@ -228,7 +228,7 @@ public class AssertionsSummaryHookTest {
   @Test(dataProvider = "assertionsSummaryProvider")
   public void testInvokeAssertionRunEventFailure(AssertionsSummary summary) throws Exception {
     AssertionService service = mockAssertionService(summary);
-    AssertionsSummaryHook hook = new AssertionsSummaryHook(service, true);
+    AssertionsSummaryHook hook = new AssertionsSummaryHook(service, true).init(opContext);
     final AssertionInfo info =
         new AssertionInfo()
             .setType(AssertionType.DATASET)
@@ -273,7 +273,7 @@ public class AssertionsSummaryHookTest {
   public void testInvokeAssertionRunEventSuccessIgnoredIfEarlier(AssertionsSummary summary)
       throws Exception {
     AssertionService service = mockAssertionService(summary);
-    AssertionsSummaryHook hook = new AssertionsSummaryHook(service, true);
+    AssertionsSummaryHook hook = new AssertionsSummaryHook(service, true).init(opContext);
     final AssertionInfo info =
         new AssertionInfo()
             .setType(AssertionType.DATASET)
@@ -329,7 +329,7 @@ public class AssertionsSummaryHookTest {
   @Test(dataProvider = "assertionsSummaryProvider")
   public void testInvokeAssertionSoftDeleted(AssertionsSummary summary) throws Exception {
     AssertionService service = mockAssertionService(summary);
-    AssertionsSummaryHook hook = new AssertionsSummaryHook(service, true);
+    AssertionsSummaryHook hook = new AssertionsSummaryHook(service, true).init(opContext);
     final MetadataChangeLog event =
         buildMetadataChangeLog(
             TEST_ASSERTION_URN, STATUS_ASPECT_NAME, ChangeType.UPSERT, mockAssertionSoftDeleted());
@@ -363,7 +363,7 @@ public class AssertionsSummaryHookTest {
   @Test(dataProvider = "assertionsSummaryProvider")
   public void testInvokeAssertionInfoHardDeleted(AssertionsSummary summary) throws Exception {
     AssertionService service = mockAssertionService(summary);
-    AssertionsSummaryHook hook = new AssertionsSummaryHook(service, true);
+    AssertionsSummaryHook hook = new AssertionsSummaryHook(service, true).init(opContext);
     final MetadataChangeLog event =
         buildMetadataChangeLog(
             TEST_ASSERTION_URN,
@@ -412,7 +412,7 @@ public class AssertionsSummaryHookTest {
     // Ensure that the previous summary is removed.
 
     AssertionService service = mockAssertionService(summary);
-    AssertionsSummaryHook hook = new AssertionsSummaryHook(service, true);
+    AssertionsSummaryHook hook = new AssertionsSummaryHook(service, true).init(opContext);
     final MetadataChangeLog event =
         buildMetadataChangeLog(
             TEST_ASSERTION_URN,
@@ -449,7 +449,7 @@ public class AssertionsSummaryHookTest {
   @Test(dataProvider = "assertionsSummaryProvider")
   public void testInvokeMonitorDisabled(AssertionsSummary summary) throws Exception {
     AssertionService service = mockAssertionService(summary);
-    AssertionsSummaryHook hook = new AssertionsSummaryHook(service, true);
+    AssertionsSummaryHook hook = new AssertionsSummaryHook(service, true).init(opContext);
     final MetadataChangeLog event =
         buildMetadataChangeLog(
             TEST_MONITOR_URN,

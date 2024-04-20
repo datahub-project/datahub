@@ -9,7 +9,7 @@ import EntitySidebarContext from '../../../../../sharedV2/EntitySidebarContext';
 import { SidebarSection } from './SidebarSection';
 
 const PreviewSyntax = styled(SyntaxHighlighter)`
-    max-width: 300px;
+    max-width: 100%;
     max-height: 150px;
     overflow: hidden;
     mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 1) 80%, rgba(255, 0, 0, 0.5) 85%, rgba(255, 0, 0, 0) 90%);
@@ -35,26 +35,35 @@ export function SidebarDatasetViewDefinitionSection() {
 export function SidebarQueryLogicSection() {
     const baseEntity = useBaseEntity<{ entity: QueryEntity }>();
     const statement = baseEntity?.entity?.properties?.statement?.value;
-    const { extra } = useContext(EntitySidebarContext);
-    const stringToHighlight = extra?.transformOperation;
+    const { fineGrainedOperations } = useContext(EntitySidebarContext);
+    const highlightedStrings = useMemo(
+        () => fineGrainedOperations?.map((e) => e.transformOperation)?.filter((s): s is string => !!s),
+        [fineGrainedOperations],
+    );
 
     if (!statement) return null;
 
-    return <SidebarLogicSection title="Logic" statement={statement} stringToHighlight={stringToHighlight} />;
+    return <SidebarLogicSection title="Logic" statement={statement} highlightedStrings={highlightedStrings} />;
 }
 
 interface HelperProps {
     title: string;
     statement: string;
-    stringToHighlight?: string;
+    highlightedStrings?: string[];
 }
 
-function SidebarLogicSection({ title, statement, stringToHighlight }: HelperProps) {
+function SidebarLogicSection({ title, statement, highlightedStrings }: HelperProps) {
     const [showFullContentModal, setShowFullContentModal] = useState(false);
 
-    const lineNumberToHighlight = useMemo(() => {
-        return findLineNumberToHighlight(statement, stringToHighlight || '');
-    }, [statement, stringToHighlight]);
+    const highlightedLineNumbers = new Set(highlightedStrings?.map((s) => findLineNumberToHighlight(statement, s)));
+
+    function lineProps(lineNumber: number): React.HTMLProps<HTMLElement> {
+        const style: React.CSSProperties = { display: 'block', width: 'fit-content' };
+        if (highlightedLineNumbers.has(lineNumber)) {
+            style.backgroundColor = 'rgba(134, 169, 244, 0.41)';
+        }
+        return { style };
+    }
 
     return (
         <SidebarSection
@@ -73,23 +82,18 @@ function SidebarLogicSection({ title, statement, stringToHighlight }: HelperProp
                         onCancel={() => setShowFullContentModal(false)}
                     >
                         <ModalSyntaxContainer>
-                            <SyntaxHighlighter
-                                language="sql"
-                                wrapLongLines
-                                showLineNumbers
-                                lineProps={(lineNumber: number): React.HTMLProps<HTMLElement> => {
-                                    const style: React.CSSProperties = { display: 'block', width: 'fit-content' };
-                                    if (lineNumberToHighlight === lineNumber) {
-                                        style.backgroundColor = 'rgba(134, 169, 244, 0.41)';
-                                    }
-                                    return { style };
-                                }}
-                            >
+                            <SyntaxHighlighter language="sql" wrapLongLines showLineNumbers lineProps={lineProps}>
                                 {statement}
                             </SyntaxHighlighter>
                         </ModalSyntaxContainer>
                     </Modal>
-                    <PreviewSyntax language="sql" wrapLongLines>
+                    <PreviewSyntax
+                        language="sql"
+                        showLineNumbers
+                        wrapLines
+                        lineNumberStyle={{ display: 'none' }}
+                        lineProps={lineProps}
+                    >
                         {statement}
                     </PreviewSyntax>
                     <Button type="text" onClick={() => setShowFullContentModal(true)}>

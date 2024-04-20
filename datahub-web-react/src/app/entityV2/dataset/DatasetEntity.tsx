@@ -55,6 +55,8 @@ import { Preview } from './preview/Preview';
 import { OperationsTab } from './profile/OperationsTab';
 import { DatasetStatsSummarySubHeader } from './profile/stats/stats/DatasetStatsSummarySubHeader';
 import SidebarEntityHeader from '../shared/containers/profile/sidebar/SidebarEntityHeader';
+import SyncedAssetSection from '../shared/containers/profile/sidebar/shared/SyncedAssetSection';
+import SharingAssetSection from '../shared/containers/profile/sidebar/shared/SharingAssetSection';
 
 const SUBTYPES = {
     VIEW: 'view',
@@ -238,6 +240,12 @@ export class DatasetEntity implements Entity<Dataset> {
         },
         {
             component: SidebarDatasetHeaderSection,
+        },
+        {
+            component: SyncedAssetSection,
+        },
+        {
+            component: SharingAssetSection,
         },
         {
             component: SidebarDomainSection,

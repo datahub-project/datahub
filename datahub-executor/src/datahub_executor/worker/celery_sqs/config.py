@@ -7,6 +7,7 @@ from kombu.utils.url import safequote
 
 from datahub_executor.common.client.config.resolver import ExecutorConfigResolver
 from datahub_executor.common.monitoring.metrics import (
+    STATS_CREDENTIALS_REFRESH_ERRORS,
     STATS_CREDENTIALS_REFRESH_REQUESTS,
 )
 from datahub_executor.common.types import ExecutorConfig
@@ -65,7 +66,7 @@ def update_celery_config(
     return config
 
 
-def update_celery_credentials(app: Celery, is_startup: bool, queue_name: str) -> None:
+def update_celery_credentials(app: Celery, is_startup: bool, queue_name: str) -> bool:
     executor_config_resolver = ExecutorConfigResolver()
 
     if is_startup:
@@ -97,10 +98,24 @@ def update_celery_credentials(app: Celery, is_startup: bool, queue_name: str) ->
             app.config_from_object(config)
 
             if "predefined_queues" in app.conf.broker_transport_options:
-                for queue_name in app.conf.broker_transport_options[
-                    "predefined_queues"
-                ].keys():
-                    if queue_name not in current_queues:
+                for q in app.conf.broker_transport_options["predefined_queues"].keys():
+                    if q not in current_queues:
                         # this is a newly added queue, let's tell celery!
-                        logger.info(f"Adding new queue to celery config {queue_name}")
-                        app.control.add_consumer(queue_name)
+                        logger.info(f"Adding new queue to celery config {q}")
+                        app.control.add_consumer(q)
+
+    if queue_name:
+        updated_queues = (
+            app.conf.broker_transport_options["predefined_queues"].keys()
+            if "predefined_queues" in app.conf.broker_transport_options
+            else []
+        )
+
+        if queue_name not in updated_queues:
+            STATS_CREDENTIALS_REFRESH_ERRORS.labels(
+                "NoQueue", DATAHUB_EXECUTOR_WORKER_ID
+            ).inc()
+            logger.error(f"SQS qeueue {queue_name} does not exist or misconfigured.")
+            return False
+
+    return True

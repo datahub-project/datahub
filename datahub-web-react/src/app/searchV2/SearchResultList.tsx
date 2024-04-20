@@ -52,7 +52,7 @@ export const ResultWrapper = styled.div<{ showUpdatedStyles: boolean; selected: 
         }
     `}
     position: relative;
-
+    overflow: hidden;
     ${(props) =>
         props.selected &&
         `
@@ -134,7 +134,7 @@ export const SearchResultList = ({
     highlightedIndex,
     setHighlightedIndex,
     previewType,
-    onCardClick
+    onCardClick,
 }: Props) => {
     const entityRegistry = useEntityRegistry();
     const selectedEntityUrns = selectedEntities.map((entity) => entity.urn);
@@ -240,7 +240,12 @@ export const SearchResultList = ({
                                             onClick={(e) => e.stopPropagation()}
                                         />
                                     )}
-                                    {entityRegistry.renderSearchResult(item.entity.type, item, previewType, onCardClick)}
+                                    {entityRegistry.renderSearchResult(
+                                        item.entity.type,
+                                        item,
+                                        previewType,
+                                        onCardClick,
+                                    )}
                                 </ListItem>
                                 {/* an entity is always going to be inserted in the sibling group, so if the sibling group is just one do not
                         render. */}

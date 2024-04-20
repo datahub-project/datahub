@@ -977,7 +977,8 @@ public class GmsGraphQLEngine {
                 .dataFetcher("listUsers", new ListUsersResolver(this.entityClient))
                 .dataFetcher("listGroups", new ListGroupsResolver(this.entityClient))
                 .dataFetcher(
-                    "listRecommendations", new ListRecommendationsResolver(recommendationsService))
+                    "listRecommendations",
+                    new ListRecommendationsResolver(recommendationsService, viewService))
                 .dataFetcher("getEntityCounts", new EntityCountsResolver(this.entityClient))
                 .dataFetcher("getAccessToken", new GetAccessTokenResolver(statefulTokenService))
                 .dataFetcher("listAccessTokens", new ListAccessTokensResolver(this.entityClient))
@@ -2599,7 +2600,7 @@ public class GmsGraphQLEngine {
         "Domain",
         typeWiring ->
             typeWiring
-                .dataFetcher("entities", new DomainEntitiesResolver(this.entityClient))
+                .dataFetcher("entities", new DomainEntitiesResolver(this.entityClient, viewService))
                 .dataFetcher("parentDomains", new ParentDomainsResolver(this.entityClient))
                 .dataFetcher("privileges", new EntityPrivilegesResolver(entityClient))
                 .dataFetcher(
