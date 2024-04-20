@@ -40,7 +40,7 @@ HOSTED_DOCS_ONLY-->
 ---
 
 [Quickstart](https://datahubproject.io/docs/quickstart) |
-[Features](https://datahubproject.io/docs/features) |
+[Features](https://datahubproject.io/docs/) |
 [Roadmap](https://feature-requests.datahubproject.io/roadmap) |
 [Adoption](#adoption) |
 [Demo](https://demo.datahubproject.io/) |

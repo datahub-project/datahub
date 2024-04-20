@@ -389,7 +389,10 @@ class DataHubListener:
 
         # TODO: Add handling for Airflow mapped tasks using task_instance.map_index
 
-        datajob.emit(self.emitter, callback=self._make_emit_callback())
+        for mcp in datajob.generate_mcp(
+            materialize_iolets=self.config.materialize_iolets
+        ):
+            self.emitter.emit(mcp, self._make_emit_callback())
         logger.debug(f"Emitted DataHub Datajob start: {datajob}")
 
         if self.config.capture_executions:
@@ -430,7 +433,10 @@ class DataHubListener:
         # Add lineage info.
         self._extract_lineage(datajob, dagrun, task, task_instance, complete=True)
 
-        datajob.emit(self.emitter, callback=self._make_emit_callback())
+        for mcp in datajob.generate_mcp(
+            materialize_iolets=self.config.materialize_iolets
+        ):
+            self.emitter.emit(mcp, self._make_emit_callback())
         logger.debug(f"Emitted DataHub Datajob finish w/ status {status}: {datajob}")
 
         if self.config.capture_executions:

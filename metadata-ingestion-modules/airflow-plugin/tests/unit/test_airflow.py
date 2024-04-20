@@ -41,13 +41,13 @@ lineage_mce = builder.make_lineage_mce(
 datahub_rest_connection_config = Connection(
     conn_id="datahub_rest_test",
     conn_type="datahub_rest",
-    host="http://test_host:8080/",
+    host="http://test_host:8080",
     extra=None,
 )
 datahub_rest_connection_config_with_timeout = Connection(
     conn_id="datahub_rest_test",
     conn_type="datahub_rest",
-    host="http://test_host:8080/",
+    host="http://test_host:8080",
     extra=json.dumps({"timeout_sec": 5}),
 )
 

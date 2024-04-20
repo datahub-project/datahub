@@ -16,6 +16,7 @@ import com.linkedin.metadata.key.DataHubAccessTokenKey;
 import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.*;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -33,17 +34,20 @@ import org.apache.commons.lang.ArrayUtils;
 @Slf4j
 public class StatefulTokenService extends StatelessTokenService {
 
+  private final OperationContext systemOperationContext;
   private final EntityService<?> _entityService;
   private final LoadingCache<String, Boolean> _revokedTokenCache;
   private final String salt;
 
   public StatefulTokenService(
+      @Nonnull final OperationContext systemOperationContext,
       @Nonnull final String signingKey,
       @Nonnull final String signingAlgorithm,
       @Nullable final String iss,
       @Nonnull final EntityService<?> entityService,
       @Nonnull final String salt) {
     super(signingKey, signingAlgorithm, iss);
+    this.systemOperationContext = systemOperationContext;
     this._entityService = entityService;
     this._revokedTokenCache =
         CacheBuilder.newBuilder()
@@ -54,7 +58,7 @@ public class StatefulTokenService extends StatelessTokenService {
                   @Override
                   public Boolean load(final String key) {
                     final Urn accessUrn = tokenUrnFromKey(key);
-                    return !_entityService.exists(accessUrn, true);
+                    return !_entityService.exists(systemOperationContext, accessUrn, true);
                   }
                 });
     this.salt = salt;
@@ -139,7 +143,10 @@ public class StatefulTokenService extends StatelessTokenService {
         AuditStampUtils.createDefaultAuditStamp().setActor(UrnUtils.getUrn(actorUrn));
 
     _entityService.ingestProposal(
-        AspectsBatchImpl.builder().mcps(List.of(proposal), auditStamp, _entityService).build(),
+        systemOperationContext,
+        AspectsBatchImpl.builder()
+            .mcps(List.of(proposal), auditStamp, systemOperationContext.getRetrieverContext().get())
+            .build(),
         false);
 
     return accessToken;
@@ -175,7 +182,7 @@ public class StatefulTokenService extends StatelessTokenService {
     try {
       if (!_revokedTokenCache.get(hashedToken)) {
         final Urn tokenUrn = tokenUrnFromKey(hashedToken);
-        _entityService.deleteUrn(tokenUrn);
+        _entityService.deleteUrn(systemOperationContext, tokenUrn);
         _revokedTokenCache.put(hashedToken, true);
         return;
       }

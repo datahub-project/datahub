@@ -12,6 +12,7 @@ from tests.test_helpers import mce_helpers
 FROZEN_TIME = "2021-12-07 07:00:00"
 
 JSON_RESPONSE_MAP = {
+    "https://app.mode.com/api/verify": "verify.json",
     "https://app.mode.com/api/account": "user.json",
     "https://app.mode.com/api/acryl/spaces": "spaces.json",
     "https://app.mode.com/api/acryl/spaces/157933cc1168/reports": "reports_157933cc1168.json",

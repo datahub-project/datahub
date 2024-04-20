@@ -10,6 +10,7 @@ import FieldUsageStats from './FieldUsageStats';
 import FieldTags from './FieldTags';
 import FieldTerms from './FieldTerms';
 import FieldProperties from './FieldProperties';
+import FieldAttribute from "./FieldAttribute";
 
 const StyledDrawer = styled(Drawer)`
     position: absolute;
@@ -70,11 +71,12 @@ export default function SchemaFieldDrawer({
                 <>
                     <FieldHeader expandedField={expandedField} />
                     <MetadataSections>
-                        <FieldDescription expandedField={expandedField} editableFieldInfo={editableFieldInfo} />
+                        <FieldDescription expandedField={expandedField} editableFieldInfo={editableFieldInfo}/>
                         <FieldUsageStats expandedField={expandedField} />
                         <FieldTags expandedField={expandedField} editableSchemaMetadata={editableSchemaMetadata} />
                         <FieldTerms expandedField={expandedField} editableSchemaMetadata={editableSchemaMetadata} />
                         <FieldProperties expandedField={expandedField} />
+                        <FieldAttribute expandedField={expandedField} />
                     </MetadataSections>
                 </>
             )}

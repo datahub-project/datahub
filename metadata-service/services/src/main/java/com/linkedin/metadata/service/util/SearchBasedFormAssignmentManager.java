@@ -2,7 +2,7 @@ package com.linkedin.metadata.service.util;
 
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.form.DynamicFormAssignment;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.search.ScrollResult;
@@ -25,14 +25,14 @@ public class SearchBasedFormAssignmentManager {
       DynamicFormAssignment formFilters,
       Urn formUrn,
       int batchFormEntityCount,
-      EntityClient entityClient)
+      SystemEntityClient entityClient)
       throws Exception {
 
     try {
       int totalResults = 0;
       int numResults = 0;
       String scrollId = null;
-      FormService formService = new FormService(opContext, entityClient);
+      FormService formService = new FormService(entityClient);
 
       do {
 
@@ -60,7 +60,7 @@ public class SearchBasedFormAssignmentManager {
                   .map(SearchEntity::getEntity)
                   .collect(Collectors.toList());
 
-          formService.batchAssignFormToEntities(entityUrns, formUrn);
+          formService.batchAssignFormToEntities(opContext, entityUrns, formUrn);
 
           if (!entityUrns.isEmpty()) {
             log.info("Batch assign {} entities to form {}.", entityUrns.size(), formUrn);

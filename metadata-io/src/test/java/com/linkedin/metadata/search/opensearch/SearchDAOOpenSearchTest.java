@@ -3,9 +3,8 @@ package com.linkedin.metadata.search.opensearch;
 import static org.testng.AssertJUnit.assertNotNull;
 
 import com.linkedin.metadata.config.search.SearchConfiguration;
-import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.query.SearchDAOTestBase;
-import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
+import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.fixtures.search.SampleDataFixtureConfiguration;
 import io.datahubproject.test.search.config.SearchTestContainerConfiguration;
 import lombok.Getter;
@@ -24,16 +23,10 @@ import org.testng.annotations.Test;
 public class SearchDAOOpenSearchTest extends SearchDAOTestBase {
   @Autowired private RestHighLevelClient searchClient;
   @Autowired private SearchConfiguration searchConfiguration;
-  @Autowired private EntityRegistry entityRegistry;
 
   @Autowired
-  @Qualifier("sampleDataIndexConvention")
-  IndexConvention indexConvention;
-
-  @Override
-  protected EntityRegistry getEntityRegistry() {
-    return entityRegistry;
-  }
+  @Qualifier("sampleDataOperationContext")
+  protected OperationContext operationContext;
 
   @Test
   public void initTest() {
