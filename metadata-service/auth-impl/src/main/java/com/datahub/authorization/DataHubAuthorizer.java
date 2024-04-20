@@ -278,13 +278,19 @@ public class DataHubAuthorizer implements Authorizer {
       return false;
     }
 
-    final ResolvedEntitySpec resolvedActorSpec =
-        entitySpecResolver.resolve(
-            new EntitySpec(actorUrn.get().getEntityType(), request.getActorUrn()));
-    final PolicyEngine.PolicyEvaluationResult result =
-        policyEngine.evaluatePolicy(
-            systemOpContext, policy, resolvedActorSpec, request.getPrivilege(), resourceSpec);
-    return result.isGranted();
+    try {
+      final ResolvedEntitySpec resolvedActorSpec =
+          entitySpecResolver.resolve(
+              new EntitySpec(actorUrn.get().getEntityType(), request.getActorUrn()));
+
+      final PolicyEngine.PolicyEvaluationResult result =
+          policyEngine.evaluatePolicy(
+              systemOpContext, policy, resolvedActorSpec, request.getPrivilege(), resourceSpec);
+      return result.isGranted();
+    } catch (RuntimeException e) {
+      log.error("Error evaluating policy {} for request {}", policy.getDisplayName(), request);
+      throw e;
+    }
   }
 
   private Optional<Urn> getUrnFromRequestActor(String actor) {

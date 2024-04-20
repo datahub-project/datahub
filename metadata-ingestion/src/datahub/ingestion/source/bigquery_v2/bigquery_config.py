@@ -290,7 +290,7 @@ class BigQueryV2Config(
     def profile_default_settings(cls, values: Dict) -> Dict:
         # Extra default SQLAlchemy option for better connection pooling and threading.
         # https://docs.sqlalchemy.org/en/14/core/pooling.html#sqlalchemy.pool.QueuePool.params.max_overflow
-        values["options"].setdefault("max_overflow", values["profiling"].max_workers)
+        values["options"].setdefault("max_overflow", -1)
 
         return values
 

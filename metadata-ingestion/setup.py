@@ -99,11 +99,14 @@ usage_common = {
 sqlglot_lib = {
     # Using an Acryl fork of sqlglot.
     # https://github.com/tobymao/sqlglot/compare/main...hsheth2:sqlglot:hsheth?expand=1
-    "acryl-sqlglot==23.2.1.dev5",
+    "acryl-sqlglot==23.11.2.dev2",
 }
 
 classification_lib = {
     "acryl-datahub-classify==0.0.10",
+    # This is a bit of a hack. Because we download the SpaCy model at runtime in the classify plugin,
+    # we need pip to be available.
+    "pip",
 }
 
 sql_common = (

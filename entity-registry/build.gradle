@@ -15,7 +15,7 @@ dependencies {
   implementation externalDependency.jacksonDataBind
   implementation externalDependency.jacksonDataFormatYaml
   implementation externalDependency.reflections
-  implementation externalDependency.jsonPatch
+  api externalDependency.jsonPatch
   constraints {
     implementation(externalDependency.snakeYaml) {
       because("previous versions are vulnerable to CVE-2022-25857")
