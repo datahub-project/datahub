@@ -169,7 +169,9 @@ class HTTPError429(HTTPError):
 @dataclass
 class ModeSourceReport(StaleEntityRemovalSourceReport):
     filtered_spaces: LossyList[str] = dataclasses.field(default_factory=LossyList)
+    num_sql_parsed: int = 0
     num_sql_parser_failures: int = 0
+    num_sql_parser_success: int = 0
 
     def report_dropped_space(self, ent_name: str) -> None:
         self.filtered_spaces.append(ent_name)
@@ -798,7 +800,11 @@ class ModeSource(StatefulIngestionSourceBase):
 
         dataset_props = DatasetPropertiesClass(
             name=query_data.get("name"),
-            description="",
+            description=f"""### Source Code
+``` sql
+{query_data.get("raw_query")}
+```
+            """,
             externalUrl=f"{self.config.connect_uri}/{self.config.workspace}/reports/{report_token}/details/queries/{query_data.get('token')}",
             customProperties=self.get_custom_props_from_dict(
                 query_data,
@@ -860,11 +866,14 @@ class ModeSource(StatefulIngestionSourceBase):
             graph=self.ctx.graph,
         )
 
+        self.report.num_sql_parsed += 1
         if parsed_query_object.debug_info.error:
             self.report.num_sql_parser_failures += 1
             logger.debug(
                 f"Failed to parse query {normalized_query} with error: {parsed_query_object.debug_info.error}"
             )
+        else:
+            self.report.num_sql_parser_success += 1
 
         schema_fields = infer_output_schema(parsed_query_object)
         if schema_fields:
