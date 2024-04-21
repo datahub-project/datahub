@@ -8,11 +8,11 @@ from functools import lru_cache
 from typing import Dict, Iterable, List, Optional, Set, Tuple, Union
 
 import dateutil.parser as dp
-import jinja2
 import pydantic
 import requests
 import tenacity
 import yaml
+from liquid import Template
 from pydantic import Field, validator
 from requests.models import HTTPBasicAuth, HTTPError
 from sqllineage.runner import LineageRunner
@@ -764,13 +764,16 @@ class ModeSource(StatefulIngestionSourceBase):
                 tag = TagAssociationClass(tag=self.DIMENSION_TAG_URN)
             field.globalTags = GlobalTagsClass(tags=[tag])
 
-    def normalize_mode_query(self, query: str) -> str:
+    @staticmethod
+    def normalize_mode_query(query: str) -> str:
         regex = r"{% form %}(.*){% endform %}"
         rendered_query: str = query
+        normalized_query: str = query
 
         matches = re.search(regex, query, re.MULTILINE | re.DOTALL)
-        if matches:
-            try:
+        try:
+            jinja_params: Dict = {}
+            if matches:
                 parameters = yaml.safe_load(matches.group(1))
                 jinja_params = {}
                 for key in parameters.keys():
@@ -783,10 +786,11 @@ class ModeSource(StatefulIngestionSourceBase):
                     0,
                     re.MULTILINE | re.DOTALL,
                 )
-                rendered_query = jinja2.Template(normalized_query).render(jinja_params)
-            except Exception as e:
-                logger.debug(f"Rendering query {query} failed with {e}")
-                return rendered_query
+            rendered_query = Template(normalized_query).render(jinja_params)
+        except Exception as e:
+            logger.debug(f"Rendering query {query} failed with {e}")
+            return rendered_query
+
         return rendered_query
 
     def construct_query_from_api_data(

@@ -152,7 +152,7 @@
             },
             "externalUrl": "https://app.mode.com/acryl/reports/9d2da37fa91e/details/queries/6e26a9f3d4e2",
             "name": "Customer and staff",
-            "description": "",
+            "description": "### Source Code\n``` sql\nSELECT  rental.*,  staff.first_name \"Staff First Name\", staff.last_name \"Staff Last Name\" FROM  {{  @join_on_definition    as                      rental  }} join staff on staff.staff_id = rental.staff_id where selected_id = {{ selected_id }} \n{% form %}\nselected_id:\n   type: text\n   default: my_id\n{% endform %}\n```\n            ",
             "tags": []
         }
     },
