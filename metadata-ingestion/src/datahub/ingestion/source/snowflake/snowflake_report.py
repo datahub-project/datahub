@@ -2,6 +2,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Dict, List, MutableSet, Optional
 
+from datahub.ingestion.api.report import Report
 from datahub.ingestion.glossary.classification_mixin import ClassificationReportMixin
 from datahub.ingestion.source.snowflake.constants import SnowflakeEdition
 from datahub.ingestion.source.sql.sql_generic_profiler import ProfilingSqlReport
@@ -12,6 +13,18 @@ from datahub.ingestion.source_report.ingestion_stage import IngestionStageReport
 from datahub.ingestion.source_report.time_window import BaseTimeWindowReport
 from datahub.sql_parsing.sql_parsing_aggregator import SqlAggregatorReport
 from datahub.utilities.perf_timer import PerfTimer
+
+
+@dataclass
+class SnowflakeUsageAggregationReport(Report):
+    query_secs: float = -1
+    query_row_count: int = -1
+    result_fetch_timer: PerfTimer = field(default_factory=PerfTimer)
+    result_skip_timer: PerfTimer = field(default_factory=PerfTimer)
+    result_map_timer: PerfTimer = field(default_factory=PerfTimer)
+    users_map_timer: PerfTimer = field(default_factory=PerfTimer)
+    queries_map_timer: PerfTimer = field(default_factory=PerfTimer)
+    fields_map_timer: PerfTimer = field(default_factory=PerfTimer)
 
 
 @dataclass
@@ -31,6 +44,10 @@ class SnowflakeUsageReport:
     usage_start_time: Optional[datetime] = None
     usage_end_time: Optional[datetime] = None
     stateful_usage_ingestion_enabled: bool = False
+
+    usage_aggregation: SnowflakeUsageAggregationReport = (
+        SnowflakeUsageAggregationReport()
+    )
 
 
 @dataclass
@@ -83,15 +100,6 @@ class SnowflakeV2Report(
     include_operational_stats: bool = False
     include_technical_schema: bool = False
     include_column_lineage: bool = False
-
-    usage_aggregation_query_secs: float = -1
-    usage_aggregation_query_row_count: int = -1
-    usage_aggregation_result_fetch_timer: PerfTimer = field(default_factory=PerfTimer)
-    usage_aggregation_result_skip_timer: PerfTimer = field(default_factory=PerfTimer)
-    usage_aggregation_result_map_timer: PerfTimer = field(default_factory=PerfTimer)
-    usage_aggregation_users_map_timer: PerfTimer = field(default_factory=PerfTimer)
-    usage_aggregation_queries_map_timer: PerfTimer = field(default_factory=PerfTimer)
-    usage_aggregation_fields_map_timer: PerfTimer = field(default_factory=PerfTimer)
 
     table_lineage_query_secs: float = -1
     external_lineage_queries_secs: float = -1

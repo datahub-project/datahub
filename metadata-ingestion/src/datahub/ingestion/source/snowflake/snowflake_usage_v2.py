@@ -228,14 +228,16 @@ class SnowflakeUsageExtractor(
                 self.report_status(USAGE_EXTRACTION_USAGE_AGGREGATION, False)
                 return
 
-            self.report.usage_aggregation_query_secs = timer.elapsed_seconds()
-            self.report.usage_aggregation_query_row_count = results.rowcount
+            self.report.usage_aggregation.query_secs = timer.elapsed_seconds()
+            self.report.usage_aggregation.query_row_count = results.rowcount
 
-        with self.report.usage_aggregation_result_fetch_timer as fetch_timer:
+        with self.report.usage_aggregation.result_fetch_timer as fetch_timer:
             for row in results:
-                with fetch_timer.pause(), self.report.usage_aggregation_result_skip_timer as skip_timer:
-                    if results.rownumber and results.rownumber % 100 == 0:
+                with fetch_timer.pause(), self.report.usage_aggregation.result_skip_timer as skip_timer:
+                    if results.rownumber is not None and results.rownumber % 100 == 0:
                         logger.debug(f"Processing usage row number {results.rownumber}")
+                        logger.debug(self.report.usage_aggregation.as_string())
+
                     if not self._is_dataset_pattern_allowed(
                         row["OBJECT_NAME"],
                         row["OBJECT_DOMAIN"],
@@ -255,7 +257,7 @@ class SnowflakeUsageExtractor(
                             f"Skipping usage for {row['OBJECT_DOMAIN']} {dataset_identifier}, as table is not accessible."
                         )
                         continue
-                    with skip_timer.pause(), self.report.usage_aggregation_result_map_timer as map_timer:
+                    with skip_timer.pause(), self.report.usage_aggregation.result_map_timer as map_timer:
                         wu = self.build_usage_statistics_for_dataset(
                             dataset_identifier, row
                         )
@@ -297,7 +299,7 @@ class SnowflakeUsageExtractor(
         return None
 
     def _map_top_sql_queries(self, top_sql_queries_str: str) -> List[str]:
-        with self.report.usage_aggregation_queries_map_timer:
+        with self.report.usage_aggregation.queries_map_timer:
             top_sql_queries = json.loads(top_sql_queries_str)
             budget_per_query: int = int(
                 self.config.queries_character_limit / self.config.top_n_queries
@@ -317,7 +319,7 @@ class SnowflakeUsageExtractor(
         self,
         user_counts_str: str,
     ) -> List[DatasetUserUsageCounts]:
-        with self.report.usage_aggregation_users_map_timer:
+        with self.report.usage_aggregation.users_map_timer:
             user_counts = json.loads(user_counts_str)
             filtered_user_counts = []
             for user_count in user_counts:
@@ -353,7 +355,7 @@ class SnowflakeUsageExtractor(
             return sorted(filtered_user_counts, key=lambda v: v.user)
 
     def _map_field_counts(self, field_counts_str: str) -> List[DatasetFieldUsageCounts]:
-        with self.report.usage_aggregation_fields_map_timer:
+        with self.report.usage_aggregation.fields_map_timer:
             field_counts = json.loads(field_counts_str)
             return sorted(
                 [
