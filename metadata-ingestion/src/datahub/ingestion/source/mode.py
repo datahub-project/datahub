@@ -172,6 +172,9 @@ class ModeSourceReport(StaleEntityRemovalSourceReport):
     num_sql_parsed: int = 0
     num_sql_parser_failures: int = 0
     num_sql_parser_success: int = 0
+    num_query_template_render: int = 0
+    num_query_template_render_failures: int = 0
+    num_query_template_render_success: int = 0
 
     def report_dropped_space(self, ent_name: str) -> None:
         self.filtered_spaces.append(ent_name)
@@ -764,12 +767,12 @@ class ModeSource(StatefulIngestionSourceBase):
                 tag = TagAssociationClass(tag=self.DIMENSION_TAG_URN)
             field.globalTags = GlobalTagsClass(tags=[tag])
 
-    @staticmethod
-    def normalize_mode_query(query: str) -> str:
+    def normalize_mode_query(self, query: str) -> str:
         regex = r"{% form %}(.*){% endform %}"
         rendered_query: str = query
         normalized_query: str = query
 
+        self.report.num_query_template_render += 1
         matches = re.search(regex, query, re.MULTILINE | re.DOTALL)
         try:
             jinja_params: Dict = {}
@@ -787,8 +790,10 @@ class ModeSource(StatefulIngestionSourceBase):
                     re.MULTILINE | re.DOTALL,
                 )
             rendered_query = Template(normalized_query).render(jinja_params)
+            self.report.num_query_template_render_success += 1
         except Exception as e:
             logger.debug(f"Rendering query {query} failed with {e}")
+            self.report.num_query_template_render_failures += 1
             return rendered_query
 
         return rendered_query
