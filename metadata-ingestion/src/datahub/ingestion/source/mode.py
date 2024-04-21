@@ -877,7 +877,7 @@ class ModeSource(StatefulIngestionSourceBase):
         if parsed_query_object.debug_info.error:
             self.report.num_sql_parser_failures += 1
             logger.debug(
-                f"Failed to parse query {normalized_query} with error: {parsed_query_object.debug_info.error}"
+                f"Failed to parse token: query_token: {query_data.get('token')}, query {normalized_query} with error: {parsed_query_object.debug_info.error}"
             )
         else:
             self.report.num_sql_parser_success += 1
