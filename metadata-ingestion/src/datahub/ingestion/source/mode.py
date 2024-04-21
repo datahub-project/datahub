@@ -773,12 +773,12 @@ class ModeSource(StatefulIngestionSourceBase):
         normalized_query: str = query
 
         self.report.num_query_template_render += 1
-        matches = re.search(regex, query, re.MULTILINE | re.DOTALL)
+        matches = re.search(regex, query, re.MULTILINE | re.DOTALL | re.IGNORECASE)
         try:
             jinja_params: Dict = {}
             if matches:
-                parameters = yaml.safe_load(matches.group(1))
-                jinja_params = {}
+                definition = Template(source=matches.group(1)).render()
+                parameters = yaml.safe_load(definition)
                 for key in parameters.keys():
                     jinja_params[key] = parameters[key].get("default", "")
 
