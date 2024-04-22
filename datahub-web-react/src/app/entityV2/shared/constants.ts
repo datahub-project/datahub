@@ -58,6 +58,8 @@ export const REDESIGN_COLORS = {
     BODY_TEXT: '#5f6685',
     GREEN_LIGHT: '#d5e9c9',
     GREEN_NORMAL: '#5f9240',
+    TEXT_HEADING_SUB_LINK: '#323A5D',
+    DARK_DIVIDER: '#797F98',
 };
 
 export const SEARCH_COLORS = {

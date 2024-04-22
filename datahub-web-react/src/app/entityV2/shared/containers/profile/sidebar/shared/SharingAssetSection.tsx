@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import ShareOutlinedIcon from '@mui/icons-material/ShareOutlined';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import { Typography } from 'antd';
 import moment from 'moment-timezone';
@@ -10,10 +9,11 @@ import { SidebarSection } from '../SidebarSection';
 import { sortSharedList } from '../../../../../../entity/shared/containers/profile/utils';
 import { pluralize } from '../../../../../../shared/textUtil';
 import AcrylIcon from '../../../../../../../images/acryl-logo.svg?react';
+import ShareIcon from '../../../../../../../images/share-icon-custom.svg?react';
 import { toLocalDateString, toRelativeTimeString } from '../../../../../../shared/time/timeUtils';
 import SectionActionButton from '../SectionActionButton';
 import ShareModal from '../../../../../../shared/share/v2/items/MetadataShareItem/ShareModal';
-import { ContentText, LabelText, RelativeTime } from './styledComponents';
+import { ContentText, InstanceIcon, LabelText, RelativeTime } from './styledComponents';
 
 const DetailsContainer = styled.div`
     display: flex;
@@ -34,21 +34,6 @@ const UpdatedRow = styled.div`
     margin-left: 22px;
 `;
 
-const InstanceIcon = styled.div`
-    height: 22px;
-    width: 22px;
-    background-color: #c9fff2;
-    border-radius: 6px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    svg {
-        padding: 3px;
-        height: 20px;
-        width: 20px;
-    }
-`;
-
 const SharingInfo = styled.div`
     margin-bottom: 10px;
 `;
@@ -63,9 +48,22 @@ const NumberText = styled(Typography.Text)`
     font-weight: 700;
 `;
 
-const StyledShareOutlinedIcon = styled(ShareOutlinedIcon)`
-    color: ${REDESIGN_COLORS.BODY_TEXT};
-    font-size: 16px !important;
+const StyledShareIcon = styled(ShareIcon)`
+    height: 18px;
+    width: 18px;
+    path {
+        stroke: ${REDESIGN_COLORS.BODY_TEXT};
+    }
+`;
+
+const ResultsContainer = styled.div`
+    & > div {
+        padding: 12px 0;
+        &:not(:last-child) {
+            border-bottom: 1px dashed;
+            border-color: ${REDESIGN_COLORS.COLD_GREY_TEXT_BLUE_1};
+        }
+    }
 `;
 
 const SharingAssetSection = () => {
@@ -88,31 +86,33 @@ const SharingAssetSection = () => {
                                 {`${sortedResults.length} Acryl ${pluralize(sortedResults.length, 'Instance')}`}
                             </NumberText>
                         </SharingInfo>
-                        {sortedResults.map((result) => {
-                            const name = result.destination.details.name || result.destination.urn;
-                            const lastSuccessTime = result.lastSuccess?.time || 0;
-                            const isRecentlyUpdated = moment(lastSuccessTime).isAfter(moment().subtract(1, 'week'));
+                        <ResultsContainer>
+                            {sortedResults.map((result) => {
+                                const name = result.destination.details.name || result.destination.urn;
+                                const lastSuccessTime = result.lastSuccess?.time || 0;
+                                const isRecentlyUpdated = moment(lastSuccessTime).isAfter(moment().subtract(1, 'week'));
 
-                            return (
-                                <DetailsContainer>
-                                    <DetailRow>
-                                        <StyledShareOutlinedIcon />
-                                        <LabelText>To: </LabelText>
-                                        <InstanceIcon>
-                                            <AcrylIcon />
-                                        </InstanceIcon>
-                                        <ContentText>{name}</ContentText>
-                                    </DetailRow>
-                                    <UpdatedRow>
-                                        <LabelText>Date Updated: </LabelText>
-                                        <ContentText>{toLocalDateString(lastSuccessTime)}</ContentText>
-                                        <RelativeTime isRecentlyUpdated={isRecentlyUpdated}>
-                                            {toRelativeTimeString(lastSuccessTime)}{' '}
-                                        </RelativeTime>
-                                    </UpdatedRow>
-                                </DetailsContainer>
-                            );
-                        })}
+                                return (
+                                    <DetailsContainer>
+                                        <DetailRow>
+                                            <StyledShareIcon />
+                                            <LabelText>To: </LabelText>
+                                            <InstanceIcon>
+                                                <AcrylIcon />
+                                            </InstanceIcon>
+                                            <ContentText>{name}</ContentText>
+                                        </DetailRow>
+                                        <UpdatedRow>
+                                            <LabelText>Date Updated: </LabelText>
+                                            <ContentText>{toLocalDateString(lastSuccessTime)}</ContentText>
+                                            <RelativeTime isRecentlyUpdated={isRecentlyUpdated}>
+                                                {toRelativeTimeString(lastSuccessTime)}
+                                            </RelativeTime>
+                                        </UpdatedRow>
+                                    </DetailsContainer>
+                                );
+                            })}
+                        </ResultsContainer>
                     </>
                 }
                 extra={
