@@ -60,7 +60,7 @@ public class SearchAcrossEntitiesResolver implements DataFetcher<CompletableFutu
           final Filter baseFilter =
               ResolverUtils.buildFilter(input.getFilters(), input.getOrFilters());
 
-          SearchFlags searchFlags = mapInputFlags(input.getSearchFlags());
+          SearchFlags searchFlags = mapInputFlags(context, input.getSearchFlags());
           SortCriterion sortCriterion =
               input.getSortInput() != null
                   ? mapSortCriterion(input.getSortInput().getSortCriterion())
@@ -76,7 +76,9 @@ public class SearchAcrossEntitiesResolver implements DataFetcher<CompletableFutu
                 count);
 
             return UrnSearchResultsMapper.map(
+                context,
                 _entityClient.searchAcrossEntities(
+                    context.getOperationContext().withSearchFlags(flags -> searchFlags),
                     maybeResolvedView != null
                         ? SearchUtils.intersectEntityTypes(
                             entityNames, maybeResolvedView.getDefinition().getEntityTypes())
@@ -88,9 +90,7 @@ public class SearchAcrossEntitiesResolver implements DataFetcher<CompletableFutu
                         : baseFilter,
                     start,
                     count,
-                    searchFlags,
-                    sortCriterion,
-                    ResolverUtils.getAuthentication(environment)));
+                    sortCriterion));
           } catch (Exception e) {
             log.error(
                 "Failed to execute search for multiple entities: entity types {}, query {}, filters: {}, start: {}, count: {}",

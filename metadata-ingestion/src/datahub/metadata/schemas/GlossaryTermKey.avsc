@@ -13,7 +13,9 @@
       "deprecation",
       "domains",
       "status",
-      "browsePaths"
+      "browsePaths",
+      "structuredProperties",
+      "forms"
     ]
   },
   "name": "GlossaryTermKey",

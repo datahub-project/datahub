@@ -3,7 +3,7 @@ name: default
 
 anchors:
   build_frontend: &build_frontend
-    image: gradle:jdk11
+    image: gradle:jdk17
     commands:
       - cd "/drone/src/$${ENVIRONMENT}"
       - sed -i "s/<AMPLITUDE_API_KEY>/$AMPLITUDE_API_KEY/g" datahub-web-react/src/conf/analytics.ts

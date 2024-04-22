@@ -1,0 +1,196 @@
+{
+  "type": "record",
+  "Aspect": {
+    "name": "erModelRelationshipProperties"
+  },
+  "name": "ERModelRelationshipProperties",
+  "namespace": "com.linkedin.pegasus2avro.ermodelrelation",
+  "fields": [
+    {
+      "Searchable": {
+        "/*": {
+          "fieldType": "TEXT",
+          "queryByDefault": true
+        }
+      },
+      "type": {
+        "type": "map",
+        "values": "string"
+      },
+      "name": "customProperties",
+      "default": {},
+      "doc": "Custom property bag."
+    },
+    {
+      "Searchable": {
+        "boostScore": 10.0,
+        "enableAutocomplete": true,
+        "fieldType": "TEXT_PARTIAL"
+      },
+      "type": "string",
+      "name": "name",
+      "doc": "Name of the ERModelRelation"
+    },
+    {
+      "Relationship": {
+        "entityTypes": [
+          "dataset"
+        ],
+        "name": "ermodelrelationA"
+      },
+      "Searchable": {
+        "boostScore": 10.0,
+        "enableAutocomplete": true,
+        "fieldType": "TEXT_PARTIAL"
+      },
+      "java": {
+        "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+      },
+      "type": "string",
+      "name": "source",
+      "doc": "First dataset in the erModelRelationship (no directionality)",
+      "Urn": "Urn",
+      "entityTypes": [
+        "dataset"
+      ]
+    },
+    {
+      "Relationship": {
+        "entityTypes": [
+          "dataset"
+        ],
+        "name": "ermodelrelationB"
+      },
+      "Searchable": {
+        "boostScore": 10.0,
+        "enableAutocomplete": true,
+        "fieldType": "TEXT_PARTIAL"
+      },
+      "java": {
+        "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+      },
+      "type": "string",
+      "name": "destination",
+      "doc": "Second dataset in the erModelRelationship (no directionality)",
+      "Urn": "Urn",
+      "entityTypes": [
+        "dataset"
+      ]
+    },
+    {
+      "type": {
+        "type": "array",
+        "items": {
+          "type": "record",
+          "name": "RelationshipFieldMapping",
+          "namespace": "com.linkedin.pegasus2avro.ermodelrelation",
+          "fields": [
+            {
+              "type": "string",
+              "name": "sourceField",
+              "doc": "All fields from dataset A that are required for the join, maps to bFields 1:1"
+            },
+            {
+              "type": "string",
+              "name": "destinationField",
+              "doc": "All fields from dataset B that are required for the join, maps to aFields 1:1"
+            }
+          ],
+          "doc": "Individual Field Mapping of a relationship- one of several"
+        }
+      },
+      "name": "relationshipFieldMappings",
+      "doc": "ERModelRelationFieldMapping (in future we can make it an array)"
+    },
+    {
+      "Searchable": {
+        "/time": {
+          "fieldName": "createdAt",
+          "fieldType": "DATETIME"
+        }
+      },
+      "type": [
+        "null",
+        {
+          "type": "record",
+          "name": "AuditStamp",
+          "namespace": "com.linkedin.pegasus2avro.common",
+          "fields": [
+            {
+              "type": "long",
+              "name": "time",
+              "doc": "When did the resource/association/sub-resource move into the specific lifecycle stage represented by this AuditEvent."
+            },
+            {
+              "java": {
+                "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+              },
+              "type": "string",
+              "name": "actor",
+              "doc": "The entity (e.g. a member URN) which will be credited for moving the resource/association/sub-resource into the specific lifecycle stage. It is also the one used to authorize the change.",
+              "Urn": "Urn"
+            },
+            {
+              "java": {
+                "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+              },
+              "type": [
+                "null",
+                "string"
+              ],
+              "name": "impersonator",
+              "default": null,
+              "doc": "The entity (e.g. a service URN) which performs the change on behalf of the Actor and must be authorized to act as the Actor.",
+              "Urn": "Urn"
+            },
+            {
+              "type": [
+                "null",
+                "string"
+              ],
+              "name": "message",
+              "default": null,
+              "doc": "Additional context around how DataHub was informed of the particular change. For example: was the change created by an automated process, or manually."
+            }
+          ],
+          "doc": "Data captured on a resource/association/sub-resource level giving insight into when that resource/association/sub-resource moved into a particular lifecycle stage, and who acted to move it into that specific lifecycle stage."
+        }
+      ],
+      "name": "created",
+      "default": null,
+      "doc": "A timestamp documenting when the asset was created in the source Data Platform (not on DataHub)"
+    },
+    {
+      "Searchable": {
+        "/time": {
+          "fieldName": "lastModifiedAt",
+          "fieldType": "DATETIME"
+        }
+      },
+      "type": [
+        "null",
+        "com.linkedin.pegasus2avro.common.AuditStamp"
+      ],
+      "name": "lastModified",
+      "default": null,
+      "doc": "A timestamp documenting when the asset was last modified in the source Data Platform (not on DataHub)"
+    },
+    {
+      "type": {
+        "type": "enum",
+        "name": "ERModelRelationshipCardinality",
+        "namespace": "com.linkedin.pegasus2avro.ermodelrelation",
+        "symbols": [
+          "ONE_ONE",
+          "ONE_N",
+          "N_ONE",
+          "N_N"
+        ]
+      },
+      "name": "cardinality",
+      "default": "N_N",
+      "doc": "Cardinality of the relationship"
+    }
+  ],
+  "doc": "Properties associated with a ERModelRelationship"
+}

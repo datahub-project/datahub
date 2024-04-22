@@ -24,7 +24,7 @@ public class ScheduledAnalyticsFactory {
       @Qualifier("elasticSearchRestHighLevelClient") RestHighLevelClient elasticClient,
       @Qualifier(IndexConventionFactory.INDEX_CONVENTION_BEAN) IndexConvention indexConvention,
       ConfigurationProvider configurationProvider,
-      EntityService entityService,
+      EntityService<?> entityService,
       GitVersion gitVersion) {
     return new DailyReport(
         indexConvention, elasticClient, configurationProvider, entityService, gitVersion);

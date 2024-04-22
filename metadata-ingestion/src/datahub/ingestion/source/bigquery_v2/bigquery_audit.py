@@ -12,6 +12,7 @@ from datahub.utilities.parsing_util import (
     get_first_missing_key,
     get_first_missing_key_any,
 )
+from datahub.utilities.urns.dataset_urn import DatasetUrn
 
 AuditLogEntry = Any
 
@@ -177,6 +178,17 @@ class BigQueryTableRef:
         ):
             raise ValueError(f"invalid BigQuery table reference: {ref}")
         return cls(BigqueryTableIdentifier(parts[1], parts[3], parts[5]))
+
+    @classmethod
+    def from_urn(cls, urn: str) -> "BigQueryTableRef":
+        """Raises: ValueError if urn is not a valid BigQuery table URN."""
+        dataset_urn = DatasetUrn.create_from_string(urn)
+        split = dataset_urn.get_dataset_name().rsplit(".", 3)
+        if len(split) == 3:
+            project, dataset, table = split
+        else:
+            _, project, dataset, table = split
+        return cls(BigqueryTableIdentifier(project, dataset, table))
 
     def is_temporary_table(self, prefixes: List[str]) -> bool:
         for prefix in prefixes:
@@ -566,7 +578,7 @@ class ReadEvent:
         query_event: QueryEvent,
         debug_include_full_payloads: bool = False,
     ) -> "ReadEvent":
-        readEvent = ReadEvent(
+        return ReadEvent(
             actor_email=query_event.actor_email,
             timestamp=query_event.timestamp,
             resource=read_resource,
@@ -576,8 +588,6 @@ class ReadEvent:
             payload=query_event.payload if debug_include_full_payloads else None,
             from_query=True,
         )
-
-        return readEvent
 
     @classmethod
     def from_exported_bigquery_audit_metadata(

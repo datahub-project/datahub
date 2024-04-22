@@ -1,5 +1,5 @@
 import pathlib
-from typing import Any, Iterable, List, Optional, cast
+from typing import Iterable, List, cast
 from unittest.mock import patch
 
 import pytest
@@ -23,6 +23,10 @@ from tests.test_helpers.click_helpers import run_datahub_cmd
 from tests.test_helpers.sink_helpers import RecordingSinkReport
 
 FROZEN_TIME = "2020-04-14 07:00:00"
+
+# TODO: It seems like one of these tests writes to ~/.datahubenv or otherwise sets
+# some global config, which impacts other tests.
+pytestmark = pytest.mark.random_order(disabled=True)
 
 
 class TestPipeline(object):
@@ -59,22 +63,16 @@ class TestPipeline(object):
             {
                 "source": {
                     "type": "file",
-                    "config": {"filename": "test_file.json"},
+                    "config": {"path": "test_file.json"},
                 },
             }
         )
         # assert that the default sink config is for a DatahubRestSink
         assert isinstance(pipeline.config.sink, DynamicTypedConfig)
         assert pipeline.config.sink.type == "datahub-rest"
-        assert pipeline.config.sink.config == {
-            "server": "http://localhost:8080",
-            "token": Optional[Any],
-            # value is read from ~/datahubenv which may be None or not
-        } or pipeline.config.sink.config == {
-            "server": "http://localhost:8080",
-            "token": None,
-            # value is read from ~/datahubenv which may be None or not
-        }
+        assert isinstance(pipeline.config.sink.config, dict)
+        assert pipeline.config.sink.config["server"] == "http://localhost:8080"
+        # token value is read from ~/.datahubenv which may be None or not
 
     @freeze_time(FROZEN_TIME)
     @patch(
@@ -92,7 +90,7 @@ class TestPipeline(object):
             {
                 "source": {
                     "type": "file",
-                    "config": {"filename": "test_events.json"},
+                    "config": {"path": "test_events.json"},
                 },
                 "sink": {
                     "type": "datahub-rest",
@@ -130,7 +128,7 @@ class TestPipeline(object):
             {
                 "source": {
                     "type": "file",
-                    "config": {"filename": "test_events.json"},
+                    "config": {"path": "test_events.json"},
                 },
                 "sink": {
                     "type": "datahub-rest",
@@ -214,7 +212,10 @@ class TestPipeline(object):
                 "transformers": [
                     {
                         "type": "simple_add_dataset_ownership",
-                        "config": {"owner_urns": ["urn:li:corpuser:foo"]},
+                        "config": {
+                            "owner_urns": ["urn:li:corpuser:foo"],
+                            "ownership_type": "urn:li:ownershipType:__system__technical_owner",
+                        },
                     }
                 ],
                 "sink": {"type": "tests.test_helpers.sink_helpers.RecordingSink"},

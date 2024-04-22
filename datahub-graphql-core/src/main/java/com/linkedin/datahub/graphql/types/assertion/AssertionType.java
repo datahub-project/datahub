@@ -62,7 +62,7 @@ public class AssertionType
               ASPECTS_TO_FETCH,
               context.getAuthentication());
 
-      final List<EntityResponse> gmsResults = new ArrayList<>();
+      final List<EntityResponse> gmsResults = new ArrayList<>(urns.size());
       for (Urn urn : assertionUrns) {
         gmsResults.add(entities.getOrDefault(urn, null));
       }
@@ -72,7 +72,7 @@ public class AssertionType
                   gmsResult == null
                       ? null
                       : DataFetcherResult.<Assertion>newResult()
-                          .data(AssertionMapper.map(gmsResult))
+                          .data(AssertionMapper.map(context, gmsResult))
                           .build())
           .collect(Collectors.toList());
     } catch (Exception e) {

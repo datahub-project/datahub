@@ -39,6 +39,7 @@ export const EntityTabs = <T,>({ tabs, selectedTab }: Props) => {
 
     return (
         <UnborderedTabs
+            data-testid="entity-tab-headers-test-id"
             animated={false}
             activeKey={selectedTab?.name || ''}
             size="large"

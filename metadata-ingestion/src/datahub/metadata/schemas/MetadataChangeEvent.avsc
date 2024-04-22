@@ -153,6 +153,7 @@
                       {
                         "Searchable": {
                           "/*": {
+                            "fieldType": "TEXT",
                             "queryByDefault": true
                           }
                         },
@@ -754,6 +755,27 @@
                         "doc": "List of owners of the entity."
                       },
                       {
+                        "Searchable": {
+                          "/*": {
+                            "fieldType": "MAP_ARRAY",
+                            "queryByDefault": false
+                          }
+                        },
+                        "type": [
+                          {
+                            "type": "map",
+                            "values": {
+                              "type": "array",
+                              "items": "string"
+                            }
+                          },
+                          "null"
+                        ],
+                        "name": "ownerTypes",
+                        "default": {},
+                        "doc": "Ownership type to Owners map, populated via mutation hook."
+                      },
+                      {
                         "type": "com.linkedin.pegasus2avro.common.AuditStamp",
                         "name": "lastModified",
                         "default": {
@@ -915,6 +937,19 @@
                                 "entityTypes": [
                                   "glossaryTerm"
                                 ]
+                              },
+                              {
+                                "java": {
+                                  "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+                                },
+                                "type": [
+                                  "null",
+                                  "string"
+                                ],
+                                "name": "actor",
+                                "default": null,
+                                "doc": "The user URN which will be credited for adding associating this term to the entity",
+                                "Urn": "Urn"
                               },
                               {
                                 "type": [
@@ -1333,6 +1368,7 @@
                       {
                         "Searchable": {
                           "/*": {
+                            "fieldType": "TEXT",
                             "queryByDefault": true
                           }
                         },
@@ -1721,6 +1757,7 @@
                       {
                         "Searchable": {
                           "/*": {
+                            "fieldType": "TEXT",
                             "queryByDefault": true
                           }
                         },
@@ -2051,6 +2088,7 @@
                       {
                         "Searchable": {
                           "/*": {
+                            "fieldType": "TEXT",
                             "queryByDefault": true
                           }
                         },
@@ -2322,6 +2360,7 @@
                       {
                         "Searchable": {
                           "/*": {
+                            "fieldType": "TEXT",
                             "queryByDefault": true
                           }
                         },
@@ -2821,6 +2860,19 @@
                                   "name": "confidenceScore",
                                   "default": 1.0,
                                   "doc": "The confidence in this lineage between 0 (low confidence) and 1 (high confidence)"
+                                },
+                                {
+                                  "java": {
+                                    "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+                                  },
+                                  "type": [
+                                    "null",
+                                    "string"
+                                  ],
+                                  "name": "query",
+                                  "default": null,
+                                  "doc": "The query that was used to generate this lineage. \nPresent only if the lineage was generated from a detected query.",
+                                  "Urn": "Urn"
                                 }
                               ],
                               "doc": "A fine-grained lineage from upstream fields/datasets to downstream field(s)"
@@ -3013,6 +3065,7 @@
                       {
                         "Searchable": {
                           "/*": {
+                            "fieldType": "TEXT",
                             "queryByDefault": true
                           }
                         },
@@ -3379,7 +3432,8 @@
                                   "name": "DownstreamOf",
                                   "properties": "upstreams/*/properties",
                                   "updatedActor": "upstreams/*/auditStamp/actor",
-                                  "updatedOn": "upstreams/*/auditStamp/time"
+                                  "updatedOn": "upstreams/*/auditStamp/time",
+                                  "via": "upstreams/*/query"
                                 },
                                 "Searchable": {
                                   "fieldName": "upstreams",
@@ -3428,6 +3482,19 @@
                                 "name": "properties",
                                 "default": null,
                                 "doc": "A generic properties bag that allows us to store specific information on this graph edge."
+                              },
+                              {
+                                "java": {
+                                  "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+                                },
+                                "type": [
+                                  "null",
+                                  "string"
+                                ],
+                                "name": "query",
+                                "default": null,
+                                "doc": "If the lineage is generated by a query, a reference to the query",
+                                "Urn": "Urn"
                               }
                             ],
                             "doc": "Upstream lineage information about a dataset including the source reporting the lineage"
@@ -4353,6 +4420,15 @@
                         "doc": "The view logic"
                       },
                       {
+                        "type": [
+                          "null",
+                          "string"
+                        ],
+                        "name": "formattedViewLogic",
+                        "default": null,
+                        "doc": "The formatted view logic. This is particularly used for SQL sources, where the SQL\nlogic is formatted for better readability, and with dbt, where this contains the\ncompiled SQL logic."
+                      },
+                      {
                         "type": "string",
                         "name": "viewLanguage",
                         "doc": "The view logic language / dialect"
@@ -4731,6 +4807,7 @@
                       {
                         "Searchable": {
                           "/*": {
+                            "fieldType": "TEXT",
                             "queryByDefault": true
                           }
                         },
@@ -6052,6 +6129,7 @@
                       {
                         "Searchable": {
                           "/*": {
+                            "fieldType": "TEXT",
                             "queryByDefault": true
                           }
                         },
@@ -6227,6 +6305,7 @@
                       {
                         "Searchable": {
                           "/*": {
+                            "fieldType": "TEXT",
                             "queryByDefault": true
                           }
                         },
@@ -6409,6 +6488,7 @@
                       {
                         "Searchable": {
                           "/*": {
+                            "fieldType": "TEXT",
                             "queryByDefault": true
                           }
                         },
@@ -6619,6 +6699,7 @@
                       {
                         "Searchable": {
                           "/*": {
+                            "fieldType": "TEXT",
                             "queryByDefault": true
                           }
                         },
@@ -6924,6 +7005,21 @@
                     "namespace": "com.linkedin.pegasus2avro.glossary",
                     "fields": [
                       {
+                        "Searchable": {
+                          "/*": {
+                            "fieldType": "TEXT",
+                            "queryByDefault": true
+                          }
+                        },
+                        "type": {
+                          "type": "map",
+                          "values": "string"
+                        },
+                        "name": "customProperties",
+                        "default": {},
+                        "doc": "Custom property bag."
+                      },
+                      {
                         "Searchable": {},
                         "type": "string",
                         "name": "definition",
@@ -7062,11 +7158,17 @@
                         "doc": "Description of the Policy"
                       },
                       {
+                        "Searchable": {
+                          "fieldType": "KEYWORD"
+                        },
                         "type": "string",
                         "name": "type",
                         "doc": "The type of policy"
                       },
                       {
+                        "Searchable": {
+                          "fieldType": "KEYWORD"
+                        },
                         "type": "string",
                         "name": "state",
                         "doc": "The state of policy, ACTIVE or INACTIVE"
@@ -7179,6 +7281,12 @@
                         "doc": "The resource that the policy applies to. Not required for some 'Platform' privileges."
                       },
                       {
+                        "Searchable": {
+                          "/*": {
+                            "addToFilters": true,
+                            "fieldType": "KEYWORD"
+                          }
+                        },
                         "type": {
                           "type": "array",
                           "items": "string"
@@ -7281,6 +7389,9 @@
                         "doc": "The actors that the policy applies to."
                       },
                       {
+                        "Searchable": {
+                          "fieldType": "BOOLEAN"
+                        },
                         "type": "boolean",
                         "name": "editable",
                         "default": true,

@@ -30,7 +30,7 @@ echo "--------------------------------------------------------------------"
 
 cd "${SMOKE_TEST_ROOT_DIR}"/docker
 #bring up spark cluster
-docker-compose -f spark-docker-compose.yml up -d
+docker compose -f spark-docker-compose.yml up -d
 
 echo "--------------------------------------------------------------------"
 echo "Executing spark-submit jobs"

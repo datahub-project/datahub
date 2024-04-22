@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.glossary;
 
 import static com.linkedin.datahub.graphql.TestUtils.*;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
 
@@ -12,6 +13,7 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.RelatedTermsInput;
 import com.linkedin.datahub.graphql.generated.TermRelationshipType;
+import com.linkedin.entity.client.EntityClient;
 import com.linkedin.glossary.GlossaryRelatedTerms;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
@@ -41,9 +43,11 @@ public class RemoveRelatedTermsResolverTest {
                 Mockito.eq(0L)))
         .thenReturn(relatedTerms);
 
-    Mockito.when(mockService.exists(Urn.createFromString(TEST_ENTITY_URN))).thenReturn(true);
+    Mockito.when(mockService.exists(eq(Urn.createFromString(TEST_ENTITY_URN)), eq(true)))
+        .thenReturn(true);
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
 
-    RemoveRelatedTermsResolver resolver = new RemoveRelatedTermsResolver(mockService);
+    RemoveRelatedTermsResolver resolver = new RemoveRelatedTermsResolver(mockService, mockClient);
 
     QueryContext mockContext = getMockAllowContext();
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
@@ -56,7 +60,7 @@ public class RemoveRelatedTermsResolverTest {
     assertTrue(resolver.get(mockEnv).get());
     verifySingleIngestProposal(mockService, 1);
     Mockito.verify(mockService, Mockito.times(1))
-        .exists(Mockito.eq(Urn.createFromString(TEST_ENTITY_URN)));
+        .exists(Mockito.eq(Urn.createFromString(TEST_ENTITY_URN)), eq(true));
   }
 
   @Test
@@ -73,9 +77,11 @@ public class RemoveRelatedTermsResolverTest {
                 Mockito.eq(0L)))
         .thenReturn(relatedTerms);
 
-    Mockito.when(mockService.exists(Urn.createFromString(TEST_ENTITY_URN))).thenReturn(true);
+    Mockito.when(mockService.exists(eq(Urn.createFromString(TEST_ENTITY_URN)), eq(true)))
+        .thenReturn(true);
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
 
-    RemoveRelatedTermsResolver resolver = new RemoveRelatedTermsResolver(mockService);
+    RemoveRelatedTermsResolver resolver = new RemoveRelatedTermsResolver(mockService, mockClient);
 
     QueryContext mockContext = getMockAllowContext();
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
@@ -88,7 +94,7 @@ public class RemoveRelatedTermsResolverTest {
     assertTrue(resolver.get(mockEnv).get());
     verifySingleIngestProposal(mockService, 1);
     Mockito.verify(mockService, Mockito.times(1))
-        .exists(Mockito.eq(Urn.createFromString(TEST_ENTITY_URN)));
+        .exists(Mockito.eq(Urn.createFromString(TEST_ENTITY_URN)), eq(true));
   }
 
   @Test
@@ -101,9 +107,11 @@ public class RemoveRelatedTermsResolverTest {
                 Mockito.eq(0L)))
         .thenReturn(null);
 
-    Mockito.when(mockService.exists(Urn.createFromString(TEST_ENTITY_URN))).thenReturn(true);
+    Mockito.when(mockService.exists(eq(Urn.createFromString(TEST_ENTITY_URN)), eq(true)))
+        .thenReturn(true);
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
 
-    RemoveRelatedTermsResolver resolver = new RemoveRelatedTermsResolver(mockService);
+    RemoveRelatedTermsResolver resolver = new RemoveRelatedTermsResolver(mockService, mockClient);
 
     QueryContext mockContext = getMockAllowContext();
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
@@ -131,9 +139,11 @@ public class RemoveRelatedTermsResolverTest {
                 Mockito.eq(0L)))
         .thenReturn(relatedTerms);
 
-    Mockito.when(mockService.exists(Urn.createFromString(TEST_ENTITY_URN))).thenReturn(true);
+    Mockito.when(mockService.exists(eq(Urn.createFromString(TEST_ENTITY_URN)), eq(true)))
+        .thenReturn(true);
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
 
-    RemoveRelatedTermsResolver resolver = new RemoveRelatedTermsResolver(mockService);
+    RemoveRelatedTermsResolver resolver = new RemoveRelatedTermsResolver(mockService, mockClient);
 
     QueryContext mockContext = getMockDenyContext();
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
@@ -146,6 +156,6 @@ public class RemoveRelatedTermsResolverTest {
     assertThrows(ExecutionException.class, () -> resolver.get(mockEnv).get());
     verifyNoIngestProposal(mockService);
     Mockito.verify(mockService, Mockito.times(0))
-        .exists(Mockito.eq(Urn.createFromString(TEST_ENTITY_URN)));
+        .exists(Mockito.eq(Urn.createFromString(TEST_ENTITY_URN)), eq(true));
   }
 }

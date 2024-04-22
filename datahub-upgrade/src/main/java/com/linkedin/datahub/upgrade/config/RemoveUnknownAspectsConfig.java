@@ -8,7 +8,7 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 public class RemoveUnknownAspectsConfig {
   @Bean(name = "removeUnknownAspects")
-  public RemoveUnknownAspects removeUnknownAspects(EntityService entityService) {
+  public RemoveUnknownAspects removeUnknownAspects(EntityService<?> entityService) {
     return new RemoveUnknownAspects(entityService);
   }
 }

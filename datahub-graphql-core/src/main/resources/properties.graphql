@@ -1,0 +1,265 @@
+extend type Mutation {
+    """
+    Upsert structured properties onto a given asset
+    """
+    upsertStructuredProperties(input: UpsertStructuredPropertiesInput!): StructuredProperties!
+}
+
+"""
+A structured property that can be shared between different entities
+"""
+type StructuredPropertyEntity implements Entity {
+    """
+    A primary key associated with the structured property
+    """
+    urn: String!
+
+    """
+    A standard Entity Type
+    """
+    type: EntityType!
+
+    """
+    Definition of this structured property including its name
+    """
+    definition: StructuredPropertyDefinition!
+
+    """
+    Granular API for querying edges extending from this entity
+    """
+    relationships(input: RelationshipsInput!): EntityRelationshipsResult
+}
+
+"""
+Properties about an individual Query
+"""
+type StructuredPropertyDefinition {
+    """
+    The fully qualified name of the property. This includes its namespace
+    """
+    qualifiedName: String!
+
+    """
+    The display name of this structured property
+    """
+    displayName: String
+
+    """
+    The description of this property
+    """
+    description: String
+
+    """
+    The cardinality of a Structured Property determining whether one or multiple values
+    can be applied to the entity from this property.
+    """
+    cardinality: PropertyCardinality
+
+    """
+    A list of allowed values that the property is allowed to take.
+    """
+    allowedValues: [AllowedValue!]
+
+    """
+    The type of this structured property
+    """
+    valueType: DataTypeEntity!
+
+    """
+    Allows for type specialization of the valueType to be more specific about which
+    entity types are allowed, for example.
+    """
+    typeQualifier: TypeQualifier
+
+    """
+    Entity types that this structured property can be applied to
+    """
+    entityTypes: [EntityTypeEntity!]!
+}
+
+"""
+An entry for an allowed value for a structured property
+"""
+type AllowedValue {
+    """
+    The allowed value
+    """
+    value: PropertyValue!
+
+    """
+    The description of this allowed value
+    """
+    description: String
+}
+
+"""
+The cardinality of a Structured Property determining whether one or multiple values
+can be applied to the entity from this property.
+"""
+enum PropertyCardinality {
+    """
+    Only one value of this property can applied to an entity
+    """
+    SINGLE
+
+    """
+    Multiple values of this property can applied to an entity
+    """
+    MULTIPLE
+}
+
+"""
+Allows for type specialization of the valueType to be more specific about which
+entity types are allowed, for example.
+"""
+type TypeQualifier {
+    """
+    The list of allowed entity types
+    """
+    allowedTypes: [EntityTypeEntity!]
+}
+
+"""
+String property value
+"""
+type StringValue {
+    """
+    The value of a string type property
+    """
+    stringValue: String!
+}
+
+"""
+Numeric property value
+"""
+type NumberValue {
+    """
+    The value of a number type property
+    """
+    numberValue: Float!
+}
+
+"""
+The value of a property
+"""
+union PropertyValue = StringValue | NumberValue
+
+"""
+An entry in an structured properties list represented as a tuple
+"""
+type StructuredPropertiesEntry {
+    """
+    The key of the map entry
+    """
+    structuredProperty: StructuredPropertyEntity!
+
+    """
+    The values of the structured property for this entity
+    """
+    values: [PropertyValue]!
+
+    """
+    The optional entities associated with the values if the values are entity urns
+    """
+    valueEntities: [Entity]
+}
+
+"""
+Input for upserting structured properties on a given asset
+"""
+input UpsertStructuredPropertiesInput {
+    """
+    The urn of the asset that we are updating
+    """
+    assetUrn: String!
+
+    """
+    The list of structured properties you want to upsert on this asset
+    """
+    structuredPropertyInputParams: [StructuredPropertyInputParams!]!
+}
+
+"""
+A data type registered in DataHub
+"""
+type DataTypeEntity implements Entity {
+    """
+    A primary key associated with the Query
+    """
+    urn: String!
+
+    """
+    A standard Entity Type
+    """
+    type: EntityType!
+
+    """
+    Info about this type including its name
+    """
+    info: DataTypeInfo!
+
+    """
+    Granular API for querying edges extending from this entity
+    """
+    relationships(input: RelationshipsInput!): EntityRelationshipsResult
+}
+
+"""
+A well-supported, standard DataHub Data Type.
+"""
+enum StdDataType {
+  """
+  String data type
+  """
+  STRING
+
+  """
+  Number data type
+  """
+  NUMBER
+
+  """
+  Urn data type
+  """
+  URN
+
+  """
+  Rich text data type. Right now this is markdown only.
+  """
+  RICH_TEXT
+
+  """
+  Date data type in format YYYY-MM-DD
+  """
+  DATE
+
+  """
+  Any other data type - refer to a provided data type urn.
+  """
+  OTHER
+}
+
+"""
+Properties about an individual data type
+"""
+type DataTypeInfo {
+    """
+    The standard data type
+    """
+    type: StdDataType!
+
+    """
+    The fully qualified name of the type. This includes its namespace
+    """
+    qualifiedName: String!
+
+    """
+    The display name of this type
+    """
+    displayName: String
+
+    """
+    The description of this type
+    """
+    description: String
+}

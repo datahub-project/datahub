@@ -30,7 +30,8 @@ class IngestionStageReport:
         if self._timer:
             elapsed = round(self._timer.elapsed_seconds(), 2)
             logger.info(
-                f"Time spent in stage <{self.ingestion_stage}>: {elapsed} seconds"
+                f"Time spent in stage <{self.ingestion_stage}>: {elapsed} seconds",
+                stacklevel=2,
             )
             if self.ingestion_stage:
                 self.ingestion_stage_durations[self.ingestion_stage] = elapsed

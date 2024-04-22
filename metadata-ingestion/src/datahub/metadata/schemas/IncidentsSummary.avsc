@@ -1,0 +1,158 @@
+{
+  "type": "record",
+  "Aspect": {
+    "name": "incidentsSummary"
+  },
+  "name": "IncidentsSummary",
+  "namespace": "com.linkedin.pegasus2avro.common",
+  "fields": [
+    {
+      "deprecated": true,
+      "type": {
+        "type": "array",
+        "items": "string"
+      },
+      "name": "resolvedIncidents",
+      "default": [],
+      "doc": "Resolved incidents for an asset\nDeprecated! Use the richer resolvedIncidentsDetails instead.",
+      "Urn": "Urn",
+      "urn_is_array": true
+    },
+    {
+      "deprecated": true,
+      "type": {
+        "type": "array",
+        "items": "string"
+      },
+      "name": "activeIncidents",
+      "default": [],
+      "doc": "Active incidents for an asset\nDeprecated! Use the richer activeIncidentsDetails instead.",
+      "Urn": "Urn",
+      "urn_is_array": true
+    },
+    {
+      "Relationship": {
+        "/*/urn": {
+          "entityTypes": [
+            "incident"
+          ],
+          "name": "ResolvedIncidents"
+        }
+      },
+      "Searchable": {
+        "/*/createdAt": {
+          "fieldName": "resolvedIncidentCreatedTimes",
+          "fieldType": "DATETIME"
+        },
+        "/*/priority": {
+          "fieldName": "resolvedIncidentPriorities",
+          "fieldType": "COUNT"
+        },
+        "/*/resolvedAt": {
+          "fieldName": "resolvedIncidentResolvedTimes",
+          "fieldType": "DATETIME"
+        },
+        "/*/type": {
+          "fieldName": "resolvedIncidentTypes",
+          "fieldType": "KEYWORD"
+        },
+        "/*/urn": {
+          "fieldName": "resolvedIncidents",
+          "fieldType": "URN",
+          "hasValuesFieldName": "hasResolvedIncidents",
+          "numValuesFieldName": "numResolvedIncidents"
+        }
+      },
+      "type": {
+        "type": "array",
+        "items": {
+          "type": "record",
+          "name": "IncidentSummaryDetails",
+          "namespace": "com.linkedin.pegasus2avro.common",
+          "fields": [
+            {
+              "java": {
+                "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+              },
+              "type": "string",
+              "name": "urn",
+              "doc": "The urn of the incident",
+              "Urn": "Urn"
+            },
+            {
+              "type": "string",
+              "name": "type",
+              "doc": "The type of an incident"
+            },
+            {
+              "type": "long",
+              "name": "createdAt",
+              "doc": "The time at which the incident was raised in milliseconds since epoch."
+            },
+            {
+              "type": [
+                "null",
+                "long"
+              ],
+              "name": "resolvedAt",
+              "default": null,
+              "doc": "The time at which the incident was marked as resolved in milliseconds since epoch. Null if the incident is still active."
+            },
+            {
+              "type": [
+                "null",
+                "int"
+              ],
+              "name": "priority",
+              "default": null,
+              "doc": "The priority of the incident"
+            }
+          ],
+          "doc": "Summary statistics about incidents on an entity."
+        }
+      },
+      "name": "resolvedIncidentDetails",
+      "default": [],
+      "doc": "Summary details about the set of resolved incidents"
+    },
+    {
+      "Relationship": {
+        "/*/urn": {
+          "entityTypes": [
+            "incident"
+          ],
+          "name": "ActiveIncidents"
+        }
+      },
+      "Searchable": {
+        "/*/createdAt": {
+          "fieldName": "activeIncidentCreatedTimes",
+          "fieldType": "DATETIME"
+        },
+        "/*/priority": {
+          "fieldName": "activeIncidentPriorities",
+          "fieldType": "COUNT"
+        },
+        "/*/type": {
+          "fieldName": "activeIncidentTypes",
+          "fieldType": "KEYWORD"
+        },
+        "/*/urn": {
+          "addHasValuesToFilters": true,
+          "fieldName": "activeIncidents",
+          "fieldType": "URN",
+          "hasValuesFieldName": "hasActiveIncidents",
+          "numValuesFieldName": "numActiveIncidents"
+        }
+      },
+      "type": {
+        "type": "array",
+        "items": "com.linkedin.pegasus2avro.common.IncidentSummaryDetails"
+      },
+      "name": "activeIncidentDetails",
+      "default": [],
+      "doc": "Summary details about the set of active incidents"
+    }
+  ],
+  "doc": "Summary related incidents on an entity."
+}

@@ -1,0 +1,23 @@
+{
+  "type": "record",
+  "Aspect": {
+    "name": "dataTypeKey",
+    "keyForEntity": "dataType",
+    "entityCategory": "core",
+    "entityAspects": [
+      "dataTypeInfo",
+      "institutionalMemory",
+      "status"
+    ],
+    "entityDoc": "A type of data element stored within DataHub."
+  },
+  "name": "DataTypeKey",
+  "namespace": "com.linkedin.pegasus2avro.datatype",
+  "fields": [
+    {
+      "type": "string",
+      "name": "id",
+      "doc": "A unique id for a data type. Usually this will be a unique namespace + data type name."
+    }
+  ]
+}

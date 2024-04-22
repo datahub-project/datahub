@@ -124,7 +124,8 @@ public class SearchQueryBuilder {
     final BoolQueryBuilder finalQuery =
         Optional.ofNullable(customQueryConfig)
             .flatMap(cqc -> boolQueryBuilder(cqc, sanitizedQuery))
-            .orElse(QueryBuilders.boolQuery());
+            .orElse(QueryBuilders.boolQuery())
+            .minimumShouldMatch(1);
 
     if (fulltext && !query.startsWith(STRUCTURED_QUERY_PREFIX)) {
       getSimpleQuery(customQueryConfig, entitySpecs, sanitizedQuery).ifPresent(finalQuery::should);
@@ -135,14 +136,10 @@ public class SearchQueryBuilder {
           query.startsWith(STRUCTURED_QUERY_PREFIX)
               ? query.substring(STRUCTURED_QUERY_PREFIX.length())
               : query;
-
-      QueryStringQueryBuilder queryBuilder = QueryBuilders.queryStringQuery(withoutQueryPrefix);
-      queryBuilder.defaultOperator(Operator.AND);
-      getStandardFields(entitySpecs)
-          .forEach(entitySpec -> queryBuilder.field(entitySpec.fieldName(), entitySpec.boost()));
-      finalQuery.should(queryBuilder);
+      getStructuredQuery(customQueryConfig, entitySpecs, withoutQueryPrefix)
+          .ifPresent(finalQuery::should);
       if (exactMatchConfiguration.isEnableStructured()) {
-        getPrefixAndExactMatchQuery(null, entitySpecs, withoutQueryPrefix)
+        getPrefixAndExactMatchQuery(customQueryConfig, entitySpecs, withoutQueryPrefix)
             .ifPresent(finalQuery::should);
       }
     }
@@ -413,6 +410,29 @@ public class SearchQueryBuilder {
             });
 
     return finalQuery.should().size() > 0 ? Optional.of(finalQuery) : Optional.empty();
+  }
+
+  private Optional<QueryBuilder> getStructuredQuery(
+      @Nullable QueryConfiguration customQueryConfig,
+      List<EntitySpec> entitySpecs,
+      String sanitizedQuery) {
+    Optional<QueryBuilder> result = Optional.empty();
+
+    final boolean executeStructuredQuery;
+    if (customQueryConfig != null) {
+      executeStructuredQuery = customQueryConfig.isStructuredQuery();
+    } else {
+      executeStructuredQuery = !(isQuoted(sanitizedQuery) && exactMatchConfiguration.isExclusive());
+    }
+
+    if (executeStructuredQuery) {
+      QueryStringQueryBuilder queryBuilder = QueryBuilders.queryStringQuery(sanitizedQuery);
+      queryBuilder.defaultOperator(Operator.AND);
+      getStandardFields(entitySpecs)
+          .forEach(entitySpec -> queryBuilder.field(entitySpec.fieldName(), entitySpec.boost()));
+      result = Optional.of(queryBuilder);
+    }
+    return result;
   }
 
   private FunctionScoreQueryBuilder buildScoreFunctions(

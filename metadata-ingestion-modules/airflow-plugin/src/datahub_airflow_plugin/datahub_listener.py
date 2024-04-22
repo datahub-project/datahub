@@ -16,14 +16,15 @@ from datahub.metadata.schema_classes import (
     FineGrainedLineageDownstreamTypeClass,
     FineGrainedLineageUpstreamTypeClass,
 )
+from datahub.sql_parsing.sqlglot_lineage import SqlParsingResult
 from datahub.telemetry import telemetry
-from datahub.utilities.sqlglot_lineage import SqlParsingResult
 from openlineage.airflow.listener import TaskHolder
 from openlineage.airflow.utils import redact_with_exclusions
 from openlineage.client.serde import Serde
 
 from datahub_airflow_plugin._airflow_shims import (
     HAS_AIRFLOW_DAG_LISTENER_API,
+    HAS_AIRFLOW_DATASET_LISTENER_API,
     Operator,
     get_task_inlets,
     get_task_outlets,
@@ -40,6 +41,7 @@ from datahub_airflow_plugin.entities import (
 
 _F = TypeVar("_F", bound=Callable[..., None])
 if TYPE_CHECKING:
+    from airflow.datasets import Dataset
     from airflow.models import DAG, DagRun, TaskInstance
     from sqlalchemy.orm import Session
 
@@ -374,6 +376,7 @@ class DataHubListener:
             dag=dag,
             capture_tags=self.config.capture_tags_info,
             capture_owner=self.config.capture_ownership_info,
+            config=self.config,
         )
 
         # TODO: Make use of get_task_location to extract github urls.
@@ -395,6 +398,7 @@ class DataHubListener:
                 dag_run=dagrun,
                 datajob=datajob,
                 emit_templates=False,
+                config=self.config,
             )
             logger.debug(f"Emitted DataHub DataProcess Instance start: {dpi}")
 
@@ -417,6 +421,7 @@ class DataHubListener:
             dag=dag,
             capture_tags=self.config.capture_tags_info,
             capture_owner=self.config.capture_ownership_info,
+            config=self.config,
         )
 
         # Add lineage info.
@@ -434,6 +439,7 @@ class DataHubListener:
                 dag_run=dagrun,
                 datajob=datajob,
                 result=status,
+                config=self.config,
             )
             logger.debug(
                 f"Emitted DataHub DataProcess Instance with status {status}: {dpi}"
@@ -502,3 +508,23 @@ class DataHubListener:
             self.emitter.flush()
 
     # TODO: Add hooks for on_dag_run_success, on_dag_run_failed -> call AirflowGenerator.complete_dataflow
+
+    if HAS_AIRFLOW_DATASET_LISTENER_API:
+
+        @hookimpl
+        @run_in_thread
+        def on_dataset_created(self, dataset: "Dataset") -> None:
+            self._set_log_level()
+
+            logger.debug(
+                f"DataHub listener got notification about dataset create for {dataset}"
+            )
+
+        @hookimpl
+        @run_in_thread
+        def on_dataset_changed(self, dataset: "Dataset") -> None:
+            self._set_log_level()
+
+            logger.debug(
+                f"DataHub listener got notification about dataset change for {dataset}"
+            )

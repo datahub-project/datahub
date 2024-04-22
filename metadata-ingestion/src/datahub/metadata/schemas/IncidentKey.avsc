@@ -1,0 +1,22 @@
+{
+  "type": "record",
+  "Aspect": {
+    "name": "incidentKey",
+    "keyForEntity": "incident",
+    "entityCategory": "core",
+    "entityAspects": [
+      "incidentInfo"
+    ],
+    "entityDoc": "An incident for an asset."
+  },
+  "name": "IncidentKey",
+  "namespace": "com.linkedin.pegasus2avro.metadata.key",
+  "fields": [
+    {
+      "type": "string",
+      "name": "id",
+      "doc": "A unique id for the incident. Generated on the server side at incident creation time."
+    }
+  ],
+  "doc": "Key for an asset Incident"
+}

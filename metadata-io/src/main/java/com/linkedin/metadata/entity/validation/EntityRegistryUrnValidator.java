@@ -12,7 +12,6 @@ import com.linkedin.data.schema.NamedDataSchema;
 import com.linkedin.data.schema.PathSpec;
 import com.linkedin.data.schema.validator.Validator;
 import com.linkedin.data.schema.validator.ValidatorContext;
-import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.RelationshipFieldSpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -48,8 +47,15 @@ public class EntityRegistryUrnValidator implements Validator {
         String urnStr = (String) context.dataElement().getValue();
         Urn urn = Urn.createFromString(urnStr);
         EntitySpec entitySpec = _entityRegistry.getEntitySpec(urn.getEntityType());
-        RecordTemplate entityKey =
-            EntityKeyUtils.convertUrnToEntityKey(urn, entitySpec.getKeyAspectSpec());
+        // This is not always false
+        if (entitySpec == null) {
+          throw new IllegalArgumentException(
+              String.format("Entity type %s is missing from entity registry", urn.getEntityType()));
+        }
+
+        // Ensure urn conversion is successful
+        EntityKeyUtils.convertUrnToEntityKey(urn, entitySpec.getKeyAspectSpec());
+
         NamedDataSchema namedDataSchema = ((NamedDataSchema) context.dataElement().getSchema());
         Class<? extends Urn> urnClass;
         try {

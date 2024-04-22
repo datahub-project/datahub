@@ -56,6 +56,29 @@ public class AuthUtils {
   public static final String TITLE = "title";
   public static final String INVITE_TOKEN = "inviteToken";
   public static final String RESET_TOKEN = "resetToken";
+  public static final String BASE_URL = "baseUrl";
+  public static final String OIDC_ENABLED = "oidcEnabled";
+  public static final String CLIENT_ID = "clientId";
+  public static final String CLIENT_SECRET = "clientSecret";
+  public static final String DISCOVERY_URI = "discoveryUri";
+
+  public static final String USER_NAME_CLAIM = "userNameClaim";
+  public static final String USER_NAME_CLAIM_REGEX = "userNameClaimRegex";
+  public static final String SCOPE = "scope";
+  public static final String CLIENT_NAME = "clientName";
+  public static final String CLIENT_AUTHENTICATION_METHOD = "clientAuthenticationMethod";
+  public static final String JIT_PROVISIONING_ENABLED = "jitProvisioningEnabled";
+  public static final String PRE_PROVISIONING_REQUIRED = "preProvisioningRequired";
+  public static final String EXTRACT_GROUPS_ENABLED = "extractGroupsEnabled";
+  public static final String GROUPS_CLAIM = "groupsClaim";
+  public static final String RESPONSE_TYPE = "responseType";
+  public static final String RESPONSE_MODE = "responseMode";
+  public static final String USE_NONCE = "useNonce";
+  public static final String READ_TIMEOUT = "readTimeout";
+  public static final String EXTRACT_JWT_ACCESS_TOKEN_CLAIMS = "extractJwtAccessTokenClaims";
+  // Retained for backwards compatibility
+  public static final String PREFERRED_JWS_ALGORITHM = "preferredJwsAlgorithm";
+  public static final String PREFERRED_JWS_ALGORITHM_2 = "preferredJwsAlgorithm2";
 
   /**
    * Determines whether the inbound request should be forward to downstream Metadata Service. Today,

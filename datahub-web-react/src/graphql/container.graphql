@@ -14,6 +14,9 @@ query getContainer($urn: String!) {
                 value
             }
         }
+        privileges {
+            ...entityPrivileges
+        }
         editableProperties {
             description
         }
@@ -53,6 +56,17 @@ query getContainer($urn: String!) {
         }
         status {
             removed
+        }
+        autoRenderAspects: aspects(input: { autoRenderOnly: true }) {
+            ...autoRenderAspectFields
+        }
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
+        }
+        forms {
+            ...formsFields
         }
     }
 }

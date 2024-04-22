@@ -4,6 +4,7 @@
 #     3) Entity timeseries stat by user
 
 import concurrent
+import concurrent.futures
 import dataclasses
 import datetime
 import logging
@@ -358,7 +359,7 @@ class BaseStatGenerator(ABC):
                 rows = [r for r in rows if self.get_id_from_row(r) in self.id_vs_model]
                 logger.debug("Filtered down to %d rows", len(rows))
         except Exception as e:
-            logger.warning(f"Failed to execute {query_name} query", e)
+            logger.warning(f"Failed to execute {query_name} query: {e}")
 
         return rows
 

@@ -4,6 +4,7 @@ import warnings
 from abc import ABC
 from typing import Dict, Iterable, Optional, Tuple
 
+from pydantic import validator
 from pydantic.fields import Field
 
 from datahub.configuration.common import ConfigModel
@@ -46,20 +47,59 @@ logger: logging.Logger = logging.getLogger(__name__)
 
 
 class OpenApiConfig(ConfigModel):
-    name: str = Field(description="")
-    url: str = Field(description="")
-    swagger_file: str = Field(description="")
-    ignore_endpoints: list = Field(default=[], description="")
-    username: str = Field(default="", description="")
-    password: str = Field(default="", description="")
-    forced_examples: dict = Field(default={}, description="")
-    token: Optional[str] = Field(default=None, description="")
-    get_token: dict = Field(default={}, description="")
+    name: str = Field(description="Name of ingestion.")
+    url: str = Field(description="Endpoint URL. e.g. https://example.com")
+    swagger_file: str = Field(
+        description="Route for access to the swagger file. e.g. openapi.json"
+    )
+    ignore_endpoints: list = Field(
+        default=[], description="List of endpoints to ignore during ingestion."
+    )
+    username: str = Field(
+        default="", description="Username used for basic HTTP authentication."
+    )
+    password: str = Field(
+        default="", description="Password used for basic HTTP authentication."
+    )
+    proxies: Optional[dict] = Field(
+        default=None,
+        description="Eg. "
+        "`{'http': 'http://10.10.1.10:3128', 'https': 'http://10.10.1.10:1080'}`."
+        "If authentication is required, add it to the proxy url directly e.g. "
+        "`http://user:pass@10.10.1.10:3128/`.",
+    )
+    forced_examples: dict = Field(
+        default={},
+        description="If no example is provided for a route, it is possible to create one using forced_example.",
+    )
+    token: Optional[str] = Field(
+        default=None, description="Token for endpoint authentication."
+    )
+    bearer_token: Optional[str] = Field(
+        default=None, description="Bearer token for endpoint authentication."
+    )
+    get_token: dict = Field(
+        default={}, description="Retrieving a token from the endpoint."
+    )
+
+    @validator("bearer_token", always=True)
+    def ensure_only_one_token(
+        cls, bearer_token: Optional[str], values: Dict
+    ) -> Optional[str]:
+        if bearer_token is not None and values.get("token") is not None:
+            raise ValueError("Unable to use 'token' and 'bearer_token' together.")
+        return bearer_token
 
     def get_swagger(self) -> Dict:
-        if self.get_token or self.token is not None:
-            if self.token is not None:
-                ...
+        if self.get_token or self.token or self.bearer_token is not None:
+            if self.token:
+                pass
+            elif self.bearer_token:
+                # TRICKY: To avoid passing a bunch of different token types around, we set the
+                # token's value to the properly formatted bearer token.
+                # TODO: We should just create a requests.Session and set all the auth
+                # details there once, and then use that session for all requests.
+                self.token = f"Bearer {self.bearer_token}"
             else:
                 assert (
                     "url_complement" in self.get_token.keys()
@@ -87,9 +127,13 @@ class OpenApiConfig(ConfigModel):
                     password=self.password,
                     tok_url=url4req,
                     method=self.get_token["request_type"],
+                    proxies=self.proxies,
                 )
             sw_dict = get_swag_json(
-                self.url, token=self.token, swagger_file=self.swagger_file
+                self.url,
+                token=self.token,
+                swagger_file=self.swagger_file,
+                proxies=self.proxies,
             )  # load the swagger file
 
         else:  # using basic auth for accessing endpoints
@@ -98,6 +142,7 @@ class OpenApiConfig(ConfigModel):
                 username=self.username,
                 password=self.password,
                 swagger_file=self.swagger_file,
+                proxies=self.proxies,
             )
         return sw_dict
 
@@ -256,12 +301,18 @@ class APISource(Source, ABC):
                 "{" not in endpoint_k
             ):  # if the API does not explicitly require parameters
                 tot_url = clean_url(config.url + self.url_basepath + endpoint_k)
-
                 if config.token:
-                    response = request_call(tot_url, token=config.token)
+                    response = request_call(
+                        tot_url,
+                        token=config.token,
+                        proxies=config.proxies,
+                    )
                 else:
                     response = request_call(
-                        tot_url, username=config.username, password=config.password
+                        tot_url,
+                        username=config.username,
+                        password=config.password,
+                        proxies=config.proxies,
                     )
                 if response.status_code == 200:
                     fields2add, root_dataset_samples[dataset_name] = extract_fields(
@@ -281,10 +332,17 @@ class APISource(Source, ABC):
                     url_guess = try_guessing(endpoint_k, root_dataset_samples)
                     tot_url = clean_url(config.url + self.url_basepath + url_guess)
                     if config.token:
-                        response = request_call(tot_url, token=config.token)
+                        response = request_call(
+                            tot_url,
+                            token=config.token,
+                            proxies=config.proxies,
+                        )
                     else:
                         response = request_call(
-                            tot_url, username=config.username, password=config.password
+                            tot_url,
+                            username=config.username,
+                            password=config.password,
+                            proxies=config.proxies,
                         )
                     if response.status_code == 200:
                         fields2add, _ = extract_fields(response, dataset_name)
@@ -304,10 +362,17 @@ class APISource(Source, ABC):
                     )
                     tot_url = clean_url(config.url + self.url_basepath + composed_url)
                     if config.token:
-                        response = request_call(tot_url, token=config.token)
+                        response = request_call(
+                            tot_url,
+                            token=config.token,
+                            proxies=config.proxies,
+                        )
                     else:
                         response = request_call(
-                            tot_url, username=config.username, password=config.password
+                            tot_url,
+                            username=config.username,
+                            password=config.password,
+                            proxies=config.proxies,
                         )
                     if response.status_code == 200:
                         fields2add, _ = extract_fields(response, dataset_name)

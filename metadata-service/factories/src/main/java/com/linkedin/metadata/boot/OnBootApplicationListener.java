@@ -16,14 +16,12 @@ import org.apache.http.impl.client.HttpClients;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.context.annotation.Configuration;
 import org.springframework.context.event.ContextRefreshedEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 import org.springframework.web.context.WebApplicationContext;
 
 /** Responsible for coordinating starting steps that happen before the application starts up. */
-@Configuration
 @Slf4j
 @Component
 public class OnBootApplicationListener {
@@ -73,22 +71,22 @@ public class OnBootApplicationListener {
     return () -> {
       final HttpGet request = new HttpGet(provider.getKafka().getSchemaRegistry().getUrl());
       int timeouts = _servletsWaitTimeout;
-      boolean openAPIServeletReady = false;
-      while (!openAPIServeletReady && timeouts > 0) {
+      boolean openAPIServletReady = false;
+      while (!openAPIServletReady && timeouts > 0) {
         try {
           log.info("Sleeping for 1 second");
           Thread.sleep(1000);
           StatusLine statusLine = httpClient.execute(request).getStatusLine();
           if (ACCEPTED_HTTP_CODES.contains(statusLine.getStatusCode())) {
             log.info("Connected! Authentication not tested.");
-            openAPIServeletReady = true;
+            openAPIServletReady = true;
           }
         } catch (IOException | InterruptedException e) {
           log.info("Failed to connect to open servlet: {}", e.getMessage());
         }
         timeouts--;
       }
-      if (!openAPIServeletReady) {
+      if (!openAPIServletReady) {
         log.error(
             "Failed to bootstrap DataHub, OpenAPI servlet was not ready after {} seconds",
             timeouts);

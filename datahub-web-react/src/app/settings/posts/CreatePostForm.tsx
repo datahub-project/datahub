@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Form, Input, Typography, FormInstance, Radio } from 'antd';
 import styled from 'styled-components';
 import {
@@ -21,10 +21,17 @@ const SubFormItem = styled(Form.Item)`
 type Props = {
     setCreateButtonEnabled: (isEnabled: boolean) => void;
     form: FormInstance;
+    contentType: PostContentType;
 };
 
-export default function CreatePostForm({ setCreateButtonEnabled, form }: Props) {
+export default function CreatePostForm({ setCreateButtonEnabled, form, contentType }: Props) {
     const [postType, setPostType] = useState<PostContentType>(PostContentType.Text);
+
+    useEffect(() => {
+        if (contentType) {
+            setPostType(contentType);
+        }
+    }, [contentType]);
 
     return (
         <Form

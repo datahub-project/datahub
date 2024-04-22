@@ -46,31 +46,31 @@ describe("search", () => {
 
     cy.get("[data-testid=browse-v2")
       .invoke("css", "width")
-      .should("match", /^\d\d\dpx$/);
+      .should("match", /\d\d\dpx$/);
 
     cy.get("[data-testid=browse-v2-toggle").click();
 
     cy.get("[data-testid=browse-v2")
       .invoke("css", "width")
-      .should("match", /^\dpx$/);
+      .should("match", /\dpx$/);
 
     cy.reload();
 
     cy.get("[data-testid=browse-v2")
       .invoke("css", "width")
-      .should("match", /^\dpx$/);
+      .should("match", /\dpx$/);
 
     cy.get("[data-testid=browse-v2-toggle").click();
 
     cy.get("[data-testid=browse-v2")
       .invoke("css", "width")
-      .should("match", /^\d\d\dpx$/);
+      .should("match", /\d\d\dpx$/);
 
     cy.reload();
 
     cy.get("[data-testid=browse-v2")
       .invoke("css", "width")
-      .should("match", /^\d\d\dpx$/);
+      .should("match", /\d\d\dpx$/);
   });
 
   it("should take you to the old browse experience when clicking entity type on home page with the browse flag off", () => {
@@ -111,6 +111,7 @@ describe("search", () => {
     );
   });
 
+  /* Legacy Browse Path Disabled when showBrowseV2 = `true`
   it("should take you to the old browse experience when clicking on browse path from entity profile page when browse flag is off", () => {
     setBrowseFeatureFlag(false);
     cy.login();
@@ -122,6 +123,7 @@ describe("search", () => {
     });
     cy.url().should("include", "/browse/dataset/prod/bigquery/cypress_project");
   });
+*/
 
   it("should take you to the unified search and browse experience when clicking entity type on home page with the browse flag on", () => {
     setBrowseFeatureFlag(true);

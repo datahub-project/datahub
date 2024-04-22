@@ -13,7 +13,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.identity.CorpUserCredentials;
 import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.metadata.secret.SecretService;
+import io.datahubproject.metadata.services.SecretService;
 import java.time.Instant;
 import java.util.concurrent.TimeUnit;
 import org.testng.annotations.BeforeMethod;
@@ -85,7 +85,7 @@ public class NativeUserServiceTest {
       expectedExceptionsMessageRegExp = "This user already exists! Cannot create a new user.")
   public void testCreateNativeUserUserAlreadyExists() throws Exception {
     // The user already exists
-    when(_entityService.exists(any())).thenReturn(true);
+    when(_entityService.exists(any(Urn.class), eq(true))).thenReturn(true);
 
     _nativeUserService.createNativeUser(
         USER_URN_STRING, FULL_NAME, EMAIL, TITLE, PASSWORD, SYSTEM_AUTHENTICATION);
@@ -109,7 +109,7 @@ public class NativeUserServiceTest {
 
   @Test
   public void testCreateNativeUserPasses() throws Exception {
-    when(_entityService.exists(any())).thenReturn(false);
+    when(_entityService.exists(any(Urn.class), anyBoolean())).thenReturn(false);
     when(_secretService.generateSalt(anyInt())).thenReturn(SALT);
     when(_secretService.encrypt(any())).thenReturn(ENCRYPTED_SALT);
     when(_secretService.getHashedPassword(any(), any())).thenReturn(HASHED_PASSWORD);

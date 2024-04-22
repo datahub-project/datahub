@@ -57,6 +57,8 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
 
     getEntityName = () => 'Glossary Term';
 
+    useEntityQuery = useGetGlossaryTermQuery;
+
     renderProfile = (urn) => {
         return (
             <EntityProfile
@@ -65,7 +67,12 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
                 useEntityQuery={useGetGlossaryTermQuery as any}
                 headerActionItems={new Set([EntityActionItem.BATCH_ADD_GLOSSARY_TERM])}
                 headerDropdownItems={
-                    new Set([EntityMenuItems.UPDATE_DEPRECATION, EntityMenuItems.MOVE, EntityMenuItems.DELETE])
+                    new Set([
+                        EntityMenuItems.UPDATE_DEPRECATION,
+                        EntityMenuItems.CLONE,
+                        EntityMenuItems.MOVE,
+                        EntityMenuItems.DELETE,
+                    ])
                 }
                 isNameEditable
                 hideBrowseBar
@@ -100,24 +107,26 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
                         component: PropertiesTab,
                     },
                 ]}
-                sidebarSections={[
-                    {
-                        component: SidebarAboutSection,
-                    },
-                    {
-                        component: SidebarOwnerSection,
-                    },
-                    {
-                        component: SidebarDomainSection,
-                        properties: {
-                            hideOwnerType: true,
-                        },
-                    },
-                ]}
+                sidebarSections={this.getSidebarSections()}
                 getOverrideProperties={this.getOverridePropertiesFromEntity}
             />
         );
     };
+
+    getSidebarSections = () => [
+        {
+            component: SidebarAboutSection,
+        },
+        {
+            component: SidebarOwnerSection,
+        },
+        {
+            component: SidebarDomainSection,
+            properties: {
+                hideOwnerType: true,
+            },
+        },
+    ];
 
     getOverridePropertiesFromEntity = (glossaryTerm?: GlossaryTerm | null): GenericEntityProperties => {
         // if dataset has subTypes filled out, pick the most specific subtype and return it

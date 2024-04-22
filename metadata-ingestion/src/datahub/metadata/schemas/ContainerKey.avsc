@@ -17,7 +17,9 @@
       "browsePaths",
       "status",
       "domains",
-      "browsePathsV2"
+      "browsePathsV2",
+      "structuredProperties",
+      "forms"
     ],
     "entityDoc": "A container of related data assets."
   },

@@ -2,6 +2,7 @@ package com.linkedin.metadata.kafka;
 
 import com.codahale.metrics.Histogram;
 import com.codahale.metrics.MetricRegistry;
+import com.codahale.metrics.Timer;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.gms.factory.kafka.SimpleKafkaConsumerFactory;
 import com.linkedin.metadata.kafka.config.DataHubUsageEventsProcessorCondition;
@@ -50,21 +51,31 @@ public class DataHubUsageEventsProcessor {
       topics = "${DATAHUB_USAGE_EVENT_NAME:" + Topics.DATAHUB_USAGE_EVENT + "}",
       containerFactory = "simpleKafkaConsumer")
   public void consume(final ConsumerRecord<String, String> consumerRecord) {
-    kafkaLagStats.update(System.currentTimeMillis() - consumerRecord.timestamp());
-    final String record = consumerRecord.value();
-    log.debug("Got DHUE");
+    try (Timer.Context i = MetricUtils.timer(this.getClass(), "consume").time()) {
+      kafkaLagStats.update(System.currentTimeMillis() - consumerRecord.timestamp());
+      final String record = consumerRecord.value();
 
-    Optional<DataHubUsageEventTransformer.TransformedDocument> eventDocument =
-        dataHubUsageEventTransformer.transformDataHubUsageEvent(record);
-    if (eventDocument.isEmpty()) {
-      log.warn("Failed to apply usage events transform to record: {}", record);
-      return;
+      log.info(
+          "Got DHUE event key: {}, topic: {}, partition: {}, offset: {}, value size: {}, timestamp: {}",
+          consumerRecord.key(),
+          consumerRecord.topic(),
+          consumerRecord.partition(),
+          consumerRecord.offset(),
+          consumerRecord.serializedValueSize(),
+          consumerRecord.timestamp());
+
+      Optional<DataHubUsageEventTransformer.TransformedDocument> eventDocument =
+          dataHubUsageEventTransformer.transformDataHubUsageEvent(record);
+      if (eventDocument.isEmpty()) {
+        log.warn("Failed to apply usage events transform to record: {}", record);
+        return;
+      }
+      JsonElasticEvent elasticEvent = new JsonElasticEvent(eventDocument.get().getDocument());
+      elasticEvent.setId(generateDocumentId(eventDocument.get().getId(), consumerRecord.offset()));
+      elasticEvent.setIndex(indexName);
+      elasticEvent.setActionType(ChangeType.CREATE);
+      elasticSearchConnector.feedElasticEvent(elasticEvent);
     }
-    JsonElasticEvent elasticEvent = new JsonElasticEvent(eventDocument.get().getDocument());
-    elasticEvent.setId(generateDocumentId(eventDocument.get().getId(), consumerRecord.offset()));
-    elasticEvent.setIndex(indexName);
-    elasticEvent.setActionType(ChangeType.CREATE);
-    elasticSearchConnector.feedElasticEvent(elasticEvent);
   }
 
   /**

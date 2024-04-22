@@ -109,10 +109,12 @@ public class SearchableFieldSpecExtractor implements SchemaVisitor {
             .equals("com.linkedin.common.urn.Urn");
 
     final Map<String, Object> resolvedProperties =
-        FieldSpecUtils.getResolvedProperties(currentSchema);
+        FieldSpecUtils.getResolvedProperties(currentSchema, properties);
 
     // if primary doesn't have an annotation, then ignore secondary urns
-    if (isUrn && primaryAnnotationObj != null) {
+    if (isUrn
+        && primaryAnnotationObj != null
+        && resolvedProperties.containsKey(SearchableAnnotation.ANNOTATION_NAME)) {
       DataMap annotationMap =
           (DataMap) resolvedProperties.get(SearchableAnnotation.ANNOTATION_NAME);
       Map<String, Object> result = new HashMap<>(annotationMap);
@@ -173,7 +175,8 @@ public class SearchableFieldSpecExtractor implements SchemaVisitor {
                 annotation.getHasValuesFieldName(),
                 annotation.getNumValuesFieldName(),
                 annotation.getWeightsPerFieldValue(),
-                annotation.getFieldNameAliases());
+                annotation.getFieldNameAliases(),
+                annotation.isIncludeQueryEmptyAggregation());
       }
     }
     log.debug("Searchable annotation for field: {} : {}", schemaPathSpec, annotation);

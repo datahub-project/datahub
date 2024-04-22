@@ -6,6 +6,7 @@
 
 # pylint: skip-file
 # fmt: off
+# isort: skip_file
 from .....schema_classes import ContainerClass
 from .....schema_classes import ContainerPropertiesClass
 from .....schema_classes import EditableContainerPropertiesClass

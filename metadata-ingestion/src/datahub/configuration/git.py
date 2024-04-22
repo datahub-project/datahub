@@ -1,4 +1,3 @@
-import os
 import pathlib
 from typing import Any, Dict, Optional, Union
 
@@ -6,6 +5,7 @@ from pydantic import Field, FilePath, SecretStr, validator
 
 from datahub.configuration.common import ConfigModel
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
+from datahub.configuration.validate_multiline_string import pydantic_multiline_string
 
 _GITHUB_PREFIX = "https://github.com/"
 _GITLAB_PREFIX = "https://gitlab.com/"
@@ -92,15 +92,7 @@ class GitInfo(GitReference):
         description="The url to call `git clone` on. We infer this for github and gitlab repos, but it is required for other hosts.",
     )
 
-    @validator("deploy_key_file")
-    def deploy_key_file_should_be_readable(
-        cls, v: Optional[FilePath]
-    ) -> Optional[FilePath]:
-        if v is not None:
-            # pydantic does existence checks, we just need to check if we can read it
-            if not os.access(v, os.R_OK):
-                raise ValueError(f"Unable to read deploy key file {v}")
-        return v
+    _fix_deploy_key_newlines = pydantic_multiline_string("deploy_key")
 
     @validator("deploy_key", pre=True, always=True)
     def deploy_key_filled_from_deploy_key_file(

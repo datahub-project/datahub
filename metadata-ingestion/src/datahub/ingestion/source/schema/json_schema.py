@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from os.path import basename, dirname
 from pathlib import Path
 from typing import Any, Iterable, List, Optional, Union
+from urllib.parse import urlparse
 
 import jsonref
 from pydantic import AnyHttpUrl, DirectoryPath, FilePath, validator
@@ -51,6 +52,16 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 from datahub.utilities.urns.data_platform_urn import DataPlatformUrn
 
 logger = logging.getLogger(__name__)
+
+
+def is_url_valid(url: Optional[str]) -> bool:
+    if url is None:
+        return False
+    try:
+        result = urlparse(url)
+        return all([result.scheme, result.netloc])
+    except Exception:
+        return False
 
 
 class URIReplacePattern(ConfigModel):
@@ -281,12 +292,14 @@ class JsonSchemaSource(StatefulIngestionSourceBase):
                 entityUrn=dataset_urn, aspect=models.StatusClass(removed=False)
             ).as_workunit()
 
+            external_url = JsonSchemaTranslator._get_id_from_any_schema(schema_dict)
+            if not is_url_valid(external_url):
+                external_url = None
+
             yield MetadataChangeProposalWrapper(
                 entityUrn=dataset_urn,
                 aspect=models.DatasetPropertiesClass(
-                    externalUrl=JsonSchemaTranslator._get_id_from_any_schema(
-                        schema_dict
-                    ),
+                    externalUrl=external_url,
                     name=dataset_simple_name,
                     description=JsonSchemaTranslator._get_description_from_any_schema(
                         schema_dict

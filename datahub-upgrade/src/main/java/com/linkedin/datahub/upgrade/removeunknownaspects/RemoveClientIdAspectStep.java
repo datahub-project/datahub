@@ -17,7 +17,7 @@ public class RemoveClientIdAspectStep implements UpgradeStep {
 
   private static final String INVALID_CLIENT_ID_ASPECT = "clientId";
 
-  private final EntityService _entityService;
+  private final EntityService<?> _entityService;
 
   @Override
   public String id() {

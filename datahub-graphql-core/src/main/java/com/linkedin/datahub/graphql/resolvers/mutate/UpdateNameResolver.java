@@ -35,7 +35,7 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class UpdateNameResolver implements DataFetcher<CompletableFuture<Boolean>> {
 
-  private final EntityService _entityService;
+  private final EntityService<?> _entityService;
   private final EntityClient _entityClient;
 
   @Override
@@ -47,7 +47,7 @@ public class UpdateNameResolver implements DataFetcher<CompletableFuture<Boolean
 
     return CompletableFuture.supplyAsync(
         () -> {
-          if (!_entityService.exists(targetUrn)) {
+          if (!_entityService.exists(targetUrn, true)) {
             throw new IllegalArgumentException(
                 String.format("Failed to update %s. %s does not exist.", targetUrn, targetUrn));
           }

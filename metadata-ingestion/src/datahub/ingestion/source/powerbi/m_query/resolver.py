@@ -27,7 +27,7 @@ from datahub.ingestion.source.powerbi.m_query.data_classes import (
     IdentifierAccessor,
 )
 from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import Table
-from datahub.utilities.sqlglot_lineage import ColumnLineageInfo, SqlParsingResult
+from datahub.sql_parsing.sqlglot_lineage import ColumnLineageInfo, SqlParsingResult
 
 logger = logging.getLogger(__name__)
 
@@ -199,9 +199,11 @@ class AbstractDataPlatformTableCreator(ABC):
 
         return Lineage(
             upstreams=dataplatform_tables,
-            column_lineage=parsed_result.column_lineage
-            if parsed_result.column_lineage is not None
-            else [],
+            column_lineage=(
+                parsed_result.column_lineage
+                if parsed_result.column_lineage is not None
+                else []
+            ),
         )
 
 
@@ -525,12 +527,12 @@ class MQueryResolver(AbstractDataAccessMQueryResolver, ABC):
 
             # From supported_resolver enum get respective resolver like AmazonRedshift or Snowflake or Oracle or NativeQuery and create instance of it
             # & also pass additional information that will be need to generate urn
-            table_qualified_name_creator: AbstractDataPlatformTableCreator = (
-                supported_resolver.get_table_full_name_creator()(
-                    ctx=ctx,
-                    config=config,
-                    platform_instance_resolver=platform_instance_resolver,
-                )
+            table_qualified_name_creator: (
+                AbstractDataPlatformTableCreator
+            ) = supported_resolver.get_table_full_name_creator()(
+                ctx=ctx,
+                config=config,
+                platform_instance_resolver=platform_instance_resolver,
             )
 
             lineage.append(table_qualified_name_creator.create_lineage(f_detail))

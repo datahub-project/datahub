@@ -14,7 +14,7 @@ create table if not exists metadata_aspect_v2 (
   createdfor                    varchar(255),
   constraint pk_metadata_aspect_v2 primary key (urn,aspect,version),
   INDEX timeIndex (createdon)
-);
+) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin;
 
 -- create default records for datahub user if not exists
 DROP TABLE if exists temp_metadata_aspect_v2;

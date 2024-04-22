@@ -24,5 +24,5 @@
       "urn_is_array": true
     }
   ],
-  "doc": "Carries information about which roles a user is assigned to."
+  "doc": "Carries information about which roles a user or group is assigned to."
 }

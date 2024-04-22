@@ -197,7 +197,7 @@ export const SearchResults = ({
                     {showBrowseV2 && (
                         <SidebarProvider selectedFilters={selectedFilters} onChangeFilters={onChangeFilters}>
                             <BrowseProvider>
-                                <BrowseSidebar visible={isSidebarOpen} width={360} />
+                                <BrowseSidebar visible={isSidebarOpen} />
                             </BrowseProvider>
                         </SidebarProvider>
                     )}

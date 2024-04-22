@@ -24,8 +24,18 @@ query getGlossaryNode($urn: String!) {
             ...parentNodesFields
         }
         privileges {
-            canManageEntity
-            canManageChildren
+            ...entityPrivileges
+        }
+        autoRenderAspects: aspects(input: { autoRenderOnly: true }) {
+            ...autoRenderAspectFields
+        }
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
+        }
+        forms {
+            ...formsFields
         }
         children: relationships(
             input: {

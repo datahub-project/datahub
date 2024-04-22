@@ -171,6 +171,27 @@
       "doc": "List of owners of the entity."
     },
     {
+      "Searchable": {
+        "/*": {
+          "fieldType": "MAP_ARRAY",
+          "queryByDefault": false
+        }
+      },
+      "type": [
+        {
+          "type": "map",
+          "values": {
+            "type": "array",
+            "items": "string"
+          }
+        },
+        "null"
+      ],
+      "name": "ownerTypes",
+      "default": {},
+      "doc": "Ownership type to Owners map, populated via mutation hook."
+    },
+    {
       "type": {
         "type": "record",
         "name": "AuditStamp",

@@ -1,12 +1,11 @@
 from typing import List, Optional, Union
 
-import pydantic
 from typing_extensions import Literal
 
 import datahub.emitter.mce_builder as builder
 from datahub.api.entities.datacontract.assertion import BaseAssertion
 from datahub.api.entities.datacontract.assertion_operator import Operators
-from datahub.configuration.common import ConfigModel
+from datahub.configuration.pydantic_migration_helpers import v1_ConfigModel, v1_Field
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.metadata.schema_classes import (
     AssertionInfoClass,
@@ -25,7 +24,7 @@ from datahub.metadata.schema_classes import (
 
 
 class IdConfigMixin(BaseAssertion):
-    id_raw: Optional[str] = pydantic.Field(
+    id_raw: Optional[str] = v1_Field(
         default=None,
         alias="id",
         description="The id of the assertion. If not provided, one will be generated using the type.",
@@ -38,7 +37,7 @@ class IdConfigMixin(BaseAssertion):
 class CustomSQLAssertion(IdConfigMixin, BaseAssertion):
     type: Literal["custom_sql"]
     sql: str
-    operator: Operators = pydantic.Field(discriminator="type")
+    operator: Operators = v1_Field(discriminator="type")
 
     def generate_default_id(self) -> str:
         return f"{self.type}-{self.sql}-{self.operator.id()}"
@@ -89,11 +88,11 @@ class ColumnUniqueAssertion(IdConfigMixin, BaseAssertion):
         )
 
 
-class DataQualityAssertion(ConfigModel):
+class DataQualityAssertion(v1_ConfigModel):
     __root__: Union[
         CustomSQLAssertion,
         ColumnUniqueAssertion,
-    ] = pydantic.Field(discriminator="type")
+    ] = v1_Field(discriminator="type")
 
     @property
     def id(self) -> str:

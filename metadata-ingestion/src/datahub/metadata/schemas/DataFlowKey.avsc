@@ -17,7 +17,11 @@
       "glossaryTerms",
       "institutionalMemory",
       "dataPlatformInstance",
-      "browsePathsV2"
+      "browsePathsV2",
+      "structuredProperties",
+      "incidentsSummary",
+      "forms",
+      "subTypes"
     ]
   },
   "name": "DataFlowKey",

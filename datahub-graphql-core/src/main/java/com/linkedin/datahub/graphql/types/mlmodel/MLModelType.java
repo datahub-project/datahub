@@ -28,7 +28,6 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.query.AutoCompleteResult;
-import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.SearchResult;
 import graphql.execution.DataFetcherResult;
@@ -87,7 +86,7 @@ public class MLModelType
                   gmsMlModel == null
                       ? null
                       : DataFetcherResult.<MLModel>newResult()
-                          .data(MLModelMapper.map(gmsMlModel))
+                          .data(MLModelMapper.map(context, gmsMlModel))
                           .build())
           .collect(Collectors.toList());
     } catch (Exception e) {
@@ -106,14 +105,13 @@ public class MLModelType
     final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
     final SearchResult searchResult =
         _entityClient.search(
+            context.getOperationContext().withSearchFlags(flags -> flags.setFulltext(true)),
             "mlModel",
             query,
             facetFilters,
             start,
-            count,
-            context.getAuthentication(),
-            new SearchFlags().setFulltext(true));
-    return UrnSearchResultsMapper.map(searchResult);
+            count);
+    return UrnSearchResultsMapper.map(context, searchResult);
   }
 
   @Override
@@ -125,8 +123,8 @@ public class MLModelType
       @Nonnull final QueryContext context)
       throws Exception {
     final AutoCompleteResult result =
-        _entityClient.autoComplete("mlModel", query, filters, limit, context.getAuthentication());
-    return AutoCompleteResultsMapper.map(result);
+        _entityClient.autoComplete(context.getOperationContext(), "mlModel", query, filters, limit);
+    return AutoCompleteResultsMapper.map(context, result);
   }
 
   @Override
@@ -142,8 +140,13 @@ public class MLModelType
         path.size() > 0 ? BROWSE_PATH_DELIMITER + String.join(BROWSE_PATH_DELIMITER, path) : "";
     final BrowseResult result =
         _entityClient.browse(
-            "mlModel", pathStr, facetFilters, start, count, context.getAuthentication());
-    return BrowseResultMapper.map(result);
+            context.getOperationContext().withSearchFlags(flags -> flags.setFulltext(false)),
+            "mlModel",
+            pathStr,
+            facetFilters,
+            start,
+            count);
+    return BrowseResultMapper.map(context, result);
   }
 
   @Override
@@ -151,6 +154,6 @@ public class MLModelType
       throws Exception {
     final StringArray result =
         _entityClient.getBrowsePaths(MLModelUtils.getMLModelUrn(urn), context.getAuthentication());
-    return BrowsePathsMapper.map(result);
+    return BrowsePathsMapper.map(context, result);
   }
 }

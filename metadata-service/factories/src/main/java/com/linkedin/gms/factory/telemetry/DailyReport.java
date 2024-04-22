@@ -25,7 +25,7 @@ public class DailyReport {
   private final IndexConvention _indexConvention;
   private final RestHighLevelClient _elasticClient;
   private final ConfigurationProvider _configurationProvider;
-  private final EntityService _entityService;
+  private final EntityService<?> _entityService;
   private final GitVersion _gitVersion;
 
   private static final String MIXPANEL_TOKEN = "5ee83d940754d63cacbf7d34daa6f44a";
@@ -36,7 +36,7 @@ public class DailyReport {
       IndexConvention indexConvention,
       RestHighLevelClient elasticClient,
       ConfigurationProvider configurationProvider,
-      EntityService entityService,
+      EntityService<?> entityService,
       GitVersion gitVersion) {
     this._indexConvention = indexConvention;
     this._elasticClient = elasticClient;

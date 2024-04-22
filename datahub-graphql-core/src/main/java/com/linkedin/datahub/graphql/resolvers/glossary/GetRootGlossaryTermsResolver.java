@@ -53,12 +53,12 @@ public class GetRootGlossaryTermsResolver
             final Filter filter = buildGlossaryEntitiesFilter();
             final SearchResult gmsTermsResult =
                 _entityClient.filter(
+                    context.getOperationContext(),
                     Constants.GLOSSARY_TERM_ENTITY_NAME,
                     filter,
                     null,
                     start,
-                    count,
-                    context.getAuthentication());
+                    count);
 
             final List<Urn> glossaryTermUrns =
                 gmsTermsResult.getEntities().stream()

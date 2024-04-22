@@ -1,9 +1,9 @@
 package com.linkedin.datahub.graphql.resolvers.view;
 
 import static com.linkedin.datahub.graphql.TestUtils.*;
+import static org.mockito.ArgumentMatchers.any;
 import static org.testng.Assert.*;
 
-import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
@@ -14,7 +14,6 @@ import com.linkedin.datahub.graphql.generated.DataHubViewType;
 import com.linkedin.datahub.graphql.generated.ListMyViewsInput;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
-import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
@@ -46,6 +45,7 @@ public class ListMyViewsResolverTest {
 
     Mockito.when(
             mockClient.search(
+                any(),
                 Mockito.eq(Constants.DATAHUB_VIEW_ENTITY_NAME),
                 Mockito.eq(""),
                 Mockito.eq(
@@ -78,9 +78,7 @@ public class ListMyViewsResolverTest {
                                                         .setNegated(false)))))))),
                 Mockito.any(),
                 Mockito.eq(0),
-                Mockito.eq(20),
-                Mockito.any(Authentication.class),
-                Mockito.eq(new SearchFlags().setFulltext(true))))
+                Mockito.eq(20)))
         .thenReturn(
             new SearchResult()
                 .setFrom(0)
@@ -113,6 +111,7 @@ public class ListMyViewsResolverTest {
 
     Mockito.when(
             mockClient.search(
+                any(),
                 Mockito.eq(Constants.DATAHUB_VIEW_ENTITY_NAME),
                 Mockito.eq(""),
                 Mockito.eq(
@@ -135,9 +134,7 @@ public class ListMyViewsResolverTest {
                                                         .setNegated(false)))))))),
                 Mockito.any(),
                 Mockito.eq(0),
-                Mockito.eq(20),
-                Mockito.any(Authentication.class),
-                Mockito.eq(new SearchFlags().setFulltext(true))))
+                Mockito.eq(20)))
         .thenReturn(
             new SearchResult()
                 .setFrom(0)
@@ -178,13 +175,12 @@ public class ListMyViewsResolverTest {
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
     Mockito.verify(mockClient, Mockito.times(0))
         .search(
+            any(),
             Mockito.any(),
             Mockito.eq(""),
             Mockito.anyMap(),
             Mockito.anyInt(),
-            Mockito.anyInt(),
-            Mockito.any(Authentication.class),
-            Mockito.eq(new SearchFlags().setFulltext(true)));
+            Mockito.anyInt());
   }
 
   @Test
@@ -194,13 +190,12 @@ public class ListMyViewsResolverTest {
     Mockito.doThrow(RemoteInvocationException.class)
         .when(mockClient)
         .search(
+            any(),
             Mockito.any(),
             Mockito.eq(""),
             Mockito.anyMap(),
             Mockito.anyInt(),
-            Mockito.anyInt(),
-            Mockito.any(Authentication.class),
-            Mockito.eq(new SearchFlags().setFulltext(true)));
+            Mockito.anyInt());
     ListMyViewsResolver resolver = new ListMyViewsResolver(mockClient);
 
     // Execute resolver

@@ -9,6 +9,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.aspect.utils.DefaultAspectsUtil;
 import com.linkedin.metadata.boot.UpgradeStep;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.ListResult;
@@ -39,7 +40,7 @@ public class UpgradeDefaultBrowsePathsStep extends UpgradeStep {
   private static final String UPGRADE_ID = "upgrade-default-browse-paths-step";
   private static final Integer BATCH_SIZE = 5000;
 
-  public UpgradeDefaultBrowsePathsStep(EntityService entityService) {
+  public UpgradeDefaultBrowsePathsStep(EntityService<?> entityService) {
     super(entityService, VERSION, UPGRADE_ID);
   }
 
@@ -126,7 +127,7 @@ public class UpgradeDefaultBrowsePathsStep extends UpgradeStep {
   }
 
   private void migrateBrowsePath(Urn urn, AuditStamp auditStamp) throws Exception {
-    BrowsePaths newPaths = _entityService.buildDefaultBrowsePath(urn);
+    BrowsePaths newPaths = DefaultAspectsUtil.buildDefaultBrowsePath(urn, _entityService);
     log.debug(String.format("Updating browse path for urn %s to value %s", urn, newPaths));
     MetadataChangeProposal proposal = new MetadataChangeProposal();
     proposal.setEntityUrn(urn);

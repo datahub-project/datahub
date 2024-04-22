@@ -32,7 +32,6 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.identity.CorpUserEditableInfo;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.query.AutoCompleteResult;
-import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.mxe.MetadataChangeProposal;
@@ -88,7 +87,7 @@ public class CorpUserType
               null,
               context.getAuthentication());
 
-      final List<EntityResponse> results = new ArrayList<>();
+      final List<EntityResponse> results = new ArrayList<>(urns.size());
       for (Urn urn : corpUserUrns) {
         results.add(corpUserMap.getOrDefault(urn, null));
       }
@@ -98,7 +97,7 @@ public class CorpUserType
                   gmsCorpUser == null
                       ? null
                       : DataFetcherResult.<CorpUser>newResult()
-                          .data(CorpUserMapper.map(gmsCorpUser, _featureFlags))
+                          .data(CorpUserMapper.map(context, gmsCorpUser, _featureFlags))
                           .build())
           .collect(Collectors.toList());
     } catch (Exception e) {
@@ -116,14 +115,13 @@ public class CorpUserType
       throws Exception {
     final SearchResult searchResult =
         _entityClient.search(
+            context.getOperationContext().withSearchFlags(flags -> flags.setFulltext(true)),
             "corpuser",
             query,
             Collections.emptyMap(),
             start,
-            count,
-            context.getAuthentication(),
-            new SearchFlags().setFulltext(true));
-    return UrnSearchResultsMapper.map(searchResult);
+            count);
+    return UrnSearchResultsMapper.map(context, searchResult);
   }
 
   @Override
@@ -135,8 +133,9 @@ public class CorpUserType
       @Nonnull final QueryContext context)
       throws Exception {
     final AutoCompleteResult result =
-        _entityClient.autoComplete("corpuser", query, filters, limit, context.getAuthentication());
-    return AutoCompleteResultsMapper.map(result);
+        _entityClient.autoComplete(
+            context.getOperationContext(), "corpuser", query, filters, limit);
+    return AutoCompleteResultsMapper.map(context, result);
   }
 
   public Class<CorpUserUpdateInput> inputClass() {
@@ -181,7 +180,7 @@ public class CorpUserType
     return context.getActorUrn().equals(urn)
         || AuthorizationUtils.isAuthorized(
             context.getAuthorizer(),
-            context.getAuthentication().getActor().toUrnStr(),
+            context.getActorUrn(),
             PoliciesConfig.CORP_GROUP_PRIVILEGES.getResourceType(),
             urn,
             orPrivilegeGroups);

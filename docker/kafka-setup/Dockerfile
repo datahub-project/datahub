@@ -22,7 +22,7 @@ ARG ALPINE_REPO_URL
 ARG APACHE_DOWNLOAD_URL
 ARG GITHUB_REPO_URL
 
-ENV KAFKA_VERSION 3.4.1
+ENV KAFKA_VERSION 3.5.2
 ENV SCALA_VERSION 2.13
 
 LABEL name="kafka" version=${KAFKA_VERSION}
@@ -31,7 +31,7 @@ LABEL name="kafka" version=${KAFKA_VERSION}
 RUN if [ "${ALPINE_REPO_URL}" != "http://dl-cdn.alpinelinux.org/alpine" ] ; then sed -i "s#http.*://dl-cdn.alpinelinux.org/alpine#${ALPINE_REPO_URL}#g" /etc/apk/repositories ; fi
 
 RUN apk add --no-cache bash coreutils
-RUN apk --no-cache add openjdk11-jre-headless --repository=${ALPINE_REPO_URL}/edge/community
+RUN apk --no-cache add openjdk17-jre-headless --repository=${ALPINE_REPO_URL}/edge/community
 
 RUN apk add --no-cache -t .build-deps git curl ca-certificates jq gcc musl-dev libffi-dev zip
 RUN mkdir -p /opt \
@@ -52,8 +52,8 @@ RUN ls -la
 COPY --from=confluent_base /usr/share/java/cp-base-new/ /usr/share/java/cp-base-new/
 COPY --from=confluent_base /etc/cp-base-new/log4j.properties /etc/cp-base-new/log4j.properties
 
-ADD --chown=kafka:kafka ${GITHUB_REPO_URL}/aws/aws-msk-iam-auth/releases/download/v1.1.6/aws-msk-iam-auth-1.1.6-all.jar /usr/share/java/cp-base-new
-ADD --chown=kafka:kafka ${GITHUB_REPO_URL}/aws/aws-msk-iam-auth/releases/download/v1.1.6/aws-msk-iam-auth-1.1.6-all.jar /opt/kafka/libs
+ADD --chown=kafka:kafka ${GITHUB_REPO_URL}/aws/aws-msk-iam-auth/releases/download/v2.0.3/aws-msk-iam-auth-2.0.3-all.jar /usr/share/java/cp-base-new
+ADD --chown=kafka:kafka ${GITHUB_REPO_URL}/aws/aws-msk-iam-auth/releases/download/v2.0.3/aws-msk-iam-auth-2.0.3-all.jar /opt/kafka/libs
 
 ENV METADATA_AUDIT_EVENT_NAME="MetadataAuditEvent_v4"
 ENV METADATA_CHANGE_EVENT_NAME="MetadataChangeEvent_v4"

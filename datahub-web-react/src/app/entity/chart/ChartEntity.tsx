@@ -27,6 +27,7 @@ import EmbeddedProfile from '../shared/embed/EmbeddedProfile';
 import { LOOKER_URN } from '../../ingest/source/builder/constants';
 import { MatchedFieldList } from '../../search/matches/MatchedFieldList';
 import { matchedInputFieldRenderer } from '../../search/matches/matchedInputFieldRenderer';
+import { IncidentTab } from '../shared/tabs/Incident/IncidentTab';
 
 /**
  * Definition of the DataHub Chart entity.
@@ -73,14 +74,38 @@ export class ChartEntity implements Entity<Chart> {
 
     getCollectionName = () => 'Charts';
 
+    useEntityQuery = useGetChartQuery;
+
+    getSidebarSections = () => [
+        {
+            component: SidebarAboutSection,
+        },
+        {
+            component: SidebarOwnerSection,
+        },
+        {
+            component: SidebarTagsSection,
+            properties: {
+                hasTags: true,
+                hasTerms: true,
+            },
+        },
+        {
+            component: SidebarDomainSection,
+        },
+        {
+            component: DataProductSection,
+        },
+    ];
+
     renderProfile = (urn: string) => (
         <EntityProfile
             urn={urn}
             entityType={EntityType.Chart}
-            useEntityQuery={useGetChartQuery}
+            useEntityQuery={this.useEntityQuery}
             useUpdateQuery={useUpdateChartMutation}
             getOverrideProperties={this.getOverridePropertiesFromEntity}
-            headerDropdownItems={new Set([EntityMenuItems.UPDATE_DEPRECATION])}
+            headerDropdownItems={new Set([EntityMenuItems.UPDATE_DEPRECATION, EntityMenuItems.RAISE_INCIDENT])}
             subHeader={{
                 component: ChartStatsSummarySubHeader,
             }}
@@ -126,28 +151,16 @@ export class ChartEntity implements Entity<Chart> {
                     name: 'Properties',
                     component: PropertiesTab,
                 },
-            ]}
-            sidebarSections={[
                 {
-                    component: SidebarAboutSection,
-                },
-                {
-                    component: SidebarOwnerSection,
-                },
-                {
-                    component: SidebarTagsSection,
-                    properties: {
-                        hasTags: true,
-                        hasTerms: true,
+                    name: 'Incidents',
+                    component: IncidentTab,
+                    getDynamicName: (_, chart) => {
+                        const activeIncidentCount = chart?.chart?.activeIncidents.total;
+                        return `Incidents${(activeIncidentCount && ` (${activeIncidentCount})`) || ''}`;
                     },
                 },
-                {
-                    component: SidebarDomainSection,
-                },
-                {
-                    component: DataProductSection,
-                },
             ]}
+            sidebarSections={this.getSidebarSections()}
         />
     );
 
@@ -180,6 +193,7 @@ export class ChartEntity implements Entity<Chart> {
                 domain={data.domain?.domain}
                 dataProduct={getDataProduct(genericProperties?.dataProduct)}
                 parentContainers={data.parentContainers}
+                health={data.health}
             />
         );
     };
@@ -215,6 +229,7 @@ export class ChartEntity implements Entity<Chart> {
                 }
                 degree={(result as any).degree}
                 paths={(result as any).paths}
+                health={data.health}
             />
         );
     };
@@ -227,6 +242,7 @@ export class ChartEntity implements Entity<Chart> {
             icon: entity?.platform?.properties?.logoUrl || undefined,
             platform: entity?.platform,
             subtype: entity?.subTypes?.typeNames?.[0] || undefined,
+            health: entity?.health || undefined,
         };
     };
 
@@ -258,7 +274,7 @@ export class ChartEntity implements Entity<Chart> {
         <EmbeddedProfile
             urn={urn}
             entityType={EntityType.Chart}
-            useEntityQuery={useGetChartQuery}
+            useEntityQuery={this.useEntityQuery}
             getOverrideProperties={this.getOverridePropertiesFromEntity}
         />
     );

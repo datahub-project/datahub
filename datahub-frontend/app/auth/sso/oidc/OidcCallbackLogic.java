@@ -10,6 +10,8 @@ import auth.CookieConfigs;
 import auth.sso.SsoManager;
 import client.AuthServiceClient;
 import com.datahub.authentication.Authentication;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.CorpGroupUrnArray;
 import com.linkedin.common.CorpuserUrnArray;
@@ -300,6 +302,29 @@ public class OidcCallbackLogic extends DefaultCallbackLogic<Result, PlayWebConte
     return corpUserSnapshot;
   }
 
+  public static Collection<String> getGroupNames(CommonProfile profile, Object groupAttribute, String groupsClaimName) {
+      Collection<String> groupNames = Collections.emptyList();
+      try {
+        if (groupAttribute instanceof Collection) {
+          // List of group names
+          groupNames = (Collection<String>) profile.getAttribute(groupsClaimName, Collection.class);
+        } else if (groupAttribute instanceof String) {
+          String groupString = (String) groupAttribute;
+          ObjectMapper objectMapper = new ObjectMapper();
+          try {
+            // Json list of group names
+            groupNames = objectMapper.readValue(groupString, new TypeReference<List<String>>(){});
+          } catch (Exception e) {
+            groupNames = Arrays.asList(groupString.split(","));
+          }
+        }
+      } catch (Exception e) {
+        log.error(String.format(
+                "Failed to parse group names: Expected to find a list of strings for attribute with name %s, found %s",
+                groupsClaimName, profile.getAttribute(groupsClaimName).getClass()));
+      }
+      return groupNames;
+  }
   private List<CorpGroupSnapshot> extractGroups(CommonProfile profile) {
 
     log.debug(
@@ -320,23 +345,7 @@ public class OidcCallbackLogic extends DefaultCallbackLogic<Result, PlayWebConte
       if (profile.containsAttribute(groupsClaimName)) {
         try {
           final List<CorpGroupSnapshot> groupSnapshots = new ArrayList<>();
-          final Collection<String> groupNames;
-          final Object groupAttribute = profile.getAttribute(groupsClaimName);
-          if (groupAttribute instanceof Collection) {
-            // List of group names
-            groupNames =
-                (Collection<String>) profile.getAttribute(groupsClaimName, Collection.class);
-          } else if (groupAttribute instanceof String) {
-            // Single group name
-            groupNames = Collections.singleton(profile.getAttribute(groupsClaimName, String.class));
-          } else {
-            log.error(
-                String.format(
-                    "Fail to parse OIDC group claim with name %s. Unknown type %s provided.",
-                    groupsClaimName, groupAttribute.getClass()));
-            // Skip over group attribute. Do not throw.
-            groupNames = Collections.emptyList();
-          }
+          Collection<String> groupNames = getGroupNames(profile, profile.getAttribute(groupsClaimName), groupsClaimName);
 
           for (String groupName : groupNames) {
             // Create a basic CorpGroupSnapshot from the information.

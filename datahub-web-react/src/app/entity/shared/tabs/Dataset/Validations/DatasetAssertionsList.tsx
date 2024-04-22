@@ -1,7 +1,7 @@
-import { Button, Empty, Image, message, Modal, Tag, Tooltip, Typography } from 'antd';
+import { Button, Dropdown, Empty, Image, message, Modal, Tag, Tooltip, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import { DeleteOutlined, DownOutlined, RightOutlined, StopOutlined } from '@ant-design/icons';
+import { DeleteOutlined, DownOutlined, MoreOutlined, RightOutlined, StopOutlined } from '@ant-design/icons';
 import { DatasetAssertionDescription } from './DatasetAssertionDescription';
 import { StyledTable } from '../../../components/styled/StyledTable';
 import { DatasetAssertionDetails } from './DatasetAssertionDetails';
@@ -9,6 +9,7 @@ import { Assertion, AssertionRunStatus } from '../../../../../../types.generated
 import { getResultColor, getResultIcon, getResultText } from './assertionUtils';
 import { useDeleteAssertionMutation } from '../../../../../../graphql/assertion.generated';
 import { capitalizeFirstLetterOnly } from '../../../../../shared/textUtil';
+import AssertionMenu from './AssertionMenu';
 
 const ResultContainer = styled.div`
     display: flex;
@@ -28,6 +29,10 @@ const ActionButtonContainer = styled.div`
 
 const PlatformContainer = styled.div`
     margin-right: 8px;
+`;
+
+const StyledMoreOutlined = styled(MoreOutlined)`
+    font-size: 18px;
 `;
 
 type Props = {
@@ -78,6 +83,7 @@ export const DatasetAssertionsList = ({ assertions, onDelete }: Props) => {
         type: assertion.info?.type,
         platform: assertion.platform,
         datasetAssertionInfo: assertion.info?.datasetAssertion,
+        description: assertion.info?.description,
         lastExecTime: assertion.runEvents?.runEvents?.length && assertion.runEvents.runEvents[0].timestampMillis,
         lastExecResult:
             assertion.runEvents?.runEvents?.length &&
@@ -96,6 +102,7 @@ export const DatasetAssertionsList = ({ assertions, onDelete }: Props) => {
                 const resultColor = (record.lastExecResult && getResultColor(record.lastExecResult)) || 'default';
                 const resultText = (record.lastExecResult && getResultText(record.lastExecResult)) || 'No Evaluations';
                 const resultIcon = (record.lastExecResult && getResultIcon(record.lastExecResult)) || <StopOutlined />;
+                const { description } = record;
                 return (
                     <ResultContainer>
                         <div>
@@ -106,7 +113,10 @@ export const DatasetAssertionsList = ({ assertions, onDelete }: Props) => {
                                 </Tag>
                             </Tooltip>
                         </div>
-                        <DatasetAssertionDescription assertionInfo={record.datasetAssertionInfo} />
+                        <DatasetAssertionDescription
+                            description={description}
+                            assertionInfo={record.datasetAssertionInfo}
+                        />
                     </ResultContainer>
                 );
             },
@@ -141,6 +151,9 @@ export const DatasetAssertionsList = ({ assertions, onDelete }: Props) => {
                     <Button onClick={() => onDeleteAssertion(record.urn)} type="text" shape="circle" danger>
                         <DeleteOutlined />
                     </Button>
+                    <Dropdown overlay={<AssertionMenu urn={record.urn} />} trigger={['click']}>
+                        <StyledMoreOutlined />
+                    </Dropdown>
                 </ActionButtonContainer>
             ),
         },

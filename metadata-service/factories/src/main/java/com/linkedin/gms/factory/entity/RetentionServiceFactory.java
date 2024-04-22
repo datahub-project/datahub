@@ -5,6 +5,7 @@ import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.RetentionService;
 import com.linkedin.metadata.entity.cassandra.CassandraRetentionService;
 import com.linkedin.metadata.entity.ebean.EbeanRetentionService;
+import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
 import com.linkedin.metadata.spring.YamlPropertySourceFactory;
 import io.ebean.Database;
 import javax.annotation.Nonnull;
@@ -23,7 +24,7 @@ public class RetentionServiceFactory {
 
   @Autowired
   @Qualifier("entityService")
-  private EntityService _entityService;
+  private EntityService<ChangeItemImpl> _entityService;
 
   @Value("${RETENTION_APPLICATION_BATCH_SIZE:1000}")
   private Integer _batchSize;
@@ -32,9 +33,9 @@ public class RetentionServiceFactory {
   @DependsOn({"cassandraSession", "entityService"})
   @ConditionalOnProperty(name = "entityService.impl", havingValue = "cassandra")
   @Nonnull
-  protected RetentionService createCassandraInstance(CqlSession session) {
-    RetentionService retentionService =
-        new CassandraRetentionService(_entityService, session, _batchSize);
+  protected RetentionService<ChangeItemImpl> createCassandraInstance(CqlSession session) {
+    RetentionService<ChangeItemImpl> retentionService =
+        new CassandraRetentionService<>(_entityService, session, _batchSize);
     _entityService.setRetentionService(retentionService);
     return retentionService;
   }
@@ -43,9 +44,9 @@ public class RetentionServiceFactory {
   @DependsOn({"ebeanServer", "entityService"})
   @ConditionalOnProperty(name = "entityService.impl", havingValue = "ebean", matchIfMissing = true)
   @Nonnull
-  protected RetentionService createEbeanInstance(Database server) {
-    RetentionService retentionService =
-        new EbeanRetentionService(_entityService, server, _batchSize);
+  protected RetentionService<ChangeItemImpl> createEbeanInstance(Database server) {
+    RetentionService<ChangeItemImpl> retentionService =
+        new EbeanRetentionService<>(_entityService, server, _batchSize);
     _entityService.setRetentionService(retentionService);
     return retentionService;
   }

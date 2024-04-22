@@ -13,6 +13,7 @@ import {
     ChartStatsSummary,
     DataProduct,
     EntityPath,
+    Health,
 } from '../../../../types.generated';
 import DefaultPreviewCard from '../../../preview/DefaultPreviewCard';
 import { capitalizeFirstLetterOnly } from '../../../shared/textUtil';
@@ -45,6 +46,7 @@ export const ChartPreview = ({
     degree,
     paths,
     subType,
+    health,
 }: {
     urn: string;
     platform?: string;
@@ -70,6 +72,7 @@ export const ChartPreview = ({
     degree?: number;
     paths?: EntityPath[];
     subType?: string | null;
+    health?: Health[] | null;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
 
@@ -106,6 +109,7 @@ export const ChartPreview = ({
             }
             degree={degree}
             paths={paths}
+            health={health || undefined}
         />
     );
 };

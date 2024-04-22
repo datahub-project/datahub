@@ -15,7 +15,9 @@
       "browsePaths",
       "globalTags",
       "dataPlatformInstance",
-      "browsePathsV2"
+      "browsePathsV2",
+      "structuredProperties",
+      "forms"
     ]
   },
   "name": "MLModelGroupKey",

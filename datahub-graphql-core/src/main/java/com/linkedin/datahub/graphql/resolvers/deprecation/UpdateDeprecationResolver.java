@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.resolvers.deprecation;
 
+import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.ALL_PRIVILEGES_GROUP;
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 import static com.linkedin.metadata.Constants.*;
 
@@ -13,7 +14,6 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.UpdateDeprecationInput;
-import com.linkedin.datahub.graphql.resolvers.AuthUtils;
 import com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.authorization.PoliciesConfig;
@@ -37,7 +37,7 @@ public class UpdateDeprecationResolver implements DataFetcher<CompletableFuture<
 
   private static final String EMPTY_STRING = "";
   private final EntityClient _entityClient;
-  private final EntityService
+  private final EntityService<?>
       _entityService; // TODO: Remove this when 'exists' added to EntityClient
 
   @Override
@@ -50,7 +50,7 @@ public class UpdateDeprecationResolver implements DataFetcher<CompletableFuture<
 
     return CompletableFuture.supplyAsync(
         () -> {
-          if (!isAuthorizedToUpdateDeprecationForEntity(environment.getContext(), entityUrn)) {
+          if (!isAuthorizedToUpdateDeprecationForEntity(context, entityUrn)) {
             throw new AuthorizationException(
                 "Unauthorized to perform this action. Please contact your DataHub administrator.");
           }
@@ -89,7 +89,7 @@ public class UpdateDeprecationResolver implements DataFetcher<CompletableFuture<
     final DisjunctivePrivilegeGroup orPrivilegeGroups =
         new DisjunctivePrivilegeGroup(
             ImmutableList.of(
-                AuthUtils.ALL_PRIVILEGES_GROUP,
+                ALL_PRIVILEGES_GROUP,
                 new ConjunctivePrivilegeGroup(
                     ImmutableList.of(PoliciesConfig.EDIT_ENTITY_DEPRECATION_PRIVILEGE.getType()))));
 
@@ -101,9 +101,10 @@ public class UpdateDeprecationResolver implements DataFetcher<CompletableFuture<
         orPrivilegeGroups);
   }
 
-  public static Boolean validateUpdateDeprecationInput(Urn entityUrn, EntityService entityService) {
+  public static Boolean validateUpdateDeprecationInput(
+      Urn entityUrn, EntityService<?> entityService) {
 
-    if (!entityService.exists(entityUrn)) {
+    if (!entityService.exists(entityUrn, true)) {
       throw new IllegalArgumentException(
           String.format(
               "Failed to update deprecation for Entity %s. Entity does not exist.", entityUrn));

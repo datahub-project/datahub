@@ -23,6 +23,15 @@
       "doc": "The view logic"
     },
     {
+      "type": [
+        "null",
+        "string"
+      ],
+      "name": "formattedViewLogic",
+      "default": null,
+      "doc": "The formatted view logic. This is particularly used for SQL sources, where the SQL\nlogic is formatted for better readability, and with dbt, where this contains the\ncompiled SQL logic."
+    },
+    {
       "type": "string",
       "name": "viewLanguage",
       "doc": "The view logic language / dialect"

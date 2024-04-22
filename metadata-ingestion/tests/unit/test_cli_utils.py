@@ -59,3 +59,24 @@ def test_correct_url_when_gms_host_port_url_protocol_set():
 )
 def test_correct_url_when_url_set():
     assert cli_utils.get_details_from_env() == ("https://example.com", None)
+
+
+def test_fixup_gms_url():
+    assert cli_utils.fixup_gms_url("http://localhost:8080") == "http://localhost:8080"
+    assert cli_utils.fixup_gms_url("http://localhost:8080/") == "http://localhost:8080"
+    assert cli_utils.fixup_gms_url("http://abc.acryl.io") == "https://abc.acryl.io/gms"
+
+
+def test_guess_frontend_url_from_gms_url():
+    assert (
+        cli_utils.guess_frontend_url_from_gms_url("http://localhost:8080")
+        == "http://localhost:9002"
+    )
+    assert (
+        cli_utils.guess_frontend_url_from_gms_url("http://localhost:8080/")
+        == "http://localhost:9002"
+    )
+    assert (
+        cli_utils.guess_frontend_url_from_gms_url("https://abc.acryl.io/gms")
+        == "https://abc.acryl.io"
+    )

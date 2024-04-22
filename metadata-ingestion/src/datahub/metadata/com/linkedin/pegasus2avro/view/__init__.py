@@ -6,6 +6,7 @@
 
 # pylint: skip-file
 # fmt: off
+# isort: skip_file
 from .....schema_classes import DataHubViewDefinitionClass
 from .....schema_classes import DataHubViewInfoClass
 from .....schema_classes import DataHubViewTypeClass

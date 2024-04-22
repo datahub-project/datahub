@@ -3,6 +3,7 @@ from typing import List
 
 # NOTE: Frontend relies on encoding these three characters. Specifically, we decode and encode schema fields for column level lineage.
 # If this changes, make appropriate changes to datahub-web-react/src/app/lineage/utils/columnLineageUtils.ts
+# We also rely on encoding these exact three characters when generating schemaField urns in our graphQL layer. Update SchemaFieldUtils if this changes.
 RESERVED_CHARS = {",", "(", ")"}
 RESERVED_CHARS_EXTENDED = RESERVED_CHARS.union({"%"})
 

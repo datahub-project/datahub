@@ -1,0 +1,266 @@
+{
+  "type": "record",
+  "Aspect": {
+    "name": "incidentInfo"
+  },
+  "name": "IncidentInfo",
+  "namespace": "com.linkedin.pegasus2avro.incident",
+  "fields": [
+    {
+      "Searchable": {
+        "addToFilters": true,
+        "filterNameOverride": "Type"
+      },
+      "type": {
+        "type": "enum",
+        "symbolDocs": {
+          "CUSTOM": "A custom type of incident",
+          "OPERATIONAL": "A misc. operational incident, e.g. failure to materialize a dataset."
+        },
+        "name": "IncidentType",
+        "namespace": "com.linkedin.pegasus2avro.incident",
+        "symbols": [
+          "OPERATIONAL",
+          "CUSTOM"
+        ],
+        "doc": "A type of asset incident"
+      },
+      "name": "type",
+      "doc": "The type of incident"
+    },
+    {
+      "Searchable": {
+        "addToFilters": true,
+        "filterNameOverride": "Other Type"
+      },
+      "type": [
+        "null",
+        "string"
+      ],
+      "name": "customType",
+      "default": null,
+      "doc": "An optional custom incident type. Present only if type is 'CUSTOM'."
+    },
+    {
+      "type": [
+        "null",
+        "string"
+      ],
+      "name": "title",
+      "default": null,
+      "doc": "Optional title associated with the incident"
+    },
+    {
+      "type": [
+        "null",
+        "string"
+      ],
+      "name": "description",
+      "default": null,
+      "doc": "Optional description associated with the incident"
+    },
+    {
+      "Relationship": {
+        "/*": {
+          "entityTypes": [
+            "dataset",
+            "chart",
+            "dashboard",
+            "dataFlow",
+            "dataJob",
+            "schemaField"
+          ],
+          "name": "IncidentOn"
+        }
+      },
+      "Searchable": {
+        "/*": {
+          "fieldType": "URN"
+        }
+      },
+      "type": {
+        "type": "array",
+        "items": "string"
+      },
+      "name": "entities",
+      "doc": "A reference to the entity associated with the incident.",
+      "Urn": "Urn",
+      "urn_is_array": true
+    },
+    {
+      "Searchable": {
+        "addToFilters": true,
+        "filterNameOverride": "Priority"
+      },
+      "type": [
+        "int",
+        "null"
+      ],
+      "name": "priority",
+      "default": 0,
+      "doc": "A numeric severity or priority for the incident. On the UI we will translate this into something easy to understand."
+    },
+    {
+      "type": {
+        "type": "record",
+        "name": "IncidentStatus",
+        "namespace": "com.linkedin.pegasus2avro.incident",
+        "fields": [
+          {
+            "Searchable": {
+              "addToFilters": true,
+              "filterNameOverride": "Status"
+            },
+            "type": {
+              "type": "enum",
+              "symbolDocs": {
+                "ACTIVE": "The incident is ongoing, or active.",
+                "RESOLVED": "The incident is resolved."
+              },
+              "name": "IncidentState",
+              "namespace": "com.linkedin.pegasus2avro.incident",
+              "symbols": [
+                "ACTIVE",
+                "RESOLVED"
+              ]
+            },
+            "name": "state",
+            "doc": "The state of the incident"
+          },
+          {
+            "type": [
+              "null",
+              "string"
+            ],
+            "name": "message",
+            "default": null,
+            "doc": "Optional message associated with the incident"
+          },
+          {
+            "Searchable": {
+              "/time": {
+                "fieldName": "lastUpdated",
+                "fieldType": "COUNT"
+              }
+            },
+            "type": {
+              "type": "record",
+              "name": "AuditStamp",
+              "namespace": "com.linkedin.pegasus2avro.common",
+              "fields": [
+                {
+                  "type": "long",
+                  "name": "time",
+                  "doc": "When did the resource/association/sub-resource move into the specific lifecycle stage represented by this AuditEvent."
+                },
+                {
+                  "java": {
+                    "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+                  },
+                  "type": "string",
+                  "name": "actor",
+                  "doc": "The entity (e.g. a member URN) which will be credited for moving the resource/association/sub-resource into the specific lifecycle stage. It is also the one used to authorize the change.",
+                  "Urn": "Urn"
+                },
+                {
+                  "java": {
+                    "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+                  },
+                  "type": [
+                    "null",
+                    "string"
+                  ],
+                  "name": "impersonator",
+                  "default": null,
+                  "doc": "The entity (e.g. a service URN) which performs the change on behalf of the Actor and must be authorized to act as the Actor.",
+                  "Urn": "Urn"
+                },
+                {
+                  "type": [
+                    "null",
+                    "string"
+                  ],
+                  "name": "message",
+                  "default": null,
+                  "doc": "Additional context around how DataHub was informed of the particular change. For example: was the change created by an automated process, or manually."
+                }
+              ],
+              "doc": "Data captured on a resource/association/sub-resource level giving insight into when that resource/association/sub-resource moved into a particular lifecycle stage, and who acted to move it into that specific lifecycle stage."
+            },
+            "name": "lastUpdated",
+            "doc": "The time at which the request was initially created"
+          }
+        ],
+        "doc": "Information about an incident raised on an asset"
+      },
+      "name": "status",
+      "doc": "The current status of an incident, i.e. active or inactive."
+    },
+    {
+      "type": [
+        "null",
+        {
+          "type": "record",
+          "Aspect": {
+            "name": "incidentSource"
+          },
+          "name": "IncidentSource",
+          "namespace": "com.linkedin.pegasus2avro.incident",
+          "fields": [
+            {
+              "Searchable": {
+                "addToFilters": true,
+                "filterNameOverride": "Source"
+              },
+              "type": {
+                "type": "enum",
+                "symbolDocs": {
+                  "MANUAL": "Manually created incident, via UI or API."
+                },
+                "name": "IncidentSourceType",
+                "namespace": "com.linkedin.pegasus2avro.incident",
+                "symbols": [
+                  "MANUAL"
+                ]
+              },
+              "name": "type",
+              "doc": "Message associated with the incident"
+            },
+            {
+              "Searchable": {
+                "fieldType": "URN"
+              },
+              "java": {
+                "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+              },
+              "type": [
+                "null",
+                "string"
+              ],
+              "name": "sourceUrn",
+              "default": null,
+              "doc": "Reference to an URN related to the source of an incident.",
+              "Urn": "Urn"
+            }
+          ],
+          "doc": "Information about the source of an incident raised on an asset."
+        }
+      ],
+      "name": "source",
+      "default": null,
+      "doc": "The source of an incident, i.e. how it was generated."
+    },
+    {
+      "Searchable": {
+        "/time": {
+          "fieldName": "created",
+          "fieldType": "COUNT"
+        }
+      },
+      "type": "com.linkedin.pegasus2avro.common.AuditStamp",
+      "name": "created",
+      "doc": "The time at which the request was initially created"
+    }
+  ],
+  "doc": "Information about an incident raised on an asset."
+}

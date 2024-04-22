@@ -2,7 +2,7 @@
 
 set -ex
 
-PYSPARK_JARS="$(python -m site --user-site)/pyspark/jars"
+PYSPARK_JARS="$(python -c 'import site; print(site.getsitepackages()[0])')/pyspark/jars"
 
 function replace_jar {
   JAR_PREFIX=$1

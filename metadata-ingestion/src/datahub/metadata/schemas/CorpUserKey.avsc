@@ -15,7 +15,9 @@
       "nativeGroupMembership",
       "corpUserSettings",
       "origin",
-      "roleMembership"
+      "roleMembership",
+      "structuredProperties",
+      "forms"
     ],
     "entityDoc": "CorpUser represents an identity of a person (or an account) in the enterprise."
   },

@@ -11,8 +11,8 @@ import com.linkedin.datahub.graphql.generated.DataHubViewDefinitionInput;
 import com.linkedin.datahub.graphql.generated.DataHubViewFilterInput;
 import com.linkedin.datahub.graphql.generated.FacetFilterInput;
 import com.linkedin.datahub.graphql.generated.LogicalOperator;
-import com.linkedin.datahub.graphql.resolvers.EntityTypeMapper;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
+import com.linkedin.datahub.graphql.types.entitytype.EntityTypeMapper;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.CriterionArray;
@@ -80,9 +80,7 @@ public class ViewUtils {
     }
 
     // If the View is Personal, then the current actor must be the owner.
-    return isViewOwner(
-        viewInfo.getCreated().getActor(),
-        UrnUtils.getUrn(context.getAuthentication().getActor().toUrnStr()));
+    return isViewOwner(viewInfo.getCreated().getActor(), UrnUtils.getUrn(context.getActorUrn()));
   }
 
   /**

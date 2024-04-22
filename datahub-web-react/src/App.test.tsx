@@ -1,11 +1,14 @@
 import React from 'react';
-import { act } from 'react-dom/test-utils';
 import { render } from '@testing-library/react';
-import App from './App';
+import { MockedProvider } from '@apollo/client/testing';
+import { InnerApp } from './App';
+import { mocks } from './Mocks';
 
-// eslint-disable-next-line jest/expect-expect
+// eslint-disable-next-line vitest/expect-expect
 test('renders the app', async () => {
-    const promise = Promise.resolve();
-    render(<App />);
-    await act(() => promise);
+    render(
+        <MockedProvider mocks={mocks} addTypename={false}>
+            <InnerApp />
+        </MockedProvider>,
+    );
 });

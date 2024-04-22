@@ -13,7 +13,7 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class RemoveClientIdAspectStep implements BootstrapStep {
 
-  private final EntityService _entityService;
+  private final EntityService<?> _entityService;
 
   private static final String UPGRADE_ID = "remove-unknown-aspects";
   private static final String INVALID_TELEMETRY_ASPECT_NAME = "clientId";
@@ -27,7 +27,7 @@ public class RemoveClientIdAspectStep implements BootstrapStep {
   @Override
   public void execute() throws Exception {
     try {
-      if (_entityService.exists(REMOVE_UNKNOWN_ASPECTS_URN)) {
+      if (_entityService.exists(REMOVE_UNKNOWN_ASPECTS_URN, true)) {
         log.info("Unknown aspects have been removed. Skipping...");
         return;
       }
@@ -37,9 +37,8 @@ public class RemoveClientIdAspectStep implements BootstrapStep {
 
       BootstrapStep.setUpgradeResult(REMOVE_UNKNOWN_ASPECTS_URN, _entityService);
     } catch (Exception e) {
-      log.error("Error when running the RemoveUnknownAspects Bootstrap Step", e);
+      log.warn("Error when running the RemoveUnknownAspects Bootstrap Step");
       _entityService.deleteUrn(REMOVE_UNKNOWN_ASPECTS_URN);
-      throw new RuntimeException("Error when running the RemoveUnknownAspects Bootstrap Step", e);
     }
   }
 

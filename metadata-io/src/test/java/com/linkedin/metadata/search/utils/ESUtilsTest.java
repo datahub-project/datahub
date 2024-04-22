@@ -4,6 +4,7 @@ import com.google.common.collect.ImmutableList;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.Criterion;
+import java.util.HashMap;
 import org.opensearch.index.query.QueryBuilder;
 import org.testng.Assert;
 import org.testng.annotations.Test;
@@ -21,7 +22,8 @@ public class ESUtilsTest {
             .setCondition(Condition.EQUAL)
             .setValues(new StringArray(ImmutableList.of("value1")));
 
-    QueryBuilder result = ESUtils.getQueryBuilderFromCriterion(singleValueCriterion, false);
+    QueryBuilder result =
+        ESUtils.getQueryBuilderFromCriterion(singleValueCriterion, false, new HashMap<>());
     String expected =
         "{\n"
             + "  \"terms\" : {\n"
@@ -40,7 +42,7 @@ public class ESUtilsTest {
             .setCondition(Condition.EQUAL)
             .setValues(new StringArray(ImmutableList.of("value1", "value2")));
 
-    result = ESUtils.getQueryBuilderFromCriterion(multiValueCriterion, false);
+    result = ESUtils.getQueryBuilderFromCriterion(multiValueCriterion, false, new HashMap<>());
     expected =
         "{\n"
             + "  \"terms\" : {\n"
@@ -60,7 +62,7 @@ public class ESUtilsTest {
             .setCondition(Condition.EQUAL)
             .setValues(new StringArray(ImmutableList.of("value1", "value2")));
 
-    result = ESUtils.getQueryBuilderFromCriterion(timeseriesField, true);
+    result = ESUtils.getQueryBuilderFromCriterion(timeseriesField, true, new HashMap<>());
     expected =
         "{\n"
             + "  \"terms\" : {\n"
@@ -80,7 +82,8 @@ public class ESUtilsTest {
     final Criterion singleValueCriterion =
         new Criterion().setField("myTestField").setCondition(Condition.EXISTS);
 
-    QueryBuilder result = ESUtils.getQueryBuilderFromCriterion(singleValueCriterion, false);
+    QueryBuilder result =
+        ESUtils.getQueryBuilderFromCriterion(singleValueCriterion, false, new HashMap<>());
     String expected =
         "{\n"
             + "  \"bool\" : {\n"
@@ -103,7 +106,7 @@ public class ESUtilsTest {
     final Criterion timeseriesField =
         new Criterion().setField("myTestField").setCondition(Condition.EXISTS);
 
-    result = ESUtils.getQueryBuilderFromCriterion(timeseriesField, true);
+    result = ESUtils.getQueryBuilderFromCriterion(timeseriesField, true, new HashMap<>());
     expected =
         "{\n"
             + "  \"bool\" : {\n"
@@ -128,7 +131,8 @@ public class ESUtilsTest {
     final Criterion singleValueCriterion =
         new Criterion().setField("myTestField").setCondition(Condition.IS_NULL);
 
-    QueryBuilder result = ESUtils.getQueryBuilderFromCriterion(singleValueCriterion, false);
+    QueryBuilder result =
+        ESUtils.getQueryBuilderFromCriterion(singleValueCriterion, false, new HashMap<>());
     String expected =
         "{\n"
             + "  \"bool\" : {\n"
@@ -151,7 +155,7 @@ public class ESUtilsTest {
     final Criterion timeseriesField =
         new Criterion().setField("myTestField").setCondition(Condition.IS_NULL);
 
-    result = ESUtils.getQueryBuilderFromCriterion(timeseriesField, true);
+    result = ESUtils.getQueryBuilderFromCriterion(timeseriesField, true, new HashMap<>());
     expected =
         "{\n"
             + "  \"bool\" : {\n"
@@ -182,7 +186,8 @@ public class ESUtilsTest {
             .setValues(new StringArray(ImmutableList.of("value1")));
 
     // Ensure that the query is expanded!
-    QueryBuilder result = ESUtils.getQueryBuilderFromCriterion(singleValueCriterion, false);
+    QueryBuilder result =
+        ESUtils.getQueryBuilderFromCriterion(singleValueCriterion, false, new HashMap<>());
     String expected =
         "{\n"
             + "  \"bool\" : {\n"
@@ -220,7 +225,7 @@ public class ESUtilsTest {
             .setValues(new StringArray(ImmutableList.of("value1", "value2")));
 
     // Ensure that the query is expanded without keyword.
-    result = ESUtils.getQueryBuilderFromCriterion(timeseriesField, true);
+    result = ESUtils.getQueryBuilderFromCriterion(timeseriesField, true, new HashMap<>());
     expected =
         "{\n"
             + "  \"bool\" : {\n"
@@ -248,6 +253,79 @@ public class ESUtilsTest {
             + "    ],\n"
             + "    \"adjust_pure_negative\" : true,\n"
             + "    \"boost\" : 1.0\n"
+            + "  }\n"
+            + "}";
+    Assert.assertEquals(result.toString(), expected);
+  }
+
+  @Test
+  public void testGetQueryBuilderFromStructPropEqualsValue() {
+
+    final Criterion singleValueCriterion =
+        new Criterion()
+            .setField("structuredProperties.ab.fgh.ten")
+            .setCondition(Condition.EQUAL)
+            .setValues(new StringArray(ImmutableList.of("value1")));
+
+    QueryBuilder result =
+        ESUtils.getQueryBuilderFromCriterion(singleValueCriterion, false, new HashMap<>());
+    String expected =
+        "{\n"
+            + "  \"terms\" : {\n"
+            + "    \"structuredProperties.ab_fgh_ten\" : [\n"
+            + "      \"value1\"\n"
+            + "    ],\n"
+            + "    \"boost\" : 1.0,\n"
+            + "    \"_name\" : \"structuredProperties.ab_fgh_ten\"\n"
+            + "  }\n"
+            + "}";
+    Assert.assertEquals(result.toString(), expected);
+  }
+
+  @Test
+  public void testGetQueryBuilderFromStructPropExists() {
+    final Criterion singleValueCriterion =
+        new Criterion().setField("structuredProperties.ab.fgh.ten").setCondition(Condition.EXISTS);
+
+    QueryBuilder result =
+        ESUtils.getQueryBuilderFromCriterion(singleValueCriterion, false, new HashMap<>());
+    String expected =
+        "{\n"
+            + "  \"bool\" : {\n"
+            + "    \"must\" : [\n"
+            + "      {\n"
+            + "        \"exists\" : {\n"
+            + "          \"field\" : \"structuredProperties.ab_fgh_ten\",\n"
+            + "          \"boost\" : 1.0\n"
+            + "        }\n"
+            + "      }\n"
+            + "    ],\n"
+            + "    \"adjust_pure_negative\" : true,\n"
+            + "    \"boost\" : 1.0,\n"
+            + "    \"_name\" : \"structuredProperties.ab_fgh_ten\"\n"
+            + "  }\n"
+            + "}";
+    Assert.assertEquals(result.toString(), expected);
+
+    // No diff in the timeseries field case for this condition.
+    final Criterion timeseriesField =
+        new Criterion().setField("myTestField").setCondition(Condition.EXISTS);
+
+    result = ESUtils.getQueryBuilderFromCriterion(timeseriesField, true, new HashMap<>());
+    expected =
+        "{\n"
+            + "  \"bool\" : {\n"
+            + "    \"must\" : [\n"
+            + "      {\n"
+            + "        \"exists\" : {\n"
+            + "          \"field\" : \"myTestField\",\n"
+            + "          \"boost\" : 1.0\n"
+            + "        }\n"
+            + "      }\n"
+            + "    ],\n"
+            + "    \"adjust_pure_negative\" : true,\n"
+            + "    \"boost\" : 1.0,\n"
+            + "    \"_name\" : \"myTestField\"\n"
             + "  }\n"
             + "}";
     Assert.assertEquals(result.toString(), expected);

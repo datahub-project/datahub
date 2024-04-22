@@ -12,6 +12,7 @@
     {
       "Searchable": {
         "/*": {
+          "fieldType": "TEXT",
           "queryByDefault": true
         }
       },

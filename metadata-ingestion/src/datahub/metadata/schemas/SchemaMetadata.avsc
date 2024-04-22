@@ -691,6 +691,19 @@
                               ]
                             },
                             {
+                              "java": {
+                                "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+                              },
+                              "type": [
+                                "null",
+                                "string"
+                              ],
+                              "name": "actor",
+                              "default": null,
+                              "doc": "The user URN which will be credited for adding associating this term to the entity",
+                              "Urn": "Urn"
+                            },
+                            {
                               "type": [
                                 "null",
                                 "string"

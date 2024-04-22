@@ -11,7 +11,9 @@
       "domains",
       "dataProductProperties",
       "institutionalMemory",
-      "status"
+      "status",
+      "structuredProperties",
+      "forms"
     ]
   },
   "name": "DataProductKey",

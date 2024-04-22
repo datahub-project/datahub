@@ -38,7 +38,8 @@ public class CreateInviteTokenResolver implements DataFetcher<CompletableFuture<
         () -> {
           try {
             return new InviteToken(
-                _inviteTokenService.getInviteToken(roleUrnStr, true, authentication));
+                _inviteTokenService.getInviteToken(
+                    context.getOperationContext(), roleUrnStr, true));
           } catch (Exception e) {
             throw new RuntimeException(
                 String.format("Failed to create invite token for role %s", roleUrnStr), e);

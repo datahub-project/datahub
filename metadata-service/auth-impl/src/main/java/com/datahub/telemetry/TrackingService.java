@@ -13,11 +13,11 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.metadata.secret.SecretService;
 import com.linkedin.metadata.version.GitVersion;
 import com.linkedin.telemetry.TelemetryClientId;
 import com.mixpanel.mixpanelapi.MessageBuilder;
 import com.mixpanel.mixpanelapi.MixpanelAPI;
+import io.datahubproject.metadata.services.SecretService;
 import java.io.IOException;
 import java.util.HashSet;
 import java.util.Set;
@@ -146,7 +146,7 @@ public class TrackingService {
 
     Urn clientIdUrn = UrnUtils.getUrn(CLIENT_ID_URN);
     // Create a new client id if it doesn't exist
-    if (!_entityService.exists(clientIdUrn)) {
+    if (!_entityService.exists(clientIdUrn, true)) {
       return createClientIdIfNotPresent(_entityService);
     }
 

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Pagination, Typography } from 'antd';
+import { Button, Pagination, Spin, Typography } from 'antd';
 import { LoadingOutlined } from '@ant-design/icons';
 import styled from 'styled-components';
 import { FacetFilterInput, FacetMetadata, SearchResults as SearchResultType } from '../../../../../../types.generated';
@@ -61,10 +61,24 @@ const LoadingContainer = styled.div`
 `;
 
 const StyledLoading = styled(LoadingOutlined)`
-    font-size: 36px;
+    font-size: 32px;
     color: ${ANTD_GRAY[7]};
     padding-bottom: 18px;
 ]`;
+
+const ErrorMessage = styled.div`
+    padding-top: 70px;
+    font-size: 16px;
+    padding-bottom: 40px;
+    width: 100%;
+    text-align: center;
+    flex: 1;
+`;
+
+const StyledLinkButton = styled(Button)`
+    margin: 0 -14px;
+    font-size: 16px;
+`;
 
 interface Props {
     page: number;
@@ -82,8 +96,13 @@ interface Props {
     setSelectedEntities: (entities: EntityAndType[]) => any;
     numResultsPerPage: number;
     setNumResultsPerPage: (numResults: number) => void;
+    singleSelect?: boolean;
     entityAction?: React.FC<EntityActionProps>;
     applyView?: boolean;
+    isServerOverloadError?: any;
+    onClickLessHops?: () => void;
+    onLineageClick?: () => void;
+    isLineageTab?: boolean;
 }
 
 export const EmbeddedListSearchResults = ({
@@ -102,8 +121,13 @@ export const EmbeddedListSearchResults = ({
     setSelectedEntities,
     numResultsPerPage,
     setNumResultsPerPage,
+    singleSelect,
     entityAction,
     applyView,
+    isServerOverloadError,
+    onClickLessHops,
+    onLineageClick,
+    isLineageTab = false,
 }: Props) => {
     const pageStart = searchResponse?.start || 0;
     const pageSize = searchResponse?.count || 0;
@@ -128,10 +152,22 @@ export const EmbeddedListSearchResults = ({
                 <ResultContainer>
                     {loading && (
                         <LoadingContainer>
-                            <StyledLoading />
+                            <Spin indicator={<StyledLoading />} />
                         </LoadingContainer>
                     )}
-                    {!loading && (
+                    {isLineageTab && !loading && isServerOverloadError && (
+                        <ErrorMessage>
+                            Data is too large. Please use
+                            <StyledLinkButton onClick={onLineageClick} type="link">
+                                visualize lineage
+                            </StyledLinkButton>
+                            or see less hops by clicking
+                            <StyledLinkButton onClick={onClickLessHops} type="link">
+                                here
+                            </StyledLinkButton>
+                        </ErrorMessage>
+                    )}
+                    {!loading && !isServerOverloadError && (
                         <EntitySearchResults
                             searchResults={searchResponse?.searchResults || []}
                             additionalPropertiesList={
@@ -147,6 +183,7 @@ export const EmbeddedListSearchResults = ({
                             selectedEntities={selectedEntities}
                             setSelectedEntities={setSelectedEntities}
                             bordered={false}
+                            singleSelect={singleSelect}
                             entityAction={entityAction}
                         />
                     )}

@@ -99,8 +99,20 @@ class ConfigModel(BaseModel):
 
     @classmethod
     def parse_obj_allow_extras(cls: Type[_ConfigSelf], obj: Any) -> _ConfigSelf:
-        with unittest.mock.patch.object(cls.Config, "extra", pydantic.Extra.allow):
-            return cls.parse_obj(obj)
+        if PYDANTIC_VERSION_2:
+            try:
+                with unittest.mock.patch.dict(
+                    cls.model_config,  # type: ignore
+                    {"extra": "allow"},
+                    clear=False,
+                ):
+                    cls.model_rebuild(force=True)  # type: ignore
+                    return cls.parse_obj(obj)
+            finally:
+                cls.model_rebuild(force=True)  # type: ignore
+        else:
+            with unittest.mock.patch.object(cls.Config, "extra", pydantic.Extra.allow):
+                return cls.parse_obj(obj)
 
 
 class PermissiveConfigModel(ConfigModel):
@@ -290,15 +302,3 @@ class KeyValuePattern(ConfigModel):
 
 class VersionedConfig(ConfigModel):
     version: str = "1"
-
-
-class LineageConfig(ConfigModel):
-    incremental_lineage: bool = Field(
-        default=False,
-        description="When enabled, emits lineage as incremental to existing lineage already in DataHub. When disabled, re-states lineage on each run.",
-    )
-
-    sql_parser_use_external_process: bool = Field(
-        default=False,
-        description="When enabled, sql parser will run in isolated in a separate process. This can affect processing time but can protect from sql parser's mem leak.",
-    )

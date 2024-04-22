@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { UserOutlined } from '@ant-design/icons';
 import { Select } from 'antd';
 import { useApolloClient } from '@apollo/client';
@@ -48,6 +48,10 @@ export default function SelectRole({ user, userRoleUrn, selectRoleOptions, refet
     const defaultRoleUrn = userRoleUrn || NO_ROLE_URN;
     const [currentRoleUrn, setCurrentRoleUrn] = useState<string>(defaultRoleUrn);
     const [isViewingAssignRole, setIsViewingAssignRole] = useState(false);
+
+    useEffect(() => {
+        setCurrentRoleUrn(defaultRoleUrn);
+    }, [defaultRoleUrn]);
 
     const onSelectRole = (roleUrn: string) => {
         setCurrentRoleUrn(roleUrn);

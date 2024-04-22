@@ -136,8 +136,11 @@ public class TestSparkJobsLineage {
         .respond(HttpResponse.response().withStatusCode(200));
   }
 
+  @BeforeClass
   public static void init() {
-    mockServer = startClientAndServer(GMS_PORT);
+    if (mockServer == null) {
+      mockServer = startClientAndServer(GMS_PORT);
+    }
     resetBaseExpectations();
   }
 
@@ -191,6 +194,9 @@ public class TestSparkJobsLineage {
             .config("spark.datahub.metadata.dataset.platformInstance", DATASET_PLATFORM_INSTANCE)
             .config("spark.datahub.metadata.dataset.env", DATASET_ENV.name())
             .config("spark.sql.warehouse.dir", new File(WAREHOUSE_LOC).getAbsolutePath())
+            .config(
+                "javax.jdo.option.ConnectionURL",
+                "jdbc:derby:;databaseName=build/tmp/metastore_db_spark;create=true")
             .enableHiveSupport()
             .getOrCreate();
 
@@ -216,8 +222,12 @@ public class TestSparkJobsLineage {
 
   @AfterClass
   public static void tearDown() throws Exception {
-    spark.stop();
-    mockServer.stop();
+    if (spark != null) {
+      spark.stop();
+    }
+    if (mockServer != null) {
+      mockServer.stop();
+    }
   }
 
   private static void check(List<DatasetLineage> expected, List<DatasetLineage> actual) {

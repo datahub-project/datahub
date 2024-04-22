@@ -38,6 +38,7 @@ query getMe {
             generatePersonalAccessTokens
             manageIngestion
             manageSecrets
+            manageTokens
             manageDomains
             manageTests
             manageGlossaries

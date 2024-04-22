@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.domain;
 
 import static com.linkedin.datahub.graphql.TestUtils.*;
+import static org.mockito.ArgumentMatchers.any;
 import static org.testng.Assert.*;
 
 import com.datahub.authentication.Authentication;
@@ -31,12 +32,12 @@ public class DeleteDomainResolverTest {
     // Domain has 0 child domains
     Mockito.when(
             mockClient.filter(
+                any(),
                 Mockito.eq("domain"),
                 Mockito.any(),
                 Mockito.any(),
                 Mockito.eq(0),
-                Mockito.eq(1),
-                Mockito.any()))
+                Mockito.eq(1)))
         .thenReturn(new SearchResult().setNumEntities(0));
 
     assertTrue(resolver.get(mockEnv).get());
@@ -60,12 +61,12 @@ public class DeleteDomainResolverTest {
     // Domain has child domains
     Mockito.when(
             mockClient.filter(
+                any(),
                 Mockito.eq("domain"),
                 Mockito.any(),
                 Mockito.any(),
                 Mockito.eq(0),
-                Mockito.eq(1),
-                Mockito.any()))
+                Mockito.eq(1)))
         .thenReturn(new SearchResult().setNumEntities(1));
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());

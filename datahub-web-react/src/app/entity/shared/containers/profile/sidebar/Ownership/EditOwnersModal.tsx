@@ -20,6 +20,7 @@ import { useGetRecommendations } from '../../../../../../shared/recommendation';
 import { OwnerLabel } from '../../../../../../shared/OwnerLabel';
 import { handleBatchError } from '../../../../utils';
 import { useListOwnershipTypesQuery } from '../../../../../../../graphql/ownership.generated';
+import { getModalDomContainer } from '../../../../../../../utils/focus';
 
 const SelectInput = styled(Select)`
     width: 480px;
@@ -348,6 +349,7 @@ export const EditOwnersModal = ({
                     </Button>
                 </>
             }
+            getContainer={getModalDomContainer}
         >
             <Form layout="vertical" colon={false}>
                 <Form.Item key="owners" name="owners" label={<Typography.Text strong>Owner</Typography.Text>}>

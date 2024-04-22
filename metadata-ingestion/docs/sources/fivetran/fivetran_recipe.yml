@@ -4,7 +4,8 @@ source:
     # Fivetran log connector destination server configurations
     fivetran_log_config:
       destination_platform: snowflake
-      destination_config:
+      # Optional - If destination platform is 'snowflake', provide snowflake configuration.
+      snowflake_destination_config:
         # Coordinates
         account_id: "abc48144"
         warehouse: "COMPUTE_WH"
@@ -15,6 +16,16 @@ source:
         username: "${SNOWFLAKE_USER}"
         password: "${SNOWFLAKE_PASS}"
         role: "snowflake_role"
+      # Optional - If destination platform is 'bigquery', provide bigquery configuration.
+      bigquery_destination_config:
+        # Credentials
+        credential:
+          private_key_id: "project_key_id"
+          project_id: "project_id"
+          client_email: "client_email"
+          client_id: "client_id"
+          private_key: "private_key"
+        dataset: "fivetran_log_dataset"	
 
     # Optional - filter for certain connector names instead of ingesting everything.
     # connector_patterns:

@@ -107,6 +107,14 @@ class BigqueryView(BaseView):
 
 
 @dataclass
+class BigqueryTableSnapshot(BaseTable):
+    # Upstream table identifier
+    base_table_identifier: Optional[BigqueryTableIdentifier] = None
+    snapshot_time: Optional[datetime] = None
+    columns: List[BigqueryColumn] = field(default_factory=list)
+
+
+@dataclass
 class BigqueryDataset:
     name: str
     labels: Optional[Dict[str, str]] = None
@@ -116,6 +124,7 @@ class BigqueryDataset:
     comment: Optional[str] = None
     tables: List[BigqueryTable] = field(default_factory=list)
     views: List[BigqueryView] = field(default_factory=list)
+    snapshots: List[BigqueryTableSnapshot] = field(default_factory=list)
     columns: List[BigqueryColumn] = field(default_factory=list)
 
 
@@ -289,10 +298,11 @@ class BigQuerySchemaApi:
         project_id: str,
         dataset_name: str,
         has_data_read: bool,
-        report: Optional[BigQueryV2Report] = None,
+        report: BigQueryV2Report,
     ) -> Iterator[BigqueryView]:
         with self.report.get_views_for_dataset as current_timer:
             if has_data_read:
+                # If profiling is enabled
                 cur = self.get_query_result(
                     BigqueryQuery.views_for_dataset.format(
                         project_id=project_id, dataset_name=dataset_name
@@ -315,11 +325,10 @@ class BigQuerySchemaApi:
                         f"Error while processing view {view_name}",
                         exc_info=True,
                     )
-                    if report:
-                        report.report_warning(
-                            "metadata-extraction",
-                            f"Failed to get view {view_name}: {e}",
-                        )
+                    report.report_warning(
+                        "metadata-extraction",
+                        f"Failed to get view {view_name}: {e}",
+                    )
 
     @staticmethod
     def _make_bigquery_view(view: bigquery.Row) -> BigqueryView:
@@ -334,6 +343,8 @@ class BigQuerySchemaApi:
             comment=view.comment,
             view_definition=view.view_definition,
             materialized=view.table_type == BigqueryTableType.MATERIALIZED_VIEW,
+            size_in_bytes=view.get("size_bytes"),
+            rows_count=view.get("row_count"),
         )
 
     def get_columns_for_dataset(
@@ -429,3 +440,62 @@ class BigQuerySchemaApi:
             last_seen_table = column.table_name
 
         return columns
+
+    def get_snapshots_for_dataset(
+        self,
+        project_id: str,
+        dataset_name: str,
+        has_data_read: bool,
+        report: BigQueryV2Report,
+    ) -> Iterator[BigqueryTableSnapshot]:
+        with self.report.get_snapshots_for_dataset as current_timer:
+            if has_data_read:
+                # If profiling is enabled
+                cur = self.get_query_result(
+                    BigqueryQuery.snapshots_for_dataset.format(
+                        project_id=project_id, dataset_name=dataset_name
+                    ),
+                )
+            else:
+                cur = self.get_query_result(
+                    BigqueryQuery.snapshots_for_dataset_without_data_read.format(
+                        project_id=project_id, dataset_name=dataset_name
+                    ),
+                )
+
+            for table in cur:
+                try:
+                    with current_timer.pause():
+                        yield BigQuerySchemaApi._make_bigquery_table_snapshot(table)
+                except Exception as e:
+                    snapshot_name = f"{project_id}.{dataset_name}.{table.table_name}"
+                    logger.warning(
+                        f"Error while processing view {snapshot_name}",
+                        exc_info=True,
+                    )
+                    report.report_warning(
+                        "metadata-extraction",
+                        f"Failed to get view {snapshot_name}: {e}",
+                    )
+
+    @staticmethod
+    def _make_bigquery_table_snapshot(snapshot: bigquery.Row) -> BigqueryTableSnapshot:
+        return BigqueryTableSnapshot(
+            name=snapshot.table_name,
+            created=snapshot.created,
+            last_altered=datetime.fromtimestamp(
+                snapshot.get("last_altered") / 1000, tz=timezone.utc
+            )
+            if snapshot.get("last_altered") is not None
+            else snapshot.created,
+            comment=snapshot.comment,
+            ddl=snapshot.ddl,
+            snapshot_time=snapshot.snapshot_time,
+            size_in_bytes=snapshot.get("size_bytes"),
+            rows_count=snapshot.get("row_count"),
+            base_table_identifier=BigqueryTableIdentifier(
+                project_id=snapshot.base_table_catalog,
+                dataset=snapshot.base_table_schema,
+                table=snapshot.base_table_name,
+            ),
+        )

@@ -15,7 +15,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "tableau-test"
+        "runId": "tableau-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -30,7 +31,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "tableau-test"
+        "runId": "tableau-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -45,7 +47,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "tableau-test"
+        "runId": "tableau-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -62,7 +65,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "tableau-test"
+        "runId": "tableau-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -77,7 +81,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "tableau-test"
+        "runId": "tableau-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -97,7 +102,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "tableau-test"
+        "runId": "tableau-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -116,7 +122,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "tableau-test"
+        "runId": "tableau-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -131,7 +138,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "tableau-test"
+        "runId": "tableau-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -146,7 +154,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "tableau-test"
+        "runId": "tableau-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -163,7 +172,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "tableau-test"
+        "runId": "tableau-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -178,7 +188,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "tableau-test"
+        "runId": "tableau-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -199,7 +210,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "tableau-test"
+        "runId": "tableau-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -214,7 +226,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "tableau-test"
+        "runId": "tableau-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -229,7 +242,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "tableau-test"
+        "runId": "tableau-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -246,7 +260,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "tableau-test"
+        "runId": "tableau-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -262,6 +277,7 @@
                     "type": "DATAOWNER"
                 }
             ],
+            "ownerTypes": {},
             "lastModified": {
                 "time": 0,
                 "actor": "urn:li:corpuser:unknown"
@@ -270,7 +286,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "tableau-test"
+        "runId": "tableau-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -285,7 +302,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "tableau-test"
+        "runId": "tableau-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -309,7 +327,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "tableau-test"
+        "runId": "tableau-test",
+        "lastRunId": "no-run-id-provided"
     }
 }
 ]

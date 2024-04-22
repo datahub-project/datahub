@@ -416,19 +416,19 @@ class PulsarSource(StatefulIngestionSourceBase):
         # TODO Add topic properties (Pulsar 2.10.0 feature)
         # 3. Construct and emit dataset properties aspect
         if schema is not None:
+            # Add some static properties to the schema properties
             schema_properties = {
+                **schema.properties,
                 "schema_version": str(schema.schema_version),
                 "schema_type": schema.schema_type,
                 "partitioned": str(partitioned).lower(),
             }
-            # Add some static properties to the schema properties
-            schema.properties.update(schema_properties)
 
             yield MetadataChangeProposalWrapper(
                 entityUrn=dataset_urn,
                 aspect=DatasetPropertiesClass(
                     description=schema.schema_description,
-                    customProperties=schema.properties,
+                    customProperties=schema_properties,
                 ),
             ).as_workunit()
 

@@ -7,6 +7,21 @@
   "namespace": "com.linkedin.pegasus2avro.glossary",
   "fields": [
     {
+      "Searchable": {
+        "/*": {
+          "fieldType": "TEXT",
+          "queryByDefault": true
+        }
+      },
+      "type": {
+        "type": "map",
+        "values": "string"
+      },
+      "name": "customProperties",
+      "default": {},
+      "doc": "Custom property bag."
+    },
+    {
       "Searchable": {},
       "type": "string",
       "name": "definition",

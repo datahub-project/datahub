@@ -13,6 +13,198 @@
           "null",
           {
             "type": "record",
+            "name": "SsoSettings",
+            "namespace": "com.linkedin.pegasus2avro.settings.global",
+            "fields": [
+              {
+                "type": "string",
+                "name": "baseUrl",
+                "doc": "Auth base URL."
+              },
+              {
+                "type": [
+                  "null",
+                  {
+                    "type": "record",
+                    "name": "OidcSettings",
+                    "namespace": "com.linkedin.pegasus2avro.settings.global",
+                    "fields": [
+                      {
+                        "type": "boolean",
+                        "name": "enabled",
+                        "doc": "Whether OIDC SSO is enabled."
+                      },
+                      {
+                        "type": "string",
+                        "name": "clientId",
+                        "doc": "Unique client id issued by the identity provider."
+                      },
+                      {
+                        "type": "string",
+                        "name": "clientSecret",
+                        "doc": "Unique client secret issued by the identity provider."
+                      },
+                      {
+                        "type": "string",
+                        "name": "discoveryUri",
+                        "doc": "The IdP OIDC discovery url."
+                      },
+                      {
+                        "type": [
+                          "null",
+                          "string"
+                        ],
+                        "name": "userNameClaim",
+                        "default": null,
+                        "doc": "ADVANCED. The attribute / claim used to derive the DataHub username. Defaults to \"preferred_username\"."
+                      },
+                      {
+                        "type": [
+                          "null",
+                          "string"
+                        ],
+                        "name": "userNameClaimRegex",
+                        "default": null,
+                        "doc": "ADVANCED. TThe regex used to parse the DataHub username from the user name claim. Defaults to (.*) (all)."
+                      },
+                      {
+                        "type": [
+                          "null",
+                          "string"
+                        ],
+                        "name": "scope",
+                        "default": null,
+                        "doc": "ADVANCED. String representing the requested scope from the IdP. Defaults to \"oidc email profile\"."
+                      },
+                      {
+                        "type": [
+                          "null",
+                          "string"
+                        ],
+                        "name": "clientAuthenticationMethod",
+                        "default": null,
+                        "doc": "ADVANCED. Which authentication method to use to pass credentials (clientId and clientSecret) to the token endpoint: Defaults to \"client_secret_basic\"."
+                      },
+                      {
+                        "type": [
+                          "null",
+                          "boolean"
+                        ],
+                        "name": "jitProvisioningEnabled",
+                        "default": null,
+                        "doc": "ADVANCED. Whether DataHub users should be provisioned on login if they do not exist. Defaults to true."
+                      },
+                      {
+                        "type": [
+                          "null",
+                          "boolean"
+                        ],
+                        "name": "preProvisioningRequired",
+                        "default": null,
+                        "doc": "ADVANCED. Whether the user should already exist in DataHub on login, failing login if they are not. Defaults to false."
+                      },
+                      {
+                        "type": [
+                          "null",
+                          "boolean"
+                        ],
+                        "name": "extractGroupsEnabled",
+                        "default": null,
+                        "doc": "ADVANCED. Whether groups should be extracted from a claim in the OIDC profile. Only applies if JIT provisioning is enabled. Groups will be created if they do not exist. Defaults to true."
+                      },
+                      {
+                        "type": [
+                          "null",
+                          "string"
+                        ],
+                        "name": "groupsClaim",
+                        "default": null,
+                        "doc": "ADVANCED. The OIDC claim to extract groups information from. Defaults to 'groups'."
+                      },
+                      {
+                        "type": [
+                          "null",
+                          "string"
+                        ],
+                        "name": "responseType",
+                        "default": null,
+                        "doc": "ADVANCED. Response type."
+                      },
+                      {
+                        "type": [
+                          "null",
+                          "string"
+                        ],
+                        "name": "responseMode",
+                        "default": null,
+                        "doc": "ADVANCED. Response mode."
+                      },
+                      {
+                        "type": [
+                          "null",
+                          "boolean"
+                        ],
+                        "name": "useNonce",
+                        "default": null,
+                        "doc": "ADVANCED. Use Nonce."
+                      },
+                      {
+                        "type": [
+                          "null",
+                          "long"
+                        ],
+                        "name": "readTimeout",
+                        "default": null,
+                        "doc": "ADVANCED. Read timeout."
+                      },
+                      {
+                        "type": [
+                          "null",
+                          "boolean"
+                        ],
+                        "name": "extractJwtAccessTokenClaims",
+                        "default": null,
+                        "doc": "ADVANCED. Whether to extract claims from JWT access token.  Defaults to false."
+                      },
+                      {
+                        "type": [
+                          "null",
+                          "string"
+                        ],
+                        "name": "preferredJwsAlgorithm",
+                        "default": null,
+                        "doc": " ADVANCED. Which jws algorithm to use. Unused."
+                      },
+                      {
+                        "type": [
+                          "null",
+                          "string"
+                        ],
+                        "name": "preferredJwsAlgorithm2",
+                        "default": null,
+                        "doc": " ADVANCED. Which jws algorithm to use."
+                      }
+                    ],
+                    "doc": "Settings for OIDC SSO integration."
+                  }
+                ],
+                "name": "oidcSettings",
+                "default": null,
+                "doc": "Optional OIDC SSO settings."
+              }
+            ],
+            "doc": "SSO Integrations, supported on the UI."
+          }
+        ],
+        "name": "sso",
+        "default": null,
+        "doc": "SSO integrations between DataHub and identity providers"
+      },
+      {
+        "type": [
+          "null",
+          {
+            "type": "record",
             "name": "GlobalViewsSettings",
             "namespace": "com.linkedin.pegasus2avro.settings.global",
             "fields": [
@@ -39,6 +231,334 @@
       }
     ],
     "doc": "DataHub Global platform settings. Careful - these should not be modified by the outside world!"
+  },
+  {
+    "type": "record",
+    "Aspect": {
+      "name": "formInfo"
+    },
+    "name": "FormInfo",
+    "namespace": "com.linkedin.pegasus2avro.form",
+    "fields": [
+      {
+        "Searchable": {
+          "fieldType": "TEXT_PARTIAL"
+        },
+        "type": "string",
+        "name": "name",
+        "doc": "Display name of the form"
+      },
+      {
+        "type": [
+          "null",
+          "string"
+        ],
+        "name": "description",
+        "default": null,
+        "doc": "Description of the form"
+      },
+      {
+        "Searchable": {
+          "fieldType": "KEYWORD"
+        },
+        "type": {
+          "type": "enum",
+          "symbolDocs": {
+            "COMPLETION": "A form simply used for collecting metadata fields for an entity.",
+            "VERIFICATION": "This form is used for \"verifying\" that entities comply with a policy via presence of a specific set of metadata fields."
+          },
+          "name": "FormType",
+          "namespace": "com.linkedin.pegasus2avro.form",
+          "symbols": [
+            "COMPLETION",
+            "VERIFICATION"
+          ]
+        },
+        "name": "type",
+        "default": "COMPLETION",
+        "doc": "The type of this form"
+      },
+      {
+        "type": {
+          "type": "array",
+          "items": {
+            "type": "record",
+            "name": "FormPrompt",
+            "namespace": "com.linkedin.pegasus2avro.form",
+            "fields": [
+              {
+                "type": "string",
+                "name": "id",
+                "doc": "The unique id for this prompt. This must be GLOBALLY unique."
+              },
+              {
+                "type": "string",
+                "name": "title",
+                "doc": "The title of this prompt"
+              },
+              {
+                "type": [
+                  "null",
+                  "string"
+                ],
+                "name": "description",
+                "default": null,
+                "doc": "The description of this prompt"
+              },
+              {
+                "type": {
+                  "type": "enum",
+                  "symbolDocs": {
+                    "FIELDS_STRUCTURED_PROPERTY": "This prompt is meant to apply a structured property to a schema fields entity",
+                    "STRUCTURED_PROPERTY": "This prompt is meant to apply a structured property to an entity"
+                  },
+                  "name": "FormPromptType",
+                  "namespace": "com.linkedin.pegasus2avro.form",
+                  "symbols": [
+                    "STRUCTURED_PROPERTY",
+                    "FIELDS_STRUCTURED_PROPERTY"
+                  ]
+                },
+                "name": "type",
+                "doc": "The type of prompt"
+              },
+              {
+                "type": [
+                  "null",
+                  {
+                    "type": "record",
+                    "name": "StructuredPropertyParams",
+                    "namespace": "com.linkedin.pegasus2avro.form",
+                    "fields": [
+                      {
+                        "java": {
+                          "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+                        },
+                        "Urn": "Urn",
+                        "type": "string",
+                        "name": "urn",
+                        "doc": "The structured property that is required on this entity"
+                      }
+                    ]
+                  }
+                ],
+                "name": "structuredPropertyParams",
+                "default": null,
+                "doc": "An optional set of information specific to structured properties prompts.\nThis should be filled out if the prompt is type STRUCTURED_PROPERTY or FIELDS_STRUCTURED_PROPERTY."
+              },
+              {
+                "type": "boolean",
+                "name": "required",
+                "default": false,
+                "doc": "Whether the prompt is required to be completed, in order for the form to be marked as complete."
+              }
+            ],
+            "doc": "A prompt to present to the user to encourage filling out metadata"
+          }
+        },
+        "name": "prompts",
+        "default": [],
+        "doc": "List of prompts to present to the user to encourage filling out metadata"
+      },
+      {
+        "type": {
+          "type": "record",
+          "name": "FormActorAssignment",
+          "namespace": "com.linkedin.pegasus2avro.form",
+          "fields": [
+            {
+              "Searchable": {
+                "fieldName": "isOwnershipForm",
+                "fieldType": "BOOLEAN"
+              },
+              "type": "boolean",
+              "name": "owners",
+              "default": true,
+              "doc": "Whether the form should be assigned to the owners of assets that it is applied to.\nThis is the default."
+            },
+            {
+              "Searchable": {
+                "/*": {
+                  "fieldName": "assignedGroups",
+                  "fieldType": "URN"
+                }
+              },
+              "Urn": "Urn",
+              "urn_is_array": true,
+              "type": [
+                "null",
+                {
+                  "type": "array",
+                  "items": "string"
+                }
+              ],
+              "name": "groups",
+              "default": null,
+              "doc": "Optional: Specific set of groups that are targeted by this form assignment."
+            },
+            {
+              "Searchable": {
+                "/*": {
+                  "fieldName": "assignedUsers",
+                  "fieldType": "URN"
+                }
+              },
+              "Urn": "Urn",
+              "urn_is_array": true,
+              "type": [
+                "null",
+                {
+                  "type": "array",
+                  "items": "string"
+                }
+              ],
+              "name": "users",
+              "default": null,
+              "doc": "Optional: Specific set of users that are targeted by this form assignment."
+            }
+          ]
+        },
+        "name": "actors",
+        "default": {
+          "groups": null,
+          "owners": true,
+          "users": null
+        },
+        "doc": "Who the form is assigned to, e.g. who should see the form when visiting the entity page or governance center"
+      }
+    ],
+    "doc": "Information about a form to help with filling out metadata on entities."
+  },
+  {
+    "type": "record",
+    "Aspect": {
+      "name": "dynamicFormAssignment"
+    },
+    "name": "DynamicFormAssignment",
+    "namespace": "com.linkedin.pegasus2avro.form",
+    "fields": [
+      {
+        "type": {
+          "type": "record",
+          "name": "Filter",
+          "namespace": "com.linkedin.pegasus2avro.metadata.query.filter",
+          "fields": [
+            {
+              "type": [
+                "null",
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "record",
+                    "name": "ConjunctiveCriterion",
+                    "namespace": "com.linkedin.pegasus2avro.metadata.query.filter",
+                    "fields": [
+                      {
+                        "type": {
+                          "type": "array",
+                          "items": {
+                            "type": "record",
+                            "name": "Criterion",
+                            "namespace": "com.linkedin.pegasus2avro.metadata.query.filter",
+                            "fields": [
+                              {
+                                "type": "string",
+                                "name": "field",
+                                "doc": "The name of the field that the criterion refers to"
+                              },
+                              {
+                                "type": "string",
+                                "name": "value",
+                                "doc": "The value of the intended field"
+                              },
+                              {
+                                "type": {
+                                  "type": "array",
+                                  "items": "string"
+                                },
+                                "name": "values",
+                                "default": [],
+                                "doc": "Values. one of which the intended field should match\nNote, if values is set, the above \"value\" field will be ignored"
+                              },
+                              {
+                                "type": {
+                                  "type": "enum",
+                                  "symbolDocs": {
+                                    "CONTAIN": "Represent the relation: String field contains value, e.g. name contains Profile",
+                                    "END_WITH": "Represent the relation: String field ends with value, e.g. name ends with Event",
+                                    "EQUAL": "Represent the relation: field = value, e.g. platform = hdfs",
+                                    "EXISTS": "Represents the relation: field exists and is non-empty, e.g. owners is not null and != [] (empty)",
+                                    "GREATER_THAN": "Represent the relation greater than, e.g. ownerCount > 5",
+                                    "GREATER_THAN_OR_EQUAL_TO": "Represent the relation greater than or equal to, e.g. ownerCount >= 5",
+                                    "IN": "Represent the relation: String field is one of the array values to, e.g. name in [\"Profile\", \"Event\"]",
+                                    "IS_NULL": "Represent the relation: field is null, e.g. platform is null",
+                                    "LESS_THAN": "Represent the relation less than, e.g. ownerCount < 3",
+                                    "LESS_THAN_OR_EQUAL_TO": "Represent the relation less than or equal to, e.g. ownerCount <= 3",
+                                    "START_WITH": "Represent the relation: String field starts with value, e.g. name starts with PageView"
+                                  },
+                                  "name": "Condition",
+                                  "namespace": "com.linkedin.pegasus2avro.metadata.query.filter",
+                                  "symbols": [
+                                    "CONTAIN",
+                                    "END_WITH",
+                                    "EQUAL",
+                                    "IS_NULL",
+                                    "EXISTS",
+                                    "GREATER_THAN",
+                                    "GREATER_THAN_OR_EQUAL_TO",
+                                    "IN",
+                                    "LESS_THAN",
+                                    "LESS_THAN_OR_EQUAL_TO",
+                                    "START_WITH"
+                                  ],
+                                  "doc": "The matching condition in a filter criterion"
+                                },
+                                "name": "condition",
+                                "default": "EQUAL",
+                                "doc": "The condition for the criterion, e.g. EQUAL, START_WITH"
+                              },
+                              {
+                                "type": "boolean",
+                                "name": "negated",
+                                "default": false,
+                                "doc": "Whether the condition should be negated"
+                              }
+                            ],
+                            "doc": "A criterion for matching a field with given value"
+                          }
+                        },
+                        "name": "and",
+                        "doc": "A list of and criteria the filter applies to the query"
+                      }
+                    ],
+                    "doc": "A list of criterion and'd together."
+                  }
+                }
+              ],
+              "name": "or",
+              "default": null,
+              "doc": "A list of disjunctive criterion for the filter. (or operation to combine filters)"
+            },
+            {
+              "type": [
+                "null",
+                {
+                  "type": "array",
+                  "items": "com.linkedin.pegasus2avro.metadata.query.filter.Criterion"
+                }
+              ],
+              "name": "criteria",
+              "default": null,
+              "doc": "Deprecated! A list of conjunctive criterion for the filter. If \"or\" field is provided, then this field is ignored."
+            }
+          ],
+          "doc": "The filter for finding a record or a collection of records"
+        },
+        "name": "filter",
+        "doc": "The filter applied when assigning this form to entities. Entities that match this filter\nwill have this form applied to them. Right now this filter only supports filtering by\nplatform, entity type, container, and domain through the UI."
+      }
+    ],
+    "doc": "Information about how a form is assigned to entities dynamically. Provide a filter to\nmatch a set of entities instead of explicitly applying a form to specific entities."
   },
   {
     "type": "record",
@@ -564,6 +1084,7 @@
       {
         "Searchable": {
           "/*": {
+            "fieldType": "TEXT",
             "queryByDefault": true
           }
         },
@@ -615,6 +1136,7 @@
       {
         "Searchable": {
           "/*": {
+            "fieldType": "TEXT",
             "queryByDefault": true
           }
         },
@@ -1187,6 +1709,19 @@
                   "name": "confidenceScore",
                   "default": 1.0,
                   "doc": "The confidence in this lineage between 0 (low confidence) and 1 (high confidence)"
+                },
+                {
+                  "java": {
+                    "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+                  },
+                  "Urn": "Urn",
+                  "type": [
+                    "null",
+                    "string"
+                  ],
+                  "name": "query",
+                  "default": null,
+                  "doc": "The query that was used to generate this lineage. \nPresent only if the lineage was generated from a detected query."
                 }
               ],
               "doc": "A fine-grained lineage from upstream fields/datasets to downstream field(s)"
@@ -1211,6 +1746,7 @@
       {
         "Searchable": {
           "/*": {
+            "fieldType": "TEXT",
             "queryByDefault": true
           }
         },
@@ -1819,6 +2355,62 @@
   {
     "type": "record",
     "Aspect": {
+      "name": "entityTypeKey",
+      "keyForEntity": "entityType",
+      "entityCategory": "core",
+      "entityAspects": [
+        "entityTypeInfo",
+        "institutionalMemory",
+        "status"
+      ],
+      "entityDoc": "A type of entity in the DataHub Metadata Model."
+    },
+    "name": "EntityTypeKey",
+    "namespace": "com.linkedin.pegasus2avro.entitytype",
+    "fields": [
+      {
+        "type": "string",
+        "name": "id",
+        "doc": "A unique id for an entity type. Usually this will be a unique namespace + entity name."
+      }
+    ]
+  },
+  {
+    "type": "record",
+    "Aspect": {
+      "name": "entityTypeInfo"
+    },
+    "name": "EntityTypeInfo",
+    "namespace": "com.linkedin.pegasus2avro.entitytype",
+    "fields": [
+      {
+        "type": "string",
+        "name": "qualifiedName",
+        "doc": "The fully qualified name for the entity type, which usually consists of a namespace\nplus an identifier or name, e.g. datahub.dataset"
+      },
+      {
+        "type": [
+          "null",
+          "string"
+        ],
+        "name": "displayName",
+        "default": null,
+        "doc": "The display name for the Entity Type."
+      },
+      {
+        "type": [
+          "null",
+          "string"
+        ],
+        "name": "description",
+        "default": null,
+        "doc": "A description for the Entity Type: what is it for?"
+      }
+    ]
+  },
+  {
+    "type": "record",
+    "Aspect": {
       "EntityUrns": [
         "com.linkedin.pegasus2avro.common.CorpuserUrn"
       ],
@@ -1973,7 +2565,7 @@
         "name": "roles"
       }
     ],
-    "doc": "Carries information about which roles a user is assigned to."
+    "doc": "Carries information about which roles a user or group is assigned to."
   },
   {
     "type": "record",
@@ -1989,6 +2581,7 @@
       {
         "Searchable": {
           "/*": {
+            "fieldType": "TEXT",
             "queryByDefault": true
           }
         },
@@ -2874,6 +3467,7 @@
       {
         "Searchable": {
           "/*": {
+            "fieldType": "TEXT",
             "queryByDefault": true
           }
         },
@@ -3035,7 +3629,8 @@
         "Relationship": {
           "entityTypes": [
             "dataJob",
-            "dataFlow"
+            "dataFlow",
+            "dataset"
           ],
           "name": "InstanceOf"
         },
@@ -3052,7 +3647,8 @@
         "Urn": "Urn",
         "entityTypes": [
           "dataJob",
-          "dataFlow"
+          "dataFlow",
+          "dataset"
         ],
         "type": [
           "null",
@@ -3247,6 +3843,15 @@
         "name": "result",
         "default": null,
         "doc": "The final result of the Data Processing run."
+      },
+      {
+        "type": [
+          "null",
+          "long"
+        ],
+        "name": "durationMillis",
+        "default": null,
+        "doc": "The duration of the run in milliseconds."
       }
     ],
     "doc": "An event representing the current status of data process run.\nDataProcessRunEvent should be used for reporting the status of a dataProcess' run."
@@ -3312,6 +3917,15 @@
         "type": "string",
         "name": "viewLogic",
         "doc": "The view logic"
+      },
+      {
+        "type": [
+          "null",
+          "string"
+        ],
+        "name": "formattedViewLogic",
+        "default": null,
+        "doc": "The formatted view logic. This is particularly used for SQL sources, where the SQL\nlogic is formatted for better readability, and with dbt, where this contains the\ncompiled SQL logic."
       },
       {
         "type": "string",
@@ -3579,6 +4193,7 @@
       {
         "Searchable": {
           "/*": {
+            "fieldType": "TEXT",
             "queryByDefault": true
           }
         },
@@ -4130,7 +4745,8 @@
                   "name": "DownstreamOf",
                   "properties": "upstreams/*/properties",
                   "updatedActor": "upstreams/*/auditStamp/actor",
-                  "updatedOn": "upstreams/*/auditStamp/time"
+                  "updatedOn": "upstreams/*/auditStamp/time",
+                  "via": "upstreams/*/query"
                 },
                 "Searchable": {
                   "fieldName": "upstreams",
@@ -4179,6 +4795,19 @@
                 "name": "properties",
                 "default": null,
                 "doc": "A generic properties bag that allows us to store specific information on this graph edge."
+              },
+              {
+                "java": {
+                  "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+                },
+                "Urn": "Urn",
+                "type": [
+                  "null",
+                  "string"
+                ],
+                "name": "query",
+                "default": null,
+                "doc": "If the lineage is generated by a query, a reference to the query"
               }
             ],
             "doc": "Upstream lineage information about a dataset including the source reporting the lineage"
@@ -4439,6 +5068,7 @@
       {
         "Searchable": {
           "/*": {
+            "fieldType": "TEXT",
             "queryByDefault": true
           }
         },
@@ -5098,6 +5728,27 @@
                           "doc": "List of owners of the entity."
                         },
                         {
+                          "Searchable": {
+                            "/*": {
+                              "fieldType": "MAP_ARRAY",
+                              "queryByDefault": false
+                            }
+                          },
+                          "type": [
+                            {
+                              "type": "map",
+                              "values": {
+                                "type": "array",
+                                "items": "string"
+                              }
+                            },
+                            "null"
+                          ],
+                          "name": "ownerTypes",
+                          "default": {},
+                          "doc": "Ownership type to Owners map, populated via mutation hook."
+                        },
+                        {
                           "type": "com.linkedin.pegasus2avro.common.AuditStamp",
                           "name": "lastModified",
                           "default": {
@@ -5259,6 +5910,19 @@
                                   "type": "string",
                                   "name": "urn",
                                   "doc": "Urn of the applied glossary term"
+                                },
+                                {
+                                  "java": {
+                                    "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+                                  },
+                                  "Urn": "Urn",
+                                  "type": [
+                                    "null",
+                                    "string"
+                                  ],
+                                  "name": "actor",
+                                  "default": null,
+                                  "doc": "The user URN which will be credited for adding associating this term to the entity"
                                 },
                                 {
                                   "type": [
@@ -5603,6 +6267,7 @@
                         {
                           "Searchable": {
                             "/*": {
+                              "fieldType": "TEXT",
                               "queryByDefault": true
                             }
                           },
@@ -7294,6 +7959,7 @@
                         {
                           "Searchable": {
                             "/*": {
+                              "fieldType": "TEXT",
                               "queryByDefault": true
                             }
                           },
@@ -8615,6 +9281,7 @@
                         {
                           "Searchable": {
                             "/*": {
+                              "fieldType": "TEXT",
                               "queryByDefault": true
                             }
                           },
@@ -8790,6 +9457,7 @@
                         {
                           "Searchable": {
                             "/*": {
+                              "fieldType": "TEXT",
                               "queryByDefault": true
                             }
                           },
@@ -8972,6 +9640,7 @@
                         {
                           "Searchable": {
                             "/*": {
+                              "fieldType": "TEXT",
                               "queryByDefault": true
                             }
                           },
@@ -9182,6 +9851,7 @@
                         {
                           "Searchable": {
                             "/*": {
+                              "fieldType": "TEXT",
                               "queryByDefault": true
                             }
                           },
@@ -9487,6 +10157,21 @@
                       "namespace": "com.linkedin.pegasus2avro.glossary",
                       "fields": [
                         {
+                          "Searchable": {
+                            "/*": {
+                              "fieldType": "TEXT",
+                              "queryByDefault": true
+                            }
+                          },
+                          "type": {
+                            "type": "map",
+                            "values": "string"
+                          },
+                          "name": "customProperties",
+                          "default": {},
+                          "doc": "Custom property bag."
+                        },
+                        {
                           "Searchable": {},
                           "type": "string",
                           "name": "definition",
@@ -9625,11 +10310,17 @@
                           "doc": "Description of the Policy"
                         },
                         {
+                          "Searchable": {
+                            "fieldType": "KEYWORD"
+                          },
                           "type": "string",
                           "name": "type",
                           "doc": "The type of policy"
                         },
                         {
+                          "Searchable": {
+                            "fieldType": "KEYWORD"
+                          },
                           "type": "string",
                           "name": "state",
                           "doc": "The state of policy, ACTIVE or INACTIVE"
@@ -9742,6 +10433,12 @@
                           "doc": "The resource that the policy applies to. Not required for some 'Platform' privileges."
                         },
                         {
+                          "Searchable": {
+                            "/*": {
+                              "addToFilters": true,
+                              "fieldType": "KEYWORD"
+                            }
+                          },
                           "type": {
                             "type": "array",
                             "items": "string"
@@ -9844,6 +10541,9 @@
                           "doc": "The actors that the policy applies to."
                         },
                         {
+                          "Searchable": {
+                            "fieldType": "BOOLEAN"
+                          },
                           "type": "boolean",
                           "name": "editable",
                           "default": true,
@@ -10144,9 +10844,10 @@
         "type": {
           "type": "enum",
           "symbolDocs": {
-            "CREATE": "NOT SUPPORTED YET\ninsert if not exists. otherwise fail",
-            "DELETE": "NOT SUPPORTED YET\ndelete action",
-            "PATCH": "NOT SUPPORTED YET\npatch the changes instead of full replace",
+            "CREATE": "insert if not exists. otherwise fail",
+            "CREATE_ENTITY": "insert if entity not exists. otherwise fail",
+            "DELETE": "delete action",
+            "PATCH": "patch the changes instead of full replace",
             "RESTATE": "Restate an aspect, eg. in a index refresh.",
             "UPDATE": "NOT SUPPORTED YET\nupdate if exists. otherwise fail",
             "UPSERT": "insert if not exists. otherwise update"
@@ -10159,7 +10860,8 @@
             "UPDATE",
             "DELETE",
             "PATCH",
-            "RESTATE"
+            "RESTATE",
+            "CREATE_ENTITY"
           ],
           "doc": "Descriptor for a change action"
         },
@@ -10335,6 +11037,7 @@
       {
         "Searchable": {
           "/*": {
+            "fieldType": "TEXT",
             "queryByDefault": true
           }
         },
@@ -10394,6 +11097,62 @@
       }
     ],
     "doc": "Properties associated with a Data Platform Instance"
+  },
+  {
+    "type": "record",
+    "Aspect": {
+      "name": "dataTypeInfo"
+    },
+    "name": "DataTypeInfo",
+    "namespace": "com.linkedin.pegasus2avro.datatype",
+    "fields": [
+      {
+        "type": "string",
+        "name": "qualifiedName",
+        "doc": "The qualified name for the data type. Usually a unique namespace + name, e.g. datahub.string"
+      },
+      {
+        "type": [
+          "null",
+          "string"
+        ],
+        "name": "displayName",
+        "default": null,
+        "doc": "An optional display name for the data type."
+      },
+      {
+        "type": [
+          "null",
+          "string"
+        ],
+        "name": "description",
+        "default": null,
+        "doc": "An optional description for the data type."
+      }
+    ]
+  },
+  {
+    "type": "record",
+    "Aspect": {
+      "name": "dataTypeKey",
+      "keyForEntity": "dataType",
+      "entityCategory": "core",
+      "entityAspects": [
+        "dataTypeInfo",
+        "institutionalMemory",
+        "status"
+      ],
+      "entityDoc": "A type of data element stored within DataHub."
+    },
+    "name": "DataTypeKey",
+    "namespace": "com.linkedin.pegasus2avro.datatype",
+    "fields": [
+      {
+        "type": "string",
+        "name": "id",
+        "doc": "A unique id for a data type. Usually this will be a unique namespace + data type name."
+      }
+    ]
   },
   {
     "type": "record",
@@ -10559,6 +11318,7 @@
       {
         "Searchable": {
           "/*": {
+            "fieldType": "TEXT",
             "queryByDefault": true
           }
         },
@@ -11771,6 +12531,7 @@
               {
                 "Searchable": {
                   "/*": {
+                    "fieldType": "TEXT",
                     "queryByDefault": true
                   }
                 },
@@ -11912,6 +12673,227 @@
       }
     ],
     "doc": "The Actions about an Assertion"
+  },
+  {
+    "type": "record",
+    "Aspect": {
+      "name": "editableERModelRelationshipProperties"
+    },
+    "name": "EditableERModelRelationshipProperties",
+    "namespace": "com.linkedin.pegasus2avro.ermodelrelation",
+    "fields": [
+      {
+        "type": "com.linkedin.pegasus2avro.common.AuditStamp",
+        "name": "created",
+        "default": {
+          "actor": "urn:li:corpuser:unknown",
+          "impersonator": null,
+          "time": 0,
+          "message": null
+        },
+        "doc": "An AuditStamp corresponding to the creation of this resource/association/sub-resource. A value of 0 for time indicates missing data."
+      },
+      {
+        "type": "com.linkedin.pegasus2avro.common.AuditStamp",
+        "name": "lastModified",
+        "default": {
+          "actor": "urn:li:corpuser:unknown",
+          "impersonator": null,
+          "time": 0,
+          "message": null
+        },
+        "doc": "An AuditStamp corresponding to the last modification of this resource/association/sub-resource. If no modification has happened since creation, lastModified should be the same as created. A value of 0 for time indicates missing data."
+      },
+      {
+        "type": [
+          "null",
+          "com.linkedin.pegasus2avro.common.AuditStamp"
+        ],
+        "name": "deleted",
+        "default": null,
+        "doc": "An AuditStamp corresponding to the deletion of this resource/association/sub-resource. Logically, deleted MUST have a later timestamp than creation. It may or may not have the same time as lastModified depending upon the resource/association/sub-resource semantics."
+      },
+      {
+        "Searchable": {
+          "fieldName": "editedDescription",
+          "fieldType": "TEXT"
+        },
+        "type": [
+          "null",
+          "string"
+        ],
+        "name": "description",
+        "default": null,
+        "doc": "Documentation of the erModelRelationship"
+      },
+      {
+        "Searchable": {
+          "fieldName": "editedName",
+          "fieldType": "TEXT_PARTIAL"
+        },
+        "type": [
+          "null",
+          "string"
+        ],
+        "name": "name",
+        "default": null,
+        "doc": "Display name of the ERModelRelation"
+      }
+    ],
+    "doc": "EditableERModelRelationProperties stores editable changes made to erModelRelationship properties. This separates changes made from\ningestion pipelines and edits in the UI to avoid accidental overwrites of user-provided data by ingestion pipelines"
+  },
+  {
+    "type": "record",
+    "Aspect": {
+      "name": "erModelRelationshipProperties"
+    },
+    "name": "ERModelRelationshipProperties",
+    "namespace": "com.linkedin.pegasus2avro.ermodelrelation",
+    "fields": [
+      {
+        "Searchable": {
+          "/*": {
+            "fieldType": "TEXT",
+            "queryByDefault": true
+          }
+        },
+        "type": {
+          "type": "map",
+          "values": "string"
+        },
+        "name": "customProperties",
+        "default": {},
+        "doc": "Custom property bag."
+      },
+      {
+        "Searchable": {
+          "boostScore": 10.0,
+          "enableAutocomplete": true,
+          "fieldType": "TEXT_PARTIAL"
+        },
+        "type": "string",
+        "name": "name",
+        "doc": "Name of the ERModelRelation"
+      },
+      {
+        "Relationship": {
+          "entityTypes": [
+            "dataset"
+          ],
+          "name": "ermodelrelationA"
+        },
+        "Searchable": {
+          "boostScore": 10.0,
+          "enableAutocomplete": true,
+          "fieldType": "TEXT_PARTIAL"
+        },
+        "java": {
+          "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+        },
+        "Urn": "Urn",
+        "entityTypes": [
+          "dataset"
+        ],
+        "type": "string",
+        "name": "source",
+        "doc": "First dataset in the erModelRelationship (no directionality)"
+      },
+      {
+        "Relationship": {
+          "entityTypes": [
+            "dataset"
+          ],
+          "name": "ermodelrelationB"
+        },
+        "Searchable": {
+          "boostScore": 10.0,
+          "enableAutocomplete": true,
+          "fieldType": "TEXT_PARTIAL"
+        },
+        "java": {
+          "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+        },
+        "Urn": "Urn",
+        "entityTypes": [
+          "dataset"
+        ],
+        "type": "string",
+        "name": "destination",
+        "doc": "Second dataset in the erModelRelationship (no directionality)"
+      },
+      {
+        "type": {
+          "type": "array",
+          "items": {
+            "type": "record",
+            "name": "RelationshipFieldMapping",
+            "namespace": "com.linkedin.pegasus2avro.ermodelrelation",
+            "fields": [
+              {
+                "type": "string",
+                "name": "sourceField",
+                "doc": "All fields from dataset A that are required for the join, maps to bFields 1:1"
+              },
+              {
+                "type": "string",
+                "name": "destinationField",
+                "doc": "All fields from dataset B that are required for the join, maps to aFields 1:1"
+              }
+            ],
+            "doc": "Individual Field Mapping of a relationship- one of several"
+          }
+        },
+        "name": "relationshipFieldMappings",
+        "doc": "ERModelRelationFieldMapping (in future we can make it an array)"
+      },
+      {
+        "Searchable": {
+          "/time": {
+            "fieldName": "createdAt",
+            "fieldType": "DATETIME"
+          }
+        },
+        "type": [
+          "null",
+          "com.linkedin.pegasus2avro.common.AuditStamp"
+        ],
+        "name": "created",
+        "default": null,
+        "doc": "A timestamp documenting when the asset was created in the source Data Platform (not on DataHub)"
+      },
+      {
+        "Searchable": {
+          "/time": {
+            "fieldName": "lastModifiedAt",
+            "fieldType": "DATETIME"
+          }
+        },
+        "type": [
+          "null",
+          "com.linkedin.pegasus2avro.common.AuditStamp"
+        ],
+        "name": "lastModified",
+        "default": null,
+        "doc": "A timestamp documenting when the asset was last modified in the source Data Platform (not on DataHub)"
+      },
+      {
+        "type": {
+          "type": "enum",
+          "name": "ERModelRelationshipCardinality",
+          "namespace": "com.linkedin.pegasus2avro.ermodelrelation",
+          "symbols": [
+            "ONE_ONE",
+            "ONE_N",
+            "N_ONE",
+            "N_N"
+          ]
+        },
+        "name": "cardinality",
+        "default": "N_N",
+        "doc": "Cardinality of the relationship"
+      }
+    ],
+    "doc": "Properties associated with a ERModelRelationship"
   },
   "com.linkedin.pegasus2avro.dashboard.EditableDashboardProperties",
   {
@@ -12095,6 +13077,7 @@
       {
         "Searchable": {
           "/*": {
+            "fieldType": "TEXT",
             "queryByDefault": true
           }
         },
@@ -12426,6 +13409,164 @@
   {
     "type": "record",
     "Aspect": {
+      "name": "incidentsSummary"
+    },
+    "name": "IncidentsSummary",
+    "namespace": "com.linkedin.pegasus2avro.common",
+    "fields": [
+      {
+        "deprecated": true,
+        "Urn": "Urn",
+        "urn_is_array": true,
+        "type": {
+          "type": "array",
+          "items": "string"
+        },
+        "name": "resolvedIncidents",
+        "default": [],
+        "doc": "Resolved incidents for an asset\nDeprecated! Use the richer resolvedIncidentsDetails instead."
+      },
+      {
+        "deprecated": true,
+        "Urn": "Urn",
+        "urn_is_array": true,
+        "type": {
+          "type": "array",
+          "items": "string"
+        },
+        "name": "activeIncidents",
+        "default": [],
+        "doc": "Active incidents for an asset\nDeprecated! Use the richer activeIncidentsDetails instead."
+      },
+      {
+        "Relationship": {
+          "/*/urn": {
+            "entityTypes": [
+              "incident"
+            ],
+            "name": "ResolvedIncidents"
+          }
+        },
+        "Searchable": {
+          "/*/createdAt": {
+            "fieldName": "resolvedIncidentCreatedTimes",
+            "fieldType": "DATETIME"
+          },
+          "/*/priority": {
+            "fieldName": "resolvedIncidentPriorities",
+            "fieldType": "COUNT"
+          },
+          "/*/resolvedAt": {
+            "fieldName": "resolvedIncidentResolvedTimes",
+            "fieldType": "DATETIME"
+          },
+          "/*/type": {
+            "fieldName": "resolvedIncidentTypes",
+            "fieldType": "KEYWORD"
+          },
+          "/*/urn": {
+            "fieldName": "resolvedIncidents",
+            "fieldType": "URN",
+            "hasValuesFieldName": "hasResolvedIncidents",
+            "numValuesFieldName": "numResolvedIncidents"
+          }
+        },
+        "type": {
+          "type": "array",
+          "items": {
+            "type": "record",
+            "name": "IncidentSummaryDetails",
+            "namespace": "com.linkedin.pegasus2avro.common",
+            "fields": [
+              {
+                "java": {
+                  "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+                },
+                "Urn": "Urn",
+                "type": "string",
+                "name": "urn",
+                "doc": "The urn of the incident"
+              },
+              {
+                "type": "string",
+                "name": "type",
+                "doc": "The type of an incident"
+              },
+              {
+                "type": "long",
+                "name": "createdAt",
+                "doc": "The time at which the incident was raised in milliseconds since epoch."
+              },
+              {
+                "type": [
+                  "null",
+                  "long"
+                ],
+                "name": "resolvedAt",
+                "default": null,
+                "doc": "The time at which the incident was marked as resolved in milliseconds since epoch. Null if the incident is still active."
+              },
+              {
+                "type": [
+                  "null",
+                  "int"
+                ],
+                "name": "priority",
+                "default": null,
+                "doc": "The priority of the incident"
+              }
+            ],
+            "doc": "Summary statistics about incidents on an entity."
+          }
+        },
+        "name": "resolvedIncidentDetails",
+        "default": [],
+        "doc": "Summary details about the set of resolved incidents"
+      },
+      {
+        "Relationship": {
+          "/*/urn": {
+            "entityTypes": [
+              "incident"
+            ],
+            "name": "ActiveIncidents"
+          }
+        },
+        "Searchable": {
+          "/*/createdAt": {
+            "fieldName": "activeIncidentCreatedTimes",
+            "fieldType": "DATETIME"
+          },
+          "/*/priority": {
+            "fieldName": "activeIncidentPriorities",
+            "fieldType": "COUNT"
+          },
+          "/*/type": {
+            "fieldName": "activeIncidentTypes",
+            "fieldType": "KEYWORD"
+          },
+          "/*/urn": {
+            "addHasValuesToFilters": true,
+            "fieldName": "activeIncidents",
+            "fieldType": "URN",
+            "hasValuesFieldName": "hasActiveIncidents",
+            "numValuesFieldName": "numActiveIncidents"
+          }
+        },
+        "type": {
+          "type": "array",
+          "items": "com.linkedin.pegasus2avro.common.IncidentSummaryDetails"
+        },
+        "name": "activeIncidentDetails",
+        "default": [],
+        "doc": "Summary details about the set of active incidents"
+      }
+    ],
+    "doc": "Summary related incidents on an entity."
+  },
+  {
+    "type": "record",
+    "Aspect": {
       "name": "access"
     },
     "name": "Access",
@@ -12505,6 +13646,217 @@
       }
     ],
     "doc": "Sub Types. Use this aspect to specialize a generic Entity\ne.g. Making a Dataset also be a View or also be a LookerExplore"
+  },
+  {
+    "type": "record",
+    "Aspect": {
+      "name": "forms"
+    },
+    "name": "Forms",
+    "namespace": "com.linkedin.pegasus2avro.common",
+    "fields": [
+      {
+        "Searchable": {
+          "/*/completedPrompts/*/id": {
+            "fieldName": "incompleteFormsCompletedPromptIds",
+            "fieldType": "KEYWORD"
+          },
+          "/*/completedPrompts/*/lastModified/time": {
+            "fieldName": "incompleteFormsCompletedPromptResponseTimes",
+            "fieldType": "DATETIME"
+          },
+          "/*/incompletePrompts/*/id": {
+            "fieldName": "incompleteFormsIncompletePromptIds",
+            "fieldType": "KEYWORD"
+          },
+          "/*/urn": {
+            "fieldName": "incompleteForms",
+            "fieldType": "URN"
+          }
+        },
+        "type": {
+          "type": "array",
+          "items": {
+            "type": "record",
+            "name": "FormAssociation",
+            "namespace": "com.linkedin.pegasus2avro.common",
+            "fields": [
+              {
+                "java": {
+                  "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+                },
+                "Urn": "Urn",
+                "type": "string",
+                "name": "urn",
+                "doc": "Urn of the applied form"
+              },
+              {
+                "type": {
+                  "type": "array",
+                  "items": {
+                    "type": "record",
+                    "name": "FormPromptAssociation",
+                    "namespace": "com.linkedin.pegasus2avro.common",
+                    "fields": [
+                      {
+                        "type": "string",
+                        "name": "id",
+                        "doc": "The id for the prompt. This must be GLOBALLY UNIQUE."
+                      },
+                      {
+                        "type": "com.linkedin.pegasus2avro.common.AuditStamp",
+                        "name": "lastModified",
+                        "doc": "The last time this prompt was touched for the entity (set, unset)"
+                      },
+                      {
+                        "type": [
+                          "null",
+                          {
+                            "type": "record",
+                            "name": "FormPromptFieldAssociations",
+                            "namespace": "com.linkedin.pegasus2avro.common",
+                            "fields": [
+                              {
+                                "type": [
+                                  "null",
+                                  {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "record",
+                                      "name": "FieldFormPromptAssociation",
+                                      "namespace": "com.linkedin.pegasus2avro.common",
+                                      "fields": [
+                                        {
+                                          "type": "string",
+                                          "name": "fieldPath",
+                                          "doc": "The field path on a schema field."
+                                        },
+                                        {
+                                          "type": "com.linkedin.pegasus2avro.common.AuditStamp",
+                                          "name": "lastModified",
+                                          "doc": "The last time this prompt was touched for the field on the entity (set, unset)"
+                                        }
+                                      ],
+                                      "doc": "Information about the status of a particular prompt for a specific schema field\non an entity."
+                                    }
+                                  }
+                                ],
+                                "name": "completedFieldPrompts",
+                                "default": null,
+                                "doc": "A list of field-level prompt associations that are not yet complete for this form."
+                              },
+                              {
+                                "type": [
+                                  "null",
+                                  {
+                                    "type": "array",
+                                    "items": "com.linkedin.pegasus2avro.common.FieldFormPromptAssociation"
+                                  }
+                                ],
+                                "name": "incompleteFieldPrompts",
+                                "default": null,
+                                "doc": "A list of field-level prompt associations that are complete for this form."
+                              }
+                            ],
+                            "doc": "Information about the field-level prompt associations on a top-level prompt association."
+                          }
+                        ],
+                        "name": "fieldAssociations",
+                        "default": null,
+                        "doc": "Optional information about the field-level prompt associations."
+                      }
+                    ],
+                    "doc": "Information about the status of a particular prompt.\nNote that this is where we can add additional information about individual responses:\nactor, timestamp, and the response itself."
+                  }
+                },
+                "name": "incompletePrompts",
+                "default": [],
+                "doc": "A list of prompts that are not yet complete for this form."
+              },
+              {
+                "type": {
+                  "type": "array",
+                  "items": "com.linkedin.pegasus2avro.common.FormPromptAssociation"
+                },
+                "name": "completedPrompts",
+                "default": [],
+                "doc": "A list of prompts that have been completed for this form."
+              }
+            ],
+            "doc": "Properties of an applied form."
+          }
+        },
+        "name": "incompleteForms",
+        "doc": "All incomplete forms assigned to the entity."
+      },
+      {
+        "Searchable": {
+          "/*/completedPrompts/*/id": {
+            "fieldName": "completedFormsCompletedPromptIds",
+            "fieldType": "KEYWORD"
+          },
+          "/*/completedPrompts/*/lastModified/time": {
+            "fieldName": "completedFormsCompletedPromptResponseTimes",
+            "fieldType": "DATETIME"
+          },
+          "/*/incompletePrompts/*/id": {
+            "fieldName": "completedFormsIncompletePromptIds",
+            "fieldType": "KEYWORD"
+          },
+          "/*/urn": {
+            "fieldName": "completedForms",
+            "fieldType": "URN"
+          }
+        },
+        "type": {
+          "type": "array",
+          "items": "com.linkedin.pegasus2avro.common.FormAssociation"
+        },
+        "name": "completedForms",
+        "doc": "All complete forms assigned to the entity."
+      },
+      {
+        "Searchable": {
+          "/*/form": {
+            "fieldName": "verifiedForms",
+            "fieldType": "URN"
+          }
+        },
+        "type": {
+          "type": "array",
+          "items": {
+            "type": "record",
+            "name": "FormVerificationAssociation",
+            "namespace": "com.linkedin.pegasus2avro.common",
+            "fields": [
+              {
+                "java": {
+                  "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+                },
+                "Urn": "Urn",
+                "type": "string",
+                "name": "form",
+                "doc": "The urn of the form that granted this verification."
+              },
+              {
+                "type": [
+                  "null",
+                  "com.linkedin.pegasus2avro.common.AuditStamp"
+                ],
+                "name": "lastModified",
+                "default": null,
+                "doc": "An audit stamp capturing who and when verification was applied for this form."
+              }
+            ],
+            "doc": "An association between a verification and an entity that has been granted\nvia completion of one or more forms of type 'VERIFICATION'."
+          }
+        },
+        "name": "verifications",
+        "default": [],
+        "doc": "Verifications that have been applied to the entity via completed forms."
+      }
+    ],
+    "doc": "Forms that are assigned to this entity to be filled out"
   },
   "com.linkedin.pegasus2avro.common.BrowsePathsV2",
   {
@@ -12871,6 +14223,366 @@
   {
     "type": "record",
     "Aspect": {
+      "name": "structuredProperties"
+    },
+    "name": "StructuredProperties",
+    "namespace": "com.linkedin.pegasus2avro.structured",
+    "fields": [
+      {
+        "type": {
+          "type": "array",
+          "items": {
+            "type": "record",
+            "name": "StructuredPropertyValueAssignment",
+            "namespace": "com.linkedin.pegasus2avro.structured",
+            "fields": [
+              {
+                "java": {
+                  "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+                },
+                "Urn": "Urn",
+                "type": "string",
+                "name": "propertyUrn",
+                "doc": "The property that is being assigned a value."
+              },
+              {
+                "type": {
+                  "type": "array",
+                  "items": [
+                    "string",
+                    "double"
+                  ]
+                },
+                "name": "values",
+                "doc": "The value assigned to the property."
+              },
+              {
+                "type": [
+                  "null",
+                  "com.linkedin.pegasus2avro.common.AuditStamp"
+                ],
+                "name": "created",
+                "default": null,
+                "doc": "Audit stamp containing who created this relationship edge and when"
+              },
+              {
+                "type": [
+                  "null",
+                  "com.linkedin.pegasus2avro.common.AuditStamp"
+                ],
+                "name": "lastModified",
+                "default": null,
+                "doc": "Audit stamp containing who last modified this relationship edge and when"
+              }
+            ]
+          }
+        },
+        "name": "properties",
+        "doc": "Custom property bag."
+      }
+    ],
+    "doc": "Properties about an entity governed by StructuredPropertyDefinition"
+  },
+  {
+    "type": "record",
+    "Aspect": {
+      "name": "propertyDefinition"
+    },
+    "name": "StructuredPropertyDefinition",
+    "namespace": "com.linkedin.pegasus2avro.structured",
+    "fields": [
+      {
+        "Searchable": {},
+        "type": "string",
+        "name": "qualifiedName",
+        "doc": "The fully qualified name of the property. e.g. io.acryl.datahub.myProperty"
+      },
+      {
+        "Searchable": {},
+        "type": [
+          "null",
+          "string"
+        ],
+        "name": "displayName",
+        "default": null,
+        "doc": "The display name of the property. This is the name that will be shown in the UI and can be used to look up the property id."
+      },
+      {
+        "java": {
+          "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+        },
+        "Urn": "Urn",
+        "type": "string",
+        "name": "valueType",
+        "doc": "The value type of the property. Must be a dataType.\ne.g. To indicate that the property is of type DATE, use urn:li:dataType:datahub.date"
+      },
+      {
+        "type": [
+          "null",
+          {
+            "type": "map",
+            "values": {
+              "type": "array",
+              "items": "string"
+            }
+          }
+        ],
+        "name": "typeQualifier",
+        "default": null,
+        "doc": "A map that allows for type specialization of the valueType.\ne.g. a valueType of urn:li:dataType:datahub.urn\ncan be specialized to be a USER or GROUP URN by adding a typeQualifier like \n{ \"allowedTypes\": [\"urn:li:entityType:datahub.corpuser\", \"urn:li:entityType:datahub.corpGroup\"] }"
+      },
+      {
+        "type": [
+          "null",
+          {
+            "type": "array",
+            "items": {
+              "type": "record",
+              "name": "PropertyValue",
+              "namespace": "com.linkedin.pegasus2avro.structured",
+              "fields": [
+                {
+                  "type": [
+                    "string",
+                    "double"
+                  ],
+                  "name": "value"
+                },
+                {
+                  "type": [
+                    "null",
+                    "string"
+                  ],
+                  "name": "description",
+                  "default": null,
+                  "doc": "Optional description of the property value"
+                }
+              ]
+            }
+          }
+        ],
+        "name": "allowedValues",
+        "default": null,
+        "doc": "A list of allowed values that the property is allowed to take. \nIf this is not specified, then the property can take any value of given type."
+      },
+      {
+        "type": [
+          {
+            "type": "enum",
+            "name": "PropertyCardinality",
+            "namespace": "com.linkedin.pegasus2avro.structured",
+            "symbols": [
+              "SINGLE",
+              "MULTIPLE"
+            ]
+          },
+          "null"
+        ],
+        "name": "cardinality",
+        "default": "SINGLE",
+        "doc": "The cardinality of the property. If not specified, then the property is assumed to be single valued.."
+      },
+      {
+        "Relationship": {
+          "/*": {
+            "entityTypes": [
+              "entityType"
+            ],
+            "name": "StructuredPropertyOf"
+          }
+        },
+        "Searchable": {
+          "/*": {
+            "fieldName": "entityTypes"
+          }
+        },
+        "Urn": "Urn",
+        "urn_is_array": true,
+        "type": {
+          "type": "array",
+          "items": "string"
+        },
+        "name": "entityTypes"
+      },
+      {
+        "type": [
+          "null",
+          "string"
+        ],
+        "name": "description",
+        "default": null,
+        "doc": "The description of the property. This is the description that will be shown in the UI."
+      },
+      {
+        "type": [
+          "null",
+          {
+            "type": "record",
+            "name": "DataHubSearchConfig",
+            "namespace": "com.linkedin.pegasus2avro.datahub",
+            "fields": [
+              {
+                "type": [
+                  "null",
+                  "string"
+                ],
+                "name": "fieldName",
+                "default": null,
+                "doc": "Name of the field in the search index. Defaults to the field name otherwise"
+              },
+              {
+                "type": [
+                  "null",
+                  {
+                    "type": "enum",
+                    "name": "SearchFieldType",
+                    "namespace": "com.linkedin.pegasus2avro.datahub",
+                    "symbols": [
+                      "KEYWORD",
+                      "TEXT",
+                      "TEXT_PARTIAL",
+                      "BROWSE_PATH",
+                      "URN",
+                      "URN_PARTIAL",
+                      "BOOLEAN",
+                      "COUNT",
+                      "DATETIME",
+                      "OBJECT",
+                      "BROWSE_PATH_V2",
+                      "WORD_GRAM"
+                    ]
+                  }
+                ],
+                "name": "fieldType",
+                "default": null,
+                "doc": "Type of the field. Defines how the field is indexed and matched"
+              },
+              {
+                "type": "boolean",
+                "name": "queryByDefault",
+                "default": false,
+                "doc": "Whether we should match the field for the default search query"
+              },
+              {
+                "type": "boolean",
+                "name": "enableAutocomplete",
+                "default": false,
+                "doc": "Whether we should use the field for default autocomplete"
+              },
+              {
+                "type": "boolean",
+                "name": "addToFilters",
+                "default": false,
+                "doc": "Whether or not to add field to filters."
+              },
+              {
+                "type": "boolean",
+                "name": "addHasValuesToFilters",
+                "default": true,
+                "doc": "Whether or not to add the \"has values\" to filters.\ncheck if this is conditional on addToFilters being true"
+              },
+              {
+                "type": [
+                  "null",
+                  "string"
+                ],
+                "name": "filterNameOverride",
+                "default": null,
+                "doc": "Display name of the filter"
+              },
+              {
+                "type": [
+                  "null",
+                  "string"
+                ],
+                "name": "hasValuesFilterNameOverride",
+                "default": null,
+                "doc": "Display name of the has values filter"
+              },
+              {
+                "type": "double",
+                "name": "boostScore",
+                "default": 1.0,
+                "doc": "Boost multiplier to the match score. Matches on fields with higher boost score ranks higher"
+              },
+              {
+                "type": [
+                  "null",
+                  "string"
+                ],
+                "name": "hasValuesFieldName",
+                "default": null,
+                "doc": "If set, add a index field of the given name that checks whether the field exists"
+              },
+              {
+                "type": [
+                  "null",
+                  "string"
+                ],
+                "name": "numValuesFieldName",
+                "default": null,
+                "doc": "If set, add a index field of the given name that checks the number of elements"
+              },
+              {
+                "type": [
+                  "null",
+                  {
+                    "type": "map",
+                    "values": "double"
+                  }
+                ],
+                "name": "weightsPerFieldValue",
+                "default": null,
+                "doc": "(Optional) Weights to apply to score for a given value"
+              },
+              {
+                "type": [
+                  "null",
+                  {
+                    "type": "array",
+                    "items": "string"
+                  }
+                ],
+                "name": "fieldNameAliases",
+                "default": null,
+                "doc": "(Optional) Aliases for this given field that can be used for sorting etc."
+              }
+            ],
+            "doc": "Configuration for how any given field should be indexed and matched in the DataHub search index."
+          }
+        ],
+        "name": "searchConfiguration",
+        "default": null,
+        "doc": "Search configuration for this property. If not specified, then the property is indexed using the default mapping.\nfrom the logical type."
+      }
+    ]
+  },
+  {
+    "type": "record",
+    "Aspect": {
+      "name": "structuredPropertyKey",
+      "keyForEntity": "structuredProperty",
+      "entityCategory": "core",
+      "entityAspects": [
+        "propertyDefinition",
+        "institutionalMemory",
+        "status"
+      ],
+      "entityDoc": "Structured Property represents a property meant for extending the core model of a logical entity"
+    },
+    "name": "StructuredPropertyKey",
+    "namespace": "com.linkedin.pegasus2avro.structured",
+    "fields": [
+      {
+        "type": "string",
+        "name": "id",
+        "doc": "The id for a structured proeprty."
+      }
+    ]
+  },
+  {
+    "type": "record",
+    "Aspect": {
       "name": "dataHubExecutionRequestInput"
     },
     "name": "ExecutionRequestInput",
@@ -13117,122 +14829,7 @@
               "doc": "The Entity Types in the scope of the View."
             },
             {
-              "type": {
-                "type": "record",
-                "name": "Filter",
-                "namespace": "com.linkedin.pegasus2avro.metadata.query.filter",
-                "fields": [
-                  {
-                    "type": [
-                      "null",
-                      {
-                        "type": "array",
-                        "items": {
-                          "type": "record",
-                          "name": "ConjunctiveCriterion",
-                          "namespace": "com.linkedin.pegasus2avro.metadata.query.filter",
-                          "fields": [
-                            {
-                              "type": {
-                                "type": "array",
-                                "items": {
-                                  "type": "record",
-                                  "name": "Criterion",
-                                  "namespace": "com.linkedin.pegasus2avro.metadata.query.filter",
-                                  "fields": [
-                                    {
-                                      "type": "string",
-                                      "name": "field",
-                                      "doc": "The name of the field that the criterion refers to"
-                                    },
-                                    {
-                                      "type": "string",
-                                      "name": "value",
-                                      "doc": "The value of the intended field"
-                                    },
-                                    {
-                                      "type": {
-                                        "type": "array",
-                                        "items": "string"
-                                      },
-                                      "name": "values",
-                                      "default": [],
-                                      "doc": "Values. one of which the intended field should match\nNote, if values is set, the above \"value\" field will be ignored"
-                                    },
-                                    {
-                                      "type": {
-                                        "type": "enum",
-                                        "symbolDocs": {
-                                          "CONTAIN": "Represent the relation: String field contains value, e.g. name contains Profile",
-                                          "END_WITH": "Represent the relation: String field ends with value, e.g. name ends with Event",
-                                          "EQUAL": "Represent the relation: field = value, e.g. platform = hdfs",
-                                          "EXISTS": "Represents the relation: field exists and is non-empty, e.g. owners is not null and != [] (empty)",
-                                          "GREATER_THAN": "Represent the relation greater than, e.g. ownerCount > 5",
-                                          "GREATER_THAN_OR_EQUAL_TO": "Represent the relation greater than or equal to, e.g. ownerCount >= 5",
-                                          "IN": "Represent the relation: String field is one of the array values to, e.g. name in [\"Profile\", \"Event\"]",
-                                          "IS_NULL": "Represent the relation: field is null, e.g. platform is null",
-                                          "LESS_THAN": "Represent the relation less than, e.g. ownerCount < 3",
-                                          "LESS_THAN_OR_EQUAL_TO": "Represent the relation less than or equal to, e.g. ownerCount <= 3",
-                                          "START_WITH": "Represent the relation: String field starts with value, e.g. name starts with PageView"
-                                        },
-                                        "name": "Condition",
-                                        "namespace": "com.linkedin.pegasus2avro.metadata.query.filter",
-                                        "symbols": [
-                                          "CONTAIN",
-                                          "END_WITH",
-                                          "EQUAL",
-                                          "IS_NULL",
-                                          "EXISTS",
-                                          "GREATER_THAN",
-                                          "GREATER_THAN_OR_EQUAL_TO",
-                                          "IN",
-                                          "LESS_THAN",
-                                          "LESS_THAN_OR_EQUAL_TO",
-                                          "START_WITH"
-                                        ],
-                                        "doc": "The matching condition in a filter criterion"
-                                      },
-                                      "name": "condition",
-                                      "default": "EQUAL",
-                                      "doc": "The condition for the criterion, e.g. EQUAL, START_WITH"
-                                    },
-                                    {
-                                      "type": "boolean",
-                                      "name": "negated",
-                                      "default": false,
-                                      "doc": "Whether the condition should be negated"
-                                    }
-                                  ],
-                                  "doc": "A criterion for matching a field with given value"
-                                }
-                              },
-                              "name": "and",
-                              "doc": "A list of and criteria the filter applies to the query"
-                            }
-                          ],
-                          "doc": "A list of criterion and'd together."
-                        }
-                      }
-                    ],
-                    "name": "or",
-                    "default": null,
-                    "doc": "A list of disjunctive criterion for the filter. (or operation to combine filters)"
-                  },
-                  {
-                    "type": [
-                      "null",
-                      {
-                        "type": "array",
-                        "items": "com.linkedin.pegasus2avro.metadata.query.filter.Criterion"
-                      }
-                    ],
-                    "name": "criteria",
-                    "default": null,
-                    "doc": "Deprecated! A list of conjunctive criterion for the filter. If \"or\" field is provided, then this field is ignored."
-                  }
-                ],
-                "doc": "The filter for finding a record or a collection of records"
-              },
+              "type": "com.linkedin.pegasus2avro.metadata.query.filter.Filter",
               "name": "filter",
               "doc": "The filter criteria, which represents the view itself"
             }
@@ -13275,6 +14872,230 @@
   "com.linkedin.pegasus2avro.glossary.GlossaryRelatedTerms",
   "com.linkedin.pegasus2avro.glossary.GlossaryTermInfo",
   "com.linkedin.pegasus2avro.glossary.GlossaryNodeInfo",
+  {
+    "type": "record",
+    "Aspect": {
+      "name": "incidentInfo"
+    },
+    "name": "IncidentInfo",
+    "namespace": "com.linkedin.pegasus2avro.incident",
+    "fields": [
+      {
+        "Searchable": {
+          "addToFilters": true,
+          "filterNameOverride": "Type"
+        },
+        "type": {
+          "type": "enum",
+          "symbolDocs": {
+            "CUSTOM": "A custom type of incident",
+            "OPERATIONAL": "A misc. operational incident, e.g. failure to materialize a dataset."
+          },
+          "name": "IncidentType",
+          "namespace": "com.linkedin.pegasus2avro.incident",
+          "symbols": [
+            "OPERATIONAL",
+            "CUSTOM"
+          ],
+          "doc": "A type of asset incident"
+        },
+        "name": "type",
+        "doc": "The type of incident"
+      },
+      {
+        "Searchable": {
+          "addToFilters": true,
+          "filterNameOverride": "Other Type"
+        },
+        "type": [
+          "null",
+          "string"
+        ],
+        "name": "customType",
+        "default": null,
+        "doc": "An optional custom incident type. Present only if type is 'CUSTOM'."
+      },
+      {
+        "type": [
+          "null",
+          "string"
+        ],
+        "name": "title",
+        "default": null,
+        "doc": "Optional title associated with the incident"
+      },
+      {
+        "type": [
+          "null",
+          "string"
+        ],
+        "name": "description",
+        "default": null,
+        "doc": "Optional description associated with the incident"
+      },
+      {
+        "Relationship": {
+          "/*": {
+            "entityTypes": [
+              "dataset",
+              "chart",
+              "dashboard",
+              "dataFlow",
+              "dataJob",
+              "schemaField"
+            ],
+            "name": "IncidentOn"
+          }
+        },
+        "Searchable": {
+          "/*": {
+            "fieldType": "URN"
+          }
+        },
+        "Urn": "Urn",
+        "urn_is_array": true,
+        "type": {
+          "type": "array",
+          "items": "string"
+        },
+        "name": "entities",
+        "doc": "A reference to the entity associated with the incident."
+      },
+      {
+        "Searchable": {
+          "addToFilters": true,
+          "filterNameOverride": "Priority"
+        },
+        "type": [
+          "int",
+          "null"
+        ],
+        "name": "priority",
+        "default": 0,
+        "doc": "A numeric severity or priority for the incident. On the UI we will translate this into something easy to understand."
+      },
+      {
+        "type": {
+          "type": "record",
+          "name": "IncidentStatus",
+          "namespace": "com.linkedin.pegasus2avro.incident",
+          "fields": [
+            {
+              "Searchable": {
+                "addToFilters": true,
+                "filterNameOverride": "Status"
+              },
+              "type": {
+                "type": "enum",
+                "symbolDocs": {
+                  "ACTIVE": "The incident is ongoing, or active.",
+                  "RESOLVED": "The incident is resolved."
+                },
+                "name": "IncidentState",
+                "namespace": "com.linkedin.pegasus2avro.incident",
+                "symbols": [
+                  "ACTIVE",
+                  "RESOLVED"
+                ]
+              },
+              "name": "state",
+              "doc": "The state of the incident"
+            },
+            {
+              "type": [
+                "null",
+                "string"
+              ],
+              "name": "message",
+              "default": null,
+              "doc": "Optional message associated with the incident"
+            },
+            {
+              "Searchable": {
+                "/time": {
+                  "fieldName": "lastUpdated",
+                  "fieldType": "COUNT"
+                }
+              },
+              "type": "com.linkedin.pegasus2avro.common.AuditStamp",
+              "name": "lastUpdated",
+              "doc": "The time at which the request was initially created"
+            }
+          ],
+          "doc": "Information about an incident raised on an asset"
+        },
+        "name": "status",
+        "doc": "The current status of an incident, i.e. active or inactive."
+      },
+      {
+        "type": [
+          "null",
+          {
+            "type": "record",
+            "Aspect": {
+              "name": "incidentSource"
+            },
+            "name": "IncidentSource",
+            "namespace": "com.linkedin.pegasus2avro.incident",
+            "fields": [
+              {
+                "Searchable": {
+                  "addToFilters": true,
+                  "filterNameOverride": "Source"
+                },
+                "type": {
+                  "type": "enum",
+                  "symbolDocs": {
+                    "MANUAL": "Manually created incident, via UI or API."
+                  },
+                  "name": "IncidentSourceType",
+                  "namespace": "com.linkedin.pegasus2avro.incident",
+                  "symbols": [
+                    "MANUAL"
+                  ]
+                },
+                "name": "type",
+                "doc": "Message associated with the incident"
+              },
+              {
+                "Searchable": {
+                  "fieldType": "URN"
+                },
+                "java": {
+                  "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+                },
+                "Urn": "Urn",
+                "type": [
+                  "null",
+                  "string"
+                ],
+                "name": "sourceUrn",
+                "default": null,
+                "doc": "Reference to an URN related to the source of an incident."
+              }
+            ],
+            "doc": "Information about the source of an incident raised on an asset."
+          }
+        ],
+        "name": "source",
+        "default": null,
+        "doc": "The source of an incident, i.e. how it was generated."
+      },
+      {
+        "Searchable": {
+          "/time": {
+            "fieldName": "created",
+            "fieldType": "COUNT"
+          }
+        },
+        "type": "com.linkedin.pegasus2avro.common.AuditStamp",
+        "name": "created",
+        "doc": "The time at which the request was initially created"
+      }
+    ],
+    "doc": "Information about an incident raised on an asset."
+  },
+  "com.linkedin.pegasus2avro.incident.IncidentSource",
   {
     "type": "record",
     "Aspect": {
@@ -13352,7 +15173,9 @@
         "domains",
         "dataProductProperties",
         "institutionalMemory",
-        "status"
+        "status",
+        "structuredProperties",
+        "forms"
       ]
     },
     "name": "DataProductKey",
@@ -13377,6 +15200,7 @@
       {
         "Searchable": {
           "/*": {
+            "fieldType": "TEXT",
             "queryByDefault": true
           }
         },
@@ -13764,6 +15588,7 @@
       {
         "Searchable": {
           "/*": {
+            "fieldType": "TEXT",
             "queryByDefault": true
           }
         },
@@ -13921,12 +15746,14 @@
         "type": {
           "type": "enum",
           "symbolDocs": {
-            "MANUAL": "The query was entered manually by a user (via the UI)."
+            "MANUAL": "The query was entered manually by a user (via the UI).",
+            "SYSTEM": "The query was discovered by a crawler."
           },
           "name": "QuerySource",
           "namespace": "com.linkedin.pegasus2avro.query",
           "symbols": [
-            "MANUAL"
+            "MANUAL",
+            "SYSTEM"
           ]
         },
         "name": "source",
@@ -13984,6 +15811,19 @@
         "type": "com.linkedin.pegasus2avro.common.AuditStamp",
         "name": "lastModified",
         "doc": "Audit stamp capturing the time and actor who last modified the Query."
+      },
+      {
+        "java": {
+          "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+        },
+        "Urn": "Urn",
+        "type": [
+          "null",
+          "string"
+        ],
+        "name": "origin",
+        "default": null,
+        "doc": "The origin of the Query.\nThis is the source of the Query (e.g. a View, Stored Procedure, dbt Model, etc.) that the Query was created from."
       }
     ],
     "doc": "Information about a Query against one or more data assets (e.g. Tables or Views)."
@@ -14365,6 +16205,33 @@
     "doc": "Key for a Data Contract"
   },
   "com.linkedin.pegasus2avro.metadata.key.SchemaFieldKey",
+  {
+    "type": "record",
+    "Aspect": {
+      "name": "erModelRelationshipKey",
+      "keyForEntity": "erModelRelationship",
+      "entityCategory": "_unset_",
+      "entityAspects": [
+        "erModelRelationshipProperties",
+        "editableERModelRelationshipProperties",
+        "institutionalMemory",
+        "ownership",
+        "status",
+        "globalTags",
+        "glossaryTerms"
+      ],
+      "entityDoc": "ER Model Relationship of  Dataset Fields"
+    },
+    "name": "ERModelRelationshipKey",
+    "namespace": "com.linkedin.pegasus2avro.metadata.key",
+    "fields": [
+      {
+        "type": "string",
+        "name": "id"
+      }
+    ],
+    "doc": "Key for a ERModelRelationship"
+  },
   "com.linkedin.pegasus2avro.metadata.key.GlossaryTermKey",
   {
     "type": "record",
@@ -14413,6 +16280,28 @@
   {
     "type": "record",
     "Aspect": {
+      "name": "incidentKey",
+      "keyForEntity": "incident",
+      "entityCategory": "core",
+      "entityAspects": [
+        "incidentInfo"
+      ],
+      "entityDoc": "An incident for an asset."
+    },
+    "name": "IncidentKey",
+    "namespace": "com.linkedin.pegasus2avro.metadata.key",
+    "fields": [
+      {
+        "type": "string",
+        "name": "id",
+        "doc": "A unique id for the incident. Generated on the server side at incident creation time."
+      }
+    ],
+    "doc": "Key for an asset Incident"
+  },
+  {
+    "type": "record",
+    "Aspect": {
       "name": "dataHubUpgradeKey",
       "keyForEntity": "dataHubUpgrade",
       "entityCategory": "internal",
@@ -14432,6 +16321,29 @@
     "doc": "Key for a DataHubUpgrade"
   },
   "com.linkedin.pegasus2avro.metadata.key.MLModelKey",
+  {
+    "type": "record",
+    "Aspect": {
+      "name": "formKey",
+      "keyForEntity": "form",
+      "entityCategory": "core",
+      "entityAspects": [
+        "formInfo",
+        "dynamicFormAssignment",
+        "ownership"
+      ]
+    },
+    "name": "FormKey",
+    "namespace": "com.linkedin.pegasus2avro.metadata.key",
+    "fields": [
+      {
+        "type": "string",
+        "name": "id",
+        "doc": "Unique id for the form."
+      }
+    ],
+    "doc": "Key for a Form"
+  },
   {
     "type": "record",
     "Aspect": {
@@ -14490,7 +16402,9 @@
       "entityAspects": [
         "domainProperties",
         "institutionalMemory",
-        "ownership"
+        "ownership",
+        "structuredProperties",
+        "forms"
       ],
       "entityDoc": "A data domain within an organization."
     },
@@ -14546,7 +16460,9 @@
         "browsePaths",
         "status",
         "domains",
-        "browsePathsV2"
+        "browsePathsV2",
+        "structuredProperties",
+        "forms"
       ],
       "entityDoc": "A container of related data assets."
     },
@@ -14619,7 +16535,9 @@
       "entityAspects": [
         "queryProperties",
         "querySubjects",
-        "status"
+        "status",
+        "dataPlatformInstance",
+        "subTypes"
       ]
     },
     "name": "QueryKey",
@@ -14871,6 +16789,7 @@
       {
         "Searchable": {
           "/*": {
+            "fieldType": "TEXT",
             "queryByDefault": true
           }
         },

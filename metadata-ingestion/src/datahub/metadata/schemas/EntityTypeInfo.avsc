@@ -1,0 +1,33 @@
+{
+  "type": "record",
+  "Aspect": {
+    "name": "entityTypeInfo"
+  },
+  "name": "EntityTypeInfo",
+  "namespace": "com.linkedin.pegasus2avro.entitytype",
+  "fields": [
+    {
+      "type": "string",
+      "name": "qualifiedName",
+      "doc": "The fully qualified name for the entity type, which usually consists of a namespace\nplus an identifier or name, e.g. datahub.dataset"
+    },
+    {
+      "type": [
+        "null",
+        "string"
+      ],
+      "name": "displayName",
+      "default": null,
+      "doc": "The display name for the Entity Type."
+    },
+    {
+      "type": [
+        "null",
+        "string"
+      ],
+      "name": "description",
+      "default": null,
+      "doc": "A description for the Entity Type: what is it for?"
+    }
+  ]
+}

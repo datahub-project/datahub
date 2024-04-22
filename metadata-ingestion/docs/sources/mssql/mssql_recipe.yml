@@ -27,7 +27,7 @@ sink:
 # ------------------------------------------------------------------------
 
 source:
-  type: mssql
+  type: mssql-odbc
   config:
     # Coordinates
     host_port: localhost:1433

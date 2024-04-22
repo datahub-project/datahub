@@ -209,6 +209,15 @@
       "name": "result",
       "default": null,
       "doc": "The final result of the Data Processing run."
+    },
+    {
+      "type": [
+        "null",
+        "long"
+      ],
+      "name": "durationMillis",
+      "default": null,
+      "doc": "The duration of the run in milliseconds."
     }
   ],
   "doc": "An event representing the current status of data process run.\nDataProcessRunEvent should be used for reporting the status of a dataProcess' run."

@@ -6,5 +6,6 @@
 
 # pylint: skip-file
 # fmt: off
+# isort: skip_file
 
 # fmt: on

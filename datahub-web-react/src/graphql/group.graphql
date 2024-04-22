@@ -17,12 +17,27 @@ query getGroup($urn: String!, $membersCount: Int!) {
             description
             slack
             email
+            pictureLink
         }
         properties {
             displayName
             description
             email
             slack
+        }
+        privileges {
+            ...entityPrivileges
+        }
+        autoRenderAspects: aspects(input: { autoRenderOnly: true }) {
+            ...autoRenderAspectFields
+        }
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
+        }
+        forms {
+            ...formsFields
         }
         ownership {
             ...ownershipFields
@@ -190,10 +205,24 @@ query listGroups($input: ListGroupsInput!) {
                 description
                 email
             }
+            editableProperties {
+                pictureLink
+            }
             memberCount: relationships(
                 input: { types: ["IsMemberOfGroup", "IsMemberOfNativeGroup"], direction: INCOMING, start: 0, count: 1 }
             ) {
                 total
+            }
+            roles: relationships(input: { types: ["IsMemberOfRole"], direction: OUTGOING, start: 0 }) {
+                relationships {
+                    entity {
+                        ... on DataHubRole {
+                            urn
+                            type
+                            name
+                        }
+                    }
+                }
             }
         }
     }

@@ -12,9 +12,9 @@ import java.util.concurrent.CompletableFuture;
 
 /** Resolver responsible for returning whether an entity exists. */
 public class EntityExistsResolver implements DataFetcher<CompletableFuture<Boolean>> {
-  private final EntityService _entityService;
+  private final EntityService<?> _entityService;
 
-  public EntityExistsResolver(final EntityService entityService) {
+  public EntityExistsResolver(final EntityService<?> entityService) {
     _entityService = entityService;
   }
 
@@ -32,7 +32,7 @@ public class EntityExistsResolver implements DataFetcher<CompletableFuture<Boole
     return CompletableFuture.supplyAsync(
         () -> {
           try {
-            return _entityService.exists(entityUrn);
+            return _entityService.exists(entityUrn, true);
           } catch (Exception e) {
             throw new RuntimeException(
                 String.format("Failed to check whether entity %s exists", entityUrn.toString()));

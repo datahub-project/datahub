@@ -4,7 +4,10 @@
     "name": "schemaFieldKey",
     "keyForEntity": "schemaField",
     "entityCategory": "core",
-    "entityAspects": []
+    "entityAspects": [
+      "structuredProperties",
+      "forms"
+    ]
   },
   "name": "SchemaFieldKey",
   "namespace": "com.linkedin.pegasus2avro.metadata.key",

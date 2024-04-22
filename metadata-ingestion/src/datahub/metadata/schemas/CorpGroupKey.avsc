@@ -10,7 +10,10 @@
       "globalTags",
       "ownership",
       "status",
-      "origin"
+      "origin",
+      "roleMembership",
+      "structuredProperties",
+      "forms"
     ],
     "entityDoc": "CorpGroup represents an identity of a group of users in the enterprise."
   },

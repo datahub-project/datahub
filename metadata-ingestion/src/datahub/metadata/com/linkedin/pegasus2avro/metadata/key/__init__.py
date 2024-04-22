@@ -6,6 +6,7 @@
 
 # pylint: skip-file
 # fmt: off
+# isort: skip_file
 from ......schema_classes import AssertionKeyClass
 from ......schema_classes import ChartKeyClass
 from ......schema_classes import ContainerKeyClass
@@ -30,10 +31,13 @@ from ......schema_classes import DataProcessInstanceKeyClass
 from ......schema_classes import DataProcessKeyClass
 from ......schema_classes import DatasetKeyClass
 from ......schema_classes import DomainKeyClass
+from ......schema_classes import ERModelRelationshipKeyClass
 from ......schema_classes import ExecutionRequestKeyClass
+from ......schema_classes import FormKeyClass
 from ......schema_classes import GlobalSettingsKeyClass
 from ......schema_classes import GlossaryNodeKeyClass
 from ......schema_classes import GlossaryTermKeyClass
+from ......schema_classes import IncidentKeyClass
 from ......schema_classes import InviteTokenKeyClass
 from ......schema_classes import MLFeatureKeyClass
 from ......schema_classes import MLFeatureTableKeyClass
@@ -76,10 +80,13 @@ DataProcessInstanceKey = DataProcessInstanceKeyClass
 DataProcessKey = DataProcessKeyClass
 DatasetKey = DatasetKeyClass
 DomainKey = DomainKeyClass
+ERModelRelationshipKey = ERModelRelationshipKeyClass
 ExecutionRequestKey = ExecutionRequestKeyClass
+FormKey = FormKeyClass
 GlobalSettingsKey = GlobalSettingsKeyClass
 GlossaryNodeKey = GlossaryNodeKeyClass
 GlossaryTermKey = GlossaryTermKeyClass
+IncidentKey = IncidentKeyClass
 InviteTokenKey = InviteTokenKeyClass
 MLFeatureKey = MLFeatureKeyClass
 MLFeatureTableKey = MLFeatureTableKeyClass

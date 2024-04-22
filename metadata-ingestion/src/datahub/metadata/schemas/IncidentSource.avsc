@@ -1,0 +1,46 @@
+{
+  "type": "record",
+  "Aspect": {
+    "name": "incidentSource"
+  },
+  "name": "IncidentSource",
+  "namespace": "com.linkedin.pegasus2avro.incident",
+  "fields": [
+    {
+      "Searchable": {
+        "addToFilters": true,
+        "filterNameOverride": "Source"
+      },
+      "type": {
+        "type": "enum",
+        "symbolDocs": {
+          "MANUAL": "Manually created incident, via UI or API."
+        },
+        "name": "IncidentSourceType",
+        "namespace": "com.linkedin.pegasus2avro.incident",
+        "symbols": [
+          "MANUAL"
+        ]
+      },
+      "name": "type",
+      "doc": "Message associated with the incident"
+    },
+    {
+      "Searchable": {
+        "fieldType": "URN"
+      },
+      "java": {
+        "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+      },
+      "type": [
+        "null",
+        "string"
+      ],
+      "name": "sourceUrn",
+      "default": null,
+      "doc": "Reference to an URN related to the source of an incident.",
+      "Urn": "Urn"
+    }
+  ],
+  "doc": "Information about the source of an incident raised on an asset."
+}

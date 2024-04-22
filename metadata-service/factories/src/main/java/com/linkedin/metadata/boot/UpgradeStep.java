@@ -20,12 +20,12 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public abstract class UpgradeStep implements BootstrapStep {
 
-  protected final EntityService _entityService;
+  protected final EntityService<?> _entityService;
   private final String _version;
   private final String _upgradeId;
   private final Urn _upgradeUrn;
 
-  public UpgradeStep(EntityService entityService, String version, String upgradeId) {
+  public UpgradeStep(EntityService<?> entityService, String version, String upgradeId) {
     this._entityService = entityService;
     this._version = version;
     this._upgradeId = upgradeId;
