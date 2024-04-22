@@ -455,7 +455,7 @@ featureFlags:
   schemaFieldEntityFetchEnabled: ${SCHEMA_FIELD_ENTITY_FETCH_ENABLED:true} # Enables fetching for schema field entities from the database when we hydrate them on schema fields
   themeV2Enabled: ${THEME_V2_ENABLED:false} # Acryl only! Enables the V2 theme, a suite of UI improvements around search, home and more, to be turned on.
   themeV2Default: ${THEME_V2_DEFAULT:false} # Globally sets the theme to V2. If false, determined by per-user settings.
-  metadataShareEnabled: ${METADATA_SHARE_ENABLED:true} # Enables the metadata sharing feature to share entities between instances
+  metadataShareEnabled: ${METADATA_SHARE_ENABLED:false} # Enables the metadata sharing feature to share entities between instances
   documentationFormsEnabled: ${FEATURE_DOCUMENTATION_FORMS_ENABLED:false} # Enables the documentation forms feature and shows/hides everything for it in the UI
   emailNotificationsEnabled: ${EMAIL_NOTIFICATIONS_ENABLED:false} # Enables the email notifications feature.
 
