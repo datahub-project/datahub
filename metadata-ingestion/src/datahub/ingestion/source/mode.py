@@ -869,21 +869,25 @@ class ModeSource(StatefulIngestionSourceBase):
         # If multiple query is peresent in the query, we get the last one.
         # This won't work for complex cases where temp table is created and used in the same query.
         # But it should be good enough for simple use-cases.
-        for partial_query in sqlglot.parse(normalized_query):
-            if not partial_query:
-                continue
-            # This is hacky but on snowlake we want to change the default warehouse if use warehouse is present
-            if upstream_warehouse_platform == "snowflake":
-                regexp = r"use\s+warehouse\s+(.*)(\s+)?;"
-                matches = re.search(
-                    regexp,
-                    partial_query.sql(dialect=upstream_warehouse_platform),
-                    re.MULTILINE | re.DOTALL | re.IGNORECASE,
-                )
-                if matches and matches.group(1):
-                    upstream_warehouse_db_name = matches.group(1)
+        try:
+            for partial_query in sqlglot.parse(normalized_query):
+                if not partial_query:
+                    continue
+                # This is hacky but on snowlake we want to change the default warehouse if use warehouse is present
+                if upstream_warehouse_platform == "snowflake":
+                    regexp = r"use\s+warehouse\s+(.*)(\s+)?;"
+                    matches = re.search(
+                        regexp,
+                        partial_query.sql(dialect=upstream_warehouse_platform),
+                        re.MULTILINE | re.DOTALL | re.IGNORECASE,
+                    )
+                    if matches and matches.group(1):
+                        upstream_warehouse_db_name = matches.group(1)
 
-            query_to_parse = partial_query.sql(dialect=upstream_warehouse_platform)
+                query_to_parse = partial_query.sql(dialect=upstream_warehouse_platform)
+        except Exception as e:
+            logger.debug(f"sqlglot.parse failed on: {normalized_query}, error: {e}")
+            query_to_parse = normalized_query
 
         parsed_query_object = create_lineage_sql_parsed_result(
             query=query_to_parse,
