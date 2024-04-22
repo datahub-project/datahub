@@ -26,7 +26,7 @@ import {
     FineGrainedOperationRef,
 } from './common';
 import { getFieldPathFromSchemaFieldUrn, getSourceUrnFromSchemaFieldUrn } from './lineageUtils';
-import NodeBuilder, { NodeWithMetadata } from './NodeBuilder';
+import NodeBuilder, { LineageVisualizationNode } from './NodeBuilder';
 
 interface FineGrainedLineageData {
     direct: FineGrainedLineage;
@@ -36,7 +36,7 @@ interface FineGrainedLineageData {
 
 interface ProcessedData {
     fineGrainedLineage: FineGrainedLineageData;
-    flowNodes: NodeWithMetadata[];
+    flowNodes: LineageVisualizationNode[];
     flowEdges: Edge[];
 }
 

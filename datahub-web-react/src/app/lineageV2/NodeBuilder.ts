@@ -31,9 +31,7 @@ const MINI_X_SEP = MAIN_X_SEP / 2;
 const MAIN_Y_SEP = 30;
 const MINI_Y_SEP = MAIN_Y_SEP / 2;
 
-export type NodeWithMetadata = Node<LineageEntity | LineageFilter> & {
-    layer?: number;
-};
+export type LineageVisualizationNode = Node<LineageEntity | LineageFilter>;
 type BaseEdge<T> = Pick<Edge<T>, 'source' | 'target' | 'markerEnd' | 'data'>;
 
 type Layer = string; // [main (entity) layer, mini (transformation) layer]
@@ -114,11 +112,11 @@ export default class NodeBuilder {
         return information && this.#isMainNode(information) ? { type: MarkerType.ArrowClosed } : undefined;
     }
 
-    createNodes(adjacencyList: NodeContext['adjacencyList']): NodeWithMetadata[] {
+    createNodes(adjacencyList: NodeContext['adjacencyList']): LineageVisualizationNode[] {
         this.computeNodeX(adjacencyList);
         this.computeNodeY();
 
-        const nodes: NodeWithMetadata[] = [];
+        const nodes: LineageVisualizationNode[] = [];
         nodes.push(...this.entities.map((n) => this.createNode(n, LINEAGE_ENTITY_NODE_NAME)));
         nodes.push(...this.transformations.map((n) => this.createNode(n, LINEAGE_TRANSFORMATION_NODE_NAME)));
         nodes.push(...this.workbooks.map((n) => this.createNode(n, LINEAGE_WORKBOOK_NODE_NAME)));
@@ -372,7 +370,7 @@ export default class NodeBuilder {
         });
     }
 
-    createNode<T extends LineageNode>(node: T, type: string, transformData = (v: T) => v): NodeWithMetadata {
+    createNode<T extends LineageNode>(node: T, type: string, transformData = (v: T) => v): LineageVisualizationNode {
         const info = this.nodeInformation[node.id];
         const layer = info.layer || '';
         return {
@@ -382,12 +380,11 @@ export default class NodeBuilder {
                 x: this.layerPositions.get(layer) || 0,
                 y: info.y || 0,
             },
-            layer: parseLayer(layer).main,
             data: transformData(node),
         };
     }
 
-    createFilterNode(filter: LineageFilter): NodeWithMetadata {
+    createFilterNode(filter: LineageFilter): LineageVisualizationNode {
         return this.createNode(filter, LINEAGE_FILTER_NODE_NAME, (node) => ({
             ...node,
             numShown: Array.from(node.contents).filter((urn) => urn in this.nodeInformation).length,
