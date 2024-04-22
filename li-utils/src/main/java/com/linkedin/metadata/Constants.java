@@ -2,6 +2,8 @@ package com.linkedin.metadata;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import java.util.Arrays;
+import java.util.List;
 
 /** Static class containing commonly-used constants across DataHub services. */
 public class Constants {
@@ -88,6 +90,7 @@ public class Constants {
   public static final String ENTITY_TYPE_ENTITY_NAME = "entityType";
   public static final String FORM_ENTITY_NAME = "form";
   public static final String RESTRICTED_ENTITY_NAME = "restricted";
+  public static final String BUSINESS_ATTRIBUTE_ENTITY_NAME = "businessAttribute";
 
   /** Aspects */
   // Common
@@ -378,6 +381,14 @@ public class Constants {
       "dataProcessInstanceRunEvent";
   public static final String DATA_PROCESS_INSTANCE_RELATIONSHIPS_ASPECT_NAME =
       "dataProcessInstanceRelationships";
+
+  // Business Attribute
+  public static final String BUSINESS_ATTRIBUTE_KEY_ASPECT_NAME = "businessAttributeKey";
+  public static final String BUSINESS_ATTRIBUTE_INFO_ASPECT_NAME = "businessAttributeInfo";
+  public static final String BUSINESS_ATTRIBUTE_ASSOCIATION = "businessAttributeAssociation";
+  public static final String BUSINESS_ATTRIBUTE_ASPECT = "businessAttributes";
+  public static final List<String> SKIP_REFERENCE_ASPECT =
+      Arrays.asList("ownership", "status", "institutionalMemory");
 
   // Posts
   public static final String POST_INFO_ASPECT_NAME = "postInfo";

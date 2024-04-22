@@ -3,7 +3,6 @@ package com.linkedin.metadata.search.elasticsearch;
 import static com.linkedin.metadata.search.utils.SearchUtils.applyDefaultSearchFlags;
 
 import com.linkedin.common.urn.Urn;
-import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.browse.BrowseResultV2;
 import com.linkedin.metadata.query.AutoCompleteResult;
@@ -56,13 +55,6 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
   private final ESWriteDAO esWriteDAO;
 
   @Override
-  public ElasticSearchService postConstruct(AspectRetriever aspectRetriever) {
-    esSearchDAO.setAspectRetriever(aspectRetriever);
-    esBrowseDAO.setAspectRetriever(aspectRetriever);
-    return this;
-  }
-
-  @Override
   public void configure() {
     indexBuilders.reindexAll();
   }
@@ -84,37 +76,47 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
   }
 
   @Override
-  public void clear() {
-    esWriteDAO.clear();
+  public void clear(@Nonnull OperationContext opContext) {
+    esWriteDAO.clear(opContext);
   }
 
   @Override
-  public long docCount(@Nonnull OperationContext opContext, @Nonnull String entityName) {
+  public long docCount(
+      @Nonnull OperationContext opContext, @Nonnull String entityName, @Nullable Filter filter) {
     return esSearchDAO.docCount(
         opContext.withSearchFlags(
             flags -> applyDefaultSearchFlags(flags, null, DEFAULT_SERVICE_SEARCH_FLAGS)),
-        entityName);
+        entityName,
+        filter);
   }
 
   @Override
   public void upsertDocument(
-      @Nonnull String entityName, @Nonnull String document, @Nonnull String docId) {
+      @Nonnull OperationContext opContext,
+      @Nonnull String entityName,
+      @Nonnull String document,
+      @Nonnull String docId) {
     log.debug(
         String.format(
             "Upserting Search document entityName: %s, document: %s, docId: %s",
             entityName, document, docId));
-    esWriteDAO.upsertDocument(entityName, document, docId);
+    esWriteDAO.upsertDocument(opContext, entityName, document, docId);
   }
 
   @Override
-  public void deleteDocument(@Nonnull String entityName, @Nonnull String docId) {
+  public void deleteDocument(
+      @Nonnull OperationContext opContext, @Nonnull String entityName, @Nonnull String docId) {
     log.debug(
         String.format("Deleting Search document entityName: %s, docId: %s", entityName, docId));
-    esWriteDAO.deleteDocument(entityName, docId);
+    esWriteDAO.deleteDocument(opContext, entityName, docId);
   }
 
   @Override
-  public void appendRunId(@Nonnull String entityName, @Nonnull Urn urn, @Nullable String runId) {
+  public void appendRunId(
+      @Nonnull OperationContext opContext,
+      @Nonnull String entityName,
+      @Nonnull Urn urn,
+      @Nullable String runId) {
     final Optional<String> maybeDocId = SearchUtils.getDocId(urn);
     if (!maybeDocId.isPresent()) {
       log.warn(
@@ -125,6 +127,7 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
     log.info(
         "Appending run id for entity name: {}, doc id: {}, run id: {}", entityName, docId, runId);
     esWriteDAO.applyScriptUpdate(
+        opContext,
         entityName,
         docId,
         /*
@@ -322,10 +325,11 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
 
   @Nonnull
   @Override
-  public List<String> getBrowsePaths(@Nonnull String entityName, @Nonnull Urn urn) {
+  public List<String> getBrowsePaths(
+      @Nonnull OperationContext opContext, @Nonnull String entityName, @Nonnull Urn urn) {
     log.debug(
         String.format("Getting browse paths for entity entityName: %s, urn: %s", entityName, urn));
-    return esBrowseDAO.getBrowsePaths(entityName, urn);
+    return esBrowseDAO.getBrowsePaths(opContext, entityName, urn);
   }
 
   @Nonnull
@@ -388,8 +392,9 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
         size);
   }
 
-  public Optional<SearchResponse> raw(@Nonnull String indexName, @Nullable String jsonQuery) {
-    return esSearchDAO.raw(indexName, jsonQuery);
+  public Optional<SearchResponse> raw(
+      @Nonnull OperationContext opContext, @Nonnull String indexName, @Nullable String jsonQuery) {
+    return esSearchDAO.raw(opContext, indexName, jsonQuery);
   }
 
   @Override

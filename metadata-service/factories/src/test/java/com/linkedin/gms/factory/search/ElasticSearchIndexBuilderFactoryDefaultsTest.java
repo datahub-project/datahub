@@ -13,7 +13,7 @@ import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.testng.annotations.Test;
 
-@TestPropertySource(locations = "classpath:/application.yml")
+@TestPropertySource(locations = "classpath:/application.yaml")
 @SpringBootTest(classes = {ElasticSearchIndexBuilderFactory.class})
 @EnableConfigurationProperties(ConfigurationProvider.class)
 public class ElasticSearchIndexBuilderFactoryDefaultsTest extends AbstractTestNGSpringContextTests {

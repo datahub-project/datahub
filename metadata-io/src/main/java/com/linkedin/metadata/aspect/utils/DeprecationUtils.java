@@ -6,6 +6,7 @@ import com.linkedin.data.template.SetMode;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.EntityUtils;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.Objects;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -16,6 +17,7 @@ public class DeprecationUtils {
 
   @Nullable
   public static Deprecation getDeprecation(
+      @Nonnull OperationContext opContext,
       @Nonnull EntityService entityService,
       @Nonnull String urn,
       Urn actor,
@@ -25,7 +27,11 @@ public class DeprecationUtils {
     Deprecation deprecation =
         (Deprecation)
             EntityUtils.getAspectFromEntity(
-                urn, Constants.DEPRECATION_ASPECT_NAME, entityService, new Deprecation());
+                opContext,
+                urn,
+                Constants.DEPRECATION_ASPECT_NAME,
+                entityService,
+                new Deprecation());
     if (deprecation == null) {
       return null;
     }

@@ -1,0 +1,29 @@
+namespace com.linkedin.businessattribute
+
+/**
+ * BusinessAttribute aspect used for applying it to an entity
+ */
+@Aspect = {
+  "name": "businessAttributes"
+}
+record BusinessAttributes {
+
+      /**
+       * Business Attribute for this field.
+       */
+      @Relationship = {
+        "/businessAttributeUrn": {
+          "name": "BusinessAttributeOf",
+          "entityTypes": [ "businessAttribute" ]
+        }
+      }
+      @SearchableRef = {
+        "/businessAttributeUrn": {
+          "fieldName": "businessAttributeRef",
+          "fieldType": "URN",
+          "boostScore": 0.5
+          "refType" : "businessAttribute"
+        }
+     }
+   businessAttribute: optional BusinessAttributeAssociation
+}

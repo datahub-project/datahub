@@ -57,10 +57,10 @@ public class AssertionType
     try {
       final Map<Urn, EntityResponse> entities =
           _entityClient.batchGetV2(
+              context.getOperationContext(),
               Constants.ASSERTION_ENTITY_NAME,
               new HashSet<>(assertionUrns),
-              ASPECTS_TO_FETCH,
-              context.getAuthentication());
+              ASPECTS_TO_FETCH);
 
       final List<EntityResponse> gmsResults = new ArrayList<>(urns.size());
       for (Urn urn : assertionUrns) {

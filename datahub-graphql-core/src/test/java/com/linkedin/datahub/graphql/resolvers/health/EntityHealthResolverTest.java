@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.resolvers.health;
 
+import static org.mockito.ArgumentMatchers.any;
 import static org.testng.Assert.*;
 
 import com.datahub.authentication.Authentication;
@@ -60,6 +61,7 @@ public class EntityHealthResolverTest {
 
     Mockito.when(
             mockAspectService.getAggregatedStats(
+                any(),
                 Mockito.eq(Constants.ASSERTION_ENTITY_NAME),
                 Mockito.eq(Constants.ASSERTION_RUN_EVENT_ASPECT_NAME),
                 Mockito.any(),
@@ -134,7 +136,7 @@ public class EntityHealthResolverTest {
 
     Mockito.verify(mockAspectService, Mockito.times(0))
         .getAggregatedStats(
-            Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any());
+            any(), Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any());
   }
 
   @Test
@@ -167,6 +169,7 @@ public class EntityHealthResolverTest {
 
     Mockito.when(
             mockAspectService.getAggregatedStats(
+                any(),
                 Mockito.eq(Constants.ASSERTION_ENTITY_NAME),
                 Mockito.eq(Constants.ASSERTION_RUN_EVENT_ASPECT_NAME),
                 Mockito.any(),

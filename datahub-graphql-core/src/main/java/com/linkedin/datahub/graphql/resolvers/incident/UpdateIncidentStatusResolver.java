@@ -51,7 +51,11 @@ public class UpdateIncidentStatusResolver implements DataFetcher<CompletableFutu
           IncidentInfo info =
               (IncidentInfo)
                   EntityUtils.getAspectFromEntity(
-                      incidentUrn.toString(), INCIDENT_INFO_ASPECT_NAME, _entityService, null);
+                      context.getOperationContext(),
+                      incidentUrn.toString(),
+                      INCIDENT_INFO_ASPECT_NAME,
+                      _entityService,
+                      null);
 
           if (info != null) {
             // Check whether the actor has permission to edit the incident
@@ -73,7 +77,7 @@ public class UpdateIncidentStatusResolver implements DataFetcher<CompletableFutu
                 final MetadataChangeProposal proposal =
                     buildMetadataChangeProposalWithUrn(
                         incidentUrn, INCIDENT_INFO_ASPECT_NAME, info);
-                _entityClient.ingestProposal(proposal, context.getAuthentication(), false);
+                _entityClient.ingestProposal(context.getOperationContext(), proposal, false);
                 return true;
               } catch (Exception e) {
                 throw new RuntimeException("Failed to update incident status!", e);
