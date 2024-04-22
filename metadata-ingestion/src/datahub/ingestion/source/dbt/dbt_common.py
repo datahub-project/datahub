@@ -129,6 +129,7 @@ from datahub.sql_parsing.sqlglot_utils import (
     parse_statements_and_pick,
     try_format_query,
 )
+from datahub.utilities.lossy_collections import LossyList
 from datahub.utilities.mapping import Constants, OperationProcessor
 from datahub.utilities.time import datetime_to_ts_millis
 from datahub.utilities.topological_sort import topological_sort
@@ -144,8 +145,10 @@ class DBTSourceReport(StaleEntityRemovalSourceReport):
     sql_statements_parsed: int = 0
     sql_statements_table_error: int = 0
     sql_statements_column_error: int = 0
-    sql_parser_detach_ctes_failures: int = 0
-    sql_parser_skipped_missing_code: int = 0
+    sql_parser_detach_ctes_failures: LossyList[str] = field(default_factory=LossyList)
+    sql_parser_skipped_missing_code: LossyList[str] = field(default_factory=LossyList)
+
+    in_manifest_but_missing_catalog: LossyList[str] = field(default_factory=LossyList)
 
 
 class EmitDirective(ConfigEnum):
@@ -1111,7 +1114,11 @@ class DBTSourceBase(StatefulIngestionSourceBase):
 
             # Run sql parser to infer the schema + generate column lineage.
             sql_result = None
-            if node.compiled_code:
+            if node.node_type in {"source", "test"}:
+                # For sources, we generate CLL as a 1:1 mapping.
+                # We don't support CLL for tests (assertions).
+                pass
+            elif node.compiled_code:
                 try:
                     # Add CTE stops based on the upstreams list.
                     preprocessed_sql = detach_ctes(
@@ -1134,7 +1141,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                         },
                     )
                 except Exception as e:
-                    self.report.sql_parser_detach_ctes_failures += 1
+                    self.report.sql_parser_detach_ctes_failures.append(node.dbt_name)
                     logger.debug(
                         f"Failed to detach CTEs from compiled code. {node.dbt_name} will not have column lineage."
                     )
@@ -1156,7 +1163,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     else:
                         self.report.sql_statements_parsed += 1
             else:
-                self.report.sql_parser_skipped_missing_code += 1
+                self.report.sql_parser_skipped_missing_code.append(node.dbt_name)
 
             # Save the column lineage.
             if self.config.include_column_lineage and sql_result:
@@ -1759,7 +1766,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             if node.cll_debug_info and node.cll_debug_info.error:
                 self.report.report_warning(
                     node.dbt_name,
-                    f"Error parsing column lineage: {node.cll_debug_info.error}",
+                    f"Error parsing SQL to generate column lineage: {node.cll_debug_info.error}",
                 )
             cll = [
                 FineGrainedLineage(

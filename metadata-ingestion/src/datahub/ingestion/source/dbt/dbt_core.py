@@ -185,10 +185,7 @@ def extract_dbt_entities(
         if catalog_node is None:
             if materialization not in {"test", "ephemeral"}:
                 # Test and ephemeral nodes will never show up in the catalog.
-                report.report_warning(
-                    key,
-                    f"Entity {key} ({name}) is in manifest but missing from catalog",
-                )
+                report.in_manifest_but_missing_catalog.append(key)
         else:
             catalog_type = all_catalog_entities[key]["metadata"]["type"]
 
@@ -280,6 +277,14 @@ def extract_dbt_entities(
             dbtNode.columns = []
 
         dbt_entities.append(dbtNode)
+
+    if report.in_manifest_but_missing_catalog:
+        # We still want this to show up as a warning, but don't want to spam the warnings section
+        # if there's a lot of them.
+        report.warning(
+            "in_manifest_but_missing_catalog",
+            f"Found {len(report.in_manifest_but_missing_catalog)} nodes in manifest but not in catalog. See in_manifest_but_missing_catalog for details.",
+        )
 
     return dbt_entities
 
