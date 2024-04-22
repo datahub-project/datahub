@@ -2,7 +2,7 @@ import React, { useContext } from 'react';
 import { KeyboardArrowLeft } from '@mui/icons-material';
 import { LineageDirection } from '../../../types.generated';
 import { UpstreamWrapper, DownstreamWrapper, Button } from './components';
-import { LineageNodesContext, onMouseDownCapturePreventSelect } from '../common';
+import { LineageNodesContext, onClickPreventSelect } from '../common';
 import analytics, { EventType } from '../../analytics';
 
 interface Props {
@@ -14,7 +14,7 @@ export function ContractLineageButton({ urn, direction }: Props) {
     const context = useContext(LineageNodesContext);
     const { nodes, setDisplayVersion } = context;
 
-    const contractLineage = (e: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
+    const contractLineage = (e: React.MouseEvent<HTMLSpanElement, MouseEvent>) => {
         e.stopPropagation();
         const node = nodes.get(urn);
         if (node) {
@@ -34,8 +34,7 @@ export function ContractLineageButton({ urn, direction }: Props) {
     return (
         <Wrapper>
             <Button
-                onClick={contractLineage}
-                onMouseDownCapture={onMouseDownCapturePreventSelect}
+                onClick={(e) => onClickPreventSelect(e) && contractLineage(e)}
                 onMouseEnter={(e) => e.stopPropagation()}
                 onMouseLeave={(e) => e.stopPropagation()}
             >

@@ -282,14 +282,15 @@ export function setDifference(setA: Set<string>, setB: Set<string>): string[] {
     return Array.from(setA).filter((x) => !setB.has(x));
 }
 
-export function onMouseDownCapturePreventSelect(event: React.MouseEvent): void {
+export function onClickPreventSelect(event: React.MouseEvent): true {
     event.preventDefault(); // Prevents selecting node in React Flow
     event.stopPropagation(); // Prevents focusing node
+    return true;
 }
 
-const DATA_STORE_COLOR = '#ffae108f';
-const BI_TOOL_COLOR = '#3932898f';
-const DEFAULT_COLOR = '#ff10108f';
+const DATA_STORE_COLOR = '#ffd279';
+const BI_TOOL_COLOR = '#8682a2';
+const DEFAULT_COLOR = '#ff7979';
 
 export function getNodeColor(type?: EntityType): [string, string] {
     if (type === EntityType.Chart || type === EntityType.Dashboard) {

@@ -4,7 +4,7 @@ import styled from 'styled-components';
 import { useAvoidIntersectionsOften } from '../LineageEntityNode/useAvoidIntersections';
 import { LINEAGE_NODE_WIDTH } from '../LineageEntityNode/useDisplayedColumns';
 import useFetchFilterNodeContents from './useFetchFilterNodeContents';
-import { REDESIGN_COLORS } from '../../entityV2/shared/constants';
+import { LINEAGE_COLORS } from '../../entityV2/shared/constants';
 import { PlatformEntry, SubtypeEntry } from './LineageFilterPills';
 import { LineageFilter } from '../common';
 import { ShowMoreButton } from './ShowMoreButton';
@@ -15,19 +15,11 @@ const PILL_COLUMN_MAX = 3;
 
 const NodeWrapper = styled.div`
     background-color: white;
-    border: 1px solid #eee;
+    border: 1px solid ${LINEAGE_COLORS.NODE_BORDER};
     border-radius: 12px;
     cursor: auto;
     padding: 8px;
     width: ${LINEAGE_NODE_WIDTH}px;
-
-    :hover:not(:has(.pill-true:hover, .show-more:hover)) {
-        border-color: ${REDESIGN_COLORS.BLUE}80;
-
-        .extra-card {
-            border-color: ${REDESIGN_COLORS.BLUE}80;
-        }
-    }
 `;
 
 const ExtraCard = styled.div<{ bottom: number }>`

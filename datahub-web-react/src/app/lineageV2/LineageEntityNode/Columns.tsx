@@ -9,7 +9,7 @@ import ColumnSearch from './ColumnSearch';
 import { FetchedEntity } from '../../lineage/types';
 import { LineageDisplayColumn } from './useDisplayedColumns';
 import { LINEAGE_COLORS, REDESIGN_COLORS } from '../../entityV2/shared/constants';
-import { onMouseDownCapturePreventSelect, TRANSITION_DURATION_MS } from '../common';
+import { onClickPreventSelect, TRANSITION_DURATION_MS } from '../common';
 
 const MainColumnsWrapper = styled.div`
     align-items: center;
@@ -48,6 +48,8 @@ const ColumnPagination = styled(Pagination)`
     display: flex;
     justify-content: center;
     margin-top: 8px;
+    overflow: hidden;
+    width: 100%;
 `;
 
 const HorizontalDivider = styled.hr<{ margin: number }>`
@@ -128,8 +130,7 @@ function Columns(props: Props) {
                         <FilterLineageIcon
                             count={numColumnsWithLineage}
                             selected={onlyWithLineage}
-                            onClick={() => setOnlyWithLineage((v) => !v)}
-                            onMouseDownCapture={onMouseDownCapturePreventSelect}
+                            onClick={(e) => onClickPreventSelect(e) && setOnlyWithLineage((v) => !v)}
                         />
                     </Tooltip>
                 </SearchBarWrapper>
@@ -149,6 +150,7 @@ function Columns(props: Props) {
                     total={numFiltered}
                     pageSize={NUM_COLUMNS_PER_PAGE}
                     size="small"
+                    simple
                     showLessItems
                     showSizeChanger={false}
                 />

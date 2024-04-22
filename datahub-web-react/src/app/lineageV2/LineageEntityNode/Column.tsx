@@ -3,7 +3,7 @@ import { Handle, Position } from 'reactflow';
 import styled from 'styled-components';
 import translateFieldPath from '../../entityV2/dataset/profile/schema/utils/translateFieldPath';
 import OverflowTitle from '../../sharedV2/text/OverflowTitle';
-import { createColumnRef, LineageDisplayContext, onMouseDownCapturePreventSelect } from '../common';
+import { createColumnRef, LineageDisplayContext, onClickPreventSelect } from '../common';
 import { CompactFieldIconWithTooltip } from '../../sharedV2/icons/CompactFieldIcon';
 import { ANTD_GRAY, LINEAGE_COLORS } from '../../entityV2/shared/constants';
 import { LineageDisplayColumn } from './useDisplayedColumns';
@@ -68,13 +68,9 @@ export default function Column({ urn, fieldPath, highlighted, type, nativeDataTy
             fromSelect={!!selectedColumn}
             selected={id === selectedColumn}
             hasLineage={hasLineage}
-            onMouseDownCapture={(e) => {
+            onClick={(e) => {
                 if (hasLineage) {
-                    onMouseDownCapturePreventSelect(e);
-                }
-            }}
-            onClick={() => {
-                if (hasLineage) {
+                    onClickPreventSelect(e);
                     // Toggle if already selected
                     setSelectedColumn((v) => (v === id ? null : id));
                 }

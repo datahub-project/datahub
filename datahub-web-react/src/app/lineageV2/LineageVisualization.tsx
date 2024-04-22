@@ -1,5 +1,5 @@
 import React, { useContext, useEffect } from 'react';
-import ReactFlow, { Edge, NodeTypes, Background, BackgroundVariant, MiniMap, EdgeTypes } from 'reactflow';
+import ReactFlow, { Background, BackgroundVariant, Edge, EdgeTypes, MiniMap, NodeTypes } from 'reactflow';
 import styled from 'styled-components';
 
 import 'reactflow/dist/style.css';
@@ -83,6 +83,8 @@ function LineageVisualization({ initialNodes, initialEdges }: Props) {
             edgeTypes={edgeTypes}
             proOptions={{ hideAttribution: true }}
             nodesDraggable
+            nodeDragThreshold={3}
+            selectNodesOnDrag={false}
             nodesConnectable={false}
             minZoom={0.3}
             maxZoom={5}

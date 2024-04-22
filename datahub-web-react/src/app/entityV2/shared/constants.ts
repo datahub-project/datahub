@@ -70,14 +70,6 @@ export const SEARCH_COLORS = {
     LINK_BLUE: '#5280E2',
 };
 
-export const LINEAGE_COLORS = {
-    BLUE_1: '#0958D9',
-    BLUE_2: '#1890FF',
-    PURPLE_1: '#5280E2',
-    PURPLE_2: '#324473',
-    PURPLE_3: SEARCH_COLORS.TITLE_PURPLE,
-};
-
 export const ANTD_GRAY = {
     1: '#FFFFFF',
     2: '#FAFAFA',
@@ -106,6 +98,15 @@ export const ANTD_GRAY_V2 = {
     12: '#52596c',
     13: '#ababab',
     14: '#f7f7f7',
+};
+
+export const LINEAGE_COLORS = {
+    BLUE_1: '#0958D9',
+    BLUE_2: '#1890FF',
+    PURPLE_1: '#5280E2',
+    PURPLE_2: '#324473',
+    PURPLE_3: SEARCH_COLORS.TITLE_PURPLE,
+    NODE_BORDER: ANTD_GRAY[6],
 };
 
 export const EMPTY_MESSAGES = {

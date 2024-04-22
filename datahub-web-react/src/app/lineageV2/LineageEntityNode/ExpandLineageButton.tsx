@@ -2,7 +2,7 @@ import React from 'react';
 import styled from 'styled-components';
 import { KeyboardArrowRight, KeyboardDoubleArrowRight } from '@mui/icons-material';
 import { EntityType, LineageDirection } from '../../../types.generated';
-import { FetchStatus, onMouseDownCapturePreventSelect } from '../common';
+import { FetchStatus, onClickPreventSelect } from '../common';
 import { ANTD_GRAY } from '../../entityV2/shared/constants';
 import { UpstreamWrapper, DownstreamWrapper, Button } from './components';
 import { useOnClickExpandLineage } from './useOnClickExpandLineage';
@@ -61,8 +61,7 @@ export function ExpandLineageButton({ urn, direction, display, entityType, fetch
     return (
         <Wrapper expandOnHover={!isFetchComplete}>
             <Button
-                onClick={handleExpandOneLevel}
-                onMouseDownCapture={onMouseDownCapturePreventSelect}
+                onClick={(e) => onClickPreventSelect(e) && handleExpandOneLevel(e)}
                 onMouseEnter={(e) => e.stopPropagation()}
                 onMouseLeave={(e) => e.stopPropagation()}
             >
@@ -72,8 +71,7 @@ export function ExpandLineageButton({ urn, direction, display, entityType, fetch
                 <>
                     <VerticalDivider margin={2} />
                     <Button
-                        onClick={handleExpandAll}
-                        onMouseDownCapture={onMouseDownCapturePreventSelect}
+                        onClick={(e) => onClickPreventSelect(e) && handleExpandAll(e)}
                         onMouseEnter={(e) => e.stopPropagation()}
                         onMouseLeave={(e) => e.stopPropagation()}
                     >
