@@ -1354,7 +1354,7 @@
                 {
                     "fieldPath": "Unique_Account",
                     "nullable": true,
-                    "description": "\\# Unique_Account",
+                    "description": "\\# Unique_Account\n\nThis is the # description\n\n\\# Help Text",
                     "type": {
                         "type": {
                             "com.linkedin.schema.StringType": {}
