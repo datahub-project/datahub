@@ -12,7 +12,7 @@ import {
     DatasetVolumeSourceType,
     VolumeAssertionInfo,
 } from '../../../../../../../../../../types.generated';
-import { EvaluationScheduleBuilder } from '../freshness/EvaluationScheduleBuilder';
+import { EvaluationScheduleBuilder } from '../common/EvaluationScheduleBuilder';
 import { VolumeTypeBuilder } from './VolumeTypeBuilder';
 import { VolumeParametersBuilder } from './VolumeParametersBuilder';
 import { VolumeSourceTypeBuilder } from './VolumeSourceTypeBuilder';
@@ -120,12 +120,6 @@ export const VolumeAssertionBuilder = ({ state, updateState, disabled }: Props) 
 
     return (
         <div>
-            <EvaluationScheduleBuilder
-                value={schedule}
-                assertionType={AssertionType.Volume}
-                onChange={updateAssertionSchedule}
-                disabled={disabled}
-            />
             <VolumeTypeBuilder volumeInfo={volumeAssertion as VolumeAssertionInfo} onChange={updateVolumeType} disabled={disabled} />
             <VolumeParametersBuilder
                 volumeInfo={volumeAssertion as VolumeAssertionInfo}
@@ -153,6 +147,12 @@ export const VolumeAssertionBuilder = ({ state, updateState, disabled }: Props) 
                     </Collapse.Panel>
                 </Collapse>
             </Section>
+            <EvaluationScheduleBuilder
+                value={schedule}
+                assertionType={AssertionType.Volume}
+                onChange={updateAssertionSchedule}
+                disabled={disabled}
+            />
         </div>
     );
 };

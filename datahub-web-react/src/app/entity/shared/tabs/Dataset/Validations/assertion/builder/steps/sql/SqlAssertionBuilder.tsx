@@ -1,6 +1,6 @@
 import React from 'react';
 
-import { EvaluationScheduleBuilder } from '../freshness/EvaluationScheduleBuilder';
+import { EvaluationScheduleBuilder } from '../common/EvaluationScheduleBuilder';
 import { SqlQueryBuilder } from './SqlQueryBuilder';
 import { SqlEvaluationBuilder } from './SqlEvaluationBuilder';
 import { AssertionMonitorBuilderState } from '../../types';
@@ -35,6 +35,12 @@ export const SqlAssertionBuilder = ({ state, updateState, disabled = false }: Pr
 
     return (
         <div>
+            <SqlQueryBuilder
+                value={state?.assertion?.sqlAssertion?.statement}
+                onChange={updateAssertionStatement}
+                disabled={disabled}
+            />
+            <SqlEvaluationBuilder value={state} onChange={updateState} disabled={disabled} />
             <EvaluationScheduleBuilder
                 value={state.schedule}
                 onChange={updateAssertionSchedule}
@@ -42,12 +48,6 @@ export const SqlAssertionBuilder = ({ state, updateState, disabled = false }: Pr
                 showAdvanced={false}
                 disabled={disabled}
             />
-            <SqlQueryBuilder
-                value={state?.assertion?.sqlAssertion?.statement}
-                onChange={updateAssertionStatement}
-                disabled={disabled}
-            />
-            <SqlEvaluationBuilder value={state} onChange={updateState} disabled={disabled} />
         </div>
     );
 };

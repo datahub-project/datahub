@@ -21,10 +21,10 @@ const RadioGroup = styled(Radio.Group)`
 `;
 
 const RadioContainer = styled.div`
-    background-color: ${ANTD_GRAY[2]};
+    background-color: ${ANTD_GRAY[1]};
     border: 1px solid ${ANTD_GRAY[5]};
-    border-radius: 8px;
-    padding: 8px 16px;
+    border-radius: 12px;
+    padding: 16px 16px;
     display: flex;
     align-items: center;
 `;

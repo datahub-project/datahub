@@ -33,7 +33,7 @@ export const AssertionActionsSection = ({ state, updateState, disabled = false }
     );
 
     return (
-        <>
+        <div style={{ marginTop: 16, marginBottom: 24 }}>
             <Section>
                 <Typography.Title level={5}>If this assertion fails...</Typography.Title>
                 <StyledCheckbox
@@ -54,6 +54,6 @@ export const AssertionActionsSection = ({ state, updateState, disabled = false }
                     Auto-resolve active incident
                 </StyledCheckbox>
             </Section>
-        </>
+        </div>
     );
 };

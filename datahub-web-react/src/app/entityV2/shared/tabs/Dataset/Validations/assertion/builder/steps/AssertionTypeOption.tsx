@@ -3,12 +3,10 @@ import styled from 'styled-components';
 import { Button, Tooltip, Typography } from 'antd';
 import { ANTD_GRAY } from '../../../../../../constants';
 
-const Container = styled(Button)<{ enabled }>`
-    margin-right: 12px;
-    margin-left: 12px;
+const Container = styled(Button) <{ enabled }>`
     margin-bottom: 12px;
     padding: 20px 40px;
-    height: 152px;
+    height: 160px;
     display: flex;
     justify-content: center;
     border-radius: 16px;
@@ -35,7 +33,7 @@ const Header = styled.div`
     margin-bottom: 12px;
 `;
 
-const Title = styled(Typography.Title)<{ enabled }>`
+const Title = styled(Typography.Title) <{ enabled }>`
     && {
         padding: 0px;
         margin: 0px;

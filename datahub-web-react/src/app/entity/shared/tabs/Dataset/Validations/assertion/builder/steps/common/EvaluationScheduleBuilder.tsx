@@ -2,18 +2,18 @@ import React, { useMemo, useRef } from 'react';
 import styled from 'styled-components';
 import cronstrue from 'cronstrue';
 import { Tooltip, Typography } from 'antd';
-import { CheckCircleOutlined, InfoCircleOutlined } from '@ant-design/icons';
+import { ClockCircleOutlined, InfoCircleOutlined } from '@ant-design/icons';
 import { Cron, PeriodType, SetValueFunctionExtra } from 'react-js-cron';
 import { AssertionType, CronSchedule } from '../../../../../../../../../../types.generated';
 import { lowerFirstLetter } from '../../../../../../../../../shared/textUtil';
-import { ANTD_GRAY, REDESIGN_COLORS } from '../../../../../../../constants';
+import { ANTD_GRAY } from '../../../../../../../constants';
 import { TimezoneSelect } from '../../../../../../../../../ingest/source/builder/TimezoneSelect';
 import { DEFAULT_ASSERTION_EVALUATION_SCHEDULE } from '../../constants';
 import { adjustCronText } from '../../utils';
+import { useEntityData } from '../../../../../../../EntityContext';
 import { getPlatformName } from '../../../../../../../utils';
 import { TruncatedTextWithTooltip } from '../../../../../../../../../shared/TruncatedTextWithTooltip';
 import { getEvaluationScheduleTitle, getEvaluationScheduleTooltipDescription } from '../utils';
-import { useEntityData } from '../../../../../../../../../entity/shared/EntityContext';
 
 const TitleSection = styled.div`
     display: flex;
@@ -44,8 +44,8 @@ const Section = styled.div`
 
 const CronText = styled.div``;
 
-const CronSuccessCheck = styled(CheckCircleOutlined)`
-    color: ${REDESIGN_COLORS.BLUE};
+const CronSuccessCheck = styled(ClockCircleOutlined)`
+    color: ${ANTD_GRAY[7]};
     margin-right: 4px;
 `;
 
@@ -56,6 +56,15 @@ const StyledTimezoneSelect = styled(TimezoneSelect)`
 const Row = styled.div`
     display: flex;
     justify-content: space-between;
+    border-style: solid;
+    border-width: 0px;
+    border-top-width: 1px;
+    border-bottom-width: 1px;
+    border-color: #eee;
+    margin-top: 24px;
+    margin-bottom: 24px;
+    padding-top: 16px;
+    padding-bottom: 16px;
 `;
 
 const Column = styled.div`
@@ -63,10 +72,12 @@ const Column = styled.div`
     flex-direction: column;
 `;
 
+
 type Props = {
     value?: CronSchedule | null;
     onChange: (newSchedule: CronSchedule) => void;
     assertionType: AssertionType;
+    headerLabel?: string;
     showTimezone?: boolean;
     showAdvanced?: boolean;
     actionText?: string;
@@ -80,6 +91,7 @@ export const EvaluationScheduleBuilder = ({
     value,
     onChange,
     assertionType,
+    headerLabel,
     showTimezone = true,
     showAdvanced = true,
     actionText = 'Runs at',
@@ -89,7 +101,7 @@ export const EvaluationScheduleBuilder = ({
     const platformName = getPlatformName(entityData);
     const interval = value?.cron?.replaceAll(', ', '') || DEFAULT_ASSERTION_EVALUATION_SCHEDULE;
     const timezone = value?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
-    const title = getEvaluationScheduleTitle(assertionType);
+    const title = headerLabel ?? getEvaluationScheduleTitle(assertionType);
     const tooltipDescription = getEvaluationScheduleTooltipDescription(assertionType, platformName as string);
 
     const currentIntervalPeriodRef = useRef<PeriodType>()
@@ -128,7 +140,6 @@ export const EvaluationScheduleBuilder = ({
         });
     };
 
-
     const updateTimezone = (newTimezone: string) => {
         onChange({
             cron: interval,
@@ -157,7 +168,7 @@ export const EvaluationScheduleBuilder = ({
     }, [interval]);
 
     return (
-        <Row>
+        <Row style={headerLabel ? { borderTopWidth: 0 } : undefined}>
             <Column>
                 <TitleSection>
                     <Title level={5}>{title}</Title>
@@ -176,7 +187,7 @@ export const EvaluationScheduleBuilder = ({
                             </TooltipContainer>
                         }
                     >
-                        <InfoCircleOutlined />
+                        <InfoCircleOutlined style={{ color: '#999' }} />
                     </Tooltip>
                 </TitleSection>
                 <Section>
@@ -198,7 +209,7 @@ export const EvaluationScheduleBuilder = ({
                         {cronAsText.text && (
                             <>
                                 <CronSuccessCheck />
-                                <TruncatedTextWithTooltip text={`${actionText} ${cronAsText.text}`} maxLength={100} />
+                                <TruncatedTextWithTooltip text={`${actionText} ${cronAsText.text}`} style={{ color: ANTD_GRAY[7] }} maxLength={100} />
                             </>
                         )}
                     </CronText>

@@ -7,6 +7,7 @@ import { Tooltip, TooltipProps, Typography } from 'antd';
 
 type Props = {
     text: string;
+    style?: React.CSSProperties;
     maxLength: number;
     tooltipOptions?: TooltipProps;
     renderText?: (truncatedText: string) => React.ReactNode;
@@ -17,7 +18,7 @@ export const TruncatedTextWithTooltip = ({ text, maxLength, tooltipOptions, rend
 
     return (
         <Tooltip title={text.length > maxLength ? text : undefined} {...tooltipOptions}>
-            {renderText ? renderText(truncatedText) : <Typography.Text {...props}>{truncatedText}</Typography.Text>}
+            {renderText ? renderText(truncatedText) : <Typography.Text style={props.style} {...props}>{truncatedText}</Typography.Text>}
         </Tooltip>
     );
 };
