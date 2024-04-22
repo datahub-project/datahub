@@ -10,9 +10,10 @@ from typing import Dict, Iterable, List, Optional, Set, Tuple, Union
 import dateutil.parser as dp
 import pydantic
 import requests
+import sqlglot
 import tenacity
 import yaml
-from liquid import Template
+from liquid import Template, Undefined
 from pydantic import Field, validator
 from requests.models import HTTPBasicAuth, HTTPError
 from sqllineage.runner import LineageRunner
@@ -647,7 +648,7 @@ class ModeSource(StatefulIngestionSourceBase):
         if len(name_match):
             name = name_match[0][1:]
         alias_match = re.findall(
-            r"as\s+\S+", definition_variable
+            r"as\s+\S+\w+", definition_variable
         )  # i.e ['as    alias_name']
         if len(alias_match):
             alias_match = alias_match[0].split(" ")
@@ -768,19 +769,20 @@ class ModeSource(StatefulIngestionSourceBase):
             field.globalTags = GlobalTagsClass(tags=[tag])
 
     def normalize_mode_query(self, query: str) -> str:
-        regex = r"{% form %}(.*){% endform %}"
+        regex = r"{% form %}(.*?){% endform %}"
         rendered_query: str = query
         normalized_query: str = query
 
         self.report.num_query_template_render += 1
-        matches = re.search(regex, query, re.MULTILINE | re.DOTALL | re.IGNORECASE)
+        matches = re.findall(regex, query, re.MULTILINE | re.DOTALL | re.IGNORECASE)
         try:
             jinja_params: Dict = {}
             if matches:
-                definition = Template(source=matches.group(1)).render()
-                parameters = yaml.safe_load(definition)
-                for key in parameters.keys():
-                    jinja_params[key] = parameters[key].get("default", "")
+                for match in matches:
+                    definition = Template(source=match).render()
+                    parameters = yaml.safe_load(definition)
+                    for key in parameters.keys():
+                        jinja_params[key] = parameters[key].get("default", "")
 
                 normalized_query = re.sub(
                     r"{% form %}(.*){% endform %}",
@@ -789,6 +791,9 @@ class ModeSource(StatefulIngestionSourceBase):
                     0,
                     re.MULTILINE | re.DOTALL,
                 )
+
+            # Wherever we don't resolve the jinja params, we replace it with NULL
+            Undefined.__str__ = lambda self: "NULL"  # type: ignore
             rendered_query = Template(normalized_query).render(jinja_params)
             self.report.num_query_template_render_success += 1
         except Exception as e:
@@ -860,8 +865,28 @@ class ModeSource(StatefulIngestionSourceBase):
         query = query_data["raw_query"]
         query = self._replace_definitions(query)
         normalized_query = self.normalize_mode_query(query)
+        query_to_parse = normalized_query
+        # If multiple query is peresent in the query, we get the last one.
+        # This won't work for complex cases where temp table is created and used in the same query.
+        # But it should be good enough for simple use-cases.
+        for partial_query in sqlglot.parse(normalized_query):
+            if not partial_query:
+                continue
+            # This is hacky but on snowlake we want to change the default warehouse if use warehouse is present
+            if upstream_warehouse_platform == "snowflake":
+                regexp = r"use\s+warehouse\s+(.*)(\s+)?;"
+                matches = re.search(
+                    regexp,
+                    partial_query.sql(dialect=upstream_warehouse_platform),
+                    re.MULTILINE | re.DOTALL | re.IGNORECASE,
+                )
+                if matches and matches.group(1):
+                    upstream_warehouse_db_name = matches.group(1)
+
+            query_to_parse = partial_query.sql(dialect=upstream_warehouse_platform)
+
         parsed_query_object = create_lineage_sql_parsed_result(
-            query=normalized_query,
+            query=query_to_parse,
             default_db=upstream_warehouse_db_name,
             platform=upstream_warehouse_platform,
             platform_instance=(
