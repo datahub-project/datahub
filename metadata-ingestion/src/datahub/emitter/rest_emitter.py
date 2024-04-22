@@ -10,7 +10,7 @@ from deprecated import deprecated
 from requests.adapters import HTTPAdapter, Retry
 from requests.exceptions import HTTPError, RequestException
 
-from datahub.cli.cli_utils import get_system_auth
+from datahub.cli.cli_utils import fixup_gms_url, get_system_auth
 from datahub.configuration.common import ConfigurationError, OperationalError
 from datahub.emitter.generic_emitter import Emitter
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -72,7 +72,7 @@ class DataHubRestEmitter(Closeable, Emitter):
     ):
         if not gms_server:
             raise ConfigurationError("gms server is required")
-        self._gms_server = gms_server
+        self._gms_server = fixup_gms_url(gms_server)
         self._token = token
         self.server_config: Dict[str, Any] = {}
 

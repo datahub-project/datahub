@@ -172,6 +172,7 @@ project.ext.externalDependency = [
     'jsonSimple': 'com.googlecode.json-simple:json-simple:1.1.1',
     'jsonSmart': 'net.minidev:json-smart:2.4.9',
     'json': 'org.json:json:20231013',
+    'jsonSchemaValidator': 'com.github.java-json-tools:json-schema-validator:2.2.14',
     'junit': 'junit:junit:4.13.2',
     'junitJupiterApi': "org.junit.jupiter:junit-jupiter-api:$junitJupiterVersion",
     'junitJupiterParams': "org.junit.jupiter:junit-jupiter-params:$junitJupiterVersion",
