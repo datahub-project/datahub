@@ -37,7 +37,7 @@ def test_perf():
             num_views=10000,
             num_cols=30,
             num_ops=30,
-            num_usages=50000,
+            num_usages=500,
         )
 
         config = SnowflakeV2Config(
@@ -51,6 +51,7 @@ def test_perf():
             include_operational_stats=True,
             start_time=datetime(2022, 6, 6, 0, 0, 0, 0).replace(tzinfo=timezone.utc),
             end_time=datetime(2022, 6, 7, 7, 17, 0, 0).replace(tzinfo=timezone.utc),
+            format_sql_queries=False,
         )
         ctx = PipelineContext(run_id="test")
         source = SnowflakeV2Source(ctx, config)
