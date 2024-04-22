@@ -4,18 +4,16 @@ import styled from 'styled-components';
 
 import 'reactflow/dist/style.css';
 import { LineageDisplayContext, TRANSITION_DURATION_MS } from './common';
-import LineageControls from './controls/LineageControls';
-import ZoomControls from './controls/ZoomControls';
-
 import { LINEAGE_TABLE_EDGE_NAME, LineageTableEdge } from './LineageEdge/LineageTableEdge';
 import LineageEntityNode, { LINEAGE_ENTITY_NODE_NAME } from './LineageEntityNode/LineageEntityNode';
-import { LINEAGE_FILTER_NODE_NAME } from './LineageFilterNode/LineageFilterNode';
-import LineageFilterNodeBasic from './LineageFilterNode/LineageFilterNodeBasic';
+import LineageFilterNodeBasic, { LINEAGE_FILTER_NODE_NAME } from './LineageFilterNode/LineageFilterNodeBasic';
 import LineageTransformationNode, {
     LINEAGE_TRANSFORMATION_NODE_NAME,
 } from './LineageTransformationNode/LineageTransformationNode';
 import TableauWorkbookNode, { LINEAGE_WORKBOOK_NODE_NAME } from './MinorNodes/TableauWorkbookNode';
 import { LineageVisualizationNode } from './NodeBuilder';
+import LineageControls from './controls/LineageControls';
+import ZoomControls from './controls/ZoomControls';
 
 const StyledReactFlow = styled(ReactFlow)<{ $edgesOnTop: boolean }>`
     .react-flow__node-lineage-entity:not(.dragging) {

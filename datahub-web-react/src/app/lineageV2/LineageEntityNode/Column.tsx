@@ -84,7 +84,7 @@ export default function Column({ urn, fieldPath, highlighted, type, nativeDataTy
                     <CompactFieldIconWithTooltip type={type} nativeDataType={nativeDataType} />
                 </TypeWrapper>
             )}
-            <OverflowTitle title={translateFieldPath(fieldPath)} />
+            <OverflowTitle title={decodeURI(translateFieldPath(fieldPath))} />
             <CustomHandle id={id} type="source" position={Position.Right} isConnectable={false} />
         </ColumnWrapper>
     );

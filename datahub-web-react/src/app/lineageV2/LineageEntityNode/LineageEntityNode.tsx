@@ -1,5 +1,5 @@
 import { HomeOutlined } from '@ant-design/icons';
-import React, { useContext, useEffect, useState } from 'react';
+import React, { useContext, useEffect, useMemo, useState } from 'react';
 import { NodeProps } from 'reactflow';
 import styled from 'styled-components';
 import { LineageDirection } from '../../../types.generated';
@@ -30,7 +30,7 @@ const HomeNodeBubble = styled.div`
 
 export default function LineageEntityNode(props: NodeProps<LineageEntity>) {
     const { data, selected } = props;
-    const { urn, type, entity } = data;
+    const { urn, type, entity, id, fetchStatus, isExpanded } = data;
     const { rootUrn } = useContext(LineageNodesContext);
     const { numNodes, setHoveredNode } = useContext(LineageDisplayContext);
 
@@ -66,11 +66,13 @@ export default function LineageEntityNode(props: NodeProps<LineageEntity>) {
                 </HomeNodeBubble>
             )}
             <NodeContents
-                {...data}
+                id={id}
                 urn={urn}
                 type={type}
                 selected={selected}
                 entity={entity}
+                fetchStatus={fetchStatus}
+                isExpanded={isExpanded}
                 transitionDuration={transitionDuration}
                 rootUrn={rootUrn}
                 setHoveredNode={setHoveredNode}
@@ -113,14 +115,17 @@ function useRefetchLineage(urn: string) {
         true,
     );
 
-    return {
-        [LineageDirection.Upstream]: () => {
-            const timeout = setTimeout(fetchLineageUpstream, 7000);
-            return () => clearTimeout(timeout);
-        },
-        [LineageDirection.Downstream]: () => {
-            const timeout = setTimeout(fetchLineageDownstream, 7000);
-            return () => clearTimeout(timeout);
-        },
-    };
+    return useMemo(
+        () => ({
+            [LineageDirection.Upstream]: () => {
+                const timeout = setTimeout(fetchLineageUpstream, 7000);
+                return () => clearTimeout(timeout);
+            },
+            [LineageDirection.Downstream]: () => {
+                const timeout = setTimeout(fetchLineageDownstream, 7000);
+                return () => clearTimeout(timeout);
+            },
+        }),
+        [fetchLineageUpstream, fetchLineageDownstream],
+    );
 }

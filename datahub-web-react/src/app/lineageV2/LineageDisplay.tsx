@@ -8,7 +8,7 @@ import useColumnHighlighting from './useColumnHighlighting';
 import useProcessData from './useProcessData';
 import { EntityType } from '../../types.generated';
 import useBulkEntityLineage from './useBulkEntityLineage';
-import { LINEAGE_FILTER_NODE_NAME } from './LineageFilterNode/LineageFilterNode';
+import { LINEAGE_FILTER_NODE_NAME } from './LineageFilterNode/LineageFilterNodeBasic';
 import useNodeHighlighting from './useNodeHighlighting';
 
 type Props = {
@@ -107,7 +107,7 @@ function useFitView(loaded: boolean) {
     }, [loaded, nodeVersion, fitView]);
 
     useEffect(() => {
-        if (!loaded) return () => {};
+        if (!loaded || !displayVersionNodes.length) return () => {};
         const timeout = setTimeout(
             () =>
                 fitView({

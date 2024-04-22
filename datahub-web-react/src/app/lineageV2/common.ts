@@ -94,12 +94,7 @@ export type ColumnRef = string;
 export type FineGrainedOperationRef = string;
 
 export function createColumnRef(urn: Urn, field: string): ColumnRef {
-    const val = `${urn}::${field}`;
-    try {
-        return decodeURI(val);
-    } catch (e) {
-        return val;
-    }
+    return `${urn}::${field}`;
 }
 
 export function parseColumnRef(columnRef: ColumnRef): [Urn, string] {

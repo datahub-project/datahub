@@ -30,7 +30,7 @@ const SidebarWrapper = styled.div<{ $distanceFromTop: number }>`
 
 export default function LineageSidebar() {
     const entityRegistry = useEntityRegistry();
-    const selectedEntity = useSelectedNode();
+    const [selectedEntity, setSelectedEntity] = useSelectedNode();
     const resetSelectedElements = useStore((actions) => actions.resetSelectedElements);
     const queryDetails = useQueryDetails(selectedEntity);
     const width = useSidebarWidth();
@@ -39,9 +39,10 @@ export default function LineageSidebar() {
         (closed) => {
             if (closed) {
                 resetSelectedElements();
+                setSelectedEntity(null);
             }
         },
-        [resetSelectedElements],
+        [resetSelectedElements, setSelectedEntity],
     );
 
     // This manages closing, rather than isClosed
@@ -69,7 +70,7 @@ export default function LineageSidebar() {
     );
 }
 
-function useSelectedNode() {
+function useSelectedNode(): [LineageEntity | null, (v: LineageEntity | null) => void] {
     // Entity Profile sidebar, not lineage sidebar
     const { setSidebarClosed } = useContext(EntitySidebarContext);
     const [selectedNode, setSelectedNode] = useState<LineageEntity | null>(null);
@@ -81,7 +82,7 @@ function useSelectedNode() {
         },
     });
 
-    return selectedNode;
+    return [selectedNode, setSelectedNode];
 }
 
 function useQueryDetails(selectedNode: LineageEntity | null): FineGrainedOperation[] | undefined {

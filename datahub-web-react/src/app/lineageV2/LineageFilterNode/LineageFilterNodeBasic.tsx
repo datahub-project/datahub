@@ -1,15 +1,17 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Handle, NodeProps, Position } from 'reactflow';
 import styled from 'styled-components';
 import { getFilterIconAndLabel } from '../../searchV2/filters/utils';
 import { ENTITY_SUB_TYPE_FILTER_NAME, PLATFORM_FILTER_NAME } from '../../searchV2/utils/constants';
-import { useEntityRegistry } from '../../useEntityRegistry';
-import { LineageFilter } from '../common';
+import { useEntityRegistryV2 } from '../../useEntityRegistry';
+import { isUrnTransformational, LineageFilter } from '../common';
 import { useAvoidIntersectionsOften } from '../LineageEntityNode/useAvoidIntersections';
 import { LINEAGE_NODE_WIDTH } from '../LineageEntityNode/useDisplayedColumns';
 import useFetchFilterNodeContents, { PlatformAggregate, SubtypeAggregate } from './useFetchFilterNodeContents';
 import { LINEAGE_COLORS } from '../../entityV2/shared/constants';
 import { ShowMoreButton } from './ShowMoreButton';
+
+export const LINEAGE_FILTER_NODE_NAME = 'lineage-filter';
 
 const NodeWrapper = styled.div`
     background-color: white;
@@ -73,7 +75,13 @@ export default function LineageFilterNode(props: NodeProps<LineageFilter>) {
     const { id, data } = props;
     const { contents, shown, numShown, limit } = data;
 
-    const { platforms, subtypes } = useFetchFilterNodeContents(contents);
+    const entityRegistry = useEntityRegistryV2();
+    const nonTransformationalContents = useMemo(
+        () => contents.filter((urn) => !isUrnTransformational(urn, entityRegistry)),
+        [contents, entityRegistry],
+    );
+
+    const { platforms, subtypes } = useFetchFilterNodeContents(nonTransformationalContents);
 
     useAvoidIntersectionsOften(id, 52);
 
@@ -85,10 +93,10 @@ export default function LineageFilterNode(props: NodeProps<LineageFilter>) {
             <CustomHandle type="source" position={Position.Right} isConnectable={false} />
             <TitleWrapper>
                 <Title>
-                    <TitleCount>{numShown || shown.size}</TitleCount> of <TitleCount>{contents.length}</TitleCount>{' '}
-                    shown
+                    <TitleCount>{numShown || shown.size}</TitleCount> of{' '}
+                    <TitleCount>{nonTransformationalContents.length}</TitleCount> shown
                 </Title>
-                {limit !== contents.length && <ShowMoreButton id={id} data={data} />}
+                {limit !== nonTransformationalContents.length && <ShowMoreButton id={id} data={data} />}
             </TitleWrapper>
             <PillsWrapper>
                 <PillColumn>
@@ -142,7 +150,7 @@ function LineageFilterEntry(
     [filterValue, count, entity]: PlatformAggregate | SubtypeAggregate,
     index: number,
 ) {
-    const entityRegistry = useEntityRegistry();
+    const entityRegistry = useEntityRegistryV2();
     const { icon, label } = getFilterIconAndLabel(filterName, filterValue, entityRegistry, entity || null, 12);
 
     return (

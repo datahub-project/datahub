@@ -221,6 +221,7 @@ function getTransformationalNodes(
 ): LineageEntity[] {
     const { nodes, edges, adjacencyList } = context;
 
+    const leafUrns = new Set<string>(leaves.map((leaf) => leaf.urn));
     const nodesInBetween = new Set<string>();
     const nodesToRoot = [...leaves];
     for (let node = nodesToRoot.pop(); node; node = nodesToRoot.pop()) {
@@ -246,6 +247,8 @@ function getTransformationalNodes(
             if (nodesInBetween.has(child) && childNode) {
                 nodesToLeaves.push(childNode);
                 nodesInBetween.delete(child);
+            }
+            if (nodesInBetween.has(child) || leafUrns.has(child)) {
                 const edge = edges.get(getEdgeId(urn, child, direction));
                 if (edge?.isDisplayed && edge?.via) {
                     const queryNode = nodes.get(edge.via);
@@ -341,6 +344,7 @@ function shouldAddFineGrainedEdge(
     downstreamUrn: string,
 ): boolean {
     const { nodes, edges } = context;
+    // Note: This filters out self-edges
     return (
         nodes.has(upstreamUrn) &&
         nodes.has(downstreamUrn) &&

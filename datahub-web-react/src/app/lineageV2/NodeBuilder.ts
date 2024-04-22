@@ -19,7 +19,7 @@ import {
 import { LINEAGE_TABLE_EDGE_NAME } from './LineageEdge/LineageTableEdge';
 import { LINEAGE_ENTITY_NODE_NAME } from './LineageEntityNode/LineageEntityNode';
 import { LINEAGE_NODE_HEIGHT, LINEAGE_NODE_WIDTH } from './LineageEntityNode/useDisplayedColumns';
-import { LINEAGE_FILTER_NODE_NAME } from './LineageFilterNode/LineageFilterNode';
+import { LINEAGE_FILTER_NODE_NAME } from './LineageFilterNode/LineageFilterNodeBasic';
 import {
     LINEAGE_TRANSFORMATION_NODE_NAME,
     TRANSFORMATION_NODE_SIZE,
@@ -27,7 +27,8 @@ import {
 import { LINEAGE_WORKBOOK_NODE_NAME, WORKBOOK_NODE_MAX_WIDTH } from './MinorNodes/TableauWorkbookNode';
 
 const MAIN_X_SEP = 120;
-const MINI_X_SEP = MAIN_X_SEP / 2;
+const MAIN_TO_MINI_X_SEP = 60;
+const MINI_X_SEP = 30;
 const MAIN_Y_SEP = 30;
 const MINI_Y_SEP = MAIN_Y_SEP / 2;
 
@@ -166,6 +167,16 @@ export default class NodeBuilder {
         return Array.from(baseEdges.values()).map(createEdge);
     }
 
+    #getLayerSeparation(isCurrentLayerMini: boolean, wasLastLayerMini: boolean): number {
+        if (isCurrentLayerMini && wasLastLayerMini) {
+            return MINI_X_SEP;
+        }
+        if (isCurrentLayerMini || wasLastLayerMini) {
+            return MAIN_TO_MINI_X_SEP;
+        }
+        return MAIN_X_SEP;
+    }
+
     /**
      * Computes the x position of each node, by organizing them into layers.
      */
@@ -253,7 +264,7 @@ export default class NodeBuilder {
             const { mini } = parseLayer(layer);
             const prevLayer = upstreamLayers[i - 1];
             const { mini: prevMini } = parseLayer(prevLayer || defaultLayer);
-            const separation = mini || prevMini ? MINI_X_SEP : MAIN_X_SEP;
+            const separation = this.#getLayerSeparation(!!mini, !!prevMini);
             this.layerPositions.set(layer, (this.layerPositions.get(prevLayer) || 0) - getNodeSize(layer) - separation);
         });
         downstreamLayers.forEach((layer, i) => {
@@ -263,7 +274,7 @@ export default class NodeBuilder {
             const { mini } = parseLayer(layer);
             const prevLayer = downstreamLayers[i - 1];
             const { mini: prevMini } = parseLayer(prevLayer || defaultLayer);
-            const separation = mini || prevMini ? MINI_X_SEP : MAIN_X_SEP;
+            const separation = this.#getLayerSeparation(!!mini, !!prevMini);
             this.layerPositions.set(
                 layer,
                 (this.layerPositions.get(prevLayer) || 0) + getNodeSize(prevLayer) + separation,
@@ -381,6 +392,7 @@ export default class NodeBuilder {
                 y: info.y || 0,
             },
             data: transformData(node),
+            selectable: type !== LINEAGE_FILTER_TYPE,
         };
     }
 
