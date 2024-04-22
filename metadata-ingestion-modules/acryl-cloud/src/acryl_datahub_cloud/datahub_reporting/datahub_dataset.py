@@ -1,5 +1,4 @@
 import datetime
-import json
 import logging
 import pathlib
 import tempfile
@@ -170,7 +169,8 @@ class DataHubBasedS3Dataset:
         self.file_writer = None
         self.schema = (
             pa.schema([(x.name, x.type) for x in self.dataset_metadata.schemaFields])
-            if self.dataset_metadata.schemaFields else None
+            if self.dataset_metadata.schemaFields
+            else None
         )
 
     def get_dataset_urn(self) -> str:

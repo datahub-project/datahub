@@ -220,7 +220,11 @@ class DataHubReportingExtractGraphSource(Source):
             # TODO: Using slicing we can parallelize the ES calls below:
             # https://opensearch.org/docs/latest/search-plugins/searching-data/point-in-time/#search-slicing
             while True:
-                results = server.search(body=query, size=10000, params={"timeout": self.config.query_timeout})
+                results = server.search(
+                    body=query,
+                    size=10000,
+                    params={"timeout": self.config.query_timeout},
+                )
                 self.process_batch(results["hits"]["hits"])
                 if len(results["hits"]["hits"]) < 10000:
                     break
