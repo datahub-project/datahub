@@ -53,7 +53,7 @@ public class CreateERModelRelationshipResolver
       highDataset = source;
     }
     // The following sequence mimics datahub.emitter.mce_builder.datahub_guid
-    // Keys have to be in alphabetical order - Destination, ERModelRelationName and Source 
+    // Keys have to be in alphabetical order - Destination, ERModelRelationName and Source
 
     String ermodelrelationKey =
         "{\"Destination\":\""
