@@ -21,6 +21,7 @@ import io.datahubproject.integrations.invoker.ApiException;
 import io.datahubproject.integrations.invoker.ApiResponse;
 import io.datahubproject.integrations.invoker.ServerConfiguration;
 import io.datahubproject.integrations.model.ExecuteShareResult;
+import io.datahubproject.integrations.model.ExecuteUnshareResult;
 import io.datahubproject.integrations.model.SuggestedDescription;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
@@ -468,6 +469,27 @@ public class IntegrationsService {
       return response.getData();
     } catch (ApiException e) {
       log.error("Failed to share entity with urn: " + entityUrn, e);
+      return null;
+    }
+  }
+
+  public ExecuteUnshareResult unshareEntity(
+      @Nonnull final Urn connectionUrn, @Nonnull final Urn entityUrn) {
+    try {
+      ApiResponse<ExecuteUnshareResult> response =
+          this.shareApi.executeUnshareWithHttpInfo(connectionUrn.toString(), entityUrn.toString());
+      if (response.getStatusCode() != HttpStatus.SC_OK) {
+        log.error(
+            String.format(
+                "Failed to unshare entity with urn %s. Integrations service returned non-200 error code.",
+                entityUrn));
+        log.error(String.valueOf(response.getData().toString()));
+        return null;
+      }
+
+      return response.getData();
+    } catch (ApiException e) {
+      log.error("Failed to unshare entity with urn: " + entityUrn, e);
       return null;
     }
   }

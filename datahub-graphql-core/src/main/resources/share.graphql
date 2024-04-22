@@ -3,6 +3,11 @@ extend type Mutation {
     Share this entity with another Acryl instance
     """
     shareEntity(input: ShareEntityInput!): ShareEntityResult!
+
+    """
+    Unshare this entity with another Acryl instance
+    """
+    unshareEntity(input: UnshareEntityInput!): ShareEntityResult!
 }
 
 """
@@ -91,6 +96,21 @@ input ShareEntityInput {
     The urn of the connection entity where this entity is being shared to
     """
     connectionUrn: String!
+}
+
+"""
+Info about the results from unsharing metadata for a given entity
+"""
+input UnshareEntityInput {
+    """
+    The urn of the entity that are being shared
+    """
+    entityUrn: String!
+
+    """
+    The urns of the connection entities where this entity is being unshared to
+    """
+    connectionUrns: [String!]!
 }
 
 """

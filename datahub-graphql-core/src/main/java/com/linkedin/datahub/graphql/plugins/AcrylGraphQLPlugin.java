@@ -68,6 +68,7 @@ import com.linkedin.datahub.graphql.resolvers.settings.group.UpdateGroupNotifica
 import com.linkedin.datahub.graphql.resolvers.settings.user.GetUserNotificationSettingsResolver;
 import com.linkedin.datahub.graphql.resolvers.settings.user.UpdateUserNotificationSettingsResolver;
 import com.linkedin.datahub.graphql.resolvers.share.ShareEntityResolver;
+import com.linkedin.datahub.graphql.resolvers.share.UnshareEntityResolver;
 import com.linkedin.datahub.graphql.resolvers.subscription.CreateSubscriptionResolver;
 import com.linkedin.datahub.graphql.resolvers.subscription.DeleteSubscriptionResolver;
 import com.linkedin.datahub.graphql.resolvers.subscription.GetEntitySubscriptionSummaryResolver;
@@ -554,8 +555,11 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
     builder.type(
         "Mutation",
         typeWiring ->
-            typeWiring.dataFetcher(
-                "shareEntity", new ShareEntityResolver(shareService, integrationsService)));
+            typeWiring
+                .dataFetcher(
+                    "shareEntity", new ShareEntityResolver(shareService, integrationsService))
+                .dataFetcher(
+                    "unshareEntity", new UnshareEntityResolver(shareService, integrationsService)));
     builder.type(
         "ShareResult",
         typeWiring ->
