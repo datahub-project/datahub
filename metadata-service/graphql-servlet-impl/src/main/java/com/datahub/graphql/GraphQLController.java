@@ -137,12 +137,7 @@ public class GraphQLController {
                     "Errors while executing graphQL query: %s, result: %s, errors: %s",
                     queryJson, executionResult.toSpecification(), executionResult.getErrors()));
           } else {
-            if (log.isDebugEnabled()) {
-              log.debug(
-                  String.format(
-                      "Executed graphQL query: %s, result: %s",
-                      queryJson, executionResult.toSpecification()));
-            }
+            log.debug("Executed graphQL query: {}, result: {}", queryJson, () -> executionResult.toSpecification());
           }
 
           /*
