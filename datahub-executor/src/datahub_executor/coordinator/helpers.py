@@ -107,10 +107,11 @@ def start_scheduler(sighandler: List[Callable]) -> None:
         sighandler.append(scheduler.shutdown)
         sighandler.append(manager.shutdown)
 
-        logger.info("Successfully created monitor manager! Starting the monitors...")
+        logger.info("Successfully created fetcher scheduler.")
 
         # Start the monitors
         manager.start()
 
-    except Exception:
-        logger.exception("Failed to create monitor manager! Cannot start up monitors.")
+    except Exception as e:
+        logger.exception(f"Failed to create fetcher scheduler: {str(e)}")
+        raise
