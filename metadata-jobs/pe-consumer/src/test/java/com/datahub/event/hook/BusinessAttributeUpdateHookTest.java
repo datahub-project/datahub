@@ -1,15 +1,14 @@
 package com.datahub.event.hook;
 
-import static com.datahub.event.hook.EntityRegistryTestUtil.ENTITY_REGISTRY;
 import static com.linkedin.metadata.Constants.BUSINESS_ATTRIBUTE_ASPECT;
-import static com.linkedin.metadata.Constants.SCHEMA_FIELD_ENTITY_NAME;
-import static com.linkedin.metadata.search.utils.QueryUtils.EMPTY_FILTER;
-import static com.linkedin.metadata.search.utils.QueryUtils.newFilter;
-import static com.linkedin.metadata.search.utils.QueryUtils.newRelationshipFilter;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.mock;
-import static org.testng.Assert.assertEquals;
+import static org.mockito.Mockito.when;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -23,15 +22,20 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.DataMap;
 import com.linkedin.entity.Aspect;
+import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
-import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.entity.EnvelopedAspectMap;
+import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.aspect.AspectRetriever;
+import com.linkedin.metadata.aspect.GraphRetriever;
+import com.linkedin.metadata.aspect.models.graph.Edge;
+import com.linkedin.metadata.aspect.models.graph.RelatedEntities;
+import com.linkedin.metadata.aspect.models.graph.RelatedEntitiesScrollResult;
 import com.linkedin.metadata.aspect.models.graph.RelatedEntity;
-import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.metadata.graph.GraphService;
-import com.linkedin.metadata.graph.RelatedEntitiesResult;
-import com.linkedin.metadata.models.AspectSpec;
+import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
+import com.linkedin.metadata.query.filter.RelationshipFilter;
 import com.linkedin.metadata.service.BusinessAttributeUpdateHookService;
 import com.linkedin.metadata.timeline.data.ChangeCategory;
 import com.linkedin.metadata.timeline.data.ChangeOperation;
@@ -41,13 +45,16 @@ import com.linkedin.mxe.PlatformEventHeader;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.platform.event.v1.EntityChangeEvent;
 import com.linkedin.platform.event.v1.Parameters;
-import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.RetrieverContext;
 import java.net.URISyntaxException;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
-import java.util.concurrent.Future;
+import java.util.Optional;
+import java.util.Set;
 import org.mockito.Mockito;
+import org.mockito.stubbing.OngoingStubbing;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -63,118 +70,97 @@ public class BusinessAttributeUpdateHookTest {
   private static final long EVENT_TIME = 123L;
   private static final String TEST_ACTOR_URN = "urn:li:corpuser:test";
   private static Urn actorUrn;
-  private GraphService mockGraphService;
-  private EntityService mockEntityService;
+  private SystemEntityClient mockEntityClient;
   private BusinessAttributeUpdateHook businessAttributeUpdateHook;
   private BusinessAttributeUpdateHookService businessAttributeServiceHook;
 
   @BeforeMethod
   public void setupTest() throws URISyntaxException {
-    mockGraphService = mock(GraphService.class);
-    mockEntityService = mock(EntityService.class);
+    mockEntityClient = mock(SystemEntityClient.class);
     actorUrn = Urn.createFromString(TEST_ACTOR_URN);
-    businessAttributeServiceHook =
-        new BusinessAttributeUpdateHookService(
-            mockGraphService, mockEntityService, ENTITY_REGISTRY, 100);
-    businessAttributeUpdateHook = new BusinessAttributeUpdateHook(businessAttributeServiceHook);
+    businessAttributeServiceHook = new BusinessAttributeUpdateHookService(mockEntityClient, 100, 1);
+    businessAttributeUpdateHook =
+        new BusinessAttributeUpdateHook(businessAttributeServiceHook, true);
   }
 
   @Test
   public void testMCLOnBusinessAttributeUpdate() throws Exception {
     PlatformEvent platformEvent = createPlatformEventBusinessAttribute();
-    final RelatedEntitiesResult mockRelatedEntities =
-        new RelatedEntitiesResult(
-            0,
-            1,
-            1,
+
+    // mock response
+    OperationContext opContext =
+        mockOperationContextWithGraph(
             ImmutableList.of(
+                new RelatedEntity(BUSINESS_ATTRIBUTE_OF, SCHEMA_FIELD_URN.toString()),
                 new RelatedEntity(BUSINESS_ATTRIBUTE_OF, SCHEMA_FIELD_URN.toString())));
-    // mock response
-    Mockito.when(
-            mockGraphService.findRelatedEntities(
-                null,
-                newFilter("urn", TEST_BUSINESS_ATTRIBUTE_URN),
-                null,
-                EMPTY_FILTER,
-                Arrays.asList(BUSINESS_ATTRIBUTE_OF),
-                newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING),
-                0,
-                100))
-        .thenReturn(mockRelatedEntities);
-    assertEquals(mockRelatedEntities.getTotal(), 1);
 
-    Mockito.when(
-            mockEntityService.getLatestEnvelopedAspect(
-                any(OperationContext.class),
-                eq(SCHEMA_FIELD_ENTITY_NAME),
-                eq(SCHEMA_FIELD_URN),
-                eq(BUSINESS_ATTRIBUTE_ASPECT)))
-        .thenReturn(envelopedAspect());
+    when(mockEntityClient.batchGetV2(
+            any(OperationContext.class),
+            eq(Set.of(SCHEMA_FIELD_URN)),
+            eq(Set.of(BUSINESS_ATTRIBUTE_ASPECT))))
+        .thenReturn(
+            Map.of(
+                SCHEMA_FIELD_URN,
+                new EntityResponse()
+                    .setEntityName(SCHEMA_FIELD_URN.getEntityType())
+                    .setUrn(SCHEMA_FIELD_URN)
+                    .setAspects(envelopedAspectMap())));
 
     // mock response
-    Mockito.when(
-            mockEntityService.alwaysProduceMCLAsync(
-                any(OperationContext.class),
-                any(Urn.class),
-                Mockito.anyString(),
-                Mockito.anyString(),
-                any(AspectSpec.class),
-                eq(null),
-                any(),
-                any(),
-                any(),
-                any(),
-                any(ChangeType.class)))
-        .thenReturn(Pair.of(mock(Future.class), false));
+    when(mockEntityClient.batchIngestProposals(any(OperationContext.class), anyList(), eq(true)))
+        .thenReturn(List.of(SCHEMA_FIELD_URN.toString()));
 
     // invoke
-    businessAttributeServiceHook.handleChangeEvent(mock(OperationContext.class), platformEvent);
+    businessAttributeServiceHook.handleChangeEvent(opContext, platformEvent);
 
     // verify
-    Mockito.verify(mockGraphService, Mockito.times(1))
-        .findRelatedEntities(
-            any(), any(), any(), any(), any(), any(), Mockito.anyInt(), Mockito.anyInt());
+    // page 1
+    Mockito.verify(opContext.getRetrieverContext().get().getGraphRetriever(), Mockito.times(1))
+        .scrollRelatedEntities(
+            isNull(),
+            any(Filter.class),
+            isNull(),
+            any(Filter.class),
+            any(),
+            any(RelationshipFilter.class),
+            eq(Edge.EDGE_SORT_CRITERION),
+            isNull(),
+            anyInt(),
+            isNull(),
+            isNull());
+    // page 2
+    Mockito.verify(opContext.getRetrieverContext().get().getGraphRetriever(), Mockito.times(1))
+        .scrollRelatedEntities(
+            isNull(),
+            any(Filter.class),
+            isNull(),
+            any(Filter.class),
+            any(),
+            any(RelationshipFilter.class),
+            eq(Edge.EDGE_SORT_CRITERION),
+            eq("1"),
+            anyInt(),
+            isNull(),
+            isNull());
 
-    Mockito.verify(mockEntityService, Mockito.times(1))
-        .alwaysProduceMCLAsync(
-            any(OperationContext.class),
-            any(Urn.class),
-            Mockito.anyString(),
-            Mockito.anyString(),
-            any(AspectSpec.class),
-            eq(null),
-            any(),
-            any(),
-            any(),
-            any(),
-            any(ChangeType.class));
+    Mockito.verifyNoMoreInteractions(opContext.getRetrieverContext().get().getGraphRetriever());
+
+    // 2 pages = 2 ingest proposals
+    Mockito.verify(mockEntityClient, Mockito.times(2))
+        .batchIngestProposals(any(OperationContext.class), anyList(), eq(true));
   }
 
   @Test
   private void testMCLOnInvalidCategory() throws Exception {
     PlatformEvent platformEvent = createPlatformEventInvalidCategory();
+    OperationContext opContext = mockOperationContextWithGraph(ImmutableList.of());
 
     // invoke
-    businessAttributeServiceHook.handleChangeEvent(mock(OperationContext.class), platformEvent);
+    businessAttributeServiceHook.handleChangeEvent(opContext, platformEvent);
 
     // verify
-    Mockito.verify(mockGraphService, Mockito.times(0))
-        .findRelatedEntities(
-            any(), any(), any(), any(), any(), any(), Mockito.anyInt(), Mockito.anyInt());
-
-    Mockito.verify(mockEntityService, Mockito.times(0))
-        .alwaysProduceMCLAsync(
-            any(OperationContext.class),
-            any(Urn.class),
-            Mockito.anyString(),
-            Mockito.anyString(),
-            any(AspectSpec.class),
-            eq(null),
-            any(),
-            any(),
-            any(),
-            any(),
-            any(ChangeType.class));
+    Mockito.verifyNoInteractions(opContext.getRetrieverContext().get().getGraphRetriever());
+    Mockito.verifyNoInteractions(mockEntityClient);
   }
 
   public static PlatformEvent createPlatformEventBusinessAttribute() throws Exception {
@@ -241,10 +227,68 @@ public class BusinessAttributeUpdateHookTest {
     return platformEvent;
   }
 
-  private EnvelopedAspect envelopedAspect() {
+  private EnvelopedAspectMap envelopedAspectMap() {
+    EnvelopedAspectMap result = new EnvelopedAspectMap();
     EnvelopedAspect envelopedAspect = new EnvelopedAspect();
     envelopedAspect.setValue(new Aspect(new BusinessAttributes().data()));
     envelopedAspect.setSystemMetadata(new SystemMetadata());
-    return envelopedAspect;
+    result.put(BUSINESS_ATTRIBUTE_ASPECT, envelopedAspect);
+    return result;
+  }
+
+  private OperationContext mockOperationContextWithGraph(List<RelatedEntity> graphEdges) {
+    OperationContext mockContext = mock(OperationContext.class);
+    GraphRetriever graphRetriever = mock(GraphRetriever.class);
+
+    RetrieverContext mockRetrieverContext = mock(RetrieverContext.class);
+    when(mockRetrieverContext.getAspectRetriever()).thenReturn(mock(AspectRetriever.class));
+    when(mockRetrieverContext.getGraphRetriever()).thenReturn(graphRetriever);
+
+    when(mockContext.getRetrieverContext()).thenReturn(Optional.of(mockRetrieverContext));
+
+    if (!graphEdges.isEmpty()) {
+
+      int idx = 0;
+      OngoingStubbing<RelatedEntitiesScrollResult> multiStub =
+          when(
+              graphRetriever.scrollRelatedEntities(
+                  isNull(),
+                  any(Filter.class),
+                  isNull(),
+                  any(Filter.class),
+                  eq(Arrays.asList(BUSINESS_ATTRIBUTE_OF)),
+                  any(RelationshipFilter.class),
+                  eq(Edge.EDGE_SORT_CRITERION),
+                  nullable(String.class),
+                  eq(1),
+                  isNull(),
+                  isNull()));
+
+      for (RelatedEntity relatedEntity : graphEdges) {
+        final String scrollId;
+        if (idx < graphEdges.size() - 1) {
+          idx += 1;
+          scrollId = String.valueOf(idx);
+        } else {
+          scrollId = null;
+        }
+
+        multiStub =
+            multiStub.thenReturn(
+                new RelatedEntitiesScrollResult(
+                    graphEdges.size(),
+                    1,
+                    scrollId,
+                    List.of(
+                        new RelatedEntities(
+                            relatedEntity.getRelationshipType(),
+                            relatedEntity.getUrn(),
+                            TEST_BUSINESS_ATTRIBUTE_URN,
+                            RelationshipDirection.INCOMING,
+                            null))));
+      }
+    }
+
+    return mockContext;
   }
 }
