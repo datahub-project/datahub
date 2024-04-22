@@ -255,9 +255,13 @@ class StaleEntityRemovalHandler(
         # If the source already had a failure, skip soft-deletion.
         # TODO: Eventually, switch this to check if anything in the pipeline had a failure so far.
         if self.source.get_report().failures:
+            for urn in last_checkpoint_state.get_urns_not_in(
+                type="*", other_checkpoint_state=cur_checkpoint_state
+            ):
+                self.add_entity_to_state("", urn)
             self.source.get_report().report_warning(
                 "stale-entity-removal",
-                "Skipping stale entity soft-deletion since source already had failures.",
+                "Skipping stale entity soft-deletion and coping urns from last state since source already had failures.",
             )
             return
 
