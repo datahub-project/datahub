@@ -94,8 +94,15 @@ input ShareEntityInput {
 
     """
     The urn of the connection entity where this entity is being shared to
+    Either this field (for individual connection) or connectionUrns must be filled out
     """
-    connectionUrn: String!
+    connectionUrn: String
+
+    """
+    The urns of the connection entities where this entity is being shared to.
+    Either this field (for bulk) or connectionUrn must be filled out
+    """
+    connectionUrns: [String!]
 }
 
 """
