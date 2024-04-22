@@ -73,6 +73,7 @@ import com.linkedin.structured.StructuredPropertyDefinition;
 import com.linkedin.structured.StructuredPropertyValueAssignment;
 import com.linkedin.structured.StructuredPropertyValueAssignmentArray;
 import com.linkedin.util.Pair;
+import io.datahubproject.test.util.TestEntityRegistry;
 import jakarta.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.Arrays;

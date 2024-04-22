@@ -1,4 +1,4 @@
-package com.linkedin.metadata.graph.neo4j;
+package io.datahubproject.test.util;
 
 import apoc.path.PathExplorer;
 import java.io.File;

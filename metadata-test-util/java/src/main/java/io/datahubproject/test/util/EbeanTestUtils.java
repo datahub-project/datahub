@@ -1,10 +1,10 @@
-package com.linkedin.metadata;
+package io.datahubproject.test.util;
 
 import io.ebean.Database;
 import io.ebean.DatabaseFactory;
 import io.ebean.config.DatabaseConfig;
 import io.ebean.datasource.DataSourceConfig;
-import javax.annotation.Nonnull;
+import jakarta.annotation.Nonnull;
 
 public class EbeanTestUtils {
 

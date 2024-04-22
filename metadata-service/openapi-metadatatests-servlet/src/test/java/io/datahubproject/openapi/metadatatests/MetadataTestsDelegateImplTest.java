@@ -37,6 +37,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.ComponentScan;
+import org.springframework.context.annotation.FilterType;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
@@ -47,7 +48,12 @@ import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
 @SpringBootTest(classes = {SpringWebConfig.class})
-@ComponentScan(basePackages = {"io.datahubproject.openapi"})
+@ComponentScan(
+    basePackages = {"io.datahubproject.openapi", "com.linkedin.gms.factory.scim"},
+    excludeFilters =
+        @ComponentScan.Filter(
+            type = FilterType.REGEX,
+            pattern = "io\\.datahubproject\\.openapi\\.scim\\..*"))
 @Import({MetadataTestsTestConfiguration.class})
 @AutoConfigureMockMvc
 public class MetadataTestsDelegateImplTest extends AbstractTestNGSpringContextTests {

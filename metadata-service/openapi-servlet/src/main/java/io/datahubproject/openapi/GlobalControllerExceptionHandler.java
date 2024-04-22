@@ -1,6 +1,9 @@
 package io.datahubproject.openapi;
 
 import lombok.extern.slf4j.Slf4j;
+import org.apache.directory.scim.protocol.data.ErrorResponse;
+import org.apache.directory.scim.protocol.exception.ScimException;
+import org.apache.directory.scim.spec.exception.ResourceException;
 import org.springframework.beans.ConversionNotSupportedException;
 import org.springframework.core.Ordered;
 import org.springframework.core.convert.ConversionFailedException;
@@ -22,5 +25,15 @@ public class GlobalControllerExceptionHandler extends DefaultHandlerExceptionRes
   @ExceptionHandler({ConversionFailedException.class, ConversionNotSupportedException.class})
   public ResponseEntity<String> handleConflict(RuntimeException ex) {
     return new ResponseEntity<>(ex.getMessage(), HttpStatus.BAD_REQUEST);
+  }
+
+  @ExceptionHandler({ScimException.class})
+  public ResponseEntity<ErrorResponse> handleScimException(ScimException e) {
+    return e.getError().toResponseEntity();
+  }
+
+  @ExceptionHandler({ResourceException.class})
+  public ResponseEntity<ErrorResponse> handleResourceException(ResourceException e) {
+    return new ErrorResponse(HttpStatus.valueOf(e.getStatus()), e.getMessage()).toResponseEntity();
   }
 }

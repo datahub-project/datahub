@@ -14,6 +14,7 @@ import com.linkedin.metadata.models.registry.EntityRegistryException;
 import com.linkedin.metadata.models.registry.MergedEntityRegistry;
 import com.linkedin.metadata.service.UpdateIndicesService;
 import com.linkedin.metadata.snapshot.Snapshot;
+import io.datahubproject.test.util.TestEntityRegistry;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
