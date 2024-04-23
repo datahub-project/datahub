@@ -890,7 +890,7 @@ The [JSONSchema](https://json-schema.org/) for this configuration is inlined bel
         f.write("<FeatureAvailability/>\n")
 
         f.write("""
-Lineage is used to capture data dependencies within an organization. It allows you to track the inputs from which a data asset is derived, along with the data assets that depend on it downstream.
+Data Lineage is used to capture data dependencies within an organization. It allows you to track the inputs from which a data asset is derived, along with the data assets that depend on it downstream.
 
 ## Viewing Lineage
 
