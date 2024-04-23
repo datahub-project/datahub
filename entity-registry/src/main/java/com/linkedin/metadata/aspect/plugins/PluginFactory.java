@@ -214,7 +214,21 @@ public class PluginFactory {
             build(MCPSideEffect.class, pluginConfiguration.getMcpSideEffects(), HOOK_PACKAGES));
   }
 
-  private <T> List<T> build(
+  /**
+   * Load plugins given the base class (i.e. a validator) and the name of the implementing class
+   * found in the configuration objects.
+   *
+   * <p>For performance reasons, scan the packages found in packageNames
+   *
+   * <p>Designed to avoid any Spring dependency, see alternative implementation for Spring
+   *
+   * @param baseClazz base class for the plugin
+   * @param configs configuration with implementing class information
+   * @param packageNames package names to scan
+   * @return list of plugin instances
+   * @param <T> the plugin class
+   */
+  protected <T extends PluginSpec> List<T> build(
       Class<?> baseClazz, List<AspectPluginConfig> configs, String... packageNames) {
     try (ScanResult scanResult = classGraph.acceptPackages(packageNames).scan()) {
 
@@ -223,6 +237,10 @@ public class PluginFactory {
               .collect(Collectors.toMap(ClassInfo::getName, Function.identity()));
 
       return configs.stream()
+          .filter(
+              config ->
+                  config.getSpring() == null
+                      || Boolean.FALSE.equals(config.getSpring().isEnabled()))
           .flatMap(
               config -> {
                 try {
@@ -234,7 +252,9 @@ public class PluginFactory {
                   }
                   MethodInfo constructorMethod = classInfo.getConstructorInfo().get(0);
                   return Stream.of(
-                      (T) constructorMethod.loadClassAndGetConstructor().newInstance(config));
+                      ((T)
+                          ((T) constructorMethod.loadClassAndGetConstructor().newInstance())
+                              .setConfig(config)));
                 } catch (Exception e) {
                   log.error(
                       "Error constructing entity registry plugin class: {}",
@@ -243,6 +263,7 @@ public class PluginFactory {
                   return Stream.empty();
                 }
               })
+          .filter(PluginSpec::enabled)
           .collect(Collectors.toList());
 
     } catch (Exception e) {

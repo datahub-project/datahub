@@ -21,16 +21,7 @@ public class AspectPluginConfig {
   @Nullable private List<String> supportedOperations;
   @Nonnull private List<EntityAspectName> supportedEntityAspectNames;
 
-  @Data
-  @NoArgsConstructor
-  @AllArgsConstructor
-  @Builder
-  public static class EntityAspectName {
-    public static final EntityAspectName ALL = new EntityAspectName("*", "*");
-
-    @Nonnull private String entityName;
-    @Nonnull private String aspectName;
-  }
+  @Nullable private SpringPluginConfig spring;
 
   @Nonnull
   public List<String> getSupportedOperations() {
@@ -47,6 +38,26 @@ public class AspectPluginConfig {
     return enabled && this.isEqualExcludingEnabled(o) && !o.enabled;
   }
 
+  @Data
+  @NoArgsConstructor
+  @AllArgsConstructor
+  @Builder
+  public static class EntityAspectName {
+    public static final EntityAspectName ALL = new EntityAspectName("*", "*");
+
+    @Nonnull private String entityName;
+    @Nonnull private String aspectName;
+  }
+
+  @Data
+  @NoArgsConstructor
+  @AllArgsConstructor
+  @Builder
+  public static class SpringPluginConfig {
+    private boolean enabled;
+    @Nullable private String name;
+  }
+
   private boolean isEqualExcludingEnabled(Object o) {
     if (this == o) return true;
     if (o == null || getClass() != o.getClass()) return false;
@@ -55,6 +66,7 @@ public class AspectPluginConfig {
 
     if (!className.equals(that.className)) return false;
     if (!Objects.equals(supportedOperations, that.supportedOperations)) return false;
+    if (!Objects.equals(spring, that.spring)) return false;
     return supportedEntityAspectNames.equals(that.supportedEntityAspectNames);
   }
 }
