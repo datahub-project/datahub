@@ -461,13 +461,13 @@ class Pipeline:
                         self.sink.write_record_async(record_envelope, callback)
 
                 self.sink.close()
+                self.process_commits()
                 self.final_status = "completed"
             except (SystemExit, RuntimeError, KeyboardInterrupt) as e:
                 self.final_status = "cancelled"
                 logger.error("Caught error", exc_info=e)
                 raise
             finally:
-                self.process_commits()
                 clear_global_warnings()
 
                 if callback and hasattr(callback, "close"):

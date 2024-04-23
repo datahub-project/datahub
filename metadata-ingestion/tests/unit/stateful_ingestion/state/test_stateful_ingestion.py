@@ -1,7 +1,9 @@
 from dataclasses import dataclass, field as dataclass_field
 from typing import Any, Dict, Iterable, List, Optional, cast
+from unittest import mock
 
 import pydantic
+import pytest
 from freezegun import freeze_time
 from pydantic import Field
 
@@ -114,6 +116,16 @@ class DummySource(StatefulIngestionSourceBase):
         return self.reporter
 
 
+@pytest.fixture(scope="module")
+def mock_generic_checkpoint_state():
+    with mock.patch(
+        "datahub.ingestion.source.state.entity_removal_state.GenericCheckpointState"
+    ) as mock_checkpoint_state:
+        checkpoint_state = mock_checkpoint_state.return_value
+        checkpoint_state.serde.return_value = "utf-8"
+        yield mock_checkpoint_state
+
+
 @freeze_time(FROZEN_TIME)
 def test_stateful_ingestion(pytestconfig, tmp_path, mock_time):
     # test stateful ingestion using dummy source
@@ -155,83 +167,91 @@ def test_stateful_ingestion(pytestconfig, tmp_path, mock_time):
         },
     }
 
-    pipeline_run1 = None
-    pipeline_run1_config: Dict[str, Dict[str, Dict[str, Any]]] = dict(  # type: ignore
-        base_pipeline_config  # type: ignore
-    )
-    pipeline_run1_config["sink"]["config"][
-        "filename"
-    ] = f"{tmp_path}/{output_file_name}"
-    pipeline_run1 = Pipeline.create(pipeline_run1_config)
-    pipeline_run1.run()
-    pipeline_run1.raise_from_status()
-    pipeline_run1.pretty_print_summary()
+    with mock.patch(
+        "datahub.ingestion.source.state.stale_entity_removal_handler.StaleEntityRemovalHandler.get_state"
+    ) as mock_state:
+        mock_state.return_value = GenericCheckpointState(serde="utf-8")
+        pipeline_run1 = None
+        pipeline_run1_config: Dict[str, Dict[str, Dict[str, Any]]] = dict(  # type: ignore
+            base_pipeline_config  # type: ignore
+        )
+        pipeline_run1_config["sink"]["config"][
+            "filename"
+        ] = f"{tmp_path}/{output_file_name}"
+        pipeline_run1 = Pipeline.create(pipeline_run1_config)
+        pipeline_run1.run()
+        pipeline_run1.raise_from_status()
+        pipeline_run1.pretty_print_summary()
 
-    # validate both dummy source mces and checkpoint state mces files
-    mce_helpers.check_golden_file(
-        pytestconfig,
-        output_path=tmp_path / output_file_name,
-        golden_path=f"{test_resources_dir}/{golden_file_name}",
-    )
-    mce_helpers.check_golden_file(
-        pytestconfig,
-        output_path=tmp_path / state_file_name,
-        golden_path=f"{test_resources_dir}/{golden_state_file_name}",
-    )
-    checkpoint1 = get_current_checkpoint_from_pipeline(pipeline_run1)
-    assert checkpoint1
-    assert checkpoint1.state
+        # validate both dummy source mces and checkpoint state mces files
+        mce_helpers.check_golden_file(
+            pytestconfig,
+            output_path=tmp_path / output_file_name,
+            golden_path=f"{test_resources_dir}/{golden_file_name}",
+        )
+        mce_helpers.check_golden_file(
+            pytestconfig,
+            output_path=tmp_path / state_file_name,
+            golden_path=f"{test_resources_dir}/{golden_state_file_name}",
+        )
+        checkpoint1 = get_current_checkpoint_from_pipeline(pipeline_run1)
+        assert checkpoint1
+        assert checkpoint1.state
 
-    pipeline_run2 = None
-    pipeline_run2_config: Dict[str, Dict[str, Dict[str, Any]]] = dict(base_pipeline_config)  # type: ignore
-    pipeline_run2_config["source"]["config"]["dataset_patterns"] = {
-        "allow": ["dummy_dataset1", "dummy_dataset2"],
-    }
-    pipeline_run2_config["sink"]["config"][
-        "filename"
-    ] = f"{tmp_path}/{output_file_name_after_deleted}"
-    pipeline_run2 = Pipeline.create(pipeline_run2_config)
-    pipeline_run2.run()
-    pipeline_run2.raise_from_status()
-    pipeline_run2.pretty_print_summary()
+    with mock.patch(
+        "datahub.ingestion.source.state.stale_entity_removal_handler.StaleEntityRemovalHandler.get_state"
+    ) as mock_state:
+        mock_state.return_value = GenericCheckpointState(serde="utf-8")
+        pipeline_run2 = None
+        pipeline_run2_config: Dict[str, Dict[str, Dict[str, Any]]] = dict(base_pipeline_config)  # type: ignore
+        pipeline_run2_config["source"]["config"]["dataset_patterns"] = {
+            "allow": ["dummy_dataset1", "dummy_dataset2"],
+        }
+        pipeline_run2_config["sink"]["config"][
+            "filename"
+        ] = f"{tmp_path}/{output_file_name_after_deleted}"
+        pipeline_run2 = Pipeline.create(pipeline_run2_config)
+        pipeline_run2.run()
+        pipeline_run2.raise_from_status()
+        pipeline_run2.pretty_print_summary()
 
-    # validate both updated dummy source mces and checkpoint state mces files after deleting dataset
-    mce_helpers.check_golden_file(
-        pytestconfig,
-        output_path=tmp_path / output_file_name_after_deleted,
-        golden_path=f"{test_resources_dir}/{golden_file_name_after_deleted}",
-    )
-    mce_helpers.check_golden_file(
-        pytestconfig,
-        output_path=tmp_path / state_file_name,
-        golden_path=f"{test_resources_dir}/{golden_state_file_name_after_deleted}",
-    )
-    checkpoint2 = get_current_checkpoint_from_pipeline(pipeline_run2)
-    assert checkpoint2
-    assert checkpoint2.state
+        # validate both updated dummy source mces and checkpoint state mces files after deleting dataset
+        mce_helpers.check_golden_file(
+            pytestconfig,
+            output_path=tmp_path / output_file_name_after_deleted,
+            golden_path=f"{test_resources_dir}/{golden_file_name_after_deleted}",
+        )
+        mce_helpers.check_golden_file(
+            pytestconfig,
+            output_path=tmp_path / state_file_name,
+            golden_path=f"{test_resources_dir}/{golden_state_file_name_after_deleted}",
+        )
+        checkpoint2 = get_current_checkpoint_from_pipeline(pipeline_run2)
+        assert checkpoint2
+        assert checkpoint2.state
 
-    # Validate that all providers have committed successfully.
-    validate_all_providers_have_committed_successfully(
-        pipeline=pipeline_run1, expected_providers=1
-    )
-    validate_all_providers_have_committed_successfully(
-        pipeline=pipeline_run2, expected_providers=1
-    )
+        # Validate that all providers have committed successfully.
+        validate_all_providers_have_committed_successfully(
+            pipeline=pipeline_run1, expected_providers=1
+        )
+        validate_all_providers_have_committed_successfully(
+            pipeline=pipeline_run2, expected_providers=1
+        )
 
-    # Perform all assertions on the states. The deleted table should not be
-    # part of the second state
-    state1 = cast(GenericCheckpointState, checkpoint1.state)
-    state2 = cast(GenericCheckpointState, checkpoint2.state)
+        # Perform all assertions on the states. The deleted table should not be
+        # part of the second state
+        state1 = cast(GenericCheckpointState, checkpoint1.state)
+        state2 = cast(GenericCheckpointState, checkpoint2.state)
 
-    difference_dataset_urns = list(
-        state1.get_urns_not_in(type="dataset", other_checkpoint_state=state2)
-    )
-    # the difference in dataset urns is the dataset which is not allowed to ingest
-    assert len(difference_dataset_urns) == 1
-    deleted_dataset_urns: List[str] = [
-        "urn:li:dataset:(urn:li:dataPlatform:postgres,dummy_dataset3,PROD)",
-    ]
-    assert sorted(deleted_dataset_urns) == sorted(difference_dataset_urns)
+        difference_dataset_urns = list(
+            state1.get_urns_not_in(type="dataset", other_checkpoint_state=state2)
+        )
+        # the difference in dataset urns is the dataset which is not allowed to ingest
+        assert len(difference_dataset_urns) == 1
+        deleted_dataset_urns: List[str] = [
+            "urn:li:dataset:(urn:li:dataPlatform:postgres,dummy_dataset3,PROD)",
+        ]
+        assert sorted(deleted_dataset_urns) == sorted(difference_dataset_urns)
 
 
 @freeze_time(FROZEN_TIME)
@@ -277,71 +297,79 @@ def test_stateful_ingestion_failure(pytestconfig, tmp_path, mock_time):
         },
     }
 
-    pipeline_run1 = None
-    pipeline_run1_config: Dict[str, Dict[str, Dict[str, Any]]] = dict(  # type: ignore
-        base_pipeline_config  # type: ignore
-    )
-    pipeline_run1_config["sink"]["config"][
-        "filename"
-    ] = f"{tmp_path}/{output_file_name}"
-    pipeline_run1 = Pipeline.create(pipeline_run1_config)
-    pipeline_run1.run()
-    pipeline_run1.raise_from_status()
-    pipeline_run1.pretty_print_summary()
+    with mock.patch(
+        "datahub.ingestion.source.state.stale_entity_removal_handler.StaleEntityRemovalHandler.get_state"
+    ) as mock_state:
+        mock_state.return_value = GenericCheckpointState(serde="utf-8")
+        pipeline_run1 = None
+        pipeline_run1_config: Dict[str, Dict[str, Dict[str, Any]]] = dict(  # type: ignore
+            base_pipeline_config  # type: ignore
+        )
+        pipeline_run1_config["sink"]["config"][
+            "filename"
+        ] = f"{tmp_path}/{output_file_name}"
+        pipeline_run1 = Pipeline.create(pipeline_run1_config)
+        pipeline_run1.run()
+        pipeline_run1.raise_from_status()
+        pipeline_run1.pretty_print_summary()
 
-    # validate both dummy source mces and checkpoint state mces files
-    mce_helpers.check_golden_file(
-        pytestconfig,
-        output_path=tmp_path / output_file_name,
-        golden_path=f"{test_resources_dir}/{golden_file_name}",
-    )
-    mce_helpers.check_golden_file(
-        pytestconfig,
-        output_path=tmp_path / state_file_name,
-        golden_path=f"{test_resources_dir}/{golden_state_file_name}",
-    )
-    checkpoint1 = get_current_checkpoint_from_pipeline(pipeline_run1)
-    assert checkpoint1
-    assert checkpoint1.state
+        # validate both dummy source mces and checkpoint state mces files
+        mce_helpers.check_golden_file(
+            pytestconfig,
+            output_path=tmp_path / output_file_name,
+            golden_path=f"{test_resources_dir}/{golden_file_name}",
+        )
+        mce_helpers.check_golden_file(
+            pytestconfig,
+            output_path=tmp_path / state_file_name,
+            golden_path=f"{test_resources_dir}/{golden_state_file_name}",
+        )
+        checkpoint1 = get_current_checkpoint_from_pipeline(pipeline_run1)
+        assert checkpoint1
+        assert checkpoint1.state
 
-    pipeline_run2 = None
-    pipeline_run2_config: Dict[str, Dict[str, Dict[str, Any]]] = dict(base_pipeline_config)  # type: ignore
-    pipeline_run2_config["source"]["config"]["dataset_patterns"] = {
-        "allow": ["dummy_dataset1", "dummy_dataset2"],
-    }
-    pipeline_run2_config["source"]["config"]["report_failure"] = True
-    pipeline_run2_config["sink"]["config"][
-        "filename"
-    ] = f"{tmp_path}/{output_file_name_after_deleted}"
-    pipeline_run2 = Pipeline.create(pipeline_run2_config)
-    pipeline_run2.run()
-    pipeline_run2.pretty_print_summary()
+    with mock.patch(
+        "datahub.ingestion.source.state.stale_entity_removal_handler.StaleEntityRemovalHandler.get_state"
+    ) as mock_state:
+        mock_state.return_value = GenericCheckpointState(serde="utf-8")
+        pipeline_run2 = None
+        pipeline_run2_config: Dict[str, Dict[str, Dict[str, Any]]] = dict(base_pipeline_config)  # type: ignore
+        pipeline_run2_config["source"]["config"]["dataset_patterns"] = {
+            "allow": ["dummy_dataset1", "dummy_dataset2"],
+        }
+        pipeline_run2_config["source"]["config"]["report_failure"] = True
+        pipeline_run2_config["sink"]["config"][
+            "filename"
+        ] = f"{tmp_path}/{output_file_name_after_deleted}"
+        pipeline_run2 = Pipeline.create(pipeline_run2_config)
+        pipeline_run2.run()
+        pipeline_run2.pretty_print_summary()
 
-    # validate both updated dummy source mces and checkpoint state mces files after deleting dataset
-    mce_helpers.check_golden_file(
-        pytestconfig,
-        output_path=tmp_path / output_file_name_after_deleted,
-        golden_path=f"{test_resources_dir}/{golden_file_name_after_deleted}",
-    )
-    mce_helpers.check_golden_file(
-        pytestconfig,
-        output_path=tmp_path / state_file_name,
-        golden_path=f"{test_resources_dir}/{golden_state_file_name_after_deleted}",
-    )
-    checkpoint2 = get_current_checkpoint_from_pipeline(pipeline_run2)
-    assert checkpoint2
-    assert checkpoint2.state
+        # validate both updated dummy source mces and checkpoint state mces files after deleting dataset
+        mce_helpers.check_golden_file(
+            pytestconfig,
+            output_path=tmp_path / output_file_name_after_deleted,
+            golden_path=f"{test_resources_dir}/{golden_file_name_after_deleted}",
+        )
+        mce_helpers.check_golden_file(
+            pytestconfig,
+            output_path=tmp_path / state_file_name,
+            golden_path=f"{test_resources_dir}/{golden_state_file_name_after_deleted}",
+        )
+        checkpoint2 = get_current_checkpoint_from_pipeline(pipeline_run2)
+        assert checkpoint2
+        assert checkpoint2.state
 
-    # Validate that all providers have committed successfully.
-    validate_all_providers_have_committed_successfully(
-        pipeline=pipeline_run1, expected_providers=1
-    )
-    validate_all_providers_have_committed_successfully(
-        pipeline=pipeline_run2, expected_providers=1
-    )
+        # Validate that all providers have committed successfully.
+        validate_all_providers_have_committed_successfully(
+            pipeline=pipeline_run1, expected_providers=1
+        )
+        validate_all_providers_have_committed_successfully(
+            pipeline=pipeline_run2, expected_providers=1
+        )
 
-    # Perform assertions on the states. The deleted table should be
-    # still part of the second state as pipeline run failed
-    state1 = cast(GenericCheckpointState, checkpoint1.state)
-    state2 = cast(GenericCheckpointState, checkpoint2.state)
-    assert state1 == state2
+        # Perform assertions on the states. The deleted table should be
+        # still part of the second state as pipeline run failed
+        state1 = cast(GenericCheckpointState, checkpoint1.state)
+        state2 = cast(GenericCheckpointState, checkpoint2.state)
+        assert state1 == state2
