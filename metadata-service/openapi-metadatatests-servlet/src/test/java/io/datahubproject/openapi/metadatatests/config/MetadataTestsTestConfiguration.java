@@ -32,8 +32,8 @@ import io.datahubproject.openapi.generated.TestEntityRequestV2;
 import io.datahubproject.openapi.generated.TestEntityResponseV2;
 import io.datahubproject.openapi.health.HealthCheckController;
 import io.datahubproject.openapi.operations.elastic.OperationsController;
-import io.datahubproject.openapi.relationships.RelationshipsController;
-import io.datahubproject.openapi.timeline.TimelineController;
+import io.datahubproject.openapi.v2.controller.RelationshipController;
+import io.datahubproject.openapi.v2.controller.TimelineController;
 import io.datahubproject.openapi.v2.delegates.EntityApiDelegateImpl;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import org.mockito.Mockito;
@@ -117,7 +117,7 @@ public class MetadataTestsTestConfiguration {
       entityApiDelegate;
 
   @MockBean public TimelineController timelineController;
-  @MockBean public RelationshipsController relationshipsController;
+  @MockBean public RelationshipController relationshipsController;
   @MockBean public HealthCheckController healthCheckController;
   @MockBean public OperationsController operationsController;
 }

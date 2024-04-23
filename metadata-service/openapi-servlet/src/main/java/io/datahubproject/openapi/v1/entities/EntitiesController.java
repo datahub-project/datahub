@@ -1,4 +1,4 @@
-package io.datahubproject.openapi.entities;
+package io.datahubproject.openapi.v1.entities;
 
 import static com.datahub.authorization.AuthUtil.isAPIAuthorized;
 import static com.linkedin.metadata.authorization.ApiGroup.ENTITY;

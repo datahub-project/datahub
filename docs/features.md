@@ -1,6 +1,6 @@
 ---
 hide_title: true
-slug: /
+slug: /features
 ---
 
 

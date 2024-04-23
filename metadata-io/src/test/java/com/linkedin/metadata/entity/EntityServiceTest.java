@@ -727,6 +727,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     gmce.setChangeType(ChangeType.UPSERT);
     gmce.setEntityType("dataset");
     gmce.setAspectName("datasetProperties");
+    gmce.setSystemMetadata(new SystemMetadata());
     JacksonDataTemplateCodec dataTemplateCodec = new JacksonDataTemplateCodec();
     byte[] datasetPropertiesSerialized = dataTemplateCodec.dataTemplateToBytes(datasetProperties);
     GenericAspect genericAspect = new GenericAspect();

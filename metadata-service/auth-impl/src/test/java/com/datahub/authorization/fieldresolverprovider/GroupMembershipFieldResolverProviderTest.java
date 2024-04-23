@@ -48,6 +48,7 @@ public class GroupMembershipFieldResolverProviderTest
   @BeforeMethod
   public void setup() {
     MockitoAnnotations.initMocks(this);
+    groupMembershipFieldResolverProvider = buildFieldResolverProvider();
     systemOperationContext = TestOperationContexts.systemContextNoSearchAuthorization();
     groupMembershipFieldResolverProvider = buildFieldResolverProvider();
   }

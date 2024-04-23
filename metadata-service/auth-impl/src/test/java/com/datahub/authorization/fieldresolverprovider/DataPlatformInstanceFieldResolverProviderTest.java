@@ -51,8 +51,8 @@ public class DataPlatformInstanceFieldResolverProviderTest
   @BeforeMethod
   public void setup() {
     MockitoAnnotations.initMocks(this);
-    systemOperationContext = TestOperationContexts.systemContextNoSearchAuthorization();
     dataPlatformInstanceFieldResolverProvider = buildFieldResolverProvider();
+    systemOperationContext = TestOperationContexts.systemContextNoSearchAuthorization();
   }
 
   @Override

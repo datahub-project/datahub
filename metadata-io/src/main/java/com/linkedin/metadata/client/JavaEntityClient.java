@@ -571,9 +571,11 @@ public class JavaEntityClient implements EntityClient {
   @Override
   @Nonnull
   public Map<String, Long> batchGetTotalEntityCount(
-      @Nonnull OperationContext opContext, @Nonnull List<String> entityNames)
+      @Nonnull OperationContext opContext,
+      @Nonnull List<String> entityNames,
+      @Nullable Filter filter)
       throws RemoteInvocationException {
-    return searchService.docCountPerEntity(opContext, entityNames);
+    return searchService.docCountPerEntity(opContext, entityNames, filter);
   }
 
   /** List all urns existing for a particular Entity type. */

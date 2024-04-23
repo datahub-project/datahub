@@ -170,7 +170,6 @@ class SupersetSource(StatefulIngestionSourceBase):
     config: SupersetConfig
     report: StaleEntityRemovalSourceReport
     platform = "superset"
-    stale_entity_removal_handler: StaleEntityRemovalHandler
 
     def __hash__(self):
         return id(self)

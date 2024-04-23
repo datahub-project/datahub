@@ -38,6 +38,7 @@ public class TagFieldResolverProvider implements EntityFieldResolverProvider {
 
   private FieldResolver.FieldValue getTags(
       @Nonnull OperationContext opContext, EntitySpec entitySpec) {
+
     EnvelopedAspect globalTagsAspect;
     try {
       if (entitySpec.getEntity().isEmpty()) {

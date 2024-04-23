@@ -59,6 +59,7 @@ import com.linkedin.datahub.graphql.generated.DataPlatformInstance;
 import com.linkedin.datahub.graphql.generated.Dataset;
 import com.linkedin.datahub.graphql.generated.DatasetStatsSummary;
 import com.linkedin.datahub.graphql.generated.Domain;
+import com.linkedin.datahub.graphql.generated.ERModelRelationship;
 import com.linkedin.datahub.graphql.generated.ERModelRelationshipProperties;
 import com.linkedin.datahub.graphql.generated.EntityPath;
 import com.linkedin.datahub.graphql.generated.EntityRelationship;
@@ -979,7 +980,8 @@ public class GmsGraphQLEngine {
                 .dataFetcher(
                     "listRecommendations",
                     new ListRecommendationsResolver(recommendationsService, viewService))
-                .dataFetcher("getEntityCounts", new EntityCountsResolver(this.entityClient))
+                .dataFetcher(
+                    "getEntityCounts", new EntityCountsResolver(this.entityClient, viewService))
                 .dataFetcher("getAccessToken", new GetAccessTokenResolver(statefulTokenService))
                 .dataFetcher("listAccessTokens", new ListAccessTokensResolver(this.entityClient))
                 .dataFetcher(

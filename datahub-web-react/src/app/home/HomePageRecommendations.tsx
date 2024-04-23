@@ -24,6 +24,7 @@ import {
     HOME_PAGE_PLATFORMS_ID,
 } from '../onboarding/config/HomePageOnboardingConfig';
 import { useToggleEducationStepIdsAllowList } from '../onboarding/useToggleEducationStepIdsAllowList';
+import { useUserContext } from '../context/useUserContext';
 
 const PLATFORMS_MODULE_ID = 'Platforms';
 const MOST_POPULAR_MODULE_ID = 'HighUsageEntities';
@@ -112,6 +113,9 @@ export const HomePageRecommendations = ({ user }: Props) => {
     const showGlossary = shouldShowGlossary(canManageGlossary, hideGlossary);
     const userUrn = user?.urn;
 
+    const userContext = useUserContext();
+    const viewUrn = userContext.localState?.selectedViewUrn;
+
     const businessAttributesFlag = useBusinessAttributesFlag();
 
     const showSimplifiedHomepage = user?.settings?.appearance?.showSimplifiedHomepage;
@@ -120,6 +124,7 @@ export const HomePageRecommendations = ({ user }: Props) => {
         variables: {
             input: {
                 types: browseEntityList,
+                viewUrn
             },
         },
     });
@@ -140,6 +145,7 @@ export const HomePageRecommendations = ({ user }: Props) => {
                     scenario,
                 },
                 limit: 10,
+                viewUrn
             },
         },
         fetchPolicy: 'no-cache',

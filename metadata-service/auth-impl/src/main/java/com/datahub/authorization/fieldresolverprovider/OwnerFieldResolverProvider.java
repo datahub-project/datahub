@@ -38,6 +38,7 @@ public class OwnerFieldResolverProvider implements EntityFieldResolverProvider {
 
   private FieldResolver.FieldValue getOwners(
       @Nonnull OperationContext opContext, EntitySpec entitySpec) {
+
     EnvelopedAspect ownershipAspect;
     try {
       if (entitySpec.getEntity().isEmpty()) {

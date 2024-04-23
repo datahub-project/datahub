@@ -59,8 +59,8 @@ public class RecommendationsService {
   public List<RecommendationModule> listRecommendations(
       @Nonnull OperationContext opContext,
       @Nonnull RecommendationRequestContext requestContext,
-      int limit,
-      @Nullable Filter filter) {
+      @Nullable Filter filter,
+      int limit) {
 
     // Get recommendation candidates from sources which are eligible, in parallel
     final List<RecommendationModule> candidateModules =

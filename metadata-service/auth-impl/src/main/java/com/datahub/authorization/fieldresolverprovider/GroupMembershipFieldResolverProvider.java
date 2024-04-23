@@ -45,6 +45,7 @@ public class GroupMembershipFieldResolverProvider implements EntityFieldResolver
 
   private FieldResolver.FieldValue getGroupMembership(
       @Nonnull OperationContext opContext, EntitySpec entitySpec) {
+
     EnvelopedAspect groupMembershipAspect;
     EnvelopedAspect nativeGroupMembershipAspect;
     List<Urn> groups = new ArrayList<>();

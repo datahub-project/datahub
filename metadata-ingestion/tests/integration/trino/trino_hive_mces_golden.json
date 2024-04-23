@@ -231,7 +231,7 @@
                             "numrows": "1",
                             "rawdatasize": "32",
                             "totalsize": "33",
-                            "transient_lastddltime": "1710149909"
+                            "transient_lastddltime": "1713211020"
                         },
                         "name": "array_struct_test",
                         "description": "This table has array of structs",
@@ -471,7 +471,7 @@
                             "numrows": "3",
                             "rawdatasize": "94",
                             "totalsize": "97",
-                            "transient_lastddltime": "1710149912"
+                            "transient_lastddltime": "1713211025"
                         },
                         "name": "classification_test",
                         "tags": []
@@ -753,7 +753,7 @@
                             "numrows": "0",
                             "rawdatasize": "0",
                             "totalsize": "0",
-                            "transient_lastddltime": "1710149911"
+                            "transient_lastddltime": "1713211023"
                         },
                         "name": "map_test",
                         "tags": []
@@ -959,7 +959,7 @@
                             "numrows": "0",
                             "rawdatasize": "0",
                             "totalsize": "0",
-                            "transient_lastddltime": "1710149911"
+                            "transient_lastddltime": "1713211023"
                         },
                         "name": "nested_struct_test",
                         "tags": []
@@ -1209,7 +1209,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "transient_lastddltime": "1710149904"
+                            "transient_lastddltime": "1713211015"
                         },
                         "name": "pokes",
                         "tags": []
@@ -1423,7 +1423,7 @@
                             "numrows": "0",
                             "rawdatasize": "0",
                             "totalsize": "0",
-                            "transient_lastddltime": "1710149906"
+                            "transient_lastddltime": "1713211017"
                         },
                         "name": "struct_test",
                         "tags": []
@@ -1653,7 +1653,7 @@
                         "customProperties": {
                             "numfiles": "0",
                             "totalsize": "0",
-                            "transient_lastddltime": "1710149911"
+                            "transient_lastddltime": "1713211023"
                         },
                         "name": "struct_test_view_materialized",
                         "tags": []
@@ -1886,7 +1886,7 @@
                             "numrows": "0",
                             "rawdatasize": "0",
                             "totalsize": "0",
-                            "transient_lastddltime": "1710149906"
+                            "transient_lastddltime": "1713211017"
                         },
                         "name": "_test_table_underscore",
                         "tags": []
@@ -2088,7 +2088,7 @@
                             "numrows": "0",
                             "rawdatasize": "0",
                             "totalsize": "0",
-                            "transient_lastddltime": "1710149911"
+                            "transient_lastddltime": "1713211023"
                         },
                         "name": "union_test",
                         "tags": []
@@ -2369,7 +2369,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "transient_lastddltime": "1710149911",
+                            "transient_lastddltime": "1713211023",
                             "view_definition": "SELECT \"property_id\", \"service\"\nFROM \"db1\".\"array_struct_test\"",
                             "is_view": "True"
                         },
@@ -2768,6 +2768,70 @@
     "aspect": {
         "json": {
             "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1632398400000,
+        "runId": "trino-hive-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "glossaryTerm",
+    "entityUrn": "urn:li:glossaryTerm:Age",
+    "changeType": "UPSERT",
+    "aspectName": "glossaryTermKey",
+    "aspect": {
+        "json": {
+            "name": "Age"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1632398400000,
+        "runId": "trino-hive-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "glossaryTerm",
+    "entityUrn": "urn:li:glossaryTerm:Email_Address",
+    "changeType": "UPSERT",
+    "aspectName": "glossaryTermKey",
+    "aspect": {
+        "json": {
+            "name": "Email_Address"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1632398400000,
+        "runId": "trino-hive-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "glossaryTerm",
+    "entityUrn": "urn:li:glossaryTerm:Full_Name",
+    "changeType": "UPSERT",
+    "aspectName": "glossaryTermKey",
+    "aspect": {
+        "json": {
+            "name": "Full_Name"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1632398400000,
+        "runId": "trino-hive-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "glossaryTerm",
+    "entityUrn": "urn:li:glossaryTerm:Gender",
+    "changeType": "UPSERT",
+    "aspectName": "glossaryTermKey",
+    "aspect": {
+        "json": {
+            "name": "Gender"
         }
     },
     "systemMetadata": {

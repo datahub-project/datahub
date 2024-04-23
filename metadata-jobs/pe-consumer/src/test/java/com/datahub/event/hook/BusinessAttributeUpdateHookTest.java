@@ -3,11 +3,11 @@ package com.datahub.event.hook;
 import static com.linkedin.metadata.Constants.BUSINESS_ATTRIBUTE_ASPECT;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.when;
 
 import com.google.common.collect.ImmutableList;
@@ -22,10 +22,6 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.DataMap;
 import com.linkedin.entity.Aspect;
-import com.linkedin.entity.EntityResponse;
-import com.linkedin.entity.EnvelopedAspect;
-import com.linkedin.entity.EnvelopedAspectMap;
-import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.GraphRetriever;
@@ -37,21 +33,22 @@ import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.query.filter.RelationshipFilter;
 import com.linkedin.metadata.service.BusinessAttributeUpdateHookService;
+import com.linkedin.metadata.service.UpdateIndicesService;
 import com.linkedin.metadata.timeline.data.ChangeCategory;
 import com.linkedin.metadata.timeline.data.ChangeOperation;
 import com.linkedin.metadata.utils.GenericRecordUtils;
+import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.PlatformEvent;
 import com.linkedin.mxe.PlatformEventHeader;
-import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.platform.event.v1.EntityChangeEvent;
 import com.linkedin.platform.event.v1.Parameters;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RetrieverContext;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.net.URISyntaxException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import org.mockito.Mockito;
 import org.mockito.stubbing.OngoingStubbing;
@@ -70,15 +67,16 @@ public class BusinessAttributeUpdateHookTest {
   private static final long EVENT_TIME = 123L;
   private static final String TEST_ACTOR_URN = "urn:li:corpuser:test";
   private static Urn actorUrn;
-  private SystemEntityClient mockEntityClient;
+  private UpdateIndicesService mockUpdateIndicesService;
   private BusinessAttributeUpdateHook businessAttributeUpdateHook;
   private BusinessAttributeUpdateHookService businessAttributeServiceHook;
 
   @BeforeMethod
   public void setupTest() throws URISyntaxException {
-    mockEntityClient = mock(SystemEntityClient.class);
+    mockUpdateIndicesService = mock(UpdateIndicesService.class);
     actorUrn = Urn.createFromString(TEST_ACTOR_URN);
-    businessAttributeServiceHook = new BusinessAttributeUpdateHookService(mockEntityClient, 100, 1);
+    businessAttributeServiceHook =
+        new BusinessAttributeUpdateHookService(mockUpdateIndicesService, 100, 1);
     businessAttributeUpdateHook =
         new BusinessAttributeUpdateHook(businessAttributeServiceHook, true);
   }
@@ -94,21 +92,16 @@ public class BusinessAttributeUpdateHookTest {
                 new RelatedEntity(BUSINESS_ATTRIBUTE_OF, SCHEMA_FIELD_URN.toString()),
                 new RelatedEntity(BUSINESS_ATTRIBUTE_OF, SCHEMA_FIELD_URN.toString())));
 
-    when(mockEntityClient.batchGetV2(
-            any(OperationContext.class),
-            eq(Set.of(SCHEMA_FIELD_URN)),
-            eq(Set.of(BUSINESS_ATTRIBUTE_ASPECT))))
+    when(opContext
+            .getRetrieverContext()
+            .get()
+            .getAspectRetriever()
+            .getLatestAspectObjects(
+                eq(Set.of(SCHEMA_FIELD_URN)), eq(Set.of(BUSINESS_ATTRIBUTE_ASPECT))))
         .thenReturn(
             Map.of(
                 SCHEMA_FIELD_URN,
-                new EntityResponse()
-                    .setEntityName(SCHEMA_FIELD_URN.getEntityType())
-                    .setUrn(SCHEMA_FIELD_URN)
-                    .setAspects(envelopedAspectMap())));
-
-    // mock response
-    when(mockEntityClient.batchIngestProposals(any(OperationContext.class), anyList(), eq(true)))
-        .thenReturn(List.of(SCHEMA_FIELD_URN.toString()));
+                Map.of(BUSINESS_ATTRIBUTE_ASPECT, new Aspect(new BusinessAttributes().data()))));
 
     // invoke
     businessAttributeServiceHook.handleChangeEvent(opContext, platformEvent);
@@ -146,8 +139,8 @@ public class BusinessAttributeUpdateHookTest {
     Mockito.verifyNoMoreInteractions(opContext.getRetrieverContext().get().getGraphRetriever());
 
     // 2 pages = 2 ingest proposals
-    Mockito.verify(mockEntityClient, Mockito.times(2))
-        .batchIngestProposals(any(OperationContext.class), anyList(), eq(true));
+    Mockito.verify(mockUpdateIndicesService, Mockito.times(2))
+        .handleChangeEvent(any(OperationContext.class), any(MetadataChangeLog.class));
   }
 
   @Test
@@ -160,7 +153,8 @@ public class BusinessAttributeUpdateHookTest {
 
     // verify
     Mockito.verifyNoInteractions(opContext.getRetrieverContext().get().getGraphRetriever());
-    Mockito.verifyNoInteractions(mockEntityClient);
+    Mockito.verifyNoInteractions(opContext.getRetrieverContext().get().getAspectRetriever());
+    Mockito.verifyNoInteractions(mockUpdateIndicesService);
   }
 
   public static PlatformEvent createPlatformEventBusinessAttribute() throws Exception {
@@ -227,24 +221,18 @@ public class BusinessAttributeUpdateHookTest {
     return platformEvent;
   }
 
-  private EnvelopedAspectMap envelopedAspectMap() {
-    EnvelopedAspectMap result = new EnvelopedAspectMap();
-    EnvelopedAspect envelopedAspect = new EnvelopedAspect();
-    envelopedAspect.setValue(new Aspect(new BusinessAttributes().data()));
-    envelopedAspect.setSystemMetadata(new SystemMetadata());
-    result.put(BUSINESS_ATTRIBUTE_ASPECT, envelopedAspect);
-    return result;
-  }
-
   private OperationContext mockOperationContextWithGraph(List<RelatedEntity> graphEdges) {
-    OperationContext mockContext = mock(OperationContext.class);
     GraphRetriever graphRetriever = mock(GraphRetriever.class);
 
     RetrieverContext mockRetrieverContext = mock(RetrieverContext.class);
     when(mockRetrieverContext.getAspectRetriever()).thenReturn(mock(AspectRetriever.class));
     when(mockRetrieverContext.getGraphRetriever()).thenReturn(graphRetriever);
 
-    when(mockContext.getRetrieverContext()).thenReturn(Optional.of(mockRetrieverContext));
+    OperationContext opContext =
+        TestOperationContexts.systemContextNoSearchAuthorization(mockRetrieverContext);
+
+    // reset mock for test
+    reset(opContext.getRetrieverContext().get().getAspectRetriever());
 
     if (!graphEdges.isEmpty()) {
 
@@ -289,6 +277,6 @@ public class BusinessAttributeUpdateHookTest {
       }
     }
 
-    return mockContext;
+    return opContext;
   }
 }

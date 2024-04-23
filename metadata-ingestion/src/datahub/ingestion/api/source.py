@@ -31,7 +31,7 @@ from datahub.ingestion.api.report import Report
 from datahub.ingestion.api.source_helpers import (
     auto_browse_path_v2,
     auto_lowercase_urns,
-    auto_materialize_referenced_tags,
+    auto_materialize_referenced_tags_terms,
     auto_status_aspect,
     auto_workunit_reporter,
 )
@@ -231,7 +231,7 @@ class Source(Closeable, metaclass=ABCMeta):
         return [
             auto_lowercase_dataset_urns,
             auto_status_aspect,
-            auto_materialize_referenced_tags,
+            auto_materialize_referenced_tags_terms,
             browse_path_processor,
             partial(auto_workunit_reporter, self.get_report()),
         ]

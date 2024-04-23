@@ -2517,6 +2517,7 @@
             "QualifiedApiName": "Unique_Account",
             "DeveloperName": "Unique_Account",
             "Label": "# Unique_Account",
+            "InlineHelpText": "# Help Text",
             "FieldDefinition": {
                 "attributes": {
                     "type": "FieldDefinition",
@@ -2527,7 +2528,8 @@
                 "LastModifiedBy": null,
                 "IsIndexed": false,
                 "ComplianceGroup": null,
-                "SecurityClassification": null
+                "SecurityClassification": null,
+                "Description": "This is the # description"
             },
             "DataType": "string",
             "Precision": 0,

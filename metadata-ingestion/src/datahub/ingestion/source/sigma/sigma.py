@@ -105,7 +105,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
     platform: str = "sigma"
 
     def __init__(self, config: SigmaSourceConfig, ctx: PipelineContext):
-        super(SigmaSource, self).__init__(config, ctx)
+        super().__init__(config, ctx)
         self.config = config
         self.reporter = SigmaSourceReport()
         self.dataset_upstream_urn_mapping: Dict[str, List[str]] = {}
@@ -253,7 +253,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             urn = builder.make_dataplatform_instance_urn(
                 self.platform, self.config.platform_instance
             )
-        entries = [BrowsePathEntryClass(id=urn, urn=urn)] + entries
+            entries = [BrowsePathEntryClass(id=urn, urn=urn)] + entries
         return MetadataChangeProposalWrapper(
             entityUrn=entity_urn,
             aspect=BrowsePathsV2Class(entries),
