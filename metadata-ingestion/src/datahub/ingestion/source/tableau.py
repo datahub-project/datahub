@@ -1693,7 +1693,7 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
     ) -> Optional["SqlParsingResult"]:
         database_info = datasource.get(c.DATABASE) or {
             c.NAME: c.UNKNOWN.lower(),
-            c.CONNECTION_TYPE: "databricks",
+            c.CONNECTION_TYPE: datasource.get(c.CONNECTION_TYPE) or "databricks",
         }
 
         if (

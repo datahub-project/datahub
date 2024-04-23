@@ -324,6 +324,7 @@ custom_sql_graphql_query = """
             totalCount
         }
       }
+      connectionType
       database{
         name
         connectionType
