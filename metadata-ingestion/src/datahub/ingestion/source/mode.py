@@ -173,6 +173,8 @@ class ModeSourceReport(StaleEntityRemovalSourceReport):
     num_sql_parsed: int = 0
     num_sql_parser_failures: int = 0
     num_sql_parser_success: int = 0
+    num_sql_parser_table_error: int = 0
+    num_sql_parser_column_error: int = 0
     num_query_template_render: int = 0
     num_query_template_render_failures: int = 0
     num_query_template_render_success: int = 0
@@ -904,9 +906,14 @@ class ModeSource(StatefulIngestionSourceBase):
 
         self.report.num_sql_parsed += 1
         if parsed_query_object.debug_info.error:
-            self.report.num_sql_parser_failures += 1
-            logger.debug(
-                f"Failed to parse token: query_token: {query_data.get('token')}, query {normalized_query} with error: {parsed_query_object.debug_info.error}"
+            self.report.num_sql_parser_table_error += 1
+            logger.info(
+                f"Failed to parse compiled code for report: {report_token} query: {query_data.get('token')} {parsed_query_object.debug_info.error} the query was [{query_to_parse}]"
+            )
+        elif parsed_query_object.debug_info.column_error:
+            self.report.num_sql_parser_column_error += 1
+            logger.info(
+                f"Failed to generate CLL for report: {report_token} query: {query_data.get('token')}: {parsed_query_object.debug_info.column_error} the query was [{query_to_parse}]"
             )
         else:
             self.report.num_sql_parser_success += 1

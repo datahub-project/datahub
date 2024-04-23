@@ -493,6 +493,9 @@ def _column_level_lineage(  # noqa: C901
                 # Otherwise, we can't process it.
                 continue
 
+            if output_col == "":
+                continue
+
             if is_dialect_instance(dialect, "bigquery") and output_col.lower() in {
                 "_partitiontime",
                 "_partitiondate",
@@ -886,9 +889,9 @@ def _sqlglot_lineage_inner(
     try:
         if select_statement is not None:
             with cooperative_timeout(
-                timeout=SQL_LINEAGE_TIMEOUT_SECONDS
-                if SQL_LINEAGE_TIMEOUT_ENABLED
-                else None
+                timeout=(
+                    SQL_LINEAGE_TIMEOUT_SECONDS if SQL_LINEAGE_TIMEOUT_ENABLED else None
+                )
             ):
                 column_lineage = _column_level_lineage(
                     select_statement,
