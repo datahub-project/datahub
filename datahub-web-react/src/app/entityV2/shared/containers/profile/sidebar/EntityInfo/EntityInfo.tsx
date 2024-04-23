@@ -58,7 +58,7 @@ export default function EntityInfo({ formUrn }: Props) {
             </StyledLink>
             <DatasetStatsSummarySubHeader />
             <FormInfoWrapper>
-                <FormInfo shouldDisplayBackground formUrn={formUrn} />
+                <FormInfo formUrn={formUrn} />
             </FormInfoWrapper>
             <StyledDivider />
         </EntityInfoWrapper>

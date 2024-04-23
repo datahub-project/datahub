@@ -1,19 +1,41 @@
 import { Button } from 'antd';
-import React from 'react';
+import React, { useState } from 'react';
 import styled from 'styled-components';
-import PurpleVerificationLogo from '../../../../../../../images/verificationPurple.svg?react';
-import GrayVerificationIcon from '../../../../../../../images/verificationWarningGray.svg?react';
-import { CTAWrapper, FlexWrapper, StyledIcon, StyledReadFilled, Title } from './components';
+import ShieldExclamation from '../../../../../../../images/shield-exclamation.svg';
+
+import {
+    CTAWrapper,
+    Content,
+    FlexWrapper,
+    StyledArrow,
+    StyledButtonWrapper,
+    StyledImgIcon,
+    StyledReadOutlined,
+    Title,
+    TitleWrapper,
+} from './components';
 import OptionalPromptsRemaining from '../../../../../../entity/shared/containers/profile/sidebar/FormInfo/OptionalPromptsRemaining';
 import RequiredPromptsRemaining from '../../../../../../entity/shared/containers/profile/sidebar/FormInfo/RequiredPromptsRemaining';
+import { REDESIGN_COLORS } from '../../../../constants';
 
-const StyledButton = styled(Button)`
-    width: 100%;
-    margin-top: 12px;
-    font-size: 14px;
-    display: flex;
+const StyledButtonV2 = styled(Button)`
+    margin-top: 16px;
+    font-size: 12px;
+    line-height: 14px;
+    display: inline-flex;
     align-items: center;
-    justify-content: center;
+    border: 1px solid ${REDESIGN_COLORS.TITLE_PURPLE};
+    color: ${REDESIGN_COLORS.TITLE_PURPLE};
+    padding: 9px 17px;
+    border-radius: 6px;
+    &:hover {
+        color: ${REDESIGN_COLORS.TITLE_PURPLE};
+        border: 1px solid ${REDESIGN_COLORS.TITLE_PURPLE};
+    }
+`;
+
+const Text = styled.div`
+    text-wrap: wrap;
 `;
 
 interface Props {
@@ -31,34 +53,47 @@ export default function IncompleteView({
     isUserAssigned,
     openFormModal,
 }: Props) {
+    const [isOpen, setIsOpen] = useState(false);
+
     return (
-        <CTAWrapper shouldDisplayBackground={isUserAssigned}>
+        <CTAWrapper backgroundColor="#FEF9ED" borderColor="#F4C449">
             <FlexWrapper>
-                {isUserAssigned && (
-                    <>
-                        {showVerificationStyles ? (
-                            <StyledIcon component={PurpleVerificationLogo} />
-                        ) : (
-                            <StyledReadFilled addLineHeight />
-                        )}
-                    </>
-                )}
-                {!isUserAssigned && <StyledIcon component={GrayVerificationIcon} />}
-                <div>
-                    <Title>Awaiting {showVerificationStyles ? 'Verification' : 'Documentation'}</Title>
-                    {isUserAssigned && (
+                <Content>
+                    <TitleWrapper
+                        isOpen={isOpen}
+                        isUserAssigned={isUserAssigned}
+                        onClick={() => isUserAssigned && setIsOpen(!isOpen)}
+                    >
+                        <Title>
+                            {isUserAssigned && (
+                                <>
+                                    {showVerificationStyles ? (
+                                        <StyledImgIcon src={ShieldExclamation} />
+                                    ) : (
+                                        <StyledReadOutlined color="#F4C449" addLineHeight />
+                                    )}
+                                </>
+                            )}
+                            {!isUserAssigned && <StyledImgIcon src={ShieldExclamation} disable />}
+                            Awaiting {showVerificationStyles ? 'Verification' : 'Documentation'}
+                        </Title>
+                        {isUserAssigned && <StyledArrow isOpen={isOpen} />}
+                    </TitleWrapper>
+                    {isUserAssigned && isOpen && (
                         <>
-                            You are being asked to complete a set of requirements for this entity.
+                            <Text>You are being asked to complete a set of requirements for this entity.</Text>
                             <RequiredPromptsRemaining numRemaining={numRequiredPromptsRemaining} />
                             <OptionalPromptsRemaining numRemaining={numOptionalPromptsRemaining} />
                         </>
                     )}
-                </div>
+                </Content>
             </FlexWrapper>
-            {!!openFormModal && isUserAssigned && (
-                <StyledButton type="primary" onClick={openFormModal}>
-                    {showVerificationStyles ? 'Complete Verification' : 'Complete Documentation'}
-                </StyledButton>
+            {!!openFormModal && isUserAssigned && isOpen && (
+                <StyledButtonWrapper>
+                    <StyledButtonV2 onClick={openFormModal}>
+                        {showVerificationStyles ? 'Complete Verification' : 'Complete Documentation'}
+                    </StyledButtonV2>
+                </StyledButtonWrapper>
             )}
         </CTAWrapper>
     );

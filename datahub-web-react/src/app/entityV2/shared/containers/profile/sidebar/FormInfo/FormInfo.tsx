@@ -11,11 +11,10 @@ import useIsUserAssigned from '../../../../../../entity/shared/containers/profil
 
 interface Props {
     formUrn?: string;
-    shouldDisplayBackground?: boolean;
     openFormModal?: () => void;
 }
 
-export default function FormInfo({ formUrn, shouldDisplayBackground, openFormModal }: Props) {
+export default function FormInfo({ formUrn, openFormModal }: Props) {
     const { entityData } = useEntityData();
     const { numRequiredPromptsRemaining, numOptionalPromptsRemaining } = useGetPromptInfo(formUrn);
     const showVerificationInfo = shouldShowVerificationInfo(entityData, formUrn);
@@ -33,7 +32,6 @@ export default function FormInfo({ formUrn, shouldDisplayBackground, openFormMod
                 numOptionalPromptsRemaining={numOptionalPromptsRemaining}
                 isUserAssigned={isUserAssigned}
                 formUrn={formUrn}
-                shouldDisplayBackground={shouldDisplayBackground}
                 openFormModal={openFormModal}
             />
         );

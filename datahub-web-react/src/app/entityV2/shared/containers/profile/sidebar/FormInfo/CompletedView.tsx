@@ -1,16 +1,36 @@
-import Link from 'antd/lib/typography/Link';
-import React from 'react';
+import { Button } from 'antd';
+import React, { useState } from 'react';
 import styled from 'styled-components';
-import GreenVerificationLogo from '../../../../../../../images/verificationGreen.svg?react';
-import PurpleVerificationLogo from '../../../../../../../images/verificationPurple.svg?react';
-import { CTAWrapper, FlexWrapper, StyledIcon, StyledReadOutlined, Title } from './components';
+import {
+    CTAWrapper,
+    Content,
+    FlexWrapper,
+    StyledArrow,
+    StyledButtonWrapper,
+    StyledImgIcon,
+    StyledReadOutlined,
+    Title,
+    TitleWrapper,
+} from './components';
 import OptionalPromptsRemaining from '../../../../../../entity/shared/containers/profile/sidebar/FormInfo/OptionalPromptsRemaining';
 import VerificationAuditStamp from '../../../../../../entity/shared/containers/profile/sidebar/FormInfo/VerificationAuditStamp';
+import ShieldCheck from '../../../../../../../images/shield-check.svg';
+import { REDESIGN_COLORS } from '../../../../constants';
 
-const StyledLink = styled(Link)`
-    margin-top: 8px;
+const StyledButton = styled(Button)`
+    margin-top: 16px;
     font-size: 12px;
-    display: block;
+    line-height: 14px;
+    display: inline-flex;
+    align-items: center;
+    border: 1px solid ${REDESIGN_COLORS.TITLE_PURPLE};
+    color: ${REDESIGN_COLORS.TITLE_PURPLE};
+    padding: 9px 17px;
+    border-radius: 6px;
+    &:hover {
+        color: ${REDESIGN_COLORS.TITLE_PURPLE};
+        border: 1px solid ${REDESIGN_COLORS.TITLE_PURPLE};
+    }
 `;
 
 interface Props {
@@ -18,7 +38,6 @@ interface Props {
     numOptionalPromptsRemaining: number;
     isUserAssigned: boolean;
     formUrn?: string;
-    shouldDisplayBackground?: boolean;
     openFormModal?: () => void;
 }
 
@@ -27,32 +46,41 @@ export default function CompletedView({
     numOptionalPromptsRemaining,
     isUserAssigned,
     formUrn,
-    shouldDisplayBackground,
     openFormModal,
 }: Props) {
+    const [isOpen, setIsOpen] = useState(false);
+
     return (
-        <CTAWrapper shouldDisplayBackground={shouldDisplayBackground}>
+        <CTAWrapper backgroundColor="#FFF" borderColor="#77B750">
             <FlexWrapper>
-                {showVerificationStyles ? (
-                    <StyledIcon
-                        component={shouldDisplayBackground ? PurpleVerificationLogo : GreenVerificationLogo}
-                        addLineHeight
-                    />
-                ) : (
-                    <StyledReadOutlined addLineHeight />
-                )}
-                <div>
-                    <Title>{showVerificationStyles ? 'Verified' : 'Documented'}</Title>
-                    <VerificationAuditStamp formUrn={formUrn} />
-                    {isUserAssigned && (
+                <Content>
+                    <TitleWrapper
+                        isOpen={isOpen}
+                        isUserAssigned={isUserAssigned}
+                        onClick={() => isUserAssigned && setIsOpen(!isOpen)}
+                    >
+                        <Title>
+                            {showVerificationStyles ? (
+                                <StyledImgIcon src={ShieldCheck} addLineHeight />
+                            ) : (
+                                <StyledReadOutlined color="#77B750" addLineHeight />
+                            )}
+                            {showVerificationStyles ? 'Verified' : 'Documented'}
+                        </Title>
+                        {isUserAssigned && <StyledArrow isOpen={isOpen} />}
+                    </TitleWrapper>
+                    {isUserAssigned && isOpen && (
                         <>
-                            <OptionalPromptsRemaining numRemaining={numOptionalPromptsRemaining} />
+                            <VerificationAuditStamp formUrn={formUrn} />
+                            {isUserAssigned && <OptionalPromptsRemaining numRemaining={numOptionalPromptsRemaining} />}
                             {!!openFormModal && (
-                                <StyledLink onClick={openFormModal}>View and edit responses</StyledLink>
+                                <StyledButtonWrapper>
+                                    <StyledButton onClick={openFormModal}>View & Edit</StyledButton>
+                                </StyledButtonWrapper>
                             )}
                         </>
                     )}
-                </div>
+                </Content>
             </FlexWrapper>
         </CTAWrapper>
     );
