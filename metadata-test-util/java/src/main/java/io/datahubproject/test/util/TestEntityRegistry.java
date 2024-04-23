@@ -1,4 +1,4 @@
-package com.linkedin.metadata.entity;
+package io.datahubproject.test.util;
 
 import com.linkedin.metadata.aspect.patch.template.AspectTemplateEngine;
 import com.linkedin.metadata.models.AspectSpec;

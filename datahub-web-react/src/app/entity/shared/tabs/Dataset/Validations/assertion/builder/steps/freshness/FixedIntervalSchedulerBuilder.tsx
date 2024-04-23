@@ -58,7 +58,7 @@ export const FixedIntervalScheduleBuilder = ({ value, onChange, disabled, stopPr
     return (
         <Form>
             <ScheduleDefinition>
-                <ScheduleText strong>In the past</ScheduleText>
+                <ScheduleText strong>Within the last</ScheduleText>
                 <MultipleInput min={1} max={500} value={multiple} onChange={updateMultiple} disabled={disabled} />
                 <MaybeStopPropagation>
                     <Select value={unit} onChange={updateUnit} disabled={disabled}>

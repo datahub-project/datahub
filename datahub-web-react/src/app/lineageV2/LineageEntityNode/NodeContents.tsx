@@ -16,7 +16,7 @@ import {
     getNodeColor,
     LineageEntity,
     LineageNodesContext,
-    onMouseDownCapturePreventSelect,
+    onClickPreventSelect,
 } from '../common';
 import { NUM_COLUMNS_PER_PAGE } from '../constants';
 import { FetchedEntityV2 } from '../types';
@@ -36,7 +36,9 @@ const NodeWrapper = styled.div<{
 }>`
     align-items: center;
     background-color: white;
-    border: 1px solid ${({ color, selected }) => (selected ? color : ANTD_GRAY[4.5])};
+    border: 1px solid ${({ color, selected }) => (selected ? color : LINEAGE_COLORS.NODE_BORDER)};
+    outline: ${({ color, selected }) => (selected ? `1px solid ${color}` : 'none')};
+    border-left: none;
     border-radius: 6px;
     display: flex;
     flex-direction: column;
@@ -94,7 +96,7 @@ const CustomHandle = styled(Handle)<{ position: Position }>`
     background: initial;
     border: initial;
     top: 50%;
-    ${({ position }) => (position === Position.Left ? 'left: -3px;' : 'right: -3px;')}
+    ${({ position }) => (position === Position.Left ? 'left: -3px;' : 'right: 0;')}
 `;
 
 const IconsWrapper = styled.div`
@@ -136,19 +138,23 @@ const MainTextWrapper = styled.div`
     min-width: 0;
 `;
 
-const TitleWrapper = styled.div`
+const Header = styled.div`
     display: flex;
     justify-content: space-between;
+    width: 100%;
+`;
+
+const TitleWrapper = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    overflow: hidden;
 `;
 
 const Title = styled(OverflowTitle)`
     font-weight: 600;
     font-size: 12px;
     line-height: 125%;
-`;
-
-const StyledEntityHealth = styled(EntityHealth)`
-    margin-left: 4px;
 `;
 
 const ExpandColumnsWrapper = styled.div`
@@ -227,9 +233,9 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
     const numDisplayedColumns = extraHighlightedColumns.length + (showColumns ? paginatedColumns.length : 0);
     const expandHeight =
         LINEAGE_NODE_HEIGHT +
-        (numDisplayedColumns ? 17 : 0) + // Expansion base
+        (numDisplayedColumns || onlyWithLineage ? 17 : 0) + // Expansion base
         (showColumns && numColumnsTotal ? 30 : 0) + // Search bar
-        20 * numDisplayedColumns + // Columns
+        20.5 * numDisplayedColumns + // Columns
         (showColumns && paginatedColumns.length && extraHighlightedColumns.length ? 9 : 0) + // Column divider
         (showColumns && numFilteredColumns > NUM_COLUMNS_PER_PAGE ? 38 : 0); // Pagination
 
@@ -319,23 +325,25 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
                 <VerticalDivider margin={8} />
                 {entity && (
                     <MainTextWrapper>
-                        <TitleWrapper>
-                            <Title title={entity?.name} />
-                            {entity?.health && (
-                                <StyledEntityHealth
-                                    health={entity.health}
-                                    baseUrl={entityRegistry.getEntityUrl(type, urn)}
-                                    fontSize={10}
-                                />
-                            )}
+                        <Header>
+                            <TitleWrapper>
+                                <Title title={entity?.name} />
+                                {entity?.health && (
+                                    <EntityHealth
+                                        health={entity.health}
+                                        baseUrl={entityRegistry.getEntityUrl(type, urn)}
+                                        fontSize={10}
+                                        noLink
+                                    />
+                                )}
+                            </TitleWrapper>
                             <ManageLineageMenu node={props} refetch={refetch} />
-                        </TitleWrapper>
+                        </Header>
                         <ContainerPath parentContainers={entity?.parentContainers} />
                         {!!numColumnsTotal && (
                             <>
                                 <ExpandColumnsWrapper
-                                    onMouseDownCapture={onMouseDownCapturePreventSelect}
-                                    onClick={() => setShowColumns((v) => !v)}
+                                    onClick={(e) => onClickPreventSelect(e) && setShowColumns((v) => !v)}
                                 >
                                     {numColumnsTotal} columns
                                     {showColumns && <KeyboardArrowUp fontSize="inherit" style={{ marginLeft: 3 }} />}

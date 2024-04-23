@@ -11,7 +11,7 @@ import {
     DatasetFilter,
     FieldAssertionType,
 } from '../../../../../../../../../../types.generated';
-import { EvaluationScheduleBuilder } from '../freshness/EvaluationScheduleBuilder';
+import { EvaluationScheduleBuilder } from '../common/EvaluationScheduleBuilder';
 import { FieldTypeBuilder } from './FieldTypeBuilder';
 import { FieldColumnBuilder } from './FieldColumnBuilder';
 import { FieldValuesParameterBuilder } from './FieldValuesParameterBuilder';
@@ -69,13 +69,6 @@ export const FieldAssertionBuilder = ({ state, updateState, disabled }: Props) =
 
     return (
         <div>
-            <EvaluationScheduleBuilder
-                value={state.schedule}
-                onChange={updateAssertionSchedule}
-                assertionType={AssertionType.Field}
-                showAdvanced={false}
-                disabled={disabled}
-            />
             <FieldTypeBuilder value={state} onChange={updateState} disabled={disabled} />
             <FieldColumnBuilder value={state} onChange={updateState} disabled={disabled} />
             {isFieldValuesAssertion && fieldAssertion?.fieldValuesAssertion?.field?.path && (
@@ -108,6 +101,14 @@ export const FieldAssertionBuilder = ({ state, updateState, disabled }: Props) =
                     </Collapse.Panel>
                 </Collapse>
             </Section>
+
+            <EvaluationScheduleBuilder
+                value={state.schedule}
+                onChange={updateAssertionSchedule}
+                assertionType={AssertionType.Field}
+                showAdvanced={false}
+                disabled={disabled}
+            />
         </div>
     );
 };

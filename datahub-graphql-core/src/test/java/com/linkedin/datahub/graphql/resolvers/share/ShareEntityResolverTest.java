@@ -5,6 +5,7 @@ import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 
 import com.datahub.authentication.Authentication;
+import com.google.common.collect.ImmutableList;
 import com.linkedin.common.Share;
 import com.linkedin.common.ShareResultArray;
 import com.linkedin.common.ShareResultState;
@@ -19,6 +20,7 @@ import com.linkedin.metadata.service.ShareService;
 import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.integrations.model.ExecuteShareResult;
 import io.datahubproject.metadata.context.OperationContext;
+import java.util.ArrayList;
 import java.util.concurrent.CompletionException;
 import org.mockito.Mockito;
 import org.testng.Assert;
@@ -30,8 +32,11 @@ public class ShareEntityResolverTest {
       UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:mysql,my-test,PROD)");
   private static final Urn TEST_CONNECTION_URN =
       UrnUtils.getUrn("urn:li:dataHubConnection:afe3b0d3-11bb-46e8-9c0b-d7a2aa296a4a");
+  private static final Urn TEST_CONNECTION_URN_2 =
+      UrnUtils.getUrn("urn:li:dataHubConnection:afe3b0d3-11bb-46e8-9c0b-d7a2aa296a4b123");
   private static final ShareEntityInput TEST_INPUT =
-      new ShareEntityInput(TEST_DATASET_URN.toString(), TEST_CONNECTION_URN.toString());
+      new ShareEntityInput(
+          TEST_DATASET_URN.toString(), TEST_CONNECTION_URN.toString(), new ArrayList<>());
 
   @Test
   public void testGetSuccess() throws Exception {
@@ -50,7 +55,48 @@ public class ShareEntityResolverTest {
     ShareEntityResult shareEntityResult = resolver.get(mockEnv).get();
     assertNotNull(shareEntityResult);
 
+    // calls shareEntity on integrations service expected numner of times
+    Mockito.verify(mockIntegrationsService, Mockito.times(1))
+        .shareEntity(Mockito.eq(TEST_CONNECTION_URN), Mockito.eq(TEST_DATASET_URN));
     // fetches the new aspect on a success
+    Mockito.verify(mockService, Mockito.times(1))
+        .getShareOrDefault(any(OperationContext.class), Mockito.eq(TEST_DATASET_URN));
+    // does not upsert a failed result on success
+    Mockito.verify(mockService, Mockito.times(0))
+        .upsertShareResult(
+            any(OperationContext.class),
+            Mockito.eq(TEST_DATASET_URN),
+            Mockito.eq(TEST_CONNECTION_URN),
+            Mockito.eq(ShareResultState.FAILURE));
+  }
+
+  @Test
+  public void testGetSuccessMultipleConnections() throws Exception {
+    // Create resolver
+    ShareService mockService = initMockService(true);
+    IntegrationsService mockIntegrationsService = initMockIntegrationsService(true);
+    ShareEntityResolver resolver = new ShareEntityResolver(mockService, mockIntegrationsService);
+
+    // Execute resolver
+    QueryContext mockContext = TestUtils.getMockAllowContext();
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    final ShareEntityInput input =
+        new ShareEntityInput(
+            TEST_DATASET_URN.toString(),
+            null,
+            ImmutableList.of(TEST_CONNECTION_URN.toString(), TEST_CONNECTION_URN_2.toString()));
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(input);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+    Mockito.when(mockContext.getAuthentication()).thenReturn(Mockito.mock(Authentication.class));
+
+    ShareEntityResult shareEntityResult = resolver.get(mockEnv).get();
+    assertNotNull(shareEntityResult);
+
+    // calls shareEntity on integrations service expected numner of times
+    Mockito.verify(mockIntegrationsService, Mockito.times(1))
+        .shareEntity(Mockito.eq(TEST_CONNECTION_URN), Mockito.eq(TEST_DATASET_URN));
+    Mockito.verify(mockIntegrationsService, Mockito.times(1))
+        .shareEntity(Mockito.eq(TEST_CONNECTION_URN_2), Mockito.eq(TEST_DATASET_URN));
     Mockito.verify(mockService, Mockito.times(1))
         .getShareOrDefault(any(OperationContext.class), Mockito.eq(TEST_DATASET_URN));
     // does not upsert a failed result on success

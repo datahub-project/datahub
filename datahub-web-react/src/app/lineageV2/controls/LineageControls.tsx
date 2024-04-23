@@ -9,7 +9,7 @@ import {
     VerticalLeftOutlined,
 } from '@ant-design/icons';
 import { Button, Divider } from 'antd';
-import { LINEAGE_NODE_HEIGHT, LINEAGE_NODE_WIDTH } from '../LineageEntityNode/useDisplayedColumns';
+import { LineageNodesContext } from '../common';
 
 import LineageSearchFilters from './LineageSearchFilters';
 import { StyledPanelButton } from './StyledPanelButton';
@@ -49,13 +49,14 @@ const StyledDivider = styled(Divider)`
 `;
 
 const LineageControls: React.FC = () => {
+    const { rootUrn } = useContext(LineageNodesContext);
     const { isTabFullsize, setTabFullsize } = useContext(TabFullsizedContext);
+    const { fitView } = useReactFlow();
 
     const [isExpanded, setIsExpanded] = React.useState(false);
     const [visiblePanel, setVisiblePanel] = React.useState<string | null>(null); // TODO: Replace with enum
     const store = useStoreApi();
 
-    const { setCenter } = useReactFlow();
     // showExpandedText is a delayed version of isExpanded by .3 seconds
     const [showExpandedText, setShowExpandedText] = React.useState(false);
     useEffect(() => {
@@ -80,7 +81,7 @@ const LineageControls: React.FC = () => {
                     <StyledPanelButton
                         type="text"
                         onClick={() => {
-                            setCenter(LINEAGE_NODE_WIDTH / 2, LINEAGE_NODE_HEIGHT / 2, { zoom: 1, duration: 1000 });
+                            fitView({duration: 1000, nodes: [{id: rootUrn}], maxZoom: 1})
                         }}
                     >
                         <HomeOutlined />

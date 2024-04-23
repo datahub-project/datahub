@@ -22,25 +22,24 @@ type Props = {
     baseUrl: string;
     fontSize?: number;
     tooltipPlacement?: any;
+    noLink?: boolean;
     className?: string;
 };
 
-export const EntityHealth = ({ health, baseUrl, fontSize, tooltipPlacement, className }: Props) => {
+export const EntityHealth = ({ health, baseUrl, fontSize, tooltipPlacement, noLink, className }: Props) => {
     const unhealthy = isUnhealthy(health);
     const healthy = isHealthy(health);
     const icon = getHealthSummaryIcon(health, HealthSummaryIconType.FILLED, fontSize);
-    return (
-        <>
-            {((unhealthy || healthy) && (
-                <Link to={`${baseUrl}/Validation`} className={className}>
-                    <Container>
-                        <EntityHealthPopover health={health} baseUrl={baseUrl} placement={tooltipPlacement}>
-                            {icon}
-                        </EntityHealthPopover>
-                    </Container>
-                </Link>
-            )) ||
-                undefined}
-        </>
+
+    const body = (
+        <Container className={className}>
+            <EntityHealthPopover health={health} baseUrl={baseUrl} placement={tooltipPlacement}>
+                {icon}
+            </EntityHealthPopover>
+        </Container>
     );
+
+    if (!unhealthy && !healthy) return null;
+    if (noLink) return body;
+    return <Link to={`${baseUrl}/Validation`}>{body}</Link>;
 };

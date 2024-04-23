@@ -21,6 +21,15 @@ dependencies {
     exclude group: 'org.json', module: 'json'
   }
 
+  implementation (externalDependency.scimServer) {
+    exclude group: 'commons-logging', module: 'commons-logging'
+    exclude group: 'org.slf4j', module: 'slf4j-api'
+    exclude group: 'org.jboss.logging', module: 'jboss-logging'
+    exclude group: 'org.antlr', module: 'antlr4-runtime'
+  }
+
+  implementation externalDependency.jakartaWsRsApi
+
   // acryl-main only
   implementation project(':notifications')
   implementation externalDependency.awsGlueSchemaRegistrySerde

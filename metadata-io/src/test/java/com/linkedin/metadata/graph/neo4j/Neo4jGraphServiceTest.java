@@ -21,6 +21,7 @@ import com.linkedin.metadata.models.registry.SnapshotEntityRegistry;
 import com.linkedin.metadata.query.LineageFlags;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.query.filter.RelationshipFilter;
+import io.datahubproject.test.util.Neo4jTestServerBuilder;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;

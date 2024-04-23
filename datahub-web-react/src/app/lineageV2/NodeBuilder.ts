@@ -19,7 +19,7 @@ import {
 import { LINEAGE_TABLE_EDGE_NAME } from './LineageEdge/LineageTableEdge';
 import { LINEAGE_ENTITY_NODE_NAME } from './LineageEntityNode/LineageEntityNode';
 import { LINEAGE_NODE_HEIGHT, LINEAGE_NODE_WIDTH } from './LineageEntityNode/useDisplayedColumns';
-import { LINEAGE_FILTER_NODE_NAME } from './LineageFilterNode/LineageFilterNode';
+import { LINEAGE_FILTER_NODE_NAME } from './LineageFilterNode/LineageFilterNodeBasic';
 import {
     LINEAGE_TRANSFORMATION_NODE_NAME,
     TRANSFORMATION_NODE_SIZE,
@@ -27,13 +27,12 @@ import {
 import { LINEAGE_WORKBOOK_NODE_NAME, WORKBOOK_NODE_MAX_WIDTH } from './MinorNodes/TableauWorkbookNode';
 
 const MAIN_X_SEP = 120;
-const MINI_X_SEP = MAIN_X_SEP / 2;
+const MAIN_TO_MINI_X_SEP = 60;
+const MINI_X_SEP = 30;
 const MAIN_Y_SEP = 30;
 const MINI_Y_SEP = MAIN_Y_SEP / 2;
 
-export type NodeWithMetadata = Node<LineageEntity | LineageFilter> & {
-    layer?: number;
-};
+export type LineageVisualizationNode = Node<LineageEntity | LineageFilter>;
 type BaseEdge<T> = Pick<Edge<T>, 'source' | 'target' | 'markerEnd' | 'data'>;
 
 type Layer = string; // [main (entity) layer, mini (transformation) layer]
@@ -114,11 +113,11 @@ export default class NodeBuilder {
         return information && this.#isMainNode(information) ? { type: MarkerType.ArrowClosed } : undefined;
     }
 
-    createNodes(adjacencyList: NodeContext['adjacencyList']): NodeWithMetadata[] {
+    createNodes(adjacencyList: NodeContext['adjacencyList']): LineageVisualizationNode[] {
         this.computeNodeX(adjacencyList);
         this.computeNodeY();
 
-        const nodes: NodeWithMetadata[] = [];
+        const nodes: LineageVisualizationNode[] = [];
         nodes.push(...this.entities.map((n) => this.createNode(n, LINEAGE_ENTITY_NODE_NAME)));
         nodes.push(...this.transformations.map((n) => this.createNode(n, LINEAGE_TRANSFORMATION_NODE_NAME)));
         nodes.push(...this.workbooks.map((n) => this.createNode(n, LINEAGE_WORKBOOK_NODE_NAME)));
@@ -166,6 +165,16 @@ export default class NodeBuilder {
             }
         });
         return Array.from(baseEdges.values()).map(createEdge);
+    }
+
+    #getLayerSeparation(isCurrentLayerMini: boolean, wasLastLayerMini: boolean): number {
+        if (isCurrentLayerMini && wasLastLayerMini) {
+            return MINI_X_SEP;
+        }
+        if (isCurrentLayerMini || wasLastLayerMini) {
+            return MAIN_TO_MINI_X_SEP;
+        }
+        return MAIN_X_SEP;
     }
 
     /**
@@ -255,7 +264,7 @@ export default class NodeBuilder {
             const { mini } = parseLayer(layer);
             const prevLayer = upstreamLayers[i - 1];
             const { mini: prevMini } = parseLayer(prevLayer || defaultLayer);
-            const separation = mini || prevMini ? MINI_X_SEP : MAIN_X_SEP;
+            const separation = this.#getLayerSeparation(!!mini, !!prevMini);
             this.layerPositions.set(layer, (this.layerPositions.get(prevLayer) || 0) - getNodeSize(layer) - separation);
         });
         downstreamLayers.forEach((layer, i) => {
@@ -265,7 +274,7 @@ export default class NodeBuilder {
             const { mini } = parseLayer(layer);
             const prevLayer = downstreamLayers[i - 1];
             const { mini: prevMini } = parseLayer(prevLayer || defaultLayer);
-            const separation = mini || prevMini ? MINI_X_SEP : MAIN_X_SEP;
+            const separation = this.#getLayerSeparation(!!mini, !!prevMini);
             this.layerPositions.set(
                 layer,
                 (this.layerPositions.get(prevLayer) || 0) + getNodeSize(prevLayer) + separation,
@@ -372,7 +381,7 @@ export default class NodeBuilder {
         });
     }
 
-    createNode<T extends LineageNode>(node: T, type: string, transformData = (v: T) => v): NodeWithMetadata {
+    createNode<T extends LineageNode>(node: T, type: string, transformData = (v: T) => v): LineageVisualizationNode {
         const info = this.nodeInformation[node.id];
         const layer = info.layer || '';
         return {
@@ -382,12 +391,12 @@ export default class NodeBuilder {
                 x: this.layerPositions.get(layer) || 0,
                 y: info.y || 0,
             },
-            layer: parseLayer(layer).main,
             data: transformData(node),
+            selectable: type !== LINEAGE_FILTER_TYPE,
         };
     }
 
-    createFilterNode(filter: LineageFilter): NodeWithMetadata {
+    createFilterNode(filter: LineageFilter): LineageVisualizationNode {
         return this.createNode(filter, LINEAGE_FILTER_NODE_NAME, (node) => ({
             ...node,
             numShown: Array.from(node.contents).filter((urn) => urn in this.nodeInformation).length,

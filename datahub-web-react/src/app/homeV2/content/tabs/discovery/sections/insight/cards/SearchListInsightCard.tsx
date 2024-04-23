@@ -96,6 +96,7 @@ export const SearchListInsightCard = ({ id, title, icon, tip, query, types, filt
                     fixedFilters={filters}
                     onClose={() => setShowModal(false)}
                     sort={sort}
+                    entityTypes={types}
                 />
             )}
         </>

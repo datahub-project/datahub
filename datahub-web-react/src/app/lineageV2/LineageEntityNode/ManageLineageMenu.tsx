@@ -4,7 +4,7 @@ import styled from 'styled-components';
 import React, { useCallback, useContext, useState } from 'react';
 import { EntityType, LineageDirection } from '../../../types.generated';
 import ManageLineageModal from '../manualLineage/ManageLineageModal';
-import { LineageDisplayContext, LineageEntity, onMouseDownCapturePreventSelect } from '../common';
+import { LineageDisplayContext, LineageEntity, onClickPreventSelect } from '../common';
 import { ENTITY_TYPES_WITH_MANUAL_LINEAGE } from '../../entityV2/shared/constants';
 
 const DROPDOWN_Z_INDEX = 100;
@@ -83,7 +83,7 @@ export default function ManageLineageMenu({ node, refetch }: Props) {
 
     return (
         <>
-            <StyledButton onClick={handleMenuClick} onMouseDownCapture={onMouseDownCapturePreventSelect} type="text">
+            <StyledButton onClick={(e) => onClickPreventSelect(e) && handleMenuClick(e)} type="text">
                 <Dropdown
                     open={isMenuVisible}
                     overlayStyle={{ zIndex: DROPDOWN_Z_INDEX }}

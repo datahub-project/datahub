@@ -8,7 +8,7 @@ import useColumnHighlighting from './useColumnHighlighting';
 import useProcessData from './useProcessData';
 import { EntityType } from '../../types.generated';
 import useBulkEntityLineage from './useBulkEntityLineage';
-import { LINEAGE_FILTER_NODE_NAME } from './LineageFilterNode/LineageFilterNode';
+import { LINEAGE_FILTER_NODE_NAME } from './LineageFilterNode/LineageFilterNodeBasic';
 import useNodeHighlighting from './useNodeHighlighting';
 
 type Props = {
@@ -18,7 +18,7 @@ type Props = {
 };
 
 export default function LineageDisplay({ urn, type, loaded }: Props) {
-    const { getNode, getEdge, setNodes, setEdges, fitView } = useReactFlow();
+    const { getEdge, setNodes, setEdges } = useReactFlow();
 
     const [selectedColumn, setSelectedColumn] = useState<ColumnRef | null>(null);
     const [hoveredColumn, setHoveredColumn] = useState<ColumnRef | null>(null);
@@ -41,23 +41,26 @@ export default function LineageDisplay({ urn, type, loaded }: Props) {
     );
 
     useEffect(() => {
-        const initialNodeMap = new Map(flowNodes.map((node) => [node.id, node]));
-        const nodesToAdd = flowNodes.filter((node) => !getNode(node.id));
-        const layersToRedraw = new Set<number>(
-            nodesToAdd.map((node) => node?.layer).filter((layer): layer is number => !!layer),
-        );
-        const nodesToRedraw = flowNodes.filter((node) => node.layer && layersToRedraw.has(node.layer));
-        setNodes((oldNodes) => [
-            ...oldNodes
-                .filter((n) => initialNodeMap.has(n.id))
-                .map((n) => ({
-                    ...n,
-                    data: initialNodeMap.get(n.id)?.data || n.data,
-                })),
-            ...nodesToAdd,
-            ...nodesToRedraw,
-        ]);
-    }, [flowNodes, getNode, setNodes, fitView]);
+        const newNodeMap = new Map(flowNodes.map((node) => [node.id, node]));
+        setNodes((oldNodes) => {
+            const oldNodeIds = new Set(oldNodes.map((n) => n.id));
+            const nodesToAdd = flowNodes.filter((n) => !oldNodeIds.has(n.id));
+            nodesToAdd.forEach((n) => {
+                // eslint-disable-next-line no-param-reassign
+                n.data.dragged = false;
+            });
+            return [
+                ...oldNodes
+                    .filter((n) => newNodeMap.has(n.id))
+                    .map((n) => ({
+                        ...n,
+                        data: newNodeMap.get(n.id)?.data || n.data,
+                        position: (!n.data.dragged && newNodeMap.get(n.id)?.position) || n.position,
+                    })),
+                ...nodesToAdd.map((n) => ({ ...n, data: { ...n.data, dragged: false } })),
+            ];
+        });
+    }, [flowNodes, setNodes]);
 
     useEffect(() => setEdges(flowEdges), [flowEdges, getEdge, setEdges]);
 
@@ -104,7 +107,7 @@ function useFitView(loaded: boolean) {
     }, [loaded, nodeVersion, fitView]);
 
     useEffect(() => {
-        if (!loaded) return () => {};
+        if (!loaded || !displayVersionNodes.length) return () => {};
         const timeout = setTimeout(
             () =>
                 fitView({

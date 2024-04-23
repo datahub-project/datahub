@@ -58,6 +58,8 @@ export const REDESIGN_COLORS = {
     BODY_TEXT: '#5f6685',
     GREEN_LIGHT: '#d5e9c9',
     GREEN_NORMAL: '#5f9240',
+    TEXT_HEADING_SUB_LINK: '#323A5D',
+    DARK_DIVIDER: '#797F98',
 };
 
 export const SEARCH_COLORS = {
@@ -68,14 +70,6 @@ export const SEARCH_COLORS = {
     MATCH_BACKGROUND_GREY: '#5A617110',
     MATCH_TEXT_GREY: '#8894A9',
     LINK_BLUE: '#5280E2',
-};
-
-export const LINEAGE_COLORS = {
-    BLUE_1: '#0958D9',
-    BLUE_2: '#1890FF',
-    PURPLE_1: '#5280E2',
-    PURPLE_2: '#324473',
-    PURPLE_3: SEARCH_COLORS.TITLE_PURPLE,
 };
 
 export const ANTD_GRAY = {
@@ -106,6 +100,15 @@ export const ANTD_GRAY_V2 = {
     12: '#52596c',
     13: '#ababab',
     14: '#f7f7f7',
+};
+
+export const LINEAGE_COLORS = {
+    BLUE_1: '#0958D9',
+    BLUE_2: '#1890FF',
+    PURPLE_1: '#5280E2',
+    PURPLE_2: '#324473',
+    PURPLE_3: SEARCH_COLORS.TITLE_PURPLE,
+    NODE_BORDER: ANTD_GRAY[6],
 };
 
 export const EMPTY_MESSAGES = {

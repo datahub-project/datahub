@@ -2,14 +2,15 @@ import React, { useState } from 'react';
 import styled from 'styled-components';
 import EntityFormModal from '../../../../entityForm/EntityFormModal';
 import FormInfo from './FormInfo';
-import { StyledDivider } from './components';
 import analytics, { DocRequestCTASource, EventType } from '../../../../../../analytics';
 import { useEntityData } from '../../../../../../entity/shared/EntityContext';
 import { getFormAssociations } from '../../../../../../entity/shared/containers/profile/sidebar/FormInfo/utils';
 import FormSelectionModal from '../../../../../../entity/shared/entityForm/FormSelectionModal/FormSelectionModal';
 
 const FormInfoWrapper = styled.div`
-    margin-top: 16px;
+    padding: 12px 0px;
+    border-bottom: 1px dashed;
+    border-color: rgba(0, 0, 0, 0.3);
 `;
 
 export default function SidebarFormInfoWrapper() {
@@ -45,7 +46,6 @@ export default function SidebarFormInfoWrapper() {
         <>
             <FormInfoWrapper>
                 <FormInfo openFormModal={openFormModal} />
-                <StyledDivider />
             </FormInfoWrapper>
             <EntityFormModal
                 selectedFormUrn={selectedFormUrn}

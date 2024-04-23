@@ -1,4 +1,5 @@
-import React, { useContext, useMemo } from 'react';
+import React, { useContext, useMemo, useState } from 'react';
+import { useDebounce } from 'react-use';
 import { EdgeLabelRenderer, EdgeProps, getBezierPath } from 'reactflow';
 import styled from 'styled-components';
 import { LineageDisplayContext, LineageTableEdgeData } from '../common';
@@ -53,6 +54,9 @@ export function LineageTableEdge({
         targetPosition,
     });
 
+    const [debouncedLabelPosition, setDebouncedLabelPosition] = useState({ labelX, labelY });
+    useDebounce(() => setDebouncedLabelPosition({ labelX, labelY }), 10, [labelX, labelY]);
+
     return (
         <>
             <StyledPath
@@ -69,7 +73,7 @@ export function LineageTableEdge({
             <InteractionPath d={edgePath} fill="none" className="react-flow__edge-interaction" />
             <EdgeLabelRenderer>
                 {/* TODO: Add edge details to show edge information (on hover) */}
-                <EdgeDetails labelX={labelX} labelY={labelY} />
+                <EdgeDetails labelX={debouncedLabelPosition.labelX} labelY={debouncedLabelPosition.labelY} />
             </EdgeLabelRenderer>
         </>
     );

@@ -13,6 +13,14 @@ export const ASSERTION_TYPE_OPTIONS = [
         value: AssertionType.Volume,
     },
     {
+        name: 'Column',
+        value: AssertionType.Field,
+    },
+    {
+        name: 'Custom SQL',
+        value: AssertionType.Sql,
+    },
+    {
         name: 'External',
         value: AssertionType.Dataset,
     },

@@ -129,7 +129,12 @@ class BigQuerySource(Source):
             resource.type=("bigquery_project" OR "bigquery_dataset")
             AND
             (
-                protoPayload.methodName="google.cloud.bigquery.v2.JobService.InsertJob"
+                protoPayload.methodName=
+                    (
+                        "google.cloud.bigquery.v2.JobService.Query"
+                        OR
+                        "google.cloud.bigquery.v2.JobService.InsertJob"
+                    )
                 AND protoPayload.metadata.jobChange.job.jobStatus.jobState="DONE"
                 AND NOT protoPayload.metadata.jobChange.job.jobStatus.errorResult:*
                 AND protoPayload.metadata.jobChange.job.jobConfig.queryConfig.destinationTable="projects/{project}/datasets/{dataset}/tables/{table}"

@@ -170,6 +170,56 @@ def share_entity(
     )
 
 
+def unshare_entity(
+    source_graph: DataHubGraph,
+    destination_urn: str,
+    destination_graph: DataHubGraph,
+    unshared_urn: str,
+) -> ExecuteUnshareResult:
+    # TODO: This does not work for timeseries aspects.
+
+    # Check if unshared_urn is in destination
+    urn_in_dest = destination_graph.exists(unshared_urn)
+
+    if not urn_in_dest:
+        logger.info(
+            f"Cannot unshare urn {unshared_urn} because it has not been shared to destination {destination_urn}."
+        )
+        unshare_result = ExecuteUnshareResult(
+            status="ok",
+            entities_unshared=[],
+        )
+    else:
+        # Send a soft delete to the destination
+        destination_graph.emit(
+            MetadataChangeProposalWrapper(
+                entityUrn=unshared_urn, aspect=models.StatusClass(removed=True)
+            )
+        )
+
+        # Find and remove destination_urn from share aspect in source system
+        existing_share_aspect = source_graph.get_aspect(unshared_urn, models.ShareClass)
+        if existing_share_aspect:
+            updated_share_results = models.ShareClass(lastShareResults=[])
+
+            for share_result in existing_share_aspect.lastShareResults:
+                if share_result.destination != destination_urn:
+                    updated_share_results.lastShareResults.append(share_result)
+
+            source_graph.emit(
+                MetadataChangeProposalWrapper(
+                    entityUrn=unshared_urn,
+                    aspect=updated_share_results,
+                )
+            )
+
+        unshare_result = ExecuteUnshareResult(
+            status="ok",
+            entities_unshared=[unshared_urn],
+        )
+    return unshare_result
+
+
 class ExecuteShareResult(pydantic.BaseModel):
     status: str
     entities_shared: list[str]
@@ -205,3 +255,30 @@ def execute_share(share_connection_urn: str, entity_urn: str) -> ExecuteShareRes
         status="ok",
         entities_shared=entities_to_sync,
     )
+
+
+class ExecuteUnshareResult(pydantic.BaseModel):
+    status: str
+    entities_unshared: list[str]
+
+
+@router.post("/execute_unshare")
+def execute_unshare(share_connection_urn: str, entity_urn: str) -> ExecuteUnshareResult:
+    """Execute an unshare for a given entity.
+
+    This is a one-time sync action.
+    """
+
+    share_config_raw = get_connection_json(graph, share_connection_urn)
+    share_config = ShareConfig.parse_obj(share_config_raw)
+    destination_graph = DataHubGraph(share_config.connection)
+    logger.debug(f"Using destination graph: {destination_graph!r}")
+
+    unshare_result = unshare_entity(
+        source_graph=graph,
+        destination_urn=share_connection_urn,
+        destination_graph=destination_graph,
+        unshared_urn=entity_urn,
+    )
+
+    return unshare_result

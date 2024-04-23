@@ -18,7 +18,10 @@ import com.linkedin.metadata.service.ShareService;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.integrations.model.ExecuteShareResult;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -38,7 +41,16 @@ public class ShareEntityResolver implements DataFetcher<CompletableFuture<ShareE
         bindArgument(environment.getArgument("input"), ShareEntityInput.class);
     final Authentication authentication = context.getAuthentication();
     final Urn entityUrn = UrnUtils.getUrn(input.getEntityUrn());
-    final Urn connectionUrn = UrnUtils.getUrn(input.getConnectionUrn());
+    final Urn connectionUrn =
+        input.getConnectionUrn() != null ? UrnUtils.getUrn(input.getConnectionUrn()) : null;
+    final List<Urn> connectionUrns =
+        input.getConnectionUrns() != null
+            ? input.getConnectionUrns().stream().map(UrnUtils::getUrn).collect(Collectors.toList())
+            : new ArrayList<>();
+
+    if (connectionUrn != null) {
+      connectionUrns.add(connectionUrn);
+    }
 
     return CompletableFuture.supplyAsync(
         () -> {
@@ -46,24 +58,24 @@ public class ShareEntityResolver implements DataFetcher<CompletableFuture<ShareE
             throw new AuthorizationException(
                 "Unauthorized to share this entity. Please contact your DataHub administrator.");
           }
+          if (connectionUrns.size() == 0) {
+            throw new RuntimeException("No connection urns provided to share this entity with");
+          }
           try {
-            // integrations service will update the share aspect of all entities if successful
-            ExecuteShareResult result = _integrationsService.shareEntity(connectionUrn, entityUrn);
-            Share shareAspect;
             boolean succeeded = true;
-            // if the result is null, we know the integrations service failed to share
-            if (result == null) {
-              succeeded = false;
-              shareAspect =
-                  _shareService.upsertShareResult(
-                      context.getOperationContext(),
-                      entityUrn,
-                      connectionUrn,
-                      ShareResultState.FAILURE);
-            } else {
-              shareAspect =
-                  _shareService.getShareOrDefault(context.getOperationContext(), entityUrn);
+            for (Urn connection : connectionUrns) {
+              // integrations service will update the share aspect of all entities if successful
+              ExecuteShareResult result = _integrationsService.shareEntity(connection, entityUrn);
+              // if the result is null, we know the integrations service failed to share
+              if (result == null) {
+                succeeded = false;
+                _shareService.upsertShareResult(
+                    context.getOperationContext(), entityUrn, connection, ShareResultState.FAILURE);
+              }
             }
+            ;
+            Share shareAspect =
+                _shareService.getShareOrDefault(context.getOperationContext(), entityUrn);
             ShareEntityResult shareEntityResult = new ShareEntityResult();
             shareEntityResult.setSucceeded(succeeded);
             shareEntityResult.setShare(ShareMapper.map(context, shareAspect));

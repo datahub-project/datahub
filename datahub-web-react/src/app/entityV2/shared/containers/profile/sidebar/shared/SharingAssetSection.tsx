@@ -1,56 +1,21 @@
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import ShareOutlinedIcon from '@mui/icons-material/ShareOutlined';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import { Typography } from 'antd';
-import moment from 'moment-timezone';
 import { useEntityData } from '../../../../../../entity/shared/EntityContext';
-import { REDESIGN_COLORS } from '../../../../constants';
 import { SidebarSection } from '../SidebarSection';
 import { sortSharedList } from '../../../../../../entity/shared/containers/profile/utils';
 import { pluralize } from '../../../../../../shared/textUtil';
-import AcrylIcon from '../../../../../../../images/acryl-logo.svg?react';
-import { toLocalDateString, toRelativeTimeString } from '../../../../../../shared/time/timeUtils';
 import SectionActionButton from '../SectionActionButton';
 import ShareModal from '../../../../../../shared/share/v2/items/MetadataShareItem/ShareModal';
-import { ContentText, LabelText, RelativeTime } from './styledComponents';
-
-const DetailsContainer = styled.div`
-    display: flex;
-    gap: 5px;
-    flex-direction: column;
-`;
-
-const DetailRow = styled.div`
-    display: flex;
-    gap: 6px;
-    align-items: center;
-`;
-
-const UpdatedRow = styled.div`
-    display: flex;
-    gap: 6px;
-    align-items: center;
-    margin-left: 22px;
-`;
-
-const InstanceIcon = styled.div`
-    height: 22px;
-    width: 22px;
-    background-color: #c9fff2;
-    border-radius: 6px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    svg {
-        padding: 3px;
-        height: 20px;
-        width: 20px;
-    }
-`;
+import SharingList from './SharingList';
 
 const SharingInfo = styled.div`
-    margin-bottom: 10px;
+    margin: 5px 0;
+`;
+
+const SharingContainer = styled.div`
+    margin-left: 23px;
 `;
 
 const InfoText = styled(Typography.Text)`
@@ -61,11 +26,6 @@ const InfoText = styled(Typography.Text)`
 const NumberText = styled(Typography.Text)`
     color: #5b6282;
     font-weight: 700;
-`;
-
-const StyledShareOutlinedIcon = styled(ShareOutlinedIcon)`
-    color: ${REDESIGN_COLORS.BODY_TEXT};
-    font-size: 16px !important;
 `;
 
 const SharingAssetSection = () => {
@@ -80,41 +40,24 @@ const SharingAssetSection = () => {
         <>
             <SidebarSection
                 title="Sharing"
-                content={
-                    <>
+                collapsedContent={
+                    sortedResults.length > 1 ? (
                         <SharingInfo>
                             <InfoText> Shared with </InfoText>
-                            <NumberText>
-                                {`${sortedResults.length} Acryl ${pluralize(sortedResults.length, 'Instance')}`}
-                            </NumberText>
+                            <NumberText>{`${sortedResults.length} Acryl ${pluralize(
+                                sortedResults.length,
+                                'Instance',
+                            )}`}</NumberText>
                         </SharingInfo>
-                        {sortedResults.map((result) => {
-                            const name = result.destination.details.name || result.destination.urn;
-                            const lastSuccessTime = result.lastSuccess?.time || 0;
-                            const isRecentlyUpdated = moment(lastSuccessTime).isAfter(moment().subtract(1, 'week'));
-
-                            return (
-                                <DetailsContainer>
-                                    <DetailRow>
-                                        <StyledShareOutlinedIcon />
-                                        <LabelText>To: </LabelText>
-                                        <InstanceIcon>
-                                            <AcrylIcon />
-                                        </InstanceIcon>
-                                        <ContentText>{name}</ContentText>
-                                    </DetailRow>
-                                    <UpdatedRow>
-                                        <LabelText>Date Updated: </LabelText>
-                                        <ContentText>{toLocalDateString(lastSuccessTime)}</ContentText>
-                                        <RelativeTime isRecentlyUpdated={isRecentlyUpdated}>
-                                            {toRelativeTimeString(lastSuccessTime)}{' '}
-                                        </RelativeTime>
-                                    </UpdatedRow>
-                                </DetailsContainer>
-                            );
-                        })}
-                    </>
+                    ) : (
+                        <SharingContainer>
+                            <SharingList resultsList={sortedResults} />
+                        </SharingContainer>
+                    )
                 }
+                collapsible={sortedResults.length !== 1}
+                expandedByDefault={sortedResults.length === 1}
+                content={<>{sortedResults.length > 1 && <SharingList resultsList={sortedResults} />}</>}
                 extra={
                     <>
                         <SectionActionButton

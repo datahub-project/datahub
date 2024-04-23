@@ -69,8 +69,9 @@ describe("create announcement and link post", () => {
     });
 
     it("edit linked post and verify", () => {
-        clickOnMoreOption()
+        clickOnMoreOption();
         cy.clickOptionWithText("Edit");
+        cy.contains('label', 'Link').click();
         addOrEditLink("Edit Post", "Test Link Updated Title", 'https://www.updatedexample.com', 'https://www.updatedexample.com/images/example-image.jpg', "update");
         cy.waitTextPresent("Test Link Updated Title");
     });
