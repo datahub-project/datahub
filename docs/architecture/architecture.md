@@ -31,7 +31,7 @@ There are three main highlights of DataHub's architecture.
 
 DataHub's metadata model is described using a [serialization agnostic language](https://linkedin.github.io/rest.li/pdl_schema). Both [REST](../../metadata-service) as well as [GraphQL API-s](../../datahub-web-react/src/graphql) are supported. In addition, DataHub supports an [AVRO-based API](../../metadata-events) over Kafka to communicate metadata changes and subscribe to them. Our [roadmap](../roadmap.md) includes a milestone to support no-code metadata model edits very soon, which will allow for even more ease of use, while retaining all the benefits of a typed API. Read about metadata modeling at [metadata modeling].
 
-### Stream-based Real-time Metadata Management platform
+### Stream-based Real-time Metadata Management Platform
 
 DataHub's metadata infrastructure is stream-oriented, which allows for changes in metadata to be communicated and reflected within the platform within seconds. You can also subscribe to changes happening in DataHub's metadata, allowing you to build real-time metadata-driven systems. For example, you can build an access-control system that can observe a previously world-readable dataset adding a new schema field which contains PII, and locks down that dataset for access control reviews.
 
