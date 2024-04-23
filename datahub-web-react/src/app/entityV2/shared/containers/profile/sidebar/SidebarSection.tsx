@@ -30,15 +30,24 @@ const StyledCollapse = styled(Collapse)`
     .ant-collapse-expand-icon {
         height: 22px;
     }
+
+    .ant-collapse-item-disabled > .ant-collapse-header {
+        cursor: default;
+
+        > .ant-collapse-extra {
+            cursor: pointer;
+        }
+    }
 `;
 
-const SectionHeader = styled.div`
+const SectionHeader = styled.div<{ collapsible?: boolean }>`
     display: flex;
     align-items: center;
     color: ${REDESIGN_COLORS.DARK_GREY};
     font-weight: 700;
     line-height: 20px;
     font-size: 14px;
+    ${(props) => !props.collapsible && 'margin-left: 8px;'}
 `;
 
 const StyledIcon = styled.div`
@@ -56,25 +65,41 @@ type Props = {
     content: React.ReactNode;
     extra?: React.ReactNode;
     count?: number;
+    collapsedContent?: React.ReactNode;
+    collapsible?: boolean;
+    expandedByDefault?: boolean;
 };
 
-export const SidebarSection = ({ title, content, extra, count = 0 }: Props) => {
+export const SidebarSection = ({
+    title,
+    content,
+    extra,
+    count = 0,
+    collapsedContent,
+    collapsible = true,
+    expandedByDefault = true,
+}: Props) => {
     return (
         <StyledCollapse
             ghost
             expandIcon={({ isActive }) => (
                 <StyledIcon>{isActive ? <KeyboardArrowDown /> : <KeyboardArrowRight />} </StyledIcon>
             )}
-            defaultActiveKey={title}
+            defaultActiveKey={expandedByDefault ? title : ''}
         >
             <Collapse.Panel
                 header={
-                    <SectionHeader>
-                        {title} {count > 0 && <CountStyle> {count > 10 ? '10+' : count}</CountStyle>}
-                    </SectionHeader>
+                    <>
+                        <SectionHeader collapsible={collapsible}>
+                            {title} {count > 0 && <CountStyle> {count > 10 ? '10+' : count}</CountStyle>}
+                        </SectionHeader>
+                        {collapsedContent}
+                    </>
                 }
                 key={title}
                 extra={extra}
+                collapsible={!collapsible ? 'disabled' : undefined}
+                showArrow={collapsible}
             >
                 <Container>{content}</Container>
             </Collapse.Panel>
