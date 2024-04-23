@@ -6,6 +6,11 @@ on:
   pull_request:
     branches:
       - "**"
+    types:
+      - labeled
+      - opened
+      - synchronize
+      - reopened
   release:
     types: [published]
 
