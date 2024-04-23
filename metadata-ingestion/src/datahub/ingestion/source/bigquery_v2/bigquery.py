@@ -232,7 +232,9 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             BigqueryTableIdentifier._BQ_SHARDED_TABLE_SUFFIX = ""
 
         self.bigquery_data_dictionary = BigQuerySchemaApi(
-            self.report.schema_api_perf, self.config.get_bigquery_client()
+            self.report.schema_api_perf,
+            self.config.get_bigquery_client(),
+            self.config.get_projects_client()
         )
         self.sql_parser_schema_resolver = self._init_schema_resolver()
 
@@ -337,10 +339,12 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         for project_id in project_ids:
             try:
                 logger.info((f"Metadata read capability test for project {project_id}"))
-                client: bigquery.Client = config.get_bigquery_client()
-                assert client
+                bq_client: bigquery.Client = config.get_bigquery_client()
+                assert bq_client
+                proj_client: resourcemanager_v3.Client = config.get_projects_client()
+                assert proj_client
                 bigquery_data_dictionary = BigQuerySchemaApi(
-                    BigQueryV2Report().schema_api_perf, client
+                    BigQueryV2Report().schema_api_perf, bq_client, proj_client
                 )
                 result = bigquery_data_dictionary.get_datasets_for_project_id(
                     project_id, 10
@@ -621,8 +625,28 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 BigqueryProject(id=project_id, name=project_id)
                 for project_id in project_ids
             ]
-        else:
-            return list(self._query_project_list())
+
+        if self.config.project_labels:
+            return list(self._query_project_list_from_labels())
+
+        return list(self._query_project_list())
+    
+    def _query_project_list_from_labels(self) -> Iterable[BigqueryProject]:
+        projects = self.bigquery_data_dictionary.get_projects_with_labels(self.config.project_labels)
+        if not projects:  # Report failure on exception and if empty list is returned
+            self.report.report_failure(
+                "metadata-extraction",
+                "Get projects didn't return any project with any of the specified label(s). "
+                "Maybe resourcemanager.projects.list permission is missing for the service account. "
+                "You can assign predefined roles/bigquery.metadataViewer role to your service account.",
+            )
+            return []
+
+        for project in projects:
+            if self.config.project_id_pattern.allowed(project.id):
+                yield project
+            else:
+                self.report.report_dropped(project.id)
 
     def _query_project_list(self) -> Iterable[BigqueryProject]:
         projects = self.bigquery_data_dictionary.get_projects()

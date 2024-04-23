@@ -11,6 +11,7 @@ from google.cloud.bigquery.table import (
     TimePartitioning,
     TimePartitioningType,
 )
+from google.cloud import resourcemanager_v3
 
 from datahub.ingestion.source.bigquery_v2.bigquery_audit import BigqueryTableIdentifier
 from datahub.ingestion.source.bigquery_v2.bigquery_report import (
@@ -137,9 +138,13 @@ class BigqueryProject:
 
 class BigQuerySchemaApi:
     def __init__(
-        self, report: BigQuerySchemaApiPerfReport, client: bigquery.Client
+        self,
+        report: BigQuerySchemaApiPerfReport,
+        client: bigquery.Client,
+        projects_client: resourcemanager_v3.ProjectsClient()
     ) -> None:
         self.bq_client = client
+        self.projects_client = projects_client
         self.report = report
 
     def get_query_result(self, query: str) -> RowIterator:
@@ -158,6 +163,22 @@ class BigQuerySchemaApi:
                 ]
             except Exception as e:
                 logger.error(f"Error getting projects. {e}", exc_info=True)
+                return []
+            
+    def get_projects_with_labels(self, labels: List[str]) -> List[BigqueryProject]:
+        with self.report.list_projects_with_labels:
+            try:
+                projects = []
+                labels_query = " OR ".join([f"labels.{label}" for label in labels])
+                for project in self.projects_client.search_projects(query=labels_query):
+                    projects.append(
+                        BigqueryProject(id=project.project_id, name=project.display_name)
+                    )
+
+                return projects
+
+            except Exception as e:
+                logger.error(f"Error getting projects with labels: {labels}. {e}", exc_info=True)
                 return []
 
     def get_datasets_for_project_id(

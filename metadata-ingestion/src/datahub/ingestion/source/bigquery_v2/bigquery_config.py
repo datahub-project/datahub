@@ -69,6 +69,9 @@ class BigQueryConnectionConfig(ConfigModel):
     def get_bigquery_client(self) -> bigquery.Client:
         client_options = self.extra_client_options
         return bigquery.Client(self.project_on_behalf, **client_options)
+    
+    def get_projects_client(self) -> resourcemanager_v3.ProjectsClient:
+        return resourcemanager_v3.ProjectsClient()
 
     def make_gcp_logging_client(
         self, project_id: Optional[str] = None
@@ -191,6 +194,13 @@ class BigQueryV2Config(
             "Ingests specified project_ids. Use this property if you want to specify what projects to ingest or "
             "don't want to give project resourcemanager.projects.list to your service account. "
             "Overrides `project_id_pattern`."
+        ),
+    )
+    project_labels: List[str] = Field(
+        default_factory=list,
+        description=(
+            "Ingests projects with the specified labels. Use this property if you want to specify what "
+            "projects to ingest based on project-level labels."
         ),
     )
 
