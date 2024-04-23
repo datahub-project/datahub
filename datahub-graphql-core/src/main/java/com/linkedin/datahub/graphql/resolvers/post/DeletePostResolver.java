@@ -34,7 +34,7 @@ public class DeletePostResolver implements DataFetcher<CompletableFuture<Boolean
     return CompletableFuture.supplyAsync(
         () -> {
           try {
-            return _postService.deletePost(postUrn, authentication);
+            return _postService.deletePost(context.getOperationContext(), postUrn);
           } catch (Exception e) {
             throw new RuntimeException("Failed to create a new post", e);
           }

@@ -65,10 +65,10 @@ public class ListDataProductAssetsResolver
     try {
       final EntityResponse entityResponse =
           _entityClient.getV2(
+              context.getOperationContext(),
               Constants.DATA_PRODUCT_ENTITY_NAME,
               dataProductUrn,
-              Collections.singleton(Constants.DATA_PRODUCT_PROPERTIES_ASPECT_NAME),
-              context.getAuthentication());
+              Collections.singleton(Constants.DATA_PRODUCT_PROPERTIES_ASPECT_NAME));
       if (entityResponse != null
           && entityResponse
               .getAspects()

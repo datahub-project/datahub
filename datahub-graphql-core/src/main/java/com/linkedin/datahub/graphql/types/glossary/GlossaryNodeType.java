@@ -67,10 +67,10 @@ public class GlossaryNodeType
     try {
       final Map<Urn, EntityResponse> glossaryNodeMap =
           _entityClient.batchGetV2(
+              context.getOperationContext(),
               GLOSSARY_NODE_ENTITY_NAME,
               new HashSet<>(glossaryNodeUrns),
-              ASPECTS_TO_RESOLVE,
-              context.getAuthentication());
+              ASPECTS_TO_RESOLVE);
 
       final List<EntityResponse> gmsResults = new ArrayList<>(urns.size());
       for (Urn urn : glossaryNodeUrns) {

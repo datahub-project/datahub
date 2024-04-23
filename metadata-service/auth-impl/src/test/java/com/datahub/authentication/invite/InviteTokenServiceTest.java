@@ -55,26 +55,25 @@ public class InviteTokenServiceTest {
 
   @Test
   public void testIsInviteTokenValidFalse() throws Exception {
-    when(_entityClient.exists(eq(inviteTokenUrn), eq(SYSTEM_AUTHENTICATION))).thenReturn(false);
+    when(_entityClient.exists(any(OperationContext.class), eq(inviteTokenUrn))).thenReturn(false);
 
-    assertFalse(_inviteTokenService.isInviteTokenValid(inviteTokenUrn, SYSTEM_AUTHENTICATION));
+    assertFalse(_inviteTokenService.isInviteTokenValid(opContext, inviteTokenUrn));
   }
 
   @Test
   public void testIsInviteTokenValidTrue() throws Exception {
-    when(_entityClient.exists(eq(inviteTokenUrn), eq(SYSTEM_AUTHENTICATION))).thenReturn(true);
+    when(_entityClient.exists(any(OperationContext.class), eq(inviteTokenUrn))).thenReturn(true);
 
-    assertTrue(_inviteTokenService.isInviteTokenValid(inviteTokenUrn, SYSTEM_AUTHENTICATION));
+    assertTrue(_inviteTokenService.isInviteTokenValid(opContext, inviteTokenUrn));
   }
 
   @Test
   public void testGetInviteTokenRoleNullEntity() throws Exception {
     when(_entityClient.getV2(
-            eq(INVITE_TOKEN_ENTITY_NAME), eq(inviteTokenUrn), any(), eq(SYSTEM_AUTHENTICATION)))
+            any(OperationContext.class), eq(INVITE_TOKEN_ENTITY_NAME), eq(inviteTokenUrn), any()))
         .thenReturn(null);
 
-    assertThrows(
-        () -> _inviteTokenService.getInviteTokenRole(inviteTokenUrn, SYSTEM_AUTHENTICATION));
+    assertThrows(() -> _inviteTokenService.getInviteTokenRole(opContext, inviteTokenUrn));
   }
 
   @Test
@@ -82,11 +81,10 @@ public class InviteTokenServiceTest {
     final EntityResponse entityResponse = new EntityResponse().setAspects(new EnvelopedAspectMap());
 
     when(_entityClient.getV2(
-            eq(INVITE_TOKEN_ENTITY_NAME), eq(inviteTokenUrn), any(), eq(SYSTEM_AUTHENTICATION)))
+            any(OperationContext.class), eq(INVITE_TOKEN_ENTITY_NAME), eq(inviteTokenUrn), any()))
         .thenReturn(entityResponse);
 
-    assertThrows(
-        () -> _inviteTokenService.getInviteTokenRole(inviteTokenUrn, SYSTEM_AUTHENTICATION));
+    assertThrows(() -> _inviteTokenService.getInviteTokenRole(opContext, inviteTokenUrn));
   }
 
   @Test
@@ -100,10 +98,10 @@ public class InviteTokenServiceTest {
     entityResponse.setAspects(aspectMap);
 
     when(_entityClient.getV2(
-            eq(INVITE_TOKEN_ENTITY_NAME), eq(inviteTokenUrn), any(), eq(SYSTEM_AUTHENTICATION)))
+            any(OperationContext.class), eq(INVITE_TOKEN_ENTITY_NAME), eq(inviteTokenUrn), any()))
         .thenReturn(entityResponse);
 
-    Urn roleUrn = _inviteTokenService.getInviteTokenRole(inviteTokenUrn, SYSTEM_AUTHENTICATION);
+    Urn roleUrn = _inviteTokenService.getInviteTokenRole(opContext, inviteTokenUrn);
     assertNull(roleUrn);
   }
 
@@ -119,17 +117,17 @@ public class InviteTokenServiceTest {
     entityResponse.setAspects(aspectMap);
 
     when(_entityClient.getV2(
-            eq(INVITE_TOKEN_ENTITY_NAME), eq(inviteTokenUrn), any(), eq(SYSTEM_AUTHENTICATION)))
+            any(OperationContext.class), eq(INVITE_TOKEN_ENTITY_NAME), eq(inviteTokenUrn), any()))
         .thenReturn(entityResponse);
 
-    Urn roleUrn = _inviteTokenService.getInviteTokenRole(inviteTokenUrn, SYSTEM_AUTHENTICATION);
+    Urn roleUrn = _inviteTokenService.getInviteTokenRole(opContext, inviteTokenUrn);
     assertNotNull(roleUrn);
     assertEquals(roleUrn, this.roleUrn);
   }
 
   @Test
   public void getInviteTokenRoleUrnDoesNotExist() throws Exception {
-    when(_entityClient.exists(eq(roleUrn), eq(SYSTEM_AUTHENTICATION))).thenReturn(false);
+    when(_entityClient.exists(any(OperationContext.class), eq(roleUrn))).thenReturn(false);
 
     assertThrows(() -> _inviteTokenService.getInviteToken(opContext, roleUrn.toString(), false));
   }
@@ -147,7 +145,7 @@ public class InviteTokenServiceTest {
     when(_secretService.encrypt(anyString())).thenReturn(ENCRYPTED_INVITE_TOKEN_STRING);
 
     _inviteTokenService.getInviteToken(opContext, null, true);
-    verify(_entityClient, times(1)).ingestProposal(any(), eq(SYSTEM_AUTHENTICATION));
+    verify(_entityClient, times(1)).ingestProposal(any(OperationContext.class), any());
   }
 
   @Test
@@ -163,7 +161,7 @@ public class InviteTokenServiceTest {
     when(_secretService.encrypt(anyString())).thenReturn(ENCRYPTED_INVITE_TOKEN_STRING);
 
     _inviteTokenService.getInviteToken(opContext, null, false);
-    verify(_entityClient, times(1)).ingestProposal(any(), eq(SYSTEM_AUTHENTICATION));
+    verify(_entityClient, times(1)).ingestProposal(any(OperationContext.class), any());
   }
 
   @Test
@@ -178,7 +176,7 @@ public class InviteTokenServiceTest {
             eq(opContext), eq(INVITE_TOKEN_ENTITY_NAME), any(), any(), anyInt(), anyInt()))
         .thenReturn(searchResult);
     when(_entityClient.getV2(
-            eq(INVITE_TOKEN_ENTITY_NAME), eq(inviteTokenUrn), any(), eq(SYSTEM_AUTHENTICATION)))
+            any(OperationContext.class), eq(INVITE_TOKEN_ENTITY_NAME), eq(inviteTokenUrn), any()))
         .thenReturn(null);
 
     assertThrows(() -> _inviteTokenService.getInviteToken(opContext, null, false));
@@ -197,7 +195,7 @@ public class InviteTokenServiceTest {
 
     final EntityResponse entityResponse = new EntityResponse().setAspects(new EnvelopedAspectMap());
     when(_entityClient.getV2(
-            eq(INVITE_TOKEN_ENTITY_NAME), eq(inviteTokenUrn), any(), eq(SYSTEM_AUTHENTICATION)))
+            any(OperationContext.class), eq(INVITE_TOKEN_ENTITY_NAME), eq(inviteTokenUrn), any()))
         .thenReturn(entityResponse);
 
     when(_secretService.encrypt(anyString())).thenReturn(ENCRYPTED_INVITE_TOKEN_STRING);
@@ -226,7 +224,7 @@ public class InviteTokenServiceTest {
         new EnvelopedAspect().setValue(new Aspect(inviteTokenAspect.data())));
     entityResponse.setAspects(aspectMap);
     when(_entityClient.getV2(
-            eq(INVITE_TOKEN_ENTITY_NAME), eq(inviteTokenUrn), any(), eq(SYSTEM_AUTHENTICATION)))
+            any(OperationContext.class), eq(INVITE_TOKEN_ENTITY_NAME), eq(inviteTokenUrn), any()))
         .thenReturn(entityResponse);
 
     when(_secretService.decrypt(eq(ENCRYPTED_INVITE_TOKEN_STRING))).thenReturn(INVITE_TOKEN_STRING);

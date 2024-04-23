@@ -38,6 +38,7 @@ jobs:
       unique_tag: ${{ steps.tag.outputs.unique_tag }}
       unique_slim_tag: ${{ steps.tag.outputs.unique_slim_tag }}
       unique_full_tag: ${{ steps.tag.outputs.unique_full_tag }}
+      docker-login: ${{ steps.docker-login.outputs.docker-login }}
       publish: ${{ steps.publish.outputs.publish }}
       pr-publish: ${{ steps.pr-publish.outputs.publish }}
       python_release_version: ${{ steps.tag.outputs.python_release_version }}
@@ -71,6 +72,13 @@ jobs:
           echo "python_release_version=$(get_python_docker_release_v)" >> $GITHUB_OUTPUT
           echo "branch_name=${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}" >> $GITHUB_OUTPUT
           echo "repository_name=${GITHUB_REPOSITORY#*/}" >> $GITHUB_OUTPUT
+      - name: Check whether docker login is possible
+        id: docker-login
+        env:
+          ENABLE_DOCKER_LOGIN: ${{ secrets.ACRYL_DOCKER_PASSWORD != '' }}
+        run: |
+          echo "Enable Docker Login: ${{ env.ENABLE_DOCKER_LOGIN }}"
+          echo "docker-login=${{ env.ENABLE_DOCKER_LOGIN }}" >> $GITHUB_OUTPUT
       - name: Check whether publishing enabled
         id: publish
         env:
@@ -555,9 +563,15 @@ jobs:
               - 'docker/datahub-ingestion-base/**'
       - name: Download Base Image
         uses: ishworkh/docker-image-artifact-download@v1
-        if: ${{ needs.setup.outputs.publish != 'true' && needs.setup.outputs.pr-publish != 'true' &&  steps.filter.outputs.datahub-ingestion-base == 'true' }}
+        if: ${{ needs.setup.outputs.publish != 'true' && needs.setup.outputs.pr-publish != 'true' && steps.filter.outputs.datahub-ingestion-base == 'true' }}
         with:
           image: ${{ env.DATAHUB_INGESTION_BASE_IMAGE }}:${{ steps.filter.outputs.datahub-ingestion-base == 'true' && needs.setup.outputs.unique_tag || 'head' }}
+      - name: Login to DockerHub
+        uses: docker/login-action@v3
+        if: ${{ needs.setup.outputs.docker-login == 'true' && needs.setup.outputs.publish == 'false' && needs.setup.outputs.pr-publish == 'false' &&  steps.filter.outputs.datahub-ingestion-base == 'false' }}
+        with:
+          username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
+          password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
       - name: Build and push Base-Slim Image
         if: ${{ steps.filter.outputs.datahub-ingestion-base == 'true' }}
         uses: ./.github/actions/docker-custom-build-and-push
@@ -599,6 +613,12 @@ jobs:
         if: ${{ needs.setup.outputs.publish != 'true' && needs.setup.outputs.pr-publish != 'true' && steps.filter.outputs.datahub-ingestion-base == 'true' }}
         with:
           image: ${{ env.DATAHUB_INGESTION_BASE_IMAGE }}:${{ steps.filter.outputs.datahub-ingestion-base == 'true' && needs.setup.outputs.unique_tag || 'head' }}
+      - name: Login to DockerHub
+        uses: docker/login-action@v3
+        if: ${{ needs.setup.outputs.docker-login == 'true' && needs.setup.outputs.publish == 'false' && needs.setup.outputs.pr-publish == 'false' &&  steps.filter.outputs.datahub-ingestion-base == 'false' }}
+        with:
+          username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
+          password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
       - name: Build and push (Base-Full) Image
         if: ${{ steps.filter.outputs.datahub-ingestion-base == 'true' }}
         uses: ./.github/actions/docker-custom-build-and-push
@@ -653,6 +673,12 @@ jobs:
         if: ${{ needs.setup.outputs.publish != 'true' && needs.setup.outputs.pr-publish != 'true' && steps.filter.outputs.datahub-ingestion-base == 'true' }}
         with:
           image: ${{ env.DATAHUB_INGESTION_BASE_IMAGE }}:${{ steps.filter.outputs.datahub-ingestion-base == 'true' && needs.setup.outputs.unique_slim_tag || 'head-slim' }}
+      - name: Login to DockerHub
+        uses: docker/login-action@v3
+        if: ${{ needs.setup.outputs.docker-login == 'true' && needs.setup.outputs.publish == 'false' && needs.setup.outputs.pr-publish == 'false' &&  steps.filter.outputs.datahub-ingestion-base == 'false' }}
+        with:
+          username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
+          password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
       - name: Build and push Slim Image
         if: ${{ steps.filter.outputs.datahub-ingestion-base == 'true' || steps.filter.outputs.datahub-ingestion == 'true' || needs.setup.outputs.publish }}
         uses: ./.github/actions/docker-custom-build-and-push
@@ -742,6 +768,12 @@ jobs:
         if: ${{ needs.setup.outputs.publish != 'true' && needs.setup.outputs.pr-publish != 'true' && steps.filter.outputs.datahub-ingestion-base == 'true' }}
         with:
           image: ${{ env.DATAHUB_INGESTION_BASE_IMAGE }}:${{ steps.filter.outputs.datahub-ingestion-base == 'true' && needs.setup.outputs.unique_tag || 'head' }}
+      - name: Login to DockerHub
+        uses: docker/login-action@v3
+        if: ${{ needs.setup.outputs.docker-login == 'true' && needs.setup.outputs.publish == 'false' && needs.setup.outputs.pr-publish == 'false' &&  steps.filter.outputs.datahub-ingestion-base == 'false' }}
+        with:
+          username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
+          password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
       - name: Build and push Full Image
         if: ${{ steps.filter.outputs.datahub-ingestion-base == 'true' || steps.filter.outputs.datahub-ingestion == 'true' || needs.setup.outputs.publish }}
         uses: ./.github/actions/docker-custom-build-and-push
@@ -858,7 +890,8 @@ jobs:
         run: |
           ./gradlew :metadata-ingestion:install
       - name: Login to DockerHub
-        uses: docker/login-action@v2
+        uses: docker/login-action@v3
+        if: ${{ needs.setup.outputs.docker-login == 'true' }}
         with:
             username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
             password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}

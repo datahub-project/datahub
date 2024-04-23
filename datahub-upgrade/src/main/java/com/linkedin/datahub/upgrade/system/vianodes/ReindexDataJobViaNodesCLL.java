@@ -3,6 +3,7 @@ package com.linkedin.datahub.upgrade.system.vianodes;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.datahub.upgrade.system.NonBlockingSystemUpgrade;
+import com.linkedin.metadata.entity.AspectDao;
 import com.linkedin.metadata.entity.EntityService;
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;
@@ -17,9 +18,17 @@ public class ReindexDataJobViaNodesCLL implements NonBlockingSystemUpgrade {
   private final List<UpgradeStep> _steps;
 
   public ReindexDataJobViaNodesCLL(
-      EntityService<?> entityService, boolean enabled, Integer batchSize) {
+      EntityService<?> entityService,
+      AspectDao aspectDao,
+      boolean enabled,
+      Integer batchSize,
+      Integer batchDelayMs,
+      Integer limit) {
     if (enabled) {
-      _steps = ImmutableList.of(new ReindexDataJobViaNodesCLLStep(entityService, batchSize));
+      _steps =
+          ImmutableList.of(
+              new ReindexDataJobViaNodesCLLStep(
+                  entityService, aspectDao, batchSize, batchDelayMs, limit));
     } else {
       _steps = ImmutableList.of();
     }

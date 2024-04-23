@@ -120,10 +120,10 @@ public class ChartType
 
       final Map<Urn, EntityResponse> chartMap =
           _entityClient.batchGetV2(
+              context.getOperationContext(),
               CHART_ENTITY_NAME,
               new HashSet<>(urns),
-              ASPECTS_TO_RESOLVE,
-              context.getAuthentication());
+              ASPECTS_TO_RESOLVE);
 
       final List<EntityResponse> gmsResults = new ArrayList<>(urnStrs.size());
       for (Urn urn : urns) {
@@ -202,7 +202,7 @@ public class ChartType
   public List<BrowsePath> browsePaths(@Nonnull String urn, @Nonnull QueryContext context)
       throws Exception {
     final StringArray result =
-        _entityClient.getBrowsePaths(getChartUrn(urn), context.getAuthentication());
+        _entityClient.getBrowsePaths(context.getOperationContext(), getChartUrn(urn));
     return BrowsePathsMapper.map(context, result);
   }
 
@@ -226,7 +226,7 @@ public class ChartType
       proposals.forEach(proposal -> proposal.setEntityUrn(UrnUtils.getUrn(urn)));
 
       try {
-        _entityClient.batchIngestProposals(proposals, context.getAuthentication(), false);
+        _entityClient.batchIngestProposals(context.getOperationContext(), proposals, false);
       } catch (RemoteInvocationException e) {
         throw new RuntimeException(String.format("Failed to write entity with urn %s", urn), e);
       }

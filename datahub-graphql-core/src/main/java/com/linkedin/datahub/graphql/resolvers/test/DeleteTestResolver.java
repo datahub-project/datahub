@@ -32,7 +32,7 @@ public class DeleteTestResolver implements DataFetcher<CompletableFuture<Boolean
         () -> {
           if (canManageTests(context)) {
             try {
-              _entityClient.deleteEntity(urn, context.getAuthentication());
+              _entityClient.deleteEntity(context.getOperationContext(), urn);
               return true;
             } catch (Exception e) {
               throw new RuntimeException(

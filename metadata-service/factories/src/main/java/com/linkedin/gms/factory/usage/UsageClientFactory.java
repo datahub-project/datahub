@@ -2,12 +2,10 @@ package com.linkedin.gms.factory.usage;
 
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.restli.DefaultRestliClientFactory;
-import com.linkedin.metadata.spring.YamlPropertySourceFactory;
 import com.linkedin.parseq.retry.backoff.ExponentialBackoff;
 import com.linkedin.r2.transport.http.client.HttpClientFactory;
 import com.linkedin.restli.client.Client;
 import com.linkedin.usage.RestliUsageClient;
-import io.datahubproject.metadata.context.OperationContext;
 import java.util.HashMap;
 import java.util.Map;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -15,10 +13,8 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.PropertySource;
 
 @Configuration
-@PropertySource(value = "classpath:/application.yml", factory = YamlPropertySourceFactory.class)
 public class UsageClientFactory {
 
   @Value("${DATAHUB_GMS_HOST:localhost}")
@@ -47,8 +43,7 @@ public class UsageClientFactory {
   private ConfigurationProvider configurationProvider;
 
   @Bean("usageClient")
-  public RestliUsageClient getUsageClient(
-      @Qualifier("systemOperationContext") final OperationContext systemOperationContext) {
+  public RestliUsageClient getUsageClient() {
     Map<String, String> params = new HashMap<>();
     params.put(HttpClientFactory.HTTP_REQUEST_TIMEOUT, String.valueOf(timeoutMs));
 
@@ -56,7 +51,6 @@ public class UsageClientFactory {
         DefaultRestliClientFactory.getRestLiClient(
             gmsHost, gmsPort, gmsUseSSL, gmsSslProtocol, params);
     return new RestliUsageClient(
-        systemOperationContext,
         restClient,
         new ExponentialBackoff(retryInterval),
         numRetries,

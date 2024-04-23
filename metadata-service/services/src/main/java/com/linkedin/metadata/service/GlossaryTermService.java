@@ -2,7 +2,6 @@ package com.linkedin.metadata.service;
 
 import static com.linkedin.metadata.entity.AspectUtils.*;
 
-import com.datahub.authentication.Authentication;
 import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.GlossaryTermAssociation;
@@ -11,7 +10,7 @@ import com.linkedin.common.GlossaryTerms;
 import com.linkedin.common.urn.GlossaryTermUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
-import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.resource.ResourceReference;
 import com.linkedin.metadata.resource.SubResourceType;
@@ -19,6 +18,7 @@ import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.schema.EditableSchemaFieldInfo;
 import com.linkedin.schema.EditableSchemaFieldInfoArray;
 import com.linkedin.schema.EditableSchemaMetadata;
+import io.datahubproject.metadata.context.OperationContext;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.List;
@@ -31,9 +31,8 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class GlossaryTermService extends BaseService {
 
-  public GlossaryTermService(
-      @Nonnull EntityClient entityClient, @Nonnull Authentication systemAuthentication) {
-    super(entityClient, systemAuthentication);
+  public GlossaryTermService(@Nonnull SystemEntityClient entityClient) {
+    super(entityClient);
   }
 
   /**
@@ -43,27 +42,15 @@ public class GlossaryTermService extends BaseService {
    * @param resources references to the resources to change
    */
   public void batchAddGlossaryTerms(
-      @Nonnull List<Urn> glossaryTermUrns, @Nonnull List<ResourceReference> resources) {
-    batchAddGlossaryTerms(glossaryTermUrns, resources, this.systemAuthentication);
-  }
-
-  /**
-   * Batch adds multiple glossary terms for a set of resources.
-   *
-   * @param glossaryTermUrns the urns of the terms to add
-   * @param resources references to the resources to change
-   * @param authentication authentication to use when making the change
-   */
-  public void batchAddGlossaryTerms(
+      @Nonnull OperationContext opContext,
       @Nonnull List<Urn> glossaryTermUrns,
-      @Nonnull List<ResourceReference> resources,
-      @Nonnull Authentication authentication) {
+      @Nonnull List<ResourceReference> resources) {
     log.debug(
         "Batch adding GlossaryTerms to entities. glossaryTerms: {}, resources: {}",
         resources,
         glossaryTermUrns);
     try {
-      addGlossaryTermsToResources(glossaryTermUrns, resources, authentication);
+      addGlossaryTermsToResources(opContext, glossaryTermUrns, resources);
     } catch (Exception e) {
       throw new RuntimeException(
           String.format(
@@ -81,27 +68,15 @@ public class GlossaryTermService extends BaseService {
    * @param resources references to the resources to change
    */
   public void batchRemoveGlossaryTerms(
-      @Nonnull List<Urn> glossaryTermUrns, @Nonnull List<ResourceReference> resources) {
-    batchRemoveGlossaryTerms(glossaryTermUrns, resources, this.systemAuthentication);
-  }
-
-  /**
-   * Batch removes multiple glossary terms for a set of resources.
-   *
-   * @param glossaryTermUrns the urns of the terms to remove
-   * @param resources references to the resources to change
-   * @param authentication authentication to use when making the change
-   */
-  public void batchRemoveGlossaryTerms(
+      @Nonnull OperationContext opContext,
       @Nonnull List<Urn> glossaryTermUrns,
-      @Nonnull List<ResourceReference> resources,
-      @Nonnull Authentication authentication) {
+      @Nonnull List<ResourceReference> resources) {
     log.debug(
         "Batch adding GlossaryTerms to entities. glossaryTerms: {}, resources: {}",
         resources,
         glossaryTermUrns);
     try {
-      removeGlossaryTermsFromResources(glossaryTermUrns, resources, authentication);
+      removeGlossaryTermsFromResources(opContext, glossaryTermUrns, resources);
     } catch (Exception e) {
       throw new RuntimeException(
           String.format(
@@ -113,24 +88,30 @@ public class GlossaryTermService extends BaseService {
   }
 
   private void addGlossaryTermsToResources(
-      List<Urn> glossaryTerms, List<ResourceReference> resources, Authentication authentication)
+      @Nonnull OperationContext opContext,
+      List<Urn> glossaryTerms,
+      List<ResourceReference> resources)
       throws Exception {
     List<MetadataChangeProposal> changes =
-        buildAddGlossaryTermsProposals(glossaryTerms, resources, authentication);
-    ingestChangeProposals(changes, authentication);
+        buildAddGlossaryTermsProposals(opContext, glossaryTerms, resources);
+    ingestChangeProposals(opContext, changes);
   }
 
   private void removeGlossaryTermsFromResources(
-      List<Urn> glossaryTerms, List<ResourceReference> resources, Authentication authentication)
+      @Nonnull OperationContext opContext,
+      List<Urn> glossaryTerms,
+      List<ResourceReference> resources)
       throws Exception {
     List<MetadataChangeProposal> changes =
-        buildRemoveGlossaryTermsProposals(glossaryTerms, resources, authentication);
-    ingestChangeProposals(changes, authentication);
+        buildRemoveGlossaryTermsProposals(opContext, glossaryTerms, resources);
+    ingestChangeProposals(opContext, changes);
   }
 
   @VisibleForTesting
   List<MetadataChangeProposal> buildAddGlossaryTermsProposals(
-      List<Urn> glossaryTermUrns, List<ResourceReference> resources, Authentication authentication)
+      @Nonnull OperationContext opContext,
+      List<Urn> glossaryTermUrns,
+      List<ResourceReference> resources)
       throws URISyntaxException {
 
     final List<MetadataChangeProposal> changes = new ArrayList<>();
@@ -142,7 +123,7 @@ public class GlossaryTermService extends BaseService {
                     resource.getSubResource() == null || resource.getSubResource().equals(""))
             .collect(Collectors.toList());
     final List<MetadataChangeProposal> entityProposals =
-        buildAddGlossaryTermsToEntityProposals(glossaryTermUrns, entityRefs, authentication);
+        buildAddGlossaryTermsToEntityProposals(opContext, glossaryTermUrns, entityRefs);
 
     final List<ResourceReference> schemaFieldRefs =
         resources.stream()
@@ -152,8 +133,7 @@ public class GlossaryTermService extends BaseService {
                         && resource.getSubResourceType().equals(SubResourceType.DATASET_FIELD))
             .collect(Collectors.toList());
     final List<MetadataChangeProposal> schemaFieldProposals =
-        buildAddGlossaryTermsToSubResourceProposals(
-            glossaryTermUrns, schemaFieldRefs, authentication);
+        buildAddGlossaryTermsToSubResourceProposals(opContext, glossaryTermUrns, schemaFieldRefs);
 
     changes.addAll(entityProposals);
     changes.addAll(schemaFieldProposals);
@@ -163,9 +143,9 @@ public class GlossaryTermService extends BaseService {
 
   @VisibleForTesting
   List<MetadataChangeProposal> buildRemoveGlossaryTermsProposals(
+      @Nonnull OperationContext opContext,
       List<Urn> glossaryTermUrns,
-      List<ResourceReference> resources,
-      Authentication authentication) {
+      List<ResourceReference> resources) {
 
     final List<MetadataChangeProposal> changes = new ArrayList<>();
 
@@ -176,7 +156,7 @@ public class GlossaryTermService extends BaseService {
                     resource.getSubResource() == null || resource.getSubResource().equals(""))
             .collect(Collectors.toList());
     final List<MetadataChangeProposal> entityProposals =
-        buildRemoveGlossaryTermsToEntityProposals(glossaryTermUrns, entityRefs, authentication);
+        buildRemoveGlossaryTermsToEntityProposals(opContext, glossaryTermUrns, entityRefs);
 
     final List<ResourceReference> schemaFieldRefs =
         resources.stream()
@@ -187,7 +167,7 @@ public class GlossaryTermService extends BaseService {
             .collect(Collectors.toList());
     final List<MetadataChangeProposal> schemaFieldProposals =
         buildRemoveGlossaryTermsToSubResourceProposals(
-            glossaryTermUrns, schemaFieldRefs, authentication);
+            opContext, glossaryTermUrns, schemaFieldRefs);
 
     changes.addAll(entityProposals);
     changes.addAll(schemaFieldProposals);
@@ -197,16 +177,16 @@ public class GlossaryTermService extends BaseService {
 
   @VisibleForTesting
   List<MetadataChangeProposal> buildAddGlossaryTermsToEntityProposals(
+      @Nonnull OperationContext opContext,
       List<com.linkedin.common.urn.Urn> glossaryTermUrns,
-      List<ResourceReference> resources,
-      Authentication authentication)
+      List<ResourceReference> resources)
       throws URISyntaxException {
 
     final Map<Urn, GlossaryTerms> glossaryTermAspects =
         getGlossaryTermsAspects(
+            opContext,
             resources.stream().map(ResourceReference::getUrn).collect(Collectors.toSet()),
-            new GlossaryTerms(),
-            authentication);
+            new GlossaryTerms());
 
     final List<MetadataChangeProposal> changes = new ArrayList<>();
     for (ResourceReference resource : resources) {
@@ -221,7 +201,8 @@ public class GlossaryTermService extends BaseService {
         glossaryTerms.setAuditStamp(
             new AuditStamp()
                 .setTime(System.currentTimeMillis())
-                .setActor(UrnUtils.getUrn(authentication.getActor().toUrnStr())));
+                .setActor(
+                    UrnUtils.getUrn(opContext.getSessionAuthentication().getActor().toUrnStr())));
       }
       addGlossaryTermsIfNotExists(glossaryTerms, glossaryTermUrns);
       changes.add(
@@ -233,15 +214,15 @@ public class GlossaryTermService extends BaseService {
 
   @VisibleForTesting
   List<MetadataChangeProposal> buildAddGlossaryTermsToSubResourceProposals(
+      @Nonnull OperationContext opContext,
       final List<Urn> glossaryTermUrns,
-      final List<ResourceReference> resources,
-      final Authentication authentication)
+      final List<ResourceReference> resources)
       throws URISyntaxException {
     final Map<Urn, EditableSchemaMetadata> editableSchemaMetadataAspects =
         getEditableSchemaMetadataAspects(
+            opContext,
             resources.stream().map(ResourceReference::getUrn).collect(Collectors.toSet()),
-            new EditableSchemaMetadata(),
-            authentication);
+            new EditableSchemaMetadata());
 
     final List<MetadataChangeProposal> changes = new ArrayList<>();
     for (ResourceReference resource : resources) {
@@ -272,15 +253,15 @@ public class GlossaryTermService extends BaseService {
 
   @VisibleForTesting
   List<MetadataChangeProposal> buildRemoveGlossaryTermsToEntityProposals(
+      @Nonnull OperationContext opContext,
       List<Urn> glossaryTermUrns,
-      List<ResourceReference> resources,
-      Authentication authentication) {
+      List<ResourceReference> resources) {
 
     final Map<Urn, GlossaryTerms> glossaryTermAspects =
         getGlossaryTermsAspects(
+            opContext,
             resources.stream().map(ResourceReference::getUrn).collect(Collectors.toSet()),
-            new GlossaryTerms(),
-            authentication);
+            new GlossaryTerms());
 
     final List<MetadataChangeProposal> changes = new ArrayList<>();
     for (ResourceReference resource : resources) {
@@ -293,7 +274,8 @@ public class GlossaryTermService extends BaseService {
         glossaryTerms.setAuditStamp(
             new AuditStamp()
                 .setTime(System.currentTimeMillis())
-                .setActor(UrnUtils.getUrn(authentication.getActor().toUrnStr())));
+                .setActor(
+                    UrnUtils.getUrn(opContext.getSessionAuthentication().getActor().toUrnStr())));
       }
       removeGlossaryTermsIfExists(glossaryTerms, glossaryTermUrns);
       MetadataChangeProposal proposal =
@@ -307,15 +289,15 @@ public class GlossaryTermService extends BaseService {
 
   @VisibleForTesting
   List<MetadataChangeProposal> buildRemoveGlossaryTermsToSubResourceProposals(
+      @Nonnull OperationContext opContext,
       List<Urn> glossaryTermUrns,
-      List<ResourceReference> resources,
-      Authentication authentication) {
+      List<ResourceReference> resources) {
 
     final Map<Urn, EditableSchemaMetadata> editableSchemaMetadataAspects =
         getEditableSchemaMetadataAspects(
+            opContext,
             resources.stream().map(ResourceReference::getUrn).collect(Collectors.toSet()),
-            new EditableSchemaMetadata(),
-            authentication);
+            new EditableSchemaMetadata());
 
     final List<MetadataChangeProposal> changes = new ArrayList<>();
     for (ResourceReference resource : resources) {

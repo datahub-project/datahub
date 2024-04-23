@@ -25,13 +25,13 @@ public class RemoveTermResolver implements DataFetcher<CompletableFuture<Boolean
 
   @Override
   public CompletableFuture<Boolean> get(DataFetchingEnvironment environment) throws Exception {
+    final QueryContext context = environment.getContext();
     final TermAssociationInput input =
         bindArgument(environment.getArgument("input"), TermAssociationInput.class);
     Urn termUrn = Urn.createFromString(input.getTermUrn());
     Urn targetUrn = Urn.createFromString(input.getResourceUrn());
 
-    if (!LabelUtils.isAuthorizedToUpdateTerms(
-        environment.getContext(), targetUrn, input.getSubResource())) {
+    if (!LabelUtils.isAuthorizedToUpdateTerms(context, targetUrn, input.getSubResource())) {
       throw new AuthorizationException(
           "Unauthorized to perform this action. Please contact your DataHub administrator.");
     }
@@ -39,6 +39,7 @@ public class RemoveTermResolver implements DataFetcher<CompletableFuture<Boolean
     return CompletableFuture.supplyAsync(
         () -> {
           LabelUtils.validateResourceAndLabel(
+              context.getOperationContext(),
               termUrn,
               targetUrn,
               input.getSubResource(),
@@ -55,10 +56,9 @@ public class RemoveTermResolver implements DataFetcher<CompletableFuture<Boolean
             }
 
             log.info(String.format("Removing Term. input: {}", input));
-            Urn actor =
-                CorpuserUrn.createFromString(
-                    ((QueryContext) environment.getContext()).getActorUrn());
+            Urn actor = CorpuserUrn.createFromString(context.getActorUrn());
             LabelUtils.removeTermsFromResources(
+                context.getOperationContext(),
                 ImmutableList.of(termUrn),
                 ImmutableList.of(
                     new ResourceRefInput(

@@ -1,13 +1,12 @@
 package com.linkedin.metadata.service;
 
-import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.SetMode;
 import com.linkedin.entity.EntityResponse;
-import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.AspectUtils;
 import com.linkedin.metadata.key.QueryKey;
@@ -19,6 +18,7 @@ import com.linkedin.query.QueryStatement;
 import com.linkedin.query.QuerySubject;
 import com.linkedin.query.QuerySubjectArray;
 import com.linkedin.query.QuerySubjects;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -37,9 +37,8 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class QueryService extends BaseService {
 
-  public QueryService(
-      @Nonnull EntityClient entityClient, @Nonnull Authentication systemAuthentication) {
-    super(entityClient, systemAuthentication);
+  public QueryService(@Nonnull SystemEntityClient entityClient) {
+    super(entityClient);
   }
 
   /**
@@ -58,17 +57,17 @@ public class QueryService extends BaseService {
    * @return the urn of the newly created View
    */
   public Urn createQuery(
+      @Nonnull OperationContext opContext,
       @Nullable String name,
       @Nullable String description,
       @Nonnull QuerySource source,
       @Nonnull QueryStatement statement,
       @Nonnull List<QuerySubject> subjects,
-      @Nonnull Authentication authentication,
       long currentTimeMs) {
     Objects.requireNonNull(source, "source must not be null");
     Objects.requireNonNull(statement, "statement must not be null");
     Objects.requireNonNull(subjects, "subjects must not be null");
-    Objects.requireNonNull(authentication, "authentication must not be null");
+    Objects.requireNonNull(opContext.getSessionAuthentication(), "authentication must not be null");
 
     // 1. Generate a unique id for the new Query.
     final QueryKey key = new QueryKey();
@@ -82,7 +81,7 @@ public class QueryService extends BaseService {
     queryProperties.setDescription(description, SetMode.IGNORE_NULL);
     final AuditStamp auditStamp =
         new AuditStamp()
-            .setActor(UrnUtils.getUrn(authentication.getActor().toUrnStr()))
+            .setActor(UrnUtils.getUrn(opContext.getSessionAuthentication().getActor().toUrnStr()))
             .setTime(currentTimeMs);
     queryProperties.setCreated(auditStamp);
     queryProperties.setLastModified(auditStamp);
@@ -95,15 +94,15 @@ public class QueryService extends BaseService {
     try {
       final Urn entityUrn = EntityKeyUtils.convertEntityKeyToUrn(key, Constants.QUERY_ENTITY_NAME);
       this.entityClient.ingestProposal(
+          opContext,
           AspectUtils.buildMetadataChangeProposal(
               entityUrn, Constants.QUERY_PROPERTIES_ASPECT_NAME, queryProperties),
-          authentication,
           false);
       return UrnUtils.getUrn(
           this.entityClient.ingestProposal(
+              opContext,
               AspectUtils.buildMetadataChangeProposal(
                   entityUrn, Constants.QUERY_SUBJECTS_ASPECT_NAME, querySubjects),
-              authentication,
               false));
     } catch (Exception e) {
       throw new RuntimeException("Failed to create Query", e);
@@ -125,18 +124,18 @@ public class QueryService extends BaseService {
    * @param currentTimeMs the current time in millis
    */
   public void updateQuery(
+      @Nonnull OperationContext opContext,
       @Nonnull Urn urn,
       @Nullable String name,
       @Nullable String description,
       @Nullable QueryStatement statement,
       @Nullable List<QuerySubject> subjects,
-      @Nonnull Authentication authentication,
       long currentTimeMs) {
     Objects.requireNonNull(urn, "urn must not be null");
-    Objects.requireNonNull(authentication, "authentication must not be null");
+    Objects.requireNonNull(opContext.getSessionAuthentication(), "authentication must not be null");
 
     // 1. Check whether the Query exists
-    QueryProperties properties = getQueryProperties(urn, authentication);
+    QueryProperties properties = getQueryProperties(opContext, urn);
 
     if (properties == null) {
       throw new IllegalArgumentException(
@@ -157,7 +156,7 @@ public class QueryService extends BaseService {
     properties.setLastModified(
         new AuditStamp()
             .setTime(currentTimeMs)
-            .setActor(UrnUtils.getUrn(authentication.getActor().toUrnStr())));
+            .setActor(UrnUtils.getUrn(opContext.getSessionAuthentication().getActor().toUrnStr())));
 
     // 3. Write changes to GMS
     try {
@@ -172,7 +171,7 @@ public class QueryService extends BaseService {
                 Constants.QUERY_SUBJECTS_ASPECT_NAME,
                 new QuerySubjects().setSubjects(new QuerySubjectArray(subjects))));
       }
-      this.entityClient.batchIngestProposals(aspectsToIngest, authentication, false);
+      this.entityClient.batchIngestProposals(opContext, aspectsToIngest, false);
     } catch (Exception e) {
       throw new RuntimeException(String.format("Failed to update View with urn %s", urn), e);
     }
@@ -189,11 +188,10 @@ public class QueryService extends BaseService {
    * @param queryUrn the urn of the Query
    * @param authentication the current authentication
    */
-  public void deleteQuery(@Nonnull Urn queryUrn, @Nonnull Authentication authentication) {
+  public void deleteQuery(@Nonnull OperationContext opContext, @Nonnull Urn queryUrn) {
     try {
       this.entityClient.deleteEntity(
-          Objects.requireNonNull(queryUrn, "queryUrn must not be null"),
-          Objects.requireNonNull(authentication, "authentication must not be null"));
+          opContext, Objects.requireNonNull(queryUrn, "queryUrn must not be null"));
     } catch (Exception e) {
       throw new RuntimeException(String.format("Failed to delete Query with urn %s", queryUrn), e);
     }
@@ -209,10 +207,10 @@ public class QueryService extends BaseService {
    */
   @Nullable
   public QueryProperties getQueryProperties(
-      @Nonnull final Urn queryUrn, @Nonnull final Authentication authentication) {
+      @Nonnull OperationContext opContext, @Nonnull final Urn queryUrn) {
     Objects.requireNonNull(queryUrn, "queryUrn must not be null");
-    Objects.requireNonNull(authentication, "authentication must not be null");
-    final EntityResponse response = getQueryEntityResponse(queryUrn, authentication);
+    Objects.requireNonNull(opContext.getSessionAuthentication(), "authentication must not be null");
+    final EntityResponse response = getQueryEntityResponse(opContext, queryUrn);
     if (response != null
         && response.getAspects().containsKey(Constants.QUERY_PROPERTIES_ASPECT_NAME)) {
       return new QueryProperties(
@@ -232,10 +230,10 @@ public class QueryService extends BaseService {
    */
   @Nullable
   public QuerySubjects getQuerySubjects(
-      @Nonnull final Urn queryUrn, @Nonnull final Authentication authentication) {
+      @Nonnull OperationContext opContext, @Nonnull final Urn queryUrn) {
     Objects.requireNonNull(queryUrn, "queryUrn must not be null");
-    Objects.requireNonNull(authentication, "authentication must not be null");
-    final EntityResponse response = getQueryEntityResponse(queryUrn, authentication);
+    Objects.requireNonNull(opContext.getSessionAuthentication(), "authentication must not be null");
+    final EntityResponse response = getQueryEntityResponse(opContext, queryUrn);
     if (response != null
         && response.getAspects().containsKey(Constants.QUERY_SUBJECTS_ASPECT_NAME)) {
       return new QuerySubjects(
@@ -255,16 +253,16 @@ public class QueryService extends BaseService {
    */
   @Nullable
   public EntityResponse getQueryEntityResponse(
-      @Nonnull final Urn queryUrn, @Nonnull final Authentication authentication) {
+      @Nonnull OperationContext opContext, @Nonnull final Urn queryUrn) {
     Objects.requireNonNull(queryUrn, "queryUrn must not be null");
-    Objects.requireNonNull(authentication, "authentication must not be null");
+    Objects.requireNonNull(opContext.getSessionAuthentication(), "authentication must not be null");
     try {
       return this.entityClient.getV2(
+          opContext,
           Constants.QUERY_ENTITY_NAME,
           queryUrn,
           ImmutableSet.of(
-              Constants.QUERY_PROPERTIES_ASPECT_NAME, Constants.QUERY_SUBJECTS_ASPECT_NAME),
-          authentication);
+              Constants.QUERY_PROPERTIES_ASPECT_NAME, Constants.QUERY_SUBJECTS_ASPECT_NAME));
     } catch (Exception e) {
       throw new RuntimeException(
           String.format("Failed to retrieve Query with urn %s", queryUrn), e);

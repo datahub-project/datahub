@@ -89,4 +89,11 @@ public interface EntitySpec {
         .flatMap(List::stream)
         .collect(Collectors.toList());
   }
+
+  default List<SearchableRefFieldSpec> getSearchableRefFieldSpecs() {
+    return getAspectSpecs().stream()
+        .map(AspectSpec::getSearchableRefFieldSpecs)
+        .flatMap(List::stream)
+        .collect(Collectors.toList());
+  }
 }
