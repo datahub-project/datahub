@@ -51,7 +51,7 @@ def test_perf():
             include_operational_stats=True,
             start_time=datetime(2022, 6, 6, 0, 0, 0, 0).replace(tzinfo=timezone.utc),
             end_time=datetime(2022, 6, 7, 7, 17, 0, 0).replace(tzinfo=timezone.utc),
-            format_sql_queries=False,
+            format_sql_queries=True,
         )
         ctx = PipelineContext(run_id="test")
         source = SnowflakeV2Source(ctx, config)
