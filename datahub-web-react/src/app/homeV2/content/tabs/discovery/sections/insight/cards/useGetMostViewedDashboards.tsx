@@ -1,6 +1,6 @@
-import { EntityType, FilterOperator, SortCriterion, SortOrder } from '../../../../../../../../types.generated';
+import { FilterOperator, SortCriterion, SortOrder } from '../../../../../../../../types.generated';
 import { FilterSet } from '../../../../../../../entityV2/shared/components/styled/search/types';
-import { ENTITY_FILTER_NAME, UnionType } from '../../../../../../../searchV2/utils/constants';
+import { UnionType } from '../../../../../../../searchV2/utils/constants';
 
 const MIN_QUERIES = '1';
 
@@ -14,7 +14,6 @@ export const buildMostViewedDashboardsFilter = (): FilterSet => {
                 condition: FilterOperator.GreaterThanOrEqualTo,
                 negated: false,
             },
-            { field: ENTITY_FILTER_NAME, values: [EntityType.Dashboard] },
         ],
     };
 };
