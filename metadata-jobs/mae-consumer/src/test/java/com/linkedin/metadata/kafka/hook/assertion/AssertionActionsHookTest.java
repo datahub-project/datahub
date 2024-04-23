@@ -311,7 +311,7 @@ public class AssertionActionsHookTest {
   public void testInvokeAssertionRunEventSuccessActionsActiveIncident() throws Exception {
     IncidentInfo activeIncidentInfo =
         new IncidentInfo()
-            .setType(IncidentType.DATASET_COLUMN)
+            .setType(IncidentType.CUSTOM)
             .setPriority(2)
             .setTitle("Test Title")
             .setDescription("Test description")
@@ -678,7 +678,7 @@ public class AssertionActionsHookTest {
             Mockito.anyInt());
 
     IncidentInfo expectedInfo = new IncidentInfo();
-    expectedInfo.setType(IncidentType.DATASET_COLUMN);
+    expectedInfo.setType(IncidentType.CUSTOM);
     expectedInfo.setTitle("A External Assertion is failing for this asset.");
     expectedInfo.setDescription(
         String.format(
@@ -724,7 +724,7 @@ public class AssertionActionsHookTest {
                 new IncidentSource()
                     .setSourceUrn(TEST_ASSERTION_URN)
                     .setType(IncidentSourceType.ASSERTION_FAILURE))
-            .setType(IncidentType.DATASET_COLUMN);
+            .setType(IncidentType.CUSTOM);
 
     SystemEntityClient entityClient =
         mockSystemEntityClient(
@@ -961,7 +961,7 @@ public class AssertionActionsHookTest {
                 new IncidentSource()
                     .setSourceUrn(TEST_ASSERTION_URN)
                     .setType(IncidentSourceType.ASSERTION_FAILURE))
-            .setType(IncidentType.DATASET_COLUMN);
+            .setType(IncidentType.CUSTOM);
 
     SystemEntityClient entityClient =
         mockSystemEntityClient(
@@ -1033,7 +1033,7 @@ public class AssertionActionsHookTest {
                 new IncidentSource()
                     .setSourceUrn(TEST_ASSERTION_URN)
                     .setType(IncidentSourceType.ASSERTION_FAILURE))
-            .setType(IncidentType.DATASET_COLUMN);
+            .setType(IncidentType.CUSTOM);
 
     SystemEntityClient entityClient =
         mockSystemEntityClient(

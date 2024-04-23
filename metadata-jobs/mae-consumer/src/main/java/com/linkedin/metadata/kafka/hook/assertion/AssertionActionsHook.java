@@ -403,7 +403,7 @@ public class AssertionActionsHook implements MetadataChangeLogHook {
     try {
       _incidentService.raiseIncident(
           getIncidentTypeFromAssertionInfo(info),
-          AssertionType.SQL.equals(info.getType()) ? "Custom SQL" : null,
+          AssertionType.DATASET.equals(info.getType()) ? "External Assertion" : null,
           0,
           String.format(
               "A %s Assertion is failing for this asset.",
@@ -774,15 +774,15 @@ public class AssertionActionsHook implements MetadataChangeLogHook {
   private IncidentType getIncidentTypeFromAssertionInfo(@Nonnull final AssertionInfo info) {
     switch (info.getType()) {
       case DATASET:
-        return DatasetAssertionScope.DATASET_COLUMN.equals(info.getDatasetAssertion().getScope())
-            ? IncidentType.DATASET_COLUMN
-            : IncidentType.DATASET_ROWS;
+        return IncidentType.CUSTOM;
       case FRESHNESS:
         return IncidentType.FRESHNESS;
+      case FIELD:
+        return IncidentType.FIELD;
       case VOLUME:
         return IncidentType.VOLUME;
       case SQL:
-        return IncidentType.CUSTOM;
+        return IncidentType.SQL;
       default:
         throw new IllegalArgumentException(
             "Failed to map to an incident type! Unsupported Assertion type provided.");

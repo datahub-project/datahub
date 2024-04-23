@@ -17,8 +17,25 @@ export const INCIDENT_TYPE_OPTIONS = [
         value: IncidentType.Volume,
     },
     {
+        name: 'Column',
+        value: IncidentType.Field,
+    },
+    {
+        name: 'Custom SQL',
+        value: IncidentType.Sql,
+    },
+    {
         name: 'Other',
         value: IncidentType.Custom,
+    },
+    // Legacy! These are deprecated types. 
+    {
+        name: 'External Volume Assertion',
+        value: IncidentType.DatasetRows,
+    },
+    {
+        name: 'External Field Assertion',
+        value: IncidentType.DatasetColumn,
     },
 ];
 
