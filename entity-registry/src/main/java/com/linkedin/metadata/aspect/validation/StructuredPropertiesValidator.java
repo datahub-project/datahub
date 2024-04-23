@@ -41,10 +41,16 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
+import lombok.Getter;
+import lombok.Setter;
+import lombok.experimental.Accessors;
 import lombok.extern.slf4j.Slf4j;
 
 /** A Validator for StructuredProperties Aspect that is attached to entities like Datasets, etc. */
+@Setter
+@Getter
 @Slf4j
+@Accessors(chain = true)
 public class StructuredPropertiesValidator extends AspectPayloadValidator {
   private static final Set<ChangeType> CHANGE_TYPES =
       ImmutableSet.of(ChangeType.CREATE, ChangeType.CREATE_ENTITY, ChangeType.UPSERT);
@@ -56,10 +62,6 @@ public class StructuredPropertiesValidator extends AspectPayloadValidator {
               LogicalValueType.RICH_TEXT,
               LogicalValueType.DATE,
               LogicalValueType.URN));
-
-  public StructuredPropertiesValidator(AspectPluginConfig aspectPluginConfig) {
-    super(aspectPluginConfig);
-  }
 
   public static LogicalValueType getLogicalValueType(Urn valueType) {
     String valueTypeId = getValueTypeId(valueType);
@@ -77,6 +79,8 @@ public class StructuredPropertiesValidator extends AspectPayloadValidator {
 
     return LogicalValueType.UNKNOWN;
   }
+
+  @Nonnull private AspectPluginConfig config;
 
   @Override
   protected Stream<AspectValidationException> validateProposedAspects(
