@@ -178,4 +178,4 @@ To remove ownership from an asset, click the 'x' icon on the Owner label.
 > by a [Policy](./../authorization/policies.md).
 
 
-*Need more help? Join the conversation in [Slack](https://datahubproject.io/slack?utm_source=docs&utm_medium=docs&utm_campaign=docs_page_link)!*
+

@@ -88,7 +88,7 @@ This means you have not yet ingested Lineage metadata for that entity. Please se
 
 We currently limit the list of dependencies to 10,000 records; we suggest applying filters to narrow the result set if you hit that limit.
 
-*Need more help? Join the conversation in [Slack](https://datahubproject.io/slack?utm_source=docs&utm_medium=docs&utm_campaign=docs_page_link)!*
+
 
 ### Related Features
 

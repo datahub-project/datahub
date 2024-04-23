@@ -145,4 +145,4 @@ The following features are next on the roadmap for Data Products
 * [Tags](./tags.md)
 
 
-*Need more help? Join the conversation in [Slack](https://datahubproject.io/slack?utm_source=docs&utm_medium=docs&utm_campaign=docs_page_link)!*
+

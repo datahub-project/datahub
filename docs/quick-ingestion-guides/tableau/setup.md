@@ -56,4 +56,3 @@ In order to configure ingestion from Tableau, you'll first have to enable Tablea
 
 Once you've done all of the above in Tableau, it's time to [move on](configuration.md) to configuring the actual ingestion source within DataHub.
 
-*Need more help? Join the conversation in [Slack](https://datahubproject.io/slack?utm_source=docs&utm_medium=docs&utm_campaign=docs_page_link)!*

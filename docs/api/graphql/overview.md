@@ -38,6 +38,3 @@ that may be performed using the API.
 
 - Available Operations: [Queries](/graphql/queries.md) (Reads) & [Mutations](/graphql/mutations.md) (Writes)
 - Schema Types: [Objects](/graphql/objects.md), [Input Objects](/graphql/inputObjects.md), [Interfaces](/graphql/interfaces.md), [Unions](/graphql/unions.md), [Enums](/graphql/enums.md), [Scalars](/graphql/scalars.md)
-
-> Visit our [Slack channel](https://datahubproject.io/slack?utm_source=docs&utm_medium=docs&utm_campaign=docs_page_link) to ask questions, tell us what we can do better, & make requests for what you'd like to see in the future. Or just
-> stop by to say 'Hi'.

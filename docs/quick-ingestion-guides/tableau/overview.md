@@ -35,4 +35,3 @@ If you want to ingest metadata from Tableau using the DataHub CLI, check out the
 * Learn about CLI Ingestion in the [Introduction to Metadata Ingestion](../../../metadata-ingestion/README.md)
 * [Tableau Ingestion Source](https://datahubproject.io/docs/generated/ingestion/sources/tableau)
 
-*Need more help? Join the conversation in [Slack](https://datahubproject.io/slack?utm_source=docs&utm_medium=docs&utm_campaign=docs_page_link)!*

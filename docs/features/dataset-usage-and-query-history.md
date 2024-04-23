@@ -74,4 +74,4 @@ With the collected usage data, you can even see column-level usage statistics (R
 
 Queries/Stats tab is greyed out if there is no usage statistics for that dataset or there were no ingestion with usage extraction run before.
 
-*Need more help? Join the conversation in [Slack](https://datahubproject.io/slack?utm_source=docs&utm_medium=docs&utm_campaign=docs_page_link)!*
+
