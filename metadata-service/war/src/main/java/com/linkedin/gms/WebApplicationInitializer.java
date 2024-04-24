@@ -1,5 +1,7 @@
 package com.linkedin.gms;
 
+import static com.linkedin.metadata.boot.OnBootApplicationListener.SCHEMA_REGISTRY_SERVLET_NAME;
+
 import com.datahub.auth.authentication.filter.AuthenticationFilter;
 import com.datahub.gms.servlet.Config;
 import com.datahub.gms.servlet.ConfigSearchExport;
@@ -35,6 +37,7 @@ public class WebApplicationInitializer
         "contextInitializerClasses", "com.linkedin.gms.SpringApplicationInitializer");
 
     // Auth filter
+    List<String> servletNames = new ArrayList<>();
 
     // Independent dispatcher
     schemaRegistryServlet(container);
@@ -42,8 +45,6 @@ public class WebApplicationInitializer
     // Non-Spring servlets
     healthCheckServlet(container);
     configServlet(container);
-
-    List<String> servletNames = new ArrayList<>();
 
     // Restli non-Dispatcher
     servletNames.add(restliServlet(rootContext, container));
@@ -69,11 +70,12 @@ public class WebApplicationInitializer
    */
   private void schemaRegistryServlet(ServletContext container) {
     AnnotationConfigWebApplicationContext webContext = new AnnotationConfigWebApplicationContext();
+    webContext.setId(SCHEMA_REGISTRY_SERVLET_NAME);
     webContext.register(SchemaRegistryServletConfig.class);
 
     DispatcherServlet dispatcherServlet = new DispatcherServlet(webContext);
     ServletRegistration.Dynamic registration =
-        container.addServlet("dispatcher-schema-registry", dispatcherServlet);
+        container.addServlet(SCHEMA_REGISTRY_SERVLET_NAME, dispatcherServlet);
     registration.addMapping("/schema-registry/*");
     registration.setLoadOnStartup(1);
     registration.setAsyncSupported(true);
