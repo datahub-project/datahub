@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
 import styled from 'styled-components/macro';
 import { message, Button, Modal, Typography, Form } from 'antd';
-import { useEntityData, useRefetch } from '../../../entity/shared/EntityContext';
+import { useRefetch } from '../../../entity/shared/EntityContext';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { useUpdateParentNodeMutation } from '../../../../graphql/glossary.generated';
 import NodeParentSelect from './NodeParentSelect';
 import { useGlossaryEntityData } from '../GlossaryEntityContext';
 import { getGlossaryRootToUpdate, getParentNodeToUpdate, updateGlossarySidebar } from '../../../glossary/utils';
+import { GenericEntityProperties } from '../../../entity/shared/types';
+import { EntityType } from '../../../../types.generated';
 
 const StyledItem = styled(Form.Item)`
     margin-bottom: 0;
@@ -17,12 +19,13 @@ const OptionalWrapper = styled.span`
 `;
 
 interface Props {
+    entityData: GenericEntityProperties | null;
+    entityType: EntityType;
+    urn: string;
     onClose: () => void;
 }
 
-function MoveGlossaryEntityModal(props: Props) {
-    const { onClose } = props;
-    const { urn: entityDataUrn, entityData, entityType } = useEntityData();
+function MoveGlossaryEntityModal({ onClose, urn, entityData, entityType }: Props) {
     const { isInGlossaryContext, urnsToUpdate, setUrnsToUpdate } = useGlossaryEntityData();
     const [form] = Form.useForm();
     const entityRegistry = useEntityRegistry();
@@ -35,7 +38,7 @@ function MoveGlossaryEntityModal(props: Props) {
         updateParentNode({
             variables: {
                 input: {
-                    resourceUrn: entityDataUrn,
+                    resourceUrn: urn,
                     parentNode: selectedParentUrn || null,
                 },
             },

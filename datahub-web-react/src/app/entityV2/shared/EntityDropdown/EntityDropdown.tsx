@@ -293,6 +293,8 @@ const EntityDropdown = (props: Props) => {
                                     setIsUserSubscribed={setIsUserSubscribed}
                                     refetchSubscriptionSummary={refetchSubscriptionSummary}
                                     entityUrn={urn}
+                                    entityData={entityData}
+                                    entityType={entityType}
                                 />
                             </StyledSubMenu>
                         )}
@@ -348,7 +350,12 @@ const EntityDropdown = (props: Props) => {
                 />
             )}
             {isMoveModalVisible && isGlossaryEntity && (
-                <MoveGlossaryEntityModal onClose={() => setIsMoveModalVisible(false)} />
+                <MoveGlossaryEntityModal
+                    entityData={entityData}
+                    urn={urn}
+                    entityType={entityType}
+                    onClose={() => setIsMoveModalVisible(false)}
+                />
             )}
             {isMoveModalVisible && isDomainEntity && <MoveDomainModal onClose={() => setIsMoveModalVisible(false)} />}
             {hasBeenDeleted && !onDelete && deleteRedirectPath && <Redirect to={deleteRedirectPath} />}
