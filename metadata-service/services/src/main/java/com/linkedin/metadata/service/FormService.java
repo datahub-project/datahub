@@ -109,7 +109,9 @@ public class FormService extends BaseService {
       @Nonnull final Urn formUrn,
       @Nonnull final Authentication authentication)
       throws Exception {
-    verifyEntityExists(formUrn, authentication);
+    if (!entityClient.exists(formUrn, authentication)) {
+      log.warn(String.format("Trying to remove a form with urn %s that does not exist.", formUrn));
+    }
     verifyEntitiesExist(entityUrns, authentication);
     final List<MetadataChangeProposal> changes =
         buildUnassignFormChanges(entityUrns, formUrn, authentication);
