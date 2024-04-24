@@ -16,7 +16,7 @@ Learn more about structured properties in the [Structured Properties Feature Gui
 This guide will show you how to execute the following actions with structured properties.
 - Create structured properties
 - Read structured properties
-- Delete structured properties (soft delete / hard delete)
+- Delete structured properties (soft delete)
 - Add structured properties to a dataset
 - Patch structured properties (add / remove / update a single property)
 
@@ -220,9 +220,9 @@ Example Response:
 
 ## Delete Structured Properties
 
-There are two types of deletion present in DataHub: hard and soft delete. As of the current release only the soft delete is supported for Structured Properties. See the subsections below for more details.
+There are two types of deletion present in DataHub: hard and soft delete. As of the current release only the soft delete is supported for Structured Properties. 
 
-### Soft Delete
+:::note SOFT DELETE
 A soft deleted Structured Property does not remove any underlying data on the Structured Property entity or the Structured Property's values written to other entities. The soft delete is 100% reversible with zero data loss. When a Structured Property is soft deleted, a few operations are not available.
 
 Structured Property Soft Delete Effects:
@@ -231,21 +231,16 @@ Structured Property Soft Delete Effects:
 - Updates to a soft deleted Structured Property's definition are denied
 - Adding a soft deleted Structured Property's value to an entity is denied
 - Search filters using a soft deleted Structured Property will be denied
+:::
 
-### Hard Delete
-(TBD)
 
 <Tabs>
-<TabItem value="CLI-soft" label="CLI (Soft/Hard)" default>
+<TabItem value="CLI" label="CLI (Soft Delete)" default>
+
+The following command will soft delete the test property.
 
 ```commandline
 datahub delete --urn {urn}
-```
-
-You can hard delete a Structured Property by adding the `--hard` flag to the command. 
-
-```commandline
-datahub delete --urn {urn} --hard
 ```
 
 </TabItem>
@@ -319,7 +314,6 @@ datahub dataset get --urn {urn}
 <TabItem value="OpenAPI" label="OpenAPI">
 
 ```commandline
-
 curl -X 'POST' -v \
   'http://localhost:8080/openapi/v2/entity/dataset/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Ahive%2CSampleHiveDataset%2CPROD%29/structuredProperties' \
   -H 'accept: application/json' \
