@@ -164,7 +164,7 @@ class StaleEntityRemovalHandler(
     def is_checkpointing_enabled(self) -> bool:
         return self.checkpointing_enabled
 
-    def get_state(self):
+    def _get_state_obj(self):
         return self.state_type_class()
 
     def create_checkpoint(self) -> Optional[Checkpoint]:
@@ -175,7 +175,7 @@ class StaleEntityRemovalHandler(
                 job_name=self.job_id,
                 pipeline_name=self.pipeline_name,
                 run_id=self.run_id,
-                state=self.get_state(),
+                state=self._get_state_obj(),
             )
         return None
 
