@@ -151,6 +151,7 @@ class SQLServerSource(SQLAlchemySource):
     - Column types associated with each table/view
     - Table, row, and column statistics via optional SQL profiling
     We have two options for the underlying library used to connect to SQL Server: (1) [python-tds](https://github.com/denisenkom/pytds) and (2) [pyodbc](https://github.com/mkleehammer/pyodbc). The TDS library is pure Python and hence easier to install.
+    If you do use pyodbc, you will need to indicate an additional package in pip dependencies: ["pyodbc==5.0.1"] as well extra Datahub plugins ["mssql"] on the advanced settings of ingestion.
     """
 
     def __init__(self, config: SQLServerConfig, ctx: PipelineContext):
