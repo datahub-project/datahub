@@ -7,7 +7,8 @@ import org.springframework.context.annotation.Configuration;
     basePackages = {
       "io.datahubproject.openapi.metadatatests",
       "io.datahubproject.openapi.scim.repositories",
-      "org.apache.directory.scim.server"
+      "org.apache.directory.scim.server",
+      "com.linkedin.gms.factory.scim"
     })
 @Configuration
 public class AcrylOpenAPIServletConfig {}
