@@ -905,13 +905,15 @@ class ModeSource(StatefulIngestionSourceBase):
         )
 
         self.report.num_sql_parsed += 1
-        if parsed_query_object.debug_info.error:
+        if parsed_query_object.debug_info.table_error:
             self.report.num_sql_parser_table_error += 1
+            self.report.num_sql_parser_failures += 1
             logger.info(
                 f"Failed to parse compiled code for report: {report_token} query: {query_data.get('token')} {parsed_query_object.debug_info.error} the query was [{query_to_parse}]"
             )
         elif parsed_query_object.debug_info.column_error:
             self.report.num_sql_parser_column_error += 1
+            self.report.num_sql_parser_failures += 1
             logger.info(
                 f"Failed to generate CLL for report: {report_token} query: {query_data.get('token')}: {parsed_query_object.debug_info.column_error} the query was [{query_to_parse}]"
             )
