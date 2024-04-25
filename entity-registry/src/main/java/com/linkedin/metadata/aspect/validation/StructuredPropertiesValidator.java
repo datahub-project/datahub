@@ -11,6 +11,7 @@ import com.linkedin.entity.Aspect;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.AspectRetriever;
+import com.linkedin.metadata.aspect.RetrieverContext;
 import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.aspect.batch.ChangeMCP;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
@@ -19,7 +20,6 @@ import com.linkedin.metadata.aspect.plugins.validation.AspectValidationException
 import com.linkedin.metadata.aspect.plugins.validation.ValidationExceptionCollection;
 import com.linkedin.metadata.models.LogicalValueType;
 import com.linkedin.metadata.models.StructuredPropertyUtils;
-import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.structured.PrimitivePropertyValue;
 import com.linkedin.structured.PrimitivePropertyValueArray;
 import com.linkedin.structured.PropertyCardinality;
@@ -46,6 +46,8 @@ import lombok.extern.slf4j.Slf4j;
 /** A Validator for StructuredProperties Aspect that is attached to entities like Datasets, etc. */
 @Slf4j
 public class StructuredPropertiesValidator extends AspectPayloadValidator {
+  private static final Set<ChangeType> CHANGE_TYPES =
+      ImmutableSet.of(ChangeType.CREATE, ChangeType.CREATE_ENTITY, ChangeType.UPSERT);
 
   private static final Set<LogicalValueType> VALID_VALUE_STORED_AS_STRING =
       new HashSet<>(
@@ -78,17 +80,18 @@ public class StructuredPropertiesValidator extends AspectPayloadValidator {
 
   @Override
   protected Stream<AspectValidationException> validateProposedAspects(
-      @Nonnull Collection<? extends BatchItem> mcpItems, @Nonnull AspectRetriever aspectRetriever) {
+      @Nonnull Collection<? extends BatchItem> mcpItems,
+      @Nonnull RetrieverContext retrieverContext) {
     return validateProposedUpserts(
         mcpItems.stream()
-            .filter(i -> ChangeType.UPSERT.equals(i.getChangeType()))
+            .filter(i -> CHANGE_TYPES.contains(i.getChangeType()))
             .collect(Collectors.toList()),
-        aspectRetriever);
+        retrieverContext.getAspectRetriever());
   }
 
   @Override
   protected Stream<AspectValidationException> validatePreCommitAspects(
-      @Nonnull Collection<ChangeMCP> changeMCPs, AspectRetriever aspectRetriever) {
+      @Nonnull Collection<ChangeMCP> changeMCPs, @Nonnull RetrieverContext retrieverContext) {
     return Stream.empty();
   }
 
@@ -339,14 +342,10 @@ public class StructuredPropertiesValidator extends AspectPayloadValidator {
     if (structuredPropertyUrns.isEmpty()) {
       return Collections.emptyMap();
     } else {
-      try {
-        return aspectRetriever.getLatestAspectObjects(
-            structuredPropertyUrns,
-            ImmutableSet.of(
-                Constants.STATUS_ASPECT_NAME, STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME));
-      } catch (RemoteInvocationException | URISyntaxException e) {
-        throw new RuntimeException(e);
-      }
+      return aspectRetriever.getLatestAspectObjects(
+          structuredPropertyUrns,
+          ImmutableSet.of(
+              Constants.STATUS_ASPECT_NAME, STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME));
     }
   }
 }

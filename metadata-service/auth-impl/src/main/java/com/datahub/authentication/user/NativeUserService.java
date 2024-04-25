@@ -2,7 +2,6 @@ package com.datahub.authentication.user;
 
 import static com.linkedin.metadata.Constants.*;
 
-import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationConfiguration;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.CorpuserUrn;
@@ -13,9 +12,10 @@ import com.linkedin.identity.CorpUserCredentials;
 import com.linkedin.identity.CorpUserInfo;
 import com.linkedin.identity.CorpUserStatus;
 import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.metadata.secret.SecretService;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.services.SecretService;
 import java.time.Instant;
 import java.util.Base64;
 import java.util.Objects;
@@ -36,22 +36,23 @@ public class NativeUserService {
   private final AuthenticationConfiguration _authConfig;
 
   public void createNativeUser(
+      @Nonnull OperationContext opContext,
       @Nonnull String userUrnString,
       @Nonnull String fullName,
       @Nonnull String email,
       @Nonnull String title,
-      @Nonnull String password,
-      @Nonnull Authentication authentication)
+      @Nonnull String password)
       throws Exception {
     Objects.requireNonNull(userUrnString, "userUrnSting must not be null!");
     Objects.requireNonNull(fullName, "fullName must not be null!");
     Objects.requireNonNull(email, "email must not be null!");
     Objects.requireNonNull(title, "title must not be null!");
     Objects.requireNonNull(password, "password must not be null!");
-    Objects.requireNonNull(authentication, "authentication must not be null!");
+    Objects.requireNonNull(
+        opContext.getSessionAuthentication(), "authentication must not be null!");
 
     final Urn userUrn = Urn.createFromString(userUrnString);
-    if (_entityService.exists(userUrn, true)
+    if (_entityService.exists(opContext, userUrn, true)
         // Should never fail these due to Controller level check, but just in case more usages get
         // put in
         || userUrn.toString().equals(SYSTEM_ACTOR)
@@ -60,17 +61,17 @@ public class NativeUserService {
         || userUrn.toString().equals(UNKNOWN_ACTOR)) {
       throw new RuntimeException("This user already exists! Cannot create a new user.");
     }
-    updateCorpUserInfo(userUrn, fullName, email, title, authentication);
-    updateCorpUserStatus(userUrn, authentication);
-    updateCorpUserCredentials(userUrn, password, authentication);
+    updateCorpUserInfo(opContext, userUrn, fullName, email, title);
+    updateCorpUserStatus(opContext, userUrn);
+    updateCorpUserCredentials(opContext, userUrn, password);
   }
 
   void updateCorpUserInfo(
+      @Nonnull OperationContext opContext,
       @Nonnull Urn userUrn,
       @Nonnull String fullName,
       @Nonnull String email,
-      @Nonnull String title,
-      Authentication authentication)
+      @Nonnull String title)
       throws Exception {
     // Construct corpUserInfo
     final CorpUserInfo corpUserInfo = new CorpUserInfo();
@@ -87,10 +88,11 @@ public class NativeUserService {
     corpUserInfoProposal.setAspectName(CORP_USER_INFO_ASPECT_NAME);
     corpUserInfoProposal.setAspect(GenericRecordUtils.serializeAspect(corpUserInfo));
     corpUserInfoProposal.setChangeType(ChangeType.UPSERT);
-    _entityClient.ingestProposal(corpUserInfoProposal, authentication);
+    _entityClient.ingestProposal(opContext, corpUserInfoProposal);
   }
 
-  void updateCorpUserStatus(@Nonnull Urn userUrn, Authentication authentication) throws Exception {
+  void updateCorpUserStatus(@Nonnull OperationContext opContext, @Nonnull Urn userUrn)
+      throws Exception {
     // Construct corpUserStatus
     CorpUserStatus corpUserStatus = new CorpUserStatus();
     corpUserStatus.setStatus(CORP_USER_STATUS_ACTIVE);
@@ -106,11 +108,11 @@ public class NativeUserService {
     corpUserStatusProposal.setAspectName(CORP_USER_STATUS_ASPECT_NAME);
     corpUserStatusProposal.setAspect(GenericRecordUtils.serializeAspect(corpUserStatus));
     corpUserStatusProposal.setChangeType(ChangeType.UPSERT);
-    _entityClient.ingestProposal(corpUserStatusProposal, authentication);
+    _entityClient.ingestProposal(opContext, corpUserStatusProposal);
   }
 
   void updateCorpUserCredentials(
-      @Nonnull Urn userUrn, @Nonnull String password, @Nonnull Authentication authentication)
+      @Nonnull OperationContext opContext, @Nonnull Urn userUrn, @Nonnull String password)
       throws Exception {
     // Construct corpUserCredentials
     CorpUserCredentials corpUserCredentials = new CorpUserCredentials();
@@ -127,18 +129,18 @@ public class NativeUserService {
     corpUserCredentialsProposal.setAspectName(CORP_USER_CREDENTIALS_ASPECT_NAME);
     corpUserCredentialsProposal.setAspect(GenericRecordUtils.serializeAspect(corpUserCredentials));
     corpUserCredentialsProposal.setChangeType(ChangeType.UPSERT);
-    _entityClient.ingestProposal(corpUserCredentialsProposal, authentication);
+    _entityClient.ingestProposal(opContext, corpUserCredentialsProposal);
   }
 
   public String generateNativeUserPasswordResetToken(
-      @Nonnull String userUrnString, Authentication authentication) throws Exception {
+      @Nonnull OperationContext opContext, @Nonnull String userUrnString) throws Exception {
     Objects.requireNonNull(userUrnString, "userUrnString must not be null!");
 
     Urn userUrn = Urn.createFromString(userUrnString);
 
     CorpUserCredentials corpUserCredentials =
         (CorpUserCredentials)
-            _entityService.getLatestAspect(userUrn, CORP_USER_CREDENTIALS_ASPECT_NAME);
+            _entityService.getLatestAspect(opContext, userUrn, CORP_USER_CREDENTIALS_ASPECT_NAME);
     if (corpUserCredentials == null
         || !corpUserCredentials.hasSalt()
         || !corpUserCredentials.hasHashedPassword()) {
@@ -158,16 +160,16 @@ public class NativeUserService {
     corpUserCredentialsProposal.setAspectName(CORP_USER_CREDENTIALS_ASPECT_NAME);
     corpUserCredentialsProposal.setAspect(GenericRecordUtils.serializeAspect(corpUserCredentials));
     corpUserCredentialsProposal.setChangeType(ChangeType.UPSERT);
-    _entityClient.ingestProposal(corpUserCredentialsProposal, authentication);
+    _entityClient.ingestProposal(opContext, corpUserCredentialsProposal);
 
     return passwordResetToken;
   }
 
   public void resetCorpUserCredentials(
+      @Nonnull OperationContext opContext,
       @Nonnull String userUrnString,
       @Nonnull String password,
-      @Nonnull String resetToken,
-      Authentication authentication)
+      @Nonnull String resetToken)
       throws Exception {
     Objects.requireNonNull(userUrnString, "userUrnString must not be null!");
     Objects.requireNonNull(password, "password must not be null!");
@@ -177,7 +179,7 @@ public class NativeUserService {
 
     CorpUserCredentials corpUserCredentials =
         (CorpUserCredentials)
-            _entityService.getLatestAspect(userUrn, CORP_USER_CREDENTIALS_ASPECT_NAME);
+            _entityService.getLatestAspect(opContext, userUrn, CORP_USER_CREDENTIALS_ASPECT_NAME);
 
     if (corpUserCredentials == null
         || !corpUserCredentials.hasSalt()
@@ -216,10 +218,11 @@ public class NativeUserService {
     corpUserCredentialsProposal.setAspectName(CORP_USER_CREDENTIALS_ASPECT_NAME);
     corpUserCredentialsProposal.setAspect(GenericRecordUtils.serializeAspect(corpUserCredentials));
     corpUserCredentialsProposal.setChangeType(ChangeType.UPSERT);
-    _entityClient.ingestProposal(corpUserCredentialsProposal, authentication);
+    _entityClient.ingestProposal(opContext, corpUserCredentialsProposal);
   }
 
-  public boolean doesPasswordMatch(@Nonnull String userUrnString, @Nonnull String password)
+  public boolean doesPasswordMatch(
+      @Nonnull OperationContext opContext, @Nonnull String userUrnString, @Nonnull String password)
       throws Exception {
     Objects.requireNonNull(userUrnString, "userUrnSting must not be null!");
     Objects.requireNonNull(password, "Password must not be null!");
@@ -227,7 +230,7 @@ public class NativeUserService {
     Urn userUrn = Urn.createFromString(userUrnString);
     CorpUserCredentials corpUserCredentials =
         (CorpUserCredentials)
-            _entityService.getLatestAspect(userUrn, CORP_USER_CREDENTIALS_ASPECT_NAME);
+            _entityService.getLatestAspect(opContext, userUrn, CORP_USER_CREDENTIALS_ASPECT_NAME);
     if (corpUserCredentials == null
         || !corpUserCredentials.hasSalt()
         || !corpUserCredentials.hasHashedPassword()) {

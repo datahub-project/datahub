@@ -39,9 +39,9 @@ public class BatchAssignFormResolver implements DataFetcher<CompletableFuture<Bo
         () -> {
           try {
             _formService.batchAssignFormToEntities(
+                context.getOperationContext(),
                 entityUrns.stream().map(UrnUtils::getUrn).collect(Collectors.toList()),
-                formUrn,
-                authentication);
+                formUrn);
             return true;
           } catch (Exception e) {
             throw new RuntimeException(

@@ -59,16 +59,17 @@ public class MLPrimaryKeyType implements SearchableEntityType<MLPrimaryKey, Stri
   @Override
   public List<DataFetcherResult<MLPrimaryKey>> batchLoad(
       final List<String> urns, @Nonnull final QueryContext context) throws Exception {
+
     final List<Urn> mlPrimaryKeyUrns =
         urns.stream().map(UrnUtils::getUrn).collect(Collectors.toList());
 
     try {
       final Map<Urn, EntityResponse> mlPrimaryKeyMap =
           _entityClient.batchGetV2(
+              context.getOperationContext(),
               ML_PRIMARY_KEY_ENTITY_NAME,
               new HashSet<>(mlPrimaryKeyUrns),
-              null,
-              context.getAuthentication());
+              null);
 
       final List<EntityResponse> gmsResults =
           mlPrimaryKeyUrns.stream()
@@ -81,7 +82,7 @@ public class MLPrimaryKeyType implements SearchableEntityType<MLPrimaryKey, Stri
                   gmsMlPrimaryKey == null
                       ? null
                       : DataFetcherResult.<MLPrimaryKey>newResult()
-                          .data(MLPrimaryKeyMapper.map(gmsMlPrimaryKey))
+                          .data(MLPrimaryKeyMapper.map(context, gmsMlPrimaryKey))
                           .build())
           .collect(Collectors.toList());
     } catch (Exception e) {
@@ -106,7 +107,7 @@ public class MLPrimaryKeyType implements SearchableEntityType<MLPrimaryKey, Stri
             facetFilters,
             start,
             count);
-    return UrnSearchResultsMapper.map(searchResult);
+    return UrnSearchResultsMapper.map(context, searchResult);
   }
 
   @Override
@@ -120,6 +121,6 @@ public class MLPrimaryKeyType implements SearchableEntityType<MLPrimaryKey, Stri
     final AutoCompleteResult result =
         _entityClient.autoComplete(
             context.getOperationContext(), "mlPrimaryKey", query, filters, limit);
-    return AutoCompleteResultsMapper.map(result);
+    return AutoCompleteResultsMapper.map(context, result);
   }
 }

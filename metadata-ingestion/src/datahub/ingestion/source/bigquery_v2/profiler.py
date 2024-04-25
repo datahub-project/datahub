@@ -91,7 +91,7 @@ class BigqueryProfiler(GenericProfiler):
                     )
                 else:
                     logger.warning(
-                        f"Partitioned table {table.name} without partiton column"
+                        f"Partitioned table {table.name} without partition column"
                     )
                     self.report.profiling_skipped_invalid_partition_ids[
                         f"{project}.{schema}.{table.name}"
@@ -159,7 +159,7 @@ WHERE
     def get_workunits(
         self, project_id: str, tables: Dict[str, List[BigqueryTable]]
     ) -> Iterable[MetadataWorkUnit]:
-        profile_requests = []
+        profile_requests: List[TableProfilerRequest] = []
 
         for dataset in tables:
             for table in tables[dataset]:
@@ -174,10 +174,17 @@ WHERE
                     )
 
                 # Emit the profile work unit
+                logger.debug(
+                    f"Creating profile request for table {normalized_table_name}"
+                )
                 profile_request = self.get_profile_request(table, dataset, project_id)
                 if profile_request is not None:
                     self.report.report_entity_profiled(profile_request.pretty_name)
                     profile_requests.append(profile_request)
+                else:
+                    logger.debug(
+                        f"Table {normalized_table_name} was not eliagible for profiling."
+                    )
 
         if len(profile_requests) == 0:
             return

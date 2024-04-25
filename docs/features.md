@@ -1,3 +1,9 @@
+---
+hide_title: true
+slug: /features
+---
+
+
 import QuickstartCards from '@site/src/pages/docs/_components/QuickstartCards';
 import FeatureCardSection from '@site/src/pages/docs/_components/FeatureCardSection';
 

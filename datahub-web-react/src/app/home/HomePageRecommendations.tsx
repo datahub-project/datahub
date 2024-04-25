@@ -21,6 +21,8 @@ import {
     HOME_PAGE_PLATFORMS_ID,
 } from '../onboarding/config/HomePageOnboardingConfig';
 import { useToggleEducationStepIdsAllowList } from '../onboarding/useToggleEducationStepIdsAllowList';
+import { useBusinessAttributesFlag } from '../useAppConfig';
+import { useUserContext } from '../context/useUserContext';
 
 const PLATFORMS_MODULE_ID = 'Platforms';
 const MOST_POPULAR_MODULE_ID = 'HighUsageEntities';
@@ -104,12 +106,18 @@ export const HomePageRecommendations = ({ user }: Props) => {
     const browseEntityList = entityRegistry.getBrowseEntityTypes();
     const userUrn = user?.urn;
 
+    const userContext = useUserContext();
+    const viewUrn = userContext.localState?.selectedViewUrn;
+
+    const businessAttributesFlag = useBusinessAttributesFlag();
+
     const showSimplifiedHomepage = user?.settings?.appearance?.showSimplifiedHomepage;
 
     const { data: entityCountData } = useGetEntityCountsQuery({
         variables: {
             input: {
                 types: browseEntityList,
+                viewUrn
             },
         },
     });
@@ -130,6 +138,7 @@ export const HomePageRecommendations = ({ user }: Props) => {
                     scenario,
                 },
                 limit: 10,
+                viewUrn
             },
         },
         fetchPolicy: 'no-cache',
@@ -182,7 +191,22 @@ export const HomePageRecommendations = ({ user }: Props) => {
                             {orderedEntityCounts.map(
                                 (entityCount) =>
                                     entityCount &&
-                                    entityCount.count !== 0 && (
+                                    entityCount.count !== 0 && 
+                                    entityCount.entityType !== EntityType.BusinessAttribute && 
+                                    (
+                                        <BrowseEntityCard
+                                            key={entityCount.entityType}
+                                            entityType={entityCount.entityType}
+                                            count={entityCount.count}
+                                        />
+                                    ),
+                            )}
+                            {orderedEntityCounts.map(
+                                (entityCount) =>
+                                    entityCount &&
+                                    entityCount.count !== 0 && 
+                                    entityCount.entityType === EntityType.BusinessAttribute && 
+                                    businessAttributesFlag && (
                                         <BrowseEntityCard
                                             key={entityCount.entityType}
                                             entityType={entityCount.entityType}
@@ -194,11 +218,11 @@ export const HomePageRecommendations = ({ user }: Props) => {
                                 (entityCount) => entityCount.entityType === EntityType.GlossaryTerm,
                             ) && <BrowseEntityCard entityType={EntityType.GlossaryTerm} count={0} />}
                         </BrowseCardContainer>
-                    ) : (
+                        ) : (
                         <NoMetadataContainer>
                             <NoMetadataEmpty description="No Metadata Found 😢" />
                         </NoMetadataContainer>
-                    )}
+                        )}
                 </RecommendationContainer>
             )}
             {recommendationModules &&

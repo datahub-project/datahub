@@ -24,7 +24,6 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import javax.annotation.Nonnull;
@@ -88,6 +87,15 @@ public class GraphQLController {
     }
 
     /*
+     * Extract "operationName" field
+     */
+    JsonNode operationNameJson = bodyJson.get("operationName");
+    final String operationName =
+        (operationNameJson != null && !operationNameJson.isNull())
+            ? operationNameJson.asText()
+            : null;
+
+    /*
      * Extract "variables" map
      */
     JsonNode variablesJson = bodyJson.get("variables");
@@ -103,8 +111,15 @@ public class GraphQLController {
      * Init QueryContext
      */
     Authentication authentication = AuthenticationContext.getAuthentication();
+
     SpringQueryContext context =
-        new SpringQueryContext(true, authentication, _authorizerChain, systemOperationContext);
+        new SpringQueryContext(
+            true,
+            authentication,
+            _authorizerChain,
+            systemOperationContext,
+            queryJson.asText(),
+            variables);
     Span.current().setAttribute("actor.urn", context.getActorUrn());
 
     return CompletableFuture.supplyAsync(
@@ -112,7 +127,8 @@ public class GraphQLController {
           /*
            * Execute GraphQL Query
            */
-          ExecutionResult executionResult = _engine.execute(queryJson.asText(), variables, context);
+          ExecutionResult executionResult =
+              _engine.execute(queryJson.asText(), operationName, variables, context);
 
           if (executionResult.getErrors().size() != 0) {
             // There were GraphQL errors. Report in error logs.
@@ -193,12 +209,14 @@ public class GraphQLController {
         // Extract top level resolver, parent is top level query. Assumes single query per call.
         List<Map<String, Object>> resolvers =
             (List<Map<String, Object>>) executionData.get("resolvers");
-        Optional<Map<String, Object>> parentResolver =
-            resolvers.stream()
-                .filter(resolver -> resolver.get("parentType").equals("Query"))
-                .findFirst();
         String fieldName =
-            parentResolver.isPresent() ? (String) parentResolver.get().get("fieldName") : "UNKNOWN";
+            resolvers.stream()
+                .filter(
+                    resolver -> List.of("Query", "Mutation").contains(resolver.get("parentType")))
+                .findFirst()
+                .map(parentResolver -> parentResolver.get("fieldName"))
+                .map(Object::toString)
+                .orElse("UNKNOWN");
         MetricUtils.get()
             .histogram(MetricRegistry.name(this.getClass(), fieldName))
             .update(totalDuration);

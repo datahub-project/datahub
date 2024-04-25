@@ -21,6 +21,9 @@ query getMLModelGroup($urn: String!) {
         ) {
             ...fullRelationshipResults
         }
+        privileges {
+            ...entityPrivileges
+        }
         autoRenderAspects: aspects(input: { autoRenderOnly: true }) {
             ...autoRenderAspectFields
         }

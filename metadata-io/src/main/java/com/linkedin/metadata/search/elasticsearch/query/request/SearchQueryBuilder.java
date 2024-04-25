@@ -1,5 +1,6 @@
 package com.linkedin.metadata.search.elasticsearch.query.request;
 
+import static com.linkedin.metadata.Constants.SKIP_REFERENCE_ASPECT;
 import static com.linkedin.metadata.models.SearchableFieldSpecExtractor.PRIMARY_URN_SEARCH_PROPERTIES;
 import static com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBuilder.*;
 import static com.linkedin.metadata.search.elasticsearch.query.request.SearchFieldConfig.*;
@@ -16,12 +17,17 @@ import com.linkedin.metadata.config.search.WordGramConfiguration;
 import com.linkedin.metadata.config.search.custom.BoolQueryConfiguration;
 import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
 import com.linkedin.metadata.config.search.custom.QueryConfiguration;
+import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.SearchScoreFieldSpec;
 import com.linkedin.metadata.models.SearchableFieldSpec;
+import com.linkedin.metadata.models.SearchableRefFieldSpec;
 import com.linkedin.metadata.models.annotation.SearchScoreAnnotation;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
+import com.linkedin.metadata.models.annotation.SearchableRefAnnotation;
+import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.utils.ESUtils;
+import io.datahubproject.metadata.context.OperationContext;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -97,12 +103,15 @@ public class SearchQueryBuilder {
   }
 
   public QueryBuilder buildQuery(
-      @Nonnull List<EntitySpec> entitySpecs, @Nonnull String query, boolean fulltext) {
+      @Nonnull OperationContext opContext,
+      @Nonnull List<EntitySpec> entitySpecs,
+      @Nonnull String query,
+      boolean fulltext) {
     QueryConfiguration customQueryConfig =
         customizedQueryHandler.lookupQueryConfig(query).orElse(null);
 
     final QueryBuilder queryBuilder =
-        buildInternalQuery(customQueryConfig, entitySpecs, query, fulltext);
+        buildInternalQuery(opContext, customQueryConfig, entitySpecs, query, fulltext);
     return buildScoreFunctions(customQueryConfig, entitySpecs, queryBuilder);
   }
 
@@ -116,6 +125,7 @@ public class SearchQueryBuilder {
    * @return query builder
    */
   private QueryBuilder buildInternalQuery(
+      @Nonnull OperationContext opContext,
       @Nullable QueryConfiguration customQueryConfig,
       @Nonnull List<EntitySpec> entitySpecs,
       @Nonnull String query,
@@ -124,21 +134,26 @@ public class SearchQueryBuilder {
     final BoolQueryBuilder finalQuery =
         Optional.ofNullable(customQueryConfig)
             .flatMap(cqc -> boolQueryBuilder(cqc, sanitizedQuery))
-            .orElse(QueryBuilders.boolQuery());
+            .orElse(QueryBuilders.boolQuery())
+            .minimumShouldMatch(1);
 
     if (fulltext && !query.startsWith(STRUCTURED_QUERY_PREFIX)) {
-      getSimpleQuery(customQueryConfig, entitySpecs, sanitizedQuery).ifPresent(finalQuery::should);
-      getPrefixAndExactMatchQuery(customQueryConfig, entitySpecs, sanitizedQuery)
+      getSimpleQuery(opContext.getEntityRegistry(), customQueryConfig, entitySpecs, sanitizedQuery)
+          .ifPresent(finalQuery::should);
+      getPrefixAndExactMatchQuery(
+              opContext.getEntityRegistry(), customQueryConfig, entitySpecs, sanitizedQuery)
           .ifPresent(finalQuery::should);
     } else {
       final String withoutQueryPrefix =
           query.startsWith(STRUCTURED_QUERY_PREFIX)
               ? query.substring(STRUCTURED_QUERY_PREFIX.length())
               : query;
-      getStructuredQuery(customQueryConfig, entitySpecs, withoutQueryPrefix)
+      getStructuredQuery(
+              opContext.getEntityRegistry(), customQueryConfig, entitySpecs, withoutQueryPrefix)
           .ifPresent(finalQuery::should);
       if (exactMatchConfiguration.isEnableStructured()) {
-        getPrefixAndExactMatchQuery(customQueryConfig, entitySpecs, withoutQueryPrefix)
+        getPrefixAndExactMatchQuery(
+                opContext.getEntityRegistry(), customQueryConfig, entitySpecs, withoutQueryPrefix)
             .ifPresent(finalQuery::should);
       }
     }
@@ -154,7 +169,8 @@ public class SearchQueryBuilder {
    * @return A set of SearchFieldConfigs containing the searchable fields from the input entities.
    */
   @VisibleForTesting
-  public Set<SearchFieldConfig> getStandardFields(@Nonnull Collection<EntitySpec> entitySpecs) {
+  public Set<SearchFieldConfig> getStandardFields(
+      @Nonnull EntityRegistry entityRegistry, @Nonnull Collection<EntitySpec> entitySpecs) {
     Set<SearchFieldConfig> fields = new HashSet<>();
     // Always present
     final float urnBoost =
@@ -171,7 +187,7 @@ public class SearchQueryBuilder {
             true));
 
     entitySpecs.stream()
-        .map(this::getFieldsFromEntitySpec)
+        .map(spec -> getFieldsFromEntitySpec(entityRegistry, spec))
         .flatMap(Set::stream)
         .collect(Collectors.groupingBy(SearchFieldConfig::fieldName))
         .forEach(
@@ -198,7 +214,8 @@ public class SearchQueryBuilder {
   }
 
   @VisibleForTesting
-  public Set<SearchFieldConfig> getFieldsFromEntitySpec(EntitySpec entitySpec) {
+  public Set<SearchFieldConfig> getFieldsFromEntitySpec(
+      @Nonnull EntityRegistry entityRegistry, EntitySpec entitySpec) {
     Set<SearchFieldConfig> fields = new HashSet<>();
     List<SearchableFieldSpec> searchableFieldSpecs = entitySpec.getSearchableFieldSpecs();
     for (SearchableFieldSpec fieldSpec : searchableFieldSpecs) {
@@ -220,43 +237,74 @@ public class SearchQueryBuilder {
                 searchableAnnotation.isQueryByDefault()));
 
         if (SearchFieldConfig.detectSubFieldType(fieldSpec).hasWordGramSubfields()) {
+          addWordGramSearchConfig(fields, searchFieldConfig);
+        }
+      }
+    }
+
+    List<SearchableRefFieldSpec> searchableRefFieldSpecs = entitySpec.getSearchableRefFieldSpecs();
+    for (SearchableRefFieldSpec refFieldSpec : searchableRefFieldSpecs) {
+      int depth = refFieldSpec.getSearchableRefAnnotation().getDepth();
+      Set<SearchFieldConfig> searchFieldConfig =
+          SearchFieldConfig.detectSubFieldType(refFieldSpec, depth, entityRegistry);
+      fields.addAll(searchFieldConfig);
+
+      Map<String, SearchableAnnotation.FieldType> fieldTypeMap =
+          getAllFieldTypeFromSearchableRef(refFieldSpec, depth, entityRegistry, "");
+      for (SearchFieldConfig fieldConfig : searchFieldConfig) {
+        if (fieldConfig.hasDelimitedSubfield()) {
           fields.add(
-              SearchFieldConfig.builder()
-                  .fieldName(searchFieldConfig.fieldName() + ".wordGrams2")
-                  .boost(searchFieldConfig.boost() * wordGramConfiguration.getTwoGramFactor())
-                  .analyzer(WORD_GRAM_2_ANALYZER)
-                  .hasKeywordSubfield(true)
-                  .hasDelimitedSubfield(true)
-                  .hasWordGramSubfields(true)
-                  .isQueryByDefault(true)
-                  .build());
-          fields.add(
-              SearchFieldConfig.builder()
-                  .fieldName(searchFieldConfig.fieldName() + ".wordGrams3")
-                  .boost(searchFieldConfig.boost() * wordGramConfiguration.getThreeGramFactor())
-                  .analyzer(WORD_GRAM_3_ANALYZER)
-                  .hasKeywordSubfield(true)
-                  .hasDelimitedSubfield(true)
-                  .hasWordGramSubfields(true)
-                  .isQueryByDefault(true)
-                  .build());
-          fields.add(
-              SearchFieldConfig.builder()
-                  .fieldName(searchFieldConfig.fieldName() + ".wordGrams4")
-                  .boost(searchFieldConfig.boost() * wordGramConfiguration.getFourGramFactor())
-                  .analyzer(WORD_GRAM_4_ANALYZER)
-                  .hasKeywordSubfield(true)
-                  .hasDelimitedSubfield(true)
-                  .hasWordGramSubfields(true)
-                  .isQueryByDefault(true)
-                  .build());
+              SearchFieldConfig.detectSubFieldType(
+                  fieldConfig.fieldName() + ".delimited",
+                  fieldConfig.boost() * partialConfiguration.getFactor(),
+                  fieldTypeMap.get(fieldConfig.fieldName()),
+                  fieldConfig.isQueryByDefault()));
+        }
+
+        if (fieldConfig.hasWordGramSubfields()) {
+          addWordGramSearchConfig(fields, fieldConfig);
         }
       }
     }
     return fields;
   }
 
-  private Set<SearchFieldConfig> getStandardFields(@Nonnull EntitySpec entitySpec) {
+  private void addWordGramSearchConfig(
+      Set<SearchFieldConfig> fields, SearchFieldConfig searchFieldConfig) {
+    fields.add(
+        SearchFieldConfig.builder()
+            .fieldName(searchFieldConfig.fieldName() + ".wordGrams2")
+            .boost(searchFieldConfig.boost() * wordGramConfiguration.getTwoGramFactor())
+            .analyzer(WORD_GRAM_2_ANALYZER)
+            .hasKeywordSubfield(true)
+            .hasDelimitedSubfield(true)
+            .hasWordGramSubfields(true)
+            .isQueryByDefault(true)
+            .build());
+    fields.add(
+        SearchFieldConfig.builder()
+            .fieldName(searchFieldConfig.fieldName() + ".wordGrams3")
+            .boost(searchFieldConfig.boost() * wordGramConfiguration.getThreeGramFactor())
+            .analyzer(WORD_GRAM_3_ANALYZER)
+            .hasKeywordSubfield(true)
+            .hasDelimitedSubfield(true)
+            .hasWordGramSubfields(true)
+            .isQueryByDefault(true)
+            .build());
+    fields.add(
+        SearchFieldConfig.builder()
+            .fieldName(searchFieldConfig.fieldName() + ".wordGrams4")
+            .boost(searchFieldConfig.boost() * wordGramConfiguration.getFourGramFactor())
+            .analyzer(WORD_GRAM_4_ANALYZER)
+            .hasKeywordSubfield(true)
+            .hasDelimitedSubfield(true)
+            .hasWordGramSubfields(true)
+            .isQueryByDefault(true)
+            .build());
+  }
+
+  private Set<SearchFieldConfig> getStandardFields(
+      @Nonnull EntityRegistry entityRegistry, @Nonnull EntitySpec entitySpec) {
     Set<SearchFieldConfig> fields = new HashSet<>();
 
     // Always present
@@ -273,7 +321,7 @@ public class SearchQueryBuilder {
             SearchableAnnotation.FieldType.URN,
             true));
 
-    fields.addAll(getFieldsFromEntitySpec(entitySpec));
+    fields.addAll(getFieldsFromEntitySpec(entityRegistry, entitySpec));
 
     return fields;
   }
@@ -287,6 +335,7 @@ public class SearchQueryBuilder {
   }
 
   private Optional<QueryBuilder> getSimpleQuery(
+      @Nonnull EntityRegistry entityRegistry,
       @Nullable QueryConfiguration customQueryConfig,
       List<EntitySpec> entitySpecs,
       String sanitizedQuery) {
@@ -310,7 +359,7 @@ public class SearchQueryBuilder {
       // Group the fields by analyzer
       Map<String, List<SearchFieldConfig>> analyzerGroup =
           entitySpecs.stream()
-              .map(this::getStandardFields)
+              .map(spec -> getStandardFields(entityRegistry, spec))
               .flatMap(Set::stream)
               .filter(SearchFieldConfig::isQueryByDefault)
               .collect(Collectors.groupingBy(SearchFieldConfig::analyzer));
@@ -344,6 +393,7 @@ public class SearchQueryBuilder {
   }
 
   private Optional<QueryBuilder> getPrefixAndExactMatchQuery(
+      @Nonnull EntityRegistry entityRegistry,
       @Nullable QueryConfiguration customQueryConfig,
       @Nonnull List<EntitySpec> entitySpecs,
       String query) {
@@ -357,7 +407,7 @@ public class SearchQueryBuilder {
     BoolQueryBuilder finalQuery = QueryBuilders.boolQuery();
     String unquotedQuery = unquote(query);
 
-    getStandardFields(entitySpecs)
+    getStandardFields(entityRegistry, entitySpecs)
         .forEach(
             searchFieldConfig -> {
               if (searchFieldConfig.isDelimitedSubfield() && isPrefixQuery) {
@@ -412,6 +462,7 @@ public class SearchQueryBuilder {
   }
 
   private Optional<QueryBuilder> getStructuredQuery(
+      @Nonnull EntityRegistry entityRegistry,
       @Nullable QueryConfiguration customQueryConfig,
       List<EntitySpec> entitySpecs,
       String sanitizedQuery) {
@@ -427,7 +478,7 @@ public class SearchQueryBuilder {
     if (executeStructuredQuery) {
       QueryStringQueryBuilder queryBuilder = QueryBuilders.queryStringQuery(sanitizedQuery);
       queryBuilder.defaultOperator(Operator.AND);
-      getStandardFields(entitySpecs)
+      getStandardFields(entityRegistry, entitySpecs)
           .forEach(entitySpec -> queryBuilder.field(entitySpec.fieldName(), entitySpec.boost()));
       result = Optional.of(queryBuilder);
     }
@@ -600,5 +651,56 @@ public class SearchQueryBuilder {
       return wordGramConfiguration.getFourGramFactor();
     }
     throw new IllegalArgumentException(fieldName + " does not end with Grams[2-4]");
+  }
+
+  // visible for unit test
+  public Map<String, SearchableAnnotation.FieldType> getAllFieldTypeFromSearchableRef(
+      SearchableRefFieldSpec refFieldSpec,
+      int depth,
+      EntityRegistry entityRegistry,
+      String prefixField) {
+    final SearchableRefAnnotation searchableRefAnnotation =
+        refFieldSpec.getSearchableRefAnnotation();
+    // contains fieldName as key and SearchableAnnotation as value
+    Map<String, SearchableAnnotation.FieldType> fieldNameMap = new HashMap<>();
+    EntitySpec refEntitySpec = entityRegistry.getEntitySpec(searchableRefAnnotation.getRefType());
+    String fieldName = searchableRefAnnotation.getFieldName();
+    final SearchableAnnotation.FieldType fieldType = searchableRefAnnotation.getFieldType();
+    if (!prefixField.isEmpty()) {
+      fieldName = prefixField + "." + fieldName;
+    }
+
+    if (depth == 0) {
+      // at depth 0 only URN is present then add and return
+      fieldNameMap.put(fieldName, fieldType);
+      return fieldNameMap;
+    }
+    String urnFieldName = fieldName + ".urn";
+    fieldNameMap.put(urnFieldName, SearchableAnnotation.FieldType.URN);
+    List<AspectSpec> aspectSpecs = refEntitySpec.getAspectSpecs();
+    for (AspectSpec aspectSpec : aspectSpecs) {
+      if (!SKIP_REFERENCE_ASPECT.contains(aspectSpec.getName())) {
+        for (SearchableFieldSpec searchableFieldSpec : aspectSpec.getSearchableFieldSpecs()) {
+          String refFieldName = searchableFieldSpec.getSearchableAnnotation().getFieldName();
+          refFieldName = fieldName + "." + refFieldName;
+          final SearchableAnnotation searchableAnnotation =
+              searchableFieldSpec.getSearchableAnnotation();
+          final SearchableAnnotation.FieldType refFieldType = searchableAnnotation.getFieldType();
+          fieldNameMap.put(refFieldName, refFieldType);
+        }
+
+        for (SearchableRefFieldSpec searchableRefFieldSpec :
+            aspectSpec.getSearchableRefFieldSpecs()) {
+          String refFieldName = searchableRefFieldSpec.getSearchableRefAnnotation().getFieldName();
+          refFieldName = fieldName + "." + refFieldName;
+          int newDepth =
+              Math.min(depth - 1, searchableRefFieldSpec.getSearchableRefAnnotation().getDepth());
+          fieldNameMap.putAll(
+              getAllFieldTypeFromSearchableRef(
+                  searchableRefFieldSpec, newDepth, entityRegistry, refFieldName));
+        }
+      }
+    }
+    return fieldNameMap;
   }
 }

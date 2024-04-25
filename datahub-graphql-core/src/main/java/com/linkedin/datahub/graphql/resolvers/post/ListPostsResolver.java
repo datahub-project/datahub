@@ -67,20 +67,22 @@ public class ListPostsResolver implements DataFetcher<CompletableFuture<ListPost
             // Then, get and hydrate all Posts.
             final Map<Urn, EntityResponse> entities =
                 _entityClient.batchGetV2(
+                    context.getOperationContext(),
                     POST_ENTITY_NAME,
                     new HashSet<>(
                         gmsResult.getEntities().stream()
                             .map(SearchEntity::getEntity)
                             .collect(Collectors.toList())),
-                    null,
-                    authentication);
+                    null);
 
             final ListPostsResult result = new ListPostsResult();
             result.setStart(gmsResult.getFrom());
             result.setCount(gmsResult.getPageSize());
             result.setTotal(gmsResult.getNumEntities());
             result.setPosts(
-                entities.values().stream().map(PostMapper::map).collect(Collectors.toList()));
+                entities.values().stream()
+                    .map(e -> PostMapper.map(context, e))
+                    .collect(Collectors.toList()));
             return result;
           } catch (Exception e) {
             throw new RuntimeException("Failed to list posts", e);

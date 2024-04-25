@@ -54,7 +54,7 @@ export default function GroupListItem({ group, onDelete, selectRoleOptions, refe
             <GroupItemContainer>
                 <Link to={`${entityRegistry.getEntityUrl(EntityType.CorpGroup, group.urn)}`}>
                     <GroupHeaderContainer>
-                        <CustomAvatar size={32} name={displayName} />
+                        <CustomAvatar size={32} name={displayName}   photoUrl={group?.editableProperties?.pictureLink || undefined}/>
                         <div style={{ marginLeft: 16, marginRight: 16 }}>
                             <div>
                                 <Typography.Text>{displayName}</Typography.Text>

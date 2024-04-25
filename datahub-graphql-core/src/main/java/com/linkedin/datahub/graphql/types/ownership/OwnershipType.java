@@ -54,10 +54,10 @@ public class OwnershipType
     try {
       final Map<Urn, EntityResponse> entities =
           _entityClient.batchGetV2(
+              context.getOperationContext(),
               OWNERSHIP_TYPE_ENTITY_NAME,
               new HashSet<>(ownershipTypeUrns),
-              ASPECTS_TO_FETCH,
-              context.getAuthentication());
+              ASPECTS_TO_FETCH);
 
       final List<EntityResponse> gmsResults = new ArrayList<>();
       for (Urn urn : ownershipTypeUrns) {
@@ -69,7 +69,7 @@ public class OwnershipType
                   gmsResult == null
                       ? null
                       : DataFetcherResult.<OwnershipTypeEntity>newResult()
-                          .data(OwnershipTypeMapper.map(gmsResult))
+                          .data(OwnershipTypeMapper.map(context, gmsResult))
                           .build())
           .collect(Collectors.toList());
     } catch (Exception e) {

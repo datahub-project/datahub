@@ -166,17 +166,31 @@ The below example set as global tag the query tag `tag` key's value.
 
 ### Integrating with dbt test
 
-To integrate with dbt tests, the `dbt` source needs access to the `run_results.json` file generated after a `dbt test` execution. Typically, this is written to the `target` directory. A common pattern you can follow is:
+To integrate with dbt tests, the `dbt` source needs access to the `run_results.json` file generated after a `dbt test` or `dbt build` execution. Typically, this is written to the `target` directory. A common pattern you can follow is:
 
-1. Run `dbt docs generate` and upload `manifest.json` and `catalog.json` to a location accessible to the `dbt` source (e.g. s3 or local file system)
-2. Run `dbt test` and upload `run_results.json` to a location accessible to the `dbt` source (e.g. s3 or local file system)
-3. Run `datahub ingest -c dbt_recipe.dhub.yaml` with the following config parameters specified
-   - test_results_path: pointing to the run_results.json file that you just created
+1. Run `dbt build`
+2. Copy the `target/run_results.json` file to a separate location. This is important, because otherwise subsequent `dbt` commands will overwrite the run results.
+3. Run `dbt docs generate` to generate the `manifest.json` and `catalog.json` files
+4. The dbt source makes use of the manifest, catalog, and run results file, and hence will need to be moved to a location accessible to the `dbt` source (e.g. s3 or local file system). In the ingestion recipe, the `test_results_path` config must be set to the location of the `run_results.json` file from the `dbt build` or `dbt test` run.
 
 The connector will produce the following things:
 
 - Assertion definitions that are attached to the dataset (or datasets)
 - Results from running the tests attached to the timeline of the dataset
+
+:::note Missing test results?
+
+The most common reason for missing test results is that the `run_results.json` with the test result information is getting overwritten by a subsequent `dbt` command. We recommend copying the `run_results.json` file before running other `dbt` commands.
+
+```sh
+dbt source snapshot-freshness
+dbt build
+cp target/run_results.json target/run_results_backup.json
+dbt docs generate
+cp target/run_results_backup.json target/run_results.json
+```
+
+:::
 
 #### View of dbt tests for a dataset
 
@@ -220,3 +234,64 @@ source:
     entities_enabled:
       test_results: No
 ```
+
+### Multiple dbt projects
+
+In more complex dbt setups, you may have multiple dbt projects, where models from one project are used as sources in another project.
+DataHub supports this setup natively.
+
+Each dbt project should have its own dbt ingestion recipe, and the `platform_instance` field in the recipe should be set to the dbt project name.
+
+For example, if you have two dbt projects `analytics` and `data_mart`, you would have two ingestion recipes.
+If you have models in the `data_mart` project that are used as sources in the `analytics` project, the lineage will be automatically captured.
+
+```yaml
+# Analytics dbt project
+source:
+  type: dbt
+  config:
+    platform_instance: analytics
+    target_platform: postgres
+    manifest_path: analytics/target/manifest.json
+    catalog_path: analytics/target/catalog.json
+    # ... other configs
+```
+
+```yaml
+# Data Mart dbt project
+source:
+  type: dbt
+  config:
+    platform_instance: data_mart
+    target_platform: postgres
+    manifest_path: data_mart/target/manifest.json
+    catalog_path: data_mart/target/catalog.json
+    # ... other configs
+```
+
+<details>
+  <summary>[Experimental] Reducing "composed of" sprawl with multiproject setups</summary>
+
+When many dbt projects use a single table as a source, the "Composed Of" relationships can become very large and difficult to navigate.
+To address this, we are experimenting with an alternative approach to handling multiproject setups: not including sources.
+
+The benefit is that your entire dbt estate becomes much easier to navigate, and the borders between projects less noticeable.
+The downside is that we will not pick up any documentation or meta mappings applied to dbt sources.
+
+To enable this, set a few additional flags in your dbt source config:
+
+```yaml
+source:
+  type: dbt
+  config:
+    platform_instance: analytics
+    target_platform: postgres
+    manifest_path: analytics/target/manifest.json
+    catalog_path: analytics/target/catalog.json
+    # ... other configs
+    entities_enabled:
+      sources: No
+    skip_sources_in_lineage: true
+```
+
+</details>

@@ -16,9 +16,9 @@ import static com.linkedin.metadata.Constants.ML_MODEL_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.ML_MODEL_GROUP_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.ML_PRIMARY_KEY_ENTITY_NAME;
 
-import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.FacetFilterInput;
 import com.linkedin.datahub.graphql.types.common.mappers.SearchFlagsInputMapper;
@@ -33,6 +33,7 @@ import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.metadata.service.ViewService;
 import com.linkedin.view.DataHubViewInfo;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -70,7 +71,9 @@ public class SearchUtils {
           EntityType.CONTAINER,
           EntityType.DOMAIN,
           EntityType.DATA_PRODUCT,
-          EntityType.NOTEBOOK);
+          EntityType.NOTEBOOK,
+          EntityType.BUSINESS_ATTRIBUTE,
+          EntityType.SCHEMA_FIELD);
 
   /** Entities that are part of autocomplete by default in Auto Complete Across Entities */
   public static final List<EntityType> AUTO_COMPLETE_ENTITY_TYPES =
@@ -89,7 +92,9 @@ public class SearchUtils {
           EntityType.CORP_USER,
           EntityType.CORP_GROUP,
           EntityType.NOTEBOOK,
-          EntityType.DATA_PRODUCT);
+          EntityType.DATA_PRODUCT,
+          EntityType.DOMAIN,
+          EntityType.BUSINESS_ATTRIBUTE);
 
   /** Entities that are part of browse by default */
   public static final List<EntityType> BROWSE_ENTITY_TYPES =
@@ -251,11 +256,11 @@ public class SearchUtils {
    * specified urn cannot be found.
    */
   public static DataHubViewInfo resolveView(
+      @Nonnull OperationContext opContext,
       @Nonnull ViewService viewService,
-      @Nonnull final Urn viewUrn,
-      @Nonnull final Authentication authentication) {
+      @Nonnull final Urn viewUrn) {
     try {
-      DataHubViewInfo maybeViewInfo = viewService.getViewInfo(viewUrn, authentication);
+      DataHubViewInfo maybeViewInfo = viewService.getViewInfo(opContext, viewUrn);
       if (maybeViewInfo == null) {
         log.warn(
             String.format("Failed to resolve View with urn %s. View does not exist!", viewUrn));
@@ -287,10 +292,11 @@ public class SearchUtils {
   }
 
   public static SearchFlags mapInputFlags(
+      @Nullable QueryContext context,
       com.linkedin.datahub.graphql.generated.SearchFlags inputFlags) {
     SearchFlags searchFlags = null;
     if (inputFlags != null) {
-      searchFlags = SearchFlagsInputMapper.INSTANCE.apply(inputFlags);
+      searchFlags = SearchFlagsInputMapper.INSTANCE.apply(context, inputFlags);
     }
     return searchFlags;
   }

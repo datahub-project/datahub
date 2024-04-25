@@ -3,6 +3,7 @@ package com.linkedin.datahub.graphql.types.common.mappers;
 import com.linkedin.common.Operation;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.GetMode;
+import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.OperationSourceType;
 import com.linkedin.datahub.graphql.generated.OperationType;
 import com.linkedin.datahub.graphql.types.mappers.TimeSeriesAspectMapper;
@@ -10,6 +11,7 @@ import com.linkedin.metadata.aspect.EnvelopedAspect;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 public class OperationMapper
     implements TimeSeriesAspectMapper<com.linkedin.datahub.graphql.generated.Operation> {
@@ -17,13 +19,13 @@ public class OperationMapper
   public static final OperationMapper INSTANCE = new OperationMapper();
 
   public static com.linkedin.datahub.graphql.generated.Operation map(
-      @Nonnull final EnvelopedAspect envelopedAspect) {
-    return INSTANCE.apply(envelopedAspect);
+      @Nullable QueryContext context, @Nonnull final EnvelopedAspect envelopedAspect) {
+    return INSTANCE.apply(context, envelopedAspect);
   }
 
   @Override
   public com.linkedin.datahub.graphql.generated.Operation apply(
-      @Nonnull final EnvelopedAspect envelopedAspect) {
+      @Nullable QueryContext context, @Nonnull final EnvelopedAspect envelopedAspect) {
 
     Operation gmsProfile =
         GenericRecordUtils.deserializeAspect(
@@ -49,7 +51,7 @@ public class OperationMapper
       result.setPartition(gmsProfile.getPartitionSpec().getPartition(GetMode.NULL));
     }
     if (gmsProfile.hasCustomProperties()) {
-      result.setCustomProperties(StringMapMapper.map(gmsProfile.getCustomProperties()));
+      result.setCustomProperties(StringMapMapper.map(context, gmsProfile.getCustomProperties()));
     }
     if (gmsProfile.hasNumAffectedRows()) {
       result.setNumAffectedRows(gmsProfile.getNumAffectedRows());

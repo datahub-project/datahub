@@ -65,10 +65,10 @@ public class ListDataProductAssetsResolver
     try {
       final EntityResponse entityResponse =
           _entityClient.getV2(
+              context.getOperationContext(),
               Constants.DATA_PRODUCT_ENTITY_NAME,
               dataProductUrn,
-              Collections.singleton(Constants.DATA_PRODUCT_PROPERTIES_ASPECT_NAME),
-              context.getAuthentication());
+              Collections.singleton(Constants.DATA_PRODUCT_PROPERTIES_ASPECT_NAME));
       if (entityResponse != null
           && entityResponse
               .getAspects()
@@ -137,7 +137,7 @@ public class ListDataProductAssetsResolver
           final SearchFlags searchFlags;
           com.linkedin.datahub.graphql.generated.SearchFlags inputFlags = input.getSearchFlags();
           if (inputFlags != null) {
-            searchFlags = SearchFlagsInputMapper.INSTANCE.apply(inputFlags);
+            searchFlags = SearchFlagsInputMapper.INSTANCE.apply(context, inputFlags);
           } else {
             searchFlags = null;
           }
@@ -152,6 +152,7 @@ public class ListDataProductAssetsResolver
                 count);
 
             return UrnSearchResultsMapper.map(
+                context,
                 _entityClient.searchAcrossEntities(
                     context
                         .getOperationContext()

@@ -69,7 +69,7 @@ def pytest_collection_modifyitems(
     integration_path = root / "tests/integration"
 
     for item in items:
-        test_path = pathlib.Path(item.fspath)
+        test_path = item.path
 
         if (
             "docker_compose_runner" in item.fixturenames  # type: ignore[attr-defined]

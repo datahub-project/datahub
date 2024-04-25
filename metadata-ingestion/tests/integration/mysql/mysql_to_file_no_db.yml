@@ -34,6 +34,19 @@ source:
       "urn:li:domain:sales":
         allow:
           - "^metagalaxy"
+    classification:
+      enabled: True
+      classifiers:
+        - type: datahub          
+          config:
+            minimum_values_threshold: 1
+            info_types_config:
+              Full_Name:
+                prediction_factors_and_weights:
+                  name: 0.5
+                  description: 0
+                  datatype: 0
+                  values: 0.5
 sink:
   type: file
   config:

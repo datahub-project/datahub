@@ -1,3 +1,4 @@
+import json
 import logging
 from datetime import datetime, timezone
 from functools import lru_cache
@@ -78,6 +79,10 @@ class MetabaseConfig(DatasetLineageProviderConfigBase):
     default_schema: str = Field(
         default="public",
         description="Default schema name to use when schema is not provided in an SQL query",
+    )
+    exclude_other_user_collections: bool = Field(
+        default=False,
+        description="Flag that if true, exclude other user collections",
     )
 
     @validator("connect_uri", "display_uri")
@@ -209,6 +214,7 @@ class MetabaseSource(Source):
         try:
             collections_response = self.session.get(
                 f"{self.config.connect_uri}/api/collection/"
+                f"?exclude-other-user-collections={json.dumps(self.config.exclude_other_user_collections)}"
             )
             collections_response.raise_for_status()
             collections = collections_response.json()
@@ -252,7 +258,7 @@ class MetabaseSource(Source):
         self, dashboard_info: dict
     ) -> Optional[DashboardSnapshot]:
         dashboard_id = dashboard_info.get("id", "")
-        dashboard_url = f"{self.config.display_uri}/api/dashboard/{dashboard_id}"
+        dashboard_url = f"{self.config.connect_uri}/api/dashboard/{dashboard_id}"
         try:
             dashboard_response = self.session.get(dashboard_url)
             dashboard_response.raise_for_status()
@@ -296,7 +302,7 @@ class MetabaseSource(Source):
             title=title,
             charts=chart_urns,
             lastModified=last_modified,
-            dashboardUrl=f"{self.config.connect_uri}/dashboard/{dashboard_id}",
+            dashboardUrl=f"{self.config.display_uri}/dashboard/{dashboard_id}",
             customProperties={},
         )
         dashboard_snapshot.aspects.append(dashboard_info_class)
@@ -310,7 +316,7 @@ class MetabaseSource(Source):
 
     @lru_cache(maxsize=None)
     def _get_ownership(self, creator_id: int) -> Optional[OwnershipClass]:
-        user_info_url = f"{self.config.display_uri}/api/user/{creator_id}"
+        user_info_url = f"{self.config.connect_uri}/api/user/{creator_id}"
         try:
             user_info_response = self.session.get(user_info_url)
             user_info_response.raise_for_status()
@@ -375,7 +381,7 @@ class MetabaseSource(Source):
         :param int datasource_id: Numeric datasource ID received from Metabase API
         :return: dict with info or empty dict
         """
-        card_url = f"{self.config.display_uri}/api/card/{card_id}"
+        card_url = f"{self.config.connect_uri}/api/card/{card_id}"
         try:
             card_response = self.session.get(card_url)
             card_response.raise_for_status()
@@ -431,7 +437,7 @@ class MetabaseSource(Source):
             description=description,
             title=title,
             lastModified=last_modified,
-            chartUrl=f"{self.config.connect_uri}/card/{card_id}",
+            chartUrl=f"{self.config.display_uri}/card/{card_id}",
             inputs=datasource_urn,
             customProperties=custom_properties,
         )

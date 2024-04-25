@@ -35,6 +35,7 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.extractor import schema_util
+from datahub.ingestion.source.common.data_reader import DataReader
 from datahub.ingestion.source.sql.sql_common import (
     SQLAlchemySource,
     SqlWorkUnit,
@@ -334,9 +335,10 @@ class TrinoSource(SQLAlchemySource):
         schema: str,
         table: str,
         sql_config: SQLCommonConfig,
+        data_reader: Optional[DataReader],
     ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
         yield from super()._process_table(
-            dataset_name, inspector, schema, table, sql_config
+            dataset_name, inspector, schema, table, sql_config, data_reader
         )
         if self.config.ingest_lineage_to_connectors:
             dataset_urn = make_dataset_urn_with_platform_instance(

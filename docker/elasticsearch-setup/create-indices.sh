@@ -103,6 +103,36 @@ function create_if_not_exists {
   fi
 }
 
+# Update ISM policy. Non-fatal if policy cannot be updated.
+function update_ism_policy {
+  RESOURCE_ADDRESS="$1"
+  RESOURCE_DEFINITION_NAME="$2"
+
+  TMP_CURRENT_POLICY_PATH="/tmp/current-$RESOURCE_DEFINITION_NAME"
+
+  # Get existing policy
+  RESOURCE_STATUS=$(curl "${CURL_ARGS[@]}" -o $TMP_CURRENT_POLICY_PATH -w "%{http_code}\n" "$ELASTICSEARCH_URL/$RESOURCE_ADDRESS")
+  echo -e "\n>>> GET $RESOURCE_ADDRESS response code is $RESOURCE_STATUS"
+
+  if [ $RESOURCE_STATUS -ne 200 ]; then
+    echo -e ">>> Could not get ISM policy $RESOURCE_ADDRESS. Ignoring."
+    return
+  fi
+
+  SEQ_NO=$(cat $TMP_CURRENT_POLICY_PATH | jq -r '._seq_no')
+  PRIMARY_TERM=$(cat $TMP_CURRENT_POLICY_PATH | jq -r '._primary_term')
+
+  TMP_NEW_RESPONSE_PATH="/tmp/response-$RESOURCE_DEFINITION_NAME"
+  TMP_NEW_POLICY_PATH="/tmp/new-$RESOURCE_DEFINITION_NAME"
+  sed -e "s/PREFIX/$PREFIX/g" "$INDEX_DEFINITIONS_ROOT/$RESOURCE_DEFINITION_NAME" \
+      | sed -e "s/DUE_SHARDS/$DUE_SHARDS/g" \
+      | sed -e "s/DUE_REPLICAS/$DUE_REPLICAS/g" \
+      | tee -a "$TMP_NEW_POLICY_PATH"
+  RESOURCE_STATUS=$(curl "${CURL_ARGS[@]}" -XPUT "$ELASTICSEARCH_URL/$RESOURCE_ADDRESS?if_seq_no=$SEQ_NO&if_primary_term=$PRIMARY_TERM" \
+    -H 'Content-Type: application/json' -w "%{http_code}\n" -o $TMP_NEW_RESPONSE_PATH --data "@$TMP_NEW_POLICY_PATH")
+  echo -e "\n>>> PUT $RESOURCE_ADDRESS response code is $RESOURCE_STATUS"
+}
+
 # create indices for ES (non-AWS)
 function create_datahub_usage_event_datastream() {
   # non-AWS env requires creation of three resources for Datahub usage events:
@@ -119,6 +149,11 @@ function create_datahub_usage_event_aws_elasticsearch() {
   # AWS env requires creation of three resources for Datahub usage events:
   #   1. ISM policy
   create_if_not_exists "_opendistro/_ism/policies/${PREFIX}datahub_usage_event_policy" aws_es_ism_policy.json
+
+  #   1.1 ISM policy update if it already existed
+  if [ $RESOURCE_STATUS -eq 200 ]; then
+    update_ism_policy "_opendistro/_ism/policies/${PREFIX}datahub_usage_event_policy" aws_es_ism_policy.json
+  fi
 
   #   2. index template
   create_if_not_exists "_template/${PREFIX}datahub_usage_event_index_template" aws_es_index_template.json

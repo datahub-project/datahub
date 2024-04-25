@@ -148,8 +148,15 @@ export const SchemaTab = ({ properties }: { properties?: any }) => {
         }
     }, [hasValueSchema, hasKeySchema, setShowKeySchema]);
 
+    const sortedFields = schemaMetadata?.fields?.slice().sort((a, b) => {
+        if (a.isPartitioningKey === b.isPartitioningKey) {
+            return 0;
+        }
+        return a.isPartitioningKey ? -1 : 1;
+    });
+
     const { filteredRows, expandedRowsFromFilter } = filterSchemaRows(
-        schemaMetadata?.fields,
+        sortedFields,
         editableSchemaMetadata,
         filterText,
         entityRegistry,

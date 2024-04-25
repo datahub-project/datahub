@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.resolvers.test;
 
 import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.*;
 
+import com.datahub.authorization.AuthUtil;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.SetMode;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -14,14 +15,14 @@ import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.test.TestDefinition;
 import com.linkedin.test.TestDefinitionType;
 import java.util.Map;
-import java.util.Optional;
 import javax.annotation.Nonnull;
 
 public class TestUtils {
 
   /** Returns true if the authenticated user is able to manage tests. */
   public static boolean canManageTests(@Nonnull QueryContext context) {
-    return isAuthorized(context, Optional.empty(), PoliciesConfig.MANAGE_TESTS_PRIVILEGE);
+    return AuthUtil.isAuthorized(
+        context.getAuthorizer(), context.getActorUrn(), PoliciesConfig.MANAGE_TESTS_PRIVILEGE);
   }
 
   public static TestDefinition mapDefinition(final TestDefinitionInput testDefInput) {

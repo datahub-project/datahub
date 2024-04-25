@@ -64,7 +64,6 @@ describe("create and manage group", () => {
     });
 
     it("update group info", () => {
-        var expected_name = Cypress.env('ADMIN_USERNAME');
         cy.loginWithCredentials();
         cy.visit("/settings/identities/groups");
         cy.clickOptionWithText(group_name);
@@ -79,14 +78,14 @@ describe("create and manage group", () => {
         cy.waitTextVisible("Changes saved.");
         cy.contains("Test group description EDITED").should("be.visible");
         cy.clickOptionWithText("Add Owners");
-        cy.contains("Search for users or groups...").click({ force: true });
-        cy.focused().type(expected_name);
-        cy.get(".ant-select-item-option").contains(expected_name, { matchCase: false }).click();
+        cy.get('[id="owner"]').click({ force: true });
+        cy.focused().type(username);
+        cy.get(".ant-select-item-option").contains(username, { matchCase: false }).click();
         cy.focused().blur();
-        cy.contains(expected_name, { matchCase: false }).should("have.length", 1);
+        cy.contains(username, { matchCase: false }).should("have.length", 1);
         cy.get('[role="dialog"] button').contains("Done").click();
         cy.waitTextVisible("Owners Added");
-        cy.contains(expected_name, { matchCase: false }).should("be.visible");
+        cy.contains(username, { matchCase: false }).should("be.visible");
         cy.clickOptionWithText("Edit Group");
         cy.waitTextVisible("Edit Profile");
         cy.get("#email").type(`${test_id}@testemail.com`);
@@ -97,7 +96,7 @@ describe("create and manage group", () => {
         cy.waitTextVisible(`#${test_id}`);
     });
 
-    it("test user verify group participation", () => {
+    it("test User verify group participation", () => {
         cy.loginWithCredentials();
         cy.visit("/settings/identities/groups");
         cy.hideOnboardingTour();

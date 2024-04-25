@@ -66,6 +66,8 @@ import com.linkedin.mxe.PlatformEvent;
 import com.linkedin.mxe.PlatformEventHeader;
 import com.linkedin.platform.event.v1.EntityChangeEvent;
 import com.linkedin.platform.event.v1.Parameters;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.net.URISyntaxException;
 import java.util.Map;
 import org.mockito.Mockito;
@@ -106,7 +108,7 @@ public class EntityChangeEventGeneratorHookTest {
         createEntityChangeEventGeneratorRegistry();
     _entityChangeEventHook =
         new EntityChangeEventGeneratorHook(
-            entityChangeEventGeneratorRegistry, _mockClient, createMockEntityRegistry(), true);
+            createMockOperationContext(), entityChangeEventGeneratorRegistry, _mockClient, true);
   }
 
   @Test
@@ -567,7 +569,8 @@ public class EntityChangeEventGeneratorHookTest {
         buildEntityResponse(
             ImmutableMap.of(DATA_PROCESS_INSTANCE_RELATIONSHIPS_ASPECT_NAME, relationships));
 
-    Mockito.when(_mockClient.getV2(eq(dataProcessInstanceUrn), any())).thenReturn(entityResponse);
+    Mockito.when(_mockClient.getV2(any(OperationContext.class), eq(dataProcessInstanceUrn), any()))
+        .thenReturn(entityResponse);
 
     _entityChangeEventHook.invoke(event);
 
@@ -621,7 +624,8 @@ public class EntityChangeEventGeneratorHookTest {
         buildEntityResponse(
             ImmutableMap.of(DATA_PROCESS_INSTANCE_RELATIONSHIPS_ASPECT_NAME, relationships));
 
-    Mockito.when(_mockClient.getV2(eq(dataProcessInstanceUrn), any())).thenReturn(entityResponse);
+    Mockito.when(_mockClient.getV2(any(OperationContext.class), eq(dataProcessInstanceUrn), any()))
+        .thenReturn(entityResponse);
 
     _entityChangeEventHook.invoke(event);
 
@@ -720,11 +724,12 @@ public class EntityChangeEventGeneratorHookTest {
     registry.register(ASSERTION_RUN_EVENT_ASPECT_NAME, new AssertionRunEventChangeEventGenerator());
     registry.register(
         DATA_PROCESS_INSTANCE_RUN_EVENT_ASPECT_NAME,
-        new DataProcessInstanceRunEventChangeEventGenerator(_mockClient));
+        new DataProcessInstanceRunEventChangeEventGenerator(
+            mock(OperationContext.class), _mockClient));
     return registry;
   }
 
-  private EntityRegistry createMockEntityRegistry() {
+  private OperationContext createMockOperationContext() {
     EntityRegistry registry = Mockito.mock(EntityRegistry.class);
     // Build Dataset Entity Spec
     EntitySpec datasetSpec = Mockito.mock(EntitySpec.class);
@@ -772,7 +777,7 @@ public class EntityChangeEventGeneratorHookTest {
     Mockito.when(registry.getEntitySpec(DATA_PROCESS_INSTANCE_ENTITY_NAME))
         .thenReturn(dataProcessInstanceSpec);
 
-    return registry;
+    return TestOperationContexts.systemContextNoSearchAuthorization(registry);
   }
 
   private void verifyProducePlatformEvent(
@@ -786,6 +791,7 @@ public class EntityChangeEventGeneratorHookTest {
     // Verify event has been emitted.
     verify(mockClient, Mockito.times(1))
         .producePlatformEvent(
+            any(OperationContext.class),
             eq(CHANGE_EVENT_PLATFORM_EVENT_NAME),
             Mockito.anyString(),
             argThat(new PlatformEventMatcher(platformEvent)));

@@ -5,7 +5,7 @@ from typing_extensions import TypedDict
 
 
 class BasicSchemaDescription(TypedDict):
-    types: CounterType[type]  # field types and times seen
+    types: CounterType[Union[type, str]]  # field types and times seen
     count: int  # times the field was seen
 
 

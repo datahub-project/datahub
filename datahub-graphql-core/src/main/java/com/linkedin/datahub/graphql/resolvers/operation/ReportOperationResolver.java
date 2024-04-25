@@ -1,6 +1,6 @@
 package com.linkedin.datahub.graphql.resolvers.operation;
 
-import static com.linkedin.datahub.graphql.resolvers.AuthUtils.*;
+import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.ALL_PRIVILEGES_GROUP;
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.*;
 import static com.linkedin.metadata.Constants.*;
@@ -67,7 +67,7 @@ public class ReportOperationResolver implements DataFetcher<CompletableFuture<Bo
             final MetadataChangeProposal proposal =
                 buildMetadataChangeProposalWithUrn(
                     entityUrn, OPERATION_ASPECT_NAME, mapOperation(input, context));
-            _entityClient.ingestProposal(proposal, context.getAuthentication(), false);
+            _entityClient.ingestProposal(context.getOperationContext(), proposal, false);
             return true;
           } catch (Exception e) {
             log.error("Failed to report operation. {}", e.getMessage());

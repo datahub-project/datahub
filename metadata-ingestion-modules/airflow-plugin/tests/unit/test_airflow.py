@@ -23,6 +23,7 @@ from datahub_airflow_plugin._airflow_shims import (
 from datahub_airflow_plugin.entities import Dataset, Urn
 from datahub_airflow_plugin.hooks.datahub import DatahubKafkaHook, DatahubRestHook
 from datahub_airflow_plugin.operators.datahub import DatahubEmitterOperator
+from tests.utils import PytestConfig
 
 assert AIRFLOW_PATCHED
 
@@ -40,13 +41,13 @@ lineage_mce = builder.make_lineage_mce(
 datahub_rest_connection_config = Connection(
     conn_id="datahub_rest_test",
     conn_type="datahub_rest",
-    host="http://test_host:8080/",
+    host="http://test_host:8080",
     extra=None,
 )
 datahub_rest_connection_config_with_timeout = Connection(
     conn_id="datahub_rest_test",
     conn_type="datahub_rest",
-    host="http://test_host:8080/",
+    host="http://test_host:8080",
     extra=json.dumps({"timeout_sec": 5}),
 )
 
@@ -74,7 +75,7 @@ def test_airflow_provider_info():
 
 
 @pytest.mark.filterwarnings("ignore:.*is deprecated.*")
-def test_dags_load_with_no_errors(pytestconfig: pytest.Config) -> None:
+def test_dags_load_with_no_errors(pytestconfig: PytestConfig) -> None:
     airflow_examples_folder = (
         pytestconfig.rootpath / "src/datahub_airflow_plugin/example_dags"
     )

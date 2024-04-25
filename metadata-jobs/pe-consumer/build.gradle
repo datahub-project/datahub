@@ -1,5 +1,5 @@
 plugins {
-  id 'java'
+  id 'java-library'
   id 'pegasus'
 }
 
@@ -17,13 +17,15 @@ dependencies {
     exclude group: 'org.neo4j.test'
   }
   implementation externalDependency.springKafka
-  implementation externalDependency.springActuator
   implementation externalDependency.slf4jApi
   compileOnly externalDependency.lombok
   annotationProcessor externalDependency.lombok
   runtimeOnly externalDependency.logbackClassic
   testImplementation externalDependency.mockito
   testRuntimeOnly externalDependency.logbackClassic
+  testImplementation externalDependency.springBootTest
+  testImplementation externalDependency.testng
+  testImplementation project(':metadata-operation-context')
 }
 
 task avroSchemaSources(type: Copy) {

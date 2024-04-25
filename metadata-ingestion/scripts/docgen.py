@@ -413,6 +413,7 @@ def get_capability_text(src_capability: SourceCapability) -> str:
         SourceCapability.DOMAINS: "../../../domains.md",
         SourceCapability.PLATFORM_INSTANCE: "../../../platform-instances.md",
         SourceCapability.DATA_PROFILING: "../../../../metadata-ingestion/docs/dev_guides/sql_profiles.md",
+        SourceCapability.CLASSIFICATION: "../../../../metadata-ingestion/docs/dev_guides/classification.md",
     }
 
     capability_doc = capability_docs_mapping.get(src_capability)
@@ -1018,7 +1019,7 @@ Visit our [Official Roadmap](https://feature-requests.datahubproject.io/roadmap)
 - [Acryl Data introduces lineage support and automated propagation of governance information for Snowflake in DataHub](https://blog.datahubproject.io/acryl-data-introduces-lineage-support-and-automated-propagation-of-governance-information-for-339c99536561)
 - [Data in Context: Lineage Explorer in DataHub](https://blog.datahubproject.io/data-in-context-lineage-explorer-in-datahub-a53a9a476dc4)
 - [Harnessing the Power of Data Lineage with DataHub](https://blog.datahubproject.io/harnessing-the-power-of-data-lineage-with-datahub-ad086358dec4)
-- [DataHub Lineage Impact Analysis](https://datahubproject.io/docs/next/act-on-metadata/impact-analysis)
+- [DataHub Lineage Impact Analysis](../../act-on-metadata/impact-analysis.md)
                         """)
 
     print("Lineage Documentation Generation Complete")

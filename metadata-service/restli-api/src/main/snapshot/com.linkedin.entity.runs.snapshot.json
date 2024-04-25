@@ -973,12 +973,12 @@
           "items" : "Urn"
         }
       },
-      "doc" : "Owners to ownership type map, populated with mutation hook.",
+      "doc" : "Ownership type to Owners map, populated via mutation hook.",
       "default" : { },
       "optional" : true,
       "Searchable" : {
         "/*" : {
-          "fieldType" : "OBJECT",
+          "fieldType" : "MAP_ARRAY",
           "queryByDefault" : false
         }
       }
@@ -3816,7 +3816,7 @@
       }, {
         "name" : "list",
         "javaMethodName" : "list",
-        "doc" : "Retrieves the value for an entity that is made up of latest versions of specified aspects.",
+        "doc" : "Retrieves the ingestion run summaries.",
         "parameters" : [ {
           "name" : "pageOffset",
           "type" : "int",

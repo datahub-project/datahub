@@ -5,7 +5,6 @@ from datetime import datetime
 from functools import lru_cache
 from typing import Dict, List, Optional
 
-import pandas as pd
 from snowflake.connector import SnowflakeConnection
 
 from datahub.ingestion.source.snowflake.constants import SnowflakeObjectDomain
@@ -84,7 +83,6 @@ class SnowflakeTable(BaseTable):
     foreign_keys: List[SnowflakeFK] = field(default_factory=list)
     tags: Optional[List[SnowflakeTag]] = None
     column_tags: Dict[str, List[SnowflakeTag]] = field(default_factory=dict)
-    sample_data: Optional[pd.DataFrame] = None
 
 
 @dataclass

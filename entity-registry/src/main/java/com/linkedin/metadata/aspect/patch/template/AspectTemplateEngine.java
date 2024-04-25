@@ -81,7 +81,6 @@ public class AspectTemplateEngine {
   public <T extends RecordTemplate> RecordTemplate applyPatch(
       RecordTemplate recordTemplate, Patch jsonPatch, AspectSpec aspectSpec)
       throws JsonProcessingException, JsonPatchException {
-
     Template<T> template = getTemplate(aspectSpec);
     return template.applyPatch(recordTemplate, jsonPatch);
   }

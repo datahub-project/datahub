@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.term;
 
 import static com.linkedin.datahub.graphql.TestUtils.*;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.testng.Assert.*;
 
@@ -38,25 +39,27 @@ public class BatchRemoveTermsResolverTest {
 
     Mockito.when(
             mockService.getAspect(
+                any(),
                 eq(UrnUtils.getUrn(TEST_ENTITY_URN_1)),
                 eq(Constants.GLOSSARY_TERMS_ASPECT_NAME),
                 eq(0L)))
         .thenReturn(null);
     Mockito.when(
             mockService.getAspect(
+                any(),
                 eq(UrnUtils.getUrn(TEST_ENTITY_URN_2)),
                 eq(Constants.GLOSSARY_TERMS_ASPECT_NAME),
                 eq(0L)))
         .thenReturn(null);
 
-    Mockito.when(mockService.exists(eq(Urn.createFromString(TEST_ENTITY_URN_1)), eq(true)))
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN_1)), eq(true)))
         .thenReturn(true);
-    Mockito.when(mockService.exists(eq(Urn.createFromString(TEST_ENTITY_URN_2)), eq(true)))
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN_2)), eq(true)))
         .thenReturn(true);
 
-    Mockito.when(mockService.exists(eq(Urn.createFromString(TEST_TERM_1_URN)), eq(true)))
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_TERM_1_URN)), eq(true)))
         .thenReturn(true);
-    Mockito.when(mockService.exists(eq(Urn.createFromString(TEST_TERM_2_URN)), eq(true)))
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_TERM_2_URN)), eq(true)))
         .thenReturn(true);
 
     BatchRemoveTermsResolver resolver = new BatchRemoveTermsResolver(mockService);
@@ -93,6 +96,7 @@ public class BatchRemoveTermsResolverTest {
 
     Mockito.when(
             mockService.getAspect(
+                any(),
                 eq(UrnUtils.getUrn(TEST_ENTITY_URN_1)),
                 eq(Constants.GLOSSARY_TERMS_ASPECT_NAME),
                 eq(0L)))
@@ -108,19 +112,20 @@ public class BatchRemoveTermsResolverTest {
 
     Mockito.when(
             mockService.getAspect(
+                any(),
                 eq(UrnUtils.getUrn(TEST_ENTITY_URN_2)),
                 eq(Constants.GLOSSARY_TERMS_ASPECT_NAME),
                 eq(0L)))
         .thenReturn(oldTerms2);
 
-    Mockito.when(mockService.exists(eq(Urn.createFromString(TEST_ENTITY_URN_1)), eq(true)))
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN_1)), eq(true)))
         .thenReturn(true);
-    Mockito.when(mockService.exists(eq(Urn.createFromString(TEST_ENTITY_URN_2)), eq(true)))
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN_2)), eq(true)))
         .thenReturn(true);
 
-    Mockito.when(mockService.exists(eq(Urn.createFromString(TEST_TERM_1_URN)), eq(true)))
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_TERM_1_URN)), eq(true)))
         .thenReturn(true);
-    Mockito.when(mockService.exists(eq(Urn.createFromString(TEST_TERM_2_URN)), eq(true)))
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_TERM_2_URN)), eq(true)))
         .thenReturn(true);
 
     BatchRemoveTermsResolver resolver = new BatchRemoveTermsResolver(mockService);
@@ -147,22 +152,24 @@ public class BatchRemoveTermsResolverTest {
 
     Mockito.when(
             mockService.getAspect(
+                any(),
                 eq(UrnUtils.getUrn(TEST_ENTITY_URN_1)),
                 eq(Constants.GLOSSARY_TERMS_ASPECT_NAME),
                 eq(0L)))
         .thenReturn(null);
     Mockito.when(
             mockService.getAspect(
+                any(),
                 eq(UrnUtils.getUrn(TEST_ENTITY_URN_2)),
                 eq(Constants.GLOSSARY_TERMS_ASPECT_NAME),
                 eq(0L)))
         .thenReturn(null);
 
-    Mockito.when(mockService.exists(eq(Urn.createFromString(TEST_ENTITY_URN_1)), eq(true)))
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN_1)), eq(true)))
         .thenReturn(false);
-    Mockito.when(mockService.exists(eq(Urn.createFromString(TEST_ENTITY_URN_2)), eq(true)))
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN_2)), eq(true)))
         .thenReturn(true);
-    Mockito.when(mockService.exists(eq(Urn.createFromString(TEST_TERM_1_URN)), eq(true)))
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_TERM_1_URN)), eq(true)))
         .thenReturn(true);
 
     BatchRemoveTermsResolver resolver = new BatchRemoveTermsResolver(mockService);
@@ -211,7 +218,7 @@ public class BatchRemoveTermsResolverTest {
 
     Mockito.doThrow(RuntimeException.class)
         .when(mockService)
-        .ingestProposal(Mockito.any(AspectsBatchImpl.class), Mockito.anyBoolean());
+        .ingestProposal(any(), Mockito.any(AspectsBatchImpl.class), Mockito.anyBoolean());
 
     BatchRemoveTermsResolver resolver = new BatchRemoveTermsResolver(mockService);
 

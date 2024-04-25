@@ -32,7 +32,7 @@ public class DataJobInputOutputPatchBuilder
     pathValues.add(
         ImmutableTriple.of(
             PatchOperationType.ADD.getValue(),
-            INPUT_DATA_JOB_EDGES_PATH_START + dataJobUrn,
+            INPUT_DATA_JOB_EDGES_PATH_START + encodeValue(dataJobUrn.toString()),
             value));
     return this;
   }
@@ -41,7 +41,7 @@ public class DataJobInputOutputPatchBuilder
     pathValues.add(
         ImmutableTriple.of(
             PatchOperationType.REMOVE.getValue(),
-            INPUT_DATA_JOB_EDGES_PATH_START + dataJobUrn,
+            INPUT_DATA_JOB_EDGES_PATH_START + encodeValue(dataJobUrn.toString()),
             null));
     return this;
   }
@@ -51,7 +51,9 @@ public class DataJobInputOutputPatchBuilder
 
     pathValues.add(
         ImmutableTriple.of(
-            PatchOperationType.ADD.getValue(), INPUT_DATASET_EDGES_PATH_START + datasetUrn, value));
+            PatchOperationType.ADD.getValue(),
+            INPUT_DATASET_EDGES_PATH_START + encodeValue(datasetUrn.toString()),
+            value));
     return this;
   }
 
@@ -59,7 +61,7 @@ public class DataJobInputOutputPatchBuilder
     pathValues.add(
         ImmutableTriple.of(
             PatchOperationType.REMOVE.getValue(),
-            INPUT_DATASET_EDGES_PATH_START + datasetUrn,
+            INPUT_DATASET_EDGES_PATH_START + encodeValue(datasetUrn.toString()),
             null));
     return this;
   }
@@ -70,7 +72,7 @@ public class DataJobInputOutputPatchBuilder
     pathValues.add(
         ImmutableTriple.of(
             PatchOperationType.ADD.getValue(),
-            OUTPUT_DATASET_EDGES_PATH_START + datasetUrn,
+            OUTPUT_DATASET_EDGES_PATH_START + encodeValue(datasetUrn.toString()),
             value));
     return this;
   }
@@ -79,7 +81,7 @@ public class DataJobInputOutputPatchBuilder
     pathValues.add(
         ImmutableTriple.of(
             PatchOperationType.REMOVE.getValue(),
-            OUTPUT_DATASET_EDGES_PATH_START + datasetUrn,
+            OUTPUT_DATASET_EDGES_PATH_START + encodeValue(datasetUrn.toString()),
             null));
     return this;
   }
@@ -88,7 +90,9 @@ public class DataJobInputOutputPatchBuilder
     TextNode textNode = instance.textNode(urn.toString());
     pathValues.add(
         ImmutableTriple.of(
-            PatchOperationType.ADD.getValue(), INPUT_DATASET_FIELDS_PATH_START + urn, textNode));
+            PatchOperationType.ADD.getValue(),
+            INPUT_DATASET_FIELDS_PATH_START + encodeValue(urn.toString()),
+            textNode));
 
     return this;
   }
@@ -96,7 +100,9 @@ public class DataJobInputOutputPatchBuilder
   public DataJobInputOutputPatchBuilder removeInputDatasetField(@Nonnull Urn urn) {
     pathValues.add(
         ImmutableTriple.of(
-            PatchOperationType.REMOVE.getValue(), INPUT_DATASET_FIELDS_PATH_START + urn, null));
+            PatchOperationType.REMOVE.getValue(),
+            INPUT_DATASET_FIELDS_PATH_START + encodeValue(urn.toString()),
+            null));
     return this;
   }
 
@@ -104,7 +110,9 @@ public class DataJobInputOutputPatchBuilder
     TextNode textNode = instance.textNode(urn.toString());
     pathValues.add(
         ImmutableTriple.of(
-            PatchOperationType.ADD.getValue(), OUTPUT_DATASET_FIELDS_PATH_START + urn, textNode));
+            PatchOperationType.ADD.getValue(),
+            OUTPUT_DATASET_FIELDS_PATH_START + encodeValue(urn.toString()),
+            textNode));
 
     return this;
   }
@@ -112,7 +120,9 @@ public class DataJobInputOutputPatchBuilder
   public DataJobInputOutputPatchBuilder removeOutputDatasetField(@Nonnull Urn urn) {
     pathValues.add(
         ImmutableTriple.of(
-            PatchOperationType.REMOVE.getValue(), OUTPUT_DATASET_FIELDS_PATH_START + urn, null));
+            PatchOperationType.REMOVE.getValue(),
+            OUTPUT_DATASET_FIELDS_PATH_START + encodeValue(urn.toString()),
+            null));
     return this;
   }
 
@@ -147,17 +157,17 @@ public class DataJobInputOutputPatchBuilder
 
     if (DATASET_ENTITY_NAME.equals(destinationUrn.getEntityType())
         && LineageDirection.UPSTREAM.equals(direction)) {
-      return INPUT_DATASET_EDGES_PATH_START + destinationUrn;
+      return INPUT_DATASET_EDGES_PATH_START + encodeValue(destinationUrn.toString());
     }
 
     if (DATASET_ENTITY_NAME.equals(destinationUrn.getEntityType())
         && LineageDirection.DOWNSTREAM.equals(direction)) {
-      return INPUT_DATASET_EDGES_PATH_START + destinationUrn;
+      return INPUT_DATASET_EDGES_PATH_START + encodeValue(destinationUrn.toString());
     }
 
     if (DATA_JOB_ENTITY_NAME.equals(destinationUrn.getEntityType())
         && LineageDirection.UPSTREAM.equals(direction)) {
-      return INPUT_DATA_JOB_EDGES_PATH_START + destinationUrn;
+      return INPUT_DATA_JOB_EDGES_PATH_START + encodeValue(destinationUrn.toString());
     }
 
     // TODO: Output Data Jobs not supported by aspect, add here if this changes

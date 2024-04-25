@@ -3,7 +3,7 @@ package com.linkedin.metadata.entity.ebean.batch;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.events.metadata.ChangeType;
-import com.linkedin.metadata.aspect.AspectRetriever;
+import com.linkedin.metadata.aspect.RetrieverContext;
 import com.linkedin.metadata.aspect.SystemAspect;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.aspect.batch.BatchItem;
@@ -11,6 +11,7 @@ import com.linkedin.metadata.aspect.batch.ChangeMCP;
 import com.linkedin.metadata.aspect.plugins.validation.ValidationExceptionCollection;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.util.Pair;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedList;
 import java.util.List;
@@ -22,6 +23,7 @@ import javax.annotation.Nonnull;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 
 @Slf4j
 @Getter
@@ -29,10 +31,12 @@ import lombok.extern.slf4j.Slf4j;
 public class AspectsBatchImpl implements AspectsBatch {
 
   @Nonnull private final Collection<? extends BatchItem> items;
-  @Nonnull private final AspectRetriever aspectRetriever;
+  @Nonnull private final RetrieverContext retrieverContext;
 
   /**
    * Convert patches to upserts, apply hooks at the aspect and batch level.
+   *
+   * <p>Filter CREATE if not exists
    *
    * @param latestAspects latest version in the database
    * @return The new urn/aspectnames and the uniform upserts, possibly expanded/mutated by the
@@ -60,7 +64,9 @@ public class AspectsBatchImpl implements AspectsBatch {
                     PatchItemImpl patchBatchItem = (PatchItemImpl) item;
                     final RecordTemplate currentValue =
                         latest != null ? latest.getRecordTemplate() : null;
-                    upsertItem = patchBatchItem.applyPatch(currentValue, aspectRetriever);
+                    upsertItem =
+                        patchBatchItem.applyPatch(
+                            currentValue, retrieverContext.getAspectRetriever());
                   }
 
                   // Populate old aspect for write hooks
@@ -88,26 +94,30 @@ public class AspectsBatchImpl implements AspectsBatch {
      * @param data aspect data
      * @return builder
      */
-    public AspectsBatchImplBuilder one(BatchItem data, AspectRetriever aspectRetriever) {
-      aspectRetriever(aspectRetriever);
+    public AspectsBatchImplBuilder one(BatchItem data, RetrieverContext retrieverContext) {
+      retrieverContext(retrieverContext);
       items(List.of(data));
       return this;
     }
 
     public AspectsBatchImplBuilder mcps(
-        List<MetadataChangeProposal> mcps, AuditStamp auditStamp, AspectRetriever aspectRetriever) {
+        List<MetadataChangeProposal> mcps,
+        AuditStamp auditStamp,
+        RetrieverContext retrieverContext) {
 
-      aspectRetriever(aspectRetriever);
+      retrieverContext(retrieverContext);
       items(
           mcps.stream()
               .map(
                   mcp -> {
                     if (mcp.getChangeType().equals(ChangeType.PATCH)) {
                       return PatchItemImpl.PatchItemImplBuilder.build(
-                          mcp, auditStamp, aspectRetriever.getEntityRegistry());
+                          mcp,
+                          auditStamp,
+                          retrieverContext.getAspectRetriever().getEntityRegistry());
                     } else {
                       return ChangeItemImpl.ChangeItemImplBuilder.build(
-                          mcp, auditStamp, aspectRetriever);
+                          mcp, auditStamp, retrieverContext.getAspectRetriever());
                     }
                   })
               .collect(Collectors.toList()));
@@ -116,12 +126,12 @@ public class AspectsBatchImpl implements AspectsBatch {
 
     public AspectsBatchImpl build() {
       ValidationExceptionCollection exceptions =
-          AspectsBatch.validateProposed(this.items, this.aspectRetriever);
+          AspectsBatch.validateProposed(this.items, this.retrieverContext);
       if (!exceptions.isEmpty()) {
         throw new IllegalArgumentException("Failed to validate MCP due to: " + exceptions);
       }
 
-      return new AspectsBatchImpl(this.items, this.aspectRetriever);
+      return new AspectsBatchImpl(this.items, this.retrieverContext);
     }
   }
 
@@ -145,5 +155,21 @@ public class AspectsBatchImpl implements AspectsBatch {
   @Override
   public String toString() {
     return "AspectsBatchImpl{" + "items=" + items + '}';
+  }
+
+  public String toAbbreviatedString(int maxWidth) {
+    List<String> itemsAbbreviated = new ArrayList<String>();
+    items.forEach(
+        item -> {
+          if (item instanceof ChangeItemImpl) {
+            itemsAbbreviated.add(((ChangeItemImpl) item).toAbbreviatedString());
+          } else {
+            itemsAbbreviated.add(item.toString());
+          }
+        });
+    return "AspectsBatchImpl{"
+        + "items="
+        + StringUtils.abbreviate(itemsAbbreviated.toString(), maxWidth)
+        + '}';
   }
 }

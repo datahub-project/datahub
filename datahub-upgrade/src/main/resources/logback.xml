@@ -10,6 +10,7 @@
         </filter>
         <filter class="com.linkedin.metadata.utils.log.LogMessageFilter">
             <excluded>scanned from multiple locations</excluded>
+            <excluded>[ignore_throttled] parameter is deprecated because frozen indices have been deprecated</excluded>
         </filter>
     </appender>
 
@@ -32,6 +33,7 @@
         </encoder>
         <filter class="com.linkedin.metadata.utils.log.LogMessageFilter">
             <excluded>scanned from multiple locations</excluded>
+            <excluded>[ignore_throttled] parameter is deprecated because frozen indices have been deprecated</excluded>
         </filter>
     </appender>
 

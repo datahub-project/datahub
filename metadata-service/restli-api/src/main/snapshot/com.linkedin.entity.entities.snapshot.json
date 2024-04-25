@@ -1267,12 +1267,12 @@
           "items" : "Urn"
         }
       },
-      "doc" : "Owners to ownership type map, populated with mutation hook.",
+      "doc" : "Ownership type to Owners map, populated via mutation hook.",
       "default" : { },
       "optional" : true,
       "Searchable" : {
         "/*" : {
-          "fieldType" : "OBJECT",
+          "fieldType" : "MAP_ARRAY",
           "queryByDefault" : false
         }
       }
@@ -2356,6 +2356,11 @@
       "name" : "viewLogic",
       "type" : "string",
       "doc" : "The view logic"
+    }, {
+      "name" : "formattedViewLogic",
+      "type" : "string",
+      "doc" : "The formatted view logic. This is particularly used for SQL sources, where the SQL\nlogic is formatted for better readability, and with dbt, where this contains the\ncompiled SQL logic.",
+      "optional" : true
     }, {
       "name" : "viewLanguage",
       "type" : "string",
@@ -5224,11 +5229,17 @@
                   }, {
                     "name" : "type",
                     "type" : "string",
-                    "doc" : "The type of policy"
+                    "doc" : "The type of policy",
+                    "Searchable" : {
+                      "fieldType" : "KEYWORD"
+                    }
                   }, {
                     "name" : "state",
                     "type" : "string",
-                    "doc" : "The state of policy, ACTIVE or INACTIVE"
+                    "doc" : "The state of policy, ACTIVE or INACTIVE",
+                    "Searchable" : {
+                      "fieldType" : "KEYWORD"
+                    }
                   }, {
                     "name" : "resources",
                     "type" : {
@@ -5312,7 +5323,13 @@
                       "type" : "array",
                       "items" : "string"
                     },
-                    "doc" : "The privileges that the policy grants."
+                    "doc" : "The privileges that the policy grants.",
+                    "Searchable" : {
+                      "/*" : {
+                        "addToFilters" : true,
+                        "fieldType" : "KEYWORD"
+                      }
+                    }
                   }, {
                     "name" : "actors",
                     "type" : {
@@ -5379,7 +5396,10 @@
                     "name" : "editable",
                     "type" : "boolean",
                     "doc" : "Whether the policy should be editable via the UI",
-                    "default" : true
+                    "default" : true,
+                    "Searchable" : {
+                      "fieldType" : "BOOLEAN"
+                    }
                   }, {
                     "name" : "lastUpdatedTimestamp",
                     "type" : "long",
@@ -6185,6 +6205,16 @@
             },
             "doc" : "The degrees of separation (number of hops) between the source and this entity ",
             "default" : [ ]
+          }, {
+            "name" : "explored",
+            "type" : "boolean",
+            "doc" : "Marks an entity as having been explored for as a part of the graph walk",
+            "optional" : true
+          }, {
+            "name" : "ignoredAsHop",
+            "type" : "boolean",
+            "doc" : "Whether this relationship was ignored as a hop while performing the graph walk",
+            "optional" : true
           } ]
         }
       },
@@ -6564,6 +6594,10 @@
         "parameters" : [ {
           "name" : "urn",
           "type" : "string"
+        }, {
+          "name" : "includeSoftDelete",
+          "type" : "boolean",
+          "optional" : true
         } ],
         "returns" : "boolean"
       }, {
@@ -6670,7 +6704,8 @@
           "optional" : true
         }, {
           "name" : "scrollId",
-          "type" : "string"
+          "type" : "string",
+          "optional" : true
         }, {
           "name" : "keepAlive",
           "type" : "string"
@@ -6714,7 +6749,8 @@
           "optional" : true
         }, {
           "name" : "scrollId",
-          "type" : "string"
+          "type" : "string",
+          "optional" : true
         }, {
           "name" : "keepAlive",
           "type" : "string"

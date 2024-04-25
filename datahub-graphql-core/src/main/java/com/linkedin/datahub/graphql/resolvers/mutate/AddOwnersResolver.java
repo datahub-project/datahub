@@ -26,6 +26,7 @@ public class AddOwnersResolver implements DataFetcher<CompletableFuture<Boolean>
 
   @Override
   public CompletableFuture<Boolean> get(DataFetchingEnvironment environment) throws Exception {
+    final QueryContext context = environment.getContext();
     final AddOwnersInput input =
         bindArgument(environment.getArgument("input"), AddOwnersInput.class);
     List<OwnerInput> owners = input.getOwners();
@@ -35,15 +36,15 @@ public class AddOwnersResolver implements DataFetcher<CompletableFuture<Boolean>
         () -> {
           OwnerUtils.validateAuthorizedToUpdateOwners(environment.getContext(), targetUrn);
 
-          OwnerUtils.validateAddOwnerInput(owners, targetUrn, _entityService);
+          OwnerUtils.validateAddOwnerInput(
+              context.getOperationContext(), owners, targetUrn, _entityService);
           try {
 
             log.debug("Adding Owners. input: {}", input);
 
-            Urn actor =
-                CorpuserUrn.createFromString(
-                    ((QueryContext) environment.getContext()).getActorUrn());
+            Urn actor = CorpuserUrn.createFromString(context.getActorUrn());
             OwnerUtils.addOwnersToResources(
+                context.getOperationContext(),
                 owners,
                 ImmutableList.of(new ResourceRefInput(input.getResourceUrn(), null, null)),
                 actor,

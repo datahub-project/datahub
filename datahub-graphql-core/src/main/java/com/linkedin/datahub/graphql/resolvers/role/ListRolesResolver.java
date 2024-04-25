@@ -23,6 +23,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
+import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -62,19 +63,19 @@ public class ListRolesResolver implements DataFetcher<CompletableFuture<ListRole
             // Then, get and hydrate all users.
             final Map<Urn, EntityResponse> entities =
                 _entityClient.batchGetV2(
+                    context.getOperationContext(),
                     DATAHUB_ROLE_ENTITY_NAME,
                     new HashSet<>(
                         gmsResult.getEntities().stream()
                             .map(SearchEntity::getEntity)
                             .collect(Collectors.toList())),
-                    null,
-                    context.getAuthentication());
+                    null);
 
             final ListRolesResult result = new ListRolesResult();
             result.setStart(gmsResult.getFrom());
             result.setCount(gmsResult.getPageSize());
             result.setTotal(gmsResult.getNumEntities());
-            result.setRoles(mapEntitiesToRoles(entities.values()));
+            result.setRoles(mapEntitiesToRoles(context, entities.values()));
             return result;
           } catch (Exception e) {
             throw new RuntimeException("Failed to list roles", e);
@@ -82,9 +83,10 @@ public class ListRolesResolver implements DataFetcher<CompletableFuture<ListRole
         });
   }
 
-  private List<DataHubRole> mapEntitiesToRoles(final Collection<EntityResponse> entities) {
+  private static List<DataHubRole> mapEntitiesToRoles(
+      @Nullable QueryContext context, final Collection<EntityResponse> entities) {
     return entities.stream()
-        .map(DataHubRoleMapper::map)
+        .map(e -> DataHubRoleMapper.map(context, e))
         .sorted(Comparator.comparing(DataHubRole::getName))
         .collect(Collectors.toList());
   }
