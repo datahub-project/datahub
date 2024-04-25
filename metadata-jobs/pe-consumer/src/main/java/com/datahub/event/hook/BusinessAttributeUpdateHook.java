@@ -30,6 +30,11 @@ public class BusinessAttributeUpdateHook implements PlatformEventHook {
     return enabled;
   }
 
+  @Override
+  public void init() {
+    log.info("Initialized PlatformEventHook: BusinessAttributeUpdateHook");
+  }
+
   /**
    * Invoke the hook when a PlatformEvent is received
    *

@@ -60,6 +60,7 @@ public class SearchDocumentTransformerTest {
     assertTrue(result.isPresent());
     ObjectNode parsedJson = (ObjectNode) OBJECT_MAPPER.readTree(result.get());
     assertEquals(parsedJson.get("urn").asText(), snapshot.getUrn().toString());
+    assertEquals(parsedJson.get("doubleField").asDouble(), 100.456);
     assertEquals(parsedJson.get("keyPart1").asText(), "key");
     assertFalse(parsedJson.has("keyPart2"));
     assertEquals(parsedJson.get("keyPart3").asText(), "VALUE_1");
@@ -106,6 +107,7 @@ public class SearchDocumentTransformerTest {
     parsedJson.get("nestedIntegerField").getNodeType().equals(JsonNodeType.NULL);
     parsedJson.get("feature1").getNodeType().equals(JsonNodeType.NULL);
     parsedJson.get("feature2").getNodeType().equals(JsonNodeType.NULL);
+    parsedJson.get("doubleField").getNodeType().equals(JsonNodeType.NULL);
   }
 
   @Test
