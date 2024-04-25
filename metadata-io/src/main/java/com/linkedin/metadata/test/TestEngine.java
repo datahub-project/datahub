@@ -143,6 +143,7 @@ public class TestEngine {
 
   public TestEngine(
       @Nonnull OperationContext systemOpContext,
+      boolean enabled,
       EntityService<?> entityService,
       EntitySearchService searchService,
       TimeseriesAspectService timeseriesAspectService,
@@ -171,14 +172,19 @@ public class TestEngine {
             _testPerEntityTypeCache,
             cacheReadWriteLock.writeLock());
 
-    if (refreshIntervalSeconds > 0) {
-      _refreshExecutorService = Executors.newScheduledThreadPool(1);
-      _refreshExecutorService.scheduleAtFixedRate(
-          _testRefreshRunnable, delayIntervalSeconds, refreshIntervalSeconds, TimeUnit.SECONDS);
-      _refreshExecutorService.execute(_testRefreshRunnable);
+    if (enabled) {
+      if (refreshIntervalSeconds > 0) {
+        _refreshExecutorService = Executors.newScheduledThreadPool(1);
+        _refreshExecutorService.scheduleAtFixedRate(
+            _testRefreshRunnable, delayIntervalSeconds, refreshIntervalSeconds, TimeUnit.SECONDS);
+        _refreshExecutorService.execute(_testRefreshRunnable);
+      } else {
+        loadTests();
+      }
     } else {
-      loadTests();
+      log.info("Metadata tests is disabled, not fetching test definitions");
     }
+
     _supportedEntityTypes = TestUtils.getSupportedEntityTypes(systemOpContext.getEntityRegistry());
     _elasticSearchTestExecutor =
         new ElasticSearchTestExecutor(

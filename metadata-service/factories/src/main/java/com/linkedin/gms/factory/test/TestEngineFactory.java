@@ -55,11 +55,14 @@ public class TestEngineFactory {
   @Bean(name = "testEngine")
   @Nonnull
   protected TestEngine getInstance(
-      @Qualifier("systemOperationContext") final OperationContext systemOpContext) {
+      @Qualifier("systemOperationContext") final OperationContext systemOpContext,
+      @Nonnull @Value("${metadataTests.hook.enabled:false}") Boolean isEnabled,
+      @Nonnull @Value("${metadataTests.enabled:false}") Boolean isHookEnabled) {
 
     PredicateEvaluator predicateEvaluator = PredicateEvaluator.getInstance();
     return new TestEngine(
         systemOpContext,
+        isEnabled || isHookEnabled,
         entityService,
         entitySearchService,
         timeseriesAspectService,

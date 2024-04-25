@@ -23,6 +23,7 @@ import org.apache.directory.scim.core.schema.SchemaRegistry;
 import org.apache.directory.scim.protocol.Constants;
 import org.springdoc.core.models.GroupedOpenApi;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.format.FormatterRegistry;
@@ -165,6 +166,7 @@ public class SpringWebConfig implements WebMvcConfigurer {
   }
 
   @Bean
+  @ConditionalOnProperty(name = "metadataTests.enabled", havingValue = "true")
   public GroupedOpenApi metadataTestsOpenApiGroup() {
     return GroupedOpenApi.builder()
         .group("60-metadatatests")

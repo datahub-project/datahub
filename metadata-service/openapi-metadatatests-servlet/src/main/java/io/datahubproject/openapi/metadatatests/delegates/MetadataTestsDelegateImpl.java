@@ -316,6 +316,7 @@ public class MetadataTestsDelegateImpl implements MetadataTestApiDelegate {
 
     return new TestEngine(
         opContext,
+        true,
         entityService,
         entitySearchService,
         timeseriesAspectService,

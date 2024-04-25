@@ -119,6 +119,7 @@ public class TestEngineTest {
 
     return new TestEngine(
         TestOperationContexts.systemContextNoSearchAuthorization(entityRegistry),
+        true,
         mockEntityService,
         mockSearchService,
         mockTimeseriesAspectService,
