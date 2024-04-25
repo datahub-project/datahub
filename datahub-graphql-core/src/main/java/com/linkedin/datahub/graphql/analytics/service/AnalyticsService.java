@@ -340,6 +340,11 @@ public class AnalyticsService {
   }
 
   private AggregationBuilder getUniqueQuery(String uniqueOn) {
+    /*
+    TODO review:
+    This function is used while computing billing units such as MAU/WAU in GetChartsResolver & GetHighlightsResolver.
+    As per the ElasticSearch docs, cardinality() doesn't seem to guarantee exact counts.
+     */
     return AggregationBuilders.cardinality(UNIQUE).field(uniqueOn);
   }
 }

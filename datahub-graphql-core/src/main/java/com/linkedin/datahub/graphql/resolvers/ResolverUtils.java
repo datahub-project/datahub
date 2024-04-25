@@ -34,6 +34,8 @@ import org.slf4j.LoggerFactory;
 
 public class ResolverUtils {
 
+  public static final String ADMIN_USER_URN = "urn:li:corpuser:admin";
+
   private static final Set<String> KEYWORD_EXCLUDED_FILTERS =
       ImmutableSet.of("runId", "_entityType");
   private static final ObjectMapper MAPPER = new ObjectMapper();
