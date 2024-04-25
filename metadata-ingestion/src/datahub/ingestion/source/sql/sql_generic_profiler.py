@@ -17,6 +17,7 @@ from datahub.ingestion.source.ge_data_profiler import (
 from datahub.ingestion.source.sql.sql_common import SQLSourceReport
 from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
 from datahub.ingestion.source.sql.sql_generic import BaseTable, BaseView
+from datahub.ingestion.source.sql.sql_utils import check_table_with_profile_pattern
 from datahub.ingestion.source.state.profiling_state_handler import ProfilingHandler
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import DatasetProfile
 from datahub.metadata.com.linkedin.pegasus2avro.timeseries import PartitionType
@@ -272,6 +273,11 @@ class GenericProfiler:
             threshold_time = datetime.now(timezone.utc) - timedelta(
                 self.config.profiling.profile_if_updated_since_days
             )
+
+        if not check_table_with_profile_pattern(
+            self.config.profile_pattern, dataset_name
+        ):
+            return False
 
         schema_name = dataset_name.rsplit(".", 1)[0]
         if (threshold_time is not None) and (
