@@ -8,7 +8,7 @@ import { useUserContext } from '../context/useUserContext';
 import { Requests } from './requests/Requests';
 import { Proposals } from './proposals/Proposals';
 
-import { useIsThemeV2Enabled } from '../useIsThemeV2Enabled';
+import { useIsThemeV2 } from '../useIsThemeV2';
 
 const PageContainer = styled.div<{ isV2: boolean }>`
     padding-top: 20px;
@@ -79,7 +79,7 @@ const TabTitle = ({ title, count }: TabTitleProps) => (
 export const TaskCenter = () => {
     const { state: { notificationsCount, proposalCount } } = useUserContext();
     const [activeTab, setActiveTab] = useState('requests');
-    const isV2 = useIsThemeV2Enabled();
+    const isV2 = useIsThemeV2();
 
     return (
         <PageContainer isV2={isV2}>

@@ -3,7 +3,7 @@ import Cookies from 'js-cookie';
 import { CLIENT_AUTH_COOKIE } from '../../conf/Global';
 import { getBrowserId } from '../browserId';
 import { loadUserPersonaFromLocalStorage } from '../homeV2/persona/useUserPersona';
-import { loadThemeV2FromLocalStorage } from '../useIsThemeV2Enabled';
+import { loadThemeV2FromLocalStorage } from '../useIsThemeV2';
 import { Event, EventType } from './event';
 import plugins from './plugin';
 import { loadUserTitleFromLocalStorage } from '../identity/user/useUserTitle';

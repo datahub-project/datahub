@@ -31,7 +31,7 @@ import { BulkVerifyEntityModal } from './BulkVerifyEntityModal';
 
 import { EmptyStates } from '../EmptyStates';
 
-import { useIsThemeV2Enabled } from '../../../../useIsThemeV2Enabled';
+import { useIsThemeV2 } from '../../../../useIsThemeV2';
 
 const FormByQuestionWrapper = styled.div`
     display: flex;
@@ -66,7 +66,7 @@ export default function BulkVerify({ closeFormModal }: Props) {
         },
     } = useEntityFormContext();
 
-    const isV2 = useIsThemeV2Enabled();
+    const isV2 = useIsThemeV2();
 
     const showSearchFiltersV2 = useIsSearchV2();
     const [isModalOpen, setIsModalOpen] = useState(false);

@@ -6,7 +6,7 @@ import { EducationStepsContext } from '../../providers/EducationStepsContext';
 import { StepStateResult } from '../../types.generated';
 import { useUserContext } from '../context/useUserContext';
 import { REDESIGN_COLORS } from '../entityV2/shared/constants';
-import { useIsThemeV2Enabled } from '../useIsThemeV2Enabled';
+import { useIsThemeV2 } from '../useIsThemeV2';
 import { convertStepId, getConditionalStepIdsToAdd, getStepsToRender } from './utils';
 import OnboardingContext from './OnboardingContext';
 
@@ -17,7 +17,7 @@ type Props = {
 export const OnboardingTour = ({ stepIds }: Props) => {
     const { educationSteps, setEducationSteps, educationStepIdsAllowlist } = useContext(EducationStepsContext);
     const userUrn = useUserContext()?.user?.urn;
-    const isThemeV2 = useIsThemeV2Enabled();
+    const isThemeV2 = useIsThemeV2();
     const { isTourOpen, tourReshow, setTourReshow, setIsTourOpen } = useContext(OnboardingContext);
     const accentColor = isThemeV2 ? REDESIGN_COLORS.BACKGROUND_PURPLE : '#5cb7b7';
 

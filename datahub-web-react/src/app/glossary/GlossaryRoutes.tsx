@@ -12,7 +12,7 @@ import { useEntityRegistry } from '../useEntityRegistry';
 import { useAppConfig } from '../useAppConfig';
 import { useGetAuthenticatedUser } from '../useGetAuthenticatedUser';
 import { shouldShowGlossary } from '../identity/user/UserUtils';
-import { useIsThemeV2Enabled } from '../useIsThemeV2Enabled';
+import { useIsThemeV2 } from '../useIsThemeV2';
 
 const ContentWrapper = styled.div`
     display: flex;
@@ -28,7 +28,7 @@ export default function GlossaryRoutes() {
 
     const appConfig = useAppConfig();
     const authenticatedUser = useGetAuthenticatedUser();
-    const isThemeV2 = useIsThemeV2Enabled();
+    const isThemeV2 = useIsThemeV2();
     const canManageGlossary = authenticatedUser?.platformPrivileges.manageGlossaries || false;
     const hideGlossary = !!appConfig?.config?.visualConfig?.hideGlossary;
     const showGlossary = shouldShowGlossary(canManageGlossary, hideGlossary);

@@ -26,7 +26,7 @@ import { EmptyStates } from './EmptyStates';
 import usePrevious from '../../../shared/usePrevious';
 import BulkVerifyPromptModal from './BulkVerifyPromptModal';
 
-import { useIsThemeV2Enabled } from '../../../useIsThemeV2Enabled';
+import { useIsThemeV2 } from '../../../useIsThemeV2';
 
 const FormByQuestionWrapper = styled.div`
     display: flex;
@@ -48,7 +48,7 @@ export default function FormByQuestion({ closeModal }: Props) {
         },
     } = useEntityFormContext();
 
-    const isV2 = useIsThemeV2Enabled();
+    const isV2 = useIsThemeV2();
 
     const showSearchFiltersV2 = useIsSearchV2();
     const { query, unionType, filters, viewUrn, page } = useGetSearchQueryInputs();

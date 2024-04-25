@@ -82,6 +82,7 @@ query appConfig {
             documentationAiEnabled
             themeV2Enabled
             themeV2Default
+            themeV2Toggleable
             lineageGraphV2
             metadataShareEnabled
             documentationFormsEnabled

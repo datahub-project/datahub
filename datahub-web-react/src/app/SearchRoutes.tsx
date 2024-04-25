@@ -22,7 +22,7 @@ import DomainRoutes from './domain/DomainRoutes';
 import { useIsNestedDomainsEnabled, useIsDocumentationFormsEnabled } from './useAppConfig';
 import { ManageDomainsPage } from './domain/ManageDomainsPage';
 
-import { useIsThemeV2Enabled } from './useIsThemeV2Enabled';
+import { useIsThemeV2 } from './useIsThemeV2';
 import DomainRoutesV2 from './domainV2/DomainRoutes';
 import { ManageDomainsPage as ManageDomainsPageV2 } from './domainV2/ManageDomainsPage';
 import { TaskCenter } from './taskCenter/TaskCenter';
@@ -39,7 +39,7 @@ export const SearchRoutes = (): JSX.Element => {
     const entities = isNestedDomainsEnabled
         ? entityRegistry.getEntitiesForSearchRoutes()
         : entityRegistry.getNonGlossaryEntities();
-    const isThemeV2 = useIsThemeV2Enabled();
+    const isThemeV2 = useIsThemeV2();
     const FinalSearchablePage = isThemeV2 ? SearchablePageV2 : SearchablePage;
     const isDocumentationFormsEnabled = useIsDocumentationFormsEnabled();
     const includeGovernDashboard = isDocumentationFormsEnabled && me.platformPrivileges?.manageDocumentationForms;

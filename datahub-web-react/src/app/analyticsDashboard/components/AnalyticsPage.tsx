@@ -11,7 +11,7 @@ import { useListDomainsQuery } from '../../../graphql/domain.generated';
 import filterSearchQuery from '../../search/utils/filterSearchQuery';
 import { ANTD_GRAY } from '../../entity/shared/constants';
 import { useUserContext } from '../../context/useUserContext';
-import { useIsThemeV2Enabled } from '../../useIsThemeV2Enabled';
+import { useIsThemeV2 } from '../../useIsThemeV2';
 
 const PageContainer = styled.div<{ isV2: boolean }>`
     background-color: ${props => (props.isV2 ? '#fff' : 'inherit')};
@@ -57,7 +57,7 @@ const StyledSearchBar = styled(Input)`
 `;
 
 export const AnalyticsPage = () => {
-    const isV2 = useIsThemeV2Enabled();
+    const isV2 = useIsThemeV2();
     const me = useUserContext();
     const canManageDomains = me?.platformPrivileges?.createDomains;
     const { data: chartData, loading: chartLoading, error: chartError } = useGetAnalyticsChartsQuery();
