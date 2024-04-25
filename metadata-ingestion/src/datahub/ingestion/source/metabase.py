@@ -309,9 +309,10 @@ class MetabaseSource(StatefulIngestionSourceBase):
         chart_urns = []
         cards_data = dashboard_details.get("dashcards", {})
         for card_info in cards_data:
-            chart_urn = builder.make_chart_urn(
-                self.platform, card_info.get("card").get("id", "")
-            )
+            card_id = card_info.get("card").get("id", "")
+            if not card_id:
+                continue  # most likely a virtual card without an id (text or heading), not relevant.
+            chart_urn = builder.make_chart_urn(self.platform, card_id)
             chart_urns.append(chart_urn)
 
         dashboard_info_class = DashboardInfoClass(
