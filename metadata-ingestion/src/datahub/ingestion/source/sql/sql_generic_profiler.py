@@ -277,6 +277,9 @@ class GenericProfiler:
         if not check_table_with_profile_pattern(
             self.config.profile_pattern, dataset_name
         ):
+            logger.debug(
+                f"Table {dataset_name} is not allowed for profiling due to profile pattern"
+            )
             return False
 
         schema_name = dataset_name.rsplit(".", 1)[0]
@@ -291,8 +294,7 @@ class GenericProfiler:
 
         if self.config.profiling.profile_table_size_limit is not None and (
             size_in_bytes is not None
-            and size_in_bytes / (2**30)
-            > self.config.profiling.profile_table_size_limit
+            and size_in_bytes / (2**30) > self.config.profiling.profile_table_size_limit
         ):
             self.report.profiling_skipped_size_limit[schema_name] += 1
             logger.debug(
