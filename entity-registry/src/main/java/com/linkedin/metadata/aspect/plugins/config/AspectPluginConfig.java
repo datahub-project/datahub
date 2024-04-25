@@ -56,6 +56,7 @@ public class AspectPluginConfig {
   public static class SpringPluginConfig {
     private boolean enabled;
     @Nullable private String name;
+    @Nullable private List<String> packageScan;
   }
 
   private boolean isEqualExcludingEnabled(Object o) {

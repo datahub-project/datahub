@@ -31,4 +31,12 @@ public class PluginConfiguration {
         Stream.concat(a.getMcpSideEffects().stream(), b.getMcpSideEffects().stream())
             .collect(Collectors.toList()));
   }
+
+  public Stream<AspectPluginConfig> streamAll() {
+    return Stream.concat(
+        Stream.concat(
+            Stream.concat(aspectPayloadValidators.stream(), mutationHooks.stream()),
+            mclSideEffects.stream()),
+        mcpSideEffects.stream());
+  }
 }

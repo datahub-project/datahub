@@ -16,6 +16,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -38,7 +39,7 @@ public class PluginFactory {
 
   public static PluginFactory withCustomClasspath(
       @Nullable PluginConfiguration pluginConfiguration, @Nonnull List<ClassLoader> classLoaders) {
-    return new PluginFactory(pluginConfiguration, classLoaders);
+    return new PluginFactory(pluginConfiguration, classLoaders).loadPlugins();
   }
 
   public static PluginFactory withConfig(@Nullable PluginConfiguration pluginConfiguration) {
@@ -49,19 +50,30 @@ public class PluginFactory {
     return PluginFactory.withConfig(PluginConfiguration.EMPTY);
   }
 
-  public static PluginFactory merge(PluginFactory a, PluginFactory b) {
-    return PluginFactory.withCustomClasspath(
-        PluginConfiguration.merge(a.getPluginConfiguration(), b.getPluginConfiguration()),
+  public static PluginFactory merge(
+      PluginFactory a,
+      PluginFactory b,
+      @Nullable
+          BiFunction<PluginConfiguration, List<ClassLoader>, PluginFactory> pluginFactoryProvider) {
+    PluginConfiguration mergedPluginConfig =
+        PluginConfiguration.merge(a.pluginConfiguration, b.pluginConfiguration);
+    List<ClassLoader> mergedClassLoaders =
         Stream.concat(a.getClassLoaders().stream(), b.getClassLoaders().stream())
-            .collect(Collectors.toList()));
+            .collect(Collectors.toList());
+
+    if (pluginFactoryProvider != null) {
+      return pluginFactoryProvider.apply(mergedPluginConfig, mergedClassLoaders);
+    } else {
+      return PluginFactory.withCustomClasspath(mergedPluginConfig, mergedClassLoaders);
+    }
   }
 
   @Getter private final PluginConfiguration pluginConfiguration;
   @Nonnull @Getter private final List<ClassLoader> classLoaders;
-  @Getter private final List<AspectPayloadValidator> aspectPayloadValidators;
-  @Getter private final List<MutationHook> mutationHooks;
-  @Getter private final List<MCLSideEffect> mclSideEffects;
-  @Getter private final List<MCPSideEffect> mcpSideEffects;
+  @Getter private List<AspectPayloadValidator> aspectPayloadValidators;
+  @Getter private List<MutationHook> mutationHooks;
+  @Getter private List<MCLSideEffect> mclSideEffects;
+  @Getter private List<MCPSideEffect> mcpSideEffects;
 
   private final ClassGraph classGraph;
 
@@ -83,10 +95,14 @@ public class PluginFactory {
 
     this.pluginConfiguration =
         pluginConfiguration == null ? PluginConfiguration.EMPTY : pluginConfiguration;
+  }
+
+  public PluginFactory loadPlugins() {
     this.aspectPayloadValidators = buildAspectPayloadValidators(this.pluginConfiguration);
     this.mutationHooks = buildMutationHooks(this.pluginConfiguration);
     this.mclSideEffects = buildMCLSideEffects(this.pluginConfiguration);
     this.mcpSideEffects = buildMCPSideEffects(this.pluginConfiguration);
+    return this;
   }
 
   /**

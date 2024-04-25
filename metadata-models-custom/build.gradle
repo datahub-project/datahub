@@ -38,6 +38,8 @@ dependencies {
   implementation project(':entity-registry')
   // Required for MCL/MCP hooks
   implementation project (':metadata-io')
+  // Required for Spring-enabled plugins only
+  implementation externalDependency.springBootAutoconfigure
 }
 def deployBaseDir = findProperty('pluginModelsDir') ?: file(project.gradle.gradleUserHomeDir.parent + "/.datahub/plugins/models")
 
