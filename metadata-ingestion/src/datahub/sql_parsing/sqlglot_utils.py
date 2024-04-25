@@ -1,6 +1,6 @@
+import functools
 import hashlib
 import logging
-from functools import lru_cache
 from typing import Dict, Iterable, Optional, Tuple, Union
 
 import sqlglot
@@ -203,7 +203,7 @@ def get_query_fingerprint(
     return get_query_fingerprint_debug(expression, platform)[0]
 
 
-@lru_cache(maxsize=FORMAT_QUERY_CACHE_SIZE)
+@functools.lru_cache(maxsize=FORMAT_QUERY_CACHE_SIZE)
 def try_format_query(
     expression: sqlglot.exp.ExpOrStr, platform: DialectOrStr, raises: bool = False
 ) -> str:

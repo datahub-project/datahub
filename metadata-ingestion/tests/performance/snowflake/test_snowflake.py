@@ -6,7 +6,6 @@ from unittest import mock
 
 import humanfriendly
 import psutil
-import pytest
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
@@ -15,15 +14,8 @@ from datahub.utilities.perf_timer import PerfTimer
 from tests.integration.snowflake.common import default_query_results
 from tests.performance.helpers import workunit_sink
 
-TEST_SNOWFLAKE_PERFORMANCE = os.environ.get("TEST_SNOWFLAKE_PERFORMANCE")
 
-
-# Run with --log-cli-level=info to show the timings
-@pytest.mark.skipif(
-    TEST_SNOWFLAKE_PERFORMANCE is None,
-    reason="TEST_SNOWFLAKE_PERFORMANCE env variable is not configured",
-)
-def test_perf():
+def run_test():
 
     with mock.patch("snowflake.connector.connect") as mock_connect:
         sf_connection = mock.MagicMock()
@@ -70,3 +62,8 @@ def test_perf():
             f"Peak Memory Used: {humanfriendly.format_size(peak_memory_usage - pre_mem_usage)}"
         )
         logging.info(source.report.aspects)
+
+
+if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO)
+    run_test()
