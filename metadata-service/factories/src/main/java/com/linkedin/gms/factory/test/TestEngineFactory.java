@@ -41,7 +41,7 @@ public class TestEngineFactory {
 
   @Autowired
   @Qualifier("entityService")
-  private EntityService entityService;
+  private EntityService<?> entityService;
 
   @Autowired
   @Qualifier("entitySearchService")
@@ -66,12 +66,15 @@ public class TestEngineFactory {
   @Nonnull
   protected TestEngine getInstance(
       @Qualifier("systemOperationContext") final OperationContext systemOpContext,
+      @Nonnull @Value("${metadataTests.hook.enabled:false}") Boolean isEnabled,
+      @Nonnull @Value("${metadataTests.enabled:false}") Boolean isHookEnabled,
       // post construct dependency ensures ready state of elasticsearch service
       final ElasticSearchServiceFactory.PostConstructElasticSearchService postConstruct) {
 
     PredicateEvaluator predicateEvaluator = PredicateEvaluator.getInstance();
     return new TestEngine(
         systemOpContext,
+        isEnabled || isHookEnabled,
         entityService,
         entitySearchService,
         timeseriesAspectService,

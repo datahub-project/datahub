@@ -12,7 +12,7 @@ public class TestMd5 {
       return null;
     }
     try {
-      log.info("Generating MD5 hash for input: " + input);
+      log.debug("Generating MD5 hash for input: " + input);
       MessageDigest md = MessageDigest.getInstance("MD5");
 
       // Add password bytes to digest
@@ -28,7 +28,7 @@ public class TestMd5 {
       }
 
       String md5Hash = sb.toString();
-      log.info("MD5 hash is:" + md5Hash);
+      log.debug("MD5 hash is:" + md5Hash);
 
       // Get complete hash
       return md5Hash;

@@ -23,6 +23,7 @@ dependencies {
   implementation externalDependency.reflections
   implementation externalDependency.springBoot
   implementation externalDependency.springCore
+  implementation externalDependency.springBootAutoconfigure
   implementation(externalDependency.springDocUI) {
     exclude group: 'org.springframework.boot'
   }
