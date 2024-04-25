@@ -168,7 +168,7 @@ def test_stateful_ingestion(pytestconfig, tmp_path, mock_time):
     }
 
     with mock.patch(
-        "datahub.ingestion.source.state.stale_entity_removal_handler.StaleEntityRemovalHandler.get_state"
+        "datahub.ingestion.source.state.stale_entity_removal_handler.StaleEntityRemovalHandler._get_state_obj"
     ) as mock_state:
         mock_state.return_value = GenericCheckpointState(serde="utf-8")
         pipeline_run1 = None
@@ -199,7 +199,7 @@ def test_stateful_ingestion(pytestconfig, tmp_path, mock_time):
         assert checkpoint1.state
 
     with mock.patch(
-        "datahub.ingestion.source.state.stale_entity_removal_handler.StaleEntityRemovalHandler.get_state"
+        "datahub.ingestion.source.state.stale_entity_removal_handler.StaleEntityRemovalHandler._get_state_obj"
     ) as mock_state:
         mock_state.return_value = GenericCheckpointState(serde="utf-8")
         pipeline_run2 = None
@@ -298,7 +298,7 @@ def test_stateful_ingestion_failure(pytestconfig, tmp_path, mock_time):
     }
 
     with mock.patch(
-        "datahub.ingestion.source.state.stale_entity_removal_handler.StaleEntityRemovalHandler.get_state"
+        "datahub.ingestion.source.state.stale_entity_removal_handler.StaleEntityRemovalHandler._get_state_obj"
     ) as mock_state:
         mock_state.return_value = GenericCheckpointState(serde="utf-8")
         pipeline_run1 = None
@@ -329,7 +329,7 @@ def test_stateful_ingestion_failure(pytestconfig, tmp_path, mock_time):
         assert checkpoint1.state
 
     with mock.patch(
-        "datahub.ingestion.source.state.stale_entity_removal_handler.StaleEntityRemovalHandler.get_state"
+        "datahub.ingestion.source.state.stale_entity_removal_handler.StaleEntityRemovalHandler._get_state_obj"
     ) as mock_state:
         mock_state.return_value = GenericCheckpointState(serde="utf-8")
         pipeline_run2 = None
