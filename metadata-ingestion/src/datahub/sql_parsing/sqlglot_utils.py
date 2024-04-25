@@ -67,6 +67,25 @@ def parse_statement(
     return statement
 
 
+def parse_statements_and_pick(sql: str, platform: DialectOrStr) -> sqlglot.Expression:
+    dialect = get_dialect(platform)
+    statements = [
+        expression for expression in sqlglot.parse(sql, dialect=dialect) if expression
+    ]
+    if not statements:
+        raise ValueError(f"No statements found in query: {sql}")
+    elif len(statements) == 1:
+        return statements[0]
+    else:
+        # If we find multiple statements, we assume the last one is the main query.
+        # Usually the prior queries are going to be things like `CREATE FUNCTION`
+        # or `GRANT ...`, which we don't care about.
+        logger.debug(
+            "Found multiple statements in query, picking the last one: %s", sql
+        )
+        return statements[-1]
+
+
 def _expression_to_string(
     expression: sqlglot.exp.ExpOrStr, platform: DialectOrStr
 ) -> str:

@@ -1,3 +1,4 @@
+import json
 import logging
 from datetime import datetime, timezone
 from functools import lru_cache
@@ -78,6 +79,10 @@ class MetabaseConfig(DatasetLineageProviderConfigBase):
     default_schema: str = Field(
         default="public",
         description="Default schema name to use when schema is not provided in an SQL query",
+    )
+    exclude_other_user_collections: bool = Field(
+        default=False,
+        description="Flag that if true, exclude other user collections",
     )
 
     @validator("connect_uri", "display_uri")
@@ -209,6 +214,7 @@ class MetabaseSource(Source):
         try:
             collections_response = self.session.get(
                 f"{self.config.connect_uri}/api/collection/"
+                f"?exclude-other-user-collections={json.dumps(self.config.exclude_other_user_collections)}"
             )
             collections_response.raise_for_status()
             collections = collections_response.json()

@@ -314,6 +314,10 @@ public class SearchDocumentTransformer {
         return Optional.of(JsonNodeFactory.instance.numberNode((Integer) fieldValue));
       case LONG:
         return Optional.of(JsonNodeFactory.instance.numberNode((Long) fieldValue));
+      case FLOAT:
+        return Optional.of(JsonNodeFactory.instance.numberNode((Float) fieldValue));
+      case DOUBLE:
+        return Optional.of(JsonNodeFactory.instance.numberNode((Double) fieldValue));
         // By default run toString
       default:
         String value = fieldValue.toString();

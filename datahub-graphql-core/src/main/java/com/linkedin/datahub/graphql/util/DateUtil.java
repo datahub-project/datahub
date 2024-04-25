@@ -35,4 +35,11 @@ public class DateUtil {
     return new DateRange(
         String.valueOf(aWeekAgoStart.getMillis()), String.valueOf(todayEnd.getMillis()));
   }
+
+  public DateRange getTrailingMonthDateRange() {
+    final DateTime todayEnd = getTomorrowStart().minusMillis(1);
+    final DateTime aMonthAgoStart = todayEnd.minusMonths(1).plusMillis(1);
+    return new DateRange(
+        String.valueOf(aMonthAgoStart.getMillis()), String.valueOf(todayEnd.getMillis()));
+  }
 }

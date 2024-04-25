@@ -49,7 +49,12 @@ def register_mock_api(request_mock: Any, override_data: dict = {}) -> None:
                         "createdBy": "657b5abe656297cec3d8b205",
                         "updatedAt": "2024-01-09T09:13:38.002Z",
                     }
-                ]
+                ],
+                "links": {
+                    "self": {
+                        "href": "https://iq37k6byr9lgam8.us.qlikcloud.com/api/v1/spaces"
+                    }
+                },
             },
         },
         "https://iq37k6byr9lgam8.us.qlikcloud.com/api/v1/items": {

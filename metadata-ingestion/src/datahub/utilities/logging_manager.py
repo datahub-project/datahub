@@ -31,6 +31,7 @@ DATAHUB_PACKAGES = [
     "datahub_provider",
     "datahub_classify",
     "datahub_actions",
+    "acryl_datahub_cloud",
 ]
 IN_MEMORY_LOG_BUFFER_SIZE = 2000  # lines
 
