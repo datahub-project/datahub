@@ -55,6 +55,7 @@ export const DEFAULT_APP_CONFIG = {
         assertionMonitorsEnabled: false,
         subscriptionsEnabled: false,
         datasetHealthDashboardEnabled: false,
+        businessAttributeEntityEnabled: false,
         showAcrylInfo: false,
         erModelRelationshipFeatureEnabled: false,
         showAccessManagement: false,
@@ -71,7 +72,6 @@ export const DEFAULT_APP_CONFIG = {
     chromeExtensionConfig: {
         enabled: false,
         lineageEnabled: false,
-        businessAttributeEntityEnabled: false,
     },
 };
 

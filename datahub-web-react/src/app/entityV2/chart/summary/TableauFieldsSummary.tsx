@@ -36,7 +36,7 @@ function FieldTableByTag({ title, tag }: Props) {
     const fields = chart?.inputFields?.fields
         ?.filter((f) => f?.schemaField?.globalTags?.tags?.map((t) => t.tag.urn).includes(tag))
         .map((f) => f?.schemaField)
-        .filter((f): f is SchemaField => !!f);
+        .filter((f): boolean => !!f);
 
     if (!fields?.length) {
         return null;
@@ -45,7 +45,7 @@ function FieldTableByTag({ title, tag }: Props) {
     return (
         <ColumnWrapper>
             <SummaryTabHeaderTitle title={title} />
-            <ChartFieldsTable urn={urn} rows={fields} />
+            <ChartFieldsTable urn={urn} rows={fields as SchemaField[]} />
         </ColumnWrapper>
     );
 }

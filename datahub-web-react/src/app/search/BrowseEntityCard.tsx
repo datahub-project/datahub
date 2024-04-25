@@ -48,6 +48,8 @@ export const BrowseEntityCard = ({
         }
     }
 
+    const isGlossaryEntityCard = entityType === EntityType.GlossaryTerm;
+
     if (isGlossaryEntityCard && !showGlossary) {
         return null;
     }

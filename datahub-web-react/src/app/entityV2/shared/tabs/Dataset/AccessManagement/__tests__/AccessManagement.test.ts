@@ -17,11 +17,10 @@ describe('handleAccessRoles', () => {
                                         'This role access is required by the developers to test and deploy the code also adding few more details to check the description length for the given data and hence check the condition of read more and read less ',
                                     type: 'READ',
                                     requestUrl: 'https://www.google.com/',
+
                                 },
                                 urn: 'urn:li:role:accessRole',
-                                actors: {
-                                    users: null,
-                                },
+                                isAssignedToMe: true,
                             },
                         },
                     ],
@@ -85,6 +84,8 @@ describe('handleAccessRoles', () => {
                     manageOwnershipTypes: true,
                     manageGlobalAnnouncements: true,
                     manageDocumentationForms: true,
+                    createBusinessAttributes: true,
+                    manageBusinessAttributes: true,
                     __typename: 'PlatformPrivileges',
                 },
                 __typename: 'AuthenticatedUser',
@@ -165,6 +166,8 @@ describe('handleAccessRoles', () => {
                     manageOwnershipTypes: true,
                     manageGlobalAnnouncements: true,
                     manageDocumentationForms: true,
+                    createBusinessAttributes: true,
+                    manageBusinessAttributes: true,
                     __typename: 'PlatformPrivileges',
                 },
                 __typename: 'AuthenticatedUser',
@@ -189,15 +192,7 @@ describe('handleAccessRoles', () => {
                                     requestUrl: 'https://www.google.com/',
                                 },
                                 urn: 'urn:li:role:accessRole',
-                                actors: {
-                                    users: [
-                                        {
-                                            user: {
-                                                urn: 'urn:li:corpuser:datahub',
-                                            },
-                                        },
-                                    ],
-                                },
+                                isAssignedToMe: true,
                             },
                         },
                     ],
@@ -261,6 +256,8 @@ describe('handleAccessRoles', () => {
                     manageOwnershipTypes: true,
                     manageGlobalAnnouncements: true,
                     manageDocumentationForms: true,
+                    createBusinessAttributes: true,
+                    manageBusinessAttributes: true,
                     __typename: 'PlatformPrivileges',
                 },
                 __typename: 'AuthenticatedUser',

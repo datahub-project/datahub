@@ -1,9 +1,10 @@
 import React from 'react';
 import { EntityRegistryContext } from '../entityRegistryContext';
+import EntityRegistry from './entity/EntityRegistry';
 import useBuildEntityRegistry from './useBuildEntityRegistry';
 
 const EntityRegistryProvider = ({ children }: { children: React.ReactNode }) => {
-    const entityRegistry = useBuildEntityRegistry();
+    const entityRegistry = useBuildEntityRegistry() as EntityRegistry;
     return <EntityRegistryContext.Provider value={entityRegistry}>{children}</EntityRegistryContext.Provider>;
 };
 

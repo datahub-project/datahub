@@ -121,18 +121,18 @@ export default class EntityRegistry {
 
     getEntityQuery(type: EntityType):
         | ((
-              baseOptions: QueryHookOptions<
-                  any,
-                  Exact<{
-                      urn: string;
-                  }>
-              >,
-          ) => QueryResult<
-              any,
-              Exact<{
-                  urn: string;
-              }>
-          >)
+            baseOptions: QueryHookOptions<
+                any,
+                Exact<{
+                    urn: string;
+                }>
+            >,
+        ) => QueryResult<
+            any,
+            Exact<{
+                urn: string;
+            }>
+        >)
         | undefined {
         const entity = validatedGet(type, this.entityTypeToEntity);
         return entity.useEntityQuery;
@@ -249,7 +249,7 @@ export default class EntityRegistry {
 
     getCustomCardUrlPath(type: EntityType): string | undefined {
         const entity = validatedGet(type, this.entityTypeToEntity);
-        return entity.getCustomCardUrlPath?.();
+        return (entity.getCustomCardUrlPath?.() as string | undefined);
     }
 
     getTypeFromGraphName(name: string): EntityType | undefined {

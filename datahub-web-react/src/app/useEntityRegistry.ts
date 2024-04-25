@@ -10,5 +10,5 @@ export function useEntityRegistry() {
 }
 
 export function useEntityRegistryV2() {
-    return useContext(EntityRegistryContext) as EntityRegistryV2;
+    return useContext(EntityRegistryContext) as any as EntityRegistryV2;
 }
