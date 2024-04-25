@@ -5,6 +5,8 @@ import { BellFilled, BellOutlined } from '@ant-design/icons';
 import useSubscriptionSummary from '../useSubscriptionSummary';
 import { ActionMenuItem } from '../../../entityV2/shared/EntityDropdown/styledComponents';
 import SubscribeButtonMenu from './SubscribeButtonMenu';
+import { GenericEntityProperties } from '../../../entity/shared/types';
+import { EntityType } from '../../../../types.generated';
 
 const StyledBellFilled = styled(BellFilled)`
     && {
@@ -28,9 +30,11 @@ const StyledBellOutlined = styled(BellOutlined)`
 
 interface Props {
     entityUrn: string;
+    entityData: GenericEntityProperties | null;
+    entityType: EntityType;
 }
 
-export const SubscribeMenuAction = ({ entityUrn }: Props) => {
+export const SubscribeMenuAction = ({ entityUrn, entityData, entityType }: Props) => {
     const { isUserSubscribed, setIsUserSubscribed, refetchSubscriptionSummary } = useSubscriptionSummary({
         entityUrn,
     });
@@ -40,13 +44,14 @@ export const SubscribeMenuAction = ({ entityUrn }: Props) => {
             <Dropdown
                 trigger={['hover']}
                 overlay={
-                    <Menu
-                    >
+                    <Menu>
                         <SubscribeButtonMenu
                             isUserSubscribed={isUserSubscribed}
                             setIsUserSubscribed={setIsUserSubscribed}
                             refetchSubscriptionSummary={refetchSubscriptionSummary}
                             entityUrn={entityUrn}
+                            entityData={entityData}
+                            entityType={entityType}
                         />
                     </Menu>
                 }

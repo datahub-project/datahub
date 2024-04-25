@@ -12,7 +12,7 @@ import { useEntityData } from '../../../entity/shared/EntityContext';
 import { ActionMenuItem } from './styledComponents';
 
 export default function MoveEntityMenuAction() {
-    const { entityData, entityType } = useEntityData();
+    const { entityData, entityType, urn } = useEntityData();
     const me = useUserContext();
     const entityRegistry = useEntityRegistry();
     const isNestedDomainsEnabled = useIsNestedDomainsEnabled();
@@ -36,7 +36,12 @@ export default function MoveEntityMenuAction() {
                 <FolderOpenOutlined style={{ display: 'flex' }} />
             </ActionMenuItem>
             {isMoveModalVisible && isGlossaryEntity && (
-                <MoveGlossaryEntityModal onClose={() => setIsMoveModalVisible(false)} />
+                <MoveGlossaryEntityModal
+                    entityData={entityData}
+                    entityType={entityType}
+                    urn={urn}
+                    onClose={() => setIsMoveModalVisible(false)}
+                />
             )}
             {isMoveModalVisible && isDomainEntity && <MoveDomainModal onClose={() => setIsMoveModalVisible(false)} />}
         </Tooltip>

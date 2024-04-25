@@ -69,7 +69,9 @@ function EntityMenuActions(props: Props) {
                 <MenuItems>
                     {menuItems.has(EntityMenuItems.EXTERNAL_URL) && <ExternalUrlMenuAction />}
                     {menuItems.has(EntityMenuItems.MOVE) && <MoveEntityMenuAction />}
-                    {menuItems.has(EntityMenuItems.SUBSCRIBE) && <SubscribeMenuAction entityUrn={urn} />}
+                    {menuItems.has(EntityMenuItems.SUBSCRIBE) && (
+                        <SubscribeMenuAction entityUrn={urn} entityType={entityType} entityData={entityData} />
+                    )}
                     {menuItems.has(EntityMenuItems.SHARE) && <ShareMenuAction />}
                     {menuItems.has(EntityMenuItems.UPDATE_DEPRECATION) && <UpdateDeprecationMenuAction />}
                     {menuItems.has(EntityMenuItems.DELETE) && (

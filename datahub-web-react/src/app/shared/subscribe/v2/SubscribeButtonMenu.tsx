@@ -3,8 +3,9 @@ import SubscriptionDrawer from '../drawer/SubscriptionDrawer';
 import useSubscription from '../useSubscription';
 import useDeleteSubscription from '../useDeleteSubscription';
 import useGroupRelationships from '../useGroupRelationships';
-import { useEntityData } from '../../../entity/shared/EntityContext';
 import { StyledMenuItem } from '../../share/v2/styledComponents';
+import { EntityType } from '../../../../types.generated';
+import { GenericEntityProperties } from '../../../entity/shared/types';
 
 const DROPDOWN_KEYS = {
     SUBSCRIBE_ME: 'SUBSCRIBE_ME',
@@ -17,6 +18,8 @@ interface Props {
     setIsUserSubscribed: React.Dispatch<React.SetStateAction<boolean>>;
     refetchSubscriptionSummary: any;
     entityUrn: string;
+    entityData: GenericEntityProperties | null;
+    entityType: EntityType;
 }
 
 export default function SubscribeButtonMenu({
@@ -24,8 +27,9 @@ export default function SubscribeButtonMenu({
     setIsUserSubscribed,
     refetchSubscriptionSummary,
     entityUrn,
+    entityData,
+    entityType,
 }: Props) {
-    const { entityData, entityType } = useEntityData();
     const entityName = entityData?.name || '';
     const [isDrawerOpen, setIsDrawerOpen] = useState(false);
     const [isPersonal, setIsPersonal] = useState(true);

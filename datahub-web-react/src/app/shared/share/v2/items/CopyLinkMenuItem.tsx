@@ -3,9 +3,13 @@ import styled from 'styled-components/macro';
 import { CheckOutlined, LinkOutlined } from '@ant-design/icons';
 import { Tooltip } from 'antd';
 import { StyledMenuItem } from '../styledComponents';
+import { EntityType } from '../../../../../types.generated';
+import { useEntityRegistryV2 } from '../../../../useEntityRegistry';
 
 interface CopyLinkMenuItemProps {
     key: string;
+    urn: string;
+    entityType: EntityType;
 }
 
 const TextSpan = styled.span`
@@ -17,17 +21,22 @@ const StyledLinkOutlined = styled(LinkOutlined)`
     font-size: 14px;
 `;
 
-export default function CopyLinkMenuItem({ key }: CopyLinkMenuItemProps) {
+export default function CopyLinkMenuItem({ key, urn, entityType }: CopyLinkMenuItemProps) {
     /**
      * Whether button has been clicked
      */
+    const { origin } = window.location;
+    const entityRegistry = useEntityRegistryV2();
+
     const [isClicked, setIsClicked] = useState(false);
+
+    const copyUrl = `${origin}${entityRegistry.getEntityUrl(entityType, urn)}/`;
 
     return (
         <StyledMenuItem
             key={key}
             onClick={() => {
-                navigator.clipboard.writeText(window.location.href);
+                navigator.clipboard.writeText(copyUrl);
                 setIsClicked(true);
             }}
         >
