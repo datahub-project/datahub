@@ -19,7 +19,7 @@ import org.springframework.context.annotation.AnnotationConfigApplicationContext
 @Slf4j
 public class SpringPluginFactory extends PluginFactory {
 
-  @Nonnull private final ApplicationContext springApplicationContext;
+  @Nullable private final ApplicationContext springApplicationContext;
 
   public SpringPluginFactory(
       @Nullable ApplicationContext springApplicationContext,
@@ -27,16 +27,12 @@ public class SpringPluginFactory extends PluginFactory {
       @Nonnull List<ClassLoader> classLoaders) {
     super(pluginConfiguration, classLoaders);
 
-    if (springApplicationContext == null && classLoaders.isEmpty()) {
-      throw new IllegalArgumentException(
-          "Either a Spring context or class loaders must be provided.");
-    }
+    String[] packageScan =
+        extractPackageScan(pluginConfiguration.streamAll()).toArray(String[]::new);
 
-    if (springApplicationContext != null) {
+    if (springApplicationContext != null || packageScan.length == 0) {
       this.springApplicationContext = springApplicationContext;
     } else {
-      String[] packageScan =
-          extractPackageScan(pluginConfiguration.streamAll()).toArray(String[]::new);
 
       AnnotationConfigApplicationContext rootContext = null;
 
@@ -87,6 +83,10 @@ public class SpringPluginFactory extends PluginFactory {
 
     // load non-spring
     List<T> result = new ArrayList<>(super.build(baseClazz, configs, packageNames));
+
+    if (springApplicationContext == null) {
+      return result;
+    }
 
     // consider Spring dependency injection
     for (AspectPluginConfig config :
