@@ -72,6 +72,9 @@ public class CacheConfig {
     mapConfig.setName("default");
     config.addMapConfig(mapConfig);
 
+    // Force classloader to load from application code
+    config.setClassLoader(this.getClass().getClassLoader());
+
     // Set up special configuration for lineage cache
     config.addMapConfig(lineageCacheConfig(configurationProvider));
 
