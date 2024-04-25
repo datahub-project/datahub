@@ -51,6 +51,10 @@ public class ConfigEntityRegistry implements EntityRegistry {
 
   private final DataSchemaFactory dataSchemaFactory;
   @Getter private final PluginFactory pluginFactory;
+
+  @Nullable
+  private BiFunction<PluginConfiguration, List<ClassLoader>, PluginFactory> pluginFactoryProvider;
+
   private final Map<String, EntitySpec> entityNameToSpec;
   private final Map<String, EventSpec> eventNameToSpec;
   private final List<EntitySpec> entitySpecs;
@@ -71,7 +75,8 @@ public class ConfigEntityRegistry implements EntityRegistry {
 
   public ConfigEntityRegistry(
       Pair<Path, Path> configFileClassPathPair,
-      @Nullable BiFunction<PluginConfiguration, List<ClassLoader>, PluginFactory> pluginFactory)
+      @Nullable
+          BiFunction<PluginConfiguration, List<ClassLoader>, PluginFactory> pluginFactoryProvider)
       throws IOException {
     this(
         DataSchemaFactory.withCustomClasspath(configFileClassPathPair.getSecond()),
@@ -80,14 +85,15 @@ public class ConfigEntityRegistry implements EntityRegistry {
             .orElse(Stream.empty())
             .collect(Collectors.toList()),
         configFileClassPathPair.getFirst(),
-        pluginFactory);
+        pluginFactoryProvider);
   }
 
   public ConfigEntityRegistry(
       String entityRegistryRoot,
-      @Nullable BiFunction<PluginConfiguration, List<ClassLoader>, PluginFactory> pluginFactory)
+      @Nullable
+          BiFunction<PluginConfiguration, List<ClassLoader>, PluginFactory> pluginFactoryProvider)
       throws EntityRegistryException, IOException {
-    this(getFileAndClassPath(entityRegistryRoot), pluginFactory);
+    this(getFileAndClassPath(entityRegistryRoot), pluginFactoryProvider);
   }
 
   private static Pair<Path, Path> getFileAndClassPath(String entityRegistryRoot)
@@ -131,25 +137,27 @@ public class ConfigEntityRegistry implements EntityRegistry {
 
   public ConfigEntityRegistry(
       InputStream configFileInputStream,
-      @Nullable BiFunction<PluginConfiguration, List<ClassLoader>, PluginFactory> pluginFactory) {
+      @Nullable
+          BiFunction<PluginConfiguration, List<ClassLoader>, PluginFactory> pluginFactoryProvider) {
     this(
         DataSchemaFactory.getInstance(),
         Collections.emptyList(),
         configFileInputStream,
-        pluginFactory);
+        pluginFactoryProvider);
   }
 
   public ConfigEntityRegistry(
       DataSchemaFactory dataSchemaFactory,
       List<ClassLoader> classLoaders,
       Path configFilePath,
-      @Nullable BiFunction<PluginConfiguration, List<ClassLoader>, PluginFactory> pluginFactory)
+      @Nullable
+          BiFunction<PluginConfiguration, List<ClassLoader>, PluginFactory> pluginFactoryProvider)
       throws FileNotFoundException {
     this(
         dataSchemaFactory,
         classLoaders,
         new FileInputStream(configFilePath.toString()),
-        pluginFactory);
+        pluginFactoryProvider);
   }
 
   public ConfigEntityRegistry(
@@ -163,16 +171,18 @@ public class ConfigEntityRegistry implements EntityRegistry {
       DataSchemaFactory dataSchemaFactory,
       List<ClassLoader> classLoaders,
       InputStream configFileStream,
-      @Nullable BiFunction<PluginConfiguration, List<ClassLoader>, PluginFactory> pluginFactory) {
+      @Nullable
+          BiFunction<PluginConfiguration, List<ClassLoader>, PluginFactory> pluginFactoryProvider) {
     this.dataSchemaFactory = dataSchemaFactory;
     Entities entities;
     try {
       entities = OBJECT_MAPPER.readValue(configFileStream, Entities.class);
-      if (pluginFactory != null) {
-        this.pluginFactory = pluginFactory.apply(entities.getPlugins(), classLoaders);
+      if (pluginFactoryProvider != null) {
+        this.pluginFactory = pluginFactoryProvider.apply(entities.getPlugins(), classLoaders);
       } else {
         this.pluginFactory = PluginFactory.withCustomClasspath(entities.getPlugins(), classLoaders);
       }
+      this.pluginFactoryProvider = pluginFactoryProvider;
     } catch (IOException e) {
       throw new IllegalArgumentException(
           String.format(

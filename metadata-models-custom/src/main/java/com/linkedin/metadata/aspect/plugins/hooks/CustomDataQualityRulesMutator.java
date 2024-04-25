@@ -15,10 +15,6 @@ public class CustomDataQualityRulesMutator extends MutationHook {
 
   private AspectPluginConfig config;
 
-  public CustomDataQualityRulesMutator(AspectPluginConfig config) {
-    this.config = config;
-  }
-
   @Override
   protected Stream<Pair<ChangeMCP, Boolean>> writeMutation(
       @Nonnull Collection<ChangeMCP> changeMCPS, @Nonnull RetrieverContext retrieverContext) {
