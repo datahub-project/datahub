@@ -1,6 +1,6 @@
 import json
 import logging
-from dataclasses import dataclass
+import re
 from datetime import datetime, timezone
 from functools import lru_cache
 from typing import Dict, Iterable, List, Optional, Tuple, Union
@@ -94,7 +94,6 @@ class MetabaseConfig(DatasetLineageProviderConfigBase, StatefulIngestionConfigBa
         default=False,
         description="Flag that if true, exclude other user collections",
     )
-    stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = None
 
     @validator("connect_uri", "display_uri")
     def remove_trailing_slash(cls, v):
@@ -593,11 +592,12 @@ class MetabaseSource(StatefulIngestionSourceBase):
                         )
                     ]
         else:
-            raw_query = (
+            raw_query_stripped = self.strip_template_expressions(
                 card_details.get("dataset_query", {}).get("native", {}).get("query", "")
             )
+
             result = create_lineage_sql_parsed_result(
-                query=raw_query,
+                query=raw_query_stripped,
                 default_db=database_name,
                 default_schema=database_schema or self.config.default_schema,
                 platform=platform,
@@ -617,6 +617,24 @@ class MetabaseSource(StatefulIngestionSourceBase):
             return result.in_tables
 
         return None
+
+    @staticmethod
+    def strip_template_expressions(raw_query) -> str:
+        """
+        Workarounds for metabase raw queries containing most commonly used template expressions:
+
+        - strip conditional expressions "[[ .... ]]"
+        - replace all {{ filter expressions }} with "1"
+
+        reference: https://www.metabase.com/docs/latest/questions/native-editor/sql-parameters
+        """
+
+        # drop [[ WHERE {{FILTER}} ]]
+        query_patched = re.sub(r"\[\[.+\]\]", r" ", raw_query)
+
+        # replace {{FILTER}} with 1
+        query_patched = re.sub(r"\{\{.+\}\}", r"1", query_patched)
+        return query_patched
 
     @lru_cache(maxsize=None)
     def get_source_table_from_id(
