@@ -72,6 +72,8 @@ from datahub.metadata.schema_classes import (
     DatasetPropertiesClass,
 )
 from datahub.utilities.registries.domain_registry import DomainRegistry
+from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
+from botocore.exceptions import BotoCoreError, ClientError
 
 MAX_ITEMS_TO_RETRIEVE = 100
 PAGE_SIZE = 100
@@ -94,11 +96,15 @@ class DynamoDBConfig(
     StatefulIngestionConfigBase,
     ClassificationSourceConfigMixin,
 ):
+
     # TODO: refactor the config to use AwsConnectionConfig and create a method get_dynamodb_client
     # in the class to provide optional region name input
     aws_access_key_id: str = Field(description="AWS Access Key ID.")
     aws_secret_access_key: pydantic.SecretStr = Field(description="AWS Secret Key.")
-
+    aws_account_id: str = Field(description="AWS Account ID.")
+    role_name: str = Field(description="AWS Role Name.")
+    # connection_config: Optional[str] = Field(description="AWS Connection Config.")
+        
     domain: Dict[str, AllowDenyPattern] = Field(
         default=dict(),
         description="regex patterns for tables to filter to assign domain_key. ",
@@ -210,6 +216,38 @@ class DynamoDBSource(StatefulIngestionSourceBase):
                 self, self.config, self.ctx
             ).workunit_processor,
         ]
+        
+    def get_dynamodb_client(self, region_name: Optional[str] = None):
+        if region_name is None:
+            region_name = self.config.connection_config.region_name
+
+        if self.aws_account_id and self.role_name:
+            sts_role_arn = f"arn:aws:iam::{self.aws_account_id}:role/{self.role_name}"
+            sts_client = boto3.client('sts')
+            try:
+                assumed_role_object = sts_client.assume_role(
+                    RoleArn=self.config.sts_role_arn,
+                    RoleSessionName="AssumeRoleSession"
+                )
+            except (BotoCoreError, ClientError) as error:
+                print(f"Failed to assume role: {error}")
+                raise
+
+            credentials = assumed_role_object['Credentials']
+            return boto3.client(
+                'dynamodb',
+                region_name=region_name,
+                aws_access_key_id=credentials['AccessKeyId'],
+                aws_secret_access_key=credentials['SecretAccessKey'],
+                aws_session_token=credentials['SessionToken'],
+            )
+        else:
+            return boto3.client(
+                'dynamodb',
+                region_name=region_name,
+                aws_access_key_id=self.config.connection_config.aws_access_key_id,
+                aws_secret_access_key=self.config.connection_config.aws_secret_access_key.get_secret_value(),
+            )
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         # This is a offline call to get available region names from botocore library
@@ -223,12 +261,13 @@ class DynamoDBSource(StatefulIngestionSourceBase):
             # create a new dynamodb client for each region,
             # it seems for one client we could only list the table of one specific region,
             # the list_tables() method don't take any config that related to region
-            dynamodb_client = boto3.client(
-                "dynamodb",
-                region_name=region,
-                aws_access_key_id=self.config.aws_access_key_id,
-                aws_secret_access_key=self.config.aws_secret_access_key.get_secret_value(),
-            )
+            # dynamodb_client = boto3.client(
+            #     "dynamodb",
+            #     region_name=region,
+            #     aws_access_key_id=self.config.aws_access_key_id,
+            #     aws_secret_access_key=self.config.aws_secret_access_key.get_secret_value(),
+            # )
+            dynamodb_client = self.get_dynamodb_client(region)
             data_reader = DynamoDBTableItemsReader.create(dynamodb_client)
 
             for table_name in self._list_tables(dynamodb_client):
