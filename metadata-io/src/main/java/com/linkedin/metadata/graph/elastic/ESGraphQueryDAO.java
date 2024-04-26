@@ -122,9 +122,7 @@ public class ESGraphQueryDAO {
 
     searchSourceBuilder.from(offset);
     searchSourceBuilder.size(count);
-
-    // TODO check if this is ok w.r.t. performance
-    searchSourceBuilder.trackTotalHits(true);
+    searchSourceBuilder.trackTotalHitsUpTo(10000);
 
     searchSourceBuilder.query(query);
     if (graphQueryConfiguration.isBoostViaNodes()) {

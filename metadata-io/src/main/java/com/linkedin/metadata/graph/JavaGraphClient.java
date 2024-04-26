@@ -75,7 +75,8 @@ public class JavaGraphClient implements GraphClient {
         .setStart(relatedEntitiesResult.getStart())
         .setCount(relatedEntitiesResult.getCount())
         .setTotal(relatedEntitiesResult.getTotal())
-        .setRelationships(entityArray);
+        .setRelationships(entityArray)
+        .setTotalType(relatedEntitiesResult.getTotalType().toString());
   }
 
   /**

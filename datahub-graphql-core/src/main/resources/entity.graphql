@@ -1283,6 +1283,11 @@ type EntityRelationshipsResult {
   Relationships in the result set
   """
   relationships: [EntityRelationship!]!
+
+  """
+  Interpretation of the "total"; null is to be interpreted to mean RelatedEntitiesTotalType.EXACT
+  """
+  totalType: RelatedEntitiesTotalType
 }
 
 """
@@ -1418,6 +1423,21 @@ enum RelationshipDirection {
   A directed edge pointing at the destination Entity
   """
   OUTGOING
+}
+
+"""
+Indicates whether the "total" entity relationships is exact, or a bound.
+"""
+enum RelatedEntitiesTotalType {
+  """
+  Indicates that the total is exact
+  """
+  EXACT,
+
+  """
+  Indicates that the total is a lower bound i.e. the actual total is greater than or equal to the given total
+  """
+  LOWER_BOUND
 }
 
 """

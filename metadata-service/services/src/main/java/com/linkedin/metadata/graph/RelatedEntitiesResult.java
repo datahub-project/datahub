@@ -12,4 +12,14 @@ public class RelatedEntitiesResult {
   int count;
   int total;
   List<RelatedEntity> entities;
+  TotalType totalType;
+
+  public RelatedEntitiesResult(int start, int count, int total, List<RelatedEntity> entities) {
+    this(start, count, total, entities, TotalType.EXACT);
+  }
+
+  public enum TotalType {
+    EXACT,
+    LOWER_BOUND;
+  }
 }

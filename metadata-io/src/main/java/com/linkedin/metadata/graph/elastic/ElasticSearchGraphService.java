@@ -50,6 +50,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.lucene.search.TotalHits;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.search.SearchHit;
@@ -174,12 +175,20 @@ public class ElasticSearchGraphService implements GraphService, ElasticSearchInd
     }
 
     int totalCount = (int) response.getHits().getTotalHits().value;
+    TotalHits.Relation relation = response.getHits().getTotalHits().relation;
+
     final List<RelatedEntity> relationships =
         searchHitsToRelatedEntities(response.getHits().getHits(), relationshipDirection).stream()
             .map(RelatedEntities::asRelatedEntity)
             .filter(Objects::nonNull)
             .collect(Collectors.toList());
-    return new RelatedEntitiesResult(offset, relationships.size(), totalCount, relationships);
+
+    RelatedEntitiesResult result =
+        new RelatedEntitiesResult(offset, relationships.size(), totalCount, relationships);
+    if (relation == TotalHits.Relation.GREATER_THAN_OR_EQUAL_TO) {
+      result.setTotalType(RelatedEntitiesResult.TotalType.LOWER_BOUND);
+    }
+    return result;
   }
 
   @Nonnull

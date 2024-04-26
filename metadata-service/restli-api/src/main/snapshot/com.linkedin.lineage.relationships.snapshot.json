@@ -78,6 +78,11 @@
       "name" : "total",
       "type" : "int",
       "doc" : "Total number of edges found."
+    }, {
+      "name" : "totalType",
+      "type" : "string",
+      "doc" : "Whether the total is \"EXACT\" or a \"LOWER_BOUND\"",
+      "optional" : true
     } ]
   }, "com.linkedin.common.Time", "com.linkedin.common.Urn", {
     "type" : "record",

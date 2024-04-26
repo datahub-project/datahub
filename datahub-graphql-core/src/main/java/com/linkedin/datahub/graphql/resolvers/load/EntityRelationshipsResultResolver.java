@@ -8,6 +8,7 @@ import com.linkedin.common.EntityRelationships;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityRelationshipsResult;
+import com.linkedin.datahub.graphql.generated.RelatedEntitiesTotalType;
 import com.linkedin.datahub.graphql.generated.RelationshipsInput;
 import com.linkedin.datahub.graphql.types.common.mappers.AuditStampMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.UrnToEntityMapper;
@@ -93,6 +94,10 @@ public class EntityRelationshipsResultResolver
                             relationshipDirection.name()),
                         entityRelationship))
             .collect(Collectors.toList()));
+
+    if (entityRelationships.getTotalType() != null) {
+      result.setTotalType(RelatedEntitiesTotalType.valueOf(entityRelationships.getTotalType()));
+    }
     return result;
   }
 

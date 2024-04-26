@@ -25,4 +25,8 @@ record EntityRelationships {
    */
    total: int
 
+  /**
+   * Whether the total is "EXACT" or a "LOWER_BOUND"
+   */
+   totalType: optional string
 }
