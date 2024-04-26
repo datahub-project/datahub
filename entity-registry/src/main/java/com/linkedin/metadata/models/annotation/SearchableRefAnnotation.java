@@ -98,10 +98,12 @@ public class SearchableRefAnnotation {
       DataSchema.Type schemaDataType) {
     switch (schemaDataType) {
       case INT:
-      case FLOAT:
         return SearchableAnnotation.FieldType.COUNT;
       case MAP:
         return SearchableAnnotation.FieldType.KEYWORD;
+      case FLOAT:
+      case DOUBLE:
+        return SearchableAnnotation.FieldType.DOUBLE;
       default:
         return SearchableAnnotation.FieldType.TEXT;
     }
