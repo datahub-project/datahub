@@ -4,34 +4,35 @@ import { useAppConfig } from './useAppConfig';
 import { useUserContext } from './context/useUserContext';
 
 /**
- * Returns true if theme v2 should be enabled. There are 2 conditions in which theme v2 is enabled:
+ * Returns true if theme v2 should be enabled.
  *
- * 1. If the user has enabled theme v2 in their settings, theme v2 will be enabled for the user.
- * 2. If theme v2 is enabled globally, theme v2 will be enabled for the user.
- *
- * If theme v2 is enabled globally, it will take precedence over the user's settings.
+ * There are 3 conditions in which theme v2 is enabled:
+ * 1. If theme v2 is enabled and toggleable, and the user has enabled theme v2.
+ * 2. If theme v2 is enabled and toggleable, the user has not set a preference, and v2 is the default theme.
+ * 3. If theme v2 is enabled not toggleable, and v2 is the default theme.
  */
-export function useIsThemeV2Enabled() {
-    const [isThemeV2EnabledGlobally, isGlobalLoaded] = useIsThemeV2EnabledGlobally();
+export function useIsThemeV2() {
+    const appConfig = useAppConfig();
+    const { themeV2Enabled, themeV2Default, themeV2Toggleable } = appConfig.config.featureFlags;
     const [isThemeV2EnabledForUser, isUserLoaded] = useIsThemeV2EnabledForUser();
 
-    if (isGlobalLoaded && isThemeV2EnabledGlobally) {
-        return true;
-    }
-    if (isUserLoaded) {
-        return isThemeV2EnabledForUser;
-    }
+    if (appConfig.loaded && !themeV2Enabled) return false;
+    if (appConfig.loaded && !themeV2Toggleable) return themeV2Default;
+    if (appConfig.loaded && isUserLoaded) return isThemeV2EnabledForUser;
 
     // Default before flags loaded is stored in local storage
     return loadThemeV2FromLocalStorage();
 }
 
 /**
- * Returns [isThemeV2Enabled, isAppConfigLoaded]: whether the V2 theme can be turned on at all.
+ * Returns [isThemeV2Toggleable, isAppConfigLoaded]: whether the V2 theme can be toggled by users.
  */
-export function useIsThemeV2Accessible() {
+export function useIsThemeV2Toggleable() {
     const appConfig = useAppConfig();
-    return [appConfig.config.featureFlags.themeV2Enabled, appConfig.loaded];
+    return [
+        appConfig.config.featureFlags.themeV2Enabled && appConfig.config.featureFlags.themeV2Toggleable,
+        appConfig.loaded,
+    ];
 }
 
 /**
@@ -40,22 +41,14 @@ export function useIsThemeV2Accessible() {
 export function useIsThemeV2EnabledForUser(): [boolean, boolean] {
     const appConfig = useAppConfig();
     const { user } = useUserContext();
-    return [appConfig.config.featureFlags.themeV2Enabled && !!user?.settings?.appearance?.showThemeV2, !!user];
-}
-
-/**
- * Returns [isThemeV2EnabledGlobally, isAppConfigLoaded]: whether the V2 theme is turned on globally.
- */
-export function useIsThemeV2EnabledGlobally(): [boolean, boolean] {
-    const appConfig = useAppConfig();
     return [
-        appConfig.config.featureFlags.themeV2Enabled && appConfig.config.featureFlags.themeV2Default,
-        appConfig.loaded,
+        user?.settings?.appearance?.showThemeV2 ?? appConfig.config.featureFlags.themeV2Default,
+        !!user && appConfig.loaded,
     ];
 }
 
 export function useSetThemeIsV2() {
-    const isThemeV2 = useIsThemeV2Enabled();
+    const isThemeV2 = useIsThemeV2();
     const { updateTheme } = useCustomTheme();
 
     useEffect(() => {

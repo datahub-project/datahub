@@ -38,6 +38,7 @@ import { EntityHealth } from '../entity/shared/containers/profile/header/EntityH
 import SearchTextHighlighter from '../search/matches/SearchTextHighlighter';
 import { getUniqueOwners } from './utils';
 import { FORM_CHECK_RESPONSES_ID } from '../onboarding/config/FormOnboardingConfig';
+import useEmbeddedProfileLinkProps from '../shared/useEmbeddedProfileLinkProps';
 
 const PreviewContainer = styled.div`
     display: flex;
@@ -269,6 +270,7 @@ export default function DefaultPreviewCard({
     // sometimes these lists will be rendered inside an entity container (for example, in the case of impact analysis)
     // in those cases, we may want to enrich the preview w/ context about the container entity
     const { entityData } = useEntityData();
+    const linkProps = useEmbeddedProfileLinkProps();
     const insightViews: Array<ReactNode> = [
         ...(insights?.map((insight) => (
             <>
@@ -322,7 +324,7 @@ export default function DefaultPreviewCard({
                         )}
                     </PlatformContentContainer>
                     <EntityTitleContainer>
-                        <Link to={url}>
+                        <Link to={url} {...linkProps}>
                             {previewType === PreviewType.HOVER_CARD ? (
                                 <CardEntityTitle onClick={onClick} $titleSizePx={titleSizePx}>
                                     {name || ' '}

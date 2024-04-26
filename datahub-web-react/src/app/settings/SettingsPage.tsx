@@ -39,7 +39,7 @@ import ManageHelpLink from './helpLink/ManageHelpLink';
 import analytics, { EventType } from '../analytics';
 import { GlobalCfg } from '../../conf';
 import { isLoggedInVar } from '../auth/checkAuthStatus';
-import { useIsThemeV2Enabled } from '../useIsThemeV2Enabled';
+import { useIsThemeV2 } from '../useIsThemeV2';
 
 const PageContainer = styled.div`
     display: flex;
@@ -136,7 +136,7 @@ export const SettingsPage = () => {
     const showOwnershipTypes = me && me?.platformPrivileges?.manageOwnershipTypes;
     const showHomePagePosts = me && me?.platformPrivileges?.manageGlobalAnnouncements && !readOnlyModeEnabled;
     const showCustomHelpLink = me?.platformPrivileges?.manageGlobalSettings;
-    const isThemeV2 = useIsThemeV2Enabled();
+    const isThemeV2 = useIsThemeV2();
 
     const handleLogout = () => {
         analytics.event({ type: EventType.LogOutEvent });

@@ -1,6 +1,6 @@
 import { useSetUserPersona } from './homeV2/persona/useUserPersona';
 import { useSetUserTitle } from './identity/user/useUserTitle';
-import { useSetThemeIsV2 } from './useIsThemeV2Enabled';
+import { useSetThemeIsV2 } from './useIsThemeV2';
 import { useUserTracking } from './useUserTracking';
 
 /**

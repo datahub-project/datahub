@@ -6,12 +6,7 @@ import { UserSetting } from '../../types.generated';
 import { ANTD_GRAY } from '../entity/shared/constants';
 import analytics, { EventType } from '../analytics';
 import { useUserContext } from '../context/useUserContext';
-import {
-    useIsThemeV2Accessible,
-    useIsThemeV2EnabledForUser,
-    useIsThemeV2EnabledGlobally,
-    useIsThemeV2Enabled,
-} from '../useIsThemeV2Enabled';
+import { useIsThemeV2Toggleable, useIsThemeV2EnabledForUser, useIsThemeV2 } from '../useIsThemeV2';
 
 const Page = styled.div`
     width: 100%;
@@ -59,16 +54,14 @@ const SettingText = styled(Typography.Text)`
 export const Preferences = () => {
     // Current User Urn
     const { user, refetchUser } = useUserContext();
-    const isThemeV2 = useIsThemeV2Enabled();
-    const [isThemeV2Accessible] = useIsThemeV2Accessible();
-    const [isThemeV2EnabledGlobally] = useIsThemeV2EnabledGlobally();
+    const isThemeV2 = useIsThemeV2();
+    const [isThemeV2Toggleable] = useIsThemeV2Toggleable();
     const [isThemeV2EnabledForUser] = useIsThemeV2EnabledForUser();
     const showSimplifiedHomepage = !!user?.settings?.appearance?.showSimplifiedHomepage;
 
     const [updateUserSettingMutation] = useUpdateUserSettingMutation();
 
     const showSimplifiedHomepageSetting = !isThemeV2;
-    const showV2ThemeSetting = isThemeV2Accessible && !isThemeV2EnabledGlobally;
 
     return (
         <Page>
@@ -115,7 +108,7 @@ export const Preferences = () => {
                         </UserSettingRow>
                     </Card>
                 )}
-                {showV2ThemeSetting && (
+                {isThemeV2Toggleable && (
                     <>
                         <Card style={{ marginTop: 20 }}>
                             <UserSettingRow>
@@ -154,7 +147,7 @@ export const Preferences = () => {
                         </Card>
                     </>
                 )}
-                {!showSimplifiedHomepageSetting && !showV2ThemeSetting && (
+                {!showSimplifiedHomepageSetting && !isThemeV2Toggleable && (
                     <div style={{ color: ANTD_GRAY[7] }}>No appearance settings found.</div>
                 )}
             </SourceContainer>

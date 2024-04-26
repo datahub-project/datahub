@@ -19,7 +19,7 @@ import {
     WELCOME_TO_BULK_BY_ENTITY_ID,
 } from '../../../onboarding/config/FormOnboardingConfig';
 
-import { useIsThemeV2Enabled } from '../../../useIsThemeV2Enabled';
+import { useIsThemeV2 } from '../../../useIsThemeV2';
 
 const ContentWrapper = styled.div`
     background-color: ${ANTD_GRAY_V2[1]};
@@ -49,7 +49,7 @@ export default function FormByEntity({ formUrn }: Props) {
     const entityRegistry = useEntityRegistry();
     const type = selectedEntity?.type || entityType;
     const sidebarSections = type ? entityRegistry.getSidebarSections(type) : [];
-    const isV2 = useIsThemeV2Enabled();
+    const isV2 = useIsThemeV2();
 
     // Used for v2 - removes repeated entity header (we use EntityInfo in this component)
     // SidebarEntityHeader is always the first index in sidebarSections, so remove it here

@@ -11,6 +11,7 @@ import SidebarLineageLoadingSection from './SidebarLineageLoadingSection';
 import { useEntityRegistry } from '../../../../../../useEntityRegistry';
 import { ANTD_GRAY, REDESIGN_COLORS } from '../../../../constants';
 import SectionActionButton from '../SectionActionButton';
+import useEmbeddedProfileLinkProps from '../../../../../../shared/useEmbeddedProfileLinkProps';
 
 const Section = styled.div`
     display: flex;
@@ -65,6 +66,8 @@ const StyledPartitionOutlined = styled(PartitionOutlined)`
 const SidebarLineageSection = () => {
     const { urn, entityType } = useEntityData();
     const entityRegistry = useEntityRegistry();
+    const linkProps = useEmbeddedProfileLinkProps();
+
     const { data, loading } = useGetSearchAcrossLineageCountsQuery({
         variables: {
             urn,
@@ -135,7 +138,7 @@ const SidebarLineageSection = () => {
                             placement="left"
                             showArrow={false}
                         >
-                            <Link to={`${entityRegistry.getEntityUrl(entityType, urn)}/Lineage`}>
+                            <Link to={`${entityRegistry.getEntityUrl(entityType, urn)}/Lineage`} {...linkProps}>
                                 <StyledPartitionOutlined />
                             </Link>
                         </Tooltip>

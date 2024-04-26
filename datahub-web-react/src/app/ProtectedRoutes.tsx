@@ -7,14 +7,14 @@ import { HomePage as HomePageV2 } from './homeV2/HomePage';
 import { SearchRoutes } from './SearchRoutes';
 import EmbedRoutes from './EmbedRoutes';
 import { AcrylPageRoutes, PageRoutes } from '../conf/Global';
-import { useIsThemeV2Enabled } from './useIsThemeV2Enabled';
+import { useIsThemeV2 } from './useIsThemeV2';
 import { OnboardingContextProvider } from './onboarding/OnboardingContextProvider';
 
 /**
  * Container for all views behind an authentication wall.
  */
 export const ProtectedRoutes = (): JSX.Element => {
-    const isThemeV2 = useIsThemeV2Enabled();
+    const isThemeV2 = useIsThemeV2();
     const FinalHomePage = isThemeV2 ? HomePageV2 : HomePage;
 
     return (

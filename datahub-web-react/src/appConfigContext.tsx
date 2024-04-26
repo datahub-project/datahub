@@ -64,6 +64,7 @@ export const DEFAULT_APP_CONFIG = {
         documentationAiEnabled: false,
         themeV2Enabled: false,
         themeV2Default: false,
+        themeV2Toggleable: false,
         lineageGraphV2: false,
         metadataShareEnabled: false,
         documentationFormsEnabled: false,

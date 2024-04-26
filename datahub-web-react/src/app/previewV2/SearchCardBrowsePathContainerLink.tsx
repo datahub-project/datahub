@@ -6,6 +6,7 @@ import { Container, EntityType } from '../../types.generated';
 import { REDESIGN_COLORS } from '../entityV2/shared/constants';
 import { useEntityRegistry } from '../useEntityRegistry';
 import SearchCardBrowsePathContainerIcon from './SearchCardBrowsePathContainerIcon';
+import useEmbeddedProfileLinkProps from '../shared/useEmbeddedProfileLinkProps';
 
 const Path = styled.div`
     white-space: nowrap;
@@ -45,6 +46,7 @@ interface Props {
 function ContainerLink(props: Props) {
     const { container } = props;
     const entityRegistry = useEntityRegistry();
+    const linkProps = useEmbeddedProfileLinkProps();
 
     if (!container) return null;
 
@@ -53,7 +55,7 @@ function ContainerLink(props: Props) {
 
     return (
         <Path>
-            <StyledLink to={containerUrl} data-testid="container">
+            <StyledLink to={containerUrl} data-testid="container" {...linkProps}>
                 <SearchCardBrowsePathContainerIcon container={props.container} />
                 <ContainerText title={containerName}>{containerName}</ContainerText>
             </StyledLink>

@@ -6,6 +6,7 @@ import { EntityType, GlossaryTermAssociation } from '../../../../types.generated
 import { HoverEntityTooltip } from '../../../recommendations/renderer/component/HoverEntityTooltip';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import TermContent from './TermContent';
+import useEmbeddedProfileLinkProps from '../../../shared/useEmbeddedProfileLinkProps';
 
 const TermLink = styled(Link)<{ $showOneAndCount?: boolean }>`
     display: inline-block;
@@ -45,6 +46,7 @@ interface Props {
 export default function Term(props: Props) {
     const { term, readOnly, showOneAndCount } = props;
     const entityRegistry = useEntityRegistry();
+    const linkProps = useEmbeddedProfileLinkProps();
 
     if (readOnly) {
         return (
@@ -62,6 +64,7 @@ export default function Term(props: Props) {
                 to={entityRegistry.getEntityUrl(EntityType.GlossaryTerm, term.term.urn)}
                 key={term.term.urn}
                 $showOneAndCount={showOneAndCount}
+                {...linkProps}
             >
                 <TermContent {...props} />
             </TermLink>
