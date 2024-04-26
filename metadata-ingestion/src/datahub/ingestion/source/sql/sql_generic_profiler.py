@@ -37,6 +37,10 @@ class DetailedProfilerReportMixin:
         default_factory=int_top_k_dict
     )
 
+    profiling_skipped_table_profile_pattern: TopKDict[str, int] = field(
+        default_factory=int_top_k_dict
+    )
+
     profiling_skipped_other: TopKDict[str, int] = field(default_factory=int_top_k_dict)
 
     num_tables_not_eligible_profiling: Dict[str, int] = field(
@@ -273,16 +277,17 @@ class GenericProfiler:
             threshold_time = datetime.now(timezone.utc) - timedelta(
                 self.config.profiling.profile_if_updated_since_days
             )
+        schema_name = dataset_name.rsplit(".", 1)[0]
 
         if not check_table_with_profile_pattern(
             self.config.profile_pattern, dataset_name
         ):
+            self.report.profiling_skipped_table_profile_pattern[schema_name] += 1
             logger.debug(
                 f"Table {dataset_name} is not allowed for profiling due to profile pattern"
             )
             return False
 
-        schema_name = dataset_name.rsplit(".", 1)[0]
         if (threshold_time is not None) and (
             last_altered is not None and last_altered < threshold_time
         ):

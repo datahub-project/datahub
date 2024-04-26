@@ -238,6 +238,9 @@ def schema_requires_v2(canonical_schema: List[SchemaField]) -> bool:
     return False
 
 
+CHECK_TABLE_TABLE_PART_SEPARATOR_PATTERN = re.compile("\\\\?\\.")
+
+
 def check_table_with_profile_pattern(
     profile_pattern: AllowDenyPattern, table_name: str
 ) -> bool:
@@ -246,7 +249,7 @@ def check_table_with_profile_pattern(
 
     for pattern in profile_pattern.allow:
         replaced_pattern = pattern.replace(".*", "").replace(".+", "")
-        splits = re.split(r"\\?\.", replaced_pattern)
+        splits = re.split(CHECK_TABLE_TABLE_PART_SEPARATOR_PATTERN, replaced_pattern)
         if parts + 1 == len(splits):
             table_pattern = pattern[: pattern.find(splits[-2]) + len(splits[-2])]
             allow_list.append(table_pattern + "$")

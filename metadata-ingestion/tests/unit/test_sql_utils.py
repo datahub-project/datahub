@@ -29,13 +29,13 @@ test_profile_pattern_matching_on_table_allow_list_test_data = [
     ("db.*", "db.table", True),
     ("db.*", "db.schema.table", True),
     ("db.schema.*", "db.schema.table", True),
-    ("db\.schema\..*", "db.schema.table", True),
-    ("db\.schema\.table\.column_prefix.*", "db.schema.table", True),
-    ("db\.schema\.table\.column", "db.schema.table", True),
-    ("db\.schema\.table2\.column", "db.schema.table", False),
-    ("db2\.schema.*", "db.schema.table", False),
-    ("db2\.schema.*", "db.schema.table", False),
-    ("db\.schema\.table\..*", "db.table2", False),
+    ("db\\.schema\\..*", "db.schema.table", True),
+    ("db\\.schema\\.table\\.column_prefix.*", "db.schema.table", True),
+    ("db\\.schema\\.table\\.column", "db.schema.table", True),
+    ("db\\.schema\\.table2\\.column", "db.schema.table", False),
+    ("db2\\.schema.*", "db.schema.table", False),
+    ("db2\\.schema.*", "db.schema.table", False),
+    ("db\\.schema\\.table\\..*", "db.table2", False),
 ]
 
 
@@ -58,13 +58,13 @@ test_profile_pattern_matching_on_table_deny_list_test_data = [
     ("db.*", "db.table", False),
     ("db.*", "db.schema.table", False),
     ("db.schema.*", "db.schema.table", False),
-    ("db\.schema\..*", "db.schema.table", False),
-    ("db\.schema\.table\.column_prefix.*", "db.schema.table", True),
-    ("db\.schema\.table\.column", "db.schema.table", True),
-    ("db\.schema\.table2\.column", "db.schema.table", True),
-    ("db2\.schema.*", "db.schema.table", True),
-    ("db2\.schema.*", "db.schema.table", True),
-    ("db\.schema\.table\..*", "db.table2", True),
+    ("db\\.schema\\..*", "db.schema.table", False),
+    ("db\\.schema\\.table\\.column_prefix.*", "db.schema.table", True),
+    ("db\\.schema\\.table\\.column", "db.schema.table", True),
+    ("db\\.schema\\.table2\\.column", "db.schema.table", True),
+    ("db2\\.schema.*", "db.schema.table", True),
+    ("db2\\.schema.*", "db.schema.table", True),
+    ("db\\.schema\\.table\\..*", "db.table2", True),
 ]
 
 
