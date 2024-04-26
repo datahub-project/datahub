@@ -235,7 +235,7 @@ class SnowflakeUsageExtractor(
         with self.report.usage_aggregation.result_fetch_timer as fetch_timer:
             for row in results:
                 with fetch_timer.pause(), self.report.usage_aggregation.result_skip_timer as skip_timer:
-                    if results.rownumber is not None and results.rownumber % 100 == 0:
+                    if results.rownumber is not None and results.rownumber % 1000 == 0:
                         logger.debug(f"Processing usage row number {results.rownumber}")
                         logger.debug(self.report.usage_aggregation.as_string())
 
