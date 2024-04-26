@@ -33,6 +33,7 @@ export const DEFAULT_APP_CONFIG = {
         searchResult: {
             enableNameHighlight: false,
         },
+        hideGlossary: false,
     },
     authConfig: {
         tokenAuthEnabled: false,
