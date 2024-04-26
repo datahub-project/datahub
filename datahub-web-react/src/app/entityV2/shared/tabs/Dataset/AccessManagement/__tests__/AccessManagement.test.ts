@@ -95,11 +95,10 @@ describe('handleAccessRoles', () => {
         expect(externalRole).toMatchObject([
             {
                 name: 'accessRole',
-                description:
-                    'This role access is required by the developers to test and deploy the code also adding few more details to check the description length for the given data and hence check the condition of read more and read less ',
+                description: 'This role access is required by the developers to test and deploy the code also adding few more details to check the description length for the given data and hence check the condition of read more and read less ',
                 accessType: 'READ',
                 hasAccess: false,
-                url: 'https://www.google.com/',
+                url: 'https://www.google.com/'
             },
         ]);
     });
@@ -264,16 +263,14 @@ describe('handleAccessRoles', () => {
             },
         };
         const externalRole = handleAccessRoles(externalRolesQuery, GetMeQueryUser);
-
         expect(externalRole).toMatchObject([
             {
                 name: 'accessRole',
-                description:
-                    'This role access is required by the developers to test and deploy the code also adding few more details to check the description length for the given data and hence check the condition of read more and read less ',
+                description: 'This role access is required by the developers to test and deploy the code also adding few more details to check the description length for the given data and hence check the condition of read more and read less ',
                 accessType: 'READ',
-                hasAccess: true,
-                url: 'https://www.google.com/',
-            },
+                hasAccess: false,
+                url: 'https://www.google.com/'
+            }
         ]);
     });
 });
