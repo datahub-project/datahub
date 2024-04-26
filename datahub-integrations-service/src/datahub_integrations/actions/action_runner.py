@@ -17,7 +17,11 @@ import fastapi
 import fastapi.responses
 import uvicorn
 from datahub.configuration.config_loader import load_config_file
+from datahub.telemetry.telemetry import telemetry_instance
 from datahub_actions.pipeline.pipeline import Pipeline
+
+# We force load the telemetry client because it has a side-effect of loading Sentry.
+assert telemetry_instance
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)

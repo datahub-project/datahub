@@ -1,6 +1,7 @@
 import asyncio
 import contextlib
 import json
+import os
 import pathlib
 from datetime import datetime
 from typing import Any, AsyncIterator, Callable
@@ -15,7 +16,11 @@ from fastapi import HTTPException, status
 from loguru import logger
 from reactpy import html
 
-from datahub_integrations.actions.actions_manager import ActionsManager, ActionSpec
+from datahub_integrations.actions.actions_manager import (
+    ActionRun,
+    ActionsManager,
+    LiveActionSpec,
+)
 from datahub_integrations.app import DATAHUB_SERVER, graph
 
 ACTIONS_ROUTE = "/actions"
@@ -39,9 +44,21 @@ base_action_config = {
                 "consumer_config": {
                     "auto.offset.reset": "${KAFKA_AUTO_OFFSET_POLICY:-latest}",
                     "security.protocol": "${KAFKA_PROPERTIES_SECURITY_PROTOCOL:-PLAINTEXT}",
-                    "sasl.mechanism": "${KAFKA_PROPERTIES_SASL_MECHANISM:-PLAIN}",
-                    "sasl.username": "${KAFKA_PROPERTIES_SASL_USERNAME:-}",
-                    "sasl.password": "${KAFKA_PROPERTIES_SASL_PASSWORD:-}",
+                    **(
+                        {
+                            "sasl.mechanism": "${KAFKA_PROPERTIES_SASL_MECHANISM:-PLAIN}",
+                            "sasl.username": "${KAFKA_PROPERTIES_SASL_USERNAME:-}",
+                            "sasl.password": "${KAFKA_PROPERTIES_SASL_PASSWORD:-}",
+                        }
+                        if os.environ.get("KAFKA_PROPERTIES_SASL_MECHANISM")
+                        else {}
+                    ),
+                    # Reset these to their default values, as per
+                    # https://docs.confluent.io/platform/current/installation/configuration/consumer-configs.html
+                    # Undoing the changes in datahub-actions:
+                    # https://github.com/acryldata/datahub-actions/blob/18c118d351346b3721cc3b07ce5dac0b58fa8b23/datahub-actions/src/datahub_actions/plugin/source/kafka/kafka_event_source.py#L134
+                    "session.timeout.ms": 45 * 1000,
+                    "max.poll.interval.ms": 300 * 1000,
                 },
             },
         },
@@ -76,7 +93,9 @@ async def actions_lifespan(app: fastapi.FastAPI) -> AsyncIterator[None]:
                     action_details = action["details"]
 
                     logger.info(f"Starting action {action_urn}.")
-                    await start_or_restart_action(action_urn, action_details)
+                    await start_or_restart_action(
+                        action_urn, action_details, throw=False
+                    )
 
                 yield
 
@@ -99,27 +118,31 @@ def list_running_actions() -> list[str]:
     return list(pipeline_manager.pipelines.keys())
 
 
-async def start_or_restart_action(action_urn: str, action_details: dict) -> None:
+async def start_or_restart_action(
+    action_urn: str, action_details: dict, throw: bool = True
+) -> None:
     if pipeline_manager.is_running(action_urn):
         logger.info(f"Stopping action {action_urn}.")
         await pipeline_manager.stop_pipeline(action_urn)
 
-    action_details_recipe = json.loads(action_details["config"]["recipe"])
-    # TODO respect version and other details
-
-    recipe = {
-        **base_action_config,
-        "name": action_urn,
-        **action_details_recipe,
-    }
-
-    logger.debug(f"Starting action {action_urn} with recipe: {recipe}")
-
     try:
+        action_details_recipe = json.loads(action_details["config"]["recipe"])
+        # TODO respect version and other details
+
+        recipe = {
+            **base_action_config,
+            "name": action_urn,
+            **action_details_recipe,
+        }
+
+        logger.debug(f"Starting action {action_urn} with recipe: {recipe}")
         await pipeline_manager.start_pipeline(action_urn, recipe)
     except Exception as e:
-        logger.error(f"Failed to register action {action_urn}: {e}")
-        raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, str(e)) from e
+        if throw:
+            logger.error(f"Failed to register action {action_urn}: {e}")
+            raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, str(e)) from e
+        else:
+            pipeline_manager.report_dead_pipeline(action_urn, action_details, e)
 
 
 @actions_router.post("/{action_urn}/reload")
@@ -139,7 +162,7 @@ async def reload_action(action_urn: str) -> None:
     await start_or_restart_action(action_urn, updated_details)
 
 
-def _get_action_spec(action_urn: str) -> ActionSpec:
+def _get_action_spec(action_urn: str) -> LiveActionSpec:
     if action_urn not in pipeline_manager.pipelines:
         raise HTTPException(
             status.HTTP_404_NOT_FOUND, f"Action {action_urn} not found."
@@ -172,7 +195,7 @@ async def action_logs(action_urn: str) -> fastapi.Response:
 
     spec = _get_action_spec(action_urn)
 
-    return fastapi.responses.PlainTextResponse(content=spec.logs.get_logs())
+    return fastapi.responses.PlainTextResponse(content=spec.action_run.logs.get_logs())
 
 
 @actions_router.get("/{action_urn}/ping")
@@ -224,7 +247,7 @@ async def actions_proxy(
 
 
 @reactpy.component
-def ActionInfo(spec: ActionSpec) -> reactpy.types.VdomDict:
+def ActionInfo(spec: ActionRun | LiveActionSpec) -> reactpy.types.VdomDict:
     async def handle_reload(event: Any = None) -> None:
         await reload_action(spec.urn)
 
@@ -234,7 +257,7 @@ def ActionInfo(spec: ActionSpec) -> reactpy.types.VdomDict:
     stats, set_stats = reactpy.use_state("Loading...")
 
     async def update_stats(event: Any = None) -> None:
-        if not spec.is_running():
+        if not isinstance(spec, LiveActionSpec):
             set_stats("Action is not running.")
             return
 
@@ -249,6 +272,7 @@ def ActionInfo(spec: ActionSpec) -> reactpy.types.VdomDict:
     reactpy.use_effect(update_stats, dependencies=[spec.urn])
 
     button_css = {"className": "ui button"}
+    pre_css = {"style": {"maxHeight": "30rem", "overflow": "auto"}}
 
     return html.div(
         {"className": "ui segment", "style": {"margin": "1rem 0"}},
@@ -256,21 +280,21 @@ def ActionInfo(spec: ActionSpec) -> reactpy.types.VdomDict:
         (
             html.div(
                 html.span("Stats:"),
-                html.pre(stats),
+                html.pre(pre_css, stats),
             )
-            if spec.is_running()
+            if isinstance(spec, LiveActionSpec)
             else html._()
         ),
         html.div(
             html.span("Logs:"),
-            html.pre(spec.logs.get_logs()),
+            html.pre(pre_css, spec.action_run.logs.get_logs()),
         ),
         (
             html.button(
                 {"onClick": update_stats, **button_css},
                 "Reload Stats",
             )
-            if spec.is_running()
+            if isinstance(spec, LiveActionSpec)
             else html._()
         ),
         html.button(
@@ -282,7 +306,7 @@ def ActionInfo(spec: ActionSpec) -> reactpy.types.VdomDict:
                 {"onClick": handle_stop, **button_css},
                 "Stop",
             )
-            if spec.is_running()
+            if isinstance(spec, LiveActionSpec)
             else html._()
         ),
     )
