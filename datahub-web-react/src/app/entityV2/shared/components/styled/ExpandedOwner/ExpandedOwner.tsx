@@ -9,6 +9,7 @@ import { useEntityRegistry } from '../../../../../useEntityRegistry';
 import analytics, { EventType, EntityActionType } from '../../../../../analytics';
 import { useEntityData } from '../../../../../entity/shared/EntityContext';
 import OwnerContent from './OwnerContent';
+import useEmbeddedProfileLinkProps from '../../../../../shared/useEmbeddedProfileLinkProps';
 
 const OwnerTag = styled(Tag)`
     padding: 1px;
@@ -33,6 +34,7 @@ type Props = {
 export const ExpandedOwner = ({ entityUrn, owner, hidePopOver, refetch, readOnly, fontSize }: Props) => {
     const entityRegistry = useEntityRegistry();
     const { entityType } = useEntityData();
+    const linkProps = useEmbeddedProfileLinkProps();
     const [removeOwnerMutation] = useRemoveOwnerMutation();
     let name = '';
     let ownershipTypeName = '';
@@ -97,7 +99,7 @@ export const ExpandedOwner = ({ entityUrn, owner, hidePopOver, refetch, readOnly
         <OwnerTag onClose={onClose} closable={!!entityUrn && !readOnly}>
             {readOnly && <OwnerContent name={name} owner={owner} hidePopOver={hidePopOver} pictureLink={pictureLink} />}
             {!readOnly && (
-                <Link to={entityRegistry.getEntityUrl(owner.owner.type, owner.owner.urn)}>
+                <Link to={`${entityRegistry.getEntityUrl(owner.owner.type, owner.owner.urn)}/owner of`} {...linkProps}>
                     <OwnerContent
                         name={name}
                         owner={owner}

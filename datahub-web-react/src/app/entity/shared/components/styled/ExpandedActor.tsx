@@ -5,6 +5,7 @@ import styled from 'styled-components';
 import { CorpGroup, CorpUser, EntityType } from '../../../../../types.generated';
 import { CustomAvatar } from '../../../../shared/avatar';
 import { useEntityRegistry } from '../../../../useEntityRegistry';
+import useEmbeddedProfileLinkProps from '../../../../shared/useEmbeddedProfileLinkProps';
 
 type Props = {
     actor: CorpUser | CorpGroup;
@@ -23,6 +24,7 @@ const ActorTag = styled(Tag)`
 
 export const ExpandedActor = ({ actor, popOver, closable, onClose }: Props) => {
     const entityRegistry = useEntityRegistry();
+    const linkProps = useEmbeddedProfileLinkProps();
 
     let name = '';
     if (actor.__typename === 'CorpGroup') {
@@ -36,7 +38,7 @@ export const ExpandedActor = ({ actor, popOver, closable, onClose }: Props) => {
 
     return (
         <ActorTag onClose={onClose} closable={closable}>
-            <Link to={`${entityRegistry.getEntityUrl(actor.type, actor.urn)}`}>
+            <Link to={`${entityRegistry.getEntityUrl(actor.type, actor.urn)}/owner of`} {...linkProps}>
                 <CustomAvatar name={name} photoUrl={pictureLink} useDefaultAvatar={false} />
                 {(!popOver && <>{name}</>) || (
                     <Popover overlayStyle={{ maxWidth: 200 }} placement="left" content={popOver}>
