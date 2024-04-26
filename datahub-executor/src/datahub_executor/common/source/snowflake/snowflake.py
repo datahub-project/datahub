@@ -176,7 +176,8 @@ class SnowflakeSource(Source):
             INNER JOIN
                 (SELECT * FROM snowflake.account_usage.query_history 
                 WHERE query_history.start_time >= to_timestamp_ltz({operation_params.start_time_millis}, 3)
-                    AND query_history.start_time < to_timestamp_ltz({operation_params.end_time_millis}, 3) 
+                    AND query_history.start_time < to_timestamp_ltz({operation_params.end_time_millis}, 3)
+                    AND (query_history.rows_produced > 0 OR query_history.rows_inserted > 0 OR query_history.rows_updated > 0 OR query_history.rows_deleted > 0)
                     AND query_history.query_type in ({operation_types_filter})) query_history
                 ON exploded_access_history.query_id = query_history.query_id
             WHERE                

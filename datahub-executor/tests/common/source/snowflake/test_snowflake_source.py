@@ -65,7 +65,8 @@ TEST_AUDIT_LOG_QUERY_NO_USER_NAME_FILTER = f"""
             INNER JOIN
                 (SELECT * FROM snowflake.account_usage.query_history 
                 WHERE query_history.start_time >= to_timestamp_ltz({TEST_START}, 3)
-                    AND query_history.start_time < to_timestamp_ltz({TEST_END}, 3) 
+                    AND query_history.start_time < to_timestamp_ltz({TEST_END}, 3)
+                    AND (query_history.rows_produced > 0 OR query_history.rows_inserted > 0 OR query_history.rows_updated > 0 OR query_history.rows_deleted > 0)
                     AND query_history.query_type in ({DEFAULT_OPERATION_TYPES_FILTER})) query_history
                 ON exploded_access_history.query_id = query_history.query_id
             WHERE                
@@ -102,7 +103,8 @@ TEST_AUDIT_LOG_QUERY_WITH_USER_NAME_FILTER = f"""
             INNER JOIN
                 (SELECT * FROM snowflake.account_usage.query_history 
                 WHERE query_history.start_time >= to_timestamp_ltz({TEST_START}, 3)
-                    AND query_history.start_time < to_timestamp_ltz({TEST_END}, 3) 
+                    AND query_history.start_time < to_timestamp_ltz({TEST_END}, 3)
+                    AND (query_history.rows_produced > 0 OR query_history.rows_inserted > 0 OR query_history.rows_updated > 0 OR query_history.rows_deleted > 0)
                     AND query_history.query_type in ({DEFAULT_OPERATION_TYPES_FILTER})) query_history
                 ON exploded_access_history.query_id = query_history.query_id
             WHERE                
@@ -139,7 +141,8 @@ TEST_AUDIT_LOG_QUERY_OPERATIONAL_TYPE_FILTER = f"""
             INNER JOIN
                 (SELECT * FROM snowflake.account_usage.query_history 
                 WHERE query_history.start_time >= to_timestamp_ltz({TEST_START}, 3)
-                    AND query_history.start_time < to_timestamp_ltz({TEST_END}, 3) 
+                    AND query_history.start_time < to_timestamp_ltz({TEST_END}, 3)
+                    AND (query_history.rows_produced > 0 OR query_history.rows_inserted > 0 OR query_history.rows_updated > 0 OR query_history.rows_deleted > 0)
                     AND query_history.query_type in ('INSERT','UPDATE')) query_history
                 ON exploded_access_history.query_id = query_history.query_id
             WHERE                
