@@ -9,7 +9,13 @@ from datahub_executor.common.types import (
     FixedIntervalSchedule,
 )
 
-MIN_PREV_CRON_INTERVAL_MS = 30000  # 30 seconds minimum
+# This represents the maximum delay that the assertion should be evaluated
+# past the last scheduled interval.
+#
+# If the check is less than 30 seconds delayed from the "last" scheduled run time
+# then we'll use the previous interval time to ensure we are setting the correct bounds
+# After 5 minutes, we will consider the previous interval to be the "correct" interval
+MIN_PREV_CRON_INTERVAL_MS = 5 * 60 * 1000  # 5 minutes grace period.
 SECONDS_TO_MILLISECONDS = 1000
 MINUTE_TO_MILLISECONDS = SECONDS_TO_MILLISECONDS * 60
 HOUR_TO_MILLISECONDS = MINUTE_TO_MILLISECONDS * 60
