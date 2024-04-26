@@ -240,7 +240,6 @@ class SnowflakeLineageExtractor(
 
         downstream_table_urn = self.dataset_urn_builder(dataset_name)
 
-        # TODO: Can KnownQueryLineageInfo support unknown query lineage i.e. query = None
         known_lineage = KnownQueryLineageInfo(
             query_text=query.query_text,
             downstream=downstream_table_urn,
