@@ -11,7 +11,7 @@ import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
 import io.datahubproject.openapi.exception.UnauthorizedException;
-import io.datahubproject.openapi.generated.controller.DatahubUsageEventsApiDelegate;
+import io.datahubproject.openapi.v2.generated.controller.DatahubUsageEventsApiDelegate;
 import java.util.List;
 import java.util.Objects;
 import org.springframework.beans.factory.annotation.Autowired;

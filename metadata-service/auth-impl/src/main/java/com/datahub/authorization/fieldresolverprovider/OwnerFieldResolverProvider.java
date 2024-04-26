@@ -38,9 +38,14 @@ public class OwnerFieldResolverProvider implements EntityFieldResolverProvider {
 
   private FieldResolver.FieldValue getOwners(
       @Nonnull OperationContext opContext, EntitySpec entitySpec) {
-    Urn entityUrn = UrnUtils.getUrn(entitySpec.getEntity());
+
     EnvelopedAspect ownershipAspect;
     try {
+      if (entitySpec.getEntity().isEmpty()) {
+        return FieldResolver.emptyFieldValue();
+      }
+      Urn entityUrn = UrnUtils.getUrn(entitySpec.getEntity());
+
       EntityResponse response =
           _entityClient.getV2(
               opContext,
@@ -52,7 +57,7 @@ public class OwnerFieldResolverProvider implements EntityFieldResolverProvider {
       }
       ownershipAspect = response.getAspects().get(Constants.OWNERSHIP_ASPECT_NAME);
     } catch (Exception e) {
-      log.error("Error while retrieving domains aspect for urn {}", entityUrn, e);
+      log.error("Error while retrieving ownership aspect for entitySpec {}", entitySpec, e);
       return FieldResolver.emptyFieldValue();
     }
     Ownership ownership = new Ownership(ownershipAspect.getValue().data());

@@ -393,8 +393,16 @@ public interface EntityClient {
 
   @Nonnull
   Map<String, Long> batchGetTotalEntityCount(
-      @Nonnull OperationContext opContext, @Nonnull List<String> entityName)
+      @Nonnull OperationContext opContext,
+      @Nonnull List<String> entityName,
+      @Nullable Filter filter)
       throws RemoteInvocationException;
+
+  default Map<String, Long> batchGetTotalEntityCount(
+      @Nonnull OperationContext opContext, @Nonnull List<String> entityName)
+      throws RemoteInvocationException {
+    return batchGetTotalEntityCount(opContext, entityName, null);
+  }
 
   /** List all urns existing for a particular Entity type. */
   ListUrnsResult listUrns(

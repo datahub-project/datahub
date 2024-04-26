@@ -99,11 +99,14 @@ usage_common = {
 sqlglot_lib = {
     # Using an Acryl fork of sqlglot.
     # https://github.com/tobymao/sqlglot/compare/main...hsheth2:sqlglot:hsheth?expand=1
-    "acryl-sqlglot==23.2.1.dev5",
+    "acryl-sqlglot==23.11.2.dev2",
 }
 
 classification_lib = {
     "acryl-datahub-classify==0.0.10",
+    # This is a bit of a hack. Because we download the SpaCy model at runtime in the classify plugin,
+    # we need pip to be available.
+    "pip",
 }
 
 sql_common = (
@@ -223,11 +226,16 @@ microsoft_common = {"msal==1.22.0"}
 
 iceberg_common = {
     # Iceberg Python SDK
-    "pyiceberg",
+    "pyiceberg~=0.4",
     # We currently pin to pydantic v1, since we only test against pydantic v1 in CI.
     # However, we should remove this once we fix compatibility with newer versions
     # of pyiceberg, which depend on pydantic v2.
     *pydantic_no_v2,
+}
+
+mssql_common = {
+    "sqlalchemy-pytds>=0.3",
+    "pyOpenSSL",
 }
 
 postgres_common = {
@@ -368,12 +376,8 @@ plugins: Dict[str, Set[str]] = {
     },
     "mode": {"requests", "tenacity>=8.0.1"} | sqllineage_lib | sqlglot_lib,
     "mongodb": {"pymongo[srv]>=3.11", "packaging"},
-    "mssql": sql_common
-    | {
-        "sqlalchemy-pytds>=0.3",
-        "pyOpenSSL",
-    },
-    "mssql-odbc": sql_common | {"pyodbc"},
+    "mssql": sql_common | mssql_common,
+    "mssql-odbc": sql_common | mssql_common | {"pyodbc"},
     "mysql": mysql,
     # mariadb should have same dependency as mysql
     "mariadb": sql_common | {"pymysql>=1.0.2"},
