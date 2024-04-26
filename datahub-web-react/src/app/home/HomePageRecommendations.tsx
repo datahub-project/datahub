@@ -172,7 +172,6 @@ export const HomePageRecommendations = ({ user }: Props) => {
     // Render most popular onboarding step if the most popular module exists
     const hasMostPopular = !!recommendationModules?.some((module) => module?.moduleId === MOST_POPULAR_MODULE_ID);
     useToggleEducationStepIdsAllowList(hasMostPopular, HOME_PAGE_MOST_POPULAR_ID);
-
     return (
         <RecommendationsContainer>
             <HomePagePosts />
@@ -198,8 +197,8 @@ export const HomePageRecommendations = ({ user }: Props) => {
                             {orderedEntityCounts.map(
                                 (entityCount) =>
                                     entityCount &&
-                                    entityCount.count !== 0 && 
-                                    entityCount.entityType !== EntityType.BusinessAttribute && 
+                                    entityCount.count !== 0 &&
+                                    entityCount.entityType !== EntityType.BusinessAttribute &&
                                     (
                                         <BrowseEntityCard
                                             key={entityCount.entityType}
@@ -211,32 +210,33 @@ export const HomePageRecommendations = ({ user }: Props) => {
                             {orderedEntityCounts.map(
                                 (entityCount) =>
                                     entityCount &&
-                                    entityCount.count !== 0 && 
-                                    entityCount.entityType === EntityType.BusinessAttribute && 
+                                    entityCount.count !== 0 &&
+                                    entityCount.entityType === EntityType.BusinessAttribute &&
                                     businessAttributesFlag && (
                                         <BrowseEntityCard
                                             key={entityCount.entityType}
                                             entityType={entityCount.entityType}
                                             count={entityCount.count}
-                                            showGlossary={showGlossary}
+                                            showGlossary={true}
                                         />
                                     ),
                             )}
-                            {!orderedEntityCounts.some(
-                                (entityCount) => entityCount.entityType === EntityType.GlossaryTerm,
-                            ) && (
-                                <BrowseEntityCard
-                                    entityType={EntityType.GlossaryTerm}
-                                    showGlossary={showGlossary}
-                                    count={0}
-                                />
+                            {orderedEntityCounts.map(
+                                (entityCount) =>
+                                    entityCount.entityType === EntityType.GlossaryTerm && (
+                                        <BrowseEntityCard
+                                            entityType={EntityType.GlossaryTerm}
+                                            showGlossary={showGlossary}
+                                            count={entityCount.count}
+                                        />
+                                    ),
                             )}
                         </BrowseCardContainer>
-                        ) : (
+                    ) : (
                         <NoMetadataContainer>
                             <NoMetadataEmpty description="No Metadata Found 😢" />
                         </NoMetadataContainer>
-                        )}
+                    )}
                 </RecommendationContainer>
             )}
             {recommendationModules &&
