@@ -54,7 +54,6 @@ from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import (
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import (
     BrowsePathsClass,
-    ChangeTypeClass,
     ChartInfoClass,
     ChartQueryClass,
     ChartQueryTypeClass,
@@ -99,6 +98,7 @@ from datahub.sql_parsing.sqlglot_lineage import (
 )
 from datahub.utilities import config_clean
 from datahub.utilities.lossy_collections import LossyList
+from datahub.utilities.ordered_set import OrderedSet
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -479,19 +479,20 @@ class ModeSource(StatefulIngestionSourceBase):
             "linePlusBar": None,
             "vegas": None,
             "vegasPivotTable": ChartTypeClass.TABLE,
+            "histogram": ChartTypeClass.HISTOGRAM,
         }
         if not display_type:
             self.report.report_warning(
-                key=f"mode-chart-{token}",
-                reason=f"Chart type {display_type} is missing. " f"Setting to None",
+                key="mode-chart-type-mapper",
+                reason=f"{token}: Chart type is missing. Setting to None",
             )
             return None
         try:
             chart_type = type_mapping[display_type]
         except KeyError:
             self.report.report_warning(
-                key=f"mode-chart-{token}",
-                reason=f"Chart type {display_type} not supported. " f"Setting to None",
+                key="mode-chart-type-mapper",
+                reason=f"{token}: Chart type {display_type} not supported. Setting to None",
             )
             chart_type = None
 
@@ -583,20 +584,24 @@ class ModeSource(StatefulIngestionSourceBase):
         return platform
 
     @lru_cache(maxsize=None)
-    def _get_platform_and_dbname(
-        self, data_source_id: int
-    ) -> Union[Tuple[str, str], Tuple[None, None]]:
+    def _get_data_sources(self) -> List[dict]:
         data_sources = []
         try:
             ds_json = self._get_request_json(f"{self.workspace_uri}/data_sources")
             data_sources = ds_json.get("_embedded", {}).get("data_sources", [])
         except HTTPError as http_error:
             self.report.report_failure(
-                key=f"mode-datasource-{data_source_id}",
-                reason=f"No data sources found for datasource id: "
-                f"{data_source_id}, "
-                f"Reason: {str(http_error)}",
+                key="mode-data-sources",
+                reason=f"Unable to retrieve data sources. Reason: {str(http_error)}",
             )
+
+        return data_sources
+
+    @lru_cache(maxsize=None)
+    def _get_platform_and_dbname(
+        self, data_source_id: int
+    ) -> Union[Tuple[str, str], Tuple[None, None]]:
+        data_sources = self._get_data_sources()
 
         if not data_sources:
             self.report.report_failure(
@@ -738,24 +743,6 @@ class ModeSource(StatefulIngestionSourceBase):
         data_source_id = query_data.get("data_source_id")
         return QueryUrn(f"{id}.{data_source_id}.{last_run_id}").urn()
 
-    def _get_upstream_warehouse_urn_for_query(self, query: dict) -> List[str]:
-        # create datasource urn
-        platform, db_name = self._get_platform_and_dbname(query.get("data_source_id"))
-        source_tables = self._get_source_from_query(query.get("raw_query"))
-        if not platform or not db_name or not source_tables:
-            return []
-        datasource_urn = self._get_datasource_urn(
-            platform=platform,
-            platform_instance=(
-                self.config.platform_instance_map.get(platform)
-                if platform and self.config.platform_instance_map
-                else None
-            ),
-            database=db_name,
-            source_tables=list(source_tables),
-        )
-        return datasource_urn
-
     def set_field_tags(self, fields: List[SchemaFieldClass]) -> None:
         for field in fields:
             # It is not clear how to distinguish between measures and dimensions in Mode.
@@ -836,10 +823,7 @@ class ModeSource(StatefulIngestionSourceBase):
 
         yield (
             MetadataChangeProposalWrapper(
-                entityType="dataset",
-                changeType=ChangeTypeClass.UPSERT,
                 entityUrn=query_urn,
-                aspectName="datasetProperties",
                 aspect=dataset_props,
             ).as_workunit()
         )
@@ -847,10 +831,7 @@ class ModeSource(StatefulIngestionSourceBase):
         subtypes = SubTypesClass(typeNames=(["Query"]))
         yield (
             MetadataChangeProposalWrapper(
-                entityType="dataset",
-                changeType=ChangeTypeClass.UPSERT,
                 entityUrn=query_urn,
-                aspectName="subTypes",
                 aspect=subtypes,
             ).as_workunit()
         )
@@ -868,7 +849,7 @@ class ModeSource(StatefulIngestionSourceBase):
         query = self._replace_definitions(query)
         normalized_query = self.normalize_mode_query(query)
         query_to_parse = normalized_query
-        # If multiple query is peresent in the query, we get the last one.
+        # If multiple query is present in the query, we get the last one.
         # This won't work for complex cases where temp table is created and used in the same query.
         # But it should be good enough for simple use-cases.
         try:
@@ -935,10 +916,7 @@ class ModeSource(StatefulIngestionSourceBase):
 
             yield (
                 MetadataChangeProposalWrapper(
-                    entityType="dataset",
-                    changeType=ChangeTypeClass.UPSERT,
                     entityUrn=query_urn,
-                    aspectName="schemaMetadata",
                     aspect=schema_metadata,
                 ).as_workunit()
             )
@@ -988,10 +966,7 @@ class ModeSource(StatefulIngestionSourceBase):
             )
 
             yield MetadataChangeProposalWrapper(
-                entityType="query",
-                changeType=ChangeTypeClass.UPSERT,
                 entityUrn=query_instance_urn,
-                aspectName="queryProperties",
                 aspect=query_properties,
             ).as_workunit()
 
@@ -1061,10 +1036,7 @@ class ModeSource(StatefulIngestionSourceBase):
 
         wu.append(
             MetadataChangeProposalWrapper(
-                entityType="dataset",
-                changeType=ChangeTypeClass.UPSERT,
                 entityUrn=query_urn,
-                aspectName="upstreamLineage",
                 aspect=upstream_lineage,
             ).as_workunit()
         )
@@ -1118,7 +1090,12 @@ class ModeSource(StatefulIngestionSourceBase):
         ).as_workunit()
 
     def construct_chart_from_api_data(
-        self, chart_data: dict, chart_fields: Set[str], query: dict, path: str
+        self,
+        index: int,
+        chart_data: dict,
+        chart_fields: Set[str],
+        query: dict,
+        path: str,
     ) -> Iterable[MetadataWorkUnit]:
         chart_urn = builder.make_chart_urn(self.platform, chart_data.get("token", ""))
         chart_snapshot = ChartSnapshot(
@@ -1158,7 +1135,13 @@ class ModeSource(StatefulIngestionSourceBase):
             or chart_detail.get("chartDescription")
             or ""
         )
-        title = chart_detail.get("title") or chart_detail.get("chartTitle") or ""
+
+        # TODO: This title generation logic is duplicated between here and the browse path construction.
+        title = (
+            chart_detail.get("title")
+            or chart_detail.get("chartTitle")
+            or f"Chart {index}"
+        )
 
         # create datasource urn
         custom_properties = self.construct_chart_custom_properties(
@@ -1173,8 +1156,8 @@ class ModeSource(StatefulIngestionSourceBase):
             description=description,
             title=title,
             lastModified=last_modified,
-            chartUrl=f"{self.config.connect_uri}"
-            f"{chart_data.get('_links', {}).get('report_viz_web', {}).get('href', '')}",
+            # The links href starts with a slash already.
+            chartUrl=f"{self.config.connect_uri}{chart_data.get('_links', {}).get('report_viz_web', {}).get('href', '')}",
             inputs=[query_urn],
             customProperties=custom_properties,
             inputEdges=[],
@@ -1332,10 +1315,7 @@ class ModeSource(StatefulIngestionSourceBase):
                 )
 
                 mcpw = MetadataChangeProposalWrapper(
-                    entityType="dashboard",
-                    changeType=ChangeTypeClass.UPSERT,
                     entityUrn=dashboard_snapshot_from_report.urn,
-                    aspectName="subTypes",
                     aspect=SubTypesClass(typeNames=["Report"]),
                 )
                 yield mcpw.as_workunit()
@@ -1346,10 +1326,7 @@ class ModeSource(StatefulIngestionSourceBase):
                 )
 
                 yield MetadataChangeProposalWrapper(
-                    entityType="dashboard",
-                    changeType=ChangeTypeClass.UPSERT,
                     entityUrn=dashboard_snapshot_from_report.urn,
-                    aspectName="dashboardUsageStatistics",
                     aspect=usage_statistics,
                 ).as_workunit()
 
@@ -1370,7 +1347,7 @@ class ModeSource(StatefulIngestionSourceBase):
                 queries = self._get_queries(report_token)
                 for query in queries:
                     query_mcps = self.construct_query_from_api_data(report_token, query)
-                    chart_fields: Set[str] = set()
+                    chart_fields: Set[str] = OrderedSet()
                     for wu in query_mcps:
                         if (
                             isinstance(wu.metadata, MetadataChangeProposalWrapper)
@@ -1385,12 +1362,14 @@ class ModeSource(StatefulIngestionSourceBase):
 
                     charts = self._get_charts(report_token, query.get("token", ""))
                     # build charts
-                    for chart in charts:
+                    for i, chart in enumerate(charts):
                         view = chart.get("view") or chart.get("view_vegas")
-                        chart_name = view.get("title") or view.get("chartTitle") or ""
+                        chart_name = (
+                            view.get("title") or view.get("chartTitle") or f"Chart {i}"
+                        )
                         path = f"/mode/{self.config.workspace}/{space_name}/{report.get('name')}/{query.get('name')}/{chart_name}"
                         yield from self.construct_chart_from_api_data(
-                            chart, chart_fields, query, path
+                            i, chart, chart_fields, query, path
                         )
 
     @classmethod
