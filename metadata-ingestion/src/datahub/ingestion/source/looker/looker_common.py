@@ -246,7 +246,7 @@ class ViewField:
 
 
 @dataclass
-class ViewFieldNameInExplore:
+class ExploreUpstreamViewField:
     explore: LookmlModelExplore
     field: LookmlModelExploreField
 
@@ -268,7 +268,7 @@ class ViewFieldNameInExplore:
 
         return f"{view_name}.{field_name}"
 
-    def name(self) -> str:
+    def upstream(self) -> str:
         assert self.field.name is not None
 
         if self.field.dimension_group is None:  # It is not part of Dimensional Group
@@ -843,8 +843,8 @@ class LookerExplore:
                         if dim_field.name is None:
                             continue
                         else:
-                            org_view_field_name: ViewFieldNameInExplore = (
-                                ViewFieldNameInExplore(
+                            dimension_upstream_field: ExploreUpstreamViewField = (
+                                ExploreUpstreamViewField(
                                     explore=explore,
                                     field=dim_field,
                                 )
@@ -880,7 +880,9 @@ class LookerExplore:
                                         if dim_field.primary_key
                                         else False
                                     ),
-                                    upstream_fields=[org_view_field_name.name()],
+                                    upstream_fields=[
+                                        dimension_upstream_field.upstream()
+                                    ],
                                 )
                             )
                 if explore.fields.measures is not None:
@@ -888,8 +890,8 @@ class LookerExplore:
                         if measure_field.name is None:
                             continue
                         else:
-                            org_measure_view_field_name: ViewFieldNameInExplore = (
-                                ViewFieldNameInExplore(
+                            measure_upstream_field: ExploreUpstreamViewField = (
+                                ExploreUpstreamViewField(
                                     explore=explore,
                                     field=measure_field,
                                 )
@@ -921,9 +923,7 @@ class LookerExplore:
                                         if measure_field.primary_key
                                         else False
                                     ),
-                                    upstream_fields=[
-                                        org_measure_view_field_name.name()
-                                    ],
+                                    upstream_fields=[measure_upstream_field.upstream()],
                                 )
                             )
 
