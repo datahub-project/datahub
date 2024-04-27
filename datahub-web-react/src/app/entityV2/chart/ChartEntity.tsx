@@ -11,7 +11,7 @@ import {
 import * as React from 'react';
 import { GetChartQuery, useGetChartQuery, useUpdateChartMutation } from '../../../graphql/chart.generated';
 import { Chart, EntityType, LineageDirection, SearchResult } from '../../../types.generated';
-import { LOOKER_URN } from '../../ingest/source/builder/constants';
+import { LOOKER_URN, MODE_URN } from '../../ingest/source/builder/constants';
 import { MatchedFieldList } from '../../search/matches/MatchedFieldList';
 import { matchedInputFieldRenderer } from '../../searchV2/matches/matchedInputFieldRenderer';
 import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
@@ -46,6 +46,11 @@ import { IncidentTab } from '../shared/tabs/Incident/IncidentTab';
 import { GenericEntityProperties } from '../../entity/shared/types';
 import SyncedAssetSection from '../shared/containers/profile/sidebar/shared/SyncedAssetSection';
 import SharingAssetSection from '../shared/containers/profile/sidebar/shared/SharingAssetSection';
+
+const PREVIEW_SUPPORTED_PLATFORMS = [
+    LOOKER_URN,
+    MODE_URN,
+]
 
 const headerDropdownItems = new Set([
     EntityMenuItems.EXTERNAL_URL,
@@ -150,9 +155,9 @@ export class ChartEntity implements Entity<Chart> {
                     icon: EyeOutlined,
                     display: {
                         visible: (_, chart: GetChartQuery) =>
-                            !!chart?.chart?.embed?.renderUrl && chart?.chart?.platform.urn === LOOKER_URN,
+                            !!chart?.chart?.embed?.renderUrl && PREVIEW_SUPPORTED_PLATFORMS.includes(chart?.chart?.platform.urn),
                         enabled: (_, chart: GetChartQuery) =>
-                            !!chart?.chart?.embed?.renderUrl && chart?.chart?.platform.urn === LOOKER_URN,
+                            !!chart?.chart?.embed?.renderUrl && PREVIEW_SUPPORTED_PLATFORMS.includes(chart?.chart?.platform.urn),
                     },
                 },
                 {
