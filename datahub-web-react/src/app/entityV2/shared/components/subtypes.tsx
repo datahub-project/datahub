@@ -23,6 +23,7 @@ export enum SubType {
     TableauPublishedDataSource = 'Published Data Source',
     TableauEmbeddedDataSource = 'Embedded Data Source',
     LookerExplore = 'Explore',
+    Looker = 'Look',
 }
 
 export const TYPE_ICON_CLASS_NAME = 'typeIcon';

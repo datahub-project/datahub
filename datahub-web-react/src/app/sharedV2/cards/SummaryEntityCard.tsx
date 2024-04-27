@@ -5,7 +5,7 @@ import { Entity } from '../../../types.generated';
 
 const StyledEntityCard = styled(EntityCard)`
     min-width: 150px;
-    max-width: 200px;
+    max-width: 220px;
 `;
 
 interface Props {

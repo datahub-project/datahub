@@ -125,7 +125,8 @@ export class ChartEntity implements Entity<Chart> {
                     icon: SUMMARY_TAB_ICON,
                     display: {
                         visible: (_, chart: GetChartQuery) =>
-                            !!chart?.chart?.subTypes?.typeNames?.includes(SubType.TableauWorksheet),
+                            !!chart?.chart?.subTypes?.typeNames?.includes(SubType.TableauWorksheet) ||
+                            !!chart?.chart?.subTypes?.typeNames?.includes(SubType.Looker),
                         enabled: () => true,
                     },
                 },

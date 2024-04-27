@@ -1,7 +1,7 @@
 import React from 'react';
 import styled from 'styled-components';
 import { ReadOutlined } from '@ant-design/icons';
-import { ANTD_GRAY } from '../constants';
+import { REDESIGN_COLORS } from '../constants';
 
 export const SUMMARY_TAB_ICON = ReadOutlined;
 
@@ -36,9 +36,9 @@ export const SummaryTabHeaderWrapper = styled.div`
 export const HeaderTitle = styled.h3`
     align-items: center;
     display: flex;
-    color: ${ANTD_GRAY[9]};
+    color: ${REDESIGN_COLORS.SUBTITLE};
+    font-weight: 700;
     font-size: 16px;
-    font-weight: 600;
     margin: 0;
     overflow: hidden;
     text-overflow: ellipsis;

@@ -12,13 +12,14 @@ import PlatformIcon from '../../../sharedV2/icons/PlatformIcon';
 
 const Container = styled.div`
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
     padding: 10px 20px 12px 20px;
     background-color: #ffffff;
     border-radius: 10px;
     min-width: 200px;
     max-width: 260px;
     border: 1.5px solid #0000001a;
+    gap: 12px;
 
     :hover {
         border: 1.5px solid ${SEARCH_COLORS.LINK_BLUE};
@@ -57,6 +58,12 @@ const Type = styled.div`
     white-space: nowrap;
 `;
 
+const Text = styled.div`
+    display: flex;
+    flex-direction: column;
+    max-width: 140px;
+`;
+
 type Props = {
     entity: Entity;
     subHeader?: React.ReactNode;
@@ -73,17 +80,19 @@ export const EntityCard = ({ entity, subHeader, render, className }: Props) => {
         return (
             <HoverEntityTooltip placement="bottom" entity={entity} showArrow={false}>
                 <Container className={className}>
-                    <Name>{displayName}</Name>
                     <Context>
                         <PlatformIcon
                             platform={e?.platform}
-                            size={14}
+                            size={28}
                             alt={displayName}
                             entityType={e.type as EntityType}
                         />
-                        <Type>{displayType}</Type>
                     </Context>
-                    {subHeader && <SubHeader>{subHeader}</SubHeader>}
+                    <Text>
+                        <Type>{displayType}</Type>
+                        <Name>{displayName}</Name>
+                        {subHeader && <SubHeader>{subHeader}</SubHeader>}
+                    </Text>
                 </Container>
             </HoverEntityTooltip>
         );

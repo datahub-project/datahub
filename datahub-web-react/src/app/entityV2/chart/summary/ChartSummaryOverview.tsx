@@ -8,9 +8,23 @@ import { useBaseEntity } from '../../../entity/shared/EntityContext';
 import { getSubTypeIcon, SubType } from '../../shared/components/subtypes';
 import { HorizontalList, SummaryColumns } from '../../shared/summary/ListComponents';
 import SummaryEntityCard from '../../../sharedV2/cards/SummaryEntityCard';
+import { REDESIGN_COLORS } from '../../shared/constants';
 
 const StyledTitle = styled(HeaderTitle)`
     margin-bottom: 12px;
+    color: ${REDESIGN_COLORS.SUBTITLE};
+    font-weight: 700;
+`;
+
+const Count = styled.div`
+    padding: 1px 8px;
+    display: flex;
+    justify-content: center;
+    border-radius: 10px;
+    background-color: #e5ece9;
+    font-size: 10px;
+    font-weight: 400;
+    margin-left: 8px;
 `;
 
 export default function ChartSummaryOverview() {
@@ -44,7 +58,8 @@ export default function ChartSummaryOverview() {
                 <>
                     <StyledTitle>
                         {getSubTypeIcon(SubType.TableauPublishedDataSource)}
-                        Data Sources ({dataSources.length})
+                        Data Sources
+                        <Count>{dataSources.length} </Count>
                     </StyledTitle>
                     <HorizontalList>
                         {dataSources.map((dataSource) => (
@@ -57,7 +72,8 @@ export default function ChartSummaryOverview() {
                 <>
                     <StyledTitle>
                         {entityRegistry.getIcon(EntityType.Dashboard)}
-                        {`${entityRegistry.getEntityName(EntityType.Dashboard)} (${dashboards?.length})`}
+                        {entityRegistry.getEntityName(EntityType.Dashboard)}
+                        <Count>{dashboards?.length}</Count>
                     </StyledTitle>
                     <HorizontalList>
                         {dashboards.map((dashboard) => (
