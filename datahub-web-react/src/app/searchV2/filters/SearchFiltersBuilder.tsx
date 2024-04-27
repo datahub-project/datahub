@@ -11,10 +11,16 @@ import { UnionType } from '../utils/constants';
 
 const Container = styled.div``;
 
-export const FlexWrapper = styled.div`
+const HorizontalWrapper = styled.div`
     display: flex;
     flex-wrap: wrap;
     align-items: center;
+    gap: 4px;
+`;
+
+const VerticalWrapper = styled.div`
+    display: flex;
+    flex-direction: column;
     gap: 4px;
 `;
 
@@ -40,6 +46,7 @@ interface Props {
     onChangeUnionType?: (unionType: UnionType) => void;
     onClearFilters: () => void;
     disabled?: boolean;
+    vertical?: boolean;
     showUnionType?: boolean;
 }
 
@@ -50,6 +57,7 @@ export default function SearchFiltersBuilder({
     onClearFilters,
     unionType,
     onChangeUnionType,
+    vertical,
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     disabled = false,
     showUnionType = false,
@@ -100,10 +108,13 @@ export default function SearchFiltersBuilder({
         onChangeFilters(newFilters);
     };
 
+    const Wrapper = vertical ? VerticalWrapper : HorizontalWrapper;
+    const addFilter = <AddFilterDropdown fields={fields} onAddFilter={onAddFilter} />;
     return (
         <Container>
             <FlexSpacer>
-                <FlexWrapper>
+                <Wrapper>
+                    {vertical && addFilter}
                     {hydratedFilters.map((predicate, index) => (
                         <SelectedFilter
                             predicate={predicate}
@@ -112,8 +123,8 @@ export default function SearchFiltersBuilder({
                             onRemoveFilter={() => onRemoveFilter(index)}
                         />
                     ))}
-                    <AddFilterDropdown fields={fields} onAddFilter={onAddFilter} />
-                </FlexWrapper>
+                    {!vertical && addFilter}
+                </Wrapper>
                 <TextButton type="text" onClick={onClearFilters} height={14} data-testid="clear-all-filters">
                     clear all
                 </TextButton>

@@ -110,6 +110,7 @@ export const ViewDefinitionBuilder = ({ mode, state, updateState }: Props) => {
                 unionType={unionType}
                 onChangeUnionType={updateUnionType}
                 showUnionType
+                vertical
             />
         </Container>
     );
