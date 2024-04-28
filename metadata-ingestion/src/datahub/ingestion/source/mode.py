@@ -1160,7 +1160,7 @@ class ModeSource(StatefulIngestionSourceBase):
         )
 
         query_urn = self.get_dataset_urn_from_query(query)
-        custom_properties["upstream_fields"] = "profile_id"
+
         # Chart Info
         chart_info = ChartInfoClass(
             type=chart_type,
