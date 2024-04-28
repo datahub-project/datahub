@@ -95,7 +95,7 @@ from datahub.sql_parsing.sqlglot_lineage import (
     infer_output_schema,
 )
 from datahub.utilities import config_clean
-from datahub.utilities.lossy_collections import LossyList
+from datahub.utilities.lossy_collections import LossyDict, LossyList
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -175,6 +175,10 @@ class ModeSourceReport(StaleEntityRemovalSourceReport):
     num_query_template_render: int = 0
     num_query_template_render_failures: int = 0
     num_query_template_render_success: int = 0
+
+    dropped_imported_datasets: LossyDict[str, LossyList[str]] = dataclasses.field(
+        default_factory=LossyDict
+    )
 
     def report_dropped_space(self, ent_name: str) -> None:
         self.filtered_spaces.append(ent_name)
@@ -1207,7 +1211,7 @@ class ModeSource(StatefulIngestionSourceBase):
         yield MetadataWorkUnit(id=chart_snapshot.urn, mce=mce)
 
     @lru_cache(maxsize=None)
-    def _get_reports(self, space_token: str) -> list:
+    def _get_reports(self, space_token: str) -> List[dict]:
         reports = []
         try:
             reports_json = self._get_request_json(
@@ -1361,6 +1365,17 @@ class ModeSource(StatefulIngestionSourceBase):
             reports = self._get_reports(space_token)
             for report in reports:
                 report_token = report.get("token", "")
+
+                if report.get("imported_datasets"):
+                    # The connector doesn't support imported datasets yet.
+                    # For now, we just keep this in the report to track what we're missing.
+                    self.report.dropped_imported_datasets.setdefault(
+                        report_token, LossyList()
+                    ).extend(
+                        imported_dataset.get("name")
+                        for imported_dataset in report.get("imported_datasets")
+                    )
+
                 queries = self._get_queries(report_token)
                 for query in queries:
                     query_mcps = self.construct_query_from_api_data(report_token, query)
