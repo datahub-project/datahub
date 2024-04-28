@@ -798,6 +798,7 @@ class ModeSource(StatefulIngestionSourceBase):
         query_data: dict,
     ) -> Iterable[MetadataWorkUnit]:
         query_urn = self.get_dataset_urn_from_query(query_data)
+        query_token = query_data.get("token")
 
         dataset_props = DatasetPropertiesClass(
             name=query_data.get("name"),
@@ -806,7 +807,7 @@ class ModeSource(StatefulIngestionSourceBase):
 {query_data.get("raw_query")}
 ```
             """,
-            externalUrl=f"{self.config.connect_uri}/{self.config.workspace}/reports/{report_token}/details/queries/{query_data.get('token')}",
+            externalUrl=f"{self.config.connect_uri}/{self.config.workspace}/reports/{report_token}/details/queries/{query_token}",
             customProperties=self.get_custom_props_from_dict(
                 query_data,
                 [
@@ -890,13 +891,13 @@ class ModeSource(StatefulIngestionSourceBase):
             self.report.num_sql_parser_table_error += 1
             self.report.num_sql_parser_failures += 1
             logger.info(
-                f"Failed to parse compiled code for report: {report_token} query: {query_data.get('token')} {parsed_query_object.debug_info.error} the query was [{query_to_parse}]"
+                f"Failed to parse compiled code for report: {report_token} query: {query_token} {parsed_query_object.debug_info.error} the query was [{query_to_parse}]"
             )
         elif parsed_query_object.debug_info.column_error:
             self.report.num_sql_parser_column_error += 1
             self.report.num_sql_parser_failures += 1
             logger.info(
-                f"Failed to generate CLL for report: {report_token} query: {query_data.get('token')}: {parsed_query_object.debug_info.column_error} the query was [{query_to_parse}]"
+                f"Failed to generate CLL for report: {report_token} query: {query_token}: {parsed_query_object.debug_info.column_error} the query was [{query_to_parse}]"
             )
         else:
             self.report.num_sql_parser_success += 1
@@ -1166,6 +1167,12 @@ class ModeSource(StatefulIngestionSourceBase):
 
         query_urn = self.get_dataset_urn_from_query(query)
         yield from self.get_input_fields(chart_urn, chart_data, chart_fields, query_urn)
+
+        yield MetadataChangeProposalWrapper(
+            entityUrn=chart_urn,
+            aspect=SubTypesClass(typeNames=["Chart"]),
+        ).as_workunit()
+
         # Browse Path
         browse_path = BrowsePathsClass(paths=[path])
         chart_snapshot.aspects.append(browse_path)
@@ -1349,14 +1356,12 @@ class ModeSource(StatefulIngestionSourceBase):
                     query_mcps = self.construct_query_from_api_data(report_token, query)
                     chart_fields: Set[str] = OrderedSet()
                     for wu in query_mcps:
-                        if (
-                            isinstance(wu.metadata, MetadataChangeProposalWrapper)
-                            and wu.metadata.aspectName == "schemaMetadata"
-                        ):
-                            if isinstance(wu.metadata.aspect, SchemaMetadataClass):
-                                schema_metadata = wu.metadata.aspect
-                                for field in schema_metadata.fields:
-                                    chart_fields.add(field.fieldPath)
+                        if isinstance(
+                            wu.metadata, MetadataChangeProposalWrapper
+                        ) and isinstance(wu.metadata.aspect, SchemaMetadataClass):
+                            schema_metadata = wu.metadata.aspect
+                            for field in schema_metadata.fields:
+                                chart_fields.add(field.fieldPath)
 
                         yield wu
 
