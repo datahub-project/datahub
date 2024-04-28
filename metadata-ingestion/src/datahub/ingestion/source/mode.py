@@ -80,9 +80,7 @@ from datahub.metadata.schema_classes import (
     QuerySourceClass,
     QueryStatementClass,
     SchemaFieldClass,
-    SchemaFieldDataTypeClass,
     SchemaMetadataClass,
-    StringTypeClass,
     SubTypesClass,
     TagAssociationClass,
     TagPropertiesClass,
@@ -98,7 +96,6 @@ from datahub.sql_parsing.sqlglot_lineage import (
 )
 from datahub.utilities import config_clean
 from datahub.utilities.lossy_collections import LossyList
-from datahub.utilities.ordered_set import OrderedSet
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -1054,39 +1051,42 @@ class ModeSource(StatefulIngestionSourceBase):
 
         return wu
 
-    def get_formula_columns(self, node: Dict, columns: Set[str] = set()) -> Set[str]:
+    def get_formula_columns(
+        self, node: Dict, columns: Optional[Set[str]] = None
+    ) -> Set[str]:
+        columns = columns if columns is not None else set()
         if isinstance(node, dict):
             for key, item in node.items():
-                node = item
                 if isinstance(item, dict):
-                    self.get_formula_columns(node, columns)
-                elif isinstance(node, list):
-                    for i in node:
+                    self.get_formula_columns(item, columns)
+                elif isinstance(item, list):
+                    for i in item:
                         if isinstance(i, dict):
                             self.get_formula_columns(i, columns)
-                elif isinstance(node, str):
+                elif isinstance(item, str):
                     if key == "formula":
-                        column_names = re.findall(r"\[(.+?)\]", node)
+                        column_names = re.findall(r"\[(.+?)\]", item)
                         columns.update(column_names)
         return columns
 
     def get_input_fields(
-        self, chart_urn: str, chart_data: Dict, chart_fields: Set[str], query_urn: str
+        self,
+        chart_urn: str,
+        chart_data: Dict,
+        chart_fields: Dict[str, SchemaFieldClass],
+        query_urn: str,
     ) -> Iterable[MetadataWorkUnit]:
+        # TODO: Identify which fields are used as X, Y, filters, etc and tag them accordingly.
         fields = self.get_formula_columns(chart_data)
 
         input_fields = []
 
-        for field in sorted(fields):
+        for field in fields:
             if field.lower() not in chart_fields:
                 continue
             input_field = InputFieldClass(
                 schemaFieldUrn=builder.make_schema_field_urn(query_urn, field.lower()),
-                schemaField=SchemaFieldClass(
-                    fieldPath=field.lower(),
-                    type=SchemaFieldDataTypeClass(type=StringTypeClass()),
-                    nativeDataType="string",
-                ),
+                schemaField=chart_fields[field.lower()],
             )
             input_fields.append(input_field)
 
@@ -1104,7 +1104,7 @@ class ModeSource(StatefulIngestionSourceBase):
         self,
         index: int,
         chart_data: dict,
-        chart_fields: Set[str],
+        chart_fields: Dict[str, SchemaFieldClass],
         query: dict,
         path: str,
     ) -> Iterable[MetadataWorkUnit]:
@@ -1364,14 +1364,14 @@ class ModeSource(StatefulIngestionSourceBase):
                 queries = self._get_queries(report_token)
                 for query in queries:
                     query_mcps = self.construct_query_from_api_data(report_token, query)
-                    chart_fields: Set[str] = OrderedSet()
+                    chart_fields: Dict[str, SchemaFieldClass] = {}
                     for wu in query_mcps:
                         if isinstance(
                             wu.metadata, MetadataChangeProposalWrapper
                         ) and isinstance(wu.metadata.aspect, SchemaMetadataClass):
                             schema_metadata = wu.metadata.aspect
                             for field in schema_metadata.fields:
-                                chart_fields.add(field.fieldPath)
+                                chart_fields.setdefault(field.fieldPath, field)
 
                         yield wu
 
