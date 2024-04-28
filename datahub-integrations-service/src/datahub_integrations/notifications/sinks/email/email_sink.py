@@ -38,7 +38,6 @@ class RetryMode(Enum):
 
 
 class EmailNotificationSink(NotificationSink):
-
     """
     An email notification sink.
     """

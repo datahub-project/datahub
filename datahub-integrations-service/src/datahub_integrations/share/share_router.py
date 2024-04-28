@@ -157,9 +157,9 @@ def share_entity(
     share_aspect = update_share_aspect(
         existing_share_aspect=existing_share_aspect,
         destination_urn=destination_urn,
-        implicit_share_entity=root_entity_urn
-        if root_entity_urn != shared_urn
-        else None,
+        implicit_share_entity=(
+            root_entity_urn if root_entity_urn != shared_urn else None
+        ),
     )
 
     source_graph.emit(

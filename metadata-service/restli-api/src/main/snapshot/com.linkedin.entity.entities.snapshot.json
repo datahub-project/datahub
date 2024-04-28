@@ -1777,7 +1777,14 @@
       "name" : "lastRefreshed",
       "type" : "com.linkedin.common.Time",
       "doc" : "The time when this dashboard last refreshed",
-      "optional" : true
+      "optional" : true,
+      "Searchable" : { }
+    }, {
+      "name" : "lastRefreshedBy",
+      "type" : "com.linkedin.common.Urn",
+      "doc" : "The actor who last refreshed this dashboard",
+      "optional" : true,
+      "Searchable" : { }
     } ],
     "Aspect" : {
       "name" : "dashboardInfo"

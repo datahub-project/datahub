@@ -25,9 +25,11 @@ if EMAIL_SINK_ENABLED == "true":
 
 sink_manager = NotificationSinkManager(
     sinks=sinks,
-    mode=NotificationManagerMode.ENABLED
-    if NOTIFICATIONS_ENABLED == "true"
-    else NotificationManagerMode.DISABLED,
+    mode=(
+        NotificationManagerMode.ENABLED
+        if NOTIFICATIONS_ENABLED == "true"
+        else NotificationManagerMode.DISABLED
+    ),
 )
 
 
