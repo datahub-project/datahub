@@ -328,35 +328,45 @@ class ModeSource(StatefulIngestionSourceBase):
 
         title = report_info.get("name", "")
         description = report_info.get("description", "")
-
         last_modified = ChangeAuditStamps()
+
+        # Creator + created ts.
         creator = self._get_creator(
             report_info.get("_links", {}).get("creator", {}).get("href", "")
         )
         if creator:
-            modified_actor = builder.make_user_urn(creator)
-            if not report_info.get("last_saved_at"):
-                # Sometimes mode returns null for last_saved_at.
-                # In that case, we use the created_at timestamp instead.
-                report_info["last_saved_at"] = report_info.get("created_at")
-
-            modified_ts = int(
-                dp.parse(f"{report_info.get('last_saved_at', 'now')}").timestamp()
-                * 1000
-            )
+            creator_actor = builder.make_user_urn(creator)
             created_ts = int(
                 dp.parse(f"{report_info.get('created_at', 'now')}").timestamp() * 1000
             )
-            last_modified = ChangeAuditStamps(
-                created=AuditStamp(time=created_ts, actor=modified_actor),
-                lastModified=AuditStamp(time=modified_ts, actor=modified_actor),
+            last_modified.created = AuditStamp(time=created_ts, actor=creator_actor)
+
+        # Last modified ts.
+        last_modified_ts_str = report_info.get("last_saved_at")
+        if not last_modified_ts_str:
+            # Sometimes mode returns null for last_saved_at.
+            # In that case, we use the edited_at timestamp instead.
+            last_modified_ts_str = report_info.get("edited_at")
+        if last_modified_ts_str:
+            modified_ts = int(dp.parse(last_modified_ts_str).timestamp() * 1000)
+            last_modified.lastModified = AuditStamp(
+                time=modified_ts, actor="urn:li:corpuser:unknown"
             )
+
+        # Last refreshed ts.
+        # Technically Mode queries are freshed but datasets are synced, and the latter is
+        # captured by the sync timestamps. However, this is probably accurate enough for now.
+        last_refreshed_ts = None
+        last_refreshed_ts_str = report_info.get("last_run_at")
+        if last_refreshed_ts_str:
+            last_refreshed_ts = int(dp.parse(last_refreshed_ts_str).timestamp() * 1000)
 
         dashboard_info_class = DashboardInfoClass(
             description=description if description else "",
             title=title if title else "",
             charts=self._get_chart_urns(report_token),
             lastModified=last_modified,
+            lastRefreshed=last_refreshed_ts,
             dashboardUrl=f"{self.config.connect_uri}/{self.config.workspace}/reports/{report_token}",
             customProperties={},
         )
