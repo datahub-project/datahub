@@ -20,9 +20,12 @@ Search is available for all users. Although Search works out of the box, the mor
 
 Searching is as easy as typing in relevant business terms and pressing 'enter' to view matching data assets. 
 
-By default, search terms will match against different aspects of a data assets. This includes asset names, descriptions, tags, terms, owners, and even specific attributes like the names of columns in a table. 
+By default, search terms will match against different aspects of a data assets. This includes asset names, descriptions, tags, terms, owners, and even specific attributes like the names of columns in a table.
 
- 
+### Search Operators
+
+The default boolean logic used to interpret text in a query string is `AND`. For example, a query of `information about orders` is interpreted as `information AND about AND orders`.
+
 ### Filters
 
 The filters sidebar sits on the left hand side of search results, and lets users find assets by drilling down. You can quickly filter by Data Platform (e.g. Snowflake), Tags, Glossary Terms, Domain, Owners, and more with a single click. 
