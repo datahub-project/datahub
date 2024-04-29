@@ -179,7 +179,3 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 | `file`                   |       |   `"~/.datahub/lite/datahub.duckdb"`     | File to use for DuckDB storage |
 | `options`                |          | `{}`                   | Options dictionary to pass through to DuckDB library. See [the official spec](https://duckdb.org/docs/sql/configuration.html) for the options supported by DuckDB. |
 
-
-## Questions
-
-If you've got any questions on configuring this sink, feel free to ping us on [our Slack](https://datahubproject.io/slack?utm_source=docs&utm_medium=docs&utm_campaign=docs_page_link)!
