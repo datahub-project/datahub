@@ -1403,6 +1403,7 @@ class ModeSource(StatefulIngestionSourceBase):
             container_key=key,
             name=space_name,
             sub_types=[BIContainerSubTypes.MODE_COLLECTION],
+            # TODO: Support extracting the documentation for a space.
         )
 
         # We have a somewhat atypical browse path here, since we include the workspace name
