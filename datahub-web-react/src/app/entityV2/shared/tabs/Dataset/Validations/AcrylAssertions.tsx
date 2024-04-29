@@ -13,6 +13,7 @@ import { AssertionGroupTable } from './AssertionGroupTable';
 import { updateDatasetAssertionsCache, createCachedAssertionWithMonitor } from './acrylCacheUtils';
 import { useGetDatasetContractQuery } from '../../../../../../graphql/contract.generated';
 import { combineEntityDataWithSiblings } from '../../../../../entity/shared/siblingUtils';
+import { AcrylAssertionsSummaryLoading } from './AcrylAssertionsSummaryLoading';
 
 /**
  * Component used for rendering the Assertions Sub Tab on the Validations Tab
@@ -25,7 +26,7 @@ export const AcrylAssertions = () => {
     const { config } = useAppConfig();
     const isHideSiblingMode = useIsSeparateSiblingsMode();
 
-    const { data, refetch, client } = useGetDatasetAssertionsWithMonitorsQuery({
+    const { data, refetch, client, loading } = useGetDatasetAssertionsWithMonitorsQuery({
         variables: { urn },
         fetchPolicy: 'cache-first',
     });
@@ -67,18 +68,25 @@ export const AcrylAssertions = () => {
                     </Tooltip>
                 </TabToolbar>
             )}
-            <DatasetAssertionsSummary summary={getLegacyAssertionsSummary(assertionsWithMonitorsDetails)} />
-            <AssertionGroupTable
-                groups={assertionGroups}
-                contract={contract}
-                refetch={() => {
-                    refetch();
-                    contractRefetch();
-                }}
-                canEditAssertions={data?.dataset?.privileges?.canEditAssertions || false}
-                canEditMonitors={data?.dataset?.privileges?.canEditMonitors || false}
-                canEditSqlAssertions={data?.dataset?.privileges?.canEditSqlAssertionMonitors || false}
-            />
+            {loading 
+                ?
+                        <AcrylAssertionsSummaryLoading />
+                :
+                        <>
+                            <DatasetAssertionsSummary summary={getLegacyAssertionsSummary(assertionsWithMonitorsDetails)} />
+                            <AssertionGroupTable
+                                groups={assertionGroups}
+                                contract={contract}
+                                refetch={() => {
+                                    refetch();
+                                    contractRefetch();
+                                }}
+                                canEditAssertions={data?.dataset?.privileges?.canEditAssertions || false}
+                                canEditMonitors={data?.dataset?.privileges?.canEditMonitors || false}
+                                canEditSqlAssertions={data?.dataset?.privileges?.canEditSqlAssertionMonitors || false}
+                            />
+                        </>
+            }
             {showAssertionBuilder && (
                 <AssertionMonitorBuilderDrawer
                     entityUrn={urn}
