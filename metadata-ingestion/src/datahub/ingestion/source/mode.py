@@ -565,7 +565,9 @@ class ModeSource(StatefulIngestionSourceBase):
     def construct_chart_custom_properties(
         self, chart_detail: dict, chart_type: str
     ) -> Dict:
-        custom_properties = {}
+        custom_properties = {
+            "ChartType": chart_type,
+        }
         metadata = chart_detail.get("encoding", {})
         if chart_type == "table":
             columns = list(chart_detail.get("fieldFormats", {}).keys())
@@ -573,10 +575,12 @@ class ModeSource(StatefulIngestionSourceBase):
             filters = metadata.get("filter", [])
             filters = filters[0].get("formula", "") if len(filters) else ""
 
-            custom_properties = {
-                "Columns": str_columns,
-                "Filters": filters[1:-1] if len(filters) else "",
-            }
+            custom_properties.update(
+                {
+                    "Columns": str_columns,
+                    "Filters": filters[1:-1] if len(filters) else "",
+                }
+            )
 
         elif chart_type == "pivotTable":
             pivot_table = chart_detail.get("pivotTable", {})
@@ -585,12 +589,14 @@ class ModeSource(StatefulIngestionSourceBase):
             values = pivot_table.get("values", [])
             filters = pivot_table.get("filters", [])
 
-            custom_properties = {
-                "Columns": ", ".join(columns) if len(columns) else "",
-                "Rows": ", ".join(rows) if len(rows) else "",
-                "Metrics": ", ".join(values) if len(values) else "",
-                "Filters": ", ".join(filters) if len(filters) else "",
-            }
+            custom_properties.update(
+                {
+                    "Columns": ", ".join(columns) if len(columns) else "",
+                    "Rows": ", ".join(rows) if len(rows) else "",
+                    "Metrics": ", ".join(values) if len(values) else "",
+                    "Filters": ", ".join(filters) if len(filters) else "",
+                }
+            )
             # list filters in their own row
             for filter in filters:
                 custom_properties[f"Filter: {filter}"] = ", ".join(
@@ -605,14 +611,16 @@ class ModeSource(StatefulIngestionSourceBase):
             value = metadata.get("value", [])
             filters = metadata.get("filter", [])
 
-            custom_properties = {
-                "X": x[0].get("formula", "") if len(x) else "",
-                "Y": y[0].get("formula", "") if len(y) else "",
-                "X2": x2[0].get("formula", "") if len(x2) else "",
-                "Y2": y2[0].get("formula", "") if len(y2) else "",
-                "Metrics": value[0].get("formula", "") if len(value) else "",
-                "Filters": filters[0].get("formula", "") if len(filters) else "",
-            }
+            custom_properties.update(
+                {
+                    "X": x[0].get("formula", "") if len(x) else "",
+                    "Y": y[0].get("formula", "") if len(y) else "",
+                    "X2": x2[0].get("formula", "") if len(x2) else "",
+                    "Y2": y2[0].get("formula", "") if len(y2) else "",
+                    "Metrics": value[0].get("formula", "") if len(value) else "",
+                    "Filters": filters[0].get("formula", "") if len(filters) else "",
+                }
+            )
 
         return custom_properties
 
@@ -1410,9 +1418,7 @@ class ModeSource(StatefulIngestionSourceBase):
         # as what's effectively but not officially a platform instance.
         yield MetadataChangeProposalWrapper(
             entityUrn=key.as_urn(),
-            aspect=BrowsePathsV2Class(
-                path=self._browse_path_space()
-            ),
+            aspect=BrowsePathsV2Class(path=self._browse_path_space()),
         ).as_workunit()
 
     def emit_dashboard_mces(self) -> Iterable[MetadataWorkUnit]:
