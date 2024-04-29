@@ -1,7 +1,5 @@
 package com.linkedin.metadata.entity.ebean.batch;
 
-import static com.linkedin.metadata.entity.AspectUtils.validateAspect;
-
 import com.datahub.util.exception.ModelConversionException;
 import com.github.fge.jsonpatch.JsonPatchException;
 import com.linkedin.common.AuditStamp;
@@ -13,9 +11,10 @@ import com.linkedin.metadata.aspect.SystemAspect;
 import com.linkedin.metadata.aspect.batch.ChangeMCP;
 import com.linkedin.metadata.aspect.batch.MCPItem;
 import com.linkedin.metadata.aspect.patch.template.common.GenericPatchTemplate;
+import com.linkedin.metadata.entity.AspectUtils;
+import com.linkedin.metadata.entity.EntityApiUtils;
 import com.linkedin.metadata.entity.EntityAspect;
-import com.linkedin.metadata.entity.EntityUtils;
-import com.linkedin.metadata.entity.validation.ValidationUtils;
+import com.linkedin.metadata.entity.validation.ValidationApiUtils;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.utils.EntityKeyUtils;
@@ -90,12 +89,12 @@ public class ChangeItemImpl implements ChangeMCP {
   public SystemAspect getSystemAspect(@Nullable Long version) {
     EntityAspect entityAspect = new EntityAspect();
     entityAspect.setAspect(getAspectName());
-    entityAspect.setMetadata(EntityUtils.toJsonAspect(getRecordTemplate()));
+    entityAspect.setMetadata(EntityApiUtils.toJsonAspect(getRecordTemplate()));
     entityAspect.setUrn(getUrn().toString());
     entityAspect.setVersion(version == null ? getNextAspectVersion() : version);
     entityAspect.setCreatedOn(new Timestamp(getAuditStamp().getTime()));
     entityAspect.setCreatedBy(getAuditStamp().getActor().toString());
-    entityAspect.setSystemMetadata(EntityUtils.toJsonAspect(getSystemMetadata()));
+    entityAspect.setSystemMetadata(EntityApiUtils.toJsonAspect(getSystemMetadata()));
     return EntityAspect.EntitySystemAspect.builder()
         .build(getEntitySpec(), getAspectSpec(), entityAspect);
   }
@@ -129,16 +128,16 @@ public class ChangeItemImpl implements ChangeMCP {
       // Apply change type default
       this.changeType = validateOrDefaultChangeType(changeType);
 
-      ValidationUtils.validateUrn(aspectRetriever.getEntityRegistry(), this.urn);
+      ValidationApiUtils.validateUrn(aspectRetriever.getEntityRegistry(), this.urn);
       log.debug("entity type = {}", this.urn.getEntityType());
 
       entitySpec(aspectRetriever.getEntityRegistry().getEntitySpec(this.urn.getEntityType()));
       log.debug("entity spec = {}", this.entitySpec);
 
-      aspectSpec(ValidationUtils.validate(this.entitySpec, this.aspectName));
+      aspectSpec(ValidationApiUtils.validate(this.entitySpec, this.aspectName));
       log.debug("aspect spec = {}", this.aspectSpec);
 
-      ValidationUtils.validateRecordTemplate(
+      ValidationApiUtils.validateRecordTemplate(
           this.entitySpec, this.urn, this.recordTemplate, aspectRetriever);
 
       return new ChangeItemImpl(
@@ -161,7 +160,7 @@ public class ChangeItemImpl implements ChangeMCP {
       log.debug("entity type = {}", mcp.getEntityType());
       EntitySpec entitySpec =
           aspectRetriever.getEntityRegistry().getEntitySpec(mcp.getEntityType());
-      AspectSpec aspectSpec = validateAspect(mcp, entitySpec);
+      AspectSpec aspectSpec = AspectUtils.validateAspect(mcp, entitySpec);
 
       if (!MCPItem.isValidChangeType(ChangeType.UPSERT, aspectSpec)) {
         throw new UnsupportedOperationException(
@@ -191,9 +190,9 @@ public class ChangeItemImpl implements ChangeMCP {
     // specific to impl, other impls support PATCH, etc
     private static ChangeType validateOrDefaultChangeType(@Nullable ChangeType changeType) {
       final ChangeType finalChangeType = changeType == null ? ChangeType.UPSERT : changeType;
-      if (!CHANGE_TYPES.contains(finalChangeType)) {
+      if (!MCPItem.CHANGE_TYPES.contains(finalChangeType)) {
         throw new IllegalArgumentException(
-            String.format("ChangeType %s not in %s", changeType, CHANGE_TYPES));
+            String.format("ChangeType %s not in %s", changeType, MCPItem.CHANGE_TYPES));
       }
       return finalChangeType;
     }
@@ -205,7 +204,7 @@ public class ChangeItemImpl implements ChangeMCP {
         aspect =
             GenericRecordUtils.deserializeAspect(
                 mcp.getAspect().getValue(), mcp.getAspect().getContentType(), aspectSpec);
-        ValidationUtils.validateOrThrow(aspect);
+        ValidationApiUtils.validateOrThrow(aspect);
       } catch (ModelConversionException e) {
         throw new RuntimeException(
             String.format(

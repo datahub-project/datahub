@@ -8,6 +8,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
@@ -28,12 +29,15 @@ public class SpringPluginFactory extends PluginFactory {
     super(pluginConfiguration, classLoaders);
 
     String[] packageScan =
-        extractPackageScan(pluginConfiguration.streamAll()).toArray(String[]::new);
+        extractPackageScan(
+                Optional.ofNullable(pluginConfiguration)
+                    .map(PluginConfiguration::streamAll)
+                    .orElse(Stream.of()))
+            .toArray(String[]::new);
 
     if (springApplicationContext != null || packageScan.length == 0) {
       this.springApplicationContext = springApplicationContext;
     } else {
-
       AnnotationConfigApplicationContext rootContext = null;
 
       for (ClassLoader classLoader : classLoaders) {
