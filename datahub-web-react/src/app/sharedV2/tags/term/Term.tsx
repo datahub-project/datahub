@@ -14,7 +14,7 @@ const TermLink = styled(Link)<{ $showOneAndCount?: boolean }>`
     ${(props) =>
         props.$showOneAndCount &&
         `
-            width: 70%;
+            width: 90%;
             max-width: max-content;
         `}
 `;
@@ -25,7 +25,7 @@ const TermWrapper = styled.span<{ $showOneAndCount?: boolean }>`
     ${(props) =>
         props.$showOneAndCount &&
         `
-            width: 70%;
+            width: 90%;
             max-width: max-content;
         `}
 `;
@@ -41,6 +41,7 @@ interface Props {
     onOpenModal?: () => void;
     refetch?: () => Promise<any>;
     showOneAndCount?: boolean;
+    context?: string | null;
 }
 
 export default function Term(props: Props) {

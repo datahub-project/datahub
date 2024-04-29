@@ -4713,6 +4713,11 @@ type TagAssociation {
     Reference back to the tagged urn for tracking purposes e.g. when sibling nodes are merged together
     """
     associatedUrn: String!
+
+    """
+    The context of how/why this tag is associated
+    """
+    context: String
 }
 
 """
@@ -4762,6 +4767,11 @@ type GlossaryTermAssociation {
     Reference back to the associated urn for tracking purposes e.g. when sibling nodes are merged together
     """
     associatedUrn: String!
+
+    """
+    The context of how/why this term is associated
+    """
+    context: String
 }
 
 """
