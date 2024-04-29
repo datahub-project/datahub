@@ -15,6 +15,7 @@ This guide will show you how to
 
 - Add lineage between datasets.
 - Add column-level lineage between datasets.
+- Read lineage.
 
 ## Prerequisites
 
@@ -109,7 +110,7 @@ Expected Response:
 </TabItem>
 </Tabs>
 
-### Expected Outcomes of Adding Lineage
+### Expected Outcome
 
 You can now see the lineage between `fct_users_deleted` and `logging_events`.
 
@@ -129,7 +130,7 @@ You can now see the lineage between `fct_users_deleted` and `logging_events`.
 </TabItem>
 </Tabs>
 
-### Expected Outcome of Adding Column Level Lineage
+### Expected Outcome
 
 You can now see the column-level lineage between datasets. Note that you have to enable `Show Columns` to be able to see the column-level lineage.
 
@@ -137,18 +138,17 @@ You can now see the column-level lineage between datasets. Note that you have to
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/apis/tutorials/column-level-lineage-added.png"/>
 </p>
 
-## Read Lineage
+## Read Lineage (Lineage Impact Analysis)
 
 <Tabs>
 <TabItem value="graphql" label="GraphQL" default>
 
 ```graphql
-query searchAcrossLineage {
-  searchAcrossLineage(
+query scrollAcrossLineage {
+  scrollAcrossLineage(
     input: {
       query: "*"
-      urn: "urn:li:dataset:(urn:li:dataPlatform:dbt,long_tail_companions.adoption.human_profiles,PROD)"
-      start: 0
+      urn: "urn:li:dataset:(urn:li:dataPlatform:hive,logging_events,PROD)"
       count: 10
       direction: DOWNSTREAM
       orFilters: [
@@ -176,19 +176,70 @@ query searchAcrossLineage {
 }
 ```
 
-This example shows using lineage degrees as a filter, but additional search filters can be included here as well.
-
 </TabItem>
 <TabItem value="curl" label="Curl">
 
 ```shell
 curl --location --request POST 'http://localhost:8080/api/graphql' \
 --header 'Authorization: Bearer <my-access-token>' \
---header 'Content-Type: application/json'  --data-raw '{ { "query": "query searchAcrossLineage { searchAcrossLineage( input: { query: \"*\" urn: \"urn:li:dataset:(urn:li:dataPlatform:dbt,long_tail_companions.adoption.human_profiles,PROD)\" start: 0 count: 10 direction: DOWNSTREAM orFilters: [ { and: [ { condition: EQUAL negated: false field: \"degree\" values: [\"1\", \"2\", \"3+\"] } ] } ] } ) { searchResults { degree entity { urn type } } }}"
+--header 'Content-Type: application/json'  --data-raw '{ { "query": "query scrollAcrossLineage { scrollAcrossLineage( input: { query: \"*\" urn: \"urn:li:dataset:(urn:li:dataPlatform:hive,logging_events,PROD)\" count: 10 direction: DOWNSTREAM orFilters: [ { and: [ { condition: EQUAL negated: false field: \"degree\" values: [\"1\", \"2\", \"3+\"] } ] } ] } ) { searchResults { degree entity { urn type } } }}"
 }}'
 ```
 
 </TabItem>
+<TabItem value="python" label="Python">
+
+```python
+{{ inline /metadata-ingestion/examples/library/read_lineage_execute_graphql.py show_path_as_comment }}
+```
+
+</TabItem>
+</Tabs>
+
+This example shows using lineage degrees as a filter, but additional search filters can be included here as well.
+
+Note that `degree` means the number of hops in the lineage. For example, `degree: 1` means the immediate downstream entities, `degree: 2` means the entities that are two hops away, and so on.
+
+This will perform a multi-hop lineage search on the urn specified. For more information about the `scrollAcrossLineage` mutation, please refer to [scrollAcrossLineage](https://datahubproject.io/docs/graphql/queries/#scrollacrosslineage).
+
+### Expected Outcome
+
+As an outcome, you should see the downstream entities of `logging_events`.
+
+```graphql
+{
+  "data": {
+    "scrollAcrossLineage": {
+      "searchResults": [
+        {
+          "degree": 1,
+          "entity": {
+            "urn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,dag_abc,PROD),task_123)",
+            "type": "DATA_JOB"
+          }
+        },
+        ...
+        {
+          "degree": 2,
+          "entity": {
+            "urn": "urn:li:mlPrimaryKey:(user_analytics,user_name)",
+            "type": "MLPRIMARY_KEY"
+          }
+        }
+      ]
+    }
+  },
+  "extensions": {}
+}
+```
+
+## Read Column-level Lineage 
+
+You can also read column-level lineage via Python SDK. 
+
+
+
+<Tabs>
 <TabItem value="python" label="Python">
 
 ```python
@@ -198,4 +249,50 @@ curl --location --request POST 'http://localhost:8080/api/graphql' \
 </TabItem>
 </Tabs>
 
-This will perform a multi-hop lineage search on the urn specified. For more information about the `searchAcrossLineage` mutation, please refer to [searchAcrossLineage](https://datahubproject.io/docs/graphql/queries/#searchacrosslineage).
+### Expected Outcome
+
+As a response, you will get the full lineage information like this. 
+
+```graphql
+{
+  "UpstreamLineageClass": {
+    "upstreams": [
+      {
+        "UpstreamClass": {
+          "auditStamp": {
+            "AuditStampClass": {
+              "time": 0,
+              "actor": "urn:li:corpuser:unknown",
+              "impersonator": null,
+              "message": null
+            }
+          },
+          "created": null,
+          "dataset": "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_deleted,PROD)",
+          "type": "TRANSFORMED",
+          "properties": null,
+          "query": null
+        }
+      }
+    ],
+    "fineGrainedLineages": [
+      {
+        "FineGrainedLineageClass": {
+          "upstreamType": "FIELD_SET",
+          "upstreams": [
+            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_deleted,PROD),browser_id)",
+            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD),user_id)"
+          ],
+          "downstreamType": "FIELD",
+          "downstreams": [
+            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,logging_events,PROD),browser)"
+          ],
+          "transformOperation": null,
+          "confidenceScore": 1.0,
+          "query": null
+        }
+      }
+    ]
+  }
+}
+```
