@@ -32,7 +32,10 @@ public class PluginFactory {
     "com.linkedin.metadata.aspect.plugins.validation", "com.linkedin.metadata.aspect.validation"
   };
   private static final String[] HOOK_PACKAGES = {
-    "com.linkedin.metadata.aspect.plugins.hooks", "com.linkedin.metadata.aspect.hooks"
+    "com.linkedin.metadata.aspect.plugins.hooks",
+    "com.linkedin.metadata.aspect.hooks",
+    // Acryl Only
+    "com.linkedin.metadata.test.hooks"
   };
 
   public static PluginFactory withCustomClasspath(
