@@ -126,7 +126,9 @@ class ModeConfig(StatefulIngestionConfigBase, DatasetLineageProviderConfigBase):
         description="Mode password for authentication."
     )
 
-    workspace: Optional[str] = Field(default=None, description="")
+    workspace: str = Field(
+        description="The Mode workspace name. Find it in Settings > Workspace > Details."
+    )
     default_schema: str = Field(
         default="public",
         description="Default schema to use when schema is not provided in an SQL query",
@@ -1434,8 +1436,8 @@ class ModeSource(StatefulIngestionSourceBase):
                     self.report.dropped_imported_datasets.setdefault(
                         report_token, LossyList()
                     ).extend(
-                        imported_dataset.get("name")
-                        for imported_dataset in report.get("imported_datasets")
+                        imported_dataset.get("name") or str(imported_dataset)
+                        for imported_dataset in report["imported_datasets"]
                     )
 
                 queries = self._get_queries(report_token)
