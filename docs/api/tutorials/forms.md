@@ -34,15 +34,15 @@ Connect to your instance via [init](https://datahubproject.io/docs/cli/#init):
 </Tabs>
 
 
-## Create Structured Properties
-
+## Create Forms
 
 <Tabs>
 <TabItem value="CLI" label="CLI">
 
 Create a yaml file representing the forms you’d like to load. 
-For example, below file represents a form `123456``. You can see the full example [here](https://github.com/datahub-project/datahub/blob/example-yaml-sp/metadata-ingestion/examples/forms/forms.yaml).
+For example, below file represents a form `123456`. You can see the full example [here](https://github.com/datahub-project/datahub/blob/example-yaml-sp/metadata-ingestion/examples/forms/forms.yaml).
         
+
 ```yaml
 - id: 123456
   # urn: "urn:li:form:123456"  # optional if id is provided
@@ -56,29 +56,16 @@ For example, below file represents a form `123456``. You can see the full exampl
       type: STRUCTURED_PROPERTY
       structured_property_id: io.acryl.privacy.retentionTime
       required: True # optional, will default to True
-    - id: "92847"
-      title: "Replication SLA"
-      description: "Apply Replication SLA structured property to form"
-      type: STRUCTURED_PROPERTY
-      structured_property_urn: urn:li:structuredProperty:io.acryl.dataManagement.replicationSLA
-      required: True
-    - title: "compliance_officer"
-      description: "Compliance officer"
-      type: STRUCTURED_PROPERTY
-      structured_property_id: compliance_officer
-      required: True
-    - id: "76543"
-      title: "Replication SLA"
-      description: "Apply Replication SLA structured property to form"
-      type: FIELDS_STRUCTURED_PROPERTY
-      structured_property_urn: urn:li:structuredProperty:io.acryl.dataManagement.replicationSLA
-      required: False
   entities: # Either pass a list of urns or a group of filters. This example shows a list of urns
     urns:
-      - urn:li:dataset:(urn:li:dataPlatform:hive,user.clicks,PROD)
-      - urn:li:dataset:(urn:li:dataPlatform:snowflake,user.clicks,PROD)
       - urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleHdfsDataset,PROD)
 ```
+
+:::note
+Note that the structured properties and related entities should be created before you create the form. 
+Please refer to the [Structured Properties Tutorial](/docs/api/tutorials/structured-properties.md) for more information.
+:::
+
 
 You can apply forms to either a list of entity urns, or a list of filters. For a list of entity urns, use this structure:
     
@@ -129,7 +116,25 @@ datahub forms get --urn {urn}
 ```
 For Example, you can run `datahub forms get --urn urn:li:form:123456`.
 
-If successful, you should see metadata about your form returned.
+If successful, you should see metadata about your form returned like below.
+
+```json
+{
+  "urn": "urn:li:form:123456",
+  "name": "Metadata Initiative 2023",
+  "description": "How we want to ensure the most important data assets in our organization have all of the most important and expected pieces of metadata filled out",
+  "prompts": [
+    {
+      "id": "123",
+      "title": "Retention Time",
+      "description": "Apply Retention Time structured property to form",
+      "type": "STRUCTURED_PROPERTY",
+      "structured_property_urn": "urn:li:structuredProperty:io.acryl.privacy.retentionTime"
+    }
+  ],
+  "type": "VERIFICATION"
+}
+```
 
 </TabItem>
 </Tabs>
