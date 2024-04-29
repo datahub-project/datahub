@@ -134,7 +134,7 @@ You can see the properties you created by running the following command:
 ```commandline
 datahub properties get --urn {urn}
 ```
-For Example, you can run `datahub properties get --urn urn:li:structuredProperty:io.acryl.privacy.retentionTime`.
+For example, you can run `datahub properties get --urn urn:li:structuredProperty:io.acryl.privacy.retentionTime`.
 If successful, you should see metadata about your properties returned.
 
 ```commandline
@@ -218,6 +218,299 @@ Example Response:
 </Tabs>
 
 
+## Set Structured Property To a Dataset
+
+This action will set/replace all structured properties on the entity. See PATCH operations to add/remove a single property.
+
+<Tabs>
+<TabItem value="CLI" label="CLI" default>
+
+You can set structured properties to a dataset by creating a dataset yaml file with structured properties. For example, below is a dataset yaml file with structured properties in both the field and dataset level. 
+
+Please refer to the [full example here.](https://github.com/datahub-project/datahub/blob/example-yaml-sp/metadata-ingestion/examples/structured_properties/datasets.yaml)
+
+```yaml
+- id: user_clicks_snowflake
+  platform: snowflake
+  schema:
+    fields:
+      - id: user_id
+        structured_properties:
+          io.acryl.dataManagement.deprecationDate: "2023-01-01"
+  structured_properties:
+    io.acryl.dataManagement.replicationSLA: 90
+```
+
+Use the CLI to upsert your dataset yaml file:
+```commandline
+datahub dataset upsert -f {dataset_yaml}
+```
+If successful, you should see `Update succeeded for urn:li:dataset:...`
+
+
+
+</TabItem>
+<TabItem value="OpenAPI" label="OpenAPI">
+
+Following command will set structured properties `retentionTime` as `90` to a dataset `urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)`.
+Please note that the structured property and the dataset must exist before executing this command. (You can create sample datasets using the `datahub docker ingest-sample-data`)
+
+```commandline
+curl -X 'POST' -v \
+  'http://localhost:8080/openapi/v2/entity/dataset/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Ahive%2CSampleHiveDataset%2CPROD%29/structuredProperties' \
+  -H 'accept: application/json' \
+  -H 'Content-Type: application/json' \
+  -d '{
+  "properties": [
+    {
+      "propertyUrn": "urn:li:structuredProperty:io.acryl.privacy.retentionTime",
+      "values": [
+        {"string": "90"}
+      ]
+    }
+  ]
+}' | jq
+```
+
+</TabItem>
+</Tabs>
+
+#### Expected Outcomes
+
+Once your datasets are uploaded, you can view them in the UI and view the properties associated with them under the Properties tab.
+
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/apis/tutorials/sp-set.png"/>
+</p>
+
+Or you can run the following command to view the properties associated with the dataset:
+
+```commandline
+datahub dataset get --urn {urn}
+```
+
+## Patch Structured Property Value
+
+This section will show you how to patch a structured property value - either by removing, adding, or upserting a single property.
+
+### Add Structured Property Value
+
+For this example, we'll extend create a second structured property and apply both properties to the same dataset used previously. 
+After this your system should include both `io.acryl.privacy.retentionTime` and `io.acryl.privacy.retentionTime02`.
+
+<Tabs>
+<TabItem value="OpenAPI" label="OpenAPI">
+
+Let's start by creating the second structured property.
+
+```
+curl -X 'POST' -v \
+  'http://localhost:8080/openapi/v2/entity/structuredProperty/urn%3Ali%3AstructuredProperty%3Aio.acryl.privacy.retentionTime02/propertyDefinition' \
+  -H 'accept: application/json' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "qualifiedName": "io.acryl.privacy.retentionTime02",
+    "displayName": "Retention Time 02",
+    "valueType": "urn:li:dataType:datahub.string",
+    "allowedValues": [
+        {
+            "value": {"string": "foo2"},
+            "description": "test foo2 value"
+        },
+        {
+            "value": {"string": "bar2"},
+            "description": "test bar2 value"
+        }
+    ],
+    "cardinality": "SINGLE",
+    "entityTypes": [
+        "urn:li:entityType:datahub.dataset"
+    ]
+}' | jq
+
+```
+
+This command will attach one of each of the two properties to our test dataset `urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)`
+Specically, this will set `io.acryl.privacy.retentionTime` as `90` and `io.acryl.privacy.retentionTime02` as `bar2`.
+
+
+```
+curl -X 'POST' -v \
+  'http://localhost:8080/openapi/v2/entity/dataset/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Ahive%2CSampleHiveDataset%2CPROD%29/structuredProperties' \
+  -H 'accept: application/json' \
+  -H 'Content-Type: application/json' \
+  -d '{
+  "properties": [
+    {
+      "propertyUrn": "urn:li:structuredProperty:io.acryl.privacy.retentionTime",
+      "values": [
+        {"string": "90"}
+      ]
+    },
+    {
+      "propertyUrn": "urn:li:structuredProperty:io.acryl.privacy.retentionTime02",
+      "values": [
+        {"string": "bar2"}
+      ]
+    }
+  ]
+}' | jq
+```
+
+</TabItem>
+</Tabs>
+
+#### Expected Outcomes
+You can see that the dataset now has two structured properties attached to it.
+
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/apis/tutorials/sp-add.png"/>
+</p>
+
+
+
+### Remove Structured Property Value
+
+The expected state of our test dataset include 2 structured properties. 
+We'd like to remove the first one (`io.acryl.privacy.retentionTime`) and preserve the second property. (`io.acryl.privacy.retentionTime02`).
+
+<Tabs>
+<TabItem value="OpenAPI" label="OpenAPI">
+
+```
+curl -X 'PATCH' -v \
+  'http://localhost:8080/openapi/v2/entity/dataset/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Ahive%2CSampleHiveDataset%2CPROD%29/structuredProperties' \
+  -H 'accept: application/json' \
+  -H 'Content-Type: application/json-patch+json' \
+  -d '{
+        "patch": [
+            {
+                "op": "remove",
+                "path": "/properties/urn:li:structuredProperty:io.acryl.privacy.retentionTime"
+            }
+        ],
+        "arrayPrimaryKeys": {
+            "properties": [
+                "propertyUrn"
+            ]
+        }
+      }' | jq
+```
+The response will show that the expected property has been removed.
+
+```
+{
+  "urn": "urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)",
+  "aspects": {
+    "structuredProperties": {
+      "value": {
+        "properties": [
+          {
+            "values": [
+              {
+                "string": "bar2"
+              }
+            ],
+            "propertyUrn": "urn:li:structuredProperty:io.acryl.privacy.retentionTime02"
+          }
+        ]
+      }
+    }
+  }
+}
+```
+</TabItem>
+</Tabs>
+
+#### Expected Outcomes
+You can see that the first property has been removed and the second property is still present.
+
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/apis/tutorials/sp-remove.png"/>
+</p>
+
+
+
+### Upsert Structured Property Value
+
+In this example, we'll add the property back with a different value, preserving the existing property.
+
+<Tabs>
+<TabItem value="OpenAPI" label="OpenAPI">
+
+```
+curl -X 'PATCH' -v \
+  'http://localhost:8080/openapi/v2/entity/dataset/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Ahive%2CSampleHiveDataset%2CPROD%29/structuredProperties' \
+  -H 'accept: application/json' \
+  -H 'Content-Type: application/json-patch+json' \
+  -d '{
+        "patch": [
+            {
+                "op": "add",
+                "path": "/properties/urn:li:structuredProperty:io.acryl.privacy.retentionTime",
+                "value": {
+                    "propertyUrn": "urn:li:structuredProperty:io.acryl.privacy.retentionTime",
+                    "values": [
+                        {
+                            "string": "365"
+                        }
+                    ]
+                }
+            }
+        ],
+        "arrayPrimaryKeys": {
+            "properties": [
+                "propertyUrn"
+            ]
+        }
+    }' | jq
+```
+
+Below is the expected response: 
+```
+{
+  "urn": "urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)",
+  "aspects": {
+    "structuredProperties": {
+      "value": {
+        "properties": [
+          {
+            "values": [
+              {
+                "string": "bar2"
+              }
+            ],
+            "propertyUrn": "urn:li:structuredProperty:io.acryl.privacy.retentionTime02"
+          },
+          {
+            "values": [
+              {
+                "string": "365"
+              }
+            ],
+            "propertyUrn": "urn:li:structuredProperty:io.acryl.privacy.retentionTime"
+          }
+        ]
+      }
+    }
+  }
+}
+```
+
+The response shows that the property was re-added with the new value bar instead of the previous value foo.
+
+</TabItem>
+</Tabs>
+
+#### Expected Outcomes
+You can see that the first property has been added back with a new value and the second property is still present.
+
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/apis/tutorials/sp-upsert.png"/>
+</p>
+
+
+
 ## Delete Structured Properties
 
 There are two types of deletion present in DataHub: hard and soft delete. As of the current release only the soft delete is supported for Structured Properties. 
@@ -272,261 +565,3 @@ curl -X 'POST' \
 
 </TabItem>
 </Tabs>
-
-
-## Set Structured Property To a Dataset
-
-This action will set/replace all structured properties on the entity. See PATCH operations to add/remove a single property.
-
-<Tabs>
-<TabItem value="CLI" label="CLI" default>
-
-You can set structured properties to a dataset by creating a dataset yaml file with structured properties like below. Please refer to the [full example here.](https://github.com/datahub-project/datahub/blob/example-yaml-sp/metadata-ingestion/examples/structured_properties/datasets.yaml)
-
-```yaml
-- id: user.clicks
-  platform: hive
-  ...
-  properties:
-    io.acryl.privacy.retentionTime: 365
-  structured_properties: # dataset level structured properties go here
-    clusterType: primary
-    clusterName: gold
-    io.acryl.privacy.retentionTime: 123456
-    projectNames:
-      - Tracking
-      - DataHub
-```
-
-Use the CLI to upsert your dataset yaml file:
-```commandline
-datahub dataset upsert -f {dataset_yaml}
-```
-If successful, you should see `Created dataset urn:li:dataset:...`
-
-Once your datasets are uploaded, you can view them in the UI and view the properties associated with them under the Properties tab.
-Or you can run the following command to view the properties associated with the dataset:
-
-```commandline
-datahub dataset get --urn {urn}
-```
-</TabItem>
-<TabItem value="OpenAPI" label="OpenAPI">
-
-```commandline
-curl -X 'POST' -v \
-  'http://localhost:8080/openapi/v2/entity/dataset/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Ahive%2CSampleHiveDataset%2CPROD%29/structuredProperties' \
-  -H 'accept: application/json' \
-  -H 'Content-Type: application/json' \
-  -d '{
-  "properties": [
-    {
-      "propertyUrn": "urn:li:structuredProperty:io.acryl.privacy.retentionTime",
-      "values": [
-        {"string": "foo"}
-      ]
-    }
-  ]
-}' | jq
-```
-
-</TabItem>
-</Tabs>
-
-## Patch Structured Property Value
-
-This section will show you how to patch a structured property value - either by removing, adding, or upserting a single property.
-
-### Add Structured Property Value
-
-For this example, we'll extend create a second structured property and apply both properties to the same dataset used previously. 
-After this your system should include both io.acryl.privacy.retentionTime and acryl.privacy.retentionTime02.
-
-<Tabs>
-<TabItem value="OpenAPI" label="OpenAPI">
-
-Let's start by creating the second structured property.
-
-```
-curl -X 'POST' -v \
-  'http://localhost:8080/openapi/v2/entity/structuredProperty/urn%3Ali%3AstructuredProperty%3Amy.test.MyProperty02/propertyDefinition' \
-  -H 'accept: application/json' \
-  -H 'Content-Type: application/json' \
-  -d '{
-    "qualifiedName": "acryl.privacy.retentionTime02",
-    "displayName": "Retention Time 02",
-    "valueType": "urn:li:dataType:datahub.string",
-    "allowedValues": [
-        {
-            "value": {"string": "foo2"},
-            "description": "test foo2 value"
-        },
-        {
-            "value": {"string": "bar2"},
-            "description": "test bar2 value"
-        }
-    ],
-    "cardinality": "SINGLE",
-    "entityTypes": [
-        "urn:li:entityType:datahub.dataset"
-    ]
-}' | jq
-
-```
-
-This command will attach one of each of the two properties to our test dataset `urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)`.
-
-```
-curl -X 'POST' -v \
-  'http://localhost:8080/openapi/v2/entity/dataset/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Ahive%2CSampleHiveDataset%2CPROD%29/structuredProperties' \
-  -H 'accept: application/json' \
-  -H 'Content-Type: application/json' \
-  -d '{
-  "properties": [
-    {
-      "propertyUrn": "urn:li:structuredProperty:io.acryl.privacy.retentionTime",
-      "values": [
-        {"string": "foo"}
-      ]
-    },
-    {
-      "propertyUrn": "urn:li:structuredProperty:my.test.retentionTime02",
-      "values": [
-        {"string": "bar2"}
-      ]
-    }
-  ]
-}' | jq
-```
-
-</TabItem>
-</Tabs>
-
-### Remove Structured Property Value
-
-The expected state of our test dataset include 2 structured properties. 
-We'd like to remove the first one and preserve the second property.
-
-<Tabs>
-<TabItem value="OpenAPI" label="OpenAPI">
-
-```
-curl -X 'PATCH' -v \
-  'http://localhost:8080/openapi/v2/entity/dataset/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Ahive%2CSampleHiveDataset%2CPROD%29/structuredProperties' \
-  -H 'accept: application/json' \
-  -H 'Content-Type: application/json-patch+json' \
-  -d '{
-        "patch": [
-            {
-                "op": "remove",
-                "path": "/properties/urn:li:structuredProperty:io.acryl.privacy.retentionTime"
-            }
-        ],
-        "arrayPrimaryKeys": {
-            "properties": [
-                "propertyUrn"
-            ]
-        }
-      }' | jq
-
-```
-The response will show that the expected property has been removed.
-
-```
-{
-  "urn": "urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)",
-  "aspects": {
-    "structuredProperties": {
-      "value": {
-        "properties": [
-          {
-            "values": [
-              {
-                "string": "bar2"
-              }
-            ],
-            "propertyUrn": "urn:li:structuredProperty:my.test.MyProperty02"
-          }
-        ]
-      }
-    }
-  }
-}
-
-```
-</TabItem>
-</Tabs>
-
-
-### Update Structured Property Value
-
-In this example, we'll add the property back with a different value, preserving the existing property.
-
-<Tabs>
-<TabItem value="OpenAPI" label="OpenAPI">
-
-```
-curl -X 'PATCH' -v \
-  'http://localhost:8080/openapi/v2/entity/dataset/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Ahive%2CSampleHiveDataset%2CPROD%29/structuredProperties' \
-  -H 'accept: application/json' \
-  -H 'Content-Type: application/json-patch+json' \
-  -d '{
-        "patch": [
-            {
-                "op": "add",
-                "path": "/properties/urn:li:structuredProperty:io.acryl.privacy.retentionTime",
-                "value": {
-                    "propertyUrn": "urn:li:structuredProperty:io.acryl.privacy.retentionTime",
-                    "values": [
-                        {
-                            "string": "bar"
-                        }
-                    ]
-                }
-            }
-        ],
-        "arrayPrimaryKeys": {
-            "properties": [
-                "propertyUrn"
-            ]
-        }
-    }' | jq
-
-```
-
-Below is the expected response: 
-```
-{
-    "urn": "urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)",
-    "aspects": {
-        "structuredProperties": {
-            "value": {
-                "properties": [
-                    {
-                        "values": [
-                            {
-                                "string": "bar2"
-                            }
-                        ],
-                        "propertyUrn": "urn:li:structuredProperty:my.test.MyProperty02"
-                    },
-                    {
-                        "values": [
-                            {
-                                "string": "bar"
-                            }
-                        ],
-                        "propertyUrn": "urn:li:structuredProperty:io.acryl.privacy.retentionTime"
-                    }
-                ]
-            }
-        }
-    }
-}
-```
-
-The response shows that the property was re-added with the new value bar instead of the previous value foo.
-
-</TabItem>
-</Tabs>
-
