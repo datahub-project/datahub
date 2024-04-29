@@ -23,6 +23,7 @@ import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.configuration.source_common import DatasetLineageProviderConfigBase
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.mcp_builder import ContainerKey, gen_containers
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -34,6 +35,10 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.common.subtypes import (
+    BIAssetSubTypes,
+    BIContainerSubTypes,
+)
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
     StaleEntityRemovalSourceReport,
@@ -100,6 +105,11 @@ from datahub.utilities import config_clean
 from datahub.utilities.lossy_collections import LossyDict, LossyList
 
 logger: logging.Logger = logging.getLogger(__name__)
+
+
+class SpaceKey(ContainerKey):
+    # Note that Mode has renamed Spaces to Collections.
+    space_token: str
 
 
 class ModeAPIConfig(ConfigModel):
@@ -304,32 +314,37 @@ class ModeSource(StatefulIngestionSourceBase):
         self.workspace_uri = f"{self.config.connect_uri}/api/{self.config.workspace}"
         self.space_tokens = self._get_space_name_and_tokens()
 
-    def _browse_path_dashboard(self, space_name: str) -> List[BrowsePathEntryClass]:
-        # TODO: Use containers for the workspace and collection (fka space).
+    def _browse_path_space(self) -> List[BrowsePathEntryClass]:
+        # TODO: Use containers for the workspace?
         return [
             BrowsePathEntryClass(id=self.config.workspace),
-            BrowsePathEntryClass(id=space_name),
+        ]
+
+    def _browse_path_dashboard(self, space_token: str) -> List[BrowsePathEntryClass]:
+        space_container_urn = self.gen_space_key(space_token).as_urn()
+        return [
+            *self._browse_path_space(),
+            BrowsePathEntryClass(id=space_container_urn, urn=space_container_urn),
         ]
 
     def _browse_path_query(
-        self, space_name: str, report_name: str
+        self, space_token: str, report_name: str
     ) -> List[BrowsePathEntryClass]:
         return [
-            *self._browse_path_dashboard(space_name),
+            *self._browse_path_dashboard(space_token),
             BrowsePathEntryClass(id=report_name),
         ]
 
     def _browse_path_chart(
-        self, space_name: str, report_name: str, query_name: str
+        self, space_token: str, report_name: str, query_name: str
     ) -> List[BrowsePathEntryClass]:
         return [
-            *self._browse_path_dashboard(space_name),
-            BrowsePathEntryClass(id=report_name),
+            *self._browse_path_query(space_token, report_name),
             BrowsePathEntryClass(id=query_name),
         ]
 
     def construct_dashboard(
-        self, space_name: str, report_info: dict
+        self, space_token: str, report_info: dict
     ) -> Optional[Tuple[DashboardSnapshot, MetadataChangeProposalWrapper]]:
         report_token = report_info.get("token", "")
         # logger.debug(f"Processing report {report_info.get('name', '')}: {report_info}")
@@ -403,6 +418,7 @@ class ModeSource(StatefulIngestionSourceBase):
         dashboard_snapshot.aspects.append(dashboard_info_class)
 
         # browse path
+        space_name = self.space_tokens[space_token]
         browse_path = BrowsePathsClass(
             paths=[
                 f"/mode/{self.config.workspace}/"
@@ -413,7 +429,7 @@ class ModeSource(StatefulIngestionSourceBase):
         dashboard_snapshot.aspects.append(browse_path)
 
         browse_path_v2 = BrowsePathsV2Class(
-            path=self._browse_path_dashboard(space_name)
+            path=self._browse_path_dashboard(space_token)
         )
         browse_mcp = MetadataChangeProposalWrapper(
             entityUrn=dashboard_urn,
@@ -844,7 +860,7 @@ class ModeSource(StatefulIngestionSourceBase):
         self,
         report_token: str,
         query_data: dict,
-        space_name: str,
+        space_token: str,
         report_name: str,
     ) -> Iterable[MetadataWorkUnit]:
         query_urn = self.get_dataset_urn_from_query(query_data)
@@ -879,7 +895,7 @@ class ModeSource(StatefulIngestionSourceBase):
             ).as_workunit()
         )
 
-        subtypes = SubTypesClass(typeNames=(["Query"]))
+        subtypes = SubTypesClass(typeNames=([BIAssetSubTypes.MODE_QUERY]))
         yield (
             MetadataChangeProposalWrapper(
                 entityUrn=query_urn,
@@ -890,7 +906,7 @@ class ModeSource(StatefulIngestionSourceBase):
         yield MetadataChangeProposalWrapper(
             entityUrn=query_urn,
             aspect=BrowsePathsV2Class(
-                path=self._browse_path_query(space_name, report_name)
+                path=self._browse_path_query(space_token, report_name)
             ),
         ).as_workunit()
 
@@ -1156,7 +1172,7 @@ class ModeSource(StatefulIngestionSourceBase):
         chart_data: dict,
         chart_fields: Dict[str, SchemaFieldClass],
         query: dict,
-        space_name: str,
+        space_token: str,
         report_name: str,
         query_name: str,
     ) -> Iterable[MetadataWorkUnit]:
@@ -1232,17 +1248,18 @@ class ModeSource(StatefulIngestionSourceBase):
 
         yield MetadataChangeProposalWrapper(
             entityUrn=chart_urn,
-            aspect=SubTypesClass(typeNames=["Chart"]),
+            aspect=SubTypesClass(typeNames=[BIAssetSubTypes.MODE_CHART]),
         ).as_workunit()
 
         # Browse Path
+        space_name = self.space_tokens[space_token]
         path = f"/mode/{self.config.workspace}/{space_name}/{report_name}/{query_name}/{title}"
         browse_path = BrowsePathsClass(paths=[path])
         chart_snapshot.aspects.append(browse_path)
 
         # Browse path v2
         browse_path_v2 = BrowsePathsV2Class(
-            path=self._browse_path_chart(space_name, report_name, query_name),
+            path=self._browse_path_chart(space_token, report_name, query_name),
         )
         yield MetadataChangeProposalWrapper(
             entityUrn=chart_urn,
@@ -1375,15 +1392,39 @@ class ModeSource(StatefulIngestionSourceBase):
             aspect=EmbedClass(renderUrl=embed_url),
         )
 
+    def gen_space_key(self, space_token: str) -> SpaceKey:
+        return SpaceKey(platform=self.platform, space_token=space_token)
+
+    def construct_space_container(
+        self, space_token: str, space_name: str
+    ) -> Iterable[MetadataWorkUnit]:
+        key = self.gen_space_key(space_token)
+        yield from gen_containers(
+            container_key=key,
+            name=space_name,
+            sub_types=[BIContainerSubTypes.MODE_COLLECTION],
+        )
+
+        # We have a somewhat atypical browse path here, since we include the workspace name
+        # as what's effectively but not officially a platform instance.
+        yield MetadataChangeProposalWrapper(
+            entityUrn=key.as_urn(),
+            aspect=BrowsePathsV2Class(
+                path=self._browse_path_space()
+            ),
+        ).as_workunit()
+
     def emit_dashboard_mces(self) -> Iterable[MetadataWorkUnit]:
         for space_token, space_name in self.space_tokens.items():
+            yield from self.construct_space_container(space_token, space_name)
+
             reports = self._get_reports(space_token)
             for report in reports:
                 logger.debug(
                     f"Report: name: {report.get('name')} token: {report.get('token')}"
                 )
                 dashboard_tuple_from_report = self.construct_dashboard(
-                    space_name, report
+                    space_token=space_token, report_info=report
                 )
 
                 if dashboard_tuple_from_report is None:
@@ -1399,7 +1440,7 @@ class ModeSource(StatefulIngestionSourceBase):
 
                 mcpw = MetadataChangeProposalWrapper(
                     entityUrn=dashboard_snapshot_from_report.urn,
-                    aspect=SubTypesClass(typeNames=["Report"]),
+                    aspect=SubTypesClass(typeNames=[BIAssetSubTypes.MODE_REPORT]),
                 )
                 yield mcpw.as_workunit()
                 yield browse_mcpw.as_workunit()
@@ -1424,7 +1465,7 @@ class ModeSource(StatefulIngestionSourceBase):
 
     def emit_chart_mces(self) -> Iterable[MetadataWorkUnit]:
         # Space/collection -> report -> query -> Chart
-        for space_token, space_name in self.space_tokens.items():
+        for space_token in self.space_tokens.keys():
             reports = self._get_reports(space_token)
             for report in reports:
                 report_name = report["name"]
@@ -1444,7 +1485,10 @@ class ModeSource(StatefulIngestionSourceBase):
                 queries = self._get_queries(report_token)
                 for query in queries:
                     query_mcps = self.construct_query_from_api_data(
-                        report_token, query, space_name, report_name
+                        report_token,
+                        query,
+                        space_token=space_token,
+                        report_name=report_name,
                     )
                     chart_fields: Dict[str, SchemaFieldClass] = {}
                     for wu in query_mcps:
@@ -1465,9 +1509,9 @@ class ModeSource(StatefulIngestionSourceBase):
                             chart,
                             chart_fields,
                             query,
-                            space_name,
-                            report_name,
-                            query["name"],
+                            space_token=space_token,
+                            report_name=report_name,
+                            query_name=query["name"],
                         )
 
     @classmethod
