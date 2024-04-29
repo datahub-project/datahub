@@ -53,7 +53,9 @@ from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import (
 )
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import (
+    BrowsePathEntryClass,
     BrowsePathsClass,
+    BrowsePathsV2Class,
     ChartInfoClass,
     ChartQueryClass,
     ChartQueryTypeClass,
@@ -300,10 +302,35 @@ class ModeSource(StatefulIngestionSourceBase):
         self.workspace_uri = f"{self.config.connect_uri}/api/{self.config.workspace}"
         self.space_tokens = self._get_space_name_and_tokens()
 
+    def _browse_path_dashboard(self, space_name: str) -> List[BrowsePathEntryClass]:
+        # TODO: Use containers for the workspace and collection (fka space).
+        return [
+            BrowsePathEntryClass(id=self.config.workspace),
+            BrowsePathEntryClass(id=space_name),
+        ]
+
+    def _browse_path_query(
+        self, space_name: str, report_name: str
+    ) -> List[BrowsePathEntryClass]:
+        return [
+            *self._browse_path_dashboard(space_name),
+            BrowsePathEntryClass(id=report_name),
+        ]
+
+    def _browse_path_chart(
+        self, space_name: str, report_name: str, query_name: str
+    ) -> List[BrowsePathEntryClass]:
+        return [
+            *self._browse_path_dashboard(space_name),
+            BrowsePathEntryClass(id=report_name),
+            BrowsePathEntryClass(id=query_name),
+        ]
+
     def construct_dashboard(
         self, space_name: str, report_info: dict
-    ) -> Optional[DashboardSnapshot]:
+    ) -> Optional[Tuple[DashboardSnapshot, MetadataChangeProposalWrapper]]:
         report_token = report_info.get("token", "")
+        # logger.debug(f"Processing report {report_info.get('name', '')}: {report_info}")
 
         if not report_token:
             self.report.report_warning(
@@ -383,6 +410,14 @@ class ModeSource(StatefulIngestionSourceBase):
         )
         dashboard_snapshot.aspects.append(browse_path)
 
+        browse_path_v2 = BrowsePathsV2Class(
+            path=self._browse_path_dashboard(space_name)
+        )
+        browse_mcp = MetadataChangeProposalWrapper(
+            entityUrn=dashboard_urn,
+            aspect=browse_path_v2,
+        )
+
         # Ownership
         ownership = self._get_ownership(
             self._get_creator(
@@ -392,7 +427,7 @@ class ModeSource(StatefulIngestionSourceBase):
         if ownership is not None:
             dashboard_snapshot.aspects.append(ownership)
 
-        return dashboard_snapshot
+        return dashboard_snapshot, browse_mcp
 
     @lru_cache(maxsize=None)
     def _get_ownership(self, user: str) -> Optional[OwnershipClass]:
@@ -807,6 +842,8 @@ class ModeSource(StatefulIngestionSourceBase):
         self,
         report_token: str,
         query_data: dict,
+        space_name: str,
+        report_name: str,
     ) -> Iterable[MetadataWorkUnit]:
         query_urn = self.get_dataset_urn_from_query(query_data)
         query_token = query_data.get("token")
@@ -847,6 +884,13 @@ class ModeSource(StatefulIngestionSourceBase):
                 aspect=subtypes,
             ).as_workunit()
         )
+
+        yield MetadataChangeProposalWrapper(
+            entityUrn=query_urn,
+            aspect=BrowsePathsV2Class(
+                path=self._browse_path_query(space_name, report_name)
+            ),
+        ).as_workunit()
 
         (
             upstream_warehouse_platform,
@@ -1110,8 +1154,11 @@ class ModeSource(StatefulIngestionSourceBase):
         chart_data: dict,
         chart_fields: Dict[str, SchemaFieldClass],
         query: dict,
-        path: str,
+        space_name: str,
+        report_name: str,
+        query_name: str,
     ) -> Iterable[MetadataWorkUnit]:
+        # logger.debug(f"Processing chart {chart_data.get('token', '')}: {chart_data}")
         chart_urn = builder.make_chart_urn(self.platform, chart_data.get("token", ""))
         chart_snapshot = ChartSnapshot(
             urn=chart_urn,
@@ -1151,7 +1198,6 @@ class ModeSource(StatefulIngestionSourceBase):
             or ""
         )
 
-        # TODO: This title generation logic is duplicated between here and the browse path construction.
         title = (
             chart_detail.get("title")
             or chart_detail.get("chartTitle")
@@ -1188,8 +1234,18 @@ class ModeSource(StatefulIngestionSourceBase):
         ).as_workunit()
 
         # Browse Path
+        path = f"/mode/{self.config.workspace}/{space_name}/{report_name}/{query_name}/{title}"
         browse_path = BrowsePathsClass(paths=[path])
         chart_snapshot.aspects.append(browse_path)
+
+        # Browse path v2
+        browse_path_v2 = BrowsePathsV2Class(
+            path=self._browse_path_chart(space_name, report_name, query_name),
+        )
+        yield MetadataChangeProposalWrapper(
+            entityUrn=chart_urn,
+            aspect=browse_path_v2,
+        ).as_workunit()
 
         # Query
         chart_query = ChartQueryClass(
@@ -1324,12 +1380,16 @@ class ModeSource(StatefulIngestionSourceBase):
                 logger.debug(
                     f"Report: name: {report.get('name')} token: {report.get('token')}"
                 )
-                dashboard_snapshot_from_report = self.construct_dashboard(
+                dashboard_tuple_from_report = self.construct_dashboard(
                     space_name, report
                 )
 
-                if dashboard_snapshot_from_report is None:
+                if dashboard_tuple_from_report is None:
                     continue
+                (
+                    dashboard_snapshot_from_report,
+                    browse_mcpw,
+                ) = dashboard_tuple_from_report
 
                 mce = MetadataChangeEvent(
                     proposedSnapshot=dashboard_snapshot_from_report
@@ -1340,6 +1400,7 @@ class ModeSource(StatefulIngestionSourceBase):
                     aspect=SubTypesClass(typeNames=["Report"]),
                 )
                 yield mcpw.as_workunit()
+                yield browse_mcpw.as_workunit()
 
                 usage_statistics = DashboardUsageStatisticsClass(
                     timestampMillis=round(datetime.now().timestamp() * 1000),
@@ -1364,6 +1425,7 @@ class ModeSource(StatefulIngestionSourceBase):
         for space_token, space_name in self.space_tokens.items():
             reports = self._get_reports(space_token)
             for report in reports:
+                report_name = report["name"]
                 report_token = report.get("token", "")
 
                 if report.get("imported_datasets"):
@@ -1378,7 +1440,9 @@ class ModeSource(StatefulIngestionSourceBase):
 
                 queries = self._get_queries(report_token)
                 for query in queries:
-                    query_mcps = self.construct_query_from_api_data(report_token, query)
+                    query_mcps = self.construct_query_from_api_data(
+                        report_token, query, space_name, report_name
+                    )
                     chart_fields: Dict[str, SchemaFieldClass] = {}
                     for wu in query_mcps:
                         if isinstance(
@@ -1393,13 +1457,14 @@ class ModeSource(StatefulIngestionSourceBase):
                     charts = self._get_charts(report_token, query.get("token", ""))
                     # build charts
                     for i, chart in enumerate(charts):
-                        view = chart.get("view") or chart.get("view_vegas")
-                        chart_name = (
-                            view.get("title") or view.get("chartTitle") or f"Chart {i}"
-                        )
-                        path = f"/mode/{self.config.workspace}/{space_name}/{report.get('name')}/{query.get('name')}/{chart_name}"
                         yield from self.construct_chart_from_api_data(
-                            i, chart, chart_fields, query, path
+                            i,
+                            chart,
+                            chart_fields,
+                            query,
+                            space_name,
+                            report_name,
+                            query["name"],
                         )
 
     @classmethod
