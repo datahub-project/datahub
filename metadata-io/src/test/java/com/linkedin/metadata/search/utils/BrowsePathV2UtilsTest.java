@@ -146,8 +146,8 @@ public class BrowsePathV2UtilsTest {
         BrowsePathV2Utils.getDefaultBrowsePathV2(
             mock(OperationContext.class), datasetUrn, this.registry, '.', mockService, true);
     BrowsePathEntryArray expectedPath = new BrowsePathEntryArray();
-    BrowsePathEntry entry1 = new BrowsePathEntry().setId("test");
-    BrowsePathEntry entry2 = new BrowsePathEntry().setId("a");
+    BrowsePathEntry entry1 = new BrowsePathEntry().setId("Test");
+    BrowsePathEntry entry2 = new BrowsePathEntry().setId("A");
     expectedPath.add(entry1);
     expectedPath.add(entry2);
     Assert.assertEquals(browsePathsV2.getPath(), expectedPath);
