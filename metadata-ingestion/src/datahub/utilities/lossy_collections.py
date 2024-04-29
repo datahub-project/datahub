@@ -1,4 +1,5 @@
 import random
+from collections.abc import Iterable
 from typing import Dict, Generic, Iterator, List, Set, TypeVar, Union
 
 from datahub.configuration.pydantic_migration_helpers import PYDANTIC_VERSION_2
@@ -30,6 +31,10 @@ class LossyList(List[T], Generic[T]):
             return super().append((self.total_elements, __object))  # type: ignore
         finally:
             self.total_elements += 1
+
+    def extend(self, __iterable: Iterable[T]) -> None:
+        for item in __iterable:
+            self.append(item)
 
     def __len__(self) -> int:
         return self.total_elements

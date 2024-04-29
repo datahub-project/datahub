@@ -1433,12 +1433,13 @@ class ModeSource(StatefulIngestionSourceBase):
                 if report.get("imported_datasets"):
                     # The connector doesn't support imported datasets yet.
                     # For now, we just keep this in the report to track what we're missing.
-                    self.report.dropped_imported_datasets.setdefault(
-                        report_token, LossyList()
-                    ).extend(
+                    imported_datasets = [
                         imported_dataset.get("name") or str(imported_dataset)
                         for imported_dataset in report["imported_datasets"]
-                    )
+                    ]
+                    self.report.dropped_imported_datasets.setdefault(
+                        report_token, LossyList()
+                    ).extend(imported_datasets)
 
                 queries = self._get_queries(report_token)
                 for query in queries:
