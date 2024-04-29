@@ -1036,11 +1036,7 @@ class LookerView:
             description = field_dict.get("description", default_description)
             label = field_dict.get("label", "")
             upstream_fields = []
-            if (
-                type_cls == ViewFieldType.DIMENSION
-                or type_cls == ViewFieldType.DIMENSION_GROUP
-                and extract_column_level_lineage
-            ):
+            if extract_column_level_lineage:
                 if field_dict.get("sql") is not None:
                     for upstream_field_match in re.finditer(
                         r"\${TABLE}\.[\"]*([\.\w]+)", field_dict["sql"]
