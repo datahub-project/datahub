@@ -328,20 +328,35 @@ class ModeSource(StatefulIngestionSourceBase):
         ]
 
     def _browse_path_query(
-        self, space_token: str, report_name: str
+        self, space_token: str, report_info: dict
     ) -> List[BrowsePathEntryClass]:
+        dashboard_urn = self._dashboard_urn(report_info)
         return [
             *self._browse_path_dashboard(space_token),
-            BrowsePathEntryClass(id=report_name),
+            BrowsePathEntryClass(id=dashboard_urn, urn=dashboard_urn),
         ]
 
     def _browse_path_chart(
-        self, space_token: str, report_name: str, query_name: str
+        self, space_token: str, report_info: dict, query_name: str
     ) -> List[BrowsePathEntryClass]:
         return [
-            *self._browse_path_query(space_token, report_name),
+            *self._browse_path_query(space_token, report_info),
             BrowsePathEntryClass(id=query_name),
         ]
+
+    def _dashboard_urn(self, report_info: dict) -> str:
+        return builder.make_dashboard_urn(self.platform, report_info.get("id", ""))
+
+    def _parse_last_run_at(self, report_info: dict) -> Optional[int]:
+        # Mode queries are refreshed, and that timestamp is reflected correctly here.
+        # However, datasets are synced, and that's captured by the sync timestamps.
+        # However, this is probably accurate enough for now.
+        last_refreshed_ts = None
+        last_refreshed_ts_str = report_info.get("last_run_at")
+        if last_refreshed_ts_str:
+            last_refreshed_ts = int(dp.parse(last_refreshed_ts_str).timestamp() * 1000)
+
+        return last_refreshed_ts
 
     def construct_dashboard(
         self, space_token: str, report_info: dict
@@ -363,9 +378,7 @@ class ModeSource(StatefulIngestionSourceBase):
             )
             return None
 
-        dashboard_urn = builder.make_dashboard_urn(
-            self.platform, report_info.get("id", "")
-        )
+        dashboard_urn = self._dashboard_urn(report_info)
         dashboard_snapshot = DashboardSnapshot(
             urn=dashboard_urn,
             aspects=[],
@@ -399,12 +412,7 @@ class ModeSource(StatefulIngestionSourceBase):
             )
 
         # Last refreshed ts.
-        # Technically Mode queries are freshed but datasets are synced, and the latter is
-        # captured by the sync timestamps. However, this is probably accurate enough for now.
-        last_refreshed_ts = None
-        last_refreshed_ts_str = report_info.get("last_run_at")
-        if last_refreshed_ts_str:
-            last_refreshed_ts = int(dp.parse(last_refreshed_ts_str).timestamp() * 1000)
+        last_refreshed_ts = self._parse_last_run_at(report_info)
 
         dashboard_info_class = DashboardInfoClass(
             description=description if description else "",
@@ -869,7 +877,7 @@ class ModeSource(StatefulIngestionSourceBase):
         report_token: str,
         query_data: dict,
         space_token: str,
-        report_name: str,
+        report_info: dict,
     ) -> Iterable[MetadataWorkUnit]:
         query_urn = self.get_dataset_urn_from_query(query_data)
         query_token = query_data.get("token")
@@ -914,7 +922,7 @@ class ModeSource(StatefulIngestionSourceBase):
         yield MetadataChangeProposalWrapper(
             entityUrn=query_urn,
             aspect=BrowsePathsV2Class(
-                path=self._browse_path_query(space_token, report_name)
+                path=self._browse_path_query(space_token, report_info)
             ),
         ).as_workunit()
 
@@ -1181,7 +1189,7 @@ class ModeSource(StatefulIngestionSourceBase):
         chart_fields: Dict[str, SchemaFieldClass],
         query: dict,
         space_token: str,
-        report_name: str,
+        report_info: dict,
         query_name: str,
     ) -> Iterable[MetadataWorkUnit]:
         # logger.debug(f"Processing chart {chart_data.get('token', '')}: {chart_data}")
@@ -1207,6 +1215,9 @@ class ModeSource(StatefulIngestionSourceBase):
                 created=AuditStamp(time=created_ts, actor=modified_actor),
                 lastModified=AuditStamp(time=modified_ts, actor=modified_actor),
             )
+
+        # Last refreshed ts.
+        last_refreshed_ts = self._parse_last_run_at(report_info)
 
         chart_detail = (
             chart_data.get("view", {})
@@ -1243,6 +1254,7 @@ class ModeSource(StatefulIngestionSourceBase):
             description=description,
             title=title,
             lastModified=last_modified,
+            lastRefreshed=last_refreshed_ts,
             # The links href starts with a slash already.
             chartUrl=f"{self.config.connect_uri}{chart_data.get('_links', {}).get('report_viz_web', {}).get('href', '')}",
             inputs=[query_urn],
@@ -1261,13 +1273,14 @@ class ModeSource(StatefulIngestionSourceBase):
 
         # Browse Path
         space_name = self.space_tokens[space_token]
+        report_name = report_info["name"]
         path = f"/mode/{self.config.workspace}/{space_name}/{report_name}/{query_name}/{title}"
         browse_path = BrowsePathsClass(paths=[path])
         chart_snapshot.aspects.append(browse_path)
 
         # Browse path v2
         browse_path_v2 = BrowsePathsV2Class(
-            path=self._browse_path_chart(space_token, report_name, query_name),
+            path=self._browse_path_chart(space_token, report_info, query_name),
         )
         yield MetadataChangeProposalWrapper(
             entityUrn=chart_urn,
@@ -1475,7 +1488,6 @@ class ModeSource(StatefulIngestionSourceBase):
         for space_token in self.space_tokens.keys():
             reports = self._get_reports(space_token)
             for report in reports:
-                report_name = report["name"]
                 report_token = report.get("token", "")
 
                 if report.get("imported_datasets"):
@@ -1495,7 +1507,7 @@ class ModeSource(StatefulIngestionSourceBase):
                         report_token,
                         query,
                         space_token=space_token,
-                        report_name=report_name,
+                        report_info=report,
                     )
                     chart_fields: Dict[str, SchemaFieldClass] = {}
                     for wu in query_mcps:
@@ -1517,7 +1529,7 @@ class ModeSource(StatefulIngestionSourceBase):
                             chart_fields,
                             query,
                             space_token=space_token,
-                            report_name=report_name,
+                            report_info=report,
                             query_name=query["name"],
                         )
 
