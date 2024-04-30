@@ -890,27 +890,39 @@ The [JSONSchema](https://json-schema.org/) for this configuration is inlined bel
         f.write("<FeatureAvailability/>\n")
 
         f.write("""
-Data Lineage is used to capture data dependencies within an organization. It allows you to track the inputs from which a data asset is derived, along with the data assets that depend on it downstream.
+Data lineage is a **map that shows how data flows through your organization.** It details where your data originates, how it travels, and where it ultimately ends up. This can happen within a single system (like data moving between Snowflake tables) or across various platforms.
+DataHub supports automatic table- and column-level lineage detection from BigQuery, Snowflake, dbt, Looker, PowerBI, and 20+ modern data tools. 
+For data tools with limited native lineage tracking, DataHub's SQL Parser detects lineage with 97–99% accuracy, 
 
 ## Viewing Lineage
 
 You can view lineage under **Lineage** tab or **Lineage Visualization** screen.
 
-<p align="center">
-<img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/lineage/lineage-tab.png" />
-</p>
-
-The UI shows the latest version of the lineage. The time picker can be used to filter out edges within the latest version to exclude those that were last updated outside of the time window. Selecting time windows in the patch will not show you historical lineages. It will only filter the view of the latest version of the lineage.
 
 <p align="center">
-<img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/lineage/lineage-view.png" />
+<img width="80%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/lineage/lineage-tab.png" />
 </p>
+
+By default, The UI shows the latest version of the lineage. The time picker can be used to filter out edges within the latest version to exclude those that were last updated outside of the time window. Selecting time windows in the patch will not show you historical lineages. It will only filter the view of the latest version of the lineage.
+
+<p align="center">
+<img width="80%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/lineage/lineage-view.png" />
+</p>
+
+In this example, data flows from Airflow/BigQuery to Snowflake tables, then to the Hive dataset, and ultimately to the features of Machine Learning Models.
 
 
 :::tip The Lineage Tab is greyed out - why can’t I click on it?
 This means you have not yet ingested lineage metadata for that entity. Please ingest lineage to proceed.
 
 :::
+
+## Column Level Lineage Support
+
+Column-level lineage tracks changes and movements for each specific data column. This approach is often contrasted with table-level lineage, which specifies lineage at the table level.
+Below is how column-level lineage can be set with dbt and Postgres tables.
+
+<img></img>
 
 ## Adding Lineage
 
@@ -938,6 +950,9 @@ Please refer to [API Guides on Lineage](../../api/tutorials/lineage.md) for more
 
 
 ## Lineage Support
+
+DataHub supports automatic table- and column-level lineage detection from BigQuery, Snowflake, dbt, Looker, PowerBI, and 20+ modern data tools. 
+For data tools with limited native lineage tracking, DataHub's SQL Parser detects lineage with 97–99% accuracy, ensuring teams will have high quality lineage graphs across all corners of their data stack.
 
 ### Automatic Lineage Extraction Support
 
