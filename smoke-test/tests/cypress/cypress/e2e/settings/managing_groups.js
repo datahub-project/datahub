@@ -63,47 +63,49 @@ describe("create and manage group", () => {
     cy.contains(username, { timeout: 10000 }).should("be.visible");
   });
 
-    it("update group info", () => {
-        cy.loginWithCredentials();
-        cy.visit("/settings/identities/groups");
-        cy.clickOptionWithText(group_name);
-        cy.contains(group_name).find('[aria-label="Edit"]').click();
-        cy.focused().clear().type(`Test group EDITED ${test_id}{enter}`);
-        cy.waitTextVisible("Name Updated");
-        cy.contains(`Test group EDITED ${test_id}`).should("be.visible");
-        cy.get('[data-testid="edit-icon"]').click();
-        cy.waitTextVisible("Edit Description");
-        cy.get("#description").should("be.visible").type(" EDITED");
-        cy.get("#updateGroupButton").click();
-        cy.waitTextVisible("Changes saved.");
-        cy.contains("Test group description EDITED").should("be.visible");
-        cy.clickOptionWithText("Add Owners");
-        cy.get('[id="owner"]').click({ force: true });
-        cy.focused().type(username);
-        cy.get(".ant-select-item-option").contains(username, { matchCase: false }).click();
-        cy.focused().blur();
-        cy.contains(username, { matchCase: false }).should("have.length", 1);
-        cy.get('[role="dialog"] button').contains("Done").click();
-        cy.waitTextVisible("Owners Added");
-        cy.contains(username, { matchCase: false }).should("be.visible");
-        cy.clickOptionWithText("Edit Group");
-        cy.waitTextVisible("Edit Profile");
-        cy.get("#email").type(`${test_id}@testemail.com`);
-        cy.get("#slack").type(`#${test_id}`);
-        cy.clickOptionWithText("Save Changes");
-        cy.waitTextVisible("Changes saved.");
-        cy.waitTextVisible(`${test_id}@testemail.com`);
-        cy.waitTextVisible(`#${test_id}`);
-    });
+  it("update group info", () => {
+    cy.loginWithCredentials();
+    cy.visit("/settings/identities/groups");
+    cy.clickOptionWithText(group_name);
+    cy.contains(group_name).find('[aria-label="Edit"]').click();
+    cy.focused().clear().type(`Test group EDITED ${test_id}{enter}`);
+    cy.waitTextVisible("Name Updated");
+    cy.contains(`Test group EDITED ${test_id}`).should("be.visible");
+    cy.get('[data-testid="edit-icon"]').click();
+    cy.waitTextVisible("Edit Description");
+    cy.get("#description").should("be.visible").type(" EDITED");
+    cy.get("#updateGroupButton").click();
+    cy.waitTextVisible("Changes saved.");
+    cy.contains("Test group description EDITED").should("be.visible");
+    cy.clickOptionWithText("Add Owners");
+    cy.get('[id="owner"]').click({ force: true });
+    cy.focused().type(username);
+    cy.get(".ant-select-item-option")
+      .contains(username, { matchCase: false })
+      .click();
+    cy.focused().blur();
+    cy.contains(username, { matchCase: false }).should("have.length", 1);
+    cy.get('[role="dialog"] button').contains("Done").click();
+    cy.waitTextVisible("Owners Added");
+    cy.contains(username, { matchCase: false }).should("be.visible");
+    cy.clickOptionWithText("Edit Group");
+    cy.waitTextVisible("Edit Profile");
+    cy.get("#email").type(`${test_id}@testemail.com`);
+    cy.get("#slack").type(`#${test_id}`);
+    cy.clickOptionWithText("Save Changes");
+    cy.waitTextVisible("Changes saved.");
+    cy.waitTextVisible(`${test_id}@testemail.com`);
+    cy.waitTextVisible(`#${test_id}`);
+  });
 
-    it("test User verify group participation", () => {
-        cy.loginWithCredentials();
-        cy.visit("/settings/identities/groups");
-        cy.hideOnboardingTour();
-        cy.clickOptionWithText(`Test group EDITED ${test_id}`);
-        cy.get(".ant-tabs-tab").contains("Members").click();
-        cy.waitTextVisible(username);  
-    });
+  it("test User verify group participation", () => {
+    cy.loginWithCredentials();
+    cy.visit("/settings/identities/groups");
+    cy.hideOnboardingTour();
+    cy.clickOptionWithText(`Test group EDITED ${test_id}`);
+    cy.get(".ant-tabs-tab").contains("Members").click();
+    cy.waitTextVisible(username);
+  });
 
   it("assign role to group ", () => {
     cy.loginWithCredentials();
