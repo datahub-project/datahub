@@ -90,6 +90,9 @@ public class PoliciesConfig {
           "Manage Home Page Posts",
           "Create and delete home page posts");
 
+  public static final Privilege VIEW_TESTS_PRIVILEGE =
+      Privilege.of("VIEW_TESTS", "View Tests", "View Asset Tests.");
+
   public static final Privilege MANAGE_TESTS_PRIVILEGE =
       Privilege.of("MANAGE_TESTS", "Manage Tests", "Create and remove Asset Tests.");
 
@@ -154,6 +157,7 @@ public class PoliciesConfig {
           MANAGE_SECRETS_PRIVILEGE,
           GENERATE_PERSONAL_ACCESS_TOKENS_PRIVILEGE,
           MANAGE_ACCESS_TOKENS,
+          VIEW_TESTS_PRIVILEGE,
           MANAGE_TESTS_PRIVILEGE,
           MANAGE_GLOSSARIES_PRIVILEGE,
           MANAGE_USER_CREDENTIALS_PRIVILEGE,

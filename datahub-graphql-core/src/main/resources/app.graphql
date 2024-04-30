@@ -94,6 +94,11 @@ type PlatformPrivileges {
   """
   Whether the user is able to manage Tests
   """
+  viewTests: Boolean!
+
+  """
+  Whether the user is able to manage Tests
+  """
   manageTests: Boolean!
 
   """
