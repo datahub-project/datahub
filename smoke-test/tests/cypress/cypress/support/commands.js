@@ -111,19 +111,19 @@ Cypress.Commands.add("goToIngestionPage", () => {
 });
 
 Cypress.Commands.add("goToDataset", (urn, dataset_name) => {
-  cy.visit(`/dataset/${  urn}`);
+  cy.visit(`/dataset/${urn}`);
   cy.wait(5000);
   cy.waitTextVisible(dataset_name);
 });
 
 Cypress.Commands.add("goToBusinessAttribute", (urn, attribute_name) => {
-  cy.visit(`/business-attribute/${  urn}`);
+  cy.visit(`/business-attribute/${urn}`);
   cy.wait(5000);
   cy.waitTextVisible(attribute_name);
 });
 
 Cypress.Commands.add("goToTag", (urn, tag_name) => {
-  cy.visit(`/tag/${  urn}`);
+  cy.visit(`/tag/${urn}`);
   cy.wait(5000);
   cy.waitTextVisible(tag_name);
 });
@@ -222,7 +222,7 @@ Cypress.Commands.add(
   (text, modelHeader, value, dataTestId) => {
     cy.waitTextVisible(modelHeader);
     cy.get(".ant-input-affix-wrapper > input[type='text']").first().type(text);
-    cy.get(`[data-testid="${  dataTestId  }"]`).click();
+    cy.get(`[data-testid="${dataTestId}"]`).click();
     cy.wait(3000);
     cy.contains(value).should("be.visible");
   },
@@ -361,9 +361,7 @@ Cypress.Commands.add(
   (urn, dataset_name, domain_urn) => {
     cy.goToDataset(urn, dataset_name);
     cy.get(
-      `.sidebar-domain-section [href="/domain/${ 
-        domain_urn 
-        }"] .anticon-close`,
+      `.sidebar-domain-section [href="/domain/${domain_urn}"] .anticon-close`,
     ).click();
     cy.clickOptionWithText("Yes");
   },
