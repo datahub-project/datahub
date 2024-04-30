@@ -84,7 +84,7 @@ describe("businessAttribute", () => {
     const tag = "Cypress";
     setBusinessAttributeFeatureFlag();
     cy.login();
-    cy.visit(`/dataset/${  urn}`);
+    cy.visit(`/dataset/${urn}`);
     cy.wait("@apiCall").then(() => {
       if (!businessAttributeEntityEnabled) {
         return;
@@ -150,7 +150,7 @@ describe("businessAttribute", () => {
     const datasetName = "cypress_logging_events";
     setBusinessAttributeFeatureFlag();
     cy.login();
-    cy.visit(`/dataset/${  urn}`);
+    cy.visit(`/dataset/${urn}`);
     cy.wait("@apiCall").then(() => {
       if (!businessAttributeEntityEnabled) {
         return;
