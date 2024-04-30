@@ -999,6 +999,30 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
             env=self.config.env,
         )
 
+        if not upstream_tables:
+            # Tableau's metadata graphql API sometimes returns an empty list for upstreamTables
+            # for embedded datasources. However, the upstreamColumns field often includes information.
+            # This attempts to populate upstream table information from the upstreamColumns field.
+            table_id_to_urn = {
+                column[c.TABLE][c.ID]: builder.make_dataset_urn_with_platform_instance(
+                    self.platform,
+                    column[c.TABLE][c.ID],
+                    self.config.platform_instance,
+                    self.config.env,
+                )
+                for field in datasource.get(c.FIELDS, [])
+                for column in field.get(c.UPSTREAM_COLUMNS, [])
+                if column.get(c.TABLE, {}).get(c.TYPE_NAME) == c.CUSTOM_SQL_TABLE
+                   and column.get(c.TABLE, {}).get(c.ID)
+            }
+            fine_grained_lineages = self.get_upstream_columns_of_fields_in_datasource(
+                datasource, datasource_urn, table_id_to_urn
+            )
+            upstream_tables = [
+                Upstream(dataset=table_urn, type=DatasetLineageType.TRANSFORMED)
+                for table_urn in table_id_to_urn.values()
+            ]
+
         if datasource.get(c.FIELDS):
             if self.config.extract_column_level_lineage:
                 # Find fine grained lineage for datasource column to datasource column edge,
@@ -1954,42 +1978,6 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
                     aspect_name=c.UPSTREAM_LINEAGE,
                     aspect=upstream_lineage,
                 )
-        else:
-            # Fetch upstream information from upstreamColumns which are mostly coming
-            # from CUSTOM SQLs when Tableu doesn't provide upstream tables
-            # With this approach, we also join lingering CustomSQL entities to Embedded Data Sources
-            table_id_to_urn = {
-                column[c.TABLE][c.ID]: builder.make_dataset_urn_with_platform_instance(
-                    self.platform,
-                    column[c.TABLE][c.ID],
-                    self.config.platform_instance,
-                    self.config.env,
-                )
-                for field in datasource.get(c.FIELDS, [])
-                for column in field.get(c.UPSTREAM_COLUMNS, [])
-                if column.get(c.TABLE, {}).get(c.TYPE_NAME) == c.CUSTOM_SQL_TABLE
-                and column.get(c.TABLE, {}).get(c.ID)
-            }
-            fine_grained_lineages = self.get_upstream_columns_of_fields_in_datasource(
-                datasource, datasource_urn, table_id_to_urn
-            )
-            upstream_tables = [
-                Upstream(dataset=table_urn, type=DatasetLineageType.TRANSFORMED)
-                for table_urn in table_id_to_urn.values()
-            ]
-            upstream_lineage = UpstreamLineage(
-                upstreams=upstream_tables,
-                fineGrainedLineages=sorted(
-                    fine_grained_lineages,
-                    key=lambda x: (x.downstreams, x.upstreams),
-                )
-                or None,
-            )
-            yield self.get_metadata_change_proposal(
-                datasource_urn,
-                aspect_name=c.UPSTREAM_LINEAGE,
-                aspect=upstream_lineage,
-            )
 
         # Datasource Fields
         schema_metadata = self._get_schema_metadata_for_datasource(
