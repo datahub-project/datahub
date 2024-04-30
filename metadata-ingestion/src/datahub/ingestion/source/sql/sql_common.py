@@ -689,7 +689,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
                         dataset_name = self.get_identifier(
                             schema=schema, entity=table, inspector=inspector
                         )
-    
+
                         if dataset_name not in tables_seen:
                             tables_seen.add(dataset_name)
                         else:
@@ -697,12 +697,14 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
                                 f"{dataset_name} has already been seen, skipping..."
                             )
                             continue
-    
-                        self.report.report_entity_scanned(dataset_name, ent_type="table")
+
+                        self.report.report_entity_scanned(
+                            dataset_name, ent_type="table"
+                        )
                         if not sql_config.table_pattern.allowed(dataset_name):
                             self.report.report_dropped(dataset_name)
                             continue
-    
+
                         try:
                             yield from self._process_table(
                                 dataset_name,
@@ -713,7 +715,9 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
                                 data_reader,
                             )
                         except Exception as e:
-                            self.warn(logger, f"{schema}.{table}", f"Ingestion error: {e}")
+                            self.warn(
+                                logger, f"{schema}.{table}", f"Ingestion error: {e}"
+                            )
                     except Exception as e:
                         self.error(logger, f"{schema}", f"Tables error: {e}")
             except Exception as e:
@@ -926,7 +930,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
             self.warn(
                 logger,
                 dataset_name,
-                f"unable to get column information due to an error -> {e}",
+                f"unable to get column information due to an error -> {''.join(traceback.format_tb(e.__traceback__))}",
             )
         return columns
 

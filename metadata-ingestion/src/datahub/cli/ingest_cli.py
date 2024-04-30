@@ -198,10 +198,12 @@ def run(
         return ret
 
     loop = asyncio.get_event_loop()
-    ret = loop.run_until_complete(run_ingestion_and_check_upgrade())
+    loop.run_until_complete(run_ingestion_and_check_upgrade())
+
+
 #     if ret:
 #         sys.exit(ret)
-    # don't raise SystemExit if there's no error
+# don't raise SystemExit if there's no error
 
 
 @ingest.command()
