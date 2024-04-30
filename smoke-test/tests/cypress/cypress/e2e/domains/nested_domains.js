@@ -112,54 +112,57 @@ describe("Verify nested domains test functionalities", () => {
     cy.waitTextVisible("Domains");
   });
 
-    it("Verify Documentation tab by adding editing Description and adding link", () => {
-        cy.clickOptionWithText(domainName)
-        cy.clickOptionWithId('#rc-tabs-0-tab-Documentation')
-        cy.clickFirstOptionWithText("Add Documentation")
-        clearAndType("Test added")
-        cy.clickOptionWithTestId("description-editor-save-button")
-        cy.waitTextVisible('Description Updated')
-        cy.waitTextVisible('Test added')
-        cy.clickFirstOptionWithTestId("add-link-button")
-        cy.waitTextVisible("Add Link")
-        cy.enterTextInTestId("add-link-modal-url", 'www.test.com')
-        cy.enterTextInTestId("add-link-modal-label", 'Test Label')
-        cy.clickOptionWithTestId("add-link-modal-add-button")
-        cy.waitTextVisible("Test Label")
-        cy.goToDomainList();
-        cy.waitTextVisible("Test added")
-        cy.clickOptionWithText(domainName)
-        cy.clickOptionWithText("Documentation")
-        clearAndDelete()
-    })
-    
-    it("Verify Right side panel functionalities", () => {
-        cy.clickOptionWithText(domainName)
-        cy.waitTextVisible("Filters")
-        cy.clickOptionWithText("Add Documentation")
-        clearAndType("Test documentation")
-        cy.clickOptionWithTestId("description-editor-save-button")
-        cy.ensureTextNotPresent("Add Documentation")
-        cy.waitTextVisible('Test documentation')
-        cy.clickFirstOptionWithSpecificTestId("add-link-button", 1)
-        cy.waitTextVisible("URL")
-        cy.enterTextInTestId("add-link-modal-url", 'www.test.com')
-        cy.enterTextInTestId("add-link-modal-label", 'Test Label')
-        cy.clickOptionWithTestId("add-link-modal-add-button")
-        cy.waitTextVisible("Test Label")
-        cy.clickOptionWithTestId("add-owners-button")
-        cy.waitTextVisible("Find a user or group")
-        cy.clickTextOptionWithClass(".rc-virtual-list-holder-inner", Cypress.env('ADMIN_DISPLAYNAME'))
-        cy.clickOptionWithText("Find a user or group")
-        cy.clickOptionWithId('#addOwnerButton')
-        cy.waitTextVisible(Cypress.env('ADMIN_DISPLAYNAME'))
-        cy.goToDomainList();
-        cy.waitTextVisible("Test documentation")
-        cy.waitTextVisible(Cypress.env('ADMIN_DISPLAYNAME'))
-        cy.clickOptionWithText(domainName)
-        cy.clickOptionWithText("Documentation")
-        clearAndDelete()
-    })
+  it("Verify Documentation tab by adding editing Description and adding link", () => {
+    cy.clickOptionWithText(domainName);
+    cy.clickOptionWithId("#rc-tabs-0-tab-Documentation");
+    cy.clickFirstOptionWithText("Add Documentation");
+    clearAndType("Test added");
+    cy.clickOptionWithTestId("description-editor-save-button");
+    cy.waitTextVisible("Description Updated");
+    cy.waitTextVisible("Test added");
+    cy.clickFirstOptionWithTestId("add-link-button");
+    cy.waitTextVisible("Add Link");
+    cy.enterTextInTestId("add-link-modal-url", "www.test.com");
+    cy.enterTextInTestId("add-link-modal-label", "Test Label");
+    cy.clickOptionWithTestId("add-link-modal-add-button");
+    cy.waitTextVisible("Test Label");
+    cy.goToDomainList();
+    cy.waitTextVisible("Test added");
+    cy.clickOptionWithText(domainName);
+    cy.clickOptionWithText("Documentation");
+    clearAndDelete();
+  });
+
+  it("Verify Right side panel functionalities", () => {
+    cy.clickOptionWithText(domainName);
+    cy.waitTextVisible("Filters");
+    cy.clickOptionWithText("Add Documentation");
+    clearAndType("Test documentation");
+    cy.clickOptionWithTestId("description-editor-save-button");
+    cy.ensureTextNotPresent("Add Documentation");
+    cy.waitTextVisible("Test documentation");
+    cy.clickFirstOptionWithSpecificTestId("add-link-button", 1);
+    cy.waitTextVisible("URL");
+    cy.enterTextInTestId("add-link-modal-url", "www.test.com");
+    cy.enterTextInTestId("add-link-modal-label", "Test Label");
+    cy.clickOptionWithTestId("add-link-modal-add-button");
+    cy.waitTextVisible("Test Label");
+    cy.clickOptionWithTestId("add-owners-button");
+    cy.waitTextVisible("Find a user or group");
+    cy.clickTextOptionWithClass(
+      ".rc-virtual-list-holder-inner",
+      Cypress.env("ADMIN_DISPLAYNAME"),
+    );
+    cy.clickOptionWithText("Find a user or group");
+    cy.clickOptionWithId("#addOwnerButton");
+    cy.waitTextVisible(Cypress.env("ADMIN_DISPLAYNAME"));
+    cy.goToDomainList();
+    cy.waitTextVisible("Test documentation");
+    cy.waitTextVisible(Cypress.env("ADMIN_DISPLAYNAME"));
+    cy.clickOptionWithText(domainName);
+    cy.clickOptionWithText("Documentation");
+    clearAndDelete();
+  });
 
   it("Verify Move domain parent level to root level", () => {
     moveDomaintoParent();
