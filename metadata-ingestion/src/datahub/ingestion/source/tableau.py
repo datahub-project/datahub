@@ -1013,7 +1013,7 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
                 for field in datasource.get(c.FIELDS, [])
                 for column in field.get(c.UPSTREAM_COLUMNS, [])
                 if column.get(c.TABLE, {}).get(c.TYPE_NAME) == c.CUSTOM_SQL_TABLE
-                   and column.get(c.TABLE, {}).get(c.ID)
+                and column.get(c.TABLE, {}).get(c.ID)
             }
             fine_grained_lineages = self.get_upstream_columns_of_fields_in_datasource(
                 datasource, datasource_urn, table_id_to_urn
