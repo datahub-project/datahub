@@ -118,7 +118,10 @@ module.exports = {
         {
           label: "Lineage",
           type: "category",
-          link : { type: "doc", id: "docs/generated/lineage/lineage-feature-guide" },
+          link: {
+            type: "doc",
+            id: "docs/generated/lineage/lineage-feature-guide",
+          },
           items: [
             {
               label: "Lineage Impact analysis",
