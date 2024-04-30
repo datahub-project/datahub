@@ -705,9 +705,9 @@
         "json": {
             "fields": [
                 {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mode,10149707,PROD),amount)",
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mode,10149707,PROD),payment_date)",
                     "schemaField": {
-                        "fieldPath": "amount",
+                        "fieldPath": "payment_date",
                         "nullable": false,
                         "type": {
                             "type": {
@@ -727,9 +727,9 @@
                     }
                 },
                 {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mode,10149707,PROD),payment_date)",
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mode,10149707,PROD),amount)",
                     "schemaField": {
-                        "fieldPath": "payment_date",
+                        "fieldPath": "amount",
                         "nullable": false,
                         "type": {
                             "type": {
@@ -883,7 +883,8 @@
                     "urn": "urn:li:dashboard:(mode,2934237)"
                 },
                 {
-                    "id": "Customer and staff"
+                    "id": "urn:li:dataset:(urn:li:dataPlatform:mode,10149707,PROD)",
+                    "urn": "urn:li:dataset:(urn:li:dataPlatform:mode,10149707,PROD)"
                 }
             ]
         }

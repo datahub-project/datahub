@@ -337,11 +337,12 @@ class ModeSource(StatefulIngestionSourceBase):
         ]
 
     def _browse_path_chart(
-        self, space_token: str, report_info: dict, query_name: str
+        self, space_token: str, report_info: dict, query_info: dict
     ) -> List[BrowsePathEntryClass]:
+        query_urn = self.get_dataset_urn_from_query(query_info)
         return [
             *self._browse_path_query(space_token, report_info),
-            BrowsePathEntryClass(id=query_name),
+            BrowsePathEntryClass(id=query_urn, urn=query_urn),
         ]
 
     def _dashboard_urn(self, report_info: dict) -> str:
@@ -1280,7 +1281,7 @@ class ModeSource(StatefulIngestionSourceBase):
 
         # Browse path v2
         browse_path_v2 = BrowsePathsV2Class(
-            path=self._browse_path_chart(space_token, report_info, query_name),
+            path=self._browse_path_chart(space_token, report_info, query),
         )
         yield MetadataChangeProposalWrapper(
             entityUrn=chart_urn,
