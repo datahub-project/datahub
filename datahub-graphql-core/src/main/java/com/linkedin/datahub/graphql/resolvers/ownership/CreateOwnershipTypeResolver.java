@@ -42,9 +42,9 @@ public class CreateOwnershipTypeResolver
           try {
             final Urn urn =
                 _ownershipTypeService.createOwnershipType(
+                    context.getOperationContext(),
                     input.getName(),
                     input.getDescription(),
-                    context.getAuthentication(),
                     System.currentTimeMillis());
             return createOwnershipType(urn, input);
           } catch (Exception e) {

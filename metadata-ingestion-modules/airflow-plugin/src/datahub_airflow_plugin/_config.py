@@ -34,6 +34,10 @@ class DatahubLineageConfig(ConfigModel):
     # If true, the tags field of the DAG will be captured as DataHub tags.
     capture_tags_info: bool = True
 
+    # If true (default), we'll materialize and un-soft-delete any urns
+    # referenced by inlets or outlets.
+    materialize_iolets: bool = True
+
     capture_executions: bool = False
 
     enable_extractors: bool = True
@@ -67,6 +71,7 @@ def get_lineage_config() -> DatahubLineageConfig:
         "datahub", "capture_ownership_info", fallback=True
     )
     capture_executions = conf.get("datahub", "capture_executions", fallback=True)
+    materialize_iolets = conf.get("datahub", "materialize_iolets", fallback=True)
     enable_extractors = conf.get("datahub", "enable_extractors", fallback=True)
     log_level = conf.get("datahub", "log_level", fallback=None)
     debug_emitter = conf.get("datahub", "debug_emitter", fallback=False)
@@ -84,6 +89,7 @@ def get_lineage_config() -> DatahubLineageConfig:
         capture_ownership_info=capture_ownership_info,
         capture_tags_info=capture_tags_info,
         capture_executions=capture_executions,
+        materialize_iolets=materialize_iolets,
         enable_extractors=enable_extractors,
         log_level=log_level,
         debug_emitter=debug_emitter,

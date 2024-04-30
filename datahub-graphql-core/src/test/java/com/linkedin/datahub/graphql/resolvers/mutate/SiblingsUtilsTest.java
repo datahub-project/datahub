@@ -1,6 +1,9 @@
 package com.linkedin.datahub.graphql.resolvers.mutate;
 
 import static com.linkedin.metadata.Constants.SIBLINGS_ASPECT_NAME;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
 import static org.testng.AssertJUnit.assertEquals;
 
 import com.linkedin.common.Siblings;
@@ -9,6 +12,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.SiblingsUtils;
 import com.linkedin.metadata.entity.EntityService;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.HashSet;
 import java.util.Optional;
 import org.mockito.Mockito;
@@ -27,36 +31,43 @@ public class SiblingsUtilsTest {
   public void testGetSiblingUrns() {
     UrnArray siblingUrns =
         new UrnArray(UrnUtils.getUrn(TEST_DATASET_URN2), UrnUtils.getUrn(TEST_DATASET_URN3));
-    EntityService mockService = Mockito.mock(EntityService.class);
+    EntityService mockService = mock(EntityService.class);
     Mockito.when(
-            mockService.getLatestAspect(UrnUtils.getUrn(TEST_DATASET_URN1), SIBLINGS_ASPECT_NAME))
+            mockService.getLatestAspect(
+                any(), eq(UrnUtils.getUrn(TEST_DATASET_URN1)), eq(SIBLINGS_ASPECT_NAME)))
         .thenReturn(new Siblings().setSiblings(siblingUrns));
 
     assertEquals(
-        SiblingsUtils.getSiblingUrns(UrnUtils.getUrn(TEST_DATASET_URN1), mockService), siblingUrns);
+        SiblingsUtils.getSiblingUrns(
+            mock(OperationContext.class), UrnUtils.getUrn(TEST_DATASET_URN1), mockService),
+        siblingUrns);
   }
 
   @Test
   public void testGetSiblingUrnsWithoutSiblings() {
-    EntityService mockService = Mockito.mock(EntityService.class);
+    EntityService mockService = mock(EntityService.class);
     Mockito.when(
-            mockService.getLatestAspect(UrnUtils.getUrn(TEST_DATASET_URN1), SIBLINGS_ASPECT_NAME))
+            mockService.getLatestAspect(
+                any(), eq(UrnUtils.getUrn(TEST_DATASET_URN1)), eq(SIBLINGS_ASPECT_NAME)))
         .thenReturn(new Siblings());
 
     assertEquals(
-        SiblingsUtils.getSiblingUrns(UrnUtils.getUrn(TEST_DATASET_URN1), mockService),
+        SiblingsUtils.getSiblingUrns(
+            mock(OperationContext.class), UrnUtils.getUrn(TEST_DATASET_URN1), mockService),
         new UrnArray());
   }
 
   @Test
   public void testGetSiblingUrnsWithSiblingsAspect() {
-    EntityService mockService = Mockito.mock(EntityService.class);
+    EntityService mockService = mock(EntityService.class);
     Mockito.when(
-            mockService.getLatestAspect(UrnUtils.getUrn(TEST_DATASET_URN1), SIBLINGS_ASPECT_NAME))
+            mockService.getLatestAspect(
+                any(), eq(UrnUtils.getUrn(TEST_DATASET_URN1)), eq(SIBLINGS_ASPECT_NAME)))
         .thenReturn(null);
 
     assertEquals(
-        SiblingsUtils.getSiblingUrns(UrnUtils.getUrn(TEST_DATASET_URN1), mockService),
+        SiblingsUtils.getSiblingUrns(
+            mock(OperationContext.class), UrnUtils.getUrn(TEST_DATASET_URN1), mockService),
         new UrnArray());
   }
 

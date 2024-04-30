@@ -1,8 +1,7 @@
 package com.linkedin.metadata.service;
 
-import com.datahub.authentication.Actor;
-import com.datahub.authentication.ActorType;
-import com.datahub.authentication.Authentication;
+import static org.mockito.ArgumentMatchers.any;
+
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -15,11 +14,13 @@ import com.linkedin.entity.Aspect;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
-import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.resource.ResourceReference;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.Collections;
 import java.util.List;
 import javax.annotation.Nullable;
@@ -36,14 +37,16 @@ public class DomainServiceTest {
       UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:kafka,test,PROD)");
   private static final Urn TEST_ENTITY_URN_2 =
       UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:kafka,test1,PROD)");
+  private static OperationContext opContext =
+      TestOperationContexts.systemContextNoSearchAuthorization();
 
   @Test
   private void testSetDomainExistingDomain() throws Exception {
     Domains existingDomains = new Domains();
     existingDomains.setDomains(new UrnArray(ImmutableList.of(TEST_DOMAIN_URN_1)));
-    EntityClient mockClient = createMockEntityClient(existingDomains);
+    SystemEntityClient mockClient = createMockEntityClient(existingDomains);
 
-    final DomainService service = new DomainService(mockClient, Mockito.mock(Authentication.class));
+    final DomainService service = new DomainService(mockClient);
 
     Urn newDomainUrn = UrnUtils.getUrn("urn:li:domain:newDomain");
     List<MetadataChangeProposal> events =
@@ -74,9 +77,9 @@ public class DomainServiceTest {
 
   @Test
   private void testSetDomainNoExistingDomain() throws Exception {
-    EntityClient mockClient = createMockEntityClient(null);
+    SystemEntityClient mockClient = createMockEntityClient(null);
 
-    final DomainService service = new DomainService(mockClient, Mockito.mock(Authentication.class));
+    final DomainService service = new DomainService(mockClient);
 
     Urn newDomainUrn = UrnUtils.getUrn("urn:li:domain:newDomain");
     List<MetadataChangeProposal> events =
@@ -109,9 +112,9 @@ public class DomainServiceTest {
   private void testUnsetDomainExistingDomain() throws Exception {
     Domains existingDomains = new Domains();
     existingDomains.setDomains(new UrnArray(ImmutableList.of(TEST_DOMAIN_URN_1)));
-    EntityClient mockClient = createMockEntityClient(existingDomains);
+    SystemEntityClient mockClient = createMockEntityClient(existingDomains);
 
-    final DomainService service = new DomainService(mockClient, Mockito.mock(Authentication.class));
+    final DomainService service = new DomainService(mockClient);
 
     List<MetadataChangeProposal> events =
         service.buildUnsetDomainProposals(
@@ -140,9 +143,9 @@ public class DomainServiceTest {
 
   @Test
   private void testUnsetDomainNoExistingDomain() throws Exception {
-    EntityClient mockClient = createMockEntityClient(null);
+    SystemEntityClient mockClient = createMockEntityClient(null);
 
-    final DomainService service = new DomainService(mockClient, Mockito.mock(Authentication.class));
+    final DomainService service = new DomainService(mockClient);
 
     List<MetadataChangeProposal> events =
         service.buildUnsetDomainProposals(
@@ -173,17 +176,17 @@ public class DomainServiceTest {
   private void testAddDomainsExistingDomain() throws Exception {
     Domains existingDomains = new Domains();
     existingDomains.setDomains(new UrnArray(ImmutableList.of(TEST_DOMAIN_URN_1)));
-    EntityClient mockClient = createMockEntityClient(existingDomains);
+    SystemEntityClient mockClient = createMockEntityClient(existingDomains);
 
-    final DomainService service = new DomainService(mockClient, Mockito.mock(Authentication.class));
+    final DomainService service = new DomainService(mockClient);
 
     List<MetadataChangeProposal> events =
         service.buildAddDomainsProposals(
+            opContext,
             ImmutableList.of(TEST_DOMAIN_URN_2),
             ImmutableList.of(
                 new ResourceReference(TEST_ENTITY_URN_1, null, null),
-                new ResourceReference(TEST_ENTITY_URN_2, null, null)),
-            mockAuthentication());
+                new ResourceReference(TEST_ENTITY_URN_2, null, null)));
 
     MetadataChangeProposal event1 = events.get(0);
     Assert.assertEquals(event1.getAspectName(), Constants.DOMAINS_ASPECT_NAME);
@@ -210,17 +213,17 @@ public class DomainServiceTest {
 
   @Test
   private void testAddDomainsNoExistingDomain() throws Exception {
-    EntityClient mockClient = createMockEntityClient(null);
+    SystemEntityClient mockClient = createMockEntityClient(null);
 
-    final DomainService service = new DomainService(mockClient, Mockito.mock(Authentication.class));
+    final DomainService service = new DomainService(mockClient);
 
     List<MetadataChangeProposal> events =
         service.buildAddDomainsProposals(
+            opContext,
             ImmutableList.of(TEST_DOMAIN_URN_1),
             ImmutableList.of(
                 new ResourceReference(TEST_ENTITY_URN_1, null, null),
-                new ResourceReference(TEST_ENTITY_URN_2, null, null)),
-            mockAuthentication());
+                new ResourceReference(TEST_ENTITY_URN_2, null, null)));
 
     MetadataChangeProposal event1 = events.get(0);
     Assert.assertEquals(event1.getAspectName(), Constants.DOMAINS_ASPECT_NAME);
@@ -248,17 +251,17 @@ public class DomainServiceTest {
     Domains existingDomains = new Domains();
     existingDomains.setDomains(
         new UrnArray(ImmutableList.of(TEST_DOMAIN_URN_1, TEST_DOMAIN_URN_2)));
-    EntityClient mockClient = createMockEntityClient(existingDomains);
+    SystemEntityClient mockClient = createMockEntityClient(existingDomains);
 
-    final DomainService service = new DomainService(mockClient, Mockito.mock(Authentication.class));
+    final DomainService service = new DomainService(mockClient);
 
     List<MetadataChangeProposal> events =
         service.buildRemoveDomainsProposals(
+            opContext,
             ImmutableList.of(TEST_DOMAIN_URN_2),
             ImmutableList.of(
                 new ResourceReference(TEST_ENTITY_URN_1, null, null),
-                new ResourceReference(TEST_ENTITY_URN_2, null, null)),
-            mockAuthentication());
+                new ResourceReference(TEST_ENTITY_URN_2, null, null)));
 
     MetadataChangeProposal event1 = events.get(0);
     Assert.assertEquals(event1.getAspectName(), Constants.DOMAINS_ASPECT_NAME);
@@ -283,17 +286,17 @@ public class DomainServiceTest {
 
   @Test
   private void testRemoveDomainsNoExistingDomain() throws Exception {
-    EntityClient mockClient = createMockEntityClient(null);
+    SystemEntityClient mockClient = createMockEntityClient(null);
 
-    final DomainService service = new DomainService(mockClient, Mockito.mock(Authentication.class));
+    final DomainService service = new DomainService(mockClient);
 
     List<MetadataChangeProposal> events =
         service.buildRemoveDomainsProposals(
+            opContext,
             ImmutableList.of(TEST_DOMAIN_URN_2),
             ImmutableList.of(
                 new ResourceReference(TEST_ENTITY_URN_1, null, null),
-                new ResourceReference(TEST_ENTITY_URN_2, null, null)),
-            mockAuthentication());
+                new ResourceReference(TEST_ENTITY_URN_2, null, null)));
 
     MetadataChangeProposal event1 = events.get(0);
     Assert.assertEquals(event1.getAspectName(), Constants.DOMAINS_ASPECT_NAME);
@@ -314,15 +317,15 @@ public class DomainServiceTest {
         domainsAspect2, new Domains().setDomains(new UrnArray(Collections.emptyList())));
   }
 
-  private static EntityClient createMockEntityClient(@Nullable Domains existingDomains)
+  private static SystemEntityClient createMockEntityClient(@Nullable Domains existingDomains)
       throws Exception {
-    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    SystemEntityClient mockClient = Mockito.mock(SystemEntityClient.class);
     Mockito.when(
             mockClient.batchGetV2(
+                any(OperationContext.class),
                 Mockito.eq(Constants.DATASET_ENTITY_NAME),
                 Mockito.eq(ImmutableSet.of(TEST_ENTITY_URN_1, TEST_ENTITY_URN_2)),
-                Mockito.eq(ImmutableSet.of(Constants.DOMAINS_ASPECT_NAME)),
-                Mockito.any(Authentication.class)))
+                Mockito.eq(ImmutableSet.of(Constants.DOMAINS_ASPECT_NAME))))
         .thenReturn(
             existingDomains != null
                 ? ImmutableMap.of(
@@ -348,11 +351,5 @@ public class DomainServiceTest {
                                         .setValue(new Aspect(existingDomains.data()))))))
                 : Collections.emptyMap());
     return mockClient;
-  }
-
-  private static Authentication mockAuthentication() {
-    Authentication mockAuth = Mockito.mock(Authentication.class);
-    Mockito.when(mockAuth.getActor()).thenReturn(new Actor(ActorType.USER, Constants.SYSTEM_ACTOR));
-    return mockAuth;
   }
 }

@@ -34,10 +34,10 @@ public class ParentContainersResolver
       Urn entityUrn = new Urn(urn);
       EntityResponse entityResponse =
           _entityClient.getV2(
+              context.getOperationContext(),
               entityUrn.getEntityType(),
               entityUrn,
-              Collections.singleton(CONTAINER_ASPECT_NAME),
-              context.getAuthentication());
+              Collections.singleton(CONTAINER_ASPECT_NAME));
 
       if (entityResponse != null
           && entityResponse.getAspects().containsKey(CONTAINER_ASPECT_NAME)) {
@@ -46,7 +46,7 @@ public class ParentContainersResolver
         Urn containerUrn = container.getContainer();
         EntityResponse response =
             _entityClient.getV2(
-                containerUrn.getEntityType(), containerUrn, null, context.getAuthentication());
+                context.getOperationContext(), containerUrn.getEntityType(), containerUrn, null);
         if (response != null) {
           Container mappedContainer = ContainerMapper.map(context, response);
           containers.add(mappedContainer);

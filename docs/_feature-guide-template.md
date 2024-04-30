@@ -76,7 +76,7 @@ Response in plain text
 
 -->
 
-*Need more help? Join the conversation in [Slack](http://slack.datahubproject.io)!*
+
 
 ### Related Features
 

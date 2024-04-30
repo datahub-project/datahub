@@ -1,7 +1,8 @@
 package com.linkedin.metadata.kafka.hook.ingestion;
 
 import static com.linkedin.metadata.Constants.*;
-import static com.linkedin.metadata.kafka.hook.EntityRegistryTestUtil.ENTITY_REGISTRY;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 
 import com.datahub.metadata.ingestion.IngestionScheduler;
 import com.linkedin.common.urn.Urn;
@@ -11,6 +12,7 @@ import com.linkedin.ingestion.DataHubIngestionSourceInfo;
 import com.linkedin.ingestion.DataHubIngestionSourceSchedule;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeLog;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import org.mockito.Mockito;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -21,7 +23,8 @@ public class IngestionSchedulerHookTest {
   @BeforeMethod
   public void setupTest() {
     IngestionScheduler mockScheduler = Mockito.mock(IngestionScheduler.class);
-    _ingestionSchedulerHook = new IngestionSchedulerHook(ENTITY_REGISTRY, mockScheduler, true);
+    _ingestionSchedulerHook = new IngestionSchedulerHook(mockScheduler, true);
+    _ingestionSchedulerHook.init(TestOperationContexts.systemContextNoSearchAuthorization());
   }
 
   @Test
@@ -45,7 +48,7 @@ public class IngestionSchedulerHookTest {
     event.setAspect(GenericRecordUtils.serializeAspect(newInfo));
     event.setEntityUrn(Urn.createFromString("urn:li:dataHubIngestionSourceUrn:0"));
     _ingestionSchedulerHook.invoke(event);
-    Mockito.verify(_ingestionSchedulerHook.scheduler(), Mockito.times(1))
+    verify(_ingestionSchedulerHook.scheduler(), Mockito.times(1))
         .scheduleNextIngestionSourceExecution(Mockito.any(), Mockito.any());
   }
 
@@ -57,7 +60,7 @@ public class IngestionSchedulerHookTest {
     event2.setChangeType(ChangeType.DELETE);
     event2.setEntityUrn(Urn.createFromString("urn:li:dataHubIngestionSourceUrn:0"));
     _ingestionSchedulerHook.invoke(event2);
-    Mockito.verify(_ingestionSchedulerHook.scheduler(), Mockito.times(1))
+    verify(_ingestionSchedulerHook.scheduler(), Mockito.times(1))
         .unscheduleNextIngestionSourceExecution(Mockito.any());
   }
 
@@ -69,7 +72,7 @@ public class IngestionSchedulerHookTest {
     event2.setChangeType(ChangeType.DELETE);
     event2.setEntityUrn(Urn.createFromString("urn:li:dataHubIngestionSourceUrn:0"));
     _ingestionSchedulerHook.invoke(event2);
-    Mockito.verify(_ingestionSchedulerHook.scheduler(), Mockito.times(1))
+    verify(_ingestionSchedulerHook.scheduler(), Mockito.times(1))
         .unscheduleNextIngestionSourceExecution(Mockito.any());
   }
 
@@ -79,6 +82,7 @@ public class IngestionSchedulerHookTest {
     event.setAspectName(SECRET_VALUE_ASPECT_NAME);
     event.setChangeType(ChangeType.UPSERT);
     _ingestionSchedulerHook.invoke(event);
-    Mockito.verifyNoInteractions(_ingestionSchedulerHook.scheduler());
+    verify(_ingestionSchedulerHook.scheduler(), times(1)).init();
+    Mockito.verifyNoMoreInteractions(_ingestionSchedulerHook.scheduler());
   }
 }

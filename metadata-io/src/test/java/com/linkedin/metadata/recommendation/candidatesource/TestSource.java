@@ -1,11 +1,13 @@
 package com.linkedin.metadata.recommendation.candidatesource;
 
+import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.recommendation.RecommendationContent;
 import com.linkedin.metadata.recommendation.RecommendationRenderType;
 import com.linkedin.metadata.recommendation.RecommendationRequestContext;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.List;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 
@@ -42,7 +44,9 @@ public class TestSource implements RecommendationSource {
 
   @Override
   public List<RecommendationContent> getRecommendations(
-      @Nonnull OperationContext opContext, @Nonnull RecommendationRequestContext requestContext) {
+      @Nonnull OperationContext opContext,
+      @Nonnull RecommendationRequestContext requestContext,
+      @Nullable Filter filter) {
     return contents;
   }
 }

@@ -72,9 +72,13 @@ from datahub.ingestion.transformer.extract_ownership_from_tags import (
     ExtractOwnersFromTagsTransformer,
 )
 from datahub.ingestion.transformer.mark_dataset_status import MarkDatasetStatus
+from datahub.ingestion.transformer.pattern_cleanup_ownership import (
+    PatternCleanUpOwnership,
+)
 from datahub.ingestion.transformer.remove_dataset_ownership import (
     SimpleRemoveDatasetOwnership,
 )
+from datahub.ingestion.transformer.replace_external_url import ReplaceExternalUrl
 from datahub.metadata.schema_classes import (
     BrowsePathsClass,
     DatasetPropertiesClass,
@@ -87,9 +91,6 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.utilities.urns.dataset_urn import DatasetUrn
 from datahub.utilities.urns.urn import Urn
-from src.datahub.ingestion.transformer.pattern_cleanup_ownership import (
-    PatternCleanUpOwnership,
-)
 
 
 def make_generic_dataset(
@@ -742,20 +743,18 @@ def test_extract_owners_from_tags():
         expected_owner_type_urn="urn:li:ownershipType:ad8557d6-dcb9-4d2a-83fc-b7d0d54f3e0f",
     )
     _test_owner(
-        tag="data_producer_owner_email:abc_xyz-email_com",
+        tag="data__producer__owner__email:abc--xyz-email_com",
         config={
             "tag_pattern": "(.*)_owner_email:",
-            "owner_character_mapping": {
+            "tag_character_mapping": {
                 "_": ".",
                 "-": "@",
                 "__": "_",
                 "--": "-",
-                "_-": "#",
-                "-_": " ",
             },
             "extract_owner_type_from_tag_pattern": True,
         },
-        expected_owner="urn:li:corpuser:abc.xyz@email.com",
+        expected_owner="urn:li:corpuser:abc-xyz@email.com",
         expected_owner_type=OwnershipTypeClass.CUSTOM,
         expected_owner_type_urn="urn:li:ownershipType:data_producer",
     )
@@ -3211,3 +3210,84 @@ def test_clean_owner_urn_transformation_should_not_remove_system_identifier(
     config: List[Union[re.Pattern, str]] = ["urn:li:corpuser:"]
 
     _test_clean_owner_urns(pipeline_context, in_owner_urns, config, in_owner_urns)
+
+
+def test_replace_external_url_word_replace(
+    mock_datahub_graph,
+):
+    pipeline_context: PipelineContext = PipelineContext(
+        run_id="test_replace_external_url"
+    )
+    pipeline_context.graph = mock_datahub_graph(DatahubClientConfig)
+
+    output = run_dataset_transformer_pipeline(
+        transformer_type=ReplaceExternalUrl,
+        aspect=models.DatasetPropertiesClass(
+            externalUrl="https://github.com/datahub/looker-demo/blob/master/foo.view.lkml",
+            customProperties=EXISTING_PROPERTIES.copy(),
+        ),
+        config={"input_pattern": "datahub", "replacement": "starhub"},
+        pipeline_context=pipeline_context,
+    )
+
+    assert len(output) == 2
+    assert output[0].record
+    assert output[0].record.aspect
+    assert (
+        output[0].record.aspect.externalUrl
+        == "https://github.com/starhub/looker-demo/blob/master/foo.view.lkml"
+    )
+
+
+def test_replace_external_regex_replace_1(
+    mock_datahub_graph,
+):
+    pipeline_context: PipelineContext = PipelineContext(
+        run_id="test_replace_external_url"
+    )
+    pipeline_context.graph = mock_datahub_graph(DatahubClientConfig)
+
+    output = run_dataset_transformer_pipeline(
+        transformer_type=ReplaceExternalUrl,
+        aspect=models.DatasetPropertiesClass(
+            externalUrl="https://github.com/datahub/looker-demo/blob/master/foo.view.lkml",
+            customProperties=EXISTING_PROPERTIES.copy(),
+        ),
+        config={"input_pattern": r"datahub/.*/", "replacement": "starhub/test/"},
+        pipeline_context=pipeline_context,
+    )
+
+    assert len(output) == 2
+    assert output[0].record
+    assert output[0].record.aspect
+    assert (
+        output[0].record.aspect.externalUrl
+        == "https://github.com/starhub/test/foo.view.lkml"
+    )
+
+
+def test_replace_external_regex_replace_2(
+    mock_datahub_graph,
+):
+    pipeline_context: PipelineContext = PipelineContext(
+        run_id="test_replace_external_url"
+    )
+    pipeline_context.graph = mock_datahub_graph(DatahubClientConfig)
+
+    output = run_dataset_transformer_pipeline(
+        transformer_type=ReplaceExternalUrl,
+        aspect=models.DatasetPropertiesClass(
+            externalUrl="https://github.com/datahub/looker-demo/blob/master/foo.view.lkml",
+            customProperties=EXISTING_PROPERTIES.copy(),
+        ),
+        config={"input_pattern": r"\b\w*hub\b", "replacement": "test"},
+        pipeline_context=pipeline_context,
+    )
+
+    assert len(output) == 2
+    assert output[0].record
+    assert output[0].record.aspect
+    assert (
+        output[0].record.aspect.externalUrl
+        == "https://test.com/test/looker-demo/blob/master/foo.view.lkml"
+    )

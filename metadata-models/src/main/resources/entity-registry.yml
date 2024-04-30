@@ -448,8 +448,10 @@ entities:
     category: core
     keyAspect: schemaFieldKey
     aspects:
+      - schemafieldInfo
       - structuredProperties
       - forms
+      - businessAttributes
   - name: globalSettings
     doc: Global settings for an the platform
     category: internal
@@ -522,6 +524,14 @@ entities:
     aspects:
       - ownershipTypeInfo
       - status
+  - name: businessAttribute
+    category: core
+    keyAspect: businessAttributeKey
+    aspects:
+      - businessAttributeInfo
+      - status
+      - ownership
+      - institutionalMemory
   - name: dataContract
     category: core
     keyAspect: dataContractKey

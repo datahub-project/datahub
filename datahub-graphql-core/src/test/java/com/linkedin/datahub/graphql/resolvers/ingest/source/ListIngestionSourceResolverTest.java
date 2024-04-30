@@ -5,7 +5,6 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.testng.Assert.*;
 
-import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -62,13 +61,13 @@ public class ListIngestionSourceResolverTest {
 
     Mockito.when(
             mockClient.batchGetV2(
+                any(),
                 Mockito.eq(Constants.INGESTION_SOURCE_ENTITY_NAME),
                 Mockito.eq(new HashSet<>(ImmutableSet.of(TEST_INGESTION_SOURCE_URN))),
                 Mockito.eq(
                     ImmutableSet.of(
                         Constants.INGESTION_INFO_ASPECT_NAME,
-                        Constants.INGESTION_SOURCE_KEY_ASPECT_NAME)),
-                Mockito.any(Authentication.class)))
+                        Constants.INGESTION_SOURCE_KEY_ASPECT_NAME))))
         .thenReturn(
             ImmutableMap.of(
                 TEST_INGESTION_SOURCE_URN,
@@ -114,8 +113,7 @@ public class ListIngestionSourceResolverTest {
 
     assertThrows(RuntimeException.class, () -> resolver.get(mockEnv).join());
     Mockito.verify(mockClient, Mockito.times(0))
-        .batchGetV2(
-            Mockito.any(), Mockito.anySet(), Mockito.anySet(), Mockito.any(Authentication.class));
+        .batchGetV2(any(), Mockito.any(), Mockito.anySet(), Mockito.anySet());
     Mockito.verify(mockClient, Mockito.times(0))
         .search(
             any(),
@@ -132,8 +130,7 @@ public class ListIngestionSourceResolverTest {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     Mockito.doThrow(RemoteInvocationException.class)
         .when(mockClient)
-        .batchGetV2(
-            Mockito.any(), Mockito.anySet(), Mockito.anySet(), Mockito.any(Authentication.class));
+        .batchGetV2(any(), Mockito.any(), Mockito.anySet(), Mockito.anySet());
     ListIngestionSourcesResolver resolver = new ListIngestionSourcesResolver(mockClient);
 
     // Execute resolver

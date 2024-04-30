@@ -44,11 +44,11 @@ public class CreateViewResolver implements DataFetcher<CompletableFuture<DataHub
             try {
               final Urn urn =
                   _viewService.createView(
+                      context.getOperationContext(),
                       DataHubViewType.valueOf(input.getViewType().toString()),
                       input.getName(),
                       input.getDescription(),
                       ViewUtils.mapDefinition(input.getDefinition()),
-                      context.getAuthentication(),
                       System.currentTimeMillis());
               return createView(urn, input);
             } catch (Exception e) {

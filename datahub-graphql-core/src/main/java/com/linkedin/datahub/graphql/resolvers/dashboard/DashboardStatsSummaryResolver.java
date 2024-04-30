@@ -15,9 +15,11 @@ import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
@@ -64,7 +66,8 @@ public class DashboardStatsSummaryResolver
             }
 
             // Obtain unique user statistics, by rolling up unique users over the past month.
-            List<DashboardUserUsageCounts> userUsageCounts = getDashboardUsagePerUser(resourceUrn);
+            List<DashboardUserUsageCounts> userUsageCounts =
+                getDashboardUsagePerUser(context.getOperationContext(), resourceUrn);
             result.setUniqueUserCountLast30Days(userUsageCounts.size());
             result.setTopUsersLast30Days(
                 trimUsers(
@@ -92,12 +95,13 @@ public class DashboardStatsSummaryResolver
     return dashboardUsageMetrics.get(0).getViewsCount();
   }
 
-  private List<DashboardUserUsageCounts> getDashboardUsagePerUser(final Urn resourceUrn) {
+  private List<DashboardUserUsageCounts> getDashboardUsagePerUser(
+      @Nonnull OperationContext opContext, final Urn resourceUrn) {
     long now = System.currentTimeMillis();
     long nowMinusOneMonth = timeMinusOneMonth(now);
     Filter bucketStatsFilter =
         createUsageFilter(resourceUrn.toString(), nowMinusOneMonth, now, true);
-    return getUserUsageCounts(bucketStatsFilter, this.timeseriesAspectService);
+    return getUserUsageCounts(opContext, bucketStatsFilter, this.timeseriesAspectService);
   }
 
   private static List<CorpUser> trimUsers(final List<CorpUser> originalUsers) {

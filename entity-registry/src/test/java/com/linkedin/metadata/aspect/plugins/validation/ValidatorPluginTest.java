@@ -5,7 +5,7 @@ import static org.testng.Assert.assertEquals;
 import com.datahub.test.TestEntityProfile;
 import com.linkedin.data.schema.annotation.PathSpecBasedSchemaAnnotationVisitor;
 import com.linkedin.events.metadata.ChangeType;
-import com.linkedin.metadata.aspect.AspectRetriever;
+import com.linkedin.metadata.aspect.RetrieverContext;
 import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.aspect.batch.ChangeMCP;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
@@ -79,13 +79,13 @@ public class ValidatorPluginTest {
     @Override
     protected Stream<AspectValidationException> validateProposedAspects(
         @Nonnull Collection<? extends BatchItem> mcpItems,
-        @Nonnull AspectRetriever aspectRetriever) {
+        @Nonnull RetrieverContext retrieverContext) {
       return mcpItems.stream().map(i -> AspectValidationException.forItem(i, "test error"));
     }
 
     @Override
     protected Stream<AspectValidationException> validatePreCommitAspects(
-        @Nonnull Collection<ChangeMCP> changeMCPs, AspectRetriever aspectRetriever) {
+        @Nonnull Collection<ChangeMCP> changeMCPs, @Nonnull RetrieverContext retrieverContext) {
       return Stream.empty();
     }
   }

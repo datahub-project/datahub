@@ -52,6 +52,7 @@ export const DEFAULT_APP_CONFIG = {
         showAccessManagement: false,
         nestedDomainsEnabled: true,
         platformBrowseV2: false,
+        businessAttributeEntityEnabled: false,
     },
 };
 

@@ -48,12 +48,12 @@ logger = logging.getLogger(__name__)
 
 
 class SchemaFieldSpecification(BaseModel):
-    id: Optional[str]
-    urn: Optional[str]
+    id: Optional[str] = None
+    urn: Optional[str] = None
     structured_properties: Optional[
         Dict[str, Union[str, float, List[Union[str, float]]]]
     ] = None
-    type: Optional[str]
+    type: Optional[str] = None
     nativeDataType: Optional[str] = None
     jsonPath: Union[None, str] = None
     nullable: Optional[bool] = None
@@ -118,8 +118,8 @@ class SchemaFieldSpecification(BaseModel):
 
 
 class SchemaSpecification(BaseModel):
-    file: Optional[str]
-    fields: Optional[List[SchemaFieldSpecification]]
+    file: Optional[str] = None
+    fields: Optional[List[SchemaFieldSpecification]] = None
 
     @validator("file")
     def file_must_be_avsc(cls, v):
@@ -140,22 +140,22 @@ class Ownership(ConfigModel):
 
 class StructuredPropertyValue(ConfigModel):
     value: Union[str, float, List[str], List[float]]
-    created: Optional[str]
-    lastModified: Optional[str]
+    created: Optional[str] = None
+    lastModified: Optional[str] = None
 
 
 class Dataset(BaseModel):
-    id: Optional[str]
-    platform: Optional[str]
+    id: Optional[str] = None
+    platform: Optional[str] = None
     env: str = "PROD"
-    urn: Optional[str]
-    description: Optional[str]
-    name: Optional[str]
+    urn: Optional[str] = None
+    description: Optional[str] = None
+    name: Optional[str] = None
     schema_metadata: Optional[SchemaSpecification] = Field(alias="schema")
-    downstreams: Optional[List[str]]
-    properties: Optional[Dict[str, str]]
-    subtype: Optional[str]
-    subtypes: Optional[List[str]]
+    downstreams: Optional[List[str]] = None
+    properties: Optional[Dict[str, str]] = None
+    subtype: Optional[str] = None
+    subtypes: Optional[List[str]] = None
     tags: Optional[List[str]] = None
     glossary_terms: Optional[List[str]] = None
     owners: Optional[List[Union[str, Ownership]]] = None

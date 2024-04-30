@@ -118,10 +118,10 @@ public class DashboardType
     try {
       final Map<Urn, EntityResponse> dashboardMap =
           _entityClient.batchGetV2(
+              context.getOperationContext(),
               Constants.DASHBOARD_ENTITY_NAME,
               new HashSet<>(urns),
-              ASPECTS_TO_RESOLVE,
-              context.getAuthentication());
+              ASPECTS_TO_RESOLVE);
 
       final List<EntityResponse> gmsResults = new ArrayList<>(urnStrs.size());
       for (Urn urn : urns) {
@@ -201,7 +201,7 @@ public class DashboardType
   public List<BrowsePath> browsePaths(@Nonnull String urn, @Nonnull QueryContext context)
       throws Exception {
     final StringArray result =
-        _entityClient.getBrowsePaths(getDashboardUrn(urn), context.getAuthentication());
+        _entityClient.getBrowsePaths(context.getOperationContext(), getDashboardUrn(urn));
     return BrowsePathsMapper.map(context, result);
   }
 
@@ -225,7 +225,7 @@ public class DashboardType
       proposals.forEach(proposal -> proposal.setEntityUrn(UrnUtils.getUrn(urn)));
 
       try {
-        _entityClient.batchIngestProposals(proposals, context.getAuthentication(), false);
+        _entityClient.batchIngestProposals(context.getOperationContext(), proposals, false);
       } catch (RemoteInvocationException e) {
         throw new RuntimeException(String.format("Failed to write entity with urn %s", urn), e);
       }

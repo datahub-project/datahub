@@ -1,5 +1,60 @@
 [
 {
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(mode,2934237)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Report"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "mode-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(mode,2934237)",
+    "changeType": "UPSERT",
+    "aspectName": "dashboardUsageStatistics",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1638860400000,
+            "partitionSpec": {
+                "type": "FULL_TABLE",
+                "partition": "FULL_TABLE_SNAPSHOT"
+            },
+            "viewsCount": 6
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "mode-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(mode,2934237)",
+    "changeType": "UPSERT",
+    "aspectName": "embed",
+    "aspect": {
+        "json": {
+            "renderUrl": "https://app.mode.com/acryl/reports/9d2da37fa91e/embed"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "mode-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DashboardSnapshot": {
             "urn": "urn:li:dashboard:(mode,2934237)",
@@ -41,6 +96,7 @@
                                 "type": "DATAOWNER"
                             }
                         ],
+                        "ownerTypes": {},
                         "lastModified": {
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown"
@@ -52,7 +108,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "mode-test"
+        "runId": "mode-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -77,7 +134,100 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "mode-test"
+        "runId": "mode-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mode,10149707,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "updated_at": "2021-12-10T23:12:53.273Z",
+                "last_run_id": "1897576958",
+                "data_source_id": "34499"
+            },
+            "externalUrl": "https://app.mode.com/acryl/reports/9d2da37fa91e/details/queries/6e26a9f3d4e2",
+            "name": "Customer and staff",
+            "description": "",
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "mode-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mode,10149707,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Query"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "mode-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mode,10149707,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "operation",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1638860400000,
+            "partitionSpec": {
+                "type": "FULL_TABLE",
+                "partition": "FULL_TABLE_SNAPSHOT"
+            },
+            "operationType": "UPDATE",
+            "lastUpdatedTimestamp": 1639177973273
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "mode-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "query",
+    "entityUrn": "urn:li:query:10149707.34499.1897576958",
+    "changeType": "UPSERT",
+    "aspectName": "queryProperties",
+    "aspect": {
+        "json": {
+            "statement": {
+                "value": "SELECT  rental.*,  staff.first_name \"Staff First Name\", staff.last_name \"Staff Last Name\" FROM  {{  @join_on_definition    as                      rental  }} join staff on staff.staff_id = rental.staff_id",
+                "language": "SQL"
+            },
+            "source": "SYSTEM",
+            "created": {
+                "time": 1639169724361,
+                "actor": "urn:li:corpuser:modeuser"
+            },
+            "lastModified": {
+                "time": 1639177973273,
+                "actor": "urn:li:corpuser:modeuser"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "mode-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -89,7 +239,8 @@
                     "com.linkedin.pegasus2avro.chart.ChartInfo": {
                         "customProperties": {
                             "Columns": "payment_date,Staff First Name,amount,Staff Last Name",
-                            "Filters": "amount"
+                            "Filters": "amount",
+                            "upstream_fields": "profile_id"
                         },
                         "title": "Customer Staff Table",
                         "description": "",
@@ -106,15 +257,10 @@
                         "chartUrl": "https://app.mode.com/acryltest/reports/9d2da37fa91e/viz/f622b9ee725b",
                         "inputs": [
                             {
-                                "string": "urn:li:dataset:(urn:li:dataPlatform:postgres,dvdrental.public.staff,PROD)"
-                            },
-                            {
-                                "string": "urn:li:dataset:(urn:li:dataPlatform:postgres,dvdrental.public.payment,PROD)"
-                            },
-                            {
-                                "string": "urn:li:dataset:(urn:li:dataPlatform:postgres,dvdrental.public.rental,PROD)"
+                                "string": "urn:li:dataset:(urn:li:dataPlatform:mode,10149707,PROD)"
                             }
                         ],
+                        "inputEdges": [],
                         "type": "TABLE"
                     }
                 },
@@ -139,6 +285,7 @@
                                 "type": "DATAOWNER"
                             }
                         ],
+                        "ownerTypes": {},
                         "lastModified": {
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown"
@@ -150,7 +297,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "mode-test"
+        "runId": "mode-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -165,7 +313,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "mode-test"
+        "runId": "mode-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -196,7 +345,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "mode-test"
+        "runId": "mode-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -211,7 +361,98 @@
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "mode-test"
+        "runId": "mode-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mode,10149707,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "mode-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "query",
+    "entityUrn": "urn:li:query:10149707.34499.1897576958",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "mode-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(mode,2934237)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "acryl"
+                },
+                {
+                    "id": "AcrylTest"
+                },
+                {
+                    "id": "Report 1"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "mode-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(mode,f622b9ee725b)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "acryl"
+                },
+                {
+                    "id": "AcrylTest"
+                },
+                {
+                    "id": "Report 1"
+                },
+                {
+                    "id": "Customer and staff"
+                },
+                {
+                    "id": "Customer Staff Table"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "mode-test",
+        "lastRunId": "no-run-id-provided"
     }
 }
 ]

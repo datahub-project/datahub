@@ -2,10 +2,11 @@ package com.linkedin.datahub.graphql.resolvers.tag;
 
 import static com.linkedin.datahub.graphql.TestUtils.*;
 import static com.linkedin.metadata.Constants.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.testng.Assert.*;
 
-import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
@@ -43,12 +44,13 @@ public class SetTagColorResolverTest {
     final TagProperties oldTagProperties = new TagProperties().setName("Test Tag");
     Mockito.when(
             mockService.getAspect(
+                any(),
                 Mockito.eq(Urn.createFromString(TEST_ENTITY_URN)),
                 Mockito.eq(Constants.TAG_PROPERTIES_ASPECT_NAME),
                 Mockito.eq(0L)))
         .thenReturn(oldTagProperties);
 
-    Mockito.when(mockService.exists(eq(Urn.createFromString(TEST_ENTITY_URN)), eq(true)))
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN)), eq(true)))
         .thenReturn(true);
 
     SetTagColorResolver resolver = new SetTagColorResolver(mockClient, mockService);
@@ -68,10 +70,10 @@ public class SetTagColorResolverTest {
             UrnUtils.getUrn(TEST_ENTITY_URN), TAG_PROPERTIES_ASPECT_NAME, newTagProperties);
 
     Mockito.verify(mockClient, Mockito.times(1))
-        .ingestProposal(Mockito.eq(proposal), Mockito.any(Authentication.class), Mockito.eq(false));
+        .ingestProposal(any(), Mockito.eq(proposal), Mockito.eq(false));
 
     Mockito.verify(mockService, Mockito.times(1))
-        .exists(Mockito.eq(Urn.createFromString(TEST_ENTITY_URN)), eq(true));
+        .exists(any(), Mockito.eq(Urn.createFromString(TEST_ENTITY_URN)), eq(true));
   }
 
   @Test
@@ -83,12 +85,13 @@ public class SetTagColorResolverTest {
     // Test setting the domain
     Mockito.when(
             mockService.getAspect(
+                any(),
                 Mockito.eq(Urn.createFromString(TEST_ENTITY_URN)),
                 Mockito.eq(Constants.TAG_PROPERTIES_ASPECT_NAME),
                 Mockito.eq(0)))
         .thenReturn(null);
 
-    Mockito.when(mockService.exists(eq(Urn.createFromString(TEST_ENTITY_URN)), eq(true)))
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN)), eq(true)))
         .thenReturn(true);
 
     SetTagColorResolver resolver = new SetTagColorResolver(mockClient, mockService);
@@ -101,8 +104,7 @@ public class SetTagColorResolverTest {
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
 
-    Mockito.verify(mockClient, Mockito.times(0))
-        .ingestProposal(Mockito.any(), Mockito.any(Authentication.class));
+    Mockito.verify(mockClient, Mockito.times(0)).ingestProposal(any(), Mockito.any(), anyBoolean());
   }
 
   @Test
@@ -118,10 +120,10 @@ public class SetTagColorResolverTest {
             .setValue(new Aspect(oldTagProperties.data()));
     Mockito.when(
             mockClient.batchGetV2(
+                any(),
                 Mockito.eq(Constants.TAG_ENTITY_NAME),
                 Mockito.eq(new HashSet<>(ImmutableSet.of(Urn.createFromString(TEST_ENTITY_URN)))),
-                Mockito.eq(ImmutableSet.of(Constants.TAG_PROPERTIES_ASPECT_NAME)),
-                Mockito.any(Authentication.class)))
+                Mockito.eq(ImmutableSet.of(Constants.TAG_PROPERTIES_ASPECT_NAME))))
         .thenReturn(
             ImmutableMap.of(
                 Urn.createFromString(TEST_ENTITY_URN),
@@ -134,7 +136,7 @@ public class SetTagColorResolverTest {
                                 Constants.TAG_PROPERTIES_ASPECT_NAME, oldTagPropertiesAspect)))));
 
     EntityService mockService = getMockEntityService();
-    Mockito.when(mockService.exists(eq(Urn.createFromString(TEST_ENTITY_URN)), eq(true)))
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN)), eq(true)))
         .thenReturn(false);
 
     SetTagColorResolver resolver = new SetTagColorResolver(mockClient, mockService);
@@ -146,8 +148,7 @@ public class SetTagColorResolverTest {
     Mockito.when(mockEnv.getArgument(Mockito.eq("colorHex"))).thenReturn(TEST_COLOR_HEX);
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
-    Mockito.verify(mockClient, Mockito.times(0))
-        .ingestProposal(Mockito.any(), Mockito.any(Authentication.class));
+    Mockito.verify(mockClient, Mockito.times(0)).ingestProposal(any(), Mockito.any(), anyBoolean());
   }
 
   @Test
@@ -165,8 +166,7 @@ public class SetTagColorResolverTest {
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
-    Mockito.verify(mockClient, Mockito.times(0))
-        .ingestProposal(Mockito.any(), Mockito.any(Authentication.class));
+    Mockito.verify(mockClient, Mockito.times(0)).ingestProposal(any(), Mockito.any(), anyBoolean());
   }
 
   @Test
@@ -174,7 +174,7 @@ public class SetTagColorResolverTest {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     Mockito.doThrow(RemoteInvocationException.class)
         .when(mockClient)
-        .ingestProposal(Mockito.any(), Mockito.any(Authentication.class));
+        .ingestProposal(any(), Mockito.any(), anyBoolean());
     SetTagColorResolver resolver =
         new SetTagColorResolver(mockClient, Mockito.mock(EntityService.class));
 
