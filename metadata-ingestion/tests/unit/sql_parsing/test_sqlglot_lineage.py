@@ -1111,7 +1111,6 @@ AS (
 
 
 def test_snowflake_with_unnamed_column_from_udf_call() -> None:
-    # Came across this in the Redshift query log, but it seems to be a system-generated query.
     assert_sql_result(
         """SELECT
   A.ID,

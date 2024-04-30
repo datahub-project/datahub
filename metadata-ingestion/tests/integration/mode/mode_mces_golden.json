@@ -1,5 +1,95 @@
 [
 {
+    "entityType": "container",
+    "entityUrn": "urn:li:container:800cfcb4cec6ad587cafde11a0b0bb4a",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "mode",
+                "space_token": "75737b70402e"
+            },
+            "name": "AcrylTest"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "mode-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:800cfcb4cec6ad587cafde11a0b0bb4a",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "mode-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:800cfcb4cec6ad587cafde11a0b0bb4a",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:mode"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "mode-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:800cfcb4cec6ad587cafde11a0b0bb4a",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Collection"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "mode-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:800cfcb4cec6ad587cafde11a0b0bb4a",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "acryl"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "mode-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "entityType": "dashboard",
     "entityUrn": "urn:li:dashboard:(mode,2934237)",
     "changeType": "UPSERT",
@@ -75,10 +165,11 @@
                             },
                             "lastModified": {
                                 "time": 1639182684451,
-                                "actor": "urn:li:corpuser:modeuser"
+                                "actor": "urn:li:corpuser:unknown"
                             }
                         },
-                        "dashboardUrl": "https://app.mode.com/acryl/reports/9d2da37fa91e"
+                        "dashboardUrl": "https://app.mode.com/acryl/reports/9d2da37fa91e",
+                        "lastRefreshed": 1639177971490
                     }
                 },
                 {
@@ -124,10 +215,8 @@
                     "id": "acryl"
                 },
                 {
-                    "id": "AcrylTest"
-                },
-                {
-                    "id": "Report 1"
+                    "id": "urn:li:container:800cfcb4cec6ad587cafde11a0b0bb4a",
+                    "urn": "urn:li:container:800cfcb4cec6ad587cafde11a0b0bb4a"
                 }
             ]
         }
@@ -552,6 +641,34 @@
     }
 },
 {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mode,10149707,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "acryl"
+                },
+                {
+                    "id": "urn:li:container:800cfcb4cec6ad587cafde11a0b0bb4a",
+                    "urn": "urn:li:container:800cfcb4cec6ad587cafde11a0b0bb4a"
+                },
+                {
+                    "id": "urn:li:dashboard:(mode,2934237)",
+                    "urn": "urn:li:dashboard:(mode,2934237)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "mode-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "entityType": "query",
     "entityUrn": "urn:li:query:10149707.34499.1897576958",
     "changeType": "UPSERT",
@@ -594,11 +711,18 @@
                         "nullable": false,
                         "type": {
                             "type": {
-                                "com.linkedin.schema.StringType": {}
+                                "com.linkedin.schema.NullType": {}
                             }
                         },
-                        "nativeDataType": "string",
+                        "nativeDataType": "",
                         "recursive": false,
+                        "globalTags": {
+                            "tags": [
+                                {
+                                    "tag": "urn:li:tag:Dimension"
+                                }
+                            ]
+                        },
                         "isPartOfKey": false
                     }
                 },
@@ -609,14 +733,39 @@
                         "nullable": false,
                         "type": {
                             "type": {
-                                "com.linkedin.schema.StringType": {}
+                                "com.linkedin.schema.NullType": {}
                             }
                         },
-                        "nativeDataType": "string",
+                        "nativeDataType": "",
                         "recursive": false,
+                        "globalTags": {
+                            "tags": [
+                                {
+                                    "tag": "urn:li:tag:Dimension"
+                                }
+                            ]
+                        },
                         "isPartOfKey": false
                     }
                 }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "mode-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(mode,f622b9ee725b)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Chart"
             ]
         }
     },
@@ -634,9 +783,9 @@
                 {
                     "com.linkedin.pegasus2avro.chart.ChartInfo": {
                         "customProperties": {
+                            "ChartType": "table",
                             "Columns": "payment_date,Staff First Name,amount,Staff Last Name",
-                            "Filters": "amount",
-                            "upstream_fields": "profile_id"
+                            "Filters": "amount"
                         },
                         "title": "Customer Staff Table",
                         "description": "",
@@ -657,7 +806,8 @@
                             }
                         ],
                         "inputEdges": [],
-                        "type": "TABLE"
+                        "type": "TABLE",
+                        "lastRefreshed": 1639177971490
                     }
                 },
                 {
@@ -725,16 +875,15 @@
                     "id": "acryl"
                 },
                 {
-                    "id": "AcrylTest"
+                    "id": "urn:li:container:800cfcb4cec6ad587cafde11a0b0bb4a",
+                    "urn": "urn:li:container:800cfcb4cec6ad587cafde11a0b0bb4a"
                 },
                 {
-                    "id": "Report 1"
+                    "id": "urn:li:dashboard:(mode,2934237)",
+                    "urn": "urn:li:dashboard:(mode,2934237)"
                 },
                 {
                     "id": "Customer and staff"
-                },
-                {
-                    "id": "Customer Staff Table"
                 }
             ]
         }
