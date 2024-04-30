@@ -1,6 +1,5 @@
 import random
-from collections.abc import Iterable
-from typing import Dict, Generic, Iterator, List, Set, TypeVar, Union
+from typing import Dict, Generic, Iterable, Iterator, List, Set, TypeVar, Union
 
 from datahub.configuration.pydantic_migration_helpers import PYDANTIC_VERSION_2
 
