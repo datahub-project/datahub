@@ -1,6 +1,8 @@
 package com.linkedin.metadata.service;
 
 import static com.linkedin.metadata.Constants.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
 
 import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;
@@ -16,6 +18,7 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.utils.GenericRecordUtils;
@@ -28,6 +31,8 @@ import com.linkedin.query.QuerySubject;
 import com.linkedin.query.QuerySubjectArray;
 import com.linkedin.query.QuerySubjects;
 import com.linkedin.r2.RemoteInvocationException;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.List;
 import org.mockito.Mockito;
 import org.testng.Assert;
@@ -42,21 +47,24 @@ public class QueryServiceTest {
       UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:mysql,my-test-2,PROD)");
   private static final Urn TEST_USER_URN = UrnUtils.getUrn("urn:li:corpuser:test");
 
+  private OperationContext opContext =
+      TestOperationContexts.userContextNoSearchAuthorization(TEST_USER_URN);
+
   @Test
   private void testCreateQuerySuccess() throws Exception {
 
-    final EntityClient mockClient = createQueryMockEntityClient();
-    final QueryService service = new QueryService(mockClient, Mockito.mock(Authentication.class));
+    final SystemEntityClient mockClient = createQueryMockEntityClient();
+    final QueryService service = new QueryService(mockClient);
 
     // Case 1: All fields provided
     Urn urn =
         service.createQuery(
+            opContext,
             "test query",
             "my description",
             QuerySource.MANUAL,
             new QueryStatement().setLanguage(QueryLanguage.SQL).setValue("SELECT * FROM Table"),
             ImmutableList.of(new QuerySubject().setEntity(TEST_DATASET_URN)),
-            mockAuthentication(),
             0L);
 
     Assert.assertEquals(urn, TEST_QUERY_URN);
@@ -64,45 +72,41 @@ public class QueryServiceTest {
     // Ingests both aspects - properties and subjects
     Mockito.verify(mockClient, Mockito.times(2))
         .ingestProposal(
-            Mockito.any(MetadataChangeProposal.class),
-            Mockito.any(Authentication.class),
-            Mockito.eq(false));
+            any(OperationContext.class), any(MetadataChangeProposal.class), Mockito.eq(false));
 
     // Case 2: Null fields provided
     urn =
         service.createQuery(
+            opContext,
             null,
             null,
             QuerySource.MANUAL,
             new QueryStatement().setLanguage(QueryLanguage.SQL).setValue("SELECT * FROM Table"),
             ImmutableList.of(),
-            mockAuthentication(),
             0L);
 
     Assert.assertEquals(urn, TEST_QUERY_URN);
     Mockito.verify(mockClient, Mockito.times(4))
         .ingestProposal(
-            Mockito.any(MetadataChangeProposal.class),
-            Mockito.any(Authentication.class),
-            Mockito.eq(false));
+            any(OperationContext.class), any(MetadataChangeProposal.class), Mockito.eq(false));
   }
 
   @Test
   private void testCreateQueryErrorMissingInputs() throws Exception {
-    final EntityClient mockClient = createQueryMockEntityClient();
-    final QueryService service = new QueryService(mockClient, Mockito.mock(Authentication.class));
+    final SystemEntityClient mockClient = createQueryMockEntityClient();
+    final QueryService service = new QueryService(mockClient);
 
     // Case 1: missing Query Source
     Assert.assertThrows(
         RuntimeException.class,
         () ->
             service.createQuery(
+                mock(OperationContext.class),
                 null,
                 null,
                 null, // Cannot be null
                 new QueryStatement().setLanguage(QueryLanguage.SQL).setValue("SELECT * FROM Table"),
                 ImmutableList.of(),
-                mockAuthentication(),
                 0L));
 
     // Case 2: missing Query Statement
@@ -110,12 +114,12 @@ public class QueryServiceTest {
         RuntimeException.class,
         () ->
             service.createQuery(
+                mock(OperationContext.class),
                 null,
                 null,
                 QuerySource.MANUAL, // Cannot be null
                 null,
                 ImmutableList.of(),
-                mockAuthentication(),
                 0L));
 
     // Case 3: missing Query Subjects
@@ -123,39 +127,37 @@ public class QueryServiceTest {
         RuntimeException.class,
         () ->
             service.createQuery(
+                mock(OperationContext.class),
                 null,
                 null,
                 QuerySource.MANUAL, // Cannot be null
                 new QueryStatement().setLanguage(QueryLanguage.SQL).setValue("SELECT * FROM Table"),
                 null,
-                mockAuthentication(),
                 0L));
   }
 
   @Test
   private void testCreateQueryError() throws Exception {
-    final EntityClient mockClient = Mockito.mock(EntityClient.class);
+    final SystemEntityClient mockClient = mock(SystemEntityClient.class);
 
     Mockito.doThrow(new RemoteInvocationException())
         .when(mockClient)
         .ingestProposal(
-            Mockito.any(MetadataChangeProposal.class),
-            Mockito.any(Authentication.class),
-            Mockito.eq(false));
+            any(OperationContext.class), any(MetadataChangeProposal.class), Mockito.eq(false));
 
-    final QueryService service = new QueryService(mockClient, Mockito.mock(Authentication.class));
+    final QueryService service = new QueryService(mockClient);
 
     // Throws wrapped exception
     Assert.assertThrows(
         RuntimeException.class,
         () ->
             service.createQuery(
+                mock(OperationContext.class),
                 "test query",
                 "my description",
                 QuerySource.MANUAL,
                 new QueryStatement().setLanguage(QueryLanguage.SQL).setValue("SELECT * FROM Table"),
                 ImmutableList.of(new QuerySubject().setEntity(TEST_DATASET_URN)),
-                mockAuthentication(),
                 0L));
   }
 
@@ -166,7 +168,7 @@ public class QueryServiceTest {
     final QueryStatement oldStatement =
         new QueryStatement().setLanguage(QueryLanguage.SQL).setValue("SELECT * FROM Table");
 
-    final EntityClient mockClient = Mockito.mock(EntityClient.class);
+    final SystemEntityClient mockClient = mock(SystemEntityClient.class);
 
     resetQueryPropertiesClient(
         mockClient,
@@ -179,7 +181,7 @@ public class QueryServiceTest {
         0L,
         0L);
 
-    final QueryService service = new QueryService(mockClient, Mockito.mock(Authentication.class));
+    final QueryService service = new QueryService(mockClient);
 
     final String newName = "new name";
     final String newDescription = "new description";
@@ -189,10 +191,11 @@ public class QueryServiceTest {
         ImmutableList.of(new QuerySubject().setEntity(TEST_DATASET_URN_2));
 
     // Case 1: Update name only
-    service.updateQuery(TEST_QUERY_URN, newName, null, null, null, mockAuthentication(), 1L);
+    service.updateQuery(opContext, TEST_QUERY_URN, newName, null, null, null, 1L);
 
     Mockito.verify(mockClient, Mockito.times(1))
         .batchIngestProposals(
+            any(OperationContext.class),
             Mockito.eq(
                 ImmutableList.of(
                     buildUpdateQueryPropertiesProposal(
@@ -203,7 +206,6 @@ public class QueryServiceTest {
                         oldStatement,
                         0L,
                         1L))),
-            Mockito.any(Authentication.class),
             Mockito.eq(false));
 
     resetQueryPropertiesClient(
@@ -218,10 +220,11 @@ public class QueryServiceTest {
         0L);
 
     // Case 2: Update description only
-    service.updateQuery(TEST_QUERY_URN, null, newDescription, null, null, mockAuthentication(), 1L);
+    service.updateQuery(opContext, TEST_QUERY_URN, null, newDescription, null, null, 1L);
 
     Mockito.verify(mockClient, Mockito.times(1))
         .batchIngestProposals(
+            any(OperationContext.class),
             Mockito.eq(
                 ImmutableList.of(
                     buildUpdateQueryPropertiesProposal(
@@ -232,7 +235,6 @@ public class QueryServiceTest {
                         oldStatement,
                         0L,
                         1L))),
-            Mockito.any(Authentication.class),
             Mockito.eq(false));
 
     resetQueryPropertiesClient(
@@ -247,10 +249,11 @@ public class QueryServiceTest {
         0L);
 
     // Case 3: Update definition only
-    service.updateQuery(TEST_QUERY_URN, null, null, newStatement, null, mockAuthentication(), 1L);
+    service.updateQuery(opContext, TEST_QUERY_URN, null, null, newStatement, null, 1L);
 
     Mockito.verify(mockClient, Mockito.times(1))
         .batchIngestProposals(
+            any(OperationContext.class),
             Mockito.eq(
                 ImmutableList.of(
                     buildUpdateQueryPropertiesProposal(
@@ -261,7 +264,6 @@ public class QueryServiceTest {
                         newStatement,
                         0L,
                         1L))),
-            Mockito.any(Authentication.class),
             Mockito.eq(false));
 
     resetQueryPropertiesClient(
@@ -276,10 +278,11 @@ public class QueryServiceTest {
         0L);
 
     // Case 4: Update subjects only
-    service.updateQuery(TEST_QUERY_URN, null, null, null, newSubjects, mockAuthentication(), 1L);
+    service.updateQuery(opContext, TEST_QUERY_URN, null, null, null, newSubjects, 1L);
 
     Mockito.verify(mockClient, Mockito.times(1))
         .batchIngestProposals(
+            any(OperationContext.class),
             Mockito.eq(
                 ImmutableList.of(
                     buildUpdateQueryPropertiesProposal(
@@ -291,21 +294,15 @@ public class QueryServiceTest {
                         0L,
                         1L),
                     buildUpdateQuerySubjectsProposal(TEST_QUERY_URN, newSubjects))),
-            Mockito.any(Authentication.class),
             Mockito.eq(false));
 
     // Case 5: Update all fields
     service.updateQuery(
-        TEST_QUERY_URN,
-        newName,
-        newDescription,
-        newStatement,
-        newSubjects,
-        mockAuthentication(),
-        1L);
+        opContext, TEST_QUERY_URN, newName, newDescription, newStatement, newSubjects, 1L);
 
     Mockito.verify(mockClient, Mockito.times(1))
         .batchIngestProposals(
+            any(OperationContext.class),
             Mockito.eq(
                 ImmutableList.of(
                     buildUpdateQueryPropertiesProposal(
@@ -317,96 +314,96 @@ public class QueryServiceTest {
                         0L,
                         1L),
                     buildUpdateQuerySubjectsProposal(TEST_QUERY_URN, newSubjects))),
-            Mockito.any(Authentication.class),
             Mockito.eq(false));
   }
 
   @Test
   private void testUpdateQueryMissingQuery() throws Exception {
-    final EntityClient mockClient = Mockito.mock(EntityClient.class);
+    final SystemEntityClient mockClient = mock(SystemEntityClient.class);
 
     Mockito.when(
             mockClient.getV2(
+                any(OperationContext.class),
                 Mockito.eq(QUERY_ENTITY_NAME),
                 Mockito.eq(TEST_QUERY_URN),
-                Mockito.eq(ImmutableSet.of(QUERY_PROPERTIES_ASPECT_NAME)),
-                Mockito.any(Authentication.class)))
+                Mockito.eq(ImmutableSet.of(QUERY_PROPERTIES_ASPECT_NAME))))
         .thenReturn(null);
 
-    final QueryService service = new QueryService(mockClient, Mockito.mock(Authentication.class));
+    final QueryService service = new QueryService(mockClient);
 
     // Throws wrapped exception
     Assert.assertThrows(
         RuntimeException.class,
         () ->
             service.updateQuery(
+                mock(OperationContext.class),
                 TEST_QUERY_URN,
                 "new name",
                 null,
                 new QueryStatement().setLanguage(QueryLanguage.SQL).setValue("SELECT * FROM Table"),
                 ImmutableList.of(new QuerySubject().setEntity(TEST_DATASET_URN)),
-                mockAuthentication(),
                 1L));
   }
 
   @Test
   private void testUpdateQueryError() throws Exception {
-    final EntityClient mockClient = Mockito.mock(EntityClient.class);
+    final SystemEntityClient mockClient = mock(SystemEntityClient.class);
 
     Mockito.doThrow(new RemoteInvocationException())
         .when(mockClient)
         .getV2(
+            any(OperationContext.class),
             Mockito.eq(QUERY_ENTITY_NAME),
             Mockito.eq(TEST_QUERY_URN),
-            Mockito.eq(ImmutableSet.of(QUERY_PROPERTIES_ASPECT_NAME)),
-            Mockito.any(Authentication.class));
+            Mockito.eq(ImmutableSet.of(QUERY_PROPERTIES_ASPECT_NAME)));
 
-    final QueryService service = new QueryService(mockClient, Mockito.mock(Authentication.class));
+    final QueryService service = new QueryService(mockClient);
 
     // Throws wrapped exception
     Assert.assertThrows(
         RuntimeException.class,
         () ->
             service.updateQuery(
+                mock(OperationContext.class),
                 TEST_QUERY_URN,
                 "new name",
                 null,
                 new QueryStatement().setLanguage(QueryLanguage.SQL).setValue("SELECT * FROM Table"),
                 ImmutableList.of(new QuerySubject().setEntity(TEST_DATASET_URN)),
-                mockAuthentication(),
                 1L));
   }
 
   @Test
   private void testDeleteQuerySuccess() throws Exception {
-    final EntityClient mockClient = Mockito.mock(EntityClient.class);
+    final SystemEntityClient mockClient = mock(SystemEntityClient.class);
 
-    final QueryService service = new QueryService(mockClient, Mockito.mock(Authentication.class));
+    final QueryService service = new QueryService(mockClient);
 
-    service.deleteQuery(TEST_QUERY_URN, mockAuthentication());
+    service.deleteQuery(opContext, TEST_QUERY_URN);
 
     Mockito.verify(mockClient, Mockito.times(1))
-        .deleteEntity(Mockito.eq(TEST_QUERY_URN), Mockito.any(Authentication.class));
+        .deleteEntity(any(OperationContext.class), Mockito.eq(TEST_QUERY_URN));
   }
 
   @Test
   private void testDeleteQueryError() throws Exception {
-    final EntityClient mockClient = Mockito.mock(EntityClient.class);
+    final SystemEntityClient mockClient = mock(SystemEntityClient.class);
 
-    final QueryService service = new QueryService(mockClient, Mockito.mock(Authentication.class));
+    final QueryService service = new QueryService(mockClient);
 
     Mockito.doThrow(new RemoteInvocationException())
         .when(mockClient)
-        .deleteEntity(Mockito.eq(TEST_QUERY_URN), Mockito.any(Authentication.class));
+        .deleteEntity(any(OperationContext.class), Mockito.eq(TEST_QUERY_URN));
 
     // Throws wrapped exception
     Assert.assertThrows(
-        RuntimeException.class, () -> service.deleteQuery(TEST_QUERY_URN, mockAuthentication()));
+        RuntimeException.class,
+        () -> service.deleteQuery(any(OperationContext.class), TEST_QUERY_URN));
   }
 
   @Test
   private void testGetQueryPropertiesSuccess() throws Exception {
-    final EntityClient mockClient = Mockito.mock(EntityClient.class);
+    final SystemEntityClient mockClient = mock(SystemEntityClient.class);
 
     final String name = "name";
     final String description = "description";
@@ -424,10 +421,9 @@ public class QueryServiceTest {
         0L,
         1L);
 
-    final QueryService service = new QueryService(mockClient, Mockito.mock(Authentication.class));
+    final QueryService service = new QueryService(mockClient);
 
-    final QueryProperties properties =
-        service.getQueryProperties(TEST_QUERY_URN, mockAuthentication());
+    final QueryProperties properties = service.getQueryProperties(opContext, TEST_QUERY_URN);
 
     // Assert that the info is correct.
     Assert.assertEquals((long) properties.getCreated().getTime(), 0L);
@@ -441,48 +437,48 @@ public class QueryServiceTest {
 
   @Test
   private void testGetQueryPropertiesNoQueryExists() throws Exception {
-    final EntityClient mockClient = Mockito.mock(EntityClient.class);
+    final SystemEntityClient mockClient = mock(SystemEntityClient.class);
 
     Mockito.when(
             mockClient.getV2(
+                any(OperationContext.class),
                 Mockito.eq(QUERY_ENTITY_NAME),
                 Mockito.eq(TEST_QUERY_URN),
                 Mockito.eq(
                     ImmutableSet.of(
-                        QUERY_PROPERTIES_ASPECT_NAME, Constants.QUERY_SUBJECTS_ASPECT_NAME)),
-                Mockito.any(Authentication.class)))
+                        QUERY_PROPERTIES_ASPECT_NAME, Constants.QUERY_SUBJECTS_ASPECT_NAME))))
         .thenReturn(null);
 
-    final QueryService service = new QueryService(mockClient, Mockito.mock(Authentication.class));
+    final QueryService service = new QueryService(mockClient);
 
-    Assert.assertNull(service.getQueryProperties(TEST_QUERY_URN, mockAuthentication()));
+    Assert.assertNull(service.getQueryProperties(opContext, TEST_QUERY_URN));
   }
 
   @Test
   private void testGetQueryPropertiesError() throws Exception {
-    final EntityClient mockClient = Mockito.mock(EntityClient.class);
+    final SystemEntityClient mockClient = mock(SystemEntityClient.class);
 
     Mockito.doThrow(new RemoteInvocationException())
         .when(mockClient)
         .getV2(
+            any(OperationContext.class),
             Mockito.eq(QUERY_ENTITY_NAME),
             Mockito.eq(TEST_QUERY_URN),
             Mockito.eq(
                 ImmutableSet.of(
-                    QUERY_PROPERTIES_ASPECT_NAME, Constants.QUERY_SUBJECTS_ASPECT_NAME)),
-            Mockito.any(Authentication.class));
+                    QUERY_PROPERTIES_ASPECT_NAME, Constants.QUERY_SUBJECTS_ASPECT_NAME)));
 
-    final QueryService service = new QueryService(mockClient, Mockito.mock(Authentication.class));
+    final QueryService service = new QueryService(mockClient);
 
     // Throws wrapped exception
     Assert.assertThrows(
         RuntimeException.class,
-        () -> service.getQueryProperties(TEST_QUERY_URN, mockAuthentication()));
+        () -> service.getQueryProperties(mock(OperationContext.class), TEST_QUERY_URN));
   }
 
   @Test
   private void testGetQuerySubjectsSuccess() throws Exception {
-    final EntityClient mockClient = Mockito.mock(EntityClient.class);
+    final SystemEntityClient mockClient = mock(SystemEntityClient.class);
 
     final QuerySubjects existingSubjects =
         new QuerySubjects()
@@ -492,50 +488,49 @@ public class QueryServiceTest {
 
     resetQuerySubjectsClient(mockClient, TEST_QUERY_URN, existingSubjects);
 
-    final QueryService service = new QueryService(mockClient, Mockito.mock(Authentication.class));
+    final QueryService service = new QueryService(mockClient);
 
-    final QuerySubjects querySubjects =
-        service.getQuerySubjects(TEST_QUERY_URN, mockAuthentication());
+    final QuerySubjects querySubjects = service.getQuerySubjects(opContext, TEST_QUERY_URN);
 
     Assert.assertEquals(querySubjects, existingSubjects);
   }
 
   @Test
   private void testGetQuerySubjectsNoQueryExists() throws Exception {
-    final EntityClient mockClient = Mockito.mock(EntityClient.class);
+    final SystemEntityClient mockClient = mock(SystemEntityClient.class);
 
     Mockito.when(
             mockClient.getV2(
+                any(OperationContext.class),
                 Mockito.eq(QUERY_ENTITY_NAME),
                 Mockito.eq(TEST_QUERY_URN),
                 Mockito.eq(
-                    ImmutableSet.of(QUERY_PROPERTIES_ASPECT_NAME, QUERY_SUBJECTS_ASPECT_NAME)),
-                Mockito.any(Authentication.class)))
+                    ImmutableSet.of(QUERY_PROPERTIES_ASPECT_NAME, QUERY_SUBJECTS_ASPECT_NAME))))
         .thenReturn(null);
 
-    final QueryService service = new QueryService(mockClient, Mockito.mock(Authentication.class));
+    final QueryService service = new QueryService(mockClient);
 
-    Assert.assertNull(service.getQueryProperties(TEST_QUERY_URN, mockAuthentication()));
+    Assert.assertNull(service.getQueryProperties(opContext, TEST_QUERY_URN));
   }
 
   @Test
   private void testGetQuerySubjectsError() throws Exception {
-    final EntityClient mockClient = Mockito.mock(EntityClient.class);
+    final SystemEntityClient mockClient = mock(SystemEntityClient.class);
 
     Mockito.doThrow(new RemoteInvocationException())
         .when(mockClient)
         .getV2(
+            any(OperationContext.class),
             Mockito.eq(QUERY_ENTITY_NAME),
             Mockito.eq(TEST_QUERY_URN),
-            Mockito.eq(ImmutableSet.of(QUERY_PROPERTIES_ASPECT_NAME, QUERY_SUBJECTS_ASPECT_NAME)),
-            Mockito.any(Authentication.class));
+            Mockito.eq(ImmutableSet.of(QUERY_PROPERTIES_ASPECT_NAME, QUERY_SUBJECTS_ASPECT_NAME)));
 
-    final QueryService service = new QueryService(mockClient, Mockito.mock(Authentication.class));
+    final QueryService service = new QueryService(mockClient);
 
     // Throws wrapped exception
     Assert.assertThrows(
         RuntimeException.class,
-        () -> service.getQuerySubjects(TEST_QUERY_URN, mockAuthentication()));
+        () -> service.getQuerySubjects(mock(OperationContext.class), TEST_QUERY_URN));
   }
 
   private static MetadataChangeProposal buildUpdateQuerySubjectsProposal(
@@ -579,13 +574,11 @@ public class QueryServiceTest {
     return mcp;
   }
 
-  private static EntityClient createQueryMockEntityClient() throws Exception {
-    EntityClient mockClient = Mockito.mock(EntityClient.class);
+  private static SystemEntityClient createQueryMockEntityClient() throws Exception {
+    SystemEntityClient mockClient = mock(SystemEntityClient.class);
     Mockito.when(
             mockClient.ingestProposal(
-                Mockito.any(MetadataChangeProposal.class),
-                Mockito.any(Authentication.class),
-                Mockito.eq(false)))
+                any(OperationContext.class), any(MetadataChangeProposal.class), Mockito.eq(false)))
         .thenReturn(TEST_QUERY_URN.toString());
     return mockClient;
   }
@@ -606,9 +599,7 @@ public class QueryServiceTest {
 
     Mockito.when(
             mockClient.ingestProposal(
-                Mockito.any(MetadataChangeProposal.class),
-                Mockito.any(Authentication.class),
-                Mockito.eq(false)))
+                any(OperationContext.class), any(MetadataChangeProposal.class), Mockito.eq(false)))
         .thenReturn(queryUrn.toString());
 
     final QueryProperties existingProperties =
@@ -622,11 +613,11 @@ public class QueryServiceTest {
 
     Mockito.when(
             mockClient.getV2(
+                any(OperationContext.class),
                 Mockito.eq(QUERY_ENTITY_NAME),
                 Mockito.eq(queryUrn),
                 Mockito.eq(
-                    ImmutableSet.of(QUERY_PROPERTIES_ASPECT_NAME, QUERY_SUBJECTS_ASPECT_NAME)),
-                Mockito.any(Authentication.class)))
+                    ImmutableSet.of(QUERY_PROPERTIES_ASPECT_NAME, QUERY_SUBJECTS_ASPECT_NAME))))
         .thenReturn(
             new EntityResponse()
                 .setUrn(queryUrn)
@@ -647,18 +638,16 @@ public class QueryServiceTest {
 
     Mockito.when(
             mockClient.ingestProposal(
-                Mockito.any(MetadataChangeProposal.class),
-                Mockito.any(Authentication.class),
-                Mockito.eq(false)))
+                any(OperationContext.class), any(MetadataChangeProposal.class), Mockito.eq(false)))
         .thenReturn(queryUrn.toString());
 
     Mockito.when(
             mockClient.getV2(
+                any(OperationContext.class),
                 Mockito.eq(QUERY_ENTITY_NAME),
                 Mockito.eq(queryUrn),
                 Mockito.eq(
-                    ImmutableSet.of(QUERY_PROPERTIES_ASPECT_NAME, QUERY_SUBJECTS_ASPECT_NAME)),
-                Mockito.any(Authentication.class)))
+                    ImmutableSet.of(QUERY_PROPERTIES_ASPECT_NAME, QUERY_SUBJECTS_ASPECT_NAME))))
         .thenReturn(
             new EntityResponse()
                 .setUrn(queryUrn)
@@ -671,7 +660,7 @@ public class QueryServiceTest {
   }
 
   private static Authentication mockAuthentication() {
-    Authentication mockAuth = Mockito.mock(Authentication.class);
+    Authentication mockAuth = mock(Authentication.class);
     Mockito.when(mockAuth.getActor()).thenReturn(new Actor(ActorType.USER, TEST_USER_URN.getId()));
     return mockAuth;
   }

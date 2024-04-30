@@ -33,7 +33,7 @@ public interface EntityRegistry {
    * @return an {@link DefaultEntitySpec} corresponding to the entity name provided, null if none
    *     exists.
    */
-  @Nonnull
+  @Nullable
   EntitySpec getEntitySpec(@Nonnull final String entityName);
 
   /**

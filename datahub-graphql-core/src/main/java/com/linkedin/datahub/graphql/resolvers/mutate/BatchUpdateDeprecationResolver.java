@@ -70,7 +70,11 @@ public class BatchUpdateDeprecationResolver implements DataFetcher<CompletableFu
           "Unauthorized to perform this action. Please contact your DataHub administrator.");
     }
     LabelUtils.validateResource(
-        resourceUrn, resource.getSubResource(), resource.getSubResourceType(), _entityService);
+        context.getOperationContext(),
+        resourceUrn,
+        resource.getSubResource(),
+        resource.getSubResourceType(),
+        _entityService);
   }
 
   private void batchUpdateDeprecation(
@@ -87,6 +91,7 @@ public class BatchUpdateDeprecationResolver implements DataFetcher<CompletableFu
         resources);
     try {
       DeprecationUtils.updateDeprecationForResources(
+          context.getOperationContext(),
           deprecated,
           note,
           decommissionTime,

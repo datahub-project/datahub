@@ -110,6 +110,9 @@ public class ESUtils {
               "fieldDescriptions",
               ImmutableList.of("fieldDescriptions", "editedFieldDescriptions"));
           put("description", ImmutableList.of("description", "editedDescription"));
+          put(
+              "businessAttribute",
+              ImmutableList.of("businessAttributeRef", "businessAttributeRef.urn"));
         }
       };
 
@@ -337,7 +340,7 @@ public class ESUtils {
             break;
           }
         }
-        if (fieldTypeForDefault.isEmpty()) {
+        if (fieldTypeForDefault.isEmpty() && !entitySpecs.isEmpty()) {
           log.warn(
               "Sort criterion field "
                   + sortCriteria.getField()

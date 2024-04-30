@@ -18,7 +18,9 @@ import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.ownership.OwnershipTypeInfo;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.List;
+import javax.annotation.Nonnull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.Resource;
@@ -43,7 +45,7 @@ public class IngestOwnershipTypesStep implements BootstrapStep {
   }
 
   @Override
-  public void execute() throws Exception {
+  public void execute(@Nonnull OperationContext systemOperationContext) throws Exception {
     log.info("Ingesting default ownership types from {}...", _ownershipTypesResource);
 
     // 1. Read from the file into JSON.
@@ -68,18 +70,22 @@ public class IngestOwnershipTypesStep implements BootstrapStep {
       final OwnershipTypeInfo info =
           RecordUtils.toRecordTemplate(OwnershipTypeInfo.class, roleObj.get("info").toString());
       log.info(String.format("Ingesting default ownership type with urn %s", urn));
-      ingestOwnershipType(urn, info, auditStamp);
+      ingestOwnershipType(systemOperationContext, urn, info, auditStamp);
       numIngested++;
     }
     log.info("Ingested {} new ownership types", numIngested);
   }
 
   private void ingestOwnershipType(
-      final Urn ownershipTypeUrn, final OwnershipTypeInfo info, final AuditStamp auditStamp) {
+      @Nonnull OperationContext systemOperationContext,
+      final Urn ownershipTypeUrn,
+      final OwnershipTypeInfo info,
+      final AuditStamp auditStamp) {
 
     // 3. Write key & aspect MCPs.
     final MetadataChangeProposal keyAspectProposal = new MetadataChangeProposal();
-    final AspectSpec keyAspectSpec = _entityService.getKeyAspectSpec(ownershipTypeUrn);
+    final AspectSpec keyAspectSpec =
+        systemOperationContext.getEntityRegistryContext().getKeyAspectSpec(ownershipTypeUrn);
     GenericAspect aspect =
         GenericRecordUtils.serializeAspect(
             EntityKeyUtils.convertUrnToEntityKey(ownershipTypeUrn, keyAspectSpec));
@@ -99,8 +105,12 @@ public class IngestOwnershipTypesStep implements BootstrapStep {
     proposal.setChangeType(ChangeType.UPSERT);
 
     _entityService.ingestProposal(
+        systemOperationContext,
         AspectsBatchImpl.builder()
-            .mcps(List.of(keyAspectProposal, proposal), auditStamp, _entityService)
+            .mcps(
+                List.of(keyAspectProposal, proposal),
+                auditStamp,
+                systemOperationContext.getRetrieverContext().get())
             .build(),
         false);
   }

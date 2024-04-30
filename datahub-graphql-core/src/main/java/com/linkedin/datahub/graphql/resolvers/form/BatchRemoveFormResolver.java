@@ -41,9 +41,9 @@ public class BatchRemoveFormResolver implements DataFetcher<CompletableFuture<Bo
         () -> {
           try {
             _formService.batchUnassignFormForEntities(
+                context.getOperationContext(),
                 entityUrns.stream().map(UrnUtils::getUrn).collect(Collectors.toList()),
-                formUrn,
-                authentication);
+                formUrn);
             return true;
           } catch (Exception e) {
             throw new RuntimeException(

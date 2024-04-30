@@ -2,12 +2,12 @@ package com.linkedin.metadata.service;
 
 import static com.linkedin.metadata.Constants.*;
 
-import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.entity.EntityResponse;
-import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.Constants;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.Objects;
 import java.util.Set;
 import javax.annotation.Nonnull;
@@ -24,9 +24,8 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class ERModelRelationshipService extends BaseService {
 
-  public ERModelRelationshipService(
-      @Nonnull EntityClient entityClient, @Nonnull Authentication systemAuthentication) {
-    super(entityClient, systemAuthentication);
+  public ERModelRelationshipService(@Nonnull SystemEntityClient entityClient) {
+    super(entityClient);
   }
 
   static final Set<String> ASPECTS_TO_RESOLVE =
@@ -51,15 +50,15 @@ public class ERModelRelationshipService extends BaseService {
    */
   @Nullable
   public EntityResponse getERModelRelationshipResponse(
-      @Nonnull final Urn ermodelrelationUrn, @Nonnull final Authentication authentication) {
+      @Nonnull OperationContext opContext, @Nonnull final Urn ermodelrelationUrn) {
     Objects.requireNonNull(ermodelrelationUrn, "ermodelrelationUrn must not be null");
-    Objects.requireNonNull(authentication, "authentication must not be null");
+    Objects.requireNonNull(opContext.getSessionAuthentication(), "authentication must not be null");
     try {
       return this.entityClient.getV2(
+          opContext,
           Constants.ER_MODEL_RELATIONSHIP_ENTITY_NAME,
           ermodelrelationUrn,
-          ASPECTS_TO_RESOLVE,
-          authentication);
+          ASPECTS_TO_RESOLVE);
     } catch (Exception e) {
       throw new RuntimeException(
           String.format("Failed to retrieve Query with urn %s", ermodelrelationUrn), e);

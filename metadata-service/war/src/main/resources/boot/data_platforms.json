@@ -49,6 +49,16 @@
     }
   },
   {
+    "urn": "urn:li:dataPlatform:cockroachdb",
+    "aspect": {
+      "datasetNameDelimiter": ".",
+      "name": "cockroachdb",
+      "displayName": "CockroachDb",
+      "type": "RELATIONAL_DB",
+      "logoUrl": "/assets/platforms/cockroachdblogo.png"
+    }
+  },
+  {
     "urn": "urn:li:dataPlatform:couchbase",
     "aspect": {
       "datasetNameDelimiter": ".",
@@ -633,6 +643,16 @@
       "type": "OTHERS",
       "datasetNameDelimiter": "/",
       "logoUrl": "/assets/platforms/excel-logo.svg"
+    }
+  },
+  {
+    "urn": "urn:li:dataPlatform:sigma",
+    "aspect": {
+      "datasetNameDelimiter": ".",
+      "name": "sigma",
+      "displayName": "Sigma",
+      "type": "OTHERS",
+      "logoUrl": "/assets/platforms/sigmalogo.png"
     }
   }
 ]
