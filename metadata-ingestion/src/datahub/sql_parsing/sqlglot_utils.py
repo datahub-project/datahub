@@ -1,3 +1,4 @@
+import functools
 import hashlib
 import logging
 from typing import Dict, Iterable, Optional, Tuple, Union
@@ -7,6 +8,7 @@ import sqlglot.errors
 
 logger = logging.getLogger(__name__)
 DialectOrStr = Union[sqlglot.Dialect, str]
+SQL_PARSE_CACHE_SIZE = 1000
 
 
 def _get_dialect_str(platform: str) -> str:
@@ -55,6 +57,7 @@ def is_dialect_instance(
     return False
 
 
+@functools.lru_cache(maxsize=SQL_PARSE_CACHE_SIZE)
 def parse_statement(
     sql: sqlglot.exp.ExpOrStr, dialect: sqlglot.Dialect
 ) -> sqlglot.Expression:
@@ -277,4 +280,5 @@ def detach_ctes(
         else:
             return node
 
+    statement = statement.copy()
     return statement.transform(replace_cte_refs, copy=False)

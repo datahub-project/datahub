@@ -406,10 +406,11 @@ def _column_level_lineage(  # noqa: C901
             return default_col_name
 
     # Optimize the statement + qualify column references.
-    logger.debug(
-        "Prior to column qualification sql %s",
-        statement.sql(pretty=True, dialect=dialect),
-    )
+    if logger.isEnabledFor(logging.DEBUG):
+        logger.debug(
+            "Prior to column qualification sql %s",
+            statement.sql(pretty=True, dialect=dialect),
+        )
     try:
         # Second time running qualify, this time with:
         # - the select instead of the full outer statement
@@ -434,7 +435,8 @@ def _column_level_lineage(  # noqa: C901
         raise SqlUnderstandingError(
             f"sqlglot failed to map columns to their source tables; likely missing/outdated table schema info: {e}"
         ) from e
-    logger.debug("Qualified sql %s", statement.sql(pretty=True, dialect=dialect))
+    if logger.isEnabledFor(logging.DEBUG):
+        logger.debug("Qualified sql %s", statement.sql(pretty=True, dialect=dialect))
 
     # Handle the create DDL case.
     if is_create_ddl:
@@ -805,7 +807,7 @@ def _sqlglot_lineage_inner(
     logger.debug("Parsing lineage from sql statement: %s", sql)
     statement = parse_statement(sql, dialect=dialect)
 
-    original_statement = statement.copy()
+    original_statement, statement = statement, statement.copy()
     # logger.debug(
     #     "Formatted sql statement: %s",
     #     original_statement.sql(pretty=True, dialect=dialect),
