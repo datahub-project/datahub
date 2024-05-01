@@ -70,7 +70,7 @@ public class GraphQLController {
     try {
       bodyJson = mapper.readTree(jsonStr);
     } catch (JsonProcessingException e) {
-      log.error(String.format("Failed to parse json %s", jsonStr));
+      log.error("Failed to parse json ", e);
       return CompletableFuture.completedFuture(new ResponseEntity<>(HttpStatus.BAD_REQUEST));
     }
 
