@@ -79,7 +79,7 @@ class AddDatasetSchemaTerms(DatasetSchemaMetadataTransformer):
         new_glossary_terms.extend(terms_to_add)
 
         unique_gloseary_terms = []
-        logger.info("Adding below terms to fields:\n")
+        logger.info("Adding below terms to fields: ")
         for term in new_glossary_terms:
             if term not in unique_gloseary_terms:
                 unique_gloseary_terms.append(term)
