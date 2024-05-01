@@ -42,6 +42,7 @@ from datahub.ingestion.glossary.classification_mixin import (
     ClassificationSourceConfigMixin,
     classification_workunit_processor,
 )
+from datahub.ingestion.source.aws.aws_common import AwsSourceConfig
 from datahub.ingestion.source.dynamodb.data_reader import DynamoDBTableItemsReader
 from datahub.ingestion.source.schema_inference.object import SchemaDescription
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
@@ -82,7 +83,6 @@ FIELD_DELIMITER = "."
 logger: logging.Logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
-    from mypy_boto3_dynamodb import DynamoDBClient
     from mypy_boto3_dynamodb.type_defs import (
         AttributeValueTypeDef,
         TableDescriptionTypeDef,
@@ -93,12 +93,8 @@ class DynamoDBConfig(
     DatasetSourceConfigMixin,
     StatefulIngestionConfigBase,
     ClassificationSourceConfigMixin,
+    AwsSourceConfig,
 ):
-    # TODO: refactor the config to use AwsConnectionConfig and create a method get_dynamodb_client
-    # in the class to provide optional region name input
-    aws_access_key_id: str = Field(description="AWS Access Key ID.")
-    aws_secret_access_key: pydantic.SecretStr = Field(description="AWS Secret Key.")
-
     domain: Dict[str, AllowDenyPattern] = Field(
         default=dict(),
         description="regex patterns for tables to filter to assign domain_key. ",
@@ -119,6 +115,10 @@ class DynamoDBConfig(
     )
     # Custom Stateful Ingestion settings
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = None
+
+    @property
+    def dynamodb_client(self):
+        return self.get_dynamodb_client()
 
 
 @dataclass
@@ -189,6 +189,7 @@ class DynamoDBSource(StatefulIngestionSourceBase):
         super().__init__(config, ctx)
         self.config = config
         self.report = DynamoDBSourceReport()
+        self.dynamodb_client = config.dynamodb_client
         self.platform = platform
         self.classification_handler = ClassificationHandler(self.config, self.report)
 
@@ -223,15 +224,9 @@ class DynamoDBSource(StatefulIngestionSourceBase):
             # create a new dynamodb client for each region,
             # it seems for one client we could only list the table of one specific region,
             # the list_tables() method don't take any config that related to region
-            dynamodb_client = boto3.client(
-                "dynamodb",
-                region_name=region,
-                aws_access_key_id=self.config.aws_access_key_id,
-                aws_secret_access_key=self.config.aws_secret_access_key.get_secret_value(),
-            )
-            data_reader = DynamoDBTableItemsReader.create(dynamodb_client)
+            data_reader = DynamoDBTableItemsReader.create(self.dynamodb_client)
 
-            for table_name in self._list_tables(dynamodb_client):
+            for table_name in self._list_tables(self.dynamodb_client):
                 dataset_name = f"{region}.{table_name}"
                 if not self.config.table_pattern.allowed(dataset_name):
                     logger.debug(f"skipping table: {dataset_name}")
@@ -239,7 +234,7 @@ class DynamoDBSource(StatefulIngestionSourceBase):
                     continue
 
                 table_wu_generator = self._process_table(
-                    region, dynamodb_client, table_name, dataset_name
+                    region, self.dynamodb_client, table_name, dataset_name
                 )
                 yield from classification_workunit_processor(
                     table_wu_generator,
