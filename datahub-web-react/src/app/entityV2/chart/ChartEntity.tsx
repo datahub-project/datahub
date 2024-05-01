@@ -47,6 +47,8 @@ import { GenericEntityProperties } from '../../entity/shared/types';
 import SyncedAssetSection from '../shared/containers/profile/sidebar/shared/SyncedAssetSection';
 import SharingAssetSection from '../shared/containers/profile/sidebar/shared/SharingAssetSection';
 
+import { getLastChartUpdatedMs } from '../../entity/dataset/shared/utils';
+
 const PREVIEW_SUPPORTED_PLATFORMS = [
     LOOKER_URN,
     MODE_URN,
@@ -277,11 +279,11 @@ export class ChartEntity implements Entity<Chart> {
                 subType={data.subTypes?.typeNames?.[0]}
                 tier={
                     isValuePresent(data?.statsSummary?.viewCountPercentileLast30Days) &&
-                    isValuePresent(data?.statsSummary?.uniqueUserPercentileLast30Days)
+                        isValuePresent(data?.statsSummary?.uniqueUserPercentileLast30Days)
                         ? getChartPopularityTier(
-                              data.statsSummary?.viewCountPercentileLast30Days,
-                              data.statsSummary?.uniqueUserPercentileLast30Days,
-                          )
+                            data.statsSummary?.viewCountPercentileLast30Days,
+                            data.statsSummary?.uniqueUserPercentileLast30Days,
+                        )
                         : undefined
                 }
                 headerDropdownItems={headerDropdownItems}
@@ -310,7 +312,7 @@ export class ChartEntity implements Entity<Chart> {
                 dataProduct={getDataProduct(genericProperties?.dataProduct)}
                 deprecation={data.deprecation}
                 statsSummary={data.statsSummary}
-                lastUpdatedMs={data.properties?.lastModified?.time}
+                lastUpdatedMs={getLastChartUpdatedMs(data?.properties)}
                 createdMs={data.properties?.created?.time}
                 externalUrl={data.properties?.externalUrl}
                 snippet={
@@ -323,11 +325,11 @@ export class ChartEntity implements Entity<Chart> {
                 isOutputPort={isOutputPort(result)}
                 tier={
                     isValuePresent(data?.statsSummary?.viewCountPercentileLast30Days) &&
-                    isValuePresent(data?.statsSummary?.uniqueUserPercentileLast30Days)
+                        isValuePresent(data?.statsSummary?.uniqueUserPercentileLast30Days)
                         ? getChartPopularityTier(
-                              data.statsSummary?.viewCountPercentileLast30Days,
-                              data.statsSummary?.uniqueUserPercentileLast30Days,
-                          )
+                            data.statsSummary?.viewCountPercentileLast30Days,
+                            data.statsSummary?.uniqueUserPercentileLast30Days,
+                        )
                         : undefined
                 }
                 headerDropdownItems={headerDropdownItems}

@@ -34,7 +34,7 @@ interface Props {
     urn: string;
     entityRegistry: EntityRegistry;
     entityCapabilities: Set<EntityCapabilityType>;
-    lastUpdatedMs?: number | null;
+    lastUpdatedMs?: { property?: string, lastUpdatedMs?: number };
     tier?: PopularityTier;
     statsSummary?: DatasetStatsSummary | null;
 }
@@ -71,10 +71,16 @@ const PreviewCardFooterRightSection = ({
                             entityType={entityType}
                             urn={urn}
                         />
-                        {!!lastUpdatedMs && <StyledDivider type="vertical" />}
+                        {!!lastUpdatedMs?.lastUpdatedMs && <StyledDivider type="vertical" />}
                     </>
                 )}
-                {!!lastUpdatedMs && <Freshness time={lastUpdatedMs} />}
+                {!!lastUpdatedMs?.lastUpdatedMs && (
+                    <Freshness
+                        time={lastUpdatedMs.lastUpdatedMs}
+                        timeProperty={lastUpdatedMs.property}
+                        showDate={false}
+                    />
+                )}
                 {!!(tier !== undefined && status) && (
                     <>
                         <StyledDivider type="vertical" />

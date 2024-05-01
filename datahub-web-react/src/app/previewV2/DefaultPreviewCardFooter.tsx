@@ -29,7 +29,7 @@ interface DefaultPreviewCardFooterProps {
     entityType: EntityType;
     urn: string;
     entityRegistry: EntityRegistry;
-    lastUpdatedMs?: number | null;
+    lastUpdatedMs?: { property?: string, lastUpdatedMs?: number };
     statsSummary?: DatasetStatsSummary | null;
     paths?: EntityPath[];
 }
@@ -99,7 +99,7 @@ const DefaultPreviewCardFooter: React.FC<DefaultPreviewCardFooterProps> = ({
     const shouldRenderEntityLink = previewType === PreviewType.HOVER_CARD && entityTitleSuffix;
     const shouldRenderRightSection =
         tier !== undefined ||
-        lastUpdatedMs ||
+        lastUpdatedMs?.lastUpdatedMs ||
         statsSummary?.queryCountLast30Days ||
         entityHasCapability(entityCapabilities, EntityCapabilityType.LINEAGE);
 

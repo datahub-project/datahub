@@ -111,7 +111,7 @@ interface Props {
     previewType?: Maybe<PreviewType>;
     paths?: EntityPath[];
     health?: Health[];
-    lastUpdatedMs?: number | null;
+    lastUpdatedMs?: { property?: string, lastUpdatedMs?: number };
     // eslint-disable-next-line react/no-unused-prop-types
     description?: string;
     // eslint-disable-next-line react/no-unused-prop-types

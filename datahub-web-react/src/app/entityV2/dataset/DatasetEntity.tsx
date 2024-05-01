@@ -58,6 +58,8 @@ import SidebarEntityHeader from '../shared/containers/profile/sidebar/SidebarEnt
 import SyncedAssetSection from '../shared/containers/profile/sidebar/shared/SyncedAssetSection';
 import SharingAssetSection from '../shared/containers/profile/sidebar/shared/SharingAssetSection';
 
+import { getLastUpdatedMs } from '../../entity/dataset/shared/utils';
+
 const SUBTYPES = {
     VIEW: 'view',
 };
@@ -359,11 +361,11 @@ export class DatasetEntity implements Entity<Dataset> {
                 health={data.health}
                 tier={
                     isValuePresent(data?.statsSummary?.queryCountPercentileLast30Days) &&
-                    isValuePresent(data?.statsSummary?.uniqueUserPercentileLast30Days)
+                        isValuePresent(data?.statsSummary?.uniqueUserPercentileLast30Days)
                         ? getDatasetPopularityTier(
-                              data.statsSummary?.queryCountPercentileLast30Days,
-                              data.statsSummary?.uniqueUserPercentileLast30Days,
-                          )
+                            data.statsSummary?.queryCountPercentileLast30Days,
+                            data.statsSummary?.uniqueUserPercentileLast30Days,
+                        )
                         : undefined
                 }
                 headerDropdownItems={headerDropdownItems}
@@ -407,7 +409,10 @@ export class DatasetEntity implements Entity<Dataset> {
                 rowCount={(data as any).lastProfile?.length && (data as any).lastProfile[0].rowCount}
                 columnCount={(data as any).lastProfile?.length && (data as any).lastProfile[0].columnCount}
                 lastUpdatedMs={
-                    (data as any).lastOperation?.length && (data as any).lastOperation[0].lastUpdatedTimestamp
+                    getLastUpdatedMs(
+                        (data as any).properties,
+                        (data as any).lastOperation?.length && (data as any).lastOperation[0]
+                    )
                 }
                 health={data.health}
                 degree={(result as any).degree}
@@ -415,11 +420,11 @@ export class DatasetEntity implements Entity<Dataset> {
                 isOutputPort={isOutputPort(result)}
                 tier={
                     isValuePresent(data?.statsSummary?.queryCountPercentileLast30Days) &&
-                    isValuePresent(data?.statsSummary?.uniqueUserPercentileLast30Days)
+                        isValuePresent(data?.statsSummary?.uniqueUserPercentileLast30Days)
                         ? getDatasetPopularityTier(
-                              data.statsSummary?.queryCountPercentileLast30Days,
-                              data.statsSummary?.uniqueUserPercentileLast30Days,
-                          )
+                            data.statsSummary?.queryCountPercentileLast30Days,
+                            data.statsSummary?.uniqueUserPercentileLast30Days,
+                        )
                         : undefined
                 }
                 headerDropdownItems={headerDropdownItems}

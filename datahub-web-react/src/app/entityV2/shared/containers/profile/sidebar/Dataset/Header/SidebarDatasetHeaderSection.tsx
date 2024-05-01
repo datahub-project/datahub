@@ -9,7 +9,7 @@ import CompactContext from '../../../../../../../shared/CompactContext';
 import { REDESIGN_COLORS } from '../../../../../constants';
 import { formatNumber } from '../../../../../../../shared/formatNumber';
 import { getLastUpdatedMs } from '../../../../../../../entity/dataset/shared/utils';
-import Freshness from '../../../../../../../previewV2/Freshness';
+import Freshness, { getFreshnessTitle } from '../../../../../../../previewV2/Freshness';
 
 const StatContent = styled.div`
     color: ${REDESIGN_COLORS.FOUNDATION_BLUE_4};
@@ -25,7 +25,9 @@ const SidebarDatasetHeaderSection = () => {
 
     const columns: any = [];
 
-    const lastUpdatedMs = getLastUpdatedMs(dataset?.properties, (dataset as any)?.lastOperation);
+    const lastOp = dataset?.lastOperation
+        || dataset?.operations?.length && dataset?.operations[0]?.lastUpdatedTimestamp;
+    const timeData = getLastUpdatedMs(dataset?.properties, lastOp);
 
     /**
      * Popularity tab
@@ -76,10 +78,10 @@ const SidebarDatasetHeaderSection = () => {
     /**
      * Freshness column
      */
-    if (lastUpdatedMs) {
+    if (timeData?.lastUpdatedMs) {
         columns.push({
-            title: 'Freshness',
-            content: <Freshness time={lastUpdatedMs} />,
+            title: getFreshnessTitle(timeData?.property),
+            content: <Freshness time={timeData.lastUpdatedMs} timeProperty={timeData.property} />,
         });
     }
 

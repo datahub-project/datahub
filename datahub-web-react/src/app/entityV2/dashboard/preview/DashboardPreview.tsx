@@ -71,7 +71,7 @@ export const DashboardPreview = ({
     logoUrl?: string | null;
     chartCount?: number | null;
     statsSummary?: DashboardStatsSummary | null;
-    lastUpdatedMs?: number | null;
+    lastUpdatedMs?: { property?: string, lastUpdatedMs?: number };
     createdMs?: number | null;
     externalUrl?: string | null;
     parentContainers?: ParentContainersResult | null;

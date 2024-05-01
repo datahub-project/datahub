@@ -50,6 +50,8 @@ import { IncidentTab } from '../shared/tabs/Incident/IncidentTab';
 import SyncedAssetSection from '../shared/containers/profile/sidebar/shared/SyncedAssetSection';
 import SharingAssetSection from '../shared/containers/profile/sidebar/shared/SharingAssetSection';
 
+import { getLastChartUpdatedMs } from '../../entity/dataset/shared/utils';
+
 const PREVIEW_SUPPORTED_PLATFORMS = [
     LOOKER_URN,
     MODE_URN,
@@ -160,7 +162,8 @@ export class DashboardEntity implements Entity<Dashboard> {
                             PREVIEW_SUPPORTED_PLATFORMS.includes(dashboard?.dashboard?.platform.urn),
                         enabled: (_, dashboard: GetDashboardQuery) =>
                             !!dashboard?.dashboard?.embed?.renderUrl &&
-                            PREVIEW_SUPPORTED_PLATFORMS.includes(dashboard?.dashboard?.platform.urn),                    },
+                            PREVIEW_SUPPORTED_PLATFORMS.includes(dashboard?.dashboard?.platform.urn),
+                    },
                 },
                 {
                     name: 'Lineage',
@@ -274,16 +277,16 @@ export class DashboardEntity implements Entity<Dashboard> {
                 deprecation={data.deprecation}
                 externalUrl={data.properties?.externalUrl}
                 statsSummary={data.statsSummary}
-                lastUpdatedMs={data.properties?.lastModified?.time}
+                lastUpdatedMs={getLastChartUpdatedMs(data.properties)}
                 createdMs={data.properties?.created?.time}
                 subtype={data.subTypes?.typeNames?.[0]}
                 tier={
                     isValuePresent(data?.statsSummary?.viewCountPercentileLast30Days) &&
-                    isValuePresent(data?.statsSummary?.uniqueUserPercentileLast30Days)
+                        isValuePresent(data?.statsSummary?.uniqueUserPercentileLast30Days)
                         ? getDashboardPopularityTier(
-                              data.statsSummary?.viewCountPercentileLast30Days,
-                              data.statsSummary?.uniqueUserPercentileLast30Days,
-                          )
+                            data.statsSummary?.viewCountPercentileLast30Days,
+                            data.statsSummary?.uniqueUserPercentileLast30Days,
+                        )
                         : undefined
                 }
                 headerDropdownItems={headerDropdownItems}
@@ -316,7 +319,7 @@ export class DashboardEntity implements Entity<Dashboard> {
                 deprecation={data.deprecation}
                 externalUrl={data.properties?.externalUrl}
                 statsSummary={data.statsSummary}
-                lastUpdatedMs={data.properties?.lastModified?.time}
+                lastUpdatedMs={getLastChartUpdatedMs(data.properties)}
                 createdMs={data.properties?.created?.time}
                 snippet={
                     <MatchedFieldList
@@ -330,11 +333,11 @@ export class DashboardEntity implements Entity<Dashboard> {
                 isOutputPort={isOutputPort(result)}
                 tier={
                     isValuePresent(data?.statsSummary?.viewCountPercentileLast30Days) &&
-                    isValuePresent(data?.statsSummary?.uniqueUserPercentileLast30Days)
+                        isValuePresent(data?.statsSummary?.uniqueUserPercentileLast30Days)
                         ? getDashboardPopularityTier(
-                              data.statsSummary?.viewCountPercentileLast30Days,
-                              data.statsSummary?.uniqueUserPercentileLast30Days,
-                          )
+                            data.statsSummary?.viewCountPercentileLast30Days,
+                            data.statsSummary?.uniqueUserPercentileLast30Days,
+                        )
                         : undefined
                 }
                 headerDropdownItems={headerDropdownItems}

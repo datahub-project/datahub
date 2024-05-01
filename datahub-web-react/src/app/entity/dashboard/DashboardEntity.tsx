@@ -34,6 +34,8 @@ import { matchedInputFieldRenderer } from '../../search/matches/matchedInputFiel
 import { SidebarMetadataSection } from '../shared/containers/profile/sidebar/SidebarMetadataSection';
 import { IncidentTab } from '../shared/tabs/Incident/IncidentTab';
 
+import { getLastChartUpdatedMs } from '../dataset/shared/utils';
+
 const PREVIEW_SUPPORTED_PLATFORMS = [
     LOOKER_URN,
     MODE_URN,
@@ -216,7 +218,7 @@ export class DashboardEntity implements Entity<Dashboard> {
                 deprecation={data.deprecation}
                 externalUrl={data.properties?.externalUrl}
                 statsSummary={data.statsSummary}
-                lastUpdatedMs={data.properties?.lastModified?.time}
+                lastUpdatedMs={getLastChartUpdatedMs(data.properties)}
                 createdMs={data.properties?.created?.time}
                 subtype={data.subTypes?.typeNames?.[0]}
                 health={data.health}
@@ -248,7 +250,7 @@ export class DashboardEntity implements Entity<Dashboard> {
                 deprecation={data.deprecation}
                 externalUrl={data.properties?.externalUrl}
                 statsSummary={data.statsSummary}
-                lastUpdatedMs={data.properties?.lastModified?.time}
+                lastUpdatedMs={getLastChartUpdatedMs(data.properties)}
                 createdMs={data.properties?.created?.time}
                 snippet={
                     <MatchedFieldList

@@ -64,7 +64,7 @@ export const ChartPreview = ({
     logoUrl?: string | null;
     deprecation?: Deprecation | null;
     statsSummary?: ChartStatsSummary | null;
-    lastUpdatedMs?: number | null;
+    lastUpdatedMs?: { property?: string, lastUpdatedMs?: number };
     createdMs?: number | null;
     externalUrl?: string | null;
     parentContainers?: ParentContainersResult | null;
@@ -107,7 +107,7 @@ export const ChartPreview = ({
                     viewCountPercentileLast30Days={statsSummary?.viewCountPercentileLast30Days}
                     uniqueUserCountLast30Days={statsSummary?.uniqueUserCountLast30Days}
                     uniqueUserPercentileLast30Days={statsSummary?.uniqueUserPercentileLast30Days}
-                    lastUpdatedMs={lastUpdatedMs}
+                    lastUpdatedMs={lastUpdatedMs?.lastUpdatedMs}
                     createdMs={createdMs}
                 />
             }

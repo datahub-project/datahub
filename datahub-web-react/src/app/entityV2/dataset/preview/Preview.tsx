@@ -83,7 +83,7 @@ export const Preview = ({
     rowCount?: number | null;
     columnCount?: number | null;
     statsSummary?: DatasetStatsSummary | null;
-    lastUpdatedMs?: number | null;
+    lastUpdatedMs?: { property?: string, lastUpdatedMs?: number };
     health?: Health[] | null;
     degree?: number;
     paths?: EntityPath[];
