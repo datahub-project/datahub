@@ -25,7 +25,7 @@ Check out the [alternative installation options](../docs/cli.md#alternate-instal
 
 ## Configuring a Recipe
 
-Create a `recipe.yml file that defines the source and sink for metadata, as shown below.
+Create a `recipe.yml` file that defines the source and sink for metadata, as shown below.
 
 ```yaml
 # recipe.yml
