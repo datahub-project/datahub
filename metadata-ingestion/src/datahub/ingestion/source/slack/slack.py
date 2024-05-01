@@ -253,6 +253,7 @@ class SlackSource(Source):
                     user_profile_res = self.get_slack_client().users_profile_get(
                         user=user_obj.slack_id
                     )
+            logger.info(f"User profile: {user_profile_res}")
             user_profile = user_profile_res.get("profile", {})
             user_obj.title = user_profile.get("title")
             user_obj.image_url = user_profile.get("image_192")
