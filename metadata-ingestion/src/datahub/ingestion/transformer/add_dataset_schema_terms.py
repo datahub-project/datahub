@@ -1,3 +1,4 @@
+import logging
 from typing import Callable, Dict, List, Optional, cast
 
 import datahub.emitter.mce_builder as builder
@@ -18,6 +19,8 @@ from datahub.metadata.schema_classes import (
     SchemaFieldClass,
     SchemaMetadataClass,
 )
+
+logger: logging.Logger = logging.getLogger(__name__)
 
 
 class AddDatasetSchemaTermsConfig(TransformerSemanticsConfigModel):
@@ -76,9 +79,13 @@ class AddDatasetSchemaTerms(DatasetSchemaMetadataTransformer):
         new_glossary_terms.extend(terms_to_add)
 
         unique_gloseary_terms = []
+        logger.info("Adding below terms to fields:\n")
         for term in new_glossary_terms:
             if term not in unique_gloseary_terms:
                 unique_gloseary_terms.append(term)
+                logger.info(
+                    f"Term Name: {term.name}, Term URN: {term.urn}, Field Path: {schema_field.fieldPath}"
+                )
 
         new_glossary_term = GlossaryTermsClass(
             terms=[],
