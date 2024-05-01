@@ -43,7 +43,9 @@ public abstract class SystemMetadataServiceTestBase extends AbstractTestNGSpring
 
   @BeforeMethod
   public void wipe() throws Exception {
+    syncAfterWrite(getBulkProcessor());
     _client.clear();
+    syncAfterWrite(getBulkProcessor());
   }
 
   @Nonnull

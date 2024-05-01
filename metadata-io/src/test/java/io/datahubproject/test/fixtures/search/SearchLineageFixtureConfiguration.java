@@ -1,6 +1,7 @@
 package io.datahubproject.test.fixtures.search;
 
 import static com.linkedin.metadata.Constants.*;
+import static io.datahubproject.test.search.SearchTestUtils.getGraphQueryConfiguration;
 
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.client.JavaEntityClient;
@@ -8,7 +9,6 @@ import com.linkedin.metadata.config.PreProcessHooks;
 import com.linkedin.metadata.config.cache.EntityDocCountCacheConfiguration;
 import com.linkedin.metadata.config.cache.SearchLineageCacheConfiguration;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
-import com.linkedin.metadata.config.search.GraphQueryConfiguration;
 import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
 import com.linkedin.metadata.entity.EntityServiceImpl;
@@ -169,10 +169,7 @@ public class SearchLineageFixtureConfiguration {
             indexConvention,
             new ESGraphWriteDAO(indexConvention, bulkProcessor, 1),
             new ESGraphQueryDAO(
-                searchClient,
-                lineageRegistry,
-                indexConvention,
-                GraphQueryConfiguration.testDefaults),
+                searchClient, lineageRegistry, indexConvention, getGraphQueryConfiguration()),
             indexBuilder);
     graphService.configure();
     return graphService;

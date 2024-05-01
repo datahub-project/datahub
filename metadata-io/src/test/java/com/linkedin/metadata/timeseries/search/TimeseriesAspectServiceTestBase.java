@@ -1290,7 +1290,7 @@ public abstract class TimeseriesAspectServiceTestBase extends AbstractTestNGSpri
   @Test(
       groups = {"testCountAfterDelete"},
       dependsOnGroups = {"deleteAspectValues1"})
-  public void testCountByFilterAfterDelete() throws InterruptedException {
+  public void testCountByFilterAfterDelete() throws Exception {
     syncAfterWrite(getBulkProcessor());
     // Test with filter
     Criterion hasUrnCriterion =
