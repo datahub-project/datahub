@@ -240,6 +240,8 @@ class SlackSource(Source):
                 break
 
     def populate_user_profile(self, user_obj: CorpUser) -> None:
+        if not user_obj.slack_id:
+            return
         try:
             # https://api.slack.com/methods/users.profile.get
             with self.rate_limiter:
