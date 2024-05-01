@@ -84,7 +84,7 @@ class AddDatasetSchemaTerms(DatasetSchemaMetadataTransformer):
             if term not in unique_gloseary_terms:
                 unique_gloseary_terms.append(term)
                 logger.info(
-                    f"Term Name: {term.name}, Term URN: {term.urn}, Field Path: {schema_field.fieldPath}"
+                    f"Term URN: {term.urn}, Field Path: {schema_field.fieldPath}"
                 )
 
         new_glossary_term = GlossaryTermsClass(
