@@ -97,6 +97,7 @@ class SlackSource(Source):
         self.rate_limiter = RateLimiter(
             max_calls=self.config.api_requests_per_min, period=60
         )
+        self._use_users_info = False
 
     @classmethod
     def create(cls, config_dict, ctx):
@@ -242,16 +243,24 @@ class SlackSource(Source):
         try:
             # https://api.slack.com/methods/users.profile.get
             with self.rate_limiter:
-                user_profile_res = self.get_slack_client().users_profile_get(
-                    user=user_obj.slack_id
-                )
+                if self._use_users_info:
+                    user_profile_res = self.get_slack_client().users_info(
+                        user=user_obj.slack_id
+                    )
+                else:
+                    user_profile_res = self.get_slack_client().users_profile_get(
+                        user=user_obj.slack_id
+                    )
             user_profile = user_profile_res.get("profile", {})
             user_obj.title = user_profile.get("title")
             user_obj.image_url = user_profile.get("image_192")
             user_obj.phone = user_profile.get("phone")
         except Exception as e:
             if "missing_scope" in str(e):
-                raise e
+                if self._use_users_info:
+                    raise e
+                self._use_users_info = True
+                self.populate_user_profile(user_obj)
             return
 
     def populate_slack_id_from_email(self, user_obj: CorpUser) -> None:
