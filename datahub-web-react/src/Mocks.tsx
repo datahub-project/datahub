@@ -3617,6 +3617,7 @@ export const mocks = [
                         createTags: true,
                         manageUserCredentials: true,
                         manageGlossaries: true,
+                        viewTests: false,
                         manageTests: true,
                         manageTokens: true,
                         manageSecrets: true,
