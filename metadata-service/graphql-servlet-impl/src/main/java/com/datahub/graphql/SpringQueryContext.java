@@ -17,6 +17,7 @@ public class SpringQueryContext implements QueryContext {
   private final boolean isAuthenticated;
   private final Authentication authentication;
   private final Authorizer authorizer;
+  @Getter private final String queryName;
   @Nonnull private final OperationContext operationContext;
 
   public SpringQueryContext(
@@ -30,7 +31,7 @@ public class SpringQueryContext implements QueryContext {
     this.authentication = authentication;
     this.authorizer = authorizer;
 
-    String queryName =
+    this.queryName =
         new Parser()
             .parseDocument(jsonQuery).getDefinitions().stream()
                 .filter(def -> def instanceof OperationDefinition)
