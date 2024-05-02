@@ -20,6 +20,8 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 ### Breaking Changes
 
+- #10419 - `aws_session_token` and `aws_region` are now required configurations in the DynamoDB connector. The connector will no longer loop through all AWS regions; instead, it will only use the region passed into the recipe configuration.
+
 ### Potential Downtime
 
 ### Deprecations
