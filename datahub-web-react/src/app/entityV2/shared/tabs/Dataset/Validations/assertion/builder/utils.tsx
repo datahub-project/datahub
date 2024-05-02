@@ -1,39 +1,39 @@
-import React from 'react';
 import { Maybe } from 'graphql/jsutils/Maybe';
 import { keyBy } from 'lodash';
+import React from 'react';
+import { UpdateAssertionMetadataMutationVariables } from '../../../../../../../../graphql/assertion.generated';
 import {
-    DatasetFilterType,
-    DatasetFreshnessSourceType,
-    EntityType,
-    FreshnessFieldKind,
-    SchemaFieldDataType,
-    FreshnessAssertionScheduleType,
+    Assertion,
     AssertionActionType,
     AssertionEvaluationParametersType,
-    VolumeAssertionType,
     AssertionStdOperator,
     AssertionStdParameters,
     AssertionValueChangeType,
-    IncrementingSegmentSpecInput,
-    SqlAssertionType,
-    FieldAssertionType,
-    SchemaField,
-    MonitorMode,
-    FreshnessAssertionType,
-    Assertion,
-    Monitor,
-    Entity,
     DataPlatform,
+    DatasetFilterType,
+    DatasetFreshnessSourceType,
+    Entity,
+    EntityType,
+    FieldAssertionType,
+    FreshnessAssertionScheduleType,
+    FreshnessAssertionType,
+    FreshnessFieldKind,
+    IncrementingSegmentSpecInput,
+    Monitor,
+    MonitorMode,
+    SchemaField,
+    SchemaFieldDataType,
+    SqlAssertionType,
+    VolumeAssertionType,
 } from '../../../../../../../../types.generated';
 import {
     BIGQUERY_URN,
+    DATABRICKS_URN,
     REDSHIFT_URN,
     SNOWFLAKE_URN,
-    DATABRICKS_URN,
 } from '../../../../../../../ingest/source/builder/constants';
-import { AssertionMonitorBuilderState, AssertionActionsFormState } from './types';
 import { ASSERTION_TYPES, HIGH_WATERMARK_FIELD_TYPES, LAST_MODIFIED_FIELD_TYPES } from './constants';
-import { UpdateAssertionMetadataMutationVariables } from '../../../../../../../../graphql/assertion.generated';
+import { AssertionActionsFormState, AssertionMonitorBuilderState } from './types';
 
 /** Configuration object used to display each source option */
 export type SourceOption = {
@@ -74,7 +74,9 @@ const PLATFORM_ASSERTION_CONFIGS = {
                                 </a>
                             </b>{' '}
                             view to determine whether a Table has changed. Note that this requires the Enterprise
-                            Edition (or higher) of Snowflake and is only supported for Tables, not Views.
+                            Edition (or higher) of Snowflake and is only supported for Tables, not Views. This View has
+                            a latency of up to 180 minutes in Snowflake, so this is not recommended for high frequency
+                            checks.
                         </>
                     ),
                 },
@@ -393,21 +395,21 @@ export const builderStateToSharedFreshnessAssertionVariables = (builderState: As
                     : undefined,
             fixedInterval:
                 builderState.assertion?.freshnessAssertion?.schedule?.type ===
-                    FreshnessAssertionScheduleType.FixedInterval
+                FreshnessAssertionScheduleType.FixedInterval
                     ? builderState.assertion?.freshnessAssertion?.schedule?.fixedInterval
                     : undefined,
         },
         filter: builderState.assertion?.freshnessAssertion?.filter
             ? {
-                type: builderState.assertion?.freshnessAssertion?.filter.type as DatasetFilterType,
-                sql: builderState.assertion?.freshnessAssertion?.filter.sql,
-            }
+                  type: builderState.assertion?.freshnessAssertion?.filter.type as DatasetFilterType,
+                  sql: builderState.assertion?.freshnessAssertion?.filter.sql,
+              }
             : undefined,
         actions: builderState.assertion?.actions
             ? {
-                onSuccess: builderState.assertion?.actions?.onSuccess || [],
-                onFailure: builderState.assertion?.actions?.onFailure || [],
-            }
+                  onSuccess: builderState.assertion?.actions?.onSuccess || [],
+                  onFailure: builderState.assertion?.actions?.onFailure || [],
+              }
             : undefined,
     });
 };
@@ -477,15 +479,15 @@ export const builderStateToSharedVolumeAssertionVariables = (builderState: Asser
         description: builderState.assertion?.description,
         filter: builderState.assertion?.volumeAssertion?.filter
             ? {
-                type: builderState.assertion?.volumeAssertion?.filter.type as DatasetFilterType,
-                sql: builderState.assertion?.volumeAssertion?.filter.sql,
-            }
+                  type: builderState.assertion?.volumeAssertion?.filter.type as DatasetFilterType,
+                  sql: builderState.assertion?.volumeAssertion?.filter.sql,
+              }
             : undefined,
         actions: builderState.assertion?.actions
             ? {
-                onSuccess: builderState.assertion?.actions?.onSuccess || [],
-                onFailure: builderState.assertion?.actions?.onFailure || [],
-            }
+                  onSuccess: builderState.assertion?.actions?.onSuccess || [],
+                  onFailure: builderState.assertion?.actions?.onFailure || [],
+              }
             : undefined,
         ...volumeTypeVariables,
     });
@@ -515,26 +517,26 @@ export const builderStateToSharedSqlAssertionVariables = (builderState: Assertio
         parameters:
             builderState.assertion?.sqlAssertion?.operator === AssertionStdOperator.Between
                 ? {
-                    minValue: {
-                        type: builderState.assertion?.sqlAssertion?.parameters?.minValue?.type,
-                        value: builderState.assertion?.sqlAssertion?.parameters?.minValue?.value,
-                    },
-                    maxValue: {
-                        type: builderState?.assertion?.sqlAssertion?.parameters?.maxValue?.type,
-                        value: builderState?.assertion?.sqlAssertion?.parameters?.maxValue?.value,
-                    },
-                }
+                      minValue: {
+                          type: builderState.assertion?.sqlAssertion?.parameters?.minValue?.type,
+                          value: builderState.assertion?.sqlAssertion?.parameters?.minValue?.value,
+                      },
+                      maxValue: {
+                          type: builderState?.assertion?.sqlAssertion?.parameters?.maxValue?.type,
+                          value: builderState?.assertion?.sqlAssertion?.parameters?.maxValue?.value,
+                      },
+                  }
                 : {
-                    value: {
-                        type: builderState?.assertion?.sqlAssertion?.parameters?.value?.type,
-                        value: builderState?.assertion?.sqlAssertion?.parameters?.value?.value,
-                    },
-                },
+                      value: {
+                          type: builderState?.assertion?.sqlAssertion?.parameters?.value?.type,
+                          value: builderState?.assertion?.sqlAssertion?.parameters?.value?.value,
+                      },
+                  },
         actions: builderState.assertion?.actions
             ? {
-                onSuccess: builderState.assertion?.actions?.onSuccess || [],
-                onFailure: builderState.assertion?.actions?.onFailure || [],
-            }
+                  onSuccess: builderState.assertion?.actions?.onSuccess || [],
+                  onFailure: builderState.assertion?.actions?.onFailure || [],
+              }
             : undefined,
     });
 };
@@ -566,15 +568,15 @@ export const builderStateToSharedFieldAssertionVariables = (builderState: Assert
                 : undefined,
         filter: builderState.assertion?.fieldAssertion?.filter
             ? {
-                type: builderState.assertion?.fieldAssertion?.filter.type as DatasetFilterType,
-                sql: builderState.assertion?.fieldAssertion?.filter.sql,
-            }
+                  type: builderState.assertion?.fieldAssertion?.filter.type as DatasetFilterType,
+                  sql: builderState.assertion?.fieldAssertion?.filter.sql,
+              }
             : undefined,
         actions: builderState.assertion?.actions
             ? {
-                onSuccess: builderState.assertion?.actions?.onSuccess || [],
-                onFailure: builderState.assertion?.actions?.onFailure || [],
-            }
+                  onSuccess: builderState.assertion?.actions?.onSuccess || [],
+                  onFailure: builderState.assertion?.actions?.onFailure || [],
+              }
             : undefined,
     });
 };
@@ -634,7 +636,10 @@ export const getAssertionTypesForEntityType = (entityType: EntityType) => {
     return ASSERTION_TYPES.filter((type) => type.entityTypes.includes(entityType));
 };
 
-export const getDefaultFreshnessSourceOption = (platformUrn: string, monitorsConnectionForEntityExists: boolean): DatasetFreshnessSourceType => {
+export const getDefaultFreshnessSourceOption = (
+    platformUrn: string,
+    monitorsConnectionForEntityExists: boolean,
+): DatasetFreshnessSourceType => {
     if (!monitorsConnectionForEntityExists) {
         return DatasetFreshnessSourceType.DatahubOperation;
     }
@@ -722,16 +727,18 @@ export const toggleResolveIncidentState = (state: AssertionActionsFormState, new
 export const builderStateToUpdateAssertionMetadataVariables = (
     builderState: AssertionMonitorBuilderState,
 ): UpdateAssertionMetadataMutationVariables | undefined => {
-    return builderState.assertion?.actions && builderState.assertion?.urn ? {
-        urn: builderState.assertion.urn,
-        input: {
-            description: builderState.assertion.description,
-            actions: {
-                onSuccess: builderState.assertion.actions.onSuccess || [],
-                onFailure: builderState.assertion.actions.onFailure || [],
-            },
-        },
-    } : undefined;
+    return builderState.assertion?.actions && builderState.assertion?.urn
+        ? {
+              urn: builderState.assertion.urn,
+              input: {
+                  description: builderState.assertion.description,
+                  actions: {
+                      onSuccess: builderState.assertion.actions.onSuccess || [],
+                      onFailure: builderState.assertion.actions.onFailure || [],
+                  },
+              },
+          }
+        : undefined;
 };
 
 /**
