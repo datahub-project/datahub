@@ -397,6 +397,27 @@ class DataHubListener:
         ):
             self.emitter.emit(mcp, self._make_emit_callback())
 
+        if self.config.capture_executions:
+            dpi = AirflowGenerator.run_datajob(
+                emitter=self.emitter,
+                cluster=self.config.cluster,
+                ti=task_instance,
+                dag=dag,
+                dag_run=dagrun,
+                datajob=datajob,
+                emit_templates=False,
+                config=self.config,
+            )
+            logger.debug(f"Emitted DataHub DataProcess Instance start: {dpi}")
+
+        logger.debug(f"Emitted DataHub Datajob start: {datajob}")
+
+        self.emitter.flush()
+
+        logger.debug(
+            f"DataHub listener finished processing notification about task instance start for {task_instance.task_id}"
+        )
+
         if self.config.materialize_iolets:
             for outlet in datajob.outlets:
                 reported_time: int = int(time.time() * 1000)
@@ -414,27 +435,6 @@ class DataHubListener:
                 )
 
                 self.emitter.emit(operation_mcp)
-
-        logger.debug(f"Emitted DataHub Datajob start: {datajob}")
-
-        if self.config.capture_executions:
-            dpi = AirflowGenerator.run_datajob(
-                emitter=self.emitter,
-                cluster=self.config.cluster,
-                ti=task_instance,
-                dag=dag,
-                dag_run=dagrun,
-                datajob=datajob,
-                emit_templates=False,
-                config=self.config,
-            )
-            logger.debug(f"Emitted DataHub DataProcess Instance start: {dpi}")
-
-        self.emitter.flush()
-
-        logger.debug(
-            f"DataHub listener finished processing notification about task instance start for {task_instance.task_id}"
-        )
 
     def on_task_instance_finish(
         self, task_instance: "TaskInstance", status: InstanceRunResult
