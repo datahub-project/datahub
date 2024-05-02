@@ -43,7 +43,6 @@ from datahub_airflow_plugin.entities import (
     entities_to_datajob_urn_list,
     entities_to_dataset_urn_list,
 )
-from datahub_airflow_plugin.hooks.datahub import DatahubRestHook
 
 _F = TypeVar("_F", bound=Callable[..., None])
 if TYPE_CHECKING:
