@@ -91,4 +91,4 @@ This will generate an interactive HTML file for analysis:
 
 ## Questions
 
-If you've got any questions on configuring profiling, feel free to ping us on [our Slack](https://slack.datahubproject.io/)!
+If you've got any questions on configuring profiling, feel free to ping us on [our Slack](https://datahubproject.io/slack?utm_source=docs&utm_medium=docs&utm_campaign=docs_page_link)!
