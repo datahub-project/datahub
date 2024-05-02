@@ -106,6 +106,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     ArrayType,
     BooleanType,
     BytesType,
+    DateType,
     MySqlDDL,
     NullType,
     NumberType,
@@ -177,6 +178,8 @@ def cleanup(config: BigQueryV2Config) -> None:
 )
 class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
     # https://cloud.google.com/bigquery/docs/reference/standard-sql/data-types
+    # Note: We use the hive schema parser to parse nested BigQuery types. We also have
+    # some extra type mappings in that file.
     BIGQUERY_FIELD_TYPE_MAPPINGS: Dict[
         str,
         Type[
@@ -188,6 +191,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 RecordType,
                 StringType,
                 TimeType,
+                DateType,
                 NullType,
             ]
         ],
@@ -209,10 +213,10 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         "STRING": StringType,
         "TIME": TimeType,
         "TIMESTAMP": TimeType,
-        "DATE": TimeType,
+        "DATE": DateType,
         "DATETIME": TimeType,
         "GEOGRAPHY": NullType,
-        "JSON": NullType,
+        "JSON": RecordType,
         "INTERVAL": NullType,
         "ARRAY": ArrayType,
         "STRUCT": RecordType,
@@ -489,6 +493,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                     platform=self.platform,
                     platform_instance=self.config.platform_instance,
                     env=self.config.env,
+                    batch_size=self.config.schema_resolution_batch_size,
                 )
             else:
                 logger.warning(
@@ -1261,7 +1266,6 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                     type=SchemaFieldDataType(
                         self.BIGQUERY_FIELD_TYPE_MAPPINGS.get(col.data_type, NullType)()
                     ),
-                    # NOTE: nativeDataType will not be in sync with older connector
                     nativeDataType=col.data_type,
                     description=col.comment,
                     nullable=col.is_nullable,
@@ -1367,6 +1371,22 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 table=table.table_id,
             )
 
+            if table.table_type == "VIEW":
+                if (
+                    not self.config.include_views
+                    or not self.config.view_pattern.allowed(
+                        table_identifier.raw_table_name()
+                    )
+                ):
+                    self.report.report_dropped(table_identifier.raw_table_name())
+                    continue
+            else:
+                if not self.config.table_pattern.allowed(
+                    table_identifier.raw_table_name()
+                ):
+                    self.report.report_dropped(table_identifier.raw_table_name())
+                    continue
+
             _, shard = BigqueryTableIdentifier.get_table_and_shard(
                 table_identifier.table
             )
@@ -1403,6 +1423,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 continue
 
             table_items[table.table_id] = table
+
         # Adding maximum shards to the list of tables
         table_items.update({value.table_id: value for value in sharded_tables.values()})
 

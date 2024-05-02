@@ -1,6 +1,6 @@
 package com.linkedin.metadata.recommendation.candidatesource;
 
-import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.recommendation.RecommendationRenderType;
 import com.linkedin.metadata.recommendation.RecommendationRequestContext;
 import com.linkedin.metadata.recommendation.ScenarioType;
@@ -14,8 +14,8 @@ public class TopTagsSource extends EntitySearchAggregationSource {
 
   private static final String TAGS = "tags";
 
-  public TopTagsSource(EntitySearchService entitySearchService, EntityService<?> entityService) {
-    super(entitySearchService, entityService.getEntityRegistry());
+  public TopTagsSource(EntitySearchService entitySearchService, EntityRegistry entityRegistry) {
+    super(entitySearchService, entityRegistry);
   }
 
   @Override

@@ -153,10 +153,12 @@ public class SearchableAnnotation {
   private static FieldType getDefaultFieldType(DataSchema.Type schemaDataType) {
     switch (schemaDataType) {
       case INT:
-      case FLOAT:
         return FieldType.COUNT;
       case MAP:
         return FieldType.KEYWORD;
+      case FLOAT:
+      case DOUBLE:
+        return FieldType.DOUBLE;
       default:
         return FieldType.TEXT;
     }

@@ -1,6 +1,6 @@
 package com.linkedin.datahub.graphql.types.assertion;
 
-import static org.mockito.Mockito.mock;
+import static org.mockito.ArgumentMatchers.any;
 import static org.testng.Assert.*;
 
 import com.datahub.authentication.Authentication;
@@ -24,7 +24,6 @@ import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.key.AssertionKey;
-import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.r2.RemoteInvocationException;
 import graphql.execution.DataFetcherResult;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
@@ -72,11 +71,11 @@ public class AssertionTypeTest {
         new EnvelopedAspect().setValue(new Aspect(TEST_ASSERTION_INFO.data())));
     Mockito.when(
             client.batchGetV2(
+                any(),
                 Mockito.eq(Constants.ASSERTION_ENTITY_NAME),
                 Mockito.eq(new HashSet<>(ImmutableSet.of(assertionUrn1, assertionUrn2))),
                 Mockito.eq(
-                    com.linkedin.datahub.graphql.types.assertion.AssertionType.ASPECTS_TO_FETCH),
-                Mockito.any(Authentication.class)))
+                    com.linkedin.datahub.graphql.types.assertion.AssertionType.ASPECTS_TO_FETCH)))
         .thenReturn(
             ImmutableMap.of(
                 assertionUrn1,
@@ -91,8 +90,7 @@ public class AssertionTypeTest {
     QueryContext mockContext = Mockito.mock(QueryContext.class);
     Mockito.when(mockContext.getAuthentication()).thenReturn(Mockito.mock(Authentication.class));
     Mockito.when(mockContext.getOperationContext())
-        .thenReturn(
-            TestOperationContexts.userContextNoSearchAuthorization(mock(EntityRegistry.class)));
+        .thenReturn(TestOperationContexts.systemContextNoSearchAuthorization());
 
     List<DataFetcherResult<Assertion>> result =
         type.batchLoad(ImmutableList.of(TEST_ASSERTION_URN, TEST_ASSERTION_URN_2), mockContext);
@@ -100,10 +98,11 @@ public class AssertionTypeTest {
     // Verify response
     Mockito.verify(client, Mockito.times(1))
         .batchGetV2(
+            any(),
             Mockito.eq(Constants.ASSERTION_ENTITY_NAME),
             Mockito.eq(ImmutableSet.of(assertionUrn1, assertionUrn2)),
-            Mockito.eq(com.linkedin.datahub.graphql.types.assertion.AssertionType.ASPECTS_TO_FETCH),
-            Mockito.any(Authentication.class));
+            Mockito.eq(
+                com.linkedin.datahub.graphql.types.assertion.AssertionType.ASPECTS_TO_FETCH));
 
     assertEquals(result.size(), 2);
 
@@ -123,11 +122,7 @@ public class AssertionTypeTest {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     Mockito.doThrow(RemoteInvocationException.class)
         .when(mockClient)
-        .batchGetV2(
-            Mockito.anyString(),
-            Mockito.anySet(),
-            Mockito.anySet(),
-            Mockito.any(Authentication.class));
+        .batchGetV2(any(), Mockito.anyString(), Mockito.anySet(), Mockito.anySet());
     com.linkedin.datahub.graphql.types.assertion.AssertionType type =
         new com.linkedin.datahub.graphql.types.assertion.AssertionType(mockClient);
 

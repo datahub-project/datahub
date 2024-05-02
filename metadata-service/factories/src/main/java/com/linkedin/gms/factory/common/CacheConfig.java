@@ -63,6 +63,9 @@ public class CacheConfig {
     mapConfig.setName("default");
     config.addMapConfig(mapConfig);
 
+    // Force classloader to load from application code
+    config.setClassLoader(this.getClass().getClassLoader());
+
     config.getNetworkConfig().getJoin().getMulticastConfig().setEnabled(false);
     config
         .getNetworkConfig()

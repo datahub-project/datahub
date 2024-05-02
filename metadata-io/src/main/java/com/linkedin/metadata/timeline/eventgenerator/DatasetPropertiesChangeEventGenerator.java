@@ -23,6 +23,7 @@ import javax.annotation.Nullable;
 
 public class DatasetPropertiesChangeEventGenerator
     extends EntityChangeEventGenerator<DatasetProperties> {
+
   private static List<ChangeEvent> computeDiffs(
       DatasetProperties baseDatasetProperties,
       @Nonnull DatasetProperties targetDatasetProperties,

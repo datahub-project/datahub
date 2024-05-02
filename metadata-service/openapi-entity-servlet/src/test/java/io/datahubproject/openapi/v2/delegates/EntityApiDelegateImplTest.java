@@ -47,12 +47,14 @@ import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers;
+import org.springframework.web.servlet.config.annotation.EnableWebMvc;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
 @SpringBootTest(classes = {SpringWebConfig.class})
 @ComponentScan(basePackages = {"io.datahubproject.openapi.v2.generated.controller"})
 @Import({OpenAPIEntityTestConfiguration.class})
+@EnableWebMvc
 @AutoConfigureMockMvc
 public class EntityApiDelegateImplTest extends AbstractTestNGSpringContextTests {
   @BeforeTest

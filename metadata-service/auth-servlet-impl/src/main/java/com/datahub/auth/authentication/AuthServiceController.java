@@ -21,13 +21,14 @@ import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.settings.global.GlobalSettingsInfo;
 import com.linkedin.settings.global.OidcSettings;
 import com.linkedin.settings.global.SsoSettings;
+import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.services.SecretService;
-import jakarta.inject.Inject;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import org.json.JSONObject;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -76,23 +77,29 @@ public class AuthServiceController {
   private static final String PREFERRED_JWS_ALGORITHM = "preferredJwsAlgorithm";
   private static final String PREFERRED_JWS_ALGORITHM_2 = "preferredJwsAlgorithm2";
 
-  @Inject StatelessTokenService _statelessTokenService;
+  @Autowired private StatelessTokenService _statelessTokenService;
 
-  @Inject Authentication _systemAuthentication;
+  @Autowired private Authentication _systemAuthentication;
 
-  @Inject
+  @Autowired
   @Qualifier("configurationProvider")
-  ConfigurationProvider _configProvider;
+  private ConfigurationProvider _configProvider;
 
-  @Inject NativeUserService _nativeUserService;
+  @Autowired private NativeUserService _nativeUserService;
 
-  @Inject EntityService _entityService;
+  @Autowired private EntityService<?> _entityService;
 
-  @Inject SecretService _secretService;
+  @Autowired private SecretService _secretService;
 
-  @Inject InviteTokenService _inviteTokenService;
+  @Autowired private InviteTokenService _inviteTokenService;
 
-  @Inject @Nullable TrackingService _trackingService;
+  @Autowired @Nullable private TrackingService _trackingService;
+
+  @Autowired private ObjectMapper mapper;
+
+  @Autowired
+  @Qualifier("systemOperationContext")
+  private OperationContext systemOperationContext;
 
   /**
    * Generates a JWT access token for as user UI session, provided a unique "user id" to generate
@@ -111,7 +118,7 @@ public class AuthServiceController {
   CompletableFuture<ResponseEntity<String>> generateSessionTokenForUser(
       final HttpEntity<String> httpEntity) {
     String jsonStr = httpEntity.getBody();
-    ObjectMapper mapper = new ObjectMapper();
+
     JsonNode bodyJson = null;
     try {
       bodyJson = mapper.readTree(jsonStr);
@@ -177,7 +184,7 @@ public class AuthServiceController {
   @PostMapping(value = "/signUp", produces = "application/json;charset=utf-8")
   CompletableFuture<ResponseEntity<String>> signUp(final HttpEntity<String> httpEntity) {
     String jsonStr = httpEntity.getBody();
-    ObjectMapper mapper = new ObjectMapper();
+
     JsonNode bodyJson;
     try {
       bodyJson = mapper.readTree(jsonStr);
@@ -227,13 +234,18 @@ public class AuthServiceController {
         () -> {
           try {
             Urn inviteTokenUrn = _inviteTokenService.getInviteTokenUrn(inviteTokenString);
-            if (!_inviteTokenService.isInviteTokenValid(inviteTokenUrn, auth)) {
+            if (!_inviteTokenService.isInviteTokenValid(systemOperationContext, inviteTokenUrn)) {
               log.error(String.format("Invalid invite token %s", inviteTokenString));
               return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
             }
 
             _nativeUserService.createNativeUser(
-                userUrnString, fullNameString, emailString, titleString, passwordString, auth);
+                systemOperationContext,
+                userUrnString,
+                fullNameString,
+                emailString,
+                titleString,
+                passwordString);
             String response = buildSignUpResponse();
             return new ResponseEntity<>(response, HttpStatus.OK);
           } catch (Exception e) {
@@ -262,7 +274,7 @@ public class AuthServiceController {
   CompletableFuture<ResponseEntity<String>> resetNativeUserCredentials(
       final HttpEntity<String> httpEntity) {
     String jsonStr = httpEntity.getBody();
-    ObjectMapper mapper = new ObjectMapper();
+
     JsonNode bodyJson;
     try {
       bodyJson = mapper.readTree(jsonStr);
@@ -293,7 +305,7 @@ public class AuthServiceController {
         () -> {
           try {
             _nativeUserService.resetCorpUserCredentials(
-                userUrnString, passwordString, resetTokenString, auth);
+                systemOperationContext, userUrnString, passwordString, resetTokenString);
             String response = buildResetNativeUserCredentialsResponse();
             return new ResponseEntity<>(response, HttpStatus.OK);
           } catch (Exception e) {
@@ -321,7 +333,7 @@ public class AuthServiceController {
   CompletableFuture<ResponseEntity<String>> verifyNativeUserCredentials(
       final HttpEntity<String> httpEntity) {
     String jsonStr = httpEntity.getBody();
-    ObjectMapper mapper = new ObjectMapper();
+
     JsonNode bodyJson;
     try {
       bodyJson = mapper.readTree(jsonStr);
@@ -350,7 +362,8 @@ public class AuthServiceController {
         () -> {
           try {
             boolean doesPasswordMatch =
-                _nativeUserService.doesPasswordMatch(userUrnString, passwordString);
+                _nativeUserService.doesPasswordMatch(
+                    systemOperationContext, userUrnString, passwordString);
             String response = buildVerifyNativeUserPasswordResponse(doesPasswordMatch);
             return new ResponseEntity<>(response, HttpStatus.OK);
           } catch (Exception e) {
@@ -365,7 +378,7 @@ public class AuthServiceController {
   @PostMapping(value = "/track", produces = "application/json;charset=utf-8")
   CompletableFuture<ResponseEntity<String>> track(final HttpEntity<String> httpEntity) {
     String jsonStr = httpEntity.getBody();
-    ObjectMapper mapper = new ObjectMapper();
+
     JsonNode bodyJson;
     try {
       bodyJson = mapper.readTree(jsonStr);
@@ -382,7 +395,7 @@ public class AuthServiceController {
         () -> {
           try {
             if (_trackingService != null) {
-              _trackingService.emitAnalyticsEvent(bodyJson);
+              _trackingService.emitAnalyticsEvent(systemOperationContext, bodyJson);
             }
             return new ResponseEntity<>(HttpStatus.OK);
           } catch (Exception e) {
@@ -412,7 +425,9 @@ public class AuthServiceController {
             GlobalSettingsInfo globalSettingsInfo =
                 (GlobalSettingsInfo)
                     _entityService.getLatestAspect(
-                        GLOBAL_SETTINGS_URN, GLOBAL_SETTINGS_INFO_ASPECT_NAME);
+                        systemOperationContext,
+                        GLOBAL_SETTINGS_URN,
+                        GLOBAL_SETTINGS_INFO_ASPECT_NAME);
             if (globalSettingsInfo == null || !globalSettingsInfo.hasSso()) {
               log.debug("There are no SSO settings available");
               return new ResponseEntity<>(HttpStatus.NOT_FOUND);
