@@ -12,8 +12,6 @@ from typing import (
     Union,
 )
 
-import boto3
-import pydantic
 from pydantic.fields import Field
 
 from datahub.configuration.common import AllowDenyPattern
@@ -189,7 +187,6 @@ class DynamoDBSource(StatefulIngestionSourceBase):
         super().__init__(config, ctx)
         self.config = config
         self.report = DynamoDBSourceReport()
-        self.dynamodb_client = config.dynamodb_client
         self.platform = platform
         self.classification_handler = ClassificationHandler(self.config, self.report)
 
@@ -213,35 +210,27 @@ class DynamoDBSource(StatefulIngestionSourceBase):
         ]
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
-        # This is a offline call to get available region names from botocore library
-        session = boto3.Session()
-        dynamodb_regions = session.get_available_regions("dynamodb")
-        logger.info(f"region names {dynamodb_regions}")
+        dynamodb_client = self.config.dynamodb_client
+        region = dynamodb_client.meta.region_name
 
-        # traverse databases in sorted order so output is consistent
-        for region in dynamodb_regions:
-            logger.info(f"Processing region {region}")
-            # create a new dynamodb client for each region,
-            # it seems for one client we could only list the table of one specific region,
-            # the list_tables() method don't take any config that related to region
-            data_reader = DynamoDBTableItemsReader.create(self.dynamodb_client)
+        data_reader = DynamoDBTableItemsReader.create(dynamodb_client)
 
-            for table_name in self._list_tables(self.dynamodb_client):
-                dataset_name = f"{region}.{table_name}"
-                if not self.config.table_pattern.allowed(dataset_name):
-                    logger.debug(f"skipping table: {dataset_name}")
-                    self.report.report_dropped(dataset_name)
-                    continue
+        for table_name in self._list_tables(dynamodb_client):
+            dataset_name = f"{region}.{table_name}"
+            if not self.config.table_pattern.allowed(dataset_name):
+                logger.debug(f"skipping table: {dataset_name}")
+                self.report.report_dropped(dataset_name)
+                continue
 
-                table_wu_generator = self._process_table(
-                    region, self.dynamodb_client, table_name, dataset_name
-                )
-                yield from classification_workunit_processor(
-                    table_wu_generator,
-                    self.classification_handler,
-                    data_reader,
-                    [region, table_name],
-                )
+            table_wu_generator = self._process_table(
+                region, dynamodb_client, table_name, dataset_name
+            )
+            yield from classification_workunit_processor(
+                table_wu_generator,
+                self.classification_handler,
+                data_reader,
+                [region, table_name],
+            )
 
     def _process_table(
         self,

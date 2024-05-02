@@ -14,8 +14,8 @@ from datahub.configuration.common import (
 from datahub.configuration.source_common import EnvConfigMixin
 
 if TYPE_CHECKING:
+    from mypy_boto3_dynamodb import DynamoDBClient
     from mypy_boto3_glue import GlueClient
-    from mypy_boto3_dynamodb import Dynami
     from mypy_boto3_s3 import S3Client, S3ServiceResource
     from mypy_boto3_sagemaker import SageMakerClient
     from mypy_boto3_sts import STSClient
@@ -214,7 +214,7 @@ class AwsConnectionConfig(ConfigModel):
 
     def get_glue_client(self) -> "GlueClient":
         return self.get_session().client("glue", config=self._aws_config())
-    
+
     def get_dynamodb_client(self) -> "DynamoDBClient":
         return self.get_session().client("dynamodb", config=self._aws_config())
 
