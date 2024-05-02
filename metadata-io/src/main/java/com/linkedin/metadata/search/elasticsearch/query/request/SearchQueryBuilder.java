@@ -361,13 +361,20 @@ public class SearchQueryBuilder {
     getStandardFields(entitySpecs)
         .forEach(
             searchFieldConfig -> {
+              boolean caseSensitivityEnabled =
+                  exactMatchConfiguration.getCaseSensitivityFactor() > 0.0f;
+              float caseSensitivityFactor =
+                  caseSensitivityEnabled
+                      ? exactMatchConfiguration.getCaseSensitivityFactor()
+                      : 1.0f;
+
               if (searchFieldConfig.isDelimitedSubfield() && isPrefixQuery) {
                 finalQuery.should(
                     QueryBuilders.matchPhrasePrefixQuery(searchFieldConfig.fieldName(), query)
                         .boost(
                             searchFieldConfig.boost()
                                 * exactMatchConfiguration.getPrefixFactor()
-                                * exactMatchConfiguration.getCaseSensitivityFactor())
+                                * caseSensitivityFactor)
                         .queryName(searchFieldConfig.shortName())); // less than exact
               }
 
@@ -376,13 +383,16 @@ public class SearchQueryBuilder {
                 // The non-.keyword field removes case information
 
                 // Exact match case-sensitive
-                finalQuery.should(
-                    QueryBuilders.termQuery(
-                            ESUtils.toKeywordField(searchFieldConfig.fieldName(), false),
-                            unquotedQuery)
-                        .caseInsensitive(false)
-                        .boost(searchFieldConfig.boost() * exactMatchConfiguration.getExactFactor())
-                        .queryName(searchFieldConfig.shortName()));
+                if (caseSensitivityEnabled) {
+                  finalQuery.should(
+                      QueryBuilders.termQuery(
+                              ESUtils.toKeywordField(searchFieldConfig.fieldName(), false),
+                              unquotedQuery)
+                          .caseInsensitive(false)
+                          .boost(
+                              searchFieldConfig.boost() * exactMatchConfiguration.getExactFactor())
+                          .queryName(searchFieldConfig.shortName()));
+                }
 
                 // Exact match case-insensitive
                 finalQuery.should(
@@ -393,7 +403,7 @@ public class SearchQueryBuilder {
                         .boost(
                             searchFieldConfig.boost()
                                 * exactMatchConfiguration.getExactFactor()
-                                * exactMatchConfiguration.getCaseSensitivityFactor())
+                                * caseSensitivityFactor)
                         .queryName(searchFieldConfig.fieldName()));
               }
 
