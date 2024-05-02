@@ -352,7 +352,7 @@ This event is emitted when a description has been added to an entity on DataHub.
 
 #### Header
 
-<table><thead><tr><th>Category</th><th>Operation</th><th>Entity Types</th><th data-hidden></th></tr></thead><tbody><tr><td>DOCUMENTATION</td><td>ADD</td><td><code>dataset</code>, <code>dashboard</code>, <code>chart</code>, <code>dataJob</code>, <code>dataFlow</code> , <code>container</code>, <code>glossaryTerm</code>, <code>domain</code>, <code>tag</code></td><td></td></tr></tbody></table>
+<table><thead><tr><th>Category</th><th>Operation</th><th>Entity Types</th><th data-hidden></th></tr></thead><tbody><tr><td>DOCUMENTATION</td><td>ADD</td><td><code>dataset</code>, <code>dashboard</code>, <code>chart</code>, <code>dataJob</code>, <code>dataFlow</code> , <code>container</code>, <code>glossaryTerm</code>, <code>domain</code>, <code>tag</code>, <code>schemaField</code></td><td></td></tr></tbody></table>
 
 #### Parameters
 
@@ -378,13 +378,45 @@ This event is emitted when a description has been added to an entity on DataHub.
 }
 ```
 
+### Modify Description Event
+
+This event is emitted when an existing description of an entity has been modified on DataHub.
+
+#### Header
+
+<table><thead><tr><th>Category</th><th>Operation</th><th>Entity Types</th><th data-hidden></th></tr></thead><tbody><tr><td>DOCUMENTATION</td><td>MODIFY</td><td><code>dataset</code>, <code>dashboard</code>, <code>chart</code>, <code>dataJob</code>, <code>dataFlow</code> , <code>container</code>, <code>glossaryTerm</code>, <code>domain</code>, <code>tag</code>, <code>schemaField</code></td><td></td></tr></tbody></table>
+
+#### Parameters
+
+| Name        | Type   | Description                        | Optional |
+|-------------| ------ |------------------------------------| -------- |
+| description | String | The new description of the entity. | False    |
+
+#### Sample Event
+
+```
+{
+  "entityUrn": "urn:li:dataset:abc",
+  "entityType": "dataset",
+  "category": "DOCUMENTATION",
+  "operation": "MODIFY",
+  "parameters": {
+    "description": "This is a new description"
+  },
+  "auditStamp": {
+    "actor": "urn:li:corpuser:jdoe",
+    "time": 1706646452982
+  }
+}
+```
+
 ### Remove Description Event
 
 This event is emitted when an existing description has been removed from an entity on DataHub.
 
 #### Header
 
-<table><thead><tr><th>Category</th><th>Operation</th><th>Entity Types</th><th data-hidden></th></tr></thead><tbody><tr><td>DOCUMENTATION</td><td>REMOVE</td><td><code>dataset</code>, <code>dashboard</code>, <code>chart</code>, <code>dataJob</code>, <code>container</code> ,<code>dataFlow</code> , <code>glossaryTerm</code>, <code>domain</code>, <code>tag</code></td><td></td></tr></tbody></table>
+<table><thead><tr><th>Category</th><th>Operation</th><th>Entity Types</th><th data-hidden></th></tr></thead><tbody><tr><td>DOCUMENTATION</td><td>REMOVE</td><td><code>dataset</code>, <code>dashboard</code>, <code>chart</code>, <code>dataJob</code>, <code>container</code> ,<code>dataFlow</code> , <code>glossaryTerm</code>, <code>domain</code>, <code>tag</code>, <code>schemaField</code></td><td></td></tr></tbody></table>
 
 #### Parameters
 
