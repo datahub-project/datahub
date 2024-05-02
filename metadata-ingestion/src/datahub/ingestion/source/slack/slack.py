@@ -249,6 +249,7 @@ class SlackSource(Source):
                     user_profile_res = self.get_slack_client().users_info(
                         user=user_obj.slack_id
                     )
+                    user_profile_res = user_profile_res.get("user", {})
                 else:
                     user_profile_res = self.get_slack_client().users_profile_get(
                         user=user_obj.slack_id
