@@ -1062,12 +1062,18 @@ class FunctionName(Enum):
     DATABRICK_DATA_ACCESS = "Databricks.Catalogs"
     GOOGLE_BIGQUERY_DATA_ACCESS = "GoogleBigQuery.Database"
     AMAZON_REDSHIFT_DATA_ACCESS = "AmazonRedshift.Database"
+    DATABRICK_MULTI_CLOUD_DATA_ACCESS = "DatabricksMultiCloud.Catalogs"
 
 
 class SupportedResolver(Enum):
-    DATABRICK_QUERY = (
+    DATABRICKS_QUERY = (
         DatabrickDataPlatformTableCreator,
         FunctionName.DATABRICK_DATA_ACCESS,
+    )
+
+    DATABRICKS_MULTI_CLOUD = (
+        DatabrickDataPlatformTableCreator,
+        FunctionName.DATABRICK_MULTI_CLOUD_DATA_ACCESS,
     )
 
     POSTGRES_SQL = (
