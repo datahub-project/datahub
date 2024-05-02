@@ -12,7 +12,7 @@ from datahub.api.entities.datajob import DataJob
 from datahub.api.entities.dataprocess.dataprocess_instance import InstanceRunResult
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter
-from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
+from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata.schema_classes import (
     FineGrainedLineageClass,
     FineGrainedLineageDownstreamTypeClass,
