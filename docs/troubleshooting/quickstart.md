@@ -67,15 +67,6 @@ docker system prune
 
 </details>
 
-<details>
-<summary>
-Still stuck?
-</summary>
-
-Hop over to our [Slack community](https://slack.datahubproject.io) and ask for help in the [#troubleshoot](https://datahubspace.slack.com/archives/C029A3M079U) channel!
-
-</details>
-
 ## How can I confirm if all Docker containers are running as expected after a quickstart?
 
 If you set up the `datahub` CLI tool (see [here](../../metadata-ingestion/README.md)), you can use the built-in check utility:
