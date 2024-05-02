@@ -436,7 +436,7 @@ class DataHubListener:
                 logger.debug(f"Emitted Dataset Operation: {outlet}")
         if not self.config.materialize_iolets:
             for outlet in datajob.outlets:
-                if self.graph.exists(str(outlet)):
+                if not self.graph.exists(str(outlet)):
                     logger.warning(f"dataset {str(outlet)} not materialized")
 
     def on_task_instance_finish(
