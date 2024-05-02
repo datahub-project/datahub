@@ -60,7 +60,7 @@ class DummySourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
     )
     report_failure: bool = Field(
         default=False,
-        description="Weather to add failure report at the end.",
+        description="Should this dummy source report a failure.",
     )
 
 
