@@ -178,6 +178,8 @@ def cleanup(config: BigQueryV2Config) -> None:
 )
 class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
     # https://cloud.google.com/bigquery/docs/reference/standard-sql/data-types
+    # Note: We use the hive schema parser to parse nested BigQuery types. We also have
+    # some extra type mappings in that file.
     BIGQUERY_FIELD_TYPE_MAPPINGS: Dict[
         str,
         Type[
@@ -1264,7 +1266,6 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                     type=SchemaFieldDataType(
                         self.BIGQUERY_FIELD_TYPE_MAPPINGS.get(col.data_type, NullType)()
                     ),
-                    # NOTE: nativeDataType will not be in sync with older connector
                     nativeDataType=col.data_type,
                     description=col.comment,
                     nullable=col.is_nullable,
