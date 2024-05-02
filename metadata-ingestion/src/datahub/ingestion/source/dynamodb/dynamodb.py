@@ -81,6 +81,7 @@ FIELD_DELIMITER = "."
 logger: logging.Logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
+    from mypy_boto3_dynamodb import DynamoDBClient
     from mypy_boto3_dynamodb.type_defs import (
         AttributeValueTypeDef,
         TableDescriptionTypeDef,
