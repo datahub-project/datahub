@@ -433,10 +433,11 @@ class DataHubListener:
 
                 self.emitter.emit(operation_mcp)
                 logger.debug(f"Emitted Dataset Operation: {outlet}")
-        if not self.config.materialize_iolets:
+
+        if not self.config.materialize_iolets and self.graph:
             for outlet in datajob.outlets:
                 if not self.graph.exists(str(outlet)):
-                    logger.warning(f"dataset {str(outlet)} not materialized")
+                    logger.warning(f"Dataset {str(outlet)} not materialized")
 
     def on_task_instance_finish(
         self, task_instance: "TaskInstance", status: InstanceRunResult
