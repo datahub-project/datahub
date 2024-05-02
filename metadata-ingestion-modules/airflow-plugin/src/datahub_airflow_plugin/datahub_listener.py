@@ -12,7 +12,7 @@ from datahub.api.entities.datajob import DataJob
 from datahub.api.entities.dataprocess.dataprocess_instance import InstanceRunResult
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter
-from datahub.ingestion.graph.client import DataHubGraph
+from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
 from datahub.metadata.schema_classes import (
     FineGrainedLineageClass,
     FineGrainedLineageDownstreamTypeClass,
@@ -43,6 +43,7 @@ from datahub_airflow_plugin.entities import (
     entities_to_datajob_urn_list,
     entities_to_dataset_urn_list,
 )
+from datahub_airflow_plugin.hooks.datahub import DatahubRestHook
 
 _F = TypeVar("_F", bound=Callable[..., None])
 if TYPE_CHECKING:
@@ -433,6 +434,10 @@ class DataHubListener:
 
                 self.emitter.emit(operation_mcp)
                 logger.debug(f"Emitted Dataset Operation: {outlet}")
+        if not self.config.materialize_iolets:
+            for outlet in datajob.outlets:
+                if self.graph.exists(str(outlet)):
+                    logger.warning(f"dataset {str(outlet)} not materialized")
 
     def on_task_instance_finish(
         self, task_instance: "TaskInstance", status: InstanceRunResult
