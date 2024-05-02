@@ -890,9 +890,15 @@ The [JSONSchema](https://json-schema.org/) for this configuration is inlined bel
         f.write("<FeatureAvailability/>\n")
 
         f.write("""
-Data lineage is a **map that shows how data flows through your organization.** It details where your data originates, how it travels, and where it ultimately ends up. This can happen within a single system (like data moving between Snowflake tables) or across various platforms.
-DataHub supports automatic table- and column-level lineage detection from BigQuery, Snowflake, dbt, Looker, PowerBI, and 20+ modern data tools. 
-For data tools with limited native lineage tracking, DataHub's SQL Parser detects lineage with 97–99% accuracy, 
+Data lineage is a **map that shows how data flows through your organization.** It details where your data originates, how it travels, and where it ultimately ends up. 
+This can happen within a single system (like data moving between Snowflake tables) or across various platforms.
+
+With data lineage, you can
+- Maintaining Data Integrity
+- Simplify and Refine Complex Relationships
+- Perform [Lineage Impact Analysis](../../act-on-metadata/impact-analysis.md)
+- [Propagate Metadata](https://blog.datahubproject.io/acryl-data-introduces-lineage-support-and-automated-propagation-of-governance-information-for-339c99536561) Across Lineage
+
 
 ## Viewing Lineage
 
@@ -919,10 +925,12 @@ This means you have not yet ingested lineage metadata for that entity. Please in
 
 ## Column Level Lineage Support
 
-Column-level lineage tracks changes and movements for each specific data column. This approach is often contrasted with table-level lineage, which specifies lineage at the table level.
+Column-level lineage **tracks changes and movements for each specific data column.** This approach is often contrasted with table-level lineage, which specifies lineage at the table level.
 Below is how column-level lineage can be set with dbt and Postgres tables.
 
-<img></img>
+<p align="center">
+<img width="80%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/lineage/column-level-lineage.png" />
+</p>
 
 ## Adding Lineage
 
@@ -951,8 +959,21 @@ Please refer to [API Guides on Lineage](../../api/tutorials/lineage.md) for more
 
 ## Lineage Support
 
-DataHub supports automatic table- and column-level lineage detection from BigQuery, Snowflake, dbt, Looker, PowerBI, and 20+ modern data tools. 
-For data tools with limited native lineage tracking, DataHub's SQL Parser detects lineage with 97–99% accuracy, ensuring teams will have high quality lineage graphs across all corners of their data stack.
+DataHub supports **automatic table- and column-level lineage detection** from BigQuery, Snowflake, dbt, Looker, PowerBI, and 20+ modern data tools. 
+For data tools with limited native lineage tracking, **DataHub's SQL Parser** detects lineage with 97–99% accuracy, ensuring teams will have high quality lineage graphs across all corners of their data stack.
+
+### Types of Lineage Connections
+
+Types of lineage connections supported in DataHub and the example codes are as follows.
+
+| Connection          | Examples                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | A.K.A           |
+|---------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-----------------|
+| Dataset to Dataset  | - [lineage_emitter_mcpw_rest.py](../../../metadata-ingestion/examples/library/lineage_emitter_mcpw_rest.py) <br /> - [lineage_emitter_rest.py](../../../metadata-ingestion/examples/library/lineage_emitter_rest.py) <br /> - [lineage_emitter_kafka.py](../../../metadata-ingestion/examples/library/lineage_emitter_kafka.py) <br /> - [lineage_emitter_dataset_finegrained.py](../../../metadata-ingestion/examples/library/lineage_emitter_dataset_finegrained.py) <br /> - [Datahub BigQuery Lineage](https://github.com/datahub-project/datahub/blob/a1bf95307b040074c8d65ebb86b5eb177fdcd591/metadata-ingestion/src/datahub/ingestion/source/sql/bigquery.py#L229) <br /> - [Datahub Snowflake Lineage](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/src/datahub/ingestion/source/sql/snowflake.py#L249) |
+| DataJob to DataFlow | - [lineage_job_dataflow.py](../../../metadata-ingestion/examples/library/lineage_job_dataflow.py)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |    |
+| DataJob to Dataset  | - [lineage_dataset_job_dataset.py](../../../metadata-ingestion/examples/library/lineage_dataset_job_dataset.py) <br /> | Pipeline Lineage |
+| Chart to Dashboard  | - [lineage_chart_dashboard.py](../../../metadata-ingestion/examples/library/lineage_chart_dashboard.py)  |  |
+| Chart to Dataset    | - [lineage_dataset_chart.py](../../../metadata-ingestion/examples/library/lineage_dataset_chart.py)  |  |
+
 
 ### Automatic Lineage Extraction Support
 
@@ -1008,18 +1029,15 @@ This is a summary of automatic lineage extraciton support in our data source. Pl
                     )
 
         f.write("""
+        
+### SQL Parser Lineage Extraction
 
-### Types of Lineage Connections
+If you’re using a different database system for which we don’t support column-level lineage out of the box, but you do have a database query log available, 
+we have a SQL queries connector that generates column-level lineage and detailed table usage statistics from the query log.
 
-Types of lineage connections supported in DataHub and the example codes are as follows.
+If these does not suit your needs, you can use the new `DataHubGraph.parse_sql_lineage()` method in our SDK. (See the source code [here](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/src/datahub/ingestion/graph/client.py#L1132))
 
-| Connection          | Examples                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | A.K.A           |
-|---------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-----------------|
-| Dataset to Dataset  | - [lineage_emitter_mcpw_rest.py](../../../metadata-ingestion/examples/library/lineage_emitter_mcpw_rest.py) <br /> - [lineage_emitter_rest.py](../../../metadata-ingestion/examples/library/lineage_emitter_rest.py) <br /> - [lineage_emitter_kafka.py](../../../metadata-ingestion/examples/library/lineage_emitter_kafka.py) <br /> - [lineage_emitter_dataset_finegrained.py](../../../metadata-ingestion/examples/library/lineage_emitter_dataset_finegrained.py) <br /> - [Datahub BigQuery Lineage](https://github.com/datahub-project/datahub/blob/a1bf95307b040074c8d65ebb86b5eb177fdcd591/metadata-ingestion/src/datahub/ingestion/source/sql/bigquery.py#L229) <br /> - [Datahub Snowflake Lineage](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/src/datahub/ingestion/source/sql/snowflake.py#L249) |
-| DataJob to DataFlow | - [lineage_job_dataflow.py](../../../metadata-ingestion/examples/library/lineage_job_dataflow.py)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |    |
-| DataJob to Dataset  | - [lineage_dataset_job_dataset.py](../../../metadata-ingestion/examples/library/lineage_dataset_job_dataset.py) <br /> | Pipeline Lineage |
-| Chart to Dashboard  | - [lineage_chart_dashboard.py](../../../metadata-ingestion/examples/library/lineage_chart_dashboard.py)  |  |
-| Chart to Dataset    | - [lineage_dataset_chart.py](../../../metadata-ingestion/examples/library/lineage_dataset_chart.py)  |  |
+For more information, refer to the [Extracting Column-Level Lineage from SQL](https://blog.datahubproject.io/extracting-column-level-lineage-from-sql-779b8ce17567) 
 
 
 :::tip Our Roadmap
@@ -1031,10 +1049,9 @@ Visit our [Official Roadmap](https://feature-requests.datahubproject.io/roadmap)
 
 - [DataHub Basics: Lineage 101](https://www.youtube.com/watch?v=rONGpsndzRw&t=1s)
 - [DataHub November 2022 Town Hall](https://www.youtube.com/watch?v=BlCLhG8lGoY&t=1s) - Including Manual Lineage Demo
-- [Acryl Data introduces lineage support and automated propagation of governance information for Snowflake in DataHub](https://blog.datahubproject.io/acryl-data-introduces-lineage-support-and-automated-propagation-of-governance-information-for-339c99536561)
 - [Data in Context: Lineage Explorer in DataHub](https://blog.datahubproject.io/data-in-context-lineage-explorer-in-datahub-a53a9a476dc4)
 - [Harnessing the Power of Data Lineage with DataHub](https://blog.datahubproject.io/harnessing-the-power-of-data-lineage-with-datahub-ad086358dec4)
-- [DataHub Lineage Impact Analysis](../../act-on-metadata/impact-analysis.md)
+- [Data Lineage: What It Is And Why It Matters](https://blog.datahubproject.io/data-lineage-what-it-is-and-why-it-matters-1a8d9846f0bd)
                         """)
 
     print("Lineage Documentation Generation Complete")
