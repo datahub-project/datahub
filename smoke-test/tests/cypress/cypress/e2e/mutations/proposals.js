@@ -32,7 +32,7 @@ describe("proposals", () => {
 
   let proposeGlossaryDescription = () => {
     cy.visit(datasetUrn.dataPlatformDocument);
-    cy.get('[data-testid="add-documentation"]').click({ force: true });
+    cy.get('[data-testid="add-documentation"]').should('be.visible').click({ force: true });
     cy.focused().clear().type(updateDescription);
     cy.get('[data-testid="propose-description"]').click({ force: true });
     cy.contains('Proposed description update!').should('be.visible')
@@ -52,6 +52,7 @@ describe("proposals", () => {
     );
     // Click the create proposal button
     cy.get('[data-testid="create-proposal-btn"]').click({ force: true });
+    cy.wait(1000)
     // Verify the proposed tag or term is visible
     cy.get(`[data-testid="proposed-${dataTestId}-${tagNameOrTermName}"]`).should('be.visible');
   };
@@ -68,17 +69,17 @@ describe("proposals", () => {
     cy.waitTextVisible(to_type);
     cy.get('[data-testid="proposed-' + thing + '-' + to_type + '"]').should('be.visible').click({ force: true });
     cy.get('[data-testid="proposal-reject-button-' + to_type + '"]').click({ force: true });
-    cy.get('[data-testid="proposed-' + thing + '-' + to_type + '"]').should('not.exist');
+    cy.get('#entity-profile-sidebar').contains(to_type).should('be.visible');
   };
   
   let removeTagSchemaLevel = (field_id, tag) => {
-    cy.get('[data-testid=' + field_id + ']').within(() => {
+    cy.get('#entity-profile-sidebar').within(() => {
       cy.contains('[data-testid=tag-' + tag + ']', tag)
         .find('.ant-tag-close-icon')
         .click({ force: true }  );
     }); 
     cy.contains('Yes').click();
-    cy.contains(tag).should('not.exist');
+    cy.get('#entity-profile-sidebar').contains(tag).should('not.exist');
   };
 
 

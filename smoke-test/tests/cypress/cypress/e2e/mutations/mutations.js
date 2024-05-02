@@ -10,7 +10,9 @@ describe("mutations", () => {
     cy.deleteUrn("urn:li:tag:CypressTestAddTag");
     cy.login();
     cy.goToDataset("urn:li:dataset:(urn:li:dataPlatform:hive,cypress_logging_events,PROD)", "cypress_logging_events");
-
+   
+    cy.ensureElementPresent('.ant-table-row')
+   
     cy.contains("Add Tag").click({ force: true });
 
     cy.enterTextInTestId("tag-term-modal-input", "CypressTestAddTag");

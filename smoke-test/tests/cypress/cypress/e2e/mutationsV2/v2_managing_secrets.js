@@ -13,6 +13,7 @@ describe("managing secrets for ingestion creation", () => {
   it("create a secret, create ingestion source using a secret, remove a secret", () => {
     // Navigate to the manage ingestion page → secrets
     cy.loginWithCredentials();
+    cy.wait(2000)
     cy.handleIntroducePage()
     cy.goToIngestionPage();
     cy.openEntityTab("Secrets");
