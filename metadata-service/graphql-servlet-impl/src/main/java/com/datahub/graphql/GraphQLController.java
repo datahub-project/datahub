@@ -119,14 +119,15 @@ public class GraphQLController {
             true, authentication, _authorizerChain, systemOperationContext, query, variables);
     Span.current().setAttribute("actor.urn", context.getActorUrn());
 
+    // operationName is an optional field only required if multiple operations are present
+    final String queryName = operationName != null ? operationName : context.getQueryName();
     final String threadName = Thread.currentThread().getName();
-    log.info(
-        "Processing request, operation: {}, actor urn: {}", operationName, context.getActorUrn());
+    log.info("Processing request, operation: {}, actor urn: {}", queryName, context.getActorUrn());
     log.debug("Query: {}, variables: {}", query, variables);
 
     return CompletableFuture.supplyAsync(
         () -> {
-          log.info("Executing operation {} for {}", operationName, threadName);
+          log.info("Executing operation {} for {}", queryName, threadName);
 
           /*
            * Execute GraphQL Query
@@ -149,13 +150,12 @@ public class GraphQLController {
           try {
             long totalDuration = submitMetrics(executionResult);
             String executionTook = totalDuration > 0 ? " in " + totalDuration + " ms" : "";
-            log.info("Executed operation {}" + executionTook, operationName);
+            log.info("Executed operation {}" + executionTook, queryName);
             // Remove tracing from response to reduce bulk, not used by the frontend
             executionResult.getExtensions().remove("tracing");
             String responseBodyStr =
                 new ObjectMapper().writeValueAsString(executionResult.toSpecification());
-            log.info(
-                "Operation {} execution result size: {}", operationName, responseBodyStr.length());
+            log.info("Operation {} execution result size: {}", queryName, responseBodyStr.length());
             log.trace("Execution result: {}", responseBodyStr);
             return new ResponseEntity<>(responseBodyStr, HttpStatus.OK);
           } catch (IllegalArgumentException | JsonProcessingException e) {
