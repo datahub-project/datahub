@@ -58,13 +58,23 @@ def is_dialect_instance(
 
 
 @functools.lru_cache(maxsize=SQL_PARSE_CACHE_SIZE)
-def parse_statement(
+def _parse_statement(
     sql: sqlglot.exp.ExpOrStr, dialect: sqlglot.Dialect
 ) -> sqlglot.Expression:
     statement: sqlglot.Expression = sqlglot.maybe_parse(
         sql, dialect=dialect, error_level=sqlglot.ErrorLevel.RAISE
     )
     return statement
+
+
+def parse_statement(
+    sql: sqlglot.exp.ExpOrStr, dialect: sqlglot.Dialect
+) -> sqlglot.Expression:
+    # Parsing is significantly more expensive than copying the expression.
+    # Because the expressions are mutable, we don't want to allow the caller
+    # to modify the parsed expression that sits in the cache. We keep
+    # the cached versions pristine by returning a copy on each call.
+    return _parse_statement(sql, dialect).copy()
 
 
 def parse_statements_and_pick(sql: str, platform: DialectOrStr) -> sqlglot.Expression:
