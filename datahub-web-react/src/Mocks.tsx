@@ -3892,6 +3892,7 @@ export const platformPrivileges: PlatformPrivileges = {
     manageIngestion: true,
     manageSecrets: true,
     manageTokens: true,
+    viewTests: false,
     manageTests: true,
     manageGlossaries: true,
     manageUserCredentials: true,
