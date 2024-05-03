@@ -387,14 +387,24 @@ class TestSnowflakeSource:
         query = "SELECT * FROM TABLE;"
         self.snowflake_source._execute_fetchall_query(query)
         self.snowflake_connection_mock.get_client().cursor().execute.assert_has_calls(
-            [call("ALTER SESSION SET TIMEZONE = 'UTC';"), call(query)]
+            [
+                call(
+                    "ALTER SESSION SET TIMEZONE = 'UTC', STATEMENT_TIMEOUT_IN_SECONDS = 600;"
+                ),
+                call(query),
+            ]
         )
 
     def test_execute_fetchone_query(self) -> None:
         query = "SELECT * FROM TABLE;"
         self.snowflake_source._execute_fetchone_query(query)
         self.snowflake_connection_mock.get_client().cursor().execute.assert_has_calls(
-            [call("ALTER SESSION SET TIMEZONE = 'UTC';"), call(query)]
+            [
+                call(
+                    "ALTER SESSION SET TIMEZONE = 'UTC', STATEMENT_TIMEOUT_IN_SECONDS = 600;"
+                ),
+                call(query),
+            ]
         )
 
     def test_get_entity_events_field_update_bad_column_type(self) -> None:

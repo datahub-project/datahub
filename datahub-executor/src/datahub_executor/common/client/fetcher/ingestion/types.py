@@ -18,7 +18,7 @@ class IngestionSourceConfig(PermissiveBaseModel):
 
     version: Optional[str]
 
-    debug_mode: Optional[str] = Field(alias="debugMode")
+    debug_mode: Optional[str] = Field(alias="debugMode", default="false")
 
 
 class IngestionSource(PermissiveBaseModel):
