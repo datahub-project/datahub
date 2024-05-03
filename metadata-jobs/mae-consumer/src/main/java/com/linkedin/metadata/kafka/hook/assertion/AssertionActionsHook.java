@@ -764,6 +764,8 @@ public class AssertionActionsHook implements MetadataChangeLogHook {
         return info.getVolumeAssertion().getEntity();
       case SQL:
         return info.getSqlAssertion().getEntity();
+      case FIELD:
+        return info.getFieldAssertion().getEntity();
       default:
         throw new IllegalArgumentException(
             "Failed to extract assertee urn from assertionInfo aspect! Unrecognized assertion type provided.");
