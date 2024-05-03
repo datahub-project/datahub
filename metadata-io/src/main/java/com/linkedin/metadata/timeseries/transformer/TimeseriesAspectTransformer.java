@@ -32,6 +32,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.codec.digest.DigestUtils;
+import org.springframework.beans.factory.annotation.Value;
 
 /** Class that provides a utility function that transforms the timeseries aspect into a document */
 @Slf4j
@@ -49,6 +50,9 @@ public class TimeseriesAspectTransformer {
   }
 
   private TimeseriesAspectTransformer() {}
+
+  @Value("${elasticsearch.idHashAlgo}")
+  static String hashAlgo;
 
   public static Map<String, JsonNode> transform(
       @Nonnull final Urn urn,
@@ -257,7 +261,8 @@ public class TimeseriesAspectTransformer {
         finalDocument);
   }
 
-  private static String getDocId(@Nonnull JsonNode document, String collectionId) {
+  private static String getDocId(@Nonnull JsonNode document, String collectionId)
+      throws IllegalArgumentException {
     String docId = document.get(MappingsBuilder.TIMESTAMP_MILLIS_FIELD).toString();
     JsonNode eventGranularity = document.get(MappingsBuilder.EVENT_GRANULARITY);
     if (eventGranularity != null) {
@@ -276,6 +281,11 @@ public class TimeseriesAspectTransformer {
       docId += partitionSpec.toString();
     }
 
-    return DigestUtils.md5Hex(docId);
+    if (hashAlgo.equalsIgnoreCase("SHA-256")) {
+      return DigestUtils.sha256Hex(docId);
+    } else if (hashAlgo.equalsIgnoreCase("MD5")) {
+      return DigestUtils.md5Hex(docId);
+    }
+    throw new IllegalArgumentException("Hash function not handled !");
   }
 }
