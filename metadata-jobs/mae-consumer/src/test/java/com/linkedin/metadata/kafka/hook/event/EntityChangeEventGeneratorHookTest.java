@@ -1168,8 +1168,6 @@ public class EntityChangeEventGeneratorHookTest {
     Mockito.when(registry.getEntitySpec(DATA_PROCESS_INSTANCE_ENTITY_NAME))
         .thenReturn(dataProcessInstanceSpec);
 
-    // Build SchemaField Entity Spec
-
     return TestOperationContexts.systemContextNoSearchAuthorization(registry);
   }
 
