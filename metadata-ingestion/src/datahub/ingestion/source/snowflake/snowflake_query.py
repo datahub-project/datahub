@@ -236,14 +236,34 @@ class SnowflakeQuery:
         where table_schema='{schema_name}'
         order by table_schema, table_name"""
 
+    # If show views in schema {db_clause}"{schema_name} is ran against a 
+    # Schema with more than 10,000 views, Snowflake returns the following error:
+    # The result set size exceeded the max number of rows(10000)
+    # Use LIMIT option to limit result set to a smaller number.
+    # If this happens, then break up your views for a particular schema
+    # into smaller groupings by bucketing views into groups consisting of 
+    # the first 4 characters of a view name and the number of views
+    # This should return a smaller grouping of views to fetch view definitions for
+    # https://docs.snowflake.com/en/sql-reference/sql/show-views
+    @staticmethod
+    def get_views_by_name_substr(schema_name: str, db_name: Optional[str]) -> str:
+        db_clause = f'"{db_name}".' if db_name is not None else ""
+        return f"""
+        SELECT DISTINCT SUBSTR(TABLE_NAME,0,4) AS VIEW_NAME_STARTS_WITH, 
+        COUNT(1) AS ROW_COUNT 
+        FROM {db_clause}INFORMATION_SCHEMA.VIEWS 
+        WHERE TABLE_SCHEMA='{schema_name}'
+        GROUP BY SUBSTR(TABLE_NAME,0,4) 
+        ORDER BY 1"""
+
     @staticmethod
     def show_views_for_database(db_name: str) -> str:
         return f"""show views in database "{db_name}";"""
 
-    @staticmethod
-    def show_views_for_schema(schema_name: str, db_name: Optional[str]) -> str:
+    def show_views_for_schema(schema_name: str, db_name: Optional[str] = None, starts_with: Optional[str] = None) -> str:
         db_clause = f'"{db_name}".' if db_name is not None else ""
-        return f"""show views in schema {db_clause}"{schema_name}";"""
+        starts_with_clause = f' starts with "{starts_with}%"' if starts_with is not None else ""
+        return f"""show views in schema {db_clause}"{schema_name}" {starts_with_clause};"""
 
     @staticmethod
     def columns_for_schema(schema_name: str, db_name: Optional[str]) -> str:

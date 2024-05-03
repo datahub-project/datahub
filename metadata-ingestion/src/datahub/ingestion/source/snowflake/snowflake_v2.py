@@ -1406,9 +1406,19 @@ class SnowflakeV2Source(
         # get all views for database failed,
         # falling back to get views for schema
         if views is None:
-            self.report.num_get_views_for_schema_queries += 1
-            return self.data_dictionary.get_views_for_schema(schema_name, db_name)
-
+            # Joshua Garza: 20240428: 
+            # get all views for schema failed,
+            # falling back to get views for schema for 
+            # subsets of view names "STARTS_WITH"
+            try:
+                self.report.num_get_views_for_schema_queries += 1
+                views = self.data_dictionary.get_views_for_schema(schema_name, db_name)
+            
+            except Exception as e:
+                print(f"An error occured: {e}")
+                self.report.num_get_views_for_schema_queries += 1
+                ##fallback_schema_queries = []
+                views = self.data_dictionary.get_views_for_schema_starts_with(schema_name, db_name)
         # Some schema may not have any table
         return views.get(schema_name, [])
 
