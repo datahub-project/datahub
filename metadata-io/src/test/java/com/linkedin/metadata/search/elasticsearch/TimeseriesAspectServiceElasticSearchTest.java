@@ -16,7 +16,7 @@ import org.testng.annotations.Test;
 
 @SpringBootTest
 @Import({ElasticSearchSuite.class, SearchTestContainerConfiguration.class})
-@TestPropertySource(locations = "classpath:application.yml")
+@TestPropertySource(locations = "classpath:application.yaml")
 public class TimeseriesAspectServiceElasticSearchTest extends TimeseriesAspectServiceTestBase {
 
   @Autowired private RestHighLevelClient _searchClient;
