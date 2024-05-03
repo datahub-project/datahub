@@ -193,7 +193,7 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
     };
 
     displayName = (data: GlossaryTerm) => {
-        return data.properties?.name || data.name || data.urn;
+        return data?.properties?.name || data?.name || data?.urn;
     };
 
     platformLogoUrl = (_: GlossaryTerm) => {
