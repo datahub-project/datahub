@@ -53,7 +53,7 @@ dependencies {
   implementation project(path: ':metadata-integration:java:openlineage-converter', configuration: 'shadow')
 
   //implementation "io.acryl:datahub-client:0.10.2"
-  implementation "io.openlineage:openlineage-spark:$openLineageVersion"
+  implementation "io.openlineage:openlineage-spark_2.12:$openLineageVersion"
   compileOnly "org.apache.iceberg:iceberg-spark3-runtime:0.12.1"
   compileOnly "org.apache.spark:spark-sql_2.12:3.1.3"
 
