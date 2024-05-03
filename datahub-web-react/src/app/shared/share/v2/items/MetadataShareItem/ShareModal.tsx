@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 
-import { Form, Modal, Select, message } from 'antd';
+import { Empty, Form, Modal, Select, Tag, message } from 'antd';
 import styled from 'styled-components';
 import CloseOutlinedIcon from '@mui/icons-material/CloseOutlined';
 import { DataHubConnection, EntityType } from '../../../../../../types.generated';
@@ -9,7 +9,7 @@ import ShareIcon from '../../../../../../images/share-icon-custom.svg?react';
 import { useGetSearchResultsForMultipleQuery } from '../../../../../../graphql/search.generated';
 import { PLATFORM_FILTER_NAME } from '../../../../../searchV2/utils/constants';
 import { PLATFORM_CONNECTION_URN } from '../../../../constants';
-import { useShareEntityMutation } from '../../../../../../graphql/share.generated';
+import { useShareEntityMutation, useUnshareEntityMutation } from '../../../../../../graphql/share.generated';
 import analytics, { EventType } from '../../../../../analytics';
 import { useEntityContext } from '../../../../../entity/shared/EntityContext';
 import { SharedEntityInfo } from '../../../../../entityV2/shared/containers/profile/sidebar/SharedEntityInfo';
@@ -18,6 +18,7 @@ import {
     InstanceIcon,
     StyledLabel,
 } from '../../../../../entityV2/shared/containers/profile/sidebar/shared/styledComponents';
+import { StyledCheckbox, StyledShareButton } from '../../styledComponents';
 
 const ModalTitle = styled.span`
     display: flex;
@@ -44,7 +45,7 @@ const StyledContainer = styled.div`
 
 const StyledModal = styled(Modal)`
     font-family: Mulish;
-    max-width: 460px;
+    max-width: 480px;
 
     &&& .ant-modal-content {
         background-color: #eeecfa;
@@ -82,8 +83,9 @@ const StyledModal = styled(Modal)`
 `;
 
 const StyledSelect = styled(Select)`
+    padding-top: 8px;
+
     .ant-select-selector {
-        height: 40px !important;
         border: 1px solid ${REDESIGN_COLORS.TITLE_PURPLE} !important;
         display: flex;
         align-items: center;
@@ -112,30 +114,47 @@ const StyledSelect = styled(Select)`
     }
 `;
 
-// Commenting to be used later
-
-/* const ButtonContainer = styled.div`
+const ButtonContainer = styled.div`
     display: flex;
     justify-content: center;
     margin: 16px;
-`;
+    height: 40px;
 
-const StyledButton = styled(Button)`
-    && {
-        border-color: ${REDESIGN_COLORS.TITLE_PURPLE};
-        color: ${REDESIGN_COLORS.TITLE_PURPLE};
+    .ant-btn {
+        font-size: 16px;
+        font-weight: 500;
     }
 `;
-*/
 
 const InstanceContainer = styled.div`
     display: flex;
-    gap: 5px;
+    gap: 6px;
     align-items: center;
     font-size: 14px;
     font-weight: 500;
     color: ${REDESIGN_COLORS.TEXT_HEADING};
-    padding: 5px;
+    padding: 4px 6px;
+`;
+
+const OptionsContainer = styled.div``;
+
+const ListOption = styled.div`
+    display: flex;
+    align-items: center;
+    padding: 6px 20px;
+    gap: 10px;
+    cursor: pointer;
+    :hover {
+        background: ${REDESIGN_COLORS.LIGHT_GREY};
+    }
+`;
+
+const StyledTag = styled(Tag)`
+    padding: 0px 7px 0px 0px;
+    margin: 2px;
+    display: flex;
+    justify-content: start;
+    align-items: center;
 `;
 
 interface Props {
@@ -144,12 +163,27 @@ interface Props {
 }
 
 export default function ShareModal({ isModalVisible, closeModal }: Props) {
-    const [selectedInstance, setSelectedInstance] = useState<string>();
+    const [selectedInstancesToShare, setSelectedInstancesToShare] = useState<string[]>([]);
+    const [selectedInstancesToUnshare, setSelectedInstancesToUnshare] = useState<string[]>([]);
+
     const { urn, entityData, refetch } = useEntityContext();
     const [shareEntityMutation, { loading }] = useShareEntityMutation();
+
+    const [unshareEntityMutation] = useUnshareEntityMutation();
+
     const [form] = Form.useForm();
 
     const lastShareResults = entityData?.share?.lastShareResults;
+
+    const handleSelectionChange = (instanceUrn: string) => {
+        if (instanceUrn) {
+            if (!selectedInstancesToShare.includes(instanceUrn)) {
+                setSelectedInstancesToShare([...selectedInstancesToShare, instanceUrn]);
+            } else {
+                setSelectedInstancesToShare(selectedInstancesToShare.filter((instance) => instance !== instanceUrn));
+            }
+        }
+    };
 
     // Execute search
     const { data: searchData, loading: searchLoading } = useGetSearchResultsForMultipleQuery({
@@ -199,20 +233,15 @@ export default function ShareModal({ isModalVisible, closeModal }: Props) {
         );
     }, [searchAcrossEntities, lastShareResults]);
 
-    // Set selected if only 1 option returns in list
-    useEffect(() => {
-        if (options.length === 1) setSelectedInstance(options[0].value);
-    }, [options]);
-
     // Handle the mutation
-    const handleSubmit = () => {
-        if (selectedInstance) {
+    const handleShare = () => {
+        if (selectedInstancesToShare) {
             message.loading('Sharing entity...');
             shareEntityMutation({
                 variables: {
                     input: {
                         entityUrn: urn,
-                        connectionUrn: selectedInstance,
+                        connectionUrns: selectedInstancesToShare,
                     },
                 },
             })
@@ -223,16 +252,16 @@ export default function ShareModal({ isModalVisible, closeModal }: Props) {
                             type: EventType.SharedEntityEvent,
                             entityType: EntityType.DatahubConnection,
                             entityUrn: urn,
-                            connectionUrn: selectedInstance,
+                            connectionUrns: selectedInstancesToShare,
                         });
                         message.success({
                             content: `Shared Entity!`,
                             duration: 3,
                         });
                         form.resetFields();
-                        setSelectedInstance(undefined);
+                        setSelectedInstancesToShare([]);
+                        setSelectedInstancesToUnshare([]);
                         refetch();
-                        closeModal();
                     } else {
                         message.error({ content: `Failed to share entity`, duration: 3 });
                     }
@@ -244,16 +273,82 @@ export default function ShareModal({ isModalVisible, closeModal }: Props) {
         }
     };
 
+    const handleUnshare = () => {
+        if (selectedInstancesToUnshare) {
+            message.loading('Unsharing entity...');
+            unshareEntityMutation({
+                variables: {
+                    input: {
+                        entityUrn: urn,
+                        connectionUrns: selectedInstancesToUnshare,
+                    },
+                },
+            })
+                .then(({ data, errors }) => {
+                    message.destroy();
+                    if (!errors && data?.unshareEntity.succeeded) {
+                        analytics.event({
+                            type: EventType.UnsharedEntityEvent,
+                            entityType: EntityType.DatahubConnection,
+                            entityUrn: urn,
+                            connectionUrns: selectedInstancesToUnshare,
+                        });
+                        message.success({
+                            content: `Unshared Entity!`,
+                            duration: 3,
+                        });
+                        form.resetFields();
+                        setSelectedInstancesToShare([]);
+                        setSelectedInstancesToUnshare([]);
+                        refetch();
+                    } else {
+                        message.error({ content: `Failed to unshare entity`, duration: 3 });
+                    }
+                })
+                .catch((e) => {
+                    message.destroy();
+                    message.error({ content: `Failed to unshare entity!: \n ${e.message || ''}`, duration: 3 });
+                });
+        }
+    };
+
+    const handleClose = () => {
+        closeModal();
+        setSelectedInstancesToShare([]);
+        setSelectedInstancesToUnshare([]);
+    };
+
+    interface TagRenderProps {
+        label: React.ReactNode;
+        value: any;
+        disabled: boolean;
+        onClose: (event?: React.MouseEvent<HTMLElement, MouseEvent>) => void;
+        closable: boolean;
+    }
+
+    const tagRender = ({ label, closable, onClose }: TagRenderProps) => {
+        return (
+            <StyledTag
+                onMouseDown={(event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                }}
+                closable={closable}
+                onClose={onClose}
+            >
+                {label}
+            </StyledTag>
+        );
+    };
+
     const isLoading = loading && searchLoading;
-    const isDisabled = isLoading || !selectedInstance;
     const filteredResults = lastShareResults?.filter((result) => !!result.lastSuccess?.time);
 
     return (
         <StyledModal
             open={isModalVisible}
-            onCancel={closeModal}
-            onOk={handleSubmit}
-            okButtonProps={{ disabled: isDisabled }}
+            onCancel={handleClose}
+            footer={null}
             closeIcon={<CloseOutlinedIcon />}
             title={
                 <ModalTitle>
@@ -264,23 +359,69 @@ export default function ShareModal({ isModalVisible, closeModal }: Props) {
             {filteredResults && filteredResults.length > 0 && (
                 <>
                     <StyledContainer>
-                        <SharedEntityInfo lastShareResults={filteredResults} />
+                        <SharedEntityInfo
+                            lastShareResults={filteredResults}
+                            selectedInstancesToUnshare={selectedInstancesToUnshare}
+                            setSelectedInstancesToUnshare={setSelectedInstancesToUnshare}
+                        />
+                        {selectedInstancesToUnshare.length > 0 && (
+                            <ButtonContainer>
+                                <StyledShareButton $color={REDESIGN_COLORS.RED_ERROR} onClick={handleUnshare}>
+                                    Unshare
+                                </StyledShareButton>
+                            </ButtonContainer>
+                        )}
                     </StyledContainer>
                 </>
             )}
             <Form form={form} layout="vertical">
                 <Form.Item label={<StyledLabel>Share with an existing instance</StyledLabel>}>
                     <StyledSelect
+                        labelInValue
                         options={options}
                         loading={isLoading}
-                        value={selectedInstance}
-                        onChange={(option: any) => setSelectedInstance(option)}
+                        tagRender={tagRender}
+                        value={selectedInstancesToShare}
                         placeholder="Select Instances"
+                        mode="multiple"
                         showSearch
                         autoFocus
+                        showArrow
+                        onSelect={(option: any) => handleSelectionChange(option.value)}
+                        onDeselect={(option: any) => handleSelectionChange(option.value)}
+                        dropdownRender={() => (
+                            <OptionsContainer>
+                                {options.length === 0 && (
+                                    <Empty description="No Instances" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+                                )}
+                                {options.map((option) => (
+                                    <ListOption key={option.value} onClick={() => handleSelectionChange(option.value)}>
+                                        <StyledCheckbox
+                                            $color={REDESIGN_COLORS.TITLE_PURPLE}
+                                            checked={selectedInstancesToShare.includes(option.value)}
+                                            onChange={() => handleSelectionChange(option.value)}
+                                        />
+                                        {option.label}
+                                    </ListOption>
+                                ))}
+                            </OptionsContainer>
+                        )}
                     />
                 </Form.Item>
             </Form>
+
+            {selectedInstancesToShare.length > 0 && (
+                <ButtonContainer>
+                    <StyledShareButton
+                        $type="filled"
+                        $color={REDESIGN_COLORS.TITLE_PURPLE}
+                        $hoverColor={REDESIGN_COLORS.HOVER_PURPLE}
+                        onClick={handleShare}
+                    >
+                        Share
+                    </StyledShareButton>
+                </ButtonContainer>
+            )}
 
             {/* Commenting this because the functionality on click is not clear, to be used later 
             <StyledLabel>Share with a new Instance</StyledLabel>

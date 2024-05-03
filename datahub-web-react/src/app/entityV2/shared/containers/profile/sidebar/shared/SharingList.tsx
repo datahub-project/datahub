@@ -47,6 +47,7 @@ const UpdatedRow = styled.div`
     gap: 6px;
     align-items: center;
     margin-left: 24px;
+    flex-wrap: wrap;
 `;
 
 const Content = styled.div`

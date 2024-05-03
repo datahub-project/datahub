@@ -27,6 +27,7 @@ const DetailRow = styled.div`
     display: flex;
     gap: 6px;
     align-items: center;
+    flex-wrap: wrap;
 `;
 
 const SectionHeader = styled.div`
@@ -45,7 +46,7 @@ const Title = styled.div`
     gap: 5px;
     font-size: 14px;
     font-weight: 700;
-    color: ${REDESIGN_COLORS.TEXT_HEADING};
+    color: ${REDESIGN_COLORS.DARK_GREY};
     svg {
         font-size: 18px;
     }

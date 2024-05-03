@@ -120,6 +120,7 @@ export enum EventType {
     IntroduceYourselfViewEvent,
     IntroduceYourselfSubmitEvent,
     SharedEntityEvent,
+    UnsharedEntityEvent,
     ExpandLineageEvent,
     ContractLineageEvent,
 }
@@ -166,7 +167,15 @@ export interface SharedEntityEvent extends BaseEvent {
     type: EventType.SharedEntityEvent;
     entityType?: EntityType;
     entityUrn: string;
-    connectionUrn: string;
+    connectionUrn?: string;
+    connectionUrns?: string[];
+}
+
+export interface UnsharedEntityEvent extends BaseEvent {
+    type: EventType.UnsharedEntityEvent;
+    entityType?: EntityType;
+    entityUrn: string;
+    connectionUrns: string[];
 }
 
 /**
@@ -1009,5 +1018,6 @@ export type Event =
     | NotificationSettingsErrorEvent
     | InboxPageViewEvent
     | SharedEntityEvent
+    | UnsharedEntityEvent
     | ExpandLineageEvent
     | ContractLineageEvent;

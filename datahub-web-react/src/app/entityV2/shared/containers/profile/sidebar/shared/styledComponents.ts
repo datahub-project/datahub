@@ -43,5 +43,4 @@ export const StyledLabel = styled.span`
     font-size: 16px;
     font-weight: 400;
     color: ${REDESIGN_COLORS.BODY_TEXT};
-    padding-bottom: 8px;
 `;
