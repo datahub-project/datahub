@@ -3,15 +3,18 @@ package com.linkedin.gms.factory.notifications;
 import com.datahub.notification.NotificationSink;
 import com.datahub.notification.NotificationSinkConfig;
 import com.datahub.notification.NotificationSinkManager;
+import com.datahub.notification.provider.EntityNameProvider;
 import com.datahub.notification.provider.IdentityProvider;
 import com.datahub.notification.provider.SecretProvider;
 import com.datahub.notification.provider.SettingsProvider;
+import com.linkedin.entity.client.EntityClient;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.connection.ConnectionServiceFactory;
 import com.linkedin.metadata.config.notification.NotificationSinkConfiguration;
 import com.linkedin.metadata.connection.ConnectionService;
 import com.linkedin.metadata.integration.IntegrationsService;
 import com.linkedin.metadata.spring.YamlPropertySourceFactory;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -44,6 +47,10 @@ public class NotificationSinkManagerFactory {
   private IdentityProvider identityProvider;
 
   @Autowired
+  @Qualifier("entityClient")
+  private EntityClient entityClient;
+
+  @Autowired
   @Qualifier("secretProvider")
   private SecretProvider secretProvider;
 
@@ -59,9 +66,13 @@ public class NotificationSinkManagerFactory {
 
   @Bean(name = "notificationSinkManager")
   @Nonnull
-  protected NotificationSinkManager getInstance() {
+  protected NotificationSinkManager getInstance(
+      @Qualifier("systemOperationContext") OperationContext systemOpContext) {
     boolean isNotificationsEnabled = this.configurationProvider.getNotifications().isEnabled();
     String baseUrl = this.configurationProvider.getBaseUrl();
+
+    EntityNameProvider entityNameProvider =
+        new EntityNameProvider(this.entityClient, systemOpContext.getAuthentication());
 
     final List<NotificationSink> configuredSinks = new ArrayList<>();
     if (isNotificationsEnabled) {
@@ -97,6 +108,7 @@ public class NotificationSinkManagerFactory {
                     configs,
                     this.settingsProvider,
                     this.identityProvider,
+                    entityNameProvider,
                     this.secretProvider,
                     this.connectionService,
                     this.integrationsService,

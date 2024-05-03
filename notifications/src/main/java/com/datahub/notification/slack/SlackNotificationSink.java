@@ -2,11 +2,14 @@ package com.datahub.notification.slack;
 
 import static com.datahub.notification.NotificationUtils.*;
 import static com.linkedin.metadata.AcrylConstants.*;
+import static com.linkedin.metadata.Constants.CORP_GROUP_ENTITY_NAME;
+import static com.linkedin.metadata.Constants.CORP_USER_ENTITY_NAME;
 
 import com.datahub.notification.NotificationContext;
 import com.datahub.notification.NotificationSink;
 import com.datahub.notification.NotificationSinkConfig;
 import com.datahub.notification.NotificationTemplateType;
+import com.datahub.notification.provider.EntityNameProvider;
 import com.datahub.notification.provider.IdentityProvider;
 import com.datahub.notification.provider.SecretProvider;
 import com.datahub.notification.provider.SettingsProvider;
@@ -46,9 +49,11 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
@@ -105,6 +110,7 @@ public class SlackNotificationSink implements NotificationSink {
   private Slack slack;
   private SettingsProvider settingsProvider;
   private IdentityProvider identityProvider;
+  private EntityNameProvider entityNameProvider;
   private SecretProvider secretProvider;
   private ConnectionService connectionService;
   private String baseUrl;
@@ -154,6 +160,7 @@ public class SlackNotificationSink implements NotificationSink {
     this.slack = Slack.getInstance(slackConfig);
     this.settingsProvider = cfg.getSettingsProvider();
     this.identityProvider = cfg.getIdentityProvider();
+    this.entityNameProvider = cfg.getEntityNameProvider();
     this.secretProvider = cfg.getSecretProvider();
     this.baseUrl = cfg.getBaseUrl();
     this.connectionService = cfg.getConnectionService();
@@ -458,17 +465,9 @@ public class SlackNotificationSink implements NotificationSink {
             .map(UrnUtils::getUrn)
             .collect(Collectors.toList());
 
-    // Fetch each user's email, this is required to understand their slack ids.
-    final Set<Urn> allUsers = new HashSet<>();
-    allUsers.addAll(ownerUrns);
-    allUsers.addAll(downstreamOwnerUrns);
-    Map<Urn, IdentityProvider.User> users = Collections.emptyMap();
-    try {
-      users = this.identityProvider.batchGetUsers(allUsers);
-    } catch (Exception e) {
-      // If we cannot resolve the users, still broadcast the message.
-      log.warn("Failed to resolve users from GMS. Skipping tagging them in Slack broadcast.");
-    }
+    Map<Urn, IdentityProvider.User> usersMap =
+        tryGetIncidentOwnerUserTagsAndNames(ownerUrns, downstreamOwnerUrns);
+    Map<Urn, String> groupNames = tryGetIncidentOwnerGroupNames(ownerUrns, downstreamOwnerUrns);
 
     // Build the message.
     // TODO: Replace this with a template DSL (e.g. Jinja)
@@ -478,18 +477,9 @@ public class SlackNotificationSink implements NotificationSink {
     final String title = request.getMessage().getParameters().get("incidentTitle");
     final String description = request.getMessage().getParameters().get("incidentDescription");
     final String actorName = getUserName(request.getMessage().getParameters().get("actorUrn"));
-    final String ownersStr =
-        createUsersTagString(
-            users.keySet().stream()
-                .filter(ownerUrns::contains)
-                .map(users::get)
-                .collect(Collectors.toList()));
+    final String ownersStr = tryGetIncidentOwnersLabel(ownerUrns, usersMap, groupNames);
     final String downstreamOwnersStr =
-        createUsersTagString(
-            users.keySet().stream()
-                .filter(downstreamOwnerUrns::contains)
-                .map(users::get)
-                .collect(Collectors.toList()));
+        tryGetIncidentOwnersLabel(downstreamOwnerUrns, usersMap, groupNames);
 
     return String.format(
         "%s%s",
@@ -500,31 +490,27 @@ public class SlackNotificationSink implements NotificationSink {
             "\n\n*Incident Name*: %s\n*Incident Description*: %s\n\n*Asset Owners*: %s\n*Downstream Asset Owners*: %s",
             title != null ? title : "None",
             description != null ? description : "None",
-            ownersStr.length() > 0 ? ownersStr : "None",
-            downstreamOwnersStr.length() > 0 ? downstreamOwnersStr : "None"));
+            ownersStr != null && !ownersStr.isEmpty() ? ownersStr : "None",
+            downstreamOwnersStr != null && !downstreamOwnersStr.isEmpty()
+                ? downstreamOwnersStr
+                : "None"));
   }
 
   private String buildIncidentStatusChangeMessage(NotificationRequest request) {
+
+    // Extract owner urns, downstream owner urns.
     final List<Urn> ownerUrns =
         jsonToStrList(request.getMessage().getParameters().get("owners")).stream()
             .map(UrnUtils::getUrn)
             .collect(Collectors.toList());
-
     final List<Urn> downstreamOwnerUrns =
         jsonToStrList(request.getMessage().getParameters().get("downstreamOwners")).stream()
             .map(UrnUtils::getUrn)
             .collect(Collectors.toList());
 
-    // Fetch each user's email, this is required to understand their slack ids.
-    final Set<Urn> allUsers = new HashSet<>();
-    allUsers.addAll(ownerUrns);
-    allUsers.addAll(downstreamOwnerUrns);
-    Map<Urn, IdentityProvider.User> users = Collections.emptyMap();
-    try {
-      users = this.identityProvider.batchGetUsers(allUsers);
-    } catch (Exception e) {
-      log.warn("Failed to resolve users from GMS. Skipping adding them to notification.");
-    }
+    Map<Urn, IdentityProvider.User> usersMap =
+        tryGetIncidentOwnerUserTagsAndNames(ownerUrns, downstreamOwnerUrns);
+    Map<Urn, String> groupNames = tryGetIncidentOwnerGroupNames(ownerUrns, downstreamOwnerUrns);
 
     // Build the message. TODO: Use a template here.
     final String url =
@@ -536,18 +522,9 @@ public class SlackNotificationSink implements NotificationSink {
     final String prevStatus = request.getMessage().getParameters().get("prevStatus");
     final String newStatus = request.getMessage().getParameters().get("newStatus");
     final String actorName = getUserName(request.getMessage().getParameters().get("actorUrn"));
-    final String ownersStr =
-        createUsersTagString(
-            users.keySet().stream()
-                .filter(ownerUrns::contains)
-                .map(users::get)
-                .collect(Collectors.toList()));
+    final String ownersStr = tryGetIncidentOwnersLabel(ownerUrns, usersMap, groupNames);
     final String downstreamOwnersStr =
-        createUsersTagString(
-            users.keySet().stream()
-                .filter(downstreamOwnerUrns::contains)
-                .map(users::get)
-                .collect(Collectors.toList()));
+        tryGetIncidentOwnersLabel(downstreamOwnerUrns, usersMap, groupNames);
 
     final String icon = newStatus.equals("RESOLVED") ? ":white_check_mark:" : ":warning:";
     return String.format(
@@ -566,8 +543,96 @@ public class SlackNotificationSink implements NotificationSink {
             "\n\n*Incident Name*: %s\n*Incident Description*: %s\n\n*Asset Owners*: %s\n*Downstream Asset Owners*: %s",
             title != null ? title : "None",
             description != null ? description : "None",
-            ownersStr.length() > 0 ? ownersStr : "None",
-            downstreamOwnersStr.length() > 0 ? downstreamOwnersStr : "None"));
+            ownersStr != null && !ownersStr.isEmpty() ? ownersStr : "None",
+            downstreamOwnersStr != null && !downstreamOwnersStr.isEmpty()
+                ? downstreamOwnersStr
+                : "None"));
+  }
+
+  private Map<Urn, IdentityProvider.User> tryGetIncidentOwnerUserTagsAndNames(
+      List<Urn> ownerUrns, List<Urn> downstreamOwnerUrns) {
+    final Set<Urn> ownerUserUrns =
+        ownerUrns.stream()
+            .filter(urn -> urn.getEntityType().equals(CORP_USER_ENTITY_NAME))
+            .collect(Collectors.toSet());
+
+    final Set<Urn> downstreamOwnerUserUrns =
+        downstreamOwnerUrns.stream()
+            .filter(urn -> urn.getEntityType().equals(CORP_USER_ENTITY_NAME))
+            .collect(Collectors.toSet());
+    // Fetch each user's email, this is required to understand their slack ids, which lets us tag
+    // them in the notif.
+    final Set<Urn> allUsers = new HashSet<>();
+    allUsers.addAll(ownerUserUrns);
+    allUsers.addAll(downstreamOwnerUserUrns);
+    Map<Urn, IdentityProvider.User> usersMap = Collections.emptyMap();
+    try {
+      usersMap = this.identityProvider.batchGetUsers(allUsers);
+    } catch (Exception e) {
+      // If we cannot resolve the users, still broadcast the message.
+      log.warn("Failed to resolve users from GMS. Skipping tagging them in Slack broadcast.");
+    }
+    return usersMap;
+  }
+
+  private Map<Urn, String> tryGetIncidentOwnerGroupNames(
+      List<Urn> ownerUrns, List<Urn> downstreamOwnerUrns) {
+
+    final Set<Urn> ownerGroupUrns =
+        ownerUrns.stream()
+            .filter(urn -> urn.getEntityType().equals(CORP_GROUP_ENTITY_NAME))
+            .collect(Collectors.toSet());
+
+    final Set<Urn> downstreamOwnerGroupUrns =
+        downstreamOwnerUrns.stream()
+            .filter(urn -> urn.getEntityType().equals(CORP_GROUP_ENTITY_NAME))
+            .collect(Collectors.toSet());
+
+    // Fetch each group's names.
+    final Set<Urn> allGroups = new HashSet<>();
+    allGroups.addAll(ownerGroupUrns);
+    allGroups.addAll(downstreamOwnerGroupUrns);
+    Map<Urn, String> groupNames = Collections.emptyMap();
+    try {
+      groupNames = this.entityNameProvider.batchGetName(allGroups, CORP_GROUP_ENTITY_NAME);
+    } catch (Exception e) {
+      // If we cannot resolve the users, still broadcast the message.
+      log.warn("Failed to resolve groups from GMS. Skipping labeling them in Slack broadcast.");
+    }
+    return groupNames;
+  }
+
+  private String tryGetIncidentOwnersLabel(
+      List<Urn> ownerUrns, Map<Urn, IdentityProvider.User> usersMap, Map<Urn, String> groupNames) {
+    final Set<Urn> ownerUserUrns =
+        ownerUrns.stream()
+            .filter(e -> e.getEntityType().equals(CORP_USER_ENTITY_NAME))
+            .collect(Collectors.toSet());
+    final Set<Urn> ownerGroupUrns =
+        ownerUrns.stream()
+            .filter(e -> e.getEntityType().equals(CORP_GROUP_ENTITY_NAME))
+            .collect(Collectors.toSet());
+
+    final List<IdentityProvider.User> ownerUsers =
+        usersMap.keySet().stream()
+            .filter(ownerUserUrns::contains)
+            .map(usersMap::get)
+            .collect(Collectors.toList());
+    final String ownersUsersStr = createUsersTagString(ownerUsers);
+    final Set<String> ownersGroupNames =
+        groupNames.keySet().stream()
+            .filter(ownerGroupUrns::contains)
+            .map(groupNames::get)
+            .collect(Collectors.toSet());
+    final String ownersGroupsStr = String.join(", ", ownersGroupNames);
+
+    final int ownersLeftoverCount = ownerUrns.size() - ownerUsers.size() - ownersGroupNames.size();
+    final String ownersLeftoversStr =
+        ownersLeftoverCount > 0 ? String.format("+%s", ownersLeftoverCount) : null;
+    return Stream.of(ownersUsersStr, ownersGroupsStr, ownersLeftoversStr)
+        .filter(Objects::nonNull)
+        .filter(str -> !str.isEmpty())
+        .collect(Collectors.joining(", "));
   }
 
   private String buildIngestionRunChangeMessage(NotificationRequest request) {
@@ -833,7 +898,7 @@ public class SlackNotificationSink implements NotificationSink {
       try {
         User slackUser = getSlackUserFromEmail(user.getEmail());
         // Add the slack user to the string.
-        if (slackUser != null) {
+        if (slackUser != null && slackUser.getId() != null) {
           return String.format("<@%s>", slackUser.getId());
         } else {
           log.warn(
@@ -851,7 +916,10 @@ public class SlackNotificationSink implements NotificationSink {
     } else {
       log.warn("Failed to resolve DataHub user to slack user by email. No email found for user!");
     }
-    return null;
+    return String.format(
+        "%s%s",
+        user.getDisplayName(),
+        user.getEmail() != null ? String.format("(%s)", user.getEmail()) : "");
   }
 
   @Nullable

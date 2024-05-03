@@ -7,6 +7,7 @@ import static com.linkedin.metadata.Constants.*;
 import com.datahub.notification.NotificationContext;
 import com.datahub.notification.NotificationSinkConfig;
 import com.datahub.notification.NotificationTemplateType;
+import com.datahub.notification.provider.EntityNameProvider;
 import com.datahub.notification.provider.IdentityProvider;
 import com.datahub.notification.provider.SecretProvider;
 import com.datahub.notification.provider.SettingsProvider;
@@ -54,6 +55,7 @@ public class SlackNotificationSinkTest {
     // and when populated configs are provided.
     SettingsProvider mockSettingsProvider = Mockito.mock(SettingsProvider.class);
     IdentityProvider mockIdentityProvider = Mockito.mock(IdentityProvider.class);
+    EntityNameProvider mockEntityNameProvider = Mockito.mock(EntityNameProvider.class);
     SecretProvider mockSecretProvider = Mockito.mock(SecretProvider.class);
     IntegrationsService mockIntegrationsService = Mockito.mock(IntegrationsService.class);
 
@@ -70,6 +72,7 @@ public class SlackNotificationSinkTest {
             Collections.emptyMap(),
             mockSettingsProvider,
             mockIdentityProvider,
+            mockEntityNameProvider,
             mockSecretProvider,
             mockConnectionService,
             mockIntegrationsService,
@@ -89,6 +92,7 @@ public class SlackNotificationSinkTest {
                 "https://proxy.acryl.io"),
             mockSettingsProvider,
             mockIdentityProvider,
+            mockEntityNameProvider,
             mockSecretProvider,
             mockConnectionService,
             mockIntegrationsService,
@@ -109,6 +113,7 @@ public class SlackNotificationSinkTest {
                 .setJson(new DataHubJsonConnection().setEncryptedBlob("blob")));
     IdentityProvider mockIdentityProvider = Mockito.mock(IdentityProvider.class);
     Mockito.when(mockIdentityProvider.getUser(TEST_USER_URN)).thenReturn(testUser());
+    EntityNameProvider mockEntityNameProvider = Mockito.mock(EntityNameProvider.class);
     SecretProvider mockSecretProvider = Mockito.mock(SecretProvider.class);
     IntegrationsService mockIntegrationsService = Mockito.mock(IntegrationsService.class);
 
@@ -126,6 +131,7 @@ public class SlackNotificationSinkTest {
             ImmutableMap.of("botToken", TEST_BOT_TOKEN, "defaultChannel", "#test"),
             mockSettingsProvider,
             mockIdentityProvider,
+            mockEntityNameProvider,
             mockSecretProvider,
             mockConnectionService,
             mockIntegrationsService,
@@ -144,6 +150,7 @@ public class SlackNotificationSinkTest {
             ImmutableMap.of("botToken", TEST_BOT_TOKEN, "defaultChannel", "#test"),
             mockSettingsProvider,
             mockIdentityProvider,
+            mockEntityNameProvider,
             mockSecretProvider,
             mockConnectionService,
             mockIntegrationsService,
@@ -163,6 +170,7 @@ public class SlackNotificationSinkTest {
             ImmutableMap.of("botToken", TEST_BOT_TOKEN, "defaultChannel", "#test"),
             mockSettingsProvider,
             mockIdentityProvider,
+            mockEntityNameProvider,
             mockSecretProvider,
             mockConnectionService,
             mockIntegrationsService,
@@ -219,6 +227,7 @@ public class SlackNotificationSinkTest {
         .thenReturn(null);
     IdentityProvider mockIdentityProvider = Mockito.mock(IdentityProvider.class);
     Mockito.when(mockIdentityProvider.getUser(TEST_USER_URN)).thenReturn(testUser());
+    EntityNameProvider mockEntityNameProvider = Mockito.mock(EntityNameProvider.class);
     SecretProvider mockSecretProvider = Mockito.mock(SecretProvider.class);
     IntegrationsService mockIntegrationsService = Mockito.mock(IntegrationsService.class);
 
@@ -275,6 +284,7 @@ public class SlackNotificationSinkTest {
             ImmutableMap.of("botToken", TEST_BOT_TOKEN, "defaultChannel", "#test"),
             mockSettingsProvider,
             mockIdentityProvider,
+            mockEntityNameProvider,
             mockSecretProvider,
             mockConnectionService,
             mockIntegrationsService,
@@ -332,6 +342,7 @@ public class SlackNotificationSinkTest {
     SettingsProvider mockSettingsProvider = Mockito.mock(SettingsProvider.class);
     Mockito.when(mockSettingsProvider.getGlobalSettings()).thenReturn(disabledSettings());
     IdentityProvider mockIdentityProvider = Mockito.mock(IdentityProvider.class);
+    EntityNameProvider mockEntityNameProvider = Mockito.mock(EntityNameProvider.class);
     SecretProvider mockSecretProvider = Mockito.mock(SecretProvider.class);
     MethodsClient mockSlackClient = Mockito.mock(MethodsClient.class);
     ConnectionService mockConnectionService = Mockito.mock(ConnectionService.class);
@@ -344,6 +355,7 @@ public class SlackNotificationSinkTest {
             ImmutableMap.of("botToken", "abc", "defaultChannel", "#test"),
             mockSettingsProvider,
             mockIdentityProvider,
+            mockEntityNameProvider,
             mockSecretProvider,
             mockConnectionService,
             mockIntegrationsService,
@@ -391,6 +403,7 @@ public class SlackNotificationSinkTest {
         .thenReturn(null);
     IdentityProvider mockIdentityProvider = Mockito.mock(IdentityProvider.class);
     Mockito.when(mockIdentityProvider.getUser(TEST_USER_URN)).thenReturn(testUser());
+    EntityNameProvider mockEntityNameProvider = Mockito.mock(EntityNameProvider.class);
     SecretProvider mockSecretProvider = Mockito.mock(SecretProvider.class);
     IntegrationsService mockIntegrationsService = Mockito.mock(IntegrationsService.class);
 
@@ -431,6 +444,7 @@ public class SlackNotificationSinkTest {
             ImmutableMap.of("botToken", TEST_BOT_TOKEN, "defaultChannel", "#test"),
             mockSettingsProvider,
             mockIdentityProvider,
+            mockEntityNameProvider,
             mockSecretProvider,
             mockConnectionService,
             mockIntegrationsService,
@@ -487,6 +501,7 @@ public class SlackNotificationSinkTest {
         .thenReturn(null);
     IdentityProvider mockIdentityProvider = Mockito.mock(IdentityProvider.class);
     Mockito.when(mockIdentityProvider.getUser(TEST_USER_URN)).thenReturn(testUser());
+    EntityNameProvider mockEntityNameProvider = Mockito.mock(EntityNameProvider.class);
     SecretProvider mockSecretProvider = Mockito.mock(SecretProvider.class);
     IntegrationsService mockIntegrationsService = Mockito.mock(IntegrationsService.class);
 
@@ -528,6 +543,7 @@ public class SlackNotificationSinkTest {
             ImmutableMap.of("botToken", TEST_BOT_TOKEN, "defaultChannel", "#test"),
             mockSettingsProvider,
             mockIdentityProvider,
+            mockEntityNameProvider,
             mockSecretProvider,
             mockConnectionService,
             mockIntegrationsService,
@@ -583,6 +599,7 @@ public class SlackNotificationSinkTest {
         .thenReturn(null);
     IdentityProvider mockIdentityProvider = Mockito.mock(IdentityProvider.class);
     Mockito.when(mockIdentityProvider.getUser(TEST_USER_URN)).thenReturn(testUser());
+    EntityNameProvider mockEntityNameProvider = Mockito.mock(EntityNameProvider.class);
     SecretProvider mockSecretProvider = Mockito.mock(SecretProvider.class);
     IntegrationsService mockIntegrationsService = Mockito.mock(IntegrationsService.class);
 
@@ -623,6 +640,7 @@ public class SlackNotificationSinkTest {
             ImmutableMap.of("botToken", TEST_BOT_TOKEN, "defaultChannel", "#test"),
             mockSettingsProvider,
             mockIdentityProvider,
+            mockEntityNameProvider,
             mockSecretProvider,
             mockConnectionService,
             mockIntegrationsService,
@@ -684,6 +702,7 @@ public class SlackNotificationSinkTest {
         .thenReturn(null);
     IdentityProvider mockIdentityProvider = Mockito.mock(IdentityProvider.class);
     Mockito.when(mockIdentityProvider.getUser(TEST_USER_URN)).thenReturn(testUser());
+    EntityNameProvider mockEntityNameProvider = Mockito.mock(EntityNameProvider.class);
     SecretProvider mockSecretProvider = Mockito.mock(SecretProvider.class);
     IntegrationsService mockIntegrationsService = Mockito.mock(IntegrationsService.class);
 
@@ -726,6 +745,7 @@ public class SlackNotificationSinkTest {
             ImmutableMap.of("botToken", TEST_BOT_TOKEN, "defaultChannel", "#test"),
             mockSettingsProvider,
             mockIdentityProvider,
+            mockEntityNameProvider,
             mockSecretProvider,
             mockConnectionService,
             mockIntegrationsService,
