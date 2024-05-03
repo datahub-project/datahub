@@ -22,7 +22,7 @@ export const DatasetStatsSummarySubHeader = ({ properties }: { properties?: any 
     const queryCountPercentileLast30Days = maybeStatsSummary?.queryCountPercentileLast30Days;
     const uniqueUserCountLast30Days = maybeStatsSummary?.uniqueUserCountLast30Days;
     const uniqueUserPercentileLast30Days = maybeStatsSummary?.uniqueUserPercentileLast30Days;
-    const lastUpdatedMs = getLastUpdatedMs(dataset?.properties, dataset?.operations);
+    const lastUpdatedMs = getLastUpdatedMs(dataset?.properties, dataset?.operations)?.lastUpdatedMs;
 
     return (
         <DatasetStatsSummary

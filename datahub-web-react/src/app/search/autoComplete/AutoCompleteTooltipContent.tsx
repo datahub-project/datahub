@@ -49,7 +49,7 @@ export default function AutoCompleteTooltipContent({ entity }: Props) {
                     rowCount={(entity as any).lastProfile?.length && (entity as any).lastProfile[0].rowCount}
                     columnCount={(entity as any).lastProfile?.length && (entity as any).lastProfile[0].columnCount}
                     sizeInBytes={(entity as any).lastProfile?.length && (entity as any).lastProfile[0].sizeInBytes}
-                    lastUpdatedMs={getLastUpdatedMs((entity as any)?.properties, (entity as any)?.lastOperation)}
+                    lastUpdatedMs={getLastUpdatedMs((entity as any)?.properties, (entity as any)?.lastOperation)?.lastUpdatedMs}
                     queryCountLast30Days={(entity as Dataset).statsSummary?.queryCountLast30Days}
                     uniqueUserCountLast30Days={(entity as Dataset).statsSummary?.uniqueUserCountLast30Days}
                     mode="tooltip-content"

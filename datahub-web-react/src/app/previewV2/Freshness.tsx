@@ -6,12 +6,12 @@ import styled from 'styled-components';
 
 import dayjs from 'dayjs';
 import localizedFormat from 'dayjs/plugin/localizedFormat';
-dayjs.extend(localizedFormat);
 
 import { ANTD_GRAY } from '../entity/shared/constants';
 import { getLastIngestedColor } from '../entity/shared/containers/profile/sidebar/LastIngested';
 import { REDESIGN_COLORS } from '../entityV2/shared/constants';
-import { EntityType } from '../../types.generated';
+
+dayjs.extend(localizedFormat);
 
 const LastUpdatedContainer = styled.div<{ color: string }>`
     align-items: center;

@@ -101,11 +101,14 @@ const useBuildSecondaryLabel = (assertionInfo?: Maybe<AssertionInfo>): JSX.Eleme
             secondaryLabelMessage = secondaryLabelMessage ? `${secondaryLabelMessage}, ${updatedByStr}` : updatedByStr;
         }
 
-        tooltipLastUpdatedByMessage = `Last updated by: ${entityRegistry.getDisplayName(EntityType.CorpUser, lastUpdatedActor.corpUser)}${lastUpdatedActor.corpUser?.info?.email ? ` (${lastUpdatedActor.corpUser.info.email})` : ''
-            } on ${assertionInfo?.lastUpdated?.time
-                ? new Date(assertionInfo.lastUpdated.time).toLocaleString()
-                : 'an unknown time' // should never get here
-            }.`
+        // Show tooltip label for last updated if either the updater != creator OR if updatedTime != createdTime
+        if (updatedActorUrn !== creatorActorUrn || assertionInfo?.lastUpdated?.time !== assertionInfo?.source?.created?.time) {
+            tooltipLastUpdatedByMessage = `Last updated by ${entityRegistry.getDisplayName(EntityType.CorpUser, lastUpdatedActor.corpUser)}${lastUpdatedActor.corpUser?.info?.email ? ` (${lastUpdatedActor.corpUser.info.email})` : ''
+                } on ${assertionInfo?.lastUpdated?.time
+                    ? new Date(assertionInfo.lastUpdated.time).toLocaleString()
+                    : 'an unknown time' // should never get here
+                }.`
+        }
     }
 
     // 3. Construct the secondary label component if sufficient data exists
