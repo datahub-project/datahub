@@ -20,6 +20,7 @@ import com.linkedin.metadata.entity.EntityServiceImpl;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.mxe.Topics;
+import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.List;
 import javax.inject.Named;
@@ -61,6 +62,8 @@ public class DatahubUpgradeNonBlockingTest extends AbstractTestNGSpringContextTe
 
   @Autowired private EntityServiceImpl entityService;
 
+  @Autowired private OperationContext opContext;
+
   @Test
   public void testSystemUpdateNonBlockingInit() {
     assertNotNull(systemUpdateNonBlocking);
@@ -79,7 +82,7 @@ public class DatahubUpgradeNonBlockingTest extends AbstractTestNGSpringContextTe
     AspectDao mockAspectDao = mock(AspectDao.class);
 
     ReindexDataJobViaNodesCLL cllUpgrade =
-        new ReindexDataJobViaNodesCLL(mockService, mockAspectDao, true, 10, 0, 0);
+        new ReindexDataJobViaNodesCLL(opContext, mockService, mockAspectDao, true, 10, 0, 0);
     SystemUpdateNonBlocking upgrade =
         new SystemUpdateNonBlocking(List.of(), List.of(cllUpgrade), null);
     DefaultUpgradeManager manager = new DefaultUpgradeManager();

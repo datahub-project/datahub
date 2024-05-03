@@ -15,23 +15,20 @@ import lombok.extern.slf4j.Slf4j;
 @Getter
 @ToString
 @EqualsAndHashCode
-@JsonDeserialize(builder = QueryConfiguration.QueryConfigurationBuilder.class)
-public class QueryConfiguration {
-
+@JsonDeserialize(builder = AutocompleteConfiguration.AutocompleteConfigurationBuilder.class)
+public class AutocompleteConfiguration {
+  // match this configuration based on query string regex match
   private String queryRegex;
-  @Builder.Default private boolean simpleQuery = true;
-
-  /**
-   * Used to determine if standard structured query logic should be applied when relevant, i.e.
-   * fullText flag is false. Will not be added in cases where simpleQuery would be the standard.
-   */
-  @Builder.Default private boolean structuredQuery = true;
-
-  @Builder.Default private boolean exactMatchQuery = true;
-  @Builder.Default private boolean prefixMatchQuery = true;
+  // include the default autocomplete query
+  @Builder.Default private boolean defaultQuery = true;
+  // override or extend default autocomplete query
   private BoolQueryConfiguration boolQuery;
+  // inherit the query configuration's function score (disabled if functionScore exists)
+  @Builder.Default private boolean inheritFunctionScore = true;
+
+  // additional function scores to apply for ranking
   @Builder.Default private Map<String, Object> functionScore = Collections.emptyMap();
 
   @JsonPOJOBuilder(withPrefix = "")
-  public static class QueryConfigurationBuilder {}
+  public static class AutocompleteConfigurationBuilder {}
 }

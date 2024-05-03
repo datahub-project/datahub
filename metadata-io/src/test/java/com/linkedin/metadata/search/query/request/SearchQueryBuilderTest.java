@@ -29,6 +29,7 @@ import com.linkedin.metadata.search.elasticsearch.query.request.SearchFieldConfi
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchQueryBuilder;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import io.datahubproject.test.search.config.SearchCommonTestConfiguration;
 import java.io.IOException;
 import java.util.Arrays;
@@ -94,15 +95,14 @@ public class SearchQueryBuilderTest extends AbstractTestNGSpringContextTests {
   public static final SearchQueryBuilder TEST_BUILDER =
       new SearchQueryBuilder(testQueryConfig, null);
 
+  public OperationContext opContext = TestOperationContexts.systemContextNoSearchAuthorization();
+
   @Test
   public void testQueryBuilderFulltext() {
     FunctionScoreQueryBuilder result =
         (FunctionScoreQueryBuilder)
             TEST_BUILDER.buildQuery(
-                mock(OperationContext.class),
-                ImmutableList.of(TestEntitySpecBuilder.getSpec()),
-                "testQuery",
-                true);
+                opContext, ImmutableList.of(TestEntitySpecBuilder.getSpec()), "testQuery", true);
     BoolQueryBuilder mainQuery = (BoolQueryBuilder) result.query();
     List<QueryBuilder> shouldQueries = mainQuery.should();
     assertEquals(shouldQueries.size(), 2);
@@ -203,10 +203,7 @@ public class SearchQueryBuilderTest extends AbstractTestNGSpringContextTests {
     FunctionScoreQueryBuilder result =
         (FunctionScoreQueryBuilder)
             TEST_BUILDER.buildQuery(
-                mock(OperationContext.class),
-                ImmutableList.of(TestEntitySpecBuilder.getSpec()),
-                "testQuery",
-                false);
+                opContext, ImmutableList.of(TestEntitySpecBuilder.getSpec()), "testQuery", false);
     BoolQueryBuilder mainQuery = (BoolQueryBuilder) result.query();
     List<QueryBuilder> shouldQueries = mainQuery.should();
     assertEquals(shouldQueries.size(), 2);
@@ -250,10 +247,7 @@ public class SearchQueryBuilderTest extends AbstractTestNGSpringContextTests {
       FunctionScoreQueryBuilder result =
           (FunctionScoreQueryBuilder)
               TEST_CUSTOM_BUILDER.buildQuery(
-                  mock(OperationContext.class),
-                  ImmutableList.of(TestEntitySpecBuilder.getSpec()),
-                  triggerQuery,
-                  true);
+                  opContext, ImmutableList.of(TestEntitySpecBuilder.getSpec()), triggerQuery, true);
 
       BoolQueryBuilder mainQuery = (BoolQueryBuilder) result.query();
       List<QueryBuilder> shouldQueries = mainQuery.should();
@@ -285,10 +279,7 @@ public class SearchQueryBuilderTest extends AbstractTestNGSpringContextTests {
       FunctionScoreQueryBuilder result =
           (FunctionScoreQueryBuilder)
               TEST_CUSTOM_BUILDER.buildQuery(
-                  mock(OperationContext.class),
-                  ImmutableList.of(TestEntitySpecBuilder.getSpec()),
-                  triggerQuery,
-                  true);
+                  opContext, ImmutableList.of(TestEntitySpecBuilder.getSpec()), triggerQuery, true);
 
       BoolQueryBuilder mainQuery = (BoolQueryBuilder) result.query();
       List<QueryBuilder> shouldQueries = mainQuery.should();
@@ -385,10 +376,7 @@ public class SearchQueryBuilderTest extends AbstractTestNGSpringContextTests {
       FunctionScoreQueryBuilder result =
           (FunctionScoreQueryBuilder)
               TEST_CUSTOM_BUILDER.buildQuery(
-                  mock(OperationContext.class),
-                  ImmutableList.of(TestEntitySpecBuilder.getSpec()),
-                  triggerQuery,
-                  true);
+                  opContext, ImmutableList.of(TestEntitySpecBuilder.getSpec()), triggerQuery, true);
 
       BoolQueryBuilder mainQuery = (BoolQueryBuilder) result.query();
       List<QueryBuilder> shouldQueries = mainQuery.should();
