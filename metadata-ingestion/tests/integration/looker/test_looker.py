@@ -9,6 +9,7 @@ from freezegun import freeze_time
 from looker_sdk.rtl import transport
 from looker_sdk.rtl.transport import TransportOptions
 from looker_sdk.sdk.api40.models import (
+    Category,
     Dashboard,
     DashboardElement,
     FolderBase,
@@ -24,7 +25,8 @@ from looker_sdk.sdk.api40.models import (
 )
 
 from datahub.ingestion.run.pipeline import Pipeline, PipelineInitError
-from datahub.ingestion.source.looker import looker_usage
+from datahub.ingestion.source.looker import looker_common, looker_usage
+from datahub.ingestion.source.looker.looker_common import LookerExplore
 from datahub.ingestion.source.looker.looker_lib_wrapper import (
     LookerAPI,
     LookerAPIConfig,
@@ -993,3 +995,66 @@ def test_independent_soft_deleted_looks(
         assert len(looks) == 2
         assert looks[0].title == "Outer Look"
         assert looks[1].title == "Soft Deleted"
+
+
+@freeze_time(FROZEN_TIME)
+def test_upstream_cll(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
+    mocked_client = mock.MagicMock()
+
+    with mock.patch(
+        "datahub.ingestion.source.state_provider.datahub_ingestion_checkpointing_provider.DataHubGraph",
+        mock_datahub_graph,
+    ) as mock_checkpoint, mock.patch("looker_sdk.init40") as mock_sdk:
+        mock_checkpoint.return_value = mock_datahub_graph
+
+        mock_sdk.return_value = mocked_client
+        setup_mock_explore(
+            mocked_client,
+            additional_lkml_fields=[
+                LookmlModelExploreField(
+                    name="dim2",
+                    type="string",
+                    dimension_group=None,
+                    description="dimension one description",
+                    label_short="Dimensions One Label",
+                    view="underlying_view",
+                    source_file="views/underlying_view.view.lkml",
+                ),
+                LookmlModelExploreField(
+                    category=Category.dimension,
+                    dimension_group="my_explore_name.createdon",
+                    field_group_label="Createdon Date",
+                    field_group_variant="Date",
+                    label="Dataset Lineages Explore Createdon Date",
+                    label_short="Createdon Date",
+                    lookml_link="/projects/datahub-demo/files/views%2Fdatahub-demo%2Fdatasets%2Fdataset_lineages.view.lkml?line=5",
+                    name="my_explore_name.createdon_date",
+                    project_name="datahub-demo",
+                    source_file="views/datahub-demo/datasets/dataset_lineages.view.lkml",
+                    source_file_path="datahub-demo/views/datahub-demo/datasets/dataset_lineages.view.lkml",
+                    sql='${TABLE}."CREATEDON" ',
+                    suggest_dimension="my_explore_name.createdon_date",
+                    suggest_explore="my_explore_name",
+                    type="date_date",
+                    view="my_explore_name",
+                    view_label="Dataset Lineages Explore",
+                    original_view="dataset_lineages",
+                ),
+            ],
+        )
+
+        looker_explore: Optional[LookerExplore] = looker_common.LookerExplore.from_api(
+            model="fake",
+            explore_name="my_explore_name",
+            client=mocked_client,
+            reporter=mock.MagicMock(),
+            source_config=mock.MagicMock(),
+        )
+
+        assert looker_explore is not None
+        assert looker_explore.name == "my_explore_name"
+        assert looker_explore.fields is not None
+        assert len(looker_explore.fields) == 3
+        assert (
+            looker_explore.fields[2].upstream_fields[0] == "dataset_lineages.createdon"
+        )

@@ -265,4 +265,4 @@ a Metadata Test may verify that ALL tables in Snowflake have at least 1 assigned
 Metadata Tests allow you to manage broad policies across your entire data ecosystem driven by metadata, for example to
 augment a larger scale Data Governance initiative.
 
-_Need more help? Join the conversation in [Slack](http://slack.datahubproject.io)!_
+
