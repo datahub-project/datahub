@@ -31,7 +31,7 @@ const Hero = ({}) => {
           <div>
             <h1 className="hero__title">The #1 Open Source Metadata Platform</h1>
             <p className="hero__subtitle">
-              DataHub is an extensible metadata platform that enables data discovery, data observability and federated governance to help tame the
+              DataHub is an extensible data catalog that enables data discovery, data observability and federated governance to help tame the
               complexity of your data ecosystem.
             </p>
             <p className="hero__subtitle">

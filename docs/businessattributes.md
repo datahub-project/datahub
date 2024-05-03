@@ -70,6 +70,11 @@ Description inherited from business attribute is greyed out to differentiate bet
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/88472958703d5e9236f71bb457c1acd481d123af/imgs/business_attributes/dataset-inherits-businessattribute-properties.png"/>
 </p>
 
+### Enable Business Attributes Feature
+By default, business attribute is disabled. To enable Business Attributes feature, set the following configuration in [application.yaml](../metadata-service/configuration/src/main/resources/application.yaml)
+
+businessAttributeEntityEnabled : true
+
 ### What updates are planned for the Business Attributes feature?
 
 - Ingestion of Business attributes through recipe file (YAML)

@@ -67,4 +67,4 @@ In order to configure ingestion from Snowflake, you'll first have to ensure you 
 
 Once you've done all of the above in Snowflake, it's time to [move on](configuration.md) to configuring the actual ingestion source within DataHub.
 
-*Need more help? Join the conversation in [Slack](http://slack.datahubproject.io)!*
+

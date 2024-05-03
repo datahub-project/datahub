@@ -3,6 +3,7 @@ import functools
 import logging
 import os
 import threading
+import time
 from typing import TYPE_CHECKING, Callable, Dict, List, Optional, TypeVar, cast
 
 import airflow
@@ -16,6 +17,8 @@ from datahub.metadata.schema_classes import (
     FineGrainedLineageClass,
     FineGrainedLineageDownstreamTypeClass,
     FineGrainedLineageUpstreamTypeClass,
+    OperationClass,
+    OperationTypeClass,
     StatusClass,
 )
 from datahub.sql_parsing.sqlglot_lineage import SqlParsingResult
@@ -413,6 +416,23 @@ class DataHubListener:
         logger.debug(
             f"DataHub listener finished processing notification about task instance start for {task_instance.task_id}"
         )
+
+        if self.config.materialize_iolets:
+            for outlet in datajob.outlets:
+                reported_time: int = int(time.time() * 1000)
+                operation = OperationClass(
+                    timestampMillis=reported_time,
+                    operationType=OperationTypeClass.CREATE,
+                    lastUpdatedTimestamp=reported_time,
+                    actor=builder.make_user_urn("airflow"),
+                )
+
+                operation_mcp = MetadataChangeProposalWrapper(
+                    entityUrn=str(outlet), aspect=operation
+                )
+
+                self.emitter.emit(operation_mcp)
+                logger.debug(f"Emitted Dataset Operation: {outlet}")
 
     def on_task_instance_finish(
         self, task_instance: "TaskInstance", status: InstanceRunResult

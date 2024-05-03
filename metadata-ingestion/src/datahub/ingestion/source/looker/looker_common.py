@@ -245,6 +245,56 @@ class ViewField:
     upstream_fields: List[str] = dataclasses_field(default_factory=list)
 
 
+@dataclass
+class ExploreUpstreamViewField:
+    explore: LookmlModelExplore
+    field: LookmlModelExploreField
+
+    def _form_field_name(self):
+        assert self.field.name is not None
+
+        if len(self.field.name.split(".")) != 2:
+            return self.field.name  # Inconsistent info received
+
+        view_name: Optional[str] = self.explore.name
+
+        if (
+            self.field.original_view is not None
+        ):  # if `from` is used in explore then original_view is pointing to
+            # lookml view
+            view_name = self.field.original_view
+
+        field_name = self.field.name.split(".")[1]
+
+        return f"{view_name}.{field_name}"
+
+    def upstream(self) -> str:
+        assert self.field.name is not None
+
+        if self.field.dimension_group is None:  # It is not part of Dimensional Group
+            return self._form_field_name()
+
+        if self.field.field_group_variant is None:
+            return (
+                self._form_field_name()
+            )  # Variant i.e. Month, Day, Year ... is not available
+
+        if self.field.type is None or not self.field.type.startswith("date_"):
+            return (
+                self._form_field_name()
+            )  # for Dimensional Group the type is always start with date_[time|date]
+
+        if not self.field.name.endswith(f"_{self.field.field_group_variant.lower()}"):
+            return (
+                self._form_field_name()
+            )  # if the explore field is generated because of  Dimensional Group in View
+            # then the field_name should ends with field_group_variant
+
+        return self._form_field_name()[
+            : -(len(self.field.field_group_variant.lower()) + 1)
+        ]  # remove variant at the end. +1 for "_"
+
+
 def create_view_project_map(view_fields: List[ViewField]) -> Dict[str, str]:
     """
     Each view in a model has unique name.
@@ -793,6 +843,13 @@ class LookerExplore:
                         if dim_field.name is None:
                             continue
                         else:
+                            dimension_upstream_field: ExploreUpstreamViewField = (
+                                ExploreUpstreamViewField(
+                                    explore=explore,
+                                    field=dim_field,
+                                )
+                            )
+
                             view_fields.append(
                                 ViewField(
                                     name=dim_field.name,
@@ -823,7 +880,9 @@ class LookerExplore:
                                         if dim_field.primary_key
                                         else False
                                     ),
-                                    upstream_fields=[dim_field.name],
+                                    upstream_fields=[
+                                        dimension_upstream_field.upstream()
+                                    ],
                                 )
                             )
                 if explore.fields.measures is not None:
@@ -831,6 +890,13 @@ class LookerExplore:
                         if measure_field.name is None:
                             continue
                         else:
+                            measure_upstream_field: ExploreUpstreamViewField = (
+                                ExploreUpstreamViewField(
+                                    explore=explore,
+                                    field=measure_field,
+                                )
+                            )
+
                             view_fields.append(
                                 ViewField(
                                     name=measure_field.name,
@@ -857,7 +923,7 @@ class LookerExplore:
                                         if measure_field.primary_key
                                         else False
                                     ),
-                                    upstream_fields=[measure_field.name],
+                                    upstream_fields=[measure_upstream_field.upstream()],
                                 )
                             )
 

@@ -41,9 +41,10 @@ def default_query_results(
         return []
     elif query == fivetran_log_query.get_connectors_query():
         return connector_query_results
-    elif query == fivetran_log_query.get_table_lineage_query("calendar_elected"):
+    elif query == fivetran_log_query.get_table_lineage_query():
         return [
             {
+                "connector_id": "calendar_elected",
                 "source_table_id": "10040",
                 "source_table_name": "employee",
                 "source_schema_name": "public",
@@ -52,6 +53,7 @@ def default_query_results(
                 "destination_schema_name": "postgres_public",
             },
             {
+                "connector_id": "calendar_elected",
                 "source_table_id": "10041",
                 "source_table_name": "company",
                 "source_schema_name": "public",
@@ -60,15 +62,29 @@ def default_query_results(
                 "destination_schema_name": "postgres_public",
             },
         ]
-    elif query == fivetran_log_query.get_column_lineage_query(
-        "10040", "7779"
-    ) or query == fivetran_log_query.get_column_lineage_query("10041", "7780"):
+    elif query == fivetran_log_query.get_column_lineage_query():
         return [
             {
+                "source_table_id": "10040",
+                "destination_table_id": "7779",
                 "source_column_name": "id",
                 "destination_column_name": "id",
             },
             {
+                "source_table_id": "10040",
+                "destination_table_id": "7779",
+                "source_column_name": "name",
+                "destination_column_name": "name",
+            },
+            {
+                "source_table_id": "10041",
+                "destination_table_id": "7780",
+                "source_column_name": "id",
+                "destination_column_name": "id",
+            },
+            {
+                "source_table_id": "10041",
+                "destination_table_id": "7780",
                 "source_column_name": "name",
                 "destination_column_name": "name",
             },
@@ -82,46 +98,63 @@ def default_query_results(
                 "email": "abc.xyz@email.com",
             }
         ]
-    elif query == fivetran_log_query.get_sync_start_logs_query("calendar_elected"):
+    elif query == fivetran_log_query.get_sync_logs_query():
         return [
             {
-                "time_stamp": datetime.datetime(2023, 9, 20, 6, 37, 32, 606000),
+                "connector_id": "calendar_elected",
                 "sync_id": "4c9a03d6-eded-4422-a46a-163266e58243",
-            },
-            {
-                "time_stamp": datetime.datetime(2023, 10, 3, 14, 35, 30, 345000),
-                "sync_id": "f773d1e9-c791-48f4-894f-8cf9b3dfc834",
-            },
-            {
-                "time_stamp": datetime.datetime(2023, 10, 3, 14, 35, 55, 401000),
-                "sync_id": "63c2fc85-600b-455f-9ba0-f576522465be",
-            },
-            {
-                "time_stamp": datetime.datetime(2023, 10, 3, 14, 37, 5, 403000),
-                "sync_id": "e773e1e9-c791-46f4-894f-8ch9b3dfc832",
-            },
-        ]
-    elif query == fivetran_log_query.get_sync_end_logs_query("calendar_elected"):
-        return [
-            {
-                "time_stamp": datetime.datetime(2023, 9, 20, 6, 38, 5, 56000),
-                "sync_id": "4c9a03d6-eded-4422-a46a-163266e58243",
-                "message_data": '"{\\"status\\":\\"SUCCESSFUL\\"}"',
-            },
-            {
-                "time_stamp": datetime.datetime(2023, 10, 3, 14, 35, 31, 512000),
-                "sync_id": "f773d1e9-c791-48f4-894f-8cf9b3dfc834",
-                "message_data": '"{\\"reason\\":\\"Sync has been cancelled because of a user action in the dashboard.Standard Config updated.\\",\\"status\\":\\"CANCELED\\"}"',
-            },
-            {
-                "time_stamp": datetime.datetime(2023, 10, 3, 14, 36, 29, 678000),
-                "sync_id": "63c2fc85-600b-455f-9ba0-f576522465be",
-                "message_data": '"{\\"reason\\":\\"java.lang.RuntimeException: FATAL: too many connections for role \\\\\\"hxwraqld\\\\\\"\\",\\"taskType\\":\\"reconnect\\",\\"status\\":\\"FAILURE_WITH_TASK\\"}"',
-            },
-            {
-                "time_stamp": datetime.datetime(2023, 10, 3, 14, 37, 35, 478000),
-                "sync_id": "e773e1e9-c791-46f4-894f-8ch9b3dfc832",
+                "message_event": "sync_start",
                 "message_data": None,
+                "time_stamp": datetime.datetime(2023, 9, 20, 6, 37, 32, 606000),
+            },
+            {
+                "connector_id": "calendar_elected",
+                "sync_id": "f773d1e9-c791-48f4-894f-8cf9b3dfc834",
+                "message_event": "sync_start",
+                "message_data": None,
+                "time_stamp": datetime.datetime(2023, 10, 3, 14, 35, 30, 345000),
+            },
+            {
+                "connector_id": "calendar_elected",
+                "sync_id": "63c2fc85-600b-455f-9ba0-f576522465be",
+                "message_event": "sync_start",
+                "message_data": None,
+                "time_stamp": datetime.datetime(2023, 10, 3, 14, 35, 55, 401000),
+            },
+            {
+                "connector_id": "calendar_elected",
+                "sync_id": "e773e1e9-c791-46f4-894f-8ch9b3dfc832",
+                "message_event": "sync_start",
+                "message_data": None,
+                "time_stamp": datetime.datetime(2023, 10, 3, 14, 37, 5, 403000),
+            },
+            {
+                "connector_id": "calendar_elected",
+                "sync_id": "4c9a03d6-eded-4422-a46a-163266e58243",
+                "message_event": "sync_end",
+                "message_data": '"{\\"status\\":\\"SUCCESSFUL\\"}"',
+                "time_stamp": datetime.datetime(2023, 9, 20, 6, 38, 5, 56000),
+            },
+            {
+                "connector_id": "calendar_elected",
+                "sync_id": "f773d1e9-c791-48f4-894f-8cf9b3dfc834",
+                "message_event": "sync_end",
+                "message_data": '"{\\"reason\\":\\"Sync has been cancelled because of a user action in the dashboard.Standard Config updated.\\",\\"status\\":\\"CANCELED\\"}"',
+                "time_stamp": datetime.datetime(2023, 10, 3, 14, 35, 31, 512000),
+            },
+            {
+                "connector_id": "calendar_elected",
+                "sync_id": "63c2fc85-600b-455f-9ba0-f576522465be",
+                "message_event": "sync_end",
+                "message_data": '"{\\"reason\\":\\"java.lang.RuntimeException: FATAL: too many connections for role \\\\\\"hxwraqld\\\\\\"\\",\\"taskType\\":\\"reconnect\\",\\"status\\":\\"FAILURE_WITH_TASK\\"}"',
+                "time_stamp": datetime.datetime(2023, 10, 3, 14, 36, 29, 678000),
+            },
+            {
+                "connector_id": "calendar_elected",
+                "sync_id": "e773e1e9-c791-46f4-894f-8ch9b3dfc832",
+                "message_event": "sync_end",
+                "message_data": None,
+                "time_stamp": datetime.datetime(2023, 10, 3, 14, 37, 35, 478000),
             },
         ]
     # Unreachable code

@@ -90,4 +90,4 @@ messages that are received while the Action is running.
 
 2. Is there a way to asynchronously commit offsets back to Kafka?
 
-Currently, all consumer offset commits are made synchronously for each message received. For now we've optimized for correctness over performance. If this commit policy does not accommodate your organization's needs, certainly reach out on [Slack](https://slack.datahubproject.io/). 
+Currently, all consumer offset commits are made synchronously for each message received. For now we've optimized for correctness over performance.

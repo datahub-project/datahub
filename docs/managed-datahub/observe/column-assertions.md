@@ -18,7 +18,7 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 Can you remember a time when an important warehouse table column changed dramatically, with little or no notice? Perhaps the number of null values suddenly spiked, or a new value was added to a fixed set of possible values. If the answer is yes, how did you initially find out? We'll take a guess - someone looking at an internal reporting dashboard or worse, a user using your your product, sounded an alarm when a number looked a bit out of the ordinary.
 
-There are many reasons why important columns in your Snowflake, Redshift, or BigQuery tables may change - application code bugs, new feature rollouts, etc. Oftentimes, these changes break important assumptions made about the data used in building key downstream data products like reporting dashboards or data-driven product features.
+There are many reasons why important columns in your Snowflake, Redshift, BigQuery, or Databricks tables may change - application code bugs, new feature rollouts, etc. Oftentimes, these changes break important assumptions made about the data used in building key downstream data products like reporting dashboards or data-driven product features.
 
 What if you could reduce the time to detect these incidents, so that the people responsible for the data were made aware of data issues before anyone else? With Acryl DataHub Column  Assertions, you can.
 
@@ -41,7 +41,7 @@ Note that an Ingestion Source _must_ be configured with the data platform of you
 Acryl DataHub's **Ingestion** tab.
 
 > Note that Column Assertions are not yet supported if you are connecting to your warehouse
-> using the DataHub CLI or a Remote Ingestion Executor.
+> using the DataHub CLI.
 
 ## What is a Column Assertion?
 
@@ -121,7 +121,7 @@ another always-increasing number - that can be used to find the "new rows" that 
    `Edit Assertions` and `Edit Monitors` privileges for the entity. This is granted to Entity owners by default.
 
 2. **Data Platform Connection**: In order to create a Column Assertion, you'll need to have an **Ingestion Source** 
-   configured to your Data Platform: Snowflake, BigQuery, or Redshift under the **Ingestion** tab.
+   configured to your Data Platform: Snowflake, BigQuery, Redshift, or Databricks under the **Ingestion** tab.
 
 Once these are in place, you're ready to create your Column Assertions!
 

@@ -49,4 +49,4 @@ If you want to ingest metadata from Looker using the DataHub CLI, check out the 
 * Learn about CLI Ingestion in the [Introduction to Metadata Ingestion](../../../metadata-ingestion/README.md)
 * [Looker Ingestion Source](https://datahubproject.io/docs/generated/ingestion/sources/Looker)
 
-*Need more help? Join the conversation in [Slack](http://slack.datahubproject.io)!*
+

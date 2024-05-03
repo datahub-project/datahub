@@ -1,5 +1,6 @@
 import json
 import logging
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from functools import lru_cache
 from typing import Dict, Iterable, List, Optional, Tuple, Union
@@ -21,8 +22,17 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import Source, SourceReport
+from datahub.ingestion.api.source import MetadataWorkUnitProcessor, Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.state.stale_entity_removal_handler import (
+    StaleEntityRemovalHandler,
+    StaleEntityRemovalSourceReport,
+    StatefulStaleMetadataRemovalConfig,
+)
+from datahub.ingestion.source.state.stateful_ingestion_base import (
+    StatefulIngestionConfigBase,
+    StatefulIngestionSourceBase,
+)
 from datahub.metadata.com.linkedin.pegasus2avro.common import (
     AuditStamp,
     ChangeAuditStamps,
@@ -50,7 +60,7 @@ logger = logging.getLogger(__name__)
 DATASOURCE_URN_RECURSION_LIMIT = 5
 
 
-class MetabaseConfig(DatasetLineageProviderConfigBase):
+class MetabaseConfig(DatasetLineageProviderConfigBase, StatefulIngestionConfigBase):
     # See the Metabase /api/session endpoint for details
     # https://www.metabase.com/docs/latest/api-documentation.html#post-apisession
     connect_uri: str = Field(default="localhost:3000", description="Metabase host URL.")
@@ -84,6 +94,7 @@ class MetabaseConfig(DatasetLineageProviderConfigBase):
         default=False,
         description="Flag that if true, exclude other user collections",
     )
+    stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = None
 
     @validator("connect_uri", "display_uri")
     def remove_trailing_slash(cls, v):
@@ -97,12 +108,17 @@ class MetabaseConfig(DatasetLineageProviderConfigBase):
         return values
 
 
+@dataclass
+class MetabaseReport(StaleEntityRemovalSourceReport):
+    pass
+
+
 @platform_name("Metabase")
 @config_class(MetabaseConfig)
 @support_status(SupportStatus.CERTIFIED)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.LINEAGE_COARSE, "Supported by default")
-class MetabaseSource(Source):
+class MetabaseSource(StatefulIngestionSourceBase):
     """
     This plugin extracts Charts, dashboards, and associated metadata. This plugin is in beta and has only been tested
     on PostgreSQL and H2 database.
@@ -147,17 +163,18 @@ class MetabaseSource(Source):
     """
 
     config: MetabaseConfig
-    report: SourceReport
+    report: MetabaseReport
     platform = "metabase"
 
     def __hash__(self):
         return id(self)
 
     def __init__(self, ctx: PipelineContext, config: MetabaseConfig):
-        super().__init__(ctx)
+        super().__init__(config, ctx)
         self.config = config
-        self.report = SourceReport()
+        self.report = MetabaseReport()
         self.setup_session()
+        self.source_config: MetabaseConfig = config
 
     def setup_session(self) -> None:
         login_response = requests.post(
@@ -738,6 +755,14 @@ class MetabaseSource(Source):
     def create(cls, config_dict: dict, ctx: PipelineContext) -> Source:
         config = MetabaseConfig.parse_obj(config_dict)
         return cls(ctx, config)
+
+    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
+        return [
+            *super().get_workunit_processors(),
+            StaleEntityRemovalHandler.create(
+                self, self.source_config, self.ctx
+            ).workunit_processor,
+        ]
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         yield from self.emit_card_mces()

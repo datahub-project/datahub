@@ -1,5 +1,6 @@
 import json
 import re
+from datetime import datetime, timezone
 from typing import (
     Any,
     Callable,
@@ -72,6 +73,9 @@ from datahub.ingestion.transformer.extract_ownership_from_tags import (
     ExtractOwnersFromTagsTransformer,
 )
 from datahub.ingestion.transformer.mark_dataset_status import MarkDatasetStatus
+from datahub.ingestion.transformer.pattern_cleanup_dataset_usage_user import (
+    PatternCleanupDatasetUsageUser,
+)
 from datahub.ingestion.transformer.pattern_cleanup_ownership import (
     PatternCleanUpOwnership,
 )
@@ -82,6 +86,7 @@ from datahub.ingestion.transformer.replace_external_url import ReplaceExternalUr
 from datahub.metadata.schema_classes import (
     BrowsePathsClass,
     DatasetPropertiesClass,
+    DatasetUserUsageCountsClass,
     GlobalTagsClass,
     MetadataChangeEventClass,
     OwnershipClass,
@@ -3291,3 +3296,165 @@ def test_replace_external_regex_replace_2(
         output[0].record.aspect.externalUrl
         == "https://test.com/test/looker-demo/blob/master/foo.view.lkml"
     )
+
+
+def test_pattern_cleanup_usage_statistics_user_1(
+    mock_datahub_graph,
+):
+    pipeline_context: PipelineContext = PipelineContext(
+        run_id="test_pattern_cleanup_usage_statistics_user"
+    )
+    pipeline_context.graph = mock_datahub_graph(DatahubClientConfig)
+
+    TS_1 = datetime(year=2023, month=1, day=1, tzinfo=timezone.utc)
+
+    output = run_dataset_transformer_pipeline(
+        transformer_type=PatternCleanupDatasetUsageUser,
+        aspect=models.DatasetUsageStatisticsClass(
+            timestampMillis=int(TS_1.timestamp() * 1000),
+            userCounts=[
+                DatasetUserUsageCountsClass(
+                    user=builder.make_user_urn("IAM:user1"),
+                    count=1,
+                    userEmail="user1@exaple.com",
+                ),
+                DatasetUserUsageCountsClass(
+                    user=builder.make_user_urn("user2"),
+                    count=2,
+                    userEmail="user2@exaple.com",
+                ),
+            ],
+        ),
+        config={"pattern_for_cleanup": ["IAM:"]},
+        pipeline_context=pipeline_context,
+    )
+
+    expectedUsageStatistics = models.DatasetUsageStatisticsClass(
+        timestampMillis=int(TS_1.timestamp() * 1000),
+        userCounts=[
+            DatasetUserUsageCountsClass(
+                user=builder.make_user_urn("user1"),
+                count=1,
+                userEmail="user1@exaple.com",
+            ),
+            DatasetUserUsageCountsClass(
+                user=builder.make_user_urn("user2"),
+                count=2,
+                userEmail="user2@exaple.com",
+            ),
+        ],
+    )
+
+    assert len(output) == 2
+    assert output[0].record
+    assert output[0].record.aspect
+    assert len(output[0].record.aspect.userCounts) == 2
+    assert output[0].record.aspect.userCounts == expectedUsageStatistics.userCounts
+
+
+def test_pattern_cleanup_usage_statistics_user_2(
+    mock_datahub_graph,
+):
+    pipeline_context: PipelineContext = PipelineContext(
+        run_id="test_pattern_cleanup_usage_statistics_user"
+    )
+    pipeline_context.graph = mock_datahub_graph(DatahubClientConfig)
+
+    TS_1 = datetime(year=2023, month=1, day=1, tzinfo=timezone.utc)
+
+    output = run_dataset_transformer_pipeline(
+        transformer_type=PatternCleanupDatasetUsageUser,
+        aspect=models.DatasetUsageStatisticsClass(
+            timestampMillis=int(TS_1.timestamp() * 1000),
+            userCounts=[
+                DatasetUserUsageCountsClass(
+                    user=builder.make_user_urn("test_user_1"),
+                    count=1,
+                    userEmail="user1@exaple.com",
+                ),
+                DatasetUserUsageCountsClass(
+                    user=builder.make_user_urn("test_user_2"),
+                    count=2,
+                    userEmail="user2@exaple.com",
+                ),
+            ],
+        ),
+        config={"pattern_for_cleanup": ["_user"]},
+        pipeline_context=pipeline_context,
+    )
+
+    expectedUsageStatistics = models.DatasetUsageStatisticsClass(
+        timestampMillis=int(TS_1.timestamp() * 1000),
+        userCounts=[
+            DatasetUserUsageCountsClass(
+                user=builder.make_user_urn("test_1"),
+                count=1,
+                userEmail="user1@exaple.com",
+            ),
+            DatasetUserUsageCountsClass(
+                user=builder.make_user_urn("test_2"),
+                count=2,
+                userEmail="user2@exaple.com",
+            ),
+        ],
+    )
+
+    assert len(output) == 2
+    assert output[0].record
+    assert output[0].record.aspect
+    assert len(output[0].record.aspect.userCounts) == 2
+    assert output[0].record.aspect.userCounts == expectedUsageStatistics.userCounts
+
+
+def test_pattern_cleanup_usage_statistics_user_3(
+    mock_datahub_graph,
+):
+    pipeline_context: PipelineContext = PipelineContext(
+        run_id="test_pattern_cleanup_usage_statistics_user"
+    )
+    pipeline_context.graph = mock_datahub_graph(DatahubClientConfig)
+
+    TS_1 = datetime(year=2023, month=1, day=1, tzinfo=timezone.utc)
+
+    output = run_dataset_transformer_pipeline(
+        transformer_type=PatternCleanupDatasetUsageUser,
+        aspect=models.DatasetUsageStatisticsClass(
+            timestampMillis=int(TS_1.timestamp() * 1000),
+            userCounts=[
+                DatasetUserUsageCountsClass(
+                    user=builder.make_user_urn("abc_user_1"),
+                    count=1,
+                    userEmail="user1@exaple.com",
+                ),
+                DatasetUserUsageCountsClass(
+                    user=builder.make_user_urn("xyz_user_2"),
+                    count=2,
+                    userEmail="user2@exaple.com",
+                ),
+            ],
+        ),
+        config={"pattern_for_cleanup": [r"_user_\d+"]},
+        pipeline_context=pipeline_context,
+    )
+
+    expectedUsageStatistics = models.DatasetUsageStatisticsClass(
+        timestampMillis=int(TS_1.timestamp() * 1000),
+        userCounts=[
+            DatasetUserUsageCountsClass(
+                user=builder.make_user_urn("abc"),
+                count=1,
+                userEmail="user1@exaple.com",
+            ),
+            DatasetUserUsageCountsClass(
+                user=builder.make_user_urn("xyz"),
+                count=2,
+                userEmail="user2@exaple.com",
+            ),
+        ],
+    )
+
+    assert len(output) == 2
+    assert output[0].record
+    assert output[0].record.aspect
+    assert len(output[0].record.aspect.userCounts) == 2
+    assert output[0].record.aspect.userCounts == expectedUsageStatistics.userCounts
