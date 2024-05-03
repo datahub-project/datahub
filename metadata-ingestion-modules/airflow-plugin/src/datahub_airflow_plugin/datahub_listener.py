@@ -427,13 +427,12 @@ class DataHubListener:
                     actor=builder.make_user_urn("airflow"),
                 )
 
-                logger.debug(f"Emitted Dataset Operation: {outlet}")
-
                 operation_mcp = MetadataChangeProposalWrapper(
                     entityUrn=str(outlet), aspect=operation
                 )
 
                 self.emitter.emit(operation_mcp)
+                logger.debug(f"Emitted Dataset Operation: {outlet}")
 
     def on_task_instance_finish(
         self, task_instance: "TaskInstance", status: InstanceRunResult
