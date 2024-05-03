@@ -4,6 +4,8 @@ source:
     platform_instance: "AWS_ACCOUNT_ID"
     aws_access_key_id: "${AWS_ACCESS_KEY_ID}"
     aws_secret_access_key: "${AWS_SECRET_ACCESS_KEY}"
+    aws_session_token: "${AWS_SESSION_TOKEN}"
+    aws_region: "${AWS_REGION}"
     #
     # If there are items that have most representative fields of the table, users could use the
     # `include_table_item` option to provide a list of primary keys of the table in dynamodb format.

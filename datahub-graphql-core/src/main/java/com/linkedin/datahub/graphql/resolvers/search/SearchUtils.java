@@ -21,6 +21,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.FacetFilterInput;
+import com.linkedin.datahub.graphql.generated.SearchResults;
 import com.linkedin.datahub.graphql.types.common.mappers.SearchFlagsInputMapper;
 import com.linkedin.datahub.graphql.types.entitytype.EntityTypeMapper;
 import com.linkedin.metadata.query.SearchFlags;
@@ -313,5 +314,16 @@ public class SearchUtils {
     final List<EntityType> entityTypes =
         (inputTypes == null || inputTypes.isEmpty()) ? SEARCHABLE_ENTITY_TYPES : inputTypes;
     return entityTypes.stream().map(EntityTypeMapper::getName).collect(Collectors.toList());
+  }
+
+  public static SearchResults createEmptySearchResults(final int start, final int count) {
+    final SearchResults result = new SearchResults();
+    result.setStart(start);
+    result.setCount(count);
+    result.setTotal(0);
+    result.setSearchResults(new ArrayList<>());
+    result.setSuggestions(new ArrayList<>());
+    result.setFacets(new ArrayList<>());
+    return result;
   }
 }
