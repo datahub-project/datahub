@@ -33,9 +33,11 @@ import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Component;
 
 /** Class that provides a utility function that transforms the timeseries aspect into a document */
 @Slf4j
+@Component
 public class TimeseriesAspectTransformer {
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
