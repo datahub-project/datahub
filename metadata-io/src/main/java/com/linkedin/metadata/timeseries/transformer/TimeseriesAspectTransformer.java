@@ -52,7 +52,7 @@ public class TimeseriesAspectTransformer {
   private TimeseriesAspectTransformer() {}
 
   @Value("${elasticsearch.idHashAlgo}")
-  static String hashAlgo;
+  private static String hashAlgo;
 
   public static Map<String, JsonNode> transform(
       @Nonnull final Urn urn,

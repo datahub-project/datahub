@@ -72,7 +72,7 @@ public class ElasticSearchSystemMetadataService
               FIELD_REGISTRY_VERSION));
 
   @Value("${elasticsearch.idHashAlgo}")
-  String hashAlgo;
+  private String hashAlgo;
 
   private String toDocument(SystemMetadata systemMetadata, String urn, String aspect) {
     final ObjectNode document = JsonNodeFactory.instance.objectNode();
