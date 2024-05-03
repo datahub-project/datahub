@@ -898,7 +898,7 @@ public class EntityChangeEventGeneratorHookTest {
   }
 
   @Test
-  public void testColumnDescriptionChanges() throws Exception {
+  public void testSchemaFieldDescriptionChanges() throws Exception {
     MetadataChangeLog event = new MetadataChangeLog();
     event.setEntityType(DATASET_ENTITY_NAME);
     event.setAspectName(SCHEMA_METADATA_ASPECT_NAME);
@@ -970,7 +970,7 @@ public class EntityChangeEventGeneratorHookTest {
   }
 
   @Test
-  public void testEditableColumnDescriptionChanges() throws Exception {
+  public void testEditableSchemaFieldDescriptionChanges() throws Exception {
     MetadataChangeLog event = new MetadataChangeLog();
     event.setEntityType(DATASET_ENTITY_NAME);
     event.setAspectName(EDITABLE_SCHEMA_METADATA_ASPECT_NAME);
