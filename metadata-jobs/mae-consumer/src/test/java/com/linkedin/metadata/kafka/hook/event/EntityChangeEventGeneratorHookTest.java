@@ -36,6 +36,7 @@ import com.linkedin.dataprocess.DataProcessInstanceRunResult;
 import com.linkedin.dataprocess.DataProcessRunStatus;
 import com.linkedin.dataprocess.RunResultType;
 import com.linkedin.dataset.DatasetProperties;
+import com.linkedin.dataset.EditableDatasetProperties;
 import com.linkedin.domain.Domains;
 import com.linkedin.entity.Aspect;
 import com.linkedin.entity.EntityResponse;
@@ -57,6 +58,8 @@ import com.linkedin.mxe.PlatformEvent;
 import com.linkedin.mxe.PlatformEventHeader;
 import com.linkedin.platform.event.v1.EntityChangeEvent;
 import com.linkedin.platform.event.v1.Parameters;
+import com.linkedin.schema.EditableSchemaMetadata;
+import com.linkedin.schema.SchemaMetadata;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.net.URISyntaxException;
@@ -784,6 +787,125 @@ public class EntityChangeEventGeneratorHookTest {
     verifyProducePlatformEvent(_mockClient, platformEvent);
   }
 
+
+  @Test
+  public void testEditableDatasetPropertiesAdd() throws Exception {
+    final String newDescription = "New desc";
+    MetadataChangeLog event = new MetadataChangeLog();
+    event.setEntityType(DATASET_ENTITY_NAME);
+    event.setAspectName(EDITABLE_DATASET_PROPERTIES_ASPECT_NAME);
+    event.setChangeType(ChangeType.UPSERT);
+    event.setEntityUrn(Urn.createFromString(TEST_DATASET_URN));
+    event.setEntityType(DATASET_ENTITY_NAME);
+    event.setCreated(new AuditStamp().setActor(actorUrn).setTime(EVENT_TIME));
+
+    event.setAspect(GenericRecordUtils.serializeAspect(new EditableDatasetProperties().setDescription(newDescription)));
+    _entityChangeEventHook.invoke(event);
+
+    PlatformEvent platformEvent =
+            createChangeEvent(
+                    DATASET_ENTITY_NAME,
+                    Urn.createFromString(TEST_DATASET_URN),
+                    ChangeCategory.DOCUMENTATION,
+                    ChangeOperation.ADD,
+                    null,
+                    ImmutableMap.of(
+                            "description",
+                            newDescription),
+                    actorUrn);
+    verifyProducePlatformEvent(_mockClient, platformEvent);
+  }
+
+  @Test
+  public void testEditableDatasetDescriptionAdd() throws Exception {
+    final String newDescription = "New desc";
+    MetadataChangeLog event = new MetadataChangeLog();
+    event.setEntityType(DATASET_ENTITY_NAME);
+    event.setAspectName(EDITABLE_DATASET_PROPERTIES_ASPECT_NAME);
+    event.setChangeType(ChangeType.UPSERT);
+    event.setEntityUrn(Urn.createFromString(TEST_DATASET_URN));
+    event.setEntityType(DATASET_ENTITY_NAME);
+    event.setCreated(new AuditStamp().setActor(actorUrn).setTime(EVENT_TIME));
+
+    event.setAspect(GenericRecordUtils.serializeAspect(new EditableDatasetProperties().setDescription(newDescription)));
+    event.setPreviousAspectValue(GenericRecordUtils.serializeAspect(new EditableDatasetProperties()));
+
+    _entityChangeEventHook.invoke(event);
+
+    PlatformEvent platformEvent =
+            createChangeEvent(
+                    DATASET_ENTITY_NAME,
+                    Urn.createFromString(TEST_DATASET_URN),
+                    ChangeCategory.DOCUMENTATION,
+                    ChangeOperation.ADD,
+                    null,
+                    ImmutableMap.of(
+                            "description",
+                            newDescription),
+                    actorUrn);
+    verifyProducePlatformEvent(_mockClient, platformEvent);
+  }
+
+  @Test
+  public void testEditableDatasetDescriptionModify() throws Exception {
+    final String newDescription = "New desc";
+    MetadataChangeLog event = new MetadataChangeLog();
+    event.setEntityType(DATASET_ENTITY_NAME);
+    event.setAspectName(EDITABLE_DATASET_PROPERTIES_ASPECT_NAME);
+    event.setChangeType(ChangeType.UPSERT);
+    event.setEntityUrn(Urn.createFromString(TEST_DATASET_URN));
+    event.setEntityType(DATASET_ENTITY_NAME);
+    event.setCreated(new AuditStamp().setActor(actorUrn).setTime(EVENT_TIME));
+
+    event.setAspect(GenericRecordUtils.serializeAspect(new EditableDatasetProperties().setDescription(newDescription)));
+    event.setPreviousAspectValue(GenericRecordUtils.serializeAspect(new EditableDatasetProperties().setDescription("Old desc")));
+
+    _entityChangeEventHook.invoke(event);
+
+    PlatformEvent platformEvent =
+            createChangeEvent(
+                    DATASET_ENTITY_NAME,
+                    Urn.createFromString(TEST_DATASET_URN),
+                    ChangeCategory.DOCUMENTATION,
+                    ChangeOperation.MODIFY,
+                    null,
+                    ImmutableMap.of(
+                            "description",
+                            newDescription),
+                    actorUrn);
+    verifyProducePlatformEvent(_mockClient, platformEvent);
+  }
+
+  @Test
+  public void testEditableDatasetDescriptionRemove() throws Exception {
+    final String oldDescription = "Old desc";
+    MetadataChangeLog event = new MetadataChangeLog();
+    event.setEntityType(DATASET_ENTITY_NAME);
+    event.setAspectName(EDITABLE_DATASET_PROPERTIES_ASPECT_NAME);
+    event.setChangeType(ChangeType.UPSERT);
+    event.setEntityUrn(Urn.createFromString(TEST_DATASET_URN));
+    event.setEntityType(DATASET_ENTITY_NAME);
+    event.setCreated(new AuditStamp().setActor(actorUrn).setTime(EVENT_TIME));
+
+    event.setAspect(GenericRecordUtils.serializeAspect(new EditableDatasetProperties()));
+    event.setPreviousAspectValue(GenericRecordUtils.serializeAspect(new EditableDatasetProperties().setDescription(oldDescription)));
+
+    _entityChangeEventHook.invoke(event);
+
+    PlatformEvent platformEvent =
+            createChangeEvent(
+                    DATASET_ENTITY_NAME,
+                    Urn.createFromString(TEST_DATASET_URN),
+                    ChangeCategory.DOCUMENTATION,
+                    ChangeOperation.REMOVE,
+                    null,
+                    ImmutableMap.of(
+                            "description",
+                            oldDescription),
+                    actorUrn);
+    verifyProducePlatformEvent(_mockClient, platformEvent);
+  }
+
   private PlatformEvent createChangeEvent(
       String entityType,
       Urn entityUrn,
@@ -824,8 +946,9 @@ public class EntityChangeEventGeneratorHookTest {
     registry.register(STATUS_ASPECT_NAME, new StatusChangeEventGenerator());
     registry.register(DEPRECATION_ASPECT_NAME, new DeprecationChangeEventGenerator());
     registry.register(DATASET_PROPERTIES_ASPECT_NAME, new DatasetPropertiesChangeEventGenerator());
-
-    // TODO Add Dataset Schema Field related change generators.
+    registry.register(EDITABLE_DATASET_PROPERTIES_ASPECT_NAME, new EditableDatasetPropertiesChangeEventGenerator());
+    registry.register(SCHEMA_METADATA_ASPECT_NAME, new SchemaMetadataChangeEventGenerator());
+    registry.register(EDITABLE_SCHEMA_METADATA_ASPECT_NAME, new EditableSchemaMetadataChangeEventGenerator());
 
     // Entity Lifecycle change event generators
     registry.register(DATASET_KEY_ASPECT_NAME, new EntityKeyChangeEventGenerator<>());
@@ -870,6 +993,18 @@ public class EntityChangeEventGeneratorHookTest {
     Mockito.when(datasetSpec.getAspectSpec(eq(DATASET_PROPERTIES_ASPECT_NAME)))
         .thenReturn(mockDatasetProperties);
 
+    AspectSpec mockEditableDatasetProperties = createMockAspectSpec(EditableDatasetProperties.class);
+    Mockito.when(datasetSpec.getAspectSpec(eq(EDITABLE_DATASET_PROPERTIES_ASPECT_NAME)))
+            .thenReturn(mockEditableDatasetProperties);
+
+    AspectSpec mockSchemaMetadata = createMockAspectSpec(SchemaMetadata.class);
+    Mockito.when(datasetSpec.getAspectSpec(eq(SCHEMA_METADATA_ASPECT_NAME)))
+            .thenReturn(mockSchemaMetadata);
+
+    AspectSpec mockEditableSchemaMetadata = createMockAspectSpec(EditableSchemaMetadata.class);
+    Mockito.when(datasetSpec.getAspectSpec(eq(EDITABLE_SCHEMA_METADATA_ASPECT_NAME)))
+            .thenReturn(mockEditableSchemaMetadata);
+
     Mockito.when(registry.getEntitySpec(eq(DATASET_ENTITY_NAME))).thenReturn(datasetSpec);
 
     // Build Assertion Entity Spec
@@ -890,6 +1025,8 @@ public class EntityChangeEventGeneratorHookTest {
 
     Mockito.when(registry.getEntitySpec(DATA_PROCESS_INSTANCE_ENTITY_NAME))
         .thenReturn(dataProcessInstanceSpec);
+
+    // Build SchemaField Entity Spec
 
     return TestOperationContexts.systemContextNoSearchAuthorization(registry);
   }
