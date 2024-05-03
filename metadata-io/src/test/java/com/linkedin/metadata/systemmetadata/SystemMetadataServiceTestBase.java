@@ -14,8 +14,6 @@ import com.linkedin.mxe.SystemMetadata;
 import java.util.List;
 import javax.annotation.Nonnull;
 import org.opensearch.client.RestHighLevelClient;
-import org.springframework.core.env.PropertySource;
-import org.springframework.core.io.support.ResourcePropertySource;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.BeforeMethod;
@@ -39,8 +37,8 @@ public abstract class SystemMetadataServiceTestBase extends AbstractTestNGSpring
 
   @BeforeClass
   public void setup() {
-    PropertySource<?> applicationYamlPropertySource = new ResourcePropertySource("classpath:application.yml");
-    System.setProperty("spring.config.location", "classpath:application.yml");
+    // PropertySource<?> applicationYamlPropertySource = new ResourcePropertySource("classpath:application.yaml");
+    System.setProperty("spring.config.location", "classpath:application.yaml");
     _client = buildService();
     _client.configure();
   }
