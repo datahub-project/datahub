@@ -8,15 +8,11 @@ import org.jetbrains.annotations.NotNull;
 import org.opensearch.client.RestHighLevelClient;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
-import org.springframework.test.context.TestPropertySource;
 import org.testng.AssertJUnit;
 import org.testng.annotations.Test;
 
-@SpringBootTest
 @Import({ElasticSearchSuite.class, SearchTestContainerConfiguration.class})
-@TestPropertySource(locations = "classpath:application.yaml")
 public class TimeseriesAspectServiceElasticSearchTest extends TimeseriesAspectServiceTestBase {
 
   @Autowired private RestHighLevelClient _searchClient;
