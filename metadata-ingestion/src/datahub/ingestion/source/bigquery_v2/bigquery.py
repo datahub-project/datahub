@@ -261,7 +261,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         self.lineage_extractor = BigqueryLineageExtractor(
             config,
             self.report,
-            dataset_urn_builder=self.gen_dataset_urn_from_ref,
+            dataset_urn_builder=self.gen_dataset_urn_from_raw_ref,
             redundant_run_skip_handler=redundant_lineage_run_skip_handler,
         )
 
@@ -278,7 +278,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             config,
             self.report,
             schema_resolver=self.sql_parser_schema_resolver,
-            dataset_urn_builder=self.gen_dataset_urn_from_ref,
+            dataset_urn_builder=self.gen_dataset_urn_from_raw_ref,
             redundant_run_skip_handler=redundant_usage_run_skip_handler,
         )
 
@@ -1189,12 +1189,26 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             entityUrn=dataset_urn, aspect=tags
         ).as_workunit()
 
-    def gen_dataset_urn(self, project_id: str, dataset_name: str, table: str) -> str:
+    def gen_dataset_urn(
+        self, project_id: str, dataset_name: str, table: str, use_raw_name: bool = False
+    ) -> str:
         datahub_dataset_name = BigqueryTableIdentifier(project_id, dataset_name, table)
         return make_dataset_urn(
             self.platform,
-            str(datahub_dataset_name),
+            (
+                str(datahub_dataset_name)
+                if not use_raw_name
+                else datahub_dataset_name.raw_table_name()
+            ),
             self.config.env,
+        )
+
+    def gen_dataset_urn_from_raw_ref(self, ref: BigQueryTableRef) -> str:
+        return self.gen_dataset_urn(
+            ref.table_identifier.project_id,
+            ref.table_identifier.dataset,
+            ref.table_identifier.table,
+            use_raw_name=True,
         )
 
     def gen_dataset_urn_from_ref(self, ref: BigQueryTableRef) -> str:
