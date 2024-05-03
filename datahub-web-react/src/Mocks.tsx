@@ -31,6 +31,10 @@ import {
     FilterOperator,
     AppConfig,
     EntityPrivileges,
+    DataHubViewFilter,
+    LogicalOperator,
+    DataHubViewType,
+    DataHubView,
 } from './types.generated';
 import { GetTagDocument } from './graphql/tag.generated';
 import { GetMlModelDocument } from './graphql/mlModel.generated';
@@ -44,6 +48,7 @@ import { DEFAULT_APP_CONFIG } from './appConfigContext';
 import { GetQuickFiltersDocument } from './graphql/quickFilters.generated';
 import { GetGrantedPrivilegesDocument } from './graphql/policy.generated';
 import { VIEW_ENTITY_PAGE } from './app/entity/shared/constants';
+import { ViewBuilderState } from './app/entity/view/types';
 
 export const entityPrivileges: EntityPrivileges = {
     canEditLineage: true,
@@ -3885,3 +3890,88 @@ export const platformPrivileges: PlatformPrivileges = {
     manageGlobalAnnouncements: true,
     manageDocumentationForms: true,
 };
+
+const filters: DataHubViewFilter = {
+    filters: [
+        {
+            condition: FilterOperator.Equal,
+            field: 'mockField1',
+            negated: false,
+            values: ['value1', 'value2', 'value3'],
+        },
+        {
+            condition: FilterOperator.Exists,
+            field: 'mockField2',
+            negated: true,
+            values: ['value4', 'value5', 'value6'],
+        },
+    ],
+    operator: LogicalOperator.And,
+};
+
+export const viewBuilderStateMock: ViewBuilderState = {
+    viewType: DataHubViewType.Global,
+    name: 'VIEW_BUILDER_TEST',
+    description: 'A description for testing convertStateToUpdateInput',
+    definition: {
+        entityTypes: [EntityType.AccessToken, EntityType.Domain, EntityType.Container, EntityType.DataFlow],
+        filter: filters,
+    },
+};
+
+export const searchViewsMock: Array<DataHubView> = [
+    {
+        urn: 'test-urn1',
+        type: EntityType.DatahubView,
+        viewType: DataHubViewType.Global,
+        name: 'VIEW_BUILDER_TEST',
+        description: 'A description for testing convertStateToUpdateInput',
+        definition: {
+            entityTypes: [EntityType.AccessToken, EntityType.Domain, EntityType.Container, EntityType.DataFlow],
+            filter: {
+                operator: LogicalOperator.And,
+                filters: [
+                    {
+                        field: 'mockField1',
+                        condition: FilterOperator.Equal,
+                        values: ['value1', 'value2', 'value3'],
+                        negated: false,
+                    },
+                    {
+                        field: 'mockField2',
+                        condition: FilterOperator.Exists,
+                        values: ['value4', 'value5', 'value6'],
+                        negated: true,
+                    },
+                ],
+            },
+        },
+    },
+    {
+        urn: 'test-urn2',
+        type: EntityType.DatahubView,
+        viewType: DataHubViewType.Global,
+        name: 'MOCK_TEST_VIEW',
+        description: 'Lorem ipsum dolor sit amet, consectetu',
+        definition: {
+            entityTypes: [EntityType.AccessToken, EntityType.Container, EntityType.DataFlow],
+            filter: {
+                operator: LogicalOperator.Or,
+                filters: [
+                    {
+                        field: 'mockField1',
+                        condition: FilterOperator.GreaterThan,
+                        values: ['value1', 'value2', 'value3'],
+                        negated: false,
+                    },
+                    {
+                        field: 'mockField2',
+                        condition: FilterOperator.In,
+                        values: ['value4', 'value6'],
+                        negated: false,
+                    },
+                ],
+            },
+        },
+    },
+];
