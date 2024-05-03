@@ -28,7 +28,7 @@ import org.testcontainers.containers.GenericContainer;
  * io.datahubproject.test.search.config.SearchCommonTestConfiguration} instead.
  */
 @TestConfiguration
-@PropertySource("classpath:application.yaml")
+@PropertySource("classpath:/application.yaml")
 public class SearchTestContainerConfiguration {
   // This port is overridden by the specific test container instance
   private static final int HTTP_PORT = 9200;

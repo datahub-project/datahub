@@ -37,7 +37,6 @@ public abstract class SystemMetadataServiceTestBase extends AbstractTestNGSpring
 
   @BeforeClass
   public void setup() {
-    System.setProperty("elasticsearch.idHashAlgo", "MD5");
     _client = buildService();
     _client.configure();
   }
