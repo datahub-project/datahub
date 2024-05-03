@@ -330,7 +330,7 @@ export class DatasetEntity implements Entity<Dataset> {
                 rowCount={(data as any).lastProfile?.length && (data as any).lastProfile[0].rowCount}
                 columnCount={(data as any).lastProfile?.length && (data as any).lastProfile[0].columnCount}
                 sizeInBytes={(data as any).lastProfile?.length && (data as any).lastProfile[0].sizeInBytes}
-                lastUpdatedMs={getLastUpdatedMs(data.properties, (data as any)?.lastOperation)?.lastUpdatedMs}
+                lastUpdatedMs={getLastUpdatedMs(data.properties, (data as any)?.lastOperation)}
                 health={data.health}
                 degree={(result as any).degree}
                 paths={(result as any).paths}
