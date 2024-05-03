@@ -10,8 +10,8 @@ import { tryGetPrimaryMetricValueFromAssertionRunEvent } from "../../shared/resu
  * @param runEvent 
  * @returns {number | undefined}
  */
-export const tryGetYValueForChartFromAssertionRunEvent = (runEvent: AssertionRunEvent): number | undefined => {
-    return tryGetPrimaryMetricValueFromAssertionRunEvent(runEvent)
+export const tryGetYValueForChartFromAssertionRunEvent = (runEvent: AssertionRunEvent, maybeFallbackAssertionType?: AssertionType): number | undefined => {
+    return tryGetPrimaryMetricValueFromAssertionRunEvent(runEvent, maybeFallbackAssertionType)
 }
 
 /**
@@ -19,7 +19,7 @@ export const tryGetYValueForChartFromAssertionRunEvent = (runEvent: AssertionRun
  * @param runEvents 
  * @returns {AssertionDataPoint[]}
  */
-export const getAssertionDataPointsFromRunEvents = (runEvents: AssertionRunEvent[]): AssertionDataPoint[] => {
+export const getAssertionDataPointsFromRunEvents = (runEvents: AssertionRunEvent[], maybeFallbackAssertionType?: AssertionType): AssertionDataPoint[] => {
     return runEvents
         .filter((runEvent) => !!runEvent.result)
         // TODO(jayacryl): filter out run events that don't have the same general metrics as the latest run event
@@ -36,7 +36,7 @@ export const getAssertionDataPointsFromRunEvents = (runEvents: AssertionRunEvent
                 result: {
                     type: result.type,
                     resultUrl,
-                    yValue: tryGetYValueForChartFromAssertionRunEvent(runEvent),
+                    yValue: tryGetYValueForChartFromAssertionRunEvent(runEvent, maybeFallbackAssertionType),
                 },
                 relatedRunEvent: runEvent,
             };
@@ -104,7 +104,7 @@ function tryGetFieldAssertionYAxisLabel(info?: Maybe<FieldAssertionInfo>): strin
  * @returns {AssertionResultChartData}
  */
 export const getAssertionResultChartData = (assertion: Assertion, completedRuns: AssertionRunEvent[]): AssertionResultChartData => {
-    const timelineDataPoints: AssertionDataPoint[] = getAssertionDataPointsFromRunEvents(completedRuns)
+    const timelineDataPoints: AssertionDataPoint[] = getAssertionDataPointsFromRunEvents(completedRuns, assertion.info?.type)
     const maybeYAxisLabel: string | undefined = tryGetYAxisLabelForChartFromAssertionInfo(assertion.info)
     return {
         dataPoints: timelineDataPoints,
