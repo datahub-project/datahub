@@ -37,8 +37,6 @@ public abstract class SystemMetadataServiceTestBase extends AbstractTestNGSpring
 
   @BeforeClass
   public void setup() {
-    // PropertySource<?> applicationYamlPropertySource = new ResourcePropertySource("classpath:application.yaml");
-    System.setProperty("spring.config.location", "classpath:application.yaml");
     _client = buildService();
     _client.configure();
   }
