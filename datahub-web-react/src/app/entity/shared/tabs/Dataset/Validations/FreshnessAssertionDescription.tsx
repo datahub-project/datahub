@@ -22,7 +22,10 @@ const createCronText = (cronSchedule: CronSchedule) => {
         .replace('at', '')} (${timezone})`;
 };
 
-const createFixedIntervalText = (fixedIntervalSchedule: FixedIntervalSchedule, monitorSchedule?: CronSchedule) => {
+const createFixedIntervalText = (fixedIntervalSchedule?: FixedIntervalSchedule | null, monitorSchedule?: CronSchedule) => {
+    if (!fixedIntervalSchedule) {
+        return 'No interval found!'
+    }
     const { multiple, unit } = fixedIntervalSchedule;
     const cronText = monitorSchedule ? `, as of ${createCronText(monitorSchedule)}` : '';
     return `in the past ${multiple} ${unit.toLocaleLowerCase()}s${cronText}`;
@@ -43,7 +46,7 @@ export const FreshnessAssertionDescription = ({ assertionInfo, monitorSchedule }
                     : 'Data Task is run successfully '}
                 {scheduleType === FreshnessAssertionScheduleType.Cron
                     ? createCronText(assertionInfo.schedule?.cron as any)
-                    : createFixedIntervalText(assertionInfo.schedule?.fixedInterval as any, monitorSchedule)}
+                    : createFixedIntervalText(assertionInfo.schedule?.fixedInterval, monitorSchedule)}
             </Typography.Text>
         </div>
     );

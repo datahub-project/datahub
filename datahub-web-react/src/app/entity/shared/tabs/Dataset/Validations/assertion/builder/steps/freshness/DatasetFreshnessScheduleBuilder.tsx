@@ -8,6 +8,7 @@ import {
 } from '../../../../../../../../../../types.generated';
 import { ANTD_GRAY } from '../../../../../../../constants';
 import { FixedIntervalScheduleBuilder } from './FixedIntervalSchedulerBuilder';
+import { DEFAULT_DATASET_FRESHNESS_ASSERTION_STATE } from '../../constants';
 
 const Form = styled.div`
     margin: 16px 0 24px;
@@ -61,6 +62,10 @@ export const DatasetFreshnessScheduleBuilder = ({ value, onChange, disabled }: P
         onChange({
             ...value,
             type: newScheduleType,
+            // If we are switching to fixed interval assertion, set the default interval!
+            fixedInterval: newScheduleType === FreshnessAssertionScheduleType.FixedInterval
+                ? DEFAULT_DATASET_FRESHNESS_ASSERTION_STATE.schedule?.fixedInterval
+                : null,
         });
     };
 
