@@ -17,6 +17,7 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;
+import org.springframework.context.annotation.PropertySource;
 import org.testcontainers.containers.GenericContainer;
 
 /**
@@ -27,6 +28,7 @@ import org.testcontainers.containers.GenericContainer;
  * io.datahubproject.test.search.config.SearchCommonTestConfiguration} instead.
  */
 @TestConfiguration
+@PropertySource("classpath:application.yaml")
 public class SearchTestContainerConfiguration {
   // This port is overridden by the specific test container instance
   private static final int HTTP_PORT = 9200;
