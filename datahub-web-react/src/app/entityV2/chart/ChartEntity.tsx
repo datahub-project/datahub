@@ -37,7 +37,7 @@ import { ChartDashboardsTab } from '../shared/tabs/Entity/ChartDashboardsTab';
 import { InputFieldsTab } from '../shared/tabs/Entity/InputFieldsTab';
 import { LineageTab } from '../shared/tabs/Lineage/LineageTab';
 import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
-import { SidebarTitleActionType, getDataProduct, isOutputPort } from '../shared/utils';
+import { SidebarTitleActionType, getDataProduct, isOutputPort, getDashboardLastUpdatedMs } from '../shared/utils';
 import { ChartPreview } from './preview/ChartPreview';
 import { ChartStatsSummarySubHeader } from './profile/stats/ChartStatsSummarySubHeader';
 import ChartSummaryTab from './summary/ChartSummaryTab';
@@ -46,8 +46,6 @@ import { IncidentTab } from '../shared/tabs/Incident/IncidentTab';
 import { GenericEntityProperties } from '../../entity/shared/types';
 import SyncedAssetSection from '../shared/containers/profile/sidebar/shared/SyncedAssetSection';
 import SharingAssetSection from '../shared/containers/profile/sidebar/shared/SharingAssetSection';
-
-import { getLastChartUpdatedMs } from '../../entity/dataset/shared/utils';
 
 const PREVIEW_SUPPORTED_PLATFORMS = [
     LOOKER_URN,
@@ -312,7 +310,7 @@ export class ChartEntity implements Entity<Chart> {
                 dataProduct={getDataProduct(genericProperties?.dataProduct)}
                 deprecation={data.deprecation}
                 statsSummary={data.statsSummary}
-                lastUpdatedMs={getLastChartUpdatedMs(data?.properties)}
+                lastUpdatedMs={getDashboardLastUpdatedMs(data?.properties)}
                 createdMs={data.properties?.created?.time}
                 externalUrl={data.properties?.externalUrl}
                 snippet={

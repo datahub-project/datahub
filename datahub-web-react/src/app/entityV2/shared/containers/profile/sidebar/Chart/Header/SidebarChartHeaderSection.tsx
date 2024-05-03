@@ -7,8 +7,9 @@ import SidebarTopUsersHeaderSection from '../../shared/SidebarTopUsersHeaderSect
 import { isValuePresent, userExists } from '../../shared/utils';
 import { REDESIGN_COLORS } from '../../../../../constants';
 import { formatNumber } from '../../../../../../../shared/formatNumber';
-import { getLastChartUpdatedMs } from '../../../../../../../entity/dataset/shared/utils';
 import Freshness, { getFreshnessTitle } from '../../../../../../../previewV2/Freshness';
+
+import { getDashboardLastUpdatedMs } from '../../../../../utils';
 
 const StatContent = styled.div`
     color: ${REDESIGN_COLORS.FOUNDATION_BLUE_4};
@@ -22,7 +23,7 @@ const SidebarChartHeaderSection = () => {
 
     const columns: any = [];
 
-    const timeData = getLastChartUpdatedMs(chart?.properties);
+    const timeData = getDashboardLastUpdatedMs(chart?.properties);
 
     /**
      * Popularity tab

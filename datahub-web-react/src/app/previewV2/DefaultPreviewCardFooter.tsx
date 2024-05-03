@@ -18,6 +18,8 @@ import PreviewCardFooterRightSection from './PreviewCardFooterRightSection';
 import EntityRegistry from '../entityV2/EntityRegistry';
 import { entityHasCapability } from './utils';
 
+import { DatasetLastUpdatedMs, DashboardLastUpdatedMs } from '../entityV2/shared/utils';
+
 interface DefaultPreviewCardFooterProps {
     glossaryTerms?: GlossaryTerms;
     tags?: GlobalTags;
@@ -29,7 +31,7 @@ interface DefaultPreviewCardFooterProps {
     entityType: EntityType;
     urn: string;
     entityRegistry: EntityRegistry;
-    lastUpdatedMs?: { property?: string, lastUpdatedMs?: number };
+    lastUpdatedMs?: DatasetLastUpdatedMs | DashboardLastUpdatedMs;
     statsSummary?: DatasetStatsSummary | null;
     paths?: EntityPath[];
 }

@@ -42,15 +42,13 @@ import { DashboardDatasetsTab } from '../shared/tabs/Entity/DashboardDatasetsTab
 import { LineageTab } from '../shared/tabs/Lineage/LineageTab';
 import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
 import { GenericEntityProperties } from '../../entity/shared/types';
-import { SidebarTitleActionType, getDataProduct, isOutputPort } from '../shared/utils';
+import { SidebarTitleActionType, getDataProduct, isOutputPort, getDashboardLastUpdatedMs } from '../shared/utils';
 import { DashboardPreview } from './preview/DashboardPreview';
 import { DashboardStatsSummarySubHeader } from './profile/DashboardStatsSummarySubHeader';
 import SidebarEntityHeader from '../shared/containers/profile/sidebar/SidebarEntityHeader';
 import { IncidentTab } from '../shared/tabs/Incident/IncidentTab';
 import SyncedAssetSection from '../shared/containers/profile/sidebar/shared/SyncedAssetSection';
 import SharingAssetSection from '../shared/containers/profile/sidebar/shared/SharingAssetSection';
-
-import { getLastChartUpdatedMs } from '../../entity/dataset/shared/utils';
 
 const PREVIEW_SUPPORTED_PLATFORMS = [
     LOOKER_URN,
@@ -277,7 +275,7 @@ export class DashboardEntity implements Entity<Dashboard> {
                 deprecation={data.deprecation}
                 externalUrl={data.properties?.externalUrl}
                 statsSummary={data.statsSummary}
-                lastUpdatedMs={getLastChartUpdatedMs(data.properties)}
+                lastUpdatedMs={getDashboardLastUpdatedMs(data.properties)}
                 createdMs={data.properties?.created?.time}
                 subtype={data.subTypes?.typeNames?.[0]}
                 tier={
@@ -319,7 +317,7 @@ export class DashboardEntity implements Entity<Dashboard> {
                 deprecation={data.deprecation}
                 externalUrl={data.properties?.externalUrl}
                 statsSummary={data.statsSummary}
-                lastUpdatedMs={getLastChartUpdatedMs(data.properties)}
+                lastUpdatedMs={getDashboardLastUpdatedMs(data.properties)}
                 createdMs={data.properties?.created?.time}
                 snippet={
                     <MatchedFieldList

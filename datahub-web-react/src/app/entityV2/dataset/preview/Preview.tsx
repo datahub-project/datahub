@@ -21,7 +21,7 @@ import { useEntityRegistry } from '../../../useEntityRegistry';
 import { IconStyleType, PreviewType } from '../../Entity';
 import { ANTD_GRAY } from '../../shared/constants';
 import { PopularityTier } from '../../shared/containers/profile/sidebar/shared/utils';
-import { summaryHasStats } from '../../shared/utils';
+import { summaryHasStats, DatasetLastUpdatedMs } from '../../shared/utils';
 import { DatasetStatsSummary as DatasetStatsSummaryView } from '../shared/DatasetStatsSummary';
 import { EntityMenuItems } from '../../shared/EntityDropdown/EntityMenuActions';
 
@@ -83,7 +83,7 @@ export const Preview = ({
     rowCount?: number | null;
     columnCount?: number | null;
     statsSummary?: DatasetStatsSummary | null;
-    lastUpdatedMs?: { property?: string, lastUpdatedMs?: number };
+    lastUpdatedMs?: DatasetLastUpdatedMs;
     health?: Health[] | null;
     degree?: number;
     paths?: EntityPath[];

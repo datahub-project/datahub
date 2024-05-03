@@ -24,16 +24,11 @@ import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
 import DataProductSection from '../shared/containers/profile/sidebar/DataProduct/DataProductSection';
 import { getDataProduct } from '../shared/utils';
 import EmbeddedProfile from '../shared/embed/EmbeddedProfile';
-import { LOOKER_URN, MODE_URN } from '../../ingest/source/builder/constants';
+import { LOOKER_URN } from '../../ingest/source/builder/constants';
 import { MatchedFieldList } from '../../search/matches/MatchedFieldList';
 import { matchedInputFieldRenderer } from '../../search/matches/matchedInputFieldRenderer';
 import { SidebarMetadataSection } from '../shared/containers/profile/sidebar/SidebarMetadataSection';
 import { IncidentTab } from '../shared/tabs/Incident/IncidentTab';
-
-const PREVIEW_SUPPORTED_PLATFORMS = [
-    LOOKER_URN,
-    MODE_URN,
-]
 
 /**
  * Definition of the DataHub Chart entity.
@@ -138,9 +133,9 @@ export class ChartEntity implements Entity<Chart> {
                     component: EmbedTab,
                     display: {
                         visible: (_, chart: GetChartQuery) =>
-                            !!chart?.chart?.embed?.renderUrl && PREVIEW_SUPPORTED_PLATFORMS.includes(chart?.chart?.platform.urn),
+                            !!chart?.chart?.embed?.renderUrl && chart?.chart?.platform.urn === LOOKER_URN,
                         enabled: (_, chart: GetChartQuery) =>
-                            !!chart?.chart?.embed?.renderUrl && PREVIEW_SUPPORTED_PLATFORMS.includes(chart?.chart?.platform.urn),
+                            !!chart?.chart?.embed?.renderUrl && chart?.chart?.platform.urn === LOOKER_URN,
                     },
                 },
                 {

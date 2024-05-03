@@ -56,7 +56,7 @@ export const ChartStatsSummary = ({
                 )}
             />
         )) ||
-            undefined,
+        undefined,
         (!!effectiveViewCount && (
             <StatText>
                 <EyeOutlined style={{ marginRight: 8, color: ANTD_GRAY[7] }} />
@@ -72,7 +72,7 @@ export const ChartStatsSummary = ({
                 )}
             </StatText>
         )) ||
-            undefined,
+        undefined,
         (!!uniqueUserCountLast30Days && (
             <StatText>
                 <TeamOutlined style={{ marginRight: 8, color: ANTD_GRAY[7] }} />
@@ -88,7 +88,7 @@ export const ChartStatsSummary = ({
                 )}
             </StatText>
         )) ||
-            undefined,
+        undefined,
         (!!lastUpdatedMs && (
             <Popover
                 content={
@@ -109,7 +109,7 @@ export const ChartStatsSummary = ({
                 </StatText>
             </Popover>
         )) ||
-            undefined,
+        undefined,
     ].filter((stat) => stat !== undefined);
 
     return <>{statsViews.length > 0 && <StatsSummary stats={statsViews} />}</>;

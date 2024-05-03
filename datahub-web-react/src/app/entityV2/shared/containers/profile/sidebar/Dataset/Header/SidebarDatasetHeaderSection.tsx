@@ -8,7 +8,7 @@ import { isValuePresent, userExists } from '../../shared/utils';
 import CompactContext from '../../../../../../../shared/CompactContext';
 import { REDESIGN_COLORS } from '../../../../../constants';
 import { formatNumber } from '../../../../../../../shared/formatNumber';
-import { getLastUpdatedMs } from '../../../../../../../entity/dataset/shared/utils';
+import { getDatasetLastUpdatedMs } from '../../../../../utils';
 import Freshness, { getFreshnessTitle } from '../../../../../../../previewV2/Freshness';
 
 const StatContent = styled.div`
@@ -27,7 +27,7 @@ const SidebarDatasetHeaderSection = () => {
 
     const lastOp = dataset?.lastOperation
         || dataset?.operations?.length && dataset?.operations[0]?.lastUpdatedTimestamp;
-    const timeData = getLastUpdatedMs(dataset?.properties, lastOp);
+    const timeData = getDatasetLastUpdatedMs(dataset?.properties, lastOp);
 
     /**
      * Popularity tab

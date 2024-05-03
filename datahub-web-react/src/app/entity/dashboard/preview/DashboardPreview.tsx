@@ -67,7 +67,7 @@ export const DashboardPreview = ({
     logoUrl?: string | null;
     chartCount?: number | null;
     statsSummary?: DashboardStatsSummary | null;
-    lastUpdatedMs?: { property?: string, lastUpdatedMs?: number };
+    lastUpdatedMs?: number | null;
     createdMs?: number | null;
     externalUrl?: string | null;
     parentContainers?: ParentContainersResult | null;
@@ -110,7 +110,7 @@ export const DashboardPreview = ({
                     viewCountPercentileLast30Days={statsSummary?.viewCountPercentileLast30Days}
                     uniqueUserCountLast30Days={statsSummary?.uniqueUserCountLast30Days}
                     uniqueUserPercentileLast30Days={statsSummary?.uniqueUserPercentileLast30Days}
-                    lastUpdatedMs={lastUpdatedMs?.lastUpdatedMs}
+                    lastUpdatedMs={lastUpdatedMs}
                     createdMs={createdMs}
                 />
             }

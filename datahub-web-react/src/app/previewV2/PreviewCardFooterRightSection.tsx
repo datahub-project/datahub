@@ -16,6 +16,8 @@ import {
 } from '../entityV2/shared/containers/profile/sidebar/shared/utils';
 import QueryStat from './QueryStat';
 
+import { DatasetLastUpdatedMs, DashboardLastUpdatedMs } from '../entityV2/shared/utils';
+
 const Container = styled.div`
     text-align: center;
     display: flex;
@@ -34,7 +36,7 @@ interface Props {
     urn: string;
     entityRegistry: EntityRegistry;
     entityCapabilities: Set<EntityCapabilityType>;
-    lastUpdatedMs?: { property?: string, lastUpdatedMs?: number };
+    lastUpdatedMs?: DatasetLastUpdatedMs | DashboardLastUpdatedMs;
     tier?: PopularityTier;
     statsSummary?: DatasetStatsSummary | null;
 }

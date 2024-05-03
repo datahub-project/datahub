@@ -64,7 +64,7 @@ export const ChartPreview = ({
     logoUrl?: string | null;
     deprecation?: Deprecation | null;
     statsSummary?: ChartStatsSummary | null;
-    lastUpdatedMs?: number;
+    lastUpdatedMs?: number | null;
     createdMs?: number | null;
     externalUrl?: string | null;
     parentContainers?: ParentContainersResult | null;

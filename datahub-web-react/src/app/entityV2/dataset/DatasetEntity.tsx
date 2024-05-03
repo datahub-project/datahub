@@ -50,15 +50,13 @@ import { LineageTab } from '../shared/tabs/Lineage/LineageTab';
 import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
 import { TabContextType } from '../shared/types';
 import { GenericEntityProperties } from '../../entity/shared/types';
-import { SidebarTitleActionType, getDataProduct, isOutputPort } from '../shared/utils';
+import { SidebarTitleActionType, getDataProduct, isOutputPort, getDatasetLastUpdatedMs } from '../shared/utils';
 import { Preview } from './preview/Preview';
 import { OperationsTab } from './profile/OperationsTab';
 import { DatasetStatsSummarySubHeader } from './profile/stats/stats/DatasetStatsSummarySubHeader';
 import SidebarEntityHeader from '../shared/containers/profile/sidebar/SidebarEntityHeader';
 import SyncedAssetSection from '../shared/containers/profile/sidebar/shared/SyncedAssetSection';
 import SharingAssetSection from '../shared/containers/profile/sidebar/shared/SharingAssetSection';
-
-import { getLastUpdatedMs } from '../../entity/dataset/shared/utils';
 
 const SUBTYPES = {
     VIEW: 'view',
@@ -409,7 +407,7 @@ export class DatasetEntity implements Entity<Dataset> {
                 rowCount={(data as any).lastProfile?.length && (data as any).lastProfile[0].rowCount}
                 columnCount={(data as any).lastProfile?.length && (data as any).lastProfile[0].columnCount}
                 lastUpdatedMs={
-                    getLastUpdatedMs(
+                    getDatasetLastUpdatedMs(
                         (data as any).properties,
                         (data as any).lastOperation?.length && (data as any).lastOperation[0]
                     )

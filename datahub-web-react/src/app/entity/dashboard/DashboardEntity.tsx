@@ -28,18 +28,10 @@ import { EmbedTab } from '../shared/tabs/Embed/EmbedTab';
 import EmbeddedProfile from '../shared/embed/EmbeddedProfile';
 import DataProductSection from '../shared/containers/profile/sidebar/DataProduct/DataProductSection';
 import { getDataProduct } from '../shared/utils';
-import { LOOKER_URN, MODE_URN } from '../../ingest/source/builder/constants';
+import { LOOKER_URN } from '../../ingest/source/builder/constants';
 import { MatchedFieldList } from '../../search/matches/MatchedFieldList';
 import { matchedInputFieldRenderer } from '../../search/matches/matchedInputFieldRenderer';
 import { SidebarMetadataSection } from '../shared/containers/profile/sidebar/SidebarMetadataSection';
-import { IncidentTab } from '../shared/tabs/Incident/IncidentTab';
-
-import { getLastChartUpdatedMs } from '../dataset/shared/utils';
-
-const PREVIEW_SUPPORTED_PLATFORMS = [
-    LOOKER_URN,
-    MODE_URN,
-]
 
 /**
  * Definition of the DataHub Dashboard entity.
@@ -86,44 +78,14 @@ export class DashboardEntity implements Entity<Dashboard> {
 
     getCollectionName = () => 'Dashboards';
 
-    useEntityQuery = useGetDashboardQuery;
-
-    getSidebarSections = () => [
-        {
-            component: SidebarAboutSection,
-        },
-        {
-            component: SidebarMetadataSection,
-        },
-        {
-            component: SidebarOwnerSection,
-            properties: {
-                defaultOwnerType: OwnershipType.TechnicalOwner,
-            },
-        },
-        {
-            component: SidebarTagsSection,
-            properties: {
-                hasTags: true,
-                hasTerms: true,
-            },
-        },
-        {
-            component: SidebarDomainSection,
-        },
-        {
-            component: DataProductSection,
-        },
-    ];
-
     renderProfile = (urn: string) => (
         <EntityProfile
             urn={urn}
             entityType={EntityType.Dashboard}
-            useEntityQuery={this.useEntityQuery}
+            useEntityQuery={useGetDashboardQuery}
             useUpdateQuery={useUpdateDashboardMutation}
             getOverrideProperties={this.getOverridePropertiesFromEntity}
-            headerDropdownItems={new Set([EntityMenuItems.UPDATE_DEPRECATION, EntityMenuItems.RAISE_INCIDENT])}
+            headerDropdownItems={new Set([EntityMenuItems.UPDATE_DEPRECATION])}
             subHeader={{
                 component: DashboardStatsSummarySubHeader,
             }}
@@ -156,10 +118,10 @@ export class DashboardEntity implements Entity<Dashboard> {
                     display: {
                         visible: (_, dashboard: GetDashboardQuery) =>
                             !!dashboard?.dashboard?.embed?.renderUrl &&
-                            PREVIEW_SUPPORTED_PLATFORMS.includes(dashboard?.dashboard?.platform.urn),
+                            dashboard?.dashboard?.platform.urn === LOOKER_URN,
                         enabled: (_, dashboard: GetDashboardQuery) =>
                             !!dashboard?.dashboard?.embed?.renderUrl &&
-                            PREVIEW_SUPPORTED_PLATFORMS.includes(dashboard?.dashboard?.platform.urn),
+                            dashboard?.dashboard?.platform.urn === LOOKER_URN,
                     },
                 },
                 {
@@ -173,16 +135,34 @@ export class DashboardEntity implements Entity<Dashboard> {
                     name: 'Properties',
                     component: PropertiesTab,
                 },
+            ]}
+            sidebarSections={[
                 {
-                    name: 'Incidents',
-                    component: IncidentTab,
-                    getDynamicName: (_, dashboard) => {
-                        const activeIncidentCount = dashboard?.dashboard?.activeIncidents.total;
-                        return `Incidents${(activeIncidentCount && ` (${activeIncidentCount})`) || ''}`;
+                    component: SidebarAboutSection,
+                },
+                {
+                    component: SidebarMetadataSection,
+                },
+                {
+                    component: SidebarOwnerSection,
+                    properties: {
+                        defaultOwnerType: OwnershipType.TechnicalOwner,
                     },
                 },
+                {
+                    component: SidebarTagsSection,
+                    properties: {
+                        hasTags: true,
+                        hasTerms: true,
+                    },
+                },
+                {
+                    component: SidebarDomainSection,
+                },
+                {
+                    component: DataProductSection,
+                },
             ]}
-            sidebarSections={this.getSidebarSections()}
         />
     );
 
@@ -218,10 +198,9 @@ export class DashboardEntity implements Entity<Dashboard> {
                 deprecation={data.deprecation}
                 externalUrl={data.properties?.externalUrl}
                 statsSummary={data.statsSummary}
-                lastUpdatedMs={getLastChartUpdatedMs(data.properties)}
+                lastUpdatedMs={data.properties?.lastModified?.time}
                 createdMs={data.properties?.created?.time}
                 subtype={data.subTypes?.typeNames?.[0]}
-                health={data.health}
             />
         );
     };
@@ -250,7 +229,7 @@ export class DashboardEntity implements Entity<Dashboard> {
                 deprecation={data.deprecation}
                 externalUrl={data.properties?.externalUrl}
                 statsSummary={data.statsSummary}
-                lastUpdatedMs={getLastChartUpdatedMs(data.properties)}
+                lastUpdatedMs={data.properties?.lastModified?.time}
                 createdMs={data.properties?.created?.time}
                 snippet={
                     <MatchedFieldList
@@ -261,7 +240,6 @@ export class DashboardEntity implements Entity<Dashboard> {
                 subtype={data.subTypes?.typeNames?.[0]}
                 degree={(result as any).degree}
                 paths={(result as any).paths}
-                health={data.health}
             />
         );
     };
@@ -274,7 +252,6 @@ export class DashboardEntity implements Entity<Dashboard> {
             subtype: entity?.subTypes?.typeNames?.[0] || undefined,
             icon: entity?.platform?.properties?.logoUrl || undefined,
             platform: entity?.platform,
-            health: entity?.health || undefined,
         };
     };
 
@@ -309,7 +286,7 @@ export class DashboardEntity implements Entity<Dashboard> {
         <EmbeddedProfile
             urn={urn}
             entityType={EntityType.Dashboard}
-            useEntityQuery={this.useEntityQuery}
+            useEntityQuery={useGetDashboardQuery}
             getOverrideProperties={this.getOverridePropertiesFromEntity}
         />
     );

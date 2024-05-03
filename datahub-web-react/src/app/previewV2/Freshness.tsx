@@ -1,11 +1,11 @@
 import React from 'react';
 
+import dayjs from 'dayjs';
+import localizedFormat from 'dayjs/plugin/localizedFormat';
+
 import { Popover } from 'antd';
 import UpdateOutlinedIcon from '@mui/icons-material/UpdateOutlined';
 import styled from 'styled-components';
-
-import dayjs from 'dayjs';
-import localizedFormat from 'dayjs/plugin/localizedFormat';
 
 import { ANTD_GRAY } from '../entity/shared/constants';
 import { getLastIngestedColor } from '../entity/shared/containers/profile/sidebar/LastIngested';
