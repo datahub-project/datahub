@@ -80,11 +80,6 @@ task pythonLintFix(type: Exec, dependsOn: installDev) {
         "mypy tests/"
 }
 
-task lint(type: Exec, dependsOn: [pythonLint, cypressLint]) {
-    commandLine 'bash', '-c',
-        "echo 'All lint checks passed.'"
-}
-
 /**
  * The following tasks assume an already running quickstart.
  * ./gradlew quickstart (or another variation `quickstartDebug`)
