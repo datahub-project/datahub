@@ -63,6 +63,8 @@ public class DeleteEntityService {
    */
   public DeleteReferencesResponse deleteReferencesTo(final Urn urn, final boolean dryRun) {
     final DeleteReferencesResponse result = new DeleteReferencesResponse();
+    // could break this into deletedRelatedReferences and deleteSearchReferences
+    //
     RelatedEntitiesResult relatedEntities =
         _graphService.findRelatedEntities(
             null,
