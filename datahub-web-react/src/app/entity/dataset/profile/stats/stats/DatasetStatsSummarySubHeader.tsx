@@ -3,7 +3,7 @@ import { DatasetStatsSummary as DatasetStatsSummaryObj } from '../../../../../..
 import { useBaseEntity } from '../../../../shared/EntityContext';
 import { GetDatasetQuery } from '../../../../../../graphql/dataset.generated';
 import { DatasetStatsSummary } from '../../../shared/DatasetStatsSummary';
-import { getLastUpdatedMs } from '../../../shared/utils';
+import { getDatasetLastUpdatedMs } from '../../../../../entityV2/shared/utils';
 
 export const DatasetStatsSummarySubHeader = ({ properties }: { properties?: any }) => {
     const result = useBaseEntity<GetDatasetQuery>();
@@ -22,7 +22,7 @@ export const DatasetStatsSummarySubHeader = ({ properties }: { properties?: any 
     const queryCountPercentileLast30Days = maybeStatsSummary?.queryCountPercentileLast30Days;
     const uniqueUserCountLast30Days = maybeStatsSummary?.uniqueUserCountLast30Days;
     const uniqueUserPercentileLast30Days = maybeStatsSummary?.uniqueUserPercentileLast30Days;
-    const lastUpdatedMs = getLastUpdatedMs(dataset?.properties, dataset?.operations);
+    const lastUpdatedMs = getDatasetLastUpdatedMs(dataset?.properties, dataset?.operations)?.lastUpdatedMs;
 
     return (
         <DatasetStatsSummary

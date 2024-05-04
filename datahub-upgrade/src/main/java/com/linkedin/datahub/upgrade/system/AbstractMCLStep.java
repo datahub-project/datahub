@@ -149,7 +149,7 @@ public abstract class AbstractMCLStep implements UpgradeStep {
   public boolean skip(UpgradeContext context) {
     boolean previouslyRun =
         entityService.exists(
-            opContext, getUpgradeIdUrn(), DATA_HUB_UPGRADE_RESULT_ASPECT_NAME, true);
+            context.opContext(), getUpgradeIdUrn(), DATA_HUB_UPGRADE_RESULT_ASPECT_NAME, true);
     if (previouslyRun) {
       log.info("{} was already run. Skipping.", id());
     }
