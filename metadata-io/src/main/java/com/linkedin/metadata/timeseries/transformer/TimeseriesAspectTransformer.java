@@ -10,6 +10,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
 import com.linkedin.data.schema.ArrayDataSchema;
@@ -58,6 +59,11 @@ public class TimeseriesAspectTransformer {
 
   @Value("${elasticsearch.idHashAlgo}")
   private static String hashAlgo;
+
+  @VisibleForTesting
+  public void setIdHashAlgo(String algo) {
+    hashAlgo = algo;
+  }
 
   public static Map<String, JsonNode> transform(
       @Nonnull final Urn urn,
