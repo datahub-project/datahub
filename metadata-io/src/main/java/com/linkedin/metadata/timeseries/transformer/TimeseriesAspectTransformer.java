@@ -55,7 +55,7 @@ public class TimeseriesAspectTransformer {
         .setStreamReadConstraints(StreamReadConstraints.builder().maxStringLength(maxSize).build());
   }
 
-  public TimeseriesAspectTransformer() {}
+  protected TimeseriesAspectTransformer() {}
 
   @Value("${elasticsearch.idHashAlgo}")
   private static String hashAlgo;
