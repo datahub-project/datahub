@@ -79,6 +79,11 @@ public class ElasticSearchSystemMetadataService
   @Value("${elasticsearch.idHashAlgo}")
   private String hashAlgo;
 
+  @VisibleForTesting
+  public void setIdHashAlgo(String algo) {
+    hashAlgo = algo;
+  }
+
   private String toDocument(SystemMetadata systemMetadata, String urn, String aspect) {
     final ObjectNode document = JsonNodeFactory.instance.objectNode();
 
