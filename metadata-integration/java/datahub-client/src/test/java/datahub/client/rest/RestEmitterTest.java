@@ -42,8 +42,10 @@ import org.mockito.junit.MockitoJUnitRunner;
 import org.mockserver.matchers.Times;
 import org.mockserver.model.HttpError;
 import org.mockserver.model.HttpRequest;
+import org.mockserver.model.HttpResponse;
 import org.mockserver.model.HttpStatusCode;
 import org.mockserver.model.RequestDefinition;
+import org.mockserver.verify.VerificationTimes;
 
 @RunWith(MockitoJUnitRunner.class)
 public class RestEmitterTest {
@@ -69,6 +71,43 @@ public class RestEmitterTest {
         .getMockServer()
         .verify(
             request().withHeader("X-RestLi-Protocol-Version", "2.0.0").withBody(expectedContent));
+  }
+
+  @Test
+  public void testPostWithRetry()
+      throws URISyntaxException, IOException, ExecutionException, InterruptedException {
+    TestDataHubServer testDataHubServer = new TestDataHubServer();
+    Integer port = testDataHubServer.getMockServer().getPort();
+    RestEmitterConfig config =
+        RestEmitterConfig.builder()
+            .server("http://localhost:" + port)
+            .maxRetries(3)
+            .retryIntervalSec(1)
+            .build();
+    RestEmitter emitter = new RestEmitter(config);
+
+    MetadataChangeProposalWrapper mcp =
+        getMetadataChangeProposalWrapper(
+            "Test Dataset", "urn:li:dataset:(urn:li:dataPlatform:hive,foo.bar,PROD)");
+    Future<MetadataWriteResponse> future = emitter.emit(mcp, null);
+    MetadataWriteResponse response = future.get();
+    String expectedContent =
+        "{\"proposal\":{\"aspectName\":\"datasetProperties\","
+            + "\"entityUrn\":\"urn:li:dataset:(urn:li:dataPlatform:hive,foo.bar,PROD)\","
+            + "\"entityType\":\"dataset\",\"changeType\":\"UPSERT\",\"aspect\":{\"contentType\":\"application/json\""
+            + ",\"value\":\"{\\\"description\\\":\\\"Test Dataset\\\"}\"}}}";
+    testDataHubServer
+        .getMockServer()
+        .verify(
+            request().withHeader("X-RestLi-Protocol-Version", "2.0.0").withBody(expectedContent),
+            VerificationTimes.exactly(1))
+        .when(
+            request()
+                .withPath("/aspect")
+                .withHeader("X-RestLi-Protocol-Version", "2.0.0")
+                .withBody(expectedContent),
+            Times.exactly(4))
+        .respond(HttpResponse.response().withStatusCode(500).withBody("exception"));
   }
 
   @Test
@@ -160,7 +199,7 @@ public class RestEmitterTest {
                 .withQueryStringParameter("action", "ingestProposal")
                 .withHeader("Content-type", "application/json"),
             Times.unlimited())
-        .respond(org.mockserver.model.HttpResponse.response().withStatusCode(200));
+        .respond(HttpResponse.response().withStatusCode(200));
     ExecutorService executor = Executors.newFixedThreadPool(10);
     ArrayList<Future> results = new ArrayList();
     Random random = new Random();

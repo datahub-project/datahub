@@ -46,6 +46,7 @@ import org.apache.hc.core5.http.ContentType;
 import org.apache.hc.core5.http.HttpStatus;
 import org.apache.hc.core5.http.nio.ssl.TlsStrategy;
 import org.apache.hc.core5.ssl.SSLContexts;
+import org.apache.hc.core5.util.TimeValue;
 
 @ThreadSafe
 @Slf4j
@@ -123,6 +124,10 @@ public class RestEmitter implements Emitter {
         throw new RuntimeException("Error while creating insecure http client", e);
       }
     }
+
+    httpClientBuilder.setRetryStrategy(
+        new DatahubHttpRequestRetryStrategy(
+            config.getMaxRetries(), TimeValue.ofSeconds(config.getRetryIntervalSec())));
 
     this.httpClient = httpClientBuilder.build();
     this.httpClient.start();
@@ -211,6 +216,7 @@ public class RestEmitter implements Emitter {
     if (this.config.getToken() != null) {
       simpleRequestBuilder.setHeader("Authorization", "Bearer " + this.config.getToken());
     }
+
     simpleRequestBuilder.setBody(payloadJson, ContentType.APPLICATION_JSON);
     AtomicReference<MetadataWriteResponse> responseAtomicReference = new AtomicReference<>();
     CountDownLatch responseLatch = new CountDownLatch(1);

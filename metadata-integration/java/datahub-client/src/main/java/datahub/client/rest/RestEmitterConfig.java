@@ -13,6 +13,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.hc.client5.http.config.RequestConfig;
 import org.apache.hc.client5.http.impl.async.HttpAsyncClientBuilder;
 import org.apache.hc.client5.http.impl.async.HttpAsyncClients;
+import org.apache.hc.core5.util.TimeValue;
 
 @Value
 @Builder
@@ -29,6 +30,10 @@ public class RestEmitterConfig {
   Integer timeoutSec;
   @Builder.Default boolean disableSslVerification = false;
 
+  @Builder.Default int maxRetries = 0;
+
+  @Builder.Default int retryIntervalSec = 10;
+
   @Builder.Default String token = DEFAULT_AUTH_TOKEN;
 
   @Builder.Default @NonNull Map<String, String> extraHeaders = Collections.EMPTY_MAP;
@@ -36,7 +41,7 @@ public class RestEmitterConfig {
   @Builder.Default
   EventFormatter eventFormatter = new EventFormatter(EventFormatter.Format.PEGASUS_JSON);
 
-  private final HttpAsyncClientBuilder asyncHttpClientBuilder;
+  HttpAsyncClientBuilder asyncHttpClientBuilder;
 
   public static class RestEmitterConfigBuilder {
 
@@ -62,7 +67,10 @@ public class RestEmitterConfig {
                         java.util.concurrent.TimeUnit.MILLISECONDS)
                     .setResponseTimeout(
                         DEFAULT_READ_TIMEOUT_SEC * 1000, java.util.concurrent.TimeUnit.MILLISECONDS)
-                    .build());
+                    .build())
+            .setRetryStrategy(
+                new DatahubHttpRequestRetryStrategy(
+                    maxRetries$value, TimeValue.ofSeconds(retryIntervalSec$value)));
 
     public RestEmitterConfigBuilder with(Consumer<RestEmitterConfigBuilder> builderFunction) {
       builderFunction.accept(this);

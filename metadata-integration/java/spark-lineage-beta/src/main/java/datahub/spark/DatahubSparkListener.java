@@ -114,6 +114,17 @@ public class DatahubSparkListener extends SparkListener {
       boolean disableSslVerification =
           sparkConf.hasPath(SparkConfigParser.DISABLE_SSL_VERIFICATION_KEY)
               && sparkConf.getBoolean(SparkConfigParser.DISABLE_SSL_VERIFICATION_KEY);
+
+      int retry_interval_in_sec =
+          sparkConf.hasPath(SparkConfigParser.RETRY_INTERVAL_IN_SEC)
+              ? sparkConf.getInt(SparkConfigParser.RETRY_INTERVAL_IN_SEC)
+              : 5;
+
+      int max_retries =
+          sparkConf.hasPath(SparkConfigParser.MAX_RETRIES)
+              ? sparkConf.getInt(SparkConfigParser.MAX_RETRIES)
+              : 0;
+
       log.info(
           "REST Emitter Configuration: GMS url {}{}",
           gmsUrl,
@@ -121,14 +132,18 @@ public class DatahubSparkListener extends SparkListener {
       if (token != null) {
         log.info("REST Emitter Configuration: Token {}", "XXXXX");
       }
+
       if (disableSslVerification) {
         log.warn("REST Emitter Configuration: ssl verification will be disabled.");
       }
+
       RestEmitterConfig restEmitterConf =
           RestEmitterConfig.builder()
               .server(gmsUrl)
               .token(token)
               .disableSslVerification(disableSslVerification)
+              .maxRetries(max_retries)
+              .retryIntervalSec(retry_interval_in_sec)
               .build();
       return Optional.of(new RestDatahubEmitterConfig(restEmitterConf));
     } else {
