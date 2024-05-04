@@ -7,8 +7,8 @@ import SidebarTopUsersHeaderSection from '../../shared/SidebarTopUsersHeaderSect
 import { isValuePresent, userExists } from '../../shared/utils';
 import { REDESIGN_COLORS } from '../../../../../constants';
 import { formatNumber } from '../../../../../../../shared/formatNumber';
-import { getLastUpdatedMs } from '../../../../../../../entity/dataset/shared/utils';
-import Freshness from '../../../../../../../previewV2/Freshness';
+import { getDashboardLastUpdatedMs } from '../../../../../utils';
+import Freshness, { getFreshnessTitle } from '../../../../../../../previewV2/Freshness';
 
 const StatContent = styled.div`
     color: ${REDESIGN_COLORS.FOUNDATION_BLUE_4};
@@ -22,7 +22,7 @@ const SidebarDashboardHeaderSection = () => {
 
     const columns: any = [];
 
-    const lastUpdatedMs = getLastUpdatedMs(dashboard?.properties, (dashboard as any)?.lastOperation);
+    const timeData = getDashboardLastUpdatedMs(dashboard?.properties);
 
     /**
      * Popularity tab
@@ -75,10 +75,10 @@ const SidebarDashboardHeaderSection = () => {
     /**
      * Freshness column
      */
-    if (lastUpdatedMs) {
+    if (timeData?.lastUpdatedMs) {
         columns.push({
-            title: 'Freshness',
-            content: <Freshness time={lastUpdatedMs} />,
+            title: getFreshnessTitle(timeData?.property),
+            content: <Freshness time={timeData?.lastUpdatedMs} timeProperty={timeData?.property} />,
         });
     }
 

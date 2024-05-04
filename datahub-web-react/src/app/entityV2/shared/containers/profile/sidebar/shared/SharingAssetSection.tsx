@@ -33,43 +33,44 @@ const SharingAssetSection = () => {
 
     const lastShareResults = entityData?.share?.lastShareResults?.filter((result) => !!result.lastSuccess?.time);
     const [isShareModalVisible, setIsShareModalVisible] = useState(false);
-    if (!lastShareResults || lastShareResults?.length === 0 || !lastShareResults[0]) return null;
-    const sortedResults = sortSharedList(lastShareResults);
+    const sortedResults = lastShareResults && sortSharedList(lastShareResults);
 
     return (
         <>
-            <SidebarSection
-                title="Sharing"
-                collapsedContent={
-                    sortedResults.length > 1 ? (
-                        <SharingInfo>
-                            <InfoText> Shared with </InfoText>
-                            <NumberText>{`${sortedResults.length} Acryl ${pluralize(
-                                sortedResults.length,
-                                'Instance',
-                            )}`}</NumberText>
-                        </SharingInfo>
-                    ) : (
-                        <SharingContainer>
-                            <SharingList resultsList={sortedResults} />
-                        </SharingContainer>
-                    )
-                }
-                collapsible={sortedResults.length !== 1}
-                expandedByDefault={sortedResults.length === 1}
-                content={<>{sortedResults.length > 1 && <SharingList resultsList={sortedResults} />}</>}
-                extra={
-                    <>
-                        <SectionActionButton
-                            button={<EditOutlinedIcon />}
-                            onClick={(event) => {
-                                setIsShareModalVisible(true);
-                                event.stopPropagation();
-                            }}
-                        />
-                    </>
-                }
-            />
+            {sortedResults && sortedResults.length > 0 && (
+                <SidebarSection
+                    title="Sharing"
+                    collapsedContent={
+                        sortedResults.length > 1 ? (
+                            <SharingInfo>
+                                <InfoText> Shared with </InfoText>
+                                <NumberText>{`${sortedResults.length} Acryl ${pluralize(
+                                    sortedResults.length,
+                                    'Instance',
+                                )}`}</NumberText>
+                            </SharingInfo>
+                        ) : (
+                            <SharingContainer>
+                                <SharingList resultsList={sortedResults} />
+                            </SharingContainer>
+                        )
+                    }
+                    collapsible={sortedResults.length !== 1}
+                    expandedByDefault={sortedResults.length === 1}
+                    content={<>{sortedResults.length > 1 && <SharingList resultsList={sortedResults} />}</>}
+                    extra={
+                        <>
+                            <SectionActionButton
+                                button={<EditOutlinedIcon />}
+                                onClick={(event) => {
+                                    setIsShareModalVisible(true);
+                                    event.stopPropagation();
+                                }}
+                            />
+                        </>
+                    }
+                />
+            )}
             <ShareModal isModalVisible={isShareModalVisible} closeModal={() => setIsShareModalVisible(false)} />
         </>
     );

@@ -12,7 +12,7 @@ authors = [
 requires-python = ">=3.9"
 
 dependencies = [
-	"acryl-datahub[base]",
+	"acryl-datahub[base,snowflake]",
 	"fastapi>=0.103.1",
 	"uvicorn[standard]>=0.23.2",
 	"loguru",
@@ -27,7 +27,8 @@ dependencies = [
 	"pyarrow",
 	"jinja2",
 	"cachetools",
-	"anyio",
+	# Our usage of anyio currently requires 3.x because of the way it handles exception groups.
+	"anyio>=3,<4",
 	"httpx",
 	"reactpy",
 	"reactpy-router",

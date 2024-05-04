@@ -10,6 +10,7 @@ import { HoverEntityTooltip } from '../../../recommendations/renderer/component/
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { TagProfileDrawer } from '../../../shared/tags/TagProfileDrawer';
 import { useHasMatchedFieldByUrn } from '../../../search/context/SearchResultContext';
+import PropagationInfo from '../PropagationInfo';
 
 const TagLink = styled.span<{ $showOneAndCount?: boolean }>`
     display: inline-block;
@@ -17,7 +18,7 @@ const TagLink = styled.span<{ $showOneAndCount?: boolean }>`
     ${(props) =>
         props.$showOneAndCount &&
         `
-            width: 70%;
+            width: 90%;
             max-width: max-content;
         `}
 `;
@@ -35,6 +36,7 @@ interface Props {
     refetch?: () => Promise<any>;
     fontSize?: number;
     showOneAndCount?: boolean;
+    context?: string | null;
 }
 
 export default function Tag({
@@ -48,6 +50,7 @@ export default function Tag({
     refetch,
     fontSize,
     showOneAndCount,
+    context,
 }: Props) {
     const entityRegistry = useEntityRegistry();
     const [removeTagMutation] = useRemoveTagMutation();
@@ -111,7 +114,7 @@ export default function Tag({
             <HoverEntityTooltip entity={tag.tag} width={250}>
                 <TagLink data-testid={`tag-${displayName}`} $showOneAndCount={showOneAndCount}>
                     <StyledTag
-                        style={{ cursor: 'pointer' }}
+                        style={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }}
                         onClick={() => showTagProfileDrawer(tag?.tag?.urn)}
                         $colorHash={tag?.tag?.urn}
                         $color={tag?.tag?.properties?.colorHex}
@@ -131,6 +134,7 @@ export default function Tag({
                         >
                             {displayName}
                         </Highlight>
+                        <PropagationInfo context={context} />
                     </StyledTag>
                 </TagLink>
             </HoverEntityTooltip>

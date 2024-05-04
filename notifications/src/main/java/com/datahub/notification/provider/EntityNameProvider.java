@@ -28,6 +28,13 @@ import com.linkedin.metadata.key.MLPrimaryKeyKey;
 import com.linkedin.notebook.NotebookInfo;
 import com.linkedin.tag.TagProperties;
 import io.datahubproject.metadata.context.OperationContext;
+import java.util.AbstractMap;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
@@ -45,57 +52,67 @@ public class EntityNameProvider {
   }
 
   /**
+   * Returns the names for use when displaying any entity.
+   *
+   * <p>Returns the urns of the terms if one cannot be resolved.
+   */
+  public Map<Urn, String> batchGetName(
+      @Nonnull OperationContext opContext, @Nonnull final Set<Urn> entityUrns, String entityType) {
+    switch (entityType) {
+      case Constants.DATASET_ENTITY_NAME:
+        return batchGetDatasetName(opContext, entityUrns);
+      case Constants.DASHBOARD_ENTITY_NAME:
+        return batchGetDashboardName(opContext, entityUrns);
+      case Constants.CHART_ENTITY_NAME:
+        return batchGetChartName(opContext, entityUrns);
+      case Constants.DATA_JOB_ENTITY_NAME:
+        return batchGetDataJobName(opContext, entityUrns);
+      case Constants.DATA_FLOW_ENTITY_NAME:
+        return batchGetDataFlowName(opContext, entityUrns);
+      case Constants.CONTAINER_ENTITY_NAME:
+        return batchGetContainerName(opContext, entityUrns);
+      case Constants.GLOSSARY_TERM_ENTITY_NAME:
+        return batchGetGlossaryTermName(opContext, entityUrns);
+      case Constants.TAG_ENTITY_NAME:
+        return batchGetTagName(opContext, entityUrns);
+      case Constants.DOMAIN_ENTITY_NAME:
+        return batchGetDomainName(opContext, entityUrns);
+      case Constants.CORP_USER_ENTITY_NAME:
+        return batchGetUserName(opContext, entityUrns);
+      case Constants.CORP_GROUP_ENTITY_NAME:
+        return batchGetGroupName(opContext, entityUrns);
+      case Constants.INGESTION_SOURCE_ENTITY_NAME:
+        return batchGetIngestionSourceName(opContext, entityUrns);
+      case Constants.DATA_PLATFORM_ENTITY_NAME:
+        return batchGetDataPlatformName(opContext, entityUrns);
+      case Constants.SCHEMA_FIELD_ENTITY_NAME:
+        return batchGetSchemaFieldName(entityUrns);
+      case Constants.ML_FEATURE_ENTITY_NAME:
+        return batchGetMLFeatureName(opContext, entityUrns);
+      case Constants.ML_MODEL_ENTITY_NAME:
+        return batchGetMLModelName(opContext, entityUrns);
+      case Constants.ML_MODEL_GROUP_ENTITY_NAME:
+        return batchGetMLModelGroupName(opContext, entityUrns);
+      case Constants.ML_FEATURE_TABLE_ENTITY_NAME:
+        return batchGetMLFeatureTableName(opContext, entityUrns);
+      case Constants.ML_PRIMARY_KEY_ENTITY_NAME:
+        return batchGetMLPrimaryKeyName(opContext, entityUrns);
+      case Constants.DATA_PRODUCT_ENTITY_NAME:
+        return batchGetDataProductName(opContext, entityUrns);
+      case Constants.NOTEBOOK_ENTITY_NAME:
+        return batchGetNotebookName(opContext, entityUrns);
+      default:
+        return entityUrns.stream().collect(Collectors.toMap(k -> k, Urn::toString));
+    }
+  }
+
+  /**
    * Returns the name for use when displaying any entity.
    *
    * <p>Returns the urn of the term if one cannot be resolved.
    */
   public String getName(@Nonnull OperationContext opContext, @Nonnull final Urn entityUrn) {
-    switch (entityUrn.getEntityType()) {
-      case Constants.DATASET_ENTITY_NAME:
-        return getDatasetName(opContext, entityUrn);
-      case Constants.DASHBOARD_ENTITY_NAME:
-        return getDashboardName(opContext, entityUrn);
-      case Constants.CHART_ENTITY_NAME:
-        return getChartName(opContext, entityUrn);
-      case Constants.DATA_JOB_ENTITY_NAME:
-        return getDataJobName(opContext, entityUrn);
-      case Constants.DATA_FLOW_ENTITY_NAME:
-        return getDataFlowName(opContext, entityUrn);
-      case Constants.CONTAINER_ENTITY_NAME:
-        return getContainerName(opContext, entityUrn);
-      case Constants.GLOSSARY_TERM_ENTITY_NAME:
-        return getGlossaryTermName(opContext, entityUrn);
-      case Constants.TAG_ENTITY_NAME:
-        return getTagName(opContext, entityUrn);
-      case Constants.DOMAIN_ENTITY_NAME:
-        return getDomainName(opContext, entityUrn);
-      case Constants.CORP_USER_ENTITY_NAME:
-        return getUserName(opContext, entityUrn);
-      case Constants.CORP_GROUP_ENTITY_NAME:
-        return getGroupName(opContext, entityUrn);
-      case Constants.INGESTION_SOURCE_ENTITY_NAME:
-        return getIngestionSourceName(opContext, entityUrn);
-      case Constants.DATA_PLATFORM_ENTITY_NAME:
-        return getDataPlatformName(opContext, entityUrn);
-      case Constants.SCHEMA_FIELD_ENTITY_NAME:
-        return getSchemaFieldName(entityUrn);
-      case Constants.ML_FEATURE_ENTITY_NAME:
-        return getMLFeatureName(opContext, entityUrn);
-      case Constants.ML_MODEL_ENTITY_NAME:
-        return getMLModelName(opContext, entityUrn);
-      case Constants.ML_MODEL_GROUP_ENTITY_NAME:
-        return getMLModelGroupName(opContext, entityUrn);
-      case Constants.ML_FEATURE_TABLE_ENTITY_NAME:
-        return getMLFeatureTableName(opContext, entityUrn);
-      case Constants.ML_PRIMARY_KEY_ENTITY_NAME:
-        return getMLPrimaryKeyName(opContext, entityUrn);
-      case Constants.DATA_PRODUCT_ENTITY_NAME:
-        return getDataProductName(opContext, entityUrn);
-      case Constants.NOTEBOOK_ENTITY_NAME:
-        return getNotebookName(opContext, entityUrn);
-      default:
-        return entityUrn.toString();
-    }
+    return batchGetName(opContext, Set.of(entityUrn), entityUrn.getEntityType()).get(entityUrn);
   }
 
   /**
@@ -130,248 +147,494 @@ public class EntityNameProvider {
    */
   @Nonnull
   public String getTypeName(@Nonnull OperationContext opContext, @Nonnull final Urn entityUrn) {
-    String maybeSubType = getEntitySubType(opContext, entityUrn);
+    String maybeSubType =
+        batchGetEntitySubTypes(opContext, Set.of(entityUrn), entityUrn.getEntityType())
+            .get(entityUrn);
     if (maybeSubType != null) {
       return capitalizeFirstLetter(maybeSubType);
     }
     return getEntityTypeNameFromEntity(entityUrn.getEntityType());
   }
 
-  private String getDatasetName(@Nonnull OperationContext opContext, Urn datasetUrn) {
-    DataMap data = getAspectData(opContext, datasetUrn, Constants.DATASET_PROPERTIES_ASPECT_NAME);
-    if (data != null) {
-      DatasetProperties datasetProperties = new DatasetProperties(data);
-      return datasetProperties.hasName()
-          ? datasetProperties.getName()
-          : datasetUrn.getEntityKey().get(1);
-    }
-    return datasetUrn.getEntityKey().get(1);
+  @Nonnull
+  public Map<Urn, String> batchGetTypeNames(
+      @Nonnull OperationContext opContext,
+      @Nonnull final Set<Urn> entityUrns,
+      @Nonnull final String entityType) {
+    Map<Urn, String> maybeSubTypes = batchGetEntitySubTypes(opContext, entityUrns, entityType);
+    return entityUrns.stream()
+        .collect(
+            Collectors.toMap(
+                k -> k,
+                k -> {
+                  final String maybeSubType = maybeSubTypes.get(k);
+                  if (maybeSubType != null) {
+                    return capitalizeFirstLetter(maybeSubType);
+                  }
+                  return getEntityTypeNameFromEntity(k.getEntityType());
+                }));
   }
 
-  private String getDashboardName(@Nonnull OperationContext opContext, Urn dashboardUrn) {
-    DataMap data = getAspectData(opContext, dashboardUrn, Constants.DASHBOARD_INFO_ASPECT_NAME);
-    if (data != null) {
-      return new DashboardInfo(data).getTitle();
-    }
-    return dashboardUrn.toString();
+  private Map<Urn, String> batchGetDatasetName(
+      @Nonnull OperationContext opContext, Set<Urn> datasetUrns) {
+    Map<Urn, DataMap> urnToData =
+        batchGetAspectData(
+            opContext,
+            datasetUrns,
+            Constants.DATASET_ENTITY_NAME,
+            Constants.DATASET_PROPERTIES_ASPECT_NAME);
+    return datasetUrns.stream()
+        .collect(
+            Collectors.toMap(
+                k -> k,
+                key -> {
+                  final DataMap data = urnToData.get(key);
+                  if (data == null) {
+                    return key.getEntityKey().get(1);
+                  }
+                  DatasetProperties datasetProperties = new DatasetProperties(data);
+                  return datasetProperties.hasName()
+                      ? datasetProperties.getName()
+                      : key.getEntityKey().get(1);
+                }));
   }
 
-  private String getDataJobName(@Nonnull OperationContext opContext, Urn dataJobUrn) {
-    DataMap data = getAspectData(opContext, dataJobUrn, Constants.DATA_JOB_INFO_ASPECT_NAME);
-    if (data != null) {
-      return new DataJobInfo(data).getName();
-    }
-    return dataJobUrn.toString();
+  private Map<Urn, String> batchGetDashboardName(
+      @Nonnull OperationContext opContext, Set<Urn> dashboardUrns) {
+    Map<Urn, DataMap> dataMap =
+        batchGetAspectData(
+            opContext,
+            dashboardUrns,
+            Constants.DASHBOARD_ENTITY_NAME,
+            Constants.DASHBOARD_INFO_ASPECT_NAME);
+    return dashboardUrns.stream()
+        .collect(
+            Collectors.toMap(
+                k -> k,
+                urn -> {
+                  final DataMap data = dataMap.get(urn);
+                  return data != null ? new DashboardInfo(data).getTitle() : urn.toString();
+                }));
   }
 
-  private String getDataFlowName(@Nonnull OperationContext opContext, Urn dataFlowUrn) {
-    DataMap data = getAspectData(opContext, dataFlowUrn, Constants.DATA_FLOW_INFO_ASPECT_NAME);
-    if (data != null) {
-      return new DataFlowInfo(data).getName();
-    }
-    return dataFlowUrn.toString();
+  private Map<Urn, String> batchGetDataJobName(
+      @Nonnull OperationContext opContext, Set<Urn> dataJobUrns) {
+    Map<Urn, DataMap> dataMap =
+        batchGetAspectData(
+            opContext,
+            dataJobUrns,
+            Constants.DATA_JOB_ENTITY_NAME,
+            Constants.DATA_JOB_INFO_ASPECT_NAME);
+    return dataJobUrns.stream()
+        .collect(
+            Collectors.toMap(
+                k -> k,
+                urn -> {
+                  final DataMap data = dataMap.get(urn);
+                  return data != null ? new DataJobInfo(data).getName() : urn.toString();
+                }));
   }
 
-  private String getChartName(@Nonnull OperationContext opContext, Urn chartUrn) {
-    DataMap data = getAspectData(opContext, chartUrn, Constants.CHART_INFO_ASPECT_NAME);
-    if (data != null) {
-      return new ChartInfo(data).getTitle();
-    }
-    return chartUrn.toString();
+  private Map<Urn, String> batchGetDataFlowName(
+      @Nonnull OperationContext opContext, Set<Urn> dataFlowUrns) {
+    Map<Urn, DataMap> dataMap =
+        batchGetAspectData(
+            opContext,
+            dataFlowUrns,
+            Constants.DATA_FLOW_ENTITY_NAME,
+            Constants.DATA_FLOW_INFO_ASPECT_NAME);
+    return dataFlowUrns.stream()
+        .collect(
+            Collectors.toMap(
+                k -> k,
+                urn -> {
+                  DataMap data = dataMap.get(urn);
+                  return data != null ? new DataFlowInfo(data).getName() : urn.toString();
+                }));
   }
 
-  private String getContainerName(@Nonnull OperationContext opContext, Urn containerUrn) {
-    DataMap data =
-        getAspectData(opContext, containerUrn, Constants.CONTAINER_PROPERTIES_ASPECT_NAME);
-    if (data != null) {
-      return new ContainerProperties(data).getName();
-    }
-    return containerUrn.toString();
+  private Map<Urn, String> batchGetChartName(
+      @Nonnull OperationContext opContext, Set<Urn> chartUrns) {
+    Map<Urn, DataMap> dataMap =
+        batchGetAspectData(
+            opContext, chartUrns, Constants.CHART_ENTITY_NAME, Constants.CHART_INFO_ASPECT_NAME);
+    return chartUrns.stream()
+        .collect(
+            Collectors.toMap(
+                k -> k,
+                urn -> {
+                  DataMap data = dataMap.get(urn);
+                  return data != null ? new ChartInfo(data).getTitle() : urn.toString();
+                }));
   }
 
-  private String getGlossaryTermName(@Nonnull OperationContext opContext, Urn glossaryTermUrn) {
-    DataMap data =
-        getAspectData(opContext, glossaryTermUrn, Constants.GLOSSARY_TERM_INFO_ASPECT_NAME);
-    if (data != null) {
-      GlossaryTermInfo info = new GlossaryTermInfo(data);
-      return info.hasName() ? info.getName() : glossaryTermUrn.getId();
-    }
-    return glossaryTermUrn.toString();
+  private Map<Urn, String> batchGetContainerName(
+      @Nonnull OperationContext opContext, Set<Urn> containerUrns) {
+    Map<Urn, DataMap> dataMap =
+        batchGetAspectData(
+            opContext,
+            containerUrns,
+            Constants.CONTAINER_ENTITY_NAME,
+            Constants.CONTAINER_PROPERTIES_ASPECT_NAME);
+    return containerUrns.stream()
+        .collect(
+            Collectors.toMap(
+                k -> k,
+                urn -> {
+                  DataMap data = dataMap.get(urn);
+                  return data != null ? new ContainerProperties(data).getName() : urn.toString();
+                }));
   }
 
-  private String getTagName(@Nonnull OperationContext opContext, Urn tagUrn) {
-    DataMap data = getAspectData(opContext, tagUrn, Constants.TAG_PROPERTIES_ASPECT_NAME);
-    if (data != null) {
-      return new TagProperties(data).getName();
-    }
-    return tagUrn.toString();
+  private Map<Urn, String> batchGetGlossaryTermName(
+      @Nonnull OperationContext opContext, Set<Urn> glossaryTermUrns) {
+    Map<Urn, DataMap> dataMap =
+        batchGetAspectData(
+            opContext,
+            glossaryTermUrns,
+            Constants.GLOSSARY_TERM_ENTITY_NAME,
+            Constants.GLOSSARY_TERM_INFO_ASPECT_NAME);
+    return glossaryTermUrns.stream()
+        .collect(
+            Collectors.toMap(
+                k -> k,
+                urn -> {
+                  DataMap data = dataMap.get(urn);
+                  if (data == null) return urn.getId();
+                  GlossaryTermInfo info = new GlossaryTermInfo(data);
+                  return info.hasName() ? info.getName() : urn.getId();
+                }));
   }
 
-  private String getDomainName(@Nonnull OperationContext opContext, Urn domainUrn) {
-    DataMap data = getAspectData(opContext, domainUrn, Constants.DOMAIN_PROPERTIES_ASPECT_NAME);
-    if (data != null) {
-      return new DomainProperties(data).getName();
-    }
-    return domainUrn.toString();
+  private Map<Urn, String> batchGetTagName(@Nonnull OperationContext opContext, Set<Urn> tagUrns) {
+    Map<Urn, DataMap> dataMap =
+        batchGetAspectData(
+            opContext, tagUrns, Constants.TAG_ENTITY_NAME, Constants.TAG_PROPERTIES_ASPECT_NAME);
+    return tagUrns.stream()
+        .collect(
+            Collectors.toMap(
+                k -> k,
+                urn -> {
+                  DataMap data = dataMap.get(urn);
+                  return data != null ? new TagProperties(data).getName() : urn.toString();
+                }));
   }
 
-  private String getUserName(@Nonnull OperationContext opContext, Urn userUrn) {
-    IdentityProvider.User maybeUser = _identityProvider.getUser(opContext, userUrn);
-    return maybeUser != null ? maybeUser.getResolvedDisplayName() : userUrn.getId();
+  private Map<Urn, String> batchGetDomainName(
+      @Nonnull OperationContext opContext, Set<Urn> domainUrns) {
+    Map<Urn, DataMap> dataMap =
+        batchGetAspectData(
+            opContext,
+            domainUrns,
+            Constants.DOMAIN_ENTITY_NAME,
+            Constants.DOMAIN_PROPERTIES_ASPECT_NAME);
+    return domainUrns.stream()
+        .collect(
+            Collectors.toMap(
+                k -> k,
+                urn -> {
+                  DataMap data = dataMap.get(urn);
+                  return data != null ? new DomainProperties(data).getName() : urn.toString();
+                }));
   }
 
-  private String getGroupName(@Nonnull OperationContext opContext, Urn groupUrn) {
-    DataMap data = getAspectData(opContext, groupUrn, Constants.CORP_GROUP_INFO_ASPECT_NAME);
-    if (data != null) {
-      CorpGroupInfo info = new CorpGroupInfo(data);
-      return info.hasDisplayName() ? info.getDisplayName() : groupUrn.getId();
-    }
-    return groupUrn.toString();
+  private Map<Urn, String> batchGetUserName(
+      @Nonnull OperationContext opContext, Set<Urn> userUrns) {
+    final Map<Urn, IdentityProvider.User> maybeUserMap =
+        _identityProvider.batchGetUsers(opContext, userUrns);
+    return userUrns.stream()
+        .collect(
+            Collectors.toMap(
+                k -> k,
+                urn -> {
+                  if (maybeUserMap == null) return urn.getId();
+                  IdentityProvider.User maybeUser = maybeUserMap.get(urn);
+                  return maybeUser != null ? maybeUser.getResolvedDisplayName() : urn.getId();
+                }));
   }
 
-  private String getIngestionSourceName(
-      @Nonnull OperationContext opContext, Urn ingestionSourceUrn) {
-    DataMap data =
-        getAspectData(opContext, ingestionSourceUrn, Constants.INGESTION_INFO_ASPECT_NAME);
-    if (data != null) {
-      DataHubIngestionSourceInfo info = new DataHubIngestionSourceInfo(data);
-      return info.hasName() ? info.getName() : ingestionSourceUrn.toString();
-    }
-    return ingestionSourceUrn.toString();
+  private Map<Urn, String> batchGetGroupName(
+      @Nonnull OperationContext opContext, Set<Urn> groupUrns) {
+    Map<Urn, DataMap> dataMap =
+        batchGetAspectData(
+            opContext,
+            groupUrns,
+            Constants.CORP_GROUP_ENTITY_NAME,
+            Constants.CORP_GROUP_INFO_ASPECT_NAME);
+    return groupUrns.stream()
+        .collect(
+            Collectors.toMap(
+                k -> k,
+                urn -> {
+                  DataMap data = dataMap.get(urn);
+                  if (data == null) return urn.toString();
+                  CorpGroupInfo info = new CorpGroupInfo(data);
+                  return info.hasDisplayName() ? info.getDisplayName() : urn.getId();
+                }));
   }
 
-  private String getDataPlatformName(@Nonnull OperationContext opContext, Urn dataPlatformUrn) {
-    DataMap data =
-        getAspectData(opContext, dataPlatformUrn, Constants.DATA_PLATFORM_INFO_ASPECT_NAME);
-    if (data != null) {
-      DataPlatformInfo info = new DataPlatformInfo(data);
-      return info.hasDisplayName() ? info.getDisplayName() : info.getName();
-    }
-    return dataPlatformUrn.toString();
+  private Map<Urn, String> batchGetIngestionSourceName(
+      @Nonnull OperationContext opContext, Set<Urn> ingestionSourceUrns) {
+    Map<Urn, DataMap> dataMap =
+        batchGetAspectData(
+            opContext,
+            ingestionSourceUrns,
+            Constants.INGESTION_SOURCE_ENTITY_NAME,
+            Constants.INGESTION_INFO_ASPECT_NAME);
+    return ingestionSourceUrns.stream()
+        .collect(
+            Collectors.toMap(
+                k -> k,
+                urn -> {
+                  DataMap data = dataMap.get(urn);
+                  if (data == null) return urn.toString();
+                  DataHubIngestionSourceInfo info = new DataHubIngestionSourceInfo(data);
+                  return info.hasName() ? info.getName() : urn.toString();
+                }));
   }
 
-  private String getSchemaFieldName(Urn schemaFieldUrn) {
-    return schemaFieldUrn.getEntityKey().get(1);
+  private Map<Urn, String> batchGetDataPlatformName(
+      @Nonnull OperationContext opContext, Set<Urn> dataPlatformUrns) {
+    Map<Urn, DataMap> dataMap =
+        batchGetAspectData(
+            opContext,
+            dataPlatformUrns,
+            Constants.DATA_PLATFORM_ENTITY_NAME,
+            Constants.DATA_PLATFORM_INFO_ASPECT_NAME);
+    return dataPlatformUrns.stream()
+        .collect(
+            Collectors.toMap(
+                k -> k,
+                urn -> {
+                  DataMap data = dataMap.get(urn);
+                  if (data == null) return urn.toString();
+                  DataPlatformInfo info = new DataPlatformInfo(data);
+                  return info.hasDisplayName() ? info.getDisplayName() : info.getName();
+                }));
   }
 
-  private String getMLFeatureName(@Nonnull OperationContext opContext, Urn mlFeatureUrn) {
-    DataMap data = getAspectData(opContext, mlFeatureUrn, Constants.ML_FEATURE_KEY_ASPECT_NAME);
-    if (data != null) {
-      MLFeatureKey mlFeatureKey = new MLFeatureKey(data);
-      return mlFeatureKey.getName();
-    }
-    return mlFeatureUrn.getEntityKey().get(1);
+  private Map<Urn, String> batchGetSchemaFieldName(Set<Urn> schemaFieldUrns) {
+    return schemaFieldUrns.stream()
+        .collect(Collectors.toMap(k -> k, urn -> urn.getEntityKey().get(1)));
   }
 
-  private String getMLModelName(@Nonnull OperationContext opContext, Urn mlModelUrn) {
-    DataMap data = getAspectData(opContext, mlModelUrn, Constants.ML_MODEL_KEY_ASPECT_NAME);
-    if (data != null) {
-      MLModelKey mlModelKey = new MLModelKey(data);
-      return mlModelKey.getName();
-    }
-    return mlModelUrn.getEntityKey().get(1);
+  private Map<Urn, String> batchGetMLFeatureName(
+      @Nonnull OperationContext opContext, Set<Urn> mlFeatureUrns) {
+    Map<Urn, DataMap> dataMap =
+        batchGetAspectData(
+            opContext,
+            mlFeatureUrns,
+            Constants.ML_FEATURE_ENTITY_NAME,
+            Constants.ML_FEATURE_KEY_ASPECT_NAME);
+    return mlFeatureUrns.stream()
+        .collect(
+            Collectors.toMap(
+                k -> k,
+                urn -> {
+                  DataMap data = dataMap.get(urn);
+                  return data != null
+                      ? new MLFeatureKey(data).getName()
+                      : urn.getEntityKey().get(1);
+                }));
   }
 
-  private String getMLModelGroupName(@Nonnull OperationContext opContext, Urn mlModelGroupUrn) {
-    DataMap data =
-        getAspectData(opContext, mlModelGroupUrn, Constants.ML_MODEL_GROUP_KEY_ASPECT_NAME);
-    if (data != null) {
-      MLModelGroupKey mlModelGroupKey = new MLModelGroupKey(data);
-      return mlModelGroupKey.getName();
-    }
-    return mlModelGroupUrn.getEntityKey().get(1);
+  private Map<Urn, String> batchGetMLModelName(
+      @Nonnull OperationContext opContext, Set<Urn> mlModelUrns) {
+    Map<Urn, DataMap> dataMap =
+        batchGetAspectData(
+            opContext,
+            mlModelUrns,
+            Constants.ML_MODEL_ENTITY_NAME,
+            Constants.ML_MODEL_KEY_ASPECT_NAME);
+    return mlModelUrns.stream()
+        .collect(
+            Collectors.toMap(
+                k -> k,
+                urn -> {
+                  DataMap data = dataMap.get(urn);
+                  return data != null ? new MLModelKey(data).getName() : urn.getEntityKey().get(1);
+                }));
   }
 
-  private String getMLFeatureTableName(@Nonnull OperationContext opContext, Urn mlFeatureTableUrn) {
-    DataMap data =
-        getAspectData(opContext, mlFeatureTableUrn, Constants.ML_FEATURE_TABLE_KEY_ASPECT_NAME);
-    if (data != null) {
-      MLFeatureTableKey mlFeatureTableKey = new MLFeatureTableKey(data);
-      return mlFeatureTableKey.getName();
-    }
-    return mlFeatureTableUrn.getEntityKey().get(1);
+  private Map<Urn, String> batchGetMLModelGroupName(
+      @Nonnull OperationContext opContext, Set<Urn> mlModelGroupUrns) {
+    Map<Urn, DataMap> dataMap =
+        batchGetAspectData(
+            opContext,
+            mlModelGroupUrns,
+            Constants.ML_MODEL_GROUP_ENTITY_NAME,
+            Constants.ML_MODEL_GROUP_KEY_ASPECT_NAME);
+    return mlModelGroupUrns.stream()
+        .collect(
+            Collectors.toMap(
+                k -> k,
+                urn -> {
+                  DataMap data = dataMap.get(urn);
+                  return data != null
+                      ? new MLModelGroupKey(data).getName()
+                      : urn.getEntityKey().get(1);
+                }));
   }
 
-  private String getMLPrimaryKeyName(@Nonnull OperationContext opContext, Urn mlPrimaryKeyUrn) {
-    DataMap data =
-        getAspectData(opContext, mlPrimaryKeyUrn, Constants.ML_PRIMARY_KEY_KEY_ASPECT_NAME);
-    if (data != null) {
-      MLPrimaryKeyKey mlPrimaryKeyKey = new MLPrimaryKeyKey(data);
-      return mlPrimaryKeyKey.getName();
-    }
-    return mlPrimaryKeyUrn.getEntityKey().get(1);
+  private Map<Urn, String> batchGetMLFeatureTableName(
+      @Nonnull OperationContext opContext, Set<Urn> mlFeatureTableUrns) {
+    Map<Urn, DataMap> dataMap =
+        batchGetAspectData(
+            opContext,
+            mlFeatureTableUrns,
+            Constants.ML_FEATURE_TABLE_ENTITY_NAME,
+            Constants.ML_FEATURE_TABLE_KEY_ASPECT_NAME);
+    return mlFeatureTableUrns.stream()
+        .collect(
+            Collectors.toMap(
+                k -> k,
+                urn -> {
+                  DataMap data = dataMap.get(urn);
+                  return data != null
+                      ? new MLFeatureTableKey(data).getName()
+                      : urn.getEntityKey().get(1);
+                }));
   }
 
-  private String getDataProductName(@Nonnull OperationContext opContext, Urn dataProductUrn) {
-    DataMap data =
-        getAspectData(opContext, dataProductUrn, Constants.DATA_PRODUCT_PROPERTIES_ASPECT_NAME);
-    if (data != null) {
-      DataProductProperties dataProductProperties = new DataProductProperties(data);
-      return dataProductProperties.getName();
-    }
-    return dataProductUrn.toString();
+  private Map<Urn, String> batchGetMLPrimaryKeyName(
+      @Nonnull OperationContext opContext, Set<Urn> mlPrimaryKeyUrns) {
+    Map<Urn, DataMap> dataMap =
+        batchGetAspectData(
+            opContext,
+            mlPrimaryKeyUrns,
+            Constants.ML_PRIMARY_KEY_ENTITY_NAME,
+            Constants.ML_PRIMARY_KEY_KEY_ASPECT_NAME);
+    return mlPrimaryKeyUrns.stream()
+        .collect(
+            Collectors.toMap(
+                k -> k,
+                urn -> {
+                  DataMap data = dataMap.get(urn);
+                  return data != null
+                      ? new MLPrimaryKeyKey(data).getName()
+                      : urn.getEntityKey().get(1);
+                }));
   }
 
-  private String getNotebookName(@Nonnull OperationContext opContext, Urn notebookUrn) {
-    DataMap data = getAspectData(opContext, notebookUrn, Constants.NOTEBOOK_INFO_ASPECT_NAME);
-    if (data != null) {
-      NotebookInfo notebookInfo = new NotebookInfo(data);
-      return notebookInfo.getTitle();
-    }
-    return notebookUrn.toString();
+  private Map<Urn, String> batchGetDataProductName(
+      @Nonnull OperationContext opContext, Set<Urn> dataProductUrns) {
+    Map<Urn, DataMap> dataMap =
+        batchGetAspectData(
+            opContext,
+            dataProductUrns,
+            Constants.DATA_PRODUCT_ENTITY_NAME,
+            Constants.DATA_PRODUCT_PROPERTIES_ASPECT_NAME);
+    return dataProductUrns.stream()
+        .collect(
+            Collectors.toMap(
+                k -> k,
+                urn -> {
+                  DataMap data = dataMap.get(urn);
+                  if (data == null) return urn.toString();
+                  DataProductProperties productProperties = new DataProductProperties(data);
+                  return productProperties.hasName() ? productProperties.getName() : urn.toString();
+                }));
+  }
+
+  private Map<Urn, String> batchGetNotebookName(
+      @Nonnull OperationContext opContext, Set<Urn> notebookUrns) {
+    Map<Urn, DataMap> dataMap =
+        batchGetAspectData(
+            opContext,
+            notebookUrns,
+            Constants.NOTEBOOK_ENTITY_NAME,
+            Constants.NOTEBOOK_INFO_ASPECT_NAME);
+    return notebookUrns.stream()
+        .collect(
+            Collectors.toMap(
+                k -> k,
+                urn -> {
+                  DataMap data = dataMap.get(urn);
+                  return data != null ? new NotebookInfo(data).getTitle() : urn.toString();
+                }));
   }
 
   @Nullable
   private String getAssetPlatform(@Nonnull OperationContext opContext, Urn assetUrn) {
-    DataMap data = getAspectData(opContext, assetUrn, Constants.DATA_PLATFORM_INSTANCE_ASPECT_NAME);
-    if (data != null) {
-      DataPlatformInstance dataPlatformInstance = new DataPlatformInstance(data);
-      if (dataPlatformInstance.hasPlatform()) {
-        DataMap platformData =
-            getAspectData(
+    DataMap data =
+        batchGetAspectData(
                 opContext,
-                dataPlatformInstance.getPlatform(),
-                Constants.DATA_PLATFORM_INFO_ASPECT_NAME);
-        if (platformData != null) {
-          DataPlatformInfo info = new DataPlatformInfo(platformData);
-          return info.hasDisplayName() ? info.getDisplayName() : info.getName();
-        }
-        return dataPlatformInstance.getPlatform().getId();
-      }
+                Set.of(assetUrn),
+                assetUrn.getEntityType(),
+                Constants.DATA_PLATFORM_INSTANCE_ASPECT_NAME)
+            .get(assetUrn);
+    if (data == null) {
+      return null;
     }
-    return null;
+    DataPlatformInstance dataPlatformInstance = new DataPlatformInstance(data);
+    if (!dataPlatformInstance.hasPlatform()) {
+      return null;
+    }
+    Urn platformUrn = dataPlatformInstance.getPlatform();
+    DataMap platformData =
+        batchGetAspectData(
+                opContext,
+                Set.of(platformUrn),
+                platformUrn.getEntityType(),
+                Constants.DATA_PLATFORM_INFO_ASPECT_NAME)
+            .get(platformUrn);
+    if (platformData != null) {
+      DataPlatformInfo info = new DataPlatformInfo(platformData);
+      return info.hasDisplayName() ? info.getDisplayName() : info.getName();
+    }
+    return dataPlatformInstance.getPlatform().getId();
   }
 
-  @Nullable
-  private String getEntitySubType(@Nonnull OperationContext opContext, Urn assetUrn) {
-    DataMap data = getAspectData(opContext, assetUrn, Constants.SUB_TYPES_ASPECT_NAME);
-    if (data != null) {
-      SubTypes subTypes = new SubTypes(data);
-      if (subTypes.hasTypeNames() && subTypes.getTypeNames().size() > 0) {
-        return subTypes.getTypeNames().get(0);
-      }
-    }
-    return null;
+  @Nonnull
+  private Map<Urn, String> batchGetEntitySubTypes(
+      @Nonnull OperationContext opContext, Set<Urn> assetUrns, String entityType) {
+    Map<Urn, DataMap> dataMap =
+        batchGetAspectData(opContext, assetUrns, entityType, Constants.SUB_TYPES_ASPECT_NAME);
+    return dataMap.entrySet().stream()
+        .map(
+            entry -> {
+              SubTypes subTypes = new SubTypes(entry.getValue());
+              if (subTypes.hasTypeNames() && !subTypes.getTypeNames().isEmpty()) {
+                return new AbstractMap.SimpleEntry<>(
+                    entry.getKey(), subTypes.getTypeNames().get(0));
+              }
+              return null;
+            })
+        .filter(Objects::nonNull)
+        .collect(
+            Collectors.toMap(AbstractMap.SimpleEntry::getKey, AbstractMap.SimpleEntry::getValue));
   }
 
-  @Nullable
-  private DataMap getAspectData(@Nonnull OperationContext opContext, Urn urn, String aspectName) {
+  @Nonnull
+  private Map<Urn, DataMap> batchGetAspectData(
+      @Nonnull OperationContext opContext, Set<Urn> urns, String entityType, String aspectName) {
     try {
-      EntityResponse response =
-          _entityClient.getV2(opContext, urn.getEntityType(), urn, ImmutableSet.of(aspectName));
-      if (response != null && response.getAspects().containsKey(aspectName)) {
-        return response.getAspects().get(aspectName).getValue().data();
+      Map<Urn, EntityResponse> response =
+          _entityClient.batchGetV2(opContext, entityType, urns, ImmutableSet.of(aspectName));
+      if (!response.isEmpty()) {
+        Map<Urn, DataMap> toReturn = new HashMap<>();
+        response.forEach(
+            (key, value) -> {
+              if (value.getAspects().containsKey(aspectName)) {
+                toReturn.put(key, value.getAspects().get(aspectName).getValue().data());
+              }
+            });
+        return toReturn;
       } else {
         log.warn(
             String.format(
-                "Failed to get aspect data for  urn %s aspect %s", urn.toString(), aspectName));
-        return null;
+                "Failed to get aspect data for  urns %s aspect %s",
+                urns.stream().limit(100).map(Object::toString).collect(Collectors.joining(", ")),
+                aspectName));
+        return Collections.emptyMap();
       }
     } catch (Exception e) {
       log.error(
           String.format(
-              "Failed to get aspect data for  urn %s aspect %s", urn.toString(), aspectName));
-      return null;
+              "Failed to get aspect data for  urn %s aspect %s",
+              urns.stream().limit(100).map(Object::toString).collect(Collectors.joining(", ")),
+              aspectName));
+      return Collections.emptyMap();
     }
   }
 

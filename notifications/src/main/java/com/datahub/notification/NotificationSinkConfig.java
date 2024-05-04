@@ -1,5 +1,6 @@
 package com.datahub.notification;
 
+import com.datahub.notification.provider.EntityNameProvider;
 import com.datahub.notification.provider.IdentityProvider;
 import com.datahub.notification.provider.SecretProvider;
 import com.datahub.notification.provider.SettingsProvider;
@@ -22,6 +23,9 @@ public class NotificationSinkConfig {
 
   /** User provider, which is responsible for resolving user to their contact info attributes. */
   private final IdentityProvider identityProvider;
+
+  /** Entity name provider, which is responsible for resolving names of entities such as groups. */
+  private final EntityNameProvider entityNameProvider;
 
   /** Secret provider, which is responsible for resolving secret values from their urn. */
   private final SecretProvider secretProvider;

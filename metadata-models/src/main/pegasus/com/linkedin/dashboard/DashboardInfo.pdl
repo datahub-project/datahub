@@ -126,5 +126,12 @@ record DashboardInfo includes CustomProperties, ExternalReference {
   /**
    * The time when this dashboard last refreshed
    */
+  @Searchable = {}
   lastRefreshed: optional Time
+
+  /**
+   * The actor who last refreshed this dashboard
+   */
+  @Searchable = {}
+  lastRefreshedBy: optional Urn
 }

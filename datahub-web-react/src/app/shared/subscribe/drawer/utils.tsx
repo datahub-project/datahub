@@ -70,6 +70,10 @@ const assertionsNode: DataNode = {
             key: EntityChangeType.AssertionPassed,
             title: <NotificationTypeText>An assertion passes</NotificationTypeText>,
         },
+        {
+            key: EntityChangeType.AssertionError,
+            title: <NotificationTypeText>An assertion errors</NotificationTypeText>,
+        },
     ],
 };
 

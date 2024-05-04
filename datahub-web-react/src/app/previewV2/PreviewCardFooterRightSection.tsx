@@ -16,6 +16,8 @@ import {
 } from '../entityV2/shared/containers/profile/sidebar/shared/utils';
 import QueryStat from './QueryStat';
 
+import { DatasetLastUpdatedMs, DashboardLastUpdatedMs } from '../entityV2/shared/utils';
+
 const Container = styled.div`
     text-align: center;
     display: flex;
@@ -34,7 +36,7 @@ interface Props {
     urn: string;
     entityRegistry: EntityRegistry;
     entityCapabilities: Set<EntityCapabilityType>;
-    lastUpdatedMs?: number | null;
+    lastUpdatedMs?: DatasetLastUpdatedMs | DashboardLastUpdatedMs;
     tier?: PopularityTier;
     statsSummary?: DatasetStatsSummary | null;
 }
@@ -71,10 +73,16 @@ const PreviewCardFooterRightSection = ({
                             entityType={entityType}
                             urn={urn}
                         />
-                        {!!lastUpdatedMs && <StyledDivider type="vertical" />}
+                        {!!lastUpdatedMs?.lastUpdatedMs && <StyledDivider type="vertical" />}
                     </>
                 )}
-                {!!lastUpdatedMs && <Freshness time={lastUpdatedMs} />}
+                {!!lastUpdatedMs?.lastUpdatedMs && (
+                    <Freshness
+                        time={lastUpdatedMs.lastUpdatedMs}
+                        timeProperty={lastUpdatedMs.property}
+                        showDate={false}
+                    />
+                )}
                 {!!(tier !== undefined && status) && (
                     <>
                         <StyledDivider type="vertical" />

@@ -11,6 +11,7 @@ import useSubscriptionSummary from './useSubscriptionSummary';
 import useGroupRelationships from './useGroupRelationships';
 import { ENTITY_PROFILE_SUBSCRIPTION_ID } from '../../onboarding/config/EntityProfileOnboardingConfig';
 import { useIsSeparateSiblingsMode } from '../../entity/shared/siblingUtils';
+import { EntityType } from '../../../types.generated';
 
 const StyledStarFilled = styled(StarFilled)`
     color: ${(props) => props.theme.styles['primary-color']};
@@ -44,12 +45,14 @@ export default function SubscribeButtons() {
     const [isDrawerOpen, setIsDrawerOpen] = useState(false);
     const [isPersonal, setIsPersonal] = useState(true);
     const [groupUrn, setGroupUrn] = useState<string>();
+    const isEntityExists = entityType === EntityType.Dataset ? entityData?.exists : true;
 
     const { hasGroupRelationships } = useGroupRelationships({ count: 1 });
     const { subscription, isSubscribed, canManageSubscription, refetchSubscription } = useSubscription({
         isPersonal,
         entityUrn: primaryEntityUrn,
         groupUrn,
+        isEntityExists
     });
 
     const isSeparateSiblingsMode = useIsSeparateSiblingsMode();
@@ -62,7 +65,7 @@ export default function SubscribeButtons() {
         groupNames,
         setIsUserSubscribed,
         refetchSubscriptionSummary,
-    } = useSubscriptionSummary({ entityUrn: primaryEntityUrn });
+    } = useSubscriptionSummary({ entityUrn: primaryEntityUrn,isEntityExists });
 
     const handleUpsertSubscription = () => setIsUserSubscribed(true);
 

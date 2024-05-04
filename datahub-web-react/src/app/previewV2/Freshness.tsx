@@ -1,11 +1,17 @@
-import { green, orange } from '@ant-design/colors';
-import UpdateOutlinedIcon from '@mui/icons-material/UpdateOutlined';
-import { Popover } from 'antd';
 import React from 'react';
+
+import dayjs from 'dayjs';
+import localizedFormat from 'dayjs/plugin/localizedFormat';
+
+import { Popover } from 'antd';
+import UpdateOutlinedIcon from '@mui/icons-material/UpdateOutlined';
 import styled from 'styled-components';
+
 import { ANTD_GRAY } from '../entity/shared/constants';
 import { getLastIngestedColor } from '../entity/shared/containers/profile/sidebar/LastIngested';
 import { REDESIGN_COLORS } from '../entityV2/shared/constants';
+
+dayjs.extend(localizedFormat);
 
 const LastUpdatedContainer = styled.div<{ color: string }>`
     align-items: center;
@@ -26,20 +32,48 @@ const PopoverContent = styled.div`
 `;
 
 type Props = {
-    time: number; // Milliseconds
+    time?: number; // Milliseconds
+    showDate?: boolean;
+    timeProperty?: string;
 };
 
-const Freshness = ({ time }: Props) => {
-    const lastIngestedColor = getLastIngestedColor(time);
-    let lastUpdatedText;
-    if (lastIngestedColor === green[5]) lastUpdatedText = 'Updated in the past week';
-    else if (lastIngestedColor === orange[5]) lastUpdatedText = 'Updated in the past month';
-    else lastUpdatedText = 'Updated more than a month ago';
+export const getFreshnessTitle = (property: string | undefined) => {
+    switch (property) {
+        case 'lastModified':
+            return 'Changed';
+        case 'lastRefreshed':
+            return 'Freshness';
+        default:
+            return 'Changed';
+    }
+}
+
+const Freshness = ({ time, timeProperty, showDate = true }: Props) => {
+    const lastUpdatedAgo = dayjs(time).fromNow();
+
+    if (!time || time === 0) return null;
+
+    let updateType;
+    switch (timeProperty) {
+        case 'lastModified':
+            updateType = 'Last modified';
+            break;
+        case 'lastRefreshed':
+            updateType = 'Last refreshed';
+            break;
+        default: // default to "last updated"
+            updateType = 'Last updated';
+            break;
+    }
 
     return (
-        <Popover content={<PopoverContent>{lastUpdatedText}</PopoverContent>} placement="bottom" showArrow={false}>
+        <Popover
+            content={<PopoverContent>{`${updateType} ${lastUpdatedAgo}`}</PopoverContent>}
+            placement="bottom"
+            showArrow={false}
+        >
             <LastUpdatedContainer color={getLastIngestedColor(time)}>
-                <UpdateOutlinedIcon />
+                <UpdateOutlinedIcon /> {showDate && dayjs(time).format('L')}
             </LastUpdatedContainer>
         </Popover>
     );

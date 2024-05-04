@@ -49,6 +49,9 @@ public class GlobalTagsMapper {
       if (entityUrn != null) {
         result.setAssociatedUrn(entityUrn.toString());
       }
+      if (input.getContext() != null) {
+        result.setContext(input.getContext());
+      }
       return Optional.of(result);
     }
     return Optional.empty();

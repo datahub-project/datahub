@@ -250,6 +250,10 @@ Cypress.Commands.add("ensureTextNotPresent", (text) => {
   cy.contains(text).should("not.exist");
 });
 
+Cypress.Commands.add("ensureElementPresent", (element) => {
+  cy.get(element).should('be.visible');
+});
+
 Cypress.Commands.add("waitTextPresent", (text) => {
   cy.contains(text).should('exist');
   cy.contains(text).should('have.length.above', 0);

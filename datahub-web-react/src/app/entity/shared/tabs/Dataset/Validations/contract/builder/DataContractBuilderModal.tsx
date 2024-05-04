@@ -6,7 +6,14 @@ import { DataContractBuilderState } from './types';
 import { DataContractBuilder } from './DataContractBuilder';
 
 const modalStyle = {};
-const modalBodyStyle = { paddingRight: 0, paddingLeft: 0, paddingBottom: 20, paddingTop: 0 };
+const modalBodyStyle = {
+    paddingRight: 0,
+    paddingLeft: 0,
+    paddingBottom: 20,
+    paddingTop: 0,
+    maxHeight: '70vh',
+    'overflow-x': 'auto',
+};
 
 type Props = {
     entityUrn: string;
@@ -20,7 +27,14 @@ type Props = {
 /**
  * This component is a modal used for constructing new Data Contracts
  */
-export const DataContractBuilderModal = ({ entityUrn, initialState, onSubmit, onPropose, onCancel, entityType }: Props) => {
+export const DataContractBuilderModal = ({
+    entityUrn,
+    initialState,
+    onSubmit,
+    onPropose,
+    onCancel,
+    entityType,
+}: Props) => {
     const isEditing = initialState !== undefined;
     const titleText = isEditing ? 'Edit Data Contract' : 'New Data Contract';
 

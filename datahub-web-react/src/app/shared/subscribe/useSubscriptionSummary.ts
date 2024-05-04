@@ -5,13 +5,16 @@ import { useEntityRegistry } from '../../useEntityRegistry';
 
 type Props = {
     entityUrn: string;
+    isEntityExists?: boolean;
 };
 
-const useSubscriptionSummary = ({ entityUrn }: Props) => {
+const useSubscriptionSummary = ({ entityUrn, isEntityExists = true }: Props) => {
     const entityRegistry = useEntityRegistry();
     const [isUserSubscribed, setIsUserSubscribed] = useState(false);
+    const skip = !isEntityExists;
     const { data: entitySubscriptionSummaryData, refetch: refetchSubscriptionSummary } =
         useGetEntitySubscriptionSummaryQuery({
+            skip,
             variables: {
                 input: {
                     entityUrn,

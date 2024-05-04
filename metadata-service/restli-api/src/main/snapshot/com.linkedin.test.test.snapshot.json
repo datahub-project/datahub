@@ -99,8 +99,8 @@
                 "hasValuesFieldName" : "hasFailingTests"
               },
               "/*/testDefinitionMd5" : {
-                "fieldName" : "testDefinitionsMd5",
-                "fieldType" : "keyword"
+                "fieldName" : "failingTestDefinitionMd5",
+                "fieldType" : "KEYWORD"
               }
             }
           }, {
@@ -123,8 +123,8 @@
                 "hasValuesFieldName" : "hasPassingTests"
               },
               "/*/testDefinitionMd5" : {
-                "fieldName" : "testDefinitionsMd5",
-                "fieldType" : "keyword"
+                "fieldName" : "passingTestDefinitionMd5",
+                "fieldType" : "KEYWORD"
               }
             }
           } ],

@@ -112,12 +112,12 @@ export const tryGetActualUpdatedTimestampFromAssertionResult = (result?: Maybe<A
  * @param runEvent 
  * @returns {number | undefined}
  */
-export const tryGetPrimaryMetricValueFromAssertionRunEvent = (runEvent: AssertionRunEvent): number | undefined => {
-    switch (runEvent.result?.assertion?.type) {
+export const tryGetPrimaryMetricValueFromAssertionRunEvent = (runEvent: AssertionRunEvent, maybeFallbackAssertionType?: AssertionType): number | undefined => {
+    switch (runEvent.result?.assertion?.type ?? maybeFallbackAssertionType) {
         case AssertionType.Sql:
             return tryGetSqlAssertionNumericalResult(runEvent.result);
         case AssertionType.Volume:
-            return (runEvent.result.rowCount?.valueOf());
+            return (runEvent.result?.rowCount?.valueOf());
         case AssertionType.Field:
             return tryGetPrimaryMetricValueFromFieldAssertionRunEvent(runEvent.result)
         case AssertionType.Dataset:

@@ -433,7 +433,13 @@ export const SearchBar = ({
                                     id={V2_SEARCH_BAR_VIEWS}
                                     onClick={handleStopPropagation}
                                     onFocus={handleStopPropagation}
-                                    onMouseDown={handleStopPropagation}
+                                    onMouseDown={(e) => {
+                                        e.stopPropagation();
+                                        // Send event to document to close nested dropdowns
+                                        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+                                        // @ts-ignore
+                                        document.dispatchEvent(new MouseEvent(e.type, e));
+                                    }}
                                     onKeyUp={handleStopPropagation}
                                     onKeyDown={handleStopPropagation}
                                 >

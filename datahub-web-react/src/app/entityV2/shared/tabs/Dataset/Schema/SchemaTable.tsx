@@ -277,7 +277,7 @@ export default function SchemaTable({
     };
 
     const termColumn = {
-        width: 150,
+        width: 200,
         title: 'Glossary Terms',
         dataIndex: 'globalTags',
         key: 'tag',

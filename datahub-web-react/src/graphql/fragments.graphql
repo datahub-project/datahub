@@ -10,6 +10,7 @@ fragment globalTagsFields on GlobalTags {
                 colorHex
             }
         }
+        context
         associatedUrn
     }
 }
@@ -69,6 +70,7 @@ fragment glossaryTerms on GlossaryTerms {
         actor {
             urn
         }
+        context
         associatedUrn
     }
 }

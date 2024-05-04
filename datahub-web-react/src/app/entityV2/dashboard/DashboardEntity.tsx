@@ -16,7 +16,7 @@ import {
     useUpdateDashboardMutation,
 } from '../../../graphql/dashboard.generated';
 import { Dashboard, EntityType, LineageDirection, OwnershipType, SearchResult } from '../../../types.generated';
-import { LOOKER_URN } from '../../ingest/source/builder/constants';
+import { LOOKER_URN, MODE_URN } from '../../ingest/source/builder/constants';
 import { MatchedFieldList } from '../../search/matches/MatchedFieldList';
 import { matchedInputFieldRenderer } from '../../search/matches/matchedInputFieldRenderer';
 import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
@@ -42,13 +42,18 @@ import { DashboardDatasetsTab } from '../shared/tabs/Entity/DashboardDatasetsTab
 import { LineageTab } from '../shared/tabs/Lineage/LineageTab';
 import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
 import { GenericEntityProperties } from '../../entity/shared/types';
-import { SidebarTitleActionType, getDataProduct, isOutputPort } from '../shared/utils';
+import { SidebarTitleActionType, getDataProduct, isOutputPort, getDashboardLastUpdatedMs } from '../shared/utils';
 import { DashboardPreview } from './preview/DashboardPreview';
 import { DashboardStatsSummarySubHeader } from './profile/DashboardStatsSummarySubHeader';
 import SidebarEntityHeader from '../shared/containers/profile/sidebar/SidebarEntityHeader';
 import { IncidentTab } from '../shared/tabs/Incident/IncidentTab';
 import SyncedAssetSection from '../shared/containers/profile/sidebar/shared/SyncedAssetSection';
 import SharingAssetSection from '../shared/containers/profile/sidebar/shared/SharingAssetSection';
+
+const PREVIEW_SUPPORTED_PLATFORMS = [
+    LOOKER_URN,
+    MODE_URN,
+]
 
 /**
  * Definition of the DataHub Dashboard entity.
@@ -152,10 +157,10 @@ export class DashboardEntity implements Entity<Dashboard> {
                     display: {
                         visible: (_, dashboard: GetDashboardQuery) =>
                             !!dashboard?.dashboard?.embed?.renderUrl &&
-                            dashboard?.dashboard?.platform.urn === LOOKER_URN,
+                            PREVIEW_SUPPORTED_PLATFORMS.includes(dashboard?.dashboard?.platform.urn),
                         enabled: (_, dashboard: GetDashboardQuery) =>
                             !!dashboard?.dashboard?.embed?.renderUrl &&
-                            dashboard?.dashboard?.platform.urn === LOOKER_URN,
+                            PREVIEW_SUPPORTED_PLATFORMS.includes(dashboard?.dashboard?.platform.urn),
                     },
                 },
                 {
@@ -270,16 +275,16 @@ export class DashboardEntity implements Entity<Dashboard> {
                 deprecation={data.deprecation}
                 externalUrl={data.properties?.externalUrl}
                 statsSummary={data.statsSummary}
-                lastUpdatedMs={data.properties?.lastModified?.time}
+                lastUpdatedMs={getDashboardLastUpdatedMs(data.properties)}
                 createdMs={data.properties?.created?.time}
                 subtype={data.subTypes?.typeNames?.[0]}
                 tier={
                     isValuePresent(data?.statsSummary?.viewCountPercentileLast30Days) &&
-                    isValuePresent(data?.statsSummary?.uniqueUserPercentileLast30Days)
+                        isValuePresent(data?.statsSummary?.uniqueUserPercentileLast30Days)
                         ? getDashboardPopularityTier(
-                              data.statsSummary?.viewCountPercentileLast30Days,
-                              data.statsSummary?.uniqueUserPercentileLast30Days,
-                          )
+                            data.statsSummary?.viewCountPercentileLast30Days,
+                            data.statsSummary?.uniqueUserPercentileLast30Days,
+                        )
                         : undefined
                 }
                 headerDropdownItems={headerDropdownItems}
@@ -312,7 +317,7 @@ export class DashboardEntity implements Entity<Dashboard> {
                 deprecation={data.deprecation}
                 externalUrl={data.properties?.externalUrl}
                 statsSummary={data.statsSummary}
-                lastUpdatedMs={data.properties?.lastModified?.time}
+                lastUpdatedMs={getDashboardLastUpdatedMs(data.properties)}
                 createdMs={data.properties?.created?.time}
                 snippet={
                     <MatchedFieldList
@@ -326,11 +331,11 @@ export class DashboardEntity implements Entity<Dashboard> {
                 isOutputPort={isOutputPort(result)}
                 tier={
                     isValuePresent(data?.statsSummary?.viewCountPercentileLast30Days) &&
-                    isValuePresent(data?.statsSummary?.uniqueUserPercentileLast30Days)
+                        isValuePresent(data?.statsSummary?.uniqueUserPercentileLast30Days)
                         ? getDashboardPopularityTier(
-                              data.statsSummary?.viewCountPercentileLast30Days,
-                              data.statsSummary?.uniqueUserPercentileLast30Days,
-                          )
+                            data.statsSummary?.viewCountPercentileLast30Days,
+                            data.statsSummary?.uniqueUserPercentileLast30Days,
+                        )
                         : undefined
                 }
                 headerDropdownItems={headerDropdownItems}

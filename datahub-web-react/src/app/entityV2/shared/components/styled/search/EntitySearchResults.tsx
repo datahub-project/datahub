@@ -91,6 +91,7 @@ type Props = {
 const MatchContextAndEntityContainer = styled.div`
     position: relative;
     margin: 16px;
+    overflow: hidden;
 `;
 
 export const EntitySearchResults = ({

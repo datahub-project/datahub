@@ -6,7 +6,6 @@ import styled from 'styled-components';
 import { ANTD_GRAY } from '../entity/shared/constants';
 import { getLastIngestedColor } from '../entity/shared/containers/profile/sidebar/LastIngested';
 import { toRelativeTimeString } from './time/timeUtils';
-// import { toRelativeTimeString } from './time/timeUtils';
 
 const LastUpdatedContainer = styled.div`
     align-items: center;

@@ -426,26 +426,19 @@ const getFormattedExpectedTextForDefaultAssertion = (_: AssertionRunEvent): stri
 
 export const getFormattedExpectedResultText = (assertion: Assertion, run: AssertionRunEvent): string | undefined => {
     // Some historical assertion results may not have asseriton info...
-    // so we coalesce the current info onto there to avoid blanks
-    const coalescedResult: AssertionResult | undefined | null = run.result && {
-        ...run.result,
-        assertion: run.result?.assertion ?? assertion.info,
-    }
-    const coalescedRun: AssertionRunEvent = {
-        ...run,
-        result: coalescedResult,
-    }
-    switch (coalescedRun.result?.assertion?.type) {
+    // but we don't coalesce 'assertion' into the run.result.assertion because the exepectation 
+    // at the time of this run event may have been different than what's currently on the asseriton
+    switch (run.result?.assertion?.type ?? assertion.info?.type) {
         case AssertionType.Freshness:
-            return getFormattedExpectedTextForFreshnessAssertion(coalescedRun);
+            return getFormattedExpectedTextForFreshnessAssertion(run);
         case AssertionType.Volume:
-            return getFormattedExpectedTextForVolumeAssertion(coalescedRun);
+            return getFormattedExpectedTextForVolumeAssertion(run);
         case AssertionType.Field:
-            return getFormattedExpectedTextForFieldAssertion(coalescedRun);
+            return getFormattedExpectedTextForFieldAssertion(run);
         case AssertionType.Sql:
-            return getFormattedExpectedTextForSqlAssertion(coalescedRun);
+            return getFormattedExpectedTextForSqlAssertion(run);
         case AssertionType.Dataset:
-            return getFormattedExpectedTextForDefaultAssertion(coalescedRun);
+            return getFormattedExpectedTextForDefaultAssertion(run);
         default:
             return undefined;
     }

@@ -15,7 +15,7 @@ type Props = {
 
 export const ActionItem = ({ primary = false, tip, disabled = false, onClick, icon, key }: Props) => {
     return (
-        <Tooltip placement="left" title={tip}>
+        <Tooltip placement="top" title={tip}>
             <ActionItemButton
                 primary={primary}
                 key={key}

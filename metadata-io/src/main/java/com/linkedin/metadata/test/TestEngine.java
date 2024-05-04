@@ -457,7 +457,7 @@ public class TestEngine {
                               .setActor(UrnUtils.getUrn(Constants.SYSTEM_ACTOR))));
           batchTestRunResults
               .get(testDefinition.getUrn())
-              .setPassingCount(
+              .setFailingCount(
                   batchTestRunResults.get(testDefinition.getUrn()).getFailingCount() + 1);
         }
       }

@@ -18,7 +18,7 @@ import DefaultPreviewCard from '../../../previewV2/DefaultPreviewCard';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { IconStyleType } from '../../Entity';
 import { PopularityTier } from '../../shared/containers/profile/sidebar/shared/utils';
-import { summaryHasStats } from '../../shared/utils';
+import { summaryHasStats, DashboardLastUpdatedMs } from '../../shared/utils';
 import { ChartStatsSummary as ChartStatsSummaryView } from '../shared/ChartStatsSummary';
 import { EntityMenuItems } from '../../shared/EntityDropdown/EntityMenuActions';
 
@@ -67,7 +67,7 @@ export const ChartPreview = ({
     logoUrl?: string | null;
     deprecation?: Deprecation | null;
     statsSummary?: ChartStatsSummary | null;
-    lastUpdatedMs?: number | null;
+    lastUpdatedMs?: DashboardLastUpdatedMs;
     createdMs?: number | null;
     externalUrl?: string | null;
     parentContainers?: ParentContainersResult | null;

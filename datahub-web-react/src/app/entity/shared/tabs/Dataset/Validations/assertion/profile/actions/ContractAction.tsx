@@ -83,7 +83,7 @@ export const ContractAction = ({ assertion, monitor, contract, canEdit, refetch 
     };
 
     const isPartOfContract = contract ? isAssertionPartOfContract(assertion, contract) : false;
-    const isPartOfContractTip = isPartOfContract ? 'Add to contract' : 'Remove from contract';
+    const isPartOfContractTip = isPartOfContract ? 'Remove from contract' : 'Add to contract';
 
     const unauthorizedTip = canEdit ? undefined : 'You do not have permission to edit the contract';
     const tip = canEdit ? isPartOfContractTip : unauthorizedTip;

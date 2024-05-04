@@ -38,6 +38,8 @@ import MoreOptionsMenuAction from '../entityV2/shared/EntityDropdown/MoreOptions
 import DefaultPreviewCardFooter from './DefaultPreviewCardFooter';
 import { GlossaryPreviewCardDecoration } from '../entityV2/shared/containers/profile/header/GlossaryPreviewCardDecoration';
 
+import { DatasetLastUpdatedMs, DashboardLastUpdatedMs } from '../entityV2/shared/utils';
+
 const PreviewContainer = styled.div`
     display: flex;
     flex-direction: column;
@@ -111,7 +113,7 @@ interface Props {
     previewType?: Maybe<PreviewType>;
     paths?: EntityPath[];
     health?: Health[];
-    lastUpdatedMs?: number | null;
+    lastUpdatedMs?: DatasetLastUpdatedMs | DashboardLastUpdatedMs;
     // eslint-disable-next-line react/no-unused-prop-types
     description?: string;
     // eslint-disable-next-line react/no-unused-prop-types

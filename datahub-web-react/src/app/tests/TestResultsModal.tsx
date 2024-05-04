@@ -65,6 +65,21 @@ export default function TestResultsModal({
         setPage(newPage);
     };
 
+    const fixFilters = [
+        {
+            field: resultType === TestResultType.Success ? 'passingTests' : 'failingTests',
+            values: [urn],
+        }
+    ];
+
+    if (testDefinitionMd5 !== null && testDefinitionMd5 !== '') {
+        fixFilters.push({
+            field: resultType === TestResultType.Success ? 'passingTestDefinitionMd5' : 'failingTestDefinitionMd5',
+            values: [testDefinitionMd5],
+        });
+    }
+
+
     return (
         <StyledModal
             visible
@@ -99,16 +114,7 @@ export default function TestResultsModal({
                     onChangeUnionType={setUnionType}
                     fixedFilters={{
                         unionType: UnionType.AND,
-                        filters: [
-                            {
-                                field: resultType === TestResultType.Success ? 'passingTests' : 'failingTests',
-                                values: [urn],
-                            },
-                            {
-                                field: resultType === TestResultType.Success ? 'passingTestDefinitionMd5' : 'failingTestDefinitionMd5',
-                                values: [testDefinitionMd5],
-                            }
-                        ],
+                        filters: fixFilters,
                     }}
                     placeholderText="Search test results..."
                     skipCache={false} // Skip cache to ensure we always get the latest data

@@ -63,6 +63,7 @@ import javax.annotation.Nullable;
 import javax.inject.Inject;
 import javax.inject.Named;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 
 /** Single unified resource for fetching, updating, searching, & browsing DataHub entities */
 @Slf4j
@@ -84,6 +85,8 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
   private static final String UNSET = "unset";
 
   private final Clock _clock = Clock.systemUTC();
+
+  private static final int MAX_LOG_WIDTH = 512;
 
   @Inject
   @Named("entityService")
@@ -243,13 +246,18 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
             .getValue().asString(StandardCharsets.UTF_8);
     String proposedValue = java.util.Optional.ofNullable(metadataChangeProposal.getAspect()).orElse(new GenericAspect())
         .getValue().asString(StandardCharsets.UTF_8);
-    log.info("Ingest content: urn: {} value: {}", urn, proposedValue);
     final boolean asyncBool;
     if (UNSET.equals(async)) {
       asyncBool = Boolean.parseBoolean(System.getenv(ASYNC_INGEST_DEFAULT_NAME));
     } else {
       asyncBool = Boolean.parseBoolean(async);
     }
+
+    log.info(
+        "Ingestion proposal urn: {}, async: {}, value: {}",
+        urn,
+        asyncBool,
+        StringUtils.abbreviate(proposedValue, MAX_LOG_WIDTH));
 
     Authentication authentication = AuthenticationContext.getAuthentication();
       final OperationContext opContext = OperationContext.asSession(

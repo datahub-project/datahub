@@ -12,6 +12,7 @@ const Container = styled.div`
     margin-left: 8px;
     box-shadow: 0px 0px 4px 0px #0000001a;
     height: 100%;
+    border: 1px solid transparent;
     &&:hover {
         border: 1px solid ${REDESIGN_COLORS.BLUE};
     }

@@ -25,6 +25,8 @@ import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.Constants;
 import io.datahubproject.metadata.context.OperationContext;
+import java.util.Map;
+import java.util.Set;
 import org.mockito.Mockito;
 import org.testng.Assert;
 import org.testng.annotations.BeforeMethod;
@@ -50,12 +52,13 @@ public class EntityNameProviderTest {
   public void testGetNameForDifferentEntityTypes() {
     try {
       Mockito.when(
-              entityClient.getV2(
+              entityClient.batchGetV2(
                   any(OperationContext.class),
                   Mockito.eq(TEST_DATASET_URN.getEntityType()),
-                  Mockito.eq(TEST_DATASET_URN),
+                  Mockito.eq(Set.of(TEST_DATASET_URN)),
                   Mockito.eq(ImmutableSet.of(DATASET_PROPERTIES_ASPECT_NAME))))
-          .thenReturn(getMockDatasetNameResponse("Expected Dataset Name"));
+          .thenReturn(
+              Map.of(TEST_DATASET_URN, getMockDatasetNameResponse("Expected Dataset Name")));
       String name = entityNameProvider.getName(mock(OperationContext.class), TEST_DATASET_URN);
       Assert.assertEquals(name, "Expected Dataset Name");
     } catch (Exception e) {
@@ -67,19 +70,24 @@ public class EntityNameProviderTest {
   public void testGetPlatformNameExists() {
     try {
       Mockito.when(
-              entityClient.getV2(
+              entityClient.batchGetV2(
                   any(OperationContext.class),
                   Mockito.eq(DATASET_ENTITY_NAME),
-                  Mockito.eq(TEST_DATASET_URN),
+                  Mockito.eq(Set.of(TEST_DATASET_URN)),
                   Mockito.eq(ImmutableSet.of(DATA_PLATFORM_INSTANCE_ASPECT_NAME))))
-          .thenReturn(getMockDataPlatformInstanceResponse(TEST_DATA_PLATFORM_URN));
+          .thenReturn(
+              Map.of(
+                  TEST_DATASET_URN, getMockDataPlatformInstanceResponse(TEST_DATA_PLATFORM_URN)));
       Mockito.when(
-              entityClient.getV2(
+              entityClient.batchGetV2(
                   any(OperationContext.class),
                   Mockito.eq(DATA_PLATFORM_ENTITY_NAME),
-                  Mockito.eq(TEST_DATA_PLATFORM_URN),
+                  Mockito.eq(Set.of(TEST_DATA_PLATFORM_URN)),
                   Mockito.eq(ImmutableSet.of(DATA_PLATFORM_INFO_ASPECT_NAME))))
-          .thenReturn(getMockDataPlatformInfoResponse("Expected Platform Name"));
+          .thenReturn(
+              Map.of(
+                  TEST_DATA_PLATFORM_URN,
+                  getMockDataPlatformInfoResponse("Expected Platform Name")));
       String platformName =
           entityNameProvider.getPlatformName(mock(OperationContext.class), TEST_DATASET_URN);
       Assert.assertEquals(platformName, "Expected Platform Name");
@@ -109,12 +117,12 @@ public class EntityNameProviderTest {
   public void testGetEntityTypeNameSubTypes() {
     try {
       Mockito.when(
-              entityClient.getV2(
+              entityClient.batchGetV2(
                   any(OperationContext.class),
                   Mockito.eq(TEST_DATASET_URN.getEntityType()),
-                  Mockito.eq(TEST_DATASET_URN),
+                  Mockito.eq(Set.of(TEST_DATASET_URN)),
                   Mockito.eq(ImmutableSet.of(SUB_TYPES_ASPECT_NAME))))
-          .thenReturn(getMockSubTypesResponse("Expected Type Name"));
+          .thenReturn(Map.of(TEST_DATASET_URN, getMockSubTypesResponse("Expected Type Name")));
 
       String entityTypeName =
           entityNameProvider.getTypeName(mock(OperationContext.class), TEST_DATASET_URN);

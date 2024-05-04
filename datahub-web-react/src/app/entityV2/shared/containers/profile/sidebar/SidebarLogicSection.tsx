@@ -7,6 +7,8 @@ import { useBaseEntity } from '../../../../../entity/shared/EntityContext';
 import { QueryEntity } from '../../../../../../types.generated';
 import EntitySidebarContext from '../../../../../sharedV2/EntitySidebarContext';
 import { SidebarSection } from './SidebarSection';
+import { DBT_URN } from '../../../../../ingest/source/builder/constants';
+import { ViewTab } from '../../../tabs/Dataset/View/ViewDefinitionTab';
 
 const PreviewSyntax = styled(SyntaxHighlighter)`
     max-width: 100%;
@@ -64,6 +66,14 @@ function SidebarLogicSection({ title, statement, highlightedStrings }: HelperPro
         }
         return { style };
     }
+    const baseEntity = useBaseEntity<GetDatasetQuery>();
+    const formattedLogic = baseEntity?.dataset?.viewProperties?.formattedLogic;
+
+    const canShowFormatted = !!formattedLogic;
+
+    const isDbt = baseEntity?.dataset?.platform?.urn === DBT_URN;
+    const formatOptions = isDbt ? ['Source', 'Compiled'] : ['Raw', 'Formatted'];
+    const [showFormatted, setShowFormatted] = useState(false);
 
     return (
         <SidebarSection
@@ -82,11 +92,25 @@ function SidebarLogicSection({ title, statement, highlightedStrings }: HelperPro
                         onCancel={() => setShowFullContentModal(false)}
                     >
                         <ModalSyntaxContainer>
+                            {canShowFormatted && (
+                                <ViewTab
+                                    formatOptions={formatOptions}
+                                    setShowFormatted={setShowFormatted}
+                                    showFormatted={showFormatted}
+                                />
+                            )}
                             <SyntaxHighlighter language="sql" wrapLongLines showLineNumbers lineProps={lineProps}>
-                                {statement}
+                                {showFormatted ? formattedLogic : statement}
                             </SyntaxHighlighter>
                         </ModalSyntaxContainer>
                     </Modal>
+                    {canShowFormatted && (
+                        <ViewTab
+                            formatOptions={formatOptions}
+                            setShowFormatted={setShowFormatted}
+                            showFormatted={showFormatted}
+                        />
+                    )}
                     <PreviewSyntax
                         language="sql"
                         showLineNumbers
@@ -94,7 +118,7 @@ function SidebarLogicSection({ title, statement, highlightedStrings }: HelperPro
                         lineNumberStyle={{ display: 'none' }}
                         lineProps={lineProps}
                     >
-                        {statement}
+                        {showFormatted ? formattedLogic : statement}
                     </PreviewSyntax>
                     <Button type="text" onClick={() => setShowFullContentModal(true)}>
                         See Full

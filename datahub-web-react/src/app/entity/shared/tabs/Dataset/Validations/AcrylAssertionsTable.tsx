@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { Checkbox, Empty, Table } from 'antd';
+import { Checkbox, Empty, Table, TableProps } from 'antd';
 import { Assertion, AssertionRunStatus, AssertionType, DataContract, Entity } from '../../../../../../types.generated';
 import { useEntityData } from '../../../EntityContext';
 import { ActionsColumn, DetailsColumn } from './AcrylAssertionsTableColumns';
@@ -8,8 +8,12 @@ import { AssertionProfileDrawer } from './assertion/profile/AssertionProfileDraw
 import { ANTD_GRAY } from '../../../constants';
 import { useOpenAssertionDetailModal } from './assertion/builder/hooks';
 
-export const StyledTable = styled(Table)`
-    margin-left: -50px;
+type StyledTableProps = {
+    showSelect?: boolean;
+} & TableProps<any>;
+
+export const StyledTable = styled(Table)<StyledTableProps>`
+    ${(props) => !props.showSelect && `margin-left: -50px;`}
     max-width: none;
     overflow: inherit;
     height: inherit;
@@ -29,6 +33,7 @@ export const StyledTable = styled(Table)`
     && {
         .ant-table-tbody > tr > td {
             border: none;
+            ${(props) => props.showSelect && `padding: 16px 20px;`
         }
     }
     &&& .ant-table-cell {
@@ -44,7 +49,7 @@ export const StyledTable = styled(Table)`
     &&& .acryl-selected-assertions-table-row {
         background-color: ${ANTD_GRAY[4]};
     }
-` as typeof Table;
+`;
 
 const DetailsColumnWrapper = styled.div`
     display: flex;
@@ -187,6 +192,7 @@ export const AcrylAssertionsTable = ({
     return (
         <>
             <StyledTable
+                showSelect={showSelect}
                 rowClassName={(record) => {
                     return (
                         (record.urn === focusAssertionUrn && 'acryl-selected-assertions-table-row') ||
@@ -202,7 +208,11 @@ export const AcrylAssertionsTable = ({
                 onRow={(record) => {
                     return {
                         onClick: (_) => {
-                            setFocusAssertionUrn(record.urn);
+                            if (showSelect) {
+                                onSelect?.(record.urn as string);
+                            } else {
+                                setFocusAssertionUrn(record.urn);
+                            }
                         },
                     };
                 }}

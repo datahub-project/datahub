@@ -141,6 +141,7 @@ export const DatasetFreshnessSourceBuilder = ({
                 ...value,
                 sourceType: newSourceOption.type,
                 field: newField as FreshnessFieldSpec,
+                auditLog: {},
             });
         }
     };

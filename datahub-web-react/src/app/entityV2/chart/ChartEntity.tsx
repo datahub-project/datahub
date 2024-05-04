@@ -11,7 +11,7 @@ import {
 import * as React from 'react';
 import { GetChartQuery, useGetChartQuery, useUpdateChartMutation } from '../../../graphql/chart.generated';
 import { Chart, EntityType, LineageDirection, SearchResult } from '../../../types.generated';
-import { LOOKER_URN } from '../../ingest/source/builder/constants';
+import { LOOKER_URN, MODE_URN } from '../../ingest/source/builder/constants';
 import { MatchedFieldList } from '../../search/matches/MatchedFieldList';
 import { matchedInputFieldRenderer } from '../../searchV2/matches/matchedInputFieldRenderer';
 import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
@@ -37,7 +37,7 @@ import { ChartDashboardsTab } from '../shared/tabs/Entity/ChartDashboardsTab';
 import { InputFieldsTab } from '../shared/tabs/Entity/InputFieldsTab';
 import { LineageTab } from '../shared/tabs/Lineage/LineageTab';
 import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
-import { SidebarTitleActionType, getDataProduct, isOutputPort } from '../shared/utils';
+import { SidebarTitleActionType, getDataProduct, isOutputPort, getDashboardLastUpdatedMs } from '../shared/utils';
 import { ChartPreview } from './preview/ChartPreview';
 import { ChartStatsSummarySubHeader } from './profile/stats/ChartStatsSummarySubHeader';
 import ChartSummaryTab from './summary/ChartSummaryTab';
@@ -46,6 +46,11 @@ import { IncidentTab } from '../shared/tabs/Incident/IncidentTab';
 import { GenericEntityProperties } from '../../entity/shared/types';
 import SyncedAssetSection from '../shared/containers/profile/sidebar/shared/SyncedAssetSection';
 import SharingAssetSection from '../shared/containers/profile/sidebar/shared/SharingAssetSection';
+
+const PREVIEW_SUPPORTED_PLATFORMS = [
+    LOOKER_URN,
+    MODE_URN,
+]
 
 const headerDropdownItems = new Set([
     EntityMenuItems.EXTERNAL_URL,
@@ -125,7 +130,8 @@ export class ChartEntity implements Entity<Chart> {
                     icon: SUMMARY_TAB_ICON,
                     display: {
                         visible: (_, chart: GetChartQuery) =>
-                            !!chart?.chart?.subTypes?.typeNames?.includes(SubType.TableauWorksheet),
+                            !!chart?.chart?.subTypes?.typeNames?.includes(SubType.TableauWorksheet) ||
+                            !!chart?.chart?.subTypes?.typeNames?.includes(SubType.Looker),
                         enabled: () => true,
                     },
                 },
@@ -149,9 +155,9 @@ export class ChartEntity implements Entity<Chart> {
                     icon: EyeOutlined,
                     display: {
                         visible: (_, chart: GetChartQuery) =>
-                            !!chart?.chart?.embed?.renderUrl && chart?.chart?.platform.urn === LOOKER_URN,
+                            !!chart?.chart?.embed?.renderUrl && PREVIEW_SUPPORTED_PLATFORMS.includes(chart?.chart?.platform.urn),
                         enabled: (_, chart: GetChartQuery) =>
-                            !!chart?.chart?.embed?.renderUrl && chart?.chart?.platform.urn === LOOKER_URN,
+                            !!chart?.chart?.embed?.renderUrl && PREVIEW_SUPPORTED_PLATFORMS.includes(chart?.chart?.platform.urn),
                     },
                 },
                 {
@@ -271,11 +277,11 @@ export class ChartEntity implements Entity<Chart> {
                 subType={data.subTypes?.typeNames?.[0]}
                 tier={
                     isValuePresent(data?.statsSummary?.viewCountPercentileLast30Days) &&
-                    isValuePresent(data?.statsSummary?.uniqueUserPercentileLast30Days)
+                        isValuePresent(data?.statsSummary?.uniqueUserPercentileLast30Days)
                         ? getChartPopularityTier(
-                              data.statsSummary?.viewCountPercentileLast30Days,
-                              data.statsSummary?.uniqueUserPercentileLast30Days,
-                          )
+                            data.statsSummary?.viewCountPercentileLast30Days,
+                            data.statsSummary?.uniqueUserPercentileLast30Days,
+                        )
                         : undefined
                 }
                 headerDropdownItems={headerDropdownItems}
@@ -304,7 +310,7 @@ export class ChartEntity implements Entity<Chart> {
                 dataProduct={getDataProduct(genericProperties?.dataProduct)}
                 deprecation={data.deprecation}
                 statsSummary={data.statsSummary}
-                lastUpdatedMs={data.properties?.lastModified?.time}
+                lastUpdatedMs={getDashboardLastUpdatedMs(data?.properties)}
                 createdMs={data.properties?.created?.time}
                 externalUrl={data.properties?.externalUrl}
                 snippet={
@@ -317,11 +323,11 @@ export class ChartEntity implements Entity<Chart> {
                 isOutputPort={isOutputPort(result)}
                 tier={
                     isValuePresent(data?.statsSummary?.viewCountPercentileLast30Days) &&
-                    isValuePresent(data?.statsSummary?.uniqueUserPercentileLast30Days)
+                        isValuePresent(data?.statsSummary?.uniqueUserPercentileLast30Days)
                         ? getChartPopularityTier(
-                              data.statsSummary?.viewCountPercentileLast30Days,
-                              data.statsSummary?.uniqueUserPercentileLast30Days,
-                          )
+                            data.statsSummary?.viewCountPercentileLast30Days,
+                            data.statsSummary?.uniqueUserPercentileLast30Days,
+                        )
                         : undefined
                 }
                 headerDropdownItems={headerDropdownItems}

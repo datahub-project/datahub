@@ -25,6 +25,8 @@ export const INTERVAL_TO_MS = {
     [DateInterval.Year]: 31536000000,
 };
 
+
+
 export const INTERVAL_TO_MOMENT_INTERVAL = {
     [DateInterval.Second]: 'seconds',
     [DateInterval.Minute]: 'minutes',
@@ -129,9 +131,10 @@ export const getLocaleTimezone = () => {
     return Intl.DateTimeFormat().resolvedOptions().timeZone;
 };
 
-export const toRelativeTimeString = (timeMs: number) => {
+export const toRelativeTimeString = (timeMs: number | undefined) => {
     const rtf = new Intl.RelativeTimeFormat('en', { numeric: 'auto' });
 
+    if (!timeMs) return null;
     const diffInMs = timeMs - new Date().getTime();
 
     const diffInSeconds = Math.round(diffInMs / INTERVAL_TO_MS[DateInterval.Second]);

@@ -8,7 +8,11 @@ import {
     EntityRelationshipsResult,
     EntityType,
     SearchResult,
+    DatasetProperties,
+    ChartProperties,
+    Operation
 } from '../../../types.generated';
+
 import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
 import { GenericEntityProperties } from '../../entity/shared/types';
 import { OUTPUT_PORTS_FIELD } from '../../search/utils/constants';
@@ -154,4 +158,42 @@ export function summaryHasStats(
 
 export function isOutputPort(result: SearchResult) {
     return result.extraProperties?.find((prop) => prop.name === OUTPUT_PORTS_FIELD)?.value === 'true';
+}
+
+// Dataset 
+export type DatasetLastUpdatedMs = {
+    property: 'lastModified' | 'lastUpdated' | undefined;
+    lastUpdatedMs: number | undefined
+};
+export function getDatasetLastUpdatedMs(
+    properties: Pick<DatasetProperties, 'lastModified'> | null | undefined,
+    operations: Pick<Operation, 'lastUpdatedTimestamp'>[] | null | undefined,
+): DatasetLastUpdatedMs {
+    const lastModified = properties?.lastModified?.time || 0;
+    const lastUpdated = (operations?.length && operations[0].lastUpdatedTimestamp) || 0;
+
+    const max = Math.max(lastModified, lastUpdated);
+
+    if (max === 0) return ({ property: undefined, lastUpdatedMs: undefined });
+    if (max === lastModified) return ({ property: 'lastModified', lastUpdatedMs: lastModified });
+    return ({ property: 'lastUpdated', lastUpdatedMs: lastUpdated });
+}
+
+// Chart & Dashboard
+export type DashboardLastUpdatedMs = {
+    property: 'lastModified' | 'lastRefreshed' | undefined;
+    lastUpdatedMs: number | undefined;
+};
+
+export function getDashboardLastUpdatedMs(
+    properties: Pick<ChartProperties, 'lastModified' | 'lastRefreshed'> | null | undefined,
+): DashboardLastUpdatedMs {
+    const lastModified = properties?.lastModified?.time || 0;
+    const lastRefreshed = properties?.lastRefreshed || 0;
+
+    const max = Math.max(lastModified, lastRefreshed);
+
+    if (max === 0) return ({ property: undefined, lastUpdatedMs: undefined });
+    if (max === lastModified) return ({ property: 'lastModified', lastUpdatedMs: lastModified });
+    return ({ property: 'lastRefreshed', lastUpdatedMs: lastRefreshed });
 }

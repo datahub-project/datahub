@@ -10,6 +10,7 @@ import { REDESIGN_COLORS } from '../../../entityV2/shared/constants';
 import { useHasMatchedFieldByUrn } from '../../../search/context/SearchResultContext';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { generateColorFromPalette } from '../../../glossaryV2/colorUtils';
+import PropagationInfo from '../PropagationInfo';
 
 const PROPAGATOR_URN = 'urn:li:corpuser:__datahub_propagator';
 
@@ -113,6 +114,7 @@ interface Props {
     onOpenModal?: () => void;
     refetch?: () => Promise<any>;
     showOneAndCount?: boolean;
+    context?: string | null;
 }
 
 export default function TermContent({
@@ -126,6 +128,7 @@ export default function TermContent({
     onOpenModal,
     refetch,
     showOneAndCount,
+    context,
 }: Props) {
     const entityRegistry = useEntityRegistry();
     const [removeTermMutation] = useRemoveTermMutation();
@@ -187,6 +190,7 @@ export default function TermContent({
                 <StyledHighlight matchStyle={highlightMatchStyle} search={highlightText}>
                     {displayName}
                 </StyledHighlight>
+                <PropagationInfo context={context} />
 
                 {term.actor?.urn === PROPAGATOR_URN && <PropagateThunderbolt />}
             </StyledTerm>

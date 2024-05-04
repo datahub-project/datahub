@@ -13,12 +13,15 @@ let clickAddTermsSchemaLevel = (field_id) => {
   clickSchemaLevel(field_id, 'Add Terms');
 };
 
-let createProposalOnModal = (to_type) => {
+let createProposalOnModal = (to_type, text) => {
   cy.get('.ant-select-selector').eq(2).type(to_type);
   cy.wait(1000)
   cy.get(".rc-virtual-list").find("div").contains(to_type).click();
   cy.get('[data-testid="create-proposal-btn"]').click({force: true});
+  cy.waitTextVisible(to_type)
   cy.contains(to_type).should('be.visible')
+  cy.waitTextVisible(text)
+  cy.ensureTextNotPresent(text)
 };
 
 let acceptProposalDatasetPage = (to_type, thing) => {
@@ -36,13 +39,16 @@ let rejectProposalDatasetPage = (to_type, thing) => {
 };
 
 let removeTagSchemaLevel = (field_id, tag) => {
+  cy.get('.ant-drawer-content').contains(tag).should('be.visible')
   cy.get('[data-testid=' + field_id + ']').within(() => {
     cy.contains('[data-testid=tag-' + tag + ']', tag)
       .find('.ant-tag-close-icon')
       .click({ force: true }  );
   }); 
   cy.contains('Yes').click();
-  cy.contains(tag).should('not.exist');
+  cy.waitTextVisible('Removed Tag!')
+  cy.ensureTextNotPresent('Removed Tag!')
+  cy.get('.ant-drawer-content').contains(tag).should('not.exist');
 };
 
 describe('schemaProposals', () => {
@@ -56,7 +62,7 @@ describe('schemaProposals', () => {
     cy.goToDataset(datasetUrn, datasetName);
     cy.clickOptionWithText("field_foo");
     clickAddTagsSchemaLevel('schema-field-field_foo-tags');
-    createProposalOnModal('TagToPropose');
+    createProposalOnModal('TagToPropose', 'Proposed Tag!');
     rejectProposalDatasetPage('TagToPropose', 'tag');
   });
 
@@ -66,7 +72,7 @@ describe('schemaProposals', () => {
     cy.goToDataset(datasetUrn, datasetName);
     cy.clickOptionWithText("field_foo");
     clickAddTermsSchemaLevel('schema-field-field_foo-terms');
-    createProposalOnModal('TermToPropose');
+    createProposalOnModal('TermToPropose','Proposed Term!');
     rejectProposalDatasetPage('TermToPropose', 'term');
   });
 
@@ -77,7 +83,7 @@ describe('schemaProposals', () => {
     cy.goToDataset(datasetUrn, datasetName);
     cy.clickOptionWithText("field_foo");
     clickAddTagsSchemaLevel('schema-field-field_foo-tags');
-    createProposalOnModal('TagToPropose'); 
+    createProposalOnModal('TagToPropose', 'Proposed Tag!'); 
     acceptProposalDatasetPage('TagToPropose', 'tag');
 
     cy.clickOptionWithText("field_foo");
@@ -91,7 +97,7 @@ describe('schemaProposals', () => {
     cy.goToDataset(datasetUrn, datasetName);
     cy.clickOptionWithText("field_foo");
     clickAddTermsSchemaLevel('schema-field-field_foo-terms');
-    createProposalOnModal('TermToPropose');
+    createProposalOnModal('TermToPropose', 'Proposed Term!');
     acceptProposalDatasetPage('TermToPropose', 'term');
 
     // Data cleanup
@@ -111,7 +117,7 @@ describe('schemaProposals', () => {
       cy.goToDataset(datasetUrn, datasetName);
       cy.clickOptionWithText("field_foo");
       clickAddTagsSchemaLevel('schema-field-field_foo-tags');
-      createProposalOnModal('TagToPropose');
+      createProposalOnModal('TagToPropose', 'Proposed Tag!');
       cy.searchNotCachedContainsDataset('TagToPropose', datasetName);
 
       cy.rejectProposalInbox();
@@ -125,7 +131,7 @@ describe('schemaProposals', () => {
       cy.goToDataset(datasetUrn, datasetName);
       cy.clickOptionWithText("field_foo");
       clickAddTermsSchemaLevel('schema-field-field_foo-terms');
-      createProposalOnModal('TermToPropose');
+      createProposalOnModal('TermToPropose', 'Proposed Term!');
       cy.searchNotCachedContainsDataset('TermToPropose', datasetName);
       cy.rejectProposalInbox();
       cy.searchNotCachedDoesNotContainDataset('TermToPropose', datasetName);
@@ -138,7 +144,7 @@ describe('schemaProposals', () => {
       cy.goToDataset(datasetUrn, datasetName);
       cy.clickOptionWithText("field_foo");
       clickAddTagsSchemaLevel('schema-field-field_foo-tags');
-      createProposalOnModal('TagToPropose');
+      createProposalOnModal('TagToPropose', 'Proposed Tag!');
       cy.searchNotCachedContainsDataset('TagToPropose', datasetName);
 
       cy.acceptProposalInbox();
@@ -160,7 +166,7 @@ describe('schemaProposals', () => {
       cy.goToDataset(datasetUrn, datasetName);
       cy.clickOptionWithText("field_foo");
       clickAddTermsSchemaLevel('schema-field-field_foo-terms');
-      createProposalOnModal('TermToPropose');
+      createProposalOnModal('TermToPropose', 'Proposed Term!');
       cy.searchNotCachedContainsDataset('TermToPropose', datasetName); 
       cy.acceptProposalInbox();
       cy.searchNotCachedContainsDataset('TermToPropose', datasetName);

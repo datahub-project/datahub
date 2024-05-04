@@ -29,6 +29,7 @@ from datahub_executor.common.source.sql.utils import (
 )
 from datahub_executor.common.source.types import DatabaseParams, SourceOperationParams
 from datahub_executor.common.types import EntityEvent, EntityEventType
+from datahub_executor.config import DATAHUB_EXECUTOR_SNOWFLAKE_TIMEOUT
 
 from .sql.field_metrics_sql_generator import SnowflakeFieldMetricsSQLGenerator
 from .sql.field_values_sql_generator import SnowflakeFieldValuesSQLGenerator
@@ -60,7 +61,7 @@ class SnowflakeSource(Source):
         try:
             # Set our default timezone to UTC so that comparisons with
             # timezone columns are always peformed in UTC.
-            query = "ALTER SESSION SET TIMEZONE = 'UTC';"
+            query = f"ALTER SESSION SET TIMEZONE = 'UTC', STATEMENT_TIMEOUT_IN_SECONDS = {DATAHUB_EXECUTOR_SNOWFLAKE_TIMEOUT};"
             cur = self.connection.get_client().cursor()
             cur.execute(query)
         except Exception as e:
@@ -176,7 +177,8 @@ class SnowflakeSource(Source):
             INNER JOIN
                 (SELECT * FROM snowflake.account_usage.query_history 
                 WHERE query_history.start_time >= to_timestamp_ltz({operation_params.start_time_millis}, 3)
-                    AND query_history.start_time < to_timestamp_ltz({operation_params.end_time_millis}, 3) 
+                    AND query_history.start_time < to_timestamp_ltz({operation_params.end_time_millis}, 3)
+                    AND (query_history.rows_produced > 0 OR query_history.rows_inserted > 0 OR query_history.rows_updated > 0 OR query_history.rows_deleted > 0)
                     AND query_history.query_type in ({operation_types_filter})) query_history
                 ON exploded_access_history.query_id = query_history.query_id
             WHERE                

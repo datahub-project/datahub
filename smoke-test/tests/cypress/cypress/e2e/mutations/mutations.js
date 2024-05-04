@@ -8,13 +8,13 @@ describe("mutations", () => {
           aliasQuery(req, "appConfig");
       });
       });
-  
+
       const setBusinessAttributeFeatureFlag = () => {
           cy.intercept("POST", "/api/v2/graphql", (req) => {
               if (hasOperationName(req, "appConfig")) {
               req.reply((res) => {
                       businessAttributeEntityEnabled = res.body.data.appConfig.featureFlags.businessAttributeEntityEnabled;
-                      return res;            
+                      return res;
                   });
               }
           }).as('apiCall');
@@ -80,7 +80,7 @@ describe("mutations", () => {
 
     // used by panel - click to search
     cy.wait(3000);
-    cy.contains("1 Datasets").click({ force: true });  
+    cy.contains("1 Datasets").click({ force: true });
 
     // verify dataset shows up in search now
     cy.contains("of 1 result").click({ force: true });

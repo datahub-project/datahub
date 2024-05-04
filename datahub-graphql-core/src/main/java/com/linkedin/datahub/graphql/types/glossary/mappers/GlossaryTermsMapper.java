@@ -66,6 +66,9 @@ public class GlossaryTermsMapper {
     if (entityUrn != null) {
       result.setAssociatedUrn(entityUrn.toString());
     }
+    if (input.getContext() != null) {
+      result.setContext(input.getContext());
+    }
 
     return result;
   }

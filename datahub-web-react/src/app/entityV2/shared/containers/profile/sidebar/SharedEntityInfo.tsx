@@ -13,9 +13,27 @@ import analytics, { EventType } from '../../../../../analytics';
 import { useShareEntityMutation } from '../../../../../../graphql/share.generated';
 import { EntityType, ShareResult } from '../../../../../../types.generated';
 import { InstanceIcon, StyledLabel } from './shared/styledComponents';
+import { StyledCheckbox, StyledShareButton } from '../../../../../shared/share/v2/styledComponents';
 
 const SharingInfoContainer = styled.div`
     margin-bottom: 12px;
+`;
+
+const HeaderContainer = styled.div`
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+`;
+
+const ButtonContainer = styled.div`
+    display: flex;
+    justify-content: center;
+    height: 32px;
+
+    .ant-btn {
+        font-size: 12px;
+        font-weight: 500;
+    }
 `;
 
 const SharingList = styled.div`
@@ -34,12 +52,17 @@ const SharingList = styled.div`
 
 const StyledContainer = styled.div`
     padding: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
 `;
 
 export const TitleContainer = styled.div`
     display: flex;
     align-items: center;
 `;
+
+const InstanceDetails = styled.div``;
 
 export const StyledTitle = styled(Typography.Text)`
     display: flex;
@@ -56,7 +79,7 @@ export const StyledTitle = styled(Typography.Text)`
     }
 `;
 
-export const ResyncBytton = styled(Button)`
+export const ResyncButton = styled(Button)`
     height: 24px;
     width: 24px;
     line-height: 0;
@@ -92,9 +115,15 @@ const StyledShareIcon = styled(ShareIcon)`
 
 interface Props {
     lastShareResults: ShareResult[];
+    selectedInstancesToUnshare: string[];
+    setSelectedInstancesToUnshare: React.Dispatch<React.SetStateAction<string[]>>;
 }
 
-export const SharedEntityInfo = ({ lastShareResults }: Props) => {
+export const SharedEntityInfo = ({
+    lastShareResults,
+    selectedInstancesToUnshare,
+    setSelectedInstancesToUnshare,
+}: Props) => {
     const { entityData, refetch } = useEntityContext();
     const [shareEntityMutation] = useShareEntityMutation();
     const [entityLoading, setEntityLoading] = useState<string>();
@@ -110,7 +139,7 @@ export const SharedEntityInfo = ({ lastShareResults }: Props) => {
     const sortedResults = sortSharedList(filteredResults);
 
     // Handle Resync
-    const handleSubmit = (connectionUrn: string) => {
+    const handleResync = (connectionUrn: string) => {
         setEntityLoading(connectionUrn);
 
         if (entityData?.urn)
@@ -148,9 +177,31 @@ export const SharedEntityInfo = ({ lastShareResults }: Props) => {
                 });
     };
 
+    const handleCheckboxChange = (instanceUrn: string) => {
+        if (instanceUrn) {
+            if (!selectedInstancesToUnshare.includes(instanceUrn)) {
+                setSelectedInstancesToUnshare([...selectedInstancesToUnshare, instanceUrn]);
+            } else {
+                setSelectedInstancesToUnshare(selectedInstancesToUnshare.filter((urn) => urn !== instanceUrn));
+            }
+        }
+    };
+
     return (
         <SharingInfoContainer>
-            <StyledLabel>Sharing with</StyledLabel>
+            <HeaderContainer>
+                <StyledLabel>Sharing with</StyledLabel>
+                {selectedInstancesToUnshare.length > 0 && (
+                    <ButtonContainer>
+                        <StyledShareButton
+                            $color={REDESIGN_COLORS.TITLE_PURPLE}
+                            onClick={() => setSelectedInstancesToUnshare([])}
+                        >
+                            Clear
+                        </StyledShareButton>
+                    </ButtonContainer>
+                )}
+            </HeaderContainer>
             <SharingList>
                 {sortedResults.map((result, index) => {
                     const lastSuccessTime = result.lastSuccess?.time || 0;
@@ -158,33 +209,40 @@ export const SharedEntityInfo = ({ lastShareResults }: Props) => {
                     const isLastItemInList = index === sortedResults.length - 1;
                     return (
                         <StyledContainer>
-                            <TitleContainer>
-                                <StyledTitle>
-                                    <StyledShareIcon />
-                                    <InstanceIcon>
-                                        <AcrylIcon />
-                                    </InstanceIcon>
-                                    {name}
-                                </StyledTitle>
-                                <ResyncBytton
-                                    type="text"
-                                    shape="circle"
-                                    onClick={() => handleSubmit(result.destination.urn)}
-                                >
-                                    {entityLoading === result.destination.urn ? (
-                                        <Tooltip title="Sharing entity…">
-                                            <LoadingOutlined />
-                                        </Tooltip>
-                                    ) : (
-                                        <Tooltip title="Sync entity">
-                                            <SyncOutlined />
-                                        </Tooltip>
-                                    )}
-                                </ResyncBytton>
-                            </TitleContainer>
-                            <LastSynced $addMarginBottom={!isLastItemInList}>
-                                Last synced on <SyncedTime>{toLocalDateTimeString(lastSuccessTime)}</SyncedTime>
-                            </LastSynced>
+                            <InstanceDetails>
+                                <TitleContainer>
+                                    <StyledTitle>
+                                        <StyledShareIcon />
+                                        <InstanceIcon>
+                                            <AcrylIcon />
+                                        </InstanceIcon>
+                                        {name}
+                                    </StyledTitle>
+                                    <ResyncButton
+                                        type="text"
+                                        shape="circle"
+                                        onClick={() => handleResync(result.destination.urn)}
+                                    >
+                                        {entityLoading === result.destination.urn ? (
+                                            <Tooltip title="Sharing entity…">
+                                                <LoadingOutlined />
+                                            </Tooltip>
+                                        ) : (
+                                            <Tooltip title="Sync entity">
+                                                <SyncOutlined />
+                                            </Tooltip>
+                                        )}
+                                    </ResyncButton>
+                                </TitleContainer>
+                                <LastSynced $addMarginBottom={!isLastItemInList}>
+                                    Last synced on <SyncedTime>{toLocalDateTimeString(lastSuccessTime)}</SyncedTime>
+                                </LastSynced>
+                            </InstanceDetails>
+                            <StyledCheckbox
+                                $color={REDESIGN_COLORS.RED_ERROR}
+                                checked={selectedInstancesToUnshare.includes(result.destination.urn)}
+                                onChange={() => handleCheckboxChange(result.destination.urn)}
+                            />
                         </StyledContainer>
                     );
                 })}
