@@ -66,7 +66,7 @@ Here's an overview of what each API can do.
 | Create a Dataset                   | 🚫                                                                           | ✅ [[Guide]](/docs/api/tutorials/datasets.md)                                 | ✅       |
 | Delete a Dataset (Soft Delete)     | ✅ [[Guide]](/docs/api/tutorials/datasets.md#delete-dataset)                  | ✅ [[Guide]](/docs/api/tutorials/datasets.md#delete-dataset)                  | ✅       |
 | Delete a Dataset (Hard Delete)     | 🚫                                                                           | ✅ [[Guide]](/docs/api/tutorials/datasets.md#delete-dataset)                  | ✅       |
-| Search a Dataset                   | ✅                                                                            | ✅                                                                            | ✅       |
+| Search a Dataset                   | ✅ [[Guide]](/docs/how/search.md#graphql)                                     | ✅                                                                            | ✅       |
 | Read a Dataset Deprecation         | ✅                                                                            | ✅                                                                            | ✅       |
 | Read Dataset Entities (V2)         | ✅                                                                            | ✅                                                                            | ✅       |
 | Create a Tag                       | ✅ [[Guide]](/docs/api/tutorials/tags.md#create-tags)                         | ✅ [[Guide]](/docs/api/tutorials/tags.md#create-tags)                         | ✅       |

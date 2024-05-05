@@ -1,13 +1,13 @@
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
-# Lineage
+# Data Lineage
 
 ## Why Would You Use Lineage?
 
-Lineage is used to capture data dependencies within an organization. It allows you to track the inputs from which a data asset is derived, along with the data assets that depend on it downstream.
+Data lineage is used to capture data dependencies within an organization. It allows you to track the inputs from which a data asset is derived, along with the data assets that depend on it downstream.
 
-For more information about lineage, refer to [About DataHub Lineage](/docs/generated/lineage/lineage-feature-guide.md).
+For more information about data lineage, refer to [About DataHub Lineage](/docs/generated/lineage/lineage-feature-guide.md).
 
 ### Goal Of This Guide
 

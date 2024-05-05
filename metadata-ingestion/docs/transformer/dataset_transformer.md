@@ -925,6 +925,24 @@ transformers:
       replacement: "sub"
 ```
 
+## Clean User URN in DatasetUsageStatistics Aspect
+### Config Details
+| Field                       | Required | Type    | Default       | Description                                 |
+|-----------------------------|----------|---------|---------------|---------------------------------------------|
+| `pattern_for_cleanup`                 | ✅         | list[string]    |    | List of suffix/prefix to remove from the Owner URN(s) |
+
+
+Matches against a User URN in DatasetUsageStatistics aspect and remove the matching part from it
+```yaml
+transformers:
+  - type: "pattern_cleanup_dataset_usage_user"
+    config:
+      pattern_for_cleanup:
+        - "ABCDEF"
+        - (?<=_)(\w+)
+```
+
+
 ## Simple Add Dataset domains 
 ### Config Details
 | Field              | Required | Type                   | Default       | Description                                                      |

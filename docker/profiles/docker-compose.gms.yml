@@ -99,6 +99,8 @@ x-datahub-gms-service: &datahub-gms-service
     - ${DATAHUB_LOCAL_GMS_ENV:-empty.env}
   environment: &datahub-gms-env
     <<: [*primary-datastore-mysql-env, *graph-datastore-search-env, *search-datastore-env, *datahub-quickstart-telemetry-env, *kafka-env]
+    ELASTICSEARCH_QUERY_CUSTOM_CONFIG_ENABLED: true
+    ELASTICSEARCH_QUERY_CUSTOM_CONFIG_FILE: '/etc/datahub/search/search_config.yaml'
   healthcheck:
     test: curl -sS --fail http://datahub-gms:${DATAHUB_GMS_PORT:-8080}/health
     start_period: 90s
@@ -107,6 +109,7 @@ x-datahub-gms-service: &datahub-gms-service
     timeout: 5s
   volumes:
     - ${HOME}/.datahub/plugins:/etc/datahub/plugins
+    - ${HOME}/.datahub/search:/etc/datahub/search
   labels:
     io.datahubproject.datahub.component: "gms"
 
@@ -131,6 +134,7 @@ x-datahub-gms-service-dev: &datahub-gms-service-dev
     - ../../metadata-models/src/main/resources/:/datahub/datahub-gms/resources
     - ../../metadata-service/war/build/libs/:/datahub/datahub-gms/bin
     - ${HOME}/.datahub/plugins:/etc/datahub/plugins
+    - ${HOME}/.datahub/search:/etc/datahub/search
 
 #################################
 # MAE Consumer

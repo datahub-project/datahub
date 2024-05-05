@@ -233,6 +233,11 @@ iceberg_common = {
     *pydantic_no_v2,
 }
 
+mssql_common = {
+    "sqlalchemy-pytds>=0.3",
+    "pyOpenSSL",
+}
+
 postgres_common = {
     "psycopg2-binary",
     "GeoAlchemy2",
@@ -371,12 +376,8 @@ plugins: Dict[str, Set[str]] = {
     },
     "mode": {"requests", "tenacity>=8.0.1"} | sqllineage_lib | sqlglot_lib,
     "mongodb": {"pymongo[srv]>=3.11", "packaging"},
-    "mssql": sql_common
-    | {
-        "sqlalchemy-pytds>=0.3",
-        "pyOpenSSL",
-    },
-    "mssql-odbc": sql_common | {"pyodbc"},
+    "mssql": sql_common | mssql_common,
+    "mssql-odbc": sql_common | mssql_common | {"pyodbc"},
     "mysql": mysql,
     # mariadb should have same dependency as mysql
     "mariadb": sql_common | {"pymysql>=1.0.2"},
@@ -705,6 +706,7 @@ entry_points = {
         "simple_add_dataset_dataproduct = datahub.ingestion.transformer.add_dataset_dataproduct:SimpleAddDatasetDataProduct",
         "pattern_add_dataset_dataproduct = datahub.ingestion.transformer.add_dataset_dataproduct:PatternAddDatasetDataProduct",
         "replace_external_url = datahub.ingestion.transformer.replace_external_url:ReplaceExternalUrl",
+        "pattern_cleanup_dataset_usage_user = datahub.ingestion.transformer.pattern_cleanup_dataset_usage_user:PatternCleanupDatasetUsageUser",
     ],
     "datahub.ingestion.sink.plugins": [
         "file = datahub.ingestion.sink.file:FileSink",

@@ -182,7 +182,7 @@
 {
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DashboardSnapshot": {
-            "urn": "urn:li:dashboard:(metabase,1)",
+            "urn": "urn:li:dashboard:(metabase,10)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dashboard.DashboardInfo": {
@@ -234,7 +234,59 @@
 {
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DashboardSnapshot": {
-            "urn": "urn:li:dashboard:(metabase,1)",
+            "urn": "urn:li:dashboard:(metabase,20)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.dashboard.DashboardInfo": {
+                        "customProperties": {},
+                        "title": "Dashboard 2",
+                        "description": "",
+                        "charts": [
+                            "urn:li:chart:(metabase,1)",
+                            "urn:li:chart:(metabase,2)",
+                            "urn:li:chart:(metabase,3)"
+                        ],
+                        "datasets": [],
+                        "lastModified": {
+                            "created": {
+                                "time": 1705398694904,
+                                "actor": "urn:li:corpuser:admin@metabase.com"
+                            },
+                            "lastModified": {
+                                "time": 1705398694904,
+                                "actor": "urn:li:corpuser:admin@metabase.com"
+                            }
+                        },
+                        "dashboardUrl": "http://localhost:3000/dashboard/20"
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Ownership": {
+                        "owners": [
+                            {
+                                "owner": "urn:li:corpuser:admin@metabase.com",
+                                "type": "DATAOWNER"
+                            }
+                        ],
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        }
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1636614000000,
+        "runId": "metabase-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DashboardSnapshot": {
+            "urn": "urn:li:dashboard:(metabase,10)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dashboard.DashboardInfo": {
@@ -333,7 +385,23 @@
 },
 {
     "entityType": "dashboard",
-    "entityUrn": "urn:li:dashboard:(metabase,1)",
+    "entityUrn": "urn:li:dashboard:(metabase,10)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1636614000000,
+        "runId": "metabase-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(metabase,20)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
