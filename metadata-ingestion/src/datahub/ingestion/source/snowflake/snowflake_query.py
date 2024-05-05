@@ -262,7 +262,7 @@ class SnowflakeQuery:
 
     def show_views_for_schema(schema_name: str, db_name: Optional[str] = None, starts_with: Optional[str] = None) -> str:
         db_clause = f'"{db_name}".' if db_name is not None else ""
-        starts_with_clause = f' starts with "{starts_with}%"' if starts_with is not None else ""
+        starts_with_clause = f' starts with "{starts_with}"' if starts_with is not None else ""
         return f"""show views in schema {db_clause}"{schema_name}" {starts_with_clause};"""
 
     @staticmethod
