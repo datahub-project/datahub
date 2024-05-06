@@ -88,5 +88,5 @@ Follow the guides of the Spark Lineage plugin page for more information on how t
 ## References
 
 - [OpenLineage](https://openlineage.io/)
-- [DataHub REST Endpoint](https://datahubproject.io/docs/metadata-integration/rest-api)
+- [DataHub OpenAPI Guide](../api/openapi/openapi-usage-guide.md)
 - [DataHub Spark Lineage Plugin](https://datahubproject.io/docs/metadata-integration/java/spark-lineage-beta)
