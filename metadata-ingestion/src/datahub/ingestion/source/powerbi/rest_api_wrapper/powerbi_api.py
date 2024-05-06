@@ -186,6 +186,22 @@ class PowerBiAPI:
         return reports
 
     def get_workspaces(self) -> List[Workspace]:
+
+        start_date = "2024-05-03T00:00:00.000Z"
+        end_date = "2024-05-03T23:59:59.000Z"
+
+        view_report_events = self._get_resolver().get_event_activities(
+            start_date=start_date,
+            end_date=end_date,
+            operation="ViewReport",
+        )
+
+        view_dashboard_events = self._get_resolver().get_event_activities(
+            start_date=start_date,
+            end_date=end_date,
+            operation="ViewDashboard",
+        )
+
         if self.__config.modified_since:
             workspaces = self.get_modified_workspaces()
             return workspaces

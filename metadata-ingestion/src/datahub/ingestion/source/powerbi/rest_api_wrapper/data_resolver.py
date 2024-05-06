@@ -208,6 +208,31 @@ class DataResolverBase(ABC):
 
         return dashboards
 
+    def get_event_activities(
+        self, start_date: str, end_date: str, operation: str
+    ) -> List[dict]:
+        param = {
+            "startDateTime": f"'{start_date}'",
+            "endDateTime": f"'{end_date}'",
+            "$filter": f"Activity eq '{operation}'",
+        }
+        event = []
+        while True:
+            response = self._request_session.get(
+                "https://api.powerbi.com/v1.0/myorg/admin/activityevents",
+                headers=self.get_authorization_header(),
+                params=param,
+            )
+            response_dict = response.json()
+            event.extend(response_dict["activityEventEntities"])
+            if response_dict["continuationToken"]:
+                param = {
+                    "continuationToken": f"'{response.json()['continuationToken']}'",
+                }
+            else:
+                break
+        return event
+
     def get_groups(self) -> List[dict]:
         group_endpoint = self.get_groups_endpoint()
         params: dict = {"$top": self.TOP, "$skip": 0, "$filter": "type eq 'Workspace'"}
