@@ -28,6 +28,20 @@ class HiveColumnToAvroConverter:
         "bigint": "long",
         "varchar": "string",
         "char": "string",
+        "bytes": "bytes",
+    }
+    _EXTRA_BIGQUERY_TYPE_TO_AVRO_TYPE = {
+        # A few extra types, purely to map BigQuery things correctly.
+        "bool": "boolean",
+        "decimal": "double",
+        "numeric": "int",
+        "bignumeric": "long",
+        "bigdecimal": "double",
+        "float64": "double",
+        "int64": "long",
+        "smallint": "int",
+        "tinyint": "int",
+        "byteint": "int",
     }
 
     _COMPLEX_TYPE = re.compile("^(struct|map|array|uniontype)")
@@ -180,10 +194,16 @@ class HiveColumnToAvroConverter:
                 "native_data_type": s,
                 "_nullable": True,
             }
-        elif s == "timestamp":
+        elif s in {"timestamp", "datetime"}:
             return {
                 "type": "int",
                 "logicalType": "timestamp-millis",
+                "native_data_type": s,
+                "_nullable": True,
+            }
+        elif s in HiveColumnToAvroConverter._EXTRA_BIGQUERY_TYPE_TO_AVRO_TYPE:
+            return {
+                "type": HiveColumnToAvroConverter._EXTRA_BIGQUERY_TYPE_TO_AVRO_TYPE[s],
                 "native_data_type": s,
                 "_nullable": True,
             }
