@@ -67,7 +67,7 @@ If you permanently deletes a user or group from MS Entra then MS Entra will auto
     <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/scim/edit-mapping-form.png"/>
     </p>
 
-    d. **Create Role**: Go to `Provisioning` section and click on `application registration.` to create the role 
+    d. **Create Role**: Go back to the app created in Step #1 and go to the Provisioning section and click on application registration. to create the role 
 
     <p>
     <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/scim/application-registration.png"/>
