@@ -2,6 +2,7 @@ namespace com.linkedin.incident
 
 import com.linkedin.common.AuditStamp
 import com.linkedin.common.EntityReference
+import com.linkedin.common.Time
 import com.linkedin.common.Urn
 
 /**
@@ -80,6 +81,17 @@ record IncidentInfo {
    * The source of an incident, i.e. how it was generated.
    */
   source: optional IncidentSource
+
+  /**
+   * The time at which the incident actually started (may be before the date it was raised).
+   */
+  @Searchable = {
+    "/time": {
+        "fieldName": "startedAt",
+        "fieldType": "COUNT"
+      }
+  }
+  startedAt: optional Time
 
   /**
    * The time at which the request was initially created

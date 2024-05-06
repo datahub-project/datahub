@@ -14,7 +14,8 @@ record IncidentAssignee {
   */
   @Searchable = {
     "addToFilters": true,
-    "filterNameOverride": "Assignee"
+    "filterNameOverride": "Assignee",
+    "fieldName": "assignees"
   }
   actor: Urn
 

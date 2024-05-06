@@ -21,8 +21,6 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.incident.IncidentInfo;
 import com.linkedin.incident.IncidentSource;
 import com.linkedin.incident.IncidentSourceType;
-import com.linkedin.incident.IncidentState;
-import com.linkedin.incident.IncidentStatus;
 import com.linkedin.incident.IncidentType;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.key.IncidentKey;
@@ -36,6 +34,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /** Resolver used for creating (raising) a new asset incident. */
+// TODO: Add an incident impact summary that is computed here (or in a hook)
 @Slf4j
 @RequiredArgsConstructor
 public class RaiseIncidentResolver implements DataFetcher<CompletableFuture<String>> {
@@ -84,6 +83,10 @@ public class RaiseIncidentResolver implements DataFetcher<CompletableFuture<Stri
 
   private IncidentInfo mapIncidentInfo(final RaiseIncidentInput input, final QueryContext context)
       throws URISyntaxException {
+    final AuditStamp actorStamp =
+        new AuditStamp()
+            .setActor(Urn.createFromString(context.getActorUrn()))
+            .setTime(System.currentTimeMillis());
     final IncidentInfo result = new IncidentInfo();
     result.setType(
         IncidentType.valueOf(
@@ -100,16 +103,16 @@ public class RaiseIncidentResolver implements DataFetcher<CompletableFuture<Stri
         new AuditStamp()
             .setActor(Urn.createFromString(context.getActorUrn()))
             .setTime(System.currentTimeMillis()));
+    if (input.getStartedAt() != null) {
+      result.setStartedAt(input.getStartedAt());
+    }
     // Create the incident in the 'active' state by default.
-    result.setStatus(
-        new IncidentStatus()
-            .setState(IncidentState.ACTIVE)
-            .setLastUpdated(
-                new AuditStamp()
-                    .setActor(Urn.createFromString(context.getActorUrn()))
-                    .setTime(System.currentTimeMillis())));
     result.setSource(new IncidentSource().setType(IncidentSourceType.MANUAL), SetMode.IGNORE_NULL);
-    result.setPriority(input.getPriority(), SetMode.IGNORE_NULL);
+    result.setPriority(IncidentUtils.mapIncidentPriority(input.getPriority()), SetMode.IGNORE_NULL);
+    result.setAssignees(
+        IncidentUtils.mapIncidentAssignees(input.getAssigneeUrns(), actorStamp),
+        SetMode.IGNORE_NULL);
+    result.setStatus(IncidentUtils.mapIncidentStatus(input.getStatus(), actorStamp));
     return result;
   }
 
