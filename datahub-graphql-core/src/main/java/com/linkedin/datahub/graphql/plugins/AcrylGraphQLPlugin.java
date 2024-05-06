@@ -42,6 +42,7 @@ import com.linkedin.datahub.graphql.resolvers.form.FormAnalyticsConfigResolver;
 import com.linkedin.datahub.graphql.resolvers.form.FormAnalyticsResolver;
 import com.linkedin.datahub.graphql.resolvers.form.GetFormsForActorResolver;
 import com.linkedin.datahub.graphql.resolvers.form.NumEntitiesToCompleteResolver;
+import com.linkedin.datahub.graphql.resolvers.incident.UpdateIncidentResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.credentials.ListExecutorConfigsResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.execution.ListSignalRequestsResolver;
 import com.linkedin.datahub.graphql.resolvers.integration.GetLinkPreviewResolver;
@@ -371,7 +372,10 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
                 .dataFetcher(
                     "batchVerifyForm",
                     new BatchVerifyFormResolver(this.formService, this.groupService))
-                .dataFetcher("updateHelpLink", new UpdateHelpLinkResolver(this.settingsService)));
+                .dataFetcher("updateHelpLink", new UpdateHelpLinkResolver(this.settingsService))
+                .dataFetcher(
+                    "updateIncident",
+                    new UpdateIncidentResolver(this.entityClient, this.entityService)));
   }
 
   private void configureQueryResolvers(final RuntimeWiring.Builder builder) {

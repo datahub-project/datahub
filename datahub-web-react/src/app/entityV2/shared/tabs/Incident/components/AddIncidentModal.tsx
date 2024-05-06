@@ -64,6 +64,7 @@ export const AddIncidentModal = ({ visible, onClose, refetch }: AddIncidentProps
                     customType: formData.customType || null,
                     title: formData.title,
                     description: formData.description,
+                    startedAt: null,
                     status: {
                         state: IncidentState.Active,
                         message: null,

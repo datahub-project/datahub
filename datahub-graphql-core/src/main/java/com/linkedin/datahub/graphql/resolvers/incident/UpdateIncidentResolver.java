@@ -16,12 +16,9 @@ import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLErrorCode;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
-import com.linkedin.datahub.graphql.generated.UpdateIncidentStatusInput;
+import com.linkedin.datahub.graphql.generated.UpdateIncidentInput;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.incident.IncidentInfo;
-import com.linkedin.incident.IncidentStage;
-import com.linkedin.incident.IncidentState;
-import com.linkedin.incident.IncidentStatus;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.EntityUtils;
@@ -33,7 +30,7 @@ import lombok.RequiredArgsConstructor;
 
 /** GraphQL Resolver that updates an incident's status */
 @RequiredArgsConstructor
-public class UpdateIncidentStatusResolver implements DataFetcher<CompletableFuture<Boolean>> {
+public class UpdateIncidentResolver implements DataFetcher<CompletableFuture<Boolean>> {
 
   private final EntityClient _entityClient;
   private final EntityService _entityService;
@@ -43,35 +40,27 @@ public class UpdateIncidentStatusResolver implements DataFetcher<CompletableFutu
       throws Exception {
     final QueryContext context = environment.getContext();
     final Urn incidentUrn = Urn.createFromString(environment.getArgument("urn"));
-    final UpdateIncidentStatusInput input =
-        bindArgument(environment.getArgument("input"), UpdateIncidentStatusInput.class);
+    final UpdateIncidentInput input =
+        bindArgument(environment.getArgument("input"), UpdateIncidentInput.class);
     return CompletableFuture.supplyAsync(
         () -> {
 
           // Check whether the incident exists.
-          IncidentInfo info =
+          final IncidentInfo info =
               (IncidentInfo)
                   EntityUtils.getAspectFromEntity(
                       incidentUrn.toString(), INCIDENT_INFO_ASPECT_NAME, _entityService, null);
 
           if (info != null) {
-            // Check whether the actor has permission to edit the incident
-            // Currently only supporting a single entity. TODO: Support multiple incident entities.
+            // Check whether the actor has permission to edit the incident.
+            // Currently, this depends on the single entity that the incident is associated with.
             final Urn resourceUrn = info.getEntities().get(0);
             if (isAuthorizedToUpdateIncident(resourceUrn, context)) {
-              info.setStatus(
-                  new IncidentStatus()
-                      .setState(IncidentState.valueOf(input.getState().name()))
-                      .setLastUpdated(
-                          new AuditStamp()
-                              .setActor(UrnUtils.getUrn(context.getActorUrn()))
-                              .setTime(System.currentTimeMillis())));
-              if (input.getMessage() != null) {
-                info.getStatus().setMessage(input.getMessage());
-              }
-              if (input.getStage() != null) {
-                info.getStatus().setStage(IncidentStage.valueOf(input.getStage().name()));
-              }
+              final AuditStamp actorStamp =
+                  new AuditStamp()
+                      .setActor(UrnUtils.getUrn(context.getActorUrn()))
+                      .setTime(System.currentTimeMillis());
+              updateIncidentInfo(info, input, actorStamp);
               try {
                 // Finally, create the MetadataChangeProposal.
                 final MetadataChangeProposal proposal =
@@ -90,6 +79,25 @@ public class UpdateIncidentStatusResolver implements DataFetcher<CompletableFutu
               "Failed to update incident. Incident does not exist.",
               DataHubGraphQLErrorCode.NOT_FOUND);
         });
+  }
+
+  private void updateIncidentInfo(
+      final IncidentInfo info, final UpdateIncidentInput input, final AuditStamp actorStamp) {
+    if (input.getTitle() != null) {
+      info.setTitle(input.getTitle());
+    }
+    if (input.getDescription() != null) {
+      info.setDescription(input.getDescription());
+    }
+    if (input.getPriority() != null) {
+      info.setPriority(IncidentUtils.mapIncidentPriority(input.getPriority()));
+    }
+    if (input.getAssigneeUrns() != null) {
+      info.setAssignees(IncidentUtils.mapIncidentAssignees(input.getAssigneeUrns(), actorStamp));
+    }
+    if (input.getStatus() != null) {
+      info.setStatus(IncidentUtils.mapIncidentStatus(input.getStatus(), actorStamp));
+    }
   }
 
   private boolean isAuthorizedToUpdateIncident(final Urn resourceUrn, final QueryContext context) {
