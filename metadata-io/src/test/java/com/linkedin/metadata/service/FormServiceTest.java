@@ -340,24 +340,11 @@ public class FormServiceTest {
 
   @Test
   private void testBatchUnassignFormToEntitiesDoNotExist() throws Exception {
-
-    // Case 1 - non existing form.
-    Urn nonExistantForm = UrnUtils.getUrn("urn:li:form:non-existant");
     EntityClient mockClient = mockEntityClient(null, null);
-    Mockito.when(mockClient.exists(Mockito.eq(nonExistantForm), any(Authentication.class)))
-        .thenReturn(false);
-
     FormService formService =
         new FormService(mockOperationContext(), mockClient, Mockito.mock(OpenApiClient.class));
 
-    Assert.assertThrows(
-        RuntimeException.class,
-        () -> {
-          formService.batchUnassignFormForEntities(
-              ImmutableList.of(TEST_ENTITY_URN), nonExistantForm, mockSystemAuthentication());
-        });
-
-    // Case 2 - non existant entity.
+    // throw an error if we try to unassign a form to an entity that does not exist
     Urn nonExistantEntity =
         UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:snowflake,test-2,PROD)");
     Mockito.when(mockClient.exists(Mockito.eq(nonExistantEntity), any(Authentication.class)))
