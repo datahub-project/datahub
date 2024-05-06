@@ -28,6 +28,17 @@ sink:
     server: "http://localhost:8080"
 ```
 
+If you are connecting to a hosted Acryl instance, your sink will look like
+```yml
+source:
+  # source configs
+sink:
+  type: "datahub-rest"
+  config:
+    server: "https://<your-instance>.acryl.io/gms"
+    token: <token>
+```
+
 If you are running the ingestion in a container in docker and your [GMS is also running in docker](../../docker/README.md) then you should use the internal docker hostname of the GMS pod. Usually it would look something like
 
 ```yml
