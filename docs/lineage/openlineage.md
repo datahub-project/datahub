@@ -1,4 +1,4 @@
-# DataHub OpenLineage Support Documentation ##
+# OpenLineage
 
 DataHub, now supports [OpenLineage](https://openlineage.io/) integration. With this support, DataHub can ingest and display lineage information from various data processing frameworks, providing users with a comprehensive understanding of their data pipelines.
 
