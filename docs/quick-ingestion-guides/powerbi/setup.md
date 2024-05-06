@@ -80,4 +80,4 @@ In order to configure ingestion from PowerBI, you'll first have to ensure you ha
 
 Once you've done all of the above steps, it's time to [move on](configuration.md) to configuring the actual ingestion source within DataHub.
 
-_Need more help? Join the conversation in [Slack](http://slack.datahubproject.io)!_
+

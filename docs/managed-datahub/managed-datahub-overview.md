@@ -1,6 +1,6 @@
 # How Acryl DataHub compares to DataHub
 
-DataHub is the #1 open source metadata platform for developers.
+DataHub is the #1 open source data catalog for developers.
 
 Acryl DataHub takes DataHub to the next level by offering features that allow
 you to roll out the product to the entire organization beyond your central data
