@@ -21,7 +21,7 @@ dependencies {
     // only include dataTemplate (and resources/entity-registry.yml from above)
     exclude module: 'metadata-models'
   }
-  api project(path: ':metadata-models', configuration: 'dataTemplate')
+  implementation project(path: ':metadata-models', configuration: 'dataTemplate')
 
   // Required for MCL/MCP hooks
   implementation(project(':metadata-io:metadata-io-api')) {
@@ -34,6 +34,10 @@ dependencies {
   }
 }
 
+configurations.all {
+  exclude group: 'org.antlr'
+}
+
 shadowJar {
   zip64 = true
   archiveClassifier = ''
@@ -41,6 +45,7 @@ shadowJar {
   // https://github.com/johnrengelman/shadow/issues/729
   exclude('module-info.class', 'META-INF/versions/**',
       '**/LICENSE', '**/LICENSE*.txt', '**/NOTICE', '**/NOTICE.txt', 'licenses/**', 'log4j2.*', 'log4j.*')
+  relocate 'com.fasterxml.jackson', 'datahub.shaded.jackson'
   mergeServiceFiles()
 }
 
