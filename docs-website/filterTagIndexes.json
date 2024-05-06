@@ -78,7 +78,7 @@
       }
     },
     {
-      "Path": "docs/generated/ingestion/sources/dagster",
+      "Path": "docs/lineage/dagster",
       "imgPath": "img/logos/platforms/dagster.svg",
       "Title": "Dagster",
       "Description": "Dagster is a next-generation open source orchestration platform for the development, production, and observation of data assets..",
