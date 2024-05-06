@@ -770,9 +770,23 @@ class DatabrickDataPlatformTableCreator(AbstractDataPlatformTableCreator):
         temp_accessor: Optional[
             Union[IdentifierAccessor, AbstractIdentifierAccessor]
         ] = data_access_func_detail.identifier_accessor
+
         while temp_accessor:
             if isinstance(temp_accessor, IdentifierAccessor):
-                value_dict[temp_accessor.items["Kind"]] = temp_accessor.items["Name"]
+                # Condition to handle databricks M-query pattern where table, schema and database all are present in
+                # same invoke statement
+                if all(
+                    element in temp_accessor.items
+                    for element in ["Item", "Schema", "Catalog"]
+                ):
+                    value_dict["Database"] = temp_accessor.items["Catalog"]
+                    value_dict["Schema"] = temp_accessor.items["Schema"]
+                    value_dict["Table"] = temp_accessor.items["Item"]
+                else:
+                    value_dict[temp_accessor.items["Kind"]] = temp_accessor.items[
+                        "Name"
+                    ]
+
                 if temp_accessor.next is not None:
                     temp_accessor = temp_accessor.next
                 else:
