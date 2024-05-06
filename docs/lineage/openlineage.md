@@ -1,8 +1,8 @@
-## DataHub OpenLineage Support Documentation ##
+# DataHub OpenLineage Support Documentation ##
 
 DataHub, now supports [OpenLineage](https://openlineage.io/) integration. With this support, DataHub can ingest and display lineage information from various data processing frameworks, providing users with a comprehensive understanding of their data pipelines.
 
-### Features
+## Features
 
 - **REST Endpoint Support**: DataHub now includes a REST endpoint that can understand OpenLineage events. This allows users to send lineage information directly to DataHub, enabling easy integration with various data processing frameworks.
 
@@ -56,7 +56,7 @@ Example:
   "producer": "https://github.com/OpenLineage/OpenLineage/blob/v1-0-0/client"
 }
 ```
-##### How to set up Airflow
+#### How to set up Airflow
 Follow the Airflow guide to setup the Airflow DAGs to send lineage information to DataHub. The guide can be found [here](https://airflow.apache.org/docs/apache-airflow-providers-openlineage/stable/guides/user.html
 The transport should look like this:
 ```json
@@ -70,22 +70,22 @@ The transport should look like this:
 }
 ```
 
-##### Known Limitations
+#### Known Limitations
 With Spark and Airflow we recommend using the Spark Lineage or DataHub's Airflow plugin for tighter integration with DataHub.
 
 - **[PathSpec](https://datahubproject.io/docs/metadata-integration/java/spark-lineage-beta/#configuring-hdfs-based-dataset-urns) Support**: While the REST endpoint supports OpenLineage messages, full [PathSpec](https://datahubproject.io/docs/metadata-integration/java/spark-lineage-beta/#configuring-hdfs-based-dataset-urns)) support is not yet available.
 
 - **Column-level Lineage**: DataHub's current OpenLineage support does not provide full column-level lineage tracking.
 - etc...
-#### 2. Spark Event Listener Plugin
+### 2. Spark Event Listener Plugin
 
 DataHub's Spark Event Listener plugin enhances OpenLineage support by providing additional features such as PathSpec support, column-level lineage, and more.
 
-##### How to Use
+#### How to Use
 
 Follow the guides of the Spark Lineage plugin page for more information on how to set up the Spark Lineage plugin. The guide can be found [here](https://datahubproject.io/docs/metadata-integration/java/spark-lineage-beta)
 
-### References
+## References
 
 - [OpenLineage](https://openlineage.io/)
 - [DataHub REST Endpoint](https://datahubproject.io/docs/metadata-integration/rest-api)
