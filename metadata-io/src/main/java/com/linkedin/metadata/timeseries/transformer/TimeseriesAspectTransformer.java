@@ -20,7 +20,6 @@ import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.TimeseriesFieldCollectionSpec;
 import com.linkedin.metadata.models.TimeseriesFieldSpec;
 import com.linkedin.metadata.models.extractor.FieldExtractor;
-import com.linkedin.metadata.spring.YamlPropertySourceFactory;
 import com.linkedin.metadata.timeseries.elastic.indexbuilder.MappingsBuilder;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.util.Pair;
@@ -35,13 +34,9 @@ import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.context.annotation.PropertySource;
-import org.springframework.stereotype.Component;
 
 /** Class that provides a utility function that transforms the timeseries aspect into a document */
 @Slf4j
-@Component
-@PropertySource(value = "classpath:/application.yaml", factory = YamlPropertySourceFactory.class)
 public class TimeseriesAspectTransformer {
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
