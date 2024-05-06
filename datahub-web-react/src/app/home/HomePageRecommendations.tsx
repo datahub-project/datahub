@@ -217,7 +217,7 @@ export const HomePageRecommendations = ({ user }: Props) => {
                                             key={entityCount.entityType}
                                             entityType={entityCount.entityType}
                                             count={entityCount.count}
-                                            showGlossary={true}
+                                            showGlossary={showGlossary}
                                         />
                                     ),
                             )}
