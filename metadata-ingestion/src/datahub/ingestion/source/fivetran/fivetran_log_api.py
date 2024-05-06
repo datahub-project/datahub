@@ -80,25 +80,67 @@ class FivetranLogAPI:
         resp = self.engine.execute(query)
         return [row for row in resp]
 
-    def _get_table_lineage(self, connector_id: str) -> List[TableLineage]:
-        table_lineage_result = self._query(
-            self.fivetran_log_query.get_table_lineage_query(connector_id=connector_id)
+    def _get_column_lineage_metadata(self) -> Dict[str, List]:
+        """
+        Return's dict of column lineage metadata with key as '<SOURCE_TABLE_ID>-<DESTINATION_TABLE_ID>'
+        """
+        all_column_lineage: Dict[str, List] = {}
+        column_lineage_result = self._query(
+            self.fivetran_log_query.get_column_lineage_query()
         )
-        table_lineage_list: List[TableLineage] = []
+        for column_lineage in column_lineage_result:
+            key = f"{column_lineage[Constant.SOURCE_TABLE_ID]}-{column_lineage[Constant.DESTINATION_TABLE_ID]}"
+            if key not in all_column_lineage:
+                all_column_lineage[key] = [column_lineage]
+            else:
+                all_column_lineage[key].append(column_lineage)
+        return all_column_lineage
+
+    def _get_connectors_table_lineage_metadata(self) -> Dict[str, List]:
+        """
+        Return's dict of table lineage metadata with key as 'CONNECTOR_ID'
+        """
+        connectors_table_lineage_metadata: Dict[str, List] = {}
+        table_lineage_result = self._query(
+            self.fivetran_log_query.get_table_lineage_query()
+        )
         for table_lineage in table_lineage_result:
-            column_lineage_result = self._query(
-                self.fivetran_log_query.get_column_lineage_query(
-                    source_table_id=table_lineage[Constant.SOURCE_TABLE_ID],
-                    destination_table_id=table_lineage[Constant.DESTINATION_TABLE_ID],
-                )
+            if (
+                table_lineage[Constant.CONNECTOR_ID]
+                not in connectors_table_lineage_metadata
+            ):
+                connectors_table_lineage_metadata[
+                    table_lineage[Constant.CONNECTOR_ID]
+                ] = [table_lineage]
+            else:
+                connectors_table_lineage_metadata[
+                    table_lineage[Constant.CONNECTOR_ID]
+                ].append(table_lineage)
+        return connectors_table_lineage_metadata
+
+    def _get_table_lineage(
+        self,
+        column_lineage_metadata: Dict[str, List],
+        table_lineage_result: Optional[List],
+    ) -> List[TableLineage]:
+        table_lineage_list: List[TableLineage] = []
+        if table_lineage_result is None:
+            return table_lineage_list
+        for table_lineage in table_lineage_result:
+            column_lineage_result = column_lineage_metadata.get(
+                f"{table_lineage[Constant.SOURCE_TABLE_ID]}-{table_lineage[Constant.DESTINATION_TABLE_ID]}"
             )
-            column_lineage_list: List[ColumnLineage] = [
-                ColumnLineage(
-                    source_column=column_lineage[Constant.SOURCE_COLUMN_NAME],
-                    destination_column=column_lineage[Constant.DESTINATION_COLUMN_NAME],
-                )
-                for column_lineage in column_lineage_result
-            ]
+            column_lineage_list: List[ColumnLineage] = []
+            if column_lineage_result:
+                column_lineage_list = [
+                    ColumnLineage(
+                        source_column=column_lineage[Constant.SOURCE_COLUMN_NAME],
+                        destination_column=column_lineage[
+                            Constant.DESTINATION_COLUMN_NAME
+                        ],
+                    )
+                    for column_lineage in column_lineage_result
+                ]
             table_lineage_list.append(
                 TableLineage(
                     source_table=f"{table_lineage[Constant.SOURCE_SCHEMA_NAME]}.{table_lineage[Constant.SOURCE_TABLE_NAME]}",
@@ -109,30 +151,44 @@ class FivetranLogAPI:
 
         return table_lineage_list
 
-    def _get_jobs_list(self, connector_id: str) -> List[Job]:
+    def _get_all_connector_sync_logs(self) -> Dict[str, Dict]:
+        sync_logs = {}
+        for row in self._query(self.fivetran_log_query.get_sync_logs_query()):
+            if row[Constant.CONNECTOR_ID] not in sync_logs:
+                sync_logs[row[Constant.CONNECTOR_ID]] = {
+                    row[Constant.SYNC_ID]: {
+                        row["message_event"]: (
+                            row[Constant.TIME_STAMP].timestamp(),
+                            row[Constant.MESSAGE_DATA],
+                        )
+                    }
+                }
+            elif row[Constant.SYNC_ID] not in sync_logs[row[Constant.CONNECTOR_ID]]:
+                sync_logs[row[Constant.CONNECTOR_ID]][row[Constant.SYNC_ID]] = {
+                    row["message_event"]: (
+                        row[Constant.TIME_STAMP].timestamp(),
+                        row[Constant.MESSAGE_DATA],
+                    )
+                }
+            else:
+                sync_logs[row[Constant.CONNECTOR_ID]][row[Constant.SYNC_ID]][
+                    row["message_event"]
+                ] = (row[Constant.TIME_STAMP].timestamp(), row[Constant.MESSAGE_DATA])
+
+        return sync_logs
+
+    def _get_jobs_list(
+        self, connector_sync_log: Optional[Dict[str, Dict]]
+    ) -> List[Job]:
         jobs: List[Job] = []
-        sync_start_logs = {
-            row[Constant.SYNC_ID]: row
-            for row in self._query(
-                self.fivetran_log_query.get_sync_start_logs_query(
-                    connector_id=connector_id
-                )
-            )
-        }
-        sync_end_logs = {
-            row[Constant.SYNC_ID]: row
-            for row in self._query(
-                self.fivetran_log_query.get_sync_end_logs_query(
-                    connector_id=connector_id
-                )
-            )
-        }
-        for sync_id in sync_start_logs.keys():
-            if sync_end_logs.get(sync_id) is None:
-                # If no sync-end event log for this sync id that means sync is still in progress
+        if connector_sync_log is None:
+            return jobs
+        for sync_id in connector_sync_log.keys():
+            if len(connector_sync_log[sync_id]) != 2:
+                # If both sync-start and sync-end event log not present for this sync that means sync is still in progress
                 continue
 
-            message_data = sync_end_logs[sync_id][Constant.MESSAGE_DATA]
+            message_data = connector_sync_log[sync_id]["sync_end"][1]
             if message_data is None:
                 continue
             message_data = json.loads(message_data)
@@ -145,12 +201,8 @@ class FivetranLogAPI:
             jobs.append(
                 Job(
                     job_id=sync_id,
-                    start_time=round(
-                        sync_start_logs[sync_id][Constant.TIME_STAMP].timestamp()
-                    ),
-                    end_time=round(
-                        sync_end_logs[sync_id][Constant.TIME_STAMP].timestamp()
-                    ),
+                    start_time=round(connector_sync_log[sync_id]["sync_start"][0]),
+                    end_time=round(connector_sync_log[sync_id]["sync_end"][0]),
                     status=message_data[Constant.STATUS],
                 )
             )
@@ -172,6 +224,9 @@ class FivetranLogAPI:
         self, connector_patterns: AllowDenyPattern, report: FivetranSourceReport
     ) -> List[Connector]:
         connectors: List[Connector] = []
+        sync_logs = self._get_all_connector_sync_logs()
+        table_lineage_metadata = self._get_connectors_table_lineage_metadata()
+        column_lineage_metadata = self._get_column_lineage_metadata()
         connector_list = self._query(self.fivetran_log_query.get_connectors_query())
         for connector in connector_list:
             if not connector_patterns.allowed(connector[Constant.CONNECTOR_NAME]):
@@ -189,9 +244,14 @@ class FivetranLogAPI:
                         connector[Constant.CONNECTING_USER_ID]
                     ),
                     table_lineage=self._get_table_lineage(
-                        connector[Constant.CONNECTOR_ID]
+                        column_lineage_metadata=column_lineage_metadata,
+                        table_lineage_result=table_lineage_metadata.get(
+                            connector[Constant.CONNECTOR_ID]
+                        ),
                     ),
-                    jobs=self._get_jobs_list(connector[Constant.CONNECTOR_ID]),
+                    jobs=self._get_jobs_list(
+                        sync_logs.get(connector[Constant.CONNECTOR_ID])
+                    ),
                 )
             )
         return connectors
