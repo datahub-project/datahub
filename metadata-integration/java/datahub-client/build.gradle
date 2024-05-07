@@ -27,7 +27,7 @@ dependencies {
     }
   }
 
-  compileOnly externalDependency.httpAsyncClient
+  compileOnly externalDependency.httpClient
   implementation externalDependency.jacksonDataBind
   runtimeOnly externalDependency.jna
 
@@ -41,7 +41,7 @@ dependencies {
   testImplementation externalDependency.mockServer
   testImplementation externalDependency.mockServerClient
   testImplementation externalDependency.testContainers
-  testImplementation externalDependency.httpAsyncClient
+  testImplementation externalDependency.httpClient
   testRuntimeOnly externalDependency.logbackClassic
 }
 
