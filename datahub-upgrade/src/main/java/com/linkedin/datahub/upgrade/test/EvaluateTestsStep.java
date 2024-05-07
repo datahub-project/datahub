@@ -29,6 +29,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -91,9 +92,15 @@ public class EvaluateTestsStep implements UpgradeStep {
         int batchSize =
             context
                 .parsedArgs()
-                .getOrDefault("BATCH_SIZE", Optional.empty())
+                .getOrDefault("batchSize", Optional.empty())
                 .map(Integer::parseInt)
                 .orElse(1000);
+        int batchDelayMs =
+            context
+                .parsedArgs()
+                .getOrDefault("batchDelayMs", Optional.empty())
+                .map(Integer::parseInt)
+                .orElse(250);
 
         Set<String> entityTypesToEvaluate = new HashSet<>(_testEngine.getEntityTypesToEvaluate());
 
@@ -132,8 +139,16 @@ public class EvaluateTestsStep implements UpgradeStep {
                 _executorService.submit(
                     () ->
                         processBatch(
-                            entitiesInBatch, batchNumber, entityType, resultAggregator, context)));
+                            entitiesInBatch,
+                            batchNumber,
+                            batchDelayMs,
+                            entityType,
+                            resultAggregator,
+                            context)));
             batch++;
+            if (batchDelayMs > 0) {
+              TimeUnit.MILLISECONDS.sleep(batchDelayMs);
+            }
           } while (nextScrollId != null);
 
           context
@@ -169,9 +184,11 @@ public class EvaluateTestsStep implements UpgradeStep {
   private Map<Urn, TestResults> processBatch(
       Set<Urn> entitiesInBatch,
       int batchNumber,
+      int batchDelayMs,
       String entityType,
       BatchTestResultAggregator resultAggregator,
-      UpgradeContext context) {
+      UpgradeContext context)
+      throws InterruptedException {
     {
       Map<Urn, TestResults> result;
       try {
@@ -191,6 +208,10 @@ public class EvaluateTestsStep implements UpgradeStep {
                 String.format(
                     "Error while processing batch %d of %s entities", batchNumber, entityType));
         log.error("Error while processing batch {} of {} entities", batchNumber, entityType, e);
+      } finally {
+        if (batchDelayMs > 0) {
+          TimeUnit.MILLISECONDS.sleep(batchDelayMs);
+        }
       }
       return null;
     }
