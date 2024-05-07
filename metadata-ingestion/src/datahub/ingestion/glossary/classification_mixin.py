@@ -210,6 +210,10 @@ class ClassificationHandler:
     ) -> None:
         for schema_field in schema_metadata.fields:
             if schema_field.fieldPath in field_terms:
+                logger.info(
+                    f"Attaching glossary term '{field_terms[schema_field.fieldPath]}' "
+                    f"to field '{schema_field.fieldPath}'"
+                )
                 schema_field.glossaryTerms = GlossaryTerms(
                     terms=[
                         GlossaryTermAssociation(
