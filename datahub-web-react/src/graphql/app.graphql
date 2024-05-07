@@ -71,6 +71,7 @@ query appConfig {
             showBrowseV2
             platformBrowseV2
             assertionMonitorsEnabled
+            schemaAssertionMonitorsEnabled
             subscriptionsEnabled
             datasetHealthDashboardEnabled
             showAcrylInfo

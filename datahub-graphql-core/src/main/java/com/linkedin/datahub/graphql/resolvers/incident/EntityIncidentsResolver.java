@@ -5,6 +5,7 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityIncidentsResult;
 import com.linkedin.datahub.graphql.generated.Incident;
+import com.linkedin.datahub.graphql.generated.IncidentPriority;
 import com.linkedin.datahub.graphql.types.incident.IncidentMapper;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
@@ -20,6 +21,7 @@ import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -36,6 +38,9 @@ public class EntityIncidentsResolver
   static final String INCIDENT_ENTITIES_SEARCH_INDEX_FIELD_NAME = "entities.keyword";
   static final String INCIDENT_STATE_SEARCH_INDEX_FIELD_NAME = "state";
   static final String CREATED_TIME_SEARCH_INDEX_FIELD_NAME = "created";
+  static final String INCIDENT_STAGE_SEARCH_INDEX_FIELD_NAME = "stage";
+  static final String INCIDENT_PRIORITY_SEARCH_INDEX_FIELD_NAME = "priority";
+  static final String INCIDENT_ASSIGNEES_SEARCH_INDEX_FIELD_NAME = "assignees";
 
   private final EntityClient _entityClient;
 
@@ -53,12 +58,18 @@ public class EntityIncidentsResolver
           final Integer start = environment.getArgumentOrDefault("start", 0);
           final Integer count = environment.getArgumentOrDefault("count", 20);
           final Optional<String> maybeState = Optional.ofNullable(environment.getArgument("state"));
-
+          final Optional<String> maybeStage = Optional.ofNullable(environment.getArgument("stage"));
+          final Optional<String> maybePriority =
+              Optional.ofNullable(environment.getArgument("priority"));
+          final Optional<List<String>> maybeAssigneeUrns =
+              Optional.ofNullable(environment.getArgument("assigneeUrns"));
           try {
             // Step 1: Fetch set of incidents associated with the target entity from the Search
             // Index!
             // We use the search index so that we can easily sort by the last updated time.
-            final Filter filter = buildIncidentsEntityFilter(entityUrn, maybeState);
+            final Filter filter =
+                buildIncidentsFilter(
+                    entityUrn, maybeState, maybeStage, maybePriority, maybeAssigneeUrns);
             final SortCriterion sortCriterion = buildIncidentsSortCriterion();
             final SearchResult searchResult =
                 _entityClient.filter(
@@ -106,13 +117,33 @@ public class EntityIncidentsResolver
         });
   }
 
-  private Filter buildIncidentsEntityFilter(
-      final String entityUrn, final Optional<String> maybeState) {
-    final Map<String, String> criterionMap = new HashMap<>();
-    criterionMap.put(INCIDENT_ENTITIES_SEARCH_INDEX_FIELD_NAME, entityUrn);
+  private Filter buildIncidentsFilter(
+      final String entityUrn,
+      final Optional<String> maybeState,
+      final Optional<String> maybeStage,
+      final Optional<String> maybePriority,
+      final Optional<List<String>> maybeAssigneeUrns) {
+    final Map<String, List<String>> criterionMap = new HashMap<>();
+    criterionMap.put(
+        INCIDENT_ENTITIES_SEARCH_INDEX_FIELD_NAME, Collections.singletonList(entityUrn));
     maybeState.ifPresent(
-        incidentState -> criterionMap.put(INCIDENT_STATE_SEARCH_INDEX_FIELD_NAME, incidentState));
-    return QueryUtils.newFilter(criterionMap);
+        incidentState ->
+            criterionMap.put(
+                INCIDENT_STATE_SEARCH_INDEX_FIELD_NAME, Collections.singletonList(incidentState)));
+    maybeStage.ifPresent(
+        incidentStage ->
+            criterionMap.put(
+                INCIDENT_STAGE_SEARCH_INDEX_FIELD_NAME, Collections.singletonList(incidentStage)));
+    maybePriority.ifPresent(
+        incidentPriority ->
+            criterionMap.put(
+                INCIDENT_PRIORITY_SEARCH_INDEX_FIELD_NAME,
+                Collections.singletonList(
+                    IncidentUtils.mapIncidentPriority(IncidentPriority.valueOf(incidentPriority))
+                        .toString())));
+    maybeAssigneeUrns.ifPresent(
+        assigneeUrns -> criterionMap.put(INCIDENT_ASSIGNEES_SEARCH_INDEX_FIELD_NAME, assigneeUrns));
+    return QueryUtils.newListsFilter(criterionMap);
   }
 
   private SortCriterion buildIncidentsSortCriterion() {

@@ -171,6 +171,14 @@ fragment assertionInfoDetails on AssertionInfo {
         sql
       }
     }
+    schemaAssertion {
+      compatibility
+      fields {
+        path
+        type
+        nativeType
+      }
+    }
     source {
       type
     }
@@ -274,6 +282,9 @@ fragment MonitorSearchResults on SearchResults {
                     type
                     nativeType
                   }
+                }
+                datasetSchemaParameters {
+                  sourceType
                 }
               }
               rawParameters

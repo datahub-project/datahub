@@ -13,7 +13,10 @@ import {
     Monitor,
     SchemaField,
     SchemaFieldDataType,
+    SchemaAssertionCompatibility,
+    SchemaMetadata,
 } from '../../../../../../../../../../types.generated';
+import { downgradeV2FieldPath } from '../../../../../../../../dataset/profile/schema/utils/utils';
 import { HIGH_WATERMARK_FIELD_TYPES } from '../../constants';
 import { AssertionMonitorBuilderState } from '../../types';
 import { isEntityEligibleForAssertionMonitoring, isStructField } from '../../utils';
@@ -563,6 +566,15 @@ export const getDefaultDatasetFieldAssertionState = (connectionForEntityExists: 
     };
 };
 
+// Default assertion definition used when the selected type is Data Schema.
+export const getDefaultDatasetSchemaAssertionState = () => {
+    return {
+        compatibility: SchemaAssertionCompatibility.Superset,
+        fields: [],
+    };
+};
+
+
 // Default assertion parameter definition used when the selected type is Field.
 export const getDefaultDatasetFieldAssertionParametersState = (connectionForEntityExists: boolean) => {
     return {
@@ -634,3 +646,13 @@ export const getFieldMetricLabel = (metric: FieldMetricType) => {
 
     return label;
 };
+
+export const convertSchemaMetadataToAssertionFields = (schemaMetadata: SchemaMetadata) => {
+    return schemaMetadata.fields?.map(field => 
+        ({
+            path: downgradeV2FieldPath(field.fieldPath) as string,
+            type: field.type,
+            nativeType: field.nativeDataType
+        })    
+    ) || []; 
+}

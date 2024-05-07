@@ -51,6 +51,7 @@ class DataHubReportingExtractGraphSourceConfig(ConfigModel):
     relationships_exclude: Optional[List[str]] = None
     entity_types_include: Optional[List[str]] = None
     entity_types_exclude: Optional[List[str]] = None
+    query_timeout: int = 30
     extract_batch_size: int = 2000
 
     @validator("extract_graph_store", pre=True, always=True)
@@ -221,7 +222,11 @@ class DataHubReportingExtractGraphSource(Source):
             # TODO: Using slicing we can parallelize the ES calls below:
             # https://opensearch.org/docs/latest/search-plugins/searching-data/point-in-time/#search-slicing
             while True:
-                results = server.search(body=query, size=batch_size)  # batch of data
+                results = server.search(
+                    body=query,
+                    size=batch_size,
+                    params={"timeout": self.config.query_timeout},
+                )
                 self.process_batch(results["hits"]["hits"])
                 if len(results["hits"]["hits"]) < batch_size:
                     break

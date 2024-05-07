@@ -33,8 +33,9 @@ public class UsageStoragePercentile implements NonBlockingSystemUpgrade {
     if (enabled) {
       _steps =
           ImmutableList.of(
-              new UsagePercentileStep(entityService, aspectDao, batchSize, batchDelayMs, limit),
-              new StoragePercentileStep(entityService, aspectDao, batchSize, batchDelayMs, limit));
+              // new UsagePercentileStep(entityService, aspectDao, batchSize, batchDelayMs, limit),
+              // new StoragePercentileStep(entityService, aspectDao, batchSize, batchDelayMs, limit)
+              );
     } else {
       _steps = ImmutableList.of();
     }

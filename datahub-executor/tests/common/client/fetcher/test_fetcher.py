@@ -16,6 +16,7 @@ from datahub_executor.common.types import (
     AssertionType,
     DatasetFieldSourceType,
     DatasetFreshnessSourceType,
+    DatasetSchemaSourceType,
     DatasetVolumeSourceType,
     FetcherConfig,
     FetcherMode,
@@ -23,6 +24,8 @@ from datahub_executor.common.types import (
     FreshnessAssertionScheduleType,
     FreshnessAssertionType,
     MonitorType,
+    SchemaAssertionCompatibility,
+    SchemaFieldDataType,
     SQLAssertionType,
     VolumeAssertionType,
 )
@@ -644,6 +647,203 @@ def test_fetch_field_assertion() -> None:
         .assertion_monitor.assertions[0]
         .parameters.dataset_field_parameters.source_type
         == DatasetFieldSourceType.ALL_ROWS_QUERY
+    )
+
+    # Verify that the execute_graphql method was called
+    graph.execute_graphql.assert_called_with(
+        GRAPHQL_LIST_MONITORS_QUERY,
+        variables={
+            "input": {
+                "types": ["MONITOR"],
+                "start": 0,
+                "count": LIST_MONITORS_BATCH_SIZE,
+                "query": "*",
+                "searchFlags": {"skipCache": True},
+                "orFilters": [
+                    {
+                        "and": [
+                            {
+                                "field": "mode",
+                                "values": ["ACTIVE", "PASSIVE"],
+                                "condition": "EQUAL",
+                            },
+                        ]
+                    }
+                ],
+            }
+        },
+    )
+
+
+def test_fetch_schema_assertion() -> None:
+    # Create a mock DataHubGraph object
+    graph = Mock(spec=DataHubGraph)
+
+    # Configure the mock object to return a specific result when its execute_graphql method is called
+    graph.execute_graphql.return_value = {
+        "searchAcrossEntities": {
+            "start": 0,
+            "total": 1,
+            "count": 10,
+            "searchResults": [
+                {
+                    "entity": {
+                        "urn": "urn:li:monitor:test",
+                        "type": "MONITOR",
+                        "info": {
+                            "type": "ASSERTION",
+                            "assertionMonitor": {
+                                "assertions": [
+                                    {
+                                        "assertion": {
+                                            "urn": "urn:li:assertion:test2",
+                                            "info": {
+                                                "type": "DATA_SCHEMA",
+                                                "schemaAssertion": {
+                                                    "compatibility": "EXACT_MATCH",
+                                                    "fields": [
+                                                        {
+                                                            "path": "path1",
+                                                            "type": "STRING",
+                                                            "nativeType": "varchar(64)",
+                                                        },
+                                                        {
+                                                            "path": "path2",
+                                                            "type": "NUMBER",
+                                                            "nativeType": "int(64)",
+                                                        },
+                                                    ],
+                                                },
+                                                "source": {"type": "NATIVE"},
+                                            },
+                                            "relationships": {
+                                                "relationships": [
+                                                    {
+                                                        "entity": {
+                                                            "urn": "urn:li:dataset:test",
+                                                            "type": "DATASET",
+                                                            "properties": {
+                                                                "name": "test_table",
+                                                                "qualifiedName": "test_db.public.test_table",
+                                                            },
+                                                            "platform": {
+                                                                "urn": "urn:li:dataPlatform:snowflake"
+                                                            },
+                                                        }
+                                                    }
+                                                ]
+                                            },
+                                        },
+                                        "schedule": {
+                                            "cron": "0 * * * *",
+                                            "timezone": "America/Los_Angeles",
+                                        },
+                                        "parameters": {
+                                            "type": "DATASET_SCHEMA",
+                                            "datasetSchemaParameters": {
+                                                "sourceType": "DATAHUB_SCHEMA"
+                                            },
+                                        },
+                                    }
+                                ]
+                            },
+                            "status": {"mode": "ACTIVE"},
+                        },
+                    }
+                }
+            ],
+        },
+        "error": None,
+    }
+
+    graph.execute_graphql.side_effect = (
+        lambda *args, **kwargs: graph.execute_graphql.return_value
+    )
+
+    # Create the MonitorFetcher with the mock graph
+    fetcher = MonitorFetcher(
+        graph=graph,
+        config=FetcherConfig(
+            id="fetcher-id",
+            mode=FetcherMode.DEFAULT,
+            executor_ids=None,
+            refresh_interval=1,
+        ),
+    )
+
+    # Call the _fetch_monitors method
+    monitors = fetcher._fetch_monitors()
+
+    # Verify that the fetch_assertions method returns the expected result
+    assert len(monitors) == 1
+    assert monitors[0].type == MonitorType.ASSERTION
+    assert (
+        monitors[0].assertion_monitor.assertions[0].assertion.type
+        == AssertionType.DATA_SCHEMA
+    )
+    assert (
+        monitors[0]
+        .assertion_monitor.assertions[0]
+        .assertion.schema_assertion.compatibility
+        == SchemaAssertionCompatibility.EXACT_MATCH
+    )
+    assert (
+        len(
+            monitors[0]
+            .assertion_monitor.assertions[0]
+            .assertion.schema_assertion.fields
+        )
+        == 2
+    )
+    # Field 1
+    assert (
+        monitors[0]
+        .assertion_monitor.assertions[0]
+        .assertion.schema_assertion.fields[0]
+        .path
+        == "path1"
+    )
+    assert (
+        monitors[0]
+        .assertion_monitor.assertions[0]
+        .assertion.schema_assertion.fields[0]
+        .type
+        == SchemaFieldDataType.STRING
+    )
+    assert (
+        monitors[0]
+        .assertion_monitor.assertions[0]
+        .assertion.schema_assertion.fields[0]
+        .nativeType
+        == "varchar(64)"
+    )
+    # Field 2
+    assert (
+        monitors[0]
+        .assertion_monitor.assertions[0]
+        .assertion.schema_assertion.fields[1]
+        .path
+        == "path2"
+    )
+    assert (
+        monitors[0]
+        .assertion_monitor.assertions[0]
+        .assertion.schema_assertion.fields[1]
+        .type
+        == SchemaFieldDataType.NUMBER
+    )
+    assert (
+        monitors[0]
+        .assertion_monitor.assertions[0]
+        .assertion.schema_assertion.fields[1]
+        .nativeType
+        == "int(64)"
+    )
+    assert (
+        monitors[0]
+        .assertion_monitor.assertions[0]
+        .parameters.dataset_schema_parameters.source_type
+        == DatasetSchemaSourceType.DATAHUB_SCHEMA
     )
 
     # Verify that the execute_graphql method was called

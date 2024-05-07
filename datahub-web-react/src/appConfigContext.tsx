@@ -53,6 +53,7 @@ export const DEFAULT_APP_CONFIG = {
         showBrowseV2: true,
         platformBrowseV2: false,
         assertionMonitorsEnabled: false,
+        schemaAssertionMonitorsEnabled: false,
         subscriptionsEnabled: false,
         datasetHealthDashboardEnabled: false,
         showAcrylInfo: false,

@@ -1,4 +1,5 @@
 import collections
+import contextlib
 import dataclasses
 import functools
 import hashlib
@@ -10,7 +11,7 @@ import shutil
 import subprocess
 import sys
 from datetime import datetime, timezone
-from typing import Any, Deque, Type
+from typing import Any, Deque, Iterator, Type
 
 import anyio
 import anyio.abc
@@ -26,6 +27,7 @@ _DEFAULT_MAX_LOG_SIZE_BYTES = int(0.9 * 2**18)  # 90% of 1mb
 
 VENV_VERSION_LATEST = "latest"
 VENV_VERSION_NATIVE = "native"
+VENV_NO_DATAHUB = "NO_ACRYL_DATAHUB"
 
 
 @functools.cache
@@ -46,7 +48,7 @@ def _find_uv() -> str:
 class LogHolder:
     def __init__(
         self,
-        max_log_lines: int = _DEFAULT_MAX_LOG_LINES,
+        max_log_lines: int | None = _DEFAULT_MAX_LOG_LINES,
         max_bytes_per_line: int = _DEFAULT_MAX_BYTES_PER_LINE,
         max_log_size_bytes: int = _DEFAULT_MAX_LOG_SIZE_BYTES,
         echo_to_stdout_prefix: str | None = None,
@@ -94,18 +96,30 @@ class LogHolder:
             # On the next append, we'll create a new line.
             self._create_new_line = True
 
+    @contextlib.contextmanager
+    def changed_echo_prefix(self, new_prefix: str | None) -> Iterator[None]:
+        old_prefix = self._echo_logs_prefix
+        self._echo_logs_prefix = new_prefix
+        try:
+            yield
+        finally:
+            self._echo_logs_prefix = old_prefix
+
+    def set_command(self, command: str) -> None:
+        self.append(f"+{command}\n")
+
     def force_new_line(self) -> None:
         if not self._create_new_line:
             # This means the existing output did not end with a newline.
             self.append("\n")
 
-    def get_logs(self) -> str:
-        text = "".join(self._lines)
+    def get_logs(self, skip_lines: int = 0) -> str:
+        text = "".join(list(self._lines)[skip_lines:])
 
         # Python slices are super permissive on index bounds, so this works.
         text = text[-self._max_log_size_bytes :]
 
-        if len(self._lines) >= self._max_log_lines:
+        if self._max_log_lines and len(self._lines) >= self._max_log_lines:
             text = f"[earlier logs truncated...]\n{text}"
 
         return text
@@ -128,6 +142,9 @@ class VenvConfig(pydantic.BaseModel):
     extra_pip_plugins: list[str] = []
     extra_env_vars: dict = {}
 
+    # If a requirements file is specified, then the version and all other extra_* fields are ignored.
+    requirements_file: pathlib.Path | None = None
+
     # TODO: Not sure if we still need to copy these over.
     _json_extra_pip_requirements = pydantic_parse_json("extra_pip_requirements")
     _json_extra_pip_plugins = pydantic_parse_json("extra_pip_plugins")
@@ -137,11 +154,17 @@ class VenvConfig(pydantic.BaseModel):
         self.main_plugin = plugin
 
     def get_stable_venv_name(self) -> str | None:
+        if self.requirements_file is not None:
+            suffix = hashlib.sha256()
+            suffix.update(self.requirements_file.read_bytes())
+            return f"req-{suffix.digest().hex()[:16]}"
+
         if self.main_plugin is None:
             return None
         if (
             self.version == VENV_VERSION_LATEST
             or self.version == VENV_VERSION_NATIVE
+            or self.version == VENV_NO_DATAHUB
             or self.version.startswith("http")
         ):
             return None
@@ -161,8 +184,10 @@ class VenvConfig(pydantic.BaseModel):
         if plugins_list:
             plugins = f"[{','.join(plugins_list)}]"
 
-        if self.version == "latest":
+        if self.version == VENV_VERSION_LATEST:
             return f"acryl-datahub{plugins}"
+        elif self.version == VENV_NO_DATAHUB:
+            return "# acryl-datahub is explicitly not requested."
         elif self.version.startswith("http"):
             if self.version.endswith(".whl"):
                 return f"acryl-datahub{plugins} @ {self.version}"
@@ -176,7 +201,6 @@ class VenvConfig(pydantic.BaseModel):
 
 @dataclasses.dataclass
 class VenvReference:
-    venv_name: str
     venv_loc: pathlib.Path
     venv_config: VenvConfig
 
@@ -192,26 +216,32 @@ class VenvReference:
 
 
 class SubprocessRunner:
-    def __init__(self, logs: LogHolder) -> None:
-        self._logs = logs
+    def __init__(self, logs: LogHolder | None = None) -> None:
+        self._logs = logs or LogHolder()
         self._process: anyio.abc.Process | None = None
+
+    @property
+    def logs(self) -> LogHolder:
+        return self._logs
 
     async def execute(
         self,
         command: list[str],
         env: dict[str, str] | None = None,
+        cwd: str | pathlib.Path | None = None,
     ) -> None:
         self._logs.force_new_line()
 
-        self._logs.append(f"+{shlex.join(command)}\n")
+        self._logs.set_command(shlex.join(command))
         self._process = await anyio.open_process(
             command,
             env=env,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
+            cwd=cwd,
         )
         async with self._process, anyio.create_task_group() as tg:
-            tg.start_soon(self._read_logs)
+            tg.start_soon(self._read_logs, name="read_logs")
 
             try:
                 await self._process.wait()
@@ -238,21 +268,37 @@ class SubprocessRunner:
                 # Cancel the log reading task.
                 tg.cancel_scope.cancel()
 
+                with anyio.CancelScope(shield=True):
+                    await self._process.aclose()
+
+                    # Workaround for a bug in Python asyncio:
+                    # https://github.com/python/cpython/issues/88050
+                    # The bug was since fixed (https://github.com/python/cpython/pull/32073)
+                    # and was backported to Python 3.11. However, it was not
+                    # backported to Python 3.10: https://github.com/python/cpython/pull/97916
+                    with contextlib.suppress(AttributeError):
+                        # We need to suppress AttributeError in case we're not running with asyncio.
+                        self._process._process._transport.close()  # type: ignore
+
     async def _read_logs(self) -> None:
         assert self._process is not None
         assert self._process.stdout is not None
 
         try:
-            async for text in anyio.streams.text.TextReceiveStream(
-                self._process.stdout
+            async with (
+                self._process.stdout,
+                anyio.streams.text.TextReceiveStream(
+                    self._process.stdout
+                ) as text_stream,
             ):
-                # Split into newline-delimited chunks, where the last chunk may not end with a newline.
-                lines = text.split("\n")
-                for line in lines[:-1]:
-                    self._logs.append(line + "\n")
-                if lines[-1] != "":
-                    # The last chunk did not end with a newline, so we have a partial line at the end
-                    self._logs.append(lines[-1])
+                async for text in text_stream:
+                    # Split into newline-delimited chunks, where the last chunk may not end with a newline.
+                    lines = text.split("\n")
+                    for line in lines[:-1]:
+                        self._logs.append(line + "\n")
+                    if lines[-1] != "":
+                        # The last chunk did not end with a newline, so we have a partial line at the end
+                        self._logs.append(lines[-1])
         finally:
             self._logs.force_new_line()
 
@@ -282,7 +328,6 @@ async def setup_venv(
 ) -> VenvReference:
     if venv_config.version == VENV_VERSION_NATIVE:
         return VenvReference(
-            venv_name=VENV_VERSION_NATIVE,
             venv_loc=pathlib.Path(sys.prefix),
             venv_config=venv_config,
         )
@@ -292,19 +337,9 @@ async def setup_venv(
     if venv_name is None:
         venv_name = f"eph-{hashlib.sha256(os.urandom(32)).hexdigest()[:16]}"
 
-    # Assemble the requirements file.
-    requirements = "\n".join(
-        [
-            f"# Generated at {datetime.now(tz=timezone.utc).isoformat()}",
-            venv_config.get_acryl_datahub_requirement_line(),
-            *venv_config.extra_pip_requirements,
-        ]
-    )
-
     # Setup the venv.
     venv_loc = tmp_dir / venv_name
     venv_reference = VenvReference(
-        venv_name=venv_name,
         venv_loc=venv_loc,
         venv_config=venv_config,
     )
@@ -316,10 +351,22 @@ async def setup_venv(
 
     await runner.execute([_find_uv(), "venv", str(venv_loc)])
 
-    requirements_file = venv_loc / "requirements.txt"
-    requirements_file.write_text(requirements)
-    await runner.execute(["cat", str(requirements_file)])
+    # Assemble the requirements file.
+    if venv_config.requirements_file is None:
+        requirements = "\n".join(
+            [
+                f"# Generated at {datetime.now(tz=timezone.utc).isoformat()}",
+                venv_config.get_acryl_datahub_requirement_line(),
+                *venv_config.extra_pip_requirements,
+            ]
+        )
+        requirements_file = venv_loc / "requirements.txt"
+        requirements_file.write_text(requirements)
+    else:
+        requirements_file = venv_config.requirements_file
 
+    # Install the requirements.
+    await runner.execute(["cat", str(requirements_file)])
     await runner.execute(
         [_find_uv(), "pip", "install", "-r", str(requirements_file)],
         env={

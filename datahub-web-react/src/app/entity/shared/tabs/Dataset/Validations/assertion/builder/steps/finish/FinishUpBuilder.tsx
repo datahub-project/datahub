@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 
 import styled from 'styled-components';
 import { Typography } from 'antd';
@@ -16,14 +16,18 @@ const Section = styled.div`
 type Props = {
     state: AssertionMonitorBuilderState;
     updateState: (newState: AssertionMonitorBuilderState) => void;
-    onTitleChange?: (title: string) => void;
+    onValidityChange?: (isValid: boolean) => void;
 };
 
 /**
  * Final step in assertion creation flow: Give it a name / description.
  */
-export const FinishUpBuilder = ({ state, updateState, onTitleChange }: Props) => {
+export const FinishUpBuilder = ({ state, updateState, onValidityChange }: Props) => {
     const description = state.assertion?.description;
+    const isDescriptionRequired = state.assertion?.type === AssertionType.Sql;
+    useEffect(() => {
+        onValidityChange?.(!isDescriptionRequired || !!description?.length)
+    }, [description, isDescriptionRequired, onValidityChange])
 
     const updateDescription = (newDescription: string) => {
         const finalDescription = newDescription || null;
@@ -34,7 +38,6 @@ export const FinishUpBuilder = ({ state, updateState, onTitleChange }: Props) =>
                 description: finalDescription,
             },
         });
-        onTitleChange?.(newDescription);
     };
 
     return (
@@ -43,11 +46,11 @@ export const FinishUpBuilder = ({ state, updateState, onTitleChange }: Props) =>
                 <Typography.Title level={5}>Name</Typography.Title>
                 <TextArea
                     value={description || ''}
-                    placeholder={`Give this assertion a name${state.assertion?.type === AssertionType.Sql ? '' : ' (optional)'}`}
+                    placeholder={`Give this assertion a name${isDescriptionRequired ? '' : ' (optional)'}`}
                     onChange={(e) => updateDescription(e.target.value)}
                 />
                 <Typography.Paragraph style={{ marginTop: 4 }} type="secondary">
-                    {state.assertion?.type === AssertionType.Sql ? 'This is required for SQL assertions.' : 'If not specified, a name will be generated from the assertion settings.'}
+                    {isDescriptionRequired ? 'Required for this assertion type.' : 'If not specified, a name will be generated from the assertion settings.'}
                 </Typography.Paragraph>
             </Section>
         </div>

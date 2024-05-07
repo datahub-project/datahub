@@ -19,6 +19,7 @@ import com.linkedin.assertion.FreshnessAssertionSchedule;
 import com.linkedin.assertion.FreshnessAssertionScheduleType;
 import com.linkedin.assertion.FreshnessAssertionType;
 import com.linkedin.assertion.FreshnessCronSchedule;
+import com.linkedin.assertion.SchemaAssertionCompatibility;
 import com.linkedin.assertion.SchemaAssertionInfo;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.UrnUtils;
@@ -222,6 +223,7 @@ public class AssertionMapperTest {
       SchemaAssertionInfo input,
       com.linkedin.datahub.graphql.generated.SchemaAssertionInfo output) {
     Assert.assertEquals(output.getEntityUrn(), input.getEntity().toString());
+    Assert.assertEquals(output.getCompatibility().toString(), input.getCompatibility().toString());
     Assert.assertEquals(
         output.getSchema().getFields().size(), input.getSchema().getFields().size());
   }
@@ -343,6 +345,7 @@ public class AssertionMapperTest {
     info.setType(AssertionType.DATA_SCHEMA);
     SchemaAssertionInfo schemaAssertionInfo = new SchemaAssertionInfo();
     schemaAssertionInfo.setEntity(UrnUtils.getUrn("urn:li:dataset:1"));
+    schemaAssertionInfo.setCompatibility(SchemaAssertionCompatibility.SUPERSET);
     schemaAssertionInfo.setSchema(
         new SchemaMetadata()
             .setCluster("Test")

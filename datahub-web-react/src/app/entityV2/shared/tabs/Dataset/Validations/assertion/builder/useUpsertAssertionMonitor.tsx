@@ -2,12 +2,14 @@ import { message } from 'antd';
 import {
     useUpsertDatasetFieldAssertionMonitorMutation,
     useUpsertDatasetFreshnessAssertionMonitorMutation,
+    useUpsertDatasetSchemaAssertionMonitorMutation,
     useUpsertDatasetSqlAssertionMonitorMutation,
     useUpsertDatasetVolumeAssertionMonitorMutation,
 } from '../../../../../../../../graphql/assertion.generated';
 import {
     builderStateToUpsertFieldAssertionMonitorVariables,
     builderStateToUpsertFreshnessAssertionMonitorVariables,
+    builderStateToUpsertSchemaAssertionMonitorVariables,
     builderStateToUpsertSqlAssertionMonitorVariables,
     builderStateToUpsertVolumeAssertionMonitorVariables,
 } from './utils';
@@ -23,6 +25,7 @@ export const useUpsertAssertionMonitor = (builderState: AssertionMonitorBuilderS
     const [upsertVolumeAssertionMonitorMutation] = useUpsertDatasetVolumeAssertionMonitorMutation();
     const [upsertSqlAssertionMonitorMutation] = useUpsertDatasetSqlAssertionMonitorMutation();
     const [upsertFieldAssertionMonitorMutation] = useUpsertDatasetFieldAssertionMonitorMutation();
+    const [upsertSchemaAssertionMonitorMutation] = useUpsertDatasetSchemaAssertionMonitorMutation();
 
     /**
      * Get the mutation to use for the Assertion type being upserted.
@@ -37,6 +40,8 @@ export const useUpsertAssertionMonitor = (builderState: AssertionMonitorBuilderS
                 return upsertSqlAssertionMonitorMutation;
             case AssertionType.Field:
                 return upsertFieldAssertionMonitorMutation;
+            case AssertionType.DataSchema:
+                return upsertSchemaAssertionMonitorMutation; 
             default:
                 return null;
         }
@@ -55,6 +60,8 @@ export const useUpsertAssertionMonitor = (builderState: AssertionMonitorBuilderS
                 return builderStateToUpsertSqlAssertionMonitorVariables(builderState);
             case AssertionType.Field:
                 return builderStateToUpsertFieldAssertionMonitorVariables(builderState);
+            case AssertionType.DataSchema:
+                return builderStateToUpsertSchemaAssertionMonitorVariables(builderState);
             default:
                 return null;
         }

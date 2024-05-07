@@ -27,6 +27,11 @@ record AssertionEvaluationParameters {
          * Parameters required to evaluate a Dataset Field (Column) Assertion
          */
         DATASET_FIELD
+
+        /**
+         * Parameters required to evaluate a Dataset Schema Assertion
+         */
+        DATASET_SCHEMA
     }
 
     /**
@@ -43,4 +48,9 @@ record AssertionEvaluationParameters {
     * Parameters required to evaluate a Dataset Field (Column) Assertion. Present if type is DATASET_FIELD.
     */
     datasetFieldParameters: optional DatasetFieldAssertionParameters
+
+    /**
+    * Parameters required to evaluate a Dataset Schema Assertion. Present if type is DATASET_SCHEMA.
+    */
+    datasetSchemaParameters: optional DatasetSchemaAssertionParameters
 }

@@ -31,6 +31,7 @@ class InterceptHandler(logging.Handler):
 logging.basicConfig(handlers=[InterceptHandler()], level=logging.INFO, force=True)
 for package in [*DATAHUB_PACKAGES, "datahub_integrations"]:
     logging.getLogger(package).setLevel(logging.INFO)
+logging.getLogger("asyncio").setLevel(logging.WARNING)
 
 
 LOGGING_SETUP_COMPLETE = True

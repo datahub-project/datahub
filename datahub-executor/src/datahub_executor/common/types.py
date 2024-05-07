@@ -61,6 +61,7 @@ class AssertionType(Enum):
     VOLUME = "VOLUME"
     SQL = "SQL"
     FIELD = "FIELD"
+    DATA_SCHEMA = "DATA_SCHEMA"
 
 
 class AssertionResultErrorType(Enum):
@@ -111,6 +112,14 @@ class FieldAssertionType(Enum):
 
     FIELD_VALUES = "FIELD_VALUES"
     FIELD_METRIC = "FIELD_METRIC"
+
+
+class SchemaAssertionCompatibility(Enum):
+    """Enumeration of compatibility types for schema assertions"""
+
+    EXACT_MATCH = "EXACT_MATCH"
+    SUPERSET = "SUPERSET"
+    SUBSET = "SUBSET"
 
 
 class PartitionType(Enum):
@@ -183,6 +192,11 @@ class DatasetVolumeSourceType(Enum):
     DATAHUB_DATASET_PROFILE = "DATAHUB_DATASET_PROFILE"
 
 
+class DatasetSchemaSourceType(Enum):
+    # Determine that a change has happened by consulting with the DataHub Information schema
+    DATAHUB_SCHEMA = "DATAHUB_SCHEMA"
+
+
 class EntityEventType(Enum):
     """Enumeration of Entity Events that we support retrieving using a particular connection"""
 
@@ -215,6 +229,7 @@ class AssertionEvaluationParametersType(Enum):
     DATASET_VOLUME = "DATASET_VOLUME"
     DATASET_SQL = "DATASET_SQL"
     DATASET_FIELD = "DATASET_FIELD"
+    DATASET_SCHEMA = "DATASET_SCHEMA"
 
 
 class FreshnessFieldKind(Enum):
@@ -386,6 +401,10 @@ class DatasetFreshnessAssertionParameters(PermissiveBaseModel):
 
 class DatasetVolumeAssertionParameters(PermissiveBaseModel):
     source_type: DatasetVolumeSourceType = Field(alias="sourceType")
+
+
+class DatasetSchemaAssertionParameters(PermissiveBaseModel):
+    source_type: DatasetSchemaSourceType = Field(alias="sourceType")
 
 
 class DatasetFieldAssertionParameters(PermissiveBaseModel):
@@ -685,6 +704,92 @@ class FieldAssertion(PermissiveBaseModel):
     filter: Optional[DatasetFilter] = None
 
 
+class SchemaFieldDataType(Enum):
+    """
+    A boolean type
+    """
+
+    BOOLEAN = "BOOLEAN"
+
+    """
+    A fixed bytestring type
+    """
+    FIXED = "FIXED"
+
+    """
+    A string type
+    """
+    STRING = "STRING"
+
+    """
+    A string of bytes
+    """
+    BYTES = "BYTES"
+
+    """
+    A number, including integers, floats, and doubles
+    """
+    NUMBER = "NUMBER"
+
+    """
+    A datestrings type
+    """
+    DATE = "DATE"
+
+    """
+    A timestamp type
+    """
+    TIME = "TIME"
+
+    """
+    An enum type
+    """
+    ENUM = "ENUM"
+
+    """
+    A NULL type
+    """
+    NULL = "NULL"
+
+    """
+    A map collection type
+    """
+    MAP = "MAP"
+
+    """
+    An array collection type
+    """
+    ARRAY = "ARRAY"
+
+    """
+    An union type
+    """
+    UNION = "ARRAY"
+
+    """
+    An complex struct type
+    """
+    STRUCT = "STRUCT"
+
+
+class SchemaAssertionField(PermissiveBaseModel):
+    """Attributes defining a Schema Assertion Field."""
+
+    path: str
+
+    type: SchemaFieldDataType
+
+    nativeType: Optional[str]
+
+
+class SchemaAssertion(PermissiveBaseModel):
+    """Attributes defining a Schema Assertion."""
+
+    compatibility: SchemaAssertionCompatibility
+
+    fields: List[SchemaAssertionField] = Field(alias="fields")
+
+
 class RawAspect(PermissiveBaseModel):
     """Payload representing data about a single aspect"""
 
@@ -804,6 +909,9 @@ class AssertionInfo(PermissiveBaseModel):
     # Field Assertion Object
     field_assertion: Optional[FieldAssertion] = Field(alias="fieldAssertion")
 
+    # Schema Assertion Object
+    schema_assertion: Optional[SchemaAssertion] = Field(alias="schemaAssertion")
+
     # How the assertion was sourced
     source_type: Optional[AssertionSourceType] = Field(alias="sourceType")
 
@@ -869,6 +977,13 @@ class AssertionInfo(PermissiveBaseModel):
             and "fieldAssertion" in values["info"]
         ):
             values["fieldAssertion"] = values["info"]["fieldAssertion"]
+
+        if (
+            "schemaAssertion" not in values
+            and "info" in values
+            and "schemaAssertion" in values["info"]
+        ):
+            values["schemaAssertion"] = values["info"]["schemaAssertion"]
 
         if (
             "rawInfoAspect" in values
@@ -989,6 +1104,11 @@ class AssertionEvaluationParameters(PermissiveBaseModel):
     # Dataset FIELD Parameters. Present if the type is DATASET_FIELD
     dataset_field_parameters: Optional[DatasetFieldAssertionParameters] = Field(
         alias="datasetFieldParameters"
+    )
+
+    # Dataset DATA_SCHEMA Parameters. Present if the type is DATASET_SCHEMA
+    dataset_schema_parameters: Optional[DatasetSchemaAssertionParameters] = Field(
+        alias="datasetSchemaParameters"
     )
 
 

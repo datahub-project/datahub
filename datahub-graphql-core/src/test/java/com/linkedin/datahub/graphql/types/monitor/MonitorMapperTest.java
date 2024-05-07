@@ -27,6 +27,8 @@ import com.linkedin.monitor.AssertionMonitor;
 import com.linkedin.monitor.AuditLogSpec;
 import com.linkedin.monitor.DatasetFreshnessAssertionParameters;
 import com.linkedin.monitor.DatasetFreshnessSourceType;
+import com.linkedin.monitor.DatasetSchemaAssertionParameters;
+import com.linkedin.monitor.DatasetSchemaSourceType;
 import com.linkedin.monitor.DatasetVolumeAssertionParameters;
 import com.linkedin.monitor.DatasetVolumeSourceType;
 import com.linkedin.monitor.EmbeddedAssertion;
@@ -146,6 +148,16 @@ public class MonitorMapperTest {
           outputParams.getSourceType().toString(), inputParams.getSourceType().toString());
     }
 
+    if (input.getAssertions().get(0).getParameters().hasDatasetSchemaParameters()) {
+      // Verify the dataset SCHEMA parameters.
+      DatasetSchemaAssertionParameters inputParams =
+          input.getAssertions().get(0).getParameters().getDatasetSchemaParameters();
+      com.linkedin.datahub.graphql.generated.DatasetSchemaAssertionParameters outputParams =
+          output.getAssertions().get(0).getParameters().getDatasetSchemaParameters();
+      Assert.assertEquals(
+          outputParams.getSourceType().toString(), inputParams.getSourceType().toString());
+    }
+
     if (input.getAssertions().get(0).hasContext()
         && input.getAssertions().get(0).getContext().hasEmbeddedAssertions()) {
       EmbeddedAssertion inputAssertion =
@@ -239,7 +251,10 @@ public class MonitorMapperTest {
                                                     .setKind(FreshnessFieldKind.LAST_MODIFIED)))
                                     .setDatasetVolumeParameters(
                                         new DatasetVolumeAssertionParameters()
-                                            .setSourceType(DatasetVolumeSourceType.QUERY)))
+                                            .setSourceType(DatasetVolumeSourceType.QUERY))
+                                    .setDatasetSchemaParameters(
+                                        new DatasetSchemaAssertionParameters()
+                                            .setSourceType(DatasetSchemaSourceType.DATAHUB_SCHEMA)))
                             .setContext(
                                 new AssertionEvaluationContext()
                                     .setEmbeddedAssertions(
