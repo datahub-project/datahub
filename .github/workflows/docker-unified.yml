@@ -130,7 +130,8 @@ jobs:
         if: ${{ steps.ci-optimize.outputs.smoke-test-change == 'true' }}
         run: |
           python ./.github/scripts/check_python_package.py
-          ./gradlew :smoke-test:lint
+          ./gradlew :smoke-test:pythonLint
+          ./gradlew :smoke-test:cypressLint
 
   gms_build:
     name: Build and Push DataHub GMS Docker Image
