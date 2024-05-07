@@ -44,6 +44,11 @@ task yarnInstall(type: YarnTask) {
   environment = ['NODE_OPTIONS': '--openssl-legacy-provider']
   args = ['install', '--cwd', "${project.rootDir}/smoke-test/tests/cypress"]
 }
+task cypressLint(type: YarnTask, dependsOn: yarnInstall) {
+  environment = ['NODE_OPTIONS': '--openssl-legacy-provider']
+  // TODO: Run a full lint instead of just format.
+  args = ['--cwd', "${project.rootDir}/smoke-test/tests/cypress", 'run', 'format']
+}
 
 task installDev(type: Exec) {
     inputs.file file('pyproject.toml')
@@ -58,7 +63,7 @@ task installDev(type: Exec) {
         "touch ${venv_name}/.build_install_dev_sentinel"
 }
 
-task lint(type: Exec, dependsOn: installDev) {
+task pythonLint(type: Exec, dependsOn: installDev) {
     commandLine 'bash', '-c',
         "source ${venv_name}/bin/activate && set -x && " +
         "black --check --diff tests/ && " +
@@ -66,7 +71,7 @@ task lint(type: Exec, dependsOn: installDev) {
         "ruff --statistics tests/ && " +
         "mypy tests/"
 }
-task lintFix(type: Exec, dependsOn: installDev) {
+task pythonLintFix(type: Exec, dependsOn: installDev) {
     commandLine 'bash', '-c',
         "source ${venv_name}/bin/activate && set -x && " +
         "black tests/ && " +
@@ -134,6 +139,21 @@ task cypressDev(type: Exec, dependsOn: [installDev, ':metadata-ingestion:install
     environment 'RUN_QUICKSTART', 'false'
     environment 'DATAHUB_KAFKA_SCHEMA_REGISTRY_URL', 'http://localhost:8080/schema-registry/api/'
     environment 'KAFKA_BROKER_CONTAINER', 'datahub-kafka-broker-1'
+
+    workingDir = project.projectDir
+    commandLine 'bash', '-c',
+            "source ${venv_name}/bin/activate && set -x && " +
+                    "./cypress-dev.sh"
+}
+
+/**
+ * The following will install Cypress data in an already running stack.
+ */
+task cypressData(type: Exec, dependsOn: [installDev, ':metadata-ingestion:installDev']) {
+    environment 'RUN_QUICKSTART', 'false'
+    environment 'DATAHUB_KAFKA_SCHEMA_REGISTRY_URL', 'http://localhost:8080/schema-registry/api/'
+    environment 'KAFKA_BROKER_CONTAINER', 'datahub-kafka-broker-1'
+    environment 'RUN_UI', 'false'
 
     workingDir = project.projectDir
     commandLine 'bash', '-c',
