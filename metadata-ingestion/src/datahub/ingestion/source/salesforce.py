@@ -539,27 +539,19 @@ class SalesforceSource(Source):
     def _get_field_description(self, field: dict, customField: dict) -> str:
         if "Label" not in field or field["Label"] is None:
             desc = ""
-        elif (
-            "Label" in field
-            and field["Label"] is not None
-            and field["Label"].startswith("#")
-        ):
+        elif field["Label"].startswith("#"):
             desc = "\\" + field["Label"]
         else:
             desc = field["Label"]
 
-        if (
-            "FieldDefinition" in field
-            and field["FieldDefinition"] is not None
-            and isinstance(field["FieldDefinition"], dict)
-            and "Description" in field["FieldDefinition"]
-            and field["FieldDefinition"]["Description"] is not None
-        ):
+        text = field.get("FieldDefinition", {}).get("Description", {})
+        if text:
             text = field["FieldDefinition"]["Description"]
             prefix = "\\" if text.startswith("#") else ""
             desc += f"\n\n{prefix}{text}"
 
-        if "InlineHelpText" in field and field["InlineHelpText"] is not None:
+        text = field.get("InlineHelpText", None)
+        if text:
             text = field["InlineHelpText"]
             prefix = "\\" if text.startswith("#") else ""
             desc += f"\n\n{prefix}{text}"
