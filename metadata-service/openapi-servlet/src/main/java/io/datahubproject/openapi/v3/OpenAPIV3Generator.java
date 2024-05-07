@@ -84,10 +84,10 @@ public class OpenAPIV3Generator {
               addAspectSchemas(components, a);
               components.addSchemas(
                   upperAspectName + ASPECT_REQUEST_SUFFIX,
-                  buildAspectRefSchema(upperAspectName, false));
+                  buildAspectRefRequestSchema(upperAspectName));
               components.addSchemas(
                   upperAspectName + ASPECT_RESPONSE_SUFFIX,
-                  buildAspectRefSchema(upperAspectName, true));
+                  buildAspectRefResponseSchema(upperAspectName));
             });
     // --> Entity components
     entityRegistry.getEntitySpecs().values().stream()
@@ -444,22 +444,23 @@ public class OpenAPIV3Generator {
     }
   }
 
-  private static Schema buildAspectRefSchema(
-      final String aspectName, final boolean withSystemMetadata) {
+  private static Schema buildAspectRefResponseSchema(final String aspectName) {
     final Schema result =
         new Schema<>()
             .type(TYPE_OBJECT)
             .description(ASPECT_DESCRIPTION)
             .required(List.of(PROPERTY_VALUE))
             .addProperty(PROPERTY_VALUE, new Schema<>().$ref(PATH_DEFINITIONS + aspectName));
-    if (withSystemMetadata) {
-      result.addProperty(
-          "systemMetadata",
-          new Schema<>()
-              .$ref(PATH_DEFINITIONS + "SystemMetadata")
-              .description("System metadata for the aspect."));
-    }
+    result.addProperty(
+            "systemMetadata",
+            new Schema<>()
+                    .$ref(PATH_DEFINITIONS + "SystemMetadata")
+                    .description("System metadata for the aspect."));
     return result;
+  }
+
+  private static Schema buildAspectRefRequestSchema(final String aspectName) {
+    return new Schema<>().$ref(PATH_DEFINITIONS + aspectName);
   }
 
   private static Schema buildEntitySchema(
