@@ -537,25 +537,32 @@ class SalesforceSource(Source):
 
     # Here field description is created from label, description and inlineHelpText
     def _get_field_description(self, field: dict, customField: dict) -> str:
-        if field["Label"] is None:
+        if "Label" in field and field["Label"] is None:
             desc = ""
+        elif (
+            "Label" in field
+            and field["Label"] is not None
+            and field["Label"].startswith("#")
+        ):
+            desc = "\\" + field["Label"]
         else:
-            if field["Label"] is not None and field["Label"].startswith("#"):
-                desc = "\\" + field["Label"]
-            else:
-                desc = field["Label"]
+            desc = field["Label"]
 
-        for key in ["FieldDefinition", "InlineHelpText"]:
-            text: Optional[str] = ""
-            if key in field:
-                if isinstance(field.get(key), dict):
-                    text = field[key].get("Description")
-                else:
-                    text = field.get(key)
+        if (
+            "FieldDefinition" in field
+            and field["FieldDefinition"] is not None
+            and isinstance(field["FieldDefinition"], dict)
+            and "Description" in field["FieldDefinition"]
+            and field["FieldDefinition"]["Description"] is not None
+        ):
+            text = field["FieldDefinition"]["Description"]
+            prefix = "\\" if text.startswith("#") else ""
+            desc += f"\n\n{prefix}{text}"
 
-            if text:
-                prefix = "\\" if text.startswith("#") else ""
-                desc += f"\n\n{prefix}{text}"
+        if "InlineHelpText" in field and field["InlineHelpText"] is not None:
+            text = field["InlineHelpText"]
+            prefix = "\\" if text.startswith("#") else ""
+            desc += f"\n\n{prefix}{text}"
 
         return desc
 
