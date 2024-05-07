@@ -428,8 +428,8 @@ class AirflowGenerator:
         dpi = DataProcessInstance.from_datajob(
             datajob=datajob,
             id=f"{dag.dag_id}_{ti.task_id}_{dag_run.run_id}",
-            clone_inlets=True if config and config.materialize_iolets else False,
-            clone_outlets=True if config and config.materialize_iolets else False,
+            clone_inlets=False if config and not config.materialize_iolets else True,
+            clone_outlets=False if config and not config.materialize_iolets else True,
         )
         job_property_bag: Dict[str, str] = {}
         job_property_bag["run_id"] = str(dag_run.run_id)
