@@ -544,15 +544,13 @@ class SalesforceSource(Source):
         else:
             desc = field["Label"]
 
-        text = field.get("FieldDefinition", {}).get("Description", {})
+        text = field.get("FieldDefinition", {}).get("Description", None)
         if text:
-            text = field["FieldDefinition"]["Description"]
             prefix = "\\" if text.startswith("#") else ""
             desc += f"\n\n{prefix}{text}"
 
         text = field.get("InlineHelpText", None)
         if text:
-            text = field["InlineHelpText"]
             prefix = "\\" if text.startswith("#") else ""
             desc += f"\n\n{prefix}{text}"
 
