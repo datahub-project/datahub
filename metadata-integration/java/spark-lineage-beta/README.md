@@ -24,7 +24,7 @@ When running jobs using spark-submit, the agent needs to be configured in the co
 
 ```text
 #Configuring DataHub spark agent jar
-spark.jars.packages                          io.acryl:acryl-spark-lineage:0.2.1
+spark.jars.packages                          io.acryl:acryl-spark-lineage:0.2.2
 spark.extraListeners                         datahub.spark.DatahubSparkListener
 spark.datahub.rest.server                    http://localhost:8080
 ```
@@ -41,7 +41,7 @@ Set the following spark-defaults configuration properties as it
 stated [here](https://docs.aws.amazon.com/emr/latest/ReleaseGuide/emr-spark-configure.html)
 
 ```text
-spark.jars.packages                          io.acryl:acryl-spark-lineage:0.2.1
+spark.jars.packages                          io.acryl:acryl-spark-lineage:0.2.2
 spark.extraListeners                         datahub.spark.DatahubSparkListener
 spark.datahub.rest.server                    https://your_datahub_host/gms
 #If you have authentication set up then you also need to specify the Datahub access token
@@ -56,7 +56,7 @@ When running interactive jobs from a notebook, the listener can be configured wh
 spark = SparkSession.builder
 .master("spark://spark-master:7077")
 .appName("test-application")
-.config("spark.jars.packages", "io.acryl:acryl-spark-lineage:0.1.0")
+.config("spark.jars.packages", "io.acryl:acryl-spark-lineage:0.2.2")
 .config("spark.extraListeners", "datahub.spark.DatahubSparkListener")
 .config("spark.datahub.rest.server", "http://localhost:8080")
 .enableHiveSupport()
