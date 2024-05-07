@@ -537,7 +537,7 @@ class SalesforceSource(Source):
 
     # Here field description is created from label, description and inlineHelpText
     def _get_field_description(self, field: dict, customField: dict) -> str:
-        if "Label" in field and field["Label"] is None:
+        if "Label" not in field or field["Label"] is None:
             desc = ""
         elif (
             "Label" in field
