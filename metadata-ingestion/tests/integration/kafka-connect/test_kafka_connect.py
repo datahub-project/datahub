@@ -167,7 +167,7 @@ def loaded_kafka_connect(kafka_connect_runner):
                             "query": "select * from member",
                             "topic.prefix": "query-topic",
                             "tasks.max": "1",
-                            "connection.url": "${env:MYSQL_CONNECTION_URL}"
+                            "connection.url": "jdbc:mysql://test_mysql:${env:MYSQL_PORT}/${env:MYSQL_DB}"
                         }
                     }
                     """,
@@ -419,7 +419,17 @@ def test_kafka_connect_ingest_stateful(
                         "provider": "env",
                         "path_key": "MYSQL_CONNECTION_URL",
                         "value": "jdbc:mysql://test_mysql:3306/librarydb",
-                    }
+                    },
+                    {
+                        "provider": "env",
+                        "path_key": "MYSQL_PORT",
+                        "value": "3306",
+                    },
+                    {
+                        "provider": "env",
+                        "path_key": "MYSQL_DB",
+                        "value": "librarydb",
+                    },
                 ],
                 "stateful_ingestion": {
                     "enabled": True,
