@@ -29,6 +29,12 @@ enum IncidentType {
   SQL
 
   /**
+   * A Data Schema assertion has failed, triggering the incident.
+   * Raised on entities where assertions are configured to generate incidents.
+   */
+  DATA_SCHEMA
+
+  /**
   * A misc. operational incident, e.g. failure to materialize a dataset.
   */
   OPERATIONAL

@@ -766,6 +766,8 @@ public class AssertionActionsHook implements MetadataChangeLogHook {
         return info.getSqlAssertion().getEntity();
       case FIELD:
         return info.getFieldAssertion().getEntity();
+      case DATA_SCHEMA:
+        return info.getSchemaAssertion().getEntity();
       default:
         throw new IllegalArgumentException(
             "Failed to extract assertee urn from assertionInfo aspect! Unrecognized assertion type provided.");
@@ -785,6 +787,8 @@ public class AssertionActionsHook implements MetadataChangeLogHook {
         return IncidentType.VOLUME;
       case SQL:
         return IncidentType.SQL;
+      case DATA_SCHEMA:
+        return IncidentType.DATA_SCHEMA;
       default:
         throw new IllegalArgumentException(
             "Failed to map to an incident type! Unsupported Assertion type provided.");
