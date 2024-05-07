@@ -8,15 +8,15 @@ DataHub, now supports [OpenLineage](https://openlineage.io/) integration. With t
 
 - **[Spark Event Listener Plugin](https://datahubproject.io/docs/metadata-integration/java/spark-lineage-beta)**: DataHub provides a Spark Event Listener plugin that seamlessly integrates OpenLineage's Spark plugin. This plugin enhances DataHub's OpenLineage support by offering additional features such as PathSpec support, column-level lineage, patch support and more.
 
-### OpenLineage Support with DataHub
+## OpenLineage Support with DataHub
 
-#### 1. REST Endpoint Support
+### 1. REST Endpoint Support
 
 DataHub's REST endpoint allows users to send OpenLineage events directly to DataHub. This enables easy integration with various data processing frameworks, providing users with a centralized location for viewing and managing data lineage information.
 
 With Spark and Airflow we recommend using the Spark Lineage or DataHub's Airflow plugin for tighter integration with DataHub.
 
-##### How to Use
+#### How to Use
 
 To send OpenLineage messages to DataHub using the REST endpoint, simply make a POST request to the following endpoint:
 
@@ -56,7 +56,7 @@ Example:
   "producer": "https://github.com/OpenLineage/OpenLineage/blob/v1-0-0/client"
 }
 ```
-#### How to set up Airflow
+##### How to set up Airflow
 Follow the Airflow guide to setup the Airflow DAGs to send lineage information to DataHub. The guide can be found [here](https://airflow.apache.org/docs/apache-airflow-providers-openlineage/stable/guides/user.html
 The transport should look like this:
 ```json
