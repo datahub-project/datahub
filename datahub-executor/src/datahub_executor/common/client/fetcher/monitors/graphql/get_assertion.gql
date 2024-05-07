@@ -185,6 +185,14 @@ fragment AssertionDetails on Assertion {
         sql
       }
     }
+    schemaAssertion {
+      compatibility
+      fields {
+        path
+        type
+        nativeType
+      }
+    }
     source {
       type
     }

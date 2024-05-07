@@ -23,7 +23,7 @@ import {
     VolumeAssertionType,
 } from '../../../../../../../../../../types.generated';
 import { ASSERTION_NATIVE_RESULTS_KEYS_BY_ASSERTION_TYPE } from './constants';
-import { parseMaybeStringAsFloatOrDefault } from '../../../../../../../../../shared/numberUtil';
+import { parseJsonArrayOrDefault, parseMaybeStringAsFloatOrDefault } from '../../../../../../../../../shared/numberUtil';
 
 
 /**
@@ -62,6 +62,17 @@ const calculateExpectedNumericalValueWithPreviousNumericalValue = (
 export function tryExtractNumericalValueFromNativeResults(nativeResults: Maybe<StringMapEntry[]> | undefined, key: string): number | undefined {
     const maybeValue = nativeResults?.find(result => result.key === key)?.value
     return parseMaybeStringAsFloatOrDefault(maybeValue, undefined);
+}
+
+/**
+ * Attempts to extract a JSON array value from native results with a given key
+ * @param nativeResults 
+ * @param key 
+ * @returns {number | undefined}
+ */
+export function tryExtractArrayValueFromNativeResults(nativeResults: Maybe<StringMapEntry[]> | undefined, key: string): any[] | undefined {
+    const maybeValue = nativeResults?.find(result => result.key === key)?.value
+    return parseJsonArrayOrDefault(maybeValue, undefined);
 }
 
 export function tryExtractNumericalValueFromAssertionStdParameter(param?: Maybe<AssertionStdParameter>): number | undefined {
@@ -106,6 +117,17 @@ export const tryGetActualUpdatedTimestampFromAssertionResult = (result?: Maybe<A
     return maxTimestamp;
 };
 
+export const tryGetExtraFieldsInActual = (result?: AssertionResult | null) => {
+    return tryExtractArrayValueFromNativeResults(result?.nativeResults, ASSERTION_NATIVE_RESULTS_KEYS_BY_ASSERTION_TYPE.SCHEMA_ASSERTIONS.EXTRA_FIELDS_IN_ACTUAL_KEY_NAME);
+}
+
+export const tryGetExtraFieldsInExpected = (result?: AssertionResult | null) => {
+    return tryExtractArrayValueFromNativeResults(result?.nativeResults, ASSERTION_NATIVE_RESULTS_KEYS_BY_ASSERTION_TYPE.SCHEMA_ASSERTIONS.EXTRA_FIELDS_IN_EXPECTED_KEY_NAME);
+}
+
+export const tryGetMismatchedTypeFields = (result?: AssertionResult | null) => {
+    return tryExtractArrayValueFromNativeResults(result?.nativeResults, ASSERTION_NATIVE_RESULTS_KEYS_BY_ASSERTION_TYPE.SCHEMA_ASSERTIONS.MISMATCHED_FIELD_TYPES_KEY_NAMES);
+}
 
 /**
  * Gets the main metric on an assertion's results that are being monitored over time

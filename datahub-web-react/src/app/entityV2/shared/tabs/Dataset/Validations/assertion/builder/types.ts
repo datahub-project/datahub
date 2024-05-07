@@ -19,6 +19,7 @@ import {
     FreshnessAssertionType,
     FreshnessFieldKind,
     IncrementingSegmentFieldTransformerType,
+    SchemaAssertionCompatibility,
     SchemaFieldDataType,
     SqlAssertionType,
     VolumeAssertionType,
@@ -582,6 +583,38 @@ export interface AssertionMonitorBuilderState {
                  */
                 sql?: string | null;
             } | null;
+        } | null;
+
+
+        /**
+         * Schema Field Assertion
+         */
+        schemaAssertion?: {
+            /**
+             * The type of the Field assertion
+             */
+            compatibility?: SchemaAssertionCompatibility | null;
+
+            /**
+             * Required if type is 'FIELD_VALUES'
+             */
+            fields?: {
+                /**
+                 * The V1 field path
+                 */
+                path?: string;
+
+                /**
+                 * The standard data type
+                 */
+                type?: SchemaFieldDataType;
+
+                /**
+                 * The native data type (optional)
+                 */
+                nativeType?: string | null;
+
+            }[] | null;
         } | null;
 
         /**

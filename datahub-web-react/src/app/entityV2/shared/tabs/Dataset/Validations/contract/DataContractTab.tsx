@@ -86,9 +86,7 @@ export const DataContractTab = () => {
                                 )) ||
                                     undefined}
                                 {(hasSchemaContract && (
-                                    <LeftColumn>
-                                        <SchemaContractSummary contracts={schemaContracts as any} showAction={false} />
-                                    </LeftColumn>
+                                    <SchemaContractSummary contracts={schemaContracts as any} showAction={false} />
                                 )) ||
                                     undefined}
                             </LeftColumn>

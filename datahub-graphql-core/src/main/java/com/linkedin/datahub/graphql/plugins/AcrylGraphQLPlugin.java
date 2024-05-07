@@ -28,6 +28,7 @@ import com.linkedin.datahub.graphql.resolvers.assertion.UpdateAssertionMetadataR
 import com.linkedin.datahub.graphql.resolvers.assertion.UpdateDatasetAssertionResolver;
 import com.linkedin.datahub.graphql.resolvers.assertion.UpsertDatasetFieldAssertionMonitorResolver;
 import com.linkedin.datahub.graphql.resolvers.assertion.UpsertDatasetFreshnessAssertionMonitorResolver;
+import com.linkedin.datahub.graphql.resolvers.assertion.UpsertDatasetSchemaAssertionMonitorResolver;
 import com.linkedin.datahub.graphql.resolvers.assertion.UpsertDatasetSqlAssertionMonitorResolver;
 import com.linkedin.datahub.graphql.resolvers.assertion.UpsertDatasetVolumeAssertionMonitorResolver;
 import com.linkedin.datahub.graphql.resolvers.connection.UpsertConnectionResolver;
@@ -328,6 +329,10 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
                 .dataFetcher(
                     "upsertDatasetFieldAssertionMonitor",
                     new UpsertDatasetFieldAssertionMonitorResolver(
+                        assertionService, monitorService, graphClient))
+                .dataFetcher(
+                    "upsertDatasetSchemaAssertionMonitor",
+                    new UpsertDatasetSchemaAssertionMonitorResolver(
                         assertionService, monitorService, graphClient))
                 .dataFetcher(
                     "createVolumeAssertion", new CreateVolumeAssertionResolver(assertionService))

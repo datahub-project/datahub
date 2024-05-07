@@ -48,7 +48,7 @@ export const SchemaContractSummary = ({ contracts, showAction = false }: Props) 
         },
         {
             title: () => <ColumnHeader>TYPE</ColumnHeader>,
-            render: (field) => <>{field.nativeDataType}</>,
+            render: (field) => <>{field.type}</>,
         },
     ];
 

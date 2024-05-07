@@ -81,6 +81,7 @@ public class CreateAssertionMonitorResolverTest {
                   new AuditLogSpecInput(ImmutableList.of("INSERT"), "testUser"),
                   null),
               null,
+              null,
               null),
           TEST_EXECUTOR_ID);
 
@@ -127,6 +128,7 @@ public class CreateAssertionMonitorResolverTest {
               null,
               new DatasetVolumeAssertionParametersInput(
                   DatasetVolumeSourceType.DATAHUB_DATASET_PROFILE),
+              null,
               null),
           TEST_EXECUTOR_ID);
 
@@ -163,7 +165,7 @@ public class CreateAssertionMonitorResolverTest {
           TEST_ASSERTION_URN.toString(),
           new CronScheduleInput("1 * * * *", "America/Los_Angeles"),
           new AssertionEvaluationParametersInput(
-              AssertionEvaluationParametersType.DATASET_SQL, null, null, null),
+              AssertionEvaluationParametersType.DATASET_SQL, null, null, null, null),
           TEST_EXECUTOR_ID);
 
   private static final MonitorInfo TEST_MONITOR_INFO_SQL =
@@ -198,7 +200,8 @@ public class CreateAssertionMonitorResolverTest {
               null,
               null,
               new DatasetFieldAssertionParametersInput(
-                  DatasetFieldAssertionSourceType.ALL_ROWS_QUERY, null)),
+                  DatasetFieldAssertionSourceType.ALL_ROWS_QUERY, null),
+              null),
           TEST_EXECUTOR_ID);
 
   private static final MonitorInfo TEST_MONITOR_INFO_FIELD =

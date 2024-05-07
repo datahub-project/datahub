@@ -105,11 +105,26 @@ extend type Mutation {
     assertionUrn: String,
 
     """
-    Input for creating or updating an SQL assertion.
+    Input for creating or updating an Field assertion.
     """
     input: UpsertDatasetFieldAssertionMonitorInput!
   ): Assertion!
 
+  """
+  Create or Update a new Schema Assertion
+  """
+  upsertDatasetSchemaAssertionMonitor(
+    """
+    The urn of assertion
+    Provide only if updating an existing Schema Assertion
+    """
+    assertionUrn: String,
+
+    """
+    Input for creating or updating an Schema assertion.
+    """
+    input: UpsertDatasetSchemaAssertionMonitorInput!
+  ): Assertion!
 }
 
 """
@@ -467,6 +482,121 @@ input UpsertDatasetFieldAssertionMonitorInput {
   Advanced: The executor ID of the remote monitor service, if any.
   """
   executorId: String
+}
+
+"""
+Input to upsert a new Schema Assertion
+"""
+input UpsertDatasetSchemaAssertionMonitorInput {
+  """
+  Description, which is used in displaying the assertion
+  """
+  description: String
+
+  """
+  The entity targeted by this schema check.
+  """
+  entityUrn: String!
+
+  """
+  The expected schema of the entity
+  """
+  assertion: SchemaAssertionInput!
+
+  """
+  Optional actions to apply on success or failure of the assertion
+  """
+  actions: AssertionActionsInput
+
+  """
+  Information about the current status of a Monitor.
+  """
+  mode: MonitorMode!
+
+  """
+  Advanced: The executor ID of the remote monitor service, if any.
+  """
+  executorId: String
+
+  """
+  The parameters required to evaluate a dataset schema assertion -- Optional since there are no useful options yet.
+  """
+  evaluationParameters: DatasetSchemaAssertionParametersInput
+}
+
+"""
+Defines a schema field, each with a specified path and type.
+"""
+type SchemaAssertionField {
+  """
+  The standard V1 path of the field within the schema.
+  """
+  path: String!
+
+  """
+  The std type of the field
+  """
+  type: SchemaFieldDataType!
+
+  """
+  Optional: The specific native or standard type of the field.
+  """
+  nativeType: String
+}
+
+"""
+Defines a schema input consisting of a list of fields, each with a specified path and type.
+"""
+input SchemaAssertionFieldInput {
+  """
+  The standard V1 path of the field within the schema.
+  """
+  path: String!
+
+  """
+  The std type of the field
+  """
+  type: SchemaFieldDataType!
+
+  """
+  Optional: The specific native or standard type of the field.
+  """
+  nativeType: String
+}
+
+"""
+The input model for asserting a schema with compatibility and field definitions.
+"""
+input SchemaAssertionInput {
+  """
+  The compatibility level required for the assertion to pass.
+  """
+  compatibility: SchemaAssertionCompatibility!
+
+  """
+  The list of fields defining the schema.
+  """
+  fields: [SchemaAssertionFieldInput!]!
+}
+
+"""
+Defines the required compatibility level for the schema assertion to pass.
+"""
+enum SchemaAssertionCompatibility {
+  """
+  The schema must be exactly the same as the expected schema.
+  """
+  EXACT_MATCH
+
+  """
+  The schema must be a superset of the expected schema.
+  """
+  SUPERSET
+
+  """
+  The schema must be a subset of the expected schema.
+  """
+  SUBSET
 }
 
 """
@@ -1875,7 +2005,18 @@ type SchemaAssertionInfo {
   entityUrn: String!
 
   """
-  A definition of the expected structure for the asset
+  A single field in the schema assertion.
   """
-  schema: SchemaMetadata!
+  fields: [SchemaAssertionField!]!
+
+  """
+  A definition of the expected structure for the asset
+  Deprecated! Use the simpler 'fields' instead.
+  """
+  schema: SchemaMetadata
+
+  """
+  The compatibility level required for the assertion to pass.
+  """
+  compatibility: SchemaAssertionCompatibility!
 }

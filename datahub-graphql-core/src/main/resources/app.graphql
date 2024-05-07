@@ -1007,6 +1007,11 @@ type FeatureFlagsConfig {
   assertionMonitorsEnabled: Boolean!
 
   """
+  SaaS only -- Whether Schema Assertion Monitors are enabled.
+  """
+  schemaAssertionMonitorsEnabled: Boolean!
+
+  """
   SaaS only -- Whether the Dataset health dashboard is enabled.
   """
   datasetHealthDashboardEnabled: Boolean!
