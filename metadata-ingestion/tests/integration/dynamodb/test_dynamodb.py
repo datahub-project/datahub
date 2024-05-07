@@ -68,6 +68,8 @@ def test_dynamodb(pytestconfig, tmp_path):
                 "config": {
                     "aws_access_key_id": "test",
                     "aws_secret_access_key": "test",
+                    "aws_session_token": "test",
+                    "aws_region": "us-west-2",
                 },
             },
             "sink": {
@@ -97,6 +99,8 @@ def test_dynamodb(pytestconfig, tmp_path):
                     "platform_instance": "dynamodb_test",
                     "aws_access_key_id": "test",
                     "aws_secret_access_key": "test",
+                    "aws_session_token": "test",
+                    "aws_region": "us-west-2",
                     "classification": ClassificationConfig(
                         enabled=True,
                         classifiers=[
