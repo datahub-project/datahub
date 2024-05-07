@@ -194,7 +194,7 @@ snowflake_common = {
     # https://github.com/snowflakedb/snowflake-sqlalchemy/issues/350
     "snowflake-sqlalchemy>=1.4.3",
     # See https://github.com/snowflakedb/snowflake-connector-python/pull/1348 for why 2.8.2 is blocked
-    "snowflake-connector-python!=2.8.2",
+    "snowflake-connector-python!=2.8.2,>=3.4.0",
     "pandas",
     "cryptography",
     "msal",
