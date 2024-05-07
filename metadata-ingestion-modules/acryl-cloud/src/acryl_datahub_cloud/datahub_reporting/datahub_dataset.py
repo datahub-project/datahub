@@ -89,6 +89,10 @@ class FileStoreBackedDatasetConfig(ConfigModel):
             raise ValueError(f"Unsupported partitioning strategy: {v}")
         return v
 
+    @staticmethod
+    def dummy():
+        return FileStoreBackedDatasetConfig(dataset_name="none", bucket_prefix="none")
+
 
 class SchemaField(BaseModel):
     name: str
@@ -106,7 +110,7 @@ class BaseModelRow(BaseModel):
         return self.__dict__
 
     @staticmethod
-    # Mapping function: Pydantic types to PyArrow types
+    # Mapping function: Pydantic types to SchemaField types
     def pydantic_type_to_pyarrow(type_):
         if issubclass(type_, bool):
             return pa.bool_()
@@ -134,6 +138,16 @@ class BaseModelRow(BaseModel):
             fields.append(pa.field(field_name, pyarrow_type))
         return pa.schema(fields)
 
+    @classmethod
+    def datahub_schema(cls) -> List[SchemaField]:
+        fields = []
+        for field_name, field_model in cls.__fields__.items():
+            pyarrow_type = BaseModelRow.pydantic_type_to_pyarrow(
+                field_model.outer_type_
+            )
+            fields.append(SchemaField(name=field_name, type=str(pyarrow_type)))
+        return fields
+
 
 class DataHubBasedS3Dataset:
     def __init__(
@@ -153,6 +167,11 @@ class DataHubBasedS3Dataset:
             config.file if config.file else self._initialize_local_file()
         )
         self.file_writer = None
+        self.schema = (
+            pa.schema([(x.name, x.type) for x in self.dataset_metadata.schemaFields])
+            if self.dataset_metadata.schemaFields
+            else None
+        )
 
     def get_dataset_urn(self) -> str:
         return self.config.dataset_urn or make_dataset_urn(
@@ -179,13 +198,8 @@ class DataHubBasedS3Dataset:
         return file_path
 
     def _init_parquet_writer(self, row: Dict[str, Any]) -> None:
-        if self.dataset_metadata.schemaFields:
-            self.schema = pa.schema(
-                [(x.name, x.type) for x in self.dataset_metadata.schemaFields]
-            )
-        else:
-            # infer schema from the first row
-
+        if not self.schema:
+            # infer schema from the first row, if schema not set in constructor
             self.schema = pa.schema([(key, pa.dtype()) for key in row.keys()])
         self.file_writer = pq.ParquetWriter(
             self.local_file_path,
@@ -199,11 +213,7 @@ class DataHubBasedS3Dataset:
             self.current_record_batch = []
             self.stringify_row: bool = False
 
-            if self.dataset_metadata.schemaFields:
-                self.schema = pa.schema(
-                    [(x.name, x.type) for x in self.dataset_metadata.schemaFields]
-                )
-            else:
+            if not self.schema:
                 if isinstance(row, BaseModelRow):
                     # BaseModelRow allows us to introspect the schema and
                     # generate an arrow schema from it
@@ -251,10 +261,10 @@ class DataHubBasedS3Dataset:
         if self.local_file_path:
             self.opened_files.append(self.local_file_path)
         if self.config.store_platform == "s3":
-            self._upload_file_to_s3()
+            self.upload_file_to_s3()
         yield from self._register_dataset()
 
-    def _upload_file_to_s3(self):
+    def upload_file_to_s3(self):
         bucket, key = self.get_file_uri().replace("s3://", "").split("/", 1)
         assert self.s3_client is not None
         assert self.local_file_path is not None
@@ -296,6 +306,7 @@ class DataHubBasedS3Dataset:
         if self.config.snapshot_partitioning_strategy == PartitioningStrategy.DATE:
             assert date is not None
             assert dataset_uri_prefix is not None
+            # TODO: This should be date.strftime('year=%Y/month=%m/day=%d') for correct time partition in S3
             return f"{dataset_uri_prefix.rstrip('/')}/{date.strftime('%Y-%m-%d')}/{self.config.file_name}.{self.config.file_extension}"
         elif (
             self.config.snapshot_partitioning_strategy == PartitioningStrategy.SNAPSHOT

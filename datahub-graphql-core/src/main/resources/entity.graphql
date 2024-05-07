@@ -1685,6 +1685,18 @@ type Dataset implements EntityWithRelationships & Entity & BrowsableEntity {
       """
       state: IncidentState,
       """
+      Optional incident stage to filter by, defaults to any state.
+      """
+      stage: IncidentStage,
+      """
+      Optional incident priority to filter by, defaults to any state.
+      """
+      priority: IncidentPriority,
+      """
+      Optional assignee urns for an incident.
+      """
+      assigneeUrns: [String!],
+      """
       Optional start offset, defaults to 0.
       """
       start: Int,
@@ -3961,6 +3973,11 @@ enum CorpUserStatus {
   A User that has been provisioned and logged in
   """
   ACTIVE
+
+  """
+  A user that has been suspended
+  """
+  SUSPENDED
 }
 
 """
@@ -6458,6 +6475,18 @@ type DataFlow implements EntityWithRelationships & Entity & BrowsableEntity {
       """
       state: IncidentState,
       """
+      Optional incident stage to filter by, defaults to any state.
+      """
+      stage: IncidentStage,
+      """
+      Optional incident priority to filter by, defaults to any state.
+      """
+      priority: IncidentPriority,
+      """
+      Optional assignee urns for an incident.
+      """
+      assigneeUrns: [String!],
+      """
       Optional start offset, defaults to 0.
       """
       start: Int,
@@ -6706,6 +6735,18 @@ type DataJob implements EntityWithRelationships & Entity & BrowsableEntity {
       Optional incident state to filter by, defaults to any state.
       """
       state: IncidentState,
+      """
+      Optional incident stage to filter by, defaults to any state.
+      """
+      stage: IncidentStage,
+      """
+      Optional incident priority to filter by, defaults to any state.
+      """
+      priority: IncidentPriority,
+      """
+      Optional assignee urns for an incident.
+      """
+      assigneeUrns: [String!],
       """
       Optional start offset, defaults to 0.
       """

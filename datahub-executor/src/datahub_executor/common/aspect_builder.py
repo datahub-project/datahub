@@ -74,6 +74,8 @@ def build_assertion_result(
             native_results = _sql_parameters_to_native_results(parameters)
         elif assertion.type == AssertionType.FIELD:
             native_results = _field_parameters_to_native_results(parameters)
+        elif assertion.type == AssertionType.DATA_SCHEMA:
+            native_results = _schema_parameters_to_native_results(parameters)
 
         if "row_count" in parameters:
             row_count = parameters["row_count"]
@@ -284,4 +286,24 @@ def _field_parameters_to_native_results(parameters: dict) -> Optional[Dict[str, 
         results["Compared Min Value"] = parameters["min_value"]
     if "max_value" in parameters and parameters["max_value"] is not None:
         results["Compared Max Value"] = parameters["max_value"]
+    return results
+
+
+def _schema_parameters_to_native_results(parameters: dict) -> Optional[Dict[str, str]]:
+    results = {}
+    if (
+        "mismatched_type_fields" in parameters
+        and parameters["mismatched_type_fields"] is not None
+    ):
+        results["Mismatched Type Fields"] = parameters["mismatched_type_fields"]
+    if (
+        "extra_fields_in_expected" in parameters
+        and parameters["extra_fields_in_expected"] is not None
+    ):
+        results["Extra Fields in Expected"] = parameters["extra_fields_in_expected"]
+    if (
+        "extra_fields_in_actual" in parameters
+        and parameters["extra_fields_in_actual"] is not None
+    ):
+        results["Extra Fields in Actual"] = parameters["extra_fields_in_actual"]
     return results

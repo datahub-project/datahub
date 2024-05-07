@@ -367,6 +367,7 @@ public class FormServiceTest {
         });
 
     // Case 2 - non existant entity.
+    // throw an error if we try to unassign a form to an entity that does not exist
     Urn nonExistantEntity =
         UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:snowflake,test-2,PROD)");
     Mockito.when(mockClient.exists(any(OperationContext.class), eq(nonExistantEntity)))

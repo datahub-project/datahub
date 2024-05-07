@@ -114,6 +114,14 @@ task modelDocUpload(type: Exec, dependsOn: [modelDocGen]) {
     commandLine 'bash', '-c', "source ${venv_name}/bin/activate && ./scripts/modeldocupload.sh"
 }
 
+task analyticsEventsDocGen(type: Exec, dependsOn: [codegen]) {
+  inputs.files(file('scripts/generate_analytics_events.py'))
+  commandLine 'bash', '-c', "source ${venv_name}/bin/activate && ./scripts/analyticseventsdocgen.sh"
+}
+
+task analyticsEventsDocUpload(type: Exec, dependsOn: [analyticsEventsDocGen]) {
+    commandLine 'bash', '-c', "source ${venv_name}/bin/activate && ./scripts/analyticseventsdocupload.sh"
+}
 
 task lint(type: Exec, dependsOn: installDev) {
   /*

@@ -16,6 +16,8 @@ import com.linkedin.assertion.FieldAssertionInfo;
 import com.linkedin.assertion.FreshnessAssertionInfo;
 import com.linkedin.assertion.FreshnessAssertionSchedule;
 import com.linkedin.assertion.FreshnessAssertionType;
+import com.linkedin.assertion.SchemaAssertionCompatibility;
+import com.linkedin.assertion.SchemaAssertionInfo;
 import com.linkedin.assertion.SqlAssertionInfo;
 import com.linkedin.assertion.SqlAssertionType;
 import com.linkedin.assertion.VolumeAssertionInfo;
@@ -36,6 +38,7 @@ import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.r2.RemoteInvocationException;
 import io.datahubproject.metadata.context.OperationContext;
+import com.linkedin.schema.SchemaMetadata;
 import io.datahubproject.openapi.client.OpenApiClient;
 import java.time.Clock;
 import java.util.ArrayList;
@@ -178,7 +181,6 @@ public class AssertionService extends BaseService {
    * be found.
    *
    * @param assertionUrn the urn of the View
-   * @param authentication the authentication to use
    * @return an instance of {@link EntityResponse} for the View, null if it does not exist.
    */
   @Nullable
@@ -206,7 +208,6 @@ public class AssertionService extends BaseService {
    * assertions summary aspect or null if one cannot be found.
    *
    * @param entityUrn the urn of the Entity for which to fetch assertion summary
-   * @param authentication the authentication to use
    * @return an instance of {@link EntityResponse} for the View, null if it does not exist.
    */
   @Nullable
@@ -754,6 +755,63 @@ public class AssertionService extends BaseService {
       throw new RuntimeException(
           String.format("Failed to create new Field Assertion for entity with urn %s", entityUrn),
           e);
+    }
+  }
+
+  /** Updates an existing Dataset Schema assertion if it exists, otherwise creates a new one. */
+  @Nonnull
+  public Urn upsertDatasetSchemaAssertion(
+          @Nonnull final OperationContext opContext,
+      @Nonnull final Urn assertionUrn,
+      @Nonnull final Urn entityUrn,
+      @Nullable final String description,
+      @Nonnull final SchemaAssertionCompatibility compatibility,
+      @Nonnull final SchemaMetadata schema,
+      @Nullable final AssertionActions actions,
+      @Nullable final AssertionSource assertionSource) {
+    Objects.requireNonNull(assertionUrn, "assertionUrn must not be null");
+    Objects.requireNonNull(entityUrn, "entityUrn must not be null");
+    Objects.requireNonNull(compatibility, "compatibility must not be null");
+    Objects.requireNonNull(schema, "schema must not be null");
+    Objects.requireNonNull(opContext.getSessionAuthentication(), "authentication must not be null");
+    Urn actorUrn = null;
+    try {
+      actorUrn = Urn.createFromString(opContext.getSessionAuthentication().getActor().toUrnStr());
+    } catch (Exception e) {
+      log.error("Could not parse actor urn", e);
+    }
+    Objects.requireNonNull(actorUrn, "actorUrn obtained through authentication must not be null");
+
+    final SchemaAssertionInfo schemaAssertionInfo =
+        new SchemaAssertionInfo()
+            .setEntity(entityUrn)
+            .setCompatibility(compatibility)
+            .setSchema(schema);
+
+    final AssertionInfo assertion = new AssertionInfo();
+    assertion.setSchemaAssertion(schemaAssertionInfo);
+    assertion.setType(AssertionType.DATA_SCHEMA);
+    assertion.setSource(
+        assertionSource != null ? assertionSource : getNativeAssertionSource(actorUrn));
+    assertion.setDescription(description, SetMode.IGNORE_NULL);
+    assertion.setLastUpdated(new AuditStamp().setTime(getCurrentTime()).setActor(actorUrn));
+
+    final List<MetadataChangeProposal> aspects = new ArrayList<>();
+    aspects.add(
+        AspectUtils.buildMetadataChangeProposal(
+            assertionUrn, Constants.ASSERTION_INFO_ASPECT_NAME, assertion));
+    if (actions != null) {
+      aspects.add(
+          AspectUtils.buildMetadataChangeProposal(
+              assertionUrn, Constants.ASSERTION_ACTIONS_ASPECT_NAME, actions));
+    }
+
+    try {
+      this.entityClient.batchIngestProposals(opContext, aspects, false);
+      return assertionUrn;
+    } catch (Exception e) {
+      throw new RuntimeException(
+          String.format("Failed to update Schema Assertion with urn %s", assertionUrn), e);
     }
   }
 

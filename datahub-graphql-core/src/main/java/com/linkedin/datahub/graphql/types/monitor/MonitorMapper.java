@@ -18,6 +18,8 @@ import com.linkedin.datahub.graphql.generated.DatasetFieldAssertionParameters;
 import com.linkedin.datahub.graphql.generated.DatasetFieldAssertionSourceType;
 import com.linkedin.datahub.graphql.generated.DatasetFreshnessAssertionParameters;
 import com.linkedin.datahub.graphql.generated.DatasetFreshnessSourceType;
+import com.linkedin.datahub.graphql.generated.DatasetSchemaAssertionParameters;
+import com.linkedin.datahub.graphql.generated.DatasetSchemaSourceType;
 import com.linkedin.datahub.graphql.generated.DatasetVolumeAssertionParameters;
 import com.linkedin.datahub.graphql.generated.DatasetVolumeSourceType;
 import com.linkedin.datahub.graphql.generated.EmbeddedAssertion;
@@ -269,6 +271,11 @@ public class MonitorMapper {
           mapDatasetFieldAssertionParameters(
               backendAssertionEvaluationParameters.getDatasetFieldParameters()));
     }
+    if (backendAssertionEvaluationParameters.getDatasetSchemaParameters() != null) {
+      assertionEvaluationParameters.setDatasetSchemaParameters(
+          mapDatasetSchemaAssertionParameters(
+              backendAssertionEvaluationParameters.getDatasetSchemaParameters()));
+    }
     return assertionEvaluationParameters;
   }
 
@@ -319,6 +326,17 @@ public class MonitorMapper {
           mapFreshnessFieldSpec(backendDatasetFieldAssertionParameters.getChangedRowsField()));
     }
     return datasetFieldAssertionParameters;
+  }
+
+  private static DatasetSchemaAssertionParameters mapDatasetSchemaAssertionParameters(
+      com.linkedin.monitor.DatasetSchemaAssertionParameters
+          backendDatasetSchemaAssertionParameters) {
+    final DatasetSchemaAssertionParameters datasetSchemaAssertionParameters =
+        new DatasetSchemaAssertionParameters();
+    datasetSchemaAssertionParameters.setSourceType(
+        DatasetSchemaSourceType.valueOf(
+            backendDatasetSchemaAssertionParameters.getSourceType().name()));
+    return datasetSchemaAssertionParameters;
   }
 
   private static FreshnessFieldSpec mapFreshnessFieldSpec(

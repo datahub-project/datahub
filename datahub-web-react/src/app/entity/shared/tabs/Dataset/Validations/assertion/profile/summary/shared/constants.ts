@@ -22,6 +22,11 @@ export const ASSERTION_NATIVE_RESULTS_KEYS_BY_ASSERTION_TYPE = {
     VOLUME_ASSERTIONS: {
         PREVIOUS_Y_VALUE_KEY_NAME: 'Previous Row Count'
     },
+    SCHEMA_ASSERTIONS: {
+        EXTRA_FIELDS_IN_ACTUAL_KEY_NAME: 'Extra Fields in Actual',
+        EXTRA_FIELDS_IN_EXPECTED_KEY_NAME: 'Extra Fields in Expected',
+        MISMATCHED_FIELD_TYPES_KEY_NAMES: 'Mismatched Type Fields'
+    },
 }
 
 export const ASSERTION_OPERATOR_DESCRIPTIONS_REQUIRING_SUFFIX = [

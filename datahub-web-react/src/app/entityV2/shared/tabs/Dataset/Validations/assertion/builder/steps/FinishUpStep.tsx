@@ -27,9 +27,10 @@ export const FinishUpStep = ({ state, updateState, prev, submit }: StepProps) =>
     const [isSubmitting, setSubmitting] = useState(false);
     // SQL assertions require a title
     const [isFormValid, setIsFormValid] = useState(state.assertion?.type !== AssertionType.Sql);
+
     return (
         <Step>
-            <FinishUpBuilder state={state} updateState={updateState} onTitleChange={t => setIsFormValid(t.length > 0)} />
+            <FinishUpBuilder state={state} updateState={updateState} onValidityChange={setIsFormValid} />
             <ControlsContainer>
                 <Button onClick={prev}>Back</Button>
                 <Button

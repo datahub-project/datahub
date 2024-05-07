@@ -147,6 +147,12 @@ fragment assertionInfo on AssertionInfo {
     }
     schemaAssertion {
         entityUrn
+        compatibility
+        fields {
+            path
+            type
+            nativeType
+        }
         schema {
             fields {
                 fieldPath
@@ -310,6 +316,13 @@ mutation upsertDatasetFieldAssertionMonitor($assertionUrn: String, $input: Upser
         ...assertionDetails
     }
 }
+
+mutation upsertDatasetSchemaAssertionMonitor($assertionUrn: String, $input: UpsertDatasetSchemaAssertionMonitorInput!) {
+    upsertDatasetSchemaAssertionMonitor(assertionUrn: $assertionUrn, input: $input) {
+        ...assertionDetails
+    }
+}
+
 
 mutation updateAssertionMetadata($urn: String!, $input: UpdateAssertionMetadataInput!) {
     updateAssertionMetadata(urn: $urn, input: $input) {

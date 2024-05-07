@@ -30,17 +30,21 @@ import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.FieldAssertionInfo;
 import com.linkedin.datahub.graphql.generated.FixedIntervalSchedule;
 import com.linkedin.datahub.graphql.generated.FreshnessAssertionInfo;
+import com.linkedin.datahub.graphql.generated.SchemaAssertionCompatibility;
+import com.linkedin.datahub.graphql.generated.SchemaAssertionField;
 import com.linkedin.datahub.graphql.generated.SchemaAssertionInfo;
 import com.linkedin.datahub.graphql.generated.SchemaFieldRef;
 import com.linkedin.datahub.graphql.generated.SqlAssertionInfo;
 import com.linkedin.datahub.graphql.generated.VolumeAssertionInfo;
 import com.linkedin.datahub.graphql.types.common.mappers.DataPlatformInstanceAspectMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.StringMapMapper;
+import com.linkedin.datahub.graphql.types.dataset.mappers.SchemaFieldMapper;
 import com.linkedin.datahub.graphql.types.dataset.mappers.SchemaMetadataMapper;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.metadata.Constants;
+import com.linkedin.schema.SchemaField;
 import java.util.Collections;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -343,10 +347,26 @@ public class AssertionMapper {
       @Nullable final QueryContext context,
       final com.linkedin.assertion.SchemaAssertionInfo gmsSchemaAssertionInfo) {
     SchemaAssertionInfo result = new SchemaAssertionInfo();
+    result.setCompatibility(
+        SchemaAssertionCompatibility.valueOf(gmsSchemaAssertionInfo.getCompatibility().name()));
     result.setEntityUrn(gmsSchemaAssertionInfo.getEntity().toString());
     result.setSchema(
         SchemaMetadataMapper.INSTANCE.apply(
             context, gmsSchemaAssertionInfo.getSchema(), gmsSchemaAssertionInfo.getEntity(), 0L));
+    result.setFields(
+        gmsSchemaAssertionInfo.getSchema().getFields().stream()
+            .map(AssertionMapper::mapSchemaField)
+            .collect(Collectors.toList()));
+    return result;
+  }
+
+  private static SchemaAssertionField mapSchemaField(final SchemaField gmsField) {
+    SchemaAssertionField result = new SchemaAssertionField();
+    result.setPath(gmsField.getFieldPath());
+    result.setType(new SchemaFieldMapper().mapSchemaFieldDataType(gmsField.getType()));
+    if (gmsField.hasNativeDataType()) {
+      result.setNativeType(gmsField.getNativeDataType());
+    }
     return result;
   }
 

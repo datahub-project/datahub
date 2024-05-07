@@ -10,6 +10,9 @@ from datahub_executor.common.assertion.engine.evaluator.field_evaluator import (
 from datahub_executor.common.assertion.engine.evaluator.freshness_evaluator import (
     FreshnessAssertionEvaluator,
 )
+from datahub_executor.common.assertion.engine.evaluator.schema_evaluator import (
+    SchemaAssertionEvaluator,
+)
 from datahub_executor.common.assertion.engine.evaluator.sql_evaluator import (
     SQLAssertionEvaluator,
 )
@@ -114,6 +117,11 @@ def create_assertion_engine(graph: DataHubAssertionGraph) -> AssertionEngine:
             SourceProvider(),
         ),
         FieldAssertionEvaluator(
+            DataHubIngestionSourceConnectionProvider(graph, [datahub_secret_store]),
+            state_provider,
+            SourceProvider(),
+        ),
+        SchemaAssertionEvaluator(
             DataHubIngestionSourceConnectionProvider(graph, [datahub_secret_store]),
             state_provider,
             SourceProvider(),

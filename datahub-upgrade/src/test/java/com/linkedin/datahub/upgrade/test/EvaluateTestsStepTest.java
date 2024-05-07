@@ -127,7 +127,10 @@ public class EvaluateTestsStepTest extends AbstractTestNGSpringContextTests {
       final UpgradeContext mockUpgradeContext, UpgradeReport report) {
     Mockito.when(mockUpgradeContext.report()).thenReturn(report);
     Mockito.when(mockUpgradeContext.parsedArgs())
-        .thenReturn(Map.of("BATCH_SIZE", Optional.of("1")));
+        .thenReturn(
+            Map.of(
+                "batchSize", Optional.of("1"),
+                "batchDelayMs", Optional.of("5")));
   }
 
   private static void configureEntitySearchServiceMock(

@@ -264,6 +264,11 @@ enum AssertionEvaluationParametersType {
   Parameters required to evaluate a Dataset Field (Column) Assertion
   """
   DATASET_FIELD
+
+  """
+  Parameters required to evaluate a Dataset Schema Assertion
+  """
+  DATASET_SCHEMA
 }
 
 """
@@ -338,6 +343,11 @@ type AssertionEvaluationParameters {
   The parameters required to evaluate a dataset field assertion. Present if type is DATASET_FIELD.
   """
   datasetFieldParameters: DatasetFieldAssertionParameters
+
+  """
+  The parameters required to evaluate a dataset schema assertion. Present if type is DATASET_SCHEMA.
+  """
+  datasetSchemaParameters: DatasetSchemaAssertionParameters
 }
 
 """
@@ -551,6 +561,11 @@ input AssertionEvaluationParametersInput {
     The parameters required to evaluate a dataset field assertion. Present if type is DATASET_FIELD.
     """
     datasetFieldParameters: DatasetFieldAssertionParametersInput
+
+    """
+    The parameters required to evaluate a dataset schema assertion. Present if type is DATASET_SCHEMA.
+    """
+    datasetSchemaParameters: DatasetSchemaAssertionParametersInput
 }
 
 """
@@ -586,6 +601,36 @@ input DatasetVolumeAssertionParametersInput {
     The source of the volume source type
     """
     sourceType: DatasetVolumeSourceType!
+}
+
+"""
+Define the source type for the actual schema used to evaluate the assertion
+"""
+enum DatasetSchemaSourceType {
+    """
+    Use the DataHub latest schema metadata to determine the schema
+    """
+    DATAHUB_SCHEMA
+}
+
+"""
+Information about the information used to evaluate a schema assertion - where the schema comes from.
+"""
+type DatasetSchemaAssertionParameters {
+    """
+    The source of the information used to evaluate schema assertion - where the schema comes from.
+    """
+    sourceType: DatasetSchemaSourceType!
+}
+
+"""
+Input for the parameters required to evaluate a dataset freshness assertion. Present if type is DATASET_VOLUME.
+"""
+input DatasetSchemaAssertionParametersInput {
+    """
+    The source of the schema source type
+    """
+    sourceType: DatasetSchemaSourceType!
 }
 
 """

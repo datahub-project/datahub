@@ -39,4 +39,22 @@ record SchemaAssertionInfo {
         "/fields/*/glossaryTerms/terms/*/urn": null
     }
     schema: SchemaMetadata
+
+    /**
+     * The required compatibility level for the schema assertion to pass.
+     */
+    compatibility: optional enum SchemaAssertionCompatibility {
+        /**
+         * The actual schema must be exactly the same as the expected schema
+         */
+        EXACT_MATCH,
+        /**
+         * The actual schema must be a superset of the expected schema
+         */
+        SUPERSET,
+        /**
+         * The actual schema must be a subset of the expected schema
+         */
+        SUBSET
+    } = "EXACT_MATCH"
 }

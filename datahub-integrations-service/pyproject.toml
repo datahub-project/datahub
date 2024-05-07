@@ -16,22 +16,31 @@ dependencies = [
 	"fastapi>=0.103.1",
 	"uvicorn[standard]>=0.23.2",
 	"loguru",
+	# Slack.
 	"slack-bolt",
+	# Actions.
 	"acryl-datahub-actions==0.0.15",
+	"httpx",
+	# Our usage of anyio currently requires 3.x because of the way it handles exception groups.
+	"anyio>=3,<4",
+	"reactpy",
+	"reactpy-router",
+	# AI.
 	"openai",
 	"openai_function_call",
+	# Email notifications.
 	"sendgrid",
+	# Reporting.
 	"duckdb",
 	"pandas",
 	"boto3",
 	"pyarrow",
 	"jinja2",
 	"cachetools",
-	# Our usage of anyio currently requires 3.x because of the way it handles exception groups.
-	"anyio>=3,<4",
-	"httpx",
-	"reactpy",
-	"reactpy-router",
+	# dbt sync.
+	"pygitops",
+	"PyGithub",
+	"GitPython",
 ]
 
 [project.optional-dependencies]
@@ -44,9 +53,17 @@ dev = [
 	"pytest-asyncio",
 	"types-setuptools",
 	"types-cachetools",
+	"types-PyYAML",
 	"isort",
 	"faker",
 ]
+
+[project.entry-points."datahub_actions.source.plugins"]
+replay = "datahub_integrations.actions.replay_source.ReplayEventSource"
+
+[project.entry-points."datahub_actions.action.plugins"]
+record = "datahub_integrations.actions.recording_action.RecordingAction"
+dbt_sync_back = "datahub_integrations.dbt.dbt_sync_back:DbtSyncBackAction"
 
 [tool.black]
 extend-exclude = '''
@@ -60,7 +77,7 @@ target-version = ['py310']
 [tool.isort]
 profile = 'black'
 
-[tool.ruff]
+[tool.ruff.lint]
 ignore = [
 	'E501', # Ignore line length, since black handles that.
 	'D203', # Ignore 1 blank line required before class docstring.
@@ -68,8 +85,3 @@ ignore = [
 
 [tool.pyright]
 extraPaths = ['tests']
-
-[tool.pytest.ini_options]
-markers = [
-    "asyncio: mark a test as an asyncio coroutine."
-]

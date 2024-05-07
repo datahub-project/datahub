@@ -11,6 +11,7 @@ public class FeatureFlags {
   private boolean alwaysEmitChangeLog = false;
   private boolean readOnlyModeEnabled = false;
   private boolean assertionMonitorsEnabled = false;
+  private boolean schemaAssertionMonitorsEnabled = false;
   private boolean showSearchFiltersV2 = false;
   private boolean showBrowseV2 = false;
   private boolean platformBrowseV2 = false;

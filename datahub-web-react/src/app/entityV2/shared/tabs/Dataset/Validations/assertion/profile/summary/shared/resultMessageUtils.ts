@@ -3,7 +3,7 @@ import { formatNumberWithoutAbbreviation } from "../../../../../../../../../shar
 import { toLocalDateString, toLocalTimeString } from "../../../../../../../../../shared/time/timeUtils";
 import { getResultErrorMessage } from "../../../../assertionUtils";
 import { getFieldMetricLabel } from "../../../builder/steps/field/utils";
-import { tryGetAbsoluteVolumeAssertionNumericalResult, tryGetActualUpdatedTimestampFromAssertionResult, tryGetExpectedRangeFromAssertionAgainstRelativeValues, tryGetExpectedRangeFromAssertionAgainstAbsoluteValues, tryGetFieldMetricAssertionNumericalResult, tryGetFieldValueAssertionNumericalResult, tryGetPreviousSqlAssertionNumericalResult, tryGetPreviousVolumeAssertionNumericalResult, tryGetSqlAssertionNumericalResult, tryGetExpectedRangeFromFailThreshold, AssertionExpectedRange } from "./resultExtractionUtils";
+import { tryGetAbsoluteVolumeAssertionNumericalResult, tryGetActualUpdatedTimestampFromAssertionResult, tryGetExpectedRangeFromAssertionAgainstRelativeValues, tryGetExpectedRangeFromAssertionAgainstAbsoluteValues, tryGetFieldMetricAssertionNumericalResult, tryGetFieldValueAssertionNumericalResult, tryGetPreviousSqlAssertionNumericalResult, tryGetPreviousVolumeAssertionNumericalResult, tryGetSqlAssertionNumericalResult, tryGetExpectedRangeFromFailThreshold, AssertionExpectedRange, tryGetExtraFieldsInActual, tryGetExtraFieldsInExpected, tryGetMismatchedTypeFields } from "./resultExtractionUtils";
 import { getCronAsText } from '../../../../acrylUtils';
 import { ASSERTION_OPERATOR_DESCRIPTIONS_REQUIRING_SUFFIX, ASSERTION_OPERATOR_TO_DESCRIPTION } from "./constants";
 import { lowerFirstLetter } from "../../../../../../../../../shared/textUtil";
@@ -115,6 +115,35 @@ const getFormattedReasonTextForSqlAssertion = (run: AssertionRunEvent) => {
         : getFormattedReasonTextForRelativeSqlAssertion(run);
 };
 
+const getFormattedReasonTextForSchemaAssertion = (run: AssertionRunEvent) => {
+
+    if (run.result?.type === AssertionResultType.Success) {
+        return `The actual columns match the expected columns!`;
+    }
+
+    const extraFieldsInActual = tryGetExtraFieldsInActual(run.result) || [];
+    const extraFieldsInExpected = tryGetExtraFieldsInExpected(run.result) || [];
+    const mismatchedTypeFields = tryGetMismatchedTypeFields(run.result) || [];
+
+    let reasonMessage = ''; 
+
+    if (extraFieldsInActual.length > 0) {
+        reasonMessage += `Found unexpected columns: ${extraFieldsInActual.join(', ')}. `
+    }
+    if (extraFieldsInExpected.length > 0) {
+        reasonMessage += `Missing expected columns: ${extraFieldsInExpected.join(', ')}. `
+    }
+    if (mismatchedTypeFields.length > 0) {
+        reasonMessage += `The expected and actual data types for the following columns do not match: ${mismatchedTypeFields.join(', ')}. `
+    }
+
+    if (reasonMessage === '') {
+        return 'The actual columns do not match the expected columns!'
+    }
+
+    return  reasonMessage; 
+};
+
 const getFormattedReasonTextForFreshnessAssertion = (run: AssertionRunEvent) => {
     // Be careful about showing the actual result that was returned, since it may contain sensitive information.
     const result = run.result?.type;
@@ -216,6 +245,8 @@ export const getFormattedReasonText = (assertion: Assertion, run: AssertionRunEv
             return getFormattedReasonTextForFieldAssertion(coalescedRun);
         case AssertionType.Sql:
             return getFormattedReasonTextForSqlAssertion(coalescedRun);
+        case AssertionType.DataSchema:
+            return getFormattedReasonTextForSchemaAssertion(coalescedRun);
         case AssertionType.Dataset:
             return getFormattedReasonTextForDefaultAssertion(coalescedRun);
         default:

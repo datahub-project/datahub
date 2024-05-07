@@ -6,7 +6,8 @@ from setuptools import setup
 _codegen_config_file = pathlib.Path("./src/acryl_datahub_cloud/_codegen_config.json")
 _codegen_config: dict = json.loads(_codegen_config_file.read_text())
 
-stats_common = {"pandas", "pyarrow", "duckdb"}
+# Adding pydantic<2 since we use pydantic models to map to pyarrow models and that is only compatible in pydantic v1
+stats_common = {"pandas", "pyarrow", "duckdb", "pydantic<2"}
 aws_common = {"boto3"}
 
 plugins = {
@@ -14,6 +15,7 @@ plugins = {
     "datahub-reporting-extract-graph": stats_common
     | aws_common
     | {"opensearch-py==2.4.2"},
+    "datahub-reporting-extract-sql": stats_common | aws_common,
 }
 
 dev_requirements = {
@@ -24,6 +26,7 @@ dev_requirements = {
         for plugin in [
             "datahub-reporting-forms",
             "datahub-reporting-extract-graph",
+            "datahub-reporting-extract-sql"
         ]
         for dependency in plugins[plugin]
     ),
@@ -43,6 +46,7 @@ setup(
             "datahub.ingestion.source.plugins": [
                 "datahub-reporting-forms = acryl_datahub_cloud.datahub_reporting.forms:DataHubReportingFormsSource",
                 "datahub-reporting-extract-graph = acryl_datahub_cloud.datahub_reporting.extract_graph:DataHubReportingExtractGraphSource",
+                "datahub-reporting-extract-sql = acryl_datahub_cloud.datahub_reporting.extract_sql:DataHubReportingExtractSQLSource",
             ],
         },
     },

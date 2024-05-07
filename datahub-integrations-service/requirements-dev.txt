@@ -88,6 +88,7 @@ cffi==1.16.0
     # via
     #   argon2-cffi-bindings
     #   cryptography
+    #   pynacl
     #   snowflake-connector-python
 charset-normalizer==3.3.2
     # via
@@ -140,7 +141,9 @@ decorator==5.1.1
 defusedxml==0.7.1
     # via nbconvert
 deprecated==1.2.14
-    # via acryl-datahub
+    # via
+    #   acryl-datahub
+    #   pygithub
 dictdiffer==0.9.0
     # via acryl-datahub-actions
 docker==7.0.0
@@ -174,12 +177,20 @@ fastjsonschema==2.19.1
     # via
     #   nbformat
     #   reactpy
-filelock==3.13.4
-    # via snowflake-connector-python
-frozenlist==1.4.1
+filelock==3.14.0
+    # via
+    #   pygitops
+    #   snowflake-connector-python
+frozenlist==1.4.0
     # via
     #   aiohttp
     #   aiosignal
+gitdb==4.0.11
+    # via gitpython
+gitpython==3.1.43
+    # via
+    #   acryl-datahub-integrations
+    #   pygitops
 great-expectations==0.15.50
     # via acryl-datahub
 greenlet==3.0.3
@@ -461,14 +472,21 @@ pydantic==1.10.15
     #   openai-function-call
     #   spacy
     #   thinc
-pygments==2.17.2
+pygithub==2.3.0
+    # via acryl-datahub-integrations
+pygitops==0.16.1
+    # via acryl-datahub-integrations
+pygments==2.18.0
     # via
     #   ipython
     #   nbconvert
 pyjwt==2.8.0
     # via
     #   msal
+    #   pygithub
     #   snowflake-connector-python
+pynacl==1.5.0
+    # via pygithub
 pyopenssl==24.1.0
     # via snowflake-connector-python
 pyparsing==3.1.2
@@ -479,7 +497,7 @@ pytest==8.1.1
     #   pytest-cov
 pytest-asyncio==0.23.6
 pytest-cov==5.0.0
-python-dateutil==2.9.0.post0
+python-dateutil==2.8.2
     # via
     #   acryl-datahub
     #   acryl-datahub-actions
@@ -532,6 +550,7 @@ requests==2.31.0
     #   mixpanel
     #   msal
     #   openai
+    #   pygithub
     #   reactpy
     #   requests-file
     #   snowflake-connector-python
@@ -584,6 +603,8 @@ smart-open==6.4.0
     # via
     #   pathy
     #   spacy
+smmap==5.0.1
+    # via gitdb
 sniffio==1.3.1
     # via
     #   anyio
@@ -686,6 +707,7 @@ typer==0.7.0
     #   pathy
     #   spacy
 types-cachetools==5.3.0.7
+types-pyyaml==6.0.12.20240311
 types-setuptools==69.5.0.20240423
 typing-extensions==4.11.0
     # via
@@ -696,6 +718,7 @@ typing-extensions==4.11.0
     #   great-expectations
     #   mypy
     #   pydantic
+    #   pygithub
     #   python-utils
     #   reactpy
     #   reactpy-router
@@ -716,6 +739,7 @@ urllib3==1.26.18
     #   docker
     #   great-expectations
     #   mixpanel
+    #   pygithub
     #   requests
     #   sentry-sdk
 uvicorn==0.29.0

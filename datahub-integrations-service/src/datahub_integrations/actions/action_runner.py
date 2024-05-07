@@ -71,9 +71,7 @@ def main() -> None:
         description="Run a single datahub action pipeline."
     )
     parser.add_argument("config_file", type=str, help="Path to the config file.")
-    parser.add_argument(
-        "--port", type=int, default=9012, help="Port to run the webserver on."
-    )
+    parser.add_argument("--port", type=int, help="Port to run the webserver on.")
 
     # Parse the CLI arguments.
     args = parser.parse_args()
@@ -92,13 +90,16 @@ def main() -> None:
 
     # Run the webserver.
     api = make_api(pipeline)
-    server = setup_server(api, port)
+    server = None
+    if port is not None:
+        server = setup_server(api, port)
 
     # Register signal handlers to stop the pipeline gracefully.
     def stop_handler(signum, frame):  # type: ignore[no-untyped-def]
         logger.info(f"Received signal {signum}. Stopping pipeline gracefully...")
 
-        server.handle_exit(signum, frame)
+        if server:
+            server.handle_exit(signum, frame)
         pipeline.stop()
         sys.exit(0)
 
