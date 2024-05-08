@@ -167,7 +167,7 @@ def loaded_kafka_connect(kafka_connect_runner):
                             "query": "select * from member",
                             "topic.prefix": "query-topic",
                             "tasks.max": "1",
-                            "connection.url": "jdbc:mysql://test_mysql:${env:MYSQL_PORT}/${env:MYSQL_DB}"
+                            "connection.url": "jdbc:mysql://foo:datahub@test_mysql:${env:MYSQL_PORT}/${env:MYSQL_DB}"
                         }
                     }
                     """,
