@@ -15,6 +15,7 @@ from datahub.ingestion.transformer.dataset_transformer import (
 from datahub.metadata.schema_classes import (
     AuditStampClass,
     GlossaryTermAssociationClass,
+    GlossaryTermInfoClass,
     GlossaryTermsClass,
     SchemaFieldClass,
     SchemaMetadataClass,
@@ -79,13 +80,28 @@ class AddDatasetSchemaTerms(DatasetSchemaMetadataTransformer):
         new_glossary_terms.extend(terms_to_add)
 
         unique_gloseary_terms = []
-        logger.info("Adding below terms to fields: ")
+        logger.debug("Adding below terms to fields: ")
         for term in new_glossary_terms:
             if term not in unique_gloseary_terms:
                 unique_gloseary_terms.append(term)
-                logger.info(
-                    f"Term URN: {term.urn}, Field Path: {schema_field.fieldPath}"
-                )
+                if not self.ctx.graph:
+                    logger.warning(
+                        f"Term URN: {term.urn}, Term Name: Not Found, Field Path: {schema_field.fieldPath}"
+                    )
+                else:
+                    term_aspect = self.ctx.graph.get_aspect(
+                        entity_urn=term.urn, aspect_type=GlossaryTermInfoClass
+                    )
+                    if term_aspect:
+                        term_name = term_aspect.name
+                    if term_name:
+                        logger.debug(
+                            f"Term URN: {term.urn}, Term Name: {term_name}, Field Path: {schema_field.fieldPath}"
+                        )
+                    else:
+                        logger.warning(
+                            f"Term URN: {term.urn}, Term Name: Not Found, Field Path: {schema_field.fieldPath}"
+                        )
 
         new_glossary_term = GlossaryTermsClass(
             terms=[],
