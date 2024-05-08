@@ -77,6 +77,7 @@ function GlossaryEntitiesList(props: Props) {
                         name={entityRegistry.getDisplayName(term.type, term)}
                         urn={term.urn}
                         type={term.type}
+                        description={term.properties?.description || ''}
                     />
                 ))}
             </EntitiesWrapper>

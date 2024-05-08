@@ -1,17 +1,22 @@
 import React from 'react';
-import { Typography } from 'antd';
+import { Button, Typography } from 'antd';
 import styled from 'styled-components/macro';
 import BookmarkIcon from '../../images/collections_bookmark.svg?react';
-import GroupBookmarkIcon from '../../images/glossary_collections_bookmark.svg?react';
-import ArrowRightIcon from '../../images/arrow_right_alt.svg?react';
-import { ANTD_GRAY, REDESIGN_COLORS } from '../entityV2/shared/constants';
-import { EntityType } from '../../types.generated';
+import GroupBookmarkIconWhite from '../../images/glossary_collections_bookmark_white.svg?react';
+import { REDESIGN_COLORS } from '../entityV2/shared/constants';
+import { EntityType, Maybe } from '../../types.generated';
+import { GlossaryPreviewCardDecoration } from '../entityV2/shared/containers/profile/header/GlossaryPreviewCardDecoration';
+import { generateColorFromPalette } from './colorUtils';
+import { GenericEntityProperties } from '../entity/shared/types';
 
-const SmallDescription = styled(Typography)`
-    color: rgba(86, 102, 142, 0.5);
+const { Paragraph } = Typography;
+
+const SmallDescription = styled(Paragraph)`
+    color: ${REDESIGN_COLORS.SUB_TEXT};
     font-size: 10px;
-    line-height: 16px;
     font-weight: 600;
+    line-height: 20px;
+    margin-top: 10px;
 `;
 
 const EntityDetailsLeftColumn = styled.div`
@@ -28,11 +33,17 @@ const EntityDetailsRightColumn = styled.div`
     }
 `;
 
-const BookmarkIconWrapper = styled.div`
-    border: 1px solid ${ANTD_GRAY[5]};
-    border-radius: 10px;
-    backround: ${ANTD_GRAY[1]};
-    padding: 14px 11px 11px 13px;
+const BookmarkIconWrapper = styled.div<{ urnText: string }>`
+    width: 40px;
+    height: 40px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background-color: ${(props) => generateColorFromPalette(props.urnText)};
+    border-radius: 11px;
+    margin-right: 10px;
+    position: relative;
+    overflow: hidden;
 `;
 
 const EntityNameWrapper = styled.div`
@@ -53,6 +64,8 @@ const EntityDetails = styled.div`
 const EntityDetailsWrapper = styled.div`
     width: 100%;
     margin: 0 2px;
+    display: flex;
+    flex-direction: column;
 
     &:hover > ${EntityDetails} > ${EntityDetailsLeftColumn} > ${BookmarkIconWrapper} > svg > g > path {
         transition: 0.15s;
@@ -63,39 +76,123 @@ const EntityDetailsWrapper = styled.div`
         transition: 0.15s;
         display: block;
     }
-
-    &:hover {
-        transition: 0.15s;
-        background-color: ${REDESIGN_COLORS.LIGHT_GREY};
-        border-radius: 4px;
-    }
 `;
+
+const EntityName = styled.div`
+    color: ${REDESIGN_COLORS.SUBTITLE};
+    font-size: 12px;
+    font-weight: 400;
+`;
+
+const EntityTypeText = styled.div`
+    color: ${REDESIGN_COLORS.DARK_GREY};
+    font-size: 10px;
+    font-weight: 600;
+    opacity: 0.5;
+`;
+
+const EntityTitleWrapper = styled.div`
+    display: flex;
+    align-items: center;
+`;
+
+const BookmarkRibbon = styled.span<{ urnText: string }>`
+    position: absolute;
+    left: -11px;
+    top: 7px;
+    width: 40px;
+    transform: rotate(-45deg);
+    padding: 4px;
+    opacity: 1;
+    background-color: rgba(0, 0, 0, 0.2);
+`;
+
+const TagsContainer = styled.div`
+    display: flex;
+    align-items: center;
+    margin-top: 15px;
+`;
+
+const TagPill = styled.span`
+    border-radius: 12px;
+    background: ${REDESIGN_COLORS.LIGHT_GREY_PILL};
+    padding: 5px 10px;
+    display: flex;
+    align-items: center;
+    font-size: 9px;
+    color: ${REDESIGN_COLORS.SUB_TEXT};
+`;
+
+const ExpandCollapseButton = styled(Button)`
+    font-size: 10px;
+    padding: 0;
+    height: 10px;
+    margin-left: 8px;
+`;
+
+const MAX_DESCRIPTION_LENGTH = 150;
 
 interface Props {
     name: string;
     description: string | undefined;
     type: EntityType;
+    urn: string;
+    entityData: GenericEntityProperties | null;
+    count?: Maybe<number>;
 }
 
 const GlossaryTermItem = (props: Props) => {
-    const { name, description, type } = props;
+    const { name, description, type, entityData, count } = props;
+    const [isExpanded, setIsExpanded] = React.useState(false);
+    const isDescriptionTruncated = description && description.length > MAX_DESCRIPTION_LENGTH;
+    const truncatedDescription = description?.slice(0, MAX_DESCRIPTION_LENGTH);
 
     return (
         <EntityDetailsWrapper>
-            <EntityDetails>
-                <EntityDetailsLeftColumn>
-                    <BookmarkIconWrapper>
-                        {type === EntityType.GlossaryNode ? <GroupBookmarkIcon /> : <BookmarkIcon />}
+            {type === EntityType.GlossaryNode ? (
+                <EntityTitleWrapper>
+                    <BookmarkIconWrapper urnText={entityData?.urn || ''}>
+                        <BookmarkRibbon urnText={entityData?.urn || ''} />
+                        <GroupBookmarkIconWhite />
                     </BookmarkIconWrapper>
                     <EntityNameWrapper>
-                        {name}
-                        {description && <SmallDescription>{description}</SmallDescription>}
+                        <EntityName>{name}</EntityName>
+                        <EntityTypeText>Glossary Term Group</EntityTypeText>
                     </EntityNameWrapper>
-                </EntityDetailsLeftColumn>
-                <EntityDetailsRightColumn>
-                    <ArrowRightIcon />
-                </EntityDetailsRightColumn>
-            </EntityDetails>
+                </EntityTitleWrapper>
+            ) : (
+                <>
+                    <GlossaryPreviewCardDecoration urn={entityData?.urn || ''} entityData={entityData} />
+                    <EntityName>{name}</EntityName>
+                    <EntityTypeText>Glossary Term</EntityTypeText>
+                </>
+            )}
+
+            {description && (
+                <SmallDescription>
+                    {isExpanded ? <>{description}</> : <>{truncatedDescription}...</>}
+                    {isDescriptionTruncated && (
+                        <ExpandCollapseButton
+                            type="link"
+                            onClick={(e) => {
+                                e.preventDefault();
+                                setIsExpanded(!isExpanded);
+                            }}
+                        >
+                            Read {isExpanded ? 'less' : 'more'}
+                        </ExpandCollapseButton>
+                    )}
+                </SmallDescription>
+            )}
+
+            {type === EntityType.GlossaryNode && (
+                <TagsContainer>
+                    <TagPill>
+                        <BookmarkIcon width={15} height={15} />
+                        {count}
+                    </TagPill>
+                </TagsContainer>
+            )}
         </EntityDetailsWrapper>
     );
 };

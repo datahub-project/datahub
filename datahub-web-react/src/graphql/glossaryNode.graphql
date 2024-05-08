@@ -5,6 +5,7 @@ fragment childGlossaryTerm on GlossaryTerm {
     hierarchicalName
     properties {
         name
+        description
     }
 }
 

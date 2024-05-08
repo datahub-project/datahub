@@ -13,13 +13,15 @@ import { REDESIGN_COLORS } from '../entityV2/shared/constants';
 const GlossaryItem = styled.div`
     align-items: center;
     color: ${REDESIGN_COLORS.SUBTITLE};
-    display: flex;
     font-size: 14px;
     font-weight: 400;
-    justify-content: space-between;
     line-height: normal;
     width: 100%;
     height: 100%;
+    position: relative;
+    overflow: hidden;
+    padding: 12px 20px 20px 32px;
+    border-top: 1px solid rgba(0,0,0,0.1);
 
     .anticon-folder {
         margin-right: 8px;
@@ -41,11 +43,15 @@ const ItemWrapper = styled.div<ItemWrapperProps>`
     width: 100%;
     flex-basis: ${(props) => (props.type === EntityType.GlossaryNode && !props.entityData.urn ? '24%' : 'auto')};
     min-width: 200px;
-    min-height: 140px;
     & a {
         display: block;
         width: 100%;
         height: 100%;
+    }
+    &:hover {
+        transition: 0.15s;
+        background-color: ${REDESIGN_COLORS.LIGHT_GREY};
+        border-radius: 4px;
     }
 `;
 
@@ -77,7 +83,7 @@ function GlossaryEntityItem(props: Props) {
                             urn={urn}
                         />
                     ) : (
-                        <GlossaryTermItem name={name} description={description} type={type}/>
+                        <GlossaryTermItem name={name} description={description} type={type} urn={urn} entityData={entityData} count={count}/>
                     )}
                 </GlossaryItem>
             </Link>
