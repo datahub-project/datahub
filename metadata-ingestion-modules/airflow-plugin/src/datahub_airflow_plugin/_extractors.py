@@ -59,6 +59,10 @@ class ExtractorManager(OLExtractorManager):
         for operator in _sql_operator_overrides:
             self.task_to_extractor.extractors[operator] = GenericSqlExtractor
 
+        self.task_to_extractor.extractors["BigQueryInsertJobOperator"] = (
+            BigQueryInsertJobOperatorExtractor
+        )
+
         self._graph: Optional["DataHubGraph"] = None
 
     @contextlib.contextmanager
@@ -249,6 +253,27 @@ def _parse_sql_into_task_metadata(
         run_facets=run_facets,
         job_facets=job_facets,
     )
+
+
+class BigQueryInsertJobOperatorExtractor(BaseExtractor):
+    def extract(self) -> Optional[TaskMetadata]:
+        from airflow.providers.google.cloud.operators.bigquery import (
+            BigQueryInsertJobOperator,
+        )
+
+        operator: "BigQueryInsertJobOperator" = self.operator
+        sql = operator.configuration.get("query")
+        if not sql:
+            self.log.warning("No query found in BigQueryInsertJobOperator")
+            return None
+
+        return _parse_sql_into_task_metadata(
+            self,
+            sql,
+            platform="bigquery",
+            default_database=operator.project_id,
+            default_schema=None,
+        )
 
 
 def _snowflake_default_schema(self: "SnowflakeExtractor") -> Optional[str]:

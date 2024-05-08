@@ -8,7 +8,7 @@ If you're looking to schedule DataHub ingestion using Airflow, see the guide on 
 
 The DataHub Airflow plugin supports:
 
-- Automatic column-level lineage extraction from various operators e.g. SQL operators (including `MySqlOperator`, `PostgresOperator`, `SnowflakeOperator`, and more), `S3FileTransformOperator`, and more.
+- Automatic column-level lineage extraction from various operators e.g. SQL operators (including `MySqlOperator`, `PostgresOperator`, `SnowflakeOperator`, `BigQueryInsertJobOperator`, and more), `S3FileTransformOperator`, and more.
 - Airflow DAG and tasks, including properties, ownership, and tags.
 - Task run information, including task successes and failures.
 - Manual lineage annotations using `inlets` and `outlets` on Airflow operators.
@@ -166,6 +166,7 @@ Supported operators:
 - `SQLExecuteQueryOperator`, including any subclasses. Note that in newer versions of Airflow (generally Airflow 2.5+), most SQL operators inherit from this class.
 - `AthenaOperator` and `AWSAthenaOperator`
 - `BigQueryOperator` and `BigQueryExecuteQueryOperator`
+- `BigQueryInsertJobOperator` (incubating)
 - `MySqlOperator`
 - `PostgresOperator`
 - `RedshiftSQLOperator`
