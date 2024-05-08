@@ -419,12 +419,13 @@ class AirflowGenerator:
         emit_templates: bool = True,
         config: Optional[DatahubLineageConfig] = None,
     ) -> DataProcessInstance:
-        if datajob is None:
+        if datajob is None and ti.task is not None:
             datajob = AirflowGenerator.generate_datajob(
                 cluster, ti.task, dag, config=config
             )
 
         assert dag_run.run_id
+        assert datajob is not None
         dpi = DataProcessInstance.from_datajob(
             datajob=datajob,
             id=f"{dag.dag_id}_{ti.task_id}_{dag_run.run_id}",
@@ -508,7 +509,7 @@ class AirflowGenerator:
         :param config: Optional[DatahubLineageConfig]
         :return: DataProcessInstance
         """
-        if datajob is None:
+        if datajob is None and ti.task is not None:
             datajob = AirflowGenerator.generate_datajob(
                 cluster, ti.task, dag, config=config
             )
@@ -530,6 +531,7 @@ class AirflowGenerator:
                     f"Result should be either success or failure and it was {ti.state}"
                 )
 
+        assert datajob is not None
         dpi = DataProcessInstance.from_datajob(
             datajob=datajob,
             id=f"{dag.dag_id}_{ti.task_id}_{dag_run.run_id}",

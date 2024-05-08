@@ -360,7 +360,7 @@ class DataHubListener:
         # The type ignore is to placate mypy on Airflow 2.1.x.
         dagrun: "DagRun" = task_instance.dag_run  # type: ignore[attr-defined]
         task = task_instance.task
-        dag: "DAG" = task.dag  # type: ignore[assignment]
+        dag: "DAG" = task.dag if task is not None else None  # type: ignore[assignment]
 
         self._task_holder.set_task(task_instance)
 
@@ -376,113 +376,117 @@ class DataHubListener:
         if not HAS_AIRFLOW_DAG_LISTENER_API:
             self.on_dag_start(dagrun)
 
-        datajob = AirflowGenerator.generate_datajob(
-            cluster=self.config.cluster,
-            task=task,
-            dag=dag,
-            capture_tags=self.config.capture_tags_info,
-            capture_owner=self.config.capture_ownership_info,
-            config=self.config,
-        )
-
-        # TODO: Make use of get_task_location to extract github urls.
-
-        # Add lineage info.
-        self._extract_lineage(datajob, dagrun, task, task_instance)
-
-        # TODO: Add handling for Airflow mapped tasks using task_instance.map_index
-
-        for mcp in datajob.generate_mcp(
-            materialize_iolets=self.config.materialize_iolets
-        ):
-            self.emitter.emit(mcp, self._make_emit_callback())
-        logger.debug(f"Emitted DataHub Datajob start: {datajob}")
-
-        if self.config.capture_executions:
-            dpi = AirflowGenerator.run_datajob(
-                emitter=self.emitter,
+        if task is not None:
+            datajob = AirflowGenerator.generate_datajob(
                 cluster=self.config.cluster,
-                ti=task_instance,
+                task=task,
                 dag=dag,
-                dag_run=dagrun,
-                datajob=datajob,
-                emit_templates=False,
+                capture_tags=self.config.capture_tags_info,
+                capture_owner=self.config.capture_ownership_info,
                 config=self.config,
             )
-            logger.debug(f"Emitted DataHub DataProcess Instance start: {dpi}")
 
-        self.emitter.flush()
+            # TODO: Make use of get_task_location to extract github urls.
 
-        logger.debug(
-            f"DataHub listener finished processing notification about task instance start for {task_instance.task_id}"
-        )
+            # Add lineage info.
+            self._extract_lineage(datajob, dagrun, task, task_instance)
 
-        if self.config.materialize_iolets:
-            for outlet in datajob.outlets:
-                reported_time: int = int(time.time() * 1000)
-                operation = OperationClass(
-                    timestampMillis=reported_time,
-                    operationType=OperationTypeClass.CREATE,
-                    lastUpdatedTimestamp=reported_time,
-                    actor=builder.make_user_urn("airflow"),
+            # TODO: Add handling for Airflow mapped tasks using task_instance.map_index
+
+            for mcp in datajob.generate_mcp(
+                materialize_iolets=self.config.materialize_iolets
+            ):
+                self.emitter.emit(mcp, self._make_emit_callback())
+            logger.debug(f"Emitted DataHub Datajob start: {datajob}")
+
+            if self.config.capture_executions:
+                dpi = AirflowGenerator.run_datajob(
+                    emitter=self.emitter,
+                    cluster=self.config.cluster,
+                    ti=task_instance,
+                    dag=dag,
+                    dag_run=dagrun,
+                    datajob=datajob,
+                    emit_templates=False,
+                    config=self.config,
                 )
+                logger.debug(f"Emitted DataHub DataProcess Instance start: {dpi}")
 
-                operation_mcp = MetadataChangeProposalWrapper(
-                    entityUrn=str(outlet), aspect=operation
-                )
+            self.emitter.flush()
 
-                self.emitter.emit(operation_mcp)
-                logger.debug(f"Emitted Dataset Operation: {outlet}")
-        else:
-            if self.graph:
+            logger.debug(
+                f"DataHub listener finished processing notification about task instance start for {task_instance.task_id}"
+            )
+
+            if self.config.materialize_iolets:
                 for outlet in datajob.outlets:
-                    if not self.graph.exists(str(outlet)):
-                        logger.warning(f"Dataset {str(outlet)} not materialized")
-                for inlet in datajob.inlets:
-                    if not self.graph.exists(str(inlet)):
-                        logger.warning(f"Dataset {str(inlet)} not materialized")
+                    reported_time: int = int(time.time() * 1000)
+                    operation = OperationClass(
+                        timestampMillis=reported_time,
+                        operationType=OperationTypeClass.CREATE,
+                        lastUpdatedTimestamp=reported_time,
+                        actor=builder.make_user_urn("airflow"),
+                    )
+
+                    operation_mcp = MetadataChangeProposalWrapper(
+                        entityUrn=str(outlet), aspect=operation
+                    )
+
+                    self.emitter.emit(operation_mcp)
+                    logger.debug(f"Emitted Dataset Operation: {outlet}")
+            else:
+                if self.graph:
+                    for outlet in datajob.outlets:
+                        if not self.graph.exists(str(outlet)):
+                            logger.warning(f"Dataset {str(outlet)} not materialized")
+                    for inlet in datajob.inlets:
+                        if not self.graph.exists(str(inlet)):
+                            logger.warning(f"Dataset {str(inlet)} not materialized")
 
     def on_task_instance_finish(
         self, task_instance: "TaskInstance", status: InstanceRunResult
     ) -> None:
         dagrun: "DagRun" = task_instance.dag_run  # type: ignore[attr-defined]
         task = self._task_holder.get_task(task_instance) or task_instance.task
-        dag: "DAG" = task.dag  # type: ignore[assignment]
+        dag: "DAG" = task.dag if task is not None else None  # type: ignore[assignment]
 
-        datajob = AirflowGenerator.generate_datajob(
-            cluster=self.config.cluster,
-            task=task,
-            dag=dag,
-            capture_tags=self.config.capture_tags_info,
-            capture_owner=self.config.capture_ownership_info,
-            config=self.config,
-        )
-
-        # Add lineage info.
-        self._extract_lineage(datajob, dagrun, task, task_instance, complete=True)
-
-        for mcp in datajob.generate_mcp(
-            materialize_iolets=self.config.materialize_iolets
-        ):
-            self.emitter.emit(mcp, self._make_emit_callback())
-        logger.debug(f"Emitted DataHub Datajob finish w/ status {status}: {datajob}")
-
-        if self.config.capture_executions:
-            dpi = AirflowGenerator.complete_datajob(
-                emitter=self.emitter,
+        if task is not None:
+            datajob = AirflowGenerator.generate_datajob(
                 cluster=self.config.cluster,
-                ti=task_instance,
+                task=task,
                 dag=dag,
-                dag_run=dagrun,
-                datajob=datajob,
-                result=status,
+                capture_tags=self.config.capture_tags_info,
+                capture_owner=self.config.capture_ownership_info,
                 config=self.config,
             )
+
+            # Add lineage info.
+            self._extract_lineage(datajob, dagrun, task, task_instance, complete=True)
+
+            for mcp in datajob.generate_mcp(
+                materialize_iolets=self.config.materialize_iolets
+            ):
+                self.emitter.emit(mcp, self._make_emit_callback())
             logger.debug(
-                f"Emitted DataHub DataProcess Instance with status {status}: {dpi}"
+                f"Emitted DataHub Datajob finish w/ status {status}: {datajob}"
             )
 
-        self.emitter.flush()
+            if self.config.capture_executions:
+                dpi = AirflowGenerator.complete_datajob(
+                    emitter=self.emitter,
+                    cluster=self.config.cluster,
+                    ti=task_instance,
+                    dag=dag,
+                    dag_run=dagrun,
+                    datajob=datajob,
+                    result=status,
+                    config=self.config,
+                )
+                logger.debug(
+                    f"Emitted DataHub DataProcess Instance with status {status}: {dpi}"
+                )
+
+            self.emitter.flush()
 
     @hookimpl
     @run_in_thread
