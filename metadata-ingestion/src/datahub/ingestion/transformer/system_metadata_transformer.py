@@ -13,6 +13,8 @@ def auto_system_metadata(
     ctx: PipelineContext,
     stream: Iterable[MetadataWorkUnit],
 ) -> Iterable[MetadataWorkUnit]:
+    if not ctx.pipeline_config:
+        raise ValueError("Pipeline config is required for system metadata")
     set_system_metadata = ctx.pipeline_config.flags.set_system_metadata
     set_pipeline_name = ctx.pipeline_config.flags.set_system_metadata_pipeline_name
 
