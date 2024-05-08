@@ -360,7 +360,8 @@ class DataHubListener:
         # The type ignore is to placate mypy on Airflow 2.1.x.
         dagrun: "DagRun" = task_instance.dag_run  # type: ignore[attr-defined]
         task = task_instance.task
-        dag: "DAG" = task.dag if task is not None else None  # type: ignore[assignment]
+        assert task is not None
+        dag: "DAG" = task.dag  # type: ignore[assignment]
 
         self._task_holder.set_task(task_instance)
 
@@ -448,7 +449,8 @@ class DataHubListener:
     ) -> None:
         dagrun: "DagRun" = task_instance.dag_run  # type: ignore[attr-defined]
         task = self._task_holder.get_task(task_instance) or task_instance.task
-        dag: "DAG" = task.dag if task is not None else None  # type: ignore[assignment]
+        assert task is not None
+        dag: "DAG" = task.dag  # type: ignore[assignment]
 
         if task is not None:
             datajob = AirflowGenerator.generate_datajob(
