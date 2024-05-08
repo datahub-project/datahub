@@ -374,7 +374,9 @@ plugins: Dict[str, Set[str]] = {
         # It's technically wrong for packages to depend on setuptools. However, it seems mlflow does it anyways.
         "setuptools",
     },
-    "mode": {"requests", "tenacity>=8.0.1"} | sqllineage_lib | sqlglot_lib,
+    "mode": {"requests", "python-liquid", "tenacity>=8.0.1"}
+    | sqllineage_lib
+    | sqlglot_lib,
     "mongodb": {"pymongo[srv]>=3.11", "packaging"},
     "mssql": sql_common | mssql_common,
     "mssql-odbc": sql_common | mssql_common | {"pyodbc"},
