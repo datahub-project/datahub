@@ -1,12 +1,15 @@
 package com.linkedin.metadata.aspect.patch;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.linkedin.util.Pair;
 import jakarta.json.Json;
 import jakarta.json.JsonArrayBuilder;
 import jakarta.json.JsonPatch;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.AllArgsConstructor;
@@ -44,9 +47,11 @@ public class GenericJsonPatch {
 
     public Map<String, ?> toMap() {
       if (value != null) {
-        return Map.of("op", op, "path", path, "value", value);
+        return Stream.of(Pair.of("op", op), Pair.of("path", path), Pair.of("value", value))
+            .collect(Collectors.toMap(Pair::getKey, Pair::getValue));
       } else {
-        return Map.of("op", op, "path", path);
+        return Stream.of(Pair.of("op", op), Pair.of("path", path))
+            .collect(Collectors.toMap(Pair::getKey, Pair::getValue));
       }
     }
   }
