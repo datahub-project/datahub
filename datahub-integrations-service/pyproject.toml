@@ -18,6 +18,7 @@ dependencies = [
 	"loguru",
 	# Slack.
 	"slack-bolt",
+	"inflect",
 	# Actions.
 	"acryl-datahub-actions==0.0.15",
 	"httpx",
@@ -85,3 +86,8 @@ ignore = [
 
 [tool.pyright]
 extraPaths = ['tests']
+
+[tool.pytest.ini_options]
+markers = [
+    "asyncio: mark a test as an asyncio coroutine."
+]

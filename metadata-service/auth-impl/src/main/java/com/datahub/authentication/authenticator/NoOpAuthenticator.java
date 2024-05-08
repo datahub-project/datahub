@@ -47,9 +47,22 @@ public class NoOpAuthenticator implements Authenticator {
     Objects.requireNonNull(context);
     String actorUrn = context.getRequestHeaders().get(LEGACY_X_DATAHUB_ACTOR_HEADER);
 
+    // Check whether the request has an impersonation header.
+    if (context.getRequestHeaders().containsKey(IMPERSONATION_HEADER_NAME)) {
+      log.debug(
+          String.format(
+              "Impersonating actor: %s",
+              context.getRequestHeaders().get(IMPERSONATION_HEADER_NAME)));
+      return new Authentication(
+          new Actor(
+              ActorType.USER,
+              getActorIdFromUrn(context.getRequestHeaders().get(IMPERSONATION_HEADER_NAME))),
+          "",
+          Collections.emptyMap());
+    }
     // For backwards compatibility, support pulling actor context from the deprecated
     // X-DataHub-Actor header.
-    if (actorUrn == null || "".equals(actorUrn)) {
+    if (actorUrn == null || actorUrn.isEmpty()) {
       log.debug(
           String.format(
               "Found no X-DataHub-Actor header provided with the request. Falling back to system creds %s",

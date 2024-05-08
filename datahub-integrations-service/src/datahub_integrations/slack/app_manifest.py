@@ -1,5 +1,6 @@
 import json
 from datetime import datetime, timezone
+from urllib.parse import urlparse
 
 import slack_sdk
 from loguru import logger
@@ -15,7 +16,7 @@ from datahub_integrations.slack.config import (
 
 # When in local development, routes to localhost won't work. Instead, we will enable Slack's
 # socket mode so that our application can receive events from Slack via a websocket.
-USE_SOCKET_MODE = DATAHUB_FRONTEND_URL.startswith("http://localhost:9002")
+USE_SOCKET_MODE = DATAHUB_FRONTEND_URL.startswith("http://localhost:")
 if USE_SOCKET_MODE:
     logger.info(
         "Slack socket mode is enabled. To receive events from Slack, you must also run `python scripts/slack_socket_mode.py`"
@@ -62,12 +63,16 @@ def get_slack_app_manifest() -> str:
             "minor_version": 1,
         },
         "display_information": {
-            "name": "Acryl Data",
+            "name": "Acryl DataHub",
             "background_color": "#142f39",
             # The short tagline shows up in the app hover cards.
             "description": "A modern approach to data discovery and metadata management",
             # The long description appears on the app install page and the about app details page in Slack.
-            "long_description": "The Acryl Data integration for Slack allows you to receive real-time notifications about changes to your data, unfurl links in both Slack and Acryl, and to search across your data from within Slack.",
+            "long_description": (
+                "The Acryl Data integration for Slack allows you to receive real-time "
+                "notifications about changes to your data, unfurl links in both Slack "
+                "and Acryl, and to search across your data from within Slack."
+            ),
         },
         "features": {
             "bot_user": {"display_name": "Acryl", "always_online": True},
@@ -81,27 +86,28 @@ def get_slack_app_manifest() -> str:
             ],
             "slash_commands": [
                 {
-                    "command": "/acryl",
+                    "command": "/acryl" if not USE_SOCKET_MODE else "/acryl-dev",
                     "url": f"{DATAHUB_FRONTEND_URL}/integrations/slack/commands",
                     "description": "Search across your Acryl instance",
-                    "usage_hint": "keywords",
+                    "usage_hint": "search [query] | get [entity-urn]",
                     "should_escape": False,
                 }
             ],
             "unfurl_domains": [
-                "acryl.io",
+                (
+                    urlparse(DATAHUB_FRONTEND_URL).hostname
+                    if not USE_SOCKET_MODE
+                    else f"slacktest.{urlparse(DATAHUB_FRONTEND_URL).hostname}"
+                )
             ],
         },
         "oauth_config": {
             "redirect_urls": list(
-                set(
-                    [
-                        f"{DATAHUB_FRONTEND_URL}/integrations/slack/oauth_callback",
-                        # For testing only: allows using a local frontend server or integrations service.
-                        "http://localhost:9002/integrations/slack/oauth_callback",
-                        "http://localhost:9003/public/slack/oauth_callback",
-                    ]
-                )
+                {
+                    f"{DATAHUB_FRONTEND_URL}/integrations/slack/oauth_callback",
+                    "http://localhost:9002/integrations/slack/oauth_callback",
+                    "http://localhost:9003/public/slack/oauth_callback",
+                }
             ),
             "scopes": {
                 "bot": slack_bot_scopes,

@@ -31,7 +31,6 @@ import lombok.extern.slf4j.Slf4j;
  */
 @Slf4j
 public class DataHubSystemAuthenticator implements Authenticator {
-
   private String systemClientId;
   private String systemClientSecret;
 
@@ -63,6 +62,23 @@ public class DataHubSystemAuthenticator implements Authenticator {
         if (splitCredentials.length == 2
             && this.systemClientId.equals(splitCredentials[0])
             && this.systemClientSecret.equals(splitCredentials[1])) {
+
+          // Check whether the request has an impersonation header.
+          if (context.getRequestHeaders().containsKey(IMPERSONATION_HEADER_NAME)) {
+            if (log.isDebugEnabled()) {
+              log.debug(
+                  String.format(
+                      "Impersonating actor: %s",
+                      context.getRequestHeaders().get(IMPERSONATION_HEADER_NAME)));
+            }
+            return new Authentication(
+                new Actor(
+                    ActorType.USER,
+                    extractActorId(context.getRequestHeaders().get(IMPERSONATION_HEADER_NAME))),
+                authorizationHeader,
+                Collections.emptyMap());
+          }
+
           // If this request was made internally, there may be a delegated id.
           return new Authentication(
               new Actor(
@@ -80,5 +96,9 @@ public class DataHubSystemAuthenticator implements Authenticator {
       }
     }
     throw new AuthenticationException("Authorization header is missing Authorization header.");
+  }
+
+  private String extractActorId(String urn) {
+    return urn.substring(urn.lastIndexOf(":") + 1);
   }
 }
