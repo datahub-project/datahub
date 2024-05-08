@@ -57,6 +57,7 @@ COPY war.war /datahub/datahub-gms/bin/war.war
 COPY metadata-models/src/main/resources/entity-registry.yml /datahub/datahub-gms/resources/entity-registry.yml
 COPY docker/datahub-gms/start.sh /datahub/datahub-gms/scripts/start.sh
 COPY docker/datahub-gms/jetty.xml /datahub/datahub-gms/scripts/jetty.xml
+COPY docker/datahub-gms/jetty-jmx.xml /datahub/datahub-gms/scripts/jetty-jmx.xml
 COPY docker/monitoring/client-prometheus-config.yaml /datahub/datahub-gms/scripts/prometheus-config.yaml
 RUN chmod +x /datahub/datahub-gms/scripts/start.sh
 

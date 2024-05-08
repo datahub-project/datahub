@@ -13,6 +13,8 @@ import { Direction } from '../lineage/types';
 import { FilterMode } from '../search/utils/constants';
 import { ActorType } from '../settings/personal/notifications/constants';
 
+// NOTE: If we move this file, update metadata-ingestion/scripts/analyticseventsdocgen.sh with new path for auto generating docs
+
 /**
  * Valid event types.
  */
@@ -129,13 +131,21 @@ export enum EventType {
  * Base Interface for all React analytics events.
  */
 interface BaseEvent {
+    /** the urn of the actor who triggered this event */
     actorUrn?: string;
+    /** timestamp for when this occurred */
     timestamp?: number;
+    /** date for when this occurred */
     date?: string;
+    /** the specs for the user's machine */
     userAgent?: string;
+    /** unique ID given to a user's browser */
     browserId?: string;
+    /** whether Acryl 2.0 UI is enabled or not at the time of this event */
     isThemeV2Enabled?: boolean;
+    /** the persona urn for this user - groups users based on their titles */
     userPersona?: PersonaType;
+    /** the selected title of this user ie. "Data Analyst" */
     userTitle?: string;
 }
 
@@ -311,6 +321,7 @@ export interface HomePageBrowseResultClickEvent extends BaseEvent {
  */
 export interface BrowseV2ToggleSidebarEvent extends BaseEvent {
     type: EventType.BrowseV2ToggleSidebarEvent;
+    /** describes whether the user is opening or closing the browse v2 sidebar */
     action: 'open' | 'close';
 }
 
@@ -319,7 +330,9 @@ export interface BrowseV2ToggleSidebarEvent extends BaseEvent {
  */
 export interface BrowseV2ToggleNodeEvent extends BaseEvent {
     type: EventType.BrowseV2ToggleNodeEvent;
+    /** which section in the browse sidebar is being opened or closed */
     targetNode: 'entity' | 'environment' | 'platform' | 'browse';
+    /** describes whether the user is opening or closing the section inside of the browse sidebar */
     action: 'open' | 'close';
     entity?: string;
     environment?: string;
