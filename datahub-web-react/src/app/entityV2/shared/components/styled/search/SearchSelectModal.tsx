@@ -64,6 +64,7 @@ export const SearchSelectModal = ({
                 bodyStyle={MODAL_BODY_STYLE}
                 title={titleText || 'Select entities'}
                 width={MODAL_WIDTH_PX}
+                zIndex={999}
                 visible
                 onCancel={onCancelSelect}
                 footer={
