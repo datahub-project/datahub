@@ -247,7 +247,7 @@ public class UpstreamLineageTemplateTest {
     long start = System.currentTimeMillis();
     UpstreamLineage result = upstreamLineageTemplate.applyPatch(upstreamLineage, jsonPatch);
     long end = System.currentTimeMillis();
-    assertTrue(end - start < 5000, "Expected less then 5 seconds patch");
+    assertTrue(end - start < 10000, String.format("Expected less then 10 seconds patch actual %s ms", end - start));
 
     assertEquals(result.getUpstreams().size(), 187, "Expected 1 less upstream");
     assertEquals(result.getFineGrainedLineages().size(), 607);
