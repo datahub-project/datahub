@@ -148,8 +148,7 @@ def get_slack_app(config: SlackConnection) -> slack_bolt.App:
 
     # Initializes your app with your bot token and signing secret
     app = slack_bolt.App(
-        client=slack_sdk.web.WebClient(proxy=SLACK_PROXY),
-        token=config.bot_token,
+        client=slack_sdk.web.WebClient(proxy=SLACK_PROXY, token=config.bot_token),
         signing_secret=config.app_details.signing_secret,
         # As per the docs:
         # > One secret is the new Signing Secret, and one is the deprecated verification token.
