@@ -28,11 +28,7 @@ import com.linkedin.subscription.SubscriptionNotificationConfig;
 import com.linkedin.subscription.SubscriptionTypeArray;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.openapi.client.OpenApiClient;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -133,15 +129,21 @@ public class SubscriptionService extends BaseService {
   public boolean isAnyGroupSubscribed(
       @Nonnull OperationContext opContext,
       @Nonnull final Urn entityUrn,
-      @Nonnull final List<Urn> groupUrns) {
+      @Nonnull List<Urn> groupUrns) {
     try {
       if (!this.entityClient.exists(opContext, entityUrn)) {
         throw new RuntimeException(String.format("Entity %s does not exist", entityUrn));
       }
 
-      for (Urn groupUrn : groupUrns) {
-        if (!this.entityClient.exists(opContext, groupUrn)) {
-          throw new RuntimeException(String.format("Group %s does not exist", groupUrn));
+      // remove non-existent groups from the input before proceeding
+      groupUrns = new LinkedList<>(groupUrns);
+      Iterator<Urn> groupUrnIterator = groupUrns.iterator();
+
+      while (groupUrnIterator.hasNext()) {
+        Urn groupUrn = groupUrnIterator.next();
+        if (!this.entityClient.exists(groupUrn, authentication)) {
+          log.error("Group {} does not exist", groupUrn);
+          groupUrnIterator.remove();
         }
       }
 
@@ -412,7 +414,7 @@ public class SubscriptionService extends BaseService {
   }
 
   @Nonnull
-  private Filter buildIsAnyGroupSubscribedFilter(
+  Filter buildIsAnyGroupSubscribedFilter(
       @Nonnull final Urn entityUrn, @Nonnull final List<Urn> groupUrns) {
     final Filter filter = new Filter();
     final ConjunctiveCriterionArray disjunction = new ConjunctiveCriterionArray();

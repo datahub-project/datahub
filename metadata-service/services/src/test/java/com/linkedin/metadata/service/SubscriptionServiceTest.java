@@ -9,6 +9,7 @@ import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
 import com.datahub.plugins.auth.authorization.Authorizer;
+import com.google.common.collect.ImmutableList;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -20,6 +21,7 @@ import com.linkedin.event.notification.NotificationSinkType;
 import com.linkedin.event.notification.NotificationSinkTypeArray;
 import com.linkedin.event.notification.settings.NotificationSettings;
 import com.linkedin.metadata.entity.AspectUtils;
+import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
@@ -46,6 +48,11 @@ public class SubscriptionServiceTest {
   private static final Urn ENTITY_URN_1 = UrnUtils.getUrn(ENTITY_URN_1_STRING);
   private static final String ENTITY_URN_2_STRING = "urn:li:dataset:2";
   private static final Urn ENTITY_URN_2 = UrnUtils.getUrn(ENTITY_URN_2_STRING);
+  private static final String GROUP_URN_1_STRING = "urn:li:corpGroup:1";
+  private static final Urn GROUP_URN_1 = UrnUtils.getUrn(GROUP_URN_1_STRING);
+  private static final String GROUP_URN_2_STRING = "urn:li:corpGroup:2";
+  private static final Urn GROUP_URN_2 = UrnUtils.getUrn(GROUP_URN_2_STRING);
+
   private static final String SUBSCRIPTION_URN_1_STRING = "urn:li:subscription:1";
   private static final Urn SUBSCRIPTION_URN_1 = UrnUtils.getUrn(SUBSCRIPTION_URN_1_STRING);
   private static final NotificationSinkTypeArray NOTIFICATION_SINK_TYPES =
@@ -363,5 +370,43 @@ public class SubscriptionServiceTest {
             SUBSCRIPTION_URN_1, SUBSCRIPTION_INFO_1,
             SUBSCRIPTION_URN_2, SUBSCRIPTION_INFO_2);
     assertEquals(subscriptions, expectedSubscriptions);
+  }
+
+  @Test
+  public void testIsAnyGroupSubscribedValidGroups() throws Exception {
+    when(_entityClient.exists(eq(ENTITY_URN_1), any())).thenReturn(true);
+
+    Filter expectedFilter =
+        _subscriptionService.buildIsAnyGroupSubscribedFilter(
+            ENTITY_URN_1, ImmutableList.of(GROUP_URN_1, GROUP_URN_2));
+    when(_entityClient.filter(
+            any(), eq(SUBSCRIPTION_ENTITY_NAME), eq(expectedFilter), any(), anyInt(), anyInt()))
+        .thenReturn(new SearchResult().setEntities(new SearchEntityArray()));
+
+    when(_entityClient.exists(eq(GROUP_URN_1), any())).thenReturn(true);
+    when(_entityClient.exists(eq(GROUP_URN_2), any())).thenReturn(true);
+
+    assertFalse(
+        _subscriptionService.isAnyGroupSubscribed(
+            ENTITY_URN_1, ImmutableList.of(GROUP_URN_1, GROUP_URN_2), SYSTEM_AUTHENTICATION));
+  }
+
+  @Test
+  public void testIsAnyGroupSubscribedInvalidGroup() throws Exception {
+    when(_entityClient.exists(eq(ENTITY_URN_1), any())).thenReturn(true);
+
+    Filter expectedFilter =
+        _subscriptionService.buildIsAnyGroupSubscribedFilter(
+            ENTITY_URN_1, ImmutableList.of(GROUP_URN_1));
+    when(_entityClient.filter(
+            any(), eq(SUBSCRIPTION_ENTITY_NAME), eq(expectedFilter), any(), anyInt(), anyInt()))
+        .thenReturn(new SearchResult().setEntities(new SearchEntityArray()));
+
+    when(_entityClient.exists(eq(GROUP_URN_1), any())).thenReturn(true);
+    when(_entityClient.exists(eq(GROUP_URN_2), any())).thenReturn(false);
+
+    assertFalse(
+        _subscriptionService.isAnyGroupSubscribed(
+            ENTITY_URN_1, ImmutableList.of(GROUP_URN_1, GROUP_URN_2), SYSTEM_AUTHENTICATION));
   }
 }
