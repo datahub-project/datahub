@@ -4,6 +4,8 @@ import static org.testng.Assert.assertEquals;
 
 import com.linkedin.common.Status;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.metadata.aspect.plugins.validation.AspectValidationException;
 import com.linkedin.metadata.aspect.validation.StructuredPropertiesValidator;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.structured.PrimitivePropertyValue;
@@ -19,12 +21,18 @@ import com.linkedin.test.metadata.aspect.TestEntityRegistry;
 import com.linkedin.test.metadata.aspect.batch.TestMCP;
 import java.net.URISyntaxException;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
 public class StructuredPropertiesValidatorTest {
 
   private static final EntityRegistry TEST_REGISTRY = new TestEntityRegistry();
+
+  private static final Urn TEST_DATASET_URN =
+      UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:datahub,Test,PROD)");
 
   @Test
   public void testValidateAspectNumberUpsert() throws URISyntaxException {
@@ -267,5 +275,121 @@ public class StructuredPropertiesValidatorTest {
             .count(),
         1,
         "Should have raised exception for soft deleted definition");
+  }
+
+  @Test
+  public void testValidateImmutable() throws URISyntaxException {
+    Urn mutablePropertyUrn =
+        Urn.createFromString("urn:li:structuredProperty:io.acryl.mutableProperty");
+    StructuredPropertyDefinition mutablePropertyDef =
+        new StructuredPropertyDefinition()
+            .setImmutable(false)
+            .setValueType(Urn.createFromString("urn:li:type:datahub.number"))
+            .setAllowedValues(
+                new PropertyValueArray(
+                    List.of(
+                        new PropertyValue().setValue(PrimitivePropertyValue.create(30.0)),
+                        new PropertyValue().setValue(PrimitivePropertyValue.create(60.0)),
+                        new PropertyValue().setValue(PrimitivePropertyValue.create(90.0)))));
+    StructuredPropertyValueAssignment mutableAssignment =
+        new StructuredPropertyValueAssignment()
+            .setPropertyUrn(mutablePropertyUrn)
+            .setValues(new PrimitivePropertyValueArray(PrimitivePropertyValue.create(30.0)));
+    StructuredProperties mutablePayload =
+        new StructuredProperties()
+            .setProperties(new StructuredPropertyValueAssignmentArray(mutableAssignment));
+
+    Urn immutablePropertyUrn =
+        Urn.createFromString("urn:li:structuredProperty:io.acryl.immutableProperty");
+    StructuredPropertyDefinition immutablePropertyDef =
+        new StructuredPropertyDefinition()
+            .setImmutable(true)
+            .setValueType(Urn.createFromString("urn:li:type:datahub.number"))
+            .setAllowedValues(
+                new PropertyValueArray(
+                    List.of(
+                        new PropertyValue().setValue(PrimitivePropertyValue.create(30.0)),
+                        new PropertyValue().setValue(PrimitivePropertyValue.create(60.0)),
+                        new PropertyValue().setValue(PrimitivePropertyValue.create(90.0)))));
+    StructuredPropertyValueAssignment immutableAssignment =
+        new StructuredPropertyValueAssignment()
+            .setPropertyUrn(immutablePropertyUrn)
+            .setValues(new PrimitivePropertyValueArray(PrimitivePropertyValue.create(30.0)));
+    StructuredProperties immutablePayload =
+        new StructuredProperties()
+            .setProperties(new StructuredPropertyValueAssignmentArray(immutableAssignment));
+
+    // No previous values for either
+    boolean noPreviousValid =
+        StructuredPropertiesValidator.validateImmutable(
+                    Stream.concat(
+                            TestMCP.ofOneMCP(TEST_DATASET_URN, null, mutablePayload, TEST_REGISTRY)
+                                .stream(),
+                            TestMCP.ofOneMCP(
+                                TEST_DATASET_URN, null, immutablePayload, TEST_REGISTRY)
+                                .stream())
+                        .collect(Collectors.toSet()),
+                    new MockAspectRetriever(
+                        Map.of(
+                            mutablePropertyUrn,
+                            List.of(mutablePropertyDef),
+                            immutablePropertyUrn,
+                            List.of(immutablePropertyDef))))
+                .count()
+            == 0;
+    Assert.assertTrue(noPreviousValid);
+
+    // Unchanged values of previous (no issues with immutability)
+    boolean noChangeValid =
+        StructuredPropertiesValidator.validateImmutable(
+                    Stream.concat(
+                            TestMCP.ofOneMCP(
+                                TEST_DATASET_URN, mutablePayload, mutablePayload, TEST_REGISTRY)
+                                .stream(),
+                            TestMCP.ofOneMCP(
+                                TEST_DATASET_URN, immutablePayload, immutablePayload, TEST_REGISTRY)
+                                .stream())
+                        .collect(Collectors.toSet()),
+                    new MockAspectRetriever(
+                        Map.of(
+                            mutablePropertyUrn,
+                            List.of(mutablePropertyDef),
+                            immutablePropertyUrn,
+                            List.of(immutablePropertyDef))))
+                .count()
+            == 0;
+    Assert.assertTrue(noChangeValid);
+
+    // invalid
+    StructuredPropertyValueAssignment immutableAssignment2 =
+        new StructuredPropertyValueAssignment()
+            .setPropertyUrn(immutablePropertyUrn)
+            .setValues(new PrimitivePropertyValueArray(PrimitivePropertyValue.create(60.0)));
+    StructuredProperties immutablePayload2 =
+        new StructuredProperties()
+            .setProperties(new StructuredPropertyValueAssignmentArray(immutableAssignment2));
+
+    List<AspectValidationException> exceptions =
+        StructuredPropertiesValidator.validateImmutable(
+                Stream.concat(
+                        TestMCP.ofOneMCP(
+                            TEST_DATASET_URN, mutablePayload, mutablePayload, TEST_REGISTRY)
+                            .stream(),
+                        TestMCP.ofOneMCP(
+                            TEST_DATASET_URN, immutablePayload, immutablePayload2, TEST_REGISTRY)
+                            .stream())
+                    .collect(Collectors.toSet()),
+                new MockAspectRetriever(
+                    Map.of(
+                        mutablePropertyUrn,
+                        List.of(mutablePropertyDef),
+                        immutablePropertyUrn,
+                        List.of(immutablePropertyDef))))
+            .collect(Collectors.toList());
+
+    Assert.assertEquals(exceptions.size(), 1, "Expected rejected mutation of immutable property.");
+    Assert.assertEquals(exceptions.get(0).getExceptionKey().getKey(), TEST_DATASET_URN);
+    Assert.assertTrue(
+        exceptions.get(0).getMessage().contains("Cannot mutate an immutable property"));
   }
 }
