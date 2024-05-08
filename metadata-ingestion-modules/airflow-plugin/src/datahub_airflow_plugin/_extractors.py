@@ -59,9 +59,9 @@ class ExtractorManager(OLExtractorManager):
         for operator in _sql_operator_overrides:
             self.task_to_extractor.extractors[operator] = GenericSqlExtractor
 
-        self.task_to_extractor.extractors["BigQueryInsertJobOperator"] = (
-            BigQueryInsertJobOperatorExtractor
-        )
+        self.task_to_extractor.extractors[
+            "BigQueryInsertJobOperator"
+        ] = BigQueryInsertJobOperatorExtractor
 
         self._graph: Optional["DataHubGraph"] = None
 
