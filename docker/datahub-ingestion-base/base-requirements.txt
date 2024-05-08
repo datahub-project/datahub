@@ -200,7 +200,7 @@ notebook_shim==0.2.4
 numpy==1.26.4
 oauthlib==3.2.2
 okta==1.7.0
-openlineage-airflow==1.7.0
+openlineage-airflow==1.13.1
 openlineage-integration-common==1.7.0
 openlineage-python==1.7.0
 openlineage_sql==1.7.0
