@@ -1055,8 +1055,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1635166800000,
-        "runId": "kafka-connect-run",
-        "lastRunId": "no-run-id-provided"
+        "runId": "kafka-connect-run"
     }
 },
 {
