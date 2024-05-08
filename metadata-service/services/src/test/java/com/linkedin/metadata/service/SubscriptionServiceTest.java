@@ -203,8 +203,9 @@ public class SubscriptionServiceTest {
 
   @Test
   public void testCreateSubscription() throws Exception {
-    when(_entityClient.exists(any(OperationContext.class), eq(USER_URN))).thenReturn(true);
-    when(_entityClient.exists(any(OperationContext.class), eq(ENTITY_URN_1))).thenReturn(true);
+    when(_entityClient.exists(any(OperationContext.class), eq(USER_URN), any())).thenReturn(true);
+    when(_entityClient.exists(any(OperationContext.class), eq(ENTITY_URN_1), any()))
+        .thenReturn(true);
     when(_entityClient.filter(
             any(OperationContext.class),
             eq(SUBSCRIPTION_ENTITY_NAME),
@@ -337,7 +338,7 @@ public class SubscriptionServiceTest {
 
   @Test
   public void testListSubscriptions() throws Exception {
-    when(_entityClient.exists(any(OperationContext.class), eq(USER_URN))).thenReturn(true);
+    when(_entityClient.exists(any(OperationContext.class), eq(USER_URN), any())).thenReturn(true);
     when(_entityClient.filter(
             any(OperationContext.class),
             eq(SUBSCRIPTION_ENTITY_NAME),
@@ -374,7 +375,7 @@ public class SubscriptionServiceTest {
 
   @Test
   public void testIsAnyGroupSubscribedValidGroups() throws Exception {
-    when(_entityClient.exists(same(opContext), eq(ENTITY_URN_1))).thenReturn(true);
+    when(_entityClient.exists(same(opContext), eq(ENTITY_URN_1), any())).thenReturn(true);
 
     Filter expectedFilter =
         _subscriptionService.buildIsAnyGroupSubscribedFilter(
@@ -383,8 +384,8 @@ public class SubscriptionServiceTest {
             any(), eq(SUBSCRIPTION_ENTITY_NAME), eq(expectedFilter), any(), anyInt(), anyInt()))
         .thenReturn(new SearchResult().setEntities(new SearchEntityArray()));
 
-    when(_entityClient.exists(same(opContext), eq(GROUP_URN_1))).thenReturn(true);
-    when(_entityClient.exists(same(opContext), eq(GROUP_URN_2))).thenReturn(true);
+    when(_entityClient.exists(same(opContext), eq(GROUP_URN_1), any())).thenReturn(true);
+    when(_entityClient.exists(same(opContext), eq(GROUP_URN_2), any())).thenReturn(true);
 
     assertFalse(
         _subscriptionService.isAnyGroupSubscribed(
@@ -393,7 +394,7 @@ public class SubscriptionServiceTest {
 
   @Test
   public void testIsAnyGroupSubscribedInvalidGroup() throws Exception {
-    when(_entityClient.exists(same(opContext), eq(ENTITY_URN_1))).thenReturn(true);
+    when(_entityClient.exists(same(opContext), eq(ENTITY_URN_1), any())).thenReturn(true);
 
     Filter expectedFilter =
         _subscriptionService.buildIsAnyGroupSubscribedFilter(
@@ -402,8 +403,8 @@ public class SubscriptionServiceTest {
             any(), eq(SUBSCRIPTION_ENTITY_NAME), eq(expectedFilter), any(), anyInt(), anyInt()))
         .thenReturn(new SearchResult().setEntities(new SearchEntityArray()));
 
-    when(_entityClient.exists(same(opContext), eq(GROUP_URN_1))).thenReturn(true);
-    when(_entityClient.exists(same(opContext), eq(GROUP_URN_2))).thenReturn(false);
+    when(_entityClient.exists(same(opContext), eq(GROUP_URN_1), any())).thenReturn(true);
+    when(_entityClient.exists(same(opContext), eq(GROUP_URN_2), any())).thenReturn(false);
 
     assertFalse(
         _subscriptionService.isAnyGroupSubscribed(

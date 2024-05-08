@@ -105,11 +105,11 @@ public class SubscriptionService extends BaseService {
       @Nonnull final Urn entityUrn,
       @Nonnull final Urn actorUrn) {
     try {
-      if (!this.entityClient.exists(opContext, entityUrn)) {
+      if (!this.entityClient.exists(opContext, entityUrn, false)) {
         throw new RuntimeException(String.format("Entity %s does not exist", entityUrn));
       }
 
-      if (!this.entityClient.exists(opContext, actorUrn)) {
+      if (!this.entityClient.exists(opContext, actorUrn, false)) {
         throw new RuntimeException(String.format("Actor %s does not exist", actorUrn));
       }
 
@@ -131,7 +131,7 @@ public class SubscriptionService extends BaseService {
       @Nonnull final Urn entityUrn,
       @Nonnull List<Urn> groupUrns) {
     try {
-      if (!this.entityClient.exists(opContext, entityUrn)) {
+      if (!this.entityClient.exists(opContext, entityUrn, false)) {
         throw new RuntimeException(String.format("Entity %s does not exist", entityUrn));
       }
 
@@ -141,7 +141,7 @@ public class SubscriptionService extends BaseService {
 
       while (groupUrnIterator.hasNext()) {
         Urn groupUrn = groupUrnIterator.next();
-        if (!this.entityClient.exists(opContext, groupUrn)) {
+        if (!this.entityClient.exists(opContext, groupUrn, false)) {
           log.error("Group {} does not exist", groupUrn);
           groupUrnIterator.remove();
         }
@@ -166,11 +166,11 @@ public class SubscriptionService extends BaseService {
       @Nonnull final Urn entityUrn,
       @Nonnull final Urn actorUrn) {
     try {
-      if (!this.entityClient.exists(opContext, entityUrn)) {
+      if (!this.entityClient.exists(opContext, entityUrn, false)) {
         throw new RuntimeException(String.format("Entity %s does not exist", entityUrn));
       }
 
-      if (!this.entityClient.exists(opContext, actorUrn)) {
+      if (!this.entityClient.exists(opContext, actorUrn, false)) {
         throw new RuntimeException(String.format("Actor %s does not exist", actorUrn));
       }
 
@@ -271,7 +271,7 @@ public class SubscriptionService extends BaseService {
       final int start,
       final int count) {
     try {
-      if (!this.entityClient.exists(opContext, actorUrn)) {
+      if (!this.entityClient.exists(opContext, actorUrn, false)) {
         throw new RuntimeException(String.format("Actor %s does not exist", actorUrn));
       }
       final Filter filter = buildListSubscriptionsFilter(actorUrn);
@@ -317,7 +317,7 @@ public class SubscriptionService extends BaseService {
       @Nonnull final Urn entityUrn,
       @Nonnull final Integer numMaxSubscriptions) {
     try {
-      if (!this.entityClient.exists(opContext, entityUrn)) {
+      if (!this.entityClient.exists(opContext, entityUrn, false)) {
         throw new RuntimeException(String.format("Entity %s does not exist", entityUrn));
       }
 
@@ -339,7 +339,7 @@ public class SubscriptionService extends BaseService {
       @Nonnull final Urn entityUrn,
       @Nonnull final Integer numMaxSubscriptions) {
     try {
-      if (!this.entityClient.exists(opContext, entityUrn)) {
+      if (!this.entityClient.exists(opContext, entityUrn, false)) {
         throw new RuntimeException(String.format("Entity %s does not exist", entityUrn));
       }
 
@@ -362,7 +362,7 @@ public class SubscriptionService extends BaseService {
       @Nonnull final Urn entityUrn,
       @Nonnull final Integer numExampleGroups) {
     try {
-      if (!this.entityClient.exists(opContext, entityUrn)) {
+      if (!this.entityClient.exists(opContext, entityUrn, false)) {
         throw new RuntimeException(String.format("Entity %s does not exist", entityUrn));
       }
 
