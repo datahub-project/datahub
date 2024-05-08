@@ -74,8 +74,6 @@ public class SearchRequestHandler {
       new ConcurrentHashMap<>();
   private static final String URN_FILTER = "urn";
   private static final String[] URN_FIELD = new String[] {"urn"};
-  private static final ObjectMapper _mapper = new ObjectMapper();
-
   private final List<EntitySpec> entitySpecs;
   private final Set<String> defaultQueryFieldNames;
   @Nonnull private final HighlightBuilder highlights;
@@ -568,12 +566,13 @@ public class SearchRequestHandler {
     return features;
   }
 
-  private StringMap getStringMap(Map<String, Object> sourceAsMap) {
+  private static StringMap getStringMap(
+      @Nonnull ObjectMapper objectMapper, Map<String, Object> sourceAsMap) {
     StringMap stringMap = new StringMap();
     sourceAsMap.forEach(
         (key, value) -> {
           try {
-            stringMap.put(key, _mapper.writeValueAsString(value));
+            stringMap.put(key, objectMapper.writeValueAsString(value));
           } catch (IOException e) {
             log.warn("Failed to serialize extra field: " + key, e);
           }
@@ -581,13 +580,13 @@ public class SearchRequestHandler {
     return stringMap;
   }
 
-  private SearchEntity getResult(@Nonnull SearchHit hit) {
+  private SearchEntity getResult(@Nonnull ObjectMapper objectMapper, @Nonnull SearchHit hit) {
     return new SearchEntity()
         .setEntity(getUrnFromSearchHit(hit))
         .setMatchedFields(new MatchedFieldArray(extractMatchedFields(hit)))
         .setScore(hit.getScore())
         .setFeatures(new DoubleMap(extractFeatures(hit)))
-        .setExtraFields(getStringMap(hit.getSourceAsMap()));
+        .setExtraFields(getStringMap(objectMapper, hit.getSourceAsMap()));
   }
 
   /**
@@ -602,7 +601,7 @@ public class SearchRequestHandler {
     return ESAccessControlUtil.restrictSearchResult(
         opContext,
         Arrays.stream(searchResponse.getHits().getHits())
-            .map(this::getResult)
+            .map(r -> getResult(opContext.getObjectMapper(), r))
             .collect(Collectors.toList()));
   }
 

@@ -486,7 +486,6 @@ public class ESSearchDAO {
       @Nullable Filter requestParams,
       int limit) {
     try {
-
       EntitySpec entitySpec = opContext.getEntityRegistry().getEntitySpec(entityName);
       IndexConvention indexConvention = opContext.getSearchContext().getIndexConvention();
       AutocompleteRequestHandler builder =
