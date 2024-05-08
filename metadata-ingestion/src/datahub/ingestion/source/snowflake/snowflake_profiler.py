@@ -102,8 +102,15 @@ class SnowflakeProfiler(GenericProfiler, SnowflakeCommonMixin):
             # We are using fraction-based sampling here, instead of fixed-size sampling because
             # Fixed-size sampling can be slower than equivalent fraction-based sampling
             # as per https://docs.snowflake.com/en/sql-reference/constructs/sample#performance-considerations
+
+            sample_method = "BERNOULLI"
+            if table.rows_count > self.config.profiling.sample_size * 1000:
+                # If the table is significantly larger than the sample size, we use BLOCK
+                # sampling for better performance.
+                sample_method = "BLOCK"
+
             sample_pc = 100 * self.config.profiling.sample_size / table.rows_count
-            custom_sql = f'select * from "{db_name}"."{schema_name}"."{table.name}" TABLESAMPLE ({sample_pc:.8f})'
+            custom_sql = f'select * from "{db_name}"."{schema_name}"."{table.name}" TABLESAMPLE {sample_method} ({sample_pc:.8f})'
         return {
             **super().get_batch_kwargs(table, schema_name, db_name),
             # Lowercase/Mixedcase table names in Snowflake do not work by default.
