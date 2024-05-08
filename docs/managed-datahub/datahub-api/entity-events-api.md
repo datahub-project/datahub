@@ -876,7 +876,7 @@ This event is emitted when an Incident has been created or it's status changes.
 
 #### Header
 
-<table><thead><tr><th>Category</th><th>Operation</th><th>Entity Types</th><th data-hidden></th></tr></thead><tbody><tr><td>INCIDENT</td><td><code>ACTIVE, </code><code>RESOLVED</code></td><td><code>incident</code></td><td></td></tr></tbody></table>
+<table><thead><tr><th>Category</th><th>Operation</th><th>Entity Types</th><th data-hidden></th></tr></thead><tbody><tr><td>INCIDENT</td><td><code>ACTIVE</code>,<code>RESOLVED</code></td><td><code>incident</code></td><td></td></tr></tbody></table>
 
 #### Parameters
 
