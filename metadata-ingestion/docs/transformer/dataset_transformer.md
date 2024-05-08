@@ -1103,6 +1103,32 @@ The config, which we’d append to our ingestion recipe YAML, would look like th
             ".*example2.*": "urn:li:dataProduct:second"
   ```
 
+## Domain Mapping Based on Tags
+### Config Details
+| Field                | Required | Type               | Default | Description                                                                                   |
+|----------------------|----------|--------------------|---------|-----------------------------------------------------------------------------------------------|
+| `domain_mapping`     | ✅       | map[string, list]  |         | Maps tag suffixes to lists of domain URNs. Associates tagged entities with specified domains. |
+
+### Overview
+
+The `domain_mapping_based_on_tags` transformer is part of the data ingestion framework, which is used to dynamically assign domains to entities based on their tags. This module scans the tags of entities and matches their suffixes against predefined rules, assigning the corresponding domains if a match is found.
+
+### Usage Example
+
+To configure this functionality within your ingestion recipe, you can specify the transformer and its configuration in your YAML file. Here’s an example configuration:
+
+```yaml
+transformers:
+  - type: "domain_mapping_based_on_tags"
+    config:
+      domain_mapping:
+        rules:
+          'test:tag': ["hr", "urn:li:domain:finance"]
+```
+
+In this example:
+- Entities tagged with `urn:li:tag:dbt:test:tag` or any tag that ends with `test:tag` will be associated with the domains `hr` and `urn:li:domain:finance`.
+
 ## Add Dataset dataProduct
 ### Config Details
 | Field                       | Required | Type                              | Default       | Description                                                                              |
