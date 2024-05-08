@@ -141,7 +141,7 @@ public class SubscriptionService extends BaseService {
 
       while (groupUrnIterator.hasNext()) {
         Urn groupUrn = groupUrnIterator.next();
-        if (!this.entityClient.exists(groupUrn, authentication)) {
+        if (!this.entityClient.exists(opContext, groupUrn)) {
           log.error("Group {} does not exist", groupUrn);
           groupUrnIterator.remove();
         }

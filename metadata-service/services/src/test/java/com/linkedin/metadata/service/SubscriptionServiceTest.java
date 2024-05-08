@@ -9,8 +9,8 @@ import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
 import com.datahub.plugins.auth.authorization.Authorizer;
-import com.google.common.collect.ImmutableList;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
@@ -374,7 +374,7 @@ public class SubscriptionServiceTest {
 
   @Test
   public void testIsAnyGroupSubscribedValidGroups() throws Exception {
-    when(_entityClient.exists(eq(ENTITY_URN_1), any())).thenReturn(true);
+    when(_entityClient.exists(same(opContext), eq(ENTITY_URN_1))).thenReturn(true);
 
     Filter expectedFilter =
         _subscriptionService.buildIsAnyGroupSubscribedFilter(
@@ -383,17 +383,17 @@ public class SubscriptionServiceTest {
             any(), eq(SUBSCRIPTION_ENTITY_NAME), eq(expectedFilter), any(), anyInt(), anyInt()))
         .thenReturn(new SearchResult().setEntities(new SearchEntityArray()));
 
-    when(_entityClient.exists(eq(GROUP_URN_1), any())).thenReturn(true);
-    when(_entityClient.exists(eq(GROUP_URN_2), any())).thenReturn(true);
+    when(_entityClient.exists(same(opContext), eq(GROUP_URN_1))).thenReturn(true);
+    when(_entityClient.exists(same(opContext), eq(GROUP_URN_2))).thenReturn(true);
 
     assertFalse(
         _subscriptionService.isAnyGroupSubscribed(
-            ENTITY_URN_1, ImmutableList.of(GROUP_URN_1, GROUP_URN_2), SYSTEM_AUTHENTICATION));
+            opContext, ENTITY_URN_1, ImmutableList.of(GROUP_URN_1, GROUP_URN_2)));
   }
 
   @Test
   public void testIsAnyGroupSubscribedInvalidGroup() throws Exception {
-    when(_entityClient.exists(eq(ENTITY_URN_1), any())).thenReturn(true);
+    when(_entityClient.exists(same(opContext), eq(ENTITY_URN_1))).thenReturn(true);
 
     Filter expectedFilter =
         _subscriptionService.buildIsAnyGroupSubscribedFilter(
@@ -402,11 +402,11 @@ public class SubscriptionServiceTest {
             any(), eq(SUBSCRIPTION_ENTITY_NAME), eq(expectedFilter), any(), anyInt(), anyInt()))
         .thenReturn(new SearchResult().setEntities(new SearchEntityArray()));
 
-    when(_entityClient.exists(eq(GROUP_URN_1), any())).thenReturn(true);
-    when(_entityClient.exists(eq(GROUP_URN_2), any())).thenReturn(false);
+    when(_entityClient.exists(same(opContext), eq(GROUP_URN_1))).thenReturn(true);
+    when(_entityClient.exists(same(opContext), eq(GROUP_URN_2))).thenReturn(false);
 
     assertFalse(
         _subscriptionService.isAnyGroupSubscribed(
-            ENTITY_URN_1, ImmutableList.of(GROUP_URN_1, GROUP_URN_2), SYSTEM_AUTHENTICATION));
+            opContext, ENTITY_URN_1, ImmutableList.of(GROUP_URN_1, GROUP_URN_2)));
   }
 }
