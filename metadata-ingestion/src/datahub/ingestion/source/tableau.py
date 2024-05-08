@@ -20,7 +20,7 @@ import dateutil.parser as dp
 import tableauserverclient as TSC
 from pydantic import root_validator, validator
 from pydantic.fields import Field
-from requests.adapters import ConnectionError, HTTPAdapter
+from requests.adapters import HTTPAdapter
 from tableauserverclient import (
     PersonalAccessTokenAuth,
     Server,
