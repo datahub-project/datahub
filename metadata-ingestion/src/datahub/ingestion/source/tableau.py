@@ -1693,7 +1693,7 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
     ) -> Optional["SqlParsingResult"]:
         database_info = datasource.get(c.DATABASE) or {
             c.NAME: c.UNKNOWN.lower(),
-            c.CONNECTION_TYPE: "databricks",
+            c.CONNECTION_TYPE: datasource.get(c.CONNECTION_TYPE),
         }
 
         if (
@@ -1703,7 +1703,10 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
             logger.debug(f"datasource {datasource_urn} is not created from custom sql")
             return None
 
-        if c.NAME not in database_info or c.CONNECTION_TYPE not in database_info:
+        if (
+            database_info.get(c.NAME) is None
+            or database_info.get(c.CONNECTION_TYPE) is None
+        ):
             logger.debug(
                 f"database information is missing from datasource {datasource_urn}"
             )

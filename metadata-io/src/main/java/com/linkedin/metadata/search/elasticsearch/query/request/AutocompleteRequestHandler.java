@@ -4,10 +4,14 @@ import static com.linkedin.metadata.models.SearchableFieldSpecExtractor.PRIMARY_
 import static com.linkedin.metadata.search.utils.ESAccessControlUtil.restrictUrn;
 import static com.linkedin.metadata.search.utils.ESUtils.applyDefaultSearchFilters;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.metadata.aspect.AspectRetriever;
+import com.linkedin.metadata.config.search.custom.AutocompleteConfiguration;
+import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
+import com.linkedin.metadata.config.search.custom.QueryConfiguration;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.SearchableFieldSpec;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
@@ -18,9 +22,9 @@ import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.utils.ESUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import java.net.URISyntaxException;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -35,7 +39,9 @@ import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.MultiMatchQueryBuilder;
+import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
+import org.opensearch.index.query.functionscore.FunctionScoreQueryBuilder;
 import org.opensearch.search.SearchHit;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.search.fetch.subphase.highlight.HighlightBuilder;
@@ -51,9 +57,17 @@ public class AutocompleteRequestHandler {
 
   private final AspectRetriever aspectRetriever;
 
+  private final CustomizedQueryHandler customizedQueryHandler;
+
+  private final EntitySpec entitySpec;
+
   public AutocompleteRequestHandler(
-      @Nonnull EntitySpec entitySpec, @Nonnull AspectRetriever aspectRetriever) {
+      @Nonnull EntitySpec entitySpec,
+      @Nullable CustomSearchConfiguration customSearchConfiguration,
+      @Nonnull AspectRetriever aspectRetriever) {
+    this.entitySpec = entitySpec;
     List<SearchableFieldSpec> fieldSpecs = entitySpec.getSearchableFieldSpecs();
+    this.customizedQueryHandler = CustomizedQueryHandler.builder(customSearchConfiguration).build();
     _defaultAutocompleteFields =
         Stream.concat(
                 fieldSpecs.stream()
@@ -80,9 +94,13 @@ public class AutocompleteRequestHandler {
   }
 
   public static AutocompleteRequestHandler getBuilder(
-      @Nonnull EntitySpec entitySpec, @Nonnull AspectRetriever aspectRetriever) {
+      @Nonnull EntitySpec entitySpec,
+      @Nullable CustomSearchConfiguration customSearchConfiguration,
+      @Nonnull AspectRetriever aspectRetriever) {
     return AUTOCOMPLETE_QUERY_BUILDER_BY_ENTITY_NAME.computeIfAbsent(
-        entitySpec, k -> new AutocompleteRequestHandler(entitySpec, aspectRetriever));
+        entitySpec,
+        k ->
+            new AutocompleteRequestHandler(entitySpec, customSearchConfiguration, aspectRetriever));
   }
 
   public SearchRequest getSearchRequest(
@@ -94,24 +112,90 @@ public class AutocompleteRequestHandler {
     SearchRequest searchRequest = new SearchRequest();
     SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
     searchSourceBuilder.size(limit);
-    // apply default filters
-    BoolQueryBuilder boolQueryBuilder =
-        applyDefaultSearchFilters(opContext, filter, getQuery(input, field));
 
-    searchSourceBuilder.query(boolQueryBuilder);
-    searchSourceBuilder.postFilter(
-        ESUtils.buildFilterQuery(filter, false, searchableFieldTypes, aspectRetriever));
+    AutocompleteConfiguration customAutocompleteConfig =
+        customizedQueryHandler.lookupAutocompleteConfig(input).orElse(null);
+    QueryConfiguration customQueryConfig =
+        customizedQueryHandler.lookupQueryConfig(input).orElse(null);
+
+    // Initial query with input filters
+    BoolQueryBuilder baseQuery =
+        ESUtils.buildFilterQuery(filter, false, searchableFieldTypes, aspectRetriever);
+
+    // Add autocomplete query
+    baseQuery.should(getQuery(opContext.getObjectMapper(), customAutocompleteConfig, input, field));
+
+    // Apply default filters
+    BoolQueryBuilder queryWithDefaultFilters =
+        applyDefaultSearchFilters(opContext, filter, baseQuery);
+
+    // Apply scoring
+    FunctionScoreQueryBuilder functionScoreQueryBuilder =
+        Optional.ofNullable(customAutocompleteConfig)
+            .flatMap(
+                cac ->
+                    CustomizedQueryHandler.functionScoreQueryBuilder(
+                        opContext.getObjectMapper(),
+                        cac,
+                        queryWithDefaultFilters,
+                        customQueryConfig))
+            .orElse(
+                SearchQueryBuilder.buildScoreFunctions(
+                    opContext, customQueryConfig, List.of(entitySpec), queryWithDefaultFilters));
+    searchSourceBuilder.query(functionScoreQueryBuilder);
+
+    ESUtils.buildSortOrder(searchSourceBuilder, null, List.of(entitySpec));
+
+    // wire inner non-scored query
     searchSourceBuilder.highlighter(getHighlights(field));
     searchRequest.source(searchSourceBuilder);
     return searchRequest;
   }
 
-  private BoolQueryBuilder getQuery(@Nonnull String query, @Nullable String field) {
-    return getQuery(getAutocompleteFields(field), query);
+  private BoolQueryBuilder getQuery(
+      @Nonnull ObjectMapper objectMapper,
+      @Nullable AutocompleteConfiguration customAutocompleteConfig,
+      @Nonnull String query,
+      @Nullable String field) {
+    return getQuery(objectMapper, customAutocompleteConfig, getAutocompleteFields(field), query);
   }
 
-  public static BoolQueryBuilder getQuery(List<String> autocompleteFields, @Nonnull String query) {
+  public BoolQueryBuilder getQuery(
+      @Nonnull ObjectMapper objectMapper,
+      @Nullable AutocompleteConfiguration customAutocompleteConfig,
+      List<String> autocompleteFields,
+      @Nonnull String query) {
+
+    BoolQueryBuilder finalQuery =
+        Optional.ofNullable(customAutocompleteConfig)
+            .flatMap(cac -> CustomizedQueryHandler.boolQueryBuilder(objectMapper, cac, query))
+            .orElse(QueryBuilders.boolQuery())
+            .minimumShouldMatch(1);
+
+    getAutocompleteQuery(customAutocompleteConfig, autocompleteFields, query)
+        .ifPresent(finalQuery::should);
+
+    return finalQuery;
+  }
+
+  private Optional<QueryBuilder> getAutocompleteQuery(
+      @Nullable AutocompleteConfiguration customConfig,
+      List<String> autocompleteFields,
+      @Nonnull String query) {
+    Optional<QueryBuilder> result = Optional.empty();
+
+    if (customConfig == null || customConfig.isDefaultQuery()) {
+      result = Optional.of(defaultQuery(autocompleteFields, query));
+    }
+
+    return result;
+  }
+
+  private static BoolQueryBuilder defaultQuery(
+      List<String> autocompleteFields, @Nonnull String query) {
     BoolQueryBuilder finalQuery = QueryBuilders.boolQuery();
+    finalQuery.minimumShouldMatch(1);
+
     // Search for exact matches with higher boost and ngram matches
     MultiMatchQueryBuilder autocompleteQueryBuilder =
         QueryBuilders.multiMatchQuery(query).type(MultiMatchQueryBuilder.Type.BOOL_PREFIX);
@@ -154,6 +238,12 @@ public class AutocompleteRequestHandler {
                     .field(fieldName + ".*")
                     .field(fieldName + ".ngram")
                     .field(fieldName + ".delimited"));
+
+    // set field match req false for ngram
+    highlightBuilder.fields().stream()
+        .filter(f -> f.name().contains("ngram"))
+        .forEach(f -> f.requireFieldMatch(false).noMatchSize(200));
+
     return highlightBuilder;
   }
 
@@ -168,8 +258,9 @@ public class AutocompleteRequestHandler {
       @Nonnull OperationContext opContext,
       @Nonnull SearchResponse searchResponse,
       @Nonnull String input) {
-    Set<String> results = new LinkedHashSet<>();
-    Set<AutoCompleteEntity> entityResults = new HashSet<>();
+    // use lists to preserve ranking
+    List<String> results = new ArrayList<>();
+    List<AutoCompleteEntity> entityResults = new ArrayList<>();
 
     for (SearchHit hit : searchResponse.getHits()) {
       Optional<String> matchedFieldValue =
@@ -181,13 +272,15 @@ public class AutocompleteRequestHandler {
         if (matchedUrn.isPresent()) {
           Urn autoCompleteUrn = Urn.createFromString(matchedUrn.get());
           if (!restrictUrn(opContext, autoCompleteUrn)) {
-            entityResults.add(
-                new AutoCompleteEntity().setUrn(Urn.createFromString(matchedUrn.get())));
-            matchedFieldValue.ifPresent(results::add);
+            matchedFieldValue.ifPresent(
+                value -> {
+                  entityResults.add(new AutoCompleteEntity().setUrn(autoCompleteUrn));
+                  results.add(value);
+                });
           }
         }
       } catch (URISyntaxException e) {
-        throw new RuntimeException(String.format("Failed to create urn %s", matchedUrn.get()), e);
+        log.warn(String.format("Failed to create urn %s", matchedUrn.get()));
       }
     }
     return new AutoCompleteResult()
