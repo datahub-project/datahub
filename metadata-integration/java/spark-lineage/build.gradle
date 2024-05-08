@@ -48,7 +48,7 @@ dependencies {
 
   provided(externalDependency.sparkSql)
   provided(externalDependency.sparkHive)
-  implementation externalDependency.httpAsyncClient
+  implementation externalDependency.httpClient
 
   // Tests need a concrete log4j available. Providing it here
   testImplementation 'org.apache.logging.log4j:log4j-api:2.17.1'
@@ -106,7 +106,7 @@ shadowJar {
 
   relocate 'com.fasterxml.jackson', 'io.acryl.shaded.jackson'
   relocate 'org.slf4j','io.acryl.shaded.org.slf4j'
-  relocate 'org.apache.http','io.acryl.spark2.shaded.http'
+  relocate 'org.apache.hc','io.acryl.spark2.shaded.http'
   relocate 'org.apache.commons.codec', 'io.acryl.spark2.shaded.o.a.c.codec'
   relocate 'org.apache.commons.compress', 'io.acryl.spark2.shaded.o.a.c.compress'
   relocate 'org.apache.commons.io', 'io.acryl.spark2.shaded.o.a.c.io'

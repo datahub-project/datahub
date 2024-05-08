@@ -99,7 +99,7 @@ usage_common = {
 sqlglot_lib = {
     # Using an Acryl fork of sqlglot.
     # https://github.com/tobymao/sqlglot/compare/main...hsheth2:sqlglot:hsheth?expand=1
-    "acryl-sqlglot==23.11.2.dev2",
+    "acryl-sqlglot[rs]==23.11.2.dev2",
 }
 
 classification_lib = {
@@ -193,8 +193,7 @@ snowflake_common = {
     *sql_common,
     # https://github.com/snowflakedb/snowflake-sqlalchemy/issues/350
     "snowflake-sqlalchemy>=1.4.3",
-    # See https://github.com/snowflakedb/snowflake-connector-python/pull/1348 for why 2.8.2 is blocked
-    "snowflake-connector-python!=2.8.2",
+    "snowflake-connector-python>=3.4.0",
     "pandas",
     "cryptography",
     "msal",
@@ -374,7 +373,9 @@ plugins: Dict[str, Set[str]] = {
         # It's technically wrong for packages to depend on setuptools. However, it seems mlflow does it anyways.
         "setuptools",
     },
-    "mode": {"requests", "tenacity>=8.0.1"} | sqllineage_lib | sqlglot_lib,
+    "mode": {"requests", "python-liquid", "tenacity>=8.0.1"}
+    | sqllineage_lib
+    | sqlglot_lib,
     "mongodb": {"pymongo[srv]>=3.11", "packaging"},
     "mssql": sql_common | mssql_common,
     "mssql-odbc": sql_common | mssql_common | {"pyodbc"},

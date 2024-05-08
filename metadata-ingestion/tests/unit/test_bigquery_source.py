@@ -829,7 +829,7 @@ def bigquery_view_2() -> BigqueryView:
     return BigqueryView(
         name="table2",
         created=now,
-        last_altered=now,
+        last_altered=None,
         comment="comment2",
         view_definition="CREATE VIEW 2",
         materialized=True,

@@ -1,6 +1,7 @@
 package datahub.spark;
 
 import static datahub.spark.conf.SparkConfigParser.*;
+import static io.openlineage.spark.agent.util.ScalaConversionUtils.*;
 
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
@@ -10,16 +11,33 @@ import datahub.spark.conf.RestDatahubEmitterConfig;
 import datahub.spark.conf.SparkAppContext;
 import datahub.spark.conf.SparkConfigParser;
 import datahub.spark.conf.SparkLineageConf;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Tag;
+import io.micrometer.core.instrument.Tags;
+import io.micrometer.core.instrument.composite.CompositeMeterRegistry;
+import io.openlineage.client.OpenLineageConfig;
+import io.openlineage.client.circuitBreaker.CircuitBreaker;
+import io.openlineage.client.circuitBreaker.CircuitBreakerFactory;
+import io.openlineage.client.circuitBreaker.NoOpCircuitBreaker;
+import io.openlineage.client.metrics.MicrometerProvider;
+import io.openlineage.spark.agent.ArgumentParser;
 import io.openlineage.spark.agent.OpenLineageSparkListener;
+import io.openlineage.spark.agent.Versions;
 import io.openlineage.spark.agent.lifecycle.ContextFactory;
+import io.openlineage.spark.agent.util.ScalaConversionUtils;
+import io.openlineage.spark.api.SparkOpenLineageConfig;
 import java.net.URISyntaxException;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
+import org.apache.spark.SparkConf;
+import org.apache.spark.SparkContext;
+import org.apache.spark.SparkContext$;
 import org.apache.spark.SparkEnv;
 import org.apache.spark.SparkEnv$;
+import org.apache.spark.package$;
 import org.apache.spark.scheduler.SparkListener;
 import org.apache.spark.scheduler.SparkListenerApplicationEnd;
 import org.apache.spark.scheduler.SparkListenerApplicationStart;
@@ -30,20 +48,28 @@ import org.apache.spark.scheduler.SparkListenerTaskEnd;
 import org.apache.spark.sql.streaming.StreamingQueryListener;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import scala.Function0;
+import scala.Option;
 
 public class DatahubSparkListener extends SparkListener {
   private static final Logger log = LoggerFactory.getLogger(DatahubSparkListener.class);
   private final Map<String, Instant> batchLastUpdated = new HashMap<String, Instant>();
   private final OpenLineageSparkListener listener;
-  private final DatahubEventEmitter emitter;
+  private DatahubEventEmitter emitter;
   private Config datahubConf = ConfigFactory.empty();
   private SparkAppContext appContext;
+  private static ContextFactory contextFactory;
+  private static CircuitBreaker circuitBreaker = new NoOpCircuitBreaker();
+  private static final String sparkVersion = package$.MODULE$.SPARK_VERSION();
+
+  private final Function0<Option<SparkContext>> activeSparkContext =
+      ScalaConversionUtils.toScalaFn(SparkContext$.MODULE$::getActive);
+
+  private static MeterRegistry meterRegistry;
+  private boolean isDisabled;
 
   public DatahubSparkListener() throws URISyntaxException {
     listener = new OpenLineageSparkListener();
-    emitter = new DatahubEventEmitter();
-    ContextFactory contextFactory = new ContextFactory(emitter);
-    OpenLineageSparkListener.init(contextFactory);
   }
 
   private static SparkAppContext getSparkAppContext(
@@ -61,13 +87,14 @@ public class DatahubSparkListener extends SparkListener {
 
   public void onApplicationStart(SparkListenerApplicationStart applicationStart) {
     long startTime = System.currentTimeMillis();
+    initializeContextFactoryIfNotInitialized();
 
-    log.debug("Application start called");
+    log.info("Application start called");
     this.appContext = getSparkAppContext(applicationStart);
 
     listener.onApplicationStart(applicationStart);
     long elapsedTime = System.currentTimeMillis() - startTime;
-    log.debug("onApplicationStart completed successfully in {} ms", elapsedTime);
+    log.info("onApplicationStart completed successfully in {} ms", elapsedTime);
   }
 
   public Optional<DatahubEmitterConfig> initializeEmitter(Config sparkConf) {
@@ -87,6 +114,17 @@ public class DatahubSparkListener extends SparkListener {
       boolean disableSslVerification =
           sparkConf.hasPath(SparkConfigParser.DISABLE_SSL_VERIFICATION_KEY)
               && sparkConf.getBoolean(SparkConfigParser.DISABLE_SSL_VERIFICATION_KEY);
+
+      int retry_interval_in_sec =
+          sparkConf.hasPath(SparkConfigParser.RETRY_INTERVAL_IN_SEC)
+              ? sparkConf.getInt(SparkConfigParser.RETRY_INTERVAL_IN_SEC)
+              : 5;
+
+      int max_retries =
+          sparkConf.hasPath(SparkConfigParser.MAX_RETRIES)
+              ? sparkConf.getInt(SparkConfigParser.MAX_RETRIES)
+              : 0;
+
       log.info(
           "REST Emitter Configuration: GMS url {}{}",
           gmsUrl,
@@ -94,14 +132,18 @@ public class DatahubSparkListener extends SparkListener {
       if (token != null) {
         log.info("REST Emitter Configuration: Token {}", "XXXXX");
       }
+
       if (disableSslVerification) {
         log.warn("REST Emitter Configuration: ssl verification will be disabled.");
       }
+
       RestEmitterConfig restEmitterConf =
           RestEmitterConfig.builder()
               .server(gmsUrl)
               .token(token)
               .disableSslVerification(disableSslVerification)
+              .maxRetries(max_retries)
+              .retryIntervalSec(retry_interval_in_sec)
               .build();
       return Optional.of(new RestDatahubEmitterConfig(restEmitterConf));
     } else {
@@ -145,7 +187,12 @@ public class DatahubSparkListener extends SparkListener {
     if (datahubConf.hasPath(STREAMING_JOB) && (datahubConf.getBoolean(STREAMING_JOB))) {
       return;
     }
-    emitter.emitCoalesced();
+    if (emitter != null) {
+      emitter.emitCoalesced();
+    } else {
+      log.warn("Emitter is not initialized, unable to emit coalesced events");
+    }
+
     long elapsedTime = System.currentTimeMillis() - startTime;
     log.debug("onApplicationEnd completed successfully in {} ms", elapsedTime);
   }
@@ -170,6 +217,8 @@ public class DatahubSparkListener extends SparkListener {
 
   public void onJobStart(SparkListenerJobStart jobStart) {
     long startTime = System.currentTimeMillis();
+    initializeContextFactoryIfNotInitialized();
+
     log.debug("Job start called");
     loadDatahubConfig(this.appContext, jobStart.properties());
     listener.onJobStart(jobStart);
@@ -225,6 +274,74 @@ public class DatahubSparkListener extends SparkListener {
       log.debug("Query progress event: {}", queryProgressEvent.progress());
       long elapsedTime = System.currentTimeMillis() - startTime;
       log.debug("onOtherEvent completed successfully in {} ms", elapsedTime);
+    }
+  }
+
+  private static void initializeMetrics(OpenLineageConfig openLineageConfig) {
+    meterRegistry =
+        MicrometerProvider.addMeterRegistryFromConfig(openLineageConfig.getMetricsConfig());
+    String disabledFacets;
+    if (openLineageConfig.getFacetsConfig() != null
+        && openLineageConfig.getFacetsConfig().getDisabledFacets() != null) {
+      disabledFacets = String.join(";", openLineageConfig.getFacetsConfig().getDisabledFacets());
+    } else {
+      disabledFacets = "";
+    }
+    meterRegistry
+        .config()
+        .commonTags(
+            Tags.of(
+                Tag.of("openlineage.spark.integration.version", Versions.getVersion()),
+                Tag.of("openlineage.spark.version", sparkVersion),
+                Tag.of("openlineage.spark.disabled.facets", disabledFacets)));
+    ((CompositeMeterRegistry) meterRegistry)
+        .getRegistries()
+        .forEach(
+            r ->
+                r.config()
+                    .commonTags(
+                        Tags.of(
+                            Tag.of("openlineage.spark.integration.version", Versions.getVersion()),
+                            Tag.of("openlineage.spark.version", sparkVersion),
+                            Tag.of("openlineage.spark.disabled.facets", disabledFacets))));
+  }
+
+  private void initializeContextFactoryIfNotInitialized() {
+    if (contextFactory != null || isDisabled) {
+      return;
+    }
+    asJavaOptional(activeSparkContext.apply())
+        .ifPresent(context -> initializeContextFactoryIfNotInitialized(context.appName()));
+  }
+
+  private void initializeContextFactoryIfNotInitialized(String appName) {
+    if (contextFactory != null || isDisabled) {
+      return;
+    }
+    SparkEnv sparkEnv = SparkEnv$.MODULE$.get();
+    if (sparkEnv == null) {
+      log.warn(
+          "OpenLineage listener instantiated, but no configuration could be found. "
+              + "Lineage events will not be collected");
+      return;
+    }
+    initializeContextFactoryIfNotInitialized(sparkEnv.conf(), appName);
+  }
+
+  private void initializeContextFactoryIfNotInitialized(SparkConf sparkConf, String appName) {
+    if (contextFactory != null || isDisabled) {
+      return;
+    }
+    try {
+      SparkOpenLineageConfig config = ArgumentParser.parse(sparkConf);
+      // Needs to be done before initializing OpenLineageClient
+      initializeMetrics(config);
+      emitter = new DatahubEventEmitter(config, appName);
+      contextFactory = new ContextFactory(emitter, meterRegistry, config);
+      circuitBreaker = new CircuitBreakerFactory(config.getCircuitBreaker()).build();
+      OpenLineageSparkListener.init(contextFactory);
+    } catch (URISyntaxException e) {
+      log.error("Unable to parse OpenLineage endpoint. Lineage events will not be collected", e);
     }
   }
 }

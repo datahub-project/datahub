@@ -5,6 +5,7 @@ import static com.linkedin.metadata.timeline.eventgenerator.ChangeEventGenerator
 
 import com.datahub.util.RecordUtils;
 import com.github.fge.jsonpatch.JsonPatch;
+import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.GlobalTags;
 import com.linkedin.common.GlossaryTerms;
@@ -166,6 +167,7 @@ public class EditableSchemaMetadataChangeEventGenerator
                   targetFieldInfo.getFieldPath(),
                   datasetFieldUrn,
                   targetFieldDescription))
+          .parameters(ImmutableMap.of("description", targetFieldDescription))
           .auditStamp(auditStamp)
           .build();
     }
@@ -183,6 +185,7 @@ public class EditableSchemaMetadataChangeEventGenerator
                   Optional.ofNullable(targetFieldInfo).map(EditableSchemaFieldInfo::getFieldPath),
                   datasetFieldUrn,
                   baseFieldDescription))
+          .parameters(ImmutableMap.of("description", baseFieldDescription))
           .auditStamp(auditStamp)
           .build();
     }
@@ -203,6 +206,7 @@ public class EditableSchemaMetadataChangeEventGenerator
                   datasetFieldUrn,
                   baseFieldDescription,
                   targetFieldDescription))
+          .parameters(ImmutableMap.of("description", targetFieldDescription))
           .auditStamp(auditStamp)
           .build();
     }

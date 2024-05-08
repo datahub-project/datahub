@@ -1,7 +1,7 @@
 import { aliasQuery, hasOperationName } from "../utils";
 
-describe('home', () => {
-    let businessAttributeEntityEnabled;
+describe("home", () => {
+  let businessAttributeEntityEnabled;
 
     beforeEach(() => {
       cy.intercept("POST", "/api/v2/graphql", (req) => {
@@ -17,23 +17,27 @@ describe('home', () => {
                     return res;
                 });
             }
-        }).as('apiCall');
-    };
-    it('home page shows ', () => {
-      setBusinessAttributeFeatureFlag();
-      cy.login();
-      cy.visit('/');
+        }).as("apiCall");
+  };
+  it("home page shows ", () => {
+    setBusinessAttributeFeatureFlag();
+    cy.login();
+    cy.visit("/");
       cy.get('img[src="/assets/logos/acryl-dark-mark.svg"]').should('exist');
-      cy.get('[data-testid="entity-type-browse-card-DATASET"]').should('exist');
-      cy.get('[data-testid="entity-type-browse-card-DASHBOARD"]').should('exist');
-      cy.get('[data-testid="entity-type-browse-card-CHART"]').should('exist');
-      cy.get('[data-testid="entity-type-browse-card-DATA_FLOW"]').should('exist');
-      cy.get('[data-testid="entity-type-browse-card-GLOSSARY_TERM"]').should('exist');
-      cy.wait('@apiCall').then(() => {
-        if (!businessAttributeEntityEnabled) {
-            return;
-        }
-        cy.get('[data-testid="entity-type-browse-card-BUSINESS_ATTRIBUTE"]').should('exist');
-      });
+    cy.get('[data-testid="entity-type-browse-card-DATASET"]').should("exist");
+    cy.get('[data-testid="entity-type-browse-card-DASHBOARD"]').should("exist");
+    cy.get('[data-testid="entity-type-browse-card-CHART"]').should("exist");
+    cy.get('[data-testid="entity-type-browse-card-DATA_FLOW"]').should("exist");
+    cy.get('[data-testid="entity-type-browse-card-GLOSSARY_TERM"]').should(
+      "exist",
+    );
+    cy.wait("@apiCall").then(() => {
+      if (!businessAttributeEntityEnabled) {
+        return;
+      }
+      cy.get(
+        '[data-testid="entity-type-browse-card-BUSINESS_ATTRIBUTE"]',
+      ).should("exist");
     });
-  })
+  });
+});

@@ -33,6 +33,7 @@ query listIngestionSources($input: ListIngestionSourcesInput!) {
                     id
                     input {
                         requestedAt
+                        actorUrn
                     }
                     result {
                         status
@@ -76,6 +77,7 @@ query getIngestionSource($urn: String!, $runStart: Int, $runCount: Int) {
                 id
                 input {
                     requestedAt
+                    actorUrn
                     source {
                         type
                     }
@@ -98,6 +100,7 @@ query getIngestionExecutionRequest($urn: String!) {
             source {
                 type
             }
+            actorUrn
             arguments {
                 key
                 value

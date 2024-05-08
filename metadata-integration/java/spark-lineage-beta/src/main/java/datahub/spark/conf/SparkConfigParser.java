@@ -29,6 +29,9 @@ public class SparkConfigParser {
   public static final String GMS_URL_KEY = "rest.server";
   public static final String GMS_AUTH_TOKEN = "rest.token";
   public static final String DISABLE_SSL_VERIFICATION_KEY = "rest.disable_ssl_verification";
+  public static final String MAX_RETRIES = "rest.max_retries";
+  public static final String RETRY_INTERVAL_IN_SEC = "rest.retry_interval_in_sec";
+
   public static final String COALESCE_KEY = "coalesce_jobs";
   public static final String PATCH_ENABLED = "patch.enabled";
 
@@ -304,7 +307,7 @@ public class SparkConfigParser {
 
   public static boolean isPatchEnabled(Config datahubConfig) {
     if (!datahubConfig.hasPath(PATCH_ENABLED)) {
-      return true;
+      return false;
     }
     return datahubConfig.hasPath(PATCH_ENABLED) && datahubConfig.getBoolean(PATCH_ENABLED);
   }

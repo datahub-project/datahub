@@ -1,0 +1,58 @@
+{
+    "query_type": "SELECT",
+    "query_type_props": {},
+    "query_fingerprint": "f2ac7c7d2236fce51b0d7c2b3f0e1a3c26cf6f26566b77f1d9084b7ab9c1d021",
+    "in_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.my_table,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.my_table_b,PROD)"
+    ],
+    "out_tables": [],
+    "column_lineage": [
+        {
+            "downstream": {
+                "table": null,
+                "column": "id",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.my_table,PROD)",
+                    "column": "id"
+                }
+            ]
+        },
+        {
+            "downstream": {
+                "table": null,
+                "column": "name",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.my_table_b,PROD)",
+                    "column": "name"
+                }
+            ]
+        },
+        {
+            "downstream": {
+                "table": null,
+                "column": "address",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.my_table_b,PROD)",
+                    "column": "address"
+                }
+            ]
+        }
+    ],
+    "debug_info": {
+        "confidence": 0.2,
+        "generalized_statement": "SELECT A.ID, B.NAME, PARSE_JSON(B.MY_JSON) AS :userInfo, B.ADDRESS FROM my_db.my_schema.my_table AS A LEFT JOIN my_db.my_schema.my_table_B AS B ON A.ID = B.ID"
+    }
+}
