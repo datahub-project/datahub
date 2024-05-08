@@ -201,9 +201,9 @@ numpy==1.26.4
 oauthlib==3.2.2
 okta==1.7.0
 openlineage-airflow==1.12.0
-openlineage-integration-common==1.7.0
+openlineage-integration-common==1.12.0
 openlineage-python==1.12.0
-openlineage_sql==1.7.0
+openlineage-sql==1.12.0
 openpyxl==3.1.2
 opentelemetry-api==1.24.0
 opentelemetry-exporter-otlp==1.24.0
