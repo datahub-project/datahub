@@ -1,7 +1,6 @@
 import { ArrowRightOutlined } from '@ant-design/icons';
 import React from 'react';
 import styled from 'styled-components/macro';
-import { useHistory } from 'react-router';
 import { TooltipPlacement } from 'antd/es/tooltip';
 import { Entity, EntityType, SchemaFieldEntity } from '../../../../types.generated';
 import { IconStyleType } from '../../../entity/Entity';
@@ -38,7 +37,6 @@ export const CompactEntityNameList = ({
     placement,
 }: Props) => {
     const entityRegistry = useEntityRegistry();
-    const history = useHistory();
 
     return (
         <>
@@ -61,13 +59,7 @@ export const CompactEntityNameList = ({
                 const url = entityRegistry.getEntityUrl(entity.type, entity.urn, linkUrlParams);
                 return (
                     <NameWrapper addMargin={showArrow}>
-                        <span
-                            onClickCapture={(e) => {
-                                // prevents the search links from taking over
-                                e.preventDefault();
-                                history.push(url);
-                            }}
-                        >
+                        <span>
                             <HoverEntityTooltip entity={entity} canOpen={showTooltips} placement={placement}>
                                 <span data-testid={`compact-entity-link-${entity.urn}`}>
                                     <EntityPreviewTag
