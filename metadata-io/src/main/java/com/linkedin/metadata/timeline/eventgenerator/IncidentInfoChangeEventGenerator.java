@@ -37,7 +37,7 @@ public class IncidentInfoChangeEventGenerator extends EntityChangeEventGenerator
       return Collections.singletonList(
           ChangeEvent.builder()
               .category(ChangeCategory.INCIDENT)
-              .operation(ChangeOperation.ACTIVE)
+              .operation(mapIncidentState(newAspect.getStatus().getState()))
               .auditStamp(auditStamp)
               .parameters(buildParameters(newAspect))
               .entityUrn(entityUrn)
@@ -54,17 +54,20 @@ public class IncidentInfoChangeEventGenerator extends EntityChangeEventGenerator
 
       // Change was in status
       if (isIncidentStatusChanged(previousAspect, newAspect)) {
-        if (newAspect.getStatus().getState().equals(IncidentState.RESOLVED)) {
-          changeEventBuilder.operation(ChangeOperation.RESOLVED);
-        }
-        if (newAspect.getStatus().getState().equals(IncidentState.ACTIVE)) {
-          changeEventBuilder.operation(ChangeOperation.ACTIVE);
-        }
+        changeEventBuilder.operation(mapIncidentState(newAspect.getStatus().getState()));
         return Collections.singletonList(changeEventBuilder.build());
       }
+      // TODO: Should changes to incidents be surfaced?
     }
 
     return Collections.emptyList();
+  }
+
+  private ChangeOperation mapIncidentState(IncidentState state) {
+    if (state.equals(IncidentState.RESOLVED)) {
+      return ChangeOperation.RESOLVED;
+    }
+    return ChangeOperation.ACTIVE;
   }
 
   private static boolean isIncidentCreated(IncidentInfo previousAspect, IncidentInfo newAspect) {
