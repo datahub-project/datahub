@@ -53,7 +53,7 @@ To enable Metadata Service Authentication:
   
 OR
 
-- change the Metadata Service `application.yml` configuration file to set `authentication.enabled` to "true" AND
+- change the Metadata Service `application.yaml` configuration file to set `authentication.enabled` to "true" AND
 - change the Frontend Proxy Service `application.config` configuration file to set `metadataService.auth.enabled` to "true"
 
 After setting the configuration flag, simply restart the Metadata Service to start enforcing Authentication. 
@@ -116,7 +116,7 @@ These changes represent the first milestone in Metadata Service Authentication. 
 
 That's perfectly fine, for now. Metadata Service Authentication is disabled by default, only enabled if you provide the 
 environment variable `METADATA_SERVICE_AUTH_ENABLED` to the `datahub-gms` container or change the `authentication.enabled` to "true"
-inside your DataHub Metadata Service configuration (`application.yml`). 
+inside your DataHub Metadata Service configuration (`application.yaml`). 
 
 That being said, we will be recommending that you enable Authentication for production use cases, to prevent
 arbitrary actors from ingesting metadata into DataHub. 
@@ -141,7 +141,7 @@ the root "datahub" user account.
 
 ### I want to authenticate requests using a custom Authenticator? How do I do this? 
 
-You can configure DataHub to add your custom **Authenticator** to the **Authentication Chain** by changing the `application.yml` configuration file for the Metadata Service:
+You can configure DataHub to add your custom **Authenticator** to the **Authentication Chain** by changing the `application.yaml` configuration file for the Metadata Service:
 
 ```yml
 authentication:

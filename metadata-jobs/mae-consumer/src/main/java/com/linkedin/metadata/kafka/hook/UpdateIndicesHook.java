@@ -10,7 +10,8 @@ import com.linkedin.gms.factory.search.SearchDocumentTransformerFactory;
 import com.linkedin.gms.factory.timeseries.TimeseriesAspectServiceFactory;
 import com.linkedin.metadata.service.UpdateIndicesService;
 import com.linkedin.mxe.MetadataChangeLog;
-import jakarta.annotation.Nonnull;
+import io.datahubproject.metadata.context.OperationContext;
+import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Import;
@@ -32,6 +33,7 @@ public class UpdateIndicesHook implements MetadataChangeLogHook {
   protected final UpdateIndicesService updateIndicesService;
   private final boolean isEnabled;
   private final boolean reprocessUIEvents;
+  private OperationContext systemOperationContext;
 
   public UpdateIndicesHook(
       UpdateIndicesService updateIndicesService,
@@ -49,6 +51,12 @@ public class UpdateIndicesHook implements MetadataChangeLogHook {
   }
 
   @Override
+  public UpdateIndicesHook init(@javax.annotation.Nonnull OperationContext systemOperationContext) {
+    this.systemOperationContext = systemOperationContext;
+    return this;
+  }
+
+  @Override
   public void invoke(@Nonnull final MetadataChangeLog event) {
     if (event.getSystemMetadata() != null) {
       if (event.getSystemMetadata().getProperties() != null) {
@@ -60,6 +68,6 @@ public class UpdateIndicesHook implements MetadataChangeLogHook {
         }
       }
     }
-    updateIndicesService.handleChangeEvent(event);
+    updateIndicesService.handleChangeEvent(systemOperationContext, event);
   }
 }

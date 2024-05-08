@@ -35,7 +35,8 @@ public class DeleteSubscriptionResolver implements DataFetcher<CompletableFuture
             final Urn subscriptionUrn = UrnUtils.getUrn(subscriptionUrnString);
 
             final SubscriptionInfo subscriptionInfo =
-                _subscriptionService.getSubscriptionInfo(subscriptionUrn, authentication);
+                _subscriptionService.getSubscriptionInfo(
+                    context.getOperationContext(), subscriptionUrn);
             final Urn actorUrn = subscriptionInfo.getActorUrn();
             if (actorUrn.getEntityType().equals(CORP_GROUP_ENTITY_NAME)
                 && !canManageGroupSubscriptions(actorUrn.toString(), context)) {
@@ -50,7 +51,7 @@ public class DeleteSubscriptionResolver implements DataFetcher<CompletableFuture
                       context.getActorUrn(), actorUrn));
             }
 
-            _entityClient.deleteEntity(subscriptionUrn, authentication);
+            _entityClient.deleteEntity(context.getOperationContext(), subscriptionUrn);
 
             return true;
           } catch (Exception e) {

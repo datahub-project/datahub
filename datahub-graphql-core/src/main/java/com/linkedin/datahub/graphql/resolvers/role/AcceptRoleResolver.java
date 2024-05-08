@@ -34,17 +34,19 @@ public class AcceptRoleResolver implements DataFetcher<CompletableFuture<Boolean
         () -> {
           try {
             final Urn inviteTokenUrn = _inviteTokenService.getInviteTokenUrn(inviteTokenStr);
-            if (!_inviteTokenService.isInviteTokenValid(inviteTokenUrn, authentication)) {
+            if (!_inviteTokenService.isInviteTokenValid(
+                context.getOperationContext(), inviteTokenUrn)) {
               throw new RuntimeException(
                   String.format("Invite token %s is invalid", inviteTokenStr));
             }
 
             final Urn roleUrn =
-                _inviteTokenService.getInviteTokenRole(inviteTokenUrn, authentication);
+                _inviteTokenService.getInviteTokenRole(
+                    context.getOperationContext(), inviteTokenUrn);
             _roleService.batchAssignRoleToActors(
+                context.getOperationContext(),
                 Collections.singletonList(authentication.getActor().toUrnStr()),
-                roleUrn,
-                authentication);
+                roleUrn);
 
             return true;
           } catch (Exception e) {

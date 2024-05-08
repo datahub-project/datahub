@@ -75,10 +75,10 @@ public class EntityAssertionsResolver
             // Step 2: Hydrate the assertion entities based on the urns from step 1
             final Map<Urn, EntityResponse> entities =
                 _entityClient.batchGetV2(
+                    context.getOperationContext(),
                     Constants.ASSERTION_ENTITY_NAME,
                     new HashSet<>(assertionUrns),
-                    null,
-                    context.getAuthentication());
+                    null);
 
             // Step 3: Map GMS assertion model to GraphQL model
             final List<EntityResponse> gmsResults = new ArrayList<>();
@@ -109,7 +109,7 @@ public class EntityAssertionsResolver
       Assertion assertion, Boolean includeSoftDeleted, QueryContext context) {
     try {
       return _entityClient.exists(
-          UrnUtils.getUrn(assertion.getUrn()), includeSoftDeleted, context.getAuthentication());
+          context.getOperationContext(), UrnUtils.getUrn(assertion.getUrn()), includeSoftDeleted);
     } catch (RemoteInvocationException e) {
       log.error(
           String.format("Unable to check if assertion %s exists, ignoring it", assertion.getUrn()),

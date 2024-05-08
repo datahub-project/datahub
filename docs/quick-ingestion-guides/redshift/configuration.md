@@ -133,4 +133,4 @@ You will now find your new ingestion source running
 
 **Congratulations!** You've successfully set up Redshift as an ingestion source for DataHub!
 
-*Need more help? Join the conversation in [Slack](http://slack.datahubproject.io)!*
+

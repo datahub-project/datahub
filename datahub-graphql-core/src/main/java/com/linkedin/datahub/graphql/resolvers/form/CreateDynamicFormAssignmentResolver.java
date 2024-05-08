@@ -2,7 +2,6 @@ package com.linkedin.datahub.graphql.resolvers.form;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
 
-import com.datahub.authentication.Authentication;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -34,12 +33,12 @@ public class CreateDynamicFormAssignmentResolver
         bindArgument(environment.getArgument("input"), CreateDynamicFormAssignmentInput.class);
     final Urn formUrn = UrnUtils.getUrn(input.getFormUrn());
     final DynamicFormAssignment formAssignment = FormUtils.mapDynamicFormAssignment(input);
-    final Authentication authentication = context.getAuthentication();
 
     return CompletableFuture.supplyAsync(
         () -> {
           try {
-            _formService.createDynamicFormAssignment(formAssignment, formUrn, authentication);
+            _formService.createDynamicFormAssignment(
+                context.getOperationContext(), formAssignment, formUrn);
             return true;
           } catch (Exception e) {
             throw new RuntimeException(

@@ -10,7 +10,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.validation.ValidationUtils;
-import com.linkedin.metadata.query.LineageFlags;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -32,13 +32,15 @@ public class SiblingGraphService {
 
   @Nonnull
   public EntityLineageResult getLineage(
+      @Nonnull OperationContext opContext,
       @Nonnull Urn entityUrn,
       @Nonnull LineageDirection direction,
       int offset,
       int count,
       int maxHops) {
     return ValidationUtils.validateEntityLineageResult(
-        getLineage(entityUrn, direction, offset, count, maxHops, false, new HashSet<>(), null),
+        opContext,
+        getLineage(opContext, entityUrn, direction, offset, count, maxHops, false, new HashSet<>()),
         _entityService);
   }
 
@@ -51,17 +53,24 @@ public class SiblingGraphService {
    */
   @Nonnull
   public EntityLineageResult getLineage(
+      @Nonnull OperationContext opContext,
       @Nonnull Urn entityUrn,
       @Nonnull LineageDirection direction,
       int offset,
       int count,
       int maxHops,
       boolean separateSiblings,
-      @Nonnull Set<Urn> visitedUrns,
-      @Nullable LineageFlags lineageFlags) {
+      @Nonnull Set<Urn> visitedUrns) {
     if (separateSiblings) {
       return ValidationUtils.validateEntityLineageResult(
-          _graphService.getLineage(entityUrn, direction, offset, count, maxHops, lineageFlags),
+          opContext,
+          _graphService.getLineage(
+              entityUrn,
+              direction,
+              offset,
+              count,
+              maxHops,
+              opContext.getSearchContext().getLineageFlags()),
           _entityService);
     }
 
@@ -72,10 +81,16 @@ public class SiblingGraphService {
     }
 
     EntityLineageResult entityLineage =
-        _graphService.getLineage(entityUrn, direction, offset, count, maxHops, lineageFlags);
+        _graphService.getLineage(
+            entityUrn,
+            direction,
+            offset,
+            count,
+            maxHops,
+            opContext.getSearchContext().getLineageFlags());
 
     Siblings siblingAspectOfEntity =
-        (Siblings) _entityService.getLatestAspect(entityUrn, SIBLINGS_ASPECT_NAME);
+        (Siblings) _entityService.getLatestAspect(opContext, entityUrn, SIBLINGS_ASPECT_NAME);
 
     // if you have siblings, we want to fetch their lineage too and merge it in
     if (siblingAspectOfEntity != null && siblingAspectOfEntity.hasSiblings()) {
@@ -85,7 +100,8 @@ public class SiblingGraphService {
 
       // remove your siblings from your lineage
       entityLineage =
-          filterLineageResultFromSiblings(entityUrn, allSiblingsInGroup, entityLineage, null);
+          filterLineageResultFromSiblings(
+              opContext, entityUrn, allSiblingsInGroup, entityLineage, null);
 
       // Update offset and count to fetch the correct number of edges from the next sibling node
       offset = Math.max(0, offset - entityLineage.getTotal());
@@ -101,17 +117,11 @@ public class SiblingGraphService {
         // there is more than one sibling
         EntityLineageResult nextEntityLineage =
             filterLineageResultFromSiblings(
+                opContext,
                 siblingUrn,
                 allSiblingsInGroup,
                 getLineage(
-                    siblingUrn,
-                    direction,
-                    offset,
-                    count,
-                    maxHops,
-                    false,
-                    visitedUrns,
-                    lineageFlags),
+                    opContext, siblingUrn, direction, offset, count, maxHops, false, visitedUrns),
                 entityLineage);
 
         // Update offset and count to fetch the correct number of edges from the next sibling node
@@ -124,7 +134,7 @@ public class SiblingGraphService {
       ;
     }
 
-    return ValidationUtils.validateEntityLineageResult(entityLineage, _entityService);
+    return ValidationUtils.validateEntityLineageResult(opContext, entityLineage, _entityService);
   }
 
   private int getFiltered(@Nullable EntityLineageResult entityLineageResult) {
@@ -136,6 +146,7 @@ public class SiblingGraphService {
   // takes a lineage result and removes any nodes that are siblings of some other node already in
   // the result
   private EntityLineageResult filterLineageResultFromSiblings(
+      @Nonnull OperationContext opContext,
       @Nonnull final Urn urn,
       @Nonnull final Set<Urn> allSiblingsInGroup,
       @Nonnull final EntityLineageResult entityLineageResult,
@@ -188,7 +199,8 @@ public class SiblingGraphService {
         combinedResults.stream().map(LineageRelationship::getEntity).collect(Collectors.toSet());
 
     final Map<Urn, List<RecordTemplate>> siblingAspects =
-        _entityService.getLatestAspects(combinedResultUrns, ImmutableSet.of(SIBLINGS_ASPECT_NAME));
+        _entityService.getLatestAspects(
+            opContext, combinedResultUrns, ImmutableSet.of(SIBLINGS_ASPECT_NAME));
 
     // 5) if you are not primary & your sibling is in the results, filter yourself out of the return
     // set
@@ -230,6 +242,7 @@ public class SiblingGraphService {
     combinedLineageResult.setCount(uniqueFilteredRelationships.size());
     combinedLineageResult.setFiltered(
         numFiltered + getFiltered(existingResult) + getFiltered(entityLineageResult));
-    return ValidationUtils.validateEntityLineageResult(combinedLineageResult, _entityService);
+    return ValidationUtils.validateEntityLineageResult(
+        opContext, combinedLineageResult, _entityService);
   }
 }

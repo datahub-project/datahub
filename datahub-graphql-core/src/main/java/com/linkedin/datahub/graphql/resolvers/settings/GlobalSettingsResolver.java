@@ -33,7 +33,7 @@ public class GlobalSettingsResolver implements DataFetcher<CompletableFuture<Glo
         () -> {
           try {
             GlobalSettingsInfo globalSettings =
-                SettingsMapper.getGlobalSettings(_entityClient, context.getAuthentication());
+                SettingsMapper.getGlobalSettings(context.getOperationContext(), _entityClient);
             return _settingsMapper.mapGlobalSettings(context, globalSettings);
           } catch (Exception e) {
             throw new RuntimeException("Failed to retrieve Global Settings", e);

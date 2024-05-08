@@ -201,10 +201,10 @@ public class AcrylEntityHealthResolver implements DataFetcher<CompletableFuture<
       final Urn urn = UrnUtils.getUrn(urnStr);
       final EntityResponse entityResponse =
           _entityClient.getV2(
+              context.getOperationContext(),
               urn.getEntityType(),
               urn,
-              ImmutableSet.of(Constants.ASSERTIONS_SUMMARY_ASPECT_NAME),
-              context.getAuthentication());
+              ImmutableSet.of(Constants.ASSERTIONS_SUMMARY_ASPECT_NAME));
 
       if (entityResponse != null
           && entityResponse.getAspects().containsKey(Constants.ASSERTIONS_SUMMARY_ASPECT_NAME)) {

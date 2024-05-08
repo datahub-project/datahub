@@ -2,13 +2,12 @@ package com.datahub.authorization.fieldresolverprovider;
 
 import static org.mockito.Mockito.mock;
 
-import com.datahub.authentication.Authentication;
-import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.client.SystemEntityClient;
 
 public class DomainFieldResolverProviderTest
     extends EntityFieldResolverProviderBaseTest<DomainFieldResolverProvider> {
   @Override
   protected DomainFieldResolverProvider buildFieldResolverProvider() {
-    return new DomainFieldResolverProvider(mock(EntityClient.class), mock(Authentication.class));
+    return new DomainFieldResolverProvider(mock(SystemEntityClient.class));
   }
 }

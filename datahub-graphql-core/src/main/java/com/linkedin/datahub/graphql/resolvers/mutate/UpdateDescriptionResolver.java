@@ -63,6 +63,8 @@ public class UpdateDescriptionResolver implements DataFetcher<CompletableFuture<
         return updateMlPrimaryKeyDescription(targetUrn, input, environment.getContext());
       case Constants.DATA_PRODUCT_ENTITY_NAME:
         return updateDataProductDescription(targetUrn, input, environment.getContext());
+      case Constants.BUSINESS_ATTRIBUTE_ENTITY_NAME:
+        return updateBusinessAttributeDescription(targetUrn, input, environment.getContext());
       default:
         throw new RuntimeException(
             String.format(
@@ -79,12 +81,17 @@ public class UpdateDescriptionResolver implements DataFetcher<CompletableFuture<
                 "Unauthorized to perform this action. Please contact your DataHub administrator.");
           }
 
-          DescriptionUtils.validateContainerInput(targetUrn, _entityService);
+          DescriptionUtils.validateContainerInput(
+              context.getOperationContext(), targetUrn, _entityService);
 
           try {
             Urn actor = CorpuserUrn.createFromString(context.getActorUrn());
             DescriptionUtils.updateContainerDescription(
-                input.getDescription(), targetUrn, actor, _entityService);
+                context.getOperationContext(),
+                input.getDescription(),
+                targetUrn,
+                actor,
+                _entityService);
             return true;
           } catch (Exception e) {
             log.error(
@@ -103,12 +110,17 @@ public class UpdateDescriptionResolver implements DataFetcher<CompletableFuture<
             throw new AuthorizationException(
                 "Unauthorized to perform this action. Please contact your DataHub administrator.");
           }
-          DescriptionUtils.validateDomainInput(targetUrn, _entityService);
+          DescriptionUtils.validateDomainInput(
+              context.getOperationContext(), targetUrn, _entityService);
 
           try {
             Urn actor = CorpuserUrn.createFromString(context.getActorUrn());
             DescriptionUtils.updateDomainDescription(
-                input.getDescription(), targetUrn, actor, _entityService);
+                context.getOperationContext(),
+                input.getDescription(),
+                targetUrn,
+                actor,
+                _entityService);
             return true;
           } catch (Exception e) {
             log.error(
@@ -130,11 +142,20 @@ public class UpdateDescriptionResolver implements DataFetcher<CompletableFuture<
     attemptedUrns.add(targetUrn);
     try {
       DescriptionUtils.validateFieldDescriptionInput(
-          targetUrn, input.getSubResource(), input.getSubResourceType(), _entityService);
+          context.getOperationContext(),
+          targetUrn,
+          input.getSubResource(),
+          input.getSubResourceType(),
+          _entityService);
 
       final Urn actor = CorpuserUrn.createFromString(context.getActorUrn());
       DescriptionUtils.updateFieldDescription(
-          input.getDescription(), targetUrn, input.getSubResource(), actor, _entityService);
+          context.getOperationContext(),
+          input.getDescription(),
+          targetUrn,
+          input.getSubResource(),
+          actor,
+          _entityService);
       return true;
     } catch (Exception e) {
       final Optional<Urn> siblingUrn = SiblingsUtils.getNextSiblingUrn(siblingUrns, attemptedUrns);
@@ -170,7 +191,9 @@ public class UpdateDescriptionResolver implements DataFetcher<CompletableFuture<
                 "Update description without subresource is not currently supported");
           }
 
-          List<Urn> siblingUrns = SiblingsUtils.getSiblingUrns(targetUrn, _entityService);
+          List<Urn> siblingUrns =
+              SiblingsUtils.getSiblingUrns(
+                  context.getOperationContext(), targetUrn, _entityService);
 
           return attemptUpdateDatasetSchemaFieldDescription(
               targetUrn, input, context, new HashSet<>(), siblingUrns);
@@ -185,12 +208,17 @@ public class UpdateDescriptionResolver implements DataFetcher<CompletableFuture<
             throw new AuthorizationException(
                 "Unauthorized to perform this action. Please contact your DataHub administrator.");
           }
-          DescriptionUtils.validateLabelInput(targetUrn, _entityService);
+          DescriptionUtils.validateLabelInput(
+              context.getOperationContext(), targetUrn, _entityService);
 
           try {
             Urn actor = CorpuserUrn.createFromString(context.getActorUrn());
             DescriptionUtils.updateTagDescription(
-                input.getDescription(), targetUrn, actor, _entityService);
+                context.getOperationContext(),
+                input.getDescription(),
+                targetUrn,
+                actor,
+                _entityService);
             return true;
           } catch (Exception e) {
             log.error(
@@ -211,12 +239,17 @@ public class UpdateDescriptionResolver implements DataFetcher<CompletableFuture<
             throw new AuthorizationException(
                 "Unauthorized to perform this action. Please contact your DataHub administrator.");
           }
-          DescriptionUtils.validateLabelInput(targetUrn, _entityService);
+          DescriptionUtils.validateLabelInput(
+              context.getOperationContext(), targetUrn, _entityService);
 
           try {
             Urn actor = CorpuserUrn.createFromString(context.getActorUrn());
             DescriptionUtils.updateGlossaryTermDescription(
-                input.getDescription(), targetUrn, actor, _entityService);
+                context.getOperationContext(),
+                input.getDescription(),
+                targetUrn,
+                actor,
+                _entityService);
             return true;
           } catch (Exception e) {
             log.error(
@@ -237,12 +270,17 @@ public class UpdateDescriptionResolver implements DataFetcher<CompletableFuture<
             throw new AuthorizationException(
                 "Unauthorized to perform this action. Please contact your DataHub administrator.");
           }
-          DescriptionUtils.validateLabelInput(targetUrn, _entityService);
+          DescriptionUtils.validateLabelInput(
+              context.getOperationContext(), targetUrn, _entityService);
 
           try {
             Urn actor = CorpuserUrn.createFromString(context.getActorUrn());
             DescriptionUtils.updateGlossaryNodeDescription(
-                input.getDescription(), targetUrn, actor, _entityService);
+                context.getOperationContext(),
+                input.getDescription(),
+                targetUrn,
+                actor,
+                _entityService);
             return true;
           } catch (Exception e) {
             log.error(
@@ -261,12 +299,17 @@ public class UpdateDescriptionResolver implements DataFetcher<CompletableFuture<
             throw new AuthorizationException(
                 "Unauthorized to perform this action. Please contact your DataHub administrator.");
           }
-          DescriptionUtils.validateCorpGroupInput(targetUrn, _entityService);
+          DescriptionUtils.validateCorpGroupInput(
+              context.getOperationContext(), targetUrn, _entityService);
 
           try {
             Urn actor = CorpuserUrn.createFromString(context.getActorUrn());
             DescriptionUtils.updateCorpGroupDescription(
-                input.getDescription(), targetUrn, actor, _entityService);
+                context.getOperationContext(),
+                input.getDescription(),
+                targetUrn,
+                actor,
+                _entityService);
             return true;
           } catch (Exception e) {
             log.error(
@@ -285,12 +328,17 @@ public class UpdateDescriptionResolver implements DataFetcher<CompletableFuture<
             throw new AuthorizationException(
                 "Unauthorized to perform this action. Please contact your DataHub administrator.");
           }
-          DescriptionUtils.validateNotebookInput(targetUrn, _entityService);
+          DescriptionUtils.validateNotebookInput(
+              context.getOperationContext(), targetUrn, _entityService);
 
           try {
             Urn actor = CorpuserUrn.createFromString(context.getActorUrn());
             DescriptionUtils.updateNotebookDescription(
-                input.getDescription(), targetUrn, actor, _entityService);
+                context.getOperationContext(),
+                input.getDescription(),
+                targetUrn,
+                actor,
+                _entityService);
             return true;
           } catch (Exception e) {
             log.error(
@@ -309,12 +357,17 @@ public class UpdateDescriptionResolver implements DataFetcher<CompletableFuture<
             throw new AuthorizationException(
                 "Unauthorized to perform this action. Please contact your DataHub administrator.");
           }
-          DescriptionUtils.validateLabelInput(targetUrn, _entityService);
+          DescriptionUtils.validateLabelInput(
+              context.getOperationContext(), targetUrn, _entityService);
 
           try {
             Urn actor = CorpuserUrn.createFromString(context.getActorUrn());
             DescriptionUtils.updateMlModelDescription(
-                input.getDescription(), targetUrn, actor, _entityService);
+                context.getOperationContext(),
+                input.getDescription(),
+                targetUrn,
+                actor,
+                _entityService);
             return true;
           } catch (Exception e) {
             log.error(
@@ -333,12 +386,17 @@ public class UpdateDescriptionResolver implements DataFetcher<CompletableFuture<
             throw new AuthorizationException(
                 "Unauthorized to perform this action. Please contact your DataHub administrator.");
           }
-          DescriptionUtils.validateLabelInput(targetUrn, _entityService);
+          DescriptionUtils.validateLabelInput(
+              context.getOperationContext(), targetUrn, _entityService);
 
           try {
             Urn actor = CorpuserUrn.createFromString(context.getActorUrn());
             DescriptionUtils.updateMlModelGroupDescription(
-                input.getDescription(), targetUrn, actor, _entityService);
+                context.getOperationContext(),
+                input.getDescription(),
+                targetUrn,
+                actor,
+                _entityService);
             return true;
           } catch (Exception e) {
             log.error(
@@ -357,12 +415,17 @@ public class UpdateDescriptionResolver implements DataFetcher<CompletableFuture<
             throw new AuthorizationException(
                 "Unauthorized to perform this action. Please contact your DataHub administrator.");
           }
-          DescriptionUtils.validateLabelInput(targetUrn, _entityService);
+          DescriptionUtils.validateLabelInput(
+              context.getOperationContext(), targetUrn, _entityService);
 
           try {
             Urn actor = CorpuserUrn.createFromString(context.getActorUrn());
             DescriptionUtils.updateMlFeatureDescription(
-                input.getDescription(), targetUrn, actor, _entityService);
+                context.getOperationContext(),
+                input.getDescription(),
+                targetUrn,
+                actor,
+                _entityService);
             return true;
           } catch (Exception e) {
             log.error(
@@ -381,12 +444,17 @@ public class UpdateDescriptionResolver implements DataFetcher<CompletableFuture<
             throw new AuthorizationException(
                 "Unauthorized to perform this action. Please contact your DataHub administrator.");
           }
-          DescriptionUtils.validateLabelInput(targetUrn, _entityService);
+          DescriptionUtils.validateLabelInput(
+              context.getOperationContext(), targetUrn, _entityService);
 
           try {
             Urn actor = CorpuserUrn.createFromString(context.getActorUrn());
             DescriptionUtils.updateMlPrimaryKeyDescription(
-                input.getDescription(), targetUrn, actor, _entityService);
+                context.getOperationContext(),
+                input.getDescription(),
+                targetUrn,
+                actor,
+                _entityService);
             return true;
           } catch (Exception e) {
             log.error(
@@ -405,12 +473,17 @@ public class UpdateDescriptionResolver implements DataFetcher<CompletableFuture<
             throw new AuthorizationException(
                 "Unauthorized to perform this action. Please contact your DataHub administrator.");
           }
-          DescriptionUtils.validateLabelInput(targetUrn, _entityService);
+          DescriptionUtils.validateLabelInput(
+              context.getOperationContext(), targetUrn, _entityService);
 
           try {
             Urn actor = CorpuserUrn.createFromString(context.getActorUrn());
             DescriptionUtils.updateMlFeatureTableDescription(
-                input.getDescription(), targetUrn, actor, _entityService);
+                context.getOperationContext(),
+                input.getDescription(),
+                targetUrn,
+                actor,
+                _entityService);
             return true;
           } catch (Exception e) {
             log.error(
@@ -429,12 +502,49 @@ public class UpdateDescriptionResolver implements DataFetcher<CompletableFuture<
             throw new AuthorizationException(
                 "Unauthorized to perform this action. Please contact your DataHub administrator.");
           }
-          DescriptionUtils.validateLabelInput(targetUrn, _entityService);
+          DescriptionUtils.validateLabelInput(
+              context.getOperationContext(), targetUrn, _entityService);
 
           try {
             Urn actor = CorpuserUrn.createFromString(context.getActorUrn());
             DescriptionUtils.updateDataProductDescription(
-                input.getDescription(), targetUrn, actor, _entityService);
+                context.getOperationContext(),
+                input.getDescription(),
+                targetUrn,
+                actor,
+                _entityService);
+            return true;
+          } catch (Exception e) {
+            log.error(
+                "Failed to perform update against input {}, {}", input.toString(), e.getMessage());
+            throw new RuntimeException(
+                String.format("Failed to perform update against input %s", input.toString()), e);
+          }
+        });
+  }
+
+  private CompletableFuture<Boolean> updateBusinessAttributeDescription(
+      Urn targetUrn, DescriptionUpdateInput input, QueryContext context) {
+    return CompletableFuture.supplyAsync(
+        () -> {
+          // check if user has the rights to update description for business attribute
+          if (!DescriptionUtils.isAuthorizedToUpdateDescription(context, targetUrn)) {
+            throw new AuthorizationException(
+                "Unauthorized to perform this action. Please contact your DataHub administrator.");
+          }
+
+          // validate label input
+          DescriptionUtils.validateLabelInput(
+              context.getOperationContext(), targetUrn, _entityService);
+
+          try {
+            Urn actor = CorpuserUrn.createFromString(context.getActorUrn());
+            DescriptionUtils.updateBusinessAttributeDescription(
+                context.getOperationContext(),
+                input.getDescription(),
+                targetUrn,
+                actor,
+                _entityService);
             return true;
           } catch (Exception e) {
             log.error(

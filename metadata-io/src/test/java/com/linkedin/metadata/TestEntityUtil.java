@@ -69,6 +69,7 @@ public class TestEntityUtil {
                 "123",
                 "longValue",
                 "0123456789")));
+    testEntityInfo.setDoubleField(100.456);
     return testEntityInfo;
   }
 

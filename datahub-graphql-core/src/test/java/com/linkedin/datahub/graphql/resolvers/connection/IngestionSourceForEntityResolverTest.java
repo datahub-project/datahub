@@ -5,7 +5,6 @@ import static com.linkedin.metadata.Constants.*;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
-import com.datahub.authentication.Authentication;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -23,6 +22,7 @@ import com.linkedin.ingestion.DataHubIngestionSourceSchedule;
 import com.linkedin.metadata.Constants;
 import com.linkedin.mxe.SystemMetadata;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.Collections;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -112,21 +112,21 @@ public class IngestionSourceForEntityResolverTest {
   @Test
   public void testSuccess() throws Exception {
     when(_entityClient.getV2(
-            eq(_entityUrn.getEntityType()), eq(_entityUrn), isNull(), any(Authentication.class)))
+            any(OperationContext.class), eq(_entityUrn.getEntityType()), eq(_entityUrn), isNull()))
         .thenReturn(_entityResponse);
 
     when(_entityClient.getV2(
+            any(OperationContext.class),
             eq(Constants.EXECUTION_REQUEST_ENTITY_NAME),
             any(),
-            eq(Collections.singleton(EXECUTION_REQUEST_INPUT_ASPECT_NAME)),
-            any(Authentication.class)))
+            eq(Collections.singleton(EXECUTION_REQUEST_INPUT_ASPECT_NAME))))
         .thenReturn(_executionRequestEntityResponse);
 
     when(_entityClient.getV2(
+            any(OperationContext.class),
             eq(Constants.INGESTION_SOURCE_ENTITY_NAME),
             eq(UrnUtils.getUrn(INGESTION_SOURCE_URN_STRING)),
-            eq(Collections.singleton(INGESTION_INFO_ASPECT_NAME)),
-            any(Authentication.class)))
+            eq(Collections.singleton(INGESTION_INFO_ASPECT_NAME))))
         .thenReturn(_ingestionSourceEntityResponse);
 
     assertEquals(
@@ -136,7 +136,7 @@ public class IngestionSourceForEntityResolverTest {
   @Test
   public void testFailsNoEntity() throws Exception {
     when(_entityClient.getV2(
-            eq(_entityUrn.getEntityType()), eq(_entityUrn), isNull(), any(Authentication.class)))
+            any(OperationContext.class), eq(_entityUrn.getEntityType()), eq(_entityUrn), isNull()))
         .thenReturn(null);
 
     assertNull(_resolver.get(_dataFetchingEnvironment).join());
@@ -148,7 +148,7 @@ public class IngestionSourceForEntityResolverTest {
     aspectMap.put("blank-run-id", new EnvelopedAspect());
 
     when(_entityClient.getV2(
-            eq(_entityUrn.getEntityType()), eq(_entityUrn), isNull(), any(Authentication.class)))
+            any(OperationContext.class), eq(_entityUrn.getEntityType()), eq(_entityUrn), isNull()))
         .thenReturn(new EntityResponse().setAspects(aspectMap));
 
     assertNull(_resolver.get(_dataFetchingEnvironment).join());
@@ -157,14 +157,14 @@ public class IngestionSourceForEntityResolverTest {
   @Test
   public void testFailsNoExecutionRequestEntityResponse() throws Exception {
     when(_entityClient.getV2(
-            eq(_entityUrn.getEntityType()), eq(_entityUrn), isNull(), any(Authentication.class)))
+            any(OperationContext.class), eq(_entityUrn.getEntityType()), eq(_entityUrn), isNull()))
         .thenReturn(_entityResponse);
 
     when(_entityClient.getV2(
+            any(OperationContext.class),
             eq(Constants.EXECUTION_REQUEST_ENTITY_NAME),
             any(),
-            eq(Collections.singleton(EXECUTION_REQUEST_INPUT_ASPECT_NAME)),
-            any(Authentication.class)))
+            eq(Collections.singleton(EXECUTION_REQUEST_INPUT_ASPECT_NAME))))
         .thenReturn(null);
 
     assertNull(_resolver.get(_dataFetchingEnvironment).join());
@@ -173,14 +173,14 @@ public class IngestionSourceForEntityResolverTest {
   @Test
   public void testFailsNoExecutionRequestAspects() throws Exception {
     when(_entityClient.getV2(
-            eq(_entityUrn.getEntityType()), eq(_entityUrn), isNull(), any(Authentication.class)))
+            any(OperationContext.class), eq(_entityUrn.getEntityType()), eq(_entityUrn), isNull()))
         .thenReturn(_entityResponse);
 
     when(_entityClient.getV2(
+            any(OperationContext.class),
             eq(Constants.EXECUTION_REQUEST_ENTITY_NAME),
             any(),
-            eq(Collections.singleton(EXECUTION_REQUEST_INPUT_ASPECT_NAME)),
-            any(Authentication.class)))
+            eq(Collections.singleton(EXECUTION_REQUEST_INPUT_ASPECT_NAME))))
         .thenReturn(new EntityResponse());
 
     assertNull(_resolver.get(_dataFetchingEnvironment).join());
@@ -190,7 +190,7 @@ public class IngestionSourceForEntityResolverTest {
   public void testFailsExecutionRequestAspectDoesNotContainExecutionRequestAspect()
       throws Exception {
     when(_entityClient.getV2(
-            eq(_entityUrn.getEntityType()), eq(_entityUrn), isNull(), any(Authentication.class)))
+            any(OperationContext.class), eq(_entityUrn.getEntityType()), eq(_entityUrn), isNull()))
         .thenReturn(_entityResponse);
 
     EnvelopedAspectMap executionRequestAspects = new EnvelopedAspectMap();
@@ -202,10 +202,10 @@ public class IngestionSourceForEntityResolverTest {
     _executionRequestEntityResponse = new EntityResponse().setAspects(executionRequestAspects);
 
     when(_entityClient.getV2(
+            any(OperationContext.class),
             eq(Constants.EXECUTION_REQUEST_ENTITY_NAME),
             any(),
-            eq(Collections.singleton(EXECUTION_REQUEST_INPUT_ASPECT_NAME)),
-            any(Authentication.class)))
+            eq(Collections.singleton(EXECUTION_REQUEST_INPUT_ASPECT_NAME))))
         .thenReturn(_executionRequestEntityResponse);
 
     assertNull(_resolver.get(_dataFetchingEnvironment).join());
@@ -214,21 +214,21 @@ public class IngestionSourceForEntityResolverTest {
   @Test
   public void testFailsNoIngestionSourceEntityResponse() throws Exception {
     when(_entityClient.getV2(
-            eq(_entityUrn.getEntityType()), eq(_entityUrn), isNull(), any(Authentication.class)))
+            any(OperationContext.class), eq(_entityUrn.getEntityType()), eq(_entityUrn), isNull()))
         .thenReturn(_entityResponse);
 
     when(_entityClient.getV2(
+            any(OperationContext.class),
             eq(Constants.EXECUTION_REQUEST_ENTITY_NAME),
             any(),
-            eq(Collections.singleton(EXECUTION_REQUEST_INPUT_ASPECT_NAME)),
-            any(Authentication.class)))
+            eq(Collections.singleton(EXECUTION_REQUEST_INPUT_ASPECT_NAME))))
         .thenReturn(_executionRequestEntityResponse);
 
     when(_entityClient.getV2(
+            any(OperationContext.class),
             eq(Constants.INGESTION_SOURCE_ENTITY_NAME),
             any(),
-            eq(Collections.singleton(INGESTION_INFO_ASPECT_NAME)),
-            any(Authentication.class)))
+            eq(Collections.singleton(INGESTION_INFO_ASPECT_NAME))))
         .thenReturn(null);
 
     assertNull(_resolver.get(_dataFetchingEnvironment).join());
@@ -237,21 +237,21 @@ public class IngestionSourceForEntityResolverTest {
   @Test
   public void testFailsNoIngestionInfoAspect() throws Exception {
     when(_entityClient.getV2(
-            eq(_entityUrn.getEntityType()), eq(_entityUrn), isNull(), any(Authentication.class)))
+            any(OperationContext.class), eq(_entityUrn.getEntityType()), eq(_entityUrn), isNull()))
         .thenReturn(_entityResponse);
 
     when(_entityClient.getV2(
+            any(OperationContext.class),
             eq(Constants.EXECUTION_REQUEST_ENTITY_NAME),
             any(),
-            eq(Collections.singleton(EXECUTION_REQUEST_INPUT_ASPECT_NAME)),
-            any(Authentication.class)))
+            eq(Collections.singleton(EXECUTION_REQUEST_INPUT_ASPECT_NAME))))
         .thenReturn(_executionRequestEntityResponse);
 
     when(_entityClient.getV2(
+            any(OperationContext.class),
             eq(Constants.INGESTION_SOURCE_ENTITY_NAME),
             any(),
-            eq(Collections.singleton(INGESTION_INFO_ASPECT_NAME)),
-            any(Authentication.class)))
+            eq(Collections.singleton(INGESTION_INFO_ASPECT_NAME))))
         .thenReturn(new EntityResponse());
 
     assertNull(_resolver.get(_dataFetchingEnvironment).join());
@@ -260,14 +260,14 @@ public class IngestionSourceForEntityResolverTest {
   @Test
   public void testFailsNoIngestionSourceEnvelopedInfo() throws Exception {
     when(_entityClient.getV2(
-            eq(_entityUrn.getEntityType()), eq(_entityUrn), isNull(), any(Authentication.class)))
+            any(OperationContext.class), eq(_entityUrn.getEntityType()), eq(_entityUrn), isNull()))
         .thenReturn(_entityResponse);
 
     when(_entityClient.getV2(
+            any(OperationContext.class),
             eq(Constants.EXECUTION_REQUEST_ENTITY_NAME),
             any(),
-            eq(Collections.singleton(EXECUTION_REQUEST_INPUT_ASPECT_NAME)),
-            any(Authentication.class)))
+            eq(Collections.singleton(EXECUTION_REQUEST_INPUT_ASPECT_NAME))))
         .thenReturn(_executionRequestEntityResponse);
 
     EnvelopedAspectMap ingestionInfoAspects = new EnvelopedAspectMap();
@@ -275,10 +275,10 @@ public class IngestionSourceForEntityResolverTest {
     _ingestionSourceEntityResponse = new EntityResponse().setAspects(ingestionInfoAspects);
 
     when(_entityClient.getV2(
+            any(OperationContext.class),
             eq(Constants.INGESTION_SOURCE_ENTITY_NAME),
             any(),
-            eq(Collections.singleton(INGESTION_INFO_ASPECT_NAME)),
-            any(Authentication.class)))
+            eq(Collections.singleton(INGESTION_INFO_ASPECT_NAME))))
         .thenReturn(new EntityResponse());
 
     assertNull(_resolver.get(_dataFetchingEnvironment).join());
@@ -287,14 +287,14 @@ public class IngestionSourceForEntityResolverTest {
   @Test
   public void testFailsNoIngestionSourceConfig() throws Exception {
     when(_entityClient.getV2(
-            eq(_entityUrn.getEntityType()), eq(_entityUrn), isNull(), any(Authentication.class)))
+            any(OperationContext.class), eq(_entityUrn.getEntityType()), eq(_entityUrn), isNull()))
         .thenReturn(_entityResponse);
 
     when(_entityClient.getV2(
+            any(OperationContext.class),
             eq(Constants.EXECUTION_REQUEST_ENTITY_NAME),
             any(),
-            eq(Collections.singleton(EXECUTION_REQUEST_INPUT_ASPECT_NAME)),
-            any(Authentication.class)))
+            eq(Collections.singleton(EXECUTION_REQUEST_INPUT_ASPECT_NAME))))
         .thenReturn(_executionRequestEntityResponse);
 
     EnvelopedAspectMap ingestionInfoAspects = new EnvelopedAspectMap();
@@ -306,10 +306,10 @@ public class IngestionSourceForEntityResolverTest {
     _ingestionSourceEntityResponse = new EntityResponse().setAspects(ingestionInfoAspects);
 
     when(_entityClient.getV2(
+            any(OperationContext.class),
             eq(Constants.INGESTION_SOURCE_ENTITY_NAME),
             any(),
-            eq(Collections.singleton(INGESTION_INFO_ASPECT_NAME)),
-            any(Authentication.class)))
+            eq(Collections.singleton(INGESTION_INFO_ASPECT_NAME))))
         .thenReturn(new EntityResponse());
 
     assertNull(_resolver.get(_dataFetchingEnvironment).join());

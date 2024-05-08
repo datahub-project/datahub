@@ -116,7 +116,7 @@ class PulsarSource(StatefulIngestionSourceBase):
                 f"{self.config.issuer_url}/.well-known/openid-configuration"
             )
             oid_config_response = requests.get(
-                oid_config_url, verify=False, allow_redirects=False
+                oid_config_url, verify=self.session.verify, allow_redirects=False
             )
 
             if oid_config_response:
@@ -163,7 +163,7 @@ class PulsarSource(StatefulIngestionSourceBase):
                 token_response = requests.post(
                     url=token_endpoint,
                     data=data,
-                    verify=False,
+                    verify=self.session.verify,
                     allow_redirects=False,
                     auth=(
                         self.config.client_id,

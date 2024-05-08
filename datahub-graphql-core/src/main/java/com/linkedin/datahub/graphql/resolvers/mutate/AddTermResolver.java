@@ -29,9 +29,9 @@ public class AddTermResolver implements DataFetcher<CompletableFuture<Boolean>> 
         bindArgument(environment.getArgument("input"), TermAssociationInput.class);
     Urn termUrn = Urn.createFromString(input.getTermUrn());
     Urn targetUrn = Urn.createFromString(input.getResourceUrn());
+    final QueryContext context = environment.getContext();
 
-    if (!LabelUtils.isAuthorizedToUpdateTerms(
-        environment.getContext(), targetUrn, input.getSubResource())) {
+    if (!LabelUtils.isAuthorizedToUpdateTerms(context, targetUrn, input.getSubResource())) {
       throw new AuthorizationException(
           "Unauthorized to perform this action. Please contact your DataHub administrator.");
     }
@@ -39,6 +39,7 @@ public class AddTermResolver implements DataFetcher<CompletableFuture<Boolean>> 
     return CompletableFuture.supplyAsync(
         () -> {
           LabelUtils.validateResourceAndLabel(
+              context.getOperationContext(),
               termUrn,
               targetUrn,
               input.getSubResource(),
@@ -49,10 +50,9 @@ public class AddTermResolver implements DataFetcher<CompletableFuture<Boolean>> 
 
           try {
             log.info("Adding Term. input: {}", input);
-            Urn actor =
-                CorpuserUrn.createFromString(
-                    ((QueryContext) environment.getContext()).getActorUrn());
+            Urn actor = CorpuserUrn.createFromString(context.getActorUrn());
             LabelUtils.addTermsToResources(
+                context.getOperationContext(),
                 ImmutableList.of(termUrn),
                 ImmutableList.of(
                     new ResourceRefInput(

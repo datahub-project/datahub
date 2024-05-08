@@ -250,8 +250,6 @@ The common Metadata Privileges, which span across entity types, include:
 | Term Group   | Manage All Glossary Children       | Allow actor to change any direct or indirect child Term Groups or Terms of the group.                                                                                                                                |
 
 
-> **Still have questions about Privileges?** Let us know in [Slack](https://slack.datahubproject.io)!
-
 
 #### Step 3: Choose Policy Actors
 
@@ -355,7 +353,7 @@ Policies are the lowest level primitive for granting Privileges to users on Data
 Roles are built for convenience on top of Policies. Roles grant Privileges to actors indirectly, driven by Policies
 behind the scenes. Both can be used in conjunction to grant Privileges to end users. 
 
-*Need more help? Join the conversation in [Slack](http://slack.datahubproject.io)!*
+
 
 ### Related Features
 

@@ -45,6 +45,7 @@ import com.linkedin.schema.SchemaFieldArray;
 import com.linkedin.schema.SchemaMetadata;
 import com.linkedin.schema.Schemaless;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.Collections;
 import java.util.concurrent.CompletableFuture;
 import org.mockito.InjectMocks;
@@ -107,7 +108,7 @@ public class UpsertDatasetSchemaAssertionMonitorResolverTest {
         .thenReturn(Urn.createFromString(TEST_MONITOR_URN));
 
     when(assertionService.getAssertionEntityResponse(
-            Mockito.eq(UrnUtils.getUrn(TEST_ASSERTION_URN)), Mockito.any(Authentication.class)))
+            any(OperationContext.class), eq(UrnUtils.getUrn(TEST_ASSERTION_URN))))
         .thenReturn(getAssertionInfoEntityResponse());
 
     // Act
@@ -121,16 +122,17 @@ public class UpsertDatasetSchemaAssertionMonitorResolverTest {
     assertNotNull(assertion);
     verify(assertionService, times(1))
         .upsertDatasetSchemaAssertion(
+            Mockito.any(OperationContext.class),
             Mockito.eq(UrnUtils.getUrn(TEST_ASSERTION_URN)),
             Mockito.eq(UrnUtils.getUrn(TEST_DATASET_URN)),
             Mockito.eq("description"),
             Mockito.eq(com.linkedin.assertion.SchemaAssertionCompatibility.SUPERSET),
             Mockito.any(SchemaMetadata.class),
             Mockito.any(AssertionActions.class),
-            Mockito.eq(null),
-            Mockito.any(Authentication.class));
+            Mockito.eq(null));
     verify(monitorService, times(1))
         .upsertAssertionMonitor(
+            any(OperationContext.class),
             Mockito.eq(UrnUtils.getUrn(TEST_MONITOR_URN)),
             Mockito.eq(UrnUtils.getUrn(TEST_ASSERTION_URN)),
             Mockito.eq(UrnUtils.getUrn(TEST_DATASET_URN)),
@@ -142,8 +144,7 @@ public class UpsertDatasetSchemaAssertionMonitorResolverTest {
                         new DatasetSchemaAssertionParameters()
                             .setSourceType(DatasetSchemaSourceType.DATAHUB_SCHEMA))),
             Mockito.eq(com.linkedin.monitor.MonitorMode.ACTIVE),
-            Mockito.eq(null),
-            any());
+            Mockito.eq(null));
   }
 
   @Test
@@ -186,7 +187,8 @@ public class UpsertDatasetSchemaAssertionMonitorResolverTest {
     assertionInfo.setSource(new AssertionSource().setType(AssertionSourceType.NATIVE));
     assertionInfo.setLastUpdated(
         new AuditStamp().setTime(0L).setActor(UrnUtils.getUrn(TEST_ACTOR_URN)));
-    when(assertionService.getAssertionInfo(Mockito.eq(UrnUtils.getUrn(assertionUrn))))
+    when(assertionService.getAssertionInfo(
+            any(OperationContext.class), Mockito.eq(UrnUtils.getUrn(assertionUrn))))
         .thenReturn(assertionInfo);
     when(graphClient.getRelatedEntities(
             Mockito.eq(TEST_ASSERTION_URN),
@@ -205,7 +207,7 @@ public class UpsertDatasetSchemaAssertionMonitorResolverTest {
                                 .setEntity(Urn.createFromString(TEST_MONITOR_URN))))));
 
     when(assertionService.getAssertionEntityResponse(
-            Mockito.eq(UrnUtils.getUrn(TEST_ASSERTION_URN)), Mockito.any(Authentication.class)))
+            any(OperationContext.class), Mockito.eq(UrnUtils.getUrn(TEST_ASSERTION_URN))))
         .thenReturn(getAssertionInfoEntityResponse());
 
     // Act
@@ -219,16 +221,17 @@ public class UpsertDatasetSchemaAssertionMonitorResolverTest {
     assertNotNull(assertion);
     verify(assertionService, times(1))
         .upsertDatasetSchemaAssertion(
+            any(OperationContext.class),
             Mockito.eq(UrnUtils.getUrn(TEST_ASSERTION_URN)),
             Mockito.eq(UrnUtils.getUrn(TEST_DATASET_URN)),
             Mockito.eq("new description"), // description was updated
             Mockito.eq(com.linkedin.assertion.SchemaAssertionCompatibility.SUPERSET),
             Mockito.any(SchemaMetadata.class),
             Mockito.any(AssertionActions.class),
-            Mockito.any(AssertionSource.class),
-            Mockito.any(Authentication.class));
+            Mockito.any(AssertionSource.class));
     verify(monitorService, times(1))
         .upsertAssertionMonitor(
+            any(OperationContext.class),
             Mockito.eq(UrnUtils.getUrn(TEST_MONITOR_URN)),
             Mockito.eq(UrnUtils.getUrn(TEST_ASSERTION_URN)),
             Mockito.eq(UrnUtils.getUrn(TEST_DATASET_URN)),
@@ -240,8 +243,7 @@ public class UpsertDatasetSchemaAssertionMonitorResolverTest {
                         new DatasetSchemaAssertionParameters()
                             .setSourceType(DatasetSchemaSourceType.DATAHUB_SCHEMA))),
             Mockito.eq(com.linkedin.monitor.MonitorMode.ACTIVE),
-            Mockito.eq(null),
-            any());
+            Mockito.eq(null));
   }
 
   @Test
@@ -265,9 +267,16 @@ public class UpsertDatasetSchemaAssertionMonitorResolverTest {
     when(dataFetchingEnvironment.getArgument("assertionUrn")).thenReturn(assertionUrn);
     when(dataFetchingEnvironment.getArgument("input")).thenReturn(input);
 
+    QueryContext mockContext = getMockAllowContext();
+    Mockito.when(mockContext.getAuthentication()).thenReturn(Mockito.mock(Authentication.class));
+    Mockito.when(mockContext.getOperationContext())
+        .thenReturn(Mockito.mock(OperationContext.class));
+    when(dataFetchingEnvironment.getContext()).thenReturn(mockContext);
+
     AssertionInfo assertionInfo = new AssertionInfo();
     assertionInfo.setType(AssertionType.FRESHNESS); // Invalid type
-    when(assertionService.getAssertionInfo(any(Urn.class))).thenReturn(assertionInfo);
+    when(assertionService.getAssertionInfo(any(OperationContext.class), any(Urn.class)))
+        .thenReturn(assertionInfo);
 
     // Assert
     // IllegalArgumentException should be thrown

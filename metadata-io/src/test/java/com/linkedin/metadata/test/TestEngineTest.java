@@ -23,6 +23,7 @@ import com.linkedin.test.TestInfo;
 import com.linkedin.test.TestMode;
 import com.linkedin.test.TestResults;
 import com.linkedin.test.TestStatus;
+import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.List;
 import java.util.Set;
@@ -49,6 +50,7 @@ public class TestEngineTest {
     // Defaults to no match
     TestResults result =
         testEngine.evaluateTests(
+            mock(OperationContext.class),
             Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:datahub,DataPlatform,PROD)"),
             TestEngine.EvaluationMode.EVALUATE_ONLY);
     assertTrue(result.hasFailing());
@@ -58,6 +60,7 @@ public class TestEngineTest {
 
     result =
         testEngine.evaluateTests(
+            mock(OperationContext.class),
             Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:datahub,DataPlatform,PROD)"),
             TestEngine.EvaluationMode.EVALUATE_ONLY);
     assertTrue(result.hasPassing());
@@ -71,6 +74,7 @@ public class TestEngineTest {
     // doesn't apply to charts
     TestResults result =
         testEngine.evaluateTestUrns(
+            mock(OperationContext.class),
             Urn.createFromString("urn:li:chart:(looker,dashboard_elements.17)"),
             Set.of(tests.get(0).getUrn()),
             TestEngine.EvaluationMode.DEFAULT);
@@ -110,7 +114,6 @@ public class TestEngineTest {
     final EntityRegistry entityRegistry =
         new ConfigEntityRegistry(
             TestEngineTest.class.getClassLoader().getResourceAsStream("entity-registry.yml"));
-    when(mockEntityService.getEntityRegistry()).thenReturn(entityRegistry);
 
     final EntitySearchService mockSearchService = Mockito.mock(EntitySearchService.class);
 

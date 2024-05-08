@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.glossary;
 
 import static com.linkedin.metadata.Constants.GLOSSARY_NODE_INFO_ASPECT_NAME;
+import static org.mockito.ArgumentMatchers.any;
 import static org.testng.Assert.*;
 
 import com.datahub.authentication.Authentication;
@@ -82,26 +83,26 @@ public class GlossaryUtilsTest {
 
     Mockito.when(
             mockClient.getV2(
+                any(),
                 Mockito.eq(Constants.GLOSSARY_NODE_ENTITY_NAME),
                 Mockito.eq(parentNodeUrn1),
-                Mockito.eq(ImmutableSet.of(GLOSSARY_NODE_INFO_ASPECT_NAME)),
-                Mockito.any(Authentication.class)))
+                Mockito.eq(ImmutableSet.of(GLOSSARY_NODE_INFO_ASPECT_NAME))))
         .thenReturn(new EntityResponse().setAspects(new EnvelopedAspectMap(parentNode1Aspects)));
 
     Mockito.when(
             mockClient.getV2(
+                any(),
                 Mockito.eq(Constants.GLOSSARY_NODE_ENTITY_NAME),
                 Mockito.eq(parentNodeUrn2),
-                Mockito.eq(ImmutableSet.of(GLOSSARY_NODE_INFO_ASPECT_NAME)),
-                Mockito.any(Authentication.class)))
+                Mockito.eq(ImmutableSet.of(GLOSSARY_NODE_INFO_ASPECT_NAME))))
         .thenReturn(new EntityResponse().setAspects(new EnvelopedAspectMap(parentNode2Aspects)));
 
     Mockito.when(
             mockClient.getV2(
+                any(),
                 Mockito.eq(Constants.GLOSSARY_NODE_ENTITY_NAME),
                 Mockito.eq(parentNodeUrn3),
-                Mockito.eq(ImmutableSet.of(GLOSSARY_NODE_INFO_ASPECT_NAME)),
-                Mockito.any(Authentication.class)))
+                Mockito.eq(ImmutableSet.of(GLOSSARY_NODE_INFO_ASPECT_NAME))))
         .thenReturn(new EntityResponse().setAspects(new EnvelopedAspectMap(parentNode3Aspects)));
 
     final EntitySpec resourceSpec3 =

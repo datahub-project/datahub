@@ -61,10 +61,10 @@ public class ActionPipelineType
       try {
         final Map<Urn, EntityResponse> entities =
             _entityClient.batchGetV2(
+                context.getOperationContext(),
                 Constants.ACTIONS_PIPELINE_ENTITY_NAME,
                 new HashSet<>(actionPipelineUrns),
-                ASPECTS_TO_FETCH,
-                context.getAuthentication());
+                ASPECTS_TO_FETCH);
 
         final List<EntityResponse> gmsResults = new ArrayList<>();
         for (Urn urn : actionPipelineUrns) {

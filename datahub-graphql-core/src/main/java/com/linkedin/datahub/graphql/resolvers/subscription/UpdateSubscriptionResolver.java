@@ -54,7 +54,8 @@ public class UpdateSubscriptionResolver
             final Urn subscriptionUrn = UrnUtils.getUrn(subscriptionUrnString);
 
             final SubscriptionInfo subscriptionInfo =
-                _subscriptionService.getSubscriptionInfo(subscriptionUrn, authentication);
+                _subscriptionService.getSubscriptionInfo(
+                    context.getOperationContext(), subscriptionUrn);
             final Urn actorUrn = subscriptionInfo.getActorUrn();
             if (actorUrn.getEntityType().equals(CORP_GROUP_ENTITY_NAME)
                 && !canManageGroupSubscriptions(actorUrn.toString(), context)) {
@@ -71,13 +72,13 @@ public class UpdateSubscriptionResolver
 
             final Map.Entry<Urn, SubscriptionInfo> subscription =
                 _subscriptionService.updateSubscription(
+                    context.getOperationContext(),
                     actorUrn,
                     subscriptionUrn,
                     subscriptionInfo,
                     subscriptionTypes,
                     entityChangeTypes,
-                    notificationConfig,
-                    authentication);
+                    notificationConfig);
 
             return DataHubSubscriptionMapper.map(context, subscription);
           } catch (Exception e) {

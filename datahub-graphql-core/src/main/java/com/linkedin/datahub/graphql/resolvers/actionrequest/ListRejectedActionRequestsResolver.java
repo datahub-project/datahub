@@ -81,11 +81,11 @@ public class ListRejectedActionRequestsResolver
 
             final Map<Urn, Entity> entities =
                 _entityClient.batchGet(
+                    context.getOperationContext(),
                     new HashSet<>(
                         searchResult.getEntities().stream()
                             .map(result -> result.getEntity())
-                            .collect(Collectors.toList())),
-                    context.getAuthentication());
+                            .collect(Collectors.toList())));
 
             final ListRejectedActionRequestsResult result = new ListRejectedActionRequestsResult();
             result.setStart(searchResult.getFrom());

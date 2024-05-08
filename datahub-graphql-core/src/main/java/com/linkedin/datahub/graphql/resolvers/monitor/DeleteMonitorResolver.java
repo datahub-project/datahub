@@ -44,19 +44,20 @@ public class DeleteMonitorResolver implements DataFetcher<CompletableFuture<Bool
         () -> {
 
           // 1. check the entity exists. If not, return false.
-          if (!_entityService.exists(monitorUrn, true)) {
+          if (!_entityService.exists(context.getOperationContext(), monitorUrn, true)) {
             return true;
           }
 
           if (isAuthorizedToDeleteMonitor(entityUrn, context)) {
             try {
-              _entityClient.deleteEntity(monitorUrn, context.getAuthentication());
+              _entityClient.deleteEntity(context.getOperationContext(), monitorUrn);
 
               // Asynchronously Delete all references to the entity (to return quickly)
               CompletableFuture.runAsync(
                   () -> {
                     try {
-                      _entityClient.deleteEntityReferences(monitorUrn, context.getAuthentication());
+                      _entityClient.deleteEntityReferences(
+                          context.getOperationContext(), monitorUrn);
                     } catch (RemoteInvocationException e) {
                       log.error(
                           String.format(

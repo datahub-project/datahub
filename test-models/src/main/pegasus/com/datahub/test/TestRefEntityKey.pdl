@@ -1,0 +1,16 @@
+namespace com.datahub.test
+
+
+/**
+ * Key for Test Ref Entity Defining parent entity with reference field
+ */
+@Aspect = {
+ "name": "testRefEntityKey"
+}
+record TestRefEntityKey {
+
+  /**
+    * A unique id
+    */
+    id: string
+}

@@ -236,7 +236,14 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
 
     @staticmethod
     def test_connection(config_dict: dict) -> TestConnectionReport:
-        return UnityCatalogConnectionTest(config_dict).get_connection_test()
+        try:
+            config = UnityCatalogSourceConfig.parse_obj_allow_extras(config_dict)
+        except Exception as e:
+            return TestConnectionReport(
+                internal_failure=True,
+                internal_failure_reason=f"Failed to parse config due to {e}",
+            )
+        return UnityCatalogConnectionTest(config).get_connection_test()
 
     @classmethod
     def create(cls, config_dict, ctx):
@@ -489,9 +496,10 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
 
         if self.config.include_notebooks:
             for notebook_id in table.downstream_notebooks:
-                self.notebooks[str(notebook_id)] = Notebook.add_upstream(
-                    table.ref, self.notebooks[str(notebook_id)]
-                )
+                if str(notebook_id) in self.notebooks:
+                    self.notebooks[str(notebook_id)] = Notebook.add_upstream(
+                        table.ref, self.notebooks[str(notebook_id)]
+                    )
 
         # Sql parsing is required only for hive metastore view lineage
         if (

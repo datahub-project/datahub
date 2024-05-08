@@ -17,6 +17,7 @@ import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.test.definition.ValidationResult;
+import io.datahubproject.metadata.context.OperationContext;
 import io.opentelemetry.extension.annotations.WithSpan;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
@@ -28,6 +29,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
+import javax.annotation.Nonnull;
 import lombok.RequiredArgsConstructor;
 import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
@@ -38,7 +40,7 @@ import org.apache.commons.lang3.tuple.Pair;
 public class QueryVersionedAspectEvaluator extends BaseQueryEvaluator {
 
   private final EntityRegistry entityRegistry;
-  private final EntityService entityService;
+  private final EntityService<?> entityService;
 
   @Override
   public boolean isEligible(String entityType, TestQuery query) {
@@ -138,7 +140,10 @@ public class QueryVersionedAspectEvaluator extends BaseQueryEvaluator {
 
   @WithSpan
   public Map<Urn, Map<TestQuery, TestQueryResponse>> evaluate(
-      String entityType, Set<Urn> urns, Set<TestQuery> queries) {
+      @Nonnull OperationContext opContext,
+      String entityType,
+      Set<Urn> urns,
+      Set<TestQuery> queries) {
     EntitySpec entitySpec = entityRegistry.getEntitySpec(entityType);
     Set<String> aspectsToQuery = new HashSet<>();
     for (TestQuery query : queries) {
@@ -156,7 +161,7 @@ public class QueryVersionedAspectEvaluator extends BaseQueryEvaluator {
     // input urns
     Map<Urn, EntityResponse> batchGetResponse;
     try {
-      batchGetResponse = entityService.getEntitiesV2(entityType, urns, aspectsToQuery);
+      batchGetResponse = entityService.getEntitiesV2(opContext, entityType, urns, aspectsToQuery);
     } catch (URISyntaxException e) {
       log.error("Error while fetching versioned aspects {} for urns {}", aspectsToQuery, urns, e);
       throw new RuntimeException(
@@ -178,6 +183,7 @@ public class QueryVersionedAspectEvaluator extends BaseQueryEvaluator {
     for (TestQuery query : queries) {
       Map<Urn, TestQueryResponse> queryResult =
           evaluateQuery(
+              opContext,
               aspectValuesPerAspect.getOrDefault(
                   query.getQueryParts().get(0), Collections.emptyList()),
               query);
@@ -228,7 +234,9 @@ public class QueryVersionedAspectEvaluator extends BaseQueryEvaluator {
   // is the container urn,
   // in which case, we need to query for "glossaryTerms" for the container urn
   private Map<Urn, TestQueryResponse> evaluateQueryForUrns(
-      List<ValueWithUrn> currentValues, TestQuery partialQuery) {
+      @Nonnull OperationContext opContext,
+      List<ValueWithUrn> currentValues,
+      TestQuery partialQuery) {
     // Keep mapping between the traversed urn (container urn in the above example) and the original
     // entity urn
     // we are traversing from, so that we can map the result back to the source urn
@@ -241,7 +249,7 @@ public class QueryVersionedAspectEvaluator extends BaseQueryEvaluator {
     // Recursively call query engine with the partial query (to fetch glossaryTerms of the container
     // in the above example)
     Map<Urn, TestQueryResponse> evaluatedPartialQuery =
-        queryEngine.batchEvaluateQuery(valueUrnToSourceUrn.keySet(), partialQuery);
+        queryEngine.batchEvaluateQuery(opContext, valueUrnToSourceUrn.keySet(), partialQuery);
     Map<Urn, TestQueryResponse> finalResult = new HashMap<>();
     // Map evaluated response back to the source entities based on the mapping above
     for (Urn valueUrn : evaluatedPartialQuery.keySet()) {
@@ -264,7 +272,8 @@ public class QueryVersionedAspectEvaluator extends BaseQueryEvaluator {
   }
 
   // Evaluate the query given the aspect records
-  private Map<Urn, TestQueryResponse> evaluateQuery(List<AspectWithUrn> aspects, TestQuery query) {
+  private Map<Urn, TestQueryResponse> evaluateQuery(
+      @Nonnull OperationContext opContext, List<AspectWithUrn> aspects, TestQuery query) {
     // Starting from the original aspects, traverse down based on the query parts
     List<ValueWithUrn> currentValues =
         aspects.stream()
@@ -288,7 +297,7 @@ public class QueryVersionedAspectEvaluator extends BaseQueryEvaluator {
         // First, build partial query with the rest of the query parts.
         TestQuery partialQuery =
             new TestQuery(query.getQueryParts().subList(i, query.getQueryParts().size()));
-        return evaluateQueryForUrns(currentValues, partialQuery);
+        return evaluateQueryForUrns(opContext, currentValues, partialQuery);
       } else {
         log.error(
             "Invalid metadata test query: cannot fetch field {} of objects {}",

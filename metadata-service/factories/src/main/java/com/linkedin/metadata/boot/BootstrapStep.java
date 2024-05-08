@@ -10,6 +10,7 @@ import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.upgrade.DataHubUpgradeResult;
+import io.datahubproject.metadata.context.OperationContext;
 import javax.annotation.Nonnull;
 
 /** A single step in the Bootstrap process. */
@@ -19,7 +20,7 @@ public interface BootstrapStep {
   String name();
 
   /** Execute a boot-time step, or throw an exception on failure. */
-  void execute() throws Exception;
+  void execute(@Nonnull OperationContext systemOperationContext) throws Exception;
 
   /** Return the execution mode of this step */
   @Nonnull
@@ -39,7 +40,8 @@ public interface BootstrapStep {
         new DataHubUpgradeKey().setId(upgradeId), Constants.DATA_HUB_UPGRADE_ENTITY_NAME);
   }
 
-  static void setUpgradeResult(Urn urn, EntityService<?> entityService) {
+  static void setUpgradeResult(
+      @Nonnull OperationContext opContext, Urn urn, EntityService<?> entityService) {
     final DataHubUpgradeResult upgradeResult =
         new DataHubUpgradeResult().setTimestampMs(System.currentTimeMillis());
 
@@ -50,6 +52,7 @@ public interface BootstrapStep {
     upgradeProposal.setAspectName(Constants.DATA_HUB_UPGRADE_RESULT_ASPECT_NAME);
     upgradeProposal.setAspect(GenericRecordUtils.serializeAspect(upgradeResult));
     upgradeProposal.setChangeType(ChangeType.UPSERT);
-    entityService.ingestProposal(upgradeProposal, AuditStampUtils.createDefaultAuditStamp(), false);
+    entityService.ingestProposal(
+        opContext, upgradeProposal, AuditStampUtils.createDefaultAuditStamp(), false);
   }
 }

@@ -2,6 +2,7 @@ package com.linkedin.metadata.kafka.hook.form;
 
 import static com.linkedin.metadata.Constants.*;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.form.DynamicFormAssignment;
@@ -13,6 +14,7 @@ import com.linkedin.metadata.kafka.hook.MetadataChangeLogHook;
 import com.linkedin.metadata.service.FormService;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeLog;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
@@ -61,18 +63,26 @@ public class FormAssignmentHook implements MetadataChangeLogHook {
           ChangeType.UPSERT, ChangeType.CREATE, ChangeType.CREATE_ENTITY, ChangeType.RESTATE);
 
   private final FormService _formService;
+  private final ObjectMapper objectMapper;
   private final boolean _isEnabled;
+
+  private OperationContext systemOperationContext;
 
   @Autowired
   public FormAssignmentHook(
       @Nonnull final FormService formService,
-      @Nonnull @Value("${forms.hook.enabled:true}") Boolean isEnabled) {
+      @Nonnull @Value("${forms.hook.enabled:true}") Boolean isEnabled,
+      final ObjectMapper objectMapper) {
     _formService = Objects.requireNonNull(formService, "formService is required");
     _isEnabled = isEnabled;
+    this.objectMapper = objectMapper;
   }
 
   @Override
-  public void init() {}
+  public FormAssignmentHook init(@Nonnull OperationContext systemOperationContext) {
+    this.systemOperationContext = systemOperationContext;
+    return this;
+  }
 
   @Override
   public boolean isEnabled() {
@@ -121,12 +131,14 @@ public class FormAssignmentHook implements MetadataChangeLogHook {
 
     // 3. For each prompt to upsert, generate a new automation
     for (final FormPrompt prompt : promptsToUpsert) {
-      _formService.upsertFormPromptCompletionAutomation(event.getEntityUrn(), prompt);
+      _formService.upsertFormPromptCompletionAutomation(
+          systemOperationContext, event.getEntityUrn(), prompt);
     }
 
     // 4. Remove tests for any prompts that were removed.
     for (final FormPrompt prompt : promptsToRemove) {
-      _formService.removeFormPromptCompletionAutomation(event.getEntityUrn(), prompt);
+      _formService.removeFormPromptCompletionAutomation(
+          systemOperationContext, event.getEntityUrn(), prompt);
     }
   }
 
@@ -140,13 +152,14 @@ public class FormAssignmentHook implements MetadataChangeLogHook {
             DynamicFormAssignment.class);
 
     // 2. Register a automation to assign it.
-    _formService.upsertFormAssignmentAutomation(event.getEntityUrn(), formFilters);
+    _formService.upsertFormAssignmentAutomation(
+        systemOperationContext, event.getEntityUrn(), formFilters, objectMapper);
   }
 
   /** Handles an form deletion by removing the all automations associated with it. */
   private void handleFormDeleted(@Nonnull final MetadataChangeLog event) {
     // Simply delete all automation associated with the form.
-    _formService.removeAllFormAutomations(event.getEntityUrn());
+    _formService.removeAllFormAutomations(systemOperationContext, event.getEntityUrn());
   }
 
   /**

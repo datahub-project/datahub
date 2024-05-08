@@ -100,6 +100,18 @@ public class ChangeItemImpl implements ChangeMCP {
         .build(getEntitySpec(), getAspectSpec(), entityAspect);
   }
 
+  @Nonnull
+  public MetadataChangeProposal getMetadataChangeProposal() {
+    final MetadataChangeProposal mcp = new MetadataChangeProposal();
+    mcp.setEntityUrn(getUrn());
+    mcp.setChangeType(getChangeType());
+    mcp.setEntityType(getEntitySpec().getName());
+    mcp.setAspectName(getAspectName());
+    mcp.setAspect(GenericRecordUtils.serializeAspect(getRecordTemplate()));
+    mcp.setSystemMetadata(getSystemMetadata());
+    return mcp;
+  }
+
   public static class ChangeItemImplBuilder {
 
     // Ensure use of other builders

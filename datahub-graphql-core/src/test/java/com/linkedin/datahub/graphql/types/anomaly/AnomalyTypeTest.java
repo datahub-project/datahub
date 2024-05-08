@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.types.anomaly;
 
+import static org.mockito.ArgumentMatchers.nullable;
 import static org.testng.Assert.*;
 
 import com.datahub.authentication.Authentication;
@@ -22,6 +23,7 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.key.AnomalyKey;
 import com.linkedin.r2.RemoteInvocationException;
 import graphql.execution.DataFetcherResult;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -79,10 +81,11 @@ public class AnomalyTypeTest {
         new EnvelopedAspect().setValue(new Aspect(TEST_ANOMALY_INFO.data())));
     Mockito.when(
             client.batchGetV2(
+                nullable(OperationContext.class),
                 Mockito.eq(Constants.ANOMALY_ENTITY_NAME),
                 Mockito.eq(new HashSet<>(ImmutableSet.of(anomalyUrn1, anomalyUrn2))),
-                Mockito.eq(com.linkedin.datahub.graphql.types.anomaly.AnomalyType.ASPECTS_TO_FETCH),
-                Mockito.any(Authentication.class)))
+                Mockito.eq(
+                    com.linkedin.datahub.graphql.types.anomaly.AnomalyType.ASPECTS_TO_FETCH)))
         .thenReturn(
             ImmutableMap.of(
                 anomalyUrn1,
@@ -104,10 +107,10 @@ public class AnomalyTypeTest {
     // Verify response
     Mockito.verify(client, Mockito.times(1))
         .batchGetV2(
+            nullable(OperationContext.class),
             Mockito.eq(Constants.ANOMALY_ENTITY_NAME),
             Mockito.eq(ImmutableSet.of(anomalyUrn1, anomalyUrn2)),
-            Mockito.eq(com.linkedin.datahub.graphql.types.anomaly.AnomalyType.ASPECTS_TO_FETCH),
-            Mockito.any(Authentication.class));
+            Mockito.eq(com.linkedin.datahub.graphql.types.anomaly.AnomalyType.ASPECTS_TO_FETCH));
 
     assertEquals(result.size(), 2);
 
@@ -150,10 +153,10 @@ public class AnomalyTypeTest {
     Mockito.doThrow(RemoteInvocationException.class)
         .when(mockClient)
         .batchGetV2(
+            nullable(OperationContext.class),
             Mockito.anyString(),
             Mockito.anySet(),
-            Mockito.anySet(),
-            Mockito.any(Authentication.class));
+            Mockito.anySet());
     com.linkedin.datahub.graphql.types.anomaly.AnomalyType type =
         new com.linkedin.datahub.graphql.types.anomaly.AnomalyType(mockClient);
 

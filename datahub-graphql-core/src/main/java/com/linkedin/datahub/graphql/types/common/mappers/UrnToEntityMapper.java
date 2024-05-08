@@ -215,6 +215,11 @@ public class UrnToEntityMapper implements ModelMapper<com.linkedin.common.urn.Ur
       ((Restricted) partialEntity).setUrn(input.toString());
       ((Restricted) partialEntity).setType(EntityType.RESTRICTED);
     }
+    if (input.getEntityType().equals(BUSINESS_ATTRIBUTE_ENTITY_NAME)) {
+      partialEntity = new BusinessAttribute();
+      ((BusinessAttribute) partialEntity).setUrn(input.toString());
+      ((BusinessAttribute) partialEntity).setType(EntityType.BUSINESS_ATTRIBUTE);
+    }
     if (input.getEntityType().equals(FORM_ENTITY_NAME)) {
       partialEntity = new Form();
       ((Form) partialEntity).setUrn(input.toString());

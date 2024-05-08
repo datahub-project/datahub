@@ -12,6 +12,7 @@ import com.linkedin.datahub.graphql.generated.EntitySubscriptionSummary;
 import com.linkedin.datahub.graphql.generated.GetEntitySubscriptionSummaryInput;
 import com.linkedin.metadata.service.SubscriptionService;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.Collections;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -44,7 +45,8 @@ public class GetEntitySubscriptionSummaryResolverTest {
 
   @Test
   public void testGetEntitySubscriptionSummaryExceptionThrown() {
-    when(_subscriptionService.isActorSubscribed(eq(ENTITY_URN_1), eq(USER_URN)))
+    when(_subscriptionService.isActorSubscribed(
+            any(OperationContext.class), eq(ENTITY_URN_1), eq(USER_URN)))
         .thenThrow(new RuntimeException());
 
     assertThrows(() -> _resolver.get(_dataFetchingEnvironment).join());
@@ -52,19 +54,22 @@ public class GetEntitySubscriptionSummaryResolverTest {
 
   @Test
   public void testGetEntitySubscriptionSummary() throws Exception {
-    when(_subscriptionService.isActorSubscribed(eq(ENTITY_URN_1), eq(USER_URN))).thenReturn(true);
-    when(_groupService.getGroupsForUser(eq(USER_URN), eq(_authentication)))
+    when(_subscriptionService.isActorSubscribed(
+            any(OperationContext.class), eq(ENTITY_URN_1), eq(USER_URN)))
+        .thenReturn(true);
+    when(_groupService.getGroupsForUser(any(OperationContext.class), eq(USER_URN)))
         .thenReturn(Collections.emptyList());
-    when(_subscriptionService.isAnyGroupSubscribed(eq(ENTITY_URN_1), any(), eq(_authentication)))
+    when(_subscriptionService.isAnyGroupSubscribed(
+            any(OperationContext.class), eq(ENTITY_URN_1), any()))
         .thenReturn(false);
     when(_subscriptionService.getNumUserSubscriptionsForEntity(
-            eq(ENTITY_URN_1), anyInt(), eq(_authentication)))
+            any(OperationContext.class), eq(ENTITY_URN_1), anyInt()))
         .thenReturn(50);
     when(_subscriptionService.getNumGroupSubscriptionsForEntity(
-            eq(ENTITY_URN_1), anyInt(), eq(_authentication)))
+            any(OperationContext.class), eq(ENTITY_URN_1), anyInt()))
         .thenReturn(25);
     when(_subscriptionService.getGroupSubscribersForEntity(
-            eq(ENTITY_URN_1), anyInt(), eq(_authentication)))
+            any(OperationContext.class), eq(ENTITY_URN_1), anyInt()))
         .thenReturn(Collections.emptyList());
 
     final EntitySubscriptionSummary summary = _resolver.get(_dataFetchingEnvironment).join();

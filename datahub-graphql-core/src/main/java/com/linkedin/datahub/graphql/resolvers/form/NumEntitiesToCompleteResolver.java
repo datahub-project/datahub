@@ -55,12 +55,12 @@ public class NumEntitiesToCompleteResolver implements DataFetcher<CompletableFut
         () -> {
           try {
             // 1. fetch the formInfo aspect from database
-            FormInfo formInfo = _formService.getFormInfo(formUrn, authentication);
+            FormInfo formInfo = _formService.getFormInfo(context.getOperationContext(), formUrn);
 
             // 2. generate the form filter to filter entities based on form criteria for completion
             final FormFilter formFilter = createFormFilter(formInfo, formUrn, userUrn);
             final Filter filter =
-                SearchUtils.getFormFilter(formFilter, _formService, authentication);
+                SearchUtils.getFormFilter(context.getOperationContext(), formFilter, _formService);
 
             SearchResult searchResult =
                 _entityClient.searchAcrossEntities(

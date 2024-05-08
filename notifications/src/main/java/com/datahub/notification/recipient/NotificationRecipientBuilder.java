@@ -2,18 +2,17 @@ package com.datahub.notification.recipient;
 
 import static com.linkedin.metadata.Constants.*;
 
-import com.datahub.authentication.Authentication;
 import com.datahub.notification.NotificationScenarioType;
 import com.datahub.notification.provider.SettingsProvider;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.entity.EntityResponse;
-import com.linkedin.entity.client.EntityClient;
 import com.linkedin.event.notification.NotificationRecipient;
 import com.linkedin.event.notification.settings.NotificationSettings;
 import com.linkedin.identity.CorpGroupSettings;
 import com.linkedin.identity.CorpUserSettings;
 import com.linkedin.subscription.SubscriptionInfo;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -31,28 +30,24 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public abstract class NotificationRecipientBuilder {
   final SettingsProvider _settingsProvider;
-  final EntityClient _entityClient;
-  final Authentication _authentication;
   final Predicate<? super NotificationSettings> _predicate;
 
   protected NotificationRecipientBuilder(
       @Nonnull final SettingsProvider settingsProvider,
-      @Nonnull final EntityClient entityClient,
-      @Nonnull final Authentication authentication,
       @Nonnull final Predicate<? super NotificationSettings> predicate) {
     _settingsProvider = settingsProvider;
-    _entityClient = entityClient;
-    _authentication = authentication;
     _predicate = predicate;
   }
 
   /** Builds a list of global recipients. */
   public abstract List<NotificationRecipient> buildGlobalRecipients(
-      @Nonnull final NotificationScenarioType type);
+      @Nonnull OperationContext opContext, @Nonnull final NotificationScenarioType type);
 
   /** Builds a list of recipients based on subscriber information. */
   public List<NotificationRecipient> buildSubscriberRecipients(
-      @Nonnull Map<Urn, SubscriptionInfo> subscriptions, @Nullable Urn actorUrn) {
+      @Nonnull OperationContext opContext,
+      @Nonnull Map<Urn, SubscriptionInfo> subscriptions,
+      @Nullable Urn actorUrn) {
     final Map<Urn, SubscriptionInfo> userToSubscriptionMap = new HashMap<>();
     final Map<Urn, SubscriptionInfo> groupToSubscriptionMap = new HashMap<>();
     for (Map.Entry<Urn, SubscriptionInfo> entry : subscriptions.entrySet()) {
@@ -83,10 +78,10 @@ public abstract class NotificationRecipientBuilder {
     final Set<Urn> groupUrns = new HashSet<>(groupToSubscriptionMap.keySet());
 
     final Map<Urn, NotificationSettings> userToNotificationSettings =
-        getNotificationSettings(CORP_USER_ENTITY_NAME, userUrns);
+        getNotificationSettings(opContext, CORP_USER_ENTITY_NAME, userUrns);
 
     final Map<Urn, NotificationSettings> groupToNotificationSettings =
-        getNotificationSettings(CORP_GROUP_ENTITY_NAME, groupUrns);
+        getNotificationSettings(opContext, CORP_GROUP_ENTITY_NAME, groupUrns);
 
     final List<NotificationRecipient> userRecipients =
         buildUserSubscriberRecipients(userToSubscriptionMap, userToNotificationSettings);
@@ -103,7 +98,9 @@ public abstract class NotificationRecipientBuilder {
   }
 
   public Map<Urn, NotificationSettings> getNotificationSettings(
-      @Nonnull final String entityName, @Nonnull final Set<Urn> actorUrns) {
+      @Nonnull OperationContext opContext,
+      @Nonnull final String entityName,
+      @Nonnull final Set<Urn> actorUrns) {
     Map<Urn, EntityResponse> notificationSettingsMap;
 
     if (actorUrns.isEmpty()) {
@@ -117,8 +114,9 @@ public abstract class NotificationRecipientBuilder {
     try {
       notificationSettingsMap =
           Objects.requireNonNull(
-              _entityClient.batchGetV2(
-                  entityName, actorUrns, ImmutableSet.of(aspectName), _authentication));
+              _settingsProvider
+                  .getSystemEntityClient()
+                  .batchGetV2(opContext, entityName, actorUrns, ImmutableSet.of(aspectName)));
     } catch (Exception e) {
       log.error("Failed to fetch notification settings for actors {}", actorUrns, e);
       return Collections.emptyMap();

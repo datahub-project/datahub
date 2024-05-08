@@ -24,6 +24,7 @@
     "aspect": {
         "json": {
             "owners": [],
+            "ownerTypes": {},
             "lastModified": {
                 "time": 0,
                 "actor": "urn:li:corpuser:fivetran"
@@ -187,13 +188,14 @@
         "json": {
             "owners": [
                 {
-                    "owner": "urn:li:corpuser:Shubham Jagtap",
+                    "owner": "urn:li:corpuser:abc.xyz@email.com",
                     "type": "DEVELOPER",
                     "source": {
                         "type": "SERVICE"
                     }
                 }
             ],
+            "ownerTypes": {},
             "lastModified": {
                 "time": 0,
                 "actor": "urn:li:corpuser:fivetran"

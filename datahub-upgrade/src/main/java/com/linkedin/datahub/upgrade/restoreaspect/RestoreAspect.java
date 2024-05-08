@@ -5,9 +5,10 @@ import com.linkedin.datahub.upgrade.Upgrade;
 import com.linkedin.datahub.upgrade.UpgradeCleanupStep;
 import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.metadata.models.registry.EntityRegistry;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.List;
+import javax.annotation.Nonnull;
 
 /**
  * This upgrade restores a specific aspect associated with a specific URN from a specific backup. It
@@ -22,10 +23,13 @@ import java.util.List;
  */
 public class RestoreAspect implements Upgrade {
 
+  private final OperationContext systemOperationContext;
   private final List<UpgradeStep> _steps;
 
-  public RestoreAspect(final EntityService entityService, final EntityRegistry entityRegistry) {
-    _steps = buildSteps(entityService, entityRegistry);
+  public RestoreAspect(
+      @Nonnull OperationContext systemOperationContext, final EntityService<?> entityService) {
+    this.systemOperationContext = systemOperationContext;
+    _steps = buildSteps(entityService);
   }
 
   @Override
@@ -38,10 +42,9 @@ public class RestoreAspect implements Upgrade {
     return _steps;
   }
 
-  private List<UpgradeStep> buildSteps(
-      final EntityService entityService, final EntityRegistry entityRegistry) {
+  private List<UpgradeStep> buildSteps(final EntityService<?> entityService) {
     final List<UpgradeStep> steps = new ArrayList<>();
-    steps.add(new RestoreAspectStep(entityService, entityRegistry));
+    steps.add(new RestoreAspectStep(systemOperationContext, entityService));
     return steps;
   }
 

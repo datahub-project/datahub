@@ -61,7 +61,8 @@ public class UnshareEntityResolver implements DataFetcher<CompletableFuture<Shar
                 succeeded = false;
               }
             }
-            Share shareAspect = _shareService.getShareOrDefault(entityUrn, authentication);
+            Share shareAspect =
+                _shareService.getShareOrDefault(context.getOperationContext(), entityUrn);
             ShareEntityResult shareEntityResult = new ShareEntityResult();
             shareEntityResult.setSucceeded(succeeded);
             shareEntityResult.setShare(ShareMapper.map(context, shareAspect));

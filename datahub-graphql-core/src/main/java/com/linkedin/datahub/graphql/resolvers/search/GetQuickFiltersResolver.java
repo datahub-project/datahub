@@ -85,8 +85,7 @@ public class GetQuickFiltersResolver
       throws Exception {
     final DataHubViewInfo maybeResolvedView =
         (input.getViewUrn() != null)
-            ? resolveView(
-                _viewService, UrnUtils.getUrn(input.getViewUrn()), opContext.getAuthentication())
+            ? resolveView(opContext, _viewService, UrnUtils.getUrn(input.getViewUrn()))
             : null;
     final List<String> entityNames =
         SEARCHABLE_ENTITY_TYPES.stream()

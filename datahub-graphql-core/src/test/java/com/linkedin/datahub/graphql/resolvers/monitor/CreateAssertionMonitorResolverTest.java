@@ -1,9 +1,9 @@
 package com.linkedin.datahub.graphql.resolvers.monitor;
 
 import static com.linkedin.datahub.graphql.TestUtils.*;
+import static org.mockito.ArgumentMatchers.any;
 import static org.testng.Assert.*;
 
-import com.datahub.authentication.Authentication;
 import com.datahub.authorization.AuthorizationRequest;
 import com.datahub.authorization.EntitySpec;
 import com.google.common.collect.ImmutableList;
@@ -50,6 +50,7 @@ import com.linkedin.monitor.MonitorMode;
 import com.linkedin.monitor.MonitorStatus;
 import com.linkedin.monitor.MonitorType;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.Optional;
 import java.util.concurrent.CompletionException;
 import org.mockito.Mockito;
@@ -259,12 +260,12 @@ public class CreateAssertionMonitorResolverTest {
         TEST_MONITOR_INFO_FRESHNESS.getAssertionMonitor().getAssertions().get(0);
     Mockito.verify(mockService, Mockito.times(1))
         .createAssertionMonitor(
+            any(OperationContext.class),
             Mockito.eq(TEST_ENTITY_URN),
             Mockito.eq(evaluationSpec.getAssertion()),
             Mockito.eq(evaluationSpec.getSchedule()),
             Mockito.eq(evaluationSpec.getParameters()),
-            Mockito.eq(TEST_EXECUTOR_ID),
-            Mockito.any(Authentication.class));
+            Mockito.eq(TEST_EXECUTOR_ID));
   }
 
   @Test
@@ -294,12 +295,12 @@ public class CreateAssertionMonitorResolverTest {
         TEST_MONITOR_INFO_VOLUME.getAssertionMonitor().getAssertions().get(0);
     Mockito.verify(mockService, Mockito.times(1))
         .createAssertionMonitor(
+            any(OperationContext.class),
             Mockito.eq(TEST_ENTITY_URN),
             Mockito.eq(evaluationSpec.getAssertion()),
             Mockito.eq(evaluationSpec.getSchedule()),
             Mockito.eq(evaluationSpec.getParameters()),
-            Mockito.eq(TEST_EXECUTOR_ID),
-            Mockito.any(Authentication.class));
+            Mockito.eq(TEST_EXECUTOR_ID));
   }
 
   @Test
@@ -329,16 +330,16 @@ public class CreateAssertionMonitorResolverTest {
         TEST_MONITOR_INFO_SQL.getAssertionMonitor().getAssertions().get(0);
     Mockito.verify(mockService, Mockito.times(1))
         .createAssertionMonitor(
+            any(OperationContext.class),
             Mockito.eq(TEST_ENTITY_URN),
             Mockito.eq(evaluationSpec.getAssertion()),
             Mockito.eq(evaluationSpec.getSchedule()),
             Mockito.eq(evaluationSpec.getParameters()),
-            Mockito.eq(TEST_EXECUTOR_ID),
-            Mockito.any(Authentication.class));
+            Mockito.eq(TEST_EXECUTOR_ID));
 
     // Ensure that we retrieved the assertion info to check whether it is of type SQL.
     Mockito.verify(mockAssertionService, Mockito.times(1))
-        .getAssertionInfo(Mockito.eq(TEST_ASSERTION_URN));
+        .getAssertionInfo(any(OperationContext.class), Mockito.eq(TEST_ASSERTION_URN));
 
     // Ensure that we authorized the SQL create.
     Mockito.verify(mockContext.getAuthorizer(), Mockito.times(1))
@@ -377,12 +378,12 @@ public class CreateAssertionMonitorResolverTest {
         TEST_MONITOR_INFO_FIELD.getAssertionMonitor().getAssertions().get(0);
     Mockito.verify(mockService, Mockito.times(1))
         .createAssertionMonitor(
+            any(OperationContext.class),
             Mockito.eq(TEST_ENTITY_URN),
             Mockito.eq(evaluationSpec.getAssertion()),
             Mockito.eq(evaluationSpec.getSchedule()),
             Mockito.eq(evaluationSpec.getParameters()),
-            Mockito.eq(TEST_EXECUTOR_ID),
-            Mockito.any(Authentication.class));
+            Mockito.eq(TEST_EXECUTOR_ID));
   }
 
   @Test
@@ -403,7 +404,7 @@ public class CreateAssertionMonitorResolverTest {
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
     Mockito.verify(mockClient, Mockito.times(0))
-        .ingestProposal(Mockito.any(), Mockito.any(Authentication.class));
+        .ingestProposal(any(OperationContext.class), Mockito.any());
   }
 
   @Test
@@ -416,12 +417,12 @@ public class CreateAssertionMonitorResolverTest {
     Mockito.doThrow(RuntimeException.class)
         .when(mockService)
         .createAssertionMonitor(
+            any(OperationContext.class),
             Mockito.any(),
             Mockito.any(),
             Mockito.any(),
             Mockito.any(),
-            Mockito.any(),
-            Mockito.any(Authentication.class));
+            Mockito.any());
 
     CreateAssertionMonitorResolver resolver =
         new CreateAssertionMonitorResolver(mockService, mockAssertionService);
@@ -439,17 +440,17 @@ public class CreateAssertionMonitorResolverTest {
     MonitorService service = Mockito.mock(MonitorService.class);
     Mockito.when(
             service.createAssertionMonitor(
+                any(OperationContext.class),
                 Mockito.any(),
                 Mockito.any(),
                 Mockito.any(),
                 Mockito.any(),
-                Mockito.any(),
-                Mockito.any(Authentication.class)))
+                Mockito.any()))
         .thenReturn(TEST_MONITOR_URN);
 
     Mockito.when(
             service.getMonitorEntityResponse(
-                Mockito.eq(TEST_MONITOR_URN), Mockito.any(Authentication.class)))
+                any(OperationContext.class), Mockito.eq(TEST_MONITOR_URN)))
         .thenReturn(
             new EntityResponse()
                 .setAspects(
@@ -471,7 +472,8 @@ public class CreateAssertionMonitorResolverTest {
     AssertionInfo nonSqlAssertion = new AssertionInfo();
     nonSqlAssertion.setType(assertionType);
 
-    Mockito.when(service.getAssertionInfo(Mockito.eq(assertionUrn))).thenReturn(nonSqlAssertion);
+    Mockito.when(service.getAssertionInfo(any(OperationContext.class), Mockito.eq(assertionUrn)))
+        .thenReturn(nonSqlAssertion);
 
     return service;
   }

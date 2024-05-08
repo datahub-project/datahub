@@ -83,7 +83,8 @@ public class RecentlySearchedSource implements RecommendationSource {
       @Nonnull OperationContext opContext,
       @Nonnull RecommendationRequestContext requestContext,
       @Nullable Filter filter) {
-    SearchRequest searchRequest = buildSearchRequest(opContext.getActorContext().getActorUrn());
+    SearchRequest searchRequest =
+        buildSearchRequest(opContext.getSessionActorContext().getActorUrn());
     try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "getRecentlySearched").time()) {
       final SearchResponse searchResponse =
           _searchClient.search(searchRequest, RequestOptions.DEFAULT);

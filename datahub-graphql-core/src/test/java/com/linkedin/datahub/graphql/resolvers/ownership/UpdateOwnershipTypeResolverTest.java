@@ -1,9 +1,10 @@
 package com.linkedin.datahub.graphql.resolvers.ownership;
 
 import static com.linkedin.datahub.graphql.TestUtils.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.testng.Assert.*;
 
-import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
@@ -56,10 +57,10 @@ public class UpdateOwnershipTypeResolverTest {
 
     Mockito.verify(mockService, Mockito.times(1))
         .updateOwnershipType(
+            any(),
             Mockito.eq(TEST_URN),
             Mockito.eq(TEST_INPUT.getName()),
             Mockito.eq(TEST_INPUT.getDescription()),
-            Mockito.any(Authentication.class),
             Mockito.anyLong());
   }
 
@@ -70,11 +71,7 @@ public class UpdateOwnershipTypeResolverTest {
     Mockito.doThrow(RuntimeException.class)
         .when(mockService)
         .updateOwnershipType(
-            Mockito.any(Urn.class),
-            Mockito.any(),
-            Mockito.any(),
-            Mockito.any(Authentication.class),
-            Mockito.anyLong());
+            any(), Mockito.any(Urn.class), Mockito.any(), Mockito.any(), Mockito.anyLong());
 
     UpdateOwnershipTypeResolver resolver = new UpdateOwnershipTypeResolver(mockService);
 
@@ -103,8 +100,7 @@ public class UpdateOwnershipTypeResolverTest {
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
     assertThrows(AuthorizationException.class, () -> resolver.get(mockEnv).join());
-    Mockito.verify(mockClient, Mockito.times(0))
-        .ingestProposal(Mockito.any(), Mockito.any(Authentication.class));
+    Mockito.verify(mockClient, Mockito.times(0)).ingestProposal(any(), Mockito.any(), anyBoolean());
   }
 
   private static OwnershipTypeService initOwnershipTypeService() {
@@ -130,14 +126,10 @@ public class UpdateOwnershipTypeResolverTest {
                             .setType(AspectType.VERSIONED)
                             .setValue(new Aspect(testInfo.data())))));
 
-    Mockito.when(
-            mockService.getOwnershipTypeInfo(
-                Mockito.eq(TEST_URN), Mockito.any(Authentication.class)))
+    Mockito.when(mockService.getOwnershipTypeInfo(any(), Mockito.eq(TEST_URN)))
         .thenReturn(testInfo);
 
-    Mockito.when(
-            mockService.getOwnershipTypeEntityResponse(
-                Mockito.eq(TEST_URN), Mockito.any(Authentication.class)))
+    Mockito.when(mockService.getOwnershipTypeEntityResponse(any(), Mockito.eq(TEST_URN)))
         .thenReturn(testEntityResponse);
 
     return mockService;

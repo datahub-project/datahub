@@ -1,10 +1,10 @@
 package com.linkedin.datahub.graphql.resolvers.form;
 
 import static com.linkedin.datahub.graphql.TestUtils.getMockAllowContext;
+import static org.mockito.ArgumentMatchers.any;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
-import com.datahub.authentication.Authentication;
 import com.datahub.authentication.group.GroupService;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
@@ -14,6 +14,7 @@ import com.linkedin.datahub.graphql.generated.GetFormsForActorResult;
 import com.linkedin.datahub.graphql.resolvers.search.SearchUtils;
 import com.linkedin.metadata.service.FormService;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.concurrent.CompletionException;
 import org.mockito.Mockito;
@@ -70,13 +71,11 @@ public class GetFormsForActorResolverTest {
     GroupService groupService = Mockito.mock(GroupService.class);
     if (shouldSucceed) {
       Mockito.when(
-              groupService.getGroupsForUser(
-                  Mockito.eq(TEST_USER), Mockito.any(Authentication.class)))
+              groupService.getGroupsForUser(any(OperationContext.class), Mockito.eq(TEST_USER)))
           .thenReturn(new ArrayList<>());
     } else {
       Mockito.when(
-              groupService.getGroupsForUser(
-                  Mockito.eq(TEST_USER), Mockito.any(Authentication.class)))
+              groupService.getGroupsForUser(any(OperationContext.class), Mockito.eq(TEST_USER)))
           .thenThrow(RuntimeException.class);
     }
 
@@ -89,23 +88,19 @@ public class GetFormsForActorResolverTest {
     // mock getting explicitly assigned forms to this user
     Mockito.when(
             formService.getFormsAssignedToActor(
-                Mockito.eq(TEST_USER),
-                Mockito.eq(new ArrayList<>()),
-                Mockito.eq(null),
-                Mockito.any(Authentication.class)))
+                any(OperationContext.class), Mockito.eq(TEST_USER), Mockito.eq(new ArrayList<>())))
         .thenReturn(ImmutableList.of(TEST_FORM_1));
 
     // mock getting implicitly assigned forms to this user
-    Mockito.when(formService.getOwnershipForms(Mockito.eq(null), Mockito.any(Authentication.class)))
+    Mockito.when(formService.getOwnershipForms(any(OperationContext.class)))
         .thenReturn(ImmutableList.of());
     Mockito.when(
             formService.getFormsAssignedByOwnership(
+                any(OperationContext.class),
                 Mockito.eq(SearchUtils.getEntityNames(null)),
                 Mockito.eq(TEST_USER),
                 Mockito.eq(ImmutableList.of()),
-                Mockito.eq(ImmutableList.of()),
-                Mockito.eq(null),
-                Mockito.any(Authentication.class)))
+                Mockito.eq(ImmutableList.of())))
         .thenReturn(ImmutableList.of(TEST_FORM_2, TEST_FORM_3));
 
     return formService;

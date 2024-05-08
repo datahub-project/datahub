@@ -1,4 +1,3 @@
-import json
 import logging
 import re
 from dataclasses import dataclass
@@ -89,8 +88,10 @@ from datahub.ingestion.source.tableau_common import (
     dashboard_graphql_query,
     database_tables_graphql_query,
     embedded_datasource_graphql_query,
+    get_filter_pages,
     get_overridden_info,
     get_unique_custom_sql,
+    make_filter,
     make_fine_grained_lineage_class,
     make_upstream_class,
     published_datasource_graphql_query,
@@ -796,6 +797,7 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
 
         logger.debug(
             f"Query {connection_type} to get {count} objects with offset {offset}"
+            f" and filter {query_filter}"
         )
         try:
             assert self.server is not None
@@ -862,45 +864,48 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
         self,
         query: str,
         connection_type: str,
-        query_filter: str,
+        query_filter: dict,
         page_size_override: Optional[int] = None,
     ) -> Iterable[dict]:
         # Calls the get_connection_object_page function to get the objects,
         # and automatically handles pagination.
-
         page_size = page_size_override or self.config.page_size
 
-        total_count = page_size
-        has_next_page = 1
-        offset = 0
-        while has_next_page:
-            count = (
-                page_size if offset + page_size < total_count else total_count - offset
-            )
-            (
-                connection_objects,
-                total_count,
-                has_next_page,
-            ) = self.get_connection_object_page(
-                query,
-                connection_type,
-                query_filter,
-                count,
-                offset,
-            )
+        filter_pages = get_filter_pages(query_filter, page_size)
 
-            offset += count
+        for filter_page in filter_pages:
+            total_count = page_size
+            has_next_page = 1
+            offset = 0
+            while has_next_page:
+                count = (
+                    page_size
+                    if offset + page_size < total_count
+                    else total_count - offset
+                )
+                (
+                    connection_objects,
+                    total_count,
+                    has_next_page,
+                ) = self.get_connection_object_page(
+                    query,
+                    connection_type,
+                    make_filter(filter_page),
+                    count,
+                    offset,
+                )
 
-            for obj in connection_objects.get(c.NODES) or []:
-                yield obj
+                offset += count
+
+                for obj in connection_objects.get(c.NODES) or []:
+                    yield obj
 
     def emit_workbooks(self) -> Iterable[MetadataWorkUnit]:
         if self.tableau_project_registry:
             project_names: List[str] = [
                 project.name for project in self.tableau_project_registry.values()
             ]
-            project_names_str: str = json.dumps(project_names)
-            projects = f"{c.PROJECT_NAME_WITH_IN}: {project_names_str}"
+            projects = {c.PROJECT_NAME_WITH_IN: project_names}
 
             for workbook in self.get_connection_objects(
                 workbook_graphql_query,
@@ -1331,9 +1336,7 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
         return op
 
     def emit_custom_sql_datasources(self) -> Iterable[MetadataWorkUnit]:
-        custom_sql_filter = (
-            f"{c.ID_WITH_IN}: {json.dumps(self.custom_sql_ids_being_used)}"
-        )
+        custom_sql_filter = {c.ID_WITH_IN: self.custom_sql_ids_being_used}
 
         custom_sql_connection = list(
             self.get_connection_objects(
@@ -2014,9 +2017,7 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
         return container_key
 
     def emit_published_datasources(self) -> Iterable[MetadataWorkUnit]:
-        datasource_filter = (
-            f"{c.ID_WITH_IN}: {json.dumps(self.datasource_ids_being_used)}"
-        )
+        datasource_filter = {c.ID_WITH_IN: self.datasource_ids_being_used}
 
         for datasource in self.get_connection_objects(
             published_datasource_graphql_query,
@@ -2032,7 +2033,9 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
             if tbl.id:
                 tableau_database_table_id_to_urn_map[tbl.id] = urn
 
-        tables_filter = f"{c.ID_WITH_IN}: {json.dumps(list(tableau_database_table_id_to_urn_map.keys()))}"
+        tables_filter = {
+            c.ID_WITH_IN: list(tableau_database_table_id_to_urn_map.keys())
+        }
 
         # Emmitting tables that came from Tableau metadata
         for tableau_table in self.get_connection_objects(
@@ -2216,7 +2219,7 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
         ).as_workunit()
 
     def emit_sheets(self) -> Iterable[MetadataWorkUnit]:
-        sheets_filter = f"{c.ID_WITH_IN}: {json.dumps(self.sheet_ids)}"
+        sheets_filter = {c.ID_WITH_IN: self.sheet_ids}
 
         for sheet in self.get_connection_objects(
             sheet_graphql_query,
@@ -2502,7 +2505,7 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
         )
 
     def emit_dashboards(self) -> Iterable[MetadataWorkUnit]:
-        dashboards_filter = f"{c.ID_WITH_IN}: {json.dumps(self.dashboard_ids)}"
+        dashboards_filter = {c.ID_WITH_IN: self.dashboard_ids}
 
         for dashboard in self.get_connection_objects(
             dashboard_graphql_query,
@@ -2638,9 +2641,7 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
         return browse_paths
 
     def emit_embedded_datasources(self) -> Iterable[MetadataWorkUnit]:
-        datasource_filter = (
-            f"{c.ID_WITH_IN}: {json.dumps(self.embedded_datasource_ids_being_used)}"
-        )
+        datasource_filter = {c.ID_WITH_IN: self.embedded_datasource_ids_being_used}
 
         for datasource in self.get_connection_objects(
             embedded_datasource_graphql_query,

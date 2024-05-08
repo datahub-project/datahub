@@ -18,6 +18,7 @@ import com.linkedin.datahub.graphql.generated.SlackNotificationSettingsInput;
 import com.linkedin.datahub.graphql.generated.SubscriptionNotificationConfigInput;
 import com.linkedin.metadata.service.SubscriptionService;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.Map;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -79,12 +80,12 @@ public class CreateSubscriptionResolverTest {
   @Test
   public void testCreateSubscriptionExceptionThrown() {
     when(_subscriptionService.createSubscription(
+            any(OperationContext.class),
             eq(USER_URN),
             eq(ENTITY_URN_1),
             eq(SUBSCRIPTION_TYPES_1),
             eq(ENTITY_CHANGE_TYPES_1),
-            eq(NOTIFICATION_CONFIG),
-            eq(_authentication)))
+            eq(NOTIFICATION_CONFIG)))
         .thenThrow(new RuntimeException());
 
     assertThrows(() -> _resolver.get(_dataFetchingEnvironment).join());
@@ -93,12 +94,12 @@ public class CreateSubscriptionResolverTest {
   @Test
   public void testCreateSubscription() throws Exception {
     when(_subscriptionService.createSubscription(
+            any(OperationContext.class),
             eq(USER_URN),
             eq(ENTITY_URN_1),
             eq(SUBSCRIPTION_TYPES_1),
             eq(ENTITY_CHANGE_TYPES_1),
-            eq(NOTIFICATION_CONFIG),
-            eq(_authentication)))
+            eq(NOTIFICATION_CONFIG)))
         .thenReturn(Map.entry(SUBSCRIPTION_URN_1, SUBSCRIPTION_INFO_1));
 
     final DataHubSubscription subscription = _resolver.get(_dataFetchingEnvironment).join();

@@ -7,13 +7,12 @@ import com.datahub.notification.provider.EntityNameProvider;
 import com.datahub.notification.provider.IdentityProvider;
 import com.datahub.notification.provider.SecretProvider;
 import com.datahub.notification.provider.SettingsProvider;
-import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.connection.ConnectionServiceFactory;
 import com.linkedin.metadata.config.notification.NotificationSinkConfiguration;
 import com.linkedin.metadata.connection.ConnectionService;
 import com.linkedin.metadata.integration.IntegrationsService;
-import com.linkedin.metadata.spring.YamlPropertySourceFactory;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -26,11 +25,9 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
-import org.springframework.context.annotation.PropertySource;
 
 @Slf4j
 @Configuration
-@PropertySource(value = "classpath:/application.yml", factory = YamlPropertySourceFactory.class)
 @Import({
   SettingsProviderFactory.class,
   IdentityProviderFactory.class,
@@ -47,8 +44,8 @@ public class NotificationSinkManagerFactory {
   private IdentityProvider identityProvider;
 
   @Autowired
-  @Qualifier("entityClient")
-  private EntityClient entityClient;
+  @Qualifier("systemEntityClient")
+  private SystemEntityClient entityClient;
 
   @Autowired
   @Qualifier("secretProvider")
@@ -71,8 +68,7 @@ public class NotificationSinkManagerFactory {
     boolean isNotificationsEnabled = this.configurationProvider.getNotifications().isEnabled();
     String baseUrl = this.configurationProvider.getBaseUrl();
 
-    EntityNameProvider entityNameProvider =
-        new EntityNameProvider(this.entityClient, systemOpContext.getAuthentication());
+    EntityNameProvider entityNameProvider = new EntityNameProvider(this.entityClient);
 
     final List<NotificationSink> configuredSinks = new ArrayList<>();
     if (isNotificationsEnabled) {

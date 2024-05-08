@@ -15,6 +15,7 @@ import com.linkedin.metadata.entity.EntityUtils;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
 import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.util.Pair;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
@@ -29,7 +30,7 @@ import lombok.extern.slf4j.Slf4j;
  */
 @Slf4j
 public abstract class AbstractMCLStep implements UpgradeStep {
-
+  private final OperationContext opContext;
   private final EntityService<?> entityService;
   private final AspectDao aspectDao;
 
@@ -38,11 +39,13 @@ public abstract class AbstractMCLStep implements UpgradeStep {
   private final int limit;
 
   public AbstractMCLStep(
+      OperationContext opContext,
       EntityService<?> entityService,
       AspectDao aspectDao,
       Integer batchSize,
       Integer batchDelayMs,
       Integer limit) {
+    this.opContext = opContext;
     this.entityService = entityService;
     this.aspectDao = aspectDao;
     this.batchSize = batchSize;
@@ -81,11 +84,13 @@ public abstract class AbstractMCLStep implements UpgradeStep {
 
                 List<Pair<Future<?>, Boolean>> futures =
                     EntityUtils.toSystemAspectFromEbeanAspects(
-                            batch.collect(Collectors.toList()), entityService)
+                            opContext.getRetrieverContext().get(),
+                            batch.collect(Collectors.toList()))
                         .stream()
                         .map(
                             systemAspect ->
                                 entityService.alwaysProduceMCLAsync(
+                                    opContext,
                                     systemAspect.getUrn(),
                                     systemAspect.getUrn().getEntityType(),
                                     getAspectName(),
@@ -121,14 +126,14 @@ public abstract class AbstractMCLStep implements UpgradeStep {
               });
 
       entityService
-          .streamRestoreIndices(args, x -> context.report().addLine((String) x))
+          .streamRestoreIndices(opContext, args, x -> context.report().addLine((String) x))
           .forEach(
               result -> {
                 context.report().addLine("Rows migrated: " + result.rowsMigrated);
                 context.report().addLine("Rows ignored: " + result.ignored);
               });
 
-      BootstrapStep.setUpgradeResult(getUpgradeIdUrn(), entityService);
+      BootstrapStep.setUpgradeResult(opContext, getUpgradeIdUrn(), entityService);
       context.report().addLine("State updated: " + getUpgradeIdUrn());
 
       return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.SUCCEEDED);
@@ -139,7 +144,8 @@ public abstract class AbstractMCLStep implements UpgradeStep {
   /** Returns whether the upgrade should be skipped. */
   public boolean skip(UpgradeContext context) {
     boolean previouslyRun =
-        entityService.exists(getUpgradeIdUrn(), DATA_HUB_UPGRADE_RESULT_ASPECT_NAME, true);
+        entityService.exists(
+            context.opContext(), getUpgradeIdUrn(), DATA_HUB_UPGRADE_RESULT_ASPECT_NAME, true);
     if (previouslyRun) {
       log.info("{} was already run. Skipping.", id());
     }

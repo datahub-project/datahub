@@ -52,7 +52,8 @@ public class GetSubscriptionResolver
             final Urn actorUrn = UrnUtils.getUrn(actorUrnString);
 
             final Map.Entry<Urn, SubscriptionInfo> subscription =
-                _subscriptionService.getSubscription(entityUrn, actorUrn, authentication);
+                _subscriptionService.getSubscription(
+                    context.getOperationContext(), entityUrn, actorUrn);
 
             DataHubSubscription dataHubSubscription =
                 subscription == null ? null : DataHubSubscriptionMapper.map(context, subscription);

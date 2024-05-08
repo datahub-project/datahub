@@ -9,7 +9,9 @@ import com.linkedin.metadata.entity.EntityUtils;
 import com.linkedin.metadata.test.action.api.NoValidationAction;
 import com.linkedin.metadata.test.util.TestUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.List;
+import javax.annotation.Nonnull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -19,10 +21,12 @@ public abstract class DeprecateAbstractAction extends NoValidationAction {
 
   protected final EntityService entityService;
 
-  protected MetadataChangeProposal getMetadataChangeProposal(Urn urn, boolean deprecate) {
+  protected MetadataChangeProposal getMetadataChangeProposal(
+      @Nonnull OperationContext opContext, Urn urn, boolean deprecate) {
     String urnStr = urn.toString();
     Deprecation deprecation =
         DeprecationUtils.getDeprecation(
+            opContext,
             entityService,
             urnStr,
             METADATA_TEST_ACTOR_URN,
@@ -32,7 +36,9 @@ public abstract class DeprecateAbstractAction extends NoValidationAction {
     return TestUtils.buildProposalForUrn(urn, Constants.DEPRECATION_ASPECT_NAME, deprecation);
   }
 
-  protected void ingestProposals(List<MetadataChangeProposal> proposals) {
-    EntityUtils.ingestChangeProposals(proposals, entityService, METADATA_TEST_ACTOR_URN, true);
+  protected void ingestProposals(
+      @Nonnull OperationContext opContext, List<MetadataChangeProposal> proposals) {
+    EntityUtils.ingestChangeProposals(
+        opContext, proposals, entityService, METADATA_TEST_ACTOR_URN, true);
   }
 }

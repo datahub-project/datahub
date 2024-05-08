@@ -2,7 +2,6 @@ package com.linkedin.datahub.graphql.resolvers.form;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
 
-import com.datahub.authentication.Authentication;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -56,12 +55,12 @@ public class SubmitFormPromptResolver implements DataFetcher<CompletableFuture<B
                   FormUtils.getStructuredPropertyValuesFromInput(input);
 
               return _formService.submitStructuredPropertyPromptResponse(
+                  context.getOperationContext(),
                   entityUrn,
                   structuredPropertyUrn,
                   values,
                   formUrn,
-                  promptId,
-                  context.getAuthentication());
+                  promptId);
             } else if (input.getType().equals(FormPromptType.FIELDS_STRUCTURED_PROPERTY)) {
               if (input.getStructuredPropertyParams() == null) {
                 throw new IllegalArgumentException(
@@ -77,13 +76,13 @@ public class SubmitFormPromptResolver implements DataFetcher<CompletableFuture<B
                   FormUtils.getStructuredPropertyValuesFromInput(input);
 
               return _formService.submitFieldStructuredPropertyPromptResponse(
+                  context.getOperationContext(),
                   entityUrn,
                   structuredPropertyUrn,
                   values,
                   formUrn,
                   promptId,
-                  fieldPath,
-                  context.getAuthentication());
+                  fieldPath);
             }
             return false;
           } catch (Exception e) {
@@ -96,12 +95,12 @@ public class SubmitFormPromptResolver implements DataFetcher<CompletableFuture<B
   private void checkUserIsAssigned(
       @Nonnull final QueryContext context, @Nonnull final Urn formUrn, @Nonnull final Urn entityUrn)
       throws Exception {
-    final Authentication authentication = context.getAuthentication();
     final Urn actorUrn = UrnUtils.getUrn(context.getActorUrn());
 
-    final List<Urn> groupsForUser = _formService.getGroupsForUser(actorUrn, authentication);
+    final List<Urn> groupsForUser =
+        _formService.getGroupsForUser(context.getOperationContext(), actorUrn);
     if (!_formService.isFormAssignedToUser(
-        formUrn, entityUrn, actorUrn, groupsForUser, authentication)) {
+        context.getOperationContext(), formUrn, entityUrn, actorUrn, groupsForUser)) {
       throw new AuthorizationException(
           String.format(
               "Failed to authorize form on entity as form with urn %s is not assigned to user",

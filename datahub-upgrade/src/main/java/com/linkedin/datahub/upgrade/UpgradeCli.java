@@ -13,6 +13,7 @@ import com.linkedin.datahub.upgrade.system.SystemUpdate;
 import com.linkedin.datahub.upgrade.system.SystemUpdateBlocking;
 import com.linkedin.datahub.upgrade.system.SystemUpdateNonBlocking;
 import com.linkedin.datahub.upgrade.test.EvaluateTests;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.List;
 import javax.inject.Inject;
 import javax.inject.Named;
@@ -68,6 +69,10 @@ public class UpgradeCli implements CommandLineRunner {
   @Named("systemUpdateNonBlocking")
   private SystemUpdateNonBlocking systemUpdateNonBlocking;
 
+  @Autowired
+  @Named("systemOperationContext")
+  private OperationContext systemOperationContext;
+
   // Saas-only
 
   @Inject
@@ -113,7 +118,8 @@ public class UpgradeCli implements CommandLineRunner {
 
     final Args args = new Args();
     new CommandLine(args).setCaseInsensitiveEnumValuesAllowed(true).parseArgs(cmdLineArgs);
-    UpgradeResult result = _upgradeManager.execute(args.upgradeId.trim(), args.args);
+    UpgradeResult result =
+        _upgradeManager.execute(systemOperationContext, args.upgradeId.trim(), args.args);
 
     if (UpgradeResult.Result.FAILED.equals(result.result())) {
       System.exit(1);

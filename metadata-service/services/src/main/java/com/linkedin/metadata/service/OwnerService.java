@@ -3,7 +3,7 @@ package com.linkedin.metadata.service;
 import static com.linkedin.metadata.entity.AspectUtils.*;
 import static com.linkedin.metadata.service.util.MetadataTestServiceUtils.*;
 
-import com.datahub.authentication.Authentication;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.Owner;
@@ -12,10 +12,11 @@ import com.linkedin.common.Ownership;
 import com.linkedin.common.OwnershipType;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
-import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.resource.ResourceReference;
 import com.linkedin.mxe.MetadataChangeProposal;
+import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.openapi.client.OpenApiClient;
 import java.util.ArrayList;
 import java.util.List;
@@ -31,10 +32,10 @@ public class OwnerService extends BaseService {
   public static final String SYSTEM_ID = "__system__";
 
   public OwnerService(
-      @Nonnull EntityClient entityClient,
-      @Nonnull Authentication systemAuthentication,
-      @Nonnull final OpenApiClient openApiClient) {
-    super(entityClient, systemAuthentication, openApiClient);
+      @Nonnull SystemEntityClient entityClient,
+      @Nonnull final OpenApiClient openApiClient,
+      @Nonnull ObjectMapper objectMapper) {
+    super(entityClient, openApiClient, objectMapper);
   }
 
   /**
@@ -47,32 +48,14 @@ public class OwnerService extends BaseService {
    *     processing logic when matching particular sources
    */
   public void batchAddOwners(
+      @Nonnull OperationContext opContext,
       @Nonnull List<Urn> ownerUrns,
       @Nonnull List<ResourceReference> resources,
       @Nonnull OwnershipType ownershipType,
-      @Nullable String appSource) {
-    batchAddOwners(ownerUrns, resources, ownershipType, this.systemAuthentication, appSource);
-  }
-
-  /**
-   * Batch adds a specific set of owners to a set of resources.
-   *
-   * @param ownerUrns the urns of the owners to add
-   * @param resources references to the resources to change
-   * @param ownershipType the ownership type to add
-   * @param authentication authentication to use when making the change
-   * @param appSource optional indication of the origin for this request, used for additional
-   *     processing logic when matching particular sources
-   */
-  public void batchAddOwners(
-      @Nonnull List<Urn> ownerUrns,
-      @Nonnull List<ResourceReference> resources,
-      @Nonnull OwnershipType ownershipType,
-      @Nonnull Authentication authentication,
       @Nullable String appSource) {
     log.debug("Batch adding Owners to entities. owners: {}, resources: {}", resources, ownerUrns);
     try {
-      addOwnersToResources(ownerUrns, resources, ownershipType, authentication, appSource);
+      addOwnersToResources(opContext, ownerUrns, resources, ownershipType, appSource);
     } catch (Exception e) {
       throw new RuntimeException(
           String.format(
@@ -92,29 +75,13 @@ public class OwnerService extends BaseService {
    *     processing logic when matching particular sources
    */
   public void batchRemoveOwners(
+      @Nonnull OperationContext opContext,
       @Nonnull List<Urn> ownerUrns,
       @Nonnull List<ResourceReference> resources,
-      @Nullable String appSource) {
-    batchRemoveOwners(ownerUrns, resources, this.systemAuthentication, appSource);
-  }
-
-  /**
-   * Batch removes a specific set of owners from a set of entities.
-   *
-   * @param ownerUrns the urns of the owners to remove
-   * @param resources references to the resources to change
-   * @param authentication authentication to use when making the change
-   * @param appSource optional indication of the origin for this request, used for additional
-   *     processing logic when matching particular sources
-   */
-  public void batchRemoveOwners(
-      @Nonnull List<Urn> ownerUrns,
-      @Nonnull List<ResourceReference> resources,
-      @Nonnull Authentication authentication,
       @Nullable String appSource) {
     log.debug("Batch adding Owners to entities. owners: {}, resources: {}", resources, ownerUrns);
     try {
-      removeOwnersFromResources(ownerUrns, resources, authentication, appSource);
+      removeOwnersFromResources(opContext, ownerUrns, resources, appSource);
     } catch (Exception e) {
       throw new RuntimeException(
           String.format(
@@ -126,46 +93,46 @@ public class OwnerService extends BaseService {
   }
 
   private void addOwnersToResources(
+      @Nonnull OperationContext opContext,
       List<com.linkedin.common.urn.Urn> ownerUrns,
       List<ResourceReference> resources,
       OwnershipType ownershipType,
-      Authentication authentication,
       @Nullable String appSource)
       throws Exception {
     final List<MetadataChangeProposal> changes =
-        buildAddOwnersProposals(ownerUrns, resources, ownershipType, authentication);
+        buildAddOwnersProposals(opContext, ownerUrns, resources, ownershipType);
     if (appSource != null) {
       applyAppSource(changes, appSource);
     }
-    ingestChangeProposals(changes, authentication);
+    ingestChangeProposals(opContext, changes);
   }
 
   private void removeOwnersFromResources(
+      @Nonnull OperationContext opContext,
       List<Urn> owners,
       List<ResourceReference> resources,
-      Authentication authentication,
       @Nullable String appSource)
       throws Exception {
     final List<MetadataChangeProposal> changes =
-        buildRemoveOwnersProposals(owners, resources, authentication);
+        buildRemoveOwnersProposals(opContext, owners, resources);
     if (appSource != null) {
       applyAppSource(changes, appSource);
     }
-    ingestChangeProposals(changes, authentication);
+    ingestChangeProposals(opContext, changes);
   }
 
   @VisibleForTesting
   List<MetadataChangeProposal> buildAddOwnersProposals(
+      @Nonnull OperationContext opContext,
       List<com.linkedin.common.urn.Urn> ownerUrns,
       List<ResourceReference> resources,
-      OwnershipType ownershipType,
-      Authentication authentication) {
+      OwnershipType ownershipType) {
 
     final Map<Urn, Ownership> ownershipAspects =
         getOwnershipAspects(
+            opContext,
             resources.stream().map(ResourceReference::getUrn).collect(Collectors.toSet()),
-            new Ownership(),
-            authentication);
+            new Ownership());
 
     final List<MetadataChangeProposal> proposals = new ArrayList<>();
     for (ResourceReference resource : resources) {
@@ -180,7 +147,8 @@ public class OwnerService extends BaseService {
         owners.setLastModified(
             new AuditStamp()
                 .setTime(System.currentTimeMillis())
-                .setActor(UrnUtils.getUrn(authentication.getActor().toUrnStr())));
+                .setActor(
+                    UrnUtils.getUrn(opContext.getSessionAuthentication().getActor().toUrnStr())));
       }
       addOwnersIfNotExists(owners, ownerUrns, ownershipType);
       proposals.add(
@@ -191,12 +159,12 @@ public class OwnerService extends BaseService {
 
   @VisibleForTesting
   List<MetadataChangeProposal> buildRemoveOwnersProposals(
-      List<Urn> ownerUrns, List<ResourceReference> resources, Authentication authentication) {
+      @Nonnull OperationContext opContext, List<Urn> ownerUrns, List<ResourceReference> resources) {
     final Map<Urn, Ownership> ownershipAspects =
         getOwnershipAspects(
+            opContext,
             resources.stream().map(ResourceReference::getUrn).collect(Collectors.toSet()),
-            new Ownership(),
-            authentication);
+            new Ownership());
 
     final List<MetadataChangeProposal> proposals = new ArrayList<>();
     for (ResourceReference resource : resources) {

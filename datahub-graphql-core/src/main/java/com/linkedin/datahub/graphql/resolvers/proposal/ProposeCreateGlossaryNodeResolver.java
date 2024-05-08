@@ -45,7 +45,7 @@ public class ProposeCreateGlossaryNodeResolver implements DataFetcher<Completabl
             log.info("Proposing Creation of Glossary Node. input: {}", input);
 
             return _proposalService.proposeCreateGlossaryNode(
-                actor, name, parentNode, description, context.getAuthorizer());
+                context.getOperationContext(), actor, name, parentNode, description);
           } catch (Exception e) {
             log.error("Failed to perform update against input {}, {}", input, e.getMessage());
             throw new RuntimeException(

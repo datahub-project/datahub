@@ -293,6 +293,14 @@ entities:
   aspects:
     - ownershipTypeInfo
     - status
+- name: businessAttribute
+  category: core
+  keyAspect: businessAttributeKey
+  aspects:
+    - businessAttributeInfo
+    - status
+    - ownership
+    - institutionalMemory
 - name: dataContract
   category: core
   keyAspect: dataContractKey
@@ -300,4 +308,9 @@ entities:
     - dataContractProperties
     - dataContractStatus
     - status
+- name: schemaField
+  category: core
+  keyAspect: schemaFieldKey
+  aspects:
+    - businessAttributes
 events:

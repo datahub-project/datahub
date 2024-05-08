@@ -99,6 +99,7 @@ import com.linkedin.datahub.graphql.types.monitor.MonitorType;
 import com.linkedin.datahub.graphql.types.tag.TagType;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.entity.client.SystemEntityClient;
+import com.linkedin.metadata.client.UsageStatsJavaClient;
 import com.linkedin.metadata.config.ActionPipelineConfiguration;
 import com.linkedin.metadata.config.ExecutorConfiguration;
 import com.linkedin.metadata.connection.ConnectionService;
@@ -115,7 +116,6 @@ import com.linkedin.metadata.service.ShareService;
 import com.linkedin.metadata.service.SubscriptionService;
 import com.linkedin.metadata.test.TestEngine;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
-import com.linkedin.usage.UsageClient;
 import graphql.schema.idl.RuntimeWiring;
 import io.datahubproject.metadata.services.SecretService;
 import java.util.ArrayList;
@@ -140,7 +140,7 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
 
   private List<EntityType<?, ?>> entityTypes;
 
-  private EntityService entityService;
+  private EntityService<?> entityService;
   private ConnectionService connectionService;
   private SecretService secretService;
   private IntegrationsService integrationsService;
@@ -160,7 +160,7 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
   private ActionPipelineConfiguration actionConfiguration;
 
   // Clients
-  private UsageClient usageClient;
+  private UsageStatsJavaClient usageClient;
   private EntityClient entityClient;
   private SystemEntityClient systemEntityClient;
   private GraphClient graphClient;

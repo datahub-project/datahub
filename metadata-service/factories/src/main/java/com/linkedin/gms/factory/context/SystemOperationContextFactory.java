@@ -1,9 +1,13 @@
 package com.linkedin.gms.factory.context;
 
 import com.datahub.authentication.Authentication;
+import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.search.BaseElasticSearchComponentsFactory;
-import com.linkedin.metadata.graph.GraphService;
+import com.linkedin.metadata.aspect.GraphRetriever;
+import com.linkedin.metadata.client.EntityClientAspectRetriever;
+import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.EntityServiceAspectRetriever;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.OperationContextConfig;
@@ -13,6 +17,7 @@ import io.datahubproject.metadata.services.RestrictedService;
 import javax.annotation.Nonnull;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -23,22 +28,80 @@ public class SystemOperationContextFactory {
   @Qualifier("baseElasticSearchComponents")
   private BaseElasticSearchComponentsFactory.BaseElasticSearchComponents components;
 
-  @Bean(name = "systemOperationContext")
+  /**
+   * Used inside GMS
+   *
+   * <p>Entity Client and Aspect Retriever implemented by EntityService
+   */
   @Nonnull
-  protected OperationContext systemOperationContext(
+  @Bean(name = "systemOperationContext")
+  @ConditionalOnProperty(name = "entityClient.impl", havingValue = "java", matchIfMissing = true)
+  protected OperationContext javaSystemOperationContext(
+      @Nonnull @Qualifier("systemAuthentication") final Authentication systemAuthentication,
+      @Nonnull final OperationContextConfig operationContextConfig,
       @Nonnull final EntityRegistry entityRegistry,
+      @Nonnull final EntityService<?> entityService,
+      @Nonnull final RestrictedService restrictedService,
+      @Nonnull final GraphRetriever graphRetriever) {
+
+    EntityServiceAspectRetriever entityServiceAspectRetriever =
+        EntityServiceAspectRetriever.builder()
+            .entityRegistry(entityRegistry)
+            .entityService(entityService)
+            .build();
+
+    OperationContext systemOperationContext =
+        OperationContext.asSystem(
+            operationContextConfig,
+            systemAuthentication,
+            entityServiceAspectRetriever.getEntityRegistry(),
+            ServicesRegistryContext.builder().restrictedService(restrictedService).build(),
+            components.getIndexConvention(),
+            RetrieverContext.builder()
+                .aspectRetriever(entityServiceAspectRetriever)
+                .graphRetriever(graphRetriever)
+                .build());
+
+    entityServiceAspectRetriever.setSystemOperationContext(systemOperationContext);
+
+    return systemOperationContext;
+  }
+
+  /**
+   * Used outside of GMS
+   *
+   * <p>Entity Client and Aspect Retriever implemented by Restli call to GMS Entity Client and
+   * Aspect Retriever client-side caching enabled
+   */
+  @Nonnull
+  @Bean(name = "systemOperationContext")
+  @ConditionalOnProperty(name = "entityClient.impl", havingValue = "restli")
+  protected OperationContext restliSystemOperationContext(
+      @Nonnull final EntityRegistry entityRegistry,
+      @Nonnull @Qualifier("systemEntityClient") SystemEntityClient systemEntityClient,
       @Nonnull @Qualifier("systemAuthentication") final Authentication systemAuthentication,
       @Nonnull final OperationContextConfig operationContextConfig,
       @Nonnull final RestrictedService restrictedService,
-      @Nonnull final GraphService graphService) {
+      @Nonnull final GraphRetriever graphRetriever) {
 
-    return OperationContext.asSystem(
-        operationContextConfig,
-        systemAuthentication,
-        entityRegistry,
-        ServicesRegistryContext.builder().restrictedService(restrictedService).build(),
-        components.getIndexConvention(),
-        RetrieverContext.builder().graphRetriever(graphService).build());
+    EntityClientAspectRetriever entityServiceAspectRetriever =
+        EntityClientAspectRetriever.builder().entityClient(systemEntityClient).build();
+
+    OperationContext systemOperationContext =
+        OperationContext.asSystem(
+            operationContextConfig,
+            systemAuthentication,
+            entityRegistry,
+            ServicesRegistryContext.builder().restrictedService(restrictedService).build(),
+            components.getIndexConvention(),
+            RetrieverContext.builder()
+                .aspectRetriever(entityServiceAspectRetriever)
+                .graphRetriever(graphRetriever)
+                .build());
+
+    entityServiceAspectRetriever.setSystemOperationContext(systemOperationContext);
+
+    return systemOperationContext;
   }
 
   @Bean

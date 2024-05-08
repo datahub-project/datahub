@@ -1,11 +1,9 @@
 package com.datahub.notification.recipient;
 
-import com.datahub.authentication.Authentication;
 import com.datahub.notification.NotificationScenarioType;
 import com.datahub.notification.provider.SettingsProvider;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.entity.client.EntityClient;
 import com.linkedin.event.notification.NotificationRecipient;
 import com.linkedin.event.notification.NotificationRecipientType;
 import com.linkedin.event.notification.NotificationSinkType;
@@ -14,6 +12,7 @@ import com.linkedin.event.notification.settings.SlackNotificationSettings;
 import com.linkedin.settings.NotificationSetting;
 import com.linkedin.settings.global.GlobalSettingsInfo;
 import com.linkedin.subscription.SubscriptionInfo;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -29,17 +28,14 @@ public class SlackNotificationRecipientBuilder extends NotificationRecipientBuil
   private static final Predicate<? super NotificationSettings> PREDICATE =
       NotificationSettings::hasSlackSettings;
 
-  public SlackNotificationRecipientBuilder(
-      @Nonnull final SettingsProvider settingsProvider,
-      @Nonnull EntityClient entityClient,
-      @Nonnull Authentication authentication) {
-    super(settingsProvider, entityClient, authentication, PREDICATE);
+  public SlackNotificationRecipientBuilder(@Nonnull final SettingsProvider settingsProvider) {
+    super(settingsProvider, PREDICATE);
   }
 
   @Override
   public List<NotificationRecipient> buildGlobalRecipients(
-      @Nonnull final NotificationScenarioType type) {
-    final GlobalSettingsInfo globalSettingsInfo = _settingsProvider.getGlobalSettings();
+      @Nonnull OperationContext opContext, @Nonnull final NotificationScenarioType type) {
+    final GlobalSettingsInfo globalSettingsInfo = _settingsProvider.getGlobalSettings(opContext);
     final NotificationSetting setting =
         globalSettingsInfo.getNotifications().getSettings().get(type.toString());
 

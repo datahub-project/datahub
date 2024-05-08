@@ -5,7 +5,6 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertThrows;
 
-import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.DataPlatformInstance;
 import com.linkedin.common.urn.Urn;
@@ -25,6 +24,7 @@ import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.connection.ConnectionService;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.services.SecretService;
 import java.util.concurrent.CompletionException;
 import org.mockito.Mockito;
@@ -74,15 +74,15 @@ public class UpsertConnectionResolverTest {
         new DataPlatformInstance().setPlatform(platformUrn);
 
     when(connectionService.upsertConnection(
+            any(OperationContext.class),
             Mockito.eq(input.getId()),
             Mockito.eq(platformUrn),
             Mockito.eq(details.getType()),
             Mockito.eq(details.getJson()),
-            Mockito.any(String.class),
-            Mockito.any(Authentication.class)))
+            Mockito.any(String.class)))
         .thenReturn(connectionUrn);
     when(connectionService.getConnectionEntityResponse(
-            Mockito.eq(connectionUrn), any(Authentication.class)))
+            any(OperationContext.class), Mockito.eq(connectionUrn)))
         .thenReturn(
             new EntityResponse()
                 .setUrn(connectionUrn)

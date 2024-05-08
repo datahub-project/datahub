@@ -56,10 +56,10 @@ public class TestResultsResolver implements DataFetcher<CompletableFuture<TestRe
     try {
       final EntityResponse entityResponse =
           _entityClient.getV2(
+              context.getOperationContext(),
               entityUrn.getEntityType(),
               entityUrn,
-              ImmutableSet.of(Constants.TEST_RESULTS_ASPECT_NAME),
-              context.getAuthentication());
+              ImmutableSet.of(Constants.TEST_RESULTS_ASPECT_NAME));
       if (entityResponse.hasAspects()
           && entityResponse.getAspects().containsKey(Constants.TEST_RESULTS_ASPECT_NAME)) {
         return new com.linkedin.test.TestResults(

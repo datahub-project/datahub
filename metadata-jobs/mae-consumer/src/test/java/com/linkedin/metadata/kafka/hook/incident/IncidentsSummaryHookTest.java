@@ -2,7 +2,9 @@ package com.linkedin.metadata.kafka.hook.incident;
 
 import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.metadata.kafka.hook.EntityRegistryTestUtil.*;
-import static com.linkedin.metadata.kafka.hook.EntityRegistryTestUtil.ENTITY_REGISTRY;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
 
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.AuditStamp;
@@ -24,9 +26,12 @@ import com.linkedin.incident.IncidentType;
 import com.linkedin.metadata.service.IncidentService;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeLog;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.List;
 import java.util.stream.Collectors;
 import org.mockito.Mockito;
+import org.testng.annotations.BeforeTest;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
@@ -38,6 +43,12 @@ public class IncidentsSummaryHookTest {
   private static final Urn TEST_DATASET_2_URN =
       UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,name2,PROD)");
   private static final String TEST_INCIDENT_TYPE = "TestType";
+  private OperationContext opContext;
+
+  @BeforeTest
+  public void setup() {
+    opContext = TestOperationContexts.systemContextNoSearchAuthorization();
+  }
 
   @Test
   public void testInvokeNotEnabled() throws Exception {
@@ -45,12 +56,12 @@ public class IncidentsSummaryHookTest {
         mockIncidentInfo(
             ImmutableList.of(TEST_DATASET_URN, TEST_DATASET_2_URN), IncidentState.ACTIVE);
     IncidentService service = mockIncidentService(new IncidentsSummary(), incidentInfo);
-    IncidentsSummaryHook hook = new IncidentsSummaryHook(ENTITY_REGISTRY, service, false, 100);
+    IncidentsSummaryHook hook = new IncidentsSummaryHook(service, false, 100).init(opContext);
     final MetadataChangeLog event =
         buildMetadataChangeLog(
             TEST_INCIDENT_URN, INCIDENT_INFO_ASPECT_NAME, ChangeType.UPSERT, incidentInfo);
     hook.invoke(event);
-    Mockito.verify(service, Mockito.times(0)).getIncidentInfo(Mockito.any());
+    Mockito.verify(service, Mockito.times(0)).getIncidentInfo(any(OperationContext.class), any());
   }
 
   @Test
@@ -59,21 +70,21 @@ public class IncidentsSummaryHookTest {
         mockIncidentInfo(
             ImmutableList.of(TEST_DATASET_URN, TEST_DATASET_2_URN), IncidentState.ACTIVE);
     IncidentService service = mockIncidentService(new IncidentsSummary(), info);
-    IncidentsSummaryHook hook = new IncidentsSummaryHook(ENTITY_REGISTRY, service, true, 100);
+    IncidentsSummaryHook hook = new IncidentsSummaryHook(service, true, 100).init(opContext);
 
     // Case 1: Incorrect aspect
     MetadataChangeLog event =
         buildMetadataChangeLog(
             TEST_INCIDENT_URN, INCIDENT_KEY_ASPECT_NAME, ChangeType.UPSERT, new IncidentInfo());
     hook.invoke(event);
-    Mockito.verify(service, Mockito.times(0)).getIncidentInfo(Mockito.any());
+    Mockito.verify(service, Mockito.times(0)).getIncidentInfo(any(OperationContext.class), any());
 
     // Case 2: Run Event But Delete
     event =
         buildMetadataChangeLog(
             TEST_INCIDENT_URN, INCIDENT_INFO_ASPECT_NAME, ChangeType.DELETE, info);
     hook.invoke(event);
-    Mockito.verify(service, Mockito.times(0)).getIncidentInfo(Mockito.any());
+    Mockito.verify(service, Mockito.times(0)).getIncidentInfo(any(OperationContext.class), any());
   }
 
   @DataProvider(name = "incidentsSummaryBaseProvider")
@@ -133,14 +144,17 @@ public class IncidentsSummaryHookTest {
         mockIncidentInfo(
             ImmutableList.of(TEST_DATASET_URN, TEST_DATASET_2_URN), IncidentState.ACTIVE);
     IncidentService service = mockIncidentService(summary, info);
-    IncidentsSummaryHook hook = new IncidentsSummaryHook(ENTITY_REGISTRY, service, true, 100);
+    IncidentsSummaryHook hook = new IncidentsSummaryHook(service, true, 100).init(opContext);
     final MetadataChangeLog event =
         buildMetadataChangeLog(
             TEST_INCIDENT_URN, INCIDENT_INFO_ASPECT_NAME, ChangeType.UPSERT, info);
     hook.invoke(event);
-    Mockito.verify(service, Mockito.times(1)).getIncidentInfo(Mockito.eq(TEST_INCIDENT_URN));
-    Mockito.verify(service, Mockito.times(1)).getIncidentsSummary(Mockito.eq(TEST_DATASET_URN));
-    Mockito.verify(service, Mockito.times(1)).getIncidentsSummary(Mockito.eq(TEST_DATASET_2_URN));
+    Mockito.verify(service, Mockito.times(1))
+        .getIncidentInfo(any(OperationContext.class), eq(TEST_INCIDENT_URN));
+    Mockito.verify(service, Mockito.times(1))
+        .getIncidentsSummary(any(OperationContext.class), eq(TEST_DATASET_URN));
+    Mockito.verify(service, Mockito.times(1))
+        .getIncidentsSummary(any(OperationContext.class), eq(TEST_DATASET_2_URN));
 
     if (summary == null) {
       summary = new IncidentsSummary();
@@ -162,9 +176,11 @@ public class IncidentsSummaryHookTest {
 
     // Ensure we ingested a new aspect.
     Mockito.verify(service, Mockito.times(1))
-        .updateIncidentsSummary(Mockito.eq(TEST_DATASET_URN), Mockito.eq(expectedSummary));
+        .updateIncidentsSummary(
+            any(OperationContext.class), eq(TEST_DATASET_URN), eq(expectedSummary));
     Mockito.verify(service, Mockito.times(1))
-        .updateIncidentsSummary(Mockito.eq(TEST_DATASET_2_URN), Mockito.eq(expectedSummary));
+        .updateIncidentsSummary(
+            any(OperationContext.class), eq(TEST_DATASET_2_URN), eq(expectedSummary));
   }
 
   @Test(dataProvider = "incidentsSummaryBaseProvider")
@@ -173,14 +189,17 @@ public class IncidentsSummaryHookTest {
         mockIncidentInfo(
             ImmutableList.of(TEST_DATASET_URN, TEST_DATASET_2_URN), IncidentState.RESOLVED);
     IncidentService service = mockIncidentService(summary, info);
-    IncidentsSummaryHook hook = new IncidentsSummaryHook(ENTITY_REGISTRY, service, true, 100);
+    IncidentsSummaryHook hook = new IncidentsSummaryHook(service, true, 100).init(opContext);
     final MetadataChangeLog event =
         buildMetadataChangeLog(
             TEST_INCIDENT_URN, INCIDENT_INFO_ASPECT_NAME, ChangeType.UPSERT, info);
     hook.invoke(event);
-    Mockito.verify(service, Mockito.times(1)).getIncidentInfo(Mockito.eq(TEST_INCIDENT_URN));
-    Mockito.verify(service, Mockito.times(1)).getIncidentsSummary(Mockito.eq(TEST_DATASET_URN));
-    Mockito.verify(service, Mockito.times(1)).getIncidentsSummary(Mockito.eq(TEST_DATASET_2_URN));
+    Mockito.verify(service, Mockito.times(1))
+        .getIncidentInfo(any(OperationContext.class), eq(TEST_INCIDENT_URN));
+    Mockito.verify(service, Mockito.times(1))
+        .getIncidentsSummary(any(OperationContext.class), eq(TEST_DATASET_URN));
+    Mockito.verify(service, Mockito.times(1))
+        .getIncidentsSummary(any(OperationContext.class), eq(TEST_DATASET_2_URN));
 
     if (summary == null) {
       summary = new IncidentsSummary();
@@ -202,9 +221,11 @@ public class IncidentsSummaryHookTest {
 
     // Ensure we ingested a new aspect.
     Mockito.verify(service, Mockito.times(1))
-        .updateIncidentsSummary(Mockito.eq(TEST_DATASET_URN), Mockito.eq(expectedSummary));
+        .updateIncidentsSummary(
+            any(OperationContext.class), eq(TEST_DATASET_URN), eq(expectedSummary));
     Mockito.verify(service, Mockito.times(1))
-        .updateIncidentsSummary(Mockito.eq(TEST_DATASET_2_URN), Mockito.eq(expectedSummary));
+        .updateIncidentsSummary(
+            any(OperationContext.class), eq(TEST_DATASET_2_URN), eq(expectedSummary));
   }
 
   @Test(dataProvider = "incidentsSummaryBaseProvider")
@@ -213,15 +234,18 @@ public class IncidentsSummaryHookTest {
         mockIncidentInfo(
             ImmutableList.of(TEST_DATASET_URN, TEST_DATASET_2_URN), IncidentState.RESOLVED);
     IncidentService service = mockIncidentService(summary, info);
-    IncidentsSummaryHook hook = new IncidentsSummaryHook(ENTITY_REGISTRY, service, true, 100);
+    IncidentsSummaryHook hook = new IncidentsSummaryHook(service, true, 100).init(opContext);
     final MetadataChangeLog event =
         buildMetadataChangeLog(
             TEST_INCIDENT_URN, STATUS_ASPECT_NAME, ChangeType.UPSERT, mockIncidentSoftDeleted());
     hook.invoke(event);
 
-    Mockito.verify(service, Mockito.times(1)).getIncidentInfo(Mockito.eq(TEST_INCIDENT_URN));
-    Mockito.verify(service, Mockito.times(1)).getIncidentsSummary(Mockito.eq(TEST_DATASET_URN));
-    Mockito.verify(service, Mockito.times(1)).getIncidentsSummary(Mockito.eq(TEST_DATASET_2_URN));
+    Mockito.verify(service, Mockito.times(1))
+        .getIncidentInfo(any(OperationContext.class), eq(TEST_INCIDENT_URN));
+    Mockito.verify(service, Mockito.times(1))
+        .getIncidentsSummary(any(OperationContext.class), eq(TEST_DATASET_URN));
+    Mockito.verify(service, Mockito.times(1))
+        .getIncidentsSummary(any(OperationContext.class), eq(TEST_DATASET_2_URN));
 
     if (summary == null) {
       summary = new IncidentsSummary();
@@ -240,9 +264,11 @@ public class IncidentsSummaryHookTest {
 
     // Ensure we ingested a new aspect.
     Mockito.verify(service, Mockito.times(1))
-        .updateIncidentsSummary(Mockito.eq(TEST_DATASET_URN), Mockito.eq(expectedSummary));
+        .updateIncidentsSummary(
+            any(OperationContext.class), eq(TEST_DATASET_URN), eq(expectedSummary));
     Mockito.verify(service, Mockito.times(1))
-        .updateIncidentsSummary(Mockito.eq(TEST_DATASET_2_URN), Mockito.eq(expectedSummary));
+        .updateIncidentsSummary(
+            any(OperationContext.class), eq(TEST_DATASET_2_URN), eq(expectedSummary));
   }
 
   private IncidentInfo mockIncidentInfo(final List<Urn> entityUrns, final IncidentState state) {
@@ -267,12 +293,16 @@ public class IncidentsSummaryHookTest {
   }
 
   private IncidentService mockIncidentService(IncidentsSummary summary, IncidentInfo info) {
-    IncidentService mockService = Mockito.mock(IncidentService.class);
+    IncidentService mockService = mock(IncidentService.class);
 
-    Mockito.when(mockService.getIncidentInfo(TEST_INCIDENT_URN)).thenReturn(info);
+    Mockito.when(mockService.getIncidentInfo(any(OperationContext.class), eq(TEST_INCIDENT_URN)))
+        .thenReturn(info);
 
-    Mockito.when(mockService.getIncidentsSummary(TEST_DATASET_URN)).thenReturn(summary);
-    Mockito.when(mockService.getIncidentsSummary(TEST_DATASET_2_URN)).thenReturn(summary);
+    Mockito.when(mockService.getIncidentsSummary(any(OperationContext.class), eq(TEST_DATASET_URN)))
+        .thenReturn(summary);
+    Mockito.when(
+            mockService.getIncidentsSummary(any(OperationContext.class), eq(TEST_DATASET_2_URN)))
+        .thenReturn(summary);
 
     return mockService;
   }

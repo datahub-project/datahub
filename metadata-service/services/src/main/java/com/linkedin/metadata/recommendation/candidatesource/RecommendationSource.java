@@ -49,9 +49,10 @@ public interface RecommendationSource {
       @Nonnull RecommendationRequestContext requestContext,
       @Nullable Filter filter);
 
-  default Optional<RecommendationModule> getRecommendationModule(
+  // retaining this for backward compatibility
+  default List<RecommendationContent> getRecommendations(
       @Nonnull OperationContext opContext, @Nonnull RecommendationRequestContext requestContext) {
-    return getRecommendationModule(opContext, requestContext, null);
+    return getRecommendations(opContext, requestContext, null);
   }
 
   /**
@@ -82,5 +83,11 @@ public interface RecommendationSource {
             .setModuleId(getModuleId())
             .setRenderType(getRenderType())
             .setContent(new RecommendationContentArray(recommendations)));
+  }
+
+  // retaining this for backward compatibility
+  default Optional<RecommendationModule> getRecommendationModule(
+      @Nonnull OperationContext opContext, @Nonnull RecommendationRequestContext requestContext) {
+    return getRecommendationModule(opContext, requestContext);
   }
 }

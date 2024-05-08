@@ -69,6 +69,12 @@ Cypress.Commands.add("goToGlossaryList", () => {
   cy.waitTextVisible("Glossary");
 });
 
+Cypress.Commands.add("goToBusinessAttributeList", () => {
+  cy.visit("/business-attribute");
+  cy.waitTextVisible("Business Attribute");
+  cy.wait(3000);
+});
+
 Cypress.Commands.add("goToTestsList", () => {
   cy.clickOptionWithText("Govern")
   cy.get('[role="menuitem"]').contains("Tests").click();
@@ -121,7 +127,24 @@ Cypress.Commands.add("goToDataset", (urn, dataset_name) => {
   cy.visit(
     "/dataset/" + urn
   );
+  cy.wait(5000);
   cy.waitTextVisible(dataset_name);
+});
+
+Cypress.Commands.add("goToBusinessAttribute", (urn, attribute_name) => {
+  cy.visit(
+      "/business-attribute/" + urn
+  );
+  cy.wait(5000);
+  cy.waitTextVisible(attribute_name);
+});
+
+Cypress.Commands.add("goToTag", (urn, tag_name) => {
+  cy.visit(
+      "/tag/" + urn
+  );
+  cy.wait(5000);
+  cy.waitTextVisible(tag_name);
 });
 
 Cypress.Commands.add("goToEntityLineageGraph", (entity_type, urn) => {
@@ -212,6 +235,14 @@ Cypress.Commands.add("addViaModal", (text, modelHeader, value, dataTestId) => {
   cy.waitTextVisible(modelHeader);
   cy.get(".ant-input-affix-wrapper > input[type='text']").first().type(text);
   cy.get('[data-testid="' + dataTestId + '"]').click();
+  cy.contains(value).should('be.visible');
+});
+
+Cypress.Commands.add("addBusinessAttributeViaModal", (text, modelHeader, value, dataTestId) => {
+  cy.waitTextVisible(modelHeader);
+  cy.get(".ant-input-affix-wrapper > input[type='text']").first().type(text);
+  cy.get('[data-testid="' + dataTestId + '"]').click();
+  cy.wait(3000);
   cy.contains(value).should('be.visible');
 });
 
@@ -307,10 +338,36 @@ Cypress.Commands.add('addTermToDataset', (urn, dataset_name, term) => {
   cy.contains(term);
 });
 
+Cypress.Commands.add('addTermToBusinessAttribute', (urn, attribute_name, term) => {
+  cy.goToBusinessAttribute(urn, attribute_name);
+  cy.clickOptionWithText("Add Terms");
+  cy.selectOptionInTagTermModal(term);
+  cy.contains(term);
+});
+
+Cypress.Commands.add('addAttributeToDataset', (urn, dataset_name, businessAttribute) => {
+  cy.goToDataset(urn, dataset_name);
+  cy.clickOptionWithText("event_name");
+  cy.contains("Business Attribute");
+  cy.get('[data-testid="schema-field-event_name-businessAttribute"]').within(() =>
+      cy.contains("Add Attribute").click()
+  );
+  cy.selectOptionInAttributeModal(businessAttribute);
+  cy.contains(businessAttribute);
+});
+
 Cypress.Commands.add('selectOptionInTagTermModal', (text) => {
   cy.enterTextInTestId("tag-term-modal-input", text);
   cy.clickOptionWithTestId("tag-term-option");
   let btn_id = "add-tag-term-from-modal-btn";
+  cy.clickOptionWithTestId(btn_id);
+  cy.get(selectorWithtestId(btn_id)).should("not.exist");
+});
+
+Cypress.Commands.add('selectOptionInAttributeModal', (text) => {
+  cy.enterTextInTestId("business-attribute-modal-input", text);
+  cy.clickOptionWithTestId("business-attribute-option");
+  let btn_id = "add-attribute-from-modal-btn";
   cy.clickOptionWithTestId(btn_id);
   cy.get(selectorWithtestId(btn_id)).should("not.exist");
 });
@@ -449,11 +506,11 @@ Cypress.Commands.add('handleIntroducePage', () => {
      cy.get(".ant-select ").first().click()
      cy.get(".ant-select-item-option-content").contains("Data Analyst").should('be.visible').click()
      cy.get(".ant-select-selection-overflow").click()
-     cy.get('[src*="bigquerylogo.png"]').should('be.visible').click() 
+     cy.get('[src*="bigquerylogo.png"]').should('be.visible').click()
      cy.get('body').click();
      cy.get(".ant-btn-primary").click()
     }else{
-     cy.get('[class^="NavLinksMenu__LinksWrapper').should('be.visible')   
+     cy.get('[class^="NavLinksMenu__LinksWrapper').should('be.visible')
     }
   });
 })

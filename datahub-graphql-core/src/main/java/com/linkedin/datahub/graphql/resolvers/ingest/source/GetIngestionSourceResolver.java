@@ -43,10 +43,10 @@ public class GetIngestionSourceResolver implements DataFetcher<CompletableFuture
               final Urn urn = Urn.createFromString(urnStr);
               final Map<Urn, EntityResponse> entities =
                   _entityClient.batchGetV2(
+                      context.getOperationContext(),
                       Constants.INGESTION_SOURCE_ENTITY_NAME,
                       new HashSet<>(ImmutableSet.of(urn)),
-                      ImmutableSet.of(Constants.INGESTION_INFO_ASPECT_NAME),
-                      context.getAuthentication());
+                      ImmutableSet.of(Constants.INGESTION_INFO_ASPECT_NAME));
               if (!entities.containsKey(urn)) {
                 // No ingestion source found
                 throw new DataHubGraphQLException(

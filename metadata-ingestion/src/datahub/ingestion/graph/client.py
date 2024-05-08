@@ -1240,7 +1240,11 @@ class DataHubGraph(DatahubRestEmitter):
         )
 
     def initialize_schema_resolver_from_datahub(
-        self, platform: str, platform_instance: Optional[str], env: str
+        self,
+        platform: str,
+        platform_instance: Optional[str],
+        env: str,
+        batch_size: int = 100,
     ) -> "SchemaResolver":
         logger.info("Initializing schema resolver")
         schema_resolver = self._make_schema_resolver(
@@ -1254,6 +1258,7 @@ class DataHubGraph(DatahubRestEmitter):
                 platform=platform,
                 platform_instance=platform_instance,
                 env=env,
+                batch_size=batch_size,
             ):
                 try:
                     schema_resolver.add_graphql_schema_metadata(urn, schema_info)

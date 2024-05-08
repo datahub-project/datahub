@@ -74,7 +74,7 @@ FROM
         table_name) as p on
     t.table_name = p.table_name
 WHERE
-  table_type in ('{BigqueryTableType.BASE_TABLE}', '{BigqueryTableType.EXTERNAL}')
+  table_type in ('{BigqueryTableType.BASE_TABLE}', '{BigqueryTableType.EXTERNAL}', '{BigqueryTableType.CLONE}')
 {{table_filter}}
 order by
   table_schema ASC,
@@ -101,7 +101,7 @@ FROM
   and t.TABLE_NAME = tos.TABLE_NAME
   and tos.OPTION_NAME = "description"
 WHERE
-  table_type in ('{BigqueryTableType.BASE_TABLE}', '{BigqueryTableType.EXTERNAL}')
+  table_type in ('{BigqueryTableType.BASE_TABLE}', '{BigqueryTableType.EXTERNAL}', '{BigqueryTableType.CLONE}')
 {{table_filter}}
 order by
   table_schema ASC,

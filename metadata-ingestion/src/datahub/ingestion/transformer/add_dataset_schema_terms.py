@@ -71,6 +71,15 @@ class AddDatasetSchemaTerms(DatasetSchemaMetadataTransformer):
         if len(terms_to_add) == 0:
             terms_to_add = all_terms
 
+        new_glossary_terms = []
+        new_glossary_terms.extend(server_terms)
+        new_glossary_terms.extend(terms_to_add)
+
+        unique_gloseary_terms = []
+        for term in new_glossary_terms:
+            if term not in unique_gloseary_terms:
+                unique_gloseary_terms.append(term)
+
         new_glossary_term = GlossaryTermsClass(
             terms=[],
             auditStamp=schema_field.glossaryTerms.auditStamp
@@ -79,11 +88,9 @@ class AddDatasetSchemaTerms(DatasetSchemaMetadataTransformer):
                 time=builder.get_sys_time(), actor="urn:li:corpUser:restEmitter"
             ),
         )
-        new_glossary_term.terms.extend(terms_to_add)
-        new_glossary_term.terms.extend(server_terms)
+        new_glossary_term.terms.extend(unique_gloseary_terms)
 
         schema_field.glossaryTerms = new_glossary_term
-
         return schema_field
 
     def transform_aspect(

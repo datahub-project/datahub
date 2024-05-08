@@ -15,12 +15,10 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.gms.factory.auth.SystemAuthenticationFactory;
 import com.linkedin.gms.factory.client.MetadataTestClientFactory;
-import com.linkedin.gms.factory.entityregistry.EntityRegistryFactory;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.kafka.hook.MetadataChangeLogHook;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
-import com.linkedin.metadata.spring.YamlPropertySourceFactory;
 import com.linkedin.metadata.test.util.TestUtils;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
@@ -40,7 +38,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Import;
-import org.springframework.context.annotation.PropertySource;
 import org.springframework.stereotype.Component;
 
 /**
@@ -56,11 +53,9 @@ import org.springframework.stereotype.Component;
  */
 @Slf4j
 @Component
-@PropertySource(value = "classpath:/application.yml", factory = YamlPropertySourceFactory.class)
 @Import({
   MetadataTestClientFactory.class,
   SystemAuthenticationFactory.class,
-  EntityRegistryFactory.class,
 })
 public class MetadataTestHook implements MetadataChangeLogHook {
 

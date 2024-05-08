@@ -2,7 +2,6 @@ package com.linkedin.datahub.graphql.resolvers.settings;
 
 import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.*;
 
-import com.datahub.authentication.Authentication;
 import com.datahub.authorization.AuthUtil;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.data.template.GetMode;
@@ -26,6 +25,7 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.settings.NotificationSettingMap;
 import com.linkedin.settings.global.GlobalSettingsInfo;
+import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.services.SecretService;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -48,14 +48,14 @@ public class SettingsMapper {
   }
 
   public static GlobalSettingsInfo getGlobalSettings(
-      final EntityClient entityClient, final Authentication authentication) {
+      @Nonnull OperationContext opContext, final EntityClient entityClient) {
     try {
       final EntityResponse entityResponse =
           entityClient.getV2(
+              opContext,
               Constants.GLOBAL_SETTINGS_ENTITY_NAME,
               Constants.GLOBAL_SETTINGS_URN,
-              ImmutableSet.of(Constants.GLOBAL_SETTINGS_INFO_ASPECT_NAME),
-              authentication);
+              ImmutableSet.of(Constants.GLOBAL_SETTINGS_INFO_ASPECT_NAME));
 
       if (entityResponse == null
           || !entityResponse.getAspects().containsKey(Constants.GLOBAL_SETTINGS_INFO_ASPECT_NAME)) {

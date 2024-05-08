@@ -57,7 +57,8 @@ public class CreateTestResolver implements DataFetcher<CompletableFuture<String>
               key.setId(uuidStr);
 
               if (_entityClient.exists(
-                  EntityKeyUtils.convertEntityKeyToUrn(key, TEST_ENTITY_NAME), authentication)) {
+                  context.getOperationContext(),
+                  EntityKeyUtils.convertEntityKeyToUrn(key, TEST_ENTITY_NAME))) {
                 throw new IllegalArgumentException("This Test already exists!");
               }
 
@@ -79,7 +80,7 @@ public class CreateTestResolver implements DataFetcher<CompletableFuture<String>
               String ingestResult;
               try {
                 ingestResult =
-                    _entityClient.ingestProposal(proposal, context.getAuthentication(), false);
+                    _entityClient.ingestProposal(context.getOperationContext(), proposal, false);
               } catch (Exception e) {
                 throw new RuntimeException(
                     String.format("Failed to create test with urn %s", input), e);
@@ -87,7 +88,6 @@ public class CreateTestResolver implements DataFetcher<CompletableFuture<String>
 
               _testEngine.invalidateCache();
               return ingestResult;
-
             } catch (Exception e) {
               throw new RuntimeException(
                   String.format("Failed to create test with urn %s", input), e);

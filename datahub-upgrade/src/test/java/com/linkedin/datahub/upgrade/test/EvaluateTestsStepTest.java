@@ -114,7 +114,11 @@ public class EvaluateTestsStepTest extends AbstractTestNGSpringContextTests {
         .thenReturn(Set.of(Constants.DATASET_ENTITY_NAME, Constants.CHART_ENTITY_NAME));
 
     for (Urn urn : List.of(DATASET_URN, CHART_URN1, CHART_URN2)) {
-      Mockito.when(mockTestEngine.evaluateTests(Set.of(urn), TestEngine.EvaluationMode.DEFAULT))
+      Mockito.when(
+              mockTestEngine.evaluateTests(
+                  any(OperationContext.class),
+                  eq(Set.of(urn)),
+                  eq(TestEngine.EvaluationMode.DEFAULT)))
           .thenReturn(Map.of(urn, new TestResults()));
     }
   }

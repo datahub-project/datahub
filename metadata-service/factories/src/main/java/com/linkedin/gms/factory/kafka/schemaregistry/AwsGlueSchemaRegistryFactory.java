@@ -5,7 +5,6 @@ import com.amazonaws.services.schemaregistry.serializers.GlueSchemaRegistryKafka
 import com.amazonaws.services.schemaregistry.utils.AWSSchemaRegistryConstants;
 import com.amazonaws.services.schemaregistry.utils.AvroRecordType;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
-import com.linkedin.metadata.spring.YamlPropertySourceFactory;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -15,11 +14,9 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.PropertySource;
 
 @Slf4j
 @Configuration
-@PropertySource(value = "classpath:/application.yml", factory = YamlPropertySourceFactory.class)
 @ConditionalOnProperty(
     name = "kafka.schemaRegistry.type",
     havingValue = AwsGlueSchemaRegistryFactory.TYPE)

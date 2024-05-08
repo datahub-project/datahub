@@ -87,7 +87,7 @@ public class ListActionRequestsResolver
               // their groups.
               actorUrn = Urn.createFromString(context.getActorUrn());
               AssignedUrns groupAndRoleUrns =
-                  getGroupAndRoleUrns(actorUrn, context.getAuthentication(), _entityClient);
+                  getGroupAndRoleUrns(context.getOperationContext(), actorUrn, _entityClient);
               groupUrns = groupAndRoleUrns.getGroupUrns();
               roleUrns = groupAndRoleUrns.getRoleUrns();
             } else {
@@ -100,7 +100,7 @@ public class ListActionRequestsResolver
               } else {
                 actorUrn = assigneeUrn;
                 AssignedUrns groupAndRoleUrns =
-                    getGroupAndRoleUrns(actorUrn, context.getAuthentication(), _entityClient);
+                    getGroupAndRoleUrns(context.getOperationContext(), actorUrn, _entityClient);
                 groupUrns = groupAndRoleUrns.getGroupUrns();
                 roleUrns = groupAndRoleUrns.getRoleUrns();
               }
@@ -135,7 +135,7 @@ public class ListActionRequestsResolver
                     .collect(Collectors.toList());
 
             final Map<Urn, Entity> entityMap =
-                _entityClient.batchGet(new HashSet<>(entityUrns), context.getAuthentication());
+                _entityClient.batchGet(context.getOperationContext(), new HashSet<>(entityUrns));
 
             final List<Entity> entities = new ArrayList<>();
             entityUrns.forEach((urn) -> entities.add(entityMap.get(urn)));

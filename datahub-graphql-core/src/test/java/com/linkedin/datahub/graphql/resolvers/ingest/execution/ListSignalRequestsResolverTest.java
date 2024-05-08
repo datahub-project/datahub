@@ -1,9 +1,9 @@
 package com.linkedin.datahub.graphql.resolvers.ingest.execution;
 
 import static com.linkedin.datahub.graphql.resolvers.ingest.IngestTestUtils.*;
+import static org.mockito.ArgumentMatchers.any;
 import static org.testng.Assert.*;
 
-import com.datahub.authentication.Authentication;
 import com.datastax.oss.driver.shaded.guava.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
@@ -18,6 +18,7 @@ import com.linkedin.execution.ExecutionRequestSignal;
 import com.linkedin.metadata.Constants;
 import com.linkedin.r2.RemoteInvocationException;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -54,10 +55,10 @@ public class ListSignalRequestsResolverTest {
 
     Mockito.when(
             mockClient.batchGetV2(
+                any(OperationContext.class),
                 Mockito.eq(Constants.EXECUTION_REQUEST_ENTITY_NAME),
                 Mockito.eq(URNS),
-                Mockito.eq(ImmutableSet.of(Constants.EXECUTION_REQUEST_SIGNAL_ASPECT_NAME)),
-                Mockito.any(Authentication.class)))
+                Mockito.eq(ImmutableSet.of(Constants.EXECUTION_REQUEST_SIGNAL_ASPECT_NAME))))
         .thenReturn(
             ImmutableMap.of(
                 Urn.createFromString(TEST_URN),
@@ -93,8 +94,7 @@ public class ListSignalRequestsResolverTest {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     Mockito.doThrow(RemoteInvocationException.class)
         .when(mockClient)
-        .batchGetV2(
-            Mockito.any(), Mockito.anySet(), Mockito.anySet(), Mockito.any(Authentication.class));
+        .batchGetV2(any(OperationContext.class), Mockito.any(), Mockito.anySet(), Mockito.anySet());
     ListSignalRequestsResolver resolver = new ListSignalRequestsResolver(mockClient);
 
     // Execute resolver

@@ -67,13 +67,13 @@ public class ListPostsResolver implements DataFetcher<CompletableFuture<ListPost
             // Then, get and hydrate all Posts.
             final Map<Urn, EntityResponse> entities =
                 _entityClient.batchGetV2(
+                    context.getOperationContext(),
                     POST_ENTITY_NAME,
                     new HashSet<>(
                         gmsResult.getEntities().stream()
                             .map(SearchEntity::getEntity)
                             .collect(Collectors.toList())),
-                    null,
-                    authentication);
+                    null);
 
             final ListPostsResult result = new ListPostsResult();
             result.setStart(gmsResult.getFrom());

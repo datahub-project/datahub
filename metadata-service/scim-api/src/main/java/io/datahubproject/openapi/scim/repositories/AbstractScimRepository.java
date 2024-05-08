@@ -19,6 +19,7 @@ import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
+import io.datahubproject.metadata.context.OperationContext;
 import java.io.UnsupportedEncodingException;
 import java.net.URISyntaxException;
 import java.time.Instant;
@@ -61,6 +62,7 @@ import org.apache.directory.scim.spec.schema.AttributeContainer;
 import org.apache.directory.scim.spec.schema.Meta;
 import org.apache.directory.scim.spec.schema.Schema;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import org.springframework.web.util.UriComponentsBuilder;
@@ -84,7 +86,11 @@ abstract class AbstractScimRepository<
 
   static String GROUPS_ENDPOINT = "/Groups";
 
-  @Autowired EntityService _entityService;
+  @Autowired EntityService<?> _entityService;
+
+  @Autowired
+  @Qualifier("systemOperationContext")
+  OperationContext systemOperationContext;
 
   @Autowired PatchHandler _patchHandler;
 
@@ -205,10 +211,10 @@ abstract class AbstractScimRepository<
     AuditStamp auditStamp = createAuditStamp();
     U urn = urnFromId(id);
     preDelete(urn, auditStamp);
-    if (!_entityService.exists(urn, false)) {
+    if (!_entityService.exists(systemOperationContext, urn, false)) {
       throw resourceNotFoundException(id);
     }
-    _entityService.deleteUrn(urn);
+    _entityService.deleteUrn(systemOperationContext, urn);
 
     log.debug(String.format("Deleted entity %s with scim-id %s", urn, id));
 
@@ -235,7 +241,7 @@ abstract class AbstractScimRepository<
     mcp.setAspectName(aspectName);
     mcp.setAspect(GenericRecordUtils.serializeAspect(aspect));
     mcp.setChangeType(ChangeType.UPSERT);
-    _entityService.ingestProposal(mcp, auditStamp, false);
+    _entityService.ingestProposal(systemOperationContext, mcp, auditStamp, false);
   }
 
   /*
@@ -260,9 +266,12 @@ abstract class AbstractScimRepository<
   }
 
   private K getKey(Urn urn) {
-    String keyAspectName = _entityService.getKeyAspectName(urn);
-    Set<String> aspectNames = ImmutableSet.of(_entityService.getKeyAspectName(urn));
-    return (K) _entityService.getLatestAspectsForUrn(urn, aspectNames).get(keyAspectName);
+    String keyAspectName = systemOperationContext.getKeyAspectName(urn);
+    Set<String> aspectNames = ImmutableSet.of(systemOperationContext.getKeyAspectName(urn));
+    return (K)
+        _entityService
+            .getLatestAspectsForUrn(systemOperationContext, urn, aspectNames)
+            .get(keyAspectName);
   }
 
   @Override
@@ -278,7 +287,7 @@ abstract class AbstractScimRepository<
           "Resource name " + nameFromResource(scimResource) + " is invalid.");
     }
 
-    if (_entityService.exists(urn, false)) {
+    if (_entityService.exists(systemOperationContext, urn, false)) {
       throw new ConflictResourceException(
           "Resource with name " + nameFromResource(scimResource) + " already exists.");
     }
@@ -522,7 +531,8 @@ abstract class AbstractScimRepository<
 
       try {
         Map<Urn, List<EnvelopedAspect>> envAspectsMap =
-            _entityService.getLatestEnvelopedAspects(ImmutableSet.of(urn), aspectNames);
+            _entityService.getLatestEnvelopedAspects(
+                systemOperationContext, ImmutableSet.of(urn), aspectNames);
         envAspects = envAspectsMap.get(urn);
         if (envAspects == null) {
           throw resourceNotFoundException(urnToId(urn));
@@ -539,7 +549,7 @@ abstract class AbstractScimRepository<
 
       for (EnvelopedAspect envelopedAspect : envAspects) {
         String aspectName = envelopedAspect.getName();
-        boolean isKeyAspect = _entityService.getKeyAspectName(urn).equals(aspectName);
+        boolean isKeyAspect = systemOperationContext.getKeyAspectName(urn).equals(aspectName);
 
         Class<? extends RecordTemplate> aspectClass = aspectNamesToClasses.get(aspectName);
         RecordTemplate aspect =

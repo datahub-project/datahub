@@ -29,7 +29,7 @@ public class GMSDisableWriteModeStep implements UpgradeStep {
   public Function<UpgradeContext, UpgradeStepResult> executable() {
     return (context) -> {
       try {
-        entityClient.setWritable(false);
+        entityClient.setWritable(context.opContext(), false);
       } catch (Exception e) {
         log.error("Failed to turn write mode off in GMS", e);
         context.report().addLine("Failed to turn write mode off in GMS");

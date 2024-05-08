@@ -5,6 +5,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.mock;
 
@@ -34,7 +35,7 @@ import com.linkedin.entity.Aspect;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
-import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.form.DynamicFormAssignment;
 import com.linkedin.form.FormActorAssignment;
 import com.linkedin.form.FormInfo;
@@ -75,6 +76,7 @@ import org.junit.Assert;
 import org.mockito.Mockito;
 import org.springframework.core.io.ClassPathResource;
 import org.testcontainers.shaded.com.google.common.collect.ImmutableMap;
+import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
 @Slf4j
@@ -93,35 +95,42 @@ public class FormServiceTest {
   public static final Urn TEST_ACTOR_URN = UrnUtils.getUrn("urn:li:corpuser:jdoe");
   public static final Urn TEST_GROUP_URN = UrnUtils.getUrn("urn:li:corpGroup:test");
 
+  private OperationContext opContext;
+
+  @BeforeTest
+  public void setup() {
+    opContext = TestOperationContexts.userContextNoSearchAuthorization(TEST_ACTOR_URN);
+  }
+
   @Test
   private void testBatchAssignFormToEntitiesDoNotExist() throws Exception {
     // Case 1 - non existing form.
     Urn nonExistantForm = UrnUtils.getUrn("urn:li:form:non-existant");
-    EntityClient mockClient = mockEntityClient(null, null);
-    Mockito.when(mockClient.exists(Mockito.eq(nonExistantForm), any(Authentication.class)))
+    SystemEntityClient mockClient = mockEntityClient(null, null);
+    Mockito.when(mockClient.exists(any(OperationContext.class), eq(nonExistantForm)))
         .thenReturn(false);
 
     FormService formService =
-        new FormService(mockOperationContext(), mockClient, Mockito.mock(OpenApiClient.class));
+        new FormService(mockClient, Mockito.mock(OpenApiClient.class), new ObjectMapper());
 
     Assert.assertThrows(
         RuntimeException.class,
         () -> {
           formService.batchAssignFormToEntities(
-              ImmutableList.of(TEST_ENTITY_URN), nonExistantForm, mockSystemAuthentication());
+              any(OperationContext.class), ImmutableList.of(TEST_ENTITY_URN), nonExistantForm);
         });
 
     // Case 2 - non existant entity.
     Urn nonExistantEntity =
         UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:snowflake,test-2,PROD)");
-    Mockito.when(mockClient.exists(Mockito.eq(nonExistantEntity), any(Authentication.class)))
+    Mockito.when(mockClient.exists(any(OperationContext.class), eq(nonExistantEntity)))
         .thenReturn(false);
 
     Assert.assertThrows(
         RuntimeException.class,
         () -> {
           formService.batchAssignFormToEntities(
-              ImmutableList.of(nonExistantEntity), TEST_FORM_URN, mockSystemAuthentication());
+              opContext, ImmutableList.of(nonExistantEntity), TEST_FORM_URN);
         });
   }
 
@@ -147,13 +156,13 @@ public class FormServiceTest {
                     .setTitle("Test title")
                     .setDescription("Test description"))));
 
-    EntityClient mockClient = mockEntityClient(existingForms, formToAdd);
+    SystemEntityClient mockClient = mockEntityClient(existingForms, formToAdd);
 
     FormService formService =
-        new FormService(mockOperationContext(), mockClient, Mockito.mock(OpenApiClient.class));
+        new FormService(mockClient, Mockito.mock(OpenApiClient.class), new ObjectMapper());
 
     formService.batchAssignFormToEntities(
-        ImmutableList.of(TEST_ENTITY_URN), TEST_FORM_URN, mockSystemAuthentication());
+        opContext, ImmutableList.of(TEST_ENTITY_URN), TEST_FORM_URN);
 
     Forms expectedForms = new Forms();
     expectedForms.setIncompleteForms(
@@ -177,11 +186,11 @@ public class FormServiceTest {
     // Ensure that the forms aspect was ingested for the entity.
     Mockito.verify(mockClient, Mockito.times(1))
         .ingestProposal(
+            any(OperationContext.class),
             Mockito.argThat(
                 new EntityFormsArgumentMatcher(
                     AspectUtils.buildMetadataChangeProposal(
-                        TEST_ENTITY_URN, FORMS_ASPECT_NAME, expectedForms))),
-            any(Authentication.class));
+                        TEST_ENTITY_URN, FORMS_ASPECT_NAME, expectedForms))));
   }
 
   @Test
@@ -201,13 +210,13 @@ public class FormServiceTest {
                     .setTitle("Test title")
                     .setDescription("Test description"))));
 
-    EntityClient mockClient = mockEntityClient(null, formToAdd);
+    SystemEntityClient mockClient = mockEntityClient(null, formToAdd);
 
     FormService formService =
-        new FormService(mockOperationContext(), mockClient, Mockito.mock(OpenApiClient.class));
+        new FormService(mockClient, Mockito.mock(OpenApiClient.class), new ObjectMapper());
 
     formService.batchAssignFormToEntities(
-        ImmutableList.of(TEST_ENTITY_URN), TEST_FORM_URN, mockSystemAuthentication());
+        opContext, ImmutableList.of(TEST_ENTITY_URN), TEST_FORM_URN);
 
     Forms expectedForms = new Forms();
     expectedForms.setIncompleteForms(
@@ -231,11 +240,11 @@ public class FormServiceTest {
     // Ensure that the forms aspect was ingested for the entity.
     Mockito.verify(mockClient, Mockito.times(1))
         .ingestProposal(
+            any(OperationContext.class),
             Mockito.argThat(
                 new EntityFormsArgumentMatcher(
                     AspectUtils.buildMetadataChangeProposal(
-                        TEST_ENTITY_URN, FORMS_ASPECT_NAME, expectedForms))),
-            any(Authentication.class));
+                        TEST_ENTITY_URN, FORMS_ASPECT_NAME, expectedForms))));
   }
 
   @Test
@@ -275,17 +284,17 @@ public class FormServiceTest {
                     .setTitle("Test title")
                     .setDescription("Test description"))));
 
-    EntityClient mockClient = mockEntityClient(existingForms, formToAdd);
+    SystemEntityClient mockClient = mockEntityClient(existingForms, formToAdd);
 
     FormService formService =
-        new FormService(mockOperationContext(), mockClient, Mockito.mock(OpenApiClient.class));
+        new FormService(mockClient, Mockito.mock(OpenApiClient.class), new ObjectMapper());
 
     formService.batchAssignFormToEntities(
-        ImmutableList.of(TEST_ENTITY_URN), TEST_FORM_URN, mockSystemAuthentication());
+        opContext, ImmutableList.of(TEST_ENTITY_URN), TEST_FORM_URN);
 
     // Ensure that no aspect was ingested, because nothing changed.
     Mockito.verify(mockClient, Mockito.times(0))
-        .ingestProposal(any(MetadataChangeProposal.class), any(Authentication.class));
+        .ingestProposal(any(OperationContext.class), any(MetadataChangeProposal.class));
   }
 
   @Test
@@ -325,36 +334,50 @@ public class FormServiceTest {
                     .setTitle("Test title")
                     .setDescription("Test description"))));
 
-    EntityClient mockClient = mockEntityClient(existingForms, formToAdd);
+    SystemEntityClient mockClient = mockEntityClient(existingForms, formToAdd);
 
     FormService formService =
-        new FormService(mockOperationContext(), mockClient, Mockito.mock(OpenApiClient.class));
+        new FormService(mockClient, Mockito.mock(OpenApiClient.class), new ObjectMapper());
 
     formService.batchAssignFormToEntities(
-        ImmutableList.of(TEST_ENTITY_URN), TEST_FORM_URN, mockSystemAuthentication());
+        opContext, ImmutableList.of(TEST_ENTITY_URN), TEST_FORM_URN);
 
     // Ensure that no aspect was ingested, because nothing changed.
     Mockito.verify(mockClient, Mockito.times(0))
-        .ingestProposal(any(MetadataChangeProposal.class), any(Authentication.class));
+        .ingestProposal(any(OperationContext.class), any(MetadataChangeProposal.class));
   }
 
   @Test
   private void testBatchUnassignFormToEntitiesDoNotExist() throws Exception {
-    EntityClient mockClient = mockEntityClient(null, null);
-    FormService formService =
-        new FormService(mockOperationContext(), mockClient, Mockito.mock(OpenApiClient.class));
 
+    // Case 1 - non existing form.
+    Urn nonExistantForm = UrnUtils.getUrn("urn:li:form:non-existant");
+    SystemEntityClient mockClient = mockEntityClient(null, null);
+    Mockito.when(mockClient.exists(any(OperationContext.class), eq(nonExistantForm)))
+        .thenReturn(false);
+
+    FormService formService =
+        new FormService(mockClient, Mockito.mock(OpenApiClient.class), new ObjectMapper());
+
+    Assert.assertThrows(
+        RuntimeException.class,
+        () -> {
+          formService.batchUnassignFormForEntities(
+              any(OperationContext.class), ImmutableList.of(TEST_ENTITY_URN), nonExistantForm);
+        });
+
+    // Case 2 - non existant entity.
     // throw an error if we try to unassign a form to an entity that does not exist
     Urn nonExistantEntity =
         UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:snowflake,test-2,PROD)");
-    Mockito.when(mockClient.exists(Mockito.eq(nonExistantEntity), any(Authentication.class)))
+    Mockito.when(mockClient.exists(any(OperationContext.class), eq(nonExistantEntity)))
         .thenReturn(false);
 
     Assert.assertThrows(
         RuntimeException.class,
         () -> {
           formService.batchUnassignFormForEntities(
-              ImmutableList.of(nonExistantEntity), TEST_FORM_URN, mockSystemAuthentication());
+              any(OperationContext.class), ImmutableList.of(nonExistantEntity), TEST_FORM_URN);
         });
   }
 
@@ -394,13 +417,13 @@ public class FormServiceTest {
                     .setTitle("Test title")
                     .setDescription("Test description"))));
 
-    EntityClient mockClient = mockEntityClient(existingForms, formToRemove);
+    SystemEntityClient mockClient = mockEntityClient(existingForms, formToRemove);
 
     FormService formService =
-        new FormService(mockOperationContext(), mockClient, Mockito.mock(OpenApiClient.class));
+        new FormService(mockClient, Mockito.mock(OpenApiClient.class), new ObjectMapper());
 
     formService.batchUnassignFormForEntities(
-        ImmutableList.of(TEST_ENTITY_URN), TEST_FORM_URN, mockSystemAuthentication());
+        mockOperationContext(), ImmutableList.of(TEST_ENTITY_URN), TEST_FORM_URN);
 
     Forms expectedForms = new Forms();
     expectedForms.setIncompleteForms(new FormAssociationArray());
@@ -410,11 +433,11 @@ public class FormServiceTest {
     // Ensure that the forms aspect was ingested for the entity.
     Mockito.verify(mockClient, Mockito.times(1))
         .ingestProposal(
+            any(OperationContext.class),
             Mockito.argThat(
                 new EntityFormsArgumentMatcher(
                     AspectUtils.buildMetadataChangeProposal(
-                        TEST_ENTITY_URN, FORMS_ASPECT_NAME, expectedForms))),
-            any(Authentication.class));
+                        TEST_ENTITY_URN, FORMS_ASPECT_NAME, expectedForms))));
   }
 
   @Test
@@ -453,13 +476,13 @@ public class FormServiceTest {
                     .setTitle("Test title")
                     .setDescription("Test description"))));
 
-    EntityClient mockClient = mockEntityClient(existingForms, formToRemove);
+    SystemEntityClient mockClient = mockEntityClient(existingForms, formToRemove);
 
     FormService formService =
-        new FormService(mockOperationContext(), mockClient, Mockito.mock(OpenApiClient.class));
+        new FormService(mockClient, Mockito.mock(OpenApiClient.class), new ObjectMapper());
 
     formService.batchUnassignFormForEntities(
-        ImmutableList.of(TEST_ENTITY_URN), TEST_FORM_URN, mockSystemAuthentication());
+        opContext, ImmutableList.of(TEST_ENTITY_URN), TEST_FORM_URN);
 
     Forms expectedForms = new Forms();
     expectedForms.setIncompleteForms(new FormAssociationArray());
@@ -469,11 +492,11 @@ public class FormServiceTest {
     // Ensure that the forms aspect was ingested for the entity.
     Mockito.verify(mockClient, Mockito.times(1))
         .ingestProposal(
+            any(OperationContext.class),
             Mockito.argThat(
                 new EntityFormsArgumentMatcher(
                     AspectUtils.buildMetadataChangeProposal(
-                        TEST_ENTITY_URN, FORMS_ASPECT_NAME, expectedForms))),
-            any(Authentication.class));
+                        TEST_ENTITY_URN, FORMS_ASPECT_NAME, expectedForms))));
   }
 
   @Test
@@ -498,17 +521,17 @@ public class FormServiceTest {
                     .setTitle("Test title")
                     .setDescription("Test description"))));
 
-    EntityClient mockClient = mockEntityClient(existingForms, formToRemove);
+    SystemEntityClient mockClient = mockEntityClient(existingForms, formToRemove);
 
     FormService formService =
-        new FormService(mockOperationContext(), mockClient, Mockito.mock(OpenApiClient.class));
+        new FormService(mockClient, Mockito.mock(OpenApiClient.class), new ObjectMapper());
 
     formService.batchUnassignFormForEntities(
-        ImmutableList.of(TEST_ENTITY_URN), TEST_FORM_URN, mockSystemAuthentication());
+        opContext, ImmutableList.of(TEST_ENTITY_URN), TEST_FORM_URN);
 
     // Ensure that the forms aspect was not ingested: no changes required.
     Mockito.verify(mockClient, Mockito.times(0))
-        .ingestProposal(any(MetadataChangeProposal.class), any(Authentication.class));
+        .ingestProposal(any(OperationContext.class), any(MetadataChangeProposal.class));
   }
 
   @Test
@@ -516,37 +539,31 @@ public class FormServiceTest {
 
     // Case 1 - non existing form.
     Urn nonExistantForm = UrnUtils.getUrn("urn:li:form:non-existant");
-    EntityClient mockClient = mockEntityClient(null, null);
-    Mockito.when(mockClient.exists(Mockito.eq(nonExistantForm), any(Authentication.class)))
+    SystemEntityClient mockClient = mockEntityClient(null, null);
+    Mockito.when(mockClient.exists(any(OperationContext.class), eq(nonExistantForm)))
         .thenReturn(false);
 
     FormService formService =
-        new FormService(mockOperationContext(), mockClient, Mockito.mock(OpenApiClient.class));
+        new FormService(mockClient, Mockito.mock(OpenApiClient.class), new ObjectMapper());
 
     Assert.assertThrows(
         RuntimeException.class,
         () -> {
           formService.batchSetFormPromptIncomplete(
-              ImmutableList.of(TEST_ENTITY_URN),
-              nonExistantForm,
-              "test-id",
-              mockSystemAuthentication());
+              opContext, ImmutableList.of(TEST_ENTITY_URN), nonExistantForm, "test-id");
         });
 
     // Case 2 - non existant entity.
     Urn nonExistantEntity =
         UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:snowflake,test-2,PROD)");
-    Mockito.when(mockClient.exists(Mockito.eq(nonExistantEntity), any(Authentication.class)))
+    Mockito.when(mockClient.exists(any(OperationContext.class), eq(nonExistantEntity)))
         .thenReturn(false);
 
     Assert.assertThrows(
         RuntimeException.class,
         () -> {
           formService.batchSetFormPromptIncomplete(
-              ImmutableList.of(nonExistantEntity),
-              TEST_FORM_URN,
-              "test-id",
-              mockSystemAuthentication());
+              opContext, ImmutableList.of(nonExistantEntity), TEST_FORM_URN, "test-id");
         });
   }
 
@@ -588,21 +605,21 @@ public class FormServiceTest {
                     .setTitle("Test title")
                     .setDescription("Test description"))));
 
-    EntityClient mockClient = mockEntityClient(existingForms, form);
+    SystemEntityClient mockClient = mockEntityClient(existingForms, form);
 
     FormService formService =
-        new FormService(mockOperationContext(), mockClient, Mockito.mock(OpenApiClient.class));
+        new FormService(mockClient, Mockito.mock(OpenApiClient.class), new ObjectMapper());
 
     formService.batchSetFormPromptIncomplete(
-        ImmutableList.of(TEST_ENTITY_URN), TEST_FORM_URN, promptId, mockSystemAuthentication());
+        opContext, ImmutableList.of(TEST_ENTITY_URN), TEST_FORM_URN, promptId);
 
     Mockito.verify(mockClient, Mockito.times(1))
         .ingestProposal(
+            any(OperationContext.class),
             Mockito.argThat(
                 new EntityFormsArgumentMatcher(
                     AspectUtils.buildMetadataChangeProposal(
-                        TEST_ENTITY_URN, FORMS_ASPECT_NAME, existingForms))),
-            any(Authentication.class));
+                        TEST_ENTITY_URN, FORMS_ASPECT_NAME, existingForms))));
   }
 
   @Test
@@ -643,13 +660,13 @@ public class FormServiceTest {
                     .setTitle("Test title")
                     .setDescription("Test description"))));
 
-    EntityClient mockClient = mockEntityClient(existingForms, form);
+    SystemEntityClient mockClient = mockEntityClient(existingForms, form);
 
     FormService formService =
-        new FormService(mockOperationContext(), mockClient, Mockito.mock(OpenApiClient.class));
+        new FormService(mockClient, Mockito.mock(OpenApiClient.class), new ObjectMapper());
 
     formService.batchSetFormPromptIncomplete(
-        ImmutableList.of(TEST_ENTITY_URN), TEST_FORM_URN, promptId, mockSystemAuthentication());
+        opContext, ImmutableList.of(TEST_ENTITY_URN), TEST_FORM_URN, promptId);
 
     Forms expectedForms = new Forms();
     expectedForms.setCompletedForms(new FormAssociationArray());
@@ -672,11 +689,11 @@ public class FormServiceTest {
 
     Mockito.verify(mockClient, Mockito.times(1))
         .ingestProposal(
+            any(OperationContext.class),
             Mockito.argThat(
                 new EntityFormsArgumentMatcher(
                     AspectUtils.buildMetadataChangeProposal(
-                        TEST_ENTITY_URN, FORMS_ASPECT_NAME, expectedForms))),
-            any(Authentication.class));
+                        TEST_ENTITY_URN, FORMS_ASPECT_NAME, expectedForms))));
   }
 
   @Test
@@ -702,17 +719,17 @@ public class FormServiceTest {
                     .setTitle("Test title")
                     .setDescription("Test description"))));
 
-    EntityClient mockClient = mockEntityClient(existingForms, form);
+    SystemEntityClient mockClient = mockEntityClient(existingForms, form);
 
     FormService formService =
-        new FormService(mockOperationContext(), mockClient, Mockito.mock(OpenApiClient.class));
+        new FormService(mockClient, Mockito.mock(OpenApiClient.class), new ObjectMapper());
 
     formService.batchSetFormPromptIncomplete(
-        ImmutableList.of(TEST_ENTITY_URN), TEST_FORM_URN, promptId, mockSystemAuthentication());
+        mockOperationContext(), ImmutableList.of(TEST_ENTITY_URN), TEST_FORM_URN, promptId);
 
     // No changes applied, since form was not assigned.
     Mockito.verify(mockClient, Mockito.times(0))
-        .ingestProposal(any(MetadataChangeProposal.class), any(Authentication.class));
+        .ingestProposal(any(OperationContext.class), any(MetadataChangeProposal.class));
   }
 
   @Test
@@ -755,13 +772,13 @@ public class FormServiceTest {
                     .setTitle("Test title")
                     .setDescription("Test description"))));
 
-    EntityClient mockClient = mockEntityClient(existingForms, form);
+    SystemEntityClient mockClient = mockEntityClient(existingForms, form);
 
     FormService formService =
-        new FormService(mockOperationContext(), mockClient, Mockito.mock(OpenApiClient.class));
+        new FormService(mockClient, Mockito.mock(OpenApiClient.class), new ObjectMapper());
 
     formService.batchSetFormPromptIncomplete(
-        ImmutableList.of(TEST_ENTITY_URN), TEST_FORM_URN, promptId, mockSystemAuthentication());
+        mockOperationContext(), ImmutableList.of(TEST_ENTITY_URN), TEST_FORM_URN, promptId);
 
     Forms expectedForms = new Forms();
     expectedForms.setCompletedForms(new FormAssociationArray());
@@ -785,11 +802,11 @@ public class FormServiceTest {
 
     Mockito.verify(mockClient, Mockito.times(1))
         .ingestProposal(
+            any(OperationContext.class),
             Mockito.argThat(
                 new EntityFormsArgumentMatcher(
                     AspectUtils.buildMetadataChangeProposal(
-                        TEST_ENTITY_URN, FORMS_ASPECT_NAME, expectedForms))),
-            any(Authentication.class));
+                        TEST_ENTITY_URN, FORMS_ASPECT_NAME, expectedForms))));
   }
 
   @Test
@@ -834,13 +851,13 @@ public class FormServiceTest {
                     .setTitle("Test title")
                     .setDescription("Test description"))));
 
-    EntityClient mockClient = mockEntityClient(existingForms, form);
+    SystemEntityClient mockClient = mockEntityClient(existingForms, form);
 
     FormService formService =
-        new FormService(mockOperationContext(), mockClient, Mockito.mock(OpenApiClient.class));
+        new FormService(mockClient, Mockito.mock(OpenApiClient.class), new ObjectMapper());
 
     formService.batchSetFormPromptIncomplete(
-        ImmutableList.of(TEST_ENTITY_URN), TEST_FORM_URN, promptId, mockSystemAuthentication());
+        opContext, ImmutableList.of(TEST_ENTITY_URN), TEST_FORM_URN, promptId);
 
     Forms expectedForms = new Forms();
     expectedForms.setIncompleteForms(new FormAssociationArray());
@@ -866,11 +883,11 @@ public class FormServiceTest {
 
     Mockito.verify(mockClient, Mockito.times(1))
         .ingestProposal(
+            any(OperationContext.class),
             Mockito.argThat(
                 new EntityFormsArgumentMatcher(
                     AspectUtils.buildMetadataChangeProposal(
-                        TEST_ENTITY_URN, FORMS_ASPECT_NAME, expectedForms))),
-            any(Authentication.class));
+                        TEST_ENTITY_URN, FORMS_ASPECT_NAME, expectedForms))));
   }
 
   @Test
@@ -887,10 +904,10 @@ public class FormServiceTest {
             .setRequired(true)
             .setStructuredPropertyParams(new StructuredPropertyParams().setUrn(testPropertyUrn));
 
-    EntityClient mockClient = mockEntityClient(null, null);
+    SystemEntityClient mockClient = mockEntityClient(null, null);
     FormService formService =
-        new FormService(mockOperationContext(), mockClient, Mockito.mock(OpenApiClient.class));
-    formService.upsertFormPromptCompletionAutomation(TEST_FORM_URN, prompt);
+        new FormService(mockClient, Mockito.mock(OpenApiClient.class), new ObjectMapper());
+    formService.upsertFormPromptCompletionAutomation(opContext, TEST_FORM_URN, prompt);
     JsonNode testDefinition =
         new ObjectMapper()
             .readTree(new ClassPathResource(TEST_FORM_PROMPT_TEST_DEFINITION_PATH).getFile());
@@ -913,11 +930,11 @@ public class FormServiceTest {
     // Verify that the correct test was ingested.
     Mockito.verify(mockClient, Mockito.times(1))
         .ingestProposal(
+            any(OperationContext.class),
             Mockito.argThat(
                 new FormTestArgumentMatcher(
                     AspectUtils.buildMetadataChangeProposal(
-                        expectedTestUrn, TEST_INFO_ASPECT_NAME, expectedTestInfo))),
-            any(Authentication.class));
+                        expectedTestUrn, TEST_INFO_ASPECT_NAME, expectedTestInfo))));
   }
 
   @Test
@@ -943,10 +960,11 @@ public class FormServiceTest {
                                                             ImmutableList.of(
                                                                 "urn:li:dataPlatform:hive")))
                                                     .setNegated(false))))))));
-    EntityClient mockClient = mockEntityClient(null, null);
+    SystemEntityClient mockClient = mockEntityClient(null, null);
     FormService formService =
-        new FormService(mockOperationContext(), mockClient, Mockito.mock(OpenApiClient.class));
-    formService.upsertFormAssignmentAutomation(TEST_FORM_URN, formAssignment);
+        new FormService(mockClient, Mockito.mock(OpenApiClient.class), new ObjectMapper());
+    formService.upsertFormAssignmentAutomation(
+        opContext, TEST_FORM_URN, formAssignment, new ObjectMapper());
     JsonNode testDefinition =
         new ObjectMapper()
             .readTree(
@@ -969,11 +987,11 @@ public class FormServiceTest {
     // Verify that the correct test was ingested.
     Mockito.verify(mockClient, Mockito.times(1))
         .ingestProposal(
+            any(OperationContext.class),
             Mockito.argThat(
                 new FormTestArgumentMatcher(
                     AspectUtils.buildMetadataChangeProposal(
-                        expectedTestUrn, TEST_INFO_ASPECT_NAME, expectedTestInfo))),
-            any(Authentication.class));
+                        expectedTestUrn, TEST_INFO_ASPECT_NAME, expectedTestInfo))));
   }
 
   @Test
@@ -1006,10 +1024,11 @@ public class FormServiceTest {
                                                 buildCriterion("_entityType", "dashboard"),
                                                 buildCriterion(
                                                     "domains", "urn:li:domain:test-2"))))))));
-    EntityClient mockClient = mockEntityClient(null, null);
+    SystemEntityClient mockClient = mockEntityClient(null, null);
     FormService formService =
-        new FormService(mockOperationContext(), mockClient, Mockito.mock(OpenApiClient.class));
-    formService.upsertFormAssignmentAutomation(TEST_FORM_URN, formAssignment);
+        new FormService(mockClient, Mockito.mock(OpenApiClient.class), new ObjectMapper());
+    formService.upsertFormAssignmentAutomation(
+        opContext, TEST_FORM_URN, formAssignment, new ObjectMapper());
     JsonNode testDefinition =
         new ObjectMapper()
             .readTree(
@@ -1032,25 +1051,25 @@ public class FormServiceTest {
     // Verify that the correct test was ingested.
     Mockito.verify(mockClient, Mockito.times(1))
         .ingestProposal(
+            any(OperationContext.class),
             Mockito.argThat(
                 new FormTestArgumentMatcher(
                     AspectUtils.buildMetadataChangeProposal(
-                        expectedTestUrn, TEST_INFO_ASPECT_NAME, expectedTestInfo))),
-            any(Authentication.class));
+                        expectedTestUrn, TEST_INFO_ASPECT_NAME, expectedTestInfo))));
   }
 
   @Test
   private void testRemoveAllFormAutomations() throws Exception {
     Urn metadataTestUrn1 = UrnUtils.getUrn("urn:li:test:form-test-1");
     Urn metadataTestUrn2 = UrnUtils.getUrn("urn:li:test:form-test-2");
-    EntityClient mockClient = mock(EntityClient.class);
+    SystemEntityClient mockClient = mock(SystemEntityClient.class);
     Mockito.when(
             mockClient.search(
                 any(),
-                Mockito.eq(TEST_ENTITY_NAME),
-                Mockito.eq("*"),
-                Mockito.eq(ImmutableMap.of("sourceUrn", TEST_FORM_URN.toString())),
-                Mockito.eq(0),
+                eq(TEST_ENTITY_NAME),
+                eq("*"),
+                eq(ImmutableMap.of("sourceUrn", TEST_FORM_URN.toString())),
+                eq(0),
                 Mockito.anyInt()))
         .thenReturn(
             new SearchResult()
@@ -1062,21 +1081,21 @@ public class FormServiceTest {
                             new SearchEntity().setEntity(metadataTestUrn2)))));
 
     FormService formService =
-        new FormService(mockOperationContext(), mockClient, Mockito.mock(OpenApiClient.class));
+        new FormService(mockClient, Mockito.mock(OpenApiClient.class), new ObjectMapper());
 
-    formService.removeAllFormAutomations(TEST_FORM_URN);
+    formService.removeAllFormAutomations(opContext, TEST_FORM_URN);
 
     // Verify both tests are deleted.
     Mockito.verify(mockClient, Mockito.times(1))
-        .deleteEntity(Mockito.eq(metadataTestUrn1), any(Authentication.class));
+        .deleteEntity(any(OperationContext.class), eq(metadataTestUrn1));
 
     Mockito.verify(mockClient, Mockito.times(1))
-        .deleteEntity(Mockito.eq(metadataTestUrn2), any(Authentication.class));
+        .deleteEntity(any(OperationContext.class), eq(metadataTestUrn2));
   }
 
   @Test
   private void testRemoveFormPromptCompletionAutomation() throws Exception {
-    EntityClient mockClient = mock(EntityClient.class);
+    SystemEntityClient mockClient = mock(SystemEntityClient.class);
 
     FormPrompt prompt =
         new FormPrompt()
@@ -1088,20 +1107,20 @@ public class FormServiceTest {
     Urn metadataTestUrn = FormTestBuilder.createTestUrnForFormPrompt(TEST_FORM_URN, prompt);
 
     FormService formService =
-        new FormService(mockOperationContext(), mockClient, Mockito.mock(OpenApiClient.class));
+        new FormService(mockClient, Mockito.mock(OpenApiClient.class), new ObjectMapper());
 
-    formService.removeFormPromptCompletionAutomation(TEST_FORM_URN, prompt);
+    formService.removeFormPromptCompletionAutomation(mockOperationContext(), TEST_FORM_URN, prompt);
 
     // Verify the test is deleted.
     Mockito.verify(mockClient, Mockito.times(1))
-        .deleteEntity(Mockito.eq(metadataTestUrn), any(Authentication.class));
+        .deleteEntity(any(OperationContext.class), eq(metadataTestUrn));
   }
 
   @Test
   private void testIsFormAssignedToUsersWithOwners() throws Exception {
-    EntityClient mockClient = mockEntityClient(null, null);
+    SystemEntityClient mockClient = mockEntityClient(null, null);
     FormService formService =
-        new FormService(mockOperationContext(), mockClient, Mockito.mock(OpenApiClient.class));
+        new FormService(mockClient, Mockito.mock(OpenApiClient.class), new ObjectMapper());
 
     FormActorAssignment formActors = new FormActorAssignment();
     formActors.setOwners(true);
@@ -1109,36 +1128,36 @@ public class FormServiceTest {
         createFormInfoAspectMap(FormType.VERIFICATION, formActors);
     Mockito.when(
             mockClient.getV2(
-                Mockito.eq(TEST_FORM_URN.getEntityType()),
-                Mockito.eq(TEST_FORM_URN),
-                Mockito.eq(ImmutableSet.of(FORM_INFO_ASPECT_NAME)),
-                any(Authentication.class)))
+                any(OperationContext.class),
+                eq(TEST_FORM_URN.getEntityType()),
+                eq(TEST_FORM_URN),
+                eq(ImmutableSet.of(FORM_INFO_ASPECT_NAME))))
         .thenReturn(new EntityResponse().setAspects(new EnvelopedAspectMap(formInfoAspectMap)));
 
     // ensure this user is an explicit owner
     Map<String, EnvelopedAspect> ownershipAspectMap = createOwnershipAspectMap(TEST_ACTOR_URN);
     Mockito.when(
             mockClient.getV2(
-                Mockito.eq(TEST_ENTITY_URN.getEntityType()),
-                Mockito.eq(TEST_ENTITY_URN),
-                Mockito.eq(ImmutableSet.of(OWNERSHIP_ASPECT_NAME)),
-                any(Authentication.class)))
+                any(OperationContext.class),
+                eq(TEST_ENTITY_URN.getEntityType()),
+                eq(TEST_ENTITY_URN),
+                eq(ImmutableSet.of(OWNERSHIP_ASPECT_NAME))))
         .thenReturn(new EntityResponse().setAspects(new EnvelopedAspectMap(ownershipAspectMap)));
 
     Assert.assertTrue(
         formService.isFormAssignedToUser(
+            mockOperationContext(),
             TEST_FORM_URN,
             TEST_ENTITY_URN,
             TEST_ACTOR_URN,
-            new ArrayList<>(),
-            mockSystemAuthentication(TEST_ACTOR_URN.toString())));
+            new ArrayList<>()));
   }
 
   @Test
   private void testIsFormAssignedToUserExplicitly() throws Exception {
-    EntityClient mockClient = mockEntityClient(null, null);
+    SystemEntityClient mockClient = mockEntityClient(null, null);
     FormService formService =
-        new FormService(mockOperationContext(), mockClient, Mockito.mock(OpenApiClient.class));
+        new FormService(mockClient, Mockito.mock(OpenApiClient.class), new ObjectMapper());
 
     FormActorAssignment formActors = new FormActorAssignment();
     formActors.setOwners(false);
@@ -1148,36 +1167,36 @@ public class FormServiceTest {
         createFormInfoAspectMap(FormType.VERIFICATION, formActors);
     Mockito.when(
             mockClient.getV2(
-                Mockito.eq(TEST_FORM_URN.getEntityType()),
-                Mockito.eq(TEST_FORM_URN),
-                Mockito.eq(ImmutableSet.of(FORM_INFO_ASPECT_NAME)),
-                any(Authentication.class)))
+                any(OperationContext.class),
+                eq(TEST_FORM_URN.getEntityType()),
+                eq(TEST_FORM_URN),
+                eq(ImmutableSet.of(FORM_INFO_ASPECT_NAME))))
         .thenReturn(new EntityResponse().setAspects(new EnvelopedAspectMap(formInfoAspectMap)));
 
     // this user is not an owner
     Map<String, EnvelopedAspect> ownershipAspectMap = createOwnershipAspectMap(null);
     Mockito.when(
             mockClient.getV2(
-                Mockito.eq(TEST_ENTITY_URN.getEntityType()),
-                Mockito.eq(TEST_ENTITY_URN),
-                Mockito.eq(ImmutableSet.of(OWNERSHIP_ASPECT_NAME)),
-                any(Authentication.class)))
+                any(OperationContext.class),
+                eq(TEST_ENTITY_URN.getEntityType()),
+                eq(TEST_ENTITY_URN),
+                eq(ImmutableSet.of(OWNERSHIP_ASPECT_NAME))))
         .thenReturn(new EntityResponse().setAspects(new EnvelopedAspectMap(ownershipAspectMap)));
 
     Assert.assertTrue(
         formService.isFormAssignedToUser(
+            mockOperationContext(),
             TEST_FORM_URN,
             TEST_ENTITY_URN,
             TEST_ACTOR_URN,
-            new ArrayList<>(),
-            mockSystemAuthentication(TEST_ACTOR_URN.toString())));
+            new ArrayList<>()));
   }
 
   @Test
   private void testIsFormAssignedToUserGroupExplicitly() throws Exception {
-    EntityClient mockClient = mockEntityClient(null, null);
+    SystemEntityClient mockClient = mockEntityClient(null, null);
     FormService formService =
-        new FormService(mockOperationContext(), mockClient, Mockito.mock(OpenApiClient.class));
+        new FormService(mockClient, Mockito.mock(OpenApiClient.class), new ObjectMapper());
 
     FormActorAssignment formActors = new FormActorAssignment();
     formActors.setOwners(false);
@@ -1187,36 +1206,36 @@ public class FormServiceTest {
         createFormInfoAspectMap(FormType.VERIFICATION, formActors);
     Mockito.when(
             mockClient.getV2(
-                Mockito.eq(TEST_FORM_URN.getEntityType()),
-                Mockito.eq(TEST_FORM_URN),
-                Mockito.eq(ImmutableSet.of(FORM_INFO_ASPECT_NAME)),
-                any(Authentication.class)))
+                any(OperationContext.class),
+                eq(TEST_FORM_URN.getEntityType()),
+                eq(TEST_FORM_URN),
+                eq(ImmutableSet.of(FORM_INFO_ASPECT_NAME))))
         .thenReturn(new EntityResponse().setAspects(new EnvelopedAspectMap(formInfoAspectMap)));
 
     // no owners on this entity
     Map<String, EnvelopedAspect> ownershipAspectMap = createOwnershipAspectMap(null);
     Mockito.when(
             mockClient.getV2(
-                Mockito.eq(TEST_ENTITY_URN.getEntityType()),
-                Mockito.eq(TEST_ENTITY_URN),
-                Mockito.eq(ImmutableSet.of(OWNERSHIP_ASPECT_NAME)),
-                any(Authentication.class)))
+                any(OperationContext.class),
+                eq(TEST_ENTITY_URN.getEntityType()),
+                eq(TEST_ENTITY_URN),
+                eq(ImmutableSet.of(OWNERSHIP_ASPECT_NAME))))
         .thenReturn(new EntityResponse().setAspects(new EnvelopedAspectMap(ownershipAspectMap)));
 
     Assert.assertTrue(
         formService.isFormAssignedToUser(
+            mockOperationContext(),
             TEST_FORM_URN,
             TEST_ENTITY_URN,
             TEST_ACTOR_URN,
-            ImmutableList.of(TEST_GROUP_URN),
-            mockSystemAuthentication(TEST_ACTOR_URN.toString())));
+            ImmutableList.of(TEST_GROUP_URN)));
   }
 
   @Test
   private void testIsFormIsNotAssignedToUser() throws Exception {
-    EntityClient mockClient = mockEntityClient(null, null);
+    SystemEntityClient mockClient = mockEntityClient(null, null);
     FormService formService =
-        new FormService(mockOperationContext(), mockClient, Mockito.mock(OpenApiClient.class));
+        new FormService(mockClient, Mockito.mock(OpenApiClient.class), new ObjectMapper());
 
     FormActorAssignment formActors = new FormActorAssignment();
     // owners is set to false, no actors or groups assigned means this test will return false
@@ -1225,35 +1244,35 @@ public class FormServiceTest {
         createFormInfoAspectMap(FormType.VERIFICATION, formActors);
     Mockito.when(
             mockClient.getV2(
-                Mockito.eq(TEST_FORM_URN.getEntityType()),
-                Mockito.eq(TEST_FORM_URN),
-                Mockito.eq(ImmutableSet.of(FORM_INFO_ASPECT_NAME)),
-                any(Authentication.class)))
+                any(OperationContext.class),
+                eq(TEST_FORM_URN.getEntityType()),
+                eq(TEST_FORM_URN),
+                eq(ImmutableSet.of(FORM_INFO_ASPECT_NAME))))
         .thenReturn(new EntityResponse().setAspects(new EnvelopedAspectMap(formInfoAspectMap)));
 
     Map<String, EnvelopedAspect> ownershipAspectMap = createOwnershipAspectMap(null);
     Mockito.when(
             mockClient.getV2(
-                Mockito.eq(TEST_ENTITY_URN.getEntityType()),
-                Mockito.eq(TEST_ENTITY_URN),
-                Mockito.eq(ImmutableSet.of(OWNERSHIP_ASPECT_NAME)),
-                any(Authentication.class)))
+                any(OperationContext.class),
+                eq(TEST_ENTITY_URN.getEntityType()),
+                eq(TEST_ENTITY_URN),
+                eq(ImmutableSet.of(OWNERSHIP_ASPECT_NAME))))
         .thenReturn(new EntityResponse().setAspects(new EnvelopedAspectMap(ownershipAspectMap)));
 
     Assert.assertFalse(
         formService.isFormAssignedToUser(
+            opContext,
             TEST_FORM_URN,
             TEST_ENTITY_URN,
             TEST_ACTOR_URN,
-            ImmutableList.of(TEST_GROUP_URN),
-            mockSystemAuthentication(TEST_ACTOR_URN.toString())));
+            ImmutableList.of(TEST_GROUP_URN)));
   }
 
   @Test
   private void testIsFormAssignedToGroupOwner() throws Exception {
-    EntityClient mockClient = mockEntityClient(null, null);
+    SystemEntityClient mockClient = mockEntityClient(null, null);
     FormService formService =
-        new FormService(mockOperationContext(), mockClient, Mockito.mock(OpenApiClient.class));
+        new FormService(mockClient, Mockito.mock(OpenApiClient.class), new ObjectMapper());
 
     FormActorAssignment formActors = new FormActorAssignment();
     formActors.setOwners(true);
@@ -1261,46 +1280,46 @@ public class FormServiceTest {
         createFormInfoAspectMap(FormType.VERIFICATION, formActors);
     Mockito.when(
             mockClient.getV2(
-                Mockito.eq(TEST_FORM_URN.getEntityType()),
-                Mockito.eq(TEST_FORM_URN),
-                Mockito.eq(ImmutableSet.of(FORM_INFO_ASPECT_NAME)),
-                any(Authentication.class)))
+                any(OperationContext.class),
+                eq(TEST_FORM_URN.getEntityType()),
+                eq(TEST_FORM_URN),
+                eq(ImmutableSet.of(FORM_INFO_ASPECT_NAME))))
         .thenReturn(new EntityResponse().setAspects(new EnvelopedAspectMap(formInfoAspectMap)));
 
     // group that the user is in is assigned
     Map<String, EnvelopedAspect> ownershipAspectMap = createOwnershipAspectMap(TEST_GROUP_URN);
     Mockito.when(
             mockClient.getV2(
-                Mockito.eq(TEST_ENTITY_URN.getEntityType()),
-                Mockito.eq(TEST_ENTITY_URN),
-                Mockito.eq(ImmutableSet.of(OWNERSHIP_ASPECT_NAME)),
-                any(Authentication.class)))
+                any(OperationContext.class),
+                eq(TEST_ENTITY_URN.getEntityType()),
+                eq(TEST_ENTITY_URN),
+                eq(ImmutableSet.of(OWNERSHIP_ASPECT_NAME))))
         .thenReturn(new EntityResponse().setAspects(new EnvelopedAspectMap(ownershipAspectMap)));
 
     Assert.assertTrue(
         formService.isFormAssignedToUser(
+            opContext,
             TEST_FORM_URN,
             TEST_ENTITY_URN,
             TEST_ACTOR_URN,
-            ImmutableList.of(TEST_GROUP_URN),
-            mockSystemAuthentication(TEST_ACTOR_URN.toString())));
+            ImmutableList.of(TEST_GROUP_URN)));
   }
 
   @Test
   private void testVerifyFormForEntity() throws Exception {
-    EntityClient mockClient = mockEntityClient(null, null);
+    SystemEntityClient mockClient = mockEntityClient(null, null);
     FormService formService =
-        new FormService(mockOperationContext(), mockClient, Mockito.mock(OpenApiClient.class));
+        new FormService(mockClient, Mockito.mock(OpenApiClient.class), new ObjectMapper());
 
     // form type VERIFICATION
     Map<String, EnvelopedAspect> formInfoAspectMap =
         createFormInfoAspectMap(FormType.VERIFICATION, new FormActorAssignment());
     Mockito.when(
             mockClient.getV2(
-                Mockito.eq(TEST_FORM_URN.getEntityType()),
-                Mockito.eq(TEST_FORM_URN),
-                Mockito.eq(ImmutableSet.of(FORM_INFO_ASPECT_NAME)),
-                any(Authentication.class)))
+                any(OperationContext.class),
+                eq(TEST_FORM_URN.getEntityType()),
+                eq(TEST_FORM_URN),
+                eq(ImmutableSet.of(FORM_INFO_ASPECT_NAME))))
         .thenReturn(new EntityResponse().setAspects(new EnvelopedAspectMap(formInfoAspectMap)));
 
     final FormAssociation formAssociation = new FormAssociation();
@@ -1309,105 +1328,103 @@ public class FormServiceTest {
     Map<String, EnvelopedAspect> formsAspectMap = createFormsAspectMap(completedForms);
     Mockito.when(
             mockClient.getV2(
-                Mockito.eq(TEST_ENTITY_URN.getEntityType()),
-                Mockito.eq(TEST_ENTITY_URN),
-                Mockito.eq(ImmutableSet.of(FORMS_ASPECT_NAME)),
-                any(Authentication.class)))
+                any(OperationContext.class),
+                eq(TEST_ENTITY_URN.getEntityType()),
+                eq(TEST_ENTITY_URN),
+                eq(ImmutableSet.of(FORMS_ASPECT_NAME))))
         .thenReturn(new EntityResponse().setAspects(new EnvelopedAspectMap(formsAspectMap)));
 
-    Assert.assertTrue(
-        formService.verifyFormForEntity(
-            TEST_FORM_URN, TEST_ENTITY_URN, mockSystemAuthentication(TEST_ACTOR_URN.toString())));
+    Assert.assertTrue(formService.verifyFormForEntity(opContext, TEST_FORM_URN, TEST_ENTITY_URN));
 
     Mockito.verify(mockClient, Mockito.times(1))
         .ingestProposal(
+            any(OperationContext.class),
             Mockito.argThat(
                 new EntityFormsArgumentMatcher(
                     AspectUtils.buildMetadataChangeProposal(
                         TEST_ENTITY_URN,
                         FORMS_ASPECT_NAME,
-                        formsAspectMap.get(FORMS_ASPECT_NAME)))),
-            any(Authentication.class));
+                        formsAspectMap.get(FORMS_ASPECT_NAME)))));
   }
 
   @Test
   private void testVerifyFormForEntityNonVerificationForm() throws Exception {
-    EntityClient mockClient = mockEntityClient(null, null);
+    SystemEntityClient mockClient = mockEntityClient(null, null);
     FormService formService =
-        new FormService(mockOperationContext(), mockClient, Mockito.mock(OpenApiClient.class));
+        new FormService(mockClient, Mockito.mock(OpenApiClient.class), new ObjectMapper());
 
     // form type COMPLETION
     Map<String, EnvelopedAspect> formInfoAspectMap =
         createFormInfoAspectMap(FormType.COMPLETION, new FormActorAssignment());
     Mockito.when(
             mockClient.getV2(
-                Mockito.eq(TEST_FORM_URN.getEntityType()),
-                Mockito.eq(TEST_FORM_URN),
-                Mockito.eq(ImmutableSet.of(FORM_INFO_ASPECT_NAME)),
-                any(Authentication.class)))
+                any(OperationContext.class),
+                eq(TEST_FORM_URN.getEntityType()),
+                eq(TEST_FORM_URN),
+                eq(ImmutableSet.of(FORM_INFO_ASPECT_NAME))))
         .thenReturn(new EntityResponse().setAspects(new EnvelopedAspectMap(formInfoAspectMap)));
 
     Assert.assertThrows(
         RuntimeException.class,
         () -> {
           formService.verifyFormForEntity(
-              TEST_FORM_URN, TEST_ENTITY_URN, mockSystemAuthentication(TEST_ACTOR_URN.toString()));
+              any(OperationContext.class), TEST_FORM_URN, TEST_ENTITY_URN);
         });
 
     Mockito.verify(mockClient, Mockito.times(0))
-        .ingestProposal(any(MetadataChangeProposal.class), any(Authentication.class));
+        .ingestProposal(any(OperationContext.class), any(MetadataChangeProposal.class));
   }
 
   @Test
   private void testVerifyFormForEntityIncompleteForm() throws Exception {
-    EntityClient mockClient = mockEntityClient(null, null);
+    SystemEntityClient mockClient = mockEntityClient(null, null);
     FormService formService =
-        new FormService(mockOperationContext(), mockClient, Mockito.mock(OpenApiClient.class));
+        new FormService(mockClient, Mockito.mock(OpenApiClient.class), new ObjectMapper());
 
     // form type VERIFICATION
     Map<String, EnvelopedAspect> formInfoAspectMap =
         createFormInfoAspectMap(FormType.VERIFICATION, new FormActorAssignment());
     Mockito.when(
             mockClient.getV2(
-                Mockito.eq(TEST_FORM_URN.getEntityType()),
-                Mockito.eq(TEST_FORM_URN),
-                Mockito.eq(ImmutableSet.of(FORM_INFO_ASPECT_NAME)),
-                any(Authentication.class)))
+                any(OperationContext.class),
+                eq(TEST_FORM_URN.getEntityType()),
+                eq(TEST_FORM_URN),
+                eq(ImmutableSet.of(FORM_INFO_ASPECT_NAME))))
         .thenReturn(new EntityResponse().setAspects(new EnvelopedAspectMap(formInfoAspectMap)));
 
     // no completed forms
     Map<String, EnvelopedAspect> formsAspectMap = createFormsAspectMap(new ArrayList<>());
     Mockito.when(
             mockClient.getV2(
-                Mockito.eq(TEST_ENTITY_URN.getEntityType()),
-                Mockito.eq(TEST_ENTITY_URN),
-                Mockito.eq(ImmutableSet.of(FORMS_ASPECT_NAME)),
-                any(Authentication.class)))
+                any(OperationContext.class),
+                eq(TEST_ENTITY_URN.getEntityType()),
+                eq(TEST_ENTITY_URN),
+                eq(ImmutableSet.of(FORMS_ASPECT_NAME))))
         .thenReturn(new EntityResponse().setAspects(new EnvelopedAspectMap(formsAspectMap)));
 
     Assert.assertThrows(
         RuntimeException.class,
         () -> {
           formService.verifyFormForEntity(
-              TEST_FORM_URN, TEST_ENTITY_URN, mockSystemAuthentication(TEST_ACTOR_URN.toString()));
+              any(OperationContext.class), TEST_FORM_URN, TEST_ENTITY_URN);
         });
 
     Mockito.verify(mockClient, Mockito.times(0))
-        .ingestProposal(any(MetadataChangeProposal.class), any(Authentication.class));
+        .ingestProposal(any(OperationContext.class), any(MetadataChangeProposal.class));
   }
 
-  private EntityClient mockEntityClient(Forms existingForms, FormInfo form) throws Exception {
-    EntityClient mockClient = mock(EntityClient.class);
+  private SystemEntityClient mockEntityClient(Forms existingForms, FormInfo form) throws Exception {
+    SystemEntityClient mockClient = mock(SystemEntityClient.class);
 
-    Mockito.when(mockClient.exists(Mockito.eq(TEST_ENTITY_URN), any(Authentication.class)))
+    Mockito.when(mockClient.exists(any(OperationContext.class), eq(TEST_ENTITY_URN)))
         .thenReturn(true);
 
-    Mockito.when(mockClient.exists(Mockito.eq(TEST_FORM_URN), any(Authentication.class)))
+    Mockito.when(mockClient.exists(any(OperationContext.class), eq(TEST_FORM_URN)))
         .thenReturn(true);
 
     Mockito.when(
             mockClient.scrollAcrossEntities(
-                any(),
+                any(OperationContext.class),
                 anyList(),
                 anyString(),
                 nullable(Filter.class),
@@ -1437,19 +1454,19 @@ public class FormServiceTest {
 
     Mockito.when(
             mockClient.getV2(
-                Mockito.eq(DATASET_ENTITY_NAME),
-                Mockito.eq(TEST_ENTITY_URN),
-                Mockito.eq(ImmutableSet.of(FORMS_ASPECT_NAME)),
-                any(Authentication.class)))
+                any(OperationContext.class),
+                eq(DATASET_ENTITY_NAME),
+                eq(TEST_ENTITY_URN),
+                eq(ImmutableSet.of(FORMS_ASPECT_NAME))))
         .thenReturn(entityResponse);
 
     if (form != null) {
       Mockito.when(
               mockClient.getV2(
-                  Mockito.eq(FORM_ENTITY_NAME),
-                  Mockito.eq(TEST_FORM_URN),
-                  Mockito.eq(ImmutableSet.of(FORM_INFO_ASPECT_NAME)),
-                  any(Authentication.class)))
+                  any(OperationContext.class),
+                  eq(FORM_ENTITY_NAME),
+                  eq(TEST_FORM_URN),
+                  eq(ImmutableSet.of(FORM_INFO_ASPECT_NAME))))
           .thenReturn(
               new EntityResponse()
                   .setUrn(TEST_FORM_URN)

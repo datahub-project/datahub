@@ -76,10 +76,10 @@ public class EntityDataContractResolver implements DataFetcher<CompletableFuture
               // Step 2: Hydrate the contract entities based on the urns from step 1
               final EntityResponse entityResponse =
                   _entityClient.getV2(
+                      context.getOperationContext(),
                       Constants.DATA_CONTRACT_ENTITY_NAME,
                       contractUrn,
-                      null,
-                      context.getAuthentication());
+                      null);
 
               if (entityResponse != null) {
                 // Step 4: Package and return result

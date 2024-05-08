@@ -43,14 +43,15 @@ public class RejectProposalResolver implements DataFetcher<CompletableFuture<Boo
                     "Failed to reject proposal, Urn provided (%s) is not a valid actionRequest urn",
                     proposalUrn));
           }
-          if (!_entityService.exists(proposalUrn, true)) {
+          if (!_entityService.exists(context.getOperationContext(), proposalUrn, true)) {
             throw new RuntimeException(
                 String.format(
                     "Failed to reject proposal, proposal provided (%s) does not exist",
                     proposalUrn));
           }
 
-          Entity proposalEntity = _entityService.getEntity(proposalUrn, new HashSet<>());
+          Entity proposalEntity =
+              _entityService.getEntity(context.getOperationContext(), proposalUrn, new HashSet<>());
           ActionRequestSnapshot actionRequestSnapshot =
               proposalEntity.getValue().getActionRequestSnapshot();
           ActionRequest proposal =
@@ -89,31 +90,48 @@ public class RejectProposalResolver implements DataFetcher<CompletableFuture<Boo
               Urn tagUrn =
                   Urn.createFromString(proposal.getParams().getTagProposal().getTag().getUrn());
               ProposalUtils.deleteTagFromEntityOrSchemaProposalsAspect(
-                  actor, tagUrn, targetUrn, subResource, _entityService);
+                  context.getOperationContext(),
+                  actor,
+                  tagUrn,
+                  targetUrn,
+                  subResource,
+                  _entityService);
             } else if (proposal.getType().equals(ActionRequestType.TERM_ASSOCIATION)) {
               Urn targetUrn = Urn.createFromString(proposal.getEntity().getUrn());
               Urn termUrn =
                   Urn.createFromString(
                       proposal.getParams().getGlossaryTermProposal().getGlossaryTerm().getUrn());
               ProposalUtils.deleteTermFromEntityOrSchemaProposalsAspect(
-                  actor, termUrn, targetUrn, subResource, _entityService);
+                  context.getOperationContext(),
+                  actor,
+                  termUrn,
+                  targetUrn,
+                  subResource,
+                  _entityService);
             } else if (proposal.getType().equals(ActionRequestType.CREATE_GLOSSARY_NODE)) {
               boolean canManageGlossaries = GlossaryUtils.canManageGlossaries(context);
               if (!_proposalService.canResolveGlossaryNodeProposal(
-                  actor, actionRequestSnapshot, canManageGlossaries)) {
+                  context.getOperationContext(),
+                  actor,
+                  actionRequestSnapshot,
+                  canManageGlossaries)) {
                 throw new AuthorizationException(
                     "Unauthorized to perform this action. Please contact your DataHub administrator.");
               }
             } else if (proposal.getType().equals(ActionRequestType.CREATE_GLOSSARY_TERM)) {
               boolean canManageGlossaries = GlossaryUtils.canManageGlossaries(context);
               if (!_proposalService.canResolveGlossaryTermProposal(
-                  actor, actionRequestSnapshot, canManageGlossaries)) {
+                  context.getOperationContext(),
+                  actor,
+                  actionRequestSnapshot,
+                  canManageGlossaries)) {
                 throw new AuthorizationException(
                     "Unauthorized to perform this action. Please contact your DataHub administrator.");
               }
             }
 
             _proposalService.completeProposal(
+                context.getOperationContext(),
                 actor,
                 ActionRequestStatus.COMPLETED.toString(),
                 ActionRequestResult.REJECTED.toString(),

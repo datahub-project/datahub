@@ -73,6 +73,13 @@ public class MergedEntityRegistry implements EntityRegistry {
               validationResult.validationFailures.stream().collect(Collectors.joining("\n"))));
     }
 
+    // Merge Aspect Specs
+    // (Fixed issue where custom defined aspects are not included in the API specification.)
+    //
+    if (!patchEntityRegistry.getAspectSpecs().isEmpty()) {
+      _aspectNameToSpec.putAll(patchEntityRegistry.getAspectSpecs());
+    }
+
     // Merge Entity Specs
     for (Map.Entry<String, EntitySpec> e2Entry : patchEntityRegistry.getEntitySpecs().entrySet()) {
       if (entityNameToSpec.containsKey(e2Entry.getKey())) {

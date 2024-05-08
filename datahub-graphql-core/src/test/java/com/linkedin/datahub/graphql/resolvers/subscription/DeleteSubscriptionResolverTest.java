@@ -11,6 +11,7 @@ import com.linkedin.datahub.graphql.generated.DeleteSubscriptionInput;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.service.SubscriptionService;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.OperationContext;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -42,7 +43,8 @@ public class DeleteSubscriptionResolverTest {
 
   @Test
   public void testDeleteSubscriptionExceptionThrown() {
-    when(_subscriptionService.getSubscriptionInfo(eq(SUBSCRIPTION_URN_1), eq(_authentication)))
+    when(_subscriptionService.getSubscriptionInfo(
+            any(OperationContext.class), eq(SUBSCRIPTION_URN_1)))
         .thenThrow(new RuntimeException());
 
     assertThrows(() -> _resolver.get(_dataFetchingEnvironment).join());
@@ -54,7 +56,8 @@ public class DeleteSubscriptionResolverTest {
     when(_dataFetchingEnvironment.getContext()).thenReturn(mockContext);
     when(mockContext.getAuthentication()).thenReturn(_authentication);
     when(mockContext.getActorUrn()).thenReturn(USER_2_URN_STRING);
-    when(_subscriptionService.getSubscriptionInfo(eq(SUBSCRIPTION_URN_1), eq(_authentication)))
+    when(_subscriptionService.getSubscriptionInfo(
+            any(OperationContext.class), eq(SUBSCRIPTION_URN_1)))
         .thenReturn(SUBSCRIPTION_INFO_1);
 
     assertThrows(() -> _resolver.get(_dataFetchingEnvironment).join());
@@ -62,10 +65,12 @@ public class DeleteSubscriptionResolverTest {
 
   @Test
   public void testDeleteSubscription() throws Exception {
-    when(_subscriptionService.getSubscriptionInfo(eq(SUBSCRIPTION_URN_1), eq(_authentication)))
+    when(_subscriptionService.getSubscriptionInfo(
+            any(OperationContext.class), eq(SUBSCRIPTION_URN_1)))
         .thenReturn(SUBSCRIPTION_INFO_1);
 
     assertTrue(_resolver.get(_dataFetchingEnvironment).join());
-    verify(_entityClient, times(1)).deleteEntity(eq(SUBSCRIPTION_URN_1), eq(_authentication));
+    verify(_entityClient, times(1))
+        .deleteEntity(any(OperationContext.class), eq(SUBSCRIPTION_URN_1));
   }
 }

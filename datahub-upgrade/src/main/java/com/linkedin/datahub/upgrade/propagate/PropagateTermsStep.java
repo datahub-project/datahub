@@ -121,7 +121,7 @@ public class PropagateTermsStep implements UpgradeStep {
             Arrays.stream(allowedNodesStr.get().split(";")).collect(Collectors.toSet());
         TermFetcher termFetcher =
             new TermFetcher(systemOpContext, _entityService, _entitySearchService, allowedNodes);
-        allowedTerms = Optional.of(termFetcher.fetchAllowedTerms());
+        allowedTerms = Optional.of(termFetcher.fetchAllowedTerms(systemOpContext));
       } else {
         allowedTerms = Optional.empty();
       }
@@ -144,6 +144,7 @@ public class PropagateTermsStep implements UpgradeStep {
       Map<Urn, EntityDetails> sourceEntityDetails =
           _entityFetcher
               .fetchSchema(
+                  systemOpContext,
                   sourceSearchResults.getEntities().stream()
                       .map(SearchEntity::getEntity)
                       .collect(Collectors.toSet()))
@@ -311,7 +312,7 @@ public class PropagateTermsStep implements UpgradeStep {
     int numMatched = 0;
     int numProduced = 0;
 
-    Map<Urn, EntityDetails> entityDetails = _entityFetcher.fetchSchema(batch);
+    Map<Urn, EntityDetails> entityDetails = _entityFetcher.fetchSchema(systemOpContext, batch);
     for (Urn destUrn : entityDetails.keySet()) {
       EntityDetails destinationEntity = entityDetails.get(destUrn);
       EntityMatcher.EntityMatchResult matchResult =
@@ -546,6 +547,6 @@ public class PropagateTermsStep implements UpgradeStep {
         new SystemMetadata().setRunId(runId).setLastObserved(System.currentTimeMillis());
     proposal.setSystemMetadata(systemMetadata);
 
-    _entityService.ingestProposal(proposal, auditStamp, false);
+    _entityService.ingestProposal(systemOpContext, proposal, auditStamp, false);
   }
 }

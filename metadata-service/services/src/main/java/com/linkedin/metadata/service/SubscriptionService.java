@@ -4,13 +4,13 @@ import static com.linkedin.metadata.AcrylConstants.*;
 import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.metadata.entity.AspectUtils.*;
 
-import com.datahub.authentication.Authentication;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
 import com.linkedin.entity.EntityResponse;
-import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.entity.AspectUtils;
 import com.linkedin.metadata.key.SubscriptionKey;
 import com.linkedin.metadata.query.filter.Condition;
@@ -43,42 +43,23 @@ public class SubscriptionService extends BaseService {
   private static final Set<String> SUBSCRIPTION_ASPECTS =
       ImmutableSet.of(SUBSCRIPTION_INFO_ASPECT_NAME);
 
-  private final OperationContext systemOpContext;
-
   public SubscriptionService(
-      @Nonnull OperationContext systemOpContext,
-      @Nonnull EntityClient entityClient,
-      @Nonnull final OpenApiClient openApiClient) {
-    super(entityClient, systemOpContext.getSystemAuthentication().get(), openApiClient);
-    this.systemOpContext = systemOpContext;
+      @Nonnull SystemEntityClient entityClient,
+      @Nonnull final OpenApiClient openApiClient,
+      @Nonnull ObjectMapper objectMapper) {
+    super(entityClient, openApiClient, objectMapper);
   }
 
   @Nonnull
   public Map.Entry<Urn, SubscriptionInfo> createSubscription(
+      @Nonnull OperationContext opContext,
       @Nonnull final Urn actorUrn,
       @Nonnull final Urn entityUrn,
       @Nonnull final SubscriptionTypeArray subscriptionTypes,
       @Nonnull final EntityChangeDetailsArray entityChangeTypes,
       @Nullable final SubscriptionNotificationConfig notificationConfig) {
-    return createSubscription(
-        actorUrn,
-        entityUrn,
-        subscriptionTypes,
-        entityChangeTypes,
-        notificationConfig,
-        this.systemAuthentication);
-  }
-
-  @Nonnull
-  public Map.Entry<Urn, SubscriptionInfo> createSubscription(
-      @Nonnull final Urn actorUrn,
-      @Nonnull final Urn entityUrn,
-      @Nonnull final SubscriptionTypeArray subscriptionTypes,
-      @Nonnull final EntityChangeDetailsArray entityChangeTypes,
-      @Nullable final SubscriptionNotificationConfig notificationConfig,
-      @Nonnull final Authentication authentication) {
     try {
-      if (isActorSubscribed(entityUrn, actorUrn)) {
+      if (isActorSubscribed(opContext, entityUrn, actorUrn)) {
         throw new IllegalArgumentException(
             String.format(
                 "Failed to create new subscription! Actor %s is already subscribed to entity %s",
@@ -111,7 +92,7 @@ public class SubscriptionService extends BaseService {
               SUBSCRIPTION_INFO_ASPECT_NAME,
               subscriptionInfo);
       final String subscriptionUrnString =
-          this.entityClient.ingestProposal(proposal, authentication, false);
+          this.entityClient.ingestProposal(opContext, proposal, false);
       final Urn subscriptionUrn = Urn.createFromString(subscriptionUrnString);
 
       return Map.entry(subscriptionUrn, subscriptionInfo);
@@ -123,19 +104,22 @@ public class SubscriptionService extends BaseService {
     }
   }
 
-  public boolean isActorSubscribed(@Nonnull final Urn entityUrn, @Nonnull final Urn actorUrn) {
+  public boolean isActorSubscribed(
+      @Nonnull OperationContext opContext,
+      @Nonnull final Urn entityUrn,
+      @Nonnull final Urn actorUrn) {
     try {
-      if (!this.entityClient.exists(entityUrn, this.systemAuthentication)) {
+      if (!this.entityClient.exists(opContext, entityUrn)) {
         throw new RuntimeException(String.format("Entity %s does not exist", entityUrn));
       }
 
-      if (!this.entityClient.exists(actorUrn, this.systemAuthentication)) {
+      if (!this.entityClient.exists(opContext, actorUrn)) {
         throw new RuntimeException(String.format("Actor %s does not exist", actorUrn));
       }
 
       final Filter filter = buildGetSubscriptionFilter(entityUrn, actorUrn);
       final SearchResult searchResult =
-          this.entityClient.filter(systemOpContext, SUBSCRIPTION_ENTITY_NAME, filter, null, 0, 1);
+          this.entityClient.filter(opContext, SUBSCRIPTION_ENTITY_NAME, filter, null, 0, 1);
 
       return searchResult.hasEntities() && !searchResult.getEntities().isEmpty();
     } catch (Exception e) {
@@ -147,23 +131,23 @@ public class SubscriptionService extends BaseService {
   }
 
   public boolean isAnyGroupSubscribed(
+      @Nonnull OperationContext opContext,
       @Nonnull final Urn entityUrn,
-      @Nonnull final List<Urn> groupUrns,
-      @Nonnull final Authentication authentication) {
+      @Nonnull final List<Urn> groupUrns) {
     try {
-      if (!this.entityClient.exists(entityUrn, authentication)) {
+      if (!this.entityClient.exists(opContext, entityUrn)) {
         throw new RuntimeException(String.format("Entity %s does not exist", entityUrn));
       }
 
       for (Urn groupUrn : groupUrns) {
-        if (!this.entityClient.exists(groupUrn, authentication)) {
+        if (!this.entityClient.exists(opContext, groupUrn)) {
           throw new RuntimeException(String.format("Group %s does not exist", groupUrn));
         }
       }
 
       final Filter filter = buildIsAnyGroupSubscribedFilter(entityUrn, groupUrns);
       final SearchResult searchResult =
-          this.entityClient.filter(systemOpContext, SUBSCRIPTION_ENTITY_NAME, filter, null, 0, 1);
+          this.entityClient.filter(opContext, SUBSCRIPTION_ENTITY_NAME, filter, null, 0, 1);
 
       return searchResult.hasEntities() && !searchResult.getEntities().isEmpty();
     } catch (Exception e) {
@@ -176,21 +160,21 @@ public class SubscriptionService extends BaseService {
 
   @Nullable
   public Map.Entry<Urn, SubscriptionInfo> getSubscription(
+      @Nonnull OperationContext opContext,
       @Nonnull final Urn entityUrn,
-      @Nonnull final Urn actorUrn,
-      @Nonnull final Authentication authentication) {
+      @Nonnull final Urn actorUrn) {
     try {
-      if (!this.entityClient.exists(entityUrn, authentication)) {
+      if (!this.entityClient.exists(opContext, entityUrn)) {
         throw new RuntimeException(String.format("Entity %s does not exist", entityUrn));
       }
 
-      if (!this.entityClient.exists(actorUrn, authentication)) {
+      if (!this.entityClient.exists(opContext, actorUrn)) {
         throw new RuntimeException(String.format("Actor %s does not exist", actorUrn));
       }
 
       final Filter filter = buildGetSubscriptionFilter(entityUrn, actorUrn);
       final SearchResult searchResult =
-          this.entityClient.filter(systemOpContext, SUBSCRIPTION_ENTITY_NAME, filter, null, 0, 1);
+          this.entityClient.filter(opContext, SUBSCRIPTION_ENTITY_NAME, filter, null, 0, 1);
 
       if (!searchResult.hasEntities() || searchResult.getEntities().isEmpty()) {
         return null;
@@ -198,8 +182,7 @@ public class SubscriptionService extends BaseService {
 
       final Urn subscriptionUrn = searchResult.getEntities().get(0).getEntity();
 
-      final SubscriptionInfo subscriptionInfo =
-          getSubscriptionInfo(subscriptionUrn, authentication);
+      final SubscriptionInfo subscriptionInfo = getSubscriptionInfo(opContext, subscriptionUrn);
 
       return Map.entry(subscriptionUrn, subscriptionInfo);
     } catch (Exception e) {
@@ -212,16 +195,16 @@ public class SubscriptionService extends BaseService {
 
   @Nonnull
   public SubscriptionInfo getSubscriptionInfo(
-      @Nonnull final Urn subscriptionUrn, @Nonnull final Authentication authentication) {
+      @Nonnull OperationContext opContext, @Nonnull final Urn subscriptionUrn) {
     try {
-      if (!this.entityClient.exists(subscriptionUrn, authentication)) {
+      if (!this.entityClient.exists(opContext, subscriptionUrn)) {
         throw new RuntimeException(
             String.format("Subscription %s does not exist", subscriptionUrn));
       }
 
       final EntityResponse entityResponse =
           this.entityClient.getV2(
-              SUBSCRIPTION_ENTITY_NAME, subscriptionUrn, SUBSCRIPTION_ASPECTS, authentication);
+              opContext, SUBSCRIPTION_ENTITY_NAME, subscriptionUrn, SUBSCRIPTION_ASPECTS);
 
       if (entityResponse == null) {
         throw new RuntimeException(
@@ -238,15 +221,15 @@ public class SubscriptionService extends BaseService {
 
   @Nonnull
   public Map.Entry<Urn, SubscriptionInfo> updateSubscription(
+      @Nonnull OperationContext opContext,
       @Nonnull final Urn actorUrn,
       @Nonnull final Urn subscriptionUrn,
       @Nonnull final SubscriptionInfo subscriptionInfo,
       @Nullable final SubscriptionTypeArray subscriptionTypes,
       @Nullable final EntityChangeDetailsArray entityChangeTypes,
-      @Nullable final SubscriptionNotificationConfig notificationConfig,
-      @Nonnull final Authentication authentication) {
+      @Nullable final SubscriptionNotificationConfig notificationConfig) {
     try {
-      if (!this.entityClient.exists(subscriptionUrn, authentication)) {
+      if (!this.entityClient.exists(opContext, subscriptionUrn)) {
         throw new RuntimeException(
             String.format("Subscription %s does not exist", subscriptionUrn));
       }
@@ -270,7 +253,7 @@ public class SubscriptionService extends BaseService {
       final MetadataChangeProposal proposal =
           buildMetadataChangeProposal(
               subscriptionUrn, SUBSCRIPTION_INFO_ASPECT_NAME, subscriptionInfo);
-      this.entityClient.ingestProposal(proposal, authentication, false);
+      this.entityClient.ingestProposal(opContext, proposal, false);
 
       return Map.entry(subscriptionUrn, subscriptionInfo);
     } catch (Exception e) {
@@ -281,17 +264,17 @@ public class SubscriptionService extends BaseService {
 
   @Nonnull
   public SearchResult getSubscriptionsSearchResult(
+      @Nonnull OperationContext opContext,
       @Nonnull final Urn actorUrn,
       final int start,
-      final int count,
-      @Nonnull final Authentication authentication) {
+      final int count) {
     try {
-      if (!this.entityClient.exists(actorUrn, authentication)) {
+      if (!this.entityClient.exists(opContext, actorUrn)) {
         throw new RuntimeException(String.format("Actor %s does not exist", actorUrn));
       }
       final Filter filter = buildListSubscriptionsFilter(actorUrn);
       return this.entityClient.filter(
-          systemOpContext, SUBSCRIPTION_ENTITY_NAME, filter, null, start, count);
+          opContext, SUBSCRIPTION_ENTITY_NAME, filter, null, start, count);
 
     } catch (Exception e) {
       throw new RuntimeException("Failed to search for subscriptions", e);
@@ -300,7 +283,7 @@ public class SubscriptionService extends BaseService {
 
   @Nonnull
   public Map<Urn, SubscriptionInfo> listSubscriptions(
-      @Nonnull final SearchResult searchResult, @Nonnull final Authentication authentication) {
+      @Nonnull OperationContext opContext, @Nonnull final SearchResult searchResult) {
     try {
       final Set<Urn> subscriptionUrns =
           searchResult.getEntities().stream()
@@ -313,7 +296,7 @@ public class SubscriptionService extends BaseService {
 
       final Map<Urn, EntityResponse> entityResponseMap =
           this.entityClient.batchGetV2(
-              SUBSCRIPTION_ENTITY_NAME, subscriptionUrns, SUBSCRIPTION_ASPECTS, authentication);
+              opContext, SUBSCRIPTION_ENTITY_NAME, subscriptionUrns, SUBSCRIPTION_ASPECTS);
 
       final Map<Urn, DataMap> subscriptionInfoMap =
           AspectUtils.getDataMapsFromEntityResponseMap(
@@ -328,11 +311,11 @@ public class SubscriptionService extends BaseService {
   }
 
   public int getNumUserSubscriptionsForEntity(
+      @Nonnull OperationContext opContext,
       @Nonnull final Urn entityUrn,
-      @Nonnull final Integer numMaxSubscriptions,
-      @Nonnull final Authentication authentication) {
+      @Nonnull final Integer numMaxSubscriptions) {
     try {
-      if (!this.entityClient.exists(entityUrn, authentication)) {
+      if (!this.entityClient.exists(opContext, entityUrn)) {
         throw new RuntimeException(String.format("Entity %s does not exist", entityUrn));
       }
 
@@ -340,7 +323,7 @@ public class SubscriptionService extends BaseService {
           buildGetActorSubscriptionsForEntityFilter(entityUrn, CORP_USER_ENTITY_NAME);
       final SearchResult searchResult =
           this.entityClient.filter(
-              systemOpContext, SUBSCRIPTION_ENTITY_NAME, filter, null, 0, numMaxSubscriptions);
+              opContext, SUBSCRIPTION_ENTITY_NAME, filter, null, 0, numMaxSubscriptions);
 
       return searchResult.hasEntities() ? searchResult.getEntities().size() : 0;
     } catch (Exception e) {
@@ -350,11 +333,11 @@ public class SubscriptionService extends BaseService {
   }
 
   public int getNumGroupSubscriptionsForEntity(
+      @Nonnull OperationContext opContext,
       @Nonnull final Urn entityUrn,
-      @Nonnull final Integer numMaxSubscriptions,
-      @Nonnull final Authentication authentication) {
+      @Nonnull final Integer numMaxSubscriptions) {
     try {
-      if (!this.entityClient.exists(entityUrn, authentication)) {
+      if (!this.entityClient.exists(opContext, entityUrn)) {
         throw new RuntimeException(String.format("Entity %s does not exist", entityUrn));
       }
 
@@ -362,7 +345,7 @@ public class SubscriptionService extends BaseService {
           buildGetActorSubscriptionsForEntityFilter(entityUrn, CORP_GROUP_ENTITY_NAME);
       final SearchResult searchResult =
           this.entityClient.filter(
-              systemOpContext, SUBSCRIPTION_ENTITY_NAME, filter, null, 0, numMaxSubscriptions);
+              opContext, SUBSCRIPTION_ENTITY_NAME, filter, null, 0, numMaxSubscriptions);
 
       return searchResult.hasEntities() ? searchResult.getEntities().size() : 0;
     } catch (Exception e) {
@@ -373,11 +356,11 @@ public class SubscriptionService extends BaseService {
 
   @Nonnull
   public List<Urn> getGroupSubscribersForEntity(
+      @Nonnull OperationContext opContext,
       @Nonnull final Urn entityUrn,
-      @Nonnull final Integer numExampleGroups,
-      @Nonnull final Authentication authentication) {
+      @Nonnull final Integer numExampleGroups) {
     try {
-      if (!this.entityClient.exists(entityUrn, authentication)) {
+      if (!this.entityClient.exists(opContext, entityUrn)) {
         throw new RuntimeException(String.format("Entity %s does not exist", entityUrn));
       }
 
@@ -385,7 +368,7 @@ public class SubscriptionService extends BaseService {
           buildGetActorSubscriptionsForEntityFilter(entityUrn, CORP_GROUP_ENTITY_NAME);
       final SearchResult searchResult =
           this.entityClient.filter(
-              systemOpContext, SUBSCRIPTION_ENTITY_NAME, filter, null, 0, numExampleGroups);
+              opContext, SUBSCRIPTION_ENTITY_NAME, filter, null, 0, numExampleGroups);
 
       final Set<Urn> subscriptionUrns =
           searchResult.getEntities().stream()
@@ -394,7 +377,7 @@ public class SubscriptionService extends BaseService {
 
       final Map<Urn, EntityResponse> entityResponseMap =
           this.entityClient.batchGetV2(
-              SUBSCRIPTION_ENTITY_NAME, subscriptionUrns, SUBSCRIPTION_ASPECTS, authentication);
+              opContext, SUBSCRIPTION_ENTITY_NAME, subscriptionUrns, SUBSCRIPTION_ASPECTS);
 
       final Map<Urn, DataMap> subscriptionInfoMap =
           AspectUtils.getDataMapsFromEntityResponseMap(

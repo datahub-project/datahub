@@ -22,6 +22,7 @@ import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.test.TestDefinition;
 import com.linkedin.test.TestDefinitionType;
 import com.linkedin.test.TestInfo;
+import io.datahubproject.metadata.context.OperationContext;
 import java.io.File;
 import java.io.IOException;
 import java.net.URISyntaxException;
@@ -45,7 +46,7 @@ import org.springframework.core.io.ClassPathResource;
 @RequiredArgsConstructor
 public class IngestMetadataTestsStep implements BootstrapStep {
 
-  private final EntityService _entityService;
+  private final EntityService<?> _entityService;
   private final boolean _enableMetadataTestBootstrap;
 
   private static final ObjectMapper YAML_MAPPER = new ObjectMapper(new YAMLFactory());
@@ -79,8 +80,8 @@ public class IngestMetadataTestsStep implements BootstrapStep {
   }
 
   @Override
-  public void execute() throws IOException, URISyntaxException {
-    if (_entityService.exists(UPGRADE_ID_URN, true)) {
+  public void execute(@Nonnull OperationContext opContext) throws IOException, URISyntaxException {
+    if (_entityService.exists(opContext, UPGRADE_ID_URN, true)) {
       log.info("Default metadata tests were already ingested. Skipping ingesting again.");
       return;
     }
@@ -100,30 +101,31 @@ public class IngestMetadataTestsStep implements BootstrapStep {
     log.info("Ingesting {} tests", metadataTestsMap.size());
     int numIngested = 0;
     for (Urn testUrn : metadataTestsMap.keySet()) {
-      if (!hasTest(testUrn)) {
-        ingestMetadataTest(testUrn, metadataTestsMap.get(testUrn));
+      if (!hasTest(opContext, testUrn)) {
+        ingestMetadataTest(opContext, testUrn, metadataTestsMap.get(testUrn));
         numIngested++;
       }
     }
     log.info("Ingested {} new tests", numIngested);
   }
 
-  private boolean hasTest(Urn testUrn) {
+  private boolean hasTest(@Nonnull OperationContext opContext, Urn testUrn) {
     // Check if test exists
     try {
       RecordTemplate aspect =
           _entityService.getLatestEnvelopedAspect(
-              Constants.TEST_ENTITY_NAME, testUrn, Constants.TEST_INFO_ASPECT_NAME);
+              opContext, Constants.TEST_ENTITY_NAME, testUrn, Constants.TEST_INFO_ASPECT_NAME);
       return aspect != null;
     } catch (Exception e) {
       return false;
     }
   }
 
-  private void ingestMetadataTest(final Urn testUrn, final TestInfo testInfo) {
+  private void ingestMetadataTest(
+      @Nonnull OperationContext opContext, final Urn testUrn, final TestInfo testInfo) {
     // 3. Write key & aspect
     final MetadataChangeProposal keyAspectProposal = new MetadataChangeProposal();
-    final AspectSpec keyAspectSpec = _entityService.getKeyAspectSpec(testUrn);
+    final AspectSpec keyAspectSpec = opContext.getEntityRegistryContext().getKeyAspectSpec(testUrn);
     GenericAspect aspect =
         GenericRecordUtils.serializeAspect(
             EntityKeyUtils.convertUrnToEntityKey(testUrn, keyAspectSpec));
@@ -134,6 +136,7 @@ public class IngestMetadataTestsStep implements BootstrapStep {
     keyAspectProposal.setEntityUrn(testUrn);
 
     _entityService.ingestProposal(
+        opContext,
         keyAspectProposal,
         new AuditStamp()
             .setActor(UrnUtils.getUrn(SYSTEM_ACTOR))
@@ -148,6 +151,7 @@ public class IngestMetadataTestsStep implements BootstrapStep {
     proposal.setChangeType(ChangeType.UPSERT);
 
     _entityService.ingestProposal(
+        opContext,
         proposal,
         new AuditStamp()
             .setActor(UrnUtils.getUrn(SYSTEM_ACTOR))

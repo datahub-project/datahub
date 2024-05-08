@@ -21,27 +21,24 @@ import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.neo4j.Neo4jGraphService;
 import com.linkedin.metadata.key.DataHubRoleKey;
-import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
-import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistryException;
 import com.linkedin.metadata.models.registry.LineageRegistry;
-import com.linkedin.metadata.models.registry.MergedEntityRegistry;
 import com.linkedin.metadata.models.registry.SnapshotEntityRegistry;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.EntityIndexBuilders;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.service.UpdateIndicesService;
-import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.policy.DataHubRoleInfo;
+import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.services.SecretService;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import io.datahubproject.test.util.EbeanTestUtils;
 import io.datahubproject.test.util.Neo4jTestServerBuilder;
-import io.datahubproject.test.util.TestEntityRegistry;
 import io.ebean.Database;
 import java.io.IOException;
 import java.net.URISyntaxException;
@@ -58,6 +55,7 @@ import org.apache.directory.scim.spec.resources.ScimResource;
 import org.apache.directory.scim.spec.schema.ServiceProviderConfiguration;
 import org.neo4j.driver.Driver;
 import org.neo4j.driver.GraphDatabase;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -103,6 +101,12 @@ public class ScimpleSpringTestApp {
     return registry;
   }
 
+  @Bean("systemOperationContext")
+  @ConditionalOnMissingBean
+  OperationContext systemOperationContext() {
+    return TestOperationContexts.systemContextNoSearchAuthorization();
+  }
+
   @Bean
   @ConditionalOnMissingBean
   EtagGenerator etagGenerator() {
@@ -131,7 +135,10 @@ public class ScimpleSpringTestApp {
 
   @Bean
   @ConditionalOnMissingBean
-  EntityService entityService(Database server, GraphService graphService)
+  EntityService<?> entityService(
+      Database server,
+      GraphService graphService,
+      @Qualifier("systemOperationContext") OperationContext systemOperationContext)
       throws EntityRegistryException, IOException, URISyntaxException {
 
     EbeanAspectDao _aspectDao = new EbeanAspectDao(server, EbeanConfiguration.testDefault);
@@ -150,7 +157,7 @@ public class ScimpleSpringTestApp {
         .thenAnswer(
             x -> {
               MetadataChangeLog mcl = x.getArgument(2);
-              updateIndicesService.handleChangeEvent(mcl);
+              updateIndicesService.handleChangeEvent(systemOperationContext, mcl);
               return null;
             });
 
@@ -158,18 +165,8 @@ public class ScimpleSpringTestApp {
 
     preProcessHooks.setUiEnabled(true);
 
-    EntityRegistry _configEntityRegistry =
-        new ConfigEntityRegistry(
-            Snapshot.class.getClassLoader().getResourceAsStream("entity-registry.yml"));
-
-    EntityRegistry _snapshotEntityRegistry = new TestEntityRegistry();
-
-    EntityRegistry _testEntityRegistry =
-        new MergedEntityRegistry(_snapshotEntityRegistry).apply(_configEntityRegistry);
-
     EntityServiceImpl _entityServiceImpl =
-        new EntityServiceImpl(
-            _aspectDao, _mockProducer, _testEntityRegistry, true, preProcessHooks, true);
+        new EntityServiceImpl(_aspectDao, _mockProducer, true, preProcessHooks, true);
 
     _entityServiceImpl.setUpdateIndicesService(updateIndicesService);
 
@@ -180,10 +177,11 @@ public class ScimpleSpringTestApp {
 
     _entityServiceImpl.setUpdateIndicesService(updateIndicesService);
 
-    ingestSystemRoles(_entityServiceImpl);
+    ingestSystemRoles(systemOperationContext, _entityServiceImpl);
     try {
       System.out.println(
           _entityServiceImpl.getLatestAspects(
+              systemOperationContext,
               ImmutableSet.of(
                   Urn.createFromString("urn:li:dataHubRole:Admin"),
                   Urn.createFromString("urn:li:dataHubRole:Editor"),
@@ -196,7 +194,8 @@ public class ScimpleSpringTestApp {
     return _entityServiceImpl;
   }
 
-  private static void ingestSystemRoles(EntityServiceImpl _entityServiceImpl)
+  private static void ingestSystemRoles(
+      OperationContext opContext, EntityServiceImpl _entityServiceImpl)
       throws IOException, URISyntaxException {
     final ObjectMapper mapper = new ObjectMapper();
     final JsonNode rolesObj = mapper.readTree(new ClassPathResource("./roles.json").getFile());
@@ -220,7 +219,7 @@ public class ScimpleSpringTestApp {
       keyAspectProposal.setAspectName("dataHubRoleKey");
       keyAspectProposal.setAspect(GenericRecordUtils.serializeAspect(roleKey));
       keyAspectProposal.setChangeType(ChangeType.UPSERT);
-      _entityServiceImpl.ingestProposal(keyAspectProposal, auditStamp, false);
+      _entityServiceImpl.ingestProposal(opContext, keyAspectProposal, auditStamp, false);
 
       MetadataChangeProposal proposal = new MetadataChangeProposal();
       proposal.setEntityUrn(roleUrn);
@@ -228,7 +227,7 @@ public class ScimpleSpringTestApp {
       proposal.setAspectName(DATAHUB_ROLE_INFO_ASPECT_NAME);
       proposal.setAspect(GenericRecordUtils.serializeAspect(roleInfo));
       proposal.setChangeType(ChangeType.UPSERT);
-      _entityServiceImpl.ingestProposal(proposal, auditStamp, false);
+      _entityServiceImpl.ingestProposal(opContext, proposal, auditStamp, false);
     }
   }
 

@@ -1,14 +1,21 @@
 package com.linkedin.metadata.resources.test;
 
+import static com.datahub.authorization.AuthUtil.isAPIAuthorized;
+import static com.linkedin.metadata.authorization.PoliciesConfig.MANAGE_TESTS_PRIVILEGE;
 import static com.linkedin.metadata.resources.restli.RestliConstants.PARAM_URN;
 import static com.linkedin.metadata.resources.restli.RestliConstants.PARAM_URNS;
 
 import com.codahale.metrics.MetricRegistry;
+import com.datahub.authentication.Authentication;
+import com.datahub.authentication.AuthenticationContext;
+import com.datahub.plugins.auth.authorization.Authorizer;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.restli.RestliUtil;
 import com.linkedin.metadata.test.TestEngine;
 import com.linkedin.parseq.Task;
+import com.linkedin.restli.common.HttpStatus;
+import com.linkedin.restli.server.RestLiServiceException;
 import com.linkedin.restli.server.annotations.Action;
 import com.linkedin.restli.server.annotations.ActionParam;
 import com.linkedin.restli.server.annotations.Optional;
@@ -18,9 +25,12 @@ import com.linkedin.test.BatchedTestResults;
 import com.linkedin.test.TestInfo;
 import com.linkedin.test.TestResults;
 import com.linkedin.test.TestResultsMap;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.RequestContext;
 import io.opentelemetry.extension.annotations.WithSpan;
 import java.net.URISyntaxException;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -44,6 +54,14 @@ public class MetadataTestResource extends SimpleResourceTaskTemplate<TestInfo> {
   @Named("testEngine")
   private TestEngine _testEngine;
 
+    @Inject
+    @Named("systemOperationContext")
+    private OperationContext systemOperationContext;
+
+    @Inject
+    @Named("authorizerChain")
+    private Authorizer _authorizer;
+
   @Action(name = ACTION_EVALUATE)
   @Nonnull
   @WithSpan
@@ -60,14 +78,27 @@ public class MetadataTestResource extends SimpleResourceTaskTemplate<TestInfo> {
             : Arrays.stream(testUrns).map(UrnUtils::getUrn).collect(Collectors.toSet());
     return RestliUtil.toTask(
         () -> {
-          if (tests == null) {
-            return _testEngine.evaluateTests(
+
+            Authentication auth = AuthenticationContext.getAuthentication();
+            if (!isAPIAuthorized(
+                    auth,
+                    _authorizer,
+                    MANAGE_TESTS_PRIVILEGE)) {
+                throw new RestLiServiceException(
+                        HttpStatus.S_403_FORBIDDEN, "User is unauthorized for tests");
+            }
+
+            final OperationContext opContext = OperationContext.asSession(
+                    systemOperationContext, RequestContext.builder().buildRestli(ACTION_EVALUATE, List.of()), _authorizer, auth, true);
+
+            if (tests == null) {
+            return _testEngine.evaluateTests(opContext,
                 urn,
                 shouldPush != null && shouldPush
                     ? TestEngine.EvaluationMode.DEFAULT
                     : TestEngine.EvaluationMode.EVALUATE_ONLY);
           }
-          return _testEngine.evaluateTestUrns(
+          return _testEngine.evaluateTestUrns(opContext,
               urn,
               tests,
               shouldPush != null && shouldPush
@@ -95,10 +126,24 @@ public class MetadataTestResource extends SimpleResourceTaskTemplate<TestInfo> {
             : Arrays.stream(testUrns).map(UrnUtils::getUrn).collect(Collectors.toSet());
     return RestliUtil.toTask(
         () -> {
-          BatchedTestResults results = new BatchedTestResults().setResults(new TestResultsMap());
+
+            Authentication auth = AuthenticationContext.getAuthentication();
+            if (!isAPIAuthorized(
+                    auth,
+                    _authorizer,
+                    MANAGE_TESTS_PRIVILEGE)) {
+                throw new RestLiServiceException(
+                        HttpStatus.S_403_FORBIDDEN, "User is unauthorized for tests");
+            }
+
+            final OperationContext opContext = OperationContext.asSession(
+                    systemOperationContext, RequestContext.builder().buildRestli(ACTION_EVALUATE, List.of()), _authorizer, auth, true);
+
+
+            BatchedTestResults results = new BatchedTestResults().setResults(new TestResultsMap());
           if (tests == null) {
             _testEngine
-                .evaluateTests(
+                .evaluateTests(opContext,
                     urns,
                     shouldPush != null && shouldPush
                         ? TestEngine.EvaluationMode.DEFAULT
@@ -106,7 +151,7 @@ public class MetadataTestResource extends SimpleResourceTaskTemplate<TestInfo> {
                 .forEach((urn, result) -> results.getResults().put(urn.toString(), result));
           } else {
             _testEngine
-                .evaluateTestUrns(
+                .evaluateTestUrns(opContext,
                     urns,
                     tests,
                     shouldPush != null && shouldPush
@@ -129,8 +174,21 @@ public class MetadataTestResource extends SimpleResourceTaskTemplate<TestInfo> {
     log.info("Evaluate single test called with urn: {}, shouldPush: {}", testUrnStr, shouldPush);
     final Urn testUrn = Urn.createFromString(testUrnStr);
     return RestliUtil.toTask(() -> {
-          TestResultsMap testResultsMap = new TestResultsMap();
-          _testEngine.evaluateSingleTest(testUrn,
+
+        Authentication auth = AuthenticationContext.getAuthentication();
+        if (!isAPIAuthorized(
+                auth,
+                _authorizer,
+                MANAGE_TESTS_PRIVILEGE)) {
+            throw new RestLiServiceException(
+                    HttpStatus.S_403_FORBIDDEN, "User is unauthorized for tests");
+        }
+
+        final OperationContext opContext = OperationContext.asSession(
+                systemOperationContext, RequestContext.builder().buildRestli(ACTION_EVALUATE, List.of()), _authorizer, auth, true);
+
+        TestResultsMap testResultsMap = new TestResultsMap();
+          _testEngine.evaluateSingleTest(opContext, testUrn,
               shouldPush != null && shouldPush ? TestEngine.EvaluationMode.DEFAULT
                   : TestEngine.EvaluationMode.EVALUATE_ONLY)
               .forEach((urn, result) -> testResultsMap.put(urn.toString(), result));

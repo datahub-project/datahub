@@ -12,7 +12,6 @@ import com.linkedin.metadata.dao.producer.KafkaHealthChecker;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.kafka.hook.notification.incident.IncidentNotificationGenerator;
-import com.linkedin.metadata.spring.YamlPropertySourceFactory;
 import io.datahubproject.metadata.context.OperationContext;
 import javax.annotation.Nonnull;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -20,8 +19,6 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
-import org.springframework.context.annotation.PropertySource;
-import org.springframework.context.annotation.Scope;
 
 @Configuration
 @Import({
@@ -31,7 +28,6 @@ import org.springframework.context.annotation.Scope;
   KafkaHealthChecker.class,
   NotificationRecipientBuildersFactory.class
 })
-@PropertySource(value = "classpath:/application.yml", factory = YamlPropertySourceFactory.class)
 public class IncidentNotificationGeneratorFactory {
 
   @Autowired
@@ -55,7 +51,6 @@ public class IncidentNotificationGeneratorFactory {
   private ConfigurationProvider _configProvider;
 
   @Bean(name = "incidentNotificationGenerator")
-  @Scope("singleton")
   @Nonnull
   protected IncidentNotificationGenerator getInstance(
       @Qualifier("systemOperationContext") OperationContext systemOpContext,

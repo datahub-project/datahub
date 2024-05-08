@@ -1,9 +1,6 @@
 package com.linkedin.gms.factory.kafka;
 
 import com.linkedin.gms.factory.config.ConfigurationProvider;
-import com.linkedin.gms.factory.kafka.schemaregistry.AwsGlueSchemaRegistryFactory;
-import com.linkedin.gms.factory.kafka.schemaregistry.InternalSchemaRegistryFactory;
-import com.linkedin.gms.factory.kafka.schemaregistry.KafkaSchemaRegistryFactory;
 import com.linkedin.gms.factory.kafka.schemaregistry.SchemaRegistryConfig;
 import com.linkedin.metadata.config.kafka.KafkaConfiguration;
 import java.time.Duration;
@@ -17,7 +14,6 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.kafka.KafkaProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Import;
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
 import org.springframework.kafka.config.KafkaListenerContainerFactory;
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
@@ -29,11 +25,6 @@ import org.springframework.kafka.support.serializer.ErrorHandlingDeserializer;
 
 @Slf4j
 @Configuration
-@Import({
-  KafkaSchemaRegistryFactory.class,
-  AwsGlueSchemaRegistryFactory.class,
-  InternalSchemaRegistryFactory.class
-})
 public class KafkaEventConsumerFactory {
 
   private int kafkaEventConsumerConcurrency;

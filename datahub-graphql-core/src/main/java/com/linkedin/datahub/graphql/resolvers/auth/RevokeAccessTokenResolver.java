@@ -63,10 +63,10 @@ public class RevokeAccessTokenResolver implements DataFetcher<CompletableFuture<
     try {
       final EntityResponse entityResponse =
           _entityClient.getV2(
+              context.getOperationContext(),
               Constants.ACCESS_TOKEN_ENTITY_NAME,
               Urn.createFromTuple(Constants.ACCESS_TOKEN_ENTITY_NAME, tokenId),
-              ImmutableSet.of(Constants.ACCESS_TOKEN_INFO_NAME),
-              context.getAuthentication());
+              ImmutableSet.of(Constants.ACCESS_TOKEN_INFO_NAME));
 
       if (entityResponse != null
           && entityResponse.getAspects().containsKey(Constants.ACCESS_TOKEN_INFO_NAME)) {

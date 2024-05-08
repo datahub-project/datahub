@@ -1,9 +1,10 @@
 package com.linkedin.datahub.graphql.resolvers.ingest.execution;
 
 import static com.linkedin.datahub.graphql.resolvers.ingest.IngestTestUtils.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.testng.Assert.*;
 
-import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -33,10 +34,10 @@ public class CancelIngestionExecutionRequestResolverTest {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     Mockito.when(
             mockClient.batchGetV2(
+                any(),
                 Mockito.eq(Constants.INGESTION_SOURCE_ENTITY_NAME),
                 Mockito.eq(new HashSet<>(ImmutableSet.of(TEST_INGESTION_SOURCE_URN))),
-                Mockito.eq(ImmutableSet.of(Constants.INGESTION_INFO_ASPECT_NAME)),
-                Mockito.any(Authentication.class)))
+                Mockito.eq(ImmutableSet.of(Constants.INGESTION_INFO_ASPECT_NAME))))
         .thenReturn(
             ImmutableMap.of(
                 TEST_INGESTION_SOURCE_URN,
@@ -62,10 +63,7 @@ public class CancelIngestionExecutionRequestResolverTest {
 
     // Verify ingest proposal has been called to create a Signal request.
     Mockito.verify(mockClient, Mockito.times(1))
-        .ingestProposal(
-            Mockito.any(MetadataChangeProposal.class),
-            Mockito.any(Authentication.class),
-            Mockito.eq(false));
+        .ingestProposal(any(), Mockito.any(MetadataChangeProposal.class), Mockito.eq(false));
   }
 
   @Test
@@ -82,8 +80,7 @@ public class CancelIngestionExecutionRequestResolverTest {
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
     assertThrows(RuntimeException.class, () -> resolver.get(mockEnv).join());
-    Mockito.verify(mockClient, Mockito.times(0))
-        .ingestProposal(Mockito.any(), Mockito.any(Authentication.class));
+    Mockito.verify(mockClient, Mockito.times(0)).ingestProposal(any(), Mockito.any(), anyBoolean());
   }
 
   @Test
@@ -92,7 +89,7 @@ public class CancelIngestionExecutionRequestResolverTest {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     Mockito.doThrow(RemoteInvocationException.class)
         .when(mockClient)
-        .ingestProposal(Mockito.any(), Mockito.any(Authentication.class));
+        .ingestProposal(any(), Mockito.any(), anyBoolean());
     CancelIngestionExecutionRequestResolver resolver =
         new CancelIngestionExecutionRequestResolver(mockClient);
 

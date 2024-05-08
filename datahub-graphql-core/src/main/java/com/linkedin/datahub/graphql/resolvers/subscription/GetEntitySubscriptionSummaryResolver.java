@@ -49,26 +49,27 @@ public class GetEntitySubscriptionSummaryResolver
 
             final EntitySubscriptionSummary summary = new EntitySubscriptionSummary();
             summary.setIsUserSubscribed(
-                _subscriptionService.isActorSubscribed(entityUrn, actorUrn));
+                _subscriptionService.isActorSubscribed(
+                    context.getOperationContext(), entityUrn, actorUrn));
 
             final List<Urn> userGroupUrns =
-                _groupService.getGroupsForUser(actorUrn, authentication);
+                _groupService.getGroupsForUser(context.getOperationContext(), actorUrn);
             summary.setIsUserSubscribedViaGroup(
                 _subscriptionService.isAnyGroupSubscribed(
-                    entityUrn, userGroupUrns, authentication));
+                    context.getOperationContext(), entityUrn, userGroupUrns));
 
             summary.setUserSubscriptionCount(
                 _subscriptionService.getNumUserSubscriptionsForEntity(
-                    entityUrn, numMaxSubscriptions, authentication));
+                    context.getOperationContext(), entityUrn, numMaxSubscriptions));
 
             // Maxes out at 100 groups.
             summary.setGroupSubscriptionCount(
                 _subscriptionService.getNumGroupSubscriptionsForEntity(
-                    entityUrn, numMaxSubscriptions, authentication));
+                    context.getOperationContext(), entityUrn, numMaxSubscriptions));
 
             final List<Urn> exampleGroupUrns =
                 _subscriptionService.getGroupSubscribersForEntity(
-                    entityUrn, numExampleGroups, authentication);
+                    context.getOperationContext(), entityUrn, numExampleGroups);
             final List<CorpGroup> exampleGroups =
                 exampleGroupUrns.stream()
                     .map(

@@ -6,6 +6,7 @@ import { AppConfig, EntityType, ShareResult } from '../../../../../types.generat
 import useIsLineageMode from '../../../../lineage/utils/useIsLineageMode';
 import { useEntityRegistry } from '../../../../useEntityRegistry';
 import EntityRegistry from '../../../EntityRegistry';
+import EntityRegistryV2 from '../../../../entityV2/EntityRegistry';
 import { EntityTab, GenericEntityProperties } from '../../types';
 import { useIsSeparateSiblingsMode, SEPARATE_SIBLINGS_URL_PARAM } from '../../siblingUtils';
 import {
@@ -85,7 +86,7 @@ export function getDataForEntityType<T>({
 export function getEntityPath(
     entityType: EntityType,
     urn: string,
-    entityRegistry: EntityRegistry,
+    entityRegistry: EntityRegistry | EntityRegistryV2,
     isLineageMode: boolean,
     isHideSiblingMode: boolean,
     tabName?: string,
@@ -96,9 +97,8 @@ export function getEntityPath(
     if (!tabName) {
         return `${entityRegistry.getEntityUrl(entityType, urn)}?is_lineage_mode=${isLineageMode}${tabParamsString}`;
     }
-    return `${entityRegistry.getEntityUrl(entityType, urn)}/${tabName}?is_lineage_mode=${isLineageMode}${
-        isHideSiblingMode ? `&${SEPARATE_SIBLINGS_URL_PARAM}=${isHideSiblingMode}` : ''
-    }${tabParamsString}`;
+    return `${entityRegistry.getEntityUrl(entityType, urn)}/${tabName}?is_lineage_mode=${isLineageMode}${isHideSiblingMode ? `&${SEPARATE_SIBLINGS_URL_PARAM}=${isHideSiblingMode}` : ''
+        }${tabParamsString}`;
 }
 
 export function useEntityPath(entityType: EntityType, urn: string, tabName?: string, tabParams?: Record<string, any>) {
@@ -138,7 +138,7 @@ export function useIsOnTab(tabName: string): boolean {
 export function useGlossaryActiveTabPath(): string {
     const { pathname, search } = useLocation();
     const trimmedPathName = pathname.endsWith('/') ? pathname.slice(0, pathname.length - 1) : pathname;
-    
+
     // Match against the regex
     const match = trimmedPathName.match(ENTITY_TAB_NAME_REGEX_PATTERN);
 
@@ -240,6 +240,10 @@ export function sortEntityProfileTabs(appConfig: AppConfig, entityType: EntityTy
     }
 
     return sortedTabs;
+}
+
+export function getNestedValue(obj: any, path: string) {
+    return path.split('.').reduce((o, p) => (o || {})[p], obj);
 }
 
 export function sortSharedList(sharedItems: ShareResult[]) {

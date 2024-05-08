@@ -65,12 +65,12 @@ public class CreateSubscriptionResolver
 
             final Map.Entry<Urn, SubscriptionInfo> subscription =
                 _subscriptionService.createSubscription(
+                    context.getOperationContext(),
                     actorUrn,
                     UrnUtils.getUrn(entityUrnString),
                     subscriptionTypes,
                     entityChangeTypes,
-                    notificationConfig,
-                    authentication);
+                    notificationConfig);
 
             return DataHubSubscriptionMapper.map(context, subscription);
           } catch (Exception e) {

@@ -15,9 +15,9 @@ import FormRequestedBy from './FormSelectionModal/FormRequestedBy';
 import useHasComponentRendered from '../../../shared/useHasComponentRendered';
 import Loading from '../../../shared/Loading';
 import { DeferredRenderComponent } from '../../../shared/DeferredRenderComponent';
+import { Editor } from '../tabs/Documentation/components/editor/Editor';
 import { OnboardingTour } from '../../../onboarding/OnboardingTour';
 import { FORM_ASSET_COMPLETION } from '../../../onboarding/config/FormOnboardingConfig';
-import { Editor } from '../tabs/Documentation/components/editor/Editor';
 
 const TabWrapper = styled.div`
     background-color: ${ANTD_GRAY_V2[1]};
@@ -78,8 +78,8 @@ function Form({ formUrn, showHeader, showVerifyPrompt }: Props) {
                     )}
                     {description ? (
                         <SubTitle>
-                            <Editor content={description} readOnly editorStyle="padding: 0;" />
-                        </SubTitle>
+                        <Editor content={description} readOnly editorStyle="padding: 0;" />
+                    </SubTitle>
                     ) : (
                         <SubTitle>
                             Please fill out the following information for this {entityRegistry.getEntityName(entityType)} so

@@ -22,7 +22,7 @@ If the answer is yes, how did you find out? We'll take a guess - someone looking
 a number looked a bit out of the ordinary. Perhaps your table initially tracked purchases made on your company's e-commerce web store, but suddenly began to include purchases made
 through your company's new mobile app. 
 
-There are many reasons why an important Table on Snowflake, Redshift, or BigQuery may change in its meaning - application code bugs, new feature rollouts,
+There are many reasons why an important Table on Snowflake, Redshift, BigQuery, or Databricks may change in its meaning - application code bugs, new feature rollouts,
 changes to key metric definitions, etc. Often times, these changes break important assumptions made about the data used in building key downstream data products 
 like reporting dashboards or data-driven product features.
 
@@ -49,7 +49,7 @@ Note that an Ingestion Source _must_ be configured with the data platform of you
 tab.
 
 > Note that SQL Assertions are not yet supported if you are connecting to your warehouse
-> using the DataHub CLI or a Remote Ingestion Executor.
+> using the DataHub CLI.
 
 ## What is a Custom SQL Assertion?
 
@@ -120,7 +120,7 @@ The **Assertion Description**: This is a human-readable description of the Asser
    `Edit Assertions`, `Edit Monitors`, **and the additional `Edit SQL Assertion Monitors`** privileges for the entity. This is granted to Entity owners by default.
 
 2. **Data Platform Connection**: In order to create a Custom SQL Assertion, you'll need to have an **Ingestion Source** configured to your
-   Data Platform: Snowflake, BigQuery, or Redshift under the **Integrations** tab.
+   Data Platform: Snowflake, BigQuery, Redshift, or Databricks under the **Integrations** tab.
 
 Once these are in place, you're ready to create your Custom SQL Assertions!
 

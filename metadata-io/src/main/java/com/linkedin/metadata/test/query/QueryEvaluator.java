@@ -2,8 +2,10 @@ package com.linkedin.metadata.test.query;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.test.definition.ValidationResult;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.Map;
 import java.util.Set;
+import javax.annotation.Nonnull;
 
 /**
  * Base interface for query evaluators, which defines the set of queries that are eligible for this
@@ -27,5 +29,8 @@ public interface QueryEvaluator {
 
   /** Evaluate the input queries for the given urn. Note all urns must be of type entityType */
   Map<Urn, Map<TestQuery, TestQueryResponse>> evaluate(
-      String entityType, Set<Urn> urns, Set<TestQuery> queries);
+      @Nonnull OperationContext opContext,
+      String entityType,
+      Set<Urn> urns,
+      Set<TestQuery> queries);
 }

@@ -95,10 +95,10 @@ public class GlossaryUtils {
     try {
       EntityResponse response =
           entityClient.getV2(
+              context.getOperationContext(),
               Constants.GLOSSARY_TERM_ENTITY_NAME,
               termUrn,
-              ImmutableSet.of(Constants.GLOSSARY_TERM_INFO_ASPECT_NAME),
-              context.getAuthentication());
+              ImmutableSet.of(Constants.GLOSSARY_TERM_INFO_ASPECT_NAME));
       if (response != null
           && response.getAspects().get(Constants.GLOSSARY_TERM_INFO_ASPECT_NAME) != null) {
         GlossaryTermInfo termInfo =
@@ -125,10 +125,10 @@ public class GlossaryUtils {
     try {
       EntityResponse response =
           entityClient.getV2(
+              context.getOperationContext(),
               Constants.GLOSSARY_NODE_ENTITY_NAME,
               nodeUrn,
-              ImmutableSet.of(Constants.GLOSSARY_NODE_INFO_ASPECT_NAME),
-              context.getAuthentication());
+              ImmutableSet.of(Constants.GLOSSARY_NODE_INFO_ASPECT_NAME));
       if (response != null
           && response.getAspects().get(Constants.GLOSSARY_NODE_INFO_ASPECT_NAME) != null) {
         GlossaryNodeInfo nodeInfo =

@@ -21,6 +21,7 @@ import javax.annotation.Nonnull;
 
 public class EditableDatasetPropertiesChangeEventGenerator
     extends EntityChangeEventGenerator<EditableDatasetProperties> {
+
   public static final String DESCRIPTION_ADDED = "Documentation for '%s' has been added: '%s'.";
   public static final String DESCRIPTION_REMOVED = "Documentation for '%s' has been removed: '%s'.";
   public static final String DESCRIPTION_CHANGED =

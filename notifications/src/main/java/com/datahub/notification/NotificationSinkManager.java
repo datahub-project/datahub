@@ -6,6 +6,7 @@ import com.linkedin.event.notification.NotificationRecipient;
 import com.linkedin.event.notification.NotificationRecipientArray;
 import com.linkedin.event.notification.NotificationRequest;
 import com.linkedin.event.notification.NotificationSinkType;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -52,7 +53,8 @@ public class NotificationSinkManager {
     this.sinkRegistry = new ArrayList<>(sinks);
   }
 
-  public CompletableFuture<Void> handle(@Nonnull final NotificationRequest request) {
+  public CompletableFuture<Void> handle(
+      @Nonnull OperationContext opContext, @Nonnull final NotificationRequest request) {
     if (NotificationManagerMode.DISABLED.equals(this.mode)) {
       log.debug("NotificationSinkManager is disabled. Skipping sending notification...");
       return CompletableFuture.completedFuture(null);
@@ -89,7 +91,7 @@ public class NotificationSinkManager {
                             sink.getClass()));
                     return;
                   }
-                  sink.send(finalRequest, new NotificationContext());
+                  sink.send(opContext, finalRequest, new NotificationContext());
                 } catch (Exception e) {
                   log.error(
                       String.format(

@@ -40,10 +40,10 @@ public class ParentNodesResolver implements DataFetcher<CompletableFuture<Parent
       Urn entityUrn = new Urn(urn);
       EntityResponse entityResponse =
           _entityClient.getV2(
+              context.getOperationContext(),
               entityUrn.getEntityType(),
               entityUrn,
-              Collections.singleton(GLOSSARY_NODE_INFO_ASPECT_NAME),
-              context.getAuthentication());
+              Collections.singleton(GLOSSARY_NODE_INFO_ASPECT_NAME));
 
       if (entityResponse != null
           && entityResponse.getAspects().containsKey(GLOSSARY_NODE_INFO_ASPECT_NAME)) {
@@ -54,7 +54,10 @@ public class ParentNodesResolver implements DataFetcher<CompletableFuture<Parent
           Urn parentNodeUrn = nodeInfo.getParentNode();
           EntityResponse response =
               _entityClient.getV2(
-                  parentNodeUrn.getEntityType(), parentNodeUrn, null, context.getAuthentication());
+                  context.getOperationContext(),
+                  parentNodeUrn.getEntityType(),
+                  parentNodeUrn,
+                  null);
           if (response != null) {
             GlossaryNode mappedNode = GlossaryNodeMapper.map(context, response);
             nodes.add(mappedNode);
@@ -72,10 +75,10 @@ public class ParentNodesResolver implements DataFetcher<CompletableFuture<Parent
       Urn entityUrn = new Urn(urn);
       EntityResponse entityResponse =
           _entityClient.getV2(
+              context.getOperationContext(),
               entityUrn.getEntityType(),
               entityUrn,
-              Collections.singleton(GLOSSARY_TERM_INFO_ASPECT_NAME),
-              context.getAuthentication());
+              Collections.singleton(GLOSSARY_TERM_INFO_ASPECT_NAME));
 
       if (entityResponse != null
           && entityResponse.getAspects().containsKey(GLOSSARY_TERM_INFO_ASPECT_NAME)) {
@@ -86,7 +89,10 @@ public class ParentNodesResolver implements DataFetcher<CompletableFuture<Parent
           Urn parentNodeUrn = termInfo.getParentNode();
           EntityResponse response =
               _entityClient.getV2(
-                  parentNodeUrn.getEntityType(), parentNodeUrn, null, context.getAuthentication());
+                  context.getOperationContext(),
+                  parentNodeUrn.getEntityType(),
+                  parentNodeUrn,
+                  null);
           if (response != null) {
             GlossaryNode mappedNode = GlossaryNodeMapper.map(context, response);
             return mappedNode;

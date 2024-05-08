@@ -1,10 +1,10 @@
 package com.linkedin.datahub.graphql.resolvers.form;
 
 import static com.linkedin.datahub.graphql.TestUtils.getMockAllowContext;
+import static org.mockito.ArgumentMatchers.any;
 import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
 
-import com.datahub.authentication.Authentication;
 import com.datahub.authentication.group.GroupService;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.UrnUtils;
@@ -12,6 +12,7 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.BatchVerifyFormInput;
 import com.linkedin.metadata.service.FormService;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletionException;
@@ -47,14 +48,14 @@ public class BatchVerifyFormResolverTest {
 
     Mockito.verify(mockFormService, Mockito.times(1))
         .verifyFormForEntity(
+            any(OperationContext.class),
             Mockito.eq(UrnUtils.getUrn(TEST_FORM_URN)),
-            Mockito.eq(UrnUtils.getUrn(TEST_DATASET_URN1)),
-            Mockito.any(Authentication.class));
+            Mockito.eq(UrnUtils.getUrn(TEST_DATASET_URN1)));
     Mockito.verify(mockFormService, Mockito.times(1))
         .verifyFormForEntity(
+            any(OperationContext.class),
             Mockito.eq(UrnUtils.getUrn(TEST_FORM_URN)),
-            Mockito.eq(UrnUtils.getUrn(TEST_DATASET_URN2)),
-            Mockito.any(Authentication.class));
+            Mockito.eq(UrnUtils.getUrn(TEST_DATASET_URN2)));
   }
 
   @Test
@@ -73,7 +74,7 @@ public class BatchVerifyFormResolverTest {
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
 
     Mockito.verify(mockFormService, Mockito.times(0))
-        .verifyFormForEntity(Mockito.any(), Mockito.any(), Mockito.any(Authentication.class));
+        .verifyFormForEntity(any(OperationContext.class), Mockito.any(), Mockito.any());
   }
 
   @Test
@@ -93,7 +94,7 @@ public class BatchVerifyFormResolverTest {
 
     // gets called once but throws error
     Mockito.verify(mockFormService, Mockito.times(1))
-        .verifyFormForEntity(Mockito.any(), Mockito.any(), Mockito.any(Authentication.class));
+        .verifyFormForEntity(any(OperationContext.class), Mockito.any(), Mockito.any());
   }
 
   private FormService initMockFormService(
@@ -101,22 +102,22 @@ public class BatchVerifyFormResolverTest {
     FormService service = Mockito.mock(FormService.class);
     Mockito.when(
             service.isFormAssignedToUser(
+                any(OperationContext.class),
                 Mockito.any(),
                 Mockito.any(),
                 Mockito.any(),
-                Mockito.any(),
-                Mockito.any(Authentication.class)))
+                Mockito.any()))
         .thenReturn(isFormAssignedToUser);
 
     if (shouldVerify) {
       Mockito.when(
               service.verifyFormForEntity(
-                  Mockito.any(), Mockito.any(), Mockito.any(Authentication.class)))
+                  any(OperationContext.class), Mockito.any(), Mockito.any()))
           .thenReturn(true);
     } else {
       Mockito.when(
               service.verifyFormForEntity(
-                  Mockito.any(), Mockito.any(), Mockito.any(Authentication.class)))
+                  any(OperationContext.class), Mockito.any(), Mockito.any()))
           .thenThrow(new RuntimeException());
     }
 
@@ -125,7 +126,7 @@ public class BatchVerifyFormResolverTest {
 
   private GroupService initMockGroupService() throws Exception {
     GroupService service = Mockito.mock(GroupService.class);
-    Mockito.when(service.getGroupsForUser(Mockito.any(), Mockito.any(Authentication.class)))
+    Mockito.when(service.getGroupsForUser(any(OperationContext.class), Mockito.any()))
         .thenReturn(new ArrayList<>());
 
     return service;

@@ -24,6 +24,7 @@ import com.linkedin.monitor.AssertionEvaluationParametersType;
 import com.linkedin.monitor.MonitorMode;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import javax.annotation.Nonnull;
@@ -72,7 +73,8 @@ public class UpsertDatasetSqlAssertionMonitorResolver
       // Update Assertion - only assertionUrn is known. Extract entityUrn and monitorUrn using
       // assertionUrn.
       assertionUrn = UrnUtils.getUrn(maybeAssertionUrn);
-      AssertionInfo info = getAssertionInfoForSQLAssertion(assertionUrn);
+      AssertionInfo info =
+          getAssertionInfoForSQLAssertion(context.getOperationContext(), assertionUrn);
       assertionSource = info.getSource();
       entityUrn = getEntityUrnForSqlAssertion(assertionUrn, info, input);
 
@@ -87,6 +89,7 @@ public class UpsertDatasetSqlAssertionMonitorResolver
               && isAuthorizedToUpdateSqlAssertionMonitors(entityUrn, context)) {
             // First upsert the assertion.
             _assertionService.upsertDatasetSqlAssertion(
+                context.getOperationContext(),
                 assertionUrn,
                 entityUrn,
                 SqlAssertionType.valueOf(input.getType().toString()),
@@ -95,12 +98,12 @@ public class UpsertDatasetSqlAssertionMonitorResolver
                 input.getActions() != null
                     ? AssertionUtils.createAssertionActions(input.getActions())
                     : null,
-                assertionSource,
-                context.getAuthentication());
+                assertionSource);
 
             // Then, upsert the monitor
             try {
               _monitorService.upsertAssertionMonitor(
+                  context.getOperationContext(),
                   monitorUrn,
                   assertionUrn,
                   entityUrn,
@@ -108,15 +111,14 @@ public class UpsertDatasetSqlAssertionMonitorResolver
                   new AssertionEvaluationParameters()
                       .setType(AssertionEvaluationParametersType.DATASET_SQL),
                   MonitorMode.valueOf(input.getMode().toString()),
-                  input.getExecutorId(),
-                  context.getAuthentication());
+                  input.getExecutorId());
             } catch (Exception e) {
               log.error("Failed to upsert Assertion monitor!", e);
               if (isCreate) {
                 log.info(
                     String.format(
                         "Deleting partially created native assertion with urn %s ", assertionUrn));
-                _assertionService.tryDeleteAssertion(assertionUrn, context.getAuthentication());
+                _assertionService.tryDeleteAssertion(context.getOperationContext(), assertionUrn);
               }
               throw new DataHubGraphQLException(
                   String.format(
@@ -129,15 +131,16 @@ public class UpsertDatasetSqlAssertionMonitorResolver
             return AssertionMapper.map(
                 context,
                 _assertionService.getAssertionEntityResponse(
-                    assertionUrn, context.getAuthentication()));
+                    context.getOperationContext(), assertionUrn));
           }
           throw new AuthorizationException(
               "Unauthorized to perform this action. Please contact your DataHub administrator.");
         });
   }
 
-  private AssertionInfo getAssertionInfoForSQLAssertion(Urn assertionUrn) {
-    final AssertionInfo info = _assertionService.getAssertionInfo(assertionUrn);
+  private AssertionInfo getAssertionInfoForSQLAssertion(
+      @Nonnull OperationContext opContext, Urn assertionUrn) {
+    final AssertionInfo info = _assertionService.getAssertionInfo(opContext, assertionUrn);
     if (info == null) {
       throw new IllegalArgumentException(
           String.format(

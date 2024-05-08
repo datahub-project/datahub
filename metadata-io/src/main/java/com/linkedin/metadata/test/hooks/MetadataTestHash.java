@@ -4,8 +4,8 @@ import static com.linkedin.metadata.Constants.TEST_INFO_ASPECT_NAME;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.SetMode;
-import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.ReadItem;
+import com.linkedin.metadata.aspect.RetrieverContext;
 import com.linkedin.metadata.aspect.batch.ChangeMCP;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.aspect.plugins.hooks.MutationHook;
@@ -29,7 +29,7 @@ public class MetadataTestHash extends MutationHook {
 
   @Override
   protected Stream<Pair<ReadItem, Boolean>> readMutation(
-      @Nonnull Collection<ReadItem> items, @Nonnull AspectRetriever aspectRetriever) {
+      @Nonnull Collection<ReadItem> items, @Nonnull RetrieverContext retrieverContext) {
 
     Set<Urn> mutated =
         items.stream()
@@ -48,7 +48,7 @@ public class MetadataTestHash extends MutationHook {
 
   @Override
   protected Stream<Pair<ChangeMCP, Boolean>> writeMutation(
-      @Nonnull Collection<ChangeMCP> changeMCPS, @Nonnull AspectRetriever aspectRetriever) {
+      @Nonnull Collection<ChangeMCP> changeMCPS, @Nonnull RetrieverContext retrieverContext) {
 
     List<Pair<ChangeMCP, Boolean>> results = new LinkedList<>();
 

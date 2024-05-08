@@ -2,6 +2,7 @@ package com.linkedin.metadata.test.query;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.test.definition.ValidationResult;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -39,7 +40,10 @@ public class EntityUrnTypeEvaluator extends BaseQueryEvaluator {
   @Override
   @Nonnull
   public Map<Urn, Map<TestQuery, TestQueryResponse>> evaluate(
-      @Nonnull String entityType, @Nonnull Set<Urn> urns, @Nonnull Set<TestQuery> queries) {
+      @Nonnull OperationContext opContext,
+      @Nonnull String entityType,
+      @Nonnull Set<Urn> urns,
+      @Nonnull Set<TestQuery> queries) {
     final Map<Urn, Map<TestQuery, TestQueryResponse>> result = new HashMap<>();
     for (TestQuery query : queries) {
       for (Urn urn : urns) {

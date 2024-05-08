@@ -35,7 +35,7 @@ function Home() {
   return !siteConfig.customFields.isSaas ? (
     <Layout
       title={siteConfig.tagline}
-      description="DataHub is a data discovery application built on an extensible metadata platform that helps you tame the complexity of diverse data ecosystems."
+      description="DataHub is a data discovery application built on an extensible data catalog that helps you tame the complexity of diverse data ecosystems."
     >
       <Hero />
       <Features />
@@ -70,9 +70,10 @@ function Home() {
               </h1>
               {/* <hr style={{ border: "2px solid black", width: "20rem" }}></hr> */}
               <p style={{ fontSize: "18px" }}>
-                Explore DataHub's journey from search and discovery tool at
-                LinkedIn to the #1 open source metadata platform, through the
-                lens of its founder and some amazing community members.
+                Explore DataHub's journey from search and data discovery tool at
+                LinkedIn to the #1 open source metadata management platform,
+                through the lens of its founder and some amazing community
+                members.
               </p>
             </div>
           </div>
@@ -143,8 +144,8 @@ function Home() {
               </h2>
               <p>
                 DataHub is the one-stop shop for documentation, schemas,
-                ownership, lineage, pipelines, data quality, usage information,
-                and more.
+                ownership, data lineage, pipelines, data quality, usage
+                information, and more.
               </p>
             </div>
             <div className="col col--6 col--offset-1">

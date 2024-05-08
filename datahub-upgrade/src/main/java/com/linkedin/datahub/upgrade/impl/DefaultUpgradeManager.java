@@ -11,6 +11,7 @@ import com.linkedin.datahub.upgrade.UpgradeResult;
 import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -29,18 +30,20 @@ public class DefaultUpgradeManager implements UpgradeManager {
   }
 
   @Override
-  public UpgradeResult execute(String upgradeId, List<String> args) {
+  public UpgradeResult execute(
+      @Nonnull OperationContext systemOpContext, String upgradeId, List<String> args) {
     if (_upgrades.containsKey(upgradeId)) {
-      return executeInternal(_upgrades.get(upgradeId), args);
+      return executeInternal(systemOpContext, _upgrades.get(upgradeId), args);
     }
     throw new IllegalArgumentException(
         String.format("No upgrade with id %s could be found. Aborting...", upgradeId));
   }
 
-  private UpgradeResult executeInternal(Upgrade upgrade, List<String> args) {
+  private UpgradeResult executeInternal(
+      @Nonnull OperationContext systemOpContext, Upgrade upgrade, List<String> args) {
     final UpgradeReport upgradeReport = new DefaultUpgradeReport();
     final UpgradeContext context =
-        new DefaultUpgradeContext(upgrade, upgradeReport, new ArrayList<>(), args);
+        new DefaultUpgradeContext(systemOpContext, upgrade, upgradeReport, new ArrayList<>(), args);
     upgradeReport.addLine(String.format("Starting upgrade with id %s...", upgrade.id()));
     UpgradeResult result = executeInternal(context);
     upgradeReport.addLine(

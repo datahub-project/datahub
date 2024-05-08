@@ -12,6 +12,7 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.EntityUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.List;
 import javax.annotation.Nonnull;
@@ -28,20 +29,28 @@ public class DeleteUtils {
   }
 
   public static void updateStatusForResources(
-      boolean removed, List<String> urnStrs, Urn actor, EntityService entityService) {
+      @Nonnull OperationContext opContext,
+      boolean removed,
+      List<String> urnStrs,
+      Urn actor,
+      EntityService entityService) {
     final List<MetadataChangeProposal> changes = new ArrayList<>();
     for (String urnStr : urnStrs) {
-      changes.add(buildSoftDeleteProposal(removed, urnStr, actor, entityService));
+      changes.add(buildSoftDeleteProposal(opContext, removed, urnStr, actor, entityService));
     }
-    EntityUtils.ingestChangeProposals(changes, entityService, actor, false);
+    EntityUtils.ingestChangeProposals(opContext, changes, entityService, actor, false);
   }
 
   private static MetadataChangeProposal buildSoftDeleteProposal(
-      boolean removed, String urnStr, Urn actor, EntityService entityService) {
+      @Nonnull OperationContext opContext,
+      boolean removed,
+      String urnStr,
+      Urn actor,
+      EntityService entityService) {
     Status status =
         (Status)
             EntityUtils.getAspectFromEntity(
-                urnStr, Constants.STATUS_ASPECT_NAME, entityService, new Status());
+                opContext, urnStr, Constants.STATUS_ASPECT_NAME, entityService, new Status());
     status.setRemoved(removed);
     return buildMetadataChangeProposalWithUrn(
         UrnUtils.getUrn(urnStr), Constants.STATUS_ASPECT_NAME, status);

@@ -49,7 +49,13 @@ public class ProposeDataContractResolver implements DataFetcher<CompletableFutur
           try {
             log.info("Proposing change to data contract. input: {}", input);
             return _proposalService.proposeDataContract(
-                actorUrn, entityUrn, opType, freshness, schema, quality, context.getAuthorizer());
+                context.getOperationContext(),
+                actorUrn,
+                entityUrn,
+                opType,
+                freshness,
+                schema,
+                quality);
           } catch (Exception e) {
             log.error("Failed to perform update against input {}, {}", input, e.getMessage());
             throw new RuntimeException(

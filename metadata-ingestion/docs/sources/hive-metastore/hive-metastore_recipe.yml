@@ -1,0 +1,25 @@
+source:
+  type: hive-metastore
+  config:
+    # Hive metastore DB connection
+    host_port: localhost:5432
+    database: metastore
+
+    # specify the schema where metastore tables reside
+    schema_pattern:
+      allow:
+        - "^public"
+
+    # credentials
+    username: user # optional
+    password: pass # optional
+
+    #scheme: 'postgresql+psycopg2' # set this if metastore db is using postgres
+    #scheme: 'mysql+pymysql' # set this if metastore db is using mysql, default if unset
+
+    # set this to have advanced filters on what to ingest
+    #views_where_clause_suffix: AND d."name" in ('db1')
+    #tables_where_clause_suffix: AND d."name" in ('db1')
+
+sink:
+  # sink configs

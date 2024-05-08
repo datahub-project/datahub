@@ -29,13 +29,13 @@ public class DeleteDataProductResolver implements DataFetcher<CompletableFuture<
     return CompletableFuture.supplyAsync(
         () -> {
           if (!_dataProductService.verifyEntityExists(
-              dataProductUrn, context.getAuthentication())) {
+              context.getOperationContext(), dataProductUrn)) {
             throw new IllegalArgumentException("The Data Product provided dos not exist");
           }
 
           Domains domains =
               _dataProductService.getDataProductDomains(
-                  dataProductUrn, context.getAuthentication());
+                  context.getOperationContext(), dataProductUrn);
           if (domains != null && domains.hasDomains() && domains.getDomains().size() > 0) {
             // get first domain since we only allow one domain right now
             Urn domainUrn = UrnUtils.getUrn(domains.getDomains().get(0).toString());
@@ -47,7 +47,7 @@ public class DeleteDataProductResolver implements DataFetcher<CompletableFuture<
           }
 
           try {
-            _dataProductService.deleteDataProduct(dataProductUrn, authentication);
+            _dataProductService.deleteDataProduct(context.getOperationContext(), dataProductUrn);
             return true;
           } catch (Exception e) {
             throw new RuntimeException("Failed to delete Data Product", e);

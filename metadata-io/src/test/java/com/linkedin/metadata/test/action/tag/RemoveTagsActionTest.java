@@ -1,6 +1,8 @@
 package com.linkedin.metadata.test.action.tag;
 
 import static com.linkedin.metadata.Constants.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -8,6 +10,7 @@ import com.linkedin.metadata.resource.ResourceReference;
 import com.linkedin.metadata.service.TagService;
 import com.linkedin.metadata.test.action.ActionParameters;
 import com.linkedin.metadata.test.exception.InvalidActionParamsException;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -56,20 +59,22 @@ public class RemoveTagsActionTest {
 
   @Test
   private void testApply() throws Exception {
-    TagService service = Mockito.mock(TagService.class);
+    TagService service = mock(TagService.class);
 
     RemoveTagsAction action = new RemoveTagsAction(service);
     ActionParameters params = new ActionParameters(VALID_PARAMS);
-    action.apply(ALL_URNS, params);
+    action.apply(mock(OperationContext.class), ALL_URNS, params);
 
     Mockito.verify(service, Mockito.atLeastOnce())
         .batchRemoveTags(
+            any(OperationContext.class),
             Mockito.eq(TEST_TAGS),
             Mockito.eq(DASHBOARD_REFERENCES),
             Mockito.eq(METADATA_TESTS_SOURCE));
 
     Mockito.verify(service, Mockito.atLeastOnce())
         .batchRemoveTags(
+            any(OperationContext.class),
             Mockito.eq(TEST_TAGS),
             Mockito.eq(DATASET_REFERENCES),
             Mockito.eq(METADATA_TESTS_SOURCE));
@@ -79,14 +84,14 @@ public class RemoveTagsActionTest {
 
   @Test
   private void testValidateValidParams() {
-    RemoveTagsAction action = new RemoveTagsAction(Mockito.mock(TagService.class));
+    RemoveTagsAction action = new RemoveTagsAction(mock(TagService.class));
     ActionParameters params = new ActionParameters(VALID_PARAMS);
     action.validate(params);
   }
 
   @Test
   private void testValidateInvalidParams() {
-    RemoveTagsAction action = new RemoveTagsAction(Mockito.mock(TagService.class));
+    RemoveTagsAction action = new RemoveTagsAction(mock(TagService.class));
     ActionParameters params = new ActionParameters(Collections.emptyMap());
     Assert.assertThrows(InvalidActionParamsException.class, () -> action.validate(params));
   }

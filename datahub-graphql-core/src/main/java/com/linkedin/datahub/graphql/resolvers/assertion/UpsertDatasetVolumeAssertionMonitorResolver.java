@@ -21,6 +21,7 @@ import com.linkedin.metadata.service.MonitorService;
 import com.linkedin.monitor.MonitorMode;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import javax.annotation.Nonnull;
@@ -69,7 +70,8 @@ public class UpsertDatasetVolumeAssertionMonitorResolver
       // Update Assertion - only assertionUrn is known. Extract entityUrn and monitorUrn using
       // assertionUrn.
       assertionUrn = UrnUtils.getUrn(maybeAssertionUrn);
-      AssertionInfo info = getAssertionInfoForVolumeAssertion(assertionUrn);
+      AssertionInfo info =
+          getAssertionInfoForVolumeAssertion(context.getOperationContext(), assertionUrn);
       assertionSource = info.getSource();
       entityUrn = getEntityUrnForVolumeAssertion(assertionUrn, info, input);
 
@@ -84,6 +86,7 @@ public class UpsertDatasetVolumeAssertionMonitorResolver
               && isAuthorizedToUpdateEntityMonitors(entityUrn, context)) {
             // First upsert the assertion.
             _assertionService.upsertDatasetVolumeAssertion(
+                context.getOperationContext(),
                 assertionUrn,
                 entityUrn,
                 input.getDescription(),
@@ -91,27 +94,26 @@ public class UpsertDatasetVolumeAssertionMonitorResolver
                 input.getActions() != null
                     ? AssertionUtils.createAssertionActions(input.getActions())
                     : null,
-                assertionSource,
-                context.getAuthentication());
+                assertionSource);
 
             // Then, upsert the monitor
             try {
               _monitorService.upsertAssertionMonitor(
+                  context.getOperationContext(),
                   monitorUrn,
                   assertionUrn,
                   entityUrn,
                   createCronSchedule(input.getEvaluationSchedule()),
                   createVolumeAssertionEvaluationParameters(input.getEvaluationParameters()),
                   MonitorMode.valueOf(input.getMode().toString()),
-                  input.getExecutorId(),
-                  context.getAuthentication());
+                  input.getExecutorId());
             } catch (Exception e) {
               log.error("Failed to upsert Assertion monitor!", e);
               if (isCreate) {
                 log.info(
                     String.format(
                         "Deleting partially created native assertion with urn %s ", assertionUrn));
-                _assertionService.tryDeleteAssertion(assertionUrn, context.getAuthentication());
+                _assertionService.tryDeleteAssertion(context.getOperationContext(), assertionUrn);
               }
               throw new DataHubGraphQLException(
                   String.format(
@@ -124,15 +126,16 @@ public class UpsertDatasetVolumeAssertionMonitorResolver
             return AssertionMapper.map(
                 context,
                 _assertionService.getAssertionEntityResponse(
-                    assertionUrn, context.getAuthentication()));
+                    context.getOperationContext(), assertionUrn));
           }
           throw new AuthorizationException(
               "Unauthorized to perform this action. Please contact your DataHub administrator.");
         });
   }
 
-  private AssertionInfo getAssertionInfoForVolumeAssertion(Urn assertionUrn) {
-    final AssertionInfo info = _assertionService.getAssertionInfo(assertionUrn);
+  private AssertionInfo getAssertionInfoForVolumeAssertion(
+      @Nonnull OperationContext opContext, Urn assertionUrn) {
+    final AssertionInfo info = _assertionService.getAssertionInfo(opContext, assertionUrn);
     if (info == null) {
       throw new IllegalArgumentException(
           String.format(

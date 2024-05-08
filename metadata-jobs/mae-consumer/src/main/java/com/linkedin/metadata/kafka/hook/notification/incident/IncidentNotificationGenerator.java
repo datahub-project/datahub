@@ -13,7 +13,7 @@ import com.linkedin.common.Owner;
 import com.linkedin.common.Ownership;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
-import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.event.notification.NotificationRecipient;
 import com.linkedin.event.notification.NotificationRequest;
 import com.linkedin.events.metadata.ChangeType;
@@ -48,7 +48,7 @@ public class IncidentNotificationGenerator extends BaseMclNotificationGenerator 
   public IncidentNotificationGenerator(
       @Nonnull final OperationContext systemOpContext,
       @Nonnull final EventProducer eventProducer,
-      @Nonnull final EntityClient entityClient,
+      @Nonnull final SystemEntityClient entityClient,
       @Nonnull final GraphClient graphClient,
       @Nonnull final SettingsProvider settingsProvider,
       @Nonnull final NotificationRecipientBuilders notificationRecipientBuilders,
@@ -135,7 +135,11 @@ public class IncidentNotificationGenerator extends BaseMclNotificationGenerator 
     Set<NotificationRecipient> recipients =
         new HashSet<>(
             buildRecipients(
-                NotificationScenarioType.NEW_INCIDENT, entityUrn, changeType, actorUrn));
+                systemOpContext,
+                NotificationScenarioType.NEW_INCIDENT,
+                entityUrn,
+                changeType,
+                actorUrn));
     if (recipients.isEmpty()) {
       log.warn("Skipping incident notification generation - no recipients");
       return;
@@ -149,11 +153,11 @@ public class IncidentNotificationGenerator extends BaseMclNotificationGenerator 
     final List<Urn> downstreamOwners = getDownstreamOwners(entityUrn);
 
     final Map<String, String> templateParams = new HashMap<>();
-    final String entityName = _entityNameProvider.getName(entityUrn);
-    final String entityType = _entityNameProvider.getTypeName(entityUrn);
-    final String entityPlatform = _entityNameProvider.getPlatformName(entityUrn);
+    final String entityName = _entityNameProvider.getName(systemOpContext, entityUrn);
+    final String entityType = _entityNameProvider.getTypeName(systemOpContext, entityUrn);
+    final String entityPlatform = _entityNameProvider.getPlatformName(systemOpContext, entityUrn);
     final String actorName =
-        _entityNameProvider.getName(info.getStatus().getLastUpdated().getActor());
+        _entityNameProvider.getName(systemOpContext, info.getStatus().getLastUpdated().getActor());
     templateParams.put("incidentUrn", urn.toString());
     templateParams.put("entityUrn", entityUrn.toString());
     templateParams.put("entityName", entityName);
@@ -199,7 +203,11 @@ public class IncidentNotificationGenerator extends BaseMclNotificationGenerator 
     Set<NotificationRecipient> recipients =
         new HashSet<>(
             buildRecipients(
-                NotificationScenarioType.INCIDENT_STATUS_CHANGE, entityUrn, changeType, actorUrn));
+                systemOpContext,
+                NotificationScenarioType.INCIDENT_STATUS_CHANGE,
+                entityUrn,
+                changeType,
+                actorUrn));
     if (recipients.isEmpty()) {
       log.info("Skipping incident generation - no recipients");
       return;
@@ -213,11 +221,12 @@ public class IncidentNotificationGenerator extends BaseMclNotificationGenerator 
     final List<Urn> downstreamOwners = getDownstreamOwners(entityUrn);
 
     final Map<String, String> templateParams = new HashMap<>();
-    final String entityName = _entityNameProvider.getName(entityUrn);
-    final String entityType = _entityNameProvider.getTypeName(entityUrn);
-    final String entityPlatform = _entityNameProvider.getPlatformName(entityUrn);
+    final String entityName = _entityNameProvider.getName(systemOpContext, entityUrn);
+    final String entityType = _entityNameProvider.getTypeName(systemOpContext, entityUrn);
+    final String entityPlatform = _entityNameProvider.getPlatformName(systemOpContext, entityUrn);
     final String actorName =
-        _entityNameProvider.getName(newInfo.getStatus().getLastUpdated().getActor());
+        _entityNameProvider.getName(
+            systemOpContext, newInfo.getStatus().getLastUpdated().getActor());
     templateParams.put("incidentUrn", urn.toString());
     templateParams.put("entityUrn", entityUrn.toString());
     templateParams.put("entityPath", generateEntityPath(entityUrn));

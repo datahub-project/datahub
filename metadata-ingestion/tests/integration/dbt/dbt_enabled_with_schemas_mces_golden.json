@@ -4269,6 +4269,38 @@
     }
 },
 {
+    "entityType": "glossaryTerm",
+    "entityUrn": "urn:li:glossaryTerm:Finance_test",
+    "changeType": "UPSERT",
+    "aspectName": "glossaryTermKey",
+    "aspect": {
+        "json": {
+            "name": "Finance_test"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-with-schemas-dbt-enabled",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "glossaryTerm",
+    "entityUrn": "urn:li:glossaryTerm:double_meta_property",
+    "changeType": "UPSERT",
+    "aspectName": "glossaryTermKey",
+    "aspect": {
+        "json": {
+            "name": "double_meta_property"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-with-schemas-dbt-enabled",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "entityType": "tag",
     "entityUrn": "urn:li:tag:dbt:column_tag",
     "changeType": "UPSERT",

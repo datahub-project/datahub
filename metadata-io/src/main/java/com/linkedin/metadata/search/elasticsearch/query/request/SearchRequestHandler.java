@@ -85,21 +85,17 @@ public class SearchRequestHandler {
   private final AggregationQueryBuilder aggregationQueryBuilder;
   private final Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes;
 
-  private final AspectRetriever aspectRetriever;
-
   private SearchRequestHandler(
       @Nonnull EntitySpec entitySpec,
       @Nonnull SearchConfiguration configs,
-      @Nullable CustomSearchConfiguration customSearchConfiguration,
-      @Nonnull AspectRetriever aspectRetriever) {
-    this(ImmutableList.of(entitySpec), configs, customSearchConfiguration, aspectRetriever);
+      @Nullable CustomSearchConfiguration customSearchConfiguration) {
+    this(ImmutableList.of(entitySpec), configs, customSearchConfiguration);
   }
 
   private SearchRequestHandler(
       @Nonnull List<EntitySpec> entitySpecs,
       @Nonnull SearchConfiguration configs,
-      @Nullable CustomSearchConfiguration customSearchConfiguration,
-      @Nonnull AspectRetriever aspectRetriever) {
+      @Nullable CustomSearchConfiguration customSearchConfiguration) {
     this.entitySpecs = entitySpecs;
     Map<EntitySpec, List<SearchableAnnotation>> entitySearchAnnotations =
         getSearchableAnnotations();
@@ -110,8 +106,7 @@ public class SearchRequestHandler {
     defaultQueryFieldNames = getDefaultQueryFieldNames(annotations);
     highlights = getHighlights();
     searchQueryBuilder = new SearchQueryBuilder(configs, customSearchConfiguration);
-    aggregationQueryBuilder =
-        new AggregationQueryBuilder(configs, entitySearchAnnotations, aspectRetriever);
+    aggregationQueryBuilder = new AggregationQueryBuilder(configs, entitySearchAnnotations);
     this.configs = configs;
     searchableFieldTypes =
         this.entitySpecs.stream()
@@ -124,7 +119,6 @@ public class SearchRequestHandler {
                       set1.addAll(set2);
                       return set1;
                     }));
-    this.aspectRetriever = aspectRetriever;
   }
 
   public static SearchRequestHandler getBuilder(
@@ -134,9 +128,7 @@ public class SearchRequestHandler {
       @Nonnull AspectRetriever aspectRetriever) {
     return REQUEST_HANDLER_BY_ENTITY_NAME.computeIfAbsent(
         ImmutableList.of(entitySpec),
-        k ->
-            new SearchRequestHandler(
-                entitySpec, configs, customSearchConfiguration, aspectRetriever));
+        k -> new SearchRequestHandler(entitySpec, configs, customSearchConfiguration));
   }
 
   public static SearchRequestHandler getBuilder(
@@ -146,9 +138,7 @@ public class SearchRequestHandler {
       @Nonnull AspectRetriever aspectRetriever) {
     return REQUEST_HANDLER_BY_ENTITY_NAME.computeIfAbsent(
         ImmutableList.copyOf(entitySpecs),
-        k ->
-            new SearchRequestHandler(
-                entitySpecs, configs, customSearchConfiguration, aspectRetriever));
+        k -> new SearchRequestHandler(entitySpecs, configs, customSearchConfiguration));
   }
 
   private Map<EntitySpec, List<SearchableAnnotation>> getSearchableAnnotations() {
@@ -175,16 +165,19 @@ public class SearchRequestHandler {
 
   public BoolQueryBuilder getFilterQuery(
       @Nonnull OperationContext opContext, @Nullable Filter filter) {
-    return getFilterQuery(opContext, filter, searchableFieldTypes, aspectRetriever);
+    return getFilterQuery(opContext, filter, searchableFieldTypes);
   }
 
   public static BoolQueryBuilder getFilterQuery(
       @Nonnull OperationContext opContext,
       @Nullable Filter filter,
-      Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes,
-      @Nonnull AspectRetriever aspectRetriever) {
+      Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes) {
     BoolQueryBuilder filterQuery =
-        ESUtils.buildFilterQuery(filter, false, searchableFieldTypes, aspectRetriever);
+        ESUtils.buildFilterQuery(
+            filter,
+            false,
+            searchableFieldTypes,
+            opContext.getRetrieverContext().get().getAspectRetriever());
     return applyDefaultSearchFilters(opContext, filter, filterQuery);
   }
 
@@ -226,7 +219,7 @@ public class SearchRequestHandler {
     BoolQueryBuilder filterQuery = getFilterQuery(opContext, filter);
     searchSourceBuilder.query(
         QueryBuilders.boolQuery()
-            .must(getQuery(input, Boolean.TRUE.equals(searchFlags.isFulltext())))
+            .must(getQuery(opContext, input, Boolean.TRUE.equals(searchFlags.isFulltext())))
             .filter(filterQuery));
     if (Boolean.FALSE.equals(searchFlags.isSkipAggregates())) {
       aggregationQueryBuilder
@@ -289,7 +282,7 @@ public class SearchRequestHandler {
     BoolQueryBuilder filterQuery = getFilterQuery(opContext, filter);
     searchSourceBuilder.query(
         QueryBuilders.boolQuery()
-            .must(getQuery(input, Boolean.TRUE.equals(searchFlags.isFulltext())))
+            .must(getQuery(opContext, input, Boolean.TRUE.equals(searchFlags.isFulltext())))
             .filter(filterQuery));
     if (Boolean.FALSE.equals(searchFlags.isSkipAggregates())) {
       aggregationQueryBuilder
@@ -437,8 +430,9 @@ public class SearchRequestHandler {
     return searchRequest;
   }
 
-  public QueryBuilder getQuery(@Nonnull String query, boolean fulltext) {
-    return searchQueryBuilder.buildQuery(entitySpecs, query, fulltext);
+  public QueryBuilder getQuery(
+      @Nonnull OperationContext opContext, @Nonnull String query, boolean fulltext) {
+    return searchQueryBuilder.buildQuery(opContext, entitySpecs, query, fulltext);
   }
 
   @VisibleForTesting

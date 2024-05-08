@@ -28,7 +28,7 @@ public class GMSEnableWriteModeStep implements UpgradeStep {
   public Function<UpgradeContext, UpgradeStepResult> executable() {
     return (context) -> {
       try {
-        entityClient.setWritable(true);
+        entityClient.setWritable(context.opContext(), true);
       } catch (Exception e) {
         log.error("Failed to turn write mode back on in GMS", e);
         context.report().addLine("Failed to turn write mode back on in GMS");

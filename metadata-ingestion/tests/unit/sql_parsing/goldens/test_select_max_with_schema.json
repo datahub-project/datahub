@@ -11,8 +11,12 @@
             "downstream": {
                 "table": null,
                 "column": "max_col",
-                "column_type": null,
-                "native_column_type": null
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                },
+                "native_column_type": "DECIMAL"
             },
             "upstreams": [
                 {

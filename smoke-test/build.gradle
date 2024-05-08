@@ -140,3 +140,18 @@ task cypressDev(type: Exec, dependsOn: [installDev, ':metadata-ingestion:install
             "source ${venv_name}/bin/activate && set -x && " +
                     "./cypress-dev.sh"
 }
+
+/**
+ * The following will install Cypress data in an already running stack.
+ */
+task cypressData(type: Exec, dependsOn: [installDev, ':metadata-ingestion:installDev']) {
+    environment 'RUN_QUICKSTART', 'false'
+    environment 'DATAHUB_KAFKA_SCHEMA_REGISTRY_URL', 'http://localhost:8080/schema-registry/api/'
+    environment 'KAFKA_BROKER_CONTAINER', 'datahub-kafka-broker-1'
+    environment 'RUN_UI', 'false'
+
+    workingDir = project.projectDir
+    commandLine 'bash', '-c',
+            "source ${venv_name}/bin/activate && set -x && " +
+                    "./cypress-dev.sh"
+}

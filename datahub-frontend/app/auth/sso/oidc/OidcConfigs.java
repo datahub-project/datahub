@@ -226,8 +226,8 @@ public class OidcConfigs extends SsoConfigs {
         extractJwtAccessTokenClaims =
             Optional.of(jsonNode.get(EXTRACT_JWT_ACCESS_TOKEN_CLAIMS).asBoolean());
       }
-      if (jsonNode.has(PREFERRED_JWS_ALGORITHM_2)) {
-        preferredJwsAlgorithm = Optional.of(jsonNode.get(PREFERRED_JWS_ALGORITHM_2).asText());
+      if (jsonNode.has(PREFERRED_JWS_ALGORITHM)) {
+        preferredJwsAlgorithm = Optional.of(jsonNode.get(PREFERRED_JWS_ALGORITHM).asText());
       } else {
         preferredJwsAlgorithm =
             Optional.ofNullable(getOptional(configs, OIDC_PREFERRED_JWS_ALGORITHM, null));

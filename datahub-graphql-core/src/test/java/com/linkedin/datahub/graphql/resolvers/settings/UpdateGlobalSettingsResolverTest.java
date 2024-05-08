@@ -2,9 +2,9 @@ package com.linkedin.datahub.graphql.resolvers.settings;
 
 import static com.linkedin.datahub.graphql.resolvers.ingest.IngestTestUtils.*;
 import static com.linkedin.metadata.Constants.*;
+import static org.mockito.ArgumentMatchers.any;
 import static org.testng.Assert.*;
 
-import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -40,6 +40,7 @@ import com.linkedin.settings.global.GlobalNotificationSettings;
 import com.linkedin.settings.global.GlobalSettingsInfo;
 import com.linkedin.settings.global.SlackIntegrationSettings;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.services.SecretService;
 import org.mockito.Mockito;
 import org.testng.annotations.BeforeMethod;
@@ -92,10 +93,10 @@ public class UpdateGlobalSettingsResolverTest {
 
     Mockito.when(
             mockClient.getV2(
+                any(OperationContext.class),
                 Mockito.eq(Constants.GLOBAL_SETTINGS_ENTITY_NAME),
                 Mockito.eq(Constants.GLOBAL_SETTINGS_URN),
-                Mockito.eq(ImmutableSet.of(Constants.GLOBAL_SETTINGS_INFO_ASPECT_NAME)),
-                Mockito.any(Authentication.class)))
+                Mockito.eq(ImmutableSet.of(Constants.GLOBAL_SETTINGS_INFO_ASPECT_NAME))))
         .thenReturn(
             new EntityResponse()
                 .setEntityName(Constants.GLOBAL_SETTINGS_ENTITY_NAME)
@@ -137,7 +138,7 @@ public class UpdateGlobalSettingsResolverTest {
 
     Mockito.verify(mockClient, Mockito.times(1))
         .ingestProposal(
-            Mockito.eq(expectedProposal), Mockito.any(Authentication.class), Mockito.eq(false));
+            any(OperationContext.class), Mockito.eq(expectedProposal), Mockito.eq(false));
   }
 
   @Test
@@ -157,7 +158,7 @@ public class UpdateGlobalSettingsResolverTest {
 
     assertThrows(RuntimeException.class, () -> resolver.get(mockEnv).join());
     Mockito.verify(mockClient, Mockito.times(0))
-        .ingestProposal(Mockito.any(), Mockito.any(Authentication.class));
+        .ingestProposal(any(OperationContext.class), Mockito.any());
   }
 
   @Test
@@ -168,7 +169,7 @@ public class UpdateGlobalSettingsResolverTest {
 
     Mockito.doThrow(RemoteInvocationException.class)
         .when(mockClient)
-        .ingestProposal(Mockito.any(), Mockito.any(Authentication.class));
+        .ingestProposal(any(OperationContext.class), Mockito.any());
 
     UpdateGlobalSettingsResolver resolver =
         new UpdateGlobalSettingsResolver(mockClient, mockSecretService);

@@ -42,14 +42,14 @@ public class BatchTestRunEventsResolver
             // Step 1: Fetch aspects from GMS
             List<EnvelopedAspect> aspects =
                 _client.getTimeseriesAspectValues(
+                    context.getOperationContext(),
                     urn,
                     Constants.TEST_ENTITY_NAME,
                     AcrylConstants.BATCH_TEST_RUN_EVENT_ASPECT_NAME,
                     maybeStartTimeMillis,
                     maybeEndTimeMillis,
                     maybeLimit,
-                    null,
-                    context.getAuthentication());
+                    null);
 
             // Step 2: Bind profiles into GraphQL strong types.
             List<BatchTestRunEvent> runEvents =

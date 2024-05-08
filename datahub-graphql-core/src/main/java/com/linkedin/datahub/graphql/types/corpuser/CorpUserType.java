@@ -83,10 +83,10 @@ public class CorpUserType
 
       final Map<Urn, EntityResponse> corpUserMap =
           _entityClient.batchGetV2(
+              context.getOperationContext(),
               CORP_USER_ENTITY_NAME,
               new HashSet<>(corpUserUrns),
-              null,
-              context.getAuthentication());
+              null);
 
       final List<EntityResponse> results = new ArrayList<>(urns.size());
       for (Urn urn : corpUserUrns) {
@@ -151,11 +151,11 @@ public class CorpUserType
       // Get existing editable info to merge with
       Optional<CorpUserEditableInfo> existingCorpUserEditableInfo =
           _entityClient.getVersionedAspect(
+              context.getOperationContext(),
               urn,
               CORP_USER_EDITABLE_INFO_NAME,
               0L,
-              CorpUserEditableInfo.class,
-              context.getAuthentication());
+              CorpUserEditableInfo.class);
 
       // Create the MCP
       final MetadataChangeProposal proposal =
@@ -163,7 +163,7 @@ public class CorpUserType
               UrnUtils.getUrn(urn),
               CORP_USER_EDITABLE_INFO_NAME,
               mapCorpUserEditableInfo(input, existingCorpUserEditableInfo));
-      _entityClient.ingestProposal(proposal, context.getAuthentication(), false);
+      _entityClient.ingestProposal(context.getOperationContext(), proposal, false);
 
       return load(urn, context).getData();
     }

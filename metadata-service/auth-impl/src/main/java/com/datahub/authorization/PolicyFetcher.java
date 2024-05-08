@@ -21,6 +21,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
@@ -108,7 +109,10 @@ public class PolicyFetcher {
     // Fetch DataHubPolicyInfo aspects for each urn
     final Map<Urn, EntityResponse> policyEntities =
         entityClient.batchGetV2(
-            POLICY_ENTITY_NAME, new HashSet<>(policyUrns), null, opContext.getAuthentication());
+            opContext,
+            POLICY_ENTITY_NAME,
+            new HashSet<>(policyUrns),
+            Set.of(DATAHUB_POLICY_INFO_ASPECT_NAME));
     return new PolicyFetchResult(
         policyUrns.stream()
             .map(policyEntities::get)

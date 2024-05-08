@@ -24,6 +24,9 @@ public enum ChangeCategory {
   LIFECYCLE,
   // Run event
   RUN,
+
+  BUSINESS_ATTRIBUTE,
+
   // Incident event
   INCIDENT;
 

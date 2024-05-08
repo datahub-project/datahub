@@ -66,9 +66,9 @@ public class BrowseV2Resolver implements DataFetcher<CompletableFuture<BrowseRes
             final DataHubViewInfo maybeResolvedView =
                 (input.getViewUrn() != null)
                     ? resolveView(
+                        context.getOperationContext(),
                         _viewService,
-                        UrnUtils.getUrn(input.getViewUrn()),
-                        context.getAuthentication())
+                        UrnUtils.getUrn(input.getViewUrn()))
                     : null;
             final String pathStr =
                 input.getPath().size() > 0
@@ -78,7 +78,7 @@ public class BrowseV2Resolver implements DataFetcher<CompletableFuture<BrowseRes
             final Filter inputFilter = ResolverUtils.buildFilter(null, input.getOrFilters());
             final Filter formFilter =
                 SearchUtils.getFormFilter(
-                    input.getFormFilter(), _formService, context.getAuthentication());
+                    context.getOperationContext(), input.getFormFilter(), _formService);
             final Filter baseFilter =
                 formFilter != null
                     ? SearchUtils.combineFilters(inputFilter, formFilter)

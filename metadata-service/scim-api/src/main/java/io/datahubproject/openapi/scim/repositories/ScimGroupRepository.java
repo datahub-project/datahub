@@ -190,7 +190,9 @@ public class ScimGroupRepository
     try {
       // Note: not checking if user exists
       GroupMembership aspect =
-          (GroupMembership) _entityService.getLatestAspect(userUrn, GROUP_MEMBERSHIP_ASPECT_NAME);
+          (GroupMembership)
+              _entityService.getLatestAspect(
+                  systemOperationContext, userUrn, GROUP_MEMBERSHIP_ASPECT_NAME);
       if (aspect == null) {
         aspect = new GroupMembership();
       }
@@ -383,7 +385,8 @@ public class ScimGroupRepository
               try {
                 GroupMembership aspect =
                     (GroupMembership)
-                        _entityService.getLatestAspect(userUrn, GROUP_MEMBERSHIP_ASPECT_NAME);
+                        _entityService.getLatestAspect(
+                            systemOperationContext, userUrn, GROUP_MEMBERSHIP_ASPECT_NAME);
                 if (aspect == null || aspect.getGroups(GetMode.NULL) == null) {
                   return;
                 }

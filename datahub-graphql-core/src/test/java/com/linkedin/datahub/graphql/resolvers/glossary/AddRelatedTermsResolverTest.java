@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.resolvers.glossary;
 
 import static com.linkedin.datahub.graphql.TestUtils.*;
 import static com.linkedin.datahub.graphql.TestUtils.getMockDenyContext;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.testng.Assert.*;
 
@@ -30,6 +31,7 @@ public class AddRelatedTermsResolverTest {
     EntityService mockService = getMockEntityService();
     Mockito.when(
             mockService.getAspect(
+                any(),
                 eq(UrnUtils.getUrn(TEST_ENTITY_URN)),
                 eq(Constants.GLOSSARY_RELATED_TERM_ASPECT_NAME),
                 eq(0L)))
@@ -42,11 +44,11 @@ public class AddRelatedTermsResolverTest {
     EntityService mockService = setUpService();
     EntityClient mockClient = Mockito.mock(EntityClient.class);
 
-    Mockito.when(mockService.exists(eq(Urn.createFromString(TEST_ENTITY_URN)), eq(true)))
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN)), eq(true)))
         .thenReturn(true);
-    Mockito.when(mockService.exists(eq(Urn.createFromString(TEST_TERM_1_URN)), eq(true)))
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_TERM_1_URN)), eq(true)))
         .thenReturn(true);
-    Mockito.when(mockService.exists(eq(Urn.createFromString(TEST_TERM_2_URN)), eq(true)))
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_TERM_2_URN)), eq(true)))
         .thenReturn(true);
 
     AddRelatedTermsResolver resolver = new AddRelatedTermsResolver(mockService, mockClient);
@@ -64,11 +66,11 @@ public class AddRelatedTermsResolverTest {
 
     verifySingleIngestProposal(mockService, 1);
     Mockito.verify(mockService, Mockito.times(1))
-        .exists(eq(Urn.createFromString(TEST_ENTITY_URN)), eq(true));
+        .exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN)), eq(true));
     Mockito.verify(mockService, Mockito.times(1))
-        .exists(eq(Urn.createFromString(TEST_TERM_1_URN)), eq(true));
+        .exists(any(), eq(Urn.createFromString(TEST_TERM_1_URN)), eq(true));
     Mockito.verify(mockService, Mockito.times(1))
-        .exists(eq(Urn.createFromString(TEST_TERM_2_URN)), eq(true));
+        .exists(any(), eq(Urn.createFromString(TEST_TERM_2_URN)), eq(true));
   }
 
   @Test
@@ -76,11 +78,11 @@ public class AddRelatedTermsResolverTest {
     EntityService mockService = setUpService();
     EntityClient mockClient = Mockito.mock(EntityClient.class);
 
-    Mockito.when(mockService.exists(eq(Urn.createFromString(TEST_ENTITY_URN)), eq(true)))
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN)), eq(true)))
         .thenReturn(true);
-    Mockito.when(mockService.exists(eq(Urn.createFromString(TEST_TERM_1_URN)), eq(true)))
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_TERM_1_URN)), eq(true)))
         .thenReturn(true);
-    Mockito.when(mockService.exists(eq(Urn.createFromString(TEST_TERM_2_URN)), eq(true)))
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_TERM_2_URN)), eq(true)))
         .thenReturn(true);
 
     AddRelatedTermsResolver resolver = new AddRelatedTermsResolver(mockService, mockClient);
@@ -98,11 +100,11 @@ public class AddRelatedTermsResolverTest {
 
     verifySingleIngestProposal(mockService, 1);
     Mockito.verify(mockService, Mockito.times(1))
-        .exists(eq(Urn.createFromString(TEST_ENTITY_URN)), eq(true));
+        .exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN)), eq(true));
     Mockito.verify(mockService, Mockito.times(1))
-        .exists(eq(Urn.createFromString(TEST_TERM_1_URN)), eq(true));
+        .exists(any(), eq(Urn.createFromString(TEST_TERM_1_URN)), eq(true));
     Mockito.verify(mockService, Mockito.times(1))
-        .exists(eq(Urn.createFromString(TEST_TERM_2_URN)), eq(true));
+        .exists(any(), eq(Urn.createFromString(TEST_TERM_2_URN)), eq(true));
   }
 
   @Test
@@ -110,7 +112,7 @@ public class AddRelatedTermsResolverTest {
     EntityService mockService = setUpService();
     EntityClient mockClient = Mockito.mock(EntityClient.class);
 
-    Mockito.when(mockService.exists(eq(Urn.createFromString(TEST_ENTITY_URN)), eq(true)))
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN)), eq(true)))
         .thenReturn(true);
 
     AddRelatedTermsResolver resolver = new AddRelatedTermsResolver(mockService, mockClient);
@@ -132,7 +134,7 @@ public class AddRelatedTermsResolverTest {
     EntityService mockService = setUpService();
     EntityClient mockClient = Mockito.mock(EntityClient.class);
 
-    Mockito.when(mockService.exists(eq(Urn.createFromString(TEST_ENTITY_URN)), eq(true)))
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN)), eq(true)))
         .thenReturn(true);
 
     AddRelatedTermsResolver resolver = new AddRelatedTermsResolver(mockService, mockClient);
@@ -154,9 +156,9 @@ public class AddRelatedTermsResolverTest {
     EntityService mockService = setUpService();
     EntityClient mockClient = Mockito.mock(EntityClient.class);
 
-    Mockito.when(mockService.exists(eq(Urn.createFromString(TEST_ENTITY_URN)), eq(true)))
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN)), eq(true)))
         .thenReturn(true);
-    Mockito.when(mockService.exists(eq(Urn.createFromString(TEST_TERM_1_URN)), eq(true)))
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_TERM_1_URN)), eq(true)))
         .thenReturn(false);
 
     AddRelatedTermsResolver resolver = new AddRelatedTermsResolver(mockService, mockClient);
@@ -178,9 +180,9 @@ public class AddRelatedTermsResolverTest {
     EntityService mockService = setUpService();
     EntityClient mockClient = Mockito.mock(EntityClient.class);
 
-    Mockito.when(mockService.exists(eq(Urn.createFromString(TEST_ENTITY_URN)), eq(true)))
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN)), eq(true)))
         .thenReturn(false);
-    Mockito.when(mockService.exists(eq(Urn.createFromString(TEST_TERM_1_URN)), eq(true)))
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_TERM_1_URN)), eq(true)))
         .thenReturn(true);
 
     AddRelatedTermsResolver resolver = new AddRelatedTermsResolver(mockService, mockClient);
@@ -202,9 +204,9 @@ public class AddRelatedTermsResolverTest {
     EntityService mockService = setUpService();
     EntityClient mockClient = Mockito.mock(EntityClient.class);
 
-    Mockito.when(mockService.exists(eq(Urn.createFromString(DATASET_URN)), eq(true)))
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(DATASET_URN)), eq(true)))
         .thenReturn(true);
-    Mockito.when(mockService.exists(eq(Urn.createFromString(TEST_TERM_1_URN)), eq(true)))
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_TERM_1_URN)), eq(true)))
         .thenReturn(true);
 
     AddRelatedTermsResolver resolver = new AddRelatedTermsResolver(mockService, mockClient);
@@ -226,11 +228,11 @@ public class AddRelatedTermsResolverTest {
     EntityService mockService = setUpService();
     EntityClient mockClient = Mockito.mock(EntityClient.class);
 
-    Mockito.when(mockService.exists(eq(Urn.createFromString(TEST_ENTITY_URN)), eq(true)))
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN)), eq(true)))
         .thenReturn(true);
-    Mockito.when(mockService.exists(eq(Urn.createFromString(TEST_TERM_1_URN)), eq(true)))
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_TERM_1_URN)), eq(true)))
         .thenReturn(true);
-    Mockito.when(mockService.exists(eq(Urn.createFromString(TEST_TERM_2_URN)), eq(true)))
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_TERM_2_URN)), eq(true)))
         .thenReturn(true);
 
     AddRelatedTermsResolver resolver = new AddRelatedTermsResolver(mockService, mockClient);

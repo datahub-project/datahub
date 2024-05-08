@@ -11,7 +11,10 @@ import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authorization.AuthorizationResult;
 import com.datahub.authorization.AuthorizerChain;
+import com.linkedin.metadata.models.registry.*;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.io.IOException;
 import java.util.Optional;
 import org.mockito.Mockito;
@@ -22,12 +25,19 @@ import org.springframework.context.annotation.Primary;
 
 @TestConfiguration
 public class OpenAPIAnalyticsTestConfiguration {
+
+  @Bean(name = "systemOperationContext")
+  public OperationContext systemOperationContext() {
+    return TestOperationContexts.systemContextNoSearchAuthorization();
+  }
+
   @Bean
   @Primary
   public ElasticSearchService datahubUsageEventsApiDelegate() throws IOException {
     ElasticSearchService elasticSearchService = mock(ElasticSearchService.class);
     SearchResponse mockResp = mock(SearchResponse.class);
-    when(elasticSearchService.raw(eq(DATAHUB_USAGE_INDEX), anyString()))
+    when(elasticSearchService.raw(
+            any(OperationContext.class), eq(DATAHUB_USAGE_INDEX), anyString()))
         .thenReturn(Optional.of(mockResp));
     return elasticSearchService;
   }
@@ -43,5 +53,14 @@ public class OpenAPIAnalyticsTestConfiguration {
     AuthenticationContext.setAuthentication(authentication);
 
     return authorizerChain;
+  }
+
+  @Bean("entityRegistry")
+  @Primary
+  public EntityRegistry entityRegistry() throws EntityRegistryException, InterruptedException {
+    return new ConfigEntityRegistry(
+        OpenAPIAnalyticsTestConfiguration.class
+            .getClassLoader()
+            .getResourceAsStream("entity-registry.yml"));
   }
 }

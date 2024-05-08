@@ -67,6 +67,7 @@ RUN addgroup --gid 1000 datahub && \
     chmod +x /entrypoint.sh
 
 USER datahub
+ENV REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
 ENV VIRTUAL_ENV=/datahub-ingestion/.venv
 ENV PATH="${VIRTUAL_ENV}/bin:$PATH"
 RUN python3 -m venv $VIRTUAL_ENV && \

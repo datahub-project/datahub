@@ -53,10 +53,10 @@ public class IncidentType
     try {
       final Map<Urn, EntityResponse> entities =
           _entityClient.batchGetV2(
+              context.getOperationContext(),
               Constants.INCIDENT_ENTITY_NAME,
               new HashSet<>(incidentUrns),
-              ASPECTS_TO_FETCH,
-              context.getAuthentication());
+              ASPECTS_TO_FETCH);
 
       final List<EntityResponse> gmsResults = new ArrayList<>();
       for (Urn urn : incidentUrns) {

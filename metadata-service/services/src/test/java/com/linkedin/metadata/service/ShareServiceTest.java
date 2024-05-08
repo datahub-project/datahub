@@ -1,8 +1,9 @@
 package com.linkedin.metadata.service;
 
-import com.datahub.authentication.Actor;
-import com.datahub.authentication.ActorType;
-import com.datahub.authentication.Authentication;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.Share;
@@ -15,12 +16,15 @@ import com.linkedin.entity.Aspect;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
-import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.mxe.MetadataChangeProposal;
+import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.openapi.client.OpenApiClient;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import org.mockito.Mockito;
 import org.testng.Assert;
+import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
 public class ShareServiceTest {
@@ -32,17 +36,24 @@ public class ShareServiceTest {
   private static final Urn TEST_DATASET_URN =
       UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:mysql,my-test,PROD)");
   private static final Urn TEST_USER_URN = UrnUtils.getUrn("urn:li:corpuser:test");
+  private static final ObjectMapper objectMapper = new ObjectMapper();
+
+  private OperationContext opContext;
+
+  @BeforeTest
+  private void setup() {
+    opContext = TestOperationContexts.userContextNoSearchAuthorization(TEST_USER_URN);
+  }
 
   @Test
   private void testUpsertShareResultSuccess() throws Exception {
-    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    SystemEntityClient mockClient = mock(SystemEntityClient.class);
     final ShareService service =
-        new ShareService(
-            mockClient, Mockito.mock(Authentication.class), Mockito.mock(OpenApiClient.class));
+        new ShareService(mockClient, mock(OpenApiClient.class), objectMapper);
 
     final Share shareAspect =
         service.upsertShareResult(
-            TEST_DATASET_URN, TEST_CONNECTION_URN, ShareResultState.SUCCESS, mockAuthentication());
+            opContext, TEST_DATASET_URN, TEST_CONNECTION_URN, ShareResultState.SUCCESS);
 
     Assert.assertEquals(shareAspect.getLastShareResults().size(), 1);
     ShareResult shareResult = shareAspect.getLastShareResults().get(0);
@@ -57,9 +68,7 @@ public class ShareServiceTest {
     // Ingests new aspect
     Mockito.verify(mockClient, Mockito.times(1))
         .ingestProposal(
-            Mockito.any(MetadataChangeProposal.class),
-            Mockito.any(Authentication.class),
-            Mockito.eq(false));
+            any(OperationContext.class), any(MetadataChangeProposal.class), Mockito.eq(false));
   }
 
   @Test
@@ -67,21 +76,20 @@ public class ShareServiceTest {
     Long createdTime = System.currentTimeMillis();
     EntityResponse response = createShareAspectResponse(createdTime, TEST_CONNECTION_URN);
 
-    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    SystemEntityClient mockClient = mock(SystemEntityClient.class);
     Mockito.when(
             mockClient.getV2(
+                any(OperationContext.class),
                 Mockito.eq(TEST_DATASET_URN.getEntityType()),
                 Mockito.eq(TEST_DATASET_URN),
-                Mockito.eq(ImmutableSet.of(Constants.SHARE_ASPECT_NAME)),
-                Mockito.any(Authentication.class)))
+                Mockito.eq(ImmutableSet.of(Constants.SHARE_ASPECT_NAME))))
         .thenReturn(response);
     final ShareService service =
-        new ShareService(
-            mockClient, Mockito.mock(Authentication.class), Mockito.mock(OpenApiClient.class));
+        new ShareService(mockClient, mock(OpenApiClient.class), objectMapper);
 
     final Share shareAspect =
         service.upsertShareResult(
-            TEST_DATASET_URN, TEST_CONNECTION_URN, ShareResultState.SUCCESS, mockAuthentication());
+            opContext, TEST_DATASET_URN, TEST_CONNECTION_URN, ShareResultState.SUCCESS);
 
     // ensure that we replace the old share result for the same connection, updating lastSuccess
     Assert.assertEquals(shareAspect.getLastShareResults().size(), 1);
@@ -99,9 +107,7 @@ public class ShareServiceTest {
     // Ingests new aspect
     Mockito.verify(mockClient, Mockito.times(1))
         .ingestProposal(
-            Mockito.any(MetadataChangeProposal.class),
-            Mockito.any(Authentication.class),
-            Mockito.eq(false));
+            any(OperationContext.class), any(MetadataChangeProposal.class), Mockito.eq(false));
   }
 
   @Test
@@ -109,21 +115,20 @@ public class ShareServiceTest {
     Long createdTime = System.currentTimeMillis();
     EntityResponse response = createShareAspectResponse(createdTime, TEST_CONNECTION_URN);
 
-    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    SystemEntityClient mockClient = mock(SystemEntityClient.class);
     Mockito.when(
             mockClient.getV2(
+                any(OperationContext.class),
                 Mockito.eq(TEST_DATASET_URN.getEntityType()),
                 Mockito.eq(TEST_DATASET_URN),
-                Mockito.eq(ImmutableSet.of(Constants.SHARE_ASPECT_NAME)),
-                Mockito.any(Authentication.class)))
+                Mockito.eq(ImmutableSet.of(Constants.SHARE_ASPECT_NAME))))
         .thenReturn(response);
     final ShareService service =
-        new ShareService(
-            mockClient, Mockito.mock(Authentication.class), Mockito.mock(OpenApiClient.class));
+        new ShareService(mockClient, mock(OpenApiClient.class), objectMapper);
 
     final Share shareAspect =
         service.upsertShareResult(
-            TEST_DATASET_URN, TEST_CONNECTION_URN, ShareResultState.FAILURE, mockAuthentication());
+            opContext, TEST_DATASET_URN, TEST_CONNECTION_URN, ShareResultState.FAILURE);
 
     // ensure that we replace the old share result for the same connection, updating lastSuccess
     Assert.assertEquals(shareAspect.getLastShareResults().size(), 1);
@@ -140,9 +145,7 @@ public class ShareServiceTest {
     // Ingests new aspect
     Mockito.verify(mockClient, Mockito.times(1))
         .ingestProposal(
-            Mockito.any(MetadataChangeProposal.class),
-            Mockito.any(Authentication.class),
-            Mockito.eq(false));
+            any(OperationContext.class), any(MetadataChangeProposal.class), Mockito.eq(false));
   }
 
   @Test
@@ -151,25 +154,21 @@ public class ShareServiceTest {
     // populate with a share result with instance 1
     EntityResponse response = createShareAspectResponse(createdTime, TEST_CONNECTION_URN);
 
-    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    SystemEntityClient mockClient = mock(SystemEntityClient.class);
     Mockito.when(
             mockClient.getV2(
+                any(OperationContext.class),
                 Mockito.eq(TEST_DATASET_URN.getEntityType()),
                 Mockito.eq(TEST_DATASET_URN),
-                Mockito.eq(ImmutableSet.of(Constants.SHARE_ASPECT_NAME)),
-                Mockito.any(Authentication.class)))
+                Mockito.eq(ImmutableSet.of(Constants.SHARE_ASPECT_NAME))))
         .thenReturn(response);
     final ShareService service =
-        new ShareService(
-            mockClient, Mockito.mock(Authentication.class), Mockito.mock(OpenApiClient.class));
+        new ShareService(mockClient, mock(OpenApiClient.class), objectMapper);
 
     // create new share with instance 2
     final Share shareAspect =
         service.upsertShareResult(
-            TEST_DATASET_URN,
-            TEST_CONNECTION_URN_2,
-            ShareResultState.FAILURE,
-            mockAuthentication());
+            opContext, TEST_DATASET_URN, TEST_CONNECTION_URN_2, ShareResultState.FAILURE);
 
     // ensure that we create a new result entry for the new instance we share with
     Assert.assertEquals(shareAspect.getLastShareResults().size(), 2);
@@ -184,9 +183,7 @@ public class ShareServiceTest {
     // Ingests new aspect
     Mockito.verify(mockClient, Mockito.times(1))
         .ingestProposal(
-            Mockito.any(MetadataChangeProposal.class),
-            Mockito.any(Authentication.class),
-            Mockito.eq(false));
+            any(OperationContext.class), any(MetadataChangeProposal.class), Mockito.eq(false));
   }
 
   private static EntityResponse createShareAspectResponse(Long time, Urn connectionUrn)
@@ -207,11 +204,5 @@ public class ShareServiceTest {
     response.setAspects(aspectMap);
 
     return response;
-  }
-
-  private static Authentication mockAuthentication() {
-    Authentication mockAuth = Mockito.mock(Authentication.class);
-    Mockito.when(mockAuth.getActor()).thenReturn(new Actor(ActorType.USER, TEST_USER_URN.getId()));
-    return mockAuth;
   }
 }

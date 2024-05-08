@@ -10,6 +10,7 @@ import com.datahub.plugins.auth.authorization.Authorizer;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.CreateGlossaryEntityInput;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.OperationContext;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -62,7 +63,7 @@ public class ProposeCreateGlossaryTermResolverTest {
     input.setName(GLOSSARY_TERM_NAME);
     when(_dataFetchingEnvironment.getArgument(eq("input"))).thenReturn(input);
     when(_proposalService.proposeCreateGlossaryTerm(
-            any(), eq(GLOSSARY_TERM_NAME), any(), any(), eq(_authorizer)))
+            any(OperationContext.class), any(), eq(GLOSSARY_TERM_NAME), any(), any()))
         .thenReturn(true);
 
     assertTrue(_resolver.get(_dataFetchingEnvironment).join());

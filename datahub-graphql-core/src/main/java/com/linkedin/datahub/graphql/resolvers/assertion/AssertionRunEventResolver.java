@@ -59,14 +59,14 @@ public class AssertionRunEventResolver
             // Step 1: Fetch aspects from GMS
             List<EnvelopedAspect> aspects =
                 _client.getTimeseriesAspectValues(
+                    context.getOperationContext(),
                     urn,
                     Constants.ASSERTION_ENTITY_NAME,
                     Constants.ASSERTION_RUN_EVENT_ASPECT_NAME,
                     maybeStartTimeMillis,
                     maybeEndTimeMillis,
                     maybeLimit,
-                    buildFilter(maybeFilters, maybeStatus),
-                    context.getAuthentication());
+                    buildFilter(maybeFilters, maybeStatus));
 
             // Step 2: Bind profiles into GraphQL strong types.
             List<AssertionRunEvent> runEvents =

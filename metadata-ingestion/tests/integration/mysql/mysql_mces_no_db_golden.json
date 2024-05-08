@@ -439,6 +439,7 @@
             },
             "rowCount": 10,
             "columnCount": 6,
+            "sizeInBytes": 16384,
             "fieldProfiles": [
                 {
                     "fieldPath": "emp_no",
@@ -573,8 +574,7 @@
                         "1989-08-24"
                     ]
                 }
-            ],
-            "sizeInBytes": 16384
+            ]
         }
     },
     "systemMetadata": {
@@ -597,6 +597,7 @@
             },
             "rowCount": 112,
             "columnCount": 4,
+            "sizeInBytes": 16384,
             "fieldProfiles": [
                 {
                     "fieldPath": "emp_no",
@@ -990,8 +991,7 @@
                         "1993-02-09"
                     ]
                 }
-            ],
-            "sizeInBytes": 16384
+            ]
         }
     },
     "systemMetadata": {
@@ -2150,6 +2150,7 @@
             },
             "rowCount": 5,
             "columnCount": 6,
+            "sizeInBytes": 16384,
             "fieldProfiles": [
                 {
                     "fieldPath": "id",
@@ -2258,8 +2259,7 @@
                         "3.8"
                     ]
                 }
-            ],
-            "sizeInBytes": 16384
+            ]
         }
     },
     "systemMetadata": {
@@ -2282,6 +2282,7 @@
             },
             "rowCount": 0,
             "columnCount": 3,
+            "sizeInBytes": 16384,
             "fieldProfiles": [
                 {
                     "fieldPath": "id",
@@ -2298,8 +2299,7 @@
                     "uniqueCount": 0,
                     "nullCount": 0
                 }
-            ],
-            "sizeInBytes": 16384
+            ]
         }
     },
     "systemMetadata": {
@@ -2641,14 +2641,14 @@
             },
             "rowCount": 0,
             "columnCount": 1,
+            "sizeInBytes": 16384,
             "fieldProfiles": [
                 {
                     "fieldPath": "col",
                     "uniqueCount": 0,
                     "nullCount": 0
                 }
-            ],
-            "sizeInBytes": 16384
+            ]
         }
     },
     "systemMetadata": {
@@ -2671,14 +2671,14 @@
             },
             "rowCount": 0,
             "columnCount": 1,
+            "sizeInBytes": 16384,
             "fieldProfiles": [
                 {
                     "fieldPath": "dummy",
                     "uniqueCount": 0,
                     "nullCount": 0
                 }
-            ],
-            "sizeInBytes": 16384
+            ]
         }
     },
     "systemMetadata": {
@@ -2750,6 +2750,38 @@
                     "confidenceScore": 1.0
                 }
             ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "mysql-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "glossaryTerm",
+    "entityUrn": "urn:li:glossaryTerm:Email_Address",
+    "changeType": "UPSERT",
+    "aspectName": "glossaryTermKey",
+    "aspect": {
+        "json": {
+            "name": "Email_Address"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "mysql-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "glossaryTerm",
+    "entityUrn": "urn:li:glossaryTerm:Gender",
+    "changeType": "UPSERT",
+    "aspectName": "glossaryTermKey",
+    "aspect": {
+        "json": {
+            "name": "Gender"
         }
     },
     "systemMetadata": {

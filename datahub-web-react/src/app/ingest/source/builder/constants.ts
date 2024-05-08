@@ -16,6 +16,7 @@ import supersetLogo from '../../../../images/supersetlogo.png';
 import athenaLogo from '../../../../images/awsathenalogo.png';
 import mssqlLogo from '../../../../images/mssqllogo.png';
 import clickhouseLogo from '../../../../images/clickhouselogo.png';
+import cockroachdbLogo from '../../../../images/cockroachdblogo.png';
 import trinoLogo from '../../../../images/trinologo.png';
 import dbtLogo from '../../../../images/dbtlogo.png';
 import druidLogo from '../../../../images/druidlogo.png';
@@ -33,6 +34,7 @@ import fivetranLogo from '../../../../images/fivetranlogo.png';
 import csvLogo from '../../../../images/csv-logo.png';
 import fileLogo from '../../../../images/file-logo.png';
 import qlikLogo from '../../../../images/qliklogo.png';
+import sigmaLogo from '../../../../images/sigmalogo.png';
 
 export const ATHENA = 'athena';
 export const ATHENA_URN = `urn:li:dataPlatform:${ATHENA}`;
@@ -45,6 +47,8 @@ export const BIGQUERY_URN = `urn:li:dataPlatform:${BIGQUERY}`;
 export const CLICKHOUSE = 'clickhouse';
 export const CLICKHOUSE_USAGE = 'clickhouse-usage';
 export const CLICKHOUSE_URN = `urn:li:dataPlatform:${CLICKHOUSE}`;
+export const COCKROACHDB = 'cockroachdb';
+export const COCKROACHDB_URN = `urn:li:dataPlatform:${COCKROACHDB}`;
 export const DBT = 'dbt';
 export const DBT_URN = `urn:li:dataPlatform:${DBT}`;
 export const DRUID = 'druid';
@@ -119,12 +123,15 @@ export const FILE = 'file';
 export const FILE_URN = `urn:li:dataPlatform:${FILE}`;
 export const QLIK_SENSE = 'qlik-sense';
 export const QLIK_SENSE_URN = `urn:li:dataPlatform:${QLIK_SENSE}`;
+export const SIGMA = 'sigma';
+export const SIGMA_URN = `urn:li:dataPlatform:${SIGMA}`;
 
 export const PLATFORM_URN_TO_LOGO = {
     [ATHENA_URN]: athenaLogo,
     [AZURE_URN]: azureLogo,
     [BIGQUERY_URN]: bigqueryLogo,
     [CLICKHOUSE_URN]: clickhouseLogo,
+    [COCKROACHDB_URN]: cockroachdbLogo,
     [DBT_URN]: dbtLogo,
     [DRUID_URN]: druidLogo,
     [DYNAMODB_URN]: dynamodbLogo,
@@ -157,6 +164,7 @@ export const PLATFORM_URN_TO_LOGO = {
     [CSV_URN]: csvLogo,
     [FILE_URN]: fileLogo,
     [QLIK_SENSE_URN]: qlikLogo,
+    [SIGMA_URN]: sigmaLogo,
 };
 
 export const SOURCE_TO_PLATFORM_URN = {

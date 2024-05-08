@@ -67,8 +67,8 @@ public class UpdateLineageResolverTest {
     mockInputAndContext(edgesToAdd, edgesToRemove);
     UpdateLineageResolver resolver = new UpdateLineageResolver(_mockService, _lineageService);
 
-    Mockito.when(_mockService.exists(any(Collection.class), eq(true)))
-        .thenAnswer(args -> args.getArgument(0));
+    Mockito.when(_mockService.exists(any(), any(Collection.class), eq(true)))
+        .thenAnswer(args -> args.getArgument(1));
 
     assertTrue(resolver.get(_mockEnv).get());
   }
@@ -80,7 +80,8 @@ public class UpdateLineageResolverTest {
     mockInputAndContext(edgesToAdd, new ArrayList<>());
     UpdateLineageResolver resolver = new UpdateLineageResolver(_mockService, _lineageService);
 
-    Mockito.when(_mockService.exists(any(Collection.class), eq(true))).thenAnswer(args -> Set.of());
+    Mockito.when(_mockService.exists(any(), any(Collection.class), eq(true)))
+        .thenAnswer(args -> Set.of());
 
     assertThrows(CompletionException.class, () -> resolver.get(_mockEnv).join());
   }
@@ -93,8 +94,8 @@ public class UpdateLineageResolverTest {
     mockInputAndContext(edgesToAdd, edgesToRemove);
     UpdateLineageResolver resolver = new UpdateLineageResolver(_mockService, _lineageService);
 
-    Mockito.when(_mockService.exists(any(Collection.class), eq(true)))
-        .thenAnswer(args -> args.getArgument(0));
+    Mockito.when(_mockService.exists(any(), any(Collection.class), eq(true)))
+        .thenAnswer(args -> args.getArgument(1));
 
     assertTrue(resolver.get(_mockEnv).get());
   }
@@ -111,8 +112,8 @@ public class UpdateLineageResolverTest {
     mockInputAndContext(edgesToAdd, edgesToRemove);
     UpdateLineageResolver resolver = new UpdateLineageResolver(_mockService, _lineageService);
 
-    Mockito.when(_mockService.exists(any(Collection.class), eq(true)))
-        .thenAnswer(args -> args.getArgument(0));
+    Mockito.when(_mockService.exists(any(), any(Collection.class), eq(true)))
+        .thenAnswer(args -> args.getArgument(1));
 
     assertTrue(resolver.get(_mockEnv).get());
   }
@@ -130,8 +131,8 @@ public class UpdateLineageResolverTest {
     mockInputAndContext(edgesToAdd, edgesToRemove);
     UpdateLineageResolver resolver = new UpdateLineageResolver(_mockService, _lineageService);
 
-    Mockito.when(_mockService.exists(any(Collection.class), eq(true)))
-        .thenAnswer(args -> args.getArgument(0));
+    Mockito.when(_mockService.exists(any(), any(Collection.class), eq(true)))
+        .thenAnswer(args -> args.getArgument(1));
 
     assertTrue(resolver.get(_mockEnv).get());
   }
@@ -152,8 +153,8 @@ public class UpdateLineageResolverTest {
 
     UpdateLineageResolver resolver = new UpdateLineageResolver(_mockService, _lineageService);
 
-    Mockito.when(_mockService.exists(any(Collection.class), eq(true)))
-        .thenAnswer(args -> args.getArgument(0));
+    Mockito.when(_mockService.exists(any(), any(Collection.class), eq(true)))
+        .thenAnswer(args -> args.getArgument(1));
 
     assertThrows(AuthorizationException.class, () -> resolver.get(_mockEnv).join());
   }

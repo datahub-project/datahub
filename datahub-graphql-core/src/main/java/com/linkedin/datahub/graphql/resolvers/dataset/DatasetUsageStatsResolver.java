@@ -43,7 +43,8 @@ public class DatasetUsageStatsResolver implements DataFetcher<CompletableFuture<
           }
           try {
             com.linkedin.usage.UsageQueryResult usageQueryResult =
-                usageClient.getUsageStats(resourceUrn.toString(), range);
+                usageClient.getUsageStats(
+                    context.getOperationContext(), resourceUrn.toString(), range);
             return UsageQueryResultMapper.map(context, usageQueryResult);
           } catch (Exception e) {
             log.error(String.format("Failed to load Usage Stats for resource %s", resourceUrn), e);

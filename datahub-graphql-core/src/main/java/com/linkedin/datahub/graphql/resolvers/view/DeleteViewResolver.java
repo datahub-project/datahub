@@ -31,7 +31,7 @@ public class DeleteViewResolver implements DataFetcher<CompletableFuture<Boolean
         () -> {
           try {
             if (ViewUtils.canUpdateView(_viewService, urn, context)) {
-              _viewService.deleteView(urn, context.getAuthentication());
+              _viewService.deleteView(context.getOperationContext(), urn);
               log.info(String.format("Successfully deleted View %s with urn", urn));
               return true;
             }

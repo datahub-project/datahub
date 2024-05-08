@@ -70,11 +70,12 @@ public class ShareEntityResolver implements DataFetcher<CompletableFuture<ShareE
               if (result == null) {
                 succeeded = false;
                 _shareService.upsertShareResult(
-                    entityUrn, connection, ShareResultState.FAILURE, authentication);
+                    context.getOperationContext(), entityUrn, connection, ShareResultState.FAILURE);
               }
             }
             ;
-            Share shareAspect = _shareService.getShareOrDefault(entityUrn, authentication);
+            Share shareAspect =
+                _shareService.getShareOrDefault(context.getOperationContext(), entityUrn);
             ShareEntityResult shareEntityResult = new ShareEntityResult();
             shareEntityResult.setSucceeded(succeeded);
             shareEntityResult.setShare(ShareMapper.map(context, shareAspect));

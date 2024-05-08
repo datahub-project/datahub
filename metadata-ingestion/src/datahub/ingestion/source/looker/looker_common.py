@@ -1,6 +1,7 @@
 import datetime
 import itertools
 import logging
+import os
 import re
 from contextlib import contextmanager
 from dataclasses import dataclass, field as dataclasses_field
@@ -31,7 +32,7 @@ from pydantic.class_validators import validator
 
 import datahub.emitter.mce_builder as builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.mcp_builder import create_embed_mcp
+from datahub.emitter.mcp_builder import ContainerKey, create_embed_mcp
 from datahub.ingestion.api.report import Report
 from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
@@ -76,7 +77,10 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     UnionTypeClass,
 )
 from datahub.metadata.schema_classes import (
+    BrowsePathEntryClass,
     BrowsePathsClass,
+    BrowsePathsV2Class,
+    ContainerClass,
     DatasetPropertiesClass,
     EnumTypeClass,
     FineGrainedLineageClass,
@@ -103,6 +107,32 @@ logger = logging.getLogger(__name__)
 
 
 @dataclass
+class LookerFolder:
+    id: str
+    name: str
+    parent_id: Optional[str]
+
+
+class LookMLProjectKey(ContainerKey):
+    project_name: str
+
+
+class LookMLModelKey(ContainerKey):
+    model_name: str
+
+
+class LookerFolderKey(ContainerKey):
+    folder_id: str
+
+
+def remove_suffix(original: str, suffix: str) -> str:
+    # This can be removed in favour of original.removesuffix for python>3.8
+    if original.endswith(suffix):
+        return original[: -len(suffix)]
+    return original
+
+
+@dataclass
 class LookerViewId:
     project_name: str
     model_name: str
@@ -116,7 +146,8 @@ class LookerViewId:
             project=self.project_name,
             model=self.model_name,
             name=self.view_name,
-            file_path=self.file_path,
+            file_path=remove_suffix(self.file_path, ".view.lkml"),
+            folder_path=os.path.dirname(self.file_path),
         )
 
     @validator("view_name")
@@ -168,6 +199,27 @@ class LookerViewId:
         )
         return browse_path
 
+    def get_browse_path_v2(self, config: LookerCommonConfig) -> BrowsePathsV2Class:
+        project_key = gen_project_key(config, self.project_name)
+        view_path = (
+            remove_suffix(self.file_path, ".view.lkml")
+            if "{file_path}" in config.view_browse_pattern.pattern
+            else os.path.dirname(self.file_path)
+        )
+        if view_path:
+            path_entries = [
+                BrowsePathEntryClass(id=path) for path in view_path.split("/")
+            ]
+        else:
+            path_entries = []
+        return BrowsePathsV2Class(
+            path=[
+                BrowsePathEntryClass(id="Develop"),
+                BrowsePathEntryClass(id=project_key.as_urn(), urn=project_key.as_urn()),
+                *path_entries,
+            ],
+        )
+
 
 class ViewFieldType(Enum):
     DIMENSION = "Dimension"
@@ -191,6 +243,56 @@ class ViewField:
     view_name: Optional[str] = None
     is_primary_key: bool = False
     upstream_fields: List[str] = dataclasses_field(default_factory=list)
+
+
+@dataclass
+class ExploreUpstreamViewField:
+    explore: LookmlModelExplore
+    field: LookmlModelExploreField
+
+    def _form_field_name(self):
+        assert self.field.name is not None
+
+        if len(self.field.name.split(".")) != 2:
+            return self.field.name  # Inconsistent info received
+
+        view_name: Optional[str] = self.explore.name
+
+        if (
+            self.field.original_view is not None
+        ):  # if `from` is used in explore then original_view is pointing to
+            # lookml view
+            view_name = self.field.original_view
+
+        field_name = self.field.name.split(".")[1]
+
+        return f"{view_name}.{field_name}"
+
+    def upstream(self) -> str:
+        assert self.field.name is not None
+
+        if self.field.dimension_group is None:  # It is not part of Dimensional Group
+            return self._form_field_name()
+
+        if self.field.field_group_variant is None:
+            return (
+                self._form_field_name()
+            )  # Variant i.e. Month, Day, Year ... is not available
+
+        if self.field.type is None or not self.field.type.startswith("date_"):
+            return (
+                self._form_field_name()
+            )  # for Dimensional Group the type is always start with date_[time|date]
+
+        if not self.field.name.endswith(f"_{self.field.field_group_variant.lower()}"):
+            return (
+                self._form_field_name()
+            )  # if the explore field is generated because of  Dimensional Group in View
+            # then the field_name should ends with field_group_variant
+
+        return self._form_field_name()[
+            : -(len(self.field.field_group_variant.lower()) + 1)
+        ]  # remove variant at the end. +1 for "_"
 
 
 def create_view_project_map(view_fields: List[ViewField]) -> Dict[str, str]:
@@ -493,12 +595,16 @@ class LookerUtil:
             type=LookerUtil._get_field_type(field.type, reporter),
             nativeDataType=field.type,
             label=field.label,
-            description=field.description
-            if tag_measures_and_dimensions is True
-            else f"{field.field_type.value}. {field.description}",
-            globalTags=LookerUtil._get_tags_from_field_type(field.field_type, reporter)
-            if tag_measures_and_dimensions is True
-            else None,
+            description=(
+                field.description
+                if tag_measures_and_dimensions is True
+                else f"{field.field_type.value}. {field.description}"
+            ),
+            globalTags=(
+                LookerUtil._get_tags_from_field_type(field.field_type, reporter)
+                if tag_measures_and_dimensions is True
+                else None
+            ),
             isPartOfKey=field.is_primary_key,
         )
 
@@ -737,29 +843,46 @@ class LookerExplore:
                         if dim_field.name is None:
                             continue
                         else:
+                            dimension_upstream_field: ExploreUpstreamViewField = (
+                                ExploreUpstreamViewField(
+                                    explore=explore,
+                                    field=dim_field,
+                                )
+                            )
+
                             view_fields.append(
                                 ViewField(
                                     name=dim_field.name,
                                     label=dim_field.label_short,
-                                    description=dim_field.description
-                                    if dim_field.description
-                                    else "",
-                                    type=dim_field.type
-                                    if dim_field.type is not None
-                                    else "",
-                                    field_type=ViewFieldType.DIMENSION_GROUP
-                                    if dim_field.dimension_group is not None
-                                    else ViewFieldType.DIMENSION,
+                                    description=(
+                                        dim_field.description
+                                        if dim_field.description
+                                        else ""
+                                    ),
+                                    type=(
+                                        dim_field.type
+                                        if dim_field.type is not None
+                                        else ""
+                                    ),
+                                    field_type=(
+                                        ViewFieldType.DIMENSION_GROUP
+                                        if dim_field.dimension_group is not None
+                                        else ViewFieldType.DIMENSION
+                                    ),
                                     project_name=LookerUtil.extract_project_name_from_source_file(
                                         dim_field.source_file
                                     ),
                                     view_name=LookerUtil.extract_view_name_from_lookml_model_explore_field(
                                         dim_field
                                     ),
-                                    is_primary_key=dim_field.primary_key
-                                    if dim_field.primary_key
-                                    else False,
-                                    upstream_fields=[dim_field.name],
+                                    is_primary_key=(
+                                        dim_field.primary_key
+                                        if dim_field.primary_key
+                                        else False
+                                    ),
+                                    upstream_fields=[
+                                        dimension_upstream_field.upstream()
+                                    ],
                                 )
                             )
                 if explore.fields.measures is not None:
@@ -767,16 +890,27 @@ class LookerExplore:
                         if measure_field.name is None:
                             continue
                         else:
+                            measure_upstream_field: ExploreUpstreamViewField = (
+                                ExploreUpstreamViewField(
+                                    explore=explore,
+                                    field=measure_field,
+                                )
+                            )
+
                             view_fields.append(
                                 ViewField(
                                     name=measure_field.name,
                                     label=measure_field.label_short,
-                                    description=measure_field.description
-                                    if measure_field.description
-                                    else "",
-                                    type=measure_field.type
-                                    if measure_field.type is not None
-                                    else "",
+                                    description=(
+                                        measure_field.description
+                                        if measure_field.description
+                                        else ""
+                                    ),
+                                    type=(
+                                        measure_field.type
+                                        if measure_field.type is not None
+                                        else ""
+                                    ),
                                     field_type=ViewFieldType.MEASURE,
                                     project_name=LookerUtil.extract_project_name_from_source_file(
                                         measure_field.source_file
@@ -784,10 +918,12 @@ class LookerExplore:
                                     view_name=LookerUtil.extract_view_name_from_lookml_model_explore_field(
                                         measure_field
                                     ),
-                                    is_primary_key=measure_field.primary_key
-                                    if measure_field.primary_key
-                                    else False,
-                                    upstream_fields=[measure_field.name],
+                                    is_primary_key=(
+                                        measure_field.primary_key
+                                        if measure_field.primary_key
+                                        else False
+                                    ),
+                                    upstream_fields=[measure_upstream_field.upstream()],
                                 )
                             )
 
@@ -888,7 +1024,10 @@ class LookerExplore:
             urn=self.get_explore_urn(config),
             aspects=[],  # we append to this list later on
         )
+
+        model_key = gen_model_key(config, self.model_name)
         browse_paths = BrowsePathsClass(paths=[self.get_explore_browse_path(config)])
+        container = ContainerClass(container=model_key.as_urn())
         dataset_snapshot.aspects.append(browse_paths)
         dataset_snapshot.aspects.append(StatusClass(removed=False))
 
@@ -919,9 +1058,11 @@ class LookerExplore:
                     else ViewFieldValue.NOT_AVAILABLE.value
                 )
                 view_urn = LookerViewId(
-                    project_name=view_ref.project
-                    if view_ref.project != _BASE_PROJECT_NAME
-                    else self.project_name,
+                    project_name=(
+                        view_ref.project
+                        if view_ref.project != _BASE_PROJECT_NAME
+                        else self.project_name
+                    ),
                     model_name=self.model_name,
                     view_name=view_ref.include,
                     file_path=file_path,
@@ -999,7 +1140,32 @@ class LookerExplore:
             )
             proposals.append(embed_mcp)
 
+        proposals.append(
+            MetadataChangeProposalWrapper(
+                entityUrn=dataset_snapshot.urn,
+                aspect=container,
+            )
+        )
+
         return proposals
+
+
+def gen_project_key(config: LookerCommonConfig, project_name: str) -> LookMLProjectKey:
+    return LookMLProjectKey(
+        platform=config.platform_name,
+        instance=config.platform_instance,
+        env=config.env,
+        project_name=project_name,
+    )
+
+
+def gen_model_key(config: LookerCommonConfig, model_name: str) -> LookMLModelKey:
+    return LookMLModelKey(
+        platform=config.platform_name,
+        instance=config.platform_instance,
+        env=config.env,
+        model_name=model_name,
+    )
 
 
 class LookerExploreRegistry:
@@ -1200,6 +1366,7 @@ class LookerDashboardElement:
     description: Optional[str] = None
     input_fields: Optional[List[InputFieldElement]] = None
     folder_path: Optional[str] = None  # for independent looks.
+    folder: Optional[LookerFolder] = None
 
     def url(self, base_url: str) -> str:
         # A dashboard element can use a look or just a raw query against an explore
@@ -1243,6 +1410,7 @@ class LookerDashboard:
     created_at: Optional[datetime.datetime]
     description: Optional[str] = None
     folder_path: Optional[str] = None
+    folder: Optional[LookerFolder] = None
     is_deleted: bool = False
     is_hidden: bool = False
     owner: Optional[LookerUser] = None

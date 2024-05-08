@@ -430,9 +430,9 @@
       }
     },
     {
-      "Path": "docs/generated/ingestion/sources/presto-on-hive",
+      "Path": "docs/generated/ingestion/sources/hive-metastore",
       "imgPath": "img/logos/platforms/presto.svg",
-      "Title": "Presto on Hive",
+      "Title": "Hive Metastore",
       "Description": "Presto on Hive is a data tool that allows users to query and analyze large datasets stored in Hive using SQL-like syntax.",
       "tags": {
         "Platform Type": "Datastore",

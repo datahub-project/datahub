@@ -235,7 +235,7 @@ def test_operation_processor_ownership_category():
     new_owner = ownership_aspect.owners[2]
     assert new_owner.owner == "urn:li:corpuser:bob"
     assert new_owner.source and new_owner.source.type == "SOURCE_CONTROL"
-    assert new_owner.type == OwnershipTypeClass.DATAOWNER  # dummy value
+    assert new_owner.type == OwnershipTypeClass.CUSTOM
     assert new_owner.typeUrn == "urn:li:ownershipType:architect"
 
 
@@ -347,3 +347,52 @@ def test_operation_processor_matching_dot_props():
     tag_aspect: GlobalTagsClass = aspect_map["add_tag"]
     assert len(tag_aspect.tags) == 1
     assert tag_aspect.tags[0].tag == "urn:li:tag:pii"
+
+
+def test_operation_processor_datahub_props():
+    raw_props = {
+        "datahub": {
+            "tags": ["tag1", "tag2"],
+            "terms": ["term1", "term2"],
+            "owners": [
+                "owner1",
+                "urn:li:corpGroup:group1",
+                {
+                    "owner": "owner2",
+                    "owner_type": "urn:li:ownershipType:steward",
+                },
+                {
+                    "owner": "urn:li:corpGroup:group2",
+                    "owner_type": "urn:li:ownershipType:steward",
+                },
+            ],
+        }
+    }
+
+    processor = OperationProcessor(
+        operation_defs={},
+        owner_source_type="SOURCE_CONTROL",
+    )
+    aspect_map = processor.process(raw_props)
+
+    assert isinstance(aspect_map["add_owner"], OwnershipClass)
+    assert [
+        (owner.owner, owner.type, owner.typeUrn)
+        for owner in aspect_map["add_owner"].owners
+    ] == [
+        ("urn:li:corpGroup:group1", "DATAOWNER", None),
+        ("urn:li:corpGroup:group2", "CUSTOM", "urn:li:ownershipType:steward"),
+        ("urn:li:corpuser:owner1", "DATAOWNER", None),
+        ("urn:li:corpuser:owner2", "CUSTOM", "urn:li:ownershipType:steward"),
+    ]
+
+    assert isinstance(aspect_map["add_tag"], GlobalTagsClass)
+    assert [tag_association.tag for tag_association in aspect_map["add_tag"].tags] == [
+        "urn:li:tag:tag1",
+        "urn:li:tag:tag2",
+    ]
+
+    assert isinstance(aspect_map["add_term"], GlossaryTermsClass)
+    assert [
+        term_association.urn for term_association in aspect_map["add_term"].terms
+    ] == ["urn:li:glossaryTerm:term1", "urn:li:glossaryTerm:term2"]

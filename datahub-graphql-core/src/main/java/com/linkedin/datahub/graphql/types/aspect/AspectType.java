@@ -58,10 +58,10 @@ public class AspectType implements LoadableType<Aspect, VersionedAspectKey> {
                   Map<Urn, EntityResponse> response =
                       canView(context.getOperationContext(), entityUrn)
                           ? _entityClient.batchGetV2(
+                              context.getOperationContext(),
                               entityUrn.getEntityType(),
                               ImmutableSet.of(entityUrn),
-                              ImmutableSet.of(key.getAspectName()),
-                              context.getAuthentication())
+                              ImmutableSet.of(key.getAspectName()))
                           : Map.of();
 
                   EntityResponse entityResponse = response.get(entityUrn);

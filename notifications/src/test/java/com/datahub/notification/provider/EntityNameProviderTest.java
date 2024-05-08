@@ -6,6 +6,8 @@ import static com.linkedin.metadata.Constants.DATA_PLATFORM_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.DATA_PLATFORM_INFO_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.DATA_PLATFORM_INSTANCE_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.SUB_TYPES_ASPECT_NAME;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
 
 import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableList;
@@ -20,8 +22,9 @@ import com.linkedin.entity.Aspect;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
-import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.Constants;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.Map;
 import java.util.Set;
 import org.mockito.Mockito;
@@ -34,15 +37,15 @@ public class EntityNameProviderTest {
       UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,SampleTable,PROD)");
   private static final Urn TEST_DATA_PLATFORM_URN = UrnUtils.getUrn("urn:li:dataPlatform:hive");
 
-  private EntityClient entityClient;
+  private SystemEntityClient entityClient;
   private Authentication systemAuthentication;
   private EntityNameProvider entityNameProvider;
 
   @BeforeMethod
   public void setUp() {
-    entityClient = Mockito.mock(EntityClient.class);
-    systemAuthentication = Mockito.mock(Authentication.class);
-    entityNameProvider = new EntityNameProvider(entityClient, systemAuthentication);
+    entityClient = mock(SystemEntityClient.class);
+    systemAuthentication = mock(Authentication.class);
+    entityNameProvider = new EntityNameProvider(entityClient);
   }
 
   @Test
@@ -50,13 +53,13 @@ public class EntityNameProviderTest {
     try {
       Mockito.when(
               entityClient.batchGetV2(
+                  any(OperationContext.class),
                   Mockito.eq(TEST_DATASET_URN.getEntityType()),
                   Mockito.eq(Set.of(TEST_DATASET_URN)),
-                  Mockito.eq(ImmutableSet.of(DATASET_PROPERTIES_ASPECT_NAME)),
-                  Mockito.any(Authentication.class)))
+                  Mockito.eq(ImmutableSet.of(DATASET_PROPERTIES_ASPECT_NAME))))
           .thenReturn(
               Map.of(TEST_DATASET_URN, getMockDatasetNameResponse("Expected Dataset Name")));
-      String name = entityNameProvider.getName(TEST_DATASET_URN);
+      String name = entityNameProvider.getName(mock(OperationContext.class), TEST_DATASET_URN);
       Assert.assertEquals(name, "Expected Dataset Name");
     } catch (Exception e) {
       Assert.fail("Exception should not be thrown", e);
@@ -68,24 +71,25 @@ public class EntityNameProviderTest {
     try {
       Mockito.when(
               entityClient.batchGetV2(
+                  any(OperationContext.class),
                   Mockito.eq(DATASET_ENTITY_NAME),
                   Mockito.eq(Set.of(TEST_DATASET_URN)),
-                  Mockito.eq(ImmutableSet.of(DATA_PLATFORM_INSTANCE_ASPECT_NAME)),
-                  Mockito.any(Authentication.class)))
+                  Mockito.eq(ImmutableSet.of(DATA_PLATFORM_INSTANCE_ASPECT_NAME))))
           .thenReturn(
               Map.of(
                   TEST_DATASET_URN, getMockDataPlatformInstanceResponse(TEST_DATA_PLATFORM_URN)));
       Mockito.when(
               entityClient.batchGetV2(
+                  any(OperationContext.class),
                   Mockito.eq(DATA_PLATFORM_ENTITY_NAME),
                   Mockito.eq(Set.of(TEST_DATA_PLATFORM_URN)),
-                  Mockito.eq(ImmutableSet.of(DATA_PLATFORM_INFO_ASPECT_NAME)),
-                  Mockito.any(Authentication.class)))
+                  Mockito.eq(ImmutableSet.of(DATA_PLATFORM_INFO_ASPECT_NAME))))
           .thenReturn(
               Map.of(
                   TEST_DATA_PLATFORM_URN,
                   getMockDataPlatformInfoResponse("Expected Platform Name")));
-      String platformName = entityNameProvider.getPlatformName(TEST_DATASET_URN);
+      String platformName =
+          entityNameProvider.getPlatformName(mock(OperationContext.class), TEST_DATASET_URN);
       Assert.assertEquals(platformName, "Expected Platform Name");
     } catch (Exception e) {
       Assert.fail("Exception should not be thrown", e);
@@ -97,12 +101,13 @@ public class EntityNameProviderTest {
     try {
       Mockito.when(
               entityClient.getV2(
+                  any(OperationContext.class),
                   Mockito.eq(DATASET_ENTITY_NAME),
                   Mockito.eq(TEST_DATASET_URN),
-                  Mockito.eq(ImmutableSet.of(DATASET_PROPERTIES_ASPECT_NAME)),
-                  Mockito.any(Authentication.class)))
+                  Mockito.eq(ImmutableSet.of(DATASET_PROPERTIES_ASPECT_NAME))))
           .thenReturn(null);
-      Assert.assertNull(entityNameProvider.getPlatformName(TEST_DATASET_URN));
+      Assert.assertNull(
+          entityNameProvider.getPlatformName(mock(OperationContext.class), TEST_DATASET_URN));
     } catch (Exception e) {
       Assert.fail("Exception should not be thrown", e);
     }
@@ -113,13 +118,14 @@ public class EntityNameProviderTest {
     try {
       Mockito.when(
               entityClient.batchGetV2(
+                  any(OperationContext.class),
                   Mockito.eq(TEST_DATASET_URN.getEntityType()),
                   Mockito.eq(Set.of(TEST_DATASET_URN)),
-                  Mockito.eq(ImmutableSet.of(SUB_TYPES_ASPECT_NAME)),
-                  Mockito.any(Authentication.class)))
+                  Mockito.eq(ImmutableSet.of(SUB_TYPES_ASPECT_NAME))))
           .thenReturn(Map.of(TEST_DATASET_URN, getMockSubTypesResponse("Expected Type Name")));
 
-      String entityTypeName = entityNameProvider.getTypeName(TEST_DATASET_URN);
+      String entityTypeName =
+          entityNameProvider.getTypeName(mock(OperationContext.class), TEST_DATASET_URN);
       Assert.assertNotNull(entityTypeName);
       Assert.assertEquals(entityTypeName, "Expected Type Name");
     } catch (Exception e) {
@@ -132,13 +138,14 @@ public class EntityNameProviderTest {
     try {
       Mockito.when(
               entityClient.getV2(
+                  any(OperationContext.class),
                   Mockito.eq(TEST_DATASET_URN.getEntityType()),
                   Mockito.eq(TEST_DATASET_URN),
-                  Mockito.eq(ImmutableSet.of(SUB_TYPES_ASPECT_NAME)),
-                  Mockito.any(Authentication.class)))
+                  Mockito.eq(ImmutableSet.of(SUB_TYPES_ASPECT_NAME))))
           .thenReturn(null);
 
-      String entityTypeName = entityNameProvider.getTypeName(TEST_DATASET_URN);
+      String entityTypeName =
+          entityNameProvider.getTypeName(mock(OperationContext.class), TEST_DATASET_URN);
       Assert.assertNotNull(entityTypeName);
       Assert.assertEquals(entityTypeName, "Dataset");
     } catch (Exception e) {
@@ -152,13 +159,14 @@ public class EntityNameProviderTest {
     try {
       Mockito.when(
               entityClient.getV2(
+                  any(OperationContext.class),
                   Mockito.eq(otherTypeUrn.getEntityType()),
                   Mockito.eq(otherTypeUrn),
-                  Mockito.eq(ImmutableSet.of(SUB_TYPES_ASPECT_NAME)),
-                  Mockito.any(Authentication.class)))
+                  Mockito.eq(ImmutableSet.of(SUB_TYPES_ASPECT_NAME))))
           .thenReturn(null);
 
-      String entityTypeName = entityNameProvider.getTypeName(otherTypeUrn);
+      String entityTypeName =
+          entityNameProvider.getTypeName(mock(OperationContext.class), otherTypeUrn);
       Assert.assertNotNull(entityTypeName);
       Assert.assertEquals(entityTypeName, "someType");
     } catch (Exception e) {

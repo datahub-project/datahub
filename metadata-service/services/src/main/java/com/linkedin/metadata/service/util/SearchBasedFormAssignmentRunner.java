@@ -1,7 +1,8 @@
 package com.linkedin.metadata.service.util;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.form.DynamicFormAssignment;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.openapi.client.OpenApiClient;
@@ -15,8 +16,9 @@ public class SearchBasedFormAssignmentRunner {
       DynamicFormAssignment formFilters,
       Urn formUrn,
       int batchFormEntityCount,
-      EntityClient entityClient,
-      OpenApiClient openApiClient) {
+      SystemEntityClient entityClient,
+      OpenApiClient openApiClient,
+      ObjectMapper objectMapper) {
     Runnable runnable =
         new Runnable() {
           @Override
@@ -28,7 +30,8 @@ public class SearchBasedFormAssignmentRunner {
                   formUrn,
                   batchFormEntityCount,
                   entityClient,
-                  openApiClient);
+                  openApiClient,
+                  objectMapper);
             } catch (Exception e) {
               log.error(
                   "SearchBasedFormAssignmentRunner failed to run. "

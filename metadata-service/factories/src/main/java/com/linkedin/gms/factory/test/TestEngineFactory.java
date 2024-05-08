@@ -1,14 +1,10 @@
 package com.linkedin.gms.factory.test;
 
 import com.linkedin.gms.factory.entity.EntityServiceFactory;
-import com.linkedin.gms.factory.entityregistry.EntityRegistryFactory;
-import com.linkedin.gms.factory.search.ElasticSearchServiceFactory;
 import com.linkedin.gms.factory.search.EntitySearchServiceFactory;
 import com.linkedin.gms.factory.timeseries.TimeseriesAspectServiceFactory;
 import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.EntitySearchService;
-import com.linkedin.metadata.spring.YamlPropertySourceFactory;
 import com.linkedin.metadata.test.TestEngine;
 import com.linkedin.metadata.test.TestFetcher;
 import com.linkedin.metadata.test.action.ActionApplier;
@@ -24,20 +20,14 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
-import org.springframework.context.annotation.PropertySource;
 
 @Configuration
 @Import({
-  EntityRegistryFactory.class,
   EntityServiceFactory.class,
   EntitySearchServiceFactory.class,
   TimeseriesAspectServiceFactory.class
 })
-@PropertySource(value = "classpath:/application.yml", factory = YamlPropertySourceFactory.class)
 public class TestEngineFactory {
-  @Autowired
-  @Qualifier("entityRegistry")
-  private EntityRegistry entityRegistry;
 
   @Autowired
   @Qualifier("entityService")
@@ -67,9 +57,7 @@ public class TestEngineFactory {
   protected TestEngine getInstance(
       @Qualifier("systemOperationContext") final OperationContext systemOpContext,
       @Nonnull @Value("${metadataTests.hook.enabled:false}") Boolean isEnabled,
-      @Nonnull @Value("${metadataTests.enabled:false}") Boolean isHookEnabled,
-      // post construct dependency ensures ready state of elasticsearch service
-      final ElasticSearchServiceFactory.PostConstructElasticSearchService postConstruct) {
+      @Nonnull @Value("${metadataTests.enabled:false}") Boolean isHookEnabled) {
 
     PredicateEvaluator predicateEvaluator = PredicateEvaluator.getInstance();
     return new TestEngine(

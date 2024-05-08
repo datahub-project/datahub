@@ -27,6 +27,8 @@ import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.key.CorpGroupKey;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -58,6 +60,9 @@ public class GroupServiceTest {
   private EntityService<?> _entityService;
   private GraphClient _graphClient;
   private GroupService _groupService;
+
+  private OperationContext opContext =
+      TestOperationContexts.userContextNoSearchAuthorization(SYSTEM_AUTHENTICATION);
 
   @BeforeMethod
   public void setupTest() throws Exception {
@@ -116,44 +121,49 @@ public class GroupServiceTest {
 
   @Test
   public void testGroupExistsNullArguments() {
-    assertThrows(() -> _groupService.groupExists(null));
+    assertThrows(() -> _groupService.groupExists(mock(OperationContext.class), null));
   }
 
   @Test
   public void testGroupExistsPasses() {
-    when(_entityService.exists(eq(_groupUrn), eq(true))).thenReturn(true);
-    assertTrue(_groupService.groupExists(_groupUrn));
+    when(_entityService.exists(any(OperationContext.class), eq(_groupUrn), eq(true)))
+        .thenReturn(true);
+    assertTrue(_groupService.groupExists(opContext, _groupUrn));
   }
 
   @Test
   public void testGetGroupOriginNullArguments() {
-    assertThrows(() -> _groupService.getGroupOrigin(null));
+    assertThrows(() -> _groupService.getGroupOrigin(mock(OperationContext.class), null));
   }
 
   @Test
   public void testGetGroupOriginPasses() {
     Origin groupOrigin = mock(Origin.class);
-    when(_entityService.getLatestAspect(eq(_groupUrn), eq(ORIGIN_ASPECT_NAME)))
+    when(_entityService.getLatestAspect(
+            any(OperationContext.class), eq(_groupUrn), eq(ORIGIN_ASPECT_NAME)))
         .thenReturn(groupOrigin);
 
-    assertEquals(groupOrigin, _groupService.getGroupOrigin(_groupUrn));
+    assertEquals(groupOrigin, _groupService.getGroupOrigin(opContext, _groupUrn));
   }
 
   @Test
   public void testAddUserToNativeGroupNullArguments() {
-    assertThrows(() -> _groupService.addUserToNativeGroup(null, _groupUrn, SYSTEM_AUTHENTICATION));
-    assertThrows(() -> _groupService.addUserToNativeGroup(USER_URN, null, SYSTEM_AUTHENTICATION));
+    assertThrows(
+        () -> _groupService.addUserToNativeGroup(mock(OperationContext.class), null, _groupUrn));
+    assertThrows(
+        () -> _groupService.addUserToNativeGroup(mock(OperationContext.class), USER_URN, null));
   }
 
   @Test
   public void testAddUserToNativeGroupPasses() throws Exception {
-    when(_entityService.exists(eq(USER_URN), eq(true))).thenReturn(true);
+    when(_entityService.exists(any(OperationContext.class), eq(USER_URN), eq(true)))
+        .thenReturn(true);
     when(_entityClient.batchGetV2(
-            eq(CORP_USER_ENTITY_NAME), any(), any(), eq(SYSTEM_AUTHENTICATION)))
+            any(OperationContext.class), eq(CORP_USER_ENTITY_NAME), any(), any()))
         .thenReturn(_entityResponseMap);
 
-    _groupService.addUserToNativeGroup(USER_URN, _groupUrn, SYSTEM_AUTHENTICATION);
-    verify(_entityClient).ingestProposal(any(), eq(SYSTEM_AUTHENTICATION));
+    _groupService.addUserToNativeGroup(opContext, USER_URN, _groupUrn);
+    verify(_entityClient).ingestProposal(any(OperationContext.class), any());
   }
 
   @Test
@@ -161,20 +171,21 @@ public class GroupServiceTest {
     assertThrows(
         () ->
             _groupService.createNativeGroup(
-                null, GROUP_NAME, GROUP_DESCRIPTION, SYSTEM_AUTHENTICATION));
+                mock(OperationContext.class), null, GROUP_NAME, GROUP_DESCRIPTION));
     assertThrows(
         () ->
             _groupService.createNativeGroup(
-                _groupKey, null, GROUP_DESCRIPTION, SYSTEM_AUTHENTICATION));
+                mock(OperationContext.class), _groupKey, null, GROUP_DESCRIPTION));
     assertThrows(
-        () -> _groupService.createNativeGroup(_groupKey, GROUP_NAME, null, SYSTEM_AUTHENTICATION));
+        () ->
+            _groupService.createNativeGroup(
+                mock(OperationContext.class), _groupKey, GROUP_NAME, null));
   }
 
   @Test
   public void testCreateNativeGroupPasses() throws Exception {
-    _groupService.createNativeGroup(
-        _groupKey, GROUP_NAME, GROUP_DESCRIPTION, SYSTEM_AUTHENTICATION);
-    verify(_entityClient, times(2)).ingestProposal(any(), eq(SYSTEM_AUTHENTICATION));
+    _groupService.createNativeGroup(opContext, _groupKey, GROUP_NAME, GROUP_DESCRIPTION);
+    verify(_entityClient, times(2)).ingestProposal(any(OperationContext.class), any());
   }
 
   @Test
@@ -182,33 +193,36 @@ public class GroupServiceTest {
     assertThrows(
         () ->
             _groupService.removeExistingNativeGroupMembers(
-                null, USER_URN_LIST, SYSTEM_AUTHENTICATION));
+                mock(OperationContext.class), null, USER_URN_LIST));
     assertThrows(
         () ->
-            _groupService.removeExistingNativeGroupMembers(_groupUrn, null, SYSTEM_AUTHENTICATION));
+            _groupService.removeExistingNativeGroupMembers(
+                mock(OperationContext.class), _groupUrn, null));
   }
 
   @Test
   public void testRemoveExistingNativeGroupMembersGroupNotInNativeGroupMembership()
       throws Exception {
     when(_entityClient.batchGetV2(
-            eq(CORP_USER_ENTITY_NAME), any(), any(), eq(SYSTEM_AUTHENTICATION)))
+            any(OperationContext.class), eq(CORP_USER_ENTITY_NAME), any(), any()))
         .thenReturn(_entityResponseMap);
 
     _groupService.removeExistingNativeGroupMembers(
-        Urn.createFromString(EXTERNAL_GROUP_URN_STRING), USER_URN_LIST, SYSTEM_AUTHENTICATION);
-    verify(_entityClient, never()).ingestProposal(any(), eq(SYSTEM_AUTHENTICATION));
+        mock(OperationContext.class),
+        Urn.createFromString(EXTERNAL_GROUP_URN_STRING),
+        USER_URN_LIST);
+    verify(_entityClient, never()).ingestProposal(any(), any(), anyBoolean());
   }
 
   @Test
   public void testRemoveExistingNativeGroupMembersPasses() throws Exception {
     when(_entityClient.batchGetV2(
-            eq(CORP_USER_ENTITY_NAME), any(), any(), eq(SYSTEM_AUTHENTICATION)))
+            any(OperationContext.class), eq(CORP_USER_ENTITY_NAME), any(), any()))
         .thenReturn(_entityResponseMap);
 
     _groupService.removeExistingNativeGroupMembers(
-        Urn.createFromString(NATIVE_GROUP_URN_STRING), USER_URN_LIST, SYSTEM_AUTHENTICATION);
-    verify(_entityClient).ingestProposal(any(), eq(SYSTEM_AUTHENTICATION));
+        opContext, Urn.createFromString(NATIVE_GROUP_URN_STRING), USER_URN_LIST);
+    verify(_entityClient).ingestProposal(any(OperationContext.class), any());
   }
 
   @Test
@@ -216,7 +230,7 @@ public class GroupServiceTest {
     assertThrows(
         () ->
             _groupService.migrateGroupMembershipToNativeGroupMembership(
-                null, USER_URN.toString(), SYSTEM_AUTHENTICATION));
+                mock(OperationContext.class), null, USER_URN.toString()));
   }
 
   @Test
@@ -229,16 +243,13 @@ public class GroupServiceTest {
             anyInt(),
             any()))
         .thenReturn(_entityRelationships);
-    when(_entityClient.batchGetV2(
-            eq(CORP_USER_ENTITY_NAME), any(), any(), eq(SYSTEM_AUTHENTICATION)))
+    when(_entityClient.batchGetV2(any(), eq(CORP_USER_ENTITY_NAME), any(), any()))
         .thenReturn(_entityResponseMap);
-    when(_entityService.exists(eq(USER_URN), eq(true))).thenReturn(true);
+    when(_entityService.exists(any(), eq(USER_URN), eq(true))).thenReturn(true);
 
     _groupService.migrateGroupMembershipToNativeGroupMembership(
-        Urn.createFromString(EXTERNAL_GROUP_URN_STRING),
-        USER_URN.toString(),
-        SYSTEM_AUTHENTICATION);
-    verify(_entityClient, times(3)).ingestProposal(any(), eq(SYSTEM_AUTHENTICATION));
+        opContext, Urn.createFromString(EXTERNAL_GROUP_URN_STRING), USER_URN.toString());
+    verify(_entityClient, times(3)).ingestProposal(any(OperationContext.class), any());
   }
 
   @Test
@@ -246,30 +257,32 @@ public class GroupServiceTest {
     assertThrows(
         () ->
             _groupService.createGroupInfo(
-                null, GROUP_NAME, GROUP_DESCRIPTION, SYSTEM_AUTHENTICATION));
+                mock(OperationContext.class), null, GROUP_NAME, GROUP_DESCRIPTION));
     assertThrows(
         () ->
             _groupService.createGroupInfo(
-                _groupKey, null, GROUP_DESCRIPTION, SYSTEM_AUTHENTICATION));
+                mock(OperationContext.class), _groupKey, null, GROUP_DESCRIPTION));
     assertThrows(
-        () -> _groupService.createGroupInfo(_groupKey, GROUP_NAME, null, SYSTEM_AUTHENTICATION));
+        () ->
+            _groupService.createGroupInfo(
+                mock(OperationContext.class), _groupKey, GROUP_NAME, null));
   }
 
   @Test
   public void testCreateGroupInfoPasses() throws Exception {
-    _groupService.createGroupInfo(_groupKey, GROUP_NAME, GROUP_DESCRIPTION, SYSTEM_AUTHENTICATION);
-    verify(_entityClient).ingestProposal(any(), eq(SYSTEM_AUTHENTICATION));
+    _groupService.createGroupInfo(opContext, _groupKey, GROUP_NAME, GROUP_DESCRIPTION);
+    verify(_entityClient).ingestProposal(any(OperationContext.class), any());
   }
 
   @Test
   public void testCreateNativeGroupOriginNullArguments() {
-    assertThrows(() -> _groupService.createNativeGroupOrigin(null, SYSTEM_AUTHENTICATION));
+    assertThrows(() -> _groupService.createNativeGroupOrigin(mock(OperationContext.class), null));
   }
 
   @Test
   public void testCreateNativeGroupOriginPasses() throws Exception {
-    _groupService.createNativeGroupOrigin(_groupUrn, SYSTEM_AUTHENTICATION);
-    verify(_entityClient).ingestProposal(any(), eq(SYSTEM_AUTHENTICATION));
+    _groupService.createNativeGroupOrigin(opContext, _groupUrn);
+    verify(_entityClient).ingestProposal(any(OperationContext.class), any());
   }
 
   @Test
@@ -295,30 +308,33 @@ public class GroupServiceTest {
   @Test
   public void testRemoveExistingGroupMembersNullArguments() {
     assertThrows(
-        () -> _groupService.removeExistingGroupMembers(null, USER_URN_LIST, SYSTEM_AUTHENTICATION));
+        () ->
+            _groupService.removeExistingGroupMembers(
+                mock(OperationContext.class), null, USER_URN_LIST));
     assertThrows(
-        () -> _groupService.removeExistingGroupMembers(_groupUrn, null, SYSTEM_AUTHENTICATION));
+        () ->
+            _groupService.removeExistingGroupMembers(
+                mock(OperationContext.class), _groupUrn, null));
   }
 
   @Test
   public void testRemoveExistingGroupMembersGroupNotInGroupMembership() throws Exception {
-    when(_entityClient.batchGetV2(
-            eq(CORP_USER_ENTITY_NAME), any(), any(), eq(SYSTEM_AUTHENTICATION)))
+    when(_entityClient.batchGetV2(any(), eq(CORP_USER_ENTITY_NAME), any(), any()))
         .thenReturn(_entityResponseMap);
 
     _groupService.removeExistingGroupMembers(
-        Urn.createFromString(NATIVE_GROUP_URN_STRING), USER_URN_LIST, SYSTEM_AUTHENTICATION);
-    verify(_entityClient, never()).ingestProposal(any(), eq(SYSTEM_AUTHENTICATION));
+        mock(OperationContext.class), Urn.createFromString(NATIVE_GROUP_URN_STRING), USER_URN_LIST);
+    verify(_entityClient, never()).ingestProposal(any(OperationContext.class), any());
   }
 
   @Test
   public void testRemoveExistingGroupMembersPasses() throws Exception {
     when(_entityClient.batchGetV2(
-            eq(CORP_USER_ENTITY_NAME), any(), any(), eq(SYSTEM_AUTHENTICATION)))
+            any(OperationContext.class), eq(CORP_USER_ENTITY_NAME), any(), any()))
         .thenReturn(_entityResponseMap);
 
     _groupService.removeExistingGroupMembers(
-        Urn.createFromString(EXTERNAL_GROUP_URN_STRING), USER_URN_LIST, SYSTEM_AUTHENTICATION);
-    verify(_entityClient).ingestProposal(any(), eq(SYSTEM_AUTHENTICATION));
+        opContext, Urn.createFromString(EXTERNAL_GROUP_URN_STRING), USER_URN_LIST);
+    verify(_entityClient).ingestProposal(any(OperationContext.class), any());
   }
 }

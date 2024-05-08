@@ -44,19 +44,24 @@ public class BatchVerifyFormResolver implements DataFetcher<CompletableFuture<Bo
         () -> {
           try {
             final List<Urn> groupsForUser =
-                _groupService.getGroupsForUser(actorUrn, authentication);
+                _groupService.getGroupsForUser(context.getOperationContext(), actorUrn);
             entityUrns.forEach(
                 entityUrnStr -> {
                   Urn entityUrn = UrnUtils.getUrn(entityUrnStr);
                   try {
                     if (!_formService.isFormAssignedToUser(
-                        formUrn, entityUrn, actorUrn, groupsForUser, authentication)) {
+                        context.getOperationContext(),
+                        formUrn,
+                        entityUrn,
+                        actorUrn,
+                        groupsForUser)) {
                       throw new AuthorizationException(
                           String.format(
                               "Failed to authorize form on entity as form with urn %s is not assigned to user",
                               formUrn));
                     }
-                    _formService.verifyFormForEntity(formUrn, entityUrn, authentication);
+                    _formService.verifyFormForEntity(
+                        context.getOperationContext(), formUrn, entityUrn);
                   } catch (Exception e) {
                     throw new RuntimeException(
                         String.format("Failed to verify form for entity %s", entityUrnStr), e);

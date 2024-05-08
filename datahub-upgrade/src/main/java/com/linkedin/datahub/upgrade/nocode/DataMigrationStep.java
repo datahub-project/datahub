@@ -163,7 +163,11 @@ public class DataMigrationStep implements UpgradeStep {
           // 6. Write the row back using the EntityService
           boolean emitMae = oldAspect.getKey().getVersion() == 0L;
           _entityService.ingestAspects(
-              urn, List.of(Pair.of(newAspectName, aspectRecord)), toAuditStamp(oldAspect), null);
+              context.opContext(),
+              urn,
+              List.of(Pair.of(newAspectName, aspectRecord)),
+              toAuditStamp(oldAspect),
+              null);
 
           // 7. If necessary, emit a browse path aspect.
           if (entitySpec.getAspectSpecMap().containsKey(BROWSE_PATHS_ASPECT_NAME)
@@ -171,13 +175,16 @@ public class DataMigrationStep implements UpgradeStep {
             // Emit a browse path aspect.
             final BrowsePaths browsePaths;
             try {
-              browsePaths = DefaultAspectsUtil.buildDefaultBrowsePath(urn, _entityService);
+              browsePaths =
+                  DefaultAspectsUtil.buildDefaultBrowsePath(
+                      context.opContext(), urn, _entityService);
 
               final AuditStamp browsePathsStamp = new AuditStamp();
               browsePathsStamp.setActor(Urn.createFromString(Constants.SYSTEM_ACTOR));
               browsePathsStamp.setTime(System.currentTimeMillis());
 
               _entityService.ingestAspects(
+                  context.opContext(),
                   urn,
                   List.of(Pair.of(BROWSE_PATHS_ASPECT_NAME, browsePaths)),
                   browsePathsStamp,

@@ -16,6 +16,7 @@ import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.utils.EntityKeyUtils;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -42,6 +43,7 @@ public class BrowsePathV2Utils {
    * browsePathsV2 aspects.
    */
   public static BrowsePathsV2 getDefaultBrowsePathV2(
+      @Nonnull OperationContext opContext,
       @Nonnull Urn urn,
       @Nonnull EntityRegistry entityRegistry,
       @Nonnull Character dataPlatformDelimiter,
@@ -58,15 +60,14 @@ public class BrowsePathV2Utils {
                 EntityKeyUtils.convertUrnToEntityKey(
                     urn, getKeyAspectSpec(urn.getEntityType(), entityRegistry));
         BrowsePathEntryArray datasetContainerPathEntries =
-            useContainerPaths ? getContainerPathEntries(urn, entityService) : null;
+            useContainerPaths ? getContainerPathEntries(opContext, urn, entityService) : null;
         if (useContainerPaths && datasetContainerPathEntries.size() > 0) {
           browsePathEntries.addAll(datasetContainerPathEntries);
         } else {
           BrowsePathEntryArray defaultDatasetPathEntries =
               getDefaultDatasetPathEntries(dsKey.getName(), dataPlatformDelimiter);
           if (defaultDatasetPathEntries.size() > 0) {
-            browsePathEntries.addAll(
-                getDefaultDatasetPathEntries(dsKey.getName().toLowerCase(), dataPlatformDelimiter));
+            browsePathEntries.addAll(defaultDatasetPathEntries);
           } else {
             browsePathEntries.add(createBrowsePathEntry(DEFAULT_FOLDER_NAME, null));
           }
@@ -77,7 +78,7 @@ public class BrowsePathV2Utils {
       case Constants.CHART_ENTITY_NAME:
       case Constants.DASHBOARD_ENTITY_NAME:
         BrowsePathEntryArray containerPathEntries =
-            useContainerPaths ? getContainerPathEntries(urn, entityService) : null;
+            useContainerPaths ? getContainerPathEntries(opContext, urn, entityService) : null;
         if (useContainerPaths && containerPathEntries.size() > 0) {
           browsePathEntries.addAll(containerPathEntries);
         } else {
@@ -111,11 +112,17 @@ public class BrowsePathV2Utils {
   }
 
   private static void aggregateParentContainers(
-      List<Urn> containerUrns, Urn entityUrn, EntityService entityService) {
+      @Nonnull OperationContext opContext,
+      List<Urn> containerUrns,
+      Urn entityUrn,
+      EntityService entityService) {
     try {
       EntityResponse entityResponse =
           entityService.getEntityV2(
-              entityUrn.getEntityType(), entityUrn, Collections.singleton(CONTAINER_ASPECT_NAME));
+              opContext,
+              entityUrn.getEntityType(),
+              entityUrn,
+              Collections.singleton(CONTAINER_ASPECT_NAME));
 
       if (entityResponse != null
           && entityResponse.getAspects().containsKey(CONTAINER_ASPECT_NAME)) {
@@ -124,7 +131,7 @@ public class BrowsePathV2Utils {
         Urn containerUrn = container.getContainer();
         // add to beginning of the array, we want the highest level container first
         containerUrns.add(0, containerUrn);
-        aggregateParentContainers(containerUrns, containerUrn, entityService);
+        aggregateParentContainers(opContext, containerUrns, containerUrn, entityService);
       }
     } catch (Exception e) {
       log.error(
@@ -140,10 +147,12 @@ public class BrowsePathV2Utils {
    * call aggregateParentContainers to get the full container path to be included in this path.
    */
   private static BrowsePathEntryArray getContainerPathEntries(
-      @Nonnull final Urn entityUrn, @Nonnull final EntityService entityService) {
+      @Nonnull OperationContext opContext,
+      @Nonnull final Urn entityUrn,
+      @Nonnull final EntityService entityService) {
     BrowsePathEntryArray browsePathEntries = new BrowsePathEntryArray();
     final List<Urn> containerUrns = new ArrayList<>();
-    aggregateParentContainers(containerUrns, entityUrn, entityService);
+    aggregateParentContainers(opContext, containerUrns, entityUrn, entityService);
     containerUrns.forEach(
         urn -> {
           browsePathEntries.add(createBrowsePathEntry(urn.toString(), urn));

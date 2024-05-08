@@ -79,7 +79,7 @@ def get_timeline(
     diff_param: str = f"&raw={diff}" if diff else ""
     endpoint: str = (
         host
-        + f"/openapi/timeline/v1/{encoded_urn}?categories={categories}{start_time_param}{end_time_param}{diff_param}"
+        + f"/openapi/v2/timeline/v1/{encoded_urn}?categories={categories}{start_time_param}{end_time_param}{diff_param}"
     )
     click.echo(endpoint)
 

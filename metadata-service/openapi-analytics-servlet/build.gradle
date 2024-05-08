@@ -58,7 +58,7 @@ task openApiGenerate(type: GenerateSwaggerCode) {
             'java11'             : "true",
             'modelPropertyNaming': "original",
             'modelPackage'       : "io.datahubproject.openapi.generated",
-            'apiPackage'         : "io.datahubproject.openapi.generated.controller",
+            'apiPackage'         : "io.datahubproject.openapi.v2.generated.controller",
             'delegatePattern'    : "true"
     ]
 }

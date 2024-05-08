@@ -3,7 +3,6 @@ package com.linkedin.datahub.graphql.resolvers.form;
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 import static com.linkedin.datahub.graphql.resolvers.form.FormAnalyticsConfigResolver.*;
 
-import com.datahub.authentication.Authentication;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
@@ -78,9 +77,7 @@ public class FormAnalyticsResolver
                 input.getQueryString(),
                 response::setHeader,
                 row -> {
-                  lines.add(
-                      new FormAnalyticsRow(
-                          mapRowResults(context, row, context.getAuthentication(), flags)));
+                  lines.add(new FormAnalyticsRow(mapRowResults(context, row, flags)));
                 },
                 error_messages -> {
                   for (String error : error_messages) {
@@ -116,7 +113,6 @@ public class FormAnalyticsResolver
   private List<RowResult> mapRowResults(
       @Nullable final QueryContext context,
       final List<String> row,
-      final Authentication authentication,
       @Nullable final FormAnalyticsFlags flags) {
     return row.stream()
         .map(
@@ -127,7 +123,8 @@ public class FormAnalyticsResolver
                 final Urn urnValue = Urn.createFromString(rowEntry);
                 final boolean skipHydration =
                     flags != null && flags.getSkipAssetHydration().equals(true);
-                if (!skipHydration && _entityClient.exists(urnValue, authentication)) {
+                if (!skipHydration
+                    && _entityClient.exists(context.getOperationContext(), urnValue)) {
                   result.setEntity(UrnToEntityMapper.map(context, urnValue));
                 }
               } catch (Exception e) {

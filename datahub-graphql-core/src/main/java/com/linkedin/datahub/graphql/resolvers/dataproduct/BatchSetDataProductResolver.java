@@ -57,7 +57,7 @@ public class BatchSetDataProductResolver implements DataFetcher<CompletableFutur
   private void verifyResources(List<String> resources, QueryContext context) {
     for (String resource : resources) {
       if (!_dataProductService.verifyEntityExists(
-          UrnUtils.getUrn(resource), context.getAuthentication())) {
+          context.getOperationContext(), UrnUtils.getUrn(resource))) {
         throw new RuntimeException(
             String.format(
                 "Failed to batch set Data Product, %s in resources does not exist", resource));
@@ -74,7 +74,7 @@ public class BatchSetDataProductResolver implements DataFetcher<CompletableFutur
   private void verifyDataProduct(String maybeDataProductUrn, QueryContext context) {
     if (maybeDataProductUrn != null
         && !_dataProductService.verifyEntityExists(
-            UrnUtils.getUrn(maybeDataProductUrn), context.getAuthentication())) {
+            context.getOperationContext(), UrnUtils.getUrn(maybeDataProductUrn))) {
       throw new RuntimeException(
           String.format(
               "Failed to batch set Data Product, Data Product urn %s does not exist",
@@ -90,9 +90,9 @@ public class BatchSetDataProductResolver implements DataFetcher<CompletableFutur
         resources);
     try {
       _dataProductService.batchSetDataProduct(
+          context.getOperationContext(),
           UrnUtils.getUrn(dataProductUrn),
           resources,
-          context.getAuthentication(),
           UrnUtils.getUrn(context.getActorUrn()));
     } catch (Exception e) {
       throw new RuntimeException(
@@ -108,7 +108,7 @@ public class BatchSetDataProductResolver implements DataFetcher<CompletableFutur
     try {
       for (Urn resource : resources) {
         _dataProductService.unsetDataProduct(
-            resource, context.getAuthentication(), UrnUtils.getUrn(context.getActorUrn()));
+            context.getOperationContext(), resource, UrnUtils.getUrn(context.getActorUrn()));
       }
     } catch (Exception e) {
       throw new RuntimeException(

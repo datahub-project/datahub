@@ -9,7 +9,7 @@ import lombok.experimental.Accessors;
 public class RestoreIndicesArgs implements Cloneable {
   public static final int DEFAULT_BATCH_SIZE = 500;
   public static final int DEFAULT_NUM_THREADS = 1;
-  public static final int DEFAULT_BATCH_DELAY_MS = 1;
+  public static final int DEFAULT_BATCH_DELAY_MS = 1000;
   public static final long DEFAULT_GE_PIT_EPOCH_MS = 0;
 
   public int start = 0;

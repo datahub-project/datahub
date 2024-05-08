@@ -24,11 +24,9 @@ import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.common.urn.TestEntityUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
-import com.linkedin.data.schema.annotation.PathSpecBasedSchemaAnnotationVisitor;
 import com.linkedin.data.template.LongMap;
 import com.linkedin.data.template.SetMode;
 import com.linkedin.metadata.TestEntityUtil;
-import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.config.cache.EntityDocCountCacheConfiguration;
 import com.linkedin.metadata.config.cache.SearchLineageCacheConfiguration;
 import com.linkedin.metadata.config.search.SearchConfiguration;
@@ -58,7 +56,6 @@ import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
 import com.linkedin.metadata.search.ranker.SimpleRanker;
 import com.linkedin.metadata.search.utils.QueryUtils;
-import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
 import com.linkedin.r2.RemoteInvocationException;
 import io.datahubproject.metadata.context.OperationContext;
@@ -104,8 +101,6 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
   @Nonnull
   protected abstract CustomSearchConfiguration getCustomSearchConfiguration();
 
-  private AspectRetriever aspectRetriever;
-  private IndexConvention indexConvention;
   private SettingsBuilder settingsBuilder;
   private ElasticSearchService elasticSearchService;
   private GraphService graphService;
@@ -123,22 +118,11 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
       UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,test,PROD)");
 
   @BeforeClass
-  public void disableAssert() {
-    PathSpecBasedSchemaAnnotationVisitor.class
-        .getClassLoader()
-        .setClassAssertionStatus(PathSpecBasedSchemaAnnotationVisitor.class.getName(), false);
-  }
-
-  @BeforeClass
   public void setup() throws RemoteInvocationException, URISyntaxException {
-    aspectRetriever = mock(AspectRetriever.class);
-    when(aspectRetriever.getEntityRegistry())
-        .thenReturn(new SnapshotEntityRegistry(new Snapshot()));
-    when(aspectRetriever.getLatestAspectObjects(any(), any())).thenReturn(Map.of());
-    indexConvention = new IndexConventionImpl("lineage_search_service_test");
     operationContext =
         TestOperationContexts.systemContextNoSearchAuthorization(
-                aspectRetriever.getEntityRegistry(), indexConvention)
+                new SnapshotEntityRegistry(new Snapshot()),
+                new IndexConventionImpl("lineage_search_service_test"))
             .asSession(RequestContext.TEST, Authorizer.EMPTY, TestOperationContexts.TEST_USER_AUTH);
     settingsBuilder = new SettingsBuilder(null);
     elasticSearchService = buildEntitySearchService();
@@ -165,7 +149,7 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
             new LineageSearchService(
                 new SearchService(
                     new EntityDocCountCache(
-                        aspectRetriever.getEntityRegistry(),
+                        operationContext.getEntityRegistry(),
                         elasticSearchService,
                         entityDocCountCacheConfiguration),
                     cachingEntitySearchService,
@@ -178,7 +162,7 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
 
   @BeforeMethod
   public void wipe() throws Exception {
-    elasticSearchService.clear();
+    elasticSearchService.clear(operationContext);
     clearCache(false);
     syncAfterWrite(getBulkProcessor());
   }
@@ -188,33 +172,21 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
     EntityIndexBuilders indexBuilders =
         new EntityIndexBuilders(
             getIndexBuilder(),
-            aspectRetriever.getEntityRegistry(),
-            indexConvention,
+            operationContext.getEntityRegistry(),
+            operationContext.getSearchContext().getIndexConvention(),
             settingsBuilder);
     searchClientSpy = spy(getSearchClient());
     ESSearchDAO searchDAO =
         new ESSearchDAO(
             searchClientSpy,
-            indexConvention,
             false,
             ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH,
             getSearchConfiguration(),
             null);
     ESBrowseDAO browseDAO =
-        new ESBrowseDAO(
-            searchClientSpy,
-            indexConvention,
-            getSearchConfiguration(),
-            getCustomSearchConfiguration());
-    ESWriteDAO writeDAO =
-        new ESWriteDAO(
-            aspectRetriever.getEntityRegistry(),
-            searchClientSpy,
-            indexConvention,
-            getBulkProcessor(),
-            1);
-    return new ElasticSearchService(indexBuilders, searchDAO, browseDAO, writeDAO)
-        .postConstruct(aspectRetriever);
+        new ESBrowseDAO(searchClientSpy, getSearchConfiguration(), getCustomSearchConfiguration());
+    ESWriteDAO writeDAO = new ESWriteDAO(searchClientSpy, getBulkProcessor(), 1);
+    return new ElasticSearchService(indexBuilders, searchDAO, browseDAO, writeDAO);
   }
 
   private void clearCache(boolean withLightingCache) {
@@ -262,7 +234,8 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
     document.set("keyPart1", JsonNodeFactory.instance.textNode("test"));
     document.set("textFieldOverride", JsonNodeFactory.instance.textNode("textFieldOverride"));
     document.set("browsePaths", JsonNodeFactory.instance.textNode("/a/b/c"));
-    elasticSearchService.upsertDocument(ENTITY_NAME, document.toString(), urn.toString());
+    elasticSearchService.upsertDocument(
+        operationContext, ENTITY_NAME, document.toString(), urn.toString());
     syncAfterWrite(getBulkProcessor());
 
     when(graphService.getLineage(
@@ -310,7 +283,8 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
     document2.set("keyPart1", JsonNodeFactory.instance.textNode("random"));
     document2.set("textFieldOverride", JsonNodeFactory.instance.textNode("textFieldOverride2"));
     document2.set("browsePaths", JsonNodeFactory.instance.textNode("/b/c"));
-    elasticSearchService.upsertDocument(ENTITY_NAME, document2.toString(), urn2.toString());
+    elasticSearchService.upsertDocument(
+        operationContext, ENTITY_NAME, document2.toString(), urn2.toString());
     syncAfterWrite(getBulkProcessor());
 
     Mockito.reset(searchClientSpy);
@@ -473,8 +447,8 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
     clearCache(false);
 
     // Cleanup
-    elasticSearchService.deleteDocument(ENTITY_NAME, urn.toString());
-    elasticSearchService.deleteDocument(ENTITY_NAME, urn2.toString());
+    elasticSearchService.deleteDocument(operationContext, ENTITY_NAME, urn.toString());
+    elasticSearchService.deleteDocument(operationContext, ENTITY_NAME, urn2.toString());
     syncAfterWrite(getBulkProcessor());
 
     when(graphService.getLineage(
@@ -534,7 +508,8 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
     document.set("keyPart1", JsonNodeFactory.instance.textNode("test"));
     document.set("textFieldOverride", JsonNodeFactory.instance.textNode("textFieldOverride"));
     document.set("browsePaths", JsonNodeFactory.instance.textNode("/a/b/c"));
-    elasticSearchService.upsertDocument(ENTITY_NAME, document.toString(), urn.toString());
+    elasticSearchService.upsertDocument(
+        operationContext, ENTITY_NAME, document.toString(), urn.toString());
     syncAfterWrite(getBulkProcessor());
 
     when(graphService.getLineage(
@@ -581,7 +556,7 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
     clearCache(false);
 
     // Cleanup
-    elasticSearchService.deleteDocument(ENTITY_NAME, urn.toString());
+    elasticSearchService.deleteDocument(operationContext, ENTITY_NAME, urn.toString());
     syncAfterWrite(getBulkProcessor());
 
     when(graphService.getLineage(
@@ -639,7 +614,8 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
     document.set("keyPart1", JsonNodeFactory.instance.textNode("test"));
     document.set("textFieldOverride", JsonNodeFactory.instance.textNode("textFieldOverride"));
     document.set("browsePaths", JsonNodeFactory.instance.textNode("/a/b/c"));
-    elasticSearchService.upsertDocument(ENTITY_NAME, document.toString(), urn.toString());
+    elasticSearchService.upsertDocument(
+        operationContext, ENTITY_NAME, document.toString(), urn.toString());
     syncAfterWrite(getBulkProcessor());
 
     when(graphService.getLineage(
@@ -693,7 +669,8 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
     document2.set("keyPart1", JsonNodeFactory.instance.textNode("random"));
     document2.set("textFieldOverride", JsonNodeFactory.instance.textNode("textFieldOverride2"));
     document2.set("browsePaths", JsonNodeFactory.instance.textNode("/b/c"));
-    elasticSearchService.upsertDocument(ENTITY_NAME, document2.toString(), urn2.toString());
+    elasticSearchService.upsertDocument(
+        operationContext, ENTITY_NAME, document2.toString(), urn2.toString());
     syncAfterWrite(getBulkProcessor());
 
     searchResult = searchAcrossLineage(null, testStar);
@@ -1028,8 +1005,8 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
     clearCache(true);
 
     // Cleanup
-    elasticSearchService.deleteDocument(ENTITY_NAME, urn.toString());
-    elasticSearchService.deleteDocument(ENTITY_NAME, urn2.toString());
+    elasticSearchService.deleteDocument(operationContext, ENTITY_NAME, urn.toString());
+    elasticSearchService.deleteDocument(operationContext, ENTITY_NAME, urn2.toString());
     syncAfterWrite(getBulkProcessor());
 
     when(graphService.getLineage(
@@ -1337,5 +1314,32 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
     size = 10;
     filter = new Filter().setOr(conCritArr);
     Assert.assertTrue(lineageSearchService.canDoLightning(lineageRelationships, "*", filter, null));
+  }
+
+  @Test
+  public void testPlatform() {
+    assertEquals(
+        lineageSearchService.getPlatform(
+            "dataset",
+            UrnUtils.getUrn(
+                "urn:li:dataset:(urn:li:dataPlatform:custom,file:///custom/path,PROD)")),
+        "urn:li:dataPlatform:custom");
+    assertEquals(
+        lineageSearchService.getPlatform(
+            "chart", UrnUtils.getUrn("urn:li:chart:(looker,foobar.1234)")),
+        "urn:li:dataPlatform:looker");
+    assertEquals(
+        lineageSearchService.getPlatform(
+            "dashboard", UrnUtils.getUrn("urn:li:dashboard:(looker,dashboards.1234)")),
+        "urn:li:dataPlatform:looker");
+    assertEquals(
+        lineageSearchService.getPlatform(
+            "dataFlow", UrnUtils.getUrn("urn:li:dataFlow:(airflow,foobar,PROD)")),
+        "urn:li:dataPlatform:airflow");
+    assertEquals(
+        lineageSearchService.getPlatform(
+            "dataJob",
+            UrnUtils.getUrn("urn:li:dataJob:(urn:li:dataFlow:(airflow,foobar,PROD),End)")),
+        "urn:li:dataPlatform:airflow");
   }
 }

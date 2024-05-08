@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.resolvers.share;
 
+import static org.mockito.ArgumentMatchers.any;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 
@@ -18,6 +19,7 @@ import com.linkedin.metadata.integration.IntegrationsService;
 import com.linkedin.metadata.service.ShareService;
 import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.integrations.model.ExecuteShareResult;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.concurrent.CompletionException;
 import org.mockito.Mockito;
@@ -58,14 +60,14 @@ public class ShareEntityResolverTest {
         .shareEntity(Mockito.eq(TEST_CONNECTION_URN), Mockito.eq(TEST_DATASET_URN));
     // fetches the new aspect on a success
     Mockito.verify(mockService, Mockito.times(1))
-        .getShareOrDefault(Mockito.eq(TEST_DATASET_URN), Mockito.any(Authentication.class));
+        .getShareOrDefault(any(OperationContext.class), Mockito.eq(TEST_DATASET_URN));
     // does not upsert a failed result on success
     Mockito.verify(mockService, Mockito.times(0))
         .upsertShareResult(
+            any(OperationContext.class),
             Mockito.eq(TEST_DATASET_URN),
             Mockito.eq(TEST_CONNECTION_URN),
-            Mockito.eq(ShareResultState.FAILURE),
-            Mockito.any(Authentication.class));
+            Mockito.eq(ShareResultState.FAILURE));
   }
 
   @Test
@@ -96,14 +98,14 @@ public class ShareEntityResolverTest {
     Mockito.verify(mockIntegrationsService, Mockito.times(1))
         .shareEntity(Mockito.eq(TEST_CONNECTION_URN_2), Mockito.eq(TEST_DATASET_URN));
     Mockito.verify(mockService, Mockito.times(1))
-        .getShareOrDefault(Mockito.eq(TEST_DATASET_URN), Mockito.any(Authentication.class));
+        .getShareOrDefault(any(OperationContext.class), Mockito.eq(TEST_DATASET_URN));
     // does not upsert a failed result on success
     Mockito.verify(mockService, Mockito.times(0))
         .upsertShareResult(
+            any(OperationContext.class),
             Mockito.eq(TEST_DATASET_URN),
             Mockito.eq(TEST_CONNECTION_URN),
-            Mockito.eq(ShareResultState.FAILURE),
-            Mockito.any(Authentication.class));
+            Mockito.eq(ShareResultState.FAILURE));
   }
 
   @Test
@@ -124,14 +126,14 @@ public class ShareEntityResolverTest {
 
     // never fetches data when no permissions
     Mockito.verify(mockService, Mockito.times(0))
-        .getShareOrDefault(Mockito.eq(TEST_DATASET_URN), Mockito.any(Authentication.class));
+        .getShareOrDefault(any(OperationContext.class), Mockito.eq(TEST_DATASET_URN));
     // never hits mock service because auth check fails first
     Mockito.verify(mockService, Mockito.times(0))
         .upsertShareResult(
+            any(OperationContext.class),
             Mockito.eq(TEST_DATASET_URN),
             Mockito.eq(TEST_CONNECTION_URN),
-            Mockito.eq(ShareResultState.FAILURE),
-            Mockito.any(Authentication.class));
+            Mockito.eq(ShareResultState.FAILURE));
   }
 
   @Test
@@ -153,10 +155,10 @@ public class ShareEntityResolverTest {
     // when the service fails, still write a failed result to gms
     Mockito.verify(mockService, Mockito.times(1))
         .upsertShareResult(
+            any(OperationContext.class),
             Mockito.eq(TEST_DATASET_URN),
             Mockito.eq(TEST_CONNECTION_URN),
-            Mockito.eq(ShareResultState.FAILURE),
-            Mockito.any(Authentication.class));
+            Mockito.eq(ShareResultState.FAILURE));
   }
 
   @Test
@@ -179,10 +181,10 @@ public class ShareEntityResolverTest {
     // when the service fails, still write a failed result to gms
     Mockito.verify(mockService, Mockito.times(1))
         .upsertShareResult(
+            any(OperationContext.class),
             Mockito.eq(TEST_DATASET_URN),
             Mockito.eq(TEST_CONNECTION_URN),
-            Mockito.eq(ShareResultState.FAILURE),
-            Mockito.any(Authentication.class));
+            Mockito.eq(ShareResultState.FAILURE));
   }
 
   private ShareService initMockService(boolean shouldSucceed) {
@@ -192,26 +194,24 @@ public class ShareEntityResolverTest {
       shareAspect.setLastShareResults(new ShareResultArray());
       Mockito.when(
               service.upsertShareResult(
+                  any(OperationContext.class),
                   Mockito.eq(TEST_DATASET_URN),
                   Mockito.eq(TEST_CONNECTION_URN),
-                  Mockito.eq(ShareResultState.FAILURE),
-                  Mockito.any(Authentication.class)))
+                  Mockito.eq(ShareResultState.FAILURE)))
           .thenReturn(shareAspect);
       Mockito.when(
-              service.getShareOrDefault(
-                  Mockito.eq(TEST_DATASET_URN), Mockito.any(Authentication.class)))
+              service.getShareOrDefault(any(OperationContext.class), Mockito.eq(TEST_DATASET_URN)))
           .thenReturn(shareAspect);
     } else {
       Mockito.when(
               service.upsertShareResult(
+                  any(OperationContext.class),
                   Mockito.eq(TEST_DATASET_URN),
                   Mockito.eq(TEST_CONNECTION_URN),
-                  Mockito.eq(ShareResultState.FAILURE),
-                  Mockito.any(Authentication.class)))
+                  Mockito.eq(ShareResultState.FAILURE)))
           .thenThrow(RuntimeException.class);
       Mockito.when(
-              service.getShareOrDefault(
-                  Mockito.eq(TEST_DATASET_URN), Mockito.any(Authentication.class)))
+              service.getShareOrDefault(any(OperationContext.class), Mockito.eq(TEST_DATASET_URN)))
           .thenThrow(RuntimeException.class);
     }
 

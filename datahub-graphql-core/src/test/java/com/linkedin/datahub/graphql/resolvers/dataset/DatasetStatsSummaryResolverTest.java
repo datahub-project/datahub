@@ -1,6 +1,8 @@
 package com.linkedin.datahub.graphql.resolvers.dataset;
 
 import static com.linkedin.metadata.Constants.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.nullable;
 
 import com.datahub.authentication.Authentication;
 import com.datahub.authorization.AuthorizationResult;
@@ -19,15 +21,16 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.SystemEntityClient;
+import com.linkedin.metadata.client.UsageStatsJavaClient;
 import com.linkedin.metadata.search.features.StorageFeatures;
 import com.linkedin.metadata.search.features.UsageFeatures;
-import com.linkedin.usage.UsageClient;
 import com.linkedin.usage.UsageQueryResult;
 import com.linkedin.usage.UsageQueryResultAggregations;
 import com.linkedin.usage.UsageTimeRange;
 import com.linkedin.usage.UserUsageCounts;
 import com.linkedin.usage.UserUsageCountsArray;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.OperationContext;
 import javax.annotation.Nonnull;
 import org.mockito.Mockito;
 import org.testng.Assert;
@@ -65,10 +68,12 @@ public class DatasetStatsSummaryResolverTest {
                             .setUserEmail("test2@gmail.com")
                             .setCount(30)))));
 
-    UsageClient mockClient = Mockito.mock(UsageClient.class);
+    UsageStatsJavaClient mockClient = Mockito.mock(UsageStatsJavaClient.class);
     Mockito.when(
             mockClient.getUsageStats(
-                Mockito.eq(TEST_DATASET_URN), Mockito.eq(UsageTimeRange.MONTH)))
+                any(OperationContext.class),
+                Mockito.eq(TEST_DATASET_URN),
+                Mockito.eq(UsageTimeRange.MONTH)))
         .thenReturn(testResult);
 
     // Execute resolver
@@ -80,9 +85,11 @@ public class DatasetStatsSummaryResolverTest {
     Authorizer mockAuthorizer = Mockito.mock(Authorizer.class);
     AuthorizationResult mockAuthorizerResult = Mockito.mock(AuthorizationResult.class);
     Mockito.when(mockAuthorizerResult.getType()).thenReturn(AuthorizationResult.Type.ALLOW);
-    Mockito.when(mockAuthorizer.authorize(Mockito.any())).thenReturn(mockAuthorizerResult);
+    Mockito.when(mockAuthorizer.authorize(any())).thenReturn(mockAuthorizerResult);
     Mockito.when(mockContext.getAuthorizer()).thenReturn(mockAuthorizer);
     Mockito.when(mockContext.getAuthentication()).thenReturn(Mockito.mock(Authentication.class));
+    Mockito.when(mockContext.getOperationContext())
+        .thenReturn(Mockito.mock(OperationContext.class));
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     Mockito.when(mockEnv.getSource()).thenReturn(TEST_SOURCE);
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
@@ -101,14 +108,16 @@ public class DatasetStatsSummaryResolverTest {
     newResult.setAggregations(new UsageQueryResultAggregations());
     Mockito.when(
             mockClient.getUsageStats(
-                Mockito.eq(TEST_DATASET_URN), Mockito.eq(UsageTimeRange.MONTH)))
+                any(OperationContext.class),
+                Mockito.eq(TEST_DATASET_URN),
+                Mockito.eq(UsageTimeRange.MONTH)))
         .thenReturn(newResult);
   }
 
   @Test
   public void testGetSuccessOfflineFeatures() throws Exception {
     // Init test UsageQueryResult
-    UsageClient mockClient = Mockito.mock(UsageClient.class);
+    UsageStatsJavaClient mockClient = Mockito.mock(UsageStatsJavaClient.class);
 
     // Execute resolver
     final UsageFeatures mockUsageFeatures = new UsageFeatures();
@@ -197,10 +206,12 @@ public class DatasetStatsSummaryResolverTest {
                             .setUserEmail("test2@gmail.com")
                             .setCount(30)))));
 
-    UsageClient mockClient = Mockito.mock(UsageClient.class);
+    UsageStatsJavaClient mockClient = Mockito.mock(UsageStatsJavaClient.class);
     Mockito.when(
             mockClient.getUsageStats(
-                Mockito.eq(TEST_DATASET_URN), Mockito.eq(UsageTimeRange.MONTH)))
+                any(OperationContext.class),
+                Mockito.eq(TEST_DATASET_URN),
+                Mockito.eq(UsageTimeRange.MONTH)))
         .thenThrow(RuntimeException.class);
 
     // Execute resolver
@@ -227,6 +238,7 @@ public class DatasetStatsSummaryResolverTest {
     Urn testUrn = UrnUtils.getUrn(TEST_DATASET_URN);
     Mockito.when(
             client.getV2(
+                nullable(OperationContext.class),
                 Mockito.eq(testUrn),
                 Mockito.eq(
                     ImmutableSet.of(USAGE_FEATURES_ASPECT_NAME, STORAGE_FEATURES_ASPECT_NAME))))
@@ -249,6 +261,7 @@ public class DatasetStatsSummaryResolverTest {
     Urn testUrn = UrnUtils.getUrn(TEST_DATASET_URN);
     Mockito.when(
             client.getV2(
+                any(OperationContext.class),
                 Mockito.eq(testUrn),
                 Mockito.eq(
                     ImmutableSet.of(USAGE_FEATURES_ASPECT_NAME, STORAGE_FEATURES_ASPECT_NAME))))

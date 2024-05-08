@@ -2,7 +2,7 @@ package com.linkedin.metadata.aspect.plugins.hooks;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
-import com.linkedin.metadata.aspect.AspectRetriever;
+import com.linkedin.metadata.aspect.RetrieverContext;
 import com.linkedin.metadata.aspect.batch.ChangeMCP;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
@@ -18,7 +18,7 @@ public class CustomDataQualityRulesMCPSideEffect extends MCPSideEffect {
 
   @Override
   protected Stream<ChangeMCP> applyMCPSideEffect(
-      Collection<ChangeMCP> changeMCPS, @Nonnull AspectRetriever aspectRetriever) {
+      Collection<ChangeMCP> changeMCPS, @Nonnull RetrieverContext retrieverContext) {
     // Mirror aspects to another URN in SQL & Search
     return changeMCPS.stream()
         .map(
@@ -31,7 +31,7 @@ public class CustomDataQualityRulesMCPSideEffect extends MCPSideEffect {
                   .recordTemplate(changeMCP.getRecordTemplate())
                   .auditStamp(changeMCP.getAuditStamp())
                   .systemMetadata(changeMCP.getSystemMetadata())
-                  .build(aspectRetriever);
+                  .build(retrieverContext.getAspectRetriever());
             });
   }
 }

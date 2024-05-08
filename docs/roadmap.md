@@ -128,7 +128,7 @@ Use-Case: Support for free-form global tags for social collaboration and aiding 
 - [x] UI support for attaching business terms to entities and fields
 
 #### Jobs, Flows / Pipelines
-Use case: Search and Discover your Pipelines (e.g. Airflow DAGs) and understand lineage with datasets
+Use case: Search and Discover your Pipelines (e.g. Airflow DAGs) and understand data lineage with datasets
 - [x] Support for Metadata Models + Backend Implementation
 - [x] Metadata Integrations with systems like Airflow.
 

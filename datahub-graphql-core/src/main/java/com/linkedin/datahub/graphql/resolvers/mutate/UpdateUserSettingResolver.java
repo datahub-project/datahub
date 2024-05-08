@@ -17,6 +17,7 @@ import com.linkedin.metadata.entity.EntityUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.concurrent.CompletableFuture;
 import javax.annotation.Nonnull;
 import lombok.RequiredArgsConstructor;
@@ -44,7 +45,8 @@ public class UpdateUserSettingResolver implements DataFetcher<CompletableFuture<
           try {
             // In the future with more settings, we'll need to do a read-modify-write
             // for now though, we can just write since there is only 1 setting
-            CorpUserSettings newSettings = getCorpUserSettings(actor);
+            CorpUserSettings newSettings =
+                getCorpUserSettings(context.getOperationContext(), actor);
             CorpUserAppearanceSettings appearanceSettings =
                 newSettings.hasAppearance()
                     ? newSettings.getAppearance()
@@ -63,7 +65,8 @@ public class UpdateUserSettingResolver implements DataFetcher<CompletableFuture<
                 buildMetadataChangeProposalWithUrn(
                     actor, CORP_USER_SETTINGS_ASPECT_NAME, newSettings);
 
-            _entityService.ingestProposal(proposal, EntityUtils.getAuditStamp(actor), false);
+            _entityService.ingestProposal(
+                context.getOperationContext(), proposal, EntityUtils.getAuditStamp(actor), false);
 
             return true;
           } catch (Exception e) {
@@ -80,9 +83,11 @@ public class UpdateUserSettingResolver implements DataFetcher<CompletableFuture<
   }
 
   @Nonnull
-  private CorpUserSettings getCorpUserSettings(@Nonnull final Urn urn) {
+  private CorpUserSettings getCorpUserSettings(
+      @Nonnull OperationContext opContext, @Nonnull final Urn urn) {
     CorpUserSettings settings =
-        (CorpUserSettings) _entityService.getAspect(urn, CORP_USER_SETTINGS_ASPECT_NAME, 0);
+        (CorpUserSettings)
+            _entityService.getAspect(opContext, urn, CORP_USER_SETTINGS_ASPECT_NAME, 0);
     return settings == null ? new CorpUserSettings() : settings;
   }
 }

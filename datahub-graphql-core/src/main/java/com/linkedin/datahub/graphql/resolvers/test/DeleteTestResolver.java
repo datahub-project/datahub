@@ -44,7 +44,7 @@ public class DeleteTestResolver implements DataFetcher<CompletableFuture<Boolean
           if (canManageTests(context)) {
             try {
 
-              if (!_entityClient.exists(urn, context.getAuthentication())) {
+              if (!_entityClient.exists(context.getOperationContext(), urn)) {
                 throw new DataHubGraphQLException(
                     String.format("Test with urn %s not found", urn),
                     DataHubGraphQLErrorCode.NOT_FOUND);
@@ -54,9 +54,9 @@ public class DeleteTestResolver implements DataFetcher<CompletableFuture<Boolean
               status.setRemoved(true);
 
               _entityClient.ingestProposal(
+                  context.getOperationContext(),
                   AspectUtils.buildMetadataChangeProposal(
                       urn, Constants.STATUS_ASPECT_NAME, status),
-                  context.getAuthentication(),
                   true);
 
               _testEngine.invalidateCache();
@@ -65,7 +65,7 @@ public class DeleteTestResolver implements DataFetcher<CompletableFuture<Boolean
               CompletableFuture.runAsync(
                   () -> {
                     try {
-                      _entityClient.deleteEntityReferences(urn, context.getAuthentication());
+                      _entityClient.deleteEntityReferences(context.getOperationContext(), urn);
                     } catch (RemoteInvocationException e) {
                       log.error(
                           String.format(

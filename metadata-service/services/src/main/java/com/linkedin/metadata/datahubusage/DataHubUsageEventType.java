@@ -78,6 +78,7 @@ public enum DataHubUsageEventType {
   EMBED_PROFILE_VIEW_EVENT("EmbedProfileViewEvent"),
   EMBED_PROFILE_VIEW_IN_DATAHUB_EVENT("EmbedProfileViewInDataHubEvent"),
   EMBED_LOOKUP_NOT_FOUND_EVENT("EmbedLookupNotFoundEvent"),
+  CREATE_BUSINESS_ATTRIBUTE("CreateBusinessAttributeEvent"),
   CLICK_DOC_REQUEST_CTA("ClickDocRequestCTA"),
   COMPLETE_DOC_REQUEST_PROMPT("CompleteDocRequestPrompt"),
   COMPLETE_VERIFICATION("CompleteVerification"),

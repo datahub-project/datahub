@@ -18,6 +18,7 @@ import com.linkedin.datahub.graphql.resolvers.settings.NotificationSettingsMatch
 import com.linkedin.identity.CorpGroupSettings;
 import com.linkedin.metadata.service.SettingsService;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -71,14 +72,15 @@ public class UpdateGroupNotificationSettingsResolverTest {
         .thenReturn(GROUP_EMAIL_NOTIFICATION_SETTINGS);
     doThrow(new RuntimeException())
         .when(_settingsService)
-        .updateCorpGroupSettings(eq(GROUP_URN), any(CorpGroupSettings.class), eq(_authentication));
+        .updateCorpGroupSettings(
+            any(OperationContext.class), eq(GROUP_URN), any(CorpGroupSettings.class));
 
     assertThrows(() -> _resolver.get(_dataFetchingEnvironment).join());
   }
 
   @Test
   public void testUpdateGroupNotificationNewSettings() throws Exception {
-    when(_settingsService.getCorpGroupSettings(eq(GROUP_URN), eq(_authentication)))
+    when(_settingsService.getCorpGroupSettings(any(OperationContext.class), eq(GROUP_URN)))
         .thenReturn(null);
     when(_settingsService.createSlackNotificationSettings(isNull(), eq(SLACK_CHANNELS)))
         .thenReturn(GROUP_SLACK_NOTIFICATION_SETTINGS);
@@ -89,12 +91,13 @@ public class UpdateGroupNotificationSettingsResolverTest {
         new NotificationSettingsMatcher(getMappedGroupNotificationSettings());
     assertTrue(matcher.matches(_resolver.get(_dataFetchingEnvironment).join()));
     verify(_settingsService, times(1))
-        .updateCorpGroupSettings(eq(GROUP_URN), eq(CORP_GROUP_SETTINGS), eq(_authentication));
+        .updateCorpGroupSettings(
+            any(OperationContext.class), eq(GROUP_URN), eq(CORP_GROUP_SETTINGS));
   }
 
   @Test
   public void testUpdateGroupNotificationExistingSettings() throws Exception {
-    when(_settingsService.getCorpGroupSettings(eq(GROUP_URN), eq(_authentication)))
+    when(_settingsService.getCorpGroupSettings(any(OperationContext.class), eq(GROUP_URN)))
         .thenReturn(CORP_GROUP_SETTINGS);
     when(_settingsService.createSlackNotificationSettings(isNull(), eq(SLACK_CHANNELS)))
         .thenReturn(GROUP_SLACK_NOTIFICATION_SETTINGS);
@@ -105,6 +108,7 @@ public class UpdateGroupNotificationSettingsResolverTest {
         new NotificationSettingsMatcher(getMappedGroupNotificationSettings());
     assertTrue(matcher.matches(_resolver.get(_dataFetchingEnvironment).join()));
     verify(_settingsService, times(1))
-        .updateCorpGroupSettings(eq(GROUP_URN), eq(CORP_GROUP_SETTINGS), eq(_authentication));
+        .updateCorpGroupSettings(
+            any(OperationContext.class), eq(GROUP_URN), eq(CORP_GROUP_SETTINGS));
   }
 }

@@ -23,7 +23,7 @@ import com.linkedin.metadata.entity.EntityUtils;
 import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
-import com.linkedin.metadata.models.registry.EntityRegistry;
+import io.datahubproject.metadata.context.OperationContext;
 import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -38,6 +38,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
@@ -46,16 +47,17 @@ public class RestoreFromParquetStep implements UpgradeStep {
   private static final int DEFAULT_BATCH_SIZE = 1000;
   private static final int DEFAULT_THREAD_POOL = 4;
 
+  private final OperationContext systemOperationContext;
   private final EntityService<?> _entityService;
-  private final EntityRegistry _entityRegistry;
   private final Map<String, Class<? extends BackupReader<ParquetReaderWrapper>>> _backupReaders;
   private final ExecutorService _fileReaderThreadPool;
   private AtomicInteger _numRows = new AtomicInteger(0);
   private ConcurrentHashMap<String, AtomicInteger> _entityCounts = new ConcurrentHashMap<>();
 
-  public RestoreFromParquetStep(final EntityService<?> entityService) {
+  public RestoreFromParquetStep(
+      @Nonnull OperationContext systemOperationContext, final EntityService<?> entityService) {
     _entityService = entityService;
-    _entityRegistry = entityService.getEntityRegistry();
+    this.systemOperationContext = systemOperationContext;
     _backupReaders =
         ImmutableBiMap.of(
             LocalParquetReader.READER_NAME,
@@ -207,7 +209,7 @@ public class RestoreFromParquetStep implements UpgradeStep {
       final String entityName = urn.getEntityType();
       final EntitySpec entitySpec;
       try {
-        entitySpec = _entityRegistry.getEntitySpec(entityName);
+        entitySpec = systemOperationContext.getEntityRegistry().getEntitySpec(entityName);
       } catch (Exception e) {
         context
             .report()
@@ -235,7 +237,9 @@ public class RestoreFromParquetStep implements UpgradeStep {
       final SystemAspect systemAspectRecord;
       try {
         systemAspectRecord =
-            EntityUtils.toSystemAspectFromEbeanAspects(List.of(aspect), _entityService).get(0);
+            EntityUtils.toSystemAspectFromEbeanAspects(
+                    systemOperationContext.getRetrieverContext().get(), List.of(aspect))
+                .get(0);
       } catch (Exception e) {
         context
             .report()
@@ -249,6 +253,7 @@ public class RestoreFromParquetStep implements UpgradeStep {
       // 5. Produce MAE events for the aspect record
       _entityService
           .alwaysProduceMCLAsync(
+              systemOperationContext,
               urn,
               entityName,
               aspectName,

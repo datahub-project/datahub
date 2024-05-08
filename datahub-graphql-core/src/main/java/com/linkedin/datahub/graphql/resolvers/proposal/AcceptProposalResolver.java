@@ -31,7 +31,7 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 @RequiredArgsConstructor
 public class AcceptProposalResolver implements DataFetcher<CompletableFuture<Boolean>> {
-  private final EntityService _entityService;
+  private final EntityService<?> _entityService;
   private final ProposalService _proposalService;
 
   @Override
@@ -49,14 +49,15 @@ public class AcceptProposalResolver implements DataFetcher<CompletableFuture<Boo
                     "Failed to accept proposal, Urn provided (%s) is not a valid actionRequest urn",
                     proposalUrn));
           }
-          if (!_entityService.exists(proposalUrn, true)) {
+          if (!_entityService.exists(context.getOperationContext(), proposalUrn, true)) {
             throw new RuntimeException(
                 String.format(
                     "Failed to accept proposal, proposal provided (%s) does not exist",
                     proposalUrn));
           }
 
-          Entity proposalEntity = _entityService.getEntity(proposalUrn, new HashSet<>());
+          Entity proposalEntity =
+              _entityService.getEntity(context.getOperationContext(), proposalUrn, new HashSet<>());
           ActionRequestSnapshot actionRequestSnapshot =
               proposalEntity.getValue().getActionRequestSnapshot();
           ActionRequest proposal =
@@ -87,6 +88,7 @@ public class AcceptProposalResolver implements DataFetcher<CompletableFuture<Boo
                   Urn.createFromString(proposal.getParams().getTagProposal().getTag().getUrn());
               Urn targetUrn = Urn.createFromString(proposal.getEntity().getUrn());
               LabelUtils.addTagsToResources(
+                  context.getOperationContext(),
                   ImmutableList.of(tagUrn),
                   ImmutableList.of(
                       new ResourceRefInput(
@@ -98,7 +100,12 @@ public class AcceptProposalResolver implements DataFetcher<CompletableFuture<Boo
                   actor,
                   _entityService);
               ProposalUtils.deleteTagFromEntityOrSchemaProposalsAspect(
-                  actor, tagUrn, targetUrn, subResource, _entityService);
+                  context.getOperationContext(),
+                  actor,
+                  tagUrn,
+                  targetUrn,
+                  subResource,
+                  _entityService);
             } else if (proposal.getType().equals(ActionRequestType.TERM_ASSOCIATION)) {
               if (!ProposalUtils.isAuthorizedToAcceptProposal(
                   context,
@@ -113,6 +120,7 @@ public class AcceptProposalResolver implements DataFetcher<CompletableFuture<Boo
                       proposal.getParams().getGlossaryTermProposal().getGlossaryTerm().getUrn());
               Urn targetUrn = Urn.createFromString(proposal.getEntity().getUrn());
               LabelUtils.addTermsToResources(
+                  context.getOperationContext(),
                   ImmutableList.of(termUrn),
                   ImmutableList.of(
                       new ResourceRefInput(
@@ -124,25 +132,36 @@ public class AcceptProposalResolver implements DataFetcher<CompletableFuture<Boo
                   actor,
                   _entityService);
               ProposalUtils.deleteTermFromEntityOrSchemaProposalsAspect(
-                  actor, termUrn, targetUrn, subResource, _entityService);
+                  context.getOperationContext(),
+                  actor,
+                  termUrn,
+                  targetUrn,
+                  subResource,
+                  _entityService);
             } else if (proposal.getType().equals(ActionRequestType.CREATE_GLOSSARY_NODE)) {
               if (!_proposalService.canResolveGlossaryNodeProposal(
-                  actor, actionRequestSnapshot, canManageGlossaries)) {
+                  context.getOperationContext(),
+                  actor,
+                  actionRequestSnapshot,
+                  canManageGlossaries)) {
                 throw new AuthorizationException(
                     "Unauthorized to perform this action. Please contact your DataHub administrator.");
               }
 
               _proposalService.acceptCreateGlossaryNodeProposal(
-                  actor, actionRequestSnapshot, canManageGlossaries, authentication);
+                  context.getOperationContext(), actor, actionRequestSnapshot, canManageGlossaries);
             } else if (proposal.getType().equals(ActionRequestType.CREATE_GLOSSARY_TERM)) {
               if (!_proposalService.canResolveGlossaryTermProposal(
-                  actor, actionRequestSnapshot, canManageGlossaries)) {
+                  context.getOperationContext(),
+                  actor,
+                  actionRequestSnapshot,
+                  canManageGlossaries)) {
                 throw new AuthorizationException(
                     "Unauthorized to perform this action. Please contact your DataHub administrator.");
               }
 
               _proposalService.acceptCreateGlossaryTermProposal(
-                  actor, actionRequestSnapshot, canManageGlossaries, authentication);
+                  context.getOperationContext(), actor, actionRequestSnapshot, canManageGlossaries);
             } else if (proposal.getType().equals(ActionRequestType.UPDATE_DESCRIPTION)) {
               if (!ProposalUtils.isAuthorizedToAcceptProposal(
                   context,
@@ -153,7 +172,7 @@ public class AcceptProposalResolver implements DataFetcher<CompletableFuture<Boo
                     "Unauthorized to perform this action. Please contact your DataHub administrator.");
               }
               _proposalService.acceptUpdateResourceDescriptionProposal(
-                  actionRequestSnapshot, authentication);
+                  context.getOperationContext(), actionRequestSnapshot);
             } else if (proposal.getType().equals(ActionRequestType.DATA_CONTRACT)) {
               if (!ProposalUtils.isAuthorizedToAcceptProposal(
                   context,
@@ -163,13 +182,15 @@ public class AcceptProposalResolver implements DataFetcher<CompletableFuture<Boo
                 throw new AuthorizationException(
                     "Unauthorized to perform this action. Please contact your DataHub administrator.");
               }
-              _proposalService.acceptDataContractProposal(actionRequestSnapshot, authentication);
+              _proposalService.acceptDataContractProposal(
+                  context.getOperationContext(), actionRequestSnapshot);
             } else {
               log.error("Cannot accept proposal- proposal is not acceptable");
               return false;
             }
 
             _proposalService.completeProposal(
+                context.getOperationContext(),
                 actor,
                 ActionRequestStatus.COMPLETED.toString(),
                 ActionRequestResult.ACCEPTED.toString(),

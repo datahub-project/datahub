@@ -9,6 +9,7 @@ import com.linkedin.event.notification.NotificationRecipientType;
 import com.linkedin.event.notification.NotificationRequest;
 import com.linkedin.event.notification.NotificationSinkType;
 import com.linkedin.metadata.integration.IntegrationsService;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.Collection;
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;
@@ -61,7 +62,10 @@ public class IntegrationsServiceProxySink implements NotificationSink {
   }
 
   @Override
-  public void send(@NotNull NotificationRequest request, @NotNull NotificationContext context)
+  public void send(
+      @NotNull OperationContext opContext,
+      @NotNull NotificationRequest request,
+      @NotNull NotificationContext context)
       throws Exception {
     log.debug("Received request to proxy notification to integrations service: {}", request);
     this.integrationsService.sendNotification(request);

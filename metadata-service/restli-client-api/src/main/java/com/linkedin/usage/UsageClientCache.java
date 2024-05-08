@@ -13,13 +13,12 @@ import java.util.stream.StreamSupport;
 import javax.annotation.Nonnull;
 import lombok.Builder;
 import lombok.Data;
-import lombok.NonNull;
 
 @Builder
 public class UsageClientCache {
-  @NonNull private UsageClientCacheConfig config;
-  @NonNull private final ClientCache<Key, UsageQueryResult, UsageClientCacheConfig> cache;
-  @NonNull private Function<Key, UsageQueryResult> loadFunction;
+  @Nonnull private UsageClientCacheConfig config;
+  @Nonnull private final ClientCache<Key, UsageQueryResult, UsageClientCacheConfig> cache;
+  @Nonnull private Function<Key, UsageQueryResult> loadFunction;
 
   public UsageQueryResult getUsageStats(
       @Nonnull OperationContext opContext,

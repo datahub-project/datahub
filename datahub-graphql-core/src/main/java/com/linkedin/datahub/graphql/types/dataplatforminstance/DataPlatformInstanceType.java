@@ -75,10 +75,10 @@ public class DataPlatformInstanceType
     try {
       final Map<Urn, EntityResponse> entities =
           _entityClient.batchGetV2(
+              context.getOperationContext(),
               Constants.DATA_PLATFORM_INSTANCE_ENTITY_NAME,
               new HashSet<>(dataPlatformInstanceUrns),
-              ASPECTS_TO_FETCH,
-              context.getAuthentication());
+              ASPECTS_TO_FETCH);
 
       final List<EntityResponse> gmsResults = new ArrayList<>();
       for (Urn urn : dataPlatformInstanceUrns) {

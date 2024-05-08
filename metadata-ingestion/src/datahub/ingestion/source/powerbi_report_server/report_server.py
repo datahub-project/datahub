@@ -156,7 +156,7 @@ class PowerBiReportServerAPI:
             response = requests.get(
                 url=url_https,
                 auth=self.get_auth_credentials,
-                verify=False,
+                verify=True,
             )
         except ConnectionError:
             LOGGER.info("Request to Report URL={}".format(url_http))

@@ -73,7 +73,30 @@ query getDataFlow($urn: String!) {
         downstream: lineage(input: { direction: DOWNSTREAM, start: 0, count: 100 }) {
             ...partialLineageResults
         }
-        childJobs: relationships(input: { types: ["IsPartOf"], direction: INCOMING, start: 0, count: 100 }) {
+        autoRenderAspects: aspects(input: { autoRenderOnly: true }) {
+            ...autoRenderAspectFields
+        }
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
+        }
+        forms {
+            ...formsFields
+        }
+        termProposals: proposals(type: TERM_ASSOCIATION) {
+            ...proposalsFragment
+        }
+        tagProposals: proposals(type: TAG_ASSOCIATION) {
+            ...proposalsFragment
+        }
+    }
+}
+
+query getDataFlowChildJobs($urn: String!, $start: Int, $count: Int) {
+    dataFlow(urn: $urn) {
+        ...dataFlowFields
+        childJobs: relationships(input: { types: ["IsPartOf"], direction: INCOMING, start: $start, count: $count }) {
             start
             count
             total
@@ -113,23 +136,6 @@ query getDataFlow($urn: String!) {
                     }
                 }
             }
-        }
-        autoRenderAspects: aspects(input: { autoRenderOnly: true }) {
-            ...autoRenderAspectFields
-        }
-        structuredProperties {
-            properties {
-                ...structuredPropertiesFields
-            }
-        }
-        forms {
-            ...formsFields
-        }
-        termProposals: proposals(type: TERM_ASSOCIATION) {
-            ...proposalsFragment
-        }
-        tagProposals: proposals(type: TAG_ASSOCIATION) {
-            ...proposalsFragment
         }
     }
 }

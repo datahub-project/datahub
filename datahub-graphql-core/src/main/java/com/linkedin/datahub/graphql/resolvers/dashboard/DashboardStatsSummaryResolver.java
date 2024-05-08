@@ -20,6 +20,7 @@ import com.linkedin.metadata.search.features.UsageFeatures;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
@@ -83,7 +84,8 @@ public class DashboardStatsSummaryResolver
             }
 
             // Obtain unique user statistics, by rolling up unique users over the past month.
-            List<DashboardUserUsageCounts> userUsageCounts = getDashboardUsagePerUser(resourceUrn);
+            List<DashboardUserUsageCounts> userUsageCounts =
+                getDashboardUsagePerUser(context.getOperationContext(), resourceUrn);
             result.setUniqueUserCountLast30Days(userUsageCounts.size());
             result.setTopUsersLast30Days(
                 trimUsers(
@@ -111,12 +113,13 @@ public class DashboardStatsSummaryResolver
     return dashboardUsageMetrics.get(0).getViewsCount();
   }
 
-  private List<DashboardUserUsageCounts> getDashboardUsagePerUser(final Urn resourceUrn) {
+  private List<DashboardUserUsageCounts> getDashboardUsagePerUser(
+      @Nonnull OperationContext opContext, final Urn resourceUrn) {
     long now = System.currentTimeMillis();
     long nowMinusOneMonth = timeMinusOneMonth(now);
     Filter bucketStatsFilter =
         createUsageFilter(resourceUrn.toString(), nowMinusOneMonth, now, true);
-    return getUserUsageCounts(bucketStatsFilter, this.timeseriesAspectService);
+    return getUserUsageCounts(opContext, bucketStatsFilter, this.timeseriesAspectService);
   }
 
   private static List<CorpUser> trimUsers(final List<CorpUser> originalUsers) {
@@ -131,7 +134,9 @@ public class DashboardStatsSummaryResolver
     try {
       EntityResponse response =
           this.systemEntityClient.getV2(
-              datasetUrn, ImmutableSet.of(Constants.USAGE_FEATURES_ASPECT_NAME));
+              context.getOperationContext(),
+              datasetUrn,
+              ImmutableSet.of(Constants.USAGE_FEATURES_ASPECT_NAME));
 
       if (response != null
           && response.getAspects().containsKey(Constants.USAGE_FEATURES_ASPECT_NAME)) {

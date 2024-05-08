@@ -2,10 +2,10 @@ package com.linkedin.datahub.graphql.resolvers.settings;
 
 import static com.linkedin.datahub.graphql.TestUtils.getMockAllowContext;
 import static com.linkedin.datahub.graphql.TestUtils.getMockDenyContext;
+import static org.mockito.ArgumentMatchers.any;
 import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
 
-import com.datahub.authentication.Authentication;
 import com.linkedin.data.template.SetMode;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.UpdateHelpLinkInput;
@@ -14,6 +14,7 @@ import com.linkedin.settings.global.GlobalSettingsInfo;
 import com.linkedin.settings.global.GlobalVisualSettings;
 import com.linkedin.settings.global.HelpLink;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.concurrent.CompletionException;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
@@ -36,6 +37,7 @@ public class UpdateHelpLinkResolverTest {
 
     Mockito.verify(mockService, Mockito.times(1))
         .updateGlobalSettings(
+            any(OperationContext.class),
             Mockito.eq(
                 new GlobalSettingsInfo()
                     .setVisual(
@@ -44,8 +46,7 @@ public class UpdateHelpLinkResolverTest {
                                 new HelpLink()
                                     .setIsEnabled(true)
                                     .setLabel("Contact Admin")
-                                    .setLink("https://www.google.com")))),
-            Mockito.any(Authentication.class));
+                                    .setLink("https://www.google.com")))));
   }
 
   @Test
@@ -69,6 +70,7 @@ public class UpdateHelpLinkResolverTest {
 
     Mockito.verify(mockService, Mockito.times(1))
         .updateGlobalSettings(
+            any(OperationContext.class),
             Mockito.eq(
                 new GlobalSettingsInfo()
                     .setVisual(
@@ -77,8 +79,7 @@ public class UpdateHelpLinkResolverTest {
                                 new HelpLink()
                                     .setIsEnabled(true)
                                     .setLabel("Contact Admin")
-                                    .setLink("https://www.google.com")))),
-            Mockito.any(Authentication.class));
+                                    .setLink("https://www.google.com")))));
   }
 
   @Test
@@ -105,6 +106,7 @@ public class UpdateHelpLinkResolverTest {
 
     Mockito.verify(mockService, Mockito.times(1))
         .updateGlobalSettings(
+            any(OperationContext.class),
             Mockito.eq(
                 new GlobalSettingsInfo()
                     .setVisual(
@@ -113,8 +115,7 @@ public class UpdateHelpLinkResolverTest {
                                 new HelpLink()
                                     .setIsEnabled(false)
                                     .setLabel("Contact Admin")
-                                    .setLink("https://www.google.com")))),
-            Mockito.any(Authentication.class));
+                                    .setLink("https://www.google.com")))));
   }
 
   @Test
@@ -122,7 +123,7 @@ public class UpdateHelpLinkResolverTest {
     SettingsService mockService = Mockito.mock(SettingsService.class);
     Mockito.doThrow(RuntimeException.class)
         .when(mockService)
-        .getGlobalSettings(Mockito.any(Authentication.class));
+        .getGlobalSettings(any(OperationContext.class));
 
     UpdateHelpLinkResolver resolver = new UpdateHelpLinkResolver(mockService);
 
@@ -151,7 +152,7 @@ public class UpdateHelpLinkResolverTest {
   private static SettingsService initSettingsService(GlobalVisualSettings existingVisualSettings) {
     SettingsService mockService = Mockito.mock(SettingsService.class);
 
-    Mockito.when(mockService.getGlobalSettings(Mockito.any(Authentication.class)))
+    Mockito.when(mockService.getGlobalSettings(any(OperationContext.class)))
         .thenReturn(
             new GlobalSettingsInfo().setVisual(existingVisualSettings, SetMode.IGNORE_NULL));
 

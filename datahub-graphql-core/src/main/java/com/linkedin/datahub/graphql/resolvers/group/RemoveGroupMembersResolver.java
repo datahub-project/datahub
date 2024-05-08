@@ -47,7 +47,7 @@ public class RemoveGroupMembersResolver implements DataFetcher<CompletableFuture
     final List<Urn> userUrnList =
         input.getUserUrns().stream().map(UrnUtils::getUrn).collect(Collectors.toList());
 
-    if (!_groupService.groupExists(groupUrn)) {
+    if (!_groupService.groupExists(context.getOperationContext(), groupUrn)) {
       // The group doesn't exist.
       throw new DataHubGraphQLException(
           String.format(
@@ -57,11 +57,12 @@ public class RemoveGroupMembersResolver implements DataFetcher<CompletableFuture
 
     return CompletableFuture.supplyAsync(
         () -> {
-          Origin groupOrigin = _groupService.getGroupOrigin(groupUrn);
+          Origin groupOrigin =
+              _groupService.getGroupOrigin(context.getOperationContext(), groupUrn);
           if (groupOrigin == null || !groupOrigin.hasType()) {
             try {
               _groupService.migrateGroupMembershipToNativeGroupMembership(
-                  groupUrn, context.getActorUrn(), context.getAuthentication());
+                  context.getOperationContext(), groupUrn, context.getActorUrn());
             } catch (Exception e) {
               throw new RuntimeException(
                   String.format(
@@ -75,7 +76,8 @@ public class RemoveGroupMembersResolver implements DataFetcher<CompletableFuture
                     groupUrnStr));
           }
           try {
-            _groupService.removeExistingNativeGroupMembers(groupUrn, userUrnList, authentication);
+            _groupService.removeExistingNativeGroupMembers(
+                context.getOperationContext(), groupUrn, userUrnList);
             return true;
           } catch (Exception e) {
             throw new RuntimeException(e);

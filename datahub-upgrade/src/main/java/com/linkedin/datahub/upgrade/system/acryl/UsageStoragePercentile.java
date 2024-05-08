@@ -9,6 +9,7 @@ import com.linkedin.datahub.upgrade.system.AbstractMCLStep;
 import com.linkedin.datahub.upgrade.system.NonBlockingSystemUpgrade;
 import com.linkedin.metadata.entity.AspectDao;
 import com.linkedin.metadata.entity.EntityService;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.List;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
@@ -24,6 +25,7 @@ public class UsageStoragePercentile implements NonBlockingSystemUpgrade {
   private final List<UpgradeStep> _steps;
 
   public UsageStoragePercentile(
+      OperationContext opContext,
       EntityService<?> entityService,
       AspectDao aspectDao,
       boolean enabled,
@@ -33,9 +35,10 @@ public class UsageStoragePercentile implements NonBlockingSystemUpgrade {
     if (enabled) {
       _steps =
           ImmutableList.of(
-              // new UsagePercentileStep(entityService, aspectDao, batchSize, batchDelayMs, limit),
-              // new StoragePercentileStep(entityService, aspectDao, batchSize, batchDelayMs, limit)
-              );
+              new UsagePercentileStep(
+                  opContext, entityService, aspectDao, batchSize, batchDelayMs, limit),
+              new StoragePercentileStep(
+                  opContext, entityService, aspectDao, batchSize, batchDelayMs, limit));
     } else {
       _steps = ImmutableList.of();
     }
@@ -55,12 +58,13 @@ public class UsageStoragePercentile implements NonBlockingSystemUpgrade {
   public static class UsagePercentileStep extends AbstractMCLStep {
 
     public UsagePercentileStep(
+        OperationContext opContext,
         EntityService<?> entityService,
         AspectDao aspectDao,
         Integer batchSize,
         Integer batchDelayMs,
         Integer limit) {
-      super(entityService, aspectDao, batchSize, batchDelayMs, limit);
+      super(opContext, entityService, aspectDao, batchSize, batchDelayMs, limit);
     }
 
     @Override
@@ -85,12 +89,13 @@ public class UsageStoragePercentile implements NonBlockingSystemUpgrade {
   public static class StoragePercentileStep extends AbstractMCLStep {
 
     public StoragePercentileStep(
+        OperationContext opContext,
         EntityService<?> entityService,
         AspectDao aspectDao,
         Integer batchSize,
         Integer batchDelayMs,
         Integer limit) {
-      super(entityService, aspectDao, batchSize, batchDelayMs, limit);
+      super(opContext, entityService, aspectDao, batchSize, batchDelayMs, limit);
     }
 
     @Override

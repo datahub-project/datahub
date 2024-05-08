@@ -5,7 +5,9 @@ import static com.linkedin.metadata.Constants.*;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.service.DomainService;
 import com.linkedin.metadata.test.action.ActionType;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.List;
+import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
@@ -20,8 +22,8 @@ public class SetDomainAction extends DomainAbstractAction {
     return ActionType.SET_DOMAIN;
   }
 
-  void applyInternal(Urn domainUrn, List<Urn> urns) {
+  void applyInternal(@Nonnull OperationContext opContext, Urn domainUrn, List<Urn> urns) {
     this.domainService.batchSetDomain(
-        domainUrn, getResourceReferences(urns), METADATA_TESTS_SOURCE);
+        opContext, domainUrn, getResourceReferences(urns), METADATA_TESTS_SOURCE);
   }
 }

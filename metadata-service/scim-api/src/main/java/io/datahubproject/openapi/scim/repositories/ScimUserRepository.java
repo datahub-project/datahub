@@ -257,7 +257,7 @@ public class ScimUserRepository extends AbstractScimRepository<ScimUser, Corpuse
                 .map(
                     role -> {
                       Urn roleUrn = new DataHubRoleUrn(role.getValue());
-                      if (_entityService.exists(roleUrn, false)) {
+                      if (_entityService.exists(systemOperationContext, roleUrn, false)) {
                         if (primaryRole.getPlain() == null
                             && role.getPrimary() != null
                             && role.getPrimary()) {

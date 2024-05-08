@@ -1,7 +1,6 @@
 package com.linkedin.metadata.graph.elastic;
 
-import static com.linkedin.metadata.aspect.models.graph.Edge.EDGE_FIELD_LIFECYCLE_OWNER;
-import static com.linkedin.metadata.aspect.models.graph.Edge.EDGE_FIELD_VIA;
+import static com.linkedin.metadata.aspect.models.graph.Edge.*;
 import static com.linkedin.metadata.graph.elastic.ElasticSearchGraphService.*;
 
 import com.codahale.metrics.Timer;

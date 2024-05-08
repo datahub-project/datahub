@@ -3,7 +3,6 @@ package com.linkedin.datahub.graphql.resolvers.subscription;
 import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.*;
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 
-import com.datahub.authentication.Authentication;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -33,7 +32,7 @@ public class ListSubscriptionsResolver
   public CompletableFuture<ListSubscriptionsResult> get(DataFetchingEnvironment environment)
       throws Exception {
     final QueryContext context = environment.getContext();
-    final Authentication authentication = context.getAuthentication();
+
     final ListSubscriptionsInput input =
         bindArgument(environment.getArgument("input"), ListSubscriptionsInput.class);
     final int start = input.getStart() == null ? 0 : input.getStart();
@@ -55,9 +54,9 @@ public class ListSubscriptionsResolver
             final Urn actorUrn = UrnUtils.getUrn(actorUrnString);
             final SearchResult searchResult =
                 _subscriptionService.getSubscriptionsSearchResult(
-                    actorUrn, start, count, authentication);
+                    context.getOperationContext(), actorUrn, start, count);
             final Map<Urn, SubscriptionInfo> subscriptions =
-                _subscriptionService.listSubscriptions(searchResult, authentication);
+                _subscriptionService.listSubscriptions(context.getOperationContext(), searchResult);
 
             final List<DataHubSubscription> dataHubSubscriptions =
                 subscriptions.entrySet().stream()

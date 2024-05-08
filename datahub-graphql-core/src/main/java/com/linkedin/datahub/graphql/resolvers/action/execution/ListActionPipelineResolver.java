@@ -70,13 +70,13 @@ public class ListActionPipelineResolver
 
               final Map<Urn, EntityResponse> entities =
                   _entityClient.batchGetV2(
+                      context.getOperationContext(),
                       Constants.ACTIONS_PIPELINE_ENTITY_NAME,
                       new HashSet<>(
                           gmsResult.getEntities().stream()
                               .map(SearchEntity::getEntity)
                               .collect(Collectors.toList())),
-                      ActionPipelineType.ASPECTS_TO_FETCH,
-                      context.getAuthentication());
+                      ActionPipelineType.ASPECTS_TO_FETCH);
 
               // Now that we have entities we can bind this to a result.
               final ListActionPipelinesResult result = new ListActionPipelinesResult();

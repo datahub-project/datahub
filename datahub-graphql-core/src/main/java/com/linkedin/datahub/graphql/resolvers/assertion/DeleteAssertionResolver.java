@@ -35,13 +35,13 @@ public class DeleteAssertionResolver implements DataFetcher<CompletableFuture<Bo
         () -> {
 
           // 1. check the entity exists. If not, return false.
-          if (!_entityService.exists(assertionUrn, true)) {
+          if (!_entityService.exists(context.getOperationContext(), assertionUrn, true)) {
             return true;
           }
 
           if (isAuthorizedToDeleteAssertion(context, assertionUrn)) {
             try {
-              _entityClient.deleteEntity(assertionUrn, context.getAuthentication());
+              _entityClient.deleteEntity(context.getOperationContext(), assertionUrn);
 
               // Asynchronously Delete all references to the entity (to return quickly)
               // TODO: Actually delete any monitors associated with the assertion.
@@ -49,7 +49,7 @@ public class DeleteAssertionResolver implements DataFetcher<CompletableFuture<Bo
                   () -> {
                     try {
                       _entityClient.deleteEntityReferences(
-                          assertionUrn, context.getAuthentication());
+                          context.getOperationContext(), assertionUrn);
                     } catch (Exception e) {
                       log.error(
                           String.format(
@@ -80,6 +80,7 @@ public class DeleteAssertionResolver implements DataFetcher<CompletableFuture<Bo
     AssertionInfo info =
         (AssertionInfo)
             EntityUtils.getAspectFromEntity(
+                context.getOperationContext(),
                 assertionUrn.toString(),
                 Constants.ASSERTION_INFO_ASPECT_NAME,
                 _entityService,

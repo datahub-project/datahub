@@ -1,5 +1,6 @@
 package com.linkedin.datahub.upgrade;
 
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -21,4 +22,7 @@ public interface UpgradeContext {
 
   /** Returns a map of argument to <>optional</> value, as delimited by an '=' character. */
   Map<String, Optional<String>> parsedArgs();
+
+  /** Returns the operation context ffor the upgrade */
+  OperationContext opContext();
 }

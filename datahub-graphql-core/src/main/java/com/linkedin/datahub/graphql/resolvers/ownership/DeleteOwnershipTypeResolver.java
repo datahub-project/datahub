@@ -38,7 +38,7 @@ public class DeleteOwnershipTypeResolver implements DataFetcher<CompletableFutur
         () -> {
           try {
             _ownershipTypeService.deleteOwnershipType(
-                urn, deleteReferences, context.getAuthentication());
+                context.getOperationContext(), urn, deleteReferences);
             log.info(String.format("Successfully deleted ownership type %s with urn", urn));
             return true;
           } catch (Exception e) {

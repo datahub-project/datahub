@@ -185,12 +185,12 @@ public class TestEngine {
       log.info("Metadata tests is disabled, not fetching test definitions");
     }
 
-    _supportedEntityTypes = TestUtils.getSupportedEntityTypes(entityService.getEntityRegistry());
+    _supportedEntityTypes = TestUtils.getSupportedEntityTypes(systemOpContext.getEntityRegistry());
     _elasticSearchTestExecutor =
         new ElasticSearchTestExecutor(
             searchService,
             timeseriesAspectService,
-            entityService.getEntityRegistry(),
+            systemOpContext.getEntityRegistry(),
             systemOpContext);
     _timeseriesAspectService = timeseriesAspectService;
   }
@@ -254,8 +254,9 @@ public class TestEngine {
    * @throws UnsupportedOperationException if the provided entity type is not supported.
    */
   @Nonnull
-  public TestResults evaluateTests(@Nonnull final Urn urn, @Nonnull EvaluationMode mode) {
-    return evaluateTests(Set.of(urn), Set.of(), mode).getOrDefault(urn, EMPTY_RESULTS);
+  public TestResults evaluateTests(
+      @Nonnull OperationContext opContext, @Nonnull final Urn urn, @Nonnull EvaluationMode mode) {
+    return evaluateTests(opContext, Set.of(urn), Set.of(), mode).getOrDefault(urn, EMPTY_RESULTS);
   }
 
   /**
@@ -270,8 +271,12 @@ public class TestEngine {
    */
   @Nonnull
   public TestResults evaluateTestUrns(
-      @Nonnull final Urn urn, @Nonnull Set<Urn> testUrns, @Nonnull EvaluationMode mode) {
-    return evaluateTestUrns(Set.of(urn), testUrns, mode).getOrDefault(urn, EMPTY_RESULTS);
+      @Nonnull OperationContext opContext,
+      @Nonnull final Urn urn,
+      @Nonnull Set<Urn> testUrns,
+      @Nonnull EvaluationMode mode) {
+    return evaluateTestUrns(opContext, Set.of(urn), testUrns, mode)
+        .getOrDefault(urn, EMPTY_RESULTS);
   }
 
   /**
@@ -282,16 +287,19 @@ public class TestEngine {
    * @return Test results per entity urn
    */
   public Map<Urn, TestResults> evaluateTests(
-      @Nonnull final Set<Urn> urns, @Nonnull final EvaluationMode mode) {
-    return evaluateTests(urns, Set.of(), mode);
+      @Nonnull OperationContext opContext,
+      @Nonnull final Set<Urn> urns,
+      @Nonnull final EvaluationMode mode) {
+    return evaluateTests(opContext, urns, Set.of(), mode);
   }
 
   public Map<Urn, TestResults> evaluateTestUrns(
+      @Nonnull OperationContext opContext,
       @Nonnull final Set<Urn> entityUrns,
       @Nonnull final Set<Urn> testUrns,
       @Nonnull EvaluationMode mode) {
     return evaluateTests(
-        entityUrns, testUrns.isEmpty() ? Set.of() : fetchDefinitions(testUrns), mode);
+        opContext, entityUrns, testUrns.isEmpty() ? Set.of() : fetchDefinitions(testUrns), mode);
   }
 
   /**
@@ -305,6 +313,7 @@ public class TestEngine {
    * @throws UnsupportedOperationException if the provided entity type is not supported.
    */
   public Map<Urn, TestResults> evaluateTests(
+      @Nonnull OperationContext opContext,
       @Nonnull final Set<Urn> entityUrns,
       @Nonnull final Set<TestDefinition> tests,
       @Nonnull EvaluationMode mode) {
@@ -358,7 +367,7 @@ public class TestEngine {
     // Step 3 (Optional): Write results to DataHub
     if (!EvaluationMode.EVALUATE_ONLY.equals(mode)) {
       batchIngestResults(results, mode, partial, batchedTestRunResults, null);
-      batchApplyActions(results);
+      batchApplyActions(opContext, results);
     }
 
     return results;
@@ -538,7 +547,7 @@ public class TestEngine {
         rules.stream()
             .flatMap(rule -> _predicateEvaluator.extractQueriesForPredicate(rule).stream())
             .collect(Collectors.toSet());
-    return _queryEngine.batchEvaluateQueries(new HashSet<>(urns), requiredQueries);
+    return _queryEngine.batchEvaluateQueries(systemOpContext, new HashSet<>(urns), requiredQueries);
   }
 
   private List<Predicate> getPredicatesFromSelectConditions(
@@ -733,9 +742,11 @@ public class TestEngine {
               .collect(Collectors.toList());
       log.info("Total number of mcps = {}", allMCPs.size());
       AspectsBatchImpl batch =
-          AspectsBatchImpl.builder().mcps(allMCPs, auditStamp, _entityService).build();
+          AspectsBatchImpl.builder()
+              .mcps(allMCPs, auditStamp, systemOpContext.getRetrieverContext().get())
+              .build();
 
-      _entityService.ingestProposal(batch, mode != EvaluationMode.SYNC);
+      _entityService.ingestProposal(systemOpContext, batch, mode != EvaluationMode.SYNC);
     }
   }
 
@@ -745,7 +756,9 @@ public class TestEngine {
    * <p>To do this, we first group by the Action -> entity URNs requiring the action. Then, we batch
    * apply the action to all entity URNs in the set using an {@link ActionApplier}.
    */
-  private void batchApplyActions(@Nonnull final Map<Urn, TestResults> entityUrnToResults) {
+  private void batchApplyActions(
+      @Nonnull OperationContext opContext,
+      @Nonnull final Map<Urn, TestResults> entityUrnToResults) {
     // First, aggregate by Action -> URNs, so we can batch the action execution
     // itself.
     Map<TestAction, Set<Urn>> actionToEntityUrns = new HashMap<>();
@@ -759,6 +772,7 @@ public class TestEngine {
     // Apply the action for each batch.
     for (Map.Entry<TestAction, Set<Urn>> entry : actionToEntityUrns.entrySet()) {
       _actionApplier.apply(
+          opContext,
           entry.getKey().getType(),
           new ArrayList<>(entry.getValue()),
           new ActionParameters(entry.getKey().getParams()));
@@ -807,7 +821,14 @@ public class TestEngine {
   private Optional<BatchTestRunEvent> getLastExecution(Urn testUrn) {
     List<EnvelopedAspect> lastComputed =
         this._timeseriesAspectService.getAspectValues(
-            testUrn, TEST_ENTITY_NAME, BATCH_TEST_RUN_EVENT_ASPECT_NAME, null, null, 1, null);
+            systemOpContext,
+            testUrn,
+            TEST_ENTITY_NAME,
+            BATCH_TEST_RUN_EVENT_ASPECT_NAME,
+            null,
+            null,
+            1,
+            null);
     if (!lastComputed.isEmpty()) {
       EnvelopedAspect envelopedAspect = lastComputed.get(0);
       BatchTestRunEvent batchTestRunEvent =
@@ -958,7 +979,9 @@ public class TestEngine {
    * @param mode whether to run actions
    */
   public Map<Urn, TestResults> evaluateSingleTest(
-      @Nonnull final Urn testUrn, @Nonnull EvaluationMode mode) {
+      @Nonnull OperationContext opContext,
+      @Nonnull final Urn testUrn,
+      @Nonnull EvaluationMode mode) {
     log.info("Evaluating single test {} with mode {}", testUrn, mode);
     this.refreshSingleTest(testUrn);
     final TestDefinition testDefinition;
@@ -1032,7 +1055,7 @@ public class TestEngine {
           mode,
           results.keySet().size(),
           testUrn);
-      batchApplyActions(results);
+      batchApplyActions(opContext, results);
       log.info("Mode {}: Test {} evaluation done", mode, testUrn);
     }
     log.debug("Test {} has been evaluated. Results keys = {}", testUrn, results.keySet().size());
@@ -1064,7 +1087,11 @@ public class TestEngine {
                 typeName ->
                     candidateUrns.addAll(
                         _entityService
-                            .listUrns(typeName, 0, MAX_ENTITIES_EVALUATED_IN_SINGLE_EXECUTION)
+                            .listUrns(
+                                systemOpContext,
+                                typeName,
+                                0,
+                                MAX_ENTITIES_EVALUATED_IN_SINGLE_EXECUTION)
                             .getEntities()));
       }
 
@@ -1184,7 +1211,7 @@ public class TestEngine {
     }
 
     protected void refreshOneUrn(final Urn testUrn) {
-      TestFetcher.TestFetchResult testDefinitions = _testFetcher.fetchOne(testUrn);
+      TestFetcher.TestFetchResult testDefinitions = _testFetcher.fetchOne(systemOpContext, testUrn);
       this.cacheWriteLock.lock();
       try {
         addTestsToCache(_testCache, _testPerEntityTypeCache, testDefinitions.getTests());

@@ -18,9 +18,11 @@ export default function LookerFieldsSummary() {
 
     return (
         <SummaryColumns>
-            {measureFields?.length && <FieldTableByTag title="Measures" fields={measureFields} />}
-            {dimensionFields?.length && <FieldTableByTag title="Dimensions" fields={dimensionFields} />}
-            {temporalFields?.length && <FieldTableByTag title="Temporals" fields={temporalFields} />}
+            {measureFields?.length && <FieldTableByTag title="Measures" fields={measureFields as SchemaField[]} />}
+            {dimensionFields?.length && (
+                <FieldTableByTag title="Dimensions" fields={dimensionFields as SchemaField[]} />
+            )}
+            {temporalFields?.length && <FieldTableByTag title="Temporals" fields={temporalFields as SchemaField[]} />}
         </SummaryColumns>
     );
 }

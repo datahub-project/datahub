@@ -24,7 +24,9 @@ import javax.annotation.Nonnull;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NonNull;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @Builder
 public class EntityClientCache {
   @NonNull private EntityClientCacheConfig config;
@@ -44,12 +46,28 @@ public class EntityClientCache {
       @Nonnull final Set<String> aspectNames) {
     final Map<Urn, EntityResponse> response;
 
+    final Set<String> projectedAspects;
+    if (aspectNames.isEmpty()) {
+      projectedAspects =
+          urns.stream()
+              .map(Urn::getEntityType)
+              .distinct()
+              .flatMap(entityName -> opContext.getEntityAspectNames(entityName).stream())
+              .collect(Collectors.toSet());
+      log.warn(
+          "No aspectNames specified, projecting to ALL aspects. The caller is likely over-fetching. Request: {} Aspects: {}",
+          opContext.getRequestID(),
+          projectedAspects);
+    } else {
+      projectedAspects = aspectNames;
+    }
+
     if (config.isEnabled()) {
       Set<Key> keys =
           urns.stream()
               .flatMap(
                   urn ->
-                      aspectNames.stream()
+                      projectedAspects.stream()
                           .map(
                               a ->
                                   Key.builder()
@@ -79,7 +97,7 @@ public class EntityClientCache {
               CollectionKey.builder()
                   .contextId(opContext.getEntityContextId())
                   .urns(urns)
-                  .aspectNames(aspectNames)
+                  .aspectNames(projectedAspects)
                   .build());
     }
 

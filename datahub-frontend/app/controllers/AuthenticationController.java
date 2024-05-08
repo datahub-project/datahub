@@ -42,7 +42,6 @@ import play.mvc.Result;
 import play.mvc.Results;
 import security.AuthenticationManager;
 
-// TODO add logging.
 public class AuthenticationController extends Controller {
   public static final String AUTH_VERBOSE_LOGGING = "auth.verbose.logging";
   private static final String AUTH_REDIRECT_URI_PARAM = "redirect_uri";
@@ -183,10 +182,12 @@ public class AuthenticationController extends Controller {
     boolean loginSucceeded = tryLogin(username, password);
 
     if (!loginSucceeded) {
+      _logger.info("Login failed for user: {}", username);
       return Results.badRequest(invalidCredsJson);
     }
 
     final Urn actorUrn = new CorpuserUrn(username);
+    _logger.info("Login successful for user: {}, urn: {}", username, actorUrn);
     final String accessToken = _authClient.generateSessionTokenForUser(actorUrn.getId());
     return createSession(actorUrn.toString(), accessToken);
   }
@@ -250,6 +251,7 @@ public class AuthenticationController extends Controller {
     final Urn userUrn = new CorpuserUrn(email);
     final String userUrnString = userUrn.toString();
     _authClient.signUp(userUrnString, fullName, email, title, password, inviteToken);
+    _logger.info("Signed up user {} using invite tokens", userUrnString);
     final String accessToken = _authClient.generateSessionTokenForUser(userUrn.getId());
     return createSession(userUrnString, accessToken);
   }
@@ -351,15 +353,15 @@ public class AuthenticationController extends Controller {
     // First try jaas login, if enabled
     if (_jaasConfigs.isJAASEnabled()) {
       try {
-        _logger.debug("Attempting jaas authentication");
+        _logger.debug("Attempting JAAS authentication for user: {}", username);
         AuthenticationManager.authenticateJaasUser(username, password);
-        _logger.debug("Jaas authentication successful. Login succeeded");
+        _logger.debug("JAAS authentication successful. Login succeeded");
         loginSucceeded = true;
       } catch (Exception e) {
         if (_verbose) {
-          _logger.debug("Jaas authentication error. Login failed", e);
+          _logger.debug("JAAS authentication error. Login failed", e);
         } else {
-          _logger.debug("Jaas authentication error. Login failed");
+          _logger.debug("JAAS authentication error. Login failed");
         }
       }
     }

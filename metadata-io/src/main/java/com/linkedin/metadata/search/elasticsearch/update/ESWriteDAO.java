@@ -1,7 +1,6 @@
 package com.linkedin.metadata.search.elasticsearch.update;
 
-import com.linkedin.metadata.models.registry.EntityRegistry;
-import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
+import io.datahubproject.metadata.context.OperationContext;
 import java.io.IOException;
 import javax.annotation.Nonnull;
 import lombok.RequiredArgsConstructor;
@@ -20,9 +19,7 @@ import org.opensearch.script.Script;
 @RequiredArgsConstructor
 public class ESWriteDAO {
 
-  private final EntityRegistry entityRegistry;
   private final RestHighLevelClient searchClient;
-  private final IndexConvention indexConvention;
   private final ESBulkProcessor bulkProcessor;
   private final int numRetries;
 
@@ -34,10 +31,12 @@ public class ESWriteDAO {
    * @param docId the ID of the document
    */
   public void upsertDocument(
-      @Nonnull String entityName, @Nonnull String document, @Nonnull String docId) {
-    final String indexName = indexConvention.getIndexName(entityRegistry.getEntitySpec(entityName));
+      @Nonnull OperationContext opContext,
+      @Nonnull String entityName,
+      @Nonnull String document,
+      @Nonnull String docId) {
     final UpdateRequest updateRequest =
-        new UpdateRequest(indexName, docId)
+        new UpdateRequest(toIndexName(opContext, entityName), docId)
             .detectNoop(false)
             .docAsUpsert(true)
             .doc(document, XContentType.JSON)
@@ -52,17 +51,19 @@ public class ESWriteDAO {
    * @param entityName name of the entity
    * @param docId the ID of the document to delete
    */
-  public void deleteDocument(@Nonnull String entityName, @Nonnull String docId) {
-    final String indexName = indexConvention.getIndexName(entityRegistry.getEntitySpec(entityName));
-    bulkProcessor.add(new DeleteRequest(indexName).id(docId));
+  public void deleteDocument(
+      @Nonnull OperationContext opContext, @Nonnull String entityName, @Nonnull String docId) {
+    bulkProcessor.add(new DeleteRequest(toIndexName(opContext, entityName)).id(docId));
   }
 
   /** Applies a script to a particular document */
   public void applyScriptUpdate(
-      @Nonnull String entityName, @Nonnull String docId, @Nonnull String script) {
-    final String indexName = indexConvention.getIndexName(entityRegistry.getEntitySpec(entityName));
+      @Nonnull OperationContext opContext,
+      @Nonnull String entityName,
+      @Nonnull String docId,
+      @Nonnull String script) {
     UpdateRequest updateRequest =
-        new UpdateRequest(indexName, docId)
+        new UpdateRequest(toIndexName(opContext, entityName), docId)
             .detectNoop(false)
             .scriptedUpsert(true)
             .retryOnConflict(numRetries)
@@ -71,8 +72,9 @@ public class ESWriteDAO {
   }
 
   /** Clear all documents in all the indices */
-  public void clear() {
-    String[] indices = getIndices(indexConvention.getAllEntityIndicesPattern());
+  public void clear(@Nonnull OperationContext opContext) {
+    String[] indices =
+        getIndices(opContext.getSearchContext().getIndexConvention().getAllEntityIndicesPattern());
     bulkProcessor.deleteByQuery(QueryBuilders.matchAllQuery(), indices);
   }
 
@@ -85,5 +87,13 @@ public class ESWriteDAO {
       log.error("Failed to get indices using pattern {}", pattern);
       return new String[] {};
     }
+  }
+
+  private static String toIndexName(
+      @Nonnull OperationContext opContext, @Nonnull String entityName) {
+    return opContext
+        .getSearchContext()
+        .getIndexConvention()
+        .getIndexName(opContext.getEntityRegistry().getEntitySpec(entityName));
   }
 }

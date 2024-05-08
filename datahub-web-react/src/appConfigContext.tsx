@@ -33,6 +33,7 @@ export const DEFAULT_APP_CONFIG = {
         searchResult: {
             enableNameHighlight: false,
         },
+        hideGlossary: false,
     },
     authConfig: {
         tokenAuthEnabled: false,
@@ -56,6 +57,7 @@ export const DEFAULT_APP_CONFIG = {
         schemaAssertionMonitorsEnabled: false,
         subscriptionsEnabled: false,
         datasetHealthDashboardEnabled: false,
+        businessAttributeEntityEnabled: false,
         showAcrylInfo: false,
         erModelRelationshipFeatureEnabled: false,
         showAccessManagement: false,

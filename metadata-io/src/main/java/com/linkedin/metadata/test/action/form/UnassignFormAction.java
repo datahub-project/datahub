@@ -8,7 +8,9 @@ import com.linkedin.metadata.test.action.ActionType;
 import com.linkedin.metadata.test.action.api.ValuesAction;
 import com.linkedin.metadata.test.exception.InvalidActionParamsException;
 import com.linkedin.metadata.test.exception.InvalidOperandException;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.List;
+import javax.annotation.Nonnull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -36,12 +38,13 @@ public class UnassignFormAction extends ValuesAction {
   }
 
   @Override
-  public void apply(List<Urn> urns, ActionParameters params) throws InvalidOperandException {
+  public void apply(@Nonnull OperationContext opContext, List<Urn> urns, ActionParameters params)
+      throws InvalidOperandException {
     // 1. Extract Parameters
     final Urn formUrn = UrnUtils.getUrn(params.getParams().get(FORM_URN_PARAMETER).get(0));
     // 2. Apply the action
     try {
-      formService.batchUnassignFormForEntities(urns, formUrn);
+      formService.batchUnassignFormForEntities(opContext, urns, formUrn);
     } catch (Exception e) {
       log.error(
           String.format(

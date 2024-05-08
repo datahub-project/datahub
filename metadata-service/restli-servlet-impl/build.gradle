@@ -64,6 +64,7 @@ dependencies {
   testImplementation project(path: ':test-models', configuration: 'testDataTemplate')
   testImplementation project(':mock-entity-registry')
   testImplementation externalDependency.mockito
+  testImplementation externalDependency.mockitoInline
   testImplementation externalDependency.testng
 
   integTestImplementation externalDependency.junitJupiterApi

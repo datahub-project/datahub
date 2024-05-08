@@ -23,6 +23,7 @@ import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.settings.global.GlobalSettingsInfo;
+import io.datahubproject.metadata.context.OperationContext;
 import jakarta.annotation.Nonnull;
 import java.io.IOException;
 import java.net.URISyntaxException;
@@ -60,7 +61,8 @@ public class IngestDefaultGlobalSettingsStep implements BootstrapStep {
   }
 
   @Override
-  public void execute() throws IOException, URISyntaxException {
+  public void execute(@Nonnull OperationContext systemOperationContext)
+      throws IOException, URISyntaxException {
 
     final ObjectMapper mapper = new ObjectMapper();
     int maxSize =
@@ -112,7 +114,8 @@ public class IngestDefaultGlobalSettingsStep implements BootstrapStep {
     }
 
     // 3. Get existing settings or empty settings object
-    final GlobalSettingsInfo existingSettings = getExistingGlobalSettingsOrEmpty();
+    final GlobalSettingsInfo existingSettings =
+        getExistingGlobalSettingsOrEmpty(systemOperationContext);
 
     // 4. Merge existing settings onto previous settings. Be careful - if we change the settings
     // schema dramatically in future we may need to account for that.
@@ -128,6 +131,7 @@ public class IngestDefaultGlobalSettingsStep implements BootstrapStep {
     proposal.setChangeType(ChangeType.UPSERT);
 
     _entityService.ingestProposal(
+        systemOperationContext,
         proposal,
         new AuditStamp()
             .setActor(Urn.createFromString(Constants.SYSTEM_ACTOR))
@@ -135,9 +139,11 @@ public class IngestDefaultGlobalSettingsStep implements BootstrapStep {
         false);
   }
 
-  private GlobalSettingsInfo getExistingGlobalSettingsOrEmpty() {
+  private GlobalSettingsInfo getExistingGlobalSettingsOrEmpty(
+      @Nonnull OperationContext systemOperationContext) {
     RecordTemplate aspect =
-        _entityService.getAspect(GLOBAL_SETTINGS_URN, GLOBAL_SETTINGS_INFO_ASPECT_NAME, 0);
+        _entityService.getAspect(
+            systemOperationContext, GLOBAL_SETTINGS_URN, GLOBAL_SETTINGS_INFO_ASPECT_NAME, 0);
     return aspect != null ? (GlobalSettingsInfo) aspect : new GlobalSettingsInfo();
   }
 

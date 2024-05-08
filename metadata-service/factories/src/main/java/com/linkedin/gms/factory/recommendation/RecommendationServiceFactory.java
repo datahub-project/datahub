@@ -18,7 +18,6 @@ import com.linkedin.metadata.recommendation.candidatesource.TopPlatformsSource;
 import com.linkedin.metadata.recommendation.candidatesource.TopTagsSource;
 import com.linkedin.metadata.recommendation.candidatesource.TopTermsSource;
 import com.linkedin.metadata.recommendation.ranker.SimpleRecommendationRanker;
-import com.linkedin.metadata.spring.YamlPropertySourceFactory;
 import java.util.List;
 import javax.annotation.Nonnull;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -26,7 +25,6 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
-import org.springframework.context.annotation.PropertySource;
 
 @Configuration
 @Import({
@@ -37,7 +35,6 @@ import org.springframework.context.annotation.PropertySource;
   TopTermsCandidateSourceFactory.class,
   DomainsCandidateSourceFactory.class
 })
-@PropertySource(value = "classpath:/application.yml", factory = YamlPropertySourceFactory.class)
 public class RecommendationServiceFactory {
 
   @Autowired

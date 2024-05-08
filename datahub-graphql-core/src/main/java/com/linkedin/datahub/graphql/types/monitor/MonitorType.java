@@ -64,10 +64,10 @@ public class MonitorType implements com.linkedin.datahub.graphql.types.EntityTyp
     try {
       final Map<Urn, EntityResponse> entities =
           _entityClient.batchGetV2(
+              context.getOperationContext(),
               Constants.MONITOR_ENTITY_NAME,
               new HashSet<>(monitorUrns),
-              ASPECTS_TO_FETCH,
-              context.getAuthentication());
+              ASPECTS_TO_FETCH);
 
       final List<EntityResponse> gmsResults = new ArrayList<>();
       for (Urn urn : monitorUrns) {

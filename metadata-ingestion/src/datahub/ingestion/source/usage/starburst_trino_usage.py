@@ -191,6 +191,8 @@ class TrinoUsageSource(Source):
         if isinstance(v, str):
             isodate = parser.parse(v)  # compatible with Python 3.6+
             return isodate
+        if isinstance(v, datetime):
+            return v
 
     def _get_joined_access_event(self, events):
         joined_access_events = []

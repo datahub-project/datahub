@@ -61,7 +61,7 @@ public class UpdateGlobalSettingsResolver implements DataFetcher<CompletableFutu
 
             // First, fetch the existing global settings.
             GlobalSettingsInfo globalSettings =
-                SettingsMapper.getGlobalSettings(_entityClient, context.getAuthentication());
+                SettingsMapper.getGlobalSettings(context.getOperationContext(), _entityClient);
 
             // Next, patch the global settings.
             updateSettings(globalSettings, input);
@@ -71,7 +71,7 @@ public class UpdateGlobalSettingsResolver implements DataFetcher<CompletableFutu
                 buildMetadataChangeProposalWithUrn(
                     GLOBAL_SETTINGS_URN, GLOBAL_SETTINGS_INFO_ASPECT_NAME, globalSettings);
             try {
-              _entityClient.ingestProposal(proposal, context.getAuthentication(), false);
+              _entityClient.ingestProposal(context.getOperationContext(), proposal, false);
               return true;
             } catch (Exception e) {
               throw new RuntimeException(

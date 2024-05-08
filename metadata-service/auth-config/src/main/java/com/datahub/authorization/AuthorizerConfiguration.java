@@ -4,7 +4,7 @@ import com.datahub.plugins.auth.authorization.Authorizer;
 import java.util.Map;
 import lombok.Data;
 
-/** POJO representing {@link Authorizer} configurations provided in the application.yml. */
+/** POJO representing {@link Authorizer} configurations provided in the application.yaml. */
 @Data
 public class AuthorizerConfiguration {
   /** Whether to enable this authorizer */

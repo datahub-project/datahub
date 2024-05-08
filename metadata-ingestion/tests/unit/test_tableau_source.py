@@ -1,6 +1,8 @@
 import pytest
 
+import datahub.ingestion.source.tableau_constant as c
 from datahub.ingestion.source.tableau import TableauSource
+from datahub.ingestion.source.tableau_common import get_filter_pages, make_filter
 
 
 def test_tableau_source_unescapes_lt():
@@ -121,3 +123,48 @@ def test_tableau_source_cleanups_tableau_parameters_in_udfs(p):
         TableauSource._clean_tableau_query_parameters(f"select myudf({p}) from t")
         == "select myudf(1) from t"
     )
+
+
+def test_make_id_filter():
+    ids = [i for i in range(1, 6)]
+    filter_dict = {c.ID_WITH_IN: ids}
+    assert make_filter(filter_dict) == f"{c.ID_WITH_IN}: [1, 2, 3, 4, 5]"
+
+
+def test_make_project_filter():
+    projects = ["x", "y", "z"]
+    filter_dict = {c.PROJECT_NAME_WITH_IN: projects}
+    assert make_filter(filter_dict) == f'{c.PROJECT_NAME_WITH_IN}: ["x", "y", "z"]'
+
+
+def test_make_multiple_filters():
+    ids = [i for i in range(1, 6)]
+    projects = ["x", "y", "z"]
+    filter_dict = {c.ID_WITH_IN: ids, c.PROJECT_NAME_WITH_IN: projects}
+    assert (
+        make_filter(filter_dict)
+        == f'{c.ID_WITH_IN}: [1, 2, 3, 4, 5], {c.PROJECT_NAME_WITH_IN}: ["x", "y", "z"]'
+    )
+
+
+def test_get_filter_pages_simple():
+    ids = [i for i in range(5)]
+    filter_dict = {c.ID_WITH_IN: ids}
+    assert get_filter_pages(filter_dict, 10) == [filter_dict]
+
+
+def test_get_filter_pages_non_id_large_filter_passthrough():
+    projects = [f"project{i}" for i in range(20000)]
+    filter_dict = {c.PROJECT_NAME_WITH_IN: projects}
+    assert get_filter_pages(filter_dict, 10) == [filter_dict]
+
+
+def test_get_filter_pages_id_filter_splits_into_multiple_filters():
+    page_size = 10
+    num_ids = 20000
+    ids = [f"id_{i}" for i in range(num_ids)]
+    filter_dict = {c.ID_WITH_IN: ids}
+    assert get_filter_pages(filter_dict, page_size) == [
+        {c.ID_WITH_IN: filter_dict[c.ID_WITH_IN][i : i + page_size]}
+        for i in range(0, num_ids, page_size)
+    ]
