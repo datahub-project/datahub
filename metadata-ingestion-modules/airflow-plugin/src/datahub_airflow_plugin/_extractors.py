@@ -78,7 +78,7 @@ class ExtractorManager(OLExtractorManager):
                 unittest.mock.patch.object(
                     SnowflakeExtractor,
                     "default_schema",
-                    property(snowflake_default_schema),
+                    property(_snowflake_default_schema),
                 )
             )
 
@@ -166,12 +166,6 @@ def _sql_extractor_extract(self: "SqlExtractor") -> TaskMetadata:
     task_name = f"{self.operator.dag_id}.{self.operator.task_id}"
     sql = self.operator.sql
 
-    run_facets = {}
-    job_facets = {"sql": SqlJobFacet(query=self._normalize_sql(sql))}
-
-    # Prepare to run the SQL parser.
-    graph = self.context.get(_DATAHUB_GRAPH_CONTEXT_KEY, None)
-
     default_database = getattr(self.operator, "database", None)
     if not default_database:
         default_database = self.database
@@ -185,6 +179,31 @@ def _sql_extractor_extract(self: "SqlExtractor") -> TaskMetadata:
     # Run the SQL parser.
     scheme = self.scheme
     platform = OL_SCHEME_TWEAKS.get(scheme, scheme)
+
+    return _parse_sql_into_task_metadata(
+        self,
+        sql,
+        platform=platform,
+        default_database=default_database,
+        default_schema=default_schema,
+    )
+
+
+def _parse_sql_into_task_metadata(
+    self: "BaseExtractor",
+    sql: str,
+    platform: str,
+    default_database: Optional[str],
+    default_schema: Optional[str],
+) -> TaskMetadata:
+    task_name = f"{self.operator.dag_id}.{self.operator.task_id}"
+
+    run_facets = {}
+    job_facets = {"sql": SqlJobFacet(query=self._normalize_sql(sql))}
+
+    # Prepare to run the SQL parser.
+    graph = self.context.get(_DATAHUB_GRAPH_CONTEXT_KEY, None)
+
     self.log.debug(
         "Running the SQL parser %s (platform=%s, default db=%s, schema=%s): %s",
         "with graph client" if graph else "in offline mode",
@@ -232,7 +251,7 @@ def _sql_extractor_extract(self: "SqlExtractor") -> TaskMetadata:
     )
 
 
-def snowflake_default_schema(self: "SnowflakeExtractor") -> Optional[str]:
+def _snowflake_default_schema(self: "SnowflakeExtractor") -> Optional[str]:
     if hasattr(self.operator, "schema") and self.operator.schema is not None:
         return self.operator.schema
     return (
