@@ -36,6 +36,7 @@ import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.GlossaryTermUrn;
 import com.linkedin.common.urn.TagUrn;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.DataMap;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.dataprocess.DataProcessInstanceRelationships;
@@ -51,6 +52,12 @@ import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.incident.IncidentInfo;
+import com.linkedin.incident.IncidentSource;
+import com.linkedin.incident.IncidentSourceType;
+import com.linkedin.incident.IncidentState;
+import com.linkedin.incident.IncidentStatus;
+import com.linkedin.incident.IncidentType;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.key.DatasetKey;
 import com.linkedin.metadata.models.AspectSpec;
@@ -63,6 +70,7 @@ import com.linkedin.metadata.timeline.eventgenerator.ActionRequestStatusChangeEv
 import com.linkedin.metadata.timeline.eventgenerator.AssertionRunEventChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.DataProcessInstanceRunEventChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.DeprecationChangeEventGenerator;
+import com.linkedin.metadata.timeline.eventgenerator.IncidentInfoChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.EntityChangeEventGeneratorRegistry;
 import com.linkedin.metadata.timeline.eventgenerator.EntityKeyChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.GlobalTagsChangeEventGenerator;
@@ -1018,6 +1026,64 @@ public class EntityChangeEventGeneratorHookTest {
     Mockito.verifyNoMoreInteractions(_mockClient);
   }
 
+  @Test
+  public void testInvokeIncidentRaised() throws Exception {
+    final Urn incidentUrn = UrnUtils.getUrn("urn:li:incident:new-incident");
+    final IncidentInfo info = new IncidentInfo();
+    /*new IncidentInfo()
+        .setType(IncidentType.DATASET_COLUMN)
+        .setCustomType("Custom Type")
+        .setDescription("Description")
+        .setPriority(5)
+        .setTitle("Title")
+        .setEntities(new UrnArray(ImmutableList.of(testDatasetUrn)))
+        .setSource(
+            new IncidentSource()
+                .setType(IncidentSourceType.ASSERTION_FAILURE)
+                .setSourceUrn(testAssertionUrn))
+        .setStatus(
+            new IncidentStatus()
+                .setState(IncidentState.ACTIVE)
+                .setMessage("Message")
+                .setLastUpdated(new AuditStamp().setTime(1L).setActor(testUserUrn)))
+        .setCreated(new AuditStamp().setTime(0L).setActor(testUserUrn));
+*/
+    final UrnArray entities = new UrnArray(Urn.createFromString(TEST_DATASET_URN));
+    info.setEntities(entities);
+    info.setType(IncidentType.OPERATIONAL);
+    info.setSource(new IncidentSource().setType(IncidentSourceType.MANUAL));
+    info.setStatus(new IncidentStatus()
+        .setState(IncidentState.ACTIVE)
+        .setLastUpdated(new AuditStamp().setActor(actorUrn).setTime(EVENT_TIME + 1)));
+    info.setCreated(new AuditStamp().setActor(actorUrn).setTime(EVENT_TIME));
+
+    final MetadataChangeLog event = new MetadataChangeLog();
+    event.setEntityType(INCIDENT_ENTITY_NAME);
+    event.setChangeType(ChangeType.UPSERT);
+    event.setAspectName(INCIDENT_INFO_ASPECT_NAME);
+    event.setAspect(GenericRecordUtils.serializeAspect(info));
+    event.setEntityUrn(incidentUrn); //Urn.createFromString(TEST_DATASET_URN));
+    event.setCreated(new AuditStamp().setActor(actorUrn).setTime(EVENT_TIME));
+
+    // No previous incident aspect.
+    _entityChangeEventHook.invoke(event);
+
+    // Create Platform Event
+    PlatformEvent platformEvent =
+        createChangeEvent(
+            INCIDENT_ENTITY_NAME,
+            incidentUrn,
+            ChangeCategory.INCIDENT,
+            ChangeOperation.ACTIVE,
+            null,
+            ImmutableMap.of(
+                "entities",
+                entities.toString()),
+            actorUrn);
+
+    verifyProducePlatformEvent(_mockClient, platformEvent);
+  }
+
   private PlatformEvent createChangeEvent(
       String entityType,
       Urn entityUrn,
@@ -1074,6 +1140,10 @@ public class EntityChangeEventGeneratorHookTest {
     registry.register(
         ACTION_REQUEST_STATUS_ASPECT_NAME, new ActionRequestStatusChangeEventGenerator());
     registry.register(ACTION_REQUEST_INFO_ASPECT_NAME, new ActionRequestInfoChangeEventGenerator());
+
+    // Incidents change event generator
+    registry.register(INCIDENT_INFO_ASPECT_NAME, new IncidentInfoChangeEventGenerator());
+
     return registry;
   }
 
@@ -1139,6 +1209,13 @@ public class EntityChangeEventGeneratorHookTest {
         .thenReturn(mockActionRequestInfo);
 
     Mockito.when(registry.getEntitySpec(ACTION_REQUEST_ENTITY_NAME)).thenReturn(actionRequestSpec);
+
+    // Build Incident Entity Spec
+    EntitySpec incidentRequestSpec = Mockito.mock(EntitySpec.class);
+    Mockito.when(registry.getEntitySpec(INCIDENT_ENTITY_NAME)).thenReturn(incidentRequestSpec);
+
+    AspectSpec mockIncidents = createMockAspectSpec(IncidentInfo.class);
+    Mockito.when(incidentRequestSpec.getAspectSpec(eq(INCIDENT_INFO_ASPECT_NAME))).thenReturn(mockIncidents);
 
     return TestOperationContexts.systemContextNoSearchAuthorization(registry);
   }

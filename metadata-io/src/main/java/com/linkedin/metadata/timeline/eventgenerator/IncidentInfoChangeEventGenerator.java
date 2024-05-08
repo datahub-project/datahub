@@ -83,7 +83,7 @@ public class IncidentInfoChangeEventGenerator extends EntityChangeEventGenerator
   @Nonnull
   private static Map<String, Object> buildParameters(@Nonnull final IncidentInfo incidentInfo) {
     final Map<String, Object> parameters = new HashMap<>();
-    parameters.put(Constants.ENTITY_REF, incidentInfo.getEntities());
+    parameters.put(Constants.ENTITY_REF, incidentInfo.getEntities().toString());
     return ImmutableSortedMap.copyOf(parameters);
   }
 }
