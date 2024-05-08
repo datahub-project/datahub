@@ -254,10 +254,10 @@ public class EntityIncidentsResolverTest {
 
     Mockito.when(
             mockClient.batchGetV2(
+                any(OperationContext.class),
                 Mockito.eq(Constants.INCIDENT_ENTITY_NAME),
                 Mockito.eq(ImmutableSet.of(incidentUrn)),
-                Mockito.eq(null),
-                Mockito.any(Authentication.class)))
+                Mockito.eq(null)))
         .thenReturn(
             ImmutableMap.of(
                 incidentUrn,

@@ -37,8 +37,8 @@ import com.linkedin.metadata.key.AssertionKey;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.r2.RemoteInvocationException;
-import io.datahubproject.metadata.context.OperationContext;
 import com.linkedin.schema.SchemaMetadata;
+import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.openapi.client.OpenApiClient;
 import java.time.Clock;
 import java.util.ArrayList;
@@ -761,7 +761,7 @@ public class AssertionService extends BaseService {
   /** Updates an existing Dataset Schema assertion if it exists, otherwise creates a new one. */
   @Nonnull
   public Urn upsertDatasetSchemaAssertion(
-          @Nonnull final OperationContext opContext,
+      @Nonnull final OperationContext opContext,
       @Nonnull final Urn assertionUrn,
       @Nonnull final Urn entityUrn,
       @Nullable final String description,
