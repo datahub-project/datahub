@@ -258,7 +258,7 @@ def _parse_sql_into_task_metadata(
 class BigQueryInsertJobOperatorExtractor(BaseExtractor):
     def extract(self) -> Optional[TaskMetadata]:
         from airflow.providers.google.cloud.operators.bigquery import (
-            BigQueryInsertJobOperator,
+            BigQueryInsertJobOperator,  # type: ignore
         )
 
         operator: "BigQueryInsertJobOperator" = self.operator
