@@ -375,7 +375,7 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
                     max_loaded_at = None
 
         columns = []
-        if "columns" in node:
+        if "columns" in node and node["columns"] is not None:
             # columns will be empty for ephemeral models
             columns = [
                 self._parse_into_dbt_column(column)
