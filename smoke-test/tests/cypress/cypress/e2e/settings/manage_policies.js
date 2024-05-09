@@ -34,10 +34,10 @@ function createPolicy(decription, policyName) {
   updateAndSave("groups", "All", "All Groups");
   clickOnButton("saveButton");
   cy.waitTextVisible("Successfully saved policy.");
-  cy.get('[data-testid="search-input"]').should('be.visible');
+  cy.get('[data-testid="search-input"]').should("be.visible");
   cy.get('[data-testid="search-input"]').eq(1).type(policyName);
-  cy.get('.ant-table-tbody').should('be.visible');
-  cy.contains(policyName).should('have.length', 1);
+  cy.get(".ant-table-tbody").should("be.visible");
+  cy.contains(policyName).should("have.length", 1);
 }
 
 function editPolicy(
@@ -61,10 +61,13 @@ function editPolicy(
 }
 
 function deletePolicy(policyEdited, deletePolicy) {
-  cy.waitTextVisible('Users & Groups')
-  cy.get('.ant-select-selection-item').should('be.visible').click()
-  cy.get('.rc-virtual-list-holder-inner').contains('All').should('be.visible').click()
-  cy.get('.ant-select-selection-item').should('be.visible').click()
+  cy.waitTextVisible("Users & Groups");
+  cy.get(".ant-select-selection-item").should("be.visible").click();
+  cy.get(".rc-virtual-list-holder-inner")
+    .contains("All")
+    .should("be.visible")
+    .click();
+  cy.get(".ant-select-selection-item").should("be.visible").click();
   searchAndToggleMetadataPolicyStatus(policyEdited, "DEACTIVATE");
   cy.waitTextVisible("Successfully deactivated policy.");
   cy.contains("DEACTIVATE").should("not.exist");
@@ -85,7 +88,7 @@ describe("create and manage platform and metadata policies", () => {
 
   it("create platform policy", () => {
     cy.waitTextVisible("Manage Permissions");
-    cy.waitTextVisible('Users & Groups')
+    cy.waitTextVisible("Users & Groups");
     cy.clickOptionWithText("Create new policy");
     clickFocusAndType("policy-name", platform_policy_name);
     cy.get('[data-testid="policy-type"] [title="Metadata"]').click();
@@ -97,7 +100,7 @@ describe("create and manage platform and metadata policies", () => {
   });
 
   it("edit platform policy", () => {
-    cy.waitTextVisible('Users & Groups')
+    cy.waitTextVisible("Users & Groups");
     editPolicy(
       `${platform_policy_name}`,
       platform_policy_edited,
@@ -116,7 +119,7 @@ describe("create and manage platform and metadata policies", () => {
   });
 
   it("create metadata policy", () => {
-    cy.waitTextVisible('Users & Groups')
+    cy.waitTextVisible("Users & Groups");
     cy.clickOptionWithText("Create new policy");
     clickFocusAndType("policy-name", metadata_policy_name);
     cy.get('[data-testid="policy-type"]').should("have.text", "Metadata");
@@ -127,7 +130,7 @@ describe("create and manage platform and metadata policies", () => {
   });
 
   it("edit metadata policy", () => {
-    cy.waitTextVisible('Users & Groups')
+    cy.waitTextVisible("Users & Groups");
     editPolicy(
       `${metadata_policy_name}`,
       metadata_policy_edited,

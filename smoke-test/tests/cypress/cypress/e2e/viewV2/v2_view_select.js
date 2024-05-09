@@ -24,24 +24,23 @@ describe("view select", () => {
     });
 
     cy.goToStarSearchList();
-    cy.handleIntroducePage()
-    cy.ensureElementPresent('#browse-v2')
+    cy.handleIntroducePage();
+    cy.ensureElementPresent("#browse-v2");
     //Create a View from the select
-    cy.clickOptionWithTestId('LanguageIcon')
-    cy.ensureElementPresent('.select-view-icon')
-    cy.clickOptionWithTestId('AddOutlinedIcon')
-    cy.ensureElementPresent('[data-testid="view-name-input"]')
+    cy.clickOptionWithTestId("LanguageIcon");
+    cy.ensureElementPresent(".select-view-icon");
+    cy.clickOptionWithTestId("AddOutlinedIcon");
+    cy.ensureElementPresent('[data-testid="view-name-input"]');
     cy.enterTextInTestId("view-name-input", viewName);
 
     //Add Column Glossary Term Filter
     cy.clickOptionWithText("Add filter");
-    cy.contains("Column Term").scrollIntoView()
+    cy.contains("Column Term").scrollIntoView();
     cy.clickOptionWithText("Column Term");
-    cy.ensureElementPresent('[placeholder="Search for Column Term"]')
-    cy.get('[data-testid="search-input"]').last()
-      .type('CypressColumnInfoType')
-    cy.get('.ant-menu-title-content').click()
-    cy.clickOptionWithTestId('update-filters')
+    cy.ensureElementPresent('[placeholder="Search for Column Term"]');
+    cy.get('[data-testid="search-input"]').last().type("CypressColumnInfoType");
+    cy.get(".ant-menu-title-content").click();
+    cy.clickOptionWithTestId("update-filters");
     cy.clickOptionWithText("Save");
     cy.ensureTextNotPresent("Save");
     cy.waitTextVisible(viewName);
@@ -50,47 +49,45 @@ describe("view select", () => {
     cy.waitTextVisible("SampleCypressHdfsDataset");
     cy.waitTextVisible("cypress_logging_events");
     cy.waitTextVisible("of 3 results");
-    cy.get('[class*=dataset]').should('have.length', 3);    
-    cy.get('[data-testid="CloseIcon"]').last().click()
+    cy.get("[class*=dataset]").should("have.length", 3);
+    cy.get('[data-testid="CloseIcon"]').last().click();
     cy.ensureTextNotPresent("of 3 results");
-    cy.get('[class*=dataset]').should('have.length.gt', 3);
+    cy.get("[class*=dataset]").should("have.length.gt", 3);
 
     //Now edit the view
     cy.clickOptionWithTestId("LanguageIcon");
-    cy.ensureElementPresent('.select-view-icon')
+    cy.ensureElementPresent(".select-view-icon");
     openViewEditDropDownAndClickId("view-dropdown-edit");
-    cy.clickOptionWithTestId("view-name-input")
-      .clear()
-      .type(newViewName);
+    cy.clickOptionWithTestId("view-name-input").clear().type(newViewName);
 
-    //Update the actual filters by adding another filter  
-    cy.clickOptionWithText("Add filter")
-    cy.get('.anticon-file-text').eq(0).scrollIntoView().click()
+    //Update the actual filters by adding another filter
+    cy.clickOptionWithText("Add filter");
+    cy.get(".anticon-file-text").eq(0).scrollIntoView().click();
     cy.enterTextInTestId("edit-text-input", "log event");
     cy.clickOptionWithText("Apply");
     cy.clickOptionWithTestId("view-builder-save");
     cy.waitTextVisible("cypress_logging_events");
     cy.waitTextVisible("of 1 result");
-    cy.get('[class*=dataset]').should('have.length', 1); 
-    cy.clickOptionWithId('#v2-search-bar-views')
+    cy.get("[class*=dataset]").should("have.length", 1);
+    cy.clickOptionWithId("#v2-search-bar-views");
     openViewEditDropDownAndClickId("view-dropdown-set-user-default");
     cy.waitTextVisible("of 1 result");
-    cy.get('[class*=dataset]').should('have.length', 1); 
-    cy.clickOptionWithId('#v2-search-bar-views')
-    cy.get('[data-testid="CloseIcon"]').last().click()
+    cy.get("[class*=dataset]").should("have.length", 1);
+    cy.clickOptionWithId("#v2-search-bar-views");
+    cy.get('[data-testid="CloseIcon"]').last().click();
     cy.clickOptionWithTestId("LanguageIcon");
-    cy.ensureElementPresent('.select-view-icon')
+    cy.ensureElementPresent(".select-view-icon");
     openViewEditDropDownAndClickId("view-dropdown-remove-user-default");
 
     //Now delete the View
-    cy.clickOptionWithId('#v2-search-bar-views')
-    cy.get('[data-testid="CloseIcon"]').last().click()
+    cy.clickOptionWithId("#v2-search-bar-views");
+    cy.get('[data-testid="CloseIcon"]').last().click();
     cy.clickOptionWithTestId("LanguageIcon");
-    cy.ensureElementPresent('.select-view-icon')
+    cy.ensureElementPresent(".select-view-icon");
     openViewEditDropDownAndClickId("view-dropdown-delete");
     cy.clickOptionWithText("Yes");
 
-   //Ensure that the view was deleted
+    //Ensure that the view was deleted
     cy.goToViewsSettings();
     cy.ensureTextNotPresent(newViewName);
     cy.ensureTextNotPresent("of 1 result");

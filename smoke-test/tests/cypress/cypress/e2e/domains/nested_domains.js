@@ -44,9 +44,9 @@ const moveDomaintoParent = () => {
   cy.clickOptionWithText(domainName);
   cy.waitTextVisible(domainName);
   cy.openThreeDotDropdown();
-  cy.waitTextVisible('Filters');
-    cy.clickOptionWithTestId("entity-menu-move-button");
-    cy.clickOptionWithTestId("move-domain-modal-move-button");
+  cy.waitTextVisible("Filters");
+  cy.clickOptionWithTestId("entity-menu-move-button");
+  cy.clickOptionWithTestId("move-domain-modal-move-button");
 };
 
 const getDomainList = (domainName) => {

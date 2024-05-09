@@ -43,8 +43,8 @@ Cypress.Commands.add("loginWithCredentials", (username, password) => {
     cy.get("input[data-testid=username]").type(Cypress.env("ADMIN_USERNAME"));
     cy.get("input[data-testid=password]").type(Cypress.env("ADMIN_PASSWORD"));
   }
-  cy.contains('Sign In').click();
-  cy.get('[data-testid="manage-account-menu"]').should('be.visible')
+  cy.contains("Sign In").click();
+  cy.get('[data-testid="manage-account-menu"]').should("be.visible");
 });
 
 Cypress.Commands.add("deleteUrn", (urn) => {
@@ -80,7 +80,7 @@ Cypress.Commands.add("goToBusinessAttributeList", () => {
 });
 
 Cypress.Commands.add("goToTestsList", () => {
-  cy.clickOptionWithText("Govern")
+  cy.clickOptionWithText("Govern");
   cy.get('[role="menuitem"]').contains("Tests").click();
   cy.waitTextVisible("Metadata Tests");
 });
@@ -250,7 +250,7 @@ Cypress.Commands.add("ensureTextNotPresent", (text) => {
 });
 
 Cypress.Commands.add("ensureElementPresent", (element) => {
-  cy.get(element).should('be.visible');
+  cy.get(element).should("be.visible");
 });
 
 Cypress.Commands.add("waitTextPresent", (text) => {
@@ -472,59 +472,76 @@ Cypress.Commands.add("createGlossaryTermGroup", (term_group_name) => {
 });
 
 // SaaS only
-Cypress.Commands.add('typeSearchDisableCache', {prevSubject: 'element'}, (subject, input) => {
-  const randomStrGenerator = () => Cypress._.random(0, 1e9);
-  const randomStr = randomStrGenerator();
-  const combinedStr = `${input} | ${randomStr}{enter}`
-  cy.get(subject.selector).type(combinedStr);
+Cypress.Commands.add(
+  "typeSearchDisableCache",
+  { prevSubject: "element" },
+  (subject, input) => {
+    const randomStrGenerator = () => Cypress._.random(0, 1e9);
+    const randomStr = randomStrGenerator();
+    const combinedStr = `${input} | ${randomStr}{enter}`;
+    cy.get(subject.selector).type(combinedStr);
+  },
+);
+
+Cypress.Commands.add(
+  "searchNotCachedContainsDataset",
+  (searchTerm, datasetName) => {
+    cy.visit("/");
+    cy.get("input[data-testid=search-input]").typeSearchDisableCache(
+      searchTerm,
+    );
+    cy.contains(datasetName);
+    cy.contains(searchTerm);
+  },
+);
+
+Cypress.Commands.add(
+  "searchNotCachedDoesNotContainDataset",
+  (searchTerm, datasetName) => {
+    cy.visit("/");
+    cy.get("input[data-testid=search-input]").typeSearchDisableCache(
+      searchTerm,
+    );
+    cy.contains(datasetName).should("not.exist");
+  },
+);
+
+Cypress.Commands.add("doInInbox", (action) => {
+  cy.contains("Inbox").click({ force: true });
+  cy.get(".action-request-test-id").should("have.length", 1);
+  cy.contains(action).first().click({ force: true });
+  cy.contains("Yes").click({ force: true });
+  cy.get(".action-request-test-id").should("have.length", 0);
 });
 
-Cypress.Commands.add('searchNotCachedContainsDataset', (searchTerm, datasetName) => {
-  cy.visit('/');
-  cy.get('input[data-testid=search-input]').typeSearchDisableCache(searchTerm);
-  cy.contains(datasetName);
-  cy.contains(searchTerm);
+Cypress.Commands.add("acceptProposalInbox", () => {
+  cy.doInInbox("Approve");
 });
 
-Cypress.Commands.add('searchNotCachedDoesNotContainDataset', (searchTerm, datasetName) => {
-  cy.visit('/');
-  cy.get('input[data-testid=search-input]').typeSearchDisableCache(searchTerm);
-  cy.contains(datasetName).should('not.exist');
+Cypress.Commands.add("rejectProposalInbox", () => {
+  cy.doInInbox("Decline");
 });
 
-Cypress.Commands.add('doInInbox', (action) => {
-  cy.contains('Inbox').click({force: true});
-  cy.get('.action-request-test-id').should('have.length', 1)
-  cy.contains(action).first().click({force: true});
-  cy.contains('Yes').click({force: true});
-  cy.get('.action-request-test-id').should('have.length', 0);
-});
-
-Cypress.Commands.add('acceptProposalInbox', () => {
-  cy.doInInbox('Approve');
-});
-
-Cypress.Commands.add('rejectProposalInbox', () => {
-  cy.doInInbox('Decline');
-});
-
-Cypress.Commands.add('handleIntroducePage', () => {
-  cy.url().then(url => {
-  let myUrl = url;
-  if(myUrl.includes("/introduce")){
-     cy.get(".ant-select ").first().click()
-     cy.get(".ant-select-item-option-content").contains("Data Analyst").should('be.visible').click()
-     cy.get(".ant-select-selection-overflow").click()
-     cy.get('[src*="bigquerylogo.png"]').should('be.visible').click()
-     cy.get('body').click();
-     cy.get(".ant-btn-primary").click()
-    }else{
-     cy.get('[class^="NavLinksMenu__LinksWrapper').should('be.visible')
+Cypress.Commands.add("handleIntroducePage", () => {
+  cy.url().then((url) => {
+    let myUrl = url;
+    if (myUrl.includes("/introduce")) {
+      cy.get(".ant-select ").first().click();
+      cy.get(".ant-select-item-option-content")
+        .contains("Data Analyst")
+        .should("be.visible")
+        .click();
+      cy.get(".ant-select-selection-overflow").click();
+      cy.get('[src*="bigquerylogo.png"]').should("be.visible").click();
+      cy.get("body").click();
+      cy.get(".ant-btn-primary").click();
+    } else {
+      cy.get('[class^="NavLinksMenu__LinksWrapper').should("be.visible");
     }
   });
-})
+});
 
-Cypress.Commands.add('setIsThemeV2Enabled', (isEnabled) => {
+Cypress.Commands.add("setIsThemeV2Enabled", (isEnabled) => {
   // intercept the app config query and alert that we are aliasing a response
   cy.intercept("POST", "/api/v2/graphql", (req) => {
     aliasQuery(req, "appConfig");

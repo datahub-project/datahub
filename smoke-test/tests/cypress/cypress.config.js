@@ -5,7 +5,7 @@ module.exports = defineConfig({
   chromeWebSecurity: false,
   viewportHeight: 960,
   viewportWidth: 1536,
-  projectId: '1d7nwt',
+  projectId: "1d7nwt",
   defaultCommandTimeout: 10000,
   retries: {
     runMode: 2,
