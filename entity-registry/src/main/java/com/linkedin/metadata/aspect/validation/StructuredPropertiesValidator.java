@@ -97,7 +97,10 @@ public class StructuredPropertiesValidator extends AspectPayloadValidator {
       @Nonnull Collection<ChangeMCP> changeMCPs, @Nonnull RetrieverContext retrieverContext) {
     return validateImmutable(
         changeMCPs.stream()
-            .filter(i -> CHANGE_TYPES.contains(i.getChangeType()))
+            .filter(
+                i ->
+                    ChangeType.DELETE.equals(i.getChangeType())
+                        || CHANGE_TYPES.contains(i.getChangeType()))
             .collect(Collectors.toList()),
         retrieverContext.getAspectRetriever());
   }
@@ -107,7 +110,7 @@ public class StructuredPropertiesValidator extends AspectPayloadValidator {
 
     ValidationExceptionCollection exceptions = ValidationExceptionCollection.newCollection();
     Map<Urn, Map<String, Aspect>> allStructuredPropertiesAspects =
-        fetchPropertyAspects(mcpItems, aspectRetriever, exceptions);
+        fetchPropertyAspects(mcpItems, aspectRetriever, exceptions, false);
 
     // Validate assignments
     for (BatchItem i : exceptions.successful(mcpItems)) {
@@ -163,7 +166,7 @@ public class StructuredPropertiesValidator extends AspectPayloadValidator {
 
     ValidationExceptionCollection exceptions = ValidationExceptionCollection.newCollection();
     final Map<Urn, Map<String, Aspect>> allStructuredPropertiesAspects =
-        fetchPropertyAspects(changeMCPs, aspectRetriever, exceptions);
+        fetchPropertyAspects(changeMCPs, aspectRetriever, exceptions, true);
 
     Set<Urn> immutablePropertyUrns =
         allStructuredPropertiesAspects.keySet().stream()
@@ -194,6 +197,7 @@ public class StructuredPropertiesValidator extends AspectPayloadValidator {
                     Collectors.toMap(
                         StructuredPropertyValueAssignment::getPropertyUrn, Function.identity()));
 
+        // upsert/mutation path
         newImmutablePropertyMap
             .entrySet()
             .forEach(
@@ -207,6 +211,15 @@ public class StructuredPropertiesValidator extends AspectPayloadValidator {
                         i, String.format("Cannot mutate an immutable property: %s", propertyUrn));
                   }
                 });
+
+        // delete path
+        oldImmutablePropertyMap.entrySet().stream()
+            .filter(entry -> !newImmutablePropertyMap.containsKey(entry.getKey()))
+            .forEach(
+                entry ->
+                    exceptions.addException(
+                        i,
+                        String.format("Cannot delete an immutable property %s", entry.getKey())));
       }
     }
 
@@ -255,6 +268,17 @@ public class StructuredPropertiesValidator extends AspectPayloadValidator {
     }
 
     return validPropertyUrns;
+  }
+
+  private static Set<Urn> previousStructuredPropertyUrns(Collection<? extends BatchItem> mcpItems) {
+    return mcpItems.stream()
+        .filter(i -> i instanceof ChangeMCP)
+        .map(i -> ((ChangeMCP) i))
+        .filter(i -> i.getPreviousRecordTemplate() != null)
+        .flatMap(i -> i.getPreviousAspect(StructuredProperties.class).getProperties().stream())
+        .map(StructuredPropertyValueAssignment::getPropertyUrn)
+        .filter(propertyUrn -> propertyUrn.getEntityType().equals("structuredProperty"))
+        .collect(Collectors.toSet());
   }
 
   private static Optional<AspectValidationException> validateAllowedValues(
@@ -395,10 +419,17 @@ public class StructuredPropertiesValidator extends AspectPayloadValidator {
   private static Map<Urn, Map<String, Aspect>> fetchPropertyAspects(
       @Nonnull Collection<? extends BatchItem> mcpItems,
       AspectRetriever aspectRetriever,
-      @Nonnull ValidationExceptionCollection exceptions) {
+      @Nonnull ValidationExceptionCollection exceptions,
+      boolean includePrevious) {
 
     // Validate propertyUrns
-    Set<Urn> validPropertyUrns = validateStructuredPropertyUrns(mcpItems, exceptions);
+    Set<Urn> validPropertyUrns =
+        Stream.concat(
+                validateStructuredPropertyUrns(mcpItems, exceptions).stream(),
+                includePrevious
+                    ? previousStructuredPropertyUrns(mcpItems).stream()
+                    : Stream.empty())
+            .collect(Collectors.toSet());
 
     if (validPropertyUrns.isEmpty()) {
       return Collections.emptyMap();
