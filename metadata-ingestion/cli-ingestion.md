@@ -99,8 +99,8 @@ sink:
     token: <Your API key>
 ```
 :::info Secure Your API Key
-Your API key is a signed JSON Web Token that is valid for 6 months from the date of issuance. Please keep this key secure & avoid sharing it.
-If your key is compromised for any reason, please reach out to the Acryl team at support@acryl.io.:::
+Your API key is a signed JSON Web Token that is valid for 6 months from the date of issuance. Please keep this key secure & avoid sharing it. 
+If you are on Acryl DataHub and your key is compromised for any reason, please reach out to the Acryl team at support@acryl.io.:::
 :::
 
 For more information and examples on configuring recipes, please refer to [Recipes](recipe_overview.md).
