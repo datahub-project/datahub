@@ -354,6 +354,7 @@ public class Constants {
   // Query
   public static final String QUERY_PROPERTIES_ASPECT_NAME = "queryProperties";
   public static final String QUERY_SUBJECTS_ASPECT_NAME = "querySubjects";
+  public static final String QUERY_USAGE_FEATURES_ASPECT_NAME = "queryUsageFeatures";
 
   // DataProduct
   public static final String DATA_PRODUCT_PROPERTIES_ASPECT_NAME = "dataProductProperties";

@@ -2848,11 +2848,20 @@ public class GmsGraphQLEngine {
         .type(
             "QuerySubject",
             typeWiring ->
-                typeWiring.dataFetcher(
-                    "dataset",
-                    new LoadableTypeResolver<>(
-                        datasetType,
-                        (env) -> ((QuerySubject) env.getSource()).getDataset().getUrn())));
+                typeWiring
+                    .dataFetcher(
+                        "dataset",
+                        new LoadableTypeResolver<>(
+                            datasetType,
+                            (env) -> ((QuerySubject) env.getSource()).getDataset().getUrn()))
+                    .dataFetcher(
+                        "schemaField",
+                        new LoadableTypeResolver<>(
+                            schemaFieldType,
+                            (env) ->
+                                ((QuerySubject) env.getSource()).getSchemaField() != null
+                                    ? ((QuerySubject) env.getSource()).getSchemaField().getUrn()
+                                    : null)));
   }
 
   private void configureOwnershipTypeResolver(final RuntimeWiring.Builder builder) {

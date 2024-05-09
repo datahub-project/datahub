@@ -26,3 +26,4 @@ cat ../../datahub-graphql-core/src/main/resources/monitor.graphql >> combined.gr
 cat ../../datahub-graphql-core/src/main/resources/contract.graphql >> combined.graphql
 cat ../../datahub-graphql-core/src/main/resources/connection.graphql >> combined.graphql
 cat ../../datahub-graphql-core/src/main/resources/share.graphql >> combined.graphql
+cat ../../datahub-graphql-core/src/main/resources/query.graphql >> combined.graphql

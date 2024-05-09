@@ -241,7 +241,8 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
         AI_SCHEMA_FILE,
         SHARE_SCHEMA_FILE,
         FORMS_ACRYL_SCHEMA_FILE,
-        EXECUTOR_SCHEMA_FILE);
+        EXECUTOR_SCHEMA_FILE,
+        QUERY_SCHEMA_FILE);
   }
 
   @Override
@@ -282,6 +283,7 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
     configureFormsForActorResolver(builder);
     configureExecutorResolvers(builder, baseEngine);
     configureFormAnalyticsResolver(builder, baseEngine);
+    configureQueryEntityResolvers(builder, baseEngine);
   }
 
   private void configureMutationResolvers(
@@ -902,5 +904,17 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
                 "entity",
                 new EntityTypeResolver(
                     baseEngine.entityTypes, (env) -> ((RowResult) env.getSource()).getEntity())));
+  }
+
+  private void configureQueryEntityResolvers(
+      final RuntimeWiring.Builder builder, final GmsGraphQLEngine baseEngine) {
+    builder.type(
+        "QueryUsageFeatures",
+        typeWiring ->
+            typeWiring.dataFetcher(
+                "topUsersLast30Days",
+                new BatchGetEntitiesResolver(
+                    baseEngine.entityTypes,
+                    (env) -> ((QueryUsageFeatures) env.getSource()).getTopUsersLast30Days())));
   }
 }
