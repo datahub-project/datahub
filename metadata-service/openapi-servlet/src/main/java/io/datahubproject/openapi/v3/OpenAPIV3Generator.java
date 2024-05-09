@@ -20,8 +20,11 @@ import io.swagger.v3.oas.models.parameters.RequestBody;
 import io.swagger.v3.oas.models.responses.ApiResponse;
 import io.swagger.v3.oas.models.responses.ApiResponses;
 import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -434,6 +437,10 @@ public class OpenAPIV3Generator {
                   final String newDefinition =
                       definition.replaceAll("definitions", "components/schemas");
                   Schema s = Json.mapper().readValue(newDefinition, Schema.class);
+                  // Set nullable attribute
+                  Optional.ofNullable(s.getProperties()).orElse(new HashMap())
+                          .forEach((name, schema) -> ((Schema) schema).setNullable(!Optional.ofNullable(s.getRequired())
+                                  .orElse(new ArrayList()).contains(name)));
                   components.addSchemas(n, s);
                 } catch (Exception e) {
                   throw new RuntimeException(e);
