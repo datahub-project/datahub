@@ -1,5 +1,6 @@
 package com.linkedin.metadata.aspect.plugins.config;
 
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -12,12 +13,12 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 public class PluginConfiguration {
-  private static final List<String> VALIDATOR_PACKAGES =
-      List.of(
-          "com.linkedin.metadata.aspect.plugins.validation",
-          "com.linkedin.metadata.aspect.validation");
-  private static final List<String> HOOK_PACKAGES =
-      List.of("com.linkedin.metadata.aspect.plugins.hooks", "com.linkedin.metadata.aspect.hooks");
+  private static final String[] VALIDATOR_PACKAGES = {
+    "com.linkedin.metadata.aspect.plugins.validation", "com.linkedin.metadata.aspect.validation"
+  };
+  private static final String[] HOOK_PACKAGES = {
+    "com.linkedin.metadata.aspect.plugins.hooks", "com.linkedin.metadata.aspect.hooks"
+  };
 
   private List<AspectPluginConfig> aspectPayloadValidators = Collections.emptyList();
   private List<AspectPluginConfig> mutationHooks = Collections.emptyList();
@@ -53,7 +54,7 @@ public class PluginConfiguration {
             cfg ->
                 cfg.getPackageScan() != null
                     ? cfg.getPackageScan().stream()
-                    : VALIDATOR_PACKAGES.stream())
+                    : Arrays.stream(VALIDATOR_PACKAGES))
         .distinct()
         .collect(Collectors.toList());
   }
@@ -64,7 +65,7 @@ public class PluginConfiguration {
             cfg ->
                 cfg.getPackageScan() != null
                     ? cfg.getPackageScan().stream()
-                    : HOOK_PACKAGES.stream())
+                    : Arrays.stream(HOOK_PACKAGES))
         .distinct()
         .collect(Collectors.toList());
   }
@@ -75,7 +76,7 @@ public class PluginConfiguration {
             cfg ->
                 cfg.getPackageScan() != null
                     ? cfg.getPackageScan().stream()
-                    : HOOK_PACKAGES.stream())
+                    : Arrays.stream(HOOK_PACKAGES))
         .distinct()
         .collect(Collectors.toList());
   }
@@ -86,7 +87,7 @@ public class PluginConfiguration {
             cfg ->
                 cfg.getPackageScan() != null
                     ? cfg.getPackageScan().stream()
-                    : HOOK_PACKAGES.stream())
+                    : Arrays.stream(HOOK_PACKAGES))
         .distinct()
         .collect(Collectors.toList());
   }

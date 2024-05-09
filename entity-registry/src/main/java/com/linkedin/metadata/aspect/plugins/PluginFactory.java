@@ -102,11 +102,11 @@ public class PluginFactory {
         configs.stream().map(AspectPluginConfig::getClassName).collect(Collectors.toList());
 
     if (classNames.isEmpty()) {
-      return List.of();
+      return Collections.emptyList();
     } else {
       long key =
           IntStream.concat(
-                  classLoaders.stream().mapToInt(ldr -> ldr.getName().hashCode()),
+                  classLoaders.stream().mapToInt(Object::hashCode),
                   IntStream.concat(
                       IntStream.of(baseClazz.getName().hashCode()),
                       configs.stream().mapToInt(AspectPluginConfig::hashCode)))
