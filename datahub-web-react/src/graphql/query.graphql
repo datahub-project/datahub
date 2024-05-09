@@ -22,6 +22,14 @@ fragment query on QueryEntity {
             time
             actor
         }
+        createdOn {
+            time
+            actor {
+                urn
+                type
+                ...entityDisplayNameFields
+            }
+        }
         lastModified {
             time
             actor
@@ -30,13 +38,31 @@ fragment query on QueryEntity {
             ...searchResultFields
         }
     }
+    usageFeatures {
+        queryCountLast30Days
+        queryCountTotal
+        queryCostLast30Days
+        lastExecutedAt
+        runsPercentileLast30days
+        topUsersLast30Days {
+            urn
+            type
+            ...entityDisplayNameFields
+        }
+    }
     platform {
         ...platformFields
     }
     subjects {
         dataset {
             urn
+            type
             name
+        }
+        schemaField {
+            urn
+            type
+            fieldPath
         }
     }
 }
@@ -66,4 +92,30 @@ mutation updateQuery($urn: String!, $input: UpdateQueryInput!) {
 
 mutation deleteQuery($urn: String!) {
     deleteQuery(urn: $urn)
+}
+
+query searchAcrossLineageForQueries($input: SearchAcrossLineageInput!) {
+    searchAcrossLineage(input: $input) {
+        start
+        count
+        total
+        searchResults {
+            entity {
+                urn
+                type
+                ...searchResultFields
+            }
+            paths {
+                path {
+                    urn
+                    type
+                    ... on QueryEntity {
+                        ...query
+                    }
+                }
+            }
+            explored
+            ignoredAsHop
+        }
+    }
 }

@@ -3,7 +3,7 @@ import styled from 'styled-components';
 import { Tooltip } from 'antd';
 import { REDESIGN_COLORS } from '../../../constants';
 
-const ActionButton = styled.div<{ privilege: boolean }>`
+export const ActionButton = styled.div<{ privilege: boolean }>`
     color: ${(props) =>
         props.privilege ? `${REDESIGN_COLORS.TITLE_PURPLE}` : `${REDESIGN_COLORS.SECONDARY_LIGHT_GREY}`};
     border: ${(props) =>

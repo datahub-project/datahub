@@ -4,10 +4,26 @@ import styled from 'styled-components';
 import React from 'react';
 import TabToolbar from '../../../components/styled/TabToolbar';
 import { ADD_UNAUTHORIZED_MESSAGE } from './utils/constants';
+import { REDESIGN_COLORS } from '../../../constants';
 
 const StyledInput = styled(Input)`
     border-radius: 70px;
     max-width: 300px;
+`;
+
+const PrimaryButton = styled(Button)`
+    color: #ffffff;
+    font-size: 12px;
+    border-color: ${REDESIGN_COLORS.TITLE_PURPLE};
+    background-color: ${REDESIGN_COLORS.TITLE_PURPLE};
+    margin-left: 8px;
+
+    &:hover {
+        transition: 0.15s;
+        opacity: 0.9;
+        border-color: ${REDESIGN_COLORS.TITLE_PURPLE};
+        background-color: ${REDESIGN_COLORS.TITLE_PURPLE};
+    }
 `;
 
 type Props = {
@@ -23,9 +39,14 @@ export default function QueriesTabToolbar({ addQueryDisabled, onAddQuery, onChan
                 placement="right"
                 title={(addQueryDisabled && ADD_UNAUTHORIZED_MESSAGE) || 'Add a highlighted query'}
             >
-                <Button disabled={addQueryDisabled} type="text" onClick={onAddQuery} data-testid="add-query-button">
+                <PrimaryButton
+                    disabled={addQueryDisabled}
+                    type="text"
+                    onClick={onAddQuery}
+                    data-testid="add-query-button"
+                >
                     <PlusOutlined /> Add Query
-                </Button>
+                </PrimaryButton>
             </Tooltip>
             <StyledInput
                 placeholder="Search in queries..."

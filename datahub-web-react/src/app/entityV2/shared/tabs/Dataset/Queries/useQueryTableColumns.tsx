@@ -1,0 +1,190 @@
+import moment from 'moment';
+import React from 'react';
+import styled from 'styled-components';
+import { Query } from './types';
+import QueryComponent from './Query';
+import { EditDeleteColumn, QueryCreatedBy, QueryDescription, PopularityColumn } from './queryColumns';
+import { CorpUser, Entity } from '../../../../../../types.generated';
+import { EntityLink } from '../../../../../homeV2/reference/sections/EntityLink';
+import { useEntityRegistryV2 } from '../../../../../useEntityRegistry';
+
+const UsersWrapper = styled.div`
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+`;
+
+interface Props {
+    queries: Query[];
+    hoveredQueryUrn: string | null;
+    showDetails?: boolean;
+    showEdit?: boolean;
+    showDelete?: boolean;
+    onDeleted?: (query) => void;
+    onEdited?: (query) => void;
+}
+
+export default function useQueryTableColumns({
+    queries,
+    hoveredQueryUrn,
+    showDetails,
+    showEdit,
+    showDelete,
+    onDeleted,
+    onEdited,
+}: Props) {
+    const entityRegistry = useEntityRegistryV2();
+
+    const titleColumn = {
+        title: 'Title',
+        dataIndex: 'title',
+        key: 'title',
+        sorter: (queryA, queryB) => queryA.title?.localeCompare(queryB.title),
+        render: (queryTitle: string) => {
+            return <div>{queryTitle}</div>;
+        },
+    };
+
+    const descriptionColumn = {
+        title: 'Description',
+        dataIndex: 'description',
+        key: 'description',
+        render: (description: string) => <QueryDescription description={description} />,
+    };
+
+    const queryTextColumn = (width?: string) => ({
+        title: 'Query Text',
+        dataIndex: 'query',
+        key: 'query',
+        width: width || '45%',
+        render: (rowQuery: string) => {
+            const query = queries.find(({ query: q }) => q === rowQuery);
+            if (!query) return null;
+            return (
+                <QueryComponent
+                    urn={query.urn}
+                    title={query.title || undefined}
+                    description={query.description || undefined}
+                    query={query.query}
+                    createdAtMs={query.createdTime}
+                    showDelete={showDelete}
+                    showEdit={showEdit}
+                    showDetails={showDetails}
+                    showHeader={false}
+                    onDeleted={() => onDeleted?.(query)}
+                    onEdited={(newQuery) => onEdited?.(newQuery)}
+                    isCompact
+                />
+            );
+        },
+    });
+
+    const createdByColumn = {
+        title: 'Created By',
+        dataIndex: 'createdBy',
+        key: 'createdBy',
+        sorter: (queryA, queryB) => {
+            if (!queryA.createdBy || !queryB.createdBy) return 0;
+            const createdByA = entityRegistry.getDisplayName(queryA.createdBy.type, queryA.createdBy);
+            const createdByB = entityRegistry.getDisplayName(queryB.createdBy.type, queryB.createdBy);
+            return createdByA.localeCompare(createdByB);
+        },
+        render: (createdBy: CorpUser) => {
+            return <QueryCreatedBy createdBy={createdBy} />;
+        },
+    };
+
+    const createdDateColumn = {
+        title: 'Date Created',
+        dataIndex: 'createdTime',
+        key: 'dateCreated',
+        sorter: (queryA, queryB) => queryA.createdTime - queryB.createdTime,
+        render: (date: number) => {
+            return <div>{moment(date).format('MM/DD/YYYY')}</div>;
+        },
+    };
+
+    const powersColumn = {
+        title: 'Powers',
+        dataIndex: 'poweredEntity',
+        key: 'powers',
+        sorter: (queryA, queryB) => {
+            if (!queryA.poweredEntity || !queryB.poweredEntity) return 0;
+            const createdByA = entityRegistry.getDisplayName(queryA.poweredEntity.type, queryA.poweredEntity);
+            const createdByB = entityRegistry.getDisplayName(queryB.poweredEntity.type, queryB.poweredEntity);
+            return createdByA.localeCompare(createdByB);
+        },
+        render: (entity: Entity) => {
+            if (!entity) return null;
+            return (
+                <div>
+                    <EntityLink entity={entity} />
+                </div>
+            );
+        },
+    };
+
+    const usedByColumn = {
+        title: 'Used By',
+        dataIndex: 'usedBy',
+        key: 'usedBy',
+        sorter: (queryA, queryB) => {
+            if (!queryA.usedBy || !queryA.usedBy[0] || !queryB.usedBy || !queryB.usedBy[0]) return 0;
+            const usedByA = entityRegistry.getDisplayName(queryA.usedBy[0].type, queryA.usedBy[0]);
+            const usedByB = entityRegistry.getDisplayName(queryB.usedBy[0].type, queryB.usedBy[0]);
+            return usedByA.localeCompare(usedByB);
+        },
+        render: (usedBy: CorpUser[]) => {
+            return (
+                <UsersWrapper>
+                    {usedBy.slice(0, 3).map((user) => (
+                        <QueryCreatedBy createdBy={user} />
+                    ))}
+                </UsersWrapper>
+            );
+        },
+    };
+
+    const popularityColumn = {
+        title: 'Popularity',
+        key: 'popularity',
+        width: 110,
+        sorter: (queryA, queryB) => queryA.runsPercentileLast30days - queryB.runsPercentileLast30days,
+        render: (query: Query) => <PopularityColumn query={query} />,
+    };
+
+    const lastRunColumn = {
+        title: 'Last Run',
+        dataIndex: 'lastRun',
+        key: 'lastRun',
+        sorter: (queryA, queryB) => queryA.lastRun - queryB.lastRun,
+        render: (lastRun: string) => <div>{moment(lastRun).format('MM/DD/YYYY')}</div>,
+    };
+
+    const editColumn = {
+        title: '',
+        key: 'edit',
+        width: 80,
+        render: (query: Query) => (
+            <EditDeleteColumn
+                query={query}
+                onEdited={onEdited}
+                onDeleted={onDeleted}
+                hoveredQueryUrn={hoveredQueryUrn}
+            />
+        ),
+    };
+
+    return {
+        titleColumn,
+        descriptionColumn,
+        queryTextColumn,
+        createdByColumn,
+        createdDateColumn,
+        powersColumn,
+        usedByColumn,
+        popularityColumn,
+        lastRunColumn,
+        editColumn,
+    };
+}

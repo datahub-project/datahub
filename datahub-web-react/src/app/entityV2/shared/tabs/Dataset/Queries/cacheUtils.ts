@@ -1,5 +1,5 @@
 import { ListQueriesDocument, ListQueriesQuery } from '../../../../../../graphql/query.generated';
-import { QueryEntity } from '../../../../../../types.generated';
+import { QueryEntity, QuerySource } from '../../../../../../types.generated';
 
 export const removeQueryFromListQueriesCache = (urn, client, page, pageSize, datasetUrn) => {
     const currData: ListQueriesQuery | null = client.readQuery({
@@ -9,6 +9,7 @@ export const removeQueryFromListQueriesCache = (urn, client, page, pageSize, dat
                 start: (page - 1) * pageSize,
                 count: pageSize,
                 datasetUrn,
+                source: QuerySource.Manual,
             },
         },
     });
@@ -22,6 +23,7 @@ export const removeQueryFromListQueriesCache = (urn, client, page, pageSize, dat
                 start: (page - 1) * pageSize,
                 count: pageSize,
                 datasetUrn,
+                source: QuerySource.Manual,
             },
         },
         data: {
@@ -44,6 +46,7 @@ export const updateListQueriesCache = (urn: string, newQuery: QueryEntity, clien
                 start: (page - 1) * pageSize,
                 count: pageSize,
                 datasetUrn,
+                source: QuerySource.Manual,
             },
         },
     });
@@ -73,6 +76,7 @@ export const updateListQueriesCache = (urn: string, newQuery: QueryEntity, clien
                 start: 0,
                 count: pageSize,
                 datasetUrn,
+                source: QuerySource.Manual,
             },
         },
         data: {
@@ -94,6 +98,7 @@ export const addQueryToListQueriesCache = (query, client, pageSize, datasetUrn) 
                 start: 0,
                 count: pageSize,
                 datasetUrn,
+                source: QuerySource.Manual,
             },
         },
     });
@@ -107,6 +112,7 @@ export const addQueryToListQueriesCache = (query, client, pageSize, datasetUrn) 
                 start: 0,
                 count: pageSize,
                 datasetUrn,
+                source: QuerySource.Manual,
             },
         },
         data: {

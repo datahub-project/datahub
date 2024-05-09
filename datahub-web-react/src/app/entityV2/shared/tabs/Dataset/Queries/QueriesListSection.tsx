@@ -1,12 +1,12 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { Pagination, Tooltip, Typography } from 'antd';
+import React, { useState } from 'react';
+import { Typography, Table, Popover, TablePaginationConfig } from 'antd';
+import { TooltipPlacement } from 'antd/es/tooltip';
 import { InfoCircleOutlined } from '@ant-design/icons';
 import styled from 'styled-components';
-import QueriesList from './QueriesList';
-import { Query } from './types';
+import { QueriesTabSection, Query } from './types';
 import { DEFAULT_PAGE_SIZE } from './utils/constants';
-import { getQueriesForPage } from './utils/getCurrentPage';
-import { ANTD_GRAY } from '../../../constants';
+import { ANTD_GRAY, ANTD_GRAY_V2 } from '../../../constants';
+import useQueryTableColumns from './useQueryTableColumns';
 
 const QueriesTitleSection = styled.div`
     display: flex;
@@ -20,99 +20,142 @@ const QueriesTitle = styled(Typography.Title)`
     }
 `;
 
-const StyledPagination = styled(Pagination)`
-    padding: 0px 24px 24px 24px;
-    width: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-`;
-
 const StyledInfoOutlined = styled(InfoCircleOutlined)`
     margin-left: 8px;
     font-size: 12px;
     color: ${ANTD_GRAY[7]};
 `;
 
+const StyledTable = styled(Table)`
+    .ant-table-thead > tr > th {
+        font-weight: 700;
+        font-size: 14px;
+        line-height: 16px;
+        color: ${ANTD_GRAY_V2[12]};
+    }
+`;
+
 type Props = {
     title: string;
     queries: Query[];
     tooltip?: string;
-    initialPage?: number;
+    tooltipPosition?: TooltipPlacement;
     initialPageSize?: number;
     showDetails?: boolean;
     showEdit?: boolean;
     showDelete?: boolean;
     onDeleted?: (query) => void;
     onEdited?: (query) => void;
+    section: QueriesTabSection;
 };
 
 export default function QueriesListSection({
     title,
     tooltip,
+    tooltipPosition,
     queries,
-    initialPage = 1,
     initialPageSize = DEFAULT_PAGE_SIZE,
     showDetails,
     showEdit,
     showDelete,
     onDeleted,
     onEdited,
+    section,
 }: Props) {
     /**
-     * Pagination State
+     * Table state
      */
-    const [page, setPage] = useState(initialPage);
-    const [pageSize, setPageSize] = useState(initialPageSize);
-    const paginatedQueries = getQueriesForPage(queries, page, pageSize);
+    const [hoveredQueryUrn, setHoveredQueryUrn] = useState<string | null>(null);
 
-    /**
-     * For scrolling to top of section on page change.
-     */
-    const headerRef = useRef(null);
-    useEffect(() => {
-        if (page !== 1) {
-            (headerRef?.current as any)?.scrollIntoView({
-                behavior: 'smooth',
-                block: 'start',
-                inline: 'nearest',
-            });
-        }
-    }, [page]);
+    const {
+        titleColumn,
+        descriptionColumn,
+        queryTextColumn,
+        createdByColumn,
+        createdDateColumn,
+        powersColumn,
+        usedByColumn,
+        popularityColumn,
+        lastRunColumn,
+        editColumn,
+    } = useQueryTableColumns({
+        queries,
+        hoveredQueryUrn,
+        showDelete,
+        showDetails,
+        showEdit,
+        onDeleted,
+        onEdited,
+    });
+
+    const highlightedQueriesColumns = [
+        titleColumn,
+        descriptionColumn,
+        queryTextColumn(),
+        createdByColumn,
+        createdDateColumn,
+        editColumn,
+    ];
+
+    const popularQueriesColumns = [queryTextColumn('60%'), usedByColumn, lastRunColumn, popularityColumn];
+
+    const downstreamQueriesColumns = [queryTextColumn('60%'), powersColumn, lastRunColumn];
+
+    const recentQueriesColumns = [queryTextColumn('60%'), lastRunColumn];
+
+    const showPagination = queries.length > initialPageSize;
+    const pagionationOptions = showPagination
+        ? ({ defaultPageSize: initialPageSize, position: ['bottomCenter'] } as TablePaginationConfig)
+        : false;
 
     return (
-        <>
+        <div>
             <QueriesTitleSection>
-                <QueriesTitle ref={headerRef} level={4}>
-                    {title}
-                </QueriesTitle>
+                <QueriesTitle level={4}>{title}</QueriesTitle>
                 {tooltip && (
-                    <Tooltip title={tooltip}>
+                    <Popover content={tooltip} placement={tooltipPosition}>
                         <StyledInfoOutlined />
-                    </Tooltip>
+                    </Popover>
                 )}
             </QueriesTitleSection>
-            <QueriesList
-                queries={paginatedQueries}
-                showDelete={showDelete}
-                showEdit={showEdit}
-                showDetails={showDetails}
-                onDeleted={onDeleted}
-                onEdited={onEdited}
-            />
-            {queries.length > pageSize && (
-                <StyledPagination
-                    current={page}
-                    pageSize={pageSize}
-                    total={queries.length}
-                    showLessItems
-                    onChange={(newPage) => {
-                        setPage(newPage);
+            {section === QueriesTabSection.Highlighted && (
+                <StyledTable
+                    dataSource={queries}
+                    columns={highlightedQueriesColumns}
+                    pagination={pagionationOptions}
+                    scroll={{ y: 400 }}
+                    onRow={(row) => {
+                        return {
+                            onMouseEnter: () => setHoveredQueryUrn((row as Query).urn || ''),
+                            onMouseLeave: () => setHoveredQueryUrn(null),
+                        };
                     }}
-                    onShowSizeChange={(_currSize, newSize) => setPageSize(newSize)}
-                    showSizeChanger={false}
                 />
             )}
-        </>
+            {section === QueriesTabSection.Popular && (
+                <StyledTable
+                    dataSource={queries}
+                    columns={popularQueriesColumns}
+                    pagination={pagionationOptions}
+                    scroll={{ y: 400 }}
+                />
+            )}
+            {section === QueriesTabSection.Downstream && (
+                <StyledTable
+                    dataSource={queries}
+                    columns={downstreamQueriesColumns}
+                    pagination={pagionationOptions}
+                    scroll={{ y: 400 }}
+                />
+            )}
+            {section === QueriesTabSection.Recent && (
+                <StyledTable
+                    dataSource={queries}
+                    columns={recentQueriesColumns}
+                    pagination={pagionationOptions}
+                    scroll={{ y: 400 }}
+                />
+            )}
+        </div>
     );
 }
