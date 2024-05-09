@@ -122,14 +122,14 @@ Once these are in place, you're ready to create your Custom SQL Assertions!
 1. Navigate to the Table you want to monitor
 2. Click the **Validations** tab
 
-<p align="center">
-  <img width="90%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/freshness/profile-validation-tab.png"/>
+<p align="left">
+  <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/freshness/profile-validation-tab.png"/>
 </p>
 
 3. Click **+ Create Assertion**
 
-<p align="center">
-  <img width="90%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/custom/assertion-builder-custom-choose-type.png"/>
+<p align="left">
+  <img width="40%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/custom/assertion-builder-custom-choose-type.png"/>
 </p>
 
 4. Choose **Custom**
@@ -139,20 +139,20 @@ Once these are in place, you're ready to create your Custom SQL Assertions!
 
 6. Provide a SQL **query** that will be used to evaluate the Table. The query should return a single row with a single column. Currently only numeric values are supported (integer and floats). The query can be as simple or as complex as you'd like, and can use any SQL features supported by your Data Warehouse. Make sure to use the fully qualified name of the Table in your query.
 
-<p align="center">
-  <img width="60%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/custom/assertion-builder-custom-query-editor.png"/>
+<p align="left">
+  <img width="40%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/custom/assertion-builder-custom-query-editor.png"/>
 </p>
 
 7. Configure the evaluation **condition type**. This determines the cases in which the new assertion will fail when it is evaluated.
 
-<p align="center">
-  <img width="60%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/custom/assertion-builder-custom-condition-type.png"/>
+<p align="left">
+  <img width="40%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/custom/assertion-builder-custom-condition-type.png"/>
 </p>
 
 8. Configure actions that should be taken when the Custom SQL Assertion passes or fails
 
 <p align="left">
-  <img width="45%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/shared/assertion-builder-actions.png"/>
+  <img width="40%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/shared/assertion-builder-actions.png"/>
 </p>
 
 - **Raise incident**: Automatically raise a new DataHub Incident for the Table whenever the Custom SQL Assertion is failing. This
@@ -165,8 +165,8 @@ Once these are in place, you're ready to create your Custom SQL Assertions!
 
 9. (Optional) Use the **Try it out** button to test your query and ensure that it returns a single row with a single column, and passes the configured condition type.
 
-<p align="center">
-  <img width="60%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/custom/assertion-builder-custom-try-it-out.png"/>
+<p align="left">
+  <img width="40%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/custom/assertion-builder-custom-try-it-out.png"/>
 </p>
 
 10. Click **Next** and then add a description.
@@ -175,17 +175,10 @@ Once these are in place, you're ready to create your Custom SQL Assertions!
 
 And that's it! DataHub will now begin to monitor your Custom SQL Assertion for the table.
 
-To view the time of the next Custom SQL Assertion evaluation, simply click **Custom** and then click on your
-new Assertion:
-
-<p align="center">
-  <img width="40%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/freshness/assertion-next-evaluation-time.png"/>
-</p>
-
 Once your assertion has run, you will begin to see Success or Failure status for the Table
 
-<p align="center">
-  <img width="90%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/custom/profile-passing-custom-assertions-expanded.png"/>
+<p align="left">
+  <img width="45%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/custom/profile-passing-custom-assertions-expanded.png"/>
 </p>
 
 
@@ -203,8 +196,8 @@ In order to temporarily stop the evaluation of the assertion:
 
 To resume the assertion, simply click **Start**.
 
-<p align="center">
-  <img width="90%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/shared/start-assertion.png"/>
+<p align="left">
+  <img width="25%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/shared/start-assertion.png"/>
 </p>
 
 ## Creating Custom SQL Assertions via API
