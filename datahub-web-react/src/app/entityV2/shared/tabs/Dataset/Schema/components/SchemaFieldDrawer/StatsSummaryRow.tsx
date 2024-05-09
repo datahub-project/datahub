@@ -128,7 +128,7 @@ export default function StatsSummaryRow({ expandedField, fieldProfile, profiles 
                     {nullProportionChange < 0 && TRENDING_DOWN_ICON}
                     {nullProportionChange > 0 && TRENDING_UP_ICON}
                     <TitleContainer>
-                        <Headline>Completeness</Headline>
+                        <Headline>Null Values</Headline>
                         <StatSummarySubtitle>
                             <SubtitleText>{decimalToPercentStr(nullProportion, 2)}</SubtitleText>
                         </StatSummarySubtitle>
@@ -142,7 +142,7 @@ export default function StatsSummaryRow({ expandedField, fieldProfile, profiles 
                     {uniqueProportionChange < 0 && TRENDING_DOWN_ICON}
                     {uniqueProportionChange > 0 && TRENDING_UP_ICON}
                     <TitleContainer>
-                        <Headline>Uniqueness</Headline>
+                        <Headline>Distinct Values</Headline>
                         <StatSummarySubtitle>
                             <SubtitleText>{decimalToPercentStr(uniqueProportion, 2)}</SubtitleText>
                         </StatSummarySubtitle>
