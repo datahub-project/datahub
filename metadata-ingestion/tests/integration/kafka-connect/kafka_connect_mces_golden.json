@@ -1117,20 +1117,5 @@
         "lastObserved": 1635166800000,
         "runId": "kafka-connect-run"
     }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kafka-connect,postgres_source,PROD),postgres1.postgres.public.member)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1635166800000,
-        "runId": "kafka-connect-run"
-    }
 }
 ]
