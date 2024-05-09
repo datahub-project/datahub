@@ -2685,6 +2685,11 @@ enum FabricType {
     Designates corporation fabrics
     """
     CORP
+
+    """
+    Designates review fabrics
+    """
+    RVW
 }
 
 """
