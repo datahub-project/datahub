@@ -572,7 +572,7 @@ springdoc.api-docs.groups.enabled: true
 
 forms:
   hook:
-    enabled: { $FORMS_HOOK_ENABLED:true }
+    enabled: ${FORMS_HOOK_ENABLED:true}
 
 businessAttribute:
   fetchRelatedEntitiesCount: ${BUSINESS_ATTRIBUTE_RELATED_ENTITIES_COUNT:20000}
