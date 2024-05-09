@@ -476,12 +476,14 @@ class loader and Spring context is isolated so conflicts between DataHub and cus
 
 The configuration of a Spring enabled plugin looks like the following, note the addition of `spring.enabled: true` below.
 A list of packages to scan for Spring configuration and components should also be provided which should include
-your custom classes with Spring annotations.
+your custom classes with Spring annotations per the `packageScan` below.
 
 ```yaml
 plugins:
   aspectPayloadValidators:
     - className: 'com.linkedin.metadata.aspect.plugins.spring.validation.CustomDataQualityRulesValidator'
+      packageScan:
+        - com.linkedin.metadata.aspect.plugins.spring.validation
       enabled: true
       supportedOperations:
         - UPSERT
@@ -490,8 +492,6 @@ plugins:
           aspectName: customDataQualityRules
       spring:
         enabled: true
-        packageScan:
-          - com.linkedin.metadata.aspect.plugins.spring.validation
 ```
 
 In the Spring example, a configuration component called `CustomDataQualityRulesConfig` provides a string `Spring injection works!` demonstrating

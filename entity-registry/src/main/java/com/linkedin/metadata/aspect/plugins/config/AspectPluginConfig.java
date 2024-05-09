@@ -16,6 +16,8 @@ import lombok.NoArgsConstructor;
 @Builder
 public class AspectPluginConfig {
   @Nonnull private String className;
+  @Nullable private List<String> packageScan;
+
   private boolean enabled;
 
   @Nullable private List<String> supportedOperations;
@@ -56,7 +58,6 @@ public class AspectPluginConfig {
   public static class SpringPluginConfig {
     private boolean enabled;
     @Nullable private String name;
-    @Nullable private List<String> packageScan;
   }
 
   private boolean isEqualExcludingEnabled(Object o) {
@@ -66,6 +67,7 @@ public class AspectPluginConfig {
     AspectPluginConfig that = (AspectPluginConfig) o;
 
     if (!className.equals(that.className)) return false;
+    if (!Objects.equals(packageScan, that.getPackageScan())) return false;
     if (!Objects.equals(supportedOperations, that.supportedOperations)) return false;
     if (!Objects.equals(spring, that.spring)) return false;
     return supportedEntityAspectNames.equals(that.supportedEntityAspectNames);

@@ -60,8 +60,7 @@ public class SpringPluginFactory extends PluginFactory {
 
   private static Stream<String> extractPackageScan(Stream<AspectPluginConfig> configStream) {
     return filterSpringConfigs(configStream)
-        .map(AspectPluginConfig::getSpring)
-        .map(AspectPluginConfig.SpringPluginConfig::getPackageScan)
+        .map(AspectPluginConfig::getPackageScan)
         .filter(Objects::nonNull)
         .flatMap(Collection::stream)
         .distinct();
@@ -82,11 +81,12 @@ public class SpringPluginFactory extends PluginFactory {
    * @return
    * @param <T>
    */
+  @Override
   protected <T extends PluginSpec> List<T> build(
-      Class<?> baseClazz, List<AspectPluginConfig> configs, String... packageNames) {
+      Class<?> baseClazz, List<String> packageNames, List<AspectPluginConfig> configs) {
 
     // load non-spring
-    List<T> result = new ArrayList<>(super.build(baseClazz, configs, packageNames));
+    List<T> result = new ArrayList<>(super.build(baseClazz, packageNames, configs));
 
     if (springApplicationContext == null) {
       return result;

@@ -438,9 +438,15 @@ public class OpenAPIV3Generator {
                       definition.replaceAll("definitions", "components/schemas");
                   Schema s = Json.mapper().readValue(newDefinition, Schema.class);
                   // Set nullable attribute
-                  Optional.ofNullable(s.getProperties()).orElse(new HashMap())
-                          .forEach((name, schema) -> ((Schema) schema).setNullable(!Optional.ofNullable(s.getRequired())
-                                  .orElse(new ArrayList()).contains(name)));
+                  Optional.ofNullable(s.getProperties())
+                      .orElse(new HashMap())
+                      .forEach(
+                          (name, schema) ->
+                              ((Schema) schema)
+                                  .setNullable(
+                                      !Optional.ofNullable(s.getRequired())
+                                          .orElse(new ArrayList())
+                                          .contains(name)));
                   components.addSchemas(n, s);
                 } catch (Exception e) {
                   throw new RuntimeException(e);
@@ -459,10 +465,10 @@ public class OpenAPIV3Generator {
             .required(List.of(PROPERTY_VALUE))
             .addProperty(PROPERTY_VALUE, new Schema<>().$ref(PATH_DEFINITIONS + aspectName));
     result.addProperty(
-            "systemMetadata",
-            new Schema<>()
-                    .$ref(PATH_DEFINITIONS + "SystemMetadata")
-                    .description("System metadata for the aspect."));
+        "systemMetadata",
+        new Schema<>()
+            .$ref(PATH_DEFINITIONS + "SystemMetadata")
+            .description("System metadata for the aspect."));
     return result;
   }
 

@@ -16,7 +16,7 @@ dependencies {
   implementation externalDependency.jacksonDataFormatYaml
   implementation externalDependency.reflections
 
-  implementation externalDependency.jsonPatch
+  api externalDependency.jsonPatch
   implementation externalDependency.jsonPathImpl
 
   constraints {
