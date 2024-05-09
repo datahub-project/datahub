@@ -132,6 +132,14 @@ shadowJar {
   relocate 'common.message', 'io.acryl.shaded.common.message'
   relocate 'org.glassfish', 'io.acryl.shaded.org.glassfish'
   relocate 'ch.randelshofer', 'io.acryl.shaded.ch.randelshofer'
+  relocate 'io.github.classgraph', 'io.acryl.shaded.io.github.classgraph'
+  relocate 'nonapi.io.github.classgraph', 'io.acryl.shaded.nonapi.io.github.classgraph'
+  relocate 'org.eclipse.parsson', 'io.acryl.shaded.parsson'
+  relocate 'jakarta.json', 'io.acryl.shaded.json'
+}
+
+checkShadowJar {
+  dependsOn shadowJar
 }
 
 assemble {

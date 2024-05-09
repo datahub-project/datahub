@@ -8,9 +8,10 @@ import com.fasterxml.jackson.core.StreamReadConstraints;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.github.fge.jsonpatch.Patch;
 import com.linkedin.metadata.aspect.patch.PatchOperationType;
 import com.linkedin.util.Pair;
+import jakarta.json.JsonPatch;
+import jakarta.json.JsonValue;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -30,34 +31,32 @@ public class TemplateUtil {
         .setStreamReadConstraints(StreamReadConstraints.builder().maxStringLength(maxSize).build());
   }
 
-  public static List<Pair<PatchOperationType, String>> getPaths(Patch jsonPatch) {
-    JsonNode patchNode = OBJECT_MAPPER.valueToTree(jsonPatch);
+  public static List<Pair<PatchOperationType, String>> getPaths(JsonPatch jsonPatch) {
     List<Pair<PatchOperationType, String>> paths = new ArrayList<>();
-    patchNode
-        .elements()
-        .forEachRemaining(
+    jsonPatch.toJsonArray().stream()
+        .map(JsonValue::asJsonObject)
+        .forEach(
             node ->
                 paths.add(
                     Pair.of(
-                        PatchOperationType.valueOf(node.get("op").asText().toUpperCase()),
-                        node.get("path").asText())));
+                        PatchOperationType.valueOf(node.getString("op").toUpperCase()),
+                        node.getString("path"))));
     return paths;
   }
 
-  public static void validatePatch(Patch jsonPatch) {
+  public static void validatePatch(JsonPatch jsonPatch) {
     // ensure supported patch operations
-    JsonNode patchNode = OBJECT_MAPPER.valueToTree(jsonPatch);
-    patchNode
-        .elements()
-        .forEachRemaining(
-            node -> {
+    jsonPatch.toJsonArray().stream()
+        .map(JsonValue::asJsonObject)
+        .forEach(
+            jsonObject -> {
               try {
-                PatchOperationType.valueOf(node.get("op").asText().toUpperCase());
+                PatchOperationType.valueOf(jsonObject.getString("op").toUpperCase());
               } catch (Exception e) {
                 throw new RuntimeException(
                     String.format(
                         "Unsupported PATCH operation: `%s` Operation `%s`",
-                        node.get("op").asText(), node),
+                        jsonObject.getString("op"), jsonObject),
                     e);
               }
             });
@@ -70,7 +69,7 @@ public class TemplateUtil {
    * @param transformedNode transformed node to have keys populated
    * @return transformed node that has top level keys populated
    */
-  public static JsonNode populateTopLevelKeys(JsonNode transformedNode, Patch jsonPatch) {
+  public static JsonNode populateTopLevelKeys(JsonNode transformedNode, JsonPatch jsonPatch) {
     JsonNode transformedNodeClone = transformedNode.deepCopy();
     List<Pair<PatchOperationType, String>> paths = getPaths(jsonPatch);
     for (Pair<PatchOperationType, String> operationPath : paths) {
