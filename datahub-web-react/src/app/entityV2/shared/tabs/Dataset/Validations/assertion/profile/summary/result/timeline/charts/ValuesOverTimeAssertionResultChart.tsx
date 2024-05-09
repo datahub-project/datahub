@@ -81,7 +81,7 @@ export const ValuesOverTimeAssertionResultChart = ({ data, timeRange, chartDimen
             const allYValues = actualYValues.concat(expectedYValues);
             const { min, max } = calculateYScaleExtentForChart(allYValues, {
                 defaultYValue: 0,
-                includeBufferWithOptions: () => ({ axisTicksCount: NUM_TICKS_AXIS_LEFT - 1 })
+                yScaleBufferFactor: 0.1,
             })
 
             return {

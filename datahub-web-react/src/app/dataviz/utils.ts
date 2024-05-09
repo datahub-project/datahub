@@ -49,25 +49,44 @@ export const abbreviateNumber = (str) => {
 	return `${shortNumber}${suffix}`;
 }
 
+type CalculateYScaleExtentForChartOptions = {
+	defaultYValue: number,
+	// Between 0-1, represents what % of the chart's height should be empty above and below.
+	// ie. if this is .1, then 10% of the chart's height will be empty.
+	yScaleBufferFactor?: number
+}
+
 /**
  * Creates a yscale range for charts, with optional buffers
  * @param yValues 
  * @param options 
  */
-export const calculateYScaleExtentForChart = (yValues: number[], options: { defaultYValue: number, includeBufferWithOptions?: (extent: { min: number, max: number }) => { axisTicksCount: number } | undefined } = { defaultYValue: 0 }): { min: number, max: number } => {
+export const calculateYScaleExtentForChart = (yValues: number[], options: CalculateYScaleExtentForChartOptions = { defaultYValue: 0 }): { min: number, max: number } => {
 
 	let min = yValues.length ? Math.min(...yValues) : options.defaultYValue;
 	let max = yValues.length ? Math.max(...yValues) : options.defaultYValue;
 
-	// Add some extra range above and below if the min and the max are the same so things are nicely centered
-	const maybeBufferOptions = options.includeBufferWithOptions?.({ min, max })
-	if (maybeBufferOptions) {
-		const averageValue = (min + max) / 2
-		const averageValueBase = Math.floor(averageValue).toString().length
-		let differentiator = 10 ** (averageValueBase - 1)
-		differentiator /= maybeBufferOptions.axisTicksCount
-		min -= differentiator;
-		max += differentiator;
+	// Add some extra range above and below so things aren't pushed to the edge
+	const { yScaleBufferFactor } = options
+	if (yScaleBufferFactor) {
+		let yScaleBuffer = 0;
+		// Edge case: if max and min are the same, add some buffer above and below so the points are nicely centered
+		if (max === min) {
+			// Ie. Let's say max/min=1.5B. In this case we want to add ~100M buffer and and below
+			// This will make the y-axis display 1.4B at the bottom and 1.6B at the top,
+			// While nicely centering the data points.
+			const decimalPlaceValue = max.toString().length
+			yScaleBuffer = 10 ** (decimalPlaceValue - 1)
+		} else {
+			// By default, the chart will put the min at the bottom edge and the max at the top edge.
+			// So if yScaleBufferFactor=0.1, then we want 10% of the chart at the top and bottom to be empty
+			const distance = max - min;
+			const newDistance = distance / (1 - yScaleBufferFactor);
+			yScaleBuffer = newDistance * yScaleBufferFactor;
+		}
+
+		min -= yScaleBuffer;
+		max += yScaleBuffer;
 	}
 
 	return { min, max }
