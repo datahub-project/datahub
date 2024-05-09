@@ -15,6 +15,9 @@ import java.util.Collection;
 import java.util.Objects;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
+import lombok.Getter;
+import lombok.Setter;
+import lombok.experimental.Accessors;
 
 /**
  * Validates the Schema Field Path specification, specifically that all field IDs must be unique
@@ -23,10 +26,11 @@ import javax.annotation.Nonnull;
  * @see <a href="https://datahubproject.io/docs/advanced/field-path-spec-v2/#requirements">Field
  *     Path V2 docs</a>
  */
+@Setter
+@Getter
+@Accessors(chain = true)
 public class FieldPathValidator extends AspectPayloadValidator {
-  public FieldPathValidator(AspectPluginConfig aspectPluginConfig) {
-    super(aspectPluginConfig);
-  }
+  @Nonnull private AspectPluginConfig config;
 
   /**
    * Prevent any MCP for SchemaMetadata where field ids are duplicated (except for MCPs with {@link
