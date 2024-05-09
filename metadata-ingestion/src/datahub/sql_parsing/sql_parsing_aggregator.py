@@ -51,6 +51,7 @@ from datahub.utilities.file_backed_collections import (
 )
 from datahub.utilities.lossy_collections import LossyDict, LossyList
 from datahub.utilities.ordered_set import OrderedSet
+from datahub.utilities.perf_timer import PerfTimer
 
 logger = logging.getLogger(__name__)
 QueryId = str
@@ -155,6 +156,10 @@ class SqlAggregatorReport(Report):
     views_parse_failures: LossyDict[UrnStr, str] = dataclasses.field(
         default_factory=LossyDict
     )
+
+    # SQL parsing (over all invocations).
+    num_sql_parsed: int = 0
+    sql_parsing_timer: PerfTimer = dataclasses.field(default_factory=PerfTimer)
 
     # Other lineage loading metrics.
     num_known_query_lineage: int = 0
@@ -749,12 +754,14 @@ class SqlParsingAggregator(Closeable):
         timestamp: Optional[datetime] = None,
         user: Optional[CorpUserUrn] = None,
     ) -> SqlParsingResult:
-        parsed = sqlglot_lineage(
-            query,
-            schema_resolver=schema_resolver,
-            default_db=default_db,
-            default_schema=default_schema,
-        )
+        with self.report.sql_parsing_timer:
+            parsed = sqlglot_lineage(
+                query,
+                schema_resolver=schema_resolver,
+                default_db=default_db,
+                default_schema=default_schema,
+            )
+        self.report.num_sql_parsed += 1
 
         # Conditionally log the query.
         if self.query_log == QueryLogSetting.STORE_ALL or (
