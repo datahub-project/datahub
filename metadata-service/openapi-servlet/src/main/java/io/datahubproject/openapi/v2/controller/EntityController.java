@@ -768,11 +768,11 @@ public class EntityController {
    * @return
    */
   private static AspectSpec lookupAspectSpec(EntitySpec entitySpec, String aspectName) {
-    return Optional.ofNullable(entitySpec.getAspectSpec(aspectName))
-        .orElse(
-            entitySpec.getAspectSpecs().stream()
-                .filter(aspec -> aspec.getName().toLowerCase().equals(aspectName))
-                .findFirst()
-                .get());
+    return entitySpec.getAspectSpec(aspectName) != null
+        ? entitySpec.getAspectSpec(aspectName)
+        : entitySpec.getAspectSpecs().stream()
+            .filter(aspec -> aspec.getName().toLowerCase().equals(aspectName))
+            .findFirst()
+            .get();
   }
 }
