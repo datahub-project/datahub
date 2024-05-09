@@ -49,7 +49,7 @@ public class FieldPathValidatorTest {
   private EntityRegistry entityRegistry;
   private RetrieverContext mockRetrieverContext;
   private DatasetUrn testDatasetUrn;
-  private final FieldPathValidator test = new FieldPathValidator(validatorConfig);
+  private final FieldPathValidator test = new FieldPathValidator().setConfig(validatorConfig);
 
   @BeforeTest
   public void init() throws URISyntaxException {
