@@ -321,7 +321,7 @@ public class OpenAPIV3Generator {
             .parameters(
                 List.of(
                     new Parameter()
-                        .in(NAME_ASYNC)
+                        .in(NAME_QUERY)
                         .name("async")
                         .description("Use async ingestion for high throughput.")
                         .schema(new Schema().type(TYPE_BOOLEAN)._default(true)),
@@ -412,7 +412,8 @@ public class OpenAPIV3Generator {
     final Schema schema =
         new Schema()
             .type(TYPE_ARRAY)
-            .items(new Schema().type(TYPE_STRING)._enum(aspectNames)._default(aspectNames));
+            .items(new Schema().type(TYPE_STRING)._enum(aspectNames)
+                    ._default(aspectNames.stream().findFirst().orElse(null)));
     return new Parameter()
         .in(NAME_QUERY)
         .name("aspects")
