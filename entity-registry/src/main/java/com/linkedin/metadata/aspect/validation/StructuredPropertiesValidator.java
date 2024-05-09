@@ -43,10 +43,10 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.experimental.Accessors;
-import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
 /** A Validator for StructuredProperties Aspect that is attached to entities like Datasets, etc. */

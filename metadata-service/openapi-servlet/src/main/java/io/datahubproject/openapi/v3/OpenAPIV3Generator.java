@@ -412,7 +412,10 @@ public class OpenAPIV3Generator {
     final Schema schema =
         new Schema()
             .type(TYPE_ARRAY)
-            .items(new Schema().type(TYPE_STRING)._enum(aspectNames)
+            .items(
+                new Schema()
+                    .type(TYPE_STRING)
+                    ._enum(aspectNames)
                     ._default(aspectNames.stream().findFirst().orElse(null)));
     return new Parameter()
         .in(NAME_QUERY)
