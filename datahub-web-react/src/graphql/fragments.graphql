@@ -1245,6 +1245,7 @@ fragment structuredPropertyFields on StructuredPropertyEntity {
         qualifiedName
         description
         cardinality
+        immutable
         valueType {
             info {
                 type
