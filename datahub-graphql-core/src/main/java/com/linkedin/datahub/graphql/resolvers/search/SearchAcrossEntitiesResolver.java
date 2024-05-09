@@ -75,14 +75,20 @@ public class SearchAcrossEntitiesResolver implements DataFetcher<CompletableFutu
                 start,
                 count);
 
+            List<String> finalEntities =
+                maybeResolvedView != null
+                    ? SearchUtils.intersectEntityTypes(
+                        entityNames, maybeResolvedView.getDefinition().getEntityTypes())
+                    : entityNames;
+            if (finalEntities.size() == 0) {
+              return SearchUtils.createEmptySearchResults(start, count);
+            }
+
             return UrnSearchResultsMapper.map(
                 context,
                 _entityClient.searchAcrossEntities(
                     context.getOperationContext().withSearchFlags(flags -> searchFlags),
-                    maybeResolvedView != null
-                        ? SearchUtils.intersectEntityTypes(
-                            entityNames, maybeResolvedView.getDefinition().getEntityTypes())
-                        : entityNames,
+                    finalEntities,
                     sanitizedQuery,
                     maybeResolvedView != null
                         ? SearchUtils.combineFilters(

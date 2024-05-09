@@ -18,7 +18,7 @@ months without being updated with fresh data?
 
 Perhaps a bug had been introduced into an upstream Airflow DAG
 or worse, the person in charge of maintaining the Table has departed from your organization entirely. 
-There are many reasons why an important Table on Snowflake, Redshift, or BigQuery may fail to be updated as often as expected. 
+There are many reasons why an important Table on Snowflake, Redshift, BigQuery, or Databricks may fail to be updated as often as expected. 
 
 What if you could reduce the time to detect these incidents, so that the people responsible for the data were made aware of data 
 issues _before_ anyone else? What if you could communicate commitments about the freshness or change frequency
@@ -46,7 +46,7 @@ Note that an Ingestion Source _must_ be configured with the data platform of you
 tab.
 
 > Note that Freshness Assertions are not yet supported if you are connecting to your warehouse
-> using the DataHub CLI or a Remote Ingestion Executor. 
+> using the DataHub CLI.
 
 ## What is a Freshness Assertion?
 
@@ -146,6 +146,7 @@ by default.
    
 2. (Optional)  **Data Platform Connection**: In order to create a Freshness Assertion that queries the source data platform directly (instead of DataHub metadata), you'll need to have an **Ingestion Source** configured to your
 Data Platform: Snowflake, BigQuery, or Redshift under the **Integrations** tab. 
+
 
 Once these are in place, you're ready to create your Freshness Assertions!
 
@@ -252,7 +253,7 @@ As part of the **Acryl Observe** module, Acryl DataHub also provides **Smart Ass
 dynamic, AI-powered Freshness Assertions that you can use to monitor the freshness of important warehouse Tables, without
 requiring any manual setup. 
 
-If Acryl DataHub is able to detect a pattern in the change frequency of a Snowflake, Redshift, or BigQuery Table, you'll find
+If Acryl DataHub is able to detect a pattern in the change frequency of a Snowflake, Redshift, BigQuery, or Databricks Table, you'll find
 a recommended Smart Assertion under the `Validations` tab on the Table profile page:
 
 <p align="left">

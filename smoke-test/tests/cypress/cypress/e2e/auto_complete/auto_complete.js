@@ -29,7 +29,7 @@ describe("auto-complete", () => {
     cy.get('[data-testid^="auto-complete-option"]').first().click();
     cy.url().should(
       "include",
-      "dataset/urn:li:dataset:(urn:li:dataPlatform:hive,SampleCypressHiveDataset,PROD)"
+      "dataset/urn:li:dataset:(urn:li:dataPlatform:hive,SampleCypressHiveDataset,PROD)",
     );
     cy.wait(2000);
   });
@@ -43,7 +43,7 @@ describe("auto-complete", () => {
     cy.get('[data-testid="quick-filter-DASHBOARD"]').click();
     cy.wait(2000);
     cy.get('[data-testid="auto-complete-entity-name-Baz Chart 2').should(
-      "not.exist"
+      "not.exist",
     );
     cy.contains("Baz Dashboard");
     cy.wait(1000);
@@ -58,7 +58,7 @@ describe("auto-complete", () => {
     cy.focused().type("{enter}");
     cy.url().should(
       "include",
-      "?filter_platform___false___EQUAL___0=urn%3Ali%3AdataPlatform%3Abigquery"
+      "?filter_platform___false___EQUAL___0=urn%3Ali%3AdataPlatform%3Abigquery",
     );
   });
 });

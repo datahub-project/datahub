@@ -124,7 +124,12 @@ from datahub.sql_parsing.sqlglot_lineage import (
     infer_output_schema,
     sqlglot_lineage,
 )
-from datahub.sql_parsing.sqlglot_utils import detach_ctes, try_format_query
+from datahub.sql_parsing.sqlglot_utils import (
+    detach_ctes,
+    parse_statements_and_pick,
+    try_format_query,
+)
+from datahub.utilities.lossy_collections import LossyList
 from datahub.utilities.mapping import Constants, OperationProcessor
 from datahub.utilities.time import datetime_to_ts_millis
 from datahub.utilities.topological_sort import topological_sort
@@ -138,8 +143,12 @@ _DEFAULT_ACTOR = mce_builder.make_user_urn("unknown")
 @dataclass
 class DBTSourceReport(StaleEntityRemovalSourceReport):
     sql_statements_parsed: int = 0
-    sql_parser_detach_ctes_failures: int = 0
-    sql_parser_skipped_missing_code: int = 0
+    sql_statements_table_error: int = 0
+    sql_statements_column_error: int = 0
+    sql_parser_detach_ctes_failures: LossyList[str] = field(default_factory=LossyList)
+    sql_parser_skipped_missing_code: LossyList[str] = field(default_factory=LossyList)
+
+    in_manifest_but_missing_catalog: LossyList[str] = field(default_factory=LossyList)
 
 
 class EmitDirective(ConfigEnum):
@@ -786,14 +795,17 @@ _field_type_mapping = {
 
 
 def get_column_type(
-    report: DBTSourceReport, dataset_name: str, column_type: str, dbt_adapter: str
+    report: DBTSourceReport,
+    dataset_name: str,
+    column_type: Optional[str],
+    dbt_adapter: str,
 ) -> SchemaFieldDataType:
     """
     Maps known DBT types to datahub types
     """
-    TypeClass: Any = _field_type_mapping.get(column_type)
+    TypeClass: Any = _field_type_mapping.get(column_type) if column_type else None
 
-    if TypeClass is None:
+    if TypeClass is None and column_type:
         # resolve a modified type
         if dbt_adapter == "trino":
             TypeClass = resolve_trino_modified_type(column_type)
@@ -925,12 +937,14 @@ class DBTSourceBase(StatefulIngestionSourceBase):
     def _make_data_platform_instance_aspect(self) -> DataPlatformInstanceClass:
         return DataPlatformInstanceClass(
             platform=mce_builder.make_data_platform_urn(DBT_PLATFORM),
-            instance=mce_builder.make_dataplatform_instance_urn(
-                mce_builder.make_data_platform_urn(DBT_PLATFORM),
-                self.config.platform_instance,
-            )
-            if self.config.platform_instance
-            else None,
+            instance=(
+                mce_builder.make_dataplatform_instance_urn(
+                    mce_builder.make_data_platform_urn(DBT_PLATFORM),
+                    self.config.platform_instance,
+                )
+                if self.config.platform_instance
+                else None
+            ),
         )
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
@@ -989,7 +1003,9 @@ class DBTSourceBase(StatefulIngestionSourceBase):
     def _to_schema_info(schema_fields: List[SchemaField]) -> SchemaInfo:
         return {column.fieldPath: column.nativeDataType for column in schema_fields}
 
-    def _infer_schemas_and_update_cll(self, all_nodes_map: Dict[str, DBTNode]) -> None:
+    def _infer_schemas_and_update_cll(  # noqa: C901
+        self, all_nodes_map: Dict[str, DBTNode]
+    ) -> None:
         """Annotate the DBTNode objects with schema information and column-level lineage.
 
         Note that this mutates the DBTNode objects directly.
@@ -1103,11 +1119,18 @@ class DBTSourceBase(StatefulIngestionSourceBase):
 
             # Run sql parser to infer the schema + generate column lineage.
             sql_result = None
-            if node.compiled_code:
+            if node.node_type in {"source", "test"}:
+                # For sources, we generate CLL as a 1:1 mapping.
+                # We don't support CLL for tests (assertions).
+                pass
+            elif node.compiled_code:
                 try:
                     # Add CTE stops based on the upstreams list.
                     preprocessed_sql = detach_ctes(
-                        node.compiled_code,
+                        parse_statements_and_pick(
+                            node.compiled_code,
+                            platform=schema_resolver.platform,
+                        ),
                         platform=schema_resolver.platform,
                         cte_mapping={
                             cte_name: upstream_node.get_fake_ephemeral_table_name()
@@ -1123,7 +1146,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                         },
                     )
                 except Exception as e:
-                    self.report.sql_parser_detach_ctes_failures += 1
+                    self.report.sql_parser_detach_ctes_failures.append(node.dbt_name)
                     logger.debug(
                         f"Failed to detach CTEs from compiled code. {node.dbt_name} will not have column lineage."
                     )
@@ -1132,9 +1155,20 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     sql_result = sqlglot_lineage(
                         preprocessed_sql, schema_resolver=schema_resolver
                     )
-                    self.report.sql_statements_parsed += 1
+                    if sql_result.debug_info.error:
+                        self.report.sql_statements_table_error += 1
+                        logger.info(
+                            f"Failed to parse compiled code for {node.dbt_name}: {sql_result.debug_info.error}"
+                        )
+                    elif sql_result.debug_info.column_error:
+                        self.report.sql_statements_column_error += 1
+                        logger.info(
+                            f"Failed to generate CLL for {node.dbt_name}: {sql_result.debug_info.column_error}"
+                        )
+                    else:
+                        self.report.sql_statements_parsed += 1
             else:
-                self.report.sql_parser_skipped_missing_code += 1
+                self.report.sql_parser_skipped_missing_code.append(node.dbt_name)
 
             # Save the column lineage.
             if self.config.include_column_lineage and sql_result:
@@ -1737,7 +1771,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             if node.cll_debug_info and node.cll_debug_info.error:
                 self.report.report_warning(
                     node.dbt_name,
-                    f"Error parsing column lineage: {node.cll_debug_info.error}",
+                    f"Error parsing SQL to generate column lineage: {node.cll_debug_info.error}",
                 )
             cll = [
                 FineGrainedLineage(
@@ -1780,9 +1814,9 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     )
                     for upstream in upstream_urns
                 ],
-                fineGrainedLineages=(cll or None)
-                if self.config.include_column_lineage
-                else None,
+                fineGrainedLineages=(
+                    (cll or None) if self.config.include_column_lineage else None
+                ),
             )
 
     # This method attempts to read-modify and return the owners of a dataset.

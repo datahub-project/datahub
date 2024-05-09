@@ -26,9 +26,7 @@ class IngestionCheckpointingProviderBase(StatefulCommittable[CheckpointJobStates
     The base class for all checkpointing state provider implementations.
     """
 
-    def __init__(
-        self, name: str, commit_policy: CommitPolicy = CommitPolicy.ON_NO_ERRORS
-    ):
+    def __init__(self, name: str, commit_policy: CommitPolicy = CommitPolicy.ALWAYS):
         # Set the initial state to an empty dict.
         super().__init__(name, commit_policy, {})
 

@@ -99,7 +99,7 @@ usage_common = {
 sqlglot_lib = {
     # Using an Acryl fork of sqlglot.
     # https://github.com/tobymao/sqlglot/compare/main...hsheth2:sqlglot:hsheth?expand=1
-    "acryl-sqlglot==23.2.1.dev5",
+    "acryl-sqlglot[rs]==23.11.2.dev2",
 }
 
 classification_lib = {
@@ -193,8 +193,7 @@ snowflake_common = {
     *sql_common,
     # https://github.com/snowflakedb/snowflake-sqlalchemy/issues/350
     "snowflake-sqlalchemy>=1.4.3",
-    # See https://github.com/snowflakedb/snowflake-connector-python/pull/1348 for why 2.8.2 is blocked
-    "snowflake-connector-python!=2.8.2",
+    "snowflake-connector-python>=3.4.0",
     "pandas",
     "cryptography",
     "msal",
@@ -231,6 +230,11 @@ iceberg_common = {
     # However, we should remove this once we fix compatibility with newer versions
     # of pyiceberg, which depend on pydantic v2.
     *pydantic_no_v2,
+}
+
+mssql_common = {
+    "sqlalchemy-pytds>=0.3",
+    "pyOpenSSL",
 }
 
 postgres_common = {
@@ -369,14 +373,12 @@ plugins: Dict[str, Set[str]] = {
         # It's technically wrong for packages to depend on setuptools. However, it seems mlflow does it anyways.
         "setuptools",
     },
-    "mode": {"requests", "tenacity>=8.0.1"} | sqllineage_lib | sqlglot_lib,
+    "mode": {"requests", "python-liquid", "tenacity>=8.0.1"}
+    | sqllineage_lib
+    | sqlglot_lib,
     "mongodb": {"pymongo[srv]>=3.11", "packaging"},
-    "mssql": sql_common
-    | {
-        "sqlalchemy-pytds>=0.3",
-        "pyOpenSSL",
-    },
-    "mssql-odbc": sql_common | {"pyodbc"},
+    "mssql": sql_common | mssql_common,
+    "mssql-odbc": sql_common | mssql_common | {"pyodbc"},
     "mysql": mysql,
     # mariadb should have same dependency as mysql
     "mariadb": sql_common | {"pymysql>=1.0.2"},
@@ -705,6 +707,7 @@ entry_points = {
         "simple_add_dataset_dataproduct = datahub.ingestion.transformer.add_dataset_dataproduct:SimpleAddDatasetDataProduct",
         "pattern_add_dataset_dataproduct = datahub.ingestion.transformer.add_dataset_dataproduct:PatternAddDatasetDataProduct",
         "replace_external_url = datahub.ingestion.transformer.replace_external_url:ReplaceExternalUrl",
+        "pattern_cleanup_dataset_usage_user = datahub.ingestion.transformer.pattern_cleanup_dataset_usage_user:PatternCleanupDatasetUsageUser",
     ],
     "datahub.ingestion.sink.plugins": [
         "file = datahub.ingestion.sink.file:FileSink",

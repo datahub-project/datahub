@@ -537,11 +537,23 @@ class SalesforceSource(Source):
 
     # Here field description is created from label, description and inlineHelpText
     def _get_field_description(self, field: dict, customField: dict) -> str:
-        desc = field["Label"]
-        if field.get("FieldDefinition", {}).get("Description"):
-            desc = "{0}\n\n{1}".format(desc, field["FieldDefinition"]["Description"])
-        if field.get("InlineHelpText"):
-            desc = "{0}\n\n{1}".format(desc, field["InlineHelpText"])
+        if "Label" not in field or field["Label"] is None:
+            desc = ""
+        elif field["Label"].startswith("#"):
+            desc = "\\" + field["Label"]
+        else:
+            desc = field["Label"]
+
+        text = field.get("FieldDefinition", {}).get("Description", None)
+        if text:
+            prefix = "\\" if text.startswith("#") else ""
+            desc += f"\n\n{prefix}{text}"
+
+        text = field.get("InlineHelpText", None)
+        if text:
+            prefix = "\\" if text.startswith("#") else ""
+            desc += f"\n\n{prefix}{text}"
+
         return desc
 
     # Here jsonProps is used to add additional salesforce field level properties.
@@ -574,13 +586,6 @@ class SalesforceSource(Source):
         fieldTags: List[str] = self.get_field_tags(fieldName, field)
 
         description = self._get_field_description(field, customField)
-
-        # escaping string starting with `#`
-        description = (
-            "\\" + description
-            if description and description.startswith("#")
-            else description
-        )
 
         schemaField = SchemaFieldClass(
             fieldPath=fieldPath,

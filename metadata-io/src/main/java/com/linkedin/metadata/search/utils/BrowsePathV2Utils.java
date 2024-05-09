@@ -67,8 +67,7 @@ public class BrowsePathV2Utils {
           BrowsePathEntryArray defaultDatasetPathEntries =
               getDefaultDatasetPathEntries(dsKey.getName(), dataPlatformDelimiter);
           if (defaultDatasetPathEntries.size() > 0) {
-            browsePathEntries.addAll(
-                getDefaultDatasetPathEntries(dsKey.getName().toLowerCase(), dataPlatformDelimiter));
+            browsePathEntries.addAll(defaultDatasetPathEntries);
           } else {
             browsePathEntries.add(createBrowsePathEntry(DEFAULT_FOLDER_NAME, null));
           }

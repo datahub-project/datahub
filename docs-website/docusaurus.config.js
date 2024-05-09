@@ -110,7 +110,7 @@ module.exports = {
               label: "Demo",
             },
             {
-              href: "https://www.acryldata.io/blog",
+              href: "https://blog.datahubproject.io/",
               label: "Blog",
             },
             {
@@ -317,6 +317,10 @@ module.exports = {
           if (existingPath.includes('/docs')) {
             return [
               existingPath.replace('/docs', '/docs/next'),
+              existingPath.replace('/docs', '/docs/0.13.0'),
+              existingPath.replace('/docs', '/docs/0.12.1'),
+              existingPath.replace('/docs', '/docs/0.11.0'),
+              existingPath.replace('/docs', '/docs/0.10.5'),
             ];
           }
           return undefined; // Return a falsy value: no redirect created
