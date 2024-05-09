@@ -70,8 +70,8 @@ class SourceReport(Report):
     aspects: Dict[str, Dict[str, int]] = field(
         default_factory=lambda: defaultdict(lambda: defaultdict(int))
     )
-    aspect_urn_samples: Dict[str, Dict[str, List[str]]] = field(
-        default_factory=lambda: defaultdict(lambda: defaultdict(list))
+    aspect_urn_samples: Dict[str, Dict[str, LossyList[str]]] = field(
+        default_factory=lambda: defaultdict(lambda: defaultdict(LossyList))
     )
 
     warnings: LossyDict[str, LossyList[str]] = field(default_factory=LossyDict)
@@ -99,8 +99,7 @@ class SourceReport(Report):
 
                 if aspectName is not None:  # usually true
                     self.aspects[entityType][aspectName] += 1
-                    if len(self.aspect_urn_samples[entityType][aspectName]) < 5:
-                        self.aspect_urn_samples[entityType][aspectName].append(urn)
+                    self.aspect_urn_samples[entityType][aspectName].append(urn)
 
     def report_warning(self, key: str, reason: str) -> None:
         warnings = self.warnings.get(key, LossyList())
