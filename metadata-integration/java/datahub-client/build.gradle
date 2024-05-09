@@ -138,10 +138,6 @@ shadowJar {
   relocate 'jakarta.json', 'io.acryl.shaded.json'
 }
 
-checkShadowJar {
-  dependsOn shadowJar
-}
-
 assemble {
   dependsOn shadowJar
 }
