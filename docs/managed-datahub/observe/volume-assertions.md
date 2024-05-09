@@ -147,14 +147,14 @@ Once these are in place, you're ready to create your Volume Assertions!
 1. Navigate to the Table that to monitor for volume
 2. Click the **Validations** tab
 
-<p align="center">
-  <img width="90%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/freshness/profile-validation-tab.png"/>
+<p align="left">
+  <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/freshness/profile-validation-tab.png"/>
 </p>
 
 3. Click **+ Create Assertion**
 
-<p align="center">
-  <img width="90%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/volume/assertion-builder-volume-choose-type.png"/>
+<p align="left">
+  <img width="45%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/volume/assertion-builder-volume-choose-type.png"/>
 </p>
 
 4. Choose **Volume**
@@ -164,15 +164,15 @@ Once these are in place, you're ready to create your Volume Assertions!
 
 6. Configure the evaluation **condition type**. This determines the cases in which the new assertion will fail when it is evaluated.
 
-<p align="center">
-  <img width="45%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/volume/assertion-builder-volume-condition-type.png"/>
+<p align="left">
+  <img width="30%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/volume/assertion-builder-volume-condition-type.png"/>
 </p>
 
 7. (Optional) Click **Advanced** to customize the volume **source**. This is the mechanism that will be used to obtain the table
    row count metric. Each Data Platform supports different options including Information Schema, Query, and DataHub Dataset Profile.
 
-<p align="center">
-  <img width="45%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/volume/assertion-builder-volume-select-source-type.png"/>
+<p align="left">
+  <img width="30%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/volume/assertion-builder-volume-select-source-type.png"/>
 </p>
 
 - **Information Schema**: Check the Data Platform system metadata tables to determine the table row count. 
@@ -182,7 +182,7 @@ Once these are in place, you're ready to create your Volume Assertions!
 8. Configure actions that should be taken when the Volume Assertion passes or fails
 
 <p align="left">
-  <img width="45%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/shared/assertion-builder-actions.png"/>
+  <img width="40%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/shared/assertion-builder-actions.png"/>
 </p>
 
 - **Raise incident**: Automatically raise a new DataHub `Volume` Incident for the Table whenever the Volume Assertion is failing. This
@@ -198,17 +198,10 @@ Once these are in place, you're ready to create your Volume Assertions!
 
 And that's it! DataHub will now begin to monitor your Volume Assertion for the table.
 
-To view the time of the next Volume Assertion evaluation, simply click **Volume** and then click on your
-new Assertion:
-
-<p align="center">
-  <img width="40%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/freshness/assertion-next-evaluation-time.png"/>
-</p>
-
 Once your assertion has run, you will begin to see Success or Failure status for the Table
 
-<p align="center">
-  <img width="90%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/volume/profile-passing-volume-assertions-expanded.png"/>
+<p align="left">
+  <img width="45%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/volume/profile-passing-volume-assertions-expanded.png"/>
 </p>
 
 
@@ -226,8 +219,8 @@ In order to temporarily stop the evaluation of the assertion:
 
 To resume the assertion, simply click **Start**.
 
-<p align="center">
-  <img width="90%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/shared/start-assertion.png"/>
+<p align="left">
+  <img width="25%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/shared/start-assertion.png"/>
 </p>
 
 
@@ -240,7 +233,7 @@ requiring any manual setup.
 If Acryl DataHub is able to detect a pattern in the volume of a Snowflake, Redshift, or BigQuery Table, you'll find
 a recommended Smart Assertion under the `Validations` tab on the Table profile page:
 
-<p align="center">
+<p align="left">
   <img width="90%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/freshness/smart-assertion.png"/>
 </p>
 
