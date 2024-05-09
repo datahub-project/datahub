@@ -677,8 +677,7 @@ public class EntityController {
       @Nonnull AspectSpec aspectSpec,
       @Nullable RecordTemplate currentValue,
       @Nonnull GenericPatchTemplate<? extends RecordTemplate> genericPatchTemplate,
-      @Nonnull Actor actor)
-      throws URISyntaxException {
+      @Nonnull Actor actor) {
     return ChangeItemImpl.fromPatch(
         urn,
         aspectSpec,
