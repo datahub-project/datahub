@@ -3599,3 +3599,61 @@ def test_domain_mapping_based_on_tags_with_multiple_matches(mock_datahub_graph):
     assert (
         len(transformed_aspect.domains) == 4
     )  # Ensure all expected domains are present and no duplicates
+
+
+def test_domain_mapping_based_on_tags_with_empty_tags(mock_datahub_graph):
+    acryl_domain = builder.make_domain_urn("acryl.io")
+    server_domain = builder.make_domain_urn("test.io")
+    pipeline_context = PipelineContext(run_id="empty_config_pipeline")
+    pipeline_context.graph = mock_datahub_graph(DatahubClientConfig())
+
+    def fake_get_tags(entity_urn: str) -> models.GlobalTagsClass:
+        return models.GlobalTagsClass(tags=[])
+
+    pipeline_context.graph.get_tags = fake_get_tags  # type: ignore
+
+    output = run_dataset_transformer_pipeline(
+        transformer_type=DatasetTagDomainMapper,
+        aspect=models.DomainsClass(domains=[acryl_domain]),
+        config={
+            "domain_mapping": {"rules": {"Test": [server_domain]}},
+        },
+        pipeline_context=pipeline_context,
+    )
+
+    assert len(output) == 2
+    assert isinstance(output[0].record.aspect, models.DomainsClass)
+    assert len(output[0].record.aspect.domains) == 1
+    transformed_aspect = cast(models.DomainsClass, output[0].record.aspect)
+    assert len(transformed_aspect.domains) == 1
+    assert acryl_domain in transformed_aspect.domains
+    assert server_domain not in transformed_aspect.domains
+
+
+def test_domain_mapping_based_on_tags_with_no_tags(mock_datahub_graph):
+    acryl_domain = builder.make_domain_urn("acryl.io")
+    server_domain = builder.make_domain_urn("test.io")
+    pipeline_context = PipelineContext(run_id="empty_config_pipeline")
+    pipeline_context.graph = mock_datahub_graph(DatahubClientConfig())
+
+    def fake_get_tags(entity_urn: str) -> Optional[models.GlobalTagsClass]:
+        return None
+
+    pipeline_context.graph.get_tags = fake_get_tags  # type: ignore
+
+    output = run_dataset_transformer_pipeline(
+        transformer_type=DatasetTagDomainMapper,
+        aspect=models.DomainsClass(domains=[acryl_domain]),
+        config={
+            "domain_mapping": {"rules": {"Test": [server_domain]}},
+        },
+        pipeline_context=pipeline_context,
+    )
+
+    assert len(output) == 2
+    assert isinstance(output[0].record.aspect, models.DomainsClass)
+    assert len(output[0].record.aspect.domains) == 1
+    transformed_aspect = cast(models.DomainsClass, output[0].record.aspect)
+    assert len(transformed_aspect.domains) == 1
+    assert acryl_domain in transformed_aspect.domains
+    assert server_domain not in transformed_aspect.domains
