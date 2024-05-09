@@ -97,6 +97,11 @@ module.exports = {
                   id: "docs/managed-datahub/observe/column-assertions",
                   className: "saasOnly",
                 },
+                {
+                  type: "doc",
+                  id: "docs/managed-datahub/observe/schema-assertions",
+                  className: "saasOnly",
+                },
               ],
             },
             {
