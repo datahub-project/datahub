@@ -24,12 +24,16 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import lombok.Getter;
+import lombok.Setter;
+import lombok.experimental.Accessors;
 
 /** Hook to populate the ownerType map within the ownership aspect */
+@Setter
+@Getter
+@Accessors(chain = true)
 public class OwnerTypeMap extends MutationHook {
-  public OwnerTypeMap(AspectPluginConfig aspectPluginConfig) {
-    super(aspectPluginConfig);
-  }
+  @Nonnull private AspectPluginConfig config;
 
   @Override
   protected Stream<Pair<ChangeMCP, Boolean>> writeMutation(

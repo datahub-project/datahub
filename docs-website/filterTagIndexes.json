@@ -78,6 +78,17 @@
       }
     },
     {
+      "Path": "docs/lineage/dagster",
+      "imgPath": "img/logos/platforms/dagster.svg",
+      "Title": "Dagster",
+      "Description": "Dagster is a next-generation open source orchestration platform for the development, production, and observation of data assets..",
+      "tags": {
+        "Platform Type": "Orchestrator",
+        "Connection Type": "Pull",
+        "Features": "Stateful Ingestion, UI Ingestion, Status Aspect"
+      }
+    },
+    {
       "Path": "docs/generated/ingestion/sources/databricks",
       "imgPath": "img/logos/platforms/databricks.png",
       "Title": "Databricks",
@@ -433,7 +444,7 @@
       "Path": "docs/generated/ingestion/sources/hive-metastore",
       "imgPath": "img/logos/platforms/presto.svg",
       "Title": "Hive Metastore",
-      "Description": "Presto on Hive is a data tool that allows users to query and analyze large datasets stored in Hive using SQL-like syntax.",
+      "Description": "Hive Metastore (HMS) is a service that stores metadata that is related to Hive, Presto, Trino and other services in a backend Relational Database Management System (RDBMS) ",
       "tags": {
         "Platform Type": "Datastore",
         "Connection Type": "Pull",
@@ -551,7 +562,7 @@
       }
     },
     {
-      "Path": "docs/metadata-integration/java/spark-lineage",
+      "Path": "docs/metadata-integration/java/spark-lineage-beta",
       "imgPath": "img/logos/platforms/spark.svg",
       "Title": "Spark",
       "Description": "Spark is a data processing tool that enables fast and efficient processing of large-scale data sets using distributed computing.",

@@ -537,20 +537,22 @@ class SalesforceSource(Source):
 
     # Here field description is created from label, description and inlineHelpText
     def _get_field_description(self, field: dict, customField: dict) -> str:
-        desc = (
-            "\\" + field["Label"] if field["Label"].startswith("#") else field["Label"]
-        )
+        if "Label" not in field or field["Label"] is None:
+            desc = ""
+        elif field["Label"].startswith("#"):
+            desc = "\\" + field["Label"]
+        else:
+            desc = field["Label"]
 
-        for key in ["FieldDefinition", "InlineHelpText"]:
-            text: Optional[str] = ""
-            if isinstance(field.get(key), dict):
-                text = field[key].get("Description")
-            else:
-                text = field.get(key)
+        text = field.get("FieldDefinition", {}).get("Description", None)
+        if text:
+            prefix = "\\" if text.startswith("#") else ""
+            desc += f"\n\n{prefix}{text}"
 
-            if text:
-                prefix = "\\" if text.startswith("#") else ""
-                desc += f"\n\n{prefix}{text}"
+        text = field.get("InlineHelpText", None)
+        if text:
+            prefix = "\\" if text.startswith("#") else ""
+            desc += f"\n\n{prefix}{text}"
 
         return desc
 

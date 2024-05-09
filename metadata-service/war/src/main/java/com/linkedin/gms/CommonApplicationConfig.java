@@ -14,6 +14,8 @@ import org.springframework.context.annotation.PropertySource;
 @ComponentScan(
     basePackages = {
       "com.linkedin.metadata.boot",
+      "com.linkedin.metadata.service",
+      "com.datahub.event",
       "com.linkedin.gms.factory.config",
       "com.linkedin.gms.factory.entityregistry",
       "com.linkedin.gms.factory.common",
@@ -34,7 +36,7 @@ import org.springframework.context.annotation.PropertySource;
       "com.linkedin.gms.factory.auth",
       "com.linkedin.gms.factory.search",
       "com.linkedin.gms.factory.secret",
-      "com.linkedin.gms.factory.timeseries"
+      "com.linkedin.gms.factory.timeseries",
     })
 @PropertySource(value = "classpath:/application.yaml", factory = YamlPropertySourceFactory.class)
 @Configuration

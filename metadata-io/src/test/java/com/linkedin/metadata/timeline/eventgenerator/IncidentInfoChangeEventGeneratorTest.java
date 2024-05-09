@@ -54,7 +54,8 @@ public class IncidentInfoChangeEventGeneratorTest extends AbstractTestNGSpringCo
     assertEquals(ChangeCategory.INCIDENT, changeEvent.getCategory());
     assertEquals(ChangeOperation.ACTIVE, changeEvent.getOperation());
 
-    Map<String, Object> expectedParameters = ImmutableMap.of(ENTITY_REF, info.getEntities().toString());
+    Map<String, Object> expectedParameters =
+        ImmutableMap.of(ENTITY_REF, info.getEntities().toString());
     assertEquals(expectedParameters, changeEvent.getParameters());
   }
 
@@ -86,7 +87,8 @@ public class IncidentInfoChangeEventGeneratorTest extends AbstractTestNGSpringCo
     assertEquals(ChangeCategory.INCIDENT, changeEvent.getCategory());
     assertEquals(ChangeOperation.RESOLVED, changeEvent.getOperation());
 
-    Map<String, Object> expectedParameters = ImmutableMap.of(ENTITY_REF, newInfo.getEntities().toString());
+    Map<String, Object> expectedParameters =
+        ImmutableMap.of(ENTITY_REF, newInfo.getEntities().toString());
     assertEquals(expectedParameters, changeEvent.getParameters());
   }
 

@@ -66,7 +66,7 @@ public class OwnerTypeMapTest {
 
   @Test
   public void ownershipTypeMutationNoneType() {
-    OwnerTypeMap testHook = new OwnerTypeMap(ASPECT_PLUGIN_CONFIG);
+    OwnerTypeMap testHook = new OwnerTypeMap().setConfig(ASPECT_PLUGIN_CONFIG);
     Ownership ownership = buildOwnership(Map.of(TEST_USER_A, List.of(), TEST_GROUP_A, List.of()));
     testHook.writeMutation(buildMCP(null, ownership), RETRIEVER_CONTEXT);
 
@@ -81,7 +81,7 @@ public class OwnerTypeMapTest {
 
   @Test
   public void ownershipTypeMutationNoneTypeAdd() {
-    OwnerTypeMap testHook = new OwnerTypeMap(ASPECT_PLUGIN_CONFIG);
+    OwnerTypeMap testHook = new OwnerTypeMap().setConfig(ASPECT_PLUGIN_CONFIG);
     Ownership oldOwnership = buildOwnership(Map.of(TEST_USER_A, List.of()));
     Ownership newOwnership =
         buildOwnership(Map.of(TEST_USER_A, List.of(), TEST_GROUP_A, List.of()));
@@ -98,7 +98,7 @@ public class OwnerTypeMapTest {
 
   @Test
   public void ownershipTypeMutationNoneTypeRemove() {
-    OwnerTypeMap testHook = new OwnerTypeMap(ASPECT_PLUGIN_CONFIG);
+    OwnerTypeMap testHook = new OwnerTypeMap().setConfig(ASPECT_PLUGIN_CONFIG);
     Ownership oldOwnership =
         buildOwnership(Map.of(TEST_USER_A, List.of(), TEST_GROUP_A, List.of()));
     Ownership newOwnership = buildOwnership(Map.of(TEST_USER_A, List.of()));
@@ -113,7 +113,7 @@ public class OwnerTypeMapTest {
 
   @Test
   public void ownershipTypeMutationMixedType() {
-    OwnerTypeMap testHook = new OwnerTypeMap(ASPECT_PLUGIN_CONFIG);
+    OwnerTypeMap testHook = new OwnerTypeMap().setConfig(ASPECT_PLUGIN_CONFIG);
     Ownership ownership =
         buildOwnership(
             Map.of(
@@ -142,7 +142,7 @@ public class OwnerTypeMapTest {
 
   @Test
   public void ownershipTypeMutationMixedTypeAdd() {
-    OwnerTypeMap testHook = new OwnerTypeMap(ASPECT_PLUGIN_CONFIG);
+    OwnerTypeMap testHook = new OwnerTypeMap().setConfig(ASPECT_PLUGIN_CONFIG);
     Ownership oldOwnership =
         buildOwnership(Map.of(TEST_USER_A, List.of(), TEST_USER_B, List.of(BUS_OWNER)));
     Ownership newOwnership =
@@ -173,7 +173,7 @@ public class OwnerTypeMapTest {
 
   @Test
   public void ownershipTypeMutationMixedTypeRemove() {
-    OwnerTypeMap testHook = new OwnerTypeMap(ASPECT_PLUGIN_CONFIG);
+    OwnerTypeMap testHook = new OwnerTypeMap().setConfig(ASPECT_PLUGIN_CONFIG);
     Ownership oldOwnership =
         buildOwnership(
             Map.of(

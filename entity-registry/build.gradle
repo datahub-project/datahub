@@ -15,7 +15,10 @@ dependencies {
   implementation externalDependency.jacksonDataBind
   implementation externalDependency.jacksonDataFormatYaml
   implementation externalDependency.reflections
+
   api externalDependency.jsonPatch
+  implementation externalDependency.jsonPathImpl
+
   constraints {
     implementation(externalDependency.snakeYaml) {
       because("previous versions are vulnerable to CVE-2022-25857")
@@ -28,6 +31,7 @@ dependencies {
 
   testImplementation project(':test-models')
   testImplementation project(path: ':test-models', configuration: 'testDataTemplate')
+  testImplementation project(':metadata-utils')
   testImplementation externalDependency.testng
   testImplementation externalDependency.mockito
   testImplementation externalDependency.mockitoInline

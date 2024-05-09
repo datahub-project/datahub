@@ -1,7 +1,6 @@
 package com.linkedin.metadata.entity;
 
 import static com.linkedin.metadata.Constants.*;
-import static com.linkedin.metadata.utils.PegasusUtils.urnToEntityName;
 
 import com.datahub.util.RecordUtils;
 import com.google.common.base.Preconditions;
@@ -14,7 +13,6 @@ import com.linkedin.entity.Entity;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
-import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.ReadItem;
 import com.linkedin.metadata.aspect.RetrieverContext;
 import com.linkedin.metadata.aspect.SystemAspect;
@@ -27,10 +25,8 @@ import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.metadata.utils.EntityKeyUtils;
-import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.metadata.utils.PegasusUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
-import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import java.net.URISyntaxException;
@@ -47,11 +43,6 @@ import lombok.extern.slf4j.Slf4j;
 public class EntityUtils {
 
   private EntityUtils() {}
-
-  @Nonnull
-  public static String toJsonAspect(@Nonnull final RecordTemplate aspectRecord) {
-    return RecordUtils.toJsonString(aspectRecord);
-  }
 
   @Nullable
   public static Urn getUrnFromString(String urnStr) {
@@ -120,13 +111,6 @@ public class EntityUtils {
     }
   }
 
-  public static RecordTemplate buildKeyAspect(
-      @Nonnull EntityRegistry entityRegistry, @Nonnull final Urn urn) {
-    final EntitySpec spec = entityRegistry.getEntitySpec(urnToEntityName(urn));
-    final AspectSpec keySpec = spec.getKeyAspectSpec();
-    return EntityKeyUtils.convertUrnToEntityKey(urn, keySpec);
-  }
-
   static Entity toEntity(@Nonnull final Snapshot snapshot) {
     return new Entity().setValue(snapshot);
   }
@@ -163,7 +147,7 @@ public class EntityUtils {
       final Urn urn, final List<EnvelopedAspect> envelopedAspects) {
     final EntityResponse response = new EntityResponse();
     response.setUrn(urn);
-    response.setEntityName(urnToEntityName(urn));
+    response.setEntityName(PegasusUtils.urnToEntityName(urn));
     response.setAspects(
         new EnvelopedAspectMap(
             envelopedAspects.stream()
@@ -181,7 +165,7 @@ public class EntityUtils {
   public static Optional<SystemAspect> toSystemAspect(
       @Nonnull RetrieverContext retrieverContext, @Nullable EntityAspect entityAspect) {
     return Optional.ofNullable(entityAspect)
-        .map(aspect -> EntityUtils.toSystemAspects(retrieverContext, List.of(aspect)))
+        .map(aspect -> toSystemAspects(retrieverContext, List.of(aspect)))
         .filter(systemAspects -> !systemAspects.isEmpty())
         .map(systemAspects -> systemAspects.get(0));
   }
@@ -293,28 +277,5 @@ public class EntityUtils {
     // TODO consider applying write validation plugins
 
     return systemAspects;
-  }
-
-  public static <T extends RecordTemplate> MetadataChangeProposal buildMCP(
-      Urn entityUrn, String aspectName, ChangeType changeType, @Nullable T aspect) {
-    MetadataChangeProposal proposal = new MetadataChangeProposal();
-    proposal.setEntityUrn(entityUrn);
-    proposal.setChangeType(changeType);
-    proposal.setEntityType(entityUrn.getEntityType());
-    proposal.setAspectName(aspectName);
-    if (aspect != null) {
-      proposal.setAspect(GenericRecordUtils.serializeAspect(aspect));
-    }
-    return proposal;
-  }
-
-  public static SystemMetadata parseSystemMetadata(String jsonSystemMetadata) {
-    if (jsonSystemMetadata == null || jsonSystemMetadata.equals("")) {
-      SystemMetadata response = new SystemMetadata();
-      response.setRunId(DEFAULT_RUN_ID);
-      response.setLastObserved(0);
-      return response;
-    }
-    return RecordUtils.toRecordTemplate(SystemMetadata.class, jsonSystemMetadata);
   }
 }

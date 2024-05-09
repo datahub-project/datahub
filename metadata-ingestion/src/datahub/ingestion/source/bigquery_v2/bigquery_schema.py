@@ -275,7 +275,7 @@ class BigQuerySchemaApi:
                 table.get("last_altered") / 1000, tz=timezone.utc
             )
             if table.get("last_altered") is not None
-            else table.created,
+            else None,
             size_in_bytes=table.get("bytes"),
             rows_count=table.get("row_count"),
             comment=table.comment,
@@ -339,7 +339,7 @@ class BigQuerySchemaApi:
                 view.get("last_altered") / 1000, tz=timezone.utc
             )
             if view.get("last_altered") is not None
-            else view.created,
+            else None,
             comment=view.comment,
             view_definition=view.view_definition,
             materialized=view.table_type == BigqueryTableType.MATERIALIZED_VIEW,
@@ -487,7 +487,7 @@ class BigQuerySchemaApi:
                 snapshot.get("last_altered") / 1000, tz=timezone.utc
             )
             if snapshot.get("last_altered") is not None
-            else snapshot.created,
+            else None,
             comment=snapshot.comment,
             ddl=snapshot.ddl,
             snapshot_time=snapshot.snapshot_time,

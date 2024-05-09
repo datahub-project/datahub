@@ -75,6 +75,11 @@ type StructuredPropertyDefinition {
     Entity types that this structured property can be applied to
     """
     entityTypes: [EntityTypeEntity!]!
+
+    """
+    Whether or not this structured property is immutable
+    """
+    immutable: Boolean!
 }
 
 """

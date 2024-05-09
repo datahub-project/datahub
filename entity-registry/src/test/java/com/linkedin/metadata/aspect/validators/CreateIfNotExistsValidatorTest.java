@@ -51,7 +51,7 @@ public class CreateIfNotExistsValidatorTest {
 
   @Test
   public void testCreateIfEntityNotExistsSuccess() {
-    CreateIfNotExistsValidator test = new CreateIfNotExistsValidator(validatorConfig);
+    CreateIfNotExistsValidator test = new CreateIfNotExistsValidator().setConfig(validatorConfig);
     Urn testEntityUrn = UrnUtils.getUrn("urn:li:chart:(looker,baz1)");
 
     Set<AspectValidationException> exceptions =
@@ -87,7 +87,7 @@ public class CreateIfNotExistsValidatorTest {
 
   @Test
   public void testCreateIfEntityNotExistsFail() {
-    CreateIfNotExistsValidator test = new CreateIfNotExistsValidator(validatorConfig);
+    CreateIfNotExistsValidator test = new CreateIfNotExistsValidator().setConfig(validatorConfig);
     Urn testEntityUrn = UrnUtils.getUrn("urn:li:chart:(looker,baz1)");
 
     ChangeMCP testItem =
@@ -114,7 +114,7 @@ public class CreateIfNotExistsValidatorTest {
 
   @Test
   public void testCreateIfNotExistsSuccess() {
-    CreateIfNotExistsValidator test = new CreateIfNotExistsValidator(validatorConfig);
+    CreateIfNotExistsValidator test = new CreateIfNotExistsValidator().setConfig(validatorConfig);
     Urn testEntityUrn = UrnUtils.getUrn("urn:li:chart:(looker,baz1)");
 
     Set<AspectValidationException> exceptions =
@@ -138,7 +138,7 @@ public class CreateIfNotExistsValidatorTest {
 
   @Test
   public void testCreateIfNotExistsFail() {
-    CreateIfNotExistsValidator test = new CreateIfNotExistsValidator(validatorConfig);
+    CreateIfNotExistsValidator test = new CreateIfNotExistsValidator().setConfig(validatorConfig);
     Urn testEntityUrn = UrnUtils.getUrn("urn:li:chart:(looker,baz1)");
 
     SystemAspect mockSystemAspect = mock(SystemAspect.class);

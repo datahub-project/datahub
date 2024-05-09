@@ -7,7 +7,7 @@ import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.batch.MCLItem;
 import com.linkedin.metadata.entity.AspectUtils;
-import com.linkedin.metadata.entity.validation.ValidationUtils;
+import com.linkedin.metadata.entity.validation.ValidationApiUtils;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -63,20 +63,21 @@ public class MCLItemImpl implements MCLItem {
             EntityKeyUtils.getUrnFromLog(
                 this.metadataChangeLog, this.entitySpec.getKeyAspectSpec());
       }
-      ValidationUtils.validateUrn(entityRegistry, urn);
+      ValidationApiUtils.validateUrn(entityRegistry, urn);
       log.debug("entity type = {}", urn.getEntityType());
 
       entitySpec(entityRegistry.getEntitySpec(urn.getEntityType()));
       log.debug("entity spec = {}", this.entitySpec);
 
-      aspectSpec(ValidationUtils.validate(this.entitySpec, this.metadataChangeLog.getAspectName()));
+      aspectSpec(
+          ValidationApiUtils.validate(this.entitySpec, this.metadataChangeLog.getAspectName()));
       log.debug("aspect spec = {}", this.aspectSpec);
 
       Pair<RecordTemplate, RecordTemplate> aspects =
           convertToRecordTemplate(this.metadataChangeLog, aspectSpec);
 
       // validate new
-      ValidationUtils.validateRecordTemplate(
+      ValidationApiUtils.validateRecordTemplate(
           this.entitySpec, urn, aspects.getFirst(), aspectRetriever);
 
       return new MCLItemImpl(
@@ -107,7 +108,7 @@ public class MCLItemImpl implements MCLItem {
           aspect =
               GenericRecordUtils.deserializeAspect(
                   mcl.getAspect().getValue(), mcl.getAspect().getContentType(), aspectSpec);
-          ValidationUtils.validateOrThrow(aspect);
+          ValidationApiUtils.validateOrThrow(aspect);
         } else {
           aspect = null;
         }
@@ -118,7 +119,7 @@ public class MCLItemImpl implements MCLItem {
                   mcl.getPreviousAspectValue().getValue(),
                   mcl.getPreviousAspectValue().getContentType(),
                   aspectSpec);
-          ValidationUtils.validateOrThrow(prevAspect);
+          ValidationApiUtils.validateOrThrow(prevAspect);
         } else {
           prevAspect = null;
         }

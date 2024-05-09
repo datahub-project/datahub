@@ -16,8 +16,8 @@
             "config": "",
             "state": {
                 "formatVersion": "1.0",
-                "serde": "base85-bz2-json",
-                "payload": "LRx4!F+o`-Q(317h`0a%NgsevWH1l}0MH7jr`{?c0B9vdZ9%mLfYG4P6;f$2G%+v`9z&~6n|e(JEPC2_Iix~CA_im)jR-zsjEK*yo|HQz#IUUHtf@DYVEme-lUW9{Xmmt~y^2jCdyY95az!{$kf#WUxB"
+                "serde": "utf-8",
+                "payload": "{\"urns\": [\"urn:li:dataset:(urn:li:dataPlatform:postgres,dummy_dataset1,PROD)\", \"urn:li:dataset:(urn:li:dataPlatform:postgres,dummy_dataset2,PROD)\"]}"
             },
             "runId": "dummy-test-stateful-ingestion"
         }

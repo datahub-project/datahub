@@ -324,6 +324,7 @@ custom_sql_graphql_query = """
             totalCount
         }
       }
+      connectionType
       database{
         name
         connectionType
@@ -827,6 +828,7 @@ def get_unique_custom_sql(custom_sql_list: List[dict]) -> List[dict]:
             # are missing from api result.
             "isUnsupportedCustomSql": True if not custom_sql.get("tables") else False,
             "query": custom_sql.get("query"),
+            "connectionType": custom_sql.get("connectionType"),
             "columns": custom_sql.get("columns"),
             "tables": custom_sql.get("tables"),
             "database": custom_sql.get("database"),

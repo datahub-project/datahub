@@ -42,7 +42,7 @@ plugins: Dict[str, Set[str]] = {
         # We remain restrictive on the versions allowed here to prevent
         # us from being broken by backwards-incompatible changes in the
         # underlying package.
-        "openlineage-airflow>=1.2.0,<=1.7.0",
+        "openlineage-airflow>=1.2.0,<=1.12.0",
     },
 }
 

@@ -227,7 +227,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
         .forEach(
             key -> {
               final RecordTemplate keyAspect =
-                  EntityUtils.buildKeyAspect(opContext.getEntityRegistry(), key);
+                  EntityApiUtils.buildKeyAspect(opContext.getEntityRegistry(), key);
               urnToAspects.get(key).add(keyAspect);
             });
 
@@ -1046,7 +1046,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                           .auditStamp(item.getAuditStamp())
                           .systemMetadata(item.getSystemMetadata())
                           .recordTemplate(
-                              EntityUtils.buildKeyAspect(
+                              EntityApiUtils.buildKeyAspect(
                                   opContext.getEntityRegistry(), item.getUrn()))
                           .build(opContext.getRetrieverContext().get().getAspectRetriever()))
               .collect(Collectors.toList());
@@ -1438,7 +1438,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                   .aspectSpec(entitySpec.getKeyAspectSpec())
                   .auditStamp(auditStamp)
                   .systemMetadata(latestSystemMetadata)
-                  .recordTemplate(EntityUtils.buildKeyAspect(opContext.getEntityRegistry(), urn))
+                  .recordTemplate(EntityApiUtils.buildKeyAspect(opContext.getEntityRegistry(), urn))
                   .build(opContext.getRetrieverContext().get().getAspectRetriever()));
       Stream<IngestResult> defaultAspectsResult =
           ingestProposalSync(
@@ -2278,7 +2278,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
         .collect(
             Collectors.toMap(
                 systemAspect ->
-                    ((EntityAspect.EntitySystemAspect) systemAspect).getAspectIdentifier(),
+                    EntityAspectIdentifier.fromSystemEntityAspect(
+                        (EntityAspect.EntitySystemAspect) systemAspect),
                 systemAspect ->
                     ((EntityAspect.EntitySystemAspect) systemAspect).toEnvelopedAspects()));
   }
@@ -2334,13 +2335,13 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
 
     // 4. Save the newValue as the latest version
     log.debug("Ingesting aspect with name {}, urn {}", aspectName, urn);
-    String newValueStr = EntityUtils.toJsonAspect(newValue);
+    String newValueStr = EntityApiUtils.toJsonAspect(newValue);
     long versionOfOld =
         aspectDao.saveLatestAspect(
             tx,
             urn.toString(),
             aspectName,
-            latest == null ? null : EntityUtils.toJsonAspect(oldValue),
+            latest == null ? null : EntityApiUtils.toJsonAspect(oldValue),
             latest == null ? null : latest.getCreatedBy(),
             latest == null ? null : latest.getEntityAspect().getCreatedFor(),
             latest == null ? null : latest.getCreatedOn(),
@@ -2349,7 +2350,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
             auditStamp.getActor().toString(),
             auditStamp.hasImpersonator() ? auditStamp.getImpersonator().toString() : null,
             new Timestamp(auditStamp.getTime()),
-            EntityUtils.toJsonAspect(providedSystemMetadata),
+            EntityApiUtils.toJsonAspect(providedSystemMetadata),
             nextVersion);
 
     // metrics

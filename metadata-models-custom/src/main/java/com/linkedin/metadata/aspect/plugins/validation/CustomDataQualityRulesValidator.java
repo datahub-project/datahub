@@ -14,9 +14,7 @@ import javax.annotation.Nonnull;
 
 public class CustomDataQualityRulesValidator extends AspectPayloadValidator {
 
-  public CustomDataQualityRulesValidator(AspectPluginConfig config) {
-    super(config);
-  }
+  private AspectPluginConfig config;
 
   @Override
   protected Stream<AspectValidationException> validateProposedAspects(
@@ -74,5 +72,17 @@ public class CustomDataQualityRulesValidator extends AspectPayloadValidator {
 
               return Stream.empty();
             });
+  }
+
+  @Nonnull
+  @Override
+  public AspectPluginConfig getConfig() {
+    return config;
+  }
+
+  @Override
+  public CustomDataQualityRulesValidator setConfig(@Nonnull AspectPluginConfig config) {
+    this.config = config;
+    return this;
   }
 }

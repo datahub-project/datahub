@@ -6,6 +6,7 @@ import static com.linkedin.metadata.Constants.*;
 
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.SetMode;
 import com.linkedin.data.template.StringMap;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -113,6 +114,7 @@ public class CreateIngestionExecutionRequestResolver
               execInput.setExecutorId(
                   ingestionSourceInfo.getConfig().getExecutorId(), SetMode.IGNORE_NULL);
               execInput.setRequestedAt(System.currentTimeMillis());
+              execInput.setActorUrn(UrnUtils.getUrn(context.getActorUrn()));
 
               Map<String, String> arguments = new HashMap<>();
               String recipe = ingestionSourceInfo.getConfig().getRecipe();

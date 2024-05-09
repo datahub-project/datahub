@@ -27,8 +27,8 @@ import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.aspect.batch.ChangeMCP;
 import com.linkedin.metadata.aspect.patch.GenericJsonPatch;
 import com.linkedin.metadata.aspect.patch.template.common.GenericPatchTemplate;
+import com.linkedin.metadata.entity.EntityApiUtils;
 import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.metadata.entity.EntityUtils;
 import com.linkedin.metadata.entity.IngestResult;
 import com.linkedin.metadata.entity.UpdateAspectResult;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
@@ -451,7 +451,7 @@ public class EntityController {
             authentication,
             true);
 
-    AspectSpec aspectSpec = entitySpec.getAspectSpec(aspectName);
+    AspectSpec aspectSpec = lookupAspectSpec(entitySpec, aspectName);
     ChangeMCP upsert =
         toUpsertItem(
             opContext.getRetrieverContext().get().getAspectRetriever(),
@@ -524,7 +524,7 @@ public class EntityController {
 
     RecordTemplate currentValue = entityService.getAspect(opContext, urn, aspectName, 0);
 
-    AspectSpec aspectSpec = entitySpec.getAspectSpec(aspectName);
+    AspectSpec aspectSpec = lookupAspectSpec(entitySpec, aspectName);
     GenericPatchTemplate<? extends RecordTemplate> genericPatchTemplate =
         GenericPatchTemplate.builder()
             .genericJsonPatch(patch)
@@ -643,7 +643,7 @@ public class EntityController {
   }
 
   private AspectSpec lookupAspectSpec(Urn urn, String aspectName) {
-    return entityRegistry.getEntitySpec(urn.getEntityType()).getAspectSpec(aspectName);
+    return lookupAspectSpec(entityRegistry.getEntitySpec(urn.getEntityType()), aspectName);
   }
 
   private RecordTemplate toRecordTemplate(AspectSpec aspectSpec, EnvelopedAspect envelopedAspect) {
@@ -678,8 +678,7 @@ public class EntityController {
       @Nonnull AspectSpec aspectSpec,
       @Nullable RecordTemplate currentValue,
       @Nonnull GenericPatchTemplate<? extends RecordTemplate> genericPatchTemplate,
-      @Nonnull Actor actor)
-      throws URISyntaxException {
+      @Nonnull Actor actor) {
     return ChangeItemImpl.fromPatch(
         urn,
         aspectSpec,
@@ -723,7 +722,7 @@ public class EntityController {
 
             if (aspect.getValue().has("systemMetadata")) {
               builder.systemMetadata(
-                  EntityUtils.parseSystemMetadata(
+                  EntityApiUtils.parseSystemMetadata(
                       objectMapper.writeValueAsString(aspect.getValue().get("systemMetadata"))));
             }
 
@@ -762,5 +761,19 @@ public class EntityController {
               .build(objectMapper, aspectsMap));
     }
     return responseList;
+  }
+
+  /**
+   * Case-insensitive fallback
+   *
+   * @return
+   */
+  private static AspectSpec lookupAspectSpec(EntitySpec entitySpec, String aspectName) {
+    return entitySpec.getAspectSpec(aspectName) != null
+        ? entitySpec.getAspectSpec(aspectName)
+        : entitySpec.getAspectSpecs().stream()
+            .filter(aspec -> aspec.getName().toLowerCase().equals(aspectName))
+            .findFirst()
+            .get();
   }
 }

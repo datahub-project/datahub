@@ -164,6 +164,9 @@ class StaleEntityRemovalHandler(
     def is_checkpointing_enabled(self) -> bool:
         return self.checkpointing_enabled
 
+    def _get_state_obj(self):
+        return self.state_type_class()
+
     def create_checkpoint(self) -> Optional[Checkpoint]:
         if self.is_checkpointing_enabled() and not self._ignore_new_state():
             assert self.stateful_ingestion_config is not None
@@ -172,7 +175,7 @@ class StaleEntityRemovalHandler(
                 job_name=self.job_id,
                 pipeline_name=self.pipeline_name,
                 run_id=self.run_id,
-                state=self.state_type_class(),
+                state=self._get_state_obj(),
             )
         return None
 
@@ -255,9 +258,13 @@ class StaleEntityRemovalHandler(
         # If the source already had a failure, skip soft-deletion.
         # TODO: Eventually, switch this to check if anything in the pipeline had a failure so far.
         if self.source.get_report().failures:
+            for urn in last_checkpoint_state.get_urns_not_in(
+                type="*", other_checkpoint_state=cur_checkpoint_state
+            ):
+                self.add_entity_to_state("", urn)
             self.source.get_report().report_warning(
                 "stale-entity-removal",
-                "Skipping stale entity soft-deletion since source already had failures.",
+                "Skipping stale entity soft-deletion and coping urns from last state since source already had failures.",
             )
             return
 

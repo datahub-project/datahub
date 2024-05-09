@@ -6,9 +6,11 @@ import static com.linkedin.metadata.aspect.patch.template.TemplateUtil.populateT
 import com.datahub.util.RecordUtils;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
-import com.github.fge.jsonpatch.JsonPatchException;
-import com.github.fge.jsonpatch.Patch;
 import com.linkedin.data.template.RecordTemplate;
+import jakarta.json.Json;
+import jakarta.json.JsonObject;
+import jakarta.json.JsonPatch;
+import java.io.StringReader;
 import javax.annotation.Nonnull;
 
 public interface Template<T extends RecordTemplate> {
@@ -45,18 +47,21 @@ public interface Template<T extends RecordTemplate> {
    * @param jsonPatch patch to apply
    * @return patched value
    * @throws JsonProcessingException if there is an issue converting the input to JSON
-   * @throws JsonPatchException if there is an issue applying the patch
    */
-  default T applyPatch(RecordTemplate recordTemplate, Patch jsonPatch)
-      throws JsonProcessingException, JsonPatchException {
-
+  default T applyPatch(RecordTemplate recordTemplate, JsonPatch jsonPatch)
+      throws JsonProcessingException {
     TemplateUtil.validatePatch(jsonPatch);
+
     JsonNode transformed = populateTopLevelKeys(preprocessTemplate(recordTemplate), jsonPatch);
     try {
-      JsonNode patched = jsonPatch.apply(transformed);
-      JsonNode postProcessed = rebaseFields(patched);
+      // Hack in a more efficient patcher. Even with the serialization overhead 140% faster
+      JsonObject patched =
+          jsonPatch.apply(
+              Json.createReader(new StringReader(OBJECT_MAPPER.writeValueAsString(transformed)))
+                  .readObject());
+      JsonNode postProcessed = rebaseFields(OBJECT_MAPPER.readTree(patched.toString()));
       return RecordUtils.toRecordTemplate(getTemplateType(), postProcessed.toString());
-    } catch (JsonPatchException e) {
+    } catch (JsonProcessingException e) {
       throw new RuntimeException(
           String.format(
               "Error performing JSON PATCH on aspect %s. Patch: %s Target: %s",

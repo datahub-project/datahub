@@ -7,9 +7,9 @@ import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.SystemAspect;
 import com.linkedin.metadata.aspect.batch.ChangeMCP;
+import com.linkedin.metadata.entity.EntityApiUtils;
 import com.linkedin.metadata.entity.EntityAspect;
-import com.linkedin.metadata.entity.EntityUtils;
-import com.linkedin.metadata.entity.validation.ValidationUtils;
+import com.linkedin.metadata.entity.validation.ValidationApiUtils;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.mxe.MetadataChangeProposal;
@@ -63,7 +63,7 @@ public class DeleteItemImpl implements ChangeMCP {
   @Nullable
   @Override
   public MetadataChangeProposal getMetadataChangeProposal() {
-    return EntityUtils.buildMCP(getUrn(), aspectName, getChangeType(), null);
+    return EntityApiUtils.buildMCP(getUrn(), aspectName, getChangeType(), null);
   }
 
   @Nonnull
@@ -96,13 +96,13 @@ public class DeleteItemImpl implements ChangeMCP {
 
     @SneakyThrows
     public DeleteItemImpl build(AspectRetriever aspectRetriever) {
-      ValidationUtils.validateUrn(aspectRetriever.getEntityRegistry(), this.urn);
+      ValidationApiUtils.validateUrn(aspectRetriever.getEntityRegistry(), this.urn);
       log.debug("entity type = {}", this.urn.getEntityType());
 
       entitySpec(aspectRetriever.getEntityRegistry().getEntitySpec(this.urn.getEntityType()));
       log.debug("entity spec = {}", this.entitySpec);
 
-      aspectSpec(ValidationUtils.validate(this.entitySpec, this.aspectName));
+      aspectSpec(ValidationApiUtils.validate(this.entitySpec, this.aspectName));
       log.debug("aspect spec = {}", this.aspectSpec);
 
       return new DeleteItemImpl(

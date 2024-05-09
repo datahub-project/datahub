@@ -15,6 +15,9 @@ import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
+import lombok.Getter;
+import lombok.Setter;
+import lombok.experimental.Accessors;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
@@ -42,39 +45,42 @@ public class ValidatorPluginTest {
     assertEquals(
         validators,
         List.of(
-            new TestValidator(
-                AspectPluginConfig.builder()
-                    .className(
-                        "com.linkedin.metadata.aspect.plugins.validation.ValidatorPluginTest$TestValidator")
-                    .supportedOperations(List.of("UPSERT"))
-                    .enabled(true)
-                    .supportedEntityAspectNames(
-                        List.of(
-                            AspectPluginConfig.EntityAspectName.builder()
-                                .entityName("*")
-                                .aspectName("status")
-                                .build()))
-                    .build()),
-            new TestValidator(
-                AspectPluginConfig.builder()
-                    .className(
-                        "com.linkedin.metadata.aspect.plugins.validation.ValidatorPluginTest$TestValidator")
-                    .supportedOperations(List.of("UPSERT"))
-                    .enabled(true)
-                    .supportedEntityAspectNames(
-                        List.of(
-                            AspectPluginConfig.EntityAspectName.builder()
-                                .entityName("chart")
-                                .aspectName("status")
-                                .build()))
-                    .build())));
+            new TestValidator()
+                .setConfig(
+                    AspectPluginConfig.builder()
+                        .className(
+                            "com.linkedin.metadata.aspect.plugins.validation.ValidatorPluginTest$TestValidator")
+                        .supportedOperations(List.of("UPSERT"))
+                        .enabled(true)
+                        .supportedEntityAspectNames(
+                            List.of(
+                                AspectPluginConfig.EntityAspectName.builder()
+                                    .entityName("*")
+                                    .aspectName("status")
+                                    .build()))
+                        .build()),
+            new TestValidator()
+                .setConfig(
+                    AspectPluginConfig.builder()
+                        .className(
+                            "com.linkedin.metadata.aspect.plugins.validation.ValidatorPluginTest$TestValidator")
+                        .supportedOperations(List.of("UPSERT"))
+                        .enabled(true)
+                        .supportedEntityAspectNames(
+                            List.of(
+                                AspectPluginConfig.EntityAspectName.builder()
+                                    .entityName("chart")
+                                    .aspectName("status")
+                                    .build()))
+                        .build())));
   }
 
+  @Getter
+  @Setter
+  @Accessors(chain = true)
   public static class TestValidator extends AspectPayloadValidator {
 
-    public TestValidator(AspectPluginConfig config) {
-      super(config);
-    }
+    public AspectPluginConfig config;
 
     @Override
     protected Stream<AspectValidationException> validateProposedAspects(
