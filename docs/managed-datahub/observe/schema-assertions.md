@@ -116,14 +116,14 @@ Once these are in place, you're ready to create your Schema Assertions!
 1. Navigate to the Table you want to monitor
 2. Click the **Validations** tab
 
-<p align="center">
-  <img width="90%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/freshness/profile-validation-tab.png"/>
+<p align="left">
+  <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/freshness/profile-validation-tab.png"/>
 </p>
 
 3. Click **+ Create Assertion**
 
-<p align="center">
-  <img width="90%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/schema/assertion-builder-choose-type.png"/>
+<p align="left">
+  <img width="45%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/schema/assertion-builder-choose-type.png"/>
 </p>
 
 4. Choose **Schema**
@@ -132,14 +132,14 @@ Once these are in place, you're ready to create your Schema Assertions!
 
 6. Define the **expected columns** that will be continually compared against the actual column set. This defaults to the current columns for the table.
 
-<p align="center">
-  <img width="60%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/schema/assertion-builder-config.png"/>
+<p align="left">
+  <img width="40%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/schema/assertion-builder-config.png"/>
 </p>
 
 7. Configure actions that should be taken when the assertion passes or fails
 
 <p align="left">
-  <img width="45%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/shared/assertion-builder-actions.png"/>
+  <img width="40%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/shared/assertion-builder-actions.png"/>
 </p>
 
 - **Raise incident**: Automatically raise a new DataHub Incident for the Table whenever the Custom SQL Assertion is failing. This
@@ -153,8 +153,8 @@ Then click **Next**.
 
 7. (Optional) Add a **description** for the assertion. This is a human-readable description of the assertion. If you do not provide one, a description will be generated for you.
 
-<p align="center">
-  <img width="60%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/shared/assertion-builder-description.png"/>
+<p align="left">
+  <img width="40%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/shared/assertion-builder-description.png"/>
 </p>
 
 8. Click **Save**.
@@ -163,8 +163,8 @@ And that's it! DataHub will now begin to monitor your Schema Assertion for the t
 
 Once your assertion has run, you will begin to see Success or Failure status: 
 
-<p align="center">
-  <img width="90%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/schema/assertion-results.png"/>
+<p align="left">
+  <img width="45%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/schema/assertion-results.png"/>
 </p>
 
 
@@ -182,8 +182,8 @@ In order to temporarily stop the evaluation of the assertion:
 
 To resume the assertion, simply click **Start**.
 
-<p align="center">
-  <img width="90%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/shared/start-assertion.png"/>
+<p align="left">
+  <img width="25%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/shared/start-assertion.png"/>
 </p>
 
 
