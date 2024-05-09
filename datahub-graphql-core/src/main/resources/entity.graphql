@@ -12292,6 +12292,11 @@ type QueryProperties {
   created: AuditStamp!
 
   """
+  A Resolved Audit Stamp corresponding to the creation of this resource
+  """
+  createdOn: ResolvedAuditStamp!
+
+  """
   An Audit Stamp corresponding to the update of this resource
   """
   lastModified: AuditStamp!
@@ -12307,9 +12312,16 @@ The subject for a Query
 """
 type QuerySubject {
   """
-  The dataset which is the subject of the Query
+  The dataset which is the subject of the Query.
+  If schemaField is not empty, this field represents the parent dataset of the schmeaField.
   """
   dataset: Dataset!
+
+  """
+  The schema field which is the subject of the Query.
+  This will be populated if the subject is specifically a schema field.
+  """
+  schemaField: SchemaFieldEntity
 }
 
 """
@@ -12480,6 +12492,11 @@ input ListQueriesInput {
   An optional Urn for the parent dataset that the query is associated with.
   """
   datasetUrn: String
+
+  """
+  AOptional - Information on how to sort the list queries result
+  """
+  sortInput: SortQueriesInput
 }
 
 """

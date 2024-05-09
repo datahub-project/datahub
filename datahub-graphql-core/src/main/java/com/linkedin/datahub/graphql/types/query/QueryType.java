@@ -31,7 +31,8 @@ public class QueryType
       ImmutableSet.of(
           QUERY_PROPERTIES_ASPECT_NAME,
           QUERY_SUBJECTS_ASPECT_NAME,
-          DATA_PLATFORM_INSTANCE_ASPECT_NAME);
+          DATA_PLATFORM_INSTANCE_ASPECT_NAME,
+          QUERY_USAGE_FEATURES_ASPECT_NAME);
   private final EntityClient _entityClient;
 
   @Override

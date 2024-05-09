@@ -1,0 +1,29 @@
+fragment facetFields on FacetMetadata {
+    field
+    displayName
+    aggregations {
+        value
+        count
+        entity {
+            urn
+            type
+            ... on DataPlatform {
+                ...platformFields
+            }
+        }
+    }
+}
+
+fragment searchResults on SearchResults {
+  start
+  count
+  total
+  searchResults {
+    entity {
+      ...entityFields
+    }
+  }
+  facets {
+    ...facetFields
+  }
+}

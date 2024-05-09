@@ -13,10 +13,6 @@ import com.linkedin.metadata.test.util.TestMd5;
 import com.linkedin.test.TestDefinition;
 import com.linkedin.test.TestInfo;
 import com.linkedin.util.Pair;
-import lombok.Getter;
-import lombok.Setter;
-import lombok.experimental.Accessors;
-
 import java.util.Collection;
 import java.util.LinkedList;
 import java.util.List;
@@ -24,6 +20,9 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
+import lombok.Getter;
+import lombok.Setter;
+import lombok.experimental.Accessors;
 
 /** Hook to populate the md5 hash on metadata tests */
 @Setter

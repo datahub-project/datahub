@@ -588,6 +588,7 @@ entities:
       - status
       - dataPlatformInstance
       - subTypes
+      - queryUsageFeatures
   - name: dataProduct
     category: core
     keyAspect: dataProductKey
