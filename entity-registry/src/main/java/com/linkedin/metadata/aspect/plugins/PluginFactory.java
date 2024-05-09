@@ -157,10 +157,10 @@ public class PluginFactory {
                                     "Error constructing entity registry plugin class: {}",
                                     config.getClassName(),
                                     e);
-                                return Stream.<T>empty();
+                                return (T) null;
                               }
                             })
-                        .map(plugin -> (T) plugin)
+                        .filter(Objects::nonNull)
                         .filter(PluginSpec::enabled)
                         .collect(Collectors.toList());
                   }
