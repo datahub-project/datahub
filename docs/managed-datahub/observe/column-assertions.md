@@ -129,13 +129,13 @@ Once these are in place, you're ready to create your Column Assertions!
 1. Navigate to the Table that you want to monitor
 2. Click the **Validations** tab
 
-<p align="center">
+<p align="left">
   <img width="90%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/freshness/profile-validation-tab.png"/>
 </p>
 
 3. Click **+ Create Assertion**
 
-<p align="center">
+<p align="left">
   <img width="40%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/column/assertion-builder-column-choose-type.png"/>
 </p>
 
@@ -148,14 +148,14 @@ Once these are in place, you're ready to create your Column Assertions!
    **Column Value** assertions are used to monitor the value of a specific column in a table, and ensure that every row
    adheres to a specific condition. **Column Metric** assertions are used to compute a metric for that column, and then compare the value of that metric to your expectations.
 
-<p align="center">
+<p align="left">
   <img width="45%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/column/assertion-builder-column-assertion-type.png"/>
 </p>
 
 7. Configure the **column selection**. This defines the column that should be monitored by the Column Assertion. 
    You can choose from any of the columns from the table listed in the dropdown.
 
-<p align="center">
+<p align="left">
   <img width="45%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/column/assertion-builder-column-field-selection.png"/>
 </p>
 
@@ -185,7 +185,7 @@ Once these are in place, you're ready to create your Column Assertions!
      have changed. A **High Watermark Column** is a column that contains a constantly-incrementing value - a date, a time, or
      another always-increasing number. When selected, a query will be issued to the table find only the rows which have changed since the last assertion run. 
 
-<p align="center">
+<p align="left">
   <img width="60%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/column/assertion-builder-column-row-evaluation-type.png"/>
 </p>
 
@@ -221,16 +221,9 @@ Once these are in place, you're ready to create your Column Assertions!
 
 And that's it! DataHub will now begin to monitor your Column Assertion for the table.
 
-To view the time of the next Column Assertion evaluation, simply click **Column** and then click on your
-new Assertion:
-
-<p align="center">
-  <img width="40%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/freshness/assertion-next-evaluation-time.png"/>
-</p>
-
 Once your assertion has run, you will begin to see Success or Failure status for the Table
 
-<p align="center">
+<p align="left">
   <img width="40%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/column/profile-passing-column-assertions-expanded.png"/>
 </p>
 
@@ -242,13 +235,13 @@ In order to temporarily stop the evaluation of the assertion:
 2. Click **Column** to open the Column Assertion assertions
 3. Click the "Stop" button for the assertion you wish to pause.
 
-<p align="center">
+<p align="left">
   <img width="25%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/shared/stop-assertion.png"/>
 </p>
 
 To resume the assertion, simply click **Start**.
 
-<p align="center">
+<p align="left">
   <img width="25%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/shared/start-assertion.png"/>
 </p>
 
