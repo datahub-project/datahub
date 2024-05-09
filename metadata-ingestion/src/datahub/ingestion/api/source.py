@@ -103,7 +103,7 @@ class SourceReport(Report):
                     self.aspect_urn_samples[entityType][aspectName].append(urn)
                     if isinstance(mcp.aspect, UpstreamLineageClass):
                         upstream_lineage = cast(UpstreamLineageClass, mcp.aspect)
-                        if upstream_lineage.fineGrainedLineages is not None:
+                        if upstream_lineage.fineGrainedLineages:
                             self.aspect_urn_samples[entityType][
                                 "fineGrainedLineages"
                             ].append(urn)
