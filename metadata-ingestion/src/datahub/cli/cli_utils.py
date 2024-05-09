@@ -25,6 +25,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
 )
 from datahub.metadata.schema_classes import SystemMetadataClass, _Aspect
 from datahub.utilities.urns.urn import Urn, guess_entity_type
+from datahub.ingestion.graph.client import DatahubClientConfig
 
 log = logging.getLogger(__name__)
 
@@ -96,14 +97,35 @@ def get_url_and_token():
     return gms_host, gms_token
 
 
+def load_graph_config() -> DatahubClientConfig:
+    config_utils.ensure_datahub_config()
+    config = config_utils.get_details_from_config()
+
+    # If config does not exist, create a default one.
+    if not config:
+        config = DatahubClientConfig()
+
+    # Override gms & token configs if specified.
+    if len(config_override.keys()) > 0:
+        config.gms_host = config_override.get(ENV_METADATA_HOST_URL)
+        config.token = config_override.get(ENV_METADATA_TOKEN)
+    elif config_utils.should_skip_config():
+        gms_host_env, gms_token_env = get_details_from_env()
+        config.gms_host = gms_host_env
+        config.token = gms_token_env
+
+    return config
+
+
 def get_token():
-    return get_url_and_token()[1]
+    return load_graph_config().token
 
 
 def get_session_and_host():
     session = requests.Session()
+    config = load_graph_config()
 
-    gms_host, gms_token = get_url_and_token()
+    gms_host = config.server, gms_token = config.server
 
     if gms_host is None or gms_host.strip() == "":
         log.error(

@@ -12,6 +12,7 @@ import yaml
 from pydantic import BaseModel, ValidationError
 
 from datahub.cli.env_utils import get_boolean_env_variable
+from datahub.ingestion.graph.client import DatahubClientConfig
 
 log = logging.getLogger(__name__)
 
@@ -22,13 +23,8 @@ DATAHUB_ROOT_FOLDER = os.path.expanduser("~/.datahub")
 ENV_SKIP_CONFIG = "DATAHUB_SKIP_CONFIG"
 
 
-class GmsConfig(BaseModel):
-    server: str
-    token: Optional[str] = None
-
-
 class DatahubConfig(BaseModel):
-    gms: GmsConfig
+    gms: DatahubClientConfig
 
 
 def persist_datahub_config(config: dict) -> None:
@@ -40,7 +36,7 @@ def persist_datahub_config(config: dict) -> None:
 def write_gms_config(
     host: str, token: Optional[str], merge_with_previous: bool = True
 ) -> None:
-    config = DatahubConfig(gms=GmsConfig(server=host, token=token))
+    config = DatahubConfig(gms=DatahubClientConfig(server=host, token=token))
     if merge_with_previous:
         try:
             previous_config = get_client_config(as_dict=True)
@@ -57,17 +53,14 @@ def write_gms_config(
     persist_datahub_config(config_dict)
 
 
-def get_details_from_config():
+def get_details_from_config() -> Optional[DatahubClientConfig]:
     datahub_config = get_client_config(as_dict=False)
     assert isinstance(datahub_config, DatahubConfig)
     if datahub_config is not None:
         gms_config = datahub_config.gms
-
-        gms_host = gms_config.server
-        gms_token = gms_config.token
-        return gms_host, gms_token
+        return gms_config
     else:
-        return None, None
+        return None
 
 
 def should_skip_config() -> bool:
@@ -83,7 +76,7 @@ def ensure_datahub_config() -> None:
         write_gms_config(DEFAULT_GMS_HOST, None)
 
 
-def get_client_config(as_dict: bool = False) -> Union[Optional[DatahubConfig], dict]:
+def get_client_config(as_dict: bool = False) -> Union[Optional[DatahubClientConfig], dict]:
     with open(DATAHUB_CONFIG_PATH) as stream:
         try:
             config_json = yaml.safe_load(stream)
