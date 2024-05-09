@@ -25,13 +25,13 @@ public class RemoveTagResolver implements DataFetcher<CompletableFuture<Boolean>
 
   @Override
   public CompletableFuture<Boolean> get(DataFetchingEnvironment environment) throws Exception {
+    final QueryContext context = environment.getContext();
     final TagAssociationInput input =
         bindArgument(environment.getArgument("input"), TagAssociationInput.class);
     Urn tagUrn = Urn.createFromString(input.getTagUrn());
     Urn targetUrn = Urn.createFromString(input.getResourceUrn());
 
-    if (!LabelUtils.isAuthorizedToUpdateTags(
-        environment.getContext(), targetUrn, input.getSubResource())) {
+    if (!LabelUtils.isAuthorizedToUpdateTags(context, targetUrn, input.getSubResource())) {
       throw new AuthorizationException(
           "Unauthorized to perform this action. Please contact your DataHub administrator.");
     }
@@ -39,6 +39,7 @@ public class RemoveTagResolver implements DataFetcher<CompletableFuture<Boolean>
     return CompletableFuture.supplyAsync(
         () -> {
           LabelUtils.validateResourceAndLabel(
+              context.getOperationContext(),
               tagUrn,
               targetUrn,
               input.getSubResource(),
@@ -54,10 +55,9 @@ public class RemoveTagResolver implements DataFetcher<CompletableFuture<Boolean>
             }
 
             log.debug("Removing Tag. input: %s", input);
-            Urn actor =
-                CorpuserUrn.createFromString(
-                    ((QueryContext) environment.getContext()).getActorUrn());
+            Urn actor = CorpuserUrn.createFromString(context.getActorUrn());
             LabelUtils.removeTagsFromResources(
+                context.getOperationContext(),
                 ImmutableList.of(tagUrn),
                 ImmutableList.of(
                     new ResourceRefInput(

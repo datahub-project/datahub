@@ -28,10 +28,12 @@ import com.linkedin.timeseries.GenericTable;
 import com.linkedin.timeseries.GroupingBucket;
 import com.linkedin.timeseries.GroupingBucketType;
 import com.linkedin.timeseries.TimeWindowSize;
+import io.datahubproject.metadata.context.OperationContext;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 public class DashboardUsageStatsUtils {
@@ -53,6 +55,7 @@ public class DashboardUsageStatsUtils {
       Filter filter = createUsageFilter(dashboardUrn, null, null, false);
       List<EnvelopedAspect> aspects =
           timeseriesAspectService.getAspectValues(
+              context.getOperationContext(),
               Urn.createFromString(dashboardUrn),
               Constants.DASHBOARD_ENTITY_NAME,
               Constants.DASHBOARD_USAGE_STATISTICS_ASPECT_NAME,
@@ -71,12 +74,13 @@ public class DashboardUsageStatsUtils {
   }
 
   public static DashboardUsageQueryResultAggregations getAggregations(
+      @Nonnull OperationContext opContext,
       Filter filter,
       List<DashboardUsageAggregation> dailyUsageBuckets,
       TimeseriesAspectService timeseriesAspectService) {
 
     List<DashboardUserUsageCounts> userUsageCounts =
-        getUserUsageCounts(filter, timeseriesAspectService);
+        getUserUsageCounts(opContext, filter, timeseriesAspectService);
     DashboardUsageQueryResultAggregations aggregations =
         new DashboardUsageQueryResultAggregations();
     aggregations.setUsers(userUsageCounts);
@@ -107,7 +111,10 @@ public class DashboardUsageStatsUtils {
   }
 
   public static List<DashboardUsageAggregation> getBuckets(
-      Filter filter, String dashboardUrn, TimeseriesAspectService timeseriesAspectService) {
+      @Nonnull OperationContext opContext,
+      Filter filter,
+      String dashboardUrn,
+      TimeseriesAspectService timeseriesAspectService) {
     AggregationSpec usersCountAggregation =
         new AggregationSpec()
             .setAggregationType(AggregationType.SUM)
@@ -143,6 +150,7 @@ public class DashboardUsageStatsUtils {
         };
     GenericTable dailyStats =
         timeseriesAspectService.getAggregatedStats(
+            opContext,
             Constants.DASHBOARD_ENTITY_NAME,
             Constants.DASHBOARD_USAGE_STATISTICS_ASPECT_NAME,
             aggregationSpecs,
@@ -194,7 +202,9 @@ public class DashboardUsageStatsUtils {
   }
 
   public static List<DashboardUserUsageCounts> getUserUsageCounts(
-      Filter filter, TimeseriesAspectService timeseriesAspectService) {
+      @Nonnull OperationContext opContext,
+      Filter filter,
+      TimeseriesAspectService timeseriesAspectService) {
     // Sum aggregation on userCounts.count
     AggregationSpec sumUsageCountsCountAggSpec =
         new AggregationSpec()
@@ -241,6 +251,7 @@ public class DashboardUsageStatsUtils {
     // Query backend
     GenericTable result =
         timeseriesAspectService.getAggregatedStats(
+            opContext,
             Constants.DASHBOARD_ENTITY_NAME,
             Constants.DASHBOARD_USAGE_STATISTICS_ASPECT_NAME,
             aggregationSpecs,

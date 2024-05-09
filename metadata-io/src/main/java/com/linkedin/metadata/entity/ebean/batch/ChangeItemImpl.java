@@ -3,7 +3,6 @@ package com.linkedin.metadata.entity.ebean.batch;
 import static com.linkedin.metadata.entity.AspectUtils.validateAspect;
 
 import com.datahub.util.exception.ModelConversionException;
-import com.github.fge.jsonpatch.JsonPatchException;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
@@ -54,7 +53,7 @@ public class ChangeItemImpl implements ChangeMCP {
 
     try {
       builder.recordTemplate(genericPatchTemplate.applyPatch(currentValue));
-    } catch (JsonPatchException | IOException e) {
+    } catch (IOException e) {
       throw new RuntimeException(e);
     }
 
@@ -98,6 +97,18 @@ public class ChangeItemImpl implements ChangeMCP {
     entityAspect.setSystemMetadata(EntityUtils.toJsonAspect(getSystemMetadata()));
     return EntityAspect.EntitySystemAspect.builder()
         .build(getEntitySpec(), getAspectSpec(), entityAspect);
+  }
+
+  @Nonnull
+  public MetadataChangeProposal getMetadataChangeProposal() {
+    final MetadataChangeProposal mcp = new MetadataChangeProposal();
+    mcp.setEntityUrn(getUrn());
+    mcp.setChangeType(getChangeType());
+    mcp.setEntityType(getEntitySpec().getName());
+    mcp.setAspectName(getAspectName());
+    mcp.setAspect(GenericRecordUtils.serializeAspect(getRecordTemplate()));
+    mcp.setSystemMetadata(getSystemMetadata());
+    return mcp;
   }
 
   public static class ChangeItemImplBuilder {

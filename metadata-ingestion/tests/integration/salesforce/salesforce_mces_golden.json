@@ -21,7 +21,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1652353200000,
-        "runId": "salesforce-test"
+        "runId": "salesforce-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1354,7 +1355,24 @@
                 {
                     "fieldPath": "Unique_Account",
                     "nullable": true,
-                    "description": "\\# Unique_Account",
+                    "description": "\\# Unique_Account\n\nThis is the # description\n\n\\# Help Text",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "Text(80)",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": []
+                    },
+                    "isPartOfKey": false,
+                    "jsonProps": "{}"
+                },
+                {
+                    "fieldPath": "Blank_Label",
+                    "nullable": true,
+                    "description": "\n\nThis is the # description\n\n\\# Help Text",
                     "type": {
                         "type": {
                             "com.linkedin.schema.StringType": {}
@@ -1465,7 +1483,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1652353200000,
-        "runId": "salesforce-test"
+        "runId": "salesforce-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1482,7 +1501,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1652353200000,
-        "runId": "salesforce-test"
+        "runId": "salesforce-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1504,7 +1524,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1652353200000,
-        "runId": "salesforce-test"
+        "runId": "salesforce-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1526,7 +1547,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1652353200000,
-        "runId": "salesforce-test"
+        "runId": "salesforce-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1554,7 +1576,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1652353200000,
-        "runId": "salesforce-test"
+        "runId": "salesforce-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1951,7 +1974,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1652353200000,
-        "runId": "salesforce-test"
+        "runId": "salesforce-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1968,7 +1992,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1652353200000,
-        "runId": "salesforce-test"
+        "runId": "salesforce-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1985,7 +2010,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1652353200000,
-        "runId": "salesforce-test"
+        "runId": "salesforce-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2006,7 +2032,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1652353200000,
-        "runId": "salesforce-test"
+        "runId": "salesforce-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2021,7 +2048,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1652353200000,
-        "runId": "salesforce-test"
+        "runId": "salesforce-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2036,7 +2064,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1652353200000,
-        "runId": "salesforce-test"
+        "runId": "salesforce-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2051,7 +2080,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1652353200000,
-        "runId": "salesforce-test"
+        "runId": "salesforce-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2066,7 +2096,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1652353200000,
-        "runId": "salesforce-test"
+        "runId": "salesforce-test",
+        "lastRunId": "no-run-id-provided"
     }
 }
 ]

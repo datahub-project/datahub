@@ -3,6 +3,7 @@ import functools
 import logging
 import os
 import threading
+import time
 from typing import TYPE_CHECKING, Callable, Dict, List, Optional, TypeVar, cast
 
 import airflow
@@ -16,6 +17,8 @@ from datahub.metadata.schema_classes import (
     FineGrainedLineageClass,
     FineGrainedLineageDownstreamTypeClass,
     FineGrainedLineageUpstreamTypeClass,
+    OperationClass,
+    OperationTypeClass,
     StatusClass,
 )
 from datahub.sql_parsing.sqlglot_lineage import SqlParsingResult
@@ -389,7 +392,10 @@ class DataHubListener:
 
         # TODO: Add handling for Airflow mapped tasks using task_instance.map_index
 
-        datajob.emit(self.emitter, callback=self._make_emit_callback())
+        for mcp in datajob.generate_mcp(
+            materialize_iolets=self.config.materialize_iolets
+        ):
+            self.emitter.emit(mcp, self._make_emit_callback())
         logger.debug(f"Emitted DataHub Datajob start: {datajob}")
 
         if self.config.capture_executions:
@@ -411,6 +417,31 @@ class DataHubListener:
             f"DataHub listener finished processing notification about task instance start for {task_instance.task_id}"
         )
 
+        if self.config.materialize_iolets:
+            for outlet in datajob.outlets:
+                reported_time: int = int(time.time() * 1000)
+                operation = OperationClass(
+                    timestampMillis=reported_time,
+                    operationType=OperationTypeClass.CREATE,
+                    lastUpdatedTimestamp=reported_time,
+                    actor=builder.make_user_urn("airflow"),
+                )
+
+                operation_mcp = MetadataChangeProposalWrapper(
+                    entityUrn=str(outlet), aspect=operation
+                )
+
+                self.emitter.emit(operation_mcp)
+                logger.debug(f"Emitted Dataset Operation: {outlet}")
+        else:
+            if self.graph:
+                for outlet in datajob.outlets:
+                    if not self.graph.exists(str(outlet)):
+                        logger.warning(f"Dataset {str(outlet)} not materialized")
+                for inlet in datajob.inlets:
+                    if not self.graph.exists(str(inlet)):
+                        logger.warning(f"Dataset {str(inlet)} not materialized")
+
     def on_task_instance_finish(
         self, task_instance: "TaskInstance", status: InstanceRunResult
     ) -> None:
@@ -430,7 +461,10 @@ class DataHubListener:
         # Add lineage info.
         self._extract_lineage(datajob, dagrun, task, task_instance, complete=True)
 
-        datajob.emit(self.emitter, callback=self._make_emit_callback())
+        for mcp in datajob.generate_mcp(
+            materialize_iolets=self.config.materialize_iolets
+        ):
+            self.emitter.emit(mcp, self._make_emit_callback())
         logger.debug(f"Emitted DataHub Datajob finish w/ status {status}: {datajob}")
 
         if self.config.capture_executions:

@@ -81,6 +81,7 @@ export enum EventType {
     EmbedProfileViewEvent,
     EmbedProfileViewInDataHubEvent,
     EmbedLookupNotFoundEvent,
+    CreateBusinessAttributeEvent,
 }
 
 /**
@@ -633,6 +634,11 @@ export interface EmbedLookupNotFoundEvent extends BaseEvent {
     reason: EmbedLookupNotFoundReason;
 }
 
+export interface CreateBusinessAttributeEvent extends BaseEvent {
+    type: EventType.CreateBusinessAttributeEvent;
+    name: string;
+}
+
 /**
  * Event consisting of a union of specific event types.
  */
@@ -710,4 +716,5 @@ export type Event =
     | DeselectQuickFilterEvent
     | EmbedProfileViewEvent
     | EmbedProfileViewInDataHubEvent
-    | EmbedLookupNotFoundEvent;
+    | EmbedLookupNotFoundEvent
+    | CreateBusinessAttributeEvent;

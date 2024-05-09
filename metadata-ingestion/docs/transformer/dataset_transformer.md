@@ -907,6 +907,42 @@ Then define your class to return a list of custom properties, for example:
           add_properties_resolver_class: "<your_module>.<your_class>"
     ```
 
+## Replace ExternalUrl
+### Config Details
+| Field                       | Required | Type    | Default       | Description                                 |
+|-----------------------------|----------|---------|---------------|---------------------------------------------|
+| `input_pattern`                 | ✅         | string    |    | String or pattern to replace |
+| `replacement`                 | ✅         | string    |    | Replacement string |
+
+
+Matches the full/partial string in the externalUrl of the dataset properties and replace that with the replacement string
+
+```yaml
+transformers:
+  - type: "replace_external_url"
+    config:
+      input_pattern: '\b\w*hub\b'
+      replacement: "sub"
+```
+
+## Clean User URN in DatasetUsageStatistics Aspect
+### Config Details
+| Field                       | Required | Type    | Default       | Description                                 |
+|-----------------------------|----------|---------|---------------|---------------------------------------------|
+| `pattern_for_cleanup`                 | ✅         | list[string]    |    | List of suffix/prefix to remove from the Owner URN(s) |
+
+
+Matches against a User URN in DatasetUsageStatistics aspect and remove the matching part from it
+```yaml
+transformers:
+  - type: "pattern_cleanup_dataset_usage_user"
+    config:
+      pattern_for_cleanup:
+        - "ABCDEF"
+        - (?<=_)(\w+)
+```
+
+
 ## Simple Add Dataset domains 
 ### Config Details
 | Field              | Required | Type                   | Default       | Description                                                      |

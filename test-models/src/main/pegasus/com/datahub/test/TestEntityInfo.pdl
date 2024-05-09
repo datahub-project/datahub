@@ -92,15 +92,15 @@ record TestEntityInfo includes CustomProperties {
   }
   esObjectField: optional map[string, string]
 
-    @Searchable = {
-      "fieldName": "doubleField",
-      "fieldType": "DOUBLE"
-    }
-    doubleField: optional double
+  @Searchable = {
+     "fieldName": "doubleField",
+     "fieldType": "DOUBLE"
+  }
+  doubleField: optional double
 
-    @Searchable = {
-      "fieldName": "removed",
-      "fieldType": "BOOLEAN"
-    }
-    removed: optional boolean
+  @Searchable = {
+     "fieldName": "removed",
+     "fieldType": "BOOLEAN"
+  }
+  removed: optional boolean
 }

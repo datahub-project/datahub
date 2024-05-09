@@ -19,6 +19,9 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
+from datahub.ingestion.api.incremental_lineage_helper import (
+    convert_dashboard_info_to_patch,
+)
 from datahub.ingestion.api.source import (
     CapabilityReport,
     MetadataWorkUnitProcessor,
@@ -84,9 +87,6 @@ from datahub.metadata.schema_classes import (
 from datahub.metadata.urns import ChartUrn
 from datahub.sql_parsing.sqlglot_lineage import ColumnLineageInfo
 from datahub.utilities.dedup_list import deduplicate_list
-from src.datahub.ingestion.api.incremental_lineage_helper import (
-    convert_dashboard_info_to_patch,
-)
 
 # Logger instance
 logger = logging.getLogger(__name__)
@@ -1319,7 +1319,7 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
 
     def _get_dashboard_patch_work_unit(
         self, work_unit: MetadataWorkUnit
-    ) -> MetadataWorkUnit:
+    ) -> Optional[MetadataWorkUnit]:
         dashboard_info_aspect: Optional[
             DashboardInfoClass
         ] = work_unit.get_aspect_of_type(DashboardInfoClass)

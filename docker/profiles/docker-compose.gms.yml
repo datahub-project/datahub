@@ -61,7 +61,7 @@ x-datahub-system-update-service: &datahub-system-update-service
   env_file:
     - datahub-upgrade/env/docker.env
     - ${DATAHUB_LOCAL_COMMON_ENV:-empty.env}
-    - ${DATAHUB_LOCAL_SYS_UPDATE_ENV:-empty.env}
+    - ${DATAHUB_LOCAL_SYS_UPDATE_ENV:-empty2.env}
   environment: &datahub-system-update-env
     <<: [*primary-datastore-mysql-env, *graph-datastore-search-env, *search-datastore-env, *kafka-env]
     SCHEMA_REGISTRY_SYSTEM_UPDATE: ${SCHEMA_REGISTRY_SYSTEM_UPDATE:-true}
@@ -96,9 +96,11 @@ x-datahub-gms-service: &datahub-gms-service
   env_file:
     - datahub-gms/env/docker.env
     - ${DATAHUB_LOCAL_COMMON_ENV:-empty.env}
-    - ${DATAHUB_LOCAL_GMS_ENV:-empty.env}
+    - ${DATAHUB_LOCAL_GMS_ENV:-empty2.env}
   environment: &datahub-gms-env
     <<: [*primary-datastore-mysql-env, *graph-datastore-search-env, *search-datastore-env, *datahub-quickstart-telemetry-env, *kafka-env]
+    ELASTICSEARCH_QUERY_CUSTOM_CONFIG_ENABLED: true
+    ELASTICSEARCH_QUERY_CUSTOM_CONFIG_FILE: '/etc/datahub/search/search_config.yaml'
   healthcheck:
     test: curl -sS --fail http://datahub-gms:${DATAHUB_GMS_PORT:-8080}/health
     start_period: 90s
@@ -107,6 +109,7 @@ x-datahub-gms-service: &datahub-gms-service
     timeout: 5s
   volumes:
     - ${HOME}/.datahub/plugins:/etc/datahub/plugins
+    - ${HOME}/.datahub/search:/etc/datahub/search
   labels:
     io.datahubproject.datahub.component: "gms"
 
@@ -131,6 +134,7 @@ x-datahub-gms-service-dev: &datahub-gms-service-dev
     - ../../metadata-models/src/main/resources/:/datahub/datahub-gms/resources
     - ../../metadata-service/war/build/libs/:/datahub/datahub-gms/bin
     - ${HOME}/.datahub/plugins:/etc/datahub/plugins
+    - ${HOME}/.datahub/search:/etc/datahub/search
 
 #################################
 # MAE Consumer
@@ -143,7 +147,7 @@ x-datahub-mae-consumer-service: &datahub-mae-consumer-service
   env_file:
     - datahub-mae-consumer/env/docker.env
     - ${DATAHUB_LOCAL_COMMON_ENV:-empty.env}
-    - ${DATAHUB_LOCAL_MAE_ENV:-empty.env}
+    - ${DATAHUB_LOCAL_MAE_ENV:-empty2.env}
   environment: &datahub-mae-consumer-env
     <<: [*primary-datastore-mysql-env, *graph-datastore-search-env, *search-datastore-env, *kafka-env]
 
@@ -169,7 +173,7 @@ x-datahub-mce-consumer-service: &datahub-mce-consumer-service
   env_file:
     - datahub-mce-consumer/env/docker.env
     - ${DATAHUB_LOCAL_COMMON_ENV:-empty.env}
-    - ${DATAHUB_LOCAL_MCE_ENV:-empty.env}
+    - ${DATAHUB_LOCAL_MCE_ENV:-empty2.env}
   environment: &datahub-mce-consumer-env
     <<: [*primary-datastore-mysql-env, *graph-datastore-search-env, *search-datastore-env, *datahub-quickstart-telemetry-env, *kafka-env]
 

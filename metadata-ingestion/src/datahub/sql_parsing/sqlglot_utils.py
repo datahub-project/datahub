@@ -1,3 +1,4 @@
+import functools
 import hashlib
 import logging
 from typing import Dict, Iterable, Optional, Tuple, Union
@@ -7,6 +8,9 @@ import sqlglot.errors
 
 logger = logging.getLogger(__name__)
 DialectOrStr = Union[sqlglot.Dialect, str]
+SQL_PARSE_CACHE_SIZE = 1000
+
+FORMAT_QUERY_CACHE_SIZE = 1000
 
 
 def _get_dialect_str(platform: str) -> str:
@@ -55,13 +59,43 @@ def is_dialect_instance(
     return False
 
 
-def parse_statement(
+@functools.lru_cache(maxsize=SQL_PARSE_CACHE_SIZE)
+def _parse_statement(
     sql: sqlglot.exp.ExpOrStr, dialect: sqlglot.Dialect
 ) -> sqlglot.Expression:
     statement: sqlglot.Expression = sqlglot.maybe_parse(
         sql, dialect=dialect, error_level=sqlglot.ErrorLevel.RAISE
     )
     return statement
+
+
+def parse_statement(
+    sql: sqlglot.exp.ExpOrStr, dialect: sqlglot.Dialect
+) -> sqlglot.Expression:
+    # Parsing is significantly more expensive than copying the expression.
+    # Because the expressions are mutable, we don't want to allow the caller
+    # to modify the parsed expression that sits in the cache. We keep
+    # the cached versions pristine by returning a copy on each call.
+    return _parse_statement(sql, dialect).copy()
+
+
+def parse_statements_and_pick(sql: str, platform: DialectOrStr) -> sqlglot.Expression:
+    dialect = get_dialect(platform)
+    statements = [
+        expression for expression in sqlglot.parse(sql, dialect=dialect) if expression
+    ]
+    if not statements:
+        raise ValueError(f"No statements found in query: {sql}")
+    elif len(statements) == 1:
+        return statements[0]
+    else:
+        # If we find multiple statements, we assume the last one is the main query.
+        # Usually the prior queries are going to be things like `CREATE FUNCTION`
+        # or `GRANT ...`, which we don't care about.
+        logger.debug(
+            "Found multiple statements in query, picking the last one: %s", sql
+        )
+        return statements[-1]
 
 
 def _expression_to_string(
@@ -181,6 +215,7 @@ def get_query_fingerprint(
     return get_query_fingerprint_debug(expression, platform)[0]
 
 
+@functools.lru_cache(maxsize=FORMAT_QUERY_CACHE_SIZE)
 def try_format_query(
     expression: sqlglot.exp.ExpOrStr, platform: DialectOrStr, raises: bool = False
 ) -> str:
@@ -258,4 +293,5 @@ def detach_ctes(
         else:
             return node
 
+    statement = statement.copy()
     return statement.transform(replace_cte_refs, copy=False)
