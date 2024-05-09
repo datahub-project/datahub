@@ -31,7 +31,7 @@ export const useEntityFormDataFactory = (formUrn, selectedPromptId, formView, su
 	const { query, orFilters, page, sortInput } = useGetSearchQueryInputs();
 
 	const [searchResults, setSearchResults] = useState();
-	const [numResultsPerPage] = useState(SearchCfg.RESULTS_PER_PAGE);
+	const [numResultsPerPage, setNumResultsPerPage] = useState(SearchCfg.RESULTS_PER_PAGE);
 	const [isLoading, setIsLoading] = useState(true);
 
 	// Get current form data
@@ -320,6 +320,8 @@ export const useEntityFormDataFactory = (formUrn, selectedPromptId, formView, su
 			refetchSearch,
 			refetchNonOptimisticData,
 			verificationDataLoading: assetsReadyForVerificationLoading || assetsNotReadyForVerificationLoading,
+			numResultsPerPage,
+			setNumResultsPerPage
 		},
 		counts: {
 			verificationType: {

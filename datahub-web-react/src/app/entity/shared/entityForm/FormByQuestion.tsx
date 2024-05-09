@@ -11,7 +11,6 @@ import SearchFilters from '../../../searchV2/filters/SearchFilters';
 import useGetSearchQueryInputs from '../../../search/useGetSearchQueryInputs';
 import { useIsSearchV2 } from '../../../search/useSearchAndBrowseVersion';
 import useSearchPage from '../../../search/useSearchPage';
-import { SearchCfg } from '../../../../conf';
 import useFilterMode from '../../../search/filters/useFilterMode';
 import { FormResponsesFilter, useEntityFormContext } from './EntityFormContext';
 import { OnboardingTour } from '../../../onboarding/OnboardingTour';
@@ -40,7 +39,16 @@ interface Props {
 
 export default function FormByQuestion({ closeModal }: Props) {
     const {
-        search: { results, resultItems, resultItemCount, error, loading, refetch },
+        search: {
+            results,
+            resultItems,
+            resultItemCount,
+            error,
+            loading,
+            refetch,
+            numResultsPerPage,
+            setNumResultsPerPage,
+        },
         filter: { setFormResponsesFilters },
         entity: { selectedEntities, setSelectedEntities, setNumSubmittedEntities },
         states: {
@@ -53,7 +61,6 @@ export default function FormByQuestion({ closeModal }: Props) {
     const showSearchFiltersV2 = useIsSearchV2();
     const { query, unionType, filters, viewUrn, page } = useGetSearchQueryInputs();
     const { filterMode, setFilterMode } = useFilterMode(filters, unionType);
-    const [numResultsPerPage, setNumResultsPerPage] = useState(SearchCfg.RESULTS_PER_PAGE);
     const [isVerifyModalVisible, setIsVerifyModalVisible] = useState(false);
 
     const {
@@ -148,7 +155,10 @@ export default function FormByQuestion({ closeModal }: Props) {
                     onClickClearFilters={clearAllFilters}
                     shouldHideSuggestions
                 />
-                <BulkVerifyPromptModal isVisible={isVerifyModalVisible} closeModal={() => setIsVerifyModalVisible(false)} />
+                <BulkVerifyPromptModal
+                    isVisible={isVerifyModalVisible}
+                    closeModal={() => setIsVerifyModalVisible(false)}
+                />
             </FormByQuestionWrapper>
         );
     }
@@ -178,9 +188,7 @@ export default function FormByQuestion({ closeModal }: Props) {
                     />
                 </div>
             )}
-            {resultItemCount === 0 &&
-                <EmptyStates closeModal={closeModal} handleViewRemaining={handleViewRemaining} />
-            }
+            {resultItemCount === 0 && <EmptyStates closeModal={closeModal} handleViewRemaining={handleViewRemaining} />}
             {resultItemCount > 0 && (
                 <SearchResults
                     unionType={unionType}

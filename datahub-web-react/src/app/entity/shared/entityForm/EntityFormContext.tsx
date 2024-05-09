@@ -37,6 +37,8 @@ export type EntityFormContextType = {
         error?: any;
         loading: boolean;
         refetch: () => void;
+        numResultsPerPage: number;
+        setNumResultsPerPage: (num: number) => void,
     };
     form: {
         formUrn: string;
@@ -123,6 +125,8 @@ export const DEFAULT_CONTEXT = {
         error: undefined,
         loading: false,
         refetch: () => Promise.resolve({}),
+        numResultsPerPage: 10,
+        setNumResultsPerPage: (_: number) => null,
     },
     form: {
         formUrn: '',

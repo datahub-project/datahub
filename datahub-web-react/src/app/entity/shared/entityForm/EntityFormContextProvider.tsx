@@ -52,6 +52,8 @@ export default function EntityFormContextProvider({ children, formUrn }: Props) 
             refetchNonOptimisticData,
             refetchSearch,
             verificationDataLoading,
+            numResultsPerPage,
+            setNumResultsPerPage,
         },
         filter,
         counts,
@@ -190,6 +192,8 @@ export default function EntityFormContextProvider({ children, formUrn }: Props) 
         error: searchError,
         loading: searchLoading,
         refetch: refetchSearch,
+        numResultsPerPage,
+        setNumResultsPerPage,
     };
 
     // Form 
