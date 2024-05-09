@@ -56,7 +56,7 @@ publishing {
       pom {
         name = 'DataHub Custom Plugin Dependency'
         group = 'io.acryl'
-        artifactId = 'datahub-custom-plugin'
+        artifactId = 'datahub-custom-plugin-lib'
         description = 'DataHub Java Custom Plugin dependencies'
         url = 'https://datahubproject.io'
         artifacts = [shadowJar]
