@@ -154,14 +154,14 @@ Once these are in place, you're ready to create your Freshness Assertions!
 1. Navigate to the Table that to monitor for freshness
 2. Click the **Validations** tab
 
-<p align="center">
-  <img width="90%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/freshness/profile-validation-tab.png"/>
+<p align="left">
+  <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/freshness/profile-validation-tab.png"/>
 </p>
 
 3. Click **+ Create Assertion**
 
-<p align="center">
-  <img width="90%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/freshness/assertion-builder-choose-type.png"/>
+<p align="left">
+  <img width="40%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/freshness/assertion-builder-choose-type.png"/>
 </p>
 
 4. Choose **Freshness**
@@ -174,22 +174,22 @@ or _In the past X hours_ to configure a fixed interval that is used when checkin
 
 _Check whether the table has changed between subsequent evaluations of the check_
 
-<p align="center">
-  <img width="90%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/freshness/assertion-builder-freshness-since-last.png"/>
+<p align="left">
+  <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/freshness/assertion-builder-freshness-since-last.png"/>
 </p>
 
 _Check whether the table has changed in a specific window of time_
 
-<p align="center">
-  <img width="90%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/freshness/assertion-builder-freshness-fixed-interval.png"/>
+<p align="left">
+  <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/freshness/assertion-builder-freshness-fixed-interval.png"/>
 </p>
 
 
 7. (Optional) Click **Advanced** to customize the evaluation **source**. This is the mechanism that will be used to evaluate
 the check. Each Data Platform supports different options including Audit Log, Information Schema, Last Modified Column, High Watermark Column, and DataHub Operation.
    
-<p align="center">
-  <img width="45%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/freshness/assertion-builder-freshness-source-type.png"/>
+<p align="left">
+  <img width="40%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/freshness/assertion-builder-freshness-source-type.png"/>
 </p>
 
 - **Audit Log**: Check the Data Platform operational audit log to determine whether the table changed within the evaluation period.
@@ -204,7 +204,7 @@ the check. Each Data Platform supports different options including Audit Log, In
 8. Configure actions that should be taken when the Freshness Assertion passes or fails
 
 <p align="left">
-  <img width="55%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/shared/assertion-builder-actions.png"/>
+  <img width="45%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/shared/assertion-builder-actions.png"/>
 </p>
 
 - **Raise incident**: Automatically raise a new DataHub `Freshness` Incident for the Table whenever the Freshness Assertion is failing. This
@@ -220,17 +220,10 @@ the check. Each Data Platform supports different options including Audit Log, In
 
 And that's it! DataHub will now begin to monitor your Freshness Assertion for the table. 
 
-To view the time of the next Freshness Assertion evaluation, simply click **Freshness** and then click on your 
-new Assertion:
-
-<p align="center">
-  <img width="40%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/freshness/assertion-next-evaluation-time.png"/>
-</p>
-
 Once your assertion has run, you will begin to see Success or Failure status for the Table
 
-<p align="center">
-  <img width="90%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/freshness/failing-assertions-section.png"/>
+<p align="left">
+  <img width="45%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/freshness/failing-assertions-section.png"/>
 </p>
 
 
@@ -248,8 +241,8 @@ In order to temporarily stop the evaluation of the assertion:
 
 To resume the assertion, simply click **Start**.
 
-<p align="center">
-  <img width="90%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/shared/start-assertion.png"/>
+<p align="left">
+  <img width="25%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/shared/start-assertion.png"/>
 </p>
 
 
@@ -262,7 +255,7 @@ requiring any manual setup.
 If Acryl DataHub is able to detect a pattern in the change frequency of a Snowflake, Redshift, or BigQuery Table, you'll find
 a recommended Smart Assertion under the `Validations` tab on the Table profile page:
 
-<p align="center">
+<p align="left">
   <img width="90%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/freshness/smart-assertion.png"/>
 </p>
 
