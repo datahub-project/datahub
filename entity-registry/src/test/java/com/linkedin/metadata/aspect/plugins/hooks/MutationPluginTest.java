@@ -9,6 +9,9 @@ import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
 import java.util.List;
 import java.util.stream.Collectors;
+import lombok.Getter;
+import lombok.Setter;
+import lombok.experimental.Accessors;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
@@ -36,24 +39,26 @@ public class MutationPluginTest {
     assertEquals(
         mutators,
         List.of(
-            new TestMutator(
-                AspectPluginConfig.builder()
-                    .className(
-                        "com.linkedin.metadata.aspect.plugins.hooks.MutationPluginTest$TestMutator")
-                    .supportedOperations(List.of("UPSERT"))
-                    .enabled(true)
-                    .supportedEntityAspectNames(
-                        List.of(
-                            AspectPluginConfig.EntityAspectName.builder()
-                                .entityName("*")
-                                .aspectName("schemaMetadata")
-                                .build()))
-                    .build())));
+            new TestMutator()
+                .setConfig(
+                    AspectPluginConfig.builder()
+                        .className(
+                            "com.linkedin.metadata.aspect.plugins.hooks.MutationPluginTest$TestMutator")
+                        .supportedOperations(List.of("UPSERT"))
+                        .enabled(true)
+                        .supportedEntityAspectNames(
+                            List.of(
+                                AspectPluginConfig.EntityAspectName.builder()
+                                    .entityName("*")
+                                    .aspectName("schemaMetadata")
+                                    .build()))
+                        .build())));
   }
 
+  @Getter
+  @Setter
+  @Accessors(chain = true)
   public static class TestMutator extends MutationHook {
-    public TestMutator(AspectPluginConfig aspectPluginConfig) {
-      super(aspectPluginConfig);
-    }
+    public AspectPluginConfig config;
   }
 }

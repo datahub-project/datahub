@@ -20,7 +20,7 @@ import dateutil.parser as dp
 import tableauserverclient as TSC
 from pydantic import root_validator, validator
 from pydantic.fields import Field
-from requests.adapters import ConnectionError, HTTPAdapter
+from requests.adapters import HTTPAdapter
 from tableauserverclient import (
     PersonalAccessTokenAuth,
     Server,
@@ -572,11 +572,11 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
         try:
             if self.server is not None:
                 self.server.auth.sign_out()
-        except ConnectionError as err:
+        except Exception as ex:
             logger.warning(
                 "During graceful closing of Tableau source a sign-out call was tried but ended up with"
-                " a ConnectionError (%s). Continuing closing of the source",
-                err,
+                " an Exception (%s). Continuing closing of the source",
+                ex,
             )
             self.server = None
         super().close()

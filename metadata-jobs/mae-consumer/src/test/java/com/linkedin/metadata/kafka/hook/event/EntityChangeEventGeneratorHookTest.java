@@ -119,15 +119,12 @@ public class EntityChangeEventGeneratorHookTest {
       "Personally Identifiable Information";
 
   private SystemEntityClient _mockClient;
-  private EntityService _mockEntityService;
-
   private EntityChangeEventGeneratorHook _entityChangeEventHook;
 
   @BeforeMethod
   public void setupTest() throws URISyntaxException {
     actorUrn = Urn.createFromString(TEST_ACTOR_URN);
     _mockClient = Mockito.mock(SystemEntityClient.class);
-    _mockEntityService = Mockito.mock(EntityService.class);
     EntityChangeEventGeneratorRegistry entityChangeEventGeneratorRegistry =
         createEntityChangeEventGeneratorRegistry();
     _entityChangeEventHook =

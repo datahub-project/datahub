@@ -293,22 +293,23 @@ public class PropertyDefinitionValidatorTest {
   @Test
   public void testHardDeleteBlock() {
     PropertyDefinitionValidator test =
-        new PropertyDefinitionValidator(
-            AspectPluginConfig.builder()
-                .enabled(true)
-                .className(PropertyDefinitionValidator.class.getName())
-                .supportedOperations(List.of("DELETE"))
-                .supportedEntityAspectNames(
-                    List.of(
-                        AspectPluginConfig.EntityAspectName.builder()
-                            .entityName(STRUCTURED_PROPERTY_ENTITY_NAME)
-                            .aspectName(Constants.STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME)
-                            .build(),
-                        AspectPluginConfig.EntityAspectName.builder()
-                            .entityName(STRUCTURED_PROPERTY_ENTITY_NAME)
-                            .aspectName("structuredPropertyKey")
-                            .build()))
-                .build());
+        new PropertyDefinitionValidator()
+            .setConfig(
+                AspectPluginConfig.builder()
+                    .enabled(true)
+                    .className(PropertyDefinitionValidator.class.getName())
+                    .supportedOperations(List.of("DELETE"))
+                    .supportedEntityAspectNames(
+                        List.of(
+                            AspectPluginConfig.EntityAspectName.builder()
+                                .entityName(STRUCTURED_PROPERTY_ENTITY_NAME)
+                                .aspectName(Constants.STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME)
+                                .build(),
+                            AspectPluginConfig.EntityAspectName.builder()
+                                .entityName(STRUCTURED_PROPERTY_ENTITY_NAME)
+                                .aspectName("structuredPropertyKey")
+                                .build()))
+                    .build());
 
     assertEquals(
         test.validateProposed(

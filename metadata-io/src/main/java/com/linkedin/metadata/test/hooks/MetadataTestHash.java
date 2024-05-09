@@ -13,6 +13,10 @@ import com.linkedin.metadata.test.util.TestMd5;
 import com.linkedin.test.TestDefinition;
 import com.linkedin.test.TestInfo;
 import com.linkedin.util.Pair;
+import lombok.Getter;
+import lombok.Setter;
+import lombok.experimental.Accessors;
+
 import java.util.Collection;
 import java.util.LinkedList;
 import java.util.List;
@@ -22,10 +26,11 @@ import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 
 /** Hook to populate the md5 hash on metadata tests */
+@Setter
+@Getter
+@Accessors(chain = true)
 public class MetadataTestHash extends MutationHook {
-  public MetadataTestHash(AspectPluginConfig aspectPluginConfig) {
-    super(aspectPluginConfig);
-  }
+  @Nonnull private AspectPluginConfig config;
 
   @Override
   protected Stream<Pair<ReadItem, Boolean>> readMutation(

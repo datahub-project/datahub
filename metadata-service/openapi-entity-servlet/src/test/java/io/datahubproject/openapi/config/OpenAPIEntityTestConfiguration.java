@@ -90,7 +90,7 @@ public class OpenAPIEntityTestConfiguration {
       dependency.
     */
     PluginEntityRegistryLoader custom =
-        new PluginEntityRegistryLoader(getClass().getResource("/custom-model").getFile(), 60);
+        new PluginEntityRegistryLoader(getClass().getResource("/custom-model").getFile(), 60, null);
 
     ConfigEntityRegistry standard =
         new ConfigEntityRegistry(

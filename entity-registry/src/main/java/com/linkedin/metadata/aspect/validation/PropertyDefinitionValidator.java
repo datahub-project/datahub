@@ -31,12 +31,15 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
+import lombok.Getter;
+import lombok.Setter;
+import lombok.experimental.Accessors;
 
+@Getter
+@Setter
+@Accessors(chain = true)
 public class PropertyDefinitionValidator extends AspectPayloadValidator {
-
-  public PropertyDefinitionValidator(AspectPluginConfig aspectPluginConfig) {
-    super(aspectPluginConfig);
-  }
+  private AspectPluginConfig config;
 
   /**
    * Prevent deletion of the definition or key aspect (only soft delete)

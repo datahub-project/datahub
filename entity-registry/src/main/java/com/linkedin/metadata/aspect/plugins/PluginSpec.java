@@ -15,10 +15,13 @@ import lombok.EqualsAndHashCode;
 public abstract class PluginSpec {
   protected static String ENTITY_WILDCARD = "*";
 
-  private final AspectPluginConfig aspectPluginConfig;
+  @Nonnull
+  public abstract AspectPluginConfig getConfig();
 
-  protected AspectPluginConfig getConfig() {
-    return this.aspectPluginConfig;
+  public abstract PluginSpec setConfig(@Nonnull AspectPluginConfig config);
+
+  public boolean enabled() {
+    return true;
   }
 
   public boolean shouldApply(

@@ -48,7 +48,7 @@ Change your directory to the metadata-models-custom folder and then run this com
 This will create a zip file in the build/dist folder. Then change your directory back to the main datahub folder and run 
 
 ```
-./gradlew :metadata-models-custom:install
+./gradlew :metadata-models-custom:modelDeploy
 ```
 
 This will install the zip file as a datahub plugin. It is installed at `~/.datahub/plugins/models/` and if you list the directory you should see the following path if you are following the customDataQualityRules implementation example: `~/.datahub/plugins/models/mycompany-dq-model/0.0.0-dev/`
@@ -466,6 +466,73 @@ plugins:
         - entityName: 'dataset'
           aspectName: customDataQualityRules
 ```
+
+#### Spring Support
+
+Validators, mutators, and side-effects can also utilize Spring to inject dependencies and autoconfigure them. While Spring is
+not required, it is possible to use Spring to both inject autoconfiguration and the plugins themselves. An example Spring-enabled
+validator has been included in the package `com.linkedin.metadata.aspect.plugins.spring.validation`. The plugin
+class loader and Spring context is isolated so conflicts between DataHub and custom classes are avoided.
+
+The configuration of a Spring enabled plugin looks like the following, note the addition of `spring.enabled: true` below.
+A list of packages to scan for Spring configuration and components should also be provided which should include
+your custom classes with Spring annotations per the `packageScan` below.
+
+```yaml
+plugins:
+  aspectPayloadValidators:
+    - className: 'com.linkedin.metadata.aspect.plugins.spring.validation.CustomDataQualityRulesValidator'
+      packageScan:
+        - com.linkedin.metadata.aspect.plugins.spring.validation
+      enabled: true
+      supportedOperations:
+        - UPSERT
+      supportedEntityAspectNames:
+        - entityName: 'dataset'
+          aspectName: customDataQualityRules
+      spring:
+        enabled: true
+```
+
+In the Spring example, a configuration component called `CustomDataQualityRulesConfig` provides a string `Spring injection works!` demonstrating
+injection of a bean into a function which is called by Spring after constructing the custom validator plugin.
+
+```java
+@Configuration
+public class CustomDataQualityRulesConfig {
+    @Bean("myCustomMessage")
+    public String myCustomMessage() {
+        return "Spring injection works!";
+    }
+}
+```
+
+```java
+@Component
+@Import(CustomDataQualityRulesConfig.class)
+public class CustomDataQualityRulesValidator extends AspectPayloadValidator {
+    @Autowired
+    @Qualifier("myCustomMessage")
+    private String myCustomMessage;
+
+    @PostConstruct
+    public void message() {
+        System.out.println(myCustomMessage);
+    }
+    
+    // ...
+}
+```
+
+Example Log:
+
+```
+INFO  c.l.m.m.r.PluginEntityRegistryLoader:187 - com.linkedin.metadata.models.registry.PluginEntityRegistryLoader@144e466d: Registry mycompany-dq-model:0.0.0-dev discovered. Loading...
+INFO  c.l.m.m.registry.PatchEntityRegistry:143 - Loading custom config entity file: /etc/datahub/plugins/models/mycompany-dq-model/0.0.0-dev/entity-registry.yaml, dir: /etc/datahub/plugins/models/mycompany-dq-model/0.0.0-dev
+INFO  c.l.m.m.registry.PatchEntityRegistry:143 - Loading custom config entity file: /etc/datahub/plugins/models/mycompany-dq-model/0.0.0-dev/entity-registry.yaml, dir: /etc/datahub/plugins/models/mycompany-dq-model/0.0.0-dev
+Spring injection works!
+```
+
 
 ## The Future
 

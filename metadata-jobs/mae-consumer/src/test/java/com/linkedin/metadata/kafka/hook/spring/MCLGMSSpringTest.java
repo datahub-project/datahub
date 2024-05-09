@@ -24,7 +24,11 @@ import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.testng.annotations.Test;
 
 @SpringBootTest(
-    classes = {MCLSpringTestConfiguration.class, ConfigurationProvider.class},
+    classes = {
+      MCLSpringCommonTestConfiguration.class,
+      MCLSpringGMSTestConfiguration.class,
+      ConfigurationProvider.class
+    },
     properties = {
       "ingestionScheduler.enabled=false",
       "configEntityRegistry.path=../../metadata-jobs/mae-consumer/src/test/resources/test-entity-registry.yml",
@@ -34,7 +38,7 @@ import org.testng.annotations.Test;
     locations = "classpath:/application.yaml",
     properties = {"MCL_CONSUMER_ENABLED=true"})
 @EnableAutoConfiguration(exclude = {CassandraAutoConfiguration.class})
-public class MCLSpringTest extends AbstractTestNGSpringContextTests {
+public class MCLGMSSpringTest extends AbstractTestNGSpringContextTests {
 
   static {
     PathSpecBasedSchemaAnnotationVisitor.class

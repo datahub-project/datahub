@@ -22,7 +22,8 @@ public class PatchEntityRegistryTest {
                 + "/"
                 + TestConstants.TEST_VERSION.toString(),
             TestConstants.TEST_REGISTRY,
-            TestConstants.TEST_VERSION);
+            TestConstants.TEST_VERSION,
+            null);
 
     Map<String, EntitySpec> entitySpecs = patchEntityRegistry.getEntitySpecs();
     assertEquals(entitySpecs.values().size(), 1);
@@ -64,7 +65,8 @@ public class PatchEntityRegistryTest {
             DataSchemaFactory.getClassLoader(pluginLocation).stream().toList(),
             Paths.get("src/test_plugins/mycompany-full-model/0.0.1/entity-registry.yaml"),
             TestConstants.TEST_REGISTRY,
-            TestConstants.TEST_VERSION);
+            TestConstants.TEST_VERSION,
+            null);
 
     Map<String, EntitySpec> entitySpecs = patchEntityRegistry.getEntitySpecs();
     assertEquals(entitySpecs.values().size(), 1);

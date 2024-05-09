@@ -12,8 +12,8 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
 import com.linkedin.data.schema.annotation.PathSpecBasedSchemaAnnotationVisitor;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.metadata.entity.validation.ValidationApiUtils;
 import com.linkedin.metadata.entity.validation.ValidationException;
-import com.linkedin.metadata.entity.validation.ValidationUtils;
 import com.linkedin.metadata.key.DatasetKey;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
@@ -43,14 +43,14 @@ public class ValidationUtilsTest {
     rawMap.put("removed", true);
     rawMap.put("extraField", 1);
     Status status = new Status(rawMap);
-    assertThrows(ValidationException.class, () -> ValidationUtils.validateOrThrow(status));
+    assertThrows(ValidationException.class, () -> ValidationApiUtils.validateOrThrow(status));
   }
 
   @Test
   public void testValidateOrThrowThrowsOnMissingRequiredField() {
     DataMap rawMap = new DataMap();
     BrowsePath status = new BrowsePath(rawMap);
-    assertThrows(ValidationException.class, () -> ValidationUtils.validateOrThrow(status));
+    assertThrows(ValidationException.class, () -> ValidationApiUtils.validateOrThrow(status));
   }
 
   @Test
@@ -59,14 +59,14 @@ public class ValidationUtilsTest {
     Owner owner = new Owner(rawMap);
     owner.setOwner(Urn.createFromString("urn:li:corpuser:test"));
     owner.setType(OwnershipType.DATAOWNER);
-    ValidationUtils.validateOrThrow(owner);
+    ValidationApiUtils.validateOrThrow(owner);
   }
 
   @Test
   public void testValidateOrThrowDoesNotThrowOnMissingDefaultField() {
     DataMap rawMap = new DataMap();
     Status status = new Status(rawMap);
-    ValidationUtils.validateOrThrow(status);
+    ValidationApiUtils.validateOrThrow(status);
   }
 
   @Test
@@ -75,7 +75,7 @@ public class ValidationUtilsTest {
         Urn.createFromString(
             "urn:li:dataset:(urn:li:dataPlatform:s3,urn:li:dataset:%28urn:li:dataPlatform:s3%2Ctest-datalake-concepts/prog_maintenance%2CPROD%29,PROD)");
 
-    ValidationUtils.validateUrn(entityRegistry, urn);
+    ValidationApiUtils.validateUrn(entityRegistry, urn);
 
     final AspectSpec keyAspectSpec =
         entityRegistry.getEntitySpec(urn.getEntityType()).getKeyAspectSpec();
@@ -94,6 +94,6 @@ public class ValidationUtilsTest {
             "urn:li:dataset:%28urn:li:dataPlatform:s3%2Ctest-datalake-concepts/prog_maintenance%2CPROD%29");
     assertThrows(
         IllegalArgumentException.class,
-        () -> ValidationUtils.validateUrn(entityRegistry, invalidUrn));
+        () -> ValidationApiUtils.validateUrn(entityRegistry, invalidUrn));
   }
 }

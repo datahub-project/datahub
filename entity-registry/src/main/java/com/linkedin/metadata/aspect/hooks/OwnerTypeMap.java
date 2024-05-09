@@ -14,6 +14,10 @@ import com.linkedin.metadata.aspect.batch.ChangeMCP;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.aspect.plugins.hooks.MutationHook;
 import com.linkedin.util.Pair;
+import lombok.Getter;
+import lombok.Setter;
+import lombok.experimental.Accessors;
+
 import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedList;
@@ -26,10 +30,11 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 /** Hook to populate the ownerType map within the ownership aspect */
+@Setter
+@Getter
+@Accessors(chain = true)
 public class OwnerTypeMap extends MutationHook {
-  public OwnerTypeMap(AspectPluginConfig aspectPluginConfig) {
-    super(aspectPluginConfig);
-  }
+  @Nonnull private AspectPluginConfig config;
 
   @Override
   protected Stream<Pair<ChangeMCP, Boolean>> writeMutation(
