@@ -91,6 +91,7 @@ Use the "Try it out" button to test your query and ensure that it returns a sing
 #### 3. Condition Type
 
 The **Condition Type**: This defines the conditions under which the Assertion will **fail**. The list of supported operations is:
+
 - **Is Equal To**: The assertion will fail if the query result is equal to the configured value
 - **Is Not Equal To**: The assertion will fail if the query result is not equal to the configured value
 - **Is Greater Than**: The assertion will fail if the query result is greater than the configured value

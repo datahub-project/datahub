@@ -208,7 +208,7 @@ Once these are in place, you're ready to create your Column Assertions!
 11. Configure actions that should be taken when the Column Assertion passes or fails
 
 <p align="left">
-  <img width="45%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/freshness/assertion-builder-actions.png"/>
+  <img width="45%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/shared/assertion-builder-actions.png"/>
 </p>
 
 - **Raise incident**: Automatically raise a new DataHub `Column` Incident for the Table whenever the Column Assertion is failing. This

@@ -123,7 +123,7 @@ Once these are in place, you're ready to create your Schema Assertions!
 3. Click **+ Create Assertion**
 
 <p align="center">
-  <img width="90%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/schema/assertion-builder-schema-choose-type.png"/>
+  <img width="90%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/schema/assertion-builder-choose-type.png"/>
 </p>
 
 4. Choose **Schema**
@@ -133,7 +133,7 @@ Once these are in place, you're ready to create your Schema Assertions!
 6. Define the **expected columns** that will be continually compared against the actual column set. This defaults to the current columns for the table.
 
 <p align="center">
-  <img width="60%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/schema/assertion-builder-expected-columns.png"/>
+  <img width="60%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/schema/assertion-builder-config.png"/>
 </p>
 
 7. Configure actions that should be taken when the assertion passes or fails
