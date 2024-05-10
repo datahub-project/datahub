@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import DOMPurify from 'dompurify';
 import styled from 'styled-components';
 
 import { EditableSchemaMetadata, SchemaField, SubResourceType } from '../../../../../../../types.generated';
@@ -10,6 +9,7 @@ import { useMutationUrn, useRefetch } from '../../../../../../entity/shared/Enti
 import { useSchemaRefetch } from '../SchemaContext';
 import { useProposeUpdateDescriptionMutation } from '../../../../../../../graphql/proposals.generated';
 import { REDESIGN_COLORS } from '../../../../constants';
+import { sanitizeRichText } from '../../../Documentation/components/editor/utils';
 
 const CompactDescription = styled.div`
     overflow: hidden;
@@ -41,8 +41,8 @@ export default function useDescriptionRenderer(
             (candidateEditableFieldInfo) => pathMatchesNewPath(candidateEditableFieldInfo.fieldPath, record.fieldPath),
         );
         const displayedDescription = relevantEditableFieldInfo?.description || description;
-        const sanitizedDescription = DOMPurify.sanitize(displayedDescription);
-        const original = record.description ? DOMPurify.sanitize(record.description) : undefined;
+        const sanitizedDescription = sanitizeRichText(displayedDescription);
+        const original = record.description ? sanitizeRichText(record.description) : undefined;
 
         const handleExpandedRows = (expanded) => setExpandedRows((prev) => ({ ...prev, [index]: expanded }));
 
@@ -61,7 +61,7 @@ export default function useDescriptionRenderer(
                     updateDescription({
                         variables: {
                             input: {
-                                description: DOMPurify.sanitize(updatedDescription),
+                                description: sanitizeRichText(updatedDescription),
                                 resourceUrn: urn,
                                 subResource: record.fieldPath,
                                 subResourceType: SubResourceType.DatasetField,
@@ -73,7 +73,7 @@ export default function useDescriptionRenderer(
                     proposeUpdateDescription({
                         variables: {
                             input: {
-                                description: DOMPurify.sanitize(updatedDescription),
+                                description: sanitizeRichText(updatedDescription),
                                 resourceUrn: urn,
                                 subResource: record.fieldPath,
                                 subResourceType: SubResourceType.DatasetField,

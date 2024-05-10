@@ -1,7 +1,6 @@
 import { PlusOutlined } from '@ant-design/icons';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import { message } from 'antd';
-import DOMPurify from 'dompurify';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 import { useUpdateDescriptionMutation } from '../../../../../../../../graphql/mutations.generated';
@@ -17,6 +16,7 @@ import SectionActionButton from '../../../../../containers/profile/sidebar/Secti
 import { SidebarSection } from '../../../../../containers/profile/sidebar/SidebarSection';
 import { useSchemaRefetch } from '../../SchemaContext';
 import { StyledDivider } from './components';
+import { sanitizeRichText } from '../../../../Documentation/components/editor/utils';
 
 const AddNewDescription = styled.div`
     margin: 0px;
@@ -84,16 +84,18 @@ export default function FieldDescription({ expandedField, editableFieldInfo }: P
         if (e instanceof Error) message.error({ content: `Proposal Failed! \n ${e.message || ''}`, duration: 2 });
     };
 
-    const generateMutationVariables = (updatedDescription: string) => ({
-        variables: {
-            input: {
-                description: DOMPurify.sanitize(updatedDescription),
-                resourceUrn: urn,
-                subResource: expandedField.fieldPath,
-                subResourceType: SubResourceType.DatasetField,
+    const generateMutationVariables = (updatedDescription: string) => {
+        return {
+            variables: {
+                input: {
+                    description: sanitizeRichText(updatedDescription),
+                    resourceUrn: urn,
+                    subResource: expandedField.fieldPath,
+                    subResourceType: SubResourceType.DatasetField,
+                },
             },
-        },
-    });
+        };
+    };
 
     const displayedDescription = editableFieldInfo?.description || expandedField.description;
 

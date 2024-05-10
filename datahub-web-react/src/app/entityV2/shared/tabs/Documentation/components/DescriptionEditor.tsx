@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import DOMPurify from 'dompurify';
 import { message } from 'antd';
 import styled from 'styled-components/macro';
 import analytics, { EventType, EntityActionType } from '../../../../../analytics';
@@ -13,6 +12,7 @@ import { EntityType } from '../../../../../../types.generated';
 import { DescriptionEditorToolbar } from './DescriptionEditorToolbar';
 import { Editor } from './editor/Editor';
 import SourceDescription from './SourceDesription';
+import { sanitizeRichText } from './editor/utils';
 
 const PROPOSAL_ENTITY_TYPES = [EntityType.GlossaryTerm, EntityType.GlossaryNode, EntityType.Dataset];
 
@@ -122,7 +122,7 @@ export const DescriptionEditor = ({ onComplete }: DescriptionEditorProps) => {
     };
 
     function proposeUpdate() {
-        const sanitizedDescription = DOMPurify.sanitize(updatedDescription);
+        const sanitizedDescription = sanitizeRichText(updatedDescription);
         proposeUpdateDescription({
             variables: {
                 input: {
@@ -147,7 +147,7 @@ export const DescriptionEditor = ({ onComplete }: DescriptionEditorProps) => {
 
     function handleCancel() {
         if (onComplete) onComplete();
-    };
+    }
 
     // Function to handle all changes in Editor
     const handleEditorChange = (editedDescription: string) => {
