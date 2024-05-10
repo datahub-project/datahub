@@ -343,8 +343,11 @@ notifications:
         retryEnabled: ${SLACK_RETRY_NOTIFICATION_ENABLED:true}
         maxNumRetries: ${SLACK_MAX_NUM_RETRIES:2}
         proxyUrl: ${SLACK_PROXY_URL:}
-    - type: com.datahub.notification.proxy.IntegrationsServiceProxySink
-      enabled: ${INTEGRATIONS_SERVICE_NOTIFICATIONS_ENABLED:true}
+        slackSinkV2Enabled: ${SLACK_INTEGRATIONS_SERVICE_NOTIFICATIONS_ENABLED:false} # Whether the new Slack sink in integrations service is enabled.
+    - type: com.datahub.notification.proxy.EmailProxySink
+      enabled: ${EMAIL_INTEGRATIONS_SERVICE_NOTIFICATIONS_ENABLED:true}
+    - type: com.datahub.notification.proxy.SlackProxySink
+      enabled: ${SLACK_INTEGRATIONS_SERVICE_NOTIFICATIONS_ENABLED:true}
 
 # Mirroring events to external systems (e.g. Event Bridge)
 eventSinks:

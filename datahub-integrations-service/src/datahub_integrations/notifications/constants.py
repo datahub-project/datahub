@@ -3,8 +3,11 @@ import os
 # Global on-off switch for all notifications
 NOTIFICATIONS_ENABLED = os.environ.get("NOTIFICATIONS_ENABLED", "true")
 
-# Specifically enable or disable email notifications. Disabled since you need an API key by default.
+# Specifically enable or disable email + slack notifications. Disabled since you need an API key by default.
 EMAIL_SINK_ENABLED = os.environ.get("EMAIL_SINK_ENABLED", "true")
+SLACK_SINK_ENABLED = os.environ.get(
+    "SLACK_SINK_ENABLED", "false"
+)  # Enable if slack messages are not being sent by GMS or MAE consumer services.
 
 MAX_NOTIFICATION_RETRIES = int(os.environ.get("MAX_NOTIFICATION_RETRIES", 3))
 
@@ -24,7 +27,6 @@ CUSTOM_TEMPLATE = "d-d19885c33b0643f3b1cbef31be08d869"
 # SendGrid Subscription Groups
 GLOBAL_NOTIFICATIONS_UNSUBSCRIBE_GROUP_ID = 26417
 
-
 # DataHub Public Base URL
 DATAHUB_BASE_URL = os.environ.get("DATAHUB_BASE_URL", "http://localhost:9002")
 
@@ -33,3 +35,8 @@ NON_INGESTION_RUN_ID = "no-run-id-provided"
 
 # Default recipient name when one cannot be resolved. (Hi there)
 DEFAULT_RECIPIENT_NAME = "there"
+
+# Whether we have enabled sharing and updating message ids for incidents on Slack
+STATEFUL_SLACK_INCIDENT_MESSAGES_ENABLED = os.environ.get(
+    "STATEFUL_SLACK_INCIDENT_MESSAGES_ENABLED", "false"
+)

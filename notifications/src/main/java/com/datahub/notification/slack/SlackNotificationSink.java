@@ -77,7 +77,7 @@ public class SlackNotificationSink implements NotificationSink {
       UrnUtils.getUrn("urn:li:dataHubConnection:__system_slack-0");
 
   /** A list of notification templates supported by this sink. */
-  private static final List<NotificationTemplateType> SUPPORTED_TEMPLATES =
+  private static final List<NotificationTemplateType> ALL_SUPPORTED_TEMPLATES =
       ImmutableList.of(
           NotificationTemplateType.CUSTOM,
           NotificationTemplateType.BROADCAST_NEW_INCIDENT,
@@ -87,6 +87,12 @@ public class SlackNotificationSink implements NotificationSink {
           NotificationTemplateType.BROADCAST_ENTITY_CHANGE,
           NotificationTemplateType.BROADCAST_INGESTION_RUN_CHANGE,
           NotificationTemplateType.BROADCAST_ASSERTION_STATUS_CHANGE);
+
+  /** Templates that are supported by the V2 sink, and may be skipped by this sink. */
+  private static final List<NotificationTemplateType> V2_SUPPORTED_TEMPLATES =
+      ImmutableList.of(
+          NotificationTemplateType.BROADCAST_NEW_INCIDENT,
+          NotificationTemplateType.BROADCAST_INCIDENT_STATUS_CHANGE);
 
   /** A list of recipient types that can be handled by the sink */
   private static final List<NotificationRecipientType> RECIPIENT_TYPES =
@@ -98,6 +104,7 @@ public class SlackNotificationSink implements NotificationSink {
   private static final String MAX_NUM_RETRIES_CONFIG_NAME = "maxNumRetries";
   private static final String DEFAULT_CHANNEL_CONFIG_NAME = "defaultChannel";
   private static final String PROXY_URL_CONFIG_NAME = "proxyUrl";
+  private static final String SLACK_SINK_V2_ENABLED = "slackSinkV2Enabled";
   private static final String NOTIFICATION_DROPPED_METRIC = "slack_notification_dropped";
   private static final String RETRY_AFTER_HEADER = "retry-after";
   private static final int RATE_LIMIT_ERROR_CODE = 429;
@@ -120,6 +127,7 @@ public class SlackNotificationSink implements NotificationSink {
   private boolean retryEnabled;
   private Integer maxRetries;
   private long retryAfterTimestamp;
+  private boolean slackSinkV2Enabled = false;
 
   @VisibleForTesting String botToken;
 
@@ -144,7 +152,13 @@ public class SlackNotificationSink implements NotificationSink {
 
   @Override
   public Collection<NotificationTemplateType> templates() {
-    return SUPPORTED_TEMPLATES;
+    // If the V2 sink is enabled, then we should not support the V2 templates.
+    // Otherwise, we should support all templates.
+    return slackSinkV2Enabled
+        ? ALL_SUPPORTED_TEMPLATES.stream()
+            .filter(template -> !V2_SUPPORTED_TEMPLATES.contains(template))
+            .collect(Collectors.toList())
+        : ALL_SUPPORTED_TEMPLATES;
   }
 
   @Override
@@ -173,6 +187,12 @@ public class SlackNotificationSink implements NotificationSink {
     // inside UI.
     if (cfg.getStaticConfig().containsKey(DEFAULT_CHANNEL_CONFIG_NAME)) {
       staticConfigDefaultChannel = (String) cfg.getStaticConfig().get(DEFAULT_CHANNEL_CONFIG_NAME);
+    }
+    // Optional - tell this sink that V2 sink is enabled, so to not support the V2 message types
+    // during the migration.
+    if (cfg.getStaticConfig().containsKey(SLACK_SINK_V2_ENABLED)) {
+      slackSinkV2Enabled =
+          Boolean.parseBoolean((String) cfg.getStaticConfig().get(SLACK_SINK_V2_ENABLED));
     }
     retryEnabled =
         Boolean.parseBoolean(

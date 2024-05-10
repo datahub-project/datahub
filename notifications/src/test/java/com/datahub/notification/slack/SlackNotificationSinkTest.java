@@ -817,6 +817,49 @@ public class SlackNotificationSinkTest {
     Mockito.verify(mockSlackClient, Mockito.times(3)).chatPostMessage(eq(dmMsgRequest));
   }
 
+  @Test
+  public void testSlackSinkEnabledV2() throws Exception {
+    /*
+     * This test verifies that the sink does not include template types supported by
+     * the V2 (Python Integrations Service) sink when the V2 sink is enabled.
+     */
+    SettingsProvider mockSettingsProvider = Mockito.mock(SettingsProvider.class);
+    ConnectionService mockConnectionService = Mockito.mock(ConnectionService.class);
+    IdentityProvider mockIdentityProvider = Mockito.mock(IdentityProvider.class);
+    EntityNameProvider mockEntityNameProvider = Mockito.mock(EntityNameProvider.class);
+    SecretProvider mockSecretProvider = Mockito.mock(SecretProvider.class);
+    IntegrationsService mockIntegrationsService = Mockito.mock(IntegrationsService.class);
+    MethodsClient mockClient = Mockito.mock(MethodsClient.class);
+
+    // Init with a mock slack client.
+    SlackNotificationSink sink = new SlackNotificationSink(mockClient);
+    sink.botToken = TEST_BOT_TOKEN;
+    sink.init(
+        new NotificationSinkConfig(
+            ImmutableMap.of(
+                "botToken", TEST_BOT_TOKEN,
+                "defaultChannel", "#test",
+                "slackSinkV2Enabled", "true"),
+            mockSettingsProvider,
+            mockIdentityProvider,
+            mockEntityNameProvider,
+            mockSecretProvider,
+            mockConnectionService,
+            mockIntegrationsService,
+            TEST_BASE_URL));
+
+    // Ensure that we support all templates except those supported by V2 sink.
+    Assert.assertEquals(
+        sink.templates(),
+        ImmutableList.of(
+            NotificationTemplateType.CUSTOM,
+            NotificationTemplateType.BROADCAST_NEW_PROPOSAL,
+            NotificationTemplateType.BROADCAST_PROPOSAL_STATUS_CHANGE,
+            NotificationTemplateType.BROADCAST_ENTITY_CHANGE,
+            NotificationTemplateType.BROADCAST_INGESTION_RUN_CHANGE,
+            NotificationTemplateType.BROADCAST_ASSERTION_STATUS_CHANGE));
+  }
+
   private IdentityProvider.User testUser() {
     IdentityProvider.User testUser = new IdentityProvider.User();
     testUser.setSlack("test");

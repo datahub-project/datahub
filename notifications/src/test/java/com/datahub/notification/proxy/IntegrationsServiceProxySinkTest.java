@@ -20,7 +20,7 @@ import org.testng.annotations.Test;
 
 public class IntegrationsServiceProxySinkTest {
 
-  @InjectMocks private IntegrationsServiceProxySink sink;
+  @InjectMocks private EmailProxySink sink;
 
   @Mock private IntegrationsService integrationsService;
 

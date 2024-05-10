@@ -1,26 +1,19 @@
 package com.datahub.notification.proxy;
 
-import com.datahub.notification.NotificationContext;
-import com.datahub.notification.NotificationSink;
-import com.datahub.notification.NotificationSinkConfig;
 import com.datahub.notification.NotificationTemplateType;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.event.notification.NotificationRecipientType;
-import com.linkedin.event.notification.NotificationRequest;
 import com.linkedin.event.notification.NotificationSinkType;
-import com.linkedin.metadata.integration.IntegrationsService;
-import io.datahubproject.metadata.context.OperationContext;
 import java.util.Collection;
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * This class routes notifications to the datahub-integrations-service python service for any sinks
  * that are defined there, currently email.
  */
 @Slf4j
-public abstract class IntegrationsServiceProxySink implements NotificationSink {
+public class EmailProxySink extends IntegrationsServiceProxySink {
 
   /** A list of notification templates supported by this sink. */
   private static final List<NotificationTemplateType> SUPPORTED_TEMPLATES =
@@ -38,8 +31,6 @@ public abstract class IntegrationsServiceProxySink implements NotificationSink {
   private static final List<NotificationRecipientType> RECIPIENT_TYPES =
       ImmutableList.of(NotificationRecipientType.EMAIL, NotificationRecipientType.CUSTOM);
 
-  private IntegrationsService integrationsService;
-
   @Override
   public NotificationSinkType type() {
     return NotificationSinkType.EMAIL;
@@ -53,21 +44,5 @@ public abstract class IntegrationsServiceProxySink implements NotificationSink {
   @Override
   public Collection<NotificationRecipientType> recipientTypes() {
     return RECIPIENT_TYPES;
-  }
-
-  @Override
-  public void init(@NotNull NotificationSinkConfig cfg) {
-    log.info("Initializing IntegrationsServiceProxySink...");
-    this.integrationsService = cfg.getIntegrationsService();
-  }
-
-  @Override
-  public void send(
-      @NotNull OperationContext opContext,
-      @NotNull NotificationRequest request,
-      @NotNull NotificationContext context)
-      throws Exception {
-    log.debug("Received request to proxy notification to integrations service: {}", request);
-    this.integrationsService.sendNotification(request);
   }
 }
