@@ -147,6 +147,7 @@ If you don't want to add a service principal as a member in your workspace, then
 Caveats of setting `admin_apis_only` to `true`:
   - Report's pages would not get ingested as page API is not available in PowerBI Admin API
   - [PowerBI Parameters](https://learn.microsoft.com/en-us/power-query/power-query-query-parameters) would not get resolved to actual values while processing M-Query for table lineage
+  - Dataset profiling is unavailable, as it requires access to the workspace API
 
 
 ### Basic Ingestion: Service Principal As Member In Workspace 
