@@ -53,7 +53,6 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
-from datahub.metadata._schema_classes import DatasetProfileClass
 from datahub.metadata.com.linkedin.pegasus2avro.common import ChangeAuditStamps
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     FineGrainedLineage,
@@ -70,6 +69,7 @@ from datahub.metadata.schema_classes import (
     DashboardKeyClass,
     DatasetFieldProfileClass,
     DatasetLineageTypeClass,
+    DatasetProfileClass,
     DatasetPropertiesClass,
     GlobalTagsClass,
     OtherSchemaClass,
