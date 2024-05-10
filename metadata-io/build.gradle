@@ -63,6 +63,7 @@ dependencies {
 
   // acryl-main only
   implementation('software.amazon.awssdk:eventbridge:2.17.170')
+  implementation('software.amazon.awssdk:sts:2.17.170')
   implementation('software.amazon.awssdk:apache-client:2.17.170')
   api project(":datahub-integrations-service:clients:java")
 

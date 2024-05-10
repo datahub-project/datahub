@@ -360,6 +360,8 @@ eventSinks:
           # URL to which event bridge instance should be sinked.
           eventBus: ${AWS_EVENT_BRIDGE_BUS_ARN}
           region: ${AWS_EVENT_BRIDGE_BUS_REGION}
+          assumeRoleArn: ${AWS_EVENT_BRIDGE_ASSUME_ROLE:}
+          externalId: ${AWS_EVENT_BRIDGE_EXTERNAL_ID:}
 
 siblings:
   enabled: ${ENABLE_SIBLING_HOOK:true} # enable to turn on automatic sibling associations for dbt
