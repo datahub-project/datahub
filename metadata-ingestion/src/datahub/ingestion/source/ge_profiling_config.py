@@ -172,6 +172,14 @@ class GEProfilingConfig(ConfigModel):
         description="Whether to profile external tables. Only Snowflake and Redshift supports this.",
     )
 
+    tags_to_ignore_sampling: Optional[List[str]] = pydantic.Field(
+        default=None,
+        description=(
+            "Fixed list of tags to ignore sampling."
+            " If not specified, tables will be sampled based on `use_sampling`."
+        ),
+    )
+
     @pydantic.root_validator(pre=True)
     def deprecate_bigquery_temp_table_schema(cls, values):
         # TODO: Update docs to remove mention of this field.

@@ -23,8 +23,8 @@ import io.datahubproject.openlineage.dataset.DatahubDataset;
 import io.datahubproject.openlineage.dataset.DatahubJob;
 import io.openlineage.client.OpenLineage;
 import io.openlineage.client.OpenLineageClientUtils;
-import io.openlineage.spark.agent.ArgumentParser;
 import io.openlineage.spark.agent.EventEmitter;
+import io.openlineage.spark.api.SparkOpenLineageConfig;
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.time.Instant;
@@ -44,7 +44,6 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.spark.SparkConf;
 import org.apache.spark.sql.streaming.StreamingQueryProgress;
 
 @Slf4j
@@ -55,10 +54,11 @@ public class DatahubEventEmitter extends EventEmitter {
   private final Map<String, MetadataChangeProposalWrapper> schemaMap = new HashMap<>();
   private SparkLineageConf datahubConf;
 
-  private EventFormatter eventFormatter = new EventFormatter();
+  private final EventFormatter eventFormatter = new EventFormatter();
 
-  public DatahubEventEmitter() throws URISyntaxException {
-    super(ArgumentParser.parse(new SparkConf()));
+  public DatahubEventEmitter(SparkOpenLineageConfig config, String applicationJobName)
+      throws URISyntaxException {
+    super(config, applicationJobName);
   }
 
   private Optional<Emitter> getEmitter() {
@@ -167,7 +167,7 @@ public class DatahubEventEmitter extends EventEmitter {
     List<MetadataChangeProposal> mcps = new ArrayList<>();
 
     if (_datahubJobs.isEmpty()) {
-      log.warn("No lineage events to emit. Maybe the spark job finished premaraturely?");
+      log.warn("No lineage events to emit. Maybe the spark job finished prematurely?");
       return mcps;
     }
 

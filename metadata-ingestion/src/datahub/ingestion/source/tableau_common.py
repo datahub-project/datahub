@@ -1,8 +1,9 @@
 import html
+import json
 import logging
 from dataclasses import dataclass
 from functools import lru_cache
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from pydantic.fields import Field
 from tableauserverclient import Server
@@ -323,6 +324,7 @@ custom_sql_graphql_query = """
             totalCount
         }
       }
+      connectionType
       database{
         name
         connectionType
@@ -573,7 +575,7 @@ def get_fully_qualified_table_name(
         .replace("`", "")
     )
 
-    if platform in ("athena", "hive", "mysql"):
+    if platform in ("athena", "hive", "mysql", "clickhouse"):
         # it two tier database system (athena, hive, mysql), just take final 2
         fully_qualified_table_name = ".".join(
             fully_qualified_table_name.split(".")[-2:]
@@ -762,8 +764,19 @@ def make_upstream_class(
 
 
 def make_fine_grained_lineage_class(
-    parsed_result: Optional[SqlParsingResult], dataset_urn: str
+    parsed_result: Optional[SqlParsingResult],
+    dataset_urn: str,
+    out_columns: List[Dict[Any, Any]],
 ) -> List[FineGrainedLineage]:
+    # 1) fine grained lineage links are case sensitive
+    # 2) parsed out columns are always lower cased
+    # 3) corresponding Custom SQL output columns can be in any case lower/upper/mix
+    #
+    # we need a map between 2 and 3 that will be used during building column level linage links (see below)
+    out_columns_map = {
+        col.get(c.NAME, "").lower(): col.get(c.NAME, "") for col in out_columns
+    }
+
     fine_grained_lineages: List[FineGrainedLineage] = []
 
     if parsed_result is None:
@@ -775,7 +788,15 @@ def make_fine_grained_lineage_class(
 
     for cll_info in cll:
         downstream = (
-            [builder.make_schema_field_urn(dataset_urn, cll_info.downstream.column)]
+            [
+                builder.make_schema_field_urn(
+                    dataset_urn,
+                    out_columns_map.get(
+                        cll_info.downstream.column.lower(),
+                        cll_info.downstream.column,
+                    ),
+                )
+            ]
             if cll_info.downstream is not None
             and cll_info.downstream.column is not None
             else []
@@ -807,6 +828,7 @@ def get_unique_custom_sql(custom_sql_list: List[dict]) -> List[dict]:
             # are missing from api result.
             "isUnsupportedCustomSql": True if not custom_sql.get("tables") else False,
             "query": custom_sql.get("query"),
+            "connectionType": custom_sql.get("connectionType"),
             "columns": custom_sql.get("columns"),
             "tables": custom_sql.get("tables"),
             "database": custom_sql.get("database"),
@@ -830,6 +852,15 @@ def clean_query(query: str) -> str:
     query = query.replace("<<", "<").replace(">>", ">").replace("\n\n", "\n")
     query = html.unescape(query)
     return query
+
+
+def make_filter(filter_dict: dict) -> str:
+    filter = ""
+    for key, value in filter_dict.items():
+        if filter:
+            filter += ", "
+        filter += f"{key}: {json.dumps(value)}"
+    return filter
 
 
 def query_metadata(
@@ -858,3 +889,32 @@ def query_metadata(
         main_query=main_query,
     )
     return server.metadata.query(query)
+
+
+def get_filter_pages(query_filter: dict, page_size: int) -> List[dict]:
+    filter_pages = [query_filter]
+    # If this is primary id filter so we can use divide this query list into
+    # multiple requests each with smaller filter list (of order page_size).
+    # It is observed in the past that if list of primary ids grow beyond
+    # a few ten thousands then tableau server responds with empty response
+    # causing below error:
+    # tableauserverclient.server.endpoint.exceptions.NonXMLResponseError: b''
+    if (
+        len(query_filter.keys()) == 1
+        and query_filter.get(c.ID_WITH_IN)
+        and isinstance(query_filter[c.ID_WITH_IN], list)
+        and len(query_filter[c.ID_WITH_IN]) > 100 * page_size
+    ):
+        ids = query_filter[c.ID_WITH_IN]
+        filter_pages = [
+            {
+                c.ID_WITH_IN: ids[
+                    start : (
+                        start + page_size if start + page_size < len(ids) else len(ids)
+                    )
+                ]
+            }
+            for start in range(0, len(ids), page_size)
+        ]
+
+    return filter_pages

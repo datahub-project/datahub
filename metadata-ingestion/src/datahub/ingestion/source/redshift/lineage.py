@@ -18,7 +18,11 @@ from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.aws.s3_util import strip_s3_prefix
 from datahub.ingestion.source.redshift.config import LineageMode, RedshiftConfig
-from datahub.ingestion.source.redshift.query import RedshiftQuery
+from datahub.ingestion.source.redshift.query import (
+    RedshiftCommonQuery,
+    RedshiftProvisionedQuery,
+    RedshiftServerlessQuery,
+)
 from datahub.ingestion.source.redshift.redshift_schema import (
     LineageRow,
     RedshiftDataDictionary,
@@ -157,6 +161,10 @@ class RedshiftLineageExtractor:
         self.report = report
         self.context = context
         self._lineage_map: Dict[str, LineageItem] = defaultdict()
+
+        self.queries: RedshiftCommonQuery = RedshiftProvisionedQuery()
+        if self.config.is_serverless:
+            self.queries = RedshiftServerlessQuery()
 
         self.redundant_run_skip_handler = redundant_run_skip_handler
         self.start_time, self.end_time = (
@@ -659,7 +667,7 @@ class RedshiftLineageExtractor:
             LineageMode.MIXED,
         }:
             # Populate table level lineage by getting upstream tables from stl_scan redshift table
-            query = RedshiftQuery.stl_scan_based_lineage_query(
+            query = self.queries.stl_scan_based_lineage_query(
                 self.config.database,
                 self.start_time,
                 self.end_time,
@@ -670,7 +678,7 @@ class RedshiftLineageExtractor:
             LineageMode.MIXED,
         }:
             # Populate table level lineage by parsing table creating sqls
-            query = RedshiftQuery.list_insert_create_queries_sql(
+            query = self.queries.list_insert_create_queries_sql(
                 db_name=database,
                 start_time=self.start_time,
                 end_time=self.end_time,
@@ -679,15 +687,15 @@ class RedshiftLineageExtractor:
 
         if self.config.include_views and self.config.include_view_lineage:
             # Populate table level lineage for views
-            query = RedshiftQuery.view_lineage_query()
+            query = self.queries.view_lineage_query()
             populate_calls.append((query, LineageCollectorType.VIEW))
 
             # Populate table level lineage for late binding views
-            query = RedshiftQuery.list_late_view_ddls_query()
+            query = self.queries.list_late_view_ddls_query()
             populate_calls.append((query, LineageCollectorType.VIEW_DDL_SQL_PARSING))
 
         if self.config.include_copy_lineage:
-            query = RedshiftQuery.list_copy_commands_sql(
+            query = self.queries.list_copy_commands_sql(
                 db_name=database,
                 start_time=self.start_time,
                 end_time=self.end_time,
@@ -695,7 +703,7 @@ class RedshiftLineageExtractor:
             populate_calls.append((query, LineageCollectorType.COPY))
 
         if self.config.include_unload_lineage:
-            query = RedshiftQuery.list_unload_commands_sql(
+            query = self.queries.list_unload_commands_sql(
                 db_name=database,
                 start_time=self.start_time,
                 end_time=self.end_time,
@@ -831,7 +839,7 @@ class RedshiftLineageExtractor:
         # new urn -> prev urn
         table_renames: Dict[str, str] = {}
 
-        query = RedshiftQuery.alter_table_rename_query(
+        query = self.queries.alter_table_rename_query(
             db_name=database,
             start_time=self.start_time,
             end_time=self.end_time,
@@ -869,7 +877,7 @@ class RedshiftLineageExtractor:
     def get_temp_tables(
         self, connection: redshift_connector.Connection
     ) -> List[TempTableRow]:
-        ddl_query: str = RedshiftQuery.temp_table_ddl_query(
+        ddl_query: str = self.queries.temp_table_ddl_query(
             start_time=self.config.start_time,
             end_time=self.config.end_time,
         )
@@ -892,9 +900,9 @@ class RedshiftLineageExtractor:
         matched_temp_tables: List[TempTableRow] = []
 
         for table_name in temp_table_names:
-            prefixes = RedshiftQuery.get_temp_table_clause(table_name)
+            prefixes = self.queries.get_temp_table_clause(table_name)
             prefixes.extend(
-                RedshiftQuery.get_temp_table_clause(table_name.split(".")[-1])
+                self.queries.get_temp_table_clause(table_name.split(".")[-1])
             )
 
             for row in temp_table_rows:

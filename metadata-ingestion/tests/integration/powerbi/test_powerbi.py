@@ -2,7 +2,7 @@ import datetime
 import logging
 import re
 import sys
-from typing import Any, Dict, List, cast
+from typing import Any, Dict, List, Optional, cast
 from unittest import mock
 from unittest.mock import MagicMock
 
@@ -75,7 +75,8 @@ def scan_init_response(request, context):
     return w_id_vs_response[workspace_id]
 
 
-def register_mock_api(request_mock: Any, override_data: dict = {}) -> None:
+def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -> None:
+    override_data = override_data or {}
     api_vs_response = {
         "https://api.powerbi.com/v1.0/myorg/groups": {
             "method": "GET",

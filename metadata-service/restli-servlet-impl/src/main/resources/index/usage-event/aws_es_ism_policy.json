@@ -3,15 +3,14 @@
     "policy_id": "PREFIXdatahub_usage_event_policy",
     "description": "Datahub Usage Event Policy",
     "default_state": "Rollover",
-    "schema_version": 3,
+    "schema_version": 4,
     "states": [
       {
         "name": "Rollover",
         "actions": [
           {
             "rollover": {
-              "min_size": "5gb",
-              "min_index_age": "1d"
+              "min_size": "5gb"
             }
           }
         ],

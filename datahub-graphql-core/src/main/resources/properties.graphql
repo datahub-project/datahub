@@ -1,3 +1,10 @@
+extend type Mutation {
+    """
+    Upsert structured properties onto a given asset
+    """
+    upsertStructuredProperties(input: UpsertStructuredPropertiesInput!): StructuredProperties!
+}
+
 """
 A structured property that can be shared between different entities
 """
@@ -68,6 +75,11 @@ type StructuredPropertyDefinition {
     Entity types that this structured property can be applied to
     """
     entityTypes: [EntityTypeEntity!]!
+
+    """
+    Whether or not this structured property is immutable
+    """
+    immutable: Boolean!
 }
 
 """
@@ -155,6 +167,21 @@ type StructuredPropertiesEntry {
     The optional entities associated with the values if the values are entity urns
     """
     valueEntities: [Entity]
+}
+
+"""
+Input for upserting structured properties on a given asset
+"""
+input UpsertStructuredPropertiesInput {
+    """
+    The urn of the asset that we are updating
+    """
+    assetUrn: String!
+
+    """
+    The list of structured properties you want to upsert on this asset
+    """
+    structuredPropertyInputParams: [StructuredPropertyInputParams!]!
 }
 
 """

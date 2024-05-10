@@ -5,6 +5,7 @@ import static com.linkedin.metadata.Constants.*;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
 import com.linkedin.data.template.StringArrayMap;
+import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.AllowedValue;
 import com.linkedin.datahub.graphql.generated.DataTypeEntity;
 import com.linkedin.datahub.graphql.generated.EntityType;
@@ -24,6 +25,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 public class StructuredPropertyMapper
     implements ModelMapper<EntityResponse, StructuredPropertyEntity> {
@@ -32,12 +34,14 @@ public class StructuredPropertyMapper
 
   public static final StructuredPropertyMapper INSTANCE = new StructuredPropertyMapper();
 
-  public static StructuredPropertyEntity map(@Nonnull final EntityResponse entityResponse) {
-    return INSTANCE.apply(entityResponse);
+  public static StructuredPropertyEntity map(
+      @Nullable QueryContext context, @Nonnull final EntityResponse entityResponse) {
+    return INSTANCE.apply(context, entityResponse);
   }
 
   @Override
-  public StructuredPropertyEntity apply(@Nonnull final EntityResponse entityResponse) {
+  public StructuredPropertyEntity apply(
+      @Nullable QueryContext queryContext, @Nonnull final EntityResponse entityResponse) {
     final StructuredPropertyEntity result = new StructuredPropertyEntity();
     result.setUrn(entityResponse.getUrn().toString());
     result.setType(EntityType.STRUCTURED_PROPERTY);
@@ -56,6 +60,7 @@ public class StructuredPropertyMapper
     definition.setQualifiedName(gmsDefinition.getQualifiedName());
     definition.setCardinality(
         PropertyCardinality.valueOf(gmsDefinition.getCardinality().toString()));
+    definition.setImmutable(gmsDefinition.isImmutable());
     definition.setValueType(createDataTypeEntity(gmsDefinition.getValueType()));
     if (gmsDefinition.hasDisplayName()) {
       definition.setDisplayName(gmsDefinition.getDisplayName());

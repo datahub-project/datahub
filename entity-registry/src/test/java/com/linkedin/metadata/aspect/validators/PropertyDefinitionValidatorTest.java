@@ -12,6 +12,8 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.AspectRetriever;
+import com.linkedin.metadata.aspect.GraphRetriever;
+import com.linkedin.metadata.aspect.RetrieverContext;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.aspect.plugins.validation.AspectValidationException;
 import com.linkedin.metadata.aspect.validation.PropertyDefinitionValidator;
@@ -34,14 +36,18 @@ public class PropertyDefinitionValidatorTest {
 
   private EntityRegistry entityRegistry;
   private Urn testPropertyUrn;
-  private AspectRetriever mockAspectRetriever;
+  private RetrieverContext mockRetrieverContext;
 
   @BeforeTest
   public void init() {
     entityRegistry = new TestEntityRegistry();
     testPropertyUrn = UrnUtils.getUrn("urn:li:structuredProperty:foo.bar");
-    mockAspectRetriever = mock(AspectRetriever.class);
+    AspectRetriever mockAspectRetriever = mock(AspectRetriever.class);
     when(mockAspectRetriever.getEntityRegistry()).thenReturn(entityRegistry);
+    GraphRetriever mockGraphRetriever = mock(GraphRetriever.class);
+    mockRetrieverContext = mock(RetrieverContext.class);
+    when(mockRetrieverContext.getAspectRetriever()).thenReturn(mockAspectRetriever);
+    when(mockRetrieverContext.getGraphRetriever()).thenReturn(mockGraphRetriever);
   }
 
   @Test
@@ -59,7 +65,8 @@ public class PropertyDefinitionValidatorTest {
     newProperty.setValueType(Urn.createFromString("urn:li:logicalType:STRING"));
     assertEquals(
         PropertyDefinitionValidator.validateDefinitionUpserts(
-                TestMCP.ofOneMCP(testPropertyUrn, newProperty, entityRegistry), mockAspectRetriever)
+                TestMCP.ofOneMCP(testPropertyUrn, newProperty, entityRegistry),
+                mockRetrieverContext)
             .count(),
         0);
   }
@@ -82,7 +89,7 @@ public class PropertyDefinitionValidatorTest {
     assertEquals(
         PropertyDefinitionValidator.validateDefinitionUpserts(
                 TestMCP.ofOneMCP(testPropertyUrn, oldProperty, newProperty, entityRegistry),
-                mockAspectRetriever)
+                mockRetrieverContext)
             .count(),
         0);
   }
@@ -105,7 +112,7 @@ public class PropertyDefinitionValidatorTest {
     assertEquals(
         PropertyDefinitionValidator.validateDefinitionUpserts(
                 TestMCP.ofOneMCP(testPropertyUrn, oldProperty, newProperty, entityRegistry),
-                mockAspectRetriever)
+                mockRetrieverContext)
             .count(),
         1);
   }
@@ -127,7 +134,7 @@ public class PropertyDefinitionValidatorTest {
     assertEquals(
         PropertyDefinitionValidator.validateDefinitionUpserts(
                 TestMCP.ofOneMCP(testPropertyUrn, oldProperty, newProperty, entityRegistry),
-                mockAspectRetriever)
+                mockRetrieverContext)
             .count(),
         1);
   }
@@ -150,7 +157,7 @@ public class PropertyDefinitionValidatorTest {
     assertEquals(
         PropertyDefinitionValidator.validateDefinitionUpserts(
                 TestMCP.ofOneMCP(testPropertyUrn, oldProperty, newProperty, entityRegistry),
-                mockAspectRetriever)
+                mockRetrieverContext)
             .count(),
         0);
   }
@@ -173,7 +180,7 @@ public class PropertyDefinitionValidatorTest {
     assertEquals(
         PropertyDefinitionValidator.validateDefinitionUpserts(
                 TestMCP.ofOneMCP(testPropertyUrn, oldProperty, newProperty, entityRegistry),
-                mockAspectRetriever)
+                mockRetrieverContext)
             .count(),
         1);
   }
@@ -199,7 +206,7 @@ public class PropertyDefinitionValidatorTest {
     assertEquals(
         PropertyDefinitionValidator.validateDefinitionUpserts(
                 TestMCP.ofOneMCP(testPropertyUrn, oldProperty, newProperty, entityRegistry),
-                mockAspectRetriever)
+                mockRetrieverContext)
             .count(),
         1);
 
@@ -210,7 +217,7 @@ public class PropertyDefinitionValidatorTest {
     assertEquals(
         PropertyDefinitionValidator.validateDefinitionUpserts(
                 TestMCP.ofOneMCP(testPropertyUrn, oldProperty, newProperty, entityRegistry),
-                mockAspectRetriever)
+                mockRetrieverContext)
             .count(),
         1);
   }
@@ -236,7 +243,7 @@ public class PropertyDefinitionValidatorTest {
     assertEquals(
         PropertyDefinitionValidator.validateDefinitionUpserts(
                 TestMCP.ofOneMCP(testPropertyUrn, oldProperty, newProperty, entityRegistry),
-                mockAspectRetriever)
+                mockRetrieverContext)
             .count(),
         0);
 
@@ -247,7 +254,7 @@ public class PropertyDefinitionValidatorTest {
     assertEquals(
         PropertyDefinitionValidator.validateDefinitionUpserts(
                 TestMCP.ofOneMCP(testPropertyUrn, oldProperty, newProperty, entityRegistry),
-                mockAspectRetriever)
+                mockRetrieverContext)
             .count(),
         0);
   }
@@ -278,7 +285,7 @@ public class PropertyDefinitionValidatorTest {
     assertEquals(
         PropertyDefinitionValidator.validateDefinitionUpserts(
                 TestMCP.ofOneMCP(testPropertyUrn, oldProperty, newProperty, entityRegistry),
-                mockAspectRetriever)
+                mockRetrieverContext)
             .count(),
         0);
   }
@@ -286,22 +293,23 @@ public class PropertyDefinitionValidatorTest {
   @Test
   public void testHardDeleteBlock() {
     PropertyDefinitionValidator test =
-        new PropertyDefinitionValidator(
-            AspectPluginConfig.builder()
-                .enabled(true)
-                .className(PropertyDefinitionValidator.class.getName())
-                .supportedOperations(List.of("DELETE"))
-                .supportedEntityAspectNames(
-                    List.of(
-                        AspectPluginConfig.EntityAspectName.builder()
-                            .entityName(STRUCTURED_PROPERTY_ENTITY_NAME)
-                            .aspectName(Constants.STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME)
-                            .build(),
-                        AspectPluginConfig.EntityAspectName.builder()
-                            .entityName(STRUCTURED_PROPERTY_ENTITY_NAME)
-                            .aspectName("structuredPropertyKey")
-                            .build()))
-                .build());
+        new PropertyDefinitionValidator()
+            .setConfig(
+                AspectPluginConfig.builder()
+                    .enabled(true)
+                    .className(PropertyDefinitionValidator.class.getName())
+                    .supportedOperations(List.of("DELETE"))
+                    .supportedEntityAspectNames(
+                        List.of(
+                            AspectPluginConfig.EntityAspectName.builder()
+                                .entityName(STRUCTURED_PROPERTY_ENTITY_NAME)
+                                .aspectName(Constants.STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME)
+                                .build(),
+                            AspectPluginConfig.EntityAspectName.builder()
+                                .entityName(STRUCTURED_PROPERTY_ENTITY_NAME)
+                                .aspectName("structuredPropertyKey")
+                                .build()))
+                    .build());
 
     assertEquals(
         test.validateProposed(
@@ -316,7 +324,7 @@ public class PropertyDefinitionValidatorTest {
                                 .getKeyAspectSpec())
                         .recordTemplate(new StructuredPropertyKey())
                         .build()),
-                mockAspectRetriever)
+                mockRetrieverContext)
             .count(),
         1);
 
@@ -334,7 +342,7 @@ public class PropertyDefinitionValidatorTest {
                                 .get(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME))
                         .recordTemplate(new StructuredPropertyDefinition())
                         .build()),
-                mockAspectRetriever)
+                mockRetrieverContext)
             .count(),
         1);
   }

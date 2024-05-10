@@ -23,14 +23,35 @@ module.exports = {
   noIndex: isSaas,
   customFields: {
     isSaas: isSaas,
-    markpromptProjectKey: process.env.DOCUSAURUS_MARKPROMPT_PROJECT_KEY || "IeF3CUFCUQWuouZ8MP5Np9nES52QAtaA",
+    markpromptProjectKey: process.env.DOCUSAURUS_MARKPROMPT_PROJECT_KEY || "0U6baUoEdHVV4fyPpr5pxcX3dFlAMEu9",
   },
+
+  // See https://github.com/facebook/docusaurus/issues/4765
+  // and https://github.com/langchain-ai/langchainjs/pull/1568
+  webpack: {
+    jsLoader: (isServer) => ({
+      loader: require.resolve("swc-loader"),
+      options: {
+        jsc: {
+          parser: {
+            syntax: "typescript",
+            tsx: true,
+          },
+          target: "es2017",
+        },
+        module: {
+          type: isServer ? "commonjs" : "es6",
+        },
+      },
+    }),
+  },
+
   themeConfig: {
     ...(!isSaas && {
       announcementBar: {
         id: "announcement",
         content:
-          '<div><img src="/img/acryl-logo-white-mark.svg" /><p><strong>Managed DataHub</strong><span> &nbsp;Acryl Data delivers an easy to consume DataHub platform for the enterprise</span></p></div> <a href="https://www.acryldata.io/datahub-sign-up?utm_source=datahub&utm_medium=referral&utm_campaign=acryl_signup" target="_blank" class="button button--primary">Sign up for Managed DataHub&nbsp;→</a>',
+          '<div><img src="/img/acryl-logo-white-mark.svg" /><p><strong>Acryl DataHub</strong><span> &nbsp;Acryl Data delivers an easy to consume DataHub platform for the enterprise</span></p></div> <a href="https://www.acryldata.io/datahub-sign-up?utm_source=datahub&utm_medium=referral&utm_campaign=acryl_signup" target="_blank" class="button button--primary">Sign Up for Acryl DataHub&nbsp;→</a>',
         backgroundColor: "#070707",
         textColor: "#ffffff",
         isCloseable: false,
@@ -66,6 +87,10 @@ module.exports = {
               label: "Join Slack",
             },
             {
+              href: "https://forum.datahubproject.io/",
+              label: "Community Forum",
+            },
+            {
               to: "/events",
               label: "Events",
             },
@@ -85,7 +110,7 @@ module.exports = {
               label: "Demo",
             },
             {
-              href: "https://www.acryldata.io/blog",
+              href: "https://blog.datahubproject.io/",
               label: "Blog",
             },
             {
@@ -114,6 +139,48 @@ module.exports = {
           type: "docsVersionDropdown",
           position: "left",
           dropdownActiveClassDisabled: true,
+            dropdownItemsAfter: [
+                {
+                type: 'html',
+                value: '<hr class="dropdown-separator" style="margin: 0.4rem;">',
+                },
+                {
+                type: 'html',
+                value: '<div class="dropdown__link"><b>Archived versions</b></div>',
+                },
+                {
+                value: `
+                   <a class="dropdown__link" href="https://docs-website-lzxh86531-acryldata.vercel.app/docs/features">0.13.0
+                   <svg width="12" height="12" aria-hidden="true" viewBox="0 0 24 24"><path fill="currentColor" d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"></path></svg>
+                   </a>
+                   `,
+                type: "html",
+                },
+                {
+                value: `
+                   <a class="dropdown__link" href="https://docs-website-2uuxmgza2-acryldata.vercel.app/docs/features">0.12.1
+                   <svg width="12" height="12" aria-hidden="true" viewBox="0 0 24 24"><path fill="currentColor" d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"></path></svg>
+                   </a>
+                   `,
+                type: "html",
+                },
+                {
+                value: `
+                   <a class="dropdown__link" href="https://docs-website-irpoe2osc-acryldata.vercel.app/docs/features">0.11.0
+                   <svg width="12" height="12" aria-hidden="true" viewBox="0 0 24 24"><path fill="currentColor" d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"></path></svg>
+                   </a>
+                   `,
+                type: "html",
+                },
+                {
+                value: `
+                   <a class="dropdown__link" href="https://docs-website-1gv2yzn9d-acryldata.vercel.app/docs/features">0.10.5
+                   <svg width="12" height="12" aria-hidden="true" viewBox="0 0 24 24"><path fill="currentColor" d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"></path></svg>
+                   </a>
+                   `,
+                type: "html",
+                },
+            ],
         },
       ],
     },
@@ -130,10 +197,6 @@ module.exports = {
             {
               label: "Quickstart",
               to: "docs/quickstart",
-            },
-            {
-              label: "Features",
-              to: "docs/features",
             },
           ],
         },
@@ -210,6 +273,13 @@ module.exports = {
       "@docusaurus/preset-classic",
       {
         docs: {
+            lastVersion: "current",
+              versions: {
+                current: {
+                  label: "Next",
+                  banner: 'none',
+                },
+              },
           path: "genDocs",
           sidebarPath: require.resolve("./sidebars.js"),
           ...(!isSaas && {
@@ -217,8 +287,8 @@ module.exports = {
           }),
           numberPrefixParser: false,
           // TODO: make these work correctly with the doc generation
-          showLastUpdateAuthor: true,
-          showLastUpdateTime: true,
+          showLastUpdateAuthor: false,
+          showLastUpdateTime: false,
         },
         blog: false,
         theme: {
@@ -233,10 +303,30 @@ module.exports = {
           path: "src/pages",
           mdxPageComponent: "@theme/MDXPage",
         },
+        googleTagManager: {
+          containerId: 'GTM-WK28RLTG',
+        },
       },
     ],
   ],
   plugins: [
+    [
+      '@docusaurus/plugin-client-redirects',
+      {
+        createRedirects(existingPath) {
+          if (existingPath.includes('/docs')) {
+            return [
+              existingPath.replace('/docs', '/docs/next'),
+              existingPath.replace('/docs', '/docs/0.13.0'),
+              existingPath.replace('/docs', '/docs/0.12.1'),
+              existingPath.replace('/docs', '/docs/0.11.0'),
+              existingPath.replace('/docs', '/docs/0.10.5'),
+            ];
+          }
+          return undefined; // Return a falsy value: no redirect created
+        },
+      },
+    ],
     ["@docusaurus/plugin-ideal-image", { quality: 100, sizes: [320, 640, 1280, 1440, 1600] }],
     "docusaurus-plugin-sass",
     [
@@ -246,7 +336,6 @@ module.exports = {
         routeBasePath: "/docs/graphql",
       },
     ],
-    // '@docusaurus/plugin-google-gtag',
     // [
     //   require.resolve("@easyops-cn/docusaurus-search-local"),
     //   {

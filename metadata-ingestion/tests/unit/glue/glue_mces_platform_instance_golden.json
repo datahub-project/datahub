@@ -115,6 +115,7 @@
                             {
                                 "fieldPath": "[version=2.0].[type=int].yr",
                                 "nullable": true,
+                                "description": "test comment",
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -206,6 +207,7 @@
                             {
                                 "fieldPath": "[version=2.0].[type=string].year",
                                 "nullable": true,
+                                "description": "partition test comment",
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}

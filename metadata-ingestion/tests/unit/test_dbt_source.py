@@ -1,3 +1,4 @@
+from datetime import timedelta
 from typing import Dict, List, Union
 from unittest import mock
 
@@ -7,7 +8,11 @@ from pydantic import ValidationError
 from datahub.emitter import mce_builder
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.dbt.dbt_cloud import DBTCloudConfig
-from datahub.ingestion.source.dbt.dbt_core import DBTCoreConfig, DBTCoreSource
+from datahub.ingestion.source.dbt.dbt_core import (
+    DBTCoreConfig,
+    DBTCoreSource,
+    parse_dbt_timestamp,
+)
 from datahub.metadata.schema_classes import (
     OwnerClass,
     OwnershipSourceClass,
@@ -34,7 +39,7 @@ def create_owners_list_from_urn_list(
 
 
 def create_mocked_dbt_source() -> DBTCoreSource:
-    ctx = PipelineContext("test-run-id")
+    ctx = PipelineContext(run_id="test-run-id", pipeline_name="dbt-source")
     graph = mock.MagicMock()
     graph.get_ownership.return_value = mce_builder.make_ownership_aspect_from_urn_list(
         ["urn:li:corpuser:test_user"], "AUDIT"
@@ -197,6 +202,30 @@ def test_dbt_entity_emission_configuration():
     DBTCoreConfig.parse_obj(config_dict)
 
 
+def test_dbt_config_skip_sources_in_lineage():
+    with pytest.raises(
+        ValidationError,
+        match="skip_sources_in_lineage.*entities_enabled.sources.*set to NO",
+    ):
+        config_dict = {
+            "manifest_path": "dummy_path",
+            "catalog_path": "dummy_path",
+            "target_platform": "dummy_platform",
+            "skip_sources_in_lineage": True,
+        }
+        config = DBTCoreConfig.parse_obj(config_dict)
+
+    config_dict = {
+        "manifest_path": "dummy_path",
+        "catalog_path": "dummy_path",
+        "target_platform": "dummy_platform",
+        "skip_sources_in_lineage": True,
+        "entities_enabled": {"sources": "NO"},
+    }
+    config = DBTCoreConfig.parse_obj(config_dict)
+    assert config.skip_sources_in_lineage is True
+
+
 def test_dbt_s3_config():
     # test missing aws config
     config_dict: dict = {
@@ -256,6 +285,7 @@ def test_dbt_entity_emission_configuration_helpers():
     assert not config.entities_enabled.can_emit_node_type("source")
     assert not config.entities_enabled.can_emit_node_type("test")
     assert not config.entities_enabled.can_emit_test_results
+    assert not config.entities_enabled.can_emit_model_performance
     assert not config.entities_enabled.is_only_test_results()
 
     config_dict = {
@@ -268,6 +298,7 @@ def test_dbt_entity_emission_configuration_helpers():
     assert config.entities_enabled.can_emit_node_type("source")
     assert config.entities_enabled.can_emit_node_type("test")
     assert config.entities_enabled.can_emit_test_results
+    assert config.entities_enabled.can_emit_model_performance
     assert not config.entities_enabled.is_only_test_results()
 
     config_dict = {
@@ -283,6 +314,7 @@ def test_dbt_entity_emission_configuration_helpers():
     assert not config.entities_enabled.can_emit_node_type("source")
     assert not config.entities_enabled.can_emit_node_type("test")
     assert config.entities_enabled.can_emit_test_results
+    assert not config.entities_enabled.can_emit_model_performance
     assert config.entities_enabled.is_only_test_results()
 
     config_dict = {
@@ -292,6 +324,7 @@ def test_dbt_entity_emission_configuration_helpers():
         "entities_enabled": {
             "test_results": "Yes",
             "test_definitions": "Yes",
+            "model_performance": "Yes",
             "models": "No",
             "sources": "No",
         },
@@ -301,6 +334,7 @@ def test_dbt_entity_emission_configuration_helpers():
     assert not config.entities_enabled.can_emit_node_type("source")
     assert config.entities_enabled.can_emit_node_type("test")
     assert config.entities_enabled.can_emit_test_results
+    assert config.entities_enabled.can_emit_model_performance
     assert not config.entities_enabled.is_only_test_results()
 
 
@@ -336,3 +370,21 @@ def test_dbt_cloud_config_with_defined_metadata_endpoint():
         config.metadata_endpoint
         == "https://my-metadata-endpoint.my-dbt-cloud.dbt.com/graphql"
     )
+
+
+def test_dbt_time_parsing() -> None:
+    time_formats = [
+        "2024-03-28T05:56:15.236210Z",
+        "2024-04-04T11:55:28Z",
+        "2024-04-04T12:55:28Z",
+        "2024-03-25T00:52:14Z",
+    ]
+
+    for time_format in time_formats:
+        # Check that it parses without an error.
+        timestamp = parse_dbt_timestamp(time_format)
+
+        # Ensure that we get an object with tzinfo set to UTC.
+        assert timestamp.tzinfo is not None and timestamp.tzinfo.utcoffset(
+            timestamp
+        ) == timedelta(0)

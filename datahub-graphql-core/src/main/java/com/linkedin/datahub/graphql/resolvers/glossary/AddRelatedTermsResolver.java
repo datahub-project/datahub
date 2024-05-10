@@ -12,16 +12,19 @@ import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.RelatedTermsInput;
 import com.linkedin.datahub.graphql.generated.TermRelationshipType;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.GlossaryUtils;
+import com.linkedin.entity.client.EntityClient;
 import com.linkedin.glossary.GlossaryRelatedTerms;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.EntityUtils;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
+import javax.annotation.Nonnull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -30,6 +33,7 @@ import lombok.extern.slf4j.Slf4j;
 public class AddRelatedTermsResolver implements DataFetcher<CompletableFuture<Boolean>> {
 
   private final EntityService<?> _entityService;
+  private final EntityClient _entityClient;
 
   @Override
   public CompletableFuture<Boolean> get(DataFetchingEnvironment environment) throws Exception {
@@ -37,21 +41,23 @@ public class AddRelatedTermsResolver implements DataFetcher<CompletableFuture<Bo
     final QueryContext context = environment.getContext();
     final RelatedTermsInput input =
         bindArgument(environment.getArgument("input"), RelatedTermsInput.class);
+    final Urn urn = Urn.createFromString(input.getUrn());
 
     return CompletableFuture.supplyAsync(
         () -> {
-          if (GlossaryUtils.canManageGlossaries(context)) {
+          final Urn parentUrn = GlossaryUtils.getParentUrn(urn, context, _entityClient);
+          if (GlossaryUtils.canManageChildrenEntities(context, parentUrn, _entityClient)) {
             try {
               final TermRelationshipType relationshipType = input.getRelationshipType();
-              final Urn urn = Urn.createFromString(input.getUrn());
               final List<Urn> termUrns =
                   input.getTermUrns().stream().map(UrnUtils::getUrn).collect(Collectors.toList());
-              validateRelatedTermsInput(urn, termUrns);
+              validateRelatedTermsInput(context.getOperationContext(), urn, termUrns);
               Urn actor = Urn.createFromString(((QueryContext) context).getActorUrn());
 
               GlossaryRelatedTerms glossaryRelatedTerms =
                   (GlossaryRelatedTerms)
                       EntityUtils.getAspectFromEntity(
+                          context.getOperationContext(),
                           urn.toString(),
                           Constants.GLOSSARY_RELATED_TERM_ASPECT_NAME,
                           _entityService,
@@ -68,7 +74,12 @@ public class AddRelatedTermsResolver implements DataFetcher<CompletableFuture<Bo
                     glossaryRelatedTerms.getIsRelatedTerms();
 
                 return updateRelatedTerms(
-                    termUrns, existingTermUrns, urn, glossaryRelatedTerms, actor);
+                    context.getOperationContext(),
+                    termUrns,
+                    existingTermUrns,
+                    urn,
+                    glossaryRelatedTerms,
+                    actor);
               } else {
                 if (!glossaryRelatedTerms.hasHasRelatedTerms()) {
                   glossaryRelatedTerms.setHasRelatedTerms(new GlossaryTermUrnArray());
@@ -77,7 +88,12 @@ public class AddRelatedTermsResolver implements DataFetcher<CompletableFuture<Bo
                     glossaryRelatedTerms.getHasRelatedTerms();
 
                 return updateRelatedTerms(
-                    termUrns, existingTermUrns, urn, glossaryRelatedTerms, actor);
+                    context.getOperationContext(),
+                    termUrns,
+                    existingTermUrns,
+                    urn,
+                    glossaryRelatedTerms,
+                    actor);
               }
             } catch (Exception e) {
               throw new RuntimeException(
@@ -89,9 +105,10 @@ public class AddRelatedTermsResolver implements DataFetcher<CompletableFuture<Bo
         });
   }
 
-  public Boolean validateRelatedTermsInput(Urn urn, List<Urn> termUrns) {
+  public Boolean validateRelatedTermsInput(
+      @Nonnull OperationContext opContext, Urn urn, List<Urn> termUrns) {
     if (!urn.getEntityType().equals(Constants.GLOSSARY_TERM_ENTITY_NAME)
-        || !_entityService.exists(urn, true)) {
+        || !_entityService.exists(opContext, urn, true)) {
       throw new IllegalArgumentException(
           String.format(
               "Failed to update %s. %s either does not exist or is not a glossaryTerm.", urn, urn));
@@ -104,7 +121,7 @@ public class AddRelatedTermsResolver implements DataFetcher<CompletableFuture<Bo
       } else if (!termUrn.getEntityType().equals(Constants.GLOSSARY_TERM_ENTITY_NAME)) {
         throw new IllegalArgumentException(
             String.format("Failed to update %s. %s is not a glossaryTerm.", urn, termUrn));
-      } else if (!_entityService.exists(termUrn, true)) {
+      } else if (!_entityService.exists(opContext, termUrn, true)) {
         throw new IllegalArgumentException(
             String.format("Failed to update %s. %s does not exist.", urn, termUrn));
       }
@@ -113,6 +130,7 @@ public class AddRelatedTermsResolver implements DataFetcher<CompletableFuture<Bo
   }
 
   private Boolean updateRelatedTerms(
+      @Nonnull OperationContext opContext,
       List<Urn> termUrns,
       GlossaryTermUrnArray existingTermUrns,
       Urn urn,
@@ -136,6 +154,7 @@ public class AddRelatedTermsResolver implements DataFetcher<CompletableFuture<Bo
       existingTermUrns.add(newUrn);
     }
     persistAspect(
+        opContext,
         urn,
         Constants.GLOSSARY_RELATED_TERM_ASPECT_NAME,
         glossaryRelatedTerms,

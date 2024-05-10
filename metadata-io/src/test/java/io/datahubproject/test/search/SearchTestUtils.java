@@ -100,7 +100,8 @@ public class SearchTestUtils {
       String query,
       Filter filter) {
     return searchService.searchAcrossEntities(
-        opContext.withSearchFlags(flags -> flags.setFulltext(true).setSkipCache(true)),
+        opContext.withSearchFlags(
+            flags -> flags.setFulltext(true).setSkipCache(true).setSkipHighlighting(false)),
         entityNames,
         query,
         filter,
@@ -172,7 +173,9 @@ public class SearchTestUtils {
                 .build());
 
     return lineageSearchService.searchAcrossLineage(
-        opContext.withSearchFlags(flags -> flags.setSkipCache(true)),
+        opContext
+            .withSearchFlags(flags -> flags.setSkipCache(true))
+            .withLineageFlags(flags -> flags),
         root,
         LineageDirection.DOWNSTREAM,
         SEARCHABLE_ENTITY_TYPES.stream()
@@ -183,9 +186,7 @@ public class SearchTestUtils {
         ResolverUtils.buildFilter(filters, List.of()),
         null,
         0,
-        100,
-        null,
-        null);
+        100);
   }
 
   public static AutoCompleteResults autocomplete(

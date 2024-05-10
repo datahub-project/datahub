@@ -117,7 +117,3 @@ mutation deletePosting {
   )
 }
 ```
-
-## FAQ and Troubleshooting
-
-*Need more help with Posts? Join the conversation in [Slack](http://slack.datahubproject.io)! Please post in the **#ui** channel!*

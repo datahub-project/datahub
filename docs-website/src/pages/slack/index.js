@@ -37,7 +37,7 @@ function SlackSurvey() {
                     <div className="hero__content">
                         <h1>Join the DataHub Slack Community!</h1>
                         <div style={{ fontSize: "18px" }}>We'd love to find out a little more about you!</div>
-                        <div id="hubspotForm" style={{ width: "50%", margin: "3rem auto"}}></div> 
+                        <div id="hubspotForm" style={{ width: "90%", maxWidth:"40rem", margin: "3rem auto"}}></div> 
                     </div>
                 </div>
             </header>

@@ -529,6 +529,23 @@ FROM `bq-proj.dataset.table_2023*`
     )
 
 
+def test_bigquery_partitioned_table_insert():
+    assert_sql_result(
+        """
+SELECT *
+FROM `bq-proj.dataset.my-table$__UNPARTITIONED__`
+""",
+        dialect="bigquery",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:bigquery,bq-proj.dataset.my-table,PROD)": {
+                "col1": "STRING",
+                "col2": "STRING",
+            },
+        },
+        expected_file=RESOURCE_DIR / "test_bigquery_partitioned_table_insert.json",
+    )
+
+
 def test_bigquery_star_with_replace():
     assert_sql_result(
         """
@@ -1090,4 +1107,21 @@ AS (
         dialect="redshift",
         default_db="my_db",
         expected_file=RESOURCE_DIR / "test_redshift_system_automove.json",
+    )
+
+
+def test_snowflake_with_unnamed_column_from_udf_call() -> None:
+    assert_sql_result(
+        """SELECT
+  A.ID,
+  B.NAME,
+  PARSE_JSON(B.MY_JSON) AS :userInfo,
+  B.ADDRESS
+FROM my_db.my_schema.my_table AS A
+LEFT JOIN my_db.my_schema.my_table_B AS B
+  ON A.ID = B.ID
+""",
+        dialect="snowflake",
+        default_db="my_db",
+        expected_file=RESOURCE_DIR / "test_snowflake_unnamed_column_udf.json",
     )

@@ -21,6 +21,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
+import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
@@ -68,7 +69,7 @@ public class ListPoliciesResolver implements DataFetcher<CompletableFuture<ListP
                 result.setStart(start);
                 result.setCount(count);
                 result.setTotal(policyFetchResult.getTotal());
-                result.setPolicies(mapEntities(policyFetchResult.getPolicies()));
+                result.setPolicies(mapEntities(context, policyFetchResult.getPolicies()));
                 return result;
               });
     }
@@ -76,11 +77,12 @@ public class ListPoliciesResolver implements DataFetcher<CompletableFuture<ListP
         "Unauthorized to perform this action. Please contact your DataHub administrator.");
   }
 
-  private List<Policy> mapEntities(final List<PolicyFetcher.Policy> policies) {
+  private static List<Policy> mapEntities(
+      @Nullable QueryContext context, final List<PolicyFetcher.Policy> policies) {
     return policies.stream()
         .map(
             policy -> {
-              Policy mappedPolicy = PolicyInfoPolicyMapper.map(policy.getPolicyInfo());
+              Policy mappedPolicy = PolicyInfoPolicyMapper.map(context, policy.getPolicyInfo());
               mappedPolicy.setUrn(policy.getUrn().toString());
               return mappedPolicy;
             })

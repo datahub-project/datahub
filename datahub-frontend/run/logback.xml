@@ -13,6 +13,7 @@
     <filter class="com.linkedin.metadata.utils.log.LogMessageFilter">
       <excluded>Unable to renew the session. The session store may not support this feature</excluded>
       <excluded>Preferred JWS algorithm: null not available. Using all metadata algorithms:</excluded>
+      <excluded>Config does not exist: file:///etc/datahub/plugins/frontend/auth/user.props</excluded>
     </filter>
   </appender>
 

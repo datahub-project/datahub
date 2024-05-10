@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.resolvers.incident;
 
+import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.ALL_PRIVILEGES_GROUP;
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.*;
 import static com.linkedin.metadata.Constants.*;
@@ -16,7 +17,6 @@ import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLErrorCode;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
 import com.linkedin.datahub.graphql.generated.UpdateIncidentStatusInput;
-import com.linkedin.datahub.graphql.resolvers.AuthUtils;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.incident.IncidentInfo;
 import com.linkedin.incident.IncidentState;
@@ -51,7 +51,11 @@ public class UpdateIncidentStatusResolver implements DataFetcher<CompletableFutu
           IncidentInfo info =
               (IncidentInfo)
                   EntityUtils.getAspectFromEntity(
-                      incidentUrn.toString(), INCIDENT_INFO_ASPECT_NAME, _entityService, null);
+                      context.getOperationContext(),
+                      incidentUrn.toString(),
+                      INCIDENT_INFO_ASPECT_NAME,
+                      _entityService,
+                      null);
 
           if (info != null) {
             // Check whether the actor has permission to edit the incident
@@ -73,7 +77,7 @@ public class UpdateIncidentStatusResolver implements DataFetcher<CompletableFutu
                 final MetadataChangeProposal proposal =
                     buildMetadataChangeProposalWithUrn(
                         incidentUrn, INCIDENT_INFO_ASPECT_NAME, info);
-                _entityClient.ingestProposal(proposal, context.getAuthentication(), false);
+                _entityClient.ingestProposal(context.getOperationContext(), proposal, false);
                 return true;
               } catch (Exception e) {
                 throw new RuntimeException("Failed to update incident status!", e);
@@ -92,7 +96,7 @@ public class UpdateIncidentStatusResolver implements DataFetcher<CompletableFutu
     final DisjunctivePrivilegeGroup orPrivilegeGroups =
         new DisjunctivePrivilegeGroup(
             ImmutableList.of(
-                AuthUtils.ALL_PRIVILEGES_GROUP,
+                ALL_PRIVILEGES_GROUP,
                 new ConjunctivePrivilegeGroup(
                     ImmutableList.of(PoliciesConfig.EDIT_ENTITY_INCIDENTS_PRIVILEGE.getType()))));
     return AuthorizationUtils.isAuthorized(

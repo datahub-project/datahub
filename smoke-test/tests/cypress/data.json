@@ -202,15 +202,15 @@
               ],
               "fineGrainedLineages": [
                 {
-                    "upstreamType": "FIELD_SET",
-                    "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:kafka,SampleCypressKafkaDataset,PROD),field_bar)"
-                    ],
-                    "downstreamType": "FIELD",
-                    "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleCypressHdfsDataset,PROD),shipment_info)"
-                    ],
-                    "confidenceScore": 1.0
+                  "upstreamType": "FIELD_SET",
+                  "upstreams": [
+                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:kafka,SampleCypressKafkaDataset,PROD),field_bar)"
+                  ],
+                  "downstreamType": "FIELD",
+                  "downstreams": [
+                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleCypressHdfsDataset,PROD),shipment_info)"
+                  ],
+                  "confidenceScore": 1.0
                 }
               ]
             }
@@ -400,7 +400,10 @@
           },
           {
             "com.linkedin.pegasus2avro.common.GlobalTags": {
-              "tags": [{ "tag": "urn:li:tag:Cypress" },  { "tag": "urn:li:tag:Cypress2" }]
+              "tags": [
+                { "tag": "urn:li:tag:Cypress" },
+                { "tag": "urn:li:tag:Cypress2" }
+              ]
             }
           }
         ]
@@ -2079,6 +2082,58 @@
     "aspectName": "incidentsSummary",
     "aspect": {
       "value": "{\"resolvedIncidentDetails\":[], \"activeIncidentDetails\": [{ \"urn\": \"urn:li:incident:test\", \"type\": \"OPERATIONAL\", \"createdAt\": 0 }]}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "businessAttribute",
+    "entityUrn": "urn:li:businessAttribute:37c81832-06e0-40b1-a682-858e1dd0d449",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "businessAttributeInfo",
+    "aspect": {
+      "value": "{\n      \"fieldPath\": \"CypressAttribute\",\n      \"description\": \"CypressAttribute\",\n      \"globalTags\": {\n        \"tags\": [\n          {\n            \"tag\": \"urn:li:tag:Cypress\"\n          }\n        ]\n      },\n      \"glossaryTerms\": {\n        \"terms\": [\n          {\n            \"urn\": \"urn:li:glossaryTerm:CypressNode.CypressTerm\"\n          }\n        ],\n        \"auditStamp\": {\n          \"time\": 1706889592683,\n          \"actor\": \"urn:li:corpuser:datahub\"\n        }\n      },\n      \"customProperties\": {},\n      \"created\": {\n        \"time\": 1706690081803,\n        \"actor\": \"urn:li:corpuser:datahub\"\n      },\n      \"lastModified\": {\n        \"time\": 1706690081803,\n        \"actor\": \"urn:li:corpuser:datahub\"\n      },\n      \"name\": \"CypressAttribute\",\n      \"type\": {\n        \"type\": {\n          \"com.linkedin.schema.BooleanType\": {}\n        }\n      }\n    }",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "businessAttribute",
+    "entityUrn": "urn:li:businessAttribute:37c81832-06e0-40b1-a682-858e1dd0d449",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+      "value": "{\n      \"owners\": [\n        {\n          \"owner\": \"urn:li:corpuser:datahub\",\n          \"type\": \"TECHNICAL_OWNER\",\n          \"typeUrn\": \"urn:li:ownershipType:__system__technical_owner\",\n          \"source\": {\n            \"type\": \"MANUAL\"\n          }\n        }\n      ]\n    }",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "businessAttribute",
+    "entityUrn": "urn:li:businessAttribute:cypressTestAttribute",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "businessAttributeInfo",
+    "aspect": {
+      "value": "{\n      \"fieldPath\": \"cypressTestAttribute\",\n      \"description\": \"cypressTestAttribute\",\n      \"customProperties\": {},\n      \"created\": {\n        \"time\": 1706690081803,\n        \"actor\": \"urn:li:corpuser:datahub\"\n      },\n      \"lastModified\": {\n        \"time\": 1706690081803,\n        \"actor\": \"urn:li:corpuser:datahub\"\n      },\n      \"name\": \"cypressTestAttribute\",\n      \"type\": {\n        \"type\": {\n          \"com.linkedin.schema.BooleanType\": {}\n        }\n      }\n    }",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "businessAttribute",
+    "entityUrn": "urn:li:businessAttribute:cypressTestAttribute",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+      "value": "{\n      \"owners\": [\n        {\n          \"owner\": \"urn:li:corpuser:datahub\",\n          \"type\": \"TECHNICAL_OWNER\",\n          \"typeUrn\": \"urn:li:ownershipType:__system__technical_owner\",\n          \"source\": {\n            \"type\": \"MANUAL\"\n          }\n        }\n      ]\n    }",
       "contentType": "application/json"
     },
     "systemMetadata": null

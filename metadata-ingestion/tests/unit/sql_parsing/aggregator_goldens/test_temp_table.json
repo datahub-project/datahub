@@ -58,7 +58,7 @@
     "aspect": {
         "json": {
             "statement": {
-                "value": "create table foo as select a, 2*b as b from bar",
+                "value": "CREATE TABLE foo AS\nSELECT\n  a,\n  2 * b AS b\nFROM bar",
                 "language": "SQL"
             },
             "source": "SYSTEM",
@@ -88,6 +88,17 @@
                     "entity": "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.bar,PROD)"
                 }
             ]
+        }
+    }
+},
+{
+    "entityType": "query",
+    "entityUrn": "urn:li:query:8b3a079997d562bdb1b14eb500e6123c4b00bb0263565dcaa0b66170e72602a1",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:redshift"
         }
     }
 },
@@ -151,7 +162,7 @@
     "aspect": {
         "json": {
             "statement": {
-                "value": "create temp table foo as select a, b+c as c from bar;\n\ncreate table foo_session2 as select * from foo",
+                "value": "CREATE TEMPORARY TABLE foo AS\nSELECT\n  a,\n  b + c AS c\nFROM bar;\n\nCREATE TABLE foo_session2 AS\nSELECT\n  *\nFROM foo",
                 "language": "SQL"
             },
             "source": "SYSTEM",
@@ -211,13 +222,24 @@
 },
 {
     "entityType": "query",
+    "entityUrn": "urn:li:query:composite_66ddf44283e4543440529f1d13b82221b5d60635b6a8c39751718049ce4f47ec",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:redshift"
+        }
+    }
+},
+{
+    "entityType": "query",
     "entityUrn": "urn:li:query:3e85e6f353c7fa33d6514cb090482852064d23df6491c9a8ae28be0d990a3c71",
     "changeType": "UPSERT",
     "aspectName": "queryProperties",
     "aspect": {
         "json": {
             "statement": {
-                "value": "create table foo_session3 as select * from foo",
+                "value": "CREATE TABLE foo_session3 AS\nSELECT\n  *\nFROM foo",
                 "language": "SQL"
             },
             "source": "SYSTEM",
@@ -247,6 +269,17 @@
                     "entity": "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.foo,PROD)"
                 }
             ]
+        }
+    }
+},
+{
+    "entityType": "query",
+    "entityUrn": "urn:li:query:3e85e6f353c7fa33d6514cb090482852064d23df6491c9a8ae28be0d990a3c71",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:redshift"
         }
     }
 }

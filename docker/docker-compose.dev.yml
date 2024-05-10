@@ -11,7 +11,7 @@
 version: '3.9'
 services:
   datahub-frontend-react:
-    image: linkedin/datahub-frontend-react:debug
+    image: acryldata/datahub-frontend-react:head
     ports:
     - ${DATAHUB_MAPPED_FRONTEND_DEBUG_PORT:-5002}:5002
     - ${DATAHUB_MAPPED_FRONTEND_PORT:-9002}:9002
@@ -27,7 +27,7 @@ services:
     - ../datahub-frontend/build/stage/main:/datahub-frontend
     - ./monitoring/client-prometheus-config.yaml:/datahub-frontend/client-prometheus-config.yaml
   datahub-gms:
-    image: linkedin/datahub-gms:debug
+    image: acryldata/datahub-gms:debug
     ports:
     - ${DATAHUB_MAPPED_GMS_DEBUG_PORT:-5001}:5001
     - ${DATAHUB_MAPPED_GMS_PORT:-8080}:8080
@@ -46,10 +46,12 @@ services:
     - SEARCH_SERVICE_ENABLE_CACHE=false
     - LINEAGE_SEARCH_CACHE_ENABLED=false
     - SHOW_BROWSE_V2=true
+    - ER_MODEL_RELATIONSHIP_FEATURE_ENABLED=false
     - KAFKA_CONSUMER_STOP_ON_DESERIALIZATION_ERROR=${KAFKA_CONSUMER_STOP_ON_DESERIALIZATION_ERROR:-true}
     volumes:
     - ./datahub-gms/start.sh:/datahub/datahub-gms/scripts/start.sh
     - ./datahub-gms/jetty.xml:/datahub/datahub-gms/scripts/jetty.xml
+    - ./datahub-gms/jetty-jmx.xml:/datahub/datahub-gms/scripts/jetty-jmx.xml
     - ./monitoring/client-prometheus-config.yaml:/datahub/datahub-gms/scripts/prometheus-config.yaml
     - ../metadata-models/src/main/resources/:/datahub/datahub-gms/resources
     - ../metadata-service/war/build/libs/:/datahub/datahub-gms/bin
@@ -75,7 +77,7 @@ services:
     - ${HOME}/.datahub/plugins:/etc/datahub/plugins
   # Pre-creates the search indices using local mapping/settings.json
   elasticsearch-setup:
-    image: linkedin/datahub-elasticsearch-setup:debug
+    image: acryldata/datahub-elasticsearch-setup:head
     build:
       context: elasticsearch-setup
       dockerfile: Dockerfile

@@ -94,6 +94,7 @@ def make_ts_millis(ts: datetime) -> int:
 
 
 def make_ts_millis(ts: Optional[datetime]) -> Optional[int]:
+    # TODO: This duplicates the functionality of datetime_to_ts_millis
     if ts is None:
         return None
     return int(ts.timestamp() * 1000)
@@ -245,6 +246,10 @@ def make_owner_urn(owner: str, owner_type: OwnerType) -> str:
     return f"urn:li:{owner_type.value}:{owner}"
 
 
+def make_ownership_type_urn(type: str) -> str:
+    return f"urn:li:ownershipType:{type}"
+
+
 def make_term_urn(term: str) -> str:
     """
     Makes a term urn if the input is not a term urn already
@@ -362,7 +367,7 @@ def make_ml_model_group_urn(platform: str, group_name: str, env: str) -> str:
     )
 
 
-def get_class_fields(_class: Type[object]) -> Iterable[str]:
+def _get_enum_options(_class: Type[object]) -> Iterable[str]:
     return [
         f
         for f in dir(_class)
@@ -373,7 +378,8 @@ def get_class_fields(_class: Type[object]) -> Iterable[str]:
 def validate_ownership_type(ownership_type: str) -> Tuple[str, Optional[str]]:
     if ownership_type.startswith("urn:li:"):
         return OwnershipTypeClass.CUSTOM, ownership_type
-    if ownership_type in get_class_fields(OwnershipTypeClass):
+    ownership_type = ownership_type.upper()
+    if ownership_type in _get_enum_options(OwnershipTypeClass):
         return ownership_type, None
     raise ValueError(f"Unexpected ownership type: {ownership_type}")
 

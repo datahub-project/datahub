@@ -84,9 +84,20 @@ const IncidentDescriptionText = styled(Typography.Text)`
     text-align: justify;
 `;
 
+const IncidentDescriptionLabel = styled(Typography.Text)`
+    margin-top: 4px;
+    font-weight: 400;
+    font-size: 10px;
+    color: #8c8c8c;
+    display: block;
+    word-wrap: break-word;
+    white-space: normal;
+    text-align: justify;
+`;
+
 const IncidentCreatedTime = styled(Typography.Text)`
     font-weight: 500;
-    font-size: 12px;
+    font-size: 10px;
     line-height: 20px;
     color: #8c8c8c;
 `;
@@ -217,7 +228,15 @@ export default function IncidentListItem({ incident, refetch }: Props) {
                                 </IncidentTypeTag>
                             </TitleContainer>
                             <DescriptionContainer>
+                                <IncidentDescriptionLabel>Description</IncidentDescriptionLabel>
                                 <IncidentDescriptionText>{incident?.description}</IncidentDescriptionText>
+                                {incident.status.state === IncidentState.Resolved ?
+                                    <>
+                                        <IncidentDescriptionLabel>Resolution Note</IncidentDescriptionLabel>
+                                        <IncidentDescriptionText>{incident?.status.message || 'No additional details'}</IncidentDescriptionText>
+                                    </>
+                                    : null
+                                }
                             </DescriptionContainer>
                             <DescriptionContainer>
                                 <Tooltip placement="right" showArrow={false} title={toLocalDateTimeString(createdDate)}>

@@ -12,9 +12,11 @@ import com.linkedin.datahub.graphql.resolvers.mutate.util.LabelUtils;
 import com.linkedin.metadata.entity.EntityService;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
+import javax.annotation.Nonnull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -37,11 +39,11 @@ public class BatchRemoveTagsResolver implements DataFetcher<CompletableFuture<Bo
         () -> {
 
           // First, validate the batch
-          validateInputResources(resources, context);
+          validateInputResources(context.getOperationContext(), resources, context);
 
           try {
             // Then execute the bulk add
-            batchRemoveTags(tagUrns, resources, context);
+            batchRemoveTags(context.getOperationContext(), tagUrns, resources, context);
             return true;
           } catch (Exception e) {
             log.error(
@@ -52,28 +54,37 @@ public class BatchRemoveTagsResolver implements DataFetcher<CompletableFuture<Bo
         });
   }
 
-  private void validateInputResources(List<ResourceRefInput> resources, QueryContext context) {
+  private void validateInputResources(
+      @Nonnull OperationContext opContext, List<ResourceRefInput> resources, QueryContext context) {
     for (ResourceRefInput resource : resources) {
-      validateInputResource(resource, context);
+      validateInputResource(opContext, resource, context);
     }
   }
 
-  private void validateInputResource(ResourceRefInput resource, QueryContext context) {
+  private void validateInputResource(
+      @Nonnull OperationContext opContext, ResourceRefInput resource, QueryContext context) {
     final Urn resourceUrn = UrnUtils.getUrn(resource.getResourceUrn());
     if (!LabelUtils.isAuthorizedToUpdateTags(context, resourceUrn, resource.getSubResource())) {
       throw new AuthorizationException(
           "Unauthorized to perform this action. Please contact your DataHub administrator.");
     }
     LabelUtils.validateResource(
-        resourceUrn, resource.getSubResource(), resource.getSubResourceType(), _entityService);
+        opContext,
+        resourceUrn,
+        resource.getSubResource(),
+        resource.getSubResourceType(),
+        _entityService);
   }
 
   private void batchRemoveTags(
-      List<Urn> tagUrns, List<ResourceRefInput> resources, QueryContext context) {
+      @Nonnull OperationContext opContext,
+      List<Urn> tagUrns,
+      List<ResourceRefInput> resources,
+      QueryContext context) {
     log.debug("Batch removing Tags. tags: {}, resources: {}", resources, tagUrns);
     try {
       LabelUtils.removeTagsFromResources(
-          tagUrns, resources, UrnUtils.getUrn(context.getActorUrn()), _entityService);
+          opContext, tagUrns, resources, UrnUtils.getUrn(context.getActorUrn()), _entityService);
     } catch (Exception e) {
       throw new RuntimeException(
           String.format(

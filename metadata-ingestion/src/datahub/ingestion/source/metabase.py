@@ -1,4 +1,6 @@
+import json
 import logging
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from functools import lru_cache
 from typing import Dict, Iterable, List, Optional, Tuple, Union
@@ -20,8 +22,17 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import Source, SourceReport
+from datahub.ingestion.api.source import MetadataWorkUnitProcessor, Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.state.stale_entity_removal_handler import (
+    StaleEntityRemovalHandler,
+    StaleEntityRemovalSourceReport,
+    StatefulStaleMetadataRemovalConfig,
+)
+from datahub.ingestion.source.state.stateful_ingestion_base import (
+    StatefulIngestionConfigBase,
+    StatefulIngestionSourceBase,
+)
 from datahub.metadata.com.linkedin.pegasus2avro.common import (
     AuditStamp,
     ChangeAuditStamps,
@@ -49,7 +60,7 @@ logger = logging.getLogger(__name__)
 DATASOURCE_URN_RECURSION_LIMIT = 5
 
 
-class MetabaseConfig(DatasetLineageProviderConfigBase):
+class MetabaseConfig(DatasetLineageProviderConfigBase, StatefulIngestionConfigBase):
     # See the Metabase /api/session endpoint for details
     # https://www.metabase.com/docs/latest/api-documentation.html#post-apisession
     connect_uri: str = Field(default="localhost:3000", description="Metabase host URL.")
@@ -79,6 +90,11 @@ class MetabaseConfig(DatasetLineageProviderConfigBase):
         default="public",
         description="Default schema name to use when schema is not provided in an SQL query",
     )
+    exclude_other_user_collections: bool = Field(
+        default=False,
+        description="Flag that if true, exclude other user collections",
+    )
+    stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = None
 
     @validator("connect_uri", "display_uri")
     def remove_trailing_slash(cls, v):
@@ -92,12 +108,17 @@ class MetabaseConfig(DatasetLineageProviderConfigBase):
         return values
 
 
+@dataclass
+class MetabaseReport(StaleEntityRemovalSourceReport):
+    pass
+
+
 @platform_name("Metabase")
 @config_class(MetabaseConfig)
 @support_status(SupportStatus.CERTIFIED)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.LINEAGE_COARSE, "Supported by default")
-class MetabaseSource(Source):
+class MetabaseSource(StatefulIngestionSourceBase):
     """
     This plugin extracts Charts, dashboards, and associated metadata. This plugin is in beta and has only been tested
     on PostgreSQL and H2 database.
@@ -142,17 +163,18 @@ class MetabaseSource(Source):
     """
 
     config: MetabaseConfig
-    report: SourceReport
+    report: MetabaseReport
     platform = "metabase"
 
     def __hash__(self):
         return id(self)
 
     def __init__(self, ctx: PipelineContext, config: MetabaseConfig):
-        super().__init__(ctx)
+        super().__init__(config, ctx)
         self.config = config
-        self.report = SourceReport()
+        self.report = MetabaseReport()
         self.setup_session()
+        self.source_config: MetabaseConfig = config
 
     def setup_session(self) -> None:
         login_response = requests.post(
@@ -209,6 +231,7 @@ class MetabaseSource(Source):
         try:
             collections_response = self.session.get(
                 f"{self.config.connect_uri}/api/collection/"
+                f"?exclude-other-user-collections={json.dumps(self.config.exclude_other_user_collections)}"
             )
             collections_response.raise_for_status()
             collections = collections_response.json()
@@ -252,7 +275,7 @@ class MetabaseSource(Source):
         self, dashboard_info: dict
     ) -> Optional[DashboardSnapshot]:
         dashboard_id = dashboard_info.get("id", "")
-        dashboard_url = f"{self.config.display_uri}/api/dashboard/{dashboard_id}"
+        dashboard_url = f"{self.config.connect_uri}/api/dashboard/{dashboard_id}"
         try:
             dashboard_response = self.session.get(dashboard_url)
             dashboard_response.raise_for_status()
@@ -296,7 +319,7 @@ class MetabaseSource(Source):
             title=title,
             charts=chart_urns,
             lastModified=last_modified,
-            dashboardUrl=f"{self.config.connect_uri}/dashboard/{dashboard_id}",
+            dashboardUrl=f"{self.config.display_uri}/dashboard/{dashboard_id}",
             customProperties={},
         )
         dashboard_snapshot.aspects.append(dashboard_info_class)
@@ -310,7 +333,7 @@ class MetabaseSource(Source):
 
     @lru_cache(maxsize=None)
     def _get_ownership(self, creator_id: int) -> Optional[OwnershipClass]:
-        user_info_url = f"{self.config.display_uri}/api/user/{creator_id}"
+        user_info_url = f"{self.config.connect_uri}/api/user/{creator_id}"
         try:
             user_info_response = self.session.get(user_info_url)
             user_info_response.raise_for_status()
@@ -375,7 +398,7 @@ class MetabaseSource(Source):
         :param int datasource_id: Numeric datasource ID received from Metabase API
         :return: dict with info or empty dict
         """
-        card_url = f"{self.config.display_uri}/api/card/{card_id}"
+        card_url = f"{self.config.connect_uri}/api/card/{card_id}"
         try:
             card_response = self.session.get(card_url)
             card_response.raise_for_status()
@@ -431,7 +454,7 @@ class MetabaseSource(Source):
             description=description,
             title=title,
             lastModified=last_modified,
-            chartUrl=f"{self.config.connect_uri}/card/{card_id}",
+            chartUrl=f"{self.config.display_uri}/card/{card_id}",
             inputs=datasource_urn,
             customProperties=custom_properties,
         )
@@ -732,6 +755,14 @@ class MetabaseSource(Source):
     def create(cls, config_dict: dict, ctx: PipelineContext) -> Source:
         config = MetabaseConfig.parse_obj(config_dict)
         return cls(ctx, config)
+
+    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
+        return [
+            *super().get_workunit_processors(),
+            StaleEntityRemovalHandler.create(
+                self, self.source_config, self.ctx
+            ).workunit_processor,
+        ]
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         yield from self.emit_card_mces()

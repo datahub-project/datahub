@@ -48,7 +48,7 @@ public class DatasetProfileMapperTest {
                     .setSampleValues(new StringArray(ImmutableList.of("val3", "val4"))))));
     final EnvelopedAspect inputAspect =
         new EnvelopedAspect().setAspect(GenericRecordUtils.serializeAspect(input));
-    final DatasetProfile actual = DatasetProfileMapper.map(inputAspect);
+    final DatasetProfile actual = DatasetProfileMapper.map(null, inputAspect);
     final DatasetProfile expected = new DatasetProfile();
     expected.setTimestampMillis(1L);
     expected.setRowCount(10L);
@@ -167,7 +167,7 @@ public class DatasetProfileMapperTest {
                     .setUniqueProportion(40.5f))));
     final EnvelopedAspect inputAspect =
         new EnvelopedAspect().setAspect(GenericRecordUtils.serializeAspect(input));
-    final DatasetProfile actual = DatasetProfileMapper.map(inputAspect);
+    final DatasetProfile actual = DatasetProfileMapper.map(null, inputAspect);
     final DatasetProfile expected = new DatasetProfile();
     expected.setTimestampMillis(1L);
     expected.setRowCount(10L);

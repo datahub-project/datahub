@@ -121,7 +121,6 @@ services:
       timeout: 10s
       retries: 5
     volumes:
-      - ./mysql/init.sql:/docker-entrypoint-initdb.d/init.sql
       - mysqldata:/var/lib/mysql
   mysql-setup: &mysql-setup
     profiles: *mysql-profiles-quickstart
@@ -256,7 +255,7 @@ services:
   kafka-setup: &kafka-setup
     profiles: *profiles-quickstart
     hostname: kafka-setup
-    image: ${DATAHUB_KAFKA_SETUP_IMAGE:-${DATAHUB_REPO:-linkedin}/datahub-kafka-setup}:${DATAHUB_VERSION:-head}
+    image: ${DATAHUB_KAFKA_SETUP_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-kafka-setup}:${DATAHUB_VERSION:-head}
     env_file: kafka-setup/env/docker.env
     environment: &kafka-setup-env
       DATAHUB_PRECREATE_TOPICS: ${DATAHUB_PRECREATE_TOPICS:-false}
@@ -273,7 +272,7 @@ services:
     environment:
       <<: *kafka-setup-env
       DATAHUB_PRECREATE_TOPICS: ${DATAHUB_PRECREATE_TOPICS:-true}
-    image: ${DATAHUB_KAFKA_SETUP_IMAGE:-${DATAHUB_REPO:-linkedin}/datahub-kafka-setup}:debug
+    image: ${DATAHUB_KAFKA_SETUP_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-kafka-setup}:debug
   elasticsearch:
     profiles: *elasticsearch-profiles
     hostname: search
@@ -297,7 +296,7 @@ services:
     volumes:
       - esdata:/usr/share/elasticsearch/data
   elasticsearch-setup-dev: &elasticsearch-setup-dev
-    image: ${DATAHUB_ELASTIC_SETUP_IMAGE:-${DATAHUB_REPO:-linkedin}/datahub-elasticsearch-setup}:debug
+    image: ${DATAHUB_ELASTIC_SETUP_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-elasticsearch-setup}:debug
     profiles: *elasticsearch-profiles
     hostname: elasticsearch-setup
     env_file: elasticsearch-setup/env/docker.env
@@ -312,7 +311,7 @@ services:
   opensearch:
     profiles: *opensearch-profiles
     hostname: search
-    image: ${DATAHUB_SEARCH_IMAGE:-opensearchproject/opensearch}:${DATAHUB_SEARCH_TAG:-2.9.0}
+    image: ${DATAHUB_SEARCH_IMAGE:-opensearchproject/opensearch}:${DATAHUB_SEARCH_TAG:-2.11.0}
     ports:
       - ${DATAHUB_MAPPED_ELASTIC_PORT:-9200}:9200
     env_file: elasticsearch/env/docker.env
@@ -335,7 +334,7 @@ services:
     <<: *elasticsearch-setup-dev
     profiles: *opensearch-profiles-quickstart
     hostname: opensearch-setup
-    image: ${DATAHUB_ELASTIC_SETUP_IMAGE:-${DATAHUB_REPO:-linkedin}/datahub-elasticsearch-setup}:${DATAHUB_VERSION:-head}
+    image: ${DATAHUB_ELASTIC_SETUP_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-elasticsearch-setup}:${DATAHUB_VERSION:-head}
     environment:
       <<: *search-datastore-environment
       USE_AWS_ELASTICSEARCH: ${USE_AWS_ELASTICSEARCH:-true}
@@ -348,7 +347,7 @@ services:
     <<: *opensearch-setup
     profiles: *opensearch-profiles-dev
     hostname: opensearch-setup-dev
-    image: ${DATAHUB_ELASTIC_SETUP_IMAGE:-${DATAHUB_REPO:-linkedin}/datahub-elasticsearch-setup}:debug
+    image: ${DATAHUB_ELASTIC_SETUP_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-elasticsearch-setup}:debug
     environment:
       <<: *search-datastore-environment
       USE_AWS_ELASTICSEARCH: ${USE_AWS_ELASTICSEARCH:-true}

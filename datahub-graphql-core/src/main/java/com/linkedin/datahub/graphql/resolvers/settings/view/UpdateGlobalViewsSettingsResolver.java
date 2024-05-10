@@ -43,7 +43,7 @@ public class UpdateGlobalViewsSettingsResolver implements DataFetcher<Completabl
             try {
               // First, fetch the existing global settings. This does a R-M-F.
               final GlobalSettingsInfo maybeGlobalSettings =
-                  _settingsService.getGlobalSettings(context.getAuthentication());
+                  _settingsService.getGlobalSettings(context.getOperationContext());
 
               final GlobalSettingsInfo newGlobalSettings =
                   maybeGlobalSettings != null ? maybeGlobalSettings : new GlobalSettingsInfo();
@@ -58,7 +58,8 @@ public class UpdateGlobalViewsSettingsResolver implements DataFetcher<Completabl
               newGlobalSettings.setViews(newGlobalViewsSettings);
 
               // Finally, write back to GMS.
-              _settingsService.updateGlobalSettings(newGlobalSettings, context.getAuthentication());
+              _settingsService.updateGlobalSettings(
+                  context.getOperationContext(), newGlobalSettings);
               return true;
             } catch (Exception e) {
               throw new RuntimeException(

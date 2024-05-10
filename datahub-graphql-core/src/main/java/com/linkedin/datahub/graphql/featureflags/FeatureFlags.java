@@ -15,7 +15,9 @@ public class FeatureFlags {
   private boolean platformBrowseV2 = false;
   private PreProcessHooks preProcessHooks;
   private boolean showAcrylInfo = false;
+  private boolean erModelRelationshipFeatureEnabled = false;
   private boolean showAccessManagement = false;
   private boolean nestedDomainsEnabled = false;
   private boolean schemaFieldEntityFetchEnabled = false;
+  private boolean businessAttributeEntityEnabled = false;
 }
