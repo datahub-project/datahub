@@ -50,7 +50,6 @@ export const ManageIngestionPage = () => {
     /**
      * Determines which view should be visible: ingestion sources or secrets.
      */
-    const [selectedTab, setSelectedTab] = useState<TabType>(TabType.Sources);
     const me = useUserContext();
     const { config } = useAppConfig();
     const isIngestionEnabled = config?.managedIngestionConfig.enabled;
@@ -58,6 +57,8 @@ export const ManageIngestionPage = () => {
         isIngestionEnabled && me && me.platformPrivileges?.manageIngestion;
     const showSecretsTab =
         isIngestionEnabled && me && me.platformPrivileges?.manageSecrets;
+    const defaultTab = showIngestionTab ? TabType.Sources : TabType.Secrets;
+    const [selectedTab, setSelectedTab] = useState<TabType>(defaultTab);
 
     const onClickTab = (newTab: string) => {
         setSelectedTab(TabType[newTab]);
