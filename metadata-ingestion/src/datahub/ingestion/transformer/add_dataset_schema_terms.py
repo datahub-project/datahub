@@ -47,7 +47,10 @@ class AddDatasetSchemaTerms(DatasetSchemaMetadataTransformer):
         return cls(config, ctx)
 
     def extend_field(
-        self, schema_field: SchemaFieldClass, server_field: Optional[SchemaFieldClass]
+        self,
+        schema_field: SchemaFieldClass,
+        server_field: Optional[SchemaFieldClass],
+        entity_urn: str,
     ) -> SchemaFieldClass:
         all_terms = self.config.get_terms_to_add(schema_field.fieldPath)
         if len(all_terms) == 0:
@@ -80,28 +83,29 @@ class AddDatasetSchemaTerms(DatasetSchemaMetadataTransformer):
         new_glossary_terms.extend(terms_to_add)
 
         unique_gloseary_terms = []
-        logger.debug("Adding below terms to fields: ")
+        term_log_entries = []
         for term in new_glossary_terms:
             if term not in unique_gloseary_terms:
                 unique_gloseary_terms.append(term)
-                if not self.ctx.graph:
-                    logger.warning(
-                        f"Term URN: {term.urn}, Term Name: Not Found, Field Path: {schema_field.fieldPath}"
-                    )
-                else:
+                if self.ctx.graph:
                     term_aspect = self.ctx.graph.get_aspect(
                         entity_urn=term.urn, aspect_type=GlossaryTermInfoClass
                     )
                     if term_aspect:
                         term_name = term_aspect.name
-                    if term_name:
-                        logger.debug(
-                            f"Term URN: {term.urn}, Term Name: {term_name}, Field Path: {schema_field.fieldPath}"
+                        term_log_entries.append(
+                            f"Term URN: {term.urn}, Term Name: {term_name}, Field Path: {schema_field.fieldPath}, Entity URN: {entity_urn}"
                         )
                     else:
-                        logger.warning(
-                            f"Term URN: {term.urn}, Term Name: Not Found, Field Path: {schema_field.fieldPath}"
+                        term_log_entries.append(
+                            f"Term URN: {term.urn}, Term Name: Not Found, Field Path: {schema_field.fieldPath}, Entity URN: {entity_urn}"
                         )
+
+        # Log the collected term details together
+        if term_log_entries:
+            logger.debug("Adding below terms to fields:")
+            for entry in term_log_entries:
+                logger.debug(entry)
 
         new_glossary_term = GlossaryTermsClass(
             terms=[],
@@ -153,7 +157,11 @@ class AddDatasetSchemaTerms(DatasetSchemaMetadataTransformer):
             return None
 
         schema_metadata_aspect.fields = [
-            self.extend_field(field, server_field=server_field_map.get(field.fieldPath))
+            self.extend_field(
+                field,
+                server_field=server_field_map.get(field.fieldPath),
+                entity_urn=entity_urn,
+            )
             for field in schema_metadata_aspect.fields
         ]
 
