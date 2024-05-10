@@ -17,6 +17,9 @@ import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.aspect.validation.CreateIfNotExistsValidator;
 import com.linkedin.metadata.aspect.validation.FieldPathValidator;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.schema.EditableSchemaFieldInfo;
+import com.linkedin.schema.EditableSchemaFieldInfoArray;
+import com.linkedin.schema.EditableSchemaMetadata;
 import com.linkedin.schema.SchemaField;
 import com.linkedin.schema.SchemaFieldArray;
 import com.linkedin.schema.SchemaFieldDataType;
@@ -90,7 +93,7 @@ public class FieldPathValidatorTest {
   }
 
   @Test
-  public void testValidateNonDuplicatedSchemaFieldPath() throws URISyntaxException {
+  public void testValidateNonDuplicatedSchemaFieldPath() {
     final SchemaMetadata schema = getMockSchemaMetadataAspect(false);
     assertEquals(
         test.validateProposed(
@@ -111,7 +114,7 @@ public class FieldPathValidatorTest {
   }
 
   @Test
-  public void testValidateDuplicatedSchemaFieldPath() throws URISyntaxException {
+  public void testValidateDuplicatedSchemaFieldPath() {
     final SchemaMetadata schema = getMockSchemaMetadataAspect(true);
 
     assertEquals(
@@ -133,7 +136,7 @@ public class FieldPathValidatorTest {
   }
 
   @Test
-  public void testValidateDeleteDuplicatedSchemaFieldPath() throws URISyntaxException {
+  public void testValidateDeleteDuplicatedSchemaFieldPath() {
     final SchemaMetadata schema = getMockSchemaMetadataAspect(true);
 
     assertEquals(
@@ -154,9 +157,50 @@ public class FieldPathValidatorTest {
         0);
   }
 
-  private SchemaMetadata getMockSchemaMetadataAspect(boolean duplicateFields)
-      throws URISyntaxException {
+  @Test
+  public void testValidateNonDuplicatedEditableSchemaFieldPath() {
+    final EditableSchemaMetadata schema = getMockEditableSchemaMetadataAspect(false);
+    assertEquals(
+        test.validateProposed(
+                Set.of(
+                    TestMCP.builder()
+                        .changeType(ChangeType.UPSERT)
+                        .urn(testDatasetUrn)
+                        .entitySpec(entityRegistry.getEntitySpec(testDatasetUrn.getEntityType()))
+                        .aspectSpec(
+                            entityRegistry
+                                .getEntitySpec(testDatasetUrn.getEntityType())
+                                .getAspectSpec(EDITABLE_SCHEMA_METADATA_ASPECT_NAME))
+                        .recordTemplate(schema)
+                        .build()),
+                mockRetrieverContext)
+            .count(),
+        0);
+  }
 
+  @Test
+  public void testValidateDuplicatedEditableSchemaFieldPath() {
+    final EditableSchemaMetadata schema = getMockEditableSchemaMetadataAspect(true);
+
+    assertEquals(
+        test.validateProposed(
+                Set.of(
+                    TestMCP.builder()
+                        .changeType(ChangeType.UPSERT)
+                        .urn(testDatasetUrn)
+                        .entitySpec(entityRegistry.getEntitySpec(testDatasetUrn.getEntityType()))
+                        .aspectSpec(
+                            entityRegistry
+                                .getEntitySpec(testDatasetUrn.getEntityType())
+                                .getAspectSpec(EDITABLE_SCHEMA_METADATA_ASPECT_NAME))
+                        .recordTemplate(schema)
+                        .build()),
+                mockRetrieverContext)
+            .count(),
+        1);
+  }
+
+  private SchemaMetadata getMockSchemaMetadataAspect(boolean duplicateFields) {
     List<SchemaField> fields = new ArrayList<>();
     fields.add(
         new SchemaField()
@@ -181,5 +225,18 @@ public class FieldPathValidatorTest {
     return new SchemaMetadata()
         .setPlatform(testDatasetUrn.getPlatformEntity())
         .setFields(new SchemaFieldArray(fields));
+  }
+
+  private EditableSchemaMetadata getMockEditableSchemaMetadataAspect(boolean duplicateFields) {
+
+    List<EditableSchemaFieldInfo> fields = new ArrayList<>();
+    fields.add(new EditableSchemaFieldInfo().setFieldPath("test"));
+
+    if (duplicateFields) {
+      fields.add(new EditableSchemaFieldInfo().setFieldPath("test"));
+    }
+
+    return new EditableSchemaMetadata()
+        .setEditableSchemaFieldInfo(new EditableSchemaFieldInfoArray(fields));
   }
 }

@@ -9,6 +9,8 @@ import com.linkedin.metadata.aspect.batch.ChangeMCP;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.aspect.plugins.validation.AspectPayloadValidator;
 import com.linkedin.metadata.aspect.plugins.validation.AspectValidationException;
+import com.linkedin.schema.EditableSchemaFieldInfo;
+import com.linkedin.schema.EditableSchemaMetadata;
 import com.linkedin.schema.SchemaField;
 import com.linkedin.schema.SchemaMetadata;
 import java.util.Collection;
@@ -42,22 +44,50 @@ public class FieldPathValidator extends AspectPayloadValidator {
       @Nonnull RetrieverContext retrieverContext) {
     return mcpItems.stream()
         .filter(i -> !ChangeType.DELETE.equals(i.getChangeType()))
-        .filter(i -> i.getAspectName().equals(SCHEMA_METADATA_ASPECT_NAME))
+        .filter(
+            i ->
+                i.getAspectName().equals(SCHEMA_METADATA_ASPECT_NAME)
+                    || i.getAspectName().equals(EDITABLE_SCHEMA_METADATA_ASPECT_NAME))
         .map(
             i -> {
-              SchemaMetadata schemaMetadata = i.getAspect(SchemaMetadata.class);
-              long uniquePaths =
-                  schemaMetadata.getFields().stream()
-                      .map(SchemaField::getFieldPath)
-                      .distinct()
-                      .count();
-              if (uniquePaths != schemaMetadata.getFields().size()) {
-                return AspectValidationException.forItem(
-                    i, "SchemaMetadata proposal has duplicated field paths");
+              if (i.getAspectName().equals(SCHEMA_METADATA_ASPECT_NAME)) {
+                return processSchemaMetadataAspect(i);
+              } else {
+                return processEditableSchemaMetadataAspect(i);
               }
-              return null;
             })
         .filter(Objects::nonNull);
+  }
+
+  private static AspectValidationException processEditableSchemaMetadataAspect(BatchItem i) {
+    final EditableSchemaMetadata schemaMetadata = i.getAspect(EditableSchemaMetadata.class);
+    final long uniquePaths =
+        schemaMetadata.getEditableSchemaFieldInfo().stream()
+            .map(EditableSchemaFieldInfo::getFieldPath)
+            .distinct()
+            .count();
+    if (uniquePaths != schemaMetadata.getEditableSchemaFieldInfo().size()) {
+      return AspectValidationException.forItem(
+          i,
+          String.format(
+              "Cannot perform %s action on proposal. EditableSchemaMetadata aspect has duplicated field paths",
+              i.getChangeType()));
+    }
+    return null;
+  }
+
+  private static AspectValidationException processSchemaMetadataAspect(BatchItem i) {
+    final SchemaMetadata schemaMetadata = i.getAspect(SchemaMetadata.class);
+    final long uniquePaths =
+        schemaMetadata.getFields().stream().map(SchemaField::getFieldPath).distinct().count();
+    if (uniquePaths != schemaMetadata.getFields().size()) {
+      return AspectValidationException.forItem(
+          i,
+          String.format(
+              "Cannot perform %s action on proposal. SchemaMetadata aspect has duplicated field paths",
+              i.getChangeType()));
+    }
+    return null;
   }
 
   @Override

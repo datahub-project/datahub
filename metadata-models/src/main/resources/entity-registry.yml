@@ -600,6 +600,19 @@ plugins:
       supportedEntityAspectNames:
         - entityName: '*'
           aspectName: '*'
+    - className: 'com.linkedin.metadata.aspect.validation.FieldPathValidator'
+      enabled: true
+      supportedOperations:
+        - CREATE
+        - UPSERT
+        - UPDATE
+        - RESTATE
+        - PATCH
+      supportedEntityAspectNames:
+        - entityName: '*'
+          aspectName: 'schemaMetadata'
+        - entityName: '*'
+          aspectName: 'editableSchemaMetadata'
   mutationHooks:
     - className: 'com.linkedin.metadata.aspect.hooks.StructuredPropertiesSoftDelete'
       enabled: true
