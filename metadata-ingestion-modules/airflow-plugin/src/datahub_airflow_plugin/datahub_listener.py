@@ -540,6 +540,31 @@ class DataHubListener:
             )
 
             self.emitter.emit(event)
+        
+        assert self.graph
+
+        # fetch the tasks for the DAG
+        dag_tasks: list[str] = []
+        for task in dag.tasks:
+            dag_tasks.append(
+                builder.make_data_job_urn_with_flow(str(dataflow.urn), task.task_id)
+            )
+
+        # fetch the tasks from the graph
+        entities = self.graph.get_related_entities(
+            entity_urn=str(dataflow.urn),
+            relationship_types=["IsPartOf"],
+            direction=DataHubGraph.RelationshipDirection.INCOMING,
+        )
+
+        materialised_tasks: list[str] = []
+        for entity in entities:
+            materialised_tasks.append(str(entity.urn))
+
+        obsolete_tasks = set(materialised_tasks) - set(dag_tasks)
+        for obsolete_task in obsolete_tasks:
+            self.graph.soft_delete_entity(str(obsolete_task))
+        logger.debug(f"count of soft deleted obsolete tasks {len(obsolete_tasks)}")
 
     if HAS_AIRFLOW_DAG_LISTENER_API:
 
