@@ -12,9 +12,7 @@ import javax.annotation.Nonnull;
 
 public class CustomDataQualityRulesMCPSideEffect extends MCPSideEffect {
 
-  public CustomDataQualityRulesMCPSideEffect(AspectPluginConfig aspectPluginConfig) {
-    super(aspectPluginConfig);
-  }
+  private AspectPluginConfig config;
 
   @Override
   protected Stream<ChangeMCP> applyMCPSideEffect(
@@ -33,5 +31,17 @@ public class CustomDataQualityRulesMCPSideEffect extends MCPSideEffect {
                   .systemMetadata(changeMCP.getSystemMetadata())
                   .build(retrieverContext.getAspectRetriever());
             });
+  }
+
+  @Nonnull
+  @Override
+  public AspectPluginConfig getConfig() {
+    return config;
+  }
+
+  @Override
+  public CustomDataQualityRulesMCPSideEffect setConfig(@Nonnull AspectPluginConfig config) {
+    this.config = config;
+    return this;
   }
 }

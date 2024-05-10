@@ -4,7 +4,6 @@ import com.linkedin.metadata.aspect.ReadItem;
 import com.linkedin.metadata.aspect.RetrieverContext;
 import com.linkedin.metadata.aspect.batch.ChangeMCP;
 import com.linkedin.metadata.aspect.plugins.PluginSpec;
-import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.util.Pair;
 import java.util.Collection;
 import java.util.stream.Collectors;
@@ -13,10 +12,6 @@ import javax.annotation.Nonnull;
 
 /** Applies changes to the RecordTemplate prior to write */
 public abstract class MutationHook extends PluginSpec {
-
-  public MutationHook(AspectPluginConfig aspectPluginConfig) {
-    super(aspectPluginConfig);
-  }
 
   /**
    * Mutating hook, original objects are potentially modified.

@@ -70,5 +70,13 @@ record StructuredPropertyDefinition {
     * from the logical type.
     */
     searchConfiguration: optional DataHubSearchConfig
+
+    /**
+     * Whether the structured property value is immutable once applied to an entity.
+     */
+    @Searchable = {
+      "fieldType": "BOOLEAN"
+    }
+    immutable: boolean = false
 }
 

@@ -1,7 +1,7 @@
 # Assertions
 
 :::note Contract Monitoring Support
-Currently we support Snowflake, Databricks, Redshift, and BigQuery for out-of-the-box contract monitoring as part of Acryl Observe.
+Currently we support Snowflake, Redshift, BigQuery, and Databricks for out-of-the-box contract monitoring as part of Acryl Observe.
 :::
 
 An assertion is **a data quality test that finds data that violates a specified rule.** 

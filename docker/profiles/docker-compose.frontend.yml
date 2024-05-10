@@ -7,7 +7,7 @@ x-datahub-frontend-service: &datahub-frontend-service
   env_file:
     - datahub-frontend/env/docker.env
     - ${DATAHUB_LOCAL_COMMON_ENV:-empty.env}
-    - ${DATAHUB_LOCAL_FRONTEND_ENV:-empty.env}
+    - ${DATAHUB_LOCAL_FRONTEND_ENV:-empty2.env}
   environment: &datahub-frontend-service-env
     KAFKA_BOOTSTRAP_SERVER: broker:29092
   volumes:

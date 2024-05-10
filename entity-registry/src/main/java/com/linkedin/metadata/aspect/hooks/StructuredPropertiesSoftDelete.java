@@ -13,11 +13,15 @@ import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
+import lombok.Getter;
+import lombok.Setter;
+import lombok.experimental.Accessors;
 
+@Getter
+@Setter
+@Accessors(chain = true)
 public class StructuredPropertiesSoftDelete extends MutationHook {
-  public StructuredPropertiesSoftDelete(AspectPluginConfig aspectPluginConfig) {
-    super(aspectPluginConfig);
-  }
+  @Nonnull private AspectPluginConfig config;
 
   @Override
   protected Stream<Pair<ReadItem, Boolean>> readMutation(

@@ -20,7 +20,7 @@ import dateutil.parser as dp
 import tableauserverclient as TSC
 from pydantic import root_validator, validator
 from pydantic.fields import Field
-from requests.adapters import ConnectionError, HTTPAdapter
+from requests.adapters import HTTPAdapter
 from tableauserverclient import (
     PersonalAccessTokenAuth,
     Server,
@@ -572,11 +572,11 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
         try:
             if self.server is not None:
                 self.server.auth.sign_out()
-        except ConnectionError as err:
+        except Exception as ex:
             logger.warning(
                 "During graceful closing of Tableau source a sign-out call was tried but ended up with"
-                " a ConnectionError (%s). Continuing closing of the source",
-                err,
+                " an Exception (%s). Continuing closing of the source",
+                ex,
             )
             self.server = None
         super().close()
@@ -1003,6 +1003,30 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
             platform_instance=self.config.platform_instance,
             env=self.config.env,
         )
+
+        if not upstream_tables:
+            # Tableau's metadata graphql API sometimes returns an empty list for upstreamTables
+            # for embedded datasources. However, the upstreamColumns field often includes information.
+            # This attempts to populate upstream table information from the upstreamColumns field.
+            table_id_to_urn = {
+                column[c.TABLE][c.ID]: builder.make_dataset_urn_with_platform_instance(
+                    self.platform,
+                    column[c.TABLE][c.ID],
+                    self.config.platform_instance,
+                    self.config.env,
+                )
+                for field in datasource.get(c.FIELDS, [])
+                for column in field.get(c.UPSTREAM_COLUMNS, [])
+                if column.get(c.TABLE, {}).get(c.TYPE_NAME) == c.CUSTOM_SQL_TABLE
+                and column.get(c.TABLE, {}).get(c.ID)
+            }
+            fine_grained_lineages = self.get_upstream_columns_of_fields_in_datasource(
+                datasource, datasource_urn, table_id_to_urn
+            )
+            upstream_tables = [
+                Upstream(dataset=table_urn, type=DatasetLineageType.TRANSFORMED)
+                for table_urn in table_id_to_urn.values()
+            ]
 
         if datasource.get(c.FIELDS):
             if self.config.extract_column_level_lineage:
@@ -1693,7 +1717,7 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
     ) -> Optional["SqlParsingResult"]:
         database_info = datasource.get(c.DATABASE) or {
             c.NAME: c.UNKNOWN.lower(),
-            c.CONNECTION_TYPE: "databricks",
+            c.CONNECTION_TYPE: datasource.get(c.CONNECTION_TYPE),
         }
 
         if (
@@ -1703,7 +1727,10 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
             logger.debug(f"datasource {datasource_urn} is not created from custom sql")
             return None
 
-        if c.NAME not in database_info or c.CONNECTION_TYPE not in database_info:
+        if (
+            database_info.get(c.NAME) is None
+            or database_info.get(c.CONNECTION_TYPE) is None
+        ):
             logger.debug(
                 f"database information is missing from datasource {datasource_urn}"
             )
