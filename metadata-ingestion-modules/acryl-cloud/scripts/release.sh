@@ -13,7 +13,7 @@ MODULE=acryl_datahub_cloud
 python -c 'import setuptools; where="./src"; assert setuptools.find_packages(where) == setuptools.find_namespace_packages(where), "you seem to be missing or have extra __init__.py files"'
 if [[ ${RELEASE_VERSION:-} ]]; then
     # Replace version with RELEASE_VERSION env variable
-    sed -i.bak "s/\"version\": \"1\!0.0.0.dev0\"/\"version\": \"$(echo $RELEASE_VERSION|sed s/-/+/)\"/" src/${MODULE}/_codegen_config.json
+    sed -i.bak "s/\"version\": \"1\!0.0.0.dev0\"/\"version\": \"$(echo $RELEASE_VERSION|sed 's/+/-/'|sed '1 s/-/+/')\"/" src/${MODULE}/_codegen_config.json
 else
     vim src/${MODULE}/_codegen_config.json
 fi
