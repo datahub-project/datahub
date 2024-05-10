@@ -16,6 +16,7 @@ import { VolumeAssertionBuilder } from '../steps/volume/VolumeAssertionBuilder';
 import { FieldAssertionBuilder } from '../steps/field/FieldAssertionBuilder';
 import { AssertionEditabilityScopeType, getAssertionEditabilityType } from '../../profile/summary/shared/assertionUtils';
 import { AssertionActionsSection } from '../steps/actions/AssertionActionsSection';
+import { SchemaAssertionBuilder } from '../steps/schema/SchemaAssertionBuilder';
 
 type Props = {
     assertion: Assertion;
@@ -109,6 +110,7 @@ export const AssertionSettings = (props: Props) => {
                 {props.assertion.info?.type === AssertionType.Freshness ? <DatasetFreshnessAssertionBuilder state={builderState} updateState={setBuilderState} disabled={isFullEditingDisabled} /> : null}
                 {props.assertion.info?.type === AssertionType.Volume ? <VolumeAssertionBuilder state={builderState} updateState={setBuilderState} disabled={isFullEditingDisabled} /> : null}
                 {props.assertion.info?.type === AssertionType.Field ? <FieldAssertionBuilder state={builderState} updateState={setBuilderState} disabled={isFullEditingDisabled} /> : null}
+                {props.assertion.info?.type === AssertionType.DataSchema ? <SchemaAssertionBuilder state={builderState} updateState={setBuilderState} disabled={isFullEditingDisabled} /> : null}
                 <AssertionActionsSection state={builderState} updateState={setBuilderState} disabled={isActionsEditingDisabled} />
             </Form>
         </>

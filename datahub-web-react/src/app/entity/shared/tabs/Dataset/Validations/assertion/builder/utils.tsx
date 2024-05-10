@@ -595,6 +595,27 @@ export const builderStateToUpsertFieldAssertionMonitorVariables = (builderState:
     });
 };
 
+export const builderStateToUpsertSchemaAssertionMonitorVariables = (builderState: AssertionMonitorBuilderState) => {
+    return removeTypenameFields({
+        assertionUrn: builderState?.assertion?.urn,
+        input: {
+            assertion: {
+                compatibility: builderState?.assertion?.schemaAssertion?.compatibility,
+                fields: builderState?.assertion?.schemaAssertion?.fields,
+            },
+            description: builderState.assertion?.description,
+            mode: MonitorMode.Active,
+            entityUrn: builderState.entityUrn,
+            actions: builderState.assertion?.actions
+            ? {
+                onSuccess: builderState.assertion?.actions?.onSuccess || [],
+                onFailure: builderState.assertion?.actions?.onFailure || [],
+            }
+            : undefined,
+        },
+    });
+};
+
 export const builderStateToTestFreshnessAssertionVariables = (builderState: AssertionMonitorBuilderState) => {
     return {
         input: {
@@ -793,6 +814,10 @@ const convertAssertionToBuilderState = (assertion: Assertion): AssertionMonitorB
             fieldMetricAssertion: assertion.info?.fieldAssertion?.fieldMetricAssertion,
             filter: assertion.info?.fieldAssertion?.filter,
         },
+        schemaAssertion: {
+            compatibility: assertion.info?.schemaAssertion?.compatibility,
+            fields: assertion.info?.schemaAssertion?.fields,
+        }
     };
 };
 

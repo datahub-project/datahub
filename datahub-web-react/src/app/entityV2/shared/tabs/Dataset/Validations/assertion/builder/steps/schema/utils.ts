@@ -1,4 +1,4 @@
-import { SchemaAssertionCompatibility, SchemaFieldDataType } from "../../../../../../../../../../types.generated";
+import { SchemaAssertionCompatibility, SchemaAssertionField, SchemaFieldDataType } from "../../../../../../../../../../types.generated";
 
 
 export const compatibilityLevels = [
@@ -60,3 +60,28 @@ export const supportedSchemaFieldTypes = [
         name: "Enum"
     },
 ]
+
+// Checks that 
+// 1. Columns are completed (path + type)
+// 2. Column path types are not conflicting. 
+export const areExpectedColumnsValid = (fields: Partial<SchemaAssertionField>[]): boolean => {
+    const pathTypeMap: Record<string, string> = {};
+
+    // Use `every` to ensure all fields are valid
+    return fields.every(field => {
+        // Check if path and type exist
+        if (!field.path || !field.type) {
+            return false;
+        }
+
+        const existingType = pathTypeMap[field.path];
+        // If the path is already mapped and the types do not match, return false
+        if (existingType && existingType !== field.type) {
+            return false;
+        }
+
+        // Map this path to the associated type
+        pathTypeMap[field.path] = field.type;
+        return true;
+    });
+};

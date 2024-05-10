@@ -25,6 +25,10 @@ export const INCIDENT_TYPE_OPTIONS = [
         value: IncidentType.Sql,
     },
     {
+        name: 'Schema',
+        value: IncidentType.DataSchema,
+    },
+    {
         name: 'Other',
         value: IncidentType.Custom,
     },

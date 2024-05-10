@@ -21,7 +21,8 @@ export const useUpdateAssertionMetadataWithBuilderState = (builderState: Asserti
                             data?.upsertDatasetFreshnessAssertionMonitor ||
                             data?.upsertDatasetVolumeAssertionMonitor ||
                             data?.upsertDatasetSqlAssertionMonitor ||
-                            data?.upsertDatasetFieldAssertionMonitor;
+                            data?.upsertDatasetFieldAssertionMonitor ||
+                            data?.upsertDatasetSchemaAssertionMonitor;
                         analytics.event({
                             type: EventType.UpdateAssertionMetadataEvent,
                             assertionType: builderState.assertion?.type as string,

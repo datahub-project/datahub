@@ -7,7 +7,7 @@ import styled from 'styled-components';
 import { SchemaAssertionField, SchemaFieldDataType } from '../../../../../../../../../../types.generated';
 import { EditButton } from '../../details/EditButton';
 import { SaveButton } from '../../details/SaveButton';
-import { supportedSchemaFieldTypes } from './utils';
+import { areExpectedColumnsValid, supportedSchemaFieldTypes } from './utils';
 
 const ButtonWrapper = styled.div`
     max-width: 100px;
@@ -56,6 +56,10 @@ export const SchemaBuilderTable = ({ selected, onChange, disabled, options }: Pr
     const [index, setIndex] = useState(selected.length);
     const [editing, setEditing] = useState<boolean>(false);
 
+    // Only allow saving the expected columns if there are not duplicates
+    // of the same column with differing types. 
+    const validExpectedColumns = areExpectedColumnsValid(tableData);
+
     useEffect(() => {
         const newTableData = selected.map((field, i) => (
             {
@@ -65,8 +69,9 @@ export const SchemaBuilderTable = ({ selected, onChange, disabled, options }: Pr
                 nativeType: field.nativeType,
             }
         ));
+        setIndex(selected.length);
         setTableData(newTableData);
-    }, [selected, setTableData])
+    }, [selected])
 
 
     const handleAdd = () => {
@@ -103,8 +108,8 @@ export const SchemaBuilderTable = ({ selected, onChange, disabled, options }: Pr
         const option = options?.find(o => o.path === path);
         const i = newData.findIndex((item) => key === item.key);
         if (i > -1 && option) {
-            newData[i] =         {
-                key: i,
+            newData[i] = {
+                key,
                 path: option.path,
                 type: option.type,
                 nativeType: option.nativeType,
@@ -129,7 +134,7 @@ export const SchemaBuilderTable = ({ selected, onChange, disabled, options }: Pr
             dataIndex: 'path',
             key: 'path',
             render: (text, record) => (
-                <Name>
+                <Name key={record.key}>
                     {editing ?
                         !options && <Input
                             disabled={disabled}
@@ -143,7 +148,7 @@ export const SchemaBuilderTable = ({ selected, onChange, disabled, options }: Pr
                             onSelect={(value) => selectFieldOption(value, record.key)}
                         >
                             {options?.map(option =>
-                                <Select.Option value={option.path}>{option.path}</Select.Option>
+                                <Select.Option key={option.path} value={option.path}>{option.path}</Select.Option>
                             )}
                         </Select>
                         : <Tooltip showArrow={false} title={text}><Path>{text}</Path></Tooltip>
@@ -157,13 +162,14 @@ export const SchemaBuilderTable = ({ selected, onChange, disabled, options }: Pr
             key: 'type',
             render: (text, record) => (
                 <Select
+                    key={record.key}
                     disabled={disabled || !editing}
                     value={text}
                     onChange={(value) => handleFieldChange(value, record.key, 'type')}
                     style={{ width: 120 }}
                 >
                     {supportedSchemaFieldTypes.map(type =>
-                        <Select.Option value={type.type}>{type.name}</Select.Option>
+                        <Select.Option key={type.type} value={type.type}>{type.name}</Select.Option>
                     )}
                 </Select>
             ),
@@ -197,7 +203,7 @@ export const SchemaBuilderTable = ({ selected, onChange, disabled, options }: Pr
                             if (!disabled) setEditing(true);
                         }}
                     />
-                )) || <SaveButton title="Done" tooltip="Save changes to this assertion" onClick={onDoneEditing} />}
+                )) || <SaveButton disabled={!validExpectedColumns} title="Done" tooltip={!validExpectedColumns ? 'Invalid expectations found. Please check expected columns for duplicate or incomplete entries' : "Confirm expected columns"} onClick={onDoneEditing} />}
             </ButtonWrapper>
             <StyledTable
                 columns={columns}

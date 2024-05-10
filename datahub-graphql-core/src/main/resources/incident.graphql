@@ -236,6 +236,12 @@ enum IncidentType {
   SQL
 
   """
+  A Schema has failed, triggering the incident.
+  Raised on assets where assertions are configured to generate incidents.
+  """
+  DATA_SCHEMA
+
+  """
   An operational incident, e.g. failure to materialize a dataset, or failure to execute a task / pipeline.
   """
   OPERATIONAL

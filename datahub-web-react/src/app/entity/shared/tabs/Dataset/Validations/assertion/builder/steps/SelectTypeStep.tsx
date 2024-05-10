@@ -14,7 +14,8 @@ import {
 } from '../constants';
 import { getDefaultDatasetFreshnessAssertionParametersState, isEntityEligibleForAssertionMonitoring } from '../utils';
 import { getDefaultDatasetVolumeAssertionParametersState } from './volume/utils';
-import { getDefaultDatasetFieldAssertionParametersState, getDefaultDatasetFieldAssertionState } from './field/utils';
+import { getDefaultDatasetFieldAssertionParametersState, getDefaultDatasetFieldAssertionState, getDefaultDatasetSchemaAssertionState } from './field/utils';
+import { useAppConfig } from '../../../../../../../../useAppConfig';
 
 const Step = styled.div`
     height: 100%;
@@ -42,11 +43,15 @@ export const SelectTypeStep = ({ state, updateState, goTo }: StepProps) => {
     const connectionForEntityExists = useConnectionForEntityExists(state.entityUrn as string);
     const isConnectionSupportedByMonitors = isEntityEligibleForAssertionMonitoring(state.platformUrn);
     const monitorsConnectionForEntityExists = connectionForEntityExists && isConnectionSupportedByMonitors;
+    const appConfig = useAppConfig();
+    const isSchemaAssertionEnabled = !!appConfig?.config?.featureFlags?.schemaAssertionMonitorsEnabled; 
 
     const filteredTypes = getAssertionTypesForEntityType(
         state.entityType as EntityType,
         monitorsConnectionForEntityExists,
-    ).filter((type) => type.visible);
+    )
+        .filter((type) => type.visible)
+        .filter(type => type.type !== AssertionType.DataSchema || isSchemaAssertionEnabled);
 
     const selectAssertionType = (type: AssertionType) => {
         let newState = { ...state };
@@ -94,6 +99,14 @@ export const SelectTypeStep = ({ state, updateState, goTo }: StepProps) => {
                 },
                 parameters: getDefaultDatasetFieldAssertionParametersState(connectionForEntityExists),
             };
+        } else if (type === AssertionType.DataSchema) {
+            newState = {
+                ...newState,
+                assertion: {
+                    type,
+                    schemaAssertion: getDefaultDatasetSchemaAssertionState(),
+                },
+            };
         }
 
         updateState({
@@ -112,6 +125,9 @@ export const SelectTypeStep = ({ state, updateState, goTo }: StepProps) => {
                 return;
             case AssertionType.Field:
                 goTo(AssertionBuilderStep.CONFIGURE_ASSERTION, AssertionType.Field);
+                return;
+            case AssertionType.DataSchema:
+                goTo(AssertionBuilderStep.CONFIGURE_ASSERTION, AssertionType.DataSchema);
                 return;
             default:
                 // Do nothing.
