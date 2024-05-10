@@ -964,6 +964,33 @@ class LookerView:
     raw_file_content: str
     view_details: Optional[ViewProperties] = None
 
+    def __post_init__(self):
+        # Remove duplicates filed from self.fields
+        # Logic is: If more than a field has same ViewField.name then keep only one filed where ViewField.field_type
+        # is DIMENSION_GROUP.
+        # Looker Constraint:
+        #   - Any field declared as dimension or measure can be redefined as dimension_group.
+        #   - Any field declared in dimension can't be redefined in measure and vice-versa.
+
+        dimension_group_field_names: List[str] = [
+            field.name
+            for field in self.fields
+            if field.field_type == ViewFieldType.DIMENSION_GROUP
+        ]
+
+        new_fields: List[ViewField] = []
+
+        for field in self.fields:
+            if (
+                field.name in dimension_group_field_names
+                and field.field_type != ViewFieldType.DIMENSION_GROUP
+            ):
+                continue
+
+            new_fields.append(field)
+
+        self.fields = new_fields
+
     @classmethod
     def _import_sql_parser_cls(cls, sql_parser_path: str) -> Type[SQLParser]:
         assert "." in sql_parser_path, "sql_parser-path must contain a ."
