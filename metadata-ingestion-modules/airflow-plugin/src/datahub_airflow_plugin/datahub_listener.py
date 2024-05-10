@@ -540,7 +540,7 @@ class DataHubListener:
             )
 
             self.emitter.emit(event)
-        
+
         assert self.graph
 
         # fetch the tasks for the DAG
