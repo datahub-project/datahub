@@ -36,14 +36,37 @@ public class FieldPathValidator extends AspectPayloadValidator {
 
   /**
    * Prevent any MCP for SchemaMetadata where field ids are duplicated (except for MCPs with {@link
-   * ChangeType#DELETE}).
+   * ChangeType#DELETE} and {@link ChangeType#PATCH}, the latter gets handled pre-commit to the DB).
    */
   @Override
   protected Stream<AspectValidationException> validateProposedAspects(
       @Nonnull Collection<? extends BatchItem> mcpItems,
       @Nonnull RetrieverContext retrieverContext) {
     return mcpItems.stream()
-        .filter(i -> !ChangeType.DELETE.equals(i.getChangeType()))
+        .filter(
+            i ->
+                !ChangeType.DELETE.equals(i.getChangeType())
+                    && !ChangeType.PATCH.equals(i.getChangeType()))
+        .filter(
+            i ->
+                i.getAspectName().equals(SCHEMA_METADATA_ASPECT_NAME)
+                    || i.getAspectName().equals(EDITABLE_SCHEMA_METADATA_ASPECT_NAME))
+        .map(
+            i -> {
+              if (i.getAspectName().equals(SCHEMA_METADATA_ASPECT_NAME)) {
+                return processSchemaMetadataAspect(i);
+              } else {
+                return processEditableSchemaMetadataAspect(i);
+              }
+            })
+        .filter(Objects::nonNull);
+  }
+
+  @Override
+  protected Stream<AspectValidationException> validatePreCommitAspects(
+      @Nonnull Collection<ChangeMCP> changeMCPs, @Nonnull RetrieverContext retrieverContext) {
+    return changeMCPs.stream()
+        .filter(i -> ChangeType.PATCH.equals(i.getChangeType()))
         .filter(
             i ->
                 i.getAspectName().equals(SCHEMA_METADATA_ASPECT_NAME)
@@ -88,11 +111,5 @@ public class FieldPathValidator extends AspectPayloadValidator {
               i.getChangeType()));
     }
     return null;
-  }
-
-  @Override
-  protected Stream<AspectValidationException> validatePreCommitAspects(
-      @Nonnull Collection<ChangeMCP> changeMCPs, @Nonnull RetrieverContext retrieverContext) {
-    return Stream.empty();
   }
 }
