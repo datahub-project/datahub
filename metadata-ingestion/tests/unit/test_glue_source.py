@@ -65,6 +65,7 @@ def glue_source(
     platform_instance: Optional[str] = None,
     use_s3_bucket_tags: bool = True,
     use_s3_object_tags: bool = True,
+    extract_delta_schema_from_parameters: bool = False,
 ) -> GlueSource:
     return GlueSource(
         ctx=PipelineContext(run_id="glue-source-test"),
@@ -74,6 +75,7 @@ def glue_source(
             platform_instance=platform_instance,
             use_s3_bucket_tags=use_s3_bucket_tags,
             use_s3_object_tags=use_s3_object_tags,
+            extract_delta_schema_from_parameters=extract_delta_schema_from_parameters,
         ),
     )
 
@@ -354,6 +356,7 @@ def test_glue_with_delta_schema_ingest(
         platform_instance="delta_platform_instance",
         use_s3_bucket_tags=False,
         use_s3_object_tags=False,
+        extract_delta_schema_from_parameters=True,
     )
 
     with Stubber(glue_source_instance.glue_client) as glue_stubber:
@@ -369,7 +372,7 @@ def test_glue_with_delta_schema_ingest(
 
         glue_stubber.assert_no_pending_responses()
 
-        assert glue_source_instance.get_report().num_dataset_buggy_delta_schema == 1
+        assert glue_source_instance.get_report().num_dataset_valid_delta_schema == 1
 
         write_metadata_file(tmp_path / "glue_delta_mces.json", mce_objects)
 
@@ -390,6 +393,7 @@ def test_glue_with_malformed_delta_schema_ingest(
         platform_instance="delta_platform_instance",
         use_s3_bucket_tags=False,
         use_s3_object_tags=False,
+        extract_delta_schema_from_parameters=True,
     )
 
     with Stubber(glue_source_instance.glue_client) as glue_stubber:
@@ -405,7 +409,7 @@ def test_glue_with_malformed_delta_schema_ingest(
 
         glue_stubber.assert_no_pending_responses()
 
-        assert glue_source_instance.get_report().num_dataset_schema_invalid == 1
+        assert glue_source_instance.get_report().num_dataset_invalid_delta_schema == 1
 
         write_metadata_file(tmp_path / "glue_malformed_delta_mces.json", mce_objects)
 

@@ -163,6 +163,11 @@ class GlueSourceConfig(
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
         default=None, description=""
     )
+    extract_delta_schema_from_parameters: Optional[bool] = Field(
+        default=False,
+        description="If enabled, delta schemas can be alternatively fetched from table parameters "
+        "(https://github.com/delta-io/delta/pull/2310)",
+    )
 
     def is_profiling_enabled(self) -> bool:
         return self.profiling is not None and is_profiling_enabled(
@@ -206,8 +211,8 @@ class GlueSourceReport(StaleEntityRemovalSourceReport):
     num_job_script_failed_parsing: int = 0
     num_job_without_nodes: int = 0
     num_dataset_to_dataset_edges_in_job: int = 0
-    num_dataset_schema_invalid: int = 0
-    num_dataset_buggy_delta_schema: int = 0
+    num_dataset_invalid_delta_schema: int = 0
+    num_dataset_valid_delta_schema: int = 0
 
     def report_table_scanned(self) -> None:
         self.tables_scanned += 1
@@ -1151,15 +1156,23 @@ class GlueSource(StatefulIngestionSourceBase):
             )
             return new_tags
 
-        def get_schema_metadata() -> Optional[SchemaMetadata]:
-            def is_delta_schema(columns: Optional[List[Mapping[str, Any]]]) -> bool:
-                return (
-                    columns is not None
-                    and (len(columns) == 1)
-                    and (columns[0].get("Name", "") == "col")
-                    and (columns[0].get("Type", "") == "array<string>")
-                )
+        def _is_delta_schema(
+            provider: str, num_parts: int, columns: Optional[List[Mapping[str, Any]]]
+        ) -> bool:
+            return (
+                (self.source_config.extract_delta_schema_from_parameters is True)
+                and (provider == "delta")
+                and (num_parts > 0)
+                and (columns is not None)
+                and (len(columns) == 1)
+                and (columns[0].get("Name", "") == "col")
+                and (columns[0].get("Type", "") == "array<string>")
+            )
 
+        def get_schema_metadata() -> Optional[SchemaMetadata]:
+            # As soon as the hive integration with Spark is correctly providing the schema as expected in the
+            # StorageProperties, the alternative path to fetch schema from table parameters can be removed.
+            # https://github.com/datahub-project/datahub/pull/10299
             # https://github.com/delta-io/delta/pull/2310
             provider = table.get("Parameters", {}).get("spark.sql.sources.provider", "")
             num_parts = int(
@@ -1169,7 +1182,7 @@ class GlueSource(StatefulIngestionSourceBase):
             )
             columns = table.get("StorageDescriptor", {}).get("Columns", [{}])
 
-            if (provider == "delta") and (num_parts > 0) and is_delta_schema(columns):
+            if _is_delta_schema(provider, num_parts, columns):
                 return _get_delta_schema_metadata()
 
             elif table.get("StorageDescriptor"):
@@ -1179,8 +1192,6 @@ class GlueSource(StatefulIngestionSourceBase):
                 return None
 
         def _get_glue_schema_metadata() -> Optional[SchemaMetadata]:
-            assert table.get("StorageDescriptor")
-
             schema = table["StorageDescriptor"]["Columns"]
             fields: List[SchemaField] = []
             for field in schema:
@@ -1240,7 +1251,7 @@ class GlueSource(StatefulIngestionSourceBase):
                     assert schema_fields
                     fields.extend(schema_fields)
 
-                self.report.num_dataset_buggy_delta_schema += 1
+                self.report.num_dataset_valid_delta_schema += 1
                 return SchemaMetadata(
                     schemaName=table_name,
                     version=0,
@@ -1255,7 +1266,7 @@ class GlueSource(StatefulIngestionSourceBase):
                     dataset_urn,
                     f"Could not parse schema for {table_name} because of {type(e).__name__}: {e}",
                 )
-                self.report.num_dataset_schema_invalid += 1
+                self.report.num_dataset_invalid_delta_schema += 1
                 return None
 
         def get_data_platform_instance() -> DataPlatformInstanceClass:
