@@ -37,6 +37,7 @@ from datahub.ingestion.api.source_helpers import (
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
+from datahub.metadata.schema_classes import UpstreamLineageClass
 from datahub.utilities.lossy_collections import LossyDict, LossyList
 from datahub.utilities.type_annotations import get_class_from_annotation
 
@@ -70,6 +71,9 @@ class SourceReport(Report):
     aspects: Dict[str, Dict[str, int]] = field(
         default_factory=lambda: defaultdict(lambda: defaultdict(int))
     )
+    aspect_urn_samples: Dict[str, Dict[str, LossyList[str]]] = field(
+        default_factory=lambda: defaultdict(lambda: defaultdict(LossyList))
+    )
 
     warnings: LossyDict[str, LossyList[str]] = field(default_factory=LossyDict)
     failures: LossyDict[str, LossyList[str]] = field(default_factory=LossyDict)
@@ -96,6 +100,13 @@ class SourceReport(Report):
 
                 if aspectName is not None:  # usually true
                     self.aspects[entityType][aspectName] += 1
+                    self.aspect_urn_samples[entityType][aspectName].append(urn)
+                    if isinstance(mcp.aspect, UpstreamLineageClass):
+                        upstream_lineage = cast(UpstreamLineageClass, mcp.aspect)
+                        if upstream_lineage.fineGrainedLineages:
+                            self.aspect_urn_samples[entityType][
+                                "fineGrainedLineages"
+                            ].append(urn)
 
     def report_warning(self, key: str, reason: str) -> None:
         warnings = self.warnings.get(key, LossyList())

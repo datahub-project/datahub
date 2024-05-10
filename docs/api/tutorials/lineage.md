@@ -137,7 +137,7 @@ You can now see the column-level lineage between datasets. Note that you have to
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/apis/tutorials/column-level-lineage-added.png"/>
 </p>
 
-## Read Lineage
+## Read Table Lineage
 
 <Tabs>
 <TabItem value="graphql" label="GraphQL" default>
@@ -199,3 +199,60 @@ curl --location --request POST 'http://localhost:8080/api/graphql' \
 </Tabs>
 
 This will perform a multi-hop lineage search on the urn specified. For more information about the `searchAcrossLineage` mutation, please refer to [searchAcrossLineage](https://datahubproject.io/docs/graphql/queries/#searchacrosslineage).
+
+## Read Column Lineage
+
+<Tabs>
+<TabItem value="graphql" label="GraphQL" default>
+
+```graphql
+query searchAcrossLineage {
+  searchAcrossLineage(
+    input: {
+      query: "*"
+      urn: "urn:li:schemaField(urn:li:dataset:(urn:li:dataPlatform:dbt,long_tail_companions.adoption.human_profiles,PROD),profile_id)"
+      start: 0
+      count: 10
+      direction: DOWNSTREAM
+      orFilters: [
+        {
+          and: [
+            {
+              condition: EQUAL
+              negated: false
+              field: "degree"
+              values: ["1", "2", "3+"]
+            }
+          ]
+        }
+      ]
+    }
+  ) {
+    searchResults {
+      degree
+      entity {
+        urn
+        type
+      }
+    }
+  }
+}
+```
+
+This example shows using lineage degrees as a filter, but additional search filters can be included here as well.
+
+</TabItem>
+<TabItem value="curl" label="Curl">
+
+```shell
+curl --location --request POST 'http://localhost:8080/api/graphql' \
+--header 'Authorization: Bearer <my-access-token>' \
+--header 'Content-Type: application/json'  --data-raw '{ { "query": "query searchAcrossLineage { searchAcrossLineage( input: { query: \"*\" urn: \"urn:li:schemaField(urn:li:dataset:(urn:li:dataPlatform:dbt,long_tail_companions.adoption.human_profiles,PROD),profile_id)\" start: 0 count: 10 direction: DOWNSTREAM orFilters: [ { and: [ { condition: EQUAL negated: false field: \"degree\" values: [\"1\", \"2\", \"3+\"] } ] } ] } ) { searchResults { degree entity { urn type } } }}"
+}}'
+```
+
+</TabItem>
+</Tabs>
+
+This will perform a multi-hop lineage search on the urn specified. You can see schemaField URNs are made up of two parts: first the table they are a column of, and second the path of the column. For more information about the `searchAcrossLineage` mutation, please refer to [searchAcrossLineage](https://datahubproject.io/docs/graphql/queries/#searchacrosslineage).
+

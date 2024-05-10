@@ -2,6 +2,7 @@ package com.linkedin.metadata.models.registry;
 
 import com.linkedin.metadata.aspect.patch.template.AspectTemplateEngine;
 import com.linkedin.metadata.aspect.plugins.PluginFactory;
+import com.linkedin.metadata.aspect.plugins.config.PluginConfiguration;
 import com.linkedin.metadata.aspect.plugins.hooks.MCLSideEffect;
 import com.linkedin.metadata.aspect.plugins.hooks.MCPSideEffect;
 import com.linkedin.metadata.aspect.plugins.hooks.MutationHook;
@@ -12,6 +13,7 @@ import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.EventSpec;
 import java.util.List;
 import java.util.Map;
+import java.util.function.BiFunction;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
@@ -134,5 +136,11 @@ public interface EntityRegistry {
   @Nonnull
   default PluginFactory getPluginFactory() {
     return PluginFactory.empty();
+  }
+
+  @Nullable
+  default BiFunction<PluginConfiguration, List<ClassLoader>, PluginFactory>
+      getPluginFactoryProvider() {
+    return null;
   }
 }

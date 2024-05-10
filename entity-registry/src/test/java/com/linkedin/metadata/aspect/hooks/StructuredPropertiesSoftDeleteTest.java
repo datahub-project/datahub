@@ -52,17 +52,18 @@ public class StructuredPropertiesSoftDeleteTest {
             .setValues(new PrimitivePropertyValueArray(PrimitivePropertyValue.create(0.0)));
 
     StructuredPropertiesSoftDelete testHook =
-        new StructuredPropertiesSoftDelete(
-            AspectPluginConfig.builder()
-                .enabled(true)
-                .className(StructuredPropertiesSoftDelete.class.getName())
-                .supportedEntityAspectNames(
-                    List.of(
-                        AspectPluginConfig.EntityAspectName.builder()
-                            .entityName(DATASET_ENTITY_NAME)
-                            .aspectName(Constants.STRUCTURED_PROPERTIES_ASPECT_NAME)
-                            .build()))
-                .build());
+        new StructuredPropertiesSoftDelete()
+            .setConfig(
+                AspectPluginConfig.builder()
+                    .enabled(true)
+                    .className(StructuredPropertiesSoftDelete.class.getName())
+                    .supportedEntityAspectNames(
+                        List.of(
+                            AspectPluginConfig.EntityAspectName.builder()
+                                .entityName(DATASET_ENTITY_NAME)
+                                .aspectName(Constants.STRUCTURED_PROPERTIES_ASPECT_NAME)
+                                .build()))
+                    .build());
 
     StructuredProperties expectedAllValues = new StructuredProperties();
     expectedAllValues.setProperties(

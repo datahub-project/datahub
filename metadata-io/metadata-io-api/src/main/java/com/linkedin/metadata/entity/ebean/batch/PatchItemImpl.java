@@ -8,9 +8,6 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.StreamReadConstraints;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.github.fge.jsonpatch.JsonPatch;
-import com.github.fge.jsonpatch.JsonPatchException;
-import com.github.fge.jsonpatch.Patch;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
@@ -19,7 +16,7 @@ import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.batch.MCPItem;
 import com.linkedin.metadata.aspect.batch.PatchMCP;
 import com.linkedin.metadata.aspect.patch.template.AspectTemplateEngine;
-import com.linkedin.metadata.entity.validation.ValidationUtils;
+import com.linkedin.metadata.entity.validation.ValidationApiUtils;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -27,7 +24,9 @@ import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.SystemMetadataUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
-import java.io.IOException;
+import jakarta.json.Json;
+import jakarta.json.JsonPatch;
+import java.io.StringReader;
 import java.nio.charset.StandardCharsets;
 import java.util.Objects;
 import javax.annotation.Nonnull;
@@ -59,7 +58,7 @@ public class PatchItemImpl implements PatchMCP {
   private final SystemMetadata systemMetadata;
   private final AuditStamp auditStamp;
 
-  private final Patch patch;
+  private final JsonPatch patch;
 
   private final MetadataChangeProposal metadataChangeProposal;
 
@@ -108,7 +107,7 @@ public class PatchItemImpl implements PatchMCP {
     try {
       builder.recordTemplate(
           aspectTemplateEngine.applyPatch(currentValue, getPatch(), getAspectSpec()));
-    } catch (JsonProcessingException | JsonPatchException e) {
+    } catch (JsonProcessingException e) {
       throw new RuntimeException(e);
     }
 
@@ -123,13 +122,13 @@ public class PatchItemImpl implements PatchMCP {
     }
 
     public PatchItemImpl build(EntityRegistry entityRegistry) {
-      ValidationUtils.validateUrn(entityRegistry, this.urn);
+      ValidationApiUtils.validateUrn(entityRegistry, this.urn);
       log.debug("entity type = {}", this.urn.getEntityType());
 
       entitySpec(entityRegistry.getEntitySpec(this.urn.getEntityType()));
       log.debug("entity spec = {}", this.entitySpec);
 
-      aspectSpec(ValidationUtils.validate(this.entitySpec, this.aspectName));
+      aspectSpec(ValidationApiUtils.validate(this.entitySpec, this.aspectName));
       log.debug("aspect spec = {}", this.aspectSpec);
 
       if (this.patch == null) {
@@ -178,12 +177,14 @@ public class PatchItemImpl implements PatchMCP {
           .build(entityRegistry);
     }
 
-    private static Patch convertToJsonPatch(MetadataChangeProposal mcp) {
+    private static JsonPatch convertToJsonPatch(MetadataChangeProposal mcp) {
       JsonNode json;
       try {
-        json = OBJECT_MAPPER.readTree(mcp.getAspect().getValue().asString(StandardCharsets.UTF_8));
-        return JsonPatch.fromJson(json);
-      } catch (IOException e) {
+        return Json.createPatch(
+            Json.createReader(
+                    new StringReader(mcp.getAspect().getValue().asString(StandardCharsets.UTF_8)))
+                .readArray());
+      } catch (RuntimeException e) {
         throw new IllegalArgumentException("Invalid JSON Patch: " + mcp.getAspect().getValue(), e);
       }
     }
