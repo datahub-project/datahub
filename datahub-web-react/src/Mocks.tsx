@@ -36,6 +36,9 @@ import {
     LogicalOperator,
     DataHubViewType,
     DataHubView,
+    SearchResult,
+    EntityRelationshipsResult,
+    Maybe,
 } from './types.generated';
 import { GetTagDocument } from './graphql/tag.generated';
 import { GetMlModelDocument } from './graphql/mlModel.generated';
@@ -50,6 +53,7 @@ import { GetQuickFiltersDocument } from './graphql/quickFilters.generated';
 import { GetGrantedPrivilegesDocument } from './graphql/policy.generated';
 import { VIEW_ENTITY_PAGE } from './app/entity/shared/constants';
 import { ViewBuilderState } from './app/entity/view/types';
+import { GenericEntityProperties } from './app/entity/shared/types';
 
 export const entityPrivileges: EntityPrivileges = {
     canEditLineage: true,
@@ -4076,3 +4080,95 @@ export const searchViewsMock: Array<DataHubView> = [
         },
     },
 ];
+
+export const mockEntityRelationShipResult: Maybe<EntityRelationshipsResult> = {
+    start: 0,
+    count: 0,
+    total: 0,
+    relationships: [
+        {
+            type: 'Test1',
+            direction: RelationshipDirection.Outgoing,
+            entity: {
+                urn: 'urn:li:glossaryTerm:schema.Field16Schema_v1',
+                type: EntityType.ActionsPipeline,
+            },
+        },
+        {
+            type: 'Test2',
+            direction: RelationshipDirection.Incoming,
+            entity: {
+                urn: 'urn:li:glossaryTerm:schema.Field16Schema_v2',
+                type: EntityType.Assertion,
+            },
+        },
+    ],
+    __typename: 'EntityRelationshipsResult',
+};
+
+export const mockSearchResult: SearchResult = {
+    __typename: 'SearchResult',
+    entity: {
+        __typename: 'Dataset',
+        ...dataset3,
+    },
+    matchedFields: [],
+    insights: [],
+    extraProperties: [
+        { name: 'isOutputPort', value: 'true' },
+        { name: 'test2_name', value: 'test2_value' },
+    ],
+};
+
+export const mockRecord: Record<string, string | boolean> = {
+    key1: 'value1',
+    key2: true,
+    key3: 'value2',
+    key4: false,
+    key5: 'value3',
+    key6: true,
+};
+
+export const mockFineGrainedLineages1: GenericEntityProperties = {
+    siblings: {
+        isPrimary: true,
+        siblings: [{ type: EntityType.ActionsPipeline, urn: 'test_urn' }],
+    },
+    fineGrainedLineages: [
+        {
+            upstreams: [
+                {
+                    urn: 'urn:li:glossaryTerm:example.glossaryterm1',
+                    path: 'test_downstream1',
+                },
+            ],
+            downstreams: [
+                {
+                    urn: 'urn:li:glossaryTerm:example.glossaryterm2',
+                    path: 'test_downstream2',
+                },
+            ],
+        },
+    ],
+};
+export const mockFineGrainedLineages2: GenericEntityProperties = {
+    fineGrainedLineages: [],
+    inputOutput: {
+        fineGrainedLineages: [
+            {
+                upstreams: [
+                    {
+                        urn: 'urn:li:glossaryTerm:example.glossaryterm3',
+                        path: 'test_downstream3',
+                    },
+                ],
+                downstreams: [
+                    {
+                        urn: 'urn:li:glossaryTerm:example.glossaryterm4',
+                        path: 'test_downstream4',
+                    },
+                ],
+            },
+        ],
+    },
+};
