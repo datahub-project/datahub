@@ -3,6 +3,7 @@ package com.linkedin.entity.client;
 import com.datahub.plugins.auth.authorization.Authorizer;
 import com.datahub.util.RecordUtils;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterators;
 import com.linkedin.common.VersionedUrn;
 import com.linkedin.common.client.BaseClient;
 import com.linkedin.common.urn.Urn;
@@ -108,11 +109,15 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
       new PlatformRequestBuilders();
   private static final RunsRequestBuilders RUNS_REQUEST_BUILDERS = new RunsRequestBuilders();
 
+  private final int batchGetV2Size;
+
   public RestliEntityClient(
       @Nonnull final Client restliClient,
       @Nonnull final BackoffPolicy backoffPolicy,
-      int retryCount) {
+      int retryCount,
+      int batchGetV2Size) {
     super(restliClient, backoffPolicy, retryCount);
+    this.batchGetV2Size = Math.max(1, batchGetV2Size);
   }
 
   @Override
@@ -195,10 +200,10 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
   /**
    * Batch get a set of aspects for multiple entities.
    *
+   * @param opContext operation's context
    * @param entityName the entity type to fetch
    * @param urns the urns of the entities to batch get
    * @param aspectNames the aspect names to batch get
-   * @param authentication the authentication to include in the request to the Metadata Service
    * @throws RemoteInvocationException when unable to execute request
    */
   @Override
@@ -210,29 +215,43 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
       @Nullable final Set<String> aspectNames)
       throws RemoteInvocationException, URISyntaxException {
 
-    final EntitiesV2BatchGetRequestBuilder requestBuilder =
-        ENTITIES_V2_REQUEST_BUILDERS
-            .batchGet()
-            .aspectsParam(aspectNames)
-            .ids(urns.stream().map(Urn::toString).collect(Collectors.toList()));
+    Map<Urn, EntityResponse> responseMap = new HashMap<>();
 
-    return sendClientRequest(requestBuilder, opContext.getSessionAuthentication())
-        .getEntity()
-        .getResults()
-        .entrySet()
-        .stream()
-        .collect(
-            Collectors.toMap(
-                entry -> {
-                  try {
-                    return Urn.createFromString(entry.getKey());
-                  } catch (URISyntaxException e) {
-                    throw new RuntimeException(
-                        String.format(
-                            "Failed to bind urn string with value %s into urn", entry.getKey()));
-                  }
-                },
-                entry -> entry.getValue().getEntity()));
+    Iterators.partition(urns.iterator(), batchGetV2Size)
+        .forEachRemaining(
+            batch -> {
+              try {
+                final EntitiesV2BatchGetRequestBuilder requestBuilder =
+                    ENTITIES_V2_REQUEST_BUILDERS
+                        .batchGet()
+                        .aspectsParam(aspectNames)
+                        .ids(batch.stream().map(Urn::toString).collect(Collectors.toList()));
+
+                responseMap.putAll(
+                    sendClientRequest(requestBuilder, opContext.getSessionAuthentication())
+                        .getEntity()
+                        .getResults()
+                        .entrySet()
+                        .stream()
+                        .collect(
+                            Collectors.toMap(
+                                entry -> {
+                                  try {
+                                    return Urn.createFromString(entry.getKey());
+                                  } catch (URISyntaxException e) {
+                                    throw new RuntimeException(
+                                        String.format(
+                                            "Failed to bind urn string with value %s into urn",
+                                            entry.getKey()));
+                                  }
+                                },
+                                entry -> entry.getValue().getEntity())));
+              } catch (RemoteInvocationException e) {
+                throw new RuntimeException(e);
+              }
+            });
+
+    return responseMap;
   }
 
   /**
@@ -250,31 +269,44 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
       @Nonnull OperationContext opContext,
       @Nonnull String entityName,
       @Nonnull final Set<VersionedUrn> versionedUrns,
-      @Nullable final Set<String> aspectNames)
-      throws RemoteInvocationException, URISyntaxException {
+      @Nullable final Set<String> aspectNames) {
 
-    final EntitiesVersionedV2BatchGetRequestBuilder requestBuilder =
-        ENTITIES_VERSIONED_V2_REQUEST_BUILDERS
-            .batchGet()
-            .aspectsParam(aspectNames)
-            .entityTypeParam(entityName)
-            .ids(
-                versionedUrns.stream()
-                    .map(
-                        versionedUrn ->
-                            com.linkedin.common.urn.VersionedUrn.of(
-                                versionedUrn.getUrn().toString(), versionedUrn.getVersionStamp()))
-                    .collect(Collectors.toSet()));
+    Map<Urn, EntityResponse> responseMap = new HashMap<>();
 
-    return sendClientRequest(requestBuilder, opContext.getSessionAuthentication())
-        .getEntity()
-        .getResults()
-        .entrySet()
-        .stream()
-        .collect(
-            Collectors.toMap(
-                entry -> UrnUtils.getUrn(entry.getKey().getUrn()),
-                entry -> entry.getValue().getEntity()));
+    Iterators.partition(versionedUrns.iterator(), batchGetV2Size)
+        .forEachRemaining(
+            batch -> {
+              final EntitiesVersionedV2BatchGetRequestBuilder requestBuilder =
+                  ENTITIES_VERSIONED_V2_REQUEST_BUILDERS
+                      .batchGet()
+                      .aspectsParam(aspectNames)
+                      .entityTypeParam(entityName)
+                      .ids(
+                          batch.stream()
+                              .map(
+                                  versionedUrn ->
+                                      com.linkedin.common.urn.VersionedUrn.of(
+                                          versionedUrn.getUrn().toString(),
+                                          versionedUrn.getVersionStamp()))
+                              .collect(Collectors.toSet()));
+
+              try {
+                responseMap.putAll(
+                    sendClientRequest(requestBuilder, opContext.getSessionAuthentication())
+                        .getEntity()
+                        .getResults()
+                        .entrySet()
+                        .stream()
+                        .collect(
+                            Collectors.toMap(
+                                entry -> UrnUtils.getUrn(entry.getKey().getUrn()),
+                                entry -> entry.getValue().getEntity())));
+              } catch (RemoteInvocationException e) {
+                throw new RuntimeException(e);
+              }
+            });
+
+    return responseMap;
   }
 
   /**

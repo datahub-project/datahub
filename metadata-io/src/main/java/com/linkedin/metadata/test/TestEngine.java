@@ -402,64 +402,72 @@ public class TestEngine {
     for (TestDefinition testDefinition : eligibleTestsPerEntity.keySet()) {
       Set<Urn> urnsToTest = eligibleTestsPerEntity.get(testDefinition);
 
-      // Batch evaluate all queries in the main rules for all eligible entities
-      Map<Urn, Map<TestQuery, TestQueryResponse>> rulesQueryResponses =
-          batchQuery(urnsToTest, ImmutableList.of(testDefinition.getRules()));
+      try {
+        // Batch evaluate all queries in the main rules for all eligible entities
+        Map<Urn, Map<TestQuery, TestQueryResponse>> rulesQueryResponses =
+            batchQuery(urnsToTest, ImmutableList.of(testDefinition.getRules()));
 
-      if (!batchTestRunResults.containsKey(testDefinition.getUrn())) {
-        batchTestRunResults.put(
-            testDefinition.getUrn(),
-            new BatchTestRunResult()
-                .setPassingCount(0)
-                .setFailingCount(0)
-                .setTestDefinition(testDefinition.getRawDefinition()));
-      }
-
-      // For each entity, evaluate whether it passes the test using the query
-      // evaluation results
-      for (Urn urn : urnsToTest) {
-
-        // Run the test!
-        final boolean isUrnPassingTest =
-            _predicateEvaluator.evaluatePredicate(
-                testDefinition.getRules(),
-                rulesQueryResponses.getOrDefault(urn, Collections.emptyMap()));
-
-        if (isUrnPassingTest) {
-          finalTestResults
-              .get(urn)
-              .getPassing()
-              .add(
-                  new TestResult()
-                      .setTest(testDefinition.getUrn())
-                      .setType(TestResultType.SUCCESS)
-                      .setTestDefinitionMd5(testDefinition.getMd5(), SetMode.IGNORE_NULL)
-                      .setLastComputed(
-                          new AuditStamp()
-                              .setTime(System.currentTimeMillis())
-                              .setActor(UrnUtils.getUrn(Constants.SYSTEM_ACTOR))));
-          batchTestRunResults
-              .get(testDefinition.getUrn())
-              .setPassingCount(
-                  batchTestRunResults.get(testDefinition.getUrn()).getPassingCount() + 1);
-        } else {
-          finalTestResults
-              .get(urn)
-              .getFailing()
-              .add(
-                  new TestResult()
-                      .setTest(testDefinition.getUrn())
-                      .setType(TestResultType.FAILURE)
-                      .setTestDefinitionMd5(testDefinition.getMd5(), SetMode.IGNORE_NULL)
-                      .setLastComputed(
-                          new AuditStamp()
-                              .setTime(System.currentTimeMillis())
-                              .setActor(UrnUtils.getUrn(Constants.SYSTEM_ACTOR))));
-          batchTestRunResults
-              .get(testDefinition.getUrn())
-              .setFailingCount(
-                  batchTestRunResults.get(testDefinition.getUrn()).getFailingCount() + 1);
+        if (!batchTestRunResults.containsKey(testDefinition.getUrn())) {
+          batchTestRunResults.put(
+              testDefinition.getUrn(),
+              new BatchTestRunResult()
+                  .setPassingCount(0)
+                  .setFailingCount(0)
+                  .setTestDefinition(testDefinition.getRawDefinition()));
         }
+
+        // For each entity, evaluate whether it passes the test using the query
+        // evaluation results
+        for (Urn urn : urnsToTest) {
+
+          // Run the test!
+          final boolean isUrnPassingTest =
+              _predicateEvaluator.evaluatePredicate(
+                  testDefinition.getRules(),
+                  rulesQueryResponses.getOrDefault(urn, Collections.emptyMap()));
+
+          if (isUrnPassingTest) {
+            finalTestResults
+                .get(urn)
+                .getPassing()
+                .add(
+                    new TestResult()
+                        .setTest(testDefinition.getUrn())
+                        .setType(TestResultType.SUCCESS)
+                        .setTestDefinitionMd5(testDefinition.getMd5(), SetMode.IGNORE_NULL)
+                        .setLastComputed(
+                            new AuditStamp()
+                                .setTime(System.currentTimeMillis())
+                                .setActor(UrnUtils.getUrn(Constants.SYSTEM_ACTOR))));
+            batchTestRunResults
+                .get(testDefinition.getUrn())
+                .setPassingCount(
+                    batchTestRunResults.get(testDefinition.getUrn()).getPassingCount() + 1);
+          } else {
+            finalTestResults
+                .get(urn)
+                .getFailing()
+                .add(
+                    new TestResult()
+                        .setTest(testDefinition.getUrn())
+                        .setType(TestResultType.FAILURE)
+                        .setTestDefinitionMd5(testDefinition.getMd5(), SetMode.IGNORE_NULL)
+                        .setLastComputed(
+                            new AuditStamp()
+                                .setTime(System.currentTimeMillis())
+                                .setActor(UrnUtils.getUrn(Constants.SYSTEM_ACTOR))));
+            batchTestRunResults
+                .get(testDefinition.getUrn())
+                .setFailingCount(
+                    batchTestRunResults.get(testDefinition.getUrn()).getFailingCount() + 1);
+          }
+        }
+      } catch (RuntimeException e) {
+        log.error(
+            "Error in evaluating Test: {} Definition: {}",
+            testDefinition.getUrn(),
+            testDefinition.getRawDefinition(),
+            e);
       }
     }
     return finalTestResults;

@@ -463,7 +463,7 @@ public class RecordUtils {
     METHOD_CACHE.putIfAbsent(record.getClass(), getMethodsFromRecordTemplate(record));
     try {
       return METHOD_CACHE.get(record.getClass()).get(fieldName).invoke(record);
-    } catch (IllegalAccessException | InvocationTargetException e) {
+    } catch (NullPointerException | IllegalAccessException | InvocationTargetException e) {
       throw new RuntimeException(
           String.format(
               "Failed to execute method for class [%s], field [%s]",

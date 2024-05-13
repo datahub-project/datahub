@@ -7,6 +7,7 @@ import com.datahub.plugins.auth.authorization.Authorizer;
 import com.datahub.util.RecordUtils;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterators;
 import com.linkedin.aspect.GetTimeseriesAspectValuesResponse;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.VersionedUrn;
@@ -59,6 +60,8 @@ import io.opentelemetry.extension.annotations.WithSpan;
 import java.net.URISyntaxException;
 import java.time.Clock;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -90,6 +93,7 @@ public class JavaEntityClient implements EntityClient {
   private final TimeseriesAspectService timeseriesAspectService;
   private final RollbackService rollbackService;
   private final EventProducer eventProducer;
+  private final int batchGetV2Size;
 
   @Override
   @Nullable
@@ -121,7 +125,22 @@ public class JavaEntityClient implements EntityClient {
       throws RemoteInvocationException, URISyntaxException {
     final Set<String> projectedAspects =
         aspectNames == null ? opContext.getEntityAspectNames(entityName) : aspectNames;
-    return entityService.getEntitiesV2(opContext, entityName, urns, projectedAspects);
+
+    Map<Urn, EntityResponse> responseMap = new HashMap<>();
+
+    Iterators.partition(urns.iterator(), Math.max(1, batchGetV2Size))
+        .forEachRemaining(
+            batch -> {
+              try {
+                responseMap.putAll(
+                    entityService.getEntitiesV2(
+                        opContext, entityName, new HashSet<>(batch), projectedAspects));
+              } catch (URISyntaxException e) {
+                throw new RuntimeException(e);
+              }
+            });
+
+    return responseMap;
   }
 
   @Override
@@ -130,11 +149,25 @@ public class JavaEntityClient implements EntityClient {
       @Nonnull OperationContext opContext,
       @Nonnull String entityName,
       @Nonnull final Set<VersionedUrn> versionedUrns,
-      @Nullable final Set<String> aspectNames)
-      throws RemoteInvocationException, URISyntaxException {
+      @Nullable final Set<String> aspectNames) {
     final Set<String> projectedAspects =
         aspectNames == null ? opContext.getEntityAspectNames(entityName) : aspectNames;
-    return entityService.getEntitiesVersionedV2(opContext, versionedUrns, projectedAspects);
+
+    Map<Urn, EntityResponse> responseMap = new HashMap<>();
+
+    Iterators.partition(versionedUrns.iterator(), Math.max(1, batchGetV2Size))
+        .forEachRemaining(
+            batch -> {
+              try {
+                responseMap.putAll(
+                    entityService.getEntitiesVersionedV2(
+                        opContext, new HashSet<>(batch), projectedAspects));
+              } catch (URISyntaxException e) {
+                throw new RuntimeException(e);
+              }
+            });
+
+    return responseMap;
   }
 
   @Override

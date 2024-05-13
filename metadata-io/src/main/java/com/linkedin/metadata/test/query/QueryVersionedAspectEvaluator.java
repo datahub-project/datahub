@@ -48,6 +48,11 @@ public class QueryVersionedAspectEvaluator extends BaseQueryEvaluator {
       return false;
     }
 
+    if (StructuredPropertyEvaluator.structuredPropertyCheck(query)) {
+      // this evaluator cannot handle structured properties
+      return false;
+    }
+
     try {
       final EntitySpec entitySpec = entityRegistry.getEntitySpec(entityType);
       return entitySpec.hasAspect(query.getQueryParts().get(0));
@@ -205,6 +210,7 @@ public class QueryVersionedAspectEvaluator extends BaseQueryEvaluator {
     List<ValueWithUrn> flatMappedResult = new ArrayList<>();
     PathSpec pathSpec = new PathSpec(fieldName);
     for (ValueWithUrn currentValue : currentValues) {
+
       // First fetch field value with the field name
       Optional<Object> fieldValue = RecordUtils.getFieldValue(currentValue.getValue(), pathSpec);
       if (!fieldValue.isPresent()) {

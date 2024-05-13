@@ -47,7 +47,8 @@ public class MceConsumerApplicationTestConfiguration {
         restClient,
         new ExponentialBackoff(1),
         1,
-        configurationProvider.getCache().getClient().getEntityClient());
+        configurationProvider.getCache().getClient().getEntityClient(),
+        1);
   }
 
   @MockBean public Database ebeanServer;

@@ -42,10 +42,7 @@ public class StructuredPropertyEvaluator extends BaseQueryEvaluator {
 
   @Override
   public boolean isEligible(@Nonnull final String entityType, @Nonnull final TestQuery query) {
-    if (query.getQueryParts().size() > 0) {
-      return query.getQuery().matches("^structuredProperties\\.urn:li:structuredProperty:.+$");
-    }
-    return false;
+    return structuredPropertyCheck(query);
   }
 
   @Override
@@ -146,5 +143,12 @@ public class StructuredPropertyEvaluator extends BaseQueryEvaluator {
               .data());
     }
     return null;
+  }
+
+  static boolean structuredPropertyCheck(@Nonnull final TestQuery query) {
+    if (query.getQueryParts().size() > 0) {
+      return query.getQuery().matches("^structuredProperties\\.urn:li:structuredProperty:.+$");
+    }
+    return false;
   }
 }

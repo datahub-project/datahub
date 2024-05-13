@@ -666,14 +666,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
       return Collections.emptyList();
     }
 
-    log.info("Ingesting aspects batch to database: {}", aspectsBatch.toAbbreviatedString(2048));
-    Timer.Context ingestToLocalDBTimer =
-        MetricUtils.timer(this.getClass(), "ingestAspectsToLocalDB").time();
     List<UpdateAspectResult> ingestResults =
         ingestAspectsToLocalDB(opContext, aspectsBatch, overwrite);
-    long took = ingestToLocalDBTimer.stop();
-    log.info(
-        "Ingestion of aspects batch to database took {} ms", TimeUnit.NANOSECONDS.toMillis(took));
 
     List<UpdateAspectResult> mclResults = emitMCL(opContext, ingestResults, emitMCL);
     return mclResults;
@@ -778,7 +772,17 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                 throw new ValidationException(exceptions.toString());
               }
 
+              // No changes, return
+              if (changeMCPs.isEmpty()) {
+                return Collections.<UpdateAspectResult>emptyList();
+              }
+
               // Database Upsert results
+              log.info(
+                  "Ingesting aspects batch to database: {}",
+                  AspectsBatch.toAbbreviatedString(changeMCPs, 2048));
+              Timer.Context ingestToLocalDBTimer =
+                  MetricUtils.timer(this.getClass(), "ingestAspectsToLocalDB").time();
               List<UpdateAspectResult> upsertResults =
                   changeMCPs.stream()
                       .map(
@@ -827,6 +831,10 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
               if (tx != null) {
                 tx.commitAndContinue();
               }
+              long took = ingestToLocalDBTimer.stop();
+              log.info(
+                  "Ingestion of aspects batch to database took {} ms",
+                  TimeUnit.NANOSECONDS.toMillis(took));
 
               // Retention optimization and tx
               if (retentionService != null) {
