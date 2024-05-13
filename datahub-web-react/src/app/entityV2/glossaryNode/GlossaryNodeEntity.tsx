@@ -136,7 +136,7 @@ class GlossaryNodeEntity implements Entity<GlossaryNode> {
     ];
 
     displayName = (data: GlossaryNode) => {
-        return data.properties?.name || data.urn;
+        return data?.properties?.name || data?.urn;
     };
 
     getOverridePropertiesFromEntity = (data: GlossaryNode) => {

@@ -16,6 +16,7 @@ import { ContainerEntity } from '../../app/entityV2/container/ContainerEntity';
 import { DomainEntity } from '../../app/entityV2/domain/DomainEntity';
 import { DataProductEntity } from '../../app/entityV2/dataProduct/DataProductEntity';
 import { DataPlatformInstanceEntity } from '../../app/entityV2/dataPlatformInstance/DataPlatformInstanceEntity';
+import GlossaryNodeEntity from '../../app/entityV2/glossaryNode/GlossaryNodeEntity';
 
 export function getTestEntityRegistryV2() {
     const entityRegistry = new EntityRegistry();
@@ -28,6 +29,7 @@ export function getTestEntityRegistryV2() {
     entityRegistry.register(new DataFlowEntity());
     entityRegistry.register(new DataJobEntity());
     entityRegistry.register(new GlossaryTermEntity());
+    entityRegistry.register(new GlossaryNodeEntity());
     entityRegistry.register(new MLFeatureTableEntity());
     entityRegistry.register(new MLModelEntity());
     entityRegistry.register(new MLModelGroupEntity());
