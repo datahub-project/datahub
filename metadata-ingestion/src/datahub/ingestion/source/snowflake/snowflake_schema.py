@@ -349,29 +349,6 @@ class SnowflakeDataDictionary(SnowflakeQueryMixin):
             )
         return views
 
-    def get_views_for_schema_starts_with(
-        self, schema_name: str, db_name: str
-    ) -> List[SnowflakeView]:
-        views: List[SnowflakeView] = []
-        # Get a grouping of schema names by substring first
-        cur = self.query(SnowflakeQuery.get_views_by_name_substr(schema_name, db_name))
-        for row in cur.fetchall():
-            starts_with = row['VIEW_NAME_STARTS_WITH']
-            cur2 = self.query(SnowflakeQuery.show_views_for_schema(schema_name, db_name, starts_with))
-
-            for table in cur2:
-                views.append(
-                    SnowflakeView(
-                        name=table["name"],
-                        created=table["created_on"],
-                        # last_altered=table["last_altered"],
-                        comment=table["comment"],
-                        view_definition=table["text"],
-                        last_altered=table["created_on"],
-                    )
-                )
-            return views
-
     def get_views_by_pagination_markers(
         self, schema_name: str, db_name: str
     ) -> List[SnowflakeView]:
@@ -408,13 +385,13 @@ class SnowflakeDataDictionary(SnowflakeQueryMixin):
                             last_altered=table["created_on"],
                         )
                     )
-                return views
+                # return views
                 # Increase the OFFSET for the next batch
                 offset += batch_size
             else:
                 # No more rows returned, stop the loop
                 more_rows = False
-
+        return views
 
     @lru_cache(maxsize=1)
     def get_columns_for_schema(

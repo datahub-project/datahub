@@ -275,6 +275,8 @@ class SnowflakeQuery:
     @staticmethod
     def show_views_for_database(db_name: str) -> str:
         return f"""show views in database "{db_name}";"""
+
+    @staticmethod
     def show_views_for_schema(schema_name: str, db_name: Optional[str] = None, from_view_marker: Optional[str] = None) -> str:
         #SHOW VIEWS IN SCHEMA {db_clause}"{schema_name} LIMIT 10000 FROM {from_marker}
         db_clause = f'"{db_name}".' if db_name is not None else ""
