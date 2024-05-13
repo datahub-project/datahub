@@ -92,6 +92,9 @@ public class UpdateIndicesService implements SearchIndicesService {
   @Value("${structuredProperties.writeEnabled}")
   private boolean _structuredPropertiesWriteEnabled;
 
+  @Value("${featureFlags.graphServiceDiffUpdateExistingEdges}")
+  private boolean graphUpdateExistingEdges;
+
   private static final Set<ChangeType> UPDATE_CHANGE_TYPES =
       ImmutableSet.of(
           ChangeType.CREATE,
@@ -489,9 +492,11 @@ public class UpdateIndicesService implements SearchIndicesService {
     }
 
     // Then update existing edges
-    if (mergedEdges.size() > 0) {
-      log.debug("Updating edges: {}", mergedEdges);
-      mergedEdges.forEach(_graphService::upsertEdge);
+    if (graphUpdateExistingEdges) {
+      if (mergedEdges.size() > 0) {
+        log.debug("Updating edges: {}", mergedEdges);
+        mergedEdges.forEach(_graphService::upsertEdge);
+      }
     }
   }
 
