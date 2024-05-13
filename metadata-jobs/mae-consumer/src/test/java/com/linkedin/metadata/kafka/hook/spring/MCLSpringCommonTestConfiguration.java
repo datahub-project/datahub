@@ -7,7 +7,6 @@ import com.datahub.authentication.Authentication;
 import com.datahub.metadata.ingestion.IngestionScheduler;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.boot.kafka.DataHubUpgradeKafkaListener;
-import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.graph.elastic.ElasticSearchGraphService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
@@ -39,7 +38,7 @@ import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
       "com.linkedin.gms.factory.entity.update.indices",
       "com.linkedin.gms.factory.timeline.eventgenerator"
     })
-public class MCLSpringTestConfiguration {
+public class MCLSpringCommonTestConfiguration {
 
   @MockBean public EntityRegistry entityRegistry;
 
@@ -57,8 +56,6 @@ public class MCLSpringTestConfiguration {
   public SystemEntityClient systemEntityClient;
 
   @MockBean public ElasticSearchService searchService;
-
-  @MockBean public EntityService<?> entityService;
 
   @MockBean public FormService formService;
 

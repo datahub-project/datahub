@@ -97,6 +97,11 @@ module.exports = {
                   id: "docs/managed-datahub/observe/column-assertions",
                   className: "saasOnly",
                 },
+                {
+                  type: "doc",
+                  id: "docs/managed-datahub/observe/schema-assertions",
+                  className: "saasOnly",
+                },
               ],
             },
             {
@@ -316,6 +321,11 @@ module.exports = {
           type: "doc",
           id: "docs/lineage/dagster",
           label: "Dagster",
+        },
+        {
+          type: "doc",
+          id: "docs/lineage/openlineage",
+          label: "OpenLineage",
         },
         {
           type: "doc",

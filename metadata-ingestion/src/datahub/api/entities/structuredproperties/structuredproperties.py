@@ -75,6 +75,7 @@ class StructuredProperties(ConfigModel):
     cardinality: Optional[str] = None
     allowed_values: Optional[List[AllowedValue]] = None
     type_qualifier: Optional[TypeQualifierAllowedTypes] = None
+    immutable: Optional[bool] = False
 
     @property
     def fqn(self) -> str:
@@ -124,6 +125,7 @@ class StructuredProperties(ConfigModel):
                                 for entity_type in structuredproperty.entity_types or []
                             ],
                             cardinality=structuredproperty.cardinality,
+                            immutable=structuredproperty.immutable,
                             allowedValues=[
                                 PropertyValueClass(
                                     value=v.value, description=v.description

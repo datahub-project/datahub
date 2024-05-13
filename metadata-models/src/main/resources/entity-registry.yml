@@ -588,6 +588,7 @@ plugins:
       supportedOperations:
         - CREATE
         - UPSERT
+        - DELETE
       supportedEntityAspectNames:
         - entityName: '*'
           aspectName: structuredProperties
