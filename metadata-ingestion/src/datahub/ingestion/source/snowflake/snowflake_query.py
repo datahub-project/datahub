@@ -236,27 +236,26 @@ class SnowflakeQuery:
         where table_schema='{schema_name}'
         order by table_schema, table_name"""
 
-    # If show views in schema {db_clause}"{schema_name} is ran against a 
-    # Schema with more than 10,000 views, Snowflake returns the following error:
-    # The result set size exceeded the max number of rows(10000)
-    # 1. Identify the first view
-    # 2. Remove the last character so that this string now has a LOWER
-    #    Lexicographic value than the first view. 
-    # 3. Identify the 10,001st view and repeat step 2
-    # 4. If there are more, repeat step 3.
-    # Note from Snowflake Documentation
-    # # https://docs.snowflake.com/en/sql-reference/sql/show-views
-    # In addition, objects are returned in lexicographic order by name, 
-    # so FROM 'name_string' only returns rows with a higher lexicographic value 
-    # than the rows returned by STARTS WITH 'name_string'.
-    # In order for a truly paginated result to be returned LIMIT results to 10,000
-    # Then call for 10,001st view (without last character to guarantee lower lexicographic value)
-    # With the LIMIT 10000 clause. 
     
     @staticmethod
     #def get_views_by_name_substr(schema_name: str, db_name: Optional[str]) -> str:
     def get_views_by_pagination_markers(schema_name: str, db_name: Optional[str], batch_size: int, offset: int) -> str:
         db_clause = f'"{db_name}".' if db_name is not None else ""
+        # If show views in schema {db_clause}"{schema_name} is ran against a 
+        # Schema with more than 10,000 views, Snowflake returns the following error:
+        # The result set size exceeded the max number of rows(10000)
+        # 1. Identify the first view
+        # 2. Remove the last character so that this string now has a LOWER Lexicographic value than the first view. 
+        # 3. Identify the 10,001st view and repeat step 2
+        # 4. If there are more, repeat step 3.
+        # Note from Snowflake Documentation
+        # # https://docs.snowflake.com/en/sql-reference/sql/show-views
+        # In addition, objects are returned in lexicographic order by name, 
+        # so FROM 'name_string' only returns rows with a higher lexicographic value 
+        # than the rows returned by STARTS WITH 'name_string'.
+        # In order for a truly paginated result to be returned LIMIT results to 10,000
+        # Then call for 10,001st view (without last character to guarantee lower lexicographic value)
+        # With the LIMIT 10000 clause. 
 
         # Construct the SQL query with the current OFFSET
         #query = f"""
