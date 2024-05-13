@@ -52,6 +52,7 @@ export const useHighlightedQueries = ({ entityUrn, siblingUrn, filterText }: Pro
             query: queryEntity.properties?.statement?.value || '',
             createdTime: queryEntity?.properties?.created?.time,
             createdBy: queryEntity?.properties?.createdOn?.actor as CorpUser,
+            lastRun: queryEntity?.usageFeatures?.lastExecutedAt,
         })),
     );
 

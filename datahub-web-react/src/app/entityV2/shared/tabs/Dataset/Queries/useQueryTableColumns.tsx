@@ -90,6 +90,7 @@ export default function useQueryTableColumns({
             return createdByA.localeCompare(createdByB);
         },
         render: (createdBy: CorpUser) => {
+            if (!createdBy) return null;
             return <QueryCreatedBy createdBy={createdBy} />;
         },
     };
@@ -100,6 +101,7 @@ export default function useQueryTableColumns({
         key: 'dateCreated',
         sorter: (queryA, queryB) => queryA.createdTime - queryB.createdTime,
         render: (date: number) => {
+            if (!date) return null;
             return <div>{moment(date).format('MM/DD/YYYY')}</div>;
         },
     };
@@ -135,6 +137,7 @@ export default function useQueryTableColumns({
             return usedByA.localeCompare(usedByB);
         },
         render: (usedBy: CorpUser[]) => {
+            if (!usedBy) return null;
             return (
                 <UsersWrapper>
                     {usedBy.slice(0, 3).map((user) => (
@@ -158,7 +161,10 @@ export default function useQueryTableColumns({
         dataIndex: 'lastRun',
         key: 'lastRun',
         sorter: (queryA, queryB) => queryA.lastRun - queryB.lastRun,
-        render: (lastRun: string) => <div>{moment(lastRun).format('MM/DD/YYYY')}</div>,
+        render: (lastRun: string) => {
+            if (!lastRun) return null;
+            return <div>{moment(lastRun).format('MM/DD/YYYY')}</div>;
+        },
     };
 
     const editColumn = {

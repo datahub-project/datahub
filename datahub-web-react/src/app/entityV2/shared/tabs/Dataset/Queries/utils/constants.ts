@@ -1,7 +1,7 @@
 /**
  * Max queries to fetch on the Queries Tab
  */
-export const MAX_QUERIES_COUNT = 1000;
+export const MAX_QUERIES_COUNT = 25;
 /**
  * Default page size for Queries Tab Section
  */

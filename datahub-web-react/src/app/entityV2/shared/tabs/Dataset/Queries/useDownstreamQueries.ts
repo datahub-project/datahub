@@ -7,6 +7,7 @@ import { DBT_URN } from '../../../../../ingest/source/builder/constants';
 import { LINEAGE_FILTER_PAGINATION, isQuery } from '../../../../../lineageV2/common';
 import { DEGREE_FILTER_NAME } from '../../../../../search/utils/constants';
 import { filterQueries } from './utils/filterQueries';
+import { MAX_QUERIES_COUNT } from './utils/constants';
 
 export default function useDownstreamQueries(filterText: string) {
     const baseEntity = useBaseEntity<GetDatasetQuery>();
@@ -15,7 +16,7 @@ export default function useDownstreamQueries(filterText: string) {
         variables: {
             input: {
                 urn: baseEntity?.dataset?.urn,
-                count: 1000,
+                count: MAX_QUERIES_COUNT,
                 direction: LineageDirection.Downstream,
                 orFilters: [
                     {
@@ -73,6 +74,7 @@ export default function useDownstreamQueries(filterText: string) {
             createdTime: queryEntity?.properties?.created?.time,
             createdBy: queryEntity?.properties?.createdOn?.actor as CorpUser,
             poweredEntity,
+            lastRun: queryEntity?.usageFeatures?.lastExecutedAt,
         })),
     );
 

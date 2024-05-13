@@ -58,6 +58,7 @@ export const usePopularQueries = ({ entityUrn, siblingUrn, filterText }: Props) 
                 createdTime: queryEntity?.properties?.created?.time,
                 createdBy: queryEntity?.properties?.createdOn?.actor as CorpUser,
                 usedBy: (queryEntity?.usageFeatures?.topUsersLast30Days || []) as CorpUser[],
+                lastRun: queryEntity?.usageFeatures?.lastExecutedAt,
                 runsPercentileLast30days: queryEntity?.usageFeatures?.runsPercentileLast30days,
             })),
     );

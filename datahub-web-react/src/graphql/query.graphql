@@ -35,7 +35,7 @@ fragment query on QueryEntity {
             actor
         }
         origin {
-            ...searchResultFields
+            ...searchResultFieldsNoLineage
         }
     }
     usageFeatures {
@@ -103,7 +103,7 @@ query searchAcrossLineageForQueries($input: SearchAcrossLineageInput!) {
             entity {
                 urn
                 type
-                ...searchResultFields
+                ...searchResultFieldsNoLineage
             }
             paths {
                 path {
