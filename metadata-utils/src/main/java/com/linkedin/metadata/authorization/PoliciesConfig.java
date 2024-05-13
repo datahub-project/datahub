@@ -653,6 +653,19 @@ public class PoliciesConfig {
               CREATE_ENTITY_PRIVILEGE,
               EXISTS_ENTITY_PRIVILEGE));
 
+  // Properties Privileges
+  public static final ResourcePrivileges STRUCTURED_PROPERTIES_PRIVILEGES =
+      ResourcePrivileges.of(
+          "structuredProperty",
+          "Structured Properties",
+          "Structured Properties",
+          ImmutableList.of(
+              CREATE_ENTITY_PRIVILEGE,
+              VIEW_ENTITY_PAGE_PRIVILEGE,
+              EXISTS_ENTITY_PRIVILEGE,
+              EDIT_ENTITY_PRIVILEGE,
+              DELETE_ENTITY_PRIVILEGE));
+
   // ERModelRelationship Privileges
   public static final ResourcePrivileges ER_MODEL_RELATIONSHIP_PRIVILEGES =
       ResourcePrivileges.of(
@@ -689,7 +702,8 @@ public class PoliciesConfig {
           NOTEBOOK_PRIVILEGES,
           DATA_PRODUCT_PRIVILEGES,
           ER_MODEL_RELATIONSHIP_PRIVILEGES,
-          BUSINESS_ATTRIBUTE_PRIVILEGES);
+          BUSINESS_ATTRIBUTE_PRIVILEGES,
+          STRUCTURED_PROPERTIES_PRIVILEGES);
 
   // Merge all entity specific resource privileges to create a superset of all resource privileges
   public static final ResourcePrivileges ALL_RESOURCE_PRIVILEGES =

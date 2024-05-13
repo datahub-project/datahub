@@ -387,6 +387,11 @@ module.exports = {
         },
         {
           type: "doc",
+          id: "docs/lineage/openlineage",
+          label: "OpenLineage",
+        },
+        {
+          type: "doc",
           id: "metadata-integration/java/spark-lineage/README",
           label: "Spark (Legacy)",
         },

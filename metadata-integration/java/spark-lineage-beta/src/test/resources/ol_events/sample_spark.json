@@ -40,7 +40,7 @@
   "inputs": [
     {
       "namespace": "file",
-      "name": "/Users/treff7es/shadow/spark-test/people.json",
+      "name": "/my_folder/spark-test/people.json",
       "facets": {
         "dataSource": {
           "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.2.2/integration/spark",
@@ -69,7 +69,7 @@
   "outputs": [
     {
       "namespace": "file",
-      "name": "/Users/treff7es/shadow/spark-test/result",
+      "name": "/my_folder/shadow/spark-test/result",
       "facets": {
         "dataSource": {
           "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.2.2/integration/spark",
@@ -95,7 +95,7 @@
               "inputFields": [
                 {
                   "namespace": "file",
-                  "name": "/Users/treff7es/shadow/spark-test/people.json",
+                  "name": "/my_folder/spark-test/people.json",
                   "field": "name"
                 }
               ]
