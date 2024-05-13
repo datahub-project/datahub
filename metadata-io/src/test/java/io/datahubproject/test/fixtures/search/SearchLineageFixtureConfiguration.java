@@ -250,6 +250,7 @@ public class SearchLineageFixtureConfiguration {
         null,
         null,
         null,
-        null);
+        null,
+        1);
   }
 }

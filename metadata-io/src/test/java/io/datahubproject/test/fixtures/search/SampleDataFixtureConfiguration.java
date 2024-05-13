@@ -315,6 +315,7 @@ public class SampleDataFixtureConfiguration {
         null,
         null,
         null,
-        null);
+        null,
+        1);
   }
 }
