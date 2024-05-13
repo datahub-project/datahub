@@ -1,6 +1,6 @@
 from typing import Optional
 
-from pydantic import Field
+from pydantic import Field, validator
 
 from datahub_executor.common.types import PermissiveBaseModel
 
@@ -18,7 +18,11 @@ class IngestionSourceConfig(PermissiveBaseModel):
 
     version: Optional[str]
 
-    debug_mode: Optional[str] = Field(alias="debugMode", default="false")
+    debug_mode: Optional[str] = Field(alias="debugMode")
+
+    @validator("debug_mode", pre=True, always=True)
+    def validate_debug_mode(cls, debug_mode: Optional[str]) -> str:
+        return debug_mode or "False"
 
 
 class IngestionSource(PermissiveBaseModel):
