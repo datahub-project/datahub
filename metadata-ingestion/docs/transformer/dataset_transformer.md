@@ -13,7 +13,7 @@ The below table shows transformer which can transform aspects of entity [Dataset
 | `glossaryTerms`     | - [Simple Add Dataset glossaryTerms ](#simple-add-dataset-glossaryterms)<br/> - [Pattern Add Dataset glossaryTerms](#pattern-add-dataset-glossaryterms)                                                           |
 | `schemaMetadata`    | - [Pattern Add Dataset Schema Field glossaryTerms](#pattern-add-dataset-schema-field-glossaryterms)<br/> - [Pattern Add Dataset Schema Field globalTags](#pattern-add-dataset-schema-field-globaltags)            |
 | `datasetProperties` | - [Simple Add Dataset datasetProperties](#simple-add-dataset-datasetproperties)<br/> - [Add Dataset datasetProperties](#add-dataset-datasetproperties)                                                            |
-| `domains`           | - [Simple Add Dataset domains](#simple-add-dataset-domains)<br/> - [Pattern Add Dataset domains](#pattern-add-dataset-domains)                                                                                      | 
+| `domains`           | - [Simple Add Dataset domains](#simple-add-dataset-domains)<br/> - [Pattern Add Dataset domains](#pattern-add-dataset-domains)<br/> - [Domain Mapping Based on Tags](#domain-mapping-based-on-tags)                                                                                    |
 | `dataProduct`       | - [Simple Add Dataset dataProduct ](#simple-add-dataset-dataproduct)<br/> - [Pattern Add Dataset dataProduct](#pattern-add-dataset-dataproduct)<br/> - [Add Dataset dataProduct](#add-dataset-dataproduct)  
 
 ## Extract Ownership from Tags
@@ -1064,6 +1064,61 @@ in both of the cases domain should be provisioned on DataHub GMS
                 'urn:li:dataset:\(urn:li:dataPlatform:postgres,postgres\.public\.n.*': ["hr"]
                 'urn:li:dataset:\(urn:li:dataPlatform:postgres,postgres\.public\.t.*': ["urn:li:domain:finance"] 
   ```
+
+
+
+## Domain Mapping Based on Tags
+### Config Details
+
+| Field           | Required | Type                    | Default     | Description                                                                                             |
+|-----------------|----------|-------------------------|-------------|---------------------------------------------------------------------------------------------------------|
+| `domain_mapping`| ✅       | Dict[str, str]     |             | Dataset Entity tag as key and domain urn or name as value to map with dataset as asset.           |
+| `semantics`     |          | enum                  | "OVERWRITE" | Whether to OVERWRITE or PATCH the entity present on DataHub GMS.|
+
+<br/>
+
+let’s suppose we’d like to add domain to dataset based on tag, in this case you can use `domain_mapping_based_on_tags` transformer.
+
+The config, which we’d append to our ingestion recipe YAML, would look like this:
+
+Here we can set domains to either urn (i.e. urn:li:domain:engineering) or simple domain name (i.e. engineering) in both of the cases domain should be provisioned on DataHub GMS
+
+When specifying tags within the domain mapping, use the tag's simple name rather than the full tag URN.
+
+For example, instead of using the tag URN urn:li:tag:NeedsDocumentation, you should specify just the simple tag name NeedsDocumentation in the domain mapping configuration
+
+```yaml
+transformers:
+  - type: "domain_mapping_based_on_tags"
+    config:
+      domain_mapping:
+        'NeedsDocumentation': "urn:li:domain:documentation"
+```
+
+
+`domain_mapping_based_on_tags` can be configured in below different way
+
+- Add domains based on tags, however overwrite the domains available for the dataset on DataHub GMS
+```yaml
+    transformers:
+      - type: "domain_mapping_based_on_tags"
+        config:
+          semantics: OVERWRITE  # OVERWRITE is default behaviour
+          domain_mapping:
+            'example1': "urn:li:domain:engineering"
+            'example2': "urn:li:domain:hr"
+  ```
+- Add domains based on tags, however keep the domains available for the dataset on DataHub GMS
+```yaml
+    transformers:
+      - type: "domain_mapping_based_on_tags"
+        config:
+          semantics: PATCH
+          domain_mapping:
+            'example1': "urn:li:domain:engineering"
+            'example2': "urn:li:domain:hr"
+  ```
+
 ## Simple Add Dataset dataProduct
 ### Config Details
 | Field                         | Required | Type            | Default       | Description                                                                            |
@@ -1102,32 +1157,6 @@ The config, which we’d append to our ingestion recipe YAML, would look like th
             ".*example1.*": "urn:li:dataProduct:first"
             ".*example2.*": "urn:li:dataProduct:second"
   ```
-
-## Domain Mapping Based on Tags
-### Config Details
-| Field                | Required | Type               | Default | Description                                                                                   |
-|----------------------|----------|--------------------|---------|-----------------------------------------------------------------------------------------------|
-| `domain_mapping`     | ✅       | map[string, list[string]]  |         | Maps tag suffixes to lists of domain URNs. Associates tagged entities with specified domains. |
-
-### Overview
-
-The domain_mapping_based_on_tags transformer is part of the data ingestion framework, which is used to dynamically assign domains to entities based on their tags. This module scans the tags of entities and matches their tags against predefined rules, assigning the corresponding domains if a match is found.
-
-### Usage Example
-
-To configure this functionality within your ingestion recipe, you can specify the transformer and its configuration in your YAML file. Here’s an example configuration that map tags to domains:
-
-```yaml
-transformers:
-  - type: "domain_mapping_based_on_tags"
-    config:
-      domain_mapping:
-        rules:
-          'test:tag': ["hr", "urn:li:domain:finance"]
-```
-
-In this example:
-- Entities tagged with `test:tag` will be associated with the domains `hr` and `urn:li:domain:finance`.
 
 ## Add Dataset dataProduct
 ### Config Details
