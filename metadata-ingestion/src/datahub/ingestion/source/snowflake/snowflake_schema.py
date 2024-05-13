@@ -372,6 +372,50 @@ class SnowflakeDataDictionary(SnowflakeQueryMixin):
                 )
             return views
 
+    def get_views_by_pagination_markers(
+        self, schema_name: str, db_name: str
+    ) -> List[SnowflakeView]:
+        views: List[SnowflakeView] = []
+        #Get a grouping of schema names by substring first
+        #Add intermediate step here, Replace get_views_by_name_substr
+        #to retrieve the list of pagination markers and then populate cur2 with results. 
+        #This should be at least one group of 10,000 view definitions. 
+        #Followed by any groups of stragglers after 10,000 views.
+        #cur = self.query(SnowflakeQuery.get_views_by_name_substr(schema_name, db_name))
+        offset = 0
+        batch_size = 10000
+        more_rows = True
+        while more_rows:                
+            cur = self.query(SnowflakeQuery.get_views_by_pagination_markers(schema_name, db_name, batch_size, offset))
+            # You now have a cursor of View Names to use for the subsequent Snowflake Call: 
+            #SHOW VIEWS IN SCHEMA MY_DB.MY_SCHEMA LIMIT 10000 FROM 'MY_TRUNCATED_VIEW'
+            #The view name needs to be truncated (Remove the last character) so that it will have a 
+            #Lower lexicographic (dictionary) value than the first view in the group. 
+            #Then limit to 10,000 views, then go after the rest
+            rows = cursor.fetchmany()
+            if rows: #JG Need to make sure this is proper for the returned cursor.
+                from_view_marker = rows[0][0][:-1]
+                cur2 = self.query(SnowflakeQuery.show_views_for_schema(schema_name, db_name, from_view_marker))
+
+                for table in cur2:
+                    views.append(
+                        SnowflakeView(
+                            name=table["name"],
+                            created=table["created_on"],
+                            # last_altered=table["last_altered"],
+                            comment=table["comment"],
+                            view_definition=table["text"],
+                            last_altered=table["created_on"],
+                        )
+                    )
+                return views
+                # Increase the OFFSET for the next batch
+                offset += batch_size
+            else:
+                # No more rows returned, stop the loop
+                more_rows = False
+
+
     @lru_cache(maxsize=1)
     def get_columns_for_schema(
         self, schema_name: str, db_name: str

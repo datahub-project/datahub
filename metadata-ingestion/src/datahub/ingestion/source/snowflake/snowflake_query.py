@@ -239,31 +239,48 @@ class SnowflakeQuery:
     # If show views in schema {db_clause}"{schema_name} is ran against a 
     # Schema with more than 10,000 views, Snowflake returns the following error:
     # The result set size exceeded the max number of rows(10000)
-    # Use LIMIT option to limit result set to a smaller number.
-    # If this happens, then break up your views for a particular schema
-    # into smaller groupings by bucketing views into groups consisting of 
-    # the first 4 characters of a view name and the number of views
-    # This should return a smaller grouping of views to fetch view definitions for
-    # https://docs.snowflake.com/en/sql-reference/sql/show-views
+    # 1. Identify the first view
+    # 2. Remove the last character so that this string now has a LOWER
+    #    Lexicographic value than the first view. 
+    # 3. Identify the 10,001st view and repeat step 2
+    # 4. If there are more, repeat step 3.
+    # Note from Snowflake Documentation
+    # # https://docs.snowflake.com/en/sql-reference/sql/show-views
+    # In addition, objects are returned in lexicographic order by name, 
+    # so FROM 'name_string' only returns rows with a higher lexicographic value 
+    # than the rows returned by STARTS WITH 'name_string'.
+    # In order for a truly paginated result to be returned LIMIT results to 10,000
+    # Then call for 10,001st view (without last character to guarantee lower lexicographic value)
+    # With the LIMIT 10000 clause. 
+    
     @staticmethod
-    def get_views_by_name_substr(schema_name: str, db_name: Optional[str]) -> str:
+    #def get_views_by_name_substr(schema_name: str, db_name: Optional[str]) -> str:
+    def get_views_by_pagination_markers(schema_name: str, db_name: Optional[str], batch_size: int, offset: int) -> str:
         db_clause = f'"{db_name}".' if db_name is not None else ""
-        return f"""
-        SELECT DISTINCT SUBSTR(TABLE_NAME,0,4) AS VIEW_NAME_STARTS_WITH, 
-        COUNT(1) AS ROW_COUNT 
+
+        # Construct the SQL query with the current OFFSET
+        #query = f"""
+        return f"""            
+        SELECT DISTINCT TABLE_NAME AS VIEW_NAME
         FROM {db_clause}INFORMATION_SCHEMA.VIEWS 
         WHERE TABLE_SCHEMA='{schema_name}'
-        GROUP BY SUBSTR(TABLE_NAME,0,4) 
-        ORDER BY 1"""
+        ORDER BY 1
+        LIMIT {batch_size} OFFSET {offset};
+        """
+        #JG20240511: Determine the best way to iterate through INFORMATION_SCHEMA
+        #and return the needed 10,000 view pagination markers.
+        # All queries in this Class are only returning queries
+        # I think I can still go back and fort with returning the query to the 
+        # Calling function and eventually make the proper show views  in DB.SCHEMA LIMIT 10000 FROM Call
 
     @staticmethod
     def show_views_for_database(db_name: str) -> str:
         return f"""show views in database "{db_name}";"""
-
-    def show_views_for_schema(schema_name: str, db_name: Optional[str] = None, starts_with: Optional[str] = None) -> str:
+    def show_views_for_schema(schema_name: str, db_name: Optional[str] = None, from_view_marker: Optional[str] = None) -> str:
+        #SHOW VIEWS IN SCHEMA {db_clause}"{schema_name} LIMIT 10000 FROM {from_marker}
         db_clause = f'"{db_name}".' if db_name is not None else ""
-        starts_with_clause = f' starts with "{starts_with}"' if starts_with is not None else ""
-        return f"""show views in schema {db_clause}"{schema_name}" {starts_with_clause};"""
+        from_view_marker_clause = f' from "{from_view_marker}"' if from_view_marker_clause is not None else ""
+        return f"""show views in schema {db_clause}"{schema_name} limit 10000" {from_view_marker_clause};"""
 
     @staticmethod
     def columns_for_schema(schema_name: str, db_name: Optional[str]) -> str:
