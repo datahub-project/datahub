@@ -93,6 +93,19 @@ You can view and manage the group’s subscriptions on the group’s page on Dat
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/subscription-and-notification/s_n-group-subscriptions.png"/>
 </p>
 
+### Subscribing to an assertion
+
+You can subscribe to individual assertions by clicking the bell button on the assertion itself - either in the list view or on the assertion's profile page.
+[screenshot]
+
+Note: if you are subscribed to all assertions at the dataset level, then you will not be able to 'unsubscribe' from an individual assertion.
+You must first remove your dataset-level subscription:
+[screenshot]
+
+Then select individual assertions you'd like to subscribe to:
+[screenshot]
+
+
 ## FAQ
 
 <details>
