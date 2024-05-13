@@ -8,6 +8,7 @@ from datahub.ingestion.source_report.ingestion_stage import IngestionStageReport
 from datahub.ingestion.source_report.time_window import BaseTimeWindowReport
 from datahub.sql_parsing.sql_parsing_aggregator import SqlAggregatorReport
 from datahub.utilities.lossy_collections import LossyDict
+from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.stats_collections import TopKDict
 
 
@@ -55,6 +56,7 @@ class RedshiftReport(
 
     # lineage/usage v2
     sql_aggregator: Optional[SqlAggregatorReport] = None
+    lineage_phases_timer: Dict[str, PerfTimer] = field(default_factory=dict)
 
     def report_dropped(self, key: str) -> None:
         self.filtered.append(key)

@@ -45,7 +45,6 @@ import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.events.metadata.ChangeType;
-import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.key.DatasetKey;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
@@ -90,14 +89,12 @@ public class EntityChangeEventGeneratorHookTest {
   private Urn actorUrn;
 
   private SystemEntityClient _mockClient;
-  private EntityService _mockEntityService;
   private EntityChangeEventGeneratorHook _entityChangeEventHook;
 
   @BeforeMethod
   public void setupTest() throws URISyntaxException {
     actorUrn = Urn.createFromString(TEST_ACTOR_URN);
     _mockClient = Mockito.mock(SystemEntityClient.class);
-    _mockEntityService = Mockito.mock(EntityService.class);
     EntityChangeEventGeneratorRegistry entityChangeEventGeneratorRegistry =
         createEntityChangeEventGeneratorRegistry();
     _entityChangeEventHook =
