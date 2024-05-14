@@ -1,4 +1,4 @@
-import FeatureAvailability from '@site/src/components/FeatureAvailability';
+<img width="1098" alt="3" src="https://github.com/datahub-project/datahub/assets/159848059/222d94f5-ae01-4f55-9ce6-51d67ab2f59f">import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 # Subscriptions & Notifications
 
@@ -93,24 +93,35 @@ You can view and manage the group’s subscriptions on the group’s page on Dat
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/subscription-and-notification/s_n-group-subscriptions.png"/>
 </p>
 
-### Subscribing to specific assertions
+### Subscribing to individual assertions
 
-You can subscribe to individual assertions by clicking the bell button on the assertion itself - either in the list view or on the assertion's profile page.
-<img width="1149" alt="image" src="https://github.com/datahub-project/datahub/assets/159848059/52532e7c-3f48-4d69-af90-a317023eb101" />
-<img width="604" alt="image" src="https://github.com/datahub-project/datahub/assets/159848059/17a04b48-42ad-481e-a6fb-e43d5b200b09" />
+You can subscribe to individual assertions by clicking the bell button on the assertion itself - either in the list view:
+<p align="center">
+  <img width="70%" alt="1" src="https://github.com/datahub-project/datahub/assets/159848059/195300df-b2b5-4863-972d-dc4b6764f3bc">
+</p>
+
+...or on the assertion's profile page:
+<p align="center">
+  <img width="70%" alt="2" src="https://github.com/datahub-project/datahub/assets/159848059/b2e2446c-18b6-45c7-851b-3d49aabeacae">
+</p>
 
 
 Note: if you are subscribed to all assertions at the dataset level, then you will not be able to 'unsubscribe' from an individual assertion.
-<img width="426" alt="image" src="https://github.com/datahub-project/datahub/assets/159848059/46d758c5-9a64-4f3b-8392-93794709c077" />
+<p align="center">
+  <img width="70%" alt="3" src="https://github.com/datahub-project/datahub/assets/159848059/2092928a-ea9c-464a-b691-06e706cdeed0">
+</p>
 
 You must first remove your dataset-level subscription:
-<img width="883" alt="Screenshot 2024-05-14 at 5 49 32 PM" src="https://github.com/datahub-project/datahub/assets/159848059/4eeeab03-5cf6-4ee1-9c14-047a3115f9d7" />
-<img width="623" alt="image" src="https://github.com/datahub-project/datahub/assets/159848059/42eec31a-061e-45e2-9e63-73708f5d84c7" />
-<img width="603" alt="image" src="https://github.com/datahub-project/datahub/assets/159848059/8626bc28-21bd-4293-b5e9-8a0f0fe20022" />
+<p align="center">
+  <img width="70%" alt="5" src="https://github.com/datahub-project/datahub/assets/159848059/7803abb9-e33d-4ac1-a11c-059296cd06a4">
+  <img width="70%" alt="4" src="https://github.com/datahub-project/datahub/assets/159848059/74df6d58-fa37-4373-91b2-b73cb7b98172">
+</p>
 
 
 Then select individual assertions you'd like to subscribe to:
-<img width="683" alt="image" src="https://github.com/datahub-project/datahub/assets/159848059/3bd47614-bbe9-4e76-b0bb-449532b62b0b" />
+<p align="center">
+  <img width="70%" alt="7" src="https://github.com/datahub-project/datahub/assets/159848059/15c428af-5f9d-4a9d-a178-c2d58835b051">
+</p>
 
 
 
