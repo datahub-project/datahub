@@ -12,8 +12,7 @@ from pydantic import BaseModel
 from termcolor import colored
 
 from datahub import __version__
-from datahub.cli import cli_utils
-from datahub.ingestion.graph.client import DataHubGraph
+from datahub.ingestion.graph.client import DataHubGraph, load_client_config
 
 log = logging.getLogger(__name__)
 
@@ -101,16 +100,18 @@ async def get_github_stats():
             return (latest_server_version, latest_server_date)
 
 
-async def get_server_config(gms_url: str, token: str) -> dict:
+async def get_server_config(gms_url: str, token: Optional[str]) -> dict:
     import aiohttp
 
-    async with aiohttp.ClientSession(
-        headers={
-            "X-RestLi-Protocol-Version": "2.0.0",
-            "Content-Type": "application/json",
-            "Authorization": f"Bearer {token}",
-        }
-    ) as session:
+    headers = {
+        "X-RestLi-Protocol-Version": "2.0.0",
+        "Content-Type": "application/json",
+    }
+
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+
+    async with aiohttp.ClientSession() as session:
         config_endpoint = f"{gms_url}/config"
         async with session.get(config_endpoint) as dh_response:
             dh_response_json = await dh_response.json()
@@ -118,11 +119,23 @@ async def get_server_config(gms_url: str, token: str) -> dict:
 
 
 async def get_server_version_stats(
-    server: Optional[DataHubGraph] = DataHubGraph(cli_utils.load_graph_config())
+    server: Optional[DataHubGraph] = None,
 ) -> Tuple[Optional[str], Optional[Version], Optional[datetime]]:
     import aiohttp
 
-    server_config = server.server_config
+    server_config = None
+    if not server:
+        try:
+            # let's get the server from the cli config
+            client_config = load_client_config()
+            host = client_config.server
+            token = client_config.token
+            server_config = await get_server_config(host, token)
+            log.debug(f"server_config:{server_config}")
+        except Exception as e:
+            log.debug(f"Failed to get a valid server: {e}")
+    else:
+        server_config = server.server_config
 
     server_type = None
     server_version: Optional[Version] = None

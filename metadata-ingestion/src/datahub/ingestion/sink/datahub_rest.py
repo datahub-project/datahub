@@ -9,7 +9,6 @@ import uuid
 from enum import auto
 from typing import List, Optional, Tuple, Union
 
-from datahub.cli.cli_utils import set_env_variables_override_config
 from datahub.configuration.common import (
     ConfigEnum,
     ConfigurationError,
@@ -26,7 +25,10 @@ from datahub.ingestion.api.sink import (
     WriteCallback,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.graph.client import DatahubClientConfig
+from datahub.ingestion.graph.client import (
+    DatahubClientConfig,
+    set_env_variables_override_config,
+)
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
     MetadataChangeEvent,
     MetadataChangeProposal,

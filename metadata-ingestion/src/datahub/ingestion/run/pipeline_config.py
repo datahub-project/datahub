@@ -1,14 +1,14 @@
 import datetime
 import logging
+import os
 import uuid
 from typing import Any, Dict, List, Optional
 
-from pydantic import Field, validator
+from pydantic import Field, root_validator, validator
 
-from datahub.cli.cli_utils import load_graph_config
 from datahub.configuration import config_loader
 from datahub.configuration.common import ConfigModel, DynamicTypedConfig
-from datahub.ingestion.graph.client import DatahubClientConfig
+from datahub.ingestion.graph.client import DatahubClientConfig, load_client_config
 from datahub.ingestion.sink.file import FileSinkConfig
 
 logger = logging.getLogger(__name__)
@@ -106,7 +106,7 @@ class PipelineConfig(ConfigModel):
     @root_validator(pre=True)
     def default_sink_is_datahub_rest(cls, values: Dict[str, Any]) -> Any:
         if "sink" not in values:
-            config = load_graph_config()
+            config = load_client_config()
             # update this
             default_sink_config = {
                 "type": "datahub-rest",
