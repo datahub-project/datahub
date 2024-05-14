@@ -2833,7 +2833,7 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
                         logger.info(f"Ingesting assets of site '{site.content_url}'.")
                         yield from self._ingest_tableau_site()
             else:
-                site = self.server.sites.get_by_id(self.config.site)
+                site = self.server.sites.get_by_id(self.server.site_id)
                 self.current_site = site
                 yield from self._ingest_tableau_site()
         except MetadataQueryException as md_exception:
