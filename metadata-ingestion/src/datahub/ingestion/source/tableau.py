@@ -26,6 +26,7 @@ from tableauserverclient import (
     Server,
     ServerResponseError,
     TableauAuth,
+    SiteItem
 )
 from tableauserverclient.server.endpoint.exceptions import NonXMLResponseError
 from urllib3 import Retry
@@ -153,6 +154,7 @@ from datahub.sql_parsing.sqlglot_lineage import (
 )
 from datahub.utilities import config_clean
 from datahub.utilities.urns.dataset_urn import DatasetUrn
+from collections import OrderedDict
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -203,14 +205,14 @@ class TableauConnectionConfig(ConfigModel):
     def remove_trailing_slash(cls, v):
         return config_clean.remove_trailing_slashes(v)
 
-    def make_tableau_client(self) -> Server:
+    def make_tableau_client(self, site='') -> Server:
         # https://tableau.github.io/server-client-python/docs/api-ref#authentication
         authentication: Union[TableauAuth, PersonalAccessTokenAuth]
         if self.username and self.password:
             authentication = TableauAuth(
                 username=self.username,
                 password=self.password,
-                site_id=self.site,
+                site_id=site,
             )
         elif self.token_name and self.token_value:
             authentication = PersonalAccessTokenAuth(
@@ -390,6 +392,24 @@ class TableauConfig(
         "(allows to workaround ingestion errors when pre ingested schema and queries are out of sync)",
     )
 
+    ingest_multiple_sites: bool = Field(
+        False,
+        description="When enabled, ingests multiple sites the user has access to. If the user doesn't have access to the default site, specify an initial site to query in the site property. By default all sites the user has access to will be ingested. You can filter sites with the site_name_pattern property.",
+    )
+
+    site_name_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Filter for specific Tableau sites. "
+                    "By default, all sites will be included in the ingestion. "
+                    "You can both allow and deny sites based on their name using their name, or a Regex pattern. "
+                    "Deny patterns always take precedence over allow patterns. ",
+    )
+
+    add_site_container: bool = Field(
+        False,
+        description="When enabled, sites are added as containers and therefore visible in the folder structure within Datahub.",
+    )
+
     # pre = True because we want to take some decision before pydantic initialize the configuration to default values
     @root_validator(pre=True)
     def projects_backward_compatibility(cls, values: Dict) -> Dict:
@@ -417,6 +437,8 @@ class WorkbookKey(ContainerKey):
 class ProjectKey(ContainerKey):
     project_id: str
 
+class SiteKey(ContainerKey):
+    site_id: str
 
 @dataclass
 class UsageStat:
@@ -536,6 +558,7 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
         self.tableau_project_registry: Dict[str, TableauProject] = {}
         self.workbook_project_map: Dict[str, str] = {}
         self.datasource_project_map: Dict[str, str] = {}
+        self.current_site: SiteItem = None
 
         # This list keeps track of sheets in workbooks so that we retrieve those
         # when emitting sheets.
@@ -552,8 +575,6 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
         # This list keeps track of datasource being actively used by workbooks so that we only retrieve those
         # when emitting custom SQL data sources.
         self.custom_sql_ids_being_used: List[str] = []
-
-        self._authenticate()
 
     @staticmethod
     def test_connection(config_dict: dict) -> TestConnectionReport:
@@ -591,12 +612,32 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
             if self.config.platform_instance
             else self.platform
         )
-        return f"/{platform_with_instance}"
+        return f"/{platform_with_instance}{self.site_name_browse_path}"
+
+    @property
+    def site_name_browse_path(self) -> str:
+        site_name_prefix = self.current_site.name if self.current_site and self.config.add_site_container else ''
+        return f"/{site_name_prefix}" if site_name_prefix else ''
 
     @property
     def dataset_browse_prefix(self) -> str:
         # datasets also have the env in the browse path
         return f"/{self.config.env.lower()}{self.no_env_browse_prefix}"
+
+
+    def _init_ingestion_variables(self):
+        # Reset / initialize all ingestion variables.
+        self.tableau_stat_registry = {}
+        self.tableau_project_registry = {}
+        self.datasource_project_map = {}
+        self.database_tables = {}
+        self.workbook_project_map = {}
+        self.sheet_ids = []
+        self.dashboard_ids = []
+        self.embedded_datasource_ids_being_used = []
+        self.datasource_ids_being_used = []
+        self.custom_sql_ids_being_used = []
+
 
     def _populate_usage_stat_registry(self) -> None:
         if self.server is None:
@@ -680,7 +721,7 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
 
     def _init_tableau_project_registry(self, all_project_map: dict) -> None:
         list_of_skip_projects: List[TableauProject] = []
-
+        projects_to_ingest = {}
         for project in all_project_map.values():
             # Skip project if it is not allowed
             logger.debug(f"Evaluating project pattern for {project.name}")
@@ -689,7 +730,7 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
                 logger.debug(f"Project {project.name} is skipped")
                 continue
             logger.debug(f"Project {project.name} is added in project registry")
-            self.tableau_project_registry[project.id] = project
+            projects_to_ingest[project.id] = project
 
         if self.config.extract_project_hierarchy is False:
             logger.debug(
@@ -702,11 +743,15 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
 
         for project in list_of_skip_projects:
             if (
-                project.parent_id in self.tableau_project_registry
+                project.parent_id in projects_to_ingest
                 and self._is_denied_project(project) is False
             ):
                 logger.debug(f"Project {project.name} is added in project registry")
-                self.tableau_project_registry[project.id] = project
+                projects_to_ingest[project.id] = project
+
+        # We rely on automatic browse paths (v2) when creating containers. That's why we need to sort the projects here.
+        # Otherwise, nested projects will not have the correct browse paths if not created in correct order / hierarchy.
+        self.tableau_project_registry = OrderedDict(sorted(projects_to_ingest.items(), key=lambda item: len(item[1].path)))
 
     def _init_datasource_registry(self) -> None:
         if self.server is None:
@@ -760,10 +805,14 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
             f"Tableau workbooks {self.workbook_project_map}",
         )
 
-    def _authenticate(self) -> None:
+    def _authenticate(self, site='') -> None:
         try:
-            self.server = self.config.make_tableau_client()
-            logger.info("Authenticated to Tableau server")
+            if self.server is not None:
+                logger.info("Sign out before re-authenticating with different site.")
+                self.server.auth.sign_out()
+            site_content_url = site or self.config.site
+            self.server = self.config.make_tableau_client(site_content_url)
+            logger.info(f"Authenticated to Tableau server for site: '{site_content_url}'")
         # Note that we're not catching ConfigurationError, since we want that to throw.
         except ValueError as e:
             self.report.failure(
@@ -2274,7 +2323,7 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
         last_modified = self.get_last_modified(creator, created_at, updated_at)
 
         if sheet.get(c.PATH):
-            site_part = f"/site/{self.config.site}" if self.config.site else ""
+            site_part = f"/site/{self.current_site.content_url}" if self.current_site else ""
             sheet_external_url = (
                 f"{self.config.connect_uri}/#{site_part}/views/{sheet.get(c.PATH)}"
             )
@@ -2285,7 +2334,7 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
             and sheet[c.CONTAINED_IN_DASHBOARDS][0].get(c.PATH)
         ):
             # sheet contained in dashboard
-            site_part = f"/t/{self.config.site}" if self.config.site else ""
+            site_part = f"/t/{self.current_site.content_url}" if self.current_site else ""
             dashboard_path = sheet[c.CONTAINED_IN_DASHBOARDS][0][c.PATH]
             sheet_external_url = f"{self.config.connect_uri}{site_part}/authoring/{dashboard_path}/{sheet.get(c.NAME, '')}"
         else:
@@ -2417,7 +2466,7 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
             else None
         )
 
-        site_part = f"/site/{self.config.site}" if self.config.site else ""
+        site_part = f"/site/{self.current_site.content_url}" if self.current_site else ""
         workbook_uri = workbook.get("uri")
         workbook_part = (
             workbook_uri[workbook_uri.index("/workbooks/") :] if workbook_uri else None
@@ -2464,6 +2513,13 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
             platform=self.platform,
             instance=self.config.platform_instance,
             project_id=project_luid,
+        )
+
+    def gen_site_key(self, site_id: str) -> SiteKey:
+        return SiteKey(
+            platform=self.platform,
+            instance=self.config.platform_instance,
+            site_id=site_id
         )
 
     @staticmethod
@@ -2569,7 +2625,7 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
         updated_at = dashboard.get(c.UPDATED_AT, datetime.now())
         last_modified = self.get_last_modified(creator, created_at, updated_at)
 
-        site_part = f"/site/{self.config.site}" if self.config.site else ""
+        site_part = f"/site/{self.current_site.content_url}" if self.current_site else ""
         dashboard_external_url = (
             f"{self.config.connect_uri}/#{site_part}/views/{dashboard.get(c.PATH, '')}"
         )
@@ -2719,16 +2775,18 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
 
     def emit_project_containers(self) -> Iterable[MetadataWorkUnit]:
         for _id, project in self.tableau_project_registry.items():
+            parent_container_key = None
+            if project.parent_id:
+                parent_container_key = self.gen_project_key(project.parent_id)
+            elif self.config.add_site_container and self.current_site:
+                parent_container_key = self.gen_site_key(self.current_site.id)
+
             yield from gen_containers(
                 container_key=self.gen_project_key(_id),
                 name=project.name,
                 description=project.description,
                 sub_types=[c.PROJECT],
-                parent_container_key=(
-                    self.gen_project_key(project.parent_id)
-                    if project.parent_id
-                    else None
-                ),
+                parent_container_key=parent_container_key
             )
             if (
                 project.parent_id is not None
@@ -2743,6 +2801,17 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
                     sub_types=[c.PROJECT],
                 )
 
+    def emit_site_container(self):
+        if not self.current_site:
+            logger.warning("Can not ingest site container. No site information found.")
+            return
+
+        yield from gen_containers(
+            container_key=self.gen_site_key(self.current_site.id),
+            name=self.current_site.name or 'Default',
+            sub_types=[c.SITE]
+        )
+
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
         return [
             *super().get_workunit_processors(),
@@ -2752,34 +2821,49 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
         ]
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
-        if self.server is None or not self.server.is_signed_in():
-            return
         try:
-            # Initialise the dictionary to later look-up for chart and dashboard stat
-            if self.config.extract_usage_stats:
-                self._populate_usage_stat_registry()
-
-            self._populate_projects_registry()
-            yield from self.emit_project_containers()
-            yield from self.emit_workbooks()
-            if self.sheet_ids:
-                yield from self.emit_sheets()
-            if self.dashboard_ids:
-                yield from self.emit_dashboards()
-            if self.embedded_datasource_ids_being_used:
-                yield from self.emit_embedded_datasources()
-            if self.datasource_ids_being_used:
-                yield from self.emit_published_datasources()
-            if self.custom_sql_ids_being_used:
-                yield from self.emit_custom_sql_datasources()
-            if self.database_tables:
-                yield from self.emit_upstream_tables()
+            self._authenticate()
+            if self.config.ingest_multiple_sites:
+                for site in TSC.Pager(self.server.sites):
+                    if site.state != 'Active' or not self.config.site_name_pattern.allowed(site.name):
+                        continue
+                    self.current_site = site
+                    self._authenticate(site.content_url)
+                    if self.server.is_signed_in():
+                        logger.info(f"Ingesting assets of site '{site.content_url}'.")
+                        yield from self._ingest_tableau_site()
+            else:
+                site = self.server.sites.get_by_id(self.config.site)
+                self.current_site = site
+                yield from self._ingest_tableau_site()
         except MetadataQueryException as md_exception:
             self.report.failure(
                 key="tableau-metadata",
                 reason=f"Unable to retrieve metadata from tableau. Information: {str(md_exception)}",
             )
 
+    def _ingest_tableau_site(self):
+        self._init_ingestion_variables()
+        # Initialise the dictionary to later look-up for chart and dashboard stat
+        if self.config.extract_usage_stats:
+            self._populate_usage_stat_registry()
+        self._populate_projects_registry()
+        if self.config.add_site_container:
+            yield from self.emit_site_container()
+        yield from self.emit_project_containers()
+        yield from self.emit_workbooks()
+        if self.sheet_ids:
+            yield from self.emit_sheets()
+        if self.dashboard_ids:
+            yield from self.emit_dashboards()
+        if self.embedded_datasource_ids_being_used:
+            yield from self.emit_embedded_datasources()
+        if self.datasource_ids_being_used:
+            yield from self.emit_published_datasources()
+        if self.custom_sql_ids_being_used:
+            yield from self.emit_custom_sql_datasources()
+        if self.database_tables:
+            yield from self.emit_upstream_tables()
+
     def get_report(self) -> TableauSourceReport:
-        return self.report
         return self.report
