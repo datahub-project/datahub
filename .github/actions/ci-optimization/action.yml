@@ -103,6 +103,7 @@ runs:
             - "docker/datahub-ingestion-**"
             - "docker/datahub-integrations-service/**"
           datahub-executor:
+            - "docker/datahub-executor/**"
             - "datahub-executor/**"
             - "metadata-ingestion/**"
             - "metadata-models/**"
