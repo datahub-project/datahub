@@ -93,17 +93,25 @@ You can view and manage the group’s subscriptions on the group’s page on Dat
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/subscription-and-notification/s_n-group-subscriptions.png"/>
 </p>
 
-### Subscribing to an assertion
+### Subscribing to specific assertions
 
 You can subscribe to individual assertions by clicking the bell button on the assertion itself - either in the list view or on the assertion's profile page.
-[screenshot]
+<img width="1149" alt="image" src="https://github.com/datahub-project/datahub/assets/159848059/52532e7c-3f48-4d69-af90-a317023eb101">
+<img width="604" alt="image" src="https://github.com/datahub-project/datahub/assets/159848059/17a04b48-42ad-481e-a6fb-e43d5b200b09">
+
 
 Note: if you are subscribed to all assertions at the dataset level, then you will not be able to 'unsubscribe' from an individual assertion.
+<img width="426" alt="image" src="https://github.com/datahub-project/datahub/assets/159848059/46d758c5-9a64-4f3b-8392-93794709c077">
+
 You must first remove your dataset-level subscription:
-[screenshot]
+<img width="883" alt="Screenshot 2024-05-14 at 5 49 32 PM" src="https://github.com/datahub-project/datahub/assets/159848059/4eeeab03-5cf6-4ee1-9c14-047a3115f9d7">
+<img width="623" alt="image" src="https://github.com/datahub-project/datahub/assets/159848059/42eec31a-061e-45e2-9e63-73708f5d84c7">
+<img width="603" alt="image" src="https://github.com/datahub-project/datahub/assets/159848059/8626bc28-21bd-4293-b5e9-8a0f0fe20022">
+
 
 Then select individual assertions you'd like to subscribe to:
-[screenshot]
+<img width="683" alt="image" src="https://github.com/datahub-project/datahub/assets/159848059/3bd47614-bbe9-4e76-b0bb-449532b62b0b">
+
 
 
 ## FAQ
