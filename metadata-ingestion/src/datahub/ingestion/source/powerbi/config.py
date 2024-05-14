@@ -279,7 +279,7 @@ class PowerBiDashboardSourceConfig(
     )
     # PowerBI datasource's server to platform instance mapping
     server_to_platform_instance: Dict[
-        str, Union[PlatformDetail | DataBricksPlatformDetail]
+        str, Union[PlatformDetail, DataBricksPlatformDetail]
     ] = pydantic.Field(
         default={},
         description="A mapping of PowerBI datasource's server i.e host[:port] to Data platform instance."
