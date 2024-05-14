@@ -3,6 +3,7 @@
 # Meta Data Ingestion From the Power BI Source
 #
 #########################################################
+import datetime
 import logging
 from typing import Iterable, List, Optional, Tuple, Union
 
@@ -61,12 +62,15 @@ from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
 )
 from datahub.metadata.schema_classes import (
     BrowsePathsClass,
+    CalendarIntervalClass,
     ChangeTypeClass,
     ChartInfoClass,
     ContainerClass,
     CorpUserKeyClass,
     DashboardInfoClass,
     DashboardKeyClass,
+    DashboardUsageStatisticsClass,
+    DashboardUserUsageCountsClass,
     DatasetLineageTypeClass,
     DatasetPropertiesClass,
     GlobalTagsClass,
@@ -80,6 +84,7 @@ from datahub.metadata.schema_classes import (
     StatusClass,
     SubTypesClass,
     TagAssociationClass,
+    TimeWindowSizeClass,
     UpstreamClass,
     UpstreamLineageClass,
     ViewPropertiesClass,
@@ -731,6 +736,80 @@ class Mapper:
 
         return list_of_mcps
 
+    def get_user_using_guid(
+        self, owners: List[powerbi_data_classes.User], user_guid: str
+    ) -> Optional[powerbi_data_classes.User]:
+        for user in owners:
+            if user_guid == user.graphId:
+                return user
+        return None
+
+    def to_dashboard_usage_stats_mcp(
+        self,
+        dashboard: powerbi_data_classes.Dashboard,
+    ) -> List[MetadataChangeProposalWrapper]:
+        """
+        Map PowerBi dashboard usage metrics to Datahub dashboard usage stats
+        """
+        if dashboard.usageMetrics is None:
+            return []
+
+        logger.debug(f"Extracting usage stats for dashboard {dashboard.displayName}")
+        dashboard_urn = builder.make_dashboard_urn(
+            platform=self.__config.platform_name,
+            platform_instance=self.__config.platform_instance,
+            name=dashboard.get_urn_part(),
+        )
+        dashboard_usage_stats_aspects: List[DashboardUsageStatisticsClass] = []
+        for date in dashboard.usageMetrics.keys():
+            dashboard_user_usage_counts: List[DashboardUserUsageCountsClass] = []
+            total_view_count = 0
+            for user_guid in dashboard.usageMetrics[date]:
+                user = self.get_user_using_guid(dashboard.users, user_guid)
+                if user:
+                    user_urn = builder.make_user_urn(
+                        user.get_urn_part(
+                            use_email=self.__config.ownership.use_powerbi_email,
+                            remove_email_suffix=self.__config.ownership.remove_email_suffix,
+                        )
+                    )
+                    dashboard_user_usage_counts.append(
+                        DashboardUserUsageCountsClass(
+                            user=user_urn,
+                            viewsCount=dashboard.usageMetrics[date][user_guid],
+                            userEmail=user.emailAddress,
+                        )
+                    )
+                    total_view_count = (
+                        total_view_count + dashboard.usageMetrics[date][user_guid]
+                    )
+            dashboard_usage_stats_aspects.append(
+                DashboardUsageStatisticsClass(
+                    timestampMillis=round(
+                        datetime.datetime.strptime(date, "%Y-%m-%dT%H:%M:%S")
+                        .replace(tzinfo=datetime.timezone.utc)
+                        .timestamp()
+                        * 1000
+                    ),
+                    eventGranularity=TimeWindowSizeClass(
+                        unit=CalendarIntervalClass.DAY
+                    ),
+                    viewsCount=total_view_count,
+                    uniqueUserCount=len(dashboard.usageMetrics[date]),
+                    userCounts=dashboard_user_usage_counts,
+                )
+            )
+
+        return [
+            self.new_mcp(
+                entity_type=Constant.DASHBOARD,
+                entity_urn=dashboard_urn,
+                aspect_name=Constant.DASHBOARD_USAGE_STATISTICS,
+                aspect=aspect,
+            )
+            for aspect in dashboard_usage_stats_aspects
+        ]
+
     def append_container_mcp(
         self,
         list_of_mcps: List[MetadataChangeProposalWrapper],
@@ -913,12 +992,17 @@ class Mapper:
             MetadataChangeProposalWrapper
         ] = self.to_datahub_dashboard_mcp(dashboard, workspace, chart_mcps, user_mcps)
 
+        dashboard_usage_stats_mcps: List[
+            MetadataChangeProposalWrapper
+        ] = self.to_dashboard_usage_stats_mcp(dashboard)
+
         # Now add MCPs in sequence
         mcps.extend(ds_mcps)
         if self.__config.ownership.create_corp_user:
             mcps.extend(user_mcps)
         mcps.extend(chart_mcps)
         mcps.extend(dashboard_mcps)
+        mcps.extend(dashboard_usage_stats_mcps)
 
         # Convert MCP to work_units
         work_units = map(self._to_work_unit, mcps)
@@ -1179,6 +1263,10 @@ class Mapper:
 @capability(
     SourceCapability.LINEAGE_FINE,
     "Disabled by default, configured using `extract_column_level_lineage`. ",
+)
+@capability(
+    SourceCapability.USAGE_STATS,
+    "Disable by default, configured using `extract_usage_stats`",
 )
 class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
     """

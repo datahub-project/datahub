@@ -247,6 +247,7 @@ class Dashboard:
     tiles: List["Tile"]
     users: List["User"]
     tags: List[str]
+    usageMetrics: Optional[Dict[str, Dict]] = None
     webUrl: Optional[str] = None
 
     def get_urn_part(self):

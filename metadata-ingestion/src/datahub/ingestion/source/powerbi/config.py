@@ -62,6 +62,7 @@ class Constant:
     DASHBOARD = "dashboard"
     DASHBOARDS = "dashboards"
     DASHBOARD_KEY = "dashboardKey"
+    DASHBOARD_USAGE_STATISTICS = "dashboardUsageStatistics"
     OWNERSHIP = "ownership"
     BROWSERPATH = "browsePaths"
     DASHBOARD_INFO = "dashboardInfo"
@@ -113,6 +114,14 @@ class Constant:
     CHART_COUNT = "chartCount"
     WORKSPACE_NAME = "workspaceName"
     DATASET_WEB_URL = "datasetWebUrl"
+    DASHBOARD_USAGE_METRICS_MODEL = "Dashboard Usage Metrics Model"
+    REPORT_USAGE_METRICS_MODEL = "Report Usage Metrics Model"
+    RESULTS = "results"
+    ROWS = "rows"
+    VIEWS_DASHBOARD_GUID = "Views[DashboardGuid]"
+    VIEWS_DATE = "Views[Date]"
+    VIEWS_USER_GUID = "Views[UserGuid]"
+    VIEWS_GRANULAR_VIEWS_COUNT = "Views[GranularViewsCount]"
 
 
 @dataclass
@@ -404,6 +413,15 @@ class PowerBiDashboardSourceConfig(
         description="Whether to extract column level lineage. "
         "Works only if configs `native_query_parsing`, `enable_advance_lineage_sql_construct` & `extract_lineage` are enabled.  "
         "Works for M-Query where native SQL is used for transformation.",
+    )
+    extract_usage_stats: bool = pydantic.Field(
+        False,
+        description="Whether to ingest usage statistics for dashboards and reports.",
+    )
+    # TODO - stateful ingestion to autodetect usage stats interval
+    extract_usage_stats_for_interval: float = pydantic.Field(
+        90,
+        description="Interval in days to extract usage stats from current date. Used only if extract_usage_stats is set to True.",
     )
 
     @root_validator(skip_on_failure=True)

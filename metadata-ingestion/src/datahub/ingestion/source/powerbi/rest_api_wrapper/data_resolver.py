@@ -1,7 +1,7 @@
 import logging
 import math
 from abc import ABC, abstractmethod
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from time import sleep
 from typing import Any, Dict, List, Optional
 
@@ -198,6 +198,7 @@ class DataResolverBase(ABC):
                 webUrl=instance.get(Constant.WEB_URL),
                 workspace_id=workspace.id,
                 workspace_name=workspace.name,
+                usageMetrics={},
                 tiles=[],
                 users=[],
                 tags=[],
@@ -208,30 +209,56 @@ class DataResolverBase(ABC):
 
         return dashboards
 
-    def get_event_activities(
-        self, start_date: str, end_date: str, operation: str
-    ) -> List[dict]:
-        param = {
-            "startDateTime": f"'{start_date}'",
-            "endDateTime": f"'{end_date}'",
-            "$filter": f"Activity eq '{operation}'",
-        }
-        event = []
-        while True:
-            response = self._request_session.get(
-                "https://api.powerbi.com/v1.0/myorg/admin/activityevents",
-                headers=self.get_authorization_header(),
-                params=param,
-            )
-            response_dict = response.json()
-            event.extend(response_dict["activityEventEntities"])
-            if response_dict["continuationToken"]:
-                param = {
-                    "continuationToken": f"'{response.json()['continuationToken']}'",
-                }
-            else:
+    def get_dashboard_usage_metrics(
+        self, workspace: Workspace, usage_stats_interval: float
+    ) -> Dict[str, Dict]:
+        dashboard_usage_metrics: Dict[str, Dict] = {}
+        dashboard_usage_metrics_dataset_id: Optional[str] = None
+        for dataset_id, dataset in workspace.datasets.items():
+            if dataset.name == Constant.DASHBOARD_USAGE_METRICS_MODEL:
+                dashboard_usage_metrics_dataset_id = dataset_id
                 break
-        return event
+
+        if dashboard_usage_metrics_dataset_id is None:
+            logger.debug("Dashboard usage metrics report is not yet created")
+            return {}
+
+        dataset_execute_query_endpoint = f"{self.BASE_URL}/{workspace.id}/datasets/{dashboard_usage_metrics_dataset_id}/executeQueries"
+        # get dashboard view count per date and per user
+        response = self._request_session.post(
+            dataset_execute_query_endpoint,
+            headers=self.get_authorization_header(),
+            json={"queries": [{"query": "EVALUATE 'Views'"}]},
+        )
+        response.raise_for_status()
+        dashboard_views = response.json()[Constant.RESULTS][0][Constant.TABLES][0][
+            Constant.ROWS
+        ]
+        for row in dashboard_views:
+            dashboard_id = row[Constant.VIEWS_DASHBOARD_GUID].lower()
+            date = row[Constant.VIEWS_DATE]
+            user_guid = row[Constant.VIEWS_USER_GUID].lower()
+            view_count = row[Constant.VIEWS_GRANULAR_VIEWS_COUNT]
+            # assume the date is in utc
+            if datetime.now(timezone.utc) - timedelta(
+                days=usage_stats_interval
+            ) > datetime.strptime(date, "%Y-%m-%dT%H:%M:%S").replace(
+                tzinfo=timezone.utc
+            ):
+                break
+
+            if dashboard_id not in dashboard_usage_metrics:
+                dashboard_usage_metrics[dashboard_id] = {date: {user_guid: view_count}}
+            elif date not in dashboard_usage_metrics[dashboard_id]:
+                dashboard_usage_metrics[dashboard_id][date] = {user_guid: view_count}
+            elif user_guid not in dashboard_usage_metrics[dashboard_id][date]:
+                dashboard_usage_metrics[dashboard_id][date][user_guid] = view_count
+            else:
+                dashboard_usage_metrics[dashboard_id][date][user_guid] = (
+                    dashboard_usage_metrics[dashboard_id][date][user_guid] + view_count
+                )
+
+        return dashboard_usage_metrics
 
     def get_groups(self) -> List[dict]:
         group_endpoint = self.get_groups_endpoint()

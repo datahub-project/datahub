@@ -186,22 +186,6 @@ class PowerBiAPI:
         return reports
 
     def get_workspaces(self) -> List[Workspace]:
-
-        start_date = "2024-05-03T00:00:00.000Z"
-        end_date = "2024-05-03T23:59:59.000Z"
-
-        view_report_events = self._get_resolver().get_event_activities(
-            start_date=start_date,
-            end_date=end_date,
-            operation="ViewReport",
-        )
-
-        view_dashboard_events = self._get_resolver().get_event_activities(
-            start_date=start_date,
-            end_date=end_date,
-            operation="ViewDashboard",
-        )
-
         if self.__config.modified_since:
             workspaces = self.get_modified_workspaces()
             return workspaces
@@ -457,11 +441,19 @@ class PowerBiAPI:
     def _fill_regular_metadata_detail(self, workspace: Workspace) -> None:
         def fill_dashboards() -> None:
             workspace.dashboards = self._get_resolver().get_dashboards(workspace)
-            # set tiles of Dashboard
+            # Get all dashboards usage metrics
+            dashboards_usage_metrics: Dict[str, Dict] = {}
+            if self.__config.extract_usage_stats:
+                dashboards_usage_metrics = self._get_resolver().get_dashboard_usage_metrics(
+                    workspace=workspace,
+                    usage_stats_interval=self.__config.extract_usage_stats_for_interval,
+                )
+            # set tiles and usage metrics of Dashboard
             for dashboard in workspace.dashboards:
                 dashboard.tiles = self._get_resolver().get_tiles(
                     workspace, dashboard=dashboard
                 )
+                dashboard.usageMetrics = dashboards_usage_metrics.get(dashboard.id)
 
         def fill_reports() -> None:
             if self.__config.extract_reports is False:
