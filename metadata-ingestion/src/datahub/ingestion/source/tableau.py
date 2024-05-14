@@ -1,5 +1,6 @@
 import logging
 import re
+from collections import OrderedDict
 from dataclasses import dataclass
 from datetime import datetime
 from functools import lru_cache
@@ -25,8 +26,8 @@ from tableauserverclient import (
     PersonalAccessTokenAuth,
     Server,
     ServerResponseError,
+    SiteItem,
     TableauAuth,
-    SiteItem
 )
 from tableauserverclient.server.endpoint.exceptions import NonXMLResponseError
 from urllib3 import Retry
@@ -154,7 +155,6 @@ from datahub.sql_parsing.sqlglot_lineage import (
 )
 from datahub.utilities import config_clean
 from datahub.utilities.urns.dataset_urn import DatasetUrn
-from collections import OrderedDict
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -205,7 +205,7 @@ class TableauConnectionConfig(ConfigModel):
     def remove_trailing_slash(cls, v):
         return config_clean.remove_trailing_slashes(v)
 
-    def make_tableau_client(self, site='') -> Server:
+    def make_tableau_client(self, site: str) -> Server:
         # https://tableau.github.io/server-client-python/docs/api-ref#authentication
         authentication: Union[TableauAuth, PersonalAccessTokenAuth]
         if self.username and self.password:
@@ -216,7 +216,7 @@ class TableauConnectionConfig(ConfigModel):
             )
         elif self.token_name and self.token_value:
             authentication = PersonalAccessTokenAuth(
-                self.token_name, self.token_value, self.site
+                self.token_name, self.token_value, site
             )
         else:
             raise ConfigurationError(
@@ -400,9 +400,9 @@ class TableauConfig(
     site_name_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
         description="Filter for specific Tableau sites. "
-                    "By default, all sites will be included in the ingestion. "
-                    "You can both allow and deny sites based on their name using their name, or a Regex pattern. "
-                    "Deny patterns always take precedence over allow patterns. ",
+        "By default, all sites will be included in the ingestion. "
+        "You can both allow and deny sites based on their name using their name, or a Regex pattern. "
+        "Deny patterns always take precedence over allow patterns. ",
     )
 
     add_site_container: bool = Field(
@@ -437,8 +437,10 @@ class WorkbookKey(ContainerKey):
 class ProjectKey(ContainerKey):
     project_id: str
 
+
 class SiteKey(ContainerKey):
     site_id: str
+
 
 @dataclass
 class UsageStat:
@@ -558,7 +560,7 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
         self.tableau_project_registry: Dict[str, TableauProject] = {}
         self.workbook_project_map: Dict[str, str] = {}
         self.datasource_project_map: Dict[str, str] = {}
-        self.current_site: SiteItem = None
+        self.current_site: Optional[SiteItem] = None
 
         # This list keeps track of sheets in workbooks so that we retrieve those
         # when emitting sheets.
@@ -583,7 +585,7 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
         test_report = TestConnectionReport()
         try:
             source_config = TableauConfig.parse_obj_allow_extras(config_dict)
-            source_config.make_tableau_client()
+            source_config.make_tableau_client(source_config.site)
             test_report.basic_connectivity = CapabilityReport(capable=True)
         except Exception as e:
             test_report.basic_connectivity = CapabilityReport(
@@ -618,14 +620,17 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
 
     @property
     def site_name_browse_path(self) -> str:
-        site_name_prefix = self.current_site.name if self.current_site and self.config.add_site_container else ''
-        return f"/{site_name_prefix}" if site_name_prefix else ''
+        site_name_prefix = (
+            self.current_site.name
+            if self.current_site and self.config.add_site_container
+            else ""
+        )
+        return f"/{site_name_prefix}" if site_name_prefix else ""
 
     @property
     def dataset_browse_prefix(self) -> str:
         # datasets also have the env in the browse path
         return f"/{self.config.env.lower()}{self.no_env_browse_prefix}"
-
 
     def _init_ingestion_variables(self):
         # Reset / initialize all ingestion variables.
@@ -639,7 +644,6 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
         self.embedded_datasource_ids_being_used = []
         self.datasource_ids_being_used = []
         self.custom_sql_ids_being_used = []
-
 
     def _populate_usage_stat_registry(self) -> None:
         if self.server is None:
@@ -753,7 +757,9 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
 
         # We rely on automatic browse paths (v2) when creating containers. That's why we need to sort the projects here.
         # Otherwise, nested projects will not have the correct browse paths if not created in correct order / hierarchy.
-        self.tableau_project_registry = OrderedDict(sorted(projects_to_ingest.items(), key=lambda item: len(item[1].path)))
+        self.tableau_project_registry = OrderedDict(
+            sorted(projects_to_ingest.items(), key=lambda item: len(item[1].path))
+        )
 
     def _init_datasource_registry(self) -> None:
         if self.server is None:
@@ -809,7 +815,9 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
 
     def _authenticate(self) -> None:
         try:
-            site_content_url = self.current_site.content_url if self.current_site else self.config.site
+            site_content_url = (
+                self.current_site.content_url if self.current_site else self.config.site
+            )
             self.server = self.config.make_tableau_client(site_content_url)
             logger.info(f"Authenticated to Tableau site: '{site_content_url}'")
         # Note that we're not catching ConfigurationError, since we want that to throw.
@@ -2322,7 +2330,9 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
         last_modified = self.get_last_modified(creator, created_at, updated_at)
 
         if sheet.get(c.PATH):
-            site_part = f"/site/{self.current_site.content_url}" if self.current_site else ""
+            site_part = (
+                f"/site/{self.current_site.content_url}" if self.current_site else ""
+            )
             sheet_external_url = (
                 f"{self.config.connect_uri}/#{site_part}/views/{sheet.get(c.PATH)}"
             )
@@ -2333,7 +2343,9 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
             and sheet[c.CONTAINED_IN_DASHBOARDS][0].get(c.PATH)
         ):
             # sheet contained in dashboard
-            site_part = f"/t/{self.current_site.content_url}" if self.current_site else ""
+            site_part = (
+                f"/t/{self.current_site.content_url}" if self.current_site else ""
+            )
             dashboard_path = sheet[c.CONTAINED_IN_DASHBOARDS][0][c.PATH]
             sheet_external_url = f"{self.config.connect_uri}{site_part}/authoring/{dashboard_path}/{sheet.get(c.NAME, '')}"
         else:
@@ -2465,7 +2477,9 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
             else None
         )
 
-        site_part = f"/site/{self.current_site.content_url}" if self.current_site else ""
+        site_part = (
+            f"/site/{self.current_site.content_url}" if self.current_site else ""
+        )
         workbook_uri = workbook.get("uri")
         workbook_part = (
             workbook_uri[workbook_uri.index("/workbooks/") :] if workbook_uri else None
@@ -2518,7 +2532,7 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
         return SiteKey(
             platform=self.platform,
             instance=self.config.platform_instance,
-            site_id=site_id
+            site_id=site_id,
         )
 
     @staticmethod
@@ -2624,7 +2638,9 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
         updated_at = dashboard.get(c.UPDATED_AT, datetime.now())
         last_modified = self.get_last_modified(creator, created_at, updated_at)
 
-        site_part = f"/site/{self.current_site.content_url}" if self.current_site else ""
+        site_part = (
+            f"/site/{self.current_site.content_url}" if self.current_site else ""
+        )
         dashboard_external_url = (
             f"{self.config.connect_uri}/#{site_part}/views/{dashboard.get(c.PATH, '')}"
         )
@@ -2774,10 +2790,14 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
 
     def emit_project_containers(self) -> Iterable[MetadataWorkUnit]:
         for _id, project in self.tableau_project_registry.items():
-            parent_container_key = None
+            parent_container_key: Optional[ContainerKey] = None
             if project.parent_id:
                 parent_container_key = self.gen_project_key(project.parent_id)
-            elif self.config.add_site_container and self.current_site:
+            elif (
+                self.config.add_site_container
+                and self.current_site
+                and self.current_site.id
+            ):
                 parent_container_key = self.gen_site_key(self.current_site.id)
 
             yield from gen_containers(
@@ -2785,7 +2805,7 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
                 name=project.name,
                 description=project.description,
                 sub_types=[c.PROJECT],
-                parent_container_key=parent_container_key
+                parent_container_key=parent_container_key,
             )
             if (
                 project.parent_id is not None
@@ -2801,14 +2821,14 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
                 )
 
     def emit_site_container(self):
-        if not self.current_site:
+        if not self.current_site or not self.current_site.id:
             logger.warning("Can not ingest site container. No site information found.")
             return
 
         yield from gen_containers(
             container_key=self.gen_site_key(self.current_site.id),
-            name=self.current_site.name or 'Default',
-            sub_types=[c.SITE]
+            name=self.current_site.name or "Default",
+            sub_types=[c.SITE],
         )
 
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
@@ -2825,7 +2845,10 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
         try:
             if self.config.ingest_multiple_sites:
                 for site in TSC.Pager(self.server.sites):
-                    if site.state != 'Active' or not self.config.site_name_pattern.allowed(site.name):
+                    if (
+                        site.state != "Active"
+                        or not self.config.site_name_pattern.allowed(site.name)
+                    ):
                         continue
                     self.current_site = site
                     self.server.auth.switch_site(site)
