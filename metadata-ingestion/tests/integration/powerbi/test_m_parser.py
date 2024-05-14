@@ -826,7 +826,16 @@ def test_databricks_catalog_pattern_2():
     )
     reporter = PowerBiDashboardSourceReport()
 
-    ctx, config, platform_instance_resolver = get_default_instances()
+    ctx, config, platform_instance_resolver = get_default_instances(
+        override_config={
+            "server_to_platform_instance": {
+                "abc.cloud.databricks.com": {
+                    "metastore": "central_metastore",
+                    "platform_instance": "abc",
+                }
+            }
+        }
+    )
     data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
         table,
         reporter,
@@ -839,5 +848,5 @@ def test_databricks_catalog_pattern_2():
 
     assert (
         data_platform_tables[0].urn
-        == "urn:li:dataset:(urn:li:dataPlatform:databricks,data_analysis.summary.vips_data,PROD)"
+        == "urn:li:dataset:(urn:li:dataPlatform:databricks,abc.central_metastore.data_analysis.summary.vips_data,PROD)"
     )
