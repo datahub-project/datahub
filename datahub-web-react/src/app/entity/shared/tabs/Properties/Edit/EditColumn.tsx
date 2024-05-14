@@ -10,7 +10,7 @@ interface Props {
 export function EditColumn({ propertyRow }: Props) {
     const [isEditModalVisible, setIsEditModalVisible] = useState(false);
 
-    if (!propertyRow.structuredProperty) {
+    if (!propertyRow.structuredProperty || propertyRow.structuredProperty?.definition.immutable) {
         return null;
     }
 

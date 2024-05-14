@@ -125,14 +125,6 @@ public abstract class AbstractMCLStep implements UpgradeStep {
                 }
               });
 
-      entityService
-          .streamRestoreIndices(opContext, args, x -> context.report().addLine((String) x))
-          .forEach(
-              result -> {
-                context.report().addLine("Rows migrated: " + result.rowsMigrated);
-                context.report().addLine("Rows ignored: " + result.ignored);
-              });
-
       BootstrapStep.setUpgradeResult(opContext, getUpgradeIdUrn(), entityService);
       context.report().addLine("State updated: " + getUpgradeIdUrn());
 

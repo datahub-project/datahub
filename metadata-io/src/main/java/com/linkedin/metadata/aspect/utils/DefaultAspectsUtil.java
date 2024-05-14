@@ -20,8 +20,8 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.aspect.batch.MCPItem;
+import com.linkedin.metadata.entity.EntityApiUtils;
 import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.metadata.entity.EntityUtils;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
 import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -157,7 +157,7 @@ public class DefaultAspectsUtil {
     // Key Aspect
     final String keyAspectName = opContext.getKeyAspectName(urn);
     defaultAspects.add(
-        Pair.of(keyAspectName, EntityUtils.buildKeyAspect(opContext.getEntityRegistry(), urn)));
+        Pair.of(keyAspectName, EntityApiUtils.buildKeyAspect(opContext.getEntityRegistry(), urn)));
 
     // Other Aspects
     defaultAspects.addAll(

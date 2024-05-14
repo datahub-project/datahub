@@ -16,7 +16,7 @@ import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.batch.MCPItem;
 import com.linkedin.metadata.aspect.batch.PatchMCP;
 import com.linkedin.metadata.aspect.patch.template.AspectTemplateEngine;
-import com.linkedin.metadata.entity.validation.ValidationUtils;
+import com.linkedin.metadata.entity.validation.ValidationApiUtils;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -122,13 +122,13 @@ public class PatchItemImpl implements PatchMCP {
     }
 
     public PatchItemImpl build(EntityRegistry entityRegistry) {
-      ValidationUtils.validateUrn(entityRegistry, this.urn);
+      ValidationApiUtils.validateUrn(entityRegistry, this.urn);
       log.debug("entity type = {}", this.urn.getEntityType());
 
       entitySpec(entityRegistry.getEntitySpec(this.urn.getEntityType()));
       log.debug("entity spec = {}", this.entitySpec);
 
-      aspectSpec(ValidationUtils.validate(this.entitySpec, this.aspectName));
+      aspectSpec(ValidationApiUtils.validate(this.entitySpec, this.aspectName));
       log.debug("aspect spec = {}", this.aspectSpec);
 
       if (this.patch == null) {
