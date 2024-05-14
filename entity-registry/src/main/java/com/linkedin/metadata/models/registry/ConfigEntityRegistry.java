@@ -9,6 +9,7 @@ import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import com.linkedin.data.schema.DataSchema;
 import com.linkedin.metadata.aspect.patch.template.AspectTemplateEngine;
 import com.linkedin.metadata.aspect.plugins.PluginFactory;
+import com.linkedin.metadata.aspect.plugins.config.PluginConfiguration;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.DataSchemaFactory;
 import com.linkedin.metadata.models.DefaultEntitySpec;
@@ -33,9 +34,11 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
@@ -48,6 +51,10 @@ public class ConfigEntityRegistry implements EntityRegistry {
 
   private final DataSchemaFactory dataSchemaFactory;
   @Getter private final PluginFactory pluginFactory;
+
+  @Nullable
+  private BiFunction<PluginConfiguration, List<ClassLoader>, PluginFactory> pluginFactoryProvider;
+
   private final Map<String, EntitySpec> entityNameToSpec;
   private final Map<String, EventSpec> eventNameToSpec;
   private final List<EntitySpec> entitySpecs;
@@ -66,19 +73,27 @@ public class ConfigEntityRegistry implements EntityRegistry {
         .setStreamReadConstraints(StreamReadConstraints.builder().maxStringLength(maxSize).build());
   }
 
-  public ConfigEntityRegistry(Pair<Path, Path> configFileClassPathPair) throws IOException {
+  public ConfigEntityRegistry(
+      Pair<Path, Path> configFileClassPathPair,
+      @Nullable
+          BiFunction<PluginConfiguration, List<ClassLoader>, PluginFactory> pluginFactoryProvider)
+      throws IOException {
     this(
         DataSchemaFactory.withCustomClasspath(configFileClassPathPair.getSecond()),
         DataSchemaFactory.getClassLoader(configFileClassPathPair.getSecond())
             .map(Stream::of)
             .orElse(Stream.empty())
             .collect(Collectors.toList()),
-        configFileClassPathPair.getFirst());
+        configFileClassPathPair.getFirst(),
+        pluginFactoryProvider);
   }
 
-  public ConfigEntityRegistry(String entityRegistryRoot)
+  public ConfigEntityRegistry(
+      String entityRegistryRoot,
+      @Nullable
+          BiFunction<PluginConfiguration, List<ClassLoader>, PluginFactory> pluginFactoryProvider)
       throws EntityRegistryException, IOException {
-    this(getFileAndClassPath(entityRegistryRoot));
+    this(getFileAndClassPath(entityRegistryRoot), pluginFactoryProvider);
   }
 
   private static Pair<Path, Path> getFileAndClassPath(String entityRegistryRoot)
@@ -117,24 +132,57 @@ public class ConfigEntityRegistry implements EntityRegistry {
   }
 
   public ConfigEntityRegistry(InputStream configFileInputStream) {
-    this(DataSchemaFactory.getInstance(), Collections.emptyList(), configFileInputStream);
+    this(configFileInputStream, null);
   }
 
   public ConfigEntityRegistry(
-      DataSchemaFactory dataSchemaFactory, List<ClassLoader> classLoaders, Path configFilePath)
+      InputStream configFileInputStream,
+      @Nullable
+          BiFunction<PluginConfiguration, List<ClassLoader>, PluginFactory> pluginFactoryProvider) {
+    this(
+        DataSchemaFactory.getInstance(),
+        Collections.emptyList(),
+        configFileInputStream,
+        pluginFactoryProvider);
+  }
+
+  public ConfigEntityRegistry(
+      DataSchemaFactory dataSchemaFactory,
+      List<ClassLoader> classLoaders,
+      Path configFilePath,
+      @Nullable
+          BiFunction<PluginConfiguration, List<ClassLoader>, PluginFactory> pluginFactoryProvider)
       throws FileNotFoundException {
-    this(dataSchemaFactory, classLoaders, new FileInputStream(configFilePath.toString()));
+    this(
+        dataSchemaFactory,
+        classLoaders,
+        new FileInputStream(configFilePath.toString()),
+        pluginFactoryProvider);
   }
 
   public ConfigEntityRegistry(
       DataSchemaFactory dataSchemaFactory,
       List<ClassLoader> classLoaders,
       InputStream configFileStream) {
+    this(dataSchemaFactory, classLoaders, configFileStream, null);
+  }
+
+  public ConfigEntityRegistry(
+      DataSchemaFactory dataSchemaFactory,
+      List<ClassLoader> classLoaders,
+      InputStream configFileStream,
+      @Nullable
+          BiFunction<PluginConfiguration, List<ClassLoader>, PluginFactory> pluginFactoryProvider) {
     this.dataSchemaFactory = dataSchemaFactory;
     Entities entities;
     try {
       entities = OBJECT_MAPPER.readValue(configFileStream, Entities.class);
-      this.pluginFactory = PluginFactory.withCustomClasspath(entities.getPlugins(), classLoaders);
+      if (pluginFactoryProvider != null) {
+        this.pluginFactory = pluginFactoryProvider.apply(entities.getPlugins(), classLoaders);
+      } else {
+        this.pluginFactory = PluginFactory.withCustomClasspath(entities.getPlugins(), classLoaders);
+      }
+      this.pluginFactoryProvider = pluginFactoryProvider;
     } catch (IOException e) {
       throw new IllegalArgumentException(
           String.format(

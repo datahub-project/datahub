@@ -45,8 +45,8 @@ import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
 import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
+import com.linkedin.metadata.entity.validation.ValidationApiUtils;
 import com.linkedin.metadata.entity.validation.ValidationException;
-import com.linkedin.metadata.entity.validation.ValidationUtils;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.key.CorpUserKey;
 import com.linkedin.metadata.models.AspectSpec;
@@ -988,7 +988,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     CorpUserInfo writeAspect1 = AspectGenerationUtils.createCorpUserInfo("email@test.com");
 
     RecordTemplate writeKey1 =
-        EntityUtils.buildKeyAspect(opContext.getEntityRegistry(), entityUrn1);
+        EntityApiUtils.buildKeyAspect(opContext.getEntityRegistry(), entityUrn1);
 
     // Ingest CorpUserInfo Aspect #1 Overwrite
     CorpUserInfo writeAspect1Overwrite =
@@ -1075,7 +1075,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     CorpUserInfo writeAspect1 = AspectGenerationUtils.createCorpUserInfo("email@test.com");
 
     RecordTemplate writeKey1 =
-        EntityUtils.buildKeyAspect(opContext.getEntityRegistry(), entityUrn1);
+        EntityApiUtils.buildKeyAspect(opContext.getEntityRegistry(), entityUrn1);
 
     // Ingest CorpUserInfo Aspect #2
     CorpUserInfo writeAspect2 = AspectGenerationUtils.createCorpUserInfo("email2@test.com");
@@ -1246,10 +1246,10 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     assertTrue(DataTemplateUtil.areEqual(writeAspect2, readAspect2));
     assertTrue(
         DataTemplateUtil.areEqual(
-            EntityUtils.parseSystemMetadata(readAspectDao2.getSystemMetadata()), metadata2));
+            EntityApiUtils.parseSystemMetadata(readAspectDao2.getSystemMetadata()), metadata2));
     assertTrue(
         DataTemplateUtil.areEqual(
-            EntityUtils.parseSystemMetadata(readAspectDao1.getSystemMetadata()), metadata1));
+            EntityApiUtils.parseSystemMetadata(readAspectDao1.getSystemMetadata()), metadata1));
 
     verify(_mockProducer, times(1))
         .produceMetadataChangeLog(Mockito.eq(entityUrn), Mockito.any(), mclCaptor.capture());
@@ -1328,10 +1328,10 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         DataTemplateUtil.areEqual(writeAspect2, new CorpUserInfo(readAspect2.getValue().data())));
     assertTrue(
         DataTemplateUtil.areEqual(
-            EntityUtils.parseSystemMetadata(readAspectDao2.getSystemMetadata()), metadata2));
+            EntityApiUtils.parseSystemMetadata(readAspectDao2.getSystemMetadata()), metadata2));
     assertTrue(
         DataTemplateUtil.areEqual(
-            EntityUtils.parseSystemMetadata(readAspectDao1.getSystemMetadata()), metadata1));
+            EntityApiUtils.parseSystemMetadata(readAspectDao1.getSystemMetadata()), metadata1));
 
     verify(_mockProducer, times(2))
         .produceMetadataChangeLog(
@@ -1452,14 +1452,14 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     assertTrue(DataTemplateUtil.areEqual(writeAspect2, readAspect2));
     assertFalse(
         DataTemplateUtil.areEqual(
-            EntityUtils.parseSystemMetadata(readAspectDao2.getSystemMetadata()), metadata2));
+            EntityApiUtils.parseSystemMetadata(readAspectDao2.getSystemMetadata()), metadata2));
     assertFalse(
         DataTemplateUtil.areEqual(
-            EntityUtils.parseSystemMetadata(readAspectDao2.getSystemMetadata()), metadata1));
+            EntityApiUtils.parseSystemMetadata(readAspectDao2.getSystemMetadata()), metadata1));
 
     assertTrue(
         DataTemplateUtil.areEqual(
-            EntityUtils.parseSystemMetadata(readAspectDao2.getSystemMetadata()), metadata3));
+            EntityApiUtils.parseSystemMetadata(readAspectDao2.getSystemMetadata()), metadata3));
 
     verify(_mockProducer, times(0))
         .produceMetadataChangeLog(Mockito.any(), Mockito.any(), Mockito.any());
@@ -1727,12 +1727,12 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
   public void testValidateUrn() throws Exception {
     // Valid URN
     Urn validTestUrn = new Urn("li", "corpuser", new TupleKey("testKey"));
-    ValidationUtils.validateUrn(opContext.getEntityRegistry(), validTestUrn);
+    ValidationApiUtils.validateUrn(opContext.getEntityRegistry(), validTestUrn);
 
     // URN with trailing whitespace
     Urn testUrnWithTrailingWhitespace = new Urn("li", "corpuser", new TupleKey("testKey   "));
     try {
-      ValidationUtils.validateUrn(opContext.getEntityRegistry(), testUrnWithTrailingWhitespace);
+      ValidationApiUtils.validateUrn(opContext.getEntityRegistry(), testUrnWithTrailingWhitespace);
       Assert.fail("Should have raised IllegalArgumentException for URN with trailing whitespace");
     } catch (IllegalArgumentException e) {
       assertEquals(
@@ -1744,7 +1744,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
 
     Urn testUrnTooLong = new Urn("li", "corpuser", new TupleKey(stringTooLong));
     try {
-      ValidationUtils.validateUrn(opContext.getEntityRegistry(), testUrnTooLong);
+      ValidationApiUtils.validateUrn(opContext.getEntityRegistry(), testUrnTooLong);
       Assert.fail("Should have raised IllegalArgumentException for URN too long");
     } catch (IllegalArgumentException e) {
       assertEquals(
@@ -1763,9 +1763,9 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     Urn testUrnSameLengthWhenEncoded =
         new Urn("li", "corpUser", new TupleKey(buildStringSameLengthWhenEncoded.toString()));
     // Same length when encoded should be allowed, the encoded one should not be
-    ValidationUtils.validateUrn(opContext.getEntityRegistry(), testUrnSameLengthWhenEncoded);
+    ValidationApiUtils.validateUrn(opContext.getEntityRegistry(), testUrnSameLengthWhenEncoded);
     try {
-      ValidationUtils.validateUrn(opContext.getEntityRegistry(), testUrnTooLongWhenEncoded);
+      ValidationApiUtils.validateUrn(opContext.getEntityRegistry(), testUrnTooLongWhenEncoded);
       Assert.fail("Should have raised IllegalArgumentException for URN too long");
     } catch (IllegalArgumentException e) {
       assertEquals(
@@ -1775,9 +1775,9 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     // Urn containing disallowed character
     Urn testUrnSpecialCharValid = new Urn("li", "corpUser", new TupleKey("bob␇"));
     Urn testUrnSpecialCharInvalid = new Urn("li", "corpUser", new TupleKey("bob␟"));
-    ValidationUtils.validateUrn(opContext.getEntityRegistry(), testUrnSpecialCharValid);
+    ValidationApiUtils.validateUrn(opContext.getEntityRegistry(), testUrnSpecialCharValid);
     try {
-      ValidationUtils.validateUrn(opContext.getEntityRegistry(), testUrnSpecialCharInvalid);
+      ValidationApiUtils.validateUrn(opContext.getEntityRegistry(), testUrnSpecialCharInvalid);
       Assert.fail(
           "Should have raised IllegalArgumentException for URN containing the illegal char");
     } catch (IllegalArgumentException e) {
@@ -1786,7 +1786,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
 
     Urn urnWithMismatchedParens = new Urn("li", "corpuser", new TupleKey("test(Key"));
     try {
-      ValidationUtils.validateUrn(opContext.getEntityRegistry(), urnWithMismatchedParens);
+      ValidationApiUtils.validateUrn(opContext.getEntityRegistry(), urnWithMismatchedParens);
       Assert.fail("Should have raised IllegalArgumentException for URN with mismatched parens");
     } catch (IllegalArgumentException e) {
       assertTrue(e.getMessage().contains("mismatched paren nesting"));
@@ -1794,7 +1794,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
 
     Urn invalidType = new Urn("li", "fakeMadeUpType", new TupleKey("testKey"));
     try {
-      ValidationUtils.validateUrn(opContext.getEntityRegistry(), invalidType);
+      ValidationApiUtils.validateUrn(opContext.getEntityRegistry(), invalidType);
       Assert.fail(
           "Should have raised IllegalArgumentException for URN with non-existent entity type");
     } catch (IllegalArgumentException e) {
@@ -1803,12 +1803,12 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
 
     Urn validFabricType =
         new Urn("li", "dataset", new TupleKey("urn:li:dataPlatform:foo", "bar", "PROD"));
-    ValidationUtils.validateUrn(opContext.getEntityRegistry(), validFabricType);
+    ValidationApiUtils.validateUrn(opContext.getEntityRegistry(), validFabricType);
 
     Urn invalidFabricType =
         new Urn("li", "dataset", new TupleKey("urn:li:dataPlatform:foo", "bar", "prod"));
     try {
-      ValidationUtils.validateUrn(opContext.getEntityRegistry(), invalidFabricType);
+      ValidationApiUtils.validateUrn(opContext.getEntityRegistry(), invalidFabricType);
       Assert.fail("Should have raised IllegalArgumentException for URN with invalid fabric type");
     } catch (IllegalArgumentException e) {
       assertTrue(e.getMessage().contains(invalidFabricType.toString()));
@@ -1817,7 +1817,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     Urn urnEndingInComma =
         new Urn("li", "dataset", new TupleKey("urn:li:dataPlatform:foo", "bar", "PROD", ""));
     try {
-      ValidationUtils.validateUrn(opContext.getEntityRegistry(), urnEndingInComma);
+      ValidationApiUtils.validateUrn(opContext.getEntityRegistry(), urnEndingInComma);
       Assert.fail("Should have raised IllegalArgumentException for URN ending in comma");
     } catch (IllegalArgumentException e) {
       assertTrue(e.getMessage().contains(urnEndingInComma.toString()));

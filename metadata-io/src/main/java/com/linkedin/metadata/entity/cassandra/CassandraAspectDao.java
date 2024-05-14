@@ -200,7 +200,7 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
     return keys.stream()
         .map(this::getAspect)
         .filter(Objects::nonNull)
-        .collect(Collectors.toMap(EntityAspect::getAspectIdentifier, aspect -> aspect));
+        .collect(Collectors.toMap(EntityAspectIdentifier::fromEntityAspect, aspect -> aspect));
   }
 
   @Override

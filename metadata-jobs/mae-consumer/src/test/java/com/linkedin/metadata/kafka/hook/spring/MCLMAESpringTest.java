@@ -1,6 +1,7 @@
 package com.linkedin.metadata.kafka.hook.spring;
 
-import static org.testng.AssertJUnit.*;
+import static org.testng.AssertJUnit.assertEquals;
+import static org.testng.AssertJUnit.assertTrue;
 
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.kafka.MetadataChangeLogProcessor;
@@ -17,8 +18,9 @@ import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.testng.annotations.Test;
 
 @SpringBootTest(
-    classes = {MCLSpringTestConfiguration.class, ConfigurationProvider.class},
+    classes = {MCLSpringCommonTestConfiguration.class, ConfigurationProvider.class},
     properties = {
+      "entityClient.impl=restli",
       "ingestionScheduler.enabled=false",
       "configEntityRegistry.path=../../metadata-jobs/mae-consumer/src/test/resources/test-entity-registry.yml",
       "kafka.schemaRegistry.type=INTERNAL"
@@ -27,7 +29,7 @@ import org.testng.annotations.Test;
     locations = "classpath:/application.yaml",
     properties = {"MCL_CONSUMER_ENABLED=true"})
 @EnableAutoConfiguration(exclude = {CassandraAutoConfiguration.class})
-public class MCLSpringTest extends AbstractTestNGSpringContextTests {
+public class MCLMAESpringTest extends AbstractTestNGSpringContextTests {
 
   @Test
   public void testHooks() {
