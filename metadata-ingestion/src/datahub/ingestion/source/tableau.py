@@ -576,6 +576,8 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
         # when emitting custom SQL data sources.
         self.custom_sql_ids_being_used: List[str] = []
 
+        self._authenticate()
+
     @staticmethod
     def test_connection(config_dict: dict) -> TestConnectionReport:
         test_report = TestConnectionReport()
@@ -805,14 +807,11 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
             f"Tableau workbooks {self.workbook_project_map}",
         )
 
-    def _authenticate(self, site='') -> None:
+    def _authenticate(self) -> None:
         try:
-            if self.server is not None:
-                logger.info("Sign out before re-authenticating with different site.")
-                self.server.auth.sign_out()
-            site_content_url = site or self.config.site
+            site_content_url = self.current_site.content_url if self.current_site else self.config.site
             self.server = self.config.make_tableau_client(site_content_url)
-            logger.info(f"Authenticated to Tableau server for site: '{site_content_url}'")
+            logger.info(f"Authenticated to Tableau site: '{site_content_url}'")
         # Note that we're not catching ConfigurationError, since we want that to throw.
         except ValueError as e:
             self.report.failure(
@@ -2821,17 +2820,17 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
         ]
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
+        if self.server is None or not self.server.is_signed_in():
+            return
         try:
-            self._authenticate()
             if self.config.ingest_multiple_sites:
                 for site in TSC.Pager(self.server.sites):
                     if site.state != 'Active' or not self.config.site_name_pattern.allowed(site.name):
                         continue
                     self.current_site = site
-                    self._authenticate(site.content_url)
-                    if self.server.is_signed_in():
-                        logger.info(f"Ingesting assets of site '{site.content_url}'.")
-                        yield from self._ingest_tableau_site()
+                    self.server.auth.switch_site(site)
+                    logger.info(f"Ingesting assets of site '{site.content_url}'.")
+                    yield from self._ingest_tableau_site()
             else:
                 site = self.server.sites.get_by_id(self.server.site_id)
                 self.current_site = site
