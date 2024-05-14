@@ -13,7 +13,6 @@ import com.linkedin.metadata.entity.AspectDao;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.EntityUtils;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
-import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
@@ -77,9 +76,6 @@ public abstract class AbstractMCLStep implements UpgradeStep {
         args = args.urnLike(getUrnLike());
       }
 
-      final AspectSpec aspectSpec =
-          opContext.getEntityRegistry().getAspectSpecs().get(getAspectName());
-
       aspectDao
           .streamAspectBatches(args)
           .forEach(
@@ -98,7 +94,7 @@ public abstract class AbstractMCLStep implements UpgradeStep {
                                     systemAspect.getUrn(),
                                     systemAspect.getUrn().getEntityType(),
                                     getAspectName(),
-                                    aspectSpec,
+                                    systemAspect.getAspectSpec(),
                                     null,
                                     systemAspect.getRecordTemplate(),
                                     null,
@@ -127,14 +123,6 @@ public abstract class AbstractMCLStep implements UpgradeStep {
                     throw new RuntimeException(e);
                   }
                 }
-              });
-
-      entityService
-          .streamRestoreIndices(opContext, args, x -> context.report().addLine((String) x))
-          .forEach(
-              result -> {
-                context.report().addLine("Rows migrated: " + result.rowsMigrated);
-                context.report().addLine("Rows ignored: " + result.ignored);
               });
 
       BootstrapStep.setUpgradeResult(opContext, getUpgradeIdUrn(), entityService);
