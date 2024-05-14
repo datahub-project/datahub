@@ -25,7 +25,8 @@ from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
 )
 from datahub.metadata.schema_classes import SystemMetadataClass, _Aspect
 from datahub.utilities.urns.urn import Urn, guess_entity_type
-from datahub.ingestion.graph.client import DatahubClientConfig
+from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph, get_default_graph
+
 
 log = logging.getLogger(__name__)
 
@@ -81,6 +82,7 @@ def get_system_auth() -> Optional[str]:
     return None
 
 
+@deprecated(reason="Use load_graph_config instead")
 def get_url_and_token():
     gms_host_env, gms_token_env = get_details_from_env()
     if len(config_override.keys()) > 0:
@@ -122,36 +124,13 @@ def get_token():
 
 
 def get_session_and_host():
-    session = requests.Session()
-    config = load_graph_config()
-
-    gms_host = config.server, gms_token = config.server
-
-    if gms_host is None or gms_host.strip() == "":
-        log.error(
-            f"GMS Host is not set. Use datahub init command or set {ENV_METADATA_HOST_URL} env var"
-        )
-        return None, None
-
-    session.headers.update(
-        {
-            "X-RestLi-Protocol-Version": "2.0.0",
-            "Content-Type": "application/json",
-        }
-    )
-    if isinstance(gms_token, str) and len(gms_token) > 0:
-        session.headers.update(
-            {"Authorization": f"Bearer {gms_token.format(**os.environ)}"}
-        )
-
-    return session, gms_host
+    client = get_default_graph()
+    return client._session(), client.config.server
 
 
 def test_connection():
-    (session, host) = get_session_and_host()
-    url = f"{host}/config"
-    response = session.get(url)
-    response.raise_for_status()
+    client = get_default_graph()
+    client.get_config()
 
 
 def test_connectivity_complain_exit(operation_name: str) -> None:

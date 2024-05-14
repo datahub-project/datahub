@@ -118,21 +118,11 @@ async def get_server_config(gms_url: str, token: str) -> dict:
 
 
 async def get_server_version_stats(
-    server: Optional[DataHubGraph] = None,
+    server: Optional[DataHubGraph] = DataHubGraph(cli_utils.load_graph_config())
 ) -> Tuple[Optional[str], Optional[Version], Optional[datetime]]:
     import aiohttp
 
-    server_config = None
-    if not server:
-        try:
-            # let's get the server from the cli config
-            host, token = cli_utils.get_url_and_token()
-            server_config = await get_server_config(host, token)
-            log.debug(f"server_config:{server_config}")
-        except Exception as e:
-            log.debug(f"Failed to get a valid server: {e}")
-    else:
-        server_config = server.server_config
+    server_config = server.server_config
 
     server_type = None
     server_version: Optional[Version] = None

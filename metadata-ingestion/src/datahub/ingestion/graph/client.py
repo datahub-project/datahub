@@ -583,6 +583,10 @@ class DataHubGraph(DatahubRestEmitter):
     def _aspect_count_endpoint(self):
         return f"{self.config.server}/aspects?action=getCount"
 
+    @property
+    def _session(self):
+        return self._session
+
     def get_domain_urn_by_name(self, domain_name: str) -> Optional[str]:
         """Retrieve a domain urn based on its name. Returns None if there is no match found"""
 
