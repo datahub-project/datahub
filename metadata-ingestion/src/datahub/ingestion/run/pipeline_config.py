@@ -110,10 +110,7 @@ class PipelineConfig(ConfigModel):
             # update this
             default_sink_config = {
                 "type": "datahub-rest",
-                "config": {
-                    "server": config.server,
-                    "token": config.token,
-                },
+                "config": config.dict(exclude_defaults=True),
             }
             # resolve env variables if present
             default_sink_config = config_loader.resolve_env_variables(
