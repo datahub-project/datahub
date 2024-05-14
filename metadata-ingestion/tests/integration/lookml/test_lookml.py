@@ -868,7 +868,6 @@ def test_manifest_parser(pytestconfig: pytest.Config) -> None:
 
 @freeze_time(FROZEN_TIME)
 def test_duplicate_field_ingest(pytestconfig, tmp_path, mock_time):
-    """Test backwards compatibility with previous form of config with new flags turned off"""
     test_resources_dir = pytestconfig.rootpath / "tests/integration/lookml"
     mce_out_file = "duplicate_ingest_mces_output.json"
 
