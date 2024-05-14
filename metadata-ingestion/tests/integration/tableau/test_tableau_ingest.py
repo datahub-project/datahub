@@ -630,9 +630,7 @@ def test_database_hostname_to_platform_instance_map():
             "test-schema",
             "test-table",
             "snowflake",
-        ).make_dataset_urn(
-            env=DEFAULT_ENV, platform_instance_map={}
-        )
+        ).make_dataset_urn(env=DEFAULT_ENV, platform_instance_map={})
         == "urn:li:dataset:(urn:li:dataPlatform:snowflake,test-database-name.test-schema.test-table,PROD)"
     )
 
@@ -647,7 +645,9 @@ def test_database_hostname_to_platform_instance_map():
         ).make_dataset_urn(
             env=DEFAULT_ENV,
             platform_instance_map={},
-            database_hostname_to_platform_instance_map={"test-hostname": "test-platform-instance"},
+            database_hostname_to_platform_instance_map={
+                "test-hostname": "test-platform-instance"
+            },
             database_server_hostname_map={"test-database-id": "test-hostname"},
         )
         == "urn:li:dataset:(urn:li:dataPlatform:snowflake,test-platform-instance.test-database-name.test-schema.test-table,PROD)"
