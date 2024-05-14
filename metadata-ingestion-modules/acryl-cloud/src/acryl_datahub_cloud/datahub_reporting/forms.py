@@ -107,11 +107,6 @@ class DataHubReportingFormsSource(Source):
                 "Reporting bucket prefix must be provided. Either configure it on the server side or in the source config."
             )
 
-        # dataset_uri = self.get_reporting_file_uri(
-        #     dataset_uri_prefix, date=datetime.date.today()
-        # )
-        # assert dataset_uri.startswith("s3://"), "Reporting URI must be an S3 URI"
-
         registration_spec = DatasetRegistrationSpec()
         dataset_metadata = DatasetMetadata(
             displayName="Forms Reporting Data",

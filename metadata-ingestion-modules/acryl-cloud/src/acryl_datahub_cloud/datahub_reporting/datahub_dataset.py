@@ -110,7 +110,6 @@ class BaseModelRow(BaseModel):
         return self.__dict__
 
     @staticmethod
-    # Mapping function: Pydantic types to SchemaField types
     def pydantic_type_to_pyarrow(type_):
         if issubclass(type_, bool):
             return pa.bool_()
@@ -135,7 +134,12 @@ class BaseModelRow(BaseModel):
             pyarrow_type = BaseModelRow.pydantic_type_to_pyarrow(
                 field_model.outer_type_
             )
-            fields.append(pa.field(field_name, pyarrow_type))
+            pyarrow_field = pa.field(field_name, pyarrow_type)
+            if not field_model.required:
+                pyarrow_field = pyarrow_field.with_nullable(True)
+            else:
+                pyarrow_field = pyarrow_field.with_nullable(False)
+            fields.append(pyarrow_field)
         return pa.schema(fields)
 
     @classmethod
@@ -197,16 +201,6 @@ class DataHubBasedS3Dataset:
         pathlib.Path(file_path).parent.mkdir(parents=True, exist_ok=True)
         return file_path
 
-    def _init_parquet_writer(self, row: Dict[str, Any]) -> None:
-        if not self.schema:
-            # infer schema from the first row, if schema not set in constructor
-            self.schema = pa.schema([(key, pa.dtype()) for key in row.keys()])
-        self.file_writer = pq.ParquetWriter(
-            self.local_file_path,
-            self.schema,
-            compression=self.config.file_compression,
-        )
-
     def append(self, row: Union[Dict[str, Any], BaseModelRow]) -> None:
         if self.first_row:
             self.first_row = False
@@ -249,8 +243,11 @@ class DataHubBasedS3Dataset:
 
     def _write_current_batch(self):
         assert self.file_writer is not None
+        assert self.schema is not None
         self.file_writer.write_batch(
-            pa.RecordBatch.from_pandas(pandas.DataFrame(self.current_record_batch))
+            pa.RecordBatch.from_pandas(
+                pandas.DataFrame(self.current_record_batch), schema=self.schema
+            )
         )
         self.current_record_batch = []
 
