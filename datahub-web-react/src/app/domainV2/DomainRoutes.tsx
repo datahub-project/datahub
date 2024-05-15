@@ -23,7 +23,7 @@ export default function DomainRoutes() {
     const entityRegistry = useEntityRegistry();
     const [entityData, setEntityData] = useState<GenericEntityProperties | null>(null);
     const [parentDomainsToUpdate, setParentDomainsToUpdate] = useState<string[]>([]);
-    const [isSidebarClosed, setIsSidebarClosed] = useState(false);
+    const [isSidebarClosed, setIsSidebarClosed] = useState(true);
     const entitySidebarWidth = useSidebarWidth();
 
     return (

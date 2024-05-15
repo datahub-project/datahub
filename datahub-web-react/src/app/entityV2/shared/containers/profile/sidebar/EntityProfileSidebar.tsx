@@ -1,5 +1,5 @@
 /* eslint-disable prefer-template */
-import React, { useContext, useEffect, useState } from 'react';
+import React, { useContext, useState } from 'react';
 import styled from 'styled-components';
 import EntitySidebarContext from '../../../../../sharedV2/EntitySidebarContext';
 import { SEARCH_COLORS } from '../../../constants';
@@ -105,7 +105,7 @@ export default function EntityProfileSidebar({
     headerDropdownItems,
     className,
 }: Props) {
-    const { isClosed, setSidebarClosed } = useContext(EntitySidebarContext);
+    const { isClosed } = useContext(EntitySidebarContext);
 
     // TODO: Allow selecting a tab via the URL.
     const [selectedTabName, setSelectedTabName] = useState(tabs[0].name);
@@ -113,11 +113,6 @@ export default function EntityProfileSidebar({
 
     const isCardLayout = type === 'card';
     const documentationFormsEnabled = useIsDocumentationFormsEnabled();
-
-    // Open tab when selected tab is changed
-    useEffect(() => {
-        if (!window.location.pathname.includes('Lineage')) setSidebarClosed(false);
-    }, [selectedTabName, setSidebarClosed]);
 
     return (
         <StyledEntitySidebarContainer

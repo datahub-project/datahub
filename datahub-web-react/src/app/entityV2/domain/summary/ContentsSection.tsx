@@ -13,7 +13,11 @@ import { useEntityRegistry } from '../../../useEntityRegistry';
 import ContentSectionLoading from './ContentSectionLoading';
 import { EntityCountCard } from '../../../sharedV2/cards/EntityCountCard';
 import { pluralize } from '../../../shared/textUtil';
-import { Container, SummaryTabHeaderTitle, SummaryTabHeaderWrapper } from '../../shared/summary/HeaderComponents';
+import {
+    SectionContainer,
+    SummaryTabHeaderTitle,
+    SummaryTabHeaderWrapper,
+} from '../../shared/summary/HeaderComponents';
 import { getContentTypeIcon } from '../../shared/summary/IconComponents';
 import { ANTD_GRAY } from '../../shared/constants';
 import { Carousel } from '../../../sharedV2/carousel/Carousel';
@@ -48,7 +52,7 @@ export const ContentsSection = () => {
     }
 
     return (
-        <Container>
+        <SectionContainer>
             <SummaryTabHeaderWrapper>
                 <SummaryTabHeaderTitle icon={<AppstoreOutlined />} title={`Assets (${contentsCount})`} />
                 <ViewAllButton onClick={() => navigateToDomainEntities(urn, entityType, history, entityRegistry)}>
@@ -85,6 +89,6 @@ export const ContentsSection = () => {
                         );
                     })}
             </Carousel>
-        </Container>
+        </SectionContainer>
     );
 };

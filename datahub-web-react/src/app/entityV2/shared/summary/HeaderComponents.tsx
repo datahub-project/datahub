@@ -14,10 +14,10 @@ export const SummaryTabWrapper = styled.div`
     position: relative;
 `;
 
-export const Container = styled.div`
+export const SectionContainer = styled.div`
     display: flex;
     flex-direction: column;
-    gap: 20px;
+    gap: 16px;
 
     &:hover {
         .hover-btn {

@@ -7,8 +7,7 @@ import { Editor } from '../tabs/Documentation/components/editor/Editor';
 import { EmptyTab } from '../components/styled/EmptyTab';
 import { AddLinkModal } from '../components/styled/AddLinkModal';
 import { LinkList } from '../tabs/Documentation/components/LinkList';
-import { Container, HeaderTitle } from './HeaderComponents';
-import { ANTD_GRAY } from '../constants';
+import { SectionContainer, SummaryTabHeaderTitle } from './HeaderComponents';
 
 const UNEXPANDED_HEIGHT = 230;
 
@@ -66,11 +65,8 @@ export default function SummaryAboutSection() {
     const canExpand = !!description && !expanded && height >= UNEXPANDED_HEIGHT;
 
     return (
-        <Container>
-            <HeaderTitle>
-                <FileOutlined style={{ fontSize: 16, color: ANTD_GRAY[8] }} />
-                Documentation
-            </HeaderTitle>
+        <SectionContainer>
+            <SummaryTabHeaderTitle title="Documentation" icon={<FileOutlined />} />
             <DocumentationWrapper canExpand={canExpand ? true : undefined}>
                 {!!description && (
                     <>
@@ -93,6 +89,6 @@ export default function SummaryAboutSection() {
                 )}
                 <LinkList refetch={refetch} />
             </DocumentationWrapper>
-        </Container>
+        </SectionContainer>
     );
 }

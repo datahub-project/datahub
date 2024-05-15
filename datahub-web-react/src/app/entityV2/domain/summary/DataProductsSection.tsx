@@ -7,7 +7,11 @@ import { useGetSearchResultsForMultipleQuery } from '../../../../graphql/search.
 import { DataProduct, EntityType } from '../../../../types.generated';
 import { DOMAINS_FILTER_NAME } from '../../../searchV2/utils/constants';
 import { DataProductMiniPreview } from '../../shared/links/DataProductMiniPreview';
-import { Container, SummaryTabHeaderTitle, SummaryTabHeaderWrapper } from '../../shared/summary/HeaderComponents';
+import {
+    SectionContainer,
+    SummaryTabHeaderTitle,
+    SummaryTabHeaderWrapper,
+} from '../../shared/summary/HeaderComponents';
 import { navigateToDomainDataProducts } from '../../shared/containers/profile/sidebar/Domain/utils';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { DataProductMiniPreviewAddDataProduct } from '../../shared/links/DataProductMiniPreviewAddDataProduct';
@@ -30,7 +34,7 @@ const StyledCarousel = styled(Carousel)`
     align-items: stretch;
 `;
 
-export const DataProductsRow = () => {
+export const DataProductsSection = () => {
     const { urn, entityType, entityData } = useEntityData();
     const history = useHistory();
     const domainUrn = entityData?.urn || '';
@@ -54,7 +58,7 @@ export const DataProductsRow = () => {
     const showAddDataProductLink = dataProducts.length <= 2;
 
     return (
-        <Container>
+        <SectionContainer>
             <SummaryTabHeaderWrapper>
                 <SummaryTabHeaderTitle
                     icon={entityRegistry.getIcon(EntityType.DataProduct, 16, IconStyleType.ACCENT, ANTD_GRAY[8])}
@@ -76,6 +80,6 @@ export const DataProductsRow = () => {
                     />
                 )}
             </StyledCarousel>
-        </Container>
+        </SectionContainer>
     );
 };
