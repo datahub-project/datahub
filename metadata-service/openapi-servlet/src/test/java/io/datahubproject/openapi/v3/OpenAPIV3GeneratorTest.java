@@ -1,5 +1,8 @@
 package io.datahubproject.openapi.v3;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
 import com.linkedin.data.schema.annotation.PathSpecBasedSchemaAnnotationVisitor;
@@ -9,36 +12,65 @@ import io.swagger.v3.oas.models.OpenAPI;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+
+import io.swagger.v3.oas.models.media.Schema;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
 public class OpenAPIV3GeneratorTest {
   public static final String BASE_DIRECTORY =
-      "../../entity-registry/custom-test-model/build/plugins/models";
+          "../../entity-registry/custom-test-model/build/plugins/models";
 
   @BeforeTest
   public void disableAssert() {
     PathSpecBasedSchemaAnnotationVisitor.class
-        .getClassLoader()
-        .setClassAssertionStatus(PathSpecBasedSchemaAnnotationVisitor.class.getName(), false);
+            .getClassLoader()
+            .setClassAssertionStatus(PathSpecBasedSchemaAnnotationVisitor.class.getName(), false);
   }
 
   @Test
   public void testOpenApiSpecBuilder() throws Exception {
     ConfigEntityRegistry er =
-        new ConfigEntityRegistry(
-            OpenAPIV3GeneratorTest.class
-                .getClassLoader()
-                .getResourceAsStream("entity-registry.yml"));
+            new ConfigEntityRegistry(
+                    OpenAPIV3GeneratorTest.class
+                            .getClassLoader()
+                            .getResourceAsStream("entity-registry.yml"));
 
     OpenAPI openAPI = OpenAPIV3Generator.generateOpenApiSpec(er);
     String openapiYaml = Yaml.pretty(openAPI);
     Files.write(
-        Path.of(getClass().getResource("/").getPath(), "open-api.yaml"),
-        openapiYaml.getBytes(StandardCharsets.UTF_8));
+            Path.of(getClass().getResource("/").getPath(), "open-api.yaml"),
+            openapiYaml.getBytes(StandardCharsets.UTF_8));
 
     assertTrue(openAPI.getComponents().getSchemas().size() > 900);
     assertTrue(openAPI.getComponents().getParameters().size() > 50);
     assertTrue(openAPI.getPaths().size() > 500);
+
+    Schema datasetPropertiesSchema = openAPI.getComponents().getSchemas().get("DatasetProperties");
+    List<String> requiredNames = datasetPropertiesSchema.getRequired();
+    Map<String, Schema> properties = datasetPropertiesSchema.getProperties();
+
+    // Assert required properties are non-nullable
+    Schema customProperties = properties.get("customProperties");
+    assertTrue(requiredNames.contains("customProperties"));
+    assertFalse(customProperties.getNullable());
+
+    // Assert non-required properties are nullable
+    Schema name = properties.get("name");
+    assertFalse(requiredNames.contains("name"));
+    assertTrue(name.getNullable());
+
+    // Assert non-required $ref properties are replaced by nullable { allOf: [ $ref ] } objects
+    Schema created = properties.get("created");
+    assertFalse(requiredNames.contains("created"));
+    assertEquals("object", created.getType());
+    assertNull(created.get$ref());
+    assertEquals(List.of(new Schema().$ref("#/components/schemas/TimeStamp")), created.getAllOf());
+    assertTrue(created.getNullable());
   }
 }
