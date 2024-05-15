@@ -113,8 +113,8 @@ Note: if you are subscribed to all assertions at the dataset level, then you wil
 
 You must first remove your dataset-level subscription:
 <p align="center">
-  <img width="70%" alt="5" src="https://github.com/datahub-project/datahub/assets/159848059/7803abb9-e33d-4ac1-a11c-059296cd06a4" />
   <img width="70%" alt="4" src="https://github.com/datahub-project/datahub/assets/159848059/74df6d58-fa37-4373-91b2-b73cb7b98172" />
+  <img width="70%" alt="5" src="https://github.com/datahub-project/datahub/assets/159848059/7803abb9-e33d-4ac1-a11c-059296cd06a4" />
 </p>
 
 
