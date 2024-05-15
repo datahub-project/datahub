@@ -28,11 +28,12 @@ from datahub.ingestion.api.sink import Sink, SinkReport, WriteCallback
 from datahub.ingestion.api.source import Extractor, Source
 from datahub.ingestion.api.transform import Transformer
 from datahub.ingestion.extractor.extractor_registry import extractor_registry
-from datahub.ingestion.graph.client import DataHubGraph
+from datahub.ingestion.graph.client import DataHubGraph, get_default_graph
 from datahub.ingestion.reporting.reporting_provider_registry import (
     reporting_provider_registry,
 )
 from datahub.ingestion.run.pipeline_config import PipelineConfig, ReporterConfig
+from datahub.ingestion.sink.datahub_rest import DatahubRestSink
 from datahub.ingestion.sink.file import FileSink, FileSinkConfig
 from datahub.ingestion.sink.sink_registry import sink_registry
 from datahub.ingestion.source.source_registry import source_registry
@@ -182,6 +183,13 @@ class CliReport(Report):
         return super().compute_stats()
 
 
+def _make_default_rest_sink(ctx: PipelineContext) -> DatahubRestSink:
+    graph = get_default_graph()
+    sink_config = graph._make_rest_sink_config()
+
+    return DatahubRestSink(ctx, sink_config)
+
+
 class Pipeline:
     config: PipelineConfig
     ctx: PipelineContext
@@ -217,9 +225,6 @@ class Pipeline:
                 self.graph = DataHubGraph(self.config.datahub_api)
                 self.graph.test_connection()
 
-            telemetry.telemetry_instance.update_capture_exception_context(
-                server=self.graph
-            )
         with _add_init_error_context("set up framework context"):
             self.ctx = PipelineContext(
                 run_id=self.config.run_id,
@@ -230,15 +235,29 @@ class Pipeline:
                 pipeline_config=self.config,
             )
 
-        sink_type = self.config.sink.type
-        with _add_init_error_context(f"find a registered sink for type {sink_type}"):
-            sink_class = sink_registry.get(sink_type)
+        if self.config.sink is None:
+            with _add_init_error_context("configure the default rest sink"):
+                self.sink = _make_default_rest_sink(self.ctx)
+        else:
+            sink_type = self.config.sink.type
+            with _add_init_error_context(
+                f"find a registered sink for type {sink_type}"
+            ):
+                sink_class = sink_registry.get(sink_type)
 
-        with _add_init_error_context(f"configure the sink ({sink_type})"):
-            sink_config = self.config.sink.dict().get("config") or {}
-            self.sink = sink_class.create(sink_config, self.ctx)
-            logger.debug(f"Sink type {self.config.sink.type} ({sink_class}) configured")
-            logger.info(f"Sink configured successfully. {self.sink.configured()}")
+            with _add_init_error_context(f"configure the sink ({sink_type})"):
+                sink_config = self.config.sink.dict().get("config") or {}
+                self.sink = sink_class.create(sink_config, self.ctx)
+                logger.debug(
+                    f"Sink type {self.config.sink.type} ({sink_class}) configured"
+                )
+        logger.info(f"Sink configured successfully. {self.sink.configured()}")
+
+        if self.graph is None and isinstance(self.sink, DatahubRestSink):
+            with _add_init_error_context("setup default datahub client"):
+                self.graph = self.sink.emitter.to_graph()
+        self.ctx.graph = self.graph
+        telemetry.telemetry_instance.update_capture_exception_context(server=self.graph)
 
         # once a sink is configured, we can configure reporting immediately to get observability
         with _add_init_error_context("configure reporters"):
@@ -310,6 +329,7 @@ class Pipeline:
                     reporter_class.create(
                         config_dict=reporter_config_dict,
                         ctx=self.ctx,
+                        sink=self.sink,
                     )
                 )
                 logger.debug(
