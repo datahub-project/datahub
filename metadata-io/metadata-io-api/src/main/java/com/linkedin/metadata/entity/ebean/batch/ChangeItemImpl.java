@@ -109,7 +109,9 @@ public class ChangeItemImpl implements ChangeMCP {
       mcp.setAspectName(getAspectName());
       mcp.setAspect(GenericRecordUtils.serializeAspect(getRecordTemplate()));
       mcp.setSystemMetadata(getSystemMetadata());
-      mcp.setEntityKeyAspect(GenericRecordUtils.serializeAspect(EntityKeyUtils.convertUrnToEntityKey(getUrn(), entitySpec.getKeyAspectSpec())));
+      mcp.setEntityKeyAspect(
+          GenericRecordUtils.serializeAspect(
+              EntityKeyUtils.convertUrnToEntityKey(getUrn(), entitySpec.getKeyAspectSpec())));
       return mcp;
     }
   }

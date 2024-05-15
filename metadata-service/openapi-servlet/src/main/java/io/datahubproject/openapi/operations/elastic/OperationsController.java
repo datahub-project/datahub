@@ -298,11 +298,7 @@ public class OperationsController {
             .gePitEpochMs(gePitEpochMs)
             .lePitEpochMs(lePitEpochMs);
 
-    return ResponseEntity.of(
-        Optional.of(
-            entityService
-                .streamRestoreIndices(opContext, args, log::info)
-                .collect(Collectors.toList())));
+    return ResponseEntity.of(Optional.of(entityService.restoreIndices(opContext, args, log::info)));
   }
 
   @Tag(name = "RestoreIndices")

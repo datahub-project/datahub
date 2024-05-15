@@ -58,6 +58,7 @@ import com.linkedin.metadata.run.AspectRowSummary;
 import com.linkedin.metadata.service.UpdateIndicesService;
 import com.linkedin.metadata.snapshot.CorpUserSnapshot;
 import com.linkedin.metadata.snapshot.Snapshot;
+import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.MetadataChangeLog;
@@ -85,6 +86,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.junit.Assert;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
@@ -534,6 +536,11 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
 
     initialChangeLog.setAspect(aspect);
     initialChangeLog.setSystemMetadata(metadata1);
+    initialChangeLog.setEntityKeyAspect(
+        GenericRecordUtils.serializeAspect(
+            EntityKeyUtils.convertUrnToEntityKey(
+                entityUrn,
+                _testEntityRegistry.getEntitySpec(entityUrn.getEntityType()).getKeyAspectSpec())));
 
     final MetadataChangeLog restateChangeLog = new MetadataChangeLog();
     restateChangeLog.setEntityType(entityUrn.getEntityType());
@@ -596,6 +603,11 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
 
     initialChangeLog.setAspect(aspect);
     initialChangeLog.setSystemMetadata(metadata1);
+    initialChangeLog.setEntityKeyAspect(
+        GenericRecordUtils.serializeAspect(
+            EntityKeyUtils.convertUrnToEntityKey(
+                entityUrn,
+                _testEntityRegistry.getEntitySpec(entityUrn.getEntityType()).getKeyAspectSpec())));
 
     final MetadataChangeLog restateChangeLog = new MetadataChangeLog();
     restateChangeLog.setEntityType(entityUrn.getEntityType());
@@ -607,6 +619,11 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     restateChangeLog.setSystemMetadata(metadata1);
     restateChangeLog.setPreviousAspectValue(aspect);
     restateChangeLog.setPreviousSystemMetadata(simulatePullFromDB(metadata1, SystemMetadata.class));
+    restateChangeLog.setEntityKeyAspect(
+        GenericRecordUtils.serializeAspect(
+            EntityKeyUtils.convertUrnToEntityKey(
+                entityUrn,
+                _testEntityRegistry.getEntitySpec(entityUrn.getEntityType()).getKeyAspectSpec())));
 
     Map<String, RecordTemplate> latestAspects =
         _entityServiceImpl.getLatestAspectsForUrn(
@@ -1707,9 +1724,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
       args.batchDelayMs(1L);
       args.numThreads(1);
       args.urn(urnStr);
-      _entityServiceImpl
-          .streamRestoreIndices(opContext, args, obj -> {})
-          .collect(Collectors.toList());
+      _entityServiceImpl.restoreIndices(opContext, args, obj -> {});
 
       ArgumentCaptor<MetadataChangeLog> mclCaptor =
           ArgumentCaptor.forClass(MetadataChangeLog.class);
@@ -1908,16 +1923,22 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     assertEquals(
         _entityServiceImpl.getAspect(opContext, firstPropertyUrn, definitionAspectName, 0),
         structuredPropertyDefinition);
-    Set<StructuredPropertyDefinition> defs =
-        _aspectDao
-            .streamAspects(
-                STRUCTURED_PROPERTY_ENTITY_NAME, STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME)
-            .map(
-                entityAspect ->
-                    EntityUtils.toSystemAspect(opContext.getRetrieverContext().get(), entityAspect)
-                        .get()
-                        .getAspect(StructuredPropertyDefinition.class))
-            .collect(Collectors.toSet());
+
+    Set<StructuredPropertyDefinition> defs;
+    try (Stream<EntityAspect> stream =
+        _aspectDao.streamAspects(
+            STRUCTURED_PROPERTY_ENTITY_NAME, STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME)) {
+      defs =
+          stream
+              .map(
+                  entityAspect ->
+                      EntityUtils.toSystemAspect(
+                              opContext.getRetrieverContext().get(), entityAspect)
+                          .get()
+                          .getAspect(StructuredPropertyDefinition.class))
+              .collect(Collectors.toSet());
+    }
+
     assertEquals(defs.size(), 1);
     assertEquals(defs, Set.of(structuredPropertyDefinition));
 
@@ -1984,16 +2005,20 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     assertEquals(
         _entityServiceImpl.getAspect(opContext, secondPropertyUrn, definitionAspectName, 0),
         secondDefinition);
-    defs =
-        _aspectDao
-            .streamAspects(
-                STRUCTURED_PROPERTY_ENTITY_NAME, STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME)
-            .map(
-                entityAspect ->
-                    EntityUtils.toSystemAspect(opContext.getRetrieverContext().get(), entityAspect)
-                        .get()
-                        .getAspect(StructuredPropertyDefinition.class))
-            .collect(Collectors.toSet());
+    try (Stream<EntityAspect> stream =
+        _aspectDao.streamAspects(
+            STRUCTURED_PROPERTY_ENTITY_NAME, STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME)) {
+      defs =
+          stream
+              .map(
+                  entityAspect ->
+                      EntityUtils.toSystemAspect(
+                              opContext.getRetrieverContext().get(), entityAspect)
+                          .get()
+                          .getAspect(StructuredPropertyDefinition.class))
+              .collect(Collectors.toSet());
+    }
+
     assertEquals(defs.size(), 2);
     assertEquals(defs, Set.of(secondDefinition, structuredPropertyDefinition));
 

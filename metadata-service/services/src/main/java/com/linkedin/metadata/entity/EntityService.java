@@ -29,7 +29,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Future;
 import java.util.function.Consumer;
-import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
@@ -298,7 +297,7 @@ public interface EntityService<U extends ChangeMCP> {
       @Nonnull OperationContext opContext, @Nonnull String aspectName, @Nullable String urnLike);
 
   // TODO: Extract this to a different service, doesn't need to be here
-  Stream<RestoreIndicesResult> streamRestoreIndices(
+  List<RestoreIndicesResult> restoreIndices(
       @Nonnull OperationContext opContext,
       @Nonnull RestoreIndicesArgs args,
       @Nonnull Consumer<String> logger);

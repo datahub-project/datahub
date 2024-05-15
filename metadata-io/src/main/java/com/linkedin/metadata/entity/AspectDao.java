@@ -3,6 +3,7 @@ package com.linkedin.metadata.entity;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
+import com.linkedin.metadata.entity.ebean.PartitionedStream;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.ebean.Transaction;
@@ -105,7 +106,7 @@ public interface AspectDao {
   Integer countAspect(@Nonnull final String aspectName, @Nullable String urnLike);
 
   @Nonnull
-  Stream<Stream<EbeanAspectV2>> streamAspectBatches(final RestoreIndicesArgs args);
+  PartitionedStream<EbeanAspectV2> streamAspectBatches(final RestoreIndicesArgs args);
 
   @Nonnull
   Stream<EntityAspect> streamAspects(String entityName, String aspectName);
