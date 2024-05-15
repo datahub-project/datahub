@@ -25,10 +25,10 @@ Check out the [alternative installation options](../docs/cli.md#alternate-instal
 
 ## Configuring a Recipe
 
-Create a recipe.yml file that defines the source and sink for metadata, as shown below.
+Create a `recipe.yml` file that defines the source and sink for metadata, as shown below.
 
 ```yaml
-# my_reipe.yml
+# recipe.yml
 source:
   type: <source_name>
   config:
@@ -48,7 +48,7 @@ For more information and examples on configuring recipes, please refer to [Recip
 You can run ingestion using `datahub ingest` like below.
 
 ```shell
-datahub ingest -c <path_to_recipe_file.yml>
+datahub ingest -c <path/to/recipe.yml>
 ```
 
 ## Reference

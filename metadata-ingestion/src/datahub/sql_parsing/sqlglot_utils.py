@@ -10,6 +10,8 @@ logger = logging.getLogger(__name__)
 DialectOrStr = Union[sqlglot.Dialect, str]
 SQL_PARSE_CACHE_SIZE = 1000
 
+FORMAT_QUERY_CACHE_SIZE = 1000
+
 
 def _get_dialect_str(platform: str) -> str:
     if platform == "presto-on-hive":
@@ -213,6 +215,7 @@ def get_query_fingerprint(
     return get_query_fingerprint_debug(expression, platform)[0]
 
 
+@functools.lru_cache(maxsize=FORMAT_QUERY_CACHE_SIZE)
 def try_format_query(
     expression: sqlglot.exp.ExpOrStr, platform: DialectOrStr, raises: bool = False
 ) -> str:

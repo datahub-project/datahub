@@ -572,6 +572,7 @@ def test_lineage_overrides():
     assert (
         TableauUpstreamReference(
             "presto_catalog",
+            "test-database-id",
             "test-schema",
             "test-table",
             "presto",
@@ -586,6 +587,7 @@ def test_lineage_overrides():
     assert (
         TableauUpstreamReference(
             "presto_catalog",
+            "test-database-id",
             "test-schema",
             "test-table",
             "presto",
@@ -603,6 +605,7 @@ def test_lineage_overrides():
     assert (
         TableauUpstreamReference(
             None,
+            None,
             "test-schema",
             "test-table",
             "hive",
@@ -614,6 +617,40 @@ def test_lineage_overrides():
             ),
         )
         == "urn:li:dataset:(urn:li:dataPlatform:presto,my_presto_instance.presto_catalog.test-schema.test-table,PROD)"
+    )
+
+
+def test_database_hostname_to_platform_instance_map():
+    enable_logging()
+    # Simple - snowflake table
+    assert (
+        TableauUpstreamReference(
+            "test-database-name",
+            "test-database-id",
+            "test-schema",
+            "test-table",
+            "snowflake",
+        ).make_dataset_urn(env=DEFAULT_ENV, platform_instance_map={})
+        == "urn:li:dataset:(urn:li:dataPlatform:snowflake,test-database-name.test-schema.test-table,PROD)"
+    )
+
+    # Finding platform instance based off hostname to platform instance mappings
+    assert (
+        TableauUpstreamReference(
+            "test-database-name",
+            "test-database-id",
+            "test-schema",
+            "test-table",
+            "snowflake",
+        ).make_dataset_urn(
+            env=DEFAULT_ENV,
+            platform_instance_map={},
+            database_hostname_to_platform_instance_map={
+                "test-hostname": "test-platform-instance"
+            },
+            database_server_hostname_map={"test-database-id": "test-hostname"},
+        )
+        == "urn:li:dataset:(urn:li:dataPlatform:snowflake,test-platform-instance.test-database-name.test-schema.test-table,PROD)"
     )
 
 
@@ -675,7 +712,7 @@ def test_tableau_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_graph)
         state1.get_urns_not_in(type="dataset", other_checkpoint_state=state2)
     )
 
-    assert len(difference_dataset_urns) == 34
+    assert len(difference_dataset_urns) == 35
     deleted_dataset_urns = [
         "urn:li:dataset:(urn:li:dataPlatform:tableau,dfe2c02a-54b7-f7a2-39fc-c651da2f6ad8,PROD)",
         "urn:li:dataset:(urn:li:dataPlatform:tableau,d00f4ba6-707e-4684-20af-69eb47587cc2,PROD)",
@@ -711,6 +748,7 @@ def test_tableau_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_graph)
         "urn:li:dataset:(urn:li:dataPlatform:external,sample - superstore%2C %28new%29.xls.people,PROD)",
         "urn:li:dataset:(urn:li:dataPlatform:webdata-direct:servicenowitsm-servicenowitsm,ven01911.sc_cat_item,PROD)",
         "urn:li:dataset:(urn:li:dataPlatform:tableau,10c6297d-0dbd-44f1-b1ba-458bea446513,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:tableau,5449c627-7462-4ef7-b492-bda46be068e3,PROD)",
     ]
     assert sorted(deleted_dataset_urns) == sorted(difference_dataset_urns)
 

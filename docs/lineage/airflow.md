@@ -8,7 +8,7 @@ If you're looking to schedule DataHub ingestion using Airflow, see the guide on 
 
 The DataHub Airflow plugin supports:
 
-- Automatic column-level lineage extraction from various operators e.g. SQL operators (including `MySqlOperator`, `PostgresOperator`, `SnowflakeOperator`, and more), `S3FileTransformOperator`, and more.
+- Automatic column-level lineage extraction from various operators e.g. SQL operators (including `MySqlOperator`, `PostgresOperator`, `SnowflakeOperator`, `BigQueryInsertJobOperator`, and more), `S3FileTransformOperator`, and more.
 - Airflow DAG and tasks, including properties, ownership, and tags.
 - Task run information, including task successes and failures.
 - Manual lineage annotations using `inlets` and `outlets` on Airflow operators.
@@ -166,6 +166,7 @@ Supported operators:
 - `SQLExecuteQueryOperator`, including any subclasses. Note that in newer versions of Airflow (generally Airflow 2.5+), most SQL operators inherit from this class.
 - `AthenaOperator` and `AWSAthenaOperator`
 - `BigQueryOperator` and `BigQueryExecuteQueryOperator`
+- `BigQueryInsertJobOperator` (incubating)
 - `MySqlOperator`
 - `PostgresOperator`
 - `RedshiftSQLOperator`
@@ -223,6 +224,14 @@ class DbtOperator(BaseOperator):
 ```
 
 If you override the `pre_execute` and `post_execute` function, ensure they include the `@prepare_lineage` and `@apply_lineage` decorators respectively. Reference the [Airflow docs](https://airflow.apache.org/docs/apache-airflow/stable/administration-and-deployment/lineage.html#lineage) for more details.
+
+### Custom Extractors
+
+Note: these are only supported in the v2 plugin.
+
+You can also create a custom extractor to extract lineage from any operator. This is useful if you're using a built-in Airflow operator for which we don't support automatic lineage extraction.
+
+See this [example PR](https://github.com/datahub-project/datahub/pull/10452) which adds a custom extractor for the `BigQueryInsertJobOperator` operator.
 
 ## Emit Lineage Directly
 

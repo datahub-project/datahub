@@ -27,8 +27,8 @@ import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.aspect.batch.ChangeMCP;
 import com.linkedin.metadata.aspect.patch.GenericJsonPatch;
 import com.linkedin.metadata.aspect.patch.template.common.GenericPatchTemplate;
+import com.linkedin.metadata.entity.EntityApiUtils;
 import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.metadata.entity.EntityUtils;
 import com.linkedin.metadata.entity.IngestResult;
 import com.linkedin.metadata.entity.UpdateAspectResult;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
@@ -294,7 +294,9 @@ public class EntityController {
             .flatMap(
                 e ->
                     e.getAspects().entrySet().stream()
-                        .filter(entry -> entry.getKey().equals(aspectName))
+                        .filter(
+                            entry ->
+                                entry.getKey().equals(lookupAspectSpec(urn, aspectName).getName()))
                         .map(Map.Entry::getValue)
                         .findFirst()));
   }
@@ -324,7 +326,7 @@ public class EntityController {
             authentication,
             true);
 
-    return exists(opContext, urn, aspectName)
+    return exists(opContext, urn, lookupAspectSpec(urn, aspectName).getName())
         ? ResponseEntity.noContent().build()
         : ResponseEntity.notFound().build();
   }
@@ -414,7 +416,8 @@ public class EntityController {
             authentication,
             true);
 
-    entityService.deleteAspect(opContext, entityUrn, aspectName, Map.of(), true);
+    entityService.deleteAspect(
+        opContext, entityUrn, lookupAspectSpec(urn, aspectName).getName(), Map.of(), true);
   }
 
   @Tag(name = "Generic Aspects")
@@ -450,7 +453,7 @@ public class EntityController {
             authentication,
             true);
 
-    AspectSpec aspectSpec = entitySpec.getAspectSpec(aspectName);
+    AspectSpec aspectSpec = lookupAspectSpec(entitySpec, aspectName);
     ChangeMCP upsert =
         toUpsertItem(
             opContext.getRetrieverContext().get().getAspectRetriever(),
@@ -521,9 +524,9 @@ public class EntityController {
             authentication,
             true);
 
-    RecordTemplate currentValue = entityService.getAspect(opContext, urn, aspectName, 0);
+    AspectSpec aspectSpec = lookupAspectSpec(entitySpec, aspectName);
+    RecordTemplate currentValue = entityService.getAspect(opContext, urn, aspectSpec.getName(), 0);
 
-    AspectSpec aspectSpec = entitySpec.getAspectSpec(aspectName);
     GenericPatchTemplate<? extends RecordTemplate> genericPatchTemplate =
         GenericPatchTemplate.builder()
             .genericJsonPatch(patch)
@@ -560,7 +563,7 @@ public class EntityController {
                         .build(
                             objectMapper,
                             Map.of(
-                                aspectName,
+                                aspectSpec.getName(),
                                 Pair.of(
                                     result.getNewValue(),
                                     withSystemMetadata ? result.getNewSystemMetadata() : null)))));
@@ -598,7 +601,11 @@ public class EntityController {
 
       Map<Urn, List<EnvelopedAspect>> aspects =
           entityService.getLatestEnvelopedAspects(
-              opContext, urnsSet, resolveAspectNames(urnsSet, aspectNames));
+              opContext,
+              urnsSet,
+              resolveAspectNames(urnsSet, aspectNames).stream()
+                  .map(AspectSpec::getName)
+                  .collect(Collectors.toSet()));
 
       return urns.stream()
           .map(
@@ -612,18 +619,21 @@ public class EntityController {
     }
   }
 
-  private Set<String> resolveAspectNames(Set<Urn> urns, Set<String> requestedNames) {
-    if (requestedNames.isEmpty()) {
+  private Set<AspectSpec> resolveAspectNames(Set<Urn> urns, Set<String> requestedAspectNames) {
+    if (requestedAspectNames.isEmpty()) {
       return urns.stream()
           .flatMap(u -> entityRegistry.getEntitySpec(u.getEntityType()).getAspectSpecs().stream())
-          .map(AspectSpec::getName)
           .collect(Collectors.toSet());
     } else {
       // ensure key is always present
       return Stream.concat(
-              requestedNames.stream(),
               urns.stream()
-                  .map(u -> entityRegistry.getEntitySpec(u.getEntityType()).getKeyAspectName()))
+                  .flatMap(
+                      urn ->
+                          requestedAspectNames.stream()
+                              .map(aspectName -> lookupAspectSpec(urn, aspectName))),
+              urns.stream()
+                  .map(u -> entityRegistry.getEntitySpec(u.getEntityType()).getKeyAspectSpec()))
           .collect(Collectors.toSet());
     }
   }
@@ -642,7 +652,7 @@ public class EntityController {
   }
 
   private AspectSpec lookupAspectSpec(Urn urn, String aspectName) {
-    return entityRegistry.getEntitySpec(urn.getEntityType()).getAspectSpec(aspectName);
+    return lookupAspectSpec(entityRegistry.getEntitySpec(urn.getEntityType()), aspectName);
   }
 
   private RecordTemplate toRecordTemplate(AspectSpec aspectSpec, EnvelopedAspect envelopedAspect) {
@@ -677,8 +687,7 @@ public class EntityController {
       @Nonnull AspectSpec aspectSpec,
       @Nullable RecordTemplate currentValue,
       @Nonnull GenericPatchTemplate<? extends RecordTemplate> genericPatchTemplate,
-      @Nonnull Actor actor)
-      throws URISyntaxException {
+      @Nonnull Actor actor) {
     return ChangeItemImpl.fromPatch(
         urn,
         aspectSpec,
@@ -722,7 +731,7 @@ public class EntityController {
 
             if (aspect.getValue().has("systemMetadata")) {
               builder.systemMetadata(
-                  EntityUtils.parseSystemMetadata(
+                  EntityApiUtils.parseSystemMetadata(
                       objectMapper.writeValueAsString(aspect.getValue().get("systemMetadata"))));
             }
 
@@ -761,5 +770,19 @@ public class EntityController {
               .build(objectMapper, aspectsMap));
     }
     return responseList;
+  }
+
+  /**
+   * Case-insensitive fallback
+   *
+   * @return
+   */
+  private static AspectSpec lookupAspectSpec(EntitySpec entitySpec, String aspectName) {
+    return entitySpec.getAspectSpec(aspectName) != null
+        ? entitySpec.getAspectSpec(aspectName)
+        : entitySpec.getAspectSpecs().stream()
+            .filter(aspec -> aspec.getName().toLowerCase().equals(aspectName))
+            .findFirst()
+            .get();
   }
 }

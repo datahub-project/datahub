@@ -1,7 +1,5 @@
 package com.linkedin.metadata.entity;
 
-import static com.linkedin.metadata.entity.EntityUtils.parseSystemMetadata;
-
 import com.datahub.util.RecordUtils;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -52,10 +50,6 @@ public class EntityAspect {
   private String createdBy;
 
   private String createdFor;
-
-  public EntityAspectIdentifier getAspectIdentifier() {
-    return new EntityAspectIdentifier(getUrn(), getAspect(), getVersion());
-  }
 
   /**
    * Provide a typed EntityAspect without breaking the existing public contract with generic types.
@@ -110,11 +104,7 @@ public class EntityAspect {
 
     @Nullable
     public SystemMetadata getSystemMetadata() {
-      return parseSystemMetadata(getSystemMetadataRaw());
-    }
-
-    public EntityAspectIdentifier getAspectIdentifier() {
-      return entityAspect.getAspectIdentifier();
+      return EntityApiUtils.parseSystemMetadata(getSystemMetadataRaw());
     }
 
     /**
