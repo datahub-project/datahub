@@ -68,6 +68,12 @@ module.exports = {
               className: "saasOnly",
             },
             {
+              label: "Schema Assertions",
+              type: "doc",
+              id: "docs/managed-datahub/observe/schema-assertions",
+              className: "saasOnly",
+            },
+            {
               label: "Volume Assertions",
               type: "doc",
               id: "docs/managed-datahub/observe/volume-assertions",
