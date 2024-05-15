@@ -28,6 +28,7 @@ export default function DescriptionSection({ description, isExpandable, limit }:
                 editable={false}
                 ignoreLimit={!isExpandable}
                 isCompact
+                shouldShowScroll={false}
             />
         </ContentWrapper>
     );

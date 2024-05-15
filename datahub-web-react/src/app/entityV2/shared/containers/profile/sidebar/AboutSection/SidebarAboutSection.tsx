@@ -38,7 +38,7 @@ export const SidebarAboutSection = ({ properties, readOnly }: Props) => {
                 title="Documentation"
                 content={
                     <>
-                        {description && <DescriptionSection description={description} />}
+                        {description && <DescriptionSection description={description} isExpandable limit={100} />}
                         {hasContent && <LinksSection hideLinksButton={hideLinksButton} readOnly />}
                         {!hasContent && <EmptySectionText message={EMPTY_MESSAGES.documentation.title} />}
                     </>

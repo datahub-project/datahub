@@ -38,12 +38,13 @@ const MarkdownViewContainer = styled.div<{
     showall?: string;
     limit?: string;
     over?: string;
+    shouldShowScroll?: boolean;
 }>`
     display: block;
     overflow-wrap: break-word;
     word-wrap: break-word;
     overflow-x: hidden;
-    overflow-y: auto;
+    overflow-y: ${(props) => (props.shouldShowScroll ? 'auto' : 'hidden')};
     ${(props) =>
         props.showall
             ? ''
@@ -81,9 +82,17 @@ export type Props = {
     editable?: boolean;
     onEditClicked?: () => void;
     ignoreLimit?: boolean;
+    shouldShowScroll?: boolean;
 };
 
-export default function MarkdownViewer({ source, limit = 150, editable, onEditClicked, ignoreLimit }: Props) {
+export default function MarkdownViewer({
+    source,
+    limit = 150,
+    editable,
+    onEditClicked,
+    ignoreLimit,
+    shouldShowScroll = true,
+}: Props) {
     const [height, setHeight] = useState(0);
     const [showAll, setShowAll] = useState(false);
     const ref = useRef(null);
@@ -105,6 +114,7 @@ export default function MarkdownViewer({ source, limit = 150, editable, onEditCl
                 showall={height >= limit && showAll ? 'true' : undefined}
                 limit={ignoreLimit ? undefined : `${limit}`}
                 over={height >= limit && !ignoreLimit ? 'true' : undefined}
+                shouldShowScroll={shouldShowScroll}
             >
                 <MarkdownView ref={ref} source={source} />
             </MarkdownViewContainer>
