@@ -202,15 +202,15 @@
               ],
               "fineGrainedLineages": [
                 {
-                    "upstreamType": "FIELD_SET",
-                    "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:kafka,SampleCypressKafkaDataset,PROD),field_bar)"
-                    ],
-                    "downstreamType": "FIELD",
-                    "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleCypressHdfsDataset,PROD),shipment_info)"
-                    ],
-                    "confidenceScore": 1.0
+                  "upstreamType": "FIELD_SET",
+                  "upstreams": [
+                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:kafka,SampleCypressKafkaDataset,PROD),field_bar)"
+                  ],
+                  "downstreamType": "FIELD",
+                  "downstreams": [
+                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleCypressHdfsDataset,PROD),shipment_info)"
+                  ],
+                  "confidenceScore": 1.0
                 }
               ]
             }
@@ -400,7 +400,10 @@
           },
           {
             "com.linkedin.pegasus2avro.common.GlobalTags": {
-              "tags": [{ "tag": "urn:li:tag:Cypress" },  { "tag": "urn:li:tag:Cypress2" }]
+              "tags": [
+                { "tag": "urn:li:tag:Cypress" },
+                { "tag": "urn:li:tag:Cypress2" }
+              ]
             }
           }
         ]

@@ -1089,7 +1089,7 @@ def transform_connector_config(
     for k, v in connector_config.items():
         for key, value in lookupsByProvider.items():
             if key in v:
-                connector_config[k] = v.replace(key, value)
+                connector_config[k] = connector_config[k].replace(key, value)
 
 
 @platform_name("Kafka Connect")

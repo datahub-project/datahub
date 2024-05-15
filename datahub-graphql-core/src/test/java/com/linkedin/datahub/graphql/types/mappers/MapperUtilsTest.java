@@ -9,7 +9,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.data.schema.annotation.PathSpecBasedSchemaAnnotationVisitor;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.MatchedField;
-import com.linkedin.metadata.entity.validation.ValidationUtils;
+import com.linkedin.metadata.entity.validation.ValidationApiUtils;
 import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.snapshot.Snapshot;
@@ -42,7 +42,7 @@ public class MapperUtilsTest {
             "urn:li:dataset:%28urn:li:dataPlatform:s3%2Ctest-datalake-concepts/prog_maintenance%2CPROD%29");
     assertThrows(
         IllegalArgumentException.class,
-        () -> ValidationUtils.validateUrn(entityRegistry, invalidUrn));
+        () -> ValidationApiUtils.validateUrn(entityRegistry, invalidUrn));
 
     QueryContext mockContext = mock(QueryContext.class);
     when(mockContext.getOperationContext())
