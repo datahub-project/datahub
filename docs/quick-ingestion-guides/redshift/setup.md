@@ -32,4 +32,4 @@ GRANT SELECT ON pg_catalog.svl_user_info to datahub;
 
 Once you've confirmed all of the above in Redshift, it's time to [move on](configuration.md) to configure the actual ingestion source within the DataHub UI.
 
-*Need more help? Join the conversation in [Slack](http://slack.datahubproject.io)!*
+

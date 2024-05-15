@@ -130,8 +130,8 @@ class HiveMetastore(BasicSQLAlchemyConfig):
     )
 
     enable_properties_merge: bool = Field(
-        default=False,
-        description="By default, the connector overwrites properties every time. Set this to True to enable merging of properties with what exists on the server.",
+        default=True,
+        description="By default, the connector enables merging of properties with what exists on the server. Set this to False to enable the default connector behavior of overwriting properties on each ingestion.",
     )
 
     simplify_nested_field_paths: bool = Field(
