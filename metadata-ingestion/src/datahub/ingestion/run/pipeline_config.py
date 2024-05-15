@@ -64,10 +64,6 @@ class FlagsConfig(ConfigModel):
 
 
 class PipelineConfig(ConfigModel):
-    # Once support for discriminated unions gets merged into Pydantic, we can
-    # simplify this configuration and validation.
-    # See https://github.com/samuelcolvin/pydantic/pull/2336.
-
     source: SourceConfig
     sink: Optional[DynamicTypedConfig] = None
     transformers: Optional[List[DynamicTypedConfig]] = None
