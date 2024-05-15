@@ -263,17 +263,16 @@ class Pipeline:
         with _add_init_error_context("configure reporters"):
             self._configure_reporting(report_to, no_default_report)
 
-        source_type = self.config.source.type
         with _add_init_error_context(
-            f"find a registered source for type {source_type}"
+            f"find a registered source for type {self.source_type}"
         ):
-            source_class = source_registry.get(source_type)
+            source_class = source_registry.get(self.source_type)
 
-        with _add_init_error_context(f"configure the source ({source_type})"):
+        with _add_init_error_context(f"configure the source ({self.source_type})"):
             self.source = source_class.create(
                 self.config.source.dict().get("config", {}), self.ctx
             )
-            logger.debug(f"Source type {source_type} ({source_class}) configured")
+            logger.debug(f"Source type {self.source_type} ({source_class}) configured")
             logger.info("Source configured successfully.")
 
         extractor_type = self.config.source.extractor
@@ -285,6 +284,10 @@ class Pipeline:
 
         with _add_init_error_context("configure transformers"):
             self._configure_transforms()
+
+    @property
+    def source_type(self) -> str:
+        return self.config.source.type
 
     def _configure_transforms(self) -> None:
         self.transformers = []
@@ -572,7 +575,7 @@ class Pipeline:
         telemetry.telemetry_instance.ping(
             "ingest_stats",
             {
-                "source_type": self.config.source.type,
+                "source_type": self.source_type,
                 "sink_type": self.sink_type,
                 "transformer_types": [
                     transformer.type for transformer in self.config.transformers or []
@@ -622,7 +625,7 @@ class Pipeline:
         click.echo()
         click.secho("Cli report:", bold=True)
         click.secho(self.cli_report.as_string())
-        click.secho(f"Source ({self.config.source.type}) report:", bold=True)
+        click.secho(f"Source ({self.source_type}) report:", bold=True)
         click.echo(self.source.get_report().as_string())
         click.secho(f"Sink ({self.sink_type}) report:", bold=True)
         click.echo(self.sink.get_report().as_string())
@@ -686,7 +689,7 @@ class Pipeline:
         return {
             "cli": self.cli_report.as_obj(),
             "source": {
-                "type": self.config.source.type,
+                "type": self.source_type,
                 "report": self.source.get_report().as_obj(),
             },
             "sink": {

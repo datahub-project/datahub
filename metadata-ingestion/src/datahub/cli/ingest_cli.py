@@ -131,7 +131,7 @@ def run(
                 pipeline.run()
             except Exception as e:
                 logger.info(
-                    f"Source ({pipeline.config.source.type}) report:\n{pipeline.source.get_report().as_string()}"
+                    f"Source ({pipeline.source_type}) report:\n{pipeline.source.get_report().as_string()}"
                 )
                 logger.info(
                     f"Sink ({pipeline.sink_type}) report:\n{pipeline.sink.get_report().as_string()}"
