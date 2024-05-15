@@ -14,6 +14,8 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata.schema_classes import (
+    BrowsePathEntryClass,
+    BrowsePathsV2Class,
     FineGrainedLineageClass,
     FineGrainedLineageDownstreamTypeClass,
     FineGrainedLineageUpstreamTypeClass,
@@ -540,6 +542,19 @@ class DataHubListener:
             )
 
             self.emitter.emit(event)
+
+        # emit browsePathV2 aspect
+        MetadataChangeProposalWrapper
+        browse_path_v2_event: MetadataChangeProposalWrapper = (
+            MetadataChangeProposalWrapper(
+                entityUrn=str(dataflow.urn),
+                aspect=BrowsePathsV2Class(
+                    path=[BrowsePathEntryClass(str(dag.dag_id))],
+                ),
+            )
+        )
+
+        self.emitter.emit(browse_path_v2_event)
 
     if HAS_AIRFLOW_DAG_LISTENER_API:
 
