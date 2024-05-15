@@ -16,6 +16,7 @@ import {
     useUpdateDashboardMutation,
 } from '../../../graphql/dashboard.generated';
 import { Dashboard, EntityType, LineageDirection, OwnershipType, SearchResult } from '../../../types.generated';
+import { GenericEntityProperties } from '../../entity/shared/types';
 import { LOOKER_URN, MODE_URN } from '../../ingest/source/builder/constants';
 import { MatchedFieldList } from '../../search/matches/MatchedFieldList';
 import { matchedInputFieldRenderer } from '../../search/matches/matchedInputFieldRenderer';
@@ -30,8 +31,11 @@ import DataProductSection from '../shared/containers/profile/sidebar/DataProduct
 import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domain/SidebarDomainSection';
 import SidebarLineageSection from '../shared/containers/profile/sidebar/Lineage/SidebarLineageSection';
 import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
+import SidebarEntityHeader from '../shared/containers/profile/sidebar/SidebarEntityHeader';
 import { SidebarGlossaryTermsSection } from '../shared/containers/profile/sidebar/SidebarGlossaryTermsSection';
 import { SidebarTagsSection } from '../shared/containers/profile/sidebar/SidebarTagsSection';
+import SharingAssetSection from '../shared/containers/profile/sidebar/shared/SharingAssetSection';
+import SyncedAssetSection from '../shared/containers/profile/sidebar/shared/SyncedAssetSection';
 import { getDashboardPopularityTier, isValuePresent } from '../shared/containers/profile/sidebar/shared/utils';
 import { getDataForEntityType } from '../shared/containers/profile/utils';
 import EmbeddedProfile from '../shared/embed/EmbeddedProfile';
@@ -39,21 +43,16 @@ import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab'
 import { EmbedTab } from '../shared/tabs/Embed/EmbedTab';
 import { DashboardChartsTab } from '../shared/tabs/Entity/DashboardChartsTab';
 import { DashboardDatasetsTab } from '../shared/tabs/Entity/DashboardDatasetsTab';
+import { IncidentTab } from '../shared/tabs/Incident/IncidentTab';
 import { LineageTab } from '../shared/tabs/Lineage/LineageTab';
 import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
-import { GenericEntityProperties } from '../../entity/shared/types';
 import { SidebarTitleActionType, getDataProduct, isOutputPort, getDashboardLastUpdatedMs } from '../shared/utils';
 import { DashboardPreview } from './preview/DashboardPreview';
 import { DashboardStatsSummarySubHeader } from './profile/DashboardStatsSummarySubHeader';
-import SidebarEntityHeader from '../shared/containers/profile/sidebar/SidebarEntityHeader';
-import { IncidentTab } from '../shared/tabs/Incident/IncidentTab';
-import SyncedAssetSection from '../shared/containers/profile/sidebar/shared/SyncedAssetSection';
-import SharingAssetSection from '../shared/containers/profile/sidebar/shared/SharingAssetSection';
+import DashboardSummaryTab from './summary/DashboardSummaryTab';
+import { SUMMARY_TAB_ICON } from '../shared/summary/HeaderComponents';
 
-const PREVIEW_SUPPORTED_PLATFORMS = [
-    LOOKER_URN,
-    MODE_URN,
-]
+const PREVIEW_SUPPORTED_PLATFORMS = [LOOKER_URN, MODE_URN];
 
 /**
  * Definition of the DataHub Dashboard entity.
@@ -64,6 +63,7 @@ const headerDropdownItems = new Set([
     EntityMenuItems.SHARE,
     EntityMenuItems.SUBSCRIBE,
     EntityMenuItems.UPDATE_DEPRECATION,
+    EntityMenuItems.ANNOUNCE,
 ]);
 
 export class DashboardEntity implements Entity<Dashboard> {
@@ -125,6 +125,11 @@ export class DashboardEntity implements Entity<Dashboard> {
                 component: DashboardStatsSummarySubHeader,
             }}
             tabs={[
+                {
+                    name: 'Summary',
+                    component: DashboardSummaryTab,
+                    icon: SUMMARY_TAB_ICON,
+                },
                 {
                     name: 'Contents',
                     component: DashboardChartsTab,
@@ -280,15 +285,16 @@ export class DashboardEntity implements Entity<Dashboard> {
                 subtype={data.subTypes?.typeNames?.[0]}
                 tier={
                     isValuePresent(data?.statsSummary?.viewCountPercentileLast30Days) &&
-                        isValuePresent(data?.statsSummary?.uniqueUserPercentileLast30Days)
+                    isValuePresent(data?.statsSummary?.uniqueUserPercentileLast30Days)
                         ? getDashboardPopularityTier(
-                            data.statsSummary?.viewCountPercentileLast30Days,
-                            data.statsSummary?.uniqueUserPercentileLast30Days,
-                        )
+                              data.statsSummary?.viewCountPercentileLast30Days,
+                              data.statsSummary?.uniqueUserPercentileLast30Days,
+                          )
                         : undefined
                 }
                 headerDropdownItems={headerDropdownItems}
                 previewType={previewType}
+                browsePaths={data.browsePathV2 || undefined}
             />
         );
     };
@@ -331,14 +337,15 @@ export class DashboardEntity implements Entity<Dashboard> {
                 isOutputPort={isOutputPort(result)}
                 tier={
                     isValuePresent(data?.statsSummary?.viewCountPercentileLast30Days) &&
-                        isValuePresent(data?.statsSummary?.uniqueUserPercentileLast30Days)
+                    isValuePresent(data?.statsSummary?.uniqueUserPercentileLast30Days)
                         ? getDashboardPopularityTier(
-                            data.statsSummary?.viewCountPercentileLast30Days,
-                            data.statsSummary?.uniqueUserPercentileLast30Days,
-                        )
+                              data.statsSummary?.viewCountPercentileLast30Days,
+                              data.statsSummary?.uniqueUserPercentileLast30Days,
+                          )
                         : undefined
                 }
                 headerDropdownItems={headerDropdownItems}
+                browsePaths={data.browsePathV2 || undefined}
             />
         );
     };

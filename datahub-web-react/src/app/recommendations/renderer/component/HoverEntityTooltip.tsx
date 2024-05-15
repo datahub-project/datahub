@@ -1,5 +1,5 @@
-import { TooltipPlacement } from 'antd/es/tooltip';
 import { Tooltip } from 'antd';
+import { TooltipPlacement } from 'antd/es/tooltip';
 import React from 'react';
 import { Entity } from '../../../../types.generated';
 import { PreviewType } from '../../../entity/Entity';

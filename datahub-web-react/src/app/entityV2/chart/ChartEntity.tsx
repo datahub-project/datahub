@@ -11,7 +11,8 @@ import {
 import * as React from 'react';
 import { GetChartQuery, useGetChartQuery, useUpdateChartMutation } from '../../../graphql/chart.generated';
 import { Chart, EntityType, LineageDirection, SearchResult } from '../../../types.generated';
-import { LOOKER_URN, MODE_URN } from '../../ingest/source/builder/constants';
+import { GenericEntityProperties } from '../../entity/shared/types';
+import { LOOKER_URN, MODE, MODE_URN } from '../../ingest/source/builder/constants';
 import { MatchedFieldList } from '../../search/matches/MatchedFieldList';
 import { matchedInputFieldRenderer } from '../../searchV2/matches/matchedInputFieldRenderer';
 import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
@@ -25,8 +26,11 @@ import DataProductSection from '../shared/containers/profile/sidebar/DataProduct
 import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domain/SidebarDomainSection';
 import SidebarLineageSection from '../shared/containers/profile/sidebar/Lineage/SidebarLineageSection';
 import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
+import SidebarEntityHeader from '../shared/containers/profile/sidebar/SidebarEntityHeader';
 import { SidebarGlossaryTermsSection } from '../shared/containers/profile/sidebar/SidebarGlossaryTermsSection';
 import { SidebarTagsSection } from '../shared/containers/profile/sidebar/SidebarTagsSection';
+import SharingAssetSection from '../shared/containers/profile/sidebar/shared/SharingAssetSection';
+import SyncedAssetSection from '../shared/containers/profile/sidebar/shared/SyncedAssetSection';
 import { getChartPopularityTier, isValuePresent } from '../shared/containers/profile/sidebar/shared/utils';
 import { getDataForEntityType } from '../shared/containers/profile/utils';
 import EmbeddedProfile from '../shared/embed/EmbeddedProfile';
@@ -35,28 +39,22 @@ import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab'
 import { EmbedTab } from '../shared/tabs/Embed/EmbedTab';
 import { ChartDashboardsTab } from '../shared/tabs/Entity/ChartDashboardsTab';
 import { InputFieldsTab } from '../shared/tabs/Entity/InputFieldsTab';
+import { IncidentTab } from '../shared/tabs/Incident/IncidentTab';
 import { LineageTab } from '../shared/tabs/Lineage/LineageTab';
 import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
 import { SidebarTitleActionType, getDataProduct, isOutputPort, getDashboardLastUpdatedMs } from '../shared/utils';
 import { ChartPreview } from './preview/ChartPreview';
 import { ChartStatsSummarySubHeader } from './profile/stats/ChartStatsSummarySubHeader';
 import ChartSummaryTab from './summary/ChartSummaryTab';
-import SidebarEntityHeader from '../shared/containers/profile/sidebar/SidebarEntityHeader';
-import { IncidentTab } from '../shared/tabs/Incident/IncidentTab';
-import { GenericEntityProperties } from '../../entity/shared/types';
-import SyncedAssetSection from '../shared/containers/profile/sidebar/shared/SyncedAssetSection';
-import SharingAssetSection from '../shared/containers/profile/sidebar/shared/SharingAssetSection';
 
-const PREVIEW_SUPPORTED_PLATFORMS = [
-    LOOKER_URN,
-    MODE_URN,
-]
+const PREVIEW_SUPPORTED_PLATFORMS = [LOOKER_URN, MODE_URN];
 
 const headerDropdownItems = new Set([
     EntityMenuItems.EXTERNAL_URL,
     EntityMenuItems.SHARE,
     EntityMenuItems.SUBSCRIBE,
     EntityMenuItems.UPDATE_DEPRECATION,
+    EntityMenuItems.ANNOUNCE,
 ]);
 
 /**
@@ -131,7 +129,8 @@ export class ChartEntity implements Entity<Chart> {
                     display: {
                         visible: (_, chart: GetChartQuery) =>
                             !!chart?.chart?.subTypes?.typeNames?.includes(SubType.TableauWorksheet) ||
-                            !!chart?.chart?.subTypes?.typeNames?.includes(SubType.Looker),
+                            !!chart?.chart?.subTypes?.typeNames?.includes(SubType.Looker) ||
+                            chart?.chart?.platform.name === MODE,
                         enabled: () => true,
                     },
                 },
@@ -155,9 +154,11 @@ export class ChartEntity implements Entity<Chart> {
                     icon: EyeOutlined,
                     display: {
                         visible: (_, chart: GetChartQuery) =>
-                            !!chart?.chart?.embed?.renderUrl && PREVIEW_SUPPORTED_PLATFORMS.includes(chart?.chart?.platform.urn),
+                            !!chart?.chart?.embed?.renderUrl &&
+                            PREVIEW_SUPPORTED_PLATFORMS.includes(chart?.chart?.platform.urn),
                         enabled: (_, chart: GetChartQuery) =>
-                            !!chart?.chart?.embed?.renderUrl && PREVIEW_SUPPORTED_PLATFORMS.includes(chart?.chart?.platform.urn),
+                            !!chart?.chart?.embed?.renderUrl &&
+                            PREVIEW_SUPPORTED_PLATFORMS.includes(chart?.chart?.platform.urn),
                     },
                 },
                 {
@@ -260,6 +261,7 @@ export class ChartEntity implements Entity<Chart> {
 
     renderPreview = (_: PreviewType, data: Chart) => {
         const genericProperties = this.getGenericEntityProperties(data);
+
         return (
             <ChartPreview
                 urn={data.urn}
@@ -277,14 +279,15 @@ export class ChartEntity implements Entity<Chart> {
                 subType={data.subTypes?.typeNames?.[0]}
                 tier={
                     isValuePresent(data?.statsSummary?.viewCountPercentileLast30Days) &&
-                        isValuePresent(data?.statsSummary?.uniqueUserPercentileLast30Days)
+                    isValuePresent(data?.statsSummary?.uniqueUserPercentileLast30Days)
                         ? getChartPopularityTier(
-                            data.statsSummary?.viewCountPercentileLast30Days,
-                            data.statsSummary?.uniqueUserPercentileLast30Days,
-                        )
+                              data.statsSummary?.viewCountPercentileLast30Days,
+                              data.statsSummary?.uniqueUserPercentileLast30Days,
+                          )
                         : undefined
                 }
                 headerDropdownItems={headerDropdownItems}
+                browsePaths={data.browsePathV2 || undefined}
             />
         );
     };
@@ -323,14 +326,15 @@ export class ChartEntity implements Entity<Chart> {
                 isOutputPort={isOutputPort(result)}
                 tier={
                     isValuePresent(data?.statsSummary?.viewCountPercentileLast30Days) &&
-                        isValuePresent(data?.statsSummary?.uniqueUserPercentileLast30Days)
+                    isValuePresent(data?.statsSummary?.uniqueUserPercentileLast30Days)
                         ? getChartPopularityTier(
-                            data.statsSummary?.viewCountPercentileLast30Days,
-                            data.statsSummary?.uniqueUserPercentileLast30Days,
-                        )
+                              data.statsSummary?.viewCountPercentileLast30Days,
+                              data.statsSummary?.uniqueUserPercentileLast30Days,
+                          )
                         : undefined
                 }
                 headerDropdownItems={headerDropdownItems}
+                browsePaths={data.browsePathV2 || undefined}
             />
         );
     };

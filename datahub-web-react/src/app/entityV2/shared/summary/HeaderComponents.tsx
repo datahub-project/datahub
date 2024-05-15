@@ -36,9 +36,9 @@ export const SummaryTabHeaderWrapper = styled.div`
 export const HeaderTitle = styled.h3`
     align-items: center;
     display: flex;
-    color: ${REDESIGN_COLORS.SUBTITLE};
-    font-weight: 700;
-    font-size: 16px;
+    font-size: 18px;
+    color: ${REDESIGN_COLORS.TEXT_HEADING};
+    font-weight: 500;
     margin: 0;
     overflow: hidden;
     text-overflow: ellipsis;

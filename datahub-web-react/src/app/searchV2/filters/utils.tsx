@@ -59,7 +59,7 @@ import DomainsIcon from '../../../images/domain.svg?react';
 import { GetAutoCompleteMultipleResultsQuery } from '../../../graphql/search.generated';
 import { FACETS_TO_ENTITY_TYPES } from './constants';
 import { FieldType, FilterOperatorType, FilterOptionType, FilterPredicate } from './types';
-import { capitalizeFirstLetterOnly, forcePluralize } from '../../shared/textUtil';
+import { capitalizeFirstLetterOnly, forcePluralize, pluralizeIfIrregular } from '../../shared/textUtil';
 import { convertBackendToFrontendOperatorType } from './operator/operator';
 import { ALL_FILTER_FIELDS } from './field/fields';
 import { getSubTypeIcon } from '../../entityV2/shared/components/subtypes';
@@ -152,7 +152,7 @@ function getEntitySubtypeFilterIconAndLabel(filterValue: string, entityRegistry:
     // If this includes a delimiter, it is a subType
     if (filterValue.includes(FILTER_DELIMITER)) {
         const [type, subType] = filterValue.split(FILTER_DELIMITER);
-        label = capitalizeFirstLetterOnly(forcePluralize(subType));
+        label = capitalizeFirstLetterOnly(pluralizeIfIrregular(subType));
         icon = <SubTypeIcon $fontSize={size}>{getTypeIcon(entityRegistry, type as EntityType, subType)}</SubTypeIcon>;
     } else {
         icon = entityRegistry.getIcon(filterValue as EntityType, size || 12, IconStyleType.ACCENT, ANTD_GRAY[9]);

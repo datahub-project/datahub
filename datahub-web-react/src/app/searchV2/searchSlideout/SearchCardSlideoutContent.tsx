@@ -7,6 +7,7 @@ import TagTermGroup from '../../sharedV2/tags/TagTermGroup';
 import { useEntityRegistryV2 } from '../../useEntityRegistry';
 import { CombinedSearchResult } from '../utils/combineSiblingsInSearchResults';
 import EntityPaths from '../../previewV2/EntityPaths/EntityPaths';
+import { useSearchContext } from '../../search/context/SearchContext';
 
 type Props = {
     item?: CombinedSearchResult | null;
@@ -27,8 +28,9 @@ export const SearchCardSlideoutContent = ({ item, expandedSection }: Props) => {
     }, [expandedSection]);
 
     const entityRegistry = useEntityRegistryV2();
+    const { isFullViewCard } = useSearchContext();
 
-    if (!item || !item.entity || !cachedExpandedSection) return <></>;
+    if (!item || !item.entity || !cachedExpandedSection || !isFullViewCard) return <></>;
 
     const genericProps = entityRegistry.getGenericEntityProperties(item?.entity?.type, item?.entity);
 

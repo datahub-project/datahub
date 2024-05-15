@@ -1,15 +1,15 @@
-import React from 'react';
-import { Pagination, Spin, Typography } from 'antd';
 import { LoadingOutlined } from '@ant-design/icons';
+import { Pagination, Spin, Typography } from 'antd';
+import React from 'react';
 import styled from 'styled-components';
-import { FacetFilterInput, FacetMetadata, SearchResults as SearchResultType } from '../../../../../../types.generated';
 import { SearchCfg } from '../../../../../../conf';
+import { FacetFilterInput, FacetMetadata, SearchResults as SearchResultType } from '../../../../../../types.generated';
 import { EntityAndType } from '../../../../../entity/shared/types';
-import { UnionType } from '../../../../../search/utils/constants';
 import { SearchFiltersSection } from '../../../../../search/SearchFiltersSection';
-import { EntitySearchResults, EntityActionProps } from './EntitySearchResults';
-import MatchingViewsLabel from './MatchingViewsLabel';
+import { UnionType } from '../../../../../search/utils/constants';
 import { ANTD_GRAY } from '../../../constants';
+import { EntityActionProps, EntitySearchResults } from './EntitySearchResults';
+import MatchingViewsLabel from './MatchingViewsLabel';
 
 const SearchBody = styled.div`
     height: 100%;
@@ -84,6 +84,7 @@ interface Props {
     setNumResultsPerPage: (numResults: number) => void;
     entityAction?: React.FC<EntityActionProps>;
     applyView?: boolean;
+    compactUserSearchCardStyle?: boolean;
 }
 
 export const EmbeddedListSearchResults = ({
@@ -104,6 +105,7 @@ export const EmbeddedListSearchResults = ({
     setNumResultsPerPage,
     entityAction,
     applyView,
+    compactUserSearchCardStyle,
 }: Props) => {
     const pageStart = searchResponse?.start || 0;
     const pageSize = searchResponse?.count || 0;
@@ -148,6 +150,7 @@ export const EmbeddedListSearchResults = ({
                             setSelectedEntities={setSelectedEntities}
                             bordered={false}
                             entityAction={entityAction}
+                            compactUserSearchCardStyle={compactUserSearchCardStyle}
                         />
                     )}
                 </ResultContainer>

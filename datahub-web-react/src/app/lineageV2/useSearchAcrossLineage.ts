@@ -12,7 +12,7 @@ import {
     Filters,
     getEdgeId,
     isQuery,
-    isTransformational,
+    isTransformational, isUrnDbt,
     isUrnTransformational,
     LINEAGE_FILTER_PAGINATION,
     LineageEntity,
@@ -167,12 +167,16 @@ export function pruneDuplicateEdges(
     const { adjacencyList, edges } = context;
     if (isUrnTransformational(urn, entityRegistry)) return;
 
+    let seenDbtNode = false;
     const urnsToPrune = new Set<string>();
     const stack = Array.from(adjacencyList[direction].get(urn) || []).filter((p) =>
         isUrnTransformational(p, entityRegistry),
     );
     const seen = new Set<string>(stack);
     for (let u = stack.pop(); u; u = stack.pop()) {
+        if (isUrnDbt(u, entityRegistry)) {
+            seenDbtNode = true;
+        }
         Array.from(adjacencyList[direction].get(u) || []).forEach((parent) => {
             if (isUrnTransformational(parent, entityRegistry)) {
                 if (!seen.has(parent)) {
@@ -187,7 +191,12 @@ export function pruneDuplicateEdges(
 
     urnsToPrune.forEach((parent) => {
         const edge = edges.get(getEdgeId(urn, parent, direction));
-        if (edge) edge.isDisplayed = false;
+        if (edge) {
+            edge.isDisplayed = false;
+            if (seenDbtNode) {
+                edge.hideFineGrained = true;
+            }
+        }
     });
 }
 

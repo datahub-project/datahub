@@ -1,41 +1,43 @@
-import React, { useState } from 'react';
-import styled from 'styled-components';
-import { Dropdown, Menu, message, Tooltip } from 'antd';
 import {
+    BellFilled,
+    BellOutlined,
     DeleteOutlined,
     ExclamationCircleOutlined,
     FolderAddOutlined,
     FolderOpenOutlined,
     LinkOutlined,
     MoreOutlined,
+    NotificationOutlined,
     PlusOutlined,
-    WarningOutlined,
     ShareAltOutlined,
-    BellOutlined,
-    BellFilled,
+    WarningOutlined,
 } from '@ant-design/icons';
 import MoreVertOutlinedIcon from '@mui/icons-material/MoreVertOutlined';
+import { Dropdown, Menu, Tooltip, message } from 'antd';
+import React, { useState } from 'react';
 import { Redirect, useHistory } from 'react-router';
-import { EntityType } from '../../../../types.generated';
-import CreateGlossaryEntityModal from './CreateGlossaryEntityModal';
-import { UpdateDeprecationModal } from './UpdateDeprecationModal';
+import styled from 'styled-components';
 import { useUpdateDeprecationMutation } from '../../../../graphql/mutations.generated';
-import MoveGlossaryEntityModal from './MoveGlossaryEntityModal';
-import { ANTD_GRAY, REDESIGN_COLORS } from '../constants';
-import { useEntityRegistry } from '../../../useEntityRegistry';
-import { AddIncidentModal } from '../tabs/Incident/components/AddIncidentModal';
-import { getEntityPath } from '../containers/profile/utils';
-import useDeleteEntity from './useDeleteEntity';
-import { getEntityProfileDeleteRedirectPath } from '../../../shared/deleteUtils';
-import { useIsSeparateSiblingsMode } from '../useIsSeparateSiblingsMode';
-import { shouldDisplayChildDeletionWarning, isDeleteDisabled, isMoveDisabled } from './utils';
+import { EntityType } from '../../../../types.generated';
 import { useUserContext } from '../../../context/useUserContext';
-import MoveDomainModal from './MoveDomainModal';
-import { useIsNestedDomainsEnabled } from '../../../useAppConfig';
-import { EntityMenuItems } from './EntityMenuActions';
+import { getEntityProfileDeleteRedirectPath } from '../../../shared/deleteUtils';
 import ShareButtonMenu from '../../../shared/share/v2/ShareButtonMenu';
-import SubscribeButtonMenu from '../../../shared/subscribe/v2/SubscribeButtonMenu';
 import useSubscriptionSummary from '../../../shared/subscribe/useSubscriptionSummary';
+import SubscribeButtonMenu from '../../../shared/subscribe/v2/SubscribeButtonMenu';
+import { useIsNestedDomainsEnabled } from '../../../useAppConfig';
+import { useEntityRegistry } from '../../../useEntityRegistry';
+import CreateEntityAnnouncementModal from '../announce/CreateEntityAnnouncementModal';
+import { ANTD_GRAY, REDESIGN_COLORS } from '../constants';
+import { getEntityPath } from '../containers/profile/utils';
+import { AddIncidentModal } from '../tabs/Incident/components/AddIncidentModal';
+import { useIsSeparateSiblingsMode } from '../useIsSeparateSiblingsMode';
+import CreateGlossaryEntityModal from './CreateGlossaryEntityModal';
+import { EntityMenuItems } from './EntityMenuActions';
+import MoveDomainModal from './MoveDomainModal';
+import MoveGlossaryEntityModal from './MoveGlossaryEntityModal';
+import { UpdateDeprecationModal } from './UpdateDeprecationModal';
+import useDeleteEntity from './useDeleteEntity';
+import { isDeleteDisabled, isMoveDisabled, shouldDisplayChildDeletionWarning } from './utils';
 
 export const MenuIcon = styled(MoreOutlined)<{ fontSize?: number }>`
     display: flex;
@@ -141,6 +143,7 @@ const EntityDropdown = (props: Props) => {
     const [isCreateTermModalVisible, setIsCreateTermModalVisible] = useState(false);
     const [isCreateNodeModalVisible, setIsCreateNodeModalVisible] = useState(false);
     const [isDeprecationModalVisible, setIsDeprecationModalVisible] = useState(false);
+    const [isEntityAnnouncementModalVisible, setIsEntityAnnouncementModalVisible] = useState(false);
     const [isMoveModalVisible, setIsMoveModalVisible] = useState(false);
     // acryl-main only
     const [isRaiseIncidentModalVisible, setIsRaiseIncidentModalVisible] = useState(false);
@@ -212,6 +215,14 @@ const EntityDropdown = (props: Props) => {
                                         &nbsp; Mark as un-deprecated
                                     </MenuItem>
                                 )}
+                            </Menu.Item>
+                        )}
+                        {menuItems.has(EntityMenuItems.ANNOUNCE) && (
+                            <Menu.Item key="1-1">
+                                <MenuItem onClick={() => setIsEntityAnnouncementModalVisible(true)}>
+                                    <NotificationOutlined />
+                                    &nbsp; Add Note
+                                </MenuItem>
                             </Menu.Item>
                         )}
                         {menuItems.has(EntityMenuItems.ADD_TERM) && (
@@ -348,6 +359,9 @@ const EntityDropdown = (props: Props) => {
                     onClose={() => setIsDeprecationModalVisible(false)}
                     refetch={refetchForEntity}
                 />
+            )}
+            {isEntityAnnouncementModalVisible && (
+                <CreateEntityAnnouncementModal urn={urn} onClose={() => setIsEntityAnnouncementModalVisible(false)} />
             )}
             {isMoveModalVisible && isGlossaryEntity && (
                 <MoveGlossaryEntityModal

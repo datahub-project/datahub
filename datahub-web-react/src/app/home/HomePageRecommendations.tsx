@@ -1,6 +1,8 @@
+import { Divider, Empty, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components/macro';
-import { Divider, Empty, Typography } from 'antd';
+import { useGetEntityCountsQuery } from '../../graphql/app.generated';
+import { useListRecommendationsQuery } from '../../graphql/recommendations.generated';
 import {
     CorpUser,
     EntityType,
@@ -8,11 +10,6 @@ import {
     RecommendationRenderType,
     ScenarioType,
 } from '../../types.generated';
-import { useListRecommendationsQuery } from '../../graphql/recommendations.generated';
-import { RecommendationModule } from '../recommendations/RecommendationModule';
-import { BrowseEntityCard } from '../search/BrowseEntityCard';
-import { useEntityRegistry } from '../useEntityRegistry';
-import { useGetEntityCountsQuery } from '../../graphql/app.generated';
 import { ANTD_GRAY } from '../entity/shared/constants';
 import { useGetAuthenticatedUser } from '../useGetAuthenticatedUser';
 import { HomePagePosts } from './HomePagePosts';
@@ -25,6 +22,9 @@ import {
 } from '../onboarding/config/HomePageOnboardingConfig';
 import { useToggleEducationStepIdsAllowList } from '../onboarding/useToggleEducationStepIdsAllowList';
 import { useUserContext } from '../context/useUserContext';
+import { RecommendationModule } from '../recommendations/RecommendationModule';
+import { BrowseEntityCard } from '../search/BrowseEntityCard';
+import { useEntityRegistry } from '../useEntityRegistry';
 
 const PLATFORMS_MODULE_ID = 'Platforms';
 const MOST_POPULAR_MODULE_ID = 'HighUsageEntities';
@@ -124,7 +124,7 @@ export const HomePageRecommendations = ({ user }: Props) => {
         variables: {
             input: {
                 types: browseEntityList,
-                viewUrn
+                viewUrn,
             },
         },
     });
@@ -145,7 +145,7 @@ export const HomePageRecommendations = ({ user }: Props) => {
                     scenario,
                 },
                 limit: 10,
-                viewUrn
+                viewUrn,
             },
         },
         fetchPolicy: 'no-cache',
@@ -198,8 +198,7 @@ export const HomePageRecommendations = ({ user }: Props) => {
                                 (entityCount) =>
                                     entityCount &&
                                     entityCount.count !== 0 &&
-                                    entityCount.entityType !== EntityType.BusinessAttribute &&
-                                    (
+                                    entityCount.entityType !== EntityType.BusinessAttribute && (
                                         <BrowseEntityCard
                                             key={entityCount.entityType}
                                             entityType={entityCount.entityType}

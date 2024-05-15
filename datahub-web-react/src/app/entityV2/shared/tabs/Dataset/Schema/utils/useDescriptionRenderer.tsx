@@ -36,11 +36,11 @@ export default function useDescriptionRenderer(
         schemaRefetch?.();
     };
 
-    return (description: string, record: SchemaField, index: number): JSX.Element => {
+    return (description: string | undefined, record: SchemaField, index: number): JSX.Element => {
         const relevantEditableFieldInfo = editableSchemaMetadata?.editableSchemaFieldInfo.find(
             (candidateEditableFieldInfo) => pathMatchesNewPath(candidateEditableFieldInfo.fieldPath, record.fieldPath),
         );
-        const displayedDescription = relevantEditableFieldInfo?.description || description;
+        const displayedDescription = relevantEditableFieldInfo?.description || description || '';
         const sanitizedDescription = sanitizeRichText(displayedDescription);
         const original = record.description ? sanitizeRichText(record.description) : undefined;
 

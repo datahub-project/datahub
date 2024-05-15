@@ -9,12 +9,12 @@ import { entityHasCapability } from './utils';
 import EntityRegistry from '../entityV2/EntityRegistry';
 import LineageBadge from './LineageBadge';
 import Freshness from './Freshness';
-import { PopularityBars } from '../entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/PopularityBars';
 import {
     PopularityTier,
     getBarsStatusFromPopularityTier,
 } from '../entityV2/shared/containers/profile/sidebar/shared/utils';
 import QueryStat from './QueryStat';
+import SidebarPopularityHeaderSection from '../entityV2/shared/containers/profile/sidebar/shared/SidebarPopularityHeaderSection';
 
 import { DatasetLastUpdatedMs, DashboardLastUpdatedMs } from '../entityV2/shared/utils';
 
@@ -86,7 +86,11 @@ const PreviewCardFooterRightSection = ({
                 {!!(tier !== undefined && status) && (
                     <>
                         <StyledDivider type="vertical" />
-                        <PopularityBars status={status} size="small" />
+                        <SidebarPopularityHeaderSection
+                            statsSummary={statsSummary}
+                            entityType={entityType}
+                            size="small"
+                        />
                     </>
                 )}
             </Container>

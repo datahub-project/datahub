@@ -91,6 +91,32 @@ For now we support sending notifications to
 
 By default, the Slack app will be able to send notifications to public channels. If you want to send notifications to private channels or DMs, you will need to invite the Slack app to those channels.
 
+
+## Command Reference
+
+The Acryl Slack bot is bi-directional - it allows users to interact with the Acryl platform via Slack messages and actions. 
+
+The following commands are supported:
+
+**Exploratory**: 
+
+- `/acryl [search] <query>` - Issue a search query to Acryl
+- `/acryl get <entity-urn>` - Issue a search query to Acryl
+- `/acryl help` - Display help message
+
+
+## Quick Actions
+
+The Slack App also comes with a set of basic actions that can be taken from a given message. 
+
+The following quick actions are supported. 
+
+**Basics**: 
+
+- **Subscribe**: Subscribe to notifications for a specific entity
+- **View More**: View the full entity details on Acryl 
+
+
 ## How to find Team ID and Channel ID in Slack
 
 - Go to the Slack channel for which you want to get channel ID

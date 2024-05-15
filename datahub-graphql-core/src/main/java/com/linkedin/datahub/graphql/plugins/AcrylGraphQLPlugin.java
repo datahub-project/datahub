@@ -10,7 +10,31 @@ import com.linkedin.datahub.graphql.GmsGraphQLEngineArgs;
 import com.linkedin.datahub.graphql.GmsGraphQLPlugin;
 import com.linkedin.datahub.graphql.WeaklyTypedAspectsResolver;
 import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
-import com.linkedin.datahub.graphql.generated.*;
+import com.linkedin.datahub.graphql.generated.ActionRequest;
+import com.linkedin.datahub.graphql.generated.Anomaly;
+import com.linkedin.datahub.graphql.generated.AnomalySource;
+import com.linkedin.datahub.graphql.generated.AssertionEvaluationSpec;
+import com.linkedin.datahub.graphql.generated.ChartStatsSummary;
+import com.linkedin.datahub.graphql.generated.CorpUser;
+import com.linkedin.datahub.graphql.generated.CreateGlossaryEntityProposalProperties;
+import com.linkedin.datahub.graphql.generated.DataHubConnection;
+import com.linkedin.datahub.graphql.generated.DataHubSubscription;
+import com.linkedin.datahub.graphql.generated.DataQualityContract;
+import com.linkedin.datahub.graphql.generated.Entity;
+import com.linkedin.datahub.graphql.generated.EntityAnomaliesResult;
+import com.linkedin.datahub.graphql.generated.EntitySubscriptionSummary;
+import com.linkedin.datahub.graphql.generated.FormForActor;
+import com.linkedin.datahub.graphql.generated.FreshnessContract;
+import com.linkedin.datahub.graphql.generated.GlossaryTermAssociation;
+import com.linkedin.datahub.graphql.generated.GlossaryTermProposalParams;
+import com.linkedin.datahub.graphql.generated.Monitor;
+import com.linkedin.datahub.graphql.generated.QueryUsageFeatures;
+import com.linkedin.datahub.graphql.generated.ResolvedAuditStamp;
+import com.linkedin.datahub.graphql.generated.RowResult;
+import com.linkedin.datahub.graphql.generated.SchemaContract;
+import com.linkedin.datahub.graphql.generated.ShareResult;
+import com.linkedin.datahub.graphql.generated.SystemMonitor;
+import com.linkedin.datahub.graphql.generated.TagProposalParams;
 import com.linkedin.datahub.graphql.resolvers.action.execution.ListActionPipelineResolver;
 import com.linkedin.datahub.graphql.resolvers.action.execution.UpsertActionPipelineResolver;
 import com.linkedin.datahub.graphql.resolvers.actionrequest.ListActionRequestsResolver;
@@ -28,7 +52,6 @@ import com.linkedin.datahub.graphql.resolvers.assertion.UpdateAssertionMetadataR
 import com.linkedin.datahub.graphql.resolvers.assertion.UpdateDatasetAssertionResolver;
 import com.linkedin.datahub.graphql.resolvers.assertion.UpsertDatasetFieldAssertionMonitorResolver;
 import com.linkedin.datahub.graphql.resolvers.assertion.UpsertDatasetFreshnessAssertionMonitorResolver;
-import com.linkedin.datahub.graphql.resolvers.assertion.UpsertDatasetSchemaAssertionMonitorResolver;
 import com.linkedin.datahub.graphql.resolvers.assertion.UpsertDatasetSqlAssertionMonitorResolver;
 import com.linkedin.datahub.graphql.resolvers.assertion.UpsertDatasetVolumeAssertionMonitorResolver;
 import com.linkedin.datahub.graphql.resolvers.connection.UpsertConnectionResolver;
@@ -47,7 +70,13 @@ import com.linkedin.datahub.graphql.resolvers.incident.UpdateIncidentResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.credentials.ListExecutorConfigsResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.execution.ListSignalRequestsResolver;
 import com.linkedin.datahub.graphql.resolvers.integration.GetLinkPreviewResolver;
-import com.linkedin.datahub.graphql.resolvers.load.*;
+import com.linkedin.datahub.graphql.resolvers.load.BatchGetEntitiesResolver;
+import com.linkedin.datahub.graphql.resolvers.load.EntityRelationshipsResultResolver;
+import com.linkedin.datahub.graphql.resolvers.load.EntityTypeBatchResolver;
+import com.linkedin.datahub.graphql.resolvers.load.EntityTypeResolver;
+import com.linkedin.datahub.graphql.resolvers.load.LoadableTypeBatchResolver;
+import com.linkedin.datahub.graphql.resolvers.load.LoadableTypeResolver;
+import com.linkedin.datahub.graphql.resolvers.load.ProposalsResolver;
 import com.linkedin.datahub.graphql.resolvers.monitor.CreateAssertionMonitorResolver;
 import com.linkedin.datahub.graphql.resolvers.monitor.DeleteMonitorResolver;
 import com.linkedin.datahub.graphql.resolvers.monitor.SystemMonitorsResolver;
@@ -331,10 +360,6 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
                 .dataFetcher(
                     "upsertDatasetFieldAssertionMonitor",
                     new UpsertDatasetFieldAssertionMonitorResolver(
-                        assertionService, monitorService, graphClient))
-                .dataFetcher(
-                    "upsertDatasetSchemaAssertionMonitor",
-                    new UpsertDatasetSchemaAssertionMonitorResolver(
                         assertionService, monitorService, graphClient))
                 .dataFetcher(
                     "createVolumeAssertion", new CreateVolumeAssertionResolver(assertionService))

@@ -97,8 +97,7 @@ export type GenericEntityProperties = {
     institutionalMemory?: Maybe<InstitutionalMemory>;
     schemaMetadata?: Maybe<SchemaMetadata>;
     externalUrl?: Maybe<string>;
-    // to indicate something is a Stream, View instead of Dataset... etc
-    entityTypeOverride?: Maybe<string>;
+    entityTypeOverride?: Maybe<string>; // to indicate something is a Stream, View instead of Dataset... etc
     /** Dataset specific- TODO, migrate these out */
     editableSchemaMetadata?: Maybe<EditableSchemaMetadata>;
     editableProperties?: Maybe<DatasetEditableProperties>;
@@ -128,12 +127,14 @@ export type GenericEntityProperties = {
     browsePathV2?: Maybe<BrowsePathV2>;
     inputOutput?: Maybe<DataJobInputOutput>;
     forms?: Maybe<Forms>;
+
     // Saas only below
     tagProposals?: Maybe<ActionRequest[]>;
     termProposals?: Maybe<ActionRequest[]>;
     statsSummary?: Maybe<ChartStatsSummary | DashboardStatsSummary | DatasetStatsSummary>;
     displayProperties?: Maybe<DisplayProperties>;
     share?: Maybe<Share>;
+    notes?: Maybe<EntityRelationshipsResult>;
 };
 
 export type GenericEntityUpdate = {
@@ -148,12 +149,12 @@ export type GenericEntityUpdate = {
 export type UpdateEntityType<U> = (
     options?:
         | MutationFunctionOptions<
-              U,
-              {
-                  urn: string;
-                  input: GenericEntityUpdate;
-              }
-          >
+            U,
+            {
+                urn: string;
+                input: GenericEntityUpdate;
+            }
+        >
         | undefined,
 ) => Promise<FetchResult<U, Record<string, any>, Record<string, any>>>;
 

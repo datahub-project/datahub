@@ -15,6 +15,7 @@ import {
     Owner,
     ParentContainersResult,
     SearchInsight,
+    BrowsePathV2,
 } from '../../../../types.generated';
 import DefaultPreviewCard from '../../../previewV2/DefaultPreviewCard';
 import { useEntityRegistry } from '../../../useEntityRegistry';
@@ -58,6 +59,7 @@ export const Preview = ({
     tier,
     headerDropdownItems,
     previewType,
+    browsePaths,
 }: {
     urn: string;
     name: string;
@@ -91,6 +93,7 @@ export const Preview = ({
     tier?: PopularityTier;
     headerDropdownItems?: Set<EntityMenuItems>;
     previewType?: Maybe<PreviewType>;
+    browsePaths?: BrowsePathV2;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
     const hasStats = !!columnCount || summaryHasStats(statsSummary);
@@ -145,6 +148,7 @@ export const Preview = ({
             headerDropdownItems={headerDropdownItems}
             statsSummary={statsSummary}
             previewType={previewType}
+            browsePaths={browsePaths}
         />
     );
 };

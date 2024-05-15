@@ -723,6 +723,7 @@ module.exports = {
             },
           ],
         },
+        "datahub-integrations-service/src/datahub_integrations/propagation/term/README",
       ],
     },
     {

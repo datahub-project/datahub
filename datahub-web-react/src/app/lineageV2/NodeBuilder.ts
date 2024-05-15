@@ -281,7 +281,7 @@ export default class NodeBuilder {
             );
         });
 
-        console.log(this);
+        console.debug(this);
     }
 
     addNodeToLayer(node: LineageNode, layer: Layer): void {
@@ -313,7 +313,7 @@ export default class NodeBuilder {
                         relatives.push(...(this.transformationChildren.get(id) || []));
                     }
                     if (!relatives.length && id !== this.homeUrn) {
-                        console.log(`MISSING RELATIVES: ${id}`);
+                        console.debug(`MISSING RELATIVES: ${id}`);
                     }
                     const relativesY = relatives
                         .map((p) => this.nodeInformation[p].y)

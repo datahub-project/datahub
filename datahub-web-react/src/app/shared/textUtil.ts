@@ -35,3 +35,14 @@ export function pluralize(count: number, noun: string, suffix = 's') {
 export function forcePluralize(noun: string, suffix = 's') {
     return `${noun}${suffix}`;
 }
+
+export function pluralizeIfIrregular(noun: string, suffix = 's'): string {
+    const irregularPlurals: Record<string, string> = {
+        query: 'queries',
+    };
+
+    if (irregularPlurals.hasOwnProperty(noun.toLowerCase())) {
+        return irregularPlurals[noun.toLowerCase()];
+    }
+    return `${noun}${suffix}`;
+}

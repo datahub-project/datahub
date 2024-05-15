@@ -12,6 +12,7 @@ import {
     GlossaryTerms,
     DataProduct,
     EntityPath,
+    BrowsePathV2,
 } from '../../../../types.generated';
 import DefaultPreviewCard from '../../../previewV2/DefaultPreviewCard';
 import { useEntityRegistry } from '../../../useEntityRegistry';
@@ -43,6 +44,7 @@ export const Preview = ({
     entityCount,
     isOutputPort,
     headerDropdownItems,
+    browsePaths
 }: {
     urn: string;
     name: string;
@@ -67,6 +69,7 @@ export const Preview = ({
     entityCount?: number;
     isOutputPort?: boolean;
     headerDropdownItems?: Set<EntityMenuItems>;
+    browsePaths?: BrowsePathV2;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
     return (
@@ -97,6 +100,7 @@ export const Preview = ({
             subHeader={<EntityCount displayAssetsText entityCount={entityCount} />}
             isOutputPort={isOutputPort}
             headerDropdownItems={headerDropdownItems}
+            browsePaths={browsePaths}
         />
     );
 };

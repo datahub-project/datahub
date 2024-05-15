@@ -1,6 +1,7 @@
 import { Maybe } from 'graphql/jsutils/Maybe';
 import React from 'react';
 import styled from 'styled-components';
+import KeyboardArrowRightOutlinedIcon from '@mui/icons-material/KeyboardArrowRightOutlined';
 import { Container, Entity, EntityType } from '../../types.generated';
 import { getSubTypeIcon } from '../entityV2/shared/components/subtypes';
 import { REDESIGN_COLORS } from '../entityV2/shared/constants';
@@ -28,17 +29,18 @@ const PlatformContentWrapper = styled.div`
 export const PlatformText = styled.div<{
     $maxWidth?: number;
     $previewType?: Maybe<PreviewType>;
+    $isCompactView?: boolean;
 }>`
     color: ${REDESIGN_COLORS.TEXT_GREY};
     white-space: nowrap;
     font-family: Mulish;
-    font-size: 13px;
     font-style: normal;
     font-weight: 500;
     text-overflow: ellipsis;
     overflow: hidden;
     display: flex;
     align-items: center;
+    ${(props) => props.$isCompactView ? '12px' : '13px'}
     ${(props) => props.$maxWidth && `max-width: ${props.$maxWidth}px;`}
 `;
 
@@ -46,8 +48,8 @@ const PlatformDivider = styled.div`
     padding-left: 6px;
     margin-right: 6px;
     font-size: 16px;
-    line-height: 16px;
-    color: #edeef2;
+    margin-top: -3px;
+    color: ${REDESIGN_COLORS.TEXT_GREY};
 `;
 
 export function getParentContainerNames(containers?: Maybe<Container>[] | null) {
@@ -78,6 +80,7 @@ const PlatFormTitle = styled.span`
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    color: ${REDESIGN_COLORS.TEXT_GREY};
 `;
 
 interface Props {
@@ -94,6 +97,7 @@ interface Props {
     areContainersTruncated: boolean;
     entityTitleWidth?: number;
     previewType?: Maybe<PreviewType>;
+    isCompactView?: boolean;
 }
 
 function SearchCardBrowsePath(props: Props) {
@@ -107,6 +111,7 @@ function SearchCardBrowsePath(props: Props) {
         areContainersTruncated,
         entityTitleWidth = 200,
         previewType,
+        isCompactView,
     } = props;
     const entityRegistry = useEntityRegistryV2();
 
@@ -114,20 +119,27 @@ function SearchCardBrowsePath(props: Props) {
     const remainingParentContainers = parentContainers && parentContainers.slice(1, parentContainers.length);
     const entityTypeIcon =
         getSubTypeIcon(type) || entityRegistry.getIcon(entityType, 16, IconStyleType.ACCENT, '#8d95b1');
+
+    const divider = isCompactView
+        ? (
+            <KeyboardArrowRightOutlinedIcon
+                style={{ fill: REDESIGN_COLORS.TEXT_GREY }}
+            />
+        )
+        : <PlatformDivider>|</PlatformDivider>;
+
     return (
         <PlatformContentWrapper>
-            <PlatformText $maxWidth={entityTitleWidth} title={capitalizeFirstLetter(type)}>
+            <PlatformText $maxWidth={entityTitleWidth} $isCompactView={isCompactView} title={capitalizeFirstLetter(type)}>
                 {entityTypeIcon && <TypeIconWrapper>{entityTypeIcon}</TypeIconWrapper>}
                 <PlatFormTitle>{capitalizeFirstLetter(type)}</PlatFormTitle>
-                {(!!instanceId || !!parentContainers?.length || !!parentEntities?.length) && (
-                    <PlatformDivider>|</PlatformDivider>
-                )}
+                {(!!instanceId || !!parentContainers?.length || !!parentEntities?.length) && divider}
             </PlatformText>
 
             {instanceId && (
                 <PlatformText>
                     {instanceId}
-                    {directParentContainer && <PlatformDivider>|</PlatformDivider>}
+                    {directParentContainer && divider}
                 </PlatformText>
             )}
             <StyledTooltip
@@ -145,7 +157,7 @@ function SearchCardBrowsePath(props: Props) {
                                 <span key={container?.urn}>
                                     <PlatformText>
                                         <ContainerLink container={container} />
-                                        <PlatformDivider>|</PlatformDivider>
+                                        {divider}
                                     </PlatformText>
                                 </span>
                             ))}

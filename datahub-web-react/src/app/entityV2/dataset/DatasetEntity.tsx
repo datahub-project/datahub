@@ -15,7 +15,8 @@ import ViewComfyOutlinedIcon from '@mui/icons-material/ViewComfyOutlined';
 import * as React from 'react';
 import { GetDatasetQuery, useGetDatasetQuery, useUpdateDatasetMutation } from '../../../graphql/dataset.generated';
 import { Dataset, DatasetProperties, EntityType, OwnershipType, SearchResult } from '../../../types.generated';
-import { MatchedFieldList } from '../../searchV2/matches/MatchedFieldList';
+import { GenericEntityProperties } from '../../entity/shared/types';
+import { MatchedFieldList } from '../../search/matches/MatchedFieldList';
 import { matchedFieldPathsRenderer } from '../../searchV2/matches/matchedFieldPathsRenderer';
 import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
 import { useAppConfig } from '../../useAppConfig';
@@ -28,15 +29,19 @@ import DataProductSection from '../shared/containers/profile/sidebar/DataProduct
 import SidebarDatasetHeaderSection from '../shared/containers/profile/sidebar/Dataset/Header/SidebarDatasetHeaderSection';
 import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domain/SidebarDomainSection';
 import SidebarLineageSection from '../shared/containers/profile/sidebar/Lineage/SidebarLineageSection';
-import { SidebarDatasetViewDefinitionSection } from '../shared/containers/profile/sidebar/SidebarLogicSection';
 import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
 import { SidebarCompactSchemaSection } from '../shared/containers/profile/sidebar/SidebarCompactSchemaSection';
+import SidebarEntityHeader from '../shared/containers/profile/sidebar/SidebarEntityHeader';
 import { SidebarGlossaryTermsSection } from '../shared/containers/profile/sidebar/SidebarGlossaryTermsSection';
+import { SidebarDatasetViewDefinitionSection } from '../shared/containers/profile/sidebar/SidebarLogicSection';
 import { SidebarSiblingsSection } from '../shared/containers/profile/sidebar/SidebarSiblingsSection';
 import { SidebarTagsSection } from '../shared/containers/profile/sidebar/SidebarTagsSection';
+import SharingAssetSection from '../shared/containers/profile/sidebar/shared/SharingAssetSection';
+import SyncedAssetSection from '../shared/containers/profile/sidebar/shared/SyncedAssetSection';
 import { getDatasetPopularityTier, isValuePresent } from '../shared/containers/profile/sidebar/shared/utils';
 import { getDataForEntityType } from '../shared/containers/profile/utils';
 import EmbeddedProfile from '../shared/embed/EmbeddedProfile';
+import SidebarNotesSection from '../shared/sidebarSection/SidebarNotesSection';
 import AccessManagement from '../shared/tabs/Dataset/AccessManagement/AccessManagement';
 import QueriesTab from '../shared/tabs/Dataset/Queries/QueriesTab';
 import { SchemaTab } from '../shared/tabs/Dataset/Schema/SchemaTab';
@@ -49,14 +54,10 @@ import { IncidentTab } from '../shared/tabs/Incident/IncidentTab';
 import { LineageTab } from '../shared/tabs/Lineage/LineageTab';
 import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
 import { TabContextType } from '../shared/types';
-import { GenericEntityProperties } from '../../entity/shared/types';
 import { SidebarTitleActionType, getDataProduct, isOutputPort, getDatasetLastUpdatedMs } from '../shared/utils';
 import { Preview } from './preview/Preview';
 import { OperationsTab } from './profile/OperationsTab';
 import { DatasetStatsSummarySubHeader } from './profile/stats/stats/DatasetStatsSummarySubHeader';
-import SidebarEntityHeader from '../shared/containers/profile/sidebar/SidebarEntityHeader';
-import SyncedAssetSection from '../shared/containers/profile/sidebar/shared/SyncedAssetSection';
-import SharingAssetSection from '../shared/containers/profile/sidebar/shared/SharingAssetSection';
 
 const SUBTYPES = {
     VIEW: 'view',
@@ -68,6 +69,7 @@ const headerDropdownItems = new Set([
     EntityMenuItems.SUBSCRIBE,
     EntityMenuItems.UPDATE_DEPRECATION,
     EntityMenuItems.RAISE_INCIDENT,
+    EntityMenuItems.ANNOUNCE,
 ]);
 
 /**
@@ -248,6 +250,9 @@ export class DatasetEntity implements Entity<Dataset> {
             component: SharingAssetSection,
         },
         {
+            component: SidebarNotesSection,
+        },
+        {
             component: SidebarDomainSection,
         },
         {
@@ -359,15 +364,16 @@ export class DatasetEntity implements Entity<Dataset> {
                 health={data.health}
                 tier={
                     isValuePresent(data?.statsSummary?.queryCountPercentileLast30Days) &&
-                        isValuePresent(data?.statsSummary?.uniqueUserPercentileLast30Days)
+                    isValuePresent(data?.statsSummary?.uniqueUserPercentileLast30Days)
                         ? getDatasetPopularityTier(
-                            data.statsSummary?.queryCountPercentileLast30Days,
-                            data.statsSummary?.uniqueUserPercentileLast30Days,
-                        )
+                              data.statsSummary?.queryCountPercentileLast30Days,
+                              data.statsSummary?.uniqueUserPercentileLast30Days,
+                          )
                         : undefined
                 }
                 headerDropdownItems={headerDropdownItems}
                 previewType={previewType}
+                browsePaths={data.browsePathV2 || undefined}
             />
         );
     };
@@ -406,26 +412,25 @@ export class DatasetEntity implements Entity<Dataset> {
                 statsSummary={data.statsSummary}
                 rowCount={(data as any).lastProfile?.length && (data as any).lastProfile[0].rowCount}
                 columnCount={(data as any).lastProfile?.length && (data as any).lastProfile[0].columnCount}
-                lastUpdatedMs={
-                    getDatasetLastUpdatedMs(
-                        (data as any).properties,
-                        (data as any).lastOperation?.length && (data as any).lastOperation[0]
-                    )
-                }
+                lastUpdatedMs={getDatasetLastUpdatedMs(
+                    (data as any).properties,
+                    (data as any).lastOperation?.length && (data as any).lastOperation[0],
+                )}
                 health={data.health}
                 degree={(result as any).degree}
                 paths={(result as any).paths}
                 isOutputPort={isOutputPort(result)}
                 tier={
                     isValuePresent(data?.statsSummary?.queryCountPercentileLast30Days) &&
-                        isValuePresent(data?.statsSummary?.uniqueUserPercentileLast30Days)
+                    isValuePresent(data?.statsSummary?.uniqueUserPercentileLast30Days)
                         ? getDatasetPopularityTier(
-                            data.statsSummary?.queryCountPercentileLast30Days,
-                            data.statsSummary?.uniqueUserPercentileLast30Days,
-                        )
+                              data.statsSummary?.queryCountPercentileLast30Days,
+                              data.statsSummary?.uniqueUserPercentileLast30Days,
+                          )
                         : undefined
                 }
                 headerDropdownItems={headerDropdownItems}
+                browsePaths={data.browsePathV2 || undefined}
             />
         );
     };

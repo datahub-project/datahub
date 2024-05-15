@@ -175,7 +175,11 @@ export const DescriptionEditor = ({ onComplete }: DescriptionEditorProps) => {
         <>
             <EditorSourceWrapper>
                 <EditorContainer>
-                    <Editor content={updatedDescription} onChange={handleEditorChange} />
+                    <Editor
+                        content={updatedDescription}
+                        onChange={handleEditorChange}
+                        placeholder="Describe this asset to make it more discoverable. Tag @user or reference @asset to make your docs come to life!"
+                    />
                 </EditorContainer>
                 <SourceDescription />
             </EditorSourceWrapper>

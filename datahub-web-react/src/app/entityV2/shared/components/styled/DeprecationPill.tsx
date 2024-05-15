@@ -1,31 +1,29 @@
 import React from 'react';
+import styled from 'styled-components';
 import { InfoCircleOutlined } from '@ant-design/icons';
 import { Divider, message, Modal, Popover, Tooltip, Typography } from 'antd';
-import styled from 'styled-components';
 import moment from 'moment';
+import { useBatchUpdateDeprecationMutation } from '../../../../../graphql/mutations.generated';
 import { Deprecation } from '../../../../../types.generated';
 import { getLocaleTimezone } from '../../../../shared/time/timeUtils';
 import { REDESIGN_COLORS } from '../../constants';
-import { useBatchUpdateDeprecationMutation } from '../../../../../graphql/mutations.generated';
 
 const DeprecatedContainer = styled.div`
+    background-color: ${REDESIGN_COLORS.WHITE};
     height: 22px;
-    border: 1px solid #e37878;
+    border: 1px solid ${REDESIGN_COLORS.DEPRECATION_RED_LIGHT};
     border-radius: 20px;
     display: flex;
     justify-content: center;
     align-items: center;
-    color: #cd0d24;
-    margin-left: 0px;
-    margin-right: 8px;
-    margin-top: 2px;
+    color: ${REDESIGN_COLORS.DEPRECATION_RED};
     padding: 4px 8px;
 `;
 
 const DeprecatedText = styled.div`
     font-size: 12px;
     text-align: center;
-    color: #e37878;
+    color: ${REDESIGN_COLORS.DEPRECATION_RED_LIGHT} !important;
     border: 0.5px;
 `;
 
@@ -64,6 +62,7 @@ const UndeprecatedIcon = styled(InfoCircleOutlined)`
 const IconGroup = styled.div`
     font-size: 12px;
     color: ${REDESIGN_COLORS.TEXT_HEADING};
+
     &:hover {
         color: ${REDESIGN_COLORS.TITLE_PURPLE};
         cursor: pointer;
@@ -79,10 +78,7 @@ type Props = {
 
 export const DeprecationPill = ({ deprecation, urn, refetch, showUndeprecate }: Props) => {
     const [batchUpdateDeprecationMutation] = useBatchUpdateDeprecationMutation();
-    /**
-     * Deprecation Decommission Timestamp
-     */
-    const localeTimezone = getLocaleTimezone();
+    const localeTimezone = getLocaleTimezone(); // Deprecation Decommission Timestamp
 
     let decommissionTimeSeconds;
     if (deprecation.decommissionTime) {
@@ -132,6 +128,7 @@ export const DeprecationPill = ({ deprecation, urn, refetch, showUndeprecate }: 
     return (
         <Popover
             overlayStyle={{ maxWidth: 240 }}
+            zIndex={999} // set to 999 to ensure it is below the 1000 mark of the entity popover
             placement="bottom"
             content={
                 hasDetails ? (

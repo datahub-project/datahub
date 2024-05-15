@@ -1,20 +1,20 @@
-import React, { useState } from 'react';
-import { Button, message, Typography } from 'antd';
-import styled from 'styled-components';
 import { FilterOutlined } from '@ant-design/icons';
+import { Button, message, Typography } from 'antd';
+import React, { useState } from 'react';
+import styled from 'styled-components';
 
-import { useEntityRegistry } from '../../../../../useEntityRegistry';
-import { EntityType, FacetFilterInput, FilterOperator } from '../../../../../../types.generated';
-import { ENTITY_FILTER_NAME, UnionType } from '../../../../../search/utils/constants';
 import { SearchCfg } from '../../../../../../conf';
-import { EmbeddedListSearchResults } from './EmbeddedListSearchResults';
 import { useGetSearchResultsForMultipleQuery } from '../../../../../../graphql/search.generated';
-import { isListSubset } from '../../../utils';
-import { SearchBar } from '../../../../../search/SearchBar';
-import { ANTD_GRAY } from '../../../constants';
+import { EntityType, FacetFilterInput, FilterOperator } from '../../../../../../types.generated';
 import { EntityAndType } from '../../../../../entity/shared/types';
-import { SearchSelectBar } from './SearchSelectBar';
+import { SearchBar } from '../../../../../search/SearchBar';
+import { ENTITY_FILTER_NAME, UnionType } from '../../../../../search/utils/constants';
+import { useEntityRegistry } from '../../../../../useEntityRegistry';
+import { ANTD_GRAY } from '../../../constants';
+import { isListSubset } from '../../../utils';
 import TabToolbar from '../TabToolbar';
+import { EmbeddedListSearchResults } from './EmbeddedListSearchResults';
+import { SearchSelectBar } from './SearchSelectBar';
 
 const Container = styled.span`
     display: flex;

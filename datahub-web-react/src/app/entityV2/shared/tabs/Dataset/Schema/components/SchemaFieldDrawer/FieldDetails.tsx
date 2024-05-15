@@ -1,8 +1,9 @@
-import { Typography } from 'antd';
-import React from 'react';
+import React, { useState } from 'react';
+import { Button, Typography } from 'antd';
 import styled from 'styled-components';
-// import DeprecationIcon from '../../../../../../../../images/announcement-icon.svg?react';
 import { UsageQueryResult } from '../../../../../../../../types.generated';
+import { useMutationUrn } from '../../../../../../../entity/shared/EntityContext';
+import CreateEntityAnnouncementModal from '../../../../../announce/CreateEntityAnnouncementModal';
 import { REDESIGN_COLORS } from '../../../../../constants';
 import { FieldPopularity } from './FieldPopularity';
 
@@ -23,27 +24,14 @@ const PopularityContainer = styled.div`
     flex: 2;
     gap: 5px;
 `;
-/* const IncidentContainer = styled.div`
-    display: flex;
-    flex-direction: column;
-    flex: 2;
-    gap: 5px;
-`;
-const DeprecationContainer = styled.div`
+
+const NotesWrapper = styled.div`
+    align-items: start;
     display: flex;
     flex-direction: column;
     flex: 3;
-`;
-
-const Deprecation = styled.div`
-    display: flex;
-    flex-direction: row;
     gap: 10px;
-    svg {
-        height: 25px;
-        width: 25px;
-    }
-`; */
+`;
 
 const DetailLabel = styled(Typography.Text)`
     color: ${REDESIGN_COLORS.DARK_GREY};
@@ -64,11 +52,24 @@ const DetailValue = styled(Typography.Text)`
 type FieldDetailsProps = {
     fieldPath: string | null;
     usageStats?: UsageQueryResult | null;
+    refetch?: () => void;
 };
 
-export const FieldDetails = ({ fieldPath, usageStats }: FieldDetailsProps) => {
+export const FieldDetails = ({ fieldPath, usageStats, refetch }: FieldDetailsProps) => {
+    const [isPostModalVisible, setIsPostModalVisible] = useState(false);
+
+    const datasetUrn = useMutationUrn();
+
     return (
         <FieldDetailsWrapper>
+            {isPostModalVisible && (
+                <CreateEntityAnnouncementModal
+                    subResource={fieldPath}
+                    urn={datasetUrn}
+                    onClose={() => setIsPostModalVisible(false)}
+                    onCreate={refetch}
+                />
+            )}
             <FieldDetailsContent>
                 <PopularityContainer>
                     <DetailLabel>Popularity</DetailLabel>
@@ -81,18 +82,23 @@ export const FieldDetails = ({ fieldPath, usageStats }: FieldDetailsProps) => {
                         />
                     </DetailValue>
                 </PopularityContainer>
-                {/* OBS: 489: We don't yet support incidents or deprecation on the schema fields yet. So made it invisible for the beta release. */}
-                {/* <IncidentContainer>
-                    <DetailLabel>Incident </DetailLabel>
-                    <DetailValue> - - </DetailValue>
-                </IncidentContainer>
-                <DeprecationContainer>
-                    <Deprecation>
-                        <DetailLabel>Deprecation </DetailLabel>
-                        <DeprecationIcon />
-                    </Deprecation>
-                    <DetailValue> - - </DetailValue>
-                </DeprecationContainer> */}
+                <NotesWrapper>
+                    <DetailLabel>Notes</DetailLabel>
+                    <Button
+                        type="text"
+                        style={{
+                            width: 70,
+                            padding: 0,
+                            marginTop: -8,
+                            color: REDESIGN_COLORS.LINK_GREY,
+                        }}
+                        onClick={() => {
+                            setIsPostModalVisible(true);
+                        }}
+                    >
+                        + Add Note
+                    </Button>
+                </NotesWrapper>
             </FieldDetailsContent>
         </FieldDetailsWrapper>
     );

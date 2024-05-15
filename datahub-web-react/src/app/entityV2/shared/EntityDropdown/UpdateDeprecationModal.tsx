@@ -1,5 +1,6 @@
 import React from 'react';
-import { Button, DatePicker, Form, Input, message, Modal } from 'antd';
+import { Button, DatePicker, Form, message, Modal } from 'antd';
+import TextArea from 'antd/lib/input/TextArea';
 import { useBatchUpdateDeprecationMutation } from '../../../../graphql/mutations.generated';
 import { handleBatchError } from '../utils';
 
@@ -11,6 +12,7 @@ type Props = {
 
 export const UpdateDeprecationModal = ({ urns, onClose, refetch }: Props) => {
     const [batchUpdateDeprecation] = useBatchUpdateDeprecationMutation();
+
     const [form] = Form.useForm();
 
     const handleClose = () => {
@@ -24,7 +26,7 @@ export const UpdateDeprecationModal = ({ urns, onClose, refetch }: Props) => {
             await batchUpdateDeprecation({
                 variables: {
                     input: {
-                        resources: [...urns.map((urn) => ({ resourceUrn: urn }))],
+                        resources: urns.map((resourceUrn) => ({ resourceUrn })),
                         deprecated: true,
                         note: formData.note,
                         decommissionTime: formData.decommissionTime && formData.decommissionTime.unix() * 1000,
@@ -50,7 +52,7 @@ export const UpdateDeprecationModal = ({ urns, onClose, refetch }: Props) => {
 
     return (
         <Modal
-            title="Add Deprecation Details"
+            title="Set as Deprecated"
             visible
             onCancel={handleClose}
             keyboard
@@ -66,8 +68,8 @@ export const UpdateDeprecationModal = ({ urns, onClose, refetch }: Props) => {
             }
         >
             <Form form={form} name="addDeprecationForm" onFinish={handleOk} layout="vertical">
-                <Form.Item name="note" label="Note" rules={[{ whitespace: true }, { min: 0, max: 100 }]}>
-                    <Input placeholder="Add Note" autoFocus />
+                <Form.Item name="note" label="Reason" rules={[{ whitespace: true }, { min: 0, max: 1000 }]}>
+                    <TextArea placeholder="Add Reason" autoFocus rows={4} />
                 </Form.Item>
                 <Form.Item name="decommissionTime" label="Decommission Date">
                     <DatePicker style={{ width: '100%' }} />

@@ -1,16 +1,15 @@
 import React from 'react';
-// import { Typography } from 'antd';
 import styled from 'styled-components/macro';
 import { Maybe } from 'graphql/jsutils/Maybe';
 import PostItemMenu from './PostItemMenu';
 
 export interface PostEntry {
+    urn: string;
     title: string;
     contentType: string;
-    description: Maybe<string>;
-    urn: string;
-    link: string;
-    imageUrl: string;
+    description?: Maybe<string>;
+    link?: string | null;
+    imageUrl?: string;
 }
 
 const PostText = styled.div<{ minWidth?: number }>`

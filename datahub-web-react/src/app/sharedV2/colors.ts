@@ -1,0 +1,23 @@
+export const COLORS = {
+    blue_1: '#EFF8FC',
+    blue_2: '#D7EFF8',
+    blue_3: '#B8E3F2',
+    blue_4: '#97D5EC',
+    blue_5: '#78C9E6',
+    blue_6: '#5ABDE1',
+    blue_7: '#4DA1BF',
+    blue_8: '#4086A0',
+    blue_9: '#336C80',
+    blue_10: '#285565',
+
+    yellow_1: '#FEF9ED',
+    yellow_2: '#FCF1D3',
+    yellow_3: '#FAE6B1',
+    yellow_4: '#F8DA8C',
+    yellow_5: '#F6CF6A',
+    yellow_6: '#F4C449',
+    yellow_7: '#CFA73E',
+    yellow_8: '#AD8B34',
+    yellow_9: '#8B702A',
+    yellow_10: '#6E5821',
+}

@@ -199,6 +199,33 @@ fragment nonSiblingDatasetFields on Dataset {
     forms {
         ...formsFields
     }
+    notes: relationships(input: { types: ["PostTarget"], direction: INCOMING, start: 0, count: 100 }) {
+        total
+        relationships {
+            type
+            entity {
+                ... on Post {
+                    urn
+                    type
+                    postType
+                    lastModified {
+                        time
+                        actor
+                    }
+                    content {
+                        contentType
+                        title
+                        description
+                        link
+                        media {
+                            type
+                            location
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
 
 fragment siblingFields on Dataset {

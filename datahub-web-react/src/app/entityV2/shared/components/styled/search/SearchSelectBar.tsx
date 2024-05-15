@@ -1,5 +1,5 @@
-import React from 'react';
 import { Button, Checkbox, Modal, Typography } from 'antd';
+import React from 'react';
 import styled from 'styled-components';
 import { EntityAndType } from '../../../../../entity/shared/types';
 import { SearchSelectActions } from './SearchSelectActions';

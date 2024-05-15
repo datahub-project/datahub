@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
-import { Pagination, Typography } from 'antd';
+import { Pagination, Tooltip, Typography } from 'antd';
+import ViewHeadlineOutlinedIcon from '@mui/icons-material/ViewHeadlineOutlined';
+import ViewDayOutlinedIcon from '@mui/icons-material/ViewDayOutlined';
 import styled from 'styled-components/macro';
 import { Entity, FacetFilterInput, MatchedField, SearchSuggestion, FacetMetadata } from '../../types.generated';
 import { SearchCfg } from '../../conf';
@@ -23,8 +25,9 @@ import SearchResultsLoadingSection from './SearchResultsLoadingSection';
 import { SearchEntitySidebarContainer } from './SearchEntitySidebarContainer';
 import SearchMenuItems from '../sharedV2/search/SearchMenuItems';
 import { RecommendedFilters } from './recommendation/RecommendedFilters';
-import { ANTD_GRAY } from '../entityV2/shared/constants';
+import { ANTD_GRAY, REDESIGN_COLORS } from '../entityV2/shared/constants';
 import { PreviewType } from '../entity/Entity';
+import { useSearchContext } from '../search/context/SearchContext';
 
 const SearchResultsWrapper = styled.div<{ v2Styles: boolean }>`
     display: flex;
@@ -67,7 +70,7 @@ const PaginationControlContainer = styled.div`
 `;
 
 const PaginationInfoContainer = styled.div<{ v2Styles: boolean }>`
-    padding: 12px 24px 4px 24px;
+    padding: 12px 24px 14px 24px;
     min-height: 47px;
     border-color: ${(props) => props.theme.styles['border-color-base']};
     display: flex;
@@ -104,7 +107,10 @@ const StyledTabToolbar = styled.div`
     border: 1.5px solid ${ANTD_GRAY[4]};
 `;
 
-const SearchMenuContainer = styled.div``;
+const SearchMenuContainer = styled.div`
+    display: flex;
+    align-items: center;
+`;
 
 const SearchResultListContainer = styled.div<{ v2Styles: boolean }>`
     display: flex;
@@ -115,6 +121,35 @@ const SearchResultListContainer = styled.div<{ v2Styles: boolean }>`
         flex: 1;
         overflow-x: hidden;        
         overflow-y: auto;
+    `}
+`;
+
+const CustomSwitch = styled.div`
+    background: #F6F6F6;
+    border: 1px solid #EBECF0;
+    border-radius: 30px;
+    display: flex;
+    gap: 2px;
+    align-items: center;
+    padding: 2px;
+    width: fit-content;
+    justify-content: space-between;
+}
+`;
+
+const IconContainer = styled.div<{ isActive?: boolean }>`
+    cursor: pointer;
+    align-items: center;
+    display: flex;
+    padding: 4px;
+    transition: left 0.5s ease;
+
+    ${(props) =>
+        props.isActive &&
+        `
+        background: ${REDESIGN_COLORS.TITLE_PURPLE};
+        border-radius: 100%;
+        color: white;
     `}
 `;
 
@@ -188,6 +223,7 @@ export const SearchResults = ({
     const combinedSiblingSearchResults = combineSiblingsInSearchResults(searchResponse?.searchResults);
     // For vertical sidebar
     const [highlightedIndex, setHighlightedIndex] = useState<number | null>(0);
+    const { isFullViewCard, setIsFullViewCard } = useSearchContext();
 
     const searchResultUrns = combinedSiblingSearchResults.map((result) => result.entity.urn) || [];
     const selectedEntityUrns = selectedEntities.map((entity) => entity.urn);
@@ -238,6 +274,32 @@ export const SearchResults = ({
                                                     </Typography.Text>
                                                 </LeftControlsContainer>
                                                 <SearchMenuContainer>
+                                                    <CustomSwitch>
+                                                        <IconContainer
+                                                            isActive={isFullViewCard}
+                                                            onClick={() => setIsFullViewCard(true)}
+                                                        >
+                                                            <Tooltip title="Full Card View">
+                                                                <ViewDayOutlinedIcon
+                                                                    style={{
+                                                                        fontSize: '16px',
+                                                                    }}
+                                                                />
+                                                            </Tooltip>
+                                                        </IconContainer>
+                                                        <IconContainer
+                                                            isActive={!isFullViewCard}
+                                                            onClick={() => setIsFullViewCard(false)}
+                                                        >
+                                                            <Tooltip title="Compact Card View">
+                                                                <ViewHeadlineOutlinedIcon
+                                                                    style={{
+                                                                        fontSize: '16px',
+                                                                    }}
+                                                                />
+                                                            </Tooltip>
+                                                        </IconContainer>
+                                                    </CustomSwitch>
                                                     <SearchSortSelect />
                                                     <SearchMenuItems
                                                         downloadSearchResults={downloadSearchResults}

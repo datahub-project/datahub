@@ -23,7 +23,6 @@ const SelectWrapper = styled.span`
     }
 `;
 
-
 export default function SearchSortSelect() {
     const { selectedSortOption, setSelectedSortOption } = useSearchContext();
 

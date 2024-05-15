@@ -1,22 +1,22 @@
-import React, { useEffect } from 'react';
 import queryString from 'query-string';
+import React, { useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 
-import styled from 'styled-components';
-import { Button, Divider, Typography } from 'antd';
 import { EditOutlined, PlusOutlined } from '@ant-design/icons';
+import { Button, Divider, Typography } from 'antd';
+import styled from 'styled-components';
 
-import TabToolbar from '../../components/styled/TabToolbar';
 import { AddLinkModal } from '../../components/styled/AddLinkModal';
 import { EmptyTab } from '../../components/styled/EmptyTab';
+import TabToolbar from '../../components/styled/TabToolbar';
 import { DescriptionEditor } from './components/DescriptionEditor';
 import { LinkList } from './components/LinkList';
 
 import { useEntityData, useRefetch, useRouteToTab } from '../../../../entity/shared/EntityContext';
+import { ANTD_GRAY, REDESIGN_COLORS } from '../../constants';
 import { EDITED_DESCRIPTIONS_CACHE_NAME } from '../../utils';
-import { Editor } from './components/editor/Editor';
 import { DescriptionPreviewModal } from './components/DescriptionPreviewModal';
-import { REDESIGN_COLORS,ANTD_GRAY } from '../../constants';
+import { Editor } from './components/editor/Editor';
 
 const DocumentationContainer = styled.div`
     margin: 0 32px;
@@ -40,6 +40,7 @@ const PrimaryButton = styled(Button)`
     border-color: ${REDESIGN_COLORS.TITLE_PURPLE};
     background-color: ${REDESIGN_COLORS.TITLE_PURPLE};
     margin-left: 9px;
+
     &:hover {
         transition: 0.15s;
         opacity: 0.9;
@@ -62,6 +63,7 @@ interface Props {
 export const DocumentationTab = ({ properties }: { properties?: Props }) => {
     const hideLinksButton = properties?.hideLinksButton;
     const { urn, entityData } = useEntityData();
+
     const refetch = useRefetch();
     const description = entityData?.editableProperties?.description || entityData?.properties?.description || '';
     const links = entityData?.institutionalMemory?.elements || [];

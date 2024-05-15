@@ -55,6 +55,9 @@ fragment autoCompleteFields on Entity {
         access {
             ...getAccess
         }
+        browsePathV2 {
+            ...browsePathV2Fields
+        }
     }
     ... on Role {
         id
@@ -98,6 +101,9 @@ fragment autoCompleteFields on Entity {
         subTypes {
             typeNames
         }
+        browsePathV2 {
+            ...browsePathV2Fields
+        }
     }
     ... on Chart {
         chartId
@@ -115,6 +121,9 @@ fragment autoCompleteFields on Entity {
         }
         subTypes {
             typeNames
+        }
+        browsePathV2 {
+            ...browsePathV2Fields
         }
     }
     ... on DataFlow {
@@ -190,6 +199,9 @@ fragment autoCompleteFields on Entity {
         }
         subTypes {
             typeNames
+        }
+        browsePathV2 {
+            ...browsePathV2Fields
         }
     }
     ... on Tag {
@@ -405,6 +417,9 @@ fragment searchResultsWithoutSchemaField on Entity {
                 }
             }
         }
+        browsePathV2 {
+            ...browsePathV2Fields
+        }
     }
     ... on Role {
         id
@@ -461,6 +476,7 @@ fragment searchResultsWithoutSchemaField on Entity {
             lastModified {
                 time
             }
+            lastRefreshed
         }
         ownership {
             ...ownershipFields
@@ -519,6 +535,9 @@ fragment searchResultsWithoutSchemaField on Entity {
         health {
             ...entityHealth
         }
+        browsePathV2 {
+            ...browsePathV2Fields
+        }
     }
     ... on Chart {
         chartId
@@ -531,6 +550,7 @@ fragment searchResultsWithoutSchemaField on Entity {
             lastModified {
                 time
             }
+            lastRefreshed
             created {
                 time
             }
@@ -562,6 +582,9 @@ fragment searchResultsWithoutSchemaField on Entity {
         }
         parentContainers {
             ...parentContainersFields
+        }
+        browsePathV2 {
+            ...browsePathV2Fields
         }
         statsSummary {
             viewCount
@@ -768,6 +791,9 @@ fragment searchResultsWithoutSchemaField on Entity {
         parentContainers {
             ...parentContainersFields
         }
+        # browsePathV2 {
+        #     ...browsePathV2Fields
+        # }
     }
     ... on MLFeatureTable {
         name

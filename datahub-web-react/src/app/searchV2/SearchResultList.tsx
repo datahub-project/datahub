@@ -13,6 +13,8 @@ import { MatchContextContianer } from './matches/MatchContextContainer';
 import { useIsSearchV2 } from './useSearchAndBrowseVersion';
 import { CombinedSearchResult } from './utils/combineSiblingsInSearchResults';
 import { PreviewType } from '../entity/Entity';
+import { useInitializeSearchResultCards } from '../entityV2/shared/components/styled/search/useInitializeSearchResultCards';
+import { useSearchContext } from '../search/context/SearchContext';
 
 export const MATCHES_CONTAINER_HEIGHT = 52;
 
@@ -35,14 +37,18 @@ const ThinDivider = styled(Divider)`
     margin-bottom: 16px;
 `;
 
-export const ResultWrapper = styled.div<{ showUpdatedStyles: boolean; selected: boolean; areMatchesExpanded: boolean }>`
+export const ResultWrapper = styled.div<{
+    showUpdatedStyles: boolean;
+    selected: boolean;
+    areMatchesExpanded: boolean;
+    isFullViewCard: boolean;
+}>`
     // z-index: 2;
     ${(props) =>
         props.showUpdatedStyles &&
         `    
         background-color: white;
         border-radius: 8px;
-        margin: 0 auto 12px auto;
         padding: 16px 20px;
         box-shadow: 0px 0px 5px rgba(0, 0, 0, 0.08);
         border-bottom: 1px solid ${ANTD_GRAY[5]};
@@ -62,7 +68,17 @@ export const ResultWrapper = styled.div<{ showUpdatedStyles: boolean; selected: 
         width: calc(100% + 5px);
         position: relative;
     `}
-    margin-bottom: ${(props) => (props.areMatchesExpanded ? MATCHES_CONTAINER_HEIGHT + 20 : 20)}px;
+    margin-bottom: ${(props) => {
+        let marginBottomValue;
+        if (props.areMatchesExpanded) {
+            marginBottomValue = MATCHES_CONTAINER_HEIGHT + 20;
+        } else if (props.isFullViewCard) {
+            marginBottomValue = 20;
+        } else {
+            marginBottomValue = 10;
+        }
+        return marginBottomValue;
+    }}px;
     transition: margin-bottom 0.3s ease;
     ${(props) =>
         props.areMatchesExpanded &&
@@ -194,6 +210,9 @@ export const SearchResultList = ({
     };
 
     const [urnToExpandedSection, setUrnToExpandedSection] = React.useState<Record<string, PreviewSection>>({});
+    // default open the matches section if there are matches
+    useInitializeSearchResultCards(searchResults, setUrnToExpandedSection);
+    const { isFullViewCard } = useSearchContext();
 
     return (
         <ResultList<React.FC<ListProps<CombinedSearchResult>>>
@@ -219,6 +238,7 @@ export const SearchResultList = ({
                                 areMatchesExpanded={!!expandedSection}
                                 onClick={() => onClickResult(item, index)}
                                 ref={refs[index]}
+                                isFullViewCard={isFullViewCard}
                             >
                                 <ListItem
                                     isSelectMode={isSelectMode}

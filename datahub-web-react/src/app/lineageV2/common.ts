@@ -30,7 +30,7 @@ export interface Filters {
 
 export interface NodeBase {
     id: string;
-    isExpanded:  Record<LineageDirection, boolean>;
+    isExpanded: Record<LineageDirection, boolean>;
     direction?: LineageDirection; // Root node has no direction. One day can try to support cycles in the same way.
     dragged?: boolean;
 }
@@ -119,6 +119,7 @@ interface AuditStamp {
 
 export interface LineageEdge {
     isDisplayed: boolean;
+    hideFineGrained?: boolean;
     isManual: boolean;
     created?: AuditStamp;
     updated?: AuditStamp;

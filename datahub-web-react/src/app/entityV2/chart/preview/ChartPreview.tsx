@@ -13,6 +13,7 @@ import {
     Owner,
     ParentContainersResult,
     SearchInsight,
+    BrowsePathV2,
 } from '../../../../types.generated';
 import DefaultPreviewCard from '../../../previewV2/DefaultPreviewCard';
 import { useEntityRegistry } from '../../../useEntityRegistry';
@@ -50,6 +51,7 @@ export const ChartPreview = ({
     isOutputPort,
     tier,
     headerDropdownItems,
+    browsePaths,
 }: {
     urn: string;
     platform?: string;
@@ -78,6 +80,7 @@ export const ChartPreview = ({
     isOutputPort?: boolean;
     tier?: PopularityTier;
     headerDropdownItems?: Set<EntityMenuItems>;
+    browsePaths?: BrowsePathV2 | undefined;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
     const hasStats = summaryHasStats(statsSummary);
@@ -126,6 +129,7 @@ export const ChartPreview = ({
             tier={tier}
             headerDropdownItems={headerDropdownItems}
             statsSummary={statsSummary}
+            browsePaths={browsePaths}
         />
     );
 };

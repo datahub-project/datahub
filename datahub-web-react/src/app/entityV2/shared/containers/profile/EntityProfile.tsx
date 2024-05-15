@@ -44,11 +44,7 @@ import TabFullsizeContext from '../../../../shared/TabFullsizedContext';
 import { useUpdateDomainEntityDataOnChange as useUpdateDomainEntityDataOnChangeV2 } from '../../../../domainV2/utils';
 import { ENTITY_PROFILE_V2_SUBSCRIPTION_ID } from '../../../../onboarding/configV2/EntityProfileOnboardingConfig';
 import { EntityContext } from '../../../../entity/shared/EntityContext';
-import {
-    EntitySubHeaderSection,
-    GenericEntityProperties,
-    GenericEntityUpdate,
-} from '../../../../entity/shared/types';
+import { EntitySubHeaderSection, GenericEntityProperties, GenericEntityUpdate } from '../../../../entity/shared/types';
 import { EntitySidebarSection, EntitySidebarTab, EntityTab, TabContextType, TabRenderType } from '../../types';
 
 type Props<T, U> = {

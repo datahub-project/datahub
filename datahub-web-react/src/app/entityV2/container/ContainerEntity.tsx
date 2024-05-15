@@ -176,6 +176,7 @@ export class ContainerEntity implements Entity<Container> {
                 externalUrl={data.properties?.externalUrl}
                 entityCount={data.entities?.total}
                 headerDropdownItems={headerDropdownItems}
+                browsePaths={data.browsePathV2 || undefined}
             />
         );
     };
@@ -183,6 +184,7 @@ export class ContainerEntity implements Entity<Container> {
     renderSearch = (result: SearchResult) => {
         const data = result.entity as Container;
         const genericProperties = this.getGenericEntityProperties(data);
+
         return (
             <Preview
                 urn={data.urn}
@@ -205,6 +207,7 @@ export class ContainerEntity implements Entity<Container> {
                 entityCount={data.entities?.total}
                 isOutputPort={isOutputPort(result)}
                 headerDropdownItems={headerDropdownItems}
+                browsePaths={data.browsePathV2 || undefined}
             />
         );
     };

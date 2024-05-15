@@ -18,6 +18,7 @@ import com.linkedin.post.PostType;
 import com.linkedin.r2.RemoteInvocationException;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
+import java.net.URISyntaxException;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -69,8 +70,8 @@ public class PostServiceTest {
   }
 
   @Test
-  public void testCreatePost() throws RemoteInvocationException {
-    _postService.createPost(opContext, POST_TYPE.toString(), POST_CONTENT);
+  public void testCreatePost() throws RemoteInvocationException, URISyntaxException {
+    _postService.createPost(opContext, POST_TYPE.toString(), POST_CONTENT, any());
     verify(_entityClient, times(1)).ingestProposal(any(OperationContext.class), any());
   }
 

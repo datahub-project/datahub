@@ -13,6 +13,7 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.entity.validation.ValidationException;
 import com.linkedin.metadata.key.PostKey;
 import com.linkedin.mxe.MetadataChangeProposal;
+import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.post.PostContent;
 import com.linkedin.post.PostContentType;
 import com.linkedin.post.PostInfo;
@@ -63,10 +64,11 @@ public class PostService {
   }
 
   public boolean createPost(
-      @Nonnull OperationContext opCcontext,
+      @Nonnull OperationContext opContext,
       @Nonnull String postType,
-      @Nonnull PostContent postContent)
-      throws RemoteInvocationException {
+      @Nonnull PostContent postContent,
+      @Nullable String targetUrn)
+      throws RemoteInvocationException, URISyntaxException {
     final String uuid = UUID.randomUUID().toString();
     final PostKey postKey = new PostKey().setId(uuid);
     final long currentTimeMillis = Instant.now().toEpochMilli();
@@ -75,11 +77,27 @@ public class PostService {
             .setType(PostType.valueOf(postType))
             .setContent(postContent)
             .setCreated(currentTimeMillis)
+            .setAuditStamp(
+                new com.linkedin.common.AuditStamp()
+                    .setTime(currentTimeMillis)
+                    .setActor(
+                        Urn.createFromString(opContext.getSessionAuthentication().getActor().toUrnStr())))
             .setLastModified(currentTimeMillis);
+
+    if (targetUrn != null) {
+      try {
+        postInfo.setTarget(Urn.createFromString(targetUrn));
+      } catch (URISyntaxException e) {
+        throw new RuntimeException(e);
+      }
+    }
 
     final MetadataChangeProposal proposal =
         buildMetadataChangeProposal(POST_ENTITY_NAME, postKey, POST_INFO_ASPECT_NAME, postInfo);
-    _entityClient.ingestProposal(opCcontext, proposal);
+
+    proposal.setSystemMetadata(new SystemMetadata().setLastObserved(System.currentTimeMillis()));
+
+    _entityClient.ingestProposal(opContext, proposal);
 
     return true;
   }

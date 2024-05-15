@@ -1,14 +1,16 @@
-import React from 'react';
-import styled from 'styled-components';
-import Highlight from 'react-highlighter';
 import { Typography } from 'antd';
-import { ForeignKeyConstraint, SchemaMetadata } from '../../../../../../types.generated';
+import React from 'react';
+import Highlight from 'react-highlighter';
+import styled from 'styled-components';
+import { SchemaFieldFieldsFragment } from '../../../../../../graphql/fragments.generated';
+import { ForeignKeyConstraint, Post, SchemaMetadata } from '../../../../../../types.generated';
+import NotesIcon from '../../../../../previewV2/NotesIcon';
 import { REDESIGN_COLORS } from '../../../../shared/constants';
-import translateFieldPath from '../utils/translateFieldPath';
-import { ExtendedSchemaFields } from '../utils/types';
+import ForeignKeyLabel from '../../../../shared/tabs/Dataset/Schema/components/ForeignKeyLabel';
 import PartitioningKeyLabel from '../../../../shared/tabs/Dataset/Schema/components/PartitioningKeyLabel';
 import PrimaryKeyLabel from '../../../../shared/tabs/Dataset/Schema/components/PrimaryKeyLabel';
-import ForeignKeyLabel from '../../../../shared/tabs/Dataset/Schema/components/ForeignKeyLabel';
+import translateFieldPath from '../utils/translateFieldPath';
+import { ExtendedSchemaFields } from '../utils/types';
 
 const FieldTitleWrapper = styled.div`
     display: inline-flex;
@@ -23,9 +25,6 @@ const FieldTitleWrapper = styled.div`
     -webkit-mask: linear-gradient(-270deg, #736ba4 60%, rgba(115, 107, 164, 0) 100%);
 `;
 
-// const IconContainer = styled.div`
-//     display: inline-flex;
-// `;
 const FieldPathContainer = styled.div`
     vertical-align: top;
     display: inline-block;
@@ -35,6 +34,14 @@ const FieldPathText = styled(Typography.Text)<{ $isCompact: boolean }>`
     line-height: ${(props) => (props.$isCompact ? '14px' : '24px')};
     font-weight: 600;
     color: ${REDESIGN_COLORS.DARK_GREY};
+
+    display: flex;
+    align-items: center;
+    gap: 6px;
+`;
+
+const StyledNotesIcon = styled(NotesIcon)`
+    font-size: 16px;
 `;
 
 type InteriorTitleProps = {
@@ -68,6 +75,11 @@ export const InteriorTitleContent = ({
         pathToDisplay = fieldPathWithoutAnnotations.slice(parentPathWithoutAnnotations.length + 1);
     }
 
+    // Have to type cast because of line `businessAttributeDataType: type` in `businessAttribute` fragment
+    const schemaFieldEntity = schemaMetadata?.fields.find((field) => field.fieldPath === fieldPath)
+        ?.schemaFieldEntity as SchemaFieldFieldsFragment['schemaFieldEntity'];
+    const notes = schemaFieldEntity?.notes?.relationships?.map((r) => r.entity as Post) || [];
+
     // if the field path is too long, truncate it
     // if (pathToDisplay.length > MAX_FIELD_PATH_LENGTH) {
     //     pathToDisplay = `..${pathToDisplay.substring(pathToDisplay.length - MAX_FIELD_PATH_LENGTH)}`;
@@ -78,6 +90,7 @@ export const InteriorTitleContent = ({
             <FieldPathContainer>
                 <FieldPathText $isCompact={!!isCompact}>
                     <Highlight search={filterText}>{pathToDisplay}</Highlight>
+                    {!!notes?.length && <StyledNotesIcon notes={notes} />}
                 </FieldPathText>
             </FieldPathContainer>
             {(schemaMetadata?.primaryKeys?.includes(fieldPath) || record.isPartOfKey) && <PrimaryKeyLabel />}
@@ -100,9 +113,6 @@ export const InteriorTitleContent = ({
                         onClick={setSelectedFkFieldPath}
                     />
                 ))}
-            {/* <IconContainer>
-                <AnnouncementIcon />
-            </IconContainer> */}
         </FieldTitleWrapper>
     );
 };

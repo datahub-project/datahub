@@ -14,6 +14,7 @@ const MatchesContainer = styled.div`
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
+    padding: 4px 8px;
 `;
 
 const MatchText = styled(Typography.Text)`

@@ -5,7 +5,6 @@ import { DisplayProperties, EntityType, PlatformPrivileges } from '../../../../.
 import { EntityActionItem } from '../../../entity/EntityActions';
 import { useUserContext } from '../../../../../context/useUserContext';
 import { useEntityRegistry } from '../../../../../useEntityRegistry';
-import { CompactEntityHeader } from './CompactEntityHeader';
 import { DefaultEntityHeader } from './DefaultEntityHeader';
 import { useEntityData, useRefetch } from '../../../../../entity/shared/EntityContext';
 import { EntitySubHeaderSection, GenericEntityProperties } from '../../../../../entity/shared/types';
@@ -38,7 +37,6 @@ type Props = {
     isColorEditable?: boolean;
     displayProperties?: DisplayProperties;
     subHeader?: EntitySubHeaderSection;
-    isCompact?: boolean;
 };
 
 export const EntityHeader = ({
@@ -49,7 +47,6 @@ export const EntityHeader = ({
     isColorEditable,
     displayProperties,
     subHeader,
-    isCompact = false,
 }: Props) => {
     const { urn, entityType, entityData, loading } = useEntityData();
     const refetch = useRefetch();
@@ -62,34 +59,21 @@ export const EntityHeader = ({
 
     return (
         <Container data-testid="entity-header-test-id">
-            {(isCompact && (
-                <CompactEntityHeader
-                    urn={urn}
-                    loading={loading}
-                    entityData={entityData}
-                    refetch={refetch}
-                    entityUrl={entityUrl}
-                    showEditName={showEditName}
-                    headerActionItems={headerActionItems}
-                    headerDropdownItems={headerDropdownItems}
-                />
-            )) || (
-                <DefaultEntityHeader
-                    entityType={entityType}
-                    urn={urn}
-                    entityUrl={entityUrl}
-                    loading={loading}
-                    entityData={entityData}
-                    refetch={refetch}
-                    showEditName={showEditName}
-                    isColorEditable={isColorEditable}
-                    isIconEditable={isIconEditable}
-                    displayProperties={displayProperties}
-                    headerActionItems={headerActionItems}
-                    headerDropdownItems={headerDropdownItems}
-                    subHeader={subHeader}
-                />
-            )}
+            <DefaultEntityHeader
+                entityType={entityType}
+                urn={urn}
+                entityUrl={entityUrl}
+                loading={loading}
+                entityData={entityData}
+                refetch={refetch}
+                showEditName={showEditName}
+                isColorEditable={isColorEditable}
+                isIconEditable={isIconEditable}
+                displayProperties={displayProperties}
+                headerActionItems={headerActionItems}
+                headerDropdownItems={headerDropdownItems}
+                subHeader={subHeader}
+            />
         </Container>
     );
 };

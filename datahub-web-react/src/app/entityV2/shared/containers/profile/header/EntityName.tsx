@@ -17,7 +17,7 @@ const EntityTitle = styled(Typography.Text)<{ $showEntityLink?: boolean }>`
     font-weight: 700;
     color: ${REDESIGN_COLORS.TITLE_PURPLE};
     line-height: normal;
-    margin-right: 10px;
+    margin-right: 2px;
 
     ${(props) =>
         props.$showEntityLink &&

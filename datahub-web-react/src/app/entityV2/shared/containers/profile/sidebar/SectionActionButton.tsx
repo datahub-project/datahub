@@ -10,7 +10,7 @@ export const ActionButton = styled.div<{ privilege: boolean }>`
         props.privilege
             ? `1px solid ${REDESIGN_COLORS.TITLE_PURPLE}`
             : `1px solid ${REDESIGN_COLORS.SECONDARY_LIGHT_GREY}`};
-    ${(props) => !props.privilege && 'pointer-events: none;'}
+    ${(props) => (props.privilege ? 'cursor: pointer;' : 'pointer-events: none;')}
     height: 20px;
     width: 20px;
     border-radius: 50%;

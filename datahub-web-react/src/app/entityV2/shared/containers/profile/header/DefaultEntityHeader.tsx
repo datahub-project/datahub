@@ -1,32 +1,35 @@
+import { Divider } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components/macro';
-import { Divider } from 'antd';
-import EntityName from './EntityName';
+import { Container, DisplayProperties, Domain, EntityType, Post } from '../../../../../../types.generated';
+import { EntitySubHeaderSection, GenericEntityProperties } from '../../../../../entity/shared/types';
+import HealthIcon from '../../../../../previewV2/HealthIcon';
+import NotesIcon from '../../../../../previewV2/NotesIcon';
+import SearchCardBrowsePath from '../../../../../previewV2/SearchCardBrowsePath';
+import StaticSearchCardBrowsePath from '../../../../../previewV2/StaticSearchCardBrowsePath';
+import { isUnhealthy } from '../../../../../shared/health/healthUtils';
+import useContentTruncation from '../../../../../shared/useContentTruncation';
+import { useEntityRegistry } from '../../../../../useEntityRegistry';
+import { IconStyleType } from '../../../../Entity';
+import EntityMenuActions, { EntityMenuItems } from '../../../EntityDropdown/EntityMenuActions';
 import { DeprecationPill } from '../../../components/styled/DeprecationPill';
 import EntityActions, { EntityActionItem } from '../../../entity/EntityActions';
-import EntityTitleLoadingSection from './EntityHeaderLoadingSection';
-import IconColorPicker from './IconPicker/IconColorPicker';
-import { EntitySubHeaderSection } from '../../../../../entity/shared/types';
-import { Container, DisplayProperties, Domain, EntityType } from '../../../../../../types.generated';
 import { DomainColoredIcon } from '../../../links/DomainColoredIcon';
-import { useEntityRegistry } from '../../../../../useEntityRegistry';
 import { EntityBackButton } from '../sidebar/EntityBackButton';
-import EntityMenuActions, { EntityMenuItems } from '../../../EntityDropdown/EntityMenuActions';
+import EntityTitleLoadingSection from './EntityHeaderLoadingSection';
+import EntityName from './EntityName';
 import { GlossaryPreviewCardDecoration } from './GlossaryPreviewCardDecoration';
-import PlatformHeaderIcons from './PlatformContent/PlatformHeaderIcons';
-import { IconStyleType } from '../../../../Entity';
-import SearchCardBrowsePath from '../../../../../previewV2/SearchCardBrowsePath';
-import useContentTruncation from '../../../../../shared/useContentTruncation';
-import { getDisplayedEntityType } from './utils';
+import IconColorPicker from './IconPicker/IconColorPicker';
 import ContainerIcon from './PlatformContent/ContainerIcon';
-import HealthIcon from '../../../../../previewV2/HealthIcon';
-import { isUnhealthy } from '../../../../../shared/health/healthUtils';
+import PlatformHeaderIcons from './PlatformContent/PlatformHeaderIcons';
+import { getDisplayedEntityType } from './utils';
 
 export const TitleWrapper = styled.div`
     display: flex;
     justify-content: start;
     align-items: center;
     padding: 0px 0px 0px 0px;
+
     .ant-typography-edit-content {
         padding-top: 7px;
         margin-left: 15px;
@@ -42,6 +45,7 @@ const DetailColumn = styled.div`
     display: flex;
     flex-direction: row;
     align-items: center;
+    gap: 8px;
 `;
 export const Row = styled.div`
     padding: 18px;
@@ -51,10 +55,6 @@ export const Row = styled.div`
     align-items: center;
     position: relative;
     overflow: hidden;
-`;
-
-export const PlatformRow = styled(Row)`
-    padding: 0px;
 `;
 
 export const LeftColumn = styled.div`
@@ -91,7 +91,7 @@ export type Props = {
     entityType: EntityType;
     entityUrl: string;
     loading: boolean;
-    entityData?: any;
+    entityData: GenericEntityProperties | null;
     refetch: () => void;
     headerActionItems?: Set<EntityActionItem>;
     headerDropdownItems?: Set<EntityMenuItems>;
@@ -102,18 +102,6 @@ export type Props = {
     displayProperties?: DisplayProperties;
 };
 
-// returns book icon for glossary term, otherwise returns default icon for entity type
-export const getDefaultIconForEntityType = (entityType: EntityType): string => {
-    switch (entityType) {
-        case EntityType.GlossaryNode:
-            return 'Book';
-        case EntityType.Domain:
-            return 'Workspaces';
-        default:
-            return '';
-    }
-};
-
 export const DefaultEntityHeader = ({
     urn,
     entityType,
@@ -122,8 +110,7 @@ export const DefaultEntityHeader = ({
     entityData,
     refetch,
     headerDropdownItems,
-    headerActionItems,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    headerActionItems, // eslint-disable-next-line @typescript-eslint/no-unused-vars
     subHeader,
     showEditName,
     isColorEditable,
@@ -143,6 +130,9 @@ export const DefaultEntityHeader = ({
 
     const displayedEntityType = getDisplayedEntityType(entityData, entityRegistry, entityType);
 
+    // Determine if entity has parent containers for rendering SearchBrowsePath or StaticSearchBrowsePath
+    const hasParentContainers = entityData?.parentContainers && entityData.parentContainers.count > 0;
+
     return (
         <>
             <Row>
@@ -159,8 +149,8 @@ export const DefaultEntityHeader = ({
                         <>
                             <TitleWrapper>
                                 <PlatformHeaderIcons
-                                    platform={entityData?.platform}
-                                    platforms={entityData?.siblingPlatforms}
+                                    platform={entityData?.platform ?? undefined}
+                                    platforms={entityData?.siblingPlatforms ?? undefined}
                                 />
                                 {(isIconEditable || isColorEditable) && (
                                     <div
@@ -187,6 +177,11 @@ export const DefaultEntityHeader = ({
                                 <EntityDetailsContainer>
                                     <DetailColumn>
                                         <EntityName isNameEditable={showEditName} />
+                                        {!!entityData?.notes?.total && (
+                                            <NotesIcon
+                                                notes={entityData?.notes?.relationships?.map((r) => r.entity as Post)}
+                                            />
+                                        )}
                                         {entityData?.deprecation?.deprecated && (
                                             <DeprecationPill
                                                 urn={urn}
@@ -200,16 +195,25 @@ export const DefaultEntityHeader = ({
                                         )}
                                     </DetailColumn>
                                     <DetailColumn>
-                                        <SearchCardBrowsePath
-                                            instanceId={entityData?.dataPlatformInstance?.instanceId}
-                                            typeIcon={typeIcon}
-                                            type={displayedEntityType}
-                                            entityType={entityType}
-                                            parentContainers={entityData?.parentContainers?.containers}
-                                            parentEntities={entityData?.parentDomains?.domains}
-                                            parentContainersRef={contentRef}
-                                            areContainersTruncated={isContentTruncated}
-                                        />
+                                        {hasParentContainers && (
+                                            <SearchCardBrowsePath
+                                                instanceId={entityData?.dataPlatformInstance?.instanceId}
+                                                typeIcon={typeIcon}
+                                                type={displayedEntityType}
+                                                entityType={entityType}
+                                                parentContainers={entityData?.parentContainers?.containers}
+                                                parentEntities={entityData?.parentDomains?.domains}
+                                                parentContainersRef={contentRef}
+                                                areContainersTruncated={isContentTruncated}
+                                            />
+                                        )}
+                                        {!hasParentContainers && (
+                                            <StaticSearchCardBrowsePath
+                                                entityType={entityType}
+                                                browsePaths={entityData?.browsePathV2 || undefined}
+                                                type={displayedEntityType}
+                                            />
+                                        )}
                                     </DetailColumn>
                                 </EntityDetailsContainer>
                             </TitleWrapper>

@@ -7,7 +7,7 @@ import { ADD_UNAUTHORIZED_MESSAGE } from './utils/constants';
 import { REDESIGN_COLORS } from '../../../constants';
 
 const StyledInput = styled(Input)`
-    border-radius: 70px;
+    border-radius: 5px;
     max-width: 300px;
 `;
 

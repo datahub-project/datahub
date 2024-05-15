@@ -47,7 +47,8 @@ const StyledViewer = styled(MarkdownEditor)<{ secondary?: boolean }>`
 `;
 
 const QueryContainer = styled.div`
-    height: 58vh;
+    min-height: 50vh;
+    max-height: 80vh;
     overflow-y: scroll;
     background-color: ${ANTD_GRAY[2]};
     border-radius: 4px;

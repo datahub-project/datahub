@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.types.container.mappers;
 
 import static com.linkedin.metadata.Constants.*;
 
+import com.linkedin.common.BrowsePathsV2;
 import com.linkedin.common.DataPlatformInstance;
 import com.linkedin.common.Deprecation;
 import com.linkedin.common.Forms;
@@ -161,6 +162,13 @@ public class ContainerMapper {
     final EnvelopedAspect envelopedShare = aspects.get(SHARE_ASPECT_NAME);
     if (envelopedShare != null) {
       result.setShare(ShareMapper.map(context, new Share(envelopedShare.getValue().data())));
+    }
+
+    final EnvelopedAspect envelopedBrowsePathsV2 = aspects.get(BROWSE_PATHS_V2_ASPECT_NAME);
+    if (envelopedBrowsePathsV2 != null) {
+      result.setBrowsePathV2(
+          BrowsePathsV2Mapper.map(
+              context, new BrowsePathsV2(envelopedBrowsePathsV2.getValue().data())));
     }
 
     return result;

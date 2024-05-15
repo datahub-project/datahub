@@ -21,24 +21,27 @@ import {
     Owner,
     ParentContainersResult,
     SearchInsight,
+    BrowsePathV2,
 } from '../../types.generated';
 import { EntityMenuActions, PreviewType } from '../entityV2/Entity';
-import { ANTD_GRAY } from '../entityV2/shared/constants';
+import { ANTD_GRAY, REDESIGN_COLORS } from '../entityV2/shared/constants';
 import { PopularityTier } from '../entityV2/shared/containers/profile/sidebar/shared/utils';
 import { usePreviewData } from '../entityV2/shared/PreviewContext';
 import useContentTruncation from '../shared/useContentTruncation';
 import { useEntityRegistryV2 } from '../useEntityRegistry';
-import CardActionCircle from './CardActionCircle';
 import ColoredBackgroundPlatformIconGroup from './ColoredBackgroundPlatformIconGroup';
 import SearchCardBrowsePath from './SearchCardBrowsePath';
+import StaticSearchCardBrowsePath from './StaticSearchCardBrowsePath';
 import EntityHeader from './EntityHeader';
-import EntityExternalLink from '../entityV2/shared/links/EntityExternalLink';
 import { EntityMenuItems } from '../entityV2/shared/EntityDropdown/EntityMenuActions';
 import MoreOptionsMenuAction from '../entityV2/shared/EntityDropdown/MoreOptionsMenuAction';
 import DefaultPreviewCardFooter from './DefaultPreviewCardFooter';
 import { GlossaryPreviewCardDecoration } from '../entityV2/shared/containers/profile/header/GlossaryPreviewCardDecoration';
+import { useSearchContext } from '../search/context/SearchContext';
+import { CompactView } from './CompactView';
 
 import { DatasetLastUpdatedMs, DashboardLastUpdatedMs } from '../entityV2/shared/utils';
+import StyledExternalLink from '../entityV2/shared/links/StyledExternalLink';
 
 const PreviewContainer = styled.div`
     display: flex;
@@ -126,6 +129,7 @@ interface Props {
     headerDropdownItems?: Set<EntityMenuItems>;
     statsSummary?: any;
     actions?: EntityMenuActions;
+    browsePaths?: BrowsePathV2 | undefined;
 }
 
 const ActionsSection = styled.div`
@@ -145,6 +149,17 @@ const HeaderContainer = styled.div`
     flex-direction: row;
     align-items: center;
     width: 100%;
+`;
+
+const Documentation = styled.div`
+    width: 90%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 12px;
+    font-weight: 500;
+    color: ${REDESIGN_COLORS.SUB_TEXT};
+    margin-top: 8px;
 `;
 
 export default function DefaultPreviewCard({
@@ -190,6 +205,8 @@ export default function DefaultPreviewCard({
     headerDropdownItems,
     statsSummary,
     actions,
+    browsePaths,
+    description,
 }: Props) {
     const entityRegistry = useEntityRegistryV2();
     const supportedCapabilities = entityRegistry.getSupportedEntityCapabilities(entityType);
@@ -216,75 +233,134 @@ export default function DefaultPreviewCard({
         platform || logoUrl || (platforms && platforms.length) || (logoUrls && logoUrls.length) || isOutputPort;
     const isIconPresent = !!hasPlatformIcons || !!entityIcon;
 
+    // Determine if entity has parent containers for rendering SearchBrowsePath or StaticSearchBrowsePath
+    const hasParentContainers = parentContainers && parentContainers.count > 0;
+
+    const { isFullViewCard } = useSearchContext();
+
     return (
         <PreviewContainer data-testid={dataTestID}>
             {(entityType === EntityType.GlossaryNode || entityType === EntityType.GlossaryTerm) && (
                 <GlossaryPreviewCardDecoration urn={urn} entityData={previewData} displayProperties={undefined} />
             )}
-            <RowContainer alignment="self-start">
-                {isIconPresent ? (
-                    <ColoredBackgroundPlatformIconGroup
-                        platformName={platform}
-                        platformLogoUrl={logoUrl}
-                        platformNames={platforms}
-                        platformLogoUrls={logoUrls}
-                        isOutputPort={isOutputPort}
-                        icon={entityIcon}
-                    />
-                ) : (
-                    <div />
-                )}
-                <ActionsAndStatusSection>
-                    <ActionsSection>
-                        {externalUrl && (
-                            <EntityExternalLink url={externalUrl}>
-                                <CardActionCircle enabled={!!externalUrl} icon={<LaunchIcon />} />
-                            </EntityExternalLink>
+            {isFullViewCard ? (
+                <>
+                    <RowContainer alignment="self-start">
+                        {isIconPresent ? (
+                            <ColoredBackgroundPlatformIconGroup
+                                platformName={platform}
+                                platformLogoUrl={logoUrl}
+                                platformNames={platforms}
+                                platformLogoUrls={logoUrls}
+                                isOutputPort={isOutputPort}
+                                icon={entityIcon}
+                            />
+                        ) : (
+                            <div />
                         )}
-
-                        {headerDropdownItems && previewType !== PreviewType.HOVER_CARD && (
-                            <MoreOptionsMenuAction
-                                menuItems={headerDropdownItems}
+                        <ActionsAndStatusSection>
+                            <ActionsSection>
+                                {headerDropdownItems && previewType !== PreviewType.HOVER_CARD && (
+                                    <MoreOptionsMenuAction
+                                        menuItems={headerDropdownItems}
+                                        urn={urn}
+                                        entityType={entityType}
+                                        entityData={previewData}
+                                        triggerType={['click']}
+                                        actions={actions}
+                                    />
+                                )}
+                                {externalUrl && (
+                                    <StyledExternalLink url={externalUrl}>
+                                        <LaunchIcon
+                                            style={{
+                                                fontSize: '16px',
+                                            }}
+                                        />
+                                        View in {platform}
+                                    </StyledExternalLink>
+                                )}
+                            </ActionsSection>
+                        </ActionsAndStatusSection>
+                    </RowContainer>
+                    <RowContainer>
+                        <HeaderContainer>
+                            <EntityHeader
+                                name={name}
+                                onClick={onClick}
+                                previewType={previewType}
+                                titleSizePx={titleSizePx}
+                                url={url}
                                 urn={urn}
+                                deprecation={deprecation}
+                                health={health}
+                                degree={degree}
+                                connectionName={previewData?.name}
+                            />
+                        </HeaderContainer>
+                    </RowContainer>
+                    {entityType === EntityType.GlossaryTerm && (
+                        <RowContainer>
+                            <Documentation>{description}</Documentation>
+                        </RowContainer>
+                    )}
+                    <RowContainer style={{ marginTop: 8 }}>
+                        {hasParentContainers && (
+                            <SearchCardBrowsePath
+                                instanceId={platformInstanceId}
+                                typeIcon={typeIcon}
+                                type={finalType}
                                 entityType={entityType}
-                                entityData={previewData}
-                                triggerType={['click']}
-                                actions={actions}
+                                parentContainers={parentContainers?.containers}
+                                parentEntities={parentEntities}
+                                parentContainersRef={contentRef}
+                                areContainersTruncated={false}
+                                entityTitleWidth={previewType === PreviewType.HOVER_CARD ? 150 : 200}
+                                previewType={previewType}
                             />
                         )}
-                    </ActionsSection>
-                </ActionsAndStatusSection>
-            </RowContainer>
-            <RowContainer>
-                <HeaderContainer>
-                    <EntityHeader
-                        name={name}
-                        onClick={onClick}
-                        previewType={previewType}
-                        titleSizePx={titleSizePx}
-                        url={url}
-                        urn={urn}
-                        deprecation={deprecation}
-                        health={health}
-                        degree={degree}
-                        connectionName={previewData?.name}
-                    />
-                </HeaderContainer>
-            </RowContainer>
-            <RowContainer style={{ marginTop: 8 }}>
-                <SearchCardBrowsePath
-                    instanceId={platformInstanceId}
-                    typeIcon={typeIcon}
-                    type={finalType}
-                    entityType={entityType}
-                    parentContainers={parentContainers?.containers}
-                    parentEntities={parentEntities}
-                    parentContainersRef={contentRef}
-                    areContainersTruncated={false}
-                    entityTitleWidth={previewType === PreviewType.HOVER_CARD ? 150 : 200}
+                        {!hasParentContainers && (
+                            <StaticSearchCardBrowsePath
+                                entityType={entityType}
+                                browsePaths={browsePaths}
+                                type={finalType}
+                            />
+                        )}
+                    </RowContainer>
+                </>
+            ) : (
+                <CompactView
+                    name={name}
+                    onClick={onClick}
+                    titleSizePx={titleSizePx}
+                    url={url}
+                    degree={degree}
+                    deprecation={deprecation}
+                    actions={actions}
+                    health={health}
+                    previewData={previewData}
+                    isIconPresent={isIconPresent}
+                    platform={platform}
+                    logoUrl={logoUrl}
+                    platforms={platforms}
+                    logoUrls={logoUrls}
+                    isOutputPort={isOutputPort}
+                    entityIcon={entityIcon}
+                    externalUrl={externalUrl}
+                    headerDropdownItems={headerDropdownItems}
                     previewType={previewType}
+                    urn={urn}
+                    entityType={entityType}
+                    hasParentContainers={hasParentContainers}
+                    platformInstanceId={platformInstanceId}
+                    typeIcon={typeIcon}
+                    finalType={finalType}
+                    parentEntities={parentEntities}
+                    parentContainers={parentContainers}
+                    contentRef={contentRef}
+                    browsePaths={browsePaths}
                 />
-            </RowContainer>
+            )}
 
             {/* {(!!dataProduct || !!domain) && (
                                 <GovernanceSection>
@@ -323,6 +399,7 @@ export default function DefaultPreviewCard({
                 lastUpdatedMs={lastUpdatedMs}
                 statsSummary={statsSummary}
                 paths={paths}
+                isFullViewCard={isFullViewCard}
             />
             {/* {!!(insights?.length || groupedMatches.length) && isMatchExpanded && (
                     <>

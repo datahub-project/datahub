@@ -12,7 +12,7 @@ const LogoIcon = styled.span`
     margin-right: 8px;
 `;
 
-const PlatformContentWrapper = styled.div`
+export const PlatformContentWrapper = styled.div`
     display: flex;
     align-items: center;
     margin: 0 8px 8px 0;
@@ -28,11 +28,22 @@ interface Props {
     entityLogoComponent?: JSX.Element;
     isOutputPort?: boolean;
     icon?: React.ReactNode;
+    backgroundSize?: number;
+    imgSize?: number;
 }
 
 export default function ColoredBackgroundPlatformIconGroup(props: Props) {
-    const { platformName, platformLogoUrl, platformNames, platformLogoUrls, entityLogoComponent, isOutputPort, icon } =
-        props;
+    const {
+        platformName,
+        platformLogoUrl,
+        platformNames,
+        platformLogoUrls,
+        entityLogoComponent,
+        isOutputPort,
+        icon,
+        imgSize = 18,
+        backgroundSize = 32,
+    } = props;
 
     const renderLogoIcon = () => {
         if (icon) {
@@ -51,8 +62,8 @@ export default function ColoredBackgroundPlatformIconGroup(props: Props) {
                                 src={platformLogoUrl}
                                 alt={platformName || ''}
                                 borderRadius={10}
-                                backgroundSize={32}
-                                imgSize={18}
+                                backgroundSize={backgroundSize}
+                                imgSize={imgSize}
                             />
                         )}
                         {!!platformLogoUrls &&
@@ -62,16 +73,16 @@ export default function ColoredBackgroundPlatformIconGroup(props: Props) {
                                     <ImageWithColoredBackground
                                         key={url}
                                         borderRadius={10}
-                                        backgroundSize={32}
-                                        imgSize={18}
+                                        backgroundSize={backgroundSize}
+                                        imgSize={imgSize}
                                         src={url || ''}
                                         alt={platformNames?.[idx] || ''}
                                     />
                                 ))}
                         {isOutputPort && (
                             <Tooltip title="This asset is an output port for this Data Product" placement="topLeft">
-                                <Icon size={32} background={ANTD_GRAY[4]} borderRadius={10}>
-                                    <OutputIcon style={{ fontSize: 18 }} htmlColor={ANTD_GRAY[8]} />
+                                <Icon size={backgroundSize} background={ANTD_GRAY[4]} borderRadius={10}>
+                                    <OutputIcon style={{ fontSize: imgSize }} htmlColor={ANTD_GRAY[8]} />
                                 </Icon>
                             </Tooltip>
                         )}

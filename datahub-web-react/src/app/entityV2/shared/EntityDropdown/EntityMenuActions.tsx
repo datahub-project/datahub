@@ -1,17 +1,17 @@
+import { MoreOutlined } from '@ant-design/icons';
 import React, { useContext } from 'react';
 import styled from 'styled-components';
-import { MoreOutlined } from '@ant-design/icons';
-import ExternalUrlMenuAction from './ExternalUrlMenuAction';
-import ShareMenuAction from '../../../shared/share/v2/ShareMenuAction';
-import MoveEntityMenuAction from './MoveEntityMenuAction';
-import UpdateDeprecationMenuAction from './UpdateDeprecationMenuAction';
-import RaiseIncidentMenuAction from './RaiseIncidentMenuAction';
-import DeleteEntityMenuItem from './DeleteEntityMenuAction';
-import MoreOptionsMenuAction from './MoreOptionsMenuAction';
-import { SubscribeMenuAction } from '../../../shared/subscribe/v2/SubscribeMenuAction';
-import EntitySidebarContext from '../../../sharedV2/EntitySidebarContext';
 import { useEntityData, useRefetch } from '../../../entity/shared/EntityContext';
 import { ENTITY_PROFILE_V2_SUBSCRIPTION_ID } from '../../../onboarding/configV2/EntityProfileOnboardingConfig';
+import ShareMenuAction from '../../../shared/share/v2/ShareMenuAction';
+import { SubscribeMenuAction } from '../../../shared/subscribe/v2/SubscribeMenuAction';
+import EntitySidebarContext from '../../../sharedV2/EntitySidebarContext';
+import DeleteEntityMenuItem from './DeleteEntityMenuAction';
+import ExternalUrlMenuAction from './ExternalUrlMenuAction';
+import MoreOptionsMenuAction from './MoreOptionsMenuAction';
+import MoveEntityMenuAction from './MoveEntityMenuAction';
+import RaiseIncidentMenuAction from './RaiseIncidentMenuAction';
+import UpdateDeprecationMenuAction from './UpdateDeprecationMenuAction';
 
 export enum EntityMenuItems {
     EXTERNAL_URL,
@@ -23,6 +23,7 @@ export enum EntityMenuItems {
     ADD_TERM_GROUP, // Make primary
     MOVE,
     DELETE, // acryl-main only
+    ANNOUNCE, // acryl-main only
     RAISE_INCIDENT,
 }
 
@@ -82,7 +83,6 @@ function EntityMenuActions(props: Props) {
                 </MenuItems>
             ) : (
                 <MenuItems>
-                    {menuItems.has(EntityMenuItems.EXTERNAL_URL) && <ExternalUrlMenuAction />}
                     <MoreOptionsContainer id={ENTITY_PROFILE_V2_SUBSCRIPTION_ID}>
                         <MoreOptionsMenuAction
                             menuItems={menuItems}
@@ -92,6 +92,7 @@ function EntityMenuActions(props: Props) {
                             refetch={refetch}
                         />
                     </MoreOptionsContainer>
+                    {menuItems.has(EntityMenuItems.EXTERNAL_URL) && <ExternalUrlMenuAction />}
                 </MenuItems>
             )}
         </>

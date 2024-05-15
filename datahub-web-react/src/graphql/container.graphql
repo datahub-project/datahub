@@ -80,6 +80,9 @@ query getContainer($urn: String!) {
         tagProposals: proposals(type: TAG_ASSOCIATION) {
             ...proposalsFragment
         }
+        browsePathV2 {
+            ...browsePathV2Fields
+        }
     }
 }
 

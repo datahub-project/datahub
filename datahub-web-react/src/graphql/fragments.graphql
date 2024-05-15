@@ -763,6 +763,33 @@ fragment schemaFieldFields on SchemaField {
                 ...businessAttribute
             }
         }
+        notes: relationships(input: { types: ["PostTarget"], direction: INCOMING, start: 0, count: 100 }) {
+            total
+            relationships {
+                type
+                entity {
+                    ... on Post {
+                        urn
+                        type
+                        postType
+                        lastModified {
+                            time
+                            actor
+                        }
+                        content {
+                            contentType
+                            title
+                            description
+                            link
+                            media {
+                                type
+                                location
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -1154,30 +1181,7 @@ fragment browsePathV2Fields on BrowsePathV2 {
         entity {
             urn
             type
-            ... on Container {
-                properties {
-                    name
-                }
-            }
-            ... on DataFlow {
-                properties {
-                    name
-                }
-            }
-            ... on DataPlatformInstance {
-                platform {
-                    name
-                    properties {
-                        displayName
-                    }
-                }
-                instanceId
-            }
-            ... on Dataset {
-                properties {
-                    name
-                }
-            }
+            ...entityDisplayNameFields
         }
     }
 }
@@ -1484,7 +1488,6 @@ fragment entityHealth on Health {
     message
     causes
 }
-
 
 fragment formsFields on Forms {
     completedForms {

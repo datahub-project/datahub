@@ -65,7 +65,7 @@ const TableContainer = styled.div<{ isSearchActive: boolean; hasRowWithDepth: bo
     }
 
     &&& .selected-row * {
-        color: white !important;
+        color: white;
 
         .ant-typography mark {
             background-color: ${REDESIGN_COLORS.HEADING_COLOR} !important;
@@ -158,6 +158,7 @@ export type Props = {
         path: string;
         index: number;
     }[];
+    refetch?: () => void;
 };
 
 const EMPTY_SET: Set<string> = new Set();
@@ -178,6 +179,7 @@ export default function SchemaTable({
     setOpenTimelineDrawer,
     showTypeAsIcons = true,
     matches,
+    refetch,
 }: Props): JSX.Element {
     const [tableHeight, setTableHeight] = useState(0);
     const [overflowHoverFieldPath, setOverflowHoverFieldPath] = useState<string | null>(null);
@@ -532,6 +534,7 @@ export default function SchemaTable({
                     selectNextField={selectNextField}
                     usageStats={usageStats}
                     displayedRows={schemaSorter ? sortedDisplayedRows : displayedRows}
+                    refetch={refetch}
                 />
             )}
         </FkContext.Provider>

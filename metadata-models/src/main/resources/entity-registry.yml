@@ -558,6 +558,7 @@ entities:
     keyAspect: postKey
     aspects:
       - postInfo
+      - status
   - name: dataHubStepState
     category: internal
     keyAspect: dataHubStepStateKey

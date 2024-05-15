@@ -315,6 +315,7 @@ import com.linkedin.datahub.graphql.types.mlmodel.MLPrimaryKeyType;
 import com.linkedin.datahub.graphql.types.notebook.NotebookType;
 import com.linkedin.datahub.graphql.types.ownership.OwnershipType;
 import com.linkedin.datahub.graphql.types.policy.DataHubPolicyType;
+import com.linkedin.datahub.graphql.types.post.PostType;
 import com.linkedin.datahub.graphql.types.query.QueryType;
 import com.linkedin.datahub.graphql.types.restricted.RestrictedType;
 import com.linkedin.datahub.graphql.types.role.DataHubRoleType;
@@ -477,6 +478,7 @@ public class GmsGraphQLEngine {
   private final FormType formType;
   private final IncidentType incidentType;
   private final RestrictedType restrictedType;
+  private final PostType postType;
 
   private final int graphQLQueryComplexityLimit;
   private final int graphQLQueryDepthLimit;
@@ -587,6 +589,7 @@ public class GmsGraphQLEngine {
     this.formType = new FormType(entityClient);
     this.incidentType = new IncidentType(entityClient);
     this.restrictedType = new RestrictedType(entityClient, restrictedService);
+    this.postType = new PostType(entityClient);
 
     this.graphQLQueryComplexityLimit = args.graphQLQueryComplexityLimit;
     this.graphQLQueryDepthLimit = args.graphQLQueryDepthLimit;
@@ -634,6 +637,7 @@ public class GmsGraphQLEngine {
                 entityTypeType,
                 formType,
                 incidentType,
+                postType,
                 restrictedType,
                 businessAttributeType));
     this.loadableTypes = new ArrayList<>(entityTypes);
@@ -1741,10 +1745,12 @@ public class GmsGraphQLEngine {
     builder.type(
         "SchemaFieldEntity",
         typeWiring ->
-            typeWiring.dataFetcher(
-                "parent",
-                new EntityTypeResolver(
-                    entityTypes, (env) -> ((SchemaFieldEntity) env.getSource()).getParent())));
+            typeWiring
+                .dataFetcher(
+                    "parent",
+                    new EntityTypeResolver(
+                        entityTypes, (env) -> ((SchemaFieldEntity) env.getSource()).getParent()))
+                .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient)));
   }
 
   private void configureEntityPathResolvers(final RuntimeWiring.Builder builder) {

@@ -45,14 +45,17 @@ export default function useProcessData(urn: string, type: EntityType): Processed
     const displayVersionNumber = displayVersion[0];
 
     const fineGrainedLineage = useMemo(
-        () => getFineGrainedLineage({ nodes, edges }),
-        // eslint-disable-next-line react-hooks/exhaustive-deps
+        () => {
+            const fgl = getFineGrainedLineage({ nodes, edges });
+            console.debug(fgl);
+            return fgl;
+        }, // eslint-disable-next-line react-hooks/exhaustive-deps
         [nodes, dataVersion],
     );
 
     const [flowNodes, flowEdges] = useMemo(
         () => {
-            console.log({ nodes, edges, adjacencyList });
+            console.debug({ nodes, edges, adjacencyList });
             const filteredNodes = filterNodes(urn, { nodes, edges, adjacencyList });
             const nodeBuilder = new NodeBuilder(urn, type, filteredNodes);
             return [nodeBuilder.createNodes(adjacencyList), nodeBuilder.createEdges(edges)];
@@ -348,7 +351,7 @@ function shouldAddFineGrainedEdge(
     return (
         nodes.has(upstreamUrn) &&
         nodes.has(downstreamUrn) &&
-        !!edges.get(createEdgeId(upstreamUrn, downstreamUrn))?.isDisplayed
+        !edges.get(createEdgeId(upstreamUrn, downstreamUrn))?.hideFineGrained
     );
 }
 

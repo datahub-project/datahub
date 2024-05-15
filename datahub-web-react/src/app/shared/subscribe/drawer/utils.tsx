@@ -180,7 +180,7 @@ const glossaryTermChangeNode: DataNode = {
             key: EntityChangeType.GlossaryTermProposed,
             title: (
                 <NotificationTypeText>
-                    Glossary term poposal changes
+                    Glossary term proposal changes
                     <Tooltip title="Someone has proposed or rejected a new glossary term on this entity">
                         <TooltipIcon />
                     </Tooltip>

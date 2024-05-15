@@ -252,6 +252,7 @@ export const SchemaTab = ({ renderType, properties }: { renderType: TabRenderTyp
                                     setOpenTimelineDrawer={setOpenTimelineDrawer}
                                     showTypeAsIcons={showTypeAsIcons}
                                     matches={matches}
+                                    refetch={refetch}
                                 />
                             </SchemaEditableContext.Provider>
                         </>

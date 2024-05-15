@@ -6,7 +6,6 @@ import {
     Health,
     InputFields,
     LineageRelationship,
-    Maybe,
     SchemaFieldDataType,
     SchemaMetadata,
     Status,
@@ -56,12 +55,12 @@ export interface FetchedEntityV2 {
     downstreamRelationships?: FetchedEntityV2Relationship[];
     fullyFetched?: boolean;
     platform?: DataPlatform;
-    status?: Maybe<Status>;
+    status?: Status;
     fineGrainedLineages?: FineGrainedLineage[];
     schemaMetadata?: SchemaMetadata;
     inputFields?: InputFields;
     canEditLineage?: boolean;
-    health?: Maybe<Health[]>;
+    health?: Health[];
     lineageAssets?: LineageAsset[];
     parentContainers?: Container[];
 }

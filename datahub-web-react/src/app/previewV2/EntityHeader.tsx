@@ -15,6 +15,7 @@ import { getNumberWithOrdinal } from '../entityV2/shared/utils';
 const EntityTitleContainer = styled.div`
     display: flex;
     align-items: center;
+    gap: 0.5rem;
     width: 100%;
 `;
 
@@ -23,11 +24,10 @@ const StyledLink = styled(Link)`
     max-width: 75%;
 `;
 
-const EntityTitle = styled(Typography.Text)<{ $titleSizePx?: number }>`
+const EntityTitle = styled(Typography.Text) <{ $titleSizePx?: number }>`
     display: block;
 
     &&& {
-        margin-right 8px;
         font-size: ${(props) => props.$titleSizePx || 16}px;
         font-weight: 700;
         vertical-align: middle;
@@ -45,7 +45,7 @@ const EntityTitle = styled(Typography.Text)<{ $titleSizePx?: number }>`
     height: 100%;
 `;
 
-const CardEntityTitle = styled(EntityTitle)<{ $previewType?: Maybe<PreviewType> }>`
+const CardEntityTitle = styled(EntityTitle) <{ $previewType?: Maybe<PreviewType> }>`
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -60,7 +60,6 @@ const DegreeText = styled.div`
     font-weight: 700;
     width: fit-content;
     color: ${REDESIGN_COLORS.SUB_TEXT};
-    margin-right: 8px;
 `;
 
 interface EntityHeaderProps {
@@ -110,9 +109,8 @@ const EntityHeader: React.FC<EntityHeaderProps> = ({
             </StyledLink>
             {degree !== undefined && (
                 <Tooltip
-                    title={`This entity is a ${getNumberWithOrdinal(degree)} degree connection to ${
-                        connectionName || 'the source entity'
-                    }`}
+                    title={`This entity is a ${getNumberWithOrdinal(degree)} degree connection to ${connectionName || 'the source entity'
+                        }`}
                 >
                     <DegreeText>{getNumberWithOrdinal(degree)}</DegreeText>
                 </Tooltip>

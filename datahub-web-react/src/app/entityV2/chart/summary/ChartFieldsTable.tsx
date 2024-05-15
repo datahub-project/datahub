@@ -10,13 +10,19 @@ import { REDESIGN_COLORS } from '../../shared/constants';
 const MAX_ROWS = 5;
 
 const TableContainer = styled.div`
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
     .ant-table-thead > tr > th {
         background-color: transparent;
         font-weight: 700;
+        font-size: 14px;
         color: ${REDESIGN_COLORS.SUBTITLE};
     }
     && .ant-table-tbody > tr > td {
-        padding: 5px;
+        padding: 8px 5px;
+        border-bottom: none;
+        border-right: 1px solid ${REDESIGN_COLORS.COLD_GREY_TEXT_BLUE_1};
     }
 `;
 

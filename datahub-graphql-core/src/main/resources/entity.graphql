@@ -3018,6 +3018,11 @@ type Container implements Entity {
     Info about the results from sharing metadata for this entity
     """
     share: Share
+
+    """
+    The browse path V2 corresponding to an entity. If no Browse Paths V2 have been generated before, this will be null.
+    """
+    browsePathV2: BrowsePathV2
 }
 
 """
@@ -11709,6 +11714,10 @@ enum PostType {
     Posts on the home page
     """
     HOME_PAGE_ANNOUNCEMENT,
+    """
+    Posts on an entity page
+    """
+    ENTITY_ANNOUNCEMENT,
 }
 
 """
@@ -11749,6 +11758,21 @@ input CreatePostInput {
     The content of the post
     """
     content: UpdatePostContentInput!
+
+    """
+    Optional target URN for the post
+    """
+    resourceUrn: String
+
+    """
+    An optional type of a sub resource to attach the Tag to
+    """
+    subResourceType: SubResourceType
+
+    """
+    Optional target subresource for the post
+    """
+    subResource: String
 }
 
 """
@@ -12494,7 +12518,7 @@ input ListQueriesInput {
   datasetUrn: String
 
   """
-  AOptional - Information on how to sort the list queries result
+  Optional - Information on how to sort the list queries result
   """
   sortInput: SortQueriesInput
 }

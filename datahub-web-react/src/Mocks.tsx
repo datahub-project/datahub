@@ -349,6 +349,7 @@ export const dataset1 = {
     autoRenderAspects: [],
     structuredProperties: null,
     forms: null,
+    notes: [],
     activeIncidents: null,
 };
 
@@ -449,6 +450,7 @@ export const dataset2 = {
     autoRenderAspects: [],
     structuredProperties: null,
     forms: null,
+    notes: [],
     activeIncidents: null,
 };
 
@@ -696,6 +698,7 @@ export const dataset3 = {
     lastOperation: null,
     structuredProperties: null,
     forms: null,
+    notes: [],
     activeIncidents: null,
     upstream: null,
     downstream: null,

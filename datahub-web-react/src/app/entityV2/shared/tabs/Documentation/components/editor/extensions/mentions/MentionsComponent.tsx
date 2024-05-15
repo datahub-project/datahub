@@ -13,6 +13,10 @@ const Container = styled.div`
     position: relative;
     top: 0;
     left: 0;
+    .ant-spin-container {
+        overflow: auto;
+        max-height: 350px;
+    }
 `;
 
 const StyledEmpty = styled(Empty)`

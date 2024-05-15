@@ -46,7 +46,7 @@ const StyledCheckbox = styled(Checkbox)`
     margin-right: 12px;
 `;
 
-export const ListItem = styled.div<{ isSelectMode: boolean; areMatchesExpanded }>`
+export const ListItem = styled.div<{ isSelectMode: boolean; areMatchesExpanded; compactUserSearchCardStyle: boolean }>`
     padding: 20px;
     display: flex;
     align-items: center;
@@ -54,7 +54,13 @@ export const ListItem = styled.div<{ isSelectMode: boolean; areMatchesExpanded }
     border-radius: 8px;
     overflow: hidden;
     box-shadow: 0px 0px 5px rgba(0, 0, 0, 0.08);
-    margin-bottom: ${(props) => (props.areMatchesExpanded ? MATCHES_CONTAINER_HEIGHT + 20 : 20)}px;
+    margin-bottom: ${(props) =>
+        // eslint-disable-next-line no-nested-ternary
+        props.areMatchesExpanded
+            ? props.compactUserSearchCardStyle
+                ? MATCHES_CONTAINER_HEIGHT
+                : MATCHES_CONTAINER_HEIGHT + 20
+            : 0}px;
     transition: margin-bottom 0.3s ease;
     ${(props) =>
         props.areMatchesExpanded &&
@@ -86,6 +92,7 @@ type Props = {
     setSelectedEntities?: (entities: EntityAndType[]) => any;
     bordered?: boolean;
     entityAction?: React.FC<EntityActionProps>;
+    compactUserSearchCardStyle?: boolean;
 };
 
 const MatchContextAndEntityContainer = styled.div`
@@ -102,6 +109,7 @@ export const EntitySearchResults = ({
     setSelectedEntities,
     bordered = true,
     entityAction,
+    compactUserSearchCardStyle,
 }: Props) => {
     const entityRegistry = useEntityRegistry();
     const selectedEntityUrns = selectedEntities?.map((entity) => entity.urn) || [];
@@ -150,8 +158,13 @@ export const EntitySearchResults = ({
                             onClick={() => {}}
                             urnToExpandedSection={urnToExpandedSection}
                             setUrnToExpandedSection={setUrnToExpandedSection}
+                            compactUserSearchCardStyle={compactUserSearchCardStyle}
                         >
-                            <ListItem isSelectMode={isSelectMode || false} areMatchesExpanded={expandedSection}>
+                            <ListItem
+                                isSelectMode={isSelectMode || false}
+                                areMatchesExpanded={expandedSection}
+                                compactUserSearchCardStyle={compactUserSearchCardStyle || false}
+                            >
                                 {isSelectMode && (
                                     <StyledCheckbox
                                         checked={selectedEntityUrns.indexOf(entity.urn) >= 0}

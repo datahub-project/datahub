@@ -81,6 +81,7 @@ interface Props {
     showTypeAsIcons?: boolean;
     usageStats?: UsageQueryResult | null;
     displayedRows: ExtendedSchemaFields[];
+    refetch?: () => void;
 }
 
 export default function SchemaFieldDrawer({
@@ -95,6 +96,7 @@ export default function SchemaFieldDrawer({
     showTypeAsIcons = true,
     usageStats,
     displayedRows,
+    refetch,
 }: Props) {
     const expandedFieldIndex = useMemo(
         () => displayedRows.findIndex((row) => row.fieldPath === expandedDrawerFieldPath),
@@ -166,6 +168,7 @@ export default function SchemaFieldDrawer({
                 fieldProfile,
                 profiles,
                 setSelectedTabName,
+                refetch,
             },
         },
         {

@@ -1,19 +1,21 @@
 import React from 'react';
 import styled from 'styled-components';
+import { Container, DataPlatform, EntityType, Post } from '../../../../../../types.generated';
+import { useEntityData } from '../../../../../entity/shared/EntityContext';
+import HealthIcon from '../../../../../previewV2/HealthIcon';
+import NotesIcon from '../../../../../previewV2/NotesIcon';
+import SearchCardBrowsePath from '../../../../../previewV2/SearchCardBrowsePath';
+import { isUnhealthy } from '../../../../../shared/health/healthUtils';
+import useContentTruncation from '../../../../../shared/useContentTruncation';
 import HorizontalScroller from '../../../../../sharedV2/carousel/HorizontalScroller';
 import { useEntityRegistry } from '../../../../../useEntityRegistry';
-import { useEntityData } from '../../../../../entity/shared/EntityContext';
-import { Container, DataPlatform, EntityType } from '../../../../../../types.generated';
-import EntityTitleLoadingSection from '../header/EntityHeaderLoadingSection';
-import PlatformHeaderIcons from '../header/PlatformContent/PlatformHeaderIcons';
-import EntityName from '../header/EntityName';
-import SearchCardBrowsePath from '../../../../../previewV2/SearchCardBrowsePath';
-import { getDisplayedEntityType } from '../header/utils';
-import useContentTruncation from '../../../../../shared/useContentTruncation';
-import ContainerIcon from '../header/PlatformContent/ContainerIcon';
 import { IconStyleType } from '../../../../Entity';
-import HealthIcon from '../../../../../previewV2/HealthIcon';
-import { isUnhealthy } from '../../../../../shared/health/healthUtils';
+import EntityTitleLoadingSection from '../header/EntityHeaderLoadingSection';
+import EntityName from '../header/EntityName';
+import ContainerIcon from '../header/PlatformContent/ContainerIcon';
+import PlatformHeaderIcons from '../header/PlatformContent/PlatformHeaderIcons';
+import { getDisplayedEntityType } from '../header/utils';
+import StaticSearchCardBrowsePath from '../../../../../previewV2/StaticSearchCardBrowsePath';
 
 const TitleContainer = styled(HorizontalScroller)`
     display: flex;
@@ -28,6 +30,7 @@ const EntityDetailsContainer = styled.div`
 
 const NameWrapper = styled.div`
     display: flex;
+    gap: 8px;
 `;
 
 const SidebarEntityHeader = () => {
@@ -44,6 +47,9 @@ const SidebarEntityHeader = () => {
         );
     const displayedEntityType = getDisplayedEntityType(entityData, entityRegistry, entityType);
 
+    // Determine if entity has parent containers for rendering SearchBrowsePath or StaticSearchBrowsePath
+    const hasParentContainers = entityData?.parentContainers && entityData?.parentContainers.count > 0;
+
     if (loading) {
         return <EntityTitleLoadingSection />;
     }
@@ -57,21 +63,33 @@ const SidebarEntityHeader = () => {
             <EntityDetailsContainer>
                 <NameWrapper>
                     <EntityName isNameEditable={false} />
+                    {!!entityData?.notes?.total && (
+                        <NotesIcon notes={entityData?.notes?.relationships?.map((r) => r.entity as Post) || []} />
+                    )}
                     {entityData?.health && isUnhealthy(entityData.health) && (
                         <HealthIcon health={entityData.health} baseUrl={entityUrl} />
                     )}
                 </NameWrapper>
                 <div>
-                    <SearchCardBrowsePath
-                        instanceId={entityData?.dataPlatformInstance?.instanceId}
-                        typeIcon={typeIcon}
-                        type={displayedEntityType}
-                        entityType={entityType}
-                        parentContainers={entityData?.parentContainers?.containers}
-                        parentEntities={entityData?.parentDomains?.domains}
-                        parentContainersRef={contentRef}
-                        areContainersTruncated={isContentTruncated}
-                    />
+                    {hasParentContainers && (
+                        <SearchCardBrowsePath
+                            instanceId={entityData?.dataPlatformInstance?.instanceId}
+                            typeIcon={typeIcon}
+                            type={displayedEntityType}
+                            entityType={entityType}
+                            parentContainers={entityData?.parentContainers?.containers}
+                            parentEntities={entityData?.parentDomains?.domains}
+                            parentContainersRef={contentRef}
+                            areContainersTruncated={isContentTruncated}
+                        />
+                    )}
+                    {!hasParentContainers && (
+                        <StaticSearchCardBrowsePath
+                            entityType={entityType}
+                            browsePaths={entityData?.browsePathV2}
+                            type={displayedEntityType}
+                        />
+                    )}
                 </div>
             </EntityDetailsContainer>
         </TitleContainer>

@@ -32,7 +32,7 @@ export const MatchText = styled(Typography.Text)<{ isClickable?: boolean; forceH
     padding: 8px;
     padding-right: 8px;
     padding-left: 8px;
-    max-width: 100px;
+    max-width: 140px;
     white-space: nowrap;
     overflow: hidden;
 

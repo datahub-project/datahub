@@ -6,7 +6,7 @@ import { EntityType } from '../../../../types.generated';
 import analytics, { EventType, EntityActionType } from '../../../analytics';
 import { useEntityData } from '../../../entity/shared/EntityContext';
 import { getPlatformName } from '../utils';
-import { ActionMenuItem } from './styledComponents';
+import StyledExternalLink from '../links/StyledExternalLink';
 
 const GITHUB_LINK = 'github.com';
 const GITHUB = 'GitHub';
@@ -16,13 +16,6 @@ export const PlatformIcon = styled.img<{ size?: number }>`
     width: auto;
     object-fit: contain;
     background-color: transparent;
-`;
-
-const StyledLaunchIcon = styled(LaunchIcon)`
-    &&& {
-        display: flex;
-        font-size: 16px;
-    }
 `;
 
 export default function ExternalUrlMenuAction() {
@@ -50,15 +43,15 @@ export default function ExternalUrlMenuAction() {
 
     return (
         <Tooltip title={`View in ${displayedName}`}>
-            <ActionMenuItem
-                key="external-url"
-                href={externalUrl}
-                target="_blank"
-                rel="noreferrer noopener"
-                onClick={sendAnalytics}
-            >
-                <StyledLaunchIcon />
-            </ActionMenuItem>
+            <StyledExternalLink url={externalUrl}>
+                <LaunchIcon
+                    style={{
+                        fontSize: '16px',
+                    }}
+                    onClick={sendAnalytics}
+                />
+                View in {displayedName}
+            </StyledExternalLink>
         </Tooltip>
     );
 }

@@ -16,7 +16,7 @@ interface Props {
     externalUrl: string;
 }
 
-export default function LookerEmbed({ externalUrl }: Props) {
+export default function EmbedPreview({ externalUrl }: Props) {
     return (
         <Wrapper>
             <SummaryTabHeaderWrapper>

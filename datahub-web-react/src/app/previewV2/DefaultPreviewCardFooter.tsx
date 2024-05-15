@@ -34,6 +34,7 @@ interface DefaultPreviewCardFooterProps {
     lastUpdatedMs?: DatasetLastUpdatedMs | DashboardLastUpdatedMs;
     statsSummary?: DatasetStatsSummary | null;
     paths?: EntityPath[];
+    isFullViewCard?: boolean;
 }
 
 const Container = styled.div`
@@ -48,7 +49,11 @@ const Container = styled.div`
     }
 `;
 
-const RightSection = styled.div``;
+const RightSection = styled.div`
+    display: flex;
+    justify-content: flex-end;
+    width: 100%;
+`;
 
 const EntityLink = styled.div`
     display: flex;
@@ -96,6 +101,7 @@ const DefaultPreviewCardFooter: React.FC<DefaultPreviewCardFooterProps> = ({
     lastUpdatedMs,
     statsSummary,
     paths,
+    isFullViewCard,
 }) => {
     const shouldRenderPillsRow = [glossaryTerms?.terms, tags?.tags, owners?.length].some(Boolean);
     const shouldRenderEntityLink = previewType === PreviewType.HOVER_CARD && entityTitleSuffix;
@@ -107,17 +113,19 @@ const DefaultPreviewCardFooter: React.FC<DefaultPreviewCardFooterProps> = ({
 
     return shouldRenderPillsRow || shouldRenderRightSection || shouldRenderEntityLink ? (
         <>
-            <HorizontalDivider />
+            {isFullViewCard && <HorizontalDivider />}
 
             <Container>
-                <Pills
-                    glossaryTerms={glossaryTerms}
-                    tags={tags}
-                    owners={owners}
-                    entityCapabilities={entityCapabilities}
-                    paths={paths}
-                    entityType={entityType}
-                />
+                {isFullViewCard && (
+                    <Pills
+                        glossaryTerms={glossaryTerms}
+                        tags={tags}
+                        owners={owners}
+                        entityCapabilities={entityCapabilities}
+                        paths={paths}
+                        entityType={entityType}
+                    />
+                )}
                 <RightSection>
                     <PreviewCardFooterRightSection
                         entityType={entityType}

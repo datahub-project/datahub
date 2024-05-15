@@ -2,7 +2,7 @@ import React from 'react';
 import styled from 'styled-components';
 import { useEntityData } from '../../../../../../../entity/shared/EntityContext';
 import { SidebarHeaderSectionColumns } from '../../SidebarHeaderSectionColumns';
-import SidebarPopularityHeaderSection from './SidebarPopularityHeaderSection';
+import SidebarPopularityHeaderSection from '../../shared/SidebarPopularityHeaderSection';
 import SidebarTopUsersHeaderSection from '../../shared/SidebarTopUsersHeaderSection';
 import { isValuePresent, userExists } from '../../shared/utils';
 import { REDESIGN_COLORS } from '../../../../../constants';

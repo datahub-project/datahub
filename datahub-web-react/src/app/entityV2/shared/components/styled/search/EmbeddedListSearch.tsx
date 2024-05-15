@@ -334,6 +334,7 @@ export const EmbeddedListSearch = ({
                 setSelectedEntities={setSelectedEntities}
                 entityAction={entityAction}
                 applyView={applyView}
+                compactUserSearchCardStyle
             />
         </Container>
     );
