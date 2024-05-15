@@ -134,7 +134,7 @@ def run(
                     f"Source ({pipeline.config.source.type}) report:\n{pipeline.source.get_report().as_string()}"
                 )
                 logger.info(
-                    f"Sink ({pipeline.config.sink.type}) report:\n{pipeline.sink.get_report().as_string()}"
+                    f"Sink ({pipeline.sink_type}) report:\n{pipeline.sink.get_report().as_string()}"
                 )
                 raise e
             else:
