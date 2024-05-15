@@ -81,6 +81,7 @@ def check_golden_file(
     output_path: Union[str, os.PathLike],
     golden_path: Union[str, os.PathLike],
     ignore_paths: Sequence[str] = (),
+    ignore_paths_v2: Sequence[str] = (),
 ) -> None:
     update_golden = pytestconfig.getoption("--update-golden-files")
     copy_output = pytestconfig.getoption("--copy-output-files")
@@ -90,6 +91,7 @@ def check_golden_file(
         update_golden=update_golden,
         copy_output=copy_output,
         ignore_paths=ignore_paths,
+        ignore_paths_v2=ignore_paths_v2,
     )
 
 
