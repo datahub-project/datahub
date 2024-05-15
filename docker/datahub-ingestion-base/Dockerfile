@@ -56,6 +56,17 @@ RUN apt-get update && apt-get install -y -qq \
     && python -m pip install --no-cache --upgrade pip uv>=0.1.10 wheel setuptools \
     && rm -rf /var/lib/apt/lists/* /var/cache/apk/*
 
+# Install Microsoft ODBC Driver for SQL Server
+RUN <<EOF
+DEBIAN_VERSION=$(cat /etc/debian_version | cut -d . -f 1)
+curl -sSL https://packages.microsoft.com/keys/microsoft.asc | tee /etc/apt/trusted.gpg.d/microsoft.asc
+curl -sSL https://packages.microsoft.com/config/debian/$DEBIAN_VERSION/prod.list | tee /etc/apt/sources.list.d/mssql-release.list
+gpg -o /usr/share/keyrings/microsoft-prod.gpg --dearmor /etc/apt/trusted.gpg.d/microsoft.asc
+apt-get update
+ACCEPT_EULA=Y apt-get install -y -qq msodbcsql18
+rm -rf /var/lib/apt/lists/*
+EOF
+
 # compiled against newer golang for security fixes
 COPY --from=dockerize-binary /go/bin/dockerize /usr/local/bin
 
