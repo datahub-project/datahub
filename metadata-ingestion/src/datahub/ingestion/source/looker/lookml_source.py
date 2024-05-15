@@ -670,7 +670,7 @@ class LookerViewFileLoader:
             return self.viewfile_cache[path]
 
         try:
-            with open(path, "r") as file:
+            with open(path) as file:
                 raw_file_content = file.read()
         except Exception as e:
             self.reporter.report_failure(path, f"failed to load view file: {e}")
