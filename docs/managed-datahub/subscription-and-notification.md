@@ -97,30 +97,30 @@ You can view and manage the group’s subscriptions on the group’s page on Dat
 
 You can subscribe to individual assertions by clicking the bell button on the assertion itself - either in the list view:
 <p align="center">
-  <img width="70%" alt="1" src="https://github.com/datahub-project/datahub/assets/159848059/195300df-b2b5-4863-972d-dc4b6764f3bc" />
+  <img width="70%" alt="1" src="https://github.com/datahub-project/datahub/assets/159848059/65eac334-66cc-46a1-b32c-9288077ffcce" />
 </p>
 
-...or on the assertion's profile page:
+Or on the assertion's profile page:
 <p align="center">
-  <img width="70%" alt="2" src="https://github.com/datahub-project/datahub/assets/159848059/b2e2446c-18b6-45c7-851b-3d49aabeacae" />
+  <img width="70%" alt="2" src="https://github.com/datahub-project/datahub/assets/159848059/d138f33f-08b6-4b25-b4c6-ba7c875d3501" />
 </p>
 
 
 Note: if you are subscribed to all assertions at the dataset level, then you will not be able to 'unsubscribe' from an individual assertion.
 <p align="center">
-  <img width="70%" alt="3" src="https://github.com/datahub-project/datahub/assets/159848059/2092928a-ea9c-464a-b691-06e706cdeed0" />
+  <img width="70%" alt="3" src="https://github.com/datahub-project/datahub/assets/159848059/9ea2715e-04dd-4c23-a894-8ab8ef11064c" />
 </p>
 
 You must first remove your dataset-level subscription:
 <p align="center">
-  <img width="70%" alt="4" src="https://github.com/datahub-project/datahub/assets/159848059/74df6d58-fa37-4373-91b2-b73cb7b98172" />
-  <img width="70%" alt="5" src="https://github.com/datahub-project/datahub/assets/159848059/7803abb9-e33d-4ac1-a11c-059296cd06a4" />
+  <img width="70%" alt="4" src="https://github.com/datahub-project/datahub/assets/159848059/4485704e-bf76-4f68-a992-27a7654b04be" />
+  <img width="70%" alt="5" src="https://github.com/datahub-project/datahub/assets/159848059/e323da02-9345-4842-b22c-a6be1323f2ac" />
 </p>
 
 
 Then select individual assertions you'd like to subscribe to:
 <p align="center">
-  <img width="70%" alt="7" src="https://github.com/datahub-project/datahub/assets/159848059/15c428af-5f9d-4a9d-a178-c2d58835b051" />
+  <img width="70%" alt="7" src="https://github.com/datahub-project/datahub/assets/159848059/1b8b855b-62a7-49f0-b544-aad28ae47197" />
 </p>
 
 
