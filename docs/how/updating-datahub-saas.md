@@ -43,3 +43,9 @@ Can be disabled if search ranking using usage percentiles is not desired. Other 
 - SYSTEM_UPDATE_USAGE_STORAGE_PERCENTILE_BATCH_SIZE (default: 500)
 - SYSTEM_UPDATE_USAGE_STORAGE_PERCENTILE_DELAY_MS (default: 1000)
 - SYSTEM_UPDATE_USAGE_STORAGE_PERCENTILE_LIMIT (default: 0)
+
+User Tracking: Hotjar
+
+We use a tool called Hotjar to track users, record user sessions (with data redacted), and ask for product feedback in-app (ie. "How helpful did you find our search results?"). This is either on or off based on the following variable set in GMS:
+
+- USER_TRACKING_ENABLED (default: false)
