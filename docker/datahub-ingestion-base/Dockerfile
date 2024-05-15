@@ -56,6 +56,13 @@ RUN apt-get update && apt-get install -y -qq \
     && python -m pip install --no-cache --upgrade pip uv>=0.1.10 wheel setuptools \
     && rm -rf /var/lib/apt/lists/* /var/cache/apk/*
 
+# Install Microsoft ODBC Driver for SQL Server
+RUN curl https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor -o /usr/share/keyrings/microsoft-archive-keyring.gpg \
+    && echo "deb [arch=amd64 signed-by=/usr/share/keyrings/microsoft-archive-keyring.gpg] https://packages.microsoft.com/debian/10/prod buster main" > /etc/apt/sources.list.d/mssql-release.list \
+    && apt-get update \
+    && ACCEPT_EULA=Y apt-get install -y msodbcsql17 \
+    && apt-get install -y unixodbc-dev
+
 # compiled against newer golang for security fixes
 COPY --from=dockerize-binary /go/bin/dockerize /usr/local/bin
 
