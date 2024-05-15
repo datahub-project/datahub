@@ -8,8 +8,8 @@ import { EntityType } from '../../../types.generated';
 import ManageLineageModal from './ManageLineageModal';
 import { ENTITY_TYPES_WITH_MANUAL_LINEAGE } from '../../entity/shared/constants';
 
-const DROPDOWN_Z_INDEX = 1;
-const POPOVER_Z_INDEX = 2;
+const DROPDOWN_Z_INDEX = 100;
+const POPOVER_Z_INDEX = 101;
 const UNAUTHORIZED_TEXT = "You aren't authorized to edit lineage for this entity.";
 
 const StyledImage = styled.img`
