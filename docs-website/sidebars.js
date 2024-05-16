@@ -677,7 +677,7 @@ module.exports = {
     },
     {
       type: "category",
-      label: "Datahub Actions",
+      label: "DataHub Actions",
       link: { type: "doc", id: "docs/act-on-metadata" },
       items: [
         "docs/actions/README",
@@ -729,6 +729,9 @@ module.exports = {
         "docs/api/tutorials/deprecation",
         "docs/api/tutorials/descriptions",
         "docs/api/tutorials/custom-properties",
+        "docs/api/tutorials/assertions",
+        "docs/api/tutorials/incidents",
+        "docs/api/tutorials/operations",
         "docs/api/tutorials/ml",
       ],
     },
