@@ -1393,7 +1393,6 @@ class SnowflakeV2Source(
         # falling back to get tables for schema
         if tables is None:
             self.report.num_get_tables_for_schema_queries += 1
-            print(f"called: get_tables_for_schema from snowflake_v2.py")
             return self.data_dictionary.get_tables_for_schema(schema_name, db_name)
 
         # Some schema may not have any table
@@ -1403,24 +1402,23 @@ class SnowflakeV2Source(
         self, schema_name: str, db_name: str
     ) -> List[SnowflakeView]:
         views = self.data_dictionary.get_views_for_database(db_name)
-        print(f"called: get_views_for_database from snowflake_v2.py")
         # get all views for database failed,
         # falling back to get views for schema
         if views is None:
             try:
-                self.report.num_get_views_for_schema_queries += 1
-                print(f"called: get_views_for_schema_V2 from snowflake_v2.py")
+                #self.report.num_get_views_for_schema_queries += 1
+                self.report.num_get_views_for_schema_queries += 5
                 views = self.data_dictionary.get_views_for_schema_V2(schema_name, db_name)
             
             except Exception as e:
                 print(f"An error occured: {e}")
-                self.report.num_get_views_for_schema_queries += 1
+                #self.report.num_get_views_for_schema_queries += 1
+                self.report.num_get_views_for_schema_queries += 10
                 # Joshua Garza: 20240511: 
                 # get all views for schema failed,
                 # Get views for schema based on a "Pagination" of 10,000 views at a time.
                 # https://docs.snowflake.com/en/sql-reference/sql/show-views                
                 #views = self.data_dictionary.get_views_for_schema_starts_with(schema_name, db_name)
-                print(f"calling get_views_by_pagination_markers_V2 from snowflake_v2.py .....")
                 views = self.data_dictionary.get_views_by_pagination_markers_V2(schema_name, db_name)
         # Some schema may not have any table
         return views.get(schema_name, [])

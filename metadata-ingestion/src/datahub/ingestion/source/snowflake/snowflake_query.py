@@ -275,17 +275,14 @@ class SnowflakeQuery:
 
     @staticmethod
     def show_views_for_database(db_name: str) -> str:
-        print(f"called: show_views_for_database from snowflake_query.py")
         return f"""show views in database "{db_name}";"""
 
     @staticmethod
     def show_views_for_schema(schema_name: str, db_name: Optional[str] = None, from_view_marker: Optional[str] = None) -> str:
-        #SHOW VIEWS IN SCHEMA {db_clause}"{schema_name} LIMIT 10000 FROM {from_marker}
-        print(f"called: show_views_for_schema from snowflake_query.py")
+        #JG 20240516: Let this call fail if the views returned > 10,000. Then Fallback to implementation with pagination
         db_clause = f'"{db_name}".' if db_name is not None else ""
-        from_view_marker_clause = f' from "{from_view_marker}"' if from_view_marker is not None else ""
-        print(f"from_view_marker_clause = {from_view_marker_clause}")
-        return f"show views in schema {db_clause}\"{schema_name}\" limit 8000{from_view_marker_clause};"
+        from_view_marker_clause = f' limit 10000 from "{from_view_marker}"' if from_view_marker is not None else ""
+        return f"show views in schema {db_clause}\"{schema_name}\" {from_view_marker_clause};"
 
     @staticmethod
     def columns_for_schema(schema_name: str, db_name: Optional[str]) -> str:
