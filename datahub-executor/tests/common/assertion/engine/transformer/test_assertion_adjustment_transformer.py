@@ -178,6 +178,7 @@ def test_assertion_tranformer_no_adjustment(assertion_no_adjustment: Assertion) 
     )
 
     assert new_assertion == assertion_no_adjustment
+    assert new_assertion.raw_info_aspect
     assert parameters == eval_parameters
     assert context == assertion_context
 
@@ -192,6 +193,7 @@ def test_assertion_tranformer_default_adjustment(
     )
 
     assert new_assertion.volume_assertion
+    assert new_assertion.raw_info_aspect
     assert new_assertion.volume_assertion.row_count_total
     assert (
         new_assertion.volume_assertion.row_count_total.parameters
@@ -218,6 +220,7 @@ def test_assertion_tranformer_custom_adjustment(
     )
 
     assert new_assertion.volume_assertion
+    assert new_assertion.raw_info_aspect
     assert new_assertion.volume_assertion.row_count_total
     assert (
         new_assertion.volume_assertion.row_count_total.parameters
@@ -245,6 +248,7 @@ def test_assertion_tranformer_malformed_adjustment(
     )
 
     assert new_assertion.volume_assertion
+    assert new_assertion.raw_info_aspect
     assert new_assertion.volume_assertion.row_count_total
     assert (
         new_assertion.volume_assertion.row_count_total.parameters

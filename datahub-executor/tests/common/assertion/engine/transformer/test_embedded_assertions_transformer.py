@@ -23,6 +23,7 @@ from datahub_executor.common.types import (
     DatasetFreshnessAssertionParameters,
     DatasetFreshnessSourceType,
     EmbeddedAssertion,
+    RawAspect,
     RowCountTotal,
     VolumeAssertion,
     VolumeAssertionType,
@@ -44,13 +45,17 @@ assertion = Assertion(
     volumeAssertion=VolumeAssertion(
         type=VolumeAssertionType.ROW_COUNT_TOTAL,
         rowCountTotal=RowCountTotal(
-            operator=AssertionStdOperator.GREATER_THAN,
+            operator=AssertionStdOperator.EQUAL_TO,
             parameters=AssertionStdParameters(
                 value=AssertionStdParameter(
                     type=AssertionStdParameterType.NUMBER, value="100"
                 )
             ),
         ),
+    ),
+    raw_info_aspect=RawAspect(
+        aspectName="assertionInfo",
+        payload='{"type":"VOLUME","volumeAssertion":{"type":"ROW_COUNT_TOTAL","entity":"urn:li:dataset:(urn:li:dataPlatform:snowflake,long_tail_companions.analytics.pet_status_history,PROD)","rowCountTotal":{"operator":"EQUAL_TO","parameters":{"value":{"value":"100.0","type":"NUMBER"}}}},"source":{"type":"INFERRED"}}',
     ),
 )
 eval_parameters = AssertionEvaluationParameters(
@@ -69,7 +74,7 @@ assertion_context = AssertionEvaluationContext(assertion_evaluation_spec=asserti
 new_volume_assertion = VolumeAssertion(
     type=VolumeAssertionType.ROW_COUNT_TOTAL,
     rowCountTotal=RowCountTotal(
-        operator=AssertionStdOperator.GREATER_THAN,
+        operator=AssertionStdOperator.EQUAL_TO,
         parameters=AssertionStdParameters(
             value=AssertionStdParameter(
                 type=AssertionStdParameterType.NUMBER, value="200"
@@ -82,6 +87,7 @@ embedded_assertion = EmbeddedAssertion(
     assertion=AssertionInfo(
         type=AssertionType.VOLUME,
         volumeAssertion=new_volume_assertion,
+        sourceType=AssertionSourceType.INFERRED,
     ),
     rawAssertion='{"type":"VOLUME","volumeAssertion":{"type":"ROW_COUNT_TOTAL","entity":"urn:li:dataset:(urn:li:dataPlatform:snowflake,long_tail_companions.analytics.pet_status_history,PROD)","rowCountTotal":{"operator":"EQUAL_TO","parameters":{"value":{"value":"200.0","type":"NUMBER"}}}},"source":{"type":"INFERRED"}}',
     evaluationTimeWindow=None,
@@ -106,6 +112,7 @@ def test_assertion_tranformer_no_change() -> None:
     )
 
     assert new_assertion == assertion
+    assert new_assertion.raw_info_aspect
     assert parameters == assertion_spec.parameters
     assert context == assertion_context
 
@@ -113,6 +120,7 @@ def test_assertion_tranformer_no_change() -> None:
 def test_assertion_transformer_assertion_updated() -> None:
     graph = MagicMock(spec=DataHubAssertionGraph)
     transformer = EmbeddedAssertionsTransformer(graph)
+
     new_assertion, parameters, context = transformer.transform(
         smart_assertion_spec.assertion,
         smart_assertion_spec.parameters,
@@ -120,7 +128,13 @@ def test_assertion_transformer_assertion_updated() -> None:
     )
 
     graph.emit_mcp.assert_called_once()
+
     assert new_assertion != assertion
+
+    assert new_assertion.raw_info_aspect
+    assert assertion.raw_info_aspect
+
+    assert new_assertion.source_type
     assert new_assertion.volume_assertion
     assert new_assertion.volume_assertion.row_count_total
     assert new_assertion.volume_assertion == new_volume_assertion

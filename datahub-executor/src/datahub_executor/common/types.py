@@ -915,9 +915,6 @@ class AssertionInfo(PermissiveBaseModel):
     # How the assertion was sourced
     source_type: Optional[AssertionSourceType] = Field(alias="sourceType")
 
-    # list with raw assertionInfo aspect
-    raw_info_aspect: Optional[RawAspect]
-
     @property
     def is_inferred(self) -> bool:
         return self.source_type == AssertionSourceType.INFERRED
@@ -949,6 +946,8 @@ class AssertionInfo(PermissiveBaseModel):
             and "type" in values["info"]["source"]
         ):
             values["sourceType"] = values["info"]["source"]["type"]
+        elif "source" in values and "type" in values["source"]:
+            values["sourceType"] = values["source"]["type"]
 
         if (
             "freshnessAssertion" not in values
@@ -985,13 +984,6 @@ class AssertionInfo(PermissiveBaseModel):
         ):
             values["schemaAssertion"] = values["info"]["schemaAssertion"]
 
-        if (
-            "rawInfoAspect" in values
-            and values["rawInfoAspect"]
-            and values["rawInfoAspect"][0]["aspectName"] == "assertionInfo"
-        ):
-            values["raw_info_aspect"] = values["rawInfoAspect"][0]
-
         return values
 
 
@@ -1022,6 +1014,9 @@ class Assertion(AssertionInfo):
 
     # The settings used to adjust the assertion.
     adjustmentSettings: Optional[AssertionAdjustmentSettings]
+
+    # raw assertionInfo aspect
+    raw_info_aspect: Optional[RawAspect]
 
     @root_validator(pre=True)
     def extract_assertion(cls, values: Dict[str, Any]) -> Dict[str, Any]:
@@ -1083,6 +1078,13 @@ class Assertion(AssertionInfo):
             values["adjustmentSettings"] = values["inferenceDetails"][
                 "adjustmentSettings"
             ]
+
+        if (
+            "rawInfoAspect" in values
+            and values["rawInfoAspect"]
+            and values["rawInfoAspect"][0]["aspectName"] == "assertionInfo"
+        ):
+            values["raw_info_aspect"] = values["rawInfoAspect"][0]
 
         return values
 

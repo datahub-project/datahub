@@ -15,6 +15,7 @@ from datahub_executor.common.types import (
     AssertionEvaluationContext,
     AssertionEvaluationParameters,
     EmbeddedAssertion,
+    RawAspect,
 )
 
 logger = logging.getLogger(__name__)
@@ -75,7 +76,7 @@ class EmbeddedAssertionsTransformer(AssertionTransformer):
         if not embedded_assertion_to_run:
             return assertion
 
-        logger.debug(f"Updating smart assertion {assertion.urn}")
+        logger.info(f"Updating smart assertion with embedded assertion {assertion.urn}")
         run_id = f"smart-assertion-{assertion.urn}-{str(now_ms)}"
         mcpw = MetadataChangeProposalWrapper(
             entityUrn=assertion.urn,
@@ -92,5 +93,9 @@ class EmbeddedAssertionsTransformer(AssertionTransformer):
                 urn=assertion.urn,
                 entity=assertion.entity,
                 connectionUrn=assertion.connection_urn,
-            )
+                raw_info_aspect=RawAspect(
+                    aspectName="assertionInfo",
+                    payload=embedded_assertion_to_run.raw_assertion,
+                ),
+            ),
         )

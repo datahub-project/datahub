@@ -83,6 +83,13 @@ def build_assertion_result(
     if result.error is not None:
         error = build_assertion_result_error(result.error)
 
+    current_assertion_info = get_assertion_info(assertion.raw_info_aspect)
+    if current_assertion_info is None:
+        logger.error(
+            "Failed to save assertion info in assertion result,"
+            f" raw_info_aspect={assertion.raw_info_aspect}"
+        )
+
     return AssertionResultClass(
         type=(
             AssertionResultTypeClass.SUCCESS
@@ -100,7 +107,7 @@ def build_assertion_result(
         rowCount=row_count,
         nativeResults=native_results,
         error=error,
-        assertion=get_assertion_info(assertion.raw_info_aspect),
+        assertion=current_assertion_info,
         baseAssertion=(
             get_assertion_info(context.base_assertion_info) if context else None
         ),
@@ -117,7 +124,8 @@ def get_assertion_info(
             info = AssertionInfoClass.from_obj(json.loads(aspect_str))
             return info
         except Exception as e:
-            logger.error(f"Unable to save assertion info due to error {e}")
+            logger.error(f"Failed to map assertion info due to error {e}")
+
     return None
 
 
