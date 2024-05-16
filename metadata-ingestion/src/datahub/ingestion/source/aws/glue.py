@@ -1170,8 +1170,7 @@ class GlueSource(StatefulIngestionSourceBase):
 
         def get_schema_metadata() -> Optional[SchemaMetadata]:
             # As soon as the hive integration with Spark is correctly providing the schema as expected in the
-            # StorageProperties, the alternative path to fetch schema from table parameters can be removed.
-            # https://github.com/datahub-project/datahub/pull/10299
+            # StorageProperties, the alternative path to fetch schema from table parameters for delta schemas can be removed.
             # https://github.com/delta-io/delta/pull/2310
             provider = table.get("Parameters", {}).get("spark.sql.sources.provider", "")
             num_parts = int(
