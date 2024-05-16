@@ -1,0 +1,16 @@
+namespace com.linkedin.common
+
+/**
+ * Aspect used for applying documentation to assets
+ * NOTE: This is an experimental aspect. Please use cautiously. 
+ */
+@Aspect = {
+  "name": "documentation"
+}
+record Documentation {
+
+  /**
+   * Documentations associated with this asset. We could be receiving docs from different sources
+   */
+  documentations: array[DocumentationAssociation]
+}

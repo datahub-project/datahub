@@ -454,6 +454,7 @@ entities:
       - structuredProperties
       - forms
       - businessAttributes
+      - documentation
   - name: globalSettings
     doc: Global settings for an the platform
     category: internal
