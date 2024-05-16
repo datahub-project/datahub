@@ -644,9 +644,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
             customProperties={
                 "upstream_fields": (
                     ",".join(
-                        sorted(
-                            set(field.name for field in dashboard_element.input_fields)
-                        )
+                        sorted({field.name for field in dashboard_element.input_fields})
                     )
                     if dashboard_element.input_fields
                     else ""
@@ -969,8 +967,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         dashboard_events = self._make_dashboard_metadata_events(
             looker_dashboard, list(chart_urns)
         )
-        for dashboard_event in dashboard_events:
-            yield dashboard_event
+        yield from dashboard_events
 
     def get_ownership(
         self, looker_dashboard: LookerDashboard
