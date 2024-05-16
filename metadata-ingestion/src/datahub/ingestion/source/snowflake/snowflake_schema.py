@@ -349,6 +349,26 @@ class SnowflakeDataDictionary(SnowflakeQueryMixin):
             )
         return views
 
+
+    def get_views_for_schema_V2(
+        self, schema_name: str, db_name: str
+    ) -> Dict[str, List[SnowflakeView]]:
+        views: Dict[str, List[SnowflakeView]] = {schema_name: []}
+
+        cur = self.query(SnowflakeQuery.show_views_for_schema(schema_name, db_name))
+        for table in cur:
+            views[schema_name].append(
+                SnowflakeView(
+                    name=table["name"],
+                    created=table["created_on"],
+                    comment=table["comment"],
+                    view_definition=table["text"],
+                    last_altered=table["created_on"],
+                )
+            )
+        return views
+
+
     def get_views_by_pagination_markers(
         self, schema_name: str, db_name: str
     ) -> List[SnowflakeView]:
@@ -392,6 +412,37 @@ class SnowflakeDataDictionary(SnowflakeQueryMixin):
                 # No more rows returned, stop the loop
                 more_rows = False
         return views
+
+    def get_views_by_pagination_markers_V2(
+        self, schema_name: str, db_name: str
+    ) -> Dict[str, List[SnowflakeView]]:
+        views: Dict[str, List[SnowflakeView]] = {schema_name: []}
+        offset = 0
+        batch_size = 10000
+        more_rows = True
+        while more_rows:                
+            cur = self.query(SnowflakeQuery.get_views_by_pagination_markers(schema_name, db_name, batch_size, offset))
+            rows = cur.fetchmany()
+            if rows:
+                from_view_marker = rows[0][0][:-1]
+                cur2 = self.query(SnowflakeQuery.show_views_for_schema(schema_name, db_name, from_view_marker))
+
+                for table in cur2:
+                    views[schema_name].append(
+                        SnowflakeView(
+                            name=table["name"],
+                            created=table["created_on"],
+                            # last_altered=table["last_altered"],
+                            comment=table["comment"],
+                            view_definition=table["text"],
+                            last_altered=table["created_on"],
+                        )
+                    )
+                offset += batch_size
+            else:
+                more_rows = False
+        return views
+
 
     @lru_cache(maxsize=1)
     def get_columns_for_schema(

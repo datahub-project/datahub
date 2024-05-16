@@ -1408,7 +1408,7 @@ class SnowflakeV2Source(
         if views is None:
             try:
                 self.report.num_get_views_for_schema_queries += 1
-                views = self.data_dictionary.get_views_for_schema(schema_name, db_name)
+                views = self.data_dictionary.get_views_for_schema_V2(schema_name, db_name)
             
             except Exception as e:
                 print(f"An error occured: {e}")
@@ -1418,7 +1418,7 @@ class SnowflakeV2Source(
                 # Get views for schema based on a "Pagination" of 10,000 views at a time.
                 # https://docs.snowflake.com/en/sql-reference/sql/show-views                
                 #views = self.data_dictionary.get_views_for_schema_starts_with(schema_name, db_name)
-                views = self.data_dictionary.get_views_by_pagination_markers(schema_name, db_name)
+                views = self.data_dictionary.get_views_by_pagination_markers_V2(schema_name, db_name)
         # Some schema may not have any table
         return views.get(schema_name, [])
 
