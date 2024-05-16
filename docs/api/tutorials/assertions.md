@@ -103,7 +103,7 @@ For more details, see the [Volume Assertions](/docs/managed-datahub/observe/volu
 
 ### Column Assertions
 
-To create a new column assertion, use the `upsertDatasetVolumeAssertionMonitor` GraphQL Mutation.
+To create a new column assertion, use the `upsertDatasetFieldAssertionMonitor` GraphQL Mutation.
 
 ```graphql
 mutation upsertDatasetFieldAssertionMonitor {
@@ -224,6 +224,501 @@ For more details, see the [Schema Assertions](/docs/managed-datahub/observe/sche
 
 </TabItem>
 </Tabs>
+
+## Get Assertions
+
+You can use the following APIs to 
+
+1. Fetch existing assertion definitions + run history
+2. Fetch the assertions associated with a given table + their run history. 
+
+<Tabs>
+<TabItem value="graphql" label="GraphQL" default>
+
+### Get Assertions for a Table
+
+To retrieve all the assertions for a table, you can use the following (super long) GraphQL Query. 
+
+```graphql
+query dataset {
+    dataset(urn: "urn:li:dataset:(urn:li:dataPlatform:snowflake,purchases,PROD)") {
+        assertions(start: 0, count: 1000) {
+            start
+            count
+            total
+            assertions {
+                # Fetch the last run of each associated assertion. 
+                runEvents(status: COMPLETE, limit: 1) {
+                    total
+                    failed
+                    succeeded
+                    runEvents {
+                        timestampMillis
+                        status
+                        result {
+                            type
+                            nativeResults {
+                                key
+                                value
+                            }
+                        }
+                    }
+                }
+                info {
+                    type
+                    description
+                    lastUpdated {
+                        time
+                        actor
+                    }
+                    datasetAssertion {
+                        datasetUrn
+                        scope
+                        aggregation
+                        operator
+                        parameters {
+                            value {
+                                value
+                                type
+                            }
+                            minValue {
+                                value
+                                type
+                            }
+                            maxValue {
+                                value
+                                type
+                            }
+                        }
+                        fields {
+                            urn
+                            path
+                        }
+                        nativeType
+                        nativeParameters {
+                            key
+                            value
+                        }
+                        logic
+                    }
+                    freshnessAssertion {
+                        type
+                        entityUrn
+                        schedule {
+                            type
+                            cron {
+                                cron
+                                timezone
+                            }
+                            fixedInterval {
+                                unit
+                                multiple
+                            }
+                        }
+                        filter {
+                            type
+                            sql
+                        }
+                    }
+                    sqlAssertion {
+                        type
+                        entityUrn
+                        statement
+                        changeType
+                        operator
+                        parameters {
+                            value {
+                                value
+                                type
+                            }
+                            minValue {
+                                value
+                                type
+                            }
+                            maxValue {
+                                value
+                                type
+                            }
+                        }
+                    }
+                    fieldAssertion {
+                        type
+                        entityUrn
+                        filter {
+                            type
+                            sql
+                        }
+                        fieldValuesAssertion {
+                            field {
+                                path
+                                type
+                                nativeType
+                            }
+                            transform {
+                                type
+                            }
+                            operator
+                            parameters {
+                                value {
+                                    value
+                                    type
+                                }
+                                minValue {
+                                    value
+                                    type
+                                }
+                                maxValue {
+                                    value
+                                    type
+                                }
+                            }
+                            failThreshold {
+                                type
+                                value
+                            }
+                            excludeNulls
+                        }
+                        fieldMetricAssertion {
+                            field {
+                                path
+                                type
+                                nativeType
+                            }
+                            metric
+                            operator
+                            parameters {
+                                value {
+                                    value
+                                    type
+                                }
+                                minValue {
+                                    value
+                                    type
+                                }
+                                maxValue {
+                                    value
+                                    type
+                                }
+                            }
+                        }
+                    }
+                    volumeAssertion {
+                        type
+                        entityUrn
+                        filter {
+                            type
+                            sql
+                        }
+                        rowCountTotal {
+                            operator
+                            parameters {
+                                value {
+                                    value
+                                    type
+                                }
+                                minValue {
+                                    value
+                                    type
+                                }
+                                maxValue {
+                                    value
+                                    type
+                                }
+                            }
+                        }
+                        rowCountChange {
+                            type
+                            operator
+                            parameters {
+                                value {
+                                    value
+                                    type
+                                }
+                                minValue {
+                                    value
+                                    type
+                                }
+                                maxValue {
+                                    value
+                                    type
+                                }
+                            }
+                        }
+                    }
+                    schemaAssertion {
+                        entityUrn
+                        compatibility
+                        fields {
+                            path
+                            type
+                            nativeType
+                        }
+                        schema {
+                            fields {
+                                fieldPath
+                                type
+                                nativeDataType
+                            }
+                        }
+                    }
+                    source {
+                        type
+                        created {
+                            time
+                            actor
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+```
+
+### Get a single assertion
+
+You can use the following GraphQL query to fetch a single assertion by its URN.
+
+```graphql
+query getAssertion {
+    assertion(urn: "urn:li:assertion:assertion-id") {
+        # Fetch the last 10 runs for the assertion. 
+        runEvents(status: COMPLETE, limit: 10) {
+            total
+            failed
+            succeeded
+            runEvents {
+                timestampMillis
+                status
+                result {
+                    type
+                    nativeResults {
+                        key
+                        value
+                    }
+                }
+            }
+        }
+        info {
+            type
+            description
+            lastUpdated {
+                time
+                actor
+            }
+            datasetAssertion {
+                datasetUrn
+                scope
+                aggregation
+                operator
+                parameters {
+                    value {
+                        value
+                        type
+                    }
+                    minValue {
+                        value
+                        type
+                    }
+                    maxValue {
+                        value
+                        type
+                    }
+                }
+                fields {
+                    urn
+                    path
+                }
+                nativeType
+                nativeParameters {
+                    key
+                    value
+                }
+                logic
+            }
+            freshnessAssertion {
+                type
+                entityUrn
+                schedule {
+                    type
+                    cron {
+                        cron
+                        timezone
+                    }
+                    fixedInterval {
+                        unit
+                        multiple
+                    }
+                }
+                filter {
+                    type
+                    sql
+                }
+            }
+            sqlAssertion {
+                type
+                entityUrn
+                statement
+                changeType
+                operator
+                parameters {
+                    value {
+                        value
+                        type
+                    }
+                    minValue {
+                        value
+                        type
+                    }
+                    maxValue {
+                        value
+                        type
+                    }
+                }
+            }
+            fieldAssertion {
+                type
+                entityUrn
+                filter {
+                    type
+                    sql
+                }
+                fieldValuesAssertion {
+                    field {
+                        path
+                        type
+                        nativeType
+                    }
+                    transform {
+                        type
+                    }
+                    operator
+                    parameters {
+                        value {
+                            value
+                            type
+                        }
+                        minValue {
+                            value
+                            type
+                        }
+                        maxValue {
+                            value
+                            type
+                        }
+                    }
+                    failThreshold {
+                        type
+                        value
+                    }
+                    excludeNulls
+                }
+                fieldMetricAssertion {
+                    field {
+                        path
+                        type
+                        nativeType
+                    }
+                    metric
+                    operator
+                    parameters {
+                        value {
+                            value
+                            type
+                        }
+                        minValue {
+                            value
+                            type
+                        }
+                        maxValue {
+                            value
+                            type
+                        }
+                    }
+                }
+            }
+            volumeAssertion {
+                type
+                entityUrn
+                filter {
+                    type
+                    sql
+                }
+                rowCountTotal {
+                    operator
+                    parameters {
+                        value {
+                            value
+                            type
+                        }
+                        minValue {
+                            value
+                            type
+                        }
+                        maxValue {
+                            value
+                            type
+                        }
+                    }
+                }
+                rowCountChange {
+                    type
+                    operator
+                    parameters {
+                        value {
+                            value
+                            type
+                        }
+                        minValue {
+                            value
+                            type
+                        }
+                        maxValue {
+                            value
+                            type
+                        }
+                    }
+                }
+            }
+            schemaAssertion {
+                entityUrn
+                compatibility
+                fields {
+                    path
+                    type
+                    nativeType
+                }
+                schema {
+                    fields {
+                        fieldPath
+                        type
+                        nativeDataType
+                    }
+                }
+            }
+            source {
+                type
+                created {
+                    time
+                    actor
+                }
+            }
+        }
+    }
+}
+```
+
+</TabItem>
+
+<TabItem value="python" label="Python">
+
+```python
+Python support coming soon!
+```
+
+</TabItem>
+</Tabs>
+
 
 ## Run Assertions
 
@@ -413,7 +908,6 @@ If running the assertions is successful, the results will be returned as follows
 Where you should see one result object for each assertion.
 
 </TabItem>
-
 
 <TabItem value="python" label="Python">
 
