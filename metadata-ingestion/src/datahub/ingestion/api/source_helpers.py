@@ -30,6 +30,7 @@ from datahub.metadata.schema_classes import (
     MetadataChangeEventClass,
     MetadataChangeProposalClass,
     OwnershipClass as Ownership,
+    SchemaMetadataClass,
     StatusClass,
     TimeWindowSizeClass,
 )
@@ -376,6 +377,38 @@ def auto_browse_path_v2(
             "num_out_of_order": num_out_of_order,
         }
         telemetry.telemetry_instance.ping("incorrect_browse_path_v2", properties)
+
+
+def auto_flag_duplicate_schema_field_paths(
+    stream: Iterable[MetadataWorkUnit],
+    *,
+    platform: Optional[str] = None,
+) -> Iterable[MetadataWorkUnit]:
+    """Count schema metadata aspects with duplicate field paths and emit telemetry."""
+
+    total_schema_aspects = 0
+    duplicate_field_paths = 0
+
+    for wu in stream:
+        schema_metadata = wu.get_aspect_of_type(SchemaMetadataClass)
+        if schema_metadata:
+            total_schema_aspects += 1
+
+            field_paths = [field.fieldPath for field in schema_metadata.fields]
+            if len(field_paths) != len(set(field_paths)):
+                duplicate_field_paths += 1
+
+        yield wu
+
+    if duplicate_field_paths:
+        properties = {
+            "platform": platform,
+            "total_schema_aspects": total_schema_aspects,
+            "duplicate_field_paths": duplicate_field_paths,
+        }
+        telemetry.telemetry_instance.ping(
+            "ingestion_duplicate_schema_field_paths", properties
+        )
 
 
 def auto_empty_dataset_usage_statistics(
