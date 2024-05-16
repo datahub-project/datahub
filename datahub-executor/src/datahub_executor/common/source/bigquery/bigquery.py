@@ -4,7 +4,13 @@ from typing import Any, Iterable, List, Optional, Union
 
 import pytz
 from datahub.ingestion.source.bigquery_v2.common import BQ_DATETIME_FORMAT
-from google.api_core.exceptions import BadRequest, Forbidden, NotFound
+from google.api_core.exceptions import (
+    BadRequest,
+    Forbidden,
+    InternalServerError,
+    NotFound,
+    ServiceUnavailable,
+)
 from tenacity import retry, stop_after_attempt, wait_exponential
 from tenacity.before_sleep import before_sleep_log
 
@@ -174,9 +180,16 @@ class BigQuerySource(Source):
     def _execute_fetchall_query(self, query: str) -> List[Any]:
         try:
             return self.connection.get_client().query(query)
-        except Exception as e:
+        except (
+            NotFound,
+            Forbidden,
+            BadRequest,
+            InternalServerError,
+            ServiceUnavailable,
+        ) as e:
             raise SourceQueryFailedException(
-                message=f"Source query (BigQuery) failed with error: {e}", query=query
+                message=f"Source query (BigQuery) failed with error: {e.message}",
+                query=query,
             )
 
     def _build_audit_log_results(self, entries: Iterable[Any]) -> List[EntityEvent]:
@@ -332,11 +345,24 @@ class BigQuerySource(Source):
             filter_sql,
             previous_value,
         )
-        rows = self._execute_fetchall_query(get_value_query)
-        current_field_value = None
-        # TODO - find the right client method to get the first/single row instead of iterating here
-        for row in rows:
-            current_field_value = row[0]
+
+        try:
+            rows = self._execute_fetchall_query(get_value_query)
+            current_field_value = None
+            # TODO - find the right client method to get the first/single row instead of iterating here
+            for row in rows:
+                current_field_value = row[0]
+        except (
+            NotFound,
+            Forbidden,
+            BadRequest,
+            InternalServerError,
+            ServiceUnavailable,
+        ) as e:
+            raise SourceQueryFailedException(
+                message=f"Source query (BigQuery) failed with error: {e.message}",
+                query=get_value_query,
+            )
 
         return current_field_value
 
@@ -363,12 +389,25 @@ class BigQuerySource(Source):
             filter_sql,
             current_field_value,
         )
-        rows = self._execute_fetchall_query(get_count_query)
-        current_row_count = 0
-        for row in rows:
-            current_row_count = row[0]
 
-        return current_row_count
+        try:
+            rows = self._execute_fetchall_query(get_count_query)
+            current_row_count = 0
+            for row in rows:
+                current_row_count = row[0]
+
+            return current_row_count
+        except (
+            NotFound,
+            Forbidden,
+            BadRequest,
+            InternalServerError,
+            ServiceUnavailable,
+        ) as e:
+            raise SourceQueryFailedException(
+                message=f"Source query (BigQuery) failed with error: {e.message}",
+                query=get_count_query,
+            )
 
     def _get_num_rows_via_stats_table(self, database_params: DatabaseParams) -> int:
         query = f"""
@@ -377,12 +416,25 @@ class BigQuerySource(Source):
             WHERE table_id='{database_params.table}';"""
 
         logger.debug(query)
-        rows = self._execute_fetchall_query(query)
-        current_row_count = 0
-        for row in rows:
-            current_row_count = int(row[0])
 
-        return current_row_count
+        try:
+            rows = self._execute_fetchall_query(query)
+            current_row_count = 0
+            for row in rows:
+                current_row_count = int(row[0])
+
+            return current_row_count
+        except (
+            NotFound,
+            Forbidden,
+            BadRequest,
+            InternalServerError,
+            ServiceUnavailable,
+        ) as e:
+            raise SourceQueryFailedException(
+                message=f"Source query (BigQuery) failed with error: {e.message}",
+                query=query,
+            )
 
     def _get_num_rows_via_count(
         self, database_params: DatabaseParams, filter_sql: str
@@ -393,12 +445,24 @@ class BigQuerySource(Source):
         )
 
         logger.debug(query)
-        rows = self._execute_fetchall_query(query)
-        current_row_count = 0
-        for row in rows:
-            current_row_count = int(row[0])
 
-        return current_row_count
+        try:
+            rows = self._execute_fetchall_query(query)
+            current_row_count = 0
+            for row in rows:
+                current_row_count = int(row[0])
+            return current_row_count
+        except (
+            NotFound,
+            Forbidden,
+            BadRequest,
+            InternalServerError,
+            ServiceUnavailable,
+        ) as e:
+            raise SourceQueryFailedException(
+                message=f"Source query (BigQuery) failed with error: {e.message}",
+                query=query,
+            )
 
     @retry(
         stop=stop_after_attempt(3),
@@ -427,7 +491,13 @@ class BigQuerySource(Source):
                     raise CustomSQLErrorException(
                         f"Custom SQL returned non-numeric value '{row[0]}'"
                     )
-        except (NotFound, Forbidden, BadRequest) as e:
+        except (
+            NotFound,
+            Forbidden,
+            BadRequest,
+            InternalServerError,
+            ServiceUnavailable,
+        ) as e:
             # try/except here not around the _execute_fetchall_query because it seems the
             # google client has lazy evaluation, so doesn't fail until the 'for row in rows:' line
             raise CustomSQLErrorException(e.message)
@@ -478,7 +548,13 @@ class BigQuerySource(Source):
                     raise FieldAssertionErrorException(
                         f"Field Values query returned non-numeric value '{row[0]}'"
                     )
-        except (NotFound, Forbidden, BadRequest) as e:
+        except (
+            NotFound,
+            Forbidden,
+            BadRequest,
+            InternalServerError,
+            ServiceUnavailable,
+        ) as e:
             # try/except here not around the _execute_fetchall_query because it seems the
             # google client has lazy evaluation, so doesn't fail until the 'for row in rows:' line
             raise FieldAssertionErrorException(e.message)
@@ -529,7 +605,15 @@ class BigQuerySource(Source):
                     raise FieldAssertionErrorException(
                         f"Field Values query returned non-numeric value '{row[0]}'"
                     )
-        except (NotFound, Forbidden, BadRequest) as e:
+        except (
+            NotFound,
+            Forbidden,
+            BadRequest,
+            InternalServerError,
+            ServiceUnavailable,
+            InternalServerError,
+            ServiceUnavailable,
+        ) as e:
             # try/except here not around the _execute_fetchall_query because it seems the
             # google client has lazy evaluation, so doesn't fail until the 'for row in rows:' line
             raise FieldAssertionErrorException(e.message)
