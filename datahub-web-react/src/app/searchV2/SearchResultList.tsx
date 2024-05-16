@@ -221,7 +221,7 @@ export const SearchResultList = ({
             split={false}
             locale={{ emptyText: (!loading && <EmptySearchResults suggestions={suggestions} />) || <></> }}
             renderItem={(item, index) => {
-                const expandedSection = urnToExpandedSection[item.entity.urn];
+                const expandedSection = isFullViewCard ? urnToExpandedSection[item.entity.urn] : undefined;
                 return (
                     <div style={{ position: 'relative' }}>
                         <MatchContextContianer

@@ -9,6 +9,7 @@ import { PreviewSection } from '../../../../../shared/MatchesContext';
 import { useEntityRegistry } from '../../../../../useEntityRegistry';
 import { EntityAndType } from '../../../../../entity/shared/types';
 import { useInitializeColumnLineageCards } from './useInitializeColumnLineageCards';
+import { useSearchContext } from '../../../../../search/context/SearchContext';
 
 export const StyledList = styled(List)`
     overflow-y: auto;
@@ -143,19 +144,21 @@ export const EntitySearchResults = ({
     // when in CLL impact analysis, default open up the column paths card slideout
     useInitializeColumnLineageCards(searchResults, setUrnToExpandedSection);
 
+    const { isFullViewCard } = useSearchContext();
+
     return (
         <StyledList
             bordered={bordered}
             dataSource={searchResults}
             renderItem={(searchResult) => {
                 const { entity } = searchResult;
-                const expandedSection = urnToExpandedSection[entity.urn];
+                const expandedSection = isFullViewCard ? urnToExpandedSection[entity.urn] : undefined;
                 return (
                     <MatchContextAndEntityContainer>
                         <MatchContextContianer
                             selected={false}
                             item={searchResult}
-                            onClick={() => {}}
+                            onClick={() => { }}
                             urnToExpandedSection={urnToExpandedSection}
                             setUrnToExpandedSection={setUrnToExpandedSection}
                             compactUserSearchCardStyle={compactUserSearchCardStyle}

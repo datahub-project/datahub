@@ -82,15 +82,14 @@ export const MatchContextContianer = ({
     setUrnToExpandedSection,
     compactUserSearchCardStyle,
 }: Props) => {
-    const expandedSection = urnToExpandedSection[item.entity.urn];
+    const { isFullViewCard } = useSearchContext();
+    const expandedSection = isFullViewCard ? urnToExpandedSection[item.entity.urn] : undefined;
 
     const [cachedExpandedSection, setCachedExpandedSection] = useState<PreviewSection | undefined>(expandedSection);
     useEffect(() => {
-        if (!expandedSection) return;
+        if (!expandedSection || !isFullViewCard) return;
         setCachedExpandedSection(expandedSection);
     }, [expandedSection]);
-
-    const { isFullViewCard } = useSearchContext();
 
     return (
         <MatchContext.Provider
@@ -121,7 +120,7 @@ export const MatchContextContianer = ({
                         <MatchContext.Provider
                             value={{
                                 expandedSection: undefined,
-                                setExpandedSection: () => {},
+                                setExpandedSection: () => { },
                             }}
                         >
                             <HorizontalScroller alwaysVisible>
