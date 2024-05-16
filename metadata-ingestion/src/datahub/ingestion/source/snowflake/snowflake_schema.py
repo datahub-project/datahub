@@ -347,6 +347,7 @@ class SnowflakeDataDictionary(SnowflakeQueryMixin):
                     last_altered=table["created_on"],
                 )
             )
+        print(f"called: get_views_for_schema")
         return views
 
 
@@ -366,6 +367,7 @@ class SnowflakeDataDictionary(SnowflakeQueryMixin):
                     last_altered=table["created_on"],
                 )
             )
+        print(f"called: get_views_for_schema_V2")
         return views
 
 
@@ -382,6 +384,7 @@ class SnowflakeDataDictionary(SnowflakeQueryMixin):
         offset = 0
         batch_size = 10000
         more_rows = True
+        print(f"inside get_views_by_pagination_markers: calling: get_views_by_pagination_markers in snowflake_query.py")
         while more_rows:                
             cur = self.query(SnowflakeQuery.get_views_by_pagination_markers(schema_name, db_name, batch_size, offset))
             # You now have a cursor of View Names to use for the subsequent Snowflake Call: 
@@ -420,7 +423,9 @@ class SnowflakeDataDictionary(SnowflakeQueryMixin):
         offset = 0
         batch_size = 10000
         more_rows = True
-        while more_rows:                
+        print(f"inside get_views_by_pagination_markers_V2: calling: get_views_by_pagination_markers in snowflake_query.py")
+        while more_rows:
+            print(f"inside more_rows in get_views_by_pagination_markers_V2: calling: get_views_by_pagination_markers in snowflake_query.py")
             cur = self.query(SnowflakeQuery.get_views_by_pagination_markers(schema_name, db_name, batch_size, offset))
             rows = cur.fetchmany()
             if rows:
@@ -441,7 +446,6 @@ class SnowflakeDataDictionary(SnowflakeQueryMixin):
                 offset += batch_size
             else:
                 more_rows = False
-        print(f"called: get_views_by_pagination_markers_V2")
         return views
 
 

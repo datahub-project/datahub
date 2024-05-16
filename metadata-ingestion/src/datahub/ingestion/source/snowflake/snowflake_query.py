@@ -241,6 +241,7 @@ class SnowflakeQuery:
     #def get_views_by_name_substr(schema_name: str, db_name: Optional[str]) -> str:
     def get_views_by_pagination_markers(schema_name: str, db_name: Optional[str], batch_size: int, offset: int) -> str:
         db_clause = f'"{db_name}".' if db_name is not None else ""
+        print(f"inside get_views_by_pagination_markers in snowflake_query.py, fixin to get pagination_marker")
         # If show views in schema {db_clause}"{schema_name} is ran against a 
         # Schema with more than 10,000 views, Snowflake returns the following error:
         # The result set size exceeded the max number of rows(10000)
