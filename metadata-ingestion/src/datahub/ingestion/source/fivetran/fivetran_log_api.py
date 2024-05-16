@@ -76,7 +76,7 @@ class FivetranLogAPI:
         )
 
     def _query(self, query: str) -> List[Dict]:
-        logger.debug("Query : {}".format(query))
+        logger.debug(f"Query : {query}")
         resp = self.engine.execute(query)
         return [row for row in resp]
 

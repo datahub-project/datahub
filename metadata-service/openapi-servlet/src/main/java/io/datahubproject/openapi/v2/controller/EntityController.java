@@ -294,7 +294,9 @@ public class EntityController {
             .flatMap(
                 e ->
                     e.getAspects().entrySet().stream()
-                        .filter(entry -> entry.getKey().equals(aspectName))
+                        .filter(
+                            entry ->
+                                entry.getKey().equals(lookupAspectSpec(urn, aspectName).getName()))
                         .map(Map.Entry::getValue)
                         .findFirst()));
   }
@@ -324,7 +326,7 @@ public class EntityController {
             authentication,
             true);
 
-    return exists(opContext, urn, aspectName)
+    return exists(opContext, urn, lookupAspectSpec(urn, aspectName).getName())
         ? ResponseEntity.noContent().build()
         : ResponseEntity.notFound().build();
   }
@@ -414,7 +416,8 @@ public class EntityController {
             authentication,
             true);
 
-    entityService.deleteAspect(opContext, entityUrn, aspectName, Map.of(), true);
+    entityService.deleteAspect(
+        opContext, entityUrn, lookupAspectSpec(urn, aspectName).getName(), Map.of(), true);
   }
 
   @Tag(name = "Generic Aspects")
@@ -521,9 +524,9 @@ public class EntityController {
             authentication,
             true);
 
-    RecordTemplate currentValue = entityService.getAspect(opContext, urn, aspectName, 0);
-
     AspectSpec aspectSpec = lookupAspectSpec(entitySpec, aspectName);
+    RecordTemplate currentValue = entityService.getAspect(opContext, urn, aspectSpec.getName(), 0);
+
     GenericPatchTemplate<? extends RecordTemplate> genericPatchTemplate =
         GenericPatchTemplate.builder()
             .genericJsonPatch(patch)
@@ -560,7 +563,7 @@ public class EntityController {
                         .build(
                             objectMapper,
                             Map.of(
-                                aspectName,
+                                aspectSpec.getName(),
                                 Pair.of(
                                     result.getNewValue(),
                                     withSystemMetadata ? result.getNewSystemMetadata() : null)))));
@@ -598,7 +601,11 @@ public class EntityController {
 
       Map<Urn, List<EnvelopedAspect>> aspects =
           entityService.getLatestEnvelopedAspects(
-              opContext, urnsSet, resolveAspectNames(urnsSet, aspectNames));
+              opContext,
+              urnsSet,
+              resolveAspectNames(urnsSet, aspectNames).stream()
+                  .map(AspectSpec::getName)
+                  .collect(Collectors.toSet()));
 
       return urns.stream()
           .map(
@@ -612,18 +619,21 @@ public class EntityController {
     }
   }
 
-  private Set<String> resolveAspectNames(Set<Urn> urns, Set<String> requestedNames) {
-    if (requestedNames.isEmpty()) {
+  private Set<AspectSpec> resolveAspectNames(Set<Urn> urns, Set<String> requestedAspectNames) {
+    if (requestedAspectNames.isEmpty()) {
       return urns.stream()
           .flatMap(u -> entityRegistry.getEntitySpec(u.getEntityType()).getAspectSpecs().stream())
-          .map(AspectSpec::getName)
           .collect(Collectors.toSet());
     } else {
       // ensure key is always present
       return Stream.concat(
-              requestedNames.stream(),
               urns.stream()
-                  .map(u -> entityRegistry.getEntitySpec(u.getEntityType()).getKeyAspectName()))
+                  .flatMap(
+                      urn ->
+                          requestedAspectNames.stream()
+                              .map(aspectName -> lookupAspectSpec(urn, aspectName))),
+              urns.stream()
+                  .map(u -> entityRegistry.getEntitySpec(u.getEntityType()).getKeyAspectSpec()))
           .collect(Collectors.toSet());
     }
   }

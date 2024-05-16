@@ -101,7 +101,7 @@ class GitInfo(GitReference):
         if v is None:
             deploy_key_file = values.get("deploy_key_file")
             if deploy_key_file is not None:
-                with open(deploy_key_file, "r") as fp:
+                with open(deploy_key_file) as fp:
                     deploy_key = SecretStr(fp.read())
                     return deploy_key
         return v
