@@ -9,11 +9,11 @@ The Assertions APIs allow you to create, schedule, run, and delete Assertions wi
 
 Supported Assertion Types include: 
 
-- [Freshness Assertions](/docs/managed-datahub/observe/freshness-assertions)
-- [Volume Assertions](/docs/managed-datahub/observe/volume-assertions)
-- [Column Assertions](/docs/managed-datahub/observe/column-assertions)
-- [Schema Assertions](/docs/managed-datahub/observe/schema-assertions)
-- [Custom SQL Assertions](/docs/managed-datahub/observe/custom-sql-assertions)
+- [Freshness Assertions](/docs/managed-datahub/observe/freshness-assertions.md)
+- [Volume Assertions](/docs/managed-datahub/observe/volume-assertions.md)
+- [Column Assertions](/docs/managed-datahub/observe/column-assertions.md)
+- [Schema Assertions](/docs/managed-datahub/observe/schema-assertions.md)
+- [Custom SQL Assertions](/docs/managed-datahub/observe/custom-sql-assertions.md)
 
 
 ### Goal Of This Guide
@@ -59,7 +59,7 @@ mutation upsertDatasetFreshnessAssertionMonitor {
 }
 ```
 
-For more details, see the [Freshness Assertions](/docs/managed-datahub/observe/freshness-assertions) guide.
+For more details, see the [Freshness Assertions](/docs/managed-datahub/observe/freshness-assertions.md) guide.
 
 ### Volume Assertions
 
@@ -99,7 +99,7 @@ mutation upsertDatasetVolumeAssertionMonitor {
 }
 ```
 
-For more details, see the [Volume Assertions](/docs/managed-datahub/observe/volume-assertions) guide.
+For more details, see the [Volume Assertions](/docs/managed-datahub/observe/volume-assertions.md) guide.
 
 ### Column Assertions
 
@@ -145,7 +145,7 @@ mutation upsertDatasetFieldAssertionMonitor {
 }
 ```
 
-For more details, see the [Column Assertions](/docs/managed-datahub/observe/column-assertions) guide.
+For more details, see the [Column Assertions](/docs/managed-datahub/observe/column-assertions.md) guide.
 
 ### Custom SQL Assertions
 
@@ -179,7 +179,7 @@ mutation upsertDatasetSqlAssertionMonitor {
 }
 ```
 
-For more details, see the [Custom SQL Assertions](/docs/managed-datahub/observe/custom-sql-assertions) guide.
+For more details, see the [Custom SQL Assertions](/docs/managed-datahub/observe/custom-sql-assertions.md) guide.
 
 ### Schema Assertions
 
@@ -219,7 +219,7 @@ mutation upsertDatasetSchemaAssertionMonitor {
 }
 ```
 
-For more details, see the [Schema Assertions](/docs/managed-datahub/observe/schema-assertions) guide.
+For more details, see the [Schema Assertions](/docs/managed-datahub/observe/schema-assertions.md) guide.
 
 
 </TabItem>
