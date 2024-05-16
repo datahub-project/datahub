@@ -3,13 +3,13 @@ import TabItem from '@theme/TabItem';
 
 # [Feature Name]
 
-## Why Would you Use [Feature Name]?
+## Why Would You Use [Feature Name]?
 
 <!-- This section should provide plain-language explanations on the feature itself, preferably in one paragraph, and should link to the feature guide for more detailed information.
 * What is the short definition of this feature?
 * Why is this useful-->
 
-### Goal Of This Guide
+### Goal of This Guide
 
 This guide will show you how to...
 
@@ -30,7 +30,7 @@ Before adding lineage, you need to ensure the targeted dataset is already presen
 :::
 -->
 
-## [Action] [Feature]
+## [Action] [Feature Name]
 <!-- The heading should short and straightforward, and start with verb and end with the feature name. For example, "Add Lineage" 
 Each action should have the same format of code snippets (Tabs) and expected outcomes. -->
 
@@ -53,11 +53,8 @@ If this is not supported, delete this TabItem-->
 </TabItem>
 
 <TabItem value="Python" label="Python">
-<!-- Provide Python code snippet here with explanations (optional). Python snippet should be placed under /metadata-ingestion/examples/library/, and you should refer to it like this:
-
-```python
-{{ inline /metadata-ingestion/examples/library/<file_name>.py show_path_as_comment }}
-```
+<!-- Provide Python code snippet here with explanations (optional). Python snippet should be placed under /metadata-ingestion/examples/library/, and you should refer to it like:
+`{{ inline <file_path> show_path_as_comment }}`
 If this is not supported, delete this TabItem-->
 </TabItem>
 
@@ -68,7 +65,7 @@ If this is not supported, delete this TabItem-->
 </Tab>
 
 
-### Expected Outcome of [Action] [Feature]
+### Expected Outcome of [Action] [Feature Name]
 
 <!-- This section should demonstrate the expected outcome of the action. 
 In general, this should include the screenshot of the DataHub UI. 
