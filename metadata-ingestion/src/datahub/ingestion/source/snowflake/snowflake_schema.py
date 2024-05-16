@@ -441,6 +441,7 @@ class SnowflakeDataDictionary(SnowflakeQueryMixin):
                 offset += batch_size
             else:
                 more_rows = False
+        print(f"called: get_views_by_pagination_markers_V2")
         return views
 
 
