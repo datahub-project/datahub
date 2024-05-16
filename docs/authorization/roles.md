@@ -99,7 +99,6 @@ These privileges are common to both Self-Hosted DataHub and Managed DataHub.
 | Manage Ownership Types          | :heavy_check_mark: | :x:                | :x:    | Create, update and delete Ownership Types.                                                                                                                                 |
 | Analytics API access            | :heavy_check_mark: | :x:                | :x:    | API read access to raw analytics data.                                                                                                                                     |
 | Create Business Attribute       | :heavy_check_mark: | :x:                | :x:    | Create new Business Attribute.                                                                                                                                             |
-| Manage Connections              | :heavy_check_mark: | :x:                | :x:    | Manage connections to external platforms.                                                                                                                                  |
 | Manage Monitors                 | :heavy_check_mark: | :x:                | :x:    | Create, update, and delete any data asset monitors, including Custom SQL monitors. Grant with care.                                                                        |
 
 ##### Metadata Privileges
@@ -109,7 +108,6 @@ These privileges are common to both Self-Hosted DataHub and Managed DataHub.
 | View Entity Page                   | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | The ability to view the entity page.                                                             |
 | View Dataset Usage                 | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | The ability to access dataset usage information (includes usage statistics and queries).         |
 | View Dataset Profile               | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | The ability to access dataset profile (snapshot statistics)                                      |
-| Propose Documentation              | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | The ability to propose updates to an asset's documentation.                                      |
 | Edit Tags                          | :heavy_check_mark: | :heavy_check_mark: | :x:                | The ability to add and remove tags to an asset.                                                  |
 | Edit Glossary Terms                | :heavy_check_mark: | :heavy_check_mark: | :x:                | The ability to add and remove glossary terms to an asset.                                        |
 | Edit Description                   | :heavy_check_mark: | :heavy_check_mark: | :x:                | The ability to edit the description (documentation) of an entity.                                |
@@ -147,6 +145,7 @@ These privileges are only relevant to Managed DataHub.
 | View Metadata Proposals     | :heavy_check_mark: | :heavy_check_mark: | :x:    | View the requests tab for viewing metadata proposals.                       |
 | Create metadata constraints | :heavy_check_mark: | :heavy_check_mark: | :x:    | Create metadata constraints.                                                |
 | Manage Platform Settings    | :heavy_check_mark: | :x:                | :x:    | View and change platform-level settings, like integrations & notifications. |
+| Manage Connections          | :heavy_check_mark: | :x:                | :x:    | Manage connections to external platforms.                                   |
 
 ##### Metadata Privileges
 
@@ -155,6 +154,7 @@ These privileges are only relevant to Managed DataHub.
 | View Entity                           | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | The ability to view the entity in search results.                                              |
 | Propose Tags                          | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | The ability to propose adding a tag to an asset.                                               |
 | Propose Glossary Terms                | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | The ability to propose adding a glossary term to an asset.                                     |
+| Propose Documentation                 | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | The ability to propose updates to an asset's documentation.                                    |
 | Propose Dataset Column Glossary Terms | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | The ability to propose column (field) glossary terms associated with a dataset schema.         |
 | Propose Dataset Column Tags           | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | The ability to propose new column (field) tags associated with a dataset schema.               |
 | Manage Tag Proposals                  | :heavy_check_mark: | :heavy_check_mark: | :x:                | The ability to manage a proposal to add a tag to an asset.                                     |
@@ -169,19 +169,20 @@ These privileges are only relevant to Managed DataHub.
 
 ##### Unused Privileges
 * Self-Hosted DataHub and Managed DataHub
-  * Create Entity
-  * Create Domains
   * Manage Direct Glossary Children
   * Propose Dataset Column Descriptions
   * Create erModelRelationship
   * Create Tags
   * Create Global Announcements
+  * Create Entity
   * Edit Embedded Content
   * Entity Exists
-  * Edit Monitors
-  * Edit Data Contract
-  * Edit SQL Assertion Monitors
   * Manage All Glossary Children
+  * Create Domains
+* Managed DataHub
+  * Edit Monitors
+  * Edit SQL Assertion Monitors
+  * Edit Data Contract
 
 ## Additional Resources
 
