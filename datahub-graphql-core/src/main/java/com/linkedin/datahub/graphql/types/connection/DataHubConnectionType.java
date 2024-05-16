@@ -4,12 +4,10 @@ import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
-import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.DataHubConnection;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.resolvers.connection.ConnectionMapper;
-import com.linkedin.datahub.graphql.resolvers.connection.ConnectionUtils;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
@@ -59,35 +57,31 @@ public class DataHubConnectionType
   @Override
   public List<DataFetcherResult<DataHubConnection>> batchLoad(
       @Nonnull List<String> urns, @Nonnull QueryContext context) throws Exception {
-    if (ConnectionUtils.canManageConnections(context)) {
-      final List<Urn> connectionUrns =
-          urns.stream().map(UrnUtils::getUrn).collect(Collectors.toList());
-      try {
-        final Map<Urn, EntityResponse> entities =
-            _entityClient.batchGetV2(
-                context.getOperationContext(),
-                Constants.DATAHUB_CONNECTION_ENTITY_NAME,
-                new HashSet<>(connectionUrns),
-                ASPECTS_TO_FETCH);
+    final List<Urn> connectionUrns =
+        urns.stream().map(UrnUtils::getUrn).collect(Collectors.toList());
+    try {
+      final Map<Urn, EntityResponse> entities =
+          _entityClient.batchGetV2(
+              context.getOperationContext(),
+              Constants.DATAHUB_CONNECTION_ENTITY_NAME,
+              new HashSet<>(connectionUrns),
+              ASPECTS_TO_FETCH);
 
-        final List<EntityResponse> gmsResults = new ArrayList<>();
-        for (Urn urn : connectionUrns) {
-          gmsResults.add(entities.getOrDefault(urn, null));
-        }
-        return gmsResults.stream()
-            .map(
-                gmsResult ->
-                    gmsResult == null
-                        ? null
-                        : DataFetcherResult.<DataHubConnection>newResult()
-                            .data(ConnectionMapper.map(gmsResult, _secretService))
-                            .build())
-            .collect(Collectors.toList());
-      } catch (Exception e) {
-        throw new RuntimeException("Failed to batch load Connections", e);
+      final List<EntityResponse> gmsResults = new ArrayList<>();
+      for (Urn urn : connectionUrns) {
+        gmsResults.add(entities.getOrDefault(urn, null));
       }
+      return gmsResults.stream()
+          .map(
+              gmsResult ->
+                  gmsResult == null
+                      ? null
+                      : DataFetcherResult.<DataHubConnection>newResult()
+                          .data(ConnectionMapper.map(gmsResult, _secretService))
+                          .build())
+          .collect(Collectors.toList());
+    } catch (Exception e) {
+      throw new RuntimeException("Failed to batch load Connections", e);
     }
-    throw new AuthorizationException(
-        "Unauthorized to perform this action. Please contact your DataHub administrator.");
   }
 }
