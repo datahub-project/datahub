@@ -634,7 +634,7 @@ class Pipeline:
             click.secho("Global Warnings:", bold=True)
             click.echo(global_warnings)
         click.echo()
-        workunits_produced = self.source.get_report().events_produced
+        workunits_produced = self.sink.get_report().total_records_written
 
         duration_message = f"in {humanfriendly.format_timespan(self.source.get_report().running_time)}."
         if currently_running:
