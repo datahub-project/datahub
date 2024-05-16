@@ -1414,7 +1414,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     yield MetadataChangeProposalWrapper(
                         entityUrn=node_datahub_urn,
                         aspect=upstreams_lineage_class,
-                    ).as_workunit()
+                    ).as_workunit(is_primary_source=False)
 
     def extract_query_tag_aspects(
         self,
