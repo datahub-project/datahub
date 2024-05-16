@@ -58,6 +58,7 @@ import com.linkedin.metadata.run.AspectRowSummary;
 import com.linkedin.metadata.service.UpdateIndicesService;
 import com.linkedin.metadata.snapshot.CorpUserSnapshot;
 import com.linkedin.metadata.snapshot.Snapshot;
+import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.MetadataChangeLog;
@@ -534,6 +535,11 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
 
     initialChangeLog.setAspect(aspect);
     initialChangeLog.setSystemMetadata(metadata1);
+    initialChangeLog.setEntityKeyAspect(
+        GenericRecordUtils.serializeAspect(
+            EntityKeyUtils.convertUrnToEntityKey(
+                entityUrn,
+                _testEntityRegistry.getEntitySpec(entityUrn.getEntityType()).getKeyAspectSpec())));
 
     final MetadataChangeLog restateChangeLog = new MetadataChangeLog();
     restateChangeLog.setEntityType(entityUrn.getEntityType());
@@ -596,6 +602,11 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
 
     initialChangeLog.setAspect(aspect);
     initialChangeLog.setSystemMetadata(metadata1);
+    initialChangeLog.setEntityKeyAspect(
+        GenericRecordUtils.serializeAspect(
+            EntityKeyUtils.convertUrnToEntityKey(
+                entityUrn,
+                _testEntityRegistry.getEntitySpec(entityUrn.getEntityType()).getKeyAspectSpec())));
 
     final MetadataChangeLog restateChangeLog = new MetadataChangeLog();
     restateChangeLog.setEntityType(entityUrn.getEntityType());
@@ -607,6 +618,11 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     restateChangeLog.setSystemMetadata(metadata1);
     restateChangeLog.setPreviousAspectValue(aspect);
     restateChangeLog.setPreviousSystemMetadata(simulatePullFromDB(metadata1, SystemMetadata.class));
+    restateChangeLog.setEntityKeyAspect(
+        GenericRecordUtils.serializeAspect(
+            EntityKeyUtils.convertUrnToEntityKey(
+                entityUrn,
+                _testEntityRegistry.getEntitySpec(entityUrn.getEntityType()).getKeyAspectSpec())));
 
     Map<String, RecordTemplate> latestAspects =
         _entityServiceImpl.getLatestAspectsForUrn(
