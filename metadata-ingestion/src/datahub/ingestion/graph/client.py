@@ -324,6 +324,7 @@ class DataHubGraph(DatahubRestEmitter):
     def get_schema_metadata(self, entity_urn: str) -> Optional[SchemaMetadataClass]:
         return self.get_aspect(entity_urn=entity_urn, aspect_type=SchemaMetadataClass)
 
+    @deprecated(reason="Use get_aspect directly.")
     def get_domain_properties(self, entity_urn: str) -> Optional[DomainPropertiesClass]:
         return self.get_aspect(entity_urn=entity_urn, aspect_type=DomainPropertiesClass)
 
@@ -343,11 +344,9 @@ class DataHubGraph(DatahubRestEmitter):
     def get_domain(self, entity_urn: str) -> Optional[DomainsClass]:
         return self.get_aspect(entity_urn=entity_urn, aspect_type=DomainsClass)
 
+    @deprecated(reason="Use get_aspect directly.")
     def get_browse_path(self, entity_urn: str) -> Optional[BrowsePathsClass]:
-        return self.get_aspect(
-            entity_urn=entity_urn,
-            aspect_type=BrowsePathsClass,
-        )
+        return self.get_aspect(entity_urn=entity_urn, aspect_type=BrowsePathsClass)
 
     def get_usage_aspects_from_urn(
         self, entity_urn: str, start_timestamp: int, end_timestamp: int
@@ -1095,7 +1094,7 @@ class DataHubGraph(DatahubRestEmitter):
         related_aspects = response.get("relatedAspects", [])
         return reference_count, related_aspects
 
-    @functools.lru_cache()
+    @functools.lru_cache
     def _make_schema_resolver(
         self,
         platform: str,
