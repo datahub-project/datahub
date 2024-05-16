@@ -24,7 +24,7 @@ def delta_type_to_hive_type(field_type: Any) -> str:
                 and create the native datatype
                 """
                 parsed_struct += (
-                    "{0}:{1}".format(
+                    "{}:{}".format(
                         field.get("name"),
                         delta_type_to_hive_type(field.get("type")),
                     )
