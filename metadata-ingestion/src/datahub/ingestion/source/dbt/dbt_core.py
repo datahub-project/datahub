@@ -481,7 +481,7 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
             )
             return json.loads(response["Body"].read().decode("utf-8"))
         else:
-            with open(uri, "r") as f:
+            with open(uri) as f:
                 return json.load(f)
 
     def loadManifestAndCatalog(

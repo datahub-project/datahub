@@ -74,7 +74,8 @@ public class Utils {
     Map<String, Object> result = new HashMap<>();
     result.put("args", args);
     result.put("result", entityService
-            .streamRestoreIndices(opContext, args, log::info)
+            .restoreIndices(opContext, args, log::info)
+            .stream()
             .map(RestoreIndicesResult::toString)
             .collect(Collectors.joining("\n")));
     return result.toString();

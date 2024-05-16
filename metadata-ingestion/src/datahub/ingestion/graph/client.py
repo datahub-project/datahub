@@ -328,6 +328,7 @@ class DataHubGraph(DatahubRestEmitter):
     def get_schema_metadata(self, entity_urn: str) -> Optional[SchemaMetadataClass]:
         return self.get_aspect(entity_urn=entity_urn, aspect_type=SchemaMetadataClass)
 
+    @deprecated(reason="Use get_aspect directly.")
     def get_domain_properties(self, entity_urn: str) -> Optional[DomainPropertiesClass]:
         return self.get_aspect(entity_urn=entity_urn, aspect_type=DomainPropertiesClass)
 
@@ -347,11 +348,9 @@ class DataHubGraph(DatahubRestEmitter):
     def get_domain(self, entity_urn: str) -> Optional[DomainsClass]:
         return self.get_aspect(entity_urn=entity_urn, aspect_type=DomainsClass)
 
+    @deprecated(reason="Use get_aspect directly.")
     def get_browse_path(self, entity_urn: str) -> Optional[BrowsePathsClass]:
-        return self.get_aspect(
-            entity_urn=entity_urn,
-            aspect_type=BrowsePathsClass,
-        )
+        return self.get_aspect(entity_urn=entity_urn, aspect_type=BrowsePathsClass)
 
     def get_usage_aspects_from_urn(
         self, entity_urn: str, start_timestamp: int, end_timestamp: int
@@ -423,26 +422,47 @@ class DataHubGraph(DatahubRestEmitter):
             {"field": k, "value": v, "condition": "EQUAL"}
             for k, v in filter_criteria_map.items()
         ]
+        filter = {"or": [{"and": filter_criteria}]}
+
+        values = self.get_timeseries_values(
+            entity_urn=entity_urn, aspect_type=aspect_type, filter=filter, limit=1
+        )
+        if not values:
+            return None
+
+        assert len(values) == 1, len(values)
+        return values[0]
+
+    def get_timeseries_values(
+        self,
+        entity_urn: str,
+        aspect_type: Type[Aspect],
+        filter: Dict[str, Any],
+        limit: int = 10,
+    ) -> List[Aspect]:
         query_body = {
             "urn": entity_urn,
             "entity": guess_entity_type(entity_urn),
             "aspect": aspect_type.ASPECT_NAME,
-            "limit": 1,
-            "filter": {"or": [{"and": filter_criteria}]},
+            "limit": limit,
+            "filter": filter,
         }
         end_point = f"{self.config.server}/aspects?action=getTimeseriesAspectValues"
         resp: Dict = self._post_generic(end_point, query_body)
-        values: list = resp.get("value", {}).get("values")
-        if values:
-            assert len(values) == 1, len(values)
-            aspect_json: str = values[0].get("aspect", {}).get("value")
+
+        values: Optional[List] = resp.get("value", {}).get("values")
+        aspects: List[Aspect] = []
+        for value in values or []:
+            aspect_json: str = value.get("aspect", {}).get("value")
             if aspect_json:
-                return aspect_type.from_obj(json.loads(aspect_json), tuples=False)
+                aspects.append(
+                    aspect_type.from_obj(json.loads(aspect_json), tuples=False)
+                )
             else:
                 raise GraphError(
                     f"Failed to find {aspect_type} in response {aspect_json}"
                 )
-        return None
+        return aspects
 
     def get_entity_raw(
         self, entity_urn: str, aspects: Optional[List[str]] = None
@@ -1078,7 +1098,7 @@ class DataHubGraph(DatahubRestEmitter):
         related_aspects = response.get("relatedAspects", [])
         return reference_count, related_aspects
 
-    @functools.lru_cache()
+    @functools.lru_cache
     def _make_schema_resolver(
         self,
         platform: str,

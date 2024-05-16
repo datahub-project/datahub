@@ -769,9 +769,7 @@ def make_dataset_urn_from_sqlalchemy_uri(
             )
             return None
         schema_name = (
-            schema_name
-            if exclude_dbname
-            else "{}.{}".format(url_instance.database, schema_name)
+            schema_name if exclude_dbname else f"{url_instance.database}.{schema_name}"
         )
     elif data_platform == "mssql":
         schema_name = schema_name or "dbo"
@@ -781,9 +779,7 @@ def make_dataset_urn_from_sqlalchemy_uri(
             )
             return None
         schema_name = (
-            schema_name
-            if exclude_dbname
-            else "{}.{}".format(url_instance.database, schema_name)
+            schema_name if exclude_dbname else f"{url_instance.database}.{schema_name}"
         )
     elif data_platform in ["trino", "snowflake"]:
         if schema_name is None or url_instance.database is None:
@@ -804,9 +800,7 @@ def make_dataset_urn_from_sqlalchemy_uri(
         if database_name.endswith(f"/{schema_name}"):
             database_name = database_name[: -len(f"/{schema_name}")]
         schema_name = (
-            schema_name
-            if exclude_dbname
-            else "{}.{}".format(database_name, schema_name)
+            schema_name if exclude_dbname else f"{database_name}.{schema_name}"
         )
 
     elif data_platform == "bigquery":
@@ -817,7 +811,7 @@ def make_dataset_urn_from_sqlalchemy_uri(
                 )
             )
             return None
-        schema_name = "{}.{}".format(url_instance.host, url_instance.database)
+        schema_name = f"{url_instance.host}.{url_instance.database}"
 
     schema_name = schema_name or url_instance.database
     if schema_name is None:
@@ -853,7 +847,7 @@ class DecimalEncoder(json.JSONEncoder):
     def default(self, o):
         if isinstance(o, Decimal):
             return str(o)
-        return super(DecimalEncoder, self).default(o)
+        return super().default(o)
 
 
 def convert_to_string(var: Any) -> str:
