@@ -1420,7 +1420,7 @@ class SnowflakeV2Source(
                 # Get views for schema based on a "Pagination" of 10,000 views at a time.
                 # https://docs.snowflake.com/en/sql-reference/sql/show-views                
                 #views = self.data_dictionary.get_views_for_schema_starts_with(schema_name, db_name)
-                print(f"calling get_views_by_pagination_markers_V2 from snowflake_v2.py")
+                print(f"calling get_views_by_pagination_markers_V2 from snowflake_v2.py .....")
                 views = self.data_dictionary.get_views_by_pagination_markers_V2(schema_name, db_name)
         # Some schema may not have any table
         return views.get(schema_name, [])
