@@ -104,45 +104,35 @@ These privileges are common to both Self-Hosted DataHub and Managed DataHub.
 
 ##### Metadata Privileges
 
-| Privilege                            | Admin              | Editor             | Reader             | Description                                                                                      |
-|--------------------------------------|--------------------|--------------------|--------------------|--------------------------------------------------------------------------------------------------|
-| View Entity Page                     | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | The ability to view the entity page.                                                             |
-| View Entity                          | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | The ability to view the entity in search results.                                                |
-| View Dataset Usage                   | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | The ability to access dataset usage information (includes usage statistics and queries).         |
-| View Dataset Profile                 | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | The ability to access dataset profile (snapshot statistics)                                      |
-| Edit Tags                            | :heavy_check_mark: | :heavy_check_mark: | :x:                | The ability to add and remove tags to an asset.                                                  |
-| Edit Glossary Terms                  | :heavy_check_mark: | :heavy_check_mark: | :x:                | The ability to add and remove glossary terms to an asset.                                        |
-| Edit Description                     | :heavy_check_mark: | :heavy_check_mark: | :x:                | The ability to edit the description (documentation) of an entity.                                |
-| Edit Links                           | :heavy_check_mark: | :heavy_check_mark: | :x:                | The ability to edit links associated with an entity.                                             |
-| Edit Status                          | :heavy_check_mark: | :heavy_check_mark: | :x:                | The ability to edit the status of an entity (soft deleted or not).                               |
-| Edit Domain                          | :heavy_check_mark: | :heavy_check_mark: | :x:                | The ability to edit the Domain of an entity.                                                     |
-| Edit Data Product                    | :heavy_check_mark: | :heavy_check_mark: | :x:                | The ability to edit the Data Product of an entity.                                               |
-| Edit Deprecation                     | :heavy_check_mark: | :heavy_check_mark: | :x:                | The ability to edit the Deprecation status of an entity.                                         |
-| Edit Assertions                      | :heavy_check_mark: | :heavy_check_mark: | :x:                | The ability to add and remove assertions from an entity.                                         |
-| Edit Incidents                       | :heavy_check_mark: | :heavy_check_mark: | :x:                | The ability to create and remove incidents for an entity.                                        |
-| Edit Dataset Column Tags             | :heavy_check_mark: | :heavy_check_mark: | :x:                | The ability to edit the column (field) tags associated with a dataset schema.                    |
-| Edit Dataset Column Glossary Terms   | :heavy_check_mark: | :heavy_check_mark: | :x:                | The ability to edit the column (field) glossary terms associated with a dataset schema.          |
-| Edit Dataset Column Descriptions     | :heavy_check_mark: | :heavy_check_mark: | :x:                | The ability to edit the column (field) descriptions associated with a dataset schema.            |
-| Edit Tag Color                       | :heavy_check_mark: | :heavy_check_mark: | :x:                | The ability to change the color of a Tag.                                                        |
-| Manage Tag Proposals                 | :heavy_check_mark: | :heavy_check_mark: | :x:                | The ability to manage a proposal to add a tag to an asset.                                       |
-| Manage Glossary Term Proposals       | :heavy_check_mark: | :heavy_check_mark: | :x:                | The ability to manage a proposal to add a glossary term to an asset.                             |
-| Manage Dataset Column Glossary Terms | :heavy_check_mark: | :heavy_check_mark: | :x:                | The ability to manage column (field) glossary term proposals associated with a dataset schema.   |
-| Manage Dataset Column Tag Proposals  | :heavy_check_mark: | :heavy_check_mark: | :x:                | The ability to manage column (field) tag proposals associated with a dataset schema.             |
-| Manage Documentation Proposals       | :heavy_check_mark: | :heavy_check_mark: | :x:                | The ability to manage a proposal update an asset's documentation                                 |
-| Edit Lineage                         | :heavy_check_mark: | :heavy_check_mark: | :x:                | The ability to add and remove lineage edges for this entity.                                     |
-| Edit Dataset Queries                 | :heavy_check_mark: | :heavy_check_mark: | :x:                | The ability to edit the Queries for a Dataset.                                                   |
-| Manage Data Products                 | :heavy_check_mark: | :heavy_check_mark: | :x:                | The ability to create, edit, and delete Data Products within a Domain                            |
-| Edit Properties                      | :heavy_check_mark: | :heavy_check_mark: | :x:                | The ability to edit the properties for an entity.                                                |
-| Manage Group Notification Settings   | :heavy_check_mark: | :heavy_check_mark: | :x:                | The ability to manage notification settings for a group.                                         |
-| Manage Group Subscriptions           | :heavy_check_mark: | :heavy_check_mark: | :x:                | The ability to manage subscriptions for a group.                                                 |
-| Manage Data Contract Proposals       | :heavy_check_mark: | :heavy_check_mark: | :x:                | The ability to manage a proposal for a Data Contract                                             |
-| Share Entity                         | :heavy_check_mark: | :heavy_check_mark: | :x:                | The ability to share an entity with another Acryl instance.                                      |
-| Edit Owners                          | :heavy_check_mark: | :x:                | :x:                | The ability to add and remove owners of an entity.                                               |
-| Edit Entity                          | :heavy_check_mark: | :x:                | :x:                | The ability to edit any information about an entity. Super user privileges for the entity.       |
-| Edit Group Members                   | :heavy_check_mark: | :x:                | :x:                | The ability to add and remove members to a group.                                                |
-| Edit User Profile                    | :heavy_check_mark: | :x:                | :x:                | The ability to change the user's profile including display name, bio, title, profile image, etc. |
-| Edit Contact Information             | :heavy_check_mark: | :x:                | :x:                | The ability to change the contact information such as email & chat handles.                      |
-| Delete                               | :heavy_check_mark: | :x:                | :x:                | The ability to delete the delete this entity.                                                    |
+| Privilege                          | Admin              | Editor             | Reader             | Description                                                                                      |
+|------------------------------------|--------------------|--------------------|--------------------|--------------------------------------------------------------------------------------------------|
+| View Entity Page                   | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | The ability to view the entity page.                                                             |
+| View Dataset Usage                 | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | The ability to access dataset usage information (includes usage statistics and queries).         |
+| View Dataset Profile               | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | The ability to access dataset profile (snapshot statistics)                                      |
+| Edit Tags                          | :heavy_check_mark: | :heavy_check_mark: | :x:                | The ability to add and remove tags to an asset.                                                  |
+| Edit Glossary Terms                | :heavy_check_mark: | :heavy_check_mark: | :x:                | The ability to add and remove glossary terms to an asset.                                        |
+| Edit Description                   | :heavy_check_mark: | :heavy_check_mark: | :x:                | The ability to edit the description (documentation) of an entity.                                |
+| Edit Links                         | :heavy_check_mark: | :heavy_check_mark: | :x:                | The ability to edit links associated with an entity.                                             |
+| Edit Status                        | :heavy_check_mark: | :heavy_check_mark: | :x:                | The ability to edit the status of an entity (soft deleted or not).                               |
+| Edit Domain                        | :heavy_check_mark: | :heavy_check_mark: | :x:                | The ability to edit the Domain of an entity.                                                     |
+| Edit Data Product                  | :heavy_check_mark: | :heavy_check_mark: | :x:                | The ability to edit the Data Product of an entity.                                               |
+| Edit Deprecation                   | :heavy_check_mark: | :heavy_check_mark: | :x:                | The ability to edit the Deprecation status of an entity.                                         |
+| Edit Assertions                    | :heavy_check_mark: | :heavy_check_mark: | :x:                | The ability to add and remove assertions from an entity.                                         |
+| Edit Incidents                     | :heavy_check_mark: | :heavy_check_mark: | :x:                | The ability to create and remove incidents for an entity.                                        |
+| Edit Dataset Column Tags           | :heavy_check_mark: | :heavy_check_mark: | :x:                | The ability to edit the column (field) tags associated with a dataset schema.                    |
+| Edit Dataset Column Glossary Terms | :heavy_check_mark: | :heavy_check_mark: | :x:                | The ability to edit the column (field) glossary terms associated with a dataset schema.          |
+| Edit Dataset Column Descriptions   | :heavy_check_mark: | :heavy_check_mark: | :x:                | The ability to edit the column (field) descriptions associated with a dataset schema.            |
+| Edit Tag Color                     | :heavy_check_mark: | :heavy_check_mark: | :x:                | The ability to change the color of a Tag.                                                        |
+| Edit Lineage                       | :heavy_check_mark: | :heavy_check_mark: | :x:                | The ability to add and remove lineage edges for this entity.                                     |
+| Edit Dataset Queries               | :heavy_check_mark: | :heavy_check_mark: | :x:                | The ability to edit the Queries for a Dataset.                                                   |
+| Manage Data Products               | :heavy_check_mark: | :heavy_check_mark: | :x:                | The ability to create, edit, and delete Data Products within a Domain                            |
+| Edit Properties                    | :heavy_check_mark: | :heavy_check_mark: | :x:                | The ability to edit the properties for an entity.                                                |
+| Edit Owners                        | :heavy_check_mark: | :x:                | :x:                | The ability to add and remove owners of an entity.                                               |
+| Edit Entity                        | :heavy_check_mark: | :x:                | :x:                | The ability to edit any information about an entity. Super user privileges for the entity.       |
+| Edit Group Members                 | :heavy_check_mark: | :x:                | :x:                | The ability to add and remove members to a group.                                                |
+| Edit User Profile                  | :heavy_check_mark: | :x:                | :x:                | The ability to change the user's profile including display name, bio, title, profile image, etc. |
+| Edit Contact Information           | :heavy_check_mark: | :x:                | :x:                | The ability to change the contact information such as email & chat handles.                      |
+| Delete                             | :heavy_check_mark: | :x:                | :x:                | The ability to delete the delete this entity.                                                    |
 
 #### Managed DataHub
 
@@ -159,8 +149,18 @@ These privileges are only relevant to Managed DataHub.
 
 ##### Metadata Privileges
 
-| Privilege | Admin | Editor | Reader | Description |
-|-----------|-------|--------|--------|-------------|
+| Privilege                            | Admin              | Editor             | Reader             | Description                                                                                    |
+|--------------------------------------|--------------------|--------------------|--------------------|------------------------------------------------------------------------------------------------|
+| View Entity                          | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | The ability to view the entity in search results.                                              |
+| Manage Tag Proposals                 | :heavy_check_mark: | :heavy_check_mark: | :x:                | The ability to manage a proposal to add a tag to an asset.                                     |
+| Manage Glossary Term Proposals       | :heavy_check_mark: | :heavy_check_mark: | :x:                | The ability to manage a proposal to add a glossary term to an asset.                           |
+| Manage Dataset Column Glossary Terms | :heavy_check_mark: | :heavy_check_mark: | :x:                | The ability to manage column (field) glossary term proposals associated with a dataset schema. |
+| Manage Dataset Column Tag Proposals  | :heavy_check_mark: | :heavy_check_mark: | :x:                | The ability to manage column (field) tag proposals associated with a dataset schema.           |
+| Manage Documentation Proposals       | :heavy_check_mark: | :heavy_check_mark: | :x:                | The ability to manage a proposal update an asset's documentation                               |
+| Manage Group Notification Settings   | :heavy_check_mark: | :heavy_check_mark: | :x:                | The ability to manage notification settings for a group.                                       |
+| Manage Group Subscriptions           | :heavy_check_mark: | :heavy_check_mark: | :x:                | The ability to manage subscriptions for a group.                                               |
+| Manage Data Contract Proposals       | :heavy_check_mark: | :heavy_check_mark: | :x:                | The ability to manage a proposal for a Data Contract                                           |
+| Share Entity                         | :heavy_check_mark: | :heavy_check_mark: | :x:                | The ability to share an entity with another Acryl instance.                                    |
 
 ##### Unused Privileges
 * Self-Hosted DataHub and Managed DataHub
