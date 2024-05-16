@@ -250,7 +250,11 @@ class SnowflakeV2Source(
                 platform=self.platform,
                 platform_instance=self.config.platform_instance,
                 env=self.config.env,
-                graph=self.ctx.graph,
+                graph=(
+                    self.ctx.graph
+                    if self.config.include_tables and self.config.include_views
+                    else None
+                ),
                 generate_usage_statistics=False,
                 generate_operations=False,
             )
@@ -1242,7 +1246,7 @@ class SnowflakeV2Source(
             foreignKeys=foreign_keys,
         )
 
-        if self.aggregator and self.config.parse_view_ddl:
+        if self.aggregator:
             self.aggregator.register_schema(urn=dataset_urn, schema=schema_metadata)
 
         return schema_metadata
