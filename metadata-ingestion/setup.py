@@ -415,7 +415,7 @@ plugins: Dict[str, Set[str]] = {
     },
     # FIXME: I don't think tableau uses sqllineage anymore so we should be able
     # to remove that dependency.
-    "tableau": {"tableauserverclient>=0.17.0"} | sqllineage_lib | sqlglot_lib,
+    "tableau": {"tableauserverclient>=0.30"} | sqllineage_lib | sqlglot_lib,
     "teradata": sql_common
     | usage_common
     | sqlglot_lib
