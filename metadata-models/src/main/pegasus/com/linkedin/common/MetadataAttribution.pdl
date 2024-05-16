@@ -1,0 +1,29 @@
+namespace com.linkedin.common
+
+/**
+ * Information about who, why, and how this metadata was applied
+ */
+record MetadataAttribution {
+  /**
+   * When this metadata was updated.
+   */
+  time: Time
+
+  /**
+   * The entity (e.g. a member URN) responsible for applying the assocated metadata. This can
+   * either be a user (in case of UI edits) or the datahub system for automation.
+   */
+  actor: Urn
+
+  /**
+   * The DataHub source responsible for applying the associated metadata. This will only be filled out
+   * when a DataHub source is responsible. This includes the specific metadata test urn, the automation urn.
+   */
+  source: optional Urn
+
+  /**
+   * The details associated with why this metadata was applied. For example, this could include
+   * the actual regex rule, sql statement, ingestion pipeline ID, etc.
+   */
+  sourceDetail: map[string, string] = { }
+}
