@@ -924,8 +924,7 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
 
                 offset += count
 
-                for obj in connection_objects.get(c.NODES) or []:
-                    yield obj
+                yield from connection_objects.get(c.NODES) or []
 
     def emit_workbooks(self) -> Iterable[MetadataWorkUnit]:
         if self.tableau_project_registry:

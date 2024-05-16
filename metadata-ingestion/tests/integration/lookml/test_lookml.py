@@ -158,7 +158,7 @@ def test_lookml_explore_refinement(pytestconfig, tmp_path, mock_time):
             {"name": "+book", "extends__all": [["order"]]},
             {"name": "+book", "extends__all": [["transaction"]]},
         ],
-        connection=str(),
+        connection="",
         resolved_includes=[],
         includes=[],
     )

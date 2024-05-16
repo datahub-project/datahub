@@ -1853,7 +1853,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         entity_urn: str,
         tags_prefix_filter: str,
     ) -> List[TagAssociationClass]:
-        tag_set = set([new_tag.tag for new_tag in new_tags])
+        tag_set = {new_tag.tag for new_tag in new_tags}
 
         if self.ctx.graph:
             existing_tags_class = self.ctx.graph.get_tags(entity_urn)
@@ -1868,7 +1868,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
     def get_transformed_terms(
         self, new_terms: List[GlossaryTermAssociation], entity_urn: str
     ) -> List[GlossaryTermAssociation]:
-        term_id_set = set([term.urn for term in new_terms])
+        term_id_set = {term.urn for term in new_terms}
         if self.ctx.graph:
             existing_terms_class = self.ctx.graph.get_glossary_terms(entity_urn)
             if existing_terms_class and existing_terms_class.terms:
