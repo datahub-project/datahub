@@ -167,7 +167,7 @@ These privileges are only relevant to Managed DataHub.
 | Manage Data Contract Proposals        | :heavy_check_mark: | :heavy_check_mark: | :x:                | The ability to manage a proposal for a Data Contract                                           |
 | Share Entity                          | :heavy_check_mark: | :heavy_check_mark: | :x:                | The ability to share an entity with another Acryl instance.                                    |
 
-##### Unused Privileges
+#### Unused Privileges
 * Self-Hosted DataHub and Managed DataHub
   * Manage Direct Glossary Children
   * Propose Dataset Column Descriptions
