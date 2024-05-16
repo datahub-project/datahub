@@ -55,7 +55,7 @@ class QuickstartVersionMappingConfig(BaseModel):
                 "LOCAL_QUICKSTART_MAPPING_FILE is set, will try to read from local file."
             )
             path = os.path.expanduser(LOCAL_QUICKSTART_MAPPING_FILE)
-            with open(path, "r") as f:
+            with open(path) as f:
                 config_raw = yaml.safe_load(f)
             return cls.parse_obj(config_raw)
 
@@ -70,7 +70,7 @@ class QuickstartVersionMappingConfig(BaseModel):
             )
             try:
                 path = os.path.expanduser(DEFAULT_LOCAL_CONFIG_PATH)
-                with open(path, "r") as f:
+                with open(path) as f:
                     config_raw = yaml.safe_load(f)
             except Exception:
                 logger.debug("Couldn't read from local file either.")

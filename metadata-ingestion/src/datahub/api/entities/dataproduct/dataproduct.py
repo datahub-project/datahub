@@ -276,7 +276,7 @@ class DataProduct(ConfigModel):
         cls,
         file: Path,
         graph: DataHubGraph,
-    ) -> "DataProduct":
+    ) -> DataProduct:
         with open(file) as fp:
             yaml = YAML(typ="rt")  # default, if not specfied, is 'rt' (round-trip)
             orig_dictionary = yaml.load(fp)
@@ -291,7 +291,7 @@ class DataProduct(ConfigModel):
             return parsed_data_product
 
     @classmethod
-    def from_datahub(cls, graph: DataHubGraph, id: str) -> "DataProduct":
+    def from_datahub(cls, graph: DataHubGraph, id: str) -> DataProduct:
         data_product_properties: Optional[
             DataProductPropertiesClass
         ] = graph.get_aspect(id, DataProductPropertiesClass)
@@ -384,7 +384,7 @@ class DataProduct(ConfigModel):
                         patches_drop[i] = o
 
         # Figure out what if any are new owners to add
-        new_owners_to_add = set(o for o in new_owner_type_map) - set(owners_matched)
+        new_owners_to_add = {o for o in new_owner_type_map} - set(owners_matched)
         if new_owners_to_add:
             for new_owner in new_owners_to_add:
                 new_owner_type = new_owner_type_map[new_owner]
