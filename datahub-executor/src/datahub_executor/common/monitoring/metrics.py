@@ -171,3 +171,8 @@ STATS_ASSERTION_EXECUTOR_EVALUATE_ERRORS = Gauge(
     "Number of errors occurred while evaluating assertions",
     ["exception"],
 )
+
+STATS_SCHEDULER_SQS_LIMIT_EXCEEDED = Gauge(
+    "datahub_executor_scheduler_message_size_exceeded",
+    "Number of requests that failed to send over SQS due to excessive size",
+)
