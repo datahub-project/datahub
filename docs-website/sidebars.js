@@ -732,6 +732,7 @@ module.exports = {
         "docs/api/tutorials/assertions",
         "docs/api/tutorials/incidents",
         "docs/api/tutorials/operations",
+        "docs/incidents/data-contracts",
         "docs/api/tutorials/ml",
       ],
     },
