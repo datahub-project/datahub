@@ -165,8 +165,7 @@ class GlueSourceConfig(
     )
     extract_delta_schema_from_parameters: Optional[bool] = Field(
         default=False,
-        description="If enabled, delta schemas can be alternatively fetched from table parameters "
-        "(https://github.com/delta-io/delta/pull/2310)",
+        description="If enabled, delta schemas can be alternatively fetched from table parameters."
     )
 
     def is_profiling_enabled(self) -> bool:
