@@ -72,7 +72,7 @@ This API will return a unique identifier (URN) for the Data Contract if you were
 {
   "data": {
     "upsertDataContract": {
-      "urn": "urn:li:dataContract:your-new-contract-id
+      "urn": "urn:li:dataContract:your-new-contract-id"
     }
   },
   "extensions": {}
@@ -191,7 +191,7 @@ If you're successful, you'll get the latest status for the Table Contract:
                   },
                   {
                      "assertion": {
-                        "urn": "urn:li:assertion:your-schema-assertion-id"
+                        "urn": "urn:li:assertion:your-volume-assertion-id"
                      },
                       "result": {
                           "type": "SUCCESS",
