@@ -16,6 +16,7 @@ import graphql.schema.idl.RuntimeWiring;
 import graphql.schema.idl.SchemaGenerator;
 import graphql.schema.idl.SchemaParser;
 import graphql.schema.idl.TypeDefinitionRegistry;
+import graphql.schema.visibility.NoIntrospectionGraphqlFieldVisibility;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -25,8 +26,6 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-
-import graphql.schema.visibility.NoIntrospectionGraphqlFieldVisibility;
 import org.dataloader.DataLoader;
 import org.dataloader.DataLoaderRegistry;
 
@@ -183,9 +182,9 @@ public class GraphQLEngine {
      * any required data + type resolvers.
      */
     public Builder configureRuntimeWiring(final Consumer<RuntimeWiring.Builder> builderFunc) {
-      if (!this.graphQLQueryIntrospectionEnabled) {
-        _runtimeWiringBuilder.fieldVisibility(NoIntrospectionGraphqlFieldVisibility.NO_INTROSPECTION_FIELD_VISIBILITY);
-      }
+      if (!this.graphQLQueryIntrospectionEnabled)
+        _runtimeWiringBuilder.fieldVisibility(
+            NoIntrospectionGraphqlFieldVisibility.NO_INTROSPECTION_FIELD_VISIBILITY);
       builderFunc.accept(_runtimeWiringBuilder);
       return this;
     }
