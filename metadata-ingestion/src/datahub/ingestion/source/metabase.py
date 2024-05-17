@@ -619,7 +619,7 @@ class MetabaseSource(StatefulIngestionSourceBase):
         return None
 
     @staticmethod
-    def strip_template_expressions(raw_query) -> str:
+    def strip_template_expressions(raw_query: str) -> str:
         """
         Workarounds for metabase raw queries containing most commonly used template expressions:
 
