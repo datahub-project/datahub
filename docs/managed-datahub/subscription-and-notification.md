@@ -94,7 +94,7 @@ You can view and manage the group’s subscriptions on the group’s page on Dat
 </p>
 
 ### Subscribing to Assertions
-You can always subscribe to *all* assertions on a table using the steps outlined in the earlier sections. However, in some cases you may want to only be notified about specific assertions on a table. For instance, a table may be used for different sorts of data, segmented by a category column - so there may be several different checks for each category. As a consumer, you may only care about the freshness check that runs on one specific category of this larger table.
+You can always subscribe to _all assertion status changes_ on a table using the steps outlined in the earlier sections. However, in some cases you may want to only be notified about specific assertions on a table. For instance, a table may contain several subsets of information, segmented by a category column - so there may be several different checks for each category. As a consumer, you may only care about the freshness check that runs on one specific category of this larger table.
 
 You can subscribe to individual assertions by clicking the bell button on the assertion itself - either in the list view:
 <p align="center">
@@ -107,7 +107,7 @@ Or on the assertion's profile page:
 </p>
 
 
-Note: if you are subscribed to all assertions at the dataset level, then you will not be able to 'unsubscribe' from an individual assertion.
+Note: if you are subscribed to all assertions at the dataset level, then you will not be able to **Unsubscribe** from an individual assertion.
 <p align="center">
   <img width="70%" alt="3" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/subscription-and-notification/s_n-assertion-sub-unsub-1.jpg" />
 </p>
