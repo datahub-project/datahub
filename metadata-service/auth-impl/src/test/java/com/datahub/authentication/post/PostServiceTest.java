@@ -24,6 +24,7 @@ import org.testng.annotations.Test;
 
 public class PostServiceTest {
   private static final Urn POST_URN = UrnUtils.getUrn("urn:li:post:123");
+  private static final Urn ENTITY_URN = UrnUtils.getUrn("urn:li:domain:123");
   private static final MediaType POST_MEDIA_TYPE = MediaType.IMAGE;
   private static final String POST_MEDIA_LOCATION =
       "https://datahubproject.io/img/datahub-logo-color-light-horizontal.svg";
@@ -71,7 +72,7 @@ public class PostServiceTest {
 
   @Test
   public void testCreatePost() throws RemoteInvocationException, URISyntaxException {
-    _postService.createPost(opContext, POST_TYPE.toString(), POST_CONTENT, any());
+    _postService.createPost(opContext, POST_TYPE.toString(), POST_CONTENT, ENTITY_URN.toString());
     verify(_entityClient, times(1)).ingestProposal(any(OperationContext.class), any());
   }
 

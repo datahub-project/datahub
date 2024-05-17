@@ -89,7 +89,7 @@ export const MatchContextContianer = ({
     useEffect(() => {
         if (!expandedSection || !isFullViewCard) return;
         setCachedExpandedSection(expandedSection);
-    }, [expandedSection]);
+    }, [expandedSection, isFullViewCard]);
 
     return (
         <MatchContext.Provider
@@ -120,7 +120,7 @@ export const MatchContextContianer = ({
                         <MatchContext.Provider
                             value={{
                                 expandedSection: undefined,
-                                setExpandedSection: () => { },
+                                setExpandedSection: () => {},
                             }}
                         >
                             <HorizontalScroller alwaysVisible>

@@ -81,7 +81,8 @@ public class PostService {
                 new com.linkedin.common.AuditStamp()
                     .setTime(currentTimeMillis)
                     .setActor(
-                        Urn.createFromString(opContext.getSessionAuthentication().getActor().toUrnStr())))
+                        Urn.createFromString(
+                            opContext.getSessionAuthentication().getActor().toUrnStr())))
             .setLastModified(currentTimeMillis);
 
     if (targetUrn != null) {
