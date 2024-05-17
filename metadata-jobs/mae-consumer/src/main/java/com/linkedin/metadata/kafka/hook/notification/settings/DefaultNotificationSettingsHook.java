@@ -6,6 +6,7 @@ import static com.linkedin.metadata.Constants.CORP_GROUP_INFO_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.CORP_USER_EDITABLE_INFO_NAME;
 import static com.linkedin.metadata.Constants.CORP_USER_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.CORP_USER_INFO_ASPECT_NAME;
+import static com.linkedin.metadata.service.SettingsService.DEFAULT_CORP_USER_SETTINGS;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -186,7 +187,7 @@ public class DefaultNotificationSettingsHook implements MetadataChangeLogHook {
     }
     // Then there are no notification settings. We can feel free to override.
     final CorpUserSettings newSettings =
-        userSettings == null ? new CorpUserSettings() : userSettings;
+        userSettings == null ? DEFAULT_CORP_USER_SETTINGS : userSettings;
     log.debug("Creating default notification settings for user {}", userUrn);
     final NotificationSettings defaultSettings = createDefaultNotificationSettings(email);
     settingsService.updateCorpUserSettings(
