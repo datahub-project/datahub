@@ -112,7 +112,7 @@ const PLATFORM_ASSERTION_CONFIGS = {
     },
     [BIGQUERY_URN]: {
         freshness: {
-            defaultSourceType: DatasetFreshnessSourceType.AuditLog,
+            defaultSourceType: DatasetFreshnessSourceType.InformationSchema,
             sourceTypes: [
                 DatasetFreshnessSourceType.AuditLog,
                 DatasetFreshnessSourceType.InformationSchema,
