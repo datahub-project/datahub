@@ -68,7 +68,7 @@ public class UpsertConnectionResolver implements DataFetcher<CompletableFuture<D
             final EntityResponse connectionResponse =
                 _connectionService.getConnectionEntityResponse(
                     context.getOperationContext(), connectionUrn);
-            return ConnectionMapper.map(connectionResponse, _secretService);
+            return ConnectionMapper.map(context, connectionResponse, _secretService);
           } catch (Exception e) {
             throw new RuntimeException(
                 String.format("Failed to upsert a Connection from input %s", input), e);

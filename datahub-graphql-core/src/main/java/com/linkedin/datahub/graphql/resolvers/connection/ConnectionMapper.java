@@ -3,6 +3,7 @@ package com.linkedin.datahub.graphql.resolvers.connection;
 import com.linkedin.common.DataPlatformInstance;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
+import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.DataHubConnection;
 import com.linkedin.datahub.graphql.generated.DataHubConnectionDetails;
 import com.linkedin.datahub.graphql.generated.DataHubJsonConnection;
@@ -26,7 +27,9 @@ public class ConnectionMapper {
    */
   @Nullable
   public static DataHubConnection map(
-      @Nonnull final EntityResponse entityResponse, @Nonnull final SecretService secretService) {
+      @Nonnull final QueryContext context,
+      @Nonnull final EntityResponse entityResponse,
+      @Nonnull final SecretService secretService) {
     // If the connection does not exist, simply return null
     if (!hasAspects(entityResponse)) {
       return null;
@@ -44,6 +47,7 @@ public class ConnectionMapper {
     if (envelopedAssertionInfo != null) {
       result.setDetails(
           mapConnectionDetails(
+              context,
               new com.linkedin.connection.DataHubConnectionDetails(
                   envelopedAssertionInfo.getValue().data()),
               secretService));
@@ -58,13 +62,14 @@ public class ConnectionMapper {
   }
 
   private static DataHubConnectionDetails mapConnectionDetails(
+      @Nonnull final QueryContext context,
       @Nonnull final com.linkedin.connection.DataHubConnectionDetails gmsDetails,
       @Nonnull final SecretService secretService) {
     final DataHubConnectionDetails result = new DataHubConnectionDetails();
     result.setType(
         com.linkedin.datahub.graphql.generated.DataHubConnectionDetailsType.valueOf(
             gmsDetails.getType().toString()));
-    if (gmsDetails.hasJson()) {
+    if (gmsDetails.hasJson() && ConnectionUtils.canManageConnections(context)) {
       result.setJson(mapJsonConnectionDetails(gmsDetails.getJson(), secretService));
     }
     if (gmsDetails.hasName()) {
