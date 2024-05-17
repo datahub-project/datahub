@@ -1,16 +1,16 @@
 import * as React from 'react';
 import { PicCenterOutlined } from '@ant-design/icons';
-import { EntityType, SchemaFieldEntity, SearchResult } from '../../../types.generated';
+import { EntityType, SchemaFieldEntity as SchemaField, SearchResult } from '../../../types.generated';
 import { Entity, IconStyleType, PreviewType } from '../Entity';
 import { getDataForEntityType } from '../shared/containers/profile/utils';
 import { Preview } from './preview/Preview';
 import { downgradeV2FieldPath } from '../../lineageV2/lineageUtils';
 import { decodeSchemaField } from '../../lineage/utils/columnLineageUtils';
 
-export class SchemaFieldPropertiesEntity implements Entity<SchemaFieldEntity> {
+export class SchemaFieldEntity implements Entity<SchemaField> {
     type: EntityType = EntityType.SchemaField;
 
-    icon = (fontSize: number, styleType: IconStyleType, color = '#BFBFBF') => (
+    icon = (fontSize?: number, styleType?: IconStyleType, color = '#BFBFBF') => (
         <PicCenterOutlined style={{ fontSize, color }} />
     );
 
@@ -26,8 +26,10 @@ export class SchemaFieldPropertiesEntity implements Entity<SchemaFieldEntity> {
     // Currently unused.
     getPathName = () => 'schemaField';
 
+    // Currently unused.
     getEntityName = () => 'Schema Field';
 
+    // Currently unused.
     getCollectionName = () => 'Schema Fields';
 
     // Currently unused.
@@ -35,16 +37,15 @@ export class SchemaFieldPropertiesEntity implements Entity<SchemaFieldEntity> {
 
     getGraphName = () => 'schemaField';
 
-    renderPreview = (previewType: PreviewType, data: SchemaFieldEntity) => (
+    renderPreview = (previewType: PreviewType, data: SchemaField) => (
         <Preview previewType={previewType} datasetUrn={data.parent.urn} name={data.fieldPath} />
     );
 
-    renderSearch = (result: SearchResult) => this.renderPreview(PreviewType.SEARCH, result.entity as SchemaFieldEntity);
+    renderSearch = (result: SearchResult) => this.renderPreview(PreviewType.SEARCH, result.entity as SchemaField);
 
-    displayName = (data: SchemaFieldEntity) =>
-        decodeSchemaField(downgradeV2FieldPath(data?.fieldPath) || '') || data.urn;
+    displayName = (data: SchemaField) => decodeSchemaField(downgradeV2FieldPath(data?.fieldPath) || '') || data.urn;
 
-    getGenericEntityProperties = (data: SchemaFieldEntity) =>
+    getGenericEntityProperties = (data: SchemaField) =>
         getDataForEntityType({ data, entityType: this.type, getOverrideProperties: (newData) => newData });
 
     supportedCapabilities = () => new Set([]);
