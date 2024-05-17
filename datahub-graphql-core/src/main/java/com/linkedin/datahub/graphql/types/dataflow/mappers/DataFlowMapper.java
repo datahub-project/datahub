@@ -45,6 +45,7 @@ import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.metadata.key.DataFlowKey;
 import com.linkedin.metadata.key.DataPlatformKey;
 import com.linkedin.metadata.utils.EntityKeyUtils;
+import com.linkedin.metadata.utils.SystemMetadataUtils;
 import com.linkedin.structured.StructuredProperties;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -67,8 +68,7 @@ public class DataFlowMapper implements ModelMapper<EntityResponse, DataFlow> {
     Urn entityUrn = entityResponse.getUrn();
 
     EnvelopedAspectMap aspectMap = entityResponse.getAspects();
-    Long lastIngested =
-        com.linkedin.metadata.utils.SystemMetadataUtils.getLastIngestedTime(aspectMap);
+    Long lastIngested = SystemMetadataUtils.getLastIngestedTime(aspectMap);
     result.setLastIngested(lastIngested);
 
     MappingHelper<DataFlow> mappingHelper = new MappingHelper<>(aspectMap, result);

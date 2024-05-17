@@ -72,8 +72,7 @@ public class DataJobMapper implements ModelMapper<EntityResponse, DataJob> {
     result.setType(EntityType.DATA_JOB);
 
     EnvelopedAspectMap aspectMap = entityResponse.getAspects();
-    Long lastIngested =
-        com.linkedin.metadata.utils.SystemMetadataUtils.getLastIngestedTime(aspectMap);
+    Long lastIngested = SystemMetadataUtils.getLastIngestedTime(aspectMap);
     result.setLastIngested(lastIngested);
 
     entityResponse

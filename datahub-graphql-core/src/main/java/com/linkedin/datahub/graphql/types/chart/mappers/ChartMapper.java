@@ -47,6 +47,7 @@ import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.metadata.key.ChartKey;
 import com.linkedin.metadata.key.DataPlatformKey;
 import com.linkedin.metadata.utils.EntityKeyUtils;
+import com.linkedin.metadata.utils.SystemMetadataUtils;
 import com.linkedin.structured.StructuredProperties;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -70,8 +71,7 @@ public class ChartMapper implements ModelMapper<EntityResponse, Chart> {
     result.setUrn(entityResponse.getUrn().toString());
     result.setType(EntityType.CHART);
     EnvelopedAspectMap aspectMap = entityResponse.getAspects();
-    Long lastIngested =
-        com.linkedin.metadata.utils.SystemMetadataUtils.getLastIngestedTime(aspectMap);
+    Long lastIngested = SystemMetadataUtils.getLastIngestedTime(aspectMap);
     result.setLastIngested(lastIngested);
 
     MappingHelper<Chart> mappingHelper = new MappingHelper<>(aspectMap, result);

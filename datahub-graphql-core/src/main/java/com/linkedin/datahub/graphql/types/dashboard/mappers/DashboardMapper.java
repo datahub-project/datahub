@@ -45,6 +45,7 @@ import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.metadata.key.DashboardKey;
 import com.linkedin.metadata.key.DataPlatformKey;
 import com.linkedin.metadata.utils.EntityKeyUtils;
+import com.linkedin.metadata.utils.SystemMetadataUtils;
 import com.linkedin.structured.StructuredProperties;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -68,8 +69,7 @@ public class DashboardMapper implements ModelMapper<EntityResponse, Dashboard> {
     result.setUrn(entityResponse.getUrn().toString());
     result.setType(EntityType.DASHBOARD);
     EnvelopedAspectMap aspectMap = entityResponse.getAspects();
-    Long lastIngested =
-        com.linkedin.metadata.utils.SystemMetadataUtils.getLastIngestedTime(aspectMap);
+    Long lastIngested = SystemMetadataUtils.getLastIngestedTime(aspectMap);
     result.setLastIngested(lastIngested);
 
     MappingHelper<Dashboard> mappingHelper = new MappingHelper<>(aspectMap, result);

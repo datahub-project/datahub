@@ -39,8 +39,7 @@ public class DataPlatformMapper implements ModelMapper<EntityResponse, DataPlatf
     result.setName(dataPlatformKey.getPlatformName());
 
     EnvelopedAspectMap aspectMap = entityResponse.getAspects();
-    Long lastIngested =
-        com.linkedin.metadata.utils.SystemMetadataUtils.getLastIngestedTime(aspectMap);
+    Long lastIngested = SystemMetadataUtils.getLastIngestedTime(aspectMap);
     result.setLastIngested(lastIngested);
 
     MappingHelper<DataPlatform> mappingHelper = new MappingHelper<>(aspectMap, result);
