@@ -799,10 +799,10 @@ class DatabrickDataPlatformTableCreator(AbstractDataPlatformTableCreator):
 
         metastore: Optional[str] = None
 
-        if isinstance(platform_detail, DataBricksPlatformDetail):
-            metastore = cast(DataBricksPlatformDetail, platform_detail).metastore
-
         qualified_table_name: str = f"{db_name}.{schema_name}.{table_name}"
+
+        if isinstance(platform_detail, DataBricksPlatformDetail):
+            metastore = platform_detail.metastore
 
         if metastore is not None:
             return f"{metastore}.{qualified_table_name}"

@@ -207,7 +207,7 @@ class PlatformDetail(ConfigModel):
 
 
 class DataBricksPlatformDetail(PlatformDetail):
-    """ "
+    """
     metastore is an additional field used in Databricks connector to generate the dataset urn
     """
 
