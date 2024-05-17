@@ -1,6 +1,7 @@
 import json
 import logging
 import re
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from functools import lru_cache
 from typing import Dict, Iterable, List, Optional, Tuple, Union
@@ -608,12 +609,12 @@ class MetabaseSource(StatefulIngestionSourceBase):
             )
             if result.debug_info.table_error:
                 logger.info(
-                    f"Failed to parse lineage from query {raw_query}: "
+                    f"Failed to parse lineage from query {raw_query_stripped}: "
                     f"{result.debug_info.table_error}"
                 )
                 self.report.report_warning(
                     key="metabase-query",
-                    reason=f"Unable to retrieve lineage from query: {raw_query}",
+                    reason=f"Unable to retrieve lineage from query: {raw_query_stripped}",
                 )
             return result.in_tables
 
