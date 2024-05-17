@@ -210,8 +210,7 @@ def gen_lineage(
             ).as_workunit()
         ]
 
-        for wu in lineage_workunits:
-            yield wu
+        yield from lineage_workunits
 
 
 # downgrade a schema field

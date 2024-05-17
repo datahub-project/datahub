@@ -957,7 +957,7 @@ class GoogleBigQueryDataPlatformTableCreator(DefaultThreeStepDataAccessSources):
         return (
             data_access_func_detail.identifier_accessor.items["Name"]
             if data_access_func_detail.identifier_accessor is not None
-            else str()
+            else ""
         )
 
 
