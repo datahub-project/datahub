@@ -395,7 +395,7 @@ class SnowflakeDataDictionary(SnowflakeQueryMixin):
             #The view name needs to be truncated (Remove the last character) so that it will have a 
             #Lower lexicographic (dictionary) value than the first view in the group. 
             #Then limit to 10,000 views, then go after the rest
-            rows = cursor.fetchmany()
+            rows = cur.fetchmany()
             if rows: #JG Need to make sure this is proper for the returned cursor.
                 from_view_marker = rows[0][0][:-1]
                 cur2 = self.query(SnowflakeQuery.show_views_for_schema(schema_name, db_name, from_view_marker))
