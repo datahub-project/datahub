@@ -1,0 +1,200 @@
+{
+  "browsePathsV2": {
+    "path": [
+      {
+        "id": "banking"
+      },
+      {
+        "id": "public"
+      }
+    ]
+  },
+  "dataPlatformInstance": {
+    "platform": "urn:li:dataPlatform:bigquery"
+  },
+  "datasetKey": {
+    "name": "banking.public.customer",
+    "origin": "PROD",
+    "platform": "urn:li:dataPlatform:bigquery"
+  },
+  "datasetProperties": {
+    "customProperties": {},
+    "description": "# Customer Table Documentation\n## Business Context\nThe `customer` table captures essential information about customers within our financial services organization. This table serves as a centralized repository for customer details, enabling efficient management and analysis of customer data.\n### Example Business Context\nImagine a scenario where our organization needs to assess the performance of active customers with the highest balances. The `customer` table facilitates such analyses by providing a comprehensive view of customer-related metrics.\n## Technical Usage Information\nThe `customer` table is designed to support various business processes, including customer relationship management, financial reporting, and risk management. Below are the key technical details related to this table:\n",
+    "externalUrl": "https://www.bigquery.com",
+    "name": "customer",
+    "tags": [
+      "pii"
+    ]
+  },
+  "editableSchemaMetadata": {
+    "editableSchemaFieldInfo": [
+      {
+        "fieldPath": "CUSTOMER_ID",
+        "glossaryTerms": {
+          "auditStamp": {
+            "actor": "urn:li:corpuser:admin",
+            "time": 1713986734596
+          },
+          "terms": [
+            {
+              "urn": "urn:li:glossaryTerm:41516e310acbfd9076fffc2c98d2d1a3"
+            }
+          ]
+        }
+      },
+      {
+        "description": "Date of birth of the customerrr",
+        "fieldPath": "date_of_birth"
+      },
+      {
+        "description": "Address of the customerrrrrrr",
+        "fieldPath": "customer_address"
+      }
+    ]
+  },
+  "ownership": {
+    "lastModified": {
+      "actor": "urn:li:corpuser:unknown",
+      "time": 0
+    },
+    "ownerTypes": {
+      "urn:li:ownershipType:__system__none": [
+        "urn:li:corpuser:emma_ross@datahub.com",
+        "urn:li:corpuser:austin_wood@datahub.com",
+        "urn:li:corpuser:jayden_ross@datahub.com"
+      ]
+    },
+    "owners": [
+      {
+        "owner": "urn:li:corpuser:jayden_ross@datahub.com",
+        "type": "TECHNICAL_OWNER"
+      },
+      {
+        "owner": "urn:li:corpuser:austin_wood@datahub.com",
+        "type": "TECHNICAL_OWNER"
+      },
+      {
+        "owner": "urn:li:corpuser:emma_ross@datahub.com",
+        "type": "TECHNICAL_OWNER"
+      }
+    ]
+  },
+  "schemaMetadata": {
+    "created": {
+      "actor": "urn:li:corpuser:ingestion",
+      "time": 1640692800000
+    },
+    "fields": [
+      {
+        "description": "Unique identifier for the customer",
+        "fieldPath": "CUSTOMER_ID",
+        "globalTags": {
+          "tags": []
+        },
+        "isPartOfKey": false,
+        "lastModified": {
+          "actor": "urn:li:corpuser:ingestion",
+          "time": 1640692800000
+        },
+        "nativeDataType": "BIGINT",
+        "nullable": false,
+        "recursive": false,
+        "type": {
+          "type": {
+            "com.linkedin.schema.NumberType": {}
+          }
+        }
+      },
+      {
+        "description": "Name of the customer",
+        "fieldPath": "customer.name",
+        "globalTags": {
+          "tags": []
+        },
+        "isPartOfKey": false,
+        "lastModified": {
+          "actor": "urn:li:corpuser:ingestion",
+          "time": 1640692800000
+        },
+        "nativeDataType": "VARCHAR",
+        "nullable": false,
+        "recursive": false,
+        "type": {
+          "type": {
+            "com.linkedin.schema.NumberType": {}
+          }
+        }
+      },
+      {
+        "description": "Address of the customer",
+        "fieldPath": "customer_address",
+        "globalTags": {
+          "tags": []
+        },
+        "isPartOfKey": false,
+        "lastModified": {
+          "actor": "urn:li:corpuser:ingestion",
+          "time": 1640692800000
+        },
+        "nativeDataType": "VARCHAR",
+        "nullable": false,
+        "recursive": false,
+        "type": {
+          "type": {
+            "com.linkedin.schema.NumberType": {}
+          }
+        }
+      },
+      {
+        "description": "Date of birth of the customer",
+        "fieldPath": "date_of_birth",
+        "globalTags": {
+          "tags": []
+        },
+        "isPartOfKey": false,
+        "lastModified": {
+          "actor": "urn:li:corpuser:ingestion",
+          "time": 1640692800000
+        },
+        "nativeDataType": "DATE",
+        "nullable": false,
+        "recursive": false,
+        "type": {
+          "type": {
+            "com.linkedin.schema.NumberType": {}
+          }
+        }
+      }
+    ],
+    "hash": "",
+    "lastModified": {
+      "actor": "urn:li:corpuser:ingestion",
+      "time": 1640692800000
+    },
+    "platform": "urn:li:dataPlatform:bigquery",
+    "platformSchema": {
+      "com.linkedin.schema.OtherSchema": {
+        "rawSchema": "CREATE TABLE customer\n   (CUSTOMER_ID BIGINT,\n   customer.name VARCHAR,\n   customer_address VARCHAR,\n   date_of_birth DATE);"
+      }
+    },
+    "schemaName": "",
+    "version": 0
+  },
+  "schemaProposals": {
+    "schemaProposals": [
+      {
+        "fieldPath": "CUSTOMER_ID",
+        "proposedSchemaGlossaryTerms": []
+      }
+    ]
+  },
+  "subTypes": {
+    "typeNames": [
+      "table"
+    ]
+  },
+  "upstreamLineage": {
+    "fineGrainedLineages": [],
+    "upstreams": []
+  }
+}
