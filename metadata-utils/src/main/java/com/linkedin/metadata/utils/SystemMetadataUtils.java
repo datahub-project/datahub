@@ -22,24 +22,6 @@ public class SystemMetadataUtils {
         .setLastObserved(System.currentTimeMillis());
   }
 
-  public static Long getLastIngested(@Nonnull EnvelopedAspectMap aspectMap) {
-    Long lastIngested = null;
-    for (String aspect : aspectMap.keySet()) {
-      if (aspectMap.get(aspect).hasSystemMetadata()) {
-        SystemMetadata systemMetadata = aspectMap.get(aspect).getSystemMetadata();
-        if (systemMetadata.hasRunId()
-            && !systemMetadata.getRunId().equals(DEFAULT_RUN_ID)
-            && systemMetadata.hasLastObserved()) {
-          Long lastObserved = systemMetadata.getLastObserved();
-          if (lastIngested == null || lastObserved > lastIngested) {
-            lastIngested = lastObserved;
-          }
-        }
-      }
-    }
-    return lastIngested;
-  }
-
   public static SystemMetadata generateSystemMetadataIfEmpty(
       @Nullable SystemMetadata systemMetadata) {
     return systemMetadata == null ? createDefaultSystemMetadata() : systemMetadata;
