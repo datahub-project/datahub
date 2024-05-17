@@ -82,6 +82,7 @@ public class GmsGraphQLEngineArgs {
   RestrictedService restrictedService;
   int graphQLQueryComplexityLimit;
   int graphQLQueryDepthLimit;
+  boolean graphQLQueryIntrospectionEnabled;
   BusinessAttributeService businessAttributeService;
 
   // any fork specific args should go below this line
