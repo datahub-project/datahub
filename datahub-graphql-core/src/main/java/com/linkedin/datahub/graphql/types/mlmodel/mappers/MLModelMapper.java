@@ -43,6 +43,7 @@ import com.linkedin.domain.Domains;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.metadata.key.MLModelKey;
+import com.linkedin.metadata.utils.SystemMetadataUtils;
 import com.linkedin.ml.metadata.CaveatsAndRecommendations;
 import com.linkedin.ml.metadata.EditableMLModelProperties;
 import com.linkedin.ml.metadata.EthicalConsiderations;

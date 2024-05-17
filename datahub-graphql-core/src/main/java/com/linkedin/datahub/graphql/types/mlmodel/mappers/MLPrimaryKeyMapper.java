@@ -33,6 +33,7 @@ import com.linkedin.domain.Domains;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.metadata.key.MLPrimaryKeyKey;
+import com.linkedin.metadata.utils.SystemMetadataUtils;
 import com.linkedin.ml.metadata.EditableMLPrimaryKeyProperties;
 import com.linkedin.ml.metadata.MLPrimaryKeyProperties;
 import com.linkedin.structured.StructuredProperties;

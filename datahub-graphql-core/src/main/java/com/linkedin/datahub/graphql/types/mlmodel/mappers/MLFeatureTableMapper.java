@@ -34,6 +34,7 @@ import com.linkedin.domain.Domains;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.metadata.key.MLFeatureTableKey;
+import com.linkedin.metadata.utils.SystemMetadataUtils;
 import com.linkedin.ml.metadata.EditableMLFeatureTableProperties;
 import com.linkedin.ml.metadata.MLFeatureTableProperties;
 import com.linkedin.structured.StructuredProperties;
