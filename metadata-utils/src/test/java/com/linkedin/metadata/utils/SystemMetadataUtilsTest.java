@@ -1,10 +1,8 @@
-package com.linkedin.datahub.graphql.utils;
+package com.linkedin.metadata.utils;
 
-import static com.linkedin.metadata.Constants.DEFAULT_RUN_ID;
+import static com.linkedin.metadata.Constants.*;
 import static org.testng.Assert.*;
 
-import com.linkedin.datahub.graphql.types.common.mappers.util.RunInfo;
-import com.linkedin.datahub.graphql.types.common.mappers.util.SystemMetadataUtils;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.mxe.SystemMetadata;

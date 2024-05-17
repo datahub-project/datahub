@@ -1,4 +1,4 @@
-package com.linkedin.datahub.graphql.types.common.mappers.util;
+package com.linkedin.metadata.utils;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
