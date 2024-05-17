@@ -27,6 +27,7 @@ import com.linkedin.structured.PropertyValue;
 import com.linkedin.structured.StructuredProperties;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import com.linkedin.structured.StructuredPropertyValueAssignment;
+import com.linkedin.util.Pair;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -38,13 +39,21 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+import lombok.Getter;
+import lombok.Setter;
+import lombok.experimental.Accessors;
 import lombok.extern.slf4j.Slf4j;
 
 /** A Validator for StructuredProperties Aspect that is attached to entities like Datasets, etc. */
+@Setter
+@Getter
 @Slf4j
+@Accessors(chain = true)
 public class StructuredPropertiesValidator extends AspectPayloadValidator {
   private static final Set<ChangeType> CHANGE_TYPES =
       ImmutableSet.of(ChangeType.CREATE, ChangeType.CREATE_ENTITY, ChangeType.UPSERT);
@@ -56,10 +65,6 @@ public class StructuredPropertiesValidator extends AspectPayloadValidator {
               LogicalValueType.RICH_TEXT,
               LogicalValueType.DATE,
               LogicalValueType.URN));
-
-  public StructuredPropertiesValidator(AspectPluginConfig aspectPluginConfig) {
-    super(aspectPluginConfig);
-  }
 
   public static LogicalValueType getLogicalValueType(Urn valueType) {
     String valueTypeId = getValueTypeId(valueType);
@@ -78,6 +83,8 @@ public class StructuredPropertiesValidator extends AspectPayloadValidator {
     return LogicalValueType.UNKNOWN;
   }
 
+  @Nonnull private AspectPluginConfig config;
+
   @Override
   protected Stream<AspectValidationException> validateProposedAspects(
       @Nonnull Collection<? extends BatchItem> mcpItems,
@@ -92,20 +99,22 @@ public class StructuredPropertiesValidator extends AspectPayloadValidator {
   @Override
   protected Stream<AspectValidationException> validatePreCommitAspects(
       @Nonnull Collection<ChangeMCP> changeMCPs, @Nonnull RetrieverContext retrieverContext) {
-    return Stream.empty();
+    return validateImmutable(
+        changeMCPs.stream()
+            .filter(
+                i ->
+                    ChangeType.DELETE.equals(i.getChangeType())
+                        || CHANGE_TYPES.contains(i.getChangeType()))
+            .collect(Collectors.toList()),
+        retrieverContext.getAspectRetriever());
   }
 
   public static Stream<AspectValidationException> validateProposedUpserts(
       @Nonnull Collection<BatchItem> mcpItems, @Nonnull AspectRetriever aspectRetriever) {
 
     ValidationExceptionCollection exceptions = ValidationExceptionCollection.newCollection();
-
-    // Validate propertyUrns
-    Set<Urn> validPropertyUrns = validateStructuredPropertyUrns(mcpItems, exceptions);
-
-    // Fetch property aspects for further validation
     Map<Urn, Map<String, Aspect>> allStructuredPropertiesAspects =
-        fetchPropertyAspects(validPropertyUrns, aspectRetriever);
+        fetchPropertyAspects(mcpItems, aspectRetriever, exceptions, false);
 
     // Validate assignments
     for (BatchItem i : exceptions.successful(mcpItems)) {
@@ -120,15 +129,13 @@ public class StructuredPropertiesValidator extends AspectPayloadValidator {
         softDeleteCheck(i, propertyAspects, "Cannot apply a soft deleted Structured Property value")
             .ifPresent(exceptions::addException);
 
-        Aspect structuredPropertyDefinitionAspect =
-            propertyAspects.get(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME);
-        if (structuredPropertyDefinitionAspect == null) {
+        StructuredPropertyDefinition structuredPropertyDefinition =
+            lookupPropertyDefinition(propertyUrn, allStructuredPropertiesAspects);
+        if (structuredPropertyDefinition == null) {
           exceptions.addException(i, "Unexpected null value found.");
         }
 
-        StructuredPropertyDefinition structuredPropertyDefinition =
-            new StructuredPropertyDefinition(structuredPropertyDefinitionAspect.data());
-        log.warn(
+        log.debug(
             "Retrieved property definition for {}. {}", propertyUrn, structuredPropertyDefinition);
         if (structuredPropertyDefinition != null) {
           PrimitivePropertyValueArray values = structuredPropertyValueAssignment.getValues();
@@ -158,8 +165,73 @@ public class StructuredPropertiesValidator extends AspectPayloadValidator {
     return exceptions.streamAllExceptions();
   }
 
+  public static Stream<AspectValidationException> validateImmutable(
+      @Nonnull Collection<ChangeMCP> changeMCPs, @Nonnull AspectRetriever aspectRetriever) {
+
+    ValidationExceptionCollection exceptions = ValidationExceptionCollection.newCollection();
+    final Map<Urn, Map<String, Aspect>> allStructuredPropertiesAspects =
+        fetchPropertyAspects(changeMCPs, aspectRetriever, exceptions, true);
+
+    Set<Urn> immutablePropertyUrns =
+        allStructuredPropertiesAspects.keySet().stream()
+            .map(
+                stringAspectMap ->
+                    Pair.of(
+                        stringAspectMap,
+                        lookupPropertyDefinition(stringAspectMap, allStructuredPropertiesAspects)))
+            .filter(defPair -> defPair.getSecond() != null && defPair.getSecond().isImmutable())
+            .map(Pair::getFirst)
+            .collect(Collectors.toSet());
+
+    // Validate immutable assignments
+    for (ChangeMCP i : exceptions.successful(changeMCPs)) {
+
+      // only apply immutable validation if previous properties exist
+      if (i.getPreviousRecordTemplate() != null) {
+        Map<Urn, StructuredPropertyValueAssignment> newImmutablePropertyMap =
+            i.getAspect(StructuredProperties.class).getProperties().stream()
+                .filter(assign -> immutablePropertyUrns.contains(assign.getPropertyUrn()))
+                .collect(
+                    Collectors.toMap(
+                        StructuredPropertyValueAssignment::getPropertyUrn, Function.identity()));
+        Map<Urn, StructuredPropertyValueAssignment> oldImmutablePropertyMap =
+            i.getPreviousAspect(StructuredProperties.class).getProperties().stream()
+                .filter(assign -> immutablePropertyUrns.contains(assign.getPropertyUrn()))
+                .collect(
+                    Collectors.toMap(
+                        StructuredPropertyValueAssignment::getPropertyUrn, Function.identity()));
+
+        // upsert/mutation path
+        newImmutablePropertyMap
+            .entrySet()
+            .forEach(
+                entry -> {
+                  Urn propertyUrn = entry.getKey();
+                  StructuredPropertyValueAssignment assignment = entry.getValue();
+
+                  if (oldImmutablePropertyMap.containsKey(propertyUrn)
+                      && !oldImmutablePropertyMap.get(propertyUrn).equals(assignment)) {
+                    exceptions.addException(
+                        i, String.format("Cannot mutate an immutable property: %s", propertyUrn));
+                  }
+                });
+
+        // delete path
+        oldImmutablePropertyMap.entrySet().stream()
+            .filter(entry -> !newImmutablePropertyMap.containsKey(entry.getKey()))
+            .forEach(
+                entry ->
+                    exceptions.addException(
+                        i,
+                        String.format("Cannot delete an immutable property %s", entry.getKey())));
+      }
+    }
+
+    return exceptions.streamAllExceptions();
+  }
+
   private static Set<Urn> validateStructuredPropertyUrns(
-      Collection<BatchItem> mcpItems, ValidationExceptionCollection exceptions) {
+      Collection<? extends BatchItem> mcpItems, ValidationExceptionCollection exceptions) {
     Set<Urn> validPropertyUrns = new HashSet<>();
 
     for (BatchItem i : exceptions.successful(mcpItems)) {
@@ -200,6 +272,17 @@ public class StructuredPropertiesValidator extends AspectPayloadValidator {
     }
 
     return validPropertyUrns;
+  }
+
+  private static Set<Urn> previousStructuredPropertyUrns(Collection<? extends BatchItem> mcpItems) {
+    return mcpItems.stream()
+        .filter(i -> i instanceof ChangeMCP)
+        .map(i -> ((ChangeMCP) i))
+        .filter(i -> i.getPreviousRecordTemplate() != null)
+        .flatMap(i -> i.getPreviousAspect(StructuredProperties.class).getProperties().stream())
+        .map(StructuredPropertyValueAssignment::getPropertyUrn)
+        .filter(propertyUrn -> propertyUrn.getEntityType().equals("structuredProperty"))
+        .collect(Collectors.toSet());
   }
 
   private static Optional<AspectValidationException> validateAllowedValues(
@@ -338,14 +421,40 @@ public class StructuredPropertiesValidator extends AspectPayloadValidator {
   }
 
   private static Map<Urn, Map<String, Aspect>> fetchPropertyAspects(
-      Set<Urn> structuredPropertyUrns, AspectRetriever aspectRetriever) {
-    if (structuredPropertyUrns.isEmpty()) {
+      @Nonnull Collection<? extends BatchItem> mcpItems,
+      AspectRetriever aspectRetriever,
+      @Nonnull ValidationExceptionCollection exceptions,
+      boolean includePrevious) {
+
+    // Validate propertyUrns
+    Set<Urn> validPropertyUrns =
+        Stream.concat(
+                validateStructuredPropertyUrns(mcpItems, exceptions).stream(),
+                includePrevious
+                    ? previousStructuredPropertyUrns(mcpItems).stream()
+                    : Stream.empty())
+            .collect(Collectors.toSet());
+
+    if (validPropertyUrns.isEmpty()) {
       return Collections.emptyMap();
     } else {
       return aspectRetriever.getLatestAspectObjects(
-          structuredPropertyUrns,
+          validPropertyUrns,
           ImmutableSet.of(
               Constants.STATUS_ASPECT_NAME, STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME));
     }
+  }
+
+  @Nullable
+  private static StructuredPropertyDefinition lookupPropertyDefinition(
+      @Nonnull Urn propertyUrn,
+      @Nonnull Map<Urn, Map<String, Aspect>> allStructuredPropertiesAspects) {
+    Map<String, Aspect> propertyAspects =
+        allStructuredPropertiesAspects.getOrDefault(propertyUrn, Collections.emptyMap());
+    Aspect structuredPropertyDefinitionAspect =
+        propertyAspects.get(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME);
+    return structuredPropertyDefinitionAspect == null
+        ? null
+        : new StructuredPropertyDefinition(structuredPropertyDefinitionAspect.data());
   }
 }
