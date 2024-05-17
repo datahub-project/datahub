@@ -68,6 +68,12 @@ module.exports = {
               className: "saasOnly",
             },
             {
+              label: "Schema Assertions",
+              type: "doc",
+              id: "docs/managed-datahub/observe/schema-assertions",
+              className: "saasOnly",
+            },
+            {
               label: "Volume Assertions",
               type: "doc",
               id: "docs/managed-datahub/observe/volume-assertions",
@@ -256,6 +262,7 @@ module.exports = {
         },
         {
           "Managed DataHub Release History": [
+            "docs/managed-datahub/release-notes/v_0_3_2",
             "docs/managed-datahub/release-notes/v_0_3_1",
             "docs/managed-datahub/release-notes/v_0_2_16",
             "docs/managed-datahub/release-notes/v_0_2_15",

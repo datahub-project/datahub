@@ -20,8 +20,8 @@ import io.swagger.v3.oas.models.parameters.RequestBody;
 import io.swagger.v3.oas.models.responses.ApiResponse;
 import io.swagger.v3.oas.models.responses.ApiResponses;
 import java.math.BigDecimal;
-import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -441,16 +441,27 @@ public class OpenAPIV3Generator {
                   final String newDefinition =
                       definition.replaceAll("definitions", "components/schemas");
                   Schema s = Json.mapper().readValue(newDefinition, Schema.class);
-                  // Set nullable attribute
-                  Optional.ofNullable(s.getProperties())
-                      .orElse(new HashMap())
-                      .forEach(
-                          (name, schema) ->
-                              ((Schema) schema)
-                                  .setNullable(
-                                      !Optional.ofNullable(s.getRequired())
-                                          .orElse(new ArrayList())
-                                          .contains(name)));
+                  Set<String> requiredNames =
+                      Optional.ofNullable(s.getRequired())
+                          .map(names -> Set.copyOf(names))
+                          .orElse(new HashSet());
+                  Map<String, Schema> properties =
+                      Optional.ofNullable(s.getProperties()).orElse(new HashMap<>());
+                  properties.forEach(
+                      (name, schema) -> {
+                        String $ref = schema.get$ref();
+                        boolean isNameRequired = requiredNames.contains(name);
+                        if ($ref != null && !isNameRequired) {
+                          // A non-required $ref property must be wrapped in a { allOf: [ $ref ] }
+                          // object to allow the
+                          // property to be marked as nullable
+                          schema.setType("object");
+                          schema.set$ref(null);
+                          schema.setAllOf(List.of(new Schema().$ref($ref)));
+                        }
+                        schema.setNullable(!isNameRequired);
+                      });
+
                   components.addSchemas(n, s);
                 } catch (Exception e) {
                   throw new RuntimeException(e);

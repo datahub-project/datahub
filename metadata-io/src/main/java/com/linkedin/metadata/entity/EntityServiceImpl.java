@@ -48,6 +48,8 @@ import com.linkedin.metadata.aspect.batch.MCPItem;
 import com.linkedin.metadata.aspect.plugins.validation.ValidationExceptionCollection;
 import com.linkedin.metadata.aspect.utils.DefaultAspectsUtil;
 import com.linkedin.metadata.config.PreProcessHooks;
+import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
+import com.linkedin.metadata.entity.ebean.PartitionedStream;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
 import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
 import com.linkedin.metadata.entity.ebean.batch.DeleteItemImpl;
@@ -1248,7 +1250,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
 
   @Nonnull
   @Override
-  public Stream<RestoreIndicesResult> streamRestoreIndices(
+  public List<RestoreIndicesResult> restoreIndices(
       @Nonnull OperationContext opContext,
       @Nonnull RestoreIndicesArgs args,
       @Nonnull Consumer<String> logger) {
@@ -1257,32 +1259,35 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     logger.accept(
         String.format(
             "Reading rows %s through %s (0 == infinite) in batches of %s from the aspects table started.",
-            args.start, args.limit, args.batchSize));
+            args.start, args.start + args.limit, args.batchSize));
 
     long startTime = System.currentTimeMillis();
-    return aspectDao
-        .streamAspectBatches(args)
-        .map(
-            batchStream -> {
-              long timeSqlQueryMs = System.currentTimeMillis() - startTime;
 
-              List<SystemAspect> systemAspects =
-                  EntityUtils.toSystemAspectFromEbeanAspects(
-                      opContext.getRetrieverContext().get(),
-                      batchStream.collect(Collectors.toList()));
+    try (PartitionedStream<EbeanAspectV2> stream = aspectDao.streamAspectBatches(args)) {
+      return stream
+          .partition(args.batchSize)
+          .map(
+              batch -> {
+                long timeSqlQueryMs = System.currentTimeMillis() - startTime;
 
-              RestoreIndicesResult result = restoreIndices(opContext, systemAspects, logger);
-              result.timeSqlQueryMs = timeSqlQueryMs;
+                List<SystemAspect> systemAspects =
+                    EntityUtils.toSystemAspectFromEbeanAspects(
+                        opContext.getRetrieverContext().get(), batch.collect(Collectors.toList()));
 
-              logger.accept("Batch completed.");
-              try {
-                TimeUnit.MILLISECONDS.sleep(args.batchDelayMs);
-              } catch (InterruptedException e) {
-                throw new RuntimeException(
-                    "Thread interrupted while sleeping after successful batch migration.");
-              }
-              return result;
-            });
+                RestoreIndicesResult result = restoreIndices(opContext, systemAspects, logger);
+                result.timeSqlQueryMs = timeSqlQueryMs;
+
+                logger.accept("Batch completed.");
+                try {
+                  TimeUnit.MILLISECONDS.sleep(args.batchDelayMs);
+                } catch (InterruptedException e) {
+                  throw new RuntimeException(
+                      "Thread interrupted while sleeping after successful batch migration.");
+                }
+                return result;
+              })
+          .collect(Collectors.toList());
+    }
   }
 
   @Nonnull

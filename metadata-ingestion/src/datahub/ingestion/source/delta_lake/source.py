@@ -151,7 +151,7 @@ class DeltaLakeSource(Source):
                     and create the native datatype
                     """
                     parsed_struct += (
-                        "{0}:{1}".format(
+                        "{}:{}".format(
                             field.get("name"),
                             self.delta_type_to_hive_type(field.get("type")),
                         )
@@ -343,8 +343,7 @@ class DeltaLakeSource(Source):
         delta_table = read_delta_table(path, self.storage_options, self.source_config)
         if delta_table:
             logger.debug(f"Delta table found at: {path}")
-            for wu in self.ingest_table(delta_table, path.rstrip("/")):
-                yield wu
+            yield from self.ingest_table(delta_table, path.rstrip("/"))
         else:
             for folder in self.get_folders(path):
                 yield from self.process_folder(folder)
