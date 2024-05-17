@@ -94,6 +94,7 @@ class MetabaseConfig(DatasetLineageProviderConfigBase, StatefulIngestionConfigBa
         default=False,
         description="Flag that if true, exclude other user collections",
     )
+    stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = None
 
     @validator("connect_uri", "display_uri")
     def remove_trailing_slash(cls, v):
