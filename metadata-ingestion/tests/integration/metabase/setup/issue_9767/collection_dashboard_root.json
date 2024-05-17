@@ -1,0 +1,25 @@
+{
+  "total": 3,
+  "data": [
+    {
+      "description": "test",
+      "collection_position": null,
+      "database_id": null,
+      "name": "test filter",
+      "id": 3,
+      "entity_id": "cNXZhyVHAOEONhw5hByKX",
+      "last-edit-info": {
+        "id": 1,
+        "last_name": "Appleseed",
+        "first_name": "Johny",
+        "email": "pulsar@snowtronix.local",
+        "timestamp": "2024-05-17T21:51:20.080515Z"
+      },
+      "model": "dashboard"
+    }],
+  "models": [
+    "dashboard"
+  ],
+  "limit": null,
+  "offset": null
+}

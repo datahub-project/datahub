@@ -1,0 +1,215 @@
+{
+  "description": "test",
+  "archived": false,
+  "collection_position": null,
+  "dashcards": [
+    {
+      "size_x": 12,
+      "dashboard_tab_id": null,
+      "series": [],
+      "action_id": null,
+      "collection_authority_level": null,
+      "card": {
+        "description": null,
+        "archived": false,
+        "collection_position": null,
+        "table_id": 6,
+        "result_metadata": [
+          {
+            "display_name": "SOURCE",
+            "field_ref": [
+              "field",
+              "SOURCE",
+              {
+                "base-type": "type/Text"
+              }
+            ],
+            "name": "SOURCE",
+            "base_type": "type/Text",
+            "effective_type": "type/Text",
+            "semantic_type": "type/Source",
+            "fingerprint": {
+              "global": {
+                "distinct-count": 5,
+                "nil%": 0.2
+              },
+              "type": {
+                "type/Text": {
+                  "percent-json": 0.0,
+                  "percent-url": 0.0,
+                  "percent-email": 0.0,
+                  "percent-state": 0.0,
+                  "average-length": 5.4
+                }
+              }
+            }
+          },
+          {
+            "display_name": "sum",
+            "field_ref": [
+              "field",
+              "sum",
+              {
+                "base-type": "type/BigInteger"
+              }
+            ],
+            "name": "sum",
+            "base_type": "type/BigInteger",
+            "effective_type": "type/BigInteger",
+            "semantic_type": null,
+            "fingerprint": {
+              "global": {
+                "distinct-count": 5,
+                "nil%": 0.0
+              },
+              "type": {
+                "type/Number": {
+                  "min": 5634.0,
+                  "q1": 5650.5,
+                  "q3": 8961.75,
+                  "max": 17178.0,
+                  "sd": 5084.457080161067,
+                  "avg": 8092.6
+                }
+              }
+            }
+          }
+        ],
+        "initially_published_at": null,
+        "can_write": true,
+        "database_id": 1,
+        "enable_embedding": false,
+        "collection_id": null,
+        "query_type": "native",
+        "name": "Accounts, Sum of Seats, Grouped by Source - Duplicate - Duplicate",
+        "type": "question",
+        "query_average_duration": null,
+        "creator_id": 1,
+        "moderation_reviews": [],
+        "updated_at": "2024-05-17T21:51:20.217914Z",
+        "made_public_by_id": null,
+        "embedding_params": null,
+        "cache_ttl": null,
+        "dataset_query": {
+          "database": 1,
+          "type": "native",
+          "native": {
+            "template-tags": {
+              "COUNTRY": {
+                "type": "text",
+                "name": "COUNTRY",
+                "id": "74499e6a-146d-4107-9508-9801deeeae5c",
+                "display-name": "Country"
+              }
+            },
+            "collection": "ACCOUNTS",
+            "query": "SELECT\n  \"PUBLIC\".\"ACCOUNTS\".\"SOURCE\" AS \"SOURCE\",\n  SUM(\"PUBLIC\".\"ACCOUNTS\".\"SEATS\") AS \"sum\"\nFROM\n  \"PUBLIC\".\"ACCOUNTS\"\nGROUP BY\n  \"PUBLIC\".\"ACCOUNTS\".\"SOURCE\"\nORDER BY\n  \"PUBLIC\".\"ACCOUNTS\".\"SOURCE\" ASC\n[[where PUBLIC.ACCOUNTS.COUNTRY == {{COUNTRY}}]]"
+          }
+        },
+        "id": 3,
+        "parameter_mappings": [],
+        "display": "bar",
+        "entity_id": "uns9F4BFNsCq8YFMbrCdO",
+        "collection_preview": true,
+        "visualization_settings": {
+          "graph.dimensions": [
+            "SOURCE"
+          ],
+          "graph.metrics": [
+            "sum"
+          ]
+        },
+        "metabase_version": "v0.49.11 (b894f2d)",
+        "parameters": [
+          {
+            "id": "74499e6a-146d-4107-9508-9801deeeae5c",
+            "type": "category",
+            "target": [
+              "variable",
+              [
+                "template-tag",
+                "COUNTRY"
+              ]
+            ],
+            "name": "Country",
+            "slug": "COUNTRY"
+          }
+        ],
+        "dataset": false,
+        "created_at": "2024-05-17T21:33:56.551981Z",
+        "public_uuid": null
+      },
+      "updated_at": "2024-05-17T21:51:20.06007Z",
+      "col": 0,
+      "id": 3,
+      "parameter_mappings": [
+        {
+          "parameter_id": "5d1aeef8",
+          "card_id": 3,
+          "target": [
+            "variable",
+            [
+              "template-tag",
+              "COUNTRY"
+            ]
+          ]
+        }
+      ],
+      "card_id": 3,
+      "entity_id": "GT9BVzh-D95Kc7-slYhj1",
+      "visualization_settings": {},
+      "size_y": 6,
+      "dashboard_id": 3,
+      "created_at": "2024-05-17T21:33:56.551981Z",
+      "row": 0
+    }
+  ],
+  "param_values": null,
+  "initially_published_at": null,
+  "can_write": true,
+  "tabs": [],
+  "enable_embedding": false,
+  "collection_id": null,
+  "show_in_getting_started": false,
+  "name": "test filter",
+  "width": "fixed",
+  "caveats": null,
+  "collection_authority_level": null,
+  "creator_id": 1,
+  "updated_at": "2024-05-17T21:51:20.06007Z",
+  "made_public_by_id": null,
+  "embedding_params": null,
+  "cache_ttl": null,
+  "id": 3,
+  "position": null,
+  "entity_id": "cNXZhyVHAOEONhw5hByKX",
+  "param_fields": null,
+  "last-edit-info": {
+    "id": 1,
+    "email": "pulsar@snowtronix.local",
+    "first_name": "Johny",
+    "last_name": "Appleseed",
+    "timestamp": "2024-05-17T21:51:20.080515Z"
+  },
+  "collection": {
+    "metabase.models.collection.root/is-root?": true,
+    "authority_level": null,
+    "name": "Our analytics",
+    "is_personal": false,
+    "id": "root",
+    "can_write": true
+  },
+  "parameters": [
+    {
+      "name": "Location",
+      "slug": "location",
+      "id": "5d1aeef8",
+      "type": "string/=",
+      "sectionId": "location"
+    }
+  ],
+  "auto_apply_filters": true,
+  "created_at": "2024-05-17T21:33:56.551981Z",
+  "public_uuid": null,
+  "points_of_interest": null
+}

@@ -245,3 +245,44 @@ def test_mode_ingest_failure(pytestconfig, tmp_path):
             assert exec_error.args[0] == "Source reported errors"
             assert len(exec_error.args[1].failures) == 1
             assert list(exec_error.args[1].failures.keys())[0] == "metabase-dashboard"
+
+
+@freeze_time(FROZEN_TIME)
+def test_9767_query_with_template_tags_does_not_fail(
+    pytestconfig, tmp_path, test_pipeline, mock_datahub_graph
+):
+
+    baseUrl = "http://localhost:3000/api"
+    JSON_RESPONSE_MAP[f"{baseUrl}/card/3"] = "issue_9767/card_3.json"
+    JSON_RESPONSE_MAP[f"{baseUrl}/collection"] = "issue_9767/collection.json"
+    JSON_RESPONSE_MAP[
+        f"{baseUrl}/collection/root/items?models=dashboard"
+    ] = "issue_9767/collection_dashboard_root.json"
+    JSON_RESPONSE_MAP[f"{baseUrl}/dashboard/3"] = "issue_9767/dashboard_3.json"
+    JSON_RESPONSE_MAP[f"{baseUrl}/database/1"] = "issue_9767/database_1.json"
+    JSON_RESPONSE_MAP[f"{baseUrl}/table/6"] = "issue_9767/table_6.json"
+
+    with patch(
+        "datahub.ingestion.source.metabase.requests.session",
+        side_effect=mocked_requests_sucess,
+    ), patch(
+        "datahub.ingestion.source.metabase.requests.post",
+        side_effect=mocked_requests_session_post,
+    ), patch(
+        "datahub.ingestion.source.metabase.requests.delete",
+        side_effect=mocked_requests_session_delete,
+    ), patch(
+        "datahub.ingestion.source.state_provider.datahub_ingestion_checkpointing_provider.DataHubGraph",
+        mock_datahub_graph,
+    ) as mock_checkpoint:
+        mock_checkpoint.return_value = mock_datahub_graph
+
+        pipeline = Pipeline.create(test_pipeline)
+        pipeline.run()
+        pipeline.raise_from_status()
+
+        report = pipeline.source.get_report()
+        for warning in report.warnings:
+            assert "Unable to retrieve lineage from query" not in str(
+                report.warnings[warning]
+            )
