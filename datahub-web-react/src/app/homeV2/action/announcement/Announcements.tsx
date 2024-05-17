@@ -1,13 +1,14 @@
-import React, { useState } from 'react';
+import React, { useContext, useState } from 'react';
 import styled from 'styled-components';
 import { Carousel, Button } from 'antd';
 import { NotificationOutlined, CloseOutlined } from '@ant-design/icons';
-import { AnnouncementsLoadingSection } from '../../content/tabs/announcements/AnnouncementsLoadingSection';
+import AnnouncementsSkeleton from '../../content/tabs/announcements/AnnouncementsSkeleton';
 import { Announcement } from './Announcement';
 import { ANTD_GRAY } from '../../../entity/shared/constants';
 import { useUserContext } from '../../../context/useUserContext';
 import { useUpdateLastViewedAnnouncementTime } from '../../shared/updateLastViewedAnnouncementTime';
 import { useGetUnseenAnnouncements } from './useGetUnseenAnnouncements';
+import OnboardingContext from '../../../onboarding/OnboardingContext';
 
 const Card = styled.div`
     border: 1px solid ${ANTD_GRAY[4]};
@@ -48,9 +49,11 @@ const StyledCarousel = styled(Carousel)`
     font-weight: 600;
     font-size: 14px;
     overflow: hidden;
+
     > .slick-dots li button {
         background-color: #d9d9d9;
     }
+
     > .slick-dots li.slick-active button {
         background-color: #5c3fd1;
     }
@@ -65,6 +68,8 @@ export const Announcements = () => {
     const { user } = useUserContext();
     const { announcements, loading } = useGetUnseenAnnouncements();
     const { updateLastViewedAnnouncementTime } = useUpdateLastViewedAnnouncementTime();
+
+    const { isUserInitializing } = useContext(OnboardingContext);
 
     const sortedAnnouncements = announcements.sort((a, b) => {
         return b?.lastModified?.time - a?.lastModified?.time;
@@ -82,6 +87,14 @@ export const Announcements = () => {
         return null;
     }
 
+    if (isUserInitializing || loading) {
+        return (
+            <Card>
+                <AnnouncementsSkeleton />
+            </Card>
+        );
+    }
+
     return (
         <Card>
             <Header>
@@ -92,7 +105,6 @@ export const Announcements = () => {
                     <StyledCloseOutlined />
                 </CloseButton>
             </Header>
-            {loading && <AnnouncementsLoadingSection />}
             <StyledCarousel autoplaySpeed={8000} autoplay>
                 {sortedAnnouncements.map((announcement) => (
                     <Announcement

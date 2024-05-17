@@ -1,16 +1,17 @@
-import React from 'react';
+import React, { useContext } from 'react';
 import styled from 'styled-components';
 import { Link } from 'react-router-dom';
+import { Skeleton } from 'antd';
 
 import { NavLinks } from './NavLinks';
 import { useAppConfig } from '../../useAppConfig';
-import { DEFAULT_APP_CONFIG } from '../../../appConfigContext';
 import { useUserContext } from '../../context/useUserContext';
 import { useEntityRegistry } from '../../useEntityRegistry';
 import { EntityType } from '../../../types.generated';
 
 import CustomAvatar from '../../shared/avatar/CustomAvatar';
 import AcrylIcon from '../../../images/acryl-light-mark.svg?react';
+import OnboardingContext from '../../onboarding/OnboardingContext';
 
 const Container = styled.div`
     height: 100vh;
@@ -23,7 +24,7 @@ const Content = styled.div`
     flex-direction: column;
     align-items: center;
     justify-content: space-between;
-    background-color: #3B2D94;
+    background-color: #3b2d94;
     border-radius: 32px;
     height: 100%;
     width: 52px;
@@ -37,8 +38,8 @@ const Icon = styled.div`
     width: 44px;
     height: 44px;
     border-radius: 38px;
-    border: 1px solid #32267D;
-    background: #4C39BE;
+    border: 1px solid #32267d;
+    background: #4c39be;
     box-shadow: 0px 4px 4px 0px rgba(0, 0, 0, 0.25);
     margin-bottom: 10px;
 
@@ -74,12 +75,36 @@ const UserIcon = styled.div`
     }
 `;
 
-const DEFAULT_LOGO = "/assets/logos/acryl-dark-mark.svg";
+const SkeletonButton = styled(Skeleton.Button)`
+    &&& {
+        margin-top: 3px;
+        width: 44px;
+        height: 44px;
+        margin-bottom: 10px;
+    }
+`;
+
+const DEFAULT_LOGO = '/assets/logos/acryl-dark-mark.svg';
+
+const NavSkeleton = () => {
+    return (
+        <>
+            <SkeletonButton active shape="circle" />
+            <SkeletonButton active shape="circle" style={{ height: '380px', borderRadius: '48px' }} />
+            <Spacer />
+            <UserIcon>
+                <SkeletonButton active shape="circle" />
+            </UserIcon>
+        </>
+    );
+};
 
 export const NavSidebar = () => {
     const appConfig = useAppConfig();
     const entityRegistry = useEntityRegistry();
-    const { urn, user } = useUserContext();
+    const userContext = useUserContext();
+    const { urn, user } = userContext;
+    const { isUserInitializing } = useContext(OnboardingContext);
 
     const customLogoUrl = appConfig.config.visualConfig.logoUrl;
     const hasCustomLogo = customLogoUrl && customLogoUrl !== DEFAULT_LOGO;
@@ -89,21 +114,27 @@ export const NavSidebar = () => {
     return (
         <Container>
             <Content>
-                <Link to="/">
-                    <Icon>{appConfig.config !== DEFAULT_APP_CONFIG ? logoComponent : undefined}</Icon>
-                </Link>
-                <NavLinks />
-                <Spacer />
-                <UserIcon>
-                    <Link to={`/${entityRegistry.getPathName(EntityType.CorpUser)}/${urn}`}>
-                        <CustomAvatar
-                            photoUrl={user?.editableProperties?.pictureLink || undefined}
-                            name={user?.editableProperties?.displayName || ''}
-                            size={44}
-                            hideTooltip
-                        />
-                    </Link>
-                </UserIcon>
+                {isUserInitializing || !appConfig.loaded || !userContext.loaded ? (
+                    <NavSkeleton />
+                ) : (
+                    <>
+                        <Link to="/">
+                            <Icon>{appConfig.loaded ? logoComponent : undefined}</Icon>
+                        </Link>
+                        <NavLinks />
+                        <Spacer />
+                        <UserIcon>
+                            <Link to={`/${entityRegistry.getPathName(EntityType.CorpUser)}/${urn}`}>
+                                <CustomAvatar
+                                    photoUrl={user?.editableProperties?.pictureLink || undefined}
+                                    name={user?.editableProperties?.displayName || ''}
+                                    size={44}
+                                    hideTooltip
+                                />
+                            </Link>
+                        </UserIcon>
+                    </>
+                )}
             </Content>
         </Container>
     );

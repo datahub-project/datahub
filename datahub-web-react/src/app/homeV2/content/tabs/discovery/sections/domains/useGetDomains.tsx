@@ -5,10 +5,10 @@ import { useUserContext } from '../../../../../../context/useUserContext';
 const DOMAINS_MODULE_ID = 'Domains';
 const MAX_DOMAINS = 5;
 
-export const useGetDomains = (user?: CorpUser | null): Domain[] => {
+export const useGetDomains = (user?: CorpUser | null): { domains: Domain[]; loading: boolean } => {
     const { localState } = useUserContext();
     const { selectedViewUrn } = localState;
-    const { data } = useListRecommendationsQuery({
+    const { data, loading } = useListRecommendationsQuery({
         variables: {
             input: {
                 userUrn: user?.urn as string,
@@ -29,5 +29,5 @@ export const useGetDomains = (user?: CorpUser | null): Domain[] => {
             ?.filter((content) => content.entity)
             .map((content) => content.entity as Domain)
             ?.slice(0, MAX_DOMAINS) || [];
-    return domains;
+    return { domains, loading };
 };

@@ -30,7 +30,7 @@ export const AssetsYouOwn = ({ hideIfEmpty }: ReferenceSectionProps) => {
     return (
         <ReferenceSection>
             <EntityLinkList
-                loading={loading}
+                loading={loading || !user}
                 entities={entities.slice(0, entityCount)}
                 title="Your assets"
                 tip="Things you are an owner of"

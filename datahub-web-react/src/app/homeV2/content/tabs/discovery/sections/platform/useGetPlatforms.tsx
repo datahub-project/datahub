@@ -9,10 +9,10 @@ export type PlatformAndCount = {
     count: number;
 };
 
-export const useGetPlatforms = (user?: CorpUser | null): PlatformAndCount[] => {
+export const useGetPlatforms = (user?: CorpUser | null): { platforms: PlatformAndCount[]; loading: boolean } => {
     const { localState } = useUserContext();
     const { selectedViewUrn } = localState;
-    const { data } = useListRecommendationsQuery({
+    const { data, loading } = useListRecommendationsQuery({
         variables: {
             input: {
                 userUrn: user?.urn as string,
@@ -37,5 +37,5 @@ export const useGetPlatforms = (user?: CorpUser | null): PlatformAndCount[] => {
                 count: content.params?.contentParams?.count || 0,
                 platform: content.entity as DataPlatform,
             })) || [];
-    return platforms;
+    return { platforms, loading };
 };

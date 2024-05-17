@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useContext } from 'react';
 
 import { Tooltip } from 'antd';
 import { Link } from 'react-router-dom';
@@ -8,11 +8,12 @@ import { useListRecommendationsQuery } from '../../../../../../../../graphql/rec
 import BookmarkIcon from '../../../../../../../../images/collections_bookmark_no_fill.svg?react';
 import { useUserContext } from '../../../../../../../context/useUserContext';
 import { ANTD_GRAY } from '../../../../../../../entity/shared/constants';
+import OnboardingContext from '../../../../../../../onboarding/OnboardingContext';
 import { EntityLinkList } from '../../../../../../reference/sections/EntityLinkList';
 import { RecommendationRenderType, ScenarioType } from '../../../../../../../../types.generated';
 import { useRegisterInsight } from '../InsightStatusProvider';
 import { InsightCard } from '../shared/InsightCard';
-import { InsightLoadingCard } from './InsightLoadingCard';
+import InsightCardSkeleton from '../shared/InsightCardSkeleton';
 
 const Header = styled.div`
     display: flex;
@@ -56,14 +57,14 @@ const ShowAll = styled(Link)`
 const getFirstFive = (list: any[] | undefined | null) => list?.slice(0, 5) || [];
 
 export const PopularGlossaryTerms = () => {
-    const user = useUserContext()?.user;
-
-    const userUrn = user?.urn || '';
+    const { isUserInitializing } = useContext(OnboardingContext);
+    const userContext = useUserContext();
+    const userUrn = userContext?.user?.urn;
 
     const { loading, data } = useListRecommendationsQuery({
         variables: {
             input: {
-                userUrn,
+                userUrn: userUrn || '',
                 requestContext: {
                     scenario: ScenarioType.Home,
                 },
@@ -71,6 +72,7 @@ export const PopularGlossaryTerms = () => {
             },
         },
         fetchPolicy: 'no-cache',
+        skip: !userUrn,
     });
     const recommendationModules = data?.listRecommendations?.modules;
     const glossaryRecommendationModules = recommendationModules?.filter(
@@ -87,14 +89,11 @@ export const PopularGlossaryTerms = () => {
     // Register the insight module with parent component.
     useRegisterInsight('PopularGlossaryTerms', recommendedGlossaryTerms?.length);
 
-    if (recommendedGlossaryTerms?.length === 0) {
-        return null;
-    }
-
+    const showSkeleton = !userContext.loaded || loading || isUserInitializing;
     return (
         <>
-            {(loading && <InsightLoadingCard />) || null}
-            {(!loading && recommendedGlossaryTerms.length && (
+            {showSkeleton && <InsightCardSkeleton />}
+            {!showSkeleton && !!recommendedGlossaryTerms.length && (
                 <InsightCard id="PopularGlossaryTerms" minWidth={340} maxWidth={500}>
                     <Header>
                         <Tooltip title="Commonly used glossary terms" showArrow={false} placement="top">
@@ -113,8 +112,7 @@ export const PopularGlossaryTerms = () => {
                         empty={recommendedGlossaryTerms?.length === 0 || 'No assets found'}
                     />
                 </InsightCard>
-            )) ||
-                null}
+            )}
         </>
     );
 };

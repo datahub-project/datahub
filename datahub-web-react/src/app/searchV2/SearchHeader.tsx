@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useContext, useState } from 'react';
 import { Layout } from 'antd';
 import styled from 'styled-components';
 import { V2_SEARCH_BAR_ID } from '../onboarding/configV2/HomePageOnboardingConfig';
@@ -6,6 +6,7 @@ import { SearchBar } from './SearchBar';
 import { AutoCompleteResultForEntity, EntityType } from '../../types.generated';
 import { EntityRegistry } from '../../entityRegistryContext';
 import { useAppConfig } from '../useAppConfig';
+import OnboardingContext from '../onboarding/OnboardingContext';
 
 const { Header } = Layout;
 
@@ -74,12 +75,14 @@ export const SearchHeader = ({
     const [, setIsSearchBarFocused] = useState(false);
     const appConfig = useAppConfig();
     const viewsEnabled = appConfig.config?.viewsConfig?.enabled || false;
+    const { isUserInitializing } = useContext(OnboardingContext);
 
     return (
         <div style={styles.container as any}>
             <Header style={styles.header as any}>
                 <SearchBarContainer>
                     <SearchBar
+                        isLoading={isUserInitializing || !appConfig.loaded}
                         id={V2_SEARCH_BAR_ID}
                         style={styles.searchBoxContainer}
                         autoCompleteStyle={styles.searchBox}

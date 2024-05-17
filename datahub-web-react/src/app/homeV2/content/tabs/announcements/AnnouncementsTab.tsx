@@ -1,7 +1,7 @@
 import React from 'react';
 import styled from 'styled-components';
 import { useGetAnnouncements } from './useGetAnnouncements';
-import { AnnouncementsLoadingSection } from './AnnouncementsLoadingSection';
+import AnnouncementsSkeleton from './AnnouncementsSkeleton';
 import { AnnouncementCard } from './AnnouncementCard';
 import { V2_HOME_PAGE_ANNOUNCEMENTS_ID } from '../../../../onboarding/configV2/HomePageOnboardingConfig';
 
@@ -20,7 +20,7 @@ export const AnnouncementsTab = () => {
 
     return (
         <>
-            {loading && <AnnouncementsLoadingSection />}
+            {loading && <AnnouncementsSkeleton />}
             <List id={V2_HOME_PAGE_ANNOUNCEMENTS_ID}>
                 {sortedAnnouncements.map((announcement) => (
                     <AnnouncementCard

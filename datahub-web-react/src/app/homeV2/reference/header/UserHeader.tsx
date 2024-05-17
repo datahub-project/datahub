@@ -1,11 +1,13 @@
-import React from 'react';
+import React, { useContext } from 'react';
 import styled from 'styled-components';
+import { Skeleton } from 'antd';
 import { useUserContext } from '../../../context/useUserContext';
 import { GreetingText } from './GreetingText';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { EntityType } from '../../../../types.generated';
 import { UserHeaderImage } from './UserHeaderImage';
 import { useUserPersonaTitle } from '../../persona/useUserPersona';
+import OnboardingContext from '../../../onboarding/OnboardingContext';
 
 const Container = styled.div`
     min-height: 240px;
@@ -16,11 +18,20 @@ const Container = styled.div`
 const GreetingTextWrapper = styled.div`
     color: #ffffff;
     position: absolute;
-    background: linear-gradient(180deg, rgba(0, 0, 0, 0.00) 7%, #000 88.79%);
+    background: linear-gradient(180deg, rgba(0, 0, 0, 0) 7%, #000 88.79%);
     width: 100%;
     height: 100%;
     display: flex;
     opacity: 0.8;
+`;
+
+const SkeletonButton = styled(Skeleton.Button)`
+    &&& {
+        width: 100%;
+        min-height: 240px;
+        border-top-left-radius: 16px;
+        border-top-right-radius: 16px;
+    }
 `;
 
 export const UserHeader = () => {
@@ -29,12 +40,20 @@ export const UserHeader = () => {
     const photoUrl = user?.editableProperties?.pictureLink || undefined;
     const displayName = user && entityRegistry.getDisplayName(EntityType.CorpUser, user);
     const maybeRole = useUserPersonaTitle();
+    const { isUserInitializing } = useContext(OnboardingContext);
+
     return (
         <Container>
-            <UserHeaderImage photoUrl={photoUrl} displayName={displayName || undefined} />
-            <GreetingTextWrapper>
-                <GreetingText role={maybeRole} />
-            </GreetingTextWrapper>
+            {isUserInitializing || !user ? (
+                <SkeletonButton shape="square" size="large" active block />
+            ) : (
+                <>
+                    <UserHeaderImage photoUrl={photoUrl} displayName={displayName || undefined} />
+                    <GreetingTextWrapper>
+                        <GreetingText role={maybeRole} />
+                    </GreetingTextWrapper>
+                </>
+            )}
         </Container>
     );
 };

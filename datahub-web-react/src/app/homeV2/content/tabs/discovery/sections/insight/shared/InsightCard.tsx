@@ -19,7 +19,6 @@ const Card = styled.div<{ clickable: boolean; maxWidth: number; minWidth: number
 
 const Title = styled.div`
     font-size: 16px;
-    font-style: medium;
     color: #403d5c;
     overflow: hidden;
     text-overflow: ellipsis;

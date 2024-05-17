@@ -1,7 +1,7 @@
 import React from 'react';
 import { Route, Switch } from 'react-router-dom';
 import { AcrylPageRoutes } from '../conf/Global';
-import { IntroduceYourself } from './homeV2/IntroduceYourself';
+import { IntroduceYourself } from './homeV2/introduce/IntroduceYourself';
 
 export default function AcrylRoutes() {
     return (

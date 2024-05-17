@@ -1,8 +1,8 @@
 import React, { useEffect } from 'react';
 import styled from 'styled-components';
-import analytics, { EventType } from '../analytics';
-import { IntroduceYourselfLeftSidebar } from './introduce/IntroduceYourselfLeftSidebar';
-import { IntroduceYourselfMainContent } from './introduce/IntroduceYourselfMainContent';
+import analytics, { EventType } from '../../analytics';
+import { IntroduceYourselfLeftSidebar } from './IntroduceYourselfLeftSidebar';
+import { IntroduceYourselfMainContent } from './IntroduceYourselfMainContent';
 
 const Container = styled.div`
     display: flex;

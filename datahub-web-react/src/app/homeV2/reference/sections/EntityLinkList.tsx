@@ -1,11 +1,12 @@
-import React from 'react';
+import React, { useContext } from 'react';
 import styled from 'styled-components';
 import { Tooltip } from 'antd';
 import { EntityLink } from './EntityLink';
-import { EntityLinkListLoadingSection } from './EntityLinkListLoadingSection';
+import { EntityLinkListSkeleton } from './EntityLinkListSkeleton';
 import { DefaultEmptyEntityList } from './DefaultEmptyEntityList';
 import { ANTD_GRAY } from '../../../entity/shared/constants';
 import { GenericEntityProperties } from '../../../entity/shared/types';
+import OnboardingContext from '../../../onboarding/OnboardingContext';
 
 const Title = styled.div<{ hasAction: boolean }>`
     ${(props) => props.hasAction && `:hover { cursor: pointer; }`}
@@ -60,6 +61,12 @@ export const EntityLinkList = ({
     render,
 }: Props) => {
     const isEmpty = entities.length === 0 && !loading;
+    const { isUserInitializing } = useContext(OnboardingContext);
+
+    if (isUserInitializing || loading) {
+        return <EntityLinkListSkeleton />;
+    }
+
     return (
         <>
             {title && (
@@ -69,7 +76,6 @@ export const EntityLinkList = ({
                     </Tooltip>
                 </Title>
             )}
-            {loading && <EntityLinkListLoadingSection />}
             <List>
                 {(!isEmpty &&
                     entities.map((entity) => {

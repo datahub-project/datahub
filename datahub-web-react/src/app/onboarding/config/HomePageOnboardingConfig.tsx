@@ -7,6 +7,7 @@ import dataHubFlowDiagram from '../../../images/datahub-flow-diagram-light.png';
 export const GLOBAL_WELCOME_TO_DATAHUB_ID = 'global-welcome-to-datahub';
 export const HOME_PAGE_INGESTION_ID = 'home-page-ingestion';
 export const HOME_PAGE_DOMAINS_ID = 'home-page-domains';
+export const HOME_PAGE_INSIGHTS_ID = 'home-page-insights';
 export const HOME_PAGE_PLATFORMS_ID = 'home-page-platforms';
 export const HOME_PAGE_MOST_POPULAR_ID = 'home-page-most-popular';
 export const HOME_PAGE_SEARCH_BAR_ID = 'home-page-search-bar';
@@ -16,25 +17,22 @@ export const HomePageOnboardingConfig: OnboardingStep[] = [
         id: GLOBAL_WELCOME_TO_DATAHUB_ID,
         content: (
             <div>
-                <div style={{
-                    width: '540px', // Adjusted width to be wider than the image
-                    borderRadius: '10px',
-                    display: 'flex',
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                    margin: '0 auto 20px auto'
-                }}>
-                    <Image
-                        preview={false}
-                        height={184}
-                        width={500}
-                        src={dataHubFlowDiagram}
-                    />
+                <div
+                    style={{
+                        width: '540px', // Adjusted width to be wider than the image
+                        borderRadius: '10px',
+                        display: 'flex',
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                        margin: '0 auto 20px auto',
+                    }}
+                >
+                    <Image preview={false} height={184} width={500} src={dataHubFlowDiagram} />
                 </div>
                 <Typography.Title level={3}>Welcome to DataHub! </Typography.Title>
                 <Typography.Paragraph style={{ lineHeight: '22px' }}>
-                    <strong>DataHub</strong> helps you discover, govern and ensure high quality for the important data within your
-                    organization. You can:
+                    <strong>DataHub</strong> helps you discover, govern and ensure high quality for the important data
+                    within your organization. You can:
                 </Typography.Paragraph>
                 <Typography.Paragraph style={{ lineHeight: '24px' }}>
                     <ul>
@@ -42,7 +40,8 @@ export const HomePageOnboardingConfig: OnboardingStep[] = [
                             Quickly <strong>search</strong> for Tables, Dashboards, Data Pipelines, and more
                         </li>
                         <li>
-                            Understand <strong>quality</strong> and trustworthiness of data using operational and social signals
+                            Understand <strong>quality</strong> and trustworthiness of data using operational and social
+                            signals
                         </li>
                         <li>
                             View and understand the full <strong>end-to-end lineage</strong> of how data is created,
@@ -55,8 +54,8 @@ export const HomePageOnboardingConfig: OnboardingStep[] = [
                             Define <strong>ownership</strong> and capture <strong>knowledge</strong> to empower others
                         </li>
                         <li>
-                            Create and manage <strong>central governance standards</strong> for data assets to drive accountability
-                            and trust
+                            Create and manage <strong>central governance standards</strong> for data assets to drive
+                            accountability and trust
                         </li>
                     </ul>
                     <p>Let&apos;s get started! 🚀</p>

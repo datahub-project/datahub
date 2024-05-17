@@ -5,6 +5,8 @@ interface Props {
     setTourReshow: React.Dispatch<React.SetStateAction<boolean>>;
     isTourOpen: boolean;
     setIsTourOpen: React.Dispatch<React.SetStateAction<boolean>>;
+    isUserInitializing: boolean;
+    setIsUserInitializing: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
 const OnboardingContext = React.createContext<Props>({
@@ -12,6 +14,8 @@ const OnboardingContext = React.createContext<Props>({
     setTourReshow: () => {},
     isTourOpen: false,
     setIsTourOpen: () => {},
+    isUserInitializing: false,
+    setIsUserInitializing: () => {},
 });
 
 export default OnboardingContext;

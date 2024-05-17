@@ -1,9 +1,15 @@
-import React from 'react';
+import React, { useContext } from 'react';
+import styled from 'styled-components';
+import { useUserContext } from '../../../../../../context/useUserContext';
+import { HOME_PAGE_INSIGHTS_ID } from '../../../../../../onboarding/config/HomePageOnboardingConfig';
+import OnboardingContext from '../../../../../../onboarding/OnboardingContext';
+import { Carousel } from '../../../../../../sharedV2/carousel/Carousel';
 
 import { useUserPersona } from '../../../../../persona/useUserPersona';
 import { PersonaType } from '../../../../../shared/types';
+import { HorizontalListSkeletons } from '../../../../HorizontalListSkeletons';
+import { Section } from '../Section';
 import { InsightStatusProvider } from './InsightStatusProvider';
-import { InsightsSection } from './InsightsSection';
 import { MostFrequentlyUpdated } from './cards/MostFrequentlyUpdated';
 import { MostQueriedCard } from './cards/MostQueriedCard';
 import { MostRowsCard } from './cards/MostRowsCard';
@@ -12,6 +18,7 @@ import { MostViewedDashboardsCard } from './cards/MostViewedDashboards';
 import { PopularGlossaryTerms } from './cards/PopularGlossaryTerms';
 import { RecentlyCreatedDatasetsCard } from './cards/RecentlyCreatedDatasetsCard';
 import { RecentlyUpdatedDatasetsCard } from './cards/RecentlyUpdatedDatasetsCard';
+import InsightCardSkeleton from './shared/InsightCardSkeleton';
 
 type InsightSection = {
     id: string;
@@ -77,17 +84,34 @@ const ALL_INSIGHTS: InsightSection[] = [
     },
 ];
 
+const StyledCarousel = styled(Carousel)`
+    align-items: stretch;
+`;
+
 export const Insights = () => {
+    const { loaded } = useUserContext();
+    const { isUserInitializing } = useContext(OnboardingContext);
     const currentUserPersona = useUserPersona();
+    const filteredInsights = ALL_INSIGHTS.filter(
+        (section) => !section.personas || section.personas.includes(currentUserPersona),
+    );
+
+    if (!loaded || isUserInitializing) {
+        return <HorizontalListSkeletons Component={InsightCardSkeleton} />;
+    }
+
+    if (!filteredInsights.length) return null;
     return (
         <InsightStatusProvider>
-            <InsightsSection>
-                {ALL_INSIGHTS.filter(
-                    (section) => !section.personas || section.personas.includes(currentUserPersona),
-                ).map((section) => (
-                    <section.component key={section.id} />
-                ))}
-            </InsightsSection>
+            <div id={HOME_PAGE_INSIGHTS_ID}>
+                <Section title="For you">
+                    <StyledCarousel>
+                        {filteredInsights.map((section) => (
+                            <section.component key={section.id} />
+                        ))}
+                    </StyledCarousel>
+                </Section>
+            </div>
         </InsightStatusProvider>
     );
 };

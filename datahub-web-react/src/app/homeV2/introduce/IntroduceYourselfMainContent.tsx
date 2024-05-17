@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useContext, useState } from 'react';
 import { Button, Select, message } from 'antd';
 import { useHistory } from 'react-router';
 import styled from 'styled-components';
@@ -17,6 +17,7 @@ import { useGetDataPlatforms } from '../content/tabs/discovery/sections/platform
 import analytics, { EventType } from '../../analytics';
 import PlatformIcon from '../../sharedV2/icons/PlatformIcon';
 import Loading from '../../shared/Loading';
+import OnboardingContext from '../../onboarding/OnboardingContext';
 
 const Container = styled.div`
     flex: 1;
@@ -39,7 +40,7 @@ const Content = styled.div`
     .ant-select-selection-overflow-item-rest {
         .ant-select-selection-item {
             background-color: #fff !important;
-            border: none  !important;
+            border: none !important;
             padding: 0 0 0 5px !important;
             height: auto !important;
             font-size: 12px;
@@ -85,11 +86,13 @@ const PsuedoCheckBox = styled.div<{ checked?: boolean }>`
     width: 12px;
     height: 12px;
     border-radius: 4px;
-    border: 1px solid #CFD1DA;
+    border: 1px solid #cfd1da;
     background: #fff;
     color: #fff;
 
-    ${(props) => props.checked && `
+    ${(props) =>
+        props.checked &&
+        `
         background: #533fd1;
         border: none;
     `}
@@ -132,7 +135,7 @@ const SelectWrapper = styled.div`
 
     .ant-select-selection-overflow {
         padding-left: 36px !important;
-        
+
         .ant-select-selection-search {
             padding-left: 0px !important;
         }
@@ -284,7 +287,10 @@ export const IntroduceYourselfMainContent = () => {
         setSelectedTitle(value);
     };
 
+    const { setIsUserInitializing } = useContext(OnboardingContext);
+
     const onSubmitDetails = () => {
+        setIsUserInitializing(true);
         updateCorpUserMutation({
             variables: {
                 urn: user?.urn as string,
@@ -319,7 +325,7 @@ export const IntroduceYourselfMainContent = () => {
         borderRadius: '8px',
         borderColor: '#5F6685',
         color: '#81879f',
-    }
+    };
 
     // Sort Roles Alphabetically
     const sortedRoles = orderBy(Object.keys(ROLE_TO_PERSONA_TYPE), (role) => role);
@@ -328,7 +334,7 @@ export const IntroduceYourselfMainContent = () => {
     const updatedRoles = sortedRoles.filter((role) => role !== 'Other');
     updatedRoles.push('Other');
 
-    // Get window height 
+    // Get window height
     const windowHeight = window.innerHeight;
     const smallWindow = windowHeight <= 719;
 
@@ -367,7 +373,7 @@ export const IntroduceYourselfMainContent = () => {
                         options={platforms.map((platform) => {
                             const { urn } = platform.platform;
                             const isChecked = !!selectedPlatforms.includes(urn);
-                            return ({
+                            return {
                                 value: platform.platform.urn,
                                 label: (
                                     <SelectOption>
@@ -381,7 +387,7 @@ export const IntroduceYourselfMainContent = () => {
                                         />
                                     </SelectOption>
                                 ),
-                            })
+                            };
                         })}
                         dropdownRender={(menu) => <SelectGrid>{menu}</SelectGrid>}
                         tagRender={(props: any) => {
@@ -389,10 +395,7 @@ export const IntroduceYourselfMainContent = () => {
                             const platform = platforms.find((p) => p.platform.urn === value);
                             return (
                                 <SelectTag>
-                                    <PlatformIcon
-                                        platform={platform?.platform as DataPlatform}
-                                        size={14}
-                                    />
+                                    <PlatformIcon platform={platform?.platform as DataPlatform} size={14} />
                                 </SelectTag>
                             );
                         }}

@@ -1,5 +1,5 @@
 import { FileDoneOutlined } from '@ant-design/icons';
-import React from 'react';
+import React, { useContext } from 'react';
 import styled from 'styled-components';
 import { ANTD_GRAY } from '../../../entity/shared/constants';
 import { PendingProposals } from './PendingProposals';
@@ -7,6 +7,8 @@ import { PendingRequests } from './PendingRequests';
 import { useUserContext } from '../../../context/useUserContext';
 import { useIsDocumentationFormsEnabled } from '../../../useAppConfig';
 import { V2_HOME_PAGE_PENDING_TASKS_ID } from '../../../onboarding/configV2/HomePageOnboardingConfig';
+import { PendingTasksSkeleton } from './PendingTasksSkeleton';
+import OnboardingContext from '../../../onboarding/OnboardingContext';
 
 const Card = styled.div`
     border: 1px solid ${ANTD_GRAY[4]};
@@ -49,9 +51,18 @@ const Section = styled.div`
 export const PendingTasks = () => {
     const {
         state: { notificationsCount, proposalCount, unfinishedTaskCount },
+        loaded,
     } = useUserContext();
+    const { isUserInitializing } = useContext(OnboardingContext);
     const isDocumentationFormsEnabled = useIsDocumentationFormsEnabled();
 
+    if (isUserInitializing || !loaded) {
+        return (
+            <Card>
+                <PendingTasksSkeleton />
+            </Card>
+        );
+    }
     // Don't show the card if there are no pending tasks
     if (unfinishedTaskCount === 0 || !unfinishedTaskCount) return null;
 

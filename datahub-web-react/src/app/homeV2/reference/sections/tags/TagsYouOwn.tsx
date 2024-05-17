@@ -40,7 +40,7 @@ export const TagsYouOwn = ({ hideIfEmpty }: ReferenceSectionProps) => {
     return (
         <ReferenceSection>
             <EntityLinkList
-                loading={loading}
+                loading={loading || !user}
                 entities={entities.slice(0, entityCount)}
                 title="Your tags"
                 tip="Tags that you created"

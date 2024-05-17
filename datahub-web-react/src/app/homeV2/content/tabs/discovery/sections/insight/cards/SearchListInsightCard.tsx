@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useContext, useState } from 'react';
 import styled from 'styled-components';
 import { Tooltip } from 'antd';
 import { InsightCard } from '../shared/InsightCard';
@@ -9,8 +9,9 @@ import { EntityType, SortCriterion } from '../../../../../../../../types.generat
 import { FilterSet } from '../../../../../../../entityV2/shared/components/styled/search/types';
 import { useGetSearchAssets } from './useGetSearchAssets';
 import { useRegisterInsight } from '../InsightStatusProvider';
-import { InsightLoadingCard } from './InsightLoadingCard';
 import { useUserContext } from '../../../../../../../context/useUserContext';
+import OnboardingContext from '../../../../../../../onboarding/OnboardingContext';
+import InsightCardSkeleton from '../shared/InsightCardSkeleton';
 
 const Header = styled.div`
     display: flex;
@@ -39,10 +40,12 @@ const ShowAll = styled.div`
     color: ${ANTD_GRAY[8]};
     font-size: 12px;
     font-weight: 700;
+
     :hover {
         cursor: pointer;
         text-decoration: underline;
     }
+
     white-space: nowrap;
 `;
 
@@ -63,32 +66,32 @@ export const SearchListInsightCard = ({ id, title, icon, tip, query, types, filt
     const { selectedViewUrn } = localState;
     const { assets, loading } = useGetSearchAssets(types, query, filters, sort, selectedViewUrn);
     const [showModal, setShowModal] = useState(false);
+    const { isUserInitializing } = useContext(OnboardingContext);
 
     // Register the insight module with parent component.
     useRegisterInsight(title, !!assets?.length);
 
-    if (!assets) {
+    if (loading || isUserInitializing) {
+        return <InsightCardSkeleton />;
+    }
+    if (!assets.length) {
         return null;
     }
 
     return (
         <>
-            {(loading && <InsightLoadingCard />) || null}
-            {(!loading && assets.length && (
-                <InsightCard id={id} minWidth={340} maxWidth={500}>
-                    <Header>
-                        <Tooltip title={tip} showArrow={false} placement="top">
-                            <Title>
-                                {icon && <Icon>{icon}</Icon>}
-                                {title}
-                            </Title>
-                        </Tooltip>
-                        <ShowAll onClick={() => setShowModal(true)}>view all</ShowAll>
-                    </Header>
-                    <EntityLinkList entities={assets} loading={false} empty={empty || 'No assets found'} />
-                </InsightCard>
-            )) ||
-                null}
+            <InsightCard id={id} minWidth={340} maxWidth={500}>
+                <Header>
+                    <Tooltip title={tip} showArrow={false} placement="top">
+                        <Title>
+                            {icon && <Icon>{icon}</Icon>}
+                            {title}
+                        </Title>
+                    </Tooltip>
+                    <ShowAll onClick={() => setShowModal(true)}>view all</ShowAll>
+                </Header>
+                <EntityLinkList entities={assets} loading={false} empty={empty || 'No assets found'} />
+            </InsightCard>
             {showModal && (
                 <EmbeddedListSearchModal
                     title={title}

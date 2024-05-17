@@ -31,6 +31,7 @@ export type State = {
  * Context about the currently-authenticated user.
  */
 export type UserContextType = {
+    loaded: boolean;
     urn?: string | null;
     user?: CorpUser | null;
     userGroups?: EntityRelationshipsResult;
@@ -43,7 +44,7 @@ export type UserContextType = {
     refetchUnfinishedTaskCount: () => any;
 };
 
-export const DEFAULT_LOCAL_STATE: LocalState = {
+const DEFAULT_LOCAL_STATE: LocalState = {
     selectedViewUrn: undefined,
 };
 
@@ -60,7 +61,8 @@ export const DEFAULT_STATE: State = {
     },
 };
 
-export const DEFAULT_CONTEXT = {
+const DEFAULT_CONTEXT = {
+    loaded: false,
     urn: undefined,
     user: undefined,
     userGroups: undefined,

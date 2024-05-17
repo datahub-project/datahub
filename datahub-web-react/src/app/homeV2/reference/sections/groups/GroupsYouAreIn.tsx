@@ -30,7 +30,7 @@ export const GroupsYouAreIn = ({ hideIfEmpty }: ReferenceSectionProps) => {
     return (
         <ReferenceSection>
             <EntityLinkList
-                loading={loading}
+                loading={loading || !user}
                 entities={entities.slice(0, entityCount)}
                 title="Your groups"
                 tip="The groups or teams you are part of"

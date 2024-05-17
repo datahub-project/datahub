@@ -53,8 +53,8 @@ const UserContextProvider = ({ children }: { children: React.ReactNode }) => {
     useEffect(() => getGlobalViewSettings(), [getGlobalViewSettings]);
 
     /*
-    * Retrieve user unfinished task count (propsals & forms)
-    */
+     * Retrieve user unfinished task count (propsals & forms)
+     */
     const { data: unfinishedProposals, refetch: unfinishedProposalRefetch } = useListActionRequestsQuery({
         variables: { input: { count: 0, status: ActionRequestStatus.Pending } },
         fetchPolicy: 'no-cache',
@@ -62,7 +62,7 @@ const UserContextProvider = ({ children }: { children: React.ReactNode }) => {
     const { data: unfinishedForms, refetch: unfinishedFormsRefetch } = useGetFormsForActorQuery({
         variables: { input: { searchFlags: { skipCache: true } } },
         fetchPolicy: 'no-cache',
-    })
+    });
 
     const updateLocalState = (newState: LocalState) => {
         saveLocalState(newState);
@@ -82,7 +82,7 @@ const UserContextProvider = ({ children }: { children: React.ReactNode }) => {
     const fetchUnfinishedTaskCount = () => {
         unfinishedProposalRefetch();
         unfinishedFormsRefetch();
-    }
+    };
 
     // Update the global default views in local state
     useEffect(() => {
@@ -144,13 +144,14 @@ const UserContextProvider = ({ children }: { children: React.ReactNode }) => {
         }
     }, [state, localState.selectedViewUrn, setDefaultSelectedView]);
 
-    /* 
-    * Update state with user unfinished tasks (proposals + forms)
-    */
+    /*
+     * Update state with user unfinished tasks (proposals + forms)
+     */
     useEffect(() => {
         const unfinishedProposalCount = unfinishedProposals?.listActionRequests?.total || 0;
-        const unfinishedFormCount = (unfinishedForms?.getFormsForActor.formsForActor || [])
-            .filter((form) => form!.numEntitiesToComplete! > 0).length;
+        const unfinishedFormCount = (unfinishedForms?.getFormsForActor.formsForActor || []).filter(
+            (form) => form!.numEntitiesToComplete! > 0,
+        ).length;
 
         const unfinishedTaskCount = unfinishedProposalCount + unfinishedFormCount || 0;
 
@@ -159,7 +160,7 @@ const UserContextProvider = ({ children }: { children: React.ReactNode }) => {
                 ...state,
                 unfinishedTaskCount,
                 notificationsCount: unfinishedFormCount,
-                proposalCount: unfinishedProposalCount
+                proposalCount: unfinishedProposalCount,
             });
         }
     }, [state, unfinishedProposals, unfinishedForms]);
@@ -167,6 +168,7 @@ const UserContextProvider = ({ children }: { children: React.ReactNode }) => {
     return (
         <UserContext.Provider
             value={{
+                loaded: !!meData,
                 urn: meData?.me?.corpUser?.urn,
                 user: meData?.me?.corpUser as CorpUser,
                 userGroups: meData?.me?.corpUser.groups as EntityRelationshipsResult,

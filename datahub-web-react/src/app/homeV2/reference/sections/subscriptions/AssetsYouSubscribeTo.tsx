@@ -31,7 +31,7 @@ export const AssetsYouSubscribeTo = ({ hideIfEmpty }: ReferenceSectionProps) => 
     return (
         <ReferenceSection>
             <EntityLinkList
-                loading={loading}
+                loading={loading || !user}
                 entities={entities.slice(0, entityCount)}
                 title="Your subscriptions"
                 tip="Things you are subscribed to"

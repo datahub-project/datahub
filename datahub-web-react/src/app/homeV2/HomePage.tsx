@@ -12,15 +12,13 @@ import {
     V2_HOME_PAGE_ANNOUNCEMENTS_ID,
 } from '../onboarding/configV2/HomePageOnboardingConfig';
 import { OnboardingTour } from '../onboarding/OnboardingTour';
-import {
-    HOME_PAGE_DOMAINS_ID,
-    HOME_PAGE_PLATFORMS_ID,
-} from '../onboarding/config/HomePageOnboardingConfig';
+import { HOME_PAGE_DOMAINS_ID, HOME_PAGE_PLATFORMS_ID } from '../onboarding/config/HomePageOnboardingConfig';
 import { LeftSidebar } from './layout/LeftSidebar';
 import { CenterContent } from './layout/CenterContent';
 import { RightSidebar } from './layout/RightSidebar';
 import { useRedirectToIntroduceYourself } from './introduce/useRedirectToIntroduceYourself';
 import { SearchablePage } from '../searchV2/SearchablePage';
+import PersonalizationLoadingModal from './persona/PersonalizationLoadingModal';
 
 const Container = styled.div`
     flex: 1;
@@ -34,6 +32,7 @@ export const HomePage = () => {
     useEffect(() => {
         analytics.event({ type: EventType.HomePageViewEvent });
     }, []);
+
     return (
         <>
             <OnboardingTour
@@ -57,6 +56,7 @@ export const HomePage = () => {
                     <RightSidebar />
                 </Container>
             </SearchablePage>
+            <PersonalizationLoadingModal />
         </>
     );
 };

@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useContext } from 'react';
+import { Col, Row, Skeleton } from 'antd';
 import styled from 'styled-components';
 import { ApiOutlined } from '@ant-design/icons';
 import AutoStoriesOutlinedIcon from '@mui/icons-material/AutoStoriesOutlined';
@@ -6,6 +7,8 @@ import { BookOutlined, HelpCenterOutlined, OndemandVideoOutlined } from '@mui/ic
 import { ANTD_GRAY } from '../../../entity/shared/constants';
 import { PersonaType } from '../../shared/types';
 import { useUserPersona } from '../../persona/useUserPersona';
+import { useAppConfig } from '../../../useAppConfig';
+import OnboardingContext from '../../../onboarding/OnboardingContext';
 
 const Header = styled.div`
     display: flex;
@@ -55,8 +58,8 @@ const ResourceLink = styled.a`
     opacity: 0.9;
     transition: transform 0.3s ease, color 0.3s ease, opacity 0.3s ease;
     :hover {
-        transform: scale(1.05);  // Slightly scale up the link on hover
-        opacity: 1.0;
+        transform: scale(1.05); // Slightly scale up the link on hover
+        opacity: 1;
         color: #9884d4;
         text-decoration: underline;
     }
@@ -68,11 +71,34 @@ const ResourceTitle = styled.div`
     text-align: center;
     opacity: 0.9;
     :hover {
-        opacity: 1.0;
+        opacity: 1;
         color: #9884d4;
         text-decoration: underline;
     }
-    `;
+`;
+
+const Container = styled(Row)`
+    display: flex;
+    flex-direction: column;
+    justify-content: start;
+    gap: 8px;
+    margin: 12px 0;
+    width: 100%;
+`;
+
+const SkeletonCol = styled(Col)`
+    margin-bottom: 5px;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+`;
+const SkeletonButton = styled(Skeleton.Button)<{ width?: string }>`
+    &&& {
+        width: ${(props) => (props.width ? props.width : '100%')};
+        border-radius: 4px;
+        height: 63px;
+    }
+`;
 
 const ALL_GUIDES = [
     {
@@ -99,20 +125,14 @@ const ALL_GUIDES = [
         title: 'How-To Tutorials',
         url: 'https://youtube.com/playlist?list=PLdCtLs64vZvErAXMiqUYH9e63wyDaMBgg&utm_source=acryl_datahub_app&utm_content=tutorials',
         icon: OndemandVideoOutlined,
-        personas: [
-            PersonaType.TECHNICAL_USER,
-            PersonaType.DATA_STEWARD,
-        ],
+        personas: [PersonaType.TECHNICAL_USER, PersonaType.DATA_STEWARD],
     },
     {
         id: 'case-studies',
         title: 'Case Studies',
         url: 'https://www.acryldata.io/customer-stories?utm_source=acryl_datahub_app&utm_content=case_studies',
         icon: OndemandVideoOutlined,
-        personas: [
-            PersonaType.BUSINESS_USER,
-            PersonaType.DATA_LEADER,
-        ],
+        personas: [PersonaType.BUSINESS_USER, PersonaType.DATA_LEADER],
     },
     {
         id: 'blog',
@@ -133,6 +153,28 @@ export const Resources = () => {
     const selectedGuides = ALL_GUIDES.filter(
         (guide) => !guide.personas || guide.personas.includes(currentUserPersona),
     ).slice(0, 3);
+    const appConfig = useAppConfig();
+    const { isUserInitializing } = useContext(OnboardingContext);
+
+    if (isUserInitializing || !appConfig.loaded) {
+        return (
+            <Card>
+                <Container>
+                    <SkeletonCol>
+                        <Skeleton.Avatar active size="small" shape="circle" />
+                        <SkeletonButton active size="small" shape="square" block width="10rem" />
+                    </SkeletonCol>
+                    <SkeletonCol>
+                        <SkeletonButton active size="small" shape="square" block />
+                        <SkeletonButton active size="small" shape="square" block />
+                        <SkeletonButton active size="small" shape="square" block />
+                    </SkeletonCol>
+                </Container>
+            </Card>
+        );
+    }
+
+    if (!selectedGuides.length) return null;
     return (
         <Card>
             <Header>
