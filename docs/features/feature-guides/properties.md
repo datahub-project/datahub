@@ -11,7 +11,7 @@ DataHub Custom Properties and Strutured Properties are a powerful tools way to c
 
 This guide will explain the differences and use cases of each property type.
 
-### What are Custom Properties and Structured Properties?
+## What are Custom Properties and Structured Properties?
 Here are the differences between the two property types at a glance:
 | Custom Properties | Structured Properties |
 | --- | --- |
@@ -31,7 +31,7 @@ Here are the differences between the two property types at a glance:
 </p>
 <p align="center"><em>Example of Structured Properties assigned to a Dataset</em></p>
 
-### Use Cases for Custom Properties and Structured Properties
+## Use Cases for Custom Properties and Structured Properties
 **Custom Propterties** are useful for capturing raw metadata from source systems during ingestion or programmatically via API. Some examples include:
 
 - GitHub file location of code which generated a dataset
@@ -93,4 +93,4 @@ Please see the following API guides related to Custom and Structured Properties:
 
 ### Related Features
 
-- [DataHub Forms](/docs/features/feature-guides/forms.md)
+- [Documentation Forms](/docs/features/feature-guides/forms.md)
