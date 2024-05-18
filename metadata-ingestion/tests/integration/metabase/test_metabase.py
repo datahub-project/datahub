@@ -359,3 +359,52 @@ def test_9767_query_with_template_tags_does_not_fail(
             golden_path=test_resources_dir / "metabase_mces_golden_issue_9767.json",
             ignore_paths=mce_helpers.IGNORE_PATH_TIMESTAMPS,
         )
+
+
+@freeze_time(FROZEN_TIME)
+def test_10380_ingestion_of_dashboard_with_virtual_cards_does_not_fail(
+    pytestconfig, tmp_path, test_pipeline, mock_datahub_graph
+):
+    baseUrl = "http://localhost:3000/api"
+    test_json_response_map = {
+        f"{baseUrl}/session": "session.json",
+        f"{baseUrl}/user/current": "issue_10380/user.json",
+        f"{baseUrl}/user/1": "issue_10380/user_1.json",
+        f"{baseUrl}/card": "issue_10380/card.json",
+        f"{baseUrl}/card/1": "issue_10380/card_1.json",
+        f"{baseUrl}/collection": "issue_10380/collection.json",
+        f"{baseUrl}/collection/?exclude-other-user-collections=false": "issue_10380/collection.json",
+        f"{baseUrl}/collection/root/items?models=dashboard": "/issue_10380/collection_dashboard_root.json",
+        f"{baseUrl}/dashboard/1": "issue_10380/dashboard_1.json",
+        f"{baseUrl}/database/1": "issue_10380/database_2.json",
+        f"{baseUrl}/table/9": "issue_10380/table_9.json",
+    }
+    with patch(
+        "datahub.ingestion.source.metabase.requests.session",
+        side_effect=MockResponse.build_mocked_requests_sucess(test_json_response_map),
+    ), patch(
+        "datahub.ingestion.source.metabase.requests.post",
+        side_effect=MockResponse.build_mocked_requests_session_post(
+            test_json_response_map
+        ),
+    ), patch(
+        "datahub.ingestion.source.metabase.requests.delete",
+        side_effect=MockResponse.build_mocked_requests_session_delete(
+            test_json_response_map
+        ),
+    ), patch(
+        "datahub.ingestion.source.state_provider.datahub_ingestion_checkpointing_provider.DataHubGraph",
+        mock_datahub_graph,
+    ) as mock_checkpoint:
+        mock_checkpoint.return_value = mock_datahub_graph
+
+        pipeline = Pipeline.create(test_pipeline)
+        pipeline.run()
+        pipeline.raise_from_status(raise_warnings=True)
+
+        mce_helpers.check_golden_file(
+            pytestconfig,
+            output_path=f"{tmp_path}/metabase_mces.json",
+            golden_path=test_resources_dir / "metabase_mces_golden_issue_10380.json",
+            ignore_paths=mce_helpers.IGNORE_PATH_TIMESTAMPS,
+        )

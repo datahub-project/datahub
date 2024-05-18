@@ -1,0 +1,86 @@
+{
+  "description": null,
+  "archived": false,
+  "collection_position": null,
+  "dashcards": [
+    {
+      "size_x": 24,
+      "dashboard_tab_id": null,
+      "series": [],
+      "action_id": null,
+      "collection_authority_level": null,
+      "card": {
+        "query_average_duration": null
+      },
+      "updated_at": "2024-05-18T18:22:19.900158Z",
+      "col": 0,
+      "id": 2,
+      "parameter_mappings": [],
+      "card_id": null,
+      "entity_id": "woqw4RKYx7rlOgqp-_UPc",
+      "visualization_settings": {
+        "dashcard.background": false,
+        "virtual_card": {
+          "name": null,
+          "dataset_query": {},
+          "display": "heading",
+          "visualization_settings": {},
+          "archived": false
+        },
+        "text": "This is a heading"
+      },
+      "size_y": 1,
+      "dashboard_id": 1,
+      "created_at": "2024-05-18T18:22:19.900158Z",
+      "row": 0
+    }
+  ],
+  "param_values": null,
+  "initially_published_at": null,
+  "can_write": true,
+  "tabs": [],
+  "enable_embedding": false,
+  "collection_id": null,
+  "show_in_getting_started": false,
+  "name": "test_dashboard",
+  "width": "fixed",
+  "caveats": null,
+  "collection_authority_level": null,
+  "creator_id": 1,
+  "updated_at": "2024-05-18T18:22:19.900158Z",
+  "made_public_by_id": null,
+  "embedding_params": null,
+  "cache_ttl": null,
+  "id": 1,
+  "position": null,
+  "entity_id": "jvj_rwlh_i0KFlkMUVtb5",
+  "param_fields": null,
+  "last-edit-info": {
+    "id": 1,
+    "email": "test@metabase.local",
+    "first_name": "test",
+    "last_name": "user",
+    "timestamp": "2024-05-18T18:22:20.003876Z"
+  },
+  "collection": {
+    "metabase.models.collection.root/is-root?": true,
+    "authority_level": null,
+    "name": "Our analytics",
+    "is_personal": false,
+    "id": "root",
+    "can_write": true
+  },
+  "parameters": [
+    {
+      "name": "Text",
+      "slug": "text",
+      "id": "70f9d7fc",
+      "type": "string/=",
+      "sectionId": "string"
+    }
+  ],
+  "auto_apply_filters": true,
+  "created_at": "2024-05-18T09:31:43.161863Z",
+  "public_uuid": null,
+  "points_of_interest": null
+}
