@@ -253,14 +253,14 @@ def test_9767_query_with_template_tags_does_not_fail(
 ):
 
     baseUrl = "http://localhost:3000/api"
-    JSON_RESPONSE_MAP[f"{baseUrl}/card/3"] = "issue_9767/card_3.json"
+    JSON_RESPONSE_MAP[f"{baseUrl}/card/3"] = "issue_9767/card_1.json"
     JSON_RESPONSE_MAP[f"{baseUrl}/collection"] = "issue_9767/collection.json"
     JSON_RESPONSE_MAP[
         f"{baseUrl}/collection/root/items?models=dashboard"
     ] = "issue_9767/collection_dashboard_root.json"
-    JSON_RESPONSE_MAP[f"{baseUrl}/dashboard/3"] = "issue_9767/dashboard_3.json"
-    JSON_RESPONSE_MAP[f"{baseUrl}/database/1"] = "issue_9767/database_1.json"
-    JSON_RESPONSE_MAP[f"{baseUrl}/table/6"] = "issue_9767/table_6.json"
+    JSON_RESPONSE_MAP[f"{baseUrl}/dashboard/1"] = "issue_9767/dashboard_1.json"
+    JSON_RESPONSE_MAP[f"{baseUrl}/database/1"] = "issue_9767/database_2.json"
+    JSON_RESPONSE_MAP[f"{baseUrl}/table/9"] = "issue_9767/table_9.json"
 
     with patch(
         "datahub.ingestion.source.metabase.requests.session",
