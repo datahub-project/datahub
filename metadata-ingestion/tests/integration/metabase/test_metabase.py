@@ -352,3 +352,10 @@ def test_9767_query_with_template_tags_does_not_fail(
             assert "Unable to retrieve lineage from query" not in str(
                 report.warnings[warning]
             )
+
+        mce_helpers.check_golden_file(
+            pytestconfig,
+            output_path=f"{tmp_path}/metabase_mces.json",
+            golden_path=test_resources_dir / "metabase_mces_golden_issue_9767.json",
+            ignore_paths=mce_helpers.IGNORE_PATH_TIMESTAMPS,
+        )

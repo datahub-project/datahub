@@ -1,0 +1,148 @@
+[
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.ChartSnapshot": {
+            "urn": "urn:li:chart:(metabase,1)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.chart.ChartInfo": {
+                        "customProperties": {
+                            "Metrics": "",
+                            "Filters": "",
+                            "Dimensions": "dimension, sum"
+                        },
+                        "title": "test_question",
+                        "description": "",
+                        "lastModified": {
+                            "created": {
+                                "time": 1716025005214,
+                                "actor": "urn:li:corpuser:test@metabase.local"
+                            },
+                            "lastModified": {
+                                "time": 1716025005214,
+                                "actor": "urn:li:corpuser:test@metabase.local"
+                            }
+                        },
+                        "chartUrl": "http://localhost:3000/card/1",
+                        "inputs": [
+                            {
+                                "string": "urn:li:dataset:(urn:li:dataPlatform:postgres,test_data.public.test_table,PROD)"
+                            }
+                        ],
+                        "type": "BAR"
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.chart.ChartQuery": {
+                        "rawQuery": "SELECT\n  \"public\".\"test_table\".\"dimension\" AS \"dimension\",\n  SUM(\"public\".\"test_table\".\"metric\") AS \"sum\"\nFROM\n  \"public\".\"test_table\"\nwhere {{dimension}}\nGROUP BY\n  \"public\".\"test_table\".\"dimension\"\nORDER BY\n  \"public\".\"test_table\".\"dimension\" ASC\n",
+                        "type": "SQL"
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Ownership": {
+                        "owners": [
+                            {
+                                "owner": "urn:li:corpuser:test@metabase.local",
+                                "type": "DATAOWNER"
+                            }
+                        ],
+                        "ownerTypes": {},
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        }
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1636614000000,
+        "runId": "metabase-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DashboardSnapshot": {
+            "urn": "urn:li:dashboard:(metabase,1)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.dashboard.DashboardInfo": {
+                        "customProperties": {},
+                        "title": "test_dashboard",
+                        "description": "",
+                        "charts": [
+                            "urn:li:chart:(metabase,1)"
+                        ],
+                        "datasets": [],
+                        "lastModified": {
+                            "created": {
+                                "time": 1716025038413,
+                                "actor": "urn:li:corpuser:test@metabase.local"
+                            },
+                            "lastModified": {
+                                "time": 1716025038413,
+                                "actor": "urn:li:corpuser:test@metabase.local"
+                            }
+                        },
+                        "dashboardUrl": "http://localhost:3000/dashboard/1"
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Ownership": {
+                        "owners": [
+                            {
+                                "owner": "urn:li:corpuser:test@metabase.local",
+                                "type": "DATAOWNER"
+                            }
+                        ],
+                        "ownerTypes": {},
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        }
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1636614000000,
+        "runId": "metabase-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,1)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1636614000000,
+        "runId": "metabase-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(metabase,1)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1636614000000,
+        "runId": "metabase-test",
+        "lastRunId": "no-run-id-provided"
+    }
+}
+]
