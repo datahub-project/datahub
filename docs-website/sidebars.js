@@ -105,8 +105,8 @@ module.exports = {
             },
           ],
         },
-        "docs/features/feature-guides/structured-properties",
-        "docs/features/feature-guides/forms",
+        "docs/features/feature-guides/properties",
+        "docs/features/feature-guides/documentation-forms",
         {
           Guides: ["docs/features/feature-guides/ui-lineage"],
         },

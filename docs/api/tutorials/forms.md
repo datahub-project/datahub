@@ -1,13 +1,13 @@
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
-# Forms
+# Documentation Forms
 
-## Why Would You Use Forms?
+## Why Would You Use Documentation Forms?
 
-Forms are a way for end-users to fill out all mandatory attributes associated with a data asset. The form will be dynamically generated based on the definitions provided by administrators and stewards and matching rules.
+Documentation Forms are a way for end-users to fill out all mandatory attributes associated with a data asset. The form will be dynamically generated based on the definitions provided by administrators and stewards and matching rules.
 
-Learn more about forms in the [Forms Feature Guide](../../../docs/features/feature-guides/forms.md).
+Learn more about forms in the [Documentation Forms Feature Guide](../../../docs/features/feature-guides/documentation-forms.md).
 
 
 ### Goal Of This Guide
@@ -34,19 +34,19 @@ Connect to your instance via [init](https://datahubproject.io/docs/cli/#init):
 </Tabs>
 
 
-## Create Forms
+## Create a Form
 
 <Tabs>
 <TabItem value="CLI" label="CLI">
 
 Create a yaml file representing the forms you’d like to load. 
-For example, below file represents a form `123456`. You can see the full example [here](https://github.com/datahub-project/datahub/blob/example-yaml-sp/metadata-ingestion/examples/forms/forms.yaml).
+For example, below file represents a form `123456` You can see the full example [here](https://github.com/datahub-project/datahub/blob/example-yaml-sp/metadata-ingestion/examples/forms/forms.yaml).
         
 
 ```yaml
 - id: 123456
   # urn: "urn:li:form:123456"  # optional if id is provided
-  type: VERIFICATION
+  type: VERIFICATION # Supported Types: DOCUMENTATION, VERIFICATION
   name: "Metadata Initiative 2023"
   description: "How we want to ensure the most important data assets in our organization have all of the most important and expected pieces of metadata filled out"
   prompts:
@@ -59,6 +59,14 @@ For example, below file represents a form `123456`. You can see the full example
   entities: # Either pass a list of urns or a group of filters. This example shows a list of urns
     urns:
       - urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleHdfsDataset,PROD)
+  # optionally assign the form to a specific set of users and/or groups
+  # when omitted, form will be assigned to Asset owners
+  actors: 
+    users:
+      - urn:li:corpuser:jane@email.com  # note: these should be urns
+      - urn:li:corpuser:john@email.com
+    groups:
+      - urn:li:corpGroup:team@email.com  # note: these should be urns
 ```
 
 :::note
@@ -114,7 +122,7 @@ You can see the properties you created by running the following command:
 ```commandline
 datahub forms get --urn {urn}
 ```
-For Example, you can run `datahub forms get --urn urn:li:form:123456`.
+For example, you can run `datahub forms get --urn urn:li:form:123456`.
 
 If successful, you should see metadata about your form returned like below.
 

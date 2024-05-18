@@ -1,25 +1,20 @@
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
-# About DataHub Forms
-
-<!-- All Feature Guides should begin with `About DataHub ` to improve SEO -->
-
-<!-- 
-Update feature availability; by default, feature availabilty is Self-Hosted and Managed DataHub
-
-Add in `saasOnly` for Managed DataHub-only features
- -->
-
+# About DataHub Documentation Forms
 <FeatureAvailability/>
 
-<!-- This section should provide a plain-language overview of feature. Consider the following:
 
-* What does this feature do? Why is it useful?
-* What are the typical use cases?
-* Who are the typical users?
-* In which DataHub Version did this become available? -->
 
-## Forms Setup, Prerequisites, and Permissions
+## Creating and Assigning Documentation Forms
+
+- name
+- type
+- description
+- select structured properties
+	- define which are required
+	- assign to asset and/or field
+- apply to sets of assets
+- assign to specific people
 
 <!-- This section should provide plain-language instructions on how to configure the feature:
 
@@ -27,7 +22,9 @@ Add in `saasOnly` for Managed DataHub-only features
 * How can you confirm you configured it correctly? What is the expected behavior?
 * What access levels/permissions are required within DataHub? -->
 
-## Using Forms
+## Completing Documentation Forms
+
+
 
 <!-- Plain-language instructions of how to use the feature
 
@@ -60,10 +57,14 @@ NOTE: Find the iframe details in YouTube by going to Share > Embed
 
 ### API
 
-You can create a form by DataHub CLI. 
-Follow the below tutorial to create a structured property.
+You can create a Documentation Form by DataHub CLI. Follow the below tutorial to create a structured property.
 
-- [Create a Form](../../../docs/api/tutorials/forms.md)
+- [Create a Documentation Form](../../../docs/api/tutorials/forms.md)
+
+:::Note
+You must create a Structured Property before including it in a Documentation Form.
+To learn more about creating Structured Properties via CLI, please see the [Create Structured Properties](/docs/api/tutorials/structured-properties.md) tutorial.
+:::
 
 <!-- Bulleted list of relevant GraphQL docs; comment out section if none -->
 
@@ -73,6 +74,9 @@ Follow the below tutorial to create a structured property.
 
 ## FAQ and Troubleshooting
 
+**Can I assign more than one Documentation Form to an Asset?**
+
+Yes
 <!-- Use the following format:
 
 **Question in bold text**
@@ -85,4 +89,4 @@ Response in plain text
 
 ### Related Features
 
-<!-- Bulleted list of related features; comment out section if none -->
+- [DataHub Properties](/docs/features/feature-guides/properties.md)
