@@ -41,23 +41,82 @@ Here are the differences between the two property types at a glance:
 **Structured Properties** are useful for setting and enforcing standards of metadata collection, particularly in support of complaince and governance initiatives. Values can be added programmatically via API, then manually via the DataHub UI as necessary. Some examples include:
 
 - Deprecation Date
-	- Type: Date
-	- Validation: Must be formatted as 'YYYY-MM-DD'
+  - Type: Date, Single Select
+  - Validation: Must be formatted as 'YYYY-MM-DD'
 - Data Retention Period
-	- Type: String
-	- Validation: Adheres to allowed values "30 Days", "90 Days", "365 Days", or "Indefinite"
+  - Type: String, Single Select
+  - Validation: Adheres to allowed values "30 Days", "90 Days", "365 Days", or "Indefinite"
 - Consulted Complaince Officer, chosen from a list of DataHub users
-	- Type: DataHub User
-	- Validation: Must be valid DataHub User URN
+  - Type: DataHub User, Multi-Select
+  - Validation: Must be valid DataHub User URN
 
 By using Structured Properties, complaince and governance offericers can ensure consistency in data collection accross assets.
 
 ## Creating, Assigning, and Editing Structured Properties
 
-Structured Properties can only be created and assigned to DataHub Assets via the DataHub CLI; please note that access tokens will require the `Edit All` Metadata Privilege.
+Structured Properties are defined via YAML, then created and assigned to DataHub Assets via the DataHub CLI. 
+
+Here's how we would define the above examples in YAML:
+
+<Tabs>
+<TabItem value="deprecationDate" label="Deprecation Date" default>
+
+```yaml
+- id: deprecation_date
+  qualified_name: deprecation_date
+  type: date # Supported types: date, string, number, urn, rich_text
+  cardinality: SINGLE # Supported options: SINGLE, MULTIPLE
+  display_name: Deprecation Date
+  description: "Scheduled date when resource will be deprecated in the source system"
+  entity_types: # Define which types of DataHub Assets the Property can be assigned to
+    - dataset
+```
+
+</TabItem>
+<TabItem value="dataRetentionPeriod" label="Data Retention Period">
+
+```yaml
+- id: retention_period
+  qualified_name: retention_period
+  type: string # Supported types: date, string, number, urn, rich_text
+  cardinality: SINGLE # Supported options: SINGLE, MULTIPLE
+  display_name: Data Retention Period
+  description: "Predetermined storage duration before being deleted or archived 
+                based on legal, regulatory, or organizational requirements"
+  entity_types: # Define which types of DataHub Assets the Property can be assigned to
+    - dataset
+  allowed_values:
+    - value: "30 Days"
+      description: "Use this for datasets that are ephmeral and contain PII"
+    - value: "90 Days"
+      description: "Use this for datasets that drive monthly reporting but contain PII"
+    - value: "365 Days"
+      description: "Use this for non-sensitive data that can be retained for longer"
+    - value: "Indefinite"
+      description: "Use this for non-sensitive data that can be retained indefinitely"
+```
+
+</TabItem>
+<TabItem value="consultedComplianceOfficer" label="Consulted Complaince Officer(s)">
+
+```yaml
+- id: compliance_officer
+  qualified_name: compliance_officer
+  type: urn # Supported types: date, string, number, urn, rich_text
+  cardinality: MULTIPLE # Supported options: SINGLE, MULTIPLE
+  display_name: Consulted Complaince Officer(s)
+  description: "Member(s) of the Compliance Team consulted/informed during audit"
+  type_qualifier: # Define the type of Asset URNs to allow
+    - corpuser
+    - corpGroup
+  entity_types: # Define which types of DataHub Assets the Property can be assigned to
+    - dataset
+```
+
+</TabItem>
+</Tabs>
 
 :::Note
-You must create a Structured Property before attaching it to a DataHub Asset.
 To learn more about creating and assigning Structured Properties via CLI, please see the [Create Structured Properties](/docs/api/tutorials/structured-properties.md) tutorial.
 :::
 
@@ -93,4 +152,4 @@ Please see the following API guides related to Custom and Structured Properties:
 
 ### Related Features
 
-- [Documentation Forms](/docs/features/feature-guides/forms.md)
+- [Documentation Forms](/docs/features/feature-guides/documentation-forms.md)
