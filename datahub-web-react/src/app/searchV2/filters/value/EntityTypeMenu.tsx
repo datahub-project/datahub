@@ -48,7 +48,7 @@ export default function EntityTypeMenu({
     const finalOptions = searchQuery ? localSearchOptions : allOptions;
 
     const filterMenuOptions = finalOptions
-        .filter((option) => !option.value.includes(FILTER_DELIMITER)) // remove nested options
+        .filter((option) => !option.value.includes(FILTER_DELIMITER) && option.value !== 'SCHEMA_FIELD') // remove nested options
         .map((option) => {
             const nestedOptions = includeSubTypes
                 ? aggOptions
