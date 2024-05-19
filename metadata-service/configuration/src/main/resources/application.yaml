@@ -95,6 +95,7 @@ entityService:
   retention:
     enabled: ${ENTITY_SERVICE_ENABLE_RETENTION:true}
     applyOnBootstrap: ${ENTITY_SERVICE_APPLY_RETENTION_BOOTSTRAP:false}
+    forceApplyRetention: ${ENTITY_SERVICE_FORCE_APPLY_RETENTION:false}
 
 graphService:
   type: ${GRAPH_SERVICE_IMPL:elasticsearch}

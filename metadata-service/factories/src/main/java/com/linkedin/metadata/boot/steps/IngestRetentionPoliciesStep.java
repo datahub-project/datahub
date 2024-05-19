@@ -34,6 +34,7 @@ public class IngestRetentionPoliciesStep implements BootstrapStep {
   private final boolean _enableRetention;
   private final boolean _applyOnBootstrap;
   private final String pluginPath;
+  private final boolean forceApplyRetention;
 
   private static final ObjectMapper YAML_MAPPER = new ObjectMapper(new YAMLFactory());
 
@@ -65,7 +66,8 @@ public class IngestRetentionPoliciesStep implements BootstrapStep {
   public void execute(@Nonnull OperationContext systemOperationContext)
       throws IOException, URISyntaxException {
     // 0. Execute preflight check to see whether we need to ingest policies
-    if (_entityService.exists(systemOperationContext, UPGRADE_ID_URN, true)) {
+    if (_entityService.exists(systemOperationContext, UPGRADE_ID_URN, true)
+        && !forceApplyRetention) {
       log.info("Retention was applied. Skipping.");
       return;
     }

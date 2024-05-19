@@ -34,6 +34,9 @@ public class IngestRetentionPoliciesStepFactory {
   @Value("${datahub.plugin.retention.path}")
   private String _pluginRegistryPath;
 
+  @Value("${entityService.retention.forceApplyRetention}")
+  private Boolean forceApplyRetention;
+
   @Bean(name = "ingestRetentionPoliciesStep")
   @Scope("singleton")
   @Nonnull
@@ -43,6 +46,7 @@ public class IngestRetentionPoliciesStepFactory {
         _entityService,
         _enableRetention,
         _applyOnBootstrap,
-        _pluginRegistryPath);
+        _pluginRegistryPath,
+        forceApplyRetention);
   }
 }
