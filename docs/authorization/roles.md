@@ -99,7 +99,6 @@ These privileges are common to both Self-Hosted DataHub and Managed DataHub.
 | Manage Ownership Types          | :heavy_check_mark: | :x:                | :x:    | Create, update and delete Ownership Types.                                                                                                                                 |
 | Analytics API access            | :heavy_check_mark: | :x:                | :x:    | API read access to raw analytics data.                                                                                                                                     |
 | Create Business Attribute       | :heavy_check_mark: | :x:                | :x:    | Create new Business Attribute.                                                                                                                                             |
-| Manage Monitors                 | :heavy_check_mark: | :x:                | :x:    | Create, update, and delete any data asset monitors, including Custom SQL monitors. Grant with care.                                                                        |
 
 ##### Metadata Privileges
 
@@ -118,6 +117,7 @@ These privileges are common to both Self-Hosted DataHub and Managed DataHub.
 | Edit Deprecation                   | :heavy_check_mark: | :heavy_check_mark: | :x:                | The ability to edit the Deprecation status of an entity.                                         |
 | Edit Assertions                    | :heavy_check_mark: | :heavy_check_mark: | :x:                | The ability to add and remove assertions from an entity.                                         |
 | Edit Incidents                     | :heavy_check_mark: | :heavy_check_mark: | :x:                | The ability to create and remove incidents for an entity.                                        |
+| Edit Entity                        | :heavy_check_mark: | :heavy_check_mark: | :x:                | The ability to edit any information about an entity. Super user privileges for the entity.       |
 | Edit Dataset Column Tags           | :heavy_check_mark: | :heavy_check_mark: | :x:                | The ability to edit the column (field) tags associated with a dataset schema.                    |
 | Edit Dataset Column Glossary Terms | :heavy_check_mark: | :heavy_check_mark: | :x:                | The ability to edit the column (field) glossary terms associated with a dataset schema.          |
 | Edit Dataset Column Descriptions   | :heavy_check_mark: | :heavy_check_mark: | :x:                | The ability to edit the column (field) descriptions associated with a dataset schema.            |
@@ -127,7 +127,6 @@ These privileges are common to both Self-Hosted DataHub and Managed DataHub.
 | Manage Data Products               | :heavy_check_mark: | :heavy_check_mark: | :x:                | The ability to create, edit, and delete Data Products within a Domain                            |
 | Edit Properties                    | :heavy_check_mark: | :heavy_check_mark: | :x:                | The ability to edit the properties for an entity.                                                |
 | Edit Owners                        | :heavy_check_mark: | :x:                | :x:                | The ability to add and remove owners of an entity.                                               |
-| Edit Entity                        | :heavy_check_mark: | :x:                | :x:                | The ability to edit any information about an entity. Super user privileges for the entity.       |
 | Edit Group Members                 | :heavy_check_mark: | :x:                | :x:                | The ability to add and remove members to a group.                                                |
 | Edit User Profile                  | :heavy_check_mark: | :x:                | :x:                | The ability to change the user's profile including display name, bio, title, profile image, etc. |
 | Edit Contact Information           | :heavy_check_mark: | :x:                | :x:                | The ability to change the contact information such as email & chat handles.                      |
@@ -139,13 +138,14 @@ These privileges are only relevant to Managed DataHub.
 
 ##### Platform Privileges
 
-| Privilege                   | Admin              | Editor             | Reader | Description                                                                 |
-|-----------------------------|--------------------|--------------------|--------|-----------------------------------------------------------------------------|
-| Manage Tests                | :heavy_check_mark: | :heavy_check_mark: | :x:    | Create and remove Asset Tests.                                              |
-| View Metadata Proposals     | :heavy_check_mark: | :heavy_check_mark: | :x:    | View the requests tab for viewing metadata proposals.                       |
-| Create metadata constraints | :heavy_check_mark: | :heavy_check_mark: | :x:    | Create metadata constraints.                                                |
-| Manage Platform Settings    | :heavy_check_mark: | :x:                | :x:    | View and change platform-level settings, like integrations & notifications. |
-| Manage Connections          | :heavy_check_mark: | :x:                | :x:    | Manage connections to external platforms.                                   |
+| Privilege                   | Admin              | Editor             | Reader | Description                                                                                         |
+|-----------------------------|--------------------|--------------------|--------|-----------------------------------------------------------------------------------------------------|
+| Manage Tests                | :heavy_check_mark: | :heavy_check_mark: | :x:    | Create and remove Asset Tests.                                                                      |
+| View Metadata Proposals     | :heavy_check_mark: | :heavy_check_mark: | :x:    | View the requests tab for viewing metadata proposals.                                               |
+| Create metadata constraints | :heavy_check_mark: | :heavy_check_mark: | :x:    | Create metadata constraints.                                                                        |
+| Manage Platform Settings    | :heavy_check_mark: | :x:                | :x:    | View and change platform-level settings, like integrations & notifications.                         |
+| Manage Connections          | :heavy_check_mark: | :x:                | :x:    | Manage connections to external platforms.                                                           |
+| Manage Monitors             | :heavy_check_mark: | :x:                | :x:    | Create, update, and delete any data asset monitors, including Custom SQL monitors. Grant with care. |
 
 ##### Metadata Privileges
 
