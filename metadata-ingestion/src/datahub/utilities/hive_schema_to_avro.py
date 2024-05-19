@@ -28,6 +28,7 @@ class HiveColumnToAvroConverter:
         "bigint": "long",
         "varchar": "string",
         "char": "string",
+        "long": "long",
         "bytes": "bytes",
     }
     _EXTRA_BIGQUERY_TYPE_TO_AVRO_TYPE = {
@@ -71,10 +72,8 @@ class HiveColumnToAvroConverter:
             parts = HiveColumnToAvroConverter._ignore_brackets_split(s[4:-1], ",")
             if len(parts) != 2:
                 raise ValueError(
-                    (
-                        "The map type string format is: 'map<key_type,value_type>', "
-                        + f"but got: {s}"
-                    )
+                    "The map type string format is: 'map<key_type,value_type>', "
+                    + f"but got: {s}"
                 )
 
             kt = HiveColumnToAvroConverter._parse_datatype_string(parts[0])
@@ -126,10 +125,8 @@ class HiveColumnToAvroConverter:
             )
             if len(name_and_type) != 2:
                 raise ValueError(
-                    (
-                        "The struct field string format is: 'field_name:field_type', "
-                        + f"but got: {part}"
-                    )
+                    "The struct field string format is: 'field_name:field_type', "
+                    + f"but got: {part}"
                 )
 
             field_name = name_and_type[0].strip()
