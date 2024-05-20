@@ -13,7 +13,7 @@ Installing DataHub CLI requires Python 3.6+.
 :::
 
 <Tabs>
-<TabItem value="pypi" label="Install from PyPI for OSS Release" default>
+<TabItem value="pypi" label="Install from pip" default>
 
 Run the following commands in your terminal:
 
@@ -24,15 +24,6 @@ python3 -m datahub version
 ```
 
 Your command line should return the proper version of DataHub upon executing these commands successfully.
-
-</TabItem>
-<TabItem value="pip" label="Install from command line with pip">
-
-Determine the version you would like to install and obtain a read access token by requesting a one-time-secret from the Acryl team then run the following command:
-
-```shell
-python3 -m pip install acryl-datahub==<VERSION> --index-url https://<TOKEN>:@pypi.fury.io/acryl-data/`
-```
 
 </TabItem>
 </Tabs>
@@ -100,7 +91,7 @@ sink:
 ```
 :::info Secure Your API Key
 Your API key is a signed JSON Web Token that is valid for 6 months from the date of issuance. Please keep this key secure & avoid sharing it. 
-If you are on Acryl DataHub and your key is compromised for any reason, please reach out to the Acryl team at support@acryl.io.:::
+If you are on Acryl Cloud and your key is compromised for any reason, please reach out to the Acryl team at support@acryl.io.
 :::
 
 For more information and examples on configuring recipes, please refer to [Recipes](recipe_overview.md).
@@ -118,11 +109,7 @@ datahub ingest -c <path/to/recipe.yml>
 Ingestion can either be run in an ad-hoc manner by a system administrator or scheduled for repeated executions. Most commonly, ingestion will be run on a daily cadence.
 To schedule your ingestion job, we recommend using a job schedule like [Apache Airflow](https://airflow.apache.org/). In cases of simpler deployments, a CRON job scheduled on an always-up machine can also work.
 Note that each source system will require a separate recipe file. This allows you to schedule ingestion from different sources independently or together.
-
-:::note Real-time Ingestion
-Real-time ingestion setup is not recommended for an initial POC as it generally takes longer to configure and is prone to inevitable system errors.
-You can find more information on real-time ingestion [here](docs/lineage/airflow.md).
-:::
+Learn more about scheduling ingestion in the [Scheduling Ingestion Guide](/metadata-ingestion/schedule_docs/intro.md).
 
 ## Reference
 
