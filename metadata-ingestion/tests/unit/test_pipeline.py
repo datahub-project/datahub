@@ -29,7 +29,7 @@ FROZEN_TIME = "2020-04-14 07:00:00"
 pytestmark = pytest.mark.random_order(disabled=True)
 
 
-class TestPipeline(object):
+class TestPipeline:
     @patch("datahub.ingestion.source.kafka.KafkaSource.get_workunits", autospec=True)
     @patch("datahub.ingestion.sink.console.ConsoleSink.close", autospec=True)
     @freeze_time(FROZEN_TIME)

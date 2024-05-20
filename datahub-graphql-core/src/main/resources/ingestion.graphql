@@ -117,6 +117,11 @@ type ExecutionRequestInput {
   The time at which the request was created
   """
   requestedAt: Long!
+
+  """
+  Urn of the actor who created this execution request
+  """
+  actorUrn: String
 }
 
 """

@@ -353,7 +353,7 @@ class SalesforceSource(Source):
             self.base_url
             + "tooling/query/?q=SELECT Description, Language, ManageableState, "
             + "CreatedDate, CreatedBy.Username, LastModifiedDate, LastModifiedBy.Username "
-            + "FROM CustomObject where DeveloperName='{0}'".format(sObjectDeveloperName)
+            + f"FROM CustomObject where DeveloperName='{sObjectDeveloperName}'"
         )
         custom_objects_response = self.sf._call_salesforce("GET", query_url).json()
         if len(custom_objects_response["records"]) > 0:
@@ -537,20 +537,22 @@ class SalesforceSource(Source):
 
     # Here field description is created from label, description and inlineHelpText
     def _get_field_description(self, field: dict, customField: dict) -> str:
-        desc = (
-            "\\" + field["Label"] if field["Label"].startswith("#") else field["Label"]
-        )
+        if "Label" not in field or field["Label"] is None:
+            desc = ""
+        elif field["Label"].startswith("#"):
+            desc = "\\" + field["Label"]
+        else:
+            desc = field["Label"]
 
-        for key in ["FieldDefinition", "InlineHelpText"]:
-            text: Optional[str] = ""
-            if isinstance(field.get(key), dict):
-                text = field[key].get("Description")
-            else:
-                text = field.get(key)
+        text = field.get("FieldDefinition", {}).get("Description", None)
+        if text:
+            prefix = "\\" if text.startswith("#") else ""
+            desc += f"\n\n{prefix}{text}"
 
-            if text:
-                prefix = "\\" if text.startswith("#") else ""
-                desc += f"\n\n{prefix}{text}"
+        text = field.get("InlineHelpText", None)
+        if text:
+            prefix = "\\" if text.startswith("#") else ""
+            desc += f"\n\n{prefix}{text}"
 
         return desc
 
@@ -654,7 +656,7 @@ class SalesforceSource(Source):
             + "Precision, Scale, Length, Digits ,FieldDefinition.IsIndexed, IsUnique,"
             + "IsCompound, IsComponent, ReferenceTo, FieldDefinition.ComplianceGroup,"
             + "RelationshipName, IsNillable, FieldDefinition.Description, InlineHelpText "
-            + "FROM EntityParticle WHERE EntityDefinitionId='{0}'".format(
+            + "FROM EntityParticle WHERE EntityDefinitionId='{}'".format(
                 sObject["DurableId"]
             )
         )
@@ -663,16 +665,14 @@ class SalesforceSource(Source):
             "GET", sObject_fields_query_url
         ).json()
 
-        logger.debug(
-            "Received Salesforce {sObject} fields response".format(sObject=sObjectName)
-        )
+        logger.debug(f"Received Salesforce {sObjectName} fields response")
 
         sObject_custom_fields_query_url = (
             self.base_url
             + "tooling/query?q=SELECT "
             + "DeveloperName,CreatedDate,CreatedBy.Username,InlineHelpText,"
             + "LastModifiedDate,LastModifiedBy.Username "
-            + "FROM CustomField WHERE EntityDefinitionId='{0}'".format(
+            + "FROM CustomField WHERE EntityDefinitionId='{}'".format(
                 sObject["DurableId"]
             )
         )

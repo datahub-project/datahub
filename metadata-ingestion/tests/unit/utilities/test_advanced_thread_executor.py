@@ -77,12 +77,12 @@ def test_backpressure_aware_executor_simple():
     def task(i):
         return i
 
-    assert set(
+    assert {
         res.result()
         for res in BackpressureAwareExecutor.map(
             task, ((i,) for i in range(10)), max_workers=2
         )
-    ) == set(range(10))
+    } == set(range(10))
 
 
 def test_backpressure_aware_executor_advanced():
@@ -119,7 +119,7 @@ def test_backpressure_aware_executor_advanced():
         assert 2 <= len(executed) <= 4
 
         # Finally, consume the rest of the results.
-        assert set(r.result() for r in results) == {
+        assert {r.result() for r in results} == {
             i for i in range(10) if i != first_result.result()
         }
 

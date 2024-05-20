@@ -570,6 +570,12 @@ entities:
       - formInfo
       - dynamicFormAssignment
       - ownership
+  - name: dataHubConnection
+    category: internal
+    keyAspect: dataHubConnectionKey
+    aspects:
+      - dataHubConnectionDetails
+      - dataPlatformInstance
 events:
 plugins:
   aspectPayloadValidators:
@@ -588,6 +594,7 @@ plugins:
       supportedOperations:
         - CREATE
         - UPSERT
+        - DELETE
       supportedEntityAspectNames:
         - entityName: '*'
           aspectName: structuredProperties

@@ -7,6 +7,7 @@ import com.linkedin.metadata.aspect.plugins.hooks.MutationHook;
 import com.linkedin.metadata.aspect.plugins.validation.ValidationExceptionCollection;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.util.Pair;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
@@ -15,6 +16,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
+import org.apache.commons.lang3.StringUtils;
 
 /**
  * A batch of aspects in the context of either an MCP or MCL write path to a data store. The item is
@@ -191,5 +193,23 @@ public interface AspectsBatch {
                     Pair::getValue, Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue))));
   }
 
-  String toAbbreviatedString(int maxWidth);
+  default String toAbbreviatedString(int maxWidth) {
+    return toAbbreviatedString(getItems(), maxWidth);
+  }
+
+  static String toAbbreviatedString(Collection<? extends BatchItem> items, int maxWidth) {
+    List<String> itemsAbbreviated = new ArrayList<String>();
+    items.forEach(
+        item -> {
+          if (item instanceof ChangeMCP) {
+            itemsAbbreviated.add(((ChangeMCP) item).toAbbreviatedString());
+          } else {
+            itemsAbbreviated.add(item.toString());
+          }
+        });
+    return "AspectsBatchImpl{"
+        + "items="
+        + StringUtils.abbreviate(itemsAbbreviated.toString(), maxWidth)
+        + '}';
+  }
 }

@@ -5,6 +5,7 @@ import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.*;
 import static com.linkedin.metadata.Constants.*;
 
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.StringMap;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
@@ -71,6 +72,7 @@ public class CreateTestConnectionRequestResolver implements DataFetcher<Completa
             execInput.setSource(new ExecutionRequestSource().setType(TEST_CONNECTION_SOURCE_NAME));
             execInput.setExecutorId(DEFAULT_EXECUTOR_ID);
             execInput.setRequestedAt(System.currentTimeMillis());
+            execInput.setActorUrn(UrnUtils.getUrn(context.getActorUrn()));
 
             Map<String, String> arguments = new HashMap<>();
             arguments.put(
