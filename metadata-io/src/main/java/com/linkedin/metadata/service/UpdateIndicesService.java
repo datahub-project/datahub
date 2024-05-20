@@ -113,6 +113,11 @@ public class UpdateIndicesService implements SearchIndicesService {
     _searchDiffMode = searchDiffMode;
   }
 
+  @VisibleForTesting
+  public void setGraphUpdateExistingEdges(boolean updateExistingEdges) {
+    graphUpdateExistingEdges = updateExistingEdges;
+  }
+
   public UpdateIndicesService(
       GraphService graphService,
       EntitySearchService entitySearchService,

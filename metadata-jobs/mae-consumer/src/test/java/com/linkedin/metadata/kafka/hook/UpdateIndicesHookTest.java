@@ -264,6 +264,7 @@ public class UpdateIndicesHookTest {
 
     updateIndicesService.setGraphDiffMode(true);
     updateIndicesService.setSearchDiffMode(true);
+    updateIndicesService.setGraphUpdateExistingEdges(true);
     /*
      * newLineage
      */
