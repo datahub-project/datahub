@@ -795,14 +795,17 @@ _field_type_mapping = {
 
 
 def get_column_type(
-    report: DBTSourceReport, dataset_name: str, column_type: str, dbt_adapter: str
+    report: DBTSourceReport,
+    dataset_name: str,
+    column_type: Optional[str],
+    dbt_adapter: str,
 ) -> SchemaFieldDataType:
     """
     Maps known DBT types to datahub types
     """
-    TypeClass: Any = _field_type_mapping.get(column_type)
+    TypeClass: Any = _field_type_mapping.get(column_type) if column_type else None
 
-    if TypeClass is None:
+    if TypeClass is None and column_type:
         # resolve a modified type
         if dbt_adapter == "trino":
             TypeClass = resolve_trino_modified_type(column_type)
@@ -934,12 +937,14 @@ class DBTSourceBase(StatefulIngestionSourceBase):
     def _make_data_platform_instance_aspect(self) -> DataPlatformInstanceClass:
         return DataPlatformInstanceClass(
             platform=mce_builder.make_data_platform_urn(DBT_PLATFORM),
-            instance=mce_builder.make_dataplatform_instance_urn(
-                mce_builder.make_data_platform_urn(DBT_PLATFORM),
-                self.config.platform_instance,
-            )
-            if self.config.platform_instance
-            else None,
+            instance=(
+                mce_builder.make_dataplatform_instance_urn(
+                    mce_builder.make_data_platform_urn(DBT_PLATFORM),
+                    self.config.platform_instance,
+                )
+                if self.config.platform_instance
+                else None
+            ),
         )
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
@@ -1809,9 +1814,9 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     )
                     for upstream in upstream_urns
                 ],
-                fineGrainedLineages=(cll or None)
-                if self.config.include_column_lineage
-                else None,
+                fineGrainedLineages=(
+                    (cll or None) if self.config.include_column_lineage else None
+                ),
             )
 
     # This method attempts to read-modify and return the owners of a dataset.
@@ -1848,7 +1853,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         entity_urn: str,
         tags_prefix_filter: str,
     ) -> List[TagAssociationClass]:
-        tag_set = set([new_tag.tag for new_tag in new_tags])
+        tag_set = {new_tag.tag for new_tag in new_tags}
 
         if self.ctx.graph:
             existing_tags_class = self.ctx.graph.get_tags(entity_urn)
@@ -1863,7 +1868,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
     def get_transformed_terms(
         self, new_terms: List[GlossaryTermAssociation], entity_urn: str
     ) -> List[GlossaryTermAssociation]:
-        term_id_set = set([term.urn for term in new_terms])
+        term_id_set = {term.urn for term in new_terms}
         if self.ctx.graph:
             existing_terms_class = self.ctx.graph.get_glossary_terms(entity_urn)
             if existing_terms_class and existing_terms_class.terms:

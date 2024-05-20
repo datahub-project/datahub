@@ -34,6 +34,7 @@ from datahub.sql_parsing.sql_parsing_aggregator import (
     KnownQueryLineageInfo,
     SqlParsingAggregator,
 )
+from datahub.utilities.perf_timer import PerfTimer
 
 logger = logging.getLogger(__name__)
 
@@ -93,7 +94,7 @@ class RedshiftSqlLineageV2:
         db_schemas: Dict[str, Dict[str, RedshiftSchema]],
     ) -> None:
         # Assume things not in `all_tables` as temp tables.
-        self.known_urns = set(
+        self.known_urns = {
             DatasetUrn.create_from_ids(
                 self.platform,
                 f"{db}.{schema}.{table.name}",
@@ -103,7 +104,7 @@ class RedshiftSqlLineageV2:
             for db, schemas in all_tables.items()
             for schema, tables in schemas.items()
             for table in tables
-        )
+        }
         self.aggregator.is_temp_table = lambda urn: urn not in self.known_urns
 
         # Handle all the temp tables up front.
@@ -226,13 +227,17 @@ class RedshiftSqlLineageV2:
         try:
             logger.debug(f"Processing {lineage_type.name} lineage query: {query}")
 
-            for lineage_row in RedshiftDataDictionary.get_lineage_rows(
-                conn=connection, query=query
-            ):
-                processor(lineage_row)
+            timer = self.report.lineage_phases_timer.setdefault(
+                lineage_type.name, PerfTimer()
+            )
+            with timer:
+                for lineage_row in RedshiftDataDictionary.get_lineage_rows(
+                    conn=connection, query=query
+                ):
+                    processor(lineage_row)
         except Exception as e:
             self.report.warning(
-                f"extract-{lineage_type.name}",
+                f"lineage-v2-extract-{lineage_type.name}",
                 f"Error was {e}, {traceback.format_exc()}",
             )
             self._lineage_v1.report_status(f"extract-{lineage_type.name}", False)
