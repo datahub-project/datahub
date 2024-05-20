@@ -77,7 +77,7 @@ public class DataHubConnectionType
                   gmsResult == null
                       ? null
                       : DataFetcherResult.<DataHubConnection>newResult()
-                          .data(ConnectionMapper.map(gmsResult, _secretService))
+                          .data(ConnectionMapper.map(context, gmsResult, _secretService))
                           .build())
           .collect(Collectors.toList());
     } catch (Exception e) {
