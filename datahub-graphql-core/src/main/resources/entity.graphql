@@ -1144,6 +1144,11 @@ enum EntityType {
     CUSTOM_OWNERSHIP_TYPE
 
     """
+    A connection to an external source.
+    """
+    DATAHUB_CONNECTION
+
+    """
     A DataHub incident - SaaS only
     """
     INCIDENT
