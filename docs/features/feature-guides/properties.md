@@ -3,7 +3,7 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 # About DataHub Properties
 <FeatureAvailability/>
 
-DataHub Custom Properties and Strutured Properties are a powerful tools way to collect meaningful metadata for Assets that might not perflectly fit into other Aspects within DataHub, such as Glossary Terms, Tags, etc. Both types can be found in an Asset's Properties tab:
+DataHub Custom Properties and Structured Properties are powerful tools to collect meaningful metadata for Assets that might not perfectly fit into other Aspects within DataHub, such as Glossary Terms, Tags, etc. Both types can be found in an Asset's Properties tab:
 
 <p align="center">
   <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/properties/custom_and_structured_properties.png"/>
@@ -13,13 +13,14 @@ This guide will explain the differences and use cases of each property type.
 
 ## What are Custom Properties and Structured Properties?
 Here are the differences between the two property types at a glance:
+
 | Custom Properties | Structured Properties |
 | --- | --- |
 | Map of key-value pairs stored as strings | Validated namespaces and data types |
 | Added to assets during ingestion and via API | Defined via YAML; created and added to assets via CLI |
 | No support for UI-based Edits | Support for UI-based edits |
 
-**Custom Properties** are key-value pairs of strings that capture additional information about assets that is not readily available in standard metadata fields. Custom Properties can be added to assets automatically during ingestion or programmatically via API and *cannot* be edited via the UI. 
+**Custom Properties** are key-value pairs of strings that capture additional information about assets that is not readily available in standard metadata fields. Custom Properties can be added to assets automatically during ingestion or programmatically via API and *cannot* be edited via the UI.
 <p align="center">
   <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/properties/custom_properties_highlight.png"/>
 </p>
@@ -32,13 +33,13 @@ Here are the differences between the two property types at a glance:
 <p align="center"><em>Example of Structured Properties assigned to a Dataset</em></p>
 
 ## Use Cases for Custom Properties and Structured Properties
-**Custom Propterties** are useful for capturing raw metadata from source systems during ingestion or programmatically via API. Some examples include:
+**Custom Properties** are useful for capturing raw metadata from source systems during ingestion or programmatically via API. Some examples include:
 
 - GitHub file location of code which generated a dataset
 - Data encoding type
 - Account ID, cluster size, and region where a dataset is stored
 
-**Structured Properties** are useful for setting and enforcing standards of metadata collection, particularly in support of complaince and governance initiatives. Values can be added programmatically via API, then manually via the DataHub UI as necessary. Some examples include:
+**Structured Properties** are useful for setting and enforcing standards of metadata collection, particularly in support of compliance and governance initiatives. Values can be added programmatically via API, then manually via the DataHub UI as necessary. Some examples include:
 
 - Deprecation Date
   - Type: Date, Single Select
@@ -46,11 +47,11 @@ Here are the differences between the two property types at a glance:
 - Data Retention Period
   - Type: String, Single Select
   - Validation: Adheres to allowed values "30 Days", "90 Days", "365 Days", or "Indefinite"
-- Consulted Complaince Officer, chosen from a list of DataHub users
+- Consulted Compliance Officer, chosen from a list of DataHub users
   - Type: DataHub User, Multi-Select
   - Validation: Must be valid DataHub User URN
 
-By using Structured Properties, complaince and governance offericers can ensure consistency in data collection accross assets.
+By using Structured Properties, compliance and governance officers can ensure consistency in data collection across assets.
 
 ## Creating, Assigning, and Editing Structured Properties
 
@@ -87,7 +88,7 @@ Here's how we would define the above examples in YAML:
     - dataset
   allowed_values:
     - value: "30 Days"
-      description: "Use this for datasets that are ephmeral and contain PII"
+      description: "Use this for datasets that are ephemeral and contain PII"
     - value: "90 Days"
       description: "Use this for datasets that drive monthly reporting but contain PII"
     - value: "365 Days"
@@ -97,14 +98,14 @@ Here's how we would define the above examples in YAML:
 ```
 
 </TabItem>
-<TabItem value="consultedComplianceOfficer" label="Consulted Complaince Officer(s)">
+<TabItem value="consultedComplianceOfficer" label="Consulted Compliance Officer(s)">
 
 ```yaml
 - id: compliance_officer
   qualified_name: compliance_officer
   type: urn # Supported types: date, string, number, urn, rich_text
   cardinality: MULTIPLE # Supported options: SINGLE, MULTIPLE
-  display_name: Consulted Complaince Officer(s)
+  display_name: Consulted Compliance Officer(s)
   description: "Member(s) of the Compliance Team consulted/informed during audit"
   type_qualifier: # Define the type of Asset URNs to allow
     - corpuser
@@ -147,8 +148,8 @@ Please see the following API guides related to Custom and Structured Properties:
 
 **Why can't I edit the value of a Structured Property from the DataHub UI?**
 1. Your version of DataHub does not support UI-based edits of Structured Properties. Confirm you are running DataHub v0.13.1 or later.
-2. You are attempting to edit a Custom Property, not a Structured Property. Confirm you are trying to edit a Structured Property, which will have an "Edit" button visible. Please note that Custom Properties are not eligible for UI-based edits to minimize overwirtes during recurring ingestion.
-3. You do not have have the necessary privileges. Confirm with your Admin that you have the `Edit Properties` Metadata Privilege.
+2. You are attempting to edit a Custom Property, not a Structured Property. Confirm you are trying to edit a Structured Property, which will have an "Edit" button visible. Please note that Custom Properties are not eligible for UI-based edits to minimize overwrites during recurring ingestion.
+3. You do not have the necessary privileges. Confirm with your Admin that you have the `Edit Properties` Metadata Privilege.
 
 ### Related Features
 
