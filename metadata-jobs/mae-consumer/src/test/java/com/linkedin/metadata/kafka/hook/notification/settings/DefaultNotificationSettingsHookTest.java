@@ -19,6 +19,7 @@ import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.identity.CorpGroupEditableInfo;
 import com.linkedin.identity.CorpGroupInfo;
 import com.linkedin.identity.CorpGroupSettings;
+import com.linkedin.identity.CorpUserAppearanceSettings;
 import com.linkedin.identity.CorpUserEditableInfo;
 import com.linkedin.identity.CorpUserInfo;
 import com.linkedin.identity.CorpUserSettings;
@@ -194,7 +195,9 @@ public class DefaultNotificationSettingsHookTest {
     notificationSettings.setSinkTypes(
         new NotificationSinkTypeArray(ImmutableList.of(NotificationSinkType.EMAIL)));
     notificationSettings.setEmailSettings(new EmailNotificationSettings().setEmail(TEST_EMAIL));
-    return new CorpUserSettings().setNotificationSettings(notificationSettings);
+    return new CorpUserSettings()
+        .setNotificationSettings(notificationSettings)
+        .setAppearance(new CorpUserAppearanceSettings().setShowSimplifiedHomepage(false));
   }
 
   private CorpGroupSettings getMockGroupSettings() {
