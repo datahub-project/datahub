@@ -17,6 +17,7 @@ import com.linkedin.datahub.upgrade.system.elasticsearch.util.IndexUtils;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.search.BaseElasticSearchComponentsFactory;
 import com.linkedin.metadata.entity.AspectDao;
+import com.linkedin.metadata.entity.EntityAspect;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
 import com.linkedin.metadata.shared.ElasticSearchIndexed;
@@ -28,6 +29,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.opensearch.OpenSearchStatusException;
@@ -156,28 +158,34 @@ public class BuildIndicesPreStep implements UpgradeStep {
 
   private static Set<StructuredPropertyDefinition> getActiveStructuredPropertiesDefinitions(
       AspectDao aspectDao) {
-    Set<String> removedStructuredPropertyUrns =
-        aspectDao
-            .streamAspects(STRUCTURED_PROPERTY_ENTITY_NAME, STATUS_ASPECT_NAME)
-            .map(
-                entityAspect ->
-                    Pair.of(
-                        entityAspect.getUrn(),
-                        RecordUtils.toRecordTemplate(Status.class, entityAspect.getMetadata())))
-            .filter(status -> status.getSecond().isRemoved())
-            .map(Pair::getFirst)
-            .collect(Collectors.toSet());
+    Set<String> removedStructuredPropertyUrns;
+    try (Stream<EntityAspect> stream =
+        aspectDao.streamAspects(STRUCTURED_PROPERTY_ENTITY_NAME, STATUS_ASPECT_NAME)) {
+      removedStructuredPropertyUrns =
+          stream
+              .map(
+                  entityAspect ->
+                      Pair.of(
+                          entityAspect.getUrn(),
+                          RecordUtils.toRecordTemplate(Status.class, entityAspect.getMetadata())))
+              .filter(status -> status.getSecond().isRemoved())
+              .map(Pair::getFirst)
+              .collect(Collectors.toSet());
+    }
 
-    return aspectDao
-        .streamAspects(STRUCTURED_PROPERTY_ENTITY_NAME, STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME)
-        .map(
-            entityAspect ->
-                Pair.of(
-                    entityAspect.getUrn(),
-                    RecordUtils.toRecordTemplate(
-                        StructuredPropertyDefinition.class, entityAspect.getMetadata())))
-        .filter(definition -> !removedStructuredPropertyUrns.contains(definition.getKey()))
-        .map(Pair::getSecond)
-        .collect(Collectors.toSet());
+    try (Stream<EntityAspect> stream =
+        aspectDao.streamAspects(
+            STRUCTURED_PROPERTY_ENTITY_NAME, STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME)) {
+      return stream
+          .map(
+              entityAspect ->
+                  Pair.of(
+                      entityAspect.getUrn(),
+                      RecordUtils.toRecordTemplate(
+                          StructuredPropertyDefinition.class, entityAspect.getMetadata())))
+          .filter(definition -> !removedStructuredPropertyUrns.contains(definition.getKey()))
+          .map(Pair::getSecond)
+          .collect(Collectors.toSet());
+    }
   }
 }

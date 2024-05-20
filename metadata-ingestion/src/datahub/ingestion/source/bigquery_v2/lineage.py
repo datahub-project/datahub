@@ -551,22 +551,20 @@ class BigqueryLineageExtractor:
                 # Only builds lineage map when the table has upstreams
                 logger.debug("Found %d upstreams for table %s", len(upstreams), table)
                 if upstreams:
-                    lineage_map[destination_table_str] = set(
-                        [
-                            LineageEdge(
-                                table=str(
-                                    BigQueryTableRef(
-                                        table_identifier=BigqueryTableIdentifier.from_string_name(
-                                            source_table
-                                        )
+                    lineage_map[destination_table_str] = {
+                        LineageEdge(
+                            table=str(
+                                BigQueryTableRef(
+                                    table_identifier=BigqueryTableIdentifier.from_string_name(
+                                        source_table
                                     )
-                                ),
-                                column_mapping=frozenset(),
-                                auditStamp=curr_date,
-                            )
-                            for source_table in upstreams
-                        ]
-                    )
+                                )
+                            ),
+                            column_mapping=frozenset(),
+                            auditStamp=curr_date,
+                        )
+                        for source_table in upstreams
+                    }
             return lineage_map
         except Exception as e:
             self.error(

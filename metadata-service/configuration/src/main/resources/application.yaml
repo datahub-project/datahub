@@ -381,6 +381,12 @@ views:
 entityClient:
   retryInterval: ${ENTITY_CLIENT_RETRY_INTERVAL:2}
   numRetries: ${ENTITY_CLIENT_NUM_RETRIES:3}
+  java:
+    get:
+      batchSize: ${ENTITY_CLIENT_JAVA_GET_BATCH_SIZE:375} # matches EbeanAspectDao batch size
+  restli:
+    get:
+      batchSize: ${ENTITY_CLIENT_RESTLI_GET_BATCH_SIZE:100} # limited to prevent exceeding restli URI size limit
 
 usageClient:
   retryInterval: ${USAGE_CLIENT_RETRY_INTERVAL:2}
@@ -438,6 +444,7 @@ graphQL:
   query:
     complexityLimit: ${GRAPHQL_QUERY_COMPLEXITY_LIMIT:2000}
     depthLimit: ${GRAPHQL_QUERY_DEPTH_LIMIT:50}
+    introspectionEnabled: ${GRAPHQL_QUERY_INTROSPECTION_ENABLED:true}
 
 springdoc.api-docs.groups.enabled: true
 
