@@ -204,7 +204,7 @@ class DataResolverBase(ABC):
                 webUrl=instance.get(Constant.WEB_URL),
                 workspace_id=workspace.id,
                 workspace_name=workspace.name,
-                usageStats={},
+                usageStats=None,
                 tiles=[],
                 users=[],
                 tags=[],
@@ -284,7 +284,7 @@ class DataResolverBase(ABC):
                 webUrl=raw_instance.get(Constant.WEB_URL),
                 embedUrl=raw_instance.get(Constant.EMBED_URL),
                 description=raw_instance.get(Constant.DESCRIPTION, str()),
-                usageStats={},
+                usageStats=None,
                 pages=self._get_pages_by_report(
                     workspace=workspace, report_id=raw_instance[Constant.ID]
                 ),

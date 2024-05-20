@@ -217,7 +217,7 @@ class Report:
     embedUrl: str
     description: str
     dataset: Optional["PowerBIDataset"]
-    usageStats: Dict[str, UsageStat]  # date as key
+    usageStats: Optional[Dict[str, UsageStat]]  # date as key
     pages: List["Page"]
     users: List["User"]
     tags: List[str]
@@ -255,7 +255,7 @@ class Dashboard:
     isReadOnly: Any
     workspace_id: str
     workspace_name: str
-    usageStats: Dict[str, UsageStat]
+    usageStats: Optional[Dict[str, UsageStat]]  # date as key
     tiles: List["Tile"]
     users: List["User"]
     tags: List[str]
