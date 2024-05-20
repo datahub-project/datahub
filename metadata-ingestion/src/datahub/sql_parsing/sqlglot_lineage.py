@@ -406,10 +406,11 @@ def _column_level_lineage(  # noqa: C901
             return default_col_name
 
     # Optimize the statement + qualify column references.
-    logger.debug(
-        "Prior to column qualification sql %s",
-        statement.sql(pretty=True, dialect=dialect),
-    )
+    if logger.isEnabledFor(logging.DEBUG):
+        logger.debug(
+            "Prior to column qualification sql %s",
+            statement.sql(pretty=True, dialect=dialect),
+        )
     try:
         # Second time running qualify, this time with:
         # - the select instead of the full outer statement
@@ -434,7 +435,8 @@ def _column_level_lineage(  # noqa: C901
         raise SqlUnderstandingError(
             f"sqlglot failed to map columns to their source tables; likely missing/outdated table schema info: {e}"
         ) from e
-    logger.debug("Qualified sql %s", statement.sql(pretty=True, dialect=dialect))
+    if logger.isEnabledFor(logging.DEBUG):
+        logger.debug("Qualified sql %s", statement.sql(pretty=True, dialect=dialect))
 
     # Handle the create DDL case.
     if is_create_ddl:
@@ -491,6 +493,9 @@ def _column_level_lineage(  # noqa: C901
             if output_col == "*":
                 # If schema information is available, the * will be expanded to the actual columns.
                 # Otherwise, we can't process it.
+                continue
+
+            if output_col == "":
                 continue
 
             if is_dialect_instance(dialect, "bigquery") and output_col.lower() in {
@@ -805,7 +810,7 @@ def _sqlglot_lineage_inner(
     logger.debug("Parsing lineage from sql statement: %s", sql)
     statement = parse_statement(sql, dialect=dialect)
 
-    original_statement = statement.copy()
+    original_statement, statement = statement, statement.copy()
     # logger.debug(
     #     "Formatted sql statement: %s",
     #     original_statement.sql(pretty=True, dialect=dialect),
@@ -886,9 +891,9 @@ def _sqlglot_lineage_inner(
     try:
         if select_statement is not None:
             with cooperative_timeout(
-                timeout=SQL_LINEAGE_TIMEOUT_SECONDS
-                if SQL_LINEAGE_TIMEOUT_ENABLED
-                else None
+                timeout=(
+                    SQL_LINEAGE_TIMEOUT_SECONDS if SQL_LINEAGE_TIMEOUT_ENABLED else None
+                )
             ):
                 column_lineage = _column_level_lineage(
                     select_statement,
@@ -914,8 +919,8 @@ def _sqlglot_lineage_inner(
     # TODO: Can we generate a common WHERE clauses section?
 
     # Convert TableName to urns.
-    in_urns = sorted(set(table_name_urn_mapping[table] for table in tables))
-    out_urns = sorted(set(table_name_urn_mapping[table] for table in modified))
+    in_urns = sorted({table_name_urn_mapping[table] for table in tables})
+    out_urns = sorted({table_name_urn_mapping[table] for table in modified})
     column_lineage_urns = None
     if column_lineage:
         column_lineage_urns = [

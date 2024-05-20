@@ -26,6 +26,9 @@ import org.springframework.web.context.WebApplicationContext;
 @Slf4j
 @Component
 public class OnBootApplicationListener {
+
+  public static final String SCHEMA_REGISTRY_SERVLET_NAME = "dispatcher-schema-registry";
+
   private static final Set<Integer> ACCEPTED_HTTP_CODES =
       Set.of(
           HttpStatus.SC_OK,
@@ -58,6 +61,12 @@ public class OnBootApplicationListener {
 
   @EventListener(ContextRefreshedEvent.class)
   public void onApplicationEvent(@Nonnull ContextRefreshedEvent event) {
+
+    if (SCHEMA_REGISTRY_SERVLET_NAME.equals(event.getApplicationContext().getId())) {
+      log.info("Loading servlet {} without interruption.", SCHEMA_REGISTRY_SERVLET_NAME);
+      return;
+    }
+
     log.warn(
         "OnBootApplicationListener context refreshed! {} event: {}",
         ROOT_WEB_APPLICATION_CONTEXT_ID.equals(event.getApplicationContext().getId()),

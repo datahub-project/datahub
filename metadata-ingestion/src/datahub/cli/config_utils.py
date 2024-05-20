@@ -84,7 +84,7 @@ def ensure_datahub_config() -> None:
 
 
 def get_client_config(as_dict: bool = False) -> Union[Optional[DatahubConfig], dict]:
-    with open(DATAHUB_CONFIG_PATH, "r") as stream:
+    with open(DATAHUB_CONFIG_PATH) as stream:
         try:
             config_json = yaml.safe_load(stream)
             if as_dict:

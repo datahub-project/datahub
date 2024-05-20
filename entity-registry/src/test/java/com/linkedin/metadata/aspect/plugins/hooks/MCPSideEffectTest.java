@@ -14,6 +14,9 @@ import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
+import lombok.Getter;
+import lombok.Setter;
+import lombok.experimental.Accessors;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
@@ -41,26 +44,28 @@ public class MCPSideEffectTest {
     assertEquals(
         mcpSideEffects,
         List.of(
-            new MCPSideEffectTest.TestMCPSideEffect(
-                AspectPluginConfig.builder()
-                    .className(
-                        "com.linkedin.metadata.aspect.plugins.hooks.MCPSideEffectTest$TestMCPSideEffect")
-                    .supportedOperations(List.of("UPSERT"))
-                    .enabled(true)
-                    .supportedEntityAspectNames(
-                        List.of(
-                            AspectPluginConfig.EntityAspectName.builder()
-                                .entityName("dataset")
-                                .aspectName("datasetKey")
-                                .build()))
-                    .build())));
+            new MCPSideEffectTest.TestMCPSideEffect()
+                .setConfig(
+                    AspectPluginConfig.builder()
+                        .className(
+                            "com.linkedin.metadata.aspect.plugins.hooks.MCPSideEffectTest$TestMCPSideEffect")
+                        .supportedOperations(List.of("UPSERT"))
+                        .enabled(true)
+                        .supportedEntityAspectNames(
+                            List.of(
+                                AspectPluginConfig.EntityAspectName.builder()
+                                    .entityName("dataset")
+                                    .aspectName("datasetKey")
+                                    .build()))
+                        .build())));
   }
 
+  @Getter
+  @Setter
+  @Accessors(chain = true)
   public static class TestMCPSideEffect extends MCPSideEffect {
 
-    public TestMCPSideEffect(AspectPluginConfig aspectPluginConfig) {
-      super(aspectPluginConfig);
-    }
+    public AspectPluginConfig config;
 
     @Override
     protected Stream<ChangeMCP> applyMCPSideEffect(

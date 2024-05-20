@@ -36,7 +36,7 @@ class QlikAPI:
         )
         self.rest_api_url = f"https://{self.config.tenant_hostname}/api/v1"
         # Test connection by fetching list of api keys
-        logger.info("Trying to connect to {}".format(self.rest_api_url))
+        logger.info(f"Trying to connect to {self.rest_api_url}")
         self.session.get(f"{self.rest_api_url}/api-keys").raise_for_status()
 
     def _log_http_error(self, message: str) -> Any:
@@ -50,12 +50,19 @@ class QlikAPI:
     def get_spaces(self) -> List[Space]:
         spaces: List[Space] = []
         try:
-            response = self.session.get(f"{self.rest_api_url}/spaces")
-            response.raise_for_status()
-            for space_dict in response.json()[Constant.DATA]:
-                space = Space.parse_obj(space_dict)
-                spaces.append(space)
-                self.spaces[space.id] = space.name
+            url = f"{self.rest_api_url}/spaces"
+            while True:
+                response = self.session.get(url)
+                response.raise_for_status()
+                response_dict = response.json()
+                for space_dict in response_dict[Constant.DATA]:
+                    space = Space.parse_obj(space_dict)
+                    spaces.append(space)
+                    self.spaces[space.id] = space.name
+                if Constant.NEXT in response_dict[Constant.LINKS]:
+                    url = response_dict[Constant.LINKS][Constant.NEXT][Constant.HREF]
+                else:
+                    break
             # Add personal space entity
             spaces.append(Space.parse_obj(PERSONAL_SPACE_DICT))
             self.spaces[PERSONAL_SPACE_DICT[Constant.ID]] = PERSONAL_SPACE_DICT[

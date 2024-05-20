@@ -30,6 +30,7 @@ import com.linkedin.metadata.entity.EntityAspect;
 import com.linkedin.metadata.entity.EntityAspectIdentifier;
 import com.linkedin.metadata.entity.ListResult;
 import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
+import com.linkedin.metadata.entity.ebean.PartitionedStream;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
 import com.linkedin.metadata.query.ExtraInfo;
 import com.linkedin.metadata.query.ExtraInfoArray;
@@ -200,7 +201,7 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
     return keys.stream()
         .map(this::getAspect)
         .filter(Objects::nonNull)
-        .collect(Collectors.toMap(EntityAspect::getAspectIdentifier, aspect -> aspect));
+        .collect(Collectors.toMap(EntityAspectIdentifier::fromEntityAspect, aspect -> aspect));
   }
 
   @Override
@@ -491,7 +492,7 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
   }
 
   @Nonnull
-  public Stream<Stream<EbeanAspectV2>> streamAspectBatches(final RestoreIndicesArgs args) {
+  public PartitionedStream<EbeanAspectV2> streamAspectBatches(final RestoreIndicesArgs args) {
     // Not implemented
     return null;
   }

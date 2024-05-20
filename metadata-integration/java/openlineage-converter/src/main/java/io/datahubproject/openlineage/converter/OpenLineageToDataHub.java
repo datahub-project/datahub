@@ -621,6 +621,11 @@ public class OpenLineageToDataHub {
 
   private static void processJobInputs(
       DatahubJob datahubJob, OpenLineage.RunEvent event, DatahubOpenlineageConfig datahubConf) {
+
+    if (event.getInputs() == null) {
+      return;
+    }
+
     for (OpenLineage.InputDataset input :
         event.getInputs().stream()
             .filter(input -> input.getFacets() != null)
@@ -646,6 +651,11 @@ public class OpenLineageToDataHub {
 
   private static void processJobOutputs(
       DatahubJob datahubJob, OpenLineage.RunEvent event, DatahubOpenlineageConfig datahubConf) {
+
+    if (event.getOutputs() == null) {
+      return;
+    }
+
     for (OpenLineage.OutputDataset output :
         event.getOutputs().stream()
             .filter(input -> input.getFacets() != null)

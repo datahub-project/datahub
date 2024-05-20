@@ -112,6 +112,34 @@ _VIEW_FILE_EXTENSION = ".view.lkml"
 _MODEL_FILE_EXTENSION = ".model.lkml"
 
 
+def deduplicate_fields(fields: List[ViewField]) -> List[ViewField]:
+    # Remove duplicates filed from self.fields
+    # Logic is: If more than a field has same ViewField.name then keep only one filed where ViewField.field_type
+    # is DIMENSION_GROUP.
+    # Looker Constraint:
+    #   - Any field declared as dimension or measure can be redefined as dimension_group.
+    #   - Any field declared in dimension can't be redefined in measure and vice-versa.
+
+    dimension_group_field_names: List[str] = [
+        field.name
+        for field in fields
+        if field.field_type == ViewFieldType.DIMENSION_GROUP
+    ]
+
+    new_fields: List[ViewField] = []
+
+    for field in fields:
+        if (
+            field.name in dimension_group_field_names
+            and field.field_type != ViewFieldType.DIMENSION_GROUP
+        ):
+            continue
+
+        new_fields.append(field)
+
+    return new_fields
+
+
 def _get_bigquery_definition(
     looker_connection: DBConnection,
 ) -> Tuple[str, Optional[str], Optional[str]]:
@@ -642,7 +670,7 @@ class LookerViewFileLoader:
             return self.viewfile_cache[path]
 
         try:
-            with open(path, "r") as file:
+            with open(path) as file:
                 raw_file_content = file.read()
         except Exception as e:
             self.reporter.report_failure(path, f"failed to load view file: {e}")
@@ -1032,10 +1060,11 @@ class LookerView:
                 if "sql" in field_dict and populate_sql_logic_in_descriptions
                 else ""
             )
+
             description = field_dict.get("description", default_description)
             label = field_dict.get("label", "")
             upstream_fields = []
-            if type_cls == ViewFieldType.DIMENSION and extract_column_level_lineage:
+            if extract_column_level_lineage:
                 if field_dict.get("sql") is not None:
                     for upstream_field_match in re.finditer(
                         r"\${TABLE}\.[\"]*([\.\w]+)", field_dict["sql"]
@@ -1153,6 +1182,8 @@ class LookerView:
             populate_sql_logic_in_descriptions=populate_sql_logic_in_descriptions,
         )
         fields: List[ViewField] = dimensions + dimension_groups + measures
+
+        fields = deduplicate_fields(fields)
 
         # Prep "default" values for the view, which will be overridden by the logic below.
         view_logic = looker_viewfile.raw_file_content[:max_file_snippet_length]

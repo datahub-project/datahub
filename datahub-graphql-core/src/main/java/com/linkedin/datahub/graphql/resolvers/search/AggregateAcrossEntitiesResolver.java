@@ -20,6 +20,7 @@ import com.linkedin.metadata.service.ViewService;
 import com.linkedin.view.DataHubViewInfo;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
@@ -68,15 +69,21 @@ public class AggregateAcrossEntitiesResolver
           final List<String> facets =
               input.getFacets() != null && input.getFacets().size() > 0 ? input.getFacets() : null;
 
+          List<String> finalEntities =
+              maybeResolvedView != null
+                  ? SearchUtils.intersectEntityTypes(
+                      entityNames, maybeResolvedView.getDefinition().getEntityTypes())
+                  : entityNames;
+          if (finalEntities.size() == 0) {
+            return createEmptyAggregateResults();
+          }
+
           try {
             return mapAggregateResults(
                 context,
                 _entityClient.searchAcrossEntities(
                     context.getOperationContext().withSearchFlags(flags -> searchFlags),
-                    maybeResolvedView != null
-                        ? SearchUtils.intersectEntityTypes(
-                            entityNames, maybeResolvedView.getDefinition().getEntityTypes())
-                        : entityNames,
+                    finalEntities,
                     sanitizedQuery,
                     maybeResolvedView != null
                         ? SearchUtils.combineFilters(
@@ -111,5 +118,11 @@ public class AggregateAcrossEntitiesResolver
             .collect(Collectors.toList()));
 
     return results;
+  }
+
+  AggregateResults createEmptyAggregateResults() {
+    final AggregateResults result = new AggregateResults();
+    result.setFacets(new ArrayList<>());
+    return result;
   }
 }

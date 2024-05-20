@@ -118,14 +118,15 @@ def _modify_at_path(
             assert isinstance(model, list)
             model[path[0]] = new_value
         elif isinstance(model, DictWrapper):
-            model._inner_dict[path[0]] = new_value
+            setattr(model, path[0], new_value)
         else:  # MCPW
             setattr(model, path[0], new_value)
     elif isinstance(path[0], int):
         assert isinstance(model, list)
         _modify_at_path(model[path[0]], path[1:], new_value)
     elif isinstance(model, DictWrapper):
-        _modify_at_path(model._inner_dict[path[0]], path[1:], new_value)
+        item = getattr(model, path[0])
+        _modify_at_path(item, path[1:], new_value)
     else:  # MCPW
         _modify_at_path(getattr(model, path[0]), path[1:], new_value)
 

@@ -256,7 +256,7 @@ class GenericFileSource(TestableSource):
                 file_read_mode = self.config.read_mode
 
             if file_read_mode == FileReadMode.BATCH:
-                with open(path, "r") as f:
+                with open(path) as f:
                     parse_start_time = datetime.datetime.now()
                     obj_list = json.load(f)
                     parse_end_time = datetime.datetime.now()

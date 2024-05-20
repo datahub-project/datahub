@@ -24,7 +24,7 @@ class SigmaAPI:
         self.users: Dict[str, str] = {}
         self.session = requests.Session()
         # Test connection by generating access token
-        logger.info("Trying to connect to {}".format(self.config.api_url))
+        logger.info(f"Trying to connect to {self.config.api_url}")
         self._generate_token()
 
     def _generate_token(self):
