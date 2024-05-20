@@ -632,10 +632,10 @@ class MetabaseSource(StatefulIngestionSourceBase):
         """
 
         # drop [[ WHERE {{FILTER}} ]]
-        query_patched = re.sub(r"\[\[.+\]\]", r" ", raw_query)
+        query_patched = re.sub(r"\[\[.+?\]\]", r" ", raw_query)
 
         # replace {{FILTER}} with 1
-        query_patched = re.sub(r"\{\{.+\}\}", r"1", query_patched)
+        query_patched = re.sub(r"\{\{.+?\}\}", r"1", query_patched)
         return query_patched
 
     @lru_cache(maxsize=None)
