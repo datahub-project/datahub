@@ -799,7 +799,6 @@ module.exports = {
     },
     {
       "API & SDK Guides": [
-        "docs/advanced/patch",
         "docs/api/tutorials/datasets",
         "docs/api/tutorials/lineage",
         "docs/api/tutorials/tags",
@@ -810,6 +809,7 @@ module.exports = {
         "docs/api/tutorials/descriptions",
         "docs/api/tutorials/custom-properties",
         "docs/api/tutorials/ml",
+        "docs/advanced/patch",
       ],
     },
     {
