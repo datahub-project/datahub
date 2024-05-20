@@ -6,7 +6,7 @@ graph = DataHubGraph(DatahubClientConfig(server=gms_endpoint))
 
 # Query multiple aspects from entity
 query = """
-query scrollAcrossLineage($input: ScrollQueryInput!) {
+query scrollAcrossLineage($input: ScrollAcrossLineageInput!) {
   scrollAcrossLineage(input: $input) {
     searchResults {
       degree
