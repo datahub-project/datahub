@@ -216,14 +216,13 @@ curl --location --request POST 'http://localhost:8080/api/graphql' \
 The Python SDK example shows how to read lineage of a dataset. Please note that the `aspect_type` parameter can vary depending on the entity type. 
 Below is a few examples of `aspect_type` for different entities.
 
-|Entity|Aspect_type|Reference|
-|-------|------------|-----|
-|Dataset|`UpstreamLineageClass`| Link |
-|Datajob|`DataJobInputOutputClass`| Link |
-|Dashboard|`DashboardInfoClass`| Link |
-|DataFlow|`DataFlowInfoClass`| Link |
+|Entity|Aspect_type| Reference                                                                |
+|-------|------------|--------------------------------------------------------------------------|
+|Dataset|`UpstreamLineageClass`| [Link](/docs/generated/metamodel/entities/dataset.md#upstreamlineage)    |
+|Datajob|`DataJobInputOutputClass`| [Link](/docs/generated/metamodel/entities/datajob.md#datajobinputoutput) |
+|Dashboard|`DashboardInfoClass`| [Link](/docs/generated/metamodel/entities/dashboard.md#dashboardinfo)    |
+|DataFlow|`DataFlowInfoClass`| [Link](/docs/generated/metamodel/entities/dataflow.md#dataflowinfo)      |
 
-You can find more information about the `aspect_type` in the `Outgoing relationship` that the entity consumes/produces. 
 Learn more about lineages of different entities in the [Add Lineage to Non-Dataset Entities](#add-lineage-to-non-dataset-entities) Section.
 
 </TabItem>
