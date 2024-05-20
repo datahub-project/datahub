@@ -1,5 +1,6 @@
 import os
 import re
+import sys
 
 
 def env_to_properties(env_prefix: str, properties_file: str):
@@ -15,3 +16,9 @@ def env_to_properties(env_prefix: str, properties_file: str):
     with open(properties_file, 'r') as f:
         for k, v in props.items():
             f.writelines(f'{k}={v}\n')
+
+
+if __name__ == '__main__':
+    env_prefix = sys.argv[1]
+    properties_file = sys.argv[2]
+    env_to_properties(env_prefix, properties_file)
