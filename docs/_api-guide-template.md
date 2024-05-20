@@ -3,7 +3,6 @@ import TabItem from '@theme/TabItem';
 
 # [Feature Name]
 
-## Why Would You Use [Feature Name]?
 
 <!-- This section should provide plain-language explanations on the feature itself, preferably in one paragraph, and should link to the feature guide for more detailed information.
 * What is the short definition of this feature?
