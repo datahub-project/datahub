@@ -28,6 +28,7 @@ class HiveColumnToAvroConverter:
         "bigint": "long",
         "varchar": "string",
         "char": "string",
+        "long": "long",
         "bytes": "bytes",
     }
     _EXTRA_BIGQUERY_TYPE_TO_AVRO_TYPE = {
