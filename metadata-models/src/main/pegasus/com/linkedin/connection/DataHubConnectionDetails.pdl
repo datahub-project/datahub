@@ -1,0 +1,38 @@
+namespace com.linkedin.connection
+
+import com.linkedin.common.Urn
+
+/**
+ * Information about a connection to an external platform.
+ */
+@Aspect = {
+  "name": "dataHubConnectionDetails"
+}
+record DataHubConnectionDetails {
+  /**
+   * The type of the connection. This defines the schema / encoding of the connection details.
+   */
+  @Searchable = {}
+  type: enum DataHubConnectionDetailsType {
+    /**
+     * A json-encoded set of connection details
+     */
+    JSON
+  }
+
+  /**
+   * Display name of the connection
+   */
+  @Searchable = {
+    "fieldType": "TEXT_PARTIAL",
+    "enableAutocomplete": true,
+    "boostScore": 10.0
+  }
+  name: optional string
+
+  /**
+   * An JSON payload containing raw connection details.
+   * This will be present if the type is JSON.
+   */
+  json: optional DataHubJsonConnection
+}
