@@ -75,7 +75,7 @@ public class OpenAPIV3Generator {
     final Components components = new Components();
     // --> Aspect components
     // TODO: Correct handling of SystemMetadata and SortOrder
-    components.addSchemas("SystemMetadata", new Schema().type(TYPE_STRING));
+    components.addSchemas("SystemMetadata", new Schema().type(TYPE_OBJECT).additionalProperties(true));
     components.addSchemas("SortOrder", new Schema()._enum(List.of("ASCENDING", "DESCENDING")));
     components.addSchemas("AspectPatch", buildAspectPatchSchema());
     entityRegistry
@@ -185,7 +185,6 @@ public class OpenAPIV3Generator {
     final Operation getOperation =
         new Operation()
             .summary(String.format("Get %s.", upperFirst))
-            .operationId(String.format("get%s", upperFirst))
             .parameters(parameters)
             .tags(List.of(entity.getName() + " Entity"))
             .responses(new ApiResponses().addApiResponse("200", successApiResponse));
@@ -202,7 +201,6 @@ public class OpenAPIV3Generator {
     final Operation headOperation =
         new Operation()
             .summary(String.format("%s existence.", upperFirst))
-            .operationId(String.format("head%s", upperFirst))
             .parameters(
                 List.of(
                     new Parameter()
@@ -223,7 +221,6 @@ public class OpenAPIV3Generator {
     final Operation deleteOperation =
         new Operation()
             .summary(String.format("Delete entity %s", upperFirst))
-            .operationId(String.format("delete%s", upperFirst))
             .parameters(
                 List.of(
                     new Parameter()
@@ -274,7 +271,6 @@ public class OpenAPIV3Generator {
     result.setGet(
         new Operation()
             .summary(String.format("Scroll/List %s.", upperFirst))
-            .operationId("scroll")
             .parameters(parameters)
             .tags(List.of(entity.getName() + " Entity"))
             .responses(new ApiResponses().addApiResponse("200", successApiResponse)));
@@ -331,7 +327,6 @@ public class OpenAPIV3Generator {
                         .description("Include systemMetadata with response.")
                         .schema(new Schema().type(TYPE_BOOLEAN)._default(false))))
             .summary("Create " + upperFirst + " entities.")
-            .operationId("createEntities")
             .tags(List.of(entity.getName() + " Entity"))
             .requestBody(
                 new RequestBody()
@@ -365,7 +360,7 @@ public class OpenAPIV3Generator {
             .schema(
                 new Schema()
                     .type(TYPE_ARRAY)
-                    ._default(PROPERTY_URN)
+                    ._default(List.of(PROPERTY_URN))
                     .items(
                         new Schema<>()
                             .type(TYPE_STRING)
@@ -386,7 +381,7 @@ public class OpenAPIV3Generator {
             .in(NAME_QUERY)
             .name("count")
             .description("Number of items per page.")
-            .example("10")
+            .example(10)
             .schema(new Schema().type(TYPE_INTEGER)._default(10).minimum(new BigDecimal(1))));
     components.addParameters(
         "ScrollQuery" + MODEL_VERSION,
@@ -455,7 +450,7 @@ public class OpenAPIV3Generator {
                           // A non-required $ref property must be wrapped in a { allOf: [ $ref ] }
                           // object to allow the
                           // property to be marked as nullable
-                          schema.setType("object");
+                          schema.setType(TYPE_OBJECT);
                           schema.set$ref(null);
                           schema.setAllOf(List.of(new Schema().$ref($ref)));
                         }
@@ -482,8 +477,11 @@ public class OpenAPIV3Generator {
     result.addProperty(
         "systemMetadata",
         new Schema<>()
-            .$ref(PATH_DEFINITIONS + "SystemMetadata")
-            .description("System metadata for the aspect."));
+            .type(TYPE_OBJECT)
+            .allOf(List.of(new Schema().$ref(PATH_DEFINITIONS + "SystemMetadata")))
+            .description("System metadata for the aspect.")
+            .nullable(true)
+    );
     return result;
   }
 
@@ -604,7 +602,6 @@ public class OpenAPIV3Generator {
     final Operation getOperation =
         new Operation()
             .summary(String.format("Get %s for %s.", aspect, entity.getName()))
-            .operationId(String.format("get%s", upperFirstAspect))
             .tags(tags)
             .parameters(List.of(getParameter))
             .responses(new ApiResponses().addApiResponse("200", successApiResponse));
@@ -620,7 +617,6 @@ public class OpenAPIV3Generator {
     final Operation headOperation =
         new Operation()
             .summary(String.format("%s on %s existence.", aspect, upperFirstEntity))
-            .operationId(String.format("head%s", upperFirstAspect))
             .tags(tags)
             .responses(
                 new ApiResponses()
@@ -634,7 +630,6 @@ public class OpenAPIV3Generator {
     final Operation deleteOperation =
         new Operation()
             .summary(String.format("Delete %s on entity %s", aspect, upperFirstEntity))
-            .operationId(String.format("delete%s", upperFirstAspect))
             .tags(tags)
             .responses(new ApiResponses().addApiResponse("200", successDeleteResponse));
     // Post Operation
@@ -670,7 +665,6 @@ public class OpenAPIV3Generator {
     final Operation postOperation =
         new Operation()
             .summary(String.format("Create aspect %s on %s ", aspect, upperFirstEntity))
-            .operationId(String.format("create%s", upperFirstAspect))
             .tags(tags)
             .requestBody(requestBody)
             .responses(new ApiResponses().addApiResponse("201", successPostResponse));
@@ -709,7 +703,6 @@ public class OpenAPIV3Generator {
                         .description("Include systemMetadata with response.")
                         .schema(new Schema().type(TYPE_BOOLEAN)._default(false))))
             .summary(String.format("Patch aspect %s on %s ", aspect, upperFirstEntity))
-            .operationId(String.format("patch%s", upperFirstAspect))
             .tags(tags)
             .requestBody(patchRequestBody)
             .responses(new ApiResponses().addApiResponse("200", successPatchResponse));

@@ -68,5 +68,15 @@ public class OpenAPIV3GeneratorTest {
     assertNull(created.get$ref());
     assertEquals(List.of(new Schema().$ref("#/components/schemas/TimeStamp")), created.getAllOf());
     assertTrue(created.getNullable());
+
+    // Assert systemMetadata property on response schema is optional.
+    Map<String, Schema> datasetPropertiesResponseSchemaProps = openAPI.getComponents().getSchemas()
+            .get("DatasetPropertiesAspectResponse_v3").getProperties();
+    Schema systemMetadata = datasetPropertiesResponseSchemaProps.get("systemMetadata");
+    assertEquals("object", systemMetadata.getType());
+    assertNull(systemMetadata.get$ref());
+    assertEquals(List.of(new Schema().$ref("#/components/schemas/SystemMetadata")),
+            systemMetadata.getAllOf());
+    assertTrue(systemMetadata.getNullable());
   }
 }
