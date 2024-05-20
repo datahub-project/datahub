@@ -1342,9 +1342,7 @@ class LookerView:
                 env=env,
                 graph=ctx.graph,
             )
-            import pdb
 
-            pdb.set_trace()
             if not fields:
                 fields = []
                 column_lineages: List[ColumnLineageInfo] = (
