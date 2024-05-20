@@ -391,10 +391,11 @@ class PowerBiDashboardSourceConfig(
 
     # Enable advance sql construct
     enable_advance_lineage_sql_construct: bool = pydantic.Field(
-        default=False,
+        default=True,
         description="Whether to enable advance native sql construct for parsing like join, sub-queries. "
         "along this flag , the native_query_parsing should be enabled. "
-        "By default convert_lineage_urns_to_lowercase is enabled, in-case if you have disabled it in previous ingestion execution then it may break lineage "
+        "By default convert_lineage_urns_to_lowercase is enabled, in-case if you have disabled it in previous "
+        "ingestion execution then it may break lineage"
         "as this option generates the upstream datasets URN in lowercase.",
     )
 
@@ -402,7 +403,8 @@ class PowerBiDashboardSourceConfig(
     extract_column_level_lineage: bool = pydantic.Field(
         default=False,
         description="Whether to extract column level lineage. "
-        "Works only if configs `native_query_parsing`, `enable_advance_lineage_sql_construct` & `extract_lineage` are enabled.  "
+        "Works only if configs `native_query_parsing`, `enable_advance_lineage_sql_construct` & `extract_lineage` are "
+        "enabled."
         "Works for M-Query where native SQL is used for transformation.",
     )
 
