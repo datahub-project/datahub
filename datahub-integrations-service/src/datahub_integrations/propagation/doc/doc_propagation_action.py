@@ -15,42 +15,79 @@
 import json
 import logging
 import time
-from typing import List, Optional
+from typing import Any, List, Optional
 
 from datahub.configuration.common import ConfigModel
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.metadata.schema_classes import (
     AuditStampClass,
-    EditableSchemaFieldInfoClass,
-    EditableSchemaMetadataClass,
-    GenericAspectClass,
-    DocumentationClass,
     DocumentationAssociationClass,
+    DocumentationClass,
+    EditableSchemaMetadataClass,
 )
 from datahub.metadata.schema_classes import EntityChangeEventClass as EntityChangeEvent
-from datahub.metadata.schema_classes import (
-    GlossaryTermAssociationClass,
-    GlossaryTermsClass,
-    InputFieldsClass,
-)
-from datahub.specific.dataset import DatasetPatchBuilder
+from datahub.metadata.schema_classes import GenericAspectClass
 from datahub.utilities.urns.urn import Urn
 from datahub_actions.action.action import Action
 from datahub_actions.api.action_graph import AcrylDataHubGraph
 from datahub_actions.event.event_envelope import EventEnvelope
 from datahub_actions.pipeline.pipeline_context import PipelineContext
-from datahub_actions.plugin.action.utils.term_resolver import GlossaryTermsResolver
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, validator
+
 from datahub_integrations.propagation.doc.mcl_utils import MCLProcessor
 
 logger = logging.getLogger(__name__)
 
 
 class DocPropagationDirective(BaseModel):
-    propagate: bool
-    doc_string: str
-    operation: str
-    entity: str
+    propagate: bool = Field(
+        description="Indicates whether the documentation should be propagated."
+    )
+    doc_string: Optional[str] = Field(
+        default=None, description="Documentation string to be propagated."
+    )
+    operation: str = Field(
+        description="Operation to be performed on the documentation. Can be ADD, MODIFY or REMOVE."
+    )
+    entity: str = Field(
+        description="Entity URN from which the documentation is propagated. This will either be the same as the origin or the via entity, depending on the propagation path."
+    )
+    origin: str = Field(
+        description="Origin entity for the documentation. This is the entity that triggered the documentation propagation.",
+    )
+    via: Optional[str] = Field(
+        None,
+        description="Via entity for the documentation. This is the direct entity that the documentation was propagated through.",
+    )
+    actor: Optional[str] = Field(
+        None,
+        description="Actor that triggered the documentation propagation.",
+    )
+
+
+class SourceDetails(BaseModel):
+    origin: Optional[str] = Field(
+        None,
+        description="Origin entity for the documentation. This is the entity that triggered the documentation propagation.",
+    )
+    via: Optional[str] = Field(
+        None,
+        description="Via entity for the documentation. This is the direct entity that the documentation was propagated through.",
+    )
+    propagated: Optional[str] = Field(
+        None,
+        description="Indicates whether the documentation was propagated.",
+    )
+    actor: Optional[str] = Field(
+        None,
+        description="Actor that triggered the documentation propagation.",
+    )
+
+    @validator("propagated", pre=True)
+    def convert_boolean_to_lowercase_string(cls, v: Any) -> Optional[str]:
+        if isinstance(v, bool):
+            return str(v).lower()
+        return v
 
 
 class DocPropagationConfig(ConfigModel):
@@ -143,6 +180,7 @@ class DocPropagationAction(Action):
         self.config = config
         self.ctx = ctx
         self.mcl_processor = MCLProcessor()
+        self.actor_urn = "urn:li:corpuser:__datahub_system"
         if ctx.pipeline_name:
             if not ctx.pipeline_name.startswith("urn:li:dataHubAction"):
                 self.action_urn = f"urn:li:dataHubAction:{ctx.pipeline_name}"
@@ -220,12 +258,24 @@ class DocPropagationAction(Action):
                     )
                 )
                 if current_docs.documentations:
+                    # we assume that the first documentation is the primary one
+                    # we can change this later
+                    current_documentation_instance = current_docs.documentations[0]
+                    source_details = (
+                        (current_documentation_instance.attribution.sourceDetail)
+                        if current_documentation_instance.attribution
+                        else {}
+                    )
+                    origin_entity = source_details.get("origin")
                     if old_docs is None:
                         return DocPropagationDirective(
                             propagate=True,
-                            doc_string=current_docs.documentations[0].documentation,
+                            doc_string=current_documentation_instance.documentation,
                             operation="ADD",
                             entity=entity_urn,
+                            origin=origin_entity,
+                            via=entity_urn,
+                            actor=self.actor_urn,
                         )
                     else:
                         if (
@@ -234,9 +284,12 @@ class DocPropagationAction(Action):
                         ):
                             return DocPropagationDirective(
                                 propagate=True,
-                                doc_string=current_docs.documentations[0].documentation,
+                                doc_string=current_documentation_instance.documentation,
                                 operation="MODIFY",
                                 entity=entity_urn,
+                                origin=origin_entity,
+                                via=entity_urn,
+                                actor=self.actor_urn,
                             )
         return None
 
@@ -246,13 +299,6 @@ class DocPropagationAction(Action):
 
         if self.mcl_processor.is_mcl(event):
             return self.mcl_processor.process(event)
-        # breakpoint()
-        # if event.event_type is METADATA_CHANGE_LOG_EVENT_V1_TYPE:
-        #     orig_event = cast(MetadataChangeLogClass, event.event)
-        #     if (
-        #         orig_event.get("entityType") == DATAHUB_EXECUTION_REQUEST_ENTITY_NAME
-        #         and orig_event.get("changeType") == "UPSERT"
-        #     ):
         if event.event_type == "EntityChangeEvent_v1":
             assert isinstance(event.event, EntityChangeEvent)
             logger.info(f"Received event {event}")
@@ -269,154 +315,70 @@ class DocPropagationAction(Action):
                     and semantic_event.entityType == "schemaField"
                 ):
                     if semantic_event.parameters:
-                        doc_string = semantic_event.parameters.get("description")
+                        parameters = semantic_event.parameters
                     else:
-                        doc_string = semantic_event._inner_dict.get(
+                        parameters = semantic_event._inner_dict.get(
                             "__parameters_json", {}
-                        ).get("description")
+                        )
+                    doc_string = parameters.get("description")
+                    origin = parameters.get("origin")
+                    origin = origin or semantic_event.entityUrn
+                    via = (
+                        semantic_event.entityUrn
+                        if origin != semantic_event.entityUrn
+                        else None
+                    )
+                    print(f"Origin: {origin}")
+                    print(f"Via: {via}")
                     if doc_string:
                         return DocPropagationDirective(
                             propagate=True,
                             doc_string=doc_string,
                             operation=semantic_event.operation,
                             entity=semantic_event.entityUrn,
+                            origin=origin,
+                            via=via,  # if origin is set, then via is the entity itself
+                            actor=(
+                                semantic_event.auditStamp.actor
+                                if semantic_event.auditStamp
+                                else self.actor_urn
+                            ),
                         )
-            if (
-                semantic_event.category == "GLOSSARY_TERM"
-                and self.config is not None
-                and self.config.enabled
-            ):
-                assert semantic_event.modifier
-                for target_term in self.config.target_terms or [
-                    semantic_event.modifier
-                ]:
-                    # a cheap way to handle optionality and always propagate if config is not set
-                    # Check which terms have connectivity to the target term
-                    if (
-                        semantic_event.modifier == target_term
-                        or self.ctx.graph.check_relationship(  # term has been directly applied  # term is indirectly associated
-                            target_term,
-                            semantic_event.modifier,
-                            "IsA",
-                        )
-                    ):
-                        return DocPropagationDirective(
-                            propagate=True,
-                            term=semantic_event.modifier,
-                            operation=semantic_event.operation,
-                            entity=semantic_event.entityUrn,
-                        )
+            # if (
+            #     semantic_event.category == "GLOSSARY_TERM"
+            #     and self.config is not None
+            #     and self.config.enabled
+            # ):
+            #     assert semantic_event.modifier
+            #     for target_term in self.config.target_terms or [
+            #         semantic_event.modifier
+            #     ]:
+            #         # a cheap way to handle optionality and always propagate if config is not set
+            #         # Check which terms have connectivity to the target term
+            #         if (
+            #             semantic_event.modifier == target_term
+            #             or self.ctx.graph.check_relationship(  # term has been directly applied  # term is indirectly associated
+            #                 target_term,
+            #                 semantic_event.modifier,
+            #                 "IsA",
+            #             )
+            #         ):
+            #             return DocPropagationDirective(
+            #                 propagate=True,
+            #                 term=semantic_event.modifier,
+            #                 operation=semantic_event.operation,
+            #                 entity=semantic_event.entityUrn,
+            #             )
         return None
 
-    def add_terms_to_dataset_fields(
-        self,
-        graph: AcrylDataHubGraph,
-        dataset_urn: str,
-        field_terms: dict[str, List[str]],
-        context: dict,
-    ) -> None:
-        # Create a MetadataPatchProposal object
-        dataset = DatasetPatchBuilder(urn=dataset_urn)
-        for field_path, terms in field_terms.items():
-            field_builder = dataset.for_field(field_path=field_path)
-            for term in terms:
-                field_builder.add_term(
-                    GlossaryTermAssociationClass(
-                        term, context=json.dumps(context) if context else None
-                    )
-                )
-        for mcp in dataset.build():
-            logger.info(f"{mcp}")
-            graph.emit(mcp)
-
-    def modify_terms_on_chart_fields_slow(
-        self,
-        graph: AcrylDataHubGraph,
-        operation: str,
-        chart_urn: str,
-        field_terms: dict[str, List[str]],
-        context: str,
-    ) -> None:
-        if not chart_urn.startswith("urn:li:chart"):
-            logger.error(f"Invalid chart urn {chart_urn}. Must start with urn:li:chart")
-            return
-
-        auditStamp = AuditStampClass(
-            time=int(time.time() * 1000.0), actor="urn:li:corpuser:action-bot"
-        )
-
-        input_schema_fields = graph.graph.get_aspect(chart_urn, InputFieldsClass)
-        mutation_needed = False
-        if input_schema_fields is None or not input_schema_fields.fields:
-            logger.error(f"Chart {chart_urn} does not have input schema fields")
-            return
-        else:
-            # we have input schema fields
-            for field_path, terms in field_terms.items():
-                if field_path not in [
-                    x.schemaField.fieldPath for x in input_schema_fields.fields
-                ]:
-                    logger.warning(f"Field {field_path} not found in chart {chart_urn}")
-                else:
-                    for fieldInfo in input_schema_fields.fields:
-                        if fieldInfo.schemaField.fieldPath == field_path:
-                            for term in terms:
-                                if not fieldInfo.schemaField.glossaryTerms:
-                                    if operation == "ADD":
-                                        fieldInfo.schemaField.glossaryTerms = (
-                                            GlossaryTermsClass(
-                                                terms=[
-                                                    GlossaryTermAssociationClass(
-                                                        term, context=context
-                                                    )
-                                                ],
-                                                auditStamp=auditStamp,
-                                            )
-                                        )
-                                        mutation_needed = True
-                                else:
-                                    if term not in [
-                                        x.urn
-                                        for x in fieldInfo.schemaField.glossaryTerms.terms
-                                    ]:
-                                        if operation == "ADD":
-                                            fieldInfo.schemaField.glossaryTerms.terms.append(
-                                                GlossaryTermAssociationClass(
-                                                    term, context=context
-                                                )
-                                            )
-                                            fieldInfo.schemaField.glossaryTerms.auditStamp = (
-                                                auditStamp
-                                            )
-                                            mutation_needed = True
-                                    else:
-                                        if operation == "REMOVE":
-                                            fieldInfo.schemaField.glossaryTerms.terms = [
-                                                x
-                                                for x in fieldInfo.schemaField.glossaryTerms.terms
-                                                if x.urn != term
-                                            ]
-                                            fieldInfo.schemaField.glossaryTerms.auditStamp = (
-                                                auditStamp
-                                            )
-                                            mutation_needed = True
-        if mutation_needed:
-            assert input_schema_fields.validate()
-            graph.graph.emit(
-                MetadataChangeProposalWrapper(
-                    entityUrn=chart_urn,
-                    aspect=input_schema_fields,
-                )
-            )
-
-    def modify_docs_on_dataset_fields_slow(
+    def modify_docs_on_columns(
         self,
         graph: AcrylDataHubGraph,
         operation: str,
         schema_field_urn: str,
         dataset_urn: str,
-        field_doc: str,
-        context: str,
+        field_doc: Optional[str],
+        context: SourceDetails,
     ) -> None:
         if not dataset_urn.startswith("urn:li:dataset"):
             logger.error(
@@ -425,73 +387,90 @@ class DocPropagationAction(Action):
             return
 
         auditStamp = AuditStampClass(
-            time=int(time.time() * 1000.0), actor="urn:li:corpuser:action-bot"
+            time=int(time.time() * 1000.0), actor=self.actor_urn
         )
 
         from datahub.metadata.schema_classes import (
             DocumentationClass,
-            DocumentationAssociationClass,
             MetadataAttributionClass,
         )
 
+        source_details = context.dict(exclude_none=True)
+        attribution: MetadataAttributionClass = MetadataAttributionClass(
+            source=self.action_urn,
+            time=auditStamp.time,
+            actor=self.actor_urn,
+            sourceDetail=source_details,
+        )
         documentations = graph.graph.get_aspect(schema_field_urn, DocumentationClass)
         if documentations:
+            mutation_needed = False
+            action_sourced = False
+            # we check if there are any existing documentations generated by
+            # this action, if so, we update them
+            # otherwise, we add a new documentation entry sourced by this action
             for doc_association in documentations.documentations:
                 if doc_association.attribution and doc_association.attribution.source:
                     if doc_association.attribution.source == self.action_urn:
+                        action_sourced = True
                         if doc_association.documentation != field_doc:
+                            mutation_needed = True
                             if operation == "ADD" or operation == "MODIFY":
                                 doc_association.documentation = field_doc
-                                doc_association.attribution.time = auditStamp.time
+                                doc_association.attribution = attribution
                             elif operation == "REMOVE":
+                                # TODO : should we remove the documentation or just set it to empty string?
                                 doc_association.documentation = ""
-                                doc_association.attribution.time = auditStamp.time
-                            assert documentations.validate()
-                            graph.graph.emit(
-                                MetadataChangeProposalWrapper(
-                                    entityUrn=schema_field_urn,
-                                    aspect=documentations,
-                                )
-                            )
-        else:
-            # we need to check if the dataset has editable schema metadata
-            existing_field_doc = get_field_doc_from_dataset(
-                graph, dataset_urn, schema_field_urn
-            )
-            if not existing_field_doc:
-                documentations = DocumentationClass(
-                    documentations=[
-                        DocumentationAssociationClass(
-                            documentation=field_doc,
-                            attribution=MetadataAttributionClass(
-                                source=self.action_urn,
-                                time=auditStamp.time,
-                                actor="urn:li:corpuser:action-bot",
-                                # sourceDetail=json.loads(context),
-                            ),
-                        )
-                    ]
-                )
-                assert documentations.validate()
-                graph.graph.emit(
-                    MetadataChangeProposalWrapper(
-                        entityUrn=schema_field_urn,
-                        aspect=documentations,
+                                doc_association.attribution = attribution
+            if not action_sourced:
+                documentations.documentations.append(
+                    DocumentationAssociationClass(
+                        documentation=field_doc or "",
+                        attribution=attribution,
                     )
                 )
+                mutation_needed = True
+        else:
+            # no docs found, create a new one
+            # we don't check editableSchemaMetadata because our goal is to
+            # propagate documentation to downstream entities
+            # UI will handle resolving priorities and conflicts
+            documentations = DocumentationClass(
+                documentations=[
+                    DocumentationAssociationClass(
+                        documentation=field_doc or "",
+                        attribution=attribution,
+                    )
+                ]
+            )
+            mutation_needed = True
+
+        if mutation_needed:
+            assert documentations.validate()
+            graph.graph.emit(
+                MetadataChangeProposalWrapper(
+                    entityUrn=schema_field_urn,
+                    aspect=documentations,
+                )
+            )
 
     def act(self, event: EventEnvelope) -> None:
-        """This method responds to changes to glossary terms and propagates them to downstream entities"""
+        """This method responds to changes to documentation and propagates them to downstream entities"""
 
         logger.info(f"Received event {event}")
         doc_propagation_directive = self.should_propagate(event)
         logger.info(f"Doc propagation directive: {doc_propagation_directive}")
-        underlying_event: EntityChangeEvent = event.event
 
         if (
             doc_propagation_directive is not None
             and doc_propagation_directive.propagate is True
         ):
+            context = SourceDetails(
+                origin=doc_propagation_directive.origin,
+                via=doc_propagation_directive.via,
+                propagated=True,
+                actor=doc_propagation_directive.actor,
+            )
             assert self.ctx.graph
             # find downstream lineage
             downstreams = self.ctx.graph.get_downstreams(
@@ -508,39 +487,28 @@ class DocPropagationAction(Action):
                 for field in downstream_fields:
 
                     schema_field_urn = Urn.create_from_string(field)
-                    dataset_urn = schema_field_urn.get_entity_id()[0]
+                    parent_urn = schema_field_urn.get_entity_id()[0]
                     field_path = schema_field_urn.get_entity_id()[1]
                     logger.info(
-                        f"Will {doc_propagation_directive.operation} documentation {doc_propagation_directive.doc_string} for {field_path} on {dataset_urn}"
+                        f"Will {doc_propagation_directive.operation} documentation {doc_propagation_directive.doc_string} for {field_path} on {parent_urn}"
                     )
-                    if dataset_urn.startswith("urn:li:dataset"):
-                        self.modify_docs_on_dataset_fields_slow(
+                    if parent_urn.startswith("urn:li:dataset"):
+                        self.modify_docs_on_columns(
                             self.ctx.graph,
                             doc_propagation_directive.operation,
                             field,
-                            dataset_urn,
+                            parent_urn,
                             field_doc=doc_propagation_directive.doc_string,
-                            context=json.dumps(
-                                {
-                                    "propagated": True,
-                                    "origin": doc_propagation_directive.entity,
-                                    "actor": underlying_event.auditStamp.actor,
-                                }
-                            ),
+                            context=context,
                         )
-                    elif dataset_urn.startswith("urn:li:chart"):
-                        self.modify_docs_on_chart_fields_slow(
+                    elif parent_urn.startswith("urn:li:chart"):
+                        self.modify_docs_on_chart_fields(
                             self.ctx.graph,
                             doc_propagation_directive.operation,
-                            dataset_urn,
+                            field,
+                            parent_urn,
                             field_doc=doc_propagation_directive.doc_string,
-                            context=json.dumps(
-                                {
-                                    "propagated": True,
-                                    "origin": doc_propagation_directive.entity,
-                                    "actor": underlying_event.auditStamp.actor,
-                                }
-                            ),
+                            context=context,
                         )
             elif entity_urn.startswith("urn:li:dataset"):
                 downstream_datasets = [
@@ -550,10 +518,7 @@ class DocPropagationAction(Action):
                     self.ctx.graph.add_docs_to_dataset(
                         dataset,
                         [doc_propagation_directive.doc_string],
-                        context={
-                            "propagated": True,
-                            "origin": doc_propagation_directive.entity,
-                        },
+                        context=context,
                     )
                     logger.info(
                         f"Will {doc_propagation_directive.operation} doc {doc_propagation_directive.doc_string} to {dataset}"
