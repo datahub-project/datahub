@@ -19,6 +19,7 @@ import com.linkedin.metadata.config.TestsConfiguration;
 import com.linkedin.metadata.config.ViewsConfiguration;
 import com.linkedin.metadata.config.VisualConfiguration;
 import com.linkedin.metadata.config.telemetry.TelemetryConfiguration;
+import com.linkedin.metadata.connection.ConnectionService;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.graph.SiblingGraphService;
@@ -84,6 +85,7 @@ public class GmsGraphQLEngineArgs {
   int graphQLQueryDepthLimit;
   boolean graphQLQueryIntrospectionEnabled;
   BusinessAttributeService businessAttributeService;
+  ConnectionService connectionService;
 
   // any fork specific args should go below this line
 }
