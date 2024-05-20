@@ -11,7 +11,7 @@ fi
 
 echo "bootstrap.servers=$KAFKA_BOOTSTRAP_SERVER" > $CONNECTION_PROPERTIES_PATH
 
-python env_to_properties.py env_prefix $CONNECTION_PROPERTIES_PATH
+python env_to_properties.py KAFKA_PROPERTIES_ $CONNECTION_PROPERTIES_PATH
 
 # cub kafka-ready -c $CONNECTION_PROPERTIES_PATH -b $KAFKA_BOOTSTRAP_SERVER 1 180
 . kafka-ready.sh

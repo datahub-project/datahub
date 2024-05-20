@@ -13,7 +13,7 @@ def env_to_properties(env_prefix: str, properties_file: str):
             prop_dot = '.'.join(pattern.split(raw_name))
             props[prop_dot] = val
 
-    with open(properties_file, 'r') as f:
+    with open(properties_file, 'a') as f:
         for k, v in props.items():
             f.writelines(f'{k}={v}\n')
 
