@@ -884,6 +884,7 @@ module.exports = {
     // "metadata-jobs/README",
     // "docs/how/add-user-data",
     // "docs/_feature-guide-template"
+    // "docs/_api-guide-template"
     // - "metadata-service/services/README"
     // "metadata-ingestion/examples/structured_properties/README"
     // ],
