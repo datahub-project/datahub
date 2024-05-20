@@ -75,7 +75,8 @@ public class OpenAPIV3Generator {
     final Components components = new Components();
     // --> Aspect components
     // TODO: Correct handling of SystemMetadata and SortOrder
-    components.addSchemas("SystemMetadata", new Schema().type(TYPE_OBJECT).additionalProperties(true));
+    components.addSchemas(
+        "SystemMetadata", new Schema().type(TYPE_OBJECT).additionalProperties(true));
     components.addSchemas("SortOrder", new Schema()._enum(List.of("ASCENDING", "DESCENDING")));
     components.addSchemas("AspectPatch", buildAspectPatchSchema());
     entityRegistry
@@ -480,8 +481,7 @@ public class OpenAPIV3Generator {
             .type(TYPE_OBJECT)
             .allOf(List.of(new Schema().$ref(PATH_DEFINITIONS + "SystemMetadata")))
             .description("System metadata for the aspect.")
-            .nullable(true)
-    );
+            .nullable(true));
     return result;
   }
 
