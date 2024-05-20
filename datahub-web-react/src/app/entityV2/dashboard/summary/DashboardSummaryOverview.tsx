@@ -51,7 +51,7 @@ export default function DashboardSummaryOverview() {
     const dashboard = useBaseEntity<GetDashboardQuery>()?.dashboard;
     const entityRegistry = useEntityRegistryV2();
 
-    const charts = dashboard?.charts?.relationships?.map((r) => r.entity) as Entity[];
+    const charts = (dashboard?.charts?.relationships?.map((r) => r.entity) || []) as Entity[];
 
     const sources = charts
         .flatMap((chart: any) => chart?.upstream?.relationships?.map((r) => r.entity))
