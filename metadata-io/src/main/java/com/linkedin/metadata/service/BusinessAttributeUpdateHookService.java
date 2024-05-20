@@ -25,7 +25,7 @@ import io.datahubproject.metadata.context.OperationContext;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.Set;
-import java.util.function.Consumer;
+import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -75,16 +75,22 @@ public class BusinessAttributeUpdateHookService {
 
     Urn urn = entityChangeEvent.getEntityUrn();
     log.info("Business Attribute update hook invoked for urn :" + urn);
-
-    fetchRelatedEntities(opContext, urn, batch -> processBatch(opContext, batch), null, 0);
+    fetchRelatedEntities(
+        opContext,
+        urn,
+        (batch, batchNumber) -> processBatch(opContext, batch, batchNumber),
+        null,
+        0,
+        1);
   }
 
   private void fetchRelatedEntities(
       @NonNull final OperationContext opContext,
       @NonNull final Urn urn,
-      @NonNull final Consumer<RelatedEntitiesScrollResult> resultConsumer,
+      @NonNull final BiConsumer<RelatedEntitiesScrollResult, Integer> resultConsumer,
       @Nullable String scrollId,
-      int consumedEntityCount) {
+      int consumedEntityCount,
+      int batchNumber) {
     GraphRetriever graph = opContext.getRetrieverContext().get().getGraphRetriever();
 
     RelatedEntitiesScrollResult result =
@@ -100,22 +106,21 @@ public class BusinessAttributeUpdateHookService {
             getRelatedEntitiesBatchSize,
             null,
             null);
-    resultConsumer.accept(result);
-
+    resultConsumer.accept(result, batchNumber);
+    consumedEntityCount = consumedEntityCount + result.getEntities().size();
     if (result.getScrollId() != null && consumedEntityCount < relatedEntitiesCount) {
+      batchNumber = batchNumber + 1;
       fetchRelatedEntities(
-          opContext,
-          urn,
-          resultConsumer,
-          result.getScrollId(),
-          consumedEntityCount + result.getEntities().size());
+          opContext, urn, resultConsumer, result.getScrollId(), consumedEntityCount, batchNumber);
     }
   }
 
   private void processBatch(
-      @NonNull OperationContext opContext, @NonNull RelatedEntitiesScrollResult batch) {
+      @NonNull OperationContext opContext,
+      @NonNull RelatedEntitiesScrollResult batch,
+      int batchNumber) {
     AspectRetriever aspectRetriever = opContext.getRetrieverContext().get().getAspectRetriever();
-
+    log.info("BA Update Batch {} started", batchNumber);
     Set<Urn> entityUrns =
         batch.getEntities().stream()
             .map(RelatedEntity::getUrn)
@@ -147,5 +152,6 @@ public class BusinessAttributeUpdateHookService {
                       null,
                       null));
             });
+    log.info("BA Update Batch {} completed", batchNumber);
   }
 }

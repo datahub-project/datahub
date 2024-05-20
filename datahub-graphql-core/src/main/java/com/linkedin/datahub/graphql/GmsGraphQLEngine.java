@@ -497,6 +497,7 @@ public class GmsGraphQLEngine {
 
   private final int graphQLQueryComplexityLimit;
   private final int graphQLQueryDepthLimit;
+  private final boolean graphQLQueryIntrospectionEnabled;
 
   private final BusinessAttributeType businessAttributeType;
 
@@ -612,6 +613,7 @@ public class GmsGraphQLEngine {
 
     this.graphQLQueryComplexityLimit = args.graphQLQueryComplexityLimit;
     this.graphQLQueryDepthLimit = args.graphQLQueryDepthLimit;
+    this.graphQLQueryIntrospectionEnabled = args.graphQLQueryIntrospectionEnabled;
 
     this.businessAttributeType = new BusinessAttributeType(entityClient);
     // Init Lists
@@ -819,7 +821,8 @@ public class GmsGraphQLEngine {
         .addDataLoader("Aspect", context -> createDataLoader(aspectType, context))
         .configureRuntimeWiring(this::configureRuntimeWiring)
         .setGraphQLQueryComplexityLimit(graphQLQueryComplexityLimit)
-        .setGraphQLQueryDepthLimit(graphQLQueryDepthLimit);
+        .setGraphQLQueryDepthLimit(graphQLQueryDepthLimit)
+        .setGraphQLQueryIntrospectionEnabled(graphQLQueryIntrospectionEnabled);
     return builder;
   }
 

@@ -20,6 +20,10 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 ### Breaking Changes
 
+- #10419 - `aws_region` is now a required configuration in the DynamoDB connector. The connector will no longer loop through all AWS regions; instead, it will only use the region passed into the recipe configuration.
+- #10389 - Custom validators, mutators, side-effects dropped a previously required constructor
+- #10472 - `RVW` added as a FabricType. No rollbacks allowed once metadata with this fabric type is added without manual cleanups in databases.
+
 ### Potential Downtime
 
 ### Deprecations

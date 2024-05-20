@@ -242,7 +242,7 @@ class Dataset(BaseModel):
 
         if self.schema_metadata:
             if self.schema_metadata.file:
-                with open(self.schema_metadata.file, "r") as schema_fp:
+                with open(self.schema_metadata.file) as schema_fp:
                     schema_string = schema_fp.read()
                     schema_metadata = SchemaMetadataClass(
                         schemaName=self.name or self.id or self.urn or "",
@@ -377,8 +377,7 @@ class Dataset(BaseModel):
                         type="COPY",
                     )
                 )
-                for patch_event in patch_builder.build():
-                    yield patch_event
+                yield from patch_builder.build()
 
         logger.info(f"Created dataset {self.urn}")
 

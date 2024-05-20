@@ -53,3 +53,28 @@ queryConfigurations:
           weight: 1.5
       score_mode: avg
       boost_mode: multiply
+
+autocompleteConfigurations:
+  - queryRegex: .*
+    defaultQuery: true
+    boolQuery:
+      must:
+        - term:
+            removed: 'false'
+    functionScore:
+      functions:
+        - filter:
+            match_all: {}
+          weight: 1
+        - filter:
+            term:
+              materialized:
+                value: true
+          weight: 0.5
+        - filter:
+            term:
+              deprecated:
+                value: false
+          weight: 1.5
+      score_mode: avg
+      boost_mode: multiply

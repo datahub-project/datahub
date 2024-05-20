@@ -106,7 +106,7 @@ class Forms(ConfigModel):
         emitter: DataHubGraph
 
         with get_default_graph() as emitter:
-            with open(file, "r") as fp:
+            with open(file) as fp:
                 forms: List[dict] = yaml.safe_load(fp)
                 for form_raw in forms:
                     form = Forms.parse_obj(form_raw)
@@ -204,7 +204,7 @@ class Forms(ConfigModel):
     def upload_entities_for_form(self, emitter: DataHubGraph) -> Union[None, Exception]:
         if self.entities and self.entities.urns:
             formatted_entity_urns = ", ".join(
-                ['"{}"'.format(value) for value in self.entities.urns]
+                [f'"{value}"' for value in self.entities.urns]
             )
             query = UPLOAD_ENTITIES_FOR_FORMS.format(
                 form_urn=self.urn, entity_urns=formatted_entity_urns
@@ -281,7 +281,7 @@ class Forms(ConfigModel):
 
     @staticmethod
     def format_form_filter(field: str, urns: List[str]) -> str:
-        formatted_urns = ", ".join(['"{}"'.format(urn) for urn in urns])
+        formatted_urns = ", ".join([f'"{urn}"' for urn in urns])
         return FIELD_FILTER_TEMPLATE.format(field=field, values=formatted_urns)
 
     @staticmethod

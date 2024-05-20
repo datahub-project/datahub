@@ -178,6 +178,8 @@ def cleanup(config: BigQueryV2Config) -> None:
 )
 class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
     # https://cloud.google.com/bigquery/docs/reference/standard-sql/data-types
+    # Note: We use the hive schema parser to parse nested BigQuery types. We also have
+    # some extra type mappings in that file.
     BIGQUERY_FIELD_TYPE_MAPPINGS: Dict[
         str,
         Type[
@@ -221,7 +223,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
     }
 
     def __init__(self, ctx: PipelineContext, config: BigQueryV2Config):
-        super(BigqueryV2Source, self).__init__(config, ctx)
+        super().__init__(config, ctx)
         self.config: BigQueryV2Config = config
         self.report: BigQueryV2Report = BigQueryV2Report()
         self.classification_handler = ClassificationHandler(self.config, self.report)
@@ -259,7 +261,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         self.lineage_extractor = BigqueryLineageExtractor(
             config,
             self.report,
-            dataset_urn_builder=self.gen_dataset_urn_from_ref,
+            dataset_urn_builder=self.gen_dataset_urn_from_raw_ref,
             redundant_run_skip_handler=redundant_lineage_run_skip_handler,
         )
 
@@ -276,7 +278,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             config,
             self.report,
             schema_resolver=self.sql_parser_schema_resolver,
-            dataset_urn_builder=self.gen_dataset_urn_from_ref,
+            dataset_urn_builder=self.gen_dataset_urn_from_raw_ref,
             redundant_run_skip_handler=redundant_usage_run_skip_handler,
         )
 
@@ -338,7 +340,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
     ) -> CapabilityReport:
         for project_id in project_ids:
             try:
-                logger.info((f"Metadata read capability test for project {project_id}"))
+                logger.info(f"Metadata read capability test for project {project_id}")
                 client: bigquery.Client = config.get_bigquery_client()
                 assert client
                 bigquery_data_dictionary = BigQuerySchemaApi(
@@ -1187,12 +1189,26 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             entityUrn=dataset_urn, aspect=tags
         ).as_workunit()
 
-    def gen_dataset_urn(self, project_id: str, dataset_name: str, table: str) -> str:
+    def gen_dataset_urn(
+        self, project_id: str, dataset_name: str, table: str, use_raw_name: bool = False
+    ) -> str:
         datahub_dataset_name = BigqueryTableIdentifier(project_id, dataset_name, table)
         return make_dataset_urn(
             self.platform,
-            str(datahub_dataset_name),
+            (
+                str(datahub_dataset_name)
+                if not use_raw_name
+                else datahub_dataset_name.raw_table_name()
+            ),
             self.config.env,
+        )
+
+    def gen_dataset_urn_from_raw_ref(self, ref: BigQueryTableRef) -> str:
+        return self.gen_dataset_urn(
+            ref.table_identifier.project_id,
+            ref.table_identifier.dataset,
+            ref.table_identifier.table,
+            use_raw_name=True,
         )
 
     def gen_dataset_urn_from_ref(self, ref: BigQueryTableRef) -> str:
@@ -1264,7 +1280,6 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                     type=SchemaFieldDataType(
                         self.BIGQUERY_FIELD_TYPE_MAPPINGS.get(col.data_type, NullType)()
                     ),
-                    # NOTE: nativeDataType will not be in sync with older connector
                     nativeDataType=col.data_type,
                     description=col.comment,
                     nullable=col.is_nullable,
