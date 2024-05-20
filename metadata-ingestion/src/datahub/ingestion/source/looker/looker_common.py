@@ -1147,7 +1147,8 @@ class LookerExplore:
                     aspect=tag_urn.to_key_aspect(),
                 )
             )
-        dataset_snapshot.aspects.append(GlobalTagsClass(explore_tag_urns))
+        if explore_tag_urns:
+            dataset_snapshot.aspects.append(GlobalTagsClass(explore_tag_urns))
 
         # If extracting embeds is enabled, produce an MCP for embed URL.
         if extract_embed_urls:
