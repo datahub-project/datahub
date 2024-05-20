@@ -45,6 +45,7 @@ from datahub.ingestion.api.source_helpers import (
     create_dataset_props_patch_builder,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.aws import s3_util
 from datahub.ingestion.source.aws.s3_util import (
     make_s3_urn_for_lineage,
     strip_s3_prefix,
@@ -512,14 +513,15 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             if table.view_definition:
                 self.view_definitions[dataset_urn] = (table.ref, table.view_definition)
 
+        print(f"out table_props = {table_props}")
         # generate sibling and lineage aspects in case of EXTERNAL DELTA TABLE
         if (
-            table_props.customProperties.get("table_type") == "EXTERNAL"
+            table_props.customProperties.get("table_type") in {"EXTERNAL", "HIVE_EXTERNAL_TABLE"}
             and table_props.customProperties.get("data_source_format") == "DELTA"
             and self.config.emit_siblings
         ):
             storage_location = str(table_props.customProperties.get("storage_location"))
-            if storage_location.startswith("s3://"):
+            if any(storage_location.startswith(prefix) for prefix in s3_util.S3_PREFIXES):
                 browse_path = strip_s3_prefix(storage_location)
                 source_dataset_urn = make_dataset_urn_with_platform_instance(
                     "delta-lake",
@@ -527,6 +529,8 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                     self.config.delta_lake_options.platform_instance_name,
                     self.config.delta_lake_options.env,
                 )
+
+                print(f"table_props = {table_props}")
 
                 yield from self.gen_siblings_workunit(dataset_urn, source_dataset_urn)
                 yield from self.gen_lineage_workunit(dataset_urn, source_dataset_urn)
