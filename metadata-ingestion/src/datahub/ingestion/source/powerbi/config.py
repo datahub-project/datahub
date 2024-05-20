@@ -22,6 +22,8 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 
 logger = logging.getLogger(__name__)
 
+POWERBI_USAGE_DATETIME_FORMAT = "%Y-%m-%dT%H:%M:%S"
+
 
 class Constant:
     """
@@ -114,14 +116,19 @@ class Constant:
     CHART_COUNT = "chartCount"
     WORKSPACE_NAME = "workspaceName"
     DATASET_WEB_URL = "datasetWebUrl"
-    DASHBOARD_USAGE_METRICS_MODEL = "Dashboard Usage Metrics Model"
-    REPORT_USAGE_METRICS_MODEL = "Report Usage Metrics Model"
+    USAGE_METRICS_MODEL = "{} Usage Metrics Model"
     RESULTS = "results"
     ROWS = "rows"
-    VIEWS_DASHBOARD_GUID = "Views[DashboardGuid]"
-    VIEWS_DATE = "Views[Date]"
-    VIEWS_USER_GUID = "Views[UserGuid]"
-    VIEWS_GRANULAR_VIEWS_COUNT = "Views[GranularViewsCount]"
+    ENTITY_ID = "[entity_id]"
+    DATE = "[date]"
+    USER_ID = "[user_id]"
+    VIEWS_COUNT = "[views_count]"
+    NEW_USAGE_METRICS_MODEL = "Usage Metrics Report"
+    ACTIVITY_EVENT_ENTITIES = "activityEventEntities"
+    CONTINUATION_TOKEN = "continuationToken"
+    CREATION_TIME = "CreationTime"
+    ACTIVITY_USER_ID = "UserId"
+    ACTIVITY_REPORT_ID = "ReportId"
 
 
 @dataclass
@@ -168,6 +175,12 @@ class SupportedDataPlatform(Enum):
     )
 
 
+class UsageStatsSource(Enum):
+    NEW_USAGE_METRICS_REPORT = "New Usage Metrics report"
+    OLD_USAGE_METRICS_REPORT = "Old Usage Metrics report"
+    ACTIVITY_EVENTS_API = "Get Activity Events API"
+
+
 @dataclass
 class PowerBiDashboardSourceReport(StaleEntityRemovalSourceReport):
     dashboards_scanned: int = 0
@@ -175,6 +188,8 @@ class PowerBiDashboardSourceReport(StaleEntityRemovalSourceReport):
     filtered_dashboards: List[str] = dataclass_field(default_factory=list)
     filtered_charts: List[str] = dataclass_field(default_factory=list)
     number_of_workspaces: int = 0
+    dashboards_usage_stats_source: Optional[UsageStatsSource] = None
+    reports_usage_stats_source: Optional[UsageStatsSource] = None
 
     def report_dashboards_scanned(self, count: int = 1) -> None:
         self.dashboards_scanned += count
@@ -419,8 +434,8 @@ class PowerBiDashboardSourceConfig(
         description="Whether to ingest usage statistics for dashboards and reports.",
     )
     # TODO - stateful ingestion to autodetect usage stats interval
-    extract_usage_stats_for_interval: float = pydantic.Field(
-        90,
+    extract_usage_stats_for_interval: int = pydantic.Field(
+        30,
         description="Interval in days to extract usage stats from current date. Used only if extract_usage_stats is set to True.",
     )
 
@@ -493,5 +508,10 @@ class PowerBiDashboardSourceConfig(
             raise ValueError(
                 "dataset_type_mapping is deprecated. Use server_to_platform_instance only."
             )
+        return values
 
+    @root_validator(skip_on_failure=True)
+    def validate_extract_usage_stats_for_interval(cls, values: Dict) -> Dict:
+        if values["extract_usage_stats_for_interval"] > 30:
+            raise ValueError("Usage stats for last 30 days only can be extracted.")
         return values

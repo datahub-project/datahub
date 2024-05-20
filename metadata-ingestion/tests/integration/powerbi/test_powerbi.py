@@ -55,19 +55,19 @@ def mock_msal_cca(*args, **kwargs):
 
 def scan_init_response(request, context):
     # Request mock is passing POST input in the form of workspaces=<workspace_id>
-    # If we scan 2 or more, it get messy like this. 'workspaces=64ED5CAD-7C10-4684-8180-826122881108&workspaces=64ED5CAD-7C22-4684-8180-826122881108'
+    # If we scan 2 or more, it get messy like this. 'workspaces=64ed5cad-7c10-4684-8180-826122881108&workspaces=64ed5cad-7c22-4684-8180-826122881108'
     workspace_id_list = request.text.replace("&", "").split("workspaces=")
 
     workspace_id = "||".join(workspace_id_list[1:])
 
     w_id_vs_response: Dict[str, Any] = {
-        "64ED5CAD-7C10-4684-8180-826122881108": {
+        "64ed5cad-7c10-4684-8180-826122881108": {
             "id": "4674efd1-603c-4129-8d82-03cf2be05aff"
         },
-        "64ED5CAD-7C22-4684-8180-826122881108": {
+        "64ed5cad-7c22-4684-8180-826122881108": {
             "id": "a674efd1-603c-4129-8d82-03cf2be05aff"
         },
-        "64ED5CAD-7C10-4684-8180-826122881108||64ED5CAD-7C22-4684-8180-826122881108": {
+        "64ed5cad-7c10-4684-8180-826122881108||64ed5cad-7c22-4684-8180-826122881108": {
             "id": "a674efd1-603c-4129-8d82-03cf2be05aff"
         },
     }
@@ -85,19 +85,19 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
                 "@odata.count": 3,
                 "value": [
                     {
-                        "id": "64ED5CAD-7C10-4684-8180-826122881108",
+                        "id": "64ed5cad-7c10-4684-8180-826122881108",
                         "isReadOnly": True,
                         "name": "demo-workspace",
                         "type": "Workspace",
                     },
                     {
-                        "id": "64ED5CAD-7C22-4684-8180-826122881108",
+                        "id": "64ed5cad-7c22-4684-8180-826122881108",
                         "isReadOnly": True,
                         "name": "second-demo-workspace",
                         "type": "Workspace",
                     },
                     {
-                        "id": "64ED5CAD-7322-4684-8180-826122881108",
+                        "id": "64ed5cad-7322-4684-8180-826122881108",
                         "isReadOnly": True,
                         "name": "Workspace 2",
                         "type": "Workspace",
@@ -105,13 +105,13 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
                 ],
             },
         },
-        "https://api.powerbi.com/v1.0/myorg/groups/64ED5CAD-7C10-4684-8180-826122881108/dashboards": {
+        "https://api.powerbi.com/v1.0/myorg/groups/64ed5cad-7c10-4684-8180-826122881108/dashboards": {
             "method": "GET",
             "status_code": 200,
             "json": {
                 "value": [
                     {
-                        "id": "7D668CAD-7FFC-4505-9215-655BCA5BEBAE",
+                        "id": "7d668cad-7ffc-4505-9215-655bca5bebae",
                         "isReadOnly": True,
                         "displayName": "test_dashboard",
                         "description": "Description of test dashboard",
@@ -121,13 +121,13 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
                 ]
             },
         },
-        "https://api.powerbi.com/v1.0/myorg/groups/64ED5CAD-7C22-4684-8180-826122881108/dashboards": {
+        "https://api.powerbi.com/v1.0/myorg/groups/64ed5cad-7c22-4684-8180-826122881108/dashboards": {
             "method": "GET",
             "status_code": 200,
             "json": {
                 "value": [
                     {
-                        "id": "7D668CAD-8FFC-4505-9215-655BCA5BEBAE",
+                        "id": "7d668cad-8ffc-4505-9215-655bca5bebae",
                         "isReadOnly": True,
                         "displayName": "test_dashboard2",
                         "embedUrl": "https://localhost/dashboards/embed/1",
@@ -160,7 +160,7 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
                 ]
             },
         },
-        "https://api.powerbi.com/v1.0/myorg/admin/dashboards/7D668CAD-7FFC-4505-9215-655BCA5BEBAE/users": {
+        "https://api.powerbi.com/v1.0/myorg/admin/dashboards/7d668cad-7ffc-4505-9215-655bca5bebae/users": {
             "method": "GET",
             "status_code": 200,
             "json": {
@@ -184,7 +184,7 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
                 ]
             },
         },
-        "https://api.powerbi.com/v1.0/myorg/admin/dashboards/7D668CAD-8FFC-4505-9215-655BCA5BEBAE/users": {
+        "https://api.powerbi.com/v1.0/myorg/admin/dashboards/7d668cad-8ffc-4505-9215-655bca5bebae/users": {
             "method": "GET",
             "status_code": 200,
             "json": {
@@ -208,7 +208,7 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
                 ]
             },
         },
-        "https://api.powerbi.com/v1.0/myorg/groups/64ED5CAD-7C10-4684-8180-826122881108/dashboards/7D668CAD-7FFC-4505-9215-655BCA5BEBAE/tiles": {
+        "https://api.powerbi.com/v1.0/myorg/groups/64ed5cad-7c10-4684-8180-826122881108/dashboards/7d668cad-7ffc-4505-9215-655bca5bebae/tiles": {
             "method": "GET",
             "status_code": 200,
             "json": {
@@ -217,7 +217,7 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
                         "id": "B8E293DC-0C83-4AA0-9BB9-0A8738DF24A0",
                         "title": "test_tile",
                         "embedUrl": "https://localhost/tiles/embed/1",
-                        "datasetId": "05169CD2-E713-41E6-9600-1D8066D95445",
+                        "datasetId": "05169cd2-e713-41e6-9600-1d8066d95445",
                     },
                     {
                         "id": "23212598-23b5-4980-87cc-5fc0ecd84385",
@@ -228,48 +228,75 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
                 ]
             },
         },
-        "https://api.powerbi.com/v1.0/myorg/groups/64ED5CAD-7C22-4684-8180-826122881108/dashboards/7D668CAD-8FFC-4505-9215-655BCA5BEBAE/tiles": {
+        "https://api.powerbi.com/v1.0/myorg/groups/64ed5cad-7c22-4684-8180-826122881108/dashboards/7d668cad-8ffc-4505-9215-655bca5bebae/tiles": {
             "method": "GET",
             "status_code": 200,
             "json": {"value": []},
         },
-        "https://api.powerbi.com/v1.0/myorg/groups/64ED5CAD-7C10-4684-8180-826122881108/datasets/05169CD2-E713-41E6-9600-1D8066D95445": {
+        "https://api.powerbi.com/v1.0/myorg/groups/64ed5cad-7c10-4684-8180-826122881108/datasets/05169cd2-e713-41e6-9600-1d8066d95445": {
             "method": "GET",
             "status_code": 200,
             "json": {
-                "id": "05169CD2-E713-41E6-9600-1D8066D95445",
+                "id": "05169cd2-e713-41e6-9600-1d8066d95445",
                 "name": "library-dataset",
                 "description": "Library dataset description",
-                "webUrl": "http://localhost/groups/64ED5CAD-7C10-4684-8180-826122881108/datasets/05169CD2-E713-41E6-9600-1D8066D95445",
+                "webUrl": "http://localhost/groups/64ed5cad-7c10-4684-8180-826122881108/datasets/05169cd2-e713-41e6-9600-1d8066d95445",
             },
         },
-        "https://api.powerbi.com/v1.0/myorg/groups/64ED5CAD-7C22-4684-8180-826122881108/datasets/05169CD2-E713-41E6-96AA-1D8066D95445": {
+        "https://api.powerbi.com/v1.0/myorg/groups/64ed5cad-7c22-4684-8180-826122881108/datasets/05169cd2-e713-41e6-96aa-1d8066d95445": {
             "method": "GET",
             "status_code": 200,
             "json": {
-                "id": "05169CD2-E713-41E6-96AA-1D8066D95445",
+                "id": "05169cd2-e713-41e6-96aa-1d8066d95445",
                 "name": "library-dataset",
                 "description": "Library dataset description",
-                "webUrl": "http://localhost/groups/64ED5CAD-7C22-4684-8180-826122881108/datasets/05169CD2-E713-41E6-96AA-1D8066D95445",
+                "webUrl": "http://localhost/groups/64ed5cad-7c22-4684-8180-826122881108/datasets/05169cd2-e713-41e6-96aa-1d8066d95445",
             },
         },
-        "https://api.powerbi.com/v1.0/myorg/groups/64ED5CAD-7C10-4684-8180-826122881108/datasets/ba0130a1-5b03-40de-9535-b34e778ea6ed": {
+        "https://api.powerbi.com/v1.0/myorg/groups/64ed5cad-7c10-4684-8180-826122881108/datasets/ba0130a1-5b03-40de-9535-b34e778ea6ed": {
             "method": "GET",
             "status_code": 200,
             "json": {
                 "id": "ba0130a1-5b03-40de-9535-b34e778ea6ed",
                 "name": "hr_pbi_test",
                 "description": "hr pbi test description",
-                "webUrl": "http://localhost/groups/64ED5CAD-7C10-4684-8180-826122881108/datasets/ba0130a1-5b03-40de-9535-b34e778ea6ed",
+                "webUrl": "http://localhost/groups/64ed5cad-7c10-4684-8180-826122881108/datasets/ba0130a1-5b03-40de-9535-b34e778ea6ed",
             },
         },
-        "https://api.powerbi.com/v1.0/myorg/groups/64ED5CAD-7C10-4684-8180-826122881108/datasets/05169CD2-E713-41E6-9600-1D8066D95445/datasources": {
+        "https://api.powerbi.com/v1.0/myorg/groups/64ed5cad-7c10-4684-8180-826122881108/datasets/bee2f946-84ad-4df2-80b2-bf7f2f3ae15a": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "id": "bee2f946-84ad-4df2-80b2-bf7f2f3ae15a",
+                "name": "Dashboard Usage Metrics Model",
+                "webUrl": "http://localhost/groups/64ed5cad-7c10-4684-8180-826122881108/datasets/bee2f946-84ad-4df2-80b2-bf7f2f3ae15a",
+            },
+        },
+        "https://api.powerbi.com/v1.0/myorg/groups/64ed5cad-7c10-4684-8180-826122881108/datasets/5c5693bd-b20d-4e8f-8a46-ecf81f51f6de": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "id": "5c5693bd-b20d-4e8f-8a46-ecf81f51f6de",
+                "name": "Usage Metrics Report",
+                "webUrl": "http://localhost/groups/64ed5cad-7c10-4684-8180-826122881108/datasets/5c5693bd-b20d-4e8f-8a46-ecf81f51f6de",
+            },
+        },
+        "https://api.powerbi.com/v1.0/myorg/groups/64ed5cad-7c10-4684-8180-826122881108/datasets/d6f9c8c6-0123-482a-a8f2-181bd5532741": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "id": "d6f9c8c6-0123-482a-a8f2-181bd5532741",
+                "name": "Report Usage Metrics Model",
+                "webUrl": "http://localhost/groups/64ed5cad-7c10-4684-8180-826122881108/datasets/d6f9c8c6-0123-482a-a8f2-181bd5532741",
+            },
+        },
+        "https://api.powerbi.com/v1.0/myorg/groups/64ed5cad-7c10-4684-8180-826122881108/datasets/05169cd2-e713-41e6-9600-1d8066d95445/datasources": {
             "method": "GET",
             "status_code": 200,
             "json": {
                 "value": [
                     {
-                        "datasourceId": "DCE90B40-84D6-467A-9A5C-648E830E72D3",
+                        "datasourceId": "dce90b40-84d6-467a-9a5c-648e830e72d3",
                         "datasourceType": "PostgreSql",
                         "connectionDetails": {
                             "database": "library_db",
@@ -279,13 +306,13 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
                 ]
             },
         },
-        "https://api.powerbi.com/v1.0/myorg/groups/64ED5CAD-7C22-4684-8180-826122881108/datasets/05169CD2-E713-41E6-96AA-1D8066D95445/datasources": {
+        "https://api.powerbi.com/v1.0/myorg/groups/64ed5cad-7c22-4684-8180-826122881108/datasets/05169cd2-e713-41e6-96aa-1d8066d95445/datasources": {
             "method": "GET",
             "status_code": 200,
             "json": {
                 "value": [
                     {
-                        "datasourceId": "DCE90B40-84D6-467A-9A5C-648E830E72D3",
+                        "datasourceId": "dce90b40-84d6-467a-9a5c-648e830e72d3",
                         "datasourceType": "PostgreSql",
                         "connectionDetails": {
                             "database": "library_db",
@@ -315,12 +342,12 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
             "json": {
                 "workspaces": [
                     {
-                        "id": "64ED5CAD-7C10-4684-8180-826122881108",
+                        "id": "64ed5cad-7c10-4684-8180-826122881108",
                         "name": "demo-workspace",
                         "state": "Active",
                         "datasets": [
                             {
-                                "id": "05169CD2-E713-41E6-9600-1D8066D95445",
+                                "id": "05169cd2-e713-41e6-9600-1d8066d95445",
                                 "endorsementDetails": {"endorsement": "Promoted"},
                                 "name": "test_sf_pbi_test",
                                 "tables": [
@@ -333,7 +360,7 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
                                         ],
                                         "datasourceUsages": [
                                             {
-                                                "datasourceInstanceId": "DCE90B40-84D6-467A-9A5C-648E830E72D3",
+                                                "datasourceInstanceId": "dce90b40-84d6-467a-9a5c-648e830e72d3",
                                             }
                                         ],
                                     },
@@ -346,7 +373,7 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
                                         ],
                                         "datasourceUsages": [
                                             {
-                                                "datasourceInstanceId": "DCE90B40-84D6-467A-9A5C-648E830E72D3",
+                                                "datasourceInstanceId": "dce90b40-84d6-467a-9a5c-648e830e72d3",
                                             }
                                         ],
                                     },
@@ -359,7 +386,7 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
                                         ],
                                         "datasourceUsages": [
                                             {
-                                                "datasourceInstanceId": "DCE90B40-84D6-467A-9A5C-648E830E72D3",
+                                                "datasourceInstanceId": "dce90b40-84d6-467a-9a5c-648e830e72d3",
                                             }
                                         ],
                                     },
@@ -372,7 +399,7 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
                                         ],
                                         "datasourceUsages": [
                                             {
-                                                "datasourceInstanceId": "DCE90B40-84D6-467A-9A5C-648E830E72D3",
+                                                "datasourceInstanceId": "dce90b40-84d6-467a-9a5c-648e830e72d3",
                                             }
                                         ],
                                     },
@@ -385,7 +412,7 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
                                         ],
                                         "datasourceUsages": [
                                             {
-                                                "datasourceInstanceId": "DCE90B40-84D6-467A-9A5C-648E830E72D3",
+                                                "datasourceInstanceId": "dce90b40-84d6-467a-9a5c-648e830e72d3",
                                             }
                                         ],
                                     },
@@ -398,7 +425,7 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
                                         ],
                                         "datasourceUsages": [
                                             {
-                                                "datasourceInstanceId": "DCE90B40-84D6-467A-9A5C-648E830E72D3",
+                                                "datasourceInstanceId": "dce90b40-84d6-467a-9a5c-648e830e72d3",
                                             }
                                         ],
                                     },
@@ -411,7 +438,7 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
                                         ],
                                         "datasourceUsages": [
                                             {
-                                                "datasourceInstanceId": "DCE90B40-84D6-467A-9A5C-648E830E72D3",
+                                                "datasourceInstanceId": "dce90b40-84d6-467a-9a5c-648e830e72d3",
                                             }
                                         ],
                                     },
@@ -430,7 +457,7 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
                                         ],
                                         "datasourceUsages": [
                                             {
-                                                "datasourceInstanceId": "DCE90B40-84D6-467A-9A5C-648E830E72D3",
+                                                "datasourceInstanceId": "dce90b40-84d6-467a-9a5c-648e830e72d3",
                                             }
                                         ],
                                     },
@@ -443,7 +470,7 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
                                         ],
                                         "datasourceUsages": [
                                             {
-                                                "datasourceInstanceId": "DCE90B40-84D6-467A-9A5C-648E830E72D3",
+                                                "datasourceInstanceId": "dce90b40-84d6-467a-9a5c-648e830e72d3",
                                             }
                                         ],
                                     },
@@ -462,16 +489,118 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
                                     }
                                 ],
                             },
+                            {
+                                "id": "bee2f946-84ad-4df2-80b2-bf7f2f3ae15a",
+                                "name": "Dashboard Usage Metrics Model",
+                                "tables": [
+                                    {
+                                        "name": "Dashboards",
+                                        "isHidden": False,
+                                        "columns": [
+                                            {
+                                                "name": "DashboardGuid",
+                                                "dataType": "String",
+                                                "isHidden": False,
+                                                "columnType": "Data",
+                                            },
+                                        ],
+                                        "measures": [],
+                                    },
+                                    {
+                                        "name": "Views",
+                                        "isHidden": False,
+                                        "columns": [
+                                            {
+                                                "name": "GranularViewsCount",
+                                                "dataType": "Int64",
+                                                "isHidden": True,
+                                                "columnType": "Data",
+                                            },
+                                        ],
+                                    },
+                                ],
+                                "configuredBy": "harshal.sheth@acryldata1.onmicrosoft.com",
+                                "contentProviderType": "UsageMetricsUserDashboard",
+                            },
+                            {
+                                "id": "5c5693bd-b20d-4e8f-8a46-ecf81f51f6de",
+                                "name": "Usage Metrics Report",
+                                "tables": [
+                                    {
+                                        "name": "Report views",
+                                        "isHidden": False,
+                                        "storageMode": "Import",
+                                        "columns": [
+                                            {
+                                                "name": "ReportId",
+                                                "dataType": "String",
+                                                "isHidden": False,
+                                                "columnType": "Data",
+                                            },
+                                        ],
+                                        "measures": [],
+                                        "source": [
+                                            {
+                                                "expression": 'let\n    Source = UsageMetricsDataConnector.GetMetricsData(BaseUrl & "/metadata/v201906/metrics/workspace/" & WorkspaceId & "/reportviews"),\n    metricsTable = Table.FromRecords(Source),\n    checkForEmptyTable = if Table.IsEmpty(metricsTable) then\n                        Table.FromRows\n                        (\n                            {\n                            },\n                            {\n                                "ReportId", "ReportType", "ReportName", "AppName", "UserKey", "UserId", "UserAgent", "DatasetName", "DistributionMethod", "CapacityId", "CapacityName", "CreationTime", "ConsumptionMethod"\n                            }\n                        )\n                        else\n                        metricsTable,\n    finalTable = Table.TransformColumnTypes(checkForEmptyTable, {{"CreationTime", type datetime}}),\n    #"Renamed Columns" = Table.RenameColumns(finalTable,{{"ConsumptionMethod", "OriginalConsumptionMethod"}}),\n    #"Replaced Value" = Table.ReplaceValue(#"Renamed Columns","Apps","App",Replacer.ReplaceText,{"DistributionMethod"})\nin\n    #"Replaced Value"'
+                                            }
+                                        ],
+                                    },
+                                ],
+                                "createdDate": "2024-04-02T19:52:33.183",
+                            },
+                            {
+                                "id": "d6f9c8c6-0123-482a-a8f2-181bd5532741",
+                                "name": "Report Usage Metrics Model",
+                                "tables": [
+                                    {
+                                        "name": "Reports",
+                                        "isHidden": False,
+                                        "columns": [
+                                            {
+                                                "name": "ReportGuid",
+                                                "dataType": "String",
+                                                "isHidden": False,
+                                                "columnType": "Data",
+                                            },
+                                        ],
+                                        "measures": [],
+                                    },
+                                    {
+                                        "name": "Views",
+                                        "isHidden": False,
+                                        "columns": [
+                                            {
+                                                "name": "Date",
+                                                "dataType": "DateTime",
+                                                "isHidden": False,
+                                                "columnType": "Data",
+                                            },
+                                            {
+                                                "name": "ReportGuid",
+                                                "dataType": "String",
+                                                "isHidden": False,
+                                                "columnType": "Data",
+                                            },
+                                            {
+                                                "name": "GranularViewsCount",
+                                                "dataType": "Int64",
+                                                "isHidden": True,
+                                                "columnType": "Data",
+                                            },
+                                        ],
+                                    },
+                                ],
+                            },
                         ],
                         "dashboards": [
                             {
-                                "id": "7D668CAD-7FFC-4505-9215-655BCA5BEBAE",
+                                "id": "7d668cad-7ffc-4505-9215-655bca5bebae",
                                 "isReadOnly": True,
                             }
                         ],
                         "reports": [
                             {
-                                "datasetId": "05169CD2-E713-41E6-9600-1D8066D95445",
+                                "datasetId": "05169cd2-e713-41e6-9600-1d8066d95445",
                                 "id": "5b218778-e7a5-4d73-8187-f10824047715",
                                 "name": "SalesMarketing",
                                 "description": "Acryl sales marketing report",
@@ -487,12 +616,12 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
             "json": {
                 "workspaces": [
                     {
-                        "id": "64ED5CAD-7C22-4684-8180-826122881108",
+                        "id": "64ed5cad-7c22-4684-8180-826122881108",
                         "name": "second-demo-workspace",
                         "state": "Active",
                         "datasets": [
                             {
-                                "id": "05169CD2-E713-41E6-96AA-1D8066D95445",
+                                "id": "05169cd2-e713-41e6-96aa-1d8066d95445",
                                 "tables": [
                                     {
                                         "name": "public articles",
@@ -507,13 +636,13 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
                         ],
                         "dashboards": [
                             {
-                                "id": "7D668CAD-8FFC-4505-9215-655BCA5BEBAE",
+                                "id": "7d668cad-8ffc-4505-9215-655bca5bebae",
                                 "isReadOnly": True,
                             }
                         ],
                         "reports": [
                             {
-                                "datasetId": "05169CD2-E713-41E6-9600-1D8066D95445",
+                                "datasetId": "05169cd2-e713-41e6-9600-1d8066d95445",
                                 "id": "5b218778-e7a5-4d73-8187-f10824047715",
                                 "name": "SalesMarketing",
                                 "description": "Acryl sales marketing report",
@@ -528,13 +657,13 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
             "status_code": 200,
             "json": scan_init_response,
         },
-        "https://api.powerbi.com/v1.0/myorg/groups/64ED5CAD-7C10-4684-8180-826122881108/reports": {
+        "https://api.powerbi.com/v1.0/myorg/groups/64ed5cad-7c10-4684-8180-826122881108/reports": {
             "method": "GET",
             "status_code": 200,
             "json": {
                 "value": [
                     {
-                        "datasetId": "05169CD2-E713-41E6-9600-1D8066D95445",
+                        "datasetId": "05169cd2-e713-41e6-9600-1d8066d95445",
                         "id": "5b218778-e7a5-4d73-8187-f10824047715",
                         "name": "SalesMarketing",
                         "description": "Acryl sales marketing report",
@@ -544,11 +673,11 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
                 ]
             },
         },
-        "https://api.powerbi.com/v1.0/myorg/groups/64ED5CAD-7C10-4684-8180-826122881108/reports/5b218778-e7a5-4d73-8187-f10824047715": {
+        "https://api.powerbi.com/v1.0/myorg/groups/64ed5cad-7c10-4684-8180-826122881108/reports/5b218778-e7a5-4d73-8187-f10824047715": {
             "method": "GET",
             "status_code": 200,
             "json": {
-                "datasetId": "05169CD2-E713-41E6-9600-1D8066D95445",
+                "datasetId": "05169cd2-e713-41e6-9600-1d8066d95445",
                 "id": "5b218778-e7a5-4d73-8187-f10824047715",
                 "name": "SalesMarketing",
                 "description": "Acryl sales marketing report",
@@ -556,7 +685,7 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
                 "embedUrl": "https://app.powerbi.com/reportEmbed?reportId=5b218778-e7a5-4d73-8187-f10824047715&groupId=f089354e-8366-4e18-aea3-4cb4a3a50b48",
             },
         },
-        "https://api.powerbi.com/v1.0/myorg/groups/64ED5CAD-7C10-4684-8180-826122881108/reports/5b218778-e7a5-4d73-8187-f10824047715/pages": {
+        "https://api.powerbi.com/v1.0/myorg/groups/64ed5cad-7c10-4684-8180-826122881108/reports/5b218778-e7a5-4d73-8187-f10824047715/pages": {
             "method": "GET",
             "status_code": 200,
             "json": {
@@ -574,7 +703,7 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
                 ]
             },
         },
-        "https://api.powerbi.com/v1.0/myorg/groups/64ED5CAD-7C10-4684-8180-826122881108/datasets/05169CD2-E713-41E6-9600-1D8066D95445/parameters": {
+        "https://api.powerbi.com/v1.0/myorg/groups/64ed5cad-7c10-4684-8180-826122881108/datasets/05169cd2-e713-41e6-9600-1d8066d95445/parameters": {
             "method": "GET",
             "status_code": 200,
             "json": {
@@ -594,14 +723,82 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
                 ]
             },
         },
-        "https://api.powerbi.com/v1.0/myorg/groups/64ED5CAD-7C10-4684-8180-826122881108/datasets/91580e0e-1680-4b1c-bbf9-4f6764d7a5ff": {
+        "https://api.powerbi.com/v1.0/myorg/groups/64ed5cad-7c10-4684-8180-826122881108/datasets/91580e0e-1680-4b1c-bbf9-4f6764d7a5ff": {
             "method": "GET",
             "status_code": 200,
             "json": {
                 "id": "91580e0e-1680-4b1c-bbf9-4f6764d7a5ff",
                 "name": "employee-dataset",
                 "description": "Employee Management",
-                "webUrl": "http://localhost/groups/64ED5CAD-7C10-4684-8180-826122881108/datasets/91580e0e-1680-4b1c-bbf9-4f6764d7a5ff",
+                "webUrl": "http://localhost/groups/64ed5cad-7c10-4684-8180-826122881108/datasets/91580e0e-1680-4b1c-bbf9-4f6764d7a5ff",
+            },
+        },
+        "https://api.powerbi.com/v1.0/myorg/groups/64ed5cad-7c10-4684-8180-826122881108/datasets/5c5693bd-b20d-4e8f-8a46-ecf81f51f6de/executeQueries": {
+            "method": "POST",
+            "status_code": 200,
+            "json": {
+                "results": [
+                    {
+                        "tables": [
+                            {
+                                "rows": [
+                                    {
+                                        "[entity_id]": "5b218778-e7a5-4d73-8187-f10824047715",
+                                        "[date]": "2024-05-15T00:00:00",
+                                        "[user_id]": "User1@foo.com",
+                                        "[views_count]": 3,
+                                    },
+                                    {
+                                        "[entity_id]": "5b218778-e7a5-4d73-8187-f10824047715",
+                                        "[date]": "2024-05-03T00:00:00",
+                                        "[user_id]": "User1@foo.com",
+                                        "[views_count]": 5,
+                                    },
+                                    {
+                                        "[entity_id]": "5b218778-e7a5-4d73-8187-f10824047715",
+                                        "[date]": "2024-05-16T00:00:00",
+                                        "[user_id]": "User1@foo.com",
+                                        "[views_count]": 1,
+                                    },
+                                ]
+                            }
+                        ]
+                    }
+                ]
+            },
+        },
+        "https://api.powerbi.com/v1.0/myorg/groups/64ed5cad-7c10-4684-8180-826122881108/datasets/bee2f946-84ad-4df2-80b2-bf7f2f3ae15a/executeQueries": {
+            "method": "POST",
+            "status_code": 200,
+            "json": {
+                "results": [
+                    {
+                        "tables": [
+                            {
+                                "rows": [
+                                    {
+                                        "[entity_id]": "7d668cad-7ffc-4505-9215-655bca5bebae",
+                                        "[date]": "2024-05-03T00:00:00",
+                                        "[user_id]": "C9EE53F2-88EA-4711-A173-AF0515A5REWS",
+                                        "[views_count]": 2,
+                                    },
+                                    {
+                                        "[entity_id]": "7d668cad-7ffc-4505-9215-655bca5bebae",
+                                        "[date]": "2024-05-16T00:00:00",
+                                        "[user_id]": "C9EE53F2-88EA-4711-A173-AF0515A5REWS",
+                                        "[views_count]": 1,
+                                    },
+                                    {
+                                        "[entity_id]": "7d668cad-7ffc-4505-9215-655bca5bebae",
+                                        "[date]": "2024-05-15T00:00:00",
+                                        "[user_id]": "C9EE53F2-88EA-4711-A173-AF0515A5REWS",
+                                        "[views_count]": 5,
+                                    },
+                                ]
+                            }
+                        ]
+                    }
+                ]
             },
         },
     }
@@ -622,12 +819,12 @@ def default_source_config():
         "client_id": "foo",
         "client_secret": "bar",
         "tenant_id": "0B0C960B-FCDF-4D0F-8C45-2E03BB59DDEB",
-        "workspace_id": "64ED5CAD-7C10-4684-8180-826122881108",
+        "workspace_id": "64ed5cad-7c10-4684-8180-826122881108",
         "extract_lineage": False,
         "extract_reports": False,
         "extract_ownership": True,
         "convert_lineage_urns_to_lowercase": False,
-        "workspace_id_pattern": {"allow": ["64ED5CAD-7C10-4684-8180-826122881108"]},
+        "workspace_id_pattern": {"allow": ["64ed5cad-7c10-4684-8180-826122881108"]},
         "dataset_type_mapping": {
             "PostgreSql": "postgres",
             "Oracle": "oracle",
@@ -865,7 +1062,7 @@ def test_scan_all_workspaces(
                     "extract_reports": False,
                     "extract_ownership": False,
                     "workspace_id_pattern": {
-                        "deny": ["64ED5CAD-7322-4684-8180-826122881108"],
+                        "deny": ["64ed5cad-7322-4684-8180-826122881108"],
                     },
                 },
             },
@@ -933,6 +1130,54 @@ def test_extract_reports(
     mce_helpers.check_golden_file(
         pytestconfig,
         output_path=f"{tmp_path}/powerbi_report_mces.json",
+        golden_path=f"{test_resources_dir}/{golden_file}",
+    )
+
+
+@freeze_time(FROZEN_TIME)
+@mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
+@pytest.mark.integration
+def test_extract_usage(
+    mock_msal: MagicMock,
+    pytestconfig: pytest.Config,
+    tmp_path: str,
+    mock_time: datetime.datetime,
+    requests_mock: Any,
+) -> None:
+
+    enable_logging()
+
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
+
+    register_mock_api(request_mock=requests_mock)
+
+    pipeline = Pipeline.create(
+        {
+            "run_id": "powerbi-test",
+            "source": {
+                "type": "powerbi",
+                "config": {
+                    **default_source_config(),
+                    "extract_reports": True,
+                    "extract_usage_stats": True,
+                },
+            },
+            "sink": {
+                "type": "file",
+                "config": {
+                    "filename": f"{tmp_path}/powerbi_usage_mces.json",
+                },
+            },
+        }
+    )
+
+    pipeline.run()
+    pipeline.raise_from_status()
+    golden_file = "golden_test_usage.json"
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=f"{tmp_path}/powerbi_usage_mces.json",
         golden_path=f"{test_resources_dir}/{golden_file}",
     )
 
@@ -1122,7 +1367,7 @@ def test_workspace_container(
                 "config": {
                     **default_source_config(),
                     "workspace_id_pattern": {
-                        "deny": ["64ED5CAD-7322-4684-8180-826122881108"],
+                        "deny": ["64ed5cad-7322-4684-8180-826122881108"],
                     },
                     "extract_workspaces_to_containers": True,
                     "extract_datasets_to_containers": True,
@@ -1388,7 +1633,7 @@ def test_server_to_platform_map(
 
 def validate_pipeline(pipeline: Pipeline) -> None:
     mock_workspace: Workspace = Workspace(
-        id="64ED5CAD-7C10-4684-8180-826122881108",
+        id="64ed5cad-7c10-4684-8180-826122881108",
         name="demo-workspace",
         datasets={},
         dashboards=[],
@@ -1407,7 +1652,7 @@ def validate_pipeline(pipeline: Pipeline) -> None:
     # Generate expected reports using mock reports
     mock_reports: List[Dict] = [
         {
-            "datasetId": "05169CD2-E713-41E6-9600-1D8066D95445",
+            "datasetId": "05169cd2-e713-41e6-9600-1d8066d95445",
             "id": "5b218778-e7a5-4d73-8187-f10824047715",
             "name": "SalesMarketing",
             "description": "Acryl sales marketing report",
@@ -1425,7 +1670,7 @@ def validate_pipeline(pipeline: Pipeline) -> None:
             ],
         },
         {
-            "datasetId": "05169CD2-E713-41E6-9600-1D8066D95445",
+            "datasetId": "05169cd2-e713-41e6-9600-1d8066d95445",
             "id": "e9fd6b0b-d8c8-4265-8c44-67e183aebf97",
             "name": "Product",
             "description": "Acryl product report",
@@ -1439,6 +1684,7 @@ def validate_pipeline(pipeline: Pipeline) -> None:
             webUrl="",
             embedUrl="",
             description=report[Constant.DESCRIPTION],
+            usageStats={},
             pages=[
                 Page(
                     id="{}.{}".format(
@@ -1481,55 +1727,55 @@ def test_reports_with_failed_page_request(
     register_mock_api(
         request_mock=requests_mock,
         override_data={
-            "https://api.powerbi.com/v1.0/myorg/groups/64ED5CAD-7C10-4684-8180-826122881108/reports": {
+            "https://api.powerbi.com/v1.0/myorg/groups/64ed5cad-7c10-4684-8180-826122881108/reports": {
                 "method": "GET",
                 "status_code": 200,
                 "json": {
                     "value": [
                         {
-                            "datasetId": "05169CD2-E713-41E6-9600-1D8066D95445",
+                            "datasetId": "05169cd2-e713-41e6-9600-1d8066d95445",
                             "id": "5b218778-e7a5-4d73-8187-f10824047715",
                             "name": "SalesMarketing",
                             "description": "Acryl sales marketing report",
-                            "webUrl": "https://app.powerbi.com/groups/64ED5CAD-7C10-4684-8180-826122881108/reports/5b218778-e7a5-4d73-8187-f10824047715",
-                            "embedUrl": "https://app.powerbi.com/reportEmbed?reportId=5b218778-e7a5-4d73-8187-f10824047715&groupId=64ED5CAD-7C10-4684-8180-826122881108",
+                            "webUrl": "https://app.powerbi.com/groups/64ed5cad-7c10-4684-8180-826122881108/reports/5b218778-e7a5-4d73-8187-f10824047715",
+                            "embedUrl": "https://app.powerbi.com/reportEmbed?reportId=5b218778-e7a5-4d73-8187-f10824047715&groupId=64ed5cad-7c10-4684-8180-826122881108",
                         },
                         {
-                            "datasetId": "05169CD2-E713-41E6-9600-1D8066D95445",
+                            "datasetId": "05169cd2-e713-41e6-9600-1d8066d95445",
                             "id": "e9fd6b0b-d8c8-4265-8c44-67e183aebf97",
                             "name": "Product",
                             "description": "Acryl product report",
-                            "webUrl": "https://app.powerbi.com/groups/64ED5CAD-7C10-4684-8180-826122881108/reports/e9fd6b0b-d8c8-4265-8c44-67e183aebf97",
-                            "embedUrl": "https://app.powerbi.com/reportEmbed?reportId=e9fd6b0b-d8c8-4265-8c44-67e183aebf97&groupId=64ED5CAD-7C10-4684-8180-826122881108",
+                            "webUrl": "https://app.powerbi.com/groups/64ed5cad-7c10-4684-8180-826122881108/reports/e9fd6b0b-d8c8-4265-8c44-67e183aebf97",
+                            "embedUrl": "https://app.powerbi.com/reportEmbed?reportId=e9fd6b0b-d8c8-4265-8c44-67e183aebf97&groupId=64ed5cad-7c10-4684-8180-826122881108",
                         },
                     ]
                 },
             },
-            "https://api.powerbi.com/v1.0/myorg/groups/64ED5CAD-7C10-4684-8180-826122881108/reports/5b218778-e7a5-4d73-8187-f10824047715": {
+            "https://api.powerbi.com/v1.0/myorg/groups/64ed5cad-7c10-4684-8180-826122881108/reports/5b218778-e7a5-4d73-8187-f10824047715": {
                 "method": "GET",
                 "status_code": 200,
                 "json": {
-                    "datasetId": "05169CD2-E713-41E6-9600-1D8066D95445",
+                    "datasetId": "05169cd2-e713-41e6-9600-1d8066d95445",
                     "id": "5b218778-e7a5-4d73-8187-f10824047715",
                     "name": "SalesMarketing",
                     "description": "Acryl sales marketing report",
-                    "webUrl": "https://app.powerbi.com/groups/64ED5CAD-7C10-4684-8180-826122881108/reports/5b218778-e7a5-4d73-8187-f10824047715",
-                    "embedUrl": "https://app.powerbi.com/reportEmbed?reportId=5b218778-e7a5-4d73-8187-f10824047715&groupId=64ED5CAD-7C10-4684-8180-826122881108",
+                    "webUrl": "https://app.powerbi.com/groups/64ed5cad-7c10-4684-8180-826122881108/reports/5b218778-e7a5-4d73-8187-f10824047715",
+                    "embedUrl": "https://app.powerbi.com/reportEmbed?reportId=5b218778-e7a5-4d73-8187-f10824047715&groupId=64ed5cad-7c10-4684-8180-826122881108",
                 },
             },
-            "https://api.powerbi.com/v1.0/myorg/groups/64ED5CAD-7C10-4684-8180-826122881108/reports/e9fd6b0b-d8c8-4265-8c44-67e183aebf97": {
+            "https://api.powerbi.com/v1.0/myorg/groups/64ed5cad-7c10-4684-8180-826122881108/reports/e9fd6b0b-d8c8-4265-8c44-67e183aebf97": {
                 "method": "GET",
                 "status_code": 200,
                 "json": {
-                    "datasetId": "05169CD2-E713-41E6-9600-1D8066D95445",
+                    "datasetId": "05169cd2-e713-41e6-9600-1d8066d95445",
                     "id": "e9fd6b0b-d8c8-4265-8c44-67e183aebf97",
                     "name": "Product",
                     "description": "Acryl product report",
-                    "webUrl": "https://app.powerbi.com/groups/64ED5CAD-7C10-4684-8180-826122881108/reports/e9fd6b0b-d8c8-4265-8c44-67e183aebf97",
-                    "embedUrl": "https://app.powerbi.com/reportEmbed?reportId=e9fd6b0b-d8c8-4265-8c44-67e183aebf97&groupId=64ED5CAD-7C10-4684-8180-826122881108",
+                    "webUrl": "https://app.powerbi.com/groups/64ed5cad-7c10-4684-8180-826122881108/reports/e9fd6b0b-d8c8-4265-8c44-67e183aebf97",
+                    "embedUrl": "https://app.powerbi.com/reportEmbed?reportId=e9fd6b0b-d8c8-4265-8c44-67e183aebf97&groupId=64ed5cad-7c10-4684-8180-826122881108",
                 },
             },
-            "https://api.powerbi.com/v1.0/myorg/groups/64ED5CAD-7C10-4684-8180-826122881108/reports/5b218778-e7a5-4d73-8187-f10824047715/pages": {
+            "https://api.powerbi.com/v1.0/myorg/groups/64ed5cad-7c10-4684-8180-826122881108/reports/5b218778-e7a5-4d73-8187-f10824047715/pages": {
                 "method": "GET",
                 "status_code": 200,
                 "json": {
@@ -1547,7 +1793,7 @@ def test_reports_with_failed_page_request(
                     ]
                 },
             },
-            "https://api.powerbi.com/v1.0/myorg/groups/64ED5CAD-7C10-4684-8180-826122881108/reports/e9fd6b0b-d8c8-4265-8c44-67e183aebf97/pages": {
+            "https://api.powerbi.com/v1.0/myorg/groups/64ed5cad-7c10-4684-8180-826122881108/reports/e9fd6b0b-d8c8-4265-8c44-67e183aebf97/pages": {
                 "method": "GET",
                 "status_code": 400,
                 "json": {
@@ -1605,7 +1851,7 @@ def test_independent_datasets_extraction(
                     "@odata.count": 3,
                     "value": [
                         {
-                            "id": "64ED5CAD-7C10-4684-8180-826122881108",
+                            "id": "64ed5cad-7c10-4684-8180-826122881108",
                             "isReadOnly": True,
                             "name": "demo-workspace",
                             "type": "Workspace",
@@ -1619,7 +1865,7 @@ def test_independent_datasets_extraction(
                 "json": {
                     "workspaces": [
                         {
-                            "id": "64ED5CAD-7C10-4684-8180-826122881108",
+                            "id": "64ed5cad-7c10-4684-8180-826122881108",
                             "name": "demo-workspace",
                             "state": "Active",
                             "datasets": [
@@ -1641,7 +1887,7 @@ def test_independent_datasets_extraction(
                     ]
                 },
             },
-            "https://api.powerbi.com/v1.0/myorg/groups/64ED5CAD-7C10-4684-8180-826122881108/dashboards": {
+            "https://api.powerbi.com/v1.0/myorg/groups/64ed5cad-7c10-4684-8180-826122881108/dashboards": {
                 "method": "GET",
                 "status_code": 200,
                 "json": {"value": []},

@@ -3,8 +3,8 @@
 # Meta Data Ingestion From the Power BI Source
 #
 #########################################################
-import datetime
 import logging
+from datetime import datetime, timezone
 from typing import Iterable, List, Optional, Tuple, Union
 
 import datahub.emitter.mce_builder as builder
@@ -38,6 +38,7 @@ from datahub.ingestion.source.common.subtypes import (
     DatasetSubTypes,
 )
 from datahub.ingestion.source.powerbi.config import (
+    POWERBI_USAGE_DATETIME_FORMAT,
     Constant,
     PowerBiDashboardSourceConfig,
     PowerBiDashboardSourceReport,
@@ -736,7 +737,7 @@ class Mapper:
 
         return list_of_mcps
 
-    def get_user_using_guid(
+    def get_user_by_guid(
         self, owners: List[powerbi_data_classes.User], user_guid: str
     ) -> Optional[powerbi_data_classes.User]:
         for user in owners:
@@ -744,28 +745,47 @@ class Mapper:
                 return user
         return None
 
+    def get_user_by_id(
+        self, owners: List[powerbi_data_classes.User], user_id: str
+    ) -> Optional[powerbi_data_classes.User]:
+        for user in owners:
+            if user_id == user.id:
+                return user
+        return None
+
     def to_dashboard_usage_stats_mcp(
         self,
-        dashboard: powerbi_data_classes.Dashboard,
+        entity_object: Union[
+            powerbi_data_classes.Dashboard, powerbi_data_classes.Report
+        ],
     ) -> List[MetadataChangeProposalWrapper]:
         """
-        Map PowerBi dashboard usage metrics to Datahub dashboard usage stats
+        Map PowerBi dashboard or report usage metrics to Datahub dashboard usage stats
         """
-        if dashboard.usageMetrics is None:
+        if not entity_object.usageStats:
             return []
 
-        logger.debug(f"Extracting usage stats for dashboard {dashboard.displayName}")
+        if isinstance(entity_object, powerbi_data_classes.Dashboard):
+            logger.debug(
+                f"Extracting usage stats for dashboard {entity_object.displayName}"
+            )
+        else:
+            logger.debug(f"Extracting usage stats for report {entity_object.name}")
+
         dashboard_urn = builder.make_dashboard_urn(
             platform=self.__config.platform_name,
             platform_instance=self.__config.platform_instance,
-            name=dashboard.get_urn_part(),
+            name=entity_object.get_urn_part(),
         )
         dashboard_usage_stats_aspects: List[DashboardUsageStatisticsClass] = []
-        for date in dashboard.usageMetrics.keys():
+        for date, usage_stat in entity_object.usageStats.items():
             dashboard_user_usage_counts: List[DashboardUserUsageCountsClass] = []
-            total_view_count = 0
-            for user_guid in dashboard.usageMetrics[date]:
-                user = self.get_user_using_guid(dashboard.users, user_guid)
+            total_views_count = 0
+            for user_id, user_usage_stat in usage_stat.userUsageStats.items():
+                if isinstance(entity_object, powerbi_data_classes.Dashboard):
+                    user = self.get_user_by_guid(entity_object.users, user_id)
+                else:
+                    user = self.get_user_by_id(entity_object.users, user_id)
                 if user:
                     user_urn = builder.make_user_urn(
                         user.get_urn_part(
@@ -776,26 +796,24 @@ class Mapper:
                     dashboard_user_usage_counts.append(
                         DashboardUserUsageCountsClass(
                             user=user_urn,
-                            viewsCount=dashboard.usageMetrics[date][user_guid],
+                            viewsCount=user_usage_stat.viewsCount,
                             userEmail=user.emailAddress,
                         )
                     )
-                    total_view_count = (
-                        total_view_count + dashboard.usageMetrics[date][user_guid]
-                    )
+                total_views_count = total_views_count + user_usage_stat.viewsCount
             dashboard_usage_stats_aspects.append(
                 DashboardUsageStatisticsClass(
                     timestampMillis=round(
-                        datetime.datetime.strptime(date, "%Y-%m-%dT%H:%M:%S")
-                        .replace(tzinfo=datetime.timezone.utc)
+                        datetime.strptime(date, POWERBI_USAGE_DATETIME_FORMAT)
+                        .replace(tzinfo=timezone.utc)
                         .timestamp()
                         * 1000
                     ),
                     eventGranularity=TimeWindowSizeClass(
                         unit=CalendarIntervalClass.DAY
                     ),
-                    viewsCount=total_view_count,
-                    uniqueUserCount=len(dashboard.usageMetrics[date]),
+                    viewsCount=total_views_count,
+                    uniqueUserCount=len(usage_stat.userUsageStats),
                     userCounts=dashboard_user_usage_counts,
                 )
             )
@@ -992,6 +1010,7 @@ class Mapper:
             MetadataChangeProposalWrapper
         ] = self.to_datahub_dashboard_mcp(dashboard, workspace, chart_mcps, user_mcps)
 
+        # generate report usgae stats mcps
         dashboard_usage_stats_mcps: List[
             MetadataChangeProposalWrapper
         ] = self.to_dashboard_usage_stats_mcp(dashboard)
@@ -1235,12 +1254,18 @@ class Mapper:
         # Let's convert report to datahub dashboard
         report_mcps = self.report_to_dashboard(workspace, report, chart_mcps, user_mcps)
 
+        # generate report usgae stats mcps
+        report_usage_stats_mcps: List[
+            MetadataChangeProposalWrapper
+        ] = self.to_dashboard_usage_stats_mcp(report)
+
         # Now add MCPs in sequence
         mcps.extend(ds_mcps)
         if self.__config.ownership.create_corp_user:
             mcps.extend(user_mcps)
         mcps.extend(chart_mcps)
         mcps.extend(report_mcps)
+        mcps.extend(report_usage_stats_mcps)
 
         # Convert MCP to work_units
         work_units = map(self._to_work_unit, mcps)
@@ -1290,7 +1315,7 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
             self.source_config
         )
         try:
-            self.powerbi_client = PowerBiAPI(self.source_config)
+            self.powerbi_client = PowerBiAPI(self.source_config, self.reporter)
         except Exception as e:
             logger.warning(e)
             exit(
@@ -1311,7 +1336,10 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
     def test_connection(config_dict: dict) -> TestConnectionReport:
         test_report = TestConnectionReport()
         try:
-            PowerBiAPI(PowerBiDashboardSourceConfig.parse_obj_allow_extras(config_dict))
+            PowerBiAPI(
+                PowerBiDashboardSourceConfig.parse_obj_allow_extras(config_dict),
+                PowerBiDashboardSourceReport(),
+            )
             test_report.basic_connectivity = CapabilityReport(capable=True)
         except Exception as e:
             test_report.basic_connectivity = CapabilityReport(

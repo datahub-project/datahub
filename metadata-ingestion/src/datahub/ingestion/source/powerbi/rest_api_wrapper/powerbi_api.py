@@ -1,6 +1,7 @@
 import json
 import logging
 import sys
+from collections import defaultdict
 from typing import Any, Dict, Iterable, List, Optional, cast
 
 import requests
@@ -9,6 +10,7 @@ from datahub.ingestion.source.powerbi.config import (
     Constant,
     PowerBiDashboardSourceConfig,
     PowerBiDashboardSourceReport,
+    UsageStatsSource,
 )
 from datahub.ingestion.source.powerbi.rest_api_wrapper import data_resolver
 from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
@@ -19,7 +21,9 @@ from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
     PowerBIDataset,
     Report,
     Table,
+    UsageStat,
     User,
+    UserUsageStat,
     Workspace,
 )
 from datahub.ingestion.source.powerbi.rest_api_wrapper.data_resolver import (
@@ -32,8 +36,13 @@ logger = logging.getLogger(__name__)
 
 
 class PowerBiAPI:
-    def __init__(self, config: PowerBiDashboardSourceConfig) -> None:
+    def __init__(
+        self,
+        config: PowerBiDashboardSourceConfig,
+        reporter: PowerBiDashboardSourceReport,
+    ) -> None:
         self.__config: PowerBiDashboardSourceConfig = config
+        self.__reporter: PowerBiDashboardSourceReport = reporter
 
         self.__regular_api_resolver = RegularAPIResolver(
             client_id=self.__config.client_id,
@@ -180,8 +189,56 @@ class PowerBiAPI:
             for report in reports:
                 report.tags = workspace.report_endorsements.get(report.id, [])
 
+        def fill_usage_stats() -> None:
+            if self.__config.extract_usage_stats is False:
+                logger.info(
+                    "Skipping usage metrics retrieval for reports as extract_usage_stats is set to false"
+                )
+                return
+            # Get all reports usage metrics
+            reports_usage_metrics: Dict[str, Dict[str, UsageStat]] = defaultdict()
+            try:
+                reports_usage_metrics = self._get_resolver().get_report_usage_metrics(
+                    workspace=workspace,
+                    usage_stats_interval=self.__config.extract_usage_stats_for_interval,
+                )
+                self.__reporter.reports_usage_stats_source = (
+                    UsageStatsSource.NEW_USAGE_METRICS_REPORT
+                )
+                if not reports_usage_metrics:
+                    reports_usage_metrics = self._get_resolver().get_usage_metrics(
+                        workspace=workspace,
+                        usage_stats_interval=self.__config.extract_usage_stats_for_interval,
+                        entity_type=Constant.REPORT.capitalize(),
+                    )
+                    self.__reporter.reports_usage_stats_source = (
+                        UsageStatsSource.OLD_USAGE_METRICS_REPORT
+                    )
+                    if not reports_usage_metrics:
+                        reports_usage_metrics = self._get_resolver().get_report_usage_metrics_from_activity_events(
+                            usage_stats_interval=self.__config.extract_usage_stats_for_interval,
+                        )
+                        self.__reporter.reports_usage_stats_source = (
+                            UsageStatsSource.ACTIVITY_EVENTS_API
+                        )
+            except Exception as e:
+                self.log_http_error(
+                    message=f"Unable to fetch reports usage metrics for workspace {workspace.name}. Exception: {e}"
+                )
+            if reports_usage_metrics:
+                for report in reports:
+                    if report.id not in reports_usage_metrics:
+                        logger.debug(
+                            f"Usage stats for report {report.name} not preset or unable to fetch."
+                        )
+                        continue
+                    report.usageStats = reports_usage_metrics[report.id]
+            else:
+                self.__reporter.reports_usage_stats_source = None
+
         fill_ownership()
         fill_tags()
+        fill_usage_stats()
 
         return reports
 
@@ -441,19 +498,11 @@ class PowerBiAPI:
     def _fill_regular_metadata_detail(self, workspace: Workspace) -> None:
         def fill_dashboards() -> None:
             workspace.dashboards = self._get_resolver().get_dashboards(workspace)
-            # Get all dashboards usage metrics
-            dashboards_usage_metrics: Dict[str, Dict] = {}
-            if self.__config.extract_usage_stats:
-                dashboards_usage_metrics = self._get_resolver().get_dashboard_usage_metrics(
-                    workspace=workspace,
-                    usage_stats_interval=self.__config.extract_usage_stats_for_interval,
-                )
-            # set tiles and usage metrics of Dashboard
+            # set tiles of Dashboard
             for dashboard in workspace.dashboards:
                 dashboard.tiles = self._get_resolver().get_tiles(
                     workspace, dashboard=dashboard
                 )
-                dashboard.usageMetrics = dashboards_usage_metrics.get(dashboard.id)
 
         def fill_reports() -> None:
             if self.__config.extract_reports is False:
@@ -472,11 +521,44 @@ class PowerBiAPI:
             for dashboard in workspace.dashboards:
                 dashboard.tags = workspace.dashboard_endorsements.get(dashboard.id, [])
 
+        def fill_dashboard_usage_stats() -> None:
+            if self.__config.extract_usage_stats is False:
+                logger.info(
+                    "Skipping usage metrics retrieval for dashboards as extract_usage_stats is set to false"
+                )
+                return
+            # Get all dashboards usage metrics
+            dashboards_usage_metrics: Dict[str, Dict] = {}
+            try:
+                dashboards_usage_metrics = self._get_resolver().get_usage_metrics(
+                    workspace=workspace,
+                    usage_stats_interval=self.__config.extract_usage_stats_for_interval,
+                    entity_type=Constant.DASHBOARD.capitalize(),
+                )
+                self.__reporter.dashboards_usage_stats_source = (
+                    UsageStatsSource.OLD_USAGE_METRICS_REPORT
+                )
+            except Exception as e:
+                self.log_http_error(
+                    message=f"Unable to fetch dashboard usage metrics for workspace {workspace.name}. Exception: {e}"
+                )
+            if dashboards_usage_metrics:
+                for dashboard in workspace.dashboards:
+                    if dashboard.id not in dashboards_usage_metrics:
+                        logger.debug(
+                            f"Usage stats for dashboard {dashboard.displayName} not preset or unable to fetch."
+                        )
+                        continue
+                    dashboard.usageStats = dashboards_usage_metrics[dashboard.id]
+            else:
+                self.__reporter.dashboards_usage_stats_source = None
+
         if self.__config.extract_dashboards:
             fill_dashboards()
 
         fill_reports()
         fill_dashboard_tags()
+        fill_dashboard_usage_stats()
         self._fill_independent_datasets(workspace=workspace)
 
     # flake8: noqa: C901

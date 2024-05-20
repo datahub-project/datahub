@@ -200,6 +200,16 @@ class User:
 
 
 @dataclass
+class UserUsageStat:
+    viewsCount: int
+
+
+@dataclass
+class UsageStat:
+    userUsageStats: Dict[str, UserUsageStat]  # user_id as key
+
+
+@dataclass
 class Report:
     id: str
     name: str
@@ -207,6 +217,7 @@ class Report:
     embedUrl: str
     description: str
     dataset: Optional["PowerBIDataset"]
+    usageStats: Dict[str, UsageStat]  # date as key
     pages: List["Page"]
     users: List["User"]
     tags: List[str]
@@ -244,10 +255,10 @@ class Dashboard:
     isReadOnly: Any
     workspace_id: str
     workspace_name: str
+    usageStats: Dict[str, UsageStat]
     tiles: List["Tile"]
     users: List["User"]
     tags: List[str]
-    usageMetrics: Optional[Dict[str, Dict]] = None
     webUrl: Optional[str] = None
 
     def get_urn_part(self):
