@@ -3,7 +3,7 @@ from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
 # Imports for metadata model classes
 from datahub.metadata.schema_classes import UpstreamLineageClass
 
-# First we get the current owners
+# Get the current lineage for a dataset
 gms_endpoint = "http://localhost:8080"
 graph = DataHubGraph(DatahubClientConfig(server=gms_endpoint))
 

@@ -6,27 +6,8 @@ graph = DataHubGraph(DatahubClientConfig(server=gms_endpoint))
 
 # Query multiple aspects from entity
 query = """
-query scrollAcrossLineage {
-  scrollAcrossLineage(
-    input: {
-      query: "*"
-      urn: "urn:li:dataset:(urn:li:dataPlatform:hive,logging_events,PROD)"
-      count: 10
-      direction: DOWNSTREAM
-      orFilters: [
-        {
-          and: [
-            {
-              condition: EQUAL
-              negated: false
-              field: "degree"
-              values: ["1", "2", "3+"]
-            }
-          ]                  
-        }
-      ]
-    }
-  ) {
+query scrollAcrossLineage($input: ScrollQueryInput!) {
+  scrollAcrossLineage(input: $input) {
     searchResults {
       degree
       entity {
@@ -37,6 +18,27 @@ query scrollAcrossLineage {
   }
 }
 """
-result = graph.execute_graphql(query=query)
+
+variables = {"input":
+                {
+                "query": "*",
+                "urn": "urn:li:dataset:(urn:li:dataPlatform:hive,logging_events,PROD)",
+                "count": 10,
+                "direction": "DOWNSTREAM",
+                "orFilters": [
+                                {
+                                "and": [
+                                    {
+                                        "condition": "EQUAL",
+                                        "negated": "false",
+                                        "field": "degree",
+                                        "values": ["1", "2", "3+"]
+                                    }
+                                        ]
+                                }
+                            ]
+                }
+            }
+result = graph.execute_graphql(query=query, variables=variables)
 
 print(result)

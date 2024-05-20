@@ -189,6 +189,13 @@ query scrollAcrossLineage {
   }
 }
 ```
+:::info Degree
+Note that `degree` means the number of hops in the lineage. For example, `degree: 1` means the immediate downstream entities, `degree: 2` means the entities that are two hops away, and so on.
+:::
+
+The GraphQL example shows using lineage degrees as a filter, but additional search filters can be included here as well.
+This will perform a multi-hop lineage search on the urn specified. For more information about the `scrollAcrossLineage` mutation, please refer to [scrollAcrossLineage](https://datahubproject.io/docs/graphql/queries/#scrollacrosslineage).
+
 
 </TabItem>
 <TabItem value="curl" label="Curl">
@@ -206,15 +213,22 @@ curl --location --request POST 'http://localhost:8080/api/graphql' \
 ```python
 {{ inline /metadata-ingestion/examples/library/read_lineage_execute_graphql.py show_path_as_comment }}
 ```
+The Python SDK example shows how to read lineage of a dataset. Please note that the `aspect_type` parameter can vary depending on the entity type. 
+Below is a few examples of `aspect_type` for different entities.
+
+|Entity|Aspect_type|Reference|
+|-------|------------|-----|
+|Dataset|`UpstreamLineageClass`| Link |
+|Datajob|`DataJobInputOutputClass`| Link |
+|Dashboard|`DashboardInfoClass`| Link |
+|DataFlow|`DataFlowInfoClass`| Link |
+
+You can find more information about the `aspect_type` in the `Outgoing relationship` that the entity consumes/produces. 
+Learn more about lineages of different entities in the [Add Lineage to Non-Dataset Entities](#add-lineage-to-non-dataset-entities) Section.
 
 </TabItem>
 </Tabs>
 
-This example shows using lineage degrees as a filter, but additional search filters can be included here as well.
-
-Note that `degree` means the number of hops in the lineage. For example, `degree: 1` means the immediate downstream entities, `degree: 2` means the entities that are two hops away, and so on.
-
-This will perform a multi-hop lineage search on the urn specified. For more information about the `scrollAcrossLineage` mutation, please refer to [scrollAcrossLineage](https://datahubproject.io/docs/graphql/queries/#scrollacrosslineage).
 
 ### Expected Outcome
 
