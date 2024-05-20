@@ -60,6 +60,7 @@ def get_default_instances(
             "tenant_id": "fake",
             "client_id": "foo",
             "client_secret": "bar",
+            "enable_advance_lineage_sql_construct": False,
             **override_config,
         }
     )
