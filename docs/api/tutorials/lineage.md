@@ -270,7 +270,7 @@ You can also read column-level lineage via Python SDK.
 <TabItem value="python" label="Python">
 
 ```python
-{{ inline /metadata-ingestion/examples/library/read_lineage_rest.py show_path_as_comment }}
+{{ inline /metadata-ingestion/examples/library/read_lineage_dataset_rest.py show_path_as_comment }}
 ```
 
 </TabItem>
