@@ -3,7 +3,7 @@ import os
 import tempfile
 from random import randint
 from typing import Iterable, List, Optional, Union
-
+import time
 import pytest
 
 # import tenacity
@@ -133,11 +133,23 @@ def create_test_data(graph_client: DataHubGraph) -> None:
             aspect=upstream_lineage_aspect,
         )
     )
+    yield
+    # Clean up
+    for urn in dataset_urns:
+        graph_client.delete_entity(urn, hard=True)
+    for urn in downstream_schema_field_urns:
+        graph_client.delete_entity(urn, hard=True)
+    for urn in upstream_schema_field_urns:
+        graph_client.delete_entity(urn, hard=True)
 
 
-def test_docs_propagation(graph_client: DataHubGraph) -> None:
+def test_docs_propagation(graph_client: DataHubGraph, create_test_data) -> None:
 
     # Wait for the writes to sync
+
+    from time import sleep
+
+    sleep(10)
     # wait_for_writes_to_sync()
 
     # edit the description of the upstream schema field
@@ -179,7 +191,6 @@ def test_docs_propagation(graph_client: DataHubGraph) -> None:
             aspect=editable_schema_metadata_aspect,
         )
     )
-    import time
 
     # wait_for_writes_to_sync()
     time.sleep(10)
