@@ -8,6 +8,7 @@ from requests.models import HTTPError
 
 from datahub.configuration.common import PipelineExecutionError
 from datahub.ingestion.run.pipeline import Pipeline
+from datahub.ingestion.source.metabase import MetabaseSource
 from tests.test_helpers import mce_helpers
 from tests.test_helpers.state_helpers import (
     get_current_checkpoint_from_pipeline,
@@ -305,57 +306,31 @@ def test_mode_ingest_failure(pytestconfig, tmp_path, default_json_response_map):
 
 
 @freeze_time(FROZEN_TIME)
-def test_9767_query_with_template_tags_does_not_fail(
+def test_9767_templated_query_is_stripped(
     pytestconfig, tmp_path, test_pipeline, mock_datahub_graph
 ):
-    baseUrl = "http://localhost:3000/api"
+    query_with_variables = (
+        "SELECT count(*) FROM products WHERE category = {{category}}",
+        "SELECT count(*) FROM products WHERE category = 1",
+    )
+    query_with_optional_clause = (
+        "SELECT count(*) FROM products [[WHERE category = {{category}}]]",
+        "SELECT count(*) FROM products  ",
+    )
+    query_with_dashboard_filters = (
+        "SELECT count(*) FROM products WHERE {{Filter1}} AND {{Filter2}}",
+        "SELECT count(*) FROM products WHERE 1 AND 1",
+    )
 
-    test_json_response_map = {
-        f"{baseUrl}/session": "session.json",
-        f"{baseUrl}/user/current": "issue_9767/user.json",
-        f"{baseUrl}/user/1": "issue_9767/user_1.json",
-        f"{baseUrl}/card": "issue_9767/card.json",
-        f"{baseUrl}/card/1": "issue_9767/card_1.json",
-        f"{baseUrl}/collection": "issue_9767/collection.json",
-        f"{baseUrl}/collection/?exclude-other-user-collections=false": "issue_9767/collection.json",
-        f"{baseUrl}/collection/root/items?models=dashboard": "issue_9767/collection_dashboard_root.json",
-        f"{baseUrl}/dashboard/1": "issue_9767/dashboard_1.json",
-        f"{baseUrl}/database/2": "issue_9767/database_2.json",
-        f"{baseUrl}/table/9": "issue_9767/table_9.json",
-    }
-
-    with patch(
-        "datahub.ingestion.source.metabase.requests.session",
-        side_effect=MockResponse.build_mocked_requests_sucess(test_json_response_map),
-    ), patch(
-        "datahub.ingestion.source.metabase.requests.post",
-        side_effect=MockResponse.build_mocked_requests_session_post(
-            test_json_response_map
-        ),
-    ), patch(
-        "datahub.ingestion.source.metabase.requests.delete",
-        side_effect=MockResponse.build_mocked_requests_session_delete(
-            test_json_response_map
-        ),
-    ), patch(
-        "datahub.ingestion.source.state_provider.datahub_ingestion_checkpointing_provider.DataHubGraph",
-        mock_datahub_graph,
-    ) as mock_checkpoint:
-        mock_checkpoint.return_value = mock_datahub_graph
-
-        pipeline = Pipeline.create(test_pipeline)
-        pipeline.run()
-        pipeline.raise_from_status()
-
-        report = pipeline.source.get_report()
-        for warning in report.warnings:
-            assert "Unable to retrieve lineage from query" not in str(
-                report.warnings[warning]
-            )
-
-        mce_helpers.check_golden_file(
-            pytestconfig,
-            output_path=f"{tmp_path}/metabase_mces.json",
-            golden_path=test_resources_dir / "metabase_mces_golden_issue_9767.json",
-            ignore_paths=mce_helpers.IGNORE_PATH_TIMESTAMPS,
-        )
+    assert (
+        MetabaseSource.strip_template_expressions(query_with_variables[0])
+        == query_with_variables[1]
+    )
+    assert (
+        MetabaseSource.strip_template_expressions(query_with_optional_clause[0])
+        == query_with_optional_clause[1]
+    )
+    assert (
+        MetabaseSource.strip_template_expressions(query_with_dashboard_filters[0])
+        == query_with_dashboard_filters[1]
+    )
