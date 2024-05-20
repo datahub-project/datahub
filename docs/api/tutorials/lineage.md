@@ -219,9 +219,9 @@ Below is a few examples of `aspect_type` for different entities.
 |Entity|Aspect_type| Reference                                                                |
 |-------|------------|--------------------------------------------------------------------------|
 |Dataset|`UpstreamLineageClass`| [Link](/docs/generated/metamodel/entities/dataset.md#upstreamlineage)    |
-|Datajob|`DataJobInputOutputClass`| [Link](/docs/generated/metamodel/entities/datajob.md#datajobinputoutput) |
+|Datajob|`DataJobInputOutputClass`| [Link](/docs/generated/metamodel/entities/dataJob.md#datajobinputoutput) |
 |Dashboard|`DashboardInfoClass`| [Link](/docs/generated/metamodel/entities/dashboard.md#dashboardinfo)    |
-|DataFlow|`DataFlowInfoClass`| [Link](/docs/generated/metamodel/entities/dataflow.md#dataflowinfo)      |
+|DataFlow|`DataFlowInfoClass`| [Link](/docs/generated/metamodel/entities/dataFlow.md#dataflowinfo)      |
 
 Learn more about lineages of different entities in the [Add Lineage to Non-Dataset Entities](#add-lineage-to-non-dataset-entities) Section.
 
