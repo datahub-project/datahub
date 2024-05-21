@@ -282,7 +282,8 @@ class SnowflakeQuery:
         #JG 20240516: Let this call fail if the views returned > 10,000. Then Fallback to implementation with pagination
         db_clause = f'"{db_name}".' if db_name is not None else ""
         from_view_marker_clause = f' limit 10000 from "{from_view_marker}"' if from_view_marker is not None else ""
-        return f"show views in schema {db_clause}\"{schema_name}\" {from_view_marker_clause};"
+        ##return f"show views in schema {db_clause}\"{schema_name}\" {from_view_marker_clause};"
+        return f"""show views in schema {db_clause}\"{schema_name}\" {from_view_marker_clause};"""
 
     @staticmethod
     def columns_for_schema(schema_name: str, db_name: Optional[str]) -> str:
